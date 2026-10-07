@@ -172,6 +172,31 @@ Menu **Hộp thư** / **Soạn email** — đội ngũ có thể tự viết ema
 Toàn bộ email (tự động + tự soạn) nằm chung một **Hộp thư đi**, lọc được theo người nhận
 (buyer/NCC) và theo loại (tự động / tự soạn).
 
+### Cột phải khi soạn thư (màn hình ≥ 1280px)
+
+Bên phải trình soạn thảo là 4 khối luôn cập nhật theo nội dung đang viết:
+
+| Khối | Nội dung |
+| --- | --- |
+| **Xem trước** | Email hiện ra y như người nhận thấy (đúng khung thương hiệu và chữ ký công ty) |
+| **Ngữ cảnh** | Buyer/NCC, giai đoạn, sản phẩm, số lượng, giá mục tiêu, thanh toán, NCC đã gắn, việc kế tiếp |
+| **Trước khi gửi** | Checklist: người nhận, tiêu đề, độ dài nội dung, đúng ngôn ngữ (buyer EN / NCC VI), đính kèm, dung lượng |
+| **Đã gửi gần đây** | 6 email trao đổi gần nhất với đúng người nhận đó (bấm để mở) |
+
+Trên màn hình hẹp, cột này tự gập xuống dưới trình soạn thảo.
+
+#### Cảnh báo lộ thông tin (chỉ cảnh báo, không chặn gửi)
+
+Khối **Trước khi gửi** và một băng đỏ phía trên sẽ cảnh báo khi nội dung có nguy cơ vi phạm
+quy tắc bảo mật 2 chiều, kèm đúng chuỗi bị trùng:
+
+- Gửi **buyer** mà nhắc tới **tên / email / điện thoại / mã số thuế / giá** của NCC đã gắn
+  (dò cả dạng có dấu và không dấu, kể cả khi giá viết khác định dạng).
+- Gửi **NCC** mà nhắc tới **tên buyer** trong khi buyer đang yêu cầu **ẩn danh**.
+
+Chuỗi cần giữ kín được sinh từ hồ sơ NCC (kèm giá tham khảo của từng sản phẩm) và hồ sơ buyer
+— xem `lib/email/privacy.ts`.
+
 ## Nội dung email theo giai đoạn
 
 Trang **Nội dung email** liệt kê đầy đủ 8 giai đoạn × 2 người nhận, kèm bản xem trước email
@@ -198,11 +223,14 @@ app/
 components/
   stage-select.tsx            Dropdown trạng thái + hộp xác nhận người nhận
   pipeline-board.tsx          Board kéo-thả
-  compose-mail.tsx            Trình soạn thảo kiểu Gmail/Zoho
+  compose-mail.tsx            Trình soạn thảo kiểu Gmail/Zoho (2 cột)
+  compose-sidebar.tsx         Cột phải: xem trước, ngữ cảnh, checklist, lịch sử
   rich-editor.tsx             Khung soạn thảo có định dạng
   mailbox.tsx                 Danh sách hộp thư
 lib/
   pipeline.ts                 Danh sách giai đoạn của pipeline
+  compose-context.ts          Ngữ cảnh buyer/NCC cho cột phải trang soạn thư
+  email/privacy.ts            Dò thông tin cần giữ kín (tên/giá NCC, tên buyer)
   email/stage-content.ts      NỘI DUNG email riêng cho buyer và cho NCC theo từng giai đoạn
   email/templates.ts          Sinh HTML email buyer (EN) và NCC (VI)
   email/send.ts               Gửi qua Resend (kèm Cc/Bcc/đính kèm) + lưu hộp thư

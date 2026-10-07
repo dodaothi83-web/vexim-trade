@@ -1,4 +1,12 @@
+import { COMPANY } from "@/lib/config";
 import { getStore } from "@/lib/db";
+import {
+  buildBuyerContext,
+  buildSupplierContext,
+  toRecentMail,
+  type ComposeContext,
+  type RecentMail,
+} from "@/lib/compose-context";
 import { buildSignature } from "@/lib/email/signature";
 import { unwrapEmailShell } from "@/lib/email/templates";
 import { Breadcrumbs } from "@/components/ui";
@@ -16,7 +24,19 @@ export default async function ComposePage({
 }) {
   const sp = await searchParams;
   const store = getStore();
-  const [buyers, suppliers] = await Promise.all([store.listBuyers(), store.listSuppliers()]);
+  const [buyers, suppliers, products, messages] = await Promise.all([
+    store.listBuyers(),
+    store.listSuppliers(),
+    store.listProducts(),
+    store.listMessages(120),
+  ]);
+
+  // Cột phải của trang soạn thư: ngữ cảnh từng buyer / NCC + email đã trao đổi
+  const contexts: ComposeContext[] = [
+    ...buyers.map((b) => buildBuyerContext(b, { suppliers, supplierProducts: products })),
+    ...suppliers.map((s) => buildSupplierContext(s, { supplierProducts: products })),
+  ];
+  const recent: RecentMail[] = messages.map(toRecentMail);
 
   const contacts: Contact[] = [
     ...buyers
@@ -50,6 +70,9 @@ export default async function ComposePage({
             contacts={contacts}
             buyer={buyer}
             signature={buildSignature(msg.created_by)}
+            contexts={contexts}
+            recent={recent}
+            company={COMPANY}
           />
         </Shell>
       );
@@ -99,6 +122,9 @@ export default async function ComposePage({
         contacts={contacts}
         buyer={buyer}
         signature={buildSignature(buyer?.owner)}
+        contexts={contexts}
+        recent={recent}
+        company={COMPANY}
       />
     </Shell>
   );
@@ -112,7 +138,7 @@ function Shell({ children, sub }: { children: React.ReactNode; sub?: string }) {
         sub={sub}
         breadcrumbs={<Breadcrumbs items={[{ label: "Hộp thư", href: "/mail" }, { label: "Soạn thư" }]} />}
       />
-      <div className="max-w-4xl">{children}</div>
+      {children}
     </>
   );
 }

@@ -17,7 +17,14 @@ import {
 
 import { saveDraftAction, sendMailAction } from "@/app/actions";
 import type { Attachment, Buyer, Supplier } from "@/lib/types";
+import {
+  findContextByEmail,
+  type ComposeContext,
+  type RecentMail,
+} from "@/lib/compose-context";
+import type { CompanyInfo } from "@/lib/config";
 import { RichEditor } from "@/components/rich-editor";
+import { ComposeSidebar } from "@/components/compose-sidebar";
 import { Button, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
@@ -48,11 +55,20 @@ export function ComposeMail({
   contacts,
   buyer,
   signature,
+  contexts = [],
+  recent = [],
+  company,
 }: {
   initial: ComposeInitial;
   contacts: Contact[];
   buyer?: (Buyer & { supplier?: Pick<Supplier, "id" | "name"> | null }) | null;
   signature: string;
+  /** Ngữ cảnh đơn hàng của buyer / NCC để hiển thị ở cột phải */
+  contexts?: ComposeContext[];
+  /** Email đã trao đổi (mới nhất trước) để hiển thị ở cột phải */
+  recent?: RecentMail[];
+  /** Thông tin công ty (chữ ký/footer) để bản xem trước khớp email gửi đi */
+  company?: CompanyInfo;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -88,6 +104,21 @@ export function ComposeMail({
   );
 
   const totalSize = attachments.reduce((s, a) => s + a.size, 0);
+
+  // Ngữ cảnh người nhận đang soạn: mở từ hồ sơ thì theo id, soạn tự do thì suy ra
+  // từ địa chỉ email đầu tiên khớp với danh sách buyer / NCC.
+  const contextById = useMemo(() => new Map(contexts.map((c) => [c.id, c])), [contexts]);
+  const activeContext = useMemo(() => {
+    if (initial.buyerId) {
+      return contextById.get(initial.buyerId) ?? findContextByEmail(contexts, to[0]);
+    }
+    if (initial.supplierId) return contextById.get(initial.supplierId) ?? null;
+    return findContextByEmail(contexts, to[0]);
+  }, [contextById, contexts, initial.buyerId, initial.supplierId, to]);
+  const relatedBuyer = useMemo(
+    () => (initial.buyerId ? (contextById.get(initial.buyerId) ?? null) : null),
+    [contextById, initial.buyerId],
+  );
 
   function addAddress(list: string[], value: string, setter: (v: string[]) => void) {
     const parts = value
@@ -163,172 +194,187 @@ export function ComposeMail({
   }
 
   return (
-    <div className="card overflow-hidden">
-      {/* Thanh tiêu đề kiểu Gmail */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 bg-ink-50 px-3 py-2">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-[12.5px] font-semibold text-ink-600 transition hover:bg-ink-100"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Quay lại
-        </button>
-        <span className="text-[13px] font-bold text-ink-900">Soạn thư mới</span>
-
-      </div>
-
-      {/* Người nhận */}
-      <div className="divide-y divide-ink-100">
-        <AddressRow
-          label="Tới"
-          values={to}
-          inputValue={toInput}
-          setInputValue={setToInput}
-          onChange={setTo}
-          onRemove={(v) => setTo(to.filter((x) => x !== v))}
-          onKeyDown={(e) => handleKey(e, to, setTo, toInput, () => setToInput(""))}
-          extra={
-            <span className="flex shrink-0 gap-2 text-[12px]">
-              <button
-                type="button"
-                onClick={() => setShowCc((v) => !v)}
-                className={cx("font-semibold transition", showCc ? "text-brand-700" : "text-ink-500 hover:text-ink-800")}
-              >
-                Cc
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowBcc((v) => !v)}
-                className={cx("font-semibold transition", showBcc ? "text-brand-700" : "text-ink-500 hover:text-ink-800")}
-              >
-                Bcc
-              </button>
-            </span>
-          }
-          suggestions={buyerSuggestions}
-          onPick={(email) => {
-            setTo(Array.from(new Set([...to, email])));
-            setToInput("");
-          }}
-        />
-        {showCc && (
-          <AddressRow
-            label="Cc"
-            values={cc}
-            onChange={setCc}
-            onRemove={(v) => setCc(cc.filter((x) => x !== v))}
-          />
-        )}
-        {showBcc && (
-          <AddressRow
-            label="Bcc"
-            values={bcc}
-            onChange={setBcc}
-            onRemove={(v) => setBcc(bcc.filter((x) => x !== v))}
-          />
-        )}
-        <div className="flex items-center gap-3 px-3">
-          <span className="w-12 shrink-0 text-[12.5px] font-semibold text-ink-500">Tiêu đề</span>
-          <input
-            className="w-full border-0 bg-transparent py-2.5 text-[14px] text-ink-900 outline-none"
-            placeholder="Tiêu đề email"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Nội dung */}
-      <div className="border-t border-ink-200 p-3">
-        <RichEditor
-          value={body}
-          onChange={setBody}
-          placeholder="Viết nội dung email…"
-          minHeight={320}
-        />
-      </div>
-
-      {/* Đính kèm */}
-      {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 border-t border-ink-200 px-3 py-2.5">
-          {attachments.map((a, i) => (
-            <span
-              key={i}
-              className="flex items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1.5 text-[12px]"
-            >
-              <FileText className="h-3.5 w-3.5 text-ink-500" />
-              <span className="max-w-[180px] truncate font-medium text-ink-800">{a.name}</span>
-              <span className="text-ink-400">{(a.size / 1024).toFixed(0)}KB</span>
-              <button
-                type="button"
-                onClick={() => setAttachments(attachments.filter((_, j) => j !== i))}
-                className="text-ink-400 transition hover:text-red-600"
-                aria-label={`Gỡ ${a.name}`}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Thanh hành động */}
-      <div className="flex flex-wrap items-center gap-2 border-t border-ink-200 bg-ink-50 px-3 py-2.5">
-        <Button variant="primary" disabled={busy} onClick={() => void send()}>
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          Gửi
-        </Button>
-        <Button variant="ghost" disabled={busy} onClick={() => void saveAsDraft()}>
-          Lưu nháp
-        </Button>
-        <button
-          type="button"
-          className="btn btn-ghost px-2.5"
-          onClick={() => fileRef.current?.click()}
-          title="Đính kèm tệp"
-        >
-          <Paperclip className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost px-2.5"
-          onClick={() => setBody((b) => (b ? b : "") + signature)}
-          title="Chèn chữ ký"
-        >
-          <Sparkles className="h-4 w-4" />
-          Chữ ký
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            void onFiles(e.target.files);
-            e.target.value = "";
-          }}
-        />
-        <span className="ml-auto flex items-center gap-3 text-[11.5px] text-ink-500">
-          <span className="flex items-center gap-1">
-            <Users className="h-3.5 w-3.5" />
-            {to.length + cc.length + bcc.length} người nhận
-          </span>
-          {attachments.length > 0 && (
-            <span className={cx(totalSize > MAX_BYTES && "font-semibold text-red-600")}>
-              {(totalSize / 1024 / 1024).toFixed(2)}MB / 10MB
-            </span>
-          )}
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="card overflow-hidden">
+        {/* Thanh tiêu đề kiểu Gmail */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 bg-ink-50 px-3 py-2">
           <button
             type="button"
-            className="flex items-center gap-1 font-semibold text-red-600 transition hover:underline"
-            onClick={() => router.push("/mail")}
+            onClick={() => router.back()}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-[12.5px] font-semibold text-ink-600 transition hover:bg-ink-100"
           >
-            <Trash2 className="h-3.5 w-3.5" />
-            Huỷ
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Quay lại
           </button>
-        </span>
+          <span className="text-[13px] font-bold text-ink-900">Soạn thư mới</span>
+
+        </div>
+
+        {/* Người nhận */}
+        <div className="divide-y divide-ink-100">
+          <AddressRow
+            label="Tới"
+            values={to}
+            inputValue={toInput}
+            setInputValue={setToInput}
+            onChange={setTo}
+            onRemove={(v) => setTo(to.filter((x) => x !== v))}
+            onKeyDown={(e) => handleKey(e, to, setTo, toInput, () => setToInput(""))}
+            extra={
+              <span className="flex shrink-0 gap-2 text-[12px]">
+                <button
+                  type="button"
+                  onClick={() => setShowCc((v) => !v)}
+                  className={cx("font-semibold transition", showCc ? "text-brand-700" : "text-ink-500 hover:text-ink-800")}
+                >
+                  Cc
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBcc((v) => !v)}
+                  className={cx("font-semibold transition", showBcc ? "text-brand-700" : "text-ink-500 hover:text-ink-800")}
+                >
+                  Bcc
+                </button>
+              </span>
+            }
+            suggestions={buyerSuggestions}
+            onPick={(email) => {
+              setTo(Array.from(new Set([...to, email])));
+              setToInput("");
+            }}
+          />
+          {showCc && (
+            <AddressRow
+              label="Cc"
+              values={cc}
+              onChange={setCc}
+              onRemove={(v) => setCc(cc.filter((x) => x !== v))}
+            />
+          )}
+          {showBcc && (
+            <AddressRow
+              label="Bcc"
+              values={bcc}
+              onChange={setBcc}
+              onRemove={(v) => setBcc(bcc.filter((x) => x !== v))}
+            />
+          )}
+          <div className="flex items-center gap-3 px-3">
+            <span className="w-12 shrink-0 text-[12.5px] font-semibold text-ink-500">Tiêu đề</span>
+            <input
+              className="w-full border-0 bg-transparent py-2.5 text-[14px] text-ink-900 outline-none"
+              placeholder="Tiêu đề email"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Nội dung */}
+        <div className="border-t border-ink-200 p-3">
+          <RichEditor
+            value={body}
+            onChange={setBody}
+            placeholder="Viết nội dung email…"
+            minHeight={320}
+          />
+        </div>
+
+        {/* Đính kèm */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 border-t border-ink-200 px-3 py-2.5">
+            {attachments.map((a, i) => (
+              <span
+                key={i}
+                className="flex items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1.5 text-[12px]"
+              >
+                <FileText className="h-3.5 w-3.5 text-ink-500" />
+                <span className="max-w-[180px] truncate font-medium text-ink-800">{a.name}</span>
+                <span className="text-ink-400">{(a.size / 1024).toFixed(0)}KB</span>
+                <button
+                  type="button"
+                  onClick={() => setAttachments(attachments.filter((_, j) => j !== i))}
+                  className="text-ink-400 transition hover:text-red-600"
+                  aria-label={`Gỡ ${a.name}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Thanh hành động */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-ink-200 bg-ink-50 px-3 py-2.5">
+          <Button variant="primary" disabled={busy} onClick={() => void send()}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Gửi
+          </Button>
+          <Button variant="ghost" disabled={busy} onClick={() => void saveAsDraft()}>
+            Lưu nháp
+          </Button>
+          <button
+            type="button"
+            className="btn btn-ghost px-2.5"
+            onClick={() => fileRef.current?.click()}
+            title="Đính kèm tệp"
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost px-2.5"
+            onClick={() => setBody((b) => (b ? b : "") + signature)}
+            title="Chèn chữ ký"
+          >
+            <Sparkles className="h-4 w-4" />
+            Chữ ký
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              void onFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          <span className="ml-auto flex items-center gap-3 text-[11.5px] text-ink-500">
+            <span className="flex items-center gap-1">
+              <Users className="h-3.5 w-3.5" />
+              {to.length + cc.length + bcc.length} người nhận
+            </span>
+            {attachments.length > 0 && (
+              <span className={cx(totalSize > MAX_BYTES && "font-semibold text-red-600")}>
+                {(totalSize / 1024 / 1024).toFixed(2)}MB / 10MB
+              </span>
+            )}
+            <button
+              type="button"
+              className="flex items-center gap-1 font-semibold text-red-600 transition hover:underline"
+              onClick={() => router.push("/mail")}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Huỷ
+            </button>
+          </span>
+        </div>
       </div>
+      <ComposeSidebar
+        subject={subject}
+        bodyHtml={body}
+        direction={effectiveDirection}
+        to={to}
+        attachmentCount={attachments.length}
+        attachmentBytes={totalSize}
+        active={activeContext}
+        relatedBuyer={relatedBuyer}
+        recent={recent}
+        signature={signature}
+        company={company}
+      />
     </div>
   );
 }

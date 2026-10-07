@@ -1,4 +1,4 @@
-import { COMPANY } from "@/lib/config";
+import { COMPANY, type CompanyInfo } from "@/lib/config";
 import { STAGE_CONTENT } from "@/lib/email/stage-content";
 import { FUNNEL_STAGES, getStage, stageIndex, type StageKey } from "@/lib/pipeline";
 import type { Buyer, Supplier } from "@/lib/types";
@@ -75,9 +75,16 @@ const LINE = "#e2e8f0";
 const SOFT = "#f8fafc";
 
 /** Khung email dùng chung (cả email tự động lẫn email đội ngũ tự soạn) */
-export function wrapEmailShell(opts: { title: string; body: string; preheader?: string }): string {
-  const footer = `${escapeHtml(COMPANY.name)} &middot; ${escapeHtml(COMPANY.address)}<br/>
-    ${escapeHtml(COMPANY.phone)} &middot; <a href="${escapeHtml(COMPANY.website)}" style="color:${BRAND};text-decoration:none;">${escapeHtml(COMPANY.website)}</a>`;
+export function wrapEmailShell(opts: {
+  title: string;
+  body: string;
+  preheader?: string;
+  /** Cho phép truyền thông tin công ty từ server xuống (bản xem trước ở client) */
+  company?: CompanyInfo;
+}): string {
+  const brand = opts.company ?? COMPANY;
+  const footer = `${escapeHtml(brand.name)} &middot; ${escapeHtml(brand.address)}<br/>
+    ${escapeHtml(brand.phone)} &middot; <a href="${escapeHtml(brand.website)}" style="color:${BRAND};text-decoration:none;">${escapeHtml(brand.website)}</a>`;
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -95,8 +102,8 @@ export function wrapEmailShell(opts: { title: string; body: string; preheader?: 
               <td style="background:${BRAND};padding:20px 28px;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:.4px;">${escapeHtml(COMPANY.name.toUpperCase())}</td>
-                    <td align="right" style="color:#a7f3d0;font-size:12px;">${escapeHtml(COMPANY.tagline)}</td>
+                    <td style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:.4px;">${escapeHtml(brand.name.toUpperCase())}</td>
+                    <td align="right" style="color:#a7f3d0;font-size:12px;">${escapeHtml(brand.tagline)}</td>
                   </tr>
                 </table>
               </td>
@@ -106,7 +113,7 @@ export function wrapEmailShell(opts: { title: string; body: string; preheader?: 
               <td style="background:${SOFT};padding:20px 28px;border-top:1px solid ${LINE};font-size:12px;color:${MUTED};line-height:18px;">${footer}</td>
             </tr>
           </table>
-          <p style="color:#94a3b8;font-size:11px;margin:14px 0 0;">${escapeHtml(COMPANY.name)} &middot; ${escapeHtml(COMPANY.website)}</p>
+          <p style="color:#94a3b8;font-size:11px;margin:14px 0 0;">${escapeHtml(brand.name)} &middot; ${escapeHtml(brand.website)}</p>
         </td>
       </tr>
     </table>
