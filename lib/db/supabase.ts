@@ -14,9 +14,22 @@ import type { DataStore } from "@/lib/db/types";
 
 let client: SupabaseClient | null = null;
 
+export function supabaseUrl(): string | null {
+  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  return url ? url.trim().replace(/\/+$/, "") : null;
+}
+
+/** Mã dự án (ref) lấy từ URL, ví dụ axvphurlpczysvzabgkm */
+export function supabaseProjectRef(): string | null {
+  const url = supabaseUrl();
+  if (!url) return null;
+  const m = /^https?:\/\/([a-z0-9-]+)\.supabase\.(co|in)$/i.exec(url);
+  return m ? m[1] : null;
+}
+
 export function getSupabaseClient(): SupabaseClient | null {
   if (client) return client;
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = supabaseUrl();
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
   if (!url || !key) return null;

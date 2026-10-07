@@ -34,9 +34,11 @@ const NAV = [
 
 export function Sidebar({
   dataMode,
+  dataDegraded = false,
   emailMode,
 }: {
   dataMode: "supabase" | "local";
+  dataDegraded?: boolean;
   emailMode: "resend" | "local";
 }) {
   const pathname = usePathname();
@@ -93,7 +95,13 @@ export function Sidebar({
           <StatusLine
             ok={dataMode === "supabase"}
             icon={<Database className="h-3 w-3" />}
-            label={dataMode === "supabase" ? "Supabase" : "Dữ liệu demo (local)"}
+            label={
+              dataMode === "supabase"
+                ? "Supabase"
+                : dataDegraded
+                  ? "Supabase: mất kết nối – dùng dữ liệu tạm"
+                  : "Dữ liệu demo (local)"
+            }
           />
           <StatusLine
             ok={emailMode === "resend"}

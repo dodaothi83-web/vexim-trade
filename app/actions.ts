@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getStore } from "@/lib/db";
+import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
 import {
   saveDraft,
   sendManualMail,
@@ -600,3 +600,24 @@ export async function resendMessageAction(id: string): Promise<ActionResult> {
   };
 }
 
+
+/* --------------------------- KẾT NỐI SUPABASE --------------------------- */
+
+/**
+ * Xoá trạng thái "mất kết nối Supabase" đã ghi nhớ rồi tải lại giao diện, để
+ * lần render kế tiếp thử lại Supabase ngay (dùng cho nút "Thử kết nối lại" ở
+ * trang Cài đặt — không cần khởi động lại app).
+ */
+export async function retrySupabaseAction(): Promise<ActionResult> {
+  resetSupabaseHealth();
+  await supabaseProbe();
+  revalidateAll();
+  const status = dataStatus();
+  return status.mode === "supabase"
+    ? { ok: true, message: "Đã kết nối lại Supabase — dữ liệu thật đang được dùng." }
+    : {
+        ok: false,
+        message: "Vẫn chưa kết nối được Supabase từ máy chạy app.",
+        details: status.reason ? [status.reason] : undefined,
+      };
+}

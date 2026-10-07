@@ -45,6 +45,34 @@ EMAIL_FROM_NAME=Vexim Trade
 
 5. Khởi động lại app. Các email đang ở trạng thái “demo” có thể bấm **Gửi lại** trong Nhật ký email.
 
+### Kiểm tra kết nối Supabase
+
+```bash
+npm run check:supabase
+```
+
+Script sẽ đọc `.env.local`, in ra dự án đang trỏ tới, kiểm tra DNS → HTTPS → REST API
+rồi soi từng bảng của `supabase/schema.sql`:
+
+| Kết quả | Nghĩa là |
+| --- | --- |
+| **KẾT LUẬN: Supabase sẵn sàng** | Sẽ dùng dữ liệu thật khi chạy app |
+| **KẾT LUẬN: còn N bảng chưa có** | Kết nối OK nhưng chưa chạy `supabase/schema.sql` |
+| **Không kết nối được Supabase** | Máy chạy app không ra được Internet tới Supabase (xem bên dưới) |
+
+### Khi máy chạy app không kết nối được Supabase
+
+Một số môi trường (sandbox/preview, máy sau tường lửa, VPN chặn) chỉ cho ra Internet tới
+một số domain nhất định — Supabase sẽ bị chặn. Khi đó app **không sập**, mà:
+
+- tạm chuyển sang kho local `data/local-db.json` (chỉ với lỗi mạng — lỗi SQL vẫn báo nguyên);
+- hiện **băng cảnh báo vàng** ở đầu mọi trang + ghi rõ ở menu trái và trang Cài đặt, để
+  không ai nhầm dữ liệu tạm là dữ liệu thật;
+- tự thử lại Supabase sau 60 giây và ngay lần tải trang kế tiếp, khỏi phải khởi động lại app.
+
+Điều khiển bằng biến `VEXIM_LOCAL_FALLBACK`: `auto` (mặc định — bật ở dev/sandbox, tắt ở
+production), `on`, hoặc `off`.
+
 ---
 
 ## Pipeline

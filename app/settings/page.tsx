@@ -1,7 +1,7 @@
 import { Check, Copy, Database, Mail, TriangleAlert, X } from "lucide-react";
 
 import { COMPANY } from "@/lib/config";
-import { dataMode } from "@/lib/db";
+import { dataStatus } from "@/lib/db";
 import { STAGES } from "@/lib/pipeline";
 import { STAGE_CONTENT } from "@/lib/email/stage-content";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Card, cx } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { CopyButton } from "@/components/copy-button";
+import { RetrySupabaseButton } from "@/components/retry-supabase-button";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ const SQL_SNIPPET = `-- Chạy trong Supabase → SQL Editor
 \\i supabase/schema.sql   -- hoặc copy toàn bộ nội dung file supabase/schema.sql`;
 
 export default function SettingsPage() {
-  const db = dataMode();
+  const db = dataStatus();
   const hasResend = Boolean(process.env.RESEND_API_KEY);
 
   const rows = [
@@ -35,6 +36,11 @@ export default function SettingsPage() {
     },
     { key: "RESEND_API_KEY", value: process.env.RESEND_API_KEY, label: "Khoá API Resend", secret: true },
     { key: "EMAIL_FROM", value: process.env.EMAIL_FROM, label: "Địa chỉ gửi email" },
+    {
+      key: "VEXIM_LOCAL_FALLBACK",
+      value: process.env.VEXIM_LOCAL_FALLBACK,
+      label: "Dự phòng dữ liệu local khi mất kết nối (auto / on / off)",
+    },
   ];
 
   return (
@@ -49,13 +55,54 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
             <Database className="h-4 w-4 text-brand-700" />
             <h2 className="text-[15px] font-bold text-ink-900">Cơ sở dữ liệu</h2>
-            <StatusPill ok={db === "supabase"} label={db === "supabase" ? "Đã kết nối Supabase" : "Chế độ demo (local)"} />
+            <StatusPill
+              ok={db.mode === "supabase"}
+              label={
+                db.mode === "supabase"
+                  ? "Đã kết nối Supabase"
+                  : db.degraded
+                    ? "Mất kết nối Supabase – dữ liệu tạm"
+                    : "Chế độ demo (local)"
+              }
+            />
           </div>
           <div className="space-y-3 p-4 text-[13px] text-ink-600">
-            {db === "supabase" ? (
+            {db.degraded && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12.5px] text-amber-900">
+                <p className="font-semibold">
+                  Đã cấu hình Supabase nhưng máy chạy app không kết nối được.
+                </p>
+                <p className="mt-1">
+                  URL: <code className="rounded bg-amber-100 px-1">{db.url}</code>
+                  {db.projectRef && (
+                    <>
+                      {" "}
+                      · dự án <strong>{db.projectRef}</strong>
+                    </>
+                  )}
+                </p>
+                <p className="mt-1">
+                  Lỗi: <em>{db.reason}</em>
+                </p>
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  <RetrySupabaseButton />
+                  <span className="text-[12px] text-amber-800">
+                    Thử lại ngay mà không cần khởi động lại app.
+                  </span>
+                </div>
+                <p className="mt-1">
+                  Hệ thống đang tạm ghi vào <code className="rounded bg-amber-100 px-1">data/local-db.json</code>{" "}
+                  và sẽ tự thử lại Supabase sau mỗi lần khởi động lại app (hoặc sau 60 giây).
+                  Mở app ở máy có Internet tới Supabase để dùng dữ liệu thật. Kiểm tra nhanh bằng{" "}
+                  <code className="rounded bg-amber-100 px-1">npm run check:supabase</code>.
+                </p>
+              </div>
+            )}
+            {db.mode === "supabase" ? (
               <p>
-                Dữ liệu đang được lưu trên Supabase. Mọi thao tác thêm / sửa buyer, nhà cung cấp và
-                đổi trạng thái đều ghi thẳng lên đó.
+                Dữ liệu đang được lưu trên Supabase (dự án{" "}
+                <strong>{db.projectRef ?? "đã cấu hình"}</strong>). Mọi thao tác thêm / sửa buyer,
+                nhà cung cấp và đổi trạng thái đều ghi thẳng lên đó.
               </p>
             ) : (
               <>
