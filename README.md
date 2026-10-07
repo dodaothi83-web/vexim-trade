@@ -203,14 +203,10 @@ Thêm trong **Vercel → Project → Settings → Environment Variables** (chọ
 **Deploy lại** — biến môi trường chỉ áp dụng cho lần deploy sau.
 
 Nếu thiếu `AUTH_SECRET`, app tự **suy khoá ký phiên từ khoá Supabase** để phiên vẫn ổn định giữa các
-máy chủ (kèm cảnh báo trong log và trong phần “Chẩn đoán đăng nhập”), nhưng vẫn nên đặt `AUTH_SECRET`
-cho đúng chuẩn.
+máy chủ (có ghi cảnh báo trong log máy chủ), nhưng vẫn nên đặt `AUTH_SECRET` cho đúng chuẩn.
 
-### Trang đăng nhập có phần “Chẩn đoán đăng nhập”
-
-Mở rộng mục đó ở cuối trang đăng nhập để xem ngay: khoá ký phiên đang lấy từ đâu, cookie phiên trong
-request này hợp lệ hay sai chữ ký, khoá Supabase là `service_role` hay `anon`, nguồn dữ liệu, và bảng
-`app_users` có đọc được không. Mục nào có vấn đề thì hiện dấu ✖ kèm cách sửa.
+Giao diện người dùng không hiển thị thông báo chẩn đoán nào: muốn soi cấu hình thì xem log máy chủ,
+trang **Cài đặt** (trạng thái kết nối + schema), và dòng “Kết nối” ở cuối menu trái.
 
 ### Đăng nhập xong bị đẩy về trang đăng nhập?
 

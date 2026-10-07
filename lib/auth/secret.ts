@@ -24,10 +24,7 @@ const FILE = path.join(process.cwd(), "data", "auth-secret");
 const HKDF_SALT = "vexim-trade/session-cookie/v1";
 const HKDF_INFO = "vxt_session hmac-sha256";
 
-export type SecretSource = "env" | "file" | "derived" | "random";
-
 let cached: string | null = null;
-let cachedSource: SecretSource | null = null;
 
 /** Suy khoá ký phiên từ một khoá bí mật đã có (HKDF-SHA256, không dùng trực tiếp). */
 function deriveFrom(material: string): string {
@@ -57,7 +54,6 @@ export function getAuthSecret(): string {
   const fromEnv = process.env.AUTH_SECRET?.trim();
   if (fromEnv && fromEnv.length >= 16) {
     cached = fromEnv;
-    cachedSource = "env";
     return cached;
   }
 
@@ -66,7 +62,6 @@ export function getAuthSecret(): string {
       const saved = fs.readFileSync(FILE, "utf8").trim();
       if (saved.length >= 16) {
         cached = saved;
-        cachedSource = "file";
         return cached;
       }
     }
@@ -78,7 +73,6 @@ export function getAuthSecret(): string {
         "       Khi chạy production (đặc biệt trên Vercel) hãy đặt AUTH_SECRET trong biến môi trường.",
     );
     cached = generated;
-    cachedSource = "file";
     return cached;
   } catch {
     // Không ghi được file (serverless / chỉ đọc) → dùng khoá suy ra, ổn định giữa các máy chủ
@@ -92,7 +86,6 @@ export function getAuthSecret(): string {
         "       (node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\").",
     );
     cached = deriveFrom(fallback.material);
-    cachedSource = "derived";
     return cached;
   }
 
@@ -101,36 +94,5 @@ export function getAuthSecret(): string {
       "       Phiên đăng nhập sẽ mất sau mỗi lần khởi động lại hoặc khi request sang máy chủ khác.",
   );
   cached = crypto.randomBytes(48).toString("hex");
-  cachedSource = "random";
   return cached;
-}
-
-/** Tình trạng khoá ký phiên — dùng cho phần chẩn đoán ở trang đăng nhập. */
-export function authSecretStatus(): { source: SecretSource; warn: string | null } {
-  if (!cachedSource) getAuthSecret();
-  switch (cachedSource) {
-    case "env":
-      return { source: "env", warn: null };
-    case "file":
-      return {
-        source: "file",
-        warn:
-          "Đang dùng khoá sinh tự động ở data/auth-secret. Máy chủ không có ổ đĩa ghi được (Vercel/serverless) " +
-          "sẽ phải suy khoá từ nơi khác — hãy đặt AUTH_SECRET để chắc chắn.",
-      };
-    case "derived":
-      return {
-        source: "derived",
-        warn:
-          "Chưa có AUTH_SECRET nên khoá ký phiên đang được suy ra từ khoá Supabase. Hoạt động được, nhưng hãy " +
-          "đặt AUTH_SECRET trong biến môi trường của máy chủ; nếu đổi khoá Supabase thì mọi người phải đăng nhập lại.",
-      };
-    default:
-      return {
-        source: "random",
-        warn:
-          "Chưa có AUTH_SECRET và không có khoá Supabase để suy ra — phiên đăng nhập sẽ mất liên tục. " +
-          "Đặt AUTH_SECRET ngay trong biến môi trường của máy chủ.",
-      };
-  }
 }
