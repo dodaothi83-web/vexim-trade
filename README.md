@@ -102,6 +102,32 @@ và **Thu mua** thấy; người khác không thấy trong danh sách và tải 
 Quyền được chốt **2 lớp**: giao diện ẩn nút không có quyền, và mọi server action / API đều kiểm tra
 lại ở phía máy chủ (`guard(...)` trong `app/actions.ts`), nên gọi tay cũng không vượt được.
 
+### Kiến trúc xác thực (đọc trước khi review)
+
+App này **không** dùng mô hình Supabase Auth chạy ở trình duyệt, nên **không cần** `middleware.ts`
+làm mới token:
+
+| Thành phần | Ở đâu | Ghi chú |
+| --- | --- | --- |
+| Trang đăng nhập | [`app/(auth)/login/page.tsx`](app/(auth)/login/page.tsx) | gọi `loginAction` trong `app/auth-actions.ts` |
+| Xác thực | `authenticate()` trong [`lib/auth/authenticate.ts`](lib/auth/authenticate.ts) | Supabase Auth khi có mạng, mật khẩu nội bộ khi mất mạng |
+| Phiên | cookie `vxt_session` ký HMAC-SHA256 — [`lib/auth/session.ts`](lib/auth/session.ts) | HttpOnly, SameSite=Lax, 7 ngày, không chứa mật khẩu |
+| Chặn truy cập | [`app/(app)/layout.tsx`](app/(app)/layout.tsx) gọi `requireSession()` | mọi trang con đều nằm trong nhóm này |
+| Trang ghi dữ liệu | `requirePagePermission()` ở các trang thêm/sửa | thiếu quyền thì chuyển hướng |
+| Server action | 19 cổng `guard("…")` trong [`app/actions.ts`](app/actions.ts) + 4 trong `app/auth-actions.ts` | gọi tay cũng không vượt được |
+| API tệp | `app/api/media/*` | 401 chưa đăng nhập, 403 thiếu quyền |
+
+Vì sao không cần middleware làm mới phiên: **trình duyệt không bao giờ giữ phiên Supabase**. Mọi
+truy cập Supabase (kể cả `signInWithPassword`) đều chạy ở máy chủ với khoá `service_role`; trình
+duyệt chỉ giữ cookie `vxt_session` của app, và cookie này được kiểm tra lại ở **mỗi** lần tải trang,
+mỗi server action và mỗi request tệp (đối chiếu với bảng `app_users` nên khoá tài khoản / đổi vai
+trò có hiệu lực ngay). Nhờ vậy không có refresh token nào nằm ở trình duyệt và cũng không có vòng
+lặp làm mới phiên.
+
+Cờ `Secure` của cookie được đặt theo **giao thức thật của request** (`x-forwarded-proto`), không
+theo `NODE_ENV`: chạy production trên máy nội bộ qua `http://` vẫn đăng nhập được, còn khi đứng sau
+proxy https thì cookie tự có `Secure`. Ép bằng `AUTH_COOKIE_SECURE=1|0` khi cần.
+
 ### Đăng nhập
 
 - **Supabase Auth là chính**: app gọi `signInWithPassword` khi kết nối được Supabase.

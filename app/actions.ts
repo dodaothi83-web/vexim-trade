@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
 import { guard } from "@/lib/auth/session";
-import { deleteObject, putObject } from "@/lib/media/storage";
+import { deleteObject } from "@/lib/media/storage";
 import { productReadiness } from "@/lib/media/readiness";
 import {
   saveDraft,
@@ -284,6 +284,9 @@ export async function attachSupplierAction(
   buyerId: string,
   supplierId: string | null,
 ): Promise<ActionResult> {
+  const gate = await guard("buyers.manage");
+  if (gate) return gate;
+
   const store = getStore();
   const buyer = await store.getBuyer(buyerId);
   if (!buyer) return { ok: false, message: "Không tìm thấy khách hàng." };
@@ -793,16 +796,3 @@ export async function deleteMediaAction(id: string): Promise<ActionResult> {
 }
 
 /** Thử lưu lại tệp từ client (dùng khi trình duyệt gửi kèm ảnh đã nén). */
-export async function storeMediaFileAction(
-  path: string,
-  base64: string,
-  mime: string,
-): Promise<ActionResult> {
-  try {
-    const bytes = new Uint8Array(Buffer.from(base64, "base64"));
-    await putObject(path, bytes, mime);
-    return { ok: true, message: "Đã lưu tệp." };
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
-  }
-}

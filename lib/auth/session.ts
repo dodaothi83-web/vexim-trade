@@ -1,7 +1,7 @@
 import "server-only";
 
 import crypto from "node:crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getAuthSecret } from "@/lib/auth/secret";
@@ -119,13 +119,38 @@ export async function getSession(): Promise<SessionUser | null> {
   return (await lookupSession()).session;
 }
 
+/**
+ * Cờ Secure của cookie phiên.
+ *
+ * Trước đây cờ này bật theo NODE_ENV: chạy production trên máy nội bộ qua
+ * http:// (ví dụ http://192.168.1.20:3000) thì trình duyệt **loại bỏ** cookie
+ * Secure → đăng nhập thành công nhưng mọi trang sau đó đều quay về /login.
+ * Giờ xét theo giao thức thật của request, có thể ép bằng AUTH_COOKIE_SECURE.
+ */
+async function cookieSecure(): Promise<boolean> {
+  const override = (process.env.AUTH_COOKIE_SECURE ?? "").trim().toLowerCase();
+  if (override === "1" || override === "true") return true;
+  if (override === "0" || override === "false") return false;
+
+  try {
+    const h = await headers();
+    const proto = (h.get("x-forwarded-proto") ?? "").split(",")[0].trim().toLowerCase();
+    if (proto) return proto === "https";
+    const origin = h.get("origin") ?? h.get("referer") ?? "";
+    if (origin) return origin.startsWith("https://");
+  } catch {
+    /* ngoài ngữ cảnh request */
+  }
+  return process.env.NODE_ENV === "production";
+}
+
 /** Ghi cookie phiên — chỉ gọi được trong server action / route handler */
 export async function startSession(user: Omit<SessionUser, "exp">): Promise<void> {
   const store = await cookies();
   store.set(SESSION_COOKIE, createSessionToken(user), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: await cookieSecure(),
     path: "/",
     maxAge: SESSION_DAYS * 24 * 60 * 60,
   });
@@ -133,7 +158,14 @@ export async function startSession(user: Omit<SessionUser, "exp">): Promise<void
 
 export async function endSession(): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE, "", { httpOnly: true, path: "/", maxAge: 0 });
+  // Phải đặt cùng cờ Secure, nếu không trình duyệt sẽ từ chối ghi đè cookie cũ
+  store.set(SESSION_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: await cookieSecure(),
+    path: "/",
+    maxAge: 0,
+  });
 }
 
 export interface GateFailure {
