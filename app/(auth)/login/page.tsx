@@ -27,7 +27,9 @@ export default async function LoginPage() {
       <h1 className="text-[18px] font-black text-ink-900">Đăng nhập</h1>
       <p className="mt-1 mb-5 text-[12.5px] text-ink-500">
         {supabaseOk
-          ? "Xác thực qua Supabase Auth. Tài khoản phải được cấp quyền trong app."
+          ? needsSetup
+            ? "Xác thực qua Supabase Auth. Hệ thống chưa có tài khoản nào — tài khoản Supabase đăng nhập đầu tiên sẽ trở thành quản trị viên."
+            : "Xác thực qua Supabase Auth. Tài khoản phải được cấp quyền trong app."
           : "Chưa kết nối được Supabase — hệ thống dùng mật khẩu nội bộ (dự phòng) để đăng nhập."}
       </p>
       <LoginForm needsSetup={needsSetup} />

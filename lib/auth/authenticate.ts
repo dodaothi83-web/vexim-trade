@@ -2,7 +2,8 @@ import "server-only";
 
 import { getStore } from "@/lib/db";
 import { getSupabaseClient } from "@/lib/db/supabase";
-import { verifyPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import type { DataStore } from "@/lib/db/types";
 import type { AppUserRecord } from "@/lib/types";
 
 /**
@@ -15,7 +16,70 @@ import type { AppUserRecord } from "@/lib/types";
 
 export type LoginResult =
   | { ok: true; user: AppUserRecord; via: "supabase" | "local"; notice?: string }
-  | { ok: false; message: string };
+  | { ok: false; message: string; details?: string[] };
+
+const MISSING_TABLE_HINT =
+  "Chưa có bảng app_users trong Supabase. Mở Supabase → SQL Editor, chạy lại toàn bộ " +
+  "supabase/schema.sql (mục 5c tạo bảng app_users) rồi đăng nhập lại.";
+
+/** Lỗi do chưa chạy schema.sql (bảng/cột app_users chưa tồn tại) */
+function isMissingUsersTable(error: unknown): boolean {
+  const text = (
+    error instanceof Error ? error.message : String(error)
+  ).toLowerCase();
+  if (!text.includes("app_users")) return false;
+  return [
+    "does not exist",
+    "42p01",
+    "schema cache",
+    "could not find the table",
+    "undefined table",
+    "column",
+  ].some((needle) => text.includes(needle));
+}
+
+/**
+ * Người đăng nhập qua Supabase đầu tiên của một hệ thống còn trống sẽ trở thành
+ * quản trị viên, để không phải chèn tay vào bảng app_users (giống trang /setup).
+ * Mật khẩu vừa được Supabase xác thực cũng được băm scrypt lưu lại làm đường
+ * dự phòng khi máy chạy app mất kết nối tới Supabase.
+ */
+export async function provisionFirstAdmin(
+  store: DataStore,
+  email: string,
+  password: string,
+  metadata?: Record<string, unknown> | null,
+): Promise<LoginResult> {
+  const nameGuess =
+    (typeof metadata?.full_name === "string" && metadata.full_name) ||
+    (typeof metadata?.name === "string" && metadata.name) ||
+    null;
+
+  try {
+    const created = await store.createUser({
+      email,
+      name: nameGuess || null,
+      role: "admin",
+      auth_provider: "supabase",
+      password_hash: await hashPassword(password),
+      is_active: true,
+    });
+    return {
+      ok: true,
+      user: created,
+      via: "supabase",
+      notice:
+        `Đã khởi tạo tài khoản quản trị đầu tiên cho ${email}. ` +
+        "Vào Cài đặt → Người dùng & phân quyền để thêm tài khoản cho nhân viên.",
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: "Đăng nhập Supabase thành công nhưng chưa tạo được tài khoản quản trị trong app.",
+      details: [err instanceof Error ? err.message : String(err)],
+    };
+  }
+}
 
 function isNetworkError(error: unknown): boolean {
   const text = (
@@ -54,14 +118,41 @@ export async function authenticate(email: string, password: string): Promise<Log
       });
 
       if (!error && data.user) {
-        const record = await store.getUserByEmail(clean);
+        let record: AppUserRecord | null = null;
+        try {
+          record = await store.getUserByEmail(clean);
+        } catch (err) {
+          if (isMissingUsersTable(err)) {
+            return {
+              ok: false,
+              message: MISSING_TABLE_HINT,
+              details: ["Lỗi gốc: " + (err instanceof Error ? err.message : String(err))],
+            };
+          }
+          throw err;
+        }
+
         if (!record) {
+          // Người đăng nhập Supabase đầu tiên khi hệ thống còn trống → thành quản trị viên.
+          let total: number;
+          try {
+            total = await store.countUsers();
+          } catch (err) {
+            if (isMissingUsersTable(err)) {
+              return { ok: false, message: MISSING_TABLE_HINT };
+            }
+            throw err;
+          }
+          if (total === 0) return provisionFirstAdmin(store, clean, password, data.user.user_metadata);
           return {
             ok: false,
             message:
-              "Tài khoản Supabase này chưa được cấp quyền trong app. Nhờ quản trị viên thêm trong Cài đặt → Người dùng.",
+              "Tài khoản Supabase này chưa được cấp quyền trong app. Nhờ quản trị viên thêm trong " +
+              "Cài đặt → Người dùng & phân quyền (tài khoản Supabase đầu tiên của hệ thống thì được " +
+              "tự động nhận làm quản trị viên).",
           };
         }
+
         if (!record.is_active) return { ok: false, message: "Tài khoản đã bị tạm khoá." };
         return { ok: true, user: record, via: "supabase" };
       }
@@ -83,7 +174,13 @@ export async function authenticate(email: string, password: string): Promise<Log
     }
   }
 
-  const record = await store.getUserByEmail(clean);
+  let record: AppUserRecord | null;
+  try {
+    record = await store.getUserByEmail(clean);
+  } catch (err) {
+    if (isMissingUsersTable(err)) return { ok: false, message: MISSING_TABLE_HINT };
+    throw err;
+  }
   if (!record) return { ok: false, message: WRONG_CREDENTIALS };
   if (!record.is_active) return { ok: false, message: "Tài khoản đã bị tạm khoá." };
 

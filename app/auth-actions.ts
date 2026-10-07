@@ -40,7 +40,7 @@ export async function loginAction(email: string, password: string): Promise<Auth
     };
   }
 
-  if (!result.ok) return { ok: false, message: result.message };
+  if (!result.ok) return { ok: false, message: result.message, details: result.details };
 
   await startSession({
     uid: result.user.id,

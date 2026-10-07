@@ -107,6 +107,12 @@ lại ở phía máy chủ (`guard(...)` trong `app/actions.ts`), nên gọi tay
 - **Supabase Auth là chính**: app gọi `signInWithPassword` khi kết nối được Supabase.
 - Tài khoản Supabase **phải có dòng tương ứng trong bảng `app_users`** mới vào được (bảng này giữ
   vai trò). Chưa có thì báo “Tài khoản Supabase này chưa được cấp quyền trong app…”.
+- **Tài khoản đầu tiên**: khi `app_users` còn trống, tài khoản Supabase đăng nhập đầu tiên được
+  **tự động nhận làm quản trị viên** — không cần chèn SQL tay. Mật khẩu vừa được Supabase xác thực
+  cũng được băm scrypt lưu lại để dùng dự phòng khi máy chạy app mất mạng. Từ tài khoản thứ hai trở
+  đi, ai không có dòng trong `app_users` sẽ bị từ chối và phải được thêm ở Cài đặt → Người dùng.
+- Chưa chạy `supabase/schema.sql` (chưa có bảng `app_users`)? Màn hình đăng nhập báo rõ cách chạy
+  lại script thay vì lỗi khó hiểu.
 - Khi máy chạy app **không kết nối được Supabase** (sandbox/preview, tường lửa), app tự dùng
   **mật khẩu nội bộ** đã băm bằng scrypt trong `app_users.password_hash` — chỉ với lỗi mạng; sai
   mật khẩu hay email chưa xác nhận thì bị từ chối như thường, không có đường vòng.
@@ -120,6 +126,15 @@ Tạo `AUTH_SECRET`:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Tài khoản có thể tạo ở **hai nơi** — trong app (Cài đặt → Người dùng) hoặc ở Supabase →
+Authentication → Users. Tạo ở Supabase thì phải thêm dòng tương ứng trong `app_users` (bảng này
+giữ vai trò), ví dụ:
+
+```sql
+insert into app_users (email, name, role, auth_provider)
+values ('nhanvien@veximtrade.com', 'Nguyễn Văn A', 'sale', 'supabase');
 ```
 
 ### Quản lý người dùng

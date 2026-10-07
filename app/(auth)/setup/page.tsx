@@ -12,7 +12,16 @@ export const metadata = { title: "Tạo tài khoản quản trị" };
 
 export default async function SetupPage() {
   const store = getStore();
-  const total = await store.countUsers();
+  let total = 0;
+  let missingTable = false;
+  try {
+    total = await store.countUsers();
+  } catch (err) {
+    // Chưa chạy supabase/schema.sql → bảng app_users chưa có
+    missingTable = String(err instanceof Error ? err.message : err)
+      .toLowerCase()
+      .includes("app_users");
+  }
   if (total > 0) redirect("/login");
 
   const session = await getSession();
@@ -28,6 +37,13 @@ export default async function SetupPage() {
         <strong className="text-ink-700">Quản trị</strong> — sau đó bạn thêm tài khoản cho nhân viên
         trong <strong className="text-ink-700">Cài đặt → Người dùng &amp; phân quyền</strong>.
       </p>
+
+      {missingTable && (
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-900">
+          Cơ sở dữ liệu chưa có bảng <code>app_users</code>. Mở Supabase → <strong>SQL Editor</strong>,
+          chạy lại toàn bộ <code>supabase/schema.sql</code> rồi tải lại trang này.
+        </p>
+      )}
 
       <p
         className={
