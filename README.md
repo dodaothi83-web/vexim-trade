@@ -183,11 +183,47 @@ rồi khởi động lại app. Trang **Cài đặt** cũng cảnh báo khi phá
 Đừng tắt RLS của `app_users` để dùng khoá `anon`: bảng này giữ mật khẩu đã băm, tắt RLS là lộ ra
 cho bất kỳ ai có khoá `anon`.
 
+### Triển khai trên Vercel (hoặc môi trường serverless)
+
+Trên Vercel, ổ đĩa **chỉ đọc** và mỗi request có thể vào một máy chủ khác nhau, nên ba biến này là
+bắt buộc — thiếu `AUTH_SECRET` thì đăng nhập xong sẽ bị đẩy về `/login` liên tục:
+
+| Biến | Vì sao | Thiếu thì sao |
+| --- | --- | --- |
+| `SUPABASE_URL` | địa chỉ dự án | không có dữ liệu thật |
+| `SUPABASE_SERVICE_ROLE_KEY` | máy chủ đọc/ghi bảng `app_users` (bỏ qua RLS) | không đăng nhập được / mất dữ liệu |
+| `AUTH_SECRET` | khoá ký cookie phiên, phải **giống nhau ở mọi máy chủ** | cookie do máy A ký bị máy B coi là sai chữ ký → đá về `/login` |
+
+```bash
+# sinh AUTH_SECRET
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Thêm trong **Vercel → Project → Settings → Environment Variables** (chọn cả Production/Preview), rồi
+**Deploy lại** — biến môi trường chỉ áp dụng cho lần deploy sau.
+
+Nếu thiếu `AUTH_SECRET`, app tự **suy khoá ký phiên từ khoá Supabase** để phiên vẫn ổn định giữa các
+máy chủ (kèm cảnh báo trong log và trong phần “Chẩn đoán đăng nhập”), nhưng vẫn nên đặt `AUTH_SECRET`
+cho đúng chuẩn.
+
+### Trang đăng nhập có phần “Chẩn đoán đăng nhập”
+
+Mở rộng mục đó ở cuối trang đăng nhập để xem ngay: khoá ký phiên đang lấy từ đâu, cookie phiên trong
+request này hợp lệ hay sai chữ ký, khoá Supabase là `service_role` hay `anon`, nguồn dữ liệu, và bảng
+`app_users` có đọc được không. Mục nào có vấn đề thì hiện dấu ✖ kèm cách sửa.
+
 ### Đăng nhập xong bị đẩy về trang đăng nhập?
 
 Triệu chứng: đăng nhập thành công nhưng vừa bấm vào chức năng nào cũng bị đưa về `/login`.
 
-Nguyên nhân thường gặp nhất: máy chủ đang kết nối Supabase bằng **khoá `anon`** trong khi bảng
+Hai nguyên nhân thường gặp:
+
+1. **Thiếu `AUTH_SECRET` khi chạy nhiều máy chủ** (Vercel/serverless, ổ đĩa chỉ đọc): mỗi tiến trình
+   sinh một khoá ký khác nhau → cookie do máy A ký bị máy B coi là sai chữ ký. Dấu hiệu: bị đẩy về
+   `/login` **không kèm lời giải thích nào**. Xem mục “Triển khai trên Vercel” ở trên.
+2. **Khoá `anon` + bảng `app_users` bật RLS** như mô tả dưới đây.
+
+Chi tiết nguyên nhân 2: máy chủ đang kết nối Supabase bằng **khoá `anon`** trong khi bảng
 `app_users` **bật Row Level Security**. Khi bị RLS ẩn, truy vấn trả về *rỗng* chứ không báo lỗi —
 và màn hình đăng nhập của Supabase (`/auth/v1/token`) **không** bị RLS chi phối, nên bạn vẫn đăng
 nhập được, nhưng ngay sau đó app không đọc được hồ sơ người dùng và coi như hết phiên.

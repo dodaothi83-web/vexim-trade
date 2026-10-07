@@ -4,6 +4,7 @@ import { getStore } from "@/lib/db";
 import { supabaseKeyRole } from "@/lib/db/supabase";
 import { getSession } from "@/lib/auth/session";
 import { supabaseAuthReachable } from "@/lib/auth/authenticate";
+import { authDiagnostics, hasProblem } from "@/lib/auth/diagnostics";
 import { LoginForm } from "@/components/login-form";
 
 export const dynamic = "force-dynamic";
@@ -68,6 +69,8 @@ export default async function LoginPage({
   }
   const supabaseOk = await supabaseAuthReachable();
   const keyRole = supabaseKeyRole();
+  const diag = await authDiagnostics();
+  const problem = hasProblem(diag);
 
   return (
     <>
@@ -101,6 +104,33 @@ export default async function LoginPage({
       )}
 
       <LoginForm needsSetup={needsSetup} />
+
+      <details
+        open={problem}
+        className="mt-5 rounded-lg border border-ink-200 bg-ink-50/70 px-3 py-2.5 text-[12px] text-ink-700"
+      >
+        <summary className="cursor-pointer font-semibold text-ink-800">
+          Chẩn đoán đăng nhập {problem ? "— đang có mục cần xử lý" : ""}
+        </summary>
+        <ul className="mt-2.5 space-y-2">
+          {diag.map((row) => (
+            <li key={row.label}>
+              <div className="flex items-start gap-1.5">
+                <span className={row.ok ? "text-emerald-600" : "text-red-600"}>{row.ok ? "✔" : "✖"}</span>
+                <span>
+                  <strong className="font-semibold">{row.label}:</strong> {row.value}
+                </span>
+              </div>
+              {!row.ok && row.hint && (
+                <p className="mt-0.5 ml-4 leading-relaxed text-ink-500">{row.hint}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2.5 text-[11.5px] text-ink-500">
+          Nếu vẫn bị đẩy về trang này, chụp lại phần chẩn đoán này để xem tiếp.
+        </p>
+      </details>
     </>
   );
 }
