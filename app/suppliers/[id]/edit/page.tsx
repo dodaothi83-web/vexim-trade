@@ -4,6 +4,7 @@ import { getStore } from "@/lib/db";
 import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { SupplierForm } from "@/components/supplier-form";
+import { MediaManager } from "@/components/media-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +14,10 @@ export default async function EditSupplierPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supplier = await getStore().getSupplier(id);
+  const store = getStore();
+  const supplier = await store.getSupplier(id);
   if (!supplier) notFound();
+  const media = await store.listMedia("supplier", id);
 
   return (
     <>
@@ -30,8 +33,14 @@ export default async function EditSupplierPage({
           />
         }
       />
-      <div className="max-w-5xl">
+      <div className="max-w-5xl space-y-5">
         <SupplierForm supplier={supplier} />
+        <MediaManager
+          ownerType="supplier"
+          ownerId={id}
+          items={media}
+          note="Ảnh nhà máy có thể chia sẻ buyer · giấy tờ xác minh để chế độ Nội bộ"
+        />
       </div>
     </>
   );

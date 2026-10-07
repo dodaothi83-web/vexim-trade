@@ -4,6 +4,9 @@ import type {
   Buyer,
   BuyerInput,
   EmailMessage,
+  MediaAsset,
+  MediaInput,
+  MediaOwnerType,
   Supplier,
   SupplierInput,
   SupplierProduct,
@@ -30,6 +33,17 @@ export interface DataStore {
   createBuyer(input: BuyerInput): Promise<Buyer>;
   updateBuyer(id: string, patch: Partial<BuyerInput>): Promise<Buyer>;
   deleteBuyer(id: string): Promise<void>;
+
+  // ----- Hình ảnh & tài liệu -----
+  listMedia(ownerType: MediaOwnerType, ownerId: string): Promise<MediaAsset[]>;
+  listMediaForProducts(productIds: string[]): Promise<MediaAsset[]>;
+  listMediaForSuppliers(supplierIds: string[]): Promise<MediaAsset[]>;
+  getMedia(id: string): Promise<MediaAsset | null>;
+  /** Tìm theo đường dẫn tệp (dùng cho route phục vụ tệp) */
+  getMediaByPath(storagePath: string): Promise<MediaAsset | null>;
+  createMedia(input: MediaInput): Promise<MediaAsset>;
+  updateMedia(id: string, patch: Partial<MediaInput>): Promise<MediaAsset>;
+  deleteMedia(id: string): Promise<void>;
 
   listActivities(buyerId?: string): Promise<Activity[]>;
   addActivity(input: {

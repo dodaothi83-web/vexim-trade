@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
+import { deleteObject, putObject } from "@/lib/media/storage";
+import { productReadiness } from "@/lib/media/readiness";
 import {
   saveDraft,
   sendManualMail,
@@ -419,6 +421,7 @@ function parseProductInput(
     incoterm_place: str(raw.incoterm_place),
     payment_terms: str(raw.payment_terms),
     samples: bool(raw.samples, false),
+    ready_for_buyer: bool(raw.ready_for_buyer, false),
   };
 }
 
@@ -428,6 +431,8 @@ export async function createProductAction(
   const input = parseProductInput(raw);
   if (!input.supplier_id) return { ok: false, message: "Thiếu nhà cung cấp." };
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
+  // Hồ sơ vừa tạo chưa thể có ảnh/catalogue nên luôn bắt đầu ở trạng thái chưa sẵn sàng
+  input.ready_for_buyer = false;
   try {
     const created = await getStore().createProduct(input);
     revalidateAll();
@@ -443,8 +448,22 @@ export async function updateProductAction(
 ): Promise<ActionResult> {
   const input = parseProductInput(raw);
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
+  const store = getStore();
+
+  // Cổng chặn: chỉ bật "Sẵn sàng gửi buyer" khi đã có ảnh/catalogue chia sẻ cho buyer
+  if (input.ready_for_buyer) {
+    const media = await store.listMedia("product", id);
+    const readiness = productReadiness(media);
+    if (!readiness.ready) {
+      return {
+        ok: false,
+        message: `Chưa thể đánh dấu “Sẵn sàng gửi buyer”: ${readiness.message}`,
+      };
+    }
+  }
+
   try {
-    await getStore().updateProduct(id, input);
+    await store.updateProduct(id, input);
     revalidateAll();
     return { ok: true, message: "Đã lưu hồ sơ sản phẩm." };
   } catch (err) {
@@ -620,4 +639,131 @@ export async function retrySupabaseAction(): Promise<ActionResult> {
         message: "Vẫn chưa kết nối được Supabase từ máy chạy app.",
         details: status.reason ? [status.reason] : undefined,
       };
+}
+
+/* ------------------------------ MEDIA ------------------------------- */
+
+/**
+ * Gắn link video vào hồ sơ (video không tải tệp lên — chỉ lưu link).
+ */
+export async function addMediaLinkAction(input: {
+  ownerType: "product" | "supplier";
+  ownerId: string;
+  url: string;
+  caption?: string | null;
+  audience?: "buyer" | "internal";
+}): Promise<ActionResult> {
+  const url = (input.url ?? "").trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, message: "Link video không hợp lệ (cần bắt đầu bằng http/https)." };
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    return { ok: false, message: "Link video không hợp lệ." };
+  }
+  if (input.ownerType !== "product" && input.ownerType !== "supplier") {
+    return { ok: false, message: "Đối tượng không hợp lệ." };
+  }
+
+  try {
+    await getStore().createMedia({
+      owner_type: input.ownerType,
+      product_id: input.ownerType === "product" ? input.ownerId : null,
+      supplier_id: input.ownerType === "supplier" ? input.ownerId : null,
+      kind: "video",
+      audience: input.audience ?? "buyer",
+      status: "unverified",
+      expires_on: null,
+      caption: (input.caption ?? "").trim() || parsed.hostname,
+      storage_path: null,
+      thumb_path: null,
+      external_url: parsed.toString(),
+      mime: null,
+      bytes: null,
+      width: null,
+      height: null,
+      sort_order: 0,
+      created_by: null,
+    });
+    revalidateAll();
+    return { ok: true, message: "Đã thêm link video (trạng thái: chưa xác minh)." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+  }
+}
+
+/** Sửa chú thích / trạng thái xác minh / người xem / ngày hết hạn của một tệp. */
+export async function updateMediaAction(
+  id: string,
+  patch: {
+    caption?: string | null;
+    status?: "unverified" | "checked" | "expired";
+    audience?: "buyer" | "internal";
+    expires_on?: string | null;
+  },
+): Promise<ActionResult> {
+  const store = getStore();
+  try {
+    const current = await store.getMedia(id);
+    if (!current) return { ok: false, message: "Không tìm thấy tệp." };
+
+    const next: typeof patch = { ...patch };
+    // Giấy tờ nội bộ không bao giờ được chuyển sang chia sẻ buyer
+    if (current.kind === "document") next.audience = "internal";
+
+    await store.updateMedia(id, next);
+    revalidateAll();
+    return { ok: true, message: "Đã cập nhật tệp." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+  }
+}
+
+/** Xoá tệp khỏi hồ sơ và khỏi kho lưu trữ. */
+export async function deleteMediaAction(id: string): Promise<ActionResult> {
+  const store = getStore();
+  try {
+    const asset = await store.getMedia(id);
+    if (!asset) return { ok: false, message: "Không tìm thấy tệp." };
+
+    // Nếu sản phẩm đang ở trạng thái "sẵn sàng gửi buyer" thì kiểm tra lại sau khi xoá
+    await store.deleteMedia(id);
+    for (const path of [asset.storage_path, asset.thumb_path]) {
+      if (path) {
+        await deleteObject(path).catch(() => null);
+      }
+    }
+
+    if (asset.product_id) {
+      const product = await store.getProduct(asset.product_id);
+      if (product?.ready_for_buyer) {
+        const media = await store.listMedia("product", asset.product_id);
+        if (!productReadiness(media).ready) {
+          await store.updateProduct(asset.product_id, { ready_for_buyer: false });
+        }
+      }
+    }
+
+    revalidateAll();
+    return { ok: true, message: "Đã xoá tệp." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+  }
+}
+
+/** Thử lưu lại tệp từ client (dùng khi trình duyệt gửi kèm ảnh đã nén). */
+export async function storeMediaFileAction(
+  path: string,
+  base64: string,
+  mime: string,
+): Promise<ActionResult> {
+  try {
+    const bytes = new Uint8Array(Buffer.from(base64, "base64"));
+    await putObject(path, bytes, mime);
+    return { ok: true, message: "Đã lưu tệp." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+  }
 }

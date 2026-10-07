@@ -5,6 +5,9 @@ import type {
   Buyer,
   BuyerInput,
   EmailMessage,
+  MediaAsset,
+  MediaInput,
+  MediaOwnerType,
   Supplier,
   SupplierInput,
   SupplierProduct,
@@ -145,6 +148,82 @@ export const supabaseStore: DataStore = {
   async deleteProduct(id) {
     const { error } = await must().from("supplier_products").delete().eq("id", id);
     if (error) fail("deleteProduct", error);
+  },
+
+  async listMedia(ownerType: MediaOwnerType, ownerId: string) {
+    const column = ownerType === "product" ? "product_id" : "supplier_id";
+    const { data, error } = await must()
+      .from("media_assets")
+      .select("*")
+      .eq(column, ownerId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) fail("listMedia", error);
+    return (data ?? []) as MediaAsset[];
+  },
+  async listMediaForProducts(productIds) {
+    if (!productIds.length) return [];
+    const { data, error } = await must()
+      .from("media_assets")
+      .select("*")
+      .in("product_id", productIds)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) fail("listMediaForProducts", error);
+    return (data ?? []) as MediaAsset[];
+  },
+  async listMediaForSuppliers(supplierIds) {
+    if (!supplierIds.length) return [];
+    const { data, error } = await must()
+      .from("media_assets")
+      .select("*")
+      .in("supplier_id", supplierIds)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) fail("listMediaForSuppliers", error);
+    return (data ?? []) as MediaAsset[];
+  },
+  async getMedia(id) {
+    const { data, error } = await must()
+      .from("media_assets")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) fail("getMedia", error);
+    return (data as MediaAsset) ?? null;
+  },
+  async getMediaByPath(storagePath) {
+    const { data, error } = await must()
+      .from("media_assets")
+      .select("*")
+      .or(`storage_path.eq.${storagePath},thumb_path.eq.${storagePath}`)
+      .limit(1)
+      .maybeSingle();
+    if (error) fail("getMediaByPath", error);
+    return (data as MediaAsset) ?? null;
+  },
+  async createMedia(input: MediaInput) {
+    const { data, error } = await must()
+      .from("media_assets")
+      .insert(input)
+      .select()
+      .single();
+    if (error) fail("createMedia", error);
+    return data as MediaAsset;
+  },
+  async updateMedia(id, patch) {
+    const { data, error } = await must()
+      .from("media_assets")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateMedia", error);
+    return data as MediaAsset;
+  },
+  async deleteMedia(id) {
+    const { error } = await must().from("media_assets").delete().eq("id", id);
+    if (error) fail("deleteMedia", error);
   },
 
   async listBuyers() {

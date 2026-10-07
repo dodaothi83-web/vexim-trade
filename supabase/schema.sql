@@ -61,9 +61,15 @@ create table if not exists public.supplier_products (
   incoterm_place    text,
   payment_terms     text,
   samples           boolean not null default false,
+  -- Chỉ bật được khi hồ sơ có ít nhất 1 ảnh/catalogue chia sẻ cho buyer
+  ready_for_buyer   boolean not null default false,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
+
+-- Nếu bảng đã tồn tại từ trước, thêm cột còn thiếu:
+alter table public.supplier_products
+  add column if not exists ready_for_buyer boolean not null default false;
 
 create index if not exists supplier_products_supplier_idx on public.supplier_products (supplier_id);
 create index if not exists supplier_products_category_idx on public.supplier_products (category);
@@ -165,7 +171,63 @@ create index if not exists email_messages_kind_idx  on public.email_messages (ki
 create index if not exists email_messages_created_idx on public.email_messages (created_at desc);
 
 -- ---------------------------------------------------------------------------
--- 5. TỰ ĐỘNG CẬP NHẬT updated_at
+-- 5. HÌNH ẢNH & TÀI LIỆU (media)
+--    - Ảnh/catalogue/chứng nhận của sản phẩm  -> owner_type = 'product'
+--    - Ảnh nhà máy + giấy tờ xác minh NCC     -> owner_type = 'supplier'
+--    - audience = 'buyer'    : được phép gửi/chia sẻ cho buyer
+--      audience = 'internal' : chỉ dùng nội bộ (giấy tờ xác minh, tài liệu mật)
+--    - status: unverified (chưa xác minh) / checked (đã kiểm tra) / expired (hết hạn)
+-- ---------------------------------------------------------------------------
+create table if not exists public.media_assets (
+  id           uuid primary key default gen_random_uuid(),
+  owner_type   text not null check (owner_type in ('product','supplier')),
+  product_id   uuid references public.supplier_products(id) on delete cascade,
+  supplier_id  uuid references public.suppliers(id) on delete cascade,
+  kind         text not null check (kind in
+                 ('image','catalogue','certificate','document','video')),
+  audience     text not null default 'buyer' check (audience in ('buyer','internal')),
+  status       text not null default 'unverified' check (status in
+                 ('unverified','checked','expired')),
+  expires_on   date,
+  caption      text,
+  -- tệp lưu trong Supabase Storage (hoặc thư mục data/media khi chạy local)
+  storage_path text,
+  thumb_path   text,
+  -- video chỉ lưu link, không tải tệp lên
+  external_url text,
+  mime         text,
+  bytes        bigint,
+  width        integer,
+  height       integer,
+  sort_order   integer not null default 0,
+  created_by   text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  constraint media_owner_ck check (
+    (owner_type = 'product'  and product_id  is not null and supplier_id is null) or
+    (owner_type = 'supplier' and supplier_id is not null and product_id  is null)
+  )
+);
+
+create index if not exists media_product_idx  on public.media_assets (product_id, sort_order, created_at);
+create index if not exists media_supplier_idx on public.media_assets (supplier_id, sort_order, created_at);
+create index if not exists media_audience_idx on public.media_assets (audience);
+
+-- ---------------------------------------------------------------------------
+-- 5b. KHO TỆP (Supabase Storage) — chạy MỘT LẦN trong SQL Editor
+--     App tự dùng bucket này khi đã cấu hình Supabase; nếu chưa có thì lưu
+--     tạm vào thư mục data/media (chế độ local, không đẩy lên cloud).
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('vexim-media', 'vexim-media', false)
+on conflict (id) do nothing;
+
+-- App phục vụ tệp qua route /api/media/file/... bằng service role key ở server,
+-- bucket để private (public = false). Nếu bạn muốn dùng URL công khai của
+-- Supabase thì đổi public thành true và tự thêm policy phù hợp.
+
+-- ---------------------------------------------------------------------------
+-- 6. TỰ ĐỘNG CẬP NHẬT updated_at
 -- ---------------------------------------------------------------------------
 create or replace function public.touch_updated_at()
 returns trigger language plpgsql as $$
@@ -182,8 +244,16 @@ drop trigger if exists suppliers_touch on public.suppliers;
 create trigger suppliers_touch before update on public.suppliers
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists supplier_products_touch on public.supplier_products;
+create trigger supplier_products_touch before update on public.supplier_products
+  for each row execute function public.touch_updated_at();
+
+drop trigger if exists media_assets_touch on public.media_assets;
+create trigger media_assets_touch before update on public.media_assets
+  for each row execute function public.touch_updated_at();
+
 -- ---------------------------------------------------------------------------
--- 6. QUYỀN (app dùng service role key ở server-side)
+-- 7. QUYỀN (app dùng service role key ở server-side)
 --    Nếu bạn bật RLS, chạy thêm phần dưới và thay policy cho phù hợp.
 -- ---------------------------------------------------------------------------
 -- alter table public.suppliers        enable row level security;

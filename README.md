@@ -138,7 +138,6 @@ Cùng một lần đổi giai đoạn, hệ thống sinh **hai email hoàn toàn
 Profile NCC trả lời: doanh nghiệp này là ai, liên hệ với ai, phục vụ thị trường nào và
 đã được xác minh đến đâu. Trường bắt buộc gọn để NCC dễ tham gia; giấy tờ xác minh bổ
 sung sau, trước khi đưa vào danh sách đề xuất.
-
 - **Vai trò**: nhà sản xuất / thương nhân / đại lý / XK trung gian.
 - **Trạng thái hồ sơ**: Mới → Đang xác minh → Đã xác minh → Tạm ngưng.
 - **Sản phẩm là hồ sơ riêng** liên kết NCC (`supplier_products`): nhóm ngành, quy cách,
@@ -155,6 +154,41 @@ Người vận hành duyệt rồi mới gửi yêu cầu báo giá cho NCC — 
 
 Lưu ý bảo mật: RFQ gửi NCC mặc định ẩn danh buyer (tôn trọng `hide_buyer_from_supplier`);
 chỉ chia sẻ tên/email buyer khi được phép.
+
+### Hình ảnh & tài liệu (media)
+
+Mỗi sản phẩm và mỗi hồ sơ NCC có khối **Hình ảnh & tài liệu**: kéo-thả tệp để tải lên
+(ảnh hoặc PDF), hoặc dán **link video**. Video không tải tệp lên — chỉ lưu link.
+
+| Loại | Nhận gì | Giới hạn | Mặc định |
+| --- | --- | --- | --- |
+| **Ảnh** | JPG / PNG / WebP | 8MB (đã nén sẵn ở trình duyệt) | Chia sẻ buyer |
+| **Catalogue / bảng thông số** | PDF | 15MB | Chia sẻ buyer |
+| **Chứng nhận** | PDF hoặc ảnh, có ngày hết hạn | 15MB | Chia sẻ buyer |
+| **Giấy tờ nội bộ** | PDF hoặc ảnh | 15MB | **Nội bộ — khoá cứng** |
+| **Video** | Link YouTube / Drive | — | Chia sẻ buyer |
+
+- Ảnh được **nén và tạo ảnh xem trước ngay trên trình duyệt** (cạnh dài ≤ 1600px, kèm
+  thumbnail 400px) trước khi gửi lên, nên tệp nhẹ và không cần xử lý ảnh ở server.
+  Server vẫn kiểm tra lại bằng **magic bytes** (không tin đuôi tệp) và giới hạn dung lượng.
+- Mỗi tệp có **trạng thái riêng: Chưa xác minh → Đã kiểm tra → Hết hạn** (kèm `expires_on`);
+  quá ngày hết hạn thì hệ thống tự coi là hết hạn dù trạng thái lưu là gì.
+- **Tách theo đối tượng**: `Chia sẻ buyer` vs `Nội bộ`. Giấy tờ nội bộ **không thể** chuyển
+  sang chia sẻ buyer, và luôn nằm ở khối riêng trên trang chi tiết NCC.
+- **Không bắt buộc khi tạo hồ sơ**, nhưng sản phẩm chỉ bật được **“Sẵn sàng gửi buyer”** khi
+  đã có ít nhất 1 ảnh hoặc catalogue ở chế độ *Chia sẻ buyer* và chưa hết hạn. Xoá tệp cuối
+  cùng thì cờ này tự tắt. Video luôn là tuỳ chọn.
+
+**Nơi lưu tệp:** có cấu hình Supabase → bucket `vexim-media` (tạo sẵn khi chạy
+`supabase/schema.sql`, đặt tên khác qua `SUPABASE_MEDIA_BUCKET`). Chưa cấu hình hoặc máy
+chạy app không tới được Supabase → lưu tạm vào `data/media/` (đã nằm trong `.gitignore`),
+giống cách tầng dữ liệu tự chuyển sang kho local. Tệp được phục vụ qua
+`/api/media/file/<đường dẫn>` và chỉ phục vụ tệp **có trong bảng `media_assets`**.
+
+> **Giới hạn cần biết:** app chưa có đăng nhập/phân quyền tài khoản, nên "chỉ nội bộ xem"
+> hiện được đảm bảo bằng nghiệp vụ (khoá cứng trạng thái, tách khối riêng, không xuất hiện
+> ở bất kỳ luồng gửi buyer nào) chứ chưa phải bằng phân quyền người dùng.
+
 
 ## Hộp thư (trình soạn thảo chuẩn Gmail/Zoho)
 
@@ -225,10 +259,16 @@ components/
   pipeline-board.tsx          Board kéo-thả
   compose-mail.tsx            Trình soạn thảo kiểu Gmail/Zoho (2 cột)
   compose-sidebar.tsx         Cột phải: xem trước, ngữ cảnh, checklist, lịch sử
+  media-manager.tsx           Tải lên / chú thích / xác minh / xoá tệp
+  media-gallery.tsx           Khối xem ảnh & tài liệu ở trang chi tiết
   rich-editor.tsx             Khung soạn thảo có định dạng
   mailbox.tsx                 Danh sách hộp thư
 lib/
   pipeline.ts                 Danh sách giai đoạn của pipeline
+  media/storage.ts            Kho tệp: Supabase Storage hoặc data/media (local)
+  media/validate.ts           Kiểm tra magic bytes / định dạng / dung lượng
+  media/readiness.ts          Quy tắc "sẵn sàng gửi buyer" + hạn hiệu lực
+  media/client-image.ts       Nén ảnh & tạo thumbnail ở trình duyệt
   compose-context.ts          Ngữ cảnh buyer/NCC cho cột phải trang soạn thư
   email/privacy.ts            Dò thông tin cần giữ kín (tên/giá NCC, tên buyer)
   email/stage-content.ts      NỘI DUNG email riêng cho buyer và cho NCC theo từng giai đoạn

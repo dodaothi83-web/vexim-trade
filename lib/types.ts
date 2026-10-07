@@ -64,11 +64,64 @@ export interface SupplierProduct {
   payment_terms: string | null;
   /** Có thể gửi mẫu */
   samples: boolean;
+  /**
+   * Sẵn sàng gửi buyer. Chỉ bật được khi hồ sơ đã có ít nhất một ảnh sản phẩm
+   * hoặc catalogue chia sẻ được cho buyer (xem lib/media/readiness.ts).
+   */
+  ready_for_buyer: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export type SupplierProductInput = Omit<SupplierProduct, "id" | "created_at" | "updated_at">;
+
+/* --------------------------------- MEDIA --------------------------------- */
+
+export type MediaOwnerType = "product" | "supplier";
+
+/**
+ * image       – ảnh sản phẩm / ảnh nhà máy, chia sẻ được cho buyer
+ * catalogue   – PDF catalogue / bảng thông số
+ * certificate – chứng nhận (PDF hoặc ảnh), có thể có ngày hết hạn
+ * document    – giấy tờ xác minh NCC (mặc định chỉ nội bộ)
+ * video       – chỉ lưu link (YouTube/Drive), không tải tệp lên
+ */
+export type MediaKind = "image" | "catalogue" | "certificate" | "document" | "video";
+
+/** Chia sẻ cho buyer hay chỉ dùng nội bộ */
+export type MediaAudience = "buyer" | "internal";
+
+/** Mỗi tệp có trạng thái riêng, không mặc nhiên coi nội dung là đúng */
+export type MediaStatus = "unverified" | "checked" | "expired";
+
+export interface MediaAsset {
+  id: string;
+  owner_type: MediaOwnerType;
+  product_id: string | null;
+  supplier_id: string | null;
+  kind: MediaKind;
+  audience: MediaAudience;
+  status: MediaStatus;
+  /** Ngày hết hạn (chứng nhận / giá…) */
+  expires_on: string | null;
+  caption: string | null;
+  /** Đường dẫn tệp trong kho media (ảnh/PDF) */
+  storage_path: string | null;
+  /** Đường dẫn ảnh xem trước cỡ nhỏ */
+  thumb_path: string | null;
+  /** Link ngoài (video) */
+  external_url: string | null;
+  mime: string | null;
+  bytes: number | null;
+  width: number | null;
+  height: number | null;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MediaInput = Omit<MediaAsset, "id" | "created_at" | "updated_at">;
 
 export interface Buyer {
   id: string;

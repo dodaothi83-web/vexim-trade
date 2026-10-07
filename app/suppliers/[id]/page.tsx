@@ -22,6 +22,8 @@ import {
 import { listBuyersWithSupplier } from "@/lib/queries";
 import { getStore } from "@/lib/db";
 import { roleLabel, statusMeta } from "@/lib/supplier";
+import { isExpired } from "@/lib/media/readiness";
+import { MediaGallery, MediaThumb } from "@/components/media-gallery";
 import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { StageBadge } from "@/components/stage-select";
@@ -43,6 +45,24 @@ export default async function SupplierDetailPage({
     listBuyersWithSupplier(),
     store.listProductsBySupplier(id),
   ]);
+  const [supplierMedia, productMedia] = await Promise.all([
+    store.listMedia("supplier", id),
+    store.listMediaForProducts(products.map((p) => p.id)),
+  ]);
+  // Ảnh đại diện cho từng sản phẩm (ưu tiên ảnh chia sẻ buyer, chưa hết hạn)
+  const thumbByProduct = new Map<string, typeof productMedia[number]>();
+  for (const m of productMedia) {
+    if (!m.product_id || m.kind !== "image" || m.audience !== "buyer") continue;
+    if (!thumbByProduct.has(m.product_id)) thumbByProduct.set(m.product_id, m);
+  }
+  const shareableCount = (productId: string) =>
+    productMedia.filter(
+      (m) =>
+        m.product_id === productId &&
+        (m.kind === "image" || m.kind === "catalogue") &&
+        m.audience === "buyer" &&
+        !isExpired(m),
+    ).length;
   const attached = buyers.filter((b) => b.supplier_id === id);
   const active = attached.filter((b) => !["completed", "lost"].includes(b.stage));
   const st = statusMeta(supplier.status);
@@ -97,7 +117,8 @@ export default async function SupplierDetailPage({
       </Card>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
+        <div className="space-y-5 lg:col-span-1">
+        <Card>
           <div className="border-b border-ink-200 px-4 py-3">
             <h2 className="text-[15px] font-bold text-ink-900">Hồ sơ doanh nghiệp</h2>
           </div>
@@ -125,6 +146,14 @@ export default async function SupplierDetailPage({
             </div>
           )}
         </Card>
+
+        <MediaGallery
+          items={supplierMedia}
+          title="Hình ảnh & giấy tờ NCC"
+          manageHref={`/suppliers/${id}/edit`}
+          emptyHint="Chưa có ảnh nhà máy hay giấy tờ xác minh. Thêm ở trang Sửa."
+        />
+        </div>
 
         <div className="space-y-5 lg:col-span-2">
           <Card>
@@ -156,7 +185,9 @@ export default async function SupplierDetailPage({
                 {products.map((pr) => (
                   <li key={pr.id} className="px-4 py-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
+                      <div className="flex min-w-0 gap-3">
+                       <MediaThumb asset={thumbByProduct.get(pr.id) ?? null} size="h-14 w-14" />
+                       <div className="min-w-0">
                         <Link
                           href={`/products/${pr.id}/edit`}
                           className="text-[13.5px] font-semibold text-ink-900 hover:text-brand-700"
@@ -167,6 +198,19 @@ export default async function SupplierDetailPage({
                           <Badge className="bg-brand-50 text-brand-700">{pr.category || "Khác"}</Badge>
                         </span>
                         <p className="mt-0.5 text-[12px] text-ink-500">{pr.spec || "—"}</p>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {pr.ready_for_buyer ? (
+                            <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
+                          ) : shareableCount(pr.id) === 0 ? (
+                            <Badge className="bg-amber-50 text-amber-700">Chưa có ảnh/catalogue</Badge>
+                          ) : (
+                            <Badge className="bg-ink-100 text-ink-600">Chưa bật sẵn sàng</Badge>
+                          )}
+                          <span className="text-[11px] text-ink-400">
+                            {shareableCount(pr.id)} tệp gửi được buyer
+                          </span>
+                        </div>
+                       </div>
                       </div>
                       <div className="text-right text-[12.5px]">
                         {pr.ref_price !== null ? (

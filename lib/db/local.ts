@@ -7,6 +7,9 @@ import type {
   Buyer,
   BuyerInput,
   EmailMessage,
+  MediaAsset,
+  MediaInput,
+  MediaOwnerType,
   Supplier,
   SupplierInput,
   SupplierProduct,
@@ -19,6 +22,7 @@ interface LocalShape {
   buyers: Buyer[];
   suppliers: Supplier[];
   products: SupplierProduct[];
+  media: MediaAsset[];
   activities: Activity[];
   messages: EmailMessage[];
 }
@@ -91,12 +95,14 @@ function seed(): LocalShape {
       ...rest,
       id: `prod-seed-${i + 1}`,
       supplier_id: suppliers[supplier_ref]?.id ?? "",
+      // Hồ sơ mẫu chưa có ảnh/catalogue nên mặc định chưa sẵn sàng gửi buyer
+      ready_for_buyer: false,
       created_at: nowISO(40 - i),
       updated_at: nowISO(Math.max(0, 10 - i)),
     } satisfies SupplierProduct;
   });
 
-  return { buyers, suppliers, products, activities, messages: [] };
+  return { buyers, suppliers, products, media: [], activities, messages: [] };
 }
 
 function load(): LocalShape {
@@ -105,6 +111,7 @@ function load(): LocalShape {
     if (!Array.isArray(c.messages)) c.messages = [];
     if (!Array.isArray(c.activities)) c.activities = [];
     if (!Array.isArray(c.products)) c.products = [];
+    if (!Array.isArray(c.media)) c.media = [];
     return c;
   }
   try {
@@ -119,6 +126,7 @@ function load(): LocalShape {
         }
         if (!Array.isArray(parsed.activities)) parsed.activities = [];
         if (!Array.isArray(parsed.products)) parsed.products = [];
+        if (!Array.isArray(parsed.media)) parsed.media = [];
         g.__veximLocal = parsed;
         return parsed;
       }
@@ -181,7 +189,11 @@ export const localStore: DataStore = {
     mutate((db) => {
       db.suppliers = db.suppliers.filter((s) => s.id !== id);
       for (const b of db.buyers) if (b.supplier_id === id) b.supplier_id = null;
+      const removedProducts = db.products.filter((pr) => pr.supplier_id === id).map((pr) => pr.id);
       db.products = db.products.filter((pr) => pr.supplier_id !== id);
+      db.media = db.media.filter(
+        (m) => m.supplier_id !== id && !(m.product_id && removedProducts.includes(m.product_id)),
+      );
     });
   },
 
@@ -219,6 +231,7 @@ export const localStore: DataStore = {
   async deleteProduct(id) {
     mutate((db) => {
       db.products = db.products.filter((pr) => pr.id !== id);
+      db.media = db.media.filter((m) => m.product_id !== id);
     });
   },
 
@@ -280,6 +293,55 @@ export const localStore: DataStore = {
       };
       db.activities.push(row);
       return row;
+    });
+  },
+
+  async listMedia(ownerType: MediaOwnerType, ownerId: string) {
+    return load()
+      .media.filter((m) =>
+        ownerType === "product" ? m.product_id === ownerId : m.supplier_id === ownerId,
+      )
+      .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
+  },
+  async listMediaForProducts(productIds) {
+    const set = new Set(productIds);
+    return load().media.filter((m) => m.product_id && set.has(m.product_id));
+  },
+  async listMediaForSuppliers(supplierIds) {
+    const set = new Set(supplierIds);
+    return load().media.filter((m) => m.supplier_id && set.has(m.supplier_id));
+  },
+  async getMedia(id) {
+    return load().media.find((m) => m.id === id) ?? null;
+  },
+  async getMediaByPath(storagePath) {
+    return (
+      load().media.find((m) => m.storage_path === storagePath || m.thumb_path === storagePath) ?? null
+    );
+  },
+  async createMedia(input: MediaInput) {
+    return mutate((db) => {
+      const row: MediaAsset = {
+        ...input,
+        id: randomUUID(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      db.media.push(row);
+      return row;
+    });
+  },
+  async updateMedia(id, patch) {
+    return mutate((db) => {
+      const row = db.media.find((m) => m.id === id);
+      if (!row) throw new Error("Không tìm thấy tệp");
+      Object.assign(row, patch, { updated_at: new Date().toISOString() });
+      return row;
+    });
+  },
+  async deleteMedia(id) {
+    mutate((db) => {
+      db.media = db.media.filter((m) => m.id !== id);
     });
   },
 

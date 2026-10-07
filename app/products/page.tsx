@@ -6,6 +6,7 @@ import { listProductsWithSupplier, type ProductWithSupplier } from "@/lib/querie
 import { roleLabel, statusMeta } from "@/lib/supplier";
 import { Badge, Breadcrumbs, Card, EmptyState, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
+import { MediaThumb } from "@/components/media-gallery";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,12 @@ export default async function ProductsPage({
   const buyer = buyerId ? await store.getBuyer(buyerId) : null;
 
   const all = await listProductsWithSupplier();
+  const productMedia = await store.listMediaForProducts(all.map((r) => r.id));
+  const thumbByProduct = new Map<string, (typeof productMedia)[number]>();
+  for (const m of productMedia) {
+    if (!m.product_id || m.kind !== "image" || m.audience !== "buyer") continue;
+    if (!thumbByProduct.has(m.product_id)) thumbByProduct.set(m.product_id, m);
+  }
   const categories = [...new Set(all.map((r) => r.category).filter(Boolean))] as string[];
 
   let rows = all;
@@ -141,7 +148,9 @@ export default async function ProductsPage({
               return (
                 <li key={r.id} className={`px-4 py-3 ${matched ? "bg-brand-50/40" : ""}`}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-1 gap-3">
+                     <MediaThumb asset={thumbByProduct.get(r.id) ?? null} size="h-14 w-14" />
+                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {matched && (
                           <Badge className="bg-brand-600 text-white">
@@ -150,6 +159,11 @@ export default async function ProductsPage({
                         )}
                         <span className="text-[13.5px] font-semibold text-ink-900">{r.name}</span>
                         <Badge className="bg-brand-50 text-brand-700">{r.category || "Khác"}</Badge>
+                        {r.ready_for_buyer ? (
+                          <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
+                        ) : (
+                          <Badge className="bg-amber-50 text-amber-700">Thiếu ảnh/catalogue</Badge>
+                        )}
                       </div>
                       <p className="mt-0.5 text-[12px] text-ink-500">{r.spec || r.description || "—"}</p>
                       <p className="mt-1 text-[12px] text-ink-600">
@@ -184,6 +198,7 @@ export default async function ProductsPage({
                         {r.oem && <Badge className="bg-violet-50 text-violet-700">OEM</Badge>}
                         {r.samples && <Badge className="bg-sky-50 text-sky-700">gửi mẫu</Badge>}
                       </div>
+                     </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1 text-right">
                       {r.ref_price !== null ? (

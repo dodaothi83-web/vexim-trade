@@ -5,6 +5,8 @@ import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { ProductForm } from "@/components/product-form";
 import { DeleteProductButton } from "@/components/product-actions";
+import { MediaManager, ReadyHint } from "@/components/media-manager";
+import { productReadiness } from "@/lib/media/readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,8 @@ export default async function EditProductPage({
   if (!product) notFound();
   const supplier = await store.getSupplier(product.supplier_id);
   if (!supplier) notFound();
+  const media = await store.listMedia("product", id);
+  const readiness = productReadiness(media);
 
   return (
     <>
@@ -40,8 +44,20 @@ export default async function EditProductPage({
           <DeleteProductButton productId={product.id} name={product.name} supplierId={supplier.id} />
         }
       />
-      <div className="mx-auto max-w-4xl">
-        <ProductForm supplier={supplier} product={product} />
+      <div className="mx-auto max-w-4xl space-y-5">
+        <ProductForm
+          supplier={supplier}
+          product={product}
+          mediaState={{ ready: readiness.ready, shareable: readiness.shareable }}
+        />
+        <ReadyHint ready={readiness.ready} shareable={readiness.shareable} />
+        <MediaManager
+          ownerType="product"
+          ownerId={product.id}
+          supplierId={supplier.id}
+          items={media}
+          note="Ảnh/catalogue chia sẻ buyer · giấy tờ nội bộ chỉ dùng trong nhà"
+        />
       </div>
     </>
   );
