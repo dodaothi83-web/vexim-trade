@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getStore } from "@/lib/db";
-import { getSupabaseClient } from "@/lib/db/supabase";
+import { getSupabaseAuthClient } from "@/lib/db/supabase";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import type { DataStore } from "@/lib/db/types";
 import type { AppUserRecord } from "@/lib/types";
@@ -147,7 +147,7 @@ const WRONG_CREDENTIALS = "Email hoặc mật khẩu không đúng.";
 export async function authenticate(email: string, password: string): Promise<LoginResult> {
   const store = getStore();
   const clean = email.trim();
-  const client = getSupabaseClient();
+  const client = getSupabaseAuthClient();
 
   if (client) {
     try {
@@ -250,7 +250,7 @@ export async function authenticate(email: string, password: string): Promise<Log
  * Trả về null khi không tạo được — app vẫn giữ tài khoản nội bộ để dùng offline.
  */
 export async function createSupabaseUser(email: string, password: string): Promise<string | null> {
-  const client = getSupabaseClient();
+  const client = getSupabaseAuthClient();
   if (!client) return null;
   try {
     const { data, error } = await client.auth.admin.createUser({
@@ -273,7 +273,7 @@ export async function createSupabaseUser(email: string, password: string): Promi
 
 /** Đổi mật khẩu bên Supabase Auth (nếu có tài khoản) */
 export async function updateSupabasePassword(email: string, password: string): Promise<boolean> {
-  const client = getSupabaseClient();
+  const client = getSupabaseAuthClient();
   if (!client) return false;
   try {
     const { error } = await client.auth.admin.updateUserById(
@@ -288,7 +288,7 @@ export async function updateSupabasePassword(email: string, password: string): P
 }
 
 async function findSupabaseUserId(email: string): Promise<string | null> {
-  const client = getSupabaseClient();
+  const client = getSupabaseAuthClient();
   if (!client) return null;
   try {
     const { data, error } = await client.auth.admin.listUsers({ page: 1, perPage: 200 });
@@ -304,7 +304,7 @@ async function findSupabaseUserId(email: string): Promise<string | null> {
 
 /** Supabase Auth có đang dùng được không (để ghi chú trong giao diện) */
 export async function supabaseAuthReachable(): Promise<boolean> {
-  const client = getSupabaseClient();
+  const client = getSupabaseAuthClient();
   if (!client) return false;
   try {
     const { error } = await client.auth.admin.listUsers({ page: 1, perPage: 1 });

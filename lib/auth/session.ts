@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { getAuthSecret } from "@/lib/auth/secret";
 import { hasPermission, type Permission } from "@/lib/auth/permissions";
 import { getStore } from "@/lib/db";
+import { describeAppUsersError, isMissingUsersTable } from "@/lib/auth/authenticate";
 import type { UserRole } from "@/lib/types";
 
 /**
@@ -65,23 +66,57 @@ export function verifySessionToken(token: string | undefined | null): SessionUse
 }
 
 /**
- * Đọc phiên hiện tại (null nếu chưa đăng nhập).
+ * Vì sao cookie hợp lệ nhưng không dựng lại được phiên.
+ * Dùng để đưa người dùng tới /login kèm lời giải thích thay vì vòng lặp khó hiểu.
+ */
+export type SessionMiss = "not_found" | "locked" | "unreadable";
+
+export interface SessionLookup {
+  session: SessionUser | null;
+  /** Chỉ khác null khi cookie hợp lệ nhưng không dựng lại được phiên */
+  miss: SessionMiss | null;
+}
+
+/**
+ * Đọc phiên hiện tại.
  * Token được đối chiếu với bản ghi người dùng trong CSDL để việc khoá tài khoản
  * hoặc đổi vai trò có hiệu lực ngay, không phải chờ cookie hết hạn.
+ *
+ * Lưu ý: nếu máy chủ dùng khoá Supabase bị RLS chặn (ví dụ khoá anon trên bảng
+ * app_users bật RLS), truy vấn trả về RỖNG chứ không báo lỗi — trước đây app coi
+ * đó là "hết phiên" nên đá người dùng về /login ở mọi cú nhấp. Giờ phân biệt rõ
+ * để báo đúng nguyên nhân, và tự gắn lại phiên theo email khi id bản ghi đã đổi.
  */
-export async function getSession(): Promise<SessionUser | null> {
+export async function lookupSession(): Promise<SessionLookup> {
   const store = await cookies();
   const payload = verifySessionToken(store.get(SESSION_COOKIE)?.value);
-  if (!payload) return null;
+  if (!payload) return { session: null, miss: null };
 
+  const db = getStore();
   try {
-    const user = await getStore().getUser(payload.uid);
-    if (!user || !user.is_active) return null;
-    return { ...payload, email: user.email, name: user.name ?? "", role: user.role };
-  } catch {
-    // Không đọc được CSDL (mất mạng tạm thời): vẫn tin token đã ký để app không sập.
-    return payload;
+    let user = await db.getUser(payload.uid);
+    // Bản ghi có thể đã đổi id (ví dụ gắn lại với UID của Supabase Auth) → tìm theo email
+    if (!user && payload.email) user = await db.getUserByEmail(payload.email);
+    if (!user) return { session: null, miss: "not_found" };
+    if (!user.is_active) return { session: null, miss: "locked" };
+    return {
+      session: { ...payload, uid: user.id, email: user.email, name: user.name ?? "", role: user.role },
+      miss: null,
+    };
+  } catch (err) {
+    const text = err instanceof Error ? err.message : String(err);
+    // Lỗi quyền/RLS trên bảng app_users: không thể xác minh phiên → báo rõ
+    if (describeAppUsersError(text) || isMissingUsersTable(err)) {
+      return { session: null, miss: "unreadable" };
+    }
+    // Lỗi khác (mất mạng tạm thời): vẫn tin token đã ký để app không sập.
+    return { session: payload, miss: null };
   }
+}
+
+/** Đọc phiên hiện tại (null nếu chưa đăng nhập) */
+export async function getSession(): Promise<SessionUser | null> {
+  return (await lookupSession()).session;
 }
 
 /** Ghi cookie phiên — chỉ gọi được trong server action / route handler */
@@ -121,10 +156,10 @@ export async function guard(perm: Permission): Promise<GateFailure | null> {
   return null;
 }
 
-/** Yêu cầu đăng nhập ở tầng trang; chưa có thì đưa về /login */
+/** Yêu cầu đăng nhập ở tầng trang; chưa có thì đưa về /login kèm lý do cụ thể */
 export async function requireSession(): Promise<SessionUser> {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const { session, miss } = await lookupSession();
+  if (!session) redirect(miss ? `/login?reason=${miss}` : "/login");
   return session;
 }
 
@@ -136,8 +171,8 @@ export async function requirePagePermission(
   perm: Permission,
   fallback = "/",
 ): Promise<SessionUser> {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const { session, miss } = await lookupSession();
+  if (!session) redirect(miss ? `/login?reason=${miss}` : "/login");
   if (!hasPermission(session.role, perm)) redirect(fallback);
   return session;
 }

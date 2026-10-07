@@ -157,6 +157,33 @@ rồi khởi động lại app. Trang **Cài đặt** cũng cảnh báo khi phá
 Đừng tắt RLS của `app_users` để dùng khoá `anon`: bảng này giữ mật khẩu đã băm, tắt RLS là lộ ra
 cho bất kỳ ai có khoá `anon`.
 
+### Đăng nhập xong bị đẩy về trang đăng nhập?
+
+Triệu chứng: đăng nhập thành công nhưng vừa bấm vào chức năng nào cũng bị đưa về `/login`.
+
+Nguyên nhân thường gặp nhất: máy chủ đang kết nối Supabase bằng **khoá `anon`** trong khi bảng
+`app_users` **bật Row Level Security**. Khi bị RLS ẩn, truy vấn trả về *rỗng* chứ không báo lỗi —
+và màn hình đăng nhập của Supabase (`/auth/v1/token`) **không** bị RLS chi phối, nên bạn vẫn đăng
+nhập được, nhưng ngay sau đó app không đọc được hồ sơ người dùng và coi như hết phiên.
+
+Một điểm dễ nhầm: chính sách kiểu *"người dùng đã đăng nhập chỉ xem hồ sơ của mình"* (`to
+authenticated`, `id = auth.uid()`) **không áp dụng cho máy chủ app** — máy chủ luôn truy vấn bằng
+khoá của app, không mang JWT của người dùng. RLS là cơ chế cho truy cập trực tiếp từ trình duyệt;
+app này chạy phía máy chủ nên dùng khoá `service_role` để bỏ qua RLS.
+
+Cách sửa: đặt `SUPABASE_SERVICE_ROLE_KEY` (khoá service_role) trong `.env.local` rồi khởi động lại
+app. Kiểm tra bằng `npm run check:supabase` — dòng đầu phải ghi `service_role`.
+
+App cũng đã tự bảo vệ và chỉ đúng chỗ:
+
+- phần xác thực dùng **client riêng**, không bao giờ để JWT của người dùng lẫn vào client truy vấn
+  dữ liệu (trước đây điều này làm app "lúc được lúc không" tuỳ worker xử lý request);
+- nếu bản ghi trong `app_users` đổi `id` (ví dụ gắn lại với UID của Supabase Auth), phiên cũ được
+  **tự gắn lại theo email** thay vì đăng xuất;
+- khi bị đẩy về `/login`, trang đăng nhập nêu rõ lý do (`?reason=not_found` / `locked` /
+  `unreadable`) và **cảnh báo đỏ nếu khoá đang dùng là `anon`**;
+- đừng tắt RLS của `app_users` để dùng tiếp khoá anon: bảng này giữ mật khẩu đã băm.
+
 ### Quản lý người dùng
 
 Vào **Cài đặt → Người dùng & phân quyền** (chỉ `admin`):

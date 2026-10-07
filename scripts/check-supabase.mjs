@@ -77,7 +77,10 @@ if (!url || !key) {
 
 if (!serviceKey && anonKey) {
   console.log(
-    `${warnMark} Đang dùng khoá anon: bảng bật Row Level Security (app_users) sẽ không đọc/ghi được.`,
+    `${warnMark} Đang dùng khoá anon: bảng bật Row Level Security (app_users) sẽ không đọc/ghi được`,
+  );
+  console.log(
+    `${warnMark} → triệu chứng: đăng nhập xong bấm gì cũng bị đẩy về /login.`,
   );
   console.log(dim("  → Thêm SUPABASE_SERVICE_ROLE_KEY vào .env.local (chỉ dùng ở máy chủ)."));
   console.log("");

@@ -24,6 +24,7 @@ function cleanPatch<T extends Record<string, unknown>>(patch: T): Partial<T> {
 }
 
 let client: SupabaseClient | null = null;
+let authClient: SupabaseClient | null = null;
 
 export function supabaseUrl(): string | null {
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -38,6 +39,17 @@ export function supabaseProjectRef(): string | null {
   return m ? m[1] : null;
 }
 
+/**
+ * Client dùng cho TRUY VẤN DỮ LIỆU (PostgREST).
+ *
+ * TUYỆT ĐỐI không gọi `auth.signIn*` trên client này: supabase-js gắn token của
+ * phiên đăng nhập vào mọi request REST qua `fetchWithAuth` (xem
+ * node_modules/@supabase/supabase-js: `this.fetch = fetchWithAuth(key, url,
+ * this._getSessionToken.bind(this))`). Nếu có phiên, mọi truy vấn sẽ chạy dưới
+ * danh nghĩa người dùng vừa đăng nhập — lúc đó mới thấy dữ liệu, còn ở worker
+ * khác (không có phiên) lại quay về khoá gốc → RLS ẩn dữ liệu → bị đá về /login.
+ * Phần xác thực dùng getSupabaseAuthClient().
+ */
 export function getSupabaseClient(): SupabaseClient | null {
   if (client) return client;
   const url = supabaseUrl();
@@ -45,9 +57,41 @@ export function getSupabaseClient(): SupabaseClient | null {
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
   if (!url || !key) return null;
   client = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
   return client;
+}
+
+/** Client riêng chỉ để xác thực (signIn, admin.createUser, admin.updateUserById…). */
+export function getSupabaseAuthClient(): SupabaseClient | null {
+  if (authClient) return authClient;
+  const url = supabaseUrl();
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  authClient = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  return authClient;
+}
+
+/**
+ * Vai trò ghi trong khoá Supabase đang cấu hình (`anon` hay `service_role`).
+ * Khoá anon KHÔNG bỏ qua RLS → app sẽ không đọc/ghi được bảng bật RLS như app_users.
+ */
+export function supabaseKeyRole(): "service_role" | "anon" | "unknown" | null {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl() || !key) return null;
+  try {
+    const payload = JSON.parse(
+      Buffer.from(key.split(".")[1] ?? "", "base64url").toString("utf8"),
+    ) as { role?: string };
+    if (payload.role === "service_role") return "service_role";
+    if (payload.role === "anon") return "anon";
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
 }
 
 export function supabaseConfigured(): boolean {

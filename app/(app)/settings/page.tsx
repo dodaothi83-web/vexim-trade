@@ -4,6 +4,7 @@ import { Check, Copy, Database, Mail, ShieldCheck, TriangleAlert, Users, X } fro
 import { COMPANY } from "@/lib/config";
 import { dataStatus } from "@/lib/db";
 import { checkSchema } from "@/lib/db/schema-check";
+import { supabaseKeyRole } from "@/lib/db/supabase";
 import { hasPermission } from "@/lib/auth/permissions";
 import { requireSession } from "@/lib/auth/session";
 import { roleMeta } from "@/lib/auth/permissions";
@@ -28,6 +29,7 @@ export default async function SettingsPage() {
   if (!hasPermission(session.role, "settings.view")) redirect("/");
 
   const db = dataStatus();
+  const keyRole = supabaseKeyRole();
   const hasResend = Boolean(process.env.RESEND_API_KEY);
   // Chỉ kiểm tra schema khi thực sự kết nối được Supabase (tránh chờ vô ích)
   const schema = db.mode === "supabase" ? await checkSchema() : null;
@@ -41,9 +43,12 @@ export default async function SettingsPage() {
     {
       key: "SUPABASE_SERVICE_ROLE_KEY",
       value: process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY,
-      label: process.env.SUPABASE_SERVICE_ROLE_KEY
-        ? "Khoá Supabase (service_role — bỏ qua RLS)"
-        : "Khoá Supabase (anon — KHÔNG đọc/ghi được bảng bật RLS)",
+      label:
+        keyRole === "service_role"
+          ? "Khoá Supabase (service_role — bỏ qua RLS)"
+          : keyRole === "anon"
+            ? "Khoá Supabase (anon — KHÔNG đọc/ghi được bảng bật RLS)"
+            : "Khoá Supabase",
       secret: true,
     },
     { key: "RESEND_API_KEY", value: process.env.RESEND_API_KEY, label: "Khoá API Resend", secret: true },
@@ -110,7 +115,7 @@ export default async function SettingsPage() {
                 </p>
               </div>
             )}
-            {!process.env.SUPABASE_SERVICE_ROLE_KEY && (
+            {keyRole === "anon" && (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-[12.5px] text-red-900">
                 <p className="font-semibold">Đang dùng khoá anon cho toàn bộ truy cập dữ liệu.</p>
                 <p className="mt-1">
