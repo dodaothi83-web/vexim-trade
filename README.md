@@ -137,6 +137,26 @@ insert into app_users (email, name, role, auth_provider)
 values ('nhanvien@veximtrade.com', 'Nguyễn Văn A', 'sale', 'supabase');
 ```
 
+### Khoá Supabase: nên dùng `service_role`
+
+Máy chủ app nên kết nối Supabase bằng **`SUPABASE_SERVICE_ROLE_KEY`** (khoá này chỉ nằm ở máy chủ,
+không lộ ra trình duyệt). Khoá `anon` **không đọc/ghi được** các bảng bật Row Level Security — ví dụ
+`app_users` — nên sẽ gặp lỗi kiểu:
+
+```
+new row violates row-level security policy for table "app_users"
+```
+
+Khi đó app đã dịch lại thành hướng dẫn cụ thể, nhưng cách sửa là thêm vào `.env.local`:
+
+```env
+SUPABASE_SERVICE_ROLE_KEY=eyJ...   # service_role, KHÔNG phải anon
+```
+
+rồi khởi động lại app. Trang **Cài đặt** cũng cảnh báo khi phát hiện chỉ có khoá `anon`.
+Đừng tắt RLS của `app_users` để dùng khoá `anon`: bảng này giữ mật khẩu đã băm, tắt RLS là lộ ra
+cho bất kỳ ai có khoá `anon`.
+
 ### Quản lý người dùng
 
 Vào **Cài đặt → Người dùng & phân quyền** (chỉ `admin`):

@@ -75,6 +75,14 @@ if (!url || !key) {
   process.exit(2);
 }
 
+if (!serviceKey && anonKey) {
+  console.log(
+    `${warnMark} Đang dùng khoá anon: bảng bật Row Level Security (app_users) sẽ không đọc/ghi được.`,
+  );
+  console.log(dim("  → Thêm SUPABASE_SERVICE_ROLE_KEY vào .env.local (chỉ dùng ở máy chủ)."));
+  console.log("");
+}
+
 const projectRefInUrl = /^https?:\/\/([a-z0-9-]+)\.supabase\.(co|in)$/i.exec(url);
 const jwtRef = (() => {
   try {

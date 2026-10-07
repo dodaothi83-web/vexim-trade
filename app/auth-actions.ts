@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getStore } from "@/lib/db";
-import { authenticate, createSupabaseUser } from "@/lib/auth/authenticate";
+import {
+  authenticate,
+  createSupabaseUser,
+  describeAppUsersError,
+  isMissingUsersTable,
+} from "@/lib/auth/authenticate";
 import { endSession, getSession, guard, startSession } from "@/lib/auth/session";
 import { hashPassword, passwordProblem } from "@/lib/auth/password";
 import { ROLES } from "@/lib/auth/permissions";
@@ -116,7 +121,10 @@ export async function setupAdminAction(
     revalidatePath("/", "layout");
     return { ok: true, message: "Đã tạo tài khoản quản trị và đăng nhập.", details };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+    const raw = err instanceof Error ? err.message : "Lỗi không xác định";
+    const hint = describeAppUsersError(raw);
+    if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
+    return { ok: false, message: raw };
   }
 }
 
@@ -166,7 +174,12 @@ export async function createUserAction(input: {
     revalidatePath("/", "layout");
     return { ok: true, message: `Đã tạo tài khoản ${clean}.`, details };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+    const raw = err instanceof Error ? err.message : "Lỗi không xác định";
+    const hint = isMissingUsersTable(err)
+      ? "Chưa có bảng app_users trong Supabase — chạy lại supabase/schema.sql rồi thử lại."
+      : describeAppUsersError(raw);
+    if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
+    return { ok: false, message: raw };
   }
 }
 
@@ -212,7 +225,10 @@ export async function updateUserAction(
     revalidatePath("/", "layout");
     return { ok: true, message: "Đã cập nhật tài khoản." };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+    const raw = err instanceof Error ? err.message : "Lỗi không xác định";
+    const hint = describeAppUsersError(raw);
+    if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
+    return { ok: false, message: raw };
   }
 }
 
@@ -243,7 +259,10 @@ export async function resetUserPasswordAction(
         : "Đã đổi mật khẩu nội bộ. (Chưa đổi được bên Supabase — không kết nối được.)",
     };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+    const raw = err instanceof Error ? err.message : "Lỗi không xác định";
+    const hint = describeAppUsersError(raw);
+    if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
+    return { ok: false, message: raw };
   }
 }
 
@@ -276,7 +295,10 @@ export async function deleteUserAction(id: string): Promise<AuthResult> {
     revalidatePath("/", "layout");
     return { ok: true, message: `Đã xoá tài khoản ${target.email}.` };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+    const raw = err instanceof Error ? err.message : "Lỗi không xác định";
+    const hint = describeAppUsersError(raw);
+    if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
+    return { ok: false, message: raw };
   }
 }
 

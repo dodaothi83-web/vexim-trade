@@ -22,8 +22,41 @@ const MISSING_TABLE_HINT =
   "Chưa có bảng app_users trong Supabase. Mở Supabase → SQL Editor, chạy lại toàn bộ " +
   "supabase/schema.sql (mục 5c tạo bảng app_users) rồi đăng nhập lại.";
 
+/**
+ * Dịch lỗi thô của Supabase khi ghi/đọc bảng app_users thành hướng dẫn cụ thể.
+ * Trả về null khi lỗi không thuộc nhóm đã biết.
+ */
+export function describeAppUsersError(rawError: string): string | null {
+  const text = rawError.toLowerCase();
+
+  if (text.includes("row-level security")) {
+    return (
+      "Bảng app_users của bạn đang bật Row Level Security. Máy chủ app phải kết nối bằng " +
+      "khoá service_role (khoá này bỏ qua RLS) — thêm dòng SUPABASE_SERVICE_ROLE_KEY=... vào " +
+      ".env.local rồi khởi động lại app. Không nên tắt RLS vì bảng này chứa mật khẩu đã băm."
+    );
+  }
+
+  if (text.includes("duplicate key") || text.includes("23505")) {
+    return (
+      "Email này đã có dòng trong bảng app_users, nhưng máy chủ không đọc được dòng đó — " +
+      "thường là do đang dùng khoá anon nên RLS ẩn dữ liệu. Hãy dùng SUPABASE_SERVICE_ROLE_KEY " +
+      "trong .env.local rồi khởi động lại app."
+    );
+  }
+
+  if (text.includes("permission denied")) {
+    return (
+      "Bị từ chối quyền trên bảng app_users. Dùng khoá service_role trong .env.local, hoặc cấp " +
+      "quyền cho bảng này trong Supabase."
+    );
+  }
+
+  return null;
+}
+
 /** Lỗi do chưa chạy schema.sql (bảng/cột app_users chưa tồn tại) */
-function isMissingUsersTable(error: unknown): boolean {
+export function isMissingUsersTable(error: unknown): boolean {
   const text = (
     error instanceof Error ? error.message : String(error)
   ).toLowerCase();
@@ -73,10 +106,16 @@ export async function provisionFirstAdmin(
         "Vào Cài đặt → Người dùng & phân quyền để thêm tài khoản cho nhân viên.",
     };
   } catch (err) {
+    const raw = err instanceof Error ? err.message : String(err);
+    if (isMissingUsersTable(err)) {
+      return { ok: false, message: MISSING_TABLE_HINT, details: ["Lỗi gốc: " + raw] };
+    }
+    const hint = describeAppUsersError(raw);
+    if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
     return {
       ok: false,
       message: "Đăng nhập Supabase thành công nhưng chưa tạo được tài khoản quản trị trong app.",
-      details: [err instanceof Error ? err.message : String(err)],
+      details: [raw],
     };
   }
 }
@@ -122,13 +161,12 @@ export async function authenticate(email: string, password: string): Promise<Log
         try {
           record = await store.getUserByEmail(clean);
         } catch (err) {
+          const raw = err instanceof Error ? err.message : String(err);
           if (isMissingUsersTable(err)) {
-            return {
-              ok: false,
-              message: MISSING_TABLE_HINT,
-              details: ["Lỗi gốc: " + (err instanceof Error ? err.message : String(err))],
-            };
+            return { ok: false, message: MISSING_TABLE_HINT, details: ["Lỗi gốc: " + raw] };
           }
+          const hint = describeAppUsersError(raw);
+          if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
           throw err;
         }
 
@@ -138,9 +176,10 @@ export async function authenticate(email: string, password: string): Promise<Log
           try {
             total = await store.countUsers();
           } catch (err) {
-            if (isMissingUsersTable(err)) {
-              return { ok: false, message: MISSING_TABLE_HINT };
-            }
+            const raw = err instanceof Error ? err.message : String(err);
+            if (isMissingUsersTable(err)) return { ok: false, message: MISSING_TABLE_HINT };
+            const hint = describeAppUsersError(raw);
+            if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
             throw err;
           }
           if (total === 0) return provisionFirstAdmin(store, clean, password, data.user.user_metadata);
@@ -178,7 +217,10 @@ export async function authenticate(email: string, password: string): Promise<Log
   try {
     record = await store.getUserByEmail(clean);
   } catch (err) {
+    const raw = err instanceof Error ? err.message : String(err);
     if (isMissingUsersTable(err)) return { ok: false, message: MISSING_TABLE_HINT };
+    const hint = describeAppUsersError(raw);
+    if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
     throw err;
   }
   if (!record) return { ok: false, message: WRONG_CREDENTIALS };

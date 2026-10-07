@@ -41,7 +41,9 @@ export default async function SettingsPage() {
     {
       key: "SUPABASE_SERVICE_ROLE_KEY",
       value: process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY,
-      label: "Khoá Supabase (service role hoặc anon)",
+      label: process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? "Khoá Supabase (service_role — bỏ qua RLS)"
+        : "Khoá Supabase (anon — KHÔNG đọc/ghi được bảng bật RLS)",
       secret: true,
     },
     { key: "RESEND_API_KEY", value: process.env.RESEND_API_KEY, label: "Khoá API Resend", secret: true },
@@ -105,6 +107,17 @@ export default async function SettingsPage() {
                   và sẽ tự thử lại Supabase sau mỗi lần khởi động lại app (hoặc sau 60 giây).
                   Mở app ở máy có Internet tới Supabase để dùng dữ liệu thật. Kiểm tra nhanh bằng{" "}
                   <code className="rounded bg-white px-1">npm run check:supabase</code>.
+                </p>
+              </div>
+            )}
+            {!process.env.SUPABASE_SERVICE_ROLE_KEY && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-[12.5px] text-red-900">
+                <p className="font-semibold">Đang dùng khoá anon cho toàn bộ truy cập dữ liệu.</p>
+                <p className="mt-1">
+                  Các bảng <strong>bật Row Level Security</strong> (ví dụ <code>app_users</code>) sẽ
+                  không đọc/ghi được từ máy chủ, gây lỗi khi đăng nhập hoặc tạo tài khoản. Hãy thêm{" "}
+                  <code>SUPABASE_SERVICE_ROLE_KEY=…</code> vào <code>.env.local</code> rồi khởi động
+                  lại app. Khoá service_role chỉ nằm ở máy chủ, không lộ ra trình duyệt.
                 </p>
               </div>
             )}
