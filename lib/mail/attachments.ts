@@ -226,14 +226,7 @@ function supabaseUsable(): boolean {
   return supabaseConfigured() && !markedDown();
 }
 
-export function attachmentStorageStatus(): { driver: AttachmentDriver; bucket: string; reason: string | null } {
-  const down = markedDown();
-  return {
-    driver: supabaseUsable() ? "supabase" : "local",
-    bucket: ATTACHMENT_BUCKET,
-    reason: down,
-  };
-}
+
 
 /** Tạo bucket private nếu chưa có (chỉ chạy được ở phía máy chủ với khoá service_role) */
 export async function ensureAttachmentBucket(): Promise<void> {
@@ -419,12 +412,4 @@ export function toRef(row: EmailAttachment): AttachmentRef {
   };
 }
 
-export function totalBytes(refs: { size: number }[] | undefined): number {
-  return (refs ?? []).reduce((sum, r) => sum + (Number(r.size) || 0), 0);
-}
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
-  return `${(bytes / 1024 / 1024).toFixed(2)}MB`;
-}
