@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { saveDraftAction, sendMailAction } from "@/app/actions";
-import type { Attachment, Buyer, Supplier } from "@/lib/types";
+import type { AttachmentRef, Buyer, Supplier } from "@/lib/types";
 import {
   findContextByEmail,
   type ComposeContext,
@@ -44,11 +44,25 @@ export interface ComposeInitial {
   bcc?: string[];
   subject?: string;
   bodyHtml?: string;
-  attachments?: Attachment[];
+  attachments?: AttachmentRef[];
   draftId?: string | null;
 }
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_BYTES = 4 * 1024 * 1024;
+const MAX_FILES = 10;
+/** Định dạng máy chủ chấp nhận (xem lib/mail/attachments.ts) */
+const ACCEPT = [
+  ".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic",
+  ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp", ".rtf",
+  ".csv", ".txt", ".zip", ".rar", ".7z", ".dwg", ".dxf",
+].join(",");
+
+function formatSize(bytes: number) {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)}MB`;
+}
 
 export function ComposeMail({
   initial,
@@ -84,7 +98,8 @@ export function ComposeMail({
   const [showBcc, setShowBcc] = useState(Boolean(initial.bcc?.length));
   const [subject, setSubject] = useState(initial.subject ?? "");
   const [body, setBody] = useState(initial.bodyHtml ?? "");
-  const [attachments, setAttachments] = useState<Attachment[]>(initial.attachments ?? []);
+  const [attachments, setAttachments] = useState<AttachmentRef[]>(initial.attachments ?? []);
+  const [uploading, setUploading] = useState(0);
   const [busy, setBusy] = useState(false);
   const [toInput, setToInput] = useState("");
 
@@ -145,22 +160,68 @@ export function ComposeMail({
     }
   }
 
+  /**
+   * Tệp được tải lên kho riêng NGAY khi chọn (từng tệp một, không nhồi vào form gửi).
+   * Nội dung tệp không bao giờ đi qua server action và không bao giờ vào cơ sở dữ liệu;
+   * trình duyệt cũng không hề thấy khoá service_role (việc lưu do route phía máy chủ làm).
+   */
   async function onFiles(files: FileList | null) {
     if (!files?.length) return;
-    const next: Attachment[] = [];
+    let total = attachments.reduce((s, a) => s + a.size, 0);
+    let count = attachments.length;
+
     for (const file of Array.from(files)) {
-      if (totalSize + next.reduce((s, a) => s + a.size, 0) + file.size > MAX_BYTES) {
+      if (count >= MAX_FILES) {
+        toast.push({ kind: "error", title: `Chỉ đính kèm được tối đa ${MAX_FILES} tệp mỗi email.` });
+        break;
+      }
+      if (file.size > MAX_FILE_BYTES) {
+        toast.push({
+          kind: "error",
+          title: `Bỏ qua "${file.name}" — mỗi tệp tối đa ${MAX_FILE_BYTES / 1024 / 1024}MB.`,
+        });
+        continue;
+      }
+      if (total + file.size > MAX_BYTES) {
         toast.push({ kind: "error", title: `Bỏ qua "${file.name}" — vượt quá 10MB tổng dung lượng.` });
         continue;
       }
-      const content = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
-        reader.readAsDataURL(file);
-      });
-      next.push({ name: file.name, size: file.size, type: file.type, content });
+
+      setUploading((n) => n + 1);
+      try {
+        const form = new FormData();
+        form.append("files", file);
+        const res = await fetch("/api/mail/attachments", { method: "POST", body: form });
+        const data = (await res.json().catch(() => null)) as
+          | { ok?: boolean; files?: AttachmentRef[]; message?: string }
+          | null;
+        const uploaded = data?.files?.[0];
+        if (!res.ok || !uploaded) {
+          toast.push({
+            kind: "error",
+            title: data?.message || `Không tải lên được "${file.name}".`,
+          });
+        } else {
+          setAttachments((prev) => [...prev, uploaded]);
+          total += uploaded.size;
+          count += 1;
+        }
+      } catch {
+        toast.push({ kind: "error", title: `Không tải lên được "${file.name}" — lỗi kết nối.` });
+      } finally {
+        setUploading((n) => n - 1);
+      }
     }
-    setAttachments((prev) => [...prev, ...next]);
+  }
+
+  /** Gỡ một tệp khỏi email: xoá luôn tệp trong kho để không còn rác */
+  async function removeAttachment(ref: AttachmentRef) {
+    setAttachments((prev) => prev.filter((a) => a.id !== ref.id));
+    try {
+      await fetch(`/api/mail/attachments/${ref.id}`, { method: "DELETE" });
+    } catch {
+      /* đã bỏ khỏi email; tệp mồ côi sẽ được dọn tự động */
+    }
   }
 
   function payload() {
@@ -173,11 +234,21 @@ export function ComposeMail({
       bcc,
       subject,
       bodyHtml: body,
-      attachments,
+      // chỉ metadata — nội dung tệp đã nằm trong kho riêng, không đi qua server action
+      attachments: attachments.map((a) => ({
+        id: a.id,
+        name: a.name,
+        size: a.size,
+        type: a.type,
+      })),
     };
   }
 
   async function send() {
+    if (uploading > 0) {
+      toast.push({ kind: "error", title: "Đang tải tệp lên, vui lòng chờ một chút." });
+      return;
+    }
     setBusy(true);
     const res = await sendMailAction(payload());
     toast.push({ kind: res.ok ? "success" : "error", title: res.message });
@@ -284,17 +355,17 @@ export function ComposeMail({
         {/* Đính kèm */}
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 border-t border-ink-200 px-3 py-2.5">
-            {attachments.map((a, i) => (
+            {attachments.map((a) => (
               <span
-                key={i}
+                key={a.id}
                 className="flex items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1.5 text-[12px]"
               >
                 <FileText className="h-3.5 w-3.5 text-ink-500" />
                 <span className="max-w-[180px] truncate font-medium text-ink-800">{a.name}</span>
-                <span className="text-ink-400">{(a.size / 1024).toFixed(0)}KB</span>
+                <span className="text-ink-400">{formatSize(a.size)}</span>
                 <button
                   type="button"
-                  onClick={() => setAttachments(attachments.filter((_, j) => j !== i))}
+                  onClick={() => void removeAttachment(a)}
                   className="text-ink-400 transition hover:text-red-600"
                   aria-label={`Gỡ ${a.name}`}
                 >
@@ -307,11 +378,11 @@ export function ComposeMail({
 
         {/* Thanh hành động */}
         <div className="flex flex-wrap items-center gap-2 border-t border-ink-200 bg-ink-50 px-3 py-2.5">
-          <Button variant="primary" disabled={busy} onClick={() => void send()}>
+          <Button variant="primary" disabled={busy || uploading > 0} onClick={() => void send()}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Gửi
           </Button>
-          <Button variant="ghost" disabled={busy} onClick={() => void saveAsDraft()}>
+          <Button variant="ghost" disabled={busy || uploading > 0} onClick={() => void saveAsDraft()}>
             Lưu nháp
           </Button>
           <button
@@ -335,6 +406,7 @@ export function ComposeMail({
             ref={fileRef}
             type="file"
             multiple
+            accept={ACCEPT}
             className="hidden"
             onChange={(e) => {
               void onFiles(e.target.files);
@@ -346,8 +418,9 @@ export function ComposeMail({
               <Users className="h-3.5 w-3.5" />
               {to.length + cc.length + bcc.length} người nhận
             </span>
-            {attachments.length > 0 && (
+            {(uploading > 0 || attachments.length > 0) && (
               <span className={cx(totalSize > MAX_BYTES && "font-semibold text-red-600")}>
+                {uploading > 0 ? "Đang tải tệp lên… " : ""}
                 {(totalSize / 1024 / 1024).toFixed(2)}MB / 10MB
               </span>
             )}

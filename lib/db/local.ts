@@ -9,6 +9,7 @@ import type {
   AppUserRecord,
   Buyer,
   BuyerInput,
+  EmailAttachment,
   EmailMessage,
   MediaAsset,
   MediaInput,
@@ -29,6 +30,7 @@ interface LocalShape {
   media: MediaAsset[];
   activities: Activity[];
   messages: EmailMessage[];
+  attachments: EmailAttachment[];
 }
 
 const FILE = path.join(process.cwd(), "data", "local-db.json");
@@ -106,7 +108,7 @@ function seed(): LocalShape {
     } satisfies SupplierProduct;
   });
 
-  return { users: [], buyers, suppliers, products, media: [], activities, messages: [] };
+  return { users: [], buyers, suppliers, products, media: [], activities, messages: [], attachments: [] };
 }
 
 function load(): LocalShape {
@@ -117,6 +119,7 @@ function load(): LocalShape {
     if (!Array.isArray(c.products)) c.products = [];
     if (!Array.isArray(c.media)) c.media = [];
     if (!Array.isArray(c.users)) c.users = [];
+    if (!Array.isArray(c.attachments)) c.attachments = [];
     return c;
   }
   try {
@@ -133,6 +136,7 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.products)) parsed.products = [];
         if (!Array.isArray(parsed.media)) parsed.media = [];
         if (!Array.isArray(parsed.users)) parsed.users = [];
+        if (!Array.isArray(parsed.attachments)) parsed.attachments = [];
         g.__veximLocal = parsed;
         return parsed;
       }
@@ -370,6 +374,51 @@ export const localStore: DataStore = {
     mutate((db) => {
       const row = db.users.find((u) => u.id === id);
       if (row) row.last_login_at = new Date().toISOString();
+    });
+  },
+
+  /* ------------------------- tệp đính kèm email ------------------------- */
+  async createAttachment(input) {
+    return mutate((db) => {
+      const row: EmailAttachment = {
+        ...input,
+        id: randomUUID(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      db.attachments.push(row);
+      return row;
+    });
+  },
+  async getAttachment(id) {
+    return load().attachments.find((a) => a.id === id) ?? null;
+  },
+  async listAttachments(ids) {
+    if (ids.length === 0) return [];
+    const want = new Set(ids);
+    return load().attachments.filter((a) => want.has(a.id));
+  },
+  async listAttachmentsForMessage(messageId) {
+    return load()
+      .attachments.filter((a) => a.message_id === messageId && a.status !== "deleted")
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  },
+  async listOrphanAttachments(olderThanISO) {
+    return load().attachments.filter(
+      (a) => !a.message_id && a.created_at < olderThanISO && a.status !== "deleted",
+    );
+  },
+  async updateAttachment(id, patch) {
+    return mutate((db) => {
+      const row = db.attachments.find((a) => a.id === id);
+      if (!row) throw new Error("Không tìm thấy tệp đính kèm");
+      Object.assign(row, cleanPatch(patch), { updated_at: new Date().toISOString() });
+      return row;
+    });
+  },
+  async deleteAttachment(id) {
+    mutate((db) => {
+      db.attachments = db.attachments.filter((a) => a.id !== id);
     });
   },
 

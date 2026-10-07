@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
-import { guard } from "@/lib/auth/session";
+import { getSession, guard } from "@/lib/auth/session";
+import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
 import { deleteObject } from "@/lib/media/storage";
 import { productReadiness } from "@/lib/media/readiness";
 import {
@@ -14,7 +15,13 @@ import {
   transport,
 } from "@/lib/email/send";
 import { getStage, isStage } from "@/lib/pipeline";
-import type { Buyer, BuyerInput, SupplierInput, SupplierProductInput } from "@/lib/types";
+import type {
+  Buyer,
+  BuyerInput,
+  EmailAttachment,
+  SupplierInput,
+  SupplierProductInput,
+} from "@/lib/types";
 
 export interface ActionResult {
   ok: boolean;
@@ -520,9 +527,77 @@ export interface MailDraftInput {
   bcc?: string[];
   subject: string;
   bodyHtml: string;
-  attachments?: { name: string; size: number; type: string; content: string }[];
+  /** chỉ metadata: tệp thật đã nằm trong Supabase Storage, không gửi base64 qua đây */
+  attachments?: { id: string; name?: string; size?: number; type?: string }[];
   author?: string | null;
-}
+  }
+
+  /** Đọc các dòng metadata tệp đính kèm và kiểm tra quyền sử dụng. */
+  async function resolveAttachments(
+    refs: MailDraftInput["attachments"],
+    email: string,
+    role: string,
+  ): Promise<{ rows: EmailAttachment[] } | { error: string }> {
+    const ids = Array.from(
+      new Set((refs ?? []).map((r) => String(r?.id ?? "").trim()).filter(Boolean)),
+    );
+    if (!ids.length) return { rows: [] };
+    if (ids.length > MAX_FILES_PER_MAIL) {
+      return { error: `Chỉ được đính kèm tối đa ${MAX_FILES_PER_MAIL} tệp mỗi email.` };
+    }
+    const rows = await getStore().listAttachments(ids);
+    if (rows.length !== ids.length) {
+      return { error: "Có tệp đính kèm không còn tồn tại. Vui lòng tải lại tệp đó." };
+    }
+    if (rows.some((r) => r.status === "deleted")) {
+      return { error: "Có tệp đính kèm đã bị xoá. Vui lòng bỏ tệp đó khỏi email." };
+    }
+    if (role !== "admin") {
+      const foreign = rows.filter(
+        (r) => r.created_by && r.created_by.toLowerCase() !== email.toLowerCase(),
+      );
+      if (foreign.length) {
+        return { error: "Bạn không có quyền dùng tệp đính kèm do người khác tải lên." };
+      }
+    }
+    const total = rows.reduce((sum, r) => sum + (r.size_bytes || 0), 0);
+    if (total > MAX_TOTAL_BYTES) {
+      return {
+        error: `Tổng dung lượng tệp đính kèm vượt quá ${Math.round(MAX_TOTAL_BYTES / 1024 / 1024)}MB.`,
+      };
+    }
+    return { rows };
+  }
+
+  /** Đồng bộ lại tham chiếu tệp trong email (trạng thái mới nhất) để hiển thị đúng. */
+  async function syncMessageRefs(messageId: string, rows: EmailAttachment[]) {
+    if (!rows.length) return;
+    const store = getStore();
+    const fresh = await store.listAttachments(rows.map((r) => r.id));
+    await store
+      .updateMessage(messageId, { attachments: fresh.map(toRef) })
+      .catch(() => null);
+  }
+
+  /** Gắn tệp vào email vừa gửi/lưu và ghi trạng thái để luôn truy vết được. */
+  async function bindAttachments(
+    rows: EmailAttachment[],
+    messageId: string | null,
+    ok: boolean,
+    error: string | null,
+  ) {
+    const store = getStore();
+    for (const row of rows) {
+      await store
+        .updateAttachment(
+          row.id,
+          ok
+            ? { message_id: messageId, status: "attached", last_error: null }
+            : { message_id: messageId, status: "failed", last_error: error },
+        )
+        .catch(() => null);
+    }
+  }
 
 function cleanList(list?: string[]): string[] {
   return (list ?? [])
@@ -540,8 +615,15 @@ function validateMail(input: MailDraftInput): string | null {
   if (!input.subject || !input.subject.trim()) return "Chưa có tiêu đề email.";
   const text = input.bodyHtml.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
   if (!text) return "Nội dung email đang trống.";
-  const totalSize = (input.attachments ?? []).reduce((s, a) => s + (a.size || 0), 0);
-  if (totalSize > 10 * 1024 * 1024) return "Tổng dung lượng file đính kèm vượt quá 10MB.";
+  const refs = input.attachments ?? [];
+  if (refs.length > MAX_FILES_PER_MAIL) {
+    return `Chỉ được đính kèm tối đa ${MAX_FILES_PER_MAIL} tệp mỗi email.`;
+  }
+  if (refs.some((a) => !a.id)) return "Có tệp đính kèm chưa tải lên xong.";
+  const totalSize = refs.reduce((s, a) => s + (a.size || 0), 0);
+  if (totalSize > MAX_TOTAL_BYTES) {
+    return `Tổng dung lượng file đính kèm vượt quá ${Math.round(MAX_TOTAL_BYTES / 1024 / 1024)}MB.`;
+  }
   return null;
 }
 
@@ -551,18 +633,41 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
   const err = validateMail(input);
   if (err) return { ok: false, message: err };
 
-  const res = await sendManualMail({
-    buyerId: input.buyerId ?? null,
-    supplierId: input.supplierId ?? null,
-    direction: input.direction,
-    to: cleanList(input.to),
-    cc: cleanList(input.cc),
-    bcc: cleanList(input.bcc),
-    subject: input.subject.trim(),
-    bodyHtml: input.bodyHtml,
-    attachments: input.attachments,
-    author: input.author ?? null,
-  });
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
+  }
+
+  // Tệp đính kèm: DB chỉ có metadata, nội dung nằm trong Storage và nạp ngay lúc gửi
+  const resolved = await resolveAttachments(input.attachments, session.email, session.role);
+  if ("error" in resolved) return { ok: false, message: resolved.error };
+  const attachmentRows = resolved.rows;
+
+  let res;
+  try {
+    res = await sendManualMail({
+      buyerId: input.buyerId ?? null,
+      supplierId: input.supplierId ?? null,
+      direction: input.direction,
+      to: cleanList(input.to),
+      cc: cleanList(input.cc),
+      bcc: cleanList(input.bcc),
+      subject: input.subject.trim(),
+      bodyHtml: input.bodyHtml,
+      attachments: attachmentRows,
+      author: input.author ?? null,
+    });
+  } catch (errSend) {
+    // Chưa gửi được gì (thường do không đọc được tệp) — giữ tệp lại để gửi lại an toàn
+    return {
+      ok: false,
+      message: errSend instanceof Error ? errSend.message : "Không đọc được tệp đính kèm.",
+    };
+  }
+
+  // Ghi lại tệp thuộc email nào + lần gửi này thành công hay cần gửi lại
+  await bindAttachments(attachmentRows, res.messageId, res.ok, res.error);
+  if (res.messageId) await syncMessageRefs(res.messageId, attachmentRows);
 
   if (res.ok && input.buyerId) {
     await getStore()
@@ -589,6 +694,14 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
 export async function saveDraftAction(input: MailDraftInput): Promise<ActionResult> {
   const gate = await guard("mail.send");
   if (gate) return gate;
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
+  }
+  const resolved = await resolveAttachments(input.attachments, session.email, session.role);
+  if ("error" in resolved) return { ok: false, message: resolved.error };
+  const attachmentRows = resolved.rows;
+
   const id = await saveDraft({
     buyerId: input.buyerId ?? null,
     supplierId: input.supplierId ?? null,
@@ -598,9 +711,20 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
     bcc: cleanList(input.bcc),
     subject: input.subject.trim() || "(không có tiêu đề)",
     bodyHtml: input.bodyHtml,
-    attachments: input.attachments,
+    attachments: attachmentRows,
     author: input.author ?? null,
   });
+
+  // Tệp của bản nháp: gắn với email nháp để mở lại vẫn còn, chưa coi là đã gửi
+  if (id) {
+    const store = getStore();
+    for (const row of attachmentRows) {
+      await store
+        .updateAttachment(row.id, { message_id: id, status: "uploaded", last_error: null })
+        .catch(() => null);
+    }
+    await syncMessageRefs(id, attachmentRows);
+  }
   revalidateAll();
   return id
     ? { ok: true, message: "Đã lưu bản nháp.", id }
@@ -625,6 +749,20 @@ export async function resendMessageAction(id: string): Promise<ActionResult> {
   const store = getStore();
   const msg = await store.getMessage(id);
   if (!msg) return { ok: false, message: "Không tìm thấy email." };
+  // Tệp đính kèm đọc lại từ kho lưu trữ (DB chỉ giữ metadata)
+  const attachmentRows = await store.listAttachmentsForMessage(id);
+  let forSend: { filename: string; content: string; contentType: string }[] | undefined;
+  if (attachmentRows.length) {
+    try {
+      forSend = await loadForSend(attachmentRows);
+    } catch (errAttach) {
+      return {
+        ok: false,
+        message: errAttach instanceof Error ? errAttach.message : "Không đọc được tệp đính kèm.",
+      };
+    }
+  }
+
   const res = await transport({
     to: msg.to_emails,
     cc: msg.cc_emails,
@@ -632,7 +770,7 @@ export async function resendMessageAction(id: string): Promise<ActionResult> {
     subject: msg.subject,
     html: msg.body_html,
     text: msg.body_text,
-    attachments: msg.attachments,
+    attachments: forSend,
   });
   await store
     .updateMessage(id, {
@@ -642,6 +780,10 @@ export async function resendMessageAction(id: string): Promise<ActionResult> {
       sent_at: res.ok ? new Date().toISOString() : msg.sent_at,
     })
     .catch(() => null);
+  if (attachmentRows.length) {
+    await bindAttachments(attachmentRows, id, res.ok, res.error);
+    await syncMessageRefs(id, attachmentRows);
+  }
   revalidateAll();
   if (!res.ok) return { ok: false, message: `Gửi lại thất bại: ${res.error}` };
   return {

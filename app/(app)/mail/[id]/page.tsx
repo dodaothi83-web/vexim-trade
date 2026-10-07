@@ -113,14 +113,22 @@ export default async function MessagePage({
           <div className="flex flex-wrap gap-2 border-t border-ink-200 px-4 py-2.5">
             {msg.attachments.map((a, i) => (
               <a
-                key={i}
-                href={`data:${a.type || "application/octet-stream"};base64,${a.content}`}
-                download={a.name}
+                key={a.id || i}
+                // Tệp nằm trong kho riêng: route này kiểm tra phiên đăng nhập + quyền xem email
+                // rồi mới trả URL có chữ ký hết hạn (không có URL công khai).
+                href={`/api/mail/attachments/${a.id}`}
+                target="_blank"
+                rel="noreferrer"
                 className="flex items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1.5 text-[12px] transition hover:border-brand-300 hover:bg-brand-50"
               >
                 <FileText className="h-3.5 w-3.5 text-ink-500" />
                 <span className="max-w-[200px] truncate font-medium text-ink-800">{a.name}</span>
                 <span className="text-ink-400">{(a.size / 1024).toFixed(0)}KB</span>
+                {a.status === "failed" && (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10.5px] font-semibold text-amber-700">
+                    gửi lỗi
+                  </span>
+                )}
               </a>
             ))}
           </div>

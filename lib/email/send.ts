@@ -10,7 +10,8 @@ import {
   type EmailPayload,
 } from "@/lib/email/templates";
 import { getStage, type StageKey } from "@/lib/pipeline";
-import type { Attachment, Buyer, Supplier } from "@/lib/types";
+import { loadForSend, toRef } from "@/lib/mail/attachments";
+import type { Buyer, EmailAttachment, Supplier } from "@/lib/types";
 
 export interface OutgoingMail {
   to: string[];
@@ -19,7 +20,8 @@ export interface OutgoingMail {
   subject: string;
   html: string;
   text?: string;
-  attachments?: Attachment[];
+  /** base64 chỉ tồn tại trong bộ nhớ lúc gửi qua Resend — KHÔNG lưu vào DB */
+  attachments?: { filename: string; content: string; contentType: string }[];
 }
 
 export interface TransportResult {
@@ -48,13 +50,7 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
       subject: mail.subject,
       html: mail.html,
       text: mail.text,
-      attachments: mail.attachments?.length
-        ? mail.attachments.map((a) => ({
-            filename: a.name,
-            content: a.content,
-            contentType: a.type || "application/octet-stream",
-          }))
-        : undefined,
+      attachments: mail.attachments?.length ? mail.attachments : undefined,
     });
     if (error) {
       return { ok: false, status: "failed", provider: "resend", error: `${error.name}: ${error.message}` };
@@ -256,7 +252,8 @@ export interface ManualMailInput {
   /** nội dung HTML do trình soạn thảo tạo ra */
   bodyHtml: string;
   bodyText?: string;
-  attachments?: Attachment[];
+  /** các dòng metadata tệp đính kèm (nội dung thật nằm trong Storage, không ở DB) */
+  attachments?: EmailAttachment[];
   author?: string | null;
 }
 
@@ -272,6 +269,14 @@ export async function sendManualMail(input: ManualMailInput): Promise<ManualMail
     title: input.subject,
     body: input.bodyHtml,
   });
+
+  // Đọc nội dung tệp từ kho lưu trữ (base64 chỉ để chuyển cho Resend, không ghi DB).
+  // Không đọc được tệp thì DỪNG trước khi gửi để không gửi thiếu tệp.
+  let forSend: { filename: string; content: string; contentType: string }[] | undefined;
+  if (input.attachments?.length) {
+    forSend = await loadForSend(input.attachments);
+  }
+
   const res = await transport({
     to: input.to,
     cc: input.cc,
@@ -279,7 +284,7 @@ export async function sendManualMail(input: ManualMailInput): Promise<ManualMail
     subject: input.subject,
     html,
     text: input.bodyText,
-    attachments: input.attachments,
+    attachments: forSend,
   });
   const store = getStore();
   const saved = await store
@@ -296,7 +301,7 @@ export async function sendManualMail(input: ManualMailInput): Promise<ManualMail
       bcc_emails: input.bcc ?? [],
       body_html: html,
       body_text: input.bodyText ?? "",
-      attachments: input.attachments ?? [],
+      attachments: (input.attachments ?? []).map(toRef),
       status: res.status,
       provider: res.provider,
       error: res.error,
@@ -329,7 +334,7 @@ export async function saveDraft(input: ManualMailInput): Promise<string | null> 
       bcc_emails: input.bcc ?? [],
       body_html: html,
       body_text: input.bodyText ?? "",
-      attachments: input.attachments ?? [],
+      attachments: (input.attachments ?? []).map(toRef),
       status: "draft",
       provider: "local",
       error: null,

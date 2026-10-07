@@ -171,6 +171,41 @@ create index if not exists email_messages_kind_idx  on public.email_messages (ki
 create index if not exists email_messages_created_idx on public.email_messages (created_at desc);
 
 -- ---------------------------------------------------------------------------
+-- 4b. TỆP ĐÍNH KÈM EMAIL (metadata) — nội dung nằm trong Supabase Storage
+--     - KHÔNG lưu base64 / binary trong cơ sở dữ liệu, chỉ lưu metadata.
+--     - bucket: 'email-attachments' (private, xem mục 5b)
+--     - status: pending  = vừa tải lên, chưa gắn vào email nào
+--               uploaded = đã gắn vào email đang soạn
+--               attached = email đã gửi thành công
+--               failed   = gửi hỏng, giữ lại để gửi lại an toàn
+--               deleted  = đã xoá (đã xoá cả tệp trong Storage)
+--     - Tệp có message_id = null và cũ hơn 24h được coi là mồ côi và sẽ bị dọn.
+-- ---------------------------------------------------------------------------
+create table if not exists public.email_attachments (
+  id           uuid primary key default gen_random_uuid(),
+  message_id   uuid references public.email_messages(id) on delete cascade,
+  bucket       text not null default 'email-attachments',
+  storage_path text not null,
+  file_name    text not null,
+  mime_type    text not null default 'application/octet-stream',
+  size_bytes   bigint not null default 0,
+  status       text not null default 'pending'
+                 check (status in ('pending','uploaded','attached','failed','deleted')),
+  last_error   text,
+  created_by   text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+-- Mỗi tệp trong Storage chỉ có một dòng metadata
+create unique index if not exists email_attachments_path_key
+  on public.email_attachments (bucket, storage_path);
+create index if not exists email_attachments_message_idx
+  on public.email_attachments (message_id, created_at);
+create index if not exists email_attachments_orphan_idx
+  on public.email_attachments (created_at) where message_id is null;
+
+-- ---------------------------------------------------------------------------
 -- 5. HÌNH ẢNH & TÀI LIỆU (media)
 --    - Ảnh/catalogue/chứng nhận của sản phẩm  -> owner_type = 'product'
 --    - Ảnh nhà máy + giấy tờ xác minh NCC     -> owner_type = 'supplier'
@@ -220,6 +255,12 @@ create index if not exists media_audience_idx on public.media_assets (audience);
 -- ---------------------------------------------------------------------------
 insert into storage.buckets (id, name, public)
 values ('vexim-media', 'vexim-media', false)
+on conflict (id) do nothing;
+
+-- Tệp đính kèm email: bucket RIÊNG, không public. Chỉ server (service_role) ghi/đọc,
+-- người dùng tải qua URL có chữ ký hết hạn (signed URL), không có URL công khai.
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('email-attachments', 'email-attachments', false, 4194304)
 on conflict (id) do nothing;
 
 -- App phục vụ tệp qua route /api/media/file/... bằng service role key ở server,
@@ -288,6 +329,10 @@ drop trigger if exists media_assets_touch on public.media_assets;
 create trigger media_assets_touch before update on public.media_assets
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists email_attachments_touch on public.email_attachments;
+create trigger email_attachments_touch before update on public.email_attachments
+  for each row execute function public.touch_updated_at();
+
 drop trigger if exists app_users_touch on public.app_users;
 create trigger app_users_touch before update on public.app_users
   for each row execute function public.touch_updated_at();
@@ -304,3 +349,32 @@ create trigger app_users_touch before update on public.app_users
 -- create policy "service role full access" on public.buyers
 --   for all to service_role using (true) with check (true);
 -- (lặp lại cho suppliers, buyer_activities, email_messages)
+
+-- ---------------------------------------------------------------------------
+-- 7b. RLS CHỐNG TRUY CẬP CHÉO (tuỳ chọn nhưng NÊN chạy)
+--     App chạy server-side bằng service_role key (bỏ qua RLS). Phần này khoá đường
+--     truy cập trực tiếp từ trình duyệt bằng anon/publishable key: không ai đọc/xoá
+--     được tệp hay bản ghi của người khác.
+--     LƯU Ý: khoá service_role chỉ nằm ở server, KHÔNG bao giờ lộ ra trình duyệt.
+-- ---------------------------------------------------------------------------
+alter table public.email_attachments enable row level security;
+
+-- Chỉ service_role được thao tác (server app). Không cấp policy cho anon/authenticated
+-- nghĩa là mọi truy cập trực tiếp từ client đều bị từ chối.
+drop policy if exists "email_attachments service only" on public.email_attachments;
+create policy "email_attachments service only" on public.email_attachments
+  for all to service_role using (true) with check (true);
+
+-- Nếu bảng đã bật "own-only" policy từ trước, gỡ các policy cho phép authenticated:
+-- drop policy if exists "email_attachments own" on public.email_attachments;
+
+-- Tệp trong Storage: cùng nguyên tắc — chỉ service_role.
+alter table storage.objects enable row level security;
+
+drop policy if exists "email attachments service only" on storage.objects;
+create policy "email attachments service only" on storage.objects
+  for all to service_role
+  using (bucket_id = 'email-attachments')
+  with check (bucket_id = 'email-attachments');
+
+-- (không tạo policy cho anon/authenticated trên bucket này = không truy cập chéo được)

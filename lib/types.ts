@@ -184,12 +184,35 @@ export type MessageKind = "auto" | "manual";
 export type MessageStatus = "draft" | "sent" | "failed" | "simulated";
 export type MessageDirection = "buyer" | "supplier";
 
-export interface Attachment {
+/**
+ * Tệp đính kèm email: nội dung nằm trong Supabase Storage (bucket riêng, private),
+ * cơ sở dữ liệu chỉ giữ metadata. Không lưu base64/binary trong DB.
+ */
+export type AttachmentStatus = "pending" | "uploaded" | "attached" | "failed" | "deleted";
+
+export interface EmailAttachment {
+  id: string;
+  /** Gắn vào email khi gửi; null = tệp vừa tải lên, chưa thuộc email nào */
+  message_id: string | null;
+  bucket: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  status: AttachmentStatus;
+  last_error: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Tham chiếu rút gọn để gắn vào email và hiển thị ở giao diện */
+export interface AttachmentRef {
+  id: string;
   name: string;
   size: number;
   type: string;
-  /** base64, không kèm prefix data: */
-  content: string;
+  status?: AttachmentStatus;
 }
 
 /** Một email trong hộp thư: có thể là email tự động theo giai đoạn hoặc do đội ngũ tự soạn */
@@ -209,7 +232,7 @@ export interface EmailMessage {
   bcc_emails: string[];
   body_html: string;
   body_text: string;
-  attachments: Attachment[];
+  attachments: AttachmentRef[];
   status: MessageStatus;
   provider: "resend" | "local";
   error: string | null;

@@ -7,6 +7,7 @@ import type {
   AppUserRecord,
   Buyer,
   BuyerInput,
+  EmailAttachment,
   EmailMessage,
   MediaAsset,
   MediaInput,
@@ -447,5 +448,67 @@ export const supabaseStore: DataStore = {
   async deleteMessage(id) {
     const { error } = await must().from("email_messages").delete().eq("id", id);
     if (error) fail("deleteMessage", error);
+  },
+
+  /* ----------------------- tệp đính kèm email (metadata) ----------------------- */
+  async createAttachment(input) {
+    const { data, error } = await must()
+      .from("email_attachments")
+      .insert(input)
+      .select()
+      .single();
+    if (error) fail("createAttachment", error);
+    return data as EmailAttachment;
+  },
+  async getAttachment(id) {
+    const { data, error } = await must()
+      .from("email_attachments")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) fail("getAttachment", error);
+    return (data as EmailAttachment) ?? null;
+  },
+  async listAttachments(ids) {
+    if (!ids.length) return [];
+    const { data, error } = await must().from("email_attachments").select("*").in("id", ids);
+    if (error) fail("listAttachments", error);
+    return (data ?? []) as EmailAttachment[];
+  },
+  async listAttachmentsForMessage(messageId) {
+    const { data, error } = await must()
+      .from("email_attachments")
+      .select("*")
+      .eq("message_id", messageId)
+      .neq("status", "deleted")
+      .order("created_at", { ascending: true });
+    if (error) fail("listAttachmentsForMessage", error);
+    return (data ?? []) as EmailAttachment[];
+  },
+  async listOrphanAttachments(olderThanISO) {
+    const { data, error } = await must()
+      .from("email_attachments")
+      .select("*")
+      .is("message_id", null)
+      .neq("status", "deleted")
+      .lt("created_at", olderThanISO)
+      .order("created_at", { ascending: true })
+      .limit(200);
+    if (error) fail("listOrphanAttachments", error);
+    return (data ?? []) as EmailAttachment[];
+  },
+  async updateAttachment(id, patch) {
+    const { data, error } = await must()
+      .from("email_attachments")
+      .update(cleanPatch(patch))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateAttachment", error);
+    return data as EmailAttachment;
+  },
+  async deleteAttachment(id) {
+    const { error } = await must().from("email_attachments").delete().eq("id", id);
+    if (error) fail("deleteAttachment", error);
   },
 };

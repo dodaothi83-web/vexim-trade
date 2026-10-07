@@ -382,13 +382,31 @@ Menu **Hộp thư** / **Soạn email** — đội ngũ có thể tự viết ema
   có gợi ý địa chỉ từ danh sách buyer & NCC.
 - **Tiêu đề** + **trình soạn thảo có định dạng**: đậm, nghiêng, gạch chân, cỡ chữ, màu chữ,
   danh sách, canh lề, chèn liên kết, hoàn tác.
-- **Đính kèm tệp** (tối đa 10MB), **lưu bản nháp**, **gửi lại**, **xoá**.
+- **Đính kèm tệp** — xem mục “Tệp đính kèm email” ngay bên dưới.
+- **lưu bản nháp**, **gửi lại**, **xoá**.
 - Mở soạn trực tiếp từ trang chi tiết buyer (**Soạn email**) hoặc từ khối nhà cung cấp
   (**Soạn email cho NCC**) — người nhận được **cố định từ hồ sơ**, chỉ việc viết nội dung.
 - Mở từ menu (không ngữ cảnh) thì gõ người nhận; hệ thống tự nhận đó là buyer hay NCC.
 
 Toàn bộ email (tự động + tự soạn) nằm chung một **Hộp thư đi**, lọc được theo người nhận
 (buyer/NCC) và theo loại (tự động / tự soạn).
+
+### Tệp đính kèm email (Supabase Storage)
+
+| Hạng mục | Quy định |
+| --- | --- |
+| Nơi lưu | Bucket **riêng** `email-attachments` (private, không có URL công khai). Đặt tên khác qua `SUPABASE_EMAIL_BUCKET` |
+| Cơ sở dữ liệu | Bảng `email_attachments` **chỉ có metadata**: bucket, đường dẫn, tên tệp, MIME, dung lượng, trạng thái, người tải lên. **Không bao giờ lưu base64/nội dung tệp** |
+| Giới hạn | **4MB mỗi tệp** (khớp hạn mức thân request 4.5MB của Vercel), **10MB và 10 tệp mỗi email** |
+| Định dạng | PDF, ảnh (JPG/PNG/WebP/GIF/BMP/TIFF/HEIC), Word/Excel/PowerPoint, ODT/ODS/ODP, RTF, CSV, TXT, ZIP/RAR/7Z, DWG/DXF. Chặn tệp chạy được (.exe, .bat, .sh, .js, .svg, .html…) và tệp không có đuôi |
+| Quyền | Tải lên/sửa: `mail.send`. Tải xuống: `mail.view` + đúng email; bản nháp chỉ người tạo nháp; tệp chưa gửi chỉ người tải lên; xoá: người tải lên (email đã gửi thì chỉ quản trị) |
+| Tải xuống | Qua `/api/mail/attachments/<id>` — server kiểm tra phiên + quyền rồi mới trả **URL có chữ ký hết hạn 2 phút** (kho local thì phục vụ tệp trực tiếp, có kiểm tra quyền) |
+| Khoá bí mật | `SUPABASE_SERVICE_ROLE_KEY` chỉ nằm ở server (route/route handler). Trình duyệt **không** bao giờ thấy khoá này và không gọi thẳng Supabase Storage |
+| Khi gửi lỗi | Tệp đã tải lên **không bị mất**: bản ghi chuyển `failed` + ghi `last_error`, bấm **Gửi lại** là đọc lại tệp từ kho và gửi tiếp |
+| Dọn rác | Tệp không gắn email nào và cũ hơn 24 giờ là **mồ côi**; app tự dọn khi có lượt tải lên mới (không quá 1 lần/10 phút) và quản trị viên có thể gọi `POST /api/mail/attachments/cleanup` |
+
+Chạy 3 mục **4b**, **5b**, **7b** trong `supabase/schema.sql` một lần trong SQL Editor để tạo
+bảng, bucket và policy RLS cho kho tệp đính kèm (app cũng tự tạo bucket khi dùng lần đầu).
 
 ### Cột phải khi soạn thư (màn hình ≥ 1280px)
 
@@ -442,6 +460,8 @@ app/
     settings/users/page.tsx   Người dùng & phân quyền (chỉ quản trị viên)
   auth-actions.ts             Server actions: đăng nhập, đăng xuất, quản lý người dùng
   api/media/                  API tải lên & trả tệp (kiểm tra phiên + quyền)
+  api/mail/attachments/       Tải lên / tải xuống (URL có chữ ký) / xoá tệp đính kèm email
+  api/mail/attachments/cleanup/  Dọn tệp mồ côi (chỉ quản trị viên)
   actions.ts                  Toàn bộ server actions (CRUD, đổi trạng thái, gửi email)
 components/
   stage-select.tsx            Dropdown trạng thái + hộp xác nhận người nhận
@@ -470,6 +490,8 @@ lib/
   email/stage-content.ts      NỘI DUNG email riêng cho buyer và cho NCC theo từng giai đoạn
   email/templates.ts          Sinh HTML email buyer (EN) và NCC (VI)
   email/send.ts               Gửi qua Resend (kèm Cc/Bcc/đính kèm) + lưu hộp thư
+  mail/attachments.ts         Kho tệp đính kèm: kiểm tra tệp, lưu Storage, URL có chữ ký
+  mail/cleanup.ts             Dọn tệp đính kèm mồ côi
   db/                         Tầng dữ liệu: tự chọn Supabase hoặc kho local
 supabase/schema.sql           Script tạo bảng
 ```

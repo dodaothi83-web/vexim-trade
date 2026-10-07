@@ -6,6 +6,7 @@ import type {
   AppUserRecord,
   Buyer,
   BuyerInput,
+  EmailAttachment,
   EmailMessage,
   MediaAsset,
   MediaInput,
@@ -77,5 +78,20 @@ export interface DataStore {
     id: string,
     patch: Partial<Omit<EmailMessage, "id" | "created_at">>,
   ): Promise<EmailMessage>;
+
+  /* ---- tệp đính kèm email (chỉ metadata; nội dung ở Supabase Storage) ---- */
+  createAttachment(
+    input: Omit<EmailAttachment, "id" | "created_at" | "updated_at">,
+  ): Promise<EmailAttachment>;
+  getAttachment(id: string): Promise<EmailAttachment | null>;
+  listAttachments(ids: string[]): Promise<EmailAttachment[]>;
+  listAttachmentsForMessage(messageId: string): Promise<EmailAttachment[]>;
+  /** Tệp chưa gắn email nào và tạo trước mốc thời gian — dùng để dọn tệp mồ côi */
+  listOrphanAttachments(olderThanISO: string): Promise<EmailAttachment[]>;
+  updateAttachment(
+    id: string,
+    patch: Partial<Omit<EmailAttachment, "id" | "created_at">>,
+  ): Promise<EmailAttachment>;
+  deleteAttachment(id: string): Promise<void>;
   deleteMessage(id: string): Promise<void>;
 }
