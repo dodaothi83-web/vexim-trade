@@ -32,9 +32,12 @@ const PRIORITY_STYLE: Record<string, string> = {
 export function BuyerTable({
   buyers,
   suppliers,
+  canManage = false,
 }: {
   buyers: BuyerWithSupplier[];
   suppliers: Pick<Supplier, "id" | "name">[];
+  /** Có quyền thêm / sửa buyer (buyers.manage) hay chỉ được xem */
+  canManage?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -176,10 +179,12 @@ export function BuyerTable({
           }
           action={
             buyers.length === 0 ? (
-              <Link href="/buyers/new" className="btn btn-primary">
-                <UserPlus className="h-4 w-4" />
-                Thêm buyer
-              </Link>
+              canManage ? (
+                <Link href="/buyers/new" className="btn btn-primary">
+                  <UserPlus className="h-4 w-4" />
+                  Thêm buyer
+                </Link>
+              ) : null
             ) : (
               <Button
                 variant="ghost"
@@ -270,27 +275,38 @@ export function BuyerTable({
                       <p className="truncate text-[11.5px] text-ink-500">{b.quantity || ""}</p>
                     </td>
                     <td className="table-td">
-                      <select
-                        className={cx(
-                          "w-full max-w-[180px] rounded-lg border px-2 py-1.5 text-[12px] transition",
-                          b.supplier_id
-                            ? "border-ink-200 bg-white text-ink-700"
-                            : "border-dashed border-amber-300 bg-amber-50/70 text-amber-800",
-                        )}
-                        value={b.supplier_id ?? ""}
-                        onChange={(e) => void onAttach(b.id, e.target.value)}
-                        title={b.supplier ? (b.supplier.name ?? "") : "Chưa gắn nhà cung cấp"}
-                      >
-                        <option value="">— Chưa chọn —</option>
-                        {suppliers.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
+                      {canManage ? (
+                        <select
+                          className={cx(
+                            "w-full max-w-[180px] rounded-lg border px-2 py-1.5 text-[12px] transition",
+                            b.supplier_id
+                              ? "border-ink-200 bg-white text-ink-700"
+                              : "border-dashed border-amber-300 bg-amber-50/70 text-amber-800",
+                          )}
+                          value={b.supplier_id ?? ""}
+                          onChange={(e) => void onAttach(b.id, e.target.value)}
+                          title={b.supplier ? (b.supplier.name ?? "") : "Chưa gắn nhà cung cấp"}
+                        >
+                          <option value="">— Chưa chọn —</option>
+                          {suppliers.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span
+                          className={cx(
+                            "text-[12.5px]",
+                            b.supplier ? "font-semibold text-ink-700" : "text-amber-700",
+                          )}
+                        >
+                          {b.supplier?.name ?? "— chưa gắn —"}
+                        </span>
+                      )}
                     </td>
                     <td className="table-td">
-                      <StageSelect target={target} autoSend={autoSend} />
+                      <StageSelect target={target} autoSend={autoSend} readOnly={!canManage} />
                     </td>
                     <td className="table-td">
                       <span className="text-[13px] font-semibold text-ink-800">

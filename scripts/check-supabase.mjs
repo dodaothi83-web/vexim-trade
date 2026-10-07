@@ -190,6 +190,8 @@ const TABLES = [
   "buyers",
   "buyer_activities",
   "email_messages",
+  "media_assets",
+  "app_users",
 ];
 
 console.log(bold("\n4. Kiểm tra các bảng (supabase/schema.sql)"));
@@ -221,12 +223,36 @@ for (const table of TABLES) {
   }
 }
 
+// 5) Cột bắt buộc (đổi cấu trúc giữa các bản)
+const REQUIRED_COLUMNS = [
+  { table: "supplier_products", column: "ready_for_buyer" },
+];
+const missingCols = [];
+for (const req of REQUIRED_COLUMNS) {
+  try {
+    const res = await fetch(`${url}/rest/v1/${req.table}?select=${req.column}&limit=0`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) missingCols.push(`${req.table}.${req.column}`);
+  } catch {
+    missingCols.push(`${req.table}.${req.column}`);
+  }
+}
+if (missingCols.length) {
+  console.log(`  ${badMark} Thiếu cột: ${missingCols.join(", ")}`);
+}
+
 console.log(dim("─".repeat(58)));
-if (missing.length) {
+if (missing.length || missingCols.length) {
+  const parts = [];
+  if (missing.length) parts.push(`${missing.length} bảng chưa có (${missing.join(", ")})`);
+  if (missingCols.length) parts.push(`thiếu cột ${missingCols.join(", ")}`);
   console.log(
     yellow(
-      `KẾT LUẬN: kết nối OK nhưng còn ${missing.length} bảng chưa có.\n` +
-        "  → Mở Supabase → SQL Editor → dán toàn bộ nội dung supabase/schema.sql → Run.",
+      `KẾT LUẬN: kết nối OK nhưng schema chưa đầy đủ: ${parts.join("; ")}.\n` +
+        "  → Mở Supabase → SQL Editor → dán toàn bộ nội dung supabase/schema.sql → Run\n" +
+        "    (script dùng if not exists nên chạy lại an toàn, không mất dữ liệu).",
     ),
   );
   process.exit(1);

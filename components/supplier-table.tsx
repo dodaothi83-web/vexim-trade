@@ -11,9 +11,12 @@ import { Badge, Button, EmptyState, cx } from "@/components/ui";
 export function SupplierTable({
   suppliers,
   usage,
+  canManage = false,
 }: {
   suppliers: Supplier[];
   usage: Record<string, { total: number; active: number }>;
+  /** Có quyền thêm / sửa nhà cung cấp (suppliers.manage) hay chỉ được xem */
+  canManage?: boolean;
 }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
@@ -49,10 +52,12 @@ export function SupplierTable({
             </option>
           ))}
         </select>
-        <Link href="/suppliers/new" className="btn btn-primary ml-auto">
-          <Plus className="h-4 w-4" />
-          Thêm nhà cung cấp
-        </Link>
+        {canManage && (
+          <Link href="/suppliers/new" className="btn btn-primary ml-auto">
+            <Plus className="h-4 w-4" />
+            Thêm nhà cung cấp
+          </Link>
+        )}
       </div>
 
       {rows.length === 0 ? (
@@ -66,9 +71,11 @@ export function SupplierTable({
           }
           action={
             suppliers.length === 0 ? (
-              <Link href="/suppliers/new" className="btn btn-primary">
-                Thêm nhà cung cấp
-              </Link>
+              canManage ? (
+                <Link href="/suppliers/new" className="btn btn-primary">
+                  Thêm nhà cung cấp
+                </Link>
+              ) : null
             ) : (
               <Button
                 variant="ghost"

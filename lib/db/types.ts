@@ -1,6 +1,9 @@
 import type {
   Activity,
   ActivityType,
+  AppUser,
+  AppUserInput,
+  AppUserRecord,
   Buyer,
   BuyerInput,
   EmailMessage,
@@ -33,6 +36,16 @@ export interface DataStore {
   createBuyer(input: BuyerInput): Promise<Buyer>;
   updateBuyer(id: string, patch: Partial<BuyerInput>): Promise<Buyer>;
   deleteBuyer(id: string): Promise<void>;
+
+  // ----- Người dùng & phân quyền -----
+  listUsers(): Promise<AppUser[]>;
+  countUsers(): Promise<number>;
+  getUser(id: string): Promise<AppUserRecord | null>;
+  getUserByEmail(email: string): Promise<AppUserRecord | null>;
+  createUser(input: AppUserInput): Promise<AppUserRecord>;
+  updateUser(id: string, patch: Partial<AppUserInput>): Promise<AppUserRecord>;
+  deleteUser(id: string): Promise<void>;
+  touchUserLogin(id: string): Promise<void>;
 
   // ----- Hình ảnh & tài liệu -----
   listMedia(ownerType: MediaOwnerType, ownerId: string): Promise<MediaAsset[]>;

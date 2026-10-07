@@ -4,6 +4,9 @@ import path from "node:path";
 
 import type {
   Activity,
+  AppUser,
+  AppUserInput,
+  AppUserRecord,
   Buyer,
   BuyerInput,
   EmailMessage,
@@ -19,6 +22,7 @@ import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
 import type { DataStore } from "@/lib/db/types";
 
 interface LocalShape {
+  users: AppUserRecord[];
   buyers: Buyer[];
   suppliers: Supplier[];
   products: SupplierProduct[];
@@ -102,7 +106,7 @@ function seed(): LocalShape {
     } satisfies SupplierProduct;
   });
 
-  return { buyers, suppliers, products, media: [], activities, messages: [] };
+  return { users: [], buyers, suppliers, products, media: [], activities, messages: [] };
 }
 
 function load(): LocalShape {
@@ -112,6 +116,7 @@ function load(): LocalShape {
     if (!Array.isArray(c.activities)) c.activities = [];
     if (!Array.isArray(c.products)) c.products = [];
     if (!Array.isArray(c.media)) c.media = [];
+    if (!Array.isArray(c.users)) c.users = [];
     return c;
   }
   try {
@@ -127,6 +132,7 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.activities)) parsed.activities = [];
         if (!Array.isArray(parsed.products)) parsed.products = [];
         if (!Array.isArray(parsed.media)) parsed.media = [];
+        if (!Array.isArray(parsed.users)) parsed.users = [];
         g.__veximLocal = parsed;
         return parsed;
       }
@@ -147,6 +153,19 @@ function persist(db: LocalShape) {
   } catch (err) {
     console.warn("[local-db] không ghi được file, dữ liệu chỉ tồn tại trong RAM:", err);
   }
+}
+
+/** Ẩn hash mật khẩu trước khi trả ra ngoài */
+/** Bỏ các khoá undefined khỏi patch để không vô tình ghi đè mất dữ liệu cũ. */
+function cleanPatch<T extends Record<string, unknown>>(patch: T): Partial<T> {
+  return Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
+
+function toPublicUser(row: AppUserRecord): AppUser {
+  const has_local_password = Boolean(row.password_hash);
+  const { password_hash: _omit, ...rest } = row;
+  void _omit;
+  return { ...rest, has_local_password };
 }
 
 function mutate<T>(fn: (db: LocalShape) => T): T {
@@ -181,7 +200,7 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = db.suppliers.find((s) => s.id === id);
       if (!row) throw new Error("Không tìm thấy nhà cung cấp");
-      Object.assign(row, patch, { updated_at: new Date().toISOString() });
+      Object.assign(row, cleanPatch(patch), { updated_at: new Date().toISOString() });
       return row;
     });
   },
@@ -224,7 +243,7 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = db.products.find((pr) => pr.id === id);
       if (!row) throw new Error("Không tìm thấy sản phẩm");
-      Object.assign(row, patch, { updated_at: new Date().toISOString() });
+      Object.assign(row, cleanPatch(patch), { updated_at: new Date().toISOString() });
       return row;
     });
   },
@@ -259,7 +278,7 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = db.buyers.find((b) => b.id === id);
       if (!row) throw new Error("Không tìm thấy khách hàng");
-      Object.assign(row, patch, { updated_at: new Date().toISOString() });
+      Object.assign(row, cleanPatch(patch), { updated_at: new Date().toISOString() });
       return row;
     });
   },
@@ -293,6 +312,64 @@ export const localStore: DataStore = {
       };
       db.activities.push(row);
       return row;
+    });
+  },
+
+  async listUsers() {
+    return load()
+      .users.map(toPublicUser)
+      .sort((a, b) => a.email.localeCompare(b.email));
+  },
+  async countUsers() {
+    return load().users.length;
+  },
+  async getUser(id) {
+    return load().users.find((u) => u.id === id) ?? null;
+  },
+  async getUserByEmail(email) {
+    const needle = email.trim().toLowerCase();
+    return load().users.find((u) => u.email.trim().toLowerCase() === needle) ?? null;
+  },
+  async createUser(input) {
+    return mutate((db) => {
+      const exists = db.users.some(
+        (u) => u.email.trim().toLowerCase() === input.email.trim().toLowerCase(),
+      );
+      if (exists) throw new Error("Email này đã có tài khoản.");
+      const row: AppUserRecord = {
+        ...input,
+        id: randomUUID(),
+        last_login_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      db.users.push(row);
+      return row;
+    });
+  },
+  async updateUser(id, patch) {
+    return mutate((db) => {
+      const row = db.users.find((u) => u.id === id);
+      if (!row) throw new Error("Không tìm thấy tài khoản");
+      if (patch.email) {
+        const clash = db.users.some(
+          (u) => u.id !== id && u.email.trim().toLowerCase() === patch.email!.trim().toLowerCase(),
+        );
+        if (clash) throw new Error("Email này đã có tài khoản.");
+      }
+      Object.assign(row, cleanPatch(patch), { updated_at: new Date().toISOString() });
+      return row;
+    });
+  },
+  async deleteUser(id) {
+    mutate((db) => {
+      db.users = db.users.filter((u) => u.id !== id);
+    });
+  },
+  async touchUserLogin(id) {
+    mutate((db) => {
+      const row = db.users.find((u) => u.id === id);
+      if (row) row.last_login_at = new Date().toISOString();
     });
   },
 
@@ -335,7 +412,7 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = db.media.find((m) => m.id === id);
       if (!row) throw new Error("Không tìm thấy tệp");
-      Object.assign(row, patch, { updated_at: new Date().toISOString() });
+      Object.assign(row, cleanPatch(patch), { updated_at: new Date().toISOString() });
       return row;
     });
   },
@@ -370,7 +447,7 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = db.messages.find((m) => m.id === id);
       if (!row) throw new Error("Không tìm thấy email");
-      Object.assign(row, patch);
+      Object.assign(row, cleanPatch(patch));
       return row;
     });
   },

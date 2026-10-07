@@ -2,6 +2,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type {
   Activity,
+  AppUser,
+  AppUserInput,
+  AppUserRecord,
   Buyer,
   BuyerInput,
   EmailMessage,
@@ -14,6 +17,11 @@ import type {
   SupplierProductInput,
 } from "@/lib/types";
 import type { DataStore } from "@/lib/db/types";
+
+/** Bỏ các khoá undefined khỏi patch để không vô tình ghi đè mất dữ liệu cũ. */
+function cleanPatch<T extends Record<string, unknown>>(patch: T): Partial<T> {
+  return Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
 
 let client: SupabaseClient | null = null;
 
@@ -44,6 +52,14 @@ export function getSupabaseClient(): SupabaseClient | null {
 
 export function supabaseConfigured(): boolean {
   return getSupabaseClient() !== null;
+}
+
+/** Ẩn hash mật khẩu trước khi trả ra ngoài */
+function toPublicUser(row: AppUserRecord): AppUser {
+  const has_local_password = Boolean(row.password_hash);
+  const { password_hash: _omit, ...rest } = row;
+  void _omit;
+  return { ...rest, has_local_password };
 }
 
 function must(): SupabaseClient {
@@ -88,7 +104,7 @@ export const supabaseStore: DataStore = {
   async updateSupplier(id, patch) {
     const { data, error } = await must()
       .from("suppliers")
-      .update({ ...patch, updated_at: new Date().toISOString() })
+      .update({ ...cleanPatch(patch), updated_at: new Date().toISOString() })
       .eq("id", id)
       .select()
       .single();
@@ -138,7 +154,7 @@ export const supabaseStore: DataStore = {
   async updateProduct(id, patch) {
     const { data, error } = await must()
       .from("supplier_products")
-      .update({ ...patch, updated_at: new Date().toISOString() })
+      .update({ ...cleanPatch(patch), updated_at: new Date().toISOString() })
       .eq("id", id)
       .select()
       .single();
@@ -148,6 +164,69 @@ export const supabaseStore: DataStore = {
   async deleteProduct(id) {
     const { error } = await must().from("supplier_products").delete().eq("id", id);
     if (error) fail("deleteProduct", error);
+  },
+
+  async listUsers() {
+    const { data, error } = await must()
+      .from("app_users")
+      .select("id,email,name,role,auth_provider,password_hash,is_active,last_login_at,created_at,updated_at")
+      .order("email", { ascending: true });
+    if (error) fail("listUsers", error);
+    return ((data ?? []) as AppUserRecord[]).map(toPublicUser);
+  },
+  async countUsers() {
+    const { count, error } = await must()
+      .from("app_users")
+      .select("id", { count: "exact", head: true });
+    if (error) fail("countUsers", error);
+    return count ?? 0;
+  },
+  async getUser(id) {
+    const { data, error } = await must()
+      .from("app_users")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) fail("getUser", error);
+    return (data as AppUserRecord) ?? null;
+  },
+  async getUserByEmail(email) {
+    const { data, error } = await must()
+      .from("app_users")
+      .select("*")
+      .ilike("email", email.trim())
+      .maybeSingle();
+    if (error) fail("getUserByEmail", error);
+    return (data as AppUserRecord) ?? null;
+  },
+  async createUser(input: AppUserInput) {
+    const { data, error } = await must()
+      .from("app_users")
+      .insert(input)
+      .select()
+      .single();
+    if (error) fail("createUser", error);
+    return data as AppUserRecord;
+  },
+  async updateUser(id, patch) {
+    const { data, error } = await must()
+      .from("app_users")
+      .update({ ...cleanPatch(patch), updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateUser", error);
+    return data as AppUserRecord;
+  },
+  async deleteUser(id) {
+    const { error } = await must().from("app_users").delete().eq("id", id);
+    if (error) fail("deleteUser", error);
+  },
+  async touchUserLogin(id) {
+    await must()
+      .from("app_users")
+      .update({ last_login_at: new Date().toISOString() })
+      .eq("id", id);
   },
 
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
@@ -214,7 +293,7 @@ export const supabaseStore: DataStore = {
   async updateMedia(id, patch) {
     const { data, error } = await must()
       .from("media_assets")
-      .update({ ...patch, updated_at: new Date().toISOString() })
+      .update({ ...cleanPatch(patch), updated_at: new Date().toISOString() })
       .eq("id", id)
       .select()
       .single();
@@ -255,7 +334,7 @@ export const supabaseStore: DataStore = {
   async updateBuyer(id, patch) {
     const { data, error } = await must()
       .from("buyers")
-      .update({ ...patch, updated_at: new Date().toISOString() })
+      .update({ ...cleanPatch(patch), updated_at: new Date().toISOString() })
       .eq("id", id)
       .select()
       .single();
@@ -314,7 +393,7 @@ export const supabaseStore: DataStore = {
   async updateMessage(id, patch) {
     const { data, error } = await must()
       .from("email_messages")
-      .update(patch)
+      .update(cleanPatch(patch))
       .eq("id", id)
       .select()
       .single();

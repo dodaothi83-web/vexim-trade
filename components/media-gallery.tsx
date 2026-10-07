@@ -16,14 +16,18 @@ export function MediaGallery({
   title,
   manageHref,
   emptyHint,
+  showInternal = true,
 }: {
   items: MediaAsset[];
   title: string;
   manageHref?: string;
   emptyHint?: string;
+  /** Ẩn hoàn toàn tệp nội bộ với người không có quyền media.internal */
+  showInternal?: boolean;
 }) {
-  const shareable = items.filter((m) => m.audience === "buyer");
-  const internal = items.filter((m) => m.audience === "internal");
+  const visible = showInternal ? items : items.filter((m) => m.audience !== "internal");
+  const shareable = visible.filter((m) => m.audience === "buyer");
+  const internal = visible.filter((m) => m.audience === "internal");
 
   return (
     <div className="card overflow-hidden">
@@ -43,7 +47,7 @@ export function MediaGallery({
         )}
       </div>
 
-      {items.length === 0 ? (
+      {visible.length === 0 ? (
         <p className="px-4 py-4 text-[12.5px] text-ink-500">
           {emptyHint ?? "Chưa có hình ảnh hay tài liệu nào."}
         </p>

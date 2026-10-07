@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
+import { guard } from "@/lib/auth/session";
 import { deleteObject, putObject } from "@/lib/media/storage";
 import { productReadiness } from "@/lib/media/readiness";
 import {
@@ -88,6 +89,8 @@ function parseBuyerInput(raw: Partial<BuyerInput> & Record<string, unknown>): Bu
 export async function createBuyerAction(
   raw: Partial<BuyerInput> & Record<string, unknown>,
 ): Promise<ActionResult & { id?: string }> {
+  const gate = await guard("buyers.manage");
+  if (gate) return gate;
   const input = parseBuyerInput(raw);
   if (!input.company || input.company === "Khách chưa đặt tên") {
     return { ok: false, message: "Vui lòng nhập tên công ty / buyer." };
@@ -121,6 +124,8 @@ export async function updateBuyerAction(
   id: string,
   raw: Partial<BuyerInput> & Record<string, unknown>,
 ): Promise<ActionResult> {
+  const gate = await guard("buyers.manage");
+  if (gate) return gate;
   const store = getStore();
   const before = await store.getBuyer(id);
   if (!before) return { ok: false, message: "Không tìm thấy khách hàng." };
@@ -153,6 +158,8 @@ export async function updateBuyerAction(
 }
 
 export async function deleteBuyerAction(id: string): Promise<ActionResult> {
+  const gate = await guard("buyers.manage");
+  if (gate) return gate;
   try {
     await getStore().deleteBuyer(id);
     revalidateAll();
@@ -167,6 +174,8 @@ export async function addNoteAction(
   text: string,
   author?: string | null,
 ): Promise<ActionResult> {
+  const gate = await guard("buyers.manage");
+  if (gate) return gate;
   const clean = str(text);
   if (!clean) return { ok: false, message: "Nội dung ghi chú trống." };
   try {
@@ -198,6 +207,8 @@ export async function changeStageAction(
   stage: string,
   options: ChangeStageOptions = {},
 ): Promise<ActionResult> {
+  const gate = await guard("buyers.manage");
+  if (gate) return gate;
   if (!isStage(stage)) return { ok: false, message: "Trạng thái không hợp lệ." };
 
   const store = getStore();
@@ -349,6 +360,8 @@ function parseSupplierInput(
 export async function createSupplierAction(
   raw: Partial<SupplierInput> & Record<string, unknown>,
 ): Promise<ActionResult & { id?: string }> {
+  const gate = await guard("suppliers.manage");
+  if (gate) return gate;
   const input = parseSupplierInput(raw);
   if (!input.name) return { ok: false, message: "Vui lòng nhập tên nhà cung cấp." };
   if (input.email && !EMAIL_RE.test(input.email)) {
@@ -371,6 +384,8 @@ export async function updateSupplierAction(
   id: string,
   raw: Partial<SupplierInput> & Record<string, unknown>,
 ): Promise<ActionResult> {
+  const gate = await guard("suppliers.manage");
+  if (gate) return gate;
   const input = parseSupplierInput(raw);
   if (!input.name) return { ok: false, message: "Vui lòng nhập tên nhà cung cấp." };
   if (input.email && !EMAIL_RE.test(input.email)) {
@@ -386,6 +401,8 @@ export async function updateSupplierAction(
 }
 
 export async function deleteSupplierAction(id: string): Promise<ActionResult> {
+  const gate = await guard("suppliers.manage");
+  if (gate) return gate;
   try {
     await getStore().deleteSupplier(id);
     revalidateAll();
@@ -428,6 +445,8 @@ function parseProductInput(
 export async function createProductAction(
   raw: Partial<SupplierProductInput> & Record<string, unknown>,
 ): Promise<ActionResult & { id?: string }> {
+  const gate = await guard("products.manage");
+  if (gate) return gate;
   const input = parseProductInput(raw);
   if (!input.supplier_id) return { ok: false, message: "Thiếu nhà cung cấp." };
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
@@ -446,6 +465,8 @@ export async function updateProductAction(
   id: string,
   raw: Partial<SupplierProductInput> & Record<string, unknown>,
 ): Promise<ActionResult> {
+  const gate = await guard("products.manage");
+  if (gate) return gate;
   const input = parseProductInput(raw);
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
   const store = getStore();
@@ -472,6 +493,8 @@ export async function updateProductAction(
 }
 
 export async function deleteProductAction(id: string): Promise<ActionResult> {
+  const gate = await guard("products.manage");
+  if (gate) return gate;
   try {
     await getStore().deleteProduct(id);
     revalidateAll();
@@ -520,6 +543,8 @@ function validateMail(input: MailDraftInput): string | null {
 }
 
 export async function sendMailAction(input: MailDraftInput): Promise<ActionResult> {
+  const gate = await guard("mail.send");
+  if (gate) return gate;
   const err = validateMail(input);
   if (err) return { ok: false, message: err };
 
@@ -559,6 +584,8 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
 }
 
 export async function saveDraftAction(input: MailDraftInput): Promise<ActionResult> {
+  const gate = await guard("mail.send");
+  if (gate) return gate;
   const id = await saveDraft({
     buyerId: input.buyerId ?? null,
     supplierId: input.supplierId ?? null,
@@ -578,6 +605,8 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
 }
 
 export async function deleteMessageAction(id: string): Promise<ActionResult> {
+  const gate = await guard("mail.send");
+  if (gate) return gate;
   try {
     await getStore().deleteMessage(id);
     revalidateAll();
@@ -588,6 +617,8 @@ export async function deleteMessageAction(id: string): Promise<ActionResult> {
 }
 
 export async function resendMessageAction(id: string): Promise<ActionResult> {
+  const gate = await guard("mail.send");
+  if (gate) return gate;
   const store = getStore();
   const msg = await store.getMessage(id);
   if (!msg) return { ok: false, message: "Không tìm thấy email." };
@@ -628,6 +659,8 @@ export async function resendMessageAction(id: string): Promise<ActionResult> {
  * trang Cài đặt — không cần khởi động lại app).
  */
 export async function retrySupabaseAction(): Promise<ActionResult> {
+  const gate = await guard("settings.view");
+  if (gate) return gate;
   resetSupabaseHealth();
   await supabaseProbe();
   revalidateAll();
@@ -653,6 +686,8 @@ export async function addMediaLinkAction(input: {
   caption?: string | null;
   audience?: "buyer" | "internal";
 }): Promise<ActionResult> {
+  const gate = await guard("media.manage");
+  if (gate) return gate;
   const url = (input.url ?? "").trim();
   let parsed: URL;
   try {
@@ -704,6 +739,8 @@ export async function updateMediaAction(
     expires_on?: string | null;
   },
 ): Promise<ActionResult> {
+  const gate = await guard("media.manage");
+  if (gate) return gate;
   const store = getStore();
   try {
     const current = await store.getMedia(id);
@@ -723,6 +760,8 @@ export async function updateMediaAction(
 
 /** Xoá tệp khỏi hồ sơ và khỏi kho lưu trữ. */
 export async function deleteMediaAction(id: string): Promise<ActionResult> {
+  const gate = await guard("media.manage");
+  if (gate) return gate;
   const store = getStore();
   try {
     const asset = await store.getMedia(id);

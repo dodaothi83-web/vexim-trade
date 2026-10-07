@@ -31,7 +31,7 @@ export interface DataStatus {
   mode: Mode;
   /** true khi đã cấu hình Supabase nhưng phải tạm dùng kho local. */
   degraded: boolean;
-  /** Lý do mất kết nối (hiển thị trên băng cảnh báo). */
+  /** Lý do mất kết nối (hiển thị ở khối “Kết nối” và trang Cài đặt). */
   reason: string | null;
   /** URL + mã dự án Supabase đang cấu hình. */
   url: string | null;

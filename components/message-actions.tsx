@@ -12,9 +12,12 @@ import { useToast } from "@/components/toast";
 export function MessageActions({
   messageId,
   replyHref,
+  canSend = false,
 }: {
   messageId: string;
   replyHref: string;
+  /** Có quyền soạn / gửi lại / xoá thư (mail.send) hay chỉ được xem */
+  canSend?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -43,26 +46,32 @@ export function MessageActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Link href={replyHref} className="btn btn-primary">
-        <CornerUpLeft className="h-4 w-4" />
-        Viết tiếp / Trả lời
-      </Link>
-      <Button variant="ghost" disabled={busy === "resend"} onClick={() => void resend()}>
-        {busy === "resend" ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <RotateCw className="h-4 w-4" />
-        )}
-        Gửi lại
-      </Button>
-      <Button variant="danger" disabled={busy === "delete"} onClick={() => void remove()}>
-        {busy === "delete" ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Trash2 className="h-4 w-4" />
-        )}
-        Xoá
-      </Button>
+      {canSend && (
+        <Link href={replyHref} className="btn btn-primary">
+          <CornerUpLeft className="h-4 w-4" />
+          Viết tiếp / Trả lời
+        </Link>
+      )}
+      {canSend && (
+        <>
+          <Button variant="ghost" disabled={busy === "resend"} onClick={() => void resend()}>
+            {busy === "resend" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCw className="h-4 w-4" />
+            )}
+            Gửi lại
+          </Button>
+          <Button variant="danger" disabled={busy === "delete"} onClick={() => void remove()}>
+            {busy === "delete" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            Xoá
+          </Button>
+        </>
+      )}
     </div>
   );
 }

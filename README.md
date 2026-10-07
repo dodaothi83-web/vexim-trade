@@ -23,8 +23,11 @@ Khi chưa có biến môi trường, app tự chạy ở **chế độ demo**:
 | --- | --- | --- |
 | Dữ liệu | file `data/local-db.json` (kèm 8 buyer + 5 NCC mẫu) | Supabase |
 | Email | tạo nội dung + lưu vào **Nhật ký email**, không gửi ra ngoài | gửi thật qua Resend |
+| Đăng nhập | mật khẩu nội bộ (scrypt), tạo quản trị đầu tiên ở `/setup` | Supabase Auth |
 
-Thanh “Kết nối” ở cuối menu trái luôn cho biết đang ở chế độ nào.
+Lần đầu chạy sẽ thấy trang `/login` → bấm tạo **quản trị viên đầu tiên** (xem
+[Tài khoản & phân quyền](#tài-khoản--phân-quyền)). Khối “Kết nối” ở cuối menu trái luôn cho biết
+đang ở chế độ nào.
 
 ---
 
@@ -41,6 +44,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 RESEND_API_KEY=re_...
 EMAIL_FROM=sales@veximtrade.com
 EMAIL_FROM_NAME=Vexim Trade
+AUTH_SECRET=<chuỗi ngẫu nhiên 64 ký tự hex — xem mục Tài khoản & phân quyền>
 ```
 
 5. Khởi động lại app. Các email đang ở trạng thái “demo” có thể bấm **Gửi lại** trong Nhật ký email.
@@ -66,12 +70,72 @@ Một số môi trường (sandbox/preview, máy sau tường lửa, VPN chặn)
 một số domain nhất định — Supabase sẽ bị chặn. Khi đó app **không sập**, mà:
 
 - tạm chuyển sang kho local `data/local-db.json` (chỉ với lỗi mạng — lỗi SQL vẫn báo nguyên);
-- hiện **băng cảnh báo vàng** ở đầu mọi trang + ghi rõ ở menu trái và trang Cài đặt, để
-  không ai nhầm dữ liệu tạm là dữ liệu thật;
+- ghi rõ trạng thái ở **khối “Kết nối” cuối menu trái** và ở trang **Cài đặt**, để không ai
+  nhầm dữ liệu tạm là dữ liệu thật (không dùng băng cảnh báo trên đầu trang nữa);
 - tự thử lại Supabase sau 60 giây và ngay lần tải trang kế tiếp, khỏi phải khởi động lại app.
 
 Điều khiển bằng biến `VEXIM_LOCAL_FALLBACK`: `auto` (mặc định — bật ở dev/sandbox, tắt ở
 production), `on`, hoặc `off`.
+
+---
+
+## Tài khoản & phân quyền
+
+Mọi trang trong CRM đều yêu cầu đăng nhập. Lần đầu mở app khi **chưa có tài khoản nào**, trang
+`/login` sẽ mời bạn tạo **quản trị viên đầu tiên** ở `/setup` (tài khoản này luôn có vai trò
+`admin`); sau đó `/setup` tự chuyển về `/login`.
+
+### Bốn vai trò
+
+Định nghĩa tại [`lib/auth/permissions.ts`](lib/auth/permissions.ts) — sửa `MATRIX` là đổi được quyền.
+
+| Vai trò | Xem | Thêm / sửa |
+| --- | --- | --- |
+| **Quản trị** (`admin`) | tất cả | tất cả, gồm người dùng & phân quyền |
+| **Kinh doanh** (`sale`) | buyer, NCC, sản phẩm, media, hộp thư | buyer (kể cả đổi trạng thái), media, soạn/gửi email |
+| **Thu mua** (`sourcing`) | buyer, NCC, sản phẩm, media, hộp thư | NCC, sản phẩm, media |
+| **Chỉ xem** (`viewer`) | buyer, NCC, sản phẩm, media (chỉ phần chia sẻ buyer), hộp thư | không |
+
+Riêng **giấy tờ nội bộ** (media `audience = internal`, ví dụ giấy xác minh nhà máy) chỉ **Quản trị**
+và **Thu mua** thấy; người khác không thấy trong danh sách và tải trực tiếp sẽ bị trả `403`.
+
+Quyền được chốt **2 lớp**: giao diện ẩn nút không có quyền, và mọi server action / API đều kiểm tra
+lại ở phía máy chủ (`guard(...)` trong `app/actions.ts`), nên gọi tay cũng không vượt được.
+
+### Đăng nhập
+
+- **Supabase Auth là chính**: app gọi `signInWithPassword` khi kết nối được Supabase.
+- Tài khoản Supabase **phải có dòng tương ứng trong bảng `app_users`** mới vào được (bảng này giữ
+  vai trò). Chưa có thì báo “Tài khoản Supabase này chưa được cấp quyền trong app…”.
+- Khi máy chạy app **không kết nối được Supabase** (sandbox/preview, tường lửa), app tự dùng
+  **mật khẩu nội bộ** đã băm bằng scrypt trong `app_users.password_hash` — chỉ với lỗi mạng; sai
+  mật khẩu hay email chưa xác nhận thì bị từ chối như thường, không có đường vòng.
+- Phiên lưu trong cookie `vxt_session` (HttpOnly, SameSite=Lax, hạn 7 ngày, ký HMAC-SHA256 bằng
+  `AUTH_SECRET`). Không đặt `AUTH_SECRET` thì app sinh khoá riêng ở `data/auth-secret` (đừng dùng
+  cách này khi chạy nhiều máy chủ).
+- Mỗi lần tải trang, phiên được đối chiếu lại với bảng `app_users`: **khoá tài khoản hoặc đổi vai
+  trò có hiệu lực ngay**, không phải chờ cookie hết hạn.
+
+Tạo `AUTH_SECRET`:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+### Quản lý người dùng
+
+Vào **Cài đặt → Người dùng & phân quyền** (chỉ `admin`):
+
+- tạo tài khoản mới (email, tên, vai trò, mật khẩu ban đầu ≥ 8 ký tự có chữ và số);
+- đổi vai trò, khoá / mở khoá, đặt lại mật khẩu, xoá tài khoản;
+- khi có mạng, tài khoản được tạo kèm bên **Supabase Auth**; mật khẩu đặt lại cũng được đẩy sang đó.
+
+Chốt an toàn: không tự hạ quyền / tự khoá / tự xoá chính mình, và không thể xoá quản trị viên
+đang hoạt động cuối cùng.
+
+> **Đã có dữ liệu từ trước?** Bảng `app_users` được thêm sau, nên hãy chạy lại
+> [`supabase/schema.sql`](supabase/schema.sql) một lần nữa — script viết theo kiểu `if not exists`,
+> chạy lại không mất dữ liệu. Kiểm tra nhanh bằng `npm run check:supabase`.
 
 ---
 
@@ -244,15 +308,20 @@ riêng cho từng giai đoạn (ví dụ giai đoạn *Đang sản xuất* → �
 
 ```
 app/
-  page.tsx                    Tổng quan: KPI, phễu pipeline, việc cần làm, cảnh báo
-  pipeline/page.tsx           Board kéo-thả theo trạng thái
-  buyers/                     Danh sách, thêm mới, chi tiết, sửa
-  suppliers/                  Danh sách, thêm mới, chi tiết, sửa
-  mail/page.tsx               Hộp thư đi + bản nháp
-  mail/compose/page.tsx       Trình soạn thảo email
-  mail/[id]/page.tsx          Xem một email + gửi lại / trả lời / xoá
-  templates/page.tsx          Nội dung email theo từng giai đoạn (buyer & NCC)
-  settings/page.tsx           Trạng thái kết nối Supabase/Resend, bảng pipeline
+  (auth)/                     Trang đăng nhập và tạo quản trị viên đầu tiên
+  (app)/                      Nhóm trang yêu cầu đăng nhập (layout chặn phiên + dựng menu)
+    page.tsx                  Tổng quan: KPI, phễu pipeline, việc cần làm, cảnh báo
+    pipeline/page.tsx         Board kéo-thả theo trạng thái
+    buyers/                   Danh sách, thêm mới, chi tiết, sửa
+    suppliers/                Danh sách, thêm mới, chi tiết, sửa
+    mail/page.tsx             Hộp thư đi + bản nháp
+    mail/compose/page.tsx     Trình soạn thảo email
+    mail/[id]/page.tsx        Xem một email + gửi lại / trả lời / xoá
+    templates/page.tsx        Nội dung email theo từng giai đoạn (buyer & NCC)
+    settings/page.tsx         Trạng thái kết nối Supabase/Resend, bảng pipeline
+    settings/users/page.tsx   Người dùng & phân quyền (chỉ quản trị viên)
+  auth-actions.ts             Server actions: đăng nhập, đăng xuất, quản lý người dùng
+  api/media/                  API tải lên & trả tệp (kiểm tra phiên + quyền)
   actions.ts                  Toàn bộ server actions (CRUD, đổi trạng thái, gửi email)
 components/
   stage-select.tsx            Dropdown trạng thái + hộp xác nhận người nhận
@@ -263,7 +332,14 @@ components/
   media-gallery.tsx           Khối xem ảnh & tài liệu ở trang chi tiết
   rich-editor.tsx             Khung soạn thảo có định dạng
   mailbox.tsx                 Danh sách hộp thư
+  login-form.tsx              Form đăng nhập
+  setup-form.tsx              Form tạo quản trị viên đầu tiên
+  user-manager.tsx            Bảng người dùng & phân quyền
 lib/
+  auth/permissions.ts         Vai trò và ma trận quyền
+  auth/authenticate.ts        Supabase Auth trước, mật khẩu nội bộ khi mất mạng
+  auth/session.ts             Cookie phiên ký HMAC + cổng kiểm tra quyền
+  db/schema-check.ts          Soi bảng/cột còn thiếu trong Supabase
   pipeline.ts                 Danh sách giai đoạn của pipeline
   media/storage.ts            Kho tệp: Supabase Storage hoặc data/media (local)
   media/validate.ts           Kiểm tra magic bytes / định dạng / dung lượng

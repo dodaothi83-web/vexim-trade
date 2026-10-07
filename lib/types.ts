@@ -224,3 +224,35 @@ export interface BuyerWithSupplier extends Buyer {
 
 export type BuyerInput = Omit<Buyer, "id" | "created_at" | "updated_at">;
 export type SupplierInput = Omit<Supplier, "id" | "created_at" | "updated_at">;
+
+/* ------------------------------- NGƯỜI DÙNG ------------------------------ */
+
+export type UserRole = "admin" | "sale" | "sourcing" | "viewer";
+
+/** Cách tài khoản được xác thực */
+export type AuthProvider = "supabase" | "local";
+
+export interface AppUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+  /** Tài khoản được tạo bên Supabase Auth (đăng nhập qua Supabase khi có mạng) */
+  auth_provider: AuthProvider;
+  /** Có mật khẩu nội bộ (dùng khi không kết nối được Supabase) */
+  has_local_password: boolean;
+  is_active: boolean;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Bản ghi đầy đủ chỉ dùng ở server (có hash mật khẩu) */
+export interface AppUserRecord extends Omit<AppUser, "has_local_password"> {
+  password_hash: string | null;
+}
+
+export type AppUserInput = Omit<
+  AppUserRecord,
+  "id" | "created_at" | "updated_at" | "last_login_at"
+>;

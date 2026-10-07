@@ -60,6 +60,8 @@ interface Props {
   autoSend?: boolean;
   onAutoSendChange?: (v: boolean) => void;
   className?: string;
+  /** Chỉ xem: hiện nhãn trạng thái thay vì menu đổi trạng thái */
+  readOnly?: boolean;
 }
 
 export function StageSelect({
@@ -67,7 +69,19 @@ export function StageSelect({
   size = "sm",
   autoSend = false,
   className,
+  readOnly = false,
 }: Props) {
+  if (readOnly) return <StageBadge stage={target.stage} />;
+
+  return <StageSelectInteractive target={target} size={size} autoSend={autoSend} className={className} />;
+}
+
+function StageSelectInteractive({
+  target,
+  size = "sm",
+  autoSend = false,
+  className,
+}: Omit<Props, "readOnly">) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);

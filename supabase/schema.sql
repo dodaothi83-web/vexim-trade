@@ -227,6 +227,42 @@ on conflict (id) do nothing;
 -- Supabase thì đổi public thành true và tự thêm policy phù hợp.
 
 -- ---------------------------------------------------------------------------
+-- 5c. NGƯỜI DÙNG & PHÂN QUYỀN (app_users)
+--     - Đăng nhập: Supabase Auth khi kết nối được; khi không kết nối được thì
+--       dùng mật khẩu nội bộ (cột password_hash, băm scrypt) — KHÔNG lưu mật khẩu thô.
+--     - Quyền do app quyết định theo cột role: admin | sale | sourcing | viewer.
+--       Tài khoản có trong Supabase Auth nhưng không có trong bảng này sẽ không
+--       vào được app.
+--     - Người dùng được tạo từ giao diện (Cài đặt → Người dùng) sẽ được tạo ở
+--       cả Supabase Auth (nếu kết nối được) và bảng này.
+-- ---------------------------------------------------------------------------
+create table if not exists public.app_users (
+  id            uuid primary key default gen_random_uuid(),
+  email         text not null,
+  name          text,
+  role          text not null default 'viewer' check (role in
+                  ('admin','sale','sourcing','viewer')),
+  auth_provider text not null default 'local' check (auth_provider in ('supabase','local')),
+  -- NULL = tài khoản chỉ có bên Supabase Auth (chưa có mật khẩu dự phòng)
+  password_hash text,
+  is_active     boolean not null default true,
+  last_login_at timestamptz,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+-- Email không phân biệt hoa/thường
+create unique index if not exists app_users_email_key on public.app_users (lower(email));
+
+-- Nếu bảng đã tồn tại từ bản trước, bổ sung cột còn thiếu:
+alter table public.app_users add column if not exists name text;
+alter table public.app_users add column if not exists role text not null default 'viewer';
+alter table public.app_users add column if not exists auth_provider text not null default 'local';
+alter table public.app_users add column if not exists password_hash text;
+alter table public.app_users add column if not exists is_active boolean not null default true;
+alter table public.app_users add column if not exists last_login_at timestamptz;
+
+-- ---------------------------------------------------------------------------
 -- 6. TỰ ĐỘNG CẬP NHẬT updated_at
 -- ---------------------------------------------------------------------------
 create or replace function public.touch_updated_at()
@@ -250,6 +286,10 @@ create trigger supplier_products_touch before update on public.supplier_products
 
 drop trigger if exists media_assets_touch on public.media_assets;
 create trigger media_assets_touch before update on public.media_assets
+  for each row execute function public.touch_updated_at();
+
+drop trigger if exists app_users_touch on public.app_users;
+create trigger app_users_touch before update on public.app_users
   for each row execute function public.touch_updated_at();
 
 -- ---------------------------------------------------------------------------
