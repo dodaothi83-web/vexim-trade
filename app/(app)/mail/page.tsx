@@ -89,7 +89,6 @@ export default async function MailPage() {
           toLabel: m.kind === "inbound" ? (m.to_emails.join(", ") || FROM_ADDRESS) : (m.to_emails.join(", ") || "—"),
           at: m.sent_at ?? m.created_at,
           bodyHtml: m.body_html,
-          snippet: (m.body_text || m.body_html.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim().slice(0, 140),
           unread: m.kind === "inbound" && !m.read_at,
           rfcMessageId: m.rfc_message_id ?? null,
         })),

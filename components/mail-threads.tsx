@@ -31,7 +31,6 @@ export interface ThreadMessage {
   toLabel: string;
   at: string;
   bodyHtml: string;
-  snippet: string;
   unread: boolean;
   rfcMessageId: string | null;
 }
@@ -84,8 +83,9 @@ function Avatar({ name, inbound, small }: { name: string; inbound?: boolean; sma
 /**
  * Hộp thư phẳng kiểu Gmail:
  * - Trái: danh sách hội thoại.
- * - Phải: mạch thư KHÔNG đóng khung từng thư — mỗi thư một dòng (avatar, tên,
- *   snippet, giờ); bấm vào dòng mới xổ nội dung đầy đủ ngay bên dưới.
+ * - Phải: mạch thư KHÔNG đóng khung từng thư — mỗi thư gồm dòng đầu (avatar, tên,
+ *   người nhận, badge, giờ) + nội dung LUÔN hiển thị đầy đủ; không còn cơ chế
+ *   đóng/mở hay mũi tên — nội dung dài đã có thanh cuộn của khung.
  * - Đáy mạch thư: hai nút pill [Trả lời] / [Chuyển tiếp]; bấm Trả lời mới mở khung soạn.
  * - Soạn thư mới / chuyển tiếp: cửa sổ nổi góc phải dưới giống Gmail.
  */
@@ -101,12 +101,6 @@ export function MailThreads({
   const router = useRouter();
   const toast = useToast();
   const [selected, setSelected] = useState<string | null>(threads[0]?.threadId ?? null);
-  // Giống Gmail: mở mạch thư là thư MỚI NHẤT tự mở sẵn nội dung, các thư cũ thu gọn
-  const [expanded, setExpanded] = useState<Set<string>>(() => {
-    const first = threads[0];
-    const last = first?.messages[first.messages.length - 1];
-    return new Set(last ? [last.id] : []);
-  });
   const [replyOpen, setReplyOpen] = useState(false);
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
@@ -122,15 +116,12 @@ export function MailThreads({
     [threads, selected],
   );
 
-  // Đổi hội thoại => đánh dấu đã đọc (một lần mỗi mạch) + tự mở sẵn thư mới nhất,
-  // thu gọn thư cũ. Chỉ reset khi đổi threadId — router.refresh() sau khi gửi không
-  // làm đóng mất thư người dùng vừa tự mở ra.
+  // Đổi hội thoại => đánh dấu đã đọc (một lần mỗi mạch) + đóng khung trả lời.
+  // Chỉ chạy khi đổi threadId — router.refresh() sau khi gửi không ảnh hưởng UI.
   useEffect(() => {
     if (!current) return;
     if (lastThread.current !== current.threadId) {
       lastThread.current = current.threadId;
-      const last = current.messages[current.messages.length - 1];
-      setExpanded(new Set(last ? [last.id] : []));
       setReplyOpen(false);
     }
     if (current.unread === 0) return;
@@ -140,15 +131,6 @@ export function MailThreads({
       if (res.ok) router.refresh();
     });
   }, [current, router]);
-
-  function toggleMsg(id: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   function openCompose(prefill?: ComposePrefill) {
     setComposePrefill(prefill);
@@ -285,73 +267,51 @@ export function MailThreads({
 
             {/* Danh sách thư phẳng: ngăn cách bằng đường kẻ mờ, không khung riêng */}
             <div className="min-h-0 flex-1 divide-y divide-ink-100 overflow-y-auto px-2">
-              {current.messages.map((m) => {
-                const open = expanded.has(m.id);
-                return (
-                  <div key={m.id}>
-                    <button
-                      type="button"
-                      onClick={() => toggleMsg(m.id)}
-                      className="flex w-full items-center gap-3 px-2 py-2.5 text-left transition hover:bg-ink-50"
-                    >
-                      <Avatar name={m.fromLabel} inbound={m.kind === "inbound"} small />
-                      <span
-                        className={cx(
-                          "w-40 shrink-0 truncate text-[13px]",
-                          m.unread ? "font-bold text-ink-900" : "font-semibold text-ink-800",
-                        )}
-                      >
-                        {m.fromLabel}
-                      </span>
-                      {!open && (
-                        <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-500">
-                          {m.snippet || m.subject}
-                        </span>
-                      )}
-                      {open && (
-                        <span className="min-w-0 flex-1 truncate text-[12px] text-ink-400">
-                          tới {m.toLabel}
-                        </span>
-                      )}
-                      <Badge
-                        className={
-                          m.kind === "inbound"
-                            ? "bg-amber-50 text-amber-700"
-                            : m.status === "draft"
-                              ? "bg-ink-100 text-ink-600"
-                              : "bg-brand-50 text-brand-700"
-                        }
-                      >
-                        {m.kind === "inbound" ? "Thư đến" : m.status === "draft" ? "Nháp" : "Đã gửi"}
-                      </Badge>
-                      {m.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />}
-                      <span className="shrink-0 text-[11px] text-ink-400">{formatDateTime(m.at)}</span>
-                    </button>
-                    {/* Xổ/thu mượt bằng grid-template-rows (0fr ↔ 1fr) — không giật khung */}
-                    <div
+              {current.messages.map((m) => (
+                <div key={m.id}>
+                  {/* Dòng đầu mỗi thư: phẳng, không mũi tên thu/gập */}
+                  <div className="flex w-full items-center gap-3 px-2 py-2.5">
+                    <Avatar name={m.fromLabel} inbound={m.kind === "inbound"} small />
+                    <span
                       className={cx(
-                        "grid transition-[grid-template-rows] duration-200 ease-out",
-                        open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                        "w-40 shrink-0 truncate text-[13px]",
+                        m.unread ? "font-bold text-ink-900" : "font-semibold text-ink-800",
                       )}
                     >
-                      <div className="min-h-0 overflow-hidden" aria-hidden={!open}>
-                        <div className="px-3 pb-4 pl-12">
-                          {m.status === "draft" ? (
-                            <Link href={`/mail/compose?draft=${m.id}`} className="btn btn-ghost px-2.5">
-                              <Pencil className="h-3.5 w-3.5" /> Mở bản nháp
-                            </Link>
-                          ) : (
-                            <SafeHtml
-                              html={m.bodyHtml}
-                              className="vxt-mail-body text-[13.5px] leading-6 text-ink-800"
-                            />
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                      {m.fromLabel}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[12px] text-ink-400">
+                      tới {m.toLabel}
+                    </span>
+                    <Badge
+                      className={
+                        m.kind === "inbound"
+                          ? "bg-amber-50 text-amber-700"
+                          : m.status === "draft"
+                            ? "bg-ink-100 text-ink-600"
+                            : "bg-brand-50 text-brand-700"
+                      }
+                    >
+                      {m.kind === "inbound" ? "Thư đến" : m.status === "draft" ? "Nháp" : "Đã gửi"}
+                    </Badge>
+                    {m.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />}
+                    <span className="shrink-0 text-[11px] text-ink-400">{formatDateTime(m.at)}</span>
                   </div>
-                );
-              })}
+                  {/* Thân thư luôn hiển thị đầy đủ — dài thì thanh cuộn của khung lo */}
+                  <div className="px-4 pb-5 pl-12">
+                    {m.status === "draft" ? (
+                      <Link href={`/mail/compose?draft=${m.id}`} className="btn btn-ghost px-2.5">
+                        <Pencil className="h-3.5 w-3.5" /> Mở bản nháp
+                      </Link>
+                    ) : (
+                      <SafeHtml
+                        html={m.bodyHtml}
+                        className="vxt-mail-body text-[13.5px] leading-6 text-ink-800"
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Chân khung trắng: cụm nút pill ghim sát đáy card */}
