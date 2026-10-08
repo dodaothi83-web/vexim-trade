@@ -330,21 +330,23 @@ Cùng một lần đổi giai đoạn, hệ thống sinh **hai email hoàn toàn
 Thư buyer/NCC gửi vào domain sẽ được Resend nhận qua MX, bắn sự kiện `email.received`
 về webhook của app, lưu vào Hộp thư và báo cho đội ngũ.
 
-1. **DNS (MX) — KHÔNG đụng domain gốc nếu nó đang nhận mail công ty:** dùng subdomain riêng
-   (khuyến nghị: `inbound.veximtrade.com`):
-   - Resend Dashboard → Domains → thêm domain `inbound.veximtrade.com` → bật **Receiving**.
-   - DNS: thêm MX **chỉ cho host `inbound`**, giá trị dashboard đưa ra
-     (ví dụ `inbound-smtp.us-east-1.amazonaws.com`), priority 10.
-     MX của domain gốc giữ nguyên → luồng mail công ty hiện tại không bị ảnh hưởng.
-   - Tạo bản sao thư đến CRM: nơi hộp thư `sales@` đang đổ về (Gmail / mail server cũ),
-     thêm rule chuyển tiếp (forward/BCC) các địa chỉ CRM quan tâm tới
-     `crm@inbound.veximtrade.com`. Gmail: Settings → Forwarding → verify địa chỉ đích
-     (mail xác nhận sẽ hiện trong Resend → Receiving để bấm link) → tạo filter
-     `To: sales@veximtrade.com` forward tới địa chỉ subdomain.
-   - Đặt `INBOUND_DOMAINS=inbound.veximtrade.com` để app loại domain này khỏi danh sách
-     nhận thông báo (chống vòng lặp).
-   - Sau này nếu bỏ hẳn hệ thống mail cũ: chuyển MX domain gốc về Resend là đủ,
-     không phải sửa code.
+1. **DNS (MX) — nhận thư ngay trên domain gốc `veximtrade.com`**
+   (domain đã chuyển về dự án này từ 08/10/2026, hệ thống mail cũ không còn giữ MX):
+   - Resend Dashboard → Domains → `veximtrade.com` → bật **Receiving**.
+   - Thay bản ghi MX của domain gốc bằng MX nhận thư của Resend (giá trị chép từ dashboard):
+     | Type | Host | Points to | Priority |
+     | --- | --- | --- | --- |
+     | MX | `@` (veximtrade.com) | giá trị MX receiving của dashboard (dạng `inbound-smtp.us-east-1.amazonaws.com`) | 10 |
+     Xoá MX cũ trỏ về hệ thống mail cũ. Trong lúc DNS lan toả (TTL), thư vẫn có thể rơi
+     vào MX cũ — hết TTL thì toàn bộ thư @veximtrade.com chảy về Resend → vào Hộp thư CRM.
+   - Giữ nguyên các bản ghi gửi mail hiện có (SPF/DKIM của Resend) — đang gửi tốt.
+   - Hệ quả cần biết: **mọi địa chỉ @veximtrade.com** (sales@, trade@, noreply@…) đều thành
+     thư đến trong CRM, mỗi người gửi một mạch thư; nhân viên đọc mail công ty ngay trong
+     Hộp thư. Muốn nhận thêm thông báo email thì đặt `INBOUND_NOTIFY_EMAILS` bằng địa chỉ
+     cá nhân (Gmail…) — app tự không báo vào địa chỉ @veximtrade.com để chống vòng lặp.
+   - **Phương án phụ** (chỉ dùng nếu sau này lại có hệ thống mail khác giữ MX gốc):
+     nhận thư qua subdomain `inbound.veximtrade.com` + rule chuyển tiếp bản sao,
+     kèm `INBOUND_DOMAINS=inbound.veximtrade.com` — code không phải sửa gì thêm.
 2. **Webhook:** Dashboard → Webhooks → URL `https://<domain-app>/api/webhooks/resend`,
    chọn sự kiện `email.received`; chép secret `whsec_...` vào biến môi trường
    `RESEND_WEBHOOK_SECRET` (production thiếu secret thì endpoint trả 401).
