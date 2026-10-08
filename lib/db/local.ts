@@ -9,6 +9,10 @@ import type {
   AppUserRecord,
   Buyer,
   BuyerInput,
+  Prospect,
+  ProspectInput,
+  ProspectActivity,
+  ProspectActivityChannel,
   EmailAttachment,
   EmailMessage,
   MediaAsset,
@@ -19,6 +23,7 @@ import type {
   SupplierProduct,
   SupplierProductInput,
   TemplateOverride,
+  ProspectOutreachTemplate,
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
 import type { DataStore } from "@/lib/db/types";
@@ -26,12 +31,15 @@ import type { DataStore } from "@/lib/db/types";
 interface LocalShape {
   users: AppUserRecord[];
   buyers: Buyer[];
+  prospects: Prospect[];
+  prospect_activities: ProspectActivity[];
   suppliers: Supplier[];
   products: SupplierProduct[];
   media: MediaAsset[];
   activities: Activity[];
   messages: EmailMessage[];
   template_overrides: TemplateOverride[];
+  prospect_outreach_template_overrides: ProspectOutreachTemplate[];
   attachments: EmailAttachment[];
 }
 
@@ -110,13 +118,16 @@ function seed(): LocalShape {
     } satisfies SupplierProduct;
   });
 
-  return { users: [], buyers, suppliers, products, media: [], activities, messages: [], attachments: [], template_overrides: [] };
+  return { users: [], buyers, prospects: [], prospect_activities: [], suppliers, products, media: [], activities, messages: [], attachments: [], template_overrides: [], prospect_outreach_template_overrides: [] };
 }
 
 function load(): LocalShape {
   if (g.__veximLocal) {
     const c = g.__veximLocal;
     if (!Array.isArray(c.messages)) c.messages = [];
+    if (!Array.isArray(c.prospects)) c.prospects = [];
+    if (!Array.isArray(c.prospect_activities)) c.prospect_activities = [];
+    if (!Array.isArray(c.prospect_outreach_template_overrides)) c.prospect_outreach_template_overrides = [];
     if (!Array.isArray(c.activities)) c.activities = [];
     if (!Array.isArray(c.products)) c.products = [];
     if (!Array.isArray(c.media)) c.media = [];
@@ -137,6 +148,9 @@ function load(): LocalShape {
           parsed.messages = Array.isArray(legacy.emails) ? [] : [];
           delete legacy.emails;
         }
+        if (!Array.isArray(parsed.prospects)) parsed.prospects = [];
+        if (!Array.isArray(parsed.prospect_activities)) parsed.prospect_activities = [];
+        if (!Array.isArray(parsed.prospect_outreach_template_overrides)) parsed.prospect_outreach_template_overrides = [];
         if (!Array.isArray(parsed.activities)) parsed.activities = [];
         if (!Array.isArray(parsed.products)) parsed.products = [];
         if (!Array.isArray(parsed.media)) parsed.media = [];
@@ -296,6 +310,87 @@ export const localStore: DataStore = {
       db.buyers = db.buyers.filter((b) => b.id !== id);
       db.activities = db.activities.filter((a) => a.buyer_id !== id);
       db.messages = db.messages.filter((e) => e.buyer_id !== id);
+    });
+  },
+
+  async listProspects() {
+    return [...load().prospects].sort(
+      (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+    );
+  },
+  async getProspect(id) {
+    return load().prospects.find((p) => p.id === id) ?? null;
+  },
+  async createProspect(input: ProspectInput) {
+    return mutate((db) => {
+      const now = new Date().toISOString();
+      const row: Prospect = { ...input, id: randomUUID(), created_at: now, updated_at: now };
+      db.prospects.push(row);
+      return row;
+    });
+  },
+  async createProspects(inputs: ProspectInput[]) {
+    return mutate((db) => {
+      const now = new Date().toISOString();
+      const rows = inputs.map((input) => ({ ...input, id: randomUUID(), created_at: now, updated_at: now }));
+      db.prospects.push(...rows);
+      return rows;
+    });
+  },
+  async updateProspect(id, patch) {
+    return mutate((db) => {
+      const row = db.prospects.find((p) => p.id === id);
+      if (!row) throw new Error("Không tìm thấy prospect");
+      Object.assign(row, cleanPatch(patch), { updated_at: new Date().toISOString() });
+      return row;
+    });
+  },
+  async deleteProspect(id) {
+    mutate((db) => {
+      db.prospects = db.prospects.filter((p) => p.id !== id);
+      db.prospect_activities = db.prospect_activities.filter((a) => a.prospect_id !== id);
+      db.messages = db.messages.map((message) =>
+        message.prospect_id === id ? { ...message, prospect_id: null } : message,
+      );
+    });
+  },
+  async listProspectActivities(prospectId) {
+    return load()
+      .prospect_activities.filter((a) => a.prospect_id === prospectId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
+  async addProspectActivity(input: {
+    prospect_id: string;
+    channel: ProspectActivityChannel;
+    summary: string;
+    created_by?: string | null;
+  }) {
+    return mutate((db) => {
+      const row: ProspectActivity = {
+        id: randomUUID(),
+        prospect_id: input.prospect_id,
+        channel: input.channel,
+        summary: input.summary,
+        created_by: input.created_by ?? null,
+        created_at: new Date().toISOString(),
+      };
+      db.prospect_activities.push(row);
+      return row;
+    });
+  },
+  async addProspectActivities(inputs) {
+    return mutate((db) => {
+      const now = new Date().toISOString();
+      const rows: ProspectActivity[] = inputs.map((input) => ({
+        id: randomUUID(),
+        prospect_id: input.prospect_id,
+        channel: input.channel,
+        summary: input.summary,
+        created_by: input.created_by ?? null,
+        created_at: now,
+      }));
+      db.prospect_activities.push(...rows);
+      return rows;
     });
   },
 
@@ -530,6 +625,24 @@ export const localStore: DataStore = {
       db.template_overrides = (db.template_overrides ?? []).filter(
         (x) => !(x.stage === stage && x.dir === dir),
       );
+    });
+  },
+  async listProspectOutreachTemplateOverrides() {
+    return load().prospect_outreach_template_overrides ?? [];
+  },
+  async saveProspectOutreachTemplateOverride(input) {
+    mutate((db) => {
+      const list = db.prospect_outreach_template_overrides ?? (db.prospect_outreach_template_overrides = []);
+      db.prospect_outreach_template_overrides = [
+        ...list.filter((item) => item.id !== input.id),
+        { ...input, updated_at: new Date().toISOString() },
+      ];
+    });
+  },
+  async clearProspectOutreachTemplateOverride(id) {
+    mutate((db) => {
+      db.prospect_outreach_template_overrides = (db.prospect_outreach_template_overrides ?? [])
+        .filter((item) => item.id !== id);
     });
   },
 };

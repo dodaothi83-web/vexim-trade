@@ -19,6 +19,8 @@ import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import type {
   Buyer,
   BuyerInput,
+  ProspectInput,
+  ProspectActivityChannel,
   EmailAttachment,
   SupplierInput,
   SupplierProductInput,
@@ -174,6 +176,292 @@ export async function deleteBuyerAction(id: string): Promise<ActionResult> {
     return { ok: true, message: "Đã xoá buyer." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+  }
+}
+
+const PROSPECT_STATUSES = [
+  "new", "researched", "ready", "contacted", "replied", "meeting", "qualified",
+  "converted", "disqualified", "unsubscribed",
+] as const;
+const PROSPECT_CHANNELS = ["email", "linkedin", "phone", "meeting", "note"] as const;
+
+function cleanProspectInput(raw: Partial<ProspectInput>, owner: string | null): ProspectInput {
+  const status = PROSPECT_STATUSES.includes(raw.status as (typeof PROSPECT_STATUSES)[number])
+    ? raw.status!
+    : "new";
+  return {
+    company: str(raw.company) ?? "",
+    contact_name: str(raw.contact_name),
+    contact_title: str(raw.contact_title),
+    email: str(raw.email)?.toLowerCase() ?? null,
+    email_status: str(raw.email_status),
+    phone: str(raw.phone),
+    country: str(raw.country),
+    city: str(raw.city),
+    website: str(raw.website),
+    linkedin_url: str(raw.linkedin_url),
+    company_linkedin_url: str(raw.company_linkedin_url),
+    industry: str(raw.industry),
+    employee_range: str(raw.employee_range),
+    apollo_id: str(raw.apollo_id),
+    source_list: str(raw.source_list),
+    status,
+    owner: str(raw.owner) ?? owner,
+    next_action: str(raw.next_action),
+    next_action_at: str(raw.next_action_at),
+    notes: str(raw.notes),
+    converted_buyer_id: str(raw.converted_buyer_id),
+  };
+}
+
+function normalizeMatch(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
+}
+
+export async function createProspectAction(raw: Partial<ProspectInput>): Promise<ActionResult & { id?: string }> {
+  const gate = await guard("prospects.manage");
+  if (gate) return gate;
+  const session = await getSession();
+  const input = cleanProspectInput({ ...raw, status: "new", converted_buyer_id: null, owner: session?.name ?? null }, session?.name ?? null);
+  if (!input.company) return { ok: false, message: "Vui lòng nhập tên công ty." };
+  if (input.email && !EMAIL_RE.test(input.email)) return { ok: false, message: "Email không hợp lệ." };
+  try {
+    const prospect = await getStore().createProspect(input);
+    revalidateAll();
+    return { ok: true, message: "Đã thêm prospect.", id: prospect.id };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Không thêm được prospect." };
+  }
+}
+
+export async function importProspectsAction(rawRows: Partial<ProspectInput>[], lineOffset = 0): Promise<ActionResult & {
+  created?: number;
+  skipped?: number;
+  matchedBuyers?: string[];
+  errors?: string[];
+}> {
+  const gate = await guard("prospects.manage");
+  if (gate) return gate;
+  if (!Array.isArray(rawRows) || rawRows.length === 0) return { ok: false, message: "Tệp không có dòng dữ liệu." };
+  if (rawRows.length > 3000) return { ok: false, message: "Mỗi lần chỉ nhập tối đa 3.000 dòng." };
+  const safeOffset = Number.isInteger(lineOffset) && lineOffset >= 0 && lineOffset <= 3000 ? lineOffset : 0;
+
+  const session = await getSession();
+  const store = getStore();
+  const [existingProspects, buyers] = await Promise.all([store.listProspects(), store.listBuyers()]);
+  const seenEmails = new Set(existingProspects.map((p) => normalizeMatch(p.email)).filter(Boolean));
+  const seenLinks = new Set(existingProspects.map((p) => normalizeMatch(p.linkedin_url)).filter(Boolean));
+  const seenApollo = new Set(existingProspects.map((p) => normalizeMatch(p.apollo_id)).filter(Boolean));
+  const buyerEmails = new Map<string, string>();
+  const buyerLinks = new Map<string, string>();
+  for (const buyer of buyers) {
+    const email = normalizeMatch(buyer.email);
+    const link = normalizeMatch(buyer.linkedin);
+    if (email) buyerEmails.set(email, buyer.company);
+    if (link) buyerLinks.set(link, buyer.company);
+  }
+  const errors: string[] = [];
+  const matchedBuyers: string[] = [];
+  let created = 0;
+  let skipped = 0;
+
+  const pending: { input: ProspectInput; line: number }[] = [];
+  for (let i = 0; i < rawRows.length; i += 1) {
+    const input = cleanProspectInput({ ...(rawRows[i] ?? {}), status: "new", converted_buyer_id: null, owner: session?.name ?? null }, session?.name ?? null);
+    const line = safeOffset + i + 2;
+    if (!input.company) { errors.push(`Dòng ${line}: thiếu tên công ty.`); skipped += 1; continue; }
+    if (input.email && !EMAIL_RE.test(input.email)) { errors.push(`Dòng ${line}: email không hợp lệ.`); skipped += 1; continue; }
+
+    const emailKey = normalizeMatch(input.email);
+    const linkKey = normalizeMatch(input.linkedin_url);
+    const apolloKey = normalizeMatch(input.apollo_id);
+    if ((emailKey && seenEmails.has(emailKey)) || (linkKey && seenLinks.has(linkKey)) || (apolloKey && seenApollo.has(apolloKey))) {
+      skipped += 1;
+      continue;
+    }
+    const buyerMatch = (emailKey && buyerEmails.get(emailKey)) || (linkKey && buyerLinks.get(linkKey));
+    if (buyerMatch) {
+      matchedBuyers.push(`${input.contact_name || input.company} → Buyer hiện có: ${buyerMatch}`);
+      skipped += 1;
+      continue;
+    }
+
+    pending.push({ input: { ...input, source_list: input.source_list || "Apollo" }, line });
+    if (emailKey) seenEmails.add(emailKey);
+    if (linkKey) seenLinks.add(linkKey);
+    if (apolloKey) seenApollo.add(apolloKey);
+  }
+
+  if (pending.length) {
+    try {
+      const prospects = await store.createProspects(pending.map(({ input }) => input));
+      created += prospects.length;
+      await store.addProspectActivities(prospects.map((prospect, index) => ({
+        prospect_id: prospect.id,
+        channel: "note" as const,
+        summary: `Nhập từ Apollo${pending[index]?.input.source_list ? `: ${pending[index].input.source_list}` : ""}.`,
+        created_by: session?.email ?? null,
+      }))).catch(() => []);
+    } catch (err) {
+      skipped += pending.length;
+      const message = err instanceof Error ? err.message : "lỗi lưu dữ liệu";
+      errors.push(...pending.map(({ line }) => `Dòng ${line}: ${message}`));
+    }
+  }
+
+  revalidateAll();
+  return {
+    ok: true,
+    message: `Đã nhập ${created} prospect. Bỏ qua ${skipped} dòng trùng hoặc không hợp lệ.`,
+    created,
+    skipped,
+    matchedBuyers,
+    errors,
+  };
+}
+
+export async function updateProspectAction(id: string, patch: Partial<ProspectInput>): Promise<ActionResult> {
+  const gate = await guard("prospects.manage");
+  if (gate) return gate;
+  const allowedStatus = patch.status === undefined || PROSPECT_STATUSES.includes(patch.status as (typeof PROSPECT_STATUSES)[number]);
+  if (!allowedStatus) return { ok: false, message: "Trạng thái prospect không hợp lệ." };
+  if (patch.status === "converted") return { ok: false, message: "Dùng thao tác chuyển đổi để liên kết Buyer và giữ lịch sử." };
+  if (patch.status !== undefined) {
+    const current = await getStore().getProspect(id);
+    if (!current) return { ok: false, message: "Không tìm thấy prospect." };
+    if (current.status === "converted") return { ok: false, message: "Prospect đã chuyển thành Buyer, không thể mở lại trạng thái tiếp cận." };
+  }
+  try {
+    const safePatch: Partial<ProspectInput> = {};
+    if (patch.status !== undefined) safePatch.status = patch.status;
+    if (patch.owner !== undefined) safePatch.owner = str(patch.owner);
+    if (patch.next_action !== undefined) safePatch.next_action = str(patch.next_action);
+    if (patch.next_action_at !== undefined) safePatch.next_action_at = str(patch.next_action_at);
+    if (patch.notes !== undefined) safePatch.notes = str(patch.notes);
+    await getStore().updateProspect(id, safePatch);
+    revalidateAll();
+    return { ok: true, message: "Đã cập nhật prospect." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Không cập nhật được prospect." };
+  }
+}
+
+export async function addProspectActivityAction(input: {
+  prospectId: string;
+  channel: ProspectActivityChannel;
+  summary: string;
+}): Promise<ActionResult> {
+  const gate = await guard("prospects.manage");
+  if (gate) return gate;
+  if (!PROSPECT_CHANNELS.includes(input.channel)) return { ok: false, message: "Kênh liên hệ không hợp lệ." };
+  const summary = str(input.summary);
+  if (!summary) return { ok: false, message: "Vui lòng ghi nội dung trao đổi." };
+  const session = await getSession();
+  try {
+    const store = getStore();
+    await store.addProspectActivity({ prospect_id: input.prospectId, channel: input.channel, summary, created_by: session?.email ?? null });
+    const prospect = await store.getProspect(input.prospectId);
+    if (prospect && input.channel === "meeting" && ["new", "researched", "ready", "contacted", "replied"].includes(prospect.status)) {
+      await store.updateProspect(input.prospectId, { status: "meeting" });
+    } else if (prospect && ["new", "researched", "ready"].includes(prospect.status)) {
+      await store.updateProspect(input.prospectId, { status: "contacted" });
+    }
+    revalidateAll();
+    return { ok: true, message: "Đã ghi nhận lần liên hệ." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Không lưu được hoạt động." };
+  }
+}
+
+export async function linkProspectToBuyerAction(prospectId: string, buyerId: string): Promise<ActionResult> {
+  const gate = await guard("prospects.manage");
+  if (gate) return gate;
+  const store = getStore();
+  const [prospect, buyer] = await Promise.all([store.getProspect(prospectId), store.getBuyer(buyerId)]);
+  if (!prospect || !buyer) return { ok: false, message: "Không tìm thấy prospect hoặc Buyer." };
+  if (prospect.status !== "qualified") {
+    return { ok: false, message: "Chỉ liên kết với Buyer khi prospect đã được xác nhận có nhu cầu sourcing thực tế." };
+  }
+  try {
+    await store.updateProspect(prospectId, { status: "converted", converted_buyer_id: buyerId });
+    const session = await getSession();
+    await store.addProspectActivity({
+      prospect_id: prospectId,
+      channel: "note",
+      summary: `Đã liên kết với Buyer hiện có: ${buyer.company}.`,
+      created_by: session?.email ?? null,
+    });
+    revalidateAll();
+    return { ok: true, message: `Đã liên kết với Buyer ${buyer.company}.` };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Không liên kết được Buyer." };
+  }
+}
+
+export async function convertProspectAction(prospectId: string): Promise<ActionResult & { buyerId?: string; matched?: boolean }> {
+  const gate = await guard("prospects.manage");
+  if (gate) return gate;
+  const store = getStore();
+  const prospect = await store.getProspect(prospectId);
+  if (!prospect) return { ok: false, message: "Không tìm thấy prospect." };
+  if (prospect.status !== "qualified") {
+    return { ok: false, message: "Chỉ chuyển thành Buyer khi prospect đã được xác nhận có nhu cầu sourcing thực tế." };
+  }
+  const buyers = await store.listBuyers();
+  const emailKey = normalizeMatch(prospect.email);
+  const linkKey = normalizeMatch(prospect.linkedin_url);
+  const match = buyers.find((b) => (emailKey && normalizeMatch(b.email) === emailKey) || (linkKey && normalizeMatch(b.linkedin) === linkKey));
+  try {
+    let buyerId = match?.id;
+    if (!buyerId) {
+      const buyer = await store.createBuyer({
+        company: prospect.company,
+        contact_name: prospect.contact_name,
+        email: prospect.email,
+        cc_emails: null,
+        phone: prospect.phone,
+        country: prospect.country,
+        website: prospect.website,
+        linkedin: prospect.linkedin_url,
+        instagram: null,
+        product: null,
+        spec: null,
+        quantity: null,
+        target_price: null,
+        payment_method: null,
+        payment_terms: null,
+        incoterm: null,
+        port: null,
+        expected_ship_date: null,
+        deal_value: null,
+        supplier_id: null,
+        hide_buyer_from_supplier: true,
+        stage: "lead",
+        owner: prospect.owner,
+        source: `Prospect: ${prospect.source_list || "Apollo"}`,
+        priority: "normal",
+        next_action: null,
+        next_action_date: null,
+        notes: prospect.notes,
+      });
+      buyerId = buyer.id;
+    }
+    await store.updateProspect(prospect.id, { status: "converted", converted_buyer_id: buyerId });
+    await store.addProspectActivity({
+      prospect_id: prospect.id,
+      channel: "note",
+      summary: match ? `Đã ghép với Buyer hiện có: ${match.company}.` : `Đã chuyển thành Buyer mới: ${prospect.company}.`,
+      created_by: (await getSession())?.email ?? null,
+    });
+    revalidateAll();
+    return {
+      ok: true,
+      message: match ? `Đã ghép prospect với Buyer hiện có ${match.company}.` : "Đã chuyển prospect thành Buyer.",
+      buyerId,
+      matched: Boolean(match),
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Không chuyển đổi được prospect." };
   }
 }
 
@@ -522,6 +810,7 @@ const EMAIL_LIST_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export interface MailDraftInput {
   buyerId?: string | null;
   supplierId?: string | null;
+  prospectId?: string | null;
   direction: "buyer" | "supplier";
   to: string[];
   cc?: string[];
@@ -644,6 +933,18 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
   if (!session) {
     return { ok: false, message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
   }
+  if (input.prospectId) {
+    const prospectGate = await guard("prospects.manage");
+    if (prospectGate) return prospectGate;
+    const prospect = await getStore().getProspect(input.prospectId);
+    if (!prospect) return { ok: false, message: "Không tìm thấy prospect liên kết." };
+    if (["unsubscribed", "disqualified", "converted"].includes(prospect.status)) {
+      return { ok: false, message: "Prospect này đang ở trạng thái không tiếp cận được." };
+    }
+    if (prospect.email && !cleanList(input.to).some((address) => address.toLowerCase() === prospect.email?.toLowerCase())) {
+      return { ok: false, message: "Người nhận không khớp email của prospect. Hãy bỏ liên kết prospect hoặc chọn đúng địa chỉ." };
+    }
+  }
 
   // Tệp đính kèm: DB chỉ có metadata, nội dung nằm trong Storage và nạp ngay lúc gửi
   const resolved = await resolveAttachments(input.attachments, session.email, session.role);
@@ -655,6 +956,7 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
     res = await sendManualMail({
       buyerId: input.buyerId ?? null,
       supplierId: input.supplierId ?? null,
+      prospectId: input.prospectId ?? null,
       direction: input.direction,
       to: cleanList(input.to),
       cc: cleanList(input.cc),
@@ -689,6 +991,19 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
       })
       .catch(() => null);
   }
+  if (res.ok && input.prospectId) {
+    const store = getStore();
+    const prospect = await store.getProspect(input.prospectId).catch(() => null);
+    if (prospect && ["new", "researched", "ready"].includes(prospect.status)) {
+      await store.updateProspect(prospect.id, { status: "contacted" }).catch(() => null);
+    }
+    await store.addProspectActivity({
+      prospect_id: input.prospectId,
+      channel: "email",
+      summary: `Gửi email: ${input.subject.trim()}`,
+      created_by: session.email,
+    }).catch(() => null);
+  }
   revalidateAll();
 
   if (!res.ok) return { ok: false, message: `Gửi thất bại: ${res.error}` };
@@ -708,6 +1023,12 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
   if (!session) {
     return { ok: false, message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
   }
+  if (input.prospectId) {
+    const prospectGate = await guard("prospects.manage");
+    if (prospectGate) return prospectGate;
+    const prospect = await getStore().getProspect(input.prospectId);
+    if (!prospect) return { ok: false, message: "Không tìm thấy prospect liên kết." };
+  }
   const resolved = await resolveAttachments(input.attachments, session.email, session.role);
   if ("error" in resolved) return { ok: false, message: resolved.error };
   const attachmentRows = resolved.rows;
@@ -715,6 +1036,7 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
   const id = await saveDraft({
     buyerId: input.buyerId ?? null,
     supplierId: input.supplierId ?? null,
+    prospectId: input.prospectId ?? null,
     direction: input.direction,
     to: cleanList(input.to),
     cc: cleanList(input.cc),
@@ -999,6 +1321,46 @@ export async function clearTemplateOverrideAction(
     return { ok: true, message: "Đã khôi phục nội dung mặc định của giai đoạn này." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+  }
+}
+
+export async function saveProspectOutreachTemplateAction(input: {
+  id: string;
+  label: string;
+  subject: string;
+  body: string;
+}): Promise<ActionResult> {
+  const prospectGate = await guard("prospects.manage");
+  const gate = prospectGate ? await guard("templates.manage") : null;
+  if (gate) return gate;
+  if (input.id !== "intro" && input.id !== "followup") return { ok: false, message: "Mẫu không hợp lệ." };
+  const label = str(input.label);
+  const subject = str(input.subject);
+  const body = str(input.body);
+  if (!label || !subject || !body) return { ok: false, message: "Tên mẫu, tiêu đề và nội dung đều bắt buộc." };
+  if (label.length > 100 || subject.length > 500 || body.length > 10000) {
+    return { ok: false, message: "Nội dung vượt quá giới hạn cho phép." };
+  }
+  try {
+    await getStore().saveProspectOutreachTemplateOverride({ id: input.id, label, subject, body });
+    revalidateAll();
+    return { ok: true, message: "Đã lưu mẫu tiếp cận Prospect." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Không lưu được mẫu." };
+  }
+}
+
+export async function clearProspectOutreachTemplateAction(id: string): Promise<ActionResult> {
+  const prospectGate = await guard("prospects.manage");
+  const gate = prospectGate ? await guard("templates.manage") : null;
+  if (gate) return gate;
+  if (id !== "intro" && id !== "followup") return { ok: false, message: "Mẫu không hợp lệ." };
+  try {
+    await getStore().clearProspectOutreachTemplateOverride(id);
+    revalidateAll();
+    return { ok: true, message: "Đã khôi phục mẫu Prospect mặc định." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Không khôi phục được mẫu." };
   }
 }
 

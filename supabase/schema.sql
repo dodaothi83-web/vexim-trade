@@ -121,6 +121,64 @@ create index if not exists buyers_owner_idx    on public.buyers (owner);
 create index if not exists buyers_updated_idx  on public.buyers (updated_at desc);
 
 -- ---------------------------------------------------------------------------
+-- 2b. PROSPECTS OUTBOUND (liên hệ tiềm năng, chưa có yêu cầu sourcing thực tế)
+-- ---------------------------------------------------------------------------
+create table if not exists public.prospects (
+  id                    uuid primary key default gen_random_uuid(),
+  company               text not null,
+  contact_name          text,
+  contact_title         text,
+  email                 text,
+  email_status          text,
+  phone                 text,
+  country               text,
+  city                  text,
+  website               text,
+  linkedin_url          text,
+  company_linkedin_url  text,
+  industry              text,
+  employee_range        text,
+  apollo_id             text,
+  source_list           text,
+  status                text not null default 'new' check (status in
+                          ('new','researched','ready','contacted','replied','meeting',
+                           'qualified','converted','disqualified','unsubscribed')),
+  owner                 text,
+  next_action           text,
+  next_action_at        timestamptz,
+  notes                 text,
+  converted_buyer_id    uuid references public.buyers(id) on delete set null,
+  created_at            timestamptz not null default now(),
+  updated_at            timestamptz not null default now()
+);
+
+create index if not exists prospects_status_idx on public.prospects (status);
+create index if not exists prospects_email_idx on public.prospects (lower(email));
+create index if not exists prospects_company_idx on public.prospects (lower(company));
+create index if not exists prospects_owner_idx on public.prospects (owner);
+
+create table if not exists public.prospect_activities (
+  id          uuid primary key default gen_random_uuid(),
+  prospect_id uuid not null references public.prospects(id) on delete cascade,
+  channel     text not null check (channel in ('email','linkedin','phone','meeting','note')),
+  summary     text not null,
+  created_by  text,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists prospect_activities_prospect_idx
+  on public.prospect_activities (prospect_id, created_at desc);
+
+-- Cold-outreach templates are editable and remain separate from Buyer stage templates.
+create table if not exists public.prospect_outreach_templates (
+  id text primary key check (id in ('intro', 'followup')),
+  label text not null,
+  subject text not null,
+  body text not null,
+  updated_at timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
 -- 3. LỊCH SỬ HOẠT ĐỘNG
 -- ---------------------------------------------------------------------------
 create table if not exists public.buyer_activities (
@@ -144,6 +202,7 @@ create table if not exists public.email_messages (
   id           uuid primary key default gen_random_uuid(),
   buyer_id     uuid references public.buyers(id) on delete cascade,
   supplier_id  uuid references public.suppliers(id) on delete set null,
+  prospect_id  uuid references public.prospects(id) on delete set null,
   -- 'auto'  = hệ thống tự gửi khi đổi giai đoạn trong pipeline
   -- 'manual'= đội ngũ soạn bằng trình soạn thảo
   kind         text not null default 'auto' check (kind in ('auto','manual')),
@@ -180,6 +239,10 @@ alter table public.email_messages add constraint email_messages_status_check
   check (status in ('draft','sent','failed','simulated','received'));
 alter table public.email_messages add column if not exists rfc_message_id text;
 alter table public.email_messages add column if not exists read_at timestamptz;
+alter table public.email_messages
+  add column if not exists prospect_id uuid references public.prospects(id) on delete set null;
+create index if not exists email_messages_prospect_idx
+  on public.email_messages (prospect_id, created_at desc);
 
 -- ---------------------------------------------------------------------------
 -- 4b. TỆP ĐÍNH KÈM EMAIL (metadata) — nội dung nằm trong Supabase Storage

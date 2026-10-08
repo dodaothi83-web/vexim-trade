@@ -220,6 +220,8 @@ export interface EmailMessage {
   id: string;
   buyer_id: string | null;
   supplier_id: string | null;
+  /** Contact prospect cold (nếu thư được gửi/nhận trước khi có Buyer thật). */
+  prospect_id?: string | null;
   kind: MessageKind;
   /** chỉ có với email tự động theo giai đoạn */
   stage: string | null;
@@ -251,6 +253,59 @@ export interface BuyerWithSupplier extends Buyer {
 
 export type BuyerInput = Omit<Buyer, "id" | "created_at" | "updated_at">;
 export type SupplierInput = Omit<Supplier, "id" | "created_at" | "updated_at">;
+
+export type ProspectStatus =
+  | "new"
+  | "researched"
+  | "ready"
+  | "contacted"
+  | "replied"
+  | "meeting"
+  | "qualified"
+  | "converted"
+  | "disqualified"
+  | "unsubscribed";
+
+/** Người liên hệ tiềm năng từ Apollo hoặc nguồn outbound khác, chưa phải Buyer có nhu cầu. */
+export interface Prospect {
+  id: string;
+  company: string;
+  contact_name: string | null;
+  contact_title: string | null;
+  email: string | null;
+  email_status: string | null;
+  phone: string | null;
+  country: string | null;
+  city: string | null;
+  website: string | null;
+  linkedin_url: string | null;
+  company_linkedin_url: string | null;
+  industry: string | null;
+  employee_range: string | null;
+  apollo_id: string | null;
+  source_list: string | null;
+  status: ProspectStatus;
+  owner: string | null;
+  next_action: string | null;
+  next_action_at: string | null;
+  notes: string | null;
+  converted_buyer_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProspectInput = Omit<Prospect, "id" | "created_at" | "updated_at">;
+
+export type ProspectActivityChannel = "email" | "linkedin" | "phone" | "meeting" | "note";
+
+export interface ProspectActivity {
+  id: string;
+  prospect_id: string;
+  channel: ProspectActivityChannel;
+  summary: string;
+  created_by: string | null;
+  created_at: string;
+}
 
 /* ------------------------------- NGƯỜI DÙNG ------------------------------ */
 
@@ -300,4 +355,13 @@ export interface TemplateOverride {
   /** supplier: thời hạn phản hồi */
   deadline: string | null;
   updated_at: string;
+}
+
+/** Mẫu tiếp cận Prospect, lưu riêng khỏi email theo giai đoạn Buyer */
+export interface ProspectOutreachTemplate {
+  id: string;
+  label: string;
+  subject: string;
+  body: string;
+  updated_at?: string;
 }

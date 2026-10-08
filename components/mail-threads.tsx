@@ -43,6 +43,7 @@ export interface ThreadSummary {
   direction: "buyer" | "supplier";
   buyerId: string | null;
   supplierId: string | null;
+  prospectId?: string | null;
   lastSubject: string;
   lastAt: string;
   unread: number;
@@ -53,11 +54,12 @@ export interface QuickContact {
   id: string;
   name: string;
   email: string;
-  kind: "buyer" | "supplier";
+  kind: "buyer" | "supplier" | "prospect";
 }
 
 interface ComposePrefill {
   to?: string;
+  prospectId?: string | null;
   subject?: string;
   body?: string;
 }
@@ -191,6 +193,7 @@ export function MailThreads({
     const res = await sendMailAction({
       buyerId: current.buyerId,
       supplierId: current.supplierId,
+      prospectId: current.prospectId,
       direction: current.direction,
       to: [current.email],
       subject,
@@ -279,6 +282,11 @@ export function MailThreads({
               <span className="text-[12px] text-ink-400">
                 {current.label} · {current.email} · {current.messages.length} thư
               </span>
+              {current.prospectId && (
+                <Link href={`/prospects/${current.prospectId}`} className="text-[11.5px] font-semibold text-brand-700 hover:underline">
+                  Mở prospect
+                </Link>
+              )}
               {canSend && (
                 <Link href="/mail/compose" className="btn btn-ghost ml-auto px-2.5" title="Trình soạn đầy đủ: đính kèm tệp, kiểm tra rò rỉ">
                   <Pencil className="h-3.5 w-3.5" />
@@ -457,6 +465,7 @@ function QuickCompose({
     const res = await sendMailAction({
       buyerId: match?.kind === "buyer" ? match.id : null,
       supplierId: match?.kind === "supplier" ? match.id : null,
+      prospectId: initial?.prospectId ?? (match?.kind === "prospect" ? match.id : null),
       direction: match?.kind === "supplier" ? "supplier" : "buyer",
       to: emails,
       subject: subject.trim() || "(không có tiêu đề)",

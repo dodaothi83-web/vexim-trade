@@ -18,7 +18,7 @@ import {
 
 import { saveDraftAction, sendMailAction } from "@/app/actions";
 import { saveMySignatureAction } from "@/app/auth-actions";
-import type { AttachmentRef, Buyer, Supplier } from "@/lib/types";
+import type { AttachmentRef, Buyer, ProspectOutreachTemplate, Supplier } from "@/lib/types";
 import {
   findContextByEmail,
   type ComposeContext,
@@ -28,17 +28,20 @@ import { RichEditor } from "@/components/rich-editor";
 import { ComposeSidebar } from "@/components/compose-sidebar";
 import { Button, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
+import { PROSPECT_OUTREACH_TEMPLATES } from "@/lib/prospects/outreach-templates";
 
 export interface Contact {
   id: string;
   name: string;
   email: string | null;
-  kind: "buyer" | "supplier";
+  kind: "buyer" | "supplier" | "prospect";
 }
 
 export interface ComposeInitial {
   buyerId?: string | null;
   supplierId?: string | null;
+  prospectId?: string | null;
+  prospectCompany?: string | null;
   direction: "buyer" | "supplier";
   to: string[];
   cc?: string[];
@@ -59,6 +62,10 @@ const ACCEPT = [
   ".csv", ".txt", ".zip", ".rar", ".7z", ".dwg", ".dxf",
 ].join(",");
 
+function escapeTemplateHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
@@ -74,6 +81,7 @@ export function ComposeMail({
   signatureCustom = false,
   contexts = [],
   recent = [],
+  outreachTemplates = PROSPECT_OUTREACH_TEMPLATES,
 }: {
   initial: ComposeInitial;
   contacts: Contact[];
@@ -87,13 +95,14 @@ export function ComposeMail({
   contexts?: ComposeContext[];
   /** Email đã trao đổi (mới nhất trước) để hiển thị ở cột phải */
   recent?: RecentMail[];
+  outreachTemplates?: readonly ProspectOutreachTemplate[];
 }) {
   const router = useRouter();
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Mở từ hồ sơ buyer/NCC thì người nhận bị khoá; mở trống thì suy ra từ địa chỉ nhập
-  const locked = Boolean(initial.buyerId || initial.supplierId);
+  const locked = Boolean(initial.buyerId || initial.supplierId || initial.prospectId);
   const [direction, setDirection] = useState<"buyer" | "supplier">(initial.direction);
   const [to, setTo] = useState<string[]>(initial.to ?? []);
   const [cc, setCc] = useState<string[]>(initial.cc ?? []);
@@ -125,11 +134,31 @@ export function ComposeMail({
   const isBuyerDir = effectiveDirection === "buyer";
 
   const buyerSuggestions = useMemo(
-    () => (locked ? contacts.filter((c) => c.kind === effectiveDirection) : contacts),
+    () =>
+      locked
+        ? contacts.filter((c) =>
+            effectiveDirection === "supplier" ? c.kind === "supplier" : c.kind !== "supplier",
+          )
+        : contacts,
     [contacts, locked, effectiveDirection],
   );
 
   const totalSize = attachments.reduce((s, a) => s + a.size, 0);
+  const [prospectTemplate, setProspectTemplate] = useState("");
+
+  function applyProspectTemplate(templateId: string) {
+    setProspectTemplate(templateId);
+    const template = outreachTemplates.find((item) => item.id === templateId);
+    if (!template) return;
+    const contactName = contacts.find((contact) => contact.email?.toLowerCase() === to[0]?.toLowerCase())?.name || "there";
+    const plainBody = template.body.replaceAll("{contactName}", contactName);
+    const html = plainBody
+      .split(/\n{2,}/)
+      .map((paragraph) => `<p>${escapeTemplateHtml(paragraph).replace(/\n/g, "<br/>")}</p>`)
+      .join("");
+    setSubject(template.subject.replaceAll("{company}", initial.prospectCompany || "your team"));
+    setBody(`${html}${mySig ? `<p><br/></p>${mySig}` : ""}`);
+  }
 
   // Ngữ cảnh người nhận đang soạn: mở từ hồ sơ thì theo id, soạn tự do thì suy ra
   // từ địa chỉ email đầu tiên khớp với danh sách buyer / NCC.
@@ -239,6 +268,7 @@ export function ComposeMail({
     return {
       buyerId: initial.buyerId ?? null,
       supplierId: initial.supplierId ?? null,
+      prospectId: initial.prospectId ?? null,
       direction: effectiveDirection,
       to,
       cc,
@@ -385,6 +415,22 @@ export function ComposeMail({
             />
           </div>
         </div>
+
+        {initial.prospectId && (
+          <div className="flex flex-wrap items-center gap-3 border-t border-ink-200 bg-ink-50/60 px-3 py-2.5">
+            <label className="text-[12px] font-semibold text-ink-600" htmlFor="prospect-outreach-template">Mẫu tiếp cận</label>
+            <select
+              id="prospect-outreach-template"
+              className="input max-w-xs py-1.5 text-[12px]"
+              value={prospectTemplate}
+              onChange={(event) => applyProspectTemplate(event.target.value)}
+            >
+              <option value="">Tự soạn</option>
+              {outreachTemplates.map((template) => <option key={template.id} value={template.id}>{template.label}</option>)}
+            </select>
+            <span className="text-[11px] text-ink-400">Chọn mẫu chỉ điền bản nháp, không tự gửi.</span>
+          </div>
+        )}
 
         {/* Nội dung */}
         <div className="border-t border-ink-200 p-3">

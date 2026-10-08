@@ -10,6 +10,7 @@ import type { UserRole } from "@/lib/types";
 export type Permission =
   | "buyers.view"
   | "buyers.manage"
+  | "prospects.manage"
   | "suppliers.view"
   | "suppliers.manage"
   | "products.view"
@@ -41,7 +42,7 @@ export const ROLES: {
     value: "sale",
     label: "Kinh doanh",
     description:
-      "Buyer, pipeline, email và tài liệu chia sẻ buyer. Xem NCC/sản phẩm nhưng không sửa.",
+      "Buyer, prospect, pipeline, email và tài liệu chia sẻ buyer. Xem NCC/sản phẩm nhưng không sửa.",
     badge: "bg-brand-600 text-white",
   },
   {
@@ -71,6 +72,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
   admin: [
     "buyers.view",
     "buyers.manage",
+    "prospects.manage",
     "suppliers.view",
     "suppliers.manage",
     "products.view",
@@ -87,6 +89,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
   sale: [
     "buyers.view",
     "buyers.manage",
+    "prospects.manage",
     "suppliers.view",
     "products.view",
     "media.view",

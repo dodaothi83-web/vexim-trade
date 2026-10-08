@@ -7,6 +7,11 @@ import type {
   AppUserRecord,
   Buyer,
   BuyerInput,
+  Prospect,
+  ProspectInput,
+  ProspectActivity,
+  ProspectActivityChannel,
+  ProspectOutreachTemplate,
   EmailAttachment,
   EmailMessage,
   MediaAsset,
@@ -392,6 +397,88 @@ export const supabaseStore: DataStore = {
     if (error) fail("deleteBuyer", error);
   },
 
+  async listProspects() {
+    const { data, error } = await must()
+      .from("prospects")
+      .select("*")
+      .order("updated_at", { ascending: false });
+    if (error) fail("listProspects", error);
+    return (data ?? []) as Prospect[];
+  },
+  async getProspect(id) {
+    const { data, error } = await must()
+      .from("prospects")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) fail("getProspect", error);
+    return (data as Prospect) ?? null;
+  },
+  async createProspect(input: ProspectInput) {
+    const { data, error } = await must()
+      .from("prospects")
+      .insert(input)
+      .select()
+      .single();
+    if (error) fail("createProspect", error);
+    return data as Prospect;
+  },
+  async createProspects(inputs: ProspectInput[]) {
+    if (!inputs.length) return [];
+    const { data, error } = await must()
+      .from("prospects")
+      .insert(inputs)
+      .select();
+    if (error) fail("createProspects", error);
+    return (data ?? []) as Prospect[];
+  },
+  async updateProspect(id, patch) {
+    const { data, error } = await must()
+      .from("prospects")
+      .update({ ...cleanPatch(patch), updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateProspect", error);
+    return data as Prospect;
+  },
+  async deleteProspect(id) {
+    const { error } = await must().from("prospects").delete().eq("id", id);
+    if (error) fail("deleteProspect", error);
+  },
+  async listProspectActivities(prospectId) {
+    const { data, error } = await must()
+      .from("prospect_activities")
+      .select("*")
+      .eq("prospect_id", prospectId)
+      .order("created_at", { ascending: false });
+    if (error) fail("listProspectActivities", error);
+    return (data ?? []) as ProspectActivity[];
+  },
+  async addProspectActivity(input: {
+    prospect_id: string;
+    channel: ProspectActivityChannel;
+    summary: string;
+    created_by?: string | null;
+  }) {
+    const { data, error } = await must()
+      .from("prospect_activities")
+      .insert(input)
+      .select()
+      .single();
+    if (error) fail("addProspectActivity", error);
+    return data as ProspectActivity;
+  },
+  async addProspectActivities(inputs) {
+    if (!inputs.length) return [];
+    const { data, error } = await must()
+      .from("prospect_activities")
+      .insert(inputs)
+      .select();
+    if (error) fail("addProspectActivities", error);
+    return (data ?? []) as ProspectActivity[];
+  },
+
   async listActivities(buyerId) {
     let q = must().from("buyer_activities").select("*");
     if (buyerId) q = q.eq("buyer_id", buyerId);
@@ -475,6 +562,25 @@ export const supabaseStore: DataStore = {
       .eq("stage", stage)
       .eq("dir", dir);
     if (error) fail("clearTemplateOverride", error);
+  },
+  async listProspectOutreachTemplateOverrides() {
+    try {
+      const { data, error } = await must().from("prospect_outreach_templates").select("*");
+      if (error) fail("listProspectOutreachTemplateOverrides", error);
+      return (data ?? []) as ProspectOutreachTemplate[];
+    } catch {
+      return [];
+    }
+  },
+  async saveProspectOutreachTemplateOverride(input) {
+    const { error } = await must()
+      .from("prospect_outreach_templates")
+      .upsert({ ...input, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    if (error) fail("saveProspectOutreachTemplateOverride", error);
+  },
+  async clearProspectOutreachTemplateOverride(id) {
+    const { error } = await must().from("prospect_outreach_templates").delete().eq("id", id);
+    if (error) fail("clearProspectOutreachTemplateOverride", error);
   },
 
   /* ----------------------- tệp đính kèm email (metadata) ----------------------- */

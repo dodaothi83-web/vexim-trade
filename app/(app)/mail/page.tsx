@@ -21,13 +21,15 @@ function sameEmail(a: string, b: string): boolean {
 export default async function MailPage() {
   const session = await requireSession();
   const canSend = hasPermission(session.role, "mail.send");
+  const canManageProspects = hasPermission(session.role, "prospects.manage");
 
   const store = getStore();
-  const [messages, buyers, suppliers, me] = await Promise.all([
+  const [messages, buyers, suppliers, me, prospects] = await Promise.all([
     store.listMessages(500),
     store.listBuyers(),
     store.listSuppliers(),
     store.getUserByEmail(session.email),
+    canManageProspects ? store.listProspects().catch(() => []) : Promise.resolve([]),
   ]);
 
   // Chữ ký cá nhân kiểu Gmail/Zoho (chữ ký tuỳ chỉnh hoặc chữ ký tự động) —
@@ -37,6 +39,7 @@ export default async function MailPage() {
 
   const buyerById = new Map(buyers.map((b) => [b.id, b]));
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
+  const prospectById = new Map(prospects.map((p) => [p.id, p]));
 
   // Nhóm theo mạch thư (thread_id): gồm cả thư gửi đi lẫn thư đến Resend Inbound
   const grouped = new Map<string, typeof messages>();
@@ -54,6 +57,9 @@ export default async function MailPage() {
     ...suppliers
       .filter((s) => s.email)
       .map((s) => ({ id: s.id, name: s.name, email: s.email as string, kind: "supplier" as const })),
+    ...prospects
+      .filter((p) => p.email)
+      .map((p) => ({ id: p.id, name: p.contact_name || p.company, email: p.email as string, kind: "prospect" as const })),
   ];
 
   const threads: ThreadSummary[] = [...grouped.entries()]
@@ -70,8 +76,9 @@ export default async function MailPage() {
           : (inbound[inbound.length - 1]?.created_by ?? first.to_emails[0] ?? "");
       const buyer = direction === "buyer" ? (buyerById.get(first.buyer_id ?? "") ?? null) : null;
       const supplier = direction === "supplier" ? (supplierById.get(first.supplier_id ?? "") ?? null) : null;
+      const prospect = first.prospect_id ? (prospectById.get(first.prospect_id) ?? null) : null;
       const label =
-        (direction === "buyer" ? buyer?.company : supplier?.name) ||
+        (direction === "buyer" ? buyer?.company : supplier?.name) || prospect?.company ||
         (counterpart ? counterpart.split("@")[0] : "Không rõ người nhận");
       const nonDraft = sorted.filter((m) => m.status !== "draft");
       return {
@@ -81,6 +88,7 @@ export default async function MailPage() {
         direction,
         buyerId: first.buyer_id ?? null,
         supplierId: first.supplier_id ?? null,
+        prospectId: canManageProspects ? first.prospect_id ?? null : null,
         lastSubject: (nonDraft[nonDraft.length - 1] ?? last).subject,
         lastAt: last.created_at,
         unread: sorted.filter((m) => m.kind === "inbound" && !m.read_at).length,

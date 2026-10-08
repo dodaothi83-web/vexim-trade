@@ -254,6 +254,7 @@ async function saveAutoMessage(opts: {
 export interface ManualMailInput {
   buyerId?: string | null;
   supplierId?: string | null;
+  prospectId?: string | null;
   direction: "buyer" | "supplier";
   to: string[];
   cc?: string[];
@@ -310,6 +311,7 @@ export async function sendManualMail(input: ManualMailInput): Promise<ManualMail
     .addMessage({
       buyer_id: input.buyerId ?? null,
       supplier_id: input.supplierId ?? null,
+      ...(input.prospectId ? { prospect_id: input.prospectId } : {}),
       kind: "manual",
       stage: null,
       direction: input.direction,
@@ -343,6 +345,7 @@ export async function saveDraft(input: ManualMailInput): Promise<string | null> 
     .addMessage({
       buyer_id: input.buyerId ?? null,
       supplier_id: input.supplierId ?? null,
+      ...(input.prospectId ? { prospect_id: input.prospectId } : {}),
       kind: "manual",
       stage: null,
       direction: input.direction,

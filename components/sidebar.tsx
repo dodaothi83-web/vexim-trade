@@ -17,6 +17,7 @@ import {
   Settings2,
   ShieldCheck,
   UsersRound,
+  UserSearch,
   X,
 } from "lucide-react";
 
@@ -34,6 +35,7 @@ const NAV: {
   { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare, perm: "buyers.view" },
   { href: "/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view" },
+  { href: "/prospects", label: "Prospects", icon: UserSearch, perm: "prospects.manage" },
   { href: "/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view" },
   { href: "/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view" },
   { href: "/mail", label: "Hộp thư", icon: Mail, perm: "mail.view" },
@@ -82,7 +84,7 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-1">
-        {NAV.filter((item) => !item.perm || permissions.includes(item.perm)).map((item) => {
+        {NAV.filter((item) => !item.perm || permissions.includes(item.perm) || (item.href === "/templates" && permissions.includes("prospects.manage"))).map((item) => {
           const active = item.href === activeHref;
           const Icon = item.icon;
           return (

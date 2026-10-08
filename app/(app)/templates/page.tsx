@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { getStore } from "@/lib/db";
-import { requirePagePermission } from "@/lib/auth/session";
+import { requirePagePermission, requirePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { STAGES, type StageKey } from "@/lib/pipeline";
 import { STAGE_CONTENT, copyToFields, mergeOverrides } from "@/lib/email/stage-content";
@@ -10,6 +10,8 @@ import { buildBuyerEmail, buildSupplierEmail } from "@/lib/email/templates";
 import { isStage } from "@/lib/pipeline";
 import { Card, cx } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
+import { ProspectOutreachTemplateEditor } from "@/components/prospect-outreach-template-editor";
+import { PROSPECT_OUTREACH_TEMPLATES } from "@/lib/prospects/outreach-templates";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +22,21 @@ export default async function TemplatesPage({
 }: {
   searchParams: Promise<{ stage?: string; dir?: string; buyer?: string }>;
 }) {
-  const session = await requirePagePermission("templates.manage", "/dashboard");
+  const templateSession = await requirePermission("templates.manage");
+  const session = templateSession ?? await requirePagePermission("prospects.manage", "/dashboard");
   const sp = await searchParams;
   const canEdit = hasPermission(session.role, "templates.manage");
+  const canEditOutreach = canEdit || hasPermission(session.role, "prospects.manage");
   const store = getStore();
-  const [buyers, suppliers] = await Promise.all([store.listBuyers(), store.listSuppliers()]);
+  const [buyers, suppliers, outreachOverrides] = await Promise.all([
+    store.listBuyers(),
+    store.listSuppliers(),
+    store.listProspectOutreachTemplateOverrides(),
+  ]);
+  const outreachTemplates = PROSPECT_OUTREACH_TEMPLATES.map((template) => {
+    const override = outreachOverrides.find((item) => item.id === template.id);
+    return { ...template, ...(override ?? {}), isOverridden: Boolean(override) };
+  });
 
   const sample =
     (sp.buyer && buyers.find((b) => b.id === sp.buyer)) ||
@@ -58,6 +70,10 @@ export default async function TemplatesPage({
         title="Templates nội dung email"
         sub="Mỗi giai đoạn có một bộ nội dung riêng cho buyer (tiếng Anh) và cho nhà cung cấp (tiếng Việt). Xem, chỉnh sửa và lưu lại — email tự động lần sau sẽ dùng bản đã sửa."
       />
+
+      <div className="mb-5">
+        <ProspectOutreachTemplateEditor templates={outreachTemplates} canEdit={canEditOutreach} />
+      </div>
 
       <div className="grid gap-5 xl:grid-cols-[300px_1fr]">
         {/* Danh sách giai đoạn */}

@@ -6,6 +6,10 @@ import type {
   AppUserRecord,
   Buyer,
   BuyerInput,
+  Prospect,
+  ProspectInput,
+  ProspectActivity,
+  ProspectActivityChannel,
   EmailAttachment,
   EmailMessage,
   MediaAsset,
@@ -16,6 +20,7 @@ import type {
   SupplierProduct,
   SupplierProductInput,
   TemplateOverride,
+  ProspectOutreachTemplate,
 } from "@/lib/types";
 
 export interface DataStore {
@@ -38,6 +43,27 @@ export interface DataStore {
   createBuyer(input: BuyerInput): Promise<Buyer>;
   updateBuyer(id: string, patch: Partial<BuyerInput>): Promise<Buyer>;
   deleteBuyer(id: string): Promise<void>;
+
+  // ----- Prospect lạnh -----
+  listProspects(): Promise<Prospect[]>;
+  getProspect(id: string): Promise<Prospect | null>;
+  createProspect(input: ProspectInput): Promise<Prospect>;
+  createProspects(inputs: ProspectInput[]): Promise<Prospect[]>;
+  updateProspect(id: string, patch: Partial<ProspectInput>): Promise<Prospect>;
+  deleteProspect(id: string): Promise<void>;
+  listProspectActivities(prospectId: string): Promise<ProspectActivity[]>;
+  addProspectActivity(input: {
+    prospect_id: string;
+    channel: ProspectActivityChannel;
+    summary: string;
+    created_by?: string | null;
+  }): Promise<ProspectActivity>;
+  addProspectActivities(inputs: {
+    prospect_id: string;
+    channel: ProspectActivityChannel;
+    summary: string;
+    created_by?: string | null;
+  }[]): Promise<ProspectActivity[]>;
 
   // ----- Người dùng & phân quyền -----
   listUsers(): Promise<AppUser[]>;
@@ -101,4 +127,7 @@ export interface DataStore {
     o: Omit<TemplateOverride, "updated_at">,
   ): Promise<void>;
   clearTemplateOverride(stage: string, dir: "buyer" | "supplier"): Promise<void>;
+  listProspectOutreachTemplateOverrides(): Promise<ProspectOutreachTemplate[]>;
+  saveProspectOutreachTemplateOverride(input: Omit<ProspectOutreachTemplate, "updated_at">): Promise<void>;
+  clearProspectOutreachTemplateOverride(id: string): Promise<void>;
 }

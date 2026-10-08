@@ -90,9 +90,16 @@ export async function processInboundEvent(
   if (sameEmail(from, FROM_ADDRESS)) return { saved: false, reason: "self" };
 
   const subject = (full?.subject ?? meta.subject ?? "").trim() || "(không có tiêu đề)";
-  const [buyers, suppliers] = await Promise.all([store.listBuyers(), store.listSuppliers()]);
+  const [buyers, suppliers, prospects] = await Promise.all([
+    store.listBuyers(),
+    store.listSuppliers(),
+    store.listProspects().catch(() => []),
+  ]);
   const buyer = buyers.find((b) => b.email && sameEmail(b.email, from)) ?? null;
-  const supplier = !buyer ? (suppliers.find((s) => s.email && sameEmail(s.email, from)) ?? null) : null;
+  const prospect = prospects.find((p) => p.email && sameEmail(p.email, from)) ?? null;
+  const supplier = !buyer && !prospect
+    ? (suppliers.find((s) => s.email && sameEmail(s.email, from)) ?? null)
+    : null;
   const direction: "buyer" | "supplier" = supplier ? "supplier" : "buyer";
   const tid = threadId(direction, from);
 
@@ -123,6 +130,7 @@ export async function processInboundEvent(
     .addMessage({
       buyer_id: buyer?.id ?? null,
       supplier_id: supplier?.id ?? null,
+      ...(prospect ? { prospect_id: prospect.id } : {}),
       kind: "inbound",
       stage: null,
       direction,
@@ -153,6 +161,17 @@ export async function processInboundEvent(
     });
 
   if (!saved) return { saved: false, reason: "error" };
+  if (prospect) {
+    if (["new", "researched", "ready", "contacted"].includes(prospect.status)) {
+      await store.updateProspect(prospect.id, { status: "replied" }).catch(() => null);
+    }
+    await store.addProspectActivity({
+      prospect_id: prospect.id,
+      channel: "email",
+      summary: `Nhận email: ${subject}`,
+      created_by: from,
+    }).catch(() => null);
+  }
 
   // ---- Báo cho đội ngũ (email tóm tắt) ----
   const recipients = await notifyRecipients(from).catch(() => [] as string[]);
