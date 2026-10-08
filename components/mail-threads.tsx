@@ -216,9 +216,9 @@ export function MailThreads({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+    <div className="grid h-full min-h-0 grid-rows-[minmax(0,2fr)_minmax(0,3fr)] gap-4 overflow-hidden lg:grid-cols-[340px_1fr] lg:grid-rows-1">
       {/* ------- Cột trái: danh sách hội thoại kiểu Gmail ------- */}
-      <div className="max-h-[78vh] overflow-y-auto rounded-2xl border border-ink-200 bg-white">
+      <div className="min-h-0 overflow-y-auto rounded-2xl border border-ink-200 bg-white">
         {threads.map((t) => (
           <button
             key={t.threadId}
@@ -261,12 +261,14 @@ export function MailThreads({
         ))}
       </div>
 
-      {/* ------- Cột phải: mạch thư phẳng ------- */}
-      <div>
+      {/* ------- Cột phải: header/footer ghim cố định, vùng thư cuộn độc lập ------- */}
+      <div className="flex min-h-0 flex-col overflow-hidden">
         {current && (
           <>
-            {/* Đầu mạch thư: phẳng, không card */}
-            <div className="flex flex-wrap items-baseline gap-2 px-1 pb-2">
+            {/* Card mạch thư: header ghim trên cùng, vùng thư tự cuộn ở giữa */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-ink-100">
+            {/* Đầu mạch thư: ghim cố định, không trôi theo nội dung */}
+            <div className="flex shrink-0 flex-wrap items-baseline gap-2 border-b border-ink-100 px-3 pb-2.5 pt-3">
               <h2 className="text-[16px] font-bold text-ink-900">{current.lastSubject}</h2>
               <Badge className={current.direction === "buyer" ? "bg-brand-50 text-brand-700" : "bg-amber-50 text-amber-700"}>
                 {current.direction === "buyer" ? "Buyer" : "Nhà cung cấp"}
@@ -283,7 +285,7 @@ export function MailThreads({
             </div>
 
             {/* Danh sách thư phẳng: ngăn cách bằng đường kẻ mờ, không khung riêng */}
-            <div className="divide-y divide-ink-100 rounded-2xl bg-white px-2 ring-1 ring-ink-100">
+            <div className="min-h-0 flex-1 divide-y divide-ink-100 overflow-y-auto px-2">
               {current.messages.map((m) => {
                 const open = expanded.has(m.id);
                 return (
@@ -355,10 +357,11 @@ export function MailThreads({
                 );
               })}
             </div>
+            </div>
 
             {/* Đáy mạch thư: nút pill kiểu Gmail; bấm Trả lời mới mở khung soạn */}
             {canSend && !replyOpen && (
-              <div className="flex items-center gap-2 px-1 pt-3">
+              <div className="flex shrink-0 items-center gap-2 px-1 pt-3">
                 <button
                   type="button"
                   onClick={() => setReplyOpen(true)}
@@ -378,7 +381,7 @@ export function MailThreads({
               </div>
             )}
             {canSend && replyOpen && (
-              <div className="mt-3 rounded-2xl bg-white p-3 ring-1 ring-ink-200">
+              <div className="mt-3 max-h-[55%] shrink-0 overflow-y-auto rounded-2xl bg-white p-3 ring-1 ring-ink-200">
                 <div className="mb-2 flex items-center gap-2">
                   <Avatar name="Vexim Trade" small />
                   <span className="text-[12.5px] text-ink-500">

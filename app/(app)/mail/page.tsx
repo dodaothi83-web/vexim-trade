@@ -106,7 +106,10 @@ export default async function MailPage() {
   }
 
   return (
-    <>
+    // Khung cố định theo chiều cao màn hình: header trang ghim trên cùng,
+    // phần Hộp thư chiếm trọn phần còn lại và tự cuộn bên trong (không cuộn trang)
+    <div className="-mb-16 flex h-[calc(100dvh-4rem)] flex-col overflow-hidden lg:h-[calc(100dvh-2rem)]">
+      <div className="shrink-0">
       <PageHeader
         title="Hộp thư"
         sub="Hội thoại theo từng buyer/NCC: thư tự động, thư đội ngũ soạn và thư trả lời gửi vào hệ thống (Resend Inbound)."
@@ -120,7 +123,10 @@ export default async function MailPage() {
         </MailboxHint>
       )}
 
-      <MailThreads threads={threads} canSend={canSend} contacts={contacts} />
-    </>
+      <div className="min-h-0 flex-1">
+        <MailThreads threads={threads} canSend={canSend} contacts={contacts} />
+      </div>
+      </div>
+    </div>
   );
 }
