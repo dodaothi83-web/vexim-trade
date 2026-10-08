@@ -75,6 +75,7 @@ export default async function ComposePage({
     const msg = await store.getMessage(sp.draft);
     if (msg) {
       const buyer = buyers.find((b) => b.id === msg.buyer_id) ?? null;
+      const prospect = prospects.find((item) => item.id === msg.prospect_id) ?? null;
       return (
         <Shell>
           <ComposeMail
@@ -82,7 +83,8 @@ export default async function ComposePage({
               buyerId: msg.buyer_id,
               supplierId: msg.supplier_id,
               prospectId: msg.prospect_id ?? null,
-              prospectCompany: prospects.find((item) => item.id === msg.prospect_id)?.company ?? null,
+              prospectCompany: prospect?.company ?? null,
+              prospectCompanyIntroduction: prospect?.ai_company_summary ?? null,
               direction: msg.direction,
               to: msg.to_emails,
               cc: msg.cc_emails,
@@ -121,6 +123,7 @@ export default async function ComposePage({
     supplierId: supplier?.id ?? null,
     prospectId: prospect?.id ?? null,
     prospectCompany: prospect?.company ?? null,
+    prospectCompanyIntroduction: prospect?.ai_company_summary ?? null,
     direction,
     to: [],
     cc: [],

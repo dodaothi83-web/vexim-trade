@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useDeferredValue, useMemo } from "react";
 import {
   ArrowUpRight,
+  Building2,
   CalendarClock,
   CheckCircle2,
   CircleAlert,
@@ -26,6 +27,7 @@ import { getStage } from "@/lib/pipeline";
 import { roleLabel, statusMeta } from "@/lib/supplier";
 import type { ComposeContext, RecentMail } from "@/lib/compose-context";
 import { Badge, cx, formatDate, formatDateTime, formatMoney } from "@/components/ui";
+import { formatCompanyIntroductionSummary } from "@/lib/ai/company-introduction-format";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const PRIORITY_LABEL: Record<string, string> = {
@@ -52,6 +54,7 @@ export function ComposeSidebar({
   attachmentBytes = 0,
   active,
   relatedBuyer,
+  prospectCompanyIntroduction,
   recent,
   signature = "",
 }: {
@@ -65,6 +68,8 @@ export function ComposeSidebar({
   active: ComposeContext | null;
   /** Buyer liên quan khi gửi NCC – dùng cho kiểm tra ẩn danh */
   relatedBuyer: ComposeContext | null;
+  /** Phần giới thiệu AI đã lưu cho prospect đang soạn email */
+  prospectCompanyIntroduction?: string | null;
   recent: RecentMail[];
   /** Khối chữ ký – bỏ ra khi phân tích ngôn ngữ để không báo nhầm */
   signature?: string;
@@ -473,6 +478,18 @@ export function ComposeSidebar({
           </div>
         )}
       </section>
+
+      {prospectCompanyIntroduction && (
+        <section className="card overflow-hidden">
+          <header className="flex items-center gap-2 border-b border-ink-200 px-3.5 py-2.5">
+            <Building2 className="h-3.5 w-3.5 text-brand-700" />
+            <h2 className="text-[13px] font-bold text-ink-900">Giới thiệu công ty</h2>
+          </header>
+          <p className="whitespace-pre-wrap px-3.5 py-3 text-[12.5px] leading-relaxed text-ink-700">
+            {formatCompanyIntroductionSummary(prospectCompanyIntroduction)}
+          </p>
+        </section>
+      )}
 
       {/* Checklist trước khi gửi */}
       <section className="card overflow-hidden">

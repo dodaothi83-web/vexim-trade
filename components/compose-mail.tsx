@@ -42,6 +42,7 @@ export interface ComposeInitial {
   supplierId?: string | null;
   prospectId?: string | null;
   prospectCompany?: string | null;
+  prospectCompanyIntroduction?: string | null;
   direction: "buyer" | "supplier";
   to: string[];
   cc?: string[];
@@ -589,6 +590,7 @@ export function ComposeMail({
         attachmentBytes={totalSize}
         active={activeContext}
         relatedBuyer={relatedBuyer}
+        prospectCompanyIntroduction={initial.prospectCompanyIntroduction ?? null}
         recent={recent}
         signature={mySig}
       />
