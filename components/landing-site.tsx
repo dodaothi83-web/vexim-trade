@@ -48,26 +48,26 @@ const WHAT_WE_DO = [
   },
 ];
 
+/**
+ * Logo chính thức giữ NGUYÊN bản file public/logo-vexim.png (canvas 1024² với viền
+ * trong suốt dày). Đo bounding box phần có nội dung (748×553, tâm 50.3%/46.0%) rồi
+ * crop phần viền bằng background-size/position ở lớp HIỂN THỊ — không sửa file.
+ * Hộp chứa phải đúng tỉ lệ nội dung 1.3526 (cao 44px → rộng ~60px).
+ */
+const LOGO_BG: React.CSSProperties = {
+  backgroundImage: "url(/logo-vexim.png)",
+  backgroundSize: "136.9% auto",
+  backgroundPosition: "51.3% 41.3%",
+  backgroundRepeat: "no-repeat",
+};
+
 function Logo({ className }: { className?: string }) {
-  const [ok, setOk] = useState(true);
-  if (!ok) {
-    return (
-      <span className={className}>
-        <span className="block text-[22px] font-black tracking-[0.35em] text-white">VEXIM</span>
-        <span className="block text-[10px] font-semibold tracking-[0.5em] text-white/60">
-          EXPORT SALES
-        </span>
-      </span>
-    );
-  }
   return (
-    // Logo chính thức (nền trong suốt) — đặt tại public/logo-vexim.png, giữ nguyên bản
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src="/logo-vexim.png"
-      alt="Vexim Trade — Export Sales"
+    <span
+      role="img"
+      aria-label="Vexim Trade — Export Sales"
       className={className}
-      onError={() => setOk(false)}
+      style={LOGO_BG}
     />
   );
 }
@@ -106,7 +106,7 @@ export function LandingSite() {
       {/* ---------- Header ---------- */}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-ink-900/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3 sm:px-6">
-          <Logo className="h-11 w-auto" />
+          <Logo className="h-12 w-[65px] shrink-0" />
           <nav className="ml-auto hidden items-center gap-5 text-[13px] font-medium text-slate-300 md:flex">
             <a href="#cost" className="transition hover:text-white">The real cost</a>
             <a href="#work" className="transition hover:text-white">What we do</a>
@@ -406,7 +406,7 @@ export function LandingSite() {
       <footer className="bg-ink-900 text-slate-400">
         <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-start md:justify-between">
           <div>
-            <Logo className="h-10 w-auto" />
+            <Logo className="h-10 w-[54px] shrink-0" />
             <p className="mt-3 max-w-sm text-[12.5px] leading-relaxed">
               Veximtrade | VEXIM GLOBAL CO., LTD
               <br />
