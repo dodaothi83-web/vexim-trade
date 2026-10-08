@@ -124,6 +124,8 @@ export function wrapEmailShell(opts: {
 /**
  * Khung email TRƠN cho email đội ngũ tự soạn: nền trắng, không banner thương hiệu,
  * không khung card, không footer lặp — nhìn như email trao đổi 1:1 thông thường.
+ * Nội dung chảy từ lề trái, trọn chiều ngang khung đọc (KHÔNG bọc giữa màn hình
+ * như newsletter — trên màn hình rộng cột căn giữa trông rất lạ).
  * Nhận diện thương hiệu nằm trong chữ ký ở cuối nội dung (xem lib/email/signature.ts).
  * Vẫn giữ marker `vxt-inner` để unwrapEmailShell tách lại nội dung khi mở nháp/trả lời.
  */
@@ -142,13 +144,7 @@ export function wrapPlainEmail(opts: {
   <body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:${INK};">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(opts.preheader ?? opts.title)}</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
-      <tr>
-        <td align="center" style="padding:28px 16px;">
-          <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;">
-            <tr><td style="padding:0;" class="vxt-body"><div class="vxt-inner">${opts.body}</div></td></tr>
-          </table>
-        </td>
-      </tr>
+      <tr><td style="padding:0;" class="vxt-body"><div class="vxt-inner">${opts.body}</div></td></tr>
     </table>
   </body>
 </html>`;
