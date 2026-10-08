@@ -4,7 +4,7 @@ import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/page-header";
 import { MailboxHint } from "@/components/mailbox";
-import { MailThreads, type ThreadSummary } from "@/components/mail-threads";
+import { MailThreads, type QuickContact, type ThreadSummary } from "@/components/mail-threads";
 import { AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +37,15 @@ export default async function MailPage() {
     if (arr) arr.push(m);
     else grouped.set(key, [m]);
   }
+
+  const contacts: QuickContact[] = [
+    ...buyers
+      .filter((b) => b.email)
+      .map((b) => ({ id: b.id, name: b.company, email: b.email as string, kind: "buyer" as const })),
+    ...suppliers
+      .filter((s) => s.email)
+      .map((s) => ({ id: s.id, name: s.name, email: s.email as string, kind: "supplier" as const })),
+  ];
 
   const threads: ThreadSummary[] = [...grouped.entries()]
     .map(([threadId, msgs]) => {
@@ -80,6 +89,7 @@ export default async function MailPage() {
           toLabel: m.kind === "inbound" ? (m.to_emails.join(", ") || FROM_ADDRESS) : (m.to_emails.join(", ") || "—"),
           at: m.sent_at ?? m.created_at,
           bodyHtml: m.body_html,
+          snippet: (m.body_text || m.body_html.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim().slice(0, 140),
           unread: m.kind === "inbound" && !m.read_at,
           rfcMessageId: m.rfc_message_id ?? null,
         })),
@@ -110,7 +120,7 @@ export default async function MailPage() {
         </MailboxHint>
       )}
 
-      <MailThreads threads={threads} canSend={canSend} />
+      <MailThreads threads={threads} canSend={canSend} contacts={contacts} />
     </>
   );
 }
