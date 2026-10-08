@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { getStore } from "@/lib/db";
-import { requireSession } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { STAGES, type StageKey } from "@/lib/pipeline";
 import { STAGE_CONTENT, copyToFields, mergeOverrides } from "@/lib/email/stage-content";
@@ -20,9 +20,9 @@ export default async function TemplatesPage({
 }: {
   searchParams: Promise<{ stage?: string; dir?: string; buyer?: string }>;
 }) {
+  const session = await requirePagePermission("templates.manage", "/dashboard");
   const sp = await searchParams;
-  const session = await requireSession();
-  const canEdit = hasPermission(session.role, "mail.send");
+  const canEdit = hasPermission(session.role, "templates.manage");
   const store = getStore();
   const [buyers, suppliers] = await Promise.all([store.listBuyers(), store.listSuppliers()]);
 

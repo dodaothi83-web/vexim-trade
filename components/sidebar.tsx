@@ -38,7 +38,7 @@ const NAV: {
   { href: "/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view" },
   { href: "/mail", label: "Hộp thư", icon: Mail, perm: "mail.view" },
   { href: "/mail/compose", label: "Soạn email", icon: Pencil, perm: "mail.send" },
-  { href: "/templates", label: "Templates", icon: FileText, perm: "mail.view" },
+  { href: "/templates", label: "Templates", icon: FileText, perm: "templates.manage" },
   { href: "/settings", label: "Cài đặt", icon: Settings2, perm: "settings.view" },
   { href: "/settings/users", label: "Người dùng", icon: UsersRound, perm: "users.manage" },
 ];

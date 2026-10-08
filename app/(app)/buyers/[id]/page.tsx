@@ -42,6 +42,7 @@ export default async function BuyerDetailPage({
   const canManage = hasPermission(session.role, "buyers.manage");
   const canCreateSupplier = hasPermission(session.role, "suppliers.manage");
   const canSendMail = hasPermission(session.role, "mail.send");
+  const canManageTemplates = hasPermission(session.role, "templates.manage");
 
   const buyer = await getBuyerWithSupplier(id);
   if (!buyer) notFound();
@@ -87,10 +88,12 @@ export default async function BuyerDetailPage({
               className="min-w-[190px]"
               readOnly={!canManage}
             />
-            <Link href={`/templates?buyer=${buyer.id}`} className="btn btn-ghost">
-              <Eye className="h-4 w-4" />
-              Xem trước email
-            </Link>
+            {canManageTemplates && (
+              <Link href={`/templates?buyer=${buyer.id}`} className="btn btn-ghost">
+                <Eye className="h-4 w-4" />
+                Xem trước email
+              </Link>
+            )}
             {canSendMail && (
               <Link href={`/mail/compose?to=${buyer.id}&dir=buyer`} className="btn btn-primary">
                 <Mail className="h-4 w-4" />

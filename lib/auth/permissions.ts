@@ -20,6 +20,7 @@ export type Permission =
   | "media.internal"
   | "mail.view"
   | "mail.send"
+  | "templates.manage"
   | "settings.view"
   | "users.manage";
 
@@ -79,6 +80,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "media.internal",
     "mail.view",
     "mail.send",
+    "templates.manage",
     "settings.view",
     "users.manage",
   ],

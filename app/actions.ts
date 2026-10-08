@@ -960,7 +960,7 @@ export async function saveTemplateOverrideAction(input: {
   tasks: string;
   deadline: string;
 }): Promise<ActionResult> {
-  const gate = await guard("mail.send");
+  const gate = await guard("templates.manage");
   if (gate) return gate;
   if (!input.subject.trim()) return { ok: false, message: "Tiêu đề không được để trống." };
   if (!input.body.trim()) return { ok: false, message: "Nội dung không được để trống." };
@@ -991,7 +991,7 @@ export async function clearTemplateOverrideAction(
   stage: string,
   dir: "buyer" | "supplier",
 ): Promise<ActionResult> {
-  const gate = await guard("mail.send");
+  const gate = await guard("templates.manage");
   if (gate) return gate;
   try {
     await getStore().clearTemplateOverride(stage, dir);
