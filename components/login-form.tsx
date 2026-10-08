@@ -28,7 +28,7 @@ export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
       return;
     }
     if (res.details?.length) setNotice(res.details.join(" "));
-    router.replace("/");
+    router.replace("/dashboard");
     router.refresh();
   }
 

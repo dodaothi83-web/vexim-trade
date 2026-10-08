@@ -31,7 +31,7 @@ const NAV: {
   icon: typeof LayoutDashboard;
   perm?: Permission;
 }[] = [
-  { href: "/", label: "Tổng quan", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare, perm: "buyers.view" },
   { href: "/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view" },
   { href: "/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view" },

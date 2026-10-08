@@ -15,6 +15,7 @@ import {
   transport,
 } from "@/lib/email/send";
 import { getStage, isStage } from "@/lib/pipeline";
+import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import type {
   Buyer,
   BuyerInput,
@@ -1015,4 +1016,106 @@ export async function markThreadReadAction(threadIdValue: string): Promise<Actio
   }
   revalidatePath("/mail");
   return { ok: true, message: `Đã đánh dấu đọc ${targets.length} thư.` };
+}
+
+/* ----------------------- Lead từ landing page (công khai) ----------------------- */
+
+/**
+ * Form "Request a quote" trên landing veximtrade.com: tạo buyer stage `lead`
+ * (nguồn "Website veximtrade.com") và gửi mail cảm ơn best-effort.
+ * Không cần đăng nhập — chống bot bằng ô honeypot `company_website`.
+ */
+export async function submitQuoteLeadAction(input: {
+  company: string;
+  name: string;
+  email: string;
+  country: string;
+  product: string;
+  quantity: string;
+  message: string;
+  company_website: string;
+}): Promise<ActionResult> {
+  const thanks =
+    "Thank you! Your enquiry is with our export desk — we reply within one working day.";
+  // Bot điền honeypot => giả vờ thành công, không ghi gì vào CRM
+  if (input.company_website?.trim()) return { ok: true, message: thanks };
+
+  const email = input.email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, message: "Please provide a valid email address." };
+  }
+  if (!input.company.trim()) {
+    return { ok: false, message: "Please tell us your company name." };
+  }
+  if (!input.message.trim()) {
+    return { ok: false, message: "Please describe your requirement briefly." };
+  }
+
+  const store = getStore();
+  try {
+    const buyers = await store.listBuyers();
+    const existing = buyers.find(
+      (b) => (b.email ?? "").trim().toLowerCase() === email,
+    );
+    if (!existing) {
+      await store.createBuyer({
+        company: input.company.trim().slice(0, 200),
+        contact_name: input.name.trim() || null,
+        email,
+        cc_emails: null,
+        phone: null,
+        country: input.country.trim() || null,
+        website: null,
+        linkedin: null,
+        instagram: null,
+        product: input.product.trim() || null,
+        spec: null,
+        quantity: input.quantity.trim() || null,
+        target_price: null,
+        payment_method: null,
+        payment_terms: null,
+        incoterm: null,
+        port: null,
+        expected_ship_date: null,
+        deal_value: null,
+        supplier_id: null,
+        hide_buyer_from_supplier: true,
+        stage: "lead",
+        owner: null,
+        source: "Website veximtrade.com",
+        priority: "normal",
+        next_action: "Reply to website enquiry",
+        next_action_date: null,
+        notes: `Website enquiry ${new Date().toISOString().slice(0, 10)}:\n${input.message.trim()}`,
+      });
+    }
+
+    // Mail cảm ơn best-effort (chế độ demo / lỗi Resend không làm mất lead)
+    try {
+      const html = wrapPlainEmail({
+        title: "Thank you for your enquiry – Vexim Trade",
+        body:
+          `<p>Dear ${escapeHtml(input.name.trim() || input.company.trim())},</p>` +
+          `<p>Thank you for contacting Vexim Trade. Your enquiry has reached our export desk ` +
+          `and we will reply within one working day.</p>` +
+          `<p>Best regards,<br/>Export Department &middot; Vexim Trade</p>`,
+      });
+      await transport({
+        to: [email],
+        subject: "Thank you for your enquiry – Vexim Trade",
+        html,
+        text: "Thank you for contacting Vexim Trade. Our export desk will reply within one working day.",
+      });
+    } catch {
+      /* bỏ qua — lead đã lưu */
+    }
+
+    revalidateAll();
+    return { ok: true, message: thanks };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Could not save your enquiry, please email us directly.",
+    };
+  }
 }
