@@ -6,6 +6,8 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/page-header";
 import { MailboxHint } from "@/components/mailbox";
 import { MailThreads, type QuickContact, type ThreadSummary } from "@/components/mail-threads";
+import { MailLiveSync } from "@/components/mail-live-sync";
+import { mailSyncVersion } from "@/lib/mail/sync-version";
 import { AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -132,6 +134,7 @@ export default async function MailPage() {
 
       <div className="min-h-0 flex-1">
         <MailThreads threads={threads} canSend={canSend} contacts={contacts} signature={mySig} />
+      <MailLiveSync version={mailSyncVersion(messages)} />
       </div>
     </div>
   );
