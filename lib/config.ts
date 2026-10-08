@@ -11,8 +11,8 @@ export const COMPANY = {
   name: env.EMAIL_FROM_NAME?.trim() || "Vexim Trade",
   email: env.EMAIL_FROM?.trim() || "sales@veximtrade.com",
   website: env.COMPANY_WEBSITE?.trim() || "https://veximtrade.com",
-  phone: env.COMPANY_PHONE?.trim() || "+84 28 3822 0000",
-  address: env.COMPANY_ADDRESS?.trim() || "Ho Chi Minh City, Vietnam",
+  phone: env.COMPANY_PHONE?.trim() || "+84373685634",
+  address: env.COMPANY_ADDRESS?.trim() || "Tòa W2 - The Wisteria, Kim Chung, Hoai Duc, Ha Noi",
   tagline: "Vietnam Export Sourcing Partner",
 };
 
