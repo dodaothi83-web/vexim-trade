@@ -51,7 +51,7 @@ AUTH_SECRET=<chuỗi ngẫu nhiên 64 ký tự hex — xem mục Tài khoản & 
 
 ### Triển khai danh sách khách hàng mục tiêu trên Supabase đang dùng
 
-Với database đã có bảng `prospects`, chạy `20261008_prospect_segmentation.sql` rồi `20261008_prospects_require_email.sql` trong Supabase SQL Editor. Nếu là database mới, chạy `20261008_prospects.sql` trước. Migration phân nhóm giữ hồ sơ hiện có, gán nguồn Apollo và nhận diện “Mì ăn liền” từ tên tệp cũ. Migration email xóa hồ sơ thiếu email, giữ thư đã gửi hoặc nhận nhưng bỏ liên kết với hồ sơ bị xóa, rồi buộc hồ sơ mới phải có email. Chạy migration trước khi triển khai ứng dụng. Nhập danh sách chỉ tạo hồ sơ, không tự gửi email.
+Với database đã có bảng `prospects`, chạy `20261008_prospect_segmentation.sql`, `20261008_prospects_require_email.sql` và `20261008_prospect_company_ai.sql` trong Supabase SQL Editor. Nếu là database mới, chạy `20261008_prospects.sql` trước. Migration phân nhóm giữ hồ sơ hiện có, gán nguồn Apollo và nhận diện “Mì ăn liền” từ tên tệp cũ. Migration email xóa hồ sơ thiếu email, giữ thư đã gửi hoặc nhận nhưng bỏ liên kết với hồ sơ bị xóa, rồi buộc hồ sơ mới phải có email. Đặt `OPENAI_API_KEY` trong biến môi trường phía máy chủ để bật nút AI giới thiệu công ty; model tùy chọn là `OPENAI_COMPANY_RESEARCH_MODEL`. Chạy migration và cấu hình biến môi trường trước khi triển khai ứng dụng. Nhập danh sách chỉ tạo hồ sơ, không tự gửi email.
 
 ### Kiểm tra kết nối Supabase
 

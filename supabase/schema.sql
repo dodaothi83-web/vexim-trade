@@ -142,6 +142,9 @@ create table if not exists public.prospects (
   data_source           text not null default 'Apollo',
   source_list           text,
   target_product        text,
+  ai_company_summary    text,
+  ai_company_sources    jsonb not null default '[]'::jsonb,
+  ai_company_analyzed_at timestamptz,
   status                text not null default 'new' check (status in
                           ('new','researched','ready','contacted','replied','meeting',
                            'qualified','converted','disqualified','unsubscribed')),
@@ -158,7 +161,10 @@ create index if not exists prospects_status_idx on public.prospects (status);
 create index if not exists prospects_email_idx on public.prospects (lower(email));
 alter table public.prospects
   add column if not exists data_source text not null default 'Apollo',
-  add column if not exists target_product text;
+  add column if not exists target_product text,
+  add column if not exists ai_company_summary text,
+  add column if not exists ai_company_sources jsonb not null default '[]'::jsonb,
+  add column if not exists ai_company_analyzed_at timestamptz;
 update public.prospects
 set target_product = 'Mì ăn liền'
 where target_product is null and source_list is not null

@@ -132,6 +132,9 @@ function normalizeProspects(prospects: Prospect[]) {
     if (prospect.target_product === undefined) {
       prospect.target_product = inferTargetProduct(prospect.source_list);
     }
+    if (prospect.ai_company_summary === undefined) prospect.ai_company_summary = null;
+    if (!Array.isArray(prospect.ai_company_sources)) prospect.ai_company_sources = [];
+    if (prospect.ai_company_analyzed_at === undefined) prospect.ai_company_analyzed_at = null;
   }
 }
 
@@ -354,7 +357,15 @@ export const localStore: DataStore = {
   async createProspect(input: ProspectInput) {
     return mutate((db) => {
       const now = new Date().toISOString();
-      const row: Prospect = { ...input, id: randomUUID(), created_at: now, updated_at: now };
+      const row: Prospect = {
+        ...input,
+        ai_company_summary: null,
+        ai_company_sources: [],
+        ai_company_analyzed_at: null,
+        id: randomUUID(),
+        created_at: now,
+        updated_at: now,
+      };
       db.prospects.push(row);
       return row;
     });
@@ -362,7 +373,15 @@ export const localStore: DataStore = {
   async createProspects(inputs: ProspectInput[]) {
     return mutate((db) => {
       const now = new Date().toISOString();
-      const rows = inputs.map((input) => ({ ...input, id: randomUUID(), created_at: now, updated_at: now }));
+      const rows: Prospect[] = inputs.map((input) => ({
+        ...input,
+        ai_company_summary: null,
+        ai_company_sources: [],
+        ai_company_analyzed_at: null,
+        id: randomUUID(),
+        created_at: now,
+        updated_at: now,
+      }));
       db.prospects.push(...rows);
       return rows;
     });

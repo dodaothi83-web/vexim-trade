@@ -49,7 +49,7 @@ export interface DataStore {
   getProspect(id: string): Promise<Prospect | null>;
   createProspect(input: ProspectInput): Promise<Prospect>;
   createProspects(inputs: ProspectInput[]): Promise<Prospect[]>;
-  updateProspect(id: string, patch: Partial<ProspectInput>): Promise<Prospect>;
+  updateProspect(id: string, patch: Partial<Omit<Prospect, "id" | "created_at" | "updated_at">>): Promise<Prospect>;
   deleteProspect(id: string): Promise<void>;
   listProspectActivities(prospectId: string): Promise<ProspectActivity[]>;
   addProspectActivity(input: {

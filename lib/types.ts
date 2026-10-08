@@ -266,6 +266,11 @@ export type ProspectStatus =
   | "disqualified"
   | "unsubscribed";
 
+export interface ProspectCompanySource {
+  title: string;
+  url: string;
+}
+
 /** Người liên hệ tiềm năng từ Apollo hoặc nguồn outbound khác, chưa phải Buyer có nhu cầu. */
 export interface Prospect {
   id: string;
@@ -292,11 +297,14 @@ export interface Prospect {
   next_action_at: string | null;
   notes: string | null;
   converted_buyer_id: string | null;
+  ai_company_summary: string | null;
+  ai_company_sources: ProspectCompanySource[];
+  ai_company_analyzed_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export type ProspectInput = Omit<Prospect, "id" | "created_at" | "updated_at">;
+export type ProspectInput = Omit<Prospect, "id" | "created_at" | "updated_at" | "ai_company_summary" | "ai_company_sources" | "ai_company_analyzed_at">;
 
 export type ProspectActivityChannel = "email" | "linkedin" | "phone" | "meeting" | "note";
 

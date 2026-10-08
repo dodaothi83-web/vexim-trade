@@ -7,6 +7,7 @@ import { getSession, guard } from "@/lib/auth/session";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
 import { deleteObject } from "@/lib/media/storage";
 import { productReadiness } from "@/lib/media/readiness";
+import { generateCompanyIntroduction } from "@/lib/ai/company-introduction";
 import {
   saveDraft,
   sendManualMail,
@@ -472,6 +473,99 @@ export async function convertProspectAction(prospectId: string): Promise<ActionR
     };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Không thể đưa đầu mối vào pipeline Buyer." };
+  }
+}
+
+function prospectCompanyIdentity(company: string, website: string | null, country: string | null): string {
+  if (website) {
+    try {
+      const url = new URL(/^https?:\/\//i.test(website) ? website : `https://${website}`);
+      return url.hostname.toLowerCase().replace(/^www\./, "");
+    } catch {
+      // Fall back to company name when the stored website is malformed.
+    }
+  }
+  return `${company.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}|${(country ?? "").toLowerCase().trim()}`;
+}
+
+export async function generateProspectCompanyIntroductionAction(
+  id: string,
+  refresh = false,
+): Promise<ActionResult & {
+  summary?: string;
+  sources?: { title: string; url: string }[];
+  analyzedAt?: string;
+  reused?: boolean;
+}> {
+  const gate = await guard("prospects.manage");
+  if (gate) return gate;
+  const store = getStore();
+  const prospect = await store.getProspect(id);
+  if (!prospect) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận." };
+
+  if (prospect.ai_company_summary && !refresh) {
+    return {
+      ok: true,
+      message: "Đã tải phần giới thiệu đã lưu.",
+      summary: prospect.ai_company_summary,
+      sources: prospect.ai_company_sources ?? [],
+      analyzedAt: prospect.ai_company_analyzed_at ?? undefined,
+      reused: true,
+    };
+  }
+
+  if (!refresh) {
+    const identity = prospectCompanyIdentity(prospect.company, prospect.website, prospect.country);
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const peer = (await store.listProspects()).find((candidate) =>
+      candidate.id !== id
+      && prospectCompanyIdentity(candidate.company, candidate.website, candidate.country) === identity
+      && Boolean(candidate.ai_company_summary)
+      && Boolean(candidate.ai_company_analyzed_at)
+      && new Date(candidate.ai_company_analyzed_at!).getTime() >= cutoff,
+    );
+    if (peer?.ai_company_summary) {
+      const analyzedAt = peer.ai_company_analyzed_at ?? new Date().toISOString();
+      const sources = peer.ai_company_sources ?? [];
+      await store.updateProspect(id, {
+        ai_company_summary: peer.ai_company_summary,
+        ai_company_sources: sources,
+        ai_company_analyzed_at: analyzedAt,
+      });
+      revalidatePath(`/prospects/${id}`);
+      return { ok: true, message: "Đã dùng phần giới thiệu gần đây của cùng công ty.", summary: peer.ai_company_summary, sources, analyzedAt, reused: true };
+    }
+  }
+
+  try {
+    const result = await generateCompanyIntroduction({
+      company: prospect.company,
+      website: prospect.website,
+      country: prospect.country,
+    });
+    const analyzedAt = new Date().toISOString();
+    await store.updateProspect(id, {
+      ai_company_summary: result.summary,
+      ai_company_sources: result.sources,
+      ai_company_analyzed_at: analyzedAt,
+    });
+    revalidatePath(`/prospects/${id}`);
+    revalidatePath("/prospects");
+    return {
+      ok: true,
+      message: "Đã tạo phần giới thiệu công ty.",
+      summary: result.summary,
+      sources: result.sources,
+      analyzedAt,
+      reused: false,
+    };
+  } catch (err) {
+    console.error("[company-introduction] không phân tích được:", err);
+    const detail = err instanceof Error ? err.message : "";
+    if (/ai_company_(summary|sources|analyzed_at)/i.test(detail) && /column|schema cache|does not exist/i.test(detail)) {
+      return { ok: false, message: "Chưa cập nhật cấu trúc dữ liệu. Hãy chạy migration 20261008_prospect_company_ai.sql trong Supabase." };
+    }
+    return { ok: false, message: detail || "Không phân tích được công ty lúc này." };
   }
 }
 
