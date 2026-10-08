@@ -222,34 +222,45 @@ export function LandingSite() {
             <div className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
               <p className="text-[13px] font-bold text-ink-900">What the first pass returns</p>
               <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
-                A short list, or a plain no. Every name that reaches you arrives with the same six
-                lines, already checked. Sample entry, anonymized:
+                An illustrative format, not a real supplier profile or completed verification.
+                We share what was checked, what remains open, and the evidence behind each point.
               </p>
               <ul className="mt-3 space-y-1.5 text-[13px] leading-relaxed text-slate-600">
                 <li>
-                  <span className="font-semibold text-ink-900">Processor, Binh Phuoc.</span> Registry
-                  verified, 11 years under the current licence.
+                  <span className="font-semibold text-ink-900">Company:</span> verified legal name
+                  and registration source.
                 </li>
-                <li>Export history in three markets. One EU reference callable.</li>
-                <li>Grades W320 and W450, kernels from own kiln.</li>
-                <li>Capacity 40 MT per month in season.</li>
-                <li>Flag: buys all raw nuts from collectors, no own farm.</li>
                 <li>
-                  <span className="font-semibold text-ink-900">Read:</span> worth a conversation.
+                  <span className="font-semibold text-ink-900">Export history:</span> markets and
+                  available supporting records.
+                </li>
+                <li>
+                  <span className="font-semibold text-ink-900">Product fit:</span> grades and specs
+                  checked against your requirement.
+                </li>
+                <li>
+                  <span className="font-semibold text-ink-900">Capacity:</span> confirmed volume
+                  and the basis for that figure.
+                </li>
+                <li>
+                  <span className="font-semibold text-ink-900">Open points:</span> gaps or risks
+                  still needing an answer.
+                </li>
+                <li>
+                  <span className="font-semibold text-ink-900">Next step:</span> worth a conversation,
+                  or not yet.
                 </li>
               </ul>
             </div>
             <div className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
               <p className="text-[13px] font-bold text-ink-900">
-                The checks behind every line
+                What we check
               </p>
               <ul className="mt-3 space-y-1.5 text-[13px] leading-relaxed text-slate-600">
-                <li>Registry and licence, pulled from the source, not a screenshot.</li>
-                <li>A visit to the floor, announced or not depending on the case.</li>
-                <li>Two references from past buyers, called by us.</li>
-                <li>Spec sheet against your requirement, line by line.</li>
-                <li>Real capacity in season, not nameplate capacity.</li>
-                <li>The flags we found, written plainly, including the bad ones.</li>
+                <li>Company identity and registration details.</li>
+                <li>Product specifications against your requirement.</li>
+                <li>Export history and the records available to support it.</li>
+                <li>What is confirmed, what is not, and what needs follow-up.</li>
               </ul>
             </div>
           </div>
@@ -420,8 +431,9 @@ export function LandingSite() {
                   </label>
                 </div>
                 <p className="mt-2 text-[11.5px] leading-relaxed text-slate-400">
-                  Every field above the star is optional. The more you share about market, spec,
-                  packing, schedule, Incoterm and target price, the sharper the first pass.
+                  Only company, email and product are required. Market or destination, quantity,
+                  grade or spec, packing, delivery schedule, Incoterm and target price are optional,
+                  but they help us make a sharper first pass.
                 </p>
                 {error && <p className="mt-2 text-[12.5px] font-semibold text-red-600">{error}</p>}
                 <button
