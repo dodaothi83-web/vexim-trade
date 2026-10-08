@@ -340,6 +340,9 @@ về webhook của app, lưu vào Hộp thư và báo cho đội ngũ.
      Xoá MX cũ trỏ về hệ thống mail cũ. Trong lúc DNS lan toả (TTL), thư vẫn có thể rơi
      vào MX cũ — hết TTL thì toàn bộ thư @veximtrade.com chảy về Resend → vào Hộp thư CRM.
    - Giữ nguyên các bản ghi gửi mail hiện có (SPF/DKIM của Resend) — đang gửi tốt.
+   - Domain gốc đang chạy **trang giới thiệu công ty (Landing Page)** — giữ nguyên DNS web;
+     nhận thư qua MX không ảnh hưởng trang này. CRM chạy trên host riêng
+     (ví dụ `crm.veximtrade.com` hoặc địa chỉ app Vercel cấp).
    - Hệ quả cần biết: **mọi địa chỉ @veximtrade.com** (sales@, trade@, noreply@…) đều thành
      thư đến trong CRM, mỗi người gửi một mạch thư; nhân viên đọc mail công ty ngay trong
      Hộp thư. Muốn nhận thêm thông báo email thì đặt `INBOUND_NOTIFY_EMAILS` bằng địa chỉ
@@ -352,11 +355,16 @@ về webhook của app, lưu vào Hộp thư và báo cho đội ngũ.
    `RESEND_WEBHOOK_SECRET` (production thiếu secret thì endpoint trả 401).
 3. **DB:** chạy đoạn alter idempotent của bảng `email_messages` trong `supabase/schema.sql`
    (mở rộng `kind`/`status` + cột `rfc_message_id`, `read_at`).
-4. **Tuỳ chọn:** `INBOUND_NOTIFY_EMAILS` (danh sách email nhận thông báo thư mới),
-   `INBOUND_DOMAINS` (domain nhận thư thêm), `APP_URL` (link Hộp thư trong email thông báo).
+4. **Tuỳ chọn:** `INBOUND_NOTIFY_EMAILS` (danh sách email **cá nhân** nhận thông báo thư mới),
+   `INBOUND_DOMAINS` (domain nhận thư thêm — chỉ cần cho phương án subdomain),
+   `APP_URL` (**URL công khai của app CRM** — dùng làm link mở Hộp thư trong email thông báo;
+   không đặt thành trang giới thiệu `https://veximtrade.com`). `COMPANY_WEBSITE` là trang giới
+   thiệu gắn ở chữ ký/footer email — mặc định đã là `https://veximtrade.com`, không cần đặt.
 
 Trong app: trang **Hộp thư** là hội thoại hai khung kiểu Gmail — trái là danh sách mạch thư
-(theo từng buyer/NCC, gồm thư đến), phải là toàn bộ trao đổi kèm ô trả lời cuối trang;
+(theo từng buyer/NCC, gồm thư đến), phải là mạch thư phẳng kiểu Gmail — mỗi thư một dòng
+(avatar, người gửi, snippet, giờ), bấm mới xổ nội dung; đáy mạch thư là nút [Trả lời] /
+[Chuyển tiếp], soạn thư mới/chuyển tiếp mở cửa sổ nổi góc phải dưới;
 trả lời tự gắn `In-Reply-To`/`References` nên bên Gmail cũng gom chung thread.
 Mở mạch thư tự đánh dấu đã đọc; số thư chưa đọc hiện badge ở menu trái.
 Chống trùng lặp webhook bằng `email_id`; chống vòng lặp bằng cách bỏ qua thư gửi đi từ
