@@ -2,10 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowUpDown,
   CalendarClock,
+  Check,
+  ChevronDown,
   Globe2,
   MailWarning,
   PackageX,
@@ -20,6 +23,10 @@ import { StageSelect, type StageTarget } from "@/components/stage-select";
 import { Badge, Button, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { useAutoSend } from "@/components/auto-send";
+import {
+  getFloatingMenuPosition,
+  type FloatingMenuPosition,
+} from "@/components/floating-menu-position";
 
 type SortKey = "updated" | "value" | "company" | "ship";
 
@@ -28,6 +35,148 @@ const PRIORITY_STYLE: Record<string, string> = {
   normal: "",
   low: "bg-ink-100 text-ink-500",
 };
+
+type SupplierChoice = Pick<Supplier, "id" | "name">;
+
+function SupplierPicker({
+  value,
+  suppliers,
+  onChange,
+}: {
+  value: string;
+  suppliers: SupplierChoice[];
+  onChange: (supplierId: string) => void;
+}) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState(value);
+  const [menuPosition, setMenuPosition] = useState<FloatingMenuPosition | null>(null);
+
+  useEffect(() => setSelectedId(value), [value]);
+
+  useEffect(() => {
+    if (!open) return;
+    const updatePosition = () => {
+      const anchor = triggerRef.current?.getBoundingClientRect();
+      if (anchor) setMenuPosition(getFloatingMenuPosition(anchor, 320, 380));
+    };
+    const onDoc = (event: MouseEvent) => {
+      const node = event.target as Node;
+      if (!triggerRef.current?.contains(node) && !menuRef.current?.contains(node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    updatePosition();
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open]);
+
+  const selected = suppliers.find((supplier) => supplier.id === selectedId);
+  const filtered = suppliers.filter((supplier) =>
+    supplier.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+  );
+
+  function choose(supplierId: string) {
+    setOpen(false);
+    setQuery("");
+    if (supplierId === selectedId) return;
+    setSelectedId(supplierId);
+    onChange(supplierId);
+  }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className={cx(
+          "flex w-full max-w-[180px] items-center justify-between gap-1 rounded-lg border px-2 py-1.5 text-left text-[12px] transition",
+          selectedId
+            ? "border-ink-200 bg-white text-ink-700"
+            : "border-dashed border-amber-300 bg-amber-50/70 text-amber-800",
+          open && "ring-2 ring-brand-500/25",
+        )}
+        title={selected?.name ?? "Chưa gắn nhà cung cấp"}
+      >
+        <span className="truncate">{selected?.name ?? "Chưa gắn NCC"}</span>
+        <ChevronDown className={cx("h-3.5 w-3.5 shrink-0 transition", open && "rotate-180")} />
+      </button>
+      {open && menuPosition && typeof document !== "undefined" && createPortal(
+        <div
+          ref={menuRef}
+          role="listbox"
+          aria-label="Chọn nhà cung cấp"
+          className="fixed z-[1000] overflow-hidden rounded-xl border border-ink-200 bg-white shadow-pop"
+          style={{
+            top: menuPosition.top,
+            left: menuPosition.left,
+            width: menuPosition.width,
+            maxHeight: menuPosition.maxHeight,
+          }}
+        >
+          <div className="relative border-b border-ink-100 p-2">
+            <Search className="pointer-events-none absolute top-1/2 left-4 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Tìm nhà cung cấp..."
+              className="w-full rounded-md border border-ink-200 py-1.5 pr-2 pl-8 text-[12px] outline-none focus:border-brand-500"
+              aria-label="Tìm nhà cung cấp"
+            />
+          </div>
+          <div className="overflow-y-auto py-1" style={{ maxHeight: menuPosition.maxHeight - 54 }}>
+            <button
+              type="button"
+              role="option"
+              aria-selected={!selectedId}
+              onClick={() => choose("")}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[12px] text-ink-600 transition hover:bg-ink-50"
+            >
+              <span>Chưa chọn nhà cung cấp</span>
+              {!selectedId && <Check className="h-3.5 w-3.5 text-brand-600" />}
+            </button>
+            {filtered.map((supplier) => (
+              <button
+                key={supplier.id}
+                type="button"
+                role="option"
+                aria-selected={selectedId === supplier.id}
+                onClick={() => choose(supplier.id)}
+                title={supplier.name}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[12px] text-ink-700 transition hover:bg-ink-50"
+              >
+                <span className="min-w-0 truncate">{supplier.name}</span>
+                {selectedId === supplier.id && <Check className="h-3.5 w-3.5 shrink-0 text-brand-600" />}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <p className="px-3 py-3 text-[12px] text-ink-400">Không tìm thấy nhà cung cấp.</p>
+            )}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
 
 export function BuyerTable({
   buyers,
@@ -276,24 +425,11 @@ export function BuyerTable({
                     </td>
                     <td className="table-td">
                       {canManage ? (
-                        <select
-                          className={cx(
-                            "w-full max-w-[180px] rounded-lg border px-2 py-1.5 text-[12px] transition",
-                            b.supplier_id
-                              ? "border-ink-200 bg-white text-ink-700"
-                              : "border-dashed border-amber-300 bg-amber-50/70 text-amber-800",
-                          )}
+                        <SupplierPicker
                           value={b.supplier_id ?? ""}
-                          onChange={(e) => void onAttach(b.id, e.target.value)}
-                          title={b.supplier ? (b.supplier.name ?? "") : "Chưa gắn nhà cung cấp"}
-                        >
-                          <option value="">— Chưa chọn —</option>
-                          {suppliers.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name}
-                            </option>
-                          ))}
-                        </select>
+                          suppliers={suppliers}
+                          onChange={(supplierId) => void onAttach(b.id, supplierId)}
+                        />
                       ) : (
                         <span
                           className={cx(
