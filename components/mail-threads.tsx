@@ -94,10 +94,13 @@ export function MailThreads({
   threads,
   canSend,
   contacts = [],
+  signature = "",
 }: {
   threads: ThreadSummary[];
   canSend: boolean;
   contacts?: QuickContact[];
+  /** Chữ ký của người đang đăng nhập — chèn sẵn vào khung trả lời / thư chuyển tiếp */
+  signature?: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -134,6 +137,12 @@ export function MailThreads({
     });
   }, [current, router]);
 
+  // Mở khung trả lời: chưa gõ gì thì chèn sẵn một dòng trống + chữ ký (như soạn đầy đủ)
+  function openReply() {
+    if (!reply.trim() && signature) setReply(`<p><br/></p>${signature}`);
+    setReplyOpen(true);
+  }
+
   async function removeMessage(id: string) {
     if (!window.confirm("Xoá email này khỏi hộp thư?")) return;
     setDeleting(id);
@@ -162,7 +171,9 @@ export function MailThreads({
     const subject = /^fwd?:/i.test(current.lastSubject.trim())
       ? current.lastSubject
       : `Fw: ${current.lastSubject}`;
-    openCompose({ subject, body: quote });
+    // Chữ ký nằm trên khối trích dẫn, đúng thứ tự Gmail hay xếp
+    const body = `${signature ? `${signature}<p><br/></p>` : ""}${quote}`;
+    openCompose({ subject, body });
   }
 
   async function sendReply() {
@@ -344,7 +355,7 @@ export function MailThreads({
               <div className="flex shrink-0 items-center gap-2 border-t border-ink-100 px-3 pb-3 pt-2.5">
                 <button
                   type="button"
-                  onClick={() => setReplyOpen(true)}
+                  onClick={openReply}
                   className="flex items-center gap-2 rounded-full border border-ink-300 bg-white px-4 py-2 text-[13px] font-medium text-ink-700 transition hover:bg-ink-50"
                 >
                   <CornerUpLeft className="h-4 w-4" />

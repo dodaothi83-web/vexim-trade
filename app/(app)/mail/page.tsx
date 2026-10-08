@@ -1,4 +1,5 @@
 import { getStore } from "@/lib/db";
+import { buildSignature } from "@/lib/email/signature";
 import { emailMode, FROM_ADDRESS } from "@/lib/config";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -20,11 +21,17 @@ export default async function MailPage() {
   const canSend = hasPermission(session.role, "mail.send");
 
   const store = getStore();
-  const [messages, buyers, suppliers] = await Promise.all([
+  const [messages, buyers, suppliers, me] = await Promise.all([
     store.listMessages(500),
     store.listBuyers(),
     store.listSuppliers(),
+    store.getUserByEmail(session.email),
   ]);
+
+  // Chữ ký cá nhân kiểu Gmail/Zoho (chữ ký tuỳ chỉnh hoặc chữ ký tự động) —
+  // chèn sẵn vào khung trả lời nhanh và cửa sổ chuyển tiếp ngay trong Hộp thư
+  const mySigHtml = me?.signature_html ?? null;
+  const mySig = mySigHtml !== null ? mySigHtml : buildSignature(session.name);
 
   const buyerById = new Map(buyers.map((b) => [b.id, b]));
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
@@ -124,7 +131,7 @@ export default async function MailPage() {
       </div>
 
       <div className="min-h-0 flex-1">
-        <MailThreads threads={threads} canSend={canSend} contacts={contacts} />
+        <MailThreads threads={threads} canSend={canSend} contacts={contacts} signature={mySig} />
       </div>
     </div>
   );
