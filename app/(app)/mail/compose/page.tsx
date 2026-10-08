@@ -113,8 +113,9 @@ export default async function ComposePage({
     initial.subject = "";
     initial.bodyHtml = `<p>Kính gửi Anh/Chị ${supplier.contact_name || supplier.name},</p><p><br/></p>${sig}`;
   } else {
-    // Soạn trống: đặt sẵn chữ ký gọn ở cuối để email tự soạn luôn có nhận diện công ty
-    initial.bodyHtml = sig;
+    // Soạn trống: một dòng trống sẵn phía trên để gõ nội dung ngay,
+    // chữ ký nằm sẵn bên dưới — không phải nhấn Enter đẩy chữ ký xuống nữa
+    initial.bodyHtml = sig ? `<p><br/></p>${sig}` : "<p><br/></p>";
   }
 
   return (

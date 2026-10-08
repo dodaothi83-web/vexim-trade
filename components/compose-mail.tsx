@@ -273,6 +273,13 @@ export function ComposeMail({
     setSigBusy(false);
     toast.push({ kind: res.ok ? "success" : "error", title: res.message });
     if (res.ok) {
+      // Thay khối chữ ký cũ ngay trong thư đang soạn để thấy kết quả lập tức
+      const prev = mySig;
+      setBody((b) => {
+        if (prev && b.includes(prev)) return b.split(prev).join(sigDraft);
+        if (!prev && sigDraft) return (b ? b : "") + sigDraft;
+        return b;
+      });
       setMySig(sigDraft);
       setSigCustom(true);
       setSigOpen(false);
@@ -285,6 +292,8 @@ export function ComposeMail({
     setSigBusy(false);
     toast.push({ kind: res.ok ? "success" : "error", title: res.message });
     if (res.ok) {
+      const prev = mySig;
+      setBody((b) => (prev && b.includes(prev) ? b.split(prev).join(autoSignature) : b));
       setMySig(autoSignature);
       setSigCustom(false);
       setSigOpen(false);
