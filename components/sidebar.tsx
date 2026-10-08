@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Boxes,
-  Database,
   FileText,
   Globe2,
   KanbanSquare,
@@ -17,6 +16,7 @@ import {
   Pencil,
   Settings2,
   ShieldCheck,
+  UsersRound,
   X,
 } from "lucide-react";
 
@@ -41,6 +41,7 @@ const NAV: {
   { href: "/mail/compose", label: "Soạn email", icon: Pencil, perm: "mail.send" },
   { href: "/templates", label: "Nội dung email", icon: FileText, perm: "mail.view" },
   { href: "/settings", label: "Cài đặt", icon: Settings2, perm: "settings.view" },
+  { href: "/settings/users", label: "Người dùng", icon: UsersRound, perm: "users.manage" },
 ];
 
 export function Sidebar({
@@ -132,38 +133,6 @@ export function Sidebar({
           </form>
         </div>
 
-        <div
-          className="block rounded-lg px-2 py-2"
-        >
-          <p className="mb-1.5 text-[10px] font-bold tracking-wider text-brand-200/60 uppercase">
-            Kết nối
-          </p>
-          <StatusLine
-            ok={dataMode === "supabase"}
-            icon={<Database className="h-3 w-3" />}
-            label={
-              dataMode === "supabase"
-                ? "Supabase"
-                : dataDegraded
-                  ? "Supabase: mất kết nối – dùng dữ liệu tạm"
-                  : "Dữ liệu demo (local)"
-            }
-          />
-          <StatusLine
-            ok={emailMode === "resend"}
-            icon={<Mail className="h-3 w-3" />}
-            label={emailMode === "resend" ? "Resend (veximtrade.com)" : "Email demo (chưa gửi thật)"}
-          />
-          {permissions.includes("settings.view") && (
-            <Link
-              href="/settings"
-              onClick={() => setOpen(false)}
-              className="mt-1.5 inline-block text-[11px] font-semibold text-brand-200/80 underline decoration-brand-200/30 underline-offset-2 transition hover:text-white"
-            >
-              Xem chi tiết ở Cài đặt
-            </Link>
-          )}
-        </div>
       </div>
     </>
   );
@@ -212,21 +181,4 @@ function initials(text: string): string {
   const first = parts[0][0] ?? "";
   const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
   return (first + last).toUpperCase();
-}
-
-function StatusLine({
-  ok,
-  icon,
-  label,
-}: {
-  ok: boolean;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-1.5 py-0.5">
-      <span className={cx("shrink-0", ok ? "text-emerald-400" : "text-amber-400")}>{icon}</span>
-      <span className="truncate text-[11px] text-brand-100/70">{label}</span>
-    </div>
-  );
 }
