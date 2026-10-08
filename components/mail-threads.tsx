@@ -12,10 +12,11 @@ import {
   Minus,
   Pencil,
   Send,
+  Trash2,
   X,
 } from "lucide-react";
 
-import { markThreadReadAction, sendMailAction } from "@/app/actions";
+import { deleteMessageAction, markThreadReadAction, sendMailAction } from "@/app/actions";
 import { htmlToText } from "@/lib/email/privacy";
 import { RichEditor } from "@/components/rich-editor";
 import { SafeHtml } from "@/components/safe-html";
@@ -104,6 +105,7 @@ export function MailThreads({
   const [replyOpen, setReplyOpen] = useState(false);
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeMin, setComposeMin] = useState(false);
   const [composePrefill, setComposePrefill] = useState<ComposePrefill | undefined>(undefined);
@@ -131,6 +133,15 @@ export function MailThreads({
       if (res.ok) router.refresh();
     });
   }, [current, router]);
+
+  async function removeMessage(id: string) {
+    if (!window.confirm("Xoá email này khỏi hộp thư?")) return;
+    setDeleting(id);
+    const res = await deleteMessageAction(id);
+    setDeleting(null);
+    toast.push({ kind: res.ok ? "success" : "error", title: res.message });
+    if (res.ok) router.refresh();
+  }
 
   function openCompose(prefill?: ComposePrefill) {
     setComposePrefill(prefill);
@@ -270,7 +281,7 @@ export function MailThreads({
               {current.messages.map((m) => (
                 <div key={m.id}>
                   {/* Dòng đầu mỗi thư: phẳng, không mũi tên thu/gập */}
-                  <div className="flex w-full items-center gap-3 px-2 py-2.5">
+                  <div className="group flex w-full items-center gap-3 px-2 py-2.5">
                     <Avatar name={m.fromLabel} inbound={m.kind === "inbound"} small />
                     <span
                       className={cx(
@@ -296,6 +307,20 @@ export function MailThreads({
                     </Badge>
                     {m.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />}
                     <span className="shrink-0 text-[11px] text-ink-400">{formatDateTime(m.at)}</span>
+                    {canSend && (
+                      <button
+                        type="button"
+                        title="Xoá email này"
+                        onClick={() => void removeMessage(m.id)}
+                        className="shrink-0 rounded p-1 text-ink-300 opacity-0 transition hover:bg-red-50 hover:text-red-600 focus:opacity-100 group-hover:opacity-100"
+                      >
+                        {deleting === m.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    )}
                   </div>
                   {/* Thân thư luôn hiển thị đầy đủ — dài thì thanh cuộn của khung lo */}
                   <div className="px-4 pb-5 pl-12">
