@@ -22,7 +22,6 @@ import {
   type ComposeContext,
   type RecentMail,
 } from "@/lib/compose-context";
-import type { CompanyInfo } from "@/lib/config";
 import { RichEditor } from "@/components/rich-editor";
 import { ComposeSidebar } from "@/components/compose-sidebar";
 import { Button, cx } from "@/components/ui";
@@ -71,7 +70,6 @@ export function ComposeMail({
   signature,
   contexts = [],
   recent = [],
-  company,
 }: {
   initial: ComposeInitial;
   contacts: Contact[];
@@ -81,8 +79,6 @@ export function ComposeMail({
   contexts?: ComposeContext[];
   /** Email đã trao đổi (mới nhất trước) để hiển thị ở cột phải */
   recent?: RecentMail[];
-  /** Thông tin công ty (chữ ký/footer) để bản xem trước khớp email gửi đi */
-  company?: CompanyInfo;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -396,7 +392,7 @@ export function ComposeMail({
           <button
             type="button"
             className="btn btn-ghost px-2.5"
-            onClick={() => setBody((b) => (b ? b : "") + signature)}
+            onClick={() => setBody((b) => (b.includes(signature) ? b : (b ? b : "") + signature))}
             title="Chèn chữ ký"
           >
             <Sparkles className="h-4 w-4" />
@@ -446,7 +442,6 @@ export function ComposeMail({
         relatedBuyer={relatedBuyer}
         recent={recent}
         signature={signature}
-        company={company}
       />
     </div>
   );

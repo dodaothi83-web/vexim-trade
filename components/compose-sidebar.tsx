@@ -22,10 +22,9 @@ import {
   vietnameseRatio,
   type SensitiveTerm,
 } from "@/lib/email/privacy";
-import { wrapEmailShell } from "@/lib/email/templates";
+import { wrapPlainEmail } from "@/lib/email/templates";
 import { getStage } from "@/lib/pipeline";
 import { roleLabel, statusMeta } from "@/lib/supplier";
-import type { CompanyInfo } from "@/lib/config";
 import type { ComposeContext, RecentMail } from "@/lib/compose-context";
 import { Badge, cx, formatDate, formatDateTime } from "@/components/ui";
 
@@ -51,7 +50,6 @@ export function ComposeSidebar({
   relatedBuyer,
   recent,
   signature = "",
-  company,
 }: {
   subject: string;
   bodyHtml: string;
@@ -66,8 +64,6 @@ export function ComposeSidebar({
   recent: RecentMail[];
   /** Khối chữ ký – bỏ ra khi phân tích ngôn ngữ để không báo nhầm */
   signature?: string;
-  /** Thông tin công ty thật của server – để bản xem trước trùng khớp email gửi đi */
-  company?: CompanyInfo;
 }) {
   const isBuyerDir = direction === "buyer";
   const deferredBody = useDeferredValue(bodyHtml);
@@ -75,14 +71,13 @@ export function ComposeSidebar({
 
   const previewHtml = useMemo(
     () =>
-      wrapEmailShell({
+      wrapPlainEmail({
         title: deferredSubject.trim() || "(chưa có tiêu đề)",
         body:
           deferredBody.trim() ||
           '<p style="color:#94a3b8;font-style:italic">(chưa có nội dung)</p>',
-        company,
       }),
-    [deferredSubject, deferredBody, company],
+    [deferredSubject, deferredBody],
   );
 
   // Bỏ khối chữ ký (vốn có sẵn vài chữ tiếng Việt như "Trân trọng") trước khi

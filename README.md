@@ -307,6 +307,15 @@ Cùng một lần đổi giai đoạn, hệ thống sinh **hai email hoàn toàn
 - **Sau đó, mỗi lần đổi giai đoạn**, NCC tiếp tục nhận email cập nhật tiến độ.
 - Buyer không thấy thông tin NCC; NCC mặc định chỉ thấy “khách hàng thị trường {quốc gia}”.
 
+### Hai kiểu trình bày email
+
+- **Email tự động** (cập nhật tiến độ, thông báo kết nối NCC): giữ **khung thương hiệu Vexim Trade** —
+  banner xanh, card nội dung và **một footer duy nhất** cuối card — để người nhận nhận ra đây là thư từ hệ thống.
+- **Email đội ngũ tự soạn** (Soạn email): dùng **khung trơn như email thường** — nền trắng, không banner,
+  không card, không footer lặp. Nhận diện thương hiệu nằm trong **chữ ký gọn** cuối thư (tên người gửi,
+  Export Department · Vexim Trade, điện thoại · email, website dạng chữ); chữ ký được đặt sẵn khi soạn
+  mới và có thể sửa hoặc xoá tự do. Bản xem trước ở cột soạn thư khớp đúng khung gửi đi.
+
 ### Hai cách đổi trạng thái
 
 - **Dropdown** ngay trên bảng Buyer hoặc trên thẻ ở trang Pipeline (kéo-thả cũng được).

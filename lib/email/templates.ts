@@ -74,7 +74,8 @@ const MUTED = "#64748b";
 const LINE = "#e2e8f0";
 const SOFT = "#f8fafc";
 
-/** Khung email dùng chung (cả email tự động lẫn email đội ngũ tự soạn) */
+/** Khung email THƯƠNG HIỆU cho email TỰ ĐỘNG (cập nhật tiến độ, thông báo hệ thống):
+ *  banner + card + một footer duy nhất ở cuối card. */
 export function wrapEmailShell(opts: {
   title: string;
   body: string;
@@ -113,7 +114,39 @@ export function wrapEmailShell(opts: {
               <td style="background:${SOFT};padding:20px 28px;border-top:1px solid ${LINE};font-size:12px;color:${MUTED};line-height:18px;">${footer}</td>
             </tr>
           </table>
-          <p style="color:#94a3b8;font-size:11px;margin:14px 0 0;">${escapeHtml(brand.name)} &middot; ${escapeHtml(brand.website)}</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+/**
+ * Khung email TRƠN cho email đội ngũ tự soạn: nền trắng, không banner thương hiệu,
+ * không khung card, không footer lặp — nhìn như email trao đổi 1:1 thông thường.
+ * Nhận diện thương hiệu nằm trong chữ ký ở cuối nội dung (xem lib/email/signature.ts).
+ * Vẫn giữ marker `vxt-inner` để unwrapEmailShell tách lại nội dung khi mở nháp/trả lời.
+ */
+export function wrapPlainEmail(opts: {
+  title: string;
+  body: string;
+  preheader?: string;
+}): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(opts.title)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:${INK};">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(opts.preheader ?? opts.title)}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
+      <tr>
+        <td align="center" style="padding:28px 16px;">
+          <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;">
+            <tr><td style="padding:0;" class="vxt-body"><div class="vxt-inner">${opts.body}</div></td></tr>
+          </table>
         </td>
       </tr>
     </table>

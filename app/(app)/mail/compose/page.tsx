@@ -1,4 +1,3 @@
-import { COMPANY } from "@/lib/config";
 import { getStore } from "@/lib/db";
 import {
   buildBuyerContext,
@@ -74,7 +73,6 @@ export default async function ComposePage({
             signature={buildSignature(msg.created_by)}
             contexts={contexts}
             recent={recent}
-            company={COMPANY}
           />
         </Shell>
       );
@@ -105,6 +103,9 @@ export default async function ComposePage({
     initial.to = supplier.email ? [supplier.email] : [];
     initial.subject = "";
     initial.bodyHtml = `<p>Kính gửi Anh/Chị ${supplier.contact_name || supplier.name},</p><p><br/></p>${sig}`;
+  } else {
+    // Soạn trống: đặt sẵn chữ ký gọn ở cuối để email tự soạn luôn có nhận diện công ty
+    initial.bodyHtml = sig;
   }
 
   return (
@@ -126,7 +127,6 @@ export default async function ComposePage({
         signature={buildSignature(buyer?.owner)}
         contexts={contexts}
         recent={recent}
-        company={COMPANY}
       />
     </Shell>
   );

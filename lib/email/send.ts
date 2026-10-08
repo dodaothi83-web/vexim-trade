@@ -6,7 +6,7 @@ import {
   buildBuyerEmail,
   buildSupplierAssignedEmail,
   buildSupplierEmail,
-  wrapEmailShell,
+  wrapPlainEmail,
   type EmailPayload,
 } from "@/lib/email/templates";
 import { getStage, type StageKey } from "@/lib/pipeline";
@@ -265,7 +265,8 @@ export interface ManualMailResult {
 }
 
 export async function sendManualMail(input: ManualMailInput): Promise<ManualMailResult> {
-  const html = wrapEmailShell({
+  // Email tự soạn => khung trơn giống email thường (không banner/card/footer).
+  const html = wrapPlainEmail({
     title: input.subject,
     body: input.bodyHtml,
   });
@@ -319,7 +320,7 @@ export async function sendManualMail(input: ManualMailInput): Promise<ManualMail
 }
 
 export async function saveDraft(input: ManualMailInput): Promise<string | null> {
-  const html = wrapEmailShell({ title: input.subject || "(bản nháp)", body: input.bodyHtml });
+  const html = wrapPlainEmail({ title: input.subject || "(bản nháp)", body: input.bodyHtml });
   const saved = await getStore()
     .addMessage({
       buyer_id: input.buyerId ?? null,
