@@ -9,6 +9,7 @@ import {
   Mail,
   Paperclip,
   Send,
+  PenLine,
   Sparkles,
   Trash2,
   Users,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { saveDraftAction, sendMailAction } from "@/app/actions";
+import { saveMySignatureAction } from "@/app/auth-actions";
 import type { AttachmentRef, Buyer, Supplier } from "@/lib/types";
 import {
   findContextByEmail,
@@ -68,6 +70,8 @@ export function ComposeMail({
   contacts,
   buyer,
   signature,
+  autoSignature = "",
+  signatureCustom = false,
   contexts = [],
   recent = [],
 }: {
@@ -75,6 +79,10 @@ export function ComposeMail({
   contacts: Contact[];
   buyer?: (Buyer & { supplier?: Pick<Supplier, "id" | "name"> | null }) | null;
   signature: string;
+  /** Chữ ký tự động của hệ thống — làm gốc khi người dùng chưa lưu chữ ký riêng */
+  autoSignature?: string;
+  /** Chữ ký đang dùng là chữ ký tuỳ chỉnh người dùng đã lưu */
+  signatureCustom?: boolean;
   /** Ngữ cảnh đơn hàng của buyer / NCC để hiển thị ở cột phải */
   contexts?: ComposeContext[];
   /** Email đã trao đổi (mới nhất trước) để hiển thị ở cột phải */
@@ -98,6 +106,13 @@ export function ComposeMail({
   const [uploading, setUploading] = useState(0);
   const [busy, setBusy] = useState(false);
   const [toInput, setToInput] = useState("");
+
+  // Chữ ký cá nhân kiểu Gmail/Zoho: sửa & lưu từ hộp thoại, áp dụng cho thư soạn mới
+  const [mySig, setMySig] = useState(signature);
+  const [sigCustom, setSigCustom] = useState(Boolean(signatureCustom));
+  const [sigOpen, setSigOpen] = useState(false);
+  const [sigDraft, setSigDraft] = useState("");
+  const [sigBusy, setSigBusy] = useState(false);
 
   const supplierEmails = new Set(
     contacts.filter((c) => c.kind === "supplier").map((c) => (c.email ?? "").toLowerCase()),
@@ -252,6 +267,30 @@ export function ComposeMail({
     if (res.ok) router.push("/mail");
   }
 
+  async function saveSignature() {
+    setSigBusy(true);
+    const res = await saveMySignatureAction(sigDraft);
+    setSigBusy(false);
+    toast.push({ kind: res.ok ? "success" : "error", title: res.message });
+    if (res.ok) {
+      setMySig(sigDraft);
+      setSigCustom(true);
+      setSigOpen(false);
+    }
+  }
+
+  async function clearSignature() {
+    setSigBusy(true);
+    const res = await saveMySignatureAction(null);
+    setSigBusy(false);
+    toast.push({ kind: res.ok ? "success" : "error", title: res.message });
+    if (res.ok) {
+      setMySig(autoSignature);
+      setSigCustom(false);
+      setSigOpen(false);
+    }
+  }
+
   async function saveAsDraft() {
     setBusy(true);
     const res = await saveDraftAction(payload());
@@ -392,11 +431,24 @@ export function ComposeMail({
           <button
             type="button"
             className="btn btn-ghost px-2.5"
-            onClick={() => setBody((b) => (b.includes(signature) ? b : (b ? b : "") + signature))}
+            disabled={busy || !mySig}
+            onClick={() => setBody((b) => (b.includes(mySig) ? b : (b ? b : "") + mySig))}
             title="Chèn chữ ký"
           >
             <Sparkles className="h-4 w-4" />
             Chữ ký
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost px-2.5"
+            onClick={() => {
+              setSigDraft(mySig || autoSignature);
+              setSigOpen(true);
+            }}
+            title="Sửa chữ ký của tôi"
+          >
+            <PenLine className="h-4 w-4" />
+            Sửa chữ ký
           </button>
           <input
             ref={fileRef}
@@ -431,6 +483,48 @@ export function ComposeMail({
           </span>
         </div>
       </div>
+      {sigOpen && (
+        <div className="animate-fade fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4 backdrop-blur-[2px]">
+          <div className="animate-pop w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-pop">
+            <div className="border-b border-ink-200 px-5 py-4">
+              <h3 className="text-base font-bold text-ink-900">Chữ ký email của tôi</h3>
+              <p className="mt-0.5 text-xs text-ink-500">
+                {sigCustom
+                  ? "Chữ ký tuỳ chỉnh được chèn sẵn khi soạn thư mới; bạn vẫn sửa được trong từng thư."
+                  : "Bạn đang dùng chữ ký tự động. Sửa nội dung rồi bấm Lưu để dùng chữ ký của riêng bạn."}
+              </p>
+            </div>
+            <div className="px-5 py-4">
+              <RichEditor
+                value={sigDraft}
+                onChange={setSigDraft}
+                minHeight={180}
+                placeholder="Nhập chữ ký của bạn…"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-ink-200 px-5 py-3">
+              <div>
+                {sigCustom && (
+                  <Button variant="ghost" disabled={sigBusy} onClick={() => void clearSignature()}>
+                    <Trash2 className="h-4 w-4" />
+                    Xoá chữ ký tuỳ chỉnh
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" disabled={sigBusy} onClick={() => setSigOpen(false)}>
+                  Huỷ
+              </Button>
+              <Button disabled={sigBusy} onClick={() => void saveSignature()}>
+                {sigBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />}
+                Lưu chữ ký
+              </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ComposeSidebar
         subject={subject}
         bodyHtml={body}
@@ -441,7 +535,7 @@ export function ComposeMail({
         active={activeContext}
         relatedBuyer={relatedBuyer}
         recent={recent}
-        signature={signature}
+        signature={mySig}
       />
     </div>
   );

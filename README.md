@@ -312,9 +312,18 @@ Cùng một lần đổi giai đoạn, hệ thống sinh **hai email hoàn toàn
 - **Email tự động** (cập nhật tiến độ, thông báo kết nối NCC): giữ **khung thương hiệu Vexim Trade** —
   banner xanh, card nội dung và **một footer duy nhất** cuối card — để người nhận nhận ra đây là thư từ hệ thống.
 - **Email đội ngũ tự soạn** (Soạn email): dùng **khung trơn như email thường** — nền trắng, không banner,
-  không card, không footer lặp; nội dung căn trái, chảy trọn chiều ngang khung đọc như thư đánh máy thông thường. Nhận diện thương hiệu nằm trong **chữ ký gọn** cuối thư (tên người gửi,
-  Export Department · Vexim Trade, điện thoại · email, website dạng chữ); chữ ký được đặt sẵn khi soạn
-  mới và có thể sửa hoặc xoá tự do. Bản xem trước ở cột soạn thư khớp đúng khung gửi đi.
+  không card, không footer lặp; nội dung căn trái, chảy trọn chiều ngang khung đọc như thư đánh máy thông thường.
+  Bản xem trước ở cột soạn thư khớp đúng khung gửi đi.
+
+### Chữ ký email cá nhân (kiểu Gmail/Zoho)
+
+- Mỗi tài khoản có **chữ ký riêng** lưu trong cột `signature_html` của bảng `app_users`
+  (Supabase: chạy câu `alter table ... add column if not exists signature_html text` ở mục 5c của `supabase/schema.sql`).
+- Sửa bằng nút **“Sửa chữ ký”** ngay trong cửa sổ soạn thư (trình soạn thảo có định dạng như nội dung thư);
+  lưu lại sẽ dùng cho mọi thư soạn mới, vẫn sửa tay được trong từng thư.
+- Chưa lưu chữ ký riêng thì hệ thống dùng **chữ ký tự động** (tên người gửi, Export Department · Vexim Trade,
+  điện thoại · email, website dạng chữ). Nút **“Xoá chữ ký tuỳ chỉnh”** quay lại chữ ký tự động.
+- Chữ ký được chèn sẵn khi mở thư soạn mới; nút “Chèn chữ ký” chèn lại bất kỳ lúc nào (không chèn trùng).
 
 ### Hai cách đổi trạng thái
 

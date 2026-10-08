@@ -264,6 +264,8 @@ export interface AppUser {
   auth_provider: AuthProvider;
   /** Có mật khẩu nội bộ (dùng khi không kết nối được Supabase) */
   has_local_password: boolean;
+  /** Chữ ký cá nhân (HTML) dùng cho email tự soạn; null = dùng chữ ký tự động */
+  signature_html: string | null;
   is_active: boolean;
   last_login_at: string | null;
   created_at: string;
@@ -277,5 +279,5 @@ export interface AppUserRecord extends Omit<AppUser, "has_local_password"> {
 
 export type AppUserInput = Omit<
   AppUserRecord,
-  "id" | "created_at" | "updated_at" | "last_login_at"
+  "id" | "created_at" | "updated_at" | "last_login_at" | "signature_html"
 >;

@@ -302,6 +302,8 @@ alter table public.app_users add column if not exists auth_provider text not nul
 alter table public.app_users add column if not exists password_hash text;
 alter table public.app_users add column if not exists is_active boolean not null default true;
 alter table public.app_users add column if not exists last_login_at timestamptz;
+-- Chữ ký email cá nhân (HTML) của từng người dùng; null = dùng chữ ký tự động.
+alter table public.app_users add column if not exists signature_html text;
 
 -- ---------------------------------------------------------------------------
 -- 6. TỰ ĐỘNG CẬP NHẬT updated_at

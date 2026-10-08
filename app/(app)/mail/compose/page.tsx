@@ -22,15 +22,22 @@ export default async function ComposePage({
 }: {
   searchParams: Promise<{ to?: string; supplier?: string; draft?: string; dir?: string }>;
 }) {
-  await requirePagePermission("mail.send", "/mail");
+  const session = await requirePagePermission("mail.send", "/mail");
   const sp = await searchParams;
   const store = getStore();
-  const [buyers, suppliers, products, messages] = await Promise.all([
+  const [buyers, suppliers, products, messages, me] = await Promise.all([
     store.listBuyers(),
     store.listSuppliers(),
     store.listProducts(),
     store.listMessages(120),
+    store.getUserByEmail(session.email),
   ]);
+
+  // Chữ ký cá nhân kiểu Gmail/Zoho: mỗi người tự sửa và lưu lại;
+  // null = chưa có chữ ký tuỳ chỉnh => dùng chữ ký tự động của hệ thống.
+  const mySigHtml = me?.signature_html ?? null;
+  const autoSig = buildSignature(session.name);
+  const mySig = mySigHtml !== null ? mySigHtml : autoSig;
 
   // Cột phải của trang soạn thư: ngữ cảnh từng buyer / NCC + email đã trao đổi
   const contexts: ComposeContext[] = [
@@ -70,7 +77,9 @@ export default async function ComposePage({
             }}
             contacts={contacts}
             buyer={buyer}
-            signature={buildSignature(msg.created_by)}
+            signature={mySig}
+            autoSignature={autoSig}
+            signatureCustom={mySigHtml !== null}
             contexts={contexts}
             recent={recent}
           />
@@ -90,7 +99,7 @@ export default async function ComposePage({
 
   const initial: ComposeInitial = { buyerId: buyer?.id ?? null, supplierId: supplier?.id ?? null, direction, to: [], cc: [] };
 
-  const sig = buildSignature(buyer?.owner);
+  const sig = mySig;
   if (direction === "buyer" && buyer) {
     initial.to = buyer.email ? [buyer.email] : [];
     initial.cc = (buyer.cc_emails ?? "")
@@ -124,7 +133,9 @@ export default async function ComposePage({
         initial={initial}
         contacts={contacts}
         buyer={buyer}
-        signature={buildSignature(buyer?.owner)}
+        signature={mySig}
+        autoSignature={autoSig}
+        signatureCustom={mySigHtml !== null}
         contexts={contexts}
         recent={recent}
       />

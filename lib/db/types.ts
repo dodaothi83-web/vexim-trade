@@ -44,7 +44,7 @@ export interface DataStore {
   getUser(id: string): Promise<AppUserRecord | null>;
   getUserByEmail(email: string): Promise<AppUserRecord | null>;
   createUser(input: AppUserInput): Promise<AppUserRecord>;
-  updateUser(id: string, patch: Partial<AppUserInput>): Promise<AppUserRecord>;
+  updateUser(id: string, patch: Partial<AppUserRecord>): Promise<AppUserRecord>;
   deleteUser(id: string): Promise<void>;
   touchUserLogin(id: string): Promise<void>;
 

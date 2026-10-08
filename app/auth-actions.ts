@@ -311,3 +311,42 @@ export async function setLocalPasswordAction(
 ): Promise<AuthResult> {
   return resetUserPasswordAction(id, password, password2);
 }
+
+/* -------- Chữ ký email cá nhân (kiểu Gmail/Zoho: mỗi người tự sửa) -------- */
+
+const MAX_SIGNATURE_CHARS = 8000;
+
+/**
+ * Lưu chữ ký của chính người đang đăng nhập.
+ * - html = chuỗi HTML chữ ký tuỳ chỉnh ("" = không dùng chữ ký).
+ * - html = null => xoá chữ ký tuỳ chỉnh, quay lại chữ ký tự động của hệ thống.
+ */
+export async function saveMySignatureAction(html: string | null): Promise<AuthResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, message: "Phiên đã hết hạn, hãy đăng nhập lại." };
+  if (html !== null && html.length > MAX_SIGNATURE_CHARS) {
+    return { ok: false, message: `Chữ ký quá dài (tối đa ${MAX_SIGNATURE_CHARS.toLocaleString("vi-VN")} ký tự).` };
+  }
+  const store = getStore();
+  const me = await store.getUserByEmail(session.email);
+  if (!me) return { ok: false, message: "Không tìm thấy tài khoản của bạn." };
+  try {
+    await store.updateUser(me.id, { signature_html: html });
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : "Lỗi không xác định";
+    return {
+      ok: false,
+      message:
+        "Không lưu được chữ ký. Nếu dùng Supabase, hãy chạy câu ALTER thêm cột signature_html trong supabase/schema.sql (mục 5c).",
+      details: ["Lỗi gốc: " + raw],
+    };
+  }
+  revalidatePath("/mail/compose");
+  return {
+    ok: true,
+    message:
+      html === null
+        ? "Đã xoá chữ ký tuỳ chỉnh — quay lại chữ ký tự động."
+        : "Đã lưu chữ ký của bạn. Thư soạn mới sẽ dùng chữ ký này.",
+  };
+}

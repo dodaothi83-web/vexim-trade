@@ -119,6 +119,9 @@ function load(): LocalShape {
     if (!Array.isArray(c.products)) c.products = [];
     if (!Array.isArray(c.media)) c.media = [];
     if (!Array.isArray(c.users)) c.users = [];
+    c.users.forEach((u) => {
+      if (u.signature_html === undefined) u.signature_html = null;
+    });
     if (!Array.isArray(c.attachments)) c.attachments = [];
     return c;
   }
@@ -169,7 +172,7 @@ function toPublicUser(row: AppUserRecord): AppUser {
   const has_local_password = Boolean(row.password_hash);
   const { password_hash: _omit, ...rest } = row;
   void _omit;
-  return { ...rest, has_local_password };
+  return { ...rest, signature_html: row.signature_html ?? null, has_local_password };
 }
 
 function mutate<T>(fn: (db: LocalShape) => T): T {
@@ -343,6 +346,7 @@ export const localStore: DataStore = {
       const row: AppUserRecord = {
         ...input,
         id: randomUUID(),
+        signature_html: null,
         last_login_at: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
