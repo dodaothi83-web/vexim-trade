@@ -7,14 +7,16 @@ import { LandingSite } from "@/components/landing-site";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Vexim Trade — Vietnamese cashew & agricultural products export",
+  title: "Veximtrade — We do the first pass in Vietnam",
   description:
-    "Vexim Trade exports Vietnamese cashew kernels and agricultural products to specification. " +
-    "Member of Vexim Global. Request a quote — our export desk replies within one working day.",
+    "Sourcing from Vietnam shouldn't cost your team weeks of screening. Veximtrade finds, vets " +
+    "and filters suppliers on the ground — you talk only to sources worth your time. " +
+    "A Vexim Global company.",
   openGraph: {
-    title: "Vexim Trade — Vietnamese cashew & agricultural products export",
+    title: "Veximtrade — We do the first pass in Vietnam",
     description:
-      "Factory-direct sourcing, lot-by-lot QC and full export documentation. A member of Vexim Global.",
+      "We search, vet and filter Vietnamese suppliers before they reach your inbox. " +
+      "A short list worth talking to, or an honest not-yet. A Vexim Global company.",
     url: "https://veximtrade.com",
     siteName: "Vexim Trade",
     type: "website",
