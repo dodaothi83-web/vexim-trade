@@ -126,6 +126,8 @@ export function wrapEmailShell(opts: {
  * không khung card, không footer lặp — nhìn như email trao đổi 1:1 thông thường.
  * Nội dung chảy từ lề trái, trọn chiều ngang khung đọc (KHÔNG bọc giữa màn hình
  * như newsletter — trên màn hình rộng cột căn giữa trông rất lạ).
+ * Không dùng table-layout/banner/ảnh/link theo dõi: càng ít dấu vết "email marketing"
+ * thì càng ít cơ hội bị xếp vào tab Quảng cáo.
  * Nhận diện thương hiệu nằm trong chữ ký ở cuối nội dung (xem lib/email/signature.ts).
  * Vẫn giữ marker `vxt-inner` để unwrapEmailShell tách lại nội dung khi mở nháp/trả lời.
  */
@@ -143,9 +145,7 @@ export function wrapPlainEmail(opts: {
   </head>
   <body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:${INK};">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(opts.preheader ?? opts.title)}</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
-      <tr><td style="padding:0;" class="vxt-body"><div class="vxt-inner">${opts.body}</div></td></tr>
-    </table>
+    <div class="vxt-body"><div class="vxt-inner">${opts.body}</div></div>
   </body>
 </html>`;
 }
@@ -386,7 +386,8 @@ export function buildSupplierEmail(opts: {
 
 /** Lấy lại phần nội dung bên trong khung email (dùng khi mở bản nháp / trả lời) */
 export function unwrapEmailShell(html: string): string {
-  const m = html.match(/<div class="vxt-inner">([\s\S]*)<\/div><\/td>/);
+  // Khung thương hiệu kết thúc bằng </div></td>, khung trơn bằng </div></div></body>
+  const m = html.match(/<div class="vxt-inner">([\s\S]*)<\/div>(?:<\/td>|<\/div>\s*<\/body>)/);
   return m ? m[1] : html;
 }
 
