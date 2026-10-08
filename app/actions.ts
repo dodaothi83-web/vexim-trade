@@ -1036,7 +1036,7 @@ export async function submitQuoteLeadAction(input: {
   company_website: string;
 }): Promise<ActionResult> {
   const thanks =
-    "Thank you! Your enquiry is with our export desk — we reply within one working day.";
+    "Thank you. Your enquiry is with our export desk, and we reply within one working day.";
   // Bot điền honeypot => giả vờ thành công, không ghi gì vào CRM
   if (input.company_website?.trim()) return { ok: true, message: thanks };
 
