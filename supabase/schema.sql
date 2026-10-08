@@ -391,3 +391,21 @@ create policy "email attachments service only" on storage.objects
   with check (bucket_id = 'email-attachments');
 
 -- (không tạo policy cho anon/authenticated trên bucket này = không truy cập chéo được)
+
+-- ---------------------------------------------------------------------------
+-- 9) GHI ĐÈ NỘI DUNG EMAIL THEO GIAI ĐOẠN (trang Templates)
+--    Mỗi cặp (stage, dir) tối đa một bản ghi; thiếu bảng => hệ thống dùng
+--    nội dung mặc định trong lib/email/stage-content.ts, không chặn gửi thư.
+-- ---------------------------------------------------------------------------
+create table if not exists public.email_template_overrides (
+  stage       text not null,
+  dir         text not null check (dir in ('buyer','supplier')),
+  subject     text not null,
+  body        text not null,
+  action      text,
+  tasks       text,
+  deadline    text,
+  updated_at  timestamptz not null default now(),
+  primary key (stage, dir)
+);
+-- alter table public.email_template_overrides enable row level security;

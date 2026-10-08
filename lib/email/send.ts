@@ -10,6 +10,7 @@ import {
   type EmailPayload,
 } from "@/lib/email/templates";
 import { getStage, type StageKey } from "@/lib/pipeline";
+import { mergeOverrides } from "@/lib/email/stage-content";
 import { loadForSend, toRef } from "@/lib/mail/attachments";
 import type { Buyer, EmailAttachment, Supplier } from "@/lib/types";
 
@@ -112,6 +113,10 @@ export async function sendStageUpdate(
   const { buyer, supplier, stage, force = false } = params;
   const store = getStore();
   const stageDef = getStage(stage);
+  // Nội dung giai đoạn: bản ghi đè từ trang Templates (nếu có) đè lên mặc định
+  const content = mergeOverrides(
+    await store.listTemplateOverrides().catch(() => []),
+  )[stage];
   const messages: string[] = [];
   let buyerSent = false;
   let supplierSent = false;
@@ -133,6 +138,7 @@ export async function sendStageUpdate(
       buyer,
       stage,
       note: params.messageToBuyer ?? params.note ?? null,
+      content,
     });
     const cc = (buyer.cc_emails ?? "")
       .split(/[,;\n]/)
@@ -174,6 +180,7 @@ export async function sendStageUpdate(
       supplier,
       stage,
       note: params.messageToSupplier ?? params.note ?? null,
+      content,
     });
     const res = await transport({ to: [supplier.email.trim()], ...payload });
     supplierSent = res.ok;

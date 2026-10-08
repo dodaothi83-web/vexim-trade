@@ -18,6 +18,7 @@ import type {
   SupplierInput,
   SupplierProduct,
   SupplierProductInput,
+  TemplateOverride,
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
 import type { DataStore } from "@/lib/db/types";
@@ -30,6 +31,7 @@ interface LocalShape {
   media: MediaAsset[];
   activities: Activity[];
   messages: EmailMessage[];
+  template_overrides: TemplateOverride[];
   attachments: EmailAttachment[];
 }
 
@@ -108,7 +110,7 @@ function seed(): LocalShape {
     } satisfies SupplierProduct;
   });
 
-  return { users: [], buyers, suppliers, products, media: [], activities, messages: [], attachments: [] };
+  return { users: [], buyers, suppliers, products, media: [], activities, messages: [], attachments: [], template_overrides: [] };
 }
 
 function load(): LocalShape {
@@ -507,6 +509,27 @@ export const localStore: DataStore = {
   async deleteMessage(id) {
     mutate((db) => {
       db.messages = db.messages.filter((m) => m.id !== id);
+    });
+  },
+
+  /* ----------------------- ghi đè nội dung template ----------------------- */
+  async listTemplateOverrides() {
+    return load().template_overrides ?? [];
+  },
+  async saveTemplateOverride(o) {
+    mutate((db) => {
+      const list = db.template_overrides ?? (db.template_overrides = []);
+      db.template_overrides = [
+        ...list.filter((x) => !(x.stage === o.stage && x.dir === o.dir)),
+        { ...o, updated_at: new Date().toISOString() },
+      ];
+    });
+  },
+  async clearTemplateOverride(stage, dir) {
+    mutate((db) => {
+      db.template_overrides = (db.template_overrides ?? []).filter(
+        (x) => !(x.stage === stage && x.dir === dir),
+      );
     });
   },
 };

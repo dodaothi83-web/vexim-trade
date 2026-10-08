@@ -16,6 +16,7 @@ import type {
   SupplierInput,
   SupplierProduct,
   SupplierProductInput,
+  TemplateOverride,
 } from "@/lib/types";
 import type { DataStore } from "@/lib/db/types";
 
@@ -448,6 +449,32 @@ export const supabaseStore: DataStore = {
   async deleteMessage(id) {
     const { error } = await must().from("email_messages").delete().eq("id", id);
     if (error) fail("deleteMessage", error);
+  },
+
+  /* ----------------------- ghi đè nội dung template ----------------------- */
+  async listTemplateOverrides() {
+    try {
+      const { data, error } = await must().from("email_template_overrides").select("*");
+      if (error) fail("listTemplateOverrides", error);
+      return (data ?? []) as TemplateOverride[];
+    } catch {
+      // Chưa tạo bảng trên Supabase => dùng nội dung mặc định, không chặn gửi thư
+      return [];
+    }
+  },
+  async saveTemplateOverride(o) {
+    const { error } = await must()
+      .from("email_template_overrides")
+      .upsert({ ...o, updated_at: new Date().toISOString() }, { onConflict: "stage,dir" });
+    if (error) fail("saveTemplateOverride", error);
+  },
+  async clearTemplateOverride(stage, dir) {
+    const { error } = await must()
+      .from("email_template_overrides")
+      .delete()
+      .eq("stage", stage)
+      .eq("dir", dir);
+    if (error) fail("clearTemplateOverride", error);
   },
 
   /* ----------------------- tệp đính kèm email (metadata) ----------------------- */

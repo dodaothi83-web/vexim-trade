@@ -1,8 +1,11 @@
 import Link from "next/link";
 
 import { getStore } from "@/lib/db";
+import { requireSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
 import { STAGES, type StageKey } from "@/lib/pipeline";
-import { STAGE_CONTENT } from "@/lib/email/stage-content";
+import { STAGE_CONTENT, copyToFields, mergeOverrides } from "@/lib/email/stage-content";
+import { TemplateEditor } from "@/components/template-editor";
 import { buildBuyerEmail, buildSupplierEmail } from "@/lib/email/templates";
 import { isStage } from "@/lib/pipeline";
 import { Card, cx } from "@/components/ui";
@@ -10,7 +13,7 @@ import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Nội dung email" };
+export const metadata = { title: "Templates" };
 
 export default async function TemplatesPage({
   searchParams,
@@ -18,6 +21,8 @@ export default async function TemplatesPage({
   searchParams: Promise<{ stage?: string; dir?: string; buyer?: string }>;
 }) {
   const sp = await searchParams;
+  const session = await requireSession();
+  const canEdit = hasPermission(session.role, "mail.send");
   const store = getStore();
   const [buyers, suppliers] = await Promise.all([store.listBuyers(), store.listSuppliers()]);
 
@@ -33,21 +38,25 @@ export default async function TemplatesPage({
   const stage: StageKey = isStage(sp.stage) ? sp.stage : "quoted";
   const dir: "buyer" | "supplier" = sp.dir === "supplier" ? "supplier" : "buyer";
 
-  const copy = STAGE_CONTENT[stage];
+  // Nội dung đang hiệu lực = mặc định trộn với bản ghi đè đã lưu (trang này sửa được)
+  const overrides = await store.listTemplateOverrides().catch(() => []);
+  const merged = mergeOverrides(overrides);
+  const copy = merged[stage];
+  const hasOverride = overrides.some((o) => o.stage === stage && o.dir === dir);
   const payload =
     dir === "buyer"
       ? sample
-        ? buildBuyerEmail({ buyer: sample, stage })
+        ? buildBuyerEmail({ buyer: sample, stage, content: copy })
         : null
       : sample && supplier
-        ? buildSupplierEmail({ buyer: sample, supplier, stage })
+        ? buildSupplierEmail({ buyer: sample, supplier, stage, content: copy })
         : null;
 
   return (
     <>
       <PageHeader
-        title="Nội dung email theo giai đoạn"
-        sub="Mỗi giai đoạn trong pipeline có một bộ nội dung riêng cho buyer (tiếng Anh) và một bộ riêng cho nhà cung cấp (tiếng Việt). Đây là nội dung hệ thống sẽ tự động gửi."
+        title="Templates nội dung email"
+        sub="Mỗi giai đoạn có một bộ nội dung riêng cho buyer (tiếng Anh) và cho nhà cung cấp (tiếng Việt). Xem, chỉnh sửa và lưu lại — email tự động lần sau sẽ dùng bản đã sửa."
       />
 
       <div className="grid gap-5 xl:grid-cols-[300px_1fr]">
@@ -141,6 +150,36 @@ export default async function TemplatesPage({
             </form>
           </div>
 
+          {/* Chỉnh sửa template */}
+          {stage !== "lost" && (
+            <Card>
+              <div className="border-b border-ink-200 px-4 py-3">
+                <h2 className="text-[15px] font-bold text-ink-900">Chỉnh sửa template</h2>
+                <p className="mt-0.5 text-xs text-ink-500">
+                  {canEdit
+                    ? "Nội dung lưu lại sẽ được dùng cho email tự động của giai đoạn này từ lần gửi sau."
+                    : "Bạn chỉ xem được nội dung — quyền sửa thuộc vai trò có quyền gửi thư."}
+                </p>
+              </div>
+              <div className="p-4">
+                {canEdit ? (
+                  <TemplateEditor
+                    stage={stage}
+                    dir={dir}
+                    fields={copyToFields(dir, copy)}
+                    defaults={copyToFields(dir, STAGE_CONTENT[stage])}
+                    hasOverride={hasOverride}
+                    placeholders="Placeholder sẽ được thay bằng dữ liệu đơn: {product} {quantity} {spec} {country} {port} {incoterm} {shipdate} {ref} {supplier} {payment} (tiếng Anh) / {payment_vi} (tiếng Việt)."
+                  />
+                ) : (
+                  <p className="text-[13px] text-ink-500">
+                    Liên hệ quản trị viên hoặc người có quyền gửi thư nếu cần đổi nội dung.
+                  </p>
+                )}
+              </div>
+            </Card>
+          )}
+
           {/* Nội dung thô */}
           <Card>
             <div className="border-b border-ink-200 px-4 py-3">
@@ -148,9 +187,8 @@ export default async function TemplatesPage({
                 {dir === "buyer" ? "Nội dung gửi buyer" : "Nội dung gửi nhà cung cấp"}
               </h2>
               <p className="mt-0.5 text-xs text-ink-500">
-                Sửa trong <code>lib/email/stage-content.ts</code> — các placeholder{" "}
-                <code>{"{product}"}</code>, <code>{"{quantity}"}</code>, <code>{"{port}"}</code>… sẽ
-                được thay bằng dữ liệu thật của từng đơn.
+                Nội dung đang hiệu lực (mặc định hoặc bản đã lưu ở khối “Chỉnh sửa template”)
+                cho {dir === "buyer" ? "buyer" : "nhà cung cấp"}.
               </p>
             </div>
             {stage === "lost" ? (

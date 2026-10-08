@@ -1,5 +1,5 @@
 import { COMPANY, type CompanyInfo } from "@/lib/config";
-import { STAGE_CONTENT } from "@/lib/email/stage-content";
+import { STAGE_CONTENT, type StageCopy } from "@/lib/email/stage-content";
 import { FUNNEL_STAGES, getStage, stageIndex, type StageKey } from "@/lib/pipeline";
 import type { Buyer, Supplier } from "@/lib/types";
 
@@ -230,9 +230,11 @@ export function buildBuyerEmail(opts: {
   buyer: Buyer;
   stage: StageKey;
   note?: string | null;
+  /** Bộ nội dung đã trộn ghi đè — mặc định dùng STAGE_CONTENT */
+  content?: StageCopy;
 }): EmailPayload {
   const { buyer, stage } = opts;
-  const copy = STAGE_CONTENT[stage].buyer;
+  const copy = (opts.content ?? STAGE_CONTENT[stage]).buyer;
   const name = buyer.contact_name?.trim() || buyer.company;
 
   const summary = summaryTable(
@@ -300,9 +302,11 @@ export function buildSupplierEmail(opts: {
   supplier: Supplier;
   stage: StageKey;
   note?: string | null;
+  /** Bộ nội dung đã trộn ghi đè — mặc định dùng STAGE_CONTENT */
+  content?: StageCopy;
 }): EmailPayload {
   const { buyer, supplier, stage } = opts;
-  const copy = STAGE_CONTENT[stage].supplier;
+  const copy = (opts.content ?? STAGE_CONTENT[stage]).supplier;
   const stageDef = getStage(stage);
   const hidden = buyer.hide_buyer_from_supplier !== false;
   const buyerLabel = hidden

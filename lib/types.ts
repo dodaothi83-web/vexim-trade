@@ -285,3 +285,19 @@ export type AppUserInput = Omit<
   AppUserRecord,
   "id" | "created_at" | "updated_at" | "last_login_at" | "signature_html"
 >;
+
+/** Bản ghi ghi đè nội dung email theo giai đoạn (trang Templates) */
+export interface TemplateOverride {
+  stage: string;
+  dir: "buyer" | "supplier";
+  subject: string;
+  /** Các đoạn văn ngăn cách bằng một dòng trống */
+  body: string;
+  /** buyer: bước kế tiếp / điều cần ở buyer */
+  action: string | null;
+  /** supplier: mỗi việc một dòng (checklist trong email) */
+  tasks: string | null;
+  /** supplier: thời hạn phản hồi */
+  deadline: string | null;
+  updated_at: string;
+}

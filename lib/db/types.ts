@@ -15,6 +15,7 @@ import type {
   SupplierInput,
   SupplierProduct,
   SupplierProductInput,
+  TemplateOverride,
 } from "@/lib/types";
 
 export interface DataStore {
@@ -94,4 +95,10 @@ export interface DataStore {
   ): Promise<EmailAttachment>;
   deleteAttachment(id: string): Promise<void>;
   deleteMessage(id: string): Promise<void>;
+  /** Ghi đè nội dung email theo giai đoạn (trang Templates) */
+  listTemplateOverrides(): Promise<TemplateOverride[]>;
+  saveTemplateOverride(
+    o: Omit<TemplateOverride, "updated_at">,
+  ): Promise<void>;
+  clearTemplateOverride(stage: string, dir: "buyer" | "supplier"): Promise<void>;
 }

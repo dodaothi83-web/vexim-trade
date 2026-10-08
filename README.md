@@ -354,7 +354,9 @@ về webhook của app, lưu vào Hộp thư và báo cho đội ngũ.
    chọn sự kiện `email.received`; chép secret `whsec_...` vào biến môi trường
    `RESEND_WEBHOOK_SECRET` (production thiếu secret thì endpoint trả 401).
 3. **DB:** chạy đoạn alter idempotent của bảng `email_messages` trong `supabase/schema.sql`
-   (mở rộng `kind`/`status` + cột `rfc_message_id`, `read_at`).
+   (mở rộng `kind`/`status` + cột `rfc_message_id`, `read_at`); nếu dùng trang Templates
+   để sửa nội dung email thì chạy thêm câu `CREATE TABLE email_template_overrides`
+   (mục 9 cuối file) — thiếu bảng này hệ thống vẫn chạy với nội dung mặc định.
 4. **Tuỳ chọn:** `INBOUND_NOTIFY_EMAILS` (danh sách email **cá nhân** nhận thông báo thư mới),
    `INBOUND_DOMAINS` (domain nhận thư thêm — chỉ cần cho phương án subdomain),
    `APP_URL` (**URL công khai của app CRM** — dùng làm link mở Hộp thư trong email thông báo;

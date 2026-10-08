@@ -950,6 +950,57 @@ export async function deleteMediaAction(id: string): Promise<ActionResult> {
 
 /* -------- Đánh dấu đã đọc thư đến trong một mạch thư -------- */
 
+export async function saveTemplateOverrideAction(input: {
+  stage: string;
+  dir: "buyer" | "supplier";
+  subject: string;
+  body: string;
+  action: string;
+  tasks: string;
+  deadline: string;
+}): Promise<ActionResult> {
+  const gate = await guard("mail.send");
+  if (gate) return gate;
+  if (!input.subject.trim()) return { ok: false, message: "Tiêu đề không được để trống." };
+  if (!input.body.trim()) return { ok: false, message: "Nội dung không được để trống." };
+  try {
+    await getStore().saveTemplateOverride({
+      stage: input.stage,
+      dir: input.dir,
+      subject: input.subject.trim(),
+      body: input.body.trim(),
+      action: input.action.trim() || null,
+      tasks: input.tasks.trim() || null,
+      deadline: input.deadline.trim() || null,
+    });
+    revalidateAll();
+    return { ok: true, message: "Đã lưu template — email tự động lần sau sẽ dùng nội dung này." };
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : "Lỗi không xác định";
+    return {
+      ok: false,
+      message:
+        "Không lưu được template. Nếu dùng Supabase, chạy câu CREATE TABLE email_template_overrides trong supabase/schema.sql.",
+      details: ["Lỗi gốc: " + raw],
+    };
+  }
+}
+
+export async function clearTemplateOverrideAction(
+  stage: string,
+  dir: "buyer" | "supplier",
+): Promise<ActionResult> {
+  const gate = await guard("mail.send");
+  if (gate) return gate;
+  try {
+    await getStore().clearTemplateOverride(stage, dir);
+    revalidateAll();
+    return { ok: true, message: "Đã khôi phục nội dung mặc định của giai đoạn này." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
+  }
+}
+
 export async function markThreadReadAction(threadIdValue: string): Promise<ActionResult> {
   const gate = await guard("mail.view");
   if (gate) return gate;
