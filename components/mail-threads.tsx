@@ -400,7 +400,6 @@ export function MailThreads({
           open={composeOpen}
           min={composeMin}
           initial={composePrefill}
-          onOpen={() => openCompose(undefined)}
           onClose={() => setComposeOpen(false)}
           onMin={() => setComposeMin((v) => !v)}
           contacts={contacts}
@@ -414,7 +413,6 @@ function QuickCompose({
   open,
   min,
   initial,
-  onOpen,
   onClose,
   onMin,
   contacts,
@@ -422,7 +420,6 @@ function QuickCompose({
   open: boolean;
   min: boolean;
   initial?: ComposePrefill;
-  onOpen: () => void;
   onClose: () => void;
   onMin: () => void;
   contacts: QuickContact[];
@@ -463,18 +460,8 @@ function QuickCompose({
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        className="fixed bottom-5 right-6 z-40 flex items-center gap-2 rounded-full bg-brand-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg transition hover:bg-brand-700"
-      >
-        <Pencil className="h-4 w-4" />
-        Soạn thư
-      </button>
-    );
-  }
+  // Không còn nút FAB nổi — cửa sổ này chỉ mở khi [Chuyển tiếp] được bấm
+  if (!open) return null;
 
   return (
     <div
