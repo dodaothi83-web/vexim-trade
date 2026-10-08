@@ -384,6 +384,18 @@ export function buildSupplierEmail(opts: {
   };
 }
 
+/**
+ * Thêm lề MÔ PHỎNG khung đọc của client email cho các iframe xem trước TRONG APP.
+ * HTML gửi đi cố ý không có padding (Gmail/Outlook/Apple Mail tự thêm lề của chúng);
+ * iframe trần trong app không có lề đó nên chữ dính mép khung — chỉ bản xem trước
+ * trong app được thêm lề, tệp tải xuống và email gửi đi giữ nguyên.
+ */
+export function withPreviewPadding(html: string): string {
+  const style = '<style data-vxt-preview>body{padding:14px 20px !important;}</style>';
+  if (html.includes("</head>")) return html.replace("</head>", `${style}</head>`);
+  return `${style}${html}`;
+}
+
 /** Lấy lại phần nội dung bên trong khung email (dùng khi mở bản nháp / trả lời) */
 export function unwrapEmailShell(html: string): string {
   // Khung thương hiệu kết thúc bằng </div></td>, khung trơn bằng </div></div></body>

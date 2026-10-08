@@ -22,7 +22,7 @@ import {
   vietnameseRatio,
   type SensitiveTerm,
 } from "@/lib/email/privacy";
-import { wrapPlainEmail } from "@/lib/email/templates";
+import { withPreviewPadding, wrapPlainEmail } from "@/lib/email/templates";
 import { getStage } from "@/lib/pipeline";
 import { roleLabel, statusMeta } from "@/lib/supplier";
 import type { ComposeContext, RecentMail } from "@/lib/compose-context";
@@ -300,7 +300,7 @@ export function ComposeSidebar({
         </div>
         <iframe
           title="Xem trước email"
-          srcDoc={previewHtml}
+          srcDoc={withPreviewPadding(previewHtml)}
           sandbox=""
           className="h-[360px] w-full border-0 bg-white"
         />

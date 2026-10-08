@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { FileText, Mail, Users, Zap } from "lucide-react";
 
 import { getStore } from "@/lib/db";
+import { withPreviewPadding } from "@/lib/email/templates";
 import { getStage } from "@/lib/pipeline";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -160,7 +161,7 @@ export default async function MessagePage({
         </div>
         <iframe
           title={msg.subject}
-          srcDoc={msg.body_html}
+          srcDoc={withPreviewPadding(msg.body_html)}
           sandbox=""
           className="h-[640px] w-full border-0 bg-white"
         />
