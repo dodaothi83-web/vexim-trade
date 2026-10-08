@@ -22,6 +22,8 @@ export function ProspectImporter() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<ParsedFile | null>(null);
   const [fileName, setFileName] = useState("");
+  const [dataSource, setDataSource] = useState("Apollo");
+  const [targetProduct, setTargetProduct] = useState("");
   const [listName, setListName] = useState("");
   const [mapping, setMapping] = useState<Partial<Record<ProspectCsvField, number | null>>>({});
   const [busy, setBusy] = useState(false);
@@ -49,6 +51,8 @@ export function ProspectImporter() {
       }
       setFile(parsed);
       setFileName(selected.name);
+      setDataSource("Apollo");
+      setTargetProduct("");
       setListName(selected.name.replace(/\.csv$/i, ""));
       setMapping(Object.fromEntries(
         PROSPECT_CSV_FIELDS.map(({ key }) => [key, guessProspectColumn(parsed.headers, key)]),
@@ -94,7 +98,9 @@ export function ProspectImporter() {
         industry: fieldValue(row, "industry"),
         employee_range: fieldValue(row, "employee_range"),
         apollo_id: fieldValue(row, "apollo_id"),
+        data_source: dataSource.trim() || "Apollo",
         source_list: listName.trim() || fileName,
+        target_product: fieldValue(row, "target_product") || targetProduct.trim() || null,
         status: "new" as const,
         owner: null,
         next_action: null,
@@ -160,15 +166,24 @@ export function ProspectImporter() {
 
       {file && (
         <div className="space-y-4 p-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-0 flex-1 text-[12px] text-ink-500">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="text-[12px] text-ink-500 sm:col-span-2">
               <p className="truncate font-semibold text-ink-800">{fileName}</p>
               <p>{file.rows.length.toLocaleString()} đầu mối, {file.headers.length} cột</p>
             </div>
-            <label className="block min-w-[220px]">
-              <span className="label">Tên danh sách / chiến dịch</span>
-              <input className="input" value={listName} onChange={(event) => setListName(event.target.value)} />
+            <label className="block">
+              <span className="label">Nguồn dữ liệu</span>
+              <input className="input" value={dataSource} onChange={(event) => setDataSource(event.target.value)} placeholder="Apollo" />
             </label>
+            <label className="block">
+              <span className="label">Tệp tiếp cận</span>
+              <input className="input" value={listName} onChange={(event) => setListName(event.target.value)} placeholder="Apollo | Mì ăn liền | Mỹ | 10/2026" />
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="label">Nhóm hàng mục tiêu</span>
+              <input className="input" value={targetProduct} onChange={(event) => setTargetProduct(event.target.value)} placeholder="Mì ăn liền" />
+            </label>
+            <p className="self-end pb-1 text-[11px] text-ink-400 sm:col-span-2">Nếu tệp có cột nhóm hàng riêng, giá trị trong cột đó sẽ được ưu tiên.</p>
           </div>
 
           <div>

@@ -10,16 +10,22 @@ import { PROSPECT_STATUSES, prospectStatusLabel } from "@/lib/prospects/status";
 export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
+  const [targetProduct, setTargetProduct] = useState("all");
+  const productGroups = useMemo(
+    () => [...new Set(prospects.map((prospect) => prospect.target_product?.trim()).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b, "vi")),
+    [prospects],
+  );
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return prospects.filter((prospect) => {
       if (status !== "all" && prospect.status !== status) return false;
+      if (targetProduct !== "all" && prospect.target_product !== targetProduct) return false;
       if (!needle) return true;
-      return [prospect.company, prospect.contact_name, prospect.contact_title, prospect.email, prospect.country, prospect.industry]
+      return [prospect.company, prospect.contact_name, prospect.contact_title, prospect.email, prospect.country, prospect.industry, prospect.target_product, prospect.data_source, prospect.source_list]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle));
     });
-  }, [prospects, query, status]);
+  }, [prospects, query, status, targetProduct]);
 
   return (
     <section className="card overflow-hidden">
@@ -28,6 +34,10 @@ export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
           <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-400" />
           <input className="input pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm công ty, đầu mối, email..." />
         </div>
+        <select className="input w-auto min-w-[180px]" value={targetProduct} onChange={(event) => setTargetProduct(event.target.value)}>
+          <option value="all">Mọi nhóm hàng</option>
+          {productGroups.map((product) => <option key={product} value={product}>{product}</option>)}
+        </select>
         <select className="input w-auto min-w-[180px]" value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="all">Mọi trạng thái</option>
           {PROSPECT_STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
@@ -35,13 +45,15 @@ export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
       </div>
       {rows.length ? (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[850px] border-collapse">
+          <table className="w-full min-w-[1120px] border-collapse">
             <thead><tr>
               <th className="table-th">Công ty / người liên hệ</th>
-              <th className="table-th">Ngành hàng</th>
+              <th className="table-th">Nhóm hàng mục tiêu</th>
+              <th className="table-th">Ngành</th>
               <th className="table-th">Thị trường</th>
               <th className="table-th">Trạng thái</th>
-              <th className="table-th">Nguồn</th>
+              <th className="table-th">Nguồn dữ liệu</th>
+              <th className="table-th">Tệp tiếp cận</th>
               <th className="table-th">Phụ trách</th>
               <th className="table-th" />
             </tr></thead>
@@ -52,10 +64,12 @@ export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
                     <Link href={`/prospects/${prospect.id}`} className="block max-w-[300px] truncate text-[13.5px] font-semibold text-ink-900 hover:text-brand-700">{prospect.company}</Link>
                     <p className="mt-0.5 text-[11.5px] text-ink-500">{[prospect.contact_name, prospect.contact_title, prospect.email].filter(Boolean).join(" · ") || "Chưa có người liên hệ"}</p>
                   </td>
+                  <td className="table-td text-[12.5px]">{prospect.target_product || "Chưa gắn nhóm"}</td>
                   <td className="table-td text-[12.5px]">{prospect.industry || "—"}</td>
                   <td className="table-td text-[12.5px]">{[prospect.city, prospect.country].filter(Boolean).join(", ") || "—"}</td>
                   <td className="table-td"><span className="rounded-full bg-ink-100 px-2.5 py-1 text-[11px] font-semibold text-ink-700">{prospectStatusLabel(prospect.status)}</span></td>
-                  <td className="table-td text-[12px] text-ink-500">{prospect.source_list || "Apollo"}</td>
+                  <td className="table-td text-[12px] text-ink-500">{prospect.data_source || "Chưa rõ"}</td>
+                  <td className="table-td text-[12px] text-ink-500">{prospect.source_list || "Chưa phân nhóm"}</td>
                   <td className="table-td text-[12px] text-ink-500">{prospect.owner || "Chưa phân công"}</td>
                   <td className="table-td text-right"><Link href={`/prospects/${prospect.id}`} className="text-[12px] font-semibold text-brand-700 opacity-0 group-hover:opacity-100">Mở →</Link></td>
                 </tr>

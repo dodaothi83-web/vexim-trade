@@ -139,7 +139,9 @@ create table if not exists public.prospects (
   industry              text,
   employee_range        text,
   apollo_id             text,
+  data_source           text not null default 'Apollo',
   source_list           text,
+  target_product        text,
   status                text not null default 'new' check (status in
                           ('new','researched','ready','contacted','replied','meeting',
                            'qualified','converted','disqualified','unsubscribed')),
@@ -154,8 +156,16 @@ create table if not exists public.prospects (
 
 create index if not exists prospects_status_idx on public.prospects (status);
 create index if not exists prospects_email_idx on public.prospects (lower(email));
+alter table public.prospects
+  add column if not exists data_source text not null default 'Apollo',
+  add column if not exists target_product text;
+update public.prospects
+set target_product = 'Mì ăn liền'
+where target_product is null and source_list is not null
+  and (source_list ilike '%mì ăn liền%' or source_list ilike '%mỳ ăn liền%');
 create index if not exists prospects_company_idx on public.prospects (lower(company));
 create index if not exists prospects_owner_idx on public.prospects (owner);
+create index if not exists prospects_target_product_idx on public.prospects (target_product);
 
 create table if not exists public.prospect_activities (
   id          uuid primary key default gen_random_uuid(),

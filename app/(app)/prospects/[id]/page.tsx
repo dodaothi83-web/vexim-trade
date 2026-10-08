@@ -81,7 +81,9 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
                   <dt className="text-ink-400">Quốc gia</dt><dd>{prospect.country || "Chưa rõ"}</dd>
                   <dt className="text-ink-400">Thành phố</dt><dd>{prospect.city || "Chưa rõ"}</dd>
                   <dt className="text-ink-400">Quy mô</dt><dd>{prospect.employee_range || "Chưa rõ"}</dd>
-                  <dt className="text-ink-400">Nguồn</dt><dd>{prospect.source_list || "Apollo"}{prospect.apollo_id ? ` · ${prospect.apollo_id}` : ""}</dd>
+                  <dt className="text-ink-400">Nhóm hàng mục tiêu</dt><dd>{prospect.target_product || "Chưa xác định"}</dd>
+                  <dt className="text-ink-400">Nguồn dữ liệu</dt><dd>{prospect.data_source}</dd>
+                  <dt className="text-ink-400">Tệp tiếp cận</dt><dd>{prospect.source_list || "Chưa phân nhóm"}{prospect.apollo_id ? ` · Apollo ID ${prospect.apollo_id}` : ""}</dd>
                   <dt className="text-ink-400">Phụ trách</dt><dd>{prospect.owner || "Chưa phân công"}</dd>
                 </dl>
                 {prospect.notes && <p className="mt-4 whitespace-pre-wrap text-[12.5px] leading-relaxed text-ink-600">{prospect.notes}</p>}

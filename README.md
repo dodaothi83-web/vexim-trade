@@ -51,7 +51,7 @@ AUTH_SECRET=<chuỗi ngẫu nhiên 64 ký tự hex — xem mục Tài khoản & 
 
 ### Triển khai danh sách khách hàng mục tiêu trên Supabase đang dùng
 
-Trước khi đưa tính năng này lên production, chạy [`supabase/migrations/20261008_prospects.sql`](supabase/migrations/20261008_prospects.sql) trong Supabase SQL Editor. Migration tạo bảng khách hàng mục tiêu, lịch sử hoạt động, các mẫu tiếp cận riêng và liên kết email. Sau đó triển khai ứng dụng. Nhập danh sách Apollo chỉ tạo hồ sơ, không tự gửi email.
+Trước khi đưa tính năng này lên production, chạy các migration trong `supabase/migrations` theo thứ tự ngày trong Supabase SQL Editor. Migration `20261008_prospect_segmentation.sql` bổ sung nguồn dữ liệu và nhóm hàng mục tiêu. Migration này giữ nguyên hồ sơ hiện có, gán nguồn Apollo, và tự nhận diện nhóm “Mì ăn liền” từ tên tệp cũ có cụm “mì ăn liền” hoặc “mỳ ăn liền”. Sau đó triển khai ứng dụng. Nhập danh sách chỉ tạo hồ sơ, không tự gửi email.
 
 ### Kiểm tra kết nối Supabase
 

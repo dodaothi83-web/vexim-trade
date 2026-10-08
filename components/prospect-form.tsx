@@ -15,7 +15,8 @@ export function ProspectForm() {
   const [form, setForm] = useState({
     company: "", contact_name: "", contact_title: "", email: "", email_status: "",
     phone: "", country: "", city: "", website: "", linkedin_url: "",
-    company_linkedin_url: "", industry: "", employee_range: "", source_list: "",
+    company_linkedin_url: "", industry: "", employee_range: "", data_source: "Tự nhập",
+    source_list: "", target_product: "",
   });
   function set(key: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -42,9 +43,11 @@ export function ProspectForm() {
         <Field label="Website công ty"><input className="input" value={form.website} onChange={(e) => set("website", e.target.value)} /></Field>
         <Field label="LinkedIn cá nhân"><input className="input" value={form.linkedin_url} onChange={(e) => set("linkedin_url", e.target.value)} /></Field>
         <Field label="LinkedIn công ty"><input className="input" value={form.company_linkedin_url} onChange={(e) => set("company_linkedin_url", e.target.value)} /></Field>
-        <Field label="Ngành hàng"><input className="input" value={form.industry} onChange={(e) => set("industry", e.target.value)} /></Field>
+        <Field label="Ngành"><input className="input" value={form.industry} onChange={(e) => set("industry", e.target.value)} /></Field>
         <Field label="Quy mô nhân sự"><input className="input" value={form.employee_range} onChange={(e) => set("employee_range", e.target.value)} /></Field>
-        <Field label="Nguồn / danh sách"><input className="input" placeholder="Apollo: Cashew importers EU" value={form.source_list} onChange={(e) => set("source_list", e.target.value)} /></Field>
+        <Field label="Nguồn dữ liệu"><input className="input" placeholder="Apollo, hội chợ, giới thiệu..." value={form.data_source} onChange={(e) => set("data_source", e.target.value)} /></Field>
+        <Field label="Tệp tiếp cận"><input className="input" placeholder="Apollo | Mì ăn liền | Mỹ | 10/2026" value={form.source_list} onChange={(e) => set("source_list", e.target.value)} /></Field>
+        <Field label="Nhóm hàng mục tiêu"><input className="input" placeholder="Mì ăn liền" value={form.target_product} onChange={(e) => set("target_product", e.target.value)} /></Field>
       </div>
       <div className="flex justify-end"><Button type="submit" disabled={busy}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Tạo đầu mối tiếp cận</Button></div>
     </form>

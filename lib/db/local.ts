@@ -121,11 +121,26 @@ function seed(): LocalShape {
   return { users: [], buyers, prospects: [], prospect_activities: [], suppliers, products, media: [], activities, messages: [], attachments: [], template_overrides: [], prospect_outreach_template_overrides: [] };
 }
 
+function inferTargetProduct(sourceList: string | null | undefined): string | null {
+  const value = (sourceList ?? "").toLocaleLowerCase("vi");
+  return /m[iìỳ] ăn liền/.test(value) ? "Mì ăn liền" : null;
+}
+
+function normalizeProspects(prospects: Prospect[]) {
+  for (const prospect of prospects) {
+    if (!prospect.data_source) prospect.data_source = "Apollo";
+    if (prospect.target_product === undefined) {
+      prospect.target_product = inferTargetProduct(prospect.source_list);
+    }
+  }
+}
+
 function load(): LocalShape {
   if (g.__veximLocal) {
     const c = g.__veximLocal;
     if (!Array.isArray(c.messages)) c.messages = [];
     if (!Array.isArray(c.prospects)) c.prospects = [];
+    normalizeProspects(c.prospects);
     if (!Array.isArray(c.prospect_activities)) c.prospect_activities = [];
     if (!Array.isArray(c.prospect_outreach_template_overrides)) c.prospect_outreach_template_overrides = [];
     if (!Array.isArray(c.activities)) c.activities = [];
@@ -149,6 +164,7 @@ function load(): LocalShape {
           delete legacy.emails;
         }
         if (!Array.isArray(parsed.prospects)) parsed.prospects = [];
+        normalizeProspects(parsed.prospects);
         if (!Array.isArray(parsed.prospect_activities)) parsed.prospect_activities = [];
         if (!Array.isArray(parsed.prospect_outreach_template_overrides)) parsed.prospect_outreach_template_overrides = [];
         if (!Array.isArray(parsed.activities)) parsed.activities = [];

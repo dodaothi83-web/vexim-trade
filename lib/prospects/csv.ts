@@ -14,7 +14,8 @@ export type ProspectCsvField =
   | "company_linkedin_url"
   | "industry"
   | "employee_range"
-  | "apollo_id";
+  | "apollo_id"
+  | "target_product";
 
 export const PROSPECT_CSV_FIELDS: { key: ProspectCsvField; label: string; aliases: string[] }[] = [
   { key: "company", label: "Tên công ty", aliases: ["company", "company name", "organization name", "account name", "organization"] },
@@ -33,6 +34,7 @@ export const PROSPECT_CSV_FIELDS: { key: ProspectCsvField; label: string; aliase
   { key: "industry", label: "Ngành", aliases: ["industry", "industries", "company industry"] },
   { key: "employee_range", label: "Quy mô nhân sự", aliases: ["employees", "employee range", "employee count", "number of employees"] },
   { key: "apollo_id", label: "Mã liên hệ Apollo", aliases: ["apollo id", "apollo contact id", "person id", "contact id"] },
+  { key: "target_product", label: "Nhóm hàng mục tiêu", aliases: ["target product", "product focus", "product category", "product interest", "sourcing product", "target category"] },
 ];
 
 function normalizeHeader(value: string): string {

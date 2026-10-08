@@ -283,7 +283,9 @@ export interface Prospect {
   industry: string | null;
   employee_range: string | null;
   apollo_id: string | null;
+  data_source: string;
   source_list: string | null;
+  target_product: string | null;
   status: ProspectStatus;
   owner: string | null;
   next_action: string | null;
