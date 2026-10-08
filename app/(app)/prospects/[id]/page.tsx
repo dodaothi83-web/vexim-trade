@@ -75,12 +75,6 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
                   {prospect.company_linkedin_url && <li className="flex items-center gap-2"><Building2 className="h-4 w-4 text-ink-400" /><a target="_blank" rel="noreferrer" className="text-brand-700 hover:underline" href={externalUrl(prospect.company_linkedin_url)}>LinkedIn công ty</a></li>}
                   {prospect.website && <li><a target="_blank" rel="noreferrer" className="text-brand-700 hover:underline" href={externalUrl(prospect.website)}>{prospect.website}</a></li>}
                 </ul>
-                <CompanyAiIntroduction
-                  prospectId={prospect.id}
-                  initialSummary={prospect.ai_company_summary ?? null}
-                  initialSources={prospect.ai_company_sources ?? []}
-                  initialAnalyzedAt={prospect.ai_company_analyzed_at ?? null}
-                />
               </div>
               <div>
                 <h2 className="mb-3 text-[14px] font-bold text-ink-900">Thông tin công ty</h2>
@@ -97,6 +91,13 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
               </div>
             </div>
           </Card>
+
+          <CompanyAiIntroduction
+            prospectId={prospect.id}
+            initialSummary={prospect.ai_company_summary ?? null}
+            initialSources={prospect.ai_company_sources ?? []}
+            initialAnalyzedAt={prospect.ai_company_analyzed_at ?? null}
+          />
 
           <ProspectActivityForm prospectId={prospect.id} />
 

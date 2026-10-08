@@ -48,7 +48,7 @@ export function CompanyAiIntroduction({
   }
 
   return (
-    <section className="mt-5 border-t border-ink-100 pt-4">
+    <section className="border-t border-ink-100 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-[13px] font-bold text-ink-900">
           <Sparkles className="h-4 w-4 text-brand-600" /> AI giới thiệu công ty
