@@ -8,6 +8,7 @@ import { generateProspectCompanyIntroductionAction } from "@/app/actions";
 import type { ProspectCompanySource } from "@/lib/types";
 import { Button } from "@/components/ui";
 import { useToast } from "@/components/toast";
+import { formatCompanyIntroductionSummary } from "@/lib/ai/company-introduction-format";
 
 export function CompanyAiIntroduction({
   prospectId,
@@ -22,7 +23,7 @@ export function CompanyAiIntroduction({
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [summary, setSummary] = useState(initialSummary);
+  const [summary, setSummary] = useState(initialSummary ? formatCompanyIntroductionSummary(initialSummary) : null);
   const [sources, setSources] = useState(initialSources);
   const [analyzedAt, setAnalyzedAt] = useState(initialAnalyzedAt);
   const [busy, setBusy] = useState(false);
@@ -35,7 +36,7 @@ export function CompanyAiIntroduction({
         toast.push({ kind: "error", title: result.message });
         return;
       }
-      setSummary(result.summary ?? null);
+      setSummary(result.summary ? formatCompanyIntroductionSummary(result.summary) : null);
       setSources(result.sources ?? []);
       setAnalyzedAt(result.analyzedAt ?? null);
       toast.push({ kind: "success", title: result.message });
