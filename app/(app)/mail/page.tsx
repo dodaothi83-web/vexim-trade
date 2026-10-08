@@ -122,10 +122,10 @@ export default async function MailPage() {
           trạng thái <strong>demo</strong> và webhook thư đến chỉ lưu metadata.
         </MailboxHint>
       )}
+      </div>
 
       <div className="min-h-0 flex-1">
         <MailThreads threads={threads} canSend={canSend} contacts={contacts} />
-      </div>
       </div>
     </div>
   );

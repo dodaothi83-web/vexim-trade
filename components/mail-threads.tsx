@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ChevronDown,
   CornerUpLeft,
   CornerUpRight,
   Inbox,
@@ -327,9 +326,6 @@ export function MailThreads({
                       </Badge>
                       {m.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />}
                       <span className="shrink-0 text-[11px] text-ink-400">{formatDateTime(m.at)}</span>
-                      <ChevronDown
-                        className={cx("h-4 w-4 shrink-0 text-ink-400 transition", !open && "-rotate-90")}
-                      />
                     </button>
                     {/* Xổ/thu mượt bằng grid-template-rows (0fr ↔ 1fr) — không giật khung */}
                     <div
@@ -357,11 +353,10 @@ export function MailThreads({
                 );
               })}
             </div>
-            </div>
 
-            {/* Đáy mạch thư: nút pill kiểu Gmail; bấm Trả lời mới mở khung soạn */}
+            {/* Chân khung trắng: cụm nút pill ghim sát đáy card */}
             {canSend && !replyOpen && (
-              <div className="flex shrink-0 items-center gap-2 px-1 pt-3">
+              <div className="flex shrink-0 items-center gap-2 border-t border-ink-100 px-3 pb-3 pt-2.5">
                 <button
                   type="button"
                   onClick={() => setReplyOpen(true)}
@@ -381,7 +376,7 @@ export function MailThreads({
               </div>
             )}
             {canSend && replyOpen && (
-              <div className="mt-3 max-h-[55%] shrink-0 overflow-y-auto rounded-2xl bg-white p-3 ring-1 ring-ink-200">
+              <div className="max-h-[55%] shrink-0 overflow-y-auto border-t border-ink-100 px-3 pb-3 pt-2.5">
                 <div className="mb-2 flex items-center gap-2">
                   <Avatar name="Vexim Trade" small />
                   <span className="text-[12.5px] text-ink-500">
@@ -408,6 +403,7 @@ export function MailThreads({
                 </div>
               </div>
             )}
+            </div>
           </>
         )}
       </div>
