@@ -77,7 +77,7 @@ export function Sidebar({
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-1">
+      <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-1">
         {NAV.filter((item) => !item.perm || permissions.includes(item.perm)).map((item) => {
           const active = item.exact
             ? pathname === item.href
@@ -89,7 +89,7 @@ export function Sidebar({
               href={item.href}
               onClick={() => setOpen(false)}
               className={cx(
-                "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition",
+                "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition focus-visible:-outline-offset-2",
                 active
                   ? "bg-white/12 text-white shadow-sm"
                   : "text-brand-100/70 hover:bg-white/7 hover:text-white",
