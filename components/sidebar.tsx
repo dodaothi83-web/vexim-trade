@@ -29,10 +29,9 @@ const NAV: {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
-  exact?: boolean;
   perm?: Permission;
 }[] = [
-  { href: "/", label: "Tổng quan", icon: LayoutDashboard, exact: true },
+  { href: "/", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare, perm: "buyers.view" },
   { href: "/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view" },
   { href: "/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view" },
@@ -61,6 +60,11 @@ export function Sidebar({
   permissions: Permission[];
 }) {
   const pathname = usePathname();
+  // Chỉ BẬT duy nhất mục khớp dài nhất — tránh hai mục kề nhau cùng sáng nền
+  // ở những trang như /mail/compose (khớp cả /mail) hay /settings/users (khớp cả /settings)
+  const activeHref = NAV.map((i) => i.href)
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
   const [open, setOpen] = useState(false);
 
   const body = (
@@ -79,9 +83,7 @@ export function Sidebar({
 
       <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-1">
         {NAV.filter((item) => !item.perm || permissions.includes(item.perm)).map((item) => {
-          const active = item.exact
-            ? pathname === item.href
-            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const active = item.href === activeHref;
           const Icon = item.icon;
           return (
             <Link
