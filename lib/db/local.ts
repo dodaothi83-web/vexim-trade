@@ -135,6 +135,18 @@ function normalizeProspects(prospects: Prospect[]) {
   }
 }
 
+function removeProspectsWithoutEmail(db: LocalShape) {
+  const removedIds = new Set(db.prospects.filter((prospect) => !prospect.email?.trim()).map((prospect) => prospect.id));
+  if (!removedIds.size) return;
+  db.prospects = db.prospects.filter((prospect) => !removedIds.has(prospect.id));
+  db.prospect_activities = db.prospect_activities.filter((activity) => !removedIds.has(activity.prospect_id));
+  db.messages = db.messages.map((message) =>
+    message.prospect_id && removedIds.has(message.prospect_id)
+      ? { ...message, prospect_id: null }
+      : message,
+  );
+}
+
 function load(): LocalShape {
   if (g.__veximLocal) {
     const c = g.__veximLocal;
@@ -151,6 +163,7 @@ function load(): LocalShape {
       if (u.signature_html === undefined) u.signature_html = null;
     });
     if (!Array.isArray(c.attachments)) c.attachments = [];
+    removeProspectsWithoutEmail(c);
     return c;
   }
   try {
@@ -172,6 +185,7 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.media)) parsed.media = [];
         if (!Array.isArray(parsed.users)) parsed.users = [];
         if (!Array.isArray(parsed.attachments)) parsed.attachments = [];
+        removeProspectsWithoutEmail(parsed);
         g.__veximLocal = parsed;
         return parsed;
       }

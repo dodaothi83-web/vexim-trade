@@ -79,6 +79,11 @@ export function ProspectImporter() {
       toast.push({ kind: "error", title: "Hãy chọn cột Tên công ty trước khi nhập." });
       return;
     }
+    const emailColumn = mapping.email;
+    if (emailColumn === null || emailColumn === undefined) {
+      toast.push({ kind: "error", title: "Hãy chọn cột Email. Mỗi đầu mối cần có email để được nhập." });
+      return;
+    }
     const rows = file.rows.map((row) => {
       const first = fieldValue(row, "first_name");
       const last = fieldValue(row, "last_name");
@@ -136,7 +141,7 @@ export function ProspectImporter() {
     } finally {
       setBusy(false);
     }
-    const summary = `Đã nhập ${created} đầu mối. Bỏ qua ${skipped} dòng trùng hoặc không hợp lệ.${failed ? ` Dừng giữa chừng: ${failed}` : ""}`;
+    const summary = `Đã nhập ${created} đầu mối. Bỏ qua ${skipped} dòng trùng, thiếu email hoặc không hợp lệ.${failed ? ` Dừng giữa chừng: ${failed}` : ""}`;
     setResult({ message: summary, matchedBuyers, errors });
     toast.push({ kind: failed ? "error" : "success", title: summary });
     if (created) router.refresh();
@@ -148,7 +153,7 @@ export function ProspectImporter() {
         <div>
           <h2 className="text-[14px] font-bold text-ink-900">Nhập danh sách khách hàng mục tiêu</h2>
           <p className="mt-0.5 text-[12px] text-ink-500">
-            Xem trước và chọn cột ngay trên trình duyệt. Nhập dữ liệu không gửi email.
+            Xem trước và chọn cột ngay trên trình duyệt. Chỉ nhận đầu mối có email, không tự gửi email.
           </p>
         </div>
         <Button variant="ghost" onClick={() => inputRef.current?.click()}>

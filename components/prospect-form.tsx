@@ -35,7 +35,7 @@ export function ProspectForm() {
         <Field label="Tên công ty" required><input required className="input" value={form.company} onChange={(e) => set("company", e.target.value)} /></Field>
         <Field label="Người liên hệ"><input className="input" value={form.contact_name} onChange={(e) => set("contact_name", e.target.value)} /></Field>
         <Field label="Chức danh"><input className="input" value={form.contact_title} onChange={(e) => set("contact_title", e.target.value)} /></Field>
-        <Field label="Email công việc"><input type="email" className="input" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
+        <Field label="Email công việc" required><input type="email" required className="input" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
         <Field label="Trạng thái email"><input className="input" placeholder="Đã xác minh / Chưa xác minh" value={form.email_status} onChange={(e) => set("email_status", e.target.value)} /></Field>
         <Field label="Điện thoại"><input className="input" value={form.phone} onChange={(e) => set("phone", e.target.value)} /></Field>
         <Field label="Quốc gia"><input className="input" value={form.country} onChange={(e) => set("country", e.target.value)} /></Field>

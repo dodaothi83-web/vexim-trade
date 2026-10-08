@@ -128,7 +128,7 @@ create table if not exists public.prospects (
   company               text not null,
   contact_name          text,
   contact_title         text,
-  email                 text,
+  email                 text not null check (btrim(email) <> ''),
   email_status          text,
   phone                 text,
   country               text,

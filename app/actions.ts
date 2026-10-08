@@ -226,7 +226,8 @@ export async function createProspectAction(raw: Partial<ProspectInput>): Promise
   const session = await getSession();
   const input = cleanProspectInput({ ...raw, status: "new", converted_buyer_id: null, owner: session?.name ?? null }, session?.name ?? null);
   if (!input.company) return { ok: false, message: "Vui lòng nhập tên công ty." };
-  if (input.email && !EMAIL_RE.test(input.email)) return { ok: false, message: "Email không hợp lệ." };
+  if (!input.email) return { ok: false, message: "Cần có email để thêm đầu mối vào danh sách." };
+  if (!EMAIL_RE.test(input.email)) return { ok: false, message: "Email không hợp lệ." };
   try {
     const prospect = await getStore().createProspect(input);
     revalidateAll();
@@ -272,7 +273,8 @@ export async function importProspectsAction(rawRows: Partial<ProspectInput>[], l
     const input = cleanProspectInput({ ...(rawRows[i] ?? {}), status: "new", converted_buyer_id: null, owner: session?.name ?? null }, session?.name ?? null);
     const line = safeOffset + i + 2;
     if (!input.company) { errors.push(`Dòng ${line}: thiếu tên công ty.`); skipped += 1; continue; }
-    if (input.email && !EMAIL_RE.test(input.email)) { errors.push(`Dòng ${line}: email không hợp lệ.`); skipped += 1; continue; }
+    if (!input.email) { errors.push(`Dòng ${line}: thiếu email, đã bỏ qua.`); skipped += 1; continue; }
+    if (!EMAIL_RE.test(input.email)) { errors.push(`Dòng ${line}: email không hợp lệ, đã bỏ qua.`); skipped += 1; continue; }
 
     const emailKey = normalizeMatch(input.email);
     const linkKey = normalizeMatch(input.linkedin_url);
@@ -381,6 +383,7 @@ export async function linkProspectToBuyerAction(prospectId: string, buyerId: str
   const store = getStore();
   const [prospect, buyer] = await Promise.all([store.getProspect(prospectId), store.getBuyer(buyerId)]);
   if (!prospect || !buyer) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận hoặc Buyer." };
+  if (!prospect.email?.trim()) return { ok: false, message: "Đầu mối cần có email mới được liên kết với Buyer." };
   if (prospect.status !== "qualified") {
     return { ok: false, message: "Chỉ liên kết với Buyer khi đầu mối đã được xác nhận có nhu cầu sourcing thực tế." };
   }
@@ -406,6 +409,7 @@ export async function convertProspectAction(prospectId: string): Promise<ActionR
   const store = getStore();
   const prospect = await store.getProspect(prospectId);
   if (!prospect) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận." };
+  if (!prospect.email?.trim()) return { ok: false, message: "Đầu mối cần có email trước khi vào pipeline Buyer." };
   if (prospect.status !== "qualified") {
     return { ok: false, message: "Chỉ đưa vào pipeline Buyer khi đã xác nhận nhu cầu sourcing thực tế." };
   }
@@ -944,6 +948,7 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
     if (prospectGate) return prospectGate;
     const prospect = await getStore().getProspect(input.prospectId);
     if (!prospect) return { ok: false, message: "Không tìm thấy đầu mối được liên kết." };
+    if (!prospect.email?.trim()) return { ok: false, message: "Đầu mối cần có email mới được gửi thư." };
     if (["unsubscribed", "disqualified", "converted"].includes(prospect.status)) {
       return { ok: false, message: "Đầu mối này đang ở trạng thái không được phép tiếp cận." };
     }
@@ -1034,6 +1039,7 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
     if (prospectGate) return prospectGate;
     const prospect = await getStore().getProspect(input.prospectId);
     if (!prospect) return { ok: false, message: "Không tìm thấy đầu mối được liên kết." };
+    if (!prospect.email?.trim()) return { ok: false, message: "Đầu mối cần có email mới được lưu thư liên kết." };
   }
   const resolved = await resolveAttachments(input.attachments, session.email, session.role);
   if ("error" in resolved) return { ok: false, message: resolved.error };
