@@ -17,22 +17,22 @@ export type ProspectCsvField =
   | "apollo_id";
 
 export const PROSPECT_CSV_FIELDS: { key: ProspectCsvField; label: string; aliases: string[] }[] = [
-  { key: "company", label: "Company name", aliases: ["company", "company name", "organization name", "account name", "organization"] },
-  { key: "contact_name", label: "Contact name", aliases: ["contact name", "full name", "person name", "name"] },
-  { key: "first_name", label: "First name", aliases: ["first name", "firstname", "first_name"] },
-  { key: "last_name", label: "Last name", aliases: ["last name", "lastname", "last_name"] },
-  { key: "contact_title", label: "Job title", aliases: ["title", "job title", "person title", "contact title"] },
-  { key: "email", label: "Email", aliases: ["email", "email address", "work email", "primary email"] },
-  { key: "email_status", label: "Email status", aliases: ["email status", "email verification status", "email confidence"] },
-  { key: "phone", label: "Phone", aliases: ["phone", "phone number", "mobile phone", "direct phone", "work phone"] },
-  { key: "country", label: "Country", aliases: ["country", "company country", "person country"] },
-  { key: "city", label: "City or region", aliases: ["city", "state", "region", "company city"] },
-  { key: "website", label: "Company website", aliases: ["website", "company website", "domain", "company domain"] },
-  { key: "linkedin_url", label: "Contact LinkedIn", aliases: ["linkedin", "linkedin url", "person linkedin url", "contact linkedin url"] },
-  { key: "company_linkedin_url", label: "Company LinkedIn", aliases: ["company linkedin", "company linkedin url", "organization linkedin url"] },
-  { key: "industry", label: "Industry", aliases: ["industry", "industries", "company industry"] },
-  { key: "employee_range", label: "Employee range", aliases: ["employees", "employee range", "employee count", "number of employees"] },
-  { key: "apollo_id", label: "Apollo contact ID", aliases: ["apollo id", "apollo contact id", "person id", "contact id"] },
+  { key: "company", label: "Tên công ty", aliases: ["company", "company name", "organization name", "account name", "organization"] },
+  { key: "contact_name", label: "Họ tên người liên hệ", aliases: ["contact name", "full name", "person name", "name"] },
+  { key: "first_name", label: "Tên", aliases: ["first name", "firstname", "first_name"] },
+  { key: "last_name", label: "Họ", aliases: ["last name", "lastname", "last_name"] },
+  { key: "contact_title", label: "Chức danh", aliases: ["title", "job title", "person title", "contact title"] },
+  { key: "email", label: "Email công việc", aliases: ["email", "email address", "work email", "primary email"] },
+  { key: "email_status", label: "Trạng thái xác minh email", aliases: ["email status", "email verification status", "email confidence"] },
+  { key: "phone", label: "Điện thoại", aliases: ["phone", "phone number", "mobile phone", "direct phone", "work phone"] },
+  { key: "country", label: "Quốc gia", aliases: ["country", "company country", "person country"] },
+  { key: "city", label: "Thành phố / khu vực", aliases: ["city", "state", "region", "company city"] },
+  { key: "website", label: "Website công ty", aliases: ["website", "company website", "domain", "company domain"] },
+  { key: "linkedin_url", label: "LinkedIn người liên hệ", aliases: ["linkedin", "linkedin url", "person linkedin url", "contact linkedin url"] },
+  { key: "company_linkedin_url", label: "LinkedIn công ty", aliases: ["company linkedin", "company linkedin url", "organization linkedin url"] },
+  { key: "industry", label: "Ngành", aliases: ["industry", "industries", "company industry"] },
+  { key: "employee_range", label: "Quy mô nhân sự", aliases: ["employees", "employee range", "employee count", "number of employees"] },
+  { key: "apollo_id", label: "Mã liên hệ Apollo", aliases: ["apollo id", "apollo contact id", "person id", "contact id"] },
 ];
 
 function normalizeHeader(value: string): string {

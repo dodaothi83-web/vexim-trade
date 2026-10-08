@@ -26,7 +26,7 @@ export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
       <div className="flex flex-wrap gap-2 border-b border-ink-200 p-3">
         <div className="relative min-w-[220px] flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-400" />
-          <input className="input pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm công ty, người liên hệ, email..." />
+          <input className="input pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm công ty, đầu mối, email..." />
         </div>
         <select className="input w-auto min-w-[180px]" value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="all">Mọi trạng thái</option>
@@ -50,7 +50,7 @@ export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
                 <tr key={prospect.id} className="group border-t border-ink-100 transition hover:bg-brand-50/40">
                   <td className="table-td">
                     <Link href={`/prospects/${prospect.id}`} className="block max-w-[300px] truncate text-[13.5px] font-semibold text-ink-900 hover:text-brand-700">{prospect.company}</Link>
-                    <p className="mt-0.5 text-[11.5px] text-ink-500">{[prospect.contact_name, prospect.contact_title, prospect.email].filter(Boolean).join(" · ") || "Chưa có contact"}</p>
+                    <p className="mt-0.5 text-[11.5px] text-ink-500">{[prospect.contact_name, prospect.contact_title, prospect.email].filter(Boolean).join(" · ") || "Chưa có người liên hệ"}</p>
                   </td>
                   <td className="table-td text-[12.5px]">{prospect.industry || "—"}</td>
                   <td className="table-td text-[12.5px]">{[prospect.city, prospect.country].filter(Boolean).join(", ") || "—"}</td>
@@ -64,9 +64,9 @@ export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
           </table>
         </div>
       ) : (
-        <div className="px-5 py-12 text-center text-[13px] text-ink-500">{prospects.length ? "Không tìm thấy prospect phù hợp." : "Chưa có prospect. Nhập tệp Apollo để bắt đầu."}</div>
+        <div className="px-5 py-12 text-center text-[13px] text-ink-500">{prospects.length ? "Không tìm thấy đầu mối phù hợp." : "Chưa có dữ liệu. Nhập danh sách Apollo để bắt đầu."}</div>
       )}
-      <div className="border-t border-ink-100 px-4 py-2 text-[11.5px] text-ink-400">{rows.length} / {prospects.length} contacts</div>
+      <div className="border-t border-ink-100 px-4 py-2 text-[11.5px] text-ink-400">{rows.length} / {prospects.length} đầu mối</div>
     </section>
   );
 }

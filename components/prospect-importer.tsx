@@ -72,7 +72,7 @@ export function ProspectImporter() {
     if (!file) return;
     const companyColumn = mapping.company;
     if (companyColumn === null || companyColumn === undefined) {
-      toast.push({ kind: "error", title: "Hãy chọn cột Company name trước khi nhập." });
+      toast.push({ kind: "error", title: "Hãy chọn cột Tên công ty trước khi nhập." });
       return;
     }
     const rows = file.rows.map((row) => {
@@ -130,7 +130,7 @@ export function ProspectImporter() {
     } finally {
       setBusy(false);
     }
-    const summary = `Đã nhập ${created} prospect. Bỏ qua ${skipped} dòng trùng hoặc không hợp lệ.${failed ? ` Dừng giữa chừng: ${failed}` : ""}`;
+    const summary = `Đã nhập ${created} đầu mối. Bỏ qua ${skipped} dòng trùng hoặc không hợp lệ.${failed ? ` Dừng giữa chừng: ${failed}` : ""}`;
     setResult({ message: summary, matchedBuyers, errors });
     toast.push({ kind: failed ? "error" : "success", title: summary });
     if (created) router.refresh();
@@ -140,9 +140,9 @@ export function ProspectImporter() {
     <section className="card overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 px-4 py-3">
         <div>
-          <h2 className="text-[14px] font-bold text-ink-900">Nhập danh sách Apollo</h2>
+          <h2 className="text-[14px] font-bold text-ink-900">Nhập danh sách khách hàng mục tiêu</h2>
           <p className="mt-0.5 text-[12px] text-ink-500">
-            CSV được xem trước trên trình duyệt. Nhập prospect không gửi email.
+            Xem trước và chọn cột ngay trên trình duyệt. Nhập dữ liệu không gửi email.
           </p>
         </div>
         <Button variant="ghost" onClick={() => inputRef.current?.click()}>
@@ -163,7 +163,7 @@ export function ProspectImporter() {
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-0 flex-1 text-[12px] text-ink-500">
               <p className="truncate font-semibold text-ink-800">{fileName}</p>
-              <p>{file.rows.length.toLocaleString()} contacts, {file.headers.length} columns</p>
+              <p>{file.rows.length.toLocaleString()} đầu mối, {file.headers.length} cột</p>
             </div>
             <label className="block min-w-[220px]">
               <span className="label">Tên danh sách / chiến dịch</span>
@@ -213,11 +213,11 @@ export function ProspectImporter() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="max-w-2xl text-[11.5px] leading-relaxed text-ink-500">
               Ghép tự động chỉ theo email, LinkedIn hoặc Apollo ID chính xác. Bản ghi trùng Buyer hiện tại được bỏ qua để anh kiểm tra riêng.
-              Nhiều người liên hệ cùng công ty vẫn được giữ thành các prospect riêng.
+              Nhiều người liên hệ cùng công ty vẫn được giữ thành các đầu mối riêng.
             </p>
             <Button onClick={() => void importFile()} disabled={busy || !file.rows.length}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
-              {busy ? `Đang nhập ${progress.toLocaleString()} / ${file.rows.length.toLocaleString()}...` : `Nhập ${file.rows.length.toLocaleString()} prospect`}
+              {busy ? `Đang nhập ${progress.toLocaleString()} / ${file.rows.length.toLocaleString()}...` : `Nhập ${file.rows.length.toLocaleString()} đầu mối`}
             </Button>
           </div>
         </div>

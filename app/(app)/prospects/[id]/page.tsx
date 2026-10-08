@@ -11,7 +11,7 @@ import { prospectStatusLabel } from "@/lib/prospects/status";
 import type { Buyer } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Prospect" };
+export const metadata = { title: "Đầu mối tiếp cận" };
 
 function normalize(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
@@ -55,7 +55,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
   return (
     <>
       <PageHeader
-        breadcrumbs={<Breadcrumbs items={[{ label: "Prospects", href: "/prospects" }, { label: prospect.company }]} />}
+        breadcrumbs={<Breadcrumbs items={[{ label: "Khách hàng mục tiêu", href: "/prospects" }, { label: prospect.company }]} />}
         title={prospect.company}
         sub={`${prospect.contact_name || "Chưa có người liên hệ"}${prospect.contact_title ? ` · ${prospect.contact_title}` : ""}${prospect.industry ? ` · ${prospect.industry}` : ""}`}
         actions={<Link href="/prospects" className="btn btn-ghost"><ArrowLeft className="h-4 w-4" />Danh sách</Link>}
@@ -65,7 +65,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
           <Card className="p-5">
             <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <h2 className="mb-3 text-[14px] font-bold text-ink-900">Thông tin liên hệ</h2>
+                <h2 className="mb-3 text-[14px] font-bold text-ink-900">Thông tin đầu mối</h2>
                 <ul className="space-y-2.5 text-[13px] text-ink-700">
                   {prospect.contact_name && <li className="flex items-center gap-2"><UserRound className="h-4 w-4 text-ink-400" />{prospect.contact_name}</li>}
                   {prospect.email && <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-ink-400" /><a className="text-brand-700 hover:underline" href={`mailto:${prospect.email}`}>{prospect.email}</a>{prospect.email_status && <span className="text-[11px] text-ink-400">{prospect.email_status}</span>}</li>}
@@ -95,7 +95,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
             <div className="border-b border-ink-200 px-4 py-3"><h2 className="text-[14px] font-bold text-ink-900">Lịch sử hoạt động</h2></div>
             {activities.length || emails.length ? (
               <ul className="divide-y divide-ink-100">
-                {[...activities.map((item) => ({ id: item.id, created_at: item.created_at, label: `${item.channel === "linkedin" ? "LinkedIn" : item.channel === "phone" ? "Điện thoại" : item.channel === "meeting" ? "Meeting" : item.channel === "email" ? "Email" : "Ghi chú"}: ${item.summary}`, created_by: item.created_by })), ...emails.map((item) => ({ id: `mail-${item.id}`, created_at: item.created_at, label: `Email ${item.status === "received" ? "đến" : "đi"}: ${item.subject}`, created_by: item.created_by }))]
+                {[...activities.map((item) => ({ id: item.id, created_at: item.created_at, label: `${item.channel === "linkedin" ? "LinkedIn" : item.channel === "phone" ? "Điện thoại" : item.channel === "meeting" ? "Buổi trao đổi" : item.channel === "email" ? "Email" : "Ghi chú"}: ${item.summary}`, created_by: item.created_by })), ...emails.map((item) => ({ id: `mail-${item.id}`, created_at: item.created_at, label: `Email ${item.status === "received" ? "đến" : "đi"}: ${item.subject}`, created_by: item.created_by }))]
                   .sort((a, b) => b.created_at.localeCompare(a.created_at))
                   .map((item) => (
                     <li key={item.id} className="flex gap-3 px-4 py-3 text-[12.5px]">
@@ -111,7 +111,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
         <aside className="space-y-4 xl:sticky xl:top-4">
           <Card className="space-y-4 p-4">
             <ProspectStatusControl id={prospect.id} value={prospect.status} />
-            {prospect.email && <Link href={`/mail/compose?prospect=${prospect.id}`} className="btn btn-primary w-full"><Mail className="h-4 w-4" />Soạn email cho prospect</Link>}
+            {prospect.email && <Link href={`/mail/compose?prospect=${prospect.id}`} className="btn btn-primary w-full"><Mail className="h-4 w-4" />Soạn email tiếp cận</Link>}
             {prospect.next_action && <div className="rounded-lg bg-amber-50 p-3 text-[12px] text-amber-900"><p className="font-semibold">Việc tiếp theo</p><p className="mt-1">{prospect.next_action}</p>{prospect.next_action_at && <p className="mt-1 text-amber-700">{new Date(prospect.next_action_at).toLocaleString("vi-VN")}</p>}</div>}
             <ProspectConversion prospectId={prospect.id} status={prospect.status} matchedBuyerId={prospect.converted_buyer_id} matchCandidates={matchCandidates} />
             {linkedBuyer && <Link className="text-[12px] font-semibold text-brand-700 hover:underline" href={`/buyers/${linkedBuyer.id}`}>Hồ sơ Buyer: {linkedBuyer.company}</Link>}

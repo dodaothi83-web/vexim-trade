@@ -284,7 +284,7 @@ export function MailThreads({
               </span>
               {current.prospectId && (
                 <Link href={`/prospects/${current.prospectId}`} className="text-[11.5px] font-semibold text-brand-700 hover:underline">
-                  Mở prospect
+                  Mở hồ sơ đầu mối
                 </Link>
               )}
               {canSend && (

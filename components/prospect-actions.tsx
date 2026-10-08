@@ -28,7 +28,7 @@ export function ProspectStatusControl({ id, value }: { id: string; value: Prospe
   }
   return (
     <label className="block max-w-xs">
-      <span className="label">Trạng thái prospect</span>
+      <span className="label">Trạng thái tiếp cận</span>
       <select disabled={busy || value === "converted"} className="input" value={value} onChange={(event) => void change(event.target.value as ProspectStatus)}>
         {PROSPECT_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
       </select>
@@ -119,8 +119,8 @@ export function ProspectConversion({
   return (
     <div className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4">
       <div>
-        <h2 className="text-[13px] font-bold text-brand-900">Chuyển prospect thành Buyer</h2>
-        <p className="mt-1 text-[12px] leading-relaxed text-brand-800">Chỉ chuyển khi đã xác nhận nhu cầu sourcing thực tế. Hệ thống so email hoặc LinkedIn chính xác trước khi tạo Buyer mới.</p>
+        <h2 className="text-[13px] font-bold text-brand-900">Đưa đầu mối đủ điều kiện vào pipeline Buyer</h2>
+        <p className="mt-1 text-[12px] leading-relaxed text-brand-800">Chỉ thực hiện sau khi xác nhận nhu cầu sourcing thực tế. Hệ thống đối chiếu email hoặc LinkedIn trước khi tạo Buyer mới.</p>
       </div>
       {matchCandidates.length > 0 && status !== "converted" && (
         <div className="space-y-2 rounded-lg bg-white p-3">
@@ -138,7 +138,7 @@ export function ProspectConversion({
       )}
       <Button disabled={busy || status !== "qualified"} onClick={() => void convert()}>
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
-        {status === "qualified" ? "Tạo hoặc ghép Buyer" : "Đánh dấu Đủ điều kiện trước"}
+        {status === "qualified" ? "Tạo hoặc ghép Buyer" : "Xác nhận nhu cầu trước"}
       </Button>
     </div>
   );

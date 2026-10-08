@@ -8,7 +8,7 @@ import { ProspectImporter } from "@/components/prospect-importer";
 import { ProspectTable } from "@/components/prospect-table";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Prospects" };
+export const metadata = { title: "Khách hàng mục tiêu" };
 
 export default async function ProspectsPage() {
   await requirePagePermission("prospects.manage", "/dashboard");
@@ -16,9 +16,9 @@ export default async function ProspectsPage() {
   return (
     <>
       <PageHeader
-        title="Prospects"
-        sub={`${prospects.length} liên hệ tiềm năng · chưa được tính là Buyer có nhu cầu sourcing`}
-        actions={<Link href="/prospects/new" className="btn btn-primary"><UserPlus className="h-4 w-4" />Thêm prospect</Link>}
+        title="Khách hàng mục tiêu"
+        sub={`${prospects.length} doanh nghiệp và đầu mối đang được tiếp cận, chưa xác nhận nhu cầu sourcing và chưa vào pipeline Buyer`}
+        actions={<Link href="/prospects/new" className="btn btn-primary"><UserPlus className="h-4 w-4" />Thêm đầu mối tiếp cận</Link>}
       />
       <div className="space-y-5">
         <ProspectImporter />

@@ -35,7 +35,7 @@ export function ProspectForm() {
         <Field label="Người liên hệ"><input className="input" value={form.contact_name} onChange={(e) => set("contact_name", e.target.value)} /></Field>
         <Field label="Chức danh"><input className="input" value={form.contact_title} onChange={(e) => set("contact_title", e.target.value)} /></Field>
         <Field label="Email công việc"><input type="email" className="input" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
-        <Field label="Trạng thái email"><input className="input" placeholder="Verified / Unverified" value={form.email_status} onChange={(e) => set("email_status", e.target.value)} /></Field>
+        <Field label="Trạng thái email"><input className="input" placeholder="Đã xác minh / Chưa xác minh" value={form.email_status} onChange={(e) => set("email_status", e.target.value)} /></Field>
         <Field label="Điện thoại"><input className="input" value={form.phone} onChange={(e) => set("phone", e.target.value)} /></Field>
         <Field label="Quốc gia"><input className="input" value={form.country} onChange={(e) => set("country", e.target.value)} /></Field>
         <Field label="Thành phố / khu vực"><input className="input" value={form.city} onChange={(e) => set("city", e.target.value)} /></Field>
@@ -46,7 +46,7 @@ export function ProspectForm() {
         <Field label="Quy mô nhân sự"><input className="input" value={form.employee_range} onChange={(e) => set("employee_range", e.target.value)} /></Field>
         <Field label="Nguồn / danh sách"><input className="input" placeholder="Apollo: Cashew importers EU" value={form.source_list} onChange={(e) => set("source_list", e.target.value)} /></Field>
       </div>
-      <div className="flex justify-end"><Button type="submit" disabled={busy}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Tạo prospect</Button></div>
+      <div className="flex justify-end"><Button type="submit" disabled={busy}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Tạo đầu mối tiếp cận</Button></div>
     </form>
   );
 }

@@ -55,9 +55,9 @@ export function ProspectOutreachTemplateEditor({
   return (
     <Card className="overflow-hidden">
       <div className="border-b border-ink-200 px-4 py-3">
-        <h2 className="text-[15px] font-bold text-ink-900">Mẫu tiếp cận Prospect</h2>
+        <h2 className="text-[15px] font-bold text-ink-900">Mẫu tiếp cận khách hàng mục tiêu</h2>
         <p className="mt-1 text-xs leading-relaxed text-ink-500">
-          Mẫu cold outreach được lưu riêng, không thay đổi email cập nhật giai đoạn Buyer. Nội dung chỉ được nạp vào bản nháp và không tự gửi.
+          Các mẫu này được lưu riêng, không thay đổi email cập nhật giai đoạn Buyer. Nội dung chỉ được nạp vào bản nháp và không tự gửi.
         </p>
       </div>
       <div className="space-y-4 p-4">

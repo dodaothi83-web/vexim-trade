@@ -49,9 +49,9 @@ AUTH_SECRET=<chuỗi ngẫu nhiên 64 ký tự hex — xem mục Tài khoản & 
 
 5. Khởi động lại app. Các email đang ở trạng thái “demo” có thể bấm **Gửi lại** trong Nhật ký email.
 
-### Triển khai Prospect trên Supabase đang dùng
+### Triển khai danh sách khách hàng mục tiêu trên Supabase đang dùng
 
-Trước khi đưa tính năng Prospect lên production, chạy [`supabase/migrations/20261008_prospects.sql`](supabase/migrations/20261008_prospects.sql) trong Supabase SQL Editor. Migration tạo bảng Prospect, timeline hoạt động, các mẫu outreach riêng và liên kết email. Sau đó triển khai ứng dụng. Import Apollo chỉ tạo Prospect và không tự gửi email.
+Trước khi đưa tính năng này lên production, chạy [`supabase/migrations/20261008_prospects.sql`](supabase/migrations/20261008_prospects.sql) trong Supabase SQL Editor. Migration tạo bảng khách hàng mục tiêu, lịch sử hoạt động, các mẫu tiếp cận riêng và liên kết email. Sau đó triển khai ứng dụng. Nhập danh sách Apollo chỉ tạo hồ sơ, không tự gửi email.
 
 ### Kiểm tra kết nối Supabase
 

@@ -35,7 +35,7 @@ const NAV: {
   { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare, perm: "buyers.view" },
   { href: "/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view" },
-  { href: "/prospects", label: "Prospects", icon: UserSearch, perm: "prospects.manage" },
+  { href: "/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage" },
   { href: "/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view" },
   { href: "/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view" },
   { href: "/mail", label: "Hộp thư", icon: Mail, perm: "mail.view" },

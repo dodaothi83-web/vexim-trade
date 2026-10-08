@@ -228,9 +228,9 @@ export async function createProspectAction(raw: Partial<ProspectInput>): Promise
   try {
     const prospect = await getStore().createProspect(input);
     revalidateAll();
-    return { ok: true, message: "Đã thêm prospect.", id: prospect.id };
+    return { ok: true, message: "Đã thêm đầu mối tiếp cận.", id: prospect.id };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Không thêm được prospect." };
+    return { ok: false, message: err instanceof Error ? err.message : "Không thêm được đầu mối tiếp cận." };
   }
 }
 
@@ -312,7 +312,7 @@ export async function importProspectsAction(rawRows: Partial<ProspectInput>[], l
   revalidateAll();
   return {
     ok: true,
-    message: `Đã nhập ${created} prospect. Bỏ qua ${skipped} dòng trùng hoặc không hợp lệ.`,
+    message: `Đã nhập ${created} đầu mối. Bỏ qua ${skipped} dòng trùng hoặc không hợp lệ.`,
     created,
     skipped,
     matchedBuyers,
@@ -324,12 +324,12 @@ export async function updateProspectAction(id: string, patch: Partial<ProspectIn
   const gate = await guard("prospects.manage");
   if (gate) return gate;
   const allowedStatus = patch.status === undefined || PROSPECT_STATUSES.includes(patch.status as (typeof PROSPECT_STATUSES)[number]);
-  if (!allowedStatus) return { ok: false, message: "Trạng thái prospect không hợp lệ." };
-  if (patch.status === "converted") return { ok: false, message: "Dùng thao tác chuyển đổi để liên kết Buyer và giữ lịch sử." };
+  if (!allowedStatus) return { ok: false, message: "Trạng thái tiếp cận không hợp lệ." };
+  if (patch.status === "converted") return { ok: false, message: "Dùng thao tác đưa vào pipeline để liên kết Buyer và giữ lịch sử." };
   if (patch.status !== undefined) {
     const current = await getStore().getProspect(id);
-    if (!current) return { ok: false, message: "Không tìm thấy prospect." };
-    if (current.status === "converted") return { ok: false, message: "Prospect đã chuyển thành Buyer, không thể mở lại trạng thái tiếp cận." };
+    if (!current) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận." };
+    if (current.status === "converted") return { ok: false, message: "Đầu mối này đã được liên kết với Buyer, không thể mở lại trạng thái tiếp cận." };
   }
   try {
     const safePatch: Partial<ProspectInput> = {};
@@ -340,9 +340,9 @@ export async function updateProspectAction(id: string, patch: Partial<ProspectIn
     if (patch.notes !== undefined) safePatch.notes = str(patch.notes);
     await getStore().updateProspect(id, safePatch);
     revalidateAll();
-    return { ok: true, message: "Đã cập nhật prospect." };
+    return { ok: true, message: "Đã cập nhật thông tin đầu mối." };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Không cập nhật được prospect." };
+    return { ok: false, message: err instanceof Error ? err.message : "Không cập nhật được đầu mối tiếp cận." };
   }
 }
 
@@ -378,9 +378,9 @@ export async function linkProspectToBuyerAction(prospectId: string, buyerId: str
   if (gate) return gate;
   const store = getStore();
   const [prospect, buyer] = await Promise.all([store.getProspect(prospectId), store.getBuyer(buyerId)]);
-  if (!prospect || !buyer) return { ok: false, message: "Không tìm thấy prospect hoặc Buyer." };
+  if (!prospect || !buyer) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận hoặc Buyer." };
   if (prospect.status !== "qualified") {
-    return { ok: false, message: "Chỉ liên kết với Buyer khi prospect đã được xác nhận có nhu cầu sourcing thực tế." };
+    return { ok: false, message: "Chỉ liên kết với Buyer khi đầu mối đã được xác nhận có nhu cầu sourcing thực tế." };
   }
   try {
     await store.updateProspect(prospectId, { status: "converted", converted_buyer_id: buyerId });
@@ -403,9 +403,9 @@ export async function convertProspectAction(prospectId: string): Promise<ActionR
   if (gate) return gate;
   const store = getStore();
   const prospect = await store.getProspect(prospectId);
-  if (!prospect) return { ok: false, message: "Không tìm thấy prospect." };
+  if (!prospect) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận." };
   if (prospect.status !== "qualified") {
-    return { ok: false, message: "Chỉ chuyển thành Buyer khi prospect đã được xác nhận có nhu cầu sourcing thực tế." };
+    return { ok: false, message: "Chỉ đưa vào pipeline Buyer khi đã xác nhận nhu cầu sourcing thực tế." };
   }
   const buyers = await store.listBuyers();
   const emailKey = normalizeMatch(prospect.email);
@@ -438,7 +438,7 @@ export async function convertProspectAction(prospectId: string): Promise<ActionR
         hide_buyer_from_supplier: true,
         stage: "lead",
         owner: prospect.owner,
-        source: `Prospect: ${prospect.source_list || "Apollo"}`,
+        source: `Nguồn tiếp cận: ${prospect.source_list || "Apollo"}`,
         priority: "normal",
         next_action: null,
         next_action_date: null,
@@ -456,12 +456,12 @@ export async function convertProspectAction(prospectId: string): Promise<ActionR
     revalidateAll();
     return {
       ok: true,
-      message: match ? `Đã ghép prospect với Buyer hiện có ${match.company}.` : "Đã chuyển prospect thành Buyer.",
+      message: match ? `Đã liên kết đầu mối với Buyer hiện có ${match.company}.` : "Đã đưa đầu mối vào pipeline Buyer.",
       buyerId,
       matched: Boolean(match),
     };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Không chuyển đổi được prospect." };
+    return { ok: false, message: err instanceof Error ? err.message : "Không thể đưa đầu mối vào pipeline Buyer." };
   }
 }
 
@@ -937,12 +937,12 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
     const prospectGate = await guard("prospects.manage");
     if (prospectGate) return prospectGate;
     const prospect = await getStore().getProspect(input.prospectId);
-    if (!prospect) return { ok: false, message: "Không tìm thấy prospect liên kết." };
+    if (!prospect) return { ok: false, message: "Không tìm thấy đầu mối được liên kết." };
     if (["unsubscribed", "disqualified", "converted"].includes(prospect.status)) {
-      return { ok: false, message: "Prospect này đang ở trạng thái không tiếp cận được." };
+      return { ok: false, message: "Đầu mối này đang ở trạng thái không được phép tiếp cận." };
     }
     if (prospect.email && !cleanList(input.to).some((address) => address.toLowerCase() === prospect.email?.toLowerCase())) {
-      return { ok: false, message: "Người nhận không khớp email của prospect. Hãy bỏ liên kết prospect hoặc chọn đúng địa chỉ." };
+      return { ok: false, message: "Email người nhận không khớp với đầu mối này. Hãy chọn đúng địa chỉ email." };
     }
   }
 
@@ -1027,7 +1027,7 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
     const prospectGate = await guard("prospects.manage");
     if (prospectGate) return prospectGate;
     const prospect = await getStore().getProspect(input.prospectId);
-    if (!prospect) return { ok: false, message: "Không tìm thấy prospect liên kết." };
+    if (!prospect) return { ok: false, message: "Không tìm thấy đầu mối được liên kết." };
   }
   const resolved = await resolveAttachments(input.attachments, session.email, session.role);
   if ("error" in resolved) return { ok: false, message: resolved.error };
@@ -1344,7 +1344,7 @@ export async function saveProspectOutreachTemplateAction(input: {
   try {
     await getStore().saveProspectOutreachTemplateOverride({ id: input.id, label, subject, body });
     revalidateAll();
-    return { ok: true, message: "Đã lưu mẫu tiếp cận Prospect." };
+    return { ok: true, message: "Đã lưu mẫu tiếp cận khách hàng mục tiêu." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Không lưu được mẫu." };
   }
@@ -1358,7 +1358,7 @@ export async function clearProspectOutreachTemplateAction(id: string): Promise<A
   try {
     await getStore().clearProspectOutreachTemplateOverride(id);
     revalidateAll();
-    return { ok: true, message: "Đã khôi phục mẫu Prospect mặc định." };
+    return { ok: true, message: "Đã khôi phục mẫu khách hàng mục tiêu mặc định." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Không khôi phục được mẫu." };
   }
