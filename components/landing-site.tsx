@@ -18,23 +18,23 @@ import { COMPANY } from "@/lib/config";
 
 /**
  * Landing viết theo đúng bản chất Veximtrade rút từ chuỗi email outreach:
- * buyer không thiếu nhà cung cấp — họ thiếu thời gian sàng lọc. Vexim làm
+ * buyer không thiếu nhà cung cấp, họ thiếu thời gian sàng lọc. Vexim làm
  * "first pass" ở Việt Nam để danh sách đến tay buyer chỉ còn vài nguồn đáng
  * trao đổi. Giọng điệu: mạch lạc, cụ thể, không hứa hẹn phô trương.
  */
 
 const SCREENING_WORK = [
-  "Checking whether the company is real — registry, history, people.",
+  "Checking whether the company is real: registry, history, people.",
   "Reading specs and deciding if the product actually matches your market.",
   "Chasing export history: who they shipped to, how often, how it ended.",
-  "Quotations, samples, import requirements — again, for every new source.",
+  "Quotations, samples, import requirements. Again, for every new source.",
 ];
 
 const WHAT_WE_DO = [
   {
     icon: Search,
     title: "We find the candidates",
-    desc: "On the ground in Vietnam, in the categories we know — not from a web search at midnight.",
+    desc: "On the ground in Vietnam, in the categories we know, not from a web search at midnight.",
   },
   {
     icon: FileCheck2,
@@ -44,14 +44,14 @@ const WHAT_WE_DO = [
   {
     icon: ShieldCheck,
     title: "We keep filtering",
-    desc: "Until what reaches your inbox is a short list worth a conversation — or an honest “not yet, this season”.",
+    desc: "Until what reaches your inbox is a short list worth a conversation, or an honest “not yet, this season”.",
   },
 ];
 
 /**
  * Logo chính thức giữ NGUYÊN bản file public/logo-vexim.png (canvas 1024² với viền
  * trong suốt dày). Đo bounding box phần có nội dung (748×553, tâm 50.3%/46.0%) rồi
- * crop phần viền bằng background-size/position ở lớp HIỂN THỊ — không sửa file.
+ * crop phần viền bằng background-size/position ở lớp HIỂN THỊ, không sửa file.
  * Hộp chứa phải đúng tỉ lệ nội dung 1.3526 (cao 44px → rộng ~60px).
  */
 const LOGO_BG: React.CSSProperties = {
@@ -65,7 +65,7 @@ function Logo({ className }: { className?: string }) {
   return (
     <span
       role="img"
-      aria-label="Vexim Trade — Export Sales"
+      aria-label="Vexim Trade, Export Sales"
       className={className}
       style={LOGO_BG}
     />
@@ -136,7 +136,7 @@ export function LandingSite() {
           <p className="mt-6 max-w-2xl text-[16px] leading-relaxed text-slate-300">
             Every new source arrives with homework: company records, specs, export history,
             quotations, samples, import requirements. Multiply that by ten sources and most of
-            the month goes to <strong className="font-semibold text-white">filtering</strong> — not
+            the month goes to <strong className="font-semibold text-white">filtering</strong>, not
             deciding.
           </p>
           <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-slate-300">
@@ -170,7 +170,7 @@ export function LandingSite() {
           <div className="space-y-4 text-[15px] leading-relaxed text-slate-600">
             <p>
               The price on the quotation is not the whole cost. Before there is a price, there is
-              the search — and the search is where the weeks go.
+              the search, and the search is where the weeks go.
             </p>
             <p>
               Do it for every new product and the screening becomes the project. Your team did not
@@ -198,7 +198,7 @@ export function LandingSite() {
             We are not a directory. There is nothing to browse.
           </h2>
           <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-slate-600">
-            You send a requirement. We work the Vietnam side — searching, vetting, checking —
+            You send a requirement. We work the Vietnam side, searching, vetting, checking,
             and return what your team can actually use: a short list worth talking to, or a
             straight answer that now is not the season. Either way, the decision stays yours.
           </p>
@@ -215,7 +215,7 @@ export function LandingSite() {
             <p className="text-[15px] leading-relaxed">
               <strong className="font-bold">The deal, in one sentence:</strong> we spend the weeks
               on the first pass so your team spends its hours on the few sources that deserve a
-              conversation — and you remain the one who decides.
+              conversation, and you remain the one who decides.
             </p>
           </div>
         </div>
@@ -228,7 +228,7 @@ export function LandingSite() {
           {[
             [
               "Cashew kernels",
-              "W240, W320, W450, splits — grades, packing, crop seasons and lot-level QC we know by name.",
+              "W240, W320, W450, splits: grades, packing, crop seasons and lot-level QC we know by name.",
             ],
             [
               "Vietnamese produce",
@@ -236,7 +236,7 @@ export function LandingSite() {
             ],
             [
               "Your category, next",
-              "The method is category-agnostic. Credibility is earned per category — we tell you honestly where we are today.",
+              "The method is category-agnostic. Credibility is earned per category, and we tell you honestly where we are today.",
             ],
           ].map(([t, d]) => (
             <div key={t} className="rounded-2xl border border-ink-200 bg-white p-5">
@@ -246,7 +246,7 @@ export function LandingSite() {
           ))}
         </div>
         <p className="mt-5 text-[13px] text-slate-500">
-          Backed by the Vexim Global ecosystem in Hanoi — production, processing and international
+          Backed by the Vexim Global ecosystem in Hanoi: production, processing and international
           trade under one roof.{" "}
           <a
             href="https://www.veximglobal.com/"
@@ -269,7 +269,7 @@ export function LandingSite() {
               </h2>
               <p className="mt-4 text-[15px] leading-relaxed text-slate-600">
                 Tell us what you are sourcing. Within one working day we will look at the Vietnam
-                side and tell you whether there is a source worth your time — and what the first
+                side and tell you whether there is a source worth your time, and what the first
                 pass found.
               </p>
               <p className="mt-3 text-[14px] leading-relaxed text-slate-500">

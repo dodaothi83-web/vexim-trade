@@ -7,13 +7,13 @@ import { LandingSite } from "@/components/landing-site";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Veximtrade — We do the first pass in Vietnam",
+  title: "Veximtrade does the first pass in Vietnam",
   description:
     "Sourcing from Vietnam shouldn't cost your team weeks of screening. Veximtrade finds, vets " +
-    "and filters suppliers on the ground — you talk only to sources worth your time. " +
+    "and filters suppliers on the ground, so you talk only to sources worth your time. " +
     "A Vexim Global company.",
   openGraph: {
-    title: "Veximtrade — We do the first pass in Vietnam",
+    title: "Veximtrade does the first pass in Vietnam",
     description:
       "We search, vet and filter Vietnamese suppliers before they reach your inbox. " +
       "A short list worth talking to, or an honest not-yet. A Vexim Global company.",
