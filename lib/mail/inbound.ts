@@ -74,8 +74,8 @@ export async function processInboundEvent(
   const store = getStore();
 
   // Resend phát lại webhook khi không nhận 2xx → chống trùng bằng email_id
-  const existing = await store.listMessages(500).catch(() => [] as EmailMessage[]);
-  if (existing.some((m) => m.rfc_message_id === meta.email_id || m.id === meta.email_id)) {
+  const existingBefore = await store.listMessages(500).catch(() => [] as EmailMessage[]);
+  if (existingBefore.some((m) => m.rfc_message_id === meta.email_id || m.id === meta.email_id)) {
     return { saved: false, reason: "duplicate" };
   }
 
@@ -108,7 +108,16 @@ export async function processInboundEvent(
   }
   if (!text && html) text = subject;
 
-  const rfcId = full?.message_id || full?.headers?.["message-id"] || meta.email_id;
+  // RFC Message-ID gốc (ổn định qua mọi chặng forward) — dùng chống trùng THỨ HAI
+  // (cùng một thư đến qua 2 đường: chuyển tiếp + retry) và làm In-Reply-To khi trả lời.
+  const rawRfc = full?.message_id || full?.headers?.["message-id"] || "";
+  const rfcId = rawRfc
+    ? (rawRfc.trim().startsWith("<") ? rawRfc.trim() : `<${rawRfc.trim()}>`)
+    : meta.email_id;
+  const existing = await store.listMessages(500).catch(() => [] as EmailMessage[]);
+  if (existing.some((m) => m.rfc_message_id === rfcId)) {
+    return { saved: false, reason: "duplicate" };
+  }
 
   const saved = await store
     .addMessage({
@@ -130,7 +139,7 @@ export async function processInboundEvent(
         size: 0,
         type: "application/octet-stream",
       })),
-      rfc_message_id: meta.email_id,
+      rfc_message_id: rfcId,
       read_at: null,
       status: "received",
       provider: "resend",

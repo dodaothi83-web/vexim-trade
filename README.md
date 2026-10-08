@@ -330,14 +330,21 @@ Cùng một lần đổi giai đoạn, hệ thống sinh **hai email hoàn toàn
 Thư buyer/NCC gửi vào domain sẽ được Resend nhận qua MX, bắn sự kiện `email.received`
 về webhook của app, lưu vào Hộp thư và báo cho đội ngũ.
 
-1. **DNS (MX):** Resend Dashboard → Domains → chọn domain → bật **Receiving** → thêm bản ghi MX
-   theo đúng giá trị dashboard đưa ra, ví dụ điển hình:
-   | Type | Host | Points to | Priority |
-   | --- | --- | --- | --- |
-   | MX | `inbound` (hoặc host dashboard ghi) | `inbound-smtp.us-east-1.amazonaws.com` (giá trị của dashboard) | 10 |
-   Lưu ý: MX ở **domain gốc** nghĩa là TOÀN bộ thư gửi vào @domain chảy về Resend
-   (hộp thư nhân viên cùng domain trên Google/Zoho sẽ không nhận trực tiếp nữa);
-   muốn giữ song song thì dùng subdomain riêng cho nhận thư.
+1. **DNS (MX) — KHÔNG đụng domain gốc nếu nó đang nhận mail công ty:** dùng subdomain riêng
+   (khuyến nghị: `inbound.veximtrade.com`):
+   - Resend Dashboard → Domains → thêm domain `inbound.veximtrade.com` → bật **Receiving**.
+   - DNS: thêm MX **chỉ cho host `inbound`**, giá trị dashboard đưa ra
+     (ví dụ `inbound-smtp.us-east-1.amazonaws.com`), priority 10.
+     MX của domain gốc giữ nguyên → luồng mail công ty hiện tại không bị ảnh hưởng.
+   - Tạo bản sao thư đến CRM: nơi hộp thư `sales@` đang đổ về (Gmail / mail server cũ),
+     thêm rule chuyển tiếp (forward/BCC) các địa chỉ CRM quan tâm tới
+     `crm@inbound.veximtrade.com`. Gmail: Settings → Forwarding → verify địa chỉ đích
+     (mail xác nhận sẽ hiện trong Resend → Receiving để bấm link) → tạo filter
+     `To: sales@veximtrade.com` forward tới địa chỉ subdomain.
+   - Đặt `INBOUND_DOMAINS=inbound.veximtrade.com` để app loại domain này khỏi danh sách
+     nhận thông báo (chống vòng lặp).
+   - Sau này nếu bỏ hẳn hệ thống mail cũ: chuyển MX domain gốc về Resend là đủ,
+     không phải sửa code.
 2. **Webhook:** Dashboard → Webhooks → URL `https://<domain-app>/api/webhooks/resend`,
    chọn sự kiện `email.received`; chép secret `whsec_...` vào biến môi trường
    `RESEND_WEBHOOK_SECRET` (production thiếu secret thì endpoint trả 401).
