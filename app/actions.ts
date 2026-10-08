@@ -527,9 +527,15 @@ export interface MailDraftInput {
   bcc?: string[];
   subject: string;
   bodyHtml: string;
+  /** bản thuần chữ song song với html (tăng deliverability) */
+  bodyText?: string;
   /** chỉ metadata: tệp thật đã nằm trong Supabase Storage, không gửi base64 qua đây */
   attachments?: { id: string; name?: string; size?: number; type?: string }[];
   author?: string | null;
+  /** Trả lời thư đến: RFC Message-ID của thư đang trả lời */
+  inReplyTo?: string | null;
+  /** Chuỗi References của mạch thư */
+  references?: string | null;
   }
 
   /** Đọc các dòng metadata tệp đính kèm và kiểm tra quyền sử dụng. */
@@ -654,8 +660,11 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
       bcc: cleanList(input.bcc),
       subject: input.subject.trim(),
       bodyHtml: input.bodyHtml,
+      bodyText: input.bodyText,
       attachments: attachmentRows,
       author: input.author ?? null,
+      inReplyTo: input.inReplyTo ?? null,
+      references: input.references ?? null,
     });
   } catch (errSend) {
     // Chưa gửi được gì (thường do không đọc được tệp) — giữ tệp lại để gửi lại an toàn
@@ -938,3 +947,21 @@ export async function deleteMediaAction(id: string): Promise<ActionResult> {
 }
 
 /** Thử lưu lại tệp từ client (dùng khi trình duyệt gửi kèm ảnh đã nén). */
+
+/* -------- Đánh dấu đã đọc thư đến trong một mạch thư -------- */
+
+export async function markThreadReadAction(threadIdValue: string): Promise<ActionResult> {
+  const gate = await guard("mail.view");
+  if (gate) return gate;
+  const now = new Date().toISOString();
+  const store = getStore();
+  const messages = await store.listMessages(500).catch(() => []);
+  const targets = messages.filter(
+    (m) => m.thread_id === threadIdValue && m.kind === "inbound" && !m.read_at,
+  );
+  for (const m of targets) {
+    await store.updateMessage(m.id, { read_at: now }).catch(() => null);
+  }
+  revalidatePath("/mail");
+  return { ok: true, message: `Đã đánh dấu đọc ${targets.length} thư.` };
+}

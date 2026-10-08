@@ -325,6 +325,34 @@ Cùng một lần đổi giai đoạn, hệ thống sinh **hai email hoàn toàn
   điện thoại · email, website dạng chữ). Nút **“Xoá chữ ký tuỳ chỉnh”** quay lại chữ ký tự động.
 - Chữ ký được chèn sẵn khi mở thư soạn mới; nút “Chèn chữ ký” chèn lại bất kỳ lúc nào (không chèn trùng).
 
+### Nhận email trả lời (Resend Inbound)
+
+Thư buyer/NCC gửi vào domain sẽ được Resend nhận qua MX, bắn sự kiện `email.received`
+về webhook của app, lưu vào Hộp thư và báo cho đội ngũ.
+
+1. **DNS (MX):** Resend Dashboard → Domains → chọn domain → bật **Receiving** → thêm bản ghi MX
+   theo đúng giá trị dashboard đưa ra, ví dụ điển hình:
+   | Type | Host | Points to | Priority |
+   | --- | --- | --- | --- |
+   | MX | `inbound` (hoặc host dashboard ghi) | `inbound-smtp.us-east-1.amazonaws.com` (giá trị của dashboard) | 10 |
+   Lưu ý: MX ở **domain gốc** nghĩa là TOÀN bộ thư gửi vào @domain chảy về Resend
+   (hộp thư nhân viên cùng domain trên Google/Zoho sẽ không nhận trực tiếp nữa);
+   muốn giữ song song thì dùng subdomain riêng cho nhận thư.
+2. **Webhook:** Dashboard → Webhooks → URL `https://<domain-app>/api/webhooks/resend`,
+   chọn sự kiện `email.received`; chép secret `whsec_...` vào biến môi trường
+   `RESEND_WEBHOOK_SECRET` (production thiếu secret thì endpoint trả 401).
+3. **DB:** chạy đoạn alter idempotent của bảng `email_messages` trong `supabase/schema.sql`
+   (mở rộng `kind`/`status` + cột `rfc_message_id`, `read_at`).
+4. **Tuỳ chọn:** `INBOUND_NOTIFY_EMAILS` (danh sách email nhận thông báo thư mới),
+   `INBOUND_DOMAINS` (domain nhận thư thêm), `APP_URL` (link Hộp thư trong email thông báo).
+
+Trong app: trang **Hộp thư** là hội thoại hai khung kiểu Gmail — trái là danh sách mạch thư
+(theo từng buyer/NCC, gồm thư đến), phải là toàn bộ trao đổi kèm ô trả lời cuối trang;
+trả lời tự gắn `In-Reply-To`/`References` nên bên Gmail cũng gom chung thread.
+Mở mạch thư tự đánh dấu đã đọc; số thư chưa đọc hiện badge ở menu trái.
+Chống trùng lặp webhook bằng `email_id`; chống vòng lặp bằng cách bỏ qua thư gửi đi từ
+chính hệ thống và không thông báo vào địa chỉ thuộc domain nhận thư.
+
 ### Hai cách đổi trạng thái
 
 - **Dropdown** ngay trên bảng Buyer hoặc trên thẻ ở trang Pipeline (kéo-thả cũng được).

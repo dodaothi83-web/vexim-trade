@@ -49,10 +49,13 @@ export function Sidebar({
   emailMode,
   session,
   permissions,
+  unreadMail = 0,
 }: {
   dataMode: "supabase" | "local";
   dataDegraded?: boolean;
   emailMode: "resend" | "local";
+  /** Số thư đến chưa đọc — badge ở menu Hộp thư */
+  unreadMail?: number;
   session: { name: string; email: string; role: UserRole };
   permissions: Permission[];
 }) {
@@ -92,7 +95,12 @@ export function Sidebar({
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              {item.label}
+              <span className="flex-1 truncate">{item.label}</span>
+              {item.href === "/mail" && unreadMail > 0 && (
+                <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900">
+                  {unreadMail}
+                </span>
+              )}
             </Link>
           );
         })}

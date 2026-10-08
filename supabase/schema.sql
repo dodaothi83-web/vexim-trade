@@ -170,6 +170,17 @@ create index if not exists email_messages_buyer_idx on public.email_messages (bu
 create index if not exists email_messages_kind_idx  on public.email_messages (kind, created_at desc);
 create index if not exists email_messages_created_idx on public.email_messages (created_at desc);
 
+-- Thư ĐẾN qua Resend Inbound (webhook email.received): mở rộng kind/status + 2 cột mới.
+-- Chạy lại đoạn này (idempotent) khi nâng cấp từ bản trước:
+alter table public.email_messages drop constraint if exists email_messages_kind_check;
+alter table public.email_messages add constraint email_messages_kind_check
+  check (kind in ('auto','manual','inbound'));
+alter table public.email_messages drop constraint if exists email_messages_status_check;
+alter table public.email_messages add constraint email_messages_status_check
+  check (status in ('draft','sent','failed','simulated','received'));
+alter table public.email_messages add column if not exists rfc_message_id text;
+alter table public.email_messages add column if not exists read_at timestamptz;
+
 -- ---------------------------------------------------------------------------
 -- 4b. TỆP ĐÍNH KÈM EMAIL (metadata) — nội dung nằm trong Supabase Storage
 --     - KHÔNG lưu base64 / binary trong cơ sở dữ liệu, chỉ lưu metadata.

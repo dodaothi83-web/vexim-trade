@@ -18,6 +18,8 @@ export interface OutgoingMail {
   cc?: string[];
   bcc?: string[];
   subject: string;
+  /** Header RFC tuỳ chỉnh (In-Reply-To / References) để Gmail gom đúng mạch thư */
+  headers?: Record<string, string>;
   html: string;
   text?: string;
   /** base64 chỉ tồn tại trong bộ nhớ lúc gửi qua Resend — KHÔNG lưu vào DB */
@@ -51,6 +53,7 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
       html: mail.html,
       text: mail.text,
       attachments: mail.attachments?.length ? mail.attachments : undefined,
+      headers: mail.headers && Object.keys(mail.headers).length ? mail.headers : undefined,
     });
     if (error) {
       return { ok: false, status: "failed", provider: "resend", error: `${error.name}: ${error.message}` };
@@ -255,6 +258,10 @@ export interface ManualMailInput {
   /** các dòng metadata tệp đính kèm (nội dung thật nằm trong Storage, không ở DB) */
   attachments?: EmailAttachment[];
   author?: string | null;
+  /** RFC Message-ID của thư đang trả lời — để Gmail/Outlook gom chung thread */
+  inReplyTo?: string | null;
+  /** Chuỗi References (các Message-ID trước đó trong thread) */
+  references?: string | null;
 }
 
 export interface ManualMailResult {
@@ -278,6 +285,9 @@ export async function sendManualMail(input: ManualMailInput): Promise<ManualMail
     forSend = await loadForSend(input.attachments);
   }
 
+  const headers: Record<string, string> = {};
+  if (input.inReplyTo) headers["In-Reply-To"] = input.inReplyTo;
+  if (input.references) headers["References"] = input.references;
   const res = await transport({
     to: input.to,
     cc: input.cc,
@@ -286,6 +296,7 @@ export async function sendManualMail(input: ManualMailInput): Promise<ManualMail
     html,
     text: input.bodyText,
     attachments: forSend,
+    headers,
   });
   const store = getStore();
   const saved = await store

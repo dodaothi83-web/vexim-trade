@@ -180,8 +180,8 @@ export interface Activity {
   created_at: string;
 }
 
-export type MessageKind = "auto" | "manual";
-export type MessageStatus = "draft" | "sent" | "failed" | "simulated";
+export type MessageKind = "auto" | "manual" | "inbound";
+export type MessageStatus = "draft" | "sent" | "failed" | "simulated" | "received";
 export type MessageDirection = "buyer" | "supplier";
 
 /**
@@ -233,6 +233,10 @@ export interface EmailMessage {
   body_html: string;
   body_text: string;
   attachments: AttachmentRef[];
+  /** Thư đến: id email trong Resend Receiving (kiêm khoá chống trùng webhook) */
+  rfc_message_id?: string | null;
+  /** Thư đến: thời điểm đánh dấu đã đọc trong app; chưa có = chưa đọc */
+  read_at?: string | null;
   status: MessageStatus;
   provider: "resend" | "local";
   error: string | null;
