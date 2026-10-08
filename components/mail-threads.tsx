@@ -102,7 +102,12 @@ export function MailThreads({
   const router = useRouter();
   const toast = useToast();
   const [selected, setSelected] = useState<string | null>(threads[0]?.threadId ?? null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Giống Gmail: mở mạch thư là thư MỚI NHẤT tự mở sẵn nội dung, các thư cũ thu gọn
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const first = threads[0];
+    const last = first?.messages[first.messages.length - 1];
+    return new Set(last ? [last.id] : []);
+  });
   const [replyOpen, setReplyOpen] = useState(false);
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
@@ -111,17 +116,24 @@ export function MailThreads({
   const [composePrefill, setComposePrefill] = useState<ComposePrefill | undefined>(undefined);
   const [composeKey, setComposeKey] = useState(0);
   const marked = useRef<Set<string>>(new Set());
+  const lastThread = useRef<string | null>(threads[0]?.threadId ?? null);
 
   const current = useMemo(
     () => threads.find((t) => t.threadId === selected) ?? null,
     [threads, selected],
   );
 
-  // Mở hội thoại => đánh dấu đã đọc (một lần mỗi mạch), thu gọn toàn bộ thư
+  // Đổi hội thoại => đánh dấu đã đọc (một lần mỗi mạch) + tự mở sẵn thư mới nhất,
+  // thu gọn thư cũ. Chỉ reset khi đổi threadId — router.refresh() sau khi gửi không
+  // làm đóng mất thư người dùng vừa tự mở ra.
   useEffect(() => {
     if (!current) return;
-    setExpanded(new Set());
-    setReplyOpen(false);
+    if (lastThread.current !== current.threadId) {
+      lastThread.current = current.threadId;
+      const last = current.messages[current.messages.length - 1];
+      setExpanded(new Set(last ? [last.id] : []));
+      setReplyOpen(false);
+    }
     if (current.unread === 0) return;
     if (marked.current.has(current.threadId)) return;
     marked.current.add(current.threadId);
@@ -317,20 +329,28 @@ export function MailThreads({
                         className={cx("h-4 w-4 shrink-0 text-ink-400 transition", !open && "-rotate-90")}
                       />
                     </button>
-                    {open && (
-                      <div className="px-3 pb-4 pl-12">
-                        {m.status === "draft" ? (
-                          <Link href={`/mail/compose?draft=${m.id}`} className="btn btn-ghost px-2.5">
-                            <Pencil className="h-3.5 w-3.5" /> Mở bản nháp
-                          </Link>
-                        ) : (
-                          <SafeHtml
-                            html={m.bodyHtml}
-                            className="vxt-mail-body text-[13.5px] leading-6 text-ink-800"
-                          />
-                        )}
+                    {/* Xổ/thu mượt bằng grid-template-rows (0fr ↔ 1fr) — không giật khung */}
+                    <div
+                      className={cx(
+                        "grid transition-[grid-template-rows] duration-200 ease-out",
+                        open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                      )}
+                    >
+                      <div className="min-h-0 overflow-hidden" aria-hidden={!open}>
+                        <div className="px-3 pb-4 pl-12">
+                          {m.status === "draft" ? (
+                            <Link href={`/mail/compose?draft=${m.id}`} className="btn btn-ghost px-2.5">
+                              <Pencil className="h-3.5 w-3.5" /> Mở bản nháp
+                            </Link>
+                          ) : (
+                            <SafeHtml
+                              html={m.bodyHtml}
+                              className="vxt-mail-body text-[13.5px] leading-6 text-ink-800"
+                            />
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })}
