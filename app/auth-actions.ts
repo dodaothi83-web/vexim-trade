@@ -11,7 +11,7 @@ import {
   isMissingUsersTable,
 } from "@/lib/auth/authenticate";
 import { endSession, getSession, guard, startSession } from "@/lib/auth/session";
-import { hashPassword, passwordProblem } from "@/lib/auth/password";
+import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth/password";
 import { ROLES } from "@/lib/auth/permissions";
 import type { UserRole } from "@/lib/types";
 
@@ -310,6 +310,54 @@ export async function setLocalPasswordAction(
   password2: string,
 ): Promise<AuthResult> {
   return resetUserPasswordAction(id, password, password2);
+}
+
+/* -------- Tự đổi mật khẩu của chính người đang đăng nhập -------- */
+
+export async function changeMyPasswordAction(
+  current: string,
+  password: string,
+  password2: string,
+): Promise<AuthResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, message: "Phiên đã hết hạn, hãy đăng nhập lại." };
+
+  const problem = passwordProblem(password ?? "");
+  if (problem) return { ok: false, message: problem };
+  if (password !== password2) {
+    return { ok: false, message: "Hai lần nhập mật khẩu mới không khớp." };
+  }
+
+  const store = getStore();
+  const me = await store.getUserByEmail(session.email);
+  if (!me) return { ok: false, message: "Không tìm thấy tài khoản của bạn." };
+
+  // Kiểm tra mật khẩu hiện tại: so hash nội bộ nếu có; tài khoản chỉ sống bên
+  // Supabase (chưa có hash nội bộ) thì xác thực qua kênh auth Supabase.
+  if (me.password_hash) {
+    const okCurrent = await verifyPassword(current ?? "", me.password_hash);
+    if (!okCurrent) return { ok: false, message: "Mật khẩu hiện tại không đúng." };
+  } else {
+    const probe = await authenticate(session.email, current ?? "");
+    if (!probe.ok) return { ok: false, message: "Mật khẩu hiện tại không đúng." };
+  }
+
+  try {
+    await store.updateUser(me.id, { password_hash: await hashPassword(password) });
+    const alsoSupabase = await updateSupabasePasswordSilent(me.email, password);
+    revalidatePath("/", "layout");
+    return {
+      ok: true,
+      message: alsoSupabase
+        ? "Đã đổi mật khẩu (cả Supabase và mật khẩu nội bộ)."
+        : "Đã đổi mật khẩu nội bộ. (Chưa đổi được bên Supabase — không kết nối được.)",
+    };
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : "Lỗi không xác định";
+    const hint = describeAppUsersError(raw);
+    if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
+    return { ok: false, message: raw };
+  }
 }
 
 /* -------- Chữ ký email cá nhân (kiểu Gmail/Zoho: mỗi người tự sửa) -------- */

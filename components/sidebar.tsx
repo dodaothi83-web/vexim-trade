@@ -110,18 +110,26 @@ export function Sidebar({
       <div className="border-t border-white/10 p-3">
         {/* Người dùng đang đăng nhập */}
         <div className="mb-2 flex items-center gap-2 rounded-lg bg-white/5 px-2 py-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[12px] font-bold text-white">
-            {initials(session.name || session.email)}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[12.5px] font-semibold text-white">
-              {session.name || session.email}
+          {/* Bấm vào thẻ tên mình => mở Hồ sơ của tôi */}
+          <Link
+            href="/settings/profile"
+            onClick={() => setOpen(false)}
+            title="Hồ sơ của tôi"
+            className="-my-1 flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 pr-1 pl-0 transition hover:bg-white/10"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[12px] font-bold text-white">
+              {initials(session.name || session.email)}
             </span>
-            <span className="mt-0.5 flex items-center gap-1 text-[10.5px] text-brand-200/80">
-              <ShieldCheck className="h-3 w-3" />
-              {roleMeta(session.role).label}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[12.5px] font-semibold text-white">
+                {session.name || session.email}
+              </span>
+              <span className="mt-0.5 flex items-center gap-1 text-[10.5px] text-brand-200/80">
+                <ShieldCheck className="h-3 w-3" />
+                {roleMeta(session.role).label}
+              </span>
             </span>
-          </span>
+          </Link>
           <form action={logoutAction}>
             <button
               type="submit"
