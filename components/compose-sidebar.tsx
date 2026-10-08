@@ -7,13 +7,13 @@ import {
   CalendarClock,
   CheckCircle2,
   CircleAlert,
-  Eye,
   History,
   Info,
   ListChecks,
   Package,
   ShieldAlert,
   TriangleAlert,
+  UserRound,
 } from "lucide-react";
 
 import {
@@ -22,13 +22,17 @@ import {
   vietnameseRatio,
   type SensitiveTerm,
 } from "@/lib/email/privacy";
-import { withPreviewPadding, wrapPlainEmail } from "@/lib/email/templates";
 import { getStage } from "@/lib/pipeline";
 import { roleLabel, statusMeta } from "@/lib/supplier";
 import type { ComposeContext, RecentMail } from "@/lib/compose-context";
-import { Badge, cx, formatDate, formatDateTime } from "@/components/ui";
+import { Badge, cx, formatDate, formatDateTime, formatMoney } from "@/components/ui";
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const PRIORITY_LABEL: Record<string, string> = {
+  low: "Ưu tiên thấp",
+  normal: "Ưu tiên thường",
+  high: "Ưu tiên cao",
+};
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Level = "ok" | "warn" | "error" | "info";
@@ -68,17 +72,6 @@ export function ComposeSidebar({
   const isBuyerDir = direction === "buyer";
   const deferredBody = useDeferredValue(bodyHtml);
   const deferredSubject = useDeferredValue(subject);
-
-  const previewHtml = useMemo(
-    () =>
-      wrapPlainEmail({
-        title: deferredSubject.trim() || "(chưa có tiêu đề)",
-        body:
-          deferredBody.trim() ||
-          '<p style="color:#94a3b8;font-style:italic">(chưa có nội dung)</p>',
-      }),
-    [deferredSubject, deferredBody],
-  );
 
   // Bỏ khối chữ ký (vốn có sẵn vài chữ tiếng Việt như "Trân trọng") trước khi
   // phân tích ngôn ngữ / dò thông tin, để không báo nhầm.
@@ -244,19 +237,27 @@ export function ComposeSidebar({
   const errors = checks.filter((c) => c.level === "error").length;
   const warnings = checks.filter((c) => c.level === "warn").length;
 
-  const relatedRecent = useMemo(
+  const relatedAll = useMemo(
     () =>
       active
-        ? recent
-            .filter(
-              (m) =>
-                m.buyer_id === active.id ||
-                m.supplier_id === active.id ||
-                (relatedBuyer && m.buyer_id === relatedBuyer.id && direction === "supplier"),
-            )
-            .slice(0, 6)
+        ? recent.filter(
+            (m) =>
+              m.buyer_id === active.id ||
+              m.supplier_id === active.id ||
+              (relatedBuyer && m.buyer_id === relatedBuyer.id && direction === "supplier"),
+          )
         : [],
     [recent, active, relatedBuyer, direction],
+  );
+  const relatedRecent = useMemo(() => relatedAll.slice(0, 6), [relatedAll]);
+  const mailStats = useMemo(
+    () => ({
+      total: relatedAll.length,
+      sent: relatedAll.filter((m) => m.kind !== "inbound").length,
+      inbound: relatedAll.filter((m) => m.kind === "inbound").length,
+      last: relatedAll[0]?.created_at ?? null,
+    }),
+    [relatedAll],
   );
 
   return (
@@ -285,25 +286,91 @@ export function ComposeSidebar({
         </div>
       )}
 
-      {/* Xem trước email */}
+      {/* Tóm tắt đối tác – đọc trước để viết email đúng giọng, đúng ý */}
       <section className="card overflow-hidden">
         <header className="flex items-center gap-2 border-b border-ink-200 px-3.5 py-2.5">
-          <Eye className="h-3.5 w-3.5 text-brand-700" />
-          <h2 className="text-[13px] font-bold text-ink-900">Xem trước</h2>
-          <span className="ml-auto text-[11px] text-ink-400">như người nhận thấy</span>
+          <UserRound className="h-3.5 w-3.5 text-brand-700" />
+          <h2 className="text-[13px] font-bold text-ink-900">
+            {active
+              ? active.kind === "buyer"
+                ? "Tóm tắt buyer"
+                : "Tóm tắt NCC"
+              : "Tóm tắt đối tác"}
+          </h2>
+          <span className="ml-auto text-[11px] text-ink-400">đọc trước khi viết</span>
         </header>
-        <div className="border-b border-ink-100 px-3.5 py-2 text-[12px]">
-          <p className="truncate text-ink-500">
-            <span className="text-ink-400">Tiêu đề: </span>
-            <strong className="text-ink-800">{subject.trim() || "(chưa có tiêu đề)"}</strong>
+        {!active ? (
+          <p className="px-3.5 py-3 text-[12.5px] text-ink-500">
+            Chọn người nhận từ danh sách buyer / NCC để xem hồ sơ tóm tắt, ghi chú nội bộ và
+            lịch sử trao đổi — giúp viết email đúng giọng và đúng ý đối tác đó.
           </p>
-        </div>
-        <iframe
-          title="Xem trước email"
-          srcDoc={withPreviewPadding(previewHtml)}
-          sandbox=""
-          className="h-[360px] w-full border-0 bg-white"
-        />
+        ) : (
+          <div className="space-y-2.5 px-3.5 py-3 text-[12.5px]">
+            <div>
+              <p className="text-[13.5px] font-bold text-ink-900">{active.name}</p>
+              <p className="mt-0.5 text-ink-500">
+                {[active.contactName, active.contactTitle, active.country]
+                  .filter(Boolean)
+                  .join(" · ") || "—"}
+              </p>
+              <p className="mt-0.5 truncate text-ink-500">
+                {[active.email, active.phone].filter(Boolean).join(" · ") || "—"}
+              </p>
+            </div>
+
+            {active.kind === "buyer" ? (
+              <dl className="space-y-1">
+                <Row
+                  label="Ưu tiên"
+                  value={active.priority ? (PRIORITY_LABEL[active.priority] ?? active.priority) : null}
+                />
+                <Row label="Nguồn lead" value={active.source} />
+                <Row
+                  label="Giá trị đơn"
+                  value={active.dealValue != null ? formatMoney(active.dealValue) : null}
+                />
+                <Row label="Tạo lead" value={active.createdAt ? formatDate(active.createdAt) : null} />
+              </dl>
+            ) : (
+              <dl className="space-y-1">
+                <Row label="Đánh giá" value={active.rating != null ? `${active.rating}/5` : null} />
+                <Row
+                  label="Vào hệ thống"
+                  value={active.createdAt ? formatDate(active.createdAt) : null}
+                />
+              </dl>
+            )}
+
+            <div className="rounded-lg bg-ink-50 p-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                Ghi chú nội bộ
+              </p>
+              {active.notes ? (
+                <p className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-ink-700">
+                  {active.notes}
+                </p>
+              ) : (
+                <p className="mt-1 text-[12px] text-ink-500">
+                  Chưa có ghi chú — thêm ở hồ sơ để cả đội nắm bối cảnh đối tác.
+                </p>
+              )}
+            </div>
+
+            <p className="flex items-start gap-1.5 text-[12px] text-ink-600">
+              <History className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-400" />
+              <span>
+                {mailStats.total > 0 ? (
+                  <>
+                    Đã trao đổi {mailStats.total} email ({mailStats.sent} gửi · {mailStats.inbound} nhận)
+                    {mailStats.last ? ` — gần nhất ${formatDateTime(mailStats.last)}` : ""}
+                  </>
+                ) : (
+                  "Chưa trao đổi email nào với đối tác này."
+                )}
+              </span>
+            </p>
+          </div>
+        )}
       </section>
 
       {/* Ngữ cảnh đơn hàng */}

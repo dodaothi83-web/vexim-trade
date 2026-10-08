@@ -38,6 +38,12 @@ export interface ComposeContext {
   nextAction?: string | null;
   nextActionDate?: string | null;
   owner?: string | null;
+  /** Hồ sơ tóm tắt cho cột phải trang soạn thư */
+  notes?: string | null;
+  source?: string | null;
+  priority?: string | null;
+  dealValue?: number | null;
+  createdAt?: string | null;
   /** NCC đã gắn vào đơn (nếu có) */
   linkedSupplier?: { name: string; email: string | null; status: string } | null;
   /** Buyer cho phép công khai với NCC hay đang yêu cầu ẩn danh */
@@ -52,6 +58,7 @@ export interface ComposeContext {
   productsSummary?: string | null;
   paymentTerms?: string | null;
   leadTimeDays?: number | null;
+  rating?: number | null;
   /** Các chuỗi của buyer không nên lộ trong email gửi NCC */
   buyerSensitive: SensitiveTerm[];
 }
@@ -101,6 +108,11 @@ export function buildBuyerContext(
     nextAction: buyer.next_action,
     nextActionDate: buyer.next_action_date,
     owner: buyer.owner,
+    notes: buyer.notes,
+    source: buyer.source,
+    priority: buyer.priority,
+    dealValue: buyer.deal_value,
+    createdAt: buyer.created_at,
     linkedSupplier: supplier
       ? { name: supplier.name, email: supplier.email, status: supplier.status }
       : null,
@@ -134,6 +146,9 @@ export function buildSupplierContext(
       null,
     paymentTerms: supplier.payment_terms,
     leadTimeDays: supplier.lead_time_days,
+    notes: supplier.notes,
+    rating: supplier.rating,
+    createdAt: supplier.created_at,
     supplierSensitive: [],
     buyerSensitive: [],
   };
