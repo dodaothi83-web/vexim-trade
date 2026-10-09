@@ -12,7 +12,9 @@ export const COMPANY = {
   email: env.EMAIL_FROM?.trim() || "sales@veximtrade.com",
   website: env.COMPANY_WEBSITE?.trim() || "https://veximtrade.com",
   phone: env.COMPANY_PHONE?.trim() || "+84373685634",
-  address: env.COMPANY_ADDRESS?.trim() || "Tòa W2 - The Wisteria, Kim Chung, Hoai Duc, Ha Noi",
+  address:
+    env.COMPANY_ADDRESS?.trim() ||
+    "W2 Tower, Binh Minh Boulevard, Hinode Royal Park Urban Area, Km14 - Km16 National Route 32, Kim Chung and Di Trach Communes, Hoai Duc District, Hanoi, Vietnam",
   tagline: "Vietnam Export Sourcing Partner",
 };
 
