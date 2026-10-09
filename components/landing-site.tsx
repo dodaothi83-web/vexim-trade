@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
-  FileCheck2,
+  Info,
   Loader2,
   Mail,
   MapPin,
@@ -17,34 +17,53 @@ import { submitQuoteLeadAction } from "@/app/actions";
 import { COMPANY } from "@/lib/config";
 
 /**
- * Landing viết theo đúng bản chất Veximtrade rút từ chuỗi email outreach:
- * buyer không thiếu nhà cung cấp, họ thiếu thời gian sàng lọc. Vexim làm
- * "first pass" ở Việt Nam để danh sách đến tay buyer chỉ còn vài nguồn đáng
- * trao đổi. Giọng điệu: mạch lạc, cụ thể, không hứa hẹn phô trương.
+ * Landing viết từ vị trí đại diện: Veximtrade là đơn vị bán hàng xuất khẩu cho
+ * nhà sản xuất Việt Nam đã chọn. Buyer được nói chuyện trực tiếp với Vexim, nhưng
+ * luôn thấy rõ: nhà sản xuất nói gì, Vexim đã xác minh gì, và điều gì còn mở.
+ * Giọng điệu: ngắn, rõ, không phô trương, quyết định thuộc về buyer.
  */
 
-const SCREENING_WORK = [
-  "Checking whether the company is real: registry, history, people.",
-  "Reading specs and deciding if the product actually matches your market.",
-  "Chasing export history: who they shipped to, how often, how it ended.",
-  "Quotations, samples, import requirements. Again, for every new source.",
+const OPEN_QUESTIONS = [
+  "Is the spec on the sheet the one that will actually ship?",
+  "Which season and which lot does this price come from?",
+  "What paperwork can the producer provide, and when?",
+  "What is the minimum order, and how is it packed?",
 ];
 
-const WHAT_WE_DO = [
+const HOW_WE_LABEL = [
+  {
+    icon: Info,
+    title: "Stated by the producer",
+    desc: "Specs, capacity and certificates the producer gives us. We mark them as stated, not checked.",
+  },
+  {
+    icon: CheckCircle2,
+    title: "Verified by us",
+    desc: "Items we checked against documents or records. Each one shows what it was checked against.",
+  },
   {
     icon: Search,
-    title: "We find the candidates",
-    desc: "On the ground in Vietnam, in the categories we know, not from a web search at midnight.",
+    title: "Still open",
+    desc: "Points we have not confirmed yet. We list them, so you can ask before you rely on them.",
+  },
+];
+
+const REPLY_CONTENTS = [
+  "Product: grade, spec and packing, as stated by the producer.",
+  "Verified: the items we confirmed, with the document or record behind each one.",
+  "Open: what still needs an answer before you rely on it.",
+  "Availability: the volume and season we can confirm for the period.",
+  "Next step: a call with the producer, or a plain “not yet this season.”",
+];
+
+const PRODUCTS = [
+  {
+    title: "Cashew kernels",
+    desc: "Grades W240, W320, W450 and splits. Packing, crop season and lot QC are described per offer, and we mark what is confirmed.",
   },
   {
-    icon: FileCheck2,
-    title: "We check what matters",
-    desc: "Production capacity, product and spec fit, export history, and the requirements your market will ask about.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "We keep filtering",
-    desc: "Until what reaches your inbox is a short list worth a conversation, or an honest “not yet, this season”.",
+    title: "Other Vietnamese food products",
+    desc: "We add a category only when we can answer the questions above for it. Until then, we will tell you that plainly.",
   },
 ];
 
@@ -108,15 +127,15 @@ export function LandingSite() {
         <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3 sm:px-6">
           <Logo className="h-12 w-[65px] shrink-0" />
           <nav className="ml-auto hidden items-center gap-5 text-[13px] font-medium text-slate-300 md:flex">
-            <a href="#cost" className="transition hover:text-white">The real cost</a>
-            <a href="#work" className="transition hover:text-white">What we do</a>
-            <a href="#start" className="transition hover:text-white">Where we start</a>
+            <a href="#cost" className="transition hover:text-white">Why it costs time</a>
+            <a href="#work" className="transition hover:text-white">How we represent</a>
+            <a href="#start" className="transition hover:text-white">Products</a>
           </nav>
           <a
             href="#send"
             className="ml-auto flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-brand-700 md:ml-0"
           >
-            Send a requirement
+            Ask about a product
             <ArrowRight className="h-3.5 w-3.5" />
           </a>
         </div>
@@ -130,32 +149,30 @@ export function LandingSite() {
             Veximtrade · a Vexim Global company
           </p>
           <h1 className="mt-6 max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-            Finding suppliers in Vietnam is easy.
-            <span className="text-brand-300"> Knowing which ones deserve your team’s time is not.</span>
+            We represent Vietnamese food producers.
+            <span className="text-brand-300"> We tell you what is confirmed.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-[16px] leading-relaxed text-slate-300">
-            Every new source arrives with homework: company records, specs, export history,
-            quotations, samples, import requirements. Multiply that by ten sources and most of
-            the month goes to <strong className="font-semibold text-white">filtering</strong>, not
-            deciding.
+            Veximtrade handles export sales for selected Vietnamese producers. When a product
+            reaches your team, you should know three things: what the producer states, what we
+            have verified, and what is still open.
           </p>
           <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-slate-300">
-            We do that part. The first pass, on the ground in Vietnam, before a supplier ever
-            reaches your inbox.
+            Then you decide whether to talk to the producer. That decision stays with you.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             <a
               href="#send"
               className="flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-[14px] font-bold text-white transition hover:bg-brand-700"
             >
-              Send us one requirement
+              Ask about a product
               <ArrowRight className="h-4 w-4" />
             </a>
             <a
               href="#work"
               className="rounded-full border border-white/20 px-6 py-3 text-[14px] font-semibold text-slate-200 transition hover:bg-white/10"
             >
-              See what we take off your plate
+              How we represent producers
             </a>
           </div>
         </div>
@@ -164,46 +181,52 @@ export function LandingSite() {
       {/* ---------- The real cost ---------- */}
       <section id="cost" className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
         <h2 className="max-w-2xl text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-          Sourcing has a line item nobody budgets for: the screening.
+          The real cost of a new supplier is the questions nobody answered.
         </h2>
         <div className="mt-8 grid gap-10 lg:grid-cols-2">
           <div className="space-y-4 text-[15px] leading-relaxed text-slate-600">
             <p>
-              The price on the quotation is not the whole cost. Before there is a price, there is
-              the search, and the search is where the weeks go.
+              A product sheet is not an answer. The price, the spec, the season and the paperwork
+              each arrive one email at a time.
             </p>
             <p>
-              Do it for every new product and the screening becomes the project. Your team did not
-              join to read registries all quarter.
+              Each unclear point sends your team back to the producer, then back to the inbox.
+              That loop takes the weeks, not the price.
             </p>
             <p className="font-semibold text-ink-900">
-              That is the work we built Veximtrade to absorb.
+              We keep that loop on our side of the table, and we label every answer with its
+              source.
             </p>
           </div>
-          <ul className="space-y-3">
-            {SCREENING_WORK.map((t) => (
-              <li key={t} className="flex items-start gap-2.5 rounded-xl border border-ink-200 bg-white px-4 py-3 text-[13.5px] leading-relaxed text-slate-600">
-                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
-                {t}
-              </li>
-            ))}
-          </ul>
+          <div>
+            <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-slate-400">
+              Questions we answer before they reach you
+            </p>
+            <ul className="space-y-3">
+              {OPEN_QUESTIONS.map((t) => (
+                <li key={t} className="flex items-start gap-2.5 rounded-xl border border-ink-200 bg-white px-4 py-3 text-[13.5px] leading-relaxed text-slate-600">
+                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 
-      {/* ---------- What we do ---------- */}
+      {/* ---------- How we represent ---------- */}
       <section id="work" className="border-y border-ink-100 bg-ink-50/60">
         <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
           <h2 className="text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-            We are not a directory. There is nothing to browse.
+            We represent the producer. You are the one we talk to.
           </h2>
           <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-slate-600">
-            You send a requirement. We work the Vietnam side, searching, vetting, checking,
-            and return what your team can actually use: a short list worth talking to, or a
-            straight answer that now is not the season. Either way, the decision stays yours.
+            Veximtrade is the sales desk for the producers we represent. We know what they make,
+            how it is packed, and what they can provide. We do not present a product as verified
+            until we have checked it.
           </p>
           <div className="mt-9 grid gap-4 md:grid-cols-3">
-            {WHAT_WE_DO.map((s) => (
+            {HOW_WE_LABEL.map((s) => (
               <div key={s.title} className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
                 <s.icon className="h-5 w-5 text-brand-700" />
                 <h3 className="mt-3 text-[14.5px] font-bold text-ink-900">{s.title}</h3>
@@ -213,87 +236,52 @@ export function LandingSite() {
           </div>
           <div className="mt-8 rounded-2xl bg-ink-900 p-6 text-white">
             <p className="text-[15px] leading-relaxed">
-              <strong className="font-bold">The deal, in one sentence:</strong> we spend the weeks
-              on the first pass so your team spends its hours on the few sources that deserve a
-              conversation, and you remain the one who decides.
+              <strong className="font-bold">Who pays:</strong> producers pay Veximtrade to represent
+              them. You do not pay us to receive a product sheet or a first reply.
             </p>
           </div>
           <div className="mt-6 grid gap-4 md:grid-cols-[1.25fr_1fr]">
             <div className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
-              <p className="text-[13px] font-bold text-ink-900">What the first pass returns</p>
+              <p className="text-[13px] font-bold text-ink-900">What a reply contains</p>
               <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
-                An illustrative format, not a real supplier profile or completed verification.
-                We share what was checked, what remains open, and the evidence behind each point.
+                A sample layout, not a real producer profile. Every reply separates what is stated
+                from what is verified.
               </p>
               <ul className="mt-3 space-y-1.5 text-[13px] leading-relaxed text-slate-600">
-                <li>
-                  <span className="font-semibold text-ink-900">Company:</span> verified legal name
-                  and registration source.
-                </li>
-                <li>
-                  <span className="font-semibold text-ink-900">Export history:</span> markets and
-                  available supporting records.
-                </li>
-                <li>
-                  <span className="font-semibold text-ink-900">Product fit:</span> grades and specs
-                  checked against your requirement.
-                </li>
-                <li>
-                  <span className="font-semibold text-ink-900">Capacity:</span> confirmed volume
-                  and the basis for that figure.
-                </li>
-                <li>
-                  <span className="font-semibold text-ink-900">Open points:</span> gaps or risks
-                  still needing an answer.
-                </li>
-                <li>
-                  <span className="font-semibold text-ink-900">Next step:</span> worth a conversation,
-                  or not yet.
-                </li>
+                {REPLY_CONTENTS.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
               </ul>
             </div>
             <div className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
-              <p className="text-[13px] font-bold text-ink-900">
-                What we check
-              </p>
+              <p className="text-[13px] font-bold text-ink-900">What we ask you for</p>
               <ul className="mt-3 space-y-1.5 text-[13px] leading-relaxed text-slate-600">
-                <li>Company identity and registration details.</li>
-                <li>Product specifications against your requirement.</li>
-                <li>Export history and the records available to support it.</li>
-                <li>What is confirmed, what is not, and what needs follow-up.</li>
+                <li>Product and the spec you need.</li>
+                <li>Quantity and destination port.</li>
+                <li>Delivery window and Incoterm.</li>
+                <li>Certificates your market requires.</li>
               </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ---------- Where we start ---------- */}
+      {/* ---------- Products ---------- */}
       <section id="start" className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-        <h2 className="text-2xl font-black tracking-tight text-ink-900">Where our network runs deepest</h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          {[
-            [
-              "Cashew kernels",
-              "W240, W320, W450, splits: grades, packing, crop seasons and lot-level QC we know by name.",
-            ],
-            [
-              "Vietnamese produce",
-              "Coffee, pepper, dried fruit and more, sourced through the same vetted producer network.",
-            ],
-            [
-              "Your category, next",
-              "The method is category-agnostic. Credibility is earned per category, and we tell you honestly where we are today.",
-            ],
-          ].map(([t, d]) => (
-            <div key={t} className="rounded-2xl border border-ink-200 bg-white p-5">
-              <h3 className="text-[14.5px] font-bold text-ink-900">{t}</h3>
-              <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">{d}</p>
+        <h2 className="text-2xl font-black tracking-tight text-ink-900">
+          What we represent today.
+        </h2>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          {PRODUCTS.map((p) => (
+            <div key={p.title} className="rounded-2xl border border-ink-200 bg-white p-5">
+              <h3 className="text-[14.5px] font-bold text-ink-900">{p.title}</h3>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">{p.desc}</p>
             </div>
           ))}
         </div>
         <p className="mt-5 text-[13px] text-slate-500">
-          Backed by the Vexim Global ecosystem in Hanoi: production, processing and international
-          trade under one roof.{" "}
+          Ask about any product. If we do not represent it yet, we will say so.{" "}
+          Veximtrade is part of the Vexim Global ecosystem in Hanoi.{" "}
           <a
             href="https://www.veximglobal.com/"
             target="_blank"
@@ -311,16 +299,15 @@ export function LandingSite() {
           <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr]">
             <div>
               <h2 className="text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-                Start with one product.
+                Ask about one product.
               </h2>
               <p className="mt-4 text-[15px] leading-relaxed text-slate-600">
-                Tell us what you are sourcing. Within one working day we will look at the Vietnam
-                side and tell you whether there is a source worth your time, and what the first
-                pass found.
+                Tell us the product and the spec. Within one working day we reply with what is
+                stated, what is verified, what is still open, and the next step.
               </p>
               <p className="mt-3 text-[14px] leading-relaxed text-slate-500">
-                No portal, no subscription, no pressure. If Vietnam is not the answer this season,
-                we will say so plainly. Keep our contact for the next one.
+                No portal and no subscription. If the answer is not yet this season, we say so
+                plainly.
               </p>
               <ul className="mt-7 space-y-2.5 text-[13px] text-slate-600">
                 <li className="flex items-center gap-2.5">
@@ -342,7 +329,7 @@ export function LandingSite() {
               <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-6">
                 <p className="flex items-center gap-2 text-[15px] font-bold text-emerald-800">
                   <CheckCircle2 className="h-5 w-5" />
-                  Requirement received
+                  Request received
                 </p>
                 <p className="mt-2 text-[13.5px] leading-relaxed text-emerald-900">{done}</p>
               </div>
@@ -426,14 +413,13 @@ export function LandingSite() {
                       className="input min-h-[64px]"
                       value={form.message}
                       onChange={(e) => set("message", e.target.value)}
-                      placeholder="Grade or spec, packing, delivery schedule, Incoterm, target price"
+                      placeholder="Grade or spec, packing, delivery window, Incoterm, destination port, certificates you need"
                     />
                   </label>
                 </div>
                 <p className="mt-2 text-[11.5px] leading-relaxed text-slate-400">
-                  Only company, email and product are required. Market or destination, quantity,
-                  grade or spec, packing, delivery schedule, Incoterm and target price are optional,
-                  but they help us make a sharper first pass.
+                  Only company, email and product are required. The other fields are optional, but
+                  they help us give you a sharper first reply.
                 </p>
                 {error && <p className="mt-2 text-[12.5px] font-semibold text-red-600">{error}</p>}
                 <button
@@ -442,10 +428,10 @@ export function LandingSite() {
                   className="mt-4 flex items-center gap-2 rounded-full bg-brand-600 px-6 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-brand-700 disabled:opacity-60"
                 >
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                  Send it over
+                  Send request
                 </button>
                 <p className="mt-2 text-[11.5px] text-slate-400">
-                  One working day for a first look. Your details stay with our export desk.
+                  One working day for the first reply. Your details stay with our export desk.
                 </p>
               </form>
             )}
@@ -466,7 +452,7 @@ export function LandingSite() {
               {COMPANY.phone} · {COMPANY.email}
             </p>
             <p className="mt-3 text-[12.5px] italic text-slate-500">
-              We do the first pass, so your team can do the deciding.
+              We represent the producer. We tell you what is confirmed.
             </p>
           </div>
           <div className="text-[12.5px]">
