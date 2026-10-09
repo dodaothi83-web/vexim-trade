@@ -10,15 +10,14 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   metadataBase: new URL(SITE_URL),
   alternates: { canonical: "/" },
-  title: "Vietnamese food products, represented by Veximtrade",
+  title: "Find the right Vietnamese food producer for your brief | Veximtrade",
   description:
-    "Veximtrade represents selected Vietnamese food producers in export sales. Ask about a product " +
-    "and get what the producer states, what we have verified, and what is still open. " +
-    "A Vexim Global company.",
+    "Send Veximtrade your food sourcing brief. We match it with a selected Vietnamese producer where one fits, " +
+    "and tell you plainly where none does. A Vexim Global company.",
   openGraph: {
-    title: "Vietnamese food products, represented by Veximtrade",
+    title: "Find the right Vietnamese food producer for your brief | Veximtrade",
     description:
-      "We represent selected Vietnamese producers and tell you what is confirmed and what is still open. " +
+      "Tell us what you need. We review the brief and connect you with a suitable Vietnamese producer where available. " +
       "A Vexim Global company.",
     url: SITE_URL,
     siteName: "Vexim Trade",

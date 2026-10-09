@@ -23,6 +23,21 @@ import { COMPANY } from "@/lib/config";
  * Giọng điệu: ngắn, rõ, không phô trương, quyết định thuộc về buyer.
  */
 
+const HOW_IT_WORKS = [
+  {
+    title: "You tell us what you need",
+    desc: "Product, spec or grade, volume, destination port, delivery window and Incoterm. The more precise, the faster we match.",
+  },
+  {
+    title: "We review the brief",
+    desc: "We check it against the producers we represent, and against what they can supply in the season you need.",
+  },
+  {
+    title: "We tell you what we found",
+    desc: "A producer that fits, with what is stated, what is verified and what is still open. Or a plain answer that no fit exists yet.",
+  },
+];
+
 const OPEN_QUESTIONS = [
   "Is the spec on the sheet the one that will actually ship?",
   "Which season and which lot does this price come from?",
@@ -124,14 +139,14 @@ export function LandingSite() {
           <Logo className="h-12 w-[65px] shrink-0" />
           <nav className="ml-auto hidden items-center gap-5 text-[13px] font-medium text-slate-300 md:flex">
             <a href="#cost" className="transition hover:text-white">Why it costs time</a>
-            <a href="#work" className="transition hover:text-white">How we represent</a>
-            <a href="#start" className="transition hover:text-white">What we represent</a>
+            <a href="#work" className="transition hover:text-white">How it works</a>
+            <a href="#start" className="transition hover:text-white">Who we represent</a>
           </nav>
           <a
             href="#send"
             className="ml-auto flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-brand-700 md:ml-0"
           >
-            Ask about a product
+            Tell us what you are sourcing
             <ArrowRight className="h-3.5 w-3.5" />
           </a>
         </div>
@@ -145,30 +160,28 @@ export function LandingSite() {
             Veximtrade · a Vexim Global company
           </p>
           <h1 className="mt-6 max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-            We represent Vietnamese food producers.
-            <span className="text-brand-300"> We tell you what is confirmed.</span>
+            Finding the right Vietnamese producer should not take your whole quarter.
           </h1>
           <p className="mt-6 max-w-2xl text-[16px] leading-relaxed text-slate-300">
-            Veximtrade handles export sales for selected Vietnamese producers. When a product
-            reaches your team, you should know three things: what the producer states, what we
-            have verified, and what is still open.
+            Tell us what you need: the product, the spec, the volume and the port. We review your
+            brief and connect you with a suitable Vietnamese producer where one is available.
           </p>
           <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-slate-300">
-            Then you decide whether to talk to the producer. That decision stays with you.
+            Where no producer fits, we tell you so. You keep your time.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             <a
               href="#send"
               className="flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-[14px] font-bold text-white transition hover:bg-brand-700"
             >
-              Ask about a product
+              Tell us what you are sourcing
               <ArrowRight className="h-4 w-4" />
             </a>
             <a
               href="#work"
               className="rounded-full border border-white/20 px-6 py-3 text-[14px] font-semibold text-slate-200 transition hover:bg-white/10"
             >
-              How we represent producers
+              How it works
             </a>
           </div>
         </div>
@@ -177,21 +190,20 @@ export function LandingSite() {
       {/* ---------- The real cost ---------- */}
       <section id="cost" className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
         <h2 className="max-w-2xl text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-          The real cost of a new supplier is the questions nobody answered.
+          An unmatched supplier costs you a week. Usually more.
         </h2>
         <div className="mt-8 grid gap-10 lg:grid-cols-2">
           <div className="space-y-4 text-[15px] leading-relaxed text-slate-600">
             <p>
-              A product sheet is not an answer. The price, the spec, the season and the paperwork
-              each arrive one email at a time.
+              A list of suppliers is not a match. Each name brings another email, another spec
+              sheet, another call that goes nowhere.
             </p>
             <p>
-              Each unclear point sends your team back to the producer, then back to the inbox.
-              That loop takes the weeks, not the price.
+              Your team pays for that search in hours that should have gone to the one producer
+              who fits. That is the cost nobody puts on the budget.
             </p>
             <p className="font-semibold text-ink-900">
-              We keep that loop on our side of the table, and we label every answer with its
-              source.
+              We do the matching before your team is involved.
             </p>
           </div>
           <div>
@@ -210,32 +222,26 @@ export function LandingSite() {
         </div>
       </section>
 
-      {/* ---------- How we represent ---------- */}
+      {/* ---------- How it works ---------- */}
       <section id="work" className="border-y border-ink-100 bg-ink-50/60">
         <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
           <h2 className="text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-            We represent the producer. You are the one we talk to.
+            You send the brief. We do the matching.
           </h2>
-          <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-slate-600">
-            Veximtrade is the sales desk for the producers we represent. We know what they make,
-            how it is packed, and what they can provide. We do not present a product as verified
-            until we have checked it.
-          </p>
-          <div className="mt-9 grid gap-4 md:grid-cols-3">
-            {HOW_WE_LABEL.map((s) => (
-              <div key={s.title} className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
-                <s.icon className="h-5 w-5 text-brand-700" />
-                <h3 className="mt-3 text-[14.5px] font-bold text-ink-900">{s.title}</h3>
+          <ol className="mt-9 grid gap-4 md:grid-cols-3">
+            {HOW_IT_WORKS.map((s, i) => (
+              <li key={s.title} className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
+                <p className="text-[12px] font-semibold text-slate-400">Step {i + 1}</p>
+                <h3 className="mt-2 text-[14.5px] font-bold text-ink-900">{s.title}</h3>
                 <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">{s.desc}</p>
-              </div>
+              </li>
             ))}
-          </div>
-          <div className="mt-6 grid gap-4 md:grid-cols-[1.25fr_1fr]">
+          </ol>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
               <p className="text-[13px] font-bold text-ink-900">What a reply contains</p>
               <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
-                A sample layout, not a real producer profile. Every reply separates what is stated
-                from what is verified.
+                Every reply separates what the producer states from what we have verified.
               </p>
               <ul className="mt-3 space-y-1.5 text-[13px] leading-relaxed text-slate-600">
                 {REPLY_CONTENTS.map((t) => (
@@ -244,11 +250,11 @@ export function LandingSite() {
               </ul>
             </div>
             <div className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
-              <p className="text-[13px] font-bold text-ink-900">What we ask you for</p>
+              <p className="text-[13px] font-bold text-ink-900">What helps us match faster</p>
               <ul className="mt-3 space-y-1.5 text-[13px] leading-relaxed text-slate-600">
-                <li>Product and the spec you need.</li>
-                <li>Quantity and destination port.</li>
-                <li>Delivery window and Incoterm.</li>
+                <li>Product and the spec or grade you need.</li>
+                <li>Volume, destination port and delivery window.</li>
+                <li>Incoterm and payment method you expect.</li>
                 <li>Certificates your market requires.</li>
               </ul>
             </div>
@@ -256,10 +262,10 @@ export function LandingSite() {
         </div>
       </section>
 
-      {/* ---------- What we represent ---------- */}
+      {/* ---------- Who we represent ---------- */}
       <section id="start" className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
         <h2 className="text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-          What we represent.
+          We are not a directory. We represent a selected group of producers.
         </h2>
         <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-slate-600">
           From cashew kernels and coffee to pepper and dried fruit, we represent selected
@@ -267,6 +273,10 @@ export function LandingSite() {
           producer to understand its specifications, grades, seasonality, packing and export
           requirements. We share what the producer states, what we have checked, and what still
           needs confirmation. That way, buyers can assess each offer with clarity.
+        </p>
+        <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-slate-600">
+          We do not hold every product, and we will not pretend to. If your product is outside
+          what we represent, we say so in our reply.
         </p>
       </section>
 
@@ -276,14 +286,14 @@ export function LandingSite() {
           <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr]">
             <div>
               <h2 className="text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-                Ask about one product.
+                Tell us what you need.
               </h2>
               <p className="mt-4 text-[15px] leading-relaxed text-slate-600">
-                Tell us the product and the spec. Within one working day we reply with what is
-                stated, what is verified, what is still open, and the next step.
+                Describe the product, the spec, the volume and where it goes. Within one working day
+                we reply with what is stated, what is verified, what is still open, and the next step.
               </p>
               <p className="mt-3 text-[14px] leading-relaxed text-slate-500">
-                No portal and no subscription. If the answer is not yet this season, we say so
+                No portal and no subscription. If we cannot find a fit this season, we say so
                 plainly.
               </p>
               <ul className="mt-7 space-y-2.5 text-[13px] text-slate-600">
@@ -440,7 +450,7 @@ export function LandingSite() {
                   className="mt-4 flex items-center gap-2 rounded-full bg-brand-600 px-6 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-brand-700 disabled:opacity-60"
                 >
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                  Send request
+                  Submit sourcing request
                 </button>
                 <p className="mt-2 text-[11.5px] text-slate-400">
                   One working day for the first reply. Your details stay with our export desk.
@@ -464,7 +474,7 @@ export function LandingSite() {
               {COMPANY.phone} · {COMPANY.email}
             </p>
             <p className="mt-3 text-[12.5px] italic text-slate-500">
-              We represent the producer. We tell you what is confirmed.
+              We match the brief. The decision stays with you.
             </p>
           </div>
           <div className="text-[12.5px]">
