@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/auth/session";
 import { LandingSite } from "@/components/landing-site";
+import { GoogleTag } from "@/components/google-tag";
 import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -38,5 +39,10 @@ export default async function PublicHomePage() {
   const host = ((await headers()).get("host") ?? "").toLowerCase();
   if (host.startsWith("crm.") || host.endsWith(".vercel.app")) redirect("/login");
 
-  return <LandingSite />;
+  return (
+    <>
+      <GoogleTag />
+      <LandingSite />
+    </>
+  );
 }
