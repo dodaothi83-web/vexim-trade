@@ -477,22 +477,16 @@ export function LandingSite() {
             >
               www.veximglobal.com
             </a>
-            <div className="mt-4 flex items-center gap-2">
+            <div className="mt-4 flex items-center gap-3">
               <a
                 href="https://www.linkedin.com/company/vexim-global/posts/?feedView=all"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Vexim Global on LinkedIn"
                 title="LinkedIn"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/20 hover:text-white"
+                className="block transition hover:opacity-80"
               >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="3" y="3" width="18" height="18" rx="3" />
-                  <path d="M8 11v5" />
-                  <path d="M8 8v.01" />
-                  <path d="M12 16v-5" />
-                  <path d="M12 13a2.5 2.5 0 0 1 5 0v3" />
-                </svg>
+                <img src="/linkedin.png" alt="" width={32} height={32} className="h-8 w-8" />
               </a>
               <a
                 href="https://www.facebook.com/profile.php?id=61568290953268"
@@ -500,11 +494,9 @@ export function LandingSite() {
                 rel="noreferrer"
                 aria-label="Vexim Global on Facebook"
                 title="Facebook"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/20 hover:text-white"
+                className="block transition hover:opacity-80"
               >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M15 3h-2.5A4.5 4.5 0 0 0 8 7.5V10H5.5v4H8v7h4v-7h2.8l.7-4H12V8a1 1 0 0 1 1-1h2z" />
-                </svg>
+                <img src="/facebook.png" alt="" width={32} height={32} className="h-8 w-8" />
               </a>
             </div>
             <p className="mt-4 font-semibold text-slate-200">Partners &amp; staff</p>
