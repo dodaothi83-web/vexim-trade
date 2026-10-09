@@ -52,11 +52,11 @@ export function CompanyAiIntroduction({
     <section className="border-t border-ink-100 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-[13px] font-bold text-ink-900">
-          <Sparkles className="h-4 w-4 text-brand-600" /> AI giới thiệu công ty
+          <Sparkles className="h-4 w-4 text-brand-600" /> Giới thiệu công ty
         </h3>
         <Button type="button" variant="ghost" disabled={busy} onClick={() => void generate()} className="px-2.5 py-1.5 text-[11.5px]">
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          {busy ? "Đang tìm hiểu..." : summary ? "Phân tích lại" : "Tạo giới thiệu"}
+          {busy ? "Đang tìm hiểu..." : summary ? "Phân tích lại" : "Xem công ty"}
         </Button>
       </div>
 
