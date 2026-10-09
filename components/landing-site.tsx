@@ -211,10 +211,10 @@ export function LandingSite() {
         </div>
         <div className="relative">
           <img
-            src="/images/hero-abstract.jpg"
+            src="/images/hero-scene.jpg"
             alt=""
             aria-hidden="true"
-            className="aspect-[4/5] w-full rounded-2xl object-cover"
+            className="aspect-[5/4] w-full rounded-2xl object-cover"
           />
         </div>
       </section>
