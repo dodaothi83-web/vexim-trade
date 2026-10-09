@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 import type { Prospect } from "@/lib/types";
-import { PROSPECT_STATUSES, prospectStatusLabel } from "@/lib/prospects/status";
+import { PROSPECT_STATUSES, prospectStatusLabel, prospectStatusTone } from "@/lib/prospects/status";
 
 export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
   const [query, setQuery] = useState("");
@@ -74,7 +74,7 @@ export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
                   <td className="table-td text-[12.5px]">{prospect.target_product || "Chưa gắn nhóm"}</td>
                   <td className="table-td text-[12.5px]">{prospect.industry || "—"}</td>
                   <td className="table-td text-[12.5px]">{[prospect.city, prospect.country].filter(Boolean).join(", ") || "—"}</td>
-                  <td className="table-td"><span className="rounded-full bg-ink-100 px-2.5 py-1 text-[11px] font-semibold text-ink-700">{prospectStatusLabel(prospect.status)}</span></td>
+                  <td className="table-td"><span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${prospectStatusTone(prospect.status)}`}>{prospectStatusLabel(prospect.status)}</span></td>
                   <td className="table-td text-[12px] text-ink-500">{prospect.data_source || "Chưa rõ"}</td>
                   <td className="table-td text-[12px] text-ink-500">{prospect.source_list || "Chưa phân nhóm"}</td>
                   <td className="table-td text-[12px] text-ink-500">{prospect.owner || "Chưa phân công"}</td>
