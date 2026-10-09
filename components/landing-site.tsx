@@ -477,6 +477,24 @@ export function LandingSite() {
             >
               www.veximglobal.com
             </a>
+            <p className="mt-4 font-semibold text-slate-200">Follow Vexim Global</p>
+            <a
+              href="https://www.linkedin.com/company/vexim-global/posts/?feedView=all"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-block transition hover:text-white"
+            >
+              LinkedIn
+            </a>
+            <br />
+            <a
+              href="https://www.facebook.com/profile.php?id=61568290953268"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-block transition hover:text-white"
+            >
+              Facebook
+            </a>
             <p className="mt-4 font-semibold text-slate-200">Partners &amp; staff</p>
             <a href="/login" className="mt-1 inline-block transition hover:text-white">
               Staff sign in
