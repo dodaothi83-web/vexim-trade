@@ -268,17 +268,6 @@ export function LandingSite() {
           requirements. We share what the producer states, what we have checked, and what still
           needs confirmation. That way, buyers can assess each offer with clarity.
         </p>
-        <p className="mt-5 text-[13px] text-slate-500">
-          Veximtrade is part of the Vexim Global ecosystem in Hanoi.{" "}
-          <a
-            href="https://www.veximglobal.com/"
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-brand-700 transition hover:underline"
-          >
-            About Vexim Global
-          </a>
-        </p>
       </section>
 
       {/* ---------- Form ---------- */}
