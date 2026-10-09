@@ -4,12 +4,11 @@ import { useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
-  Info,
+  HelpCircle,
   Loader2,
   Mail,
   MapPin,
   Phone,
-  Search,
   ShieldCheck,
 } from "lucide-react";
 
@@ -17,26 +16,15 @@ import { submitQuoteLeadAction } from "@/app/actions";
 import { COMPANY } from "@/lib/config";
 
 /**
- * Landing viết từ vị trí đại diện: Veximtrade là đơn vị bán hàng xuất khẩu cho
- * nhà sản xuất Việt Nam đã chọn. Buyer được nói chuyện trực tiếp với Vexim, nhưng
- * luôn thấy rõ: nhà sản xuất nói gì, Vexim đã xác minh gì, và điều gì còn mở.
- * Giọng điệu: ngắn, rõ, không phô trương, quyết định thuộc về buyer.
+ * Landing dành cho buyer Mỹ: nhìn là hiểu. Tiêu đề lớn, chữ serif cho tiêu đề,
+ * sơ đồ thay cho đoạn văn dài, và màu có nghĩa (xanh = đã kiểm tra, vàng = còn mở,
+ * xám = nhà sản xuất nêu). Giọng văn ngắn, rõ, không dấu chấm than.
  */
 
-const HOW_IT_WORKS = [
-  {
-    title: "You tell us what you need",
-    desc: "Product, spec or grade, volume, destination port, delivery window and Incoterm. The more precise, the faster we match.",
-  },
-  {
-    title: "We review the brief",
-    desc: "We check it against the producers we represent, and against what they can supply in the season you need.",
-  },
-  {
-    title: "We tell you what we found",
-    desc: "A producer that fits, with what is stated, what is verified and what is still open. Or a plain answer that no fit exists yet.",
-  },
-];
+const HEADING: React.CSSProperties = {
+  fontFamily: 'Georgia, "Times New Roman", Times, serif',
+  letterSpacing: "-0.01em",
+};
 
 const OPEN_QUESTIONS = [
   "Is the spec on the sheet the one that will actually ship?",
@@ -45,32 +33,44 @@ const OPEN_QUESTIONS = [
   "What is the minimum order, and how is it packed?",
 ];
 
-const HOW_WE_LABEL = [
+const HOW_IT_WORKS = [
   {
-    icon: Info,
-    title: "Stated by the producer",
-    desc: "Specs, capacity and certificates the producer gives us. We mark them as stated, not checked.",
+    title: "You send the brief",
+    desc: "Product, spec or grade, volume, destination port, delivery window and Incoterm.",
   },
   {
-    icon: CheckCircle2,
-    title: "Verified by us",
-    desc: "Items we checked against documents or records. Each one shows what it was checked against.",
+    title: "We match it",
+    desc: "We check the brief against the producers we represent and what they can supply in your season.",
   },
   {
-    icon: Search,
+    title: "You get a clear answer",
+    desc: "A producer that fits, with what is stated and what is verified. Or a plain no for now.",
+  },
+];
+
+const REPLY_KEY = [
+  {
+    tone: "stated",
+    title: "Stated",
+    desc: "What the producer tells us: specs, capacity, certificates.",
+  },
+  {
+    tone: "verified",
+    title: "Verified",
+    desc: "What we have checked against documents or records. Each point shows its source.",
+  },
+  {
+    tone: "open",
     title: "Still open",
-    desc: "Points we have not confirmed yet. We list them, so you can ask before you rely on them.",
+    desc: "What is not confirmed yet. We list it, so you can ask before you rely on it.",
   },
 ];
 
-const REPLY_CONTENTS = [
-  "Product: grade, spec and packing, as stated by the producer.",
-  "Verified: the items we confirmed, with the document or record behind each one.",
-  "Open: what still needs an answer before you rely on it.",
-  "Availability: the volume and season we can confirm for the period.",
-  "Next step: a call with the producer, or a plain “not yet this season.”",
-];
-
+const TONE: Record<string, { bar: string; chip: string; label: string }> = {
+  stated: { bar: "bg-slate-400", chip: "bg-slate-100 text-slate-700", label: "Stated" },
+  verified: { bar: "bg-emerald-600", chip: "bg-emerald-50 text-emerald-800", label: "Verified" },
+  open: { bar: "bg-amber-500", chip: "bg-amber-50 text-amber-800", label: "Open" },
+};
 
 const INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP", "Not sure yet"];
 const PAYMENT_METHODS = ["T/T", "L/C", "D/P", "D/A", "Open account", "Not sure yet"];
@@ -96,6 +96,30 @@ function Logo({ className }: { className?: string }) {
       className={className}
       style={LOGO_BG}
     />
+  );
+}
+
+function FunnelDiagram() {
+  const rows = [
+    { w: "w-full", label: "Many suppliers, unverified" },
+    { w: "w-4/5", label: "Screening: records, specs, history" },
+    { w: "w-3/5", label: "Questions back and forth" },
+    { w: "w-2/5", label: "Producers that fit your brief" },
+  ];
+  return (
+    <div className="space-y-2.5" aria-hidden="true">
+      {rows.map((r, i) => (
+        <div key={r.label} className="flex justify-center">
+          <div
+            className={`${r.w} rounded-lg px-4 py-3 text-center text-[14px] font-semibold ${
+              i === rows.length - 1 ? "bg-brand-600 text-white" : "bg-ink-100 text-ink-700"
+            }`}
+          >
+            {r.label}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -132,200 +156,195 @@ export function LandingSite() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-slate-800">
+    <div className="min-h-screen bg-white text-ink-900">
       {/* ---------- Header ---------- */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-ink-900/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3 sm:px-8">
           <Logo className="h-12 w-[65px] shrink-0" />
-          <nav className="ml-auto hidden items-center gap-5 text-[13px] font-medium text-slate-300 md:flex">
-            <a href="#cost" className="transition hover:text-white">Why it costs time</a>
-            <a href="#work" className="transition hover:text-white">How it works</a>
-            <a href="#start" className="transition hover:text-white">Who we represent</a>
+          <nav className="ml-auto hidden items-center gap-7 text-[15px] font-medium text-ink-700 md:flex">
+            <a href="#problem" className="transition hover:text-brand-700">The problem</a>
+            <a href="#work" className="transition hover:text-brand-700">How it works</a>
+            <a href="#start" className="transition hover:text-brand-700">Who we represent</a>
           </nav>
           <a
             href="#send"
-            className="ml-auto flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-brand-700 md:ml-0"
+            className="ml-auto flex items-center gap-2 rounded-md bg-brand-600 px-5 py-2.5 text-[15px] font-semibold text-white transition hover:bg-brand-700 md:ml-0"
           >
-            Tell us what you are sourcing
-            <ArrowRight className="h-3.5 w-3.5" />
+            Start a sourcing request
+            <ArrowRight className="h-4 w-4" />
           </a>
         </div>
       </header>
 
       {/* ---------- Hero ---------- */}
-      <section className="relative overflow-hidden bg-ink-900 text-white">
-        <img
-          src="/images/hero-abstract.jpg"
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-70"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-ink-900 via-ink-900/70 to-transparent" aria-hidden="true" />
-        <div className="relative mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:py-24">
-          <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[12px] font-semibold tracking-wide text-brand-200">
-            <ShieldCheck className="h-3.5 w-3.5" />
+      <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
+        <div>
+          <p className="flex items-center gap-2 text-[15px] font-semibold text-brand-700">
+            <ShieldCheck className="h-4 w-4" />
             Veximtrade · a Vexim Global company
           </p>
-          <h1 className="mt-6 max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
+          <h1
+            className="mt-6 text-5xl font-bold leading-[1.05] text-ink-900 sm:text-6xl"
+            style={HEADING}
+          >
             Finding the right Vietnamese producer should not take your whole quarter.
           </h1>
-          <p className="mt-6 max-w-2xl text-[16px] leading-relaxed text-slate-300">
-            Tell us what you need: the product, the spec, the volume and the port. We review your
-            brief and connect you with a suitable Vietnamese producer where one is available.
+          <p className="mt-7 max-w-xl text-[19px] leading-relaxed text-ink-700">
+            Send us your brief. We match it to a Vietnamese producer that fits, and tell you
+            plainly when none does.
           </p>
-          <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-slate-300">
-            Where no producer fits, we tell you so. You keep your time.
-          </p>
-          <div className="mt-9 flex flex-wrap items-center gap-3">
+          <div className="mt-10 flex flex-wrap items-center gap-4">
             <a
               href="#send"
-              className="flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-[14px] font-bold text-white transition hover:bg-brand-700"
+              className="flex items-center gap-2 rounded-md bg-brand-600 px-7 py-4 text-[16px] font-semibold text-white transition hover:bg-brand-700"
             >
-              Tell us what you are sourcing
-              <ArrowRight className="h-4 w-4" />
+              Start a sourcing request
+              <ArrowRight className="h-5 w-5" />
             </a>
             <a
               href="#work"
-              className="rounded-full border border-white/20 px-6 py-3 text-[14px] font-semibold text-slate-200 transition hover:bg-white/10"
+              className="rounded-md border-2 border-ink-900 px-7 py-3.5 text-[16px] font-semibold text-ink-900 transition hover:bg-ink-900 hover:text-white"
             >
-              How it works
+              See how it works
             </a>
           </div>
         </div>
+        <div className="relative">
+          <img
+            src="/images/hero-abstract.jpg"
+            alt=""
+            aria-hidden="true"
+            className="aspect-[4/5] w-full rounded-2xl object-cover"
+          />
+        </div>
       </section>
 
-      {/* ---------- The real cost ---------- */}
-      <section id="cost" className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-        <h2 className="max-w-2xl text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-          An unmatched supplier costs you a week. Usually more.
-        </h2>
-        <div className="mt-8 grid gap-10 lg:grid-cols-2">
-          <div className="space-y-4 text-[15px] leading-relaxed text-slate-600">
-            <p>
-              A list of suppliers is not a match. Each name brings another email, another spec
-              sheet, another call that goes nowhere.
-            </p>
-            <p>
-              Your team pays for that search in hours that should have gone to the one producer
-              who fits. That is the cost nobody puts on the budget.
-            </p>
-            <p className="font-semibold text-ink-900">
-              We do the matching before your team is involved.
-            </p>
-          </div>
+      {/* ---------- The problem, in one picture ---------- */}
+      <section id="problem" className="bg-ink-50">
+        <div className="mx-auto grid max-w-6xl gap-12 px-5 py-20 sm:px-8 lg:grid-cols-2 lg:items-center">
           <div>
-            <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-slate-400">
-              Questions we answer before they reach you
+            <h2 className="text-4xl font-bold leading-tight text-ink-900 sm:text-5xl" style={HEADING}>
+              An unmatched supplier costs you a week. Usually more.
+            </h2>
+            <p className="mt-6 text-[18px] leading-relaxed text-ink-700">
+              A list of suppliers is not a match. Each name brings another email, another spec
+              sheet and another call that goes nowhere.
             </p>
-            <ul className="space-y-3">
+            <p className="mt-4 text-[18px] leading-relaxed text-ink-700">
+              Your team pays for that search in hours that should have gone to the one producer
+              who fits.
+            </p>
+            <ul className="mt-8 space-y-3">
               {OPEN_QUESTIONS.map((t) => (
-                <li key={t} className="flex items-start gap-2.5 rounded-xl border border-ink-200 bg-white px-4 py-3 text-[13.5px] leading-relaxed text-slate-600">
-                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                <li key={t} className="flex items-start gap-3 text-[16px] leading-snug text-ink-800">
+                  <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
                   {t}
                 </li>
               ))}
             </ul>
           </div>
+          <div className="rounded-2xl bg-white p-6 ring-1 ring-ink-200 sm:p-8">
+            <p className="mb-5 text-[13px] font-bold uppercase tracking-wider text-ink-500">
+              Where the weeks go
+            </p>
+            <FunnelDiagram />
+            <p className="mt-6 border-t border-ink-100 pt-5 text-[16px] font-semibold text-ink-900">
+              We do the screening first. You see the one that fits.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* ---------- How it works ---------- */}
-      <section id="work" className="border-y border-ink-100 bg-ink-50/60">
-        <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-          <h2 className="text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-            You send the brief. We do the matching.
+      <section id="work" className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+        <h2 className="text-4xl font-bold leading-tight text-ink-900 sm:text-5xl" style={HEADING}>
+          You send the brief. We do the matching.
+        </h2>
+        <ol className="mt-12 grid gap-6 md:grid-cols-3">
+          {HOW_IT_WORKS.map((s, i) => (
+            <li key={s.title} className="relative rounded-2xl border-2 border-ink-900 p-7">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-[20px] font-bold text-white">
+                {i + 1}
+              </span>
+              <h3 className="mt-6 text-[24px] font-bold leading-snug text-ink-900" style={HEADING}>
+                {s.title}
+              </h3>
+              <p className="mt-3 text-[16px] leading-relaxed text-ink-700">{s.desc}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* ---------- What the reply looks like ---------- */}
+      <section className="bg-ink-900 text-white">
+        <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+          <h2 className="text-4xl font-bold leading-tight sm:text-5xl" style={HEADING}>
+            Every reply tells you what is stated, what is verified, and what is still open.
           </h2>
-          <ol className="mt-9 grid gap-4 md:grid-cols-3">
-            {HOW_IT_WORKS.map((s, i) => (
-              <li key={s.title} className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
-                <p className="text-[12px] font-semibold text-slate-400">Step {i + 1}</p>
-                <h3 className="mt-2 text-[14.5px] font-bold text-ink-900">{s.title}</h3>
-                <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">{s.desc}</p>
-              </li>
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {REPLY_KEY.map((k) => (
+              <div key={k.title} className="rounded-2xl bg-white p-7 text-ink-900">
+                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[14px] font-bold ${TONE[k.tone].chip}`}>
+                  <span className={`h-2.5 w-2.5 rounded-full ${TONE[k.tone].bar}`} />
+                  {TONE[k.tone].label}
+                </span>
+                <h3 className="mt-5 text-[24px] font-bold" style={HEADING}>{k.title}</h3>
+                <p className="mt-3 text-[16px] leading-relaxed text-ink-700">{k.desc}</p>
+              </div>
             ))}
-          </ol>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
-              <p className="text-[13px] font-bold text-ink-900">What a reply contains</p>
-              <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
-                Every reply separates what the producer states from what we have verified.
-              </p>
-              <ul className="mt-3 space-y-1.5 text-[13px] leading-relaxed text-slate-600">
-                {REPLY_CONTENTS.map((t) => (
-                  <li key={t}>{t}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
-              <p className="text-[13px] font-bold text-ink-900">What helps us match faster</p>
-              <ul className="mt-3 space-y-1.5 text-[13px] leading-relaxed text-slate-600">
-                <li>Product and the spec or grade you need.</li>
-                <li>Volume, destination port and delivery window.</li>
-                <li>Incoterm and payment method you expect.</li>
-                <li>Certificates your market requires.</li>
-              </ul>
-            </div>
           </div>
         </div>
       </section>
 
       {/* ---------- Who we represent ---------- */}
-      <section id="start" className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
+      <section id="start" className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
         <img
           src="/images/section-abstract.jpg"
           alt=""
           aria-hidden="true"
-          className="mb-10 h-44 w-full rounded-2xl object-cover sm:h-56"
+          className="mb-14 h-56 w-full rounded-2xl object-cover sm:h-72"
         />
-        <h2 className="text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-          We are not a directory. We represent a selected group of producers.
-        </h2>
-        <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-slate-600">
-          From cashew kernels and coffee to pepper and dried fruit, we represent selected
-          Vietnamese food producers. For each product we represent, we work directly with the
-          producer to understand its specifications, grades, seasonality, packing and export
-          requirements. We share what the producer states, what we have checked, and what still
-          needs confirmation. That way, buyers can assess each offer with clarity.
-        </p>
-        <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-slate-600">
-          We do not hold every product, and we will not pretend to. If your product is outside
-          what we represent, we say so in our reply.
-        </p>
+        <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr]">
+          <h2 className="text-4xl font-bold leading-tight text-ink-900 sm:text-5xl" style={HEADING}>
+            We are not a directory. We represent a selected group of producers.
+          </h2>
+          <div className="space-y-5 text-[18px] leading-relaxed text-ink-700">
+            <p>
+              From cashew kernels and coffee to pepper and dried fruit, we represent selected
+              Vietnamese food producers. We work directly with each one on specifications, grades,
+              seasonality, packing and export requirements.
+            </p>
+            <p>
+              We do not hold every product, and we will not pretend to. If your product is outside
+              what we represent, we say so in our reply.
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* ---------- Form ---------- */}
-      <section id="send" className="border-t border-ink-100 bg-ink-50/60">
-        <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr]">
-            <div>
-              <h2 className="text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-                Tell us what you need.
-              </h2>
-              <p className="mt-4 text-[15px] leading-relaxed text-slate-600">
-                Describe the product, the spec, the volume and where it goes. Within one working day
-                we reply with what is stated, what is verified, what is still open, and the next step.
-              </p>
-              <p className="mt-3 text-[14px] leading-relaxed text-slate-500">
-                No portal and no subscription. If we cannot find a fit this season, we say so
-                plainly.
-              </p>
-              <ul className="mt-7 space-y-2.5 text-[13px] text-slate-600">
-                <li className="flex items-center gap-2.5">
-                  <Mail className="h-4 w-4 text-brand-700" />
-                  {COMPANY.email}
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Phone className="h-4 w-4 text-brand-700" />
-                  {COMPANY.phone}
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <MapPin className="mt-0.5 h-4 w-4 text-brand-700" />
-                  {COMPANY.address}
-                </li>
-              </ul>
-            </div>
+      <section id="send" className="bg-ink-50">
+        <div className="mx-auto grid max-w-6xl gap-12 px-5 py-20 sm:px-8 lg:grid-cols-[1fr_1.25fr]">
+          <div>
+            <h2 className="text-4xl font-bold leading-tight text-ink-900 sm:text-5xl" style={HEADING}>
+              Tell us what you need.
+            </h2>
+            <p className="mt-6 text-[18px] leading-relaxed text-ink-700">
+              Describe the product, the spec, the volume and where it goes. Within one working day
+              (Vietnam time, UTC+7) we reply with what is stated, what is verified, what is still
+              open, and the next step.
+            </p>
+            <p className="mt-4 text-[16px] leading-relaxed text-ink-600">
+              No portal and no subscription. If we cannot find a fit this season, we say so plainly.
+            </p>
+            <ul className="mt-8 space-y-3 text-[16px] text-ink-800">
+              <li className="flex items-center gap-3"><Mail className="h-5 w-5 text-brand-700" />{COMPANY.email}</li>
+              <li className="flex items-center gap-3"><Phone className="h-5 w-5 text-brand-700" />{COMPANY.phone}</li>
+              <li className="flex items-start gap-3"><MapPin className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />{COMPANY.address}</li>
+            </ul>
+          </div>
 
-            {done ? (
+          {done ? (
               <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-6">
                 <p className="flex items-center gap-2 text-[15px] font-bold text-emerald-800">
                   <CheckCircle2 className="h-5 w-5" />
@@ -470,7 +489,7 @@ export function LandingSite() {
                 </p>
               </form>
             )}
-          </div>
+
         </div>
       </section>
 
