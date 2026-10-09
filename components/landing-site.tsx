@@ -299,10 +299,10 @@ export function LandingSite() {
       {/* ---------- Who we represent ---------- */}
       <section id="start" className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
         <img
-          src="/images/section-abstract.jpg"
+          src="/images/producers-section.jpg"
           alt=""
           aria-hidden="true"
-          className="mb-14 h-56 w-full rounded-2xl object-cover sm:h-72"
+          className="mb-14 h-56 w-full rounded-2xl object-cover object-[center_40%] sm:h-80"
         />
         <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr]">
           <h2 className="text-4xl font-bold leading-tight text-ink-900 sm:text-5xl" style={HEADING}>
