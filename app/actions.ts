@@ -1500,6 +1500,9 @@ export async function submitQuoteLeadAction(input: {
   country: string;
   product: string;
   quantity: string;
+  incoterm?: string;
+  payment_method?: string;
+  lead_time?: string;
   message: string;
   company_website: string;
 }): Promise<ActionResult> {
@@ -1540,9 +1543,9 @@ export async function submitQuoteLeadAction(input: {
         spec: null,
         quantity: input.quantity.trim() || null,
         target_price: null,
-        payment_method: null,
+        payment_method: input.payment_method?.trim() || null,
         payment_terms: null,
-        incoterm: null,
+        incoterm: input.incoterm?.trim() || null,
         port: null,
         expected_ship_date: null,
         deal_value: null,
@@ -1554,7 +1557,9 @@ export async function submitQuoteLeadAction(input: {
         priority: "normal",
         next_action: "Reply to website enquiry",
         next_action_date: null,
-        notes: `Website enquiry ${new Date().toISOString().slice(0, 10)}:\n${input.message.trim()}`,
+        notes: `Website enquiry ${new Date().toISOString().slice(0, 10)}:\n${
+          input.lead_time?.trim() ? `Lead time required: ${input.lead_time.trim()}\n` : ""
+        }${input.message.trim()}`,
       });
     }
 

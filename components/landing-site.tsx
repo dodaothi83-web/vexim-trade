@@ -56,16 +56,9 @@ const REPLY_CONTENTS = [
   "Next step: a call with the producer, or a plain “not yet this season.”",
 ];
 
-const PRODUCTS = [
-  {
-    title: "Cashew kernels",
-    desc: "Grades W240, W320, W450 and splits. Packing, crop season and lot QC are described per offer, and we mark what is confirmed.",
-  },
-  {
-    title: "Other Vietnamese food products",
-    desc: "We add a category only when we can answer the questions above for it. Until then, we will tell you that plainly.",
-  },
-];
+
+const INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP", "Not sure yet"];
+const PAYMENT_METHODS = ["T/T", "L/C", "D/P", "D/A", "Open account", "Not sure yet"];
 
 /**
  * Logo chính thức giữ NGUYÊN bản file public/logo-vexim.png (canvas 1024² với viền
@@ -99,6 +92,9 @@ export function LandingSite() {
     country: "",
     product: "",
     quantity: "",
+    incoterm: "",
+    payment_method: "",
+    lead_time: "",
     message: "",
     company_website: "",
   });
@@ -129,7 +125,7 @@ export function LandingSite() {
           <nav className="ml-auto hidden items-center gap-5 text-[13px] font-medium text-slate-300 md:flex">
             <a href="#cost" className="transition hover:text-white">Why it costs time</a>
             <a href="#work" className="transition hover:text-white">How we represent</a>
-            <a href="#start" className="transition hover:text-white">Products</a>
+            <a href="#start" className="transition hover:text-white">What we represent</a>
           </nav>
           <a
             href="#send"
@@ -234,12 +230,6 @@ export function LandingSite() {
               </div>
             ))}
           </div>
-          <div className="mt-8 rounded-2xl bg-ink-900 p-6 text-white">
-            <p className="text-[15px] leading-relaxed">
-              <strong className="font-bold">Who pays:</strong> producers pay Veximtrade to represent
-              them. You do not pay us to receive a product sheet or a first reply.
-            </p>
-          </div>
           <div className="mt-6 grid gap-4 md:grid-cols-[1.25fr_1fr]">
             <div className="rounded-2xl bg-white p-5 ring-1 ring-ink-100">
               <p className="text-[13px] font-bold text-ink-900">What a reply contains</p>
@@ -266,21 +256,16 @@ export function LandingSite() {
         </div>
       </section>
 
-      {/* ---------- Products ---------- */}
+      {/* ---------- What we represent ---------- */}
       <section id="start" className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-        <h2 className="text-2xl font-black tracking-tight text-ink-900">
-          What we represent today.
+        <h2 className="text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
+          What we represent.
         </h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {PRODUCTS.map((p) => (
-            <div key={p.title} className="rounded-2xl border border-ink-200 bg-white p-5">
-              <h3 className="text-[14.5px] font-bold text-ink-900">{p.title}</h3>
-              <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">{p.desc}</p>
-            </div>
-          ))}
-        </div>
+        <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-slate-600">
+          Ask about any product. If we do not represent it yet, we will say so, and tell you
+          which questions we would need to answer first.
+        </p>
         <p className="mt-5 text-[13px] text-slate-500">
-          Ask about any product. If we do not represent it yet, we will say so.{" "}
           Veximtrade is part of the Vexim Global ecosystem in Hanoi.{" "}
           <a
             href="https://www.veximglobal.com/"
@@ -394,10 +379,10 @@ export function LandingSite() {
                     required
                     value={form.product}
                     onChange={(e) => set("product", e.target.value)}
-                    placeholder="Product or category, e.g. cashew kernels W320"
+                    placeholder="Product, grade or spec"
                   />
                 </label>
-                <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1.6fr]">
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <label className="block">
                     <span className="label">Quantity (if known)</span>
                     <input
@@ -408,15 +393,50 @@ export function LandingSite() {
                     />
                   </label>
                   <label className="block">
-                    <span className="label">Anything else we should know</span>
-                    <textarea
-                      className="input min-h-[64px]"
-                      value={form.message}
-                      onChange={(e) => set("message", e.target.value)}
-                      placeholder="Grade or spec, packing, delivery window, Incoterm, destination port, certificates you need"
+                    <span className="label">Quote basis (Incoterm)</span>
+                    <select
+                      className="input"
+                      value={form.incoterm}
+                      onChange={(e) => set("incoterm", e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {INCOTERMS.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="label">Payment method</span>
+                    <select
+                      className="input"
+                      value={form.payment_method}
+                      onChange={(e) => set("payment_method", e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {PAYMENT_METHODS.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="label">Lead time required</span>
+                    <input
+                      className="input"
+                      value={form.lead_time}
+                      onChange={(e) => set("lead_time", e.target.value)}
+                      placeholder="e.g. 30 days after order"
                     />
                   </label>
                 </div>
+                <label className="mt-3 block">
+                  <span className="label">Anything else we should know</span>
+                  <textarea
+                    className="input min-h-[64px]"
+                    value={form.message}
+                    onChange={(e) => set("message", e.target.value)}
+                    placeholder="Grade or spec, packing, delivery window, destination port, certificates you need"
+                  />
+                </label>
                 <p className="mt-2 text-[11.5px] leading-relaxed text-slate-400">
                   Only company, email and product are required. The other fields are optional, but
                   they help us give you a sharper first reply.
