@@ -14,7 +14,7 @@ export const COMPANY = {
   phone: env.COMPANY_PHONE?.trim() || "+84373685634",
   address:
     env.COMPANY_ADDRESS?.trim() ||
-    "W2 Tower, Binh Minh Boulevard, Hinode Royal Park Urban Area, Km14 - Km16 National Route 32, Kim Chung and Di Trach Communes, Hoai Duc District, Hanoi, Vietnam",
+    "W2 Tower, Hinode Royal Park, Kim Chung and Di Trach Communes, Hoai Duc District, Hanoi, Vietnam",
   tagline: "Vietnam Export Sourcing Partner",
 };
 

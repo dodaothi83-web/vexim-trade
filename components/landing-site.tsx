@@ -153,8 +153,15 @@ export function LandingSite() {
       </header>
 
       {/* ---------- Hero ---------- */}
-      <section className="bg-ink-900 text-white">
-        <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:py-24">
+      <section className="relative overflow-hidden bg-ink-900 text-white">
+        <img
+          src="/images/hero-abstract.jpg"
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-70"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-ink-900 via-ink-900/70 to-transparent" aria-hidden="true" />
+        <div className="relative mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:py-24">
           <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[12px] font-semibold tracking-wide text-brand-200">
             <ShieldCheck className="h-3.5 w-3.5" />
             Veximtrade · a Vexim Global company
@@ -264,6 +271,12 @@ export function LandingSite() {
 
       {/* ---------- Who we represent ---------- */}
       <section id="start" className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
+        <img
+          src="/images/section-abstract.jpg"
+          alt=""
+          aria-hidden="true"
+          className="mb-10 h-44 w-full rounded-2xl object-cover sm:h-56"
+        />
         <h2 className="text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
           We are not a directory. We represent a selected group of producers.
         </h2>
