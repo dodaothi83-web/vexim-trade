@@ -2,11 +2,12 @@ import Script from "next/script";
 
 /**
  * Google tag (gtag.js) cho landing công khai.
- * Chỉ tải khi NEXT_PUBLIC_GA_ID có dạng G-XXXXXXXX. Nếu chưa đặt biến, component không render gì.
+ * Chỉ tải khi ID có dạng G-XXXXXXXX. Mặc định là Measurement ID của veximtrade.com.
  * Biến NEXT_PUBLIC_* được gắn vào bundle lúc build, nên sau khi đặt trên Vercel phải redeploy.
  */
 export function GoogleTag() {
-  const id = process.env.NEXT_PUBLIC_GA_ID?.trim() ?? "";
+  // Measurement ID công khai (xuất hiện trong mã nguồn trang), dùng làm mặc định nếu chưa đặt biến môi trường.
+  const id = process.env.NEXT_PUBLIC_GA_ID?.trim() || "G-229VH1H6JW";
   if (!/^G-[A-Z0-9]+$/.test(id)) return null;
 
   return (
