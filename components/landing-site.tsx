@@ -262,8 +262,11 @@ export function LandingSite() {
           What we represent.
         </h2>
         <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-slate-600">
-          Ask about any product. If we do not represent it yet, we will say so, and tell you
-          which questions we would need to answer first.
+          From cashew kernels and coffee to pepper and dried fruit, we represent selected
+          Vietnamese food producers. For each product we represent, we work directly with the
+          producer to understand its specifications, grades, seasonality, packing and export
+          requirements. We share what the producer states, what we have checked, and what still
+          needs confirmation. That way, buyers can assess each offer with clarity.
         </p>
         <p className="mt-5 text-[13px] text-slate-500">
           Veximtrade is part of the Vexim Global ecosystem in Hanoi.{" "}
