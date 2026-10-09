@@ -3,10 +3,13 @@ import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/auth/session";
 import { LandingSite } from "@/components/landing-site";
+import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
+  metadataBase: new URL(SITE_URL),
+  alternates: { canonical: "/" },
   title: "Vietnamese food products, represented by Veximtrade",
   description:
     "Veximtrade represents selected Vietnamese food producers in export sales. Ask about a product " +
@@ -17,7 +20,7 @@ export const metadata = {
     description:
       "We represent selected Vietnamese producers and tell you what is confirmed and what is still open. " +
       "A Vexim Global company.",
-    url: "https://veximtrade.com",
+    url: SITE_URL,
     siteName: "Vexim Trade",
     type: "website",
   },
