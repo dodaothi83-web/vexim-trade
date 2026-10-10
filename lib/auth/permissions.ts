@@ -93,6 +93,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "buyers.manage",
     "prospects.manage",
     "suppliers.view",
+    "suppliers.manage",
     "products.view",
     "media.view",
     "media.manage",
