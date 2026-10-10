@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 
 import { Logo } from "@/components/brand-logo";
-import { COMPANY } from "@/lib/config";
+import { SiteFooter } from "@/components/site-footer";
 
 export default function BlogLayout({ children }: { children: ReactNode }) {
   return (
@@ -29,22 +29,7 @@ export default function BlogLayout({ children }: { children: ReactNode }) {
 
       <main className="mx-auto max-w-6xl px-5 py-12 sm:px-8">{children}</main>
 
-      <footer className="bg-ink-900 text-slate-400">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-10 text-[14px] sm:px-8 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <Logo className="block h-10 w-[54px]" />
-            <div>
-              <p className="font-semibold text-white">{COMPANY.name}</p>
-              <p className="mt-1">{COMPANY.address}</p>
-            </div>
-          </div>
-          <p>
-            <a href={`mailto:${COMPANY.email}`} className="hover:text-white">{COMPANY.email}</a>
-            {" · "}
-            <a href={`tel:${COMPANY.phone.replace(/\s/g, "")}`} className="hover:text-white">{COMPANY.phone}</a>
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
