@@ -9,6 +9,8 @@ import { productReadiness } from "@/lib/media/readiness";
 import { Badge, Breadcrumbs, Card, cx, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { MediaGallery } from "@/components/media-gallery";
+import { ProductImageGallery, type GalleryImage } from "@/components/product-image-gallery";
+import { isExpired } from "@/lib/media/readiness";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết sản phẩm" };
@@ -39,6 +41,24 @@ export default async function ProductDetailPage({
     store.listMedia("product", id),
   ]);
   const readiness = productReadiness(media);
+
+  // Ảnh hiển thị ở khung lớn; tài liệu (catalogue, chứng nhận, video) vẫn ở khối bên dưới
+  const galleryImages: GalleryImage[] = media
+    .filter(
+      (m) =>
+        m.kind === "image" &&
+        Boolean(m.storage_path) &&
+        !isExpired(m) &&
+        (m.audience === "buyer" || (canManage && m.audience === "internal")),
+    )
+    .map((m) => ({
+      id: m.id,
+      src: `/api/media/file/${m.storage_path}`,
+      thumb: `/api/media/file/${m.thumb_path ?? m.storage_path}`,
+      alt: m.caption || product.name,
+      audience: m.audience === "internal" ? "internal" : "buyer",
+    }));
+  const documents = media.filter((m) => m.kind !== "image");
 
   return (
     <>
@@ -100,11 +120,15 @@ export default async function ProductDetailPage({
           </p>
         </Card>
         <div>
+          <div className="card mb-5 overflow-hidden p-4">
+            <h2 className="mb-3 text-[15px] font-bold text-ink-900">Hình ảnh sản phẩm</h2>
+            <ProductImageGallery images={galleryImages} />
+          </div>
           <MediaGallery
-            items={media}
-            title="Hình ảnh & tài liệu"
+            items={documents}
+            title="Tài liệu"
             manageHref={canManage ? `/products/${product.id}/edit` : undefined}
-            emptyHint="Chưa có ảnh hoặc tài liệu cho sản phẩm này."
+            emptyHint="Chưa có tài liệu nào cho sản phẩm này."
             showInternal={canManage}
           />
         </div>
