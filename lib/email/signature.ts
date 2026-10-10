@@ -5,7 +5,7 @@ import { escapeHtml } from "@/lib/email/templates";
  * Chữ ký mặc định chèn vào email do đội ngũ tự soạn.
  * Cố ý gọn và trơn (không banner/footer): email tự soạn nhìn như thư trao đổi
  * thật giữa nhân viên và buyer, nhận diện công ty nằm ngay trong chữ ký.
- * Website để dạng chữ thường, KHÔNG lặp lại thành footer/link ở cuối thư.
+ * Địa chỉ công ty để dạng chữ thường, KHÔNG lặp lại thành footer/link ở cuối thư.
  */
 export function buildSignature(owner?: string | null): string {
   const name = escapeHtml(owner?.trim() || COMPANY.name);
@@ -15,6 +15,6 @@ export function buildSignature(owner?: string | null): string {
     `<strong style="font-size:14px;color:#0f172a;">${name}</strong><br/>`,
     `Export Department &middot; ${escapeHtml(COMPANY.name)}<br/>`,
     `${escapeHtml(COMPANY.phone)} &middot; ${escapeHtml(COMPANY.email)}<br/>`,
-    `${escapeHtml(COMPANY.website)}</p>`,
+    `${escapeHtml(COMPANY.address)}</p>`,
   ].join("");
 }
