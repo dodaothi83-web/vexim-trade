@@ -22,6 +22,9 @@ import type {
   SupplierProduct,
   SupplierProductInput,
   TemplateOverride,
+  Post,
+  PostInput,
+  PostStatus,
 } from "@/lib/types";
 import type { DataStore } from "@/lib/db/types";
 
@@ -643,5 +646,45 @@ export const supabaseStore: DataStore = {
   async deleteAttachment(id) {
     const { error } = await must().from("email_attachments").delete().eq("id", id);
     if (error) fail("deleteAttachment", error);
+  },
+
+  /* ----------------------------- bài viết blog ----------------------------- */
+  async listPosts(options?: { status?: PostStatus }) {
+    let query = must().from("posts").select("*").order("published_at", { ascending: false, nullsFirst: false });
+    if (options?.status) query = query.eq("status", options.status);
+    const { data, error } = await query;
+    if (error) fail("listPosts", error);
+    return (data ?? []) as Post[];
+  },
+  async getPost(id) {
+    const { data, error } = await must().from("posts").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getPost", error);
+    return (data as Post | null) ?? null;
+  },
+  async getPostBySlug(slug, options) {
+    let query = must().from("posts").select("*").eq("slug", slug);
+    if (options?.publishedOnly) query = query.eq("status", "published");
+    const { data, error } = await query.maybeSingle();
+    if (error) fail("getPostBySlug", error);
+    return (data as Post | null) ?? null;
+  },
+  async createPost(input) {
+    const { data, error } = await must().from("posts").insert(input).select("*").single();
+    if (error) fail("createPost", error);
+    return data as Post;
+  },
+  async updatePost(id, patch) {
+    const { data, error } = await must()
+      .from("posts")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("*")
+      .single();
+    if (error) fail("updatePost", error);
+    return data as Post;
+  },
+  async deletePost(id) {
+    const { error } = await must().from("posts").delete().eq("id", id);
+    if (error) fail("deletePost", error);
   },
 };

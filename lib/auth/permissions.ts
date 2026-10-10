@@ -25,7 +25,8 @@ export type Permission =
   | "templates.manage"
   | "settings.view"
   | "users.manage"
-  | "kpi.view";
+  | "kpi.view"
+  | "blog.manage";
 
 export const ROLES: {
   value: UserRole;
@@ -89,6 +90,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "settings.view",
     "users.manage",
     "kpi.view",
+    "blog.manage",
   ],
   sale: [
     "buyers.view",
@@ -103,6 +105,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "mail.view",
     "mail.send",
     "kpi.view",
+    "blog.manage",
   ],
   sourcing: [
     "buyers.view",

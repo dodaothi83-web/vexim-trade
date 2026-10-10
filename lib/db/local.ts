@@ -24,6 +24,7 @@ import type {
   SupplierProductInput,
   TemplateOverride,
   ProspectOutreachTemplate,
+  Post,
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
 import type { DataStore } from "@/lib/db/types";
@@ -40,6 +41,7 @@ interface LocalShape {
   messages: EmailMessage[];
   template_overrides: TemplateOverride[];
   prospect_outreach_template_overrides: ProspectOutreachTemplate[];
+  posts: Post[];
   attachments: EmailAttachment[];
 }
 
@@ -118,7 +120,7 @@ function seed(): LocalShape {
     } satisfies SupplierProduct;
   });
 
-  return { users: [], buyers, prospects: [], prospect_activities: [], suppliers, products, media: [], activities, messages: [], attachments: [], template_overrides: [], prospect_outreach_template_overrides: [] };
+  return { users: [], buyers, prospects: [], prospect_activities: [], suppliers, products, media: [], activities, messages: [], attachments: [], template_overrides: [], prospect_outreach_template_overrides: [], posts: [] };
 }
 
 function inferTargetProduct(sourceList: string | null | undefined): string | null {
@@ -158,6 +160,7 @@ function load(): LocalShape {
     normalizeProspects(c.prospects);
     if (!Array.isArray(c.prospect_activities)) c.prospect_activities = [];
     if (!Array.isArray(c.prospect_outreach_template_overrides)) c.prospect_outreach_template_overrides = [];
+    if (!Array.isArray(c.posts)) c.posts = [];
     if (!Array.isArray(c.activities)) c.activities = [];
     if (!Array.isArray(c.products)) c.products = [];
     if (!Array.isArray(c.media)) c.media = [];
@@ -184,6 +187,7 @@ function load(): LocalShape {
         normalizeProspects(parsed.prospects);
         if (!Array.isArray(parsed.prospect_activities)) parsed.prospect_activities = [];
         if (!Array.isArray(parsed.prospect_outreach_template_overrides)) parsed.prospect_outreach_template_overrides = [];
+        if (!Array.isArray(parsed.posts)) parsed.posts = [];
         if (!Array.isArray(parsed.activities)) parsed.activities = [];
         if (!Array.isArray(parsed.products)) parsed.products = [];
         if (!Array.isArray(parsed.media)) parsed.media = [];
@@ -694,6 +698,44 @@ export const localStore: DataStore = {
     mutate((db) => {
       db.prospect_outreach_template_overrides = (db.prospect_outreach_template_overrides ?? [])
         .filter((item) => item.id !== id);
+    });
+  },
+
+  /* ----------------------------- bài viết blog ----------------------------- */
+  async listPosts(options) {
+    const all = load().posts ?? [];
+    const filtered = options?.status ? all.filter((p) => p.status === options.status) : all;
+    return [...filtered].sort((a, b) => (b.published_at ?? b.created_at).localeCompare(a.published_at ?? a.created_at));
+  },
+  async getPost(id) {
+    return (load().posts ?? []).find((p) => p.id === id) ?? null;
+  },
+  async getPostBySlug(slug, options) {
+    const post = (load().posts ?? []).find((p) => p.slug === slug) ?? null;
+    if (!post) return null;
+    if (options?.publishedOnly && post.status !== "published") return null;
+    return post;
+  },
+  async createPost(input) {
+    const now = new Date().toISOString();
+    const post: Post = { ...input, id: randomUUID(), created_at: now, updated_at: now };
+    mutate((db) => {
+      db.posts = [...(db.posts ?? []), post];
+    });
+    return post;
+  },
+  async updatePost(id, patch) {
+    const current = (load().posts ?? []).find((p) => p.id === id);
+    if (!current) throw new Error("Không tìm thấy bài viết để cập nhật.");
+    const updated: Post = { ...current, ...patch, updated_at: new Date().toISOString() };
+    mutate((db) => {
+      db.posts = (db.posts ?? []).map((p) => (p.id === id ? updated : p));
+    });
+    return updated;
+  },
+  async deletePost(id) {
+    mutate((db) => {
+      db.posts = (db.posts ?? []).filter((p) => p.id !== id);
     });
   },
 };

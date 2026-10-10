@@ -21,6 +21,9 @@ import type {
   SupplierProductInput,
   TemplateOverride,
   ProspectOutreachTemplate,
+  Post,
+  PostInput,
+  PostStatus,
 } from "@/lib/types";
 
 export interface DataStore {
@@ -130,4 +133,12 @@ export interface DataStore {
   listProspectOutreachTemplateOverrides(): Promise<ProspectOutreachTemplate[]>;
   saveProspectOutreachTemplateOverride(input: Omit<ProspectOutreachTemplate, "updated_at">): Promise<void>;
   clearProspectOutreachTemplateOverride(id: string): Promise<void>;
+
+  /* ----------------------------- bài viết blog ----------------------------- */
+  listPosts(options?: { status?: PostStatus }): Promise<Post[]>;
+  getPost(id: string): Promise<Post | null>;
+  getPostBySlug(slug: string, options?: { publishedOnly?: boolean }): Promise<Post | null>;
+  createPost(input: PostInput): Promise<Post>;
+  updatePost(id: string, patch: Partial<PostInput>): Promise<Post>;
+  deletePost(id: string): Promise<void>;
 }

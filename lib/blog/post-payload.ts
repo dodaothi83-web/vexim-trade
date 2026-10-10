@@ -25,7 +25,7 @@ const POST_COLUMNS = [
 ] as const
 
 export const POST_LIST_COLUMNS =
-  "id, title, slug, excerpt, category, featured_image, featured_image_alt, meta_title, meta_description, focus_keyword, status, published_at, created_at, updated_at, views_count, views_this_month"
+  "id, title, slug, excerpt, category, featured_image, featured_image_alt, meta_title, meta_description, focus_keyword, status, published_at, created_at, updated_at"
 
 export const POST_DETAIL_COLUMNS = `${POST_LIST_COLUMNS}, content`
 
