@@ -13,7 +13,6 @@ const category = getBlogCategory(DEFAULT_BLOG_CATEGORY);
 export const metadata: Metadata = {
   title: { absolute: category?.title ?? "Tin tức | Veximtrade" },
   description: category?.description,
-  keywords: category?.keywords,
   alternates: { canonical: `${SITE_URL}/blog` },
   openGraph: {
     title: category?.title,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { deletePostAction, savePostAction } from "@/app/blog-actions";
 import { BlockEditor } from "@/components/block-editor/block-editor";
@@ -15,12 +15,17 @@ import { BLOG_CATEGORIES, DEFAULT_BLOG_CATEGORY } from "@/lib/blog/blog-categori
 import { slugify } from "@/lib/blog/post-payload";
 import { blocksToPlainText } from "@/lib/blog/content-parsers";
 import { normalizeBlocksFromStorage } from "@/lib/blog/blocks-from-storage";
+import { runSeoChecks, type OtherPostRef, type SeoInput } from "@/lib/blog/seo-check";
+import { SeoPanel } from "@/components/blog/seo-panel";
+import { useImageDimensions } from "@/hooks/use-image-dimensions";
 import type { Post, PostStatus } from "@/lib/types";
 
 const MIN_PUBLISH_LENGTH = 50;
 
 interface PostEditorProps {
   post: Post | null;
+  /** Các bài khác trong mục, để kiểm tra trùng chủ đề */
+  otherPosts: OtherPostRef[];
 }
 
 /** Trạng thái form ban đầu: lấy từ bài đã lưu, hoặc rỗng khi viết bài mới. */
@@ -39,7 +44,7 @@ function initialStateOf(post: Post | null) {
   };
 }
 
-export function PostEditor({ post }: PostEditorProps) {
+export function PostEditor({ post, otherPosts }: PostEditorProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -65,6 +70,34 @@ export function PostEditor({ post }: PostEditorProps) {
   const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
 
   const plainLength = useMemo(() => blocksToPlainText(blocks).trim().length, [blocks]);
+
+  // Kiểm tra SEO: chờ 400ms sau khi ngừng gõ rồi mới tính lại
+  const coverDimensions = useImageDimensions(featuredImage || null);
+  const seoInput = useMemo<Omit<SeoInput, "now">>(
+    () => ({
+      title,
+      metaTitle,
+      metaDescription,
+      excerpt,
+      slug: slugTouched ? slug : slugify(title),
+      focusKeyword,
+      featuredImage,
+      featuredImageAlt,
+      coverWidth: coverDimensions?.width ?? null,
+      blocks,
+      published: status === "published",
+      updatedAt: post?.updated_at ?? null,
+      currentId: postId,
+      otherPosts,
+    }),
+    [title, metaTitle, metaDescription, excerpt, slug, slugTouched, focusKeyword, featuredImage, featuredImageAlt, coverDimensions, blocks, status, post, postId, otherPosts],
+  );
+  const [debouncedSeo, setDebouncedSeo] = useState(seoInput);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSeo(seoInput), 400);
+    return () => window.clearTimeout(timer);
+  }, [seoInput]);
+  const seoReport = useMemo(() => runSeoChecks({ ...debouncedSeo, now: new Date() }), [debouncedSeo]);
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
@@ -226,6 +259,11 @@ export function PostEditor({ post }: PostEditorProps) {
         </div>
 
         <aside className="space-y-5">
+          <section className="card space-y-4 p-4">
+            <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink-500">Kiểm tra SEO</h2>
+            <SeoPanel report={seoReport} />
+          </section>
+
           <section className="card space-y-4 p-4">
             <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink-500">Xuất bản</h2>
             <div>

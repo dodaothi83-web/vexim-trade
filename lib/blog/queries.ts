@@ -21,3 +21,11 @@ export async function getPublishedNewsBySlug(slug: string): Promise<Post | null>
   if (!post || post.category !== DEFAULT_BLOG_CATEGORY) return null;
   return post;
 }
+
+/** Danh sách rút gọn mọi bài trong mục (cả nháp) để kiểm tra trùng chủ đề khi viết. */
+export async function listNewsRefsForSeo(): Promise<{ id: string; title: string; slug: string; focus_keyword: string | null }[]> {
+  const posts = await getStore().listPosts();
+  return posts
+    .filter((post) => post.category === DEFAULT_BLOG_CATEGORY)
+    .map((post) => ({ id: post.id, title: post.title, slug: post.slug, focus_keyword: post.focus_keyword }));
+}
