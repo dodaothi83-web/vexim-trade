@@ -13,6 +13,8 @@ import { escapeHtml, unwrapEmailShell } from "@/lib/email/templates";
 import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { ComposeMail, type ComposeInitial, type Contact } from "@/components/compose-mail";
+import type { ProductFileGroup } from "@/components/product-file-picker";
+import { isExpired } from "@/lib/media/readiness";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PROSPECT_OUTREACH_TEMPLATES } from "@/lib/prospects/outreach-templates";
@@ -40,6 +42,35 @@ export default async function ComposePage({
     canManageProspects ? store.listProspects().catch(() => []) : Promise.resolve([]),
     canManageProspects ? store.listProspectOutreachTemplateOverrides() : Promise.resolve([]),
   ]);
+  // Tệp sản phẩm chia sẻ được cho buyer (ảnh/catalogue, chưa hết hạn) để đính kèm nhanh
+  const shareableMedia = await store.listMediaForProducts(products.map((p) => p.id)).catch(() => []);
+  const productFiles: ProductFileGroup[] = products
+    .map((product) => {
+      const supplier = suppliers.find((s) => s.id === product.supplier_id);
+      const items = shareableMedia
+        .filter(
+          (m) =>
+            m.product_id === product.id &&
+            m.owner_type === "product" &&
+            m.audience === "buyer" &&
+            (m.kind === "image" || m.kind === "catalogue") &&
+            !isExpired(m),
+        )
+        .map((m) => ({
+          id: m.id,
+          kind: m.kind as "image" | "catalogue",
+          label: m.caption?.trim() || (m.kind === "catalogue" ? "Catalogue" : "Ảnh"),
+          size: m.bytes ?? 0,
+        }));
+      return {
+        productId: product.id,
+        productName: product.name,
+        supplierName: supplier?.name ?? "",
+        items,
+      };
+    })
+    .filter((g) => g.items.length > 0)
+    .sort((a, b) => a.productName.localeCompare(b.productName, "vi"));
   const outreachTemplates = PROSPECT_OUTREACH_TEMPLATES.map((template) => ({
     ...template,
     ...(outreachOverrides.find((item) => item.id === template.id) ?? {}),
@@ -102,6 +133,7 @@ export default async function ComposePage({
             contexts={contexts}
             recent={recent}
             outreachTemplates={outreachTemplates}
+            productFiles={productFiles}
           />
         </Shell>
       );
@@ -176,6 +208,7 @@ export default async function ComposePage({
         contexts={contexts}
         recent={recent}
         outreachTemplates={outreachTemplates}
+        productFiles={productFiles}
       />
     </Shell>
   );

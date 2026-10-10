@@ -7,6 +7,7 @@ import {
   FileText,
   Loader2,
   Mail,
+  Package,
   Paperclip,
   Send,
   PenLine,
@@ -26,6 +27,7 @@ import {
 } from "@/lib/compose-context";
 import { RichEditor } from "@/components/rich-editor";
 import { ComposeSidebar } from "@/components/compose-sidebar";
+import { ProductFilePicker, type ProductFileGroup } from "@/components/product-file-picker";
 import { Button, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { PROSPECT_OUTREACH_TEMPLATES } from "@/lib/prospects/outreach-templates";
@@ -83,6 +85,7 @@ export function ComposeMail({
   contexts = [],
   recent = [],
   outreachTemplates = PROSPECT_OUTREACH_TEMPLATES,
+  productFiles = [],
 }: {
   initial: ComposeInitial;
   contacts: Contact[];
@@ -97,6 +100,8 @@ export function ComposeMail({
   /** Email đã trao đổi (mới nhất trước) để hiển thị ở cột phải */
   recent?: RecentMail[];
   outreachTemplates?: readonly ProspectOutreachTemplate[];
+  /** Ảnh/catalogue sản phẩm đã chia sẻ cho buyer, đính kèm nhanh */
+  productFiles?: ProductFileGroup[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -114,6 +119,7 @@ export function ComposeMail({
   const [body, setBody] = useState(initial.bodyHtml ?? "");
   const [attachments, setAttachments] = useState<AttachmentRef[]>(initial.attachments ?? []);
   const [uploading, setUploading] = useState(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toInput, setToInput] = useState("");
 
@@ -506,6 +512,16 @@ export function ComposeMail({
             <PenLine className="h-4 w-4" />
             Sửa chữ ký
           </button>
+          <button
+            type="button"
+            className="btn btn-ghost px-2.5"
+            disabled={busy || productFiles.length === 0}
+            onClick={() => setPickerOpen(true)}
+            title={productFiles.length ? "Đính kèm ảnh/catalogue từ hồ sơ sản phẩm" : "Chưa có sản phẩm nào chia sẻ tệp cho buyer"}
+          >
+            <Package className="h-4 w-4" />
+            Từ sản phẩm
+          </button>
           <input
             ref={fileRef}
             type="file"
@@ -539,6 +555,15 @@ export function ComposeMail({
           </span>
         </div>
       </div>
+      {pickerOpen && (
+        <ProductFilePicker
+          groups={productFiles}
+          currentCount={attachments.length}
+          currentBytes={totalSize}
+          onAttached={(ref) => setAttachments((prev) => [...prev, ref])}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
       {sigOpen && (
         <div className="animate-fade fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4 backdrop-blur-[2px]">
           <div className="animate-pop w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-pop">
