@@ -13,6 +13,7 @@ export type Permission =
   | "prospects.manage"
   | "suppliers.view"
   | "suppliers.manage"
+  | "suppliers.delete"
   | "products.view"
   | "products.manage"
   | "media.view"
@@ -76,6 +77,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "prospects.manage",
     "suppliers.view",
     "suppliers.manage",
+    "suppliers.delete",
     "products.view",
     "products.manage",
     "media.view",
@@ -95,6 +97,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "suppliers.view",
     "suppliers.manage",
     "products.view",
+    "products.manage",
     "media.view",
     "media.manage",
     "mail.view",

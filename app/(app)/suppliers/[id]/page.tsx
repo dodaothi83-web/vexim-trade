@@ -94,7 +94,9 @@ export default async function SupplierDetailPage({
                   <Pencil className="h-4 w-4" />
                   Sửa
                 </Link>
-                <DeleteSupplierButton supplierId={id} name={supplier.name} linked={attached.length} />
+                {hasPermission(session.role, "suppliers.delete") && (
+                  <DeleteSupplierButton supplierId={id} name={supplier.name} linked={attached.length} />
+                )}
               </>
             )}
           </>

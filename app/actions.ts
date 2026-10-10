@@ -872,7 +872,8 @@ export async function updateSupplierAction(
 }
 
 export async function deleteSupplierAction(id: string): Promise<ActionResult> {
-  const gate = await guard("suppliers.manage");
+  // Chỉ quản trị viên được xóa NCC (xóa kéo theo toàn bộ sản phẩm của NCC)
+  const gate = await guard("suppliers.delete");
   if (gate) return gate;
   try {
     await getStore().deleteSupplier(id);
