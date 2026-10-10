@@ -162,7 +162,7 @@ export default async function ProductsPage({
                             <Sparkles className="h-3 w-3" /> khớp nhu cầu
                           </Badge>
                         )}
-                        <span className="text-[13.5px] font-semibold text-ink-900">{r.name}</span>
+                        <Link href={`/products/${r.id}`} className="text-[13.5px] font-semibold text-ink-900 hover:text-brand-700 hover:underline">{r.name}</Link>
                         <Badge className="bg-brand-50 text-brand-700">{r.category || "Khác"}</Badge>
                         {r.ready_for_buyer ? (
                           <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
