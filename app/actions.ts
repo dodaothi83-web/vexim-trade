@@ -1166,6 +1166,26 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
       })
       .catch(() => null);
   }
+  // Buyer mới (Khách mới) chuyển sang Đã liên hệ sau email đầu tiên.
+  // Chỉ áp dụng cho giai đoạn lead; các giai đoạn sau do nhân viên tự chuyển.
+  if (res.ok && input.buyerId) {
+    const store = getStore();
+    const buyer = await store.getBuyer(input.buyerId).catch(() => null);
+    if (buyer && (buyer.stage ?? "lead") === "lead") {
+      await store.updateBuyer(buyer.id, { stage: "contacted" }).catch(() => null);
+      await store
+        .addActivity({
+          buyer_id: buyer.id,
+          type: "stage_change",
+          from_stage: "lead",
+          to_stage: "contacted",
+          message: "Khách mới → Đã liên hệ (tự động sau email đầu tiên)",
+          created_by: input.author ?? null,
+        })
+        .catch(() => null);
+    }
+  }
+
   if (res.ok && input.prospectId) {
     const store = getStore();
     const prospect = await store.getProspect(input.prospectId).catch(() => null);
