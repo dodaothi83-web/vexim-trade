@@ -56,7 +56,7 @@ function sameEmail(a: string, b: string): boolean {
  * - Thư từ NCC hoặc địa chỉ không xác định: giữ hành vi cũ (quản trị viên và nhân viên kinh doanh).
  * - INBOUND_NOTIFY_EMAILS (nếu đặt) luôn được ưu tiên.
  */
-async function notifyRecipients(
+export async function notifyRecipients(
   from: string,
   ownerName: string | null,
   hasCustomerRecord: boolean,

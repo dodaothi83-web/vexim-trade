@@ -17,6 +17,7 @@ import {
   transport,
 } from "@/lib/email/send";
 import { getStage, isStage } from "@/lib/pipeline";
+import { notifyRecipients } from "@/lib/mail/inbound";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import type {
   Buyer,
@@ -1595,7 +1596,22 @@ export async function submitQuoteLeadAction(input: {
     const existing = buyers.find(
       (b) => (b.email ?? "").trim().toLowerCase() === email,
     );
-    if (!existing) {
+    const today = new Date().toISOString().slice(0, 10);
+    const requestLines = [
+      input.product.trim() ? `Sản phẩm: ${input.product.trim()}` : "",
+      input.quantity.trim() ? `Số lượng: ${input.quantity.trim()}` : "",
+      input.incoterm?.trim() ? `Incoterm: ${input.incoterm.trim()}` : "",
+      input.payment_method?.trim() ? `Thanh toán: ${input.payment_method.trim()}` : "",
+      input.lead_time?.trim() ? `Thời gian cần: ${input.lead_time.trim()}` : "",
+    ].filter(Boolean);
+    const requestText = [...requestLines, input.message.trim()].join("\n");
+
+    if (existing) {
+      // Buyer đã có: không bỏ qua yêu cầu mới, ghi thêm vào hồ sơ để người phụ trách thấy
+      await store.updateBuyer(existing.id, {
+        notes: `${existing.notes ?? ""}\n\n[Website ${today}] Yêu cầu sourcing mới:\n${requestText}`.trim(),
+      });
+    } else {
       await store.createBuyer({
         company: input.company.trim().slice(0, 200),
         contact_name: input.name.trim() || null,
@@ -1628,6 +1644,32 @@ export async function submitQuoteLeadAction(input: {
           input.lead_time?.trim() ? `Lead time required: ${input.lead_time.trim()}\n` : ""
         }${input.message.trim()}`,
       });
+    }
+
+    // Báo đội ngũ best-effort: buyer mới → admin + sale; buyer đã có → người phụ trách
+    try {
+      const recipients = await notifyRecipients("", existing?.owner ?? null, Boolean(existing));
+      if (recipients.length) {
+        const title = existing
+          ? `Yêu cầu sourcing mới từ buyer đã có: ${existing.company}`
+          : `Buyer mới từ website: ${input.company.trim()}`;
+        const body =
+          `<p><strong>${escapeHtml(title)}</strong></p>` +
+          `<p>Người gửi: ${escapeHtml(input.name.trim() || "—")} &lt;${escapeHtml(email)}&gt;<br/>` +
+          `Công ty: ${escapeHtml(input.company.trim())}<br/>` +
+          `Quốc gia: ${escapeHtml(input.country.trim() || "—")}</p>` +
+          `<p>${requestLines.map((l) => escapeHtml(l)).join("<br/>")}</p>` +
+          `<p>${escapeHtml(input.message.trim()).replace(/\n/g, "<br/>")}</p>` +
+          `<p>Vào CRM &rarr; Buyer để xử lý.</p>`;
+        await transport({
+          to: recipients,
+          subject: title,
+          html: wrapPlainEmail({ title, body }),
+          text: `${title}\n${email}\n${requestText}`,
+        });
+      }
+    } catch {
+      /* lead đã lưu; thông báo lỗi không làm mất yêu cầu */
     }
 
     // Mail cảm ơn best-effort (chế độ demo / lỗi Resend không làm mất lead)

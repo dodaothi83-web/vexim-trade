@@ -5,6 +5,7 @@ import { supabaseProbe } from "@/lib/db";
 import { emailMode } from "@/lib/config";
 import { requireSession } from "@/lib/auth/session";
 import { permissionsFor } from "@/lib/auth/permissions";
+import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { Sidebar } from "@/components/sidebar";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     unreadMail = await getStore()
       .listMessages(500)
       .then((ms) => ms.filter((m) => m.kind === "inbound" && !m.read_at).length)
+      .catch(() => 0);
+  }
+
+  // Buyer mới (giai đoạn lead) trong phạm vi của người dùng — badge ở menu Buyer
+  let newBuyers = 0;
+  if (permissionsFor(session.role).includes("buyers.view")) {
+    const scope = ownerScopeOf(session);
+    newBuyers = await getStore()
+      .listBuyers()
+      .then((bs) => bs.filter((b) => (b.stage ?? "lead") === "lead" && isOwnedBy(b.owner, scope)).length)
       .catch(() => 0);
   }
 
@@ -52,6 +63,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         }}
         permissions={permissionsFor(session.role)}
         unreadMail={unreadMail}
+        newBuyers={newBuyers}
       />
       <div className="lg:pl-60">
         <main className="mx-auto min-h-screen w-full max-w-[1500px] px-4 pt-16 pb-16 sm:px-6 lg:px-8 lg:pt-8">
