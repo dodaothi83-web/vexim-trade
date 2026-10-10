@@ -402,6 +402,8 @@ export async function saveMySignatureAction(html: string | null): Promise<AuthRe
 /* -------- Sửa thông tin tài khoản của chính mình (tên, email) -------- */
 
 const MAX_NAME_CHARS = 80;
+/** Số điện thoại: cho phép +, số, khoảng trắng, dấu chấm, gạch ngang, ngoặc; 8–20 ký tự */
+const PHONE_RE = /^\+?[0-9][0-9 .\-()]{6,18}[0-9]$/;
 
 /**
  * Đổi tên hiển thị và/hoặc email của người đang đăng nhập.
@@ -413,6 +415,7 @@ const MAX_NAME_CHARS = 80;
 export async function updateMyProfileAction(input: {
   name: string;
   email: string;
+  phone?: string;
   currentPassword?: string;
 }): Promise<AuthResult> {
   const session = await getSession();
@@ -425,6 +428,10 @@ export async function updateMyProfileAction(input: {
     return { ok: false, message: `Tên tối đa ${MAX_NAME_CHARS} ký tự.` };
   }
   if (!EMAIL_RE.test(email)) return { ok: false, message: "Email không hợp lệ." };
+  const phone = (input.phone ?? "").trim().replace(/\s+/g, " ");
+  if (phone && !PHONE_RE.test(phone)) {
+    return { ok: false, message: "Số điện thoại không hợp lệ (ví dụ +84 912 345 678)." };
+  }
 
   const store = getStore();
   const me = await store.getUserByEmail(session.email);
@@ -434,7 +441,8 @@ export async function updateMyProfileAction(input: {
   const oldEmail = me.email.trim().toLowerCase();
   const nameChanged = name !== oldName;
   const emailChanged = email !== oldEmail;
-  if (!nameChanged && !emailChanged) return { ok: true, message: "Không có thay đổi nào." };
+  const phoneChanged = (phone || null) !== (me.phone ?? null);
+  if (!nameChanged && !emailChanged && !phoneChanged) return { ok: true, message: "Không có thay đổi nào." };
 
   const users = await store.listUsers();
   if (emailChanged && users.some((u) => u.id !== me.id && u.email.trim().toLowerCase() === email)) {
@@ -481,7 +489,7 @@ export async function updateMyProfileAction(input: {
   }
 
   try {
-    await store.updateUser(me.id, { name, email: emailChanged ? email : me.email });
+    await store.updateUser(me.id, { name, email: emailChanged ? email : me.email, phone: phone || null });
   } catch (err) {
     if (emailChanged) await updateSupabaseEmail(email, oldEmail).catch(() => "error" as const);
     const raw = err instanceof Error ? err.message : "Lỗi không xác định";

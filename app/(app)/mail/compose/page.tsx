@@ -48,7 +48,7 @@ export default async function ComposePage({
   // Chữ ký cá nhân kiểu Gmail/Zoho: mỗi người tự sửa và lưu lại;
   // null = chưa có chữ ký tuỳ chỉnh => dùng chữ ký tự động của hệ thống.
   const mySigHtml = me?.signature_html ?? null;
-  const autoSig = buildSignature(session.name);
+  const autoSig = buildSignature(session.name, me?.phone);
   const mySig = mySigHtml !== null ? mySigHtml : autoSig;
 
   // Cột phải của trang soạn thư: ngữ cảnh từng buyer / NCC + email đã trao đổi

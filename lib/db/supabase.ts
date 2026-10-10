@@ -110,7 +110,7 @@ function toPublicUser(row: AppUserRecord): AppUser {
   const has_local_password = Boolean(row.password_hash);
   const { password_hash: _omit, ...rest } = row;
   void _omit;
-  return { ...rest, signature_html: row.signature_html ?? null, has_local_password };
+  return { ...rest, signature_html: row.signature_html ?? null, phone: row.phone ?? null, has_local_password };
 }
 
 function must(): SupabaseClient {

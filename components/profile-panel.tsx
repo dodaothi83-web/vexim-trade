@@ -16,6 +16,7 @@ import { useToast } from "@/components/toast";
 export function ProfilePanel({
   name,
   email,
+  phone,
   roleLabel,
   roleDescription,
   signatureHtml,
@@ -23,6 +24,8 @@ export function ProfilePanel({
 }: {
   name: string;
   email: string;
+  /** Số điện thoại cá nhân; null = chưa có */
+  phone: string | null;
   roleLabel: string;
   roleDescription: string;
   /** Chữ ký tuỳ chỉnh đang lưu; null = đang dùng chữ ký tự động */
@@ -35,12 +38,13 @@ export function ProfilePanel({
   // ----- Thông tin tài khoản (sửa tên, email) -----
   const [editing, setEditing] = useState(false);
   const [infoBusy, setInfoBusy] = useState(false);
-  const [infoDraft, setInfoDraft] = useState({ name, email, currentPassword: "" });
+  const [infoDraft, setInfoDraft] = useState({ name, email, phone: phone ?? "", currentPassword: "" });
   const emailChanged = infoDraft.email.trim().toLowerCase() !== email.trim().toLowerCase();
-  const infoDirty = emailChanged || infoDraft.name.trim() !== name.trim();
+  const infoDirty =
+    emailChanged || infoDraft.name.trim() !== name.trim() || infoDraft.phone.trim() !== (phone ?? "").trim();
 
   function startEditing() {
-    setInfoDraft({ name, email, currentPassword: "" });
+    setInfoDraft({ name, email, phone: phone ?? "", currentPassword: "" });
     setEditing(true);
   }
 
@@ -51,6 +55,7 @@ export function ProfilePanel({
       const res = await updateMyProfileAction({
         name: infoDraft.name,
         email: infoDraft.email,
+        phone: infoDraft.phone,
         currentPassword: infoDraft.currentPassword,
       });
       toast.push({ kind: res.ok ? "success" : "error", title: res.message });
@@ -152,6 +157,16 @@ export function ProfilePanel({
                 required
               />
             </label>
+            <label className="block">
+              <span className="label">Số điện thoại</span>
+              <input
+                className="input"
+                type="tel"
+                value={infoDraft.phone}
+                placeholder="+84 912 345 678"
+                onChange={(e) => setInfoDraft((d) => ({ ...d, phone: e.target.value }))}
+              />
+            </label>
             {emailChanged && (
               <label className="block">
                 <span className="label">Mật khẩu hiện tại (bắt buộc khi đổi email)</span>
@@ -193,6 +208,10 @@ export function ProfilePanel({
             <div className="flex gap-3">
               <dt className="w-24 shrink-0 text-ink-400">Email</dt>
               <dd className="min-w-0 flex-1 break-all text-ink-700">{email}</dd>
+            </div>
+            <div className="flex gap-3">
+              <dt className="w-24 shrink-0 text-ink-400">Điện thoại</dt>
+              <dd className="min-w-0 flex-1 text-ink-700">{phone || <span className="text-ink-400">Chưa có</span>}</dd>
             </div>
             <div className="flex gap-3">
               <dt className="w-24 shrink-0 text-ink-400">Vai trò</dt>

@@ -27,8 +27,9 @@ export default async function ProfilePage() {
         email={session.email}
         roleLabel={meta.label}
         roleDescription={meta.description}
+        phone={me?.phone ?? null}
         signatureHtml={me?.signature_html ?? null}
-        autoSignature={buildSignature(session.name)}
+        autoSignature={buildSignature(session.name, me?.phone)}
       />
     </>
   );

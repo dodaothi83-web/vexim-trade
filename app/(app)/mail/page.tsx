@@ -36,7 +36,7 @@ export default async function MailPage() {
   // Chữ ký cá nhân kiểu Gmail/Zoho (chữ ký tuỳ chỉnh hoặc chữ ký tự động) —
   // chèn sẵn vào khung trả lời nhanh và cửa sổ chuyển tiếp ngay trong Hộp thư
   const mySigHtml = me?.signature_html ?? null;
-  const mySig = mySigHtml !== null ? mySigHtml : buildSignature(session.name);
+  const mySig = mySigHtml !== null ? mySigHtml : buildSignature(session.name, me?.phone);
 
   // Phạm vi: nhân viên kinh doanh chỉ thấy thư của buyer/prospect mình phụ trách và thư do chính mình gửi
   const scope = ownerScopeOf(session);

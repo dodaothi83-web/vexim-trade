@@ -164,6 +164,7 @@ function load(): LocalShape {
     if (!Array.isArray(c.users)) c.users = [];
     c.users.forEach((u) => {
       if (u.signature_html === undefined) u.signature_html = null;
+      if (u.phone === undefined) u.phone = null;
     });
     if (!Array.isArray(c.attachments)) c.attachments = [];
     removeProspectsWithoutEmail(c);
@@ -221,7 +222,7 @@ function toPublicUser(row: AppUserRecord): AppUser {
   const has_local_password = Boolean(row.password_hash);
   const { password_hash: _omit, ...rest } = row;
   void _omit;
-  return { ...rest, signature_html: row.signature_html ?? null, has_local_password };
+  return { ...rest, signature_html: row.signature_html ?? null, phone: row.phone ?? null, has_local_password };
 }
 
 function mutate<T>(fn: (db: LocalShape) => T): T {
@@ -493,6 +494,7 @@ export const localStore: DataStore = {
         ...input,
         id: randomUUID(),
         signature_html: null,
+        phone: null,
         last_login_at: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
