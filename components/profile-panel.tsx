@@ -2,9 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { KeyRound, Loader2, Mail, ShieldCheck, UserRound } from "lucide-react";
+import { KeyRound, Loader2, Mail, Pencil, Save, ShieldCheck, UserRound, X } from "lucide-react";
 
-import { changeMyPasswordAction, saveMySignatureAction } from "@/app/auth-actions";
+import { changeMyPasswordAction, saveMySignatureAction, updateMyProfileAction } from "@/app/auth-actions";
 import { RichEditor } from "@/components/rich-editor";
 import { Button } from "@/components/ui";
 import { useToast } from "@/components/toast";
@@ -31,6 +31,39 @@ export function ProfilePanel({
 }) {
   const router = useRouter();
   const toast = useToast();
+
+  // ----- Thông tin tài khoản (sửa tên, email) -----
+  const [editing, setEditing] = useState(false);
+  const [infoBusy, setInfoBusy] = useState(false);
+  const [infoDraft, setInfoDraft] = useState({ name, email, currentPassword: "" });
+  const emailChanged = infoDraft.email.trim().toLowerCase() !== email.trim().toLowerCase();
+  const infoDirty = emailChanged || infoDraft.name.trim() !== name.trim();
+
+  function startEditing() {
+    setInfoDraft({ name, email, currentPassword: "" });
+    setEditing(true);
+  }
+
+  async function saveInfo(e: React.FormEvent) {
+    e.preventDefault();
+    setInfoBusy(true);
+    try {
+      const res = await updateMyProfileAction({
+        name: infoDraft.name,
+        email: infoDraft.email,
+        currentPassword: infoDraft.currentPassword,
+      });
+      toast.push({ kind: res.ok ? "success" : "error", title: res.message });
+      if (res.ok) {
+        setEditing(false);
+        router.refresh();
+      }
+    } catch {
+      toast.push({ kind: "error", title: "Không lưu được thông tin, thử lại sau." });
+    } finally {
+      setInfoBusy(false);
+    }
+  }
 
   // ----- Chữ ký -----
   const [sigDraft, setSigDraft] = useState(signatureHtml ?? autoSignature);
@@ -84,35 +117,100 @@ export function ProfilePanel({
       <section className="card overflow-hidden">
         <header className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
           <UserRound className="h-4 w-4 text-brand-700" />
-          <h2 className="text-[15px] font-bold text-ink-900">Thông tin tài khoản</h2>
+          <h2 className="flex-1 text-[15px] font-bold text-ink-900">Thông tin tài khoản</h2>
+          {!editing && (
+            <button
+              type="button"
+              onClick={startEditing}
+              className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-brand-700"
+              title="Sửa thông tin tài khoản"
+              aria-label="Sửa thông tin tài khoản"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
         </header>
-        <dl className="space-y-2.5 px-4 py-4 text-[13px]">
-          <div className="flex gap-3">
-            <dt className="w-24 shrink-0 text-ink-400">Họ tên</dt>
-            <dd className="min-w-0 flex-1 font-semibold text-ink-900">{name}</dd>
-          </div>
-          <div className="flex gap-3">
-            <dt className="w-24 shrink-0 text-ink-400">Email</dt>
-            <dd className="min-w-0 flex-1 break-all text-ink-700">{email}</dd>
-          </div>
-          <div className="flex gap-3">
-            <dt className="w-24 shrink-0 text-ink-400">Vai trò</dt>
-            <dd className="min-w-0 flex-1">
-              <span className="inline-flex items-center gap-1.5 font-semibold text-ink-900">
-                <ShieldCheck className="h-3.5 w-3.5 text-brand-700" />
-                {roleLabel}
-              </span>
-              {roleDescription && (
-                <span className="mt-0.5 block text-[12px] text-ink-500">{roleDescription}</span>
-              )}
-            </dd>
-          </div>
-          <p className="rounded-lg bg-ink-50 px-3 py-2 text-[12px] leading-relaxed text-ink-500">
-            Tên và email đăng nhập do quản trị viên cấp và đổi trong mục{" "}
-            <strong className="text-ink-700">Người dùng</strong>; mật khẩu và chữ ký thì bạn
-            tự quản ở hai khối bên dưới.
-          </p>
-        </dl>
+        {editing ? (
+          <form onSubmit={saveInfo} className="space-y-3 px-4 py-4 text-[13px]">
+            <label className="block">
+              <span className="label">Họ tên</span>
+              <input
+                className="input"
+                value={infoDraft.name}
+                maxLength={80}
+                onChange={(e) => setInfoDraft((d) => ({ ...d, name: e.target.value }))}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="label">Email đăng nhập</span>
+              <input
+                className="input"
+                type="email"
+                value={infoDraft.email}
+                onChange={(e) => setInfoDraft((d) => ({ ...d, email: e.target.value }))}
+                required
+              />
+            </label>
+            {emailChanged && (
+              <label className="block">
+                <span className="label">Mật khẩu hiện tại (bắt buộc khi đổi email)</span>
+                <input
+                  className="input"
+                  type="password"
+                  autoComplete="current-password"
+                  value={infoDraft.currentPassword}
+                  onChange={(e) => setInfoDraft((d) => ({ ...d, currentPassword: e.target.value }))}
+                  required
+                />
+              </label>
+            )}
+            <p className="text-[12px] leading-relaxed text-ink-500">
+              Đổi tên sẽ chuyển các buyer và khách hàng mục tiêu đang phụ trách sang tên mới.
+            </p>
+            <div className="flex items-center gap-2 pt-1">
+              <button type="submit" className="btn btn-primary" disabled={infoBusy || !infoDirty}>
+                {infoBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Lưu
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setEditing(false)}
+                disabled={infoBusy}
+              >
+                <X className="h-4 w-4" />
+                Hủy
+              </button>
+            </div>
+          </form>
+        ) : (
+          <dl className="space-y-2.5 px-4 py-4 text-[13px]">
+            <div className="flex gap-3">
+              <dt className="w-24 shrink-0 text-ink-400">Họ tên</dt>
+              <dd className="min-w-0 flex-1 font-semibold text-ink-900">{name}</dd>
+            </div>
+            <div className="flex gap-3">
+              <dt className="w-24 shrink-0 text-ink-400">Email</dt>
+              <dd className="min-w-0 flex-1 break-all text-ink-700">{email}</dd>
+            </div>
+            <div className="flex gap-3">
+              <dt className="w-24 shrink-0 text-ink-400">Vai trò</dt>
+              <dd className="min-w-0 flex-1">
+                <span className="inline-flex items-center gap-1.5 font-semibold text-ink-900">
+                  <ShieldCheck className="h-3.5 w-3.5 text-brand-700" />
+                  {roleLabel}
+                </span>
+                {roleDescription && (
+                  <span className="mt-0.5 block text-[12px] text-ink-500">{roleDescription}</span>
+                )}
+              </dd>
+            </div>
+            <p className="rounded-lg bg-ink-50 px-3 py-2 text-[12px] leading-relaxed text-ink-500">
+              Bấm biểu tượng bút để sửa tên hoặc email. Mật khẩu và chữ ký thì bạn tự quản ở hai khối bên dưới.
+            </p>
+          </dl>
+        )}
       </section>
 
       {/* Đổi mật khẩu */}
