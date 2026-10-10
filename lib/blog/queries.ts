@@ -3,6 +3,7 @@ import "server-only";
 import { getStore } from "@/lib/db";
 import type { Post } from "@/lib/types";
 import { DEFAULT_BLOG_CATEGORY } from "@/lib/blog/blog-categories";
+import { titleSimilarity } from "@/lib/blog/seo-check";
 
 /**
  * Truy vấn bài viết cho trang công khai /blog.
@@ -14,6 +15,17 @@ export async function listPublishedNews(): Promise<Post[]> {
   return posts
     .filter((post) => post.category === DEFAULT_BLOG_CATEGORY && post.status === "published")
     .sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? ""));
+}
+
+/** Bài liên quan: cùng mục, giống tiêu đề nhất, rồi đến bài mới hơn. Không gồm bài hiện tại. */
+export async function relatedNews(current: Post, limit = 3): Promise<Post[]> {
+  const all = await listPublishedNews();
+  return all
+    .filter((post) => post.id !== current.id)
+    .map((post) => ({ post, score: titleSimilarity(post.title, current.title) }))
+    .sort((a, b) => b.score - a.score || (b.post.published_at ?? "").localeCompare(a.post.published_at ?? ""))
+    .slice(0, limit)
+    .map((item) => item.post);
 }
 
 export async function getPublishedNewsBySlug(slug: string): Promise<Post | null> {

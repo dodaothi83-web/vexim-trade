@@ -27,7 +27,7 @@ export default function BlogLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-5 py-12 sm:px-8 lg:max-w-4xl">{children}</main>
+      <main className="mx-auto max-w-6xl px-5 py-12 sm:px-8">{children}</main>
 
       <footer className="bg-ink-900 text-slate-400">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-10 text-[14px] sm:px-8 md:flex-row md:items-center md:justify-between">

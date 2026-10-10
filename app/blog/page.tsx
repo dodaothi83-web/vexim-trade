@@ -32,7 +32,7 @@ export default async function BlogIndexPage() {
   const posts = await listPublishedNews();
 
   return (
-    <section>
+    <section className="mx-auto max-w-3xl">
       <h1 className="text-[36px] leading-tight font-black tracking-tight">News</h1>
       <p className="mt-2 max-w-2xl text-[16px] text-ink-600">{category?.description}</p>
 
