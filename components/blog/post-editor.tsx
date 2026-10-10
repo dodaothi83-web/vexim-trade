@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 
 import { deletePostAction, savePostAction } from "@/app/blog-actions";
 import { BlockEditor } from "@/components/block-editor/block-editor";
@@ -60,6 +60,8 @@ export function PostEditor({ post }: PostEditorProps) {
   const [metaDescription, setMetaDescription] = useState(initial.metaDescription);
   const [focusKeyword, setFocusKeyword] = useState(initial.focusKeyword);
   const [status, setStatus] = useState<PostStatus>(initial.status);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
 
   const plainLength = useMemo(() => blocksToPlainText(blocks).trim().length, [blocks]);
@@ -123,6 +125,36 @@ export function PostEditor({ post }: PostEditorProps) {
       router.push("/posts");
       router.refresh();
     });
+  };
+
+  const uploadCover = async (file: File) => {
+    setMessage(null);
+    if (!file.type.startsWith("image/")) {
+      setMessage({ kind: "error", text: "Vui lòng chọn tệp ảnh (JPG, PNG, WebP, GIF, AVIF)." });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ kind: "error", text: "Ảnh vượt quá 5MB, vui lòng chọn ảnh nhỏ hơn." });
+      return;
+    }
+    setUploadingCover(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload-image", { method: "POST", body: formData });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        setMessage({ kind: "error", text: data.error || "Không tải được ảnh lên." });
+        return;
+      }
+      setFeaturedImage(data.url);
+      if (!featuredImageAlt) setFeaturedImageAlt(title);
+    } catch {
+      setMessage({ kind: "error", text: "Mất kết nối khi tải ảnh. Vui lòng thử lại." });
+    } finally {
+      setUploadingCover(false);
+      if (coverInputRef.current) coverInputRef.current.value = "";
+    }
   };
 
   const titleLength = (metaTitle || title).length;
@@ -234,28 +266,50 @@ export function PostEditor({ post }: PostEditorProps) {
 
           <section className="card space-y-4 p-4">
             <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink-500">Ảnh bìa</h2>
-            <div>
-              <Label htmlFor="post-image">Đường dẫn ảnh (https://)</Label>
-              <Input
-                id="post-image"
-                value={featuredImage}
-                onChange={(e) => setFeaturedImage(e.target.value)}
-                placeholder="https://..."
-                className="mt-1 h-8 text-[12px]"
-              />
-            </div>
+            {featuredImage ? (
+              <div className="space-y-2">
+                {/* Xem trước ảnh bìa */}
+                <img src={featuredImage} alt={featuredImageAlt} className="w-full rounded-md border border-ink-200 object-cover" />
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => coverInputRef.current?.click()} disabled={uploadingCover}>
+                    {uploadingCover ? "Đang tải…" : "Đổi ảnh"}
+                  </Button>
+                  <Button type="button" variant="ghost" className="h-8 text-[12px]" onClick={() => setFeaturedImage("")} disabled={uploadingCover}>
+                    Gỡ ảnh
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => coverInputRef.current?.click()}
+                disabled={uploadingCover}
+                className="flex w-full flex-col items-center justify-center rounded-md border border-dashed border-ink-300 px-4 py-8 text-center text-[13px] text-ink-500 hover:border-ink-500 hover:text-ink-800 disabled:opacity-60"
+              >
+                <span className="font-semibold text-ink-800">{uploadingCover ? "Đang tải ảnh…" : "Tải ảnh bìa lên"}</span>
+                <span className="mt-1 text-[12px]">JPG, PNG, WebP, GIF, AVIF · tối đa 5MB</span>
+              </button>
+            )}
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void uploadCover(file);
+              }}
+            />
             <div>
               <Label htmlFor="post-image-alt">Mô tả ảnh (alt)</Label>
               <Input
                 id="post-image-alt"
                 value={featuredImageAlt}
                 onChange={(e) => setFeaturedImageAlt(e.target.value)}
+                placeholder="Mô tả ngắn cho người khiếm thị và công cụ tìm kiếm"
                 className="mt-1 h-8 text-[12px]"
               />
             </div>
-            {featuredImage && (
-              <img src={featuredImage} alt={featuredImageAlt} className="w-full rounded-md border border-ink-200 object-cover" />
-            )}
           </section>
 
           <section className="card space-y-4 p-4">
