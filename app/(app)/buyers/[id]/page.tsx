@@ -17,6 +17,7 @@ import {
 
 import { getBuyerWithSupplier } from "@/lib/queries";
 import { requireSession } from "@/lib/auth/session";
+import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getStore } from "@/lib/db";
 import { stageIndex, FUNNEL_STAGES } from "@/lib/pipeline";
@@ -44,7 +45,7 @@ export default async function BuyerDetailPage({
   const canSendMail = hasPermission(session.role, "mail.send");
   const canManageTemplates = hasPermission(session.role, "templates.manage");
 
-  const buyer = await getBuyerWithSupplier(id);
+  const buyer = await getBuyerWithSupplier(id, ownerScopeOf(session));
   if (!buyer) notFound();
 
   const store = getStore();

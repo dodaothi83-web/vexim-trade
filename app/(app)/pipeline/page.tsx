@@ -4,6 +4,7 @@ import { UserPlus } from "lucide-react";
 import { listBuyersWithSupplier } from "@/lib/queries";
 import { getStage } from "@/lib/pipeline";
 import { requireSession } from "@/lib/auth/session";
+import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/page-header";
 import { PipelineBoard } from "@/components/pipeline-board";
@@ -21,7 +22,7 @@ export default async function PipelinePage({
   const canManage = hasPermission(session.role, "buyers.manage");
 
   const { stage } = await searchParams;
-  const buyers = await listBuyersWithSupplier();
+  const buyers = await listBuyersWithSupplier(ownerScopeOf(session));
   const active = buyers.filter((b) => !getStage(b.stage).terminal);
   const value = active.reduce((s, b) => s + (b.deal_value ?? 0), 0);
 

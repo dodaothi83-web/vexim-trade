@@ -14,6 +14,7 @@ import {
 import { listBuyersWithSupplier } from "@/lib/queries";
 import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
+import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { emailMode } from "@/lib/config";
 import { FUNNEL_STAGES, getStage } from "@/lib/pipeline";
@@ -29,7 +30,7 @@ export default async function DashboardPage() {
   const session = await requireSession();
   const canManageBuyers = hasPermission(session.role, "buyers.manage");
 
-  const buyers = await listBuyersWithSupplier();
+  const buyers = await listBuyersWithSupplier(ownerScopeOf(session));
   const activities = (await getStore().listActivities()).slice(0, 12);
   const suppliers = await getStore().listSuppliers();
   const mode = emailMode();

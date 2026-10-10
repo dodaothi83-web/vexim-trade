@@ -4,6 +4,7 @@ import { KanbanSquare, UserPlus } from "lucide-react";
 import { listBuyersWithSupplier } from "@/lib/queries";
 import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
+import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/page-header";
 import { BuyerTable } from "@/components/buyer-table";
@@ -17,7 +18,7 @@ export default async function BuyersPage() {
   const canManage = hasPermission(session.role, "buyers.manage");
 
   const [buyers, suppliers] = await Promise.all([
-    listBuyersWithSupplier(),
+    listBuyersWithSupplier(ownerScopeOf(session)),
     getStore().listSuppliers(),
   ]);
 

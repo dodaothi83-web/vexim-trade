@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
+import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
 import { deleteObject } from "@/lib/media/storage";
 import { productReadiness } from "@/lib/media/readiness";
@@ -97,12 +98,25 @@ function parseBuyerInput(raw: Partial<BuyerInput> & Record<string, unknown>): Bu
   };
 }
 
+/** Nhân viên kinh doanh chỉ thao tác buyer mình phụ trách. Trả về lỗi nếu không được phép. */
+async function denyIfNotOwnedBuyer(buyerId: string): Promise<ActionResult | null> {
+  const scope = ownerScopeOf(await getSession());
+  if (scope === null) return null;
+  const buyer = await getStore().getBuyer(buyerId);
+  if (!buyer || !isOwnedBy(buyer.owner, scope)) {
+    return { ok: false, message: "Bạn không phụ trách buyer này." };
+  }
+  return null;
+}
+
 export async function createBuyerAction(
   raw: Partial<BuyerInput> & Record<string, unknown>,
 ): Promise<ActionResult & { id?: string }> {
   const gate = await guard("buyers.manage");
   if (gate) return gate;
   const input = parseBuyerInput(raw);
+  const actor = await getSession();
+  if (ownerScopeOf(actor) !== null) input.owner = actor?.name?.trim() || null;
   if (!input.company || input.company === "Khách chưa đặt tên") {
     return { ok: false, message: "Vui lòng nhập tên công ty / buyer." };
   }
@@ -137,6 +151,8 @@ export async function updateBuyerAction(
 ): Promise<ActionResult> {
   const gate = await guard("buyers.manage");
   if (gate) return gate;
+  const denied = await denyIfNotOwnedBuyer(id);
+  if (denied) return denied;
   const store = getStore();
   const before = await store.getBuyer(id);
   if (!before) return { ok: false, message: "Không tìm thấy khách hàng." };
@@ -171,6 +187,8 @@ export async function updateBuyerAction(
 export async function deleteBuyerAction(id: string): Promise<ActionResult> {
   const gate = await guard("buyers.manage");
   if (gate) return gate;
+  const denied = await denyIfNotOwnedBuyer(id);
+  if (denied) return denied;
   try {
     await getStore().deleteBuyer(id);
     revalidateAll();
@@ -325,9 +343,22 @@ export async function importProspectsAction(rawRows: Partial<ProspectInput>[], l
   };
 }
 
+/** Nhân viên kinh doanh chỉ thao tác prospect mình phụ trách. */
+async function denyIfNotOwnedProspect(prospectId: string): Promise<ActionResult | null> {
+  const scope = ownerScopeOf(await getSession());
+  if (scope === null) return null;
+  const prospect = (await getStore().listProspects()).find((p) => p.id === prospectId);
+  if (!prospect || !isOwnedBy(prospect.owner, scope)) {
+    return { ok: false, message: "Bạn không phụ trách khách hàng mục tiêu này." };
+  }
+  return null;
+}
+
 export async function updateProspectAction(id: string, patch: Partial<ProspectInput>): Promise<ActionResult> {
   const gate = await guard("prospects.manage");
   if (gate) return gate;
+  const denied = await denyIfNotOwnedProspect(id);
+  if (denied) return denied;
   const allowedStatus = patch.status === undefined || PROSPECT_STATUSES.includes(patch.status as (typeof PROSPECT_STATUSES)[number]);
   if (!allowedStatus) return { ok: false, message: "Trạng thái tiếp cận không hợp lệ." };
   if (patch.status === "converted") return { ok: false, message: "Dùng thao tác đưa vào pipeline để liên kết Buyer và giữ lịch sử." };
@@ -358,6 +389,8 @@ export async function addProspectActivityAction(input: {
 }): Promise<ActionResult> {
   const gate = await guard("prospects.manage");
   if (gate) return gate;
+  const deniedActivity = await denyIfNotOwnedProspect(input.prospectId);
+  if (deniedActivity) return deniedActivity;
   if (!PROSPECT_CHANNELS.includes(input.channel)) return { ok: false, message: "Kênh liên hệ không hợp lệ." };
   const summary = str(input.summary);
   if (!summary) return { ok: false, message: "Vui lòng ghi nội dung trao đổi." };
@@ -381,6 +414,8 @@ export async function addProspectActivityAction(input: {
 export async function linkProspectToBuyerAction(prospectId: string, buyerId: string): Promise<ActionResult> {
   const gate = await guard("prospects.manage");
   if (gate) return gate;
+  const denied = await denyIfNotOwnedProspect(prospectId);
+  if (denied) return denied;
   const store = getStore();
   const [prospect, buyer] = await Promise.all([store.getProspect(prospectId), store.getBuyer(buyerId)]);
   if (!prospect || !buyer) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận hoặc Buyer." };
@@ -407,6 +442,8 @@ export async function linkProspectToBuyerAction(prospectId: string, buyerId: str
 export async function convertProspectAction(prospectId: string): Promise<ActionResult & { buyerId?: string; matched?: boolean }> {
   const gate = await guard("prospects.manage");
   if (gate) return gate;
+  const denied = await denyIfNotOwnedProspect(prospectId);
+  if (denied) return denied;
   const store = getStore();
   const prospect = await store.getProspect(prospectId);
   if (!prospect) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận." };
@@ -609,6 +646,8 @@ export async function changeStageAction(
 ): Promise<ActionResult> {
   const gate = await guard("buyers.manage");
   if (gate) return gate;
+  const denied = await denyIfNotOwnedBuyer(buyerId);
+  if (denied) return denied;
   if (!isStage(stage)) return { ok: false, message: "Trạng thái không hợp lệ." };
 
   const store = getStore();
@@ -686,6 +725,8 @@ export async function attachSupplierAction(
 ): Promise<ActionResult> {
   const gate = await guard("buyers.manage");
   if (gate) return gate;
+  const denied = await denyIfNotOwnedBuyer(buyerId);
+  if (denied) return denied;
 
   const store = getStore();
   const buyer = await store.getBuyer(buyerId);

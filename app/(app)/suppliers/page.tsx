@@ -2,6 +2,7 @@ import { listBuyersWithSupplier } from "@/lib/queries";
 import { getStore } from "@/lib/db";
 import { getStage } from "@/lib/pipeline";
 import { requireSession } from "@/lib/auth/session";
+import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/page-header";
 import { SupplierTable } from "@/components/supplier-table";
@@ -16,7 +17,7 @@ export default async function SuppliersPage() {
 
   const [suppliers, buyers] = await Promise.all([
     getStore().listSuppliers(),
-    listBuyersWithSupplier(),
+    listBuyersWithSupplier(ownerScopeOf(session)),
   ]);
 
   const usage: Record<string, { total: number; active: number }> = {};

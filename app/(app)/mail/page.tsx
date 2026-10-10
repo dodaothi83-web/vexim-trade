@@ -2,6 +2,7 @@ import { getStore } from "@/lib/db";
 import { buildSignature } from "@/lib/email/signature";
 import { emailMode, FROM_ADDRESS } from "@/lib/config";
 import { requireSession } from "@/lib/auth/session";
+import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/page-header";
 import { MailboxHint } from "@/components/mailbox";
@@ -37,13 +38,27 @@ export default async function MailPage() {
   const mySigHtml = me?.signature_html ?? null;
   const mySig = mySigHtml !== null ? mySigHtml : buildSignature(session.name);
 
+  // Phạm vi: nhân viên kinh doanh chỉ thấy thư của buyer/prospect mình phụ trách và thư do chính mình gửi
+  const scope = ownerScopeOf(session);
+  const ownedBuyers = buyers.filter((b) => isOwnedBy(b.owner, scope));
+  const ownedBuyerIds = new Set(ownedBuyers.map((b) => b.id));
+  const visibleMessages =
+    scope === null
+      ? messages
+      : messages.filter(
+          (m) =>
+            (m.buyer_id !== null && ownedBuyerIds.has(m.buyer_id)) ||
+            (m.created_by ?? "").toLowerCase() === session.email.toLowerCase(),
+        );
+  const visibleProspects = prospects.filter((p) => isOwnedBy(p.owner, scope));
+
   const buyerById = new Map(buyers.map((b) => [b.id, b]));
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
   const prospectById = new Map(prospects.map((p) => [p.id, p]));
 
   // Nhóm theo mạch thư (thread_id): gồm cả thư gửi đi lẫn thư đến Resend Inbound
   const grouped = new Map<string, typeof messages>();
-  for (const m of messages) {
+  for (const m of visibleMessages) {
     const key = m.thread_id || `msg:${m.id}`;
     const arr = grouped.get(key);
     if (arr) arr.push(m);
@@ -51,13 +66,13 @@ export default async function MailPage() {
   }
 
   const contacts: QuickContact[] = [
-    ...buyers
+    ...ownedBuyers
       .filter((b) => b.email)
       .map((b) => ({ id: b.id, name: b.company, email: b.email as string, kind: "buyer" as const })),
     ...suppliers
       .filter((s) => s.email)
       .map((s) => ({ id: s.id, name: s.name, email: s.email as string, kind: "supplier" as const })),
-    ...prospects
+    ...visibleProspects
       .filter((p) => p.email)
       .map((p) => ({ id: p.id, name: p.contact_name || p.company, email: p.email as string, kind: "prospect" as const })),
   ];
@@ -142,7 +157,7 @@ export default async function MailPage() {
 
       <div className="min-h-0 flex-1">
         <MailThreads threads={threads} canSend={canSend} contacts={contacts} signature={mySig} />
-      <MailLiveSync version={mailSyncVersion(messages)} />
+      <MailLiveSync version={mailSyncVersion(visibleMessages)} />
       </div>
     </div>
   );

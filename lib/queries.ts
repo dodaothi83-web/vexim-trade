@@ -2,6 +2,7 @@ import "server-only";
 
 import { getStore } from "@/lib/db";
 import type { BuyerWithSupplier, Supplier, SupplierProduct } from "@/lib/types";
+import { isOwnedBy } from "@/lib/auth/scope";
 
 export interface ProductWithSupplier extends SupplierProduct {
   supplier: Supplier | null;
@@ -20,7 +21,8 @@ export async function listProductsWithSupplier(): Promise<ProductWithSupplier[]>
   }));
 }
 
-export async function listBuyersWithSupplier(): Promise<BuyerWithSupplier[]> {
+/** scope: tên người phụ trách cần lọc (null = tất cả). Xem lib/auth/scope.ts */
+export async function listBuyersWithSupplier(scope: string | null = null): Promise<BuyerWithSupplier[]> {
   const store = getStore();
   const [buyers, suppliers] = await Promise.all([
     store.listBuyers(),
@@ -28,7 +30,7 @@ export async function listBuyersWithSupplier(): Promise<BuyerWithSupplier[]> {
   ]);
   const map = new Map<string, Supplier>(suppliers.map((s) => [s.id, s]));
 
-  return buyers.map((b) => {
+  return buyers.filter((b) => isOwnedBy(b.owner, scope)).map((b) => {
     const sup = b.supplier_id ? map.get(b.supplier_id) ?? null : null;
     return {
       ...b,
@@ -45,7 +47,7 @@ export async function listBuyersWithSupplier(): Promise<BuyerWithSupplier[]> {
   });
 }
 
-export async function getBuyerWithSupplier(id: string) {
-  const all = await listBuyersWithSupplier();
+export async function getBuyerWithSupplier(id: string, scope: string | null = null) {
+  const all = await listBuyersWithSupplier(scope);
   return all.find((b) => b.id === id) ?? null;
 }
