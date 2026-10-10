@@ -395,7 +395,7 @@ export function MailThreads({
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <RichEditor value={reply} onChange={setReply} minHeight={120} placeholder="Nhập nội dung trả lời…" />
+                <RichEditor value={reply} onChange={setReply} minHeight={120} autoFocus placeholder="Nhập nội dung trả lời…" />
                 <div className="mt-2.5 flex items-center gap-2">
                   <Button disabled={busy} onClick={() => void sendReply()}>
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

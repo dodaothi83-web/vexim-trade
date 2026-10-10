@@ -24,10 +24,12 @@ interface Props {
   onChange: (html: string) => void;
   placeholder?: string;
   minHeight?: number;
+  /** Focus và đặt con trỏ vào đầu khi vừa hiển thị */
+  autoFocus?: boolean;
 }
 
 /** Trình soạn thảo văn bản có định dạng — dùng cho phần nội dung email */
-export function RichEditor({ value, onChange, placeholder, minHeight = 300 }: Props) {
+export function RichEditor({ value, onChange, placeholder, minHeight = 300, autoFocus = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const isInternal = useRef(false);
 
@@ -37,6 +39,23 @@ export function RichEditor({ value, onChange, placeholder, minHeight = 300 }: Pr
     }
     isInternal.current = false;
   }, [value]);
+
+  // Khi mở khung trả lời, đặt con trỏ vào đầu nội dung để gõ được ngay (không cần bấm chuột)
+  useEffect(() => {
+    const el = ref.current;
+    if (!autoFocus || !el) return;
+    el.focus();
+    const sel = window.getSelection();
+    if (!sel) return;
+    let target: Node = el;
+    while (target.firstChild) target = target.firstChild;
+    const range = document.createRange();
+    range.setStart(target, 0);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function exec(command: string, arg?: string) {
     ref.current?.focus();
