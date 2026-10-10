@@ -11,7 +11,7 @@ export const revalidate = 60;
 const category = getBlogCategory(DEFAULT_BLOG_CATEGORY);
 
 export const metadata: Metadata = {
-  title: category?.title ?? "Tin tức",
+  title: { absolute: category?.title ?? "Tin tức | Veximtrade" },
   description: category?.description,
   keywords: category?.keywords,
   alternates: { canonical: `${SITE_URL}/blog` },

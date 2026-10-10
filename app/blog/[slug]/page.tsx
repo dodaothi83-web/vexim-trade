@@ -31,7 +31,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const url = `${SITE_URL}/blog/${post.slug}`;
 
   return {
-    title,
+    // absolute: không để layout CRM thêm hậu tố "· Vexim Trade CRM"
+    title: { absolute: `${title} | Veximtrade` },
     description,
     keywords: post.focus_keyword ? [post.focus_keyword] : undefined,
     alternates: { canonical: url },
