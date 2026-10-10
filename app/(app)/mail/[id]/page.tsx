@@ -8,6 +8,7 @@ import { getStage } from "@/lib/pipeline";
 import { requireSession } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
+import { isBuyerMailMessage } from "@/lib/mail/buyer-only";
 import { Breadcrumbs, Badge, Card, cx } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { DownloadHtml, MessageActions } from "@/components/message-actions";
@@ -25,7 +26,8 @@ export default async function MessagePage({
 
   const store = getStore();
   const msg = await store.getMessage(id);
-  if (!msg) notFound();
+  // Tạm thời chỉ mở thư của buyer; thư NCC và prospect trả về 404
+  if (!msg || !isBuyerMailMessage(msg)) notFound();
 
   // Phạm vi: sale chỉ mở được thư của buyer/prospect mình phụ trách hoặc thư do chính mình gửi
   const scope = ownerScopeOf(session);

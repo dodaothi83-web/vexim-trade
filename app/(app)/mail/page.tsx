@@ -9,6 +9,7 @@ import { MailboxHint } from "@/components/mailbox";
 import { MailThreads, type QuickContact, type ThreadSummary } from "@/components/mail-threads";
 import { MailLiveSync } from "@/components/mail-live-sync";
 import { mailSyncVersion } from "@/lib/mail/sync-version";
+import { isBuyerMailMessage } from "@/lib/mail/buyer-only";
 import { AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -55,13 +56,16 @@ export default async function MailPage() {
             (m.created_by ?? "").toLowerCase() === session.email.toLowerCase(),
         );
 
+  // Tạm thời chỉ hiển thị thư của buyer: loại thư NCC và thư prospect
+  const buyerMessages = visibleMessages.filter(isBuyerMailMessage);
+
   const buyerById = new Map(buyers.map((b) => [b.id, b]));
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
   const prospectById = new Map(prospects.map((p) => [p.id, p]));
 
   // Nhóm theo mạch thư (thread_id): gồm cả thư gửi đi lẫn thư đến Resend Inbound
   const grouped = new Map<string, typeof messages>();
-  for (const m of visibleMessages) {
+  for (const m of buyerMessages) {
     const key = m.thread_id || `msg:${m.id}`;
     const arr = grouped.get(key);
     if (arr) arr.push(m);
@@ -72,12 +76,6 @@ export default async function MailPage() {
     ...ownedBuyers
       .filter((b) => b.email)
       .map((b) => ({ id: b.id, name: b.company, email: b.email as string, kind: "buyer" as const })),
-    ...suppliers
-      .filter((s) => s.email)
-      .map((s) => ({ id: s.id, name: s.name, email: s.email as string, kind: "supplier" as const })),
-    ...visibleProspects
-      .filter((p) => p.email)
-      .map((p) => ({ id: p.id, name: p.contact_name || p.company, email: p.email as string, kind: "prospect" as const })),
   ];
 
   const threads: ThreadSummary[] = [...grouped.entries()]
@@ -146,7 +144,7 @@ export default async function MailPage() {
       <div className="shrink-0">
       <PageHeader
         title="Hộp thư"
-        sub="Hội thoại theo từng buyer/NCC: thư tự động, thư đội ngũ soạn và thư trả lời gửi vào hệ thống (Resend Inbound)."
+        sub="Hội thoại với buyer: thư tự động, thư đội ngũ soạn và thư trả lời gửi vào hệ thống (Resend Inbound)."
       />
 
       {emailMode() === "local" && (
@@ -160,7 +158,7 @@ export default async function MailPage() {
 
       <div className="min-h-0 flex-1">
         <MailThreads threads={threads} canSend={canSend} contacts={contacts} signature={mySig} />
-      <MailLiveSync version={mailSyncVersion(visibleMessages)} />
+      <MailLiveSync version={mailSyncVersion(buyerMessages)} />
       </div>
     </div>
   );

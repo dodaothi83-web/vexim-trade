@@ -6,6 +6,7 @@ import { emailMode } from "@/lib/config";
 import { requireSession } from "@/lib/auth/session";
 import { permissionsFor } from "@/lib/auth/permissions";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
+import { isBuyerMailMessage } from "@/lib/mail/buyer-only";
 import { Sidebar } from "@/components/sidebar";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   if (permissionsFor(session.role).includes("mail.view")) {
     unreadMail = await getStore()
       .listMessages(500)
-      .then((ms) => ms.filter((m) => m.kind === "inbound" && !m.read_at).length)
+      .then((ms) => ms.filter((m) => m.kind === "inbound" && !m.read_at && isBuyerMailMessage(m)).length)
       .catch(() => 0);
   }
 
