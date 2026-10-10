@@ -56,7 +56,7 @@ export default async function MailPage() {
             (m.created_by ?? "").toLowerCase() === session.email.toLowerCase(),
         );
 
-  // Tạm thời chỉ hiển thị thư của buyer: loại thư NCC và thư prospect
+  // Tạm thời không hiển thị thư của NCC (thư buyer và prospect vẫn hiện)
   const buyerMessages = visibleMessages.filter(isBuyerMailMessage);
 
   const buyerById = new Map(buyers.map((b) => [b.id, b]));
@@ -76,6 +76,9 @@ export default async function MailPage() {
     ...ownedBuyers
       .filter((b) => b.email)
       .map((b) => ({ id: b.id, name: b.company, email: b.email as string, kind: "buyer" as const })),
+    ...visibleProspects
+      .filter((p) => p.email)
+      .map((p) => ({ id: p.id, name: p.contact_name || p.company, email: p.email as string, kind: "prospect" as const })),
   ];
 
   const threads: ThreadSummary[] = [...grouped.entries()]

@@ -26,7 +26,7 @@ export default async function MessagePage({
 
   const store = getStore();
   const msg = await store.getMessage(id);
-  // Tạm thời chỉ mở thư của buyer; thư NCC và prospect trả về 404
+  // Tạm thời không mở thư của NCC
   if (!msg || !isBuyerMailMessage(msg)) notFound();
 
   // Phạm vi: sale chỉ mở được thư của buyer/prospect mình phụ trách hoặc thư do chính mình gửi
