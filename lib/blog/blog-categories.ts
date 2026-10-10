@@ -22,11 +22,11 @@ export const DEFAULT_BLOG_CATEGORY = "tin-tuc"
 export const BLOG_CATEGORIES: BlogCategory[] = [
   {
     slug: DEFAULT_BLOG_CATEGORY,
-    label: "Tin tức",
-    title: "Tin tức Veximtrade",
+    label: "News",
+    title: "News",
     description:
-      "Tin tức và cập nhật từ Veximtrade về kết nối buyer quốc tế với nhà sản xuất Việt Nam.",
-    keywords: ["tin tức Veximtrade", "sourcing Việt Nam", "buyer Mỹ"],
+      "News and updates from Veximtrade on connecting international buyers with Vietnamese food producers.",
+    keywords: ["Veximtrade news", "Vietnam food sourcing", "US buyers"],
   },
 ]
 

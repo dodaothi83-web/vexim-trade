@@ -14,6 +14,7 @@ import {
 
 import { submitQuoteLeadAction } from "@/app/actions";
 import { COMPANY } from "@/lib/config";
+import { Logo } from "@/components/brand-logo";
 
 /**
  * Landing dành cho buyer Mỹ: nhìn là hiểu. Tiêu đề lớn, chữ serif cho tiêu đề,
@@ -74,30 +75,6 @@ const TONE: Record<string, { bar: string; chip: string; label: string }> = {
 
 const INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP", "Not sure yet"];
 const PAYMENT_METHODS = ["T/T", "L/C", "D/P", "D/A", "Open account", "Not sure yet"];
-
-/**
- * Logo chính thức giữ NGUYÊN bản file public/logo-vexim.png (canvas 1024² với viền
- * trong suốt dày). Đo bounding box phần có nội dung (748×553, tâm 50.3%/46.0%) rồi
- * crop phần viền bằng background-size/position ở lớp HIỂN THỊ, không sửa file.
- * Hộp chứa phải đúng tỉ lệ nội dung 1.3526 (cao 44px → rộng ~60px).
- */
-const LOGO_BG: React.CSSProperties = {
-  backgroundImage: "url(/logo-vexim.png)",
-  backgroundSize: "136.9% auto",
-  backgroundPosition: "51.3% 41.3%",
-  backgroundRepeat: "no-repeat",
-};
-
-function Logo({ className }: { className?: string }) {
-  return (
-    <span
-      role="img"
-      aria-label="Vexim Trade, Export Sales"
-      className={className}
-      style={LOGO_BG}
-    />
-  );
-}
 
 function FunnelDiagram() {
   const rows = [

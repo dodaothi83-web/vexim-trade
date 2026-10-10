@@ -18,13 +18,13 @@ interface PageProps {
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPublishedNewsBySlug(slug);
-  if (!post) return { title: "Không tìm thấy bài viết" };
+  if (!post) return { title: "Article not found" };
 
   const title = post.meta_title || post.title;
   const description = post.meta_description || post.excerpt || undefined;
@@ -81,8 +81,8 @@ export default async function BlogPostPage({ params }: PageProps) {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Trang chủ", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "Tin tức", item: `${SITE_URL}/blog` },
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "News", item: `${SITE_URL}/blog` },
       { "@type": "ListItem", position: 3, name: post.title, item: url },
     ],
   };
@@ -93,7 +93,7 @@ export default async function BlogPostPage({ params }: PageProps) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbs) }} />
 
       <nav className="text-[13px] text-ink-500">
-        <Link href="/blog" className="hover:text-ink-900">Tin tức</Link>
+        <Link href="/blog" className="hover:text-ink-900">News</Link>
         <span className="mx-2">/</span>
         <span className="text-ink-700">{post.title}</span>
       </nav>
@@ -113,8 +113,8 @@ export default async function BlogPostPage({ params }: PageProps) {
       )}
 
       {headings.length > 1 && (
-        <nav aria-label="Mục lục" className="mt-8 rounded-lg border border-ink-200 p-5">
-          <p className="text-[12px] font-bold uppercase tracking-wide text-ink-500">Trong bài này</p>
+        <nav aria-label="Table of contents" className="mt-8 rounded-lg border border-ink-200 p-5">
+          <p className="text-[12px] font-bold uppercase tracking-wide text-ink-500">In this article</p>
           <ul className="mt-3 space-y-1.5 text-[14px]">
             {headings.map((h) => (
               <li key={h.id} style={{ paddingLeft: `${Math.max(0, h.level - 2) * 12}px` }}>
@@ -134,7 +134,7 @@ export default async function BlogPostPage({ params }: PageProps) {
 
       <footer className="mt-14 border-t border-ink-200 pt-6 text-[14px] text-ink-600">
         <Link href="/blog" className="font-semibold text-brand-700 hover:underline">
-          ← Xem các tin tức khác
+          ← More news
         </Link>
       </footer>
     </article>

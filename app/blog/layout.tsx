@@ -1,33 +1,47 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ArrowRight } from "lucide-react";
 
+import { Logo } from "@/components/brand-logo";
 import { COMPANY } from "@/lib/config";
 
 export default function BlogLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-white text-ink-900">
-      <header className="border-b border-ink-200">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
-          <Link href="/" className="text-[17px] font-black tracking-tight">
-            Veximtrade
+      <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3 sm:px-8">
+          <Link href="/" aria-label="Veximtrade home" className="shrink-0">
+            <Logo className="block h-12 w-[65px]" />
           </Link>
-          <nav className="flex items-center gap-5 text-[14px] font-semibold text-ink-600">
-            <Link href="/" className="hover:text-ink-900">Trang chủ</Link>
-            <Link href="/blog" className="hover:text-ink-900">Tin tức</Link>
+          <nav className="ml-auto hidden items-center gap-7 text-[15px] font-medium text-ink-700 md:flex">
+            <Link href="/" className="transition hover:text-brand-700">Home</Link>
+            <Link href="/blog" className="transition hover:text-brand-700">News</Link>
           </nav>
+          <Link
+            href="/#send"
+            className="ml-auto flex items-center gap-2 rounded-md bg-brand-600 px-5 py-2.5 text-[15px] font-semibold text-white transition hover:bg-brand-700 md:ml-0"
+          >
+            Start a sourcing request
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-5 py-10">{children}</main>
+      <main className="mx-auto max-w-3xl px-5 py-12 sm:px-8 lg:max-w-4xl">{children}</main>
 
-      <footer className="mt-16 border-t border-ink-200 bg-ink-50">
-        <div className="mx-auto max-w-5xl px-5 py-8 text-[13px] text-ink-500">
-          <p className="font-semibold text-ink-900">{COMPANY.name}</p>
-          <p className="mt-1">{COMPANY.address}</p>
-          <p className="mt-1">
-            <a href={`mailto:${COMPANY.email}`} className="hover:text-ink-900">{COMPANY.email}</a>
+      <footer className="bg-ink-900 text-slate-400">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-10 text-[14px] sm:px-8 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <Logo className="block h-10 w-[54px]" />
+            <div>
+              <p className="font-semibold text-white">{COMPANY.name}</p>
+              <p className="mt-1">{COMPANY.address}</p>
+            </div>
+          </div>
+          <p>
+            <a href={`mailto:${COMPANY.email}`} className="hover:text-white">{COMPANY.email}</a>
             {" · "}
-            <a href={`tel:${COMPANY.phone.replace(/\s/g, "")}`} className="hover:text-ink-900">{COMPANY.phone}</a>
+            <a href={`tel:${COMPANY.phone.replace(/\s/g, "")}`} className="hover:text-white">{COMPANY.phone}</a>
           </p>
         </div>
       </footer>

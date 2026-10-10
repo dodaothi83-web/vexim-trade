@@ -11,7 +11,7 @@ export const revalidate = 60;
 const category = getBlogCategory(DEFAULT_BLOG_CATEGORY);
 
 export const metadata: Metadata = {
-  title: { absolute: category?.title ?? "Tin tức | Veximtrade" },
+  title: { absolute: "News | Veximtrade" },
   description: category?.description,
   alternates: { canonical: `${SITE_URL}/blog` },
   openGraph: {
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
 export default async function BlogIndexPage() {
@@ -33,11 +33,11 @@ export default async function BlogIndexPage() {
 
   return (
     <section>
-      <h1 className="text-[36px] leading-tight font-black tracking-tight">Tin tức</h1>
+      <h1 className="text-[36px] leading-tight font-black tracking-tight">News</h1>
       <p className="mt-2 max-w-2xl text-[16px] text-ink-600">{category?.description}</p>
 
       {posts.length === 0 ? (
-        <p className="mt-10 text-ink-500">Chưa có bài viết nào.</p>
+        <p className="mt-10 text-ink-500">No articles yet.</p>
       ) : (
         <ul className="mt-10 divide-y divide-ink-200">
           {posts.map((post) => (
