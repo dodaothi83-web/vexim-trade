@@ -289,7 +289,7 @@ export function buildPostPayload(body: Record<string, unknown>, options: BuildPa
 
 /** Tạo slug duy nhất: nếu trùng thì thêm hậu tố -2, -3... */
 export async function ensureUniqueSlug(
-  supabase: { from: (table: string) => any },
+  store: { getPostBySlug(slug: string): Promise<{ id: string } | null> },
   baseSlug: string,
   excludeId?: string,
 ): Promise<string> {
@@ -299,17 +299,12 @@ export async function ensureUniqueSlug(
 
   // Tối đa 50 lần thử để tránh vòng lặp vô hạn
   for (let attempt = 0; attempt < 50; attempt++) {
-    let query = supabase.from("posts").select("id").eq("slug", candidate).limit(1)
-    if (excludeId) query = query.neq("id", excludeId)
-
-    const { data, error } = await query
-    if (error) break
-    if (!data || data.length === 0) return candidate
-
+    const existing = await store.getPostBySlug(candidate)
+    if (!existing || existing.id === excludeId) return candidate
     candidate = `${base.slice(0, 70)}-${suffix}`
     suffix += 1
   }
 
-  // Fallback: thêm hậu tố ngẫu nhiên
+  // Fallback: thêm hậu tố theo thời gian
   return `${base.slice(0, 60)}-${Date.now().toString(36)}`
 }
