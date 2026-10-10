@@ -182,11 +182,14 @@ export function BuyerTable({
   buyers,
   suppliers,
   canManage = false,
+  ownerOptions = [],
 }: {
   buyers: BuyerWithSupplier[];
   suppliers: Pick<Supplier, "id" | "name">[];
   /** Có quyền thêm / sửa buyer (buyers.manage) hay chỉ được xem */
   canManage?: boolean;
+  /** Tên tài khoản sale đang hoạt động — luôn có trong dropdown, kể cả khi không buyer nào được gán */
+  ownerOptions?: string[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -199,10 +202,13 @@ export function BuyerTable({
 
   const owners = useMemo(
     () =>
-      Array.from(new Set(buyers.map((b) => b.owner).filter((o): o is string => Boolean(o)))).sort(
-        (a, b) => a.localeCompare(b, "vi"),
-      ),
-    [buyers],
+      Array.from(
+        new Set([
+          ...ownerOptions,
+          ...buyers.map((b) => b.owner).filter((o): o is string => Boolean(o)),
+        ]),
+      ).sort((a, b) => a.localeCompare(b, "vi")),
+    [buyers, ownerOptions],
   );
 
   const rows = useMemo(() => {

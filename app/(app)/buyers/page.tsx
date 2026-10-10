@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { KanbanSquare, UserPlus } from "lucide-react";
 
-import { listBuyersWithSupplier } from "@/lib/queries";
+import { listBuyersWithSupplier, listSalesOwnerNames } from "@/lib/queries";
 import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { ownerScopeOf } from "@/lib/auth/scope";
@@ -22,9 +22,10 @@ export default async function BuyersPage({
   const { owner: ownerFilter } = await searchParams;
   const canManage = hasPermission(session.role, "buyers.manage");
 
-  const [buyers, suppliers] = await Promise.all([
+  const [buyers, suppliers, salesNames] = await Promise.all([
     listBuyersWithSupplier(ownerScopeOf(session)),
     getStore().listSuppliers(),
+    listSalesOwnerNames(),
   ]);
   // Chỉ quản trị viên thấy buyer chưa có người phụ trách (nhân viên sale đã bị giới hạn theo phạm vi)
   const unassignedCount = buyers.filter((b) => !(b.owner ?? "").trim()).length;
@@ -65,6 +66,7 @@ export default async function BuyersPage({
       </div>
       <BuyerTable
         buyers={shownBuyers}
+        ownerOptions={salesNames}
         suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
         canManage={canManage}
       />
