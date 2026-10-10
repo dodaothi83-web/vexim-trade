@@ -398,3 +398,134 @@ export async function saveMySignatureAction(html: string | null): Promise<AuthRe
         : "Đã lưu chữ ký của bạn. Thư soạn mới sẽ dùng chữ ký này.",
   };
 }
+
+/* -------- Sửa thông tin tài khoản của chính mình (tên, email) -------- */
+
+const MAX_NAME_CHARS = 80;
+
+/**
+ * Đổi tên hiển thị và/hoặc email của người đang đăng nhập.
+ * - Đổi email bắt buộc nhập mật khẩu hiện tại.
+ * - Đổi tên sẽ chuyển luôn buyer/prospect đang phụ trách theo tên cũ sang tên mới,
+ *   vì phụ trách đang lưu bằng tên hiển thị.
+ * - Đổi email đồng bộ cả Supabase Auth (nếu tài khoản có ở đó) để vẫn đăng nhập được.
+ */
+export async function updateMyProfileAction(input: {
+  name: string;
+  email: string;
+  currentPassword?: string;
+}): Promise<AuthResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, message: "Phiên đã hết hạn, hãy đăng nhập lại." };
+
+  const name = (input.name ?? "").trim().replace(/\s+/g, " ");
+  const email = (input.email ?? "").trim().toLowerCase();
+  if (!name) return { ok: false, message: "Vui lòng nhập tên hiển thị." };
+  if (name.length > MAX_NAME_CHARS) {
+    return { ok: false, message: `Tên tối đa ${MAX_NAME_CHARS} ký tự.` };
+  }
+  if (!EMAIL_RE.test(email)) return { ok: false, message: "Email không hợp lệ." };
+
+  const store = getStore();
+  const me = await store.getUserByEmail(session.email);
+  if (!me) return { ok: false, message: "Không tìm thấy tài khoản của bạn." };
+
+  const oldName = (me.name ?? "").trim();
+  const oldEmail = me.email.trim().toLowerCase();
+  const nameChanged = name !== oldName;
+  const emailChanged = email !== oldEmail;
+  if (!nameChanged && !emailChanged) return { ok: true, message: "Không có thay đổi nào." };
+
+  const users = await store.listUsers();
+  if (emailChanged && users.some((u) => u.id !== me.id && u.email.trim().toLowerCase() === email)) {
+    return { ok: false, message: "Email này đã được dùng bởi tài khoản khác." };
+  }
+  // Phụ trách buyer/prospect lưu theo tên, nên tên không được trùng với người khác
+  if (
+    nameChanged &&
+    users.some(
+      (u) =>
+        u.id !== me.id &&
+        u.is_active &&
+        (u.name ?? "").trim().toLowerCase() === name.toLowerCase(),
+    )
+  ) {
+    return {
+      ok: false,
+      message: "Tên này đã có người khác dùng. Hãy thêm chữ để phân biệt (ví dụ thêm tên đệm hoặc chức danh).",
+    };
+  }
+
+  if (emailChanged) {
+    const current = input.currentPassword ?? "";
+    if (!current) return { ok: false, message: "Nhập mật khẩu hiện tại để đổi email." };
+    if (me.password_hash) {
+      if (!(await verifyPassword(current, me.password_hash))) {
+        return { ok: false, message: "Mật khẩu hiện tại không đúng." };
+      }
+    } else {
+      const probe = await authenticate(oldEmail, current);
+      if (!probe.ok) return { ok: false, message: "Mật khẩu hiện tại không đúng." };
+    }
+  }
+
+  const { updateSupabaseEmail } = await import("@/lib/auth/authenticate");
+  if (emailChanged) {
+    const sb = await updateSupabaseEmail(oldEmail, email);
+    if (sb === "error") {
+      return {
+        ok: false,
+        message: "Không đổi được email bên Supabase Auth, chưa thay đổi gì. Thử lại sau.",
+      };
+    }
+  }
+
+  try {
+    await store.updateUser(me.id, { name, email: emailChanged ? email : me.email });
+  } catch (err) {
+    if (emailChanged) await updateSupabaseEmail(email, oldEmail).catch(() => "error" as const);
+    const raw = err instanceof Error ? err.message : "Lỗi không xác định";
+    const hint = describeAppUsersError(raw);
+    if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
+    return { ok: false, message: raw };
+  }
+
+  let moved = 0;
+  if (nameChanged && oldName) {
+    moved = await renameOwnerEverywhere(oldName, name);
+  }
+
+  // Cấp lại phiên với tên/email mới để giao diện và phân quyền khớp ngay
+  const { exp: _exp, ...rest } = session;
+  void _exp;
+  await startSession({ ...rest, email: emailChanged ? email : session.email, name });
+
+  revalidatePath("/", "layout");
+  const notes: string[] = [];
+  if (nameChanged && moved > 0) notes.push(`đã chuyển ${moved} buyer/khách hàng mục tiêu sang tên mới`);
+  return {
+    ok: true,
+    message: ["Đã cập nhật thông tin tài khoản", ...notes].join("; ") + ".",
+  };
+}
+
+/** Đổi tên phụ trách trên toàn bộ buyer và prospect đang dùng tên cũ. Trả về số bản ghi đã đổi. */
+async function renameOwnerEverywhere(oldName: string, newName: string): Promise<number> {
+  const store = getStore();
+  const key = oldName.trim().toLowerCase();
+  const matches = (owner: string | null | undefined) => (owner ?? "").trim().toLowerCase() === key;
+  let count = 0;
+  for (const b of await store.listBuyers()) {
+    if (matches(b.owner)) {
+      await store.updateBuyer(b.id, { owner: newName });
+      count += 1;
+    }
+  }
+  for (const p of await store.listProspects()) {
+    if (matches(p.owner)) {
+      await store.updateProspect(p.id, { owner: newName });
+      count += 1;
+    }
+  }
+  return count;
+}

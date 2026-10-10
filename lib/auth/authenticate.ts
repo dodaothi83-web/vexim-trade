@@ -302,6 +302,31 @@ async function findSupabaseUserId(email: string): Promise<string | null> {
   }
 }
 
+/**
+ * Đổi email bên Supabase Auth để đăng nhập vẫn hoạt động sau khi đổi email trong app.
+ * - "skipped": không cấu hình Supabase Auth, hoặc tài khoản này không có bên Supabase (chỉ đăng nhập nội bộ)
+ * - "ok": đã đổi
+ * - "error": Supabase từ chối hoặc không kết nối được; không được đổi email nội bộ trong trường hợp này
+ */
+export async function updateSupabaseEmail(
+  oldEmail: string,
+  newEmail: string,
+): Promise<"ok" | "skipped" | "error"> {
+  const client = getSupabaseAuthClient();
+  if (!client) return "skipped";
+  try {
+    const id = await findSupabaseUserId(oldEmail);
+    if (!id) return "skipped";
+    const { error } = await client.auth.admin.updateUserById(id, {
+      email: newEmail.trim().toLowerCase(),
+      email_confirm: true,
+    });
+    return error ? "error" : "ok";
+  } catch {
+    return "error";
+  }
+}
+
 /** Supabase Auth có đang dùng được không (để ghi chú trong giao diện) */
 export async function supabaseAuthReachable(): Promise<boolean> {
   const client = getSupabaseAuthClient();
