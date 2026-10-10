@@ -49,7 +49,18 @@ function sameEmail(a: string, b: string): boolean {
 }
 
 /** Địa chỉ cần báo khi có thư đến: env INBOUND_NOTIFY_EMAILS, nếu không thì admin+sale đang hoạt động. */
-async function notifyRecipients(from: string): Promise<string[]> {
+/**
+ * Danh sách nhận thông báo thư đến.
+ * - Thư từ buyer/prospect: gửi cho người phụ trách (khớp theo tên). Nếu chưa có phụ trách
+ *   hoặc không tìm thấy tài khoản, gửi cho quản trị viên để không bỏ sót.
+ * - Thư từ NCC hoặc địa chỉ không xác định: giữ hành vi cũ (quản trị viên và nhân viên kinh doanh).
+ * - INBOUND_NOTIFY_EMAILS (nếu đặt) luôn được ưu tiên.
+ */
+async function notifyRecipients(
+  from: string,
+  ownerName: string | null,
+  hasCustomerRecord: boolean,
+): Promise<string[]> {
   const fromEnv = process.env.INBOUND_NOTIFY_EMAILS?.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
   if (fromEnv?.length) return fromEnv.filter((e) => !sameEmail(e, from));
   const store = getStore();
@@ -58,12 +69,24 @@ async function notifyRecipients(from: string): Promise<string[]> {
     (process.env.INBOUND_DOMAINS?.split(/[,;\s]+/) ?? []).map((d) => d.trim().toLowerCase().replace(/^@/, "")),
   );
   receivingDomains.add("veximtrade.com");
-  return users
-    .filter((u) => u.is_active && (u.role === "admin" || u.role === "sale"))
-    .map((u) => u.email)
-    .filter((e) => !sameEmail(e, from))
-    // Không báo vào địa chỉ thuộc domain nhận thư: thư báo sẽ tự quay lại thành thư đến → vòng lặp
-    .filter((e) => !receivingDomains.has(e.split("@")[1]?.toLowerCase() ?? ""));
+  const pick = (list: typeof users) =>
+    list
+      .map((u) => u.email)
+      .filter((e) => !sameEmail(e, from))
+      // Không báo vào địa chỉ thuộc domain nhận thư: thư báo sẽ tự quay lại thành thư đến → vòng lặp
+      .filter((e) => !receivingDomains.has(e.split("@")[1]?.toLowerCase() ?? ""));
+
+  const active = users.filter((u) => u.is_active);
+  if (hasCustomerRecord) {
+    const owner = (ownerName ?? "").trim().toLowerCase();
+    const ownerUsers = owner
+      ? active.filter((u) => (u.name ?? "").trim().toLowerCase() === owner)
+      : [];
+    const ownerEmails = pick(ownerUsers);
+    if (ownerEmails.length) return ownerEmails;
+    return pick(active.filter((u) => u.role === "admin"));
+  }
+  return pick(active.filter((u) => u.role === "admin" || u.role === "sale"));
 }
 
 export async function processInboundEvent(
@@ -174,7 +197,11 @@ export async function processInboundEvent(
   }
 
   // ---- Báo cho đội ngũ (email tóm tắt) ----
-  const recipients = await notifyRecipients(from).catch(() => [] as string[]);
+  const recipients = await notifyRecipients(
+    from,
+    buyer?.owner ?? prospect?.owner ?? null,
+    Boolean(buyer || prospect),
+  ).catch(() => [] as string[]);
   let notified = 0;
   if (recipients.length) {
     const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
