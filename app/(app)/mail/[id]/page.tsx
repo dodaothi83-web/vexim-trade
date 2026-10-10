@@ -6,6 +6,7 @@ import { getStore } from "@/lib/db";
 import { withPreviewPadding } from "@/lib/email/templates";
 import { getStage } from "@/lib/pipeline";
 import { requireSession } from "@/lib/auth/session";
+import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { Breadcrumbs, Badge, Card, cx } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -25,6 +26,19 @@ export default async function MessagePage({
   const store = getStore();
   const msg = await store.getMessage(id);
   if (!msg) notFound();
+
+  // Phạm vi: sale chỉ mở được thư của buyer/prospect mình phụ trách hoặc thư do chính mình gửi
+  const scope = ownerScopeOf(session);
+  if (scope !== null) {
+    const buyerOwned = msg.buyer_id
+      ? isOwnedBy((await store.getBuyer(msg.buyer_id))?.owner ?? null, scope)
+      : false;
+    const prospectOwned = msg.prospect_id
+      ? isOwnedBy((await store.getProspect(msg.prospect_id))?.owner ?? null, scope)
+      : false;
+    const mine = (msg.created_by ?? "").toLowerCase() === session.email.toLowerCase();
+    if (!buyerOwned && !prospectOwned && !mine) notFound();
+  }
 
   const buyer = msg.buyer_id ? await store.getBuyer(msg.buyer_id) : null;
   const supplier = msg.supplier_id ? await store.getSupplier(msg.supplier_id) : null;

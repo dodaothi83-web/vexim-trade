@@ -42,15 +42,18 @@ export default async function MailPage() {
   const scope = ownerScopeOf(session);
   const ownedBuyers = buyers.filter((b) => isOwnedBy(b.owner, scope));
   const ownedBuyerIds = new Set(ownedBuyers.map((b) => b.id));
+  const visibleProspects = prospects.filter((p) => isOwnedBy(p.owner, scope));
+  const ownedProspectIds = new Set(visibleProspects.map((p) => p.id));
+  // Thư đến từ prospect được lưu với buyer_id = null, nên phải lọc theo prospect_id
   const visibleMessages =
     scope === null
       ? messages
       : messages.filter(
           (m) =>
             (m.buyer_id !== null && ownedBuyerIds.has(m.buyer_id)) ||
+            (!!m.prospect_id && ownedProspectIds.has(m.prospect_id)) ||
             (m.created_by ?? "").toLowerCase() === session.email.toLowerCase(),
         );
-  const visibleProspects = prospects.filter((p) => isOwnedBy(p.owner, scope));
 
   const buyerById = new Map(buyers.map((b) => [b.id, b]));
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
