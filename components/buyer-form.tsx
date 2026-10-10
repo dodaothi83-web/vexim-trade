@@ -58,9 +58,15 @@ export function BuyerForm({
   buyer,
   suppliers,
   canCreateSupplier = false,
+  owners = [],
+  canReassign = false,
 }: {
   buyer?: Buyer | null;
   suppliers: Pick<Supplier, "id" | "name" | "status">[];
+  /** Tên nhân viên kinh doanh để chọn làm người phụ trách */
+  owners?: string[];
+  /** Chỉ quản trị viên được đổi người phụ trách */
+  canReassign?: boolean;
   /** Có quyền tạo nhà cung cấp (suppliers.manage) */
   canCreateSupplier?: boolean;
 }) {
@@ -380,12 +386,22 @@ export function BuyerForm({
             </select>
           </Field>
           <Field label="Người phụ trách">
-            <input
+            <select
               className="input"
               value={v("owner")}
               onChange={(e) => set("owner", e.target.value)}
-              placeholder="Tên nhân viên sale"
-            />
+              disabled={!canReassign}
+            >
+              <option value="">Chưa phân công</option>
+              {owners.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+              {v("owner") && !owners.includes(v("owner")) && (
+                <option value={v("owner")}>{v("owner")} (không còn trong danh sách)</option>
+              )}
+            </select>
           </Field>
           <Field label="Độ ưu tiên">
             <select

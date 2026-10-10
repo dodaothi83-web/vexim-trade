@@ -1,9 +1,10 @@
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { ownerScopeOf } from "@/lib/auth/scope";
-import { computeOwnerKpis, vietnamMonthRange } from "@/lib/kpi";
+import { UNASSIGNED, computeOwnerKpis, vietnamMonthRange } from "@/lib/kpi";
 import { PageHeader } from "@/components/page-header";
 import { Card } from "@/components/ui";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "KPI cá nhân" };
@@ -72,6 +73,14 @@ export default async function TeamPage() {
           </tbody>
         </table>
       </Card>
+      {scope === null && rows.some((r) => r.owner === UNASSIGNED && r.buyers > 0) && (
+        <p className="mt-3 text-[13px] text-amber-700">
+          Có buyer chưa phân công.{" "}
+          <Link href="/buyers?owner=unassigned" className="underline">
+            Xem và gán người phụ trách
+          </Link>
+        </p>
+      )}
       <p className="mt-3 text-[12px] text-ink-400">
         Email và phản hồi tính trong tháng hiện tại (giờ Việt Nam). Buyer đã gán NCC là số buyer đang có nhà cung cấp tại thời điểm xem.
       </p>

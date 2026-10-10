@@ -161,6 +161,8 @@ export async function updateBuyerAction(
   if (patch.email && !EMAIL_RE.test(patch.email)) {
     return { ok: false, message: "Email buyer không hợp lệ." };
   }
+  // Nhân viên sale không tự chuyển buyer sang người khác; chỉ quản trị viên đổi phụ trách
+  if (ownerScopeOf(await getSession()) !== null) patch.owner = before.owner;
 
   try {
     const after = await store.updateBuyer(id, patch);
@@ -243,7 +245,8 @@ export async function createProspectAction(raw: Partial<ProspectInput>): Promise
   const gate = await guard("prospects.manage");
   if (gate) return gate;
   const session = await getSession();
-  const input = cleanProspectInput({ ...raw, status: "new", converted_buyer_id: null, owner: session?.name ?? null }, session?.name ?? null);
+  const forcedOwner = ownerScopeOf(session) !== null ? (session?.name ?? null) : undefined;
+  const input = cleanProspectInput({ ...raw, status: "new", converted_buyer_id: null, owner: forcedOwner !== undefined ? forcedOwner : (str(raw.owner) ?? null) }, forcedOwner ?? null);
   if (!input.company) return { ok: false, message: "Vui lòng nhập tên công ty." };
   if (!input.email) return { ok: false, message: "Cần có email để thêm đầu mối vào danh sách." };
   if (!EMAIL_RE.test(input.email)) return { ok: false, message: "Email không hợp lệ." };
@@ -289,7 +292,9 @@ export async function importProspectsAction(rawRows: Partial<ProspectInput>[], l
 
   const pending: { input: ProspectInput; line: number }[] = [];
   for (let i = 0; i < rawRows.length; i += 1) {
-    const input = cleanProspectInput({ ...(rawRows[i] ?? {}), status: "new", converted_buyer_id: null, owner: session?.name ?? null }, session?.name ?? null);
+    const forcedOwner = ownerScopeOf(session) !== null ? (session?.name ?? null) : undefined;
+    const rowOwner = forcedOwner !== undefined ? forcedOwner : (str(rawRows[i]?.owner) ?? null);
+    const input = cleanProspectInput({ ...(rawRows[i] ?? {}), status: "new", converted_buyer_id: null, owner: rowOwner }, forcedOwner ?? null);
     const line = safeOffset + i + 2;
     if (!input.company) { errors.push(`Dòng ${line}: thiếu tên công ty.`); skipped += 1; continue; }
     if (!input.email) { errors.push(`Dòng ${line}: thiếu email, đã bỏ qua.`); skipped += 1; continue; }
@@ -370,7 +375,7 @@ export async function updateProspectAction(id: string, patch: Partial<ProspectIn
   try {
     const safePatch: Partial<ProspectInput> = {};
     if (patch.status !== undefined) safePatch.status = patch.status;
-    if (patch.owner !== undefined) safePatch.owner = str(patch.owner);
+    if (patch.owner !== undefined && ownerScopeOf(await getSession()) === null) safePatch.owner = str(patch.owner);
     if (patch.next_action !== undefined) safePatch.next_action = str(patch.next_action);
     if (patch.next_action_at !== undefined) safePatch.next_action_at = str(patch.next_action_at);
     if (patch.notes !== undefined) safePatch.notes = str(patch.notes);

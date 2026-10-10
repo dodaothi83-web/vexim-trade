@@ -3,14 +3,16 @@ import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { BuyerForm } from "@/components/buyer-form";
 import { requirePagePermission } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
+import { listSalesOwnerNames } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Thêm buyer" };
 
 export default async function NewBuyerPage() {
-  await requirePagePermission("buyers.manage", "/buyers");
-  const suppliers = await getStore().listSuppliers();
+  const session = await requirePagePermission("buyers.manage", "/buyers");
+  const [suppliers, owners] = await Promise.all([getStore().listSuppliers(), listSalesOwnerNames()]);
   return (
     <>
       <PageHeader
@@ -19,7 +21,11 @@ export default async function NewBuyerPage() {
         breadcrumbs={<Breadcrumbs items={[{ label: "Buyer", href: "/buyers" }, { label: "Thêm mới" }]} />}
       />
       <div className="max-w-5xl">
-        <BuyerForm suppliers={suppliers.map((s) => ({ id: s.id, name: s.name, status: s.status }))} />
+        <BuyerForm
+          suppliers={suppliers.map((s) => ({ id: s.id, name: s.name, status: s.status }))}
+          owners={owners}
+          canReassign={hasPermission(session.role, "users.manage")}
+        />
       </div>
     </>
   );

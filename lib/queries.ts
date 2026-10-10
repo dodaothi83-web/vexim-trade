@@ -47,6 +47,15 @@ export async function listBuyersWithSupplier(scope: string | null = null): Promi
   });
 }
 
+/** Danh sách tên nhân viên kinh doanh đang hoạt động, dùng cho ô chọn người phụ trách. */
+export async function listSalesOwnerNames(): Promise<string[]> {
+  const users = await getStore().listUsers();
+  const names = users
+    .filter((u) => u.role === "sale" && u.is_active && (u.name ?? "").trim())
+    .map((u) => (u.name as string).trim());
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b, "vi"));
+}
+
 export async function getBuyerWithSupplier(id: string, scope: string | null = null) {
   const all = await listBuyersWithSupplier(scope);
   return all.find((b) => b.id === id) ?? null;

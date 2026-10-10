@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 
-import { getBuyerWithSupplier } from "@/lib/queries";
+import { getBuyerWithSupplier, listSalesOwnerNames } from "@/lib/queries";
+import { hasPermission } from "@/lib/auth/permissions";
+import { ownerScopeOf } from "@/lib/auth/scope";
 import { getStore } from "@/lib/db";
 import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -15,10 +17,10 @@ export default async function EditBuyerPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await requirePagePermission("buyers.manage", "/buyers");
-  const buyer = await getBuyerWithSupplier(id);
+  const session = await requirePagePermission("buyers.manage", "/buyers");
+  const buyer = await getBuyerWithSupplier(id, ownerScopeOf(session));
   if (!buyer) notFound();
-  const suppliers = await getStore().listSuppliers();
+  const [suppliers, owners] = await Promise.all([getStore().listSuppliers(), listSalesOwnerNames()]);
 
   return (
     <>
@@ -39,6 +41,8 @@ export default async function EditBuyerPage({
         <BuyerForm
           buyer={buyer}
           suppliers={suppliers.map((s) => ({ id: s.id, name: s.name, status: s.status }))}
+          owners={owners}
+          canReassign={hasPermission(session.role, "users.manage")}
         />
       </div>
     </>

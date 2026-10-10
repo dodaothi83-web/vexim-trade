@@ -16,7 +16,7 @@ import { useToast } from "@/components/toast";
 
 type ParsedFile = { headers: string[]; rows: string[][] };
 
-export function ProspectImporter() {
+export function ProspectImporter({ owners = [] }: { owners?: string[] }) {
   const router = useRouter();
   const toast = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -24,6 +24,7 @@ export function ProspectImporter() {
   const [fileName, setFileName] = useState("");
   const [dataSource, setDataSource] = useState("Apollo");
   const [targetProduct, setTargetProduct] = useState("");
+  const [owner, setOwner] = useState("");
   const [listName, setListName] = useState("");
   const [mapping, setMapping] = useState<Partial<Record<ProspectCsvField, number | null>>>({});
   const [busy, setBusy] = useState(false);
@@ -107,7 +108,7 @@ export function ProspectImporter() {
         source_list: listName.trim() || fileName,
         target_product: fieldValue(row, "target_product") || targetProduct.trim() || null,
         status: "new" as const,
-        owner: null,
+        owner: owner.trim() || null,
         next_action: null,
         next_action_at: null,
         notes: null,
@@ -183,6 +184,17 @@ export function ProspectImporter() {
             <label className="block">
               <span className="label">Tệp tiếp cận</span>
               <input className="input" value={listName} onChange={(event) => setListName(event.target.value)} placeholder="Apollo | Mì ăn liền | Mỹ | 10/2026" />
+            </label>
+            <label className="block">
+              <span className="label">Người phụ trách</span>
+              <select className="input" value={owner} onChange={(event) => setOwner(event.target.value)}>
+                <option value="">Chưa phân công</option>
+                {owners.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="block sm:col-span-2">
               <span className="label">Nhóm hàng mục tiêu</span>
