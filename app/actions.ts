@@ -1482,8 +1482,7 @@ export async function saveProspectOutreachTemplateAction(input: {
   subject: string;
   body: string;
 }): Promise<ActionResult> {
-  const prospectGate = await guard("prospects.manage");
-  const gate = prospectGate ? await guard("templates.manage") : null;
+  const gate = await guard("templates.manage");
   if (gate) return gate;
   if (input.id !== "intro" && input.id !== "followup") return { ok: false, message: "Mẫu không hợp lệ." };
   const label = str(input.label);
@@ -1503,8 +1502,7 @@ export async function saveProspectOutreachTemplateAction(input: {
 }
 
 export async function clearProspectOutreachTemplateAction(id: string): Promise<ActionResult> {
-  const prospectGate = await guard("prospects.manage");
-  const gate = prospectGate ? await guard("templates.manage") : null;
+  const gate = await guard("templates.manage");
   if (gate) return gate;
   if (id !== "intro" && id !== "followup") return { ok: false, message: "Mẫu không hợp lệ." };
   try {

@@ -86,7 +86,7 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-1">
-        {NAV.filter((item) => !item.perm || permissions.includes(item.perm) || (item.href === "/templates" && permissions.includes("prospects.manage"))).map((item) => {
+        {NAV.filter((item) => !item.perm || permissions.includes(item.perm)).map((item) => {
           const active = item.href === activeHref;
           const Icon = item.icon;
           return (

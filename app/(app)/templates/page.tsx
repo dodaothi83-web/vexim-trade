@@ -22,11 +22,11 @@ export default async function TemplatesPage({
 }: {
   searchParams: Promise<{ stage?: string; dir?: string; buyer?: string }>;
 }) {
-  const templateSession = await requirePermission("templates.manage");
-  const session = templateSession ?? await requirePagePermission("prospects.manage", "/dashboard");
+  // Chỉ quản trị viên được vào Templates (kể cả mẫu email tiếp cận prospect)
+  const session = await requirePagePermission("templates.manage", "/dashboard");
   const sp = await searchParams;
   const canEdit = hasPermission(session.role, "templates.manage");
-  const canEditOutreach = canEdit || hasPermission(session.role, "prospects.manage");
+  const canEditOutreach = canEdit;
   const store = getStore();
   const [buyers, suppliers, outreachOverrides] = await Promise.all([
     store.listBuyers(),
