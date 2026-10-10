@@ -263,6 +263,7 @@ export async function importProspectsAction(rawRows: Partial<ProspectInput>[], l
   created?: number;
   skipped?: number;
   matchedBuyers?: string[];
+  duplicates?: string[];
   errors?: string[];
 }> {
   const gate = await guard("prospects.manage");
@@ -274,19 +275,32 @@ export async function importProspectsAction(rawRows: Partial<ProspectInput>[], l
   const session = await getSession();
   const store = getStore();
   const [existingProspects, buyers] = await Promise.all([store.listProspects(), store.listBuyers()]);
-  const seenEmails = new Set(existingProspects.map((p) => normalizeMatch(p.email)).filter(Boolean));
-  const seenLinks = new Set(existingProspects.map((p) => normalizeMatch(p.linkedin_url)).filter(Boolean));
-  const seenApollo = new Set(existingProspects.map((p) => normalizeMatch(p.apollo_id)).filter(Boolean));
+  // Lưu luôn người đang phụ trách để báo rõ khi dòng bị trùng
+  const ownerLabel = (owner: string | null | undefined) => (owner ?? "").trim() || "chưa phân công";
+  const seenEmails = new Map<string, string>();
+  const seenLinks = new Map<string, string>();
+  const seenApollo = new Map<string, string>();
+  for (const p of existingProspects) {
+    const label = `${p.contact_name || p.company} (phụ trách: ${ownerLabel(p.owner)})`;
+    const e = normalizeMatch(p.email);
+    const l = normalizeMatch(p.linkedin_url);
+    const a = normalizeMatch(p.apollo_id);
+    if (e && !seenEmails.has(e)) seenEmails.set(e, label);
+    if (l && !seenLinks.has(l)) seenLinks.set(l, label);
+    if (a && !seenApollo.has(a)) seenApollo.set(a, label);
+  }
   const buyerEmails = new Map<string, string>();
   const buyerLinks = new Map<string, string>();
   for (const buyer of buyers) {
     const email = normalizeMatch(buyer.email);
     const link = normalizeMatch(buyer.linkedin);
-    if (email) buyerEmails.set(email, buyer.company);
-    if (link) buyerLinks.set(link, buyer.company);
+    const label = `${buyer.company} (phụ trách: ${ownerLabel(buyer.owner)})`;
+    if (email) buyerEmails.set(email, label);
+    if (link) buyerLinks.set(link, label);
   }
   const errors: string[] = [];
   const matchedBuyers: string[] = [];
+  const duplicates: string[] = [];
   let created = 0;
   let skipped = 0;
 
@@ -303,7 +317,14 @@ export async function importProspectsAction(rawRows: Partial<ProspectInput>[], l
     const emailKey = normalizeMatch(input.email);
     const linkKey = normalizeMatch(input.linkedin_url);
     const apolloKey = normalizeMatch(input.apollo_id);
-    if ((emailKey && seenEmails.has(emailKey)) || (linkKey && seenLinks.has(linkKey)) || (apolloKey && seenApollo.has(apolloKey))) {
+    const selfLabel = `${input.contact_name || input.company} (phụ trách: ${ownerLabel(input.owner)})`;
+    const dupLabel =
+      (emailKey && seenEmails.get(emailKey)) ||
+      (linkKey && seenLinks.get(linkKey)) ||
+      (apolloKey && seenApollo.get(apolloKey)) ||
+      null;
+    if (dupLabel) {
+      duplicates.push(`Dòng ${line}: ${input.contact_name || input.company} đã có: ${dupLabel}`);
       skipped += 1;
       continue;
     }
@@ -315,9 +336,9 @@ export async function importProspectsAction(rawRows: Partial<ProspectInput>[], l
     }
 
     pending.push({ input: { ...input, source_list: input.source_list || "Apollo" }, line });
-    if (emailKey) seenEmails.add(emailKey);
-    if (linkKey) seenLinks.add(linkKey);
-    if (apolloKey) seenApollo.add(apolloKey);
+    if (emailKey) seenEmails.set(emailKey, selfLabel);
+    if (linkKey) seenLinks.set(linkKey, selfLabel);
+    if (apolloKey) seenApollo.set(apolloKey, selfLabel);
   }
 
   if (pending.length) {
@@ -344,6 +365,7 @@ export async function importProspectsAction(rawRows: Partial<ProspectInput>[], l
     created,
     skipped,
     matchedBuyers,
+    duplicates,
     errors,
   };
 }

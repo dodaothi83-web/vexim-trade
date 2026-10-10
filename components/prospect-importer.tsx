@@ -32,6 +32,7 @@ export function ProspectImporter({ owners = [] }: { owners?: string[] }) {
   const [result, setResult] = useState<{
     message: string;
     matchedBuyers: string[];
+    duplicates: string[];
     errors: string[];
   } | null>(null);
 
@@ -121,6 +122,7 @@ export function ProspectImporter({ owners = [] }: { owners?: string[] }) {
     let created = 0;
     let skipped = 0;
     const matchedBuyers: string[] = [];
+    const duplicates: string[] = [];
     const errors: string[] = [];
     let failed = "";
     const batchSize = 100;
@@ -134,6 +136,7 @@ export function ProspectImporter({ owners = [] }: { owners?: string[] }) {
         created += response.created ?? 0;
         skipped += response.skipped ?? 0;
         matchedBuyers.push(...(response.matchedBuyers ?? []));
+        duplicates.push(...(response.duplicates ?? []));
         errors.push(...(response.errors ?? []));
         setProgress(Math.min(start + batchSize, rows.length));
       }
@@ -143,7 +146,7 @@ export function ProspectImporter({ owners = [] }: { owners?: string[] }) {
       setBusy(false);
     }
     const summary = `Đã nhập ${created} đầu mối. Bỏ qua ${skipped} dòng trùng, thiếu email hoặc không hợp lệ.${failed ? ` Dừng giữa chừng: ${failed}` : ""}`;
-    setResult({ message: summary, matchedBuyers, errors });
+    setResult({ message: summary, matchedBuyers, duplicates, errors });
     toast.push({ kind: failed ? "error" : "success", title: summary });
     if (created) router.refresh();
   }
@@ -262,6 +265,13 @@ export function ProspectImporter({ owners = [] }: { owners?: string[] }) {
             <div>
               <p className="font-semibold text-amber-800">Đã khớp Buyer hiện có, các dòng này không được nhập:</p>
               <ul className="mt-1 list-inside list-disc text-ink-600">{result.matchedBuyers.slice(0, 20).map((item, i) => <li key={i}>{item}</li>)}</ul>
+            </div>
+          )}
+          {result.duplicates.length > 0 && (
+            <div>
+              <p className="font-semibold text-amber-800">Các dòng đã có trong hệ thống, không nhập lại (xem người đang phụ trách):</p>
+              <ul className="mt-1 list-inside list-disc text-ink-600">{result.duplicates.slice(0, 50).map((item, i) => <li key={i}>{item}</li>)}</ul>
+              {result.duplicates.length > 50 && <p className="mt-1 text-ink-400">Còn {result.duplicates.length - 50} dòng khác.</p>}
             </div>
           )}
           {result.errors.length > 0 && (
