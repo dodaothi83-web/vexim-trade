@@ -359,6 +359,10 @@ bằng địa chỉ mang tên mình**.
   Export Department · Vexim Trade, điện thoại · **địa chỉ gửi riêng của người đó**, website dạng chữ).
   Không có logo/ảnh trong chữ ký. Nút **“Xoá chữ ký tuỳ chỉnh”** quay lại chữ ký tự động.
 - Chữ ký được chèn sẵn khi mở thư soạn mới; nút “Chèn chữ ký” chèn lại bất kỳ lúc nào (không chèn trùng).
+- Đã đổi quy tắc (bỏ logo, bỏ dòng tiếng Việt, dùng địa chỉ riêng theo tên người)? Chữ ký **đã lưu**
+  trong DB không tự đổi theo code — chạy `supabase/migrations/20261012_signature_html_cleanup.sql`
+  một lần để gỡ thẻ ảnh logo + cụm “Trân trọng” khỏi `app_users.signature_html` (idempotent,
+  không xoá nội dung tự soạn). Ai muốn lấy hẳn chữ ký tự động mới thì bấm “Xoá chữ ký tuỳ chỉnh”.
 
 ### Nhận email trả lời (Resend Inbound)
 

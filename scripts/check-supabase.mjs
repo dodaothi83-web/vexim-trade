@@ -237,6 +237,8 @@ for (const table of TABLES) {
 // 5) Cột bắt buộc (đổi cấu trúc giữa các bản)
 const REQUIRED_COLUMNS = [
   { table: "supplier_products", column: "ready_for_buyer" },
+  // địa chỉ gửi riêng theo tên người — migration 20261012_user_sender_email.sql
+  { table: "app_users", column: "sender_email" },
 ];
 const missingCols = [];
 for (const req of REQUIRED_COLUMNS) {
