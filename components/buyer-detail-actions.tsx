@@ -25,9 +25,15 @@ import { useToast } from "@/components/toast";
 export function SupplierPicker({
   buyer,
   suppliers,
+  canManage = false,
+  canCreateSupplier = false,
 }: {
   buyer: BuyerWithSupplier;
   suppliers: Pick<Supplier, "id" | "name" | "email" | "status">[];
+  /** Có quyền gắn / đổi nhà cung cấp cho đơn (buyers.manage) */
+  canManage?: boolean;
+  /** Có quyền tạo nhà cung cấp mới (suppliers.manage) */
+  canCreateSupplier?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -60,12 +66,12 @@ export function SupplierPicker({
         <div className="min-w-[240px] flex-1">
           <label className="label">Nhà cung cấp của đơn</label>
           <select
+            disabled={busy || !canManage}
             className={cx(
               "input",
               !buyer.supplier_id && "border-dashed border-amber-300 bg-amber-50/60 text-amber-900",
             )}
             value={buyer.supplier_id ?? ""}
-            disabled={busy}
             onChange={(e) => void change(e.target.value)}
           >
             <option value="">— Chưa chọn nhà cung cấp —</option>
@@ -77,9 +83,11 @@ export function SupplierPicker({
             ))}
           </select>
         </div>
-        <a href="/suppliers/new" className="btn btn-ghost" target="_blank" rel="noreferrer">
-          + Thêm NCC
-        </a>
+        {canCreateSupplier && (
+          <a href="/suppliers/new" className="btn btn-ghost" target="_blank" rel="noreferrer">
+            + Thêm NCC
+          </a>
+        )}
       </div>
 
       {current ? (
@@ -114,7 +122,7 @@ export function SupplierPicker({
           type="checkbox"
           className="mt-0.5 h-4 w-4 accent-[#0f766e]"
           checked={buyer.hide_buyer_from_supplier}
-          disabled={busy}
+          disabled={busy || !canManage}
           onChange={(e) => void toggleHide(e.target.checked)}
         />
         <span>
@@ -134,7 +142,16 @@ export function SupplierPicker({
 
 /* --------------------------- Gửi cập nhật ---------------------------- */
 
-export function NoteBox({ buyerId, owner }: { buyerId: string; owner: string | null }) {
+export function NoteBox({
+  buyerId,
+  owner,
+  canManage = false,
+}: {
+  buyerId: string;
+  owner: string | null;
+  /** Có quyền thêm ghi chú (buyers.manage) */
+  canManage?: boolean;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [text, setText] = useState("");
@@ -162,8 +179,9 @@ export function NoteBox({ buyerId, owner }: { buyerId: string; owner: string | n
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void add();
           }}
+          disabled={!canManage}
         />
-        <Button variant="soft" disabled={busy || !text.trim()} onClick={() => void add()}>
+        <Button variant="soft" disabled={busy || !canManage || !text.trim()} onClick={() => void add()}>
           {busy ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (

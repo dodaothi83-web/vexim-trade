@@ -31,9 +31,12 @@ function toTarget(b: BuyerWithSupplier): StageTarget {
 export function PipelineBoard({
   buyers,
   highlight,
+  canManage = false,
 }: {
   buyers: BuyerWithSupplier[];
   highlight?: string;
+  /** Có quyền đổi trạng thái buyer (buyers.manage) hay chỉ được xem */
+  canManage?: boolean;
 }) {
   const { run, busy } = useStageChange();
   const { value: autoSend } = useAutoSend();
@@ -62,9 +65,11 @@ export function PipelineBoard({
             title="Pipeline đang trống"
             sub="Thêm buyer để thấy các thẻ xuất hiện theo từng cột trạng thái."
             action={
-              <Link href="/buyers/new" className="btn btn-primary">
-                Thêm buyer
-              </Link>
+              canManage ? (
+                <Link href="/buyers/new" className="btn btn-primary">
+                  Thêm buyer
+                </Link>
+              ) : null
             }
           />
         </div>
@@ -128,8 +133,9 @@ export function PipelineBoard({
                     {items.map((b) => (
                       <article
                         key={b.id}
-                        draggable
+                        draggable={canManage}
                         onDragStart={(e) => {
+                          if (!canManage) return;
                           e.dataTransfer.setData("text/plain", b.id);
                           e.dataTransfer.effectAllowed = "move";
                           setDragId(b.id);
@@ -191,7 +197,12 @@ export function PipelineBoard({
                         </div>
 
                         <div className="mt-2">
-                          <StageSelect target={toTarget(b)} autoSend={autoSend} className="w-full" />
+                          <StageSelect
+                            target={toTarget(b)}
+                            autoSend={autoSend}
+                            className="w-full"
+                            readOnly={!canManage}
+                          />
                         </div>
                       </article>
                     ))}

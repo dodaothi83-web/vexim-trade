@@ -1,5 +1,5 @@
-import { COMPANY } from "@/lib/config";
-import { STAGE_CONTENT } from "@/lib/email/stage-content";
+import { COMPANY, type CompanyInfo } from "@/lib/config";
+import { STAGE_CONTENT, type StageCopy } from "@/lib/email/stage-content";
 import { FUNNEL_STAGES, getStage, stageIndex, type StageKey } from "@/lib/pipeline";
 import type { Buyer, Supplier } from "@/lib/types";
 
@@ -74,10 +74,18 @@ const MUTED = "#64748b";
 const LINE = "#e2e8f0";
 const SOFT = "#f8fafc";
 
-/** Khung email dùng chung (cả email tự động lẫn email đội ngũ tự soạn) */
-export function wrapEmailShell(opts: { title: string; body: string; preheader?: string }): string {
-  const footer = `${escapeHtml(COMPANY.name)} &middot; ${escapeHtml(COMPANY.address)}<br/>
-    ${escapeHtml(COMPANY.phone)} &middot; <a href="${escapeHtml(COMPANY.website)}" style="color:${BRAND};text-decoration:none;">${escapeHtml(COMPANY.website)}</a>`;
+/** Khung email THƯƠNG HIỆU cho email TỰ ĐỘNG (cập nhật tiến độ, thông báo hệ thống):
+ *  banner + card + một footer duy nhất ở cuối card. */
+export function wrapEmailShell(opts: {
+  title: string;
+  body: string;
+  preheader?: string;
+  /** Cho phép truyền thông tin công ty từ server xuống (bản xem trước ở client) */
+  company?: CompanyInfo;
+}): string {
+  const brand = opts.company ?? COMPANY;
+  const footer = `${escapeHtml(brand.name)} &middot; ${escapeHtml(brand.address)}<br/>
+    ${escapeHtml(brand.phone)} &middot; <a href="${escapeHtml(brand.website)}" style="color:${BRAND};text-decoration:none;">${escapeHtml(brand.website)}</a>`;
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -95,8 +103,8 @@ export function wrapEmailShell(opts: { title: string; body: string; preheader?: 
               <td style="background:${BRAND};padding:20px 28px;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:.4px;">${escapeHtml(COMPANY.name.toUpperCase())}</td>
-                    <td align="right" style="color:#a7f3d0;font-size:12px;">${escapeHtml(COMPANY.tagline)}</td>
+                    <td style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:.4px;">${escapeHtml(brand.name.toUpperCase())}</td>
+                    <td align="right" style="color:#a7f3d0;font-size:12px;">${escapeHtml(brand.tagline)}</td>
                   </tr>
                 </table>
               </td>
@@ -106,10 +114,38 @@ export function wrapEmailShell(opts: { title: string; body: string; preheader?: 
               <td style="background:${SOFT};padding:20px 28px;border-top:1px solid ${LINE};font-size:12px;color:${MUTED};line-height:18px;">${footer}</td>
             </tr>
           </table>
-          <p style="color:#94a3b8;font-size:11px;margin:14px 0 0;">${escapeHtml(COMPANY.name)} &middot; ${escapeHtml(COMPANY.website)}</p>
         </td>
       </tr>
     </table>
+  </body>
+</html>`;
+}
+
+/**
+ * Khung email TRƠN cho email đội ngũ tự soạn: nền trắng, không banner thương hiệu,
+ * không khung card, không footer lặp — nhìn như email trao đổi 1:1 thông thường.
+ * Nội dung chảy từ lề trái, trọn chiều ngang khung đọc (KHÔNG bọc giữa màn hình
+ * như newsletter — trên màn hình rộng cột căn giữa trông rất lạ).
+ * Không dùng table-layout/banner/ảnh/link theo dõi: càng ít dấu vết "email marketing"
+ * thì càng ít cơ hội bị xếp vào tab Quảng cáo.
+ * Nhận diện thương hiệu nằm trong chữ ký ở cuối nội dung (xem lib/email/signature.ts).
+ * Vẫn giữ marker `vxt-inner` để unwrapEmailShell tách lại nội dung khi mở nháp/trả lời.
+ */
+export function wrapPlainEmail(opts: {
+  title: string;
+  body: string;
+  preheader?: string;
+}): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(opts.title)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:${INK};">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(opts.preheader ?? opts.title)}</div>
+    <div class="vxt-body"><div class="vxt-inner">${opts.body}</div></div>
   </body>
 </html>`;
 }
@@ -194,9 +230,11 @@ export function buildBuyerEmail(opts: {
   buyer: Buyer;
   stage: StageKey;
   note?: string | null;
+  /** Bộ nội dung đã trộn ghi đè — mặc định dùng STAGE_CONTENT */
+  content?: StageCopy;
 }): EmailPayload {
   const { buyer, stage } = opts;
-  const copy = STAGE_CONTENT[stage].buyer;
+  const copy = (opts.content ?? STAGE_CONTENT[stage]).buyer;
   const name = buyer.contact_name?.trim() || buyer.company;
 
   const summary = summaryTable(
@@ -264,9 +302,11 @@ export function buildSupplierEmail(opts: {
   supplier: Supplier;
   stage: StageKey;
   note?: string | null;
+  /** Bộ nội dung đã trộn ghi đè — mặc định dùng STAGE_CONTENT */
+  content?: StageCopy;
 }): EmailPayload {
   const { buyer, supplier, stage } = opts;
-  const copy = STAGE_CONTENT[stage].supplier;
+  const copy = (opts.content ?? STAGE_CONTENT[stage]).supplier;
   const stageDef = getStage(stage);
   const hidden = buyer.hide_buyer_from_supplier !== false;
   const buyerLabel = hidden
@@ -348,9 +388,22 @@ export function buildSupplierEmail(opts: {
   };
 }
 
+/**
+ * Thêm lề MÔ PHỎNG khung đọc của client email cho các iframe xem trước TRONG APP.
+ * HTML gửi đi cố ý không có padding (Gmail/Outlook/Apple Mail tự thêm lề của chúng);
+ * iframe trần trong app không có lề đó nên chữ dính mép khung — chỉ bản xem trước
+ * trong app được thêm lề, tệp tải xuống và email gửi đi giữ nguyên.
+ */
+export function withPreviewPadding(html: string): string {
+  const style = '<style data-vxt-preview>body{padding:14px 20px !important;}</style>';
+  if (html.includes("</head>")) return html.replace("</head>", `${style}</head>`);
+  return `${style}${html}`;
+}
+
 /** Lấy lại phần nội dung bên trong khung email (dùng khi mở bản nháp / trả lời) */
 export function unwrapEmailShell(html: string): string {
-  const m = html.match(/<div class="vxt-inner">([\s\S]*)<\/div><\/td>/);
+  // Khung thương hiệu kết thúc bằng </div></td>, khung trơn bằng </div></div></body>
+  const m = html.match(/<div class="vxt-inner">([\s\S]*)<\/div>(?:<\/td>|<\/div>\s*<\/body>)/);
   return m ? m[1] : html;
 }
 

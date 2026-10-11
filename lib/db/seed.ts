@@ -116,7 +116,8 @@ export const SEED_SUPPLIERS: Omit<Supplier, "id" | "created_at" | "updated_at">[
 
 export type SeedProduct = Omit<
   SupplierProduct,
-  "id" | "created_at" | "updated_at" | "supplier_id"
+  // hồ sơ mẫu chưa có ảnh/catalogue nên không bao giờ sẵn sàng gửi buyer
+  "id" | "created_at" | "updated_at" | "supplier_id" | "ready_for_buyer"
 > & { supplier_ref: number };
 
 export const SEED_PRODUCTS: SeedProduct[] = [

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowRight,
   Check,
@@ -17,6 +18,10 @@ import { changeStageAction } from "@/app/actions";
 import { STAGES, getStage, type StageKey } from "@/lib/pipeline";
 import { Button, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
+import {
+  getFloatingMenuPosition,
+  type FloatingMenuPosition,
+} from "@/components/floating-menu-position";
 
 export interface StageTarget {
   id: string;
@@ -60,6 +65,8 @@ interface Props {
   autoSend?: boolean;
   onAutoSendChange?: (v: boolean) => void;
   className?: string;
+  /** Chỉ xem: hiện nhãn trạng thái thay vì menu đổi trạng thái */
+  readOnly?: boolean;
 }
 
 export function StageSelect({
@@ -67,7 +74,19 @@ export function StageSelect({
   size = "sm",
   autoSend = false,
   className,
+  readOnly = false,
 }: Props) {
+  if (readOnly) return <StageBadge stage={target.stage} />;
+
+  return <StageSelectInteractive target={target} size={size} autoSend={autoSend} className={className} />;
+}
+
+function StageSelectInteractive({
+  target,
+  size = "sm",
+  autoSend = false,
+  className,
+}: Omit<Props, "readOnly">) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -76,20 +95,36 @@ export function StageSelect({
   const [busy, setBusy] = useState(false);
   const [localStage, setLocalStage] = useState(target.stage);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<FloatingMenuPosition | null>(null);
 
   useEffect(() => setLocalStage(target.stage), [target.stage]);
 
   useEffect(() => {
     if (!open) return;
+
+    const updatePosition = () => {
+      const anchor = ref.current?.getBoundingClientRect();
+      if (anchor) setMenuPosition(getFloatingMenuPosition(anchor, 288, 380));
+    };
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const targetNode = e.target as Node;
+      if (!ref.current?.contains(targetNode) && !menuRef.current?.contains(targetNode)) {
+        setOpen(false);
+      }
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+
+    updatePosition();
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
     return () => {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
     };
   }, [open]);
 
@@ -171,15 +206,22 @@ export function StageSelect({
           />
         </button>
 
-        {open && (
+        {open && menuPosition && typeof document !== "undefined" && createPortal(
           <div
+            ref={menuRef}
             role="listbox"
-            className="animate-pop absolute right-0 z-40 mt-1.5 w-72 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-pop"
+            className="animate-pop fixed z-[1000] overflow-hidden rounded-xl border border-ink-200 bg-white shadow-pop"
+            style={{
+              top: menuPosition.top,
+              left: menuPosition.left,
+              width: menuPosition.width,
+              maxHeight: menuPosition.maxHeight,
+            }}
           >
             <p className="border-b border-ink-100 bg-ink-50 px-3 py-2 text-[11px] font-bold tracking-wide text-ink-500 uppercase">
               Chuyển trạng thái
             </p>
-            <ul className="max-h-[340px] overflow-y-auto py-1">
+            <ul className="overflow-y-auto py-1" style={{ maxHeight: menuPosition.maxHeight - 38 }}>
               {STAGES.map((s) => {
                 const active = s.key === localStage;
                 return (
@@ -219,7 +261,8 @@ export function StageSelect({
                 );
               })}
             </ul>
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
 

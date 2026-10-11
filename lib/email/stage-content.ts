@@ -1,4 +1,5 @@
 import type { StageKey } from "@/lib/pipeline";
+import type { TemplateOverride } from "@/lib/types";
 
 /**
  * NỘI DUNG EMAIL THEO TỪNG GIAI ĐOẠN.
@@ -237,3 +238,85 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
     supplier: { subject: "", body: [], tasks: [], deadline: "" },
   },
 };
+
+/* ---------- Lớp ghi đè nội dung (trang Templates) ---------- */
+
+export interface CopyFields {
+  subject: string;
+  body: string;
+  action: string;
+  tasks: string;
+  deadline: string;
+}
+
+/** Bóc một bộ nội dung thành các trường chỉnh sửa được (ô nhập / textarea) */
+export function copyToFields(dir: "buyer" | "supplier", copy: StageCopy): CopyFields {
+  return dir === "buyer"
+    ? {
+        subject: copy.buyer.subject,
+        body: copy.buyer.body.join("\n\n"),
+        action: copy.buyer.action,
+        tasks: "",
+        deadline: "",
+      }
+    : {
+        subject: copy.supplier.subject,
+        body: copy.supplier.body.join("\n\n"),
+        action: "",
+        tasks: copy.supplier.tasks.join("\n"),
+        deadline: copy.supplier.deadline,
+      };
+}
+
+/** Ghép các trường đã sửa trở lại bộ nội dung; ô để trống = giữ mặc định */
+export function fieldsToCopy(
+  dir: "buyer" | "supplier",
+  base: StageCopy,
+  f: CopyFields,
+): StageCopy {
+  const paras = f.body
+    .split(/\n{2,}/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (dir === "buyer") {
+    return {
+      ...base,
+      buyer: {
+        subject: f.subject.trim() || base.buyer.subject,
+        body: paras.length ? paras : base.buyer.body,
+        action: f.action.trim() || base.buyer.action,
+      },
+    };
+  }
+  const tasks = f.tasks
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return {
+    ...base,
+    supplier: {
+      subject: f.subject.trim() || base.supplier.subject,
+      body: paras.length ? paras : base.supplier.body,
+      tasks,
+      deadline: f.deadline.trim() || base.supplier.deadline,
+    },
+  };
+}
+
+/** Trộn các bản ghi đè lên nội dung mặc định — dùng cho cả xem trước lẫn khi gửi */
+export function mergeOverrides(overrides: TemplateOverride[]): Record<StageKey, StageCopy> {
+  const merged: Record<StageKey, StageCopy> = { ...STAGE_CONTENT };
+  for (const o of overrides) {
+    const key = o.stage as StageKey;
+    if (!(key in merged)) continue;
+    const dir = o.dir === "supplier" ? "supplier" : "buyer";
+    merged[key] = fieldsToCopy(dir, merged[key], {
+      subject: o.subject,
+      body: o.body,
+      action: o.action ?? "",
+      tasks: o.tasks ?? "",
+      deadline: o.deadline ?? "",
+    });
+  }
+  return merged;
+}
