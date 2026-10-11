@@ -68,6 +68,9 @@ export default async function BlogPostPage({ params }: PageProps) {
   const headline = post.meta_title || post.title;
   const description = post.meta_description || post.excerpt || undefined;
 
+  // Tác giả: chỉ dùng tên đã nhập; chưa có thì ghi nhận là Veximtrade (không bịa tên)
+  const authorName = post.author_name?.trim() || "Veximtrade";
+
   const blogPosting = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
@@ -77,7 +80,7 @@ export default async function BlogPostPage({ params }: PageProps) {
     datePublished: post.published_at ?? post.created_at,
     dateModified: post.updated_at,
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
-    author: { "@type": "Organization", name: COMPANY.name, url: SITE_URL },
+    author: { "@type": "Organization", name: authorName, url: SITE_URL },
     publisher: { "@type": "Organization", name: COMPANY.name, url: SITE_URL },
   };
 
@@ -107,9 +110,24 @@ export default async function BlogPostPage({ params }: PageProps) {
         </nav>
 
         <header className="mt-6">
-          <p className="text-[13px] font-semibold text-brand-700">{formatDate(post.published_at)}</p>
           <h1 className="mt-2 text-[34px] leading-tight font-black tracking-tight md:text-[42px]">{post.title}</h1>
           {post.excerpt && <p className="mt-4 text-[18px] leading-relaxed text-ink-600">{post.excerpt}</p>}
+          <p className="mt-5 text-[14px] text-ink-600">
+            By <span className="font-semibold text-ink-800">{authorName}</span>
+            {post.reviewer_name?.trim() && (
+              <>
+                <span className="mx-2">·</span>Reviewed by <span className="font-semibold text-ink-800">{post.reviewer_name.trim()}</span>
+              </>
+            )}
+            <span className="mx-2">·</span>
+            Published <time dateTime={post.published_at ?? post.created_at}>{formatDate(post.published_at ?? post.created_at)}</time>
+            {post.updated_at && post.published_at && post.updated_at.slice(0, 10) !== post.published_at.slice(0, 10) && (
+              <>
+                <span className="mx-2">·</span>
+                Updated <time dateTime={post.updated_at}>{formatDate(post.updated_at)}</time>
+              </>
+            )}
+          </p>
         </header>
 
         {post.featured_image && (

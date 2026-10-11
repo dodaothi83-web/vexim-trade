@@ -48,6 +48,10 @@ export interface SeoInput {
   updatedAt: string | null;
   currentId: string | null;
   otherPosts: OtherPostRef[];
+  /** Tên tác giả đã nhập (rỗng thì trang hiển thị Veximtrade) */
+  authorName?: string;
+  /** Tên người kiểm duyệt (tùy chọn) */
+  reviewerName?: string;
   /** Mốc thời gian để tính độ mới (mặc định là lúc chạy) */
   now?: Date;
 }
@@ -484,13 +488,24 @@ function technicalChecks(input: SeoInput, a: Analysis): SeoCheck[] {
     }
   }
 
-  // Ngoài phạm vi kiểm tra tự động
-  push({
-    id: "author",
-    status: "info",
-    label: "Tác giả và người duyệt",
-    detail: "Bài chưa có trường tác giả và người kiểm duyệt. Đây là tín hiệu tin cậy cần bổ sung khi có dữ liệu.",
-  });
+  // Tác giả là tín hiệu E-E-A-T: có tên thật thì đạt, chưa có thì cảnh báo
+  if (input.authorName?.trim()) {
+    push({
+      id: "author",
+      status: "pass",
+      label: "Tác giả",
+      detail: input.reviewerName?.trim()
+        ? `Tác giả ${input.authorName.trim()}, người kiểm duyệt ${input.reviewerName.trim()}.`
+        : `Tác giả ${input.authorName.trim()}. Có thể thêm người kiểm duyệt chuyên môn để tăng độ tin cậy.`,
+    });
+  } else {
+    push({
+      id: "author",
+      status: "warn",
+      label: "Tác giả",
+      detail: "Chưa điền tác giả, trang sẽ hiển thị Veximtrade. Điền tên người viết để tăng độ tin cậy.",
+    });
+  }
 
   return checks;
 }

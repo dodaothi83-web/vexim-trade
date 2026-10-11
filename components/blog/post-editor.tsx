@@ -40,6 +40,8 @@ function initialStateOf(post: Post | null) {
     metaTitle: post?.meta_title ?? "",
     metaDescription: post?.meta_description ?? "",
     focusKeyword: post?.focus_keyword ?? "",
+    authorName: post?.author_name ?? "",
+    reviewerName: post?.reviewer_name ?? "",
     status: (post?.status ?? "draft") as PostStatus,
   };
 }
@@ -64,6 +66,8 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
   const [metaTitle, setMetaTitle] = useState(initial.metaTitle);
   const [metaDescription, setMetaDescription] = useState(initial.metaDescription);
   const [focusKeyword, setFocusKeyword] = useState(initial.focusKeyword);
+  const [authorName, setAuthorName] = useState(initial.authorName);
+  const [reviewerName, setReviewerName] = useState(initial.reviewerName);
   const [status, setStatus] = useState<PostStatus>(initial.status);
   const [uploadingCover, setUploadingCover] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -89,8 +93,10 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
       updatedAt: post?.updated_at ?? null,
       currentId: postId,
       otherPosts,
+      authorName,
+      reviewerName,
     }),
-    [title, metaTitle, metaDescription, excerpt, slug, slugTouched, focusKeyword, featuredImage, featuredImageAlt, coverDimensions, blocks, status, post, postId, otherPosts],
+    [title, metaTitle, metaDescription, excerpt, slug, slugTouched, focusKeyword, featuredImage, featuredImageAlt, coverDimensions, blocks, status, post, postId, otherPosts, authorName, reviewerName],
   );
   const [debouncedSeo, setDebouncedSeo] = useState(seoInput);
   useEffect(() => {
@@ -115,6 +121,8 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
     meta_title: metaTitle,
     meta_description: metaDescription,
     focus_keyword: focusKeyword,
+    author_name: authorName,
+    reviewer_name: reviewerName,
     status: nextStatus,
   });
 
@@ -280,6 +288,26 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <Label htmlFor="post-author">Tác giả</Label>
+              <Input
+                id="post-author"
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                placeholder="Để trống sẽ hiển thị Veximtrade"
+                className="mt-1 h-8 text-[12px]"
+              />
+            </div>
+            <div>
+              <Label htmlFor="post-reviewer">Người kiểm duyệt (tùy chọn)</Label>
+              <Input
+                id="post-reviewer"
+                value={reviewerName}
+                onChange={(e) => setReviewerName(e.target.value)}
+                placeholder="Người đã rà soát nội dung chuyên môn"
+                className="mt-1 h-8 text-[12px]"
+              />
             </div>
             <div>
               <Label htmlFor="post-slug">Đường dẫn</Label>

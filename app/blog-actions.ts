@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getStore } from "@/lib/db";
-import { guard } from "@/lib/auth/session";
+import { getSession, guard } from "@/lib/auth/session";
 import { buildPostPayload, ensureUniqueSlug, slugify } from "@/lib/blog/post-payload";
 import type { Post, PostInput } from "@/lib/types";
 
@@ -46,6 +46,8 @@ export async function savePostAction(
       const title = String(built.payload.title ?? "");
       const baseSlug = String(built.payload.slug ?? "") || slugify(title);
       const slug = await ensureUniqueSlug(store, baseSlug);
+      // Không điền tác giả thì ghi người đang đăng nhập (không dùng tên giả)
+      const session = await getSession();
       const input: PostInput = {
         title,
         slug,
@@ -57,6 +59,8 @@ export async function savePostAction(
         meta_title: String(built.payload.meta_title ?? "") || null,
         meta_description: String(built.payload.meta_description ?? "") || null,
         focus_keyword: String(built.payload.focus_keyword ?? "") || null,
+        author_name: String(built.payload.author_name ?? "") || session?.name || null,
+        reviewer_name: String(built.payload.reviewer_name ?? "") || null,
         status,
         published_at: status === "published" ? new Date().toISOString() : null,
       };

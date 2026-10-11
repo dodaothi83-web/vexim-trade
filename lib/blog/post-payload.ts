@@ -20,12 +20,14 @@ const POST_COLUMNS = [
   "meta_title",
   "meta_description",
   "focus_keyword",
+  "author_name",
+  "reviewer_name",
   "status",
   "published_at",
 ] as const
 
 export const POST_LIST_COLUMNS =
-  "id, title, slug, excerpt, category, featured_image, featured_image_alt, meta_title, meta_description, focus_keyword, status, published_at, created_at, updated_at"
+  "id, title, slug, excerpt, category, featured_image, featured_image_alt, meta_title, meta_description, focus_keyword, author_name, reviewer_name, status, published_at, created_at, updated_at"
 
 export const POST_DETAIL_COLUMNS = `${POST_LIST_COLUMNS}, content`
 
@@ -267,6 +269,9 @@ export function buildPostPayload(body: Record<string, unknown>, options: BuildPa
     const slug = slugify(asString(body.slug))
     if (slug) payload.slug = slug
   }
+
+  if (shouldInclude("author_name")) payload.author_name = asPlainText(body.author_name).slice(0, 120)
+  if (shouldInclude("reviewer_name")) payload.reviewer_name = asPlainText(body.reviewer_name).slice(0, 120)
 
   if (shouldInclude("status")) {
     const status = asString(body.status)
