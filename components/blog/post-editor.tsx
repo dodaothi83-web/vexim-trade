@@ -18,6 +18,7 @@ import { normalizeBlocksFromStorage } from "@/lib/blog/blocks-from-storage";
 import { runSeoChecks, type OtherPostRef, type SeoInput } from "@/lib/blog/seo-check";
 import { SeoPanel } from "@/components/blog/seo-panel";
 import { useImageDimensions } from "@/hooks/use-image-dimensions";
+import { VIEW_BUTTON_CLASS, VIEW_BUTTON_DISABLED_CLASS } from "@/lib/blog/view-button";
 import type { Post, PostStatus } from "@/lib/types";
 
 const MIN_PUBLISH_LENGTH = 50;
@@ -212,6 +213,20 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
             <Button type="button" variant="outline" onClick={remove} disabled={isPending}>
               Xóa
             </Button>
+          )}
+          {status === "published" && post?.slug ? (
+            <a
+              href={`/blog/${post.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={VIEW_BUTTON_CLASS}
+            >
+              Xem
+            </a>
+          ) : (
+            <span title="Xuất bản bài để xem trên trang công khai" className={VIEW_BUTTON_DISABLED_CLASS}>
+              Xem
+            </span>
           )}
           <Button type="button" variant="outline" onClick={() => save("draft")} disabled={isPending}>
             Lưu nháp

@@ -5,6 +5,7 @@ import { requirePagePermission } from "@/lib/auth/session";
 import { DEFAULT_BLOG_CATEGORY } from "@/lib/blog/blog-categories";
 import { Button, Card, EmptyState, formatDate } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
+import { VIEW_BUTTON_CLASS, VIEW_BUTTON_DISABLED_CLASS } from "@/lib/blog/view-button";
 
 export const dynamic = "force-dynamic";
 
@@ -34,15 +35,32 @@ export default async function BlogAdminPage() {
           <table className="w-full min-w-[640px] text-left text-[13px]">
             <thead className="border-b border-ink-200 text-[11px] uppercase tracking-wide text-ink-500">
               <tr>
+                <th className="px-4 py-2.5 font-semibold">Ảnh</th>
                 <th className="px-4 py-2.5 font-semibold">Tiêu đề</th>
                 <th className="px-4 py-2.5 font-semibold">Trạng thái</th>
                 <th className="px-4 py-2.5 font-semibold">Xuất bản</th>
                 <th className="px-4 py-2.5 font-semibold">Cập nhật</th>
+                <th className="px-4 py-2.5 text-right font-semibold">Xem</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
               {posts.map((post) => (
                 <tr key={post.id} className="hover:bg-ink-50">
+                  <td className="px-4 py-3">
+                    {post.featured_image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={post.featured_image}
+                        alt=""
+                        loading="lazy"
+                        className="h-10 w-16 rounded object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-16 items-center justify-center rounded bg-ink-100 text-[10px] text-ink-400">
+                        Không ảnh
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <Link href={`/posts/${post.id}`} className="font-semibold text-ink-900 hover:text-brand-700">
                       {post.title}
@@ -58,6 +76,17 @@ export default async function BlogAdminPage() {
                   </td>
                   <td className="px-4 py-3 text-ink-600">{formatDate(post.published_at)}</td>
                   <td className="px-4 py-3 text-ink-600">{formatDate(post.updated_at)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {post.status === "published" ? (
+                      <a href={`/blog/${post.slug}`} target="_blank" rel="noopener noreferrer" className={VIEW_BUTTON_CLASS}>
+                        Xem
+                      </a>
+                    ) : (
+                      <span title="Xuất bản bài để xem trên trang công khai" className={VIEW_BUTTON_DISABLED_CLASS}>
+                        Xem
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
