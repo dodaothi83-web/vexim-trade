@@ -313,49 +313,32 @@ export function LandingSite() {
         <p className="mt-5 max-w-3xl text-[18px] leading-relaxed text-ink-700">
           Each step says what you receive. Steps marked optional happen only when your project needs them.
         </p>
-        {/* Sơ đồ luồng: ngang trên màn hình lớn, dọc trên điện thoại */}
-        <ol className="mt-12 flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-0">
+        <div className="mt-12 grid gap-6 md:grid-cols-2">
           {PHASES.map((phase, pi) => (
-            <li key={phase.title} className="flex flex-col lg:flex-1 lg:flex-row">
-              <div className="flex flex-1 flex-col rounded-2xl border-2 border-ink-900 bg-white p-6">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[17px] font-bold text-white">
-                    {pi + 1}
-                  </span>
-                  <h3 className="text-[19px] font-bold leading-snug text-ink-900" style={HEADING}>
-                    {phase.title}
-                  </h3>
-                </div>
-                <ul className="mt-5 flex flex-1 flex-col gap-3">
-                  {phase.steps.map((step) => (
-                    <li
-                      key={step.title}
-                      className={`rounded-xl p-4 ${
-                        step.optional ? "border-2 border-dashed border-ink-400 bg-ink-50" : "bg-ink-100"
-                      }`}
-                    >
-                      <p className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-ink-900">
-                        {step.title}
-                        {step.optional && (
-                          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-600 ring-1 ring-ink-300">
-                            Optional
-                          </span>
-                        )}
-                      </p>
-                      <p className="mt-1.5 text-[14px] leading-relaxed text-ink-700">{step.desc}</p>
-                      <p className="mt-2 text-[13px] font-semibold text-brand-700">→ {step.output}</p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              {pi < PHASES.length - 1 && (
-                <div aria-hidden="true" className="flex items-center justify-center py-2 text-ink-400 lg:w-10 lg:py-0">
-                  <ArrowRight className="h-7 w-7 rotate-90 lg:rotate-0" />
-                </div>
-              )}
-            </li>
+            <div key={phase.title} className="rounded-2xl border-2 border-ink-900 p-7">
+              <p className="text-[13px] font-bold uppercase tracking-wider text-brand-700">Stage {pi + 1}</p>
+              <h3 className="mt-2 text-[24px] font-bold leading-snug text-ink-900" style={HEADING}>
+                {phase.title}
+              </h3>
+              <ol className="mt-6 space-y-6">
+                {phase.steps.map((step) => (
+                  <li key={step.title} className="border-t border-ink-100 pt-5">
+                    <p className="flex flex-wrap items-center gap-2 text-[17px] font-bold text-ink-900">
+                      {step.title}
+                      {step.optional && (
+                        <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[12px] font-semibold text-ink-600">
+                          Optional
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-2 text-[15.5px] leading-relaxed text-ink-700">{step.desc}</p>
+                    <p className="mt-3 text-[14px] font-semibold text-brand-700">You receive: {step.output}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
           ))}
-        </ol>
+        </div>
 
         <div className="mt-10 grid gap-6 md:grid-cols-2">
           <div className="rounded-2xl bg-emerald-50 p-7">
