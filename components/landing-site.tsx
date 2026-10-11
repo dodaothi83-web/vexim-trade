@@ -35,19 +35,84 @@ const OPEN_QUESTIONS = [
   "What is the minimum order, and how is it packed?",
 ];
 
-const HOW_IT_WORKS = [
+type Step = { title: string; desc: string; output: string; optional?: boolean };
+type Phase = { title: string; steps: Step[] };
+
+const PHASES: Phase[] = [
   {
-    title: "You send the brief",
-    desc: "Product, spec or grade, volume, destination port, delivery window and Incoterm.",
+    title: "Understand your brief",
+    steps: [
+      {
+        title: "You send the brief",
+        desc: "Product, spec or grade, volume, destination market, the date you need the goods by, Incoterm and payment terms.",
+        output: "A brief we both confirm in writing.",
+      },
+      {
+        title: "We screen producers",
+        desc: "We shortlist producers that fit your brief and show what is stated by the producer, what we verified, and what is still open.",
+        output: "A shortlist with each point marked Stated, Verified or Open.",
+      },
+    ],
   },
   {
-    title: "We match it",
-    desc: "We check the brief against the producers we represent and what they can supply in your season.",
+    title: "Confirm spec and samples",
+    steps: [
+      {
+        title: "We agree spec and samples",
+        desc: "Grade, standard, packing and how samples are sent are agreed before you evaluate. Sample costs are paid by you.",
+        output: "A signed spec sheet and a sample schedule.",
+      },
+    ],
   },
   {
-    title: "You get a clear answer",
-    desc: "A producer that fits, with what is stated and what is verified. Or a plain no for now.",
+    title: "Work with the producer",
+    steps: [
+      {
+        title: "We coordinate the talks",
+        desc: "We clear up differences in requirements, working methods and terms. Final commercial terms are agreed in writing between you and the producer.",
+        output: "A list of points agreed, and points still waiting.",
+      },
+      {
+        title: "Written summary after each meeting",
+        desc: "What was agreed, what is open, the risks we see, and the next step.",
+        output: "A written summary to you after every meeting.",
+      },
+      {
+        title: "Factory visit",
+        desc: "In person, or by video call with a screen recording if travel is not possible. Travel costs are paid by you.",
+        output: "A visit plan and the agenda for the day.",
+        optional: true,
+      },
+    ],
   },
+  {
+    title: "Before and after shipment",
+    steps: [
+      {
+        title: "Pre-shipment inspection",
+        desc: "We coordinate an independent inspection company and send you the results before the goods leave the factory. Inspection fees are paid by you.",
+        output: "Inspection results, sent before the goods leave.",
+        optional: true,
+      },
+      {
+        title: "Shipping updates",
+        desc: "Dates from the producer or carrier are marked as estimates until confirmed. We share the documents within our scope, such as the commercial invoice and packing list.",
+        output: "Confirmed dates, and documents as they are issued.",
+      },
+    ],
+  },
+];
+
+const DOES_NOT: string[] = [
+  "Guarantee quality or the outcome of any deal",
+  "Sign contracts on your behalf",
+  "Replace your own inspection or legal review",
+];
+
+const DOES: string[] = [
+  "Screen and shortlist producers against your brief",
+  "Coordinate samples, meetings, visits and inspections",
+  "Send you a written summary after each milestone",
 ];
 
 const REPLY_KEY = [
@@ -236,21 +301,71 @@ export function LandingSite() {
       {/* ---------- How it works ---------- */}
       <section id="work" className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
         <h2 className="text-4xl font-bold leading-tight text-ink-900 sm:text-5xl" style={HEADING}>
-          You send the brief. We do the matching.
+          From your brief to the shipment, in four stages.
         </h2>
-        <ol className="mt-12 grid gap-6 md:grid-cols-3">
-          {HOW_IT_WORKS.map((s, i) => (
-            <li key={s.title} className="relative rounded-2xl border-2 border-ink-900 p-7">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-[20px] font-bold text-white">
-                {i + 1}
-              </span>
-              <h3 className="mt-6 text-[24px] font-bold leading-snug text-ink-900" style={HEADING}>
-                {s.title}
+        <p className="mt-5 max-w-3xl text-[18px] leading-relaxed text-ink-700">
+          Each step says what you receive. Steps marked optional happen only when your project needs them.
+        </p>
+        <div className="mt-12 grid gap-6 md:grid-cols-2">
+          {PHASES.map((phase, pi) => (
+            <div key={phase.title} className="rounded-2xl border-2 border-ink-900 p-7">
+              <p className="text-[13px] font-bold uppercase tracking-wider text-brand-700">Stage {pi + 1}</p>
+              <h3 className="mt-2 text-[24px] font-bold leading-snug text-ink-900" style={HEADING}>
+                {phase.title}
               </h3>
-              <p className="mt-3 text-[16px] leading-relaxed text-ink-700">{s.desc}</p>
-            </li>
+              <ol className="mt-6 space-y-6">
+                {phase.steps.map((step) => (
+                  <li key={step.title} className="border-t border-ink-100 pt-5">
+                    <p className="flex flex-wrap items-center gap-2 text-[17px] font-bold text-ink-900">
+                      {step.title}
+                      {step.optional && (
+                        <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[12px] font-semibold text-ink-600">
+                          Optional
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-2 text-[15.5px] leading-relaxed text-ink-700">{step.desc}</p>
+                    <p className="mt-3 text-[14px] font-semibold text-brand-700">You receive: {step.output}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
           ))}
-        </ol>
+        </div>
+
+        <div className="mt-10 grid gap-6 md:grid-cols-2">
+          <div className="rounded-2xl bg-emerald-50 p-7">
+            <p className="text-[15px] font-bold text-emerald-900">What we do</p>
+            <ul className="mt-4 space-y-3 text-[16px] text-emerald-950">
+              {DOES.map((t) => (
+                <li key={t} className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-2xl bg-ink-50 p-7">
+            <p className="text-[15px] font-bold text-ink-900">What we do not do</p>
+            <ul className="mt-4 space-y-3 text-[16px] text-ink-800">
+              {DOES_NOT.map((t) => (
+                <li key={t} className="flex items-start gap-3">
+                  <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-ink-500" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-10 rounded-2xl border border-ink-200 p-7">
+          <p className="text-[15px] font-bold text-ink-900">How we are paid</p>
+          <p className="mt-3 text-[16px] leading-relaxed text-ink-700">
+            Veximtrade receives a referral fee from the producer when a deal is completed. You pay
+            for samples, travel and inspections. We disclose this here so you can weigh our
+            recommendations knowing how we are paid.
+          </p>
+        </div>
       </section>
 
       {/* ---------- What the reply looks like ---------- */}
