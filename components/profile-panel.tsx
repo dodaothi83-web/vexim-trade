@@ -265,6 +265,58 @@ export function ProfilePanel({
         )}
       </section>
 
+      {/* Đổi mật khẩu */}
+      <section className="card overflow-hidden">
+        <header className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
+          <KeyRound className="h-4 w-4 text-brand-700" />
+          <h2 className="text-[15px] font-bold text-ink-900">Đổi mật khẩu</h2>
+        </header>
+        <div className="space-y-3 px-4 py-4">
+          <label className="block">
+            <span className="label">Mật khẩu hiện tại</span>
+            <input
+              type="password"
+              className="input"
+              value={cur}
+              onChange={(e) => setCur(e.target.value)}
+              placeholder="Nhập mật khẩu đang dùng"
+              autoComplete="current-password"
+            />
+          </label>
+          <label className="block">
+            <span className="label">Mật khẩu mới</span>
+            <input
+              type="password"
+              className="input"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              placeholder="Ít nhất 8 ký tự, có chữ và số"
+              autoComplete="new-password"
+            />
+          </label>
+          <label className="block">
+            <span className="label">Nhập lại mật khẩu mới</span>
+            <input
+              type="password"
+              className="input"
+              value={pw2}
+              onChange={(e) => setPw2(e.target.value)}
+              placeholder="Giống ô bên trên"
+              autoComplete="new-password"
+            />
+          </label>
+          <div className="flex items-center gap-3">
+            <Button variant="primary" disabled={pwBusy} onClick={() => void changePw()}>
+              {pwBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+              Đổi mật khẩu
+            </Button>
+            <span className="text-[11.5px] text-ink-400">
+              Đổi xong hãy đăng nhập lại ở các thiết bị khác.
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* Địa chỉ gửi email (deliverability) */}
       <section className="card overflow-hidden lg:col-span-2">
         <header className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
@@ -330,58 +382,6 @@ export function ProfilePanel({
               </div>
             </div>
           )}
-        </div>
-      </section>
-
-      {/* Đổi mật khẩu */}
-      <section className="card overflow-hidden">
-        <header className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
-          <KeyRound className="h-4 w-4 text-brand-700" />
-          <h2 className="text-[15px] font-bold text-ink-900">Đổi mật khẩu</h2>
-        </header>
-        <div className="space-y-3 px-4 py-4">
-          <label className="block">
-            <span className="label">Mật khẩu hiện tại</span>
-            <input
-              type="password"
-              className="input"
-              value={cur}
-              onChange={(e) => setCur(e.target.value)}
-              placeholder="Nhập mật khẩu đang dùng"
-              autoComplete="current-password"
-            />
-          </label>
-          <label className="block">
-            <span className="label">Mật khẩu mới</span>
-            <input
-              type="password"
-              className="input"
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              placeholder="Ít nhất 8 ký tự, có chữ và số"
-              autoComplete="new-password"
-            />
-          </label>
-          <label className="block">
-            <span className="label">Nhập lại mật khẩu mới</span>
-            <input
-              type="password"
-              className="input"
-              value={pw2}
-              onChange={(e) => setPw2(e.target.value)}
-              placeholder="Giống ô bên trên"
-              autoComplete="new-password"
-            />
-          </label>
-          <div className="flex items-center gap-3">
-            <Button variant="primary" disabled={pwBusy} onClick={() => void changePw()}>
-              {pwBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-              Đổi mật khẩu
-            </Button>
-            <span className="text-[11.5px] text-ink-400">
-              Đổi xong hãy đăng nhập lại ở các thiết bị khác.
-            </span>
-          </div>
         </div>
       </section>
 
