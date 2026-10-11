@@ -64,11 +64,64 @@ export interface SupplierProduct {
   payment_terms: string | null;
   /** Có thể gửi mẫu */
   samples: boolean;
+  /**
+   * Sẵn sàng gửi buyer. Chỉ bật được khi hồ sơ đã có ít nhất một ảnh sản phẩm
+   * hoặc catalogue chia sẻ được cho buyer (xem lib/media/readiness.ts).
+   */
+  ready_for_buyer: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export type SupplierProductInput = Omit<SupplierProduct, "id" | "created_at" | "updated_at">;
+
+/* --------------------------------- MEDIA --------------------------------- */
+
+export type MediaOwnerType = "product" | "supplier";
+
+/**
+ * image       – ảnh sản phẩm / ảnh nhà máy, chia sẻ được cho buyer
+ * catalogue   – PDF catalogue / bảng thông số
+ * certificate – chứng nhận (PDF hoặc ảnh), có thể có ngày hết hạn
+ * document    – giấy tờ xác minh NCC (mặc định chỉ nội bộ)
+ * video       – chỉ lưu link (YouTube/Drive), không tải tệp lên
+ */
+export type MediaKind = "image" | "catalogue" | "certificate" | "document" | "video";
+
+/** Chia sẻ cho buyer hay chỉ dùng nội bộ */
+export type MediaAudience = "buyer" | "internal";
+
+/** Mỗi tệp có trạng thái riêng, không mặc nhiên coi nội dung là đúng */
+export type MediaStatus = "unverified" | "checked" | "expired";
+
+export interface MediaAsset {
+  id: string;
+  owner_type: MediaOwnerType;
+  product_id: string | null;
+  supplier_id: string | null;
+  kind: MediaKind;
+  audience: MediaAudience;
+  status: MediaStatus;
+  /** Ngày hết hạn (chứng nhận / giá…) */
+  expires_on: string | null;
+  caption: string | null;
+  /** Đường dẫn tệp trong kho media (ảnh/PDF) */
+  storage_path: string | null;
+  /** Đường dẫn ảnh xem trước cỡ nhỏ */
+  thumb_path: string | null;
+  /** Link ngoài (video) */
+  external_url: string | null;
+  mime: string | null;
+  bytes: number | null;
+  width: number | null;
+  height: number | null;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MediaInput = Omit<MediaAsset, "id" | "created_at" | "updated_at">;
 
 export interface Buyer {
   id: string;
@@ -127,16 +180,39 @@ export interface Activity {
   created_at: string;
 }
 
-export type MessageKind = "auto" | "manual";
-export type MessageStatus = "draft" | "sent" | "failed" | "simulated";
+export type MessageKind = "auto" | "manual" | "inbound";
+export type MessageStatus = "draft" | "sent" | "failed" | "simulated" | "received";
 export type MessageDirection = "buyer" | "supplier";
 
-export interface Attachment {
+/**
+ * Tệp đính kèm email: nội dung nằm trong Supabase Storage (bucket riêng, private),
+ * cơ sở dữ liệu chỉ giữ metadata. Không lưu base64/binary trong DB.
+ */
+export type AttachmentStatus = "pending" | "uploaded" | "attached" | "failed" | "deleted";
+
+export interface EmailAttachment {
+  id: string;
+  /** Gắn vào email khi gửi; null = tệp vừa tải lên, chưa thuộc email nào */
+  message_id: string | null;
+  bucket: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  status: AttachmentStatus;
+  last_error: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Tham chiếu rút gọn để gắn vào email và hiển thị ở giao diện */
+export interface AttachmentRef {
+  id: string;
   name: string;
   size: number;
   type: string;
-  /** base64, không kèm prefix data: */
-  content: string;
+  status?: AttachmentStatus;
 }
 
 /** Một email trong hộp thư: có thể là email tự động theo giai đoạn hoặc do đội ngũ tự soạn */
@@ -144,6 +220,8 @@ export interface EmailMessage {
   id: string;
   buyer_id: string | null;
   supplier_id: string | null;
+  /** Contact prospect cold (nếu thư được gửi/nhận trước khi có Buyer thật). */
+  prospect_id?: string | null;
   kind: MessageKind;
   /** chỉ có với email tự động theo giai đoạn */
   stage: string | null;
@@ -156,7 +234,11 @@ export interface EmailMessage {
   bcc_emails: string[];
   body_html: string;
   body_text: string;
-  attachments: Attachment[];
+  attachments: AttachmentRef[];
+  /** Thư đến: id email trong Resend Receiving (kiêm khoá chống trùng webhook) */
+  rfc_message_id?: string | null;
+  /** Thư đến: thời điểm đánh dấu đã đọc trong app; chưa có = chưa đọc */
+  read_at?: string | null;
   status: MessageStatus;
   provider: "resend" | "local";
   error: string | null;
@@ -171,3 +253,157 @@ export interface BuyerWithSupplier extends Buyer {
 
 export type BuyerInput = Omit<Buyer, "id" | "created_at" | "updated_at">;
 export type SupplierInput = Omit<Supplier, "id" | "created_at" | "updated_at">;
+
+export type ProspectStatus =
+  | "new"
+  | "researched"
+  | "ready"
+  | "contacted"
+  | "replied"
+  | "meeting"
+  | "qualified"
+  | "converted"
+  | "disqualified"
+  | "unsubscribed";
+
+export interface ProspectCompanySource {
+  title: string;
+  url: string;
+}
+
+/** Người liên hệ tiềm năng từ Apollo hoặc nguồn outbound khác, chưa phải Buyer có nhu cầu. */
+export interface Prospect {
+  id: string;
+  company: string;
+  contact_name: string | null;
+  contact_title: string | null;
+  email: string | null;
+  email_status: string | null;
+  phone: string | null;
+  country: string | null;
+  city: string | null;
+  website: string | null;
+  linkedin_url: string | null;
+  company_linkedin_url: string | null;
+  industry: string | null;
+  employee_range: string | null;
+  apollo_id: string | null;
+  data_source: string;
+  source_list: string | null;
+  target_product: string | null;
+  status: ProspectStatus;
+  owner: string | null;
+  next_action: string | null;
+  next_action_at: string | null;
+  notes: string | null;
+  converted_buyer_id: string | null;
+  ai_company_summary: string | null;
+  ai_company_sources: ProspectCompanySource[];
+  ai_company_analyzed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProspectInput = Omit<Prospect, "id" | "created_at" | "updated_at" | "ai_company_summary" | "ai_company_sources" | "ai_company_analyzed_at">;
+
+export type ProspectActivityChannel = "email" | "linkedin" | "phone" | "meeting" | "note";
+
+export interface ProspectActivity {
+  id: string;
+  prospect_id: string;
+  channel: ProspectActivityChannel;
+  summary: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+/* ------------------------------- NGƯỜI DÙNG ------------------------------ */
+
+export type UserRole = "admin" | "sale" | "sourcing" | "viewer";
+
+/** Cách tài khoản được xác thực */
+export type AuthProvider = "supabase" | "local";
+
+export interface AppUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+  /** Tài khoản được tạo bên Supabase Auth (đăng nhập qua Supabase khi có mạng) */
+  auth_provider: AuthProvider;
+  /** Có mật khẩu nội bộ (dùng khi không kết nối được Supabase) */
+  has_local_password: boolean;
+  /** Chữ ký cá nhân (HTML) dùng cho email tự soạn; null = dùng chữ ký tự động */
+  signature_html: string | null;
+  /** Số điện thoại cá nhân hiển thị trong chữ ký; null = không hiển thị */
+  phone: string | null;
+  is_active: boolean;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Bản ghi đầy đủ chỉ dùng ở server (có hash mật khẩu) */
+export interface AppUserRecord extends Omit<AppUser, "has_local_password"> {
+  password_hash: string | null;
+}
+
+export type AppUserInput = Omit<
+  AppUserRecord,
+  "id" | "created_at" | "updated_at" | "last_login_at" | "signature_html" | "phone"
+>;
+
+/** Bản ghi ghi đè nội dung email theo giai đoạn (trang Templates) */
+export interface TemplateOverride {
+  stage: string;
+  dir: "buyer" | "supplier";
+  subject: string;
+  /** Các đoạn văn ngăn cách bằng một dòng trống */
+  body: string;
+  /** buyer: bước kế tiếp / điều cần ở buyer */
+  action: string | null;
+  /** supplier: mỗi việc một dòng (checklist trong email) */
+  tasks: string | null;
+  /** supplier: thời hạn phản hồi */
+  deadline: string | null;
+  updated_at: string;
+}
+
+/** Mẫu tiếp cận Prospect, lưu riêng khỏi email theo giai đoạn Buyer */
+export interface ProspectOutreachTemplate {
+  id: string;
+  label: string;
+  subject: string;
+  body: string;
+  updated_at?: string;
+}
+
+/* ------------------------------ Bài viết blog ------------------------------ */
+
+export type PostStatus = "draft" | "published";
+
+export interface Post {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  /** JSON các khối nội dung (xem components/block-editor/types.ts) */
+  content: string;
+  category: string;
+  featured_image: string | null;
+  featured_image_alt: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  focus_keyword: string | null;
+  /** Tác giả hiển thị cho người đọc; null thì hiển thị Veximtrade */
+  author_name: string | null;
+  /** Người kiểm duyệt nội dung chuyên môn (tùy chọn) */
+  reviewer_name: string | null;
+  status: PostStatus;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Dữ liệu ghi vào bảng posts (đã qua whitelist ở lib/blog/post-payload.ts) */
+export type PostInput = Omit<Post, "id" | "created_at" | "updated_at">;

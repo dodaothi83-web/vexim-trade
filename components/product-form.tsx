@@ -7,7 +7,7 @@ import { Loader2, Save } from "lucide-react";
 import { createProductAction, updateProductAction } from "@/app/actions";
 import { PRODUCT_CATEGORIES } from "@/lib/supplier";
 import type { Supplier, SupplierProduct } from "@/lib/types";
-import { Button, Field } from "@/components/ui";
+import { Button, Field, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
 const INCOTERMS = ["EXW", "FOB", "CFR", "CIF", "DAP", "DDP", "FCA"];
@@ -28,6 +28,7 @@ function init(p?: SupplierProduct | null): FormState {
     packaging: p?.packaging ?? "",
     oem: p?.oem ?? false,
     samples: p?.samples ?? true,
+    ready_for_buyer: p?.ready_for_buyer ?? false,
     certifications: p?.certifications ?? "",
     export_port: p?.export_port ?? "",
     ref_price: p?.ref_price ?? "",
@@ -42,9 +43,12 @@ function init(p?: SupplierProduct | null): FormState {
 export function ProductForm({
   supplier,
   product,
+  mediaState,
 }: {
   supplier: Supplier;
   product?: SupplierProduct | null;
+  /** Trạng thái hình ảnh/tài liệu — có thì mới hiện công tắc "Sẵn sàng gửi buyer" */
+  mediaState?: { ready: boolean; shareable: number };
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -199,6 +203,33 @@ export function ProductForm({
               />
               Có thể gửi mẫu
             </label>
+            {mediaState && (
+              <label
+                className={cx(
+                  "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px] font-semibold",
+                  mediaState.ready
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : "cursor-not-allowed border-amber-200 bg-amber-50 text-amber-900",
+                )}
+                title={
+                  mediaState.ready
+                    ? "Khách đã có ảnh/catalogue để xem"
+                    : "Cần ít nhất 1 ảnh hoặc catalogue ở chế độ Chia sẻ buyer"
+                }
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-[#0f766e]"
+                  disabled={!mediaState.ready && !form.ready_for_buyer}
+                  checked={Boolean(form.ready_for_buyer)}
+                  onChange={(e) => set("ready_for_buyer", e.target.checked)}
+                />
+                Sẵn sàng gửi buyer
+                {!mediaState.ready && !form.ready_for_buyer && (
+                  <span className="font-normal">(cần thêm ảnh/catalogue)</span>
+                )}
+              </label>
+            )}
           </div>
           <Field label="Chứng nhận / tiêu chuẩn" className="sm:col-span-2 lg:col-span-3">
             <input

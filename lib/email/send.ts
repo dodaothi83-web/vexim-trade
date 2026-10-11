@@ -6,20 +6,25 @@ import {
   buildBuyerEmail,
   buildSupplierAssignedEmail,
   buildSupplierEmail,
-  wrapEmailShell,
+  wrapPlainEmail,
   type EmailPayload,
 } from "@/lib/email/templates";
 import { getStage, type StageKey } from "@/lib/pipeline";
-import type { Attachment, Buyer, Supplier } from "@/lib/types";
+import { mergeOverrides } from "@/lib/email/stage-content";
+import { loadForSend, toRef } from "@/lib/mail/attachments";
+import type { Buyer, EmailAttachment, Supplier } from "@/lib/types";
 
 export interface OutgoingMail {
   to: string[];
   cc?: string[];
   bcc?: string[];
   subject: string;
+  /** Header RFC tuỳ chỉnh (In-Reply-To / References) để Gmail gom đúng mạch thư */
+  headers?: Record<string, string>;
   html: string;
   text?: string;
-  attachments?: Attachment[];
+  /** base64 chỉ tồn tại trong bộ nhớ lúc gửi qua Resend — KHÔNG lưu vào DB */
+  attachments?: { filename: string; content: string; contentType: string }[];
 }
 
 export interface TransportResult {
@@ -48,13 +53,8 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
       subject: mail.subject,
       html: mail.html,
       text: mail.text,
-      attachments: mail.attachments?.length
-        ? mail.attachments.map((a) => ({
-            filename: a.name,
-            content: a.content,
-            contentType: a.type || "application/octet-stream",
-          }))
-        : undefined,
+      attachments: mail.attachments?.length ? mail.attachments : undefined,
+      headers: mail.headers && Object.keys(mail.headers).length ? mail.headers : undefined,
     });
     if (error) {
       return { ok: false, status: "failed", provider: "resend", error: `${error.name}: ${error.message}` };
@@ -113,6 +113,10 @@ export async function sendStageUpdate(
   const { buyer, supplier, stage, force = false } = params;
   const store = getStore();
   const stageDef = getStage(stage);
+  // Nội dung giai đoạn: bản ghi đè từ trang Templates (nếu có) đè lên mặc định
+  const content = mergeOverrides(
+    await store.listTemplateOverrides().catch(() => []),
+  )[stage];
   const messages: string[] = [];
   let buyerSent = false;
   let supplierSent = false;
@@ -134,6 +138,7 @@ export async function sendStageUpdate(
       buyer,
       stage,
       note: params.messageToBuyer ?? params.note ?? null,
+      content,
     });
     const cc = (buyer.cc_emails ?? "")
       .split(/[,;\n]/)
@@ -175,6 +180,7 @@ export async function sendStageUpdate(
       supplier,
       stage,
       note: params.messageToSupplier ?? params.note ?? null,
+      content,
     });
     const res = await transport({ to: [supplier.email.trim()], ...payload });
     supplierSent = res.ok;
@@ -248,6 +254,7 @@ async function saveAutoMessage(opts: {
 export interface ManualMailInput {
   buyerId?: string | null;
   supplierId?: string | null;
+  prospectId?: string | null;
   direction: "buyer" | "supplier";
   to: string[];
   cc?: string[];
@@ -256,8 +263,13 @@ export interface ManualMailInput {
   /** nội dung HTML do trình soạn thảo tạo ra */
   bodyHtml: string;
   bodyText?: string;
-  attachments?: Attachment[];
+  /** các dòng metadata tệp đính kèm (nội dung thật nằm trong Storage, không ở DB) */
+  attachments?: EmailAttachment[];
   author?: string | null;
+  /** RFC Message-ID của thư đang trả lời — để Gmail/Outlook gom chung thread */
+  inReplyTo?: string | null;
+  /** Chuỗi References (các Message-ID trước đó trong thread) */
+  references?: string | null;
 }
 
 export interface ManualMailResult {
@@ -268,10 +280,22 @@ export interface ManualMailResult {
 }
 
 export async function sendManualMail(input: ManualMailInput): Promise<ManualMailResult> {
-  const html = wrapEmailShell({
+  // Email tự soạn => khung trơn giống email thường (không banner/card/footer).
+  const html = wrapPlainEmail({
     title: input.subject,
     body: input.bodyHtml,
   });
+
+  // Đọc nội dung tệp từ kho lưu trữ (base64 chỉ để chuyển cho Resend, không ghi DB).
+  // Không đọc được tệp thì DỪNG trước khi gửi để không gửi thiếu tệp.
+  let forSend: { filename: string; content: string; contentType: string }[] | undefined;
+  if (input.attachments?.length) {
+    forSend = await loadForSend(input.attachments);
+  }
+
+  const headers: Record<string, string> = {};
+  if (input.inReplyTo) headers["In-Reply-To"] = input.inReplyTo;
+  if (input.references) headers["References"] = input.references;
   const res = await transport({
     to: input.to,
     cc: input.cc,
@@ -279,13 +303,15 @@ export async function sendManualMail(input: ManualMailInput): Promise<ManualMail
     subject: input.subject,
     html,
     text: input.bodyText,
-    attachments: input.attachments,
+    attachments: forSend,
+    headers,
   });
   const store = getStore();
   const saved = await store
     .addMessage({
       buyer_id: input.buyerId ?? null,
       supplier_id: input.supplierId ?? null,
+      ...(input.prospectId ? { prospect_id: input.prospectId } : {}),
       kind: "manual",
       stage: null,
       direction: input.direction,
@@ -296,7 +322,7 @@ export async function sendManualMail(input: ManualMailInput): Promise<ManualMail
       bcc_emails: input.bcc ?? [],
       body_html: html,
       body_text: input.bodyText ?? "",
-      attachments: input.attachments ?? [],
+      attachments: (input.attachments ?? []).map(toRef),
       status: res.status,
       provider: res.provider,
       error: res.error,
@@ -314,11 +340,12 @@ export async function sendManualMail(input: ManualMailInput): Promise<ManualMail
 }
 
 export async function saveDraft(input: ManualMailInput): Promise<string | null> {
-  const html = wrapEmailShell({ title: input.subject || "(bản nháp)", body: input.bodyHtml });
+  const html = wrapPlainEmail({ title: input.subject || "(bản nháp)", body: input.bodyHtml });
   const saved = await getStore()
     .addMessage({
       buyer_id: input.buyerId ?? null,
       supplier_id: input.supplierId ?? null,
+      ...(input.prospectId ? { prospect_id: input.prospectId } : {}),
       kind: "manual",
       stage: null,
       direction: input.direction,
@@ -329,7 +356,7 @@ export async function saveDraft(input: ManualMailInput): Promise<string | null> 
       bcc_emails: input.bcc ?? [],
       body_html: html,
       body_text: input.bodyText ?? "",
-      attachments: input.attachments ?? [],
+      attachments: (input.attachments ?? []).map(toRef),
       status: "draft",
       provider: "local",
       error: null,

@@ -27,7 +27,14 @@ export interface MailRow extends EmailMessage {
 type Folder = "sent" | "draft";
 type Filter = "all" | "buyer" | "supplier" | "auto" | "manual";
 
-export function Mailbox({ rows }: { rows: MailRow[] }) {
+export function Mailbox({
+  rows,
+  canSend = false,
+}: {
+  rows: MailRow[];
+  /** Có quyền soạn / xoá thư (mail.send) hay chỉ được xem */
+  canSend?: boolean;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [folder, setFolder] = useState<Folder>("sent");
@@ -120,10 +127,12 @@ export function Mailbox({ rows }: { rows: MailRow[] }) {
           <option value="manual">Email đội ngũ tự soạn</option>
         </select>
 
-        <Link href="/mail/compose" className="btn btn-primary">
-          <Pencil className="h-4 w-4" />
-          Soạn thư
-        </Link>
+        {canSend && (
+          <Link href="/mail/compose" className="btn btn-primary">
+            <Pencil className="h-4 w-4" />
+            Soạn thư
+          </Link>
+        )}
       </div>
 
       {list.length === 0 ? (
@@ -142,9 +151,11 @@ export function Mailbox({ rows }: { rows: MailRow[] }) {
               : "Mỗi lần đổi giai đoạn trong pipeline, hệ thống tự gửi email và lưu vào đây."
           }
           action={
-            <Link href="/mail/compose" className="btn btn-primary">
-              Soạn thư mới
-            </Link>
+            canSend ? (
+              <Link href="/mail/compose" className="btn btn-primary">
+                Soạn thư mới
+              </Link>
+            ) : null
           }
         />
       ) : (
@@ -152,7 +163,7 @@ export function Mailbox({ rows }: { rows: MailRow[] }) {
           {list.map((m) => (
             <li key={m.id}>
               <Link
-                href={m.status === "draft" ? `/mail/compose?draft=${m.id}` : `/mail/${m.id}`}
+                href={m.status === "draft" && canSend ? `/mail/compose?draft=${m.id}` : `/mail/${m.id}`}
                 className="group flex items-start gap-3 px-3 py-2.5 transition hover:bg-brand-50/40"
               >
                 <span
@@ -212,14 +223,16 @@ export function Mailbox({ rows }: { rows: MailRow[] }) {
                   <span className="text-[11.5px] whitespace-nowrap text-ink-400">
                     {formatDateTime(m.created_at)}
                   </span>
-                  <button
-                    type="button"
-                    onClick={(e) => void remove(m.id, e)}
-                    className="rounded p-1 text-ink-300 opacity-0 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-600"
-                    title="Xoá"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {canSend && (
+                    <button
+                      type="button"
+                      onClick={(e) => void remove(m.id, e)}
+                      className="rounded p-1 text-ink-300 opacity-0 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-600"
+                      title="Xoá"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               </Link>
             </li>
