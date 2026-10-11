@@ -1,4 +1,5 @@
 import { getStore } from "@/lib/db";
+import { assignSenderEmails, formatFrom } from "@/lib/email/sender";
 import { buildSignature } from "@/lib/email/signature";
 import { emailMode, FROM_ADDRESS } from "@/lib/config";
 import { requireSession } from "@/lib/auth/session";
@@ -26,18 +27,37 @@ export default async function MailPage() {
   const canManageProspects = hasPermission(session.role, "prospects.manage");
 
   const store = getStore();
-  const [messages, buyers, suppliers, me, prospects] = await Promise.all([
+  const [messages, buyers, suppliers, me, prospects, users] = await Promise.all([
     store.listMessages(500),
     store.listBuyers(),
     store.listSuppliers(),
     store.getUserByEmail(session.email),
     canManageProspects ? store.listProspects().catch(() => []) : Promise.resolve([]),
+    store.listUsers().catch(() => []),
   ]);
+
+  // Địa chỉ gửi riêng theo tên người (deliverability). Ánh xạ theo TÊN vì lịch sử
+  // thư chỉ lưu tên người gửi (created_by), không lưu header From.
+  const senderByUserId = assignSenderEmails(users);
+  const senderAddressByName = new Map<string, string>(
+    users.flatMap((u) => {
+      const address = senderByUserId.get(u.id);
+      const key = (u.name ?? "").trim().toLowerCase();
+      return address && key ? [[key, address] as [string, string]] : [];
+    }),
+  );
+  const mySenderAddress = (me && senderByUserId.get(me.id)) || null;
+  /** "Nguyễn Văn Dung <dung@veximtrade.com>" cho thư đã gửi; null nếu không khớp ai */
+  const senderLabel = (name: string | null | undefined) => {
+    const address = senderAddressByName.get((name ?? "").trim().toLowerCase());
+    return address ? formatFrom(name ?? null, address) : null;
+  };
 
   // Chữ ký cá nhân kiểu Gmail/Zoho (chữ ký tuỳ chỉnh hoặc chữ ký tự động) —
   // chèn sẵn vào khung trả lời nhanh và cửa sổ chuyển tiếp ngay trong Hộp thư
   const mySigHtml = me?.signature_html ?? null;
-  const mySig = mySigHtml !== null ? mySigHtml : buildSignature(session.name, me?.phone);
+  const mySig =
+    mySigHtml !== null ? mySigHtml : buildSignature(session.name, me?.phone, mySenderAddress);
 
   // Phạm vi: nhân viên kinh doanh chỉ thấy thư của buyer/prospect mình phụ trách và thư do chính mình gửi
   const scope = ownerScopeOf(session);
@@ -121,7 +141,7 @@ export default async function MailPage() {
               ? (m.created_by ?? "Người gửi")
               : m.status === "draft"
                 ? "Nháp của bạn"
-                : `Vexim Trade (${m.created_by ?? FROM_ADDRESS})`,
+                : senderLabel(m.created_by) ?? `Vexim Trade (${m.created_by ?? FROM_ADDRESS})`,
           toLabel: m.kind === "inbound" ? (m.to_emails.join(", ") || FROM_ADDRESS) : (m.to_emails.join(", ") || "—"),
           at: m.sent_at ?? m.created_at,
           bodyHtml: m.body_html,

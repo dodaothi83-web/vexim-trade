@@ -335,6 +335,11 @@ export interface AppUser {
   has_local_password: boolean;
   /** Chữ ký cá nhân (HTML) dùng cho email tự soạn; null = dùng chữ ký tự động */
   signature_html: string | null;
+  /**
+   * Địa chỉ gửi riêng của người này (dung@veximtrade.com). null = hệ thống tự sinh
+   * từ họ tên (xem lib/email/sender.ts) — đổi tên thì địa chỉ đổi theo.
+   */
+  sender_email: string | null;
   /** Số điện thoại cá nhân hiển thị trong chữ ký; null = không hiển thị */
   phone: string | null;
   is_active: boolean;
@@ -350,7 +355,13 @@ export interface AppUserRecord extends Omit<AppUser, "has_local_password"> {
 
 export type AppUserInput = Omit<
   AppUserRecord,
-  "id" | "created_at" | "updated_at" | "last_login_at" | "signature_html" | "phone"
+  | "id"
+  | "created_at"
+  | "updated_at"
+  | "last_login_at"
+  | "signature_html"
+  | "phone"
+  | "sender_email"
 >;
 
 /** Bản ghi ghi đè nội dung email theo giai đoạn (trang Templates) */

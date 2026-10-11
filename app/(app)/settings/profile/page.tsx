@@ -1,6 +1,7 @@
 import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { roleMeta } from "@/lib/auth/permissions";
+import { senderAddressFor } from "@/lib/email/sender";
 import { buildSignature } from "@/lib/email/signature";
 import { PageHeader } from "@/components/page-header";
 import { ProfilePanel } from "@/components/profile-panel";
@@ -11,9 +12,13 @@ export const metadata = { title: "Hồ sơ của tôi" };
 
 export default async function ProfilePage() {
   const session = await requireSession();
-  const me = await getStore()
-    .getUserByEmail(session.email)
-    .catch(() => null);
+  const store = getStore();
+  const [me, users] = await Promise.all([
+    store.getUserByEmail(session.email).catch(() => null),
+    store.listUsers().catch(() => []),
+  ]);
+  // Địa chỉ gửi riêng đang áp dụng cho tài khoản này (tự sinh hoặc đặt tay)
+  const mySenderAddress = senderAddressFor(me, users);
   const meta = roleMeta(session.role);
 
   return (
@@ -29,7 +34,9 @@ export default async function ProfilePage() {
         roleDescription={meta.description}
         phone={me?.phone ?? null}
         signatureHtml={me?.signature_html ?? null}
-        autoSignature={buildSignature(session.name, me?.phone)}
+        autoSignature={buildSignature(session.name, me?.phone, mySenderAddress)}
+        senderAddress={mySenderAddress}
+        senderAddressCustom={Boolean(me?.sender_email)}
       />
     </>
   );

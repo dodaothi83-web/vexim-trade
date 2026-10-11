@@ -21,7 +21,26 @@ export const COMPANY = {
 /** Kiểu thông tin công ty – dùng khi truyền từ server xuống client */
 export type CompanyInfo = typeof COMPANY;
 
-/** Người gửi mặc định cho các email tự động */
+/**
+ * Domain DÙNG CHUNG cho mọi địa chỉ gửi của hệ thống — phải là domain đã verify
+ * trong Resend (Resend cho phép gửi từ bất kỳ local-part nào của domain đã verify,
+ * không cần tạo mailbox). Mặc định MAIL_DOMAIN = domain của EMAIL_FROM; chỉ đặt
+ * MAIL_DOMAIN khi muốn tách domain gửi khỏi địa chỉ chức năng.
+ * Đây cũng là domain nhận thư (catch-all) của Resend Inbound: thư buyer trả lời
+ * dung@veximtrade.com chảy về đúng webhook /api/webhooks/resend đang dùng.
+ */
+export const MAIL_DOMAIN: string = (
+  env.MAIL_DOMAIN?.trim() ||
+  COMPANY.email.split("@")[1]?.trim() ||
+  "veximtrade.com"
+)
+  .replace(/^@/, "")
+  .toLowerCase();
+
+/** Địa chỉ chức năng (role address) – dùng cho thư hệ thống và thư NCC */
+export const ROLE_ADDRESS = COMPANY.email;
+
+/** Người gửi mặc định cho các email tự động không gắn với người cụ thể */
 export const FROM_ADDRESS = `${COMPANY.name} <${COMPANY.email}>`;
 
 export function resendConfigured(): boolean {

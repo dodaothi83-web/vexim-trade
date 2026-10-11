@@ -10,6 +10,7 @@ import { deleteObject } from "@/lib/media/storage";
 import { productReadiness } from "@/lib/media/readiness";
 import { generateCompanyIntroduction } from "@/lib/ai/company-introduction";
 import {
+  resolveSender,
   saveDraft,
   sendManualMail,
   sendStageUpdate,
@@ -1141,6 +1142,8 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
       bodyText: input.bodyText,
       attachments: attachmentRows,
       author: input.author ?? null,
+      // Gửi từ địa chỉ mang tên người soạn (deliverability — lib/email/sender.ts)
+      authorEmail: session.email,
       inReplyTo: input.inReplyTo ?? null,
       references: input.references ?? null,
     });
@@ -1291,6 +1294,14 @@ export async function resendMessageAction(id: string): Promise<ActionResult> {
     }
   }
 
+  // Gửi lại thì phải đi đúng địa chỉ của lần gửi trước: buyer/nhân viên tự soạn
+  // gửi từ địa chỉ cá nhân người phụ trách, thư NCC gửi từ địa chỉ chức năng.
+  const sender =
+    msg.kind === "inbound"
+      ? null
+      : msg.kind === "manual" || msg.direction === "buyer"
+        ? await resolveSender({ byName: msg.created_by })
+        : null;
   const res = await transport({
     to: msg.to_emails,
     cc: msg.cc_emails,
@@ -1299,6 +1310,8 @@ export async function resendMessageAction(id: string): Promise<ActionResult> {
     html: msg.body_html,
     text: msg.body_text,
     attachments: forSend,
+    from: sender?.header ?? null,
+    replyTo: sender?.address ?? null,
   });
   await store
     .updateMessage(id, {

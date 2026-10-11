@@ -113,7 +113,14 @@ function toPublicUser(row: AppUserRecord): AppUser {
   const has_local_password = Boolean(row.password_hash);
   const { password_hash: _omit, ...rest } = row;
   void _omit;
-  return { ...rest, signature_html: row.signature_html ?? null, phone: row.phone ?? null, has_local_password };
+  return {
+    ...rest,
+    signature_html: row.signature_html ?? null,
+    phone: row.phone ?? null,
+    // null = chưa đặt tay -> địa chỉ gửi tự sinh từ họ tên (lib/email/sender.ts)
+    sender_email: row.sender_email ?? null,
+    has_local_password,
+  };
 }
 
 function must(): SupabaseClient {
@@ -221,12 +228,21 @@ export const supabaseStore: DataStore = {
   },
 
   async listUsers() {
-    const { data, error } = await must()
-      .from("app_users")
-      .select("id,email,name,role,auth_provider,password_hash,is_active,last_login_at,created_at,updated_at")
-      .order("email", { ascending: true });
-    if (error) fail("listUsers", error);
-    return ((data ?? []) as AppUserRecord[]).map(toPublicUser);
+    const cols =
+      "id,email,name,role,auth_provider,password_hash,is_active,last_login_at,sender_email,created_at,updated_at";
+    const res = await must().from("app_users").select(cols).order("email", { ascending: true });
+    // Chưa chạy migration 20261012_user_sender_email.sql -> chưa có cột sender_email.
+    // Không để trang đăng nhập/hồ sơ chết vì cột này: đọc lại không lấy cột đó, coi như null
+    // (địa chỉ gửi khi đó vẫn tự sinh đúng, chỉ không lưu được bản đặt tay).
+    if (res.error && /sender_email/.test(res.error.message)) {
+      const retry = await must()
+        .from("app_users")
+        .select(cols.replace(",sender_email", ""))
+        .order("email", { ascending: true });
+      if (!retry.error) return ((retry.data ?? []) as unknown as AppUserRecord[]).map(toPublicUser);
+    }
+    if (res.error) fail("listUsers", res.error);
+    return ((res.data ?? []) as unknown as AppUserRecord[]).map(toPublicUser);
   },
   async countUsers() {
     const { count, error } = await must()

@@ -319,14 +319,45 @@ Cùng một lần đổi giai đoạn, hệ thống sinh **hai email hoàn toàn
   không card, không footer lặp; nội dung căn trái, chảy trọn chiều ngang khung đọc như thư đánh máy thông thường.
   Bản xem trước ở cột soạn thư khớp đúng khung gửi đi.
 
+### Địa chỉ gửi theo tên người (chống rơi vào Quảng cáo/Spam)
+
+Thư gửi từ **địa chỉ chức năng** (`sales@`, `contact@`) bị các công cụ chấm điểm xếp vào
+nhóm hộp thư nhận đại trà: không đo được độ sạch của mailbox nên điểm bị hạ xuống
+**Risky** và thư dễ bị Gmail/Outlook đẩy sang tab Quảng cáo. Vì vậy **mỗi nhân viên gửi
+bằng địa chỉ mang tên mình**.
+
+1. **Quy tắc sinh** (`lib/email/sender.ts`): bỏ dấu tiếng Việt, lấy **tên chính** (từ cuối trong
+   họ tên), viết thường → `Nguyễn Văn Dung` = `dung@veximtrade.com`. Trùng tên thì đánh số
+   `dung2@`, `dung3@` (thứ tự theo ngày tạo tài khoản nên không đổi lung tung mỗi lần mở app).
+   Tên không dùng được thì rơi về local-part của email đăng nhập, rồi tới họ tên liền không dấu.
+   Local-part chức năng (`sales`, `info`, `contact`…) không bao giờ được cấp cho cá nhân.
+2. **Domain gửi** = `MAIL_DOMAIN`, mặc định lấy từ `EMAIL_FROM` (`veximtrade.com`). Đặt
+   `MAIL_DOMAIN` chỉ khi muốn tách domain gửi khỏi địa chỉ chức năng.
+3. **Không phải tạo hộp thư mới.** Resend đã verify domain thì gửi được từ mọi local-part của
+   domain đó, không cần "add sender" hay mailbox. MX nhận thư đang là catch-all nên buyer trả
+   lời `dung@veximtrade.com` vẫn về `/api/webhooks/resend` → vào Hộp thư như cũ. SPF/DKIM giữ
+   nguyên; From vẫn là đúng domain đã ký DKIM nên DMARC alignment không đổi (xem mục 5 về DMARC).
+4. **Schema**: chạy [`supabase/migrations/20261012_user_sender_email.sql`](supabase/migrations/20261012_user_sender_email.sql)
+   để thêm cột `app_users.sender_email`. `NULL` = tự sinh theo họ tên; nhập giá trị khác = giữ
+   cố định (đổi họ tên cũng không đổi địa chỉ theo). Nhân viên tự đổi ở **Hồ sơ của tôi →
+   Địa chỉ gửi email**, quản trị xem danh sách ở **Cài đặt → Người dùng & phân quyền**.
+5. **Bản ghi DMARC**: đổi địa chỉ gửi không làm thay đổi gì về DNS, nhưng điểm "Risky" hay đi kèm
+   việc thiếu DMARC. Resend **không** tự tạo `_dmarc.<domain>` — kiểm tra có bản ghi
+   `v=DMARC1; p=none; rua=mailto:...` (hoặc policy mạnh hơn khi đã ổn định); thiếu DMARC là một
+   tín hiệu bị chặn riêng theo yêu cầu của Google/Yahoo.
+6. **Phạm vi áp dụng**: thư **cho buyer** (tự động theo giai đoạn + tự soạn) và mọi thư đội ngũ
+   tự soạn → địa chỉ cá nhân của người gửi (kèm `Reply-To`). Thư **NCC** và **thư báo hệ thống**
+   vẫn đi từ `EMAIL_FROM`. Không tìm được tài khoản khớp tên phụ trách thì rơi về `EMAIL_FROM`.
+
 ### Chữ ký email cá nhân (kiểu Gmail/Zoho)
 
 - Mỗi tài khoản có **chữ ký riêng** lưu trong cột `signature_html` của bảng `app_users`
   (Supabase: chạy câu `alter table ... add column if not exists signature_html text` ở mục 5c của `supabase/schema.sql`).
 - Sửa bằng nút **“Sửa chữ ký”** ngay trong cửa sổ soạn thư (trình soạn thảo có định dạng như nội dung thư);
   lưu lại sẽ dùng cho mọi thư soạn mới, vẫn sửa tay được trong từng thư.
-- Chưa lưu chữ ký riêng thì hệ thống dùng **chữ ký tự động** (tên người gửi, Export Department · Vexim Trade,
-  điện thoại · email, website dạng chữ). Nút **“Xoá chữ ký tuỳ chỉnh”** quay lại chữ ký tự động.
+- Chưa lưu chữ ký riêng thì hệ thống dùng **chữ ký tự động** (Best regards, tên người gửi,
+  Export Department · Vexim Trade, điện thoại · **địa chỉ gửi riêng của người đó**, website dạng chữ).
+  Không có logo/ảnh trong chữ ký. Nút **“Xoá chữ ký tuỳ chỉnh”** quay lại chữ ký tự động.
 - Chữ ký được chèn sẵn khi mở thư soạn mới; nút “Chèn chữ ký” chèn lại bất kỳ lúc nào (không chèn trùng).
 
 ### Nhận email trả lời (Resend Inbound)

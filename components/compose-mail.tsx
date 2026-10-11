@@ -82,6 +82,7 @@ export function ComposeMail({
   signature,
   autoSignature = "",
   signatureCustom = false,
+  senderAddress = null,
   contexts = [],
   recent = [],
   outreachTemplates = PROSPECT_OUTREACH_TEMPLATES,
@@ -95,6 +96,11 @@ export function ComposeMail({
   autoSignature?: string;
   /** Chữ ký đang dùng là chữ ký tuỳ chỉnh người dùng đã lưu */
   signatureCustom?: boolean;
+  /**
+   * Địa chỉ thật sẽ hiện trong header From (dung@veximtrade.com). Thư gửi từ địa chỉ
+   * mang tên người đáng tin hơn address chức năng (sales@) — xem lib/email/sender.ts.
+   */
+  senderAddress?: string | null;
   /** Ngữ cảnh đơn hàng của buyer / NCC để hiển thị ở cột phải */
   contexts?: ComposeContext[];
   /** Email đã trao đổi (mới nhất trước) để hiển thị ở cột phải */
@@ -364,6 +370,22 @@ export function ComposeMail({
 
         {/* Người nhận */}
         <div className="divide-y divide-ink-100">
+          {senderAddress && (
+            <div className="flex items-center gap-3 px-3">
+              <span className="w-12 shrink-0 text-[12.5px] font-semibold text-ink-500">Từ</span>
+              <span className="min-w-0 flex-1 truncate py-2.5 text-[13px] text-ink-700" title={senderAddress}>
+                {senderAddress}
+              </span>
+              <button
+                type="button"
+                onClick={() => router.push("/settings/profile")}
+                className="shrink-0 text-[11.5px] font-semibold text-brand-700 transition hover:text-brand-800"
+                title="Đổi địa chỉ gửi trong hồ sơ cá nhân"
+              >
+                Đổi
+              </button>
+            </div>
+          )}
           <AddressRow
             label="Tới"
             values={to}

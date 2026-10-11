@@ -397,6 +397,16 @@ alter table public.app_users add column if not exists signature_html text;
 -- Số điện thoại cá nhân trong chữ ký email (chạy một lần)
 alter table public.app_users add column if not exists phone text;
 
+-- Địa chỉ gửi riêng theo tên người (deliverability — bản chạy lẻ: 20261012_user_sender_email.sql)
+-- NULL = app tự sinh từ họ tên: "Nguyễn Văn Dung" -> dung@veximtrade.com,
+-- trùng tên thì dung2@, dung3@ (lib/email/sender.ts). Đặt giá trị khác NULL = giữ
+-- đúng địa chỉ đó, app không tự đổi. Không cần tạo mailbox ở Resend: domain đã
+-- verify thì mọi local-part của domain đều gửi được.
+alter table public.app_users add column if not exists sender_email text;
+create unique index if not exists app_users_sender_email_key
+  on public.app_users (lower(sender_email))
+  where sender_email is not null;
+
 -- ---------------------------------------------------------------------------
 -- 6. TỰ ĐỘNG CẬP NHẬT updated_at
 -- ---------------------------------------------------------------------------
