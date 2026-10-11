@@ -139,6 +139,13 @@ const TONE: Record<string, { bar: string; chip: string; label: string }> = {
   open: { bar: "bg-amber-500", chip: "bg-amber-50 text-amber-800", label: "Open" },
 };
 
+const SCREENING_RULES: string[] = [
+  "Business registration is checked before a producer is shown to any buyer",
+  "Capacity, product range and certificates are stated by the producer, and verified against documents where we can",
+  "A producer that does not pass screening is not shown to buyers, whatever its fee",
+  "A producer that misleads a buyer or fails to deliver is removed from our list",
+];
+
 const INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP", "Not sure yet"];
 const PAYMENT_METHODS = ["T/T", "L/C", "D/P", "D/A", "Open account", "Not sure yet"];
 
@@ -359,11 +366,23 @@ export function LandingSite() {
         </div>
 
         <div className="mt-10 rounded-2xl border border-ink-200 p-7">
-          <p className="text-[15px] font-bold text-ink-900">How we are paid</p>
+          <p className="text-[15px] font-bold text-ink-900">How we are paid, and how we choose producers</p>
           <p className="mt-3 text-[16px] leading-relaxed text-ink-700">
-            Veximtrade receives a referral fee from the producer when a deal is completed. You pay
-            for samples, travel and inspections. We disclose this here so you can weigh our
-            recommendations knowing how we are paid.
+            The producers we represent pay Veximtrade for that representation, and we tell you so.
+            We are not a neutral adviser. Our reputation is what we stake on every introduction,
+            so we publish the rules we screen by.
+          </p>
+          <ul className="mt-5 space-y-3 text-[16px] text-ink-800">
+            {SCREENING_RULES.map((t) => (
+              <li key={t} className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
+                {t}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-6 border-t border-ink-100 pt-5 text-[16px] leading-relaxed text-ink-800">
+            You sign the contract directly with the producer. You may contact any producer we
+            introduce directly. Your price is the producer's price, with no mark-up added by us.
           </p>
         </div>
       </section>
