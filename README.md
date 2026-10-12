@@ -51,7 +51,7 @@ AUTH_SECRET=<chuỗi ngẫu nhiên 64 ký tự hex — xem mục Tài khoản & 
 
 ### Triển khai danh sách khách hàng mục tiêu trên Supabase đang dùng
 
-Với database đã có bảng `prospects`, chạy `20261008_prospect_segmentation.sql`, `20261008_prospects_require_email.sql` và `20261008_prospect_company_ai.sql` trong Supabase SQL Editor. Nếu là database mới, chạy `20261008_prospects.sql` trước. Migration phân nhóm giữ hồ sơ hiện có, gán nguồn Apollo và nhận diện “Mì ăn liền” từ tên tệp cũ. Migration email xóa hồ sơ thiếu email, giữ thư đã gửi hoặc nhận nhưng bỏ liên kết với hồ sơ bị xóa, rồi buộc hồ sơ mới phải có email. Đặt `OPENAI_API_KEY` trong biến môi trường phía máy chủ để bật nút AI giới thiệu công ty; model tùy chọn là `OPENAI_COMPANY_RESEARCH_MODEL`. Chạy migration và cấu hình biến môi trường trước khi triển khai ứng dụng. Nhập danh sách chỉ tạo hồ sơ, không tự gửi email.
+Với database đã có bảng `prospects`, chạy `20261008_prospect_segmentation.sql`, `20261008_prospects_require_email.sql` và `20261008_prospect_company_ai.sql` trong Supabase SQL Editor. Nếu là database mới, chạy `20261008_prospects.sql` trước. Migration phân nhóm giữ hồ sơ hiện có, gán nguồn Apollo và nhận diện “Mì ăn liền” từ tên tệp cũ. Migration email xóa hồ sơ thiếu email, giữ thư đã gửi hoặc nhận nhưng bỏ liên kết với hồ sơ bị xóa, rồi buộc hồ sơ mới phải có email. Đặt `OPENAI_API_KEY` trong biến môi trường phía máy chủ để bật nút AI giới thiệu công ty; model tùy chọn là `OPENAI_COMPANY_RESEARCH_MODEL`. Từ 12/10/2026 nút đó còn quét **danh mục sản phẩm + ảnh trên website** của đầu mối nên phải chạy thêm `20261012_prospect_ai_products.sql` (cột `prospects.ai_products`); phần quét này dùng `OPENAI_EMAIL_DRAFT_MODEL`, fallback `OPENAI_COMPANY_RESEARCH_MODEL`. Chạy migration và cấu hình biến môi trường trước khi triển khai ứng dụng. Nhập danh sách chỉ tạo hồ sơ, không tự gửi email.
 
 ### Kiểm tra kết nối Supabase
 
@@ -578,73 +578,73 @@ Chuỗi cần giữ kín được sinh từ hồ sơ NCC (kèm giá tham khảo 
 ### AI soạn – người duyệt (nút "AI viết tiếp cận")
 
 Trong trình soạn thư gửi **buyer**, ngay dưới dòng *Tiêu đề* có nút **AI viết tiếp cận**
-(đổi thành **Viết lại** sau lần đầu). Không có ô chọn nào cả — AI tự nhận diện hai luồng
-theo đúng dữ liệu đang có:
+(đổi thành **Viết lại** sau lần đầu, kèm nút nhỏ **Quét lại website**). **Thư KHÔNG do AI viết**:
+nội dung giữ cố định theo mẫu bên mình chốt, model chỉ được giao một việc — đọc website của
+buyer để điền các ô. Vì vậy không có chuyện model tự bịa "công ty ông đang bán X".
 
-1. **Buyer trong danh sách Khách hàng mục tiêu, chưa nêu nhu cầu** → bấm nút là AI **tự chạy
-   luôn phần phân tích công ty** (giống hệt nút "Xem công ty" trong hồ sơ đầu mối, có lưu kết
-   quả vào hồ sơ để lần sau dùng lại). Thư **không cần biết lịch sử mua hàng**, chỉ dựa vào
-   **sản phẩm công ty họ đang bán** để suy ra nhu cầu đầu vào, rồi chào **2–3 dòng sản phẩm
-   khớp nhất** — không liệt kê cả danh mục, để buyer thấy mình đã nghiên cứu về họ.
-2. **Buyer đã nêu nhu cầu** — nhân viên tạo hồ sơ buyer vì buyer để lại yêu cầu (mặt hàng, quy
-   cách, số lượng, cảng, điều khoản) → AI phân tích đúng nhu cầu đó và trả lời từng điểm.
-   Tiêu chí nhận diện trong code: hồ sơ buyer có `product` / `spec` / `quantity` là luồng 2,
-   ngược lại là luồng 1.
+**Mẫu thư** (bản tiếng Anh 100%, dịch 1:1 từ khung tiếng Việt — xem `FIRST_TOUCH_TEMPLATE`
+trong `lib/ai/first-touch-draft.ts`):
 
-**Bốn thứ luôn có trong thư** — thiếu là máy chủ tự chèn vào, không phụ thuộc model:
+1. `Dear <tên người nhận>,`
+2. `I am <tên>, at Vexim Trade, the service arm of VEXIM GLOBAL.` + một câu ta làm gì: tìm và
+   sàng lọc nhà cung cấp đủ điều kiện cho khách quốc tế.
+3. `I understand that <CÔNG TY BUYER> supplies <SẢN PHẨM TỪ WEBSITE>.` + **câu tùy chỉnh theo
+   dạng hàng** (xem dưới) + câu "phần của ông chỉ là nhận mẫu và chọn nhà cung cấp; bên tôi làm
+   việc với nhà cung cấp, báo giá, kiểm tra hồ sơ, chứng nhận và chất lượng trước khi giao".
+4. `Would you like us to look into Vietnam sourcing for <NHÓM HÀNG>?`
+5. `Thank you for your time. I look forward to your reply.` (chữ ký do hệ thống nối, AI không viết)
 
-- Dòng chào **`Dear <tên người nhận>,`** lấy đúng tên trong hồ sơ; không "Dear Sir/Madam",
-  không đoán Mr/Ms.
-- **Giới thiệu tôi là ai và công ty tôi làm gì** ("I am {tên} from the Export Department at
-  Vexim Trade…"), tên lấy từ tài khoản đang đăng nhập.
-- **Câu hỏi để lấy nhu cầu** (mặt hàng, quy cách, khối lượng, thời điểm) — thư chào lạnh thì
-  chưa có nhu cầu nào để trả lời, nên hỏi ngắn thay vì kể.
-- **Câu cảm ơn + mong phản hồi** ở cuối, trước khi hệ thống nối chữ ký.
+**AI phân tích buyer như thế nào** — ba bước, chạy trong ~5–30 giây:
 
-**Thư chào lạnh KHÔNG có số liệu thương mại.** Không MOQ, không giá, không năng lực sản xuất,
-không thời gian giao, không chứng từ — chưa biết buyer cần gì mà đưa số là phản tác dụng, và
-`monthly_capacity` trong danh mục là năng lực của **nhà cung cấp** chứ không phải của Vexim. Số chỉ
-dùng ở luồng 2 (buyer đã để lại nhu cầu): nhắc lại đúng yêu cầu của họ + điều kiện của **đúng dòng
-hàng được chọn**, dạng `Gạo Jasmine 5% tấm — MOQ 5 MT, sản xuất 21 ngày, cảng đi Cát Lái`, không
-lấy số của dòng khác gán sang. Ô chứng từ/bao bì ghi "Không"/"Chưa có" bị lọc hẳn trước khi vào
-prompt — từng có lần model dịch nó thành "we have no commercial certifications", tự bắn vào chân.
+1. `lib/ai/site-signals.ts` tự mở **website ghi trong hồ sơ** (không qua OpenAI): lấy `<title>`,
+   meta description, `h1/h2`, mục điều hướng, tên sản phẩm khai báo bằng **schema.org/Product**,
+   `og:image` + `alt` ảnh — rồi **tải tối đa 4 ảnh sản phẩm** (bỏ logo/icon/ảnh trang trí).
+   Chỉ http(s) công khai: chặn IP vòng lặp/nội bộ/`.local`, link meta AWS, port lạ, tự đi qua
+   từng bước redirect để không bị đẩy vào `127.0.0.1`, mỗi request 8 giây, HTML ≤ 400KB, ảnh ≤ 900KB.
+2. `lib/ai/company-products.ts` gọi model MỘT lần với cả chữ lẫn ảnh (nên model **nhìn** thấy
+   sản phẩm, không đoán qua alt text), bắt buộc trả JSON:
+   `products[]` (tối đa 6, tên tiếng Anh, giữ mã W320/ST25), `group` (2-4 từ), `form`, `evidence`.
+3. `form` quyết câu thứ ba của phần 3 — đây là chỗ "điều chỉnh nội dung theo phân tích":
+   * `finished` (gói thành phẩm có nhãn, bán lẻ được ngay) → chào **nguyên liệu & gia công**:
+     *"You already sell finished, retail-ready goods, so the useful thing we can do is the input
+     behind them: raw material, packaging and private-label production in Vietnam."*
+   * `raw` (nông sản thô, quả còn xanh, đóng thùng tại vườn/bãi, hàng cân theo tấn) → nói ngay là
+     ta hiểu cái quyết định lô hàng là **mùa vụ và độ chín khi tới cảng**:
+     *"You buy raw produce, so the two things that decide a shipment are harvest timing and
+     ripeness on arrival. We check both with the mills and farms we work with before anything is booked."*
+   * `mixed` → cả hai phía. *`unknown`* → giữ nguyên câu chung của mẫu
+     ("If you need finished goods or raw materials from Vietnam…"), không mạo hiểm.
+   Kết quả lưu vào `prospects.ai_products` (kèm `evidence`, `images_seen`, số nguồn, `scanned_at`)
+   và hiện trong hồ sơ đầu mối ngay dưới khối "Xem công ty" để nhân viên đối chiếu. Lần bấm sau
+   trong 90 ngày **dùng cache, không tốn lần gọi model nào**.
 
-**AI từ chối viết khi chưa biết gì về công ty buyer.** Phần phân tích công ty lỗi (model chưa bật
-`web_search_preview`, hết hạn mức, hồ sơ không có website) hoặc bản phân tích mỏng (< 120 ký tự) thì
-nút báo lỗi và **không tạo thư**. Chuyện có thật: một đầu mối trong danh sách Apollo có
-`target_product` = "Mì ăn liền" — giá trị do migration gán hàng loạt **theo tên file import**
-(`supabase/migrations/20261008_prospect_segmentation.sql`), không liên quan gì tới công ty họ — và
-AI viết luôn "Your company sells instant noodles". Giờ prompt dán nhãn rõ *"Mặt hàng TA ĐỊNH chào
-(giả định từ danh sách, KHÔNG phải bằng chứng họ đang bán)"*, và mọi câu về công ty buyer bắt buộc
-lấy từ khối "Giới thiệu công ty họ"; không có bằng chứng thì viết trung tính rồi hỏi.
+**Buyer đã để lại nhu cầu** (hồ sơ buyer có `product`/`spec`/`quantity`) thì bỏ qua bước đọc
+website: câu 3 đổi thành `You asked us about <nhu cầu>.` và tiêu đề lấy đúng mặt hàng họ hỏi.
 
-**Tiêu đề** theo quy tắc cứng: tiếng Anh, Title Case hoặc câu thường; không dấu chấm than,
-không emoji, không dấu chấm cuối, dưới 8 từ; **bắt buộc có tên sản phẩm** buyer quan tâm, có
-thêm tên công ty buyer hoặc xuất xứ; cấm `free`, `offer`, `deal`, `best price`, `urgent`,
-`limited`, `opportunity`, `partnership`; không mở đầu bằng `Re:`/`Fwd:`; luân phiên ba dạng
-`[Sản phẩm] for [Công ty]` · `[Sản phẩm] from Vietnam` · `[Sản phẩm], [MOQ]` và **không dùng
-lại dạng của thư trước** (app đọc chủ đề lá thư buyer gần nhất để biết dạng đã dùng). Tiêu đề
-không đạt sẽ được dựng lại từ dữ liệu thật chứ không gửi một câu sai quy tắc.
+**Không tìm thấy gì thì để trống, không đoán.** Website chưa nhập, site chết, hay model không có
+bằng chứng → thư vẫn dựng đúng khung nhưng giữ nguyên placeholder
+`[SẢN_PHẨM_TỪ_WEBSITE]` / `[NHÓM_HÀNG]` / `[TÊN_NGƯỜI_NHẬN]` để nhân viên điền tay; trình soạn
+báo vàng "Còn N chỗ AI không tìm thấy dữ liệu: …". Khi không đọc được website, app **không gọi
+model** (gọi là model sẽ đoán) và ghi rõ lý do.
 
-Định dạng & độ dài: **80–120 từ, văn bản thuần**, không link/ảnh/markdown; mở đầu phần thân
-bằng một chi tiết cụ thể về buyer **có bằng chứng trong bản phân tích**, nêu vấn đề của họ khi
-suy ra được từ dữ liệu đó, kết bằng một câu hỏi ngắn; cấm câu sáo rỗng và "hy vọng email này
-tìm thấy bạn". Chỉ dùng dữ liệu có trong hồ sơ — ô trống ghi rõ "(chưa có)" nên model **không
-suy đoán thêm, không bịa số, không bịa chứng nhận, không nêu giá** (giá tham khảo của NCC không
-bao giờ vào prompt). Prompt nằm một chỗ: `lib/ai/first-touch-draft.ts`
-(`FIRST_TOUCH_SYSTEM_PROMPT`). Model: `OPENAI_EMAIL_DRAFT_MODEL` → `OPENAI_COMPANY_RESEARCH_MODEL`
-→ `gpt-4.1-mini`.
+**Tiêu đề** do máy chủ dựng (không để model viết) nên đúng quy tắc cứng luôn: tiếng Anh,
+Title Case, không `!`, không emoji, không dấu chấm cuối, dưới 8 từ, có tên sản phẩm, không từ cấm
+(`free`, `offer`, `deal`, `best price`, `urgent`, `limited`, `opportunity`, `partnership`), không
+`Re:`/`Fwd:`, luân phiên `[Sản phẩm] for [Công ty]` · `[Sản phẩm] from Vietnam` · `[Sản phẩm], [MOQ]`
+và không lặp dạng của lá thư buyer gần nhất (app đọc subject thư cũ để biết dạng đã dùng).
 
-**Hiệu ứng gõ từng chữ**: bản nháp hiện vào khung theo nhịp viết của người thật (mỗi chữ một
-nhịp, nghỉ lâu hơn sau dấu chấm), chữ ký nối sau cùng. Bấm **"Chèn nốt"** để lấy toàn bộ phần
-còn lại; đang gõ mà bấm Gửi/Lưu thì phần dở cũng được chèn đủ, không mất chữ. Nếu khung đang
-có nội dung bạn tự viết dở, phải bấm nút **hai lần** AI mới ghi đè.
+Thư này **không có số liệu thương mại** (MOQ, giá, năng lực, chứng từ) — ngoại trừ luồng buyer đã
+nêu nhu cầu, khi đó chỉ nhắc lại đúng số của họ + điều kiện của đúng dòng hàng. `monthly_capacity`
+là năng lực của nhà cung cấp nên không bao giờ vào prompt, ô ghi "Không/Chưa có" bị lọc trước khi
+đưa vào prompt để không dịch thành "we have no certifications".
 
-Đây là *AI soạn – người duyệt*: action **không đổi pipeline, không ghi nội dung thư vào DB,
-không tự gửi** (riêng bản phân tích công ty thì lưu như nút "Xem công ty" vẫn làm); người soạn
-rà tên, số liệu, chứng từ, điều khoản rồi hãy bấm Gửi. AI chép nhầm tên nhà cung cấp vào thư thì
-bảng "Cảnh báo lộ thông tin" ở cột phải đỏ lên như với mọi thư khác. Không có `OPENAI_API_KEY`
-thì nút báo lỗi rõ ràng, không tạo thư rỗng.
+**Hiệu ứng gõ từng chữ** giữ nguyên: bản nháp hiện vào khung theo nhịp viết của người thật, nghỉ
+lâu hơn sau dấu chấm, chữ ký nối sau cùng; "Chèn nốt" lấy toàn bộ phần còn lại; đang gõ mà bấm
+Gửi/Lưu thì không mất chữ. Khung đang có nội dung tự viết phải bấm nút **hai lần** mới ghi đè.
+
+*AI soạn phần dữ liệu – người duyệt phần chữ*: action không đổi pipeline, không lưu nội dung thư,
+không tự gửi. Do nội dung cố định (~125 từ) nên quy tắc 80–120 từ trước đây không còn áp dụng cho
+thư này. Không có `OPENAI_API_KEY` thì nút báo lỗi rõ, không tạo thư rỗng.
 
 ## Nội dung email theo giai đoạn
 
@@ -732,6 +732,10 @@ lib/
   auth/session.ts             Cookie phiên ký HMAC + cổng kiểm tra quyền
   db/schema-check.ts          Soi bảng/cột còn thiếu trong Supabase
   pipeline.ts                 Danh sách giai đoạn của pipeline
+  ai/company-introduction.ts  Tóm tắt công ty đầu mối từ nguồn công khai (nút "Xem công ty")
+  ai/site-signals.ts          Đọc website buyer: tiêu đề, mục, schema.org, TẢI ẢNH sản phẩm (chặn SSRF)
+  ai/company-products.ts      Một lần gọi model với chữ + ảnh -> sản phẩm, nhóm hàng, dạng thành phẩm/raw
+  ai/first-touch-draft.ts     MẪU THƯ CỐ ĐỊNH + dựng tiêu đề/thân thư từ các ô đã điền
   media/storage.ts            Kho tệp: Supabase Storage hoặc data/media (local)
   media/validate.ts           Kiểm tra magic bytes / định dạng / dung lượng
   media/readiness.ts          Quy tắc "sẵn sàng gửi buyer" + hạn hiệu lực

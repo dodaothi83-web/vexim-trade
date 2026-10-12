@@ -145,6 +145,7 @@ create table if not exists public.prospects (
   ai_company_summary    text,
   ai_company_sources    jsonb not null default '[]'::jsonb,
   ai_company_analyzed_at timestamptz,
+  ai_products           jsonb,
   status                text not null default 'new' check (status in
                           ('new','researched','ready','contacted','replied','meeting',
                            'qualified','converted','disqualified','unsubscribed')),
@@ -165,6 +166,9 @@ alter table public.prospects
   add column if not exists ai_company_summary text,
   add column if not exists ai_company_sources jsonb not null default '[]'::jsonb,
   add column if not exists ai_company_analyzed_at timestamptz;
+
+alter table public.prospects
+  add column if not exists ai_products jsonb;
 update public.prospects
 set target_product = 'Mì ăn liền'
 where target_product is null and source_list is not null

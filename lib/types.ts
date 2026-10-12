@@ -300,11 +300,35 @@ export interface Prospect {
   ai_company_summary: string | null;
   ai_company_sources: ProspectCompanySource[];
   ai_company_analyzed_at: string | null;
+  /**
+   * Sản phẩm AI đọc được trên website của đầu mối (tối đa 6 tên) + nhóm hàng suy ra.
+   * Là căn cứ duy nhất để thư tiếp cận dám viết "I understand that X supplies Y".
+   */
+  ai_products: ProspectProductScan | null;
   created_at: string;
   updated_at: string;
 }
 
-export type ProspectInput = Omit<Prospect, "id" | "created_at" | "updated_at" | "ai_company_summary" | "ai_company_sources" | "ai_company_analyzed_at">;
+/** Kết quả quét danh mục sản phẩm trên website đầu mối (xem lib/ai/company-products.ts) */
+export interface ProspectProductScan {
+  products: string[];
+  group: string | null;
+  /** "finished" = thành phẩm có nhãn; "raw" = nông sản thô/chưa chín; "mixed"; "unknown" */
+  form: "finished" | "raw" | "mixed" | "unknown";
+  /** Model nói nó dựa vào gì (kèm ảnh) — để nhân viên tự kiểm tra nhanh */
+  evidence: string | null;
+  note: string | null;
+  /** Số ảnh sản phẩm thực sự đọc được từ website */
+  images_seen: number;
+  sources: ProspectCompanySource[];
+  /** ISO timestamp — thư chỉ dùng khi bản quét còn "tươi" */
+  scanned_at: string;
+}
+
+export type ProspectInput = Omit<
+  Prospect,
+  "id" | "created_at" | "updated_at" | "ai_company_summary" | "ai_company_sources" | "ai_company_analyzed_at" | "ai_products"
+>;
 
 export type ProspectActivityChannel = "email" | "linkedin" | "phone" | "meeting" | "note";
 

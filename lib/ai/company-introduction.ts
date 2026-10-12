@@ -52,7 +52,8 @@ export function readOutputText(payload: Record<string, unknown>): string {
   return segments.join("\n").trim();
 }
 
-function readSources(payload: Record<string, unknown>): ProspectCompanySource[] {
+/** Nguồn đã dùng cho lần tra cứu (url_citation) — dùng chung cho các module AI đọc web. */
+export function readSources(payload: Record<string, unknown>): ProspectCompanySource[] {
   const output = Array.isArray(payload.output) ? payload.output : [];
   const sources = new Map<string, ProspectCompanySource>();
   for (const item of output) {

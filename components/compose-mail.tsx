@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Bot,
   CircleStop,
+  RefreshCw,
   FileText,
   Loader2,
   Mail,
@@ -135,6 +136,8 @@ export function ComposeMail({
   const [aiBusy, setAiBusy] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
   const [aiHasDraft, setAiHasDraft] = useState(false);
+  /** Chỗ AI không tìm thấy dữ liệu — giữ nguyên placeholder để nhân viên điền tay */
+  const [aiMissing, setAiMissing] = useState<string[]>([]);
   const [aiNote, setAiNote] = useState<string | null>(null);
   /** Bấm lần hai khi khung đang có nội dung mới ghi đè — khỏi mất bài người soạn viết dở */
   const [aiOverwriteArmed, setAiOverwriteArmed] = useState(false);
@@ -400,7 +403,7 @@ export function ComposeMail({
     return stripped.replace(/^(?:dear|kính gửi|chào)\b[^.]{0,60}$/i, "").trim().length > 40;
   }
 
-  async function askAi() {
+  async function askAi(forceRescan = false) {
     if (aiBusy || aiTyping) return;
     const untouchedByHuman = aiBodyRef.current !== null && body === aiBodyRef.current;
     const overwriteNeeded = !untouchedByHuman && hasOwnDraft(body) && !aiOverwriteArmed;
@@ -412,12 +415,17 @@ export function ComposeMail({
     setAiOverwriteArmed(false);
     aiBodyRef.current = null;
     setAiBusy(true);
-    setAiNote("AI đang đọc hồ sơ buyer (lần đầu có thể mất ~30 giây vì phải tra nguồn công khai)…");
+    setAiNote(
+      forceRescan
+        ? "AI đang mở lại website buyer và đọc ảnh sản phẩm (~30 giây)…"
+        : "AI đang đọc hồ sơ + website buyer (lần đầu mất ~30 giây vì phải tải trang và ảnh)…",
+    );
     try {
       const res = await generateFirstTouchDraftAction({
         buyerId: initial.buyerId ?? (activeContext?.kind === "buyer" ? activeContext.id : null),
         prospectId: initial.prospectId ?? null,
         email: to[0] ?? null,
+        refresh: forceRescan,
       });
       setAiBusy(false);
       if (!res.ok || !res.body) {
@@ -427,6 +435,7 @@ export function ComposeMail({
       }
       setSubject(res.subject ?? "");
       setAiHasDraft(true);
+      setAiMissing(Array.isArray(res.missing) ? res.missing : []);
       setAiNote(res.message);
       typeIntoEditor(res.body);
     } catch {
@@ -597,7 +606,7 @@ export function ComposeMail({
                   typing.current.finish?.();
                   return;
                 }
-                void askAi();
+                void askAi(false);
               }}
               disabled={aiBusy}
               className="btn btn-ghost px-2.5 text-[12px]"
@@ -610,10 +619,26 @@ export function ComposeMail({
               ) : (
                 <Bot className="h-4 w-4" />
               )}
-              {aiBusy ? "AI đang phân tích & viết…" : aiTyping ? "Chèn nốt" : aiHasDraft ? "Viết lại" : "AI viết tiếp cận"}
+              {aiBusy ? "AI đang đọc website buyer…" : aiTyping ? "Chèn nốt" : aiHasDraft ? "Viết lại" : "AI viết tiếp cận"}
             </button>
+            {aiHasDraft && !aiBusy && (
+              <button
+                type="button"
+                onClick={() => void askAi(true)}
+                className="btn btn-ghost px-2 py-1 text-[11.5px] text-ink-500"
+                title="Bỏ bản đã lưu, mở lại website buyer và đọc lại ảnh sản phẩm"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Quét lại website
+              </button>
+            )}
+            {aiMissing.length > 0 && (
+              <span className="w-full rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+                Còn {aiMissing.length} chỗ AI không tìm thấy dữ liệu: {aiMissing.join(", ")} — điền tay rồi hãy gửi.
+              </span>
+            )}
             <span className="text-[11px] text-ink-400" aria-live="polite">
-              {aiNote ?? "Dear <tên> + giới thiệu Vexim + cảm ơn luôn có; chưa phân tích được công ty thì AI không viết."}
+              {aiNote ?? "Thư theo mẫu cố định — AI chỉ điền sản phẩm đọc từ website + ảnh của buyer."}
             </span>
           </div>
         )}

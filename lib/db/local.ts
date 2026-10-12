@@ -137,6 +137,9 @@ function normalizeProspects(prospects: Prospect[]) {
     if (prospect.ai_company_summary === undefined) prospect.ai_company_summary = null;
     if (!Array.isArray(prospect.ai_company_sources)) prospect.ai_company_sources = [];
     if (prospect.ai_company_analyzed_at === undefined) prospect.ai_company_analyzed_at = null;
+    if (prospect.ai_products === undefined || (prospect.ai_products && !Array.isArray(prospect.ai_products.products))) {
+      prospect.ai_products = null;
+    }
   }
 }
 
@@ -375,6 +378,7 @@ export const localStore: DataStore = {
         ai_company_summary: null,
         ai_company_sources: [],
         ai_company_analyzed_at: null,
+        ai_products: null,
         id: randomUUID(),
         created_at: now,
         updated_at: now,
@@ -391,6 +395,7 @@ export const localStore: DataStore = {
         ai_company_summary: null,
         ai_company_sources: [],
         ai_company_analyzed_at: null,
+        ai_products: null,
         id: randomUUID(),
         created_at: now,
         updated_at: now,

@@ -5,27 +5,37 @@ import { ExternalLink, Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { generateProspectCompanyIntroductionAction } from "@/app/actions";
-import type { ProspectCompanySource } from "@/lib/types";
+import type { ProspectCompanySource, ProspectProductScan } from "@/lib/types";
 import { Button } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { formatCompanyIntroductionSummary } from "@/lib/ai/company-introduction-format";
+
+const FORM_LABEL: Record<string, string> = {
+  finished: "hàng thành phẩm có nhãn",
+  raw: "nông sản thô / chưa chín",
+  mixed: "cả thành phẩm lẫn hàng thô",
+  unknown: "chưa rõ dạng hàng",
+};
 
 export function CompanyAiIntroduction({
   prospectId,
   initialSummary,
   initialSources,
   initialAnalyzedAt,
+  initialProducts,
 }: {
   prospectId: string;
   initialSummary: string | null;
   initialSources: ProspectCompanySource[];
   initialAnalyzedAt: string | null;
+  initialProducts: ProspectProductScan | null;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [summary, setSummary] = useState(initialSummary ? formatCompanyIntroductionSummary(initialSummary) : null);
   const [sources, setSources] = useState(initialSources);
   const [analyzedAt, setAnalyzedAt] = useState(initialAnalyzedAt);
+  const [scan, setScan] = useState<ProspectProductScan | null>(initialProducts);
   const [busy, setBusy] = useState(false);
 
   async function generate() {
@@ -39,6 +49,18 @@ export function CompanyAiIntroduction({
       setSummary(result.summary ? formatCompanyIntroductionSummary(result.summary) : null);
       setSources(result.sources ?? []);
       setAnalyzedAt(result.analyzedAt ?? null);
+      if (result.products) {
+        setScan({
+          products: result.products,
+          group: result.group ?? null,
+          form: result.form ?? "unknown",
+          evidence: result.evidence ?? null,
+          note: null,
+          images_seen: result.imagesSeen ?? 0,
+          sources: [],
+          scanned_at: new Date().toISOString(),
+        });
+      }
       toast.push({ kind: "success", title: result.message });
       router.refresh();
     } catch {
@@ -59,6 +81,27 @@ export function CompanyAiIntroduction({
           {busy ? "Đang tìm hiểu..." : summary ? "Phân tích lại" : "Xem công ty"}
         </Button>
       </div>
+
+      {scan && scan.products.length > 0 && (
+        <div className="mt-2 rounded-md border border-ink-200 bg-ink-50/70 p-2.5">
+          <p className="text-[11.5px] font-semibold text-ink-700">
+            Sản phẩm đọc từ website
+            {scan.images_seen > 0 ? ` + ${scan.images_seen} ảnh` : " (chưa đọc được ảnh)"}
+          </p>
+          <ul className="mt-1 flex flex-wrap gap-1.5">
+            {scan.products.map((product) => (
+              <li key={product} className="rounded-full border border-ink-200 bg-white px-2 py-0.5 text-[11.5px] text-ink-700">
+                {product}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
+            Dạng hàng: <strong className="font-semibold text-ink-700">{FORM_LABEL[scan.form] ?? scan.form}</strong>
+            {scan.group ? ` · nhóm: ${scan.group}` : ""}
+            {scan.evidence ? ` · ${scan.evidence}` : ""}
+          </p>
+        </div>
+      )}
 
       {summary ? (
         <div className="mt-2 space-y-2">

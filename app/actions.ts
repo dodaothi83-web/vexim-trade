@@ -10,13 +10,15 @@ import { deleteObject } from "@/lib/media/storage";
 import { productReadiness } from "@/lib/media/readiness";
 import { generateCompanyIntroduction } from "@/lib/ai/company-introduction";
 import {
-  generateFirstTouchDraft,
-  productKeywords,
+  buildFirstTouchLetter,
+  joinProducts,
   subjectFormOf,
+  toEnglishProduct,
   type FirstTouchMode,
   type SubjectForm,
 } from "@/lib/ai/first-touch-draft";
-import { COMPANY } from "@/lib/config";
+import { extractCompanyProducts, type CompanyProducts } from "@/lib/ai/company-products";
+import { readSiteSignals } from "@/lib/ai/site-signals";
 import { hasPermission } from "@/lib/auth/permissions";
 import {
   resolveSender,
@@ -32,6 +34,8 @@ import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import type {
   Buyer,
   Prospect,
+  ProspectCompanySource,
+  ProspectProductScan,
   BuyerInput,
   ProspectInput,
   ProspectActivityChannel,
@@ -572,6 +576,12 @@ export async function generateProspectCompanyIntroductionAction(
   sources?: { title: string; url: string }[];
   analyzedAt?: string;
   reused?: boolean;
+  /** Danh mục + dạng hàng đọc từ website buyer (nguồn để điền thư tiếp cận) */
+  products?: string[];
+  group?: string | null;
+  form?: "finished" | "raw" | "mixed" | "unknown";
+  evidence?: string | null;
+  imagesSeen?: number;
 }> {
   const gate = await guard("prospects.manage");
   if (gate) return gate;
@@ -625,15 +635,32 @@ export async function generateProspectCompanyIntroductionAction(
       ai_company_sources: result.sources,
       ai_company_analyzed_at: analyzedAt,
     });
+    // Cùng lúc thì quét luôn website + ảnh sản phẩm: đây là thứ thư tiếp cận cần, bấm một lần
+    const scan = await ensureCompanyScan({
+      company: prospect.company,
+      website: prospect.website,
+      country: prospect.country,
+      context: prospect.industry ? `ngành ghi trong hồ sơ: ${prospect.industry}` : null,
+      prospectId: id,
+      cached: prospect.ai_products ?? null,
+      refresh: true,
+    });
     revalidatePath(`/prospects/${id}`);
     revalidatePath("/prospects");
     return {
       ok: true,
-      message: "Đã tạo phần giới thiệu công ty.",
+      message: scan.scan.products.length
+        ? `Đã tạo phần giới thiệu công ty và đọc được ${scan.scan.products.length} sản phẩm trên website.`
+        : "Đã tạo phần giới thiệu công ty. Chưa đọc được sản phẩm nào từ website của họ.",
       summary: result.summary,
       sources: result.sources,
       analyzedAt,
       reused: false,
+      products: scan.scan.products,
+      group: scan.scan.group,
+      form: scan.scan.form,
+      evidence: scan.scan.evidence,
+      imagesSeen: scan.scan.imagesSeen,
     };
   } catch (err) {
     console.error("[company-introduction] không phân tích được:", err);
@@ -647,6 +674,32 @@ export async function generateProspectCompanyIntroductionAction(
 
 /* ---------------- AI: VIẾT EMAIL TIẾP CẬN ĐẦU TIÊN ---------------- */
 
+/** Thư theo mẫu cố định — AI chỉ được điền ô "sản phẩm + dạng hàng của buyer", không viết văn */
+type CompanyScan = Pick<CompanyProducts, "products" | "group" | "form" | "evidence" | "note" | "imagesSeen">;
+
+const BLANK_SCAN: CompanyScan = { products: [], group: null, form: "unknown", evidence: null, note: null, imagesSeen: 0 };
+
+/** Bản quét website dùng lại trong 90 ngày, cùng tuổi với quy tắc của nút "Xem công ty" */
+const AI_SCAN_FRESH_DAYS = 90;
+
+function isFreshScan(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  const time = new Date(iso).getTime();
+  return Number.isFinite(time) && Date.now() - time <= AI_SCAN_FRESH_DAYS * 86_400_000;
+}
+
+function toScanShape(record: ProspectProductScan | null | undefined): CompanyScan & { sources: ProspectCompanySource[] } {
+  return {
+    products: Array.isArray(record?.products) ? record!.products.slice(0, 6) : [],
+    group: record?.group ?? null,
+    form: record?.form ?? "unknown",
+    evidence: record?.evidence ?? null,
+    note: record?.note ?? null,
+    imagesSeen: record?.images_seen ?? 0,
+    sources: Array.isArray(record?.sources) ? record!.sources : [],
+  };
+}
+
 /** Ghép một dòng tín hiệu cho prompt, bỏ khi dữ liệu trống */
 function signal(label: string, value: string | null | undefined, max = 400): string {
   const raw = (value ?? "").replace(/\s+/g, " ").trim();
@@ -654,98 +707,102 @@ function signal(label: string, value: string | null | undefined, max = 400): str
   return `${label}: ${raw.length > max ? `${raw.slice(0, max).trimEnd()}…` : raw}`;
 }
 
-function clipText(value: string | null | undefined, max: number): string {
-  const raw = (value ?? "").replace(/\s+/g, " ").trim();
-  if (!raw) return "";
-  return raw.length > max ? `${raw.slice(0, max).trimEnd()}…` : raw;
-}
-
-/** Dòng hàng trong danh mục, chỉ lấy phần được phép nói với buyer (không giá, không năng lực) */
-type OfferLine = {
-  name: string;
-  category?: string | null;
-  spec?: string | null;
-  moq?: string | null;
-  lead_time_days?: number | null;
-  packaging?: string | null;
-  certifications?: string | null;
-  export_port?: string | null;
-};
-
 /**
- * Hồ sơ hay có ô ghi "Không", "Chưa có", "N/A" cho chứng từ/bao bì. Đưa những giá trị đó
- * vào prompt là model viết thành "we have no certifications" — tự bắn chân mình.
- * Giá trị phủ định coi như không có.
+ * Sản phẩm mà công ty buyer đang cung cấp — ô duy nhất AI được phép "tìm" cho thư.
+ * - Prospect: có chỗ lưu (prospects.ai_products) nên chỉ tốn một lần gọi web, lần sau dùng lại.
+ * - Buyer thường: biểu mẫu chưa có cột lưu -> quét cho lần viết này, không ghi vào hồ sơ.
+ * Quét lỗi KHÔNG chặn viết thư: thân thư vẫn dựng đúng mẫu, chỉ để placeholder để người soạn
+ * điền tay (thà có chỗ trống nhìn thấy còn hơn một câu bịa).
  */
-const NEGATIVE_VALUE = /^\s*(?:kh[oô]ng|ch[aâ]a\s+c[oó]|ch[aâ]a\s+update|none|no\b|null|n\/a|tbd|todo|để\s+trống|c[oậ]p\s+nh[aậ]t\s+sau)\s*[.!?]?\s*$/i;
-
-function positiveValue(value: string | null | undefined, max = 60): string {
-  const raw = clipText(value, max);
-  if (!raw || NEGATIVE_VALUE.test(raw)) return "";
-  return raw;
-}
-
-/**
- * Điều kiện của ĐÚNG một dòng hàng, ghép thành một chuỗi để model không lấy số của
- * dòng này gán cho dòng khác. Không giá (giá tham khảo của NCC không bao giờ gửi buyer),
- * không năng lực tháng (đó là số của nhà cung cấp, không phải của ta).
- */
-function productTerms(product: OfferLine): string[] {
-  return [
-    positiveValue(product.moq, 40) ? `MOQ ${positiveValue(product.moq, 40)}` : "",
-    product.lead_time_days ? `sản xuất ${product.lead_time_days} ngày` : "",
-    positiveValue(product.packaging) ? `bao bì ${positiveValue(product.packaging)}` : "",
-    positiveValue(product.certifications) ? `chứng từ ${positiveValue(product.certifications)}` : "",
-    positiveValue(product.export_port, 40) ? `cảng đi ${positiveValue(product.export_port, 40)}` : "",
-  ].filter(Boolean);
-}
-
-/**
- * 2-3 dòng hàng nên chào trong thư. Ưu tiên dòng khớp nhu cầu buyer (từ khoá tiếng Anh
- * hoặc từ trong tên hàng xuất hiện ở bản phân tích công ty); chưa đủ thì lấy theo thứ tự
- * danh mục. Chỉ tên hàng + điều kiện, không giá, không tên nhà cung cấp.
- */
-function pickOfferLines(
-  products: OfferLine[],
-  options: { keywords: string[]; summary: string | null },
-  cap = 3,
-): { names: string[]; terms: string[] } {
-  const summary = (options.summary ?? "").toLowerCase();
-  const ranked = products
-    .filter((product) => clipText(product.name, 10))
-    .map((product, index) => {
-      const hay = `${product.name} ${product.category ?? ""} ${product.spec ?? ""}`.toLowerCase();
-      let score = 0;
-      for (const keyword of options.keywords) {
-        if (keyword.length > 2 && hay.includes(keyword.toLowerCase())) score += 3;
-      }
-      for (const word of String(product.name).toLowerCase().split(/[^\p{L}\p{N}]+/u)) {
-        if (word.length >= 3 && summary.includes(word)) score += 2;
-      }
-      return { product, index, score };
-    })
-    .sort((a, b) => b.score - a.score || a.index - b.index);
-
-  const names: string[] = [];
-  const terms: string[] = [];
-  const seen = new Set<string>();
-  for (const item of ranked) {
-    const name = clipText(item.product.name, 90);
-    const key = name.toLowerCase();
-    if (!name || seen.has(key)) continue;
-    seen.add(key);
-    names.push(name);
-    const detail = productTerms(item.product);
-    if (detail.length) terms.push(`${name} — ${detail.join(", ")}`);
-    if (names.length >= cap) break;
+async function ensureCompanyScan(options: {
+  company: string;
+  website: string | null;
+  country: string | null;
+  context: string | null;
+  prospectId: string | null;
+  cached: ProspectProductScan | null | undefined;
+  refresh: boolean;
+}): Promise<{ scan: CompanyScan & { sources: ProspectCompanySource[] }; scanned: boolean; error: string | null }> {
+  const fresh = toScanShape(options.cached);
+  if (!options.refresh && options.prospectId && isFreshScan(options.cached?.scanned_at) && fresh.products.length > 0) {
+    return { scan: fresh, scanned: false, error: null };
   }
-  return { names, terms: [...new Set(terms)].slice(0, 6) };
+  try {
+    // 1) tự đọc website buyer: danh mục bằng chữ + vài ảnh sản phẩm để model NHÌN
+    const signals = await readSiteSignals(options.website);
+    // Không có gì để đọc (chưa nhập website, site chết, không phải HTML) thì KHÔNG gọi model:
+    // model sẽ phải đoán, mà đoán trong thư chào lạnh là mất khách.
+    const nothingToRead =
+      Boolean(signals.error) && !signals.productNames.length && !signals.headings.length && !signals.images.length;
+    if (nothingToRead) {
+      return { scan: { ...BLANK_SCAN, note: signals.error, sources: [] }, scanned: false, error: signals.error };
+    }
+    // 2) một lần gọi model với cả chữ lẫn ảnh
+    const result = await extractCompanyProducts({
+      company: options.company,
+      country: options.country,
+      signals,
+      context: [options.context, signals.error ? `lỗi đọc website: ${signals.error}` : ""].filter(Boolean).join(" · ") || null,
+    });
+    const scan = {
+      products: result.products.slice(0, 6),
+      group: result.group,
+      form: result.form,
+      evidence: result.evidence,
+      note: result.note ?? signals.error,
+      imagesSeen: result.imagesSeen,
+      sources: result.sources,
+    };
+    if (options.prospectId) {
+      await getStore()
+        .updateProspect(options.prospectId, {
+          ai_products: {
+            products: scan.products,
+            group: scan.group,
+            form: scan.form,
+            evidence: scan.evidence,
+            note: scan.note,
+            images_seen: scan.imagesSeen,
+            sources: scan.sources,
+            scanned_at: new Date().toISOString(),
+          },
+        })
+        .catch(() => null);
+      revalidatePath(`/prospects/${options.prospectId}`);
+      revalidatePath("/prospects");
+    }
+    return {
+      scan: scan.note ? scan : { ...scan, note: signals.error },
+      scanned: true,
+      error: signals.error && !scan.products.length ? signals.error : null,
+    };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "";
+    return { scan: { ...BLANK_SCAN, sources: [] }, scanned: false, error: detail || "không truy cập được website của công ty" };
+  }
 }
 
 /**
- * Dạng tiêu đề của lá thư buyer gần nhất cho chính hồ sơ này — dùng để luân phiên
- * dạng ("[Sản phẩm] for [Công ty]" / "[Sản phẩm] from Vietnam" / "[Sản phẩm], [MOQ]").
+ * Nhu cầu buyer để lại trong hồ sơ -> câu mở đầu phần 2.
+ * Số lượng/điều khoản chỉ thêm khi không chứa tiếng Việt (thư 100% tiếng Anh),
+ * phần bị lệch ngôn ngữ nhân viên sẽ thấy và sửa.
  */
+function statedNeedLine(buyer: Buyer | null): string | null {
+  if (!buyer) return null;
+  const product = toEnglishProduct([buyer.product, buyer.spec].filter(Boolean).join(" — "));
+  if (!product) return null;
+  const quantity = (buyer.quantity ?? "").trim();
+  const asciiOnly = Boolean(quantity) && !/[^\x00-\x7F]/.test(quantity);
+  const incoterm = (buyer.incoterm ?? "").trim();
+  const port = (buyer.port ?? "").trim();
+  // "CIF Hamburg" + cảng "Hamburg" là một — ghép lặp lại trông rất lỗi
+  const terms = !port || incoterm.toLowerCase().includes(port.toLowerCase()) ? incoterm : `${incoterm} ${port}`;
+  const termsAscii = Boolean(terms) && !/[^\x00-\x7F]/.test(terms);
+  const extras = [asciiOnly ? quantity : "", termsAscii ? terms : ""].filter(Boolean);
+  return extras.length ? `${product} (${extras.join(", ")})` : product;
+}
+
+/** Dạng tiêu đề của lá thư buyer gần nhất cho hồ sơ này — để không lặp lại cùng một dạng */
 async function lastBuyerSubjectForm(ids: {
   buyerId: string | null;
   prospectId: string | null;
@@ -774,29 +831,32 @@ async function lastBuyerSubjectForm(ids: {
 }
 
 /**
- * AI viết thư tiếp cận đầu tiên cho buyer, dùng ngay trong trình soạn.
+ * Nút "AI viết tiếp cận" trong trình soạn.
  *
  * Nguyên tắc:
- * - Hai luồng tự nhận biết, người soạn không phải chọn: buyer ĐÃ nêu nhu cầu thì phân tích
- *   nhu cầu; buyer mới ở danh sách "Khách hàng mục tiêu" thì chỉ cần biết công ty họ đang
- *   bán gì — thiếu dữ liệu là AI tự chạy phần phân tích công ty (như nút "Xem công ty").
- * - Không tự bịa: ô trống báo "(chưa có)" để model hỏi lại thay vì đoán.
- * - Không ghi nội dung thư vào DB. Phần phân tích công ty thì có lưu (đúng như nút "Xem
- *   công ty" vẫn làm) để các lần sau dùng lại và hiện trong hồ sơ.
- * - Không đưa tên/email/giá nhà cung cấp vào prompt; nếu model vẫn viết ra thì bảng
- *   "Kiểm tra bảo mật" ở cột phải báo đỏ như với mọi thư khác.
+ * - Nội dung thư CỐ ĐỊNH theo mẫu bên mình chốt (lib/ai/first-touch-draft.ts). Model chỉ
+ *   đọc website buyer để lấy tên sản phẩm + nhóm hàng; không có dữ liệu thì để placeholder.
+ * - Hai luồng: khách hàng mục tiêu -> "tôi biết ông đang cung cấp X"; buyer đã để lại nhu cầu
+ *   -> "ông đã hỏi X".
+ * - Không đổi pipeline, không lưu nội dung thư. Riêng bản quét sản phẩm thì lưu vào hồ sơ đầu
+ *   mối (cột prospects.ai_products) để dùng lại 90 ngày và để nhân viên đối chiếu.
+ * - Không tên/giá nhà cung cấp, không số liệu thương mại: đây là thư chào lạnh.
  */
 export async function generateFirstTouchDraftAction(input: {
   buyerId?: string | null;
   prospectId?: string | null;
   email?: string | null;
+  /** true = quét lại website buyer, bỏ cache trong hồ sơ */
+  refresh?: boolean;
 }): Promise<ActionResult & {
   subject?: string;
   body?: string;
   words?: number;
   who?: string;
-  analyzed?: boolean;
+  missing?: string[];
   mode?: FirstTouchMode;
+  scanned?: boolean;
+  scanNote?: string | null;
 }> {
   const gate = await guard("mail.send");
   if (gate) return gate;
@@ -823,7 +883,7 @@ export async function generateFirstTouchDraftAction(input: {
     if (!prospect) prospect = prospects.find((pr) => (pr.email ?? "").trim().toLowerCase() === email) ?? null;
   }
 
-  // Buyer từng là đầu mối thì phần "Xem công ty" nằm ở hồ sơ đầu mối
+  // Buyer từng là đầu mối thì bản quét sản phẩm/phan tích nằm ở hồ sơ đầu mối
   if (buyer && !prospect && canSeeProspects) {
     const buyerEmail = (buyer.email ?? "").trim().toLowerCase();
     const buyerCompany = (buyer.company ?? "").trim().toLowerCase();
@@ -839,143 +899,107 @@ export async function generateFirstTouchDraftAction(input: {
   if (!holder) {
     return {
       ok: false,
-      message: "Chưa tìm thấy hồ sơ buyer cho địa chỉ này. Chọn buyer từ danh sách để AI viết đúng.",
+      message: "Chưa tìm thấy hồ sơ buyer cho địa chỉ này. Chọn buyer/đầu mối từ danh sách để AI viết đúng.",
     };
   }
-  if (!str(holder.company) && !str(holder.contact_name)) {
-    return { ok: false, message: "Hồ sơ chưa có tên công ty hay người nhận để AI viết thư." };
+  const company = str(holder.company) ?? "";
+  if (!company && !str(holder.contact_name)) {
+    return { ok: false, message: "Hồ sơ chưa có tên công ty hay người nhận để viết thư." };
   }
 
-  // ---- 1. Buyer đã nêu nhu cầu thì phân tích ngay; chưa có thì phải biết họ bán gì ----
-  const statedNeed = Boolean(str(buyer?.product) || str(buyer?.spec) || str(buyer?.quantity));
-  const mode: FirstTouchMode = statedNeed ? "demand" : "target";
+  // ---- 1. Buyer đã để lại nhu cầu thì nhắc lại nhu cầu; chưa có thì đọc website của họ ----
+  const need = statedNeedLine(buyer);
+  const mode: FirstTouchMode = need ? "demand" : "target";
 
-  let companySummary = str(prospect?.ai_company_summary);
-  let analyzed = false;
-  let analysisError: string | null = null;
+  let scan: CompanyScan & { sources: ProspectCompanySource[] } = { ...BLANK_SCAN, sources: [] };
+  let scanned = false;
+  let scanError: string | null = null;
 
-  if (mode === "target" && !companySummary && prospect) {
-    // Bấm hộ người soạn nút "Xem công ty" — có dữ liệu thật thì thư mới đúng
-    const analysis = await generateProspectCompanyIntroductionAction(prospect.id);
-    companySummary = str(analysis.summary);
-    analyzed = Boolean(analysis.ok && analysis.summary && !analysis.reused);
-    if (!companySummary) analysisError = str(analysis.message) ?? "nguồn công khai không cho dữ liệu nào";
-  } else if (mode === "target" && !companySummary && buyer) {
-    // Buyer thường không có trường lưu bản phân tích -> tra cho lần viết này, không ghi DB
-    try {
-      const result = await generateCompanyIntroduction({
-        company: buyer.company,
-        website: buyer.website ?? null,
-        country: buyer.country ?? null,
-      });
-      companySummary = result.summary;
-      analyzed = true;
-    } catch (err) {
-      analysisError = err instanceof Error ? err.message : "không tra cứu được";
-    }
+  if (mode === "target") {
+    const segmentHint = [str(prospect?.industry), str(prospect?.notes), signal("Hồ sơ lấy từ danh sách", prospect?.data_source)]
+      .filter(Boolean)
+      .join(" · ");
+    const result = await ensureCompanyScan({
+      company,
+      website: str(holder.website),
+      country: str(holder.country),
+      // target_product CHỈ là giả định để định hướng tìm, không phải bằng chứng về ngành của họ
+      context: [segmentHint, str(prospect?.target_product) ? `target segment in our list: ${str(prospect?.target_product)}` : ""]
+        .filter(Boolean)
+        .join(" · ") || null,
+      prospectId: prospect?.id ?? null,
+      cached: prospect?.ai_products ?? null,
+      refresh: Boolean(input.refresh),
+    });
+    scan = result.scan;
+    scanned = result.scanned;
+    scanError = result.error;
   }
 
-  // Chặn: chưa biết công ty họ làm gì thì mọi câu về họ đều là bịa — thà không viết
-  const summaryLength = (companySummary ?? "").trim().length;
-  if (mode === "target" && summaryLength < 120) {
-    const howTo = prospect
-      ? `Mở hồ sơ đầu mối, bổ sung website/ngành rồi bấm "Xem công ty", sau đó viết lại.`
-      : `Bổ sung website hoặc ngành cho hồ sơ buyer rồi viết lại (hồ sơ buyer chưa có chỗ lưu bản phân tích nên cần AI tra lại mỗi lần).`;
-    return {
-      ok: false,
-      message:
-        `Chưa đủ dữ liệu thật về ${holder.company}${analysisError ? ` (${analysisError})` : ""} — AI không viết. ` +
-        `Đây là thư chào lạnh: khi chưa biết công ty họ đang làm gì thì mọi câu về họ đều là đoán. ${howTo}`,
-      mode,
-    };
-  }
-
-  // ---- 2. Dữ liệu cho prompt ----
-  const productInterest =
-    [str(buyer?.product), str(prospect?.target_product)].filter(Boolean).join(" · ") || null;
-  const { names: offerNames, terms: offerTerms } = pickOfferLines(
-    await list(store.listProducts()),
-    { keywords: productKeywords(productInterest), summary: companySummary },
-  );
-
-  const statedRequirement = [
-    signal("Mặt hàng họ hỏi", buyer?.product),
-    signal("Quy cách", buyer?.spec),
-    signal("Số lượng", buyer?.quantity),
-    signal("Incoterm", buyer?.incoterm),
-    signal("Cảng đến", buyer?.port),
-    signal("Thanh toán", [buyer?.payment_method, buyer?.payment_terms].filter(Boolean).join(" ")),
-    signal("Dự kiến giao hàng", buyer?.expected_ship_date),
-  ].filter(Boolean);
-
-  const signals = [
-    buyer ? signal("Họ biết đến chúng ta qua", buyer.source) : "",
-    buyer ? signal("Ghi chú trong hồ sơ", buyer.notes) : "",
-    prospect ? signal("Ghi chú trong hồ sơ", prospect.notes) : "",
-    prospect ? signal("Ngành", prospect.industry) : "",
-    prospect ? signal("Người nhận là ai", prospect.contact_title) : "",
-    prospect ? signal("Thành phố", prospect.city) : "",
-    prospect ? signal("Quy mô nhân sự", prospect.employee_range) : "",
-    prospect ? signal("Hồ sơ này lấy từ danh sách", prospect.data_source) : "",
-    signal("Website công ty", str(holder.website)),
-    buyer ? signal("LinkedIn", buyer.linkedin) : "",
-  ].filter(Boolean);
-
+  // ---- 2. Dựng thư theo khung cố định ----
+  const productInterest = [str(buyer?.product), str(prospect?.target_product)].filter(Boolean).join(" · ") || null;
+  const productsText = joinProducts(scan.products) || null;
+  const group = scan.group || toEnglishProduct(productInterest) || null;
   const avoidSubjectForm = await lastBuyerSubjectForm({
     buyerId: buyer?.id ?? null,
     prospectId: prospect?.id ?? null,
     email: email || str(holder.email) || null,
   });
 
-  // ---- 3. Viết thư ----
-  try {
-    const draft = await generateFirstTouchDraft({
-      contactName: str(holder.contact_name),
-      company: holder.company,
-      country: str(holder.country),
-      product: productInterest,
-      mode,
-      companySummary,
-      signals,
-      us: {
-        senderName: str(session.name) || (await store.getUserByEmail(session.email).catch(() => null))?.name || null,
-        senderRole: "Export Department",
-        company: COMPANY.name,
-        about: COMPANY.tagline,
-        offer: offerNames,
-        terms: offerTerms.slice(0, 6),
-        statedRequirement,
-      },
-      avoidSubjectForm,
-      today: new Date().toISOString().slice(0, 10),
-    });
+  const letter = buildFirstTouchLetter(
+    {
+      recipientName: str(holder.contact_name),
+      senderName: str(session.name),
+      company: company || null,
+      products: productsText,
+      group,
+      statedNeed: need,
+      form: scan.form,
+    },
+    {
+      // Chỉ tên hàng — quy cách/số lượng dài sẽ làm tiêu đề vụn khi cắt còn 8 từ
+      product: toEnglishProduct(buyer?.product ?? "") || group,
+      company: company || null,
+      moq: buyer?.quantity ?? null,
+      avoidForm: avoidSubjectForm,
+    },
+  );
 
-    const lengthNote =
-      draft.words < 70 || draft.words > 130
-        ? `Bản nháp ${draft.words} từ — lệch mức 80-120 từ, bấm “Viết lại” nếu muốn gọn/đủ ý hơn.`
-        : `Bản nháp ${draft.words} từ.`;
-    const basisNote =
-      mode === "demand"
-        ? "AI viết theo đúng nhu cầu buyer để lại trong hồ sơ"
-        : analyzed
-          ? `AI vừa phân tích công ty (${summaryLength} ký tự nguồn công khai) rồi viết thư chào`
-          : "AI dùng bản phân tích công ty đã lưu để viết thư chào";
-    const coldNote = mode === "target" ? " Thư chào lạnh nên chưa nêu MOQ/giá/năng lực — hỏi nhu cầu trước." : "";
-    return {
-      ok: true,
-      message: `${basisNote}. ${lengthNote} Rà lại trước khi gửi.${coldNote}`,
-      subject: draft.subject,
-      body: draft.body,
-      words: draft.words,
-      who: holder.company,
-      analyzed,
-      mode,
-    };
-  } catch (err) {
-    console.error("[first-touch-draft] không tạo được bản nháp:", err);
-    const detail = err instanceof Error ? err.message : "";
-    return { ok: false, message: detail || "AI không viết được thư lúc này. Hãy thử lại." };
-  }
+  const missingNote = letter.missing.length
+    ? ` Còn chỗ trống ${letter.missing.join(", ")} — anh/chị điền tay nhé.`
+    : "";
+  const formLabel =
+    scan.form === "finished"
+      ? "hàng thành phẩm có nhãn"
+      : scan.form === "raw"
+        ? "nông sản thô / chưa chín"
+        : scan.form === "mixed"
+          ? "cả thành phẩm lẫn hàng thô"
+          : "chưa rõ dạng hàng";
+  const scanNote = scanError
+    ? `Không đọc được website (${scanError}).`
+    : scanned
+      ? `Đã đọc website${scan.imagesSeen ? ` và ${scan.imagesSeen} ảnh sản phẩm` : " (không tải được ảnh)"}: ${scan.products.length} sản phẩm, ${formLabel}${scan.evidence ? ` — ${scan.evidence}` : ""}.`
+      : scan.note;
+  const basis =
+    mode === "demand"
+      ? "Thư nhắc lại đúng nhu cầu buyer để lại trong hồ sơ (mẫu cố định)"
+      : productsText
+        ? `Thư chào theo mẫu cố định, có ${scan.products.length} sản phẩm đọc từ website của họ`
+        : "Thư chào theo mẫu cố định — chưa đọc được sản phẩm nào từ website của họ";
+
+  return {
+    ok: true,
+    message: `${basis}. Bản nháp ${letter.words} từ.${missingNote}${scanNote ? ` ${scanNote}` : ""}`,
+    subject: letter.subject,
+    body: letter.body,
+    words: letter.words,
+    who: company || "buyer",
+    missing: letter.missing,
+    mode,
+    scanned,
+    scanNote,
+  };
 }
 
 export async function addNoteAction(
