@@ -9,6 +9,8 @@ import { SITE_URL } from "@/lib/site";
  * Không nhúng logo: mọi thứ đều là chữ thường, tránh email client chặn ảnh
  * từ domain ngoài và tránh chữ ký bị lệch cột khi trả lời/forward.
  * Địa chỉ công ty để dạng chữ thường, KHÔNG lặp lại thành footer/link ở cuối thư.
+ * Thứ tự dòng (theo yêu cầu 12/10/2026): tên / phòng ban + thương hiệu /
+ * số riêng + email riêng / website / PHÁP NHÂN / địa chỉ (ngắt 2 dòng cho dễ đọc).
  * Thư gửi buyer nước ngoài nên phần lời chào chỉ dùng tiếng Anh ("Best regards,"),
  * không kèm bản tiếng Việt.
  * Dòng email liên hệ dùng ĐỊA CHỈ RIÊNG của người ký (dung@veximtrade.com) — trùng
@@ -24,6 +26,7 @@ export function buildSignature(
   const personalPhone = phone?.trim() ? `${escapeHtml(phone.trim())} &middot; ` : "";
   const contactEmail = escapeHtml(email?.trim() || COMPANY.email);
   const websiteHost = SITE_URL.replace("https://", "");
+  const legal = escapeHtml(COMPANY.legalName);
   return [
     `<p style="font-size:14px;line-height:22px;margin:28px 0 0;">Best regards,</p>`,
     `<p style="margin:10px 0 0;font-size:13px;line-height:20px;color:#475569;">`,
@@ -31,7 +34,24 @@ export function buildSignature(
     `Export Department &middot; ${escapeHtml(COMPANY.name)}<br/>`,
     `${personalPhone}${contactEmail}<br/>`,
     `<a href="${SITE_URL}" style="color:#0f766e;text-decoration:none;">${websiteHost}</a><br/>`,
-    `${escapeHtml(COMPANY.address)}`,
+    // Pháp nhân đứng ngay trên địa chỉ: buyer cần đúng tên này khi ký hợp đồng và
+    // khi tra hoá đơn, còn "Vexim Trade" ở trên chỉ là thương hiệu.
+    `${legal}<br/>`,
+    `${formatAddress(COMPANY.address)}`,
     `</p>`,
   ].join("");
+}
+
+/**
+ * Địa chỉ dài sẽ thành một hàng rất khó đọc trên desktop client. Ngắt sau "Communes,"
+ * đối với địa chỉ hiện tại của công ty; đổi COMPANY_ADDRESS sang địa chỉ khác (không có
+ * "Communes,") thì để email client tự xuống dòng — không đoán chỗ ngắt.
+ */
+function formatAddress(address: string): string {
+  const raw = address.trim();
+  const marker = raw.toLowerCase().indexOf("communes,");
+  if (marker < 0) return escapeHtml(raw);
+  const first = raw.slice(0, marker + "communes,".length).trimEnd();
+  const rest = raw.slice(marker + "communes,".length).trim();
+  return rest ? `${escapeHtml(first)}<br/>${escapeHtml(rest)}` : escapeHtml(first);
 }

@@ -15,6 +15,11 @@ export const COMPANY = {
   address:
     env.COMPANY_ADDRESS?.trim() ||
     "W2 Tower, Hinode Royal Park, Kim Chung and Di Trach Communes, Hoai Duc District, Hanoi, Vietnam",
+  /**
+   * Tên pháp nhân in hoa (VEXIM GLOBAL CO., LTD) — dùng ở chữ ký email, nơi buyer
+   * cần đúng tên đăng ký chứ không phải thương hiệu "Vexim Trade". Đổi qua COMPANY_LEGAL_NAME.
+   */
+  legalName: env.COMPANY_LEGAL_NAME?.trim() || "VEXIM GLOBAL CO., LTD",
   tagline: "Vietnam Export Sourcing Partner",
 };
 

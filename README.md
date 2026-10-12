@@ -355,9 +355,25 @@ bằng địa chỉ mang tên mình**.
   (Supabase: chạy câu `alter table ... add column if not exists signature_html text` ở mục 5c của `supabase/schema.sql`).
 - Sửa bằng nút **“Sửa chữ ký”** ngay trong cửa sổ soạn thư (trình soạn thảo có định dạng như nội dung thư);
   lưu lại sẽ dùng cho mọi thư soạn mới, vẫn sửa tay được trong từng thư.
-- Chưa lưu chữ ký riêng thì hệ thống dùng **chữ ký tự động** (Best regards, tên người gửi,
-  Export Department · Vexim Trade, điện thoại · **địa chỉ gửi riêng của người đó**, website dạng chữ).
-  Không có logo/ảnh trong chữ ký. Nút **“Xoá chữ ký tuỳ chỉnh”** quay lại chữ ký tự động.
+- Chưa lưu chữ ký riêng thì hệ thống dùng **chữ ký tự động**, thứ tự dòng (`lib/email/signature.ts`):
+
+  ```
+  Best regards,
+  <tên người gửi>
+  Export Department · Vexim Trade
+  <điện thoại riêng> · <địa chỉ gửi riêng của người đó, ví dụ dung@veximtrade.com>
+  www.veximtrade.com
+  VEXIM GLOBAL CO., LTD
+  W2 Tower, Hinode Royal Park, Kim Chung and Di Trach Communes,
+  Hoai Duc District, Hanoi, Vietnam
+  ```
+
+  Không có logo/ảnh trong chữ ký. Dòng điện thoại · email luôn là **địa chỉ gửi riêng** của
+  người ký (trùng header `From`) để buyer trả lời là về đúng hộp. Tên pháp nhân và địa chỉ lấy
+  từ `COMPANY_LEGAL_NAME` / `COMPANY_ADDRESS`; địa chỉ tự ngắt thành hai dòng khi gặp
+  “Communes,”, địa chỉ khác thì để email client tự xuống dòng. Nút **“Xoá chữ ký tuỳ chỉnh”**
+  quay lại chữ ký tự động — cần bấm nếu ai đó đã lưu chữ ký riêng TRƯỚC khi đổi mẫu này,
+  vì chữ ký đã lưu trong DB không tự đổi theo code.
 - Chữ ký được chèn sẵn khi mở thư soạn mới; nút “Chèn chữ ký” chèn lại bất kỳ lúc nào (không chèn trùng).
 - Đã đổi quy tắc (bỏ logo, bỏ dòng tiếng Việt, dùng địa chỉ riêng theo tên người)? Chữ ký **đã lưu**
   trong DB không tự đổi theo code — chạy `supabase/migrations/20261012_signature_html_cleanup.sql`
