@@ -175,7 +175,7 @@ export function CashewLanding({
       <header className={`${NAVY} border-b border-white/10 text-white`}>
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3 sm:px-8">
           <a href="/" className="flex items-center gap-2.5" aria-label="Veximtrade home">
-            <Logo className="h-11 w-[60px] shrink-0" />
+            <Logo tone="white" className="h-11 w-[60px] shrink-0" />
             <span className="hidden text-[13px] font-semibold uppercase tracking-[0.14em] text-slate-300 sm:block">
               Cashew kernels
             </span>
