@@ -2,6 +2,7 @@ import { Resend } from "resend";
 
 import { FROM_ADDRESS, resendConfigured } from "@/lib/config";
 import { getStore } from "@/lib/db";
+import { formatFrom, senderAddressFor } from "@/lib/email/sender";
 import {
   buildBuyerEmail,
   buildSupplierAssignedEmail,
@@ -19,6 +20,14 @@ export interface OutgoingMail {
   cc?: string[];
   bcc?: string[];
   subject: string;
+  /**
+   * Địa chỉ ghi ở header From. Bỏ trống = dùng địa chỉ chức năng (EMAIL_FROM).
+   * Thư cho buyer luôn nên truyền vào địa chỉ cá nhân của người phụ trách
+   * (dung@veximtrade.com) — xem lib/email/sender.ts.
+   */
+  from?: string | null;
+  /** Reply-To; bỏ trống thì email client mặc định trả lời đúng địa chỉ From. */
+  replyTo?: string | null;
   /** Header RFC tuỳ chỉnh (In-Reply-To / References) để Gmail gom đúng mạch thư */
   headers?: Record<string, string>;
   html: string;
@@ -46,7 +55,8 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
+      from: mail.from?.trim() || FROM_ADDRESS,
+      replyTo: mail.replyTo?.trim() || undefined,
       to: recipients,
       cc: mail.cc?.length ? mail.cc.filter(Boolean) : undefined,
       bcc: mail.bcc?.length ? mail.bcc.filter(Boolean) : undefined,
@@ -68,6 +78,39 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
       error: err instanceof Error ? err.message : String(err),
     };
   }
+}
+
+export interface ResolvedSender {
+  /** "Nguyễn Văn Dung <dung@veximtrade.com>" – giá trị đưa vào header From */
+  header: string;
+  /** "dung@veximtrade.com" – dùng cho Reply-To và dòng liên hệ trong chữ ký */
+  address: string;
+  name: string | null;
+}
+
+/**
+ * Tìm địa chỉ gửi cá nhân của một người (theo email đăng nhập hoặc theo họ tên),
+ * tính trên toàn đội ngũ để xử lý trùng tên. Không khớp ai (buyer chưa gán phụ
+ * trách, tên không có tài khoản) thì trả null -> transport dùng địa chỉ chức năng.
+ */
+export async function resolveSender(opts: {
+  byEmail?: string | null;
+  byName?: string | null;
+}): Promise<ResolvedSender | null> {
+  const store = getStore();
+  const users = await store.listUsers().catch(() => []);
+  if (!users.length) return null;
+  const byEmail = (opts.byEmail ?? "").trim().toLowerCase();
+  const byName = (opts.byName ?? "").trim().toLowerCase();
+  const user =
+    (byEmail
+      ? users.find((u) => u.email.trim().toLowerCase() === byEmail)
+      : undefined) ??
+    (byName ? users.find((u) => (u.name ?? "").trim().toLowerCase() === byName) : undefined);
+  if (!user) return null;
+  const address = senderAddressFor(user, users);
+  if (!address) return null;
+  return { header: formatFrom(user.name, address), address, name: user.name ?? null };
 }
 
 export function threadId(direction: "buyer" | "supplier", primary: string): string {
@@ -134,17 +177,27 @@ export async function sendStageUpdate(
   if (params.skipBuyer) {
     messages.push("Bỏ qua email buyer theo lựa chọn của người gửi.");
   } else if (buyer.email && buyer.email.trim()) {
+    // From là địa chỉ cá nhân của người phụ trách đơn (buyer.owner); thư NCC vẫn
+    // đi từ địa chỉ chức năng vì đó là thông báo của hệ thống, không phải thư tay.
+    const sender = await resolveSender({ byName: buyer.owner });
     const payload = buildBuyerEmail({
       buyer,
       stage,
       note: params.messageToBuyer ?? params.note ?? null,
       content,
+      senderEmail: sender?.address ?? null,
     });
     const cc = (buyer.cc_emails ?? "")
       .split(/[,;\n]/)
       .map((s) => s.trim())
       .filter(Boolean);
-    const res = await transport({ to: [buyer.email.trim()], cc, ...payload });
+    const res = await transport({
+      to: [buyer.email.trim()],
+      cc,
+      from: sender?.header ?? null,
+      replyTo: sender?.address ?? null,
+      ...payload,
+    });
     buyerSent = res.ok;
     simulated = simulated || res.status === "simulated";
     failed = failed || !res.ok;
@@ -266,6 +319,8 @@ export interface ManualMailInput {
   /** các dòng metadata tệp đính kèm (nội dung thật nằm trong Storage, không ở DB) */
   attachments?: EmailAttachment[];
   author?: string | null;
+  /** Email đăng nhập của người soạn — dùng để suy ra địa chỉ gửi cá nhân */
+  authorEmail?: string | null;
   /** RFC Message-ID của thư đang trả lời — để Gmail/Outlook gom chung thread */
   inReplyTo?: string | null;
   /** Chuỗi References (các Message-ID trước đó trong thread) */
@@ -296,10 +351,14 @@ export async function sendManualMail(input: ManualMailInput): Promise<ManualMail
   const headers: Record<string, string> = {};
   if (input.inReplyTo) headers["In-Reply-To"] = input.inReplyTo;
   if (input.references) headers["References"] = input.references;
+  // Người thật soạn thư thì gửi từ địa chỉ mang tên người đó (cả thư buyer lẫn thư NCC).
+  const sender = await resolveSender({ byEmail: input.authorEmail ?? null, byName: input.author ?? null });
   const res = await transport({
     to: input.to,
     cc: input.cc,
     bcc: input.bcc,
+    from: sender?.header ?? null,
+    replyTo: sender?.address ?? null,
     subject: input.subject,
     html,
     text: input.bodyText,
@@ -365,6 +424,38 @@ export async function saveDraft(input: ManualMailInput): Promise<string | null> 
     })
     .catch(() => null);
   return saved?.id ?? null;
+}
+
+/**
+ * Lưu đè lên chính bản nháp đang mở. Gmail chỉ giữ MỘT bản nháp cho một lần soạn;
+ * nếu mỗi lần bấm "Lưu nháp" lại thêm một dòng thì Hộp thư ngập bản nháp trùng nhau,
+ * nên bản nháp đã mở ra là bản được ghi lại (id giữ nguyên, liên kết ?draft= không đổi).
+ */
+export async function updateDraft(id: string, input: ManualMailInput): Promise<boolean> {
+  const html = wrapPlainEmail({ title: input.subject || "(bản nháp)", body: input.bodyHtml });
+  try {
+    await getStore().updateMessage(id, {
+      buyer_id: input.buyerId ?? null,
+      supplier_id: input.supplierId ?? null,
+      ...(input.prospectId ? { prospect_id: input.prospectId } : {}),
+      // direction/thread_id giữ nguyên của lần lưu đầu: bản nháp vẫn là cùng một mạch thư
+      kind: "manual",
+      stage: null,
+      subject: input.subject || "(không có tiêu đề)",
+      to_emails: input.to,
+      cc_emails: input.cc ?? [],
+      bcc_emails: input.bcc ?? [],
+      body_html: html,
+      attachments: (input.attachments ?? []).map(toRef),
+      status: "draft",
+      error: null,
+      sent_at: null,
+    });
+    return true;
+  } catch (err) {
+    console.error("[draft] không cập nhật được bản nháp", id, err);
+    return false;
+  }
 }
 
 /* ================================================================== */

@@ -2,9 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { KeyRound, Loader2, Mail, Pencil, Save, ShieldCheck, UserRound, X } from "lucide-react";
+import { KeyRound, Loader2, Mail, Pencil, Save, Send, ShieldCheck, UserRound, X } from "lucide-react";
 
-import { changeMyPasswordAction, saveMySignatureAction, updateMyProfileAction } from "@/app/auth-actions";
+import {
+  changeMyPasswordAction,
+  saveMySenderEmailAction,
+  saveMySignatureAction,
+  updateMyProfileAction,
+} from "@/app/auth-actions";
 import { RichEditor } from "@/components/rich-editor";
 import { Button } from "@/components/ui";
 import { useToast } from "@/components/toast";
@@ -21,6 +26,8 @@ export function ProfilePanel({
   roleDescription,
   signatureHtml,
   autoSignature,
+  senderAddress,
+  senderAddressCustom = false,
 }: {
   name: string;
   email: string;
@@ -31,6 +38,10 @@ export function ProfilePanel({
   /** Chữ ký tuỳ chỉnh đang lưu; null = đang dùng chữ ký tự động */
   signatureHtml: string | null;
   autoSignature: string;
+  /** Địa chỉ thật ghi trong header From của thư bạn gửi (dung@veximtrade.com) */
+  senderAddress: string | null;
+  /** true = địa chỉ do đặt tay, false = hệ thống tự sinh từ họ tên */
+  senderAddressCustom?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -91,6 +102,28 @@ export function ProfilePanel({
     if (res.ok) {
       setSigDraft(autoSignature);
       router.refresh();
+    }
+  }
+
+  // ----- Địa chỉ gửi riêng -----
+  const [senderOpen, setSenderOpen] = useState(false);
+  const [senderDraft, setSenderDraft] = useState("");
+  const [senderBusy, setSenderBusy] = useState(false);
+
+  async function saveSender(reset = false) {
+    setSenderBusy(true);
+    try {
+      const res = await saveMySenderEmailAction(reset ? null : senderDraft);
+      toast.push({ kind: res.ok ? "success" : "error", title: res.message });
+      if (res.ok) {
+        setSenderOpen(false);
+        setSenderDraft("");
+        router.refresh();
+      }
+    } catch {
+      toast.push({ kind: "error", title: "Không lưu được địa chỉ gửi, thử lại sau." });
+    } finally {
+      setSenderBusy(false);
     }
   }
 
@@ -281,6 +314,74 @@ export function ProfilePanel({
               Đổi xong hãy đăng nhập lại ở các thiết bị khác.
             </span>
           </div>
+        </div>
+      </section>
+
+      {/* Địa chỉ gửi email (deliverability) */}
+      <section className="card overflow-hidden lg:col-span-2">
+        <header className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
+          <Send className="h-4 w-4 text-brand-700" />
+          <h2 className="text-[15px] font-bold text-ink-900">Địa chỉ gửi email</h2>
+          <span className="ml-auto text-[11.5px] text-ink-400">
+            {senderAddress ? (senderAddressCustom ? "đang dùng địa chỉ đặt tay" : "tự sinh từ họ tên") : "chưa có"}
+          </span>
+        </header>
+        <div className="space-y-3 px-4 py-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[14px] font-semibold text-ink-900">{senderAddress ?? "—"}</span>
+            {!senderOpen && (
+              <Button
+                variant="ghost"
+                className="px-2.5"
+                onClick={() => {
+                  setSenderDraft("");
+                  setSenderOpen(true);
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Đổi địa chỉ
+              </Button>
+            )}
+          </div>
+          <p className="text-[12px] leading-relaxed text-ink-500">
+            Thư bạn gửi cho buyer đi từ địa chỉ này (hiện trong header From và Reply-To). Địa chỉ theo
+            tên người được các bộ lọc spam đánh giá cao hơn địa chỉ chung như sales@ — vốn là hộp thư nhận
+            đại trà nên bị coi là khó đo độ sạch. Địa chỉ nằm trên domain đã xác thực trong Resend, không
+            cần tạo hộp thư mới; buyer trả lời là thư về thẳng Hộp thư của CRM.
+          </p>
+          {senderOpen && (
+            <div className="space-y-2.5 rounded-lg bg-ink-50 p-3">
+              <label className="block">
+                <span className="label">Địa chỉ mới (chỉ phần trước @)</span>
+                <input
+                  className="input"
+                  value={senderDraft}
+                  onChange={(e) => setSenderDraft(e.target.value)}
+                  placeholder="dung"
+                  autoComplete="off"
+                />
+              </label>
+              <p className="text-[11.5px] text-ink-500">
+                Chỉ dùng a-z, 0-9, dấu . _ -, dài 2–31 ký tự. Bỏ trống rồi lưu để hệ thống sinh lại theo họ tên.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="primary" disabled={senderBusy} onClick={() => void saveSender(false)}>
+                  {senderBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Lưu
+                </Button>
+                {senderAddressCustom && (
+                  <Button variant="ghost" disabled={senderBusy} onClick={() => void saveSender(true)}>
+                    <X className="h-4 w-4" />
+                    Về mặc định tự sinh
+                  </Button>
+                )}
+                <Button variant="ghost" disabled={senderBusy} onClick={() => setSenderOpen(false)}>
+                  <X className="h-4 w-4" />
+                  Bỏ qua
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

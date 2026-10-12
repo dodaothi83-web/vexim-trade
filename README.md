@@ -51,7 +51,7 @@ AUTH_SECRET=<chuỗi ngẫu nhiên 64 ký tự hex — xem mục Tài khoản & 
 
 ### Triển khai danh sách khách hàng mục tiêu trên Supabase đang dùng
 
-Với database đã có bảng `prospects`, chạy `20261008_prospect_segmentation.sql`, `20261008_prospects_require_email.sql` và `20261008_prospect_company_ai.sql` trong Supabase SQL Editor. Nếu là database mới, chạy `20261008_prospects.sql` trước. Migration phân nhóm giữ hồ sơ hiện có, gán nguồn Apollo và nhận diện “Mì ăn liền” từ tên tệp cũ. Migration email xóa hồ sơ thiếu email, giữ thư đã gửi hoặc nhận nhưng bỏ liên kết với hồ sơ bị xóa, rồi buộc hồ sơ mới phải có email. Đặt `OPENAI_API_KEY` trong biến môi trường phía máy chủ để bật nút AI giới thiệu công ty; model tùy chọn là `OPENAI_COMPANY_RESEARCH_MODEL`. Chạy migration và cấu hình biến môi trường trước khi triển khai ứng dụng. Nhập danh sách chỉ tạo hồ sơ, không tự gửi email.
+Với database đã có bảng `prospects`, chạy `20261008_prospect_segmentation.sql`, `20261008_prospects_require_email.sql` và `20261008_prospect_company_ai.sql` trong Supabase SQL Editor. Nếu là database mới, chạy `20261008_prospects.sql` trước. Migration phân nhóm giữ hồ sơ hiện có, gán nguồn Apollo và nhận diện “Mì ăn liền” từ tên tệp cũ. Migration email xóa hồ sơ thiếu email, giữ thư đã gửi hoặc nhận nhưng bỏ liên kết với hồ sơ bị xóa, rồi buộc hồ sơ mới phải có email. Đặt `OPENAI_API_KEY` trong biến môi trường phía máy chủ để bật nút AI giới thiệu công ty; model tùy chọn là `OPENAI_COMPANY_RESEARCH_MODEL`. Từ 12/10/2026 nút đó còn quét **danh mục sản phẩm + ảnh trên website** của đầu mối nên phải chạy thêm `20261012_prospect_ai_products.sql` (cột `prospects.ai_products`); phần quét này dùng `OPENAI_EMAIL_DRAFT_MODEL`, fallback `OPENAI_COMPANY_RESEARCH_MODEL`. Chạy migration và cấu hình biến môi trường trước khi triển khai ứng dụng. Nhập danh sách chỉ tạo hồ sơ, không tự gửi email.
 
 ### Kiểm tra kết nối Supabase
 
@@ -319,15 +319,66 @@ Cùng một lần đổi giai đoạn, hệ thống sinh **hai email hoàn toàn
   không card, không footer lặp; nội dung căn trái, chảy trọn chiều ngang khung đọc như thư đánh máy thông thường.
   Bản xem trước ở cột soạn thư khớp đúng khung gửi đi.
 
+### Địa chỉ gửi theo tên người (chống rơi vào Quảng cáo/Spam)
+
+Thư gửi từ **địa chỉ chức năng** (`sales@`, `contact@`) bị các công cụ chấm điểm xếp vào
+nhóm hộp thư nhận đại trà: không đo được độ sạch của mailbox nên điểm bị hạ xuống
+**Risky** và thư dễ bị Gmail/Outlook đẩy sang tab Quảng cáo. Vì vậy **mỗi nhân viên gửi
+bằng địa chỉ mang tên mình**.
+
+1. **Quy tắc sinh** (`lib/email/sender.ts`): bỏ dấu tiếng Việt, lấy **tên chính** (từ cuối trong
+   họ tên), viết thường → `Nguyễn Văn Dung` = `dung@veximtrade.com`. Trùng tên thì đánh số
+   `dung2@`, `dung3@` (thứ tự theo ngày tạo tài khoản nên không đổi lung tung mỗi lần mở app).
+   Tên không dùng được thì rơi về local-part của email đăng nhập, rồi tới họ tên liền không dấu.
+   Local-part chức năng (`sales`, `info`, `contact`…) không bao giờ được cấp cho cá nhân.
+2. **Domain gửi** = `MAIL_DOMAIN`, mặc định lấy từ `EMAIL_FROM` (`veximtrade.com`). Đặt
+   `MAIL_DOMAIN` chỉ khi muốn tách domain gửi khỏi địa chỉ chức năng.
+3. **Không phải tạo hộp thư mới.** Resend đã verify domain thì gửi được từ mọi local-part của
+   domain đó, không cần "add sender" hay mailbox. MX nhận thư đang là catch-all nên buyer trả
+   lời `dung@veximtrade.com` vẫn về `/api/webhooks/resend` → vào Hộp thư như cũ. SPF/DKIM giữ
+   nguyên; From vẫn là đúng domain đã ký DKIM nên DMARC alignment không đổi (xem mục 5 về DMARC).
+4. **Schema**: chạy [`supabase/migrations/20261012_user_sender_email.sql`](supabase/migrations/20261012_user_sender_email.sql)
+   để thêm cột `app_users.sender_email`. `NULL` = tự sinh theo họ tên; nhập giá trị khác = giữ
+   cố định (đổi họ tên cũng không đổi địa chỉ theo). Nhân viên tự đổi ở **Hồ sơ của tôi →
+   Địa chỉ gửi email**, quản trị xem danh sách ở **Cài đặt → Người dùng & phân quyền**.
+5. **Bản ghi DMARC**: đổi địa chỉ gửi không làm thay đổi gì về DNS, nhưng điểm "Risky" hay đi kèm
+   việc thiếu DMARC. Resend **không** tự tạo `_dmarc.<domain>` — kiểm tra có bản ghi
+   `v=DMARC1; p=none; rua=mailto:...` (hoặc policy mạnh hơn khi đã ổn định); thiếu DMARC là một
+   tín hiệu bị chặn riêng theo yêu cầu của Google/Yahoo.
+6. **Phạm vi áp dụng**: thư **cho buyer** (tự động theo giai đoạn + tự soạn) và mọi thư đội ngũ
+   tự soạn → địa chỉ cá nhân của người gửi (kèm `Reply-To`). Thư **NCC** và **thư báo hệ thống**
+   vẫn đi từ `EMAIL_FROM`. Không tìm được tài khoản khớp tên phụ trách thì rơi về `EMAIL_FROM`.
+
 ### Chữ ký email cá nhân (kiểu Gmail/Zoho)
 
 - Mỗi tài khoản có **chữ ký riêng** lưu trong cột `signature_html` của bảng `app_users`
   (Supabase: chạy câu `alter table ... add column if not exists signature_html text` ở mục 5c của `supabase/schema.sql`).
 - Sửa bằng nút **“Sửa chữ ký”** ngay trong cửa sổ soạn thư (trình soạn thảo có định dạng như nội dung thư);
   lưu lại sẽ dùng cho mọi thư soạn mới, vẫn sửa tay được trong từng thư.
-- Chưa lưu chữ ký riêng thì hệ thống dùng **chữ ký tự động** (tên người gửi, Export Department · Vexim Trade,
-  điện thoại · email, website dạng chữ). Nút **“Xoá chữ ký tuỳ chỉnh”** quay lại chữ ký tự động.
+- Chưa lưu chữ ký riêng thì hệ thống dùng **chữ ký tự động**, thứ tự dòng (`lib/email/signature.ts`):
+
+  ```
+  Best regards,
+  <tên người gửi>
+  Export Department · Vexim Trade
+  <điện thoại riêng> · <địa chỉ gửi riêng của người đó, ví dụ dung@veximtrade.com>
+  www.veximtrade.com
+  VEXIM GLOBAL CO., LTD
+  W2 Tower, Hinode Royal Park, Kim Chung and Di Trach Communes,
+  Hoai Duc District, Hanoi, Vietnam
+  ```
+
+  Không có logo/ảnh trong chữ ký. Dòng điện thoại · email luôn là **địa chỉ gửi riêng** của
+  người ký (trùng header `From`) để buyer trả lời là về đúng hộp. Tên pháp nhân và địa chỉ lấy
+  từ `COMPANY_LEGAL_NAME` / `COMPANY_ADDRESS`; địa chỉ tự ngắt thành hai dòng khi gặp
+  “Communes,”, địa chỉ khác thì để email client tự xuống dòng. Nút **“Xoá chữ ký tuỳ chỉnh”**
+  quay lại chữ ký tự động — cần bấm nếu ai đó đã lưu chữ ký riêng TRƯỚC khi đổi mẫu này,
+  vì chữ ký đã lưu trong DB không tự đổi theo code.
 - Chữ ký được chèn sẵn khi mở thư soạn mới; nút “Chèn chữ ký” chèn lại bất kỳ lúc nào (không chèn trùng).
+- Đã đổi quy tắc (bỏ logo, bỏ dòng tiếng Việt, dùng địa chỉ riêng theo tên người)? Chữ ký **đã lưu**
+  trong DB không tự đổi theo code — chạy `supabase/migrations/20261012_signature_html_cleanup.sql`
+  một lần để gỡ thẻ ảnh logo + cụm “Trân trọng” khỏi `app_users.signature_html` (idempotent,
+  không xoá nội dung tự soạn). Ai muốn lấy hẳn chữ ký tự động mới thì bấm “Xoá chữ ký tuỳ chỉnh”.
 
 ### Nhận email trả lời (Resend Inbound)
 
@@ -457,8 +508,37 @@ Menu **Hộp thư** / **Soạn email** — đội ngũ có thể tự viết ema
   (**Soạn email cho NCC**) — người nhận được **cố định từ hồ sơ**, chỉ việc viết nội dung.
 - Mở từ menu (không ngữ cảnh) thì gõ người nhận; hệ thống tự nhận đó là buyer hay NCC.
 
+**Một lần soạn = một bản nháp** (như Gmail): bấm **Lưu nháp** nhiều lần chỉ ghi đè lên đúng
+bản nháp đang mở, trình soạn ở lại tại chỗ và báo *Đã lưu lúc 22:14* — không sinh thêm dòng
+"Nháp" nào nữa, F5 vẫn mở lại đúng lá thư đó (liên kết đổi thành `?draft=<id>` ngay khi lưu).
+Ngoại lệ: bản nháp của người khác, hoặc bản nháp đã gửi rồi, thì app lưu thành bản mới của
+mình và nói rõ lý do — không âm thầm ghi đè bài của đồng nghiệp. Gửi thư thành công thì
+bản nháp vừa gửi bị xoá khỏi Hộp thư (tệp đính kèm đã chuyển sang email gửi nên vẫn còn).
+
 Toàn bộ email (tự động + tự soạn) nằm chung một **Hộp thư đi**, lọc được theo người nhận
 (buyer/NCC) và theo loại (tự động / tự soạn).
+
+### Ai thấy thư nào trong Hộp thư
+
+Quy tắc nằm ở `lib/mail/visibility.ts` và được **cả bốn nơi dùng chung** (`/mail`,
+`/mail/[id]`, badge chưa đọc ở menu, `/api/mail/sync`) qua `lib/mail/mailbox-access.ts`.
+Nhân viên kinh doanh (role `sale`) thấy một thư khi thoả một trong bốn điều kiện:
+
+1. thư thuộc buyer/đầu mối mà họ phụ trách (`owner` trùng tên hiển thị);
+2. chính họ là người soạn (`created_by` — `sendMailAction`/`saveDraftAction` ghi tên người
+   đăng nhập, không lấy từ trình duyệt);
+3. thư đến gửi về **địa chỉ riêng của họ** (`to`/`cc` chứa email đăng nhập hoặc `sender_email`),
+   kể cả khi buyer đó chưa có trong hệ thống;
+4. thư thuộc **cùng mạch** (`thread_id`) với một thư họ đã thấy ở trên — nhờ đây buyer lạ trả
+   lời không còn tình trạng "có thông báo nhưng mở ra không thấy".
+
+Admin và các vai trò khác có `scope = null` → thấy toàn bộ. Chạy `npm run check:mail` để kiểm
+tra các quy tắc này sau khi sửa.
+
+> Bài học cũ: mỗi nơi từng tự viết một điều kiện lọc riêng và đều bỏ sót thư không có
+> `buyer_id`, khiến thư gửi buyer mới toanh biến mất khỏi Hộp thư của người gửi; badge lại đếm
+> thư của cả đội. Hai phía `/mail` và `/api/mail/sync` từng dùng hai giới hạn khác nhau
+> (500/300) nên `version` không bao giờ khớp và trang tự refresh 20 giây một lần.
 
 ### Tệp đính kèm email (Supabase Storage)
 
@@ -502,6 +582,77 @@ quy tắc bảo mật 2 chiều, kèm đúng chuỗi bị trùng:
 Chuỗi cần giữ kín được sinh từ hồ sơ NCC (kèm giá tham khảo của từng sản phẩm) và hồ sơ buyer
 — xem `lib/email/privacy.ts`.
 
+### AI soạn – người duyệt (nút "AI viết tiếp cận")
+
+Trong trình soạn thư gửi **buyer**, ngay dưới dòng *Tiêu đề* có nút **AI viết tiếp cận**
+(đổi thành **Viết lại** sau lần đầu, kèm nút nhỏ **Quét lại website**). **Thư KHÔNG do AI viết**:
+nội dung giữ cố định theo mẫu bên mình chốt, model chỉ được giao một việc — đọc website của
+buyer để điền các ô. Vì vậy không có chuyện model tự bịa "công ty ông đang bán X".
+
+**Mẫu thư** (bản tiếng Anh 100%, dịch 1:1 từ khung tiếng Việt — xem `FIRST_TOUCH_TEMPLATE`
+trong `lib/ai/first-touch-draft.ts`):
+
+1. `Dear <tên người nhận>,`
+2. `I am <tên>, at Vexim Trade, the service arm of VEXIM GLOBAL.` + một câu ta làm gì: tìm và
+   sàng lọc nhà cung cấp đủ điều kiện cho khách quốc tế.
+3. `I understand that <CÔNG TY BUYER> supplies <SẢN PHẨM TỪ WEBSITE>.` + **câu tùy chỉnh theo
+   dạng hàng** (xem dưới) + câu "phần của ông chỉ là nhận mẫu và chọn nhà cung cấp; bên tôi làm
+   việc với nhà cung cấp, báo giá, kiểm tra hồ sơ, chứng nhận và chất lượng trước khi giao".
+4. `Would you like us to look into Vietnam sourcing for <NHÓM HÀNG>?`
+5. `Thank you for your time. I look forward to your reply.` (chữ ký do hệ thống nối, AI không viết)
+
+**AI phân tích buyer như thế nào** — ba bước, chạy trong ~5–30 giây:
+
+1. `lib/ai/site-signals.ts` tự mở **website ghi trong hồ sơ** (không qua OpenAI): lấy `<title>`,
+   meta description, `h1/h2`, mục điều hướng, tên sản phẩm khai báo bằng **schema.org/Product**,
+   `og:image` + `alt` ảnh — rồi **tải tối đa 4 ảnh sản phẩm** (bỏ logo/icon/ảnh trang trí).
+   Chỉ http(s) công khai: chặn IP vòng lặp/nội bộ/`.local`, link meta AWS, port lạ, tự đi qua
+   từng bước redirect để không bị đẩy vào `127.0.0.1`, mỗi request 8 giây, HTML ≤ 400KB, ảnh ≤ 900KB.
+2. `lib/ai/company-products.ts` gọi model MỘT lần với cả chữ lẫn ảnh (nên model **nhìn** thấy
+   sản phẩm, không đoán qua alt text), bắt buộc trả JSON:
+   `products[]` (tối đa 6, tên tiếng Anh, giữ mã W320/ST25), `group` (2-4 từ), `form`, `evidence`.
+3. `form` quyết câu thứ ba của phần 3 — đây là chỗ "điều chỉnh nội dung theo phân tích":
+   * `finished` (gói thành phẩm có nhãn, bán lẻ được ngay) → chào **nguyên liệu & gia công**:
+     *"You already sell finished, retail-ready goods, so the useful thing we can do is the input
+     behind them: raw material, packaging and private-label production in Vietnam."*
+   * `raw` (nông sản thô, quả còn xanh, đóng thùng tại vườn/bãi, hàng cân theo tấn) → nói ngay là
+     ta hiểu cái quyết định lô hàng là **mùa vụ và độ chín khi tới cảng**:
+     *"You buy raw produce, so the two things that decide a shipment are harvest timing and
+     ripeness on arrival. We check both with the mills and farms we work with before anything is booked."*
+   * `mixed` → cả hai phía. *`unknown`* → giữ nguyên câu chung của mẫu
+     ("If you need finished goods or raw materials from Vietnam…"), không mạo hiểm.
+   Kết quả lưu vào `prospects.ai_products` (kèm `evidence`, `images_seen`, số nguồn, `scanned_at`)
+   và hiện trong hồ sơ đầu mối ngay dưới khối "Xem công ty" để nhân viên đối chiếu. Lần bấm sau
+   trong 90 ngày **dùng cache, không tốn lần gọi model nào**.
+
+**Buyer đã để lại nhu cầu** (hồ sơ buyer có `product`/`spec`/`quantity`) thì bỏ qua bước đọc
+website: câu 3 đổi thành `You asked us about <nhu cầu>.` và tiêu đề lấy đúng mặt hàng họ hỏi.
+
+**Không tìm thấy gì thì để trống, không đoán.** Website chưa nhập, site chết, hay model không có
+bằng chứng → thư vẫn dựng đúng khung nhưng giữ nguyên placeholder
+`[SẢN_PHẨM_TỪ_WEBSITE]` / `[NHÓM_HÀNG]` / `[TÊN_NGƯỜI_NHẬN]` để nhân viên điền tay; trình soạn
+báo vàng "Còn N chỗ AI không tìm thấy dữ liệu: …". Khi không đọc được website, app **không gọi
+model** (gọi là model sẽ đoán) và ghi rõ lý do.
+
+**Tiêu đề** do máy chủ dựng (không để model viết) nên đúng quy tắc cứng luôn: tiếng Anh,
+Title Case, không `!`, không emoji, không dấu chấm cuối, dưới 8 từ, có tên sản phẩm, không từ cấm
+(`free`, `offer`, `deal`, `best price`, `urgent`, `limited`, `opportunity`, `partnership`), không
+`Re:`/`Fwd:`, luân phiên `[Sản phẩm] for [Công ty]` · `[Sản phẩm] from Vietnam` · `[Sản phẩm], [MOQ]`
+và không lặp dạng của lá thư buyer gần nhất (app đọc subject thư cũ để biết dạng đã dùng).
+
+Thư này **không có số liệu thương mại** (MOQ, giá, năng lực, chứng từ) — ngoại trừ luồng buyer đã
+nêu nhu cầu, khi đó chỉ nhắc lại đúng số của họ + điều kiện của đúng dòng hàng. `monthly_capacity`
+là năng lực của nhà cung cấp nên không bao giờ vào prompt, ô ghi "Không/Chưa có" bị lọc trước khi
+đưa vào prompt để không dịch thành "we have no certifications".
+
+**Hiệu ứng gõ từng chữ** giữ nguyên: bản nháp hiện vào khung theo nhịp viết của người thật, nghỉ
+lâu hơn sau dấu chấm, chữ ký nối sau cùng; "Chèn nốt" lấy toàn bộ phần còn lại; đang gõ mà bấm
+Gửi/Lưu thì không mất chữ. Khung đang có nội dung tự viết phải bấm nút **hai lần** mới ghi đè.
+
+*AI soạn phần dữ liệu – người duyệt phần chữ*: action không đổi pipeline, không lưu nội dung thư,
+không tự gửi. Do nội dung cố định (~125 từ) nên quy tắc 80–120 từ trước đây không còn áp dụng cho
+thư này. Không có `OPENAI_API_KEY` thì nút báo lỗi rõ, không tạo thư rỗng.
+
 ## Nội dung email theo giai đoạn
 
 Trang **Nội dung email** liệt kê đầy đủ 8 giai đoạn × 2 người nhận, kèm bản xem trước email
@@ -510,6 +661,44 @@ placeholder `{product}` `{quantity}` `{spec}` `{country}` `{port}` `{incoterm}` 
 
 Mỗi email gửi NCC luôn có khối **“VIỆC CẦN LÀM”** dạng checklist kèm **thời hạn phản hồi**
 riêng cho từng giai đoạn (ví dụ giai đoạn *Đang sản xuất* → “Cập nhật trước 16h thứ Sáu hằng tuần”).
+
+## Trang đích /cashew (chạy quảng cáo Google cho thị trường Mỹ)
+
+Trang bán hàng riêng cho hạt điều, tách khỏi trang chủ để đo lường quảng cáo chính xác. Một việc duy nhất:
+buyer Mỹ gửi brief hạt điều. Nội dung giữ đúng chuẩn minh bạch của trang chủ (Stated / Verified / Open).
+
+| File | Vai trò |
+|------|---------|
+| `app/cashew/page.tsx` | Server component: metadata (title, meta description, canonical, Open Graph), JSON-LD (BreadcrumbList + FAQPage), đọc `utm_*`/`gclid` từ query, kiểm tra ảnh nào đã có file |
+| `lib/cashew-content.ts` | Toàn bộ nội dung + ảnh + dữ liệu nhà sản xuất (`PRODUCER_DATA`) — sửa nội dung ở đây, không sửa trong component |
+| `components/cashew-landing.tsx` | 11 khối của trang + form + nút CTA cố định trên mobile |
+| `public/cashew/` | Ảnh WebP của trang + `README.md` hướng dẫn chụp (danh sách 6 ảnh, alt text, dung lượng) |
+
+**Điền dữ liệu nhà sản xuất.** Chín mục trong brief để dạng `[ngoặc vuông]` — KHÔNG tự đoán. Chúng nằm trong
+`PRODUCER_DATA`. Khi giá trị còn là `"Confirmed per producer..."`, `isPending()` nhận ra và trang tự gắn nhãn
+`Open ·` (màu hổ phách, có chữ, không chỉ dựa vào màu) — trang chạy được ngay mà không nói quá. Điền xong thì
+nhãn biến mất và nội dung vào bảng/FAQ ngay.
+
+**Form.** Dùng lại `submitQuoteLeadAction` (chỉ bắt buộc Company / Email / What you are sourcing; Incoterm,
+Payment method và mọi ô khác để trống được). Lead từ trang này vào CRM với `source = Website veximtrade.com/cashew`
+và dòng `Campaign: utm_source=... utm_campaign=... gclid=...` trong notes, nên phòng sale biết lead đến từ nhóm
+quảng cáo nào. Bắn sự kiện `generate_lead` sang GA4 sau khi gửi; đặt `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID`
+(dạng `AW-…/…`) nếu muốn bắn thẳng chuyển đổi Google Ads.
+
+**Trước khi bật quảng cáo:**
+1. Up đủ 6 ảnh WebP `< 200 KB` vào `public/cashew/` (placeholder sẽ tự biến mất) — không dùng ảnh AI, ảnh stock
+   sai loại, ảnh bắt tay.
+2. Đối chiếu lại số liệu 80% / 186,600 tấn với bản gốc của Bộ NN&MT, VFA (trang đang ghi nguồn theo snippet,
+   chưa soát bản gốc) và kiểm tra thuế quan/labelling hiện hành với lô hạt điều đi Mỹ.
+3. Google Ads: URL đích `https://www.veximtrade.com/cashew`, đường dẫn hiển thị `cashew/quote`, mỗi nhóm quảng cáo
+   một `utm_content` riêng (trang ghi lại theo lead).
+4. Sau 3–4 tuần, thêm negative keywords vào nhóm: `recipe`, `restaurant`, `near me`, `jobs`, `pho`, `grocery`,
+   `delivery`, `retail`, `review`.
+5. Chạy PageSpeed bản mobile (mục tiêu < 3 giây) và thử thật trên một máy iPhone + một máy Android.
+
+**Cố ý không đưa lên trang:** tên buyer và lô hàng lấy từ dữ liệu hải quan (Star Snacks, ImportYeti chỉ để nghiên
+cứu nội bộ), giá thị trường, thị phần của Mỹ, cam kết thuế quan, và các từ `certified` / `guaranteed` /
+`best price` / `FDA-compliant` khi chưa có tài liệu.
 
 ## Cấu trúc thư mục
 
@@ -550,6 +739,10 @@ lib/
   auth/session.ts             Cookie phiên ký HMAC + cổng kiểm tra quyền
   db/schema-check.ts          Soi bảng/cột còn thiếu trong Supabase
   pipeline.ts                 Danh sách giai đoạn của pipeline
+  ai/company-introduction.ts  Tóm tắt công ty đầu mối từ nguồn công khai (nút "Xem công ty")
+  ai/site-signals.ts          Đọc website buyer: tiêu đề, mục, schema.org, TẢI ẢNH sản phẩm (chặn SSRF)
+  ai/company-products.ts      Một lần gọi model với chữ + ảnh -> sản phẩm, nhóm hàng, dạng thành phẩm/raw
+  ai/first-touch-draft.ts     MẪU THƯ CỐ ĐỊNH + dựng tiêu đề/thân thư từ các ô đã điền
   media/storage.ts            Kho tệp: Supabase Storage hoặc data/media (local)
   media/validate.ts           Kiểm tra magic bytes / định dạng / dung lượng
   media/readiness.ts          Quy tắc "sẵn sàng gửi buyer" + hạn hiệu lực
@@ -561,6 +754,8 @@ lib/
   email/send.ts               Gửi qua Resend (kèm Cc/Bcc/đính kèm) + lưu hộp thư
   mail/attachments.ts         Kho tệp đính kèm: kiểm tra tệp, lưu Storage, URL có chữ ký
   mail/cleanup.ts             Dọn tệp đính kèm mồ côi
+  mail/visibility.ts          Quy tắc ai thấy thư nào (buyer mình phụ trách / thư mình soạn / địa chỉ riêng / cùng mạch)
+  mail/mailbox-access.ts      Nạp + lọc Hộp thư MỘT LẦN cho /mail, /mail/[id], badge menu và /api/mail/sync
   db/                         Tầng dữ liệu: tự chọn Supabase hoặc kho local
 supabase/schema.sql           Script tạo bảng
 ```
@@ -572,4 +767,6 @@ npm run dev        # chạy dev (0.0.0.0:3000)
 npm run build      # build production
 npm start          # chạy bản build
 npm run typecheck  # kiểm tra TypeScript
+npm run check:mail # kiểm quy tắc hiển thị Hộp thư (lib/mail/visibility.ts)
+npm run check:supabase  # soi bảng/cột trong Supabase
 ```

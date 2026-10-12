@@ -21,6 +21,7 @@ import {
   updateUserAction,
 } from "@/app/auth-actions";
 import { ROLES, roleMeta } from "@/lib/auth/permissions";
+import { assignSenderEmails } from "@/lib/email/sender";
 import type { AppUser, UserRole } from "@/lib/types";
 import { Badge, Button, cx, formatDateTime } from "@/components/ui";
 import { useToast } from "@/components/toast";
@@ -36,6 +37,9 @@ export function UserManager({
 }) {
   const router = useRouter();
   const toast = useToast();
+
+  // Địa chỉ gửi riêng của từng người — tự sinh từ họ tên, quản trị sửa được trong hồ sơ người đó
+  const senderById = assignSenderEmails(users);
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -136,6 +140,8 @@ export function UserManager({
             <UserRow
               key={u.id}
               user={u}
+              senderAddress={senderById.get(u.id) ?? null}
+              senderAuto={!u.sender_email}
               isMe={u.id === meId}
               onChanged={() => router.refresh()}
               onToast={(kind, title, lines) => toast.push({ kind, title, lines })}
@@ -167,11 +173,17 @@ export function UserManager({
 
 function UserRow({
   user,
+  senderAddress,
+  senderAuto = true,
   isMe,
   onChanged,
   onToast,
 }: {
   user: AppUser;
+  /** Địa chỉ ghi ở header From khi người này gửi thư */
+  senderAddress: string | null;
+  /** true = địa chỉ do hệ thống sinh từ họ tên, chưa được đặt tay */
+  senderAuto?: boolean;
   isMe: boolean;
   onChanged: () => void;
   onToast: (kind: "success" | "error", title: string, lines?: string[]) => void;
@@ -231,6 +243,11 @@ function UserRow({
             {!user.is_active && <Badge className="bg-red-50 text-red-700">đã khoá</Badge>}
           </p>
           <p className="mt-0.5 text-[12px] text-ink-500">{user.email}</p>
+          <p className="mt-0.5 text-[12px] text-ink-500">
+            Gửi từ{" "}
+            <span className="font-semibold text-ink-700">{senderAddress ?? "địa chỉ chung của công ty"}</span>
+            {senderAddress && senderAuto && <span className="text-ink-400"> · tự sinh theo họ tên</span>}
+          </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
             <Badge className={meta.badge}>{meta.label}</Badge>
             {user.auth_provider === "supabase" ? (

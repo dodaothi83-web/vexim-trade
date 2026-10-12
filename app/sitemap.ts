@@ -17,6 +17,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
     },
     {
+      // Trang đích quảng cáo hạt điều (thị trường Mỹ) — ưu tiên cao vì nhận traffic trả phí
+      url: `${SITE_URL}/cashew`,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.9,
+    },
+    {
       url: `${SITE_URL}/blog`,
       lastModified: posts[0]?.updated_at ? new Date(posts[0].updated_at) : new Date(),
       changeFrequency: "daily",

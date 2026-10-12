@@ -97,6 +97,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
             initialSummary={prospect.ai_company_summary ?? null}
             initialSources={prospect.ai_company_sources ?? []}
             initialAnalyzedAt={prospect.ai_company_analyzed_at ?? null}
+            initialProducts={prospect.ai_products ?? null}
           />
 
           <ProspectActivityForm prospectId={prospect.id} />

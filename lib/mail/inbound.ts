@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 
 import { FROM_ADDRESS, resendConfigured } from "@/lib/config";
+import { findUserByAddress, isOwnMailAddress } from "@/lib/email/sender";
 import { getStore } from "@/lib/db";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { transport, threadId } from "@/lib/email/send";
@@ -53,6 +54,8 @@ function sameEmail(a: string, b: string): boolean {
  * Danh sách nhận thông báo thư đến.
  * - Thư từ buyer/prospect: gửi cho người phụ trách (khớp theo tên). Nếu chưa có phụ trách
  *   hoặc không tìm thấy tài khoản, gửi cho quản trị viên để không bỏ sót.
+ * - Buyer trả lời thẳng vào địa chỉ riêng của nhân viên (dung@veximtrade.com) mà đơn
+ *   chưa gán phụ trách: quy về chủ của địa chỉ nhận đó -> chỉ báo một người.
  * - Thư từ NCC hoặc địa chỉ không xác định: giữ hành vi cũ (quản trị viên và nhân viên kinh doanh).
  * - INBOUND_NOTIFY_EMAILS (nếu đặt) luôn được ưu tiên.
  */
@@ -60,6 +63,8 @@ export async function notifyRecipients(
   from: string,
   ownerName: string | null,
   hasCustomerRecord: boolean,
+  /** id tài khoản suy ra từ địa chỉ nhận riêng (dung@...) — ưu tiên số một */
+  ownerUserId?: string | null,
 ): Promise<string[]> {
   const fromEnv = process.env.INBOUND_NOTIFY_EMAILS?.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
   if (fromEnv?.length) return fromEnv.filter((e) => !sameEmail(e, from));
@@ -77,15 +82,17 @@ export async function notifyRecipients(
       .filter((e) => !receivingDomains.has(e.split("@")[1]?.toLowerCase() ?? ""));
 
   const active = users.filter((u) => u.is_active);
-  if (hasCustomerRecord) {
-    const owner = (ownerName ?? "").trim().toLowerCase();
-    const ownerUsers = owner
+  // Ưu tiên người phụ trách: khớp tên chủ tài khoản (thư đến từ buyer/prospect)
+  // hoặc khớp địa chỉ gửi riêng mà thư được gửi tới (dung@veximtrade.com).
+  const owner = (ownerName ?? "").trim().toLowerCase();
+  const ownerUsers = ownerUserId
+    ? active.filter((u) => u.id === ownerUserId)
+    : owner
       ? active.filter((u) => (u.name ?? "").trim().toLowerCase() === owner)
       : [];
-    const ownerEmails = pick(ownerUsers);
-    if (ownerEmails.length) return ownerEmails;
-    return pick(active.filter((u) => u.role === "admin"));
-  }
+  const ownerEmails = pick(ownerUsers);
+  if (ownerEmails.length) return ownerEmails;
+  if (hasCustomerRecord) return pick(active.filter((u) => u.role === "admin"));
   return pick(active.filter((u) => u.role === "admin" || u.role === "sale"));
 }
 
@@ -109,10 +116,23 @@ export async function processInboundEvent(
 
   const from = (full?.from ?? meta.from ?? "").trim();
   if (!from) return { saved: false, reason: "error" };
-  // Thư do chính hệ thống gửi ra quay vòng lại (forward, auto-reply) thì bỏ qua
-  if (sameEmail(from, FROM_ADDRESS)) return { saved: false, reason: "self" };
+  // Thư do nội bộ gửi ra quay vòng lại (forward, auto-reply) thì bỏ qua. So theo
+  // DOMAIN của MAIL_BOX: từ khi mỗi nhân viên gửi bằng địa chỉ riêng (dung@veximtrade.com)
+  // thì không thể so một địa chỉ cố định như trước — so cả domain mới đủ.
+  if (isOwnMailAddress(from) || sameEmail(from, FROM_ADDRESS)) {
+    return { saved: false, reason: "self" };
+  }
 
   const subject = (full?.subject ?? meta.subject ?? "").trim() || "(không có tiêu đề)";
+  // Buyer trả lời thẳng vào địa chỉ riêng của nhân viên (dung@...) khi đơn chưa gán
+  // phụ trách: lấy người nhận suy ra chủ nhân mạch thư để báo đúng một người.
+  const allUsers = await store.listUsers().catch(() => []);
+  const recipientAddresses = [...(full?.to ?? meta.to ?? []), ...(full?.cc ?? meta.cc ?? [])];
+  const recipientOwner =
+    recipientAddresses
+      .map((addr) => findUserByAddress(allUsers, addr))
+      .find((u) => u && (u.name ?? "").trim()) ?? null;
+  const recipientOwnerName = recipientOwner?.name ?? null;
   const [buyers, suppliers, prospects] = await Promise.all([
     store.listBuyers(),
     store.listSuppliers(),
@@ -199,8 +219,9 @@ export async function processInboundEvent(
   // ---- Báo cho đội ngũ (email tóm tắt) ----
   const recipients = await notifyRecipients(
     from,
-    buyer?.owner ?? prospect?.owner ?? null,
+    buyer?.owner ?? prospect?.owner ?? recipientOwnerName,
     Boolean(buyer || prospect),
+    buyer || prospect ? null : (recipientOwner?.id ?? null),
   ).catch(() => [] as string[]);
   let notified = 0;
   if (recipients.length) {

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Check, Copy, Database, Mail, ShieldCheck, TriangleAlert, Users, X } from "lucide-react";
 
-import { COMPANY } from "@/lib/config";
+import { COMPANY, MAIL_DOMAIN } from "@/lib/config";
 import { dataStatus } from "@/lib/db";
 import { checkSchema } from "@/lib/db/schema-check";
 import { supabaseKeyRole } from "@/lib/db/supabase";
@@ -223,13 +223,23 @@ export default async function SettingsPage() {
             <h2 className="text-[15px] font-bold text-ink-900">Gửi email (Resend)</h2>
             <StatusPill
               ok={hasResend}
-              label={hasResend ? `Đang gửi từ ${COMPANY.email}` : "Chưa cấu hình – email ở chế độ demo"}
+              label={hasResend ? `Thư hệ thống: ${COMPANY.email} · thư người gửi: theo tên` : "Chưa cấu hình – email ở chế độ demo"}
             />
           </div>
           <div className="space-y-3 p-4 text-[13px] text-ink-600">
             <p>
               Domain <strong>veximtrade.com</strong> đã được verify trong Resend. Chỉ cần thêm khoá
               API là hệ thống gửi email thật.
+            </p>
+            <p>
+              Mỗi nhân viên kinh doanh gửi bằng địa chỉ riêng mang tên mình (Nguyễn Văn Dung →{" "}
+              <code className="rounded bg-ink-100 px-1">{`dung@${MAIL_DOMAIN}`}</code>
+              ). Resend cho phép gửi từ bất kỳ
+              địa chỉ nào của domain đã verify nên <strong>không phải tạo hộp thư mới</strong>; thư trả lời
+              cũng về thẳng Hộp thư của CRM vì MX đang là catch-all. Chạy
+              <code className="rounded bg-ink-100 px-1">supabase/migrations/20261012_user_sender_email.sql</code>
+              một lần để thêm cột <code className="rounded bg-ink-100 px-1">sender_email</code> (muốn đổi
+              địa chỉ thì người đó sửa trong trang Hồ sơ).
             </p>
             <ol className="ml-4 list-decimal space-y-1">
               <li>

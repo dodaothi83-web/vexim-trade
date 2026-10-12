@@ -78,7 +78,7 @@ export function ComposeSidebar({
   const deferredBody = useDeferredValue(bodyHtml);
   const deferredSubject = useDeferredValue(subject);
 
-  // Bỏ khối chữ ký (vốn có sẵn vài chữ tiếng Việt như "Trân trọng") trước khi
+  // Bỏ khối chữ ký (chữ ký tuỳ chỉnh có thể chứa tiếng Việt, kiểu "Trân trọng") trước khi
   // phân tích ngôn ngữ / dò thông tin, để không báo nhầm.
   const analysisBody = useMemo(
     () => (signature ? deferredBody.split(signature).join(" ") : deferredBody),

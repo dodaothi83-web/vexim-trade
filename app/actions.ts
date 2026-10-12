@@ -10,7 +10,20 @@ import { deleteObject } from "@/lib/media/storage";
 import { productReadiness } from "@/lib/media/readiness";
 import { generateCompanyIntroduction } from "@/lib/ai/company-introduction";
 import {
+  buildFirstTouchLetter,
+  joinProducts,
+  subjectFormOf,
+  toEnglishProduct,
+  type FirstTouchMode,
+  type SubjectForm,
+} from "@/lib/ai/first-touch-draft";
+import { extractCompanyProducts, type CompanyProducts } from "@/lib/ai/company-products";
+import { readSiteSignals } from "@/lib/ai/site-signals";
+import { hasPermission } from "@/lib/auth/permissions";
+import {
+  resolveSender,
   saveDraft,
+  updateDraft,
   sendManualMail,
   sendStageUpdate,
   sendSupplierAssigned,
@@ -18,9 +31,13 @@ import {
 } from "@/lib/email/send";
 import { getStage, isStage } from "@/lib/pipeline";
 import { notifyRecipients } from "@/lib/mail/inbound";
+import { isMyMail, type MailViewer } from "@/lib/mail/visibility";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import type {
   Buyer,
+  Prospect,
+  ProspectCompanySource,
+  ProspectProductScan,
   BuyerInput,
   ProspectInput,
   ProspectActivityChannel,
@@ -561,6 +578,12 @@ export async function generateProspectCompanyIntroductionAction(
   sources?: { title: string; url: string }[];
   analyzedAt?: string;
   reused?: boolean;
+  /** Danh mục + dạng hàng đọc từ website buyer (nguồn để điền thư tiếp cận) */
+  products?: string[];
+  group?: string | null;
+  form?: "finished" | "raw" | "mixed" | "unknown";
+  evidence?: string | null;
+  imagesSeen?: number;
 }> {
   const gate = await guard("prospects.manage");
   if (gate) return gate;
@@ -614,15 +637,32 @@ export async function generateProspectCompanyIntroductionAction(
       ai_company_sources: result.sources,
       ai_company_analyzed_at: analyzedAt,
     });
+    // Cùng lúc thì quét luôn website + ảnh sản phẩm: đây là thứ thư tiếp cận cần, bấm một lần
+    const scan = await ensureCompanyScan({
+      company: prospect.company,
+      website: prospect.website,
+      country: prospect.country,
+      context: prospect.industry ? `ngành ghi trong hồ sơ: ${prospect.industry}` : null,
+      prospectId: id,
+      cached: prospect.ai_products ?? null,
+      refresh: true,
+    });
     revalidatePath(`/prospects/${id}`);
     revalidatePath("/prospects");
     return {
       ok: true,
-      message: "Đã tạo phần giới thiệu công ty.",
+      message: scan.scan.products.length
+        ? `Đã tạo phần giới thiệu công ty và đọc được ${scan.scan.products.length} sản phẩm trên website.`
+        : "Đã tạo phần giới thiệu công ty. Chưa đọc được sản phẩm nào từ website của họ.",
       summary: result.summary,
       sources: result.sources,
       analyzedAt,
       reused: false,
+      products: scan.scan.products,
+      group: scan.scan.group,
+      form: scan.scan.form,
+      evidence: scan.scan.evidence,
+      imagesSeen: scan.scan.imagesSeen,
     };
   } catch (err) {
     console.error("[company-introduction] không phân tích được:", err);
@@ -632,6 +672,336 @@ export async function generateProspectCompanyIntroductionAction(
     }
     return { ok: false, message: detail || "Không phân tích được công ty lúc này." };
   }
+}
+
+/* ---------------- AI: VIẾT EMAIL TIẾP CẬN ĐẦU TIÊN ---------------- */
+
+/** Thư theo mẫu cố định — AI chỉ được điền ô "sản phẩm + dạng hàng của buyer", không viết văn */
+type CompanyScan = Pick<CompanyProducts, "products" | "group" | "form" | "evidence" | "note" | "imagesSeen">;
+
+const BLANK_SCAN: CompanyScan = { products: [], group: null, form: "unknown", evidence: null, note: null, imagesSeen: 0 };
+
+/** Bản quét website dùng lại trong 90 ngày, cùng tuổi với quy tắc của nút "Xem công ty" */
+const AI_SCAN_FRESH_DAYS = 90;
+
+function isFreshScan(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  const time = new Date(iso).getTime();
+  return Number.isFinite(time) && Date.now() - time <= AI_SCAN_FRESH_DAYS * 86_400_000;
+}
+
+function toScanShape(record: ProspectProductScan | null | undefined): CompanyScan & { sources: ProspectCompanySource[] } {
+  return {
+    products: Array.isArray(record?.products) ? record!.products.slice(0, 6) : [],
+    group: record?.group ?? null,
+    form: record?.form ?? "unknown",
+    evidence: record?.evidence ?? null,
+    note: record?.note ?? null,
+    imagesSeen: record?.images_seen ?? 0,
+    sources: Array.isArray(record?.sources) ? record!.sources : [],
+  };
+}
+
+/** Ghép một dòng tín hiệu cho prompt, bỏ khi dữ liệu trống */
+function signal(label: string, value: string | null | undefined, max = 400): string {
+  const raw = (value ?? "").replace(/\s+/g, " ").trim();
+  if (!raw) return "";
+  return `${label}: ${raw.length > max ? `${raw.slice(0, max).trimEnd()}…` : raw}`;
+}
+
+/**
+ * Sản phẩm mà công ty buyer đang cung cấp — ô duy nhất AI được phép "tìm" cho thư.
+ * - Prospect: có chỗ lưu (prospects.ai_products) nên chỉ tốn một lần gọi web, lần sau dùng lại.
+ * - Buyer thường: biểu mẫu chưa có cột lưu -> quét cho lần viết này, không ghi vào hồ sơ.
+ * Quét lỗi KHÔNG chặn viết thư: thân thư vẫn dựng đúng mẫu, chỉ để placeholder để người soạn
+ * điền tay (thà có chỗ trống nhìn thấy còn hơn một câu bịa).
+ */
+async function ensureCompanyScan(options: {
+  company: string;
+  website: string | null;
+  country: string | null;
+  context: string | null;
+  prospectId: string | null;
+  cached: ProspectProductScan | null | undefined;
+  refresh: boolean;
+}): Promise<{ scan: CompanyScan & { sources: ProspectCompanySource[] }; scanned: boolean; error: string | null }> {
+  const fresh = toScanShape(options.cached);
+  if (!options.refresh && options.prospectId && isFreshScan(options.cached?.scanned_at) && fresh.products.length > 0) {
+    return { scan: fresh, scanned: false, error: null };
+  }
+  try {
+    // 1) tự đọc website buyer: danh mục bằng chữ + vài ảnh sản phẩm để model NHÌN
+    const signals = await readSiteSignals(options.website);
+    // Không có gì để đọc (chưa nhập website, site chết, không phải HTML) thì KHÔNG gọi model:
+    // model sẽ phải đoán, mà đoán trong thư chào lạnh là mất khách.
+    const nothingToRead =
+      Boolean(signals.error) && !signals.productNames.length && !signals.headings.length && !signals.images.length;
+    if (nothingToRead) {
+      return { scan: { ...BLANK_SCAN, note: signals.error, sources: [] }, scanned: false, error: signals.error };
+    }
+    // 2) một lần gọi model với cả chữ lẫn ảnh
+    const result = await extractCompanyProducts({
+      company: options.company,
+      country: options.country,
+      signals,
+      context: [options.context, signals.error ? `lỗi đọc website: ${signals.error}` : ""].filter(Boolean).join(" · ") || null,
+    });
+    const scan = {
+      products: result.products.slice(0, 6),
+      group: result.group,
+      form: result.form,
+      evidence: result.evidence,
+      note: result.note ?? signals.error,
+      imagesSeen: result.imagesSeen,
+      sources: result.sources,
+    };
+    if (options.prospectId) {
+      await getStore()
+        .updateProspect(options.prospectId, {
+          ai_products: {
+            products: scan.products,
+            group: scan.group,
+            form: scan.form,
+            evidence: scan.evidence,
+            note: scan.note,
+            images_seen: scan.imagesSeen,
+            sources: scan.sources,
+            scanned_at: new Date().toISOString(),
+          },
+        })
+        .catch(() => null);
+      revalidatePath(`/prospects/${options.prospectId}`);
+      revalidatePath("/prospects");
+    }
+    return {
+      scan: scan.note ? scan : { ...scan, note: signals.error },
+      scanned: true,
+      error: signals.error && !scan.products.length ? signals.error : null,
+    };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "";
+    return { scan: { ...BLANK_SCAN, sources: [] }, scanned: false, error: detail || "không truy cập được website của công ty" };
+  }
+}
+
+/**
+ * Nhu cầu buyer để lại trong hồ sơ -> câu mở đầu phần 2.
+ * Số lượng/điều khoản chỉ thêm khi không chứa tiếng Việt (thư 100% tiếng Anh),
+ * phần bị lệch ngôn ngữ nhân viên sẽ thấy và sửa.
+ */
+function statedNeedLine(buyer: Buyer | null): string | null {
+  if (!buyer) return null;
+  const product = toEnglishProduct([buyer.product, buyer.spec].filter(Boolean).join(" — "));
+  if (!product) return null;
+  const quantity = (buyer.quantity ?? "").trim();
+  const asciiOnly = Boolean(quantity) && !/[^\x00-\x7F]/.test(quantity);
+  const incoterm = (buyer.incoterm ?? "").trim();
+  const port = (buyer.port ?? "").trim();
+  // "CIF Hamburg" + cảng "Hamburg" là một — ghép lặp lại trông rất lỗi
+  const terms = !port || incoterm.toLowerCase().includes(port.toLowerCase()) ? incoterm : `${incoterm} ${port}`;
+  const termsAscii = Boolean(terms) && !/[^\x00-\x7F]/.test(terms);
+  const extras = [asciiOnly ? quantity : "", termsAscii ? terms : ""].filter(Boolean);
+  return extras.length ? `${product} (${extras.join(", ")})` : product;
+}
+
+/** Dạng tiêu đề của lá thư buyer gần nhất cho hồ sơ này — để không lặp lại cùng một dạng */
+async function lastBuyerSubjectForm(ids: {
+  buyerId: string | null;
+  prospectId: string | null;
+  email: string | null;
+}): Promise<SubjectForm | null> {
+  const store = getStore();
+  const messages = await Promise.resolve(store.listMessages(200)).catch(() => []);
+  const recent = (messages as {
+    direction: string;
+    status: string;
+    subject: string;
+    created_at: string;
+    buyer_id: string | null;
+    prospect_id?: string | null;
+    to_emails: string[];
+  }[])
+    .filter((m) => m.direction === "buyer" && m.status !== "draft")
+    .filter(
+      (m) =>
+        (ids.buyerId && m.buyer_id === ids.buyerId) ||
+        (ids.prospectId && m.prospect_id === ids.prospectId) ||
+        (ids.email && (m.to_emails ?? []).some((address) => (address ?? "").toLowerCase() === ids.email)),
+    )
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0];
+  return recent ? subjectFormOf(recent.subject) : null;
+}
+
+/**
+ * Nút "AI viết tiếp cận" trong trình soạn.
+ *
+ * Nguyên tắc:
+ * - Nội dung thư CỐ ĐỊNH theo mẫu bên mình chốt (lib/ai/first-touch-draft.ts). Model chỉ
+ *   đọc website buyer để lấy tên sản phẩm + nhóm hàng; không có dữ liệu thì để placeholder.
+ * - Hai luồng: khách hàng mục tiêu -> "tôi biết ông đang cung cấp X"; buyer đã để lại nhu cầu
+ *   -> "ông đã hỏi X".
+ * - Không đổi pipeline, không lưu nội dung thư. Riêng bản quét sản phẩm thì lưu vào hồ sơ đầu
+ *   mối (cột prospects.ai_products) để dùng lại 90 ngày và để nhân viên đối chiếu.
+ * - Không tên/giá nhà cung cấp, không số liệu thương mại: đây là thư chào lạnh.
+ */
+export async function generateFirstTouchDraftAction(input: {
+  buyerId?: string | null;
+  prospectId?: string | null;
+  email?: string | null;
+  /** true = quét lại website buyer, bỏ cache trong hồ sơ */
+  refresh?: boolean;
+}): Promise<ActionResult & {
+  subject?: string;
+  body?: string;
+  words?: number;
+  who?: string;
+  missing?: string[];
+  mode?: FirstTouchMode;
+  scanned?: boolean;
+  scanNote?: string | null;
+}> {
+  const gate = await guard("mail.send");
+  if (gate) return gate;
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
+  }
+
+  const store = getStore();
+  const canSeeProspects = hasPermission(session.role, "prospects.manage");
+  const email = (str(input.email) ?? "").toLowerCase();
+  const list = <T,>(promise: Promise<T[]>): Promise<T[]> => promise.catch(() => [] as T[]);
+
+  let buyer = input.buyerId ? await store.getBuyer(input.buyerId).catch(() => null) : null;
+  let prospect = input.prospectId ? await store.getProspect(input.prospectId).catch(() => null) : null;
+
+  // Soạn tự do (gõ địa chỉ nhận): khớp hồ sơ theo email
+  if ((!buyer || !prospect) && EMAIL_RE.test(email)) {
+    const [buyers, prospects] = await Promise.all([
+      buyer ? Promise.resolve([] as Buyer[]) : list(store.listBuyers()),
+      prospect || !canSeeProspects ? Promise.resolve([] as Prospect[]) : list(store.listProspects()),
+    ]);
+    if (!buyer) buyer = buyers.find((b) => (b.email ?? "").trim().toLowerCase() === email) ?? null;
+    if (!prospect) prospect = prospects.find((pr) => (pr.email ?? "").trim().toLowerCase() === email) ?? null;
+  }
+
+  // Buyer từng là đầu mối thì bản quét sản phẩm/phan tích nằm ở hồ sơ đầu mối
+  if (buyer && !prospect && canSeeProspects) {
+    const buyerEmail = (buyer.email ?? "").trim().toLowerCase();
+    const buyerCompany = (buyer.company ?? "").trim().toLowerCase();
+    prospect =
+      (await list(store.listProspects())).find(
+        (pr) =>
+          (buyerEmail && (pr.email ?? "").trim().toLowerCase() === buyerEmail) ||
+          (buyerCompany && (pr.company ?? "").trim().toLowerCase() === buyerCompany),
+      ) ?? null;
+  }
+
+  const holder = buyer ?? prospect;
+  if (!holder) {
+    return {
+      ok: false,
+      message: "Chưa tìm thấy hồ sơ buyer cho địa chỉ này. Chọn buyer/đầu mối từ danh sách để AI viết đúng.",
+    };
+  }
+  const company = str(holder.company) ?? "";
+  if (!company && !str(holder.contact_name)) {
+    return { ok: false, message: "Hồ sơ chưa có tên công ty hay người nhận để viết thư." };
+  }
+
+  // ---- 1. Buyer đã để lại nhu cầu thì nhắc lại nhu cầu; chưa có thì đọc website của họ ----
+  const need = statedNeedLine(buyer);
+  const mode: FirstTouchMode = need ? "demand" : "target";
+
+  let scan: CompanyScan & { sources: ProspectCompanySource[] } = { ...BLANK_SCAN, sources: [] };
+  let scanned = false;
+  let scanError: string | null = null;
+
+  if (mode === "target") {
+    const segmentHint = [str(prospect?.industry), str(prospect?.notes), signal("Hồ sơ lấy từ danh sách", prospect?.data_source)]
+      .filter(Boolean)
+      .join(" · ");
+    const result = await ensureCompanyScan({
+      company,
+      website: str(holder.website),
+      country: str(holder.country),
+      // target_product CHỈ là giả định để định hướng tìm, không phải bằng chứng về ngành của họ
+      context: [segmentHint, str(prospect?.target_product) ? `target segment in our list: ${str(prospect?.target_product)}` : ""]
+        .filter(Boolean)
+        .join(" · ") || null,
+      prospectId: prospect?.id ?? null,
+      cached: prospect?.ai_products ?? null,
+      refresh: Boolean(input.refresh),
+    });
+    scan = result.scan;
+    scanned = result.scanned;
+    scanError = result.error;
+  }
+
+  // ---- 2. Dựng thư theo khung cố định ----
+  const productInterest = [str(buyer?.product), str(prospect?.target_product)].filter(Boolean).join(" · ") || null;
+  const productsText = joinProducts(scan.products) || null;
+  const group = scan.group || toEnglishProduct(productInterest) || null;
+  const avoidSubjectForm = await lastBuyerSubjectForm({
+    buyerId: buyer?.id ?? null,
+    prospectId: prospect?.id ?? null,
+    email: email || str(holder.email) || null,
+  });
+
+  const letter = buildFirstTouchLetter(
+    {
+      recipientName: str(holder.contact_name),
+      senderName: str(session.name),
+      company: company || null,
+      products: productsText,
+      group,
+      statedNeed: need,
+      form: scan.form,
+    },
+    {
+      // Chỉ tên hàng — quy cách/số lượng dài sẽ làm tiêu đề vụn khi cắt còn 8 từ
+      product: toEnglishProduct(buyer?.product ?? "") || group,
+      company: company || null,
+      moq: buyer?.quantity ?? null,
+      avoidForm: avoidSubjectForm,
+    },
+  );
+
+  const missingNote = letter.missing.length
+    ? ` Còn chỗ trống ${letter.missing.join(", ")} — anh/chị điền tay nhé.`
+    : "";
+  const formLabel =
+    scan.form === "finished"
+      ? "hàng thành phẩm có nhãn"
+      : scan.form === "raw"
+        ? "nông sản thô / chưa chín"
+        : scan.form === "mixed"
+          ? "cả thành phẩm lẫn hàng thô"
+          : "chưa rõ dạng hàng";
+  const scanNote = scanError
+    ? `Không đọc được website (${scanError}).`
+    : scanned
+      ? `Đã đọc website${scan.imagesSeen ? ` và ${scan.imagesSeen} ảnh sản phẩm` : " (không tải được ảnh)"}: ${scan.products.length} sản phẩm, ${formLabel}${scan.evidence ? ` — ${scan.evidence}` : ""}.`
+      : scan.note;
+  const basis =
+    mode === "demand"
+      ? "Thư nhắc lại đúng nhu cầu buyer để lại trong hồ sơ (mẫu cố định)"
+      : productsText
+        ? `Thư chào theo mẫu cố định, có ${scan.products.length} sản phẩm đọc từ website của họ`
+        : "Thư chào theo mẫu cố định — chưa đọc được sản phẩm nào từ website của họ";
+
+  return {
+    ok: true,
+    message: `${basis}. Bản nháp ${letter.words} từ.${missingNote}${scanNote ? ` ${scanNote}` : ""}`,
+    subject: letter.subject,
+    body: letter.body,
+    words: letter.words,
+    who: company || "buyer",
+    missing: letter.missing,
+    mode,
+    scanned,
+    scanNote,
+  };
 }
 
 export async function addNoteAction(
@@ -996,6 +1366,11 @@ export interface MailDraftInput {
   /** chỉ metadata: tệp thật đã nằm trong Supabase Storage, không gửi base64 qua đây */
   attachments?: { id: string; name?: string; size?: number; type?: string }[];
   author?: string | null;
+  /**
+   * id bản nháp đang mở. Có giá trị này là LƯU ĐỀ (giữ một bản nháp duy nhất cho một
+   * lần soạn, như Gmail) thay vì chèn thêm dòng "Nháp" mới mỗi lần bấm Lưu.
+   */
+  draftId?: string | null;
   /** Trả lời thư đến: RFC Message-ID của thư đang trả lời */
   inReplyTo?: string | null;
   /** Chuỗi References của mạch thư */
@@ -1097,6 +1472,23 @@ function validateMail(input: MailDraftInput): string | null {
   return null;
 }
 
+/**
+ * Gửi thư từ bản nháp xong thì dọn bản nháp đó (như Gmail: một lần soạn chỉ còn một dấu
+ * vết). Tệp đã gắn vào thư gửi chỉ đổi message_id nên vẫn còn nguyên; tệp bị bỏ khỏi thư
+ * thì xóa cả dòng lẫn tệp trong Storage, vì hàng dọn tệp mồ côi không thấy được những
+ * dòng bị xóa dây chuyền theo bản nháp.
+ */
+async function discardDraftAfterSend(draftId: string, keep: Set<string>) {
+  const store = getStore();
+  const rows = await store.listAttachmentsForMessage(draftId).catch(() => [] as EmailAttachment[]);
+  for (const row of rows) {
+    if (keep.has(row.id)) continue;
+    await store.deleteAttachment(row.id).catch(() => null);
+    await deleteObject(row.storage_path).catch(() => null);
+  }
+  await store.deleteMessage(draftId).catch(() => null);
+}
+
 export async function sendMailAction(input: MailDraftInput): Promise<ActionResult> {
   const gate = await guard("mail.send");
   if (gate) return gate;
@@ -1121,6 +1513,12 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
     }
   }
 
+  // Ai là người soạn: ghi theo TÊN hiển thị, cùng hệ quy chiếu với buyers.owner và với bộ
+  // lọc phạm vi của Hộp thư (lib/mail/visibility.ts). Trước đây giá trị này lấy từ client
+  // mà không trang nào gửi lên => created_by = NULL => thư gửi buyer CHƯA có trong hệ
+  // thống (không buyer_id, không prospect_id) bị ẩn khỏi Hộp thư của nhân viên, chỉ admin thấy.
+  const author = input.author?.trim() || session.name?.trim() || session.email;
+
   // Tệp đính kèm: DB chỉ có metadata, nội dung nằm trong Storage và nạp ngay lúc gửi
   const resolved = await resolveAttachments(input.attachments, session.email, session.role);
   if ("error" in resolved) return { ok: false, message: resolved.error };
@@ -1140,7 +1538,9 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
       bodyHtml: input.bodyHtml,
       bodyText: input.bodyText,
       attachments: attachmentRows,
-      author: input.author ?? null,
+      author,
+      // Gửi từ địa chỉ mang tên người soạn (deliverability — lib/email/sender.ts)
+      authorEmail: session.email,
       inReplyTo: input.inReplyTo ?? null,
       references: input.references ?? null,
     });
@@ -1162,7 +1562,7 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
         buyer_id: input.buyerId,
         type: "email",
         message: `Gửi email thủ công: ${input.subject.trim()}`,
-        created_by: input.author ?? null,
+        created_by: author,
       })
       .catch(() => null);
   }
@@ -1180,7 +1580,7 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
           from_stage: "lead",
           to_stage: "contacted",
           message: "Khách mới → Đã liên hệ (tự động sau email đầu tiên)",
-          created_by: input.author ?? null,
+          created_by: author,
         })
         .catch(() => null);
     }
@@ -1198,6 +1598,11 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
       summary: `Gửi email: ${input.subject.trim()}`,
       created_by: session.email,
     }).catch(() => null);
+  }
+  // Gửi từ một bản nháp đang mở => không để lại bản nháp trùng nội dung trong Hộp thư
+  const sentFromDraft = str(input.draftId);
+  if (res.ok && sentFromDraft && sentFromDraft !== res.messageId) {
+    await discardDraftAfterSend(sentFromDraft, new Set(attachmentRows.map((row) => row.id)));
   }
   revalidateAll();
 
@@ -1218,6 +1623,9 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
   if (!session) {
     return { ok: false, message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
   }
+  // Bản nháp cũng phải mang tên người soạn, nếu không thì người vừa lưu không thấy lại
+  // bản nháp của mình trong Hộp thư (cùng lý do với sendMailAction ở trên).
+  const author = input.author?.trim() || session.name?.trim() || session.email;
   if (input.prospectId) {
     const prospectGate = await guard("prospects.manage");
     if (prospectGate) return prospectGate;
@@ -1229,7 +1637,7 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
   if ("error" in resolved) return { ok: false, message: resolved.error };
   const attachmentRows = resolved.rows;
 
-  const id = await saveDraft({
+  const draft = {
     buyerId: input.buyerId ?? null,
     supplierId: input.supplierId ?? null,
     prospectId: input.prospectId ?? null,
@@ -1240,12 +1648,36 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
     subject: input.subject.trim() || "(không có tiêu đề)",
     bodyHtml: input.bodyHtml,
     attachments: attachmentRows,
-    author: input.author ?? null,
-  });
+    author,
+  };
+
+  // Bản nháp đang mở thì ghi đè lên nó. Chỉ ghi đè được khi đúng là nháp và thuộc về
+  // người này (hoặc người xem được tất cả) — của người khác thì lưu thành bản mới,
+  // không phá bài của họ và cũng không âm thầm ghi đè.
+  const store = getStore();
+  const wantedId = str(input.draftId);
+  let reuseId: string | null = null;
+  let fallbackNote = "";
+  if (wantedId) {
+    const existing = await store.getMessage(wantedId).catch(() => null);
+    if (!existing) fallbackNote = " Bản nháp cũ không còn nên app lưu thành bản mới.";
+    else if (existing.status !== "draft") fallbackNote = " Bản nháp cũ đã được gửi nên app lưu thành bản mới.";
+    else {
+      const viewer: MailViewer = {
+        name: session.name ?? null,
+        email: session.email,
+        senderAddress: null,
+        scope: ownerScopeOf(session),
+      };
+      if (viewer.scope === null || isMyMail(existing, viewer)) reuseId = existing.id;
+      else fallbackNote = " Bản nháp đó do người khác soạn nên app lưu thành bản nháp mới của bạn.";
+    }
+  }
+  const updated = reuseId ? (await updateDraft(reuseId, draft) ? reuseId : null) : null;
+  const id = updated ?? (await saveDraft(draft));
 
   // Tệp của bản nháp: gắn với email nháp để mở lại vẫn còn, chưa coi là đã gửi
   if (id) {
-    const store = getStore();
     for (const row of attachmentRows) {
       await store
         .updateAttachment(row.id, { message_id: id, status: "uploaded", last_error: null })
@@ -1255,7 +1687,11 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
   }
   revalidateAll();
   return id
-    ? { ok: true, message: "Đã lưu bản nháp.", id }
+    ? {
+        ok: true,
+        message: `${reuseId ? "Đã cập nhật bản nháp." : "Đã lưu bản nháp."}${fallbackNote}`,
+        id,
+      }
     : { ok: false, message: "Không lưu được bản nháp." };
 }
 
@@ -1291,6 +1727,14 @@ export async function resendMessageAction(id: string): Promise<ActionResult> {
     }
   }
 
+  // Gửi lại thì phải đi đúng địa chỉ của lần gửi trước: buyer/nhân viên tự soạn
+  // gửi từ địa chỉ cá nhân người phụ trách, thư NCC gửi từ địa chỉ chức năng.
+  const sender =
+    msg.kind === "inbound"
+      ? null
+      : msg.kind === "manual" || msg.direction === "buyer"
+        ? await resolveSender({ byName: msg.created_by })
+        : null;
   const res = await transport({
     to: msg.to_emails,
     cc: msg.cc_emails,
@@ -1299,6 +1743,8 @@ export async function resendMessageAction(id: string): Promise<ActionResult> {
     html: msg.body_html,
     text: msg.body_text,
     attachments: forSend,
+    from: sender?.header ?? null,
+    replyTo: sender?.address ?? null,
   });
   await store
     .updateMessage(id, {
@@ -1592,10 +2038,15 @@ export async function submitQuoteLeadAction(input: {
   payment_method?: string;
   lead_time?: string;
   message: string;
+  /** Trang gửi form: "cashew" = trang /cashew, để trống = trang chủ. CRM dùng để tách nguồn. */
+  landing?: string;
+  /** Chuỗi utm_ / gclid của lượt truy cập — lưu vào hồ sơ để đo quảng cáo theo nhóm. */
+  attribution?: string | null;
   company_website: string;
 }): Promise<ActionResult> {
   const thanks =
-    "Thank you. Your enquiry is with our export desk, and we reply within one working day.";
+    "Thank you. Your enquiry is with our export desk, and you will have a written reply by the " +
+    "start of your next business day.";
   // Bot điền honeypot => giả vờ thành công, không ghi gì vào CRM
   if (input.company_website?.trim()) return { ok: true, message: thanks };
 
@@ -1606,8 +2057,11 @@ export async function submitQuoteLeadAction(input: {
   if (!input.company.trim()) {
     return { ok: false, message: "Please tell us your company name." };
   }
-  if (!input.message.trim()) {
-    return { ok: false, message: "Please describe your requirement briefly." };
+  // Form chỉ đánh dấu * ở company, email và product nên server cũng chỉ bắt buộc đúng ba ô đó.
+  // Ô "Anything else we should know" được phép trống; chỉ chặn khi thiếu MÔ TẢ (product hoặc message)
+  // thay vì chặn riêng ô message như trước — lời trên form và luật của server phải khớp nhau.
+  if (!input.product.trim() && !input.message.trim()) {
+    return { ok: false, message: "Please tell us what you are sourcing — one line is enough." };
   }
 
   const store = getStore();
@@ -1624,7 +2078,17 @@ export async function submitQuoteLeadAction(input: {
       input.payment_method?.trim() ? `Thanh toán: ${input.payment_method.trim()}` : "",
       input.lead_time?.trim() ? `Thời gian cần: ${input.lead_time.trim()}` : "",
     ].filter(Boolean);
-    const requestText = [...requestLines, input.message.trim()].join("\n");
+    // Trang /cashew chạy quảng cáo riêng: giữ utm_* và đánh dấu nguồn lead để đối chiếu chi phí
+    // quảng cáo với hồ sơ thật, và để phòng sale biết lead đến từ trang nào.
+    const leadSource =
+      input.landing === "cashew" ? "Website veximtrade.com/cashew" : "Website veximtrade.com";
+    const campaign = input.attribution?.replace(/[\r\n]+/g, " ").trim().slice(0, 240) ?? "";
+    const requestText = [
+      [...requestLines, input.message.trim()].filter(Boolean).join("\n"),
+      campaign ? `Campaign: ${campaign}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     if (existing) {
       // Buyer đã có: không bỏ qua yêu cầu mới, ghi thêm vào hồ sơ để người phụ trách thấy
@@ -1656,13 +2120,13 @@ export async function submitQuoteLeadAction(input: {
         hide_buyer_from_supplier: true,
         stage: "lead",
         owner: null,
-        source: "Website veximtrade.com",
+        source: leadSource,
         priority: "normal",
         next_action: "Reply to website enquiry",
         next_action_date: null,
-        notes: `Website enquiry ${new Date().toISOString().slice(0, 10)}:\n${
-          input.lead_time?.trim() ? `Lead time required: ${input.lead_time.trim()}\n` : ""
-        }${input.message.trim()}`,
+        // requestText đã gồm sản phẩm/số lượng/Incoterm/thanh toán/thời gian +Campaign,
+        // không cần ghép riêng ô lead_time như trước.
+        notes: `Website enquiry ${new Date().toISOString().slice(0, 10)}:\n${requestText}`,
       });
     }
 
@@ -1677,7 +2141,9 @@ export async function submitQuoteLeadAction(input: {
           `<p><strong>${escapeHtml(title)}</strong></p>` +
           `<p>Người gửi: ${escapeHtml(input.name.trim() || "—")} &lt;${escapeHtml(email)}&gt;<br/>` +
           `Công ty: ${escapeHtml(input.company.trim())}<br/>` +
-          `Quốc gia: ${escapeHtml(input.country.trim() || "—")}</p>` +
+          `Quốc gia: ${escapeHtml(input.country.trim() || "—")}<br/>` +
+          `Trang nguồn: ${escapeHtml(leadSource)}` +
+          `${campaign ? `<br/>Campaign: ${escapeHtml(campaign)}` : ""}</p>` +
           `<p>${requestLines.map((l) => escapeHtml(l)).join("<br/>")}</p>` +
           `<p>${escapeHtml(input.message.trim()).replace(/\n/g, "<br/>")}</p>` +
           `<p>Vào CRM &rarr; Buyer để xử lý.</p>`;
@@ -1698,15 +2164,15 @@ export async function submitQuoteLeadAction(input: {
         title: "Thank you for your enquiry – Vexim Trade",
         body:
           `<p>Dear ${escapeHtml(input.name.trim() || input.company.trim())},</p>` +
-          `<p>Thank you for contacting Vexim Trade. Your enquiry has reached our export desk ` +
-          `and we will reply within one working day.</p>` +
+          `<p>Thank you for contacting Vexim Trade. Your enquiry has reached our export desk, ` +
+          `and you will have a written reply by the start of your next business day.</p>` +
           `<p>Best regards,<br/>Export Department &middot; Vexim Trade</p>`,
       });
       await transport({
         to: [email],
         subject: "Thank you for your enquiry – Vexim Trade",
         html,
-        text: "Thank you for contacting Vexim Trade. Our export desk will reply within one working day.",
+        text: "Thank you for contacting Vexim Trade. Our export desk will reply by the start of your next business day.",
       });
     } catch {
       /* bỏ qua — lead đã lưu */

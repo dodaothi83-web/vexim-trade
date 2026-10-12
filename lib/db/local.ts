@@ -137,6 +137,9 @@ function normalizeProspects(prospects: Prospect[]) {
     if (prospect.ai_company_summary === undefined) prospect.ai_company_summary = null;
     if (!Array.isArray(prospect.ai_company_sources)) prospect.ai_company_sources = [];
     if (prospect.ai_company_analyzed_at === undefined) prospect.ai_company_analyzed_at = null;
+    if (prospect.ai_products === undefined || (prospect.ai_products && !Array.isArray(prospect.ai_products.products))) {
+      prospect.ai_products = null;
+    }
   }
 }
 
@@ -168,6 +171,7 @@ function load(): LocalShape {
     c.users.forEach((u) => {
       if (u.signature_html === undefined) u.signature_html = null;
       if (u.phone === undefined) u.phone = null;
+      if (u.sender_email === undefined) u.sender_email = null;
     });
     if (!Array.isArray(c.attachments)) c.attachments = [];
     removeProspectsWithoutEmail(c);
@@ -226,7 +230,14 @@ function toPublicUser(row: AppUserRecord): AppUser {
   const has_local_password = Boolean(row.password_hash);
   const { password_hash: _omit, ...rest } = row;
   void _omit;
-  return { ...rest, signature_html: row.signature_html ?? null, phone: row.phone ?? null, has_local_password };
+  return {
+    ...rest,
+    signature_html: row.signature_html ?? null,
+    phone: row.phone ?? null,
+    // null = chưa đặt tay -> địa chỉ gửi tự sinh từ họ tên (lib/email/sender.ts)
+    sender_email: row.sender_email ?? null,
+    has_local_password,
+  };
 }
 
 function mutate<T>(fn: (db: LocalShape) => T): T {
@@ -367,6 +378,7 @@ export const localStore: DataStore = {
         ai_company_summary: null,
         ai_company_sources: [],
         ai_company_analyzed_at: null,
+        ai_products: null,
         id: randomUUID(),
         created_at: now,
         updated_at: now,
@@ -383,6 +395,7 @@ export const localStore: DataStore = {
         ai_company_summary: null,
         ai_company_sources: [],
         ai_company_analyzed_at: null,
+        ai_products: null,
         id: randomUUID(),
         created_at: now,
         updated_at: now,
@@ -499,6 +512,7 @@ export const localStore: DataStore = {
         id: randomUUID(),
         signature_html: null,
         phone: null,
+        sender_email: null,
         last_login_at: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

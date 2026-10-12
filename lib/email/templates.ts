@@ -205,11 +205,11 @@ function calloutBox(title: string, html: string, tone: "brand" | "amber" = "bran
   </table>`;
 }
 
-function signature(name: string | null, role: string): string {
+function signature(name: string | null, role: string, email?: string | null): string {
   return `<p style="font-size:14px;line-height:20px;margin:18px 0 0;">
       <strong>${escapeHtml(name || COMPANY.name)}</strong><br/>
       <span style="color:${MUTED};">${escapeHtml(role)} &middot; ${escapeHtml(COMPANY.name)}</span><br/>
-      <span style="color:${MUTED};">${escapeHtml(COMPANY.phone)} &middot; ${escapeHtml(COMPANY.email)}</span>
+      <span style="color:${MUTED};">${escapeHtml(COMPANY.phone)} &middot; ${escapeHtml(email?.trim() || COMPANY.email)}</span>
     </p>`;
 }
 
@@ -232,6 +232,11 @@ export function buildBuyerEmail(opts: {
   note?: string | null;
   /** Bộ nội dung đã trộn ghi đè — mặc định dùng STAGE_CONTENT */
   content?: StageCopy;
+  /**
+   * Địa chỉ gửi riêng của người phụ trách (dung@veximtrade.com). Truyền vào để chữ ký
+   * trong thân thư trùng với header From — buyer trả lời là tới đúng người.
+   */
+  senderEmail?: string | null;
 }): EmailPayload {
   const { buyer, stage } = opts;
   const copy = (opts.content ?? STAGE_CONTENT[stage]).buyer;
@@ -259,7 +264,7 @@ export function buildBuyerEmail(opts: {
     ${calloutBox("WHAT HAPPENS NEXT", escapeHtml(fill(copy.action, buyer)))}
     ${opts.note ? `<p style="font-size:14px;line-height:22px;margin:18px 0 0;padding:12px 14px;background:${SOFT};border-radius:8px;color:#334155;"><strong>Message from our team:</strong><br/>${escapeHtml(opts.note)}</p>` : ""}
     <p style="font-size:14px;line-height:22px;margin:22px 0 0;">Please feel free to reply to this email if you need any clarification.<br/>Best regards,</p>
-    ${signature(buyer.owner, "Export Department")}`;
+    ${signature(buyer.owner, "Export Department", opts.senderEmail)}`;
 
   const subject = `[${shortCode(buyer.id)}] ${fill(copy.subject, buyer)}`;
 

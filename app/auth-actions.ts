@@ -13,6 +13,8 @@ import {
 import { endSession, getSession, guard, startSession } from "@/lib/auth/session";
 import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth/password";
 import { ROLES } from "@/lib/auth/permissions";
+import { MAIL_DOMAIN } from "@/lib/config";
+import { checkSenderAddress, senderAddressFor } from "@/lib/email/sender";
 import type { UserRole } from "@/lib/types";
 
 export interface AuthResult {
@@ -399,6 +401,82 @@ export async function saveMySignatureAction(html: string | null): Promise<AuthRe
   };
 }
 
+/* -------- Địa chỉ gửi riêng theo tên người (deliverability) -------- */
+
+/**
+ * Đặt/xoá ĐỊA CHỈ GỬI RIÊNG của chính người đang đăng nhập.
+ * - "" / null = thôi đặt tay, để hệ thống tự sinh từ họ tên (Nguyễn Văn Dung -> dung@...).
+ * - Nhận "dung" hoặc "dung@veximtrade.com"; domain khác bị từ chối vì Resend chỉ
+ *   cho gửi từ domain đã verify.
+ */
+export async function saveMySenderEmailAction(address: string | null): Promise<AuthResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, message: "Phiên đã hết hạn, hãy đăng nhập lại." };
+  const requested = (address ?? "").trim();
+  const store = getStore();
+  const me = await store.getUserByEmail(session.email);
+  if (!me) return { ok: false, message: "Không tìm thấy tài khoản của bạn." };
+
+  if (!requested) {
+    try {
+      await store.updateUser(me.id, { sender_email: null });
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "Không lưu được." };
+    }
+    revalidatePath("/mail/compose");
+    revalidatePath("/settings/profile");
+    return { ok: true, message: "Đã bỏ địa chỉ tự đặt — hệ thống sinh lại theo họ tên của bạn." };
+  }
+
+  const check = checkSenderAddress(requested);
+  if (!check.ok) {
+    const message =
+      check.reason === "domain"
+        ? `Chỉ gửi được từ domain ${MAIL_DOMAIN} (domain đã verify trong Resend).`
+        : check.reason === "reserved"
+          ? "Địa chỉ này dành cho bộ phận (sales@, info@...), không gán cho cá nhân được."
+          : `Địa chỉ không hợp lệ: chỉ dùng a-z, 0-9, . _ - và dài 2–31 ký tự (ví dụ dung@${MAIL_DOMAIN}).`;
+    return { ok: false, message };
+  }
+
+  const users = await store.listUsers().catch(() => []);
+  const clash = users.find(
+    (u) => u.id !== me.id && (u.sender_email ?? "").trim().toLowerCase() === check.address,
+  );
+  if (clash) {
+    return { ok: false, message: `${check.address} đang thuộc về ${clash.name || clash.email}.` };
+  }
+  if (users.some((u) => u.id !== me.id && !u.sender_email && senderAddressFor(u, users) === check.address)) {
+    return {
+      ok: false,
+      message: `${check.address} đang được hệ thống sinh sẵn cho người khác trong đội ngũ. Hãy chọn địa chỉ khác.`,
+    };
+  }
+
+  try {
+    await store.updateUser(me.id, { sender_email: check.address });
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : "Lỗi không xác định";
+    if (/sender_email/.test(raw)) {
+      return {
+        ok: false,
+        message:
+          "Chưa có cột sender_email trong cơ sở dữ liệu. Chạy một lần supabase/migrations/20261012_user_sender_email.sql rồi thử lại.",
+        details: ["Lỗi gốc: " + raw],
+      };
+    }
+    const hint = describeAppUsersError(raw);
+    return {
+      ok: false,
+      message: hint ?? "Không lưu được địa chỉ gửi.",
+      details: hint ? ["Lỗi gốc: " + raw] : undefined,
+    };
+  }
+  revalidatePath("/mail/compose");
+  revalidatePath("/settings/profile");
+  return { ok: true, message: `Từ giờ thư bạn gửi đi mang địa chỉ ${check.address}.` };
+}
+
 /* -------- Sửa thông tin tài khoản của chính mình (tên, email) -------- */
 
 const MAX_NAME_CHARS = 80;
@@ -488,8 +566,18 @@ export async function updateMyProfileAction(input: {
     }
   }
 
+  // Đổi tên sẽ làm địa chỉ gửi TỰ SINH đổi theo (dung@ -> anh@). Chốt lại địa chỉ
+  // đang dùng vào sender_email để buyer đang trao đổi không bị đổi người nhận giữa chừng.
+  const pinSender =
+    nameChanged && !(me.sender_email ?? "").trim() ? (senderAddressFor(me, users) ?? null) : null;
+
   try {
-    await store.updateUser(me.id, { name, email: emailChanged ? email : me.email, phone: phone || null });
+    await store.updateUser(me.id, {
+      name,
+      email: emailChanged ? email : me.email,
+      phone: phone || null,
+      ...(pinSender ? { sender_email: pinSender } : {}),
+    });
   } catch (err) {
     if (emailChanged) await updateSupabaseEmail(email, oldEmail).catch(() => "error" as const);
     const raw = err instanceof Error ? err.message : "Lỗi không xác định";
@@ -511,6 +599,7 @@ export async function updateMyProfileAction(input: {
   revalidatePath("/", "layout");
   const notes: string[] = [];
   if (nameChanged && moved > 0) notes.push(`đã chuyển ${moved} buyer/khách hàng mục tiêu sang tên mới`);
+  if (pinSender) notes.push(`giữ nguyên địa chỉ gửi ${pinSender} dù đã đổi tên`);
   return {
     ok: true,
     message: ["Đã cập nhật thông tin tài khoản", ...notes].join("; ") + ".",

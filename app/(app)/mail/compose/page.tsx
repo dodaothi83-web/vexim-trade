@@ -8,6 +8,7 @@ import {
   type ComposeContext,
   type RecentMail,
 } from "@/lib/compose-context";
+import { senderAddressFor } from "@/lib/email/sender";
 import { buildSignature } from "@/lib/email/signature";
 import { escapeHtml, unwrapEmailShell } from "@/lib/email/templates";
 import { Breadcrumbs } from "@/components/ui";
@@ -33,7 +34,7 @@ export default async function ComposePage({
   const canManageProspects = hasPermission(session.role, "prospects.manage");
   if (sp.prospect && !canManageProspects) redirect("/mail");
   const store = getStore();
-  const [buyers, suppliers, products, messages, me, prospects, outreachOverrides] = await Promise.all([
+  const [buyers, suppliers, products, messages, me, prospects, outreachOverrides, users] = await Promise.all([
     store.listBuyers(),
     store.listSuppliers(),
     store.listProducts(),
@@ -41,7 +42,10 @@ export default async function ComposePage({
     store.getUserByEmail(session.email),
     canManageProspects ? store.listProspects().catch(() => []) : Promise.resolve([]),
     canManageProspects ? store.listProspectOutreachTemplateOverrides() : Promise.resolve([]),
+    store.listUsers().catch(() => []),
   ]);
+  // Địa chỉ gửi thật của người đang soạn (dung@veximtrade.com) — hiện ở dòng "Từ"
+  const mySenderAddress = senderAddressFor(me, users);
   // Tệp sản phẩm chia sẻ được cho buyer (ảnh/catalogue, chưa hết hạn) để đính kèm nhanh
   const shareableMedia = await store.listMediaForProducts(products.map((p) => p.id)).catch(() => []);
   const productFiles: ProductFileGroup[] = products
@@ -79,7 +83,7 @@ export default async function ComposePage({
   // Chữ ký cá nhân kiểu Gmail/Zoho: mỗi người tự sửa và lưu lại;
   // null = chưa có chữ ký tuỳ chỉnh => dùng chữ ký tự động của hệ thống.
   const mySigHtml = me?.signature_html ?? null;
-  const autoSig = buildSignature(session.name, me?.phone);
+  const autoSig = buildSignature(session.name, me?.phone, mySenderAddress);
   const mySig = mySigHtml !== null ? mySigHtml : autoSig;
 
   // Cột phải của trang soạn thư: ngữ cảnh từng buyer / NCC + email đã trao đổi
@@ -130,6 +134,7 @@ export default async function ComposePage({
             signature={mySig}
             autoSignature={autoSig}
             signatureCustom={mySigHtml !== null}
+            senderAddress={mySenderAddress}
             contexts={contexts}
             recent={recent}
             outreachTemplates={outreachTemplates}
@@ -205,6 +210,7 @@ export default async function ComposePage({
         signature={mySig}
         autoSignature={autoSig}
         signatureCustom={mySigHtml !== null}
+        senderAddress={mySenderAddress}
         contexts={contexts}
         recent={recent}
         outreachTemplates={outreachTemplates}

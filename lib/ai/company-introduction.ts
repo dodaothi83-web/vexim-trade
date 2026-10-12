@@ -34,7 +34,8 @@ function normalizePublicWebsite(raw: string | null | undefined): string | null {
   }
 }
 
-function readOutputText(payload: Record<string, unknown>): string {
+/** Đọc văn bản trả về từ payload của OpenAI Responses API (dùng chung cho các module AI). */
+export function readOutputText(payload: Record<string, unknown>): string {
   if (typeof payload.output_text === "string") return payload.output_text.trim();
   const output = Array.isArray(payload.output) ? payload.output : [];
   const segments: string[] = [];
@@ -51,7 +52,8 @@ function readOutputText(payload: Record<string, unknown>): string {
   return segments.join("\n").trim();
 }
 
-function readSources(payload: Record<string, unknown>): ProspectCompanySource[] {
+/** Nguồn đã dùng cho lần tra cứu (url_citation) — dùng chung cho các module AI đọc web. */
+export function readSources(payload: Record<string, unknown>): ProspectCompanySource[] {
   const output = Array.isArray(payload.output) ? payload.output : [];
   const sources = new Map<string, ProspectCompanySource>();
   for (const item of output) {
