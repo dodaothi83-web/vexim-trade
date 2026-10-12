@@ -33,7 +33,6 @@ import { ProductFilePicker, type ProductFileGroup } from "@/components/product-f
 import { Button, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { PROSPECT_OUTREACH_TEMPLATES } from "@/lib/prospects/outreach-templates";
-import { FIRST_TOUCH_ANGLES } from "@/lib/ai/first-touch-angles";
 
 export interface Contact {
   id: string;
@@ -133,7 +132,6 @@ export function ComposeMail({
   const [toInput, setToInput] = useState("");
 
   // ---- AI viết email tiếp cận đầu tiên (chỉ chiều buyer) ----
-  const [aiAngle, setAiAngle] = useState("auto");
   const [aiBusy, setAiBusy] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
   const [aiHasDraft, setAiHasDraft] = useState(false);
@@ -414,13 +412,12 @@ export function ComposeMail({
     setAiOverwriteArmed(false);
     aiBodyRef.current = null;
     setAiBusy(true);
-    setAiNote(null);
+    setAiNote("AI đang đọc hồ sơ buyer (lần đầu có thể mất ~30 giây vì phải tra nguồn công khai)…");
     try {
       const res = await generateFirstTouchDraftAction({
         buyerId: initial.buyerId ?? (activeContext?.kind === "buyer" ? activeContext.id : null),
         prospectId: initial.prospectId ?? null,
         email: to[0] ?? null,
-        angle: aiAngle,
       });
       setAiBusy(false);
       if (!res.ok || !res.body) {
@@ -604,7 +601,7 @@ export function ComposeMail({
               }}
               disabled={aiBusy}
               className="btn btn-ghost px-2.5 text-[12px]"
-              title="AI đọc hồ sơ buyer (mặt hàng, quốc gia, tín hiệu đã phân tích) rồi viết bản nháp 80-120 từ"
+              title="AI đọc hồ sơ buyer — tự phân tích công ty nếu hồ sơ chưa có — rồi viết bản nháp 80-120 từ"
             >
               {aiTyping ? (
                 <CircleStop className="h-4 w-4" />
@@ -613,27 +610,10 @@ export function ComposeMail({
               ) : (
                 <Bot className="h-4 w-4" />
               )}
-              {aiBusy ? "AI đang viết…" : aiTyping ? "Chèn nốt" : aiHasDraft ? "Viết lại" : "AI viết tiếp cận"}
+              {aiBusy ? "AI đang phân tích & viết…" : aiTyping ? "Chèn nốt" : aiHasDraft ? "Viết lại" : "AI viết tiếp cận"}
             </button>
-            <label className="sr-only" htmlFor="ai-angle">
-              Góc tiếp cận
-            </label>
-            <select
-              id="ai-angle"
-              className="input max-w-[230px] py-1 text-[12px]"
-              value={aiAngle}
-              onChange={(event) => setAiAngle(event.target.value)}
-              disabled={aiBusy || aiTyping}
-              title="Chọn vấn đề nêu trong thư — để các lần viết không giống nhau"
-            >
-              {FIRST_TOUCH_ANGLES.map((angle) => (
-                <option key={angle.value} value={angle.value}>
-                  {angle.label}
-                </option>
-              ))}
-            </select>
             <span className="text-[11px] text-ink-400" aria-live="polite">
-              {aiNote ?? "Chỉ dùng dữ liệu có trong hồ sơ. Rà lại trước khi gửi."}
+              {aiNote ?? "Thư luôn có Dear <tên>, giới thiệu Vexim và câu cảm ơn. Rà lại trước khi gửi."}
             </span>
           </div>
         )}

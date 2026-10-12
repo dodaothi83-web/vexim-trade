@@ -577,31 +577,56 @@ Chuỗi cần giữ kín được sinh từ hồ sơ NCC (kèm giá tham khảo 
 
 ### AI soạn – người duyệt (nút "AI viết tiếp cận")
 
-Trong trình soạn thư gửi **buyer**, ngay dưới dòng *Tiêu đề* có hàng điều khiển AI:
-nút **AI viết tiếp cận** (đổi thành **Viết lại** sau lần đầu) + ô chọn **góc tiếp cận**
-(thiếu nguồn cung / mùa cao điểm / đa dạng sản phẩm / chất lượng / giá & điều khoản /
-tự chọn). AI đọc đúng phần dữ liệu mà mục **Xem công ty** ở hồ sơ buyer đã thu thập, cộng
-mặt hàng, yêu cầu, nguồn và ghi chú trong hồ sơ, rồi viết thư tiếp cận đầu tiên:
+Trong trình soạn thư gửi **buyer**, ngay dưới dòng *Tiêu đề* có nút **AI viết tiếp cận**
+(đổi thành **Viết lại** sau lần đầu). Không có ô chọn nào cả — AI tự nhận diện hai luồng
+theo đúng dữ liệu đang có:
 
-- **80–120 từ, văn bản thuần** — không link, không ảnh, không định dạng; tiêu đề dưới 8 từ.
-- Mở đầu bằng một chi tiết cụ thể về buyer, nêu đúng vấn đề của họ, kết bằng một câu hỏi ngắn.
-- Chỉ dùng dữ liệu có trong hồ sơ. Ô nào trống thì prompt ghi rõ "(chưa có)" và yêu cầu
-  **không suy đoán thêm**, không bịa số, không bịa chứng nhận, không nêu giá bán.
-- **Thư tiếng Anh** nếu buyer ở ngoài Việt Nam, tiếng Việt nếu ở Việt Nam.
-- Không viết lời chào và chữ ký: phần soạn thư đã tự có "Dear {tên}," + chữ ký cá nhân.
+1. **Buyer trong danh sách Khách hàng mục tiêu, chưa nêu nhu cầu** → bấm nút là AI **tự chạy
+   luôn phần phân tích công ty** (giống hệt nút "Xem công ty" trong hồ sơ đầu mối, có lưu kết
+   quả vào hồ sơ để lần sau dùng lại). Thư **không cần biết lịch sử mua hàng**, chỉ dựa vào
+   **sản phẩm công ty họ đang bán** để suy ra nhu cầu đầu vào, rồi chào **2–3 dòng sản phẩm
+   khớp nhất** — không liệt kê cả danh mục, để buyer thấy mình đã nghiên cứu về họ.
+2. **Buyer đã nêu nhu cầu** (mặt hàng, quy cách, số lượng, điều khoản trong hồ sơ) → AI phân
+   tích ngay nhu cầu đó và trả lời từng điểm, không vòng vo.
 
-Bản nháp hiện vào khung theo kiểu **gõ từng chữ** (mỗi chữ một nhịp, nghỉ lâu hơn sau dấu chấm)
-để người soạn đọc kịp; bấm **"Chèn nốt"** là lấy toàn bộ phần còn lại. Khi đang gõ, khung nội dung
-bị khoá tương tác. Chọn góc khác rồi bấm **Viết lại** để có văn phong khác; nếu khung đang có
-nội dung bạn tự viết, phải bấm nút **hai lần** AI mới ghi đè.
+**Bốn thứ luôn có trong thư** — thiếu là máy chủ tự chèn vào, không phụ thuộc model:
 
-Đây là *AI soạn – người duyệt*: action chỉ dựng prompt và gọi OpenAI, **không ghi DB và không
-tự gửi**; người soạn sửa lại tên, số liệu, chứng nhận, ngày giờ, điều khoản trước khi bấm Gửi.
-Nếu AI chép nhầm tên nhà cung cấp vào thư, bảng "Cảnh báo lộ thông tin" ở trên sẽ đỏ lên như
-với mọi thư khác. Prompt nằm ở `lib/ai/first-touch-draft.ts` (`FIRST_TOUCH_SYSTEM_PROMPT`) —
-đổi giọng thư thì đổi một chỗ đó. Không có `OPENAI_API_KEY` thì nút báo lỗi rõ ràng, không gửi
-thư rỗng. Xem thêm [Kiến trúc xác thực](#kiến-trúc-xác-thực-đọc-trước-khi-review) để biết vì sao
-API key chỉ nằm ở máy chủ.
+- Dòng chào **`Dear <tên người nhận>,`** lấy đúng tên trong hồ sơ; không "Dear Sir/Madam",
+  không đoán Mr/Ms.
+- **Giới thiệu tôi là ai và công ty tôi làm gì** ("I am {tên} from the Export Department at
+  Vexim Trade…"), tên lấy từ tài khoản đang đăng nhập.
+- **Thông tin mua nhanh**: bán gì · lấy từ đâu (vùng nguyên liệu, cảng đi) · điều kiện (MOQ,
+  thời gian sản xuất, bao bì, chứng từ, năng lực). Buyer thương mại quốc tế là người mua
+  chuyên nghiệp, họ đọc 5 giây rồi quyết — đưa số thật, không lời hoa mỹ.
+- **Câu cảm ơn + mong phản hồi** ở cuối, trước khi hệ thống nối chữ ký.
+
+**Tiêu đề** theo quy tắc cứng: tiếng Anh, Title Case hoặc câu thường; không dấu chấm than,
+không emoji, không dấu chấm cuối, dưới 8 từ; **bắt buộc có tên sản phẩm** buyer quan tâm, có
+thêm tên công ty buyer hoặc xuất xứ; cấm `free`, `offer`, `deal`, `best price`, `urgent`,
+`limited`, `opportunity`, `partnership`; không mở đầu bằng `Re:`/`Fwd:`; luân phiên ba dạng
+`[Sản phẩm] for [Công ty]` · `[Sản phẩm] from Vietnam` · `[Sản phẩm], [MOQ]` và **không dùng
+lại dạng của thư trước** (app đọc chủ đề lá thư buyer gần nhất để biết dạng đã dùng). Tiêu đề
+không đạt sẽ được dựng lại từ dữ liệu thật chứ không gửi một câu sai quy tắc.
+
+Định dạng & độ dài: **80–120 từ, văn bản thuần**, không link/ảnh/markdown; mở đầu phần thân
+bằng một chi tiết cụ thể về buyer, nêu đúng vấn đề của họ (thiếu nguồn cung, mùa cao điểm, đa
+dạng sản phẩm, chất lượng…), kết bằng một câu hỏi ngắn; cấm câu sáo rỗng và "hy vọng email này
+tìm thấy bạn". Chỉ dùng dữ liệu có trong hồ sơ — ô trống ghi rõ "(chưa có)" nên model **không
+suy đoán thêm, không bịa số, không bịa chứng nhận, không nêu giá** (giá tham khảo của NCC không
+bao giờ vào prompt). Prompt nằm một chỗ: `lib/ai/first-touch-draft.ts`
+(`FIRST_TOUCH_SYSTEM_PROMPT`). Model: `OPENAI_EMAIL_DRAFT_MODEL` → `OPENAI_COMPANY_RESEARCH_MODEL`
+→ `gpt-4.1-mini`.
+
+**Hiệu ứng gõ từng chữ**: bản nháp hiện vào khung theo nhịp viết của người thật (mỗi chữ một
+nhịp, nghỉ lâu hơn sau dấu chấm), chữ ký nối sau cùng. Bấm **"Chèn nốt"** để lấy toàn bộ phần
+còn lại; đang gõ mà bấm Gửi/Lưu thì phần dở cũng được chèn đủ, không mất chữ. Nếu khung đang
+có nội dung bạn tự viết dở, phải bấm nút **hai lần** AI mới ghi đè.
+
+Đây là *AI soạn – người duyệt*: action **không đổi pipeline, không ghi nội dung thư vào DB,
+không tự gửi** (riêng bản phân tích công ty thì lưu như nút "Xem công ty" vẫn làm); người soạn
+rà tên, số liệu, chứng từ, điều khoản rồi hãy bấm Gửi. AI chép nhầm tên nhà cung cấp vào thư thì
+bảng "Cảnh báo lộ thông tin" ở cột phải đỏ lên như với mọi thư khác. Không có `OPENAI_API_KEY`
+thì nút báo lỗi rõ ràng, không tạo thư rỗng.
 
 ## Nội dung email theo giai đoạn
 

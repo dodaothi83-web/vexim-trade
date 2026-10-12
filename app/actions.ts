@@ -9,8 +9,14 @@ import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/m
 import { deleteObject } from "@/lib/media/storage";
 import { productReadiness } from "@/lib/media/readiness";
 import { generateCompanyIntroduction } from "@/lib/ai/company-introduction";
-import { FIRST_TOUCH_ANGLES } from "@/lib/ai/first-touch-angles";
-import { generateFirstTouchDraft } from "@/lib/ai/first-touch-draft";
+import {
+  generateFirstTouchDraft,
+  productKeywords,
+  subjectFormOf,
+  type FirstTouchMode,
+  type SubjectForm,
+} from "@/lib/ai/first-touch-draft";
+import { COMPANY } from "@/lib/config";
 import { hasPermission } from "@/lib/auth/permissions";
 import {
   resolveSender,
@@ -648,25 +654,136 @@ function signal(label: string, value: string | null | undefined, max = 400): str
   return `${label}: ${raw.length > max ? `${raw.slice(0, max).trimEnd()}…` : raw}`;
 }
 
+function clipText(value: string | null | undefined, max: number): string {
+  const raw = (value ?? "").replace(/\s+/g, " ").trim();
+  if (!raw) return "";
+  return raw.length > max ? `${raw.slice(0, max).trimEnd()}…` : raw;
+}
+
+/** Dòng hàng trong danh mục, chỉ lấy phần được phép nói với buyer (không giá) */
+type OfferLine = {
+  name: string;
+  category?: string | null;
+  spec?: string | null;
+  moq?: string | null;
+  lead_time_days?: number | null;
+  packaging?: string | null;
+  certifications?: string | null;
+  export_port?: string | null;
+  monthly_capacity?: string | null;
+};
+
+/** Điều kiện giao dịch thật của một dòng hàng — KHÔNG lấy giá (giá tham khảo không tự gửi cho buyer) */
+function productTerms(product: OfferLine): string[] {
+  return [
+    product.moq ? `MOQ ${clipText(product.moq, 40)}` : "",
+    product.lead_time_days ? `thời gian sản xuất ${product.lead_time_days} ngày` : "",
+    product.packaging ? `bao bì ${clipText(product.packaging, 60)}` : "",
+    product.certifications ? `chứng từ ${clipText(product.certifications, 60)}` : "",
+    product.export_port ? `cảng đi ${clipText(product.export_port, 40)}` : "",
+    product.monthly_capacity
+      ? `năng lực ${/tháng|\/mo\b/i.test(product.monthly_capacity ?? "") ? clipText(product.monthly_capacity, 40) : `${clipText(product.monthly_capacity, 32)}/tháng`}`
+      : "",
+  ].filter(Boolean);
+}
+
+/**
+ * 2-3 dòng hàng nên chào trong thư. Ưu tiên dòng khớp nhu cầu buyer (từ khoá tiếng Anh
+ * hoặc từ trong tên hàng xuất hiện ở bản phân tích công ty); chưa đủ thì lấy theo thứ tự
+ * danh mục. Chỉ tên hàng + điều kiện, không giá, không tên nhà cung cấp.
+ */
+function pickOfferLines(
+  products: OfferLine[],
+  options: { keywords: string[]; summary: string | null },
+  cap = 3,
+): { names: string[]; terms: string[] } {
+  const summary = (options.summary ?? "").toLowerCase();
+  const ranked = products
+    .filter((product) => clipText(product.name, 10))
+    .map((product, index) => {
+      const hay = `${product.name} ${product.category ?? ""} ${product.spec ?? ""}`.toLowerCase();
+      let score = 0;
+      for (const keyword of options.keywords) {
+        if (keyword.length > 2 && hay.includes(keyword.toLowerCase())) score += 3;
+      }
+      for (const word of String(product.name).toLowerCase().split(/[^\p{L}\p{N}]+/u)) {
+        if (word.length >= 3 && summary.includes(word)) score += 2;
+      }
+      return { product, index, score };
+    })
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+
+  const names: string[] = [];
+  const terms: string[] = [];
+  const seen = new Set<string>();
+  for (const item of ranked) {
+    const name = clipText(item.product.name, 90);
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    names.push(name);
+    terms.push(...productTerms(item.product));
+    if (names.length >= cap) break;
+  }
+  return { names, terms: [...new Set(terms)].slice(0, 6) };
+}
+
+/**
+ * Dạng tiêu đề của lá thư buyer gần nhất cho chính hồ sơ này — dùng để luân phiên
+ * dạng ("[Sản phẩm] for [Công ty]" / "[Sản phẩm] from Vietnam" / "[Sản phẩm], [MOQ]").
+ */
+async function lastBuyerSubjectForm(ids: {
+  buyerId: string | null;
+  prospectId: string | null;
+  email: string | null;
+}): Promise<SubjectForm | null> {
+  const store = getStore();
+  const messages = await Promise.resolve(store.listMessages(200)).catch(() => []);
+  const recent = (messages as {
+    direction: string;
+    status: string;
+    subject: string;
+    created_at: string;
+    buyer_id: string | null;
+    prospect_id?: string | null;
+    to_emails: string[];
+  }[])
+    .filter((m) => m.direction === "buyer" && m.status !== "draft")
+    .filter(
+      (m) =>
+        (ids.buyerId && m.buyer_id === ids.buyerId) ||
+        (ids.prospectId && m.prospect_id === ids.prospectId) ||
+        (ids.email && (m.to_emails ?? []).some((address) => (address ?? "").toLowerCase() === ids.email)),
+    )
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0];
+  return recent ? subjectFormOf(recent.subject) : null;
+}
+
 /**
  * AI viết thư tiếp cận đầu tiên cho buyer, dùng ngay trong trình soạn.
  *
  * Nguyên tắc:
- * - CHỈ đọc hồ sơ để dựng prompt, không ghi gì vào DB — bản nháp là của người soạn,
- *   họ sửa rồi mới gửi (nút "Gửi" vẫn đi qua đủ bước kiểm tra như thư tự viết).
- * - Không tự bịa dữ liệu: ô nào trống thì báo "(chưa có)" cho model, để nó hỏi lại
- *   buyer thay vì đoán.
- * - Tín hiệu "hành vi" lấy từ chính CRM: phần AI "Xem công ty" đã phân tích (lưu trên
- *   đầu mối cùng email/cùng công ty), mặt hàng họ nêu, ghi chú, nguồn hồ sơ.
+ * - Hai luồng tự nhận biết, người soạn không phải chọn: buyer ĐÃ nêu nhu cầu thì phân tích
+ *   nhu cầu; buyer mới ở danh sách "Khách hàng mục tiêu" thì chỉ cần biết công ty họ đang
+ *   bán gì — thiếu dữ liệu là AI tự chạy phần phân tích công ty (như nút "Xem công ty").
+ * - Không tự bịa: ô trống báo "(chưa có)" để model hỏi lại thay vì đoán.
+ * - Không ghi nội dung thư vào DB. Phần phân tích công ty thì có lưu (đúng như nút "Xem
+ *   công ty" vẫn làm) để các lần sau dùng lại và hiện trong hồ sơ.
  * - Không đưa tên/email/giá nhà cung cấp vào prompt; nếu model vẫn viết ra thì bảng
- *   "Kiểm tra bảo mật" ở cột phải sẽ báo đỏ như với mọi thư khác.
+ *   "Kiểm tra bảo mật" ở cột phải báo đỏ như với mọi thư khác.
  */
 export async function generateFirstTouchDraftAction(input: {
   buyerId?: string | null;
   prospectId?: string | null;
   email?: string | null;
-  angle?: string | null;
-}): Promise<ActionResult & { subject?: string; body?: string; words?: number; who?: string }> {
+}): Promise<ActionResult & {
+  subject?: string;
+  body?: string;
+  words?: number;
+  who?: string;
+  analyzed?: boolean;
+  mode?: FirstTouchMode;
+}> {
   const gate = await guard("mail.send");
   if (gate) return gate;
   const session = await getSession();
@@ -711,46 +828,119 @@ export async function generateFirstTouchDraftAction(input: {
       message: "Chưa tìm thấy hồ sơ buyer cho địa chỉ này. Chọn buyer từ danh sách để AI viết đúng.",
     };
   }
-  if (!str(holder.company)) return { ok: false, message: "Hồ sơ chưa có tên công ty để AI viết thư." };
+  if (!str(holder.company) && !str(holder.contact_name)) {
+    return { ok: false, message: "Hồ sơ chưa có tên công ty hay người nhận để AI viết thư." };
+  }
 
-  const signals = [
-    prospect?.ai_company_summary ? signal("Phân tích công ty (nguồn công khai)", prospect.ai_company_summary, 600) : "",
-    buyer ? signal("Mặt hàng họ hỏi", buyer.product) : "",
-    buyer ? signal("Yêu cầu thêm", [buyer.spec, buyer.quantity].filter(Boolean).join(" · ")) : "",
-    buyer ? signal("Thị trường / nước", [buyer.country, buyer.incoterm, buyer.port].filter(Boolean).join(" · ")) : "",
-    buyer ? signal("Họ biết đến chúng ta qua", buyer.source) : "",
-    signal("Ghi chú trong hồ sơ", str(holder.notes) ?? undefined) ,
-    prospect ? signal("Ngành", prospect.industry) : "",
-    prospect ? signal("Mặt hàng dự kiến", prospect.target_product) : "",
-    prospect ? signal("Website công ty", prospect.website) : "",
-    buyer ? signal("Website công ty", buyer.website) : "",
+  // ---- 1. Buyer đã nêu nhu cầu thì phân tích ngay; chưa có thì phải biết họ bán gì ----
+  const statedNeed = Boolean(str(buyer?.product) || str(buyer?.spec) || str(buyer?.quantity));
+  const mode: FirstTouchMode = statedNeed ? "demand" : "target";
+
+  let companySummary = str(prospect?.ai_company_summary);
+  let analyzed = false;
+  const notes: string[] = [];
+
+  if (mode === "target" && !companySummary && prospect) {
+    // Bấm hộ người soạn nút "Xem công ty" — có dữ liệu thật thì thư mới đúng
+    const analysis = await generateProspectCompanyIntroductionAction(prospect.id);
+    companySummary = str(analysis.summary);
+    analyzed = Boolean(analysis.ok && analysis.summary && !analysis.reused);
+    if (!analysis.ok) notes.push(`Chưa phân tích được công ty (${analysis.message}) — thư chỉ dùng dữ liệu đang có.`);
+  } else if (mode === "target" && !companySummary && buyer) {
+    // Buyer thường không có trường lưu bản phân tích -> tra cho lần viết này, không ghi DB
+    try {
+      const result = await generateCompanyIntroduction({
+        company: buyer.company,
+        website: buyer.website ?? null,
+        country: buyer.country ?? null,
+      });
+      companySummary = result.summary;
+      analyzed = true;
+      notes.push("Đã tra cứu công ty từ nguồn công khai (hồ sơ buyer chưa có chỗ lưu nên bản phân tích không được giữ lại).");
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "";
+      notes.push(`Chưa phân tích được công ty${detail ? ` (${detail})` : ""} — thư chỉ dùng dữ liệu đang có.`);
+    }
+  }
+
+  // ---- 2. Dữ liệu cho prompt ----
+  const productInterest =
+    [str(buyer?.product), str(prospect?.target_product)].filter(Boolean).join(" · ") || null;
+  const { names: offerNames, terms: offerTerms } = pickOfferLines(
+    await list(store.listProducts()),
+    { keywords: productKeywords(productInterest), summary: companySummary },
+  );
+
+  const buyerTerms = [
+    signal("Buyer hỏi", buyer?.product),
+    signal("Quy cách", buyer?.spec),
+    signal("Số lượng", buyer?.quantity),
+    signal("Incoterm", buyer?.incoterm),
+    signal("Cảng đến", buyer?.port),
+    signal("Thanh toán", [buyer?.payment_method, buyer?.payment_terms].filter(Boolean).join(" ")),
+    signal("Dự kiến giao hàng", buyer?.expected_ship_date),
   ].filter(Boolean);
 
-  const knownAngle = FIRST_TOUCH_ANGLES.find((a) => a.value === str(input.angle))?.value ?? "auto";
+  const signals = [
+    buyer ? signal("Họ biết đến chúng ta qua", buyer.source) : "",
+    buyer ? signal("Ghi chú trong hồ sơ", buyer.notes) : "",
+    prospect ? signal("Ghi chú trong hồ sơ", prospect.notes) : "",
+    prospect ? signal("Ngành", prospect.industry) : "",
+    prospect ? signal("Người nhận là ai", prospect.contact_title) : "",
+    prospect ? signal("Thành phố", prospect.city) : "",
+    prospect ? signal("Quy mô nhân sự", prospect.employee_range) : "",
+    prospect ? signal("Nguồn dữ liệu hồ sơ", prospect.data_source) : "",
+    signal("Website công ty", str(holder.website)),
+    buyer ? signal("LinkedIn", buyer.linkedin) : "",
+  ].filter(Boolean);
 
+  const avoidSubjectForm = await lastBuyerSubjectForm({
+    buyerId: buyer?.id ?? null,
+    prospectId: prospect?.id ?? null,
+    email: email || str(holder.email) || null,
+  });
+
+  // ---- 3. Viết thư ----
   try {
     const draft = await generateFirstTouchDraft({
       contactName: str(holder.contact_name),
       company: holder.company,
       country: str(holder.country),
-      product: buyer
-        ? [buyer.product, buyer.spec, buyer.quantity].filter(Boolean).join(" · ") || null
-        : prospect?.target_product ?? null,
+      product: productInterest,
+      mode,
+      companySummary,
       signals,
-      angle: knownAngle,
+      us: {
+        senderName: str(session.name) || (await store.getUserByEmail(session.email).catch(() => null))?.name || null,
+        senderRole: "Export Department",
+        company: COMPANY.name,
+        about: COMPANY.tagline,
+        offer: offerNames,
+        terms: [...buyerTerms, ...offerTerms].slice(0, 10),
+      },
+      avoidSubjectForm,
       today: new Date().toISOString().slice(0, 10),
     });
+
     const lengthNote =
       draft.words < 70 || draft.words > 130
         ? ` (${draft.words} từ — lệch mức 80-120 từ, bấm “Viết lại” nếu muốn gọn/đủ ý hơn)`
         : ` (${draft.words} từ)`;
+    const basisNote =
+      mode === "demand"
+        ? "AI phân tích nhu cầu buyer đã nêu trong hồ sơ"
+        : analyzed
+          ? "AI vừa phân tích công ty buyer rồi viết thư"
+          : "AI dùng bản phân tích công ty đã có";
     return {
       ok: true,
-      message: `AI đã viết bản nháp${lengthNote} — rà lại trước khi gửi.`,
+      message: `${basisNote}. Bản nháp ${draft.words ? lengthNote.trim() : ""} — rà lại trước khi gửi.${notes.length ? ` ${notes.join(" ")}` : ""}`,
       subject: draft.subject,
       body: draft.body,
       words: draft.words,
       who: holder.company,
+      analyzed,
+      mode,
     };
   } catch (err) {
     console.error("[first-touch-draft] không tạo được bản nháp:", err);
