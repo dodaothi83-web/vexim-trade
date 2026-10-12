@@ -1,9 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  Bot,
+  CircleStop,
   FileText,
   Loader2,
   Mail,
@@ -17,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 
-import { saveDraftAction, sendMailAction } from "@/app/actions";
+import { generateFirstTouchDraftAction, saveDraftAction, sendMailAction } from "@/app/actions";
 import { saveMySignatureAction } from "@/app/auth-actions";
 import type { AttachmentRef, Buyer, ProspectOutreachTemplate, Supplier } from "@/lib/types";
 import {
@@ -31,6 +33,7 @@ import { ProductFilePicker, type ProductFileGroup } from "@/components/product-f
 import { Button, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { PROSPECT_OUTREACH_TEMPLATES } from "@/lib/prospects/outreach-templates";
+import { FIRST_TOUCH_ANGLES } from "@/lib/ai/first-touch-angles";
 
 export interface Contact {
   id: string;
@@ -129,12 +132,28 @@ export function ComposeMail({
   const [busy, setBusy] = useState(false);
   const [toInput, setToInput] = useState("");
 
+  // ---- AI viết email tiếp cận đầu tiên (chỉ chiều buyer) ----
+  const [aiAngle, setAiAngle] = useState("auto");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiTyping, setAiTyping] = useState(false);
+  const [aiHasDraft, setAiHasDraft] = useState(false);
+  const [aiNote, setAiNote] = useState<string | null>(null);
+  /** Bấm lần hai khi khung đang có nội dung mới ghi đè — khỏi mất bài người soạn viết dở */
+  const [aiOverwriteArmed, setAiOverwriteArmed] = useState(false);
+  const typing = useRef<{ timer: number | null; finish: (() => void) | null }>({ timer: null, finish: null });
+  /** Bản nháp AI vừa chèn — người soạn chưa sửa gì thì bấm "Viết lại" không cần xác nhận ghi đè */
+  const aiBodyRef = useRef<string | null>(null);
+
   // Chữ ký cá nhân kiểu Gmail/Zoho: sửa & lưu từ hộp thoại, áp dụng cho thư soạn mới
   const [mySig, setMySig] = useState(signature);
   const [sigCustom, setSigCustom] = useState(Boolean(signatureCustom));
   const [sigOpen, setSigOpen] = useState(false);
   const [sigDraft, setSigDraft] = useState("");
   const [sigBusy, setSigBusy] = useState(false);
+
+  useEffect(() => () => {
+    if (typing.current.timer) window.clearTimeout(typing.current.timer);
+  }, []);
 
   const supplierEmails = new Set(
     contacts.filter((c) => c.kind === "supplier").map((c) => (c.email ?? "").toLowerCase()),
@@ -298,7 +317,130 @@ export function ComposeMail({
     };
   }
 
+  /** Văn bản thuần -> <p>…</p>, cùng cách escape mà mẫu tiếp cận đang dùng */
+  function plainToParagraphs(text: string): string {
+    return text
+      .split(/\n{2,}/)
+      .map((block) => block.trim())
+      .filter(Boolean)
+      .map((block) => `<p>${escapeTemplateHtml(block).replace(/\n/g, "<br/>")}</p>`)
+      .join("");
+  }
+
+  function stopTyping() {
+    if (typing.current.timer) window.clearTimeout(typing.current.timer);
+    typing.current.timer = null;
+    setAiTyping(false);
+  }
+
+  /**
+   * Gõ dần bản nháp vào khung nội dung cho giống người thật đang viết (mỗi chữ một
+   * nhịp, nghỉ lâu hơn sau dấu chấm), chữ ký nối vào sau cùng.
+   * "Dừng lại" = chèn ngay phần còn lại, không mất chữ nào.
+   */
+  function typeIntoEditor(text: string) {
+    const flat: { p: number; word: string }[] = [];
+    text
+      .split(/\n{2,}/)
+      .map((block) => block.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .forEach((block, pIndex) => {
+        block.split(" ").forEach((word) => flat.push({ p: pIndex, word: escapeTemplateHtml(word) }));
+      });
+    const finalBody = `${plainToParagraphs(text)}${mySig ? `<p><br/></p>${mySig}` : ""}`;
+    const finish = () => {
+      stopTyping();
+      typing.current.finish = null;
+      aiBodyRef.current = finalBody;
+      setBody(finalBody);
+    };
+    typing.current.finish = finish;
+
+    const htmlUpTo = (count: number) => {
+      const out: string[] = [];
+      let paragraph = -1;
+      for (let i = 0; i < count; i += 1) {
+        const item = flat[i];
+        if (item.p !== paragraph) {
+          if (out.length) out.push("</p>");
+          out.push("<p>");
+          paragraph = item.p;
+        } else if (i > 0) {
+          out.push(" ");
+        }
+        out.push(item.word);
+      }
+      if (out.length) out.push("</p>");
+      return out.join("");
+    };
+
+    let i = 0;
+    setAiTyping(true);
+    const step = () => {
+      const current = flat[i];
+      i += 1;
+      setBody(htmlUpTo(i));
+      if (i >= flat.length) {
+        finish();
+        return;
+      }
+      const pause = /[.!?…:]$/.test(current.word.replace(/<[^>]*>/g, "")) ? 160 : 16 + Math.random() * 28;
+      typing.current.timer = window.setTimeout(step, pause);
+    };
+    typing.current.timer = window.setTimeout(step, 80);
+  }
+
+  /** Bỏ chữ ký + lời chào ra khỏi nội dung để biết người soạn đã tự viết gì chưa */
+  function hasOwnDraft(html: string): boolean {
+    const text = html
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const sig = (mySig ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const stripped = sig && text.endsWith(sig) ? text.slice(0, -sig.length).trim() : text;
+    return stripped.replace(/^(?:dear|kính gửi|chào)\b[^.]{0,60}$/i, "").trim().length > 40;
+  }
+
+  async function askAi() {
+    if (aiBusy || aiTyping) return;
+    const untouchedByHuman = aiBodyRef.current !== null && body === aiBodyRef.current;
+    const overwriteNeeded = !untouchedByHuman && hasOwnDraft(body) && !aiOverwriteArmed;
+    if (overwriteNeeded) {
+      setAiOverwriteArmed(true);
+      setAiNote("Khung đang có nội dung bạn viết dở — bấm lại lần nữa để AI ghi đè.");
+      return;
+    }
+    setAiOverwriteArmed(false);
+    aiBodyRef.current = null;
+    setAiBusy(true);
+    setAiNote(null);
+    try {
+      const res = await generateFirstTouchDraftAction({
+        buyerId: initial.buyerId ?? (activeContext?.kind === "buyer" ? activeContext.id : null),
+        prospectId: initial.prospectId ?? null,
+        email: to[0] ?? null,
+        angle: aiAngle,
+      });
+      setAiBusy(false);
+      if (!res.ok || !res.body) {
+        toast.push({ kind: "error", title: res.message });
+        setAiNote(res.message);
+        return;
+      }
+      setSubject(res.subject ?? "");
+      setAiHasDraft(true);
+      setAiNote(res.message);
+      typeIntoEditor(res.body);
+    } catch {
+      setAiBusy(false);
+      setAiNote("Không gọi được AI — kiểm tra OPENAI_API_KEY ở máy chủ rồi thử lại.");
+      toast.push({ kind: "error", title: "Không kết nối được với dịch vụ AI." });
+    }
+  }
+
   async function send() {
+    if (typing.current.finish) typing.current.finish();
     if (uploading > 0) {
       toast.push({ kind: "error", title: "Đang tải tệp lên, vui lòng chờ một chút." });
       return;
@@ -445,6 +587,57 @@ export function ComposeMail({
           </div>
         </div>
 
+        {/* ---- AI viết email tiếp cận đầu tiên ----
+             Chỉ bật ở chiều buyer: đây là thư tiếp cận bằng tiếng Anh dựa trên hồ sơ.
+             AI không tự gửi và không ghi gì vào DB — bản nháp hiện vào khung, người soạn
+             sửa tuỳ ý rồi hãy bấm Gửi (vẫn qua đủ bước kiểm tra tệp + bảo mật như thư thường). */}
+        {isBuyerDir && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-ink-200 bg-ink-50/60 px-3 py-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (aiTyping) {
+                  typing.current.finish?.();
+                  return;
+                }
+                void askAi();
+              }}
+              disabled={aiBusy}
+              className="btn btn-ghost px-2.5 text-[12px]"
+              title="AI đọc hồ sơ buyer (mặt hàng, quốc gia, tín hiệu đã phân tích) rồi viết bản nháp 80-120 từ"
+            >
+              {aiTyping ? (
+                <CircleStop className="h-4 w-4" />
+              ) : aiBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Bot className="h-4 w-4" />
+              )}
+              {aiBusy ? "AI đang viết…" : aiTyping ? "Chèn nốt" : aiHasDraft ? "Viết lại" : "AI viết tiếp cận"}
+            </button>
+            <label className="sr-only" htmlFor="ai-angle">
+              Góc tiếp cận
+            </label>
+            <select
+              id="ai-angle"
+              className="input max-w-[230px] py-1 text-[12px]"
+              value={aiAngle}
+              onChange={(event) => setAiAngle(event.target.value)}
+              disabled={aiBusy || aiTyping}
+              title="Chọn vấn đề nêu trong thư — để các lần viết không giống nhau"
+            >
+              {FIRST_TOUCH_ANGLES.map((angle) => (
+                <option key={angle.value} value={angle.value}>
+                  {angle.label}
+                </option>
+              ))}
+            </select>
+            <span className="text-[11px] text-ink-400" aria-live="polite">
+              {aiNote ?? "Chỉ dùng dữ liệu có trong hồ sơ. Rà lại trước khi gửi."}
+            </span>
+          </div>
+        )}
+
         {initial.prospectId && (
           <div className="flex flex-wrap items-center gap-3 border-t border-ink-200 bg-ink-50/60 px-3 py-2.5">
             <label className="text-[12px] font-semibold text-ink-600" htmlFor="prospect-outreach-template">Mẫu tiếp cận</label>
@@ -461,14 +654,22 @@ export function ComposeMail({
           </div>
         )}
 
-        {/* Nội dung */}
+        {/* Nội dung. Khi AI đang gõ thì khoá tương tác để không xung đột với từng nhịp chèn chữ */}
         <div className="border-t border-ink-200 p-3">
-          <RichEditor
-            value={body}
-            onChange={setBody}
-            placeholder="Viết nội dung email…"
-            minHeight={320}
-          />
+          <div className={aiTyping ? "pointer-events-none select-none" : undefined} aria-busy={aiTyping}>
+            <RichEditor
+              value={body}
+              onChange={setBody}
+              placeholder="Viết nội dung email…"
+              minHeight={320}
+            />
+          </div>
+          {aiTyping && (
+            <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-brand-700">
+              <Bot className="h-3.5 w-3.5 shrink-0" />
+              AI đang gõ… bấm “Chèn nốt” để lấy toàn bộ phần còn lại ngay.
+            </p>
+          )}
         </div>
 
         {/* Đính kèm */}

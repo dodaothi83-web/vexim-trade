@@ -575,6 +575,34 @@ quy tắc bảo mật 2 chiều, kèm đúng chuỗi bị trùng:
 Chuỗi cần giữ kín được sinh từ hồ sơ NCC (kèm giá tham khảo của từng sản phẩm) và hồ sơ buyer
 — xem `lib/email/privacy.ts`.
 
+### AI soạn – người duyệt (nút "AI viết tiếp cận")
+
+Trong trình soạn thư gửi **buyer**, ngay dưới dòng *Tiêu đề* có hàng điều khiển AI:
+nút **AI viết tiếp cận** (đổi thành **Viết lại** sau lần đầu) + ô chọn **góc tiếp cận**
+(thiếu nguồn cung / mùa cao điểm / đa dạng sản phẩm / chất lượng / giá & điều khoản /
+tự chọn). AI đọc đúng phần dữ liệu mà mục **Xem công ty** ở hồ sơ buyer đã thu thập, cộng
+mặt hàng, yêu cầu, nguồn và ghi chú trong hồ sơ, rồi viết thư tiếp cận đầu tiên:
+
+- **80–120 từ, văn bản thuần** — không link, không ảnh, không định dạng; tiêu đề dưới 8 từ.
+- Mở đầu bằng một chi tiết cụ thể về buyer, nêu đúng vấn đề của họ, kết bằng một câu hỏi ngắn.
+- Chỉ dùng dữ liệu có trong hồ sơ. Ô nào trống thì prompt ghi rõ "(chưa có)" và yêu cầu
+  **không suy đoán thêm**, không bịa số, không bịa chứng nhận, không nêu giá bán.
+- **Thư tiếng Anh** nếu buyer ở ngoài Việt Nam, tiếng Việt nếu ở Việt Nam.
+- Không viết lời chào và chữ ký: phần soạn thư đã tự có "Dear {tên}," + chữ ký cá nhân.
+
+Bản nháp hiện vào khung theo kiểu **gõ từng chữ** (mỗi chữ một nhịp, nghỉ lâu hơn sau dấu chấm)
+để người soạn đọc kịp; bấm **"Chèn nốt"** là lấy toàn bộ phần còn lại. Khi đang gõ, khung nội dung
+bị khoá tương tác. Chọn góc khác rồi bấm **Viết lại** để có văn phong khác; nếu khung đang có
+nội dung bạn tự viết, phải bấm nút **hai lần** AI mới ghi đè.
+
+Đây là *AI soạn – người duyệt*: action chỉ dựng prompt và gọi OpenAI, **không ghi DB và không
+tự gửi**; người soạn sửa lại tên, số liệu, chứng nhận, ngày giờ, điều khoản trước khi bấm Gửi.
+Nếu AI chép nhầm tên nhà cung cấp vào thư, bảng "Cảnh báo lộ thông tin" ở trên sẽ đỏ lên như
+với mọi thư khác. Prompt nằm ở `lib/ai/first-touch-draft.ts` (`FIRST_TOUCH_SYSTEM_PROMPT`) —
+đổi giọng thư thì đổi một chỗ đó. Không có `OPENAI_API_KEY` thì nút báo lỗi rõ ràng, không gửi
+thư rỗng. Xem thêm [Kiến trúc xác thực](#kiến-trúc-xác-thực-đọc-trước-khi-review) để biết vì sao
+API key chỉ nằm ở máy chủ.
+
 ## Nội dung email theo giai đoạn
 
 Trang **Nội dung email** liệt kê đầy đủ 8 giai đoạn × 2 người nhận, kèm bản xem trước email

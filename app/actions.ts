@@ -9,6 +9,9 @@ import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/m
 import { deleteObject } from "@/lib/media/storage";
 import { productReadiness } from "@/lib/media/readiness";
 import { generateCompanyIntroduction } from "@/lib/ai/company-introduction";
+import { FIRST_TOUCH_ANGLES } from "@/lib/ai/first-touch-angles";
+import { generateFirstTouchDraft } from "@/lib/ai/first-touch-draft";
+import { hasPermission } from "@/lib/auth/permissions";
 import {
   resolveSender,
   saveDraft,
@@ -22,6 +25,7 @@ import { notifyRecipients } from "@/lib/mail/inbound";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import type {
   Buyer,
+  Prospect,
   BuyerInput,
   ProspectInput,
   ProspectActivityChannel,
@@ -632,6 +636,126 @@ export async function generateProspectCompanyIntroductionAction(
       return { ok: false, message: "Chưa cập nhật cấu trúc dữ liệu. Hãy chạy migration 20261008_prospect_company_ai.sql trong Supabase." };
     }
     return { ok: false, message: detail || "Không phân tích được công ty lúc này." };
+  }
+}
+
+/* ---------------- AI: VIẾT EMAIL TIẾP CẬN ĐẦU TIÊN ---------------- */
+
+/** Ghép một dòng tín hiệu cho prompt, bỏ khi dữ liệu trống */
+function signal(label: string, value: string | null | undefined, max = 400): string {
+  const raw = (value ?? "").replace(/\s+/g, " ").trim();
+  if (!raw) return "";
+  return `${label}: ${raw.length > max ? `${raw.slice(0, max).trimEnd()}…` : raw}`;
+}
+
+/**
+ * AI viết thư tiếp cận đầu tiên cho buyer, dùng ngay trong trình soạn.
+ *
+ * Nguyên tắc:
+ * - CHỈ đọc hồ sơ để dựng prompt, không ghi gì vào DB — bản nháp là của người soạn,
+ *   họ sửa rồi mới gửi (nút "Gửi" vẫn đi qua đủ bước kiểm tra như thư tự viết).
+ * - Không tự bịa dữ liệu: ô nào trống thì báo "(chưa có)" cho model, để nó hỏi lại
+ *   buyer thay vì đoán.
+ * - Tín hiệu "hành vi" lấy từ chính CRM: phần AI "Xem công ty" đã phân tích (lưu trên
+ *   đầu mối cùng email/cùng công ty), mặt hàng họ nêu, ghi chú, nguồn hồ sơ.
+ * - Không đưa tên/email/giá nhà cung cấp vào prompt; nếu model vẫn viết ra thì bảng
+ *   "Kiểm tra bảo mật" ở cột phải sẽ báo đỏ như với mọi thư khác.
+ */
+export async function generateFirstTouchDraftAction(input: {
+  buyerId?: string | null;
+  prospectId?: string | null;
+  email?: string | null;
+  angle?: string | null;
+}): Promise<ActionResult & { subject?: string; body?: string; words?: number; who?: string }> {
+  const gate = await guard("mail.send");
+  if (gate) return gate;
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
+  }
+
+  const store = getStore();
+  const canSeeProspects = hasPermission(session.role, "prospects.manage");
+  const email = (str(input.email) ?? "").toLowerCase();
+  const list = <T,>(promise: Promise<T[]>): Promise<T[]> => promise.catch(() => [] as T[]);
+
+  let buyer = input.buyerId ? await store.getBuyer(input.buyerId).catch(() => null) : null;
+  let prospect = input.prospectId ? await store.getProspect(input.prospectId).catch(() => null) : null;
+
+  // Soạn tự do (gõ địa chỉ nhận): khớp hồ sơ theo email
+  if ((!buyer || !prospect) && EMAIL_RE.test(email)) {
+    const [buyers, prospects] = await Promise.all([
+      buyer ? Promise.resolve([] as Buyer[]) : list(store.listBuyers()),
+      prospect || !canSeeProspects ? Promise.resolve([] as Prospect[]) : list(store.listProspects()),
+    ]);
+    if (!buyer) buyer = buyers.find((b) => (b.email ?? "").trim().toLowerCase() === email) ?? null;
+    if (!prospect) prospect = prospects.find((pr) => (pr.email ?? "").trim().toLowerCase() === email) ?? null;
+  }
+
+  // Buyer từng là đầu mối thì phần "Xem công ty" nằm ở hồ sơ đầu mối
+  if (buyer && !prospect && canSeeProspects) {
+    const buyerEmail = (buyer.email ?? "").trim().toLowerCase();
+    const buyerCompany = (buyer.company ?? "").trim().toLowerCase();
+    prospect =
+      (await list(store.listProspects())).find(
+        (pr) =>
+          (buyerEmail && (pr.email ?? "").trim().toLowerCase() === buyerEmail) ||
+          (buyerCompany && (pr.company ?? "").trim().toLowerCase() === buyerCompany),
+      ) ?? null;
+  }
+
+  const holder = buyer ?? prospect;
+  if (!holder) {
+    return {
+      ok: false,
+      message: "Chưa tìm thấy hồ sơ buyer cho địa chỉ này. Chọn buyer từ danh sách để AI viết đúng.",
+    };
+  }
+  if (!str(holder.company)) return { ok: false, message: "Hồ sơ chưa có tên công ty để AI viết thư." };
+
+  const signals = [
+    prospect?.ai_company_summary ? signal("Phân tích công ty (nguồn công khai)", prospect.ai_company_summary, 600) : "",
+    buyer ? signal("Mặt hàng họ hỏi", buyer.product) : "",
+    buyer ? signal("Yêu cầu thêm", [buyer.spec, buyer.quantity].filter(Boolean).join(" · ")) : "",
+    buyer ? signal("Thị trường / nước", [buyer.country, buyer.incoterm, buyer.port].filter(Boolean).join(" · ")) : "",
+    buyer ? signal("Họ biết đến chúng ta qua", buyer.source) : "",
+    signal("Ghi chú trong hồ sơ", str(holder.notes) ?? undefined) ,
+    prospect ? signal("Ngành", prospect.industry) : "",
+    prospect ? signal("Mặt hàng dự kiến", prospect.target_product) : "",
+    prospect ? signal("Website công ty", prospect.website) : "",
+    buyer ? signal("Website công ty", buyer.website) : "",
+  ].filter(Boolean);
+
+  const knownAngle = FIRST_TOUCH_ANGLES.find((a) => a.value === str(input.angle))?.value ?? "auto";
+
+  try {
+    const draft = await generateFirstTouchDraft({
+      contactName: str(holder.contact_name),
+      company: holder.company,
+      country: str(holder.country),
+      product: buyer
+        ? [buyer.product, buyer.spec, buyer.quantity].filter(Boolean).join(" · ") || null
+        : prospect?.target_product ?? null,
+      signals,
+      angle: knownAngle,
+      today: new Date().toISOString().slice(0, 10),
+    });
+    const lengthNote =
+      draft.words < 70 || draft.words > 130
+        ? ` (${draft.words} từ — lệch mức 80-120 từ, bấm “Viết lại” nếu muốn gọn/đủ ý hơn)`
+        : ` (${draft.words} từ)`;
+    return {
+      ok: true,
+      message: `AI đã viết bản nháp${lengthNote} — rà lại trước khi gửi.`,
+      subject: draft.subject,
+      body: draft.body,
+      words: draft.words,
+      who: holder.company,
+    };
+  } catch (err) {
+    console.error("[first-touch-draft] không tạo được bản nháp:", err);
+    const detail = err instanceof Error ? err.message : "";
+    return { ok: false, message: detail || "AI không viết được thư lúc này. Hãy thử lại." };
   }
 }
 
