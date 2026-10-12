@@ -546,6 +546,44 @@ placeholder `{product}` `{quantity}` `{spec}` `{country}` `{port}` `{incoterm}` 
 Mỗi email gửi NCC luôn có khối **“VIỆC CẦN LÀM”** dạng checklist kèm **thời hạn phản hồi**
 riêng cho từng giai đoạn (ví dụ giai đoạn *Đang sản xuất* → “Cập nhật trước 16h thứ Sáu hằng tuần”).
 
+## Trang đích /cashew (chạy quảng cáo Google cho thị trường Mỹ)
+
+Trang bán hàng riêng cho hạt điều, tách khỏi trang chủ để đo lường quảng cáo chính xác. Một việc duy nhất:
+buyer Mỹ gửi brief hạt điều. Nội dung giữ đúng chuẩn minh bạch của trang chủ (Stated / Verified / Open).
+
+| File | Vai trò |
+|------|---------|
+| `app/cashew/page.tsx` | Server component: metadata (title, meta description, canonical, Open Graph), JSON-LD (BreadcrumbList + FAQPage), đọc `utm_*`/`gclid` từ query, kiểm tra ảnh nào đã có file |
+| `lib/cashew-content.ts` | Toàn bộ nội dung + ảnh + dữ liệu nhà sản xuất (`PRODUCER_DATA`) — sửa nội dung ở đây, không sửa trong component |
+| `components/cashew-landing.tsx` | 11 khối của trang + form + nút CTA cố định trên mobile |
+| `public/cashew/` | Ảnh WebP của trang + `README.md` hướng dẫn chụp (danh sách 6 ảnh, alt text, dung lượng) |
+
+**Điền dữ liệu nhà sản xuất.** Chín mục trong brief để dạng `[ngoặc vuông]` — KHÔNG tự đoán. Chúng nằm trong
+`PRODUCER_DATA`. Khi giá trị còn là `"Confirmed per producer..."`, `isPending()` nhận ra và trang tự gắn nhãn
+`Open ·` (màu hổ phách, có chữ, không chỉ dựa vào màu) — trang chạy được ngay mà không nói quá. Điền xong thì
+nhãn biến mất và nội dung vào bảng/FAQ ngay.
+
+**Form.** Dùng lại `submitQuoteLeadAction` (chỉ bắt buộc Company / Email / What you are sourcing; Incoterm,
+Payment method và mọi ô khác để trống được). Lead từ trang này vào CRM với `source = Website veximtrade.com/cashew`
+và dòng `Campaign: utm_source=... utm_campaign=... gclid=...` trong notes, nên phòng sale biết lead đến từ nhóm
+quảng cáo nào. Bắn sự kiện `generate_lead` sang GA4 sau khi gửi; đặt `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID`
+(dạng `AW-…/…`) nếu muốn bắn thẳng chuyển đổi Google Ads.
+
+**Trước khi bật quảng cáo:**
+1. Up đủ 6 ảnh WebP `< 200 KB` vào `public/cashew/` (placeholder sẽ tự biến mất) — không dùng ảnh AI, ảnh stock
+   sai loại, ảnh bắt tay.
+2. Đối chiếu lại số liệu 80% / 186,600 tấn với bản gốc của Bộ NN&MT, VFA (trang đang ghi nguồn theo snippet,
+   chưa soát bản gốc) và kiểm tra thuế quan/labelling hiện hành với lô hạt điều đi Mỹ.
+3. Google Ads: URL đích `https://www.veximtrade.com/cashew`, đường dẫn hiển thị `cashew/quote`, mỗi nhóm quảng cáo
+   một `utm_content` riêng (trang ghi lại theo lead).
+4. Sau 3–4 tuần, thêm negative keywords vào nhóm: `recipe`, `restaurant`, `near me`, `jobs`, `pho`, `grocery`,
+   `delivery`, `retail`, `review`.
+5. Chạy PageSpeed bản mobile (mục tiêu < 3 giây) và thử thật trên một máy iPhone + một máy Android.
+
+**Cố ý không đưa lên trang:** tên buyer và lô hàng lấy từ dữ liệu hải quan (Star Snacks, ImportYeti chỉ để nghiên
+cứu nội bộ), giá thị trường, thị phần của Mỹ, cam kết thuế quan, và các từ `certified` / `guaranteed` /
+`best price` / `FDA-compliant` khi chưa có tài liệu.
+
 ## Cấu trúc thư mục
 
 ```

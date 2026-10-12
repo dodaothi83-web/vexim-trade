@@ -1605,6 +1605,10 @@ export async function submitQuoteLeadAction(input: {
   payment_method?: string;
   lead_time?: string;
   message: string;
+  /** Trang gửi form: "cashew" = trang /cashew, để trống = trang chủ. CRM dùng để tách nguồn. */
+  landing?: string;
+  /** Chuỗi utm_ / gclid của lượt truy cập — lưu vào hồ sơ để đo quảng cáo theo nhóm. */
+  attribution?: string | null;
   company_website: string;
 }): Promise<ActionResult> {
   const thanks =
@@ -1641,7 +1645,17 @@ export async function submitQuoteLeadAction(input: {
       input.payment_method?.trim() ? `Thanh toán: ${input.payment_method.trim()}` : "",
       input.lead_time?.trim() ? `Thời gian cần: ${input.lead_time.trim()}` : "",
     ].filter(Boolean);
-    const requestText = [...requestLines, input.message.trim()].join("\n");
+    // Trang /cashew chạy quảng cáo riêng: giữ utm_* và đánh dấu nguồn lead để đối chiếu chi phí
+    // quảng cáo với hồ sơ thật, và để phòng sale biết lead đến từ trang nào.
+    const leadSource =
+      input.landing === "cashew" ? "Website veximtrade.com/cashew" : "Website veximtrade.com";
+    const campaign = input.attribution?.replace(/[\r\n]+/g, " ").trim().slice(0, 240) ?? "";
+    const requestText = [
+      [...requestLines, input.message.trim()].filter(Boolean).join("\n"),
+      campaign ? `Campaign: ${campaign}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     if (existing) {
       // Buyer đã có: không bỏ qua yêu cầu mới, ghi thêm vào hồ sơ để người phụ trách thấy
@@ -1673,13 +1687,13 @@ export async function submitQuoteLeadAction(input: {
         hide_buyer_from_supplier: true,
         stage: "lead",
         owner: null,
-        source: "Website veximtrade.com",
+        source: leadSource,
         priority: "normal",
         next_action: "Reply to website enquiry",
         next_action_date: null,
-        notes: `Website enquiry ${new Date().toISOString().slice(0, 10)}:\n${
-          input.lead_time?.trim() ? `Lead time required: ${input.lead_time.trim()}\n` : ""
-        }${input.message.trim()}`,
+        // requestText đã gồm sản phẩm/số lượng/Incoterm/thanh toán/thời gian +Campaign,
+        // không cần ghép riêng ô lead_time như trước.
+        notes: `Website enquiry ${new Date().toISOString().slice(0, 10)}:\n${requestText}`,
       });
     }
 
@@ -1694,7 +1708,9 @@ export async function submitQuoteLeadAction(input: {
           `<p><strong>${escapeHtml(title)}</strong></p>` +
           `<p>Người gửi: ${escapeHtml(input.name.trim() || "—")} &lt;${escapeHtml(email)}&gt;<br/>` +
           `Công ty: ${escapeHtml(input.company.trim())}<br/>` +
-          `Quốc gia: ${escapeHtml(input.country.trim() || "—")}</p>` +
+          `Quốc gia: ${escapeHtml(input.country.trim() || "—")}<br/>` +
+          `Trang nguồn: ${escapeHtml(leadSource)}` +
+          `${campaign ? `<br/>Campaign: ${escapeHtml(campaign)}` : ""}</p>` +
           `<p>${requestLines.map((l) => escapeHtml(l)).join("<br/>")}</p>` +
           `<p>${escapeHtml(input.message.trim()).replace(/\n/g, "<br/>")}</p>` +
           `<p>Vào CRM &rarr; Buyer để xử lý.</p>`;
