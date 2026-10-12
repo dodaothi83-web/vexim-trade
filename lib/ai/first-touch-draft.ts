@@ -31,8 +31,10 @@ export type FirstTouchUs = {
   about: string | null;
   /** 2-3 dòng sản phẩm chính nên chào trong thư này */
   offer: string[];
-  /** Điều kiện giao dịch THẬT đã biết: MOQ, lead time, cảng, bao bì, chứng chỉ... */
+  /** Điều kiện theo TỪNG dòng hàng, dạng "Gạo ST25 — MOQ 5 MT, 18 ngày, cảng Cát Lái" */
   terms: string[];
+  /** Đúng những gì buyer để lại (chế độ nhu cầu) — chỉ để nhắc lại, không suy rộng */
+  statedRequirement?: string[];
 };
 
 /** Dữ liệu đưa vào prompt. Mọi ô trống được ghi rõ "(chưa có)" để model không tự bịa. */
@@ -65,18 +67,22 @@ Dữ liệu buyer và dữ liệu bên mình được cho ở phần tiếp theo
 Cấu trúc bắt buộc của thân thư, mỗi khối cách nhau đúng một dòng trống:
 1. Dòng chào: "Dear <tên người nhận>," — lấy đúng tên trong hồ sơ; không "Dear Sir or Madam", không đoán Mr/Ms hay giới tính.
 2. Một câu giới thiệu: tôi là ai (tên, bộ phận) và công ty tôi làm gì.
-3. Phần phân tích buyer — viết theo đúng "Chế độ viết" đã nêu:
-   - nhu cầu đã rõ: nói thẳng ta hiểu yêu cầu của họ thế nào (mặt hàng, quy cách, số lượng, điều kiện) và ta đáp ứng được điểm nào;
-   - khách hàng mục tiêu chưa nêu nhu cầu: chỉ dựa vào sản phẩm họ ĐANG BÁN để suy ra nhu cầu đầu vào, rồi chào 2-3 dòng sản phẩm khớp nhất; không liệt kê hết catalogue; không kể chuyện lịch sử mua bán.
-4. Thông tin để buyer mua nhanh: ta bán gì, lấy từ đâu (vùng trồng / cảng), điều kiện (MOQ, thời gian giao hàng, Incoterm, thanh toán, chứng chỉ). Buyer ngành thương mại quốc tế là người mua chuyên nghiệp, họ đọc 5 giây rồi quyết — đưa số thật, không vòng vo.
-5. Một câu hỏi ngắn, dễ trả lời.
+3. Lý do viết cho đúng công ty này — CHỈ dựa vào khối "Giới thiệu công ty họ": nêu một chi tiết cụ thể về việc họ đang làm (bán/sản xuất gì, ở đâu, quy mô) rồi nối sang việc ta giúp được gì. Khối đó ghi "(chưa có)" thì viết trung tính và hỏi — không bịa, và tuyệt đối không suy ra ngành của họ từ khối "Mặt hàng ta định chào".
+4. Phần trả lời nhu cầu — CHỈ ở chế độ "nhu cầu đã nêu": nhắc lại đúng yêu cầu họ để lại (mặt hàng, quy cách, số lượng, cảng, điều khoản) và nói ta đáp ứng điểm nào. Số liệu lấy đúng dòng hàng tương ứng trong khối "Bên mình", không lấy số của dòng khác gán cho dòng này.
+5. Một câu hỏi ngắn, dễ trả lời. Ở chế độ "khách hàng mục tiêu" thì đây là câu hỏi mở để lấy nhu cầu: mặt hàng, quy cách, khối lượng, thời điểm.
 6. Một câu cảm ơn và mong phản hồi.
+
+Luật cứng về số liệu và về self-own goal:
+- "Khách hàng mục tiêu" là THƯ CHÀO LẠNH, ta chưa biết họ cần gì: KHÔNG nêu MOQ, giá, năng lực sản xuất, thời gian giao hàng, chứng từ, bao bì. Chỉ nói ta là ai, ta làm gì, ta có những dòng hàng nào (tên thôi) — rồi hỏi.
+- Chỉ chế độ "nhu cầu đã nêu" mới được đưa số, và số phải có trong dữ liệu.
+- Không bao giờ viết "không có chứng từ/chứng chỉ", "chưa có X", "năng lực còn nhỏ" hay bất kỳ câu tự hạ mình nào. Không có dữ liệu thì im, đừng thanh minh.
+- Buyer thương mại quốc tế đọc 5 giây rồi quyết: câu ngắn, thẳng, không vòng vo, không hoa mỹ.
 
 Yêu cầu:
 - 80-120 từ cho cả thân thư (tính cả dòng chào và câu cảm ơn); văn bản thuần, không link, không ảnh, không định dạng, không markdown.
 - Tên sản phẩm viết bằng ngôn ngữ của thư: tên tiếng Việt trong dữ liệu thì dịch sang tiếng Anh (giữ nguyên mã chuẩn, vd "W320", "5% broken").
 - Mở đầu phần 3 bằng một chi tiết cụ thể về buyer, không khen chung chung.
-- Nêu đúng vấn đề liên quan trực tiếp đến họ như thiếu nguồn cung, bước vào mùa cao điểm, đa dạng sản phẩm, chất lượng không đảm bảo, v.v.
+- Nêu vấn đề liên quan trực tiếp đến họ (thiếu nguồn cung, mùa cao điểm, đa dạng sản phẩm, chất lượng không đồng đều...) CHỈ khi suy ra được từ "Giới thiệu công ty họ"; không có bằng chứng thì đừng bịa vấn đề.
 - Không dùng các câu sáo rỗng, không dùng "hy vọng email này tìm thấy bạn" (và bản tiếng Anh tương đương).
 - Thay đổi cách mở đầu và cấu trúc giữa các thư.
 
@@ -447,18 +453,21 @@ export function buildFirstTouchUserPrompt(data: FirstTouchData): string {
   const signals = listOf(data.signals);
   const offer = listOf(data.us.offer, 120);
   const terms = listOf(data.us.terms, 160);
+  const stated = listOf(data.us.statedRequirement ?? [], 200);
   const country = clean(data.country, 60);
   const avoid = data.avoidSubjectForm ?? null;
 
   return [
     "Chế độ viết: " +
       (data.mode === "demand"
-        ? "buyer ĐÃ nêu nhu cầu — phân tích ngay nhu cầu đó (mặt hàng, quy cách, số lượng, điều kiện) và trả lời từng điểm. không kể lại lịch sử mua hàng dài dòng."
-        : "buyer mới là KHÁCH HÀNG MỤC TIÊU, chưa nêu nhu cầu — KHÔNG cần biết họ từng mua gì; chỉ dựa vào sản phẩm công ty họ đang bán để suy ra nhu cầu đầu vào, rồi chào 2-3 dòng sản phẩm khớp nhất. Không liệt kê toàn bộ danh mục."),
+        ? "buyer ĐÃ để lại nhu cầu trong hồ sơ — phân tích ngay nhu cầu đó (mặt hàng, quy cách, số lượng, điều kiện) và trả lời từng điểm, có số liệu thật ở khối \"Bên mình\"."
+        : "THƯ CHÀO LẠNH cho khách hàng mục tiêu, chưa biết họ cần gì — KHÔNG cần biết lịch sử mua bán. Chỉ dựa vào \"Giới thiệu công ty họ\" để nói lý do viết, và nhắc tên 2-3 dòng hàng của ta là đủ; KHÔNG liệt kê cả danh mục, KHÔNG nêu bất kỳ con số thương mại nào."),
     "",
     "Dữ liệu buyer (chỉ dùng những gì có ở đây, không suy đoán thêm):",
     `- Tên / công ty / quốc gia: ${clean(data.contactName) || MISSING} / ${clean(data.company) || MISSING} / ${country || MISSING}`,
-    `- Mặt hàng họ quan tâm hoặc đang bán: ${clean(data.product) || MISSING}`,
+    data.mode === "demand"
+      ? `- Mặt hàng họ ĐÃ hỏi (theo hồ sơ): ${clean(data.product) || MISSING}`
+      : `- Mặt hàng TA ĐỊNH chào (giả định từ danh sách nhập, KHÔNG phải bằng chứng họ đang bán): ${clean(data.product) || MISSING}`,
     `- Giới thiệu công ty họ (AI tra nguồn công khai): ${clean(data.companySummary, 900) || MISSING}`,
     "- Tín hiệu khác trong hồ sơ:",
     signals.length ? signals.map((s) => `  · ${s}`).join("\n") : `  ${MISSING}`,
@@ -466,8 +475,13 @@ export function buildFirstTouchUserPrompt(data: FirstTouchData): string {
     "Bên mình (dùng đúng thế này, không thêm số liệu khác):",
     `- Người viết thư: ${clean(data.us.senderName) || MISSING}${data.us.senderRole ? ` — ${clean(data.us.senderRole, 60)}` : ""}`,
     `- Công ty: ${clean(data.us.company) || MISSING}${data.us.about ? ` — ${clean(data.us.about, 160)}` : ""}`,
-    `- Dòng sản phẩm nên chào (chọn 2-3 dòng khớp nhu cầu buyer): ${offer.length ? offer.join(" · ") : MISSING}`,
-    `- Điều kiện đã biết: ${terms.length ? terms.join(" · ") : MISSING}`,
+    `- Dòng sản phẩm có thể chào (chọn 2-3 dòng, chỉ tên): ${offer.length ? offer.join(" · ") : MISSING}`,
+    data.mode === "demand"
+      ? `- Điều kiện theo từng dòng hàng (chỉ dùng số của đúng dòng được chọn): ${terms.length ? terms.join(" | ") : MISSING}`
+      : "- Điều kiện thương mại: (thư chào lạnh — KHÔNG dùng MOQ, giá, năng lực, thời gian giao, chứng từ)",
+    data.mode === "demand"
+      ? `- Yêu cầu buyer đã nêu (nhắc lại đúng, không thêm): ${stated.length ? stated.join(" · ") : MISSING}`
+      : "",
     data.today ? `- Hôm nay là ngày: ${data.today}` : "",
     avoid
       ? `- Thư trước đã dùng dạng tiêu đề "${labelOfForm(avoid)}" — lần này PHẢI dùng dạng khác.`

@@ -660,7 +660,7 @@ function clipText(value: string | null | undefined, max: number): string {
   return raw.length > max ? `${raw.slice(0, max).trimEnd()}…` : raw;
 }
 
-/** Dòng hàng trong danh mục, chỉ lấy phần được phép nói với buyer (không giá) */
+/** Dòng hàng trong danh mục, chỉ lấy phần được phép nói với buyer (không giá, không năng lực) */
 type OfferLine = {
   name: string;
   category?: string | null;
@@ -670,20 +670,33 @@ type OfferLine = {
   packaging?: string | null;
   certifications?: string | null;
   export_port?: string | null;
-  monthly_capacity?: string | null;
 };
 
-/** Điều kiện giao dịch thật của một dòng hàng — KHÔNG lấy giá (giá tham khảo không tự gửi cho buyer) */
+/**
+ * Hồ sơ hay có ô ghi "Không", "Chưa có", "N/A" cho chứng từ/bao bì. Đưa những giá trị đó
+ * vào prompt là model viết thành "we have no certifications" — tự bắn chân mình.
+ * Giá trị phủ định coi như không có.
+ */
+const NEGATIVE_VALUE = /^\s*(?:kh[oô]ng|ch[aâ]a\s+c[oó]|ch[aâ]a\s+update|none|no\b|null|n\/a|tbd|todo|để\s+trống|c[oậ]p\s+nh[aậ]t\s+sau)\s*[.!?]?\s*$/i;
+
+function positiveValue(value: string | null | undefined, max = 60): string {
+  const raw = clipText(value, max);
+  if (!raw || NEGATIVE_VALUE.test(raw)) return "";
+  return raw;
+}
+
+/**
+ * Điều kiện của ĐÚNG một dòng hàng, ghép thành một chuỗi để model không lấy số của
+ * dòng này gán cho dòng khác. Không giá (giá tham khảo của NCC không bao giờ gửi buyer),
+ * không năng lực tháng (đó là số của nhà cung cấp, không phải của ta).
+ */
 function productTerms(product: OfferLine): string[] {
   return [
-    product.moq ? `MOQ ${clipText(product.moq, 40)}` : "",
-    product.lead_time_days ? `thời gian sản xuất ${product.lead_time_days} ngày` : "",
-    product.packaging ? `bao bì ${clipText(product.packaging, 60)}` : "",
-    product.certifications ? `chứng từ ${clipText(product.certifications, 60)}` : "",
-    product.export_port ? `cảng đi ${clipText(product.export_port, 40)}` : "",
-    product.monthly_capacity
-      ? `năng lực ${/tháng|\/mo\b/i.test(product.monthly_capacity ?? "") ? clipText(product.monthly_capacity, 40) : `${clipText(product.monthly_capacity, 32)}/tháng`}`
-      : "",
+    positiveValue(product.moq, 40) ? `MOQ ${positiveValue(product.moq, 40)}` : "",
+    product.lead_time_days ? `sản xuất ${product.lead_time_days} ngày` : "",
+    positiveValue(product.packaging) ? `bao bì ${positiveValue(product.packaging)}` : "",
+    positiveValue(product.certifications) ? `chứng từ ${positiveValue(product.certifications)}` : "",
+    positiveValue(product.export_port, 40) ? `cảng đi ${positiveValue(product.export_port, 40)}` : "",
   ].filter(Boolean);
 }
 
@@ -722,7 +735,8 @@ function pickOfferLines(
     if (!name || seen.has(key)) continue;
     seen.add(key);
     names.push(name);
-    terms.push(...productTerms(item.product));
+    const detail = productTerms(item.product);
+    if (detail.length) terms.push(`${name} — ${detail.join(", ")}`);
     if (names.length >= cap) break;
   }
   return { names, terms: [...new Set(terms)].slice(0, 6) };
@@ -838,14 +852,14 @@ export async function generateFirstTouchDraftAction(input: {
 
   let companySummary = str(prospect?.ai_company_summary);
   let analyzed = false;
-  const notes: string[] = [];
+  let analysisError: string | null = null;
 
   if (mode === "target" && !companySummary && prospect) {
     // Bấm hộ người soạn nút "Xem công ty" — có dữ liệu thật thì thư mới đúng
     const analysis = await generateProspectCompanyIntroductionAction(prospect.id);
     companySummary = str(analysis.summary);
     analyzed = Boolean(analysis.ok && analysis.summary && !analysis.reused);
-    if (!analysis.ok) notes.push(`Chưa phân tích được công ty (${analysis.message}) — thư chỉ dùng dữ liệu đang có.`);
+    if (!companySummary) analysisError = str(analysis.message) ?? "nguồn công khai không cho dữ liệu nào";
   } else if (mode === "target" && !companySummary && buyer) {
     // Buyer thường không có trường lưu bản phân tích -> tra cho lần viết này, không ghi DB
     try {
@@ -856,11 +870,24 @@ export async function generateFirstTouchDraftAction(input: {
       });
       companySummary = result.summary;
       analyzed = true;
-      notes.push("Đã tra cứu công ty từ nguồn công khai (hồ sơ buyer chưa có chỗ lưu nên bản phân tích không được giữ lại).");
     } catch (err) {
-      const detail = err instanceof Error ? err.message : "";
-      notes.push(`Chưa phân tích được công ty${detail ? ` (${detail})` : ""} — thư chỉ dùng dữ liệu đang có.`);
+      analysisError = err instanceof Error ? err.message : "không tra cứu được";
     }
+  }
+
+  // Chặn: chưa biết công ty họ làm gì thì mọi câu về họ đều là bịa — thà không viết
+  const summaryLength = (companySummary ?? "").trim().length;
+  if (mode === "target" && summaryLength < 120) {
+    const howTo = prospect
+      ? `Mở hồ sơ đầu mối, bổ sung website/ngành rồi bấm "Xem công ty", sau đó viết lại.`
+      : `Bổ sung website hoặc ngành cho hồ sơ buyer rồi viết lại (hồ sơ buyer chưa có chỗ lưu bản phân tích nên cần AI tra lại mỗi lần).`;
+    return {
+      ok: false,
+      message:
+        `Chưa đủ dữ liệu thật về ${holder.company}${analysisError ? ` (${analysisError})` : ""} — AI không viết. ` +
+        `Đây là thư chào lạnh: khi chưa biết công ty họ đang làm gì thì mọi câu về họ đều là đoán. ${howTo}`,
+      mode,
+    };
   }
 
   // ---- 2. Dữ liệu cho prompt ----
@@ -871,8 +898,8 @@ export async function generateFirstTouchDraftAction(input: {
     { keywords: productKeywords(productInterest), summary: companySummary },
   );
 
-  const buyerTerms = [
-    signal("Buyer hỏi", buyer?.product),
+  const statedRequirement = [
+    signal("Mặt hàng họ hỏi", buyer?.product),
     signal("Quy cách", buyer?.spec),
     signal("Số lượng", buyer?.quantity),
     signal("Incoterm", buyer?.incoterm),
@@ -889,7 +916,7 @@ export async function generateFirstTouchDraftAction(input: {
     prospect ? signal("Người nhận là ai", prospect.contact_title) : "",
     prospect ? signal("Thành phố", prospect.city) : "",
     prospect ? signal("Quy mô nhân sự", prospect.employee_range) : "",
-    prospect ? signal("Nguồn dữ liệu hồ sơ", prospect.data_source) : "",
+    prospect ? signal("Hồ sơ này lấy từ danh sách", prospect.data_source) : "",
     signal("Website công ty", str(holder.website)),
     buyer ? signal("LinkedIn", buyer.linkedin) : "",
   ].filter(Boolean);
@@ -916,7 +943,8 @@ export async function generateFirstTouchDraftAction(input: {
         company: COMPANY.name,
         about: COMPANY.tagline,
         offer: offerNames,
-        terms: [...buyerTerms, ...offerTerms].slice(0, 10),
+        terms: offerTerms.slice(0, 6),
+        statedRequirement,
       },
       avoidSubjectForm,
       today: new Date().toISOString().slice(0, 10),
@@ -924,17 +952,18 @@ export async function generateFirstTouchDraftAction(input: {
 
     const lengthNote =
       draft.words < 70 || draft.words > 130
-        ? ` (${draft.words} từ — lệch mức 80-120 từ, bấm “Viết lại” nếu muốn gọn/đủ ý hơn)`
-        : ` (${draft.words} từ)`;
+        ? `Bản nháp ${draft.words} từ — lệch mức 80-120 từ, bấm “Viết lại” nếu muốn gọn/đủ ý hơn.`
+        : `Bản nháp ${draft.words} từ.`;
     const basisNote =
       mode === "demand"
-        ? "AI phân tích nhu cầu buyer đã nêu trong hồ sơ"
+        ? "AI viết theo đúng nhu cầu buyer để lại trong hồ sơ"
         : analyzed
-          ? "AI vừa phân tích công ty buyer rồi viết thư"
-          : "AI dùng bản phân tích công ty đã có";
+          ? `AI vừa phân tích công ty (${summaryLength} ký tự nguồn công khai) rồi viết thư chào`
+          : "AI dùng bản phân tích công ty đã lưu để viết thư chào";
+    const coldNote = mode === "target" ? " Thư chào lạnh nên chưa nêu MOQ/giá/năng lực — hỏi nhu cầu trước." : "";
     return {
       ok: true,
-      message: `${basisNote}. Bản nháp ${draft.words ? lengthNote.trim() : ""} — rà lại trước khi gửi.${notes.length ? ` ${notes.join(" ")}` : ""}`,
+      message: `${basisNote}. ${lengthNote} Rà lại trước khi gửi.${coldNote}`,
       subject: draft.subject,
       body: draft.body,
       words: draft.words,

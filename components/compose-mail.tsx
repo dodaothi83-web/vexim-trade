@@ -613,7 +613,7 @@ export function ComposeMail({
               {aiBusy ? "AI đang phân tích & viết…" : aiTyping ? "Chèn nốt" : aiHasDraft ? "Viết lại" : "AI viết tiếp cận"}
             </button>
             <span className="text-[11px] text-ink-400" aria-live="polite">
-              {aiNote ?? "Thư luôn có Dear <tên>, giới thiệu Vexim và câu cảm ơn. Rà lại trước khi gửi."}
+              {aiNote ?? "Dear <tên> + giới thiệu Vexim + cảm ơn luôn có; chưa phân tích được công ty thì AI không viết."}
             </span>
           </div>
         )}

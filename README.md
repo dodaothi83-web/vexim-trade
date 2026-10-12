@@ -586,8 +586,10 @@ theo đúng dữ liệu đang có:
    quả vào hồ sơ để lần sau dùng lại). Thư **không cần biết lịch sử mua hàng**, chỉ dựa vào
    **sản phẩm công ty họ đang bán** để suy ra nhu cầu đầu vào, rồi chào **2–3 dòng sản phẩm
    khớp nhất** — không liệt kê cả danh mục, để buyer thấy mình đã nghiên cứu về họ.
-2. **Buyer đã nêu nhu cầu** (mặt hàng, quy cách, số lượng, điều khoản trong hồ sơ) → AI phân
-   tích ngay nhu cầu đó và trả lời từng điểm, không vòng vo.
+2. **Buyer đã nêu nhu cầu** — nhân viên tạo hồ sơ buyer vì buyer để lại yêu cầu (mặt hàng, quy
+   cách, số lượng, cảng, điều khoản) → AI phân tích đúng nhu cầu đó và trả lời từng điểm.
+   Tiêu chí nhận diện trong code: hồ sơ buyer có `product` / `spec` / `quantity` là luồng 2,
+   ngược lại là luồng 1.
 
 **Bốn thứ luôn có trong thư** — thiếu là máy chủ tự chèn vào, không phụ thuộc model:
 
@@ -595,10 +597,26 @@ theo đúng dữ liệu đang có:
   không đoán Mr/Ms.
 - **Giới thiệu tôi là ai và công ty tôi làm gì** ("I am {tên} from the Export Department at
   Vexim Trade…"), tên lấy từ tài khoản đang đăng nhập.
-- **Thông tin mua nhanh**: bán gì · lấy từ đâu (vùng nguyên liệu, cảng đi) · điều kiện (MOQ,
-  thời gian sản xuất, bao bì, chứng từ, năng lực). Buyer thương mại quốc tế là người mua
-  chuyên nghiệp, họ đọc 5 giây rồi quyết — đưa số thật, không lời hoa mỹ.
+- **Câu hỏi để lấy nhu cầu** (mặt hàng, quy cách, khối lượng, thời điểm) — thư chào lạnh thì
+  chưa có nhu cầu nào để trả lời, nên hỏi ngắn thay vì kể.
 - **Câu cảm ơn + mong phản hồi** ở cuối, trước khi hệ thống nối chữ ký.
+
+**Thư chào lạnh KHÔNG có số liệu thương mại.** Không MOQ, không giá, không năng lực sản xuất,
+không thời gian giao, không chứng từ — chưa biết buyer cần gì mà đưa số là phản tác dụng, và
+`monthly_capacity` trong danh mục là năng lực của **nhà cung cấp** chứ không phải của Vexim. Số chỉ
+dùng ở luồng 2 (buyer đã để lại nhu cầu): nhắc lại đúng yêu cầu của họ + điều kiện của **đúng dòng
+hàng được chọn**, dạng `Gạo Jasmine 5% tấm — MOQ 5 MT, sản xuất 21 ngày, cảng đi Cát Lái`, không
+lấy số của dòng khác gán sang. Ô chứng từ/bao bì ghi "Không"/"Chưa có" bị lọc hẳn trước khi vào
+prompt — từng có lần model dịch nó thành "we have no commercial certifications", tự bắn vào chân.
+
+**AI từ chối viết khi chưa biết gì về công ty buyer.** Phần phân tích công ty lỗi (model chưa bật
+`web_search_preview`, hết hạn mức, hồ sơ không có website) hoặc bản phân tích mỏng (< 120 ký tự) thì
+nút báo lỗi và **không tạo thư**. Chuyện có thật: một đầu mối trong danh sách Apollo có
+`target_product` = "Mì ăn liền" — giá trị do migration gán hàng loạt **theo tên file import**
+(`supabase/migrations/20261008_prospect_segmentation.sql`), không liên quan gì tới công ty họ — và
+AI viết luôn "Your company sells instant noodles". Giờ prompt dán nhãn rõ *"Mặt hàng TA ĐỊNH chào
+(giả định từ danh sách, KHÔNG phải bằng chứng họ đang bán)"*, và mọi câu về công ty buyer bắt buộc
+lấy từ khối "Giới thiệu công ty họ"; không có bằng chứng thì viết trung tính rồi hỏi.
 
 **Tiêu đề** theo quy tắc cứng: tiếng Anh, Title Case hoặc câu thường; không dấu chấm than,
 không emoji, không dấu chấm cuối, dưới 8 từ; **bắt buộc có tên sản phẩm** buyer quan tâm, có
@@ -609,8 +627,8 @@ lại dạng của thư trước** (app đọc chủ đề lá thư buyer gần 
 không đạt sẽ được dựng lại từ dữ liệu thật chứ không gửi một câu sai quy tắc.
 
 Định dạng & độ dài: **80–120 từ, văn bản thuần**, không link/ảnh/markdown; mở đầu phần thân
-bằng một chi tiết cụ thể về buyer, nêu đúng vấn đề của họ (thiếu nguồn cung, mùa cao điểm, đa
-dạng sản phẩm, chất lượng…), kết bằng một câu hỏi ngắn; cấm câu sáo rỗng và "hy vọng email này
+bằng một chi tiết cụ thể về buyer **có bằng chứng trong bản phân tích**, nêu vấn đề của họ khi
+suy ra được từ dữ liệu đó, kết bằng một câu hỏi ngắn; cấm câu sáo rỗng và "hy vọng email này
 tìm thấy bạn". Chỉ dùng dữ liệu có trong hồ sơ — ô trống ghi rõ "(chưa có)" nên model **không
 suy đoán thêm, không bịa số, không bịa chứng nhận, không nêu giá** (giá tham khảo của NCC không
 bao giờ vào prompt). Prompt nằm một chỗ: `lib/ai/first-touch-draft.ts`
