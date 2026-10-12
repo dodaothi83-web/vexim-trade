@@ -6,7 +6,7 @@ import { emailMode } from "@/lib/config";
 import { requireSession } from "@/lib/auth/session";
 import { permissionsFor } from "@/lib/auth/permissions";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
-import { isBuyerMailMessage } from "@/lib/mail/buyer-only";
+import { loadMailboxData } from "@/lib/mail/mailbox-access";
 import { Sidebar } from "@/components/sidebar";
 
 export const dynamic = "force-dynamic";
@@ -22,23 +22,21 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     /* bỏ qua */
   }
 
-  // Số thư đến chưa đọc cho badge ở menu Hộp thư
-  let unreadMail = 0;
-  if (permissionsFor(session.role).includes("mail.view")) {
-    unreadMail = await getStore()
-      .listMessages(500)
-      .then((ms) => ms.filter((m) => m.kind === "inbound" && !m.read_at && isBuyerMailMessage(m)).length)
-      .catch(() => 0);
-  }
+  // Badge chưa đọc ở menu Hộp thư. Phải đếm trên ĐÚNG tập thư mà trang /mail hiển thị
+  // (loadMailboxData), nếu không nhân viên nhận thông báo "có thư mới" rồi mở ra thấy
+  // danh sách trống — lỗi từng xảy ra vì badge đếm thư của cả đội, còn danh sách thì lọc theo người phụ trách.
+  const canViewMail = permissionsFor(session.role).includes("mail.view");
+  const mailbox = canViewMail ? await loadMailboxData(session).catch(() => null) : null;
+  const unreadMail = mailbox
+    ? mailbox.mailMessages.filter((m) => m.kind === "inbound" && !m.read_at).length
+    : 0;
 
   // Buyer mới (giai đoạn lead) trong phạm vi của người dùng — badge ở menu Buyer
   let newBuyers = 0;
   if (permissionsFor(session.role).includes("buyers.view")) {
     const scope = ownerScopeOf(session);
-    newBuyers = await getStore()
-      .listBuyers()
-      .then((bs) => bs.filter((b) => (b.stage ?? "lead") === "lead" && isOwnedBy(b.owner, scope)).length)
-      .catch(() => 0);
+    const buyers = mailbox?.buyers ?? (await getStore().listBuyers().catch(() => []));
+    newBuyers = buyers.filter((b) => (b.stage ?? "lead") === "lead" && isOwnedBy(b.owner, scope)).length;
   }
 
   let dbMode: "supabase" | "local" = "local";

@@ -495,6 +495,28 @@ Menu **Hộp thư** / **Soạn email** — đội ngũ có thể tự viết ema
 Toàn bộ email (tự động + tự soạn) nằm chung một **Hộp thư đi**, lọc được theo người nhận
 (buyer/NCC) và theo loại (tự động / tự soạn).
 
+### Ai thấy thư nào trong Hộp thư
+
+Quy tắc nằm ở `lib/mail/visibility.ts` và được **cả bốn nơi dùng chung** (`/mail`,
+`/mail/[id]`, badge chưa đọc ở menu, `/api/mail/sync`) qua `lib/mail/mailbox-access.ts`.
+Nhân viên kinh doanh (role `sale`) thấy một thư khi thoả một trong bốn điều kiện:
+
+1. thư thuộc buyer/đầu mối mà họ phụ trách (`owner` trùng tên hiển thị);
+2. chính họ là người soạn (`created_by` — `sendMailAction`/`saveDraftAction` ghi tên người
+   đăng nhập, không lấy từ trình duyệt);
+3. thư đến gửi về **địa chỉ riêng của họ** (`to`/`cc` chứa email đăng nhập hoặc `sender_email`),
+   kể cả khi buyer đó chưa có trong hệ thống;
+4. thư thuộc **cùng mạch** (`thread_id`) với một thư họ đã thấy ở trên — nhờ đây buyer lạ trả
+   lời không còn tình trạng "có thông báo nhưng mở ra không thấy".
+
+Admin và các vai trò khác có `scope = null` → thấy toàn bộ. Chạy `npm run check:mail` để kiểm
+tra các quy tắc này sau khi sửa.
+
+> Bài học cũ: mỗi nơi từng tự viết một điều kiện lọc riêng và đều bỏ sót thư không có
+> `buyer_id`, khiến thư gửi buyer mới toanh biến mất khỏi Hộp thư của người gửi; badge lại đếm
+> thư của cả đội. Hai phía `/mail` và `/api/mail/sync` từng dùng hai giới hạn khác nhau
+> (500/300) nên `version` không bao giờ khớp và trang tự refresh 20 giây một lần.
+
 ### Tệp đính kèm email (Supabase Storage)
 
 | Hạng mục | Quy định |
@@ -634,6 +656,8 @@ lib/
   email/send.ts               Gửi qua Resend (kèm Cc/Bcc/đính kèm) + lưu hộp thư
   mail/attachments.ts         Kho tệp đính kèm: kiểm tra tệp, lưu Storage, URL có chữ ký
   mail/cleanup.ts             Dọn tệp đính kèm mồ côi
+  mail/visibility.ts          Quy tắc ai thấy thư nào (buyer mình phụ trách / thư mình soạn / địa chỉ riêng / cùng mạch)
+  mail/mailbox-access.ts      Nạp + lọc Hộp thư MỘT LẦN cho /mail, /mail/[id], badge menu và /api/mail/sync
   db/                         Tầng dữ liệu: tự chọn Supabase hoặc kho local
 supabase/schema.sql           Script tạo bảng
 ```
@@ -645,4 +669,6 @@ npm run dev        # chạy dev (0.0.0.0:3000)
 npm run build      # build production
 npm start          # chạy bản build
 npm run typecheck  # kiểm tra TypeScript
+npm run check:mail # kiểm quy tắc hiển thị Hộp thư (lib/mail/visibility.ts)
+npm run check:supabase  # soi bảng/cột trong Supabase
 ```

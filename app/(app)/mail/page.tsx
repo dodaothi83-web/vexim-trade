@@ -3,54 +3,53 @@ import { assignSenderEmails, formatFrom } from "@/lib/email/sender";
 import { buildSignature } from "@/lib/email/signature";
 import { emailMode, FROM_ADDRESS } from "@/lib/config";
 import { requireSession } from "@/lib/auth/session";
-import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
+import { isOwnedBy } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
+import { loadMailboxData } from "@/lib/mail/mailbox-access";
 import { PageHeader } from "@/components/page-header";
 import { MailboxHint } from "@/components/mailbox";
 import { MailThreads, type QuickContact, type ThreadSummary } from "@/components/mail-threads";
 import { MailLiveSync } from "@/components/mail-live-sync";
 import { mailSyncVersion } from "@/lib/mail/sync-version";
-import { isBuyerMailMessage } from "@/lib/mail/buyer-only";
 import { AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Hộp thư" };
 
-function sameEmail(a: string, b: string): boolean {
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
-}
-
 export default async function MailPage() {
   const session = await requireSession();
   const canSend = hasPermission(session.role, "mail.send");
-  const canManageProspects = hasPermission(session.role, "prospects.manage");
 
   const store = getStore();
-  const [messages, buyers, suppliers, me, prospects, users] = await Promise.all([
-    store.listMessages(500),
-    store.listBuyers(),
+  // Thư + buyer + đầu mối + tài khoản + phạm vi nhìn: lấy từ cùng một chỗ với trang chi tiết,
+  // badge chưa đọc ở menu và /api/mail/sync để bốn nơi không thể lọc lệch nhau.
+  const [mailbox, suppliers, me] = await Promise.all([
+    loadMailboxData(session, { tolerateErrors: false }),
     store.listSuppliers(),
     store.getUserByEmail(session.email),
-    canManageProspects ? store.listProspects().catch(() => []) : Promise.resolve([]),
-    store.listUsers().catch(() => []),
   ]);
+  const { buyers, prospects, users, scope, canManageProspects } = mailbox;
+  /** Danh sách thư đã theo phạm vi và theo quy tắc hiển thị của Hộp thư */
+  const messages = mailbox.mailMessages;
 
-  // Địa chỉ gửi riêng theo tên người (deliverability). Ánh xạ theo TÊN vì lịch sử
-  // thư chỉ lưu tên người gửi (created_by), không lưu header From.
+  // Địa chỉ gửi riêng theo tên người (deliverability). Lịch sử thư chỉ lưu người gửi
+  // (created_by) nên tra theo cả tên lẫn email, để bản ghi cũ vẫn hiện đúng nhãn.
   const senderByUserId = assignSenderEmails(users);
-  const senderAddressByName = new Map<string, string>(
-    users.flatMap((u) => {
-      const address = senderByUserId.get(u.id);
-      const key = (u.name ?? "").trim().toLowerCase();
-      return address && key ? [[key, address] as [string, string]] : [];
-    }),
-  );
+  const userByNameOrEmail = new Map<string, (typeof users)[number]>();
+  for (const u of users) {
+    const nameKey = (u.name ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+    if (nameKey) userByNameOrEmail.set(nameKey, u);
+    const emailKey = (u.email ?? "").trim().toLowerCase();
+    if (emailKey) userByNameOrEmail.set(emailKey, u);
+  }
   const mySenderAddress = (me && senderByUserId.get(me.id)) || null;
   /** "Nguyễn Văn Dung <dung@veximtrade.com>" cho thư đã gửi; null nếu không khớp ai */
-  const senderLabel = (name: string | null | undefined) => {
-    const address = senderAddressByName.get((name ?? "").trim().toLowerCase());
-    return address ? formatFrom(name ?? null, address) : null;
+  const senderLabel = (label: string | null | undefined) => {
+    const key = (label ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+    const person = key ? userByNameOrEmail.get(key) : undefined;
+    const address = person ? senderByUserId.get(person.id) : undefined;
+    return person && address ? formatFrom(person.name, address) : null;
   };
 
   // Chữ ký cá nhân kiểu Gmail/Zoho (chữ ký tuỳ chỉnh hoặc chữ ký tự động) —
@@ -59,25 +58,10 @@ export default async function MailPage() {
   const mySig =
     mySigHtml !== null ? mySigHtml : buildSignature(session.name, me?.phone, mySenderAddress);
 
-  // Phạm vi: nhân viên kinh doanh chỉ thấy thư của buyer/prospect mình phụ trách và thư do chính mình gửi
-  const scope = ownerScopeOf(session);
+  // Phạm vi đã áp ở loadMailboxData (buyer/prospect mình phụ trách, thư mình soạn,
+  // thư gửi về địa chỉ riêng, và cả mạch thư của những thư đó).
   const ownedBuyers = buyers.filter((b) => isOwnedBy(b.owner, scope));
-  const ownedBuyerIds = new Set(ownedBuyers.map((b) => b.id));
   const visibleProspects = prospects.filter((p) => isOwnedBy(p.owner, scope));
-  const ownedProspectIds = new Set(visibleProspects.map((p) => p.id));
-  // Thư đến từ prospect được lưu với buyer_id = null, nên phải lọc theo prospect_id
-  const visibleMessages =
-    scope === null
-      ? messages
-      : messages.filter(
-          (m) =>
-            (m.buyer_id !== null && ownedBuyerIds.has(m.buyer_id)) ||
-            (!!m.prospect_id && ownedProspectIds.has(m.prospect_id)) ||
-            (m.created_by ?? "").toLowerCase() === session.email.toLowerCase(),
-        );
-
-  // Tạm thời không hiển thị thư của NCC (thư buyer và prospect vẫn hiện)
-  const buyerMessages = visibleMessages.filter(isBuyerMailMessage);
 
   const buyerById = new Map(buyers.map((b) => [b.id, b]));
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
@@ -85,7 +69,7 @@ export default async function MailPage() {
 
   // Nhóm theo mạch thư (thread_id): gồm cả thư gửi đi lẫn thư đến Resend Inbound
   const grouped = new Map<string, typeof messages>();
-  for (const m of buyerMessages) {
+  for (const m of messages) {
     const key = m.thread_id || `msg:${m.id}`;
     const arr = grouped.get(key);
     if (arr) arr.push(m);
@@ -181,7 +165,7 @@ export default async function MailPage() {
 
       <div className="min-h-0 flex-1">
         <MailThreads threads={threads} canSend={canSend} contacts={contacts} signature={mySig} />
-      <MailLiveSync version={mailSyncVersion(buyerMessages)} />
+      <MailLiveSync version={mailSyncVersion(messages)} />
       </div>
     </div>
   );

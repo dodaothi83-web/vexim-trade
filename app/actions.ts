@@ -1122,6 +1122,12 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
     }
   }
 
+  // Ai là người soạn: ghi theo TÊN hiển thị, cùng hệ quy chiếu với buyers.owner và với bộ
+  // lọc phạm vi của Hộp thư (lib/mail/visibility.ts). Trước đây giá trị này lấy từ client
+  // mà không trang nào gửi lên => created_by = NULL => thư gửi buyer CHƯA có trong hệ
+  // thống (không buyer_id, không prospect_id) bị ẩn khỏi Hộp thư của nhân viên, chỉ admin thấy.
+  const author = input.author?.trim() || session.name?.trim() || session.email;
+
   // Tệp đính kèm: DB chỉ có metadata, nội dung nằm trong Storage và nạp ngay lúc gửi
   const resolved = await resolveAttachments(input.attachments, session.email, session.role);
   if ("error" in resolved) return { ok: false, message: resolved.error };
@@ -1141,7 +1147,7 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
       bodyHtml: input.bodyHtml,
       bodyText: input.bodyText,
       attachments: attachmentRows,
-      author: input.author ?? null,
+      author,
       // Gửi từ địa chỉ mang tên người soạn (deliverability — lib/email/sender.ts)
       authorEmail: session.email,
       inReplyTo: input.inReplyTo ?? null,
@@ -1165,7 +1171,7 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
         buyer_id: input.buyerId,
         type: "email",
         message: `Gửi email thủ công: ${input.subject.trim()}`,
-        created_by: input.author ?? null,
+        created_by: author,
       })
       .catch(() => null);
   }
@@ -1183,7 +1189,7 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
           from_stage: "lead",
           to_stage: "contacted",
           message: "Khách mới → Đã liên hệ (tự động sau email đầu tiên)",
-          created_by: input.author ?? null,
+          created_by: author,
         })
         .catch(() => null);
     }
@@ -1221,6 +1227,9 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
   if (!session) {
     return { ok: false, message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
   }
+  // Bản nháp cũng phải mang tên người soạn, nếu không thì người vừa lưu không thấy lại
+  // bản nháp của mình trong Hộp thư (cùng lý do với sendMailAction ở trên).
+  const author = input.author?.trim() || session.name?.trim() || session.email;
   if (input.prospectId) {
     const prospectGate = await guard("prospects.manage");
     if (prospectGate) return prospectGate;
@@ -1243,7 +1252,7 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
     subject: input.subject.trim() || "(không có tiêu đề)",
     bodyHtml: input.bodyHtml,
     attachments: attachmentRows,
-    author: input.author ?? null,
+    author,
   });
 
   // Tệp của bản nháp: gắn với email nháp để mở lại vẫn còn, chưa coi là đã gửi

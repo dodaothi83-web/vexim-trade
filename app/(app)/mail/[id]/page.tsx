@@ -8,6 +8,7 @@ import { getStage } from "@/lib/pipeline";
 import { requireSession } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
+import { loadMailboxData } from "@/lib/mail/mailbox-access";
 import { isBuyerMailMessage } from "@/lib/mail/buyer-only";
 import { Breadcrumbs, Badge, Card, cx } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -29,17 +30,25 @@ export default async function MessagePage({
   // Tạm thời không mở thư của NCC
   if (!msg || !isBuyerMailMessage(msg)) notFound();
 
-  // Phạm vi: sale chỉ mở được thư của buyer/prospect mình phụ trách hoặc thư do chính mình gửi
+  // Phạm vi: áp ĐÙNG bộ lọc với trang /mail (lib/mail/mailbox-access.ts). Nếu ở đây viết
+  // điều kiện riêng thì danh sách hiện thư mà mở ra lại 404 — hoặc ngược lại, như trường
+  // hợp buyer lạ trả lời thư: thư đến không mang buyer_id nên từng bị coi là "không của ai".
   const scope = ownerScopeOf(session);
   if (scope !== null) {
+    // Đường nhanh: thư đã gắn hồ sơ thì chỉ cần xem buyer/đầu mối đó có thuộc phạm vi
+    // người mở hay không (không phụ thuộc giới hạn 500 thư gần nhất của danh sách).
     const buyerOwned = msg.buyer_id
       ? isOwnedBy((await store.getBuyer(msg.buyer_id))?.owner ?? null, scope)
       : false;
     const prospectOwned = msg.prospect_id
       ? isOwnedBy((await store.getProspect(msg.prospect_id))?.owner ?? null, scope)
       : false;
-    const mine = (msg.created_by ?? "").toLowerCase() === session.email.toLowerCase();
-    if (!buyerOwned && !prospectOwned && !mine) notFound();
+    if (!buyerOwned && !prospectOwned) {
+      // Thư KHÔNG gắn hồ sơ (buyer lạ): dùng đúng bộ lọc của trang /mail — trong đó có
+      // quy tắc "thư gửi về địa chỉ riêng của tôi" và "cùng mạch thư với thư của tôi".
+      const mailbox = await loadMailboxData(session, { tolerateErrors: false });
+      if (!mailbox.visibleMessages.some((m) => m.id === msg.id)) notFound();
+    }
   }
 
   const buyer = msg.buyer_id ? await store.getBuyer(msg.buyer_id) : null;
