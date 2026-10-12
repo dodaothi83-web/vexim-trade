@@ -44,7 +44,9 @@ const PHASES: Phase[] = [
     steps: [
       {
         title: "You send the brief",
-        desc: "Product, spec or grade, volume, destination market, the date you need the goods by, Incoterm and payment terms.",
+        desc:
+          "Product, spec or grade, volume, destination market and the date you need the goods by. " +
+          "Incoterm and payment terms when you have them — otherwise we propose both in our reply.",
         output: "A brief we both confirm in writing.",
       },
       {
@@ -442,9 +444,9 @@ export function LandingSite() {
               Tell us what you need.
             </h2>
             <p className="mt-6 text-[18px] leading-relaxed text-ink-700">
-              Describe the product, the spec, the volume and where it goes. Within one working day
-              (Vietnam time, UTC+7) we reply with what is stated, what is verified, what is still
-              open, and the next step.
+              Describe the product, the spec, the volume and where it goes. You get a written reply
+              by the start of your next business day — what is stated, what is verified, what is still
+              open, and the next step. The clock we keep for that promise is yours, not Hanoi's.
             </p>
             <p className="mt-4 text-[16px] leading-relaxed text-ink-600">
               No portal and no subscription. If we cannot find a fit this season, we say so plainly.
@@ -565,7 +567,7 @@ export function LandingSite() {
                     </select>
                   </label>
                   <label className="block">
-                    <span className="label">Lead time required</span>
+                    <span className="label">When do you need it?</span>
                     <input
                       className="input"
                       value={form.lead_time}
@@ -584,8 +586,9 @@ export function LandingSite() {
                   />
                 </label>
                 <p className="mt-2 text-[11.5px] leading-relaxed text-slate-400">
-                  Only company, email and product are required. The other fields are optional, but
-                  they help us give you a sharper first reply.
+                  Required: company, email and what you are sourcing. Incoterm, payment method and
+                  every other field are optional — send what you already know, and “Not sure yet” is a
+                  perfectly good answer.
                 </p>
                 {error && <p className="mt-2 text-[12.5px] font-semibold text-red-600">{error}</p>}
                 <button
@@ -597,7 +600,8 @@ export function LandingSite() {
                   Submit sourcing request
                 </button>
                 <p className="mt-2 text-[11.5px] text-slate-400">
-                  One working day for the first reply. Your details stay with our export desk.
+                  A written reply by the start of your next business day. Your details stay with our
+                  export desk.
                 </p>
               </form>
             )}

@@ -1608,7 +1608,8 @@ export async function submitQuoteLeadAction(input: {
   company_website: string;
 }): Promise<ActionResult> {
   const thanks =
-    "Thank you. Your enquiry is with our export desk, and we reply within one working day.";
+    "Thank you. Your enquiry is with our export desk, and you will have a written reply by the " +
+    "start of your next business day.";
   // Bot điền honeypot => giả vờ thành công, không ghi gì vào CRM
   if (input.company_website?.trim()) return { ok: true, message: thanks };
 
@@ -1619,8 +1620,11 @@ export async function submitQuoteLeadAction(input: {
   if (!input.company.trim()) {
     return { ok: false, message: "Please tell us your company name." };
   }
-  if (!input.message.trim()) {
-    return { ok: false, message: "Please describe your requirement briefly." };
+  // Form chỉ đánh dấu * ở company, email và product nên server cũng chỉ bắt buộc đúng ba ô đó.
+  // Ô "Anything else we should know" được phép trống; chỉ chặn khi thiếu MÔ TẢ (product hoặc message)
+  // thay vì chặn riêng ô message như trước — lời trên form và luật của server phải khớp nhau.
+  if (!input.product.trim() && !input.message.trim()) {
+    return { ok: false, message: "Please tell us what you are sourcing — one line is enough." };
   }
 
   const store = getStore();
@@ -1711,15 +1715,15 @@ export async function submitQuoteLeadAction(input: {
         title: "Thank you for your enquiry – Vexim Trade",
         body:
           `<p>Dear ${escapeHtml(input.name.trim() || input.company.trim())},</p>` +
-          `<p>Thank you for contacting Vexim Trade. Your enquiry has reached our export desk ` +
-          `and we will reply within one working day.</p>` +
+          `<p>Thank you for contacting Vexim Trade. Your enquiry has reached our export desk, ` +
+          `and you will have a written reply by the start of your next business day.</p>` +
           `<p>Best regards,<br/>Export Department &middot; Vexim Trade</p>`,
       });
       await transport({
         to: [email],
         subject: "Thank you for your enquiry – Vexim Trade",
         html,
-        text: "Thank you for contacting Vexim Trade. Our export desk will reply within one working day.",
+        text: "Thank you for contacting Vexim Trade. Our export desk will reply by the start of your next business day.",
       });
     } catch {
       /* bỏ qua — lead đã lưu */

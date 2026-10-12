@@ -8,8 +8,8 @@ export function ArticleCta({ className = "" }: { className?: string }) {
       <p className="text-[12px] font-bold uppercase tracking-wide text-slate-300">Sourcing request</p>
       <p className="mt-2 text-[17px] leading-snug font-bold">Have a product in mind? Send us your brief.</p>
       <p className="mt-2 text-[14px] leading-relaxed text-slate-300">
-        We match it to a Vietnamese producer that fits, and tell you plainly when none does. First reply within one
-        working day (UTC+7).
+        We match it to a Vietnamese producer that fits, and tell you plainly when none does. A written
+        reply by the start of your next business day.
       </p>
       <Link
         href="/#send"

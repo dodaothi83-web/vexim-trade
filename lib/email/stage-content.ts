@@ -41,7 +41,7 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
         "We work directly with approved producers in Vietnam, which lets us control quality from raw material right through to container loading.",
       ],
       action:
-        "Within one working day we will send our questions on specification and packaging, followed by an indicative price range.",
+        "By the start of your next business day we will send our questions on specification and packaging, followed by an indicative price range.",
     },
     supplier: {
       subject: "Yêu cầu mới thị trường {country} – {product} (chưa cần báo giá)",
