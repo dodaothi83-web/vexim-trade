@@ -295,19 +295,23 @@ export function CashewLanding({
             Typical figures seen in trade records, not a promise. Each producer confirms its own grades, packing and
             terms in writing before you evaluate samples.
           </p>
-          <div className="mt-10 grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
-            <dl className="overflow-hidden rounded-2xl bg-white ring-1 ring-ink-200">
+          {/* Desktop: ảnh sang CỘT TRÁI (hẹp hơn), bảng spec chiếm phần rộng hơn ở bên phải
+              để chữ thở được. Mobile/tablet: bảng vẫn đọc trước, ảnh xếp sau (thứ tự DOM). */}
+          <div className="mt-10 grid gap-6 lg:grid-cols-[0.55fr_1fr] lg:items-start lg:gap-8">
+            <dl className="overflow-hidden rounded-2xl bg-white ring-1 ring-ink-200 lg:order-2">
               {SPEC_ROWS.map((row, i) => (
                 <div
                   key={row.item}
-                  className={`grid gap-1 px-5 py-4 sm:grid-cols-[minmax(0,210px)_1fr] sm:gap-4 ${
+                  className={`grid gap-1 px-5 py-4 sm:grid-cols-[minmax(0,190px)_1fr] sm:gap-5 sm:px-6 ${
                     i % 2 ? "bg-ink-50/60" : ""
                   }`}
                 >
-                  <dt className="text-[13px] font-bold uppercase tracking-wide text-ink-500">{row.item}</dt>
-                  <dd className="text-[15.5px] leading-relaxed text-ink-900">
+                  <dt className="text-[12.5px] font-bold uppercase leading-snug tracking-wide text-ink-500 sm:text-[13px]">
+                    {row.item}
+                  </dt>
+                  <dd className="text-[16px] leading-[1.7] text-ink-900">
                     {isPending(row.value) ? (
-                      <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-2.5 py-1 text-[12.5px] font-semibold text-amber-800 ring-1 ring-amber-200">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-2.5 py-1 text-[13px] font-semibold leading-snug text-amber-800 ring-1 ring-amber-200">
                         Open · {row.value}
                       </span>
                     ) : (
@@ -317,7 +321,7 @@ export function CashewLanding({
                 </div>
               ))}
             </dl>
-            <div className="grid gap-5">
+            <div className="grid gap-4 sm:grid-cols-2 lg:order-1 lg:grid-cols-1 lg:gap-5">
               <Photo photo={CASHEW_PHOTOS.grades} ready={Boolean(photosReady.grades)} />
               <Photo photo={CASHEW_PHOTOS.pieces} ready={Boolean(photosReady.pieces)} />
             </div>
