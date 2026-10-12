@@ -23,6 +23,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import {
   resolveSender,
   saveDraft,
+  updateDraft,
   sendManualMail,
   sendStageUpdate,
   sendSupplierAssigned,
@@ -30,6 +31,7 @@ import {
 } from "@/lib/email/send";
 import { getStage, isStage } from "@/lib/pipeline";
 import { notifyRecipients } from "@/lib/mail/inbound";
+import { isMyMail, type MailViewer } from "@/lib/mail/visibility";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import type {
   Buyer,
@@ -1364,6 +1366,11 @@ export interface MailDraftInput {
   /** chỉ metadata: tệp thật đã nằm trong Supabase Storage, không gửi base64 qua đây */
   attachments?: { id: string; name?: string; size?: number; type?: string }[];
   author?: string | null;
+  /**
+   * id bản nháp đang mở. Có giá trị này là LƯU ĐỀ (giữ một bản nháp duy nhất cho một
+   * lần soạn, như Gmail) thay vì chèn thêm dòng "Nháp" mới mỗi lần bấm Lưu.
+   */
+  draftId?: string | null;
   /** Trả lời thư đến: RFC Message-ID của thư đang trả lời */
   inReplyTo?: string | null;
   /** Chuỗi References của mạch thư */
@@ -1463,6 +1470,23 @@ function validateMail(input: MailDraftInput): string | null {
     return `Tổng dung lượng file đính kèm vượt quá ${Math.round(MAX_TOTAL_BYTES / 1024 / 1024)}MB.`;
   }
   return null;
+}
+
+/**
+ * Gửi thư từ bản nháp xong thì dọn bản nháp đó (như Gmail: một lần soạn chỉ còn một dấu
+ * vết). Tệp đã gắn vào thư gửi chỉ đổi message_id nên vẫn còn nguyên; tệp bị bỏ khỏi thư
+ * thì xóa cả dòng lẫn tệp trong Storage, vì hàng dọn tệp mồ côi không thấy được những
+ * dòng bị xóa dây chuyền theo bản nháp.
+ */
+async function discardDraftAfterSend(draftId: string, keep: Set<string>) {
+  const store = getStore();
+  const rows = await store.listAttachmentsForMessage(draftId).catch(() => [] as EmailAttachment[]);
+  for (const row of rows) {
+    if (keep.has(row.id)) continue;
+    await store.deleteAttachment(row.id).catch(() => null);
+    await deleteObject(row.storage_path).catch(() => null);
+  }
+  await store.deleteMessage(draftId).catch(() => null);
 }
 
 export async function sendMailAction(input: MailDraftInput): Promise<ActionResult> {
@@ -1575,6 +1599,11 @@ export async function sendMailAction(input: MailDraftInput): Promise<ActionResul
       created_by: session.email,
     }).catch(() => null);
   }
+  // Gửi từ một bản nháp đang mở => không để lại bản nháp trùng nội dung trong Hộp thư
+  const sentFromDraft = str(input.draftId);
+  if (res.ok && sentFromDraft && sentFromDraft !== res.messageId) {
+    await discardDraftAfterSend(sentFromDraft, new Set(attachmentRows.map((row) => row.id)));
+  }
   revalidateAll();
 
   if (!res.ok) return { ok: false, message: `Gửi thất bại: ${res.error}` };
@@ -1608,7 +1637,7 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
   if ("error" in resolved) return { ok: false, message: resolved.error };
   const attachmentRows = resolved.rows;
 
-  const id = await saveDraft({
+  const draft = {
     buyerId: input.buyerId ?? null,
     supplierId: input.supplierId ?? null,
     prospectId: input.prospectId ?? null,
@@ -1620,11 +1649,35 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
     bodyHtml: input.bodyHtml,
     attachments: attachmentRows,
     author,
-  });
+  };
+
+  // Bản nháp đang mở thì ghi đè lên nó. Chỉ ghi đè được khi đúng là nháp và thuộc về
+  // người này (hoặc người xem được tất cả) — của người khác thì lưu thành bản mới,
+  // không phá bài của họ và cũng không âm thầm ghi đè.
+  const store = getStore();
+  const wantedId = str(input.draftId);
+  let reuseId: string | null = null;
+  let fallbackNote = "";
+  if (wantedId) {
+    const existing = await store.getMessage(wantedId).catch(() => null);
+    if (!existing) fallbackNote = " Bản nháp cũ không còn nên app lưu thành bản mới.";
+    else if (existing.status !== "draft") fallbackNote = " Bản nháp cũ đã được gửi nên app lưu thành bản mới.";
+    else {
+      const viewer: MailViewer = {
+        name: session.name ?? null,
+        email: session.email,
+        senderAddress: null,
+        scope: ownerScopeOf(session),
+      };
+      if (viewer.scope === null || isMyMail(existing, viewer)) reuseId = existing.id;
+      else fallbackNote = " Bản nháp đó do người khác soạn nên app lưu thành bản nháp mới của bạn.";
+    }
+  }
+  const updated = reuseId ? (await updateDraft(reuseId, draft) ? reuseId : null) : null;
+  const id = updated ?? (await saveDraft(draft));
 
   // Tệp của bản nháp: gắn với email nháp để mở lại vẫn còn, chưa coi là đã gửi
   if (id) {
-    const store = getStore();
     for (const row of attachmentRows) {
       await store
         .updateAttachment(row.id, { message_id: id, status: "uploaded", last_error: null })
@@ -1634,7 +1687,11 @@ export async function saveDraftAction(input: MailDraftInput): Promise<ActionResu
   }
   revalidateAll();
   return id
-    ? { ok: true, message: "Đã lưu bản nháp.", id }
+    ? {
+        ok: true,
+        message: `${reuseId ? "Đã cập nhật bản nháp." : "Đã lưu bản nháp."}${fallbackNote}`,
+        id,
+      }
     : { ok: false, message: "Không lưu được bản nháp." };
 }
 

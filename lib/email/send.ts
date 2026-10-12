@@ -426,6 +426,38 @@ export async function saveDraft(input: ManualMailInput): Promise<string | null> 
   return saved?.id ?? null;
 }
 
+/**
+ * Lưu đè lên chính bản nháp đang mở. Gmail chỉ giữ MỘT bản nháp cho một lần soạn;
+ * nếu mỗi lần bấm "Lưu nháp" lại thêm một dòng thì Hộp thư ngập bản nháp trùng nhau,
+ * nên bản nháp đã mở ra là bản được ghi lại (id giữ nguyên, liên kết ?draft= không đổi).
+ */
+export async function updateDraft(id: string, input: ManualMailInput): Promise<boolean> {
+  const html = wrapPlainEmail({ title: input.subject || "(bản nháp)", body: input.bodyHtml });
+  try {
+    await getStore().updateMessage(id, {
+      buyer_id: input.buyerId ?? null,
+      supplier_id: input.supplierId ?? null,
+      ...(input.prospectId ? { prospect_id: input.prospectId } : {}),
+      // direction/thread_id giữ nguyên của lần lưu đầu: bản nháp vẫn là cùng một mạch thư
+      kind: "manual",
+      stage: null,
+      subject: input.subject || "(không có tiêu đề)",
+      to_emails: input.to,
+      cc_emails: input.cc ?? [],
+      bcc_emails: input.bcc ?? [],
+      body_html: html,
+      attachments: (input.attachments ?? []).map(toRef),
+      status: "draft",
+      error: null,
+      sent_at: null,
+    });
+    return true;
+  } catch (err) {
+    console.error("[draft] không cập nhật được bản nháp", id, err);
+    return false;
+  }
+}
+
 /* ================================================================== */
 /* EMAIL KHI BUYER VỪA ĐƯỢC GÁN VÀO NCC                               */
 /* ================================================================== */

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Bot,
+  Check,
   CircleStop,
   RefreshCw,
   FileText,
@@ -130,6 +131,12 @@ export function ComposeMail({
   const [uploading, setUploading] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  /**
+   * id bản nháp đang mở. Lưu bao nhiêu lần cũng chỉ ghi đè lên đúng bản này (một lần soạn
+   * = một dòng "Nháp", như Gmail) nên không còn cảnh mỗi lần bấm Lưu là một bản khác nhau.
+   */
+  const [draftId, setDraftId] = useState<string | null>(initial.draftId ?? null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const [toInput, setToInput] = useState("");
 
   // ---- AI viết email tiếp cận đầu tiên (chỉ chiều buyer) ----
@@ -307,6 +314,7 @@ export function ComposeMail({
       cc,
       bcc,
       subject,
+      draftId,
       bodyHtml: body,
       // chỉ metadata — nội dung tệp đã nằm trong kho riêng, không đi qua server action
       attachments: attachments.map((a) => ({
@@ -494,9 +502,19 @@ export function ComposeMail({
   async function saveAsDraft() {
     setBusy(true);
     const res = await saveDraftAction(payload());
-    toast.push({ kind: res.ok ? "success" : "error", title: res.message });
     setBusy(false);
-    if (res.ok) router.push("/mail");
+    if (res.ok) {
+      // Ở lại trang soạn thư để viết tiếp (Gmail cũng làm vậy). Nhảy về Hộp thư sau mỗi
+      // lần lưu khiến người dùng bấm soạn lại từ đầu và sinh thêm bản nháp trùng nội dung.
+      if (res.id) {
+        setDraftId(res.id);
+        const params = new URLSearchParams(window.location.search);
+        params.set("draft", res.id);
+        window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+      }
+      setSavedAt(new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
+    }
+    toast.push({ kind: res.ok ? "success" : "error", title: res.message });
   }
 
   return (
@@ -512,8 +530,17 @@ export function ComposeMail({
             <ArrowLeft className="h-3.5 w-3.5" />
             Quay lại
           </button>
-          <span className="text-[13px] font-bold text-ink-900">Soạn thư mới</span>
-
+          <span className="text-[13px] font-bold text-ink-900">
+            {draftId ? "Bản nháp" : "Soạn thư mới"}
+          </span>
+          {savedAt ? (
+            <span
+              className="flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700"
+              title="Lưu nháp ghi đè lên chính bản nháp này — mỗi lần soạn chỉ có một bản"
+            >
+              <Check className="h-3 w-3" /> Đã lưu lúc {savedAt}
+            </span>
+          ) : null}
         </div>
 
         {/* Người nhận */}

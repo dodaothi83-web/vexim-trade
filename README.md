@@ -508,6 +508,13 @@ Menu **Hộp thư** / **Soạn email** — đội ngũ có thể tự viết ema
   (**Soạn email cho NCC**) — người nhận được **cố định từ hồ sơ**, chỉ việc viết nội dung.
 - Mở từ menu (không ngữ cảnh) thì gõ người nhận; hệ thống tự nhận đó là buyer hay NCC.
 
+**Một lần soạn = một bản nháp** (như Gmail): bấm **Lưu nháp** nhiều lần chỉ ghi đè lên đúng
+bản nháp đang mở, trình soạn ở lại tại chỗ và báo *Đã lưu lúc 22:14* — không sinh thêm dòng
+"Nháp" nào nữa, F5 vẫn mở lại đúng lá thư đó (liên kết đổi thành `?draft=<id>` ngay khi lưu).
+Ngoại lệ: bản nháp của người khác, hoặc bản nháp đã gửi rồi, thì app lưu thành bản mới của
+mình và nói rõ lý do — không âm thầm ghi đè bài của đồng nghiệp. Gửi thư thành công thì
+bản nháp vừa gửi bị xoá khỏi Hộp thư (tệp đính kèm đã chuyển sang email gửi nên vẫn còn).
+
 Toàn bộ email (tự động + tự soạn) nằm chung một **Hộp thư đi**, lọc được theo người nhận
 (buyer/NCC) và theo loại (tự động / tự soạn).
 
