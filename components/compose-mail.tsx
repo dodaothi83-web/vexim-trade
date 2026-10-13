@@ -73,6 +73,35 @@ function escapeTemplateHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+/**
+ * Chuyển dấu * đậm/nghiêng của Markdown thành thẻ HTML sau khi đã escape.
+ * Quy tắc:
+ *   ***...*** → <strong><em>...</em></strong>
+ *   **...**  → <strong>...</strong>
+ *   *...*   → <em>...</em>
+ * Áp dụng cho khung thư cố định (first-touch); người soạn vẫn gõ được * bình thường
+ * vì RichEditor không phát sinh dấu * thô trong bodyHtml (nó dùng thẻ <strong>/<em>).
+ */
+function renderInlineMarks(htmlEscaped: string): string {
+  // ***bold+italic*** trước rồi mới đến **bold** và *italic* — tránh nuốt nhau.
+  // Dùng ký tự phân cách không xung đột với nội dung đã escape.
+  const B = "\u0002";
+  const I = "\u0003";
+  let out = htmlEscaped;
+  out = out.replace(/\*\*\*([^*\n][^*\n]*?)\*\*\*/g, `${B}${B}${I}$1${I}${B}${B}`);
+  out = out.replace(/\*\*([^*\n][^*\n]*?)\*\*/g, `${B}${B}$1${B}${B}`);
+  out = out.replace(/(^|[^*])\*([^*\n][^*\n]*?)\*/g, (_m, pre, inner) => `${pre}${I}${inner}${I}`);
+  out = out
+    .split(B + B)
+    .map((chunk, i) => (i % 2 === 1 ? `<strong>${chunk}</strong>` : chunk))
+    .join("");
+  out = out
+    .split(I)
+    .map((chunk, i) => (i % 2 === 1 ? `<em>${chunk}</em>` : chunk))
+    .join("");
+  return out;
+}
+
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
@@ -326,13 +355,23 @@ export function ComposeMail({
     };
   }
 
-  /** Văn bản thuần -> <p>…</p>, cùng cách escape mà mẫu tiếp cận đang dùng */
+  /** Văn bản thuần -> <p>…</p>, cùng cách escape mà mẫu tiếp cận đang dùng.
+   *  Hỗ trợ tối thiểu Markdown inline theo đúng quy ước của mẫu thư cố định:
+   *    ***chữ*** → <strong><em>chữ</em></strong>  (câu hỏi kêu hành động)
+   *    **chữ**  → <strong>chữ</strong>            (tên thương hiệu)
+   *    *chữ*   → <em>chữ</em>                    (dòng opt-out)
+   *  Không hỗ trợ link, gạch đầu dòng, tiêu đề — mẫu thư không dùng chúng.
+   */
   function plainToParagraphs(text: string): string {
     return text
       .split(/\n{2,}/)
       .map((block) => block.trim())
       .filter(Boolean)
-      .map((block) => `<p>${escapeTemplateHtml(block).replace(/\n/g, "<br/>")}</p>`)
+      .map((block) => {
+        const escaped = escapeTemplateHtml(block).replace(/\n/g, "<br/>");
+        const withMarks = renderInlineMarks(escaped);
+        return `<p>${withMarks}</p>`;
+      })
       .join("");
   }
 
@@ -380,7 +419,9 @@ export function ComposeMail({
         out.push(item.word);
       }
       if (out.length) out.push("</p>");
-      return out.join("");
+      // Render **/***/* thành <strong>/<em> cả khi đang gõ để dấu * không hiện thô
+      // cho đến khi cặp dấu hoàn chỉnh thì chữ lập tức lên đậm/nghiêng.
+      return renderInlineMarks(out.join(""));
     };
 
     let i = 0;
