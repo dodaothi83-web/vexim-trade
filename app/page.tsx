@@ -11,15 +11,16 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   metadataBase: new URL(SITE_URL),
   alternates: { canonical: "/" },
-  title: "Find the right Vietnamese food producer for your brief | Veximtrade",
+  title: "Verified Vietnamese food producers, matched to your brief | Veximtrade",
   description:
-    "Send Veximtrade your food sourcing brief. We match it with a selected Vietnamese producer where one fits, " +
-    "and tell you plainly where none does. A Vexim Global company.",
+    "Cashew, coffee, pepper and dried fruit from Vietnam. Send Veximtrade your spec, volume and " +
+    "destination. In 3–5 working days you get a shortlist where every claim is marked Stated, " +
+    "Verified or Open. Free for buyers. A Vexim Global company.",
   openGraph: {
-    title: "Find the right Vietnamese food producer for your brief | Veximtrade",
+    title: "Verified Vietnamese food producers, matched to your brief | Veximtrade",
     description:
-      "Tell us what you need. We review the brief and connect you with a suitable Vietnamese producer where available. " +
-      "A Vexim Global company.",
+      "Send your spec, volume and destination. We return a shortlist of Vietnamese food producers " +
+      "with every claim marked Stated, Verified or Open. A Vexim Global company.",
     url: SITE_URL,
     siteName: "Vexim Trade",
     type: "website",
