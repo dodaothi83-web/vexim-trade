@@ -4,25 +4,23 @@ import { useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
-  ExternalLink,
+  HelpCircle,
   Loader2,
   Mail,
-  Quote,
+  MapPin,
+  Phone,
+  ShieldCheck,
 } from "lucide-react";
 
 import { submitQuoteLeadAction } from "@/app/actions";
+import { COMPANY } from "@/lib/config";
 import { Logo } from "@/components/brand-logo";
 import { SiteFooter } from "@/components/site-footer";
 
 /**
- * Landing page — "Dossier" variant (B).
- *
- * Văn phong và bố cục khớp với mẫu trên Arena.site: serif heading, bảng thay cho
- * thẻ card, chip Stated / Verified / Open màu cố định (xám/xanh/vàng), không ảnh
- * hero lớn, không banner. Form liên hệ giữ nguyên backend (submitQuoteLeadAction)
- * và giữ honeypot chống bot.
- *
- * Design A ("Classic" — funnel/4 stages màu mè) được thay bằng layout này.
+ * Landing dành cho buyer Mỹ: nhìn là hiểu. Tiêu đề lớn, chữ serif cho tiêu đề,
+ * sơ đồ thay cho đoạn văn dài, và màu có nghĩa (xanh = đã kiểm tra, vàng = còn mở,
+ * xám = nhà sản xuất nêu). Giọng văn ngắn, rõ, không dấu chấm than.
  */
 
 const HEADING: React.CSSProperties = {
@@ -30,140 +28,152 @@ const HEADING: React.CSSProperties = {
   letterSpacing: "-0.01em",
 };
 
-const PRODUCTS = ["Cashew", "Coffee", "Pepper", "Dried fruit"] as const;
-const PRODUCT_OPTIONS = ["", "Cashew", "Coffee", "Pepper", "Dried fruit", "Other"];
+const OPEN_QUESTIONS = [
+  "Is the spec on the sheet the one that will actually ship?",
+  "Which season and which lot does this price come from?",
+  "What paperwork can the producer provide, and when?",
+  "What is the minimum order, and how is it packed?",
+];
 
-type Tone = "stated" | "verified" | "open";
-const TONE: Record<Tone, { dot: string; chip: string; label: string }> = {
-  stated: {
-    dot: "bg-slate-400",
-    chip: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
-    label: "Stated",
+type Step = { title: string; desc: string; output: string; optional?: boolean };
+type Phase = { title: string; steps: Step[] };
+
+const PHASES: Phase[] = [
+  {
+    title: "Understand your brief",
+    steps: [
+      {
+        title: "You send the brief",
+        desc:
+          "Product, spec or grade, volume, destination market and the date you need the goods by. " +
+          "Incoterm and payment terms when you have them — otherwise we propose both in our reply.",
+        output: "A brief we both confirm in writing.",
+      },
+      {
+        title: "We screen producers",
+        desc: "We shortlist producers that fit your brief and show what is stated by the producer, what we verified, and what is still open.",
+        output: "A shortlist with each point marked Stated, Verified or Open.",
+      },
+    ],
   },
-  verified: {
-    dot: "bg-emerald-600",
-    chip: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
-    label: "Verified",
+  {
+    title: "Confirm spec and samples",
+    steps: [
+      {
+        title: "We agree spec and samples",
+        desc: "Grade, standard, packing and how samples are sent are agreed before you evaluate. Sample costs are paid by you.",
+        output: "A signed spec sheet and a sample schedule.",
+      },
+    ],
   },
-  open: {
-    dot: "bg-amber-500",
-    chip: "bg-amber-50 text-amber-800 ring-1 ring-amber-200",
-    label: "Open",
+  {
+    title: "Work with the producer",
+    steps: [
+      {
+        title: "We coordinate the talks",
+        desc: "We clear up differences in requirements, working methods and terms. Final commercial terms are agreed in writing between you and the producer.",
+        output: "A list of points agreed, and points still waiting.",
+      },
+      {
+        title: "Written summary after each meeting",
+        desc: "What was agreed, what is open, the risks we see, and the next step.",
+        output: "A written summary to you after every meeting.",
+      },
+      {
+        title: "Factory visit",
+        desc: "In person, or by video call with a screen recording if travel is not possible. Travel costs are paid by you.",
+        output: "A visit plan and the agenda for the day.",
+        optional: true,
+      },
+    ],
   },
+  {
+    title: "Before and after shipment",
+    steps: [
+      {
+        title: "Pre-shipment inspection",
+        desc: "We coordinate an independent inspection company and send you the results before the goods leave the factory. Inspection fees are paid by you.",
+        output: "Inspection results, sent before the goods leave.",
+        optional: true,
+      },
+      {
+        title: "Shipping updates",
+        desc: "Dates from the producer or carrier are marked as estimates until confirmed. We share the documents within our scope, such as the commercial invoice and packing list.",
+        output: "Confirmed dates, and documents as they are issued.",
+      },
+    ],
+  },
+];
+
+const DOES_NOT: string[] = [
+  "Guarantee quality or the outcome of any deal",
+  "Sign contracts on your behalf",
+  "Replace your own inspection or legal review",
+];
+
+const DOES: string[] = [
+  "Screen and shortlist producers against your brief",
+  "Coordinate samples, meetings, visits and inspections",
+  "Send you a written summary after each milestone",
+];
+
+const REPLY_KEY = [
+  {
+    tone: "stated",
+    title: "Stated",
+    desc: "What the producer tells us: specs, capacity, certificates.",
+  },
+  {
+    tone: "verified",
+    title: "Verified",
+    desc: "What we have checked against documents or records. Each point shows its source.",
+  },
+  {
+    tone: "open",
+    title: "Still open",
+    desc: "What is not confirmed yet. We list it, so you can ask before you rely on it.",
+  },
+];
+
+const TONE: Record<string, { bar: string; chip: string; label: string }> = {
+  stated: { bar: "bg-slate-400", chip: "bg-slate-100 text-slate-700", label: "Stated" },
+  verified: { bar: "bg-emerald-600", chip: "bg-emerald-50 text-emerald-800", label: "Verified" },
+  open: { bar: "bg-amber-500", chip: "bg-amber-50 text-amber-800", label: "Open" },
 };
 
-function Chip({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+const SCREENING_RULES: string[] = [
+  "Business registration is checked before a producer is shown to any buyer",
+  "Capacity, product range and certificates are stated by the producer, and verified against documents where we can",
+  "A producer that does not pass screening is not shown to buyers, whatever its fee",
+  "A producer that misleads a buyer or fails to deliver is removed from our list",
+];
+
+const INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP", "Not sure yet"];
+const PAYMENT_METHODS = ["T/T", "L/C", "D/P", "D/A", "Open account", "Not sure yet"];
+
+function FunnelDiagram() {
+  const rows = [
+    { w: "w-full", label: "Many suppliers, unverified" },
+    { w: "w-4/5", label: "Screening: records, specs, history" },
+    { w: "w-3/5", label: "Questions back and forth" },
+    { w: "w-2/5", label: "Producers that fit your brief" },
+  ];
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${TONE[tone].chip}`}>
-      <span className={`h-2 w-2 rounded-full ${TONE[tone].dot}`} />
-      {children}
-    </span>
+    <div className="space-y-2.5" aria-hidden="true">
+      {rows.map((r, i) => (
+        <div key={r.label} className="flex justify-center">
+          <div
+            className={`${r.w} rounded-lg px-4 py-3 text-center text-[14px] font-semibold ${
+              i === rows.length - 1 ? "bg-brand-600 text-white" : "bg-ink-100 text-ink-700"
+            }`}
+          >
+            {r.label}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
-
-const SHORTLIST: { point: string; tone: Tone }[] = [
-  { point: "Business registration", tone: "verified" },
-  { point: "Spec sheet", tone: "stated" },
-  { point: "Food safety certificate", tone: "verified" },
-  { point: "Price, season and lot", tone: "open" },
-  { point: "MOQ and packing", tone: "stated" },
-];
-
-const QUESTIONS: { q: string; a: string }[] = [
-  {
-    q: "Will the spec on the sheet be the one that ships?",
-    a: "Spec is agreed in a signed spec sheet before samples.",
-  },
-  {
-    q: "Which season and lot is this price from?",
-    a: "Every price shows its season and lot, or is marked Open.",
-  },
-  {
-    q: "What paperwork can the producer provide, and when?",
-    a: "Certificates are checked against the document, source shown.",
-  },
-  {
-    q: "What is the minimum order and how is it packed?",
-    a: "MOQ and packing are confirmed in writing first.",
-  },
-];
-
-const STEPS = [
-  {
-    n: 1,
-    title: "Send your brief.",
-    desc: "Product, spec, volume, destination and the date you need the goods.",
-    out: "You receive: a brief we both confirm in writing.",
-  },
-  {
-    n: 2,
-    title: "We screen and shortlist.",
-    desc: "Every point is marked Stated, Verified or Open.",
-    out: "You receive: a shortlist you can check.",
-  },
-  {
-    n: 3,
-    title: "Samples and talks.",
-    desc: "Spec signed before samples ship. We coordinate meetings and send a written summary after each. Factory visit is optional.",
-    out: "You receive: a signed spec sheet and a summary after every meeting.",
-  },
-  {
-    n: 4,
-    title: "Before and after shipment.",
-    desc: "Optional independent inspection. Dates are estimates until confirmed.",
-    out: "You receive: inspection results and documents as they are issued.",
-  },
-];
-
-const TESTIMONIALS = [
-  {
-    quote:
-      "We needed a cashew supplier with documentation our compliance team could audit. Veximtrade\u2019s shortlist showed which certificates were verified and which were still open, so we knew exactly what to ask before the first call.",
-    name: "Anna Keller",
-    role: "Procurement Director, Brightfield Foods Import",
-    country: "Germany",
-  },
-  {
-    quote:
-      "No fluff. They told us which of our specs the producer could meet and which it couldn\u2019t. That saved us two rounds of samples.",
-    name: "Marcus Lee",
-    role: "Sourcing Manager, Harbor & Oak Provisions (private-label brand)",
-    country: "United States",
-  },
-  {
-    quote:
-      "I assumed another middleman. What changed my mind was the fee disclosure, and that I could call the producer directly. I did. Everything matched.",
-    name: "Omar Haddad",
-    role: "Owner, Delta Gate Distribution",
-    country: "UAE",
-  },
-  {
-    quote:
-      "Brief to shortlist in 4 days. Three producers, two matched our grade and packing. First container shipped in 6 weeks.",
-    name: "Sofia Marin",
-    role: "Trader, Linden Trade Partners",
-    country: "Netherlands",
-  },
-  {
-    quote:
-      "It was our first time buying from Vietnam, and I was nervous. The written summary after every meeting kept me calm. I always knew what was agreed and what was still open.",
-    name: "Emily Carter",
-    role: "Founder, Maple Lane Pantry",
-    country: "Australia",
-  },
-];
-
-const RULES = [
-  "Business registration is checked before a producer is shown to any buyer.",
-  "Certificates and capacity are verified against documents where we can.",
-  "A producer that fails screening is not shown, whatever its fee. One that misleads a buyer is removed.",
-];
-
-const PROMISES = [
-  { label: "Sign direct", desc: "You sign the contract with the producer." },
-  { label: "Call any producer", desc: "You may contact any producer we introduce." },
-  { label: "No mark-up", desc: "Your price is the producer\u2019s price." },
-];
 
 export function LandingSite() {
   const [form, setForm] = useState({
@@ -172,14 +182,12 @@ export function LandingSite() {
     email: "",
     country: "",
     product: "",
-    productOther: "",
     quantity: "",
+    incoterm: "",
+    payment_method: "",
+    lead_time: "",
     message: "",
-    // Giữ các field cũ để server action không báo lỗi thiếu type
-    incoterm: "" as string,
-    payment_method: "" as string,
-    lead_time: "" as string,
-    company_website: "" as string,
+    company_website: "",
   });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
@@ -193,23 +201,7 @@ export function LandingSite() {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const product =
-      form.product === "Other" && form.productOther.trim()
-        ? form.productOther.trim()
-        : form.product;
-    const res = await submitQuoteLeadAction({
-      company: form.company,
-      name: form.name,
-      email: form.email,
-      country: form.country,
-      product,
-      quantity: form.quantity,
-      incoterm: form.incoterm || undefined,
-      payment_method: form.payment_method || undefined,
-      lead_time: form.lead_time || undefined,
-      message: form.message,
-      company_website: form.company_website,
-    });
+    const res = await submitQuoteLeadAction(form);
     setBusy(false);
     if (res.ok) setDone(res.message);
     else setError(res.message);
@@ -217,439 +209,407 @@ export function LandingSite() {
 
   return (
     <div className="min-h-screen bg-white text-ink-900">
-      {/* ---------- Top bar / product strip ---------- */}
-      <header className="border-b border-ink-200">
-        <div className="mx-auto flex max-w-5xl items-center gap-5 px-5 py-3.5 sm:px-8">
-          <Logo className="h-9 w-[49px] shrink-0" />
-          <span className="hidden text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-500 sm:block">
-            Veximtrade
-          </span>
-          <nav className="ml-auto flex items-center gap-1.5 text-[13px] text-ink-600">
-            {PRODUCTS.map((p, i) => (
-              <span key={p} className="flex items-center gap-1.5">
-                {i > 0 && <span className="text-ink-300">·</span>}
-                <span className="transition hover:text-ink-900">{p}</span>
-              </span>
-            ))}
+      {/* ---------- Header ---------- */}
+      <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3 sm:px-8">
+          <Logo className="h-12 w-[65px] shrink-0" />
+          <nav className="ml-auto hidden items-center gap-7 text-[15px] font-medium text-ink-700 md:flex">
+            <a href="#problem" className="transition hover:text-brand-700">The problem</a>
+            <a href="#work" className="transition hover:text-brand-700">How it works</a>
+            <a href="#start" className="transition hover:text-brand-700">Who we represent</a>
           </nav>
-        </div>
-      </header>
-
-      {/* ---------- Hero ---------- */}
-      <section className="mx-auto max-w-5xl px-5 pb-10 pt-14 sm:px-8 sm:pt-20">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-500">
-          {PRODUCTS.join(" · ")}
-        </p>
-        <h1
-          className="mt-5 max-w-3xl text-4xl font-bold leading-[1.1] text-ink-900 sm:text-[52px] sm:leading-[1.08]"
-          style={HEADING}
-        >
-          Verified Vietnamese food producers, matched to your brief.
-        </h1>
-        <p className="mt-6 max-w-2xl text-[18px] leading-relaxed text-ink-700">
-          Cashew, coffee, pepper and dried fruit. Send your spec, volume and destination. In 3–5
-          working days you get a shortlist where every claim is marked{" "}
-          <Chip tone="stated">Stated</Chip> <Chip tone="verified">Verified</Chip> or{" "}
-          <Chip tone="open">Open</Chip>.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
           <a
-            href="#request"
-            className="inline-flex items-center gap-2 rounded-md bg-ink-900 px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-ink-800"
+            href="#send"
+            className="ml-auto flex items-center gap-2 rounded-md bg-brand-600 px-5 py-2.5 text-[15px] font-semibold text-white transition hover:bg-brand-700 md:ml-0"
           >
             Start a sourcing request
             <ArrowRight className="h-4 w-4" />
           </a>
-          <a
-            href="#sample"
-            className="inline-flex items-center gap-2 rounded-md border border-ink-300 px-5 py-3 text-[14px] font-semibold text-ink-800 transition hover:border-ink-900 hover:text-ink-900"
+        </div>
+      </header>
+
+      {/* ---------- Hero ---------- */}
+      <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
+        <div>
+          <p className="flex items-center gap-2 text-[15px] font-semibold text-brand-700">
+            <ShieldCheck className="h-4 w-4" />
+            Veximtrade · a Vexim Global company
+          </p>
+          <h1
+            className="mt-6 text-5xl font-bold leading-[1.05] text-ink-900 sm:text-6xl"
+            style={HEADING}
           >
-            See a sample shortlist
-            <ExternalLink className="h-4 w-4" />
-          </a>
-        </div>
-        <p className="mt-5 text-[13px] text-ink-500">
-          Free for buyers · Written reply by the next business day · No portal, no subscription
-        </p>
-      </section>
-
-      {/* ---------- Sample shortlist card ---------- */}
-      <section id="sample" className="mx-auto max-w-5xl px-5 pb-16 sm:px-8">
-        <div className="rounded-lg border border-ink-200">
-          <div className="flex items-center justify-between border-b border-ink-200 px-5 py-3 text-[13px] text-ink-500">
-            <span className="font-semibold text-ink-700">Shortlist · Cashew W320</span>
-            <span>Day 4</span>
-          </div>
-          <ul className="divide-y divide-ink-100">
-            {SHORTLIST.map((row) => (
-              <li
-                key={row.point}
-                className="flex items-center justify-between gap-4 px-5 py-3.5 text-[14.5px]"
-              >
-                <span className="text-ink-800">{row.point}</span>
-                <Chip tone={row.tone}>{TONE[row.tone].label}</Chip>
-              </li>
-            ))}
-          </ul>
-          <div className="border-t border-ink-200 px-5 py-2.5 text-[12px] italic text-ink-400">
-            Illustrative example
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- The problem ---------- */}
-      <section className="border-t border-ink-200">
-        <div className="mx-auto grid max-w-5xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[1fr_1.3fr]">
-          <div>
-            <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-500">
-              The problem
-            </p>
-            <h2
-              className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-[40px] sm:leading-tight"
-              style={HEADING}
+            Finding the right Vietnamese producer should not take your whole quarter.
+          </h1>
+          <p className="mt-7 max-w-xl text-[19px] leading-relaxed text-ink-700">
+            Send us your brief. We match it to a Vietnamese producer that fits, and tell you
+            plainly when none does.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center gap-4">
+            <a
+              href="#send"
+              className="flex items-center gap-2 rounded-md bg-brand-600 px-7 py-4 text-[16px] font-semibold text-white transition hover:bg-brand-700"
             >
+              Start a sourcing request
+              <ArrowRight className="h-5 w-5" />
+            </a>
+            <a
+              href="#work"
+              className="rounded-md border-2 border-ink-900 px-7 py-3.5 text-[16px] font-semibold text-ink-900 transition hover:bg-ink-900 hover:text-white"
+            >
+              See how it works
+            </a>
+          </div>
+        </div>
+        <div className="relative">
+          <img
+            src="/images/hero-scene.jpg"
+            alt=""
+            aria-hidden="true"
+            className="aspect-[5/4] w-full rounded-2xl object-cover"
+          />
+        </div>
+      </section>
+
+      {/* ---------- The problem, in one picture ---------- */}
+      <section id="problem" className="bg-ink-50">
+        <div className="mx-auto grid max-w-6xl gap-12 px-5 py-20 sm:px-8 lg:grid-cols-2 lg:items-center">
+          <div>
+            <h2 className="text-4xl font-bold leading-tight text-ink-900 sm:text-5xl" style={HEADING}>
               An unmatched supplier costs you a week. Usually more.
             </h2>
-            <p className="mt-5 text-[16px] leading-relaxed text-ink-700">
-              A list of suppliers is not a match. Every name adds another email, spec sheet and
-              call that goes nowhere. We answer four questions before you see a name.
+            <p className="mt-6 text-[18px] leading-relaxed text-ink-700">
+              A list of suppliers is not a match. Each name brings another email, another spec
+              sheet and another call that goes nowhere.
+            </p>
+            <p className="mt-4 text-[18px] leading-relaxed text-ink-700">
+              Your team pays for that search in hours that should have gone to the one producer
+              who fits.
+            </p>
+            <ul className="mt-8 space-y-3">
+              {OPEN_QUESTIONS.map((t) => (
+                <li key={t} className="flex items-start gap-3 text-[16px] leading-snug text-ink-800">
+                  <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-2xl bg-white p-6 ring-1 ring-ink-200 sm:p-8">
+            <p className="mb-5 text-[13px] font-bold uppercase tracking-wider text-ink-500">
+              Where the weeks go
+            </p>
+            <FunnelDiagram />
+            <p className="mt-6 border-t border-ink-100 pt-5 text-[16px] font-semibold text-ink-900">
+              We do the screening first. You see the one that fits.
             </p>
           </div>
-          <div className="overflow-hidden rounded-lg border border-ink-200">
-            <table className="w-full text-left text-[14.5px]">
-              <thead className="bg-ink-50 text-[12px] uppercase tracking-wider text-ink-500">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">The question</th>
-                  <th className="px-5 py-3 font-semibold">Our answer</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink-100">
-                {QUESTIONS.map((row) => (
-                  <tr key={row.q} className="align-top">
-                    <td className="px-5 py-4 text-ink-900">{row.q}</td>
-                    <td className="px-5 py-4 text-ink-600">{row.a}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="mx-auto max-w-5xl px-5 pb-16 sm:px-8">
-          <p className="border-t border-ink-200 pt-6 text-[15px] font-semibold text-ink-900">
-            We do the screening first. You see the producers that fit.
-          </p>
         </div>
       </section>
 
       {/* ---------- How it works ---------- */}
-      <section className="border-t border-ink-200">
-        <div className="mx-auto max-w-5xl px-5 py-16 sm:px-8">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-500">
-            How it works
-          </p>
-          <h2
-            className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-[40px] sm:leading-tight"
-            style={HEADING}
-          >
-            From your brief to the shipment, in four steps.
-          </h2>
-          <ol className="mt-10 grid gap-0 overflow-hidden rounded-lg border border-ink-200 sm:grid-cols-2">
-            {STEPS.map((s) => (
-              <li
-                key={s.n}
-                className="border-b border-ink-200 p-6 last:border-b-0 sm:border-r sm:border-ink-200 sm:[&:nth-child(2n)]:border-r-0 sm:[&:nth-last-child(-n+2)]:border-b-0"
-              >
-                <div className="flex items-baseline gap-3">
-                  <span className="text-[13px] font-bold text-ink-400">{s.n}</span>
-                  <h3 className="text-[20px] font-bold leading-snug text-ink-900" style={HEADING}>
-                    {s.title}
-                  </h3>
-                </div>
-                <p className="mt-3 text-[15px] leading-relaxed text-ink-700">{s.desc}</p>
-                <p className="mt-4 text-[13px] font-semibold text-ink-900">{s.out}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      {/* ---------- Founder ---------- */}
-      <section className="border-t border-ink-200">
-        <div className="mx-auto grid max-w-5xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[240px_1fr]">
-          <div>
-            {/* Chân dung founder chưa có asset — để khung chữ theo tỉ lệ đứng, đúng như
-                thiết kế mẫu đánh dấu "Portrait to be added". */}
-            <div className="flex aspect-[3/4] w-full items-center justify-center rounded-md border border-dashed border-ink-300 bg-ink-50 text-[11px] uppercase tracking-wider text-ink-400">
-              LH portrait
+      <section id="work" className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+        <h2 className="text-4xl font-bold leading-tight text-ink-900 sm:text-5xl" style={HEADING}>
+          From your brief to the shipment, in four stages.
+        </h2>
+        <p className="mt-5 max-w-3xl text-[18px] leading-relaxed text-ink-700">
+          Each step says what you receive. Steps marked optional happen only when your project needs them.
+        </p>
+        <div className="mt-12 grid gap-6 md:grid-cols-2">
+          {PHASES.map((phase, pi) => (
+            <div key={phase.title} className="rounded-2xl border-2 border-ink-900 p-7">
+              <p className="text-[13px] font-bold uppercase tracking-wider text-brand-700">Stage {pi + 1}</p>
+              <h3 className="mt-2 text-[24px] font-bold leading-snug text-ink-900" style={HEADING}>
+                {phase.title}
+              </h3>
+              <ol className="mt-6 space-y-6">
+                {phase.steps.map((step) => (
+                  <li key={step.title} className="border-t border-ink-100 pt-5">
+                    <p className="flex flex-wrap items-center gap-2 text-[17px] font-bold text-ink-900">
+                      {step.title}
+                      {step.optional && (
+                        <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[12px] font-semibold text-ink-600">
+                          Optional
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-2 text-[15.5px] leading-relaxed text-ink-700">{step.desc}</p>
+                    <p className="mt-3 text-[14px] font-semibold text-brand-700">You receive: {step.output}</p>
+                  </li>
+                ))}
+              </ol>
             </div>
-            <p className="mt-3 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-500">
-              Founder
-            </p>
-          </div>
-          <div>
-            <h2
-              className="text-3xl font-bold leading-tight text-ink-900 sm:text-[40px] sm:leading-tight"
-              style={HEADING}
-            >
-              The person behind every shortlist.
-            </h2>
-            <p className="mt-4 text-[15px] font-semibold text-ink-800">
-              Luong Van Hoc · Founder, Veximtrade · Vexim Global
-            </p>
-            <blockquote className="mt-6 border-l-2 border-ink-900 pl-5 text-[17px] leading-relaxed text-ink-800">
-              <Quote className="-ml-1 mb-1 h-5 w-5 text-ink-400" aria-hidden="true" />
-              I spent 15 years across Vietnam&rsquo;s cashew / coffee / pepper trade. I kept
-              seeing buyers lose weeks to suppliers whose claims nobody had checked. I started
-              Veximtrade to fix that. Every shortlist that leaves our desk carries my name.
-            </blockquote>
-            <p className="mt-6 text-[13px] text-ink-500">
-              Luong Van Hoc · VEXIM GLOBAL CO., LTD · Tax code 0111040294 · Hanoi, Vietnam
-            </p>
-          </div>
+          ))}
         </div>
-      </section>
 
-      {/* ---------- Testimonials ---------- */}
-      <section className="border-t border-ink-200">
-        <div className="mx-auto max-w-5xl px-5 py-16 sm:px-8">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-500">
-            Buyers
-          </p>
-          <h2
-            className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-[40px] sm:leading-tight"
-            style={HEADING}
-          >
-            What buyers say.
-          </h2>
-          <div className="mt-10 grid gap-6 md:grid-cols-2">
-            {TESTIMONIALS.map((t) => (
-              <figure
-                key={t.name}
-                className="flex flex-col justify-between rounded-lg border border-ink-200 p-6"
-              >
-                <blockquote className="text-[15.5px] leading-relaxed text-ink-800">
-                  &ldquo;{t.quote}&rdquo;
-                </blockquote>
-                <figcaption className="mt-5 border-t border-ink-100 pt-4">
-                  <p className="text-[14.5px] font-bold text-ink-900">{t.name}</p>
-                  <p className="text-[13px] text-ink-600">{t.role}</p>
-                  <p className="text-[12px] text-ink-400">{t.country}</p>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- Fees & producer selection ---------- */}
-      <section className="border-t border-ink-200">
-        <div className="mx-auto max-w-5xl px-5 py-16 sm:px-8">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-500">
-            Fees and producer selection
-          </p>
-          <h2
-            className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-[40px] sm:leading-tight"
-            style={HEADING}
-          >
-            Free for buyers. Honest about who pays.
-          </h2>
-          <div className="mt-6 space-y-5 text-[16px] leading-relaxed text-ink-700">
-            <p>
-              Producers pay Veximtrade a fixed fee / a commission on shipped orders for
-              representation. We are not a neutral adviser, so we publish our rules:
-            </p>
-            <ul className="space-y-3">
-              {RULES.map((r) => (
-                <li key={r} className="flex items-start gap-3 text-[15.5px] text-ink-800">
+        <div className="mt-10 grid gap-6 md:grid-cols-2">
+          <div className="rounded-2xl bg-emerald-50 p-7">
+            <p className="text-[15px] font-bold text-emerald-900">What we do</p>
+            <ul className="mt-4 space-y-3 text-[16px] text-emerald-950">
+              {DOES.map((t) => (
+                <li key={t} className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
-                  {r}
+                  {t}
                 </li>
               ))}
             </ul>
-            <p>
-              You sign directly with the producer, you may contact any producer we introduce, and
-              your price is the producer&rsquo;s price with no mark-up.
-            </p>
           </div>
-          <div className="mt-8 flex flex-wrap gap-3">
-            {PROMISES.map((p) => (
-              <div
-                key={p.label}
-                className="flex-1 min-w-[180px] rounded-lg border border-ink-200 px-5 py-4"
-              >
-                <p className="text-[14.5px] font-bold text-ink-900">{p.label}</p>
-                <p className="mt-1 text-[13px] text-ink-600">{p.desc}</p>
+          <div className="rounded-2xl bg-ink-50 p-7">
+            <p className="text-[15px] font-bold text-ink-900">What we do not do</p>
+            <ul className="mt-4 space-y-3 text-[16px] text-ink-800">
+              {DOES_NOT.map((t) => (
+                <li key={t} className="flex items-start gap-3">
+                  <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-ink-500" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-10 rounded-2xl border border-ink-200 p-7">
+          <p className="text-[15px] font-bold text-ink-900">How we are paid, and how we choose producers</p>
+          <p className="mt-3 text-[16px] leading-relaxed text-ink-700">
+            The producers we represent pay Veximtrade for that representation, and we tell you so.
+            We are not a neutral adviser. Our reputation is what we stake on every introduction,
+            so we publish the rules we screen by.
+          </p>
+          <ul className="mt-5 space-y-3 text-[16px] text-ink-800">
+            {SCREENING_RULES.map((t) => (
+              <li key={t} className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
+                {t}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-6 border-t border-ink-100 pt-5 text-[16px] leading-relaxed text-ink-800">
+            You sign the contract directly with the producer. You may contact any producer we
+            introduce directly. Your price is the producer's price, with no mark-up added by us.
+          </p>
+        </div>
+      </section>
+
+      {/* ---------- What the reply looks like ---------- */}
+      <section className="bg-ink-900 text-white">
+        <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+          <h2 className="text-4xl font-bold leading-tight sm:text-5xl" style={HEADING}>
+            Every reply tells you what is stated, what is verified, and what is still open.
+          </h2>
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {REPLY_KEY.map((k) => (
+              <div key={k.title} className="rounded-2xl bg-white p-7 text-ink-900">
+                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[14px] font-bold ${TONE[k.tone].chip}`}>
+                  <span className={`h-2.5 w-2.5 rounded-full ${TONE[k.tone].bar}`} />
+                  {TONE[k.tone].label}
+                </span>
+                <h3 className="mt-5 text-[24px] font-bold" style={HEADING}>{k.title}</h3>
+                <p className="mt-3 text-[16px] leading-relaxed text-ink-700">{k.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- Who we represent ---------- */}
+      <section id="start" className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+        <img
+          src="/images/producers-section.jpg"
+          alt=""
+          aria-hidden="true"
+          className="mb-14 h-56 w-full rounded-2xl object-cover object-[center_40%] sm:h-80"
+        />
+        <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr]">
+          <h2 className="text-4xl font-bold leading-tight text-ink-900 sm:text-5xl" style={HEADING}>
+            We are not a directory. We represent a selected group of producers.
+          </h2>
+          <div className="space-y-5 text-[18px] leading-relaxed text-ink-700">
+            <p>
+              From cashew kernels and coffee to pepper and dried fruit, we represent selected
+              Vietnamese food producers. We work directly with each one on specifications, grades,
+              seasonality, packing and export requirements.
+            </p>
+            <p>
+              We do not hold every product, and we will not pretend to. If your product is outside
+              what we represent, we say so in our reply.
+            </p>
           </div>
         </div>
       </section>
 
       {/* ---------- Form ---------- */}
-      <section id="request" className="border-t border-ink-200 bg-ink-50">
-        <div className="mx-auto grid max-w-5xl gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[1fr_1.15fr]">
+      <section id="send" className="bg-ink-50">
+        <div className="mx-auto grid max-w-6xl gap-12 px-5 py-20 sm:px-8 lg:grid-cols-[1fr_1.25fr]">
           <div>
-            <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-500">
-              Start here
-            </p>
-            <h2
-              className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-[40px] sm:leading-tight"
-              style={HEADING}
-            >
+            <h2 className="text-4xl font-bold leading-tight text-ink-900 sm:text-5xl" style={HEADING}>
               Tell us what you need.
             </h2>
-            <p className="mt-5 text-[16px] leading-relaxed text-ink-700">
-              Describe the product, spec, volume and destination. You get a written reply by the
-              start of your next business day: what is stated, verified and open, and the next
-              step. Only company, email and product are required.
+            <p className="mt-6 text-[18px] leading-relaxed text-ink-700">
+              Describe the product, the spec, the volume and where it goes. You get a written reply
+              by the start of your next business day — what is stated, what is verified, what is still
+              open, and the next step. The clock we keep for that promise is yours, not Hanoi's.
             </p>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Chip tone="stated">Stated</Chip>
-              <Chip tone="verified">Verified</Chip>
-              <Chip tone="open">Open</Chip>
-            </div>
-            <p className="mt-4 text-[13px] text-ink-500">
-              Free for buyers · No portal, no subscription
+            <p className="mt-4 text-[16px] leading-relaxed text-ink-600">
+              No portal and no subscription. If we cannot find a fit this season, we say so plainly.
             </p>
+            <ul className="mt-8 space-y-3 text-[16px] text-ink-800">
+              <li className="flex items-center gap-3"><Mail className="h-5 w-5 text-brand-700" />{COMPANY.email}</li>
+              <li className="flex items-center gap-3"><Phone className="h-5 w-5 text-brand-700" />{COMPANY.phone}</li>
+              <li className="flex items-start gap-3"><MapPin className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />{COMPANY.address}</li>
+            </ul>
           </div>
 
           {done ? (
-            <div className="rounded-lg border border-emerald-300 bg-white p-6">
-              <p className="flex items-center gap-2 text-[15px] font-bold text-emerald-800">
-                <CheckCircle2 className="h-5 w-5" />
-                Request received
-              </p>
-              <p className="mt-2 text-[14px] leading-relaxed text-emerald-900">{done}</p>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="rounded-lg border border-ink-200 bg-white p-6">
-              {/* Honeypot chống bot */}
-              <input
-                type="text"
-                value={form.company_website}
-                onChange={(e) => set("company_website", e.target.value)}
-                name="company_website"
-                tabIndex={-1}
-                autoComplete="off"
-                className="hidden"
-                aria-hidden="true"
-              />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="label">
-                    Company <span className="text-red-600">*</span>
-                  </span>
-                  <input
-                    className="input"
-                    required
-                    value={form.company}
-                    onChange={(e) => set("company", e.target.value)}
-                    placeholder="Your company"
-                  />
-                </label>
-                <label className="block">
-                  <span className="label">
-                    Email <span className="text-red-600">*</span>
-                  </span>
-                  <input
-                    className="input"
-                    type="email"
-                    required
-                    value={form.email}
-                    onChange={(e) => set("email", e.target.value)}
-                    placeholder="name@company.com"
-                  />
-                </label>
+              <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-6">
+                <p className="flex items-center gap-2 text-[15px] font-bold text-emerald-800">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Request received
+                </p>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-emerald-900">{done}</p>
               </div>
-              <label className="mt-4 block">
-                <span className="label">
-                  Product <span className="text-red-600">*</span>
-                </span>
-                <select
-                  className="input"
-                  required
-                  value={form.product}
-                  onChange={(e) => set("product", e.target.value)}
-                >
-                  {PRODUCT_OPTIONS.map((opt) => (
-                    <option key={opt || "empty"} value={opt}>
-                      {opt || "Select a product"}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {form.product === "Other" && (
-                <label className="mt-3 block">
-                  <span className="label">Which product?</span>
-                  <input
-                    className="input"
-                    value={form.productOther}
-                    onChange={(e) => set("productOther", e.target.value)}
-                    placeholder="e.g. cinnamon, coconut, frozen fruit"
-                  />
-                </label>
-              )}
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="label">Your name</span>
-                  <input
-                    className="input"
-                    value={form.name}
-                    onChange={(e) => set("name", e.target.value)}
-                    placeholder="Contact person"
-                  />
-                </label>
-                <label className="block">
-                  <span className="label">Volume</span>
-                  <input
-                    className="input"
-                    value={form.quantity}
-                    onChange={(e) => set("quantity", e.target.value)}
-                    placeholder="e.g. 18 MT / 1×40ft"
-                  />
-                </label>
-              </div>
-              <label className="mt-4 block">
-                <span className="label">Destination</span>
+            ) : (
+              <form onSubmit={submit} className="rounded-2xl bg-white p-6 ring-1 ring-ink-200">
+                {/* Honeypot chống bot: người thật không thấy ô này */}
                 <input
-                  className="input"
-                  value={form.country}
-                  onChange={(e) => set("country", e.target.value)}
-                  placeholder="e.g. Germany, USA, UAE"
+                  type="text"
+                  value={form.company_website}
+                  onChange={(e) => set("company_website", e.target.value)}
+                  name="company_website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  className="hidden"
+                  aria-hidden="true"
                 />
-              </label>
-              <label className="mt-4 block">
-                <span className="label">Spec and packing</span>
-                <textarea
-                  className="input min-h-[92px]"
-                  value={form.message}
-                  onChange={(e) => set("message", e.target.value)}
-                  placeholder="Grade, packing, certificates you need, destination port, timeline"
-                />
-              </label>
-              {error && (
-                <p className="mt-3 text-[13px] font-semibold text-red-600">{error}</p>
-              )}
-              <button
-                type="submit"
-                disabled={busy}
-                className="mt-5 inline-flex items-center gap-2 rounded-md bg-ink-900 px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-ink-800 disabled:opacity-60"
-              >
-                {busy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Mail className="h-4 w-4" />
-                )}
-                Start a sourcing request
-              </button>
-              <p className="mt-3 text-[12.5px] text-ink-500">
-                Free for buyers · Written reply by the next business day
-              </p>
-            </form>
-          )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="label">Company *</span>
+                    <input
+                      className="input"
+                      required
+                      value={form.company}
+                      onChange={(e) => set("company", e.target.value)}
+                      placeholder="Your company name"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="label">Your name</span>
+                    <input
+                      className="input"
+                      value={form.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      placeholder="Contact person"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="label">Email *</span>
+                    <input
+                      className="input"
+                      type="email"
+                      required
+                      value={form.email}
+                      onChange={(e) => set("email", e.target.value)}
+                      placeholder="name@company.com"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="label">Your market</span>
+                    <input
+                      className="input"
+                      value={form.country}
+                      onChange={(e) => set("country", e.target.value)}
+                      placeholder="e.g. United States, EU, Korea"
+                    />
+                  </label>
+                </div>
+                <label className="mt-3 block">
+                  <span className="label">What are you sourcing? *</span>
+                  <input
+                    className="input"
+                    required
+                    value={form.product}
+                    onChange={(e) => set("product", e.target.value)}
+                    placeholder="Product, grade or spec"
+                  />
+                </label>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="label">Quantity (if known)</span>
+                    <input
+                      className="input"
+                      value={form.quantity}
+                      onChange={(e) => set("quantity", e.target.value)}
+                      placeholder="e.g. 18 MT / 1×40ft"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="label">Quote basis (Incoterm)</span>
+                    <select
+                      className="input"
+                      value={form.incoterm}
+                      onChange={(e) => set("incoterm", e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {INCOTERMS.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="label">Payment method</span>
+                    <select
+                      className="input"
+                      value={form.payment_method}
+                      onChange={(e) => set("payment_method", e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {PAYMENT_METHODS.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="label">When do you need it?</span>
+                    <input
+                      className="input"
+                      value={form.lead_time}
+                      onChange={(e) => set("lead_time", e.target.value)}
+                      placeholder="e.g. 30 days after order"
+                    />
+                  </label>
+                </div>
+                <label className="mt-3 block">
+                  <span className="label">Anything else we should know</span>
+                  <textarea
+                    className="input min-h-[64px]"
+                    value={form.message}
+                    onChange={(e) => set("message", e.target.value)}
+                    placeholder="Grade or spec, packing, delivery window, destination port, certificates you need"
+                  />
+                </label>
+                <p className="mt-2 text-[11.5px] leading-relaxed text-slate-400">
+                  Required: company, email and what you are sourcing. Incoterm, payment method and
+                  every other field are optional — send what you already know, and “Not sure yet” is a
+                  perfectly good answer.
+                </p>
+                {error && <p className="mt-2 text-[12.5px] font-semibold text-red-600">{error}</p>}
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="mt-4 flex items-center gap-2 rounded-full bg-brand-600 px-6 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-brand-700 disabled:opacity-60"
+                >
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                  Submit sourcing request
+                </button>
+                <p className="mt-2 text-[11.5px] text-slate-400">
+                  A written reply by the start of your next business day. Your details stay with our
+                  export desk.
+                </p>
+              </form>
+            )}
+
         </div>
       </section>
 
+      {/* ---------- Footer ---------- */}
       <SiteFooter />
     </div>
   );
