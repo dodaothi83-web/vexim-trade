@@ -135,7 +135,7 @@ export default function HowWeVerifyPage() {
             href="/rfq"
             className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-2.5 text-[14px] font-semibold text-ink-900 hover:bg-ink-100"
           >
-            Start a sourcing request <ArrowRight className="h-4 w-4" />
+            Request a quote <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             href="/"

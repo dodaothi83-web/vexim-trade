@@ -133,7 +133,7 @@ export default async function CategoryPage({ params }: PageProps) {
               href={`/rfq?category=${encodeURIComponent(slug)}`}
               className="inline-flex items-center gap-2 rounded-md bg-brand-700 px-5 py-3 text-[14.5px] font-semibold text-white shadow-sm hover:bg-brand-800"
             >
-              Start a sourcing request
+              Request a quote
               <ArrowRight className="h-4 w-4" />
             </Link>
             <p className="text-[12.5px] text-ink-500">
@@ -443,7 +443,7 @@ export default async function CategoryPage({ params }: PageProps) {
               href={`/rfq?category=${encodeURIComponent(slug)}`}
               className="inline-flex items-center gap-2 self-start rounded-md bg-brand-700 px-5 py-3 text-[14.5px] font-semibold text-white shadow-sm hover:bg-brand-800"
             >
-              Start a sourcing request
+              Request a quote
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

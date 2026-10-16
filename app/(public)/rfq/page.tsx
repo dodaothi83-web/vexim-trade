@@ -40,7 +40,7 @@ export default async function RfqPage({
         className="mt-4 text-[34px] font-bold leading-tight text-ink-900 sm:text-[44px]"
         style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}
       >
-        Start a sourcing request
+        Request a quote
       </h1>
       <p className="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-700">
         Tell us what you need — grade, volume, destination and timeline. Our desk screens suppliers and

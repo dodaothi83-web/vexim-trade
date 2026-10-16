@@ -15,7 +15,7 @@ export function ArticleCta({ className = "" }: { className?: string }) {
         href="/#send"
         className="mt-4 flex items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-brand-700"
       >
-        Start a sourcing request
+        Request a quote
         <ArrowRight className="h-4 w-4" />
       </Link>
     </div>
