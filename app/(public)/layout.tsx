@@ -4,20 +4,21 @@ import { ArrowRight } from "lucide-react";
 
 import { Logo } from "@/components/brand-logo";
 import { getStore } from "@/lib/db";
-import { COMPANY } from "@/lib/config";
+import { SimpleFooter } from "./simple-footer";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Public site layout.
  *  - Header: logo · nav (Categories / How we verify / For suppliers) · CTA "Request a quote".
- *  - Trang chủ (/) tự render hero + sections + footer trong home.tsx; các trang khác
- *    không có footer kép nhờ logic dưới.
+ *  - Trang chủ (/) tự render hero + sections + footer đầy đủ trong home.tsx
+ *    (industries, links, contact). Các trang khác dùng SimpleFooter gọn
+ *    (SimpleFooter tự ẩn ở pathname "/").
  *  - Back-office /crm/* ở route group riêng, không bị bọc bởi layout này.
  */
 export default async function PublicLayout({ children }: { children: ReactNode }) {
   const store = getStore();
-  await store.listCategories({ publishedOnly: true }); // warm cache, không dùng đến thanh category dài nữa
+  await store.listCategories({ publishedOnly: true }); // warm cache
 
   return (
     <div className="min-h-screen bg-white text-ink-900">
@@ -58,24 +59,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
 
       <main>{children}</main>
 
-      {/* Footer cho các trang KHÔNG phải home — trang chủ đã tự render footer bên trong HomeContent
-          để dùng đúng bản copywriter yêu cầu. Các trang khác dùng footer đơn giản. */}
       <SimpleFooter />
     </div>
-  );
-}
-
-function SimpleFooter() {
-  return (
-    <footer className="mt-16 border-t border-ink-200 bg-white py-8 text-[12.5px] text-ink-500">
-      <div className="mx-auto flex max-w-7xl flex-col items-start gap-2 px-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <div>© {new Date().getFullYear()} {COMPANY.legalName}, Hanoi, Vietnam</div>
-        <div className="flex items-center gap-4">
-          <Link href="/how-we-verify" className="hover:text-ink-800">How we verify</Link>
-          <Link href="/for-suppliers" className="hover:text-ink-800">For suppliers</Link>
-          <a href={`mailto:${COMPANY.email}`} className="hover:text-ink-800">{COMPANY.email}</a>
-        </div>
-      </div>
-    </footer>
   );
 }

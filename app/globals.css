@@ -28,6 +28,15 @@
   --color-ink-900: #0f172a;
   --color-ink-950: #020617;
 
+  /* Warm amber accent — evokes cashew / roasted coffee tones; used sparingly */
+  --color-accent-50: #fff8ed;
+  --color-accent-100: #ffefd4;
+  --color-accent-300: #f4c679;
+  --color-accent-400: #e6a94a;
+  --color-accent-500: #d18b22;
+  --color-accent-600: #b26f13;
+  --color-accent-700: #8c5510;
+
   --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
   --shadow-pop: 0 10px 30px -8px rgb(15 23 42 / 0.22), 0 4px 10px -4px rgb(15 23 42 / 0.1);
 

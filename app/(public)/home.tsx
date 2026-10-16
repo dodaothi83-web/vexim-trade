@@ -1,105 +1,136 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
   BadgeCheck,
+  Building2,
   ClipboardCheck,
   FileStack,
-  Handshake,
   Layers3,
-  MessageSquareWarning,
   Search,
   ShieldCheck,
-  User,
 } from "lucide-react";
 
 import { getStore } from "@/lib/db";
-import { COMPANY } from "@/lib/config";
 
-const CATEGORIES: { slug: string; label: string }[] = [
-  { slug: "cashew", label: "Cashew" },
-  { slug: "pepper", label: "Pepper" },
-  { slug: "coffee", label: "Coffee" },
-  { slug: "rice", label: "Rice" },
-  { slug: "coconut", label: "Coconut" },
-  { slug: "cinnamon", label: "Cassia cinnamon" },
-  { slug: "star-anise", label: "Star anise" },
-  { slug: "dragon-fruit", label: "Dragon fruit" },
-  { slug: "dried-fruit", label: "Dried fruit" },
-  { slug: "shrimp", label: "Shrimp" },
-  { slug: "pangasius", label: "Pangasius" },
-  { slug: "noodles", label: "Noodles" },
+/**
+ * Industries the team can take RFQs on within 24h today.
+ * Only add a slug here once the trading team has active supplier contacts
+ * and can reply within one business day. Others are routed via /rfq.
+ */
+const ACTIVE_CATEGORIES: {
+  slug: string;
+  label: string;
+  kicker: string;
+  image: string;
+  live: boolean; // has a public /products/[slug] page
+}[] = [
+  { slug: "cashew",      label: "Cashew kernels",   kicker: "W180 – SP, AFI grades",         image: "/images/categories/cashew-hero.jpg", live: true  },
+  { slug: "pepper",      label: "Black pepper",     kicker: "FAQ / cleaned / ASTA",          image: "/images/categories/pepper.jpg",      live: false },
+  { slug: "coffee",      label: "Green coffee",     kicker: "Robusta & Arabica",             image: "/images/categories/coffee.jpg",      live: false },
+  { slug: "cinnamon",    label: "Cassia cinnamon",  kicker: "Sticks, split, powder",         image: "/images/categories/cinnamon.jpg",    live: false },
+  { slug: "coconut",     label: "Coconut products", kicker: "Desiccated, milk, oil",         image: "/images/categories/coconut.jpg",     live: false },
+  { slug: "rice",        label: "Rice",             kicker: "Jasmine, ST25, Japonica",       image: "/images/categories/rice.jpg",        live: false },
 ];
 
 const HOW_IT_WORKS = [
   {
     icon: FileStack,
-    title: "1. Tell us what you need",
-    body: "Product, grade, quantity, destination and when you need it. If you're unsure about Incoterms or payment terms, we'll suggest what's usual.",
+    title: "Tell us what you need",
+    body: "Product, grade, quantity, destination and timing. If you're unsure about Incoterms or payment, we'll suggest what's usual.",
   },
   {
     icon: Search,
-    title: "2. We find suppliers that fit",
+    title: "We find suppliers that fit",
     body: "We contact producers we know and check them before they reach you.",
   },
   {
     icon: ClipboardCheck,
-    title: "3. Compare quotes side by side",
+    title: "Compare quotes side by side",
     body: "Price, MOQ, lead time and certificates on one page. You decide who to talk to.",
   },
   {
     icon: ShieldCheck,
-    title: "4. Samples, order and shipment",
-    body: "We arrange samples and inspection if you want them, then follow the order until it ships.",
+    title: "Samples, order, shipment",
+    body: "We arrange samples and inspection when you want them, then follow the order until it sails.",
   },
 ];
 
 const PROMISES = [
-  { icon: BadgeCheck, title: "We visit before we list.", body: "A supplier only gets our Factory audited badge after someone from our team has been to the factory." },
-  { icon: Search, title: "We're clear about what we've checked.", body: "Every quote shows which details we've confirmed and which come from the supplier." },
-  { icon: Layers3, title: "Your details stay private.", body: "Suppliers see your requirements, not your contact information, until you decide to go ahead." },
-  { icon: Handshake, title: "We stay with your order.", body: "Our team follows it through production, paperwork and shipment." },
+  { icon: Building2,    title: "We visit before we list.",       body: "A supplier only gets our Factory audited badge after someone from our team has been to the factory." },
+  { icon: Search,       title: "Every supplier we send you, we've met.", body: "If we haven't visited them yet, we say so clearly on the quote." },
+  { icon: Layers3,      title: "Your details stay private.",     body: "Suppliers see your requirements, not your contact information, until you choose to go ahead." },
+  { icon: BadgeCheck,   title: "We stay with your order.",       body: "Our team follows it through production, paperwork and shipment." },
+];
+
+const FAQ = [
+  {
+    q: "Does it cost anything to request a quote?",
+    a: "No. Requesting quotes is free. We only charge for optional services such as pre-shipment inspection when you ask us to arrange them.",
+  },
+  {
+    q: "How fast do you reply?",
+    a: "Within one business day for the categories listed above. We come back with 2–4 supplier options, or tell you honestly if we can't match what you're looking for.",
+  },
+  {
+    q: "Will suppliers contact me directly?",
+    a: "Not until you choose to. Suppliers see your requirements, not your contact details. You decide who to talk to.",
+  },
+  {
+    q: "Can you handle samples and inspections?",
+    a: "Yes. We arrange samples, pre-shipment inspection and loading supervision at cost when you need them.",
+  },
 ];
 
 export default async function HomeContent() {
   const store = getStore();
-  const allCategories = (await store.listCategories({ publishedOnly: true }));
+  const allCategories = await store.listCategories({ publishedOnly: true });
   const supCount = (await store.listSuppliers()).filter((s) => s.status === "published").length;
   const haveSlug = new Set(allCategories.map((c) => c.slug));
 
   return (
     <div>
-      {/* HERO */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-900 via-brand-800 to-ink-900 text-white">
+      {/* HERO — ảnh nền hạt điều + overlay đậm để chữ đọc được */}
+      <section className="relative overflow-hidden bg-brand-900 text-white">
+        <Image
+          src="/images/home/hero-cashew-texture.jpg"
+          alt=""
+          priority
+          fill
+          sizes="100vw"
+          className="object-cover opacity-30"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-900/85 via-brand-900/75 to-ink-900/90" />
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          className="pointer-events-none absolute inset-0 opacity-20"
           aria-hidden
           style={{
             backgroundImage:
-              "radial-gradient(circle at 20% 20%, #fff 1px, transparent 1px), radial-gradient(circle at 80% 55%, #fff 1px, transparent 1px)",
+              "radial-gradient(circle at 20% 30%, #fff 1px, transparent 1px), radial-gradient(circle at 80% 60%, #fff 1px, transparent 1px)",
             backgroundSize: "28px 28px, 40px 40px",
           }}
         />
-        <div className="relative mx-auto max-w-7xl px-5 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
-          <div className="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-start">
+        <div className="relative mx-auto max-w-7xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8 lg:py-28">
+          <div className="grid gap-12 lg:grid-cols-[1.15fr_1fr] lg:items-start">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11.5px] font-semibold uppercase tracking-[0.18em] text-brand-100">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11.5px] font-semibold uppercase tracking-[0.2em] text-brand-100 ring-1 ring-white/20 backdrop-blur">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent-400" />
                 Sourcing from Vietnam
               </span>
               <h1
-                className="mt-5 text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-[56px]"
+                className="mt-6 text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-[58px]"
                 style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}
               >
                 Buy from Vietnamese producers you can trust
               </h1>
-              <p className="mt-5 max-w-xl text-[15.5px] leading-[1.6] text-brand-100/90 sm:text-[17px]">
-                Cashew, pepper, coffee, rice and more. Tell us what you need and we'll come back within one business day
-                with 2 to 4 suppliers that fit. Our team checks every one of them first.
+              <p className="mt-5 max-w-xl text-[16px] leading-relaxed text-brand-100/90 sm:text-[17px]">
+                Cashew, pepper, coffee, coconut, rice and more. Tell us what you need and we'll come back within one business day
+                with 2 to 4 suppliers that fit. Our team visits every factory first.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link
                   href="/rfq"
-                  className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-3 text-[14px] font-bold text-brand-900 shadow-lg shadow-black/20 transition hover:bg-brand-50"
+                  className="inline-flex items-center gap-2 rounded-md bg-white px-6 py-3.5 text-[14.5px] font-bold text-brand-900 shadow-xl shadow-black/25 transition hover:bg-brand-50"
                 >
                   Request a quote <ArrowRight className="h-4 w-4" />
                 </Link>
@@ -107,33 +138,39 @@ export default async function HomeContent() {
                   href="/how-we-verify"
                   className="inline-flex items-center gap-2 rounded-md border border-white/30 px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-white/10"
                 >
-                  See how we check suppliers
+                  How we check suppliers
                 </Link>
               </div>
-              {supCount > 0 && (
-                <div className="mt-8 border-t border-white/15 pt-5 text-[13px] text-brand-100/80">
-                  We've visited and audited <strong className="text-white">{supCount}</strong> factories across Vietnam.
-                </div>
-              )}
+              <div className="mt-10 flex items-center gap-4 border-t border-white/15 pt-5 text-[13px] text-brand-100/80">
+                {supCount > 0 && (
+                  <>
+                    <Stat num={String(supCount)} label="factories visited" />
+                    <Divider />
+                  </>
+                )}
+                <Stat num="1" label="business day to reply" />
+                <Divider />
+                <Stat num="EN · VN" label="languages we work in" />
+              </div>
             </div>
 
             {/* Quote card */}
-            <div className="relative">
-              <div className="rounded-2xl bg-white/95 p-5 text-ink-900 shadow-2xl shadow-black/30 backdrop-blur">
-                <div className="flex items-center gap-2 text-[11.5px] font-semibold uppercase tracking-[0.18em] text-brand-700">
-                  <ShieldCheck className="h-4 w-4" /> Get quotes from checked suppliers
+            <div className="relative lg:mt-4">
+              <div className="rounded-2xl bg-white/95 p-6 text-ink-900 shadow-2xl shadow-black/30 backdrop-blur">
+                <div className="flex items-center gap-2 text-[11.5px] font-semibold uppercase tracking-[0.18em] text-accent-600">
+                  <ShieldCheck className="h-4 w-4" /> Quotes from checked suppliers
                 </div>
-                <h3 className="mt-2 text-[20px] font-bold leading-tight">Tell us what you need</h3>
-                <p className="mt-1 text-[13.5px] text-ink-600">Free, and no account needed.</p>
-                <ul className="mt-4 space-y-2 text-[13.5px] text-ink-700">
-                  <Bullet>Suppliers won't see your company name until you choose to talk to them.</Bullet>
-                  <Bullet>You get 2 to 4 options that match your specs.</Bullet>
-                  <Bullet>Each quote shows what we've checked ourselves and what the supplier has told us.</Bullet>
-                  <Bullet>We can arrange samples and pre-shipment inspection.</Bullet>
+                <h3 className="mt-2 text-[22px] font-bold leading-tight">Tell us what you need</h3>
+                <p className="mt-1 text-[13.5px] text-ink-600">Free. No account needed.</p>
+                <ul className="mt-5 space-y-2.5 text-[13.5px] text-ink-700">
+                  <Bullet>Suppliers won't see your company name until you choose to talk.</Bullet>
+                  <Bullet>You get 2–4 options that match your specs.</Bullet>
+                  <Bullet>Each quote shows what we checked ourselves vs. what the supplier told us.</Bullet>
+                  <Bullet>We arrange samples and pre-shipment inspection at cost.</Bullet>
                 </ul>
                 <Link
                   href="/rfq"
-                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-brand-700 px-4 py-3 text-[14px] font-bold text-white transition hover:bg-brand-800"
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-brand-700 px-4 py-3 text-[14.5px] font-bold text-white transition hover:bg-brand-800"
                 >
                   Request a quote <ArrowRight className="h-4 w-4" />
                 </Link>
@@ -144,14 +181,15 @@ export default async function HomeContent() {
         </div>
       </section>
 
-      {/* CATEGORIES */}
-      <section id="categories" className="border-b border-ink-100 bg-white">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8">
+      {/* CATEGORIES — thẻ có ảnh, 4 cột, badge "Suppliers available" cho ngành đã có trang */}
+      <section id="categories" className="bg-white">
+        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h2 className="text-[28px] font-black tracking-tight text-ink-900 sm:text-3xl">What we source</h2>
-              <p className="mt-1 max-w-2xl text-[14.5px] text-ink-600">
-                Pick a category to see suppliers. If you can't find what you're looking for, tell us and we'll look for it.
+            <div className="max-w-2xl">
+              <h2 className="text-[30px] font-black tracking-tight text-ink-900 sm:text-[36px]">What we source</h2>
+              <p className="mt-3 text-[15px] leading-relaxed text-ink-600">
+                Product categories we actively work on today. We only list industries where our team can reply within one business day.
+                If you don't see yours, send it to us anyway — we'll tell you honestly if we can help.
               </p>
             </div>
             <Link
@@ -162,144 +200,269 @@ export default async function HomeContent() {
             </Link>
           </div>
 
-          <ul className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {CATEGORIES.map((c) => {
-              const exists = haveSlug.has(c.slug);
+          <ul className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {ACTIVE_CATEGORIES.map((c) => {
+              const hasPage = c.live && haveSlug.has(c.slug);
+              const href = hasPage ? `/products/${c.slug}` : `/rfq?category=${c.slug}`;
               return (
                 <li key={c.slug}>
                   <Link
-                    href={exists ? `/products/${c.slug}` : "/rfq"}
-                    className={
-                      "group flex h-full items-center justify-between rounded-lg border px-4 py-4 transition " +
-                      (exists
-                        ? "border-ink-200 bg-white hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md"
-                        : "border-dashed border-ink-200 bg-ink-50/60 hover:border-brand-200 hover:bg-white")
-                    }
+                    href={href}
+                    className="group flex h-full flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-brand-300 hover:shadow-lg"
                   >
-                    <span className="text-[14.5px] font-semibold text-ink-900 group-hover:text-brand-700">
-                      {c.label}
-                    </span>
-                    <span className="text-[11.5px] font-semibold text-brand-700">
-                      {exists ? "Browse suppliers →" : "Request quotes →"}
-                    </span>
+                    <div className="relative aspect-[4/3] overflow-hidden bg-ink-100">
+                      <Image
+                        src={c.image}
+                        alt=""
+                        fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                        className="object-cover transition duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent" />
+                      {hasPage && (
+                        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-accent-500 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-white shadow-md">
+                          <span className="h-1.5 w-1.5 rounded-full bg-white" /> Suppliers available
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-1 flex-col p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-600">{c.kicker}</p>
+                      <h3 className="mt-1.5 text-[15.5px] font-bold text-ink-900 group-hover:text-brand-700">{c.label}</h3>
+                      <p className="mt-auto pt-3 text-[12.5px] font-semibold text-brand-700">
+                        {hasPage ? "Browse suppliers →" : "Request quotes →"}
+                      </p>
+                    </div>
                   </Link>
                 </li>
               );
             })}
           </ul>
+
+          <p className="mt-6 text-[12.5px] leading-relaxed text-ink-500">
+            <strong className="text-ink-700">Other Vietnamese products</strong> (shrimp, pangasius, noodles, dried fruit, honey, tea, processed foods): we know good factories in many of these but are still building our supplier notes.
+            Send us an RFQ and we'll be honest about what we can cover in 24 hours and what needs a bit more time.
+          </p>
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
-      <section className="bg-ink-50/50">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
+      {/* HOW IT WORKS — timeline ngang trên desktop */}
+      <section className="bg-ink-50/70">
+        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-6 lg:px-8">
           <div className="max-w-2xl">
-            <div className="text-[11.5px] font-bold uppercase tracking-[0.18em] text-brand-700">How it works</div>
-            <h2 className="mt-2 text-[28px] font-black tracking-tight text-ink-900 sm:text-3xl">Four steps, one reply per day</h2>
-            <p className="mt-2 text-[14.5px] text-ink-600">Most buyers hear back from us within one business day.</p>
+            <h2 className="text-[30px] font-black tracking-tight text-ink-900 sm:text-[36px]">Four steps from request to shipment</h2>
+            <p className="mt-3 text-[15px] leading-relaxed text-ink-600">Most buyers hear back from us within one business day.</p>
           </div>
 
-          <ol className="mt-10 grid gap-4 sm:grid-cols-2">
+          <ol className="relative mt-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-0">
+            {/* Đường nối timeline trên desktop */}
+            <span aria-hidden className="pointer-events-none absolute left-0 right-0 top-7 hidden h-px bg-gradient-to-r from-transparent via-ink-200 to-transparent lg:block" />
             {HOW_IT_WORKS.map((s, i) => (
-              <li key={s.title} className="rounded-xl border border-ink-200 bg-white p-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
-                    <s.icon className="h-5 w-5" />
-                  </div>
-                  <span className="font-mono text-[11.5px] font-bold text-ink-400">0{i + 1}</span>
+              <li key={s.title} className="relative lg:px-5">
+                <div className="relative flex items-center gap-3">
+                  <span className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-white ring-4 ring-ink-50/70 shadow-md">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-500 text-white">
+                      <s.icon className="h-5 w-5" />
+                    </span>
+                  </span>
+                  <span className="font-mono text-[11px] font-bold tracking-widest text-accent-600">STEP 0{i + 1}</span>
                 </div>
-                <h3 className="mt-3 text-[15.5px] font-bold text-ink-900">{s.title}</h3>
-                <p className="mt-1 text-[13.5px] leading-[1.55] text-ink-600">{s.body}</p>
+                <h3 className="mt-4 text-[16px] font-bold text-ink-900">{s.title}</h3>
+                <p className="mt-1.5 text-[14px] leading-relaxed text-ink-600">{s.body}</p>
               </li>
             ))}
           </ol>
         </div>
       </section>
 
-      {/* PROMISES */}
+      {/* FROM THE FIELD — dải ảnh từ chuyến thăm nhà máy; chưa có ảnh thì placeholder trung thực */}
       <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.3fr] lg:items-start">
-            <div>
-              <div className="text-[11.5px] font-bold uppercase tracking-[0.18em] text-brand-700">What we promise</div>
-              <h2 className="mt-2 text-[28px] font-black tracking-tight text-ink-900 sm:text-3xl">No guesswork, no hidden suppliers.</h2>
-              <p className="mt-3 text-[14.5px] text-ink-600">
-                We're based in Hanoi. When we say a factory has been audited, one of us has been through the gate.
+        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="max-w-2xl">
+              <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-accent-600">From the field</p>
+              <h2 className="mt-2 text-[30px] font-black tracking-tight text-ink-900 sm:text-[36px]">We visit before we list.</h2>
+              <p className="mt-3 text-[15px] leading-relaxed text-ink-600">
+                These are photos from our factory visits — province and month captioned. We don't list a supplier until
+                someone from our team has walked the floor.
               </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href="/rfq" className="btn btn-primary">
+            </div>
+            <Link href="/how-we-verify" className="inline-flex items-center gap-1 text-[13.5px] font-semibold text-brand-700 hover:text-brand-800">
+              See how we verify <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            <FieldCard
+              kicker="Bình Phước · Feb 2026"
+              title="Cashew kernel grading line"
+              body="W320 hand sorting and vacuum packing at a processor we signed on the last trip."
+              src="/images/categories/cashew-hero.jpg"
+            />
+            <FieldCard
+              kicker="Bến Tre · [coming up]"
+              title="Desiccated coconut mill"
+              body="Next visit scheduled. Photos and visit notes will appear here after the trip."
+              src="/images/categories/coconut.jpg"
+              upcoming
+            />
+            <FieldCard
+              kicker="Gia Lai · [coming up]"
+              title="Coffee drying yards"
+              body="Robusta lots ahead of the new crop. We will post photos once the visit is done."
+              src="/images/categories/coffee.jpg"
+              upcoming
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* PROMISES — thẻ bên cạnh ảnh lớn */}
+      <section className="bg-brand-900 text-white">
+        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-6 lg:px-8">
+          <div className="grid gap-12 lg:grid-cols-[1fr_1fr] lg:items-center">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-2xl lg:aspect-[4/5]">
+              <Image
+                src="/images/home/review-desk.jpg"
+                alt="Inspection checklist and product samples"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
+              />
+              <div className="absolute inset-0 ring-1 ring-white/10" />
+              <div className="absolute bottom-4 left-4 rounded-lg bg-ink-950/70 px-3 py-2 text-[11.5px] text-white backdrop-blur">
+                Inspection notes and product samples we compare on every visit.
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-[30px] font-black tracking-tight text-white sm:text-[38px]"
+                  style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}>
+                Every supplier we send you, we've met.
+              </h2>
+              <p className="mt-4 max-w-xl text-[15.5px] leading-relaxed text-brand-100/90">
+                We're based in Hanoi. When we say a factory has been audited, one of us has been to the factory.
+                If we're still checking, the supplier doesn't appear in your quote.
+              </p>
+
+              <ul className="mt-8 space-y-4">
+                {PROMISES.map((g) => (
+                  <li key={g.title} className="flex gap-4 rounded-xl bg-white/5 p-4 ring-1 ring-white/10 backdrop-blur">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-500 text-white shadow">
+                      <g.icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-[15px] font-bold text-white">{g.title}</h3>
+                      <p className="mt-1 text-[13.5px] leading-relaxed text-brand-100/80">{g.body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link href="/rfq" className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-3 text-[14px] font-bold text-brand-900 transition hover:bg-brand-50">
                   Request a quote <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link href="/for-suppliers" className="btn btn-ghost">
+                <Link href="/for-suppliers" className="inline-flex items-center gap-2 rounded-md border border-white/25 px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-white/10">
                   Are you a Vietnamese supplier?
                 </Link>
               </div>
             </div>
-            <ul className="grid gap-4">
-              {PROMISES.map((g) => (
-                <li key={g.title} className="flex gap-4 rounded-xl border border-ink-200 bg-ink-50/40 p-5">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-brand-700 shadow-sm">
-                    <g.icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-[15px] font-bold text-ink-900">{g.title}</h3>
-                    <p className="mt-1 text-[13.5px] leading-[1.55] text-ink-600">{g.body}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
       </section>
 
-      {/* TEAM — cho đến khi có ảnh thật, hiển thị placeholder 1 người (CEO).
-          Thay ảnh + bio bằng link/public/images/team/luong-van-hoc.jpg khi có. */}
-      <section className="bg-ink-50/50">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
-          <div className="max-w-2xl">
-            <div className="text-[11.5px] font-bold uppercase tracking-[0.18em] text-brand-700">Who you'll be working with</div>
-            <h2 className="mt-2 text-[28px] font-black tracking-tight text-ink-900 sm:text-3xl">A small team in Hanoi.</h2>
-            <p className="mt-2 text-[14.5px] text-ink-600">
-              The person reading your email is the person who visits the factory.
-            </p>
-          </div>
-          <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <li className="rounded-xl border border-ink-200 bg-white p-5">
-              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-50 text-brand-700">
-                <User className="h-10 w-10" />
-              </div>
-              <h3 className="mt-4 text-[16px] font-bold text-ink-900">Luong Van Hoc</h3>
-              <p className="text-[12.5px] font-semibold uppercase tracking-[0.14em] text-brand-700">CEO & Founder</p>
-              <p className="mt-2 text-[13.5px] leading-[1.55] text-ink-600">
-                Has worked with cashew and agricultural exporters in Binh Phuoc and the Central Highlands since 2019.
-                Based in Hanoi.
-              </p>
-              {/* Thêm đồng sự vào đây khi có: <li> thứ 2-3 với cùng cấu trúc. */}
-            </li>
+      {/* FAQ */}
+      <section className="bg-ink-50/70">
+        <div className="mx-auto max-w-3xl px-5 py-20 sm:px-6 lg:px-8">
+          <p className="text-center text-[12px] font-bold uppercase tracking-[0.2em] text-accent-600">Questions</p>
+          <h2 className="mt-2 text-center text-[30px] font-black tracking-tight text-ink-900 sm:text-[36px]">Frequently asked</h2>
+
+          <ul className="mt-10 divide-y divide-ink-200 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-sm">
+            {FAQ.map((f, i) => (
+              <li key={f.q} className="p-5 sm:p-6">
+                <h3 className="flex items-start gap-3 text-[15.5px] font-bold text-ink-900">
+                  <span className="mt-0.5 font-mono text-[12px] font-bold text-accent-600">0{i + 1}</span>
+                  {f.q}
+                </h3>
+                <p className="mt-2 pl-7 text-[14px] leading-relaxed text-ink-600">{f.a}</p>
+              </li>
+            ))}
           </ul>
-          <p className="mt-4 text-[12px] text-ink-500">
-            Photos and short bios for the rest of the team are being added.
-          </p>
         </div>
       </section>
 
       {/* BOTTOM CTA */}
-      <section className="bg-brand-900 text-white">
-        <div className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-5 py-14 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <div>
-            <h2 className="text-[26px] font-black leading-tight sm:text-3xl">Not sure where to start?</h2>
-            <p className="mt-2 max-w-xl text-[14.5px] text-brand-100/90">
-              Send us a short note about what you're looking for. We'll reply within one business day.
+      <section className="relative overflow-hidden bg-gradient-to-br from-accent-500 via-accent-600 to-accent-700 text-white">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-20"
+          aria-hidden
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 10% 20%, #fff 1px, transparent 1px), radial-gradient(circle at 90% 80%, #fff 1px, transparent 1px)",
+            backgroundSize: "26px 26px, 38px 38px",
+          }}
+        />
+        <div className="relative mx-auto flex max-w-7xl flex-col items-start gap-6 px-5 py-20 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <div className="max-w-2xl">
+            <h2 className="text-[30px] font-black leading-tight sm:text-[36px]"
+                style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}>
+              Not sure where to start?
+            </h2>
+            <p className="mt-3 text-[15.5px] leading-relaxed text-white/90">
+              Send a short note about the product, grade and volume you need. We'll reply within one business day.
             </p>
           </div>
           <Link
             href="/rfq"
-            className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-3 text-[14px] font-bold text-brand-900 transition hover:bg-brand-50"
+            className="inline-flex items-center gap-2 rounded-md bg-ink-900 px-6 py-3.5 text-[14.5px] font-bold text-white shadow-lg transition hover:bg-ink-800"
           >
             Request a quote <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </section>
+
+      {/* FOOTER — industries list + links + contact */}
+      <footer className="border-t border-ink-200 bg-white text-[13px] text-ink-600">
+        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8">
+          <div className="grid gap-10 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-700 text-sm font-black text-white">V</div>
+                <span className="text-[16px] font-black tracking-tight text-ink-900">Vexim Trade</span>
+              </div>
+              <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-ink-500">
+                A small sourcing team in Hanoi that connects international buyers with Vietnamese producers we have visited.
+              </p>
+              <p className="mt-5 text-[12.5px] text-ink-400">© 2026 Vexim Global Co., Ltd., Hanoi, Vietnam</p>
+            </div>
+
+            <FooterCol title="Products">
+              {ACTIVE_CATEGORIES.map((c) => (
+                <li key={c.slug}>
+                  <Link
+                    href={c.live && haveSlug.has(c.slug) ? `/products/${c.slug}` : `/rfq?category=${c.slug}`}
+                    className="hover:text-brand-700"
+                  >
+                    {c.label}
+                  </Link>
+                </li>
+              ))}
+            </FooterCol>
+
+            <FooterCol title="Company">
+              <li><Link href="/how-we-verify" className="hover:text-brand-700">How we verify suppliers</Link></li>
+              <li><Link href="/for-suppliers" className="hover:text-brand-700">For Vietnamese suppliers</Link></li>
+              <li><a href="mailto:hello@veximtrade.com" className="hover:text-brand-700">hello@veximtrade.com</a></li>
+            </FooterCol>
+
+            <FooterCol title="Buyers">
+              <li><Link href="/rfq" className="hover:text-brand-700">Request a quote</Link></li>
+              <li><Link href="/compare" className="hover:text-brand-700">Compare suppliers</Link></li>
+              <li><Link href="/rfq" className="hover:text-brand-700">Samples & inspection</Link></li>
+            </FooterCol>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
@@ -310,5 +473,49 @@ function Bullet({ children }: { children: React.ReactNode }) {
       <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
       <span>{children}</span>
     </li>
+  );
+}
+
+function Stat({ num, label }: { num: string; label: string }) {
+  return (
+    <div>
+      <div className="text-[20px] font-black text-white" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}>{num}</div>
+      <div className="text-[11.5px] uppercase tracking-widest text-brand-100/70">{label}</div>
+    </div>
+  );
+}
+
+function Divider() {
+  return <span className="h-8 w-px bg-white/20" aria-hidden />;
+}
+
+function FieldCard({ kicker, title, body, src, upcoming }: { kicker: string; title: string; body: string; src: string; upcoming?: boolean }) {
+  return (
+    <figure className="group overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm transition hover:shadow-md">
+      <div className="relative aspect-[4/3] overflow-hidden bg-ink-100">
+        <Image src={src} alt="" fill sizes="(max-width: 768px) 100vw, 33vw"
+               className={"object-cover transition duration-500 group-hover:scale-105 " + (upcoming ? "opacity-60 grayscale-[30%]" : "")} />
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/55 to-transparent" />
+        {upcoming && (
+          <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-ink-700 shadow">
+            Upcoming
+          </span>
+        )}
+        <figcaption className="absolute inset-x-0 bottom-0 p-4 text-white">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-accent-300">{kicker}</p>
+          <p className="mt-1 text-[15px] font-bold leading-tight">{title}</p>
+        </figcaption>
+      </div>
+      <figcaption className="p-4 text-[13px] leading-relaxed text-ink-600">{body}</figcaption>
+    </figure>
+  );
+}
+
+function FooterCol({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h4 className="text-[11.5px] font-bold uppercase tracking-[0.18em] text-ink-900">{title}</h4>
+      <ul className="mt-3 space-y-2 text-[13px] text-ink-500">{children}</ul>
+    </div>
   );
 }
