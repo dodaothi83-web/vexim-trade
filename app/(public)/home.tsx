@@ -12,26 +12,16 @@ import {
 } from "lucide-react";
 
 import { getStore } from "@/lib/db";
+import type { Category } from "@/lib/types";
 
-/**
- * Industries the team can take RFQs on within 24h today.
- * Only add a slug here once the trading team has active supplier contacts
- * and can reply within one business day. Others are routed via /rfq.
- */
-const ACTIVE_CATEGORIES: {
-  slug: string;
-  label: string;
-  kicker: string;
-  image: string;
-  live: boolean; // has a public /products/[slug] page
-}[] = [
-  { slug: "cashew",      label: "Cashew kernels",   kicker: "W180 – SP, AFI grades",         image: "/images/categories/cashew-hero.jpg", live: true  },
-  { slug: "pepper",      label: "Black pepper",     kicker: "FAQ / cleaned / ASTA",          image: "/images/categories/pepper.jpg",      live: false },
-  { slug: "coffee",      label: "Green coffee",     kicker: "Robusta & Arabica",             image: "/images/categories/coffee.jpg",      live: false },
-  { slug: "cinnamon",    label: "Cassia cinnamon",  kicker: "Sticks, split, powder",         image: "/images/categories/cinnamon.jpg",    live: false },
-  { slug: "coconut",     label: "Coconut products", kicker: "Desiccated, milk, oil",         image: "/images/categories/coconut.jpg",     live: false },
-  { slug: "rice",        label: "Rice",             kicker: "Jasmine, ST25, Japonica",       image: "/images/categories/rice.jpg",        live: false },
-];
+/** Ảnh placeholder khi category chưa upload hero_image — màu sắc trung tính, không gây nhầm sản phẩm */
+const FALLBACK_HERO = "/images/home/hero-cashew-texture.jpg";
+
+function i18n(m: Category["intro_i18n"] | Category["homepage_kicker_i18n"] | Category["name_i18n"] | null | undefined, fallback = ""): string {
+  if (!m || typeof m !== "object") return fallback;
+  const v = (m as Record<string, string>).en ?? Object.values(m)[0];
+  return typeof v === "string" ? v : fallback;
+}
 
 const HOW_IT_WORKS = [
   {
@@ -86,7 +76,15 @@ export default async function HomeContent() {
   const store = getStore();
   const allCategories = await store.listCategories({ publishedOnly: true });
   const supCount = (await store.listSuppliers()).filter((s) => s.status === "published").length;
+
+  // Industries hiện trên khối "What we source": active_on_homepage=true, sort theo sort_order.
+  // Cờ active_on_homepage do admin bật trong CRM; chỉ hiện các ngành đội sale trả lời được trong 24h.
+  const activeCategories = allCategories
+    .filter((c) => c.active_on_homepage)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const haveSlug = new Set(allCategories.map((c) => c.slug));
+  const heroOf = (c: Category) => c.hero_image || FALLBACK_HERO;
+
 
   return (
     <div>
@@ -201,9 +199,11 @@ export default async function HomeContent() {
           </div>
 
           <ul className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {ACTIVE_CATEGORIES.map((c) => {
-              const hasPage = c.live && haveSlug.has(c.slug);
+            {activeCategories.map((c) => {
+              const hasPage = Boolean(c.public_page_ready) && haveSlug.has(c.slug);
               const href = hasPage ? `/products/${c.slug}` : `/rfq?category=${c.slug}`;
+              const label = i18n(c.name_i18n, c.slug);
+              const kicker = i18n(c.homepage_kicker_i18n, "Tell us what you need");
               return (
                 <li key={c.slug}>
                   <Link
@@ -212,7 +212,7 @@ export default async function HomeContent() {
                   >
                     <div className="relative aspect-[4/3] overflow-hidden bg-ink-100">
                       <Image
-                        src={c.image}
+                        src={heroOf(c)}
                         alt=""
                         fill
                         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
@@ -226,8 +226,8 @@ export default async function HomeContent() {
                       )}
                     </div>
                     <div className="flex flex-1 flex-col p-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-600">{c.kicker}</p>
-                      <h3 className="mt-1.5 text-[15.5px] font-bold text-ink-900 group-hover:text-brand-700">{c.label}</h3>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-600">{kicker}</p>
+                      <h3 className="mt-1.5 text-[15.5px] font-bold text-ink-900 group-hover:text-brand-700">{label}</h3>
                       <p className="mt-auto pt-3 text-[12.5px] font-semibold text-brand-700">
                         {hasPage ? "Browse suppliers →" : "Request quotes →"}
                       </p>
@@ -437,16 +437,17 @@ export default async function HomeContent() {
             </div>
 
             <FooterCol title="Products">
-              {ACTIVE_CATEGORIES.map((c) => (
+              {activeCategories.map((c) => (
                 <li key={c.slug}>
                   <Link
-                    href={c.live && haveSlug.has(c.slug) ? `/products/${c.slug}` : `/rfq?category=${c.slug}`}
+                    href={c.public_page_ready && haveSlug.has(c.slug) ? `/products/${c.slug}` : `/rfq?category=${c.slug}`}
                     className="hover:text-brand-700"
                   >
-                    {c.label}
+                    {i18n(c.name_i18n, c.slug)}
                   </Link>
                 </li>
               ))}
+              <li><Link href="/rfq" className="hover:text-brand-700">Something else →</Link></li>
             </FooterCol>
 
             <FooterCol title="Company">

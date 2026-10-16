@@ -295,23 +295,23 @@ function normalizeProspects(prospects: Prospect[]) {
  */
 function ensureSeedCategories(db: LocalShape) {
   if (!Array.isArray(db.categories)) db.categories = [];
-  const have = new Set(db.categories.map((c) => c.slug));
-  // Giữ lại nếu người dùng đã tuỳ chỉnh nhiều danh mục (≥ 3) — không tự thêm.
-  if (have.size >= 3) return;
-  type CatSeed = { slug: string; nameEn: string; introEn: string; seoEn: string; order: number; parent?: string };
+  type CatSeed = {
+    slug: string; nameEn: string; introEn: string; seoEn: string; order: number; parent?: string;
+    hero_image?: string | null; kickerEn?: string; activeOnHome?: boolean; publicReady?: boolean;
+  };
   const seeds: CatSeed[] = [
     { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10 },
-    { slug: "cashew", nameEn: "Cashew kernels", introEn: "Verified Vietnamese cashew kernel suppliers, graded WW320, WW240, W180, LP, SP. Factory-audited by Vexim Trade.", seoEn: "Compare verified Vietnamese cashew kernel suppliers by grade, MOQ, certification and lead time.", order: 11, parent: "nuts-kernels" },
+    { slug: "cashew", nameEn: "Cashew kernels", introEn: "Verified Vietnamese cashew kernel suppliers, graded WW320, WW240, W180, LP, SP. Factory-audited by Vexim Trade.", seoEn: "Compare verified Vietnamese cashew kernel suppliers by grade, MOQ, certification and lead time.", order: 11, parent: "nuts-kernels", hero_image: "/images/categories/cashew-hero.jpg", kickerEn: "W180 – SP, AFI grades", activeOnHome: true, publicReady: true },
     { slug: "macadamia", nameEn: "Macadamia", introEn: "Vietnamese macadamia kernels and in-shell from Tây Nguyên plantations.", seoEn: "Vietnamese macadamia suppliers – graded kernels & in-shell.", order: 12, parent: "nuts-kernels" },
-    { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20 },
+    { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20, hero_image: "/images/categories/coffee.jpg", kickerEn: "Robusta & Arabica", activeOnHome: true },
     { slug: "pepper-spices", nameEn: "Pepper & spices", introEn: "Vietnamese black/white/red pepper, cinnamon, star anise, ginger and turmeric – steam-sterilised.", seoEn: "Vietnamese pepper & spice suppliers with food-safety certs.", order: 30 },
-    { slug: "pepper", nameEn: "Pepper", introEn: "Vietnamese black pepper (FAQ/cleaned/ASTA), white pepper and red pepper.", seoEn: "Vietnamese black/white/red pepper exporters.", order: 31, parent: "pepper-spices" },
-    { slug: "cinnamon", nameEn: "Cassia cinnamon", introEn: "Vietnamese cassia cinnamon (Yên Bái) in sticks, split, broken and powder.", seoEn: "Vietnamese cassia cinnamon suppliers.", order: 32, parent: "pepper-spices" },
+    { slug: "pepper", nameEn: "Pepper", introEn: "Vietnamese black pepper (FAQ/cleaned/ASTA), white pepper and red pepper.", seoEn: "Vietnamese black/white/red pepper exporters.", order: 31, parent: "pepper-spices", hero_image: "/images/categories/pepper.jpg", kickerEn: "FAQ / cleaned / ASTA", activeOnHome: true },
+    { slug: "cinnamon", nameEn: "Cassia cinnamon", introEn: "Vietnamese cassia cinnamon (Yên Bái) in sticks, split, broken and powder.", seoEn: "Vietnamese cassia cinnamon suppliers.", order: 32, parent: "pepper-spices", hero_image: "/images/categories/cinnamon.jpg", kickerEn: "Sticks, split, powder", activeOnHome: true },
     { slug: "star-anise", nameEn: "Star anise", introEn: "Vietnamese autumn and spring star anise from Lạng Sơn.", seoEn: "Vietnamese star anise exporters.", order: 33, parent: "pepper-spices" },
-    { slug: "coconut", nameEn: "Coconut products", introEn: "Desiccated coconut, coconut milk/cream powder, VCO and coconut water from Bến Tre.", seoEn: "Vietnamese coconut product exporters.", order: 40 },
-    { slug: "rice", nameEn: "Rice", introEn: "Vietnamese Jasmine, ST25, Japonica and glutinous rice from Đồng bằng Sông Cửu Long.", seoEn: "Vietnamese rice exporters – Jasmine, ST25, Japonica.", order: 50 },
+    { slug: "coconut", nameEn: "Coconut products", introEn: "Desiccated coconut, coconut milk/cream powder, VCO and coconut water from Bến Tre.", seoEn: "Vietnamese coconut product exporters.", order: 40, hero_image: "/images/categories/coconut.jpg", kickerEn: "Desiccated, milk, oil", activeOnHome: true },
+    { slug: "rice", nameEn: "Rice", introEn: "Vietnamese Jasmine, ST25, Japonica and glutinous rice from Đồng bằng Sông Cửu Long.", seoEn: "Vietnamese rice exporters – Jasmine, ST25, Japonica.", order: 50, hero_image: "/images/categories/rice.jpg", kickerEn: "Jasmine, ST25, Japonica", activeOnHome: true },
     { slug: "noodles", nameEn: "Noodles & vermicelli", introEn: "Rice noodles, instant noodles, rice paper and rice vermicelli.", seoEn: "Vietnamese noodle and rice-paper suppliers.", order: 60 },
-    { slug: "fruit-veg", nameEn: "Fruit & vegetables", introEn: "Fresh/frozen tropical fruit (dragon fruit, pomelo, mango, passion fruit) and frozen vegetables.", seoEn: "Vietnamese tropical fruit & vegetable exporters.", order: 70 },
+    { slug: "fruit-veg", nameEn: "Fruit & vegetables", introEn: "Fresh/frozen tropical fruit and frozen vegetables.", seoEn: "Vietnamese tropical fruit & vegetable exporters.", order: 70 },
     { slug: "dragon-fruit", nameEn: "Dragon fruit", introEn: "Vietnamese white- and red-flesh dragon fruit from Bình Thuận.", seoEn: "Vietnamese dragon fruit exporters.", order: 71, parent: "fruit-veg" },
     { slug: "dried-fruit", nameEn: "Dried fruit", introEn: "Dried mango, jackfruit, banana, coconut chips and tropical fruit snacks.", seoEn: "Vietnamese dried fruit suppliers.", order: 72, parent: "fruit-veg" },
     { slug: "seafood", nameEn: "Seafood", introEn: "Pangasius, black tiger shrimp, Vannamei shrimp and squid from ASC/MSC/BAP-certified processors.", seoEn: "Vietnamese seafood exporters with ASC/BAP/BRC certs.", order: 80 },
@@ -321,6 +321,7 @@ function ensureSeedCategories(db: LocalShape) {
     { slug: "tea", nameEn: "Tea", introEn: "Vietnamese black, green, oolong and lotus teas.", seoEn: "Vietnamese tea exporters.", order: 95 },
     { slug: "processed-foods", nameEn: "Processed & convenience foods", introEn: "Spring rolls, sauces, canned fruit and Asian ready meals.", seoEn: "Vietnamese processed food suppliers for private label.", order: 100 },
   ];
+  const have = new Set(db.categories.map((c) => c.slug));
   const now = new Date().toISOString();
   for (const c of seeds) {
     if (have.has(c.slug)) continue;
@@ -333,11 +334,42 @@ function ensureSeedCategories(db: LocalShape) {
       faq_i18n: [],
       seo_title_i18n: { en: `${c.nameEn} Suppliers in Vietnam – Verified | Vexim Trade` },
       seo_desc_i18n: { en: c.seoEn },
+      hero_image: c.hero_image ?? null,
+      homepage_kicker_i18n: c.kickerEn ? { en: c.kickerEn } : null,
+      active_on_homepage: c.activeOnHome ?? false,
+      public_page_ready: c.publicReady ?? false,
       is_published: true,
       sort_order: c.order,
       created_at: now,
       updated_at: now,
     });
+  }
+}
+
+/**
+ * Backfill giá trị mặc định cho các field mới (hero_image, homepage_kicker_i18n,
+ * active_on_homepage, public_page_ready) trên các category đã tồn tại sẵn trong DB
+ * người dùng — chỉ điền khi field đang null/undefined, không ghi đè cấu hình thủ công.
+ */
+function migrateCategoryDefaults(db: LocalShape) {
+  if (!Array.isArray(db.categories)) return;
+  const defaults: Record<string, { hero_image?: string | null; kickerEn?: string; activeOnHome?: boolean; publicReady?: boolean }> = {
+    cashew:    { hero_image: "/images/categories/cashew-hero.jpg",  kickerEn: "W180 – SP, AFI grades",      activeOnHome: true, publicReady: true },
+    pepper:    { hero_image: "/images/categories/pepper.jpg",       kickerEn: "FAQ / cleaned / ASTA",       activeOnHome: true },
+    coffee:    { hero_image: "/images/categories/coffee.jpg",       kickerEn: "Robusta & Arabica",          activeOnHome: true },
+    cinnamon:  { hero_image: "/images/categories/cinnamon.jpg",     kickerEn: "Sticks, split, powder",      activeOnHome: true },
+    coconut:   { hero_image: "/images/categories/coconut.jpg",      kickerEn: "Desiccated, milk, oil",      activeOnHome: true },
+    rice:      { hero_image: "/images/categories/rice.jpg",         kickerEn: "Jasmine, ST25, Japonica",    activeOnHome: true },
+  };
+  for (const c of db.categories) {
+    const d = defaults[c.slug];
+    if (!d) continue;
+    if (c.hero_image === undefined || c.hero_image === null) c.hero_image = d.hero_image ?? null;
+    if (d.kickerEn && (c.homepage_kicker_i18n === undefined || c.homepage_kicker_i18n === null)) {
+      c.homepage_kicker_i18n = { en: d.kickerEn };
+    }
+    if (c.active_on_homepage === undefined) c.active_on_homepage = d.activeOnHome ?? false;
+    if (c.public_page_ready === undefined) c.public_page_ready = d.publicReady ?? false;
   }
 }
 
@@ -495,6 +527,7 @@ function load(): LocalShape {
     if (!Array.isArray(c.introductions)) c.introductions = [];
     if (!Array.isArray(c.audit_log)) c.audit_log = [];
     ensureSeedCategories(c);
+    migrateCategoryDefaults(c);
     ensureDemoSuppliers(c);
     removeProspectsWithoutEmail(c);
     return c;
@@ -530,6 +563,7 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.audit_log)) parsed.audit_log = [];
         // Nếu categories cũ chỉ có cashew → merge seed đa ngành (tránh mất danh mục mới khi nâng cấp).
         ensureSeedCategories(parsed);
+        migrateCategoryDefaults(parsed);
         ensureDemoSuppliers(parsed);
         removeProspectsWithoutEmail(parsed);
         g.__veximLocal = parsed;
@@ -540,6 +574,7 @@ function load(): LocalShape {
     // file hỏng thì seed lại
   }
   const fresh = seed();
+  migrateCategoryDefaults(fresh);
   ensureDemoSuppliers(fresh);
   g.__veximLocal = fresh;
   persist(fresh);

@@ -2244,6 +2244,8 @@ function parseCategoryInput(raw: Record<string, unknown>) {
   const intro_en = str(raw.intro_en) ?? "";
   const seoTitleEn = str(raw.seo_title_en);
   const seoDescEn = str(raw.seo_desc_en);
+  const kickerEn = str(raw.kicker_en);
+  const heroImage = str(raw.hero_image) || null;
   return {
     slug,
     parent_id: str(raw.parent_id) || null,
@@ -2251,6 +2253,10 @@ function parseCategoryInput(raw: Record<string, unknown>) {
     intro_i18n: intro_en ? ({ en: intro_en } as Category["intro_i18n"]) : undefined,
     seo_title_i18n: seoTitleEn ? ({ en: seoTitleEn } as Category["seo_title_i18n"]) : undefined,
     seo_desc_i18n: seoDescEn ? ({ en: seoDescEn } as Category["seo_desc_i18n"]) : undefined,
+    homepage_kicker_i18n: kickerEn ? ({ en: kickerEn } as Category["homepage_kicker_i18n"]) : { en: "" },
+    hero_image: heroImage,
+    active_on_homepage: bool(raw.active_on_homepage, false),
+    public_page_ready: bool(raw.public_page_ready, false),
     is_published: bool(raw.is_published, false),
     sort_order: num(raw.sort_order) ?? 0,
   };

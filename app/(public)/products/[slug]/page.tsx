@@ -117,23 +117,49 @@ export default async function CategoryPage({ params }: PageProps) {
     );
   }
 
-  // Fallback cho category khác
+  // Fallback cho category khác — dùng chung template State B (chưa có NCC), nội dung lấy từ DB.
+  const heroImg = cat.hero_image || null;
+  const intro = t(cat.intro_i18n) || `Verified Vietnamese ${categoryName.toLowerCase()} suppliers. Tell us your spec and we will match you with suitable producers.`;
   return (
-    <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-5 pb-24 pt-8 sm:px-6 lg:px-8">
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Products", href: "/#categories" }, { label: categoryName }]} />
-      <section className="mt-6">
-        <span className="inline-flex h-5 items-center rounded-full bg-brand-50 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700 ring-1 ring-brand-200">Vietnamese {categoryName.toLowerCase()}</span>
-        <h1 className="mt-3 text-[34px] font-black leading-[1.05] text-ink-900 sm:text-[44px]">
-          {categoryName} suppliers <span className="text-brand-700">in Vietnam</span>
-        </h1>
-        <p className="mt-4 max-w-xl text-[15.5px] leading-relaxed text-ink-700">
-          {t(cat.intro_i18n) || `Verified Vietnamese ${categoryName.toLowerCase()} suppliers. Tell us your spec and we will match you with suitable producers.`}
-        </p>
-        <div className="mt-5 flex items-center gap-3">
-          <Link href={`/rfq?category=${encodeURIComponent(slug)}`} className="btn btn-primary">Request a quote <ArrowRight className="h-4 w-4" /></Link>
-          <p className="text-[12.5px] text-ink-500">Reply within <strong className="text-ink-800">1 business day</strong></p>
+      <section className="mt-6 grid gap-8 lg:grid-cols-[1.05fr_1fr] lg:items-start">
+        <div>
+          <span className="inline-flex h-5 items-center rounded-full bg-brand-50 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700 ring-1 ring-brand-200">Vietnamese {categoryName.toLowerCase()}</span>
+          <h1 className="mt-4 text-[34px] font-black leading-[1.05] text-ink-900 sm:text-[44px]">
+            {categoryName} suppliers <span className="text-brand-700">in Vietnam</span>
+          </h1>
+          <p className="mt-5 max-w-xl text-[15.5px] leading-relaxed text-ink-700">{intro}</p>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Link href={`/rfq?category=${encodeURIComponent(slug)}`} className="btn btn-primary">Request a quote <ArrowRight className="h-4 w-4" /></Link>
+            <p className="text-[12.5px] text-ink-500">Reply within <strong className="text-ink-800">1 business day</strong>.</p>
+          </div>
+          <dl className="mt-8 grid max-w-lg grid-cols-3 gap-x-6 gap-y-3 border-t border-ink-200 pt-5 text-[13px]">
+            <MiniStat k="Before listing" v="Factory visits" />
+            <MiniStat k="Reply" v="1 business day" />
+            <MiniStat k="Language" v="English · Vietnamese" />
+          </dl>
+        </div>
+        <div className="rounded-2xl border border-ink-200 bg-white p-6 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-600">Tell us what you need</p>
+          <h2 className="mt-2 text-[20px] font-bold leading-tight text-ink-900">Get matched with {categoryName.toLowerCase()} suppliers</h2>
+          <p className="mt-1 text-[13.5px] text-ink-600">Free. No account needed. We&apos;ll send you 2–4 options within one business day.</p>
+          <ul className="mt-5 space-y-2 text-[13.5px] text-ink-700">
+            <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Spec and grade you need.</li>
+            <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Volume and destination.</li>
+            <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Certifications required (BRC, HACCP, organic…).</li>
+          </ul>
+          <Link href={`/rfq?category=${encodeURIComponent(slug)}`} className="btn btn-primary mt-6 w-full justify-center">Start your request <ArrowRight className="h-4 w-4" /></Link>
         </div>
       </section>
+
+      {heroImg && (
+        <div className="mt-10 overflow-hidden rounded-xl border border-ink-200">
+          <div className="relative aspect-[21/9] w-full bg-ink-50">
+            <Image src={heroImg} alt="" fill sizes="100vw" className="object-cover" />
+          </div>
+        </div>
+      )}
 
       <section className="mt-10" id="suppliers">
         <div className="rounded-xl border border-dashed border-ink-200 bg-ink-50/60 p-10 text-center">
@@ -143,6 +169,22 @@ export default async function CategoryPage({ params }: PageProps) {
           <Link href={`/rfq?category=${encodeURIComponent(slug)}`} className="btn btn-primary mt-5 inline-flex">Request a quote <ArrowRight className="h-4 w-4" /></Link>
         </div>
       </section>
+
+      {/* Sticky mobile CTA */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white/95 p-3 shadow-lg backdrop-blur sm:hidden">
+        <Link href={`/rfq?category=${encodeURIComponent(slug)}`} className="flex w-full items-center justify-center gap-2 rounded-md bg-brand-700 px-4 py-3 text-[14px] font-bold text-white">
+          Request a quote <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ k, v }: { k: string; v: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] uppercase tracking-wider text-ink-400">{k}</dt>
+      <dd className="mt-0.5 text-[14.5px] font-bold text-ink-900">{v}</dd>
     </div>
   );
 }

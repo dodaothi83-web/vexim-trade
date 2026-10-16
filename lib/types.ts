@@ -170,6 +170,21 @@ export interface Category {
   faq_i18n: { q: string; a: string }[] | I18nString[] | unknown[];
   seo_title_i18n: I18nString;
   seo_desc_i18n: I18nString;
+  /** Hero image path for public category page (e.g. /images/categories/cashew-hero.jpg). */
+  hero_image?: string | null;
+  /** Kicker/hàng phụ hiển thị dưới ảnh trên thẻ trang chủ (vd: "W180 – SP, AFI grades"). */
+  homepage_kicker_i18n?: I18nString | null;
+  /**
+   * Hiện thẻ category này ở khối "What we source" trang chủ.
+   * Tắt cho các danh mục cha/gộp (vd: nuts-kernels, pepper-spices).
+   */
+  active_on_homepage?: boolean;
+  /**
+   * Đã có trang public riêng (`/products/[slug]`) với nội dung bespoke.
+   * Nếu false: click thẻ trang chủ & category link sẽ trỏ về /rfq?category=slug;
+   * trang /products/[slug] sẽ dùng fallback "we're visiting producers".
+   */
+  public_page_ready?: boolean;
   is_published: boolean;
   sort_order: number;
   created_at: string;
