@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { Image as ImageIcon, Loader2, Upload, X } from "lucide-react";
 
 import { prepareImage } from "@/lib/media/client-image";
+import { readUploadResponse } from "@/lib/media/upload-response";
 
 /**
  * Upload ảnh cho resource (vd category hero), có ô alt text riêng.
@@ -44,8 +45,10 @@ export function ImagePicker({
       fd.append("file", prepared.main, "image.jpg");
       if (prepared.thumb) fd.append("thumb", prepared.thumb, "thumb.jpg");
       const res = await fetch(uploadUrl, { method: "POST", body: fd });
-      const data = (await res.json()) as { ok?: boolean; url?: string; publicUrl?: string; error?: string; message?: string };
-      if (!res.ok || !data.ok) throw new Error(data.error || data.message || "Upload failed");
+      const data = await readUploadResponse<{ ok?: boolean; url?: string; publicUrl?: string; error?: string; message?: string }>(res);
+      if (!res.ok || !data.ok || !(data.url ?? data.publicUrl)) {
+        throw new Error(data.error || data.message || `Không tải được ảnh (HTTP ${res.status}).`);
+      }
       startTransition(() => onChange(data.url ?? data.publicUrl ?? null));
       setProgress("idle");
     } catch (e) {

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { getStore } from "@/lib/db";
 import { guard } from "@/lib/auth/session";
 import { validateUpload, extensionFor } from "@/lib/media/validate";
-import { putObject } from "@/lib/media/storage";
+import { deleteObject, putObject } from "@/lib/media/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,8 +31,11 @@ export async function POST(
   catch { return NextResponse.json({ ok: false, message: "Không đọc được dữ liệu." }, { status: 400 }); }
 
   const file = form.get("file");
-  if (!(file instanceof File)) {
+  if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ ok: false, message: "Chưa chọn ảnh." }, { status: 400 });
+  }
+  if (file.size > 3 * 1024 * 1024) {
+    return NextResponse.json({ ok: false, message: "Ảnh vượt quá 3 MB sau khi nén." }, { status: 413 });
   }
   const kind = form.get("kind") === "cover" ? "cover" : "profile";
 
@@ -43,14 +46,21 @@ export async function POST(
   }
   const ext = extensionFor(check.mime);
   const path = `suppliers/${id}/${kind}-${randomUUID()}.${ext}`;
-  await putObject(path, bytes, check.mime);
-
-  const patch: Record<string, string | null> = {};
-  if (kind === "cover") patch.cover_image = path;
-  else patch.profile_image = path;
-
-  await store.updateSupplier(id, patch);
-  return NextResponse.json({ ok: true, path });
+  try {
+    await putObject(path, bytes, check.mime);
+    const patch = kind === "cover" ? { cover_image: path } : { profile_image: path };
+    try {
+      await store.updateSupplier(id, patch);
+    } catch (error) {
+      // Don't leave a new orphaned file behind if a DB column/migration is missing.
+      await deleteObject(path).catch(() => null);
+      throw error;
+    }
+    return NextResponse.json({ ok: true, path });
+  } catch (error) {
+    console.error("[supplier-image] upload failed:", error);
+    return NextResponse.json({ ok: false, message: error instanceof Error ? error.message : "Không lưu được ảnh." }, { status: 500 });
+  }
 }
 
 export async function DELETE(
@@ -67,6 +77,11 @@ export async function DELETE(
   const kind = q.get("kind") === "cover" ? "cover" : "profile";
   const patch: Record<string, null> = {};
   patch[kind === "cover" ? "cover_image" : "profile_image"] = null;
-  await store.updateSupplier(id, patch);
-  return NextResponse.json({ ok: true });
+  try {
+    await store.updateSupplier(id, patch);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("[supplier-image] delete failed:", error);
+    return NextResponse.json({ ok: false, message: error instanceof Error ? error.message : "Không xoá được ảnh." }, { status: 500 });
+  }
 }

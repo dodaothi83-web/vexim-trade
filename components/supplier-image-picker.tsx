@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Trash2, Upload } from "lucide-react";
 
 import { prepareImage } from "@/lib/media/client-image";
+import { readUploadResponse } from "@/lib/media/upload-response";
 
 interface Props {
   supplierId: string;
@@ -39,6 +40,9 @@ export function SupplierImagePicker({ supplierId, kind, current, label, hint, ra
     start(async () => {
       try {
         const prepared = await prepareImage(f);
+        if (prepared.main.size > 3 * 1024 * 1024) {
+          throw new Error("Ảnh sau khi nén vẫn vượt 3 MB. Vui lòng chọn ảnh nhỏ hơn.");
+        }
         const fd = new FormData();
         fd.append("file", new File([prepared.main], f.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
         fd.append("kind", kind);
@@ -46,8 +50,8 @@ export function SupplierImagePicker({ supplierId, kind, current, label, hint, ra
         fd.append("width:" + f.name, String(prepared.width));
         fd.append("height:" + f.name, String(prepared.height));
         const res = await fetch(`/api/suppliers/${supplierId}/profile-image`, { method: "POST", body: fd });
-        const j = await res.json();
-        if (!j.ok) { setErr(j.message ?? "Lỗi tải lên"); return; }
+        const j = await readUploadResponse<{ ok?: boolean; path?: string; message?: string }>(res);
+        if (!res.ok || !j.ok || !j.path) { setErr(j.message ?? `Không tải được ảnh (HTTP ${res.status}).`); return; }
         setPreview(j.path);
         router.refresh();
       } catch (err) {
@@ -60,11 +64,15 @@ export function SupplierImagePicker({ supplierId, kind, current, label, hint, ra
   async function remove() {
     setErr(null);
     start(async () => {
-      const res = await fetch(`/api/suppliers/${supplierId}/profile-image?kind=${kind}`, { method: "DELETE" });
-      const j = await res.json();
-      if (!j.ok) { setErr(j.message ?? "Lỗi"); return; }
-      setPreview(null);
-      router.refresh();
+      try {
+        const res = await fetch(`/api/suppliers/${supplierId}/profile-image?kind=${kind}`, { method: "DELETE" });
+        const j = await readUploadResponse<{ ok?: boolean; message?: string }>(res);
+        if (!res.ok || !j.ok) { setErr(j.message ?? `Không xoá được ảnh (HTTP ${res.status}).`); return; }
+        setPreview(null);
+        router.refresh();
+      } catch (error) {
+        setErr(error instanceof Error ? error.message : "Lỗi khi xoá ảnh.");
+      }
     });
   }
 

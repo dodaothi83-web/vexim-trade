@@ -2283,7 +2283,6 @@ function parseCategoryInput(raw: Record<string, unknown>) {
   const status = bool(raw.is_published, false) ? "published" : "draft";
   const seoIndexable = bool(raw.seo_indexable, false);
   const activeHome = bool(raw.active_on_homepage, false);
-  const publicReady = bool(raw.public_page_ready, false);
   return {
     slug,
     parent_id: str(raw.parent_id) || null,
@@ -2302,7 +2301,6 @@ function parseCategoryInput(raw: Record<string, unknown>) {
     hero_alt_i18n: heroAltEn ? ({ en: heroAltEn } as Category["hero_alt_i18n"]) : null,
     hero_image: heroImage,
     active_on_homepage: activeHome,
-    public_page_ready: publicReady,
     seo_indexable: seoIndexable,
     status,
     is_published: status === "published",

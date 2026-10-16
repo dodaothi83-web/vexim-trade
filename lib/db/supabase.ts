@@ -142,6 +142,22 @@ function fail(op: string, error: { message: string } | null): never {
   throw new Error(`${op}: ${error?.message ?? "lỗi không xác định"}`);
 }
 
+/** public_page_ready is derived on read; never send it back to PostgREST. */
+async function decorateCategoryReadiness(rows: Category[]): Promise<Category[]> {
+  if (!rows.length) return rows;
+  const [productsResult, suppliersResult] = await Promise.all([
+    must().from("supplier_products").select("supplier_id, category"),
+    must().from("suppliers").select("id, status"),
+  ]);
+  if (productsResult.error) fail("categoryReadiness:products", productsResult.error);
+  if (suppliersResult.error) fail("categoryReadiness:suppliers", suppliersResult.error);
+  const published = new Set((suppliersResult.data ?? []).filter((s) => s.status === "published").map((s) => s.id));
+  const ready = new Set((productsResult.data ?? [])
+    .filter((p) => published.has(p.supplier_id))
+    .map((p) => (p.category ?? "").toLowerCase()));
+  return rows.map((c) => ({ ...c, public_page_ready: ready.has(c.slug.toLowerCase()) }));
+}
+
 export const supabaseStore: DataStore = {
   mode: "supabase",
 
@@ -733,27 +749,33 @@ export const supabaseStore: DataStore = {
     if (options?.publishedOnly) q = q.eq("is_published", true);
     const { data, error } = await q;
     if (error) fail("listCategories", error);
-    return (data ?? []) as Category[];
+    return decorateCategoryReadiness((data ?? []) as Category[]);
   },
   async getCategory(id) {
     const { data, error } = await must().from("categories").select("*").eq("id", id).maybeSingle();
     if (error) fail("getCategory", error);
-    return (data as Category | null) ?? null;
+    if (!data) return null;
+    return (await decorateCategoryReadiness([data as Category]))[0];
   },
   async getCategoryBySlug(slug) {
     const { data, error } = await must().from("categories").select("*").eq("slug", slug).maybeSingle();
     if (error) fail("getCategoryBySlug", error);
-    return (data as Category | null) ?? null;
+    if (!data) return null;
+    return (await decorateCategoryReadiness([data as Category]))[0];
   },
   async createCategory(input) {
-    const { data, error } = await must().from("categories").insert(cleanPatch(input)).select().single();
+    const { public_page_ready: _computed, ...fields } = input;
+    void _computed;
+    const { data, error } = await must().from("categories").insert(cleanPatch(fields)).select().single();
     if (error) fail("createCategory", error);
     return data as Category;
   },
   async updateCategory(id, patch) {
+    const { public_page_ready: _computed, ...fields } = patch;
+    void _computed;
     const { data, error } = await must()
       .from("categories")
-      .update(cleanPatch({ ...patch, updated_at: new Date().toISOString() }))
+      .update(cleanPatch({ ...fields, updated_at: new Date().toISOString() }))
       .eq("id", id)
       .select()
       .single();

@@ -19,6 +19,7 @@ import {
 
 import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/actions";
 import { MEDIA_ACCEPT, prepareImage } from "@/lib/media/client-image";
+import { readUploadResponse } from "@/lib/media/upload-response";
 import { formatBytes, MEDIA_KINDS } from "@/lib/media/limits";
 import { isExpired } from "@/lib/media/readiness";
 import type { MediaAsset, MediaAudience, MediaKind, MediaOwnerType, MediaStatus } from "@/lib/types";
@@ -106,12 +107,13 @@ export function MediaManager({
     form.set("files", upload, upload.name);
 
     const res = await fetch("/api/media/upload", { method: "POST", body: form });
-    const data = (await res.json().catch(() => null)) as
-      | { results?: { name: string; ok: boolean; message: string }[]; message?: string }
-      | null;
+    const data = await readUploadResponse<{
+      results?: { name: string; ok: boolean; message: string }[];
+      message?: string;
+    }>(res);
 
-    if (data?.results?.length) return data.results;
-    return [{ name: file.name, ok: false, message: data?.message ?? "Tải lên thất bại." }];
+    if (data.results?.length) return data.results;
+    return [{ name: file.name, ok: false, message: data.message ?? `Tải lên thất bại (HTTP ${res.status}).` }];
   }
 
   async function onFiles(files: FileList | File[] | null) {

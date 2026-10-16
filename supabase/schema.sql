@@ -541,6 +541,11 @@ alter table public.suppliers
   add column if not exists fob_currency text default 'USD',
   add column if not exists fob_updated_at timestamptz,
   add column if not exists fob_publicly_visible boolean not null default false;
+-- Public supplier images and preview-only demo flag.
+alter table public.suppliers
+  add column if not exists profile_image text,
+  add column if not exists cover_image text,
+  add column if not exists is_demo boolean not null default false;
 
 alter table public.suppliers drop constraint if exists suppliers_status_check;
 alter table public.suppliers add constraint suppliers_status_check
@@ -583,6 +588,30 @@ create table if not exists public.categories (
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+
+-- CMS fields added after the RFQ foundation. public_page_ready is derived on
+-- read from approved suppliers, never written to the categories table.
+alter table public.categories
+  add column if not exists h1_i18n jsonb,
+  add column if not exists body_i18n jsonb,
+  add column if not exists spec_columns jsonb not null default '[]'::jsonb,
+  add column if not exists spec_rows jsonb not null default '[]'::jsonb,
+  add column if not exists buying_facts jsonb not null default '[]'::jsonb,
+  add column if not exists filters jsonb not null default '[]'::jsonb,
+  add column if not exists hero_image text,
+  add column if not exists hero_alt_i18n jsonb,
+  add column if not exists homepage_kicker_i18n jsonb,
+  add column if not exists active_on_homepage boolean not null default false,
+  add column if not exists status text,
+  add column if not exists seo_indexable boolean not null default false,
+  add column if not exists previous_slugs text[] not null default '{}',
+  add column if not exists created_by text,
+  add column if not exists updated_by text;
+update public.categories
+set status = case when is_published then 'published' else 'draft' end
+where status is null;
+alter table public.categories alter column status set default 'draft';
+alter table public.categories alter column status set not null;
 
 create unique index if not exists categories_slug_key on public.categories (slug);
 create index if not exists categories_parent_idx on public.categories (parent_id) where parent_id is not null;
