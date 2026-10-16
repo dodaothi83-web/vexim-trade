@@ -25,7 +25,7 @@ import { useToast } from "@/components/toast";
 
 export interface ThreadMessage {
   id: string;
-  kind: "auto" | "manual" | "inbound" | "rfq_outreach" | "rfq_followup" | "shortlist_buyer";
+  kind: "auto" | "manual" | "inbound" | "rfq_outreach" | "rfq_followup" | "shortlist_buyer" | "buyer_status_update";
   status: string;
   subject: string;
   fromLabel: string;

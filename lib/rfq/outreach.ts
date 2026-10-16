@@ -11,9 +11,10 @@
  */
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { transport } from "@/lib/email/send";
-import { FROM_ADDRESS, MAIL_DOMAIN, COMPANY } from "@/lib/config";
+import { FROM_ADDRESS, COMPANY } from "@/lib/config";
 import { SITE_URL } from "@/lib/site";
 import { getStore } from "@/lib/db";
+import { buyerReplyAddress, supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import type { Buyer, EmailMessage, Rfq, RfqMatch, Supplier } from "@/lib/types";
 
 function rfqCode(rfq: Rfq) {
@@ -26,11 +27,6 @@ function shortQty(rfq: Rfq) {
 
 function shortIncoterm(rfq: Rfq) {
   return rfq.incoterm ?? "FOB (thảo luận)";
-}
-
-function supplierReplyTo(rfq: Rfq): string {
-  // Hộp thư chức năng nhận hồi âm từ NCC — trả lời đúng mạch RFQ.
-  return `rfq+${rfq.code.toLowerCase()}@${MAIL_DOMAIN}`;
 }
 
 function fmtDateTime(iso?: string | null) {
@@ -227,10 +223,10 @@ export async function dispatchRfqToSuppliers(input: {
       continue;
     }
     const email = buildRfqSupplierEmail({ rfq, supplier: sup, deadline });
-    await transport({
+    const delivery = await transport({
       to: [sup.email],
       from: FROM_ADDRESS,
-      replyTo: supplierReplyTo(rfq),
+      replyTo: supplierReplyAddress(rfq.code, m.id),
       subject: email.subject,
       html: email.html,
       text: email.text,
@@ -240,6 +236,11 @@ export async function dispatchRfqToSuppliers(input: {
         "X-Vexim-Anonymous": "1",
       },
     });
+    if (!delivery.ok) {
+      console.error(`[rfq] gửi NCC ${sup.id} thất bại: ${delivery.error}`);
+      skipped += 1;
+      continue;
+    }
     await store.updateRfqMatch(m.id, {
       status: "sent_to_supplier",
       sent_to_supplier_at: new Date().toISOString(),
@@ -263,8 +264,8 @@ export async function dispatchRfqToSuppliers(input: {
       attachments: [],
       rfc_message_id: null,
       read_at: null,
-      status: "sent",
-      provider: "resend",
+      status: delivery.status,
+      provider: delivery.provider,
       error: null,
       created_by: null,
     } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
@@ -301,14 +302,17 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
     .filter((x): x is RfqMatch & { supplier: Supplier } => !!x);
 
   const email = buildRfqShortlistBuyerEmail({ rfq, buyer, matches: matchesWithSup });
-  await transport({
+  const delivery = await transport({
     to: [buyer.email],
     cc: buyer.cc_emails ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean) : undefined,
+    from: FROM_ADDRESS,
+    replyTo: buyerReplyAddress(rfq.code),
     subject: email.subject,
     html: email.html,
     text: email.text,
     headers: { "X-RFQ-Code": rfq.code },
   });
+  if (!delivery.ok) throw new Error(`Không gửi được shortlist buyer: ${delivery.error}`);
 
   // Đánh dấu các match đã trình buyer
   for (const m of quoted) {
@@ -334,8 +338,8 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
     attachments: [],
     rfc_message_id: null,
     read_at: null,
-    status: "sent",
-    provider: "resend",
+    status: delivery.status,
+    provider: delivery.provider,
     error: null,
     created_by: null,
   } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });

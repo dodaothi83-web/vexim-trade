@@ -371,7 +371,7 @@ export default async function RfqDetailPage({
                               Nội dung email (tối đa 2000 từ)
                               <textarea name="body" required rows={6} className="input mt-1 text-[13px]" defaultValue={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${rfq.product_text} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${rfq.needed_by ?? "—"}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
                             </label>
-                            <p className="mt-1 text-[10.5px] text-ink-400">Reply-To: rfq+{rfq.code.toLowerCase()}@vex.im — thư trả lời sẽ tự gắn vào timeline.</p>
+                            <p className="mt-1 text-[10.5px] text-ink-400">Reply-To riêng cho từng match (rfq+{rfq.code.toLowerCase()}-m…); thư trả lời sẽ tự gắn vào timeline.</p>
                             <div className="mt-2 flex justify-end gap-2">
                               <button type="reset" className="btn btn-ghost btn-sm">Huỷ</button>
                               <Button type="submit" size="sm">Gửi</Button>
@@ -552,7 +552,7 @@ export default async function RfqDetailPage({
         <div className="space-y-6">
           <section className="card">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Phân công & trạng thái</h2>
-            <form action={assignRfqFormAction} className="mt-3 space-y-3">
+            {canManageRfq && (<form action={assignRfqFormAction} className="mt-3 space-y-3">
               <input type="hidden" name="id" value={rfq.id} />
               <label className="flex flex-col text-[12px] text-ink-600">
                 Chủ trì
@@ -564,19 +564,22 @@ export default async function RfqDetailPage({
                 </select>
               </label>
               <Button type="submit" size="sm">Lưu phân công</Button>
-            </form>
-            <form action={updateRfqStatusFormAction} className="mt-4 space-y-3">
+            </form>)}
+            {canManageRfq && (<form action={updateRfqStatusFormAction} className="mt-4 space-y-3">
               <input type="hidden" name="id" value={rfq.id} />
               <label className="flex flex-col text-[12px] text-ink-600">
                 Trạng thái
-                <select name="status" defaultValue={rfq.status} className="input mt-1 py-1.5 text-[13px]">
-                  {STATUS_FLOW.map((s) => (
+                <select name="status" defaultValue={["sampling", "lost"].includes(rfq.status) ? "" : rfq.status} className="input mt-1 py-1.5 text-[13px]" required>
+                  <option value="" disabled>— Chọn trạng thái —</option>
+                  {STATUS_FLOW.filter((s) => s.value !== "sampling" && s.value !== "lost").map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
+                <span className="mt-1 text-[11px] text-ink-500">Sampling / lost dùng nút Chốt giai đoạn bên dưới để buyer nhận email và lost có lý do.</span>
               </label>
               <Button type="submit" size="sm" variant="soft">Cập nhật trạng thái</Button>
-            </form>
+            </form>)}
+            {!canManageRfq && <p className="mt-3 text-[12px] text-ink-500">Chỉ xem: không thể phân công hoặc đổi trạng thái RFQ.</p>}
           </section>
 
           <section className="card">

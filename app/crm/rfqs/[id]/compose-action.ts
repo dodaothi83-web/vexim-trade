@@ -6,8 +6,10 @@ import { redirect } from "next/navigation";
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { transport } from "@/lib/email/send";
-import { FROM_ADDRESS, MAIL_DOMAIN } from "@/lib/config";
+import { FROM_ADDRESS } from "@/lib/config";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
+import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
+import { notifyBuyerRfqStatus } from "@/lib/rfq/buyer-notify";
 import type { EmailMessage } from "@/lib/types";
 
 /**
@@ -44,10 +46,11 @@ export async function composeMatchEmailAction(fd: FormData): Promise<void> {
   const html = wrapPlainEmail({ title: subject, body: `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6">${escapeHtml(body)}</div>` });
   const text = body;
 
-  await transport({
+  const delivery = await transport({
     to: toEmails,
     cc: ccEmails.length ? ccEmails : undefined,
     from: FROM_ADDRESS,
+    replyTo: supplierReplyAddress(rfq.code, match.id),
     subject,
     html,
     text,
@@ -56,6 +59,7 @@ export async function composeMatchEmailAction(fd: FormData): Promise<void> {
       "X-RFQ-Match": match.id,
     },
   });
+  if (!delivery.ok) throw new Error(`Không gửi được email NCC: ${delivery.error}`);
 
   await store.addMessage({
     buyer_id: null,
@@ -75,8 +79,8 @@ export async function composeMatchEmailAction(fd: FormData): Promise<void> {
     attachments: [],
     rfc_message_id: null,
     read_at: null,
-    status: "sent",
-    provider: "resend",
+    status: delivery.status,
+    provider: delivery.provider,
     error: null,
     created_by: session?.uid ?? null,
   } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
@@ -92,12 +96,29 @@ export async function markSamplingAction(fd: FormData): Promise<void> {
   const selectedMatchId = String(fd.get("selected_match_id") || "").trim();
   if (!rfqId) throw new Error("Thiếu RFQ.");
   const store = getStore();
-  await store.updateRfq(rfqId, { status: "sampling" });
+  const before = await store.getRfq(rfqId);
+  if (!before) throw new Error("RFQ không tồn tại.");
   if (selectedMatchId) {
     const m = await store.getRfqMatch(selectedMatchId);
-    if (m && m.rfq_id === rfqId) await store.updateRfqMatch(selectedMatchId, { status: "selected" });
+    if (!m || m.rfq_id !== rfqId) throw new Error("NCC đã chọn không thuộc RFQ này.");
+    if (before.status !== "sampling") await store.updateRfqMatch(m.id, { status: "selected" });
   }
+  const rfq = before.status === "sampling" ? before : await store.updateRfq(rfqId, { status: "sampling" });
+  if (before.status !== "sampling") {
+    const actor = await getSession();
+    await store.addAuditLog({
+      actor_id: actor?.uid ?? null, actor_email: actor?.email ?? null,
+      entity: "rfq", entity_id: rfqId, action: "status.sampling",
+      before: { status: before.status }, after: { status: rfq.status, selected_match_id: selectedMatchId || null },
+    }).catch((err) => console.error("[rfq] không ghi được audit sampling:", err));
+  }
+  // Chỉ một email cho mỗi giai đoạn. Nếu gửi thất bại, submit lại nút này để thử lại.
+  const notified = await notifyBuyerRfqStatus(rfq, "sampling", selectedMatchId || null);
+  revalidatePath("/crm/rfqs");
   revalidatePath(`/crm/rfqs/${rfqId}`);
+  if (!notified.sent && notified.reason !== "already_sent" && notified.reason !== "pending") {
+    throw new Error("Đã lưu trạng thái sampling nhưng chưa gửi được thông báo buyer. Vui lòng thử lại.");
+  }
 }
 
 /** Đóng RFQ lost (bắt buộc lý do). */
@@ -110,12 +131,27 @@ export async function markLostAction(fd: FormData): Promise<void> {
   if (!rfqId) throw new Error("Thiếu RFQ.");
   if (!reason) throw new Error("Bắt buộc chọn lý do mất đơn.");
   const store = getStore();
-  await store.updateRfq(rfqId, {
+  const before = await store.getRfq(rfqId);
+  if (!before) throw new Error("RFQ không tồn tại.");
+  const rfq = before.status === "lost" ? before : await store.updateRfq(rfqId, {
     status: "lost",
     lost_reason: reason,
     closed_reason: note || null,
   });
+  if (before.status !== "lost") {
+    const actor = await getSession();
+    await store.addAuditLog({
+      actor_id: actor?.uid ?? null, actor_email: actor?.email ?? null,
+      entity: "rfq", entity_id: rfqId, action: "status.lost",
+      before: { status: before.status }, after: { status: rfq.status, lost_reason: rfq.lost_reason },
+    }).catch((err) => console.error("[rfq] không ghi được audit lost:", err));
+  }
+  const notified = await notifyBuyerRfqStatus(rfq, "lost");
+  revalidatePath("/crm/rfqs");
   revalidatePath(`/crm/rfqs/${rfqId}`);
+  if (!notified.sent && notified.reason !== "already_sent" && notified.reason !== "pending") {
+    throw new Error("Đã lưu trạng thái lost nhưng chưa gửi được thông báo buyer. Vui lòng thử lại.");
+  }
 }
 
 /** Gửi nhắc nhở NCC đã được gửi RFQ nhưng chưa phản hồi sau X ngày (gửi ngay cho một NCC chỉ định). */
@@ -142,15 +178,16 @@ export async function sendFollowUpAction(fd: FormData): Promise<void> {
     title: subject,
     body: `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6">${escapeHtml(body)}</div>`,
   });
-  await transport({
+  const delivery = await transport({
     to: [sup.email],
     from: FROM_ADDRESS,
-    replyTo: `rfq+${rfq.code.toLowerCase()}@${MAIL_DOMAIN}`,
+    replyTo: supplierReplyAddress(rfq.code, match.id),
     subject,
     html,
     text: body,
     headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Match": match.id },
   });
+  if (!delivery.ok) throw new Error(`Không gửi được email nhắc NCC: ${delivery.error}`);
   await store.addMessage({
     buyer_id: null,
     supplier_id: sup.id,
@@ -169,8 +206,8 @@ export async function sendFollowUpAction(fd: FormData): Promise<void> {
     attachments: [],
     rfc_message_id: null,
     read_at: null,
-    status: "sent",
-    provider: "resend",
+    status: delivery.status,
+    provider: delivery.provider,
     error: null,
     created_by: session?.uid ?? null,
   } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });

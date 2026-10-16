@@ -253,7 +253,7 @@ create index if not exists email_messages_created_idx on public.email_messages (
 -- Chạy lại đoạn này (idempotent) khi nâng cấp từ bản trước:
 alter table public.email_messages drop constraint if exists email_messages_kind_check;
 alter table public.email_messages add constraint email_messages_kind_check
-  check (kind in ('auto','manual','inbound','rfq_outreach','rfq_followup','shortlist_buyer'));
+  check (kind in ('auto','manual','inbound','rfq_outreach','rfq_followup','shortlist_buyer','buyer_status_update'));
 alter table public.email_messages drop constraint if exists email_messages_status_check;
 alter table public.email_messages add constraint email_messages_status_check
   check (status in ('draft','sent','failed','simulated','received'));
@@ -261,13 +261,8 @@ alter table public.email_messages add column if not exists rfc_message_id text;
 alter table public.email_messages add column if not exists read_at timestamptz;
 alter table public.email_messages
   add column if not exists prospect_id uuid references public.prospects(id) on delete set null;
--- RFQ timeline linking (một email có thể gắn với 1 RFQ và 1 RfqMatch cụ thể)
-alter table public.email_messages add column if not exists rfq_id uuid references public.rfqs(id) on delete set null;
-alter table public.email_messages add column if not exists rfq_match_id uuid references public.rfq_matches(id) on delete set null;
 create index if not exists email_messages_prospect_idx
   on public.email_messages (prospect_id, created_at desc);
-create index if not exists email_messages_rfq_idx
-  on public.email_messages (rfq_id, created_at desc);
 
 -- ---------------------------------------------------------------------------
 -- 4b. TỆP ĐÍNH KÈM EMAIL (metadata) — nội dung nằm trong Supabase Storage
@@ -703,15 +698,33 @@ create table if not exists public.rfqs (
   spam_score            integer not null default 0,
   spam_flags            text[] not null default '{}',
   status                text not null default 'new' check (status in
-                          ('new','qualified','matching','quoting','sampling',
-                           'won','lost','spam','closed')),
+                          ('new','needs_review','in_progress','matching','quoted',
+                           'sampling','won','lost','spam')),
   assigned_to           uuid references public.app_users(id) on delete set null,
   first_response_at     timestamptz,
   closed_reason         text,
+  lost_reason           text,
   access_token          text not null,
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
 );
+-- Upgrade older installations (the original RFQ status check used legacy values).
+alter table public.rfqs add column if not exists lost_reason text;
+alter table public.rfqs drop constraint if exists rfqs_status_check;
+update public.rfqs set status = case status
+  when 'qualified' then 'in_progress'
+  when 'quoting' then 'matching'
+  when 'closed' then 'lost'
+  else status end
+where status in ('qualified','quoting','closed');
+update public.rfqs set lost_reason = 'legacy_unspecified'
+where status = 'lost' and nullif(trim(lost_reason), '') is null;
+alter table public.rfqs add constraint rfqs_status_check check (status in
+  ('new','needs_review','in_progress','matching','quoted','sampling','won','lost','spam'));
+alter table public.rfqs drop constraint if exists rfqs_lost_reason_check;
+alter table public.rfqs add constraint rfqs_lost_reason_check check (
+  status <> 'lost' or nullif(trim(lost_reason), '') is not null);
+
 create unique index if not exists rfqs_code_key on public.rfqs (code);
 create unique index if not exists rfqs_access_token_key on public.rfqs (access_token);
 create index if not exists rfqs_status_idx on public.rfqs (status, created_at desc);
@@ -771,6 +784,15 @@ create table if not exists public.rfq_matches (
 );
 create index if not exists rfq_matches_rfq_idx on public.rfq_matches (rfq_id, status);
 create index if not exists rfq_matches_supplier_idx on public.rfq_matches (supplier_id, created_at desc);
+
+-- RFQ timeline linking (một email có thể gắn với 1 RFQ và 1 RfqMatch cụ thể)
+alter table public.email_messages add column if not exists rfq_id uuid references public.rfqs(id) on delete set null;
+alter table public.email_messages add column if not exists rfq_match_id uuid references public.rfq_matches(id) on delete set null;
+create index if not exists email_messages_rfq_idx
+  on public.email_messages (rfq_id, created_at desc);
+-- A single buyer status email per RFQ + stage (atomic claim before sending).
+create unique index if not exists email_messages_buyer_status_once_idx
+  on public.email_messages (rfq_id, stage) where kind = 'buyer_status_update';
 
 drop trigger if exists rfq_matches_touch on public.rfq_matches;
 create trigger rfq_matches_touch before update on public.rfq_matches

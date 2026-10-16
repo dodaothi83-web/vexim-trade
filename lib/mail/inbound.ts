@@ -1,10 +1,11 @@
 import { Resend } from "resend";
 
 import { FROM_ADDRESS, resendConfigured } from "@/lib/config";
-import { findUserByAddress, isOwnMailAddress } from "@/lib/email/sender";
+import { bareAddress, findUserByAddress, isOwnMailAddress } from "@/lib/email/sender";
 import { getStore } from "@/lib/db";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { transport, threadId } from "@/lib/email/send";
+import { parseRfqRoute } from "@/lib/rfq/reply-routing";
 import type { EmailMessage } from "@/lib/types";
 
 /**
@@ -46,7 +47,7 @@ export interface InboundOutcome {
 }
 
 function sameEmail(a: string, b: string): boolean {
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
+  return bareAddress(a).toLowerCase() === bareAddress(b).toLowerCase();
 }
 
 /** Địa chỉ cần báo khi có thư đến: env INBOUND_NOTIFY_EMAILS, nếu không thì admin+sale đang hoạt động. */
@@ -138,13 +139,64 @@ export async function processInboundEvent(
     store.listSuppliers(),
     store.listProspects().catch(() => []),
   ]);
-  const buyer = buyers.find((b) => b.email && sameEmail(b.email, from)) ?? null;
+  let buyer = buyers.find((b) => b.email && sameEmail(b.email, from)) ?? null;
   const prospect = prospects.find((p) => p.email && sameEmail(p.email, from)) ?? null;
-  const supplier = !buyer && !prospect
+  let supplier = !buyer && !prospect
     ? (suppliers.find((s) => s.email && sameEmail(s.email, from)) ?? null)
     : null;
-  const direction: "buyer" | "supplier" = supplier ? "supplier" : "buyer";
-  const tid = threadId(direction, from);
+
+  // Reply-To routing: validate RFQ/match relationship AND sender before attaching
+  // a reply. A guessed buyer+CODE or an unrelated supplier must never appear in
+  // another customer's timeline. Legacy rfq+CODE still resolves by supplier email.
+  let direction: "buyer" | "supplier" = supplier ? "supplier" : "buyer";
+  let rfqId: string | null = null;
+  let rfqMatchId: string | null = null;
+  let rfqContextThreadId: string | null = null;
+  const route = parseRfqRoute([
+    ...(full?.to ?? []), ...(meta.to ?? []), ...(full?.cc ?? []), ...(meta.cc ?? []),
+  ]);
+  if (route) {
+    const rfq = await store.getRfqByCode(route.rfqCode);
+    if (rfq && route.kind === "supplier") {
+      let match = null;
+      if (route.matchId) {
+        const candidate = await store.getRfqMatch(route.matchId);
+        if (candidate?.rfq_id === rfq.id) {
+          const owner = suppliers.find((s) => s.id === candidate.supplier_id);
+          // Manual compose can override To: recognize that address from the
+          // outbound message instead of requiring the supplier's primary email.
+          const outbound = await store.listMessagesForRfq(rfq.id);
+          const sentToFrom = outbound.some((msg) => msg.rfq_match_id === candidate.id &&
+            msg.direction === "supplier" && msg.kind !== "inbound" &&
+            msg.to_emails.some((addr) => sameEmail(addr, from)));
+          if ((owner?.email && sameEmail(owner.email, from)) || sentToFrom) {
+            match = candidate;
+            supplier = owner ?? supplier;
+          }
+        }
+      } else if (supplier) {
+        const supplierId = supplier.id;
+        const matches = await store.listRfqMatches(rfq.id);
+        match = matches.find((m) => m.supplier_id === supplierId) ?? null;
+      }
+      if (match) {
+        rfqId = rfq.id;
+        rfqMatchId = match.id;
+        direction = "supplier";
+        rfqContextThreadId = `rfq-${rfq.id}-match-${match.id}`;
+      }
+    } else if (rfq && route.kind === "buyer") {
+      const owner = buyers.find((b) => b.id === rfq.buyer_id);
+      const allowedEmails = [owner?.email ?? "", ...(owner?.cc_emails?.split(",") ?? [])];
+      if (owner && allowedEmails.some((addr) => sameEmail(addr, from))) {
+        buyer = owner;
+        rfqId = rfq.id;
+        direction = "buyer";
+        rfqContextThreadId = `rfq-${rfq.id}-buyer`;
+      }
+    }
+  }
+  const tid = rfqContextThreadId ?? threadId(direction, from);
 
   let html = full?.html ?? "";
   let text = full?.text ?? "";
@@ -173,6 +225,8 @@ export async function processInboundEvent(
     .addMessage({
       buyer_id: buyer?.id ?? null,
       supplier_id: supplier?.id ?? null,
+      rfq_id: rfqId,
+      rfq_match_id: rfqMatchId,
       ...(prospect ? { prospect_id: prospect.id } : {}),
       kind: "inbound",
       stage: null,

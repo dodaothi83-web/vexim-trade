@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
+import { notifyBuyerRfqStatus } from "@/lib/rfq/buyer-notify";
 
 /** Server action inline cho dropdown phân công ở trang danh sách — không redirect. */
 export async function assignRfqInlineAction(fd: FormData) {
@@ -64,6 +65,12 @@ export async function setRfqStatusAction(fd: FormData) {
     });
     revalidatePath("/crm/rfqs");
     revalidatePath(`/crm/rfqs/${id}`);
+    if (status === "sampling" || status === "lost") {
+      const notified = await notifyBuyerRfqStatus(after, status);
+      if (!notified.sent && !["already_sent", "pending"].includes(notified.reason ?? "")) {
+        return { ok: false, message: "Đã lưu trạng thái nhưng chưa gửi được thông báo buyer. Hãy thử lại." };
+      }
+    }
     return { ok: true };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
