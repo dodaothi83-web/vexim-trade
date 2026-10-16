@@ -10,6 +10,7 @@ import {
   MapPin,
   Package,
   Phone,
+  Send,
   ShieldAlert,
   Tag,
   Timer,
@@ -26,6 +27,13 @@ import {
   updateMatchQuoteAction,
   updateMatchStatusAction,
 } from "./actions";
+import {
+  sendRfqToSuppliersAction,
+  presentShortlistAction,
+  selectSupplierAction,
+} from "./outreach-actions";
+import { uploadRfqAttachmentAction } from "./upload-action";
+import { addRfqNoteAction } from "./note-action";
 import type { RfqStatus } from "@/lib/types";
 import { SITE_URL } from "@/lib/site";
 
@@ -221,104 +229,165 @@ export default async function RfqDetailPage({
               <Button type="submit" size="sm">Thêm vào shortlist</Button>
             </form>
 
-            <div className="mt-4 divide-y divide-ink-100">
-              {matches.length === 0 && (
-                <p className="py-6 text-center text-[13px] text-ink-500">Chưa ghép NCC nào.</p>
-              )}
-              {matches.map((m) => {
-                const sup = supplierMap.get(m.supplier_id);
-                const ms = MATCH_STATUS.find((x) => x.value === m.status) ?? MATCH_STATUS[0];
-                return (
-                  <div key={m.id} className="py-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Link href={`/crm/suppliers/${m.supplier_id}`} className="text-[14px] font-semibold text-ink-900 hover:text-brand-700">
-                        {sup?.display_name ?? sup?.trade_name ?? sup?.name ?? m.supplier_id}
-                      </Link>
-                      <Badge className="inline-flex items-center gap-1">
-                        <span className={"h-1.5 w-1.5 rounded-full " + ms.dot} />
-                        {ms.label}
-                      </Badge>
-                      <form action={removeMatchAction} className="ml-auto">
-                        <input type="hidden" name="match_id" value={m.id} />
-                        <input type="hidden" name="rfq_id" value={rfq.id} />
-                        <button type="submit" className="text-[12px] text-red-600 hover:underline">Xoá</button>
-                      </form>
-                    </div>
-                    <form action={updateMatchQuoteAction} className="mt-2 grid gap-2 sm:grid-cols-5">
-                      <input type="hidden" name="match_id" value={m.id} />
-                      <input type="hidden" name="rfq_id" value={rfq.id} />
-                      <label className="flex flex-col text-[11px] text-ink-500">
-                        Giá
-                        <input
-                          name="quote_price"
-                          type="number"
-                          step="0.01"
-                          defaultValue={m.quote_price ?? ""}
-                          className="input mt-1 py-1 text-[13px]"
-                          placeholder="vd 3.20"
-                        />
-                      </label>
-                      <label className="flex flex-col text-[11px] text-ink-500">
-                        Tệ
-                        <input
-                          name="quote_currency"
-                          defaultValue={m.quote_currency ?? "USD"}
-                          className="input mt-1 py-1 text-[13px]"
-                        />
-                      </label>
-                      <label className="flex flex-col text-[11px] text-ink-500">
-                        ĐVT
-                        <input
-                          name="quote_unit"
-                          defaultValue={m.quote_unit ?? rfq.unit ?? ""}
-                          className="input mt-1 py-1 text-[13px]"
-                        />
-                      </label>
-                      <label className="flex flex-col text-[11px] text-ink-500">
-                        Incoterm
-                        <input
-                          name="quote_incoterm"
-                          defaultValue={m.quote_incoterm ?? rfq.incoterm ?? ""}
-                          className="input mt-1 py-1 text-[13px]"
-                        />
-                      </label>
-                      <label className="flex flex-col text-[11px] text-ink-500">
-                        Lead time (ngày)
-                        <input
-                          name="quote_lead_time_days"
-                          type="number"
-                          defaultValue={m.quote_lead_time_days ?? ""}
-                          className="input mt-1 py-1 text-[13px]"
-                        />
-                      </label>
-                      <div className="sm:col-span-5 flex flex-wrap items-end gap-2">
-                        <form action={updateMatchStatusAction} className="flex items-end gap-2">
+            <form action={sendRfqToSuppliersAction} className="mt-4 rounded-md border border-ink-200 bg-ink-50/50 p-3">
+              <input type="hidden" name="rfq_id" value={rfq.id} />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[12.5px] text-ink-600">
+                  Chọn các NCC để <strong>gửi email yêu cầu báo giá ẩn danh</strong>. Buyer sẽ được giữ kín.
+                </p>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1 text-[12px] text-ink-600">
+                    Hạn phản hồi
+                    <select name="deadline_days" defaultValue="3" className="input ml-1 py-1 text-[12px]">
+                      <option value="2">2 ngày</option>
+                      <option value="3">3 ngày</option>
+                      <option value="5">5 ngày</option>
+                      <option value="7">7 ngày</option>
+                    </select>
+                  </label>
+                  <Button type="submit" size="sm" variant="primary">
+                    <Mail className="h-3.5 w-3.5" /> Gửi yêu cầu cho NCC đã chọn
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-4 divide-y divide-ink-100">
+                {matches.length === 0 && (
+                  <p className="py-6 text-center text-[13px] text-ink-500">Chưa ghép NCC nào.</p>
+                )}
+                {matches.map((m) => {
+                  const sup = supplierMap.get(m.supplier_id);
+                  const ms = MATCH_STATUS.find((x) => x.value === m.status) ?? MATCH_STATUS[0];
+                  const canSend = ["proposed"].includes(m.status);
+                  const canSelect = m.status === "quoted" || m.status === "presented_to_buyer";
+                  return (
+                    <div key={m.id} className="py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {canSend && (
+                          <input
+                            type="checkbox"
+                            name="match_ids"
+                            value={m.id}
+                            className="h-4 w-4 rounded border-ink-300 text-brand-600"
+                          />
+                        )}
+                        <Link href={`/crm/suppliers/${m.supplier_id}`} className="text-[14px] font-semibold text-ink-900 hover:text-brand-700">
+                          {sup?.display_name ?? sup?.trade_name ?? sup?.name ?? m.supplier_id}
+                        </Link>
+                        {sup?.email ? (
+                          <span className="text-[11.5px] text-ink-500">{sup.email}</span>
+                        ) : (
+                          <span className="text-[11.5px] text-red-600">chưa có email</span>
+                        )}
+                        <Badge className="inline-flex items-center gap-1">
+                          <span className={"h-1.5 w-1.5 rounded-full " + ms.dot} />
+                          {ms.label}
+                        </Badge>
+                        {canSelect && (
+                          <form action={selectSupplierAction} className="ml-1">
+                            <input type="hidden" name="rfq_id" value={rfq.id} />
+                            <input type="hidden" name="match_id" value={m.id} />
+                            <button type="submit" className="btn btn-soft btn-sm">Chọn NCC này</button>
+                          </form>
+                        )}
+                        <form action={removeMatchAction} className="ml-auto">
                           <input type="hidden" name="match_id" value={m.id} />
                           <input type="hidden" name="rfq_id" value={rfq.id} />
-                          <label className="flex flex-col text-[11px] text-ink-500">
-                            Trạng thái
-                            <select
-                              name="status"
-                              defaultValue={m.status}
-                              onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                              className="input mt-1 py-1 text-[13px]"
-                            >
-                              {MATCH_STATUS.map((s) => (
-                                <option key={s.value} value={s.value}>{s.label}</option>
-                              ))}
-                            </select>
-                          </label>
+                          <button type="submit" className="text-[12px] text-red-600 hover:underline">Xoá</button>
                         </form>
-                        <Button type="submit" size="sm">Lưu báo giá</Button>
-                        {m.sent_to_supplier_at && (
-                          <span className="text-[11.5px] text-ink-400">Đã gửi NCC: {fmtDate(m.sent_to_supplier_at)}</span>
-                        )}
                       </div>
-                    </form>
-                  </div>
-                );
-              })}
-            </div>
+                      <form action={updateMatchQuoteAction} className="mt-2 grid gap-2 sm:grid-cols-5">
+                        <input type="hidden" name="match_id" value={m.id} />
+                        <input type="hidden" name="rfq_id" value={rfq.id} />
+                        <label className="flex flex-col text-[11px] text-ink-500">
+                          Giá
+                          <input
+                            name="quote_price"
+                            type="number"
+                            step="0.01"
+                            defaultValue={m.quote_price ?? ""}
+                            className="input mt-1 py-1 text-[13px]"
+                            placeholder="vd 3.20"
+                          />
+                        </label>
+                        <label className="flex flex-col text-[11px] text-ink-500">
+                          Tệ
+                          <input
+                            name="quote_currency"
+                            defaultValue={m.quote_currency ?? "USD"}
+                            className="input mt-1 py-1 text-[13px]"
+                          />
+                        </label>
+                        <label className="flex flex-col text-[11px] text-ink-500">
+                          ĐVT
+                          <input
+                            name="quote_unit"
+                            defaultValue={m.quote_unit ?? rfq.unit ?? ""}
+                            className="input mt-1 py-1 text-[13px]"
+                          />
+                        </label>
+                        <label className="flex flex-col text-[11px] text-ink-500">
+                          Incoterm
+                          <input
+                            name="quote_incoterm"
+                            defaultValue={m.quote_incoterm ?? rfq.incoterm ?? ""}
+                            className="input mt-1 py-1 text-[13px]"
+                          />
+                        </label>
+                        <label className="flex flex-col text-[11px] text-ink-500">
+                          Lead time (ngày)
+                          <input
+                            name="quote_lead_time_days"
+                            type="number"
+                            defaultValue={m.quote_lead_time_days ?? ""}
+                            className="input mt-1 py-1 text-[13px]"
+                          />
+                        </label>
+                        <div className="sm:col-span-5 flex flex-wrap items-end gap-2">
+                          <form action={updateMatchStatusAction} className="flex items-end gap-2">
+                            <input type="hidden" name="match_id" value={m.id} />
+                            <input type="hidden" name="rfq_id" value={rfq.id} />
+                            <label className="flex flex-col text-[11px] text-ink-500">
+                              Trạng thái
+                              <select
+                                name="status"
+                                defaultValue={m.status}
+                                onChange={(e) => e.currentTarget.form?.requestSubmit()}
+                                className="input mt-1 py-1 text-[13px]"
+                              >
+                                {MATCH_STATUS.map((s) => (
+                                  <option key={s.value} value={s.value}>{s.label}</option>
+                                ))}
+                              </select>
+                            </label>
+                          </form>
+                          <Button type="submit" size="sm">Lưu báo giá</Button>
+                          {m.sent_to_supplier_at && (
+                            <span className="text-[11.5px] text-ink-400">Đã gửi NCC: {fmtDate(m.sent_to_supplier_at)}</span>
+                          )}
+                          {m.sent_to_buyer_at && (
+                            <span className="text-[11.5px] text-emerald-600">Đã trình buyer: {fmtDate(m.sent_to_buyer_at)}</span>
+                          )}
+                        </div>
+                      </form>
+                    </div>
+                  );
+                })}
+              </div>
+            </form>
+
+            {matches.some((m) => m.status === "quoted") && (
+              <form action={presentShortlistAction} className="mt-4 flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
+                <input type="hidden" name="rfq_id" value={rfq.id} />
+                <p className="text-[12.5px] text-emerald-800">
+                  Có <strong>{matches.filter((m) => m.status === "quoted").length}</strong> báo giá sẵn sàng.
+                  Gửi bảng so sánh cho buyer (sẽ ghi nhận thời điểm phản hồi đầu tiên cho SLA).
+                </p>
+                <Button type="submit" size="sm" variant="primary">
+                  <Send className="h-3.5 w-3.5" /> Trình buyer
+                </Button>
+              </form>
+            )}
           </section>
         </div>
 
@@ -373,16 +442,47 @@ export default async function RfqDetailPage({
             </section>
           )}
 
-          {attachments.length > 0 && (
-            <section className="card">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Tệp đính kèm</h2>
+          <section className="card">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Tệp đính kèm</h2>
+            <form action={uploadRfqAttachmentAction} className="mt-3 flex items-end gap-2">
+              <input type="hidden" name="rfq_id" value={rfq.id} />
+              <label className="flex flex-col text-[12px] text-ink-600">
+                Tải lên (tối đa 10MB)
+                <input name="file" type="file" className="mt-1 text-[12.5px]" />
+              </label>
+              <Button type="submit" size="sm" variant="soft">Tải lên</Button>
+            </form>
+            {attachments.length > 0 ? (
               <ul className="mt-3 space-y-1 text-[13px]">
                 {attachments.map((a) => (
-                  <li key={a.id} className="text-ink-700">📎 {a.file_name} <span className="text-ink-400 text-[11px]">({Math.round(a.size_bytes/1024)}KB)</span></li>
+                  <li key={a.id} className="text-ink-700">📎 {a.file_name} <span className="text-ink-400 text-[11px]">({Math.round(a.size_bytes/1024)}KB · {fmtDate(a.created_at)})</span></li>
                 ))}
               </ul>
-            </section>
-          )}
+            ) : (
+              <p className="mt-3 text-[12.5px] text-ink-500">Chưa có tệp đính kèm (spec sheet, catalogue, báo giá NCC...).</p>
+            )}
+          </section>
+
+          <section className="card">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Ghi chú nội bộ</h2>
+            <form action={addRfqNoteAction} className="mt-3 space-y-2">
+              <input type="hidden" name="rfq_id" value={rfq.id} />
+              <textarea
+                name="note"
+                rows={3}
+                placeholder="Nhập ghi chú nội bộ (chỉ đội ngũ nhìn thấy)..."
+                className="input min-h-[80px] text-[13px]"
+              />
+              <div className="flex justify-end">
+                <Button type="submit" size="sm" variant="soft">Thêm ghi chú</Button>
+              </div>
+            </form>
+            {String((rfq.specs as Record<string, unknown>)?.notes_internal ?? "") && (
+              <pre className="mt-3 max-h-60 overflow-auto whitespace-pre-wrap rounded-md bg-ink-50 p-3 font-mono text-[12px] leading-relaxed text-ink-700">
+                {String((rfq.specs as Record<string, unknown>)?.notes_internal)}
+              </pre>
+            )}
+          </section>
         </div>
       </div>
     </div>
