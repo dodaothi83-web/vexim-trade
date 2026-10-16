@@ -1,14 +1,18 @@
 /**
- * Cron SLA cho RFQ: Vercel Hobby chỉ cho phép 1 lần/ngày, nên chạy lúc
- * 09:00 giờ Hà Nội (0 2 * * * UTC). Ở bản Pro có thể chuyển thành hourly.
+ * Cron SLA cho RFQ — gọi bởi cron-job.org (hoặc Vercel Cron / GitHub Actions).
  *
- * Mỗi lần chạy, gửi nhắc cho:
- *   - TẤT CẢ RFQ chưa assigned có tuổi ≥ 4h (chưa đóng / chưa spam).
- *   - TẤT CẢ RFQ chưa có first_response_at có tuổi ≥ 20h, ở các status active.
- * Vì cron chỉ chạy 1 lần/ngày, mỗi vi phạm SLA sẽ được nhắc đúng 1 lần/ngày;
- * không cần cửa sổ tránh lặp như phiên bản hourly.
+ * Thiết lập cron-job.org:
+ *   - URL:      https://www.veximtrade.com/api/cron/rfq-sla
+ *   - Method:   GET
+ *   - Schedule: 0 2 * * * (09:00 ICT mỗi ngày, Hobby), hoặc 0 * * * * (mỗi giờ, Pro)
+ *   - Headers:  Authorization: Bearer <CRON_SECRET>
  *
- * Header bắt buộc: Authorization: Bearer <CRON_SECRET>
+ * Logic IDEMPOTENT: dù cron gọi bao lâu 1 lần cũng không spam:
+ *   - unassigned_4h:     gửi khi RFQ chưa assigned và tuổi ≥ 4h; đánh dấu
+ *                        specs.sla_unassigned_alerted_at để không gửi lại.
+ *   - response_due_4h:   gửi khi RFQ chưa first_response_at, tuổi ≥ 20h, trạng thái active;
+ *                        đánh dấu specs.sla_due_alerted_at để không gửi lại.
+ * Khi trạng thái thay đổi (đã phân công / đã trả lời buyer), cờ được giữ lại làm lịch sử.
  */
 import { NextResponse } from "next/server";
 
@@ -52,23 +56,38 @@ export async function GET(req: Request) {
     const buyer = buyerMap.get(rfq.buyer_id);
     if (!buyer) continue;
     const ageHours = (now - new Date(rfq.created_at).getTime()) / 3_600_000;
+    const specs = (rfq.specs as Record<string, unknown>) ?? {};
     const assigned = rfq.assigned_to ? userMap.get(rfq.assigned_to) : null;
 
-    if (!rfq.assigned_to && ageHours >= 4) {
+    // --- Cảnh báo chưa phân công (sau 4 giờ) ---
+    if (!rfq.assigned_to && ageHours >= 4 && !specs.sla_unassigned_alerted_at) {
       try {
         await sendSlaAlert({ kind: "unassigned_4h", rfq, buyer });
+        await store.updateRfq(rfq.id, {
+          specs: { ...specs, sla_unassigned_alerted_at: new Date().toISOString() },
+        });
         unassigned += 1;
       } catch (err) {
         errors.push(`unassigned ${rfq.code}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
-    if (!rfq.first_response_at && activeResponse.has(rfq.status) && ageHours >= 20) {
+
+    // --- Cảnh báo sắp hết hạn phản hồi (còn ~4 giờ so với mốc 24 giờ) ---
+    if (
+      !rfq.first_response_at &&
+      activeResponse.has(rfq.status) &&
+      ageHours >= 20 &&
+      !specs.sla_due_alerted_at
+    ) {
       try {
         await sendSlaAlert({
           kind: "response_due_4h",
           rfq,
           buyer,
           assignedToEmail: assigned?.email ?? null,
+        });
+        await store.updateRfq(rfq.id, {
+          specs: { ...specs, sla_due_alerted_at: new Date().toISOString() },
         });
         due += 1;
       } catch (err) {
@@ -79,7 +98,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    schedule: "daily 09:00 Asia/Ho_Chi_Minh",
+    provider: "cron-job.org (external)",
     checked: rfqs.length,
     unassigned,
     due,
