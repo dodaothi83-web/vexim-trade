@@ -33,6 +33,9 @@ import {
 } from "@/lib/public/catalog";
 import { t } from "@/lib/public/i18n";
 import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow } from "@/lib/types";
+import { getSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
+import { sanitizeHtml } from "@/lib/public/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -42,23 +45,26 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const { cat, resolvedSlug } = await resolveCategory(slug);
-  if (!cat) return { title: "Category not found | Vexim Trade", robots: { index: false } };
+  const { cat, resolvedSlug, isPreview } = await resolveCategory(slug);
+  if (!cat) return { title: "Category not found | Vexim Trade", robots: { index: false, follow: false } };
   const name = t(cat.name_i18n);
-  const seoTitle = t(cat.seo_title_i18n) || `${name} Suppliers in Vietnam – Verified | Vexim Trade`;
+  const seoTitle = t(cat.seo_title_i18n) || `${name} Suppliers in Vietnam | Vexim Trade`;
   const seoDesc = t(cat.seo_desc_i18n) || `Verified Vietnamese ${name.toLowerCase()} suppliers.`;
+  const indexable = !isPreview && !!cat.seo_indexable;
   return {
     title: { absolute: seoTitle },
     description: seoDesc,
     alternates: { canonical: `/products/${resolvedSlug}` },
     openGraph: { title: seoTitle, description: seoDesc, url: `/products/${resolvedSlug}`, siteName: "Vexim Trade", type: "website", images: cat.hero_image ? [{ url: cat.hero_image }] : undefined },
-    robots: { index: !!cat.seo_indexable, follow: true },
+    robots: { index: indexable, follow: !isPreview },
   };
 }
 
 /** Tìm category theo slug hoặc previous_slug — nếu trúng previous_slug sẽ 301 sang slug hiện tại. */
 async function resolveCategory(slug: string) {
   const store = (await import("@/lib/db")).getStore();
+  const session = await getSession();
+  const isStaff = !!(session && hasPermission(session.role, "categories.manage"));
   const all = typeof store.listCategories === "function" ? await store.listCategories({ publishedOnly: false }) : [];
   let cat = (all as Category[]).find((c) => c.slug === slug);
   if (!cat) {
@@ -66,14 +72,16 @@ async function resolveCategory(slug: string) {
     cat = (all as Category[]).find((c) => Array.isArray(c.previous_slugs) && c.previous_slugs.includes(slug));
     if (cat) permanentRedirect(`/products/${cat.slug}`);
   }
-  // Chỉ hiện trang cho category published (draft chỉ cho staff preview — MVP chặn luôn).
-  if (!cat || (cat.status === "draft" || !cat.is_published)) return { cat: null, resolvedSlug: slug };
-  return { cat, resolvedSlug: cat.slug };
+  if (!cat) return { cat: null, resolvedSlug: slug, isStaff, isPreview: false };
+  const isPublished = cat.status === "published" && cat.is_published;
+  // Người ngoài chỉ xem được category published; staff có categories.manage được xem trước nháp.
+  if (!isPublished && !isStaff) return { cat: null, resolvedSlug: slug, isStaff, isPreview: false };
+  return { cat, resolvedSlug: cat.slug, isStaff, isPreview: !isPublished };
 }
 
 export default async function CategoryPage({ params }: PageProps) {
   const { slug } = await params;
-  const { cat } = await resolveCategory(slug);
+  const { cat, isPreview } = await resolveCategory(slug);
   if (!cat) notFound();
 
   const includeDemo = process.env.VEXIM_SHOW_DEMO === "true";
@@ -81,7 +89,9 @@ export default async function CategoryPage({ params }: PageProps) {
   const categoryName = t(cat.name_i18n) || cat.slug;
   const h1 = t(cat.h1_i18n) || `${categoryName} suppliers in Vietnam`;
   const intro = t(cat.intro_i18n) || `Verified Vietnamese ${categoryName.toLowerCase()} suppliers.`;
-  const body = t(cat.body_i18n);
+  // Sanitize body để chặn HTML/script độc từ CMS (chỉ cho p/h2-h4/ul/ol/li/a/strong/em/br).
+  const bodyRaw = t(cat.body_i18n);
+  const body = bodyRaw ? sanitizeHtml(bodyRaw) : "";
   const isDemo = includeDemo && suppliers.some((s) => (s as { is_demo?: boolean }).is_demo);
   const hasSuppliers = suppliers.length > 0;
   const rfqHref = `/rfq?category=${encodeURIComponent(cat.slug)}`;
@@ -110,6 +120,11 @@ export default async function CategoryPage({ params }: PageProps) {
             }),
           }}
         />
+      )}
+      {isPreview && (
+        <div className="sticky top-[60px] z-20 bg-amber-100 px-4 py-2 text-center text-[12px] font-bold text-amber-900 shadow-sm ring-1 ring-amber-300">
+          XEM TRƯỚC (NHÁP) – Chỉ nhân viên đăng nhập mới thấy trang này. Khách quốc tế sẽ thấy 404 cho đến khi Quản trị chuyển sang Đã đăng.
+        </div>
       )}
       {isDemo && (
         <div className="sticky top-[60px] z-20 bg-amber-400 px-4 py-2 text-center text-[12px] font-bold text-amber-950 shadow-sm">

@@ -118,7 +118,7 @@ const EN_WARN = (
   </span>
 );
 
-export function CategoriesManager({ initialCategories }: { initialCategories: Category[] }) {
+export function CategoriesManager({ initialCategories, canPublish = false }: { initialCategories: Category[]; canPublish?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -208,6 +208,7 @@ export function CategoriesManager({ initialCategories }: { initialCategories: Ca
           onDelete={() => setNewOpen(false)}
           busy={busy}
           isNew
+          canPublish={canPublish}
         />
       )}
 
@@ -255,6 +256,7 @@ export function CategoriesManager({ initialCategories }: { initialCategories: Ca
                     busy={busy}
                     previousSlugs={c.previous_slugs ?? []}
                     canDelete={true}
+                    canPublish={canPublish}
                   />
                 </div>
               )}
@@ -292,7 +294,7 @@ function toFormData(d: CategoryDraft): FormData {
 }
 
 function CategoryEditor({
-  draft, setDraft, onSave, onCancel, onPreview, onDelete, busy, isNew, previousSlugs, canDelete,
+  draft, setDraft, onSave, onCancel, onPreview, onDelete, busy, isNew, previousSlugs, canDelete, canPublish,
 }: {
   draft: CategoryDraft;
   setDraft: (updater: CategoryDraft | ((d: CategoryDraft) => CategoryDraft)) => void;
@@ -304,6 +306,7 @@ function CategoryEditor({
   isNew?: boolean;
   previousSlugs?: string[];
   canDelete?: boolean;
+  canPublish?: boolean;
 }) {
   const set = <K extends keyof CategoryDraft>(k: K, v: CategoryDraft[K]) => setDraft((d) => ({ ...d, [k]: v }));
   const uploadUrl = draft.id ? `/api/categories/${encodeURIComponent(draft.id)}/hero-image` : "";
@@ -392,8 +395,20 @@ function CategoryEditor({
       <FiltersEditor draft={draft} setDraft={setDraft} />
 
       <div className="flex flex-wrap items-center gap-3 border-t border-ink-100 pt-4">
-        <label className="flex items-center gap-2 rounded-md border border-ink-200 px-3 py-2 text-[12.5px] text-ink-700">
-          <input type="checkbox" checked={draft.is_published} onChange={(e) => set("is_published", e.target.checked)} className="h-4 w-4" /> Công khai (published)
+        <label className={"flex items-center gap-2 rounded-md border px-3 py-2 text-[12.5px] " + (canPublish ? "border-ink-200 text-ink-700" : "border-ink-200 bg-ink-50 text-ink-500")}>
+          <input
+            type="checkbox"
+            checked={draft.is_published}
+            disabled={!canPublish || !!isNew}
+            onChange={(e) => set("is_published", e.target.checked)}
+            className="h-4 w-4"
+          />
+          Công khai (published)
+          {isNew ? (
+            <span className="ml-1 rounded bg-ink-200 px-1 py-[1px] text-[10px] font-bold uppercase text-ink-600">tự động nháp</span>
+          ) : !canPublish ? (
+            <span className="ml-1 rounded bg-ink-200 px-1 py-[1px] text-[10px] font-bold uppercase text-ink-600">chỉ admin</span>
+          ) : null}
         </label>
         <label className="flex items-center gap-2 rounded-md border border-ink-200 px-3 py-2 text-[12.5px] text-ink-700">
           <input type="checkbox" checked={draft.active_on_homepage} onChange={(e) => set("active_on_homepage", e.target.checked)} className="h-4 w-4" /> Hiện ở trang chủ (What we source)
@@ -401,6 +416,9 @@ function CategoryEditor({
         <label className="flex items-center gap-2 rounded-md border border-ink-200 px-3 py-2 text-[12.5px] text-ink-700">
           <input type="checkbox" checked={draft.seo_indexable} onChange={(e) => set("seo_indexable", e.target.checked)} className="h-4 w-4" /> Cho Google index (robots: index)
         </label>
+        {isNew && (
+          <p className="w-full text-[11.5px] italic text-ink-500">Ngành mới sẽ được lưu ở trạng thái Nháp; admin duyệt nội dung rồi mới bật Công khai.</p>
+        )}
         <span className="ml-auto flex gap-2">
           {canDelete && !isNew && (
             <Button type="button" variant="danger" disabled={busy} onClick={onDelete}><Trash2 className="h-3.5 w-3.5" /> Xoá</Button>

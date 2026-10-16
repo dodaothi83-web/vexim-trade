@@ -23,7 +23,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const gate = await guard("suppliers.manage");
+  const gate = await guard("categories.manage");
   if (gate) return NextResponse.json({ ok: false, error: gate.message }, { status: 403 });
 
   const { id } = await params;

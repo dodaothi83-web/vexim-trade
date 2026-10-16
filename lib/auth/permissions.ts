@@ -30,6 +30,8 @@ export type Permission =
   | "blog.manage"
   /** Quản lý categories công khai */
   | "categories.manage"
+  /** Công khai/huỷ công khai category (chỉ admin) */
+  | "categories.publish"
   /** Thực hiện kiểm tra xác minh (inspector) */
   | "verifications.inspect"
   /** Duyệt kết quả xác minh (chỉ admin) */
@@ -102,6 +104,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "kpi.view",
     "blog.manage",
     "categories.manage",
+    "categories.publish",
     "verifications.inspect",
     "verifications.approve",
     "rfq.manage",

@@ -2293,39 +2293,99 @@ function parseCategoryInput(raw: Record<string, unknown>) {
     status,
     is_published: status === "published",
     sort_order: num(raw.sort_order) ?? 0,
-  } as const;
+  };
 }
 
 export async function createCategoryAction(raw: Record<string, unknown>) {
-  const gate = await guard("suppliers.manage");
+  // Tạo mới mặc định là nháp; không cần quyền publish.
+  const gate = await guard("categories.manage");
   if (gate) return gate;
   const store = getStore();
+  const session = await getSession();
   const input = parseCategoryInput(raw);
+  // Tạo mới LUÔN ở trạng thái nháp (admin sẽ bật công khai ở lượt sửa sau khi duyệt nội dung).
+  input.status = "draft";
+  input.is_published = false;
   if (!input.slug) return { ok: false, message: "Slug không được để trống." };
   if (!input.name_i18n?.en) return { ok: false, message: "Vui lòng nhập tên danh mục (tiếng Anh)." };
   if (await store.getCategoryBySlug(input.slug)) return { ok: false, message: `Slug "${input.slug}" đã tồn tại. Chọn slug khác.` };
   try {
-    const created = await store.createCategory(input as Partial<Category>);
+    const created = await store.createCategory({
+      ...(input as Partial<Category>),
+      created_by: session?.uid ?? null,
+      updated_by: session?.uid ?? null,
+    });
+    // Audit log
+    await store.addAuditLog({
+      actor_id: session?.uid ?? null,
+      actor_email: session?.email ?? null,
+      entity: "category",
+      entity_id: created.id,
+      action: "create",
+      before: null,
+      after: pickForAudit(created),
+    });
     revalidateAll();
-    return { ok: true, message: `Đã tạo danh mục "${created.name_i18n?.en ?? created.slug}".`, id: created.id };
+    return { ok: true, message: `Đã tạo danh mục "${created.name_i18n?.en ?? created.slug}" (trạng thái Nháp).`, id: created.id };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
   }
 }
 
 export async function updateCategoryAction(id: string, raw: Record<string, unknown>) {
-  const gate = await guard("suppliers.manage");
+  const gate = await guard("categories.manage");
   if (gate) return gate;
+  const session = await getSession();
   const store = getStore();
   const existing = await store.getCategory(id);
   if (!existing) return { ok: false, message: "Danh mục không tồn tại." };
+
   const input = parseCategoryInput(raw);
+
+  // Chuyển Đã đăng <-> Nháp yêu cầu quyền categories.publish (chỉ admin).
+  const wasPublished = existing.is_published && existing.status === "published";
+  const wantsPublished = input.is_published && input.status === "published";
+  if (wantsPublished !== wasPublished) {
+    if (!session || !hasPermission(session.role, "categories.publish")) {
+      return {
+        ok: false,
+        message: "Chỉ Quản trị (admin) mới được chuyển trạng thái Công khai/Nháp cho trang ngành. Nhờ admin duyệt sau khi bạn đã biên tập xong nội dung.",
+      };
+    }
+  }
+
+  // Nếu người chỉnh sửa KHÔNG có quyền publish → KHÔNG cho thay đổi trạng thái (giữ nguyên trạng thái cũ).
+  const canPublish = !!(session && hasPermission(session.role, "categories.publish"));
+  if (!canPublish) {
+    input.status = existing.status ?? "draft";
+    input.is_published = existing.is_published;
+  }
+
+  // Slug unique check
   if (input.slug && input.slug !== existing.slug) {
     const dup = await store.getCategoryBySlug(input.slug);
     if (dup && dup.id !== id) return { ok: false, message: `Slug "${input.slug}" đã được dùng bởi danh mục khác.` };
   }
+
+  // Body sanitize (chỉ cho phép p/h2-h4/ul/ol/li/a/strong/em/br).
+  if (input.body_i18n?.en) {
+    const { sanitizeHtml } = await import("@/lib/public/sanitize");
+    input.body_i18n = { en: sanitizeHtml(input.body_i18n.en as string) };
+  }
+
+  const patch: Partial<Category> = { ...(input as Partial<Category>), updated_by: session?.uid ?? null };
+
   try {
-    await store.updateCategory(id, input);
+    const updated = await store.updateCategory(id, patch);
+    await store.addAuditLog({
+      actor_id: session?.uid ?? null,
+      actor_email: session?.email ?? null,
+      entity: "category",
+      entity_id: id,
+      action: wantsPublished && !wasPublished ? "publish" : !wantsPublished && wasPublished ? "unpublish" : "update",
+      before: pickForAudit(existing),
+      after: pickForAudit(updated),
+    });
     revalidateAll();
     return { ok: true, message: "Đã lưu danh mục." };
   } catch (err) {
@@ -2334,12 +2394,12 @@ export async function updateCategoryAction(id: string, raw: Record<string, unkno
 }
 
 export async function deleteCategoryAction(id: string) {
-  const gate = await guard("suppliers.manage");
+  const gate = await guard("categories.manage");
   if (gate) return gate;
+  const session = await getSession();
   const store = getStore();
   const cat = await store.getCategory(id);
   if (!cat) return { ok: false, message: "Danh mục không tồn tại." };
-  // Chặn xoá nếu có NCC/sản phẩm/RFQ liên quan — chỉ cho lưu trữ (bấm 'Hủy công khai').
   const [products, rfqs] = await Promise.all([store.listProducts(), store.listRfqs({})]);
   const hasProducts = products.some((p) => (p.category ?? "").toLowerCase() === cat.slug);
   const hasRfqs = rfqs.some((r) => (r as { category?: string }).category === cat.slug);
@@ -2352,9 +2412,33 @@ export async function deleteCategoryAction(id: string) {
   }
   try {
     await store.deleteCategory(id);
+    await store.addAuditLog({
+      actor_id: session?.uid ?? null,
+      actor_email: session?.email ?? null,
+      entity: "category",
+      entity_id: id,
+      action: "delete",
+      before: pickForAudit(cat),
+      after: null,
+    });
     revalidateAll();
     return { ok: true, message: "Đã xoá danh mục." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
   }
+}
+
+/** Lấy bản tóm tắt các field hiển thị trong audit log (không log HTML body đầy đủ để khỏi rác). */
+function pickForAudit(c: Category): Record<string, unknown> {
+  return {
+    slug: c.slug,
+    name: c.name_i18n,
+    status: c.status,
+    is_published: c.is_published,
+    active_on_homepage: c.active_on_homepage,
+    seo_indexable: c.seo_indexable,
+    hero_image: c.hero_image,
+    previous_slugs: c.previous_slugs,
+    sort_order: c.sort_order,
+  };
 }

@@ -466,11 +466,23 @@ function migrateCategoryDefaults(db: LocalShape) {
     // Đồng bộ hoá: is_published = (status === "published")
     c.is_published = c.status === "published";
   }
-  // public_page_ready = có ít nhất 1 sản phẩm/NCC đã được public trong category này.
+  // public_page_ready = có ít nhất 1 NCC ĐÃ ĐƯỢC DUYỆT CÔNG KHAI (status === "published")
+  // có sản phẩm thuộc category này — tính lại mỗi lần load DB để badge/State A cập nhật
+  // tức thì khi duyệt/gỡ NCC, không chờ migrate hay seed lại.
   const allProducts = db.products ?? [];
+  const allSuppliers = db.suppliers ?? [];
+  const publicSupplierIds = new Set(
+    allSuppliers.filter((s) => s.status === "published").map((s) => s.id),
+  );
+  const catSlugHasPublicSupplier = new Set<string>();
+  for (const p of allProducts) {
+    if (!p.supplier_id || !publicSupplierIds.has(p.supplier_id)) continue;
+    const slug = (p.category ?? "").toLowerCase();
+    if (slug) catSlugHasPublicSupplier.add(slug);
+  }
   for (const c of db.categories) {
-    const hasPublicSuppliers = allProducts.some((p) => (p.category ?? "").toLowerCase() === c.slug);
-    c.public_page_ready = hasPublicSuppliers;
+    // Match cả category cha nếu sản phẩm gắn vào category con? Không — chỉ tính chính xác slug.
+    c.public_page_ready = catSlugHasPublicSupplier.has(c.slug.toLowerCase());
   }
 }
 

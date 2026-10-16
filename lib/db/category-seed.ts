@@ -81,7 +81,7 @@ export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
     "Whole kernels, splits and pieces from Vietnamese processors. Before a supplier appears here, someone from our team visits the factory and checks their business papers and certificates. Tell us the grade and volume you need, and we'll send you a short list with MOQ, lead time and certificates for each supplier.",
   body:
     "Most Vietnamese processors grade cashew kernels to the AFI standard. Counts are per pound and the final spec is agreed in your contract. Counts and uses below are to be confirmed by our trading team before we put them in front of a buyer.",
-  seo_title: "Cashew Suppliers in Vietnam | Verified Kernels & Processors | Vexim Trade",
+  seo_title: "Cashew Suppliers in Vietnam | W180 to W450 Kernels | Vexim Trade",
   seo_desc:
     "Compare verified Vietnamese cashew kernel suppliers. W180 to W450, splits and pieces. Request a quote and hear back within one business day.",
   hero_image: "/images/categories/cashew-hero.jpg",
