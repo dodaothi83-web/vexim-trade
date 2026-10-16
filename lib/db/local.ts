@@ -197,20 +197,50 @@ function seed(): LocalShape {
   });
 
   // Seed category "Cashew" ở local để trang công khai có thể render ở môi trường dev
-  const cashewCategory: Category = {
-    id: "cat-seed-cashew",
-    slug: "cashew",
-    parent_id: null,
-    name_i18n: { en: "Cashew" },
-    intro_i18n: { en: "Verified Vietnamese cashew kernel suppliers, graded WW320, WW240, W180, LP, SP. Factory-audited by Vexim Trade." },
+  type CatSeed = { slug: string; nameEn: string; introEn: string; seoEn: string; order: number; parent?: string };
+  const catSeeds: CatSeed[] = [
+    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels (WW320/WW240/W180/LP/SP), macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10 },
+    { slug: "cashew", nameEn: "Cashew kernels", introEn: "Verified Vietnamese cashew kernel suppliers, graded WW320, WW240, W180, LP, SP. Factory-audited by Vexim Trade.", seoEn: "Compare verified Vietnamese cashew kernel suppliers by grade, MOQ, certification and lead time.", order: 11, parent: "nuts-kernels" },
+    { slug: "macadamia", nameEn: "Macadamia", introEn: "Vietnamese macadamia kernels and in-shell from Tây Nguyên plantations.", seoEn: "Vietnamese macadamia suppliers – graded kernels & in-shell.", order: 12, parent: "nuts-kernels" },
+
+    { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters with grade and certification info.", order: 20 },
+    { slug: "pepper-spices", nameEn: "Pepper & spices", introEn: "Vietnamese black/white/red pepper, cinnamon, star anise, ginger and turmeric – steam-sterilised and food-safety certified.", seoEn: "Vietnamese pepper & spice suppliers with steam-sterilisation and food-safety certs.", order: 30 },
+    { slug: "pepper", nameEn: "Pepper", introEn: "Vietnamese black pepper (FAQ/cleaned/ASTA), white pepper and red pepper from Phú Quốc, Đắk Lắk and Gia Lai.", seoEn: "Vietnamese black/white/red pepper exporters – FAQ, cleaned, ASTA grades.", order: 31, parent: "pepper-spices" },
+    { slug: "cinnamon", nameEn: "Cassia cinnamon", introEn: "Vietnamese cassia cinnamon (Yên Bái) in sticks, split, broken, powder and oil.", seoEn: "Vietnamese cassia cinnamon suppliers (sticks, split, powder, oil).", order: 32, parent: "pepper-spices" },
+    { slug: "star-anise", nameEn: "Star anise", introEn: "Vietnamese autumn and spring star anise from Lạng Sơn – whole and broken grades.", seoEn: "Vietnamese star anise exporters (autumn/spring, whole/broken).", order: 33, parent: "pepper-spices" },
+
+    { slug: "coconut", nameEn: "Coconut products", introEn: "Desiccated coconut, coconut milk/cream powder, virgin coconut oil and coconut water from Bến Tre.", seoEn: "Vietnamese coconut product exporters – desiccated, milk/cream, oil, water.", order: 40 },
+    { slug: "rice", nameEn: "Rice", introEn: "Vietnamese Jasmine, ST25, Japonica and glutinous rice from Đồng bằng Sông Cửu Long, milled to export spec.", seoEn: "Vietnamese rice exporters – Jasmine, ST25, Japonica and sticky rice.", order: 50 },
+    { slug: "noodles", nameEn: "Noodles & vermicelli", introEn: "Rice noodles, instant noodles, rice paper and rice vermicelli made with Vietnamese rice and modern drying lines.", seoEn: "Vietnamese noodle and rice-paper suppliers with BRC/IFS/Halal certifications.", order: 60 },
+
+    { slug: "fruit-veg", nameEn: "Fruit & vegetables", introEn: "Fresh and frozen tropical fruit (dragon fruit, pomelo, coconut, mango, passion fruit) and frozen vegetables from GAP-certified growers.", seoEn: "Vietnamese tropical fruit & vegetable exporters – fresh, frozen and IQF.", order: 70 },
+    { slug: "dragon-fruit", nameEn: "Dragon fruit", introEn: "Vietnamese white- and red-flesh dragon fruit from Bình Thuận – packed for export by sea and air.", seoEn: "Vietnamese dragon fruit exporters – white/red flesh, sea & air freight.", order: 71, parent: "fruit-veg" },
+    { slug: "dried-fruit", nameEn: "Dried fruit", introEn: "Dried mango, jackfruit, banana, coconut chips and tropical fruit snacks – no added sugar options.", seoEn: "Vietnamese dried fruit suppliers – soft-dried and crispy options.", order: 72, parent: "fruit-veg" },
+
+    { slug: "seafood", nameEn: "Seafood", introEn: "Pangasius (swai/basa), black tiger shrimp, Vannamei shrimp and squid from ASC/MSC/BAP-certified processors.", seoEn: "Vietnamese seafood exporters – pangasius, shrimp and squid with ASC/BAP/BRC certs.", order: 80 },
+    { slug: "pangasius", nameEn: "Pangasius", introEn: "Frozen pangasius fillets, portions and value-added items from Đồng bằng Sông Cửu Long processors.", seoEn: "Vietnamese pangasius exporters – fillets, portions, well-trimmed, HACCP/BRC/ASC.", order: 81, parent: "seafood" },
+    { slug: "shrimp", nameEn: "Shrimp", introEn: "Black tiger and Vannamei shrimp HLSO/PD/PTO from certified Mekong farms and processors.", seoEn: "Vietnamese shrimp exporters – black tiger & vannamei, raw & cooked.", order: 82, parent: "seafood" },
+
+    { slug: "honey", nameEn: "Honey", introEn: "Vietnamese multi-flower, coffee, lychee and rubber honey – food-grade packing, export-ready.", seoEn: "Vietnamese honey exporters – multi-flower, coffee and lychee honey.", order: 90 },
+    { slug: "tea", nameEn: "Tea", introEn: "Vietnamese black, green, oolong and lotus teas from Thái Nguyên and Lâm Đồng.", seoEn: "Vietnamese tea exporters – black, green, oolong and speciality teas.", order: 95 },
+    { slug: "processed-foods", nameEn: "Processed & convenience foods", introEn: "Spring rolls, instant soups, sauces (nước chấm, tương ớt), canned fruit and Asian ready meals.", seoEn: "Vietnamese processed and convenience food suppliers for private label.", order: 100 },
+  ];
+  const catId = (slug: string) => `cat-seed-${slug}`;
+  const now = nowISO(100);
+  const categories: Category[] = catSeeds.map((c) => ({
+    id: catId(c.slug),
+    slug: c.slug,
+    parent_id: c.parent ? catId(c.parent) : null,
+    name_i18n: { en: c.nameEn },
+    intro_i18n: { en: c.introEn },
     faq_i18n: [],
-    seo_title_i18n: { en: "Cashew Suppliers in Vietnam – Verified Manufacturers | Vexim Trade" },
-    seo_desc_i18n: { en: "Compare verified Vietnamese cashew kernel suppliers by grade, MOQ, certification and lead time." },
+    seo_title_i18n: { en: `${c.nameEn} Suppliers in Vietnam – Verified | Vexim Trade` },
+    seo_desc_i18n: { en: c.seoEn },
     is_published: true,
-    sort_order: 10,
-    created_at: nowISO(100),
-    updated_at: nowISO(100),
-  };
+    sort_order: c.order,
+    created_at: now,
+    updated_at: now,
+  }));
 
   return {
     users: [],
@@ -226,7 +256,7 @@ function seed(): LocalShape {
     template_overrides: [],
     prospect_outreach_template_overrides: [],
     posts: [],
-    categories: [cashewCategory],
+    categories,
     supplier_categories: [],
     certificates: [],
     verifications: [],
@@ -255,6 +285,58 @@ function normalizeProspects(prospects: Prospect[]) {
     if (prospect.ai_products === undefined || (prospect.ai_products && !Array.isArray(prospect.ai_products.products))) {
       prospect.ai_products = null;
     }
+  }
+}
+
+/**
+ * Nếu categories hiện tại chỉ là bản seed cũ (chỉ có cashew), bổ sung đầy đủ
+ * các danh mục đa ngành thực phẩm VN. Không ghi đè category do người dùng tự thêm.
+ */
+function ensureSeedCategories(db: LocalShape) {
+  if (!Array.isArray(db.categories)) db.categories = [];
+  const have = new Set(db.categories.map((c) => c.slug));
+  // Giữ lại nếu người dùng đã tuỳ chỉnh nhiều danh mục (≥ 3) — không tự thêm.
+  if (have.size >= 3) return;
+  type CatSeed = { slug: string; nameEn: string; introEn: string; seoEn: string; order: number; parent?: string };
+  const seeds: CatSeed[] = [
+    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10 },
+    { slug: "cashew", nameEn: "Cashew kernels", introEn: "Verified Vietnamese cashew kernel suppliers, graded WW320, WW240, W180, LP, SP. Factory-audited by Vexim Trade.", seoEn: "Compare verified Vietnamese cashew kernel suppliers by grade, MOQ, certification and lead time.", order: 11, parent: "nuts-kernels" },
+    { slug: "macadamia", nameEn: "Macadamia", introEn: "Vietnamese macadamia kernels and in-shell from Tây Nguyên plantations.", seoEn: "Vietnamese macadamia suppliers – graded kernels & in-shell.", order: 12, parent: "nuts-kernels" },
+    { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20 },
+    { slug: "pepper-spices", nameEn: "Pepper & spices", introEn: "Vietnamese black/white/red pepper, cinnamon, star anise, ginger and turmeric – steam-sterilised.", seoEn: "Vietnamese pepper & spice suppliers with food-safety certs.", order: 30 },
+    { slug: "pepper", nameEn: "Pepper", introEn: "Vietnamese black pepper (FAQ/cleaned/ASTA), white pepper and red pepper.", seoEn: "Vietnamese black/white/red pepper exporters.", order: 31, parent: "pepper-spices" },
+    { slug: "cinnamon", nameEn: "Cassia cinnamon", introEn: "Vietnamese cassia cinnamon (Yên Bái) in sticks, split, broken and powder.", seoEn: "Vietnamese cassia cinnamon suppliers.", order: 32, parent: "pepper-spices" },
+    { slug: "star-anise", nameEn: "Star anise", introEn: "Vietnamese autumn and spring star anise from Lạng Sơn.", seoEn: "Vietnamese star anise exporters.", order: 33, parent: "pepper-spices" },
+    { slug: "coconut", nameEn: "Coconut products", introEn: "Desiccated coconut, coconut milk/cream powder, VCO and coconut water from Bến Tre.", seoEn: "Vietnamese coconut product exporters.", order: 40 },
+    { slug: "rice", nameEn: "Rice", introEn: "Vietnamese Jasmine, ST25, Japonica and glutinous rice from Đồng bằng Sông Cửu Long.", seoEn: "Vietnamese rice exporters – Jasmine, ST25, Japonica.", order: 50 },
+    { slug: "noodles", nameEn: "Noodles & vermicelli", introEn: "Rice noodles, instant noodles, rice paper and rice vermicelli.", seoEn: "Vietnamese noodle and rice-paper suppliers.", order: 60 },
+    { slug: "fruit-veg", nameEn: "Fruit & vegetables", introEn: "Fresh/frozen tropical fruit (dragon fruit, pomelo, mango, passion fruit) and frozen vegetables.", seoEn: "Vietnamese tropical fruit & vegetable exporters.", order: 70 },
+    { slug: "dragon-fruit", nameEn: "Dragon fruit", introEn: "Vietnamese white- and red-flesh dragon fruit from Bình Thuận.", seoEn: "Vietnamese dragon fruit exporters.", order: 71, parent: "fruit-veg" },
+    { slug: "dried-fruit", nameEn: "Dried fruit", introEn: "Dried mango, jackfruit, banana, coconut chips and tropical fruit snacks.", seoEn: "Vietnamese dried fruit suppliers.", order: 72, parent: "fruit-veg" },
+    { slug: "seafood", nameEn: "Seafood", introEn: "Pangasius, black tiger shrimp, Vannamei shrimp and squid from ASC/MSC/BAP-certified processors.", seoEn: "Vietnamese seafood exporters with ASC/BAP/BRC certs.", order: 80 },
+    { slug: "pangasius", nameEn: "Pangasius", introEn: "Frozen pangasius fillets and value-added items.", seoEn: "Vietnamese pangasius exporters.", order: 81, parent: "seafood" },
+    { slug: "shrimp", nameEn: "Shrimp", introEn: "Black tiger and Vannamei shrimp from certified Mekong processors.", seoEn: "Vietnamese shrimp exporters.", order: 82, parent: "seafood" },
+    { slug: "honey", nameEn: "Honey", introEn: "Vietnamese multi-flower, coffee and lychee honey, export-ready.", seoEn: "Vietnamese honey exporters.", order: 90 },
+    { slug: "tea", nameEn: "Tea", introEn: "Vietnamese black, green, oolong and lotus teas.", seoEn: "Vietnamese tea exporters.", order: 95 },
+    { slug: "processed-foods", nameEn: "Processed & convenience foods", introEn: "Spring rolls, sauces, canned fruit and Asian ready meals.", seoEn: "Vietnamese processed food suppliers for private label.", order: 100 },
+  ];
+  const now = new Date().toISOString();
+  for (const c of seeds) {
+    if (have.has(c.slug)) continue;
+    db.categories.push({
+      id: `cat-seed-${c.slug}`,
+      slug: c.slug,
+      parent_id: c.parent ? `cat-seed-${c.parent}` : null,
+      name_i18n: { en: c.nameEn },
+      intro_i18n: { en: c.introEn },
+      faq_i18n: [],
+      seo_title_i18n: { en: `${c.nameEn} Suppliers in Vietnam – Verified | Vexim Trade` },
+      seo_desc_i18n: { en: c.seoEn },
+      is_published: true,
+      sort_order: c.order,
+      created_at: now,
+      updated_at: now,
+    });
   }
 }
 
@@ -299,6 +381,7 @@ function load(): LocalShape {
     if (!Array.isArray(c.rfq_matches)) c.rfq_matches = [];
     if (!Array.isArray(c.introductions)) c.introductions = [];
     if (!Array.isArray(c.audit_log)) c.audit_log = [];
+    ensureSeedCategories(c);
     removeProspectsWithoutEmail(c);
     return c;
   }
@@ -331,6 +414,8 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.rfq_matches)) parsed.rfq_matches = [];
         if (!Array.isArray(parsed.introductions)) parsed.introductions = [];
         if (!Array.isArray(parsed.audit_log)) parsed.audit_log = [];
+        // Nếu categories cũ chỉ có cashew → merge seed đa ngành (tránh mất danh mục mới khi nâng cấp).
+        ensureSeedCategories(parsed);
         removeProspectsWithoutEmail(parsed);
         g.__veximLocal = parsed;
         return parsed;

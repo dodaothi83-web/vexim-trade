@@ -215,7 +215,7 @@ export function RfqForm({ categories, initialCategory, initialSupplierIds, wants
               className="input resize-y"
               value={data.product_text}
               onChange={(e) => update("product_text", e.target.value)}
-              placeholder="E.g. W320 cashew kernels, whole, white, 50 MT/month, AFI quality."
+              placeholder="E.g. Robusta coffee grade 2 screen 18 washed, 1×40'FCL / month; or W320 cashew kernels AFI 50 MT; or Vannamei shrimp PD 21/25…"
             />
           </Field>
           <Field label="Grade / spec">
