@@ -7,7 +7,7 @@ import { guard } from "@/lib/auth/session";
 import { dispatchRfqToSuppliers, presentShortlistToBuyer, selectSupplier } from "@/lib/rfq/outreach";
 
 async function enforce() {
-  const g = await guard("suppliers.manage");
+  const g = await guard("rfq.manage");
   if (g) redirect("/crm/dashboard");
 }
 

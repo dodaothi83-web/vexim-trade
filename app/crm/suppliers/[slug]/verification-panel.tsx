@@ -63,7 +63,7 @@ export function VerificationPanel({
           </p>
         </div>
         {canInspect && currentLevel < 2 && (
-          <form action={(fd) => { void startVerificationAction(fd); }} className="flex gap-2">
+          <form action={startVerificationAction} className="flex gap-2">
             <input type="hidden" name="supplierId" value={supplierId} />
             {currentLevel < 1 && (
               <button name="targetLevel" value="1" className="btn btn-primary btn-sm">
@@ -146,9 +146,7 @@ function VerificationItem({
 
       {canEdit ? (
         <form
-          action={(fd) => {
-            void (v.status === "submitted" && canApprove ? approveVerificationAction(fd) : updateVerificationChecklistAction(fd));
-          }}
+          action={updateVerificationChecklistAction}
           className="mt-3 space-y-3"
         >
           <input type="hidden" name="id" value={v.id} />
@@ -235,7 +233,7 @@ function VerificationItem({
             <button type="submit" className="btn btn-primary btn-sm ml-auto">Lưu</button>
             {canApprove && v.status === "submitted" && (
               <button
-                formAction={(fd) => { void approveVerificationAction(fd); }}
+                formAction={approveVerificationAction}
                 type="submit"
                 className="btn btn-sm bg-emerald-600 text-white hover:bg-emerald-700"
               >

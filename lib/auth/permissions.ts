@@ -36,6 +36,8 @@ export type Permission =
   | "verifications.inspect"
   /** Duyệt kết quả xác minh (chỉ admin) */
   | "verifications.approve"
+  /** Xem RFQ (chỉ đọc, không thao tác) */
+  | "rfq.view"
   /** Xử lý RFQ, ghép seller, gửi báo giá cho buyer */
   | "rfq.manage";
 
@@ -80,6 +82,8 @@ const VIEW_ONLY: Permission[] = [
   "products.view",
   "media.view",
   "mail.view",
+  "settings.view",
+  "rfq.view",
 ];
 
 const MATRIX: Record<UserRole, Permission[]> = {
@@ -125,6 +129,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "blog.manage",
     "categories.manage",
     "rfq.manage",
+    "settings.view",
   ],
   sourcing: [
     "buyers.view",
@@ -140,6 +145,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "categories.manage",
     "rfq.manage",
     "verifications.inspect",
+    "settings.view",
   ],
   viewer: VIEW_ONLY,
 };
@@ -150,7 +156,14 @@ export function permissionsFor(role: UserRole): Permission[] {
 
 export function hasPermission(role: UserRole | null | undefined, perm: Permission): boolean {
   if (!role) return false;
-  return permissionsFor(role).includes(perm);
+  const perms = permissionsFor(role);
+  if (perms.includes(perm)) return true;
+  // Quyền `.manage` tự động cấp `.view` trên cùng domain (trừ trường hợp danh sách trắng riêng).
+  if (perm.endsWith(".view")) {
+    const domain = perm.slice(0, -".view".length);
+    return perms.includes(`${domain}.manage` as Permission);
+  }
+  return false;
 }
 
 export function roleLabel(role: UserRole | string): string {

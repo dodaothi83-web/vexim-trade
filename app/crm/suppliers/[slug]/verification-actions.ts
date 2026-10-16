@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
+import { inVnBounds } from "@/lib/verification";
 import {
   L1_DOC_ITEMS,
   L2_VISIT_ITEMS,
@@ -12,24 +13,18 @@ import {
   type VerificationStatus,
 } from "@/lib/types";
 
-/** Ước chừng toạ độ Việt Nam để cảnh báo sai GPS khi thăm nhà máy. */
-export function inVnBounds(lat: number | null, lng: number | null): boolean | null {
-  if (lat == null || lng == null) return null;
-  return lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110;
-}
-
 /** Tạo mới một đợt xác minh L1 hoặc L2 cho NCC. */
 export async function startVerificationAction(fd: FormData) {
   const g = await guard("verifications.inspect");
-  if (g) return { ok: false, message: g.message };
+  if (g) throw new Error(g.message);
   const session = await getSession();
   const supplierId = String(fd.get("supplierId") || "").trim();
   const targetLevel = Number(fd.get("targetLevel") || 1) as VerificationLevel;
-  if (!supplierId) return { ok: false, message: "Thiếu nhà cung cấp." };
-  if (targetLevel !== 1 && targetLevel !== 2) return { ok: false, message: "Cấp xác minh không hợp lệ." };
+  if (!supplierId) throw new Error("Thiếu nhà cung cấp.");
+  if (targetLevel !== 1 && targetLevel !== 2) throw new Error("Cấp xác minh không hợp lệ.");
   const store = getStore();
   const sup = await store.getSupplier(supplierId);
-  if (!sup) return { ok: false, message: "Nhà cung cấp không tồn tại." };
+  if (!sup) throw new Error("Nhà cung cấp không tồn tại.");
 
   // Checklist khởi tạo: tất cả null = chưa kiểm.
   const items = targetLevel === 1 ? L1_DOC_ITEMS : L2_VISIT_ITEMS;
@@ -58,19 +53,19 @@ export async function startVerificationAction(fd: FormData) {
     });
   } catch { /* best effort */ }
   revalidatePath(`/crm/suppliers/${supplierId}`);
-  return { ok: true, id: v.id };
+  revalidatePath(`/crm/suppliers/${supplierId}`);
 }
 
 /** Cập nhật checklist + thông tin thăm nhà máy (GPS/ngày/địa chỉ/ghi chú). */
 export async function updateVerificationChecklistAction(fd: FormData) {
   const g = await guard("verifications.inspect");
-  if (g) return { ok: false, message: g.message };
+  if (g) throw new Error(g.message);
   const session = await getSession();
   const id = String(fd.get("id") || "").trim();
-  if (!id) return { ok: false, message: "Thiếu verification id." };
+  if (!id) throw new Error("Thiếu verification id.");
   const store = getStore();
   const before = await store.getVerification(id);
-  if (!before) return { ok: false, message: "Không tìm thấy hồ sơ." };
+  if (!before) throw new Error("Không tìm thấy hồ sơ.");
 
   const items = before.target_level === 1 ? L1_DOC_ITEMS : L2_VISIT_ITEMS;
   const checklist: Record<string, boolean | null> = { ...before.checklist };
@@ -121,39 +116,39 @@ export async function updateVerificationChecklistAction(fd: FormData) {
     });
   } catch { /* */ }
   revalidatePath(`/crm/suppliers/${before.supplier_id}`);
-  return { ok: true };
+  revalidatePath(`/crm/suppliers/${before.supplier_id}`);
 }
 
 /** Admin duyệt một đợt xác minh đã submitted (chỉ verifications.approve). */
 export async function approveVerificationAction(fd: FormData) {
   const g = await guard("verifications.approve");
-  if (g) return { ok: false, message: g.message };
+  if (g) throw new Error(g.message);
   const session = await getSession();
   const id = String(fd.get("id") || "").trim();
-  if (!id) return { ok: false, message: "Thiếu id." };
+  if (!id) throw new Error("Thiếu id.");
   const store = getStore();
   const before = await store.getVerification(id);
-  if (!before) return { ok: false, message: "Không tìm thấy." };
+  if (!before) throw new Error("Không tìm thấy.");
   // Bắt buộc tất cả checklist đều đã điền (true/false, không null) khi approve
   const items = before.target_level === 1 ? L1_DOC_ITEMS : L2_VISIT_ITEMS;
   const missing = items.filter((it) => before.checklist[it.key] !== true && before.checklist[it.key] !== false);
   if (missing.length > 0) {
-    return { ok: false, message: `Còn ${missing.length} mục chưa kiểm, không thể duyệt.` };
+    throw new Error(`Còn ${missing.length} mục chưa kiểm, không thể duyệt.`);
   }
   // L1: tất cả giấy tờ chính phải đạt
   if (before.target_level === 1) {
     const required = L1_DOC_ITEMS.slice(0, 5); // 5 mục đầu tiên là giấy tờ bắt buộc
     const failed = required.filter((it) => before.checklist[it.key] !== true);
     if (failed.length > 0) {
-      return { ok: false, message: "Thiếu giấy tờ bắt buộc — vui lòng đánh dấu đạt hoặc trả hồ sơ." };
+      throw new Error("Thiếu giấy tờ bắt buộc — vui lòng đánh dấu đạt hoặc trả hồ sơ.");
     }
   } else {
     // L2: bắt buộc ngày thăm + GPS + địa chỉ nhà máy
-    if (!before.visit_date) return { ok: false, message: "L2 cần có ngày thăm nhà máy." };
+    if (!before.visit_date) throw new Error("L2 cần có ngày thăm nhà máy.");
     if (before.visit_lat == null || before.visit_lng == null) {
-      return { ok: false, message: "L2 cần có GPS (lấy từ điện thoại lúc thăm)." };
+      throw new Error("L2 cần có GPS (lấy từ điện thoại lúc thăm).");
     }
-    if (!before.visit_address) return { ok: false, message: "L2 cần có địa chỉ nhà máy." };
+    if (!before.visit_address) throw new Error("L2 cần có địa chỉ nhà máy.");
   }
   const after = await store.updateVerification(id, {
     status: "approved",
@@ -172,5 +167,5 @@ export async function approveVerificationAction(fd: FormData) {
     });
   } catch { /* */ }
   revalidatePath(`/crm/suppliers/${before.supplier_id}`);
-  return { ok: true };
+  revalidatePath(`/crm/suppliers/${before.supplier_id}`);
 }

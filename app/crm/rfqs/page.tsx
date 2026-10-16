@@ -70,7 +70,7 @@ export default async function RfqsPage({
 }: {
   searchParams?: Promise<{ status?: string }>;
 }) {
-  await requirePagePermission("rfq.manage", "/crm/dashboard");
+  await requirePagePermission("rfq.view", "/crm/dashboard");
   const sp = await searchParams;
   const statusFilter = sp?.status ?? "all";
 

@@ -42,6 +42,7 @@ import {
   markSamplingAction,
   sendFollowUpAction,
 } from "./compose-action";
+import { hasPermission } from "@/lib/auth/permissions";
 import { uploadRfqAttachmentAction } from "./upload-action";
 import { addRfqNoteAction } from "./note-action";
 import type { RfqStatus } from "@/lib/types";
@@ -85,7 +86,8 @@ export default async function RfqDetailPage({
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string>>;
 }) {
-  await requirePagePermission("rfq.manage", "/crm/dashboard");
+  const session = await requirePagePermission("rfq.view", "/crm/dashboard");
+  const canManageRfq = hasPermission(session.role, "rfq.manage");
   const { id } = await params;
   const sp = await searchParams;
   const store = getStore();
@@ -252,7 +254,11 @@ export default async function RfqDetailPage({
               </h2>
               <span className="text-[11.5px] text-ink-500">Chọn 2–4 NCC phù hợp để gửi báo giá so sánh.</span>
             </div>
+            {!canManageRfq && (
+              <p className="mt-2 rounded-md bg-ink-50 px-3 py-2 text-[12.5px] text-ink-500">Bạn đang ở chế độ chỉ xem. Các thao tác ghép NCC, gửi email và lưu báo giá chỉ hiển thị cho tài khoản có quyền <code>rfq.manage</code>.</p>
+            )}
 
+{canManageRfq && (
             <form action={addMatchAction} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="rfq_id" value={rfq.id} />
               <label className="flex flex-col text-[12px] text-ink-600">
@@ -269,7 +275,9 @@ export default async function RfqDetailPage({
               </label>
               <Button type="submit" size="sm">Thêm vào shortlist</Button>
             </form>
+            )}
 
+{canManageRfq && (
             <form action={sendRfqToSuppliersAction} className="mt-4 rounded-md border border-ink-200 bg-ink-50/50 p-3">
               <input type="hidden" name="rfq_id" value={rfq.id} />
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -307,7 +315,7 @@ export default async function RfqDetailPage({
                   return (
                     <div key={m.id} className="py-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        {canSend && (
+                        {canManageRfq && canSend && (
                           <input
                             type="checkbox"
                             name="match_ids"
@@ -332,14 +340,14 @@ export default async function RfqDetailPage({
                           <span className={"h-1.5 w-1.5 rounded-full " + ms.dot} />
                           {ms.label}
                         </Badge>
-                        {canSelect && (
+                        {canManageRfq && canSelect && (
                           <form action={selectSupplierAction} className="ml-1">
                             <input type="hidden" name="rfq_id" value={rfq.id} />
                             <input type="hidden" name="match_id" value={m.id} />
                             <button type="submit" className="btn btn-soft btn-sm">Chọn NCC này</button>
                           </form>
                         )}
-                        {canFollowUp && (
+                        {canManageRfq && canFollowUp && (
                           <form action={sendFollowUpAction}>
                             <input type="hidden" name="rfq_id" value={rfq.id} />
                             <input type="hidden" name="match_id" value={m.id} />
@@ -348,7 +356,7 @@ export default async function RfqDetailPage({
                             </button>
                           </form>
                         )}
-                        <details className="relative ml-1">
+{canManageRfq && (<details className="relative ml-1">
                           <summary className="btn btn-ghost btn-sm cursor-pointer list-none">
                             <MailPlus className="h-3.5 w-3.5" /> Soạn email
                           </summary>
@@ -369,12 +377,12 @@ export default async function RfqDetailPage({
                               <Button type="submit" size="sm">Gửi</Button>
                             </div>
                           </form>
-                        </details>
-                        <form action={removeMatchAction} className="ml-auto">
+                        </details>)}
+                        {canManageRfq && (<form action={removeMatchAction} className="ml-auto">
                           <input type="hidden" name="match_id" value={m.id} />
                           <input type="hidden" name="rfq_id" value={rfq.id} />
                           <button type="submit" className="text-[12px] text-red-600 hover:underline">Xoá</button>
-                        </form>
+                        </form>)}
                       </div>
 
                       {/* Thread per-match */}
@@ -399,7 +407,7 @@ export default async function RfqDetailPage({
                         </div>
                       )}
 
-                      <form action={updateMatchQuoteAction} className="mt-2 grid gap-2 sm:grid-cols-5">
+{canManageRfq && (<form action={updateMatchQuoteAction} className="mt-2 grid gap-2 sm:grid-cols-5">
                         <input type="hidden" name="match_id" value={m.id} />
                         <input type="hidden" name="rfq_id" value={rfq.id} />
                         <label className="flex flex-col text-[11px] text-ink-500">
@@ -455,9 +463,9 @@ export default async function RfqDetailPage({
                             <span className="text-[11.5px] text-emerald-600">Đã trình buyer: {fmtDate(m.sent_to_buyer_at)}</span>
                           )}
                         </div>
-                      </form>
+                      </form>)}
 
-                      <form action={updateMatchStatusAction} className="mt-1 flex items-end gap-2">
+                      {canManageRfq && (<form action={updateMatchStatusAction} className="mt-1 flex items-end gap-2">
                         <input type="hidden" name="match_id" value={m.id} />
                         <input type="hidden" name="rfq_id" value={rfq.id} />
                         <label className="flex flex-col text-[11px] text-ink-500">
@@ -473,14 +481,16 @@ export default async function RfqDetailPage({
                             ))}
                           </select>
                         </label>
-                      </form>
+                      </form>)}
                     </div>
                   );
                 })}
               </div>
             </form>
+            )}
 
-            {matches.some((m) => m.status === "quoted") && (
+
+{canManageRfq && matches.some((m) => m.status === "quoted") && (
               <form action={presentShortlistAction} className="mt-4 flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
                 <input type="hidden" name="rfq_id" value={rfq.id} />
                 <p className="text-[12.5px] text-emerald-800">
@@ -571,7 +581,7 @@ export default async function RfqDetailPage({
 
           <section className="card">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Chốt giai đoạn</h2>
-            <div className="mt-3 space-y-2">
+            {canManageRfq ? (<div className="mt-3 space-y-2">
               <form action={markSamplingAction}>
                 <input type="hidden" name="rfq_id" value={rfq.id} />
                 <label className="flex flex-col text-[11px] text-ink-500">
@@ -607,7 +617,9 @@ export default async function RfqDetailPage({
                   Đóng là thất bại
                 </Button>
               </form>
-            </div>
+            </div>) : (
+              <p className="mt-3 text-[12.5px] text-ink-500">Bạn cần quyền <code>rfq.manage</code> để chuyển trạng thái sampling / đóng mất đơn.</p>
+            )}
           </section>
 
           <section className="card">

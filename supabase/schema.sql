@@ -253,7 +253,7 @@ create index if not exists email_messages_created_idx on public.email_messages (
 -- Chạy lại đoạn này (idempotent) khi nâng cấp từ bản trước:
 alter table public.email_messages drop constraint if exists email_messages_kind_check;
 alter table public.email_messages add constraint email_messages_kind_check
-  check (kind in ('auto','manual','inbound'));
+  check (kind in ('auto','manual','inbound','rfq_outreach','rfq_followup','shortlist_buyer'));
 alter table public.email_messages drop constraint if exists email_messages_status_check;
 alter table public.email_messages add constraint email_messages_status_check
   check (status in ('draft','sent','failed','simulated','received'));
@@ -261,8 +261,13 @@ alter table public.email_messages add column if not exists rfc_message_id text;
 alter table public.email_messages add column if not exists read_at timestamptz;
 alter table public.email_messages
   add column if not exists prospect_id uuid references public.prospects(id) on delete set null;
+-- RFQ timeline linking (một email có thể gắn với 1 RFQ và 1 RfqMatch cụ thể)
+alter table public.email_messages add column if not exists rfq_id uuid references public.rfqs(id) on delete set null;
+alter table public.email_messages add column if not exists rfq_match_id uuid references public.rfq_matches(id) on delete set null;
 create index if not exists email_messages_prospect_idx
   on public.email_messages (prospect_id, created_at desc);
+create index if not exists email_messages_rfq_idx
+  on public.email_messages (rfq_id, created_at desc);
 
 -- ---------------------------------------------------------------------------
 -- 4b. TỆP ĐÍNH KÈM EMAIL (metadata) — nội dung nằm trong Supabase Storage

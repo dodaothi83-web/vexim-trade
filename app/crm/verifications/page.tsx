@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/page-header";
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
+import { inVnBounds } from "@/lib/verification";
 import type { AppUser, Supplier, Verification } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -51,12 +52,10 @@ export default async function VerificationsPage({
   const supMap = new Map(suppliers.map((s) => [s.id, s]));
   const userMap = new Map(users.map((u) => [u.id, u]));
 
-  // Hàm kiểm tra toạ độ có ở Việt Nam hay không (lat ~8–24, lng ~102–110)
+  // Hàm kiểm tra toạ độ có ở Việt Nam hay không (dùng helper chung)
   const inVn = (v: Verification) => {
     if (v.target_level !== 2) return null;
-    const lat = v.visit_lat, lng = v.visit_lng;
-    if (lat == null || lng == null) return null;
-    return lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110;
+    return inVnBounds(v.visit_lat, v.visit_lng);
   };
 
   const filtered = vers
