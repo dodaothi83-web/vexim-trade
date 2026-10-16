@@ -748,6 +748,10 @@ export const supabaseStore: DataStore = {
     if (error) fail("updateCategory", error);
     return data as Category;
   },
+  async deleteCategory(id) {
+    const { error } = await must().from("categories").delete().eq("id", id);
+    if (error) fail("deleteCategory", error);
+  },
 
   // --- Supplier categories (N-N) ---
   async setSupplierCategories(supplierId, categoryIds, primaryId) {

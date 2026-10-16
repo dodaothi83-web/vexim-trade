@@ -928,6 +928,11 @@ export const localStore: DataStore = {
       return row;
     });
   },
+  async deleteCategory(id) {
+    return mutate((db) => {
+      db.categories = (db.categories ?? []).filter((c) => c.id !== id);
+    });
+  },
 
   async setSupplierCategories(supplierId, categoryIds, primaryId) {
     mutate((db) => {

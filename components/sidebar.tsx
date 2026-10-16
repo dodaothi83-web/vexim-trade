@@ -21,6 +21,7 @@ import {
   UsersRound,
   UserSearch,
   X,
+  FolderTree,
 } from "lucide-react";
 
 import { logoutAction } from "@/app/auth-actions";
@@ -40,6 +41,7 @@ const NAV: {
   { href: "/crm/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view" },
   { href: "/crm/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage" },
   { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view" },
+  { href: "/crm/categories", label: "Danh mục công khai", icon: FolderTree, perm: "suppliers.manage" },
   { href: "/crm/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view" },
   { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view" },
   { href: "/crm/mail/compose", label: "Soạn email", icon: Pencil, perm: "mail.send" },

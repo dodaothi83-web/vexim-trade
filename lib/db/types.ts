@@ -158,6 +158,7 @@ export interface DataStore {
   getCategoryBySlug(slug: string): Promise<Category | null>;
   createCategory(input: Partial<Category>): Promise<Category>;
   updateCategory(id: string, patch: Partial<Category>): Promise<Category>;
+  deleteCategory(id: string): Promise<void>;
 
   // Supplier – category link
   setSupplierCategories(supplierId: string, categoryIds: string[], primaryId?: string | null): Promise<void>;

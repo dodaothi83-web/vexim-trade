@@ -44,6 +44,7 @@ import type {
   EmailAttachment,
   SupplierInput,
   SupplierProductInput,
+  Category,
 } from "@/lib/types";
 
 export interface ActionResult {
@@ -1302,11 +1303,18 @@ function parseProductInput(
   return {
     supplier_id: str(raw.supplier_id) ?? "",
     name: str(raw.name) ?? "",
+    slug: str(raw.slug) || null,
+    name_i18n: (raw.name_i18n && typeof raw.name_i18n === "object"
+      ? (raw.name_i18n as Record<string, string>)
+      : undefined),
     category: str(raw.category),
     description: str(raw.description),
     spec: str(raw.spec),
+    specs: (raw.specs && typeof raw.specs === "object" ? (raw.specs as Record<string, unknown>) : undefined),
     unit: str(raw.unit),
     moq: str(raw.moq),
+    moq_qty: num(raw.moq_qty),
+    moq_unit: str(raw.moq_unit),
     monthly_capacity: str(raw.monthly_capacity),
     lead_time_days: num(raw.lead_time_days),
     packaging: str(raw.packaging),
@@ -1321,6 +1329,7 @@ function parseProductInput(
     payment_terms: str(raw.payment_terms),
     samples: bool(raw.samples, false),
     ready_for_buyer: bool(raw.ready_for_buyer, false),
+    images: Array.isArray(raw.images) ? (raw.images as string[]) : undefined,
   };
 }
 
@@ -2224,5 +2233,65 @@ export async function submitQuoteLeadAction(input: {
       ok: false,
       message: err instanceof Error ? err.message : "Could not save your enquiry, please email us directly.",
     };
+  }
+}
+
+/* ----------------------------- CATEGORIES ----------------------------- */
+
+function parseCategoryInput(raw: Record<string, unknown>) {
+  const slug = (str(raw.slug) ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const name_en = str(raw.name_en) ?? "";
+  const intro_en = str(raw.intro_en) ?? "";
+  const seoTitleEn = str(raw.seo_title_en);
+  const seoDescEn = str(raw.seo_desc_en);
+  return {
+    slug,
+    parent_id: str(raw.parent_id) || null,
+    name_i18n: name_en ? ({ en: name_en } as Category["name_i18n"]) : undefined,
+    intro_i18n: intro_en ? ({ en: intro_en } as Category["intro_i18n"]) : undefined,
+    seo_title_i18n: seoTitleEn ? ({ en: seoTitleEn } as Category["seo_title_i18n"]) : undefined,
+    seo_desc_i18n: seoDescEn ? ({ en: seoDescEn } as Category["seo_desc_i18n"]) : undefined,
+    is_published: bool(raw.is_published, false),
+    sort_order: num(raw.sort_order) ?? 0,
+  };
+}
+
+export async function createCategoryAction(raw: Record<string, unknown>) {
+  const gate = await guard("suppliers.manage");
+  if (gate) return gate;
+  const input = parseCategoryInput(raw);
+  if (!input.slug) return { ok: false, message: "Slug không được để trống." };
+  if (!input.name_i18n?.en) return { ok: false, message: "Vui lòng nhập tên danh mục (tiếng Anh)." };
+  try {
+    const created = await getStore().createCategory(input as Partial<Category>);
+    revalidateAll();
+    return { ok: true, message: `Đã tạo danh mục "${created.name_i18n?.en ?? created.slug}".`, id: created.id };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
+  }
+}
+
+export async function updateCategoryAction(id: string, raw: Record<string, unknown>) {
+  const gate = await guard("suppliers.manage");
+  if (gate) return gate;
+  const input = parseCategoryInput(raw);
+  try {
+    await getStore().updateCategory(id, input);
+    revalidateAll();
+    return { ok: true, message: "Đã lưu danh mục." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
+  }
+}
+
+export async function deleteCategoryAction(id: string) {
+  const gate = await guard("suppliers.manage");
+  if (gate) return gate;
+  try {
+    await getStore().deleteCategory(id);
+    revalidateAll();
+    return { ok: true, message: "Đã xoá danh mục." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
   }
 }
