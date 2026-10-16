@@ -53,19 +53,27 @@ export const FIRST_TOUCH_PLACEHOLDERS = {
 } as const;
 
 /**
- * Khung thư — bản dịch 1:1 từ mẫu bên mình chốt (12/10/2026). Sửa ở đây là sửa mọi lá thư;
+ * Khung thư — bản dịch 1:1 từ mẫu bên mình chốt (13/10/2026). Sửa ở đây là sửa mọi lá thư;
  * không cho model tự thêm/bớt câu nào.
+ *
+ * Quy ước định dạng (được render ở components/compose-mail.tsx → renderInlineMarks):
+ *   **chữ** → in đậm
+ *   *chữ*  → in nghiêng
+ *   ***chữ*** → in đậm + nghiêng (dùng cho câu hỏi kêu hành động)
+ * Các dấu * nằm trong dữ liệu do model điền sẽ bị clean() xoá trước khi ghép vào khung,
+ * nên không bao giờ xuất hiện ngoài những chỗ thiết kế sẵn dưới đây.
  */
 export const FIRST_TOUCH_TEMPLATE = {
-  greeting: (name: string) => `Dear ${name},`,
+  greeting: (name: string) => `Hi ${name},`,
   intro: (sender: string) =>
-    `I am ${sender}, at Vexim Trade, the service arm of VEXIM GLOBAL. ` +
+    `I am ${sender} from **Vexim Trade**, the service arm of **VEXIM GLOBAL**. ` +
     `We are a Vietnam-based company that finds and screens reliable, qualified suppliers for international buyers.`,
   demandLead: (need: string) => `You asked us about ${need}.`,
-  coldLead: (company: string, products: string) => `I understand that ${company} supplies ${products}.`,
+  coldLead: (company: string, products: string) => `We understand that ${company} supplies ${products}.`,
   /**
    * Câu "offer" duy nhất thay đổi theo những gì đọc được từ website/ảnh của buyer.
-   * Ba câu còn lại (giới thiệu, phần việc của buyer, cảm ơn) luôn luôn giữ nguyên chữ.
+   * Các câu còn lại (giới thiệu, phần việc của buyer, câu hỏi, opt-out, cảm ơn) luôn
+   * luôn giữ nguyên từng chữ theo mẫu.
    */
   angle: (form: OfferForm | null | undefined): string => {
     if (form === "finished")
@@ -89,8 +97,11 @@ export const FIRST_TOUCH_TEMPLATE = {
   yourPart:
     `Your part is only to receive samples and decide which supplier fits; we handle communication with ` +
     `suppliers, quotations, document and certification checks, and quality checks before shipment.`,
-  question: (group: string) => `Would you like us to look into Vietnam sourcing for ${group}?`,
-  closing: `Thank you for your time. I look forward to your reply.`,
+  question: (group: string) => `***Would you like us to look into Vietnam sourcing for ${group}?***`,
+  /** Hai dòng opt-out — in nghiêng, giữ nguyên chữ theo mẫu */
+  optOutYes: `*If you are interested, please reply to this email for more information.*`,
+  optOutNo: `*If you are not interested, please just ignore it.*`,
+  closing: `Thank you for your time. I am looking forward to hearing from you soon.`,
 } as const;
 
 function clean(value: string | null | undefined, max = 220): string {
@@ -136,6 +147,8 @@ export function buildFirstTouchLetter(slots: FirstTouchSlots, subjectInput: Subj
     FIRST_TOUCH_TEMPLATE.intro(sender),
     `${lead} ${FIRST_TOUCH_TEMPLATE.angle(slots.form)} ${FIRST_TOUCH_TEMPLATE.yourPart}`,
     FIRST_TOUCH_TEMPLATE.question(group),
+    FIRST_TOUCH_TEMPLATE.optOutYes,
+    FIRST_TOUCH_TEMPLATE.optOutNo,
     FIRST_TOUCH_TEMPLATE.closing,
   ];
 
@@ -311,6 +324,10 @@ export function firstTouchTemplatePreview(): string {
     `${FIRST_TOUCH_TEMPLATE.coldLead(FIRST_TOUCH_PLACEHOLDERS.company, FIRST_TOUCH_PLACEHOLDERS.products)} ${FIRST_TOUCH_TEMPLATE.angle("unknown")} ${FIRST_TOUCH_TEMPLATE.yourPart}`,
     "",
     FIRST_TOUCH_TEMPLATE.question(FIRST_TOUCH_PLACEHOLDERS.group),
+    "",
+    FIRST_TOUCH_TEMPLATE.optOutYes,
+    "",
+    FIRST_TOUCH_TEMPLATE.optOutNo,
     "",
     FIRST_TOUCH_TEMPLATE.closing,
   ].join("\n");

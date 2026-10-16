@@ -283,12 +283,12 @@ export function MailThreads({
                 {current.label} · {current.email} · {current.messages.length} thư
               </span>
               {current.prospectId && (
-                <Link href={`/prospects/${current.prospectId}`} className="text-[11.5px] font-semibold text-brand-700 hover:underline">
+                <Link href={`/crm/prospects/${current.prospectId}`} className="text-[11.5px] font-semibold text-brand-700 hover:underline">
                   Mở hồ sơ đầu mối
                 </Link>
               )}
               {canSend && (
-                <Link href="/mail/compose" className="btn btn-ghost ml-auto px-2.5" title="Trình soạn đầy đủ: đính kèm tệp, kiểm tra rò rỉ">
+                <Link href="/crm/mail/compose" className="btn btn-ghost ml-auto px-2.5" title="Trình soạn đầy đủ: đính kèm tệp, kiểm tra rò rỉ">
                   <Pencil className="h-3.5 w-3.5" />
                   Soạn đầy đủ
                 </Link>
@@ -344,7 +344,7 @@ export function MailThreads({
                   {/* Thân thư luôn hiển thị đầy đủ — dài thì thanh cuộn của khung lo */}
                   <div className="px-4 pb-5 pl-12">
                     {m.status === "draft" ? (
-                      <Link href={`/mail/compose?draft=${m.id}`} className="btn btn-ghost px-2.5">
+                      <Link href={`/crm/mail/compose?draft=${m.id}`} className="btn btn-ghost px-2.5">
                         <Pencil className="h-3.5 w-3.5" /> Mở bản nháp
                       </Link>
                     ) : (
@@ -533,7 +533,7 @@ function QuickCompose({
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Gửi
             </Button>
-            <Link href="/mail/compose" className="btn btn-ghost px-2.5" title="Trình soạn đầy đủ: đính kèm tệp, kiểm tra rò rỉ thông tin">
+            <Link href="/crm/mail/compose" className="btn btn-ghost px-2.5" title="Trình soạn đầy đủ: đính kèm tệp, kiểm tra rò rỉ thông tin">
               <Pencil className="h-3.5 w-3.5" />
               Bản đầy đủ
             </Link>

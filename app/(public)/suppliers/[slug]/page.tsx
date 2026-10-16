@@ -1,0 +1,336 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  Globe2,
+  HelpCircle,
+  MapPin,
+  Package,
+  ShieldCheck,
+  Ship,
+  Users,
+} from "lucide-react";
+
+import { Breadcrumbs } from "@/components/ui";
+import {
+  formatFob,
+  getPublicSupplierBySlug,
+  mainProductNames,
+  supplierTypeLabel,
+  t,
+  verificationBadge,
+} from "@/lib/public/catalog";
+import { SITE_URL } from "@/lib/site";
+
+export const dynamic = "force-dynamic";
+
+interface PageProps {
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export async function generateMetadata({ params }: PageProps) {
+  const { slug } = await params;
+  const s = await getPublicSupplierBySlug(slug);
+  if (!s) return { title: "Supplier not found | Veximtrade", robots: { index: false } };
+  const name = s.display_name ?? s.name;
+  const mainCat = mainProductNames(s.main_products, 2) || "food products";
+  return {
+    title: `${name} – Verified ${mainCat} ${supplierTypeLabel(s)} in ${s.province ?? "Vietnam"} | Veximtrade`,
+    description: `Factory-audited by Vexim${s.verified_at ? ` on ${s.verified_at.slice(0, 10)}` : ""}. ${mainCat}, MOQ ${s.moq_text ?? "contact"}. Request a quote.`,
+  };
+}
+
+export default async function SupplierProfile({ params }: PageProps) {
+  const { slug } = await params;
+  const s = await getPublicSupplierBySlug(slug);
+  if (!s) notFound();
+
+  const badge = verificationBadge(s);
+  const fob = formatFob(s);
+  const name = s.display_name ?? s.name;
+  const verifiedDate = s.verified_at
+    ? new Date(s.verified_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+
+  const orgLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name,
+    url: `${SITE_URL}/suppliers/${s.slug}`,
+    location: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: s.province ?? undefined,
+        addressCountry: "VN",
+      },
+    },
+    foundingDate: s.founded_year ? String(s.founded_year) : undefined,
+    numberOfEmployees:
+      typeof s.employees === "number" && s.employees > 0
+        ? { "@type": "QuantitativeValue", value: s.employees }
+        : undefined,
+    makesOffer: s.main_products.map((p) => ({
+      "@type": "Offer",
+      itemOffered: { "@type": "Product", name: p.name, description: p.spec ?? undefined },
+    })),
+  };
+
+  return (
+    <div className="mx-auto max-w-5xl px-5 py-10 sm:px-8 sm:py-14">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd) }}
+      />
+      <Breadcrumbs
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Products", href: "/#products" },
+          { label: "Profile" },
+        ]}
+      />
+
+      <header className="mt-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={
+              badge.tone === "emerald"
+                ? "inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[12px] font-semibold text-emerald-800 ring-1 ring-emerald-200"
+                : "inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[12px] font-semibold text-slate-700 ring-1 ring-slate-200"
+            }
+          >
+            {badge.tone === "emerald" ? <ShieldCheck className="h-3 w-3" /> : <HelpCircle className="h-3 w-3" />}
+            {badge.text}
+          </span>
+          <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11.5px] font-semibold text-ink-700">
+            {supplierTypeLabel(s)}
+          </span>
+          {s.private_label && (
+            <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 ring-1 ring-brand-200">
+              Private label
+            </span>
+          )}
+        </div>
+        <h1
+          className="mt-4 text-[38px] font-bold leading-tight text-ink-900 sm:text-[46px]"
+          style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}
+        >
+          {name}
+        </h1>
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-[14px] text-ink-600">
+          {s.province && (
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-ink-400" />
+              {s.province}, Vietnam
+            </span>
+          )}
+          {s.founded_year && (
+            <span className="inline-flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-ink-400" />
+              Founded {s.founded_year}
+            </span>
+          )}
+          {typeof s.employees === "number" && s.employees > 0 && (
+            <span className="inline-flex items-center gap-1.5">
+              <Users className="h-4 w-4 text-ink-400" />
+              {s.employees} employees
+            </span>
+          )}
+        </div>
+        {verifiedDate && (
+          <p className="mt-3 text-[13px] text-emerald-800">
+            Last verified on site: <strong>{verifiedDate}</strong>.
+          </p>
+        )}
+        <p className="mt-5 max-w-3xl text-[16px] leading-relaxed text-ink-700">
+          {t(s.summary_i18n) || mainProductNames(s.main_products)}
+        </p>
+      </header>
+
+      <div className="mt-10 grid gap-8 lg:grid-cols-[1.5fr_1fr]">
+        {/* Cột trái: 3 tab SSR (không cần JS ỏ bước này vì chỉ có một trang, in sẵn) */}
+        <div>
+          <section>
+            <h2 className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">
+              Products &amp; specifications
+            </h2>
+            <div className="mt-4 overflow-hidden rounded-md border border-ink-200">
+              <table className="w-full text-[14px]">
+                <thead className="bg-ink-50 text-[12px] uppercase tracking-wider text-ink-500">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-semibold">Product</th>
+                    <th className="px-4 py-2 text-left font-semibold">Spec</th>
+                    <th className="px-4 py-2 text-left font-semibold">MOQ</th>
+                    <th className="px-4 py-2 text-left font-semibold">FOB ref.</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-100">
+                  {s.main_products.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-6 text-center text-ink-400">
+                        Product details being audited. Request a quote to receive the spec sheet.
+                      </td>
+                    </tr>
+                  )}
+                  {s.main_products.map((p) => (
+                    <tr key={p.id}>
+                      <td className="px-4 py-3 align-top font-semibold text-ink-900">{p.name}</td>
+                      <td className="px-4 py-3 align-top text-ink-700">
+                        {p.spec || p.packaging || <span className="italic text-ink-400">on request</span>}
+                      </td>
+                      <td className="px-4 py-3 align-top text-ink-700">
+                        {p.moq || s.moq_text || "—"}
+                      </td>
+                      <td className="px-4 py-3 align-top text-ink-700">
+                        {fob ? (
+                          <span>{fob}</span>
+                        ) : (
+                          <span className="italic text-ink-400">on request</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="mt-10">
+            <h2 className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">
+              Verification
+            </h2>
+            <p className="mt-4 text-[14px] leading-relaxed text-ink-700">
+              {(s.verification_level ?? 0) >= 1 ? (
+                <>
+                  This supplier has passed Vexim&apos;s on-site verification (Level {s.verification_level}).
+                  We checked business registration, inspected the production site and reviewed export
+                  documentation before publishing this profile.
+                </>
+              ) : (
+                <>
+                  This profile is awaiting on-site verification. Details and certificates shown below
+                  are provided by the supplier; request a quote to receive the Vexim-verified dossier.
+                </>
+              )}
+            </p>
+            <ul className="mt-5 grid gap-2 text-[14px] text-ink-700 sm:grid-cols-2">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" />
+                Business registration on file
+              </li>
+              <li className="flex items-start gap-2">
+                {(s.verification_level ?? 0) >= 1 ? (
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" />
+                ) : (
+                  <HelpCircle className="mt-0.5 h-4 w-4 text-ink-400" />
+                )}
+                Factory address verified on site
+              </li>
+              <li className="flex items-start gap-2">
+                <HelpCircle className="mt-0.5 h-4 w-4 text-ink-400" />
+                Certificates cross-checked against issuer
+              </li>
+              <li className="flex items-start gap-2">
+                <HelpCircle className="mt-0.5 h-4 w-4 text-ink-400" />
+                Production capacity estimate
+              </li>
+            </ul>
+          </section>
+
+          <section className="mt-10">
+            <h2 className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">
+              Certificates
+            </h2>
+            <p className="mt-4 text-[14px] italic text-ink-400">
+              Certificate list will appear after on-site documents are reviewed.
+            </p>
+          </section>
+        </div>
+
+        {/* Sidebar CTA */}
+        <aside className="space-y-4 lg:sticky lg:top-5 lg:self-start">
+          <div className="rounded-lg border border-ink-200 bg-white p-5">
+            <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-ink-500">
+              Work with this supplier
+            </p>
+            <div className="mt-3 space-y-2 text-[14px] text-ink-700">
+              <InfoRow icon={<Package className="h-4 w-4" />} label="MOQ" value={s.moq_text || "On request"} />
+              <InfoRow
+                icon={<Ship className="h-4 w-4" />}
+                label="Port / Incoterm"
+                value={
+                  [
+                    (s.ports ?? []).join(", ") || null,
+                    (s.incoterms ?? []).join(", ") || null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "On request"
+                }
+              />
+              <InfoRow
+                icon={<Clock className="h-4 w-4" />}
+                label="Lead time"
+                value={s.lead_time_days ? `${s.lead_time_days} days` : "On request"}
+              />
+              <InfoRow
+                icon={<Globe2 className="h-4 w-4" />}
+                label="Export markets"
+                value={(s.export_markets ?? []).join(", ") || "On request"}
+              />
+            </div>
+            <div className="mt-5 flex flex-col gap-2">
+              <Link
+                href={`/rfq?suppliers=${s.id}`}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-ink-900 px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-ink-800"
+              >
+                Request quote
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href={`/rfq?suppliers=${s.id}&sample=1`}
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-ink-300 px-4 py-2 text-[14px] font-semibold text-ink-800 hover:border-ink-900"
+              >
+                Request a sample
+              </Link>
+            </div>
+            <p className="mt-3 text-[12px] text-ink-500">
+              All communication goes through your Vexim Trade desk — supplier contact details are not
+              displayed publicly.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-ink-200 bg-ink-50 p-5">
+            <p className="text-[13px] font-semibold text-ink-900">Your Vexim contact</p>
+            <p className="mt-1 text-[13px] text-ink-600">
+              A dedicated export desk specialist will reply within one business day with a shortlist
+              and next steps.
+            </p>
+          </div>
+        </aside>
+      </div>
+
+      <section className="mt-14">
+        <h3 className="text-[15px] font-semibold text-ink-800">Similar suppliers</h3>
+        <p className="mt-1 text-[13px] text-ink-500">
+          (Đang xây dựng — sẽ hiển thị khi có nhiều hồ sơ published hơn.)
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="mt-0.5 text-ink-400">{icon}</span>
+      <div>
+        <p className="text-[11.5px] uppercase tracking-wider text-ink-400">{label}</p>
+        <p className="text-[14px] font-medium text-ink-800">{value}</p>
+      </div>
+    </div>
+  );
+}

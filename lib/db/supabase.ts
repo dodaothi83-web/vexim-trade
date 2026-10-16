@@ -5,8 +5,12 @@ import type {
   AppUser,
   AppUserInput,
   AppUserRecord,
+  AuditLogEntry,
   Buyer,
   BuyerInput,
+  Category,
+  Certificate,
+  Introduction,
   Prospect,
   ProspectInput,
   ProspectActivity,
@@ -17,14 +21,19 @@ import type {
   MediaAsset,
   MediaInput,
   MediaOwnerType,
+  Rfq,
+  RfqAttachment,
+  RfqMatch,
   Supplier,
   SupplierInput,
+  SupplierCategory,
   SupplierProduct,
   SupplierProductInput,
   TemplateOverride,
   Post,
   PostInput,
   PostStatus,
+  Verification,
 } from "@/lib/types";
 import type { DataStore } from "@/lib/db/types";
 
@@ -702,5 +711,262 @@ export const supabaseStore: DataStore = {
   async deletePost(id) {
     const { error } = await must().from("posts").delete().eq("id", id);
     if (error) fail("deletePost", error);
+  },
+
+  /* ----------------------- RFQ FOUNDATION (GĐ0-GĐ2) ----------------------- */
+
+  // --- Categories ---
+  async listCategories(options?: { publishedOnly?: boolean }) {
+    let q = must().from("categories").select("*").order("sort_order", { ascending: true });
+    if (options?.publishedOnly) q = q.eq("is_published", true);
+    const { data, error } = await q;
+    if (error) fail("listCategories", error);
+    return (data ?? []) as Category[];
+  },
+  async getCategory(id) {
+    const { data, error } = await must().from("categories").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getCategory", error);
+    return (data as Category | null) ?? null;
+  },
+  async getCategoryBySlug(slug) {
+    const { data, error } = await must().from("categories").select("*").eq("slug", slug).maybeSingle();
+    if (error) fail("getCategoryBySlug", error);
+    return (data as Category | null) ?? null;
+  },
+  async createCategory(input) {
+    const { data, error } = await must().from("categories").insert(cleanPatch(input)).select().single();
+    if (error) fail("createCategory", error);
+    return data as Category;
+  },
+  async updateCategory(id, patch) {
+    const { data, error } = await must()
+      .from("categories")
+      .update(cleanPatch({ ...patch, updated_at: new Date().toISOString() }))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateCategory", error);
+    return data as Category;
+  },
+  async deleteCategory(id) {
+    const { error } = await must().from("categories").delete().eq("id", id);
+    if (error) fail("deleteCategory", error);
+  },
+
+  // --- Supplier categories (N-N) ---
+  async setSupplierCategories(supplierId, categoryIds, primaryId) {
+    const { error: delErr } = await must()
+      .from("supplier_categories")
+      .delete()
+      .eq("supplier_id", supplierId);
+    if (delErr) fail("setSupplierCategories:delete", delErr);
+    if (!categoryIds.length) return;
+    const rows = categoryIds.map((cid) => ({
+      supplier_id: supplierId,
+      category_id: cid,
+      is_primary: primaryId ? cid === primaryId : cid === categoryIds[0],
+    }));
+    const { error: insErr } = await must().from("supplier_categories").insert(rows);
+    if (insErr) fail("setSupplierCategories:insert", insErr);
+  },
+  async listSupplierCategories(supplierId) {
+    const { data, error } = await must()
+      .from("supplier_categories")
+      .select("*")
+      .eq("supplier_id", supplierId);
+    if (error) fail("listSupplierCategories", error);
+    return (data ?? []) as SupplierCategory[];
+  },
+
+  // --- Certificates ---
+  async listCertificates(supplierId) {
+    const { data, error } = await must()
+      .from("certificates")
+      .select("*")
+      .eq("supplier_id", supplierId)
+      .order("created_at", { ascending: false });
+    if (error) fail("listCertificates", error);
+    return (data ?? []) as Certificate[];
+  },
+  async createCertificate(input) {
+    const { data, error } = await must().from("certificates").insert(cleanPatch(input)).select().single();
+    if (error) fail("createCertificate", error);
+    return data as Certificate;
+  },
+  async updateCertificate(id, patch) {
+    const { data, error } = await must()
+      .from("certificates")
+      .update(cleanPatch({ ...patch, updated_at: new Date().toISOString() }))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateCertificate", error);
+    return data as Certificate;
+  },
+  async deleteCertificate(id) {
+    const { error } = await must().from("certificates").delete().eq("id", id);
+    if (error) fail("deleteCertificate", error);
+  },
+
+  // --- Verifications ---
+  async listVerifications(supplierId) {
+    let q = must().from("verifications").select("*").order("created_at", { ascending: false });
+    if (supplierId) q = q.eq("supplier_id", supplierId);
+    const { data, error } = await q;
+    if (error) fail("listVerifications", error);
+    return (data ?? []) as Verification[];
+  },
+  async createVerification(input) {
+    const { data, error } = await must().from("verifications").insert(cleanPatch(input)).select().single();
+    if (error) fail("createVerification", error);
+    return data as Verification;
+  },
+  async updateVerification(id, patch) {
+    const { data, error } = await must()
+      .from("verifications")
+      .update(cleanPatch({ ...patch, updated_at: new Date().toISOString() }))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateVerification", error);
+    return data as Verification;
+  },
+
+  // --- RFQs ---
+  async listRfqs(options) {
+    let q = must().from("rfqs").select("*").order("created_at", { ascending: false });
+    if (options?.status) q = q.eq("status", options.status);
+    if (options?.assignedTo !== undefined) {
+      if (options.assignedTo === null) q = q.is("assigned_to", null);
+      else q = q.eq("assigned_to", options.assignedTo);
+    }
+    const { data, error } = await q;
+    if (error) fail("listRfqs", error);
+    return (data ?? []) as Rfq[];
+  },
+  async getRfq(id) {
+    const { data, error } = await must().from("rfqs").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getRfq", error);
+    return (data as Rfq | null) ?? null;
+  },
+  async getRfqByToken(token) {
+    const { data, error } = await must().from("rfqs").select("*").eq("access_token", token).maybeSingle();
+    if (error) fail("getRfqByToken", error);
+    return (data as Rfq | null) ?? null;
+  },
+  async getRfqByCode(code) {
+    const { data, error } = await must().from("rfqs").select("*").eq("code", code).maybeSingle();
+    if (error) fail("getRfqByCode", error);
+    return (data as Rfq | null) ?? null;
+  },
+  async createRfq(input) {
+    const { data, error } = await must().from("rfqs").insert(cleanPatch(input)).select().single();
+    if (error) fail("createRfq", error);
+    return data as Rfq;
+  },
+  async updateRfq(id, patch) {
+    const { data, error } = await must()
+      .from("rfqs")
+      .update(cleanPatch({ ...patch, updated_at: new Date().toISOString() }))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateRfq", error);
+    return data as Rfq;
+  },
+
+  // --- RFQ attachments ---
+  async listRfqAttachments(rfqId) {
+    const { data, error } = await must()
+      .from("rfq_attachments")
+      .select("*")
+      .eq("rfq_id", rfqId)
+      .order("created_at", { ascending: true });
+    if (error) fail("listRfqAttachments", error);
+    return (data ?? []) as RfqAttachment[];
+  },
+  async createRfqAttachment(input) {
+    const { data, error } = await must().from("rfq_attachments").insert(cleanPatch(input)).select().single();
+    if (error) fail("createRfqAttachment", error);
+    return data as RfqAttachment;
+  },
+  async deleteRfqAttachment(id) {
+    const { error } = await must().from("rfq_attachments").delete().eq("id", id);
+    if (error) fail("deleteRfqAttachment", error);
+  },
+
+  // --- RFQ matches ---
+  async listRfqMatches(rfqId) {
+    const { data, error } = await must()
+      .from("rfq_matches")
+      .select("*")
+      .eq("rfq_id", rfqId)
+      .order("created_at", { ascending: true });
+    if (error) fail("listRfqMatches", error);
+    return (data ?? []) as RfqMatch[];
+  },
+  async getRfqMatch(id) {
+    const { data, error } = await must()
+      .from("rfq_matches")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) fail("getRfqMatch", error);
+    return (data ?? null) as RfqMatch | null;
+  },
+  async createRfqMatch(input) {
+    const { data, error } = await must().from("rfq_matches").insert(cleanPatch(input)).select().single();
+    if (error) fail("createRfqMatch", error);
+    return data as RfqMatch;
+  },
+  async updateRfqMatch(id, patch) {
+    const { data, error } = await must()
+      .from("rfq_matches")
+      .update(cleanPatch({ ...patch, updated_at: new Date().toISOString() }))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateRfqMatch", error);
+    return data as RfqMatch;
+  },
+  async deleteRfqMatch(id) {
+    const { error } = await must().from("rfq_matches").delete().eq("id", id);
+    if (error) fail("deleteRfqMatch", error);
+  },
+
+  // --- Introductions ---
+  async findIntroduction(buyerId, supplierId) {
+    const { data, error } = await must()
+      .from("introductions")
+      .select("*")
+      .eq("buyer_id", buyerId)
+      .eq("supplier_id", supplierId)
+      .maybeSingle();
+    if (error) fail("findIntroduction", error);
+    return (data as Introduction | null) ?? null;
+  },
+  async createIntroduction(input) {
+    const { data, error } = await must().from("introductions").insert(cleanPatch(input)).select().single();
+    if (error) fail("createIntroduction", error);
+    return data as Introduction;
+  },
+
+  // --- Audit log ---
+  async addAuditLog(entry) {
+    const { data, error } = await must()
+      .from("audit_log")
+      .insert({
+        actor_id: entry.actor_id ?? null,
+        actor_email: entry.actor_email ?? null,
+        entity: entry.entity,
+        entity_id: entry.entity_id,
+        action: entry.action,
+        before: entry.before ?? null,
+        after: entry.after ?? null,
+      })
+      .select()
+      .single();
+    if (error) fail("addAuditLog", error);
+    return data as AuditLogEntry;
   },
 };

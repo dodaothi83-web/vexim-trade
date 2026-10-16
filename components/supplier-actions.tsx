@@ -30,7 +30,7 @@ export function DeleteSupplierButton({
     const res = await deleteSupplierAction(supplierId);
     toast.push({ kind: res.ok ? "success" : "error", title: res.message });
     if (res.ok) {
-      router.push("/suppliers");
+      router.push("/crm/suppliers");
       router.refresh();
     } else {
       setBusy(false);

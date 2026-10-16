@@ -6,11 +6,11 @@ import { ToastProvider } from "@/components/toast";
 
 export const metadata: Metadata = {
   title: {
-    default: "Vexim Trade – CRM Sale Xuất khẩu",
-    template: "%s · Vexim Trade CRM",
+    default: "Vexim Trade – Verified Vietnamese food & agriculture sourcing",
+    template: "%s · Vexim Trade",
   },
   description:
-    "Quản lý pipeline buyer, nhà cung cấp và tự động gửi email cập nhật tiến độ đơn hàng xuất khẩu.",
+    "Verified Vietnamese food and agriculture sourcing desk. Submit a brief and get 2–4 audited supplier quotes in 24 business hours.",
 };
 
 export const viewport: Viewport = {

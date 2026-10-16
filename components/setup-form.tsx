@@ -29,7 +29,7 @@ export function SetupForm() {
       return;
     }
     if (res.details?.length) setNotice(res.details.join(" "));
-    router.replace("/settings/users");
+    router.replace("/crm/settings/users");
     router.refresh();
   }
 

@@ -542,7 +542,7 @@ export function ComposeSidebar({
           <History className="h-3.5 w-3.5 text-brand-700" />
           <h2 className="text-[13px] font-bold text-ink-900">Đã gửi gần đây</h2>
           <Link
-            href="/mail"
+            href="/crm/mail"
             className="ml-auto text-[11.5px] font-semibold text-brand-700 transition hover:underline"
           >
             Hộp thư
@@ -557,7 +557,7 @@ export function ComposeSidebar({
             {relatedRecent.map((m) => (
               <li key={m.id}>
                 <Link
-                  href={m.status === "draft" ? `/mail/compose?draft=${m.id}` : `/mail/${m.id}`}
+                  href={m.status === "draft" ? `/crm/mail/compose?draft=${m.id}` : `/crm/mail/${m.id}`}
                   className="block px-3.5 py-2.5 transition hover:bg-ink-50"
                 >
                   <p className="truncate text-[12.5px] font-medium text-ink-800">

@@ -150,7 +150,7 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
       });
       if (!postId) {
         setPostId(result.post.id);
-        router.replace(`/posts/${result.post.id}`);
+        router.replace(`/crm/posts/${result.post.id}`);
       }
     });
   };
@@ -164,7 +164,7 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
         setMessage({ kind: "error", text: result.message });
         return;
       }
-      router.push("/posts");
+      router.push("/crm/posts");
       router.refresh();
     });
   };
@@ -205,7 +205,7 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href="/posts" className="text-[13px] font-semibold text-ink-500 hover:text-ink-900">
+        <Link href="/crm/posts" className="text-[13px] font-semibold text-ink-500 hover:text-ink-900">
           ← Danh sách bài viết
         </Link>
         <div className="flex flex-wrap items-center gap-2">

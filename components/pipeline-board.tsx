@@ -66,7 +66,7 @@ export function PipelineBoard({
             sub="Thêm buyer để thấy các thẻ xuất hiện theo từng cột trạng thái."
             action={
               canManage ? (
-                <Link href="/buyers/new" className="btn btn-primary">
+                <Link href="/crm/buyers/new" className="btn btn-primary">
                   Thêm buyer
                 </Link>
               ) : null
@@ -153,7 +153,7 @@ export function PipelineBoard({
                           <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-300 group-hover:text-ink-400" />
                           <div className="min-w-0 flex-1">
                             <Link
-                              href={`/buyers/${b.id}`}
+                              href={`/crm/buyers/${b.id}`}
                               className="block truncate text-[13px] font-semibold text-ink-900 hover:text-brand-700"
                             >
                               {b.company}

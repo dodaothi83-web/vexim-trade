@@ -27,7 +27,7 @@ export function DeleteProductButton({
     const res = await deleteProductAction(productId);
     toast.push({ kind: res.ok ? "success" : "error", title: res.message });
     if (res.ok) {
-      router.push(`/suppliers/${supplierId}`);
+      router.push(`/crm/suppliers/${supplierId}`);
       router.refresh();
     } else {
       setBusy(false);

@@ -1,7 +1,33 @@
 export type Priority = "low" | "normal" | "high";
 
 export type SupplierRole = "manufacturer" | "trader" | "agent" | "exporter";
-export type SupplierStatus = "new" | "verifying" | "verified" | "paused";
+export type SupplierType = "manufacturer" | "trading" | "cooperative";
+/**
+ * Trạng thái hồ sơ nhà cung cấp theo luồng GĐ1:
+ *   draft            – sale vừa tạo / seller tự đăng ký, chưa nộp đủ
+ *   submitted        – đã nộp đủ hồ sơ, chờ bộ phận kiểm tra
+ *   in_verification  – bộ phận kiểm tra đang xem
+ *   published        – đã xác thực, hiện trang công khai
+ *   suspended        – tạm ngừng công khai
+ *   archived         – đã xoá khỏi danh sách hoạt động
+ *
+ * new / verifying / verified / paused giữ lại để tương thích với dữ liệu cũ;
+ * code mới vui lòng dùng các trạng thái mới.
+ */
+export type SupplierStatus =
+  | "new"
+  | "verifying"
+  | "verified"
+  | "paused"
+  | "draft"
+  | "submitted"
+  | "in_verification"
+  | "published"
+  | "suspended"
+  | "archived";
+
+/** Chuỗi dịch JSON theo mã ngôn ngữ: {"en": "...", "ja": "..."}. MVP chỉ có en. */
+export type I18nString = Record<string, string>;
 
 export interface Supplier {
   id: string;
@@ -9,6 +35,10 @@ export interface Supplier {
   name: string;
   /** Tên thương mại (nếu khác pháp nhân) */
   trade_name: string | null;
+  /** Tên hiển thị công khai (nếu null thì fallback trade_name → name) */
+  display_name?: string | null;
+  /** URL slug trên trang công khai */
+  slug?: string | null;
   contact_name: string | null;
   /** Chức vụ người liên hệ */
   contact_title: string | null;
@@ -19,8 +49,13 @@ export interface Supplier {
   country: string | null;
   address: string | null;
   province: string | null;
-  /** Vai trò: nhà sản xuất / thương nhân / đại lý / XK trung gian */
+  /**
+   * Vai trò cũ (manufacturer/trader/agent/exporter) — giữ lại để code cũ không vỡ
+   * khi di chuyển; code mới đọc `supplier_type`.
+   */
   role: SupplierRole;
+  /** Loại hình theo đặc tả mới: nhà máy / thương mại / HTX */
+  supplier_type?: SupplierType | null;
   /** Thị trường đang phục vụ hoặc muốn bán */
   markets: string | null;
   /** Tóm tắt ngành hàng chính – hồ sơ chi tiết nằm ở từng sản phẩm */
@@ -31,6 +66,39 @@ export interface Supplier {
   rating: number | null;
   notes: string | null;
   status: SupplierStatus;
+  /** Năm thành lập */
+  founded_year?: number | null;
+  /** Số nhân sự */
+  employees?: number | null;
+  /** Tóm tắt giới thiệu công khai theo ngôn ngữ */
+  summary_i18n?: I18nString;
+  /** MOQ mô tả dạng text (vd "1 MT for W320") */
+  moq_text?: string | null;
+  /** Công suất tháng mô tả text */
+  capacity_per_month?: string | null;
+  /** Cảng xuất (mảng) */
+  ports?: string[];
+  /** Điều kiện Incoterm hỗ trợ */
+  incoterms?: string[];
+  /** Thị trường xuất khẩu */
+  export_markets?: string[];
+  /** Nhận làm nhãn riêng / OEM */
+  private_label?: boolean;
+  /** Cấp xác minh 0–3, 0 = chưa xác minh */
+  verification_level?: number;
+  verified_at?: string | null;
+  next_reverify_at?: string | null;
+  /** Điểm đánh giá trung bình (chỉ hiện khi có ≥ 3 đánh giá) */
+  rating_avg?: number | null;
+  rating_count?: number;
+  /** Giá FOB tham khảo theo range */
+  fob_min?: number | null;
+  fob_max?: number | null;
+  fob_unit?: string | null;
+  fob_currency?: string | null;
+  fob_updated_at?: string | null;
+  /** Đã có sự chấp thuận bằng văn bản của seller để công khai FOB */
+  fob_publicly_visible?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -40,12 +108,20 @@ export interface SupplierProduct {
   id: string;
   supplier_id: string;
   name: string;
-  /** Nhóm ngành: Nông sản, Thủy sản, Gỗ... */
+  /** URL slug */
+  slug?: string | null;
+  /** Tên theo ngôn ngữ */
+  name_i18n?: I18nString;
+  /** Nhóm ngành: Nông sản, Thủy sản, Gỗ... — giữ text để tương thích code cũ, ưu tiên qua categories */
   category: string | null;
   description: string | null;
   spec: string | null;
+  /** Thông số theo ngành (JSON linh hoạt) */
+  specs?: Record<string, unknown>;
   unit: string | null;
   moq: string | null;
+  moq_qty?: number | null;
+  moq_unit?: string | null;
   monthly_capacity: string | null;
   lead_time_days: number | null;
   /** Bao bì / đóng gói */
@@ -69,11 +145,191 @@ export interface SupplierProduct {
    * hoặc catalogue chia sẻ được cho buyer (xem lib/media/readiness.ts).
    */
   ready_for_buyer: boolean;
+  /** Mảng media_assets.id cho ảnh sản phẩm */
+  images?: string[];
   created_at: string;
   updated_at: string;
 }
 
 export type SupplierProductInput = Omit<SupplierProduct, "id" | "created_at" | "updated_at">;
+
+/* ----------------- RFQ FOUNDATION — CATEGORIES / SUPPLIER ----------------- */
+
+export interface Category {
+  id: string;
+  slug: string;
+  parent_id: string | null;
+  name_i18n: I18nString;
+  intro_i18n: I18nString;
+  faq_i18n: { q: string; a: string }[] | I18nString[] | unknown[];
+  seo_title_i18n: I18nString;
+  seo_desc_i18n: I18nString;
+  is_published: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplierCategory {
+  supplier_id: string;
+  category_id: string;
+  is_primary: boolean;
+  created_at: string;
+}
+
+export type CertificateCheckStatus = "on_file" | "original_seen" | "checked_with_issuer";
+
+export interface Certificate {
+  id: string;
+  supplier_id: string;
+  name: string;
+  issuer: string | null;
+  number: string | null;
+  valid_until: string | null;
+  file_media_id: string | null;
+  check_status: CertificateCheckStatus;
+  checked_at: string | null;
+  checked_by: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type VerificationStatus = "scheduled" | "in_progress" | "submitted" | "approved" | "returned";
+
+export interface Verification {
+  id: string;
+  supplier_id: string;
+  target_level: number;
+  status: VerificationStatus;
+  inspector_id: string | null;
+  visit_date: string | null;
+  checklist: unknown[];
+  public_summary_i18n: I18nString;
+  internal_notes: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/* ----------------------------- RFQs --------------------------------------- */
+
+export type RfqStatus =
+  | "new"
+  | "qualified"
+  | "matching"
+  | "quoting"
+  | "sampling"
+  | "won"
+  | "lost"
+  | "spam"
+  | "closed";
+
+export type RfqMatchStatus =
+  | "proposed"
+  | "sent_to_supplier"
+  | "quoted"
+  | "declined"
+  | "no_response"
+  | "presented_to_buyer"
+  | "selected"
+  | "not_selected";
+
+export interface RfqAttachment {
+  id: string;
+  rfq_id: string;
+  bucket: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
+export interface Rfq {
+  id: string;
+  code: string;
+  buyer_id: string;
+  category_id: string | null;
+  product_text: string;
+  specs: Record<string, unknown>;
+  quantity: number | null;
+  unit: string | null;
+  frequency: string | null;
+  destination_country: string | null;
+  incoterm: string | null;
+  needed_by: string | null;
+  target_price: number | null;
+  target_price_currency: string | null;
+  wants_samples: boolean;
+  wants_inspection: boolean;
+  wants_video_call: boolean;
+  preferred_supplier_ids: string[];
+  source_page: string | null;
+  utm: Record<string, unknown>;
+  referrer: string | null;
+  spam_score: number;
+  spam_flags: string[];
+  status: RfqStatus;
+  assigned_to: string | null;
+  first_response_at: string | null;
+  closed_reason: string | null;
+  access_token: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RfqMatch {
+  id: string;
+  rfq_id: string;
+  supplier_id: string;
+  status: RfqMatchStatus;
+  sent_to_supplier_at: string | null;
+  quote_price: number | null;
+  quote_currency: string | null;
+  quote_unit: string | null;
+  quote_incoterm: string | null;
+  quote_lead_time_days: number | null;
+  quote_valid_until: string | null;
+  quote_file_id: string | null;
+  sent_to_buyer_at: string | null;
+  internal_note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Introduction {
+  id: string;
+  buyer_id: string;
+  supplier_id: string;
+  first_rfq_id: string;
+  introduced_at: string;
+  protected_until: string;
+  created_at: string;
+}
+
+export interface AuditLogEntry {
+  id: number;
+  actor_id: string | null;
+  actor_email: string | null;
+  entity: string;
+  entity_id: string;
+  action: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  created_at: string;
+}
+
+/* ---------------- BUYER mở rộng ---------------- */
+export type BuyerConsent = {
+  consent_at: string;
+  version: string;
+};
+
+// Các field bổ sung cho Buyer đã khai báo trong interface Buyer bên dưới;
+// giữ export type BuyerInput ở cuối file để tự đồng bộ.
 
 /* --------------------------------- MEDIA --------------------------------- */
 
@@ -128,6 +384,8 @@ export interface Buyer {
   company: string;
   contact_name: string | null;
   email: string | null;
+  /** Phần domain của email, tính tự động khi lưu */
+  email_domain?: string | null;
   cc_emails: string | null;
   phone: string | null;
   country: string | null;
@@ -157,6 +415,13 @@ export interface Buyer {
   next_action: string | null;
   next_action_date: string | null;
   notes: string | null;
+  /** Loại hình doanh nghiệp (importer/distributor/brand…) */
+  business_type?: string | null;
+  /** Thời điểm buyer đồng ý chia sẻ yêu cầu với seller */
+  consent_at?: string | null;
+  consent_policy_version?: string | null;
+  /** Chặn nhận RFQ từ buyer này (spam/lạm dụng) */
+  is_blocked?: boolean;
   created_at: string;
   updated_at: string;
 }

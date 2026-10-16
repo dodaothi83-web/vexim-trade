@@ -44,6 +44,7 @@ import type {
   EmailAttachment,
   SupplierInput,
   SupplierProductInput,
+  Category,
 } from "@/lib/types";
 
 export interface ActionResult {
@@ -1174,10 +1175,26 @@ function parseSupplierInput(
 ): SupplierInput {
   const rating = num(raw.rating);
   const roles = ["manufacturer", "trader", "agent", "exporter"];
-  const statuses = ["new", "verifying", "verified", "paused"];
+  const types = ["manufacturer", "trading", "cooperative"];
+  const statuses = [
+    "new","verifying","verified","paused",
+    "draft","submitted","in_verification","published","suspended","archived",
+  ];
+  function arr(v: unknown): string[] {
+    if (Array.isArray(v)) return v.map((x) => String(x)).filter(Boolean);
+    if (typeof v === "string") return v.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
+    return [];
+  }
+  function i18n(v: unknown): Record<string, string> {
+    if (v && typeof v === "object") return v as Record<string, string>;
+    return { en: typeof v === "string" ? v : "" };
+  }
+  const slug = str(raw.slug);
   return {
     name: str(raw.name) ?? "",
     trade_name: str(raw.trade_name),
+    display_name: str(raw.display_name),
+    slug: slug ? slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : null,
     contact_name: str(raw.contact_name),
     contact_title: str(raw.contact_title),
     email: str(raw.email),
@@ -1188,6 +1205,9 @@ function parseSupplierInput(
     address: str(raw.address),
     province: str(raw.province),
     role: (roles.includes(String(raw.role)) ? String(raw.role) : "manufacturer") as SupplierInput["role"],
+    supplier_type: raw.supplier_type && types.includes(String(raw.supplier_type))
+      ? String(raw.supplier_type) as SupplierInput["supplier_type"]
+      : null,
     markets: str(raw.markets),
     products: str(raw.products),
     tax_id: str(raw.tax_id),
@@ -1195,7 +1215,27 @@ function parseSupplierInput(
     lead_time_days: num(raw.lead_time_days),
     rating: rating === null ? null : Math.max(1, Math.min(5, Math.round(rating))),
     notes: str(raw.notes),
-    status: (statuses.includes(String(raw.status)) ? String(raw.status) : "new") as SupplierInput["status"],
+    status: (statuses.includes(String(raw.status)) ? String(raw.status) : "draft") as SupplierInput["status"],
+    founded_year: num(raw.founded_year),
+    employees: num(raw.employees),
+    summary_i18n: i18n(raw.summary_i18n),
+    moq_text: str(raw.moq_text),
+    capacity_per_month: str(raw.capacity_per_month),
+    ports: arr(raw.ports),
+    incoterms: arr(raw.incoterms),
+    export_markets: arr(raw.export_markets),
+    private_label: bool(raw.private_label, false),
+    verification_level: (() => {
+      const n = num(raw.verification_level);
+      return n === null ? 0 : Math.max(0, Math.min(3, Math.round(n)));
+    })(),
+    verified_at: str(raw.verified_at),
+    fob_min: num(raw.fob_min),
+    fob_max: num(raw.fob_max),
+    fob_unit: str(raw.fob_unit),
+    fob_currency: str(raw.fob_currency) ?? (num(raw.fob_min) !== null || num(raw.fob_max) !== null ? "USD" : null),
+    fob_updated_at: str(raw.fob_updated_at),
+    fob_publicly_visible: bool(raw.fob_publicly_visible, false),
   };
 }
 
@@ -1263,11 +1303,18 @@ function parseProductInput(
   return {
     supplier_id: str(raw.supplier_id) ?? "",
     name: str(raw.name) ?? "",
+    slug: str(raw.slug) || null,
+    name_i18n: (raw.name_i18n && typeof raw.name_i18n === "object"
+      ? (raw.name_i18n as Record<string, string>)
+      : undefined),
     category: str(raw.category),
     description: str(raw.description),
     spec: str(raw.spec),
+    specs: (raw.specs && typeof raw.specs === "object" ? (raw.specs as Record<string, unknown>) : undefined),
     unit: str(raw.unit),
     moq: str(raw.moq),
+    moq_qty: num(raw.moq_qty),
+    moq_unit: str(raw.moq_unit),
     monthly_capacity: str(raw.monthly_capacity),
     lead_time_days: num(raw.lead_time_days),
     packaging: str(raw.packaging),
@@ -1282,6 +1329,7 @@ function parseProductInput(
     payment_terms: str(raw.payment_terms),
     samples: bool(raw.samples, false),
     ready_for_buyer: bool(raw.ready_for_buyer, false),
+    images: Array.isArray(raw.images) ? (raw.images as string[]) : undefined,
   };
 }
 
@@ -2185,5 +2233,65 @@ export async function submitQuoteLeadAction(input: {
       ok: false,
       message: err instanceof Error ? err.message : "Could not save your enquiry, please email us directly.",
     };
+  }
+}
+
+/* ----------------------------- CATEGORIES ----------------------------- */
+
+function parseCategoryInput(raw: Record<string, unknown>) {
+  const slug = (str(raw.slug) ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const name_en = str(raw.name_en) ?? "";
+  const intro_en = str(raw.intro_en) ?? "";
+  const seoTitleEn = str(raw.seo_title_en);
+  const seoDescEn = str(raw.seo_desc_en);
+  return {
+    slug,
+    parent_id: str(raw.parent_id) || null,
+    name_i18n: name_en ? ({ en: name_en } as Category["name_i18n"]) : undefined,
+    intro_i18n: intro_en ? ({ en: intro_en } as Category["intro_i18n"]) : undefined,
+    seo_title_i18n: seoTitleEn ? ({ en: seoTitleEn } as Category["seo_title_i18n"]) : undefined,
+    seo_desc_i18n: seoDescEn ? ({ en: seoDescEn } as Category["seo_desc_i18n"]) : undefined,
+    is_published: bool(raw.is_published, false),
+    sort_order: num(raw.sort_order) ?? 0,
+  };
+}
+
+export async function createCategoryAction(raw: Record<string, unknown>) {
+  const gate = await guard("suppliers.manage");
+  if (gate) return gate;
+  const input = parseCategoryInput(raw);
+  if (!input.slug) return { ok: false, message: "Slug không được để trống." };
+  if (!input.name_i18n?.en) return { ok: false, message: "Vui lòng nhập tên danh mục (tiếng Anh)." };
+  try {
+    const created = await getStore().createCategory(input as Partial<Category>);
+    revalidateAll();
+    return { ok: true, message: `Đã tạo danh mục "${created.name_i18n?.en ?? created.slug}".`, id: created.id };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
+  }
+}
+
+export async function updateCategoryAction(id: string, raw: Record<string, unknown>) {
+  const gate = await guard("suppliers.manage");
+  if (gate) return gate;
+  const input = parseCategoryInput(raw);
+  try {
+    await getStore().updateCategory(id, input);
+    revalidateAll();
+    return { ok: true, message: "Đã lưu danh mục." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
+  }
+}
+
+export async function deleteCategoryAction(id: string) {
+  const gate = await guard("suppliers.manage");
+  if (gate) return gate;
+  try {
+    await getStore().deleteCategory(id);
+    revalidateAll();
+    return { ok: true, message: "Đã xoá danh mục." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
   }
 }

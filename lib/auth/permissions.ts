@@ -14,6 +14,7 @@ export type Permission =
   | "suppliers.view"
   | "suppliers.manage"
   | "suppliers.delete"
+  | "suppliers.publish"
   | "products.view"
   | "products.manage"
   | "media.view"
@@ -26,7 +27,15 @@ export type Permission =
   | "settings.view"
   | "users.manage"
   | "kpi.view"
-  | "blog.manage";
+  | "blog.manage"
+  /** Quản lý categories công khai */
+  | "categories.manage"
+  /** Thực hiện kiểm tra xác minh (inspector) */
+  | "verifications.inspect"
+  /** Duyệt kết quả xác minh (chỉ admin) */
+  | "verifications.approve"
+  /** Xử lý RFQ, ghép seller, gửi báo giá cho buyer */
+  | "rfq.manage";
 
 export const ROLES: {
   value: UserRole;
@@ -79,6 +88,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "suppliers.view",
     "suppliers.manage",
     "suppliers.delete",
+    "suppliers.publish",
     "products.view",
     "products.manage",
     "media.view",
@@ -91,6 +101,10 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "users.manage",
     "kpi.view",
     "blog.manage",
+    "categories.manage",
+    "verifications.inspect",
+    "verifications.approve",
+    "rfq.manage",
   ],
   sale: [
     "buyers.view",
@@ -106,6 +120,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "mail.send",
     "kpi.view",
     "blog.manage",
+    "rfq.manage",
   ],
   sourcing: [
     "buyers.view",
@@ -118,6 +133,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "media.internal",
     "mail.view",
     "mail.send",
+    "verifications.inspect",
   ],
   viewer: VIEW_ONLY,
 };
