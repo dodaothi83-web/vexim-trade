@@ -52,6 +52,7 @@ export default async function RfqPage({
         initialCategory={sp?.category ?? null}
         initialSupplierIds={supplierIds}
         wantsSamples={sp?.sample === "1"}
+        turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? null}
       />
 
       <p className="mt-6 text-[12.5px] leading-relaxed text-ink-500">

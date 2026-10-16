@@ -75,7 +75,7 @@ export default async function RfqDetailPage({
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string>>;
 }) {
-  await requirePagePermission("suppliers.manage", "/crm/dashboard");
+  await requirePagePermission("rfq.manage", "/crm/dashboard");
   const { id } = await params;
   const sp = await searchParams;
   const store = getStore();

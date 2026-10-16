@@ -74,7 +74,7 @@ export interface SubmitRfqResult {
   status?: string;
   accessToken?: string;
   statusPageUrl?: string;
-  spam?: { score: number; flags: string[]; quarantine: boolean };
+  spam?: { score: number; flags: string[]; quarantine: boolean; needsReview: boolean };
   rateLimited?: boolean;
 }
 
@@ -124,7 +124,11 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   // 2) Turnstile
   const turnstileOk = await verifyTurnstile(raw.turnstile_token);
 
-  // 3) Spam score
+  // 3) Spam score (3 ngưỡng):
+  //    - < 40   : new        → ghi nhận ngay, ack buyer, báo desk (SLA 4h/24h áp dụng).
+  //    - 40–99  : needs_review → nghi ngờ, ack buyer với dòng "đang xem xét thủ công",
+  //                              internal email được gắn cờ spam review, không auto-assign.
+  //    - ≥ 100  : spam       → cách ly, KHÔNG gửi ack buyer, chỉ gửi cảnh báo nội bộ.
   const { score: spamScore, flags } = scoreSpam({
     name: raw.contact_name,
     email: raw.email,
@@ -136,7 +140,10 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     honeypot: raw.honeypot,
     turnstileOk,
   });
-  const quarantine = spamScore >= 100;
+  let rfqStatus: Rfq["status"] = "new";
+  let ackBuyer = true;
+  if (spamScore >= 100) { rfqStatus = "spam"; ackBuyer = false; }
+  else if (spamScore >= 40) { rfqStatus = "needs_review"; ackBuyer = true; }
 
   // 4) Từ chối webmail nếu cờ bật
   if (rejectWebmail() && isLikelyWebmail(raw.email)) {
@@ -284,32 +291,51 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     referrer: raw.referrer ?? null,
     spam_score: spamScore,
     spam_flags: flags,
-    status: (quarantine ? "spam" : "new") as Rfq["status"],
+    status: rfqStatus,
     assigned_to: null,
     first_response_at: null,
+    lost_reason: null,
     closed_reason: null,
     access_token: generateAccessToken(),
   });
 
+  // Audit log — ghi nhận mọi RFQ submit vào hệ thống (người gửi là "buyer:email").
+  try {
+    await store.addAuditLog({
+      actor_id: buyer.id,
+      actor_email: buyer.email,
+      entity: "rfq",
+      entity_id: rfq.id,
+      action: rfqStatus === "spam" ? "submit_spam" : rfqStatus === "needs_review" ? "submit_flagged" : "submit",
+      before: null,
+      after: { status: rfqStatus, spam_score: spamScore, spam_flags: flags },
+    });
+  } catch {
+    // audit lỗi không làm hỏng luồng submit
+  }
+
   // Gửi email (best-effort; lỗi gửi không làm mất RFQ vì đã lưu vào DB).
   try {
-    await sendRfqAckBuyer({ rfq, buyer });
+    if (ackBuyer) await sendRfqAckBuyer({ rfq, buyer });
     await sendRfqNewInternal({ rfq, buyer });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn("[rfq] email send failed, but rfq is saved:", err);
   }
 
+  let message = "Yêu cầu đã được gửi! Kiểm tra email để theo dõi tiến độ.";
+  if (rfqStatus === "needs_review") message = "Yêu cầu đã được nhận. Chúng tôi đang xem xét thủ công và sẽ liên lạc lại trong vòng vài giờ làm việc.";
+  if (rfqStatus === "spam") message = "Yêu cầu đã được nhận và đang chờ duyệt.";
+
   return {
     ok: true,
-    message: quarantine
-      ? "Yêu cầu đã được nhận và đang được đội ngũ xem xét (cờ spam)."
-      : "Yêu cầu đã được gửi! Kiểm tra email để theo dõi tiến độ.",
+    message,
     rfqId: rfq.id,
     buyerId: buyer.id,
     status: rfq.status,
     accessToken: rfq.access_token,
-    statusPageUrl: `/rfq/status/${rfq.access_token}`,
-    spam: { score: spamScore, flags, quarantine },
+    // spam RFQ không tiết lộ link theo dõi (không có ack).
+    statusPageUrl: rfqStatus === "spam" ? undefined : `/rfq/status/${rfq.access_token}`,
+    spam: { score: spamScore, flags, quarantine: rfqStatus === "spam", needsReview: rfqStatus === "needs_review" },
   };
 }

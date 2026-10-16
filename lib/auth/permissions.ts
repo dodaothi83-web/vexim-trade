@@ -123,6 +123,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "mail.send",
     "kpi.view",
     "blog.manage",
+    "categories.manage",
     "rfq.manage",
   ],
   sourcing: [
@@ -136,6 +137,8 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "media.internal",
     "mail.view",
     "mail.send",
+    "categories.manage",
+    "rfq.manage",
     "verifications.inspect",
   ],
   viewer: VIEW_ONLY,

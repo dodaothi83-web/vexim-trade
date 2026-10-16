@@ -47,7 +47,9 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
     <p><strong>What happens next?</strong></p>
     <ul>
       <li>We will assign your request to a desk specialist within 4 business hours (Asia/Ho_Chi_Minh time).</li>
-      <li>We screen and shortlist ${rfq.status === "spam" ? "once reviewed" : "2–4"} suitable suppliers within 24 hours.</li>
+      ${rfq.status === "needs_review"
+        ? "<li>Your request is being reviewed manually to make sure it reaches the right desk — expect a reply within one business day.</li>"
+        : "<li>We screen and shortlist 2–4 suitable suppliers within 24 hours.</li>"}
       <li>You will receive a comparison with MOQ, lead time, certification status and FOB references where we are authorised to share them.</li>
     </ul>
     <p>You can check progress any time without logging in using this private link:<br/>
@@ -76,18 +78,27 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
 export async function sendRfqNewInternal(input: { rfq: Rfq; buyer: Buyer }): Promise<void> {
   const { rfq, buyer } = input;
   const adminUrl = `${SITE_URL}/crm/rfqs/${rfq.id}`;
-  const quarantine = rfq.status === "spam";
+  const isSpam = rfq.status === "spam";
+  const isReview = rfq.status === "needs_review";
 
-  const title = quarantine
-    ? `⚠ RFQ ${rfq.code} needs review (spam score ${rfq.spam_score})`
-    : `New RFQ ${rfq.code} — ${escapeHtml(buyer.company)}`;
+  const title = isSpam
+    ? `🚫 Spam quarantined — RFQ ${rfq.code} (score ${rfq.spam_score})`
+    : isReview
+      ? `⚠ RFQ ${rfq.code} flagged for manual review (score ${rfq.spam_score}) — ${escapeHtml(buyer.company)}`
+      : `New RFQ ${rfq.code} — ${escapeHtml(buyer.company)}`;
 
   const body = `
-    ${quarantine
-      ? `<p style="color:#b91c1c;"><strong>This request was quarantined automatically.</strong>
-         Spam score: ${rfq.spam_score}. Flags: ${escapeHtml(rfq.spam_flags.join(", ") || "none")}.</p>`
-      : `<p>A new sourcing request is ready for triage. Reply target: <strong>24h</strong>
-         from receipt (Asia/Ho_Chi_Minh business hours).</p>`}
+    ${isSpam
+      ? `<p style="color:#b91c1c;"><strong>This request was quarantined automatically as spam.</strong>
+         Spam score: ${rfq.spam_score}. Flags: ${escapeHtml(rfq.spam_flags.join(", ") || "none")}.<br/>
+         Buyer was NOT sent a confirmation email. Open CRM to delete or mark legitimate.</p>`
+      : isReview
+        ? `<p style="color:#b45309;"><strong>This request was flagged for manual review (score ${rfq.spam_score}).</strong>
+           Flags: ${escapeHtml(rfq.spam_flags.join(", ") || "none")}.<br/>
+           Buyer has already received a “we are reviewing” acknowledgement. Please triage within 4 business hours
+           and either assign to a desk specialist or mark as spam.</p>`
+        : `<p>A new sourcing request is ready for triage. Reply target: <strong>24h</strong>
+           from receipt (Asia/Ho_Chi_Minh business hours). Assign within <strong>4 hours</strong>.</p>`}
     <table cellpadding="6" style="border-collapse:collapse;font-size:14px;">
       <tr><td style="color:#64748b;width:140px;">Company</td><td><strong>${escapeHtml(buyer.company)}</strong></td></tr>
       <tr><td style="color:#64748b;">Contact</td><td>${escapeHtml(buyer.contact_name ?? "")} · ${escapeHtml(buyer.email ?? "")} · ${escapeHtml(buyer.phone ?? "")}</td></tr>
@@ -110,9 +121,11 @@ export async function sendRfqNewInternal(input: { rfq: Rfq; buyer: Buyer }): Pro
   const html = wrapPlainEmail({ title, body });
   await transport({
     to: [DESK_INBOX],
-    subject: quarantine
-      ? `[QUARANTINE] RFQ ${rfq.code} – spam score ${rfq.spam_score}`
-      : `[New RFQ] ${rfq.code} – ${buyer.company}`,
+    subject: isSpam
+      ? `[SPAM] ${title}`
+      : isReview
+        ? `[REVIEW] ${title}`
+        : `[New RFQ] ${title}`,
     html,
     text: stripHtml(body),
     headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Status": rfq.status },
