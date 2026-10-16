@@ -247,9 +247,9 @@ export async function dispatchRfqToSuppliers(input: {
     sent += 1;
   }
 
-  // Đẩy RFQ sang quoting nếu có ít nhất 1 NCC được gửi
-  if (sent > 0 && !["quoting", "sampling", "won", "lost", "closed"].includes(rfq.status)) {
-    await store.updateRfq(rfq.id, { status: "quoting" });
+  // Đẩy RFQ sang matching nếu có ít nhất 1 NCC được gửi
+  if (sent > 0 && !["matching", "quoted", "sampling", "won", "lost", "spam"].includes(rfq.status)) {
+    await store.updateRfq(rfq.id, { status: "matching" });
   }
   return { sent, skipped };
 }
@@ -290,9 +290,9 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
   for (const m of quoted) {
     await store.updateRfqMatch(m.id, { status: "presented_to_buyer", sent_to_buyer_at: new Date().toISOString() });
   }
-  // Ghi nhận thời điểm trả lời đầu tiên (dùng cho SLA)
+  // Ghi nhận thời điểm trả lời đầu tiên (dùng cho SLA) và chuyển sang quoted
   await store.updateRfq(rfq.id, {
-    status: "quoting",
+    status: "quoted",
     first_response_at: rfq.first_response_at ?? new Date().toISOString(),
   });
   return { sent: true, quotedCount: quoted.length };

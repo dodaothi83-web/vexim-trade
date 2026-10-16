@@ -44,8 +44,8 @@ export async function GET(req: Request) {
   const buyerMap = new Map(buyers.map((b) => [b.id, b]));
   const userMap = new Map(users.map((u) => [u.id, u]));
   const now = Date.now();
-  const closed = new Set(["won", "lost", "closed", "spam"]);
-  const activeResponse = new Set(["new", "qualified", "matching", "quoting"]);
+  const closed = new Set(["won", "lost", "spam"]);
+  const activeResponse = new Set(["new", "needs_review", "in_progress", "matching", "quoted"]);
 
   let unassigned = 0;
   let due = 0;

@@ -466,9 +466,9 @@ function migrateCategoryDefaults(db: LocalShape) {
     // Đồng bộ hoá: is_published = (status === "published")
     c.is_published = c.status === "published";
   }
-  // public_page_ready = có ít nhất 1 NCC ĐÃ ĐƯỢC DUYỆT CÔNG KHAI (status === "published")
-  // có sản phẩm thuộc category này — tính lại mỗi lần load DB để badge/State A cập nhật
-  // tức thì khi duyệt/gỡ NCC, không chờ migrate hay seed lại.
+  // public_page_ready LÀ TRƯỜNG COMPUTED, được tính trong listCategories/getCategory/getCategoryBySlug
+  // (không ghi vào cache/disk, tránh làm bẩn dữ liệu đã persist).
+  // Đặt mặc định false cho record mới tạo; getter sẽ decorate lại khi trả cho caller.
   const allProducts = db.products ?? [];
   const allSuppliers = db.suppliers ?? [];
   const publicSupplierIds = new Set(
@@ -480,9 +480,19 @@ function migrateCategoryDefaults(db: LocalShape) {
     const slug = (p.category ?? "").toLowerCase();
     if (slug) catSlugHasPublicSupplier.add(slug);
   }
-  for (const c of db.categories) {
-    // Match cả category cha nếu sản phẩm gắn vào category con? Không — chỉ tính chính xác slug.
-    c.public_page_ready = catSlugHasPublicSupplier.has(c.slug.toLowerCase());
+  (db as unknown as { __catReady?: Set<string> }).__catReady = catSlugHasPublicSupplier;
+}
+
+/** Di chuyển trạng thái cũ → mới; backfill lost_reason; ép buộc lost có lý do chỉ ở tầng server action. */
+function migrateRfqDefaults(db: LocalShape) {
+  if (!Array.isArray(db.rfqs)) return;
+  for (const r of db.rfqs) {
+    if (r.lost_reason === undefined) r.lost_reason = null;
+    // Map status cũ → mới.
+    const s = r.status as string | undefined;
+    if (s === "qualified") r.status = "in_progress";
+    else if (s === "quoting") r.status = "quoted";
+    else if (s === "closed") r.status = "lost";
   }
 }
 
@@ -641,6 +651,7 @@ function load(): LocalShape {
     if (!Array.isArray(c.audit_log)) c.audit_log = [];
     ensureSeedCategories(c);
     migrateCategoryDefaults(c);
+    migrateRfqDefaults(c);
     ensureDemoSuppliers(c);
     removeProspectsWithoutEmail(c);
     return c;
@@ -674,9 +685,9 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.rfq_matches)) parsed.rfq_matches = [];
         if (!Array.isArray(parsed.introductions)) parsed.introductions = [];
         if (!Array.isArray(parsed.audit_log)) parsed.audit_log = [];
-        // Nếu categories cũ chỉ có cashew → merge seed đa ngành (tránh mất danh mục mới khi nâng cấp).
         ensureSeedCategories(parsed);
         migrateCategoryDefaults(parsed);
+        migrateRfqDefaults(parsed);
         ensureDemoSuppliers(parsed);
         removeProspectsWithoutEmail(parsed);
         g.__veximLocal = parsed;
@@ -688,6 +699,7 @@ function load(): LocalShape {
   }
   const fresh = seed();
   migrateCategoryDefaults(fresh);
+  migrateRfqDefaults(fresh);
   ensureDemoSuppliers(fresh);
   g.__veximLocal = fresh;
   persist(fresh);
@@ -1238,14 +1250,24 @@ export const localStore: DataStore = {
 
   /* ----------------------- RFQ FOUNDATION --------------------------------- */
   async listCategories(options?: { publishedOnly?: boolean }): Promise<Category[]> {
-    const all = load().categories ?? [];
-    return options?.publishedOnly ? all.filter((c) => c.is_published) : [...all];
+    const db = load();
+    const ready = (db as unknown as { __catReady?: Set<string> }).__catReady ?? new Set<string>();
+    const decorate = (c: Category): Category => ({ ...c, public_page_ready: ready.has(c.slug.toLowerCase()) });
+    let all = (db.categories ?? []).map(decorate);
+    if (options?.publishedOnly) all = all.filter((c) => c.is_published);
+    return all;
   },
   async getCategory(id) {
-    return (load().categories ?? []).find((c) => c.id === id) ?? null;
+    const db = load();
+    const ready = (db as unknown as { __catReady?: Set<string> }).__catReady ?? new Set<string>();
+    const row = (db.categories ?? []).find((c) => c.id === id) ?? null;
+    return row ? { ...row, public_page_ready: ready.has(row.slug.toLowerCase()) } : null;
   },
   async getCategoryBySlug(slug) {
-    return (load().categories ?? []).find((c) => c.slug === slug) ?? null;
+    const db = load();
+    const ready = (db as unknown as { __catReady?: Set<string> }).__catReady ?? new Set<string>();
+    const row = (db.categories ?? []).find((c) => c.slug === slug) ?? null;
+    return row ? { ...row, public_page_ready: ready.has(row.slug.toLowerCase()) } : null;
   },
   async createCategory(input) {
     const now = new Date().toISOString();
@@ -1448,6 +1470,7 @@ export const localStore: DataStore = {
       status: "new" as const,
       assigned_to: null,
       first_response_at: null,
+      lost_reason: null,
       closed_reason: null,
       access_token: randomUUID(),
       created_at: now,
@@ -1463,7 +1486,12 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = (db.rfqs ?? []).find((r) => r.id === id);
       if (!row) throw new Error("RFQ not found");
-      Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      // Ép buộc lost_reason khi chuyển sang lost.
+      const next = { ...row, ...cleanPatch({ ...patch, updated_at: new Date().toISOString() }) } as typeof row;
+      if (next.status === "lost" && !(next.lost_reason && String(next.lost_reason).trim())) {
+        throw new Error("Bắt buộc chọn lý do thất bại (lost_reason) khi đóng RFQ là lost.");
+      }
+      Object.assign(row, next);
       return row;
     });
   },

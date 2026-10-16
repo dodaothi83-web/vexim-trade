@@ -93,7 +93,7 @@ export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
   faqs: CASHEW_FAQS,
   filters: CASHEW_FILTERS,
   active_on_homepage: true,
-  public_page_ready: true,
+  public_page_ready: false, // computed từ NCC published, không hardcode
   seo_indexable: false, // bật sau khi hết [ngoặc vuông] + có hồ sơ thật
 };
 

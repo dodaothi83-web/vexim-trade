@@ -287,15 +287,15 @@ export interface Verification {
 /* ----------------------------- RFQs --------------------------------------- */
 
 export type RfqStatus =
-  | "new"
-  | "qualified"
-  | "matching"
-  | "quoting"
-  | "sampling"
-  | "won"
-  | "lost"
-  | "spam"
-  | "closed";
+  | "new"             // vừa vào hộp, chưa chạm
+  | "needs_review"    // cần kiểm tra / qualify thêm (thiếu thông tin, cần hỏi lại buyer)
+  | "in_progress"     // đang xử lý, chưa đủ NCC để báo giá
+  | "matching"        // đang chọn NCC phù hợp để ghép
+  | "quoted"          // đã gửi báo giá cho buyer
+  | "sampling"        // đang gửi/nhận mẫu
+  | "won"             // chốt đơn
+  | "lost"            // không đi tiếp — BẮT BUỘC có lost_reason
+  | "spam";           // spam/không nghiêm túc, loại ra khỏi hộp chính
 
 export type RfqMatchStatus =
   | "proposed"
@@ -346,6 +346,9 @@ export interface Rfq {
   status: RfqStatus;
   assigned_to: string | null;
   first_response_at: string | null;
+  /** Lý do mất đơn — BẮT BUỘC khi status === "lost". Danh sách gợi ý: price, moq, lead_time, spec, certification, no_response, other */
+  lost_reason: string | null;
+  /** Ghi chú thêm khi đóng/thua đơn. */
   closed_reason: string | null;
   access_token: string;
   created_at: string;

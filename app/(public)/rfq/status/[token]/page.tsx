@@ -15,6 +15,7 @@ export const metadata = {
 function statusInfo(status: string) {
   switch (status) {
     case "new":
+    case "new":
       return {
         tone: "bg-sky-50 text-sky-800 ring-sky-200",
         dot: "bg-sky-500",
@@ -22,16 +23,17 @@ function statusInfo(status: string) {
         body: "Your request has been received and is being reviewed by our export desk. We will assign it to a specialist within a few hours (business days, Hanoi time).",
         icon: Clock,
       };
-    case "qualified":
+    case "needs_review":
+    case "in_progress":
       return {
         tone: "bg-sky-50 text-sky-800 ring-sky-200",
         dot: "bg-sky-500",
-        title: "Qualified – preparing shortlist",
-        body: "Your request passed our initial screening. We are selecting 2–4 suitable suppliers and collecting availability.",
+        title: "Under review – preparing shortlist",
+        body: "Your request passed our initial screening. We are clarifying any missing details and selecting 2–4 suitable suppliers.",
         icon: ShieldCheck,
       };
     case "matching":
-    case "quoting":
+    case "quoted":
     case "sampling":
       return {
         tone: "bg-amber-50 text-amber-800 ring-amber-200",
@@ -41,8 +43,14 @@ function statusInfo(status: string) {
         icon: Timer,
       };
     case "won":
+      return {
+        tone: "bg-emerald-50 text-emerald-800 ring-emerald-200",
+        dot: "bg-emerald-500",
+        title: "Order confirmed",
+        body: "Your order has been confirmed with the chosen supplier. We will coordinate production and shipment.",
+        icon: CheckCircle2,
+      };
     case "lost":
-    case "closed":
       return {
         tone: "bg-ink-100 text-ink-700 ring-ink-200",
         dot: "bg-ink-500",

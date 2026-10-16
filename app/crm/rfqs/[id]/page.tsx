@@ -41,14 +41,14 @@ export const dynamic = "force-dynamic";
 
 const STATUS_FLOW: { value: RfqStatus; label: string; dot: string }[] = [
   { value: "new", label: "Mới tiếp nhận", dot: "bg-slate-400" },
-  { value: "qualified", label: "Đã duyệt hợp lệ", dot: "bg-sky-500" },
+  { value: "needs_review", label: "Cần duyệt", dot: "bg-rose-500" },
+  { value: "in_progress", label: "Đang xử lý", dot: "bg-sky-500" },
   { value: "matching", label: "Đang ghép NCC", dot: "bg-amber-500" },
-  { value: "quoting", label: "Đang lấy báo giá", dot: "bg-amber-600" },
+  { value: "quoted", label: "Đã gửi báo giá", dot: "bg-amber-600" },
   { value: "sampling", label: "Đang gửi mẫu", dot: "bg-violet-500" },
   { value: "won", label: "Thành công", dot: "bg-emerald-500" },
-  { value: "lost", label: "Thất bại", dot: "bg-ink-400" },
+  { value: "lost", label: "Thất bại (bắt buộc lý do)", dot: "bg-ink-400" },
   { value: "spam", label: "Cách ly spam", dot: "bg-red-500" },
-  { value: "closed", label: "Đã đóng", dot: "bg-ink-400" },
 ];
 
 const MATCH_STATUS: { value: string; label: string; dot: string }[] = [

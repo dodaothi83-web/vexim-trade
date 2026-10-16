@@ -21,12 +21,14 @@ export const dynamic = "force-dynamic";
 
 const STATUS_TABS: { key: string; label: string; dotClass?: string }[] = [
   { key: "all", label: "Tất cả" },
-  { key: "new", label: "Mới", dotClass: "bg-sky-500" },
-  { key: "qualified", label: "Đã duyệt", dotClass: "bg-sky-500" },
+  { key: "new", label: "Mới", dotClass: "bg-slate-400" },
+  { key: "needs_review", label: "Cần duyệt", dotClass: "bg-rose-500" },
+  { key: "in_progress", label: "Đang xử lý", dotClass: "bg-sky-500" },
   { key: "matching", label: "Đang ghép NCC", dotClass: "bg-amber-500" },
-  { key: "quoting", label: "Đang lấy báo giá", dotClass: "bg-amber-500" },
+  { key: "quoted", label: "Đã báo giá", dotClass: "bg-amber-600" },
   { key: "sampling", label: "Đang gửi mẫu", dotClass: "bg-violet-500" },
   { key: "won", label: "Thành công", dotClass: "bg-emerald-500" },
+  { key: "lost", label: "Thất bại", dotClass: "bg-ink-400" },
   { key: "spam", label: "Cách ly", dotClass: "bg-red-500" },
 ];
 
@@ -45,8 +47,8 @@ function slaInfo(rfq: Rfq): { label: string; tone: string } {
   const now = Date.now();
   const ageHours = (now - created) / 3_600_000;
   if (rfq.status === "spam") return { label: "spam quarantine", tone: "text-red-700" };
-  if (rfq.status === "won" || rfq.status === "lost" || rfq.status === "closed") {
-    return { label: "closed", tone: "text-ink-500" };
+  if (rfq.status === "won" || rfq.status === "lost") {
+    return { label: rfq.status === "won" ? "won" : "lost", tone: rfq.status === "won" ? "text-emerald-700" : "text-ink-500" };
   }
   if (!rfq.assigned_to && ageHours >= 4) return { label: "unassigned 4h+", tone: "text-red-700" };
   if (!rfq.first_response_at && ageHours >= 20) return { label: "response due", tone: "text-amber-700" };
