@@ -1,7 +1,7 @@
 import { RfqForm } from "./rfq-form";
 import { Breadcrumbs } from "@/components/ui";
 import { getStore } from "@/lib/db";
-import type { Category } from "@/lib/types";
+import type { Category, CategoryFilter } from "@/lib/types";
 
 export const metadata = {
   title: "Request a quote | Veximtrade",
@@ -49,6 +49,10 @@ export default async function RfqPage({
 
       <RfqForm
         categories={categories.map((c: Category) => ({ slug: c.slug, name: c.name_i18n?.en ?? c.slug }))}
+        categorySpecs={Object.fromEntries(categories.map((c: Category) => [c.slug, {
+          grades: (c.filters as CategoryFilter[] | null)?.find((f) => f.key === "grade")?.options.map((o) => o.value) ?? [],
+          certs: (c.filters as CategoryFilter[] | null)?.find((f) => f.key === "certifications")?.options.map((o) => o.value) ?? [],
+        }]))}
         initialCategory={sp?.category ?? null}
         initialSupplierIds={supplierIds}
         wantsSamples={sp?.sample === "1"}

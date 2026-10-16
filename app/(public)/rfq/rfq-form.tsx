@@ -24,8 +24,14 @@ interface Option {
   name: string;
 }
 
+interface CategorySpec {
+  grades: string[];
+  certs: string[];
+}
+
 interface Props {
   categories: Option[];
+  categorySpecs: Record<string, CategorySpec>;
   initialCategory: string | null;
   initialSupplierIds: string[];
   wantsSamples: boolean;
@@ -48,7 +54,7 @@ const FREQUENCIES = ["One-time", "Monthly", "Quarterly", "Spot", "Contract"];
 const COUNTRIES = ["US", "EU", "UK", "Japan", "Korea", "China", "Middle East", "Australia", "Canada", "Other"];
 const BUSINESS_TYPES = ["Importer / Distributor", "Brand / Manufacturer", "Wholesaler", "Retailer", "Trading company", "Other"];
 
-export function RfqForm({ categories, initialCategory, initialSupplierIds, wantsSamples, turnstileSiteKey }: Props) {
+export function RfqForm({ categories, categorySpecs, initialCategory, initialSupplierIds, wantsSamples, turnstileSiteKey }: Props) {
   const router = useRouter();
   const params = useSearchParams();
   const [step, setStep] = useState(1);
@@ -74,7 +80,8 @@ export function RfqForm({ categories, initialCategory, initialSupplierIds, wants
     wants_inspection: false,
     wants_video_call: false,
     packaging: "",
-    certifications: "",
+    certifications: [] as string[],
+    certOther: "",
     message: "",
     preferred_supplier_ids: initialSupplierIds,
     // Company
@@ -147,7 +154,10 @@ export function RfqForm({ categories, initialCategory, initialSupplierIds, wants
         wants_video_call: data.wants_video_call,
         preferred_supplier_ids: data.preferred_supplier_ids,
         packaging: data.packaging || null,
-        certifications: data.certifications || null,
+        certifications: [
+          ...(data.certifications as string[]),
+          ...((data.certOther as string) ? String(data.certOther).split(/[,;]/).map((s) => s.trim()).filter(Boolean) : []),
+        ].join(", ") || null,
         message: data.message || null,
         company: data.company,
         contact_name: data.contact_name,
@@ -240,8 +250,34 @@ export function RfqForm({ categories, initialCategory, initialSupplierIds, wants
               placeholder="E.g. Robusta coffee grade 2 screen 18 washed, 1×40'FCL / month; or W320 cashew kernels AFI 50 MT; or Vannamei shrimp PD 21/25…"
             />
           </Field>
-          <Field label="Grade / spec">
-            <input className="input" value={data.grade} onChange={(e) => update("grade", e.target.value)} placeholder="W320, WW240, LP..." />
+          <Field label="Grade / spec" hint={categorySpecs[data.category_slug]?.grades?.length ? "Tap to pick common grades for this category, or type a custom one." : undefined}>
+            {categorySpecs[data.category_slug]?.grades?.length ? (
+              <div className="flex flex-wrap gap-2">
+                {categorySpecs[data.category_slug].grades.map((g) => (
+                  <button key={g} type="button" onClick={() => update("grade", data.grade === g ? "" : g)}
+                    className={cx(
+                      "rounded-full border px-3 py-1 text-[12.5px] font-medium transition",
+                      data.grade === g ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-600 hover:border-ink-400",
+                    )}>{g}</button>
+                ))}
+                <button type="button" onClick={() => update("grade", "__custom__")}
+                  className={cx(
+                    "rounded-full border px-3 py-1 text-[12.5px] font-medium transition",
+                    data.grade && !categorySpecs[data.category_slug].grades.includes(data.grade)
+                      ? "border-brand-600 bg-brand-50 text-brand-700"
+                      : "border-dashed border-ink-300 text-ink-500 hover:border-ink-500",
+                  )}>Other…</button>
+              </div>
+            ) : null}
+            {(!categorySpecs[data.category_slug]?.grades?.length || data.grade === "__custom__" ||
+              (data.grade && !categorySpecs[data.category_slug].grades.includes(data.grade))) && (
+              <input
+                className={cx("input", categorySpecs[data.category_slug]?.grades?.length ? "mt-2" : "")}
+                value={data.grade === "__custom__" ? "" : data.grade}
+                onChange={(e) => update("grade", e.target.value)}
+                placeholder="W320, WW240, LP, other spec..."
+              />
+            )}
           </Field>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Quantity" required error={errors.quantity}>
@@ -298,8 +334,28 @@ export function RfqForm({ categories, initialCategory, initialSupplierIds, wants
           <Field label="Packaging / labelling requirements">
             <textarea rows={2} className="input resize-y" value={data.packaging} onChange={(e) => update("packaging", e.target.value)} placeholder="E.g. 10kg vacuum tins per carton, private label." />
           </Field>
-          <Field label="Required certifications">
-            <input className="input" value={data.certifications} onChange={(e) => update("certifications", e.target.value)} placeholder="HACCP, BRC, organic, fair-trade..." />
+          <Field label="Required certifications" hint="Pick any that apply, or add your own.">
+            {categorySpecs[data.category_slug]?.certs?.length ? (
+              <div className="flex flex-wrap gap-2">
+                {categorySpecs[data.category_slug].certs.map((c) => {
+                  const active = (data.certifications as string[]).includes(c);
+                  return (
+                    <button key={c} type="button"
+                      onClick={() => update("certifications", active ? (data.certifications as string[]).filter((x) => x !== c) : [...(data.certifications as string[]), c])}
+                      className={cx(
+                        "rounded-full border px-3 py-1 text-[12.5px] font-medium transition",
+                        active ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-600 hover:border-ink-400",
+                      )}>{c}</button>
+                  );
+                })}
+              </div>
+            ) : null}
+            <input
+              className={cx("input", categorySpecs[data.category_slug]?.certs?.length ? "mt-2" : "")}
+              value={data.certOther as string}
+              onChange={(e) => update("certOther", e.target.value)}
+              placeholder="Other certification: HACCP, BRC, organic, fair-trade, ISO, ..."
+            />
           </Field>
           <Field label="Additional notes for the desk">
             <textarea rows={3} className="input resize-y" value={data.message} onChange={(e) => update("message", e.target.value)} placeholder="Timeline, target port, existing suppliers, anything we should know." />
