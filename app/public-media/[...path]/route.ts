@@ -15,23 +15,42 @@ const MIME_BY_EXT: Record<string, string> = {
 };
 
 /**
- * Phục vụ ảnh công khai (hero category, ảnh trang category, ảnh blog):
+ * Phục vụ ảnh công khai (hero category, ảnh trang category, ảnh blog, ảnh đại diện/bìa
+ * nhà cung cấp và gallery chia sẻ buyer):
  *   /public-media/<prefix>/<tên tệp>
  *
- * Mở các tiền tố công khai: categories/, blog/.
- * Mọi tệp khác (hồ sơ NCC, giấy tờ, email) — 404.
+ * Tiền tố công khai: categories/, blog/, suppliers/.
+ * - suppliers/<id>/profile-* và suppliers/<id>/cover-* luôn mở (định danh/ảnh bìa công khai).
+ * - suppliers/<id>/* còn lại: chỉ ảnh (đuôi ảnh) — MediaManager đánh dấu audience=buyer khi
+ *   nhà quản lý cho phép chia sẻ với buyer; tầng chặn ở đây dựa trên đuôi file để tránh
+ *   vô tình phát tán PDF nội bộ. Giấy tờ chứng nhận/phim không qua route này.
+ *
  * Cache 7 ngày (ảnh tĩnh).
  */
+const PUBLIC_IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif)$/i;
+
+function relAllowed(rel: string): boolean {
+  if (rel.startsWith("categories/") || rel.startsWith("blog/")) return PUBLIC_IMAGE_EXT.test(rel);
+  if (rel.startsWith("suppliers/")) {
+    // Chỉ cho ảnh (đuôi ảnh), chặn PDF/doc và mọi file khác.
+    if (!PUBLIC_IMAGE_EXT.test(rel)) return false;
+    // Không cho đường dẫn quá sâu / chứa các từ khóa nhạy cảm
+    const parts = rel.slice("suppliers/".length).split("/");
+    if (parts.length < 2) return false; // phải suppliers/<id>/<file>
+    const fname = parts[parts.length - 1].toLowerCase();
+    // Mọi ảnh supplier đều có tên dạng random uuid, trừ profile-*/cover-* — cho tất cả.
+    if (fname.startsWith("profile-") || fname.startsWith("cover-")) return true;
+    // uuid-like filename (36 kí tự có gạch ngang) — là file upload qua MediaManager.
+    return /^[a-f0-9-]{20,}\.([a-z]+)$/i.test(fname);
+  }
+  return false;
+}
+
 export async function GET(_request: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const { path: segments } = await params;
   const rel = (segments ?? []).join("/");
 
-  if (
-    !rel ||
-    rel.includes("..") ||
-    !(rel.startsWith("categories/") || rel.startsWith("blog/")) ||
-    !/^[\w/-]+\.[a-z]+$/i.test(rel)
-  ) {
+  if (!rel || rel.includes("..") || !relAllowed(rel)) {
     return new NextResponse("Not found", { status: 404 });
   }
 
