@@ -37,6 +37,7 @@ import type {
   Verification,
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
+import { DEMO_SUPPLIERS } from "@/lib/db/demo-suppliers";
 import type { DataStore } from "@/lib/db/types";
 
 interface LocalShape {
@@ -352,6 +353,118 @@ function removeProspectsWithoutEmail(db: LocalShape) {
   );
 }
 
+/**
+ * Upsert demo suppliers (is_demo=true) vào local DB khi VEXIM_SHOW_DEMO=true.
+ * Tạo id dạng sup-demo-01…, sản phẩm dạng prod-demo-xx. Không đụng tới dữ liệu thật.
+ */
+function ensureDemoSuppliers(db: LocalShape) {
+  if (process.env.VEXIM_SHOW_DEMO !== "true") {
+    // Xoá các demo cũ còn sót nếu env bị tắt, để không bao giờ lọt ra public.
+    const demoIds = new Set(db.suppliers.filter((s) => s.is_demo).map((s) => s.id));
+    if (!demoIds.size) return;
+    db.suppliers = db.suppliers.filter((s) => !s.is_demo);
+    db.products = db.products.filter((p) => !demoIds.has(p.supplier_id));
+    return;
+  }
+  if (!Array.isArray(db.products)) db.products = [];
+
+  const haveBySlug = new Map(
+    db.suppliers.filter((s) => s.is_demo).map((s) => [s.slug, s] as const),
+  );
+  const now = new Date().toISOString();
+  let prodCounter = db.products.length + 1;
+
+  function normalizeDemoSupplier(raw: (typeof DEMO_SUPPLIERS)[number]["supplier"], idx: number): Supplier {
+    const slugBase = (raw.trade_name || raw.name)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || `demo-supplier-${idx + 1}`;
+    const slug = `${slugBase}-demo-${idx + 1}`;
+    const supplier_type =
+      raw.role === "manufacturer"
+        ? "manufacturer"
+        : raw.role === "trader" || raw.role === "agent" || raw.role === "exporter"
+          ? "trading"
+          : null;
+    return {
+      ...raw,
+      id: `sup-demo-${idx + 1}`,
+      slug,
+      display_name: raw.trade_name || raw.name,
+      supplier_type,
+      summary_i18n: raw.summary_i18n ?? { en: raw.products ?? "" },
+      created_at: now,
+      updated_at: now,
+    } as Supplier;
+  }
+
+  function normalizeDemoProduct(raw: DemoProductSeedLike, supId: string, idx: number) {
+    const name = raw.name ?? `Product ${idx + 1}`;
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || `product-${idx + 1}`;
+    return {
+      id: `prod-demo-${prodCounter++}`,
+      supplier_id: supId,
+      name,
+      slug,
+      name_i18n: { en: name },
+      category: raw.category ?? null,
+      description: null,
+      spec: null,
+      specs: {},
+      unit: null,
+      moq: raw.moq ?? null,
+      moq_qty: null,
+      moq_unit: null,
+      monthly_capacity: null,
+      lead_time_days: raw.lead_time_days ?? null,
+      packaging: null,
+      oem: false,
+      certifications: raw.certifications ?? null,
+      export_port: "Cat Lai (HCMC)",
+      ref_price: raw.ref_price ?? null,
+      currency: raw.currency ?? null,
+      price_valid_until: null,
+      incoterm: null,
+      incoterm_place: null,
+      payment_terms: null,
+      samples: true,
+      ready_for_buyer: false,
+      images: [],
+      is_published: true,
+      created_at: now,
+      updated_at: now,
+    };
+  }
+
+  type DemoProductSeedLike = {
+    name: string;
+    category: string;
+    moq?: string | null;
+    certifications?: string | null;
+    ref_price?: number | null;
+    currency?: string | null;
+    lead_time_days?: number | null;
+  };
+
+  DEMO_SUPPLIERS.forEach((demo, idx) => {
+    const normalized = normalizeDemoSupplier(demo.supplier, idx);
+    const existing = haveBySlug.get(normalized.slug);
+    if (existing) {
+      // Giữ id cũ, cập nhật fields.
+      Object.assign(existing, normalized, { id: existing.id });
+    } else {
+      db.suppliers.push(normalized);
+    }
+    const supId = existing?.id ?? normalized.id;
+    // Xoá các sản phẩm demo cũ của supplier này rồi thêm lại (đơn giản hoá).
+    db.products = db.products.filter((p) => !(p.supplier_id === supId && p.id.startsWith("prod-demo-")));
+    demo.products.forEach((p, pi) => {
+      db.products.push(normalizeDemoProduct(p, supId, pi));
+    });
+  });
+}
+
 function load(): LocalShape {
   if (g.__veximLocal) {
     const c = g.__veximLocal;
@@ -382,6 +495,7 @@ function load(): LocalShape {
     if (!Array.isArray(c.introductions)) c.introductions = [];
     if (!Array.isArray(c.audit_log)) c.audit_log = [];
     ensureSeedCategories(c);
+    ensureDemoSuppliers(c);
     removeProspectsWithoutEmail(c);
     return c;
   }
@@ -416,6 +530,7 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.audit_log)) parsed.audit_log = [];
         // Nếu categories cũ chỉ có cashew → merge seed đa ngành (tránh mất danh mục mới khi nâng cấp).
         ensureSeedCategories(parsed);
+        ensureDemoSuppliers(parsed);
         removeProspectsWithoutEmail(parsed);
         g.__veximLocal = parsed;
         return parsed;
@@ -425,6 +540,7 @@ function load(): LocalShape {
     // file hỏng thì seed lại
   }
   const fresh = seed();
+  ensureDemoSuppliers(fresh);
   g.__veximLocal = fresh;
   persist(fresh);
   return fresh;

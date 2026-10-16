@@ -68,8 +68,18 @@ export interface PublicSupplierCard extends Supplier {
  * Public site đọc trực tiếp bảng suppliers (chỉ status='published') để còn lọc linh
  * hoạt theo cột; trong tuần 1 MVP, code lọc tay vì view v_public_suppliers ẩn tạm
  * những supplier chưa published.
+ *
+ * Demo suppliers (is_demo=true) bị loại khỏi list công khai trừ khi:
+ *   - VEXIM_SHOW_DEMO="true" trên môi trường preview/staging, hoặc
+ *   - caller truyền includeDemo=true (chỉ dùng cho staff / trang preview nội bộ).
  */
-export async function listPublicSuppliers(options?: { categorySlug?: string }): Promise<PublicSupplierCard[]> {
+export async function listPublicSuppliers(options?: {
+  categorySlug?: string;
+  includeDemo?: boolean;
+}): Promise<PublicSupplierCard[]> {
+  const showDemo =
+    options?.includeDemo === true ||
+    process.env.VEXIM_SHOW_DEMO === "true";
   const store = getStore();
   const [suppliers, products, categories] = await Promise.all([
     store.listSuppliers(),
@@ -79,7 +89,11 @@ export async function listPublicSuppliers(options?: { categorySlug?: string }): 
       : Promise.resolve([] as Category[]),
   ]);
 
-  const filtered = suppliers.filter((s) => s.status === "published");
+  const filtered = suppliers.filter((s) => {
+    if (s.status !== "published") return false;
+    if (s.is_demo && !showDemo) return false;
+    return true;
+  });
   const bySupplier = new Map<string, SupplierProduct[]>();
   for (const p of products) {
     if (!bySupplier.has(p.supplier_id)) bySupplier.set(p.supplier_id, []);

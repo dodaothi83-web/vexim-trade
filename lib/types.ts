@@ -99,6 +99,12 @@ export interface Supplier {
   fob_updated_at?: string | null;
   /** Đã có sự chấp thuận bằng văn bản của seller để công khai FOB */
   fob_publicly_visible?: boolean;
+  /**
+   * Hồ sơ demo dùng cho preview nội bộ / cho seller xem tại sự kiện.
+   * Luôn được lọc khỏi public list trừ khi VEXIM_SHOW_DEMO=true hoặc staff đăng nhập.
+   * Không dùng tên công ty thật, không xuất hiện trong sitemap/thống kê.
+   */
+  is_demo?: boolean;
   created_at: string;
   updated_at: string;
 }
