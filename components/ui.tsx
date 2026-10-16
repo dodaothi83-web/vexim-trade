@@ -68,7 +68,7 @@ export function Field({
   children,
   className,
 }: {
-  label: string;
+  label: ReactNode;
   hint?: string;
   required?: boolean;
   children: ReactNode;
@@ -76,10 +76,10 @@ export function Field({
 }) {
   return (
     <div className={className}>
-      <label className="label">
+      <div className="label">
         {label}
         {required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
+      </div>
       {children}
       {hint && <p className="hint">{hint}</p>}
     </div>

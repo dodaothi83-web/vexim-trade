@@ -2238,38 +2238,74 @@ export async function submitQuoteLeadAction(input: {
 
 /* ----------------------------- CATEGORIES ----------------------------- */
 
+function parseJsonList(raw: unknown): unknown[] {
+  if (!raw || typeof raw !== "string") return [];
+  const t = raw.trim();
+  if (!t) return [];
+  try {
+    const parsed = JSON.parse(t);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function parseCategoryInput(raw: Record<string, unknown>) {
   const slug = (str(raw.slug) ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const name_en = str(raw.name_en) ?? "";
   const intro_en = str(raw.intro_en) ?? "";
+  const h1_en = str(raw.h1_en) ?? "";
+  const body_en = str(raw.body_en) ?? "";
   const seoTitleEn = str(raw.seo_title_en);
   const seoDescEn = str(raw.seo_desc_en);
   const kickerEn = str(raw.kicker_en);
+  const heroAltEn = str(raw.hero_alt_en);
   const heroImage = str(raw.hero_image) || null;
+  const specColumns = parseJsonList(raw.spec_columns);
+  const specRows = parseJsonList(raw.spec_rows);
+  const buyingFacts = parseJsonList(raw.buying_facts);
+  const faqs = parseJsonList(raw.faqs);
+  const filters = parseJsonList(raw.filters);
+  const status = bool(raw.is_published, false) ? "published" : "draft";
+  const seoIndexable = bool(raw.seo_indexable, false);
+  const activeHome = bool(raw.active_on_homepage, false);
+  const publicReady = bool(raw.public_page_ready, false);
   return {
     slug,
     parent_id: str(raw.parent_id) || null,
     name_i18n: name_en ? ({ en: name_en } as Category["name_i18n"]) : undefined,
     intro_i18n: intro_en ? ({ en: intro_en } as Category["intro_i18n"]) : undefined,
+    h1_i18n: h1_en ? ({ en: h1_en } as Category["h1_i18n"]) : null,
+    body_i18n: body_en ? ({ en: body_en } as Category["body_i18n"]) : null,
+    faq_i18n: faqs as Category["faq_i18n"],
+    spec_columns: specColumns as Category["spec_columns"],
+    spec_rows: specRows as unknown as Category["spec_rows"],
+    buying_facts: buyingFacts as Category["buying_facts"],
+    filters: filters as Category["filters"],
     seo_title_i18n: seoTitleEn ? ({ en: seoTitleEn } as Category["seo_title_i18n"]) : undefined,
     seo_desc_i18n: seoDescEn ? ({ en: seoDescEn } as Category["seo_desc_i18n"]) : undefined,
-    homepage_kicker_i18n: kickerEn ? ({ en: kickerEn } as Category["homepage_kicker_i18n"]) : { en: "" },
+    homepage_kicker_i18n: kickerEn ? ({ en: kickerEn } as Category["homepage_kicker_i18n"]) : null,
+    hero_alt_i18n: heroAltEn ? ({ en: heroAltEn } as Category["hero_alt_i18n"]) : null,
     hero_image: heroImage,
-    active_on_homepage: bool(raw.active_on_homepage, false),
-    public_page_ready: bool(raw.public_page_ready, false),
-    is_published: bool(raw.is_published, false),
+    active_on_homepage: activeHome,
+    public_page_ready: publicReady,
+    seo_indexable: seoIndexable,
+    status,
+    is_published: status === "published",
     sort_order: num(raw.sort_order) ?? 0,
-  };
+  } as const;
 }
 
 export async function createCategoryAction(raw: Record<string, unknown>) {
   const gate = await guard("suppliers.manage");
   if (gate) return gate;
+  const store = getStore();
   const input = parseCategoryInput(raw);
   if (!input.slug) return { ok: false, message: "Slug không được để trống." };
   if (!input.name_i18n?.en) return { ok: false, message: "Vui lòng nhập tên danh mục (tiếng Anh)." };
+  if (await store.getCategoryBySlug(input.slug)) return { ok: false, message: `Slug "${input.slug}" đã tồn tại. Chọn slug khác.` };
   try {
-    const created = await getStore().createCategory(input as Partial<Category>);
+    const created = await store.createCategory(input as Partial<Category>);
     revalidateAll();
     return { ok: true, message: `Đã tạo danh mục "${created.name_i18n?.en ?? created.slug}".`, id: created.id };
   } catch (err) {
@@ -2280,9 +2316,16 @@ export async function createCategoryAction(raw: Record<string, unknown>) {
 export async function updateCategoryAction(id: string, raw: Record<string, unknown>) {
   const gate = await guard("suppliers.manage");
   if (gate) return gate;
+  const store = getStore();
+  const existing = await store.getCategory(id);
+  if (!existing) return { ok: false, message: "Danh mục không tồn tại." };
   const input = parseCategoryInput(raw);
+  if (input.slug && input.slug !== existing.slug) {
+    const dup = await store.getCategoryBySlug(input.slug);
+    if (dup && dup.id !== id) return { ok: false, message: `Slug "${input.slug}" đã được dùng bởi danh mục khác.` };
+  }
   try {
-    await getStore().updateCategory(id, input);
+    await store.updateCategory(id, input);
     revalidateAll();
     return { ok: true, message: "Đã lưu danh mục." };
   } catch (err) {
@@ -2293,8 +2336,22 @@ export async function updateCategoryAction(id: string, raw: Record<string, unkno
 export async function deleteCategoryAction(id: string) {
   const gate = await guard("suppliers.manage");
   if (gate) return gate;
+  const store = getStore();
+  const cat = await store.getCategory(id);
+  if (!cat) return { ok: false, message: "Danh mục không tồn tại." };
+  // Chặn xoá nếu có NCC/sản phẩm/RFQ liên quan — chỉ cho lưu trữ (bấm 'Hủy công khai').
+  const [products, rfqs] = await Promise.all([store.listProducts(), store.listRfqs({})]);
+  const hasProducts = products.some((p) => (p.category ?? "").toLowerCase() === cat.slug);
+  const hasRfqs = rfqs.some((r) => (r as { category?: string }).category === cat.slug);
+  if (hasProducts || hasRfqs) {
+    return {
+      ok: false,
+      message:
+        "Không thể xoá vì đã có hồ sơ NCC/sản phẩm hoặc RFQ liên quan. Hãy chuyển trạng thái sang Nháp để ẩn khỏi trang công khai, thay vì xoá.",
+    };
+  }
   try {
-    await getStore().deleteCategory(id);
+    await store.deleteCategory(id);
     revalidateAll();
     return { ok: true, message: "Đã xoá danh mục." };
   } catch (err) {

@@ -167,29 +167,79 @@ export interface Category {
   parent_id: string | null;
   name_i18n: I18nString;
   intro_i18n: I18nString;
+  /** Hero H1 override — nếu để trống thì dùng "{Name} suppliers in Vietnam". */
+  h1_i18n?: I18nString | null;
+  /** Khối mô tả dài, đặt sau danh sách NCC (hoặc sau form lead khi chưa có NCC). */
+  body_i18n?: I18nString | null;
+  /** Các cột bảng thông số (xem CategoryColumn). Bảng hiển thị khi có ≥1 cột. */
+  spec_columns?: CategoryColumn[];
+  /** Các hàng trong bảng thông số. */
+  spec_rows?: CategoryRow[];
+  /** Các mục trong khối "thông tin mua hàng" (xem CategoryFact). */
+  buying_facts?: CategoryFact[];
+  /** FAQ — tự render thành accordion và tự sinh schema FAQPage JSON-LD. */
   faq_i18n: { q: string; a: string }[] | I18nString[] | unknown[];
+  /** Mẫu thuộc tính lọc (verification, type, FOB, grade chips, certifications). */
+  filters?: CategoryFilter[];
   seo_title_i18n: I18nString;
   seo_desc_i18n: I18nString;
-  /** Hero image path for public category page (e.g. /images/categories/cashew-hero.jpg). */
+  /** Ảnh hero cho trang public + thẻ trang chủ. Đường dẫn trong kho public media (/public-media/categories/xxx.jpg). */
   hero_image?: string | null;
-  /** Kicker/hàng phụ hiển thị dưới ảnh trên thẻ trang chủ (vd: "W180 – SP, AFI grades"). */
+  /** Alt text cho ảnh hero (cho SEO + screen readers). */
+  hero_alt_i18n?: I18nString | null;
+  /** Kicker/hàng phụ hiển thị dưới ảnh trên thẻ trang chủ. */
   homepage_kicker_i18n?: I18nString | null;
-  /**
-   * Hiện thẻ category này ở khối "What we source" trang chủ.
-   * Tắt cho các danh mục cha/gộp (vd: nuts-kernels, pepper-spices).
-   */
+  /** Hiện thẻ category này ở khối "What we source" trang chủ. */
   active_on_homepage?: boolean;
   /**
-   * Đã có trang public riêng (`/products/[slug]`) với nội dung bespoke.
-   * Nếu false: click thẻ trang chủ & category link sẽ trỏ về /rfq?category=slug;
-   * trang /products/[slug] sẽ dùng fallback "we're visiting producers".
+   * Cờ "đã có hồ sơ NCC công khai" — được tính khi load DB (từ suppliers[]).
+   * Giữ lại để các thành phần cũ (thẻ trang chủ) không phải query riêng.
    */
   public_page_ready?: boolean;
+  /** Trạng thái biên tập: draft | published. published mới hiện cho buyer. */
+  status?: "draft" | "published";
+  /** Cho Google index trang này. Mặc định false trong giai đoạn đầu. */
+  seo_indexable?: boolean;
+  /** Slug cũ dùng để tự 301 redirect (khi đổi slug). */
+  previous_slugs?: string[];
+  /** ID người tạo / cập nhật cuối (cho audit). */
+  created_by?: string | null;
+  updated_by?: string | null;
   is_published: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
 }
+
+/** Một cột trong bảng thông số (grade reference). */
+export interface CategoryColumn {
+  key: string;          // khóa duy nhất không đổi
+  label: string;        // tiêu đề cột
+  width?: string;       // class Tailwind (vd: "w-20")
+  emphasis?: boolean;   // in đậm (dùng cho mã grade như W240)
+}
+
+/** Một hàng trong bảng thông số. values map theo column.key; supports [placeholders]. */
+export interface CategoryRow {
+  key: string;
+  values: Record<string, string>;
+}
+
+/** Một mục trong khối "Buying from X" (icon + label + paragraph). */
+export interface CategoryFact {
+  key: string;
+  icon: "scale" | "package" | "ship" | "anchor" | "calendar" | "users" | "shield" | "tag" | "factory" | "check";
+  label: string;
+  value: string;
+}
+
+/** Một chip/bộ lọc trên đầu trang (hiện tại chips grade cho cashew). */
+export interface CategoryFilter {
+  key: string;           // vd: "grade"
+  label: string;         // "Grades"
+  options: { value: string; label: string }[];
+}
+
 
 export interface SupplierCategory {
   supplier_id: string;
