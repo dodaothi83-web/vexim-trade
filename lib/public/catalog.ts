@@ -32,15 +32,15 @@ export function supplierTypeLabel(s: Supplier): string {
 /** Hiển thị cấp xác minh: null/0 = "Not yet verified"; 1/2/3 = Verified level N. */
 export interface VerificationBadgeInfo {
   text: string;
-  tone: "gray" | "emerald";
+  tone: "gray" | "slate" | "emerald";
 }
 export function verificationBadge(s: Pick<Supplier, "verification_level" | "verified_at" | "status">): VerificationBadgeInfo {
   if (s.status !== "published" || !s.verification_level || s.verification_level < 1) {
-    return { text: "Not yet verified", tone: "gray" };
+    return { text: "Under audit", tone: "gray" };
   }
-  if (s.verification_level >= 3) return { text: "Verified Level 3", tone: "emerald" };
-  if (s.verification_level === 2) return { text: "Verified Level 2", tone: "emerald" };
-  return { text: "Verified on site", tone: "emerald" };
+  if (s.verification_level >= 3) return { text: "Export proven", tone: "emerald" };
+  if (s.verification_level === 2) return { text: "Factory audited", tone: "emerald" };
+  return { text: "Documents checked", tone: "slate" };
 }
 
 /** Định dạng khoảng giá FOB (chỉ gọi khi public thấy). */
