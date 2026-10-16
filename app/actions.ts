@@ -1174,10 +1174,26 @@ function parseSupplierInput(
 ): SupplierInput {
   const rating = num(raw.rating);
   const roles = ["manufacturer", "trader", "agent", "exporter"];
-  const statuses = ["new", "verifying", "verified", "paused"];
+  const types = ["manufacturer", "trading", "cooperative"];
+  const statuses = [
+    "new","verifying","verified","paused",
+    "draft","submitted","in_verification","published","suspended","archived",
+  ];
+  function arr(v: unknown): string[] {
+    if (Array.isArray(v)) return v.map((x) => String(x)).filter(Boolean);
+    if (typeof v === "string") return v.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
+    return [];
+  }
+  function i18n(v: unknown): Record<string, string> {
+    if (v && typeof v === "object") return v as Record<string, string>;
+    return { en: typeof v === "string" ? v : "" };
+  }
+  const slug = str(raw.slug);
   return {
     name: str(raw.name) ?? "",
     trade_name: str(raw.trade_name),
+    display_name: str(raw.display_name),
+    slug: slug ? slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : null,
     contact_name: str(raw.contact_name),
     contact_title: str(raw.contact_title),
     email: str(raw.email),
@@ -1188,6 +1204,9 @@ function parseSupplierInput(
     address: str(raw.address),
     province: str(raw.province),
     role: (roles.includes(String(raw.role)) ? String(raw.role) : "manufacturer") as SupplierInput["role"],
+    supplier_type: raw.supplier_type && types.includes(String(raw.supplier_type))
+      ? String(raw.supplier_type) as SupplierInput["supplier_type"]
+      : null,
     markets: str(raw.markets),
     products: str(raw.products),
     tax_id: str(raw.tax_id),
@@ -1195,7 +1214,27 @@ function parseSupplierInput(
     lead_time_days: num(raw.lead_time_days),
     rating: rating === null ? null : Math.max(1, Math.min(5, Math.round(rating))),
     notes: str(raw.notes),
-    status: (statuses.includes(String(raw.status)) ? String(raw.status) : "new") as SupplierInput["status"],
+    status: (statuses.includes(String(raw.status)) ? String(raw.status) : "draft") as SupplierInput["status"],
+    founded_year: num(raw.founded_year),
+    employees: num(raw.employees),
+    summary_i18n: i18n(raw.summary_i18n),
+    moq_text: str(raw.moq_text),
+    capacity_per_month: str(raw.capacity_per_month),
+    ports: arr(raw.ports),
+    incoterms: arr(raw.incoterms),
+    export_markets: arr(raw.export_markets),
+    private_label: bool(raw.private_label, false),
+    verification_level: (() => {
+      const n = num(raw.verification_level);
+      return n === null ? 0 : Math.max(0, Math.min(3, Math.round(n)));
+    })(),
+    verified_at: str(raw.verified_at),
+    fob_min: num(raw.fob_min),
+    fob_max: num(raw.fob_max),
+    fob_unit: str(raw.fob_unit),
+    fob_currency: str(raw.fob_currency) ?? (num(raw.fob_min) !== null || num(raw.fob_max) !== null ? "USD" : null),
+    fob_updated_at: str(raw.fob_updated_at),
+    fob_publicly_visible: bool(raw.fob_publicly_visible, false),
   };
 }
 
