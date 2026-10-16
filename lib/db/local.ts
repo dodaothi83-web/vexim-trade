@@ -7,8 +7,12 @@ import type {
   AppUser,
   AppUserInput,
   AppUserRecord,
+  AuditLogEntry,
   Buyer,
   BuyerInput,
+  Category,
+  Certificate,
+  Introduction,
   Prospect,
   ProspectInput,
   ProspectActivity,
@@ -18,13 +22,19 @@ import type {
   MediaAsset,
   MediaInput,
   MediaOwnerType,
+  Post,
+  PostStatus,
+  Rfq,
+  RfqAttachment,
+  RfqMatch,
   Supplier,
+  SupplierCategory,
   SupplierInput,
   SupplierProduct,
   SupplierProductInput,
   TemplateOverride,
   ProspectOutreachTemplate,
-  Post,
+  Verification,
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
 import type { DataStore } from "@/lib/db/types";
@@ -43,6 +53,16 @@ interface LocalShape {
   prospect_outreach_template_overrides: ProspectOutreachTemplate[];
   posts: Post[];
   attachments: EmailAttachment[];
+  // RFQ FOUNDATION
+  categories: Category[];
+  supplier_categories: SupplierCategory[];
+  certificates: Certificate[];
+  verifications: Verification[];
+  rfqs: Rfq[];
+  rfq_attachments: RfqAttachment[];
+  rfq_matches: RfqMatch[];
+  introductions: Introduction[];
+  audit_log: AuditLogEntry[];
 }
 
 const FILE = path.join(process.cwd(), "data", "local-db.json");
@@ -56,8 +76,49 @@ function nowISO(offsetDays = 0) {
 }
 
 function seed(): LocalShape {
+  function normalizeSupplier(s: Omit<Supplier, "id" | "created_at" | "updated_at">, idx: number): Supplier {
+    const slugBase = (s.trade_name || s.name)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || `supplier-${idx + 1}`;
+    // Map role cũ -> supplier_type
+    const supplier_type =
+      s.role === "manufacturer"
+        ? "manufacturer"
+        : s.role === "trader" || s.role === "agent" || s.role === "exporter"
+          ? "trading"
+          : null;
+    return {
+      ...s,
+      slug: `${slugBase}-${idx + 1}`,
+      display_name: s.trade_name || s.name,
+      supplier_type,
+      founded_year: null,
+      employees: null,
+      summary_i18n: { en: s.products ?? "" },
+      moq_text: null,
+      capacity_per_month: null,
+      ports: [],
+      incoterms: [],
+      export_markets: (s.markets ?? "").split(",").map((m) => m.trim()).filter(Boolean),
+      private_label: false,
+      verification_level: 1,
+      verified_at: nowISO(60 + idx * 5),
+      next_reverify_at: null,
+      rating_avg: s.rating ?? null,
+      rating_count: s.rating ? 3 : 0,
+      fob_min: null,
+      fob_max: null,
+      fob_unit: null,
+      fob_currency: "USD",
+      fob_updated_at: null,
+      fob_publicly_visible: false,
+    } as unknown as Supplier;
+  }
+
   const suppliers: Supplier[] = SEED_SUPPLIERS.map((s, i) => ({
-    ...s,
+    ...normalizeSupplier(s, i),
     id: `sup-seed-${i + 1}`,
     created_at: nowISO(60 + i * 5),
     updated_at: nowISO(60 + i * 5),
@@ -107,20 +168,74 @@ function seed(): LocalShape {
     return rows;
   });
 
-  const products: SupplierProduct[] = SEED_PRODUCTS.map((raw, i) => {
-    const { supplier_ref, ...rest } = raw;
+  function normalizeProduct(raw: typeof SEED_PRODUCTS[number], idx: number, supId: string): SupplierProduct {
+    const { supplier_ref: _sr, ...rest } = raw;
+    const name = (rest as Partial<SupplierProduct>).name ?? `Product ${idx + 1}`;
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || `product-${idx + 1}`;
     return {
-      ...rest,
-      id: `prod-seed-${i + 1}`,
-      supplier_id: suppliers[supplier_ref]?.id ?? "",
-      // Hồ sơ mẫu chưa có ảnh/catalogue nên mặc định chưa sẵn sàng gửi buyer
+      ...(rest as SupplierProduct),
+      name,
+      slug,
+      name_i18n: { en: name },
+      specs: {},
+      images: [],
+      moq_qty: null,
+      moq_unit: null,
+      supplier_id: supId,
       ready_for_buyer: false,
+    } as SupplierProduct;
+  }
+
+  const products: SupplierProduct[] = SEED_PRODUCTS.map((raw, i) => {
+    const supId = suppliers[raw.supplier_ref]?.id ?? "";
+    return {
+      ...normalizeProduct(raw, i, supId),
+      id: `prod-seed-${i + 1}`,
       created_at: nowISO(40 - i),
       updated_at: nowISO(Math.max(0, 10 - i)),
     } satisfies SupplierProduct;
   });
 
-  return { users: [], buyers, prospects: [], prospect_activities: [], suppliers, products, media: [], activities, messages: [], attachments: [], template_overrides: [], prospect_outreach_template_overrides: [], posts: [] };
+  // Seed category "Cashew" ở local để trang công khai có thể render ở môi trường dev
+  const cashewCategory: Category = {
+    id: "cat-seed-cashew",
+    slug: "cashew",
+    parent_id: null,
+    name_i18n: { en: "Cashew" },
+    intro_i18n: { en: "Verified Vietnamese cashew kernel suppliers, graded WW320, WW240, W180, LP, SP. Factory-audited by Vexim Trade." },
+    faq_i18n: [],
+    seo_title_i18n: { en: "Cashew Suppliers in Vietnam – Verified Manufacturers | Vexim Trade" },
+    seo_desc_i18n: { en: "Compare verified Vietnamese cashew kernel suppliers by grade, MOQ, certification and lead time." },
+    is_published: true,
+    sort_order: 10,
+    created_at: nowISO(100),
+    updated_at: nowISO(100),
+  };
+
+  return {
+    users: [],
+    buyers,
+    prospects: [],
+    prospect_activities: [],
+    suppliers,
+    products,
+    media: [],
+    activities,
+    messages: [],
+    attachments: [],
+    template_overrides: [],
+    prospect_outreach_template_overrides: [],
+    posts: [],
+    categories: [cashewCategory],
+    supplier_categories: [],
+    certificates: [],
+    verifications: [],
+    rfqs: [],
+    rfq_attachments: [],
+    rfq_matches: [],
+    introductions: [],
+    audit_log: [],
+  };
 }
 
 function inferTargetProduct(sourceList: string | null | undefined): string | null {
@@ -174,6 +289,16 @@ function load(): LocalShape {
       if (u.sender_email === undefined) u.sender_email = null;
     });
     if (!Array.isArray(c.attachments)) c.attachments = [];
+    // RFQ foundation – tương thích với file dữ liệu cũ
+    if (!Array.isArray(c.categories)) c.categories = [];
+    if (!Array.isArray(c.supplier_categories)) c.supplier_categories = [];
+    if (!Array.isArray(c.certificates)) c.certificates = [];
+    if (!Array.isArray(c.verifications)) c.verifications = [];
+    if (!Array.isArray(c.rfqs)) c.rfqs = [];
+    if (!Array.isArray(c.rfq_attachments)) c.rfq_attachments = [];
+    if (!Array.isArray(c.rfq_matches)) c.rfq_matches = [];
+    if (!Array.isArray(c.introductions)) c.introductions = [];
+    if (!Array.isArray(c.audit_log)) c.audit_log = [];
     removeProspectsWithoutEmail(c);
     return c;
   }
@@ -197,6 +322,15 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.media)) parsed.media = [];
         if (!Array.isArray(parsed.users)) parsed.users = [];
         if (!Array.isArray(parsed.attachments)) parsed.attachments = [];
+        if (!Array.isArray(parsed.categories)) parsed.categories = [];
+        if (!Array.isArray(parsed.supplier_categories)) parsed.supplier_categories = [];
+        if (!Array.isArray(parsed.certificates)) parsed.certificates = [];
+        if (!Array.isArray(parsed.verifications)) parsed.verifications = [];
+        if (!Array.isArray(parsed.rfqs)) parsed.rfqs = [];
+        if (!Array.isArray(parsed.rfq_attachments)) parsed.rfq_attachments = [];
+        if (!Array.isArray(parsed.rfq_matches)) parsed.rfq_matches = [];
+        if (!Array.isArray(parsed.introductions)) parsed.introductions = [];
+        if (!Array.isArray(parsed.audit_log)) parsed.audit_log = [];
         removeProspectsWithoutEmail(parsed);
         g.__veximLocal = parsed;
         return parsed;
@@ -751,5 +885,314 @@ export const localStore: DataStore = {
     mutate((db) => {
       db.posts = (db.posts ?? []).filter((p) => p.id !== id);
     });
+  },
+
+  /* ----------------------- RFQ FOUNDATION --------------------------------- */
+  async listCategories(options) {
+    const all = load().categories ?? [];
+    return options?.publishedOnly ? all.filter((c) => c.is_published) : [...all];
+  },
+  async getCategory(id) {
+    return (load().categories ?? []).find((c) => c.id === id) ?? null;
+  },
+  async getCategoryBySlug(slug) {
+    return (load().categories ?? []).find((c) => c.slug === slug) ?? null;
+  },
+  async createCategory(input) {
+    const now = new Date().toISOString();
+    const cat = {
+      id: randomUUID(),
+      slug: "",
+      parent_id: null,
+      name_i18n: {},
+      intro_i18n: {},
+      faq_i18n: [],
+      seo_title_i18n: {},
+      seo_desc_i18n: {},
+      is_published: false,
+      sort_order: 0,
+      ...cleanPatch(input),
+      created_at: now,
+      updated_at: now,
+    } as Category;
+    mutate((db) => {
+      db.categories = [...(db.categories ?? []), cat];
+    });
+    return cat;
+  },
+  async updateCategory(id, patch) {
+    return mutate((db) => {
+      const row = (db.categories ?? []).find((c) => c.id === id);
+      if (!row) throw new Error("Category not found");
+      Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      return row;
+    });
+  },
+
+  async setSupplierCategories(supplierId, categoryIds, primaryId) {
+    mutate((db) => {
+      db.supplier_categories = (db.supplier_categories ?? []).filter((sc) => sc.supplier_id !== supplierId);
+      for (const cid of categoryIds) {
+        db.supplier_categories.push({
+          supplier_id: supplierId,
+          category_id: cid,
+          is_primary: primaryId ? cid === primaryId : cid === categoryIds[0],
+          created_at: new Date().toISOString(),
+        });
+      }
+    });
+  },
+  async listSupplierCategories(supplierId) {
+    return (load().supplier_categories ?? []).filter((sc) => sc.supplier_id === supplierId);
+  },
+
+  async listCertificates(supplierId) {
+    return (load().certificates ?? []).filter((c) => c.supplier_id === supplierId);
+  },
+  async createCertificate(input) {
+    const now = new Date().toISOString();
+    const row = {
+      id: randomUUID(),
+      supplier_id: "",
+      name: "",
+      issuer: null,
+      number: null,
+      valid_until: null,
+      file_media_id: null,
+      check_status: "on_file" as const,
+      checked_at: null,
+      checked_by: null,
+      notes: null,
+      created_at: now,
+      updated_at: now,
+      ...cleanPatch(input),
+    } as Certificate;
+    mutate((db) => {
+      db.certificates = [...(db.certificates ?? []), row];
+    });
+    return row;
+  },
+  async updateCertificate(id, patch) {
+    return mutate((db) => {
+      const row = (db.certificates ?? []).find((c) => c.id === id);
+      if (!row) throw new Error("Certificate not found");
+      Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      return row;
+    });
+  },
+  async deleteCertificate(id) {
+    mutate((db) => {
+      db.certificates = (db.certificates ?? []).filter((c) => c.id !== id);
+    });
+  },
+
+  async listVerifications(supplierId) {
+    const all = load().verifications ?? [];
+    return supplierId ? all.filter((v) => v.supplier_id === supplierId) : [...all];
+  },
+  async createVerification(input) {
+    const now = new Date().toISOString();
+    const row = {
+      id: randomUUID(),
+      supplier_id: "",
+      target_level: 1,
+      status: "scheduled" as const,
+      inspector_id: null,
+      visit_date: null,
+      checklist: [],
+      public_summary_i18n: {},
+      internal_notes: null,
+      approved_by: null,
+      approved_at: null,
+      created_at: now,
+      updated_at: now,
+      ...cleanPatch(input),
+    } as Verification;
+    mutate((db) => {
+      db.verifications = [...(db.verifications ?? []), row];
+    });
+    return row;
+  },
+  async updateVerification(id, patch) {
+    return mutate((db) => {
+      const row = (db.verifications ?? []).find((v) => v.id === id);
+      if (!row) throw new Error("Verification not found");
+      Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      return row;
+    });
+  },
+
+  async listRfqs(options) {
+    let rows = [...(load().rfqs ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    if (options?.status) rows = rows.filter((r) => r.status === options.status);
+    if (options?.assignedTo !== undefined) {
+      rows = rows.filter((r) => r.assigned_to === options.assignedTo);
+    }
+    return rows;
+  },
+  async getRfq(id) {
+    return (load().rfqs ?? []).find((r) => r.id === id) ?? null;
+  },
+  async getRfqByToken(token) {
+    return (load().rfqs ?? []).find((r) => r.access_token === token) ?? null;
+  },
+  async getRfqByCode(code) {
+    return (load().rfqs ?? []).find((r) => r.code === code) ?? null;
+  },
+  async createRfq(input) {
+    const now = new Date().toISOString();
+    const row = {
+      id: randomUUID(),
+      code: "",
+      buyer_id: "",
+      category_id: null,
+      product_text: "",
+      specs: {},
+      quantity: null,
+      unit: null,
+      frequency: null,
+      destination_country: null,
+      incoterm: null,
+      needed_by: null,
+      target_price: null,
+      target_price_currency: "USD",
+      wants_samples: false,
+      wants_inspection: false,
+      wants_video_call: false,
+      preferred_supplier_ids: [],
+      source_page: null,
+      utm: {},
+      referrer: null,
+      spam_score: 0,
+      spam_flags: [],
+      status: "new" as const,
+      assigned_to: null,
+      first_response_at: null,
+      closed_reason: null,
+      access_token: randomUUID(),
+      created_at: now,
+      updated_at: now,
+      ...cleanPatch(input),
+    } as unknown as Rfq;
+    mutate((db) => {
+      db.rfqs = [...(db.rfqs ?? []), row];
+    });
+    return row;
+  },
+  async updateRfq(id, patch) {
+    return mutate((db) => {
+      const row = (db.rfqs ?? []).find((r) => r.id === id);
+      if (!row) throw new Error("RFQ not found");
+      Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      return row;
+    });
+  },
+
+  async listRfqAttachments(rfqId) {
+    return (load().rfq_attachments ?? []).filter((a) => a.rfq_id === rfqId);
+  },
+  async createRfqAttachment(input) {
+    const row = {
+      id: randomUUID(),
+      rfq_id: "",
+      bucket: "rfq-attachments",
+      storage_path: "",
+      file_name: "",
+      mime_type: "application/octet-stream",
+      size_bytes: 0,
+      uploaded_by: null,
+      created_at: new Date().toISOString(),
+      ...cleanPatch(input),
+    } as RfqAttachment;
+    mutate((db) => {
+      db.rfq_attachments = [...(db.rfq_attachments ?? []), row];
+    });
+    return row;
+  },
+  async deleteRfqAttachment(id) {
+    mutate((db) => {
+      db.rfq_attachments = (db.rfq_attachments ?? []).filter((a) => a.id !== id);
+    });
+  },
+
+  async listRfqMatches(rfqId) {
+    return (load().rfq_matches ?? []).filter((m) => m.rfq_id === rfqId);
+  },
+  async createRfqMatch(input) {
+    const now = new Date().toISOString();
+    const row = {
+      id: randomUUID(),
+      rfq_id: "",
+      supplier_id: "",
+      status: "proposed" as const,
+      sent_to_supplier_at: null,
+      quote_price: null,
+      quote_currency: "USD",
+      quote_unit: null,
+      quote_incoterm: null,
+      quote_lead_time_days: null,
+      quote_valid_until: null,
+      quote_file_id: null,
+      sent_to_buyer_at: null,
+      internal_note: null,
+      created_at: now,
+      updated_at: now,
+      ...cleanPatch(input),
+    } as unknown as RfqMatch;
+    mutate((db) => {
+      db.rfq_matches = [...(db.rfq_matches ?? []), row];
+    });
+    return row;
+  },
+  async updateRfqMatch(id, patch) {
+    return mutate((db) => {
+      const row = (db.rfq_matches ?? []).find((m) => m.id === id);
+      if (!row) throw new Error("RFQ match not found");
+      Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      return row;
+    });
+  },
+
+  async findIntroduction(buyerId, supplierId) {
+    return (
+      (load().introductions ?? []).find(
+        (i) => i.buyer_id === buyerId && i.supplier_id === supplierId,
+      ) ?? null
+    );
+  },
+  async createIntroduction(input) {
+    const now = new Date().toISOString();
+    const row = {
+      id: randomUUID(),
+      buyer_id: "",
+      supplier_id: "",
+      first_rfq_id: "",
+      introduced_at: now,
+      protected_until: "",
+      created_at: now,
+      ...cleanPatch(input),
+    } as Introduction;
+    mutate((db) => {
+      db.introductions = [...(db.introductions ?? []), row];
+    });
+    return row;
+  },
+
+  async addAuditLog(entry) {
+    const row: AuditLogEntry = {
+      id: (load().audit_log ?? []).length + 1,
+      actor_id: entry.actor_id ?? null,
+      actor_email: entry.actor_email ?? null,
+      entity: entry.entity,
+      entity_id: entry.entity_id,
+      action: entry.action,
+      before: entry.before ?? null,
+      after: entry.after ?? null,
+      created_at: new Date().toISOString(),
+    };
+    mutate((db) => {
+      db.audit_log = [...(db.audit_log ?? []), row];
+    });
+    return row;
   },
 };

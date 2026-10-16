@@ -4,8 +4,12 @@ import type {
   AppUser,
   AppUserInput,
   AppUserRecord,
+  AuditLogEntry,
   Buyer,
   BuyerInput,
+  Category,
+  Certificate,
+  Introduction,
   Prospect,
   ProspectInput,
   ProspectActivity,
@@ -15,8 +19,12 @@ import type {
   MediaAsset,
   MediaInput,
   MediaOwnerType,
+  Rfq,
+  RfqAttachment,
+  RfqMatch,
   Supplier,
   SupplierInput,
+  SupplierCategory,
   SupplierProduct,
   SupplierProductInput,
   TemplateOverride,
@@ -24,6 +32,7 @@ import type {
   Post,
   PostInput,
   PostStatus,
+  Verification,
 } from "@/lib/types";
 
 export interface DataStore {
@@ -141,4 +150,60 @@ export interface DataStore {
   createPost(input: PostInput): Promise<Post>;
   updatePost(id: string, patch: Partial<PostInput>): Promise<Post>;
   deletePost(id: string): Promise<void>;
+
+  /* ----------------------- RFQ FOUNDATION (GĐ0-GĐ2) ----------------------- */
+  // Categories (2 cấp)
+  listCategories(options?: { publishedOnly?: boolean }): Promise<Category[]>;
+  getCategory(id: string): Promise<Category | null>;
+  getCategoryBySlug(slug: string): Promise<Category | null>;
+  createCategory(input: Partial<Category>): Promise<Category>;
+  updateCategory(id: string, patch: Partial<Category>): Promise<Category>;
+
+  // Supplier – category link
+  setSupplierCategories(supplierId: string, categoryIds: string[], primaryId?: string | null): Promise<void>;
+  listSupplierCategories(supplierId: string): Promise<SupplierCategory[]>;
+
+  // Certificates
+  listCertificates(supplierId: string): Promise<Certificate[]>;
+  createCertificate(input: Partial<Certificate>): Promise<Certificate>;
+  updateCertificate(id: string, patch: Partial<Certificate>): Promise<Certificate>;
+  deleteCertificate(id: string): Promise<void>;
+
+  // Verifications
+  listVerifications(supplierId?: string): Promise<Verification[]>;
+  createVerification(input: Partial<Verification>): Promise<Verification>;
+  updateVerification(id: string, patch: Partial<Verification>): Promise<Verification>;
+
+  // RFQs
+  listRfqs(options?: { status?: string; assignedTo?: string | null }): Promise<Rfq[]>;
+  getRfq(id: string): Promise<Rfq | null>;
+  getRfqByToken(token: string): Promise<Rfq | null>;
+  getRfqByCode(code: string): Promise<Rfq | null>;
+  createRfq(input: Partial<Rfq>): Promise<Rfq>;
+  updateRfq(id: string, patch: Partial<Rfq>): Promise<Rfq>;
+
+  // RFQ attachments
+  listRfqAttachments(rfqId: string): Promise<RfqAttachment[]>;
+  createRfqAttachment(input: Partial<RfqAttachment>): Promise<RfqAttachment>;
+  deleteRfqAttachment(id: string): Promise<void>;
+
+  // RFQ matches
+  listRfqMatches(rfqId: string): Promise<RfqMatch[]>;
+  createRfqMatch(input: Partial<RfqMatch>): Promise<RfqMatch>;
+  updateRfqMatch(id: string, patch: Partial<RfqMatch>): Promise<RfqMatch>;
+
+  // Introductions (bảo vệ không vượt mặt)
+  findIntroduction(buyerId: string, supplierId: string): Promise<Introduction | null>;
+  createIntroduction(input: Partial<Introduction>): Promise<Introduction>;
+
+  // Audit log
+  addAuditLog(entry: {
+    actor_id?: string | null;
+    actor_email?: string | null;
+    entity: string;
+    entity_id: string;
+    action: string;
+    before?: Record<string, unknown> | null;
+    after?: Record<string, unknown> | null;
+  }): Promise<AuditLogEntry>;
 }
