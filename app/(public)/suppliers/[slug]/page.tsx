@@ -238,42 +238,61 @@ export default async function SupplierProfile({ params }: PageProps) {
             <h2 className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">
               Verification
             </h2>
-            <p className="mt-4 text-[14px] leading-relaxed text-ink-700">
-              {(s.verification_level ?? 0) >= 1 ? (
+
+            {(() => {
+              const lvl = s.verification_level ?? 0;
+              const items: { label: string; checked: boolean }[] = [
+                { label: "Business registration on file", checked: lvl >= 1 },
+                { label: "Factory address verified on site (GPS)", checked: lvl >= 2 },
+                { label: "Certificates cross-checked against issuer", checked: lvl >= 1 },
+                { label: "Production capacity cross-checked on site", checked: lvl >= 2 },
+                { label: "Past export orders proven through Vexim", checked: lvl >= 3 },
+              ];
+              return (
                 <>
-                  This supplier has passed Vexim&apos;s on-site verification (Level {s.verification_level}).
-                  We checked business registration, inspected the production site and reviewed export
-                  documentation before publishing this profile.
+                  <p className="mt-4 text-[14px] leading-relaxed text-ink-700">
+                    {lvl === 0 ? (
+                      <>
+                        This profile is awaiting verification. Details below are provided by the supplier;
+                        request a quote to receive the Vexim-verified dossier and an introduction once our
+                        desk has completed L1 document checks.
+                      </>
+                    ) : lvl === 1 ? (
+                      <>
+                        This supplier has passed Vexim&apos;s <strong>L1 document check</strong>:
+                        business registration, tax, export license and food-safety certificates have been
+                        verified against official records. An on-site factory visit (L2) is scheduled or
+                        pending.
+                      </>
+                    ) : lvl === 2 ? (
+                      <>
+                        This supplier has passed <strong>L1 document checks</strong> and a{" "}
+                        <strong>L2 on-site audit</strong>: a member of our team visited the factory,
+                        confirmed production lines and capacity, and cross-checked the original certificates
+                        on the wall against the copies we hold.
+                      </>
+                    ) : (
+                      <>
+                        This supplier is <strong>L3 export-proven</strong>: documents checked, factory
+                        audited, and at least one completed export order shipped through Vexim.
+                      </>
+                    )}
+                  </p>
+                  <ul className="mt-5 grid gap-2 text-[14px] text-ink-700 sm:grid-cols-2">
+                    {items.map((it) => (
+                      <li key={it.label} className="flex items-start gap-2">
+                        {it.checked ? (
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" />
+                        ) : (
+                          <HelpCircle className="mt-0.5 h-4 w-4 text-ink-400" />
+                        )}
+                        {it.label}
+                      </li>
+                    ))}
+                  </ul>
                 </>
-              ) : (
-                <>
-                  This profile is awaiting on-site verification. Details and certificates shown below
-                  are provided by the supplier; request a quote to receive the Vexim-verified dossier.
-                </>
-              )}
-            </p>
-            <ul className="mt-5 grid gap-2 text-[14px] text-ink-700 sm:grid-cols-2">
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" />
-                Business registration on file
-              </li>
-              <li className="flex items-start gap-2">
-                {(s.verification_level ?? 0) >= 1 ? (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" />
-                ) : (
-                  <HelpCircle className="mt-0.5 h-4 w-4 text-ink-400" />
-                )}
-                Factory address verified on site
-              </li>
-              <li className="flex items-start gap-2">
-                <HelpCircle className="mt-0.5 h-4 w-4 text-ink-400" />
-                Certificates cross-checked against issuer
-              </li>
-              <li className="flex items-start gap-2">
-                <HelpCircle className="mt-0.5 h-4 w-4 text-ink-400" />
-                Production capacity estimate
-              </li>
-            </ul>
+              );
+            })()}
           </section>
 
           <section className="mt-10">

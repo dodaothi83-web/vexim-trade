@@ -533,7 +533,10 @@ function migrateVerifications(db: LocalShape) {
     if (!v.public_summary_i18n || typeof v.public_summary_i18n !== "object") v.public_summary_i18n = {};
   }
 
-  // Tính verification_level cho NCC từ danh sách verification đã approved
+  // Tính verification_level cho NCC từ danh sách verification đã approved (chỉ áp dụng
+  // cho NCC có hồ sơ verification trong bảng — không reset các level hard-coded từ seed demo
+  // hay cấu hình thủ công).
+  const hasVerification = new Set((db.verifications ?? []).map((v) => v.supplier_id));
   const levelBySupplier = new Map<string, number>();
   for (const v of db.verifications) {
     if (v.status !== "approved") continue;
@@ -542,13 +545,13 @@ function migrateVerifications(db: LocalShape) {
   }
   if (Array.isArray(db.suppliers)) {
     for (const s of db.suppliers) {
-      const lvl = levelBySupplier.get(s.id);
-      if (lvl !== undefined) {
-        s.verification_level = lvl;
-        if (!s.verified_at) s.verified_at = new Date().toISOString();
-      } else if (s.verification_level === undefined) {
-        s.verification_level = 0;
+      if (!hasVerification.has(s.id)) {
+        if (s.verification_level === undefined) s.verification_level = 0;
+        continue;
       }
+      const lvl = levelBySupplier.get(s.id) ?? 0;
+      s.verification_level = lvl;
+      if (lvl > 0 && !s.verified_at) s.verified_at = new Date().toISOString();
     }
   }
 }

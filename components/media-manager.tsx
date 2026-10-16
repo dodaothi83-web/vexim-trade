@@ -61,7 +61,7 @@ export function MediaManager({
 
   const [kind, setKind] = useState<MediaKind>("image");
   const [audience, setAudience] = useState<MediaAudience>(
-    ownerType === "supplier" ? "buyer" : "buyer",
+    ownerType === "verification" ? "internal" : ownerType === "supplier" ? "buyer" : "buyer",
   );
   const [caption, setCaption] = useState("");
   const [expiresOn, setExpiresOn] = useState("");

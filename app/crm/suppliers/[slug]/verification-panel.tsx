@@ -4,14 +4,16 @@ import {
   CheckCircle2,
   FileCheck2,
   MapPin,
+  Paperclip,
   Plus,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
 
-import type { AppUser, Verification } from "@/lib/types";
+import type { AppUser, MediaAsset, Verification } from "@/lib/types";
 import { L1_DOC_ITEMS, L2_VISIT_ITEMS } from "@/lib/types";
 import { Badge, Card, EmptyState, formatDate } from "@/components/ui";
+import { MediaManager } from "@/components/media-manager";
 import {
   approveVerificationAction,
   startVerificationAction,
@@ -29,6 +31,7 @@ const STATUS_LABEL: Record<Verification["status"], { label: string; badge: strin
 interface Props {
   supplierId: string;
   verifications: Verification[];
+  verificationMedia: Record<string, MediaAsset[]>;
   users: AppUser[];
   currentUserId: string | null;
   canInspect: boolean;
@@ -37,7 +40,7 @@ interface Props {
 }
 
 export function VerificationPanel({
-  supplierId, verifications, users, currentUserId, canInspect, canApprove, currentLevel,
+  supplierId, verifications, verificationMedia, users, currentUserId, canInspect, canApprove, currentLevel,
 }: Props) {
   const sorted = [...verifications].sort((a, b) => b.created_at.localeCompare(a.created_at));
   const levelNames: Record<number, string> = {
@@ -88,6 +91,7 @@ export function VerificationPanel({
             <VerificationItem
               key={v.id}
               v={v}
+              media={verificationMedia[v.id] ?? []}
               users={users}
               currentUserId={currentUserId}
               canInspect={canInspect}
@@ -101,8 +105,8 @@ export function VerificationPanel({
 }
 
 function VerificationItem({
-  v, users, currentUserId, canInspect, canApprove,
-}: { v: Verification } & Pick<Props, "users" | "currentUserId" | "canInspect" | "canApprove">) {
+  v, media, users, currentUserId, canInspect, canApprove,
+}: { v: Verification; media: MediaAsset[] } & Pick<Props, "users" | "currentUserId" | "canInspect" | "canApprove">) {
   const items = v.target_level === 1 ? L1_DOC_ITEMS : L2_VISIT_ITEMS;
   const meta = STATUS_LABEL[v.status];
   const inspector = users.find((u) => u.id === v.inspector_id);
@@ -112,7 +116,7 @@ function VerificationItem({
   const canEdit = canInspect && (isMine || v.status !== "approved") && v.status !== "approved";
 
   return (
-    <li className="px-4 py-4">
+    <li id={`verification-${v.id}`} className="px-4 py-4">
       <div className="flex flex-wrap items-center gap-2">
         <Badge className={meta.badge}>{meta.label}</Badge>
         <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 ring-1 ring-brand-200">
@@ -240,7 +244,7 @@ function VerificationItem({
             )}
           </div>
           <p className="text-[11.5px] text-ink-400">
-            Tệp giấy tờ / ảnh thăm nhà máy tải lên từ trang Media của NCC sẽ tự gắn với NCC; khi có nhiều đợt, tải vào phần dedicated cho đợt này (chưa có UI riêng — dùng mục Media &gt; Document).
+            Tệp giấy tờ / ảnh thăm nhà máy tải lên từ phần bên dưới sẽ được gắn với riêng đợt xác minh này (không hiện trong gallery công khai).
           </p>
         </form>
       ) : (
@@ -258,6 +262,25 @@ function VerificationItem({
           })}
         </ul>
       )}
+
+      {canInspect ? (
+        <div className="mt-4 rounded-md border border-ink-200 bg-ink-50/50 p-3">
+          <p className="mb-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-700">
+            <Paperclip className="h-3.5 w-3.5" /> Tệp đính kèm đợt xác minh này
+          </p>
+          <MediaManager
+            ownerType="verification"
+            ownerId={v.id}
+            items={media}
+            allowInternal={true}
+            note="Ảnh/giấy tờ chỉ nội bộ — dùng để đối chiếu khi duyệt."
+          />
+        </div>
+      ) : media.length > 0 ? (
+        <p className="mt-3 text-[12px] text-ink-500">
+          <Paperclip className="mr-1 inline h-3 w-3" /> {media.length} tệp đính kèm (chỉ nội bộ).
+        </p>
+      ) : null}
 
       <div className="mt-3 text-[12px] text-ink-500">
         Tạo {formatDate(v.created_at)}

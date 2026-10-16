@@ -61,6 +61,10 @@ export default async function SupplierDetailPage({
     store.listMediaForProducts(products.map((p) => p.id)),
     store.listVerifications(id),
   ]);
+  const verificationMedia: Record<string, typeof supplierMedia> = {};
+  await Promise.all(verifications.map(async (v) => {
+    verificationMedia[v.id] = await store.listMedia("verification", v.id).catch(() => []);
+  }));
   // Ảnh đại diện cho từng sản phẩm (ưu tiên ảnh chia sẻ buyer, chưa hết hạn)
   const thumbByProduct = new Map<string, typeof productMedia[number]>();
   for (const m of productMedia) {
@@ -178,6 +182,7 @@ export default async function SupplierDetailPage({
           <VerificationPanel
             supplierId={id}
             verifications={verifications}
+            verificationMedia={verificationMedia}
             users={users}
             currentUserId={session.uid}
             canInspect={canInspect}

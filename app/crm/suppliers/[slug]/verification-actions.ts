@@ -12,6 +12,12 @@ import {
   type VerificationStatus,
 } from "@/lib/types";
 
+/** Ước chừng toạ độ Việt Nam để cảnh báo sai GPS khi thăm nhà máy. */
+export function inVnBounds(lat: number | null, lng: number | null): boolean | null {
+  if (lat == null || lng == null) return null;
+  return lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110;
+}
+
 /** Tạo mới một đợt xác minh L1 hoặc L2 cho NCC. */
 export async function startVerificationAction(fd: FormData) {
   const g = await guard("verifications.inspect");
@@ -141,6 +147,13 @@ export async function approveVerificationAction(fd: FormData) {
     if (failed.length > 0) {
       return { ok: false, message: "Thiếu giấy tờ bắt buộc — vui lòng đánh dấu đạt hoặc trả hồ sơ." };
     }
+  } else {
+    // L2: bắt buộc ngày thăm + GPS + địa chỉ nhà máy
+    if (!before.visit_date) return { ok: false, message: "L2 cần có ngày thăm nhà máy." };
+    if (before.visit_lat == null || before.visit_lng == null) {
+      return { ok: false, message: "L2 cần có GPS (lấy từ điện thoại lúc thăm)." };
+    }
+    if (!before.visit_address) return { ok: false, message: "L2 cần có địa chỉ nhà máy." };
   }
   const after = await store.updateVerification(id, {
     status: "approved",
