@@ -536,6 +536,15 @@ export const supabaseStore: DataStore = {
     if (error) fail("listMessages", error);
     return (data ?? []) as EmailMessage[];
   },
+  async listMessagesForRfq(rfqId) {
+    const { data, error } = await must()
+      .from("email_messages")
+      .select("*")
+      .eq("rfq_id", rfqId)
+      .order("created_at", { ascending: false });
+    if (error) fail("listMessagesForRfq", error);
+    return (data ?? []) as EmailMessage[];
+  },
   async getMessage(id) {
     const { data, error } = await must()
       .from("email_messages")

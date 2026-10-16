@@ -569,7 +569,7 @@ export interface Activity {
   created_at: string;
 }
 
-export type MessageKind = "auto" | "manual" | "inbound";
+export type MessageKind = "auto" | "manual" | "inbound" | "rfq_outreach" | "rfq_followup" | "shortlist_buyer";
 export type MessageStatus = "draft" | "sent" | "failed" | "simulated" | "received";
 export type MessageDirection = "buyer" | "supplier";
 
@@ -611,6 +611,10 @@ export interface EmailMessage {
   supplier_id: string | null;
   /** Contact prospect cold (nếu thư được gửi/nhận trước khi có Buyer thật). */
   prospect_id?: string | null;
+  /** Liên kết với RFQ (để hiện timeline ở trang chi tiết RFQ). */
+  rfq_id?: string | null;
+  /** Liên kết với 1 RfqMatch cụ thể (thư cho NCC / hồi âm của NCC). */
+  rfq_match_id?: string | null;
   kind: MessageKind;
   /** chỉ có với email tự động theo giai đoạn */
   stage: string | null;

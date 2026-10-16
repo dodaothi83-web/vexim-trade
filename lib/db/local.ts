@@ -514,6 +514,19 @@ function migrateSupplierDefaults(db: LocalShape) {
   }
 }
 
+function migrateMessageDefaults(db: LocalShape) {
+  if (!Array.isArray(db.messages)) return;
+  for (const m of db.messages) {
+    if ((m as unknown as { rfq_id?: string | null }).rfq_id === undefined) {
+      (m as unknown as { rfq_id: string | null }).rfq_id = null;
+    }
+    if ((m as unknown as { rfq_match_id?: string | null }).rfq_match_id === undefined) {
+      (m as unknown as { rfq_match_id: string | null }).rfq_match_id = null;
+    }
+  }
+}
+
+
 /**
  * Backfill các field mới cho Verification (L1/L2 checklist, GPS, visit_address,
  * checklist_notes, return_reason) cho dữ liệu cũ, đồng thời tính lại
@@ -714,6 +727,7 @@ function load(): LocalShape {
     migrateRfqDefaults(c);
     migrateMediaDefaults(c);
     migrateSupplierDefaults(c);
+    migrateMessageDefaults(c);
     ensureDemoSuppliers(c);
     migrateVerifications(c);
     removeProspectsWithoutEmail(c);
@@ -753,6 +767,7 @@ function load(): LocalShape {
         migrateRfqDefaults(parsed);
         migrateMediaDefaults(parsed);
         migrateSupplierDefaults(parsed);
+        migrateMessageDefaults(parsed);
         ensureDemoSuppliers(parsed);
         migrateVerifications(parsed);
         removeProspectsWithoutEmail(parsed);
@@ -768,6 +783,7 @@ function load(): LocalShape {
   migrateRfqDefaults(fresh);
   migrateMediaDefaults(fresh);
   migrateSupplierDefaults(fresh);
+  migrateMessageDefaults(fresh);
   ensureDemoSuppliers(fresh);
   migrateVerifications(fresh);
   g.__veximLocal = fresh;
@@ -1220,6 +1236,11 @@ export const localStore: DataStore = {
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
     return rows.slice(0, limit);
+  },
+  async listMessagesForRfq(rfqId) {
+    return [...load().messages]
+      .filter((m) => (m as unknown as { rfq_id?: string | null }).rfq_id === rfqId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
   async getMessage(id) {
     return load().messages.find((m) => m.id === id) ?? null;

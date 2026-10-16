@@ -14,7 +14,7 @@ import { transport } from "@/lib/email/send";
 import { FROM_ADDRESS, MAIL_DOMAIN, COMPANY } from "@/lib/config";
 import { SITE_URL } from "@/lib/site";
 import { getStore } from "@/lib/db";
-import type { Buyer, Rfq, RfqMatch, Supplier } from "@/lib/types";
+import type { Buyer, EmailMessage, Rfq, RfqMatch, Supplier } from "@/lib/types";
 
 function rfqCode(rfq: Rfq) {
   return rfq.code;
@@ -244,6 +244,30 @@ export async function dispatchRfqToSuppliers(input: {
       status: "sent_to_supplier",
       sent_to_supplier_at: new Date().toISOString(),
     });
+    // Ghi vào timeline thư đi
+    await store.addMessage({
+      buyer_id: null,
+      supplier_id: sup.id,
+      rfq_id: rfq.id,
+      rfq_match_id: m.id,
+      kind: "rfq_outreach",
+      stage: null,
+      direction: "supplier",
+      thread_id: `rfq-${rfq.id}-match-${m.id}`,
+      subject: email.subject,
+      to_emails: [sup.email],
+      cc_emails: [],
+      bcc_emails: [],
+      body_html: email.html,
+      body_text: email.text,
+      attachments: [],
+      rfc_message_id: null,
+      read_at: null,
+      status: "sent",
+      provider: "resend",
+      error: null,
+      created_by: null,
+    } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
     sent += 1;
   }
 
@@ -290,6 +314,31 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
   for (const m of quoted) {
     await store.updateRfqMatch(m.id, { status: "presented_to_buyer", sent_to_buyer_at: new Date().toISOString() });
   }
+  // Ghi timeline email shortlist
+  const toEmails = [buyer.email, ...(buyer.cc_emails ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean) : [])];
+  await store.addMessage({
+    buyer_id: buyer.id,
+    supplier_id: null,
+    rfq_id: rfq.id,
+    rfq_match_id: null,
+    kind: "shortlist_buyer",
+    stage: null,
+    direction: "buyer",
+    thread_id: `rfq-${rfq.id}-buyer`,
+    subject: email.subject,
+    to_emails: toEmails as string[],
+    cc_emails: [],
+    bcc_emails: [],
+    body_html: email.html,
+    body_text: email.text,
+    attachments: [],
+    rfc_message_id: null,
+    read_at: null,
+    status: "sent",
+    provider: "resend",
+    error: null,
+    created_by: null,
+  } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
   // Ghi nhận thời điểm trả lời đầu tiên (dùng cho SLA) và chuyển sang quoted
   await store.updateRfq(rfq.id, {
     status: "quoted",

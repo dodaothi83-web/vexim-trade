@@ -109,6 +109,7 @@ export interface DataStore {
   }): Promise<Activity>;
 
   listMessages(limit?: number): Promise<EmailMessage[]>;
+  listMessagesForRfq(rfqId: string): Promise<EmailMessage[]>;
   getMessage(id: string): Promise<EmailMessage | null>;
   addMessage(
     input: Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null },
