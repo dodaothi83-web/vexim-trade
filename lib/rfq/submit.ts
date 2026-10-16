@@ -6,6 +6,10 @@ import { headers } from "next/headers";
 
 import { getStore } from "@/lib/db";
 import { listPublicSuppliers } from "@/lib/public/catalog";
+import {
+  sendRfqAckBuyer,
+  sendRfqNewInternal,
+} from "@/lib/email/rfq";
 import type { Buyer, Rfq } from "@/lib/types";
 import {
   emailDomain,
@@ -287,8 +291,14 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     access_token: generateAccessToken(),
   });
 
-  // TODO GĐ2: Gửi email ack buyer + email nội bộ + (nếu quarantine) mail cảnh báo spam.
-  // Hiện tại return token để redirect sang trang trạng thái.
+  // Gửi email (best-effort; lỗi gửi không làm mất RFQ vì đã lưu vào DB).
+  try {
+    await sendRfqAckBuyer({ rfq, buyer });
+    await sendRfqNewInternal({ rfq, buyer });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[rfq] email send failed, but rfq is saved:", err);
+  }
 
   return {
     ok: true,

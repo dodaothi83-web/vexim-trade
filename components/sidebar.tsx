@@ -22,6 +22,7 @@ import {
   UserSearch,
   X,
   FolderTree,
+  FileQuestion,
 } from "lucide-react";
 
 import { logoutAction } from "@/app/auth-actions";
@@ -43,6 +44,7 @@ const NAV: {
   { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view" },
   { href: "/crm/categories", label: "Danh mục công khai", icon: FolderTree, perm: "suppliers.manage" },
   { href: "/crm/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view" },
+  { href: "/crm/rfqs", label: "RFQ công khai", icon: FileQuestion, perm: "suppliers.view" },
   { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view" },
   { href: "/crm/mail/compose", label: "Soạn email", icon: Pencil, perm: "mail.send" },
   { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage" },
