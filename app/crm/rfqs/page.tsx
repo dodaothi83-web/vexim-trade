@@ -14,7 +14,7 @@ import { Breadcrumbs, Badge, EmptyState } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
-import { assignRfqAction } from "./actions";
+import { assignRfqInlineAction } from "./actions-inline";
 import type { AppUser, Buyer, Rfq } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -75,13 +75,7 @@ export default async function RfqsPage({
   const filtered =
     statusFilter === "all" ? rfqs : rfqs.filter((r) => r.status === statusFilter);
 
-  async function assign(fd: FormData) {
-    "use server";
-    const id = String(fd.get("id"));
-    const to = String(fd.get("to") || "");
-    await assignRfqAction(id, to || null);
-    revalidatePath("/crm/rfqs");
-  }
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -173,7 +167,7 @@ export default async function RfqsPage({
                     </td>
                     <td className="px-3 py-2 text-[12.5px] text-ink-700">{r.destination_country ?? "—"}</td>
                     <td className="px-3 py-2">
-                      <form action={assign} className="flex items-center gap-1">
+                      <form action={assignRfqInlineAction} className="flex items-center gap-1">
                         <input type="hidden" name="id" value={r.id} />
                         <select
                           name="to"

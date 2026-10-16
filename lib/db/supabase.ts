@@ -905,6 +905,15 @@ export const supabaseStore: DataStore = {
     if (error) fail("listRfqMatches", error);
     return (data ?? []) as RfqMatch[];
   },
+  async getRfqMatch(id) {
+    const { data, error } = await must()
+      .from("rfq_matches")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) fail("getRfqMatch", error);
+    return (data ?? null) as RfqMatch | null;
+  },
   async createRfqMatch(input) {
     const { data, error } = await must().from("rfq_matches").insert(cleanPatch(input)).select().single();
     if (error) fail("createRfqMatch", error);
@@ -919,6 +928,10 @@ export const supabaseStore: DataStore = {
       .single();
     if (error) fail("updateRfqMatch", error);
     return data as RfqMatch;
+  },
+  async deleteRfqMatch(id) {
+    const { error } = await must().from("rfq_matches").delete().eq("id", id);
+    if (error) fail("deleteRfqMatch", error);
   },
 
   // --- Introductions ---

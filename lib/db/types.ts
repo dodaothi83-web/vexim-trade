@@ -190,8 +190,10 @@ export interface DataStore {
 
   // RFQ matches
   listRfqMatches(rfqId: string): Promise<RfqMatch[]>;
+  getRfqMatch(id: string): Promise<RfqMatch | null>;
   createRfqMatch(input: Partial<RfqMatch>): Promise<RfqMatch>;
   updateRfqMatch(id: string, patch: Partial<RfqMatch>): Promise<RfqMatch>;
+  deleteRfqMatch(id: string): Promise<void>;
 
   // Introductions (bảo vệ không vượt mặt)
   findIntroduction(buyerId: string, supplierId: string): Promise<Introduction | null>;

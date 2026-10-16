@@ -1123,6 +1123,9 @@ export const localStore: DataStore = {
   async listRfqMatches(rfqId) {
     return (load().rfq_matches ?? []).filter((m) => m.rfq_id === rfqId);
   },
+  async getRfqMatch(id) {
+    return (load().rfq_matches ?? []).find((m) => m.id === id) ?? null;
+  },
   async createRfqMatch(input) {
     const now = new Date().toISOString();
     const row = {
@@ -1155,6 +1158,11 @@ export const localStore: DataStore = {
       if (!row) throw new Error("RFQ match not found");
       Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
       return row;
+    });
+  },
+  async deleteRfqMatch(id) {
+    mutate((db) => {
+      db.rfq_matches = (db.rfq_matches ?? []).filter((m) => m.id !== id);
     });
   },
 
