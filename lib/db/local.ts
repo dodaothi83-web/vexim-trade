@@ -496,6 +496,63 @@ function migrateRfqDefaults(db: LocalShape) {
   }
 }
 
+function migrateMediaDefaults(db: LocalShape) {
+  if (!Array.isArray(db.media)) return;
+  for (const m of db.media) {
+    if ((m as unknown as { verification_id?: string | null }).verification_id === undefined) {
+      (m as unknown as { verification_id: string | null }).verification_id = null;
+    }
+  }
+}
+
+function migrateSupplierDefaults(db: LocalShape) {
+  if (!Array.isArray(db.suppliers)) return;
+  for (const s of db.suppliers) {
+    if (s.profile_image === undefined) s.profile_image = null;
+    if (s.cover_image === undefined) s.cover_image = null;
+    if (s.verification_level === undefined) s.verification_level = 0;
+  }
+}
+
+/**
+ * Backfill các field mới cho Verification (L1/L2 checklist, GPS, visit_address,
+ * checklist_notes, return_reason) cho dữ liệu cũ, đồng thời tính lại
+ * verification_level cho từng Supplier dựa trên Verification đã approved.
+ */
+function migrateVerifications(db: LocalShape) {
+  if (!Array.isArray(db.verifications)) db.verifications = [];
+  for (const v of db.verifications) {
+    if (v.visit_lat === undefined) v.visit_lat = null;
+    if (v.visit_lng === undefined) v.visit_lng = null;
+    if (v.visit_address === undefined) v.visit_address = null;
+    // checklist cũ là mảng -> chuyển sang object rỗng
+    if (Array.isArray(v.checklist)) v.checklist = {};
+    if (typeof v.checklist !== "object" || v.checklist === null) v.checklist = {};
+    if (typeof v.checklist_notes !== "object" || v.checklist_notes === null) v.checklist_notes = {};
+    if (v.return_reason === undefined) v.return_reason = null;
+    if (!v.public_summary_i18n || typeof v.public_summary_i18n !== "object") v.public_summary_i18n = {};
+  }
+
+  // Tính verification_level cho NCC từ danh sách verification đã approved
+  const levelBySupplier = new Map<string, number>();
+  for (const v of db.verifications) {
+    if (v.status !== "approved") continue;
+    const cur = levelBySupplier.get(v.supplier_id) ?? 0;
+    if ((v.target_level as number) > cur) levelBySupplier.set(v.supplier_id, v.target_level as number);
+  }
+  if (Array.isArray(db.suppliers)) {
+    for (const s of db.suppliers) {
+      const lvl = levelBySupplier.get(s.id);
+      if (lvl !== undefined) {
+        s.verification_level = lvl;
+        if (!s.verified_at) s.verified_at = new Date().toISOString();
+      } else if (s.verification_level === undefined) {
+        s.verification_level = 0;
+      }
+    }
+  }
+}
+
 function removeProspectsWithoutEmail(db: LocalShape) {
   const removedIds = new Set(db.prospects.filter((prospect) => !prospect.email?.trim()).map((prospect) => prospect.id));
   if (!removedIds.size) return;
@@ -652,7 +709,10 @@ function load(): LocalShape {
     ensureSeedCategories(c);
     migrateCategoryDefaults(c);
     migrateRfqDefaults(c);
+    migrateMediaDefaults(c);
+    migrateSupplierDefaults(c);
     ensureDemoSuppliers(c);
+    migrateVerifications(c);
     removeProspectsWithoutEmail(c);
     return c;
   }
@@ -688,7 +748,10 @@ function load(): LocalShape {
         ensureSeedCategories(parsed);
         migrateCategoryDefaults(parsed);
         migrateRfqDefaults(parsed);
+        migrateMediaDefaults(parsed);
+        migrateSupplierDefaults(parsed);
         ensureDemoSuppliers(parsed);
+        migrateVerifications(parsed);
         removeProspectsWithoutEmail(parsed);
         g.__veximLocal = parsed;
         return parsed;
@@ -700,7 +763,10 @@ function load(): LocalShape {
   const fresh = seed();
   migrateCategoryDefaults(fresh);
   migrateRfqDefaults(fresh);
+  migrateMediaDefaults(fresh);
+  migrateSupplierDefaults(fresh);
   ensureDemoSuppliers(fresh);
+  migrateVerifications(fresh);
   g.__veximLocal = fresh;
   persist(fresh);
   return fresh;
@@ -776,10 +842,16 @@ export const localStore: DataStore = {
       db.suppliers = db.suppliers.filter((s) => s.id !== id);
       for (const b of db.buyers) if (b.supplier_id === id) b.supplier_id = null;
       const removedProducts = db.products.filter((pr) => pr.supplier_id === id).map((pr) => pr.id);
+      const removedVerifications = (db.verifications ?? []).filter((v) => v.supplier_id === id).map((v) => v.id);
+      db.verifications = (db.verifications ?? []).filter((v) => v.supplier_id !== id);
       db.products = db.products.filter((pr) => pr.supplier_id !== id);
-      db.media = db.media.filter(
-        (m) => m.supplier_id !== id && !(m.product_id && removedProducts.includes(m.product_id)),
-      );
+      db.media = db.media.filter((m) => {
+        if (m.supplier_id === id) return false;
+        if (m.product_id && removedProducts.includes(m.product_id)) return false;
+        const vid = (m as unknown as { verification_id?: string | null }).verification_id;
+        if (vid && removedVerifications.includes(vid)) return false;
+        return true;
+      });
     });
   },
 
@@ -1089,9 +1161,11 @@ export const localStore: DataStore = {
 
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
     return load()
-      .media.filter((m) =>
-        ownerType === "product" ? m.product_id === ownerId : m.supplier_id === ownerId,
-      )
+      .media.filter((m) => {
+        if (ownerType === "product") return m.product_id === ownerId;
+        if (ownerType === "verification") return (m as unknown as { verification_id?: string | null }).verification_id === ownerId;
+        return m.supplier_id === ownerId;
+      })
       .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
   },
   async listMediaForProducts(productIds) {
@@ -1112,12 +1186,14 @@ export const localStore: DataStore = {
   },
   async createMedia(input: MediaInput) {
     return mutate((db) => {
+      const now = new Date().toISOString();
       const row: MediaAsset = {
-        ...input,
+        verification_id: null,
         id: randomUUID(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+        created_at: now,
+        updated_at: now,
+        ...input,
+      } as MediaAsset;
       db.media.push(row);
       return row;
     });
@@ -1401,7 +1477,12 @@ export const localStore: DataStore = {
       status: "scheduled" as const,
       inspector_id: null,
       visit_date: null,
-      checklist: [],
+      visit_lat: null,
+      visit_lng: null,
+      visit_address: null,
+      checklist: {},
+      checklist_notes: {},
+      return_reason: null,
       public_summary_i18n: {},
       internal_notes: null,
       approved_by: null,
@@ -1420,8 +1501,19 @@ export const localStore: DataStore = {
       const row = (db.verifications ?? []).find((v) => v.id === id);
       if (!row) throw new Error("Verification not found");
       Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      // Tính lại verification_level cho NCC liên quan
+      const related = db.verifications.filter((v) => v.supplier_id === row.supplier_id && v.status === "approved");
+      const lvl = related.reduce((m, v) => Math.max(m, v.target_level as number), 0);
+      const sup = db.suppliers.find((s) => s.id === row.supplier_id);
+      if (sup) {
+        sup.verification_level = lvl;
+        if (lvl > 0 && !sup.verified_at) sup.verified_at = new Date().toISOString();
+      }
       return row;
     });
+  },
+  async getVerification(id) {
+    return (load().verifications ?? []).find((v) => v.id === id) ?? null;
   },
 
   async listRfqs(options) {

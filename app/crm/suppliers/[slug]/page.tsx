@@ -30,6 +30,7 @@ import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } fro
 import { PageHeader } from "@/components/page-header";
 import { StageBadge } from "@/components/stage-select";
 import { DeleteSupplierButton } from "@/components/supplier-actions";
+import { VerificationPanel } from "./verification-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -43,18 +44,22 @@ export default async function SupplierDetailPage({
   const canManage = hasPermission(session.role, "suppliers.manage");
   const canManageProducts = hasPermission(session.role, "products.manage");
   const canSeeInternal = hasPermission(session.role, "media.internal");
+  const canInspect = hasPermission(session.role, "verifications.inspect");
+  const canApprove = hasPermission(session.role, "verifications.approve");
 
   const store = getStore();
   const supplier = await store.getSupplier(id);
   if (!supplier) notFound();
 
-  const [buyers, products] = await Promise.all([
+  const [buyers, products, users] = await Promise.all([
     listBuyersWithSupplier(),
     store.listProductsBySupplier(id),
+    store.listUsers().catch(() => []),
   ]);
-  const [supplierMedia, productMedia] = await Promise.all([
+  const [supplierMedia, productMedia, verifications] = await Promise.all([
     store.listMedia("supplier", id),
     store.listMediaForProducts(products.map((p) => p.id)),
+    store.listVerifications(id),
   ]);
   // Ảnh đại diện cho từng sản phẩm (ưu tiên ảnh chia sẻ buyer, chưa hết hạn)
   const thumbByProduct = new Map<string, typeof productMedia[number]>();
@@ -170,6 +175,16 @@ export default async function SupplierDetailPage({
         </div>
 
         <div className="space-y-5 lg:col-span-2">
+          <VerificationPanel
+            supplierId={id}
+            verifications={verifications}
+            users={users}
+            currentUserId={session.uid}
+            canInspect={canInspect}
+            canApprove={canApprove}
+            currentLevel={supplier.verification_level ?? 0}
+          />
+
           <Card>
             <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
               <div>

@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   const expiresRaw = String(form.get("expiresOn") ?? "").trim();
   let audience = String(form.get("audience") ?? "") as MediaAudience;
 
-  if (ownerType !== "product" && ownerType !== "supplier") {
+  if (ownerType !== "product" && ownerType !== "supplier" && ownerType !== "verification") {
     return NextResponse.json({ ok: false, message: "Đối tượng lưu tệp không hợp lệ." }, { status: 400 });
   }
   if (!ownerId) {
@@ -61,6 +61,7 @@ export async function POST(request: Request) {
   const store = getStore();
 
   // Xác thực hồ sơ tồn tại để không tạo tệp mồ côi
+  let mediaSupplierId: string | null = null;
   if (ownerType === "product") {
     const product = await store.getProduct(ownerId);
     if (!product) {
@@ -73,17 +74,27 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-  } else {
+    mediaSupplierId = product.supplier_id;
+  } else if (ownerType === "supplier") {
     const supplier = await store.getSupplier(ownerId);
     if (!supplier) {
       return NextResponse.json({ ok: false, message: "Không tìm thấy nhà cung cấp." }, { status: 404 });
     }
+    mediaSupplierId = ownerId;
+  } else {
+    const v = await store.getVerification(ownerId);
+    if (!v) {
+      return NextResponse.json({ ok: false, message: "Không tìm thấy hồ sơ xác minh." }, { status: 404 });
+    }
+    mediaSupplierId = v.supplier_id;
+    // verification media luôn internal
+    audience = "internal";
   }
 
   // Giấy tờ nội bộ (giấy phép, xác minh NCC) luôn chỉ nội bộ, không chia sẻ buyer
   if (kind === "document") audience = "internal";
   if (audience !== "buyer" && audience !== "internal") {
-    audience = ownerType === "supplier" ? "internal" : "buyer";
+    audience = ownerType === "product" ? "buyer" : "internal";
   }
   // Chỉ người có quyền xem tài liệu nội bộ mới được tạo tệp nội bộ
   if (audience === "internal") {
@@ -101,7 +112,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Chưa chọn tệp nào." }, { status: 400 });
   }
 
-  const prefix = ownerType === "product" ? `products/${ownerId}` : `suppliers/${ownerId}`;
+  const prefix =
+    ownerType === "product" ? `products/${ownerId}` :
+    ownerType === "verification" ? `verifications/${ownerId}` :
+    `suppliers/${ownerId}`;
   const results: UploadResult[] = [];
   const created: string[] = [];
 
@@ -138,7 +152,8 @@ export async function POST(request: Request) {
       const input: MediaInput = {
         owner_type: ownerType,
         product_id: ownerType === "product" ? ownerId : null,
-        supplier_id: ownerType === "supplier" ? ownerId : null,
+        supplier_id: mediaSupplierId,
+        verification_id: ownerType === "verification" ? ownerId : null,
         kind,
         audience,
         status: "unverified",

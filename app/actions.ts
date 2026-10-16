@@ -45,6 +45,7 @@ import type {
   SupplierInput,
   SupplierProductInput,
   Category,
+  MediaOwnerType,
 } from "@/lib/types";
 
 export interface ActionResult {
@@ -1847,7 +1848,7 @@ export async function retrySupabaseAction(): Promise<ActionResult> {
  * Gắn link video vào hồ sơ (video không tải tệp lên — chỉ lưu link).
  */
 export async function addMediaLinkAction(input: {
-  ownerType: "product" | "supplier";
+  ownerType: MediaOwnerType;
   ownerId: string;
   url: string;
   caption?: string | null;
@@ -1865,17 +1866,30 @@ export async function addMediaLinkAction(input: {
   if (!["http:", "https:"].includes(parsed.protocol)) {
     return { ok: false, message: "Link video không hợp lệ." };
   }
-  if (input.ownerType !== "product" && input.ownerType !== "supplier") {
-    return { ok: false, message: "Đối tượng không hợp lệ." };
-  }
 
   try {
-    await getStore().createMedia({
+    const store = getStore();
+    let supplierId: string | null = null;
+    let productId: string | null = null;
+    let verificationId: string | null = null;
+    if (input.ownerType === "product") {
+      productId = input.ownerId;
+      const p = await store.getProduct(input.ownerId);
+      supplierId = p?.supplier_id ?? null;
+    } else if (input.ownerType === "supplier") {
+      supplierId = input.ownerId;
+    } else {
+      verificationId = input.ownerId;
+      const v = await store.getVerification(input.ownerId);
+      supplierId = v?.supplier_id ?? null;
+    }
+    await store.createMedia({
       owner_type: input.ownerType,
-      product_id: input.ownerType === "product" ? input.ownerId : null,
-      supplier_id: input.ownerType === "supplier" ? input.ownerId : null,
+      product_id: productId,
+      supplier_id: supplierId,
+      verification_id: verificationId,
       kind: "video",
-      audience: input.audience ?? "buyer",
+      audience: input.ownerType === "verification" ? "internal" : (input.audience ?? "buyer"),
       status: "unverified",
       expires_on: null,
       caption: (input.caption ?? "").trim() || parsed.hostname,
@@ -1890,7 +1904,7 @@ export async function addMediaLinkAction(input: {
       created_by: null,
     });
     revalidateAll();
-    return { ok: true, message: "Đã thêm link video (trạng thái: chưa xác minh)." };
+    return { ok: true, message: "Đã thêm link (trạng thái: chưa xác minh)." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }

@@ -172,6 +172,7 @@ export interface DataStore {
 
   // Verifications
   listVerifications(supplierId?: string): Promise<Verification[]>;
+  getVerification(id: string): Promise<Verification | null>;
   createVerification(input: Partial<Verification>): Promise<Verification>;
   updateVerification(id: string, patch: Partial<Verification>): Promise<Verification>;
 

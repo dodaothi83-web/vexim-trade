@@ -61,6 +61,8 @@ export interface PublicSupplierCard extends Supplier {
   categories: Category[];
   primary_category: Category | null;
   main_products: SupplierProduct[];
+  gallery_images: string[];      // storage_path các ảnh buyer-shareable
+  latest_verification_summary: string | null;
 }
 
 /**
@@ -100,12 +102,38 @@ export async function listPublicSuppliers(options?: {
     bySupplier.get(p.supplier_id)!.push(p);
   }
 
-  let cards: PublicSupplierCard[] = filtered.map((s) => ({
+  const baseCards = filtered.map((s) => ({
     ...s,
-    categories: [],
-    primary_category: null,
+    categories: [] as Category[],
+    primary_category: null as Category | null,
     main_products: (bySupplier.get(s.id) ?? []).slice(0, 4),
+    gallery_images: [] as string[],
+    latest_verification_summary: null as string | null,
   }));
+
+  // Load media + verifications cho các NCC được hiển thị (giới hạn 50 NCC/lượt)
+  const take = baseCards.slice(0, 50);
+  await Promise.all(take.map(async (c) => {
+    try {
+      const [media, vers] = await Promise.all([
+        (store.listMedia("supplier", c.id) as Promise<Array<{ kind: string; audience: string; storage_path: string | null; sort_order: number; created_at: string }>>).catch(() => []),
+        (store.listVerifications(c.id) as Promise<Array<{ status: string; target_level: number; public_summary_i18n: Record<string,string>; approved_at: string | null }>>).catch(() => []),
+      ]);
+      c.gallery_images = media
+        .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path)
+        .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+        .map((m) => m.storage_path!)
+        .slice(0, 6);
+      const approved = vers
+        .filter((v) => v.status === "approved")
+        .sort((a, b) => (b.target_level - a.target_level) || ((b.approved_at ?? "").localeCompare(a.approved_at ?? "")));
+      if (approved.length) {
+        c.latest_verification_summary = approved[0].public_summary_i18n?.en ?? null;
+      }
+    } catch { /* best effort */ }
+  }));
+
+  let cards: PublicSupplierCard[] = baseCards;
 
   if (options?.categorySlug) {
     const cat = categories.find((c) => c.slug === options.categorySlug);
@@ -146,9 +174,27 @@ export async function getPublicSupplierBySlug(slug: string): Promise<PublicSuppl
   const list = await listPublicSuppliers();
   const supplier = list.find((s) => s.slug === slug) ?? null;
   if (!supplier) return null;
+  const store = getStore();
   // Thêm tất cả sản phẩm của NCC (listPublicSuppliers chỉ lấy 4)
-  const products = await getStore().listProductsBySupplier(supplier.id);
-  return { ...supplier, main_products: products };
+  const [products, media, vers] = await Promise.all([
+    store.listProductsBySupplier(supplier.id),
+    store.listMedia("supplier", supplier.id).catch(() => []),
+    store.listVerifications(supplier.id).catch(() => []),
+  ]);
+  const gallery = media
+    .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path)
+    .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+    .map((m) => m.storage_path!)
+    .slice(0, 12);
+  const approved = vers
+    .filter((v) => v.status === "approved")
+    .sort((a, b) => (b.target_level - a.target_level) || ((b.approved_at ?? "").localeCompare(a.approved_at ?? "")));
+  return {
+    ...supplier,
+    main_products: products,
+    gallery_images: gallery,
+    latest_verification_summary: approved[0]?.public_summary_i18n?.en ?? supplier.latest_verification_summary ?? null,
+  };
 }
 
 export async function getPublicSuppliersByIds(ids: string[]): Promise<PublicSupplierCard[]> {

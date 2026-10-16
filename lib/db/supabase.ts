@@ -309,7 +309,10 @@ export const supabaseStore: DataStore = {
   },
 
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
-    const column = ownerType === "product" ? "product_id" : "supplier_id";
+    const column =
+      ownerType === "product" ? "product_id" :
+      ownerType === "verification" ? "verification_id" :
+      "supplier_id";
     const { data, error } = await must()
       .from("media_assets")
       .select("*")
@@ -816,6 +819,11 @@ export const supabaseStore: DataStore = {
     if (error) fail("listVerifications", error);
     return (data ?? []) as Verification[];
   },
+  async getVerification(id) {
+    const { data, error } = await must().from("verifications").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getVerification", error);
+    return (data as Verification | null) ?? null;
+  },
   async createVerification(input) {
     const { data, error } = await must().from("verifications").insert(cleanPatch(input)).select().single();
     if (error) fail("createVerification", error);
@@ -829,7 +837,21 @@ export const supabaseStore: DataStore = {
       .select()
       .single();
     if (error) fail("updateVerification", error);
-    return data as Verification;
+    const v = data as Verification;
+    // Recompute supplier verification_level.
+    try {
+      const { data: approved } = await must()
+        .from("verifications")
+        .select("target_level")
+        .eq("supplier_id", v.supplier_id)
+        .eq("status", "approved");
+      const lvl = (approved ?? []).reduce((m, x) => Math.max(m, Number(x.target_level) || 0), 0);
+      await must()
+        .from("suppliers")
+        .update({ verification_level: lvl, ...(lvl > 0 ? { verified_at: new Date().toISOString() } : {}) })
+        .eq("id", v.supplier_id);
+    } catch { /* best-effort */ }
+    return v;
   },
 
   // --- RFQs ---

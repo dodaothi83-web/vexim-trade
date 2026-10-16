@@ -84,6 +84,10 @@ export interface Supplier {
   export_markets?: string[];
   /** Nhận làm nhãn riêng / OEM */
   private_label?: boolean;
+  /** Ảnh đại diện công khai (logo hoặc ảnh nhà máy), storage_path trong media hoặc URL công khai */
+  profile_image?: string | null;
+  /** Ảnh bìa trang chi tiết NCC */
+  cover_image?: string | null;
   /** Cấp xác minh 0–3, 0 = chưa xác minh */
   verification_level?: number;
   verified_at?: string | null;
@@ -268,16 +272,60 @@ export interface Certificate {
 
 export type VerificationStatus = "scheduled" | "in_progress" | "submitted" | "approved" | "returned";
 
+export type VerificationLevel = 1 | 2 | 3;
+
+/** Các hạng mục checklist L1 — giấy tờ doanh nghiệp & an toàn thực phẩm */
+export const L1_DOC_ITEMS = [
+  { key: "business_license", label: "Business registration / Enterprise registration certificate" },
+  { key: "tax_certificate", label: "Tax registration certificate" },
+  { key: "bank_letter", label: "Bank reference letter (within 12 months)" },
+  { key: "food_safety", label: "Food safety / hygiene certificate (ATTP or equivalent)" },
+  { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000 or equivalent FSMS certificate" },
+  { key: "product_certs", label: "Product-specific certifications (organic/fair-trade/RFA/4C… as claimed)" },
+  { key: "export_license", label: "Export/trading license (if applicable)" },
+] as const;
+
+/** Checklist L2 — thăm nhà máy */
+export const L2_VISIT_ITEMS = [
+  { key: "factory_address_confirmed", label: "Factory GPS + address confirmed on-site" },
+  { key: "production_line_seen", label: "Production line seen running (or very recently shut down)" },
+  { key: "warehouse_seen", label: "Warehouse / finished-goods storage inspected" },
+  { key: "qc_lab_seen", label: "QC lab / testing equipment inspected" },
+  { key: "documents_original", label: "Original certificates cross-checked against uploaded copies" },
+  { key: "capacity_verified", label: "Monthly capacity claim cross-checked against machinery + workforce" },
+  { key: "worker_interview", label: "At least one line worker / QC staff interviewed" },
+  { key: "management_interview", label: "Owner / export manager interview on lead times and MOQ" },
+  { key: "photos_taken", label: "Date-stamped photos taken (gate, production line, warehouse, certificate board)" },
+] as const;
+
+export type L1DocKey = typeof L1_DOC_ITEMS[number]["key"];
+export type L2VisitKey = typeof L2_VISIT_ITEMS[number]["key"];
+
 export interface Verification {
   id: string;
   supplier_id: string;
-  target_level: number;
+  target_level: VerificationLevel;
   status: VerificationStatus;
   inspector_id: string | null;
+  /** L1: ngày nhận đủ tài liệu; L2: ngày thăm nhà máy */
   visit_date: string | null;
-  checklist: unknown[];
+  /** GPS latitude khi thăm nhà máy (L2) */
+  visit_lat: number | null;
+  /** GPS longitude khi thăm nhà máy (L2) */
+  visit_lng: number | null;
+  /** Địa chỉ ghi nhận lúc thăm (L2) */
+  visit_address: string | null;
+  /** Checklist kết quả — map key → boolean (null = chưa kiểm) */
+  checklist: Record<string, boolean | null>;
+  /** Ghi chú từng mục (key → text) */
+  checklist_notes: Record<string, string | null>;
+  /** Lý do trả hồ sơ (khi status=returned) */
+  return_reason: string | null;
+  /** Tóm tắt công khai theo ngôn ngữ — chỉ hiện khi approved */
   public_summary_i18n: I18nString;
+  /** Ghi chú nội bộ */
   internal_notes: string | null;
+  /** Người duyệt (chỉ admin) */
   approved_by: string | null;
   approved_at: string | null;
   created_at: string;
@@ -407,7 +455,7 @@ export type BuyerConsent = {
 
 /* --------------------------------- MEDIA --------------------------------- */
 
-export type MediaOwnerType = "product" | "supplier";
+export type MediaOwnerType = "product" | "supplier" | "verification";
 
 /**
  * image       – ảnh sản phẩm / ảnh nhà máy, chia sẻ được cho buyer
@@ -429,6 +477,8 @@ export interface MediaAsset {
   owner_type: MediaOwnerType;
   product_id: string | null;
   supplier_id: string | null;
+  /** Khi owner_type === "verification" — ảnh/giấy tờ đính kèm cho một lần xác minh cụ thể */
+  verification_id?: string | null;
   kind: MediaKind;
   audience: MediaAudience;
   status: MediaStatus;

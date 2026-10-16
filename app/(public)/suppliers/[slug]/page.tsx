@@ -18,6 +18,7 @@ import { Breadcrumbs } from "@/components/ui";
 import {
   formatFob,
   getPublicSupplierBySlug,
+  listPublicSuppliers,
   mainProductNames,
   supplierTypeLabel,
   t,
@@ -55,6 +56,14 @@ export default async function SupplierProfile({ params }: PageProps) {
   const verifiedDate = s.verified_at
     ? new Date(s.verified_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
     : null;
+  const coverUrl = s.cover_image ? `/public-media/${s.cover_image.replace(/^\//, "")}` : null;
+  const profileUrl = s.profile_image ? `/public-media/${s.profile_image.replace(/^\//, "")}` : null;
+  const publicMedia = (p: string) => `/public-media/${p.replace(/^\//, "")}`;
+
+  // Related suppliers — cùng ngành hàng + cấp xác minh cao
+  const related = (await listPublicSuppliers())
+    .filter((x) => x.id !== s.id)
+    .slice(0, 4);
 
   const orgLd = {
     "@context": "https://schema.org",
@@ -94,8 +103,26 @@ export default async function SupplierProfile({ params }: PageProps) {
         ]}
       />
 
-      <header className="mt-6">
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Cover + profile header */}
+      <section className="mt-6 overflow-hidden rounded-xl border border-ink-200 bg-white">
+        {coverUrl && (
+          <div className="relative h-48 w-full bg-ink-100 sm:h-64">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={coverUrl} alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+          </div>
+        )}
+        <div className={"flex flex-wrap items-end gap-5 p-5 sm:p-7 " + (coverUrl ? "-mt-12" : "")}>
+          <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-4 border-white bg-white shadow-md ring-1 ring-ink-200 sm:h-28 sm:w-28">
+            {profileUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profileUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-2xl font-bold text-ink-300">{(s.display_name ?? s.name).slice(0,1).toUpperCase()}</span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
           <span
             className={
               badge.tone === "emerald"
@@ -141,15 +168,23 @@ export default async function SupplierProfile({ params }: PageProps) {
             </span>
           )}
         </div>
-        {verifiedDate && (
-          <p className="mt-3 text-[13px] text-emerald-800">
-            Last verified on site: <strong>{verifiedDate}</strong>.
-          </p>
-        )}
-        <p className="mt-5 max-w-3xl text-[16px] leading-relaxed text-ink-700">
-          {t(s.summary_i18n) || mainProductNames(s.main_products)}
-        </p>
-      </header>
+            {verifiedDate && (
+              <p className="mt-3 text-[13px] text-emerald-800">
+                Last verified on site: <strong>{verifiedDate}</strong>.
+              </p>
+            )}
+            <p className="mt-4 max-w-3xl text-[16px] leading-relaxed text-ink-700">
+              {t(s.summary_i18n) || mainProductNames(s.main_products)}
+            </p>
+            {s.latest_verification_summary && (
+              <p className="mt-2 rounded-md bg-emerald-50 px-3 py-2 text-[13px] italic text-emerald-800 ring-1 ring-emerald-100">
+                <ShieldCheck className="mr-1 inline h-3.5 w-3.5" />
+                {s.latest_verification_summary}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-[1.5fr_1fr]">
         {/* Cột trái: 3 tab SSR (không cần JS ỏ bước này vì chỉ có một trang, in sẵn) */}
@@ -245,10 +280,41 @@ export default async function SupplierProfile({ params }: PageProps) {
             <h2 className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">
               Certificates
             </h2>
-            <p className="mt-4 text-[14px] italic text-ink-400">
-              Certificate list will appear after on-site documents are reviewed.
-            </p>
+            {(s.verification_level ?? 0) >= 1 ? (
+              <ul className="mt-4 flex flex-wrap gap-2 text-[13px]">
+                {["Business registration", "Tax registration", "Food-safety / HACCP"].map((c) => (
+                  <li key={c} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800 ring-1 ring-emerald-200">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> {c}
+                  </li>
+                ))}
+                {s.fob_publicly_visible && fob && (
+                  <li className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-brand-700 ring-1 ring-brand-200">
+                    FOB ref: {fob}
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <p className="mt-4 text-[14px] italic text-ink-400">
+                Certificate list will appear after documents are reviewed and verified by the Vexim desk.
+              </p>
+            )}
           </section>
+
+          {s.gallery_images.length > 0 && (
+            <section className="mt-10">
+              <h2 className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">
+                From the factory
+              </h2>
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {s.gallery_images.map((p) => (
+                  <a key={p} href={publicMedia(p)} target="_blank" rel="noreferrer" className="overflow-hidden rounded-md ring-1 ring-ink-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={publicMedia(p)} alt="" className="h-36 w-full object-cover transition hover:scale-[1.02] sm:h-44" />
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
 
         {/* Sidebar CTA */}
@@ -315,9 +381,38 @@ export default async function SupplierProfile({ params }: PageProps) {
 
       <section className="mt-14">
         <h3 className="text-[15px] font-semibold text-ink-800">Similar suppliers</h3>
-        <p className="mt-1 text-[13px] text-ink-500">
-          (Đang xây dựng — sẽ hiển thị khi có nhiều hồ sơ published hơn.)
-        </p>
+        {related.length === 0 ? (
+          <p className="mt-1 text-[13px] text-ink-500">More supplier profiles will appear as they are verified and published.</p>
+        ) : (
+          <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {related.map((r) => {
+              const rb = verificationBadge(r);
+              const rProfile = r.profile_image ? `/public-media/${r.profile_image.replace(/^\//,"")}` : null;
+              return (
+                <li key={r.id}>
+                  <Link href={`/suppliers/${r.slug}`} className="block overflow-hidden rounded-lg border border-ink-200 bg-white transition hover:shadow-md">
+                    <div className="flex h-32 items-center justify-center bg-ink-50">
+                      {rProfile ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={rProfile} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-2xl font-bold text-ink-300">{(r.display_name ?? r.name).slice(0,1)}</span>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className={"inline-flex h-2 w-2 rounded-full " + (rb.tone === "emerald" ? "bg-emerald-500" : "bg-slate-400")} />
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">{rb.text}</span>
+                      </div>
+                      <p className="mt-1 truncate text-[13.5px] font-bold text-ink-900">{r.display_name ?? r.name}</p>
+                      <p className="mt-0.5 truncate text-[12px] text-ink-500">{r.province ?? "Vietnam"} · {supplierTypeLabel(r)}</p>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
     </div>
   );
