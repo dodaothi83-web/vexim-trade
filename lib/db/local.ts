@@ -888,7 +888,7 @@ export const localStore: DataStore = {
   },
 
   /* ----------------------- RFQ FOUNDATION --------------------------------- */
-  async listCategories(options) {
+  async listCategories(options?: { publishedOnly?: boolean }): Promise<Category[]> {
     const all = load().categories ?? [];
     return options?.publishedOnly ? all.filter((c) => c.is_published) : [...all];
   },

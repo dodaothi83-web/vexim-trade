@@ -84,7 +84,7 @@ export function SupplierPicker({
           </select>
         </div>
         {canCreateSupplier && (
-          <a href="/suppliers/new" className="btn btn-ghost" target="_blank" rel="noreferrer">
+          <a href="/crm/suppliers/new" className="btn btn-ghost" target="_blank" rel="noreferrer">
             + Thêm NCC
           </a>
         )}
@@ -96,7 +96,7 @@ export function SupplierPicker({
             <Factory className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
             <div className="min-w-0 flex-1">
               <a
-                href={`/suppliers/${current.id}`}
+                href={`/crm/suppliers/${current.id}`}
                 className="text-[13.5px] font-semibold text-ink-900 hover:text-brand-700"
               >
                 {current.name}
@@ -215,7 +215,7 @@ export function DeleteBuyerButton({
     const res = await deleteBuyerAction(buyerId);
     toast.push({ kind: res.ok ? "success" : "error", title: res.message });
     if (res.ok) {
-      router.push("/buyers");
+      router.push("/crm/buyers");
       router.refresh();
     } else {
       setBusy(false);

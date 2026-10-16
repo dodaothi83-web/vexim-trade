@@ -34,19 +34,19 @@ const NAV: {
   icon: typeof LayoutDashboard;
   perm?: Permission;
 }[] = [
-  { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
-  { href: "/team", label: "KPI cá nhân", icon: BarChart3, perm: "kpi.view" },
-  { href: "/pipeline", label: "Pipeline", icon: KanbanSquare, perm: "buyers.view" },
-  { href: "/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view" },
-  { href: "/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage" },
-  { href: "/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view" },
-  { href: "/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view" },
-  { href: "/mail", label: "Hộp thư", icon: Mail, perm: "mail.view" },
-  { href: "/mail/compose", label: "Soạn email", icon: Pencil, perm: "mail.send" },
-  { href: "/posts", label: "Blog", icon: Newspaper, perm: "blog.manage" },
-  { href: "/templates", label: "Templates", icon: FileText, perm: "templates.manage" },
-  { href: "/settings", label: "Cài đặt", icon: Settings2, perm: "settings.view" },
-  { href: "/settings/users", label: "Người dùng", icon: UsersRound, perm: "users.manage" },
+  { href: "/crm/dashboard", label: "Tổng quan", icon: LayoutDashboard },
+  { href: "/crm/team", label: "KPI cá nhân", icon: BarChart3, perm: "kpi.view" },
+  { href: "/crm/pipeline", label: "Pipeline", icon: KanbanSquare, perm: "buyers.view" },
+  { href: "/crm/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view" },
+  { href: "/crm/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage" },
+  { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view" },
+  { href: "/crm/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view" },
+  { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view" },
+  { href: "/crm/mail/compose", label: "Soạn email", icon: Pencil, perm: "mail.send" },
+  { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage" },
+  { href: "/crm/templates", label: "Templates", icon: FileText, perm: "templates.manage" },
+  { href: "/crm/settings", label: "Cài đặt", icon: Settings2, perm: "settings.view" },
+  { href: "/crm/settings/users", label: "Người dùng", icon: UsersRound, perm: "users.manage" },
 ];
 
 export function Sidebar({
@@ -108,12 +108,12 @@ export function Sidebar({
             >
               <Icon className="h-4 w-4 shrink-0" />
               <span className="flex-1 truncate">{item.label}</span>
-              {item.href === "/mail" && unreadMail > 0 && (
+              {item.href === "/crm/mail" && unreadMail > 0 && (
                 <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900">
                   {unreadMail}
                 </span>
               )}
-              {item.href === "/buyers" && newBuyers > 0 && (
+              {item.href === "/crm/buyers" && newBuyers > 0 && (
                 <span
                   className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900"
                   title="Buyer mới chưa xử lý"
@@ -131,7 +131,7 @@ export function Sidebar({
         <div className="mb-2 flex items-center gap-2 rounded-lg bg-white/5 px-2 py-2">
           {/* Bấm vào thẻ tên mình => mở Hồ sơ của tôi */}
           <Link
-            href="/settings/profile"
+            href="/crm/settings/profile"
             onClick={() => setOpen(false)}
             title="Hồ sơ của tôi"
             className="-my-1 flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 pr-1 pl-0 transition hover:bg-white/10"

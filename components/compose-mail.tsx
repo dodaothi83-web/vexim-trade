@@ -504,7 +504,7 @@ export function ComposeMail({
     const res = await sendMailAction(payload());
     toast.push({ kind: res.ok ? "success" : "error", title: res.message });
     setBusy(false);
-    if (res.ok) router.push("/mail");
+    if (res.ok) router.push("/crm/mail");
   }
 
   async function saveSignature() {
@@ -594,7 +594,7 @@ export function ComposeMail({
               </span>
               <button
                 type="button"
-                onClick={() => router.push("/settings/profile")}
+                onClick={() => router.push("/crm/settings/profile")}
                 className="shrink-0 text-[11.5px] font-semibold text-brand-700 transition hover:text-brand-800"
                 title="Đổi địa chỉ gửi trong hồ sơ cá nhân"
               >
@@ -843,7 +843,7 @@ export function ComposeMail({
             <button
               type="button"
               className="flex items-center gap-1 font-semibold text-red-600 transition hover:underline"
-              onClick={() => router.push("/mail")}
+              onClick={() => router.push("/crm/mail")}
             >
               <Trash2 className="h-3.5 w-3.5" />
               Huỷ

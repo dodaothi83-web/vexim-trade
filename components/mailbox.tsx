@@ -128,7 +128,7 @@ export function Mailbox({
         </select>
 
         {canSend && (
-          <Link href="/mail/compose" className="btn btn-primary">
+          <Link href="/crm/mail/compose" className="btn btn-primary">
             <Pencil className="h-4 w-4" />
             Soạn thư
           </Link>
@@ -152,7 +152,7 @@ export function Mailbox({
           }
           action={
             canSend ? (
-              <Link href="/mail/compose" className="btn btn-primary">
+              <Link href="/crm/mail/compose" className="btn btn-primary">
                 Soạn thư mới
               </Link>
             ) : null
@@ -163,7 +163,7 @@ export function Mailbox({
           {list.map((m) => (
             <li key={m.id}>
               <Link
-                href={m.status === "draft" && canSend ? `/mail/compose?draft=${m.id}` : `/mail/${m.id}`}
+                href={m.status === "draft" && canSend ? `/crm/mail/compose?draft=${m.id}` : `/crm/mail/${m.id}`}
                 className="group flex items-start gap-3 px-3 py-2.5 transition hover:bg-brand-50/40"
               >
                 <span
@@ -254,7 +254,7 @@ export function MailboxHint({ children }: { children: React.ReactNode }) {
 export function BackToList() {
   return (
     <Button variant="ghost" size="sm">
-      <Link href="/mail">← Hộp thư</Link>
+      <Link href="/crm/mail">← Hộp thư</Link>
     </Button>
   );
 }

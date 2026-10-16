@@ -104,17 +104,17 @@ export function ProspectConversion({
     const response = await convertProspectAction(prospectId);
     setBusy(false);
     toast.push({ kind: response.ok ? "success" : "error", title: response.message });
-    if (response.ok && response.buyerId) router.push(`/buyers/${response.buyerId}`);
+    if (response.ok && response.buyerId) router.push(`/crm/buyers/${response.buyerId}`);
   }
   async function link(buyerId: string) {
     setBusy(true);
     const response = await linkProspectToBuyerAction(prospectId, buyerId);
     setBusy(false);
     toast.push({ kind: response.ok ? "success" : "error", title: response.message });
-    if (response.ok) router.push(`/buyers/${buyerId}`);
+    if (response.ok) router.push(`/crm/buyers/${buyerId}`);
   }
   if (status === "converted" && matchedBuyerId) {
-    return <a className="btn btn-primary" href={`/buyers/${matchedBuyerId}`}><ArrowRightLeft className="h-4 w-4" />Mở Buyer đã liên kết</a>;
+    return <a className="btn btn-primary" href={`/crm/buyers/${matchedBuyerId}`}><ArrowRightLeft className="h-4 w-4" />Mở Buyer đã liên kết</a>;
   }
   return (
     <div className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4">
@@ -128,7 +128,7 @@ export function ProspectConversion({
           {matchCandidates.map((buyer) => (
             <div key={buyer.id} className="flex items-center justify-between gap-3 text-[12px]">
               <div className="min-w-0">
-                <a href={`/buyers/${buyer.id}`} className="truncate font-semibold text-brand-700 hover:underline">{buyer.company}</a>
+                <a href={`/crm/buyers/${buyer.id}`} className="truncate font-semibold text-brand-700 hover:underline">{buyer.company}</a>
                 <p className="truncate text-[11px] text-ink-500">{buyer.contactName || "Chưa có người liên hệ"}{buyer.email ? ` · ${buyer.email}` : ""}</p>
               </div>
               <Button variant="ghost" disabled={busy || status !== "qualified"} onClick={() => void link(buyer.id)}>{status === "qualified" ? "Liên kết" : "Sau khi đủ điều kiện"}</Button>

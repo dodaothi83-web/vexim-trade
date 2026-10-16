@@ -62,7 +62,7 @@ export function SupplierForm({ supplier }: { supplier?: Supplier | null }) {
       toast.push({ kind: res.ok ? "success" : "error", title: res.message });
       if (res.ok) {
         if (supplier) router.refresh();
-        else if (res.id) router.push(`/suppliers/${res.id}`);
+        else if (res.id) router.push(`/crm/suppliers/${res.id}`);
       }
     } catch (err) {
       toast.push({ kind: "error", title: "Lỗi khi lưu", lines: [err instanceof Error ? err.message : String(err)] });

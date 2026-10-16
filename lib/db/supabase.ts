@@ -716,7 +716,7 @@ export const supabaseStore: DataStore = {
   /* ----------------------- RFQ FOUNDATION (GĐ0-GĐ2) ----------------------- */
 
   // --- Categories ---
-  async listCategories(options) {
+  async listCategories(options?: { publishedOnly?: boolean }) {
     let q = must().from("categories").select("*").order("sort_order", { ascending: true });
     if (options?.publishedOnly) q = q.eq("is_published", true);
     const { data, error } = await q;

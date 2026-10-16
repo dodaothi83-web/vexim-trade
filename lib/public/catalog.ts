@@ -1,0 +1,152 @@
+/**
+ * Helpers cho trang công khai (SSR). Mọi hàm ở đây đều an toàn import ở server
+ * components; KHÔNG import từ client components.
+ */
+import "server-only";
+
+import { getStore } from "@/lib/db";
+import type { Category, Supplier, SupplierProduct, SupplierType } from "@/lib/types";
+
+/** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
+export const DEFAULT_LOCALE = "en";
+
+/** Lấy chuỗi dịch theo ngôn ngữ, fallback về tiếng Anh. */
+export function t(i18n: Record<string, string> | null | undefined, locale: string = DEFAULT_LOCALE): string {
+  if (!i18n) return "";
+  return i18n[locale] ?? i18n[DEFAULT_LOCALE] ?? Object.values(i18n)[0] ?? "";
+}
+
+/** Nhãn hiển thị cho loại hình nhà cung cấp. */
+export const SUPPLIER_TYPE_LABEL: Record<SupplierType | "none", string> = {
+  manufacturer: "Manufacturer",
+  trading: "Trading company",
+  cooperative: "Cooperative",
+  none: "Supplier",
+};
+
+export function supplierTypeLabel(s: Supplier): string {
+  const key = (s.supplier_type ?? "none") as SupplierType | "none";
+  return SUPPLIER_TYPE_LABEL[key] ?? SUPPLIER_TYPE_LABEL.none;
+}
+
+/** Hiển thị cấp xác minh: null/0 = "Not yet verified"; 1/2/3 = Verified level N. */
+export interface VerificationBadgeInfo {
+  text: string;
+  tone: "gray" | "emerald";
+}
+export function verificationBadge(s: Pick<Supplier, "verification_level" | "verified_at" | "status">): VerificationBadgeInfo {
+  if (s.status !== "published" || !s.verification_level || s.verification_level < 1) {
+    return { text: "Not yet verified", tone: "gray" };
+  }
+  if (s.verification_level >= 3) return { text: "Verified Level 3", tone: "emerald" };
+  if (s.verification_level === 2) return { text: "Verified Level 2", tone: "emerald" };
+  return { text: "Verified on site", tone: "emerald" };
+}
+
+/** Định dạng khoảng giá FOB (chỉ gọi khi public thấy). */
+export function formatFob(s: Pick<Supplier, "fob_min" | "fob_max" | "fob_unit" | "fob_currency" | "fob_updated_at" | "fob_publicly_visible">): string | null {
+  if (!s.fob_publicly_visible || !s.fob_updated_at) return null;
+  const expired = Date.now() - new Date(s.fob_updated_at).getTime() > 180 * 24 * 3600 * 1000;
+  if (expired) return null;
+  const unit = s.fob_unit ? `/${s.fob_unit}` : "";
+  const cur = s.fob_currency ?? "USD";
+  if (s.fob_min != null && s.fob_max != null && s.fob_max !== s.fob_min) {
+    return `${cur} ${s.fob_min}–${s.fob_max}${unit}`;
+  }
+  if (s.fob_min != null) return `${cur} ${s.fob_min}${unit}`;
+  return null;
+}
+
+export interface PublicSupplierCard extends Supplier {
+  categories: Category[];
+  primary_category: Category | null;
+  main_products: SupplierProduct[];
+}
+
+/**
+ * Lấy danh sách NCC công khai cho trang danh mục.
+ * Public site đọc trực tiếp bảng suppliers (chỉ status='published') để còn lọc linh
+ * hoạt theo cột; trong tuần 1 MVP, code lọc tay vì view v_public_suppliers ẩn tạm
+ * những supplier chưa published.
+ */
+export async function listPublicSuppliers(options?: { categorySlug?: string }): Promise<PublicSupplierCard[]> {
+  const store = getStore();
+  const [suppliers, products, categories] = await Promise.all([
+    store.listSuppliers(),
+    store.listProducts(),
+    typeof store.listCategories === "function"
+      ? store.listCategories({ publishedOnly: true })
+      : Promise.resolve([] as Category[]),
+  ]);
+
+  const filtered = suppliers.filter((s) => s.status === "published");
+  const bySupplier = new Map<string, SupplierProduct[]>();
+  for (const p of products) {
+    if (!bySupplier.has(p.supplier_id)) bySupplier.set(p.supplier_id, []);
+    bySupplier.get(p.supplier_id)!.push(p);
+  }
+
+  let cards: PublicSupplierCard[] = filtered.map((s) => ({
+    ...s,
+    categories: [],
+    primary_category: null,
+    main_products: (bySupplier.get(s.id) ?? []).slice(0, 4),
+  }));
+
+  if (options?.categorySlug) {
+    const cat = categories.find((c) => c.slug === options.categorySlug);
+    const q = options.categorySlug.toLowerCase();
+    cards = cards.filter((s) => {
+      // Ưu tiên match nếu categories đã được gán; nếu chưa thì lọc theo text.
+      const inProducts = (s.main_products ?? []).some(
+        (p) =>
+          (p.category ?? "").toLowerCase().includes(q) ||
+          p.name.toLowerCase().includes(q),
+      );
+      const inSummary =
+        (s.products ?? "").toLowerCase().includes(q) ||
+        t(s.summary_i18n).toLowerCase().includes(q);
+      // unused `cat` warning tránh
+      void cat;
+      return inProducts || inSummary;
+    });
+  }
+
+  // Sắp xếp: verification_level desc → độ đầy đủ hồ sơ → tên.
+  cards.sort((a, b) => {
+    const av = a.verification_level ?? 0;
+    const bv = b.verification_level ?? 0;
+    if (bv !== av) return bv - av;
+    const score = (s: Supplier) =>
+      (s.products ? 1 : 0) + (s.province ? 1 : 0) + (s.moq_text ? 1 : 0) + (s.lead_time_days ? 1 : 0);
+    const aScore = score(a);
+    const bScore = score(b);
+    if (bScore !== aScore) return bScore - aScore;
+    return (a.display_name ?? a.name).localeCompare(b.display_name ?? b.name);
+  });
+
+  return cards;
+}
+
+export async function getPublicSupplierBySlug(slug: string): Promise<PublicSupplierCard | null> {
+  const list = await listPublicSuppliers();
+  const supplier = list.find((s) => s.slug === slug) ?? null;
+  if (!supplier) return null;
+  // Thêm tất cả sản phẩm của NCC (listPublicSuppliers chỉ lấy 4)
+  const products = await getStore().listProductsBySupplier(supplier.id);
+  return { ...supplier, main_products: products };
+}
+
+export async function getPublicSuppliersByIds(ids: string[]): Promise<PublicSupplierCard[]> {
+  const all = await listPublicSuppliers();
+  const map = new Map(all.map((s) => [s.id, s]));
+  return ids.map((id) => map.get(id)).filter((s): s is PublicSupplierCard => Boolean(s));
+}
+
+/** Tạo chuỗi sản phẩm chính để hiển thị trên card */
+export function mainProductNames(products: SupplierProduct[], max = 3): string {
+  return products
+    .slice(0, max)
+    .map((p) => p.name)
+    .join(" · ");
+}

@@ -37,7 +37,7 @@ export function MessageActions({
     const res = await deleteMessageAction(messageId);
     toast.push({ kind: res.ok ? "success" : "error", title: res.message });
     if (res.ok) {
-      router.push("/mail");
+      router.push("/crm/mail");
       router.refresh();
     } else {
       setBusy(null);

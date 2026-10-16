@@ -1,8 +1,8 @@
 import type { EmailMessage } from "@/lib/types";
 
 /**
- * Quy tắc "ai được thấy thư nào" trong Hộp thư — DÙNG CHUNG cho danh sách `/mail`,
- * trang chi tiết `/mail/[id]`, badge chưa đọc ở menu và endpoint đồng bộ `/api/mail/sync`.
+ * Quy tắc "ai được thấy thư nào" trong Hộp thư — DÙNG CHUNG cho danh sách `/crm/mail`,
+ * trang chi tiết `/crm/mail/[id]`, badge chưa đọc ở menu và endpoint đồng bộ `/api/mail/sync`.
  *
  * Vì sao phải gom về một chỗ: ba nơi từng tự viết ba điều kiện lọc khác nhau và đều
  * bỏ sót trường hợp thư KHÔNG gắn buyer_id/prospect_id (buyer mới toanh, chưa có trong

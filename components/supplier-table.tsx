@@ -53,7 +53,7 @@ export function SupplierTable({
           ))}
         </select>
         {canManage && (
-          <Link href="/suppliers/new" className="btn btn-primary ml-auto">
+          <Link href="/crm/suppliers/new" className="btn btn-primary ml-auto">
             <Plus className="h-4 w-4" />
             Thêm nhà cung cấp
           </Link>
@@ -72,7 +72,7 @@ export function SupplierTable({
           action={
             suppliers.length === 0 ? (
               canManage ? (
-                <Link href="/suppliers/new" className="btn btn-primary">
+                <Link href="/crm/suppliers/new" className="btn btn-primary">
                   Thêm nhà cung cấp
                 </Link>
               ) : null
@@ -118,7 +118,7 @@ export function SupplierTable({
                         />
                         <div className="min-w-0">
                           <Link
-                            href={`/suppliers/${s.id}`}
+                            href={`/crm/suppliers/${s.id}`}
                             className="block max-w-[260px] truncate text-[13.5px] font-semibold text-ink-900 hover:text-brand-700"
                           >
                             {s.name}

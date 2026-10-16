@@ -27,7 +27,7 @@ export function ProspectForm() {
     const result = await createProspectAction(form);
     setBusy(false);
     toast.push({ kind: result.ok ? "success" : "error", title: result.message });
-    if (result.ok && result.id) router.push(`/prospects/${result.id}`);
+    if (result.ok && result.id) router.push(`/crm/prospects/${result.id}`);
   }
   return (
     <form onSubmit={submit} className="card space-y-5 p-5">

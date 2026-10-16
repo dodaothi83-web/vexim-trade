@@ -101,7 +101,7 @@ export function BuyerForm({
         if (buyer) {
           router.refresh();
         } else if (res.id) {
-          router.push(`/buyers/${res.id}`);
+          router.push(`/crm/buyers/${res.id}`);
         }
       }
     } catch (err) {
@@ -338,7 +338,7 @@ export function BuyerForm({
           {canCreateSupplier && (
             <div className="flex items-end">
               <a
-                href="/suppliers/new"
+                href="/crm/suppliers/new"
                 className="btn btn-ghost w-full"
                 target="_blank"
                 rel="noreferrer"

@@ -335,7 +335,7 @@ export function BuyerTable({
           action={
             buyers.length === 0 ? (
               canManage ? (
-                <Link href="/buyers/new" className="btn btn-primary">
+                <Link href="/crm/buyers/new" className="btn btn-primary">
                   <UserPlus className="h-4 w-4" />
                   Thêm buyer
                 </Link>
@@ -395,7 +395,7 @@ export function BuyerTable({
                         />
                         <div className="min-w-0">
                           <Link
-                            href={`/buyers/${b.id}`}
+                            href={`/crm/buyers/${b.id}`}
                             className="block max-w-[230px] truncate text-[13.5px] font-semibold text-ink-900 transition hover:text-brand-700"
                           >
                             {b.company}
@@ -487,7 +487,7 @@ export function BuyerTable({
                     </td>
                     <td className="table-td text-right">
                       <Link
-                        href={`/buyers/${b.id}`}
+                        href={`/crm/buyers/${b.id}`}
                         className="rounded-lg px-2 py-1 text-[12px] font-semibold text-brand-700 opacity-0 transition group-hover:opacity-100"
                       >
                         Mở →

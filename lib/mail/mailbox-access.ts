@@ -10,7 +10,7 @@ import type { AppUser, Buyer, EmailMessage, Prospect } from "@/lib/types";
 
 /**
  * "Hộp thư của tôi" — nạp và lọc MỘT LẦN cho mọi nơi cần hỏi câu hỏi đó:
- * danh sách `/mail`, trang chi tiết `/mail/[id]`, badge chưa đọc ở menu và
+ * danh sách `/crm/mail`, trang chi tiết `/crm/mail/[id]`, badge chưa đọc ở menu và
  * endpoint đồng bộ `/api/mail/sync`.
  *
  * Vì sao cần gộp: bốn nơi trước đây tự nạp rồi tự lọc (người 500 thư, người 300 thư,

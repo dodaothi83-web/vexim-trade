@@ -77,7 +77,7 @@ export function ProductForm({
         ? await updateProductAction(product.id, payload)
         : await createProductAction(payload);
       toast.push({ kind: res.ok ? "success" : "error", title: res.message });
-      if (res.ok) router.push(`/suppliers/${supplier.id}`);
+      if (res.ok) router.push(`/crm/suppliers/${supplier.id}`);
     } catch (err) {
       toast.push({ kind: "error", title: "Lỗi khi lưu", lines: [err instanceof Error ? err.message : String(err)] });
     } finally {

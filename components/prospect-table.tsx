@@ -68,7 +68,7 @@ export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
               {visibleRows.map((prospect) => (
                 <tr key={prospect.id} className="group border-t border-ink-100 transition hover:bg-brand-50/40">
                   <td className="table-td">
-                    <Link href={`/prospects/${prospect.id}`} className="block max-w-[300px] truncate text-[13.5px] font-semibold text-ink-900 hover:text-brand-700">{prospect.company}</Link>
+                    <Link href={`/crm/prospects/${prospect.id}`} className="block max-w-[300px] truncate text-[13.5px] font-semibold text-ink-900 hover:text-brand-700">{prospect.company}</Link>
                     <p className="mt-0.5 text-[11.5px] text-ink-500">{[prospect.contact_name, prospect.contact_title, prospect.email].filter(Boolean).join(" · ") || "Chưa có người liên hệ"}</p>
                   </td>
                   <td className="table-td text-[12.5px]">{prospect.target_product || "Chưa gắn nhóm"}</td>
@@ -78,7 +78,7 @@ export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
                   <td className="table-td text-[12px] text-ink-500">{prospect.data_source || "Chưa rõ"}</td>
                   <td className="table-td text-[12px] text-ink-500">{prospect.source_list || "Chưa phân nhóm"}</td>
                   <td className="table-td text-[12px] text-ink-500">{prospect.owner || "Chưa phân công"}</td>
-                  <td className="table-td text-right"><Link href={`/prospects/${prospect.id}`} className="text-[12px] font-semibold text-brand-700 opacity-0 group-hover:opacity-100">Mở →</Link></td>
+                  <td className="table-td text-right"><Link href={`/crm/prospects/${prospect.id}`} className="text-[12px] font-semibold text-brand-700 opacity-0 group-hover:opacity-100">Mở →</Link></td>
                 </tr>
               ))}
             </tbody>
