@@ -16,6 +16,7 @@ import { SITE_URL } from "@/lib/site";
 import { getStore } from "@/lib/db";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { requireRfqStaffSender } from "@/lib/rfq/staff-sender";
+import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import { buyerReplyAddress, supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import type { Buyer, EmailMessage, Rfq, RfqMatch, Supplier } from "@/lib/types";
 
@@ -226,7 +227,7 @@ export async function dispatchRfqToSuppliers(input: {
     // Initial invitations are one-shot; follow-ups have a separate staff action.
     if (m.sent_to_supplier_at || m.status !== "proposed") { skipped++; continue; }
     const sup = supMap.get(m.supplier_id);
-    if (!sup || !sup.email) {
+    if (!sup || !sup.email || !(await canInviteSupplier(sup, store))) {
       skipped += 1;
       continue;
     }

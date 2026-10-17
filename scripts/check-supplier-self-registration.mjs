@@ -29,22 +29,26 @@ for (const denied of [
   [{ ...owner, role: 'viewer' }, doc, 'business_license'],
 ]) assert.equal(policy.canUploadOwnDocument(...denied), false);
 
-const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false };
+const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false };
 const store = {
   mode: 'supabase',
   listUsers: async () => state.users,
   getUserByEmail: async (email) => state.users.find((u) => u.email === email) ?? null,
   listSupplierVerificationRequests: async () => { if (state.schemaMissing) throw Error('missing migration'); return state.requests; },
-  createSupplier: async (input) => { const r = { ...input, id: 's1' }; state.suppliers.push(r); return r; },
-  createUser: async (input) => { const r = { ...input, id: 'u1' }; state.users.push(r); return r; },
+  createSupplier: async (input) => { const r = { ...input, id: `s${state.suppliers.length + 1}` }; state.suppliers.push(r); return r; },
+  createUser: async (input) => { if (state.failUser) throw Error('DB write failed'); const r = { ...input, id: 'u1' }; state.users.push(r); return r; },
   createVerification: async (input) => { const r = { ...input, id: 'v1' }; state.reviews.push(r); return r; },
+  listVerifications: async (id) => state.reviews.filter((r) => r.supplier_id === id),
+  updateVerification: async (id, patch) => Object.assign(state.reviews.find((r) => r.id === id), patch),
+  getSupplier: async (id) => state.suppliers.find((r) => r.id === id) ?? null,
+  updateSupplier: async (id, patch) => Object.assign(state.suppliers.find((r) => r.id === id), patch),
   createSupplierVerificationRequest: async (id, target_level) => {
     if (state.failRequest) throw Error('DB write failed');
     const r = { supplier_id: id, target_level, status: 'requested' }; state.requests.push(r); return r;
   },
   addAuditLog: async (entry) => { state.audit.push(entry); },
   deleteUser: async (id) => { state.users = state.users.filter((u) => u.id !== id); },
-  deleteSupplier: async (id) => { state.suppliers = state.suppliers.filter((s) => s.id !== id); state.reviews = []; state.requests = []; state.media = []; },
+  deleteSupplier: async (id) => { state.suppliers = state.suppliers.filter((s) => s.id !== id); state.reviews = state.reviews.filter((r) => r.supplier_id !== id); state.requests = state.requests.filter((r) => r.supplier_id !== id); },
 };
 const auth = { auth: {
   signUp: async () => { state.authCalls++; return { data: { user: { id: 'auth-1', identities: [{ id: 'identity' }], email_confirmed_at: state.confirmed ? 'now' : null }, session: state.confirmed ? {} : null }, error: null }; },
@@ -68,6 +72,7 @@ const mocks = {
   '@/lib/site': { SITE_URL: 'https://example.com' },
 };
 const { POST } = load('../app/api/supplier-signup/route.ts', mocks);
+const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
 const file = new File(['%PDF-1.7 TEST DOCUMENT'], 'license.pdf', { type: 'application/pdf' });
 function form(email = 'owner@example.com') {
   const fd = new FormData();
@@ -93,6 +98,38 @@ assert.equal(state.suppliers[0].status, 'draft');
 assert.equal(state.suppliers[0].verification_level, 0, 'Forged publish/level fields ignored');
 assert.equal(state.users.at(-1).role, 'supplier');
 assert.equal(state.users.at(-1).supplier_id, 's1');
+assert.equal(state.suppliers[0].onboarding_status, 'not_started');
+assert.equal(state.suppliers[0].supplier_type, null, 'Signup cannot pre-fill the business role');
+assert.equal(state.suppliers[0].products, null);
+assert.equal(state.reviews.length, 0, 'Document check begins after submitting the profile');
+assert.equal(state.requests.length, 0);
+assert.equal(state.notify, 0, 'Staff notified only after profile submission');
+assert.equal(onboarding.portalApproved(state.suppliers[0]), false);
+const profile = load('../app/api/supplier-portal/profile/route.ts', {
+  'next/server': { NextResponse: { json: (data, opts) => Response.json(data, opts) } },
+  'next/cache': { revalidatePath() {} },
+  '@/lib/supplier-portal/access': { supplierPortalAccess: async () => ({
+    user: state.users.find((u) => u.role === 'supplier'), supplier: state.suppliers[0], store,
+  }) },
+  '@/lib/supplier-portal/onboarding': onboarding,
+  '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: keys },
+  '@/lib/supplier-portal/evidence': mocks['@/lib/supplier-portal/evidence'],
+  '@/lib/supplier-portal/notify': mocks['@/lib/supplier-portal/notify'],
+  '@/lib/types': mocks['@/lib/types'],
+});
+async function submitProfile(fd) {
+  const response = await profile.POST(new Request('https://example.com/api/supplier-portal/profile', { method: 'POST', body: fd }));
+  return { status: response.status, data: await response.json() };
+}
+const forged = form(); forged.set('supplier_type', 'invalid');
+assert.equal((await submitProfile(forged)).status, 400);
+assert.equal(state.reviews.length, 0);
+assert.equal((await submitProfile(form())).status, 200);
+assert.equal(state.suppliers[0].onboarding_status, 'pending');
+assert.equal(state.suppliers[0].role, 'trader');
+assert.equal(state.suppliers[0].supplier_type, 'trading');
+assert.equal(state.suppliers[0].status, 'draft', 'Forged public status cannot publish');
+assert.equal(onboarding.portalApproved(state.suppliers[0]), false);
 assert.equal(state.reviews.length, 1);
 assert.equal(state.reviews[0].target_level, 1);
 assert.equal(state.reviews[0].status, 'in_progress');
@@ -101,16 +138,25 @@ assert.deepEqual(state.requests.map((r) => r.target_level), [2, 3]);
 assert.equal(state.media[0].audience, 'internal');
 assert.equal(state.media[0].verification_id, 'v1');
 assert.equal(state.notify, 1);
+assert.equal((await submitProfile(form())).status, 409, 'Pending profile cannot be resubmitted');
+state.suppliers[0].onboarding_status = 'changes_requested';
+state.users[1].supplier_id = 's2';
+assert.equal((await submitProfile(form())).status, 409, 'Cannot submit a foreign supplier profile');
+state.users[1].supplier_id = 's1';
+assert.equal((await submitProfile(form())).status, 200, 'Returned profile may be resubmitted');
+assert.equal(state.suppliers[0].onboarding_status, 'pending');
+assert.equal(state.reviews.length, 1, 'Resubmission reuses open document review');
+assert.equal(state.requests.length, 2, 'Resubmission does not duplicate requests');
 assert.equal((await post(form())).status, 409, 'Cannot claim an existing account');
 assert.equal(state.authCalls, 2);
 store.mode = 'local';
 assert.equal((await post(form('other@example.com'))).status, 503);
 assert.equal(state.authCalls, 2, 'No local public signup');
 store.mode = 'supabase';
-state.failRequest = true;
+state.failUser = true;
 assert.equal((await post(form('other@example.com'))).status, 503);
-assert.equal(state.suppliers.length, 0, 'Failed registration rolls back the draft supplier');
-assert.equal(state.users.length, 1, 'Failed registration rolls back the linked account');
+assert.equal(state.suppliers.length, 1, 'Failed registration rolls back only the new draft supplier');
+assert.equal(state.users.length, 2, 'Failed registration rolls back only the new linked account');
 assert.equal(state.deletedAuth, 2, 'Failed registration removes the unconfirmed Auth account');
 
 const authStore = { mode: 'local', getUserByEmail: async () => ({ ...owner, auth_provider: 'supabase', password_hash: 'legacy-hash' }) };
@@ -128,15 +174,16 @@ const authLoginUnconfirmed = load('../lib/auth/authenticate.ts', {
 });
 assert.equal((await authLoginUnconfirmed.authenticate(owner.email, 'password123')).ok, false, 'Unconfirmed supplier must not log in');
 
-const portalState = { user: owner, review: doc, saved: 0 };
+const portalState = { user: owner, review: doc, supplier: { id: 's1', onboarding_status: 'pending' }, saved: 0 };
 const upload = load('../app/api/supplier-portal/evidence/route.ts', {
   'next/server': { NextResponse: { json: (data, opts) => Response.json(data, opts) } },
   'next/cache': { revalidatePath() {} },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => ({
-    user: portalState.user, review: portalState.review, supplier: { id: 's1' },
+    user: portalState.user, review: portalState.review, supplier: portalState.supplier,
     store: { getVerification: async () => portalState.review, addAuditLog: async () => null },
   }) },
   '@/lib/supplier-portal/policy': policy,
+  '@/lib/supplier-portal/onboarding': onboarding,
   '@/lib/supplier-portal/evidence': { MAX_DOCUMENT_BYTES: 15 * 1024 * 1024,
     validateInitialDocument: async () => ({ bytes: new Uint8Array([1]), mime: 'application/pdf', kind: 'document' }),
     saveDocumentEvidence: async () => { portalState.saved++; return { id: 'm1' }; },
@@ -147,6 +194,8 @@ async function uploadForm(key = 'business_license') {
   const response = await upload.POST(new Request('https://example.com/api/supplier-portal/evidence', { method: 'POST', body: fd }));
   return response.status;
 }
+assert.equal(await uploadForm(), 403, 'Pending account cannot use upload API');
+portalState.supplier.onboarding_status = 'approved';
 assert.equal(await uploadForm(), 200);
 portalState.review = { ...doc, target_level: 2 };
 assert.equal(await uploadForm(), 403, 'Supplier cannot upload visit evidence');
@@ -158,7 +207,7 @@ assert.equal(portalState.saved, 1);
 
 const fileAsset = { audience: 'internal', owner_type: 'verification', checklist_key: 'business_license',
   verification_id: 'v1', created_by: owner.id, storage_path: 'verifications/v1/test.pdf' };
-const mediaStore = { getMediaByPath: async () => fileAsset, getUser: async () => owner, getVerification: async () => doc };
+const mediaStore = { getMediaByPath: async () => fileAsset, getUser: async () => owner, getSupplier: async () => portalState.supplier, getVerification: async () => doc };
 const media = load('../app/api/media/file/[...path]/route.ts', {
   'next/server': { NextResponse: Response },
   '@/lib/db': { getStore: () => mediaStore },
@@ -166,9 +215,13 @@ const media = load('../app/api/media/file/[...path]/route.ts', {
   '@/lib/auth/permissions': { hasPermission: () => false },
   '@/lib/media/storage': { getObject: async () => ({ data: new Uint8Array([37, 80, 68, 70]) }) },
   '@/lib/supplier-portal/policy': policy,
+  '@/lib/supplier-portal/onboarding': onboarding,
 });
 const fileRequest = new Request('https://example.com/api/media/file/verifications/v1/test.pdf');
 const fileParams = { params: Promise.resolve({ path: ['verifications', 'v1', 'test.pdf'] }) };
+portalState.supplier.onboarding_status = 'pending';
+assert.equal((await media.GET(fileRequest, fileParams)).status, 403, 'Pending account cannot fetch file');
+portalState.supplier.onboarding_status = 'approved';
 assert.equal((await media.GET(fileRequest, fileParams)).status, 200);
 fileAsset.created_by = 'someone-else';
 assert.equal((await media.GET(fileRequest, fileParams)).status, 403, 'Supplier cannot read other uploads');
@@ -176,6 +229,46 @@ fileAsset.created_by = owner.id;
 fileAsset.verification_id = 'v2';
 mediaStore.getVerification = async () => ({ ...doc, target_level: 2 });
 assert.equal((await media.GET(fileRequest, fileParams)).status, 403, 'Supplier cannot read factory/delivery files');
+
+const staffSupplierId = '12345678-1234-1234-1234-123456789abc';
+const staffSupplier = { ...state.suppliers[0], id: staffSupplierId };
+let denyApproval = true;
+const decisions = load('../app/crm/suppliers/[slug]/onboarding-actions.ts', {
+  'next/cache': { revalidatePath() {} },
+  '@/lib/db': { getStore: () => ({ getSupplier: async () => staffSupplier,
+    getUserByEmail: async (email) => email === staffSupplier.email ? { ...owner, supplier_id: staffSupplierId } : null,
+    listVerifications: async () => state.reviews,
+    updateSupplier: async (_id, patch) => Object.assign(staffSupplier, patch),
+    addAuditLog: async (entry) => { state.audit.push(entry); },
+  }) },
+  '@/lib/auth/session': { guard: async () => denyApproval ? { message: 'denied' } : null,
+    getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'sourcing' }) },
+});
+const approval = new FormData(); approval.set('supplier_id', staffSupplierId); approval.set('decision', 'approved');
+assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, false);
+assert.equal(staffSupplier.onboarding_status, 'pending');
+denyApproval = false;
+const returnForm = new FormData(); returnForm.set('supplier_id', staffSupplierId);
+returnForm.set('decision', 'changes_requested'); returnForm.set('note', 'Bổ sung địa chỉ cơ sở');
+await decisions.decideSupplierOnboardingAction(returnForm);
+assert.equal(staffSupplier.onboarding_status, 'changes_requested');
+assert.equal(staffSupplier.onboarding_note, 'Bổ sung địa chỉ cơ sở');
+assert.equal(onboarding.canSubmitProfile(staffSupplier), true);
+assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, false);
+staffSupplier.onboarding_status = 'pending';
+staffSupplier.tax_id = null;
+assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, false, 'Incomplete profile cannot be approved');
+staffSupplier.tax_id = '0012345';
+assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, true);
+assert.equal(onboarding.portalApproved(staffSupplier), true);
+assert.equal(staffSupplier.status, 'draft', 'Account approval cannot publish supplier');
+assert.equal(state.reviews[0].status, 'in_progress', 'Account approval cannot approve document check');
+assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, false, 'No duplicate approval');
+const gateSchema = fs.readFileSync(new URL('../supabase/migrations/20261017_supplier_onboarding_gate.sql', import.meta.url), 'utf8');
+assert.match(gateSchema, /onboarding_status = 'pending'/);
+assert.doesNotMatch(gateSchema, /onboarding_status = 'approved'/);
+const portalPage = fs.readFileSync(new URL('../app/supplier/portal/page.tsx', import.meta.url), 'utf8');
+assert.ok(portalPage.indexOf('if (!portalApproved(supplier))') < portalPage.indexOf('store.listSupplierRfqInvitations'), 'Pending portal cannot load dashboard data');
 
 const contactSupplierId = '12345678-1234-1234-1234-123456789abc';
 const contactRequest = { supplier_id: contactSupplierId, target_level: 3, status: 'requested' };
@@ -209,4 +302,4 @@ assert.match(schema, /target_level in \(2,3\)/);
 assert.match(schema, /supplier_verification_requests enable row level security/);
 const crmlayout = fs.readFileSync(new URL('../app/crm/layout.tsx', import.meta.url), 'utf8');
 assert.match(crmlayout, /session\.role === "supplier"/);
-console.log('✅ Supplier self-registration: migration, email confirmation, rollback, draft mapping, L1-only evidence, requests and isolated role.');
+console.log('✅ Supplier onboarding: account first, profile next, staff gate, isolated evidence and permissions.');

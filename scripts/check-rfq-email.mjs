@@ -61,6 +61,7 @@ const store = {
   getRfqMatch: async (mid) => mid === id ? match : null,
   updateRfqMatch: async (_mid, patch) => Object.assign(match, patch),
   getSupplier: async (sid) => sid === supplier.id ? supplier : null,
+  getUserByEmail: async () => null,
   listRfqMatches: async () => [match],
 };
 const bareAddress = (s) => (s.match(/<([^>]+)>/)?.[1] ?? s).split(',')[0].trim();
@@ -79,6 +80,7 @@ const mocks = {
   '@/lib/email/send': { transport, threadId: (dir, from) => `${dir}:${from}` },
   '@/lib/rfq/reply-routing': router,
   '@/lib/rfq/staff-sender': { requireRfqStaffSender: async () => ({ header: 'Nguyễn Văn Dung <dung@veximtrade.com>' }) },
+  '@/lib/supplier-portal/onboarding': loadTS('../lib/supplier-portal/onboarding.ts', {}),
   '@/lib/site': { SITE_URL: 'https://veximtrade.com' },
 };
 const { processInboundEvent } = loadTS('../lib/mail/inbound.ts', mocks);
@@ -158,6 +160,11 @@ compose.set('subject', 'Báo giá'); compose.set('body', 'Xin chào');
 await assert.rejects(actions.composeMatchEmailAction(compose), /Resend chưa gửi thật/);
 assert.equal(messages.filter((m) => m.kind === 'manual' && m.rfq_id === actionRfq.id).length, 0, 'Simulated attempt cannot count as sent');
 transportStatus = 'sent';
+supplier.onboarding_status = 'pending';
+await assert.rejects(actions.composeMatchEmailAction(compose), /chưa được Vexim xác nhận/);
+const pendingFollowup = new FormData(); pendingFollowup.set('rfq_id', actionRfq.id); pendingFollowup.set('match_id', match.id);
+await assert.rejects(actions.sendFollowUpAction(pendingFollowup), /chưa được Vexim xác nhận/);
+supplier.onboarding_status = 'approved';
 await actions.composeMatchEmailAction(compose);
 assert.equal(sent.at(-1).from, 'Nguyễn Văn Dung <dung@veximtrade.com>');
 assert.equal(sent.at(-1).replyTo, router.supplierReplyAddress(actionRfq.code, match.id));

@@ -10,7 +10,7 @@ export default function SupplierApplyPage() {
     <div className="mt-7 rounded-2xl border border-ink-200 bg-white p-5 shadow-sm sm:p-8">
       <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vexim Trade · Doanh nghiệp</p>
       <h1 className="mt-2 text-3xl font-black text-ink-900">Đăng ký hồ sơ nhà cung cấp</h1>
-      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-600">Thông tin được tạo thành hồ sơ nháp trong hệ thống Vexim. Chỉ giấy tờ ở bước đầu được doanh nghiệp tự tải. Chọn các đánh giá bổ sung ở cuối biểu mẫu để Vexim liên hệ lên kế hoạch; không có nhãn xác minh hoặc đăng bán tự động.</p>
+      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-600">Tạo tài khoản trước, xác nhận email rồi đăng nhập để hoàn thiện hồ sơ doanh nghiệp trên dashboard. Tài khoản sẽ chờ Vexim xác nhận thông tin trước khi sử dụng; việc này không tự xác minh hoặc công khai nhà cung cấp.</p>
       <SupplierApplicationForm />
     </div>
   </main>;

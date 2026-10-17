@@ -7,6 +7,7 @@ import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { transport } from "@/lib/email/send";
 import { requireRfqStaffSender } from "@/lib/rfq/staff-sender";
+import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { notifyBuyerRfqStatus } from "@/lib/rfq/buyer-notify";
@@ -37,6 +38,7 @@ export async function composeMatchEmailAction(fd: FormData): Promise<void> {
   if (!match || match.rfq_id !== rfqId) throw new Error("Match không thuộc RFQ này.");
   const supplier = await store.getSupplier(match.supplier_id);
   if (!supplier) throw new Error("Không tìm thấy NCC.");
+  if (!(await canInviteSupplier(supplier, store))) throw new Error("Tài khoản NCC chưa được Vexim xác nhận; chưa thể gửi RFQ.");
 
   const to = toOverride || supplier.email;
   if (!to) throw new Error("NCC chưa có email — vui lòng điền địa chỉ nhận.");
@@ -169,6 +171,7 @@ export async function sendFollowUpAction(fd: FormData): Promise<void> {
   if (!rfq || !match || match.rfq_id !== rfqId) throw new Error("RFQ/match không hợp lệ.");
   const sup = await store.getSupplier(match.supplier_id);
   if (!sup || !sup.email) throw new Error("NCC chưa có email.");
+  if (!(await canInviteSupplier(sup, store))) throw new Error("Tài khoản NCC chưa được Vexim xác nhận; chưa thể gửi RFQ.");
 
   const subject = `Nhắc: ${rfq.code} — vui lòng phản hồi báo giá`;
   const deadline = new Date(); deadline.setDate(deadline.getDate() + 2);

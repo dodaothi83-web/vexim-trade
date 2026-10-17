@@ -17,7 +17,7 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
     ? new URL(process.env.SUPPLIER_SIGNUP_REDIRECT_URL).origin : SITE_URL;
   const url = `${staffOrigin}/crm/suppliers/${encodeURIComponent(supplier.id)}`;
   const title = `NCC tự đăng ký: ${supplier.name}`;
-  const body = `<p>NCC vừa gửi hồ sơ tự khai và bằng chứng Kiểm tra giấy tờ. <strong>Chưa có đánh giá nào được duyệt.</strong></p>
+  const body = `<p>NCC vừa nộp hồ sơ tự khai (giấy tờ bước đầu nếu đã tải). <strong>Tài khoản chưa được Vexim xác nhận sử dụng cổng; chưa có đánh giá nào được tự động duyệt.</strong></p>
     <p>Doanh nghiệp: ${escapeHtml(supplier.name)}<br/>Liên hệ: ${escapeHtml(supplier.contact_name ?? "—")} · ${escapeHtml(supplier.email ?? "—")} · ${escapeHtml(supplier.phone ?? "—")}</p>
     <p>Yêu cầu Vexim liên hệ để xác minh thêm: <strong>${escapeHtml(choices.join(", ") || "Không chọn")}</strong>.
     Nếu có yêu cầu, nhân viên thu mua vui lòng liên hệ sớm để lên kế hoạch và tự tải bằng chứng vào đúng đợt kiểm.</p>

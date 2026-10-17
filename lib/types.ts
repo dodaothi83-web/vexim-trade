@@ -66,6 +66,9 @@ export interface Supplier {
   rating: number | null;
   notes: string | null;
   status: SupplierStatus;
+  /** Quyền dùng cổng NCC; độc lập với status công khai và các kết quả xác minh. */
+  onboarding_status?: "not_started" | "pending" | "approved" | "changes_requested";
+  onboarding_note?: string | null;
   /** Năm thành lập */
   founded_year?: number | null;
   /** Số nhân sự */

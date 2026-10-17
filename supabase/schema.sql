@@ -760,6 +760,17 @@ create index if not exists supplier_verification_requests_queue_idx
 alter table public.supplier_verification_requests enable row level security;
 revoke all on public.supplier_verification_requests from anon, authenticated;
 
+-- Quyền cổng NCC riêng với status công khai và kết quả từng đợt xác minh.
+alter table public.suppliers add column if not exists onboarding_status text not null default 'not_started';
+alter table public.suppliers add column if not exists onboarding_note text;
+alter table public.suppliers drop constraint if exists suppliers_onboarding_status_check;
+alter table public.suppliers add constraint suppliers_onboarding_status_check
+  check (onboarding_status in ('not_started','pending','approved','changes_requested'));
+update public.suppliers s set onboarding_status = 'pending'
+where s.onboarding_status = 'not_started' and exists (
+  select 1 from public.app_users u where u.supplier_id = s.id and u.role = 'supplier'
+) and s.tax_id is not null and s.products is not null;
+
 create table if not exists public.supplier_portal_notice_reads (
   supplier_id uuid not null references public.suppliers(id) on delete cascade,
   notice_key text not null check (char_length(notice_key) between 1 and 100),

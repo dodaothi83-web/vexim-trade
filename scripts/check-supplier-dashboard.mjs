@@ -95,13 +95,15 @@ const rfq = { id: 'r1', code: 'RFQ-20261017-001', product_text: 'Cashew', quanti
 const storedMatch = { ...match, rfq_id: rfq.id, status: 'proposed', sent_to_supplier_at: null };
 const sent = [];
 let mode = 'simulated';
+let inviteStatus = 'pending';
 let preflightFails = false;
 const store = {
   getRfq: async () => rfq,
   listRfqMatches: async () => [storedMatch],
   listSupplierRfqInvitations: async () => { if (preflightFails) throw Error('migration missing'); return []; },
   listSupplierNoticeReads: async () => [],
-  listSuppliers: async () => [{ id: 's-a', email: 'supplier@example.com', name: 'Supplier A' }],
+  listSuppliers: async () => [{ id: 's-a', email: 'supplier@example.com', name: 'Supplier A', onboarding_status: inviteStatus }],
+  getUserByEmail: async (email) => email === 'supplier@example.com' && inviteStatus === 'not_started' ? { role: 'supplier', supplier_id: 's-a' } : null,
   updateRfqMatch: async (_id, patch) => Object.assign(storedMatch, patch),
   addMessage: async (message) => sent.push(message),
   updateRfq: async (_id, patch) => Object.assign(rfq, patch),
@@ -111,6 +113,7 @@ const outbound = load('../lib/rfq/outreach.ts', {
   '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts },
   '@/lib/email/send': { transport: async (mail) => { sent.push(mail); return { ok: true, status: mode, provider: 'resend' }; } },
   '@/lib/rfq/staff-sender': staffSender,
+  '@/lib/supplier-portal/onboarding': load('../lib/supplier-portal/onboarding.ts', {}),
   '@/lib/config': { FROM_ADDRESS: 'Vexim <sales@example.com>', COMPANY: { name: 'Vexim' } },
   '@/lib/site': { SITE_URL: 'https://example.com' },
   '@/lib/email/templates': { escapeHtml: (s) => s, wrapPlainEmail: ({ body }) => body },
@@ -125,6 +128,12 @@ await assert.rejects(outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: 
 assert.equal(sent.length, 0, 'No mail before DB migration is ready');
 preflightFails = false;
 assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 0);
+assert.equal(sent.length, 0, 'Pending account cannot receive an invitation');
+inviteStatus = 'not_started';
+assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 0);
+assert.equal(sent.length, 0, 'Incomplete registered account cannot receive an invitation');
+inviteStatus = 'approved';
+assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 0);
 assert.equal(storedMatch.sent_to_supplier_at, null, 'A simulated email is not an invitation');
 mode = 'sent';
 assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 1);
@@ -136,16 +145,18 @@ assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).from, 'Ngu
 assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).replyTo, 'reply@example.com');
 
 let accessEnabled = true;
+let portalStatus = 'pending';
 const writes = [];
 const noticesAction = load('../app/supplier/portal/notice-actions.ts', {
   'next/cache': { revalidatePath() {} },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => accessEnabled ? {
-    supplier: { id: 's-a' }, reviews: [], store: {
+    supplier: { id: 's-a', onboarding_status: portalStatus }, reviews: [], store: {
       listSupplierRfqInvitations: async () => [match, foreign], listSupplierVerificationRequests: async () => [],
       markSupplierNoticeRead: async (supplierId, key) => writes.push([supplierId, key]),
     },
   } : null },
   '@/lib/supplier-portal/dashboard': dashboard,
+  '@/lib/supplier-portal/onboarding': { portalApproved: (supplier) => supplier.onboarding_status === 'approved' },
 });
 const noticeForm = (key) => { const fd = new FormData(); fd.set('notice_key', key); return fd; };
 await noticesAction.markSupplierNoticeReadAction(noticeForm(`rfq:${idB}`));
@@ -154,6 +165,9 @@ accessEnabled = false;
 await noticesAction.markSupplierNoticeReadAction(noticeForm(`rfq:${idA}`));
 assert.equal(writes.length, 0, 'Logged-out user cannot mark a notice read');
 accessEnabled = true;
+await noticesAction.markSupplierNoticeReadAction(noticeForm(`rfq:${idA}`));
+assert.equal(writes.length, 0, 'Pending supplier cannot mark notices');
+portalStatus = 'approved';
 await noticesAction.markSupplierNoticeReadAction(noticeForm(`rfq:${idA}`));
 assert.equal(writes[0][0], 's-a');
 

@@ -5,11 +5,13 @@ import { Bell, ClipboardCheck, FileText, Mail, PackageSearch, TrendingUp } from 
 import { requireSession } from "@/lib/auth/session";
 import { logoutAction } from "@/app/auth-actions";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
+import { canSubmitProfile, portalApproved } from "@/lib/supplier-portal/onboarding";
 import { buildSupplierDashboard } from "@/lib/supplier-portal/dashboard";
 import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
 import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { L1_DOC_ITEMS } from "@/lib/types";
 import { SupplierPortalUpload } from "./supplier-portal-upload";
+import { SupplierProfileForm } from "./supplier-profile-form";
 import { markSupplierNoticeReadAction } from "./notice-actions";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +23,28 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   const { supplier, review, reviews, user, store } = access;
+  // Until Vexim explicitly approves this account, never query/render RFQs, reports or notices.
+  if (!portalApproved(supplier)) return <main className="mx-auto max-w-4xl px-5 py-10 sm:py-14">
+    <header className="flex items-center justify-between gap-4 border-b border-ink-200 pb-5">
+      <div><Link href="/" className="text-sm font-semibold text-brand-700">← Vexim Trade</Link>
+        <h1 className="mt-4 text-3xl font-black text-ink-900">Cổng nhà cung cấp</h1>
+        <p className="mt-1 text-sm text-ink-600">{user.email}</p></div>
+      <form action={logoutAction}><button className="btn btn-ghost" type="submit">Đăng xuất</button></form>
+    </header>
+    {canSubmitProfile(supplier) ? <>
+      <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+        {supplier.onboarding_status === "changes_requested" ? "Vexim yêu cầu bổ sung thông tin. Vui lòng cập nhật và gửi lại hồ sơ." :
+          "Tài khoản đã tạo. Vui lòng hoàn thiện hồ sơ doanh nghiệp để Vexim xác nhận. Bạn chưa thể sử dụng các tính năng khác."}
+        {supplier.onboarding_status === "changes_requested" && supplier.onboarding_note &&
+          <p className="mt-2 whitespace-pre-wrap font-semibold">Nội dung cần bổ sung: {supplier.onboarding_note}</p>}
+      </div>
+      <SupplierProfileForm supplier={supplier} />
+    </> : <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
+      <h2 className="text-xl font-bold text-amber-950">Đang chờ Vexim xác nhận thông tin</h2>
+      <p className="mt-2 text-sm text-amber-900">Hồ sơ {supplier.name} đã được gửi. Bạn có thể đăng nhập để xem trạng thái này, nhưng RFQ, thông báo, báo cáo và tải thêm tài liệu chưa khả dụng cho đến khi nhân viên Vexim xác nhận quyền sử dụng.</p>
+      <p className="mt-3 text-xs text-amber-800">Xác nhận tài khoản không đồng nghĩa duyệt giấy tờ, thăm nhà máy, lịch sử giao hàng hoặc công khai hồ sơ.</p>
+    </div>}
+  </main>;
   const [media, requests, invites, reads, products] = await Promise.all([
     review ? store.listMedia("verification", review.id) : Promise.resolve([]),
     store.listSupplierVerificationRequests(supplier.id),
@@ -52,7 +76,7 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
         <a key={href} href={href} className="rounded-full border border-ink-200 bg-white px-3 py-2 text-ink-700 hover:border-brand-500 hover:text-brand-700">{label}</a>)}
     </nav>
     <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
-      Hồ sơ <strong>{supplier.status === "draft" ? "đang chờ Vexim rà soát" : supplier.status}</strong>. Việc duyệt từng đánh giá và công khai NCC/sản phẩm là quyết định riêng của Vexim; không tự động từ RFQ hay giấy tờ đã tải.
+      <strong>Vexim đã xác nhận quyền sử dụng cổng.</strong> Hồ sơ công khai: {supplier.status === "draft" ? "chưa công khai" : supplier.status}. Việc duyệt từng đánh giá và công khai NCC/sản phẩm là quyết định riêng của Vexim; không tự động từ RFQ hay giấy tờ đã tải.
     </div>
 
     <section id="tasks" className="mt-8 scroll-mt-6">

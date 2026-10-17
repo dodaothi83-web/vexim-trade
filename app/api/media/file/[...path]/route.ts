@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getObject } from "@/lib/media/storage";
 import { ownsDocumentReview } from "@/lib/supplier-portal/policy";
+import { portalApproved } from "@/lib/supplier-portal/onboarding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,7 +41,14 @@ export async function GET(
     return new NextResponse("Đường dẫn không hợp lệ", { status: 400 });
   }
 
-  const asset = await getStore().getMediaByPath(rel);
+  const store = getStore();
+  if (session.role === "supplier") {
+    const user = await store.getUser(session.uid);
+    const supplier = user?.supplier_id ? await store.getSupplier(user.supplier_id) : null;
+    if (!user?.is_active || user.role !== "supplier" || user.email.toLowerCase() !== session.email.toLowerCase() ||
+        !supplier || !portalApproved(supplier)) return new NextResponse("Tài khoản NCC chưa được Vexim xác nhận", { status: 403 });
+  }
+  const asset = await store.getMediaByPath(rel);
   if (!asset) {
     return new NextResponse("Không tìm thấy tệp", { status: 404 });
   }

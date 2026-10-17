@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { MailWarning, MapPin, Package, Plus, Search, Star } from "lucide-react";
 
 import type { Supplier } from "@/lib/types";
-import { SUPPLIER_STATUSES, roleLabel, statusMeta } from "@/lib/supplier";
+import { SUPPLIER_STATUSES, roleLabel, supplierTypeLabel, statusMeta } from "@/lib/supplier";
 import { Badge, Button, EmptyState, cx } from "@/components/ui";
 
 export function SupplierTable({
@@ -24,7 +24,7 @@ export function SupplierTable({
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return suppliers.filter((s) => {
-      if (status !== "all" && s.status !== status) return false;
+      if (status === "portal_pending" ? s.onboarding_status !== "pending" : status !== "all" && s.status !== status) return false;
       if (!needle) return true;
       return [s.name, s.products, s.province, s.contact_name, s.email]
         .filter(Boolean)
@@ -46,6 +46,7 @@ export function SupplierTable({
         </div>
         <select className="input w-auto" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="all">Mọi trạng thái</option>
+          <option value="portal_pending">Chờ xác nhận tài khoản ({suppliers.filter((s) => s.onboarding_status === "pending").length})</option>
           {SUPPLIER_STATUSES.map((st) => (
             <option key={st.value} value={st.value}>
               {st.label}
@@ -124,12 +125,15 @@ export function SupplierTable({
                             {s.name}
                           </Link>
                           <p className="mt-0.5 text-[11.5px] text-ink-500">
-                            {roleLabel(s.role)}
+                            {s.onboarding_status === "not_started" ? "Chưa khai loại hình" : s.supplier_type ? supplierTypeLabel(s.supplier_type) : roleLabel(s.role)}
                             {s.contact_name ? ` · ${s.contact_name}` : ""}
                           </p>
                           <Badge className={`mt-1 ${statusMeta(s.status).badge}`}>
                             {statusMeta(s.status).label}
                           </Badge>
+                          {s.onboarding_status === "pending" && <Badge className="mt-1 bg-amber-50 text-amber-800">Chờ xác nhận tài khoản</Badge>}
+                          {s.onboarding_status === "changes_requested" && <Badge className="mt-1 bg-orange-50 text-orange-800">Cần bổ sung hồ sơ</Badge>}
+                          {s.onboarding_status === "approved" && <Badge className="mt-1 bg-emerald-50 text-emerald-800">Đã mở cổng NCC</Badge>}
                         </div>
                       </div>
                     </td>

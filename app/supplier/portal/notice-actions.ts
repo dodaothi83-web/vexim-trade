@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
+import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { buildSupplierDashboard } from "@/lib/supplier-portal/dashboard";
 
 /** Read receipts can be set only for an event currently visible to this supplier. */
 export async function markSupplierNoticeReadAction(form: FormData): Promise<void> {
   const access = await supplierPortalAccess();
-  if (!access) return;
+  if (!access || !portalApproved(access.supplier)) return;
   const key = String(form.get("notice_key") ?? "");
   if (key.length > 100 || !/^(rfq|selected|returned|approved|contacted):[a-z0-9-]+$/i.test(key)) return;
   const { store, supplier, reviews } = access;

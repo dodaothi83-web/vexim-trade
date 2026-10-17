@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
+import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { canUploadOwnDocument } from "@/lib/supplier-portal/policy";
 import { MAX_DOCUMENT_BYTES, saveDocumentEvidence, validateInitialDocument } from "@/lib/supplier-portal/evidence";
 import type { AuditEvidenceKey } from "@/lib/types";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const access = await supplierPortalAccess();
-  if (!access?.review) return NextResponse.json({ ok: false, message: "Không có quyền bổ sung hồ sơ." }, { status: 403 });
+  if (!access?.review || !portalApproved(access.supplier)) return NextResponse.json({ ok: false, message: "Cần Vexim xác nhận tài khoản trước khi bổ sung giấy tờ." }, { status: 403 });
   if (Number(request.headers.get("content-length") ?? 0) > MAX_DOCUMENT_BYTES + 1024 * 1024) {
     return NextResponse.json({ ok: false, message: "Tệp quá lớn." }, { status: 413 });
   }

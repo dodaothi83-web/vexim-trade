@@ -23,7 +23,7 @@ import { listBuyersWithSupplier } from "@/lib/queries";
 import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { roleLabel, statusMeta } from "@/lib/supplier";
+import { roleLabel, supplierTypeLabel, statusMeta } from "@/lib/supplier";
 import { isExpired } from "@/lib/media/readiness";
 import { assignSupplierCategories } from "@/lib/public/category-assignment";
 import { MediaGallery, MediaThumb } from "@/components/media-gallery";
@@ -32,6 +32,7 @@ import { PageHeader } from "@/components/page-header";
 import { StageBadge } from "@/components/stage-select";
 import { DeleteSupplierButton } from "@/components/supplier-actions";
 import { VerificationPanel } from "./verification-panel";
+import { OnboardingControls } from "./onboarding-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +94,7 @@ export default async function SupplierDetailPage({
           />
         }
         title={supplier.name}
-        sub={[supplier.trade_name, roleLabel(supplier.role), supplier.province]
+        sub={[supplier.trade_name, supplier.onboarding_status === "not_started" ? "Chưa khai loại hình" : supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : roleLabel(supplier.role), supplier.province]
           .filter(Boolean)
           .join(" · ")}
         actions={
@@ -112,6 +113,15 @@ export default async function SupplierDetailPage({
           </>
         }
       />
+
+      {(supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested" || supplier.onboarding_status === "approved") &&
+        <Card className="mb-5 p-5">
+          <h2 className="text-lg font-bold text-ink-900">Quyền sử dụng cổng nhà cung cấp</h2>
+          <p className="mt-1 text-sm text-ink-600">{supplier.onboarding_status === "approved" ? "Đã được Vexim xác nhận tài khoản." : supplier.onboarding_status === "pending" ? "Hồ sơ đã nộp; tài khoản chưa sử dụng được. Kiểm tra thông tin và giấy tờ trước khi xác nhận." : "Đang chờ nhà cung cấp bổ sung thông tin."} Việc xác nhận này không duyệt giấy tờ hay công khai hồ sơ.</p>
+          {supplier.onboarding_note && <p className="mt-2 text-sm text-amber-800">Yêu cầu bổ sung: {supplier.onboarding_note}</p>}
+          {supplier.onboarding_status === "pending" && canManage && (session.role === "admin" || session.role === "sourcing") &&
+            <OnboardingControls supplierId={id} />}
+        </Card>}
 
       <Card className="mb-5 grid grid-cols-2 divide-ink-200 sm:grid-cols-4 sm:divide-x">
         <Cell label="Trạng thái hồ sơ">
