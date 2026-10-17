@@ -81,6 +81,7 @@ alter table public.supplier_products add column if not exists supplier_originate
 alter table public.supplier_products add column if not exists featured_media_id uuid;
 alter table public.supplier_products add column if not exists description_detail text;
 alter table public.supplier_products add column if not exists price_publicly_visible boolean not null default false;
+alter table public.supplier_products add column if not exists odm boolean not null default false;
 create index if not exists supplier_products_category_idx on public.supplier_products (category);
 
 -- ---------------------------------------------------------------------------
@@ -674,6 +675,21 @@ create table if not exists public.certificates (
   updated_at   timestamptz not null default now()
 );
 create index if not exists certificates_supplier_idx on public.certificates (supplier_id);
+alter table public.certificates
+  add column if not exists holder_name text,
+  add column if not exists scope_text text,
+  add column if not exists requested_product_ids uuid[] not null default '{}',
+  add column if not exists approved_product_ids uuid[] not null default '{}',
+  add column if not exists review_status text not null default 'unreviewed',
+  add column if not exists review_note text,
+  add column if not exists publicly_visible boolean not null default false;
+alter table public.certificates drop constraint if exists certificates_review_status_check;
+alter table public.certificates add constraint certificates_review_status_check
+  check (review_status in ('unreviewed', 'pending', 'changes_requested', 'approved', 'rejected'));
+alter table public.certificates enable row level security;
+revoke all on public.certificates from anon, authenticated;
+alter table public.media_assets enable row level security;
+revoke all on public.media_assets from anon, authenticated;
 
 drop trigger if exists certificates_touch on public.certificates;
 create trigger certificates_touch before update on public.certificates
@@ -1073,7 +1089,9 @@ select
     then regexp_replace(
     regexp_replace(sp.description_detail,
       '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', '[contact via Vexim]', 'gi'),
-    '(\+?[0-9][ ().-]?){9,15}[0-9]', '[contact via Vexim]', 'g') end as description_detail
+    '(\+?[0-9][ ().-]?){9,15}[0-9]', '[contact via Vexim]', 'g') end as description_detail,
+  sp.oem,
+  sp.odm
 from public.supplier_products sp
 join public.suppliers s on s.id = sp.supplier_id
 where s.status = 'published'

@@ -26,7 +26,7 @@ function parseProduct(form: FormData, supplierId: string): SupplierProductInput 
     specs: {}, unit: text(form, "unit", 40) || null, moq: text(form, "moq", 180) || null,
     moq_qty: null, moq_unit: null, monthly_capacity: text(form, "monthly_capacity", 180) || null,
     lead_time_days: daysRaw ? Number(daysRaw) : null, packaging: text(form, "packaging", 300) || null,
-    oem: form.get("oem") === "yes", samples: form.get("samples") === "yes",
+    oem: form.get("oem") === "yes", odm: form.get("odm") === "yes", samples: form.get("samples") === "yes",
     certifications: text(form, "certifications", 300) || null, export_port: text(form, "export_port", 120) || null,
     ref_price: priceRaw ? Number(priceRaw) : null, price_publicly_visible: form.get("price_publicly_visible") === "yes", currency: priceRaw ? (text(form, "currency", 10) || "USD") : null,
     price_valid_until: validUntil || null, incoterm: text(form, "incoterm", 20) || null,

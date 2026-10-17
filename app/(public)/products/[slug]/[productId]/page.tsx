@@ -11,6 +11,8 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { listPublicCategoryProducts, shareableProductImages } from "@/lib/public/product-catalog";
 import { shareableProductVideo } from "@/lib/public/product-video";
 import { ProductMediaGallery } from "@/components/product-media-gallery";
+import { ProductTradeLabels } from "@/components/product-trade-labels";
+import { publicCertificateLabels } from "@/lib/public/certificates";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +61,11 @@ export default async function PublicProductDetail({ params }: Props) {
   const media = await getStore().listMedia("product", p.id);
   const images = shareableProductImages(media, p.id, p.featured_media_id, 24);
   const video = shareableProductVideo(media, p.id);
+  // The certificates table and private file locations never go to the client.
+  const [certificates, supplierMedia] = await Promise.all([
+    getStore().listCertificates(p.supplier_id), getStore().listMedia("supplier", p.supplier_id),
+  ]);
+  const certificateLabels = publicCertificateLabels(p.supplier_id, p.id, certificates, supplierMedia);
   const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}`;
   const specs = p.specs && typeof p.specs === "object" ? Object.entries(p.specs).filter(([, value]) => typeof value === "string" || typeof value === "number").slice(0, 12) : [];
 
@@ -73,6 +80,8 @@ export default async function PublicProductDetail({ params }: Props) {
         <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
         <h1 className="mt-2 text-3xl font-black leading-tight text-ink-900 sm:text-4xl">{card.name}</h1>
         {p.description && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(p.description)}</p>}
+        {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
+          <p className="mt-1.5 text-xs text-ink-500">Product options stated in the listing; confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
         <div className="mt-5 rounded-xl border border-ink-200 bg-white px-5 py-2">
           <Spec label="Grade" value={card.grade} /><Spec label="MOQ" value={card.moq} />
           <Spec label="Reference price" value={card.price || "On request"} />
@@ -81,6 +90,14 @@ export default async function PublicProductDetail({ params }: Props) {
           <Spec label="Export port" value={p.export_port} />
           {specs.map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
         </div>
+        {certificateLabels.length > 0 && <section className="mt-5 rounded-xl border border-teal-200 bg-teal-50/40 p-4" aria-labelledby="certificates-heading">
+          <h2 id="certificates-heading" className="text-sm font-bold text-ink-900">Documents reviewed for this product</h2>
+          <p className="mt-1 text-xs leading-5 text-ink-600">Vexim reviewed copies and their stated holder/scope. This is not independent issuer authentication or a certification issued by Vexim. Original files are shared only on request.</p>
+          <ul className="mt-3 space-y-2">{certificateLabels.map((c) => <li key={c.id} className="rounded-lg border border-teal-100 bg-white p-3 text-sm">
+            <strong className="text-teal-900">{c.name}</strong>
+            <p className="mt-1 text-xs text-ink-600">Holder: {c.holder} · Scope: {c.scope}{c.issuer ? ` · Issuer: ${c.issuer}` : ""} · Valid until: {c.validUntil}</p>
+          </li>)}</ul>
+        </section>}
         <p className="mt-2 text-xs text-ink-500">Reference prices are indicative, not a binding offer. Final terms are confirmed in the quotation.</p>
         <Link href={rfq} className="btn btn-primary mt-5 w-full justify-center">Request a quote <ArrowRight className="h-4 w-4" /></Link>
         <aside className="mt-6 rounded-xl border border-brand-200 bg-brand-50/60 p-5">

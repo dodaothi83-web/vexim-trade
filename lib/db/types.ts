@@ -173,6 +173,7 @@ export interface DataStore {
 
   // Certificates
   listCertificates(supplierId: string): Promise<Certificate[]>;
+  getCertificate(id: string): Promise<Certificate | null>;
   createCertificate(input: Partial<Certificate>): Promise<Certificate>;
   updateCertificate(id: string, patch: Partial<Certificate>): Promise<Certificate>;
   deleteCertificate(id: string): Promise<void>;

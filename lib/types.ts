@@ -149,6 +149,8 @@ export interface SupplierProduct {
   packaging: string | null;
   /** Nhận làm nhãn riêng */
   oem: boolean;
+  /** Thiết kế và sản xuất theo yêu cầu; NCC tự khai, không phải xác minh. */
+  odm?: boolean;
   certifications: string | null;
   export_port: string | null;
   /** Giá tham khảo – KHÔNG tự gửi cho buyer như báo giá chính thức */
@@ -279,6 +281,14 @@ export interface SupplierCategory {
 export type CertificateCheckStatus = "on_file" | "original_seen" | "checked_with_issuer";
 
 export interface Certificate {
+  /** Dedicated review/publication flow, independent of supplier document checks. */
+  holder_name?: string | null;
+  scope_text?: string | null;
+  requested_product_ids?: string[];
+  approved_product_ids?: string[];
+  review_status?: "unreviewed" | "pending" | "changes_requested" | "approved" | "rejected";
+  review_note?: string | null;
+  publicly_visible?: boolean;
   id: string;
   supplier_id: string;
   name: string;

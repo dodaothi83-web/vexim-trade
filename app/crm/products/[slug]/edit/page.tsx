@@ -91,6 +91,7 @@ export default async function EditProductPage({
           {readiness.ready && !productImages.length && <p className="mt-2 text-amber-800">Catalogue đủ điều kiện gửi buyer nhưng thẻ chưa có ảnh: tải thêm ảnh sản phẩm chia sẻ buyer để không chỉ hiện biểu tượng trống.</p>}
           {canView && category && <p className="mt-3"><Link className="font-semibold text-brand-700 underline" href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(product.id)}`} target="_blank">Xem trang sản phẩm công khai ↗</Link></p>}
         </section>
+        <p className="text-sm text-ink-600">Chứng nhận không lấy từ ô sản phẩm tự khai. <Link href={`/crm/suppliers/${supplier.id}/certificates`} className="font-semibold text-brand-700 underline">Xem chứng nhận NCC chờ kiểm và quyết định công bố →</Link></p>
         <ProductForm
           supplier={supplier}
           product={product}

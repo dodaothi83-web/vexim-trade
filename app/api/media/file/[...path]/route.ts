@@ -69,7 +69,9 @@ export async function GET(
     const ownProductFile = !!user && !!product && user.role === "supplier" &&
       product.supplier_id === user.supplier_id && asset.supplier_id === user.supplier_id;
     const ownDocument = ownsDocumentReview(user, review) && !!asset.checklist_key;
-    if ((!ownDocument && !ownProductFile) || user?.email.toLowerCase() !== session.email.toLowerCase()) {
+    const ownCertificate = !!user && user.role === "supplier" && asset.owner_type === "supplier" &&
+      asset.kind === "certificate" && asset.created_by === user.id && asset.supplier_id === user.supplier_id;
+    if ((!ownDocument && !ownProductFile && !ownCertificate) || user?.email.toLowerCase() !== session.email.toLowerCase()) {
       return new NextResponse("Bạn không có quyền xem tài liệu nội bộ", { status: 403 });
     }
   }

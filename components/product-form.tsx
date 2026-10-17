@@ -29,7 +29,8 @@ function init(p?: SupplierProduct | null): FormState {
     lead_time_days: p?.lead_time_days ?? "",
     packaging: p?.packaging ?? "",
     oem: p?.oem ?? false,
-    samples: p?.samples ?? true,
+    odm: p?.odm ?? false,
+    samples: p?.samples ?? false,
     ready_for_buyer: p?.ready_for_buyer ?? false,
     certifications: p?.certifications ?? "",
     export_port: p?.export_port ?? "",
@@ -214,6 +215,9 @@ export function ProductForm({
               />
               Có thể gửi mẫu
             </label>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-[12.5px] font-semibold text-ink-700">
+              <input type="checkbox" className="h-4 w-4 accent-[#0f766e]" checked={Boolean(form.odm)} onChange={(e) => set("odm", e.target.checked)} /> Thiết kế & sản xuất theo yêu cầu / ODM
+            </label>
             {mediaState && (
               <label
                 className={cx(
@@ -242,7 +246,7 @@ export function ProductForm({
               </label>
             )}
           </div>
-          <Field label="Chứng nhận / tiêu chuẩn" className="sm:col-span-2 lg:col-span-3">
+          <Field label="Chứng nhận / tiêu chuẩn (tự khai; không tự tạo nhãn buyer)" hint="Nhãn chứng nhận chỉ lấy từ tệp NCC nộp, Vexim kiểm bản sao và quyết định công bố riêng tại hồ sơ NCC → Chứng nhận." className="sm:col-span-2 lg:col-span-3">
             <input
               className="input"
               value={v("certifications")}

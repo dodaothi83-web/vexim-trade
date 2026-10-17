@@ -20,6 +20,9 @@ export interface PublicCategoryProduct {
   supplierId: string;
   supplierSlug: string | null;
   leadTimeDays: number | null;
+  oem: boolean;
+  odm: boolean;
+  samples: boolean;
   isDemo: boolean;
   imagePaths: string[];
 }
@@ -66,7 +69,7 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
         price: publicProductPrice(p, s), province: s.province || "Vietnam",
         verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
         supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
-        supplierId: s.id, supplierSlug: s.slug || null, leadTimeDays: p.lead_time_days ?? null,
+        supplierId: s.id, supplierSlug: s.slug || null, leadTimeDays: p.lead_time_days ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
         isDemo: !!s.is_demo, imagePaths: images,
       };
     }).sort((a, b) => b.verificationCount - a.verificationCount || a.name.localeCompare(b.name));

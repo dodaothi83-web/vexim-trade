@@ -1497,6 +1497,9 @@ export const localStore: DataStore = {
   async listCertificates(supplierId) {
     return (load().certificates ?? []).filter((c) => c.supplier_id === supplierId);
   },
+  async getCertificate(id) {
+    return (load().certificates ?? []).find((c) => c.id === id) ?? null;
+  },
   async createCertificate(input) {
     const now = new Date().toISOString();
     const row = {
@@ -1508,6 +1511,8 @@ export const localStore: DataStore = {
       valid_until: null,
       file_media_id: null,
       check_status: "on_file" as const,
+      holder_name: null, scope_text: null, requested_product_ids: [], approved_product_ids: [],
+      review_status: "unreviewed" as const, review_note: null, publicly_visible: false,
       checked_at: null,
       checked_by: null,
       notes: null,

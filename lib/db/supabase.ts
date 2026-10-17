@@ -856,6 +856,11 @@ export const supabaseStore: DataStore = {
     if (error) fail("listCertificates", error);
     return (data ?? []) as Certificate[];
   },
+  async getCertificate(id) {
+    const { data, error } = await must().from("certificates").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getCertificate", error);
+    return (data as Certificate) ?? null;
+  },
   async createCertificate(input) {
     const { data, error } = await must().from("certificates").insert(cleanPatch(input)).select().single();
     if (error) fail("createCertificate", error);

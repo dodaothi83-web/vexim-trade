@@ -1382,6 +1382,7 @@ function parseProductInput(
     lead_time_days: num(raw.lead_time_days),
     packaging: str(raw.packaging),
     oem: bool(raw.oem, false),
+    odm: bool(raw.odm, false),
     certifications: str(raw.certifications),
     export_port: str(raw.export_port),
     ref_price: num(raw.ref_price),

@@ -43,7 +43,7 @@ function relAllowed(rel: string): boolean {
     if (parts.length < 2) return false; // phải suppliers/<id>/<file>
     const fname = parts[parts.length - 1].toLowerCase();
     // Mọi ảnh supplier đều có tên dạng random uuid, trừ profile-*/cover-* — cho tất cả.
-    if (fname.startsWith("profile-") || fname.startsWith("cover-")) return true;
+    if (fname.startsWith("profile-") || fname.startsWith("cover-")) return parts.length === 2;
     // uuid-like filename (36 kí tự có gạch ngang) — là file upload qua MediaManager.
     return /^[a-f0-9-]{20,}\.([a-z]+)$/i.test(fname);
   }
@@ -59,6 +59,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
   }
 
   const isProductImage = rel.startsWith("products/");
+  const supplierImage = rel.startsWith("suppliers/") && !/^(profile-|cover-)/i.test(rel.split("/").at(-1) ?? "");
+  if (supplierImage) {
+    // Shared supplier vault files (including certificate scans) must not become public merely
+    // because someone knows a UUID-like JPG path. Profile/cover are handled separately.
+    const store = getStore();
+    const supplierId = rel.split("/")[1];
+    const asset = await store.getMediaByPath(rel);
+    if (!asset || asset.owner_type !== "supplier" || asset.supplier_id !== supplierId || asset.kind !== "image" ||
+        asset.audience !== "buyer" || isExpired(asset) ||
+        (asset.storage_path !== rel && asset.thumb_path !== rel)) return new NextResponse("Not found", { status: 404 });
+    const supplier = await store.getSupplier(supplierId);
+    if (!supplier || supplier.status !== "published" ||
+        (supplier.is_demo && process.env.VEXIM_SHOW_DEMO !== "true")) return new NextResponse("Not found", { status: 404 });
+  }
   if (isProductImage) {
     // Media metadata, not a guess from the filename, determines public access.
     const store = getStore();

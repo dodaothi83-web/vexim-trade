@@ -27,3 +27,21 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
     html: wrapPlainEmail({ title, body }), text: `${title}\nYêu cầu: ${choices.join(", ") || "Không chọn"}\n${url}` });
   return result.ok ? result.status : "failed";
 }
+
+/** Pending certificate claim goes to staff inbox, never directly to buyers or publication. */
+export async function notifySupplierCertificateSubmission(supplier: Supplier, name: string): Promise<"sent" | "simulated" | "failed"> {
+  const users = await getStore().listUsers();
+  const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "sourcing"))
+    .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+  if (!recipients.length) return "failed";
+  const staffOrigin = process.env.SUPPLIER_SIGNUP_REDIRECT_URL
+    ? new URL(process.env.SUPPLIER_SIGNUP_REDIRECT_URL).origin : SITE_URL;
+  const url = `${staffOrigin}/crm/suppliers/${encodeURIComponent(supplier.id)}/certificates`;
+  const title = `Chứng nhận chờ kiểm tra: ${supplier.name}`;
+  const body = `<p>NCC ${escapeHtml(supplier.name)} vừa gửi “${escapeHtml(name)}” kèm bằng chứng nội bộ. <strong>Chưa được xác minh, chưa công bố.</strong></p>
+    <p>Vexim cần đối chiếu đơn vị đứng tên, tổ chức cấp, phạm vi, ngày hết hạn, liên hệ với sản phẩm; sau đó chọn quyết định xét duyệt và công bố riêng.</p>
+    <p><a href="${url}">Mở hồ sơ chứng nhận trong CRM →</a></p>`;
+  const result = await transport({ to: recipients, subject: title,
+    html: wrapPlainEmail({ title, body }), text: `${title}\nChứng nhận: ${name}\n${url}` });
+  return result.ok ? result.status : "failed";
+}

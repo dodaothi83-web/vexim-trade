@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown, Filter, ImageIcon, MapPin } from "lucide-react";
 
+import { ProductTradeLabels } from "@/components/product-trade-labels";
 import { ProductVerificationIcons } from "@/components/product-verification-icons";
 
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
@@ -108,6 +109,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, rfqHref }:
                 <h3 className="line-clamp-2 min-h-10 text-sm font-bold leading-snug text-ink-900 group-hover:text-brand-700">{p.name}</h3>
                 <p className="text-xs text-ink-600">MOQ <strong className="text-ink-800">{p.moq}</strong></p>
                 <p className="text-sm font-bold text-brand-800">{p.price || "Price on request"}</p>
+                <ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} compact />
                 <p className="text-xs text-ink-600">Lead time: {p.leadTimeDays !== null ? `${p.leadTimeDays} days` : "On request"}</p>
                 <p className="flex items-center gap-1 text-xs text-ink-600"><MapPin className="h-3.5 w-3.5 shrink-0" />{p.province}</p>
               </div>

@@ -116,6 +116,11 @@ export default async function SupplierDetailPage({
         }
       />
 
+      {canInspect && <div className="mb-5 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm">
+        <Link href={`/crm/suppliers/${id}/certificates`} className="font-bold text-brand-800 underline">Chứng nhận NCC chờ Vexim xét duyệt / quyết định công bố →</Link>
+        <p className="mt-1 text-ink-600">Tách riêng khỏi kho ảnh chung và ba đợt kiểm xác minh NCC; tệp không tự hiện trên sản phẩm.</p>
+      </div>}
+
       {canManage && (session.role === "admin" || session.role === "sourcing") &&
         <SupplierCategoryControls supplierId={id} options={categoryProposalOptions(categories)}
           proposed={supplier.requested_category_slugs ?? []} other={supplier.requested_category_other}
