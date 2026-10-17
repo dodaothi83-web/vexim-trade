@@ -33,6 +33,7 @@ export default async function ProductsPage({
   const cert = (sp.cert ?? "").trim();
   const verifiedOnly = sp.verified === "1";
   const buyerId = sp.buyer ?? "";
+  const reviewQueue = sp.review === "pending";
 
   const store = getStore();
   const buyer = buyerId ? await store.getBuyer(buyerId) : null;
@@ -46,7 +47,7 @@ export default async function ProductsPage({
   }
   const categories = [...new Set(all.map((r) => r.category).filter(Boolean))] as string[];
 
-  let rows = all;
+  let rows = reviewQueue ? all.filter((r) => r.supplier_review_status === "pending") : all;
   if (category) rows = rows.filter((r) => (r.category ?? "") === category);
   if (verifiedOnly) rows = rows.filter((r) => r.supplier?.status === "verified");
   if (cert) rows = rows.filter((r) => (r.certifications ?? "").toLowerCase().includes(cert.toLowerCase()));
@@ -74,6 +75,9 @@ export default async function ProductsPage({
         breadcrumbs={<Breadcrumbs items={[{ label: "Sản phẩm NCC" }]} />}
         title="Sản phẩm nhà cung cấp"
         sub={`${all.length} hồ sơ sản phẩm · giá chỉ là tham khảo có thời hạn, báo giá chính thức do NCC xác nhận theo từng RFQ`}
+        actions={<Link href={reviewQueue ? "/crm/products" : "/crm/products?review=pending"} className="btn btn-soft">
+          {reviewQueue ? "Xem tất cả sản phẩm" : `NCC tự đăng chờ kiểm tra (${all.filter((p) => p.supplier_review_status === "pending").length})`}
+        </Link>}
       />
 
       {buyer && (
@@ -164,6 +168,8 @@ export default async function ProductsPage({
                         )}
                         <Link href={`/crm/products/${r.id}`} className="text-[13.5px] font-semibold text-ink-900 hover:text-brand-700 hover:underline">{r.name}</Link>
                         <Badge className="bg-brand-50 text-brand-700">{r.category || "Khác"}</Badge>
+                        {r.supplier_review_status === "pending" && <Badge className="bg-amber-100 text-amber-900">NCC tự đăng · chờ Vexim kiểm tra</Badge>}
+                        {r.supplier_review_status === "changes_requested" && <Badge className="bg-orange-50 text-orange-800">Cần NCC sửa</Badge>}
                         {r.ready_for_buyer ? (
                           <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
                         ) : (

@@ -3,7 +3,7 @@ import "server-only";
 import { getStore } from "@/lib/db";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { listPublicSuppliers } from "@/lib/public/catalog";
-import { isTestOnlyProduct, productBelongsToCategory, productGrade, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory, productGrade, productReviewApproved, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import type { Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -39,7 +39,7 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
   ]);
   const byId = new Map(suppliers.map((s) => [s.id, s]));
   const candidates = allProducts.filter((p) =>
-    byId.has(p.supplier_id) && !isTestOnlyProduct(p.name) &&
+    byId.has(p.supplier_id) && productReviewApproved(p) && !isTestOnlyProduct(p.name) &&
     (p.ready_for_buyer || byId.get(p.supplier_id)?.is_demo) &&
     productBelongsToCategory(p, category, knownCategories));
   const media: MediaAsset[] = [];

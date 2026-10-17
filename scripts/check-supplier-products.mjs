@@ -1,0 +1,130 @@
+// node scripts/check-supplier-products.mjs — owned drafts, private assets, manual review, public gate.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
+function load(file, mocks) {
+  const mod = { exports: {} };
+  const source = ts.transpileModule(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  vm.runInNewContext(source, { module: mod, exports: mod.exports, FormData, File, Request, Response, Headers, URL,
+    console, Date, process, require: (id) => { if (id === 'server-only') return {}; assert.ok(id in mocks, `${file}: unexpected ${id}`); return mocks[id]; } }, { filename: file });
+  return mod.exports;
+}
+const supplierId = '12345678-1234-1234-1234-123456789abc';
+const productId = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
+const user = { id: 'owner', email: 'factory@example.com', supplier_id: supplierId, role: 'supplier', is_active: true };
+const supplier = { id: supplierId, name: 'Factory One', products: 'Cashew W320', onboarding_status: 'pending' };
+let product = null;
+const files = [];
+const audit = [];
+let storedBytes = 0;
+const store = {
+  getProduct: async (id) => id === productId ? product : null,
+  createProduct: async (input) => { product = { ...input, id: productId }; return product; },
+  updateProduct: async (id, patch) => { assert.equal(id, productId); product = { ...product, ...patch }; return product; },
+  listProductsBySupplier: async (id) => id === supplierId ? [product].filter(Boolean) : [],
+  listCategories: async () => [], listSupplierCategories: async () => [],
+  listMedia: async (_owner, id) => id === productId ? files : [],
+  createMedia: async (input) => { const row = { ...input, id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }; files.push(row); return row; },
+  getMedia: async (id) => files.find((m) => m.id === id) ?? null,
+  deleteMedia: async (id) => { files.splice(files.findIndex((m) => m.id === id), 1); },
+  addAuditLog: async (entry) => audit.push(entry),
+};
+const access = () => ({ store, supplier: { ...supplier }, user });
+const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
+const actions = load('../app/supplier/portal/product-actions.ts', {
+  'next/cache': { revalidatePath() {} },
+  '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
+  '@/lib/supplier-portal/onboarding': onboarding,
+  '@/lib/public/category-assignment': { assignProductCategory: () => null, assignSupplierCategories: () => ({ slugs: [] }) },
+});
+const form = () => {
+  const fd = new FormData();
+  for (const [key, value] of Object.entries({ name: 'Cashew W320', spec: '25kg vacuum bag', description: 'White kernels',
+    ref_price: '5000', currency: 'USD', supplier_id: 'foreign', ready_for_buyer: 'true', supplier_review_status: 'approved' })) fd.set(key, value);
+  return fd;
+};
+assert.equal((await actions.saveSupplierProductAction(form())).ok, false, 'Pending account cannot create product');
+supplier.onboarding_status = 'approved';
+const created = await actions.saveSupplierProductAction(form());
+assert.equal(created.ok, true); assert.equal(created.id, productId);
+assert.equal(product.supplier_id, supplierId); assert.equal(product.supplier_review_status, 'draft');
+assert.equal(product.ready_for_buyer, false); assert.equal(product.ref_price, 5000);
+const foreignEdit = form(); foreignEdit.set('product_id', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
+assert.equal((await actions.saveSupplierProductAction(foreignEdit)).ok, false);
+const image = new File([new Uint8Array([0xff,0xd8,0xff,0xe0,1,2,3,4,5,6,7,8])], 'cashew.jpg', { type: 'image/jpeg' });
+const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
+  'next/server': { NextResponse: { json: (data, options) => Response.json(data, options) } },
+  'next/cache': { revalidatePath() {} },
+  'node:crypto': { randomUUID: () => 'aabbccdd-eeee-ffff-aaaa-bbbbbbbbbbbb' },
+  '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
+  '@/lib/supplier-portal/onboarding': onboarding,
+  '@/lib/media/validate': { validateUpload: (kind, bytes) => kind === 'image' && bytes[0] === 0xff ? { ok: true, mime: 'image/jpeg' } : { ok: false }, extensionFor: () => 'jpg' },
+  '@/lib/media/storage': { putObject: async () => { storedBytes++; }, deleteObject: async () => { storedBytes--; } },
+});
+async function postMedia(id = productId) {
+  const fd = new FormData(); fd.set('kind', 'image'); fd.set('file', image);
+  const response = await upload.POST(new Request(`https://example.com/api/supplier-portal/products/${id}/media`, { method: 'POST', body: fd }), { params: Promise.resolve({ id }) });
+  return response.status;
+}
+assert.equal(await postMedia('ffffffff-ffff-ffff-ffff-ffffffffffff'), 403);
+assert.equal(await postMedia(), 200);
+assert.equal(files[0].audience, 'internal'); assert.equal(files[0].status, 'unverified');
+assert.equal(files[0].created_by, user.id); assert.equal(storedBytes, 1);
+const mediaRead = load('../app/api/media/file/[...path]/route.ts', {
+  'next/server': { NextResponse: Response },
+  '@/lib/db': { getStore: () => ({ getMediaByPath: async () => files[0], getUser: async () => user,
+    getSupplier: async () => supplier, getProduct: async () => product }) },
+  '@/lib/auth/session': { getSession: async () => ({ uid: user.id, role: 'supplier', email: user.email }) },
+  '@/lib/auth/permissions': { hasPermission: () => false },
+  '@/lib/media/storage': { getObject: async () => ({ data: new Uint8Array([0xff,0xd8,0xff,0xe0]) }) },
+  '@/lib/supplier-portal/policy': { ownsDocumentReview: () => false },
+  '@/lib/supplier-portal/onboarding': onboarding,
+});
+const assetPath = files[0].storage_path;
+const mediaParams = { params: Promise.resolve({ path: assetPath.split('/') }) };
+assert.equal((await mediaRead.GET(new Request(`https://example.com/api/media/file/${assetPath}`), mediaParams)).status, 200);
+files[0].supplier_id = 'foreign';
+assert.equal((await mediaRead.GET(new Request(`https://example.com/api/media/file/${assetPath}`), mediaParams)).status, 403);
+files[0].supplier_id = supplierId;
+const deleteUrl = `https://example.com/api/supplier-portal/products/${productId}/media?media_id=${files[0].id}`;
+files[0].created_by = 'staff';
+assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), { params: Promise.resolve({ id: productId }) })).status, 403);
+files[0].created_by = user.id;
+assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), { params: Promise.resolve({ id: productId }) })).status, 200);
+assert.equal(files.length, 0); assert.equal(storedBytes, 0);
+assert.equal(await postMedia(), 200);
+const submitted = new FormData(); submitted.set('product_id', productId);
+assert.equal((await actions.submitSupplierProductAction(submitted)).ok, true);
+assert.equal(product.supplier_review_status, 'pending'); assert.equal(product.ready_for_buyer, false);
+assert.equal(await postMedia(), 409, 'Cannot upload while pending');
+const pendingEdit = form(); pendingEdit.set('product_id', productId);
+assert.equal((await actions.saveSupplierProductAction(pendingEdit)).ok, false, 'Cannot edit while pending');
+let denied = true;
+const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
+  'next/cache': { revalidatePath() {} },
+  '@/lib/auth/session': { guard: async () => denied ? { message: 'denied' } : null,
+    getSession: async () => ({ uid: 'reviewer', email: 'staff@example.com', role: 'sourcing' }) },
+  '@/lib/db': { getStore: () => store },
+});
+const approve = new FormData(); approve.set('product_id', productId); approve.set('decision', 'approved');
+assert.equal((await review.decideSupplierProductAction(approve)).ok, false);
+denied = false;
+assert.equal((await review.decideSupplierProductAction(approve)).ok, true);
+assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, false);
+const selection = load('../lib/public/product-selection.ts', {
+  '@/lib/public/category-assignment': { assignProductCategory: () => null },
+});
+assert.equal(selection.productReviewApproved(product), true);
+product.ready_for_buyer = true; // Staff-only readiness switch; simulate an already-public approved product.
+const revised = form(); revised.set('product_id', productId); revised.set('name', 'Cashew W240');
+assert.equal((await actions.saveSupplierProductAction(revised)).ok, true);
+assert.equal(product.supplier_review_status, 'draft'); assert.equal(product.ready_for_buyer, false);
+assert.equal(selection.productReviewApproved(product), false, 'Supplier edits cannot remain public');
+assert.equal(audit.some((a) => a.action === 'supplier.product_approved'), true);
+const migration = fs.readFileSync(new URL('../supabase/migrations/20261017_supplier_product_review.sql', import.meta.url), 'utf8');
+assert.match(migration, /supplier_review_status/);
+assert.match(fs.readFileSync(new URL('../app/public-media/[...path]/route.ts', import.meta.url), 'utf8'), /productReviewApproved\(product\)/);
+console.log('✅ Supplier products: own drafts/uploads, staff decision and public gate.');

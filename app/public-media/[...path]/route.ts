@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getObject } from "@/lib/media/storage";
 import { getStore } from "@/lib/db";
 import { isExpired } from "@/lib/media/readiness";
-import { isTestOnlyProduct } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productReviewApproved } from "@/lib/public/product-selection";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,7 +67,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
       asset.audience !== "buyer" || isExpired(asset) ||
       (asset.storage_path !== rel && asset.thumb_path !== rel)) return new NextResponse("Not found", { status: 404 });
     const product = await store.getProduct(asset.product_id);
-    if (!product || isTestOnlyProduct(product.name)) return new NextResponse("Not found", { status: 404 });
+    if (!product || !productReviewApproved(product) || isTestOnlyProduct(product.name)) return new NextResponse("Not found", { status: 404 });
     const supplier = await store.getSupplier(product.supplier_id);
     if (!supplier || supplier.status !== "published" || (supplier.is_demo && process.env.VEXIM_SHOW_DEMO !== "true") ||
       (!product.ready_for_buyer && !supplier.is_demo)) return new NextResponse("Not found", { status: 404 });

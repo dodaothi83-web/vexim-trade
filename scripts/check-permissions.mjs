@@ -94,6 +94,8 @@ for (const p of allTs) {
       /getSession\s*\(/.test(head) ||
       // supplierPortalAccess rechecks session, role, active user and supplier FK from DB.
       /supplierPortalAccess\s*\(/.test(head) ||
+      // approvedAccess wraps supplierPortalAccess + server-side onboarding gate.
+      /approvedAccess\s*\(/.test(head) ||
       (hasTopGuard && /\benforce\s*\(/.test(head));
     if (!callsGuardInFn && !hasTopGuard && !perFnGuard) {
       errors.push(`Server action ${rel}::${fn} không gọi guard/requireSession — bỏ sót kiểm quyền.`);

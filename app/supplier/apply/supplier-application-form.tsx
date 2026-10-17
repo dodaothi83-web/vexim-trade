@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { SupplierProfileFields } from "@/app/supplier/portal/supplier-profile-form";
 
 export function SupplierApplicationForm() {
   const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState("");
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -19,23 +21,23 @@ export function SupplierApplicationForm() {
       const res = await fetch("/api/supplier-signup", { method: "POST", body: form });
       const data = await res.json() as { ok: boolean; message: string };
       setResult(data);
-      if (data.ok) element.reset();
+      if (data.ok) { element.reset(); setEmail(""); }
     } catch { setResult({ ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." }); }
     finally { setBusy(false); }
   }
   return <form onSubmit={submit} className="mt-7 space-y-5">
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Họ và tên người liên hệ *" name="contact_name" required maxLength={120} />
-      <Field label="Email đăng nhập *" name="email" type="email" required maxLength={200} />
+      <label className="block text-sm"><span className="mb-1 block font-semibold">Email đăng nhập *</span>
+        <input name="email" type="email" required maxLength={200} className="input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></label>
       <Field label="Mật khẩu (ít nhất 8 ký tự gồm chữ và số) *" name="password" type="password" required minLength={8} maxLength={128} />
       <Field label="Nhập lại mật khẩu *" name="password2" type="password" required minLength={8} maxLength={128} />
     </div>
-    <p className="text-sm text-ink-600">Sau khi xác nhận email và đăng nhập, bạn sẽ điền thông tin doanh nghiệp và loại hình nhà máy/thương nhân ngay trong dashboard. Chỉ khi Vexim xác nhận hồ sơ, các chức năng cổng NCC mới được mở.</p>
-    <label className="flex items-start gap-2 text-sm text-ink-700"><input type="checkbox" name="consent" value="yes" required className="mt-1 h-4 w-4 accent-brand-700" /><span>Tôi đồng ý tạo tài khoản, cung cấp thông tin cho Vexim kiểm tra thủ công và nhận email xác nhận.</span></label>
+    <p className="text-sm text-ink-600">Đây là form tạo hồ sơ trang nhà cung cấp, không chỉ tạo tài khoản. Sau khi nộp và xác nhận email, bạn đăng nhập xem trạng thái chờ Vexim xác nhận; hồ sơ/sản phẩm không tự công khai.</p>
+    <SupplierProfileFields email={email} />
     <input name="website_hp" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
     <button type="submit" disabled={busy || result?.ok} className="btn btn-primary w-full justify-center">{busy ? "Đang tạo tài khoản..." : "Tạo tài khoản nhà cung cấp"}</button>
     {result && <div role="status" className={`rounded-xl border p-4 text-sm ${result.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>
-      {result.message}{result.ok && <p className="mt-2">Sau khi xác nhận email, <Link href="/login" className="font-semibold underline">đăng nhập</Link> để hoàn thiện hồ sơ.</p>}
+      {result.message}{result.ok && <p className="mt-2">Sau khi xác nhận email, <Link href="/login" className="font-semibold underline">đăng nhập</Link> để theo dõi việc Vexim xác nhận hồ sơ.</p>}
     </div>}
   </form>;
 }

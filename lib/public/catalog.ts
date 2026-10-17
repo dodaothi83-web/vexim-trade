@@ -8,7 +8,7 @@ import { getStore } from "@/lib/db";
 import { productReadiness } from "@/lib/media/readiness";
 import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, VerificationLevel } from "@/lib/types";
 import { approvedVerificationSteps } from "@/lib/verification-status";
-import { isTestOnlyProduct, productBelongsToCategory } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
 
 /** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
 export const DEFAULT_LOCALE = "en";
@@ -42,7 +42,7 @@ export interface PublicSupplierCard extends Supplier {
 }
 
 function buyerVisibleProduct(p: SupplierProduct, categories: Category[], demo = false): boolean {
-  return (p.ready_for_buyer || demo) && !isTestOnlyProduct(p.name) &&
+  return productReviewApproved(p) && (p.ready_for_buyer || demo) && !isTestOnlyProduct(p.name) &&
     categories.some((c) => c.status === "published" && c.is_published && productBelongsToCategory(p, c, categories));
 }
 

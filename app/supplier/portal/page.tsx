@@ -74,6 +74,7 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
       {[["#tasks", "Việc cần làm"], ["#rfqs", "RFQ của tôi"], ["#notices", `Thông báo (${dashboard.unreadCount} mới)`],
         ["#report", "Báo cáo"], ["#profile", "Hồ sơ & xác minh"]].map(([href, label]) =>
         <a key={href} href={href} className="rounded-full border border-ink-200 bg-white px-3 py-2 text-ink-700 hover:border-brand-500 hover:text-brand-700">{label}</a>)}
+      <Link href="/supplier/portal/products" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Sản phẩm của tôi →</Link>
     </nav>
     <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
       <strong>Vexim đã xác nhận quyền sử dụng cổng.</strong> Hồ sơ công khai: {supplier.status === "draft" ? "chưa công khai" : supplier.status}. Việc duyệt từng đánh giá và công khai NCC/sản phẩm là quyết định riêng của Vexim; không tự động từ RFQ hay giấy tờ đã tải.

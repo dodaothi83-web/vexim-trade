@@ -39,6 +39,7 @@ const store = {
   createUser: async (input) => { if (state.failUser) throw Error('DB write failed'); const r = { ...input, id: 'u1' }; state.users.push(r); return r; },
   createVerification: async (input) => { const r = { ...input, id: 'v1' }; state.reviews.push(r); return r; },
   listVerifications: async (id) => state.reviews.filter((r) => r.supplier_id === id),
+  listMedia: async (_type, id) => state.media.filter((m) => m.verification_id === id),
   updateVerification: async (id, patch) => Object.assign(state.reviews.find((r) => r.id === id), patch),
   getSupplier: async (id) => state.suppliers.find((r) => r.id === id) ?? null,
   updateSupplier: async (id, patch) => Object.assign(state.suppliers.find((r) => r.id === id), patch),
@@ -54,6 +55,15 @@ const auth = { auth: {
   signUp: async () => { state.authCalls++; return { data: { user: { id: 'auth-1', identities: [{ id: 'identity' }], email_confirmed_at: state.confirmed ? 'now' : null }, session: state.confirmed ? {} : null }, error: null }; },
   admin: { deleteUser: async () => { state.deletedAuth++; } },
 } };
+const profileInput = load('../lib/supplier-portal/profile-input.ts', {});
+const profileEvidence = load('../lib/supplier-portal/profile-evidence.ts', {
+  '@/lib/supplier-portal/evidence': {
+    MAX_INITIAL_FILES: 5, validateInitialDocument: async () => ({ bytes: new Uint8Array([1]), mime: 'application/pdf', kind: 'document' }),
+    saveDocumentEvidence: async ({ review, key, createdBy }) => { const row = { id: `m${state.media.length}`, owner_type: 'verification', supplier_id: review.supplier_id, verification_id: review.id, audience: 'internal', checklist_key: key, created_by: createdBy, storage_path: `verifications/${review.id}/test.pdf` }; state.media.push(row); return row; },
+  },
+  '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: keys },
+  '@/lib/types': { L1_DOC_ITEMS: [{ key: 'business_license' }, { key: 'tax_certificate' }, { key: 'bank_letter' }] },
+});
 const mocks = {
   'next/server': { NextResponse: { json: (data, opts) => Response.json(data, opts) } },
   '@/lib/db': { getStore: () => store },
@@ -67,6 +77,8 @@ const mocks = {
     saveDocumentEvidence: async ({ review, key, createdBy }) => { const row = { id: `m${state.media.length}`, owner_type: 'verification', supplier_id: review.supplier_id, verification_id: review.id, audience: 'internal', checklist_key: key, created_by: createdBy, storage_path: `verifications/${review.id}/test.pdf` }; state.media.push(row); return row; },
   },
   '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: keys },
+  '@/lib/supplier-portal/profile-input': profileInput,
+  '@/lib/supplier-portal/profile-evidence': profileEvidence,
   '@/lib/supplier-portal/notify': { notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 2); return 'sent'; } },
   '@/lib/types': { L1_DOC_ITEMS: [{ key: 'business_license' }, { key: 'tax_certificate' }, { key: 'bank_letter' }] },
   '@/lib/site': { SITE_URL: 'https://example.com' },
@@ -76,7 +88,7 @@ const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
 const file = new File(['%PDF-1.7 TEST DOCUMENT'], 'license.pdf', { type: 'application/pdf' });
 function form(email = 'owner@example.com') {
   const fd = new FormData();
-  for (const [key, val] of Object.entries({ name: 'Example Trading Co', contact_name: 'Mr A', email, password: 'password123', phone: '0987654321', products: 'Cashew', supplier_type: 'trading', consent: 'yes', tax_number: '0012345', bank_account_number: '000123', 'request:2': 'yes', 'request:3': 'yes' })) fd.set(key, val);
+  for (const [key, val] of Object.entries({ name: 'Example Trading Co', contact_name: 'Mr A', email, password: 'password123', phone: '0987654321', products: 'Cashew', supplier_type: 'trading', summary_en: 'Cashew processing and export', website: 'https://example.com', founded_year: '2012', employees: '42', capacity_per_month: '200 MT', ports: 'Hai Phong, Da Nang', consent: 'yes', tax_number: '0012345', bank_account_number: '000123', 'request:2': 'yes', 'request:3': 'yes' })) fd.set(key, val);
   fd.set('doc:business_license', file);
   fd.set('status', 'published'); fd.set('verification_level', '3');
   return fd;
@@ -98,12 +110,18 @@ assert.equal(state.suppliers[0].status, 'draft');
 assert.equal(state.suppliers[0].verification_level, 0, 'Forged publish/level fields ignored');
 assert.equal(state.users.at(-1).role, 'supplier');
 assert.equal(state.users.at(-1).supplier_id, 's1');
-assert.equal(state.suppliers[0].onboarding_status, 'not_started');
-assert.equal(state.suppliers[0].supplier_type, null, 'Signup cannot pre-fill the business role');
-assert.equal(state.suppliers[0].products, null);
-assert.equal(state.reviews.length, 0, 'Document check begins after submitting the profile');
-assert.equal(state.requests.length, 0);
-assert.equal(state.notify, 0, 'Staff notified only after profile submission');
+assert.equal(state.suppliers[0].onboarding_status, 'pending', 'First signup creates the page application');
+assert.equal(state.suppliers[0].supplier_type, 'trading');
+assert.equal(state.suppliers[0].summary_i18n.en, 'Cashew processing and export');
+assert.equal(state.suppliers[0].website, 'https://example.com');
+assert.equal(state.suppliers[0].employees, 42);
+assert.equal(JSON.stringify(state.suppliers[0].ports), JSON.stringify(['Hai Phong', 'Da Nang']));
+assert.equal(state.reviews.length, 1);
+assert.equal(state.reviews[0].status, 'in_progress');
+assert.equal(state.reviews[0].checklist.business_license, null, 'Document upload never passes review');
+assert.equal(state.requests.length, 2);
+assert.equal(state.media[0].audience, 'internal');
+assert.equal(state.notify, 1, 'Staff notified immediately after initial page form');
 assert.equal(onboarding.portalApproved(state.suppliers[0]), false);
 const profile = load('../app/api/supplier-portal/profile/route.ts', {
   'next/server': { NextResponse: { json: (data, opts) => Response.json(data, opts) } },
@@ -112,8 +130,8 @@ const profile = load('../app/api/supplier-portal/profile/route.ts', {
     user: state.users.find((u) => u.role === 'supplier'), supplier: state.suppliers[0], store,
   }) },
   '@/lib/supplier-portal/onboarding': onboarding,
-  '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: keys },
-  '@/lib/supplier-portal/evidence': mocks['@/lib/supplier-portal/evidence'],
+  '@/lib/supplier-portal/profile-input': profileInput,
+  '@/lib/supplier-portal/profile-evidence': profileEvidence,
   '@/lib/supplier-portal/notify': mocks['@/lib/supplier-portal/notify'],
   '@/lib/types': mocks['@/lib/types'],
 });
@@ -121,25 +139,10 @@ async function submitProfile(fd) {
   const response = await profile.POST(new Request('https://example.com/api/supplier-portal/profile', { method: 'POST', body: fd }));
   return { status: response.status, data: await response.json() };
 }
-const forged = form(); forged.set('supplier_type', 'invalid');
-assert.equal((await submitProfile(forged)).status, 400);
-assert.equal(state.reviews.length, 0);
-assert.equal((await submitProfile(form())).status, 200);
-assert.equal(state.suppliers[0].onboarding_status, 'pending');
-assert.equal(state.suppliers[0].role, 'trader');
-assert.equal(state.suppliers[0].supplier_type, 'trading');
-assert.equal(state.suppliers[0].status, 'draft', 'Forged public status cannot publish');
-assert.equal(onboarding.portalApproved(state.suppliers[0]), false);
-assert.equal(state.reviews.length, 1);
-assert.equal(state.reviews[0].target_level, 1);
-assert.equal(state.reviews[0].status, 'in_progress');
-assert.equal(state.reviews[0].checklist.business_license, null, 'Upload does not mark review passed');
-assert.deepEqual(state.requests.map((r) => r.target_level), [2, 3]);
-assert.equal(state.media[0].audience, 'internal');
-assert.equal(state.media[0].verification_id, 'v1');
-assert.equal(state.notify, 1);
 assert.equal((await submitProfile(form())).status, 409, 'Pending profile cannot be resubmitted');
 state.suppliers[0].onboarding_status = 'changes_requested';
+const forged = form(); forged.set('supplier_type', 'invalid');
+assert.equal((await submitProfile(forged)).status, 400);
 state.users[1].supplier_id = 's2';
 assert.equal((await submitProfile(form())).status, 409, 'Cannot submit a foreign supplier profile');
 state.users[1].supplier_id = 's1';
@@ -205,7 +208,7 @@ portalState.review = doc;
 assert.equal(await uploadForm('shipping_proof'), 403, 'Supplier cannot submit delivery evidence');
 assert.equal(portalState.saved, 1);
 
-const fileAsset = { audience: 'internal', owner_type: 'verification', checklist_key: 'business_license',
+const fileAsset = { audience: 'internal', supplier_id: 's1', owner_type: 'verification', checklist_key: 'business_license',
   verification_id: 'v1', created_by: owner.id, storage_path: 'verifications/v1/test.pdf' };
 const mediaStore = { getMediaByPath: async () => fileAsset, getUser: async () => owner, getSupplier: async () => portalState.supplier, getVerification: async () => doc };
 const media = load('../app/api/media/file/[...path]/route.ts', {
@@ -302,4 +305,4 @@ assert.match(schema, /target_level in \(2,3\)/);
 assert.match(schema, /supplier_verification_requests enable row level security/);
 const crmlayout = fs.readFileSync(new URL('../app/crm/layout.tsx', import.meta.url), 'utf8');
 assert.match(crmlayout, /session\.role === "supplier"/);
-console.log('✅ Supplier onboarding: account first, profile next, staff gate, isolated evidence and permissions.');
+console.log('✅ Supplier onboarding: full page form at signup, email confirmation, staff gate, scoped evidence and permissions.');

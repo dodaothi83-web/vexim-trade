@@ -771,6 +771,15 @@ where s.onboarding_status = 'not_started' and exists (
   select 1 from public.app_users u where u.supplier_id = s.id and u.role = 'supplier'
 ) and s.tax_id is not null and s.products is not null;
 
+-- Moderation of supplier-authored products; pre-existing staff products remain approved.
+alter table public.supplier_products add column if not exists supplier_review_status text not null default 'approved';
+alter table public.supplier_products add column if not exists supplier_review_note text;
+alter table public.supplier_products drop constraint if exists supplier_products_supplier_review_status_check;
+alter table public.supplier_products add constraint supplier_products_supplier_review_status_check
+  check (supplier_review_status in ('draft','pending','approved','changes_requested'));
+create index if not exists supplier_products_review_queue_idx
+  on public.supplier_products(supplier_review_status, updated_at desc);
+
 create table if not exists public.supplier_portal_notice_reads (
   supplier_id uuid not null references public.suppliers(id) on delete cascade,
   notice_key text not null check (char_length(notice_key) between 1 and 100),

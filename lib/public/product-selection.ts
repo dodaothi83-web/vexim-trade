@@ -16,6 +16,11 @@ export function productBelongsToCategory(
   return inferred?.slug === category.slug;
 }
 
+export function productReviewApproved(product: Pick<SupplierProduct, "supplier_review_status">): boolean {
+  // Missing field belongs to older staff-managed data; supplier submissions explicitly start as draft.
+  return product.supplier_review_status === "approved" || product.supplier_review_status == null;
+}
+
 export function isTestOnlyProduct(name: string): boolean {
   return /^\s*(?:\[\s*)?test\s+only\b/i.test(name);
 }

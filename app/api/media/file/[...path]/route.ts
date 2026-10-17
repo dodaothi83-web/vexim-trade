@@ -52,14 +52,24 @@ export async function GET(
   if (!asset) {
     return new NextResponse("Không tìm thấy tệp", { status: 404 });
   }
+  if (session.role === "supplier") {
+    const user = await store.getUser(session.uid);
+    if (!user?.supplier_id || asset.supplier_id !== user.supplier_id) {
+      return new NextResponse("Tệp không thuộc nhà cung cấp này", { status: 403 });
+    }
+  }
 
   if (asset.audience === "internal" && !hasPermission(session.role, "media.internal")) {
     const store = getStore();
     const user = session.role === "supplier" ? await store.getUser(session.uid) : null;
     const review = asset.owner_type === "verification" && asset.verification_id && asset.created_by === user?.id
       ? await store.getVerification(asset.verification_id) : null;
-    if (!ownsDocumentReview(user, review) || !asset.checklist_key ||
-        user?.email.toLowerCase() !== session.email.toLowerCase()) {
+    const product = user && asset.owner_type === "product" && asset.product_id && asset.created_by === user.id
+      ? await store.getProduct(asset.product_id) : null;
+    const ownProductFile = !!user && !!product && user.role === "supplier" &&
+      product.supplier_id === user.supplier_id && asset.supplier_id === user.supplier_id;
+    const ownDocument = ownsDocumentReview(user, review) && !!asset.checklist_key;
+    if ((!ownDocument && !ownProductFile) || user?.email.toLowerCase() !== session.email.toLowerCase()) {
       return new NextResponse("Bạn không có quyền xem tài liệu nội bộ", { status: 403 });
     }
   }

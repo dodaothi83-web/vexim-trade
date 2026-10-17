@@ -159,6 +159,9 @@ export interface SupplierProduct {
    * hoặc catalogue chia sẻ được cho buyer (xem lib/media/readiness.ts).
    */
   ready_for_buyer: boolean;
+  /** Supplier-authored changes require a separate Vexim decision; distinct from buyer-ready/publication. */
+  supplier_review_status?: "draft" | "pending" | "approved" | "changes_requested";
+  supplier_review_note?: string | null;
   /** Mảng media_assets.id cho ảnh sản phẩm */
   images?: string[];
   created_at: string;

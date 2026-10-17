@@ -12,6 +12,67 @@ const FILE_LABELS: Record<typeof INITIAL_DOCUMENT_KEYS[number], string> = {
   export_license: "Giấy phép xuất khẩu (nếu áp dụng)",
 };
 
+export function SupplierProfileFields({ supplier, email }: { supplier?: Supplier; email: string }) {
+  return <>
+    <section><h2 className="text-xl font-black text-ink-900">1. Thông tin nhà cung cấp</h2>
+      <p className="mt-1 text-sm text-ink-600">Email đăng nhập: {email}. Chọn loại hình để Vexim hiểu đúng doanh nghiệp của bạn; đây không phải quyền truy cập CRM.</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <Field label="Tên pháp lý doanh nghiệp *" name="name" required maxLength={180} defaultValue={supplier?.onboarding_status === "changes_requested" ? supplier?.name : ""} />
+        <Field label="Tên thương mại (nếu có)" name="trade_name" maxLength={180} defaultValue={supplier?.trade_name ?? ""} />
+        <label className="block text-sm"><span className="mb-1 block font-semibold">Loại hình nhà cung cấp *</span>
+          <select name="supplier_type" className="input" required defaultValue={supplier?.supplier_type ?? ""}>
+            <option value="" disabled>Chọn nhà máy / thương nhân / hợp tác xã</option>
+            {SUPPLIER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+          </select>
+        </label>
+        <Field label="Mặt hàng chính *" name="products" required maxLength={1000} defaultValue={supplier?.products ?? ""} />
+        <Field label="Tỉnh / thành" name="province" maxLength={100} defaultValue={supplier?.province ?? ""} />
+        <Field label="Địa chỉ" name="address" maxLength={250} defaultValue={supplier?.address ?? ""} />
+        <Field label="Người liên hệ *" name="contact_name" required maxLength={120} defaultValue={supplier?.contact_name ?? ""} />
+        <Field label="Điện thoại *" name="phone" required maxLength={40} defaultValue={supplier?.phone ?? ""} />
+        <Field label="Mã số thuế (chỉ nhập số) *" name="tax_number" required maxLength={32} inputMode="numeric" pattern="[0-9]+" defaultValue={supplier?.tax_id ?? ""} />
+        <Field label="Số tài khoản ngân hàng (chỉ nhập số) *" name="bank_account_number" required maxLength={34} inputMode="numeric" pattern="[0-9]+" />
+      </div>
+      <p className="mt-2 text-xs text-ink-500">Mã số thuế và số tài khoản do bạn tự khai; Vexim sẽ kiểm tra, không tự đánh dấu giấy tờ “Đạt”.</p>
+    </section>
+    <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">2. Thông tin hiển thị trên trang NCC</h2>
+      <p className="mt-1 text-sm text-ink-600">Các trường bổ sung giúp Vexim xây trang nhà cung cấp. Chỉ xuất hiện công khai khi Vexim quyết định xuất bản hồ sơ; sản phẩm/ảnh sản phẩm khai riêng sau khi tài khoản được duyệt.</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <Field label="Tên hiển thị trên trang" name="display_name" maxLength={180} defaultValue={supplier?.display_name ?? ""} />
+        <Field label="Website (https://...)" name="website" maxLength={250} defaultValue={supplier?.website ?? ""} />
+        <Field label="Quốc gia" name="country" maxLength={100} defaultValue={supplier?.country ?? "Vietnam"} />
+        <Field label="Chức vụ người liên hệ" name="contact_title" maxLength={100} defaultValue={supplier?.contact_title ?? ""} />
+        <Field label="Zalo" name="zalo" maxLength={40} defaultValue={supplier?.zalo ?? ""} />
+        <Field label="Năm thành lập" name="founded_year" maxLength={4} inputMode="numeric" defaultValue={String(supplier?.founded_year ?? "")} />
+        <Field label="Số nhân viên" name="employees" maxLength={8} inputMode="numeric" defaultValue={String(supplier?.employees ?? "")} />
+        <Field label="Công suất mỗi tháng" name="capacity_per_month" maxLength={180} defaultValue={supplier?.capacity_per_month ?? ""} />
+        <Field label="MOQ" name="moq_text" maxLength={180} defaultValue={supplier?.moq_text ?? ""} />
+        <Field label="Lead time (ngày)" name="lead_time_days" maxLength={5} inputMode="numeric" defaultValue={String(supplier?.lead_time_days ?? "")} />
+        <Field label="Thị trường đã phục vụ" name="markets" maxLength={800} defaultValue={supplier?.markets ?? ""} />
+        <Field label="Thị trường xuất khẩu (ngăn cách bằng dấu phẩy)" name="export_markets" maxLength={800} defaultValue={supplier?.export_markets?.join(", ") ?? ""} />
+        <Field label="Cảng xuất (ngăn cách bằng dấu phẩy)" name="ports" maxLength={800} defaultValue={supplier?.ports?.join(", ") ?? ""} />
+        <Field label="Incoterms (ngăn cách bằng dấu phẩy)" name="incoterms" maxLength={800} defaultValue={supplier?.incoterms?.join(", ") ?? ""} />
+        <Field label="Điều khoản thanh toán" name="payment_terms" maxLength={200} defaultValue={supplier?.payment_terms ?? ""} />
+      </div>
+      <label className="mt-4 block text-sm"><span className="mb-1 block font-semibold">Giới thiệu bằng tiếng Anh (cho trang buyer)</span><textarea name="summary_en" rows={4} maxLength={1500} className="input" defaultValue={supplier?.summary_i18n?.en ?? ""} placeholder="A Vietnam-based producer of..." /></label>
+      <label className="mt-4 flex gap-2 text-sm"><input type="checkbox" name="private_label" value="yes" defaultChecked={supplier?.private_label ?? false} /> Nhận làm nhãn riêng / OEM</label>
+    </section>
+    <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">3. Giấy tờ bước đầu · Kiểm tra giấy tờ</h2>
+      <p className="mt-1 text-sm text-ink-600">Ảnh/PDF tối đa 15 MB/tệp, tổng tối đa 5 tệp. ATTP, HACCP không bắt buộc với thương nhân. Tải lên không tự duyệt.</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">{INITIAL_DOCUMENT_KEYS.map((key) =>
+        <label key={key} className="block text-sm"><span className="mb-1 block font-semibold">{FILE_LABELS[key]}</span>
+          <input type="file" name={`doc:${key}`} accept=".pdf,image/jpeg,image/png,image/webp" className="input" /></label>)}</div>
+    </section>
+    <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">4. Muốn Vexim xác minh thêm?</h2>
+      <p className="mt-1 text-sm text-ink-600">Chọn yêu cầu chỉ để Vexim liên hệ. Mỗi đánh giá được duyệt riêng; không bắt buộc thăm nhà máy đối với thương nhân.</p>
+      <div className="mt-4 space-y-3">{([2, 3] as const).map((level) =>
+        <label key={level} className="flex gap-3 rounded-xl border border-ink-200 p-4"><input type="checkbox" name={`request:${level}`} value="yes" className="mt-1 h-4 w-4 accent-brand-700" />
+          <span><strong className="block">{level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"}</strong><small className="text-ink-600">Vexim sẽ liên hệ để kiểm tra và tải bằng chứng theo đúng đợt, không tự duyệt.</small></span></label>)}</div>
+    </section>
+    <label className="flex items-start gap-2 text-sm text-ink-700"><input type="checkbox" name="consent" value="yes" required className="mt-1 h-4 w-4 accent-brand-700" /><span>Tôi đồng ý gửi thông tin và tài liệu cho Vexim kiểm tra nội bộ; tài khoản chưa hoạt động cho đến khi Vexim xác nhận.</span></label>
+  </>;
+}
+
 export function SupplierProfileForm({ supplier }: { supplier: Supplier }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -27,40 +88,7 @@ export function SupplierProfileForm({ supplier }: { supplier: Supplier }) {
     finally { setBusy(false); }
   }
   return <form onSubmit={submit} className="mt-6 space-y-7 rounded-xl border border-ink-200 bg-white p-5 sm:p-7">
-    <section><h2 className="text-xl font-black text-ink-900">1. Thông tin nhà cung cấp</h2>
-      <p className="mt-1 text-sm text-ink-600">Email đăng nhập: {supplier.email}. Chọn loại hình để Vexim hiểu đúng doanh nghiệp của bạn; đây không phải quyền truy cập CRM.</p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Field label="Tên pháp lý doanh nghiệp *" name="name" required maxLength={180} defaultValue={supplier.onboarding_status === "changes_requested" ? supplier.name : ""} />
-        <Field label="Tên thương mại (nếu có)" name="trade_name" maxLength={180} defaultValue={supplier.trade_name ?? ""} />
-        <label className="block text-sm"><span className="mb-1 block font-semibold">Loại hình nhà cung cấp *</span>
-          <select name="supplier_type" className="input" required defaultValue={supplier.supplier_type ?? ""}>
-            <option value="" disabled>Chọn nhà máy / thương nhân / hợp tác xã</option>
-            {SUPPLIER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-          </select>
-        </label>
-        <Field label="Mặt hàng chính *" name="products" required maxLength={1000} defaultValue={supplier.products ?? ""} />
-        <Field label="Tỉnh / thành" name="province" maxLength={100} defaultValue={supplier.province ?? ""} />
-        <Field label="Địa chỉ" name="address" maxLength={250} defaultValue={supplier.address ?? ""} />
-        <Field label="Người liên hệ *" name="contact_name" required maxLength={120} defaultValue={supplier.contact_name ?? ""} />
-        <Field label="Điện thoại *" name="phone" required maxLength={40} defaultValue={supplier.phone ?? ""} />
-        <Field label="Mã số thuế (chỉ nhập số) *" name="tax_number" required maxLength={32} inputMode="numeric" pattern="[0-9]+" defaultValue={supplier.tax_id ?? ""} />
-        <Field label="Số tài khoản ngân hàng (chỉ nhập số) *" name="bank_account_number" required maxLength={34} inputMode="numeric" pattern="[0-9]+" />
-      </div>
-      <p className="mt-2 text-xs text-ink-500">Mã số thuế và số tài khoản do bạn tự khai; Vexim sẽ kiểm tra, không tự đánh dấu giấy tờ “Đạt”.</p>
-    </section>
-    <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">2. Giấy tờ bước đầu · Kiểm tra giấy tờ</h2>
-      <p className="mt-1 text-sm text-ink-600">Ảnh/PDF tối đa 15 MB/tệp, tổng tối đa 5 tệp. ATTP, HACCP không bắt buộc với thương nhân. Tải lên không tự duyệt.</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">{INITIAL_DOCUMENT_KEYS.map((key) =>
-        <label key={key} className="block text-sm"><span className="mb-1 block font-semibold">{FILE_LABELS[key]}</span>
-          <input type="file" name={`doc:${key}`} accept=".pdf,image/jpeg,image/png,image/webp" className="input" /></label>)}</div>
-    </section>
-    <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">3. Muốn Vexim xác minh thêm?</h2>
-      <p className="mt-1 text-sm text-ink-600">Chọn yêu cầu chỉ để Vexim liên hệ. Mỗi đánh giá được duyệt riêng; không bắt buộc thăm nhà máy đối với thương nhân.</p>
-      <div className="mt-4 space-y-3">{([2, 3] as const).map((level) =>
-        <label key={level} className="flex gap-3 rounded-xl border border-ink-200 p-4"><input type="checkbox" name={`request:${level}`} value="yes" className="mt-1 h-4 w-4 accent-brand-700" />
-          <span><strong className="block">{level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"}</strong><small className="text-ink-600">Vexim sẽ liên hệ để kiểm tra và tải bằng chứng theo đúng đợt, không tự duyệt.</small></span></label>)}</div>
-    </section>
-    <label className="flex items-start gap-2 text-sm text-ink-700"><input type="checkbox" name="consent" value="yes" required className="mt-1 h-4 w-4 accent-brand-700" /><span>Tôi đồng ý gửi thông tin và tài liệu cho Vexim kiểm tra nội bộ; tài khoản chưa hoạt động cho đến khi Vexim xác nhận.</span></label>
+    <SupplierProfileFields supplier={supplier} email={supplier.email ?? ""} />
     <button type="submit" disabled={busy || result?.ok} className="btn btn-primary w-full justify-center">{busy ? "Đang nộp hồ sơ..." : "Gửi hồ sơ cho Vexim xác nhận"}</button>
     {result && <div role="status" className={`rounded-xl border p-4 text-sm ${result.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>
       {result.message}{result.ok && result.notification !== "sent" && <p className="mt-1">Email nội bộ có thể chưa gửi; hồ sơ vẫn ở hàng chờ Vexim.</p>}

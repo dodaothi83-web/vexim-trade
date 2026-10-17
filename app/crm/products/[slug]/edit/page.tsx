@@ -6,11 +6,12 @@ import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { ProductForm } from "@/components/product-form";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
-import { isTestOnlyProduct } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productReviewApproved } from "@/lib/public/product-selection";
 import { DeleteProductButton } from "@/components/product-actions";
 import { MediaManager, ReadyHint } from "@/components/media-manager";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { requirePagePermission } from "@/lib/auth/session";
+import { SupplierProductReviewControls } from "./review-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export default async function EditProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug: id } = await params;
-  await requirePagePermission("products.manage", "/crm/products");
+  const session = await requirePagePermission("products.manage", "/crm/products");
   const store = getStore();
   const product = await store.getProduct(id);
   if (!product) notFound();
@@ -37,7 +38,7 @@ export default async function EditProductPage({
   const match = assignProductCategory(product, categories, supplierCategories);
   const category = categories.find((c) => c.id === match?.id);
   const categoryPublished = !!category && category.status === "published" && category.is_published;
-  const canView = supplier.status === "published" && categoryPublished &&
+  const canView = productReviewApproved(product) && supplier.status === "published" && categoryPublished &&
     (supplier.is_demo ? process.env.VEXIM_SHOW_DEMO === "true" : product.ready_for_buyer && readiness.ready) &&
     !isTestOnlyProduct(product.name);
   const productImages = media.filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m));
@@ -61,6 +62,12 @@ export default async function EditProductPage({
         }
       />
       <div className="mx-auto max-w-4xl space-y-5">
+        {product.supplier_review_status && product.supplier_review_status !== "approved" && <section className="card border-amber-200 bg-amber-50 p-5 text-sm">
+          <h2 className="font-bold text-ink-900">Sản phẩm NCC tự khai · {product.supplier_review_status === "pending" ? "Chờ Vexim kiểm tra" : product.supplier_review_status === "changes_requested" ? "Đã yêu cầu sửa" : "Bản nháp"}</h2>
+          <p className="mt-1 text-ink-700">Không công khai sản phẩm hoặc tệp NCC tải lên cho đến khi Vexim xác nhận nội dung, chọn tệp chia sẻ buyer và bật sẵn sàng gửi buyer. Xác nhận sản phẩm không phải duyệt giấy tờ hay công khai NCC.</p>
+          {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
+          {product.supplier_review_status === "pending" && (session.role === "admin" || session.role === "sourcing") && <SupplierProductReviewControls id={product.id} />}
+        </section>}
         <section className="card p-5 text-sm" aria-label="Điều kiện xuất hiện trên website">
           <h2 className="font-bold text-ink-900">Hiển thị sản phẩm trên website</h2>
           <p className="mt-1 text-ink-600">Ngành hệ thống tự gán chỉ xác định trang danh mục; ảnh danh mục không phải ảnh sản phẩm. Để ảnh sản phẩm xuất hiện trên thẻ, tải ảnh vào chính hồ sơ này ở mục Hình ảnh &amp; tài liệu bên dưới và chọn “Chia sẻ buyer”.</p>
@@ -68,6 +75,7 @@ export default async function EditProductPage({
             <li>{categoryPublished ? "✓" : "○"} Danh mục {category?.name_i18n.en || category?.slug || "chưa nhận diện"} đã đăng</li>
             <li>{supplier.status === "published" ? "✓" : "○"} NCC đã đăng (không tự chuyển trạng thái khi lưu)</li>
             <li>{readiness.ready ? "✓" : "○"} Có ít nhất một ảnh/catalogue của sản phẩm được chia sẻ buyer</li>
+            <li>{productReviewApproved(product) ? "✓" : "○"} Vexim đã xác nhận nội dung sản phẩm</li>
             <li>{product.ready_for_buyer ? "✓" : "○"} Đã bật “Sẵn sàng gửi buyer” và lưu hồ sơ</li>
             <li>{!isTestOnlyProduct(product.name) ? "✓" : "○"} Tên không bắt đầu bằng TEST ONLY</li>
           </ul>
