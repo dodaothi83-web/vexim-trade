@@ -3,15 +3,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { createRequire } from 'node:module';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { arrangeSupplierProducts } from '../lib/public/supplier-product-order.ts';
 import { assignProductCategory } from '../lib/public/category-assignment.ts';
 import { productReadiness } from '../lib/media/readiness.ts';
-import { approvedVerificationSteps, verificationLabels } from '../lib/verification-status.ts';
+import { approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from '../lib/verification-status.ts';
 
 const compile = (path, mocks) => {
   const exports = {};
   const code = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   vm.runInNewContext(code, { exports, require: (key) => {
     if (!(key in mocks)) throw new Error(`Unexpected import: ${key}`);
@@ -56,6 +59,25 @@ assert.deepEqual(approvedVerificationSteps(reviews.filter((r) => r.supplier_id =
 assert.deepEqual(verificationLabels([1, 3]), ['Documents checked', 'Delivery history reviewed']);
 assert.deepEqual(approvedVerificationSteps([{ target_level: 3, status: 'approved' }]), [3]);
 assert.deepEqual(approvedVerificationSteps([{ target_level: 1, status: 'approved' }, { target_level: 2, status: 'approved' }, { target_level: 3, status: 'approved' }]), [1, 2, 3]);
+const require = createRequire(import.meta.url);
+const { ProductVerificationIcons } = compile('../components/product-verification-icons.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  'lucide-react': require('lucide-react'),
+  '@/lib/verification-status': { PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS },
+});
+const renderChecks = (levels) => renderToStaticMarkup(React.createElement(ProductVerificationIcons, { levels }));
+const mixed = renderChecks([1, 3]);
+assert.equal((mixed.match(/<details/g) ?? []).length, 2, 'Only individually approved checks have icons');
+assert.match(mixed, /Documents checked/);
+assert.match(mixed, /not independently verified/, 'Tooltip must not claim tax or bank numbers were verified');
+assert.match(mixed, /not a product certification/, 'Supplier icon must not imply product certification');
+assert.match(mixed, /Delivery history reviewed/);
+assert.doesNotMatch(mixed, /Factory visited|\bL[123]\b/, 'Do not imply a factory review or show internal level numbers');
+assert.match(mixed, /<summary[^>]*aria-label=/, 'Icon explanation is available to screen readers and touch via native details');
+assert.match(mixed, /group-hover:block group-focus-within:block peer-open:block/, 'Tooltip opens on hover, keyboard focus and touch');
+assert.equal((renderChecks([2]).match(/<details/g) ?? []).length, 1, 'Factory approval alone does not imply documents or delivery');
+assert.doesNotMatch(renderChecks([]), /<details|Factory visited|Documents checked|Delivery history reviewed/);
+assert.match(renderChecks([]), /No approved checks yet/);
 const store = {
   listSuppliers: async () => suppliers,
   listProducts: async () => products,
@@ -112,6 +134,10 @@ assert.deepEqual(moreSuppliers.find((s) => s.id === extras.at(-1).id).approved_v
 assert.deepEqual(moreSuppliers.find((s) => s.id === extras[0].id).approved_verification_steps, [], 'Legacy max level without an approval earns no real badges');
 suppliers.splice(-extras.length);
 reviews.pop();
+suppliers.push({ id: 'demo-no-evidence', name: 'Demo', status: 'published', is_demo: true, verification_level: 3 });
+const demoPreview = (await catalog.listPublicSuppliers({ includeDemo: true })).find((s) => s.id === 'demo-no-evidence');
+assert.deepEqual(demoPreview.approved_verification_steps, [], 'Demo level without a real approved review cannot create a badge');
+suppliers.pop();
 media.find((m) => m.product_id === 'a7').status = 'expired';
 assert.equal((await productCatalog.listPublicCategoryProducts(category)).length, 12, 'Expired last buyer image hides a stale ready product');
 assert.equal((await catalog.getPublicSupplierBySlug('company-a')).main_products.length, 8, 'Supplier profile applies the same readiness gate');
@@ -124,7 +150,9 @@ assert.match(grid, /Supplied by <Link href=\{`\/suppliers\//);
 assert.match(grid, /\+\{count\} more from/);
 assert.match(grid, /Lead time:/);
 assert.match(grid, /p\.verificationSteps\.includes\(verified/, 'Verification filter matches only the selected approved check');
-assert.match(grid, /PublicVerificationBadges levels=\{p\.verificationSteps\}/);
+assert.match(grid, /<ProductVerificationIcons levels=\{p\.verificationSteps\}/);
+assert.match(grid, /<\/Link>\s*<div className="px-3 pb-2 sm:px-4"><ProductVerificationIcons/, 'Interactive tooltip must not be nested inside product navigation link');
+assert.match(detailPage, /<ProductVerificationIcons levels=\{card\.verificationSteps\}/);
 assert.match(profilePage, /publicProductPrice\(p, s\) \|\| "On request"/);
 assert.match(profilePage, /href=\{`\/products\/\$\{encodeURIComponent\(category\.slug\)\}/);
 assert.match(detailPage, /View supplier profile/);

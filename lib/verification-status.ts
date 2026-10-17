@@ -15,3 +15,10 @@ export const VERIFICATION_LABELS: Record<VerificationLevel, string> = {
 export function verificationLabels(levels: readonly VerificationLevel[]): string[] {
   return levels.map((level) => VERIFICATION_LABELS[level]);
 }
+
+/** Buyer-facing explanations describe independently approved SUPPLIER reviews, not product certification. */
+export const PRODUCT_VERIFICATION_EXPLANATIONS: Record<VerificationLevel, string> = {
+  1: "Vexim reviewed this supplier's business registration evidence. Tax and bank numbers are supplier-provided, not independently verified. This is not a product certification.",
+  2: "Vexim approved a factory visit review with site evidence for this supplier. It does not imply the other checks.",
+  3: "Vexim approved a review of this supplier's delivery evidence. It does not guarantee future shipments.",
+};

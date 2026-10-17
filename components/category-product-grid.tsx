@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown, Filter, ImageIcon, MapPin } from "lucide-react";
 
-import { PublicVerificationBadges } from "@/components/public-verification-badges";
+import { ProductVerificationIcons } from "@/components/product-verification-icons";
 
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
@@ -97,9 +97,9 @@ export function CategoryProductGrid({ products, categorySlug, grades, rfqHref }:
           {active && <button type="button" className="text-xs font-semibold text-brand-700 underline" onClick={reset}>Show all</button>}
         </div>
         {visible.length ? <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          {shown.map((p) => <article key={p.id} className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white transition hover:border-brand-400 hover:shadow-md">
+          {shown.map((p) => <article key={p.id} className="relative flex min-w-0 flex-col rounded-xl border border-ink-200 bg-white transition hover:z-20 hover:border-brand-400 hover:shadow-md focus-within:z-20">
             <Link href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`} className="group flex flex-1 flex-col" aria-label={`View ${p.name}`}>
-              <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-brand-50 to-ink-100">
+              <div className="relative aspect-square overflow-hidden rounded-t-xl bg-gradient-to-br from-brand-50 to-ink-100">
                 {p.imagePaths[0] ? <img src={`/public-media/${p.imagePaths[0]}`} alt={p.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                   : <div className="flex h-full items-center justify-center text-ink-300"><ImageIcon className="h-12 w-12" aria-hidden="true" /></div>}
                 {p.isDemo && <span className="absolute left-2 top-2 rounded bg-amber-400 px-2 py-1 text-[10px] font-bold text-amber-950">DEMO</span>}
@@ -110,9 +110,9 @@ export function CategoryProductGrid({ products, categorySlug, grades, rfqHref }:
                 <p className="text-sm font-bold text-brand-800">{p.price || "Price on request"}</p>
                 <p className="text-xs text-ink-600">Lead time: {p.leadTimeDays !== null ? `${p.leadTimeDays} days` : "On request"}</p>
                 <p className="flex items-center gap-1 text-xs text-ink-600"><MapPin className="h-3.5 w-3.5 shrink-0" />{p.province}</p>
-                <div className="mt-auto"><PublicVerificationBadges levels={p.verificationSteps} compact /></div>
               </div>
             </Link>
+            <div className="px-3 pb-2 sm:px-4"><ProductVerificationIcons levels={p.verificationSteps} /></div>
             <div className="px-3 pb-2 text-xs text-ink-600 sm:px-4">Supplied by <Link href={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`} className="font-semibold text-brand-700 hover:underline">{p.supplierName}</Link></div>
             <div className="px-3 pb-3 sm:px-4 sm:pb-4"><Link href={`${rfqHref}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}`}
               className="flex items-center justify-center gap-1 rounded-md bg-ink-900 px-2 py-2 text-center text-xs font-bold text-white hover:bg-brand-700">Request quote <ArrowRight className="h-3.5 w-3.5" /></Link></div>

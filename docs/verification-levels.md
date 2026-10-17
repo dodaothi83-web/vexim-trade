@@ -2,6 +2,8 @@
 
 Ba đánh giá độc lập trong CRM: **Kiểm tra giấy tờ**, **Thăm nhà máy**, **Lịch sử giao hàng**. Có thể bắt đầu và duyệt bất kỳ đánh giá nào mà không cần duyệt đánh giá còn lại; doanh nghiệp thương mại không có nhà máy vẫn có thể được duyệt lịch sử giao hàng. Chỉ hiện huy hiệu công khai cho đúng từng đánh giá đã **duyệt**, không suy ra hai đánh giá trước từ giá trị `verification_level` lớn nhất. Tạm thời, quản trị viên (`verifications.approve`) có thể tự duyệt bản kiểm đã nộp; nhân viên thu mua không được tự cấp quyền duyệt.
 
+Trên **thẻ và trang chi tiết sản phẩm** cho buyer, ba kết quả được rút gọn thành icon giấy tờ / nhà máy / giao hàng, có tooltip tiếng Anh khi rê chuột, dùng bàn phím hoặc chạm. Chỉ icon của đúng đợt kiểm đã được duyệt mới xuất hiện; không hiển thị số L1/L2/L3 hay suy diễn bước trước. Tooltip ghi rõ đây là kiểm tra **nhà cung cấp**, không chứng nhận chất lượng sản phẩm; hai số thuế/ngân hàng do NCC cung cấp không được xác minh độc lập. Không có duyệt thì ghi “No approved checks yet”; bản demo không được nhận icon giả từ `verification_level` cũ. Lọc xác minh trong danh mục sản phẩm vẫn dựa trên từng đợt đã duyệt.
+
 | Trang | Bằng chứng cần đối chiếu | Điều kiện duyệt |
 | --- | --- | --- |
 | Kiểm tra giấy tờ (`/audit/documents`) | 3 mục bắt buộc (đăng ký doanh nghiệp và 2 ô nhập số); 4 mục tùy chọn gồm giấy ATTP và HACCP/BRC/ISO. Ảnh/PDF theo từng mục, video bổ sung qua link. | Đăng ký doanh nghiệp phải được người kiểm đánh dấu Đạt; mã số thuế và số tài khoản chỉ cần nhập chữ số. Giấy ATTP và HACCP/BRC/ISO có thể để trống/Không áp dụng cho NCC thương mại. Ít nhất một ảnh/PDF của đúng đợt kiểm; quản trị viên bấm duyệt riêng. |

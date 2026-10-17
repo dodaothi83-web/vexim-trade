@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { ArrowLeft, ArrowRight, ImageIcon, MapPin } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
-import { PublicVerificationBadges } from "@/components/public-verification-badges";
+import { ProductVerificationIcons } from "@/components/product-verification-icons";
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -89,7 +89,7 @@ export default async function PublicProductDetail({ params }: Props) {
           <h2 className="text-xs font-bold uppercase tracking-widest text-brand-700">Supplied by</h2>
           <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} className="mt-2 inline-block text-lg font-bold text-brand-800 hover:underline">{card.supplierName} → View supplier profile</Link>
           <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-700"><MapPin className="h-4 w-4" />{card.province}, Vietnam</p>
-          <div className="mt-2"><PublicVerificationBadges levels={card.verificationSteps} /></div>
+          <div className="mt-3"><ProductVerificationIcons levels={card.verificationSteps} /></div>
           <p className="mt-3 text-xs text-ink-600">Vexim coordinates enquiries; direct supplier contacts are not shown.</p>
         </aside>
       </div>

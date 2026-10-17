@@ -108,9 +108,8 @@ export async function listPublicSuppliers(options?: {
           .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
           .map((m) => m.storage_path!)
           .slice(0, 6);
+        // Even demo listings must not imply a check from the legacy numeric maximum.
         c.approved_verification_steps = approvedVerificationSteps(vers);
-        // Explicitly marked demo records are fictitious previews, never real badges.
-        if (c.is_demo && !vers.length) c.approved_verification_steps = ([1, 2, 3] as const).filter((level) => level <= (c.verification_level ?? 0));
         const approved = vers
           .filter((v) => v.status === "approved")
           .sort((a, b) => (b.target_level - a.target_level) || ((b.approved_at ?? "").localeCompare(a.approved_at ?? "")));
