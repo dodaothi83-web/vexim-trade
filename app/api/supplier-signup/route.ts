@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { GOOGLE_SIGNUP_COOKIE, googleCookieOptions, googleRequestOrigin, isVerifiedGoogleUser, verifyGoogleSignupTicket } from "@/lib/auth/google-oauth";
 
 import { getStore } from "@/lib/db";
 import { getSupabaseAuthClient, getSupabaseClient } from "@/lib/db/supabase";
@@ -30,10 +32,13 @@ export async function POST(request: Request) {
   if (text(form, "website_hp")) return fail("Không thể gửi yêu cầu này.");
   if (text(form, "consent") !== "yes") return fail("Vui lòng xác nhận đồng ý tạo tài khoản và gửi thông tin cho Vexim.");
 
+  const googleTicket = verifyGoogleSignupTicket((await cookies()).get(GOOGLE_SIGNUP_COOKIE)?.value);
   const email = text(form, "email", 200).toLowerCase();
   const password = String(form.get("password") ?? "");
   if (!EMAIL.test(email)) return fail("Cần email đăng nhập hợp lệ.");
-  if (passwordProblem(password) || password.length > 128) return fail("Mật khẩu cần 8–128 ký tự, gồm cả chữ và số.");
+  if (googleTicket ? (email !== googleTicket.email || !!password) : (passwordProblem(password) || password.length > 128)) {
+    return fail(googleTicket ? "Email đã xác thực bằng Google không được thay đổi; không gửi mật khẩu." : "Mật khẩu cần 8–128 ký tự, gồm cả chữ và số.");
+  }
   let parsed: ReturnType<typeof parseSupplierProfile>;
   let documents: Awaited<ReturnType<typeof prepareInitialDocuments>>;
   try { parsed = parseSupplierProfile(form); documents = await prepareInitialDocuments(form); }
@@ -53,23 +58,30 @@ export async function POST(request: Request) {
     const schema = await db.from("app_users").select("supplier_id").limit(1);
     const gate = await db.from("suppliers").select("onboarding_status").limit(1);
     if (schema.error || gate.error) throw schema.error || gate.error;
+    if (googleTicket) {
+      const { data, error } = await auth.auth.admin.getUserById(googleTicket.id);
+      if (error || !isVerifiedGoogleUser(data.user) || data.user.email?.toLowerCase() !== googleTicket.email)
+        return fail("Phiên Google đã hết hạn hoặc không hợp lệ. Vui lòng đăng ký lại bằng Google.", 401);
+    }
   } catch (error) {
     console.error("[supplier-signup] database preflight:", error);
     return fail("Chưa áp dụng migration đăng ký doanh nghiệp trên Supabase; chưa tạo tài khoản.", 503);
   }
 
-  // Supabase must send a confirmation email; a project that auto-confirms email is rejected.
+  // Password signup must send a confirmation email. Google reuses its already verified Auth identity.
   let authId: string | null = null;
   try {
-    const { data, error } = await auth.auth.signUp({ email, password, options: { emailRedirectTo: process.env.SUPPLIER_SIGNUP_REDIRECT_URL || `${SITE_URL}/login` } });
-    if (error || !data.user?.id || data.user.identities?.length === 0) {
-      console.warn("[supplier-signup] Supabase signup rejected", error?.message ?? "duplicate account");
-      return fail("Không tạo được tài khoản. Nếu email đã dùng, hãy đăng nhập hoặc liên hệ Vexim.", 409);
-    }
-    authId = data.user.id;
-    if (data.session || data.user.email_confirmed_at) {
-      await auth.auth.admin.deleteUser(authId);
-      return fail("Supabase chưa bật xác nhận email. Vexim cần bật Confirm email trước khi mở đăng ký.", 503);
+    if (!googleTicket) {
+      const { data, error } = await auth.auth.signUp({ email, password, options: { emailRedirectTo: process.env.SUPPLIER_SIGNUP_REDIRECT_URL || `${SITE_URL}/login` } });
+      if (error || !data.user?.id || data.user.identities?.length === 0) {
+        console.warn("[supplier-signup] Supabase signup rejected", error?.message ?? "duplicate account");
+        return fail("Không tạo được tài khoản. Nếu email đã dùng, hãy đăng nhập hoặc liên hệ Vexim.", 409);
+      }
+      authId = data.user.id;
+      if (data.session || data.user.email_confirmed_at) {
+        await auth.auth.admin.deleteUser(authId);
+        return fail("Supabase chưa bật xác nhận email. Vexim cần bật Confirm email trước khi mở đăng ký.", 503);
+      }
     }
   } catch (error) {
     console.error("[supplier-signup] auth unavailable", error);
@@ -114,8 +126,12 @@ export async function POST(request: Request) {
     let notification: "sent" | "simulated" | "failed" = "failed";
     try { notification = await notifySupplierRegistration(supplier, parsed.requested); }
     catch (error) { console.error("[supplier-signup] staff notification failed", error); }
-    return NextResponse.json({ ok: true,
-      message: "Đã nhận hồ sơ tạo trang NCC. Vui lòng xác nhận email và đăng nhập để xem trạng thái chờ Vexim duyệt tài khoản.", notification });
+    const response = NextResponse.json({ ok: true,
+      message: googleTicket
+        ? "Đã nhận hồ sơ tạo trang NCC. Email Google đã được xác thực; hãy đăng nhập tại form chung để xem trạng thái chờ Vexim duyệt tài khoản."
+        : "Đã nhận hồ sơ tạo trang NCC. Vui lòng xác nhận email và đăng nhập để xem trạng thái chờ Vexim duyệt tài khoản.", notification });
+    if (googleTicket) response.cookies.set(GOOGLE_SIGNUP_COOKIE, "", googleCookieOptions(googleRequestOrigin(request).startsWith("https:"), 0));
+    return response;
   } catch (error) {
     console.error("[supplier-signup] aborted and rolling back", error);
     // Never leave a partially created supplier as a public listing or an unlinked portal account.

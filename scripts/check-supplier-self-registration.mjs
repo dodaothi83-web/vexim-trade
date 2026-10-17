@@ -29,7 +29,7 @@ for (const denied of [
   [{ ...owner, role: 'viewer' }, doc, 'business_license'],
 ]) assert.equal(policy.canUploadOwnDocument(...denied), false);
 
-const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false };
+const state = { googleTicket: null, ticketCleared: 0, users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false };
 const store = {
   mode: 'supabase',
   listUsers: async () => state.users,
@@ -53,7 +53,9 @@ const store = {
 };
 const auth = { auth: {
   signUp: async () => { state.authCalls++; return { data: { user: { id: 'auth-1', identities: [{ id: 'identity' }], email_confirmed_at: state.confirmed ? 'now' : null }, session: state.confirmed ? {} : null }, error: null }; },
-  admin: { deleteUser: async () => { state.deletedAuth++; } },
+  admin: { deleteUser: async () => { state.deletedAuth++; }, getUserById: async (id) => ({ data: { user: {
+    id, email: 'google@example.com', email_confirmed_at: 'now', identities: [{ provider: 'google', identity_data: { email_verified: true } }],
+  } }, error: null }) },
 } };
 const profileInput = load('../lib/supplier-portal/profile-input.ts', {});
 const profileEvidence = load('../lib/supplier-portal/profile-evidence.ts', {
@@ -65,7 +67,11 @@ const profileEvidence = load('../lib/supplier-portal/profile-evidence.ts', {
   '@/lib/types': { L1_DOC_ITEMS: [{ key: 'business_license' }, { key: 'tax_certificate' }, { key: 'bank_letter' }] },
 });
 const mocks = {
-  'next/server': { NextResponse: { json: (data, opts) => Response.json(data, opts) } },
+  'next/server': { NextResponse: { json: (data, opts) => { const res = Response.json(data, opts); res.cookies = { set: () => { state.ticketCleared++; } }; return res; } } },
+  'next/headers': { cookies: async () => ({ get: () => state.googleTicket ? { value: 'signed-ticket' } : undefined }) },
+  '@/lib/auth/google-oauth': { GOOGLE_SIGNUP_COOKIE: 'vxt_google_signup', googleCookieOptions: () => ({}), googleRequestOrigin: () => 'https://example.com',
+    verifyGoogleSignupTicket: () => state.googleTicket,
+    isVerifiedGoogleUser: (user) => !!user?.email_confirmed_at && user.identities?.some((i) => i.provider === 'google') },
   '@/lib/db': { getStore: () => store },
   '@/lib/db/supabase': { getSupabaseAuthClient: () => auth, getSupabaseClient: () => ({ from: () => ({ select: () => ({ limit: async () => ({ error: state.schemaMissing ? Error('missing') : null }) }) }) }) },
   '@/lib/auth/session': { getSession: async () => null },
@@ -161,6 +167,18 @@ assert.equal((await post(form('other@example.com'))).status, 503);
 assert.equal(state.suppliers.length, 1, 'Failed registration rolls back only the new draft supplier');
 assert.equal(state.users.length, 2, 'Failed registration rolls back only the new linked account');
 assert.equal(state.deletedAuth, 2, 'Failed registration removes the unconfirmed Auth account');
+state.failUser = false;
+state.googleTicket = { id: 'google-auth-id', email: 'google@example.com' };
+const googleForm = form('google@example.com'); googleForm.delete('password');
+assert.equal((await post(form('different@example.com'))).status, 400, 'Cannot change verified Google email or add a password');
+const spoofedGoogle = form('different@example.com'); spoofedGoogle.delete('password');
+assert.equal((await post(spoofedGoogle)).status, 400, 'Cannot submit a foreign email with a signed ticket');
+assert.equal((await post(googleForm)).status, 200, 'Google verified email still requires the full first supplier-page form');
+assert.equal(state.suppliers.at(-1).onboarding_status, 'pending');
+assert.equal(state.authCalls, 3, 'Google must reuse the verified identity, never create a password account');
+assert.equal(state.ticketCleared, 1, 'Google signup ticket cleared after use');
+assert.equal((await post(form('google@example.com'))).status, 400, 'Google signup must reject submitted password');
+state.googleTicket = null;
 
 const authStore = { mode: 'local', getUserByEmail: async () => ({ ...owner, auth_provider: 'supabase', password_hash: 'legacy-hash' }) };
 const authLogin = load('../lib/auth/authenticate.ts', {
