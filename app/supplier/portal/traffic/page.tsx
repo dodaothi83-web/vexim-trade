@@ -84,7 +84,14 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
             </div>)}
           </div>
           <div className="mt-2 flex justify-between text-[11px] text-slate-500"><span>{bars[0]?.label}</span><span>{bars.at(-1)?.label}</span></div>
-          <p className="mt-5 text-xs leading-5 text-slate-500">Lượt xem trang, không phải số người duy nhất. Cột gộp theo thời gian đã chọn; di chuột vào cột để xem chi tiết.</p>
+          <details className="mt-5 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
+            <summary className="cursor-pointer font-semibold text-teal-800">Xem số liệu từng mốc</summary>
+            <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[280px] text-left text-xs tabular-nums text-slate-700">
+              <thead><tr className="border-b border-slate-200"><th scope="col" className="py-2">Thời gian (UTC)</th><th scope="col" className="py-2 text-right">Hồ sơ</th><th scope="col" className="py-2 text-right">Sản phẩm</th></tr></thead>
+              <tbody>{bars.map((bar) => <tr key={bar.label} className="border-b border-slate-100 last:border-0"><th scope="row" className="py-2 font-medium">{bar.label}</th><td className="py-2 text-right">{format(bar.profile)}</td><td className="py-2 text-right">{format(bar.product)}</td></tr>)}</tbody>
+            </table></div>
+          </details>
+          <p className="mt-4 text-xs leading-5 text-slate-500">Lượt xem trang, không phải số người duy nhất. Cột gộp theo thời gian đã chọn.</p>
         </section>
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="traffic-products">
           <h2 id="traffic-products" className="text-lg font-bold text-slate-900">Sản phẩm được xem nhiều</h2>
