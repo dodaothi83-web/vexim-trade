@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { getStore } from "@/lib/db";
+import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
 import { PublicProductCard } from "@/components/public-product-card";
@@ -50,10 +51,10 @@ const HOW_IT_WORKS = [
 ];
 
 const PROMISES = [
-  { icon: Building2,    title: "We visit before we list.",       body: "A supplier only gets our Factory audited badge after someone from our team has been to the factory." },
-  { icon: Search,       title: "Every supplier we send you, we've met.", body: "If we haven't visited them yet, we say so clearly on the quote." },
-  { icon: Layers3,      title: "Your details stay private.",     body: "Suppliers see your requirements, not your contact information, until you choose to go ahead." },
-  { icon: BadgeCheck,   title: "We stay with your order.",       body: "Our team follows it through production, paperwork and shipment." },
+  { icon: Building2,  title: "Each check stands on its own.", body: "Document checks, factory visits and delivery history are reviewed separately. A badge appears only after that specific review is approved." },
+  { icon: Search,     title: "See what we have checked.",     body: "A supplier profile does not imply a factory visit. Look for the individual review results, and ask us about checks still in progress." },
+  { icon: Layers3,    title: "Your details stay private.",   body: "Suppliers see your requirements, not your contact information, until you choose to go ahead." },
+  { icon: BadgeCheck, title: "We stay with your order.",     body: "Our team follows it through production, paperwork and shipment." },
 ];
 
 const FAQ = [
@@ -79,6 +80,11 @@ export default async function HomeContent() {
   const store = getStore();
   const allCategories = await store.listCategories({ publishedOnly: true });
   const supCount = (await store.listSuppliers()).filter((s) => s.status === "published").length;
+  // News is secondary to the catalogue: a blog query outage must not take down the homepage.
+  const latestPosts = (await listPublishedNews().catch((error) => {
+    console.error("[home] could not load published news", error);
+    return [];
+  })).slice(0, 3);
 
   // Industries hiện trên khối "What we source": active_on_homepage=true, sort theo sort_order.
   // Cờ active_on_homepage do admin bật trong CRM; chỉ hiện các ngành đội sale trả lời được trong 24h.
@@ -139,7 +145,7 @@ export default async function HomeContent() {
               </h1>
               <p className="mt-5 max-w-xl text-[16px] leading-relaxed text-brand-100/90 sm:text-[17px]">
                 Cashew, pepper, coffee, coconut, rice and more. Tell us what you need and we'll come back within one business day
-                with 2 to 4 suppliers that fit. Our team visits every factory first.
+                with 2 to 4 suppliers that fit. We show which checks have actually been completed.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link
@@ -158,7 +164,7 @@ export default async function HomeContent() {
               <div className="mt-10 flex items-center gap-4 border-t border-white/15 pt-5 text-[13px] text-brand-100/80">
                 {supCount > 0 && (
                   <>
-                    <Stat num={String(supCount)} label="factories visited" />
+                    <Stat num={String(supCount)} label="published supplier profiles" />
                     <Divider />
                   </>
                 )}
@@ -311,45 +317,54 @@ export default async function HomeContent() {
         </div>
       </section>
 
-      {/* FROM THE FIELD — dải ảnh từ chuyến thăm nhà máy; chưa có ảnh thì placeholder trung thực */}
-      <section className="bg-white">
+      {/* LATEST NEWS — dữ liệu thật từ /blog; không dùng ảnh chuyến thăm giả hoặc bài nháp. */}
+      <section aria-labelledby="home-news-title" className="bg-white">
         <div className="mx-auto max-w-7xl px-5 py-20 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="max-w-2xl">
-              <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-accent-600">From the field</p>
-              <h2 className="mt-2 text-[30px] font-black tracking-tight text-ink-900 sm:text-[36px]">We visit before we list.</h2>
+              <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-accent-600">News &amp; insights</p>
+              <h2 id="home-news-title" className="mt-2 text-[30px] font-black tracking-tight text-ink-900 sm:text-[36px]">Latest articles</h2>
               <p className="mt-3 text-[15px] leading-relaxed text-ink-600">
-                These are photos from our factory visits — province and month captioned. We don't list a supplier until
-                someone from our team has walked the floor.
+                Practical sourcing guides and updates from Vexim Trade. Explore the latest stories from our newsroom.
               </p>
             </div>
-            <Link href="/how-we-verify" className="inline-flex items-center gap-1 text-[13.5px] font-semibold text-brand-700 hover:text-brand-800">
-              See how we verify <ArrowRight className="h-3.5 w-3.5" />
+            <Link href="/blog" className="inline-flex items-center gap-1 text-[13.5px] font-semibold text-brand-700 hover:text-brand-800">
+              View all articles <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
 
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            <FieldCard
-              kicker="Bình Phước · Feb 2026"
-              title="Cashew kernel grading line"
-              body="W320 hand sorting and vacuum packing at a processor we signed on the last trip."
-              src="/images/categories/cashew-hero.jpg"
-            />
-            <FieldCard
-              kicker="Bến Tre · [coming up]"
-              title="Desiccated coconut mill"
-              body="Next visit scheduled. Photos and visit notes will appear here after the trip."
-              src="/images/categories/coconut.jpg"
-              upcoming
-            />
-            <FieldCard
-              kicker="Gia Lai · [coming up]"
-              title="Coffee drying yards"
-              body="Robusta lots ahead of the new crop. We will post photos once the visit is done."
-              src="/images/categories/coffee.jpg"
-              upcoming
-            />
-          </div>
+          {latestPosts.length ? (
+            <ul className={`mt-10 grid gap-5 ${latestPosts.length > 1 ? "md:grid-cols-2" : ""} ${latestPosts.length > 2 ? "lg:grid-cols-3" : ""}`}>
+              {latestPosts.map((post) => (
+                <li key={post.id} className="min-w-0">
+                  <article className="h-full">
+                    <Link href={`/blog/${post.slug}`} className="group flex h-full flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm transition hover:border-brand-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
+                      <div className="relative aspect-[4/3] overflow-hidden bg-brand-50">
+                        {post.featured_image ? (
+                          <img src={post.featured_image} alt={post.featured_image_alt || ""} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center gap-3 text-brand-700">
+                            <FileStack className="h-7 w-7" aria-hidden="true" />
+                            <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Vexim Trade · News</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-1 flex-col p-5">
+                        {post.published_at && <time dateTime={post.published_at} className="text-[11.5px] font-bold uppercase tracking-wide text-accent-700">{formatPostDate(post.published_at)}</time>}
+                        <h3 className="mt-2 text-[18px] font-bold leading-snug text-ink-900 group-hover:text-brand-700">{post.title}</h3>
+                        {post.excerpt && <p className="mt-2 line-clamp-3 text-[13.5px] leading-relaxed text-ink-600">{post.excerpt}</p>}
+                        <span className="mt-auto inline-flex items-center gap-1 pt-5 text-[13px] font-semibold text-brand-700">Read article <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></span>
+                      </div>
+                    </Link>
+                  </article>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="mt-10 rounded-xl border border-dashed border-ink-200 bg-ink-50 p-6 text-sm text-ink-600" role="status">
+              No articles published yet. <Link href="/blog" className="font-semibold text-brand-700 underline hover:text-brand-800">Visit our news page</Link> for updates.
+            </div>
+          )}
         </div>
       </section>
 
@@ -367,18 +382,18 @@ export default async function HomeContent() {
               />
               <div className="absolute inset-0 ring-1 ring-white/10" />
               <div className="absolute bottom-4 left-4 rounded-lg bg-ink-950/70 px-3 py-2 text-[11.5px] text-white backdrop-blur">
-                Inspection notes and product samples we compare on every visit.
+                Verification results are recorded separately for each supplier.
               </div>
             </div>
 
             <div>
               <h2 className="text-[30px] font-black tracking-tight text-white sm:text-[38px]"
                   style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}>
-                Every supplier we send you, we've met.
+                Know what we've checked.
               </h2>
               <p className="mt-4 max-w-xl text-[15.5px] leading-relaxed text-brand-100/90">
-                We're based in Hanoi. When we say a factory has been audited, one of us has been to the factory.
-                If we're still checking, the supplier doesn't appear in your quote.
+                We're based in Hanoi. Documents, factory visits and delivery history are different reviews.
+                We show each approved result on its own, so you can tell what has — and hasn't — been checked.
               </p>
 
               <ul className="mt-8 space-y-4">
@@ -468,7 +483,7 @@ export default async function HomeContent() {
                 <span className="text-[16px] font-black tracking-tight text-ink-900">Vexim Trade</span>
               </div>
               <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-ink-500">
-                A small sourcing team in Hanoi that connects international buyers with Vietnamese producers we have visited.
+                A sourcing team in Hanoi connecting international buyers with Vietnamese producers.
               </p>
               <p className="mt-5 text-[12.5px] text-ink-400">© 2026 Vexim Global Co., Ltd., Hanoi, Vietnam</p>
             </div>
@@ -527,26 +542,8 @@ function Divider() {
   return <span className="h-8 w-px bg-white/20" aria-hidden />;
 }
 
-function FieldCard({ kicker, title, body, src, upcoming }: { kicker: string; title: string; body: string; src: string; upcoming?: boolean }) {
-  return (
-    <figure className="group overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm transition hover:shadow-md">
-      <div className="relative aspect-[4/3] overflow-hidden bg-ink-100">
-        <Image src={src} alt="" fill sizes="(max-width: 768px) 100vw, 33vw"
-               className={"object-cover transition duration-500 group-hover:scale-105 " + (upcoming ? "opacity-60 grayscale-[30%]" : "")} />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/55 to-transparent" />
-        {upcoming && (
-          <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-ink-700 shadow">
-            Upcoming
-          </span>
-        )}
-        <figcaption className="absolute inset-x-0 bottom-0 p-4 text-white">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-accent-300">{kicker}</p>
-          <p className="mt-1 text-[15px] font-bold leading-tight">{title}</p>
-        </figcaption>
-      </div>
-      <figcaption className="p-4 text-[13px] leading-relaxed text-ink-600">{body}</figcaption>
-    </figure>
-  );
+function formatPostDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 }
 
 function FooterCol({ title, children }: { title: string; children: React.ReactNode }) {

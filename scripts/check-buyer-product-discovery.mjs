@@ -227,6 +227,7 @@ const { default: HomeContent } = compile('../app/(public)/home.tsx', {
   'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
   '@/lib/db': { getStore: () => ({ listCategories: async () => [{ ...category, active_on_homepage: true, public_page_ready: true }], listSuppliers: async () => [] }) },
+  '@/lib/blog/queries': { listPublishedNews: async () => [] },
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [cards[0], cards[1], { ...cards[0], id: 'demo', isDemo: true }] },
   '@/lib/public/supplier-product-order': { arrangeSupplierProducts },
   '@/components/public-product-card': { PublicProductCard },
