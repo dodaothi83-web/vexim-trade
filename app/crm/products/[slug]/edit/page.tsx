@@ -4,6 +4,7 @@ import { getStore } from "@/lib/db";
 import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { ProductForm } from "@/components/product-form";
+import { assignSupplierCategories } from "@/lib/public/category-assignment";
 import { DeleteProductButton } from "@/components/product-actions";
 import { MediaManager, ReadyHint } from "@/components/media-manager";
 import { productReadiness } from "@/lib/media/readiness";
@@ -27,6 +28,10 @@ export default async function EditProductPage({
   if (!supplier) notFound();
   const [media, categories] = await Promise.all([store.listMedia("product", id), store.listCategories({ publishedOnly: false })]);
   const readiness = productReadiness(media);
+  const links = await store.listSupplierCategories(supplier.id).catch(() => []);
+  const supplierCategories = links.length
+    ? links.map((link) => categories.find((c) => c.id === link.category_id)?.slug).filter((slug): slug is string => !!slug)
+    : assignSupplierCategories(supplier.products, [], categories).slugs;
 
   return (
     <>
@@ -51,6 +56,7 @@ export default async function EditProductPage({
           supplier={supplier}
           product={product}
           categories={categories}
+          supplierCategories={supplierCategories}
           mediaState={{ ready: readiness.ready, shareable: readiness.shareable }}
         />
         <ReadyHint ready={readiness.ready} shareable={readiness.shareable} />

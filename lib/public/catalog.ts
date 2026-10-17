@@ -6,7 +6,7 @@ import "server-only";
 
 import { getStore } from "@/lib/db";
 import type { Category, Supplier, SupplierProduct, SupplierType } from "@/lib/types";
-import { productBelongsToCategory } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory } from "@/lib/public/product-selection";
 
 /** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
 export const DEFAULT_LOCALE = "en";
@@ -141,9 +141,9 @@ export async function listPublicSuppliers(options?: {
     // Only an actual product in the requested category qualifies; supplier blurbs
     // must never pull an unrelated product/supplier onto a category page.
     cards = cat ? cards.filter((s) => (bySupplier.get(s.id) ?? []).some((p) =>
-      productBelongsToCategory(p, cat, categories)))
+      !isTestOnlyProduct(p.name) && productBelongsToCategory(p, cat, categories)))
       .map((s) => ({ ...s, main_products: s.main_products.filter((p) =>
-        productBelongsToCategory(p, cat, categories)) })) : [];
+        !isTestOnlyProduct(p.name) && productBelongsToCategory(p, cat, categories)) })) : [];
   }
 
   // Sắp xếp: verification_level desc → độ đầy đủ hồ sơ → tên.

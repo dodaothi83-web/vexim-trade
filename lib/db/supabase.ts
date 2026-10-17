@@ -36,7 +36,7 @@ import type {
   Verification,
 } from "@/lib/types";
 import type { DataStore } from "@/lib/db/types";
-import { productBelongsToCategory } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory } from "@/lib/public/product-selection";
 
 /** Bỏ các khoá undefined khỏi patch để không vô tình ghi đè mất dữ liệu cũ. */
 function cleanPatch<T extends Record<string, unknown>>(patch: T): Partial<T> {
@@ -147,7 +147,7 @@ function fail(op: string, error: { message: string } | null): never {
 async function decorateCategoryReadiness(rows: Category[]): Promise<Category[]> {
   if (!rows.length) return rows;
   const [productsResult, suppliersResult] = await Promise.all([
-    must().from("supplier_products").select("supplier_id, name, category, ready_for_buyer"),
+    must().from("supplier_products").select("supplier_id, name, category, spec, description, ready_for_buyer"),
     must().from("suppliers").select("id, status, is_demo"),
   ]);
   if (productsResult.error) fail("categoryReadiness:products", productsResult.error);
@@ -156,7 +156,7 @@ async function decorateCategoryReadiness(rows: Category[]): Promise<Category[]> 
     (!s.is_demo || process.env.VEXIM_SHOW_DEMO === "true")).map((s) => s.id));
   const demoIds = new Set((suppliersResult.data ?? []).filter((s) => s.is_demo && process.env.VEXIM_SHOW_DEMO === "true").map((s) => s.id));
   const visible = (productsResult.data ?? []).filter((p) => published.has(p.supplier_id) &&
-    (p.ready_for_buyer || demoIds.has(p.supplier_id)));
+    !isTestOnlyProduct(p.name) && (p.ready_for_buyer || demoIds.has(p.supplier_id)));
   return rows.map((c) => ({ ...c, public_page_ready: visible.some((p) =>
     productBelongsToCategory(p, c, rows)) }));
 }
@@ -792,19 +792,22 @@ export const supabaseStore: DataStore = {
 
   // --- Supplier categories (N-N) ---
   async setSupplierCategories(supplierId, categoryIds, primaryId) {
-    const { error: delErr } = await must()
-      .from("supplier_categories")
-      .delete()
-      .eq("supplier_id", supplierId);
-    if (delErr) fail("setSupplierCategories:delete", delErr);
-    if (!categoryIds.length) return;
-    const rows = categoryIds.map((cid) => ({
-      supplier_id: supplierId,
-      category_id: cid,
-      is_primary: primaryId ? cid === primaryId : cid === categoryIds[0],
-    }));
-    const { error: insErr } = await must().from("supplier_categories").insert(rows);
-    if (insErr) fail("setSupplierCategories:insert", insErr);
+    const existing = await this.listSupplierCategories(supplierId);
+    const ids = [...new Set(categoryIds)];
+    // Upsert first: an insertion failure must not erase existing supplier industries.
+    if (ids.length) {
+      const rows = ids.map((cid) => ({
+        supplier_id: supplierId, category_id: cid,
+        is_primary: primaryId ? cid === primaryId : cid === ids[0],
+      }));
+      const { error } = await must().from("supplier_categories").upsert(rows, { onConflict: "supplier_id,category_id" });
+      if (error) fail("setSupplierCategories:upsert", error);
+    }
+    const stale = existing.filter((row) => !ids.includes(row.category_id)).map((row) => row.category_id);
+    if (stale.length) {
+      const { error } = await must().from("supplier_categories").delete().eq("supplier_id", supplierId).in("category_id", stale);
+      if (error) fail("setSupplierCategories:delete", error);
+    }
   },
   async listSupplierCategories(supplierId) {
     const { data, error } = await must()

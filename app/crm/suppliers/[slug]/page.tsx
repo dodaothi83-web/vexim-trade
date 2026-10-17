@@ -25,6 +25,7 @@ import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { roleLabel, statusMeta } from "@/lib/supplier";
 import { isExpired } from "@/lib/media/readiness";
+import { assignSupplierCategories } from "@/lib/public/category-assignment";
 import { MediaGallery, MediaThumb } from "@/components/media-gallery";
 import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -54,11 +55,16 @@ export default async function SupplierDetailPage({
     listBuyersWithSupplier(),
     store.listProductsBySupplier(id),
   ]);
-  const [supplierMedia, productMedia, verifications] = await Promise.all([
+  const [supplierMedia, productMedia, verifications, categories, links] = await Promise.all([
     store.listMedia("supplier", id),
     store.listMediaForProducts(products.map((p) => p.id)),
     store.listVerifications(id),
+    store.listCategories({ publishedOnly: false }),
+    store.listSupplierCategories(id).catch(() => []),
   ]);
+  const assigned = links.length
+    ? links.map((link) => ({ category: categories.find((c) => c.id === link.category_id), primary: link.is_primary })).filter((item) => !!item.category)
+    : assignSupplierCategories(supplier.products, products, categories).slugs.map((slug, index) => ({ category: categories.find((c) => c.slug === slug), primary: index === 0 }));
   // Ảnh đại diện cho từng sản phẩm (ưu tiên ảnh chia sẻ buyer, chưa hết hạn)
   const thumbByProduct = new Map<string, typeof productMedia[number]>();
   for (const m of productMedia) {
@@ -147,7 +153,9 @@ export default async function SupplierDetailPage({
             <Row icon={<Anchor className="h-3.5 w-3.5" />} label="Thị trường" value={supplier.markets} />
             <Row icon={<FileText className="h-3.5 w-3.5" />} label="Mã số thuế" value={supplier.tax_id} />
             <Row icon={<Banknote className="h-3.5 w-3.5" />} label="Thanh toán" value={supplier.payment_terms} />
-            <Row icon={<Clock className="h-3.5 w-3.5" />} label="Ngành hàng chính" value={supplier.products} />
+            <Row icon={<Clock className="h-3.5 w-3.5" />} label="Mặt hàng" value={supplier.products} />
+            {assigned.length > 0 && <li className="px-4 py-3 text-sm"><span className="font-semibold text-ink-500">Ngành tự gán</span><div className="mt-2 flex flex-wrap gap-1.5">{assigned.map(({ category, primary }) => category &&
+              <span key={category.id} className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">{category.name_i18n.en || category.slug}{primary ? " · chính" : ""}</span>)}</div></li>}
           </ul>
           {supplier.notes && (
             <div className="border-t border-ink-200 bg-amber-50/50 px-4 py-3">

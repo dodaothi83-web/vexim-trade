@@ -6,6 +6,8 @@ import { Loader2, Save } from "lucide-react";
 
 import { createProductAction, updateProductAction } from "@/app/actions";
 import type { Category, Supplier, SupplierProduct } from "@/lib/types";
+import { assignProductCategory } from "@/lib/public/category-assignment";
+import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { Button, Field, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
@@ -43,11 +45,13 @@ export function ProductForm({
   supplier,
   product,
   categories,
+  supplierCategories = [],
   mediaState,
 }: {
   supplier: Supplier;
   product?: SupplierProduct | null;
-  categories: Pick<Category, "slug" | "name_i18n">[];
+  categories: Pick<Category, "id" | "slug" | "name_i18n">[];
+  supplierCategories?: string[];
   /** Trạng thái hình ảnh/tài liệu — có thì mới hiện công tắc "Sẵn sàng gửi buyer" */
   mediaState?: { ready: boolean; shareable: number };
 }) {
@@ -59,6 +63,9 @@ export function ProductForm({
   const set = (k: string, v: string | number | boolean) => setForm((f) => ({ ...f, [k]: v }));
   const v = (k: string) => String(form[k] ?? "");
   const dirty = product ? JSON.stringify(init(product)) !== JSON.stringify(form) : false;
+  const assignedCategory = assignProductCategory({
+    name: v("name"), spec: v("spec"), description: v("description"), category: product?.category ?? null,
+  }, categories, supplierCategories);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,6 +76,7 @@ export function ProductForm({
     setBusy(true);
     const payload = {
       ...form,
+      category: assignedCategory?.slug ?? null,
       supplier_id: supplier.id,
       lead_time_days: v("lead_time_days") ? Number(v("lead_time_days")) : null,
       ref_price: v("ref_price") ? Number(v("ref_price")) : null,
@@ -103,13 +111,12 @@ export function ProductForm({
               autoFocus
             />
           </Field>
-          <Field label="Nhóm ngành">
-            <select className="input" value={v("category")} onChange={(e) => set("category", e.target.value)}>
-              <option value="">— Chọn nhóm —</option>
-              {form.category && !categories.some((c) => c.slug === form.category) && <option value={String(form.category)}>Giá trị cũ: {form.category} — vui lòng chọn danh mục chính xác</option>}
-              {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name_i18n.en || c.slug}</option>)}
-            </select>
-          </Field>
+          <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm sm:col-span-1">
+            <p className="font-semibold text-ink-700">Ngành hệ thống tự gán</p>
+            <p className="mt-1 font-bold text-brand-800">{assignedCategory?.name_i18n.en || assignedCategory?.slug || "Chưa nhận diện"}</p>
+            <p className="mt-1 text-xs text-ink-500">Dựa trên tên/quy cách sản phẩm; nếu chưa rõ sẽ giữ bản nháp, không đưa lên website.</p>
+            {isTestOnlyProduct(v("name")) && <p className="mt-1 font-semibold text-amber-800">Tên bắt đầu bằng TEST ONLY: sản phẩm sẽ không xuất hiện công khai.</p>}
+          </div>
           <Field label="Mô tả ngắn" className="sm:col-span-2 lg:col-span-3">
             <input
               className="input"

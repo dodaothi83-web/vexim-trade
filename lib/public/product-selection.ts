@@ -1,32 +1,23 @@
 import type { Category, SupplierProduct } from "@/lib/types";
 
-const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().trim();
-const aliases: Record<string, string> = { dieu: "cashew", "cashew kernels": "cashew", gao: "rice" };
+import { assignProductCategory } from "@/lib/public/category-assignment";
 
-/** Only the product's OWN category is authoritative, never supplier descriptions or other products. */
+/** The product itself wins over a stale or incorrect saved category on public reads. */
 export function productBelongsToCategory(
-  product: Pick<SupplierProduct, "category" | "name">,
+  product: Pick<SupplierProduct, "category" | "name"> & Partial<Pick<SupplierProduct, "spec" | "description">>,
   category: Pick<Category, "slug">,
   knownCategories: Pick<Category, "slug" | "name_i18n">[],
 ): boolean {
-  const value = normalize(product.category ?? "");
-  if (!value || (aliases[value] ?? value) !== category.slug.toLowerCase()) return false;
-  const name = normalize(product.name);
-  const current = knownCategories.find((c) => c.slug === category.slug);
-  const namesFor = (c: Pick<Category, "slug" | "name_i18n">) => [
-    normalize(c.slug), normalize(c.name_i18n?.en ?? ""),
-    ...Object.entries(aliases).filter(([, slug]) => slug === c.slug).map(([alias]) => alias),
-  ].filter((part) => part.length > 2);
-  const mentions = (terms: string[]) => terms.some((term) => new RegExp(`(?:^|[^a-z])${term.replace(/[^a-z0-9 ]/g, "\\$&")}(?:$|[^a-z])`, "i").test(name));
-  // If a product explicitly names another known commodity and not this one, quarantine it.
-  // Include basic identities even if the other category has not been published yet.
-  const identities = [...knownCategories];
-  for (const basic of [{ slug: "rice", name_i18n: { en: "Rice" } }, { slug: "cashew", name_i18n: { en: "Cashew" } }]) {
-    if (!identities.some((c) => c.slug === basic.slug)) identities.push(basic);
-  }
-  // The data must be corrected in CRM; do not silently reassign it to the inferred category.
-  return !identities.some((c) => c.slug !== category.slug && mentions(namesFor(c))) ||
-    Boolean(current && mentions(namesFor(current)));
+  const choices = knownCategories.map((c) => ({ ...c, id: c.slug }));
+  const inferred = assignProductCategory({
+    name: product.name, category: product.category,
+    spec: product.spec ?? null, description: product.description ?? null,
+  }, choices);
+  return inferred?.slug === category.slug;
+}
+
+export function isTestOnlyProduct(name: string): boolean {
+  return /^\s*(?:\[\s*)?test\s+only\b/i.test(name);
 }
 
 export function withoutDirectContacts(value: string): string {

@@ -1,7 +1,14 @@
 // node --experimental-strip-types --no-warnings scripts/check-public-product-catalog.mjs
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { productBelongsToCategory, productGrade, publicProductPrice, withoutDirectContacts } from '../lib/public/product-selection.ts';
+import vm from 'node:vm';
+import ts from 'typescript';
+import { assignProductCategory } from '../lib/public/category-assignment.ts';
+const selection = {};
+const selectionSource = readFileSync(new URL('../lib/public/product-selection.ts', import.meta.url), 'utf8');
+vm.runInNewContext(ts.transpileModule(selectionSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
+  { exports: selection, require: (path) => path === '@/lib/public/category-assignment' ? { assignProductCategory } : null, Date });
+const { isTestOnlyProduct, productBelongsToCategory, productGrade, publicProductPrice, withoutDirectContacts } = selection;
 
 const cats = [
   { slug: 'cashew', name_i18n: { en: 'Cashew kernels' } },
@@ -11,9 +18,11 @@ const cashew = cats[0];
 assert.equal(productBelongsToCategory({ name: 'Cashew W320', category: 'cashew' }, cashew, cats), true);
 assert.equal(productBelongsToCategory({ name: 'Cashew W240', category: 'Điều' }, cashew, cats), true, 'Legacy cashew alias');
 assert.equal(productBelongsToCategory({ name: 'TEST ONLY — Jasmine Rice Sample', category: 'rice' }, cashew, cats), false);
-assert.equal(productBelongsToCategory({ name: 'TEST ONLY — Jasmine Rice Sample', category: 'cashew' }, cashew, cats), false, 'Wrongly tagged rice is quarantined, not silently reassigned');
+assert.equal(productBelongsToCategory({ name: 'TEST ONLY — Jasmine Rice Sample', category: 'cashew' }, cashew, cats), false, 'Wrongly tagged rice cannot appear in Cashew');
+assert.equal(productBelongsToCategory({ name: 'TEST ONLY — Jasmine Rice Sample', category: 'cashew' }, cats[1], cats), true, 'Read-time category inference is Rice');
+assert.equal(isTestOnlyProduct('TEST ONLY — Jasmine Rice Sample'), true, 'Test records never appear on public listings');
 assert.equal(productBelongsToCategory({ name: 'Jasmine Rice', category: 'Nông sản' }, cashew, cats), false);
-assert.equal(productBelongsToCategory({ name: 'Cashew W180', category: null }, cashew, cats), false);
+assert.equal(productBelongsToCategory({ name: 'Cashew W180', category: null }, cashew, cats), true, 'Name is sufficient for read-time category inference');
 assert.equal(productGrade('Cashew LP', null, 'cashew'), 'LP');
 assert.equal(productGrade('Cashew splits', null, 'cashew'), 'WS');
 assert.equal(productGrade('Rice W320', null, 'rice'), null);

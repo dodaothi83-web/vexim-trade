@@ -16,6 +16,9 @@ const store = {
   async getSupplier() { return current; },
   async updateSupplier(id, patch) { assert.equal(id, current.id); lastWrite = patch; current = { ...current, ...patch }; return current; },
   async deleteSupplier() {},
+  async listProductsBySupplier() { return []; },
+  async listCategories() { return []; },
+  async setSupplierCategories() {},
 };
 const exports = {};
 const str = (v) => typeof v === 'string' ? (v.trim() || null) : null;
@@ -23,6 +26,7 @@ const num = (v) => v === null || v === undefined || v === '' ? null : Number(v);
 const bool = (v, fallback = false) => typeof v === 'boolean' ? v : v === 'on' ? true : fallback;
 vm.runInNewContext(js, {
   exports, str, num, bool, EMAIL_RE: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  assignSupplierCategories: () => ({ ids: [], primaryId: null, slugs: [] }), console,
   guard: async () => null, getStore: () => store,
   getSession: async () => ({ role }),
   hasPermission: (r, permission) => r === 'admin' && permission === 'suppliers.publish',

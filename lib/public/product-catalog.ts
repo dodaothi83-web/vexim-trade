@@ -3,7 +3,7 @@ import "server-only";
 import { getStore } from "@/lib/db";
 import { isExpired } from "@/lib/media/readiness";
 import { listPublicSuppliers, verificationBadge } from "@/lib/public/catalog";
-import { productBelongsToCategory, productGrade, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory, productGrade, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import type { Category, MediaAsset, SupplierProduct } from "@/lib/types";
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -37,7 +37,8 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
   ]);
   const byId = new Map(suppliers.map((s) => [s.id, s]));
   const candidates = allProducts.filter((p) =>
-    byId.has(p.supplier_id) && (p.ready_for_buyer || byId.get(p.supplier_id)?.is_demo) &&
+    byId.has(p.supplier_id) && !isTestOnlyProduct(p.name) &&
+    (p.ready_for_buyer || byId.get(p.supplier_id)?.is_demo) &&
     productBelongsToCategory(p, category, knownCategories));
   const media: MediaAsset[] = [];
   // Bounded batches keep the Supabase URL and result size reasonable for large catalogs.

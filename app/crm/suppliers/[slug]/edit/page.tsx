@@ -17,7 +17,9 @@ export default async function EditSupplierPage({ params }: { params: Promise<{ s
   const store = getStore();
   const supplier = await store.getSupplier(id);
   if (!supplier) notFound();
-  const media = await store.listMedia("supplier", id);
+  const [media, products, categories] = await Promise.all([
+    store.listMedia("supplier", id), store.listProductsBySupplier(id), store.listCategories({ publishedOnly: false }),
+  ]);
 
   return (
     <>
@@ -31,7 +33,7 @@ export default async function EditSupplierPage({ params }: { params: Promise<{ s
         ]} />}
       />
       <div className="max-w-5xl space-y-5">
-        <SupplierForm supplier={supplier} canPublish={hasPermission(session.role, "suppliers.publish")} aiEnabled={!!process.env.OPENAI_API_KEY} />
+        <SupplierForm supplier={supplier} products={products} categories={categories} canPublish={hasPermission(session.role, "suppliers.publish")} aiEnabled={!!process.env.OPENAI_API_KEY} />
         <details className="card p-5">
           <summary className="cursor-pointer text-base font-bold text-ink-900">Ảnh đại diện & ảnh bìa</summary>
           <div className="mt-4 grid gap-4 md:grid-cols-[200px_1fr]">

@@ -4,6 +4,7 @@ import { getStore } from "@/lib/db";
 import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { ProductForm } from "@/components/product-form";
+import { assignSupplierCategories } from "@/lib/public/category-assignment";
 import { requirePagePermission } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,10 @@ export default async function NewProductPage({
   const store = getStore();
   const [supplier, categories] = await Promise.all([store.getSupplier(id), store.listCategories({ publishedOnly: false })]);
   if (!supplier) notFound();
+  const links = await store.listSupplierCategories(id).catch(() => []);
+  const supplierCategories = links.length
+    ? links.map((link) => categories.find((c) => c.id === link.category_id)?.slug).filter((slug): slug is string => !!slug)
+    : assignSupplierCategories(supplier.products, [], categories).slugs;
 
   return (
     <>
@@ -37,7 +42,7 @@ export default async function NewProductPage({
         sub="Một hồ sơ cho mỗi dòng sản phẩm / quy cách để dễ so khớp với RFQ của buyer."
       />
       <div className="mx-auto max-w-4xl">
-        <ProductForm supplier={supplier} categories={categories} />
+        <ProductForm supplier={supplier} categories={categories} supplierCategories={supplierCategories} />
       </div>
     </>
   );

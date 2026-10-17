@@ -20,7 +20,8 @@ import {
   nextStatusOptions,
   statusMeta,
 } from "@/lib/supplier";
-import type { Supplier, SupplierStatus } from "@/lib/types";
+import type { Category, Supplier, SupplierProduct, SupplierStatus } from "@/lib/types";
+import { assignSupplierCategories } from "@/lib/public/category-assignment";
 import { Button, Field } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
@@ -134,7 +135,13 @@ function ChipGroup({
 }
 
 /** Quick entry first; the long-tail commercial fields stay available on demand. */
-export function SupplierForm({ supplier, canPublish = false, aiEnabled = false }: { supplier?: Supplier | null; canPublish?: boolean; aiEnabled?: boolean }) {
+export function SupplierForm({ supplier, categories, products = [], canPublish = false, aiEnabled = false }: {
+  supplier?: Supplier | null;
+  categories: Pick<Category, "id" | "slug" | "name_i18n">[];
+  products?: Array<Pick<SupplierProduct, "name" | "category" | "spec" | "description">>;
+  canPublish?: boolean;
+  aiEnabled?: boolean;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [form, setForm] = useState<FormState>(() => init(supplier));
@@ -144,6 +151,7 @@ export function SupplierForm({ supplier, canPublish = false, aiEnabled = false }
   const set = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
   const str = (k: string) => String(form[k] ?? "");
   const arr = (k: string) => (Array.isArray(form[k]) ? (form[k] as string[]) : []);
+  const autoIndustries = assignSupplierCategories(str("products"), products, categories);
   const dirty = supplier && JSON.stringify(saved) !== JSON.stringify(form);
   const current = statusMeta(String(saved.status ?? "draft"));
   const nextOptions = supplier ? nextStatusOptions(current.value).filter((v) =>
@@ -231,7 +239,14 @@ export function SupplierForm({ supplier, canPublish = false, aiEnabled = false }
           <Field label="Người liên hệ"><input className="input" value={str("contact_name")} onChange={(e) => set("contact_name", e.target.value)} /></Field>
           <Field label="Điện thoại"><input className="input" value={str("phone")} onChange={(e) => set("phone", e.target.value)} /></Field>
           <Field label="Email"><input className="input" type="email" value={str("email")} onChange={(e) => set("email", e.target.value)} /></Field>
-          <Field label="Mặt hàng chính"><input className="input" value={str("products")} onChange={(e) => set("products", e.target.value)} placeholder="Ví dụ: hạt điều W320" /></Field>
+          <Field label="Mặt hàng chính"><input className="input" value={str("products")} onChange={(e) => set("products", e.target.value)} placeholder="Ví dụ: hạt điều W320, gạo Jasmine" /></Field>
+          <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm sm:col-span-2">
+            <p className="font-semibold text-ink-700">Ngành hệ thống tự gán từ sản phẩm và mặt hàng chính</p>
+            <div className="mt-2 flex flex-wrap gap-2">{autoIndustries.slugs.length ? autoIndustries.slugs.map((slug) => {
+              const category = categories.find((c) => c.slug === slug);
+              return <span key={slug} className="rounded-full bg-white px-2.5 py-1 font-semibold text-brand-800 ring-1 ring-brand-200">{category?.name_i18n.en || slug}{category?.id === autoIndustries.primaryId ? " · chính" : ""}</span>;
+            }) : <span className="text-ink-500">Chưa có dữ liệu mặt hàng — sẽ tự cập nhật khi thêm sản phẩm.</span>}</div>
+          </div>
           <Field label="Tỉnh / Thành phố"><input className="input" value={str("province")} onChange={(e) => set("province", e.target.value)} /></Field>
           <Field label="Loại hình">
             <select className="input" value={str("supplier_type")} onChange={(e) => set("supplier_type", e.target.value || null)}>

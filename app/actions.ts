@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
 import { categorySchemaError } from "@/lib/db/category-schema-error";
-import { productBelongsToCategory } from "@/lib/public/product-selection";
+import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
@@ -1245,6 +1245,26 @@ function parseSupplierInput(
   };
 }
 
+/** Rebuild supplier industries from its products and the supplier's product summary. */
+async function syncSupplierIndustries(supplierId: string): Promise<string | null> {
+  try {
+    const store = getStore();
+    const [supplier, products, categories] = await Promise.all([
+      store.getSupplier(supplierId), store.listProductsBySupplier(supplierId), store.listCategories({ publishedOnly: false }),
+    ]);
+    if (!supplier) return "Không tìm thấy NCC để đồng bộ ngành.";
+    const assignment = assignSupplierCategories(supplier.products, products, categories);
+    // No evidence of an industry yet: do not erase a previously linked category or
+    // require the supplier_categories table just to save a name-only draft.
+    if (!assignment.ids.length) return null;
+    await store.setSupplierCategories(supplierId, assignment.ids, assignment.primaryId);
+    return null;
+  } catch (error) {
+    console.error("[supplier-industries] sync failed", error instanceof Error ? error.name : "unknown");
+    return "Đã lưu hồ sơ nhưng chưa đồng bộ được ngành NCC; kiểm tra bảng supplier_categories rồi thử lưu lại.";
+  }
+}
+
 export async function createSupplierAction(
   raw: Partial<SupplierInput> & Record<string, unknown>,
 ): Promise<ActionResult & { id?: string }> {
@@ -1261,10 +1281,11 @@ export async function createSupplierAction(
   }
   try {
     const created = await getStore().createSupplier(input);
+    const warning = await syncSupplierIndustries(created.id);
     revalidateAll();
     return {
       ok: true,
-      message: `Đã thêm nhà cung cấp "${created.name}".`,
+      message: `Đã thêm nhà cung cấp "${created.name}".${warning ? ` ${warning}` : ""}`,
       id: created.id,
     };
   } catch (err) {
@@ -1304,8 +1325,9 @@ export async function updateSupplierAction(
     const { verification_level: _level, verified_at: _verifiedAt, ...safeInput } = input;
     void _level; void _verifiedAt;
     await store.updateSupplier(id, safeInput);
+    const warning = await syncSupplierIndustries(id);
     revalidateAll();
-    return { ok: true, message: input.status !== existing.status ? `Đã chuyển sang ${statusMeta(input.status).label}.` : "Đã lưu thông tin nhà cung cấp." };
+    return { ok: true, message: (input.status !== existing.status ? `Đã chuyển sang ${statusMeta(input.status).label}.` : "Đã lưu thông tin nhà cung cấp.") + (warning ? ` ${warning}` : "") };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -1362,10 +1384,18 @@ function parseProductInput(
   };
 }
 
-async function productCategoryError(input: { name: string; category: string | null }): Promise<string | null> {
-  const categories = await getStore().listCategories({ publishedOnly: false });
-  if (categories.some((c) => productBelongsToCategory(input, c, categories))) return null;
-  return "Chọn đúng danh mục sản phẩm (ví dụ gạo thuộc Rice, hạt điều thuộc Cashew). Danh mục không rõ hoặc mâu thuẫn với tên sẽ không được lưu để tránh hiển thị sai trên website.";
+async function autoAssignProduct(input: SupplierProductInput): Promise<string | null> {
+  const store = getStore();
+  const [categories, supplier, links] = await Promise.all([
+    store.listCategories({ publishedOnly: false }), store.getSupplier(input.supplier_id),
+    store.listSupplierCategories(input.supplier_id).catch(() => []),
+  ]);
+  if (!supplier) throw new Error("Không tìm thấy NCC của sản phẩm.");
+  const linked = links.map((link) => categories.find((c) => c.id === link.category_id)?.slug).filter((slug): slug is string => !!slug);
+  const fallback = linked.length ? linked : assignSupplierCategories(supplier.products, [], categories).slugs;
+  const match = assignProductCategory(input, categories, fallback);
+  input.category = match?.slug ?? null; // Never trust a form-submitted category over the product's own identity.
+  return match?.name_i18n.en || match?.slug || null;
 }
 
 export async function createProductAction(
@@ -1376,14 +1406,15 @@ export async function createProductAction(
   const input = parseProductInput(raw);
   if (!input.supplier_id) return { ok: false, message: "Thiếu nhà cung cấp." };
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
-  const categoryError = await productCategoryError(input);
-  if (categoryError) return { ok: false, message: categoryError };
-  // Hồ sơ vừa tạo chưa thể có ảnh/catalogue nên luôn bắt đầu ở trạng thái chưa sẵn sàng
+  // Hồ sơ vừa tạo chưa thể có ảnh/catalogue nên luôn bắt đầu ở trạng thái chưa sẵn sàng.
   input.ready_for_buyer = false;
+  input.category = null;
   try {
+    const assigned = await autoAssignProduct(input);
     const created = await getStore().createProduct(input);
+    const warning = await syncSupplierIndustries(created.supplier_id);
     revalidateAll();
-    return { ok: true, message: `Đã thêm sản phẩm “${created.name}”.`, id: created.id };
+    return { ok: true, message: `Đã thêm sản phẩm “${created.name}”. ${assigned ? `Hệ thống gán ngành ${assigned}.` : "Chưa nhận diện được ngành; sản phẩm vẫn là bản nháp."}${warning ? ` ${warning}` : ""}`, id: created.id };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -1397,26 +1428,25 @@ export async function updateProductAction(
   if (gate) return gate;
   const input = parseProductInput(raw);
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
-  const categoryError = await productCategoryError(input);
-  if (categoryError) return { ok: false, message: categoryError };
   const store = getStore();
-
-  // Cổng chặn: chỉ bật "Sẵn sàng gửi buyer" khi đã có ảnh/catalogue chia sẻ cho buyer
-  if (input.ready_for_buyer) {
-    const media = await store.listMedia("product", id);
-    const readiness = productReadiness(media);
-    if (!readiness.ready) {
-      return {
-        ok: false,
-        message: `Chưa thể đánh dấu “Sẵn sàng gửi buyer”: ${readiness.message}`,
-      };
-    }
-  }
-
   try {
+    const existing = await store.getProduct(id);
+    if (!existing) return { ok: false, message: "Không tìm thấy sản phẩm." };
+    // Supplier/category are not chosen by arbitrary client payloads.
+    input.supplier_id = existing.supplier_id;
+    input.category = existing.category;
+    const assigned = await autoAssignProduct(input);
+    if (!assigned) input.ready_for_buyer = false;
+
+    // Only buyer-shareable media can make a classified product ready.
+    if (input.ready_for_buyer) {
+      const readiness = productReadiness(await store.listMedia("product", id));
+      if (!readiness.ready) return { ok: false, message: `Chưa thể đánh dấu “Sẵn sàng gửi buyer”: ${readiness.message}` };
+    }
     await store.updateProduct(id, input);
+    const warning = await syncSupplierIndustries(existing.supplier_id);
     revalidateAll();
-    return { ok: true, message: "Đã lưu hồ sơ sản phẩm." };
+    return { ok: true, message: `Đã lưu hồ sơ sản phẩm. ${assigned ? `Hệ thống gán ngành ${assigned}.` : "Chưa nhận diện được ngành; đã tắt sẵn sàng gửi buyer."}${warning ? ` ${warning}` : ""}` };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -1426,9 +1456,13 @@ export async function deleteProductAction(id: string): Promise<ActionResult> {
   const gate = await guard("products.manage");
   if (gate) return gate;
   try {
-    await getStore().deleteProduct(id);
+    const store = getStore();
+    const existing = await store.getProduct(id);
+    if (!existing) return { ok: false, message: "Không tìm thấy sản phẩm." };
+    await store.deleteProduct(id);
+    const warning = await syncSupplierIndustries(existing.supplier_id);
     revalidateAll();
-    return { ok: true, message: "Đã xoá sản phẩm." };
+    return { ok: true, message: `Đã xoá sản phẩm.${warning ? ` ${warning}` : ""}` };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
