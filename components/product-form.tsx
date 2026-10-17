@@ -250,14 +250,14 @@ export function ProductForm({
       <section className="card p-5">
         <h2 className="text-sm font-bold text-ink-900">3. Điều kiện thương mại tham khảo</h2>
         <p className="mt-0.5 mb-4 text-xs text-ink-500">
-          Giá chỉ là <strong>tham khảo có thời hạn</strong> — báo giá chính thức phải do NCC xác nhận theo từng RFQ.
+          Giá nhập cho chính sản phẩm này, không phải giá chung của NCC. Chỉ hiện cho buyer khi NCC đã chấp thuận công khai giá (trong 180 ngày) và giá sản phẩm còn hạn; báo giá chính thức theo từng RFQ.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Giá tham khảo">
             <input
               type="number"
               min={0}
-              step={1}
+              step="0.01"
               className="input"
               value={v("ref_price")}
               onChange={(e) => set("ref_price", e.target.value)}

@@ -45,20 +45,6 @@ export function verificationBadge(s: Pick<Supplier, "verification_level" | "veri
   return { text: "Documents checked", tone: "slate" };
 }
 
-/** Định dạng khoảng giá FOB (chỉ gọi khi public thấy). */
-export function formatFob(s: Pick<Supplier, "fob_min" | "fob_max" | "fob_unit" | "fob_currency" | "fob_updated_at" | "fob_publicly_visible">): string | null {
-  if (!s.fob_publicly_visible || !s.fob_updated_at) return null;
-  const expired = Date.now() - new Date(s.fob_updated_at).getTime() > 180 * 24 * 3600 * 1000;
-  if (expired) return null;
-  const unit = s.fob_unit ? `/${s.fob_unit}` : "";
-  const cur = s.fob_currency ?? "USD";
-  if (s.fob_min != null && s.fob_max != null && s.fob_max !== s.fob_min) {
-    return `${cur} ${s.fob_min}–${s.fob_max}${unit}`;
-  }
-  if (s.fob_min != null) return `${cur} ${s.fob_min}${unit}`;
-  return null;
-}
-
 export interface PublicSupplierCard extends Supplier {
   categories: Category[];
   primary_category: Category | null;

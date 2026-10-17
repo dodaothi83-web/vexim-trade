@@ -926,14 +926,12 @@ select
   s.next_reverify_at,
   case when s.rating_count >= 3 then s.rating_avg end   as rating_avg,
   case when s.rating_count >= 3 then s.rating_count end as rating_count,
-  case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then s.fob_min end as fob_min,
-  case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then s.fob_max end as fob_max,
-  case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then s.fob_unit end as fob_unit,
-  case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then s.fob_currency end as fob_currency,
+  -- Legacy supplier-wide price columns retained in the view for compatibility,
+  -- but always empty: reference prices belong to individual products only.
+  case when false then s.fob_min end as fob_min,
+  case when false then s.fob_max end as fob_max,
+  case when false then s.fob_unit end as fob_unit,
+  case when false then s.fob_currency end as fob_currency,
   s.fob_updated_at,
   s.lead_time_days,
   s.updated_at
@@ -961,9 +959,17 @@ select
   sp.incoterm,
   sp.incoterm_place,
   case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then sp.ref_price end as ref_price,
+            and s.fob_updated_at <= now()
+            and s.fob_updated_at > now() - interval '180 days'
+            and sp.ref_price > 0
+            and (sp.price_valid_until is null or sp.price_valid_until >= current_date)
+       then sp.ref_price end as ref_price,
   case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then sp.currency end as currency,
+            and s.fob_updated_at <= now()
+            and s.fob_updated_at > now() - interval '180 days'
+            and sp.ref_price > 0
+            and (sp.price_valid_until is null or sp.price_valid_until >= current_date)
+       then sp.currency end as currency,
   sp.updated_at
 from public.supplier_products sp
 join public.suppliers s on s.id = sp.supplier_id

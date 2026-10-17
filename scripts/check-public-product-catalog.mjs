@@ -30,8 +30,15 @@ const price = { ref_price: 8.4, currency: 'USD/kg', unit: 'kg', price_valid_unti
 const consent = { fob_publicly_visible: true, fob_updated_at: new Date().toISOString() };
 assert.equal(publicProductPrice(price, consent), 'USD/kg 8.4');
 assert.equal(publicProductPrice(price, { ...consent, fob_publicly_visible: false }), null);
+assert.equal(publicProductPrice(price, { ...consent, fob_updated_at: '2020-01-01' }), null);
+assert.equal(publicProductPrice(price, { ...consent, fob_updated_at: '2099-01-01' }), null);
+assert.equal(publicProductPrice({ ...price, ref_price: null }, consent), null, 'Never fall back to supplier-wide price');
 assert.equal(publicProductPrice({ ...price, price_valid_until: '2020-01-01' }, consent), null);
 assert.equal(withoutDirectContacts('Email sales@example.com or call +84 987 654 321'), 'Email [contact via Vexim] or call [contact via Vexim]');
+const sql = readFileSync(new URL('../supabase/migrations/20261017_product_only_reference_prices.sql', import.meta.url), 'utf8');
+assert.match(sql, /case when false then s\.fob_min end as fob_min/, 'Public supplier view must not expose a legacy range');
+assert.match(sql, /sp\.price_valid_until >= current_date/, 'Public product view must hide expired prices');
+assert.match(sql, /s\.fob_publicly_visible/, 'Public product view must require consent');
 const catalog = readFileSync(new URL('../lib/public/product-catalog.ts', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8');
 const media = readFileSync(new URL('../app/public-media/[...path]/route.ts', import.meta.url), 'utf8');

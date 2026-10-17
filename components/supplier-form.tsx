@@ -67,10 +67,6 @@ function init(s?: Supplier | null): FormState {
     incoterms: s?.incoterms ?? [],
     export_markets: s?.export_markets ?? [],
     private_label: s?.private_label ?? false,
-    fob_min: s?.fob_min ?? "",
-    fob_max: s?.fob_max ?? "",
-    fob_unit: s?.fob_unit ?? "USD/kg",
-    fob_currency: s?.fob_currency ?? "USD",
     fob_publicly_visible: s?.fob_publicly_visible ?? false,
     fob_updated_at: s?.fob_updated_at ?? null,
     rating: s?.rating ?? null,
@@ -154,6 +150,9 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
   const autoIndustries = assignSupplierCategories(str("products"), products, categories);
   const dirty = supplier && JSON.stringify(saved) !== JSON.stringify(form);
   const current = statusMeta(String(saved.status ?? "draft"));
+  const consentAge = Date.now() - new Date(String(form.fob_updated_at ?? "")).getTime();
+  const consentExpired = Boolean(form.fob_publicly_visible) &&
+    (!Number.isFinite(consentAge) || consentAge < 0 || consentAge > 180 * 86400_000);
   const nextOptions = supplier ? nextStatusOptions(current.value).filter((v) =>
     (v !== "published" && current.value !== "published") || canPublish,
   ) : [];
@@ -173,8 +172,6 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
       lead_time_days: str("lead_time_days") ? Number(str("lead_time_days")) : null,
       founded_year: str("founded_year") ? Number(str("founded_year")) : null,
       employees: str("employees") ? Number(str("employees")) : null,
-      fob_min: str("fob_min") ? Number(str("fob_min")) : null,
-      fob_max: str("fob_max") ? Number(str("fob_max")) : null,
       rating: typeof form.rating === "number" ? form.rating : null,
       summary_i18n: { ...(supplier?.summary_i18n ?? {}), en: summary_en },
       slug: str("slug") || slugify(str("display_name") || str("name")),
@@ -266,6 +263,17 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
         <Field label="Giới thiệu ngắn (tiếng Anh)">
           <textarea rows={3} className="input" value={str("summary_en")} onChange={(e) => set("summary_en", e.target.value)} placeholder="A Vietnam-based supplier of..." />
         </Field>
+        <div className="mt-4 rounded-xl border border-ink-200 bg-ink-50/60 p-4 text-sm">
+          <h3 className="font-semibold text-ink-800">Quyền hiển thị giá của sản phẩm</h3>
+          <p className="mt-1 text-xs text-ink-600">Không nhập giá ở hồ sơ NCC. Giá tham khảo, đơn vị và hạn giá được nhập riêng trong từng sản phẩm; chỉ hiện công khai khi NCC đã chấp thuận bằng văn bản.</p>
+          <label className="mt-3 flex items-center gap-2 text-ink-700"><input type="checkbox" checked={Boolean(form.fob_publicly_visible)} onChange={(e) => setForm((f) => ({ ...f, fob_publicly_visible: e.target.checked, fob_updated_at: e.target.checked ? new Date().toISOString() : f.fob_updated_at }))} /> NCC đã chấp thuận công khai giá sản phẩm</label>
+          {Boolean(form.fob_publicly_visible) && (
+            <p className="mt-2 text-xs text-ink-600">
+              {consentExpired ? "Lần xác nhận đã quá 180 ngày hoặc không hợp lệ — giá sản phẩm chưa được công khai. Kiểm tra lại chấp thuận bằng văn bản rồi xác nhận lại." : "Chấp thuận có hiệu lực tối đa 180 ngày từ lần xác nhận; giá từng sản phẩm cũng phải còn hạn."}
+            </p>
+          )}
+          {consentExpired && <button type="button" className="mt-2 text-xs font-semibold text-brand-700 underline" onClick={() => set("fob_updated_at", new Date().toISOString())}>Đã kiểm tra văn bản, xác nhận lại quyền</button>}
+        </div>
         <details className="mt-4 rounded-xl border border-ink-200 p-4">
           <summary className="cursor-pointer font-semibold text-ink-800">Tên hiển thị và đường dẫn</summary>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -297,17 +305,6 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
           <Field label="Cảng xuất" className="sm:col-span-2"><ChipGroup options={VIETNAM_PORTS} value={arr("ports")} onChange={(v) => set("ports", v)} /></Field>
           <Field label="Điều kiện giao hàng" className="sm:col-span-2"><ChipGroup options={INCOTERM_OPTIONS} value={arr("incoterms")} onChange={(v) => set("incoterms", v)} /></Field>
           <Field label="Thị trường xuất khẩu" className="sm:col-span-2"><ChipGroup options={EXPORT_MARKETS} value={arr("export_markets")} onChange={(v) => set("export_markets", v)} /></Field>
-        </div>
-      </details>
-
-      <details className="card p-5">
-        <summary className="cursor-pointer text-base font-bold text-ink-900">Giá tham khảo & ghi chú</summary>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Giá FOB thấp nhất"><input type="number" step="0.01" className="input" value={str("fob_min")} onChange={(e) => set("fob_min", e.target.value)} /></Field>
-          <Field label="Giá FOB cao nhất"><input type="number" step="0.01" className="input" value={str("fob_max")} onChange={(e) => set("fob_max", e.target.value)} /></Field>
-          <Field label="Đơn vị"><input className="input" value={str("fob_unit")} onChange={(e) => set("fob_unit", e.target.value)} /></Field>
-          <Field label="Tiền tệ"><input className="input" value={str("fob_currency")} onChange={(e) => set("fob_currency", e.target.value)} /></Field>
-          <label className="sm:col-span-2 flex items-center gap-2 text-sm text-ink-700"><input type="checkbox" checked={Boolean(form.fob_publicly_visible)} onChange={(e) => setForm((f) => ({ ...f, fob_publicly_visible: e.target.checked, fob_updated_at: e.target.checked ? new Date().toISOString() : f.fob_updated_at }))} /> Đã có chấp thuận bằng văn bản để công khai giá FOB</label>
           <Field label="Ghi chú nội bộ" className="sm:col-span-2"><textarea className="input" rows={3} value={str("notes")} onChange={(e) => set("notes", e.target.value)} /></Field>
         </div>
       </details>

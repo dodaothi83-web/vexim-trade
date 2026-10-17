@@ -4,7 +4,6 @@ import { ArrowRight, Minus } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
 import {
-  formatFob,
   getPublicSuppliersByIds,
   mainProductNames,
   supplierTypeLabel,
@@ -81,7 +80,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                     return (
                       <th key={s.id} className="min-w-[220px] px-4 py-3 align-top">
                         <Link
-                          href={`/suppliers/${s.slug}`}
+                          href={`/suppliers/${encodeURIComponent(s.slug || s.id)}`}
                           className="block text-[15px] font-semibold text-ink-900 hover:text-brand-700"
                         >
                           {s.display_name ?? s.name}
@@ -141,8 +140,10 @@ export default async function ComparePage({ searchParams }: PageProps) {
                   cells={suppliers.map((s) => <>{(s.incoterms ?? []).join(", ") || <Dash />}</>)}
                 />
                 <Row
-                  label="FOB reference"
-                  cells={suppliers.map((s) => <>{formatFob(s) ?? <Dash />}</>)}
+                  label="Product prices"
+                  cells={suppliers.map((s) => s.main_products.length
+                    ? <Link href={`/suppliers/${encodeURIComponent(s.slug || s.id)}#products`} className="font-medium text-brand-700 hover:underline">See individual products</Link>
+                    : <Dash />)}
                 />
                 <Row
                   label="Private label"

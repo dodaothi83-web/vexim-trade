@@ -95,13 +95,14 @@ export interface Supplier {
   /** Điểm đánh giá trung bình (chỉ hiện khi có ≥ 3 đánh giá) */
   rating_avg?: number | null;
   rating_count?: number;
-  /** Giá FOB tham khảo theo range */
+  /** Giá FOB chung cũ: chỉ lưu tương thích, không nhập/hiển thị công khai nữa. */
   fob_min?: number | null;
   fob_max?: number | null;
   fob_unit?: string | null;
   fob_currency?: string | null;
+  /** Lần NCC xác nhận quyền chia sẻ giá từng sản phẩm, không phải ngày cập nhật giá. */
   fob_updated_at?: string | null;
-  /** Đã có sự chấp thuận bằng văn bản của seller để công khai FOB */
+  /** NCC đã chấp thuận bằng văn bản để công khai giá từng sản phẩm. */
   fob_publicly_visible?: boolean;
   /**
    * Hồ sơ demo dùng cho preview nội bộ / cho seller xem tại sự kiện.

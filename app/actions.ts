@@ -1236,10 +1236,8 @@ function parseSupplierInput(
       return n === null ? 0 : Math.max(0, Math.min(3, Math.round(n)));
     })(),
     verified_at: str(raw.verified_at),
-    fob_min: num(raw.fob_min),
-    fob_max: num(raw.fob_max),
-    fob_unit: str(raw.fob_unit),
-    fob_currency: str(raw.fob_currency) ?? (num(raw.fob_min) !== null || num(raw.fob_max) !== null ? "USD" : null),
+    // Giá chỉ lưu ở supplier_products; các cột FOB cũ của NCC được giữ nguyên để tương thích.
+    // Timestamp ở đây là lần xác nhận quyền chia sẻ giá của NCC, không phải ngày cập nhật giá.
     fob_updated_at: str(raw.fob_updated_at),
     fob_publicly_visible: bool(raw.fob_publicly_visible, false),
   };
@@ -1275,6 +1273,7 @@ export async function createSupplierAction(
   input.status = "draft";
   input.verification_level = 0;
   input.verified_at = null;
+  input.fob_updated_at = input.fob_publicly_visible ? new Date().toISOString() : null;
   if (!input.name) return { ok: false, message: "Vui lòng nhập tên nhà cung cấp." };
   if (input.email && !EMAIL_RE.test(input.email)) {
     return { ok: false, message: "Email nhà cung cấp không hợp lệ." };
@@ -1308,6 +1307,17 @@ export async function updateSupplierAction(
     const store = getStore();
     const existing = await store.getSupplier(id);
     if (!existing) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
+    // Không tự cấp lại quyền công khai giá khi chỉ sửa hồ sơ. Chỉ một lần xác nhận
+    // mới (bật từ trạng thái tắt, hoặc checkbox được chọn lại) gia hạn thêm 180 ngày.
+    if (!Object.hasOwn(raw, "fob_publicly_visible")) {
+      input.fob_publicly_visible = existing.fob_publicly_visible ?? false;
+      input.fob_updated_at = existing.fob_updated_at ?? null;
+    } else if (input.fob_publicly_visible) {
+      input.fob_updated_at = existing.fob_publicly_visible && input.fob_updated_at === existing.fob_updated_at
+        ? existing.fob_updated_at : new Date().toISOString();
+    } else {
+      input.fob_updated_at = existing.fob_updated_at ?? null;
+    }
     // Lưu nội dung không tự đổi trạng thái. Chỉ thao tác chuyển riêng mới được
     // gửi status mới, và không cho bỏ qua các bước của quy trình.
     if (input.status !== existing.status) {
