@@ -54,7 +54,11 @@ let googleIntent = 'login';
 let flowValue = JSON.stringify({ intent: googleIntent, items: { verifier: 'secret' } });
 const cookieSet = [];
 const NextResponse = { redirect: (loc) => { const res = new Response(null, { status: 302, headers: { Location: String(loc) } }); res.cookies = { set: (...args) => cookieSet.push(args) }; return res; } };
-const store = { mode: 'supabase', getUserByEmail: async () => currentUser, touchUserLogin: async () => null };
+let createdSupplierAccounts = 0;
+const store = { mode: 'supabase', getUserByEmail: async () => currentUser,
+  listUsers: async () => [{ role: 'admin', is_active: true }],
+  createUser: async (input) => { createdSupplierAccounts++; currentUser = { ...input, id: 'new-supplier' }; return currentUser; },
+  addAuditLog: async () => null, touchUserLogin: async () => null };
 const start = load('../app/api/auth/google/start/route.ts', {
   'next/server': { NextResponse },
   '@/lib/auth/session': { getSession: async () => null },
@@ -62,7 +66,7 @@ const start = load('../app/api/auth/google/start/route.ts', {
   '@/lib/db/supabase': { supabaseUrl: () => 'https://example.supabase.co' },
   '@/lib/site': { SITE_URL: 'https://vexim.example' },
 });
-assert.ok((await start.GET(new Request('https://other.example/api/auth/google/start?intent=signup'))).headers.get('location').endsWith('/login?oauth=origin'));
+assert.ok((await start.GET(new Request('https://other.example/api/auth/google/start?intent=signup'))).headers.get('location').endsWith('/supplier/register?oauth=origin'));
 assert.ok((await start.GET(new Request('https://vexim.example/api/auth/google/start?intent=bad'))).headers.get('location').endsWith('/login?oauth=invalid'));
 const started = await start.GET(new Request('https://vexim.example/api/auth/google/start?intent=signup'));
 assert.ok(started.headers.get('location').startsWith('https://example.supabase.co/auth/v1/authorize?'));
@@ -88,7 +92,15 @@ assert.equal(issuedSession, 1);
 assert.ok(cookieSet.some(([name, value]) => name === 'vxt_session' && value === 'signed-session'));
 currentUser = null; flowValue = JSON.stringify({ intent: 'signup', items: { verifier: 'secret' } });
 const signup = await callback.GET(new Request(callbackUrl));
-assert.ok(signup.headers.get('location').endsWith('/supplier/apply'));
-assert.equal(issuedSession, 1, 'OAuth signup grants no session before the full supplier application');
-assert.ok(cookieSet.some(([name]) => name === 'vxt_google_signup'));
-console.log('✅ Google OAuth: PKCE, verified email, signed supplier ticket, existing-account login only.');
+assert.ok(signup.headers.get('location').endsWith('/supplier/portal'));
+assert.equal(createdSupplierAccounts, 1, 'Explicit Google registration creates a restricted supplier account');
+assert.equal(currentUser.role, 'supplier');
+assert.equal(currentUser.supplier_id, null, 'Google registration alone cannot create/publish the business page');
+assert.equal(issuedSession, 2, 'Verified Google user can enter the locked dashboard immediately');
+flowValue = JSON.stringify({ intent: 'login', items: { verifier: 'secret' } });
+assert.ok((await callback.GET(new Request(callbackUrl))).headers.get('location').endsWith('/supplier/portal'), 'Unlinked supplier can sign in again');
+assert.equal(issuedSession, 3);
+currentUser = null;
+assert.ok((await callback.GET(new Request(callbackUrl))).headers.get('location').endsWith('/login?oauth=not_allowed'), 'Ordinary Google login cannot create an app role');
+assert.equal(createdSupplierAccounts, 1);
+console.log('✅ Google OAuth: PKCE, verified email, account-first supplier registration and restricted dashboard access.');

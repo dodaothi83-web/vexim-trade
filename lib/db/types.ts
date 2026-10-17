@@ -90,6 +90,8 @@ export interface DataStore {
   getUserByEmail(email: string): Promise<AppUserRecord | null>;
   createUser(input: AppUserInput): Promise<AppUserRecord>;
   updateUser(id: string, patch: Partial<AppUserRecord>): Promise<AppUserRecord>;
+  /** Atomic first-profile claim: prevents concurrent submissions creating multiple supplier pages. */
+  claimSupplierForUser(userId: string, supplierId: string): Promise<boolean>;
   deleteUser(id: string): Promise<void>;
   touchUserLogin(id: string): Promise<void>;
 

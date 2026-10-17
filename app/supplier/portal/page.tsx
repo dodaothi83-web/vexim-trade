@@ -4,7 +4,7 @@ import { Bell, ClipboardCheck, FileText, Mail, PackageSearch, TrendingUp } from 
 
 import { requireSession } from "@/lib/auth/session";
 import { logoutAction } from "@/app/auth-actions";
-import { supplierPortalAccess } from "@/lib/supplier-portal/access";
+import { supplierAccountAccess, supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { canSubmitProfile, portalApproved } from "@/lib/supplier-portal/onboarding";
 import { buildSupplierDashboard } from "@/lib/supplier-portal/dashboard";
 import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
@@ -22,6 +22,25 @@ export const metadata = { title: "Bảng điều khiển doanh nghiệp | Vexim 
 export default async function SupplierPortal({ searchParams }: { searchParams?: Promise<{ range?: string; notices?: string; rfqs?: string }> }) {
   const session = await requireSession();
   if (session.role !== "supplier") redirect("/crm/dashboard");
+  const account = await supplierAccountAccess();
+  if (!account) redirect("/login");
+  if (!account.user.supplier_id) {
+    const categories = categoryProposalOptions(await account.store.listCategories({ publishedOnly: true }));
+    return <main className="mx-auto max-w-4xl px-5 py-10 sm:py-14">
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-ink-200 pb-5">
+        <div><Link href="/" className="text-sm font-semibold text-brand-700">← Vexim Trade</Link>
+          <p className="mt-5 text-xs font-bold uppercase tracking-widest text-brand-700">Cổng nhà cung cấp · riêng tư</p>
+          <h1 className="mt-1 text-3xl font-black text-ink-900">Bảng điều khiển</h1>
+          <p className="mt-2 text-sm text-ink-600">{account.user.email}</p></div>
+        <form action={logoutAction}><button className="btn btn-ghost" type="submit">Đăng xuất</button></form>
+      </header>
+      <div role="status" className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+        <h2 className="text-lg font-bold">Bước 2/2 · Xác minh doanh nghiệp</h2>
+        <p className="mt-2 leading-6">Tài khoản đã đăng nhập, nhưng bạn chưa gửi hồ sơ doanh nghiệp. Hãy điền form bên dưới để tạo trang NCC ở trạng thái nháp và gửi Vexim xét duyệt. Trước khi Vexim mở quyền, bạn không thể quản lý sản phẩm, xem RFQ hay sử dụng các chức năng khác.</p>
+      </div>
+      <SupplierProfileForm email={account.user.email} categories={categories} />
+    </main>;
+  }
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   const { supplier, review, reviews, user, store } = access;
@@ -31,7 +50,7 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
   if (!portalApproved(supplier)) return <main className="mx-auto max-w-4xl px-5 py-10 sm:py-14">
     <header className="flex items-center justify-between gap-4 border-b border-ink-200 pb-5">
       <div><Link href="/" className="text-sm font-semibold text-brand-700">← Vexim Trade</Link>
-        <h1 className="mt-4 text-3xl font-black text-ink-900">Cổng nhà cung cấp</h1>
+        <h1 className="mt-4 text-3xl font-black text-ink-900">Bảng điều khiển</h1>
         <p className="mt-1 text-sm text-ink-600">{user.email}</p></div>
       <form action={logoutAction}><button className="btn btn-ghost" type="submit">Đăng xuất</button></form>
     </header>
@@ -42,7 +61,7 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
         {supplier.onboarding_status === "changes_requested" && supplier.onboarding_note &&
           <p className="mt-2 whitespace-pre-wrap font-semibold">Nội dung cần bổ sung: {supplier.onboarding_note}</p>}
       </div>
-      <SupplierProfileForm supplier={supplier} categories={categoryOptions} />
+      <SupplierProfileForm supplier={supplier} email={user.email} categories={categoryOptions} />
     </> : <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
       <h2 className="text-xl font-bold text-amber-950">Đang chờ Vexim xác nhận thông tin</h2>
       <p className="mt-2 text-sm text-amber-900">Hồ sơ {supplier.name} đã được gửi. Bạn có thể đăng nhập để xem trạng thái này, nhưng RFQ, thông báo, báo cáo và tải thêm tài liệu chưa khả dụng cho đến khi nhân viên Vexim xác nhận quyền sử dụng.</p>

@@ -53,13 +53,13 @@ export default function ForSuppliersPage() {
         <ol className="mt-5 space-y-5 text-[15px] text-ink-700">
           <StepItem
             n="1"
-            title="Submit your application"
-            body="Create your company account, enter company details and upload documents for the initial review. Your profile remains a draft."
+            title="Create an account, then submit your company profile"
+            body="Sign up with email or Google. In your locked supplier dashboard, enter company details and upload documents for Vexim review. Account creation alone does not create or publish a supplier page."
           />
           <StepItem
             n="2"
             title="Our staff reviews your documents"
-            body="Our team reviews the evidence; only an authorised reviewer confirms the document check. You can request a factory visit and/or delivery history review independently."
+            body="Vexim separately decides when to enable your dashboard tools. Document, factory visit and delivery-history checks are reviewed independently by authorised staff; none passes automatically when you upload files."
           />
           <StepItem
             n="3"
@@ -109,10 +109,10 @@ export default function ForSuppliersPage() {
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           <Link
-            href="/supplier/apply"
+            href="/supplier/register"
             className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-2.5 text-[14px] font-semibold text-ink-900 hover:bg-ink-100"
           >
-            Register your company <ArrowRight className="h-4 w-4" />
+            Create supplier account <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             href="/how-we-verify"
@@ -122,7 +122,7 @@ export default function ForSuppliersPage() {
           </Link>
         </div>
         <p className="mt-4 text-[12px] text-white/60">
-          Submit company details and initial documents, then confirm your email. Vexim staff will review your file and contact you about any additional checks you request.
+          Create an account and confirm your email first (or continue with Google). Then complete your company profile in the supplier dashboard; Vexim will review it before enabling portal tools.
         </p>
       </section>
     </div>

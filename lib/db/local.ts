@@ -1168,6 +1168,16 @@ export const localStore: DataStore = {
       return row;
     });
   },
+  async claimSupplierForUser(userId, supplierId) {
+    return mutate((db) => {
+      const user = db.users.find((u) => u.id === userId);
+      if (!user || user.role !== "supplier" || !user.is_active || user.supplier_id ||
+          db.users.some((u) => u.supplier_id === supplierId)) return false;
+      user.supplier_id = supplierId;
+      user.updated_at = new Date().toISOString();
+      return true;
+    });
+  },
   async deleteUser(id) {
     mutate((db) => {
       db.users = db.users.filter((u) => u.id !== id);

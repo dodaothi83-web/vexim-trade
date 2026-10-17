@@ -11,13 +11,14 @@ export async function GET(request: Request) {
   const origin = googleRequestOrigin(request);
   const intent = url.searchParams.get("intent");
   if (intent !== "signup" && intent !== "login") return NextResponse.redirect(new URL("/login?oauth=invalid", origin));
+  const retry = intent === "signup" ? "/supplier/register" : "/login";
   const session = await getSession();
   if (session) return NextResponse.redirect(new URL(session.role === "supplier" ? "/supplier/portal" : "/crm/dashboard", origin));
   // Never hand an OAuth code back to an origin supplied by an arbitrary Host header.
-  if (!googleOriginAllowed(origin)) return NextResponse.redirect(new URL("/login?oauth=origin", origin));
+  if (!googleOriginAllowed(origin)) return NextResponse.redirect(new URL(`${retry}?oauth=origin`, origin));
   const items: Record<string, string> = {};
   const client = googleClient(items);
-  if (!client) return NextResponse.redirect(new URL("/login?oauth=unavailable", origin));
+  if (!client) return NextResponse.redirect(new URL(`${retry}?oauth=unavailable`, origin));
   const callback = new URL("/api/auth/google/callback", origin).toString();
   try {
     const { data, error } = await client.auth.signInWithOAuth({ provider: "google",
@@ -30,6 +31,6 @@ export async function GET(request: Request) {
     return res;
   } catch (error) {
     console.error("[google-oauth] start", error);
-    return NextResponse.redirect(new URL("/login?oauth=unavailable", origin));
+    return NextResponse.redirect(new URL(`${retry}?oauth=unavailable`, origin));
   }
 }

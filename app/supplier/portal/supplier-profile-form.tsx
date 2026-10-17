@@ -21,7 +21,7 @@ export function SupplierProfileFields({ supplier, email, categories }: { supplie
     <section><h2 className="text-xl font-black text-ink-900">1. Thông tin nhà cung cấp</h2>
       <p className="mt-1 text-sm text-ink-600">Email đăng nhập: {email}. Chọn loại hình để Vexim hiểu đúng doanh nghiệp của bạn; đây không phải quyền truy cập CRM.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Field label="Tên pháp lý doanh nghiệp *" name="name" required maxLength={180} defaultValue={supplier?.onboarding_status === "changes_requested" ? supplier?.name : ""} />
+        <Field label="Tên pháp lý doanh nghiệp *" name="name" required maxLength={180} defaultValue={supplier?.name ?? ""} />
         <Field label="Tên thương mại (nếu có)" name="trade_name" maxLength={180} defaultValue={supplier?.trade_name ?? ""} />
         <label className="block text-sm"><span className="mb-1 block font-semibold">Loại hình nhà cung cấp *</span>
           <select name="supplier_type" className="input" required value={supplierType} onChange={(event) => {
@@ -105,7 +105,7 @@ function CategoryProposals({ categories, supplier }: { categories: CategoryPropo
   </section>;
 }
 
-export function SupplierProfileForm({ supplier, categories }: { supplier: Supplier; categories: CategoryProposalOption[] }) {
+export function SupplierProfileForm({ supplier, email, categories }: { supplier?: Supplier; email: string; categories: CategoryProposalOption[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string; notification?: string } | null>(null);
@@ -120,7 +120,7 @@ export function SupplierProfileForm({ supplier, categories }: { supplier: Suppli
     finally { setBusy(false); }
   }
   return <form onSubmit={submit} className="mt-6 space-y-7 rounded-xl border border-ink-200 bg-white p-5 sm:p-7">
-    <SupplierProfileFields supplier={supplier} email={supplier.email ?? ""} categories={categories} />
+    <SupplierProfileFields supplier={supplier} email={email} categories={categories} />
     <button type="submit" disabled={busy || result?.ok} className="btn btn-primary w-full justify-center">{busy ? "Đang nộp hồ sơ..." : "Gửi hồ sơ cho Vexim xác nhận"}</button>
     {result && <div role="status" className={`rounded-xl border p-4 text-sm ${result.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>
       {result.message}{result.ok && result.notification !== "sent" && <p className="mt-1">Email nội bộ có thể chưa gửi; hồ sơ vẫn ở hàng chờ Vexim.</p>}

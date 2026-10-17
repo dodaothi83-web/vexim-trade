@@ -343,6 +343,14 @@ export const supabaseStore: DataStore = {
     if (error) fail("updateUser", error);
     return data as AppUserRecord;
   },
+  async claimSupplierForUser(userId, supplierId) {
+    const { data, error } = await must().from("app_users")
+      .update({ supplier_id: supplierId, updated_at: new Date().toISOString() })
+      .eq("id", userId).eq("role", "supplier").eq("is_active", true)
+      .is("supplier_id", null).select("id");
+    if (error) fail("claimSupplierForUser", error);
+    return (data?.length ?? 0) === 1;
+  },
   async deleteUser(id) {
     const { error } = await must().from("app_users").delete().eq("id", id);
     if (error) fail("deleteUser", error);

@@ -85,7 +85,7 @@ export default async function LoginPage({
         {supabaseOk
           ? needsSetup
             ? "Xác thực qua Supabase Auth. Hệ thống chưa có tài khoản nào — tạo quản trị viên qua /setup trước khi dùng Google."
-            : "Xác thực qua Supabase Auth. Tài khoản phải được cấp quyền trong app."
+            : "Đăng nhập chung qua Supabase Auth. Tài khoản NCC mới chỉ dùng được dashboard và form hồ sơ; Vexim phải duyệt trước khi mở các chức năng."
           : "Chưa kết nối được Supabase — nhân viên có thể dùng mật khẩu nội bộ (dự phòng); tài khoản doanh nghiệp cần Supabase và email đã xác nhận."}
       </p>
 
@@ -98,7 +98,7 @@ export default async function LoginPage({
 
       {sp.oauth && oauthMessage[sp.oauth] && <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{oauthMessage[sp.oauth]}</p>}
       <LoginForm needsSetup={needsSetup} />
-      <p className="mt-5 text-center text-xs text-ink-600">Doanh nghiệp chưa có tài khoản? <Link href="/supplier/apply" className="font-semibold text-brand-700 underline">Đăng ký hồ sơ nhà cung cấp</Link></p>
+      <p className="mt-5 text-center text-xs text-ink-600">Doanh nghiệp chưa có tài khoản? <Link href="/supplier/register" className="font-semibold text-brand-700 underline">Tạo tài khoản nhà cung cấp</Link></p>
     </>
   );
 }

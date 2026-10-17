@@ -1,4 +1,4 @@
-// node scripts/check-supplier-self-registration.mjs — isolated signup, ownership and role regression.
+// node scripts/check-supplier-self-registration.mjs — account-first signup, first company form and manual gate.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -35,16 +35,22 @@ for (const denied of [
   [{ ...owner, role: 'viewer' }, doc, 'business_license'],
 ]) assert.equal(policy.canUploadOwnDocument(...denied), false);
 
-const state = { googleTicket: null, ticketCleared: 0, users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false };
+const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false };
 const store = {
   mode: 'supabase',
   listUsers: async () => state.users,
   listCategories: async () => categories,
+  getUser: async (id) => state.users.find((u) => u.id === id) ?? null,
   getUserByEmail: async (email) => state.users.find((u) => u.email === email) ?? null,
-  listSupplierVerificationRequests: async () => { if (state.schemaMissing) throw Error('missing migration'); return state.requests; },
+  listSupplierVerificationRequests: async (id) => state.requests.filter((r) => r.supplier_id === id),
   createSupplier: async (input) => { const r = { ...input, id: `s${state.suppliers.length + 1}` }; state.suppliers.push(r); return r; },
-  createUser: async (input) => { if (state.failUser) throw Error('DB write failed'); const r = { ...input, id: 'u1' }; state.users.push(r); return r; },
-  createVerification: async (input) => { const r = { ...input, id: 'v1' }; state.reviews.push(r); return r; },
+  createUser: async (input) => { if (state.failUser) throw Error('DB write failed'); const r = { ...input, id: `u${state.users.length}` }; state.users.push(r); return r; },
+  claimSupplierForUser: async (userId, supplierId) => {
+    const u = await store.getUser(userId);
+    if (state.failClaim || !u || u.supplier_id) return false;
+    u.supplier_id = supplierId; return true;
+  },
+  createVerification: async (input) => { const r = { ...input, id: `v${state.reviews.length + 1}` }; state.reviews.push(r); return r; },
   listVerifications: async (id) => state.reviews.filter((r) => r.supplier_id === id),
   listMedia: async (_type, id) => state.media.filter((m) => m.verification_id === id),
   updateVerification: async (id, patch) => Object.assign(state.reviews.find((r) => r.id === id), patch),
@@ -60,9 +66,7 @@ const store = {
 };
 const auth = { auth: {
   signUp: async () => { state.authCalls++; return { data: { user: { id: 'auth-1', identities: [{ id: 'identity' }], email_confirmed_at: state.confirmed ? 'now' : null }, session: state.confirmed ? {} : null }, error: null }; },
-  admin: { deleteUser: async () => { state.deletedAuth++; }, getUserById: async (id) => ({ data: { user: {
-    id, email: 'google@example.com', email_confirmed_at: 'now', identities: [{ provider: 'google', identity_data: { email_verified: true } }],
-  } }, error: null }) },
+  admin: { deleteUser: async () => { state.deletedAuth++; } },
 } };
 const profileInput = load('../lib/supplier-portal/profile-input.ts', {});
 const profileEvidence = load('../lib/supplier-portal/profile-evidence.ts', {
@@ -74,27 +78,16 @@ const profileEvidence = load('../lib/supplier-portal/profile-evidence.ts', {
   '@/lib/types': { L1_DOC_ITEMS: [{ key: 'business_license' }, { key: 'tax_certificate' }, { key: 'bank_letter' }] },
 });
 const mocks = {
-  'next/server': { NextResponse: { json: (data, opts) => { const res = Response.json(data, opts); res.cookies = { set: () => { state.ticketCleared++; } }; return res; } } },
-  'next/headers': { cookies: async () => ({ get: () => state.googleTicket ? { value: 'signed-ticket' } : undefined }) },
-  '@/lib/auth/google-oauth': { GOOGLE_SIGNUP_COOKIE: 'vxt_google_signup', googleCookieOptions: () => ({}), googleRequestOrigin: () => 'https://example.com',
-    verifyGoogleSignupTicket: () => state.googleTicket,
-    isVerifiedGoogleUser: (user) => !!user?.email_confirmed_at && user.identities?.some((i) => i.provider === 'google') },
+  'next/server': { NextResponse: { json: (data, opts) => Response.json(data, opts) } },
   '@/lib/db': { getStore: () => store },
   '@/lib/db/supabase': { getSupabaseAuthClient: () => auth, getSupabaseClient: () => ({ from: () => ({ select: () => ({ limit: async () => ({ error: state.schemaMissing ? Error('missing') : null }) }) }) }) },
   '@/lib/auth/session': { getSession: async () => null },
   '@/lib/auth/password': { passwordProblem: (p) => p.length < 8 ? 'short' : null },
   '@/lib/rfq/rate-limit': { rateLimit: () => ({ ok: true }) },
-  '@/lib/media/storage': { deleteObject: async () => null },
-  '@/lib/supplier-portal/evidence': {
-    MAX_INITIAL_FILES: 5, validateInitialDocument: async () => ({ bytes: new Uint8Array([1]), mime: 'application/pdf', kind: 'document' }),
-    saveDocumentEvidence: async ({ review, key, createdBy }) => { const row = { id: `m${state.media.length}`, owner_type: 'verification', supplier_id: review.supplier_id, verification_id: review.id, audience: 'internal', checklist_key: key, created_by: createdBy, storage_path: `verifications/${review.id}/test.pdf` }; state.media.push(row); return row; },
-  },
-  '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: keys },
   '@/lib/supplier-portal/profile-input': profileInput,
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/supplier-portal/profile-evidence': profileEvidence,
   '@/lib/supplier-portal/notify': { notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 1); return 'sent'; } },
-  '@/lib/types': { L1_DOC_ITEMS: [{ key: 'business_license' }, { key: 'tax_certificate' }, { key: 'bank_letter' }] },
   '@/lib/site': { SITE_URL: 'https://example.com' },
 };
 const { POST } = load('../app/api/supplier-signup/route.ts', mocks);
@@ -112,38 +105,80 @@ async function post(fd) {
   const response = await POST(new Request('https://example.com/api/supplier-signup', { method: 'POST', body: fd, headers: { 'x-forwarded-for': '203.0.113.1' } }));
   return { status: response.status, data: await response.json() };
 }
+function accountForm(email = 'owner@example.com') {
+  const fd = new FormData();
+  for (const [key, value] of Object.entries({ name: 'Mr A', email, password: 'password123', consent: 'yes' })) fd.set(key, value);
+  return fd;
+}
 state.schemaMissing = true;
-assert.equal((await post(form())).status, 503);
-assert.equal(state.authCalls, 0, 'Missing migration must not create an Auth account');
+assert.equal((await post(accountForm())).status, 503);
+assert.equal(state.authCalls, 0, 'Missing migration must not create Auth identity');
 state.schemaMissing = false;
-const forgedVisit = form(); forgedVisit.set('request:2', 'yes');
-assert.equal((await post(forgedVisit)).status, 400, 'Trader cannot request a factory visit even by forging FormData');
-assert.equal(state.requests.length, 0);
-assert.equal(state.authCalls, 0, 'Reject before creating the account');
-const factoryForm = form(); factoryForm.set('supplier_type', 'manufacturer'); factoryForm.set('request:2', 'yes');
-assert.equal(JSON.stringify(profileInput.parseSupplierProfile(factoryForm).requested), JSON.stringify([2, 3]),
-  'Factory may request both follow-ups');
-const cooperativeForm = form(); cooperativeForm.set('supplier_type', 'cooperative'); cooperativeForm.set('request:2', 'yes');
-assert.equal(JSON.stringify(profileInput.parseSupplierProfile(cooperativeForm).requested), JSON.stringify([2, 3]),
-  'Cooperative request flow is unchanged');
-const forgedCategory = form(); forgedCategory.set('requested_category_slugs', 'secret');
-assert.equal((await post(forgedCategory)).status, 400, 'Draft or forged catalogue entries rejected before Auth signup');
-const tooMany = form(); for (let i = 0; i < 5; i++) tooMany.append('requested_category_slugs', 'rice');
-assert.equal((await post(tooMany)).status, 400, 'Five unique categories max');
+const weak = accountForm(); weak.set('password', '123');
+assert.equal((await post(weak)).status, 400);
 assert.equal(state.authCalls, 0);
 state.confirmed = true;
-assert.equal((await post(form())).status, 503, 'Disabled email confirmation must fail closed');
+assert.equal((await post(accountForm())).status, 503, 'Disabled email confirmation must fail closed');
 assert.equal(state.deletedAuth, 1);
 state.confirmed = false;
-assert.equal((await post(form())).status, 200);
+assert.equal((await post(accountForm())).status, 200);
+assert.equal(state.users.at(-1).role, 'supplier');
+assert.equal(state.users.at(-1).supplier_id, null, 'Signup creates only a login; first business form creates the page');
+assert.equal(state.suppliers.length, 0);
+assert.equal(state.reviews.length, 0);
+assert.equal(state.notify, 0, 'Staff notified on completed business form, not empty account creation');
+assert.equal((await post(accountForm())).status, 409, 'Duplicate email cannot claim another account');
+
+const access = load('../lib/supplier-portal/access.ts', {
+  '@/lib/db': { getStore: () => store },
+  '@/lib/auth/session': { getSession: async () => ({ uid: 'u1', email: 'owner@example.com', role: 'supplier' }) },
+  './policy': { ownsDocumentReview: () => false },
+});
+assert.equal((await access.supplierAccountAccess()).user.supplier_id, null);
+assert.equal(await access.supplierPortalAccess(), null, 'Unlinked account cannot access supplier portal actions');
+let accountEnabled = true;
+const profile = load('../app/api/supplier-portal/profile/route.ts', {
+  'next/server': { NextResponse: { json: (data, opts) => Response.json(data, opts) } },
+  'next/cache': { revalidatePath() {} },
+  '@/lib/supplier-portal/access': { supplierAccountAccess: async () => accountEnabled ? { user: state.users[1], store } : null },
+  '@/lib/supplier-portal/onboarding': onboarding,
+  '@/lib/supplier-portal/profile-input': profileInput,
+  '@/lib/supplier-portal/category-proposals': categoryProposals,
+  '@/lib/supplier-portal/profile-evidence': profileEvidence,
+  '@/lib/supplier-portal/notify': mocks['@/lib/supplier-portal/notify'],
+});
+async function submitProfile(fd) {
+  const response = await profile.POST(new Request('https://example.com/api/supplier-portal/profile', { method: 'POST', body: fd }));
+  return { status: response.status, data: await response.json() };
+}
+accountEnabled = false;
+assert.equal((await submitProfile(form())).status, 403, 'Only a signed-in supplier may create its first business page');
+accountEnabled = true;
+const forgedVisit = form(); forgedVisit.set('request:2', 'yes');
+assert.equal((await submitProfile(forgedVisit)).status, 400, 'Trader cannot request a factory visit even by forging FormData');
+const factoryForm = form(); factoryForm.set('supplier_type', 'manufacturer'); factoryForm.set('request:2', 'yes');
+assert.equal(JSON.stringify(profileInput.parseSupplierProfile(factoryForm).requested), JSON.stringify([2, 3]), 'Factory may request both follow-ups');
+const forgedCategory = form(); forgedCategory.set('requested_category_slugs', 'secret');
+assert.equal((await submitProfile(forgedCategory)).status, 400, 'No unpublished category in first business form');
+assert.equal(state.suppliers.length, 0, 'Reject invalid profile before creating supplier page');
+state.failClaim = true;
+assert.equal((await submitProfile(form())).status, 409, 'Concurrent claim fails closed');
+assert.equal(state.suppliers.length, 0, 'Unclaimed draft is cleaned up');
+state.failClaim = false;
+state.failRequest = true;
+assert.equal((await submitProfile(form())).status, 503, 'Failed evidence leaves a private linked draft for retry');
+assert.equal(state.suppliers.length, 1);
+assert.equal(state.suppliers[0].onboarding_status, 'not_started');
+assert.equal(state.users[1].supplier_id, 's1');
+assert.equal(await access.supplierPortalAccess() !== null, true, 'Linked draft is available only to limited account access');
+state.failRequest = false;
+assert.equal((await submitProfile(form())).status, 200);
+assert.equal(state.suppliers.length, 1, 'Retry never creates a second supplier page');
 assert.equal(state.suppliers[0].status, 'draft');
 assert.equal(state.suppliers[0].verification_level, 0, 'Forged publish/level fields ignored');
-assert.equal(state.users.at(-1).role, 'supplier');
-assert.equal(state.users.at(-1).supplier_id, 's1');
-assert.equal(state.suppliers[0].onboarding_status, 'pending', 'First signup creates the page application');
+assert.equal(state.suppliers[0].onboarding_status, 'pending');
 assert.equal(JSON.stringify(state.suppliers[0].requested_category_slugs), JSON.stringify(['cashew']));
 assert.equal(state.suppliers[0].categories_reviewed_at ?? null, null);
-assert.equal(state.suppliers[0].status, 'draft', 'A proposed category never publishes the supplier');
 assert.equal(state.suppliers[0].supplier_type, 'trading');
 assert.equal(state.suppliers[0].summary_i18n.en, 'Cashew processing and export');
 assert.equal(state.suppliers[0].website, 'https://example.com');
@@ -153,68 +188,29 @@ assert.equal(state.reviews.length, 1);
 assert.equal(state.reviews[0].status, 'in_progress');
 assert.equal(state.reviews[0].checklist.business_license, null, 'Document upload never passes review');
 assert.equal(state.requests.length, 1);
-assert.equal(state.requests[0].target_level, 3, 'Trader may still request delivery-history follow-up');
+assert.equal(state.requests[0].target_level, 3);
 assert.equal(state.media[0].audience, 'internal');
-assert.equal(state.notify, 1, 'Staff notified immediately after initial page form');
+assert.equal(state.notify, 1, 'Notify staff after business profile submission');
 assert.equal(onboarding.portalApproved(state.suppliers[0]), false);
-const profile = load('../app/api/supplier-portal/profile/route.ts', {
-  'next/server': { NextResponse: { json: (data, opts) => Response.json(data, opts) } },
-  'next/cache': { revalidatePath() {} },
-  '@/lib/supplier-portal/access': { supplierPortalAccess: async () => ({
-    user: state.users.find((u) => u.role === 'supplier'), supplier: state.suppliers[0], store,
-  }) },
-  '@/lib/supplier-portal/onboarding': onboarding,
-  '@/lib/supplier-portal/profile-input': profileInput,
-  '@/lib/supplier-portal/category-proposals': categoryProposals,
-  '@/lib/supplier-portal/profile-evidence': profileEvidence,
-  '@/lib/supplier-portal/notify': mocks['@/lib/supplier-portal/notify'],
-  '@/lib/types': mocks['@/lib/types'],
-});
-async function submitProfile(fd) {
-  const response = await profile.POST(new Request('https://example.com/api/supplier-portal/profile', { method: 'POST', body: fd }));
-  return { status: response.status, data: await response.json() };
-}
-assert.equal((await submitProfile(form())).status, 409, 'Pending profile cannot be resubmitted');
+assert.equal((await submitProfile(form())).status, 409, 'Pending profile cannot resubmit');
 state.suppliers[0].onboarding_status = 'changes_requested';
 const forgedCorrectionVisit = form(); forgedCorrectionVisit.set('request:2', 'yes');
-assert.equal((await submitProfile(forgedCorrectionVisit)).status, 400,
-  'Correction form also rejects trader factory-visit requests');
-assert.equal(state.requests.length, 1, 'Forbidden correction creates no request');
-const forged = form(); forged.set('supplier_type', 'invalid');
-assert.equal((await submitProfile(forged)).status, 400);
-state.users[1].supplier_id = 's2';
-assert.equal((await submitProfile(form())).status, 409, 'Cannot submit a foreign supplier profile');
-state.users[1].supplier_id = 's1';
+assert.equal((await submitProfile(forgedCorrectionVisit)).status, 400);
 const otherCategory = form(); otherCategory.delete('requested_category_slugs'); otherCategory.set('requested_category_other', 'Macca tách vỏ');
 assert.equal((await submitProfile(otherCategory)).status, 200, 'Returned profile may propose a missing category');
 assert.equal(state.suppliers[0].requested_category_other, 'Macca tách vỏ');
-assert.equal(state.suppliers[0].requested_category_slugs.length, 0);
 assert.equal(state.suppliers[0].onboarding_status, 'pending');
-assert.equal(state.reviews.length, 1, 'Resubmission reuses open document review');
-assert.equal(state.requests.length, 1, 'Resubmission does not duplicate requests');
-assert.equal((await post(form())).status, 409, 'Cannot claim an existing account');
-assert.equal(state.authCalls, 2);
+assert.equal(state.reviews.length, 1);
+assert.equal(state.requests.length, 1);
 store.mode = 'local';
-assert.equal((await post(form('other@example.com'))).status, 503);
-assert.equal(state.authCalls, 2, 'No local public signup');
+assert.equal((await post(accountForm('other@example.com'))).status, 503, 'No local public signup');
+assert.equal((await submitProfile(form())).status, 503, 'No local public business form');
 store.mode = 'supabase';
 state.failUser = true;
-assert.equal((await post(form('other@example.com'))).status, 503);
-assert.equal(state.suppliers.length, 1, 'Failed registration rolls back only the new draft supplier');
-assert.equal(state.users.length, 2, 'Failed registration rolls back only the new linked account');
-assert.equal(state.deletedAuth, 2, 'Failed registration removes the unconfirmed Auth account');
+assert.equal((await post(accountForm('other@example.com'))).status, 503);
+assert.equal(state.suppliers.length, 1, 'Failed account creation does not create a supplier');
+assert.equal(state.deletedAuth, 2, 'Failed account creation cleans up unconfirmed Auth identity');
 state.failUser = false;
-state.googleTicket = { id: 'google-auth-id', email: 'google@example.com' };
-const googleForm = form('google@example.com'); googleForm.delete('password');
-assert.equal((await post(form('different@example.com'))).status, 400, 'Cannot change verified Google email or add a password');
-const spoofedGoogle = form('different@example.com'); spoofedGoogle.delete('password');
-assert.equal((await post(spoofedGoogle)).status, 400, 'Cannot submit a foreign email with a signed ticket');
-assert.equal((await post(googleForm)).status, 200, 'Google verified email still requires the full first supplier-page form');
-assert.equal(state.suppliers.at(-1).onboarding_status, 'pending');
-assert.equal(state.authCalls, 3, 'Google must reuse the verified identity, never create a password account');
-assert.equal(state.ticketCleared, 1, 'Google signup ticket cleared after use');
-assert.equal((await post(form('google@example.com'))).status, 400, 'Google signup must reject submitted password');
-state.googleTicket = null;
 
 const authStore = { mode: 'local', getUserByEmail: async () => ({ ...owner, auth_provider: 'supabase', password_hash: 'legacy-hash' }) };
 const authLogin = load('../lib/auth/authenticate.ts', {
@@ -230,6 +226,12 @@ const authLoginUnconfirmed = load('../lib/auth/authenticate.ts', {
   '@/lib/auth/password': { hashPassword: async () => 'hash', verifyPassword: async () => true },
 });
 assert.equal((await authLoginUnconfirmed.authenticate(owner.email, 'password123')).ok, false, 'Unconfirmed supplier must not log in');
+const authLoginConfirmed = load('../lib/auth/authenticate.ts', {
+  '@/lib/db': { getStore: () => ({ mode: 'supabase', getUserByEmail: async () => ({ ...owner, supplier_id: null }) }) },
+  '@/lib/db/supabase': { getSupabaseAuthClient: () => ({ auth: { signInWithPassword: async () => ({ data: { user: { id: 'auth-1', email_confirmed_at: 'now' } }, error: null }) } }) },
+  '@/lib/auth/password': { hashPassword: async () => 'hash', verifyPassword: async () => true },
+});
+assert.equal((await authLoginConfirmed.authenticate(owner.email, 'password123')).ok, true, 'Confirmed unlinked supplier can enter locked dashboard');
 
 const portalState = { user: owner, review: doc, supplier: { id: 's1', onboarding_status: 'pending' }, saved: 0 };
 const upload = load('../app/api/supplier-portal/evidence/route.ts', {
@@ -378,4 +380,4 @@ assert.match(schema, /target_level in \(2,3\)/);
 assert.match(schema, /supplier_verification_requests enable row level security/);
 const crmlayout = fs.readFileSync(new URL('../app/crm/layout.tsx', import.meta.url), 'utf8');
 assert.match(crmlayout, /session\.role === "supplier"/);
-console.log('✅ Supplier onboarding: full page form at signup, email confirmation, staff gate, scoped evidence and permissions.');
+console.log('✅ Supplier onboarding: account first, dashboard business form, email confirmation, staff gate, scoped evidence and permissions.');

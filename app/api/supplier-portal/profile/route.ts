@@ -1,62 +1,109 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
-import { supplierPortalAccess } from "@/lib/supplier-portal/access";
+import { supplierAccountAccess } from "@/lib/supplier-portal/access";
 import { canSubmitProfile } from "@/lib/supplier-portal/onboarding";
 import { parseSupplierProfile } from "@/lib/supplier-portal/profile-input";
 import { categoryProposalOptions, parseSupplierCategoryProposals } from "@/lib/supplier-portal/category-proposals";
 import { prepareInitialDocuments, saveInitialEvidence } from "@/lib/supplier-portal/profile-evidence";
 import { notifySupplierRegistration } from "@/lib/supplier-portal/notify";
+import type { SupplierInput } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const fail = (message: string, status = 400) => NextResponse.json({ ok: false, message }, { status });
 
-/** Authenticated supplier may submit only its own profile, never approve itself or publish. */
+/** The first business form creates the supplier page; neither this form nor account creation opens portal/publication access. */
 export async function POST(request: Request) {
-  const access = await supplierPortalAccess();
-  if (!access) return fail("Cần đăng nhập bằng tài khoản nhà cung cấp.", 403);
-  if (!canSubmitProfile(access.supplier)) return fail("Hồ sơ không ở trạng thái cho phép nộp lại.", 409);
+  const account = await supplierAccountAccess();
+  if (!account) return fail("Cần đăng nhập bằng tài khoản nhà cung cấp.", 403);
+  const { user, store } = account;
+  if (store.mode !== "supabase") return fail("Chỉ có thể nộp hồ sơ khi kết nối Supabase.", 503);
   if (Number(request.headers.get("content-length") ?? 0) > 78 * 1024 * 1024) return fail("Tệp quá lớn.", 413);
   let form: FormData;
   try { form = await request.formData(); } catch { return fail("Không đọc được biểu mẫu."); }
+  if (String(form.get("website_hp") ?? "")) return fail("Không thể gửi yêu cầu này.");
   let parsed: ReturnType<typeof parseSupplierProfile>;
   let documents: Awaited<ReturnType<typeof prepareInitialDocuments>>;
   try { parsed = parseSupplierProfile(form); documents = await prepareInitialDocuments(form); }
   catch (error) { return fail(error instanceof Error ? error.message : "Hồ sơ không hợp lệ."); }
-  const { supplier, user, store } = access;
   let choices: ReturnType<typeof categoryProposalOptions>;
   try { choices = categoryProposalOptions(await store.listCategories({ publishedOnly: true })); }
   catch { return fail("Không đọc được danh mục Vexim. Vui lòng thử lại sau.", 503); }
   let proposals: ReturnType<typeof parseSupplierCategoryProposals>;
   try { proposals = parseSupplierCategoryProposals(form, choices); }
   catch (error) { return fail(error instanceof Error ? error.message : "Danh mục không hợp lệ."); }
+
+  // Account can exist without a company. Re-read the DB link on every request, never trust submitted owner/status.
+  const freshUser = await store.getUser(user.id);
+  if (!freshUser || freshUser.role !== "supplier" || !freshUser.is_active ||
+      freshUser.email.toLowerCase() !== user.email.toLowerCase()) return fail("Tài khoản đã thay đổi. Đăng nhập lại.", 403);
+  let supplier = freshUser.supplier_id ? await store.getSupplier(freshUser.supplier_id) : null;
+  if (freshUser.supplier_id && !supplier) return fail("Không đọc được hồ sơ doanh nghiệp đã liên kết. Liên hệ Vexim.", 409);
+  if (supplier && !canSubmitProfile(supplier)) return fail("Hồ sơ không ở trạng thái cho phép nộp lại.", 409);
+  let created = false;
+  if (!supplier) {
+    const patch = parsed.patch;
+    const input: SupplierInput = {
+      name: patch.name!, trade_name: patch.trade_name ?? null, display_name: patch.display_name ?? null, slug: null,
+      contact_name: patch.contact_name!, contact_title: patch.contact_title ?? null,
+      email: user.email, phone: patch.phone!, zalo: patch.zalo ?? null, website: patch.website ?? null,
+      country: patch.country ?? "Vietnam", address: patch.address ?? null, province: patch.province ?? null,
+      role: patch.role!, supplier_type: patch.supplier_type,
+      markets: patch.markets ?? null, products: patch.products ?? null,
+      requested_category_slugs: proposals.requested_category_slugs, requested_category_other: proposals.requested_category_other,
+      tax_id: patch.tax_id ?? null, payment_terms: patch.payment_terms ?? null,
+      lead_time_days: patch.lead_time_days ?? null, rating: null, notes: null,
+      status: "draft", onboarding_status: "not_started", is_demo: false,
+      verification_level: 0, verified_at: null, fob_publicly_visible: false, fob_updated_at: null,
+      summary_i18n: patch.summary_i18n, founded_year: patch.founded_year, employees: patch.employees,
+      moq_text: patch.moq_text, capacity_per_month: patch.capacity_per_month, ports: patch.ports,
+      incoterms: patch.incoterms, export_markets: patch.export_markets, private_label: patch.private_label,
+    };
+    try {
+      const draft = await store.createSupplier(input);
+      let claimed = false;
+      try { claimed = await store.claimSupplierForUser(user.id, draft.id); }
+      catch (error) {
+        await store.deleteSupplier(draft.id).catch((e) => console.error("[supplier-profile] unclaimed draft cleanup", e));
+        throw error;
+      }
+      if (!claimed) {
+        await store.deleteSupplier(draft.id).catch((e) => console.error("[supplier-profile] duplicate draft cleanup", e));
+        return fail("Hồ sơ đã được tạo trong một phiên khác. Tải lại trang trước khi gửi tiếp.", 409);
+      }
+      supplier = draft;
+      created = true;
+    } catch (error) {
+      console.error("[supplier-profile] cannot create first profile", error);
+      return fail("Không tạo được hồ sơ doanh nghiệp. Vui lòng thử lại hoặc liên hệ Vexim.", 503);
+    }
+  }
+
+  const previousStatus = supplier.onboarding_status;
   try {
-    // Re-check the persistent access state before any write. Never accept status/owner from FormData.
-    const fresh = await store.getSupplier(supplier.id);
-    if (!fresh || !canSubmitProfile(fresh) || user.supplier_id !== fresh.id) return fail("Hồ sơ đã đổi trạng thái. Tải lại trang.", 409);
-    const review = await saveInitialEvidence({
-      store, supplierId: fresh.id, userId: user.id, tax: parsed.patch.tax_id!,
-      bank: parsed.bank, documents, requested: parsed.requested,
-    });
-    // Last write opens the staff queue, NOT portal usage, public listing or an audit approval.
-    await store.updateSupplier(fresh.id, { ...parsed.patch, ...proposals, categories_reviewed_at: null,
+    // Saving evidence does not approve the document check or publish the supplier.
+    const review = await saveInitialEvidence({ store, supplierId: supplier.id, userId: user.id,
+      tax: parsed.patch.tax_id!, bank: parsed.bank, documents, requested: parsed.requested });
+    // The last write opens the staff queue, not the portal, RFQ inbox or public catalogue.
+    supplier = await store.updateSupplier(supplier.id, { ...parsed.patch, ...proposals, categories_reviewed_at: null,
       onboarding_status: "pending", onboarding_note: null });
     await store.addAuditLog({ actor_id: user.id, actor_email: user.email,
-      entity: "supplier", entity_id: fresh.id, action: "supplier.profile_submitted",
-      before: { onboarding_status: fresh.onboarding_status },
+      entity: "supplier", entity_id: supplier.id, action: created ? "supplier.first_profile_submitted" : "supplier.profile_submitted",
+      before: { onboarding_status: created ? null : previousStatus },
       after: { onboarding_status: "pending", review_id: review.id, documents: documents.length,
         requested_steps: parsed.requested, category_proposals: proposals.requested_category_slugs } })
-      .catch((error) => console.error("[supplier-profile] audit log failed after saving profile", error));
+      .catch((error) => console.error("[supplier-profile] audit log failed", error));
     let notification: "sent" | "simulated" | "failed" = "failed";
-    try { notification = await notifySupplierRegistration({ ...fresh, ...parsed.patch }, parsed.requested); }
-    catch (error) { console.error("[supplier-profile] notification failed", error); }
+    try { notification = await notifySupplierRegistration(supplier, parsed.requested); }
+    catch (error) { console.error("[supplier-profile] staff notification failed", error); }
     revalidatePath("/supplier/portal");
-    revalidatePath(`/crm/suppliers/${fresh.id}`);
-    return NextResponse.json({ ok: true, notification, message: "Đã gửi hồ sơ. Tài khoản đang chờ Vexim xác nhận; bạn chưa thể sử dụng các tính năng trong cổng." });
+    revalidatePath(`/crm/suppliers/${supplier.id}`);
+    return NextResponse.json({ ok: true, notification, message: "Đã gửi hồ sơ doanh nghiệp cho Vexim. Bạn có thể đăng nhập xem trạng thái nhưng chưa dùng được các chức năng cho đến khi Vexim mở quyền." });
   } catch (error) {
     console.error("[supplier-profile] submission failed", error);
-    return fail("Chưa hoàn tất nộp hồ sơ. Vui lòng thử lại; nếu đã tải giấy tờ, kiểm tra với Vexim trước khi tải lại.", 503);
+    // If evidence failed, keep the private linked draft so the same account can retry, not a new company.
+    return fail("Chưa hoàn tất nộp hồ sơ. Hãy tải lại và thử tiếp trên cùng tài khoản; nếu đã tải giấy tờ, hỏi Vexim trước khi tải lại.", 503);
   }
 }
