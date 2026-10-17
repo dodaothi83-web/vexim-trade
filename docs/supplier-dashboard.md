@@ -6,6 +6,12 @@
 2. Cấu hình service-role, Supabase Auth email confirmation, Supabase Storage và Resend gửi **thật**, cùng Resend Inbound để ghi nhận hồi âm. Vexim vẫn có thể gửi email từ CRM như trước; `transport.status=simulated` không còn được tính là lời mời đã gửi trong luồng RFQ cấu trúc.
 3. Kiểm thử staging với **hai NCC khác nhau** và một buyer: sản phẩm buyer-ready/published mở RFQ có `source_product_id`, nhưng NCC chưa có thông báo; nhân viên sàng lọc và tạo match rồi bấm gửi; Resend chấp nhận email; chỉ NCC được gửi thấy RFQ/đếm lời mời, không thấy buyer khác hoặc token; Reply-To nhận email NCC thực qua webhook; báo cáo cập nhật phản hồi; kiểm tra mã RFQ khác/NCC khác bị chặn. Nếu thiếu migration dashboard, thao tác gửi RFQ thất bại **trước** khi gửi email.
 
+## Email mời NCC: người gửi và phản hồi
+
+- Email mời RFQ, email thủ công theo match và email nhắc NCC dùng **tên và địa chỉ cá nhân của nhân viên Vexim đang bấm gửi** (ví dụ `Nguyễn Văn Dung <dung@veximtrade.com>` nếu hồ sơ nhân viên thực tế là Dung). Không dùng `EMAIL_FROM` mặc định (`sales@`/`contact@`) cho ba loại email này; không tự chọn nhân viên khác thay thế nếu tài khoản thiếu tên hoặc địa chỉ gửi hợp lệ. Cập nhật tên thật của tài khoản Vexim và, nếu cần, `sender_email` cá nhân thuộc `MAIL_DOMAIN` trước khi thao tác. Chỉ tài khoản admin/sourcing/sale đang hoạt động mới gửi được.
+- `Reply-To` riêng từng RFQ/match vẫn trỏ đến Resend Inbound để Vexim nhận và đối chiếu phản hồi NCC. Địa chỉ From **không** phải hộp thư phản hồi; kiểm thử domain người gửi đã được Resend xác thực, SPF/DKIM/DMARC và một thư thật từ staging (bao gồm phản hồi thử) trước khi triển khai. Tên/địa chỉ cá nhân không đảm bảo email vào Inbox; còn phụ thuộc xác thực domain, uy tín và nội dung. Không ghi nhận email mô phỏng là đã gửi.
+- Các loại mail **gửi cho buyer** (shortlist, thông báo trạng thái) và mail hệ thống khác vẫn theo cấu hình riêng `EMAIL_FROM`; thay đổi này chỉ áp dụng các email RFQ **gửi tới NCC**.
+
 ## Ranh giới sản phẩm
 
 - Buyer nhấn nút sản phẩm **chưa tạo RFQ**. Buyer gửi form thì RFQ được lưu cho Vexim; `preferred_supplier_ids` chỉ là ưu tiên. Chỉ lời mời do nhân viên Vexim gửi tới NCC cụ thể qua `dispatchRfqToSuppliers`, được Resend **chấp nhận** và có `sent_to_supplier_at`, mới hiện trên dashboard. Email bên ngoài không đồng nghĩa chắc chắn được người nhận đọc.

@@ -15,6 +15,7 @@ import { FROM_ADDRESS, COMPANY } from "@/lib/config";
 import { SITE_URL } from "@/lib/site";
 import { getStore } from "@/lib/db";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { requireRfqStaffSender } from "@/lib/rfq/staff-sender";
 import { buyerReplyAddress, supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import type { Buyer, EmailMessage, Rfq, RfqMatch, Supplier } from "@/lib/types";
 
@@ -200,6 +201,7 @@ export async function dispatchRfqToSuppliers(input: {
   rfqId: string;
   matchIds: string[];
   deadlineDays?: number;
+  actorId: string;
 }): Promise<{ sent: number; skipped: number }> {
   const store = getStore();
   const rfq = await store.getRfq(input.rfqId);
@@ -211,6 +213,7 @@ export async function dispatchRfqToSuppliers(input: {
   if (supplierIds.size) await Promise.all([
     store.listSupplierRfqInvitations([...supplierIds][0]), store.listSupplierNoticeReads([...supplierIds][0]),
   ]);
+  const sender = supplierIds.size ? await requireRfqStaffSender(input.actorId) : null;
   const suppliers = (await store.listSuppliers()).filter((s) => supplierIds.has(s.id));
   const supMap = new Map(suppliers.map((s) => [s.id, s]));
   const deadline = new Date();
@@ -230,7 +233,7 @@ export async function dispatchRfqToSuppliers(input: {
     const email = buildRfqSupplierEmail({ rfq, supplier: sup, deadline });
     const delivery = await transport({
       to: [sup.email],
-      from: FROM_ADDRESS,
+      from: sender!.header,
       replyTo: supplierReplyAddress(rfq.code, m.id),
       subject: email.subject,
       html: email.html,
@@ -273,7 +276,7 @@ export async function dispatchRfqToSuppliers(input: {
       status: delivery.status,
       provider: delivery.provider,
       error: null,
-      created_by: null,
+      created_by: input.actorId,
     } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
     sent += 1;
   }

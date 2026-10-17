@@ -59,6 +59,38 @@ const approved = dashboard.buildSupplierDashboard({ ...input, reviews: [{ id: 'v
 assert.ok(approved.notices.some((n) => n.title.includes('Lịch sử giao hàng')));
 assert.ok(!approved.notices.some((n) => n.title.includes('Thăm nhà máy')));
 
+const staff = { id: 'staff-1', email: 'login@veximtrade.com', name: 'Nguyễn Văn Dung',
+  role: 'sourcing', is_active: true, created_at: '2026-01-01T00:00:00Z', sender_email: null };
+const senderLib = load('../lib/email/sender.ts', {
+  '@/lib/config': { COMPANY: { name: 'Vexim Trade', email: 'sales@veximtrade.com' }, MAIL_DOMAIN: 'veximtrade.com', ROLE_ADDRESS: 'sales@veximtrade.com' },
+});
+const senderStore = { getUser: async (id) => id === staff.id ? staff : null, listUsers: async () => [staff] };
+const staffSender = load('../lib/rfq/staff-sender.ts', {
+  '@/lib/db': { getStore: () => senderStore }, '@/lib/email/sender': senderLib,
+});
+assert.equal((await staffSender.requireRfqStaffSender(staff.id)).header, 'Nguyễn Văn Dung <dung@veximtrade.com>');
+await assert.rejects(staffSender.requireRfqStaffSender(''), /Chưa xác định/);
+staff.sender_email = 'sales@veximtrade.com';
+await assert.rejects(staffSender.requireRfqStaffSender(staff.id), /chưa hợp lệ/);
+staff.sender_email = 'contact@veximtrade.com';
+await assert.rejects(staffSender.requireRfqStaffSender(staff.id), /chưa hợp lệ/);
+staff.sender_email = 'sales';
+await assert.rejects(staffSender.requireRfqStaffSender(staff.id), /chưa hợp lệ/);
+staff.sender_email = null;
+staff.is_active = false;
+await assert.rejects(staffSender.requireRfqStaffSender(staff.id), /đang hoạt động/);
+staff.is_active = true;
+staff.role = 'supplier';
+await assert.rejects(staffSender.requireRfqStaffSender(staff.id), /đang hoạt động/);
+staff.role = 'sourcing';
+staff.name = 'Admin';
+await assert.rejects(staffSender.requireRfqStaffSender(staff.id), /tên người thật/);
+staff.name = 'Sales Team';
+await assert.rejects(staffSender.requireRfqStaffSender(staff.id), /tên người thật/);
+staff.name = 'Dung\r\nCc: attacker@example.com';
+await assert.rejects(staffSender.requireRfqStaffSender(staff.id), /tên người thật/);
+staff.name = 'Nguyễn Văn Dung';
+
 const rfq = { id: 'r1', code: 'RFQ-20261017-001', product_text: 'Cashew', quantity: 5, unit: 'MT', status: 'new' };
 const storedMatch = { ...match, rfq_id: rfq.id, status: 'proposed', sent_to_supplier_at: null };
 const sent = [];
@@ -78,6 +110,7 @@ const outbound = load('../lib/rfq/outreach.ts', {
   '@/lib/db': { getStore: () => store },
   '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts },
   '@/lib/email/send': { transport: async (mail) => { sent.push(mail); return { ok: true, status: mode, provider: 'resend' }; } },
+  '@/lib/rfq/staff-sender': staffSender,
   '@/lib/config': { FROM_ADDRESS: 'Vexim <sales@example.com>', COMPANY: { name: 'Vexim' } },
   '@/lib/site': { SITE_URL: 'https://example.com' },
   '@/lib/email/templates': { escapeHtml: (s) => s, wrapPlainEmail: ({ body }) => body },
@@ -88,17 +121,19 @@ const privateMail = outbound.buildRfqSupplierEmail({ rfq: { ...rfq, product_text
 assert.ok(!privateMail.html.includes('buyer@example.com'));
 assert.ok(!privateMail.html.includes('SECRET BUYER CONTACT'));
 preflightFails = true;
-await assert.rejects(outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id] }), /migration missing/);
+await assert.rejects(outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id }), /migration missing/);
 assert.equal(sent.length, 0, 'No mail before DB migration is ready');
 preflightFails = false;
-assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id] })).sent, 0);
+assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 0);
 assert.equal(storedMatch.sent_to_supplier_at, null, 'A simulated email is not an invitation');
 mode = 'sent';
-assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id] })).sent, 1);
+assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 1);
 assert.equal(storedMatch.status, 'sent_to_supplier');
 assert.ok(storedMatch.response_due_at);
-assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id] })).sent, 0, 'No duplicate invitation');
+assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 0, 'No duplicate invitation');
 assert.equal(sent.filter((x) => x.to?.includes('supplier@example.com')).length, 2, 'Simulated and real attempts only');
+assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).from, 'Nguyễn Văn Dung <dung@veximtrade.com>');
+assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).replyTo, 'reply@example.com');
 
 let accessEnabled = true;
 const writes = [];

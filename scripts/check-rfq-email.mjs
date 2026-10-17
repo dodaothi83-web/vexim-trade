@@ -40,6 +40,7 @@ const match = { id, rfq_id: rfq.id, supplier_id: supplier.id, sent_to_supplier_a
 const messages = [];
 const sent = [];
 let transportFailed = false;
+let transportStatus = 'simulated';
 const store = {
   listMessages: async () => messages,
   listMessagesForRfq: async (rfqId) => messages.filter((m) => m.rfq_id === rfqId),
@@ -66,7 +67,7 @@ const bareAddress = (s) => (s.match(/<([^>]+)>/)?.[1] ?? s).split(',')[0].trim()
 const escapeHtml = (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const transport = async (mail) => {
   sent.push(mail);
-  return transportFailed ? { ok: false, status: 'failed', provider: 'resend' } : { ok: true, status: 'simulated', provider: 'local' };
+  return transportFailed ? { ok: false, status: 'failed', provider: 'resend' } : { ok: true, status: transportStatus, provider: 'resend' };
 };
 const mocks = {
   resend: { Resend: class {} },
@@ -77,6 +78,7 @@ const mocks = {
   '@/lib/email/privacy': { htmlToText: (html) => html.replace(/<[^>]+>/g, ' ').trim() },
   '@/lib/email/send': { transport, threadId: (dir, from) => `${dir}:${from}` },
   '@/lib/rfq/reply-routing': router,
+  '@/lib/rfq/staff-sender': { requireRfqStaffSender: async () => ({ header: 'Nguyễn Văn Dung <dung@veximtrade.com>' }) },
   '@/lib/site': { SITE_URL: 'https://veximtrade.com' },
 };
 const { processInboundEvent } = loadTS('../lib/mail/inbound.ts', mocks);
@@ -150,6 +152,21 @@ assert.equal(actionRfq.status, 'lost');
 assert.equal(messages.filter((m) => m.rfq_id === actionRfq.id && m.stage === 'lost').length, 1);
 await actions.markLostAction(lost);
 assert.equal(messages.filter((m) => m.rfq_id === actionRfq.id && m.stage === 'lost').length, 1);
+match.rfq_id = actionRfq.id;
+const compose = new FormData(); compose.set('rfq_id', actionRfq.id); compose.set('match_id', match.id);
+compose.set('subject', 'Báo giá'); compose.set('body', 'Xin chào');
+await assert.rejects(actions.composeMatchEmailAction(compose), /Resend chưa gửi thật/);
+assert.equal(messages.filter((m) => m.kind === 'manual' && m.rfq_id === actionRfq.id).length, 0, 'Simulated attempt cannot count as sent');
+transportStatus = 'sent';
+await actions.composeMatchEmailAction(compose);
+assert.equal(sent.at(-1).from, 'Nguyễn Văn Dung <dung@veximtrade.com>');
+assert.equal(sent.at(-1).replyTo, router.supplierReplyAddress(actionRfq.code, match.id));
+assert.equal(messages.filter((m) => m.kind === 'manual' && m.rfq_id === actionRfq.id).length, 1);
+const followup = new FormData(); followup.set('rfq_id', actionRfq.id); followup.set('match_id', match.id);
+await actions.sendFollowUpAction(followup);
+assert.equal(sent.at(-1).from, 'Nguyễn Văn Dung <dung@veximtrade.com>');
+assert.equal(sent.at(-1).replyTo, router.supplierReplyAddress(actionRfq.code, match.id));
+assert.equal(messages.filter((m) => m.kind === 'rfq_followup').length, 1);
 const regularActions = loadTS('../app/crm/rfqs/actions.ts', {
   'next/cache': { revalidatePath: () => {} },
   'next/navigation': { redirect: () => { throw Error('redirect'); } },

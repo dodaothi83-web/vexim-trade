@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { transport } from "@/lib/email/send";
-import { FROM_ADDRESS } from "@/lib/config";
+import { requireRfqStaffSender } from "@/lib/rfq/staff-sender";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { notifyBuyerRfqStatus } from "@/lib/rfq/buyer-notify";
@@ -46,10 +46,11 @@ export async function composeMatchEmailAction(fd: FormData): Promise<void> {
   const html = wrapPlainEmail({ title: subject, body: `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6">${escapeHtml(body)}</div>` });
   const text = body;
 
+  const sender = await requireRfqStaffSender(session?.uid ?? "");
   const delivery = await transport({
     to: toEmails,
     cc: ccEmails.length ? ccEmails : undefined,
-    from: FROM_ADDRESS,
+    from: sender.header,
     replyTo: supplierReplyAddress(rfq.code, match.id),
     subject,
     html,
@@ -59,7 +60,7 @@ export async function composeMatchEmailAction(fd: FormData): Promise<void> {
       "X-RFQ-Match": match.id,
     },
   });
-  if (!delivery.ok) throw new Error(`Không gửi được email NCC: ${delivery.error}`);
+  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được email NCC: ${delivery.error ?? "Resend chưa gửi thật"}`);
 
   await store.addMessage({
     buyer_id: null,
@@ -178,16 +179,17 @@ export async function sendFollowUpAction(fd: FormData): Promise<void> {
     title: subject,
     body: `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6">${escapeHtml(body)}</div>`,
   });
+  const sender = await requireRfqStaffSender(session?.uid ?? "");
   const delivery = await transport({
     to: [sup.email],
-    from: FROM_ADDRESS,
+    from: sender.header,
     replyTo: supplierReplyAddress(rfq.code, match.id),
     subject,
     html,
     text: body,
     headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Match": match.id },
   });
-  if (!delivery.ok) throw new Error(`Không gửi được email nhắc NCC: ${delivery.error}`);
+  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được email nhắc NCC: ${delivery.error ?? "Resend chưa gửi thật"}`);
   await store.addMessage({
     buyer_id: null,
     supplier_id: sup.id,
