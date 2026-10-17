@@ -13,7 +13,9 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
     .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
   if (!recipients.length) return "failed";
   const choices = requested.map((n) => n === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng");
-  const url = `${SITE_URL}/crm/suppliers/${encodeURIComponent(supplier.id)}`;
+  const staffOrigin = process.env.SUPPLIER_SIGNUP_REDIRECT_URL
+    ? new URL(process.env.SUPPLIER_SIGNUP_REDIRECT_URL).origin : SITE_URL;
+  const url = `${staffOrigin}/crm/suppliers/${encodeURIComponent(supplier.id)}`;
   const title = `NCC tự đăng ký: ${supplier.name}`;
   const body = `<p>NCC vừa gửi hồ sơ tự khai và bằng chứng Kiểm tra giấy tờ. <strong>Chưa có đánh giá nào được duyệt.</strong></p>
     <p>Doanh nghiệp: ${escapeHtml(supplier.name)}<br/>Liên hệ: ${escapeHtml(supplier.contact_name ?? "—")} · ${escapeHtml(supplier.email ?? "—")} · ${escapeHtml(supplier.phone ?? "—")}</p>

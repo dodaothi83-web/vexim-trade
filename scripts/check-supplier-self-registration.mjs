@@ -177,6 +177,28 @@ fileAsset.verification_id = 'v2';
 mediaStore.getVerification = async () => ({ ...doc, target_level: 2 });
 assert.equal((await media.GET(fileRequest, fileParams)).status, 403, 'Supplier cannot read factory/delivery files');
 
+const contactSupplierId = '12345678-1234-1234-1234-123456789abc';
+const contactRequest = { supplier_id: contactSupplierId, target_level: 3, status: 'requested' };
+let denyContact = true;
+let contactWrites = 0;
+const requestActions = load('../app/crm/verifications/request-actions.ts', {
+  'next/cache': { revalidatePath() {} },
+  '@/lib/db': { getStore: () => ({
+    listSupplierVerificationRequests: async () => [contactRequest],
+    markSupplierVerificationContacted: async () => { contactWrites++; contactRequest.status = 'contacted'; return contactRequest; },
+    addAuditLog: async (entry) => { assert.equal(entry.action, 'verification.request.contact.l3'); },
+  }) },
+  '@/lib/auth/session': { guard: async () => denyContact ? { ok: false, message: 'denied' } : null,
+    getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'sourcing' }) },
+});
+const contactForm = new FormData(); contactForm.set('supplier_id', contactSupplierId); contactForm.set('target_level', '3');
+assert.equal((await requestActions.markVerificationRequestContactedAction(contactForm)).ok, false);
+assert.equal(contactWrites, 0, 'Supplier cannot mark own request contacted');
+denyContact = false;
+assert.equal((await requestActions.markVerificationRequestContactedAction(contactForm)).ok, true);
+assert.equal(contactWrites, 1);
+assert.equal(contactRequest.status, 'contacted');
+
 const roles = load('../lib/auth/permissions.ts', {});
 for (const perm of ['suppliers.manage', 'suppliers.publish', 'verifications.inspect', 'verifications.approve', 'media.manage', 'media.internal', 'rfq.view']) {
   assert.equal(roles.hasPermission('supplier', perm), false, `Supplier must not get ${perm}`);
