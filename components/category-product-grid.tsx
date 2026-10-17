@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronDown, Filter, ImageIcon, MapPin, ShieldCheck } from "lucide-react";
+import { ArrowRight, ChevronDown, Filter, ImageIcon, MapPin } from "lucide-react";
+
+import { PublicVerificationBadges } from "@/components/public-verification-badges";
 
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
@@ -37,7 +39,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, rfqHref }:
   const visible = useMemo(() => products.filter((p) =>
     (!selectedGrades.length || (p.grade && selectedGrades.includes(p.grade))) &&
     (!moq || moqGroup(p.moq) === moq) &&
-    (!province || p.province === province) && p.verificationLevel >= verified,
+    (!province || p.province === province) && (!verified || p.verificationSteps.includes(verified as 1 | 2 | 3)),
   ), [products, selectedGrades, moq, province, verified]);
   const active = selectedGrades.length > 0 || !!moq || !!province || verified > 0;
   // The initial page gives each supplier up to three cards. Filtering reveals
@@ -65,8 +67,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, rfqHref }:
     </label>
     <label className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">Supplier verification</span>
       <select className="input text-sm" value={verified} onChange={(e) => setVerified(Number(e.target.value))}>
-        <option value={0}>All suppliers</option><option value={1}>Documents checked or higher</option>
-        <option value={2}>Factory visited or higher</option><option value={3}>Delivery history reviewed</option>
+        <option value={0}>All suppliers</option><option value={1}>Documents checked</option>
+        <option value={2}>Factory visited</option><option value={3}>Delivery history reviewed</option>
       </select>
     </label>
     {active && <button type="button" onClick={reset} className="font-semibold text-brand-700 underline">Clear filters</button>}
@@ -108,7 +110,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, rfqHref }:
                 <p className="text-sm font-bold text-brand-800">{p.price || "Price on request"}</p>
                 <p className="text-xs text-ink-600">Lead time: {p.leadTimeDays !== null ? `${p.leadTimeDays} days` : "On request"}</p>
                 <p className="flex items-center gap-1 text-xs text-ink-600"><MapPin className="h-3.5 w-3.5 shrink-0" />{p.province}</p>
-                <p className="mt-auto flex items-center gap-1 text-[11px] font-semibold text-ink-700"><ShieldCheck className="h-3.5 w-3.5 shrink-0 text-brand-700" />{p.verificationLabel}</p>
+                <div className="mt-auto"><PublicVerificationBadges levels={p.verificationSteps} compact /></div>
               </div>
             </Link>
             <div className="px-3 pb-2 text-xs text-ink-600 sm:px-4">Supplied by <Link href={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`} className="font-semibold text-brand-700 hover:underline">{p.supplierName}</Link></div>

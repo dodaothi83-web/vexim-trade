@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { arrangeSupplierProducts } from '../lib/public/supplier-product-order.ts';
 import { assignProductCategory } from '../lib/public/category-assignment.ts';
 import { productReadiness } from '../lib/media/readiness.ts';
+import { approvedVerificationSteps, verificationLabels } from '../lib/verification-status.ts';
 
 const compile = (path, mocks) => {
   const exports = {};
@@ -26,7 +27,7 @@ const rice = { id: 'c-rice', slug: 'rice', name_i18n: { en: 'Rice' }, status: 'p
 const categories = [category, rice];
 const now = new Date().toISOString();
 const suppliers = [
-  { id: 'A', slug: 'company-a', name: 'Company A', status: 'published', verification_level: 2, province: 'Hanoi', fob_publicly_visible: true, fob_updated_at: now, is_demo: false },
+  { id: 'A', slug: 'company-a', name: 'Company A', supplier_type: 'trading', status: 'published', verification_level: 2, province: 'Hanoi', fob_publicly_visible: true, fob_updated_at: now, is_demo: false },
   { id: 'B', slug: 'company-b', name: 'Company B', status: 'published', verification_level: 1, province: 'Binh Duong', fob_publicly_visible: false, fob_updated_at: now, is_demo: false },
   { id: 'C', slug: 'company-c', name: 'Company C', status: 'draft', verification_level: 3, province: 'Hue', is_demo: false },
 ];
@@ -43,6 +44,18 @@ const products = [
 ];
 const media = products.map((p) => ({ owner_type: 'product', product_id: p.id, kind: 'image', audience: 'buyer',
   status: 'checked', storage_path: `products/${p.id}/image.jpg`, sort_order: 0, created_at: now, expires_on: null }));
+const reviews = [
+  { supplier_id: 'A', target_level: 1, status: 'approved' },
+  { supplier_id: 'A', target_level: 2, status: 'submitted' },
+  { supplier_id: 'A', target_level: 3, status: 'approved' },
+  { supplier_id: 'B', target_level: 2, status: 'approved' },
+  { supplier_id: 'C', target_level: 3, status: 'approved' },
+];
+assert.deepEqual(approvedVerificationSteps(reviews.filter((r) => r.supplier_id === 'A')), [1, 3]);
+assert.deepEqual(approvedVerificationSteps(reviews.filter((r) => r.supplier_id === 'B')), [2]);
+assert.deepEqual(verificationLabels([1, 3]), ['Documents checked', 'Delivery history reviewed']);
+assert.deepEqual(approvedVerificationSteps([{ target_level: 3, status: 'approved' }]), [3]);
+assert.deepEqual(approvedVerificationSteps([{ target_level: 1, status: 'approved' }, { target_level: 2, status: 'approved' }, { target_level: 3, status: 'approved' }]), [1, 2, 3]);
 const store = {
   listSuppliers: async () => suppliers,
   listProducts: async () => products,
@@ -50,19 +63,22 @@ const store = {
   listCategories: async ({ publishedOnly } = {}) => publishedOnly ? categories : categories,
   listMediaForProducts: async (ids) => media.filter((m) => ids.includes(m.product_id)),
   listMedia: async () => [],
-  listVerifications: async () => [],
+  listVerifications: async (id) => reviews.filter((r) => r.supplier_id === id),
 };
 const catalogMocks = { 'server-only': {}, '@/lib/db': { getStore: () => store },
-  '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection };
+  '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection, '@/lib/verification-status': { approvedVerificationSteps } };
 const catalog = compile('../lib/public/catalog.ts', catalogMocks);
 const productCatalog = compile('../lib/public/product-catalog.ts', {
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
-  '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers, verificationBadge: catalog.verificationBadge },
+  '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
 });
 const cards = await productCatalog.listPublicCategoryProducts(category);
 assert.equal(cards.length, 13, 'Every ready offer from published suppliers gets its own card, without cross-category or test records');
 assert.equal(cards.filter((p) => p.grade === 'W320').length, 13, 'Grade filter can expose 5 separate W320 offers from B');
 assert.equal(cards.filter((p) => p.supplierId === 'B').length, 5);
+assert.deepEqual(cards.find((p) => p.id === 'a0').verificationSteps, [1, 3], 'Trader passes documents and deliveries without a factory badge');
+assert.deepEqual(cards.find((p) => p.id === 'b0').verificationSteps, [2], 'Factory alone does not imply document review');
+assert.equal(cards.find((p) => p.id === 'a0').verificationCount, 2, 'Ranking counts actual approved checks, not max level');
 assert.equal(cards.find((p) => p.id === 'a0').imagePaths[0], 'products/a0/image.jpg', 'Use the product image, not the category hero');
 assert.equal(cards.find((p) => p.id === 'a0').leadTimeDays, 14);
 assert.equal(cards.find((p) => p.id === 'a0').supplierSlug, 'company-a');
@@ -86,6 +102,16 @@ assert.equal(single.shown.length, 8, 'A filter with one matching supplier still 
 const profile = await catalog.getPublicSupplierBySlug('company-a');
 assert.equal(profile.main_products.length, 9, 'Profile includes all public products from every category, not the four-card summary');
 assert.ok(profile.main_products.every((p) => p.ready_for_buyer && !p.name.startsWith('TEST ONLY')));
+assert.deepEqual(profile.approved_verification_steps, [1, 3]);
+// Even suppliers beyond the old 50-card fetch limit must show their actual badges.
+const extras = Array.from({ length: 51 }, (_, i) => ({ id: `extra-${i}`, name: `Extra ${i}`, status: 'published', verification_level: 3, is_demo: false }));
+suppliers.push(...extras);
+reviews.push({ supplier_id: extras.at(-1).id, target_level: 3, status: 'approved' });
+const moreSuppliers = await catalog.listPublicSuppliers();
+assert.deepEqual(moreSuppliers.find((s) => s.id === extras.at(-1).id).approved_verification_steps, [3], 'An approved delivery beyond supplier 50 cannot disappear');
+assert.deepEqual(moreSuppliers.find((s) => s.id === extras[0].id).approved_verification_steps, [], 'Legacy max level without an approval earns no real badges');
+suppliers.splice(-extras.length);
+reviews.pop();
 media.find((m) => m.product_id === 'a7').status = 'expired';
 assert.equal((await productCatalog.listPublicCategoryProducts(category)).length, 12, 'Expired last buyer image hides a stale ready product');
 assert.equal((await catalog.getPublicSupplierBySlug('company-a')).main_products.length, 8, 'Supplier profile applies the same readiness gate');
@@ -97,6 +123,8 @@ const detailPage = readFileSync(new URL('../app/(public)/products/[slug]/[produc
 assert.match(grid, /Supplied by <Link href=\{`\/suppliers\//);
 assert.match(grid, /\+\{count\} more from/);
 assert.match(grid, /Lead time:/);
+assert.match(grid, /p\.verificationSteps\.includes\(verified/, 'Verification filter matches only the selected approved check');
+assert.match(grid, /PublicVerificationBadges levels=\{p\.verificationSteps\}/);
 assert.match(profilePage, /publicProductPrice\(p, s\) \|\| "On request"/);
 assert.match(profilePage, /href=\{`\/products\/\$\{encodeURIComponent\(category\.slug\)\}/);
 assert.match(detailPage, /View supplier profile/);
@@ -115,4 +143,4 @@ vm.runInNewContext(ts.transpileModule(mediaActionSource, { compilerOptions: { mo
   { exports: mediaAction, guard: async () => null, getStore: () => actionStore, productReadiness, revalidateAll: () => {} });
 assert.equal((await mediaAction.updateMediaAction(asset.id, { audience: 'internal' })).ok, true);
 assert.equal(product.ready_for_buyer, false);
-console.log('✅ Buyer discovery: product images, per-supplier W320, interleaved capped/unlimited views, profile safety, price and navigation.');
+console.log('✅ Independent verification badges, filters and buyer discovery: product images, per-supplier W320, interleaved capped/unlimited views, profile safety, price and navigation.');

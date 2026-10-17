@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ClipboardCheck, LockKeyhole, ShieldCheck } from "lucide-react";
+import { ArrowRight, CheckCircle2, ClipboardCheck, ShieldCheck } from "lucide-react";
 
 import type { Verification, VerificationLevel } from "@/lib/types";
 import { AUDIT_STEPS, auditHref, auditItems } from "@/lib/verification";
@@ -11,8 +11,6 @@ export function VerificationPanel({ supplierId, verifications, canInspect }: {
   verifications: Verification[];
   canInspect: boolean;
 }) {
-  // A legacy badge does not unlock steps unless an approved audit exists.
-  const approvedLevel = Math.max(0, ...verifications.filter((v) => v.status === "approved").map((v) => v.target_level));
   return (
     <Card className="overflow-hidden">
       <div className="border-b border-ink-100 px-5 py-4">
@@ -25,7 +23,6 @@ export function VerificationPanel({ supplierId, verifications, canInspect }: {
           const byStep = [...verifications].filter((v) => v.target_level === level).sort((a, b) => b.created_at.localeCompare(a.created_at));
           const latest = byStep.find((v) => v.status === "approved") ?? byStep[0];
           const approved = latest?.status === "approved";
-          const unlocked = level === 1 || approvedLevel >= level - 1;
           const done = auditItems(level).filter((it) => latest?.checklist[it.key] === true || latest?.checklist[it.key] === false).length;
           return <li key={step.path} className="flex flex-wrap items-center gap-4 p-4 sm:p-5">
             <span className={"flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold " + (approved ? "bg-emerald-100 text-emerald-800" : latest ? "bg-brand-50 text-brand-700" : "bg-ink-100 text-ink-500")}>
@@ -34,11 +31,11 @@ export function VerificationPanel({ supplierId, verifications, canInspect }: {
             <div className="min-w-0 flex-1">
               <h3 className="font-bold text-ink-900">{step.title}</h3>
               <p className="mt-0.5 text-xs leading-relaxed text-ink-500">{step.description}</p>
-              <p className="mt-1 text-xs font-medium text-ink-600">{approved ? "Đã duyệt" : latest ? `${latest.status === "submitted" ? "Chờ duyệt" : latest.status === "returned" ? "Cần bổ sung" : "Đang kiểm"} · ${done}/${auditItems(level).length} mục` : unlocked ? "Chưa bắt đầu" : `Mở sau khi duyệt ${AUDIT_STEPS[index - 1].short.toLowerCase()}`}</p>
+              <p className="mt-1 text-xs font-medium text-ink-600">{approved ? "Đã duyệt" : latest ? `${latest.status === "submitted" ? "Chờ duyệt" : latest.status === "returned" ? "Cần bổ sung" : "Đang kiểm"} · ${done}/${auditItems(level).length} mục` : "Chưa bắt đầu"}</p>
             </div>
-            {latest && unlocked ? <Link href={auditHref(supplierId, level)} className="btn btn-soft shrink-0"><ClipboardCheck className="h-4 w-4" /> Mở trang <ArrowRight className="h-4 w-4" /></Link>
-              : canInspect && unlocked && approvedLevel < level ? <StartVerificationButton supplierId={supplierId} level={level} />
-              : !unlocked ? <LockKeyhole className="h-4 w-4 text-ink-400" /> : null}
+            {latest ? <Link href={auditHref(supplierId, level)} className="btn btn-soft shrink-0"><ClipboardCheck className="h-4 w-4" /> Mở trang <ArrowRight className="h-4 w-4" /></Link>
+              : canInspect && !approved ? <StartVerificationButton supplierId={supplierId} level={level} />
+              : null}
           </li>;
         })}
       </ol>

@@ -92,9 +92,11 @@ assert.match(blockedByDatabase.message, /20261017_temporary_self_verification_ap
 assert.equal(row.status, 'submitted', 'Rejected approval must remain submitted');
 assert.equal(lastAudit, null, 'Rejected approval must not be logged as approved');
 dbFourEyes = false;
+records.splice(0, 2); // Trader has no approved factory or documents review.
 const approved = await exports.approveVerificationAction(form);
 assert.equal(approved.ok, true);
 assert.equal(row.status, 'approved');
+assert.equal(records.length, 1, 'Delivery history passes without implying a factory or document review');
 assert.equal(row.inspector_id, row.approved_by, 'Self approval must retain both identities');
 assert.equal(lastAudit.after.self_approved, true, 'Self approval must be explicit in audit log');
 assert.equal(lastAudit.actor_id, auditor.uid);
@@ -121,7 +123,6 @@ assert.equal(media[0].checklist_key, null, 'Failed assignment must not mutate th
 dbChecklistConstraint = false;
 assert.equal((await exports.assignVerificationEvidenceAction('shipping-photo', 'shipping_proof')).ok, true, 'Old delivery image can be assigned to shipping row');
 assert.equal((await exports.approveVerificationAction(form)).ok, true, 'Photo of linked shipping proof qualifies without mandatory fields');
-records.splice(1, 1); // remove earlier approved level-two fixture
 Object.assign(row, { target_level: 2, status: 'in_progress', approved_by: null, checklist: {}, visit_date: null, visit_address: null, visit_lat: null, visit_lng: null });
 assert.equal((await exports.updateVerificationChecklistAction(emptyForm)).ok, true, 'Factory can submit without GPS/date/9 checklist answers');
 media.splice(0);
@@ -134,7 +135,6 @@ assert.equal((await exports.assignVerificationEvidenceAction('factory-photo', 'p
 assert.equal((await exports.approveVerificationAction(form)).ok, true, 'Facility photo qualifies without all checklist answers');
 // An already uploaded scan selected under the "Ảnh" tab must count as L1 evidence.
 // The supplier's general library must never be consulted as a fallback.
-records.splice(0, 1); // remove earlier approved level-one fixture
 Object.assign(row, {
   target_level: 1, status: 'submitted', approved_by: null,
   tax_number: '00123456789', bank_account_number: '0001234567',
@@ -217,6 +217,11 @@ const pageUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]
 assert.match(formUi, /\(!requireSecondReviewer \|\| !selfReview\)/, 'Admin must see review buttons in temporary mode');
 assert.match(formUi, /Bạn đang xác nhận bản kiểm của chính mình/, 'Self review must be visibly marked');
 assert.ok(!pageUi.includes('<MediaManager'), 'All audit steps render evidence inline');
+assert.ok(!pageUi.includes('unlocked') && !pageUi.includes('LockKeyhole'), 'Every review page is reachable independently');
+const panelUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-panel.tsx', import.meta.url), 'utf8');
+assert.ok(!panelUi.includes('approvedLevel'), 'Review panel does not infer previous checks from a highest level');
+const approvalSource = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-actions.ts', import.meta.url), 'utf8');
+assert.ok(!approvalSource.includes('target_level - 1'), 'Delivery approval has no factory prerequisite');
 assert.match(formUi, /ok: result\.ok/, 'Expected validation failure must display on the audit page');
 const sql = fs.readFileSync(new URL('../supabase/migrations/20261017_delivery_history_audit.sql', import.meta.url), 'utf8');
 for (const field of ['shipment_ref', 'shipped_on', 'shipment_destination']) assert.ok(sql.includes(`add column if not exists ${field}`));

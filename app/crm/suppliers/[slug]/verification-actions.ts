@@ -132,10 +132,6 @@ export async function approveVerificationAction(fd: FormData) {
   if (requiredAuditItems(before.target_level).some((it) => before.checklist[it.key] !== true && before.checklist[it.key] !== false)) {
     return { ok: false, message: "Còn mục chưa kiểm; trả lại để bổ sung." };
   }
-  if (before.target_level > 1) {
-    const prev = (await store.listVerifications(before.supplier_id)).some((v) => v.target_level === before.target_level - 1 && v.status === "approved");
-    if (!prev) return { ok: false, message: "Bước trước chưa được duyệt." };
-  }
   // Never fall back to supplier-wide media: only this verification's attachments qualify.
   const media = await store.listMedia("verification", before.id);
   if (before.target_level === 1) {

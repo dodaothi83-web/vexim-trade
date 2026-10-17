@@ -31,16 +31,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const supplier = await store.getSupplier(supplierId);
     if (!supplier) return NextResponse.json({ ok: false, message: "Không tìm thấy nhà cung cấp." }, { status: 404 });
     const verifications = await store.listVerifications(supplierId);
-    const currentLevel = Math.max(0, ...verifications.filter((v) => v.status === "approved").map((v) => v.target_level));
-    if (currentLevel >= level) {
+    if (verifications.some((v) => v.target_level === level && v.status === "approved")) {
       return NextResponse.json({ ok: false, message: `${step.title} đã được duyệt; không tạo đợt trùng.` }, { status: 409 });
     }
     const ongoing = verifications.find((v) => v.target_level === level && v.status !== "approved");
     if (ongoing) {
       return NextResponse.json({ ok: true, id: ongoing.id, existing: true, href: auditHref(supplierId, level), message: `Mở trang ${step.title.toLowerCase()} đang thực hiện.` });
-    }
-    if (currentLevel < level - 1) {
-      return NextResponse.json({ ok: false, message: `Cần được duyệt ${auditStep(level - 1)?.title.toLowerCase()} trước khi bắt đầu ${step.title.toLowerCase()}.` }, { status: 409 });
     }
     const session = await getSession();
     const checklist = Object.fromEntries(auditItems(level as VerificationLevel).map((it) => [it.key, null]));
@@ -59,7 +55,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       entity: "supplier",
       entity_id: supplierId,
       action: `verification.start.l${level}`,
-      before: { verification_level: currentLevel },
+      before: { approved_steps: verifications.filter((v) => v.status === "approved").map((v) => v.target_level) },
       after: { verification_id: created.id, target_level: level },
     }).catch((error) => console.error("[verification] audit write failed:", error));
     revalidatePath(`/crm/suppliers/${supplierId}`);

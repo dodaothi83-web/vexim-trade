@@ -6,7 +6,8 @@ import "server-only";
 
 import { getStore } from "@/lib/db";
 import { productReadiness } from "@/lib/media/readiness";
-import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType } from "@/lib/types";
+import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, VerificationLevel } from "@/lib/types";
+import { approvedVerificationSteps } from "@/lib/verification-status";
 import { isTestOnlyProduct, productBelongsToCategory } from "@/lib/public/product-selection";
 
 /** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
@@ -31,26 +32,13 @@ export function supplierTypeLabel(s: Supplier): string {
   return SUPPLIER_TYPE_LABEL[key] ?? SUPPLIER_TYPE_LABEL.none;
 }
 
-/** Hiển thị cấp xác minh: null/0 = "Not yet verified"; 1/2/3 = Verified level N. */
-export interface VerificationBadgeInfo {
-  text: string;
-  tone: "gray" | "slate" | "emerald";
-}
-export function verificationBadge(s: Pick<Supplier, "verification_level" | "verified_at" | "status">): VerificationBadgeInfo {
-  if (s.status !== "published" || !s.verification_level || s.verification_level < 1) {
-    return { text: "Under audit", tone: "gray" };
-  }
-  if (s.verification_level >= 3) return { text: "Delivery history reviewed", tone: "emerald" };
-  if (s.verification_level === 2) return { text: "Factory visited", tone: "emerald" };
-  return { text: "Documents checked", tone: "slate" };
-}
-
 export interface PublicSupplierCard extends Supplier {
   categories: Category[];
   primary_category: Category | null;
   main_products: SupplierProduct[];
   gallery_images: string[];      // storage_path các ảnh buyer-shareable
   latest_verification_summary: string | null;
+  approved_verification_steps: VerificationLevel[];
 }
 
 function buyerVisibleProduct(p: SupplierProduct, categories: Category[], demo = false): boolean {
@@ -102,29 +90,36 @@ export async function listPublicSuppliers(options?: {
     main_products: (bySupplier.get(s.id) ?? []).filter((p) => buyerVisibleProduct(p, categories, !!s.is_demo)).slice(0, 4),
     gallery_images: [] as string[],
     latest_verification_summary: null as string | null,
+    approved_verification_steps: [] as VerificationLevel[],
   }));
 
-  // Load media + verifications cho các NCC được hiển thị (giới hạn 50 NCC/lượt)
-  const take = baseCards.slice(0, 50);
-  await Promise.all(take.map(async (c) => {
-    try {
-      const [media, vers] = await Promise.all([
-        (store.listMedia("supplier", c.id) as Promise<Array<{ kind: string; audience: string; storage_path: string | null; sort_order: number; created_at: string }>>).catch(() => []),
-        (store.listVerifications(c.id) as Promise<Array<{ status: string; target_level: number; public_summary_i18n: Record<string,string>; approved_at: string | null }>>).catch(() => []),
-      ]);
-      c.gallery_images = media
-        .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path)
-        .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
-        .map((m) => m.storage_path!)
-        .slice(0, 6);
-      const approved = vers
-        .filter((v) => v.status === "approved")
-        .sort((a, b) => (b.target_level - a.target_level) || ((b.approved_at ?? "").localeCompare(a.approved_at ?? "")));
-      if (approved.length) {
-        c.latest_verification_summary = approved[0].public_summary_i18n?.en ?? null;
-      }
-    } catch { /* best effort */ }
-  }));
+  // Load approvals for EVERY public supplier; do not infer passed steps from
+  // verification_level (e.g. delivery may pass without a factory visit).
+  // Bound concurrency while keeping the earlier gallery-media limit.
+  for (let i = 0; i < baseCards.length; i += 40) {
+    await Promise.all(baseCards.slice(i, i + 40).map(async (c, offset) => {
+      try {
+        const [media, vers] = await Promise.all([
+          i + offset < 50 ? store.listMedia("supplier", c.id).catch(() => []) : Promise.resolve([] as MediaAsset[]),
+          (store.listVerifications(c.id) as Promise<Array<{ status: string; target_level: number; public_summary_i18n: Record<string,string>; approved_at: string | null }>>).catch(() => []),
+        ]);
+        c.gallery_images = media
+          .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path)
+          .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+          .map((m) => m.storage_path!)
+          .slice(0, 6);
+        c.approved_verification_steps = approvedVerificationSteps(vers);
+        // Explicitly marked demo records are fictitious previews, never real badges.
+        if (c.is_demo && !vers.length) c.approved_verification_steps = ([1, 2, 3] as const).filter((level) => level <= (c.verification_level ?? 0));
+        const approved = vers
+          .filter((v) => v.status === "approved")
+          .sort((a, b) => (b.target_level - a.target_level) || ((b.approved_at ?? "").localeCompare(a.approved_at ?? "")));
+        if (approved.length) {
+          c.latest_verification_summary = approved[0].public_summary_i18n?.en ?? null;
+        }
+      } catch { /* best effort */ }
+    }));
+  }
 
   let cards: PublicSupplierCard[] = baseCards;
 
@@ -138,10 +133,10 @@ export async function listPublicSuppliers(options?: {
         productBelongsToCategory(p, cat, categories)) })) : [];
   }
 
-  // Sắp xếp: verification_level desc → độ đầy đủ hồ sơ → tên.
+  // Sort by actual approved review count, not the legacy maximum level.
   cards.sort((a, b) => {
-    const av = a.verification_level ?? 0;
-    const bv = b.verification_level ?? 0;
+    const av = a.approved_verification_steps.length;
+    const bv = b.approved_verification_steps.length;
     if (bv !== av) return bv - av;
     const score = (s: Supplier) =>
       (s.products ? 1 : 0) + (s.province ? 1 : 0) + (s.moq_text ? 1 : 0) + (s.lead_time_days ? 1 : 0);
@@ -186,7 +181,8 @@ export async function getPublicSupplierBySlug(slug: string): Promise<PublicSuppl
     ...supplier,
     main_products: publicProducts,
     gallery_images: gallery,
-    latest_verification_summary: approved[0]?.public_summary_i18n?.en ?? supplier.latest_verification_summary ?? null,
+    approved_verification_steps: vers.length ? approvedVerificationSteps(vers) : supplier.approved_verification_steps,
+    latest_verification_summary: approved[0]?.public_summary_i18n?.en ?? null,
   };
 }
 

@@ -15,13 +15,13 @@ import {
 } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
+import { PublicVerificationBadges } from "@/components/public-verification-badges";
 import {
   getPublicSupplierBySlug,
   listPublicSuppliers,
   mainProductNames,
   supplierTypeLabel,
   t,
-  verificationBadge,
 } from "@/lib/public/catalog";
 import { SITE_URL } from "@/lib/site";
 import { getStore } from "@/lib/db";
@@ -40,11 +40,11 @@ export async function generateMetadata({ params }: PageProps) {
   if (!s) return { title: "Supplier not found | Veximtrade", robots: { index: false } };
   const name = s.display_name ?? s.name;
   const mainCat = withoutDirectContacts(mainProductNames(s.main_products, 2) || "food products");
-  const level = s.verification_level ?? 0;
-  const review = level >= 2 ? "Factory visit reviewed by Vexim" : level >= 1 ? "Supplier documents reviewed by Vexim" : "Supplier profile on Vexim";
+  const steps = s.approved_verification_steps;
+  const review = steps.length ? [steps.includes(1) && "Supplier documents reviewed", steps.includes(2) && "Factory visit reviewed", steps.includes(3) && "Delivery history reviewed"].filter(Boolean).join("; ") + " by Vexim" : "Supplier profile on Vexim";
   return {
-    title: `${name} – ${level >= 1 ? "Verified " : ""}${mainCat} ${supplierTypeLabel(s)} in ${s.province ?? "Vietnam"} | Veximtrade`,
-    description: `${review}${s.verified_at && level >= 1 ? ` on ${s.verified_at.slice(0, 10)}` : ""}. ${mainCat}, MOQ ${s.moq_text ?? "contact"}. Request a quote.`,
+    title: `${name} – ${steps.length ? "Reviewed " : ""}${mainCat} ${supplierTypeLabel(s)} in ${s.province ?? "Vietnam"} | Veximtrade`,
+    description: `${review}. ${mainCat}, MOQ ${s.moq_text ?? "contact"}. Request a quote.`,
   };
 }
 
@@ -53,20 +53,16 @@ export default async function SupplierProfile({ params }: PageProps) {
   const s = await getPublicSupplierBySlug(slug);
   if (!s) notFound();
 
-  const badge = verificationBadge(s);
   const categories = (await getStore().listCategories({ publishedOnly: true }))
     .filter((c) => c.status === "published" && c.is_published);
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
   const name = withoutDirectContacts(s.display_name ?? s.name);
-  const verifiedDate = s.verified_at
-    ? new Date(s.verified_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
-    : null;
   const coverUrl = s.cover_image ? `/public-media/${s.cover_image.replace(/^\//, "")}` : null;
   const profileUrl = s.profile_image ? `/public-media/${s.profile_image.replace(/^\//, "")}` : null;
   const publicMedia = (p: string) => `/public-media/${p.replace(/^\//, "")}`;
 
-  // Related suppliers — cùng ngành hàng + cấp xác minh cao
+  // Related public suppliers; approved reviews are displayed independently.
   const related = (await listPublicSuppliers())
     .filter((x) => x.id !== s.id)
     .slice(0, 4);
@@ -129,16 +125,7 @@ export default async function SupplierProfile({ params }: PageProps) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={
-              badge.tone === "emerald"
-                ? "inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[12px] font-semibold text-emerald-800 ring-1 ring-emerald-200"
-                : "inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[12px] font-semibold text-slate-700 ring-1 ring-slate-200"
-            }
-          >
-            {badge.tone === "emerald" ? <ShieldCheck className="h-3 w-3" /> : <HelpCircle className="h-3 w-3" />}
-            {badge.text}
-          </span>
+          <PublicVerificationBadges levels={s.approved_verification_steps} />
           <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11.5px] font-semibold text-ink-700">
             {supplierTypeLabel(s)}
           </span>
@@ -174,11 +161,6 @@ export default async function SupplierProfile({ params }: PageProps) {
             </span>
           )}
         </div>
-            {verifiedDate && (
-              <p className="mt-3 text-[13px] text-emerald-800">
-                Last verified on site: <strong>{verifiedDate}</strong>.
-              </p>
-            )}
             <p className="mt-4 max-w-3xl text-[16px] leading-relaxed text-ink-700">
               {withoutDirectContacts(t(s.summary_i18n) || mainProductNames(s.main_products))}
             </p>
@@ -244,58 +226,22 @@ export default async function SupplierProfile({ params }: PageProps) {
               Verification
             </h2>
 
-            {(() => {
-              const lvl = s.verification_level ?? 0;
-              const items: { label: string; checked: boolean }[] = [
-                { label: "Business registration on file", checked: lvl >= 1 },
-                { label: "Factory address verified on site (GPS)", checked: lvl >= 2 },
-                { label: "Documents and certificates reviewed", checked: lvl >= 1 },
-                { label: "Production capacity cross-checked on site", checked: lvl >= 2 },
-                { label: "Completed shipment evidence reviewed", checked: lvl >= 3 },
-              ];
-              return (
-                <>
-                  <p className="mt-4 text-[14px] leading-relaxed text-ink-700">
-                    {lvl === 0 ? (
-                      <>
-                        This profile is awaiting verification. Details below are provided by the supplier;
-                        request a quote to discuss available documentation and an introduction.
-                      </>
-                    ) : lvl === 1 ? (
-                      <>
-                        This supplier has passed Vexim&apos;s <strong>document review</strong>.
-                        Business registration and relevant certificates were reviewed by our team.
-                        An on-site factory visit may still be pending.
-                      </>
-                    ) : lvl === 2 ? (
-                      <>
-                        This supplier has passed <strong>document review</strong> and an{" "}
-                        <strong>on-site factory visit</strong>. Our team recorded the location,
-                        inspected the production facilities and reviewed the supporting evidence.
-                      </>
-                    ) : (
-                      <>
-                        This supplier has passed <strong>document review</strong>, an{" "}
-                        <strong>on-site factory visit</strong>, and a <strong>delivery history review</strong>
-                        based on shipment and delivery records checked by Vexim.
-                      </>
-                    )}
-                  </p>
-                  <ul className="mt-5 grid gap-2 text-[14px] text-ink-700 sm:grid-cols-2">
-                    {items.map((it) => (
-                      <li key={it.label} className="flex items-start gap-2">
-                        {it.checked ? (
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" />
-                        ) : (
-                          <HelpCircle className="mt-0.5 h-4 w-4 text-ink-400" />
-                        )}
-                        {it.label}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              );
-            })()}
+            <p className="mt-4 text-[14px] leading-relaxed text-ink-700">
+              These checks are independent. Only approved checks earn badges; a check not yet reviewed is not a failed review.
+            </p>
+            <ul className="mt-5 grid gap-2 text-[14px] text-ink-700 sm:grid-cols-2">
+              {([
+                { level: 1, label: "Supplier documents reviewed" },
+                { level: 2, label: "Factory visit reviewed" },
+                { level: 3, label: "Delivery documents reviewed" },
+              ] as const).map((item) => {
+                const checked = s.approved_verification_steps.includes(item.level);
+                return <li key={item.level} className="flex items-start gap-2">
+                  {checked ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-700" /> : <HelpCircle className="mt-0.5 h-4 w-4 text-ink-400" />}
+                  {item.label} {checked ? "" : "(not reviewed)"}
+                </li>;
+              })}
+            </ul>
           </section>
 
           <section className="mt-10">
@@ -393,7 +339,6 @@ export default async function SupplierProfile({ params }: PageProps) {
         ) : (
           <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {related.map((r) => {
-              const rb = verificationBadge(r);
               const rProfile = r.profile_image ? `/public-media/${r.profile_image.replace(/^\//,"")}` : null;
               return (
                 <li key={r.id}>
@@ -407,10 +352,7 @@ export default async function SupplierProfile({ params }: PageProps) {
                       )}
                     </div>
                     <div className="p-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className={"inline-flex h-2 w-2 rounded-full " + (rb.tone === "emerald" ? "bg-emerald-500" : "bg-slate-400")} />
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">{rb.text}</span>
-                      </div>
+                      <PublicVerificationBadges levels={r.approved_verification_steps} compact />
                       <p className="mt-1 truncate text-[13.5px] font-bold text-ink-900">{r.display_name ?? r.name}</p>
                       <p className="mt-0.5 truncate text-[12px] text-ink-500">{r.province ?? "Vietnam"} · {supplierTypeLabel(r)}</p>
                     </div>

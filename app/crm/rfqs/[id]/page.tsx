@@ -47,6 +47,7 @@ import { uploadRfqAttachmentAction } from "./upload-action";
 import { addRfqNoteAction } from "./note-action";
 import type { RfqStatus } from "@/lib/types";
 import { SITE_URL } from "@/lib/site";
+import { approvedVerificationSteps, VERIFICATION_LABELS } from "@/lib/verification-status";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +105,14 @@ export default async function RfqDetailPage({
     store.listMessagesForRfq(rfq.id).catch(() => []),
   ]);
 
+  const reviewedSteps = new Map<string, Array<1 | 2 | 3>>();
+  const relevant = suppliers.filter((s) => s.status === "published" || matches.some((m) => m.supplier_id === s.id));
+  for (let i = 0; i < relevant.length; i += 40) {
+    await Promise.all(relevant.slice(i, i + 40).map(async (s) => {
+      const reviews = await store.listVerifications(s.id).catch(() => []);
+      reviewedSteps.set(s.id, approvedVerificationSteps(reviews));
+    }));
+  }
   const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
   const productsBySupplier = new Map<string, (typeof products)[number][]>();
   for (const p of products) {
@@ -112,7 +121,7 @@ export default async function RfqDetailPage({
     productsBySupplier.set(p.supplier_id, list);
   }
   const matchSupplierIds = new Set(matches.map((m) => m.supplier_id));
-  // Chấm điểm NCC ứng viên: +3 nếu có SP trùng category/sản phẩm, +2 nếu verification_level≥1, +1 nếu lead_time+MOQ có.
+  // Chấm điểm theo các lần kiểm đã duyệt thực tế, không suy ra giấy tờ/nhà máy từ mức tối đa.
   const qText = (rfq.product_text + " " + (category?.name_i18n?.en ?? "")).toLowerCase();
   const candidates = suppliers
     .filter((s) => s.status === "published" && !matchSupplierIds.has(s.id))
@@ -122,13 +131,12 @@ export default async function RfqDetailPage({
       const prodText = prods.map((p) => (p.name + " " + (p.category ?? "") + " " + (p.spec ?? ""))).join(" ").toLowerCase();
       if (prods.some((p) => qText.split(/\s+/).some((w) => w.length >= 3 && (p.name.toLowerCase().includes(w) || (p.category ?? "").toLowerCase().includes(w))))) score += 3;
       else if (prodText && qText.split(/\s+/).some((w) => w.length >= 4 && prodText.includes(w))) score += 1;
-      if ((s.verification_level ?? 0) >= 1) score += 2;
-      if ((s.verification_level ?? 0) >= 2) score += 1;
+      score += (reviewedSteps.get(s.id)?.length ?? 0) * 1.5;
       if (s.lead_time_days && s.moq_text) score += 1;
       return { s, score };
     })
     .filter((x) => x.score > 0 || suppliers.length <= 30) // Không kết quả khớp thì vẫn hiện
-    .sort((a, b) => b.score - a.score || ((b.s.verification_level ?? 0) - (a.s.verification_level ?? 0)))
+    .sort((a, b) => b.score - a.score || ((reviewedSteps.get(b.s.id)?.length ?? 0) - (reviewedSteps.get(a.s.id)?.length ?? 0)))
     .slice(0, 50)
     .map((x) => x.s);
 
@@ -311,7 +319,7 @@ export default async function RfqDetailPage({
                   const canFollowUp = m.status === "no_response" || (!!m.sent_to_supplier_at && ["proposed", "sent_to_supplier"].includes(m.status));
                   const canSelect = m.status === "quoted" || m.status === "presented_to_buyer";
                   const thread = messagesByMatch.get(m.id) ?? [];
-                  const lvl = sup?.verification_level ?? 0;
+                  const passed = reviewedSteps.get(m.supplier_id) ?? [];
                   return (
                     <div key={m.id} className="py-3">
                       <div className="flex flex-wrap items-center gap-2">
@@ -331,11 +339,7 @@ export default async function RfqDetailPage({
                         ) : (
                           <span className="text-[11.5px] text-red-600">chưa có email</span>
                         )}
-                        {lvl >= 1 && (
-                          <Badge color={lvl >= 2 ? "#059669" : "#0369a1"} className="text-[10.5px]">
-                            L{lvl}
-                          </Badge>
-                        )}
+                        {passed.map((step) => <Badge key={step} color="#059669" className="text-[10.5px]">{VERIFICATION_LABELS[step]}</Badge>)}
                         <Badge className="inline-flex items-center gap-1">
                           <span className={"h-1.5 w-1.5 rounded-full " + ms.dot} />
                           {ms.label}

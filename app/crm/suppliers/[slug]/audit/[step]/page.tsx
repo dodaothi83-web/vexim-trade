@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, CheckCircle2, LockKeyhole } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
@@ -23,11 +23,9 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
   const store = getStore();
   const [supplier, all] = await Promise.all([store.getSupplier(supplierId), store.listVerifications(supplierId)]);
   if (!supplier) notFound();
-  const approvedLevel = Math.max(0, ...all.filter((v) => v.status === "approved").map((v) => v.target_level));
-  const unlocked = step.level === 1 || approvedLevel >= step.level - 1;
   const forStep = [...all].filter((v) => v.target_level === step.level).sort((a, b) => b.created_at.localeCompare(a.created_at));
   const current = forStep.find((v) => v.status === "approved") ?? forStep[0];
-  const media = current && unlocked ? await store.listMedia("verification", current.id) : [];
+  const media = current ? await store.listMedia("verification", current.id) : [];
   const canApprove = hasPermission(session.role, "verifications.approve");
   const requireSecondReviewer = requireSecondVerificationReviewer();
 
@@ -42,14 +40,12 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
       <nav aria-label="Các bước kiểm toán" className="grid gap-2 sm:grid-cols-3">
         {AUDIT_STEPS.map((item, i) => {
           const done = all.some((v) => v.target_level === item.level && v.status === "approved");
-          const available = item.level === 1 || approvedLevel >= item.level - 1;
-          const className = "flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold " + (item.path === path ? "border-brand-500 bg-brand-50 text-brand-800" : available ? "border-ink-200 bg-white text-ink-700 hover:border-brand-300" : "border-ink-100 bg-ink-50 text-ink-400");
-          const content = <><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs ring-1 ring-ink-200">{done ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : i + 1}</span>{item.title}{!available && <LockKeyhole className="ml-auto h-4 w-4" />}</>;
-          return available ? <Link key={item.path} href={auditHref(supplierId, item.level)} className={className} aria-current={item.path === path ? "step" : undefined}>{content}</Link> : <span key={item.path} className={className}>{content}</span>;
+          const className = "flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold " + (item.path === path ? "border-brand-500 bg-brand-50 text-brand-800" : "border-ink-200 bg-white text-ink-700 hover:border-brand-300");
+          const content = <><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs ring-1 ring-ink-200">{done ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : i + 1}</span>{item.title}</>;
+          return <Link key={item.path} href={auditHref(supplierId, item.level)} className={className} aria-current={item.path === path ? "step" : undefined}>{content}</Link>;
         })}
       </nav>
-      {!unlocked ? <Card className="p-6"><h2 className="font-bold text-ink-900">Bước này chưa mở</h2><p className="mt-2 text-sm text-ink-600">Cần duyệt {AUDIT_STEPS[step.level - 2].title.toLowerCase()} trước.</p></Card>
-        : !current ? <Card className="flex flex-wrap items-center justify-between gap-4 p-6"><div><h2 className="font-bold text-ink-900">Chưa bắt đầu {step.title.toLowerCase()}</h2><p className="text-sm text-ink-500">Tạo đợt kiểm để ghi kết quả và thêm bằng chứng riêng cho bước này.</p></div>{approvedLevel < step.level && <StartVerificationButton supplierId={supplierId} level={step.level as VerificationLevel} />}</Card>
+      {!current ? <Card className="flex flex-wrap items-center justify-between gap-4 p-6"><div><h2 className="font-bold text-ink-900">Chưa bắt đầu {step.title.toLowerCase()}</h2><p className="text-sm text-ink-500">Tạo đợt kiểm để ghi kết quả và thêm bằng chứng riêng cho bước này.</p></div><StartVerificationButton supplierId={supplierId} level={step.level as VerificationLevel} /></Card>
         : <>
           <Card className="flex flex-wrap items-center gap-3 p-4">
             <Badge className={current.status === "approved" ? "bg-emerald-50 text-emerald-700" : current.status === "submitted" ? "bg-amber-50 text-amber-700" : current.status === "returned" ? "bg-rose-50 text-rose-700" : "bg-sky-50 text-sky-700"}>
@@ -60,7 +56,6 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
           <div className="max-w-5xl">
             <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} currentUserId={session.uid} requireSecondReviewer={requireSecondReviewer} />
           </div>
-          {current.status === "approved" && step.level < 3 && <Link href={auditHref(supplierId, step.level + 1)} className="btn btn-primary w-fit">Tiếp tục: {AUDIT_STEPS.find((s) => s.level === step.level + 1)?.title} <ArrowRight className="h-4 w-4" /></Link>}
         </>}
     </div>
   </>;

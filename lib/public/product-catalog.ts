@@ -2,9 +2,9 @@ import "server-only";
 
 import { getStore } from "@/lib/db";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
-import { listPublicSuppliers, verificationBadge } from "@/lib/public/catalog";
+import { listPublicSuppliers } from "@/lib/public/catalog";
 import { isTestOnlyProduct, productBelongsToCategory, productGrade, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
-import type { Category, MediaAsset, SupplierProduct } from "@/lib/types";
+import type { Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
 export interface PublicCategoryProduct {
@@ -14,8 +14,8 @@ export interface PublicCategoryProduct {
   moq: string;
   price: string | null;
   province: string;
-  verificationLevel: number;
-  verificationLabel: string;
+  verificationCount: number;
+  verificationSteps: VerificationLevel[];
   supplierName: string;
   supplierId: string;
   supplierSlug: string | null;
@@ -63,10 +63,10 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
         id: p.id, name: withoutDirectContacts(p.name_i18n?.en || p.name), grade: productGrade(p.name, p.spec, category.slug),
         moq: p.moq || s.moq_text || "On request",
         price: publicProductPrice(p, s), province: s.province || "Vietnam",
-        verificationLevel: s.verification_level ?? 0, verificationLabel: verificationBadge(s).text,
+        verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
         supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
         supplierId: s.id, supplierSlug: s.slug || null, leadTimeDays: p.lead_time_days ?? null,
         isDemo: !!s.is_demo, imagePaths: images,
       };
-    }).sort((a, b) => b.verificationLevel - a.verificationLevel || a.name.localeCompare(b.name));
+    }).sort((a, b) => b.verificationCount - a.verificationCount || a.name.localeCompare(b.name));
 }
