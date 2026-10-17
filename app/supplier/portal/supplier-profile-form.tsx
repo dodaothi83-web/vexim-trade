@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { Supplier } from "@/lib/types";
+import type { Supplier, SupplierType } from "@/lib/types";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { SUPPLIER_TYPES } from "@/lib/supplier";
 import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
@@ -14,6 +14,9 @@ const FILE_LABELS: Record<typeof INITIAL_DOCUMENT_KEYS[number], string> = {
 };
 
 export function SupplierProfileFields({ supplier, email, categories }: { supplier?: Supplier; email: string; categories: CategoryProposalOption[] }) {
+  const [supplierType, setSupplierType] = useState<SupplierType | "">(supplier?.supplier_type ?? "");
+  const [visitRequested, setVisitRequested] = useState(false);
+  const visitLocked = supplierType === "trading";
   return <>
     <section><h2 className="text-xl font-black text-ink-900">1. Thông tin nhà cung cấp</h2>
       <p className="mt-1 text-sm text-ink-600">Email đăng nhập: {email}. Chọn loại hình để Vexim hiểu đúng doanh nghiệp của bạn; đây không phải quyền truy cập CRM.</p>
@@ -21,7 +24,11 @@ export function SupplierProfileFields({ supplier, email, categories }: { supplie
         <Field label="Tên pháp lý doanh nghiệp *" name="name" required maxLength={180} defaultValue={supplier?.onboarding_status === "changes_requested" ? supplier?.name : ""} />
         <Field label="Tên thương mại (nếu có)" name="trade_name" maxLength={180} defaultValue={supplier?.trade_name ?? ""} />
         <label className="block text-sm"><span className="mb-1 block font-semibold">Loại hình nhà cung cấp *</span>
-          <select name="supplier_type" className="input" required defaultValue={supplier?.supplier_type ?? ""}>
+          <select name="supplier_type" className="input" required value={supplierType} onChange={(event) => {
+            const next = event.target.value as SupplierType | "";
+            setSupplierType(next);
+            if (next === "trading") setVisitRequested(false);
+          }}>
             <option value="" disabled>Chọn nhà máy / thương nhân / hợp tác xã</option>
             {SUPPLIER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
           </select>
@@ -66,10 +73,17 @@ export function SupplierProfileFields({ supplier, email, categories }: { supplie
           <input type="file" name={`doc:${key}`} accept=".pdf,image/jpeg,image/png,image/webp" className="input" /></label>)}</div>
     </section>
     <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">5. Muốn Vexim xác minh thêm?</h2>
-      <p className="mt-1 text-sm text-ink-600">Chọn yêu cầu chỉ để Vexim liên hệ. Mỗi đánh giá được duyệt riêng; không bắt buộc thăm nhà máy đối với thương nhân.</p>
-      <div className="mt-4 space-y-3">{([2, 3] as const).map((level) =>
-        <label key={level} className="flex gap-3 rounded-xl border border-ink-200 p-4"><input type="checkbox" name={`request:${level}`} value="yes" className="mt-1 h-4 w-4 accent-brand-700" />
-          <span><strong className="block">{level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"}</strong><small className="text-ink-600">Vexim sẽ liên hệ để kiểm tra và tải bằng chứng theo đúng đợt, không tự duyệt.</small></span></label>)}</div>
+      <p className="mt-1 text-sm text-ink-600">Chọn yêu cầu chỉ để Vexim liên hệ. Mỗi đánh giá được duyệt riêng; thương nhân vẫn có thể yêu cầu kiểm tra lịch sử giao hàng.</p>
+      <div className="mt-4 space-y-3">
+        <label className={`flex gap-3 rounded-xl border p-4 ${visitLocked ? "cursor-not-allowed border-ink-200 bg-ink-50 text-ink-400" : "border-ink-200"}`}>
+          <input type="checkbox" name="request:2" value="yes" checked={visitRequested} onChange={(event) => setVisitRequested(event.target.checked)} disabled={visitLocked} className="mt-1 h-4 w-4 accent-brand-700" />
+          <span><strong className="block">Thăm nhà máy</strong><small className={visitLocked ? "text-ink-500" : "text-ink-600"}>{visitLocked ? "Không áp dụng cho thương nhân trên form đăng ký. Vexim có thể xem xét riêng nếu cần." : "Vexim sẽ liên hệ để kiểm tra và tải bằng chứng theo đúng đợt, không tự duyệt."}</small></span>
+        </label>
+        <label className="flex gap-3 rounded-xl border border-ink-200 p-4">
+          <input type="checkbox" name="request:3" value="yes" className="mt-1 h-4 w-4 accent-brand-700" />
+          <span><strong className="block">Lịch sử giao hàng</strong><small className="text-ink-600">Vexim sẽ liên hệ để kiểm tra và tải bằng chứng theo đúng đợt, không tự duyệt.</small></span>
+        </label>
+      </div>
     </section>
     <label className="flex items-start gap-2 text-sm text-ink-700"><input type="checkbox" name="consent" value="yes" required className="mt-1 h-4 w-4 accent-brand-700" /><span>Tôi đồng ý gửi thông tin và tài liệu cho Vexim kiểm tra nội bộ; tài khoản chưa hoạt động cho đến khi Vexim xác nhận.</span></label>
   </>;

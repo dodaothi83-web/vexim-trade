@@ -93,7 +93,7 @@ const mocks = {
   '@/lib/supplier-portal/profile-input': profileInput,
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/supplier-portal/profile-evidence': profileEvidence,
-  '@/lib/supplier-portal/notify': { notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 2); return 'sent'; } },
+  '@/lib/supplier-portal/notify': { notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 1); return 'sent'; } },
   '@/lib/types': { L1_DOC_ITEMS: [{ key: 'business_license' }, { key: 'tax_certificate' }, { key: 'bank_letter' }] },
   '@/lib/site': { SITE_URL: 'https://example.com' },
 };
@@ -102,7 +102,7 @@ const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
 const file = new File(['%PDF-1.7 TEST DOCUMENT'], 'license.pdf', { type: 'application/pdf' });
 function form(email = 'owner@example.com') {
   const fd = new FormData();
-  for (const [key, val] of Object.entries({ name: 'Example Trading Co', contact_name: 'Mr A', email, password: 'password123', phone: '0987654321', products: 'Cashew', supplier_type: 'trading', summary_en: 'Cashew processing and export', website: 'https://example.com', founded_year: '2012', employees: '42', capacity_per_month: '200 MT', ports: 'Hai Phong, Da Nang', consent: 'yes', tax_number: '0012345', bank_account_number: '000123', 'request:2': 'yes', 'request:3': 'yes' })) fd.set(key, val);
+  for (const [key, val] of Object.entries({ name: 'Example Trading Co', contact_name: 'Mr A', email, password: 'password123', phone: '0987654321', products: 'Cashew', supplier_type: 'trading', summary_en: 'Cashew processing and export', website: 'https://example.com', founded_year: '2012', employees: '42', capacity_per_month: '200 MT', ports: 'Hai Phong, Da Nang', consent: 'yes', tax_number: '0012345', bank_account_number: '000123', 'request:3': 'yes' })) fd.set(key, val);
   fd.append('requested_category_slugs', 'cashew');
   fd.set('doc:business_license', file);
   fd.set('status', 'published'); fd.set('verification_level', '3');
@@ -116,6 +116,16 @@ state.schemaMissing = true;
 assert.equal((await post(form())).status, 503);
 assert.equal(state.authCalls, 0, 'Missing migration must not create an Auth account');
 state.schemaMissing = false;
+const forgedVisit = form(); forgedVisit.set('request:2', 'yes');
+assert.equal((await post(forgedVisit)).status, 400, 'Trader cannot request a factory visit even by forging FormData');
+assert.equal(state.requests.length, 0);
+assert.equal(state.authCalls, 0, 'Reject before creating the account');
+const factoryForm = form(); factoryForm.set('supplier_type', 'manufacturer'); factoryForm.set('request:2', 'yes');
+assert.equal(JSON.stringify(profileInput.parseSupplierProfile(factoryForm).requested), JSON.stringify([2, 3]),
+  'Factory may request both follow-ups');
+const cooperativeForm = form(); cooperativeForm.set('supplier_type', 'cooperative'); cooperativeForm.set('request:2', 'yes');
+assert.equal(JSON.stringify(profileInput.parseSupplierProfile(cooperativeForm).requested), JSON.stringify([2, 3]),
+  'Cooperative request flow is unchanged');
 const forgedCategory = form(); forgedCategory.set('requested_category_slugs', 'secret');
 assert.equal((await post(forgedCategory)).status, 400, 'Draft or forged catalogue entries rejected before Auth signup');
 const tooMany = form(); for (let i = 0; i < 5; i++) tooMany.append('requested_category_slugs', 'rice');
@@ -142,7 +152,8 @@ assert.equal(JSON.stringify(state.suppliers[0].ports), JSON.stringify(['Hai Phon
 assert.equal(state.reviews.length, 1);
 assert.equal(state.reviews[0].status, 'in_progress');
 assert.equal(state.reviews[0].checklist.business_license, null, 'Document upload never passes review');
-assert.equal(state.requests.length, 2);
+assert.equal(state.requests.length, 1);
+assert.equal(state.requests[0].target_level, 3, 'Trader may still request delivery-history follow-up');
 assert.equal(state.media[0].audience, 'internal');
 assert.equal(state.notify, 1, 'Staff notified immediately after initial page form');
 assert.equal(onboarding.portalApproved(state.suppliers[0]), false);
@@ -165,6 +176,10 @@ async function submitProfile(fd) {
 }
 assert.equal((await submitProfile(form())).status, 409, 'Pending profile cannot be resubmitted');
 state.suppliers[0].onboarding_status = 'changes_requested';
+const forgedCorrectionVisit = form(); forgedCorrectionVisit.set('request:2', 'yes');
+assert.equal((await submitProfile(forgedCorrectionVisit)).status, 400,
+  'Correction form also rejects trader factory-visit requests');
+assert.equal(state.requests.length, 1, 'Forbidden correction creates no request');
 const forged = form(); forged.set('supplier_type', 'invalid');
 assert.equal((await submitProfile(forged)).status, 400);
 state.users[1].supplier_id = 's2';
@@ -176,7 +191,7 @@ assert.equal(state.suppliers[0].requested_category_other, 'Macca tách vỏ');
 assert.equal(state.suppliers[0].requested_category_slugs.length, 0);
 assert.equal(state.suppliers[0].onboarding_status, 'pending');
 assert.equal(state.reviews.length, 1, 'Resubmission reuses open document review');
-assert.equal(state.requests.length, 2, 'Resubmission does not duplicate requests');
+assert.equal(state.requests.length, 1, 'Resubmission does not duplicate requests');
 assert.equal((await post(form())).status, 409, 'Cannot claim an existing account');
 assert.equal(state.authCalls, 2);
 store.mode = 'local';
