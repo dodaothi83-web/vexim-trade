@@ -5,7 +5,6 @@ import {
   FileCheck2,
   MapPin,
   Paperclip,
-  Plus,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
@@ -14,9 +13,9 @@ import type { AppUser, MediaAsset, Verification } from "@/lib/types";
 import { L1_DOC_ITEMS, L2_VISIT_ITEMS } from "@/lib/types";
 import { Badge, Card, EmptyState, formatDate } from "@/components/ui";
 import { MediaManager } from "@/components/media-manager";
+import { StartVerificationButton } from "./start-verification-button";
 import {
   approveVerificationAction,
-  startVerificationAction,
   updateVerificationChecklistAction,
 } from "./verification-actions";
 
@@ -44,8 +43,10 @@ export function VerificationPanel({
 }: Props) {
   const sorted = [...verifications].sort((a, b) => b.created_at.localeCompare(a.created_at));
   const levelNames: Record<number, string> = {
-    0: "Chưa xác minh", 1: "L1 — Đã kiểm giấy tờ", 2: "L2 — Đã thăm nhà máy", 3: "L3 — Đã có đơn xuất thành công",
+    0: "Chưa xác minh", 1: "L1 — Giấy tờ đã duyệt", 2: "L2 — Nhà máy đã kiểm tra", 3: "L3 — Đã có giao dịch được đối chiếu",
   };
+  const nextLevel: 1 | 2 = currentLevel < 1 ? 1 : 2;
+  const hasOpenReview = sorted.some((v) => v.target_level === nextLevel && v.status !== "approved");
 
   return (
     <Card>
@@ -54,28 +55,20 @@ export function VerificationPanel({
           <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink-900">
             <ShieldCheck className="h-4 w-4 text-emerald-700" /> Xác minh nhà cung cấp
           </h2>
-          <p className="mt-0.5 text-xs text-ink-500">
-            Cấp hiện tại:{" "}
-            <Badge className="inline-flex bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+          <p className="mt-1 text-xs text-ink-500">
+            Cấp đã được duyệt:{" "}
+            <Badge className={currentLevel === 0 ? "inline-flex bg-slate-100 text-slate-700 ring-1 ring-slate-200" : "inline-flex bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"}>
               {levelNames[currentLevel] ?? `L${currentLevel}`}
             </Badge>
-            {" · "}L1 = giấy tờ, L2 = thăm nhà máy, L3 = đã giao đơn thành công.
+          </p>
+          <p className="mt-2 max-w-xl text-xs leading-relaxed text-ink-600">
+            <strong>L1:</strong> kiểm 7 mục giấy tờ → duyệt. <strong>L2:</strong> thăm nhà máy,
+            kiểm 9 mục và ghi nhận ảnh/GPS → duyệt. Người kiểm và người duyệt phải khác nhau.
+            <strong> L3:</strong> cấp dự kiến khi có bằng chứng giao hàng thực tế; hiện chưa có quy trình cấp L3 trong CRM.
           </p>
         </div>
-        {canInspect && currentLevel < 2 && (
-          <form action={startVerificationAction} className="flex gap-2">
-            <input type="hidden" name="supplierId" value={supplierId} />
-            {currentLevel < 1 && (
-              <button name="targetLevel" value="1" className="btn btn-primary btn-sm">
-                <Plus className="h-3.5 w-3.5" /> Bắt đầu L1
-              </button>
-            )}
-            {currentLevel >= 1 && (
-              <button name="targetLevel" value="2" className="btn btn-primary btn-sm">
-                <Plus className="h-3.5 w-3.5" /> Lên lịch L2
-              </button>
-            )}
-          </form>
+        {canInspect && currentLevel < 2 && !hasOpenReview && (
+          <StartVerificationButton supplierId={supplierId} level={nextLevel} />
         )}
       </div>
 
@@ -83,7 +76,7 @@ export function VerificationPanel({
         <EmptyState
           icon={<FileCheck2 className="h-5 w-5" />}
           title="Chưa có đợt xác minh"
-          sub={canInspect ? "Bắt đầu L1 (kiểm giấy tờ doanh nghiệp) trước — các tệp giấy tờ tải lên ở Media được dùng để kiểm." : "Bạn không có quyền tạo đợt xác minh."}
+          sub={canInspect ? "Nhấn “Bắt đầu kiểm giấy tờ” để tạo bảng kiểm L1 ngay trên trang này (không mở trang mới). Tải bằng chứng vào mục tệp của đợt kiểm; chỉ sau khi được duyệt mới có cấp L1." : "Bạn không có quyền tạo đợt xác minh."}
         />
       ) : (
         <ul className="divide-y divide-ink-100">
@@ -231,7 +224,7 @@ function VerificationItem({
               <input type="text" name="return_reason" defaultValue={v.return_reason ?? ""} className="input flex-1 py-1.5 text-[12.5px]" placeholder="Lý do trả hồ sơ…" />
             )}
             <button type="submit" className="btn btn-primary btn-sm ml-auto">Lưu</button>
-            {canApprove && v.status === "submitted" && (
+            {canApprove && v.status === "submitted" && !isMine && (
               <button
                 formAction={approveVerificationAction}
                 type="submit"
@@ -241,6 +234,9 @@ function VerificationItem({
               </button>
             )}
           </div>
+          {canApprove && v.status === "submitted" && isMine && (
+            <p className="text-[11.5px] text-amber-700">Bạn là người kiểm hồ sơ này. Cần quản trị viên khác duyệt (nguyên tắc hai người).</p>
+          )}
           <p className="text-[11.5px] text-ink-400">
             Tệp giấy tờ / ảnh thăm nhà máy tải lên từ phần bên dưới sẽ được gắn với riêng đợt xác minh này (không hiện trong gallery công khai).
           </p>

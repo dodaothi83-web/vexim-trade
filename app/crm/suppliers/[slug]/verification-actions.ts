@@ -13,49 +13,6 @@ import {
   type VerificationStatus,
 } from "@/lib/types";
 
-/** Tạo mới một đợt xác minh L1 hoặc L2 cho NCC. */
-export async function startVerificationAction(fd: FormData) {
-  const g = await guard("verifications.inspect");
-  if (g) throw new Error(g.message);
-  const session = await getSession();
-  const supplierId = String(fd.get("supplierId") || "").trim();
-  const targetLevel = Number(fd.get("targetLevel") || 1) as VerificationLevel;
-  if (!supplierId) throw new Error("Thiếu nhà cung cấp.");
-  if (targetLevel !== 1 && targetLevel !== 2) throw new Error("Cấp xác minh không hợp lệ.");
-  const store = getStore();
-  const sup = await store.getSupplier(supplierId);
-  if (!sup) throw new Error("Nhà cung cấp không tồn tại.");
-
-  // Checklist khởi tạo: tất cả null = chưa kiểm.
-  const items = targetLevel === 1 ? L1_DOC_ITEMS : L2_VISIT_ITEMS;
-  const checklist: Record<string, boolean | null> = {};
-  const notes: Record<string, string | null> = {};
-  for (const it of items) { checklist[it.key] = null; notes[it.key] = null; }
-
-  const v = await store.createVerification({
-    supplier_id: supplierId,
-    target_level: targetLevel,
-    status: "scheduled",
-    inspector_id: session?.uid ?? null,
-    checklist,
-    checklist_notes: notes,
-    public_summary_i18n: { en: "" },
-  });
-  try {
-    await store.addAuditLog({
-      actor_id: session?.uid ?? null,
-      actor_email: session?.email ?? null,
-      entity: "supplier",
-      entity_id: supplierId,
-      action: `verification.start.l${targetLevel}`,
-      before: { verification_level: sup.verification_level ?? 0 },
-      after: { verification_id: v.id, target_level: targetLevel },
-    });
-  } catch { /* best effort */ }
-  revalidatePath(`/crm/suppliers/${supplierId}`);
-  revalidatePath(`/crm/suppliers/${supplierId}`);
-}
-
 /** Cập nhật checklist + thông tin thăm nhà máy (GPS/ngày/địa chỉ/ghi chú). */
 export async function updateVerificationChecklistAction(fd: FormData) {
   const g = await guard("verifications.inspect");
@@ -116,7 +73,7 @@ export async function updateVerificationChecklistAction(fd: FormData) {
     });
   } catch { /* */ }
   revalidatePath(`/crm/suppliers/${before.supplier_id}`);
-  revalidatePath(`/crm/suppliers/${before.supplier_id}`);
+  revalidatePath("/crm/verifications");
 }
 
 /** Admin duyệt một đợt xác minh đã submitted (chỉ verifications.approve). */
@@ -129,6 +86,11 @@ export async function approveVerificationAction(fd: FormData) {
   const store = getStore();
   const before = await store.getVerification(id);
   if (!before) throw new Error("Không tìm thấy.");
+  if (before.status !== "submitted") throw new Error("Chỉ duyệt đợt kiểm đã nộp duyệt.");
+  if (before.target_level !== 1 && before.target_level !== 2) throw new Error("L3 chưa có quy trình duyệt trong CRM.");
+  if (before.inspector_id && before.inspector_id === session?.uid) {
+    throw new Error("Người kiểm không được tự duyệt. Hãy nhờ quản trị viên khác duyệt hồ sơ.");
+  }
   // Bắt buộc tất cả checklist đều đã điền (true/false, không null) khi approve
   const items = before.target_level === 1 ? L1_DOC_ITEMS : L2_VISIT_ITEMS;
   const missing = items.filter((it) => before.checklist[it.key] !== true && before.checklist[it.key] !== false);
@@ -167,5 +129,5 @@ export async function approveVerificationAction(fd: FormData) {
     });
   } catch { /* */ }
   revalidatePath(`/crm/suppliers/${before.supplier_id}`);
-  revalidatePath(`/crm/suppliers/${before.supplier_id}`);
+  revalidatePath("/crm/verifications");
 }
