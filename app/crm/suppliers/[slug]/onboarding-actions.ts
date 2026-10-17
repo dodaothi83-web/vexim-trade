@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { guard, getSession } from "@/lib/auth/session";
+import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 
 type Result = { ok: boolean; message: string };
 
@@ -37,10 +38,13 @@ export async function decideSupplierOnboardingAction(form: FormData): Promise<Re
       entity: "supplier", entity_id: id, action: decision === "approved" ? "supplier.portal_access_approved" : "supplier.profile_changes_requested",
       before: { onboarding_status: supplier.onboarding_status }, after: { onboarding_status: decision, note: decision === "approved" ? null : note } })
       .catch((error) => console.error("[supplier-onboarding] audit log failed after staff decision", error));
+    const mail = await notifySupplierDecision({ supplierId: id,
+      decision: decision === "approved" ? "onboarding_approved" : "onboarding_changes_requested", note });
+    if (mail !== "sent") console.warn("[supplier-onboarding] supplier email not sent; decision saved", mail);
     revalidatePath(`/crm/suppliers/${id}`);
     revalidatePath("/crm/suppliers");
     revalidatePath("/supplier/portal");
-    return { ok: true, message: decision === "approved" ? "Đã mở quyền cổng NCC. Chưa duyệt xác minh/công khai hồ sơ." : "Đã gửi yêu cầu bổ sung hồ sơ." };
+    return { ok: true, message: (decision === "approved" ? "Đã mở quyền cổng NCC. Chưa duyệt xác minh/công khai hồ sơ." : "Đã lưu yêu cầu bổ sung hồ sơ.") + (mail === "sent" ? "" : " Email NCC chưa gửi được; quyết định đã lưu trên cổng.") };
   } catch (error) {
     console.error("[supplier-onboarding] staff decision failed", error);
     return { ok: false, message: "Không lưu được quyết định. Vui lòng kiểm tra hồ sơ và thử lại." };

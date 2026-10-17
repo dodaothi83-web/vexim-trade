@@ -58,6 +58,22 @@ const approved = dashboard.buildSupplierDashboard({ ...input, reviews: [{ id: 'v
   { id: 'v2', supplier_id: 's-b', target_level: 2, status: 'approved', approved_at: now.toISOString() }] });
 assert.ok(approved.notices.some((n) => n.title.includes('Lịch sử giao hàng')));
 assert.ok(!approved.notices.some((n) => n.title.includes('Thăm nhà máy')));
+const decided = dashboard.buildSupplierDashboard({ ...input,
+  products: [{ ...products[0], supplier_review_status: 'approved', updated_at: now.toISOString() }, products[1]],
+  certificates: [{ id: 'c-a', supplier_id: 's-a', name: 'ISO 22000', review_status: 'approved',
+    publicly_visible: false, checked_at: now.toISOString(), updated_at: now.toISOString() },
+    { id: 'c-b', supplier_id: 's-b', name: 'SECRET factory certificate', review_status: 'approved',
+      publicly_visible: true, updated_at: now.toISOString() }],
+});
+assert.ok(decided.notices.some((n) => n.key === 'product-approved:p-a'));
+assert.ok(decided.notices.some((n) => n.key === 'cert-approved:c-a' && n.detail.includes('Chưa công bố')));
+assert.ok(!JSON.stringify(decided).includes('SECRET factory certificate'), 'Foreign certificate cannot appear');
+const accountNotice = dashboard.buildSupplierDashboard({ ...input, supplier: { id: 's-a', onboarding_status: 'approved', updated_at: now.toISOString() } });
+assert.ok(accountNotice.notices.some((n) => n.key === 'onboarding-approved:s-a'));
+const published = dashboard.buildSupplierDashboard({ ...input, certificates: [{ id: 'c-a', supplier_id: 's-a', name: 'ISO 22000',
+  review_status: 'approved', publicly_visible: true, updated_at: now.toISOString() }] });
+assert.ok(published.notices.some((n) => n.key === 'cert-published:c-a'));
+assert.ok(!published.notices.some((n) => n.key === 'cert-approved:c-a'), 'Publication has its own notification');
 
 const staff = { id: 'staff-1', email: 'login@veximtrade.com', name: 'Nguyễn Văn Dung',
   role: 'sourcing', is_active: true, created_at: '2026-01-01T00:00:00Z', sender_email: null };
@@ -99,6 +115,9 @@ let inviteStatus = 'pending';
 let preflightFails = false;
 const store = {
   getRfq: async () => rfq,
+  getRfqMatch: async () => storedMatch,
+  getSupplier: async () => ({ id: 's-a', email: 'supplier@example.com', name: 'Supplier A', onboarding_status: inviteStatus }),
+  findIntroduction: async () => null, createIntroduction: async () => {},
   getBuyer: async () => ({ id: 'b1', contact_name: 'Jane', email: 'buyer@example.com' }),
   listRfqMatches: async () => [storedMatch],
   listSupplierRfqInvitations: async () => { if (preflightFails) throw Error('migration missing'); return []; },
@@ -156,7 +175,26 @@ mode = 'simulated';
 await assert.rejects(outbound.presentShortlistToBuyer({ rfqId: rfq.id }), /Resend chưa gửi thật/);
 assert.equal(storedMatch.status, 'quoted', 'A simulated buyer email cannot advance the supplier match');
 assert.equal(rfq.status, 'matching', 'A simulated buyer email cannot mark RFQ as quoted');
-storedMatch.status = 'sent_to_supplier'; storedMatch.quote_price = null;
+storedMatch.status = 'presented_to_buyer'; storedMatch.quote_price = null;
+const countBeforeSelection = sent.length;
+mode = 'sent';
+assert.equal((await outbound.selectSupplier({ rfqId: rfq.id, matchId: storedMatch.id, actorId: staff.id })).email, 'sent');
+assert.equal(sent.length, countBeforeSelection + 1);
+assert.equal(sent.at(-1).from, 'Nguyễn Văn Dung <dung@veximtrade.com>', 'Selection mail cannot use a role address');
+assert.ok(!sent.at(-1).html.includes('buyer@example.com') && !sent.at(-1).html.includes('SECRET'), 'Selection mail is anonymous');
+assert.equal(storedMatch.status, 'selected');
+await outbound.selectSupplier({ rfqId: rfq.id, matchId: storedMatch.id, actorId: staff.id });
+assert.equal(sent.length, countBeforeSelection + 1, 'Replaying selection does not resend mail');
+storedMatch.status = 'sent_to_supplier'; rfq.status = 'matching';
+const matchActions = load('../app/crm/rfqs/[id]/actions.ts', {
+  'next/cache': { revalidatePath() {} }, 'next/navigation': { redirect() {} },
+  crypto: { randomUUID: () => 'test-id' },
+  '@/lib/db': { getStore: () => store }, '@/lib/auth/session': { guard: async () => null },
+});
+const forgedSelection = new FormData(); forgedSelection.set('match_id', storedMatch.id);
+forgedSelection.set('rfq_id', rfq.id); forgedSelection.set('status', 'selected');
+await assert.rejects(matchActions.updateMatchStatusAction(forgedSelection), /Chọn NCC này/);
+assert.equal(storedMatch.status, 'sent_to_supplier', 'Generic status action cannot bypass selection notification');
 
 let accessEnabled = true;
 let portalStatus = 'pending';
@@ -166,6 +204,7 @@ const noticesAction = load('../app/supplier/portal/notice-actions.ts', {
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => accessEnabled ? {
     supplier: { id: 's-a', onboarding_status: portalStatus }, reviews: [], store: {
       listSupplierRfqInvitations: async () => [match, foreign], listSupplierVerificationRequests: async () => [],
+      listProductsBySupplier: async () => products, listCertificates: async () => [],
       markSupplierNoticeRead: async (supplierId, key) => writes.push([supplierId, key]),
     },
   } : null },
@@ -184,6 +223,11 @@ assert.equal(writes.length, 0, 'Pending supplier cannot mark notices');
 portalStatus = 'approved';
 await noticesAction.markSupplierNoticeReadAction(noticeForm(`rfq:${idA}`));
 assert.equal(writes[0][0], 's-a');
+products[0].supplier_review_status = 'approved'; products[0].updated_at = now.toISOString();
+await noticesAction.markSupplierNoticeReadAction(noticeForm('product-approved:p-b'));
+assert.equal(writes.length, 1, 'Cannot mark a foreign supplier product notice');
+await noticesAction.markSupplierNoticeReadAction(noticeForm('product-approved:p-a'));
+assert.equal(writes[1][1], 'product-approved:p-a');
 
 const schema = fs.readFileSync(new URL('../supabase/migrations/20261017_supplier_dashboard.sql', import.meta.url), 'utf8');
 assert.match(schema, /source_product_id uuid references public\.supplier_products/);

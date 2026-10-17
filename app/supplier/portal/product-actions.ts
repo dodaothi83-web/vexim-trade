@@ -6,6 +6,7 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { categoryProposalOptions, allowedSupplierCategories, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import { assignProductCategory } from "@/lib/public/category-assignment";
+import { notifyStaffProductSubmission } from "@/lib/supplier-portal/notify";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 
 type Result = { ok: boolean; message: string; id?: string };
@@ -127,9 +128,11 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "product", entity_id: id, action: "supplier.product_submitted",
       before: { review: product.supplier_review_status }, after: { review: "pending" } }).catch((error) => console.error("[supplier-product] audit", error));
+    const mail = await notifyStaffProductSubmission(access.supplier, product);
+    if (mail !== "sent") console.warn("[supplier-product] staff email not sent; CRM review queue remains pending", mail);
     revalidatePath("/supplier/portal/products");
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
-    return { ok: true, message: "Đã gửi Vexim kiểm tra sản phẩm. Chưa được công khai." };
+    return { ok: true, message: `Đã gửi Vexim kiểm tra sản phẩm. Chưa được công khai.${mail === "sent" ? "" : " Email nhắc nhân viên chưa gửi được; sản phẩm vẫn nằm trong hàng chờ CRM."}` };
   } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "Không nộp được sản phẩm." }; }
 }

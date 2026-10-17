@@ -1,5 +1,7 @@
 # Rà soát thông báo & email — 17/10/2026
 
+> Đây là ảnh chụp trước đợt 2. Các khoảng trống về email quyết định NCC/sản phẩm/chứng nhận/xác minh và thông báo portal đã được xử lý tiếp trong [notification-phase2.md](notification-phase2.md). Các khoảng trống về outbox, retry và delivery vẫn còn.
+
 Phạm vi: đọc mã của nhánh PR #5, chạy bài kiểm tra offline và kiểm tra GET công khai của webhook Resend. Không đăng nhập production Supabase/Resend, không gửi email thật, không xác nhận đã áp dụng migrations, cron hay deploy. “Đã gửi” trong mã nghĩa là **API Resend chấp nhận**, không phải người nhận đã nhận thư.
 
 ## Kết luận

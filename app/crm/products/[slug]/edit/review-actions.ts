@@ -5,6 +5,7 @@ import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { assignProductCategory } from "@/lib/public/category-assignment";
+import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 
 type Result = { ok: boolean; message: string };
 
@@ -53,10 +54,13 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       before: { review: product.supplier_review_status, category: product.reviewed_category_slug },
       after: { review: decision, category: reviewedCategory, note: decision === "approved" ? null : note, ready: false } })
       .catch((error) => console.error("[supplier-product-review] audit", error));
+    const mail = await notifySupplierDecision({ supplierId: product.supplier_id, entityId: id, name: product.name,
+      decision: decision === "approved" ? "product_approved" : "product_changes_requested", note });
+    if (mail !== "sent") console.warn("[supplier-product-review] supplier email not sent; decision saved", mail);
     revalidatePath(`/crm/products/${id}/edit`);
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath("/supplier/portal/products");
-    return { ok: true, message: decision === "approved" ? "Đã xác nhận nội dung. Cần Vexim chọn tệp chia sẻ buyer và bật Sẵn sàng gửi buyer để công khai." : "Đã yêu cầu NCC chỉnh sửa." };
+    return { ok: true, message: (decision === "approved" ? "Đã xác nhận nội dung. Cần Vexim chọn tệp chia sẻ buyer và bật Sẵn sàng gửi buyer để công khai." : "Đã yêu cầu NCC chỉnh sửa.") + (mail === "sent" ? "" : " Email NCC chưa gửi được; quyết định đã lưu trên cổng.") };
   } catch (error) { console.error("[supplier-product-review]", error); return { ok: false, message: "Không lưu được quyết định." }; }
 }
 

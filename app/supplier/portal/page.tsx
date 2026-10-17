@@ -68,18 +68,19 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
       <p className="mt-3 text-xs text-amber-800">Xác nhận tài khoản không đồng nghĩa duyệt giấy tờ, thăm nhà máy, lịch sử giao hàng hoặc công khai hồ sơ.</p>
     </div>}
   </main>;
-  const [media, requests, invites, reads, products] = await Promise.all([
+  const [media, requests, invites, reads, products, certificates] = await Promise.all([
     review ? store.listMedia("verification", review.id) : Promise.resolve([]),
     store.listSupplierVerificationRequests(supplier.id),
     store.listSupplierRfqInvitations(supplier.id),
     store.listSupplierNoticeReads(supplier.id),
     store.listProductsBySupplier(supplier.id),
+    store.listCertificates(supplier.id),
   ]);
   const sp = await searchParams;
   const days: 7 | 30 | 90 = sp?.range === "7" ? 7 : sp?.range === "90" ? 90 : 30;
   const allNotices = sp?.notices === "all";
   const allRfqs = sp?.rfqs === "all";
-  const dashboard = buildSupplierDashboard({ supplierId: supplier.id, invites, reads, products, reviews, requests, days });
+  const dashboard = buildSupplierDashboard({ supplierId: supplier.id, supplier, invites, reads, products, certificates, reviews, requests, days });
   const mine = media.filter((m) => m.created_by === user.id && m.storage_path &&
     INITIAL_DOCUMENT_KEYS.includes(m.checklist_key as typeof INITIAL_DOCUMENT_KEYS[number]));
   const allowedDocUpload = review && (review.status === "in_progress" || review.status === "returned");
@@ -157,7 +158,7 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
     </section>
 
     <section id="notices" className="mt-10 scroll-mt-6">
-      <SectionTitle icon={<Bell className="h-5 w-5" />} title={`Thông báo · ${dashboard.unreadCount} chưa đọc`} sub="Lời mời RFQ, kết quả kiểm tra và liên hệ Vexim. Đọc thông báo không thay đổi trạng thái xét duyệt." />
+      <SectionTitle icon={<Bell className="h-5 w-5" />} title={`Thông báo · ${dashboard.unreadCount} chưa đọc`} sub="RFQ, kết quả kiểm tra, sản phẩm và chứng nhận. Đọc thông báo không thay đổi trạng thái xét duyệt." />
       {dashboard.notices.length ? <ul className="mt-4 divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-200 bg-white">{(allNotices ? dashboard.notices : dashboard.notices.slice(0, 20)).map((n) =>
         <li key={n.key} className={`flex flex-wrap items-start gap-3 p-4 text-sm ${n.read ? "" : "bg-brand-50/50"}`}>
           <span className={`mt-2 h-2 w-2 rounded-full ${n.read ? "bg-ink-200" : "bg-brand-600"}`} aria-hidden="true" />

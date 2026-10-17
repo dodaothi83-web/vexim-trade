@@ -1,4 +1,4 @@
-import type { SupplierNoticeRead, SupplierProduct, SupplierRfqInvitation, SupplierVerificationRequest, Verification } from "@/lib/types";
+import type { Certificate, Supplier, SupplierNoticeRead, SupplierProduct, SupplierRfqInvitation, SupplierVerificationRequest, Verification } from "@/lib/types";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 
 export interface PortalNotice {
@@ -7,7 +7,7 @@ export interface PortalNotice {
   detail: string;
   at: string;
   read: boolean;
-  kind: "rfq" | "verification" | "contact";
+  kind: "rfq" | "verification" | "contact" | "product" | "certificate";
 }
 
 export interface PortalInvite {
@@ -34,8 +34,10 @@ const niceStatus: Record<string, string> = {
 /** No buyer records, access tokens, internal notes, or arbitrary buyer free text in this projection. */
 export function buildSupplierDashboard(input: {
   supplierId: string;
+  supplier?: Supplier;
   invites: SupplierRfqInvitation[];
   products: SupplierProduct[];
+  certificates?: Certificate[];
   reviews: Verification[];
   requests: SupplierVerificationRequest[];
   reads: SupplierNoticeRead[];
@@ -65,6 +67,9 @@ export function buildSupplierDashboard(input: {
   const add = (key: string, title: string, detail: string, at: string, kind: PortalNotice["kind"]) => {
     if (at && !Number.isNaN(Date.parse(at))) notices.push({ key, title, detail, at, kind, read: readKeys.has(key) });
   };
+  if (input.supplier?.id === supplierId && input.supplier.onboarding_status === "approved") {
+    add(`onboarding-approved:${supplierId}`, "Tài khoản NCC đã được mở quyền", "Bạn có thể dùng cổng NCC. Việc duyệt xác minh và công khai hồ sơ là quyết định riêng.", input.supplier.updated_at, "verification");
+  }
   for (const m of relevant) {
     add(`rfq:${m.id}`, `Vexim đã chuyển yêu cầu báo giá ${m.rfq.code}`, "Mở danh sách RFQ để xem hạn phản hồi; trả lời email mời báo giá của Vexim.", m.sent_to_supplier_at!, "rfq");
     if (m.status === "selected") add(`selected:${m.id}`, `Hồ sơ ${m.rfq.code} đã được Vexim chọn`, "Vexim sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin buyer tại đây.", m.updated_at, "rfq");
@@ -73,6 +78,19 @@ export function buildSupplierDashboard(input: {
     const label = v.target_level === 1 ? "Kiểm tra giấy tờ" : v.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
     if (v.status === "returned") add(`returned:${v.id}`, `${label} cần bổ sung`, "Liên hệ nhân viên Vexim; giấy tờ bước đầu có thể bổ sung tại hồ sơ.", v.updated_at, "verification");
     if (v.status === "approved") add(`approved:${v.id}`, `${label} đã được Vexim duyệt`, "Chỉ đánh giá này được xác nhận; việc công khai hồ sơ là quyết định riêng.", v.approved_at || v.updated_at, "verification");
+  }
+  // Only show the current staff decision. Draft saves, uploads and pending review are not decisions.
+  for (const p of products.filter((p) => p.supplier_id === supplierId)) {
+    if (p.supplier_review_status === "approved") add(`product-approved:${p.id}`, `Đã kiểm nội dung sản phẩm: ${p.name}`, "Sản phẩm chưa tự động được công khai; Vexim còn quyết định việc chia sẻ buyer.", p.updated_at, "product");
+    if (p.supplier_review_status === "changes_requested") add(`product-changes:${p.id}`, `Sản phẩm cần chỉnh sửa: ${p.name}`, p.supplier_review_note || "Mở sản phẩm để xem phản hồi của Vexim.", p.updated_at, "product");
+  }
+  for (const c of (input.certificates ?? []).filter((c) => c.supplier_id === supplierId)) {
+    if (c.review_status === "approved") {
+      if (c.publicly_visible) add(`cert-published:${c.id}`, `Chứng nhận được phép hiển thị: ${c.name}`, "Chỉ hiện nhãn trên sản phẩm đúng phạm vi nếu đủ điều kiện; tệp nội bộ vẫn riêng tư.", c.updated_at, "certificate");
+      else add(`cert-approved:${c.id}`, `Đã xét duyệt bản sao: ${c.name}`, "Chưa công bố. Việc hiển thị trên trang buyer cần quyết định riêng của Vexim.", c.checked_at || c.updated_at, "certificate");
+    }
+    if (c.review_status === "changes_requested") add(`cert-changes:${c.id}`, `Chứng nhận cần bổ sung: ${c.name}`, c.review_note || "Mở trang chứng nhận để xem phản hồi.", c.updated_at, "certificate");
+    if (c.review_status === "rejected") add(`cert-rejected:${c.id}`, `Chứng nhận không được chấp thuận: ${c.name}`, c.review_note || "Mở trang chứng nhận để xem phản hồi.", c.updated_at, "certificate");
   }
   for (const r of requests.filter((r) => r.supplier_id === supplierId && r.status === "contacted" && r.contacted_at)) {
     const label = r.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";

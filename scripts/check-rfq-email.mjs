@@ -141,6 +141,7 @@ const actions = loadTS('../app/crm/rfqs/[id]/compose-action.ts', {
   ...mocks,
   '@/lib/auth/session': { guard: async () => null, getSession: async () => ({ uid: 'admin', email: 'admin@veximtrade.com' }) },
   '@/lib/rfq/buyer-notify': { notifyBuyerRfqStatus },
+  '@/lib/rfq/outreach': { notifySelectedSupplier: async () => 'sent' },
 });
 const sampling = new FormData(); sampling.set('rfq_id', actionRfq.id);
 await actions.markSamplingAction(sampling);

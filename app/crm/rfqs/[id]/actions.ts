@@ -9,6 +9,8 @@ import { getStore } from "@/lib/db";
 import { guard } from "@/lib/auth/session";
 import type { RfqMatchStatus } from "@/lib/types";
 
+const MATCH_STATUS_VALUES: RfqMatchStatus[] = ["proposed", "sent_to_supplier", "quoted", "declined", "no_response", "presented_to_buyer", "not_selected"];
+
 async function enforce() {
   const g = await guard("rfq.manage");
   if (g) redirect("/crm/dashboard");
@@ -72,6 +74,8 @@ export async function updateMatchStatusAction(fd: FormData) {
   const rfqId = String(fd.get("rfq_id"));
   const status = String(fd.get("status") || "proposed") as RfqMatchStatus;
   if (!matchId || !rfqId) return;
+  // Selection is a business event: use selectSupplierAction so the portal and email stay in sync.
+  if (status === "selected" || !MATCH_STATUS_VALUES.includes(status)) throw new Error("Dùng nút Chọn NCC này cho quyết định chọn NCC.");
   const store = getStore();
   await store.updateRfqMatch(matchId, { status });
   revalidatePath(`/crm/rfqs/${rfqId}`);

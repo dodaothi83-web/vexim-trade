@@ -41,6 +41,7 @@ const store = {
 };
 const access = () => ({ store, supplier: { ...supplier }, user });
 const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
+const notices = [];
 const actions = load('../app/supplier/portal/product-actions.ts', {
   'next/cache': { revalidatePath() {} },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
@@ -48,6 +49,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible && !!s.fob_updated_at && Date.now() - new Date(s.fob_updated_at).getTime() < 180 * 86400_000 },
   '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => c.slug === (p.name.includes('Rice') ? 'rice' : 'cashew')) },
+  '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async (_supplier, item) => { notices.push(['submitted', item.id]); return 'sent'; } },
 });
 const form = () => {
   const fd = new FormData();
@@ -146,6 +148,7 @@ assert.equal((await actions.submitSupplierProductAction(submitted)).ok, false, '
 files[0].created_by = user.id;
 assert.equal((await actions.submitSupplierProductAction(submitted)).ok, true);
 assert.equal(product.supplier_review_status, 'pending'); assert.equal(product.ready_for_buyer, false);
+assert.equal(notices.length, 1, 'Only submission, not saves, emails staff');
 assert.equal(await postMedia(), 409, 'Cannot upload while pending');
 const pendingEdit = form(); pendingEdit.set('product_id', productId);
 assert.equal((await actions.saveSupplierProductAction(pendingEdit)).ok, false, 'Cannot edit while pending');
@@ -155,6 +158,7 @@ const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
   '@/lib/auth/session': { guard: async () => denied ? { message: 'denied' } : null,
     getSession: async () => ({ uid: 'reviewer', email: 'staff@example.com', role: 'sourcing' }) },
   '@/lib/db': { getStore: () => store },
+  '@/lib/supplier-portal/notify': { notifySupplierDecision: async (input) => { notices.push([input.decision, input.entityId]); return 'sent'; } },
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/public/category-assignment': { assignProductCategory: (p) => p.name.includes('Rice') ? categories[1] : categories[0] },
 });
@@ -170,6 +174,7 @@ assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Obv
 product.name = 'Cashew W320';
 assert.equal((await review.decideSupplierProductAction(approve)).ok, true);
 assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, false);
+assert.equal(notices.at(-1)[0], 'product_approved');
 assert.equal(product.supplier_category_proposal, 'cashew');
 assert.equal(product.reviewed_category_slug, 'cashew', 'Staff approves the product in the supplier-selected category');
 const productView = load('../lib/supplier-portal/product-view.ts', {});

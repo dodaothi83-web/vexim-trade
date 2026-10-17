@@ -59,6 +59,7 @@ const mocks = {
     getSession: async () => auditor,
   },
   '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
+  '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent' },
   '@/lib/verification-evidence': evidence,
   '@/lib/media/verification-access': { verificationMediaEditError: async () => mediaBlocked },
   '@/lib/types': { L1_DOC_ITEMS: docItems },
@@ -257,6 +258,7 @@ vm.runInNewContext(accessJs, { exports: access, require: (name) => ({
   '@/lib/auth/session': { getSession: async () => ({ role: permissionRole, uid: 'reviewer-1' }) },
   '@/lib/auth/permissions': { hasPermission: (role, permission) => role === 'admin' || role === 'sourcing' && permission !== 'verifications.approve' },
   '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
+  '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent' },
 })[name] }, { filename: 'verification-access.ts' });
 assert.equal(await access.verificationMediaEditError({ status: 'in_progress' }), null);
 assert.match(await access.verificationMediaEditError({ status: 'submitted', inspector_id: 'inspector-2' }), /chờ duyệt/);

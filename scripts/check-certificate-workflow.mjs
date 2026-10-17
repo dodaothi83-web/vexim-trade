@@ -27,6 +27,7 @@ let media = null;
 let role = 'supplier';
 let stored = null;
 const logs = [];
+const decisions = [];
 const store = {
   listProductsBySupplier: async (id) => id === sid ? products : [],
   listCertificates: async (id) => id === sid && cert ? [cert] : [],
@@ -82,6 +83,7 @@ const actions = load('../app/crm/suppliers/[slug]/certificates/actions.ts', {
   '@/lib/auth/session': { guard: async () => role === 'admin' ? null : { message: 'denied' }, getSession: async () => ({ uid: 'staff', email: 'staff@example.com', role }) },
   '@/lib/media/readiness': { isExpired: (m) => m.status === 'expired' || m.expires_on < '2026-10-17' },
   '@/lib/media/storage': storage,
+  '@/lib/supplier-portal/notify': { notifySupplierDecision: async (input) => { decisions.push(input); return 'sent'; } },
 });
 const actionForm = (decision, product = pid) => { const fd = new FormData(); fd.set('certificate_id', cid); fd.set('decision', decision); fd.set('confirmed_review', 'yes'); if (product) fd.set('product_ids', product); return fd; };
 role = 'supplier';
@@ -95,11 +97,13 @@ const beforeProof = stored; stored = null;
 assert.equal((await actions.reviewCertificateAction(actionForm('approved'))).ok, false, 'Missing storage object must not pass review');
 stored = beforeProof;
 assert.equal((await actions.reviewCertificateAction(actionForm('approved'))).ok, true);
-assert.equal(cert.review_status, 'approved'); assert.equal(cert.publicly_visible, false); assert.equal(media.status, 'checked');
+assert.equal(cert.review_status, 'approved'); assert.equal(cert.publicly_visible, false);
+assert.equal(decisions.at(-1).decision, 'certificate_approved'); assert.equal(media.status, 'checked');
 assert.equal(labels().length, 0, 'Review alone is not publication');
 const publish = new FormData(); publish.set('certificate_id', cid); publish.set('visible', 'yes');
 role = 'supplier'; assert.equal((await actions.publishCertificateAction(publish)).ok, false);
 role = 'admin'; assert.equal((await actions.publishCertificateAction(publish)).ok, true);
+assert.equal(decisions.at(-1).decision, 'certificate_published');
 assert.equal(labels().length, 1); assert.equal(labels(cert, media, 'ffffffff-ffff-ffff-ffff-ffffffffffff').length, 0);
 assert.match(labels({ ...cert, name: 'ISO sales@factory.example' })[0].name, /\[contact via Vexim\]/, 'Public label redacts contacts');
 assert.equal(labels({ ...cert, valid_until: '2020-01-01' }).length, 0, 'Expired certificates drop from buyer view automatically');
@@ -108,6 +112,7 @@ assert.equal(labels(cert, { ...media, supplier_id: 'foreign' }).length, 0, 'Wron
 assert.equal(labels({ ...cert, approved_product_ids: [] }).length, 0, 'Product scope is mandatory');
 publish.set('visible', 'no'); assert.equal((await actions.publishCertificateAction(publish)).ok, true);
 assert.equal(labels().length, 0, 'Withdrawal immediately hides the label');
+assert.equal(decisions.at(-1).decision, 'certificate_withdrawn');
 assert.ok(logs.some((l) => l.action === 'certificate.approved')); assert.ok(logs.some((l) => l.action === 'certificate.published'));
 
 role = 'supplier'; cert = original; media = originalMedia;

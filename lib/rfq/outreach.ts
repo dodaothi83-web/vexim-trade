@@ -361,12 +361,13 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
 }
 
 /** Khi buyer chọn một NCC: đánh dấu selected, tạo Introduction protected 12 tháng. */
-export async function selectSupplier(input: { rfqId: string; matchId: string }): Promise<boolean> {
+export async function selectSupplier(input: { rfqId: string; matchId: string; actorId: string }): Promise<{ selected: boolean; email: "sent" | "failed" | "skipped" }> {
   const store = getStore();
   const rfq = await store.getRfq(input.rfqId);
   if (!rfq) throw new Error("RFQ not found");
   const match = await store.getRfqMatch(input.matchId);
-  if (!match || match.rfq_id !== rfq.id) return false;
+  if (!match || match.rfq_id !== rfq.id) return { selected: false, email: "skipped" };
+  const newlySelected = match.status !== "selected";
   await store.updateRfqMatch(match.id, { status: "selected" });
   // Các NCC khác chuyển sang not_selected
   const others = (await store.listRfqMatches(rfq.id)).filter((m) => m.id !== match.id);
@@ -390,5 +391,33 @@ export async function selectSupplier(input: { rfqId: string; matchId: string }):
     });
   }
   await store.updateRfq(rfq.id, { status: "won" });
-  return true;
+  const email = newlySelected ? await notifySelectedSupplier(rfq, match, input.actorId) : "skipped";
+  return { selected: true, email };
+}
+
+/** Only an invited NCC is contacted; caller must ensure a real staff transition, never a draft save. */
+export async function notifySelectedSupplier(rfq: Rfq, match: RfqMatch, actorId: string): Promise<"sent" | "failed" | "skipped"> {
+  const store = getStore();
+  // A separate, anonymous milestone email: never include buyer identity, token or internal quote notes.
+  // Only a genuinely invited supplier receives it, and re-submitting the same decision does not send twice.
+  if (!match.sent_to_supplier_at) return "skipped";
+  let email: "sent" | "failed" = "failed";
+  try {
+    const supplier = await store.getSupplier(match.supplier_id);
+    if (supplier?.email && await canInviteSupplier(supplier, store)) {
+      const sender = await requireRfqStaffSender(actorId);
+      const subject = `[${rfq.code}] Vexim đã chọn hồ sơ của bạn`;
+      const body = `<p>Vexim đã chọn hồ sơ chào giá cho yêu cầu <strong>${escapeHtml(rfq.code)}</strong>. Chúng tôi sẽ liên hệ để thống nhất bước tiếp theo.</p>
+        <p>Thông tin buyer chưa được chia sẻ trong email này. Vui lòng tiếp tục trao đổi qua Vexim.</p>
+        <p><a href="${SITE_URL}/supplier/portal#rfqs">Xem RFQ trong cổng NCC →</a></p>`;
+      const delivery = await transport({ to: [supplier.email], from: sender.header,
+        replyTo: supplierReplyAddress(rfq.code, match.id), subject,
+        html: wrapPlainEmail({ title: escapeHtml(subject), body }),
+        text: `${subject}\nVexim sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin buyer.\n${SITE_URL}/supplier/portal#rfqs`,
+        headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Match": match.id, "X-Vexim-Anonymous": "1" } });
+      if (delivery.ok && delivery.status === "sent") email = "sent";
+      else console.warn("[rfq] supplier selection email not sent; portal status saved", delivery.error ?? delivery.status);
+    }
+  } catch (error) { console.error("[rfq] supplier selection email failed; portal status saved", error); }
+  return email;
 }

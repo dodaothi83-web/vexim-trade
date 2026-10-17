@@ -11,6 +11,7 @@ import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { notifyBuyerRfqStatus } from "@/lib/rfq/buyer-notify";
+import { notifySelectedSupplier } from "@/lib/rfq/outreach";
 import type { EmailMessage } from "@/lib/types";
 
 /**
@@ -104,7 +105,12 @@ export async function markSamplingAction(fd: FormData): Promise<void> {
   if (selectedMatchId) {
     const m = await store.getRfqMatch(selectedMatchId);
     if (!m || m.rfq_id !== rfqId) throw new Error("NCC đã chọn không thuộc RFQ này.");
-    if (before.status !== "sampling") await store.updateRfqMatch(m.id, { status: "selected" });
+    if (before.status !== "sampling" && m.status !== "selected") {
+      await store.updateRfqMatch(m.id, { status: "selected" });
+      const actor = await getSession();
+      const email = await notifySelectedSupplier(before, m, actor?.uid ?? "");
+      if (email === "failed") console.warn("[rfq] supplier selection during sampling saved without email");
+    }
   }
   const rfq = before.status === "sampling" ? before : await store.updateRfq(rfqId, { status: "sampling" });
   if (before.status !== "sampling") {

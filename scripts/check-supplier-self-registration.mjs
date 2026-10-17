@@ -302,7 +302,9 @@ assert.equal((await media.GET(fileRequest, fileParams)).status, 403, 'Supplier c
 const staffSupplierId = '12345678-1234-1234-1234-123456789abc';
 const staffSupplier = { ...state.suppliers[0], id: staffSupplierId };
 let denyApproval = true;
+const decisionMails = [];
 const decisions = load('../app/crm/suppliers/[slug]/onboarding-actions.ts', {
+  '@/lib/supplier-portal/notify': { notifySupplierDecision: async (input) => { decisionMails.push(input); return 'sent'; } },
   'next/cache': { revalidatePath() {} },
   '@/lib/db': { getStore: () => ({ getSupplier: async () => staffSupplier,
     getUserByEmail: async (email) => email === staffSupplier.email ? { ...owner, supplier_id: staffSupplierId } : null,
@@ -322,6 +324,7 @@ returnForm.set('decision', 'changes_requested'); returnForm.set('note', 'Bổ su
 await decisions.decideSupplierOnboardingAction(returnForm);
 assert.equal(staffSupplier.onboarding_status, 'changes_requested');
 assert.equal(staffSupplier.onboarding_note, 'Bổ sung địa chỉ cơ sở');
+assert.equal(decisionMails.at(-1).decision, 'onboarding_changes_requested');
 assert.equal(onboarding.canSubmitProfile(staffSupplier), true);
 assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, false);
 staffSupplier.onboarding_status = 'pending';
@@ -330,6 +333,7 @@ assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, fals
 staffSupplier.tax_id = '0012345';
 assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, true);
 assert.equal(onboarding.portalApproved(staffSupplier), true);
+assert.equal(decisionMails.at(-1).decision, 'onboarding_approved');
 assert.equal(staffSupplier.status, 'draft', 'Account approval cannot publish supplier');
 assert.equal(state.reviews[0].status, 'in_progress', 'Account approval cannot approve document check');
 assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, false, 'No duplicate approval');

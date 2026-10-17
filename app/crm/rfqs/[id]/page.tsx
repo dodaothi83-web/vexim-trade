@@ -186,6 +186,8 @@ export default async function RfqDetailPage({
         </div>
       </div>
 
+      {sp?.selection_email === "failed" && <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Đã lưu NCC được chọn trên cổng, nhưng email NCC chưa gửi được. Vui lòng liên hệ NCC qua Vexim; đừng chọn lại chỉ để thử gửi vì quyết định không tự gửi trùng.</div>}
+      {sp?.selection_email === "sent" && <div role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Resend đã chấp nhận email báo NCC được chọn; chưa phải xác nhận phát tới hộp thư.</div>}
       {sp?.outreach_sent !== undefined && <div role="status" className={`mt-4 rounded-lg border p-3 text-sm ${Number(sp.outreach_skipped) > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
         Resend chấp nhận {Number(sp.outreach_sent) || 0} lời mời NCC; {Number(sp.outreach_skipped) || 0} yêu cầu chưa gửi (có thể đã gửi trước, thiếu email hoặc gửi thất bại). Kiểm tra trạng thái từng NCC trước khi thử lại.
       </div>}
@@ -483,7 +485,7 @@ export default async function RfqDetailPage({
                             onChange={(e) => e.currentTarget.form?.requestSubmit()}
                             className="input mt-1 py-1 text-[13px]"
                           >
-                            {MATCH_STATUS.map((s) => (
+                            {MATCH_STATUS.filter((s) => s.value !== "selected" || m.status === "selected").map((s) => (
                               <option key={s.value} value={s.value}>{s.label}</option>
                             ))}
                           </select>

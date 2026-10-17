@@ -5,6 +5,7 @@ import { getStore } from "@/lib/db";
 import { guard, getSession } from "@/lib/auth/session";
 import { isExpired } from "@/lib/media/readiness";
 import { getObject } from "@/lib/media/storage";
+import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const result = (message: string, ok = false) => ({ ok, message });
@@ -63,8 +64,11 @@ export async function reviewCertificateAction(form: FormData) {
       before: { id, review: cert.review_status, visible: cert.publicly_visible },
       after: { id, review: decision, products: approvedProducts, visible: false, note: note || null } })
       .catch((error) => console.error("[certificate] audit", error));
+    const mail = await notifySupplierDecision({ supplierId: cert.supplier_id, entityId: id, name: cert.name,
+      decision: decision === "approved" ? "certificate_approved" : decision === "rejected" ? "certificate_rejected" : "certificate_changes_requested", note });
+    if (mail !== "sent") console.warn("[certificate] supplier review email not sent; decision saved", mail);
     refresh(cert.supplier_id);
-    return result(decision === "approved" ? "Đã kiểm bản sao. Chưa công bố; Vexim cần quyết định hiển thị riêng." : "Đã ghi quyết định; chứng nhận không công khai.", true);
+    return result((decision === "approved" ? "Đã kiểm bản sao. Chưa công bố; Vexim cần quyết định hiển thị riêng." : "Đã ghi quyết định; chứng nhận không công khai.") + (mail === "sent" ? "" : " Email NCC chưa gửi được; quyết định đã lưu trên cổng."), true);
   } catch (error) { console.error("[certificate] review", error); return result("Không lưu được quyết định. Kiểm tra migration/tệp và thử lại."); }
 }
 
@@ -81,6 +85,7 @@ export async function publishCertificateAction(form: FormData) {
     const store = getStore();
     const cert = await store.getCertificate(id);
     if (!cert) return result("Không tìm thấy chứng nhận.");
+    if (Boolean(cert.publicly_visible) === visible) return result("Trạng thái hiển thị không thay đổi.", true);
     if (visible) {
       if (cert.review_status !== "approved" || !cert.checked_by || !cert.checked_at ||
           !cert.valid_until || cert.valid_until < new Date().toISOString().slice(0, 10) ||
@@ -97,7 +102,10 @@ export async function publishCertificateAction(form: FormData) {
       entity: "supplier", entity_id: cert.supplier_id, action: visible ? "certificate.published" : "certificate.withdrawn",
       before: { id, visible: cert.publicly_visible }, after: { id, visible } })
       .catch((error) => console.error("[certificate] audit", error));
+    const mail = await notifySupplierDecision({ supplierId: cert.supplier_id, entityId: id, name: cert.name,
+      decision: visible ? "certificate_published" : "certificate_withdrawn" });
+    if (mail !== "sent") console.warn("[certificate] supplier publication email not sent; decision saved", mail);
     refresh(cert.supplier_id);
-    return result(visible ? "Đã cho phép hiển thị nhãn chứng nhận trên sản phẩm đã duyệt (nếu sản phẩm công khai và tệp còn hạn)." : "Đã thu hồi nhãn khỏi trang buyer.", true);
+    return result((visible ? "Đã cho phép hiển thị nhãn chứng nhận trên sản phẩm đã duyệt (nếu sản phẩm công khai và tệp còn hạn)." : "Đã thu hồi nhãn khỏi trang buyer.") + (mail === "sent" ? "" : " Email NCC chưa gửi được; quyết định đã lưu trên cổng."), true);
   } catch (error) { console.error("[certificate] publication", error); return result("Không lưu được trạng thái công bố."); }
 }

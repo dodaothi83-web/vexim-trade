@@ -8,6 +8,7 @@ import { auditHref, auditItems, auditUploadKind, requiredAuditItems } from "@/li
 import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import { hasDocumentAuditEvidence } from "@/lib/verification-evidence";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
+import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { type AuditEvidenceKey, type Verification, type VerificationStatus } from "@/lib/types";
 
 function refreshAudit(v: Verification) {
@@ -163,8 +164,11 @@ export async function approveVerificationAction(fd: FormData) {
     throw error;
   }
   await auditChange(before, "approved", "approve");
+  const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
+  const mail = await notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_approved", name });
+  if (mail !== "sent") console.warn("[verification] supplier approval email not sent; decision saved", mail);
   refreshAudit(before);
-  return { ok: true, message: "Đã duyệt bước kiểm tra." };
+  return { ok: true, message: "Đã duyệt bước kiểm tra." + (mail === "sent" ? "" : " Email NCC chưa gửi được; kết quả vẫn lưu trên cổng.") };
 }
 
 /** Publication is a second, explicit reviewer decision, independent of approving the review. */
@@ -256,6 +260,9 @@ export async function returnVerificationAction(fd: FormData) {
   if (!reason) throw new Error("Cần ghi lý do trả về bổ sung.");
   await store.updateVerification(before.id, { status: "returned", return_reason: reason.slice(0, 1000) });
   await auditChange(before, "returned", "return");
+  const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
+  const mail = await notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_returned", name, note: reason });
+  if (mail !== "sent") console.warn("[verification] supplier return email not sent; decision saved", mail);
   refreshAudit(before);
-  return { ok: true, message: "Đã trả về để bổ sung." };
+  return { ok: true, message: "Đã trả về để bổ sung." + (mail === "sent" ? "" : " Email NCC chưa gửi được; kết quả vẫn lưu trên cổng.") };
 }

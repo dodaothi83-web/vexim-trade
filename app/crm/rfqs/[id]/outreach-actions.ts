@@ -35,7 +35,8 @@ export async function selectSupplierAction(fd: FormData) {
   await enforce();
   const rfqId = String(fd.get("rfq_id"));
   const matchId = String(fd.get("match_id"));
-  await selectSupplier({ rfqId, matchId });
+  const session = await getSession();
+  const result = await selectSupplier({ rfqId, matchId, actorId: session?.uid ?? "" });
   revalidatePath(`/crm/rfqs/${rfqId}`);
-  redirect(`/crm/rfqs/${rfqId}`);
+  redirect(`/crm/rfqs/${rfqId}?selection_email=${result.email}`);
 }
