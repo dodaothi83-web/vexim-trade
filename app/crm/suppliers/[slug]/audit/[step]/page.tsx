@@ -59,7 +59,7 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
             <p className="text-sm text-ink-600">{current.status === "approved" ? "Bằng chứng được khoá để giữ nguyên hồ sơ đã duyệt." : "Ghi kết quả, đính kèm bằng chứng và nộp xét duyệt khi đã sẵn sàng."}</p>
           </Card>
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
-            <AuditForm key={current.id + current.updated_at} verification={current} canApprove={canApprove} currentUserId={session.uid} />
+            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} currentUserId={session.uid} />
             <div className="space-y-3">
               <MediaManager ownerType="verification" ownerId={current.id} items={media} readOnly={mediaReadOnly} allowInternal={false} note="Tệp nội bộ · video ngoài cần đặt quyền chia sẻ phù hợp" />
               {step.level === 3 && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Để duyệt lịch sử giao hàng, cần ít nhất một chứng từ giao hàng được đánh dấu “Đã kiểm tra”. Ảnh hoặc video bổ sung không thay cho vận đơn/xác nhận giao nhận.</p>}

@@ -10,6 +10,14 @@ Ba bước hiển thị trong CRM là **Kiểm tra giấy tờ → Thăm nhà m�
 
 Trang cho phép lưu bản kiểm, thêm/xoá ảnh và chứng từ, thêm/xoá **link video YouTube/Drive**. Video tệp MP4 không tải trực tiếp qua serverless upload hiện tại; chỉ lưu link và quyền xem của video phụ thuộc vào thiết lập chia sẻ của nền tảng bên ngoài. Tất cả bản ghi bằng chứng gắn với một lần kiểm và được giữ **nội bộ**; chỉ người có quyền mới xem được tệp. Khi đã nộp duyệt, chuyên viên không sửa bằng chứng; người có quyền xét duyệt có thể đối chiếu/đánh dấu đã kiểm, trả về để bổ sung. Sau khi duyệt, bằng chứng bị khoá, không thêm/xoá/sửa được.
 
+## AI hỗ trợ kiểm giấy tờ (tùy chọn)
+
+Trên trang **Kiểm tra giấy tờ**, người kiểm có thể bấm “AI kiểm giấy tờ”, xác nhận gửi nội dung ảnh/PDF **nội bộ của đúng đợt kiểm** tới OpenAI, rồi xem nhận định cho 7 mục kèm tệp tham chiếu. Không gửi video/link bên ngoài. Tối đa 6 tệp, 4 MiB/tệp và 12 MiB tổng mỗi lượt; tệp bị bỏ qua được báo trên UI. AI chỉ phân tích nội dung có vẻ phù hợp/không khớp/chưa đủ cơ sở, **không xác thực chứng từ thật hoặc tính hợp lệ tại cơ quan cấp**. Người kiểm phải tự xem bằng chứng; nút “Điền nháp mục chưa kiểm” chỉ điền các mục còn trống có tệp dẫn chứng, không ghi đè nhận định đã nhập. Sau đó người kiểm tự Lưu/Nộp duyệt; người khác phải duyệt. AI không tự lưu, tự cấp mức hay công khai.
+
+Cấu hình `OPENAI_API_KEY` **chỉ ở môi trường server** để hiện nút; có thể đặt `OPENAI_DOCUMENT_REVIEW_MODEL` (mặc định `gpt-4.1-mini`, phải hỗ trợ PDF/ảnh và JSON output trong Responses API). Phản hồi gửi `store: false`; audit log chỉ lưu ID bằng chứng và verdict, không lưu nội dung tệp/nhận xét AI. Trước khi bật ở production, cần xét chính sách dữ liệu với nhà cung cấp AI và chạy thử bằng tài khoản nội bộ. Không có key thì quy trình kiểm thủ công vẫn hoạt động. Không cần migration riêng cho tính năng AI.
+
+Test local: `node scripts/check-ai-document-review.mjs` (mock API và storage; **không** gọi OpenAI). Chưa kiểm tra tệp thật / hạn mức model trên production.
+
 ## Triển khai database
 
 1. Nếu **chưa chạy** migration cũ `supabase/migrations/20261017_verification_workflow.sql`, hãy chạy nó trước. Migration CMS ảnh NCC không chứa các cột checklist / liên kết bằng chứng xác minh.

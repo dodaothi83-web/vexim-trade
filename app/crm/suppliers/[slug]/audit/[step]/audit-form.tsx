@@ -1,23 +1,71 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, RotateCcw, Save, Send } from "lucide-react";
+import { CheckCircle2, Loader2, RotateCcw, Save, Send, Sparkles } from "lucide-react";
 
-import type { Verification } from "@/lib/types";
+import type { MediaAsset, Verification } from "@/lib/types";
+import type { AiDocumentReview } from "@/lib/ai/document-audit";
 import { auditItems, auditStep } from "@/lib/verification";
 import { Button, formatDate } from "@/components/ui";
 import { approveVerificationAction, returnVerificationAction, updateVerificationChecklistAction } from "../../verification-actions";
 
-export function AuditForm({ verification: v, canApprove, currentUserId }: { verification: Verification; canApprove: boolean; currentUserId: string }) {
+export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, currentUserId }: {
+  verification: Verification; evidence: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; currentUserId: string;
+}) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
   const [reason, setReason] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [aiResult, setAiResult] = useState<(AiDocumentReview & { skipped: string[] }) | null>(null);
   const editable = ["in_progress", "scheduled", "returned"].includes(v.status);
   const reviewer = canApprove && v.status === "submitted" && currentUserId !== v.inspector_id;
   const items = auditItems(v.target_level);
+  const readableEvidence = evidence.filter((m) => m.storage_path && ["document", "certificate", "image"].includes(m.kind));
+  const evidenceFingerprint = readableEvidence.map((m) => `${m.id}:${m.storage_path}`).join("|");
+  const previousEvidence = useRef(evidenceFingerprint);
+  useEffect(() => {
+    if (previousEvidence.current !== evidenceFingerprint) {
+      setAiResult(null); // A changed attachment set invalidates the earlier AI assessment.
+      previousEvidence.current = evidenceFingerprint;
+    }
+  }, [evidenceFingerprint]);
+
+  async function scanDocuments() {
+    if (scanning || busy) return;
+    if (!window.confirm("AI sẽ đọc ảnh/PDF nội bộ đã tải lên và gửi nội dung tệp tới nhà cung cấp AI để phân tích sơ bộ. Tiếp tục?")) return;
+    const scannedFingerprint = evidenceFingerprint;
+    setScanning(true); setFeedback(null); setAiResult(null);
+    try {
+      const response = await fetch(`/api/verifications/${encodeURIComponent(v.id)}/ai-review`, { method: "POST" });
+      const data = await response.json() as (AiDocumentReview & { skipped: string[] }) & { message?: string };
+      if (!response.ok || !Array.isArray(data.checks)) throw new Error(data.message || "AI chưa phân tích được tài liệu.");
+      if (previousEvidence.current !== scannedFingerprint) throw new Error("Tệp đã thay đổi trong lúc AI phân tích. Hãy chạy lại.");
+      setAiResult(data);
+      setFeedback({ ok: true, message: "Đã có gợi ý AI. Xem dẫn chứng từng mục trước khi áp dụng; chưa có kết quả nào được lưu." });
+    } catch (error) {
+      setFeedback({ ok: false, message: error instanceof Error ? error.message : "Không chạy được AI. Vui lòng kiểm thủ công." });
+    } finally { setScanning(false); }
+  }
+
+  function applySuggestions() {
+    if (!ref.current || !aiResult) return;
+    if (!window.confirm("Điền gợi ý có dẫn chứng vào các mục CHƯA kiểm? AI không xác thực giấy tờ thật hay cơ quan cấp. Bạn vẫn phải xem lại và tự bấm Lưu/Nộp duyệt.")) return;
+    const available = new Set(evidence.map((m) => m.id));
+    let count = 0;
+    for (const check of aiResult.checks) {
+      if (check.verdict === "uncertain" || !check.evidence_ids.some((id) => available.has(id))) continue;
+      const select = ref.current.elements.namedItem(`check:${check.key}`) as HTMLSelectElement | null;
+      const note = ref.current.elements.namedItem(`note:${check.key}`) as HTMLInputElement | null;
+      if (!select || select.value) continue; // Never overwrite a human decision.
+      select.value = check.verdict === "pass" ? "yes" : "no";
+      if (note && !note.value.trim()) note.value = `AI sơ bộ: ${check.reason} (chưa xác thực nguồn cấp)`;
+      count++;
+    }
+    setFeedback({ ok: true, message: `Đã điền nháp ${count} mục chưa kiểm. Hãy đối chiếu tệp và chỉnh sửa trước khi lưu.` });
+  }
 
   async function run(action: () => Promise<{ message: string }>) {
     if (busy) return;
@@ -55,10 +103,30 @@ export function AuditForm({ verification: v, canApprove, currentUserId }: { veri
       <p className="mt-1 text-sm text-ink-500">{items.length} mục · {items.filter((it) => v.checklist?.[it.key] === true || v.checklist?.[it.key] === false).length} mục đã ghi kết quả</p>
       {v.return_reason && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">Cần bổ sung: {v.return_reason}</p>}
     </div>
+    {v.target_level === 1 && editable && <section className="border-b border-brand-100 bg-brand-50/60 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><h3 className="flex items-center gap-2 text-sm font-bold text-ink-900"><Sparkles className="h-4 w-4 text-brand-700" /> AI kiểm tra sơ bộ</h3>
+          <p className="mt-1 text-xs leading-relaxed text-ink-600">Khi xác nhận, nội dung ảnh/PDF nội bộ sẽ được gửi tới OpenAI để gợi ý có dẫn chứng. Không xác thực giấy tờ thật, không tự lưu hay duyệt.</p>
+        </div>
+        {aiEnabled && <Button type="button" size="sm" disabled={scanning || busy || readableEvidence.length === 0} onClick={() => void scanDocuments()}>
+          {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {scanning ? "Đang đọc tài liệu…" : "AI kiểm giấy tờ"}
+        </Button>}
+      </div>
+      {!aiEnabled && <p className="mt-2 text-xs text-amber-800">Chưa cấu hình AI trên máy chủ; vẫn có thể kiểm thủ công.</p>}
+      {readableEvidence.length === 0 && <p className="mt-2 text-xs text-ink-600">Tải ảnh/PDF giấy tờ ở cột bên cạnh trước khi chạy AI.</p>}
+      {aiResult && <div className="mt-3 rounded-lg border border-brand-200 bg-white p-3 text-sm text-ink-700">
+        <p>{aiResult.summary || "AI đã đọc các tệp. Hãy kiểm từng gợi ý bên dưới."}</p>
+        {aiResult.skipped.length > 0 && <p className="mt-2 text-xs text-amber-800">{aiResult.skipped.length} tệp chưa được AI đọc (vượt dung lượng/giới hạn hoặc không hỗ trợ). Không kết luận từ các tệp đó.</p>}
+        <Button type="button" size="sm" className="mt-3" onClick={applySuggestions}>Điền nháp mục chưa kiểm</Button>
+      </div>}
+    </section>}
     <form ref={ref} onSubmit={(e) => { e.preventDefault(); save("in_progress"); }}>
       <fieldset disabled={!editable || busy}>
         <div className="divide-y divide-ink-100">
-          {items.map((it, i) => <div key={it.key} className="space-y-2 px-5 py-4">
+          {items.map((it, i) => {
+            const suggestion = aiResult?.checks.find((c) => c.key === it.key);
+            return <div key={it.key} className="space-y-2 px-5 py-4">
             <label htmlFor={`check-${it.key}`} className="block text-sm font-semibold text-ink-900">{i + 1}. {it.label}</label>
             <div className="grid gap-2 sm:grid-cols-[155px_minmax(0,1fr)]">
               <select id={`check-${it.key}`} name={`check:${it.key}`} defaultValue={v.checklist?.[it.key] === true ? "yes" : v.checklist?.[it.key] === false ? "no" : ""} className="input text-sm">
@@ -66,7 +134,17 @@ export function AuditForm({ verification: v, canApprove, currentUserId }: { veri
               </select>
               <input name={`note:${it.key}`} defaultValue={v.checklist_notes?.[it.key] ?? ""} className="input text-sm" placeholder="Ghi chú, mã chứng từ hoặc điểm cần đối chiếu" />
             </div>
-          </div>)}
+            {suggestion && <div className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-xs leading-relaxed text-ink-700">
+              <strong className={suggestion.verdict === "pass" ? "text-emerald-800" : suggestion.verdict === "fail" ? "text-rose-700" : "text-amber-800"}>
+                AI: {suggestion.verdict === "pass" ? "Có vẻ phù hợp — cần đối chiếu" : suggestion.verdict === "fail" ? "Phát hiện điểm không khớp" : "Chưa đủ cơ sở"}
+              </strong>{" · "}{suggestion.reason}
+              {suggestion.evidence_ids.length > 0 && <span className="mt-1 block">Tệp tham chiếu: {suggestion.evidence_ids.map((id) => {
+                const asset = evidence.find((m) => m.id === id && m.storage_path);
+                return asset ? <a key={id} href={`/api/media/file/${asset.storage_path}`} target="_blank" rel="noreferrer" className="mr-2 font-semibold text-brand-700 underline">{asset.caption || "Mở tệp"}</a> : null;
+              })}</span>}
+            </div>}
+          </div>;
+          })}
         </div>
         {v.target_level === 2 && <div className="grid gap-3 border-t border-ink-100 bg-ink-50/40 p-5 sm:grid-cols-2">
           <Field label="Ngày thăm"><input type="date" name="visit_date" defaultValue={v.visit_date ?? ""} className="input" /></Field>
