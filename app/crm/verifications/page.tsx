@@ -17,6 +17,7 @@ import { inVnBounds } from "@/lib/verification";
 import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import type { AppUser, Verification } from "@/lib/types";
 import { auditHref, auditItems, auditStep } from "@/lib/verification";
+import { ContactRequestButton } from "./contact-request-button";
 
 export const dynamic = "force-dynamic";
 
@@ -46,13 +47,16 @@ export default async function VerificationsPage({
   const canApprove = hasPermission(session.role, "verifications.approve");
 
   const store = getStore();
-  const [vers, suppliers, users] = await Promise.all([
+  const [vers, suppliers, users, requests] = await Promise.all([
     store.listVerifications(),
     store.listSuppliers(),
     store.listUsers().catch(() => [] as AppUser[]),
+    store.listSupplierVerificationRequests().catch((error) => { console.error("[verification-requests] migration/query failed", error); return []; }),
   ]);
   const supMap = new Map(suppliers.map((s) => [s.id, s]));
   const userMap = new Map(users.map((u) => [u.id, u]));
+  const openRequests = requests.filter((r) => !vers.some((v) =>
+    v.supplier_id === r.supplier_id && v.target_level === r.target_level && v.status === "approved"));
 
   // Hàm kiểm tra toạ độ có ở Việt Nam hay không (dùng helper chung)
   const inVn = (v: Verification) => {
@@ -78,6 +82,17 @@ export default async function VerificationsPage({
           ? "Kiểm tra giấy tờ, thăm nhà máy và đối chiếu lịch sử giao hàng. Người kiểm nộp; người khác xét duyệt."
           : "Kiểm tra giấy tờ, thăm nhà máy và đối chiếu lịch sử giao hàng. Quản trị viên có thể tự xác nhận bản kiểm đã nộp (tạm thời)."}
       />
+
+      <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50/60 p-4 sm:p-5">
+        <h2 className="font-bold text-ink-900">Yêu cầu Vexim liên hệ để xác minh thêm ({openRequests.length})</h2>
+        <p className="mt-1 text-sm text-ink-700">NCC chỉ chọn nhu cầu; nhân viên liên hệ sớm để lên kế hoạch, tự thu thập/tải bằng chứng. Không tự duyệt hay cấp nhãn.</p>
+        {openRequests.length ? <ul className="mt-4 space-y-2">{openRequests.map((r) => <li key={`${r.supplier_id}-${r.target_level}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
+          <div className="min-w-[180px] flex-1"><Link href={`/crm/suppliers/${r.supplier_id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(r.supplier_id)?.name ?? "NCC"}</Link>
+            <p className="mt-0.5 text-xs text-ink-500">{r.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"} · {r.status === "contacted" ? "Đã liên hệ" : "Cần liên hệ"} · {new Date(r.requested_at).toLocaleDateString("vi-VN")}</p></div>
+          {r.status === "requested" && <ContactRequestButton supplierId={r.supplier_id} level={r.target_level} />}
+          <Link href={auditHref(r.supplier_id, r.target_level)} className="btn btn-ghost btn-sm">Mở trang đánh giá →</Link>
+        </li>)}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có yêu cầu cần xử lý.</p>}
+      </section>
 
       {canApprove && counts.submitted > 0 && (
         <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">

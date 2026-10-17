@@ -26,6 +26,7 @@ import type {
   RfqMatch,
   Supplier,
   SupplierInput,
+  SupplierVerificationRequest,
   SupplierCategory,
   SupplierProduct,
   SupplierProductInput,
@@ -203,6 +204,30 @@ export const supabaseStore: DataStore = {
   async deleteSupplier(id) {
     const { error } = await must().from("suppliers").delete().eq("id", id);
     if (error) fail("deleteSupplier", error);
+  },
+
+  async listSupplierVerificationRequests(supplierId) {
+    let query = must().from("supplier_verification_requests").select("*").order("requested_at", { ascending: false });
+    if (supplierId) query = query.eq("supplier_id", supplierId);
+    const { data, error } = await query;
+    if (error) fail("listSupplierVerificationRequests", error);
+    return (data ?? []) as SupplierVerificationRequest[];
+  },
+  async createSupplierVerificationRequest(supplierId, level) {
+    const { data, error } = await must().from("supplier_verification_requests")
+      .insert({ supplier_id: supplierId, target_level: level, status: "requested" }).select().single();
+    if (error) fail("createSupplierVerificationRequest", error);
+    return data as SupplierVerificationRequest;
+  },
+  async markSupplierVerificationContacted(supplierId, level, actorId) {
+    const { data, error } = await must().from("supplier_verification_requests")
+      .update({ status: "contacted", contacted_at: new Date().toISOString(), contacted_by: actorId })
+      .eq("supplier_id", supplierId).eq("target_level", level).eq("status", "requested").select().maybeSingle();
+    if (error) fail("markSupplierVerificationContacted", error);
+    if (data) return data as SupplierVerificationRequest;
+    const existing = (await this.listSupplierVerificationRequests(supplierId)).find((r) => r.target_level === level);
+    if (!existing) throw new Error("Không có yêu cầu này.");
+    return existing;
   },
 
   async listProducts() {

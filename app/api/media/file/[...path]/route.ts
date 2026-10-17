@@ -4,6 +4,7 @@ import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getObject } from "@/lib/media/storage";
+import { ownsDocumentReview } from "@/lib/supplier-portal/policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,14 @@ export async function GET(
   }
 
   if (asset.audience === "internal" && !hasPermission(session.role, "media.internal")) {
-    return new NextResponse("Bạn không có quyền xem tài liệu nội bộ", { status: 403 });
+    const store = getStore();
+    const user = session.role === "supplier" ? await store.getUser(session.uid) : null;
+    const review = asset.owner_type === "verification" && asset.verification_id && asset.created_by === user?.id
+      ? await store.getVerification(asset.verification_id) : null;
+    if (!ownsDocumentReview(user, review) || !asset.checklist_key ||
+        user?.email.toLowerCase() !== session.email.toLowerCase()) {
+      return new NextResponse("Bạn không có quyền xem tài liệu nội bộ", { status: 403 });
+    }
   }
 
   const object = await getObject(rel);

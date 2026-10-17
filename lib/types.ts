@@ -310,6 +310,16 @@ export type L2VisitKey = typeof L2_VISIT_ITEMS[number]["key"];
 export type DeliveryKey = typeof DELIVERY_ITEMS[number]["key"];
 export type AuditEvidenceKey = L1DocKey | L2VisitKey | DeliveryKey;
 
+/** Yêu cầu Vexim liên hệ để kiểm tra nhà máy / lịch sử giao hàng; không phải kết quả xác minh. */
+export interface SupplierVerificationRequest {
+  supplier_id: string;
+  target_level: 2 | 3;
+  status: "requested" | "contacted";
+  requested_at: string;
+  contacted_at: string | null;
+  contacted_by: string | null;
+}
+
 export interface Verification {
   id: string;
   supplier_id: string;
@@ -754,7 +764,7 @@ export interface ProspectActivity {
 
 /* ------------------------------- NGƯỜI DÙNG ------------------------------ */
 
-export type UserRole = "admin" | "sale" | "sourcing" | "viewer";
+export type UserRole = "admin" | "sale" | "sourcing" | "viewer" | "supplier";
 
 /** Cách tài khoản được xác thực */
 export type AuthProvider = "supabase" | "local";
@@ -764,6 +774,8 @@ export interface AppUser {
   email: string;
   name: string | null;
   role: UserRole;
+  /** Chỉ tài khoản doanh nghiệp được liên kết hồ sơ NCC này. */
+  supplier_id?: string | null;
   /** Tài khoản được tạo bên Supabase Auth (đăng nhập qua Supabase khi có mạng) */
   auth_provider: AuthProvider;
   /** Có mật khẩu nội bộ (dùng khi không kết nối được Supabase) */

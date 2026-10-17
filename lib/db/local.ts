@@ -30,6 +30,7 @@ import type {
   Supplier,
   SupplierCategory,
   SupplierInput,
+  SupplierVerificationRequest,
   SupplierProduct,
   SupplierProductInput,
   TemplateOverride,
@@ -62,6 +63,7 @@ interface LocalShape {
   // RFQ FOUNDATION
   categories: Category[];
   supplier_categories: SupplierCategory[];
+  supplier_verification_requests: SupplierVerificationRequest[];
   certificates: Certificate[];
   verifications: Verification[];
   rfqs: Rfq[];
@@ -287,6 +289,7 @@ function seed(): LocalShape {
     posts: [],
     categories,
     supplier_categories: [],
+    supplier_verification_requests: [],
     certificates: [],
     verifications: [],
     rfqs: [],
@@ -716,11 +719,13 @@ function load(): LocalShape {
       if (u.signature_html === undefined) u.signature_html = null;
       if (u.phone === undefined) u.phone = null;
       if (u.sender_email === undefined) u.sender_email = null;
+      if (u.supplier_id === undefined) u.supplier_id = null;
     });
     if (!Array.isArray(c.attachments)) c.attachments = [];
     // RFQ foundation – tương thích với file dữ liệu cũ
     if (!Array.isArray(c.categories)) c.categories = [];
     if (!Array.isArray(c.supplier_categories)) c.supplier_categories = [];
+    if (!Array.isArray(c.supplier_verification_requests)) c.supplier_verification_requests = [];
     if (!Array.isArray(c.certificates)) c.certificates = [];
     if (!Array.isArray(c.verifications)) c.verifications = [];
     if (!Array.isArray(c.rfqs)) c.rfqs = [];
@@ -758,9 +763,11 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.products)) parsed.products = [];
         if (!Array.isArray(parsed.media)) parsed.media = [];
         if (!Array.isArray(parsed.users)) parsed.users = [];
+        parsed.users.forEach((u) => { if (u.supplier_id === undefined) u.supplier_id = null; });
         if (!Array.isArray(parsed.attachments)) parsed.attachments = [];
         if (!Array.isArray(parsed.categories)) parsed.categories = [];
         if (!Array.isArray(parsed.supplier_categories)) parsed.supplier_categories = [];
+        if (!Array.isArray(parsed.supplier_verification_requests)) parsed.supplier_verification_requests = [];
         if (!Array.isArray(parsed.certificates)) parsed.certificates = [];
         if (!Array.isArray(parsed.verifications)) parsed.verifications = [];
         if (!Array.isArray(parsed.rfqs)) parsed.rfqs = [];
@@ -865,6 +872,8 @@ export const localStore: DataStore = {
   async deleteSupplier(id) {
     mutate((db) => {
       db.suppliers = db.suppliers.filter((s) => s.id !== id);
+      db.supplier_verification_requests = (db.supplier_verification_requests ?? []).filter((r) => r.supplier_id !== id);
+      for (const user of db.users) if (user.supplier_id === id) { user.supplier_id = null; user.is_active = false; }
       for (const b of db.buyers) if (b.supplier_id === id) b.supplier_id = null;
       const removedProducts = db.products.filter((pr) => pr.supplier_id === id).map((pr) => pr.id);
       const removedVerifications = (db.verifications ?? []).filter((v) => v.supplier_id === id).map((v) => v.id);
@@ -877,6 +886,32 @@ export const localStore: DataStore = {
         if (vid && removedVerifications.includes(vid)) return false;
         return true;
       });
+    });
+  },
+
+  async listSupplierVerificationRequests(supplierId) {
+    return load().supplier_verification_requests.filter((r) => !supplierId || r.supplier_id === supplierId)
+      .sort((a, b) => b.requested_at.localeCompare(a.requested_at));
+  },
+  async createSupplierVerificationRequest(supplierId, level) {
+    return mutate((db) => {
+      if (!db.suppliers.some((s) => s.id === supplierId)) throw new Error("Không tìm thấy NCC.");
+      if (level !== 2 && level !== 3) throw new Error("Chỉ nhận yêu cầu thăm nhà máy hoặc lịch sử giao hàng.");
+      if (db.supplier_verification_requests.some((r) => r.supplier_id === supplierId && r.target_level === level)) throw new Error("Đã gửi yêu cầu này.");
+      const row: SupplierVerificationRequest = {
+        supplier_id: supplierId, target_level: level, status: "requested", requested_at: new Date().toISOString(),
+        contacted_at: null, contacted_by: null,
+      };
+      db.supplier_verification_requests.push(row);
+      return row;
+    });
+  },
+  async markSupplierVerificationContacted(supplierId, level, actorId) {
+    return mutate((db) => {
+      const row = db.supplier_verification_requests.find((r) => r.supplier_id === supplierId && r.target_level === level);
+      if (!row) throw new Error("Không có yêu cầu này.");
+      if (row.status === "requested") Object.assign(row, { status: "contacted", contacted_at: new Date().toISOString(), contacted_by: actorId });
+      return row;
     });
   },
 
@@ -1099,6 +1134,7 @@ export const localStore: DataStore = {
         (u) => u.email.trim().toLowerCase() === input.email.trim().toLowerCase(),
       );
       if (exists) throw new Error("Email này đã có tài khoản.");
+      if (input.supplier_id && db.users.some((u) => u.supplier_id === input.supplier_id)) throw new Error("NCC này đã có tài khoản.");
       const row: AppUserRecord = {
         ...input,
         id: randomUUID(),

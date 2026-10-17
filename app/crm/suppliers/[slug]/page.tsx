@@ -55,12 +55,13 @@ export default async function SupplierDetailPage({
     listBuyersWithSupplier(),
     store.listProductsBySupplier(id),
   ]);
-  const [supplierMedia, productMedia, verifications, categories, links] = await Promise.all([
+  const [supplierMedia, productMedia, verifications, categories, links, requests] = await Promise.all([
     store.listMedia("supplier", id),
     store.listMediaForProducts(products.map((p) => p.id)),
     store.listVerifications(id),
     store.listCategories({ publishedOnly: false }),
     store.listSupplierCategories(id).catch(() => []),
+    store.listSupplierVerificationRequests(id).catch((error) => { console.error("[supplier-requests] migration/query failed", error); return []; }),
   ]);
   const assigned = links.length
     ? links.map((link) => ({ category: categories.find((c) => c.id === link.category_id), primary: link.is_primary })).filter((item) => !!item.category)
@@ -186,6 +187,7 @@ export default async function SupplierDetailPage({
           <VerificationPanel
             supplierId={id}
             verifications={verifications}
+            requests={requests}
             canInspect={canInspect}
           />
 

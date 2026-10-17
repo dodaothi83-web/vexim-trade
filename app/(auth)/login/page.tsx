@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
@@ -53,7 +54,7 @@ export default async function LoginPage({
   searchParams: Promise<{ reason?: string }>;
 }) {
   const session = await getSession();
-  if (session) redirect("/");
+  if (session) redirect(session.role === "supplier" ? "/supplier/portal" : "/");
 
   const sp = await searchParams;
   const reason = REASON_BOX[sp.reason ?? ""];
@@ -75,7 +76,7 @@ export default async function LoginPage({
           ? needsSetup
             ? "Xác thực qua Supabase Auth. Hệ thống chưa có tài khoản nào — tài khoản Supabase đăng nhập đầu tiên sẽ trở thành quản trị viên."
             : "Xác thực qua Supabase Auth. Tài khoản phải được cấp quyền trong app."
-          : "Chưa kết nối được Supabase — hệ thống dùng mật khẩu nội bộ (dự phòng) để đăng nhập."}
+          : "Chưa kết nối được Supabase — nhân viên có thể dùng mật khẩu nội bộ (dự phòng); tài khoản doanh nghiệp cần Supabase và email đã xác nhận."}
       </p>
 
       {reason && (
@@ -86,6 +87,7 @@ export default async function LoginPage({
       )}
 
       <LoginForm needsSetup={needsSetup} />
+      <p className="mt-5 text-center text-xs text-ink-600">Doanh nghiệp chưa có tài khoản? <Link href="/supplier/apply" className="font-semibold text-brand-700 underline">Đăng ký hồ sơ nhà cung cấp</Link></p>
     </>
   );
 }

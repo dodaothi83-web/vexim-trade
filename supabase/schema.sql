@@ -377,7 +377,7 @@ create table if not exists public.app_users (
   email         text not null,
   name          text,
   role          text not null default 'viewer' check (role in
-                  ('admin','sale','sourcing','viewer')),
+                  ('admin','sale','sourcing','viewer','supplier')),
   auth_provider text not null default 'local' check (auth_provider in ('supabase','local')),
   -- NULL = tài khoản chỉ có bên Supabase Auth (chưa có mật khẩu dự phòng)
   password_hash text,
@@ -397,6 +397,10 @@ alter table public.app_users add column if not exists auth_provider text not nul
 alter table public.app_users add column if not exists password_hash text;
 alter table public.app_users add column if not exists is_active boolean not null default true;
 alter table public.app_users add column if not exists last_login_at timestamptz;
+alter table public.app_users add column if not exists supplier_id uuid references public.suppliers(id) on delete set null;
+create unique index if not exists app_users_supplier_id_key
+  on public.app_users (supplier_id) where supplier_id is not null;
+-- On existing databases, run 20261017_supplier_self_registration.sql to replace the old role CHECK.
 -- Chữ ký email cá nhân (HTML) của từng người dùng; null = dùng chữ ký tự động.
 alter table public.app_users add column if not exists signature_html text;
 -- Số điện thoại cá nhân trong chữ ký email (chạy một lần)
@@ -741,6 +745,20 @@ create index if not exists media_verification_checklist_idx
   on public.media_assets (verification_id, checklist_key)
   where owner_type = 'verification' and checklist_key is not null;
 create index if not exists verifications_supplier_idx on public.verifications (supplier_id, created_at desc);
+
+create table if not exists public.supplier_verification_requests (
+  supplier_id uuid not null references public.suppliers(id) on delete cascade,
+  target_level smallint not null check (target_level in (2,3)),
+  status text not null default 'requested' check (status in ('requested','contacted')),
+  requested_at timestamptz not null default now(),
+  contacted_at timestamptz,
+  contacted_by uuid references public.app_users(id) on delete set null,
+  primary key (supplier_id, target_level)
+);
+create index if not exists supplier_verification_requests_queue_idx
+  on public.supplier_verification_requests(status, requested_at desc);
+alter table public.supplier_verification_requests enable row level security;
+revoke all on public.supplier_verification_requests from anon, authenticated;
 
 drop trigger if exists verifications_touch on public.verifications;
 create trigger verifications_touch before update on public.verifications

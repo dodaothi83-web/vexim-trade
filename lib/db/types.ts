@@ -24,6 +24,7 @@ import type {
   RfqMatch,
   Supplier,
   SupplierInput,
+  SupplierVerificationRequest,
   SupplierCategory,
   SupplierProduct,
   SupplierProductInput,
@@ -42,6 +43,9 @@ export interface DataStore {
   createSupplier(input: SupplierInput): Promise<Supplier>;
   updateSupplier(id: string, patch: Partial<SupplierInput>): Promise<Supplier>;
   deleteSupplier(id: string): Promise<void>;
+  listSupplierVerificationRequests(supplierId?: string): Promise<SupplierVerificationRequest[]>;
+  createSupplierVerificationRequest(supplierId: string, level: 2 | 3): Promise<SupplierVerificationRequest>;
+  markSupplierVerificationContacted(supplierId: string, level: 2 | 3, actorId: string): Promise<SupplierVerificationRequest>;
 
   listProducts(): Promise<SupplierProduct[]>;
   getProduct(id: string): Promise<SupplierProduct | null>;

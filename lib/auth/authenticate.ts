@@ -193,6 +193,9 @@ export async function authenticate(email: string, password: string): Promise<Log
         }
 
         if (!record.is_active) return { ok: false, message: "Tài khoản đã bị tạm khoá." };
+        if (record.role === "supplier" && (store.mode !== "supabase" || !record.supplier_id || !data.user.email_confirmed_at)) {
+          return { ok: false, message: "Tài khoản doanh nghiệp phải xác nhận email và kết nối Supabase để đăng nhập." };
+        }
         return { ok: true, user: record, via: "supabase" };
       }
 
@@ -225,6 +228,7 @@ export async function authenticate(email: string, password: string): Promise<Log
   }
   if (!record) return { ok: false, message: WRONG_CREDENTIALS };
   if (!record.is_active) return { ok: false, message: "Tài khoản đã bị tạm khoá." };
+  if (record.role === "supplier") return { ok: false, message: "Tài khoản doanh nghiệp cần xác nhận email và đăng nhập qua Supabase; không có mật khẩu nội bộ." };
 
   if (!record.password_hash) {
     return {

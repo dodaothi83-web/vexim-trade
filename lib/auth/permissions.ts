@@ -69,6 +69,12 @@ export const ROLES: {
     badge: "bg-emerald-600 text-white",
   },
   {
+    value: "supplier",
+    label: "Doanh nghiệp",
+    description: "Chỉ xem hồ sơ của mình và bổ sung giấy tờ bước đầu qua cổng NCC; không vào CRM.",
+    badge: "bg-sky-100 text-sky-800",
+  },
+  {
     value: "viewer",
     label: "Chỉ xem",
     description: "Chỉ đọc dữ liệu và xem tài liệu chia sẻ buyer, không thao tác.",
@@ -148,6 +154,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "settings.view",
   ],
   viewer: VIEW_ONLY,
+  supplier: [],
 };
 
 export function permissionsFor(role: UserRole): Permission[] {

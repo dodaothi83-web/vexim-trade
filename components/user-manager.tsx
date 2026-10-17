@@ -102,7 +102,7 @@ export function UserManager({
               value={role}
               onChange={(e) => setRole(e.target.value as UserRole)}
             >
-              {ROLES.map((r) => (
+              {ROLES.filter((r) => r.value !== "supplier").map((r) => (
                 <option key={r.value} value={r.value}>
                   {r.label} — {r.description}
                 </option>
@@ -304,10 +304,10 @@ function UserRow({
           <select
             className="input w-auto py-1.5 text-[12px]"
             value={user.role}
-            disabled={busy}
+            disabled={busy || user.role === "supplier"}
             onChange={(e) => void patch({ role: e.target.value as UserRole })}
           >
-            {ROLES.map((r) => (
+            {ROLES.filter((r) => r.value !== "supplier" || user.role === "supplier").map((r) => (
               <option key={r.value} value={r.value}>
                 {r.label}
               </option>
@@ -324,10 +324,10 @@ function UserRow({
             {user.is_active ? "Khoá" : "Mở khoá"}
           </Button>
 
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setResetting((v) => !v)}>
+          {user.role !== "supplier" && <Button size="sm" variant="ghost" disabled={busy} onClick={() => setResetting((v) => !v)}>
             <KeyRound className="h-3.5 w-3.5" />
             Đặt lại mật khẩu
-          </Button>
+          </Button>}
 
           <button
             type="button"

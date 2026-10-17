@@ -28,7 +28,7 @@ export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
       return;
     }
     if (res.details?.length) setNotice(res.details.join(" "));
-    router.replace("/crm/dashboard");
+    router.replace(res.redirectTo ?? "/crm/dashboard");
     router.refresh();
   }
 
