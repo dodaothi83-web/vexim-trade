@@ -167,12 +167,41 @@ assert.equal(await catalog.getPublicSupplierBySlug('company-c'), null, 'Draft su
 const grid = readFileSync(new URL('../components/category-product-grid.tsx', import.meta.url), 'utf8');
 const profilePage = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
 const detailPage = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
-assert.match(grid, /Supplied by <Link href=\{`\/suppliers\//);
+assert.match(grid, /<Link href=\{`\/suppliers\//, 'Supplier profile remains independently accessible from every card');
 assert.match(grid, /\+\{count\} more from/);
-assert.match(grid, /Lead time:/);
+assert.match(grid, /<span>MOQ <strong/);
+assert.match(grid, /<span>Lead time <strong/);
+assert.match(grid, /p\.province/);
+assert.match(grid, /p\.price \|\| \"Price on request\"/);
+assert.match(grid, /lg:grid-cols-3 2xl:grid-cols-4/, 'Desktop cards must have room to breathe beside the filters');
+assert.match(grid, /aspect-\[5\/4\]/, 'Images remain visible in a shorter card');
+assert.match(grid, /p\.grade && <span/, 'Grade stays scannable without another text row');
 assert.match(grid, /p\.verificationSteps\.includes\(verified/, 'Verification filter matches only the selected approved check');
 assert.match(grid, /<ProductVerificationIcons levels=\{p\.verificationSteps\}/);
-assert.match(grid, /<\/Link>\s*<div className="px-3 pb-2 sm:px-4"><ProductVerificationIcons/, 'Interactive tooltip must not be nested inside product navigation link');
+assert.match(grid, /<\/Link>\s*<div className="mx-3 border-t[\s\S]*?<ProductVerificationIcons levels=\{p\.verificationSteps\} compact/, 'Interactive supplier checks remain outside product navigation link');
+// Render a representative buyer card: shrinking the layout must not drop buying facts or independent links.
+const { ProductTradeLabels } = compile('../components/product-trade-labels.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'), 'lucide-react': require('lucide-react'),
+});
+const { CategoryProductGrid } = compile('../components/category-product-grid.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'), 'react': React,
+  'next/link': { default: ({ href, children }) => React.createElement('a', { href }, children) },
+  'lucide-react': require('lucide-react'),
+  '@/components/product-trade-labels': { ProductTradeLabels },
+  '@/components/product-verification-icons': { ProductVerificationIcons },
+  '@/lib/public/supplier-product-order': { arrangeSupplierProducts },
+});
+const compactCard = renderToStaticMarkup(React.createElement(CategoryProductGrid, {
+  products: [{ ...cards.find((p) => p.id === 'a0'), oem: true, odm: true, samples: true }],
+  categorySlug: 'cashew', grades: ['W320'], rfqHref: '/rfq?category=cashew',
+})).split('<article')[1].split('</article>')[0];
+for (const text of ['Cashew W320 lot 0', 'Grade W320', 'MOQ', '1 MT', 'Lead time', '14 days', 'OEM', 'ODM', 'Samples', 'Company A', 'Hanoi', 'Supplier', 'Request quote']) {
+  assert.ok(compactCard.includes(text), `Compact card keeps ${text}`);
+}
+assert.match(compactCard, /href="\/suppliers\/company-a"/, 'Buyer can still open the supplier profile');
+assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can still open product details');
+assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A/, 'Buyer can still request a quote');
+assert.equal((compactCard.match(/<details/g) ?? []).length, 2, 'Compact icon strip keeps only approved supplier checks');
 assert.match(detailPage, /<ProductVerificationIcons levels=\{card\.verificationSteps\}/);
 assert.match(profilePage, /publicProductPrice\(p, s\) \|\| "On request"/);
 assert.match(profilePage, /href=\{`\/products\/\$\{encodeURIComponent\(category\.slug\)\}/);
