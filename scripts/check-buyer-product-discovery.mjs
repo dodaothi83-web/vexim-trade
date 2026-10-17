@@ -219,7 +219,7 @@ assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A/, 'Buyer
 assert.equal((compactCard.match(/<details/g) ?? []).length, 2, 'Compact icon strip keeps only approved supplier checks');
 assert.match(detailPage, /<ProductVerificationIcons levels=\{card\.verificationSteps\}/);
 assert.match(profilePage, /synthetic \? "Test data · not a price" : publicProductPrice\(p, s\) \|\| "On request"/);
-assert.match(profilePage, /const href = !synthetic && category \? `\/products\/\$\{encodeURIComponent\(category\.slug\)\}/);
+assert.match(profilePage, /const href = synthetic[\s\S]*?`\/suppliers\/\$\{encodeURIComponent\(s\.slug \|\| s\.id\)\}\/products\/\$\{encodeURIComponent\(p\.id\)\}`/, 'Test products have a safe dedicated preview instead of a dead card');
 assert.match(detailPage, /View supplier profile/);
 assert.match(detailPage, /#factory-visit/);
 assert.match(detailPage, /#delivery-history/);

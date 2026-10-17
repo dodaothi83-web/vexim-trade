@@ -31,7 +31,7 @@ const real = {
 const synthetic = { ...real, id: 'test', slug: 'vexim-test-supplier-do-not-contact',
   summary_i18n: { en: 'VEXIM TEST SUPPLIER - DO NOT CONTACT. veximglobal.com' },
   main_products: [{ ...product, id: 'fake', spec: 'TEST ONLY — no verified commercial specification' }],
-  product_image_paths: {}, approved_verification_steps: [1], public_review_summaries: {} };
+  product_image_paths: { fake: 'products/fake/test.jpg' }, approved_verification_steps: [1], public_review_summaries: {} };
 const thin = { ...real, id: 'empty', slug: 'empty-supplier', main_products: [] };
 assert.equal(seo.supplierProfileIndexable(real), true);
 assert.equal(seo.supplierProfileIndexable(synthetic), false);
@@ -54,6 +54,9 @@ const { default: Profile, generateMetadata } = compile('../app/(public)/supplier
   '@/lib/db': { getStore: () => ({ listCategories: async () => [category] }) },
   '@/lib/public/product-selection': { productBelongsToCategory: () => true, publicProductPrice: () => 'USD 2/MT', withoutDirectContacts: selection.withoutDirectContacts },
   '@/lib/public/supplier-seo': seo, '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
+  '@/lib/auth/session': { getSession: async () => null },
+  '@/lib/traffic/server': { createTrafficToken: () => 'test-token' },
+  '@/components/supplier-traffic-beacon': { SupplierTrafficBeacon: () => null },
 });
 const previous = process.env.PUBLIC_SITE_INDEXABLE;
 process.env.PUBLIC_SITE_INDEXABLE = 'true';
@@ -94,7 +97,30 @@ const testHtml = renderToStaticMarkup(await Profile(params(synthetic.slug)));
 assert.match(testHtml, /Test profile/);
 assert.match(testHtml, /id="products"/);
 assert.match(testHtml, /Test data · not a price/);
+assert.match(testHtml, /href="\/suppliers\/vexim-test-supplier-do-not-contact\/products\/fake"/, 'Test card opens a noncommercial preview, not a missing category detail');
+assert.match(testHtml, /object-contain/, 'Supplier product photo stays fully visible without crop');
 assert.doesNotMatch(testHtml, /application\/ld\+json|Get quote|Request a quote|veximglobal\.com/);
+const { default: Preview, generateMetadata: previewMetadata } = compile('../app/(public)/suppliers/[slug]/products/[productId]/page.tsx', {
+  'react/jsx-runtime': await import('react/jsx-runtime'),
+  'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
+  'next/navigation': { notFound: () => { throw new Error('not found'); } },
+  'lucide-react': icons,
+  '@/lib/public/catalog': { getPublicSupplierBySlug: lookup },
+  '@/lib/public/supplier-seo': seo,
+  '@/lib/public/product-selection': { withoutDirectContacts: selection.withoutDirectContacts },
+});
+const previewParams = (slug, productId) => ({ params: Promise.resolve({ slug, productId }) });
+const previewMeta = await previewMetadata(previewParams(synthetic.slug, 'fake'));
+assert.equal(previewMeta.robots.index, false);
+assert.equal(previewMeta.robots.follow, false);
+const previewHtml = renderToStaticMarkup(await Preview(previewParams(synthetic.slug, 'fake')));
+assert.match(previewHtml, /Test product preview only/);
+assert.match(previewHtml, /products\/fake\/test.jpg/);
+assert.match(previewHtml, /object-contain/, 'Full preview image is not cropped');
+assert.match(previewHtml, /Not a commercial offer/);
+assert.doesNotMatch(previewHtml, /Get quote|Request a quote|\/rfq\?/);
+await assert.rejects(Preview(previewParams(real.slug, 'p1')), /not found/, 'Real products cannot bypass their regular detail gate');
+await assert.rejects(Preview(previewParams(synthetic.slug, 'missing')), /not found/, 'No arbitrary product is exposed');
 const emptyHtml = renderToStaticMarkup(await Profile(params(thin.slug)));
 assert.match(emptyHtml, /No buyer-ready products/);
 assert.doesNotMatch(emptyHtml, /application\/ld\+json/);

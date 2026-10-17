@@ -190,14 +190,17 @@ export default async function SupplierProfile({ params }: PageProps) {
       {s.main_products.length ? <ul className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {s.main_products.map((p) => {
           const category = productCategory(p);
-          const href = !synthetic && category ? `/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}` : null;
+          const href = synthetic
+            ? `/suppliers/${encodeURIComponent(s.slug || s.id)}/products/${encodeURIComponent(p.id)}`
+            : category ? `/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}` : null;
           const image = s.product_image_paths[p.id];
           const rfq = `/rfq?category=${encodeURIComponent(category?.slug || "")}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`;
+          const picture = <div className="relative flex h-44 items-center justify-center overflow-hidden bg-ink-50">
+            {image ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={mediaUrl(image)} alt={safe(p.name)} className="h-full w-full object-contain" loading="lazy" /></> : <div className="flex flex-col items-center gap-2 text-ink-400"><Package className="h-9 w-9" /><span className="text-xs">Catalogue available on request</span></div>}
+            {category && <span className="absolute bottom-3 left-3 rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-ink-800 shadow-sm">{safe(category.name_i18n.en || category.slug)}</span>}
+          </div>;
           return <li key={p.id} className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-card transition hover:border-brand-200 hover:shadow-md">
-            <div className="relative flex h-44 items-center justify-center overflow-hidden bg-ink-50">
-              {image ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={mediaUrl(image)} alt={safe(p.name)} className="h-full w-full object-cover transition duration-300 hover:scale-105" loading="lazy" /></> : <div className="flex flex-col items-center gap-2 text-ink-400"><Package className="h-9 w-9" /><span className="text-xs">Catalogue available on request</span></div>}
-              {category && <span className="absolute bottom-3 left-3 rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-ink-800 shadow-sm">{safe(category.name_i18n.en || category.slug)}</span>}
-            </div>
+            {href ? <Link href={href} aria-label={`View ${safe(p.name)}`} className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">{picture}</Link> : picture}
             <div className="flex flex-1 flex-col p-4">
               <h3 className="line-clamp-2 min-h-10 text-base font-bold leading-5 text-ink-900">{href ? <Link href={href} className="hover:text-brand-700">{safe(p.name)}</Link> : safe(p.name)}</h3>
               <p className="mt-2 line-clamp-2 min-h-9 text-xs leading-5 text-ink-600">{safe(p.spec || p.packaging || p.description) || "Contact Vexim for product specifications."}</p>
