@@ -165,7 +165,17 @@ export async function approveVerificationAction(fd: FormData) {
       return { ok: false, message: "Cần ít nhất một chứng từ giao hàng đã được kiểm tra (vận đơn hoặc xác nhận giao nhận). RFQ thắng không đủ điều kiện." };
     }
   }
-  await store.updateVerification(before.id, { status: "approved", approved_by: session?.uid ?? null, approved_at: new Date().toISOString() });
+  try {
+    await store.updateVerification(before.id, { status: "approved", approved_by: session?.uid ?? null, approved_at: new Date().toISOString() });
+  } catch (error) {
+    // The temporary self-review policy needs its companion DB migration. Do not
+    // mask unrelated DB failures or claim this verification was approved.
+    if (error instanceof Error && /verifications_four_eyes/.test(error.message)) {
+      console.error("[verification] database still enforces verifications_four_eyes; approval not saved");
+      return { ok: false, message: "CSDL vẫn yêu cầu người duyệt khác người kiểm (verifications_four_eyes). Hãy nhờ quản trị viên khác duyệt, hoặc quản trị CSDL chạy migration 20261017_temporary_self_verification_approval.sql trên đúng Supabase project. Bản kiểm vẫn đang chờ duyệt." };
+    }
+    throw error;
+  }
   await auditChange(before, "approved", "approve");
   refreshAudit(before);
   return { ok: true, message: "Đã duyệt bước kiểm tra." };

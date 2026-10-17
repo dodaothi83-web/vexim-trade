@@ -39,6 +39,18 @@ alter table public.verifications add constraint verifications_four_eyes
 
 Không đổi quyền RBAC của nhân viên thu mua. Nếu app mới chạy trước DB migration, duyệt chính mình sẽ bị DB từ chối.
 
+**Khắc phục lỗi production `verifications_four_eyes`:** DB của project đang còn CHECK bốn mắt, trong khi ứng dụng đang bật chế độ admin tự duyệt. Chạy **đúng file** `supabase/migrations/20261017_temporary_self_verification_approval.sql` trong SQL Editor của **Supabase project mà deployment đang dùng** (không chạy toàn bộ `schema.sql`). File chỉ bỏ CHECK, không sửa dữ liệu/bản kiểm đã nộp; nếu không có quyền chạy migration, nhờ một admin khác người kiểm duyệt. Có thể xác nhận trước/sau bằng truy vấn chỉ đọc:
+
+```sql
+select conname, pg_get_constraintdef(oid) as definition
+from pg_constraint
+where conrelid = 'public.verifications'::regclass
+  and conname = 'verifications_four_eyes';
+-- Sau khi chạy migration: 0 dòng.
+```
+
+Sau khi kiểm tra còn đủ bằng chứng/quyền, thử duyệt lại bản đang `submitted`; lỗi trước đó **không** lưu trạng thái `approved`. Nếu chủ đích giữ quy tắc hai người, thay vào đó bật `VERIFICATION_REQUIRE_TWO_PERSON_REVIEW=true` và dùng admin thứ hai, không bỏ CHECK. Không sửa quyền người dùng để vòng qua điều kiện này.
+
 ## Triển khai database
 
 1. Nếu **chưa chạy** migration cũ `supabase/migrations/20261017_verification_workflow.sql`, hãy chạy nó trước. Migration CMS ảnh NCC không chứa các cột checklist / liên kết bằng chứng xác minh.

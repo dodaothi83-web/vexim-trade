@@ -31,13 +31,19 @@ const records = [
 ];
 const media = [];
 let mediaBlocked = null;
+let dbFourEyes = false;
 const store = {
   getVerification: async () => row,
   listVerifications: async () => records,
   listMedia: async (ownerType, ownerId) => { lastMediaLookup = [ownerType, ownerId]; return media; },
   getMedia: async (id) => media.find((m) => m.id === id),
   updateMedia: async (id, patch) => { const asset = media.find((m) => m.id === id); Object.assign(asset, patch); return asset; },
-  updateVerification: async (_id, patch) => { Object.assign(row, patch); return row; },
+  updateVerification: async (_id, patch) => {
+    if (dbFourEyes && patch.status === 'approved' && patch.approved_by === row.inspector_id) {
+      throw new Error('updateVerification: new row for relation "verifications" violates check constraint "verifications_four_eyes"');
+    }
+    Object.assign(row, patch); return row;
+  },
   addAuditLog: async (entry) => { lastAudit = entry; },
   getSupplier: async () => ({ verification_level: 2 }),
 };
@@ -59,7 +65,7 @@ const mocks = {
     inVnBounds: (lat, lng) => lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110,
   },
 };
-vm.runInNewContext(js, { exports, require: (name) => { assert.ok(name in mocks, `Unknown import ${name}`); return mocks[name]; }, console, FormData, Date }, { filename: 'verification-actions.ts' });
+vm.runInNewContext(js, { exports, require: (name) => { assert.ok(name in mocks, `Unknown import ${name}`); return mocks[name]; }, console: { error: () => {} }, FormData, Date, Error }, { filename: 'verification-actions.ts' });
 const form = new FormData(); form.set('id', row.id);
 assert.match((await exports.approveVerificationAction(form)).message, /chứng từ giao hàng/);
 media.push({ kind: 'video', status: 'checked', storage_path: null });
@@ -74,6 +80,13 @@ requireSecondReviewer = false;
 auditor.role = 'sourcing';
 await assert.rejects(exports.approveVerificationAction(form), /không có quyền xét duyệt/);
 auditor.role = 'admin';
+dbFourEyes = true;
+const blockedByDatabase = await exports.approveVerificationAction(form);
+assert.equal(blockedByDatabase.ok, false, 'Legacy DB constraint returns actionable feedback, not a Server Components digest');
+assert.match(blockedByDatabase.message, /20261017_temporary_self_verification_approval\.sql/);
+assert.equal(row.status, 'submitted', 'Rejected approval must remain submitted');
+assert.equal(lastAudit, null, 'Rejected approval must not be logged as approved');
+dbFourEyes = false;
 const approved = await exports.approveVerificationAction(form);
 assert.equal(approved.ok, true);
 assert.equal(row.status, 'approved');
