@@ -63,9 +63,10 @@ export async function GET(req: Request) {
     if (!rfq.assigned_to && ageHours >= 4 && !specs.sla_unassigned_alerted_at) {
       try {
         await sendSlaAlert({ kind: "unassigned_4h", rfq, buyer });
-        await store.updateRfq(rfq.id, {
-          specs: { ...specs, sla_unassigned_alerted_at: new Date().toISOString() },
-        });
+        const alertedAt = new Date().toISOString();
+        await store.updateRfq(rfq.id, { specs: { ...specs, sla_unassigned_alerted_at: alertedAt } });
+        // The second alert below may also fire on this run; preserve both markers.
+        specs.sla_unassigned_alerted_at = alertedAt;
         unassigned += 1;
       } catch (err) {
         errors.push(`unassigned ${rfq.code}: ${err instanceof Error ? err.message : String(err)}`);
@@ -97,11 +98,11 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({
-    ok: true,
+    ok: errors.length === 0,
     provider: "cron-job.org (external)",
     checked: rfqs.length,
     unassigned,
     due,
     errors: errors.length ? errors : undefined,
-  });
+  }, { status: errors.length ? 503 : 200 });
 }

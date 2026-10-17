@@ -50,6 +50,10 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
     return { ok: false, status: "failed", provider: "local", error: "Không có người nhận" };
   }
   if (!resendConfigured()) {
+    // Never report success for an email that production could not actually send.
+    if (process.env.NODE_ENV === "production") return {
+      ok: false, status: "failed", provider: "local", error: "RESEND_API_KEY chưa được cấu hình.",
+    };
     return { ok: true, status: "simulated", provider: "local", error: null };
   }
   try {

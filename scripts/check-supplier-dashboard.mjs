@@ -91,7 +91,7 @@ staff.name = 'Dung\r\nCc: attacker@example.com';
 await assert.rejects(staffSender.requireRfqStaffSender(staff.id), /tên người thật/);
 staff.name = 'Nguyễn Văn Dung';
 
-const rfq = { id: 'r1', code: 'RFQ-20261017-001', product_text: 'Cashew', quantity: 5, unit: 'MT', status: 'new' };
+const rfq = { id: 'r1', code: 'RFQ-20261017-001', buyer_id: 'b1', product_text: 'Cashew', quantity: 5, unit: 'MT', status: 'new' };
 const storedMatch = { ...match, rfq_id: rfq.id, status: 'proposed', sent_to_supplier_at: null };
 const sent = [];
 let mode = 'simulated';
@@ -99,6 +99,7 @@ let inviteStatus = 'pending';
 let preflightFails = false;
 const store = {
   getRfq: async () => rfq,
+  getBuyer: async () => ({ id: 'b1', contact_name: 'Jane', email: 'buyer@example.com' }),
   listRfqMatches: async () => [storedMatch],
   listSupplierRfqInvitations: async () => { if (preflightFails) throw Error('migration missing'); return []; },
   listSupplierNoticeReads: async () => [],
@@ -123,6 +124,13 @@ const privateMail = outbound.buildRfqSupplierEmail({ rfq: { ...rfq, product_text
   supplier: { name: 'Supplier A' }, deadline: now });
 assert.ok(!privateMail.html.includes('buyer@example.com'));
 assert.ok(!privateMail.html.includes('SECRET BUYER CONTACT'));
+const shortlist = outbound.buildRfqShortlistBuyerEmail({
+  rfq, buyer: { contact_name: 'Jane', email: 'buyer@example.com' },
+  matches: [{ ...storedMatch, internal_note: 'PRIVATE STAFF EVALUATION — never send', quote_price: 7,
+    quote_currency: 'USD', quote_unit: 'kg', supplier: { name: 'Supplier A', province: 'Hanoi' } }],
+});
+assert.match(shortlist.html, /Supplier A|Lead time/);
+assert.doesNotMatch(shortlist.html, /PRIVATE STAFF EVALUATION|Ghi chú Vexim/, 'Buyer shortlist must never include internal match notes');
 preflightFails = true;
 await assert.rejects(outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id }), /migration missing/);
 assert.equal(sent.length, 0, 'No mail before DB migration is ready');
@@ -143,6 +151,12 @@ assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [
 assert.equal(sent.filter((x) => x.to?.includes('supplier@example.com')).length, 2, 'Simulated and real attempts only');
 assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).from, 'Nguyễn Văn Dung <dung@veximtrade.com>');
 assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).replyTo, 'reply@example.com');
+storedMatch.status = 'quoted'; storedMatch.quote_price = 7;
+mode = 'simulated';
+await assert.rejects(outbound.presentShortlistToBuyer({ rfqId: rfq.id }), /Resend chưa gửi thật/);
+assert.equal(storedMatch.status, 'quoted', 'A simulated buyer email cannot advance the supplier match');
+assert.equal(rfq.status, 'matching', 'A simulated buyer email cannot mark RFQ as quoted');
+storedMatch.status = 'sent_to_supplier'; storedMatch.quote_price = null;
 
 let accessEnabled = true;
 let portalStatus = 'pending';

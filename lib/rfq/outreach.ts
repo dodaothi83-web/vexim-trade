@@ -134,7 +134,6 @@ export function buildRfqShortlistBuyerEmail(input: {
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(price)}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(incoterm)}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(lead)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12.5px;color:#475569;">${escapeHtml(m.internal_note ?? "—")}</td>
     </tr>`;
   }).join("");
 
@@ -151,7 +150,6 @@ export function buildRfqShortlistBuyerEmail(input: {
           <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Giá</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">ĐK giao</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Lead time</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Ghi chú Vexim</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -322,7 +320,8 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
     text: email.text,
     headers: { "X-RFQ-Code": rfq.code },
   });
-  if (!delivery.ok) throw new Error(`Không gửi được shortlist buyer: ${delivery.error}`);
+  // A simulated message is not a delivered shortlist; never advance match/RFQ status on it.
+  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được shortlist buyer: ${delivery.error ?? "Resend chưa gửi thật"}`);
 
   // Đánh dấu các match đã trình buyer
   for (const m of quoted) {

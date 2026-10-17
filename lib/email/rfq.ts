@@ -166,13 +166,15 @@ export async function sendSlaAlert(input: {
   const html = wrapPlainEmail({ title, body });
   const to = [DESK_INBOX];
   if (assignedToEmail) to.push(assignedToEmail);
-  await transport({
+  const delivery = await transport({
     to,
     subject: title,
     html,
     text: stripHtml(body),
     headers: { "X-RFQ-Code": rfq.code, "X-RFQ-SLA": kind },
   });
+  // Cron must not mark an alert as sent when Resend failed (or mail was only simulated).
+  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Cảnh báo SLA chưa được gửi: ${delivery.error ?? "Resend chưa gửi thật"}`);
 }
 
 /* ---------------- Helpers ---------------- */
