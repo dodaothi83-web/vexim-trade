@@ -10,5 +10,5 @@ export default async function CategoriesPage() {
   const store = getStore();
   const categories = await store.listCategories();
   const canPublish = hasPermission(session.role, "categories.publish");
-  return <CategoriesManager initialCategories={categories} canPublish={canPublish} />;
+  return <CategoriesManager initialCategories={categories} canPublish={canPublish} aiEnabled={!!process.env.OPENAI_API_KEY} />;
 }

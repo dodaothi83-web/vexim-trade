@@ -20,6 +20,7 @@ import {
 import { extractCompanyProducts, type CompanyProducts } from "@/lib/ai/company-products";
 import { readSiteSignals } from "@/lib/ai/site-signals";
 import { hasPermission } from "@/lib/auth/permissions";
+import { nextStatusOptions, statusMeta } from "@/lib/supplier";
 import {
   resolveSender,
   saveDraft,
@@ -1246,6 +1247,10 @@ export async function createSupplierAction(
   const gate = await guard("suppliers.manage");
   if (gate) return gate;
   const input = parseSupplierInput(raw);
+  // Tạo hồ sơ chỉ là lưu nháp; cấp xác minh phải đến từ đợt kiểm đã duyệt.
+  input.status = "draft";
+  input.verification_level = 0;
+  input.verified_at = null;
   if (!input.name) return { ok: false, message: "Vui lòng nhập tên nhà cung cấp." };
   if (input.email && !EMAIL_RE.test(input.email)) {
     return { ok: false, message: "Email nhà cung cấp không hợp lệ." };
@@ -1275,9 +1280,28 @@ export async function updateSupplierAction(
     return { ok: false, message: "Email nhà cung cấp không hợp lệ." };
   }
   try {
-    await getStore().updateSupplier(id, input);
+    const store = getStore();
+    const existing = await store.getSupplier(id);
+    if (!existing) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
+    // Lưu nội dung không tự đổi trạng thái. Chỉ thao tác chuyển riêng mới được
+    // gửi status mới, và không cho bỏ qua các bước của quy trình.
+    if (input.status !== existing.status) {
+      if (!nextStatusOptions(existing.status).includes(input.status)) {
+        return { ok: false, message: "Trạng thái không hợp lệ. Tải lại trang và thử lại." };
+      }
+      const session = await getSession();
+      if ((input.status === "published" || existing.status === "published") &&
+        (!session || !hasPermission(session.role, "suppliers.publish"))) {
+        return { ok: false, message: "Bạn không có quyền công khai hoặc ẩn hồ sơ nhà cung cấp." };
+      }
+    }
+    // Form không được quyền cấp L1–L3, kể cả khi request bị sửa thủ công.
+    // Không gửi các trường này để tránh ghi đè kết quả duyệt đồng thời.
+    const { verification_level: _level, verified_at: _verifiedAt, ...safeInput } = input;
+    void _level; void _verifiedAt;
+    await store.updateSupplier(id, safeInput);
     revalidateAll();
-    return { ok: true, message: "Đã lưu thông tin nhà cung cấp." };
+    return { ok: true, message: input.status !== existing.status ? `Đã chuyển sang ${statusMeta(input.status).label}.` : "Đã lưu thông tin nhà cung cấp." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -2287,7 +2311,7 @@ function parseCategoryInput(raw: Record<string, unknown>) {
     slug,
     parent_id: str(raw.parent_id) || null,
     name_i18n: name_en ? ({ en: name_en } as Category["name_i18n"]) : undefined,
-    intro_i18n: intro_en ? ({ en: intro_en } as Category["intro_i18n"]) : undefined,
+    intro_i18n: { en: intro_en } as Category["intro_i18n"],
     h1_i18n: h1_en ? ({ en: h1_en } as Category["h1_i18n"]) : null,
     body_i18n: body_en ? ({ en: body_en } as Category["body_i18n"]) : null,
     faq_i18n: faqs as Category["faq_i18n"],
@@ -2295,8 +2319,8 @@ function parseCategoryInput(raw: Record<string, unknown>) {
     spec_rows: specRows as unknown as Category["spec_rows"],
     buying_facts: buyingFacts as Category["buying_facts"],
     filters: filters as Category["filters"],
-    seo_title_i18n: seoTitleEn ? ({ en: seoTitleEn } as Category["seo_title_i18n"]) : undefined,
-    seo_desc_i18n: seoDescEn ? ({ en: seoDescEn } as Category["seo_desc_i18n"]) : undefined,
+    seo_title_i18n: { en: seoTitleEn ?? "" } as Category["seo_title_i18n"],
+    seo_desc_i18n: { en: seoDescEn ?? "" } as Category["seo_desc_i18n"],
     homepage_kicker_i18n: kickerEn ? ({ en: kickerEn } as Category["homepage_kicker_i18n"]) : null,
     hero_alt_i18n: heroAltEn ? ({ en: heroAltEn } as Category["hero_alt_i18n"]) : null,
     hero_image: heroImage,
@@ -2371,6 +2395,11 @@ export async function updateCategoryAction(id: string, raw: Record<string, unkno
   if (!canPublish) {
     input.status = existing.status ?? "draft";
     input.is_published = existing.is_published;
+    // Hai cờ này cũng làm thay đổi nơi/khả năng xuất hiện trên website.
+    if (input.active_on_homepage !== !!existing.active_on_homepage ||
+      input.seo_indexable !== !!existing.seo_indexable) {
+      return { ok: false, message: "Bạn không có quyền thay đổi hiển thị trang chủ hoặc lập chỉ mục." };
+    }
   }
 
   // Slug unique check
