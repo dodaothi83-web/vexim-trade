@@ -6,8 +6,10 @@ import { ArrowRight, ChevronDown, Filter, ImageIcon, MapPin } from "lucide-react
 
 import { ProductTradeLabels } from "@/components/product-trade-labels";
 import { ProductVerificationIcons } from "@/components/product-verification-icons";
+import { SponsoredPilotSlot } from "@/components/sponsored-pilot-slot";
 
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
+import type { PilotPlacement } from "@/lib/sponsored/pilot";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
 
 const CASHEW_CHIPS = [
@@ -27,8 +29,9 @@ function moqGroup(value: string): string {
   return tons <= 1 ? "small" : tons <= 5 ? "medium" : "large";
 }
 
-export function CategoryProductGrid({ products, categorySlug, grades, rfqHref }: {
+export function CategoryProductGrid({ products, categorySlug, grades, rfqHref, sponsored }: {
   products: PublicCategoryProduct[]; categorySlug: string; grades: string[]; rfqHref: string;
+  sponsored?: PilotPlacement | null;
 }) {
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
   const [moq, setMoq] = useState("");
@@ -97,6 +100,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, rfqHref }:
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600"><p><strong className="text-ink-900">{shown.length}</strong> of {visible.length} products{!active && visible.length > shown.length ? " · up to 3 per supplier" : ""}</p>
           {active && <button type="button" className="text-xs font-semibold text-brand-700 underline" onClick={reset}>Show all</button>}
         </div>
+        {!active && sponsored && <SponsoredPilotSlot product={sponsored.product} ticket={sponsored.ticket}
+          campaignId={sponsored.campaignId} categorySlug={categorySlug} />}
         {visible.length ? <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
           {shown.map((p) => <article key={p.id} className="relative flex min-w-0 flex-col rounded-xl border border-ink-200 bg-white transition hover:z-20 hover:border-brand-400 hover:shadow-md focus-within:z-20">
             <Link href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`} className="group flex flex-1 flex-col" aria-label={`View ${p.name}`}>

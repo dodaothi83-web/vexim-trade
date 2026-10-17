@@ -23,6 +23,7 @@ import {
 
 import { Breadcrumbs } from "@/components/ui";
 import { CategoryProductGrid } from "@/components/category-product-grid";
+import { pilotPlacement, type PilotPlacement } from "@/lib/sponsored/pilot";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { t } from "@/lib/public/i18n";
 import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow } from "@/lib/types";
@@ -78,6 +79,7 @@ export default async function CategoryPage({ params }: PageProps) {
   if (!cat) notFound();
 
   const products = await listPublicCategoryProducts(cat);
+  const sponsored = !isPreview ? await pilotPlacement(cat.slug, products) : null;
   const categoryName = t(cat.name_i18n) || cat.slug;
   const h1 = cat.slug === "cashew" ? "Vietnam Cashew" : (t(cat.h1_i18n) || `Vietnam ${categoryName}`);
   const intro = t(cat.intro_i18n) || `Explore Vietnamese ${categoryName.toLowerCase()} products. Supplier verification is shown on each listing.`;
@@ -129,6 +131,7 @@ export default async function CategoryPage({ params }: PageProps) {
           <StateA
             cat={cat}
             products={products}
+            sponsored={sponsored}
             categoryName={categoryName}
             h1={h1}
             intro={intro}
@@ -157,10 +160,10 @@ export default async function CategoryPage({ params }: PageProps) {
 /* ================== STATE A — đã có NCC ================== */
 
 function StateA({
-  cat, products, categoryName, h1, intro, body, columns, rows, facts, faqs, filters, rfqHref,
+  cat, products, sponsored, categoryName, h1, intro, body, columns, rows, facts, faqs, filters, rfqHref,
 }: {
   cat: Category;
-  products: PublicCategoryProduct[];
+  products: PublicCategoryProduct[]; sponsored: PilotPlacement | null;
   categoryName: string; h1: string; intro: string; body: string | null;
   columns: CategoryColumn[];
   rows: CategoryRow[];
@@ -196,7 +199,7 @@ function StateA({
           </div>
         </div>
 
-        <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} rfqHref={rfqHref} />
+        <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} rfqHref={rfqHref} sponsored={sponsored} />
       </section>
 
       {cat.hero_image && (
