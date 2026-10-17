@@ -188,7 +188,7 @@ export function SupplierForm({ supplier, canPublish = false, aiEnabled = false }
   }
 
   async function transitionTo(status: SupplierStatus) {
-    if (status === "published" && !window.confirm("Công khai hồ sơ này trên website? Nếu chưa được duyệt L1, hồ sơ sẽ hiển thị Chưa xác minh.")) return;
+    if (status === "published" && !window.confirm("Công khai hồ sơ này trên website? Nếu chưa được duyệt kiểm giấy tờ, hồ sơ sẽ hiển thị Chưa xác minh.")) return;
     if (status === "archived" && !window.confirm("Lưu trữ hồ sơ này?")) return;
     await save(undefined, status); // Always use the explicit status, not a stale React state value.
   }
@@ -318,7 +318,7 @@ export function SupplierForm({ supplier, canPublish = false, aiEnabled = false }
             </Button>)}
             <a href={`/crm/suppliers/${supplier.id}`} className="btn btn-ghost"><ExternalLink className="h-4 w-4" /> Xem hồ sơ & xác minh</a>
           </div>
-          <p className="mt-3 text-xs text-ink-500">Cấp xác minh L1/L2 được duyệt ở trang hồ sơ, không chỉnh bằng form này. Hồ sơ công khai chưa có L1 sẽ hiện “Chưa xác minh”.</p>
+          <p className="mt-3 text-xs text-ink-500">Giấy tờ, nhà máy và lịch sử giao hàng được xét duyệt ở các trang kiểm toán riêng. Hồ sơ công khai chưa duyệt giấy tờ sẽ hiện “Chưa xác minh”.</p>
         </section>
       )}
     </form>

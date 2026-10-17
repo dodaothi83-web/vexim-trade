@@ -14,7 +14,8 @@ import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { inVnBounds } from "@/lib/verification";
-import type { AppUser, Supplier, Verification } from "@/lib/types";
+import type { AppUser, Verification } from "@/lib/types";
+import { auditHref, auditItems, auditStep } from "@/lib/verification";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +73,7 @@ export default async function VerificationsPage({
       ]} />
       <PageHeader
         title="Hàng đợi xác minh NCC"
-        sub="L1 (kiểm giấy tờ) và L2 (thăm nhà máy). Inspector nộp hồ sơ → admin duyệt."
+        sub="Kiểm tra giấy tờ, thăm nhà máy và đối chiếu lịch sử giao hàng. Người kiểm nộp; người khác xét duyệt."
       />
 
       {canApprove && counts.submitted > 0 && (
@@ -101,26 +102,26 @@ export default async function VerificationsPage({
         <EmptyState
           icon={<ShieldCheck className="h-5 w-5" />}
           title="Không có hồ sơ nào"
-          sub="Từ trang chi tiết NCC, nhấn Bắt đầu L1 / Lên lịch L2 để tạo đợt xác minh mới."
+          sub="Mở hồ sơ nhà cung cấp để bắt đầu từng trang kiểm toán."
         />
       ) : (
         <div className="mt-5 grid gap-3">
           {filtered.map((v) => {
             const sup = supMap.get(v.supplier_id);
             const inspector = v.inspector_id ? userMap.get(v.inspector_id) : null;
-            const items = v.target_level === 1 ? 7 : 9;
+            const items = auditItems(v.target_level).length;
             const doneCount = Object.values(v.checklist).filter((x) => x === true || x === false).length;
             const vn = inVn(v);
             return (
               <Card key={v.id} className="p-0">
                 <Link
-                  href={`/crm/suppliers/${v.supplier_id}#verification-${v.id}`}
+                  href={auditHref(v.supplier_id, v.target_level)}
                   className="flex flex-wrap items-start gap-4 px-4 py-4 transition hover:bg-ink-50/60"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge className={LEVEL_BADGE[v.target_level] ?? LEVEL_BADGE[1]}>
-                        L{v.target_level} {v.target_level === 1 ? "Documents" : "Factory visit"}
+                        {auditStep(v.target_level)?.title ?? "Kiểm toán"}
                       </Badge>
                       <Badge className={TABS.find((t) => t.filter(v))?.tone ?? tab.tone}>
                         {v.status === "scheduled" ? "Đã lên lịch" :

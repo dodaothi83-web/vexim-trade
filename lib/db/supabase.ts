@@ -877,11 +877,16 @@ export const supabaseStore: DataStore = {
         .eq("supplier_id", v.supplier_id)
         .eq("status", "approved");
       const lvl = (approved ?? []).reduce((m, x) => Math.max(m, Number(x.target_level) || 0), 0);
-      await must()
-        .from("suppliers")
-        .update({ verification_level: lvl, ...(lvl > 0 ? { verified_at: new Date().toISOString() } : {}) })
-        .eq("id", v.supplier_id);
-    } catch { /* best-effort */ }
+      const { data: supplier, error: readError } = await must()
+        .from("suppliers").select("verification_level,verified_at").eq("id", v.supplier_id).single();
+      if (readError) throw readError;
+      if (Number(supplier.verification_level ?? 0) !== lvl || (lvl > 0 && !supplier.verified_at)) {
+        const { error: updateError } = await must().from("suppliers")
+          .update({ verification_level: lvl, verified_at: lvl > 0 ? new Date().toISOString() : null })
+          .eq("id", v.supplier_id);
+        if (updateError) throw updateError;
+      }
+    } catch (error) { console.error("[verification] could not sync supplier badge", error); }
     return v;
   },
 

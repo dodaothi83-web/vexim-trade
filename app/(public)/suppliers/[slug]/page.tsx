@@ -244,9 +244,9 @@ export default async function SupplierProfile({ params }: PageProps) {
               const items: { label: string; checked: boolean }[] = [
                 { label: "Business registration on file", checked: lvl >= 1 },
                 { label: "Factory address verified on site (GPS)", checked: lvl >= 2 },
-                { label: "Certificates cross-checked against issuer", checked: lvl >= 1 },
+                { label: "Documents and certificates reviewed", checked: lvl >= 1 },
                 { label: "Production capacity cross-checked on site", checked: lvl >= 2 },
-                { label: "Past export orders proven through Vexim", checked: lvl >= 3 },
+                { label: "Completed shipment evidence reviewed", checked: lvl >= 3 },
               ];
               return (
                 <>
@@ -254,27 +254,25 @@ export default async function SupplierProfile({ params }: PageProps) {
                     {lvl === 0 ? (
                       <>
                         This profile is awaiting verification. Details below are provided by the supplier;
-                        request a quote to receive the Vexim-verified dossier and an introduction once our
-                        desk has completed L1 document checks.
+                        request a quote to discuss available documentation and an introduction.
                       </>
                     ) : lvl === 1 ? (
                       <>
-                        This supplier has passed Vexim&apos;s <strong>L1 document check</strong>:
-                        business registration, tax, export license and food-safety certificates have been
-                        verified against official records. An on-site factory visit (L2) is scheduled or
-                        pending.
+                        This supplier has passed Vexim&apos;s <strong>document review</strong>.
+                        Business registration and relevant certificates were reviewed by our team.
+                        An on-site factory visit may still be pending.
                       </>
                     ) : lvl === 2 ? (
                       <>
-                        This supplier has passed <strong>L1 document checks</strong> and a{" "}
-                        <strong>L2 on-site audit</strong>: a member of our team visited the factory,
-                        confirmed production lines and capacity, and cross-checked the original certificates
-                        on the wall against the copies we hold.
+                        This supplier has passed <strong>document review</strong> and an{" "}
+                        <strong>on-site factory visit</strong>. Our team recorded the location,
+                        inspected the production facilities and reviewed the supporting evidence.
                       </>
                     ) : (
                       <>
-                        This supplier is <strong>L3 export-proven</strong>: documents checked, factory
-                        audited, and at least one completed export order shipped through Vexim.
+                        This supplier has passed <strong>document review</strong>, an{" "}
+                        <strong>on-site factory visit</strong>, and a <strong>delivery history review</strong>
+                        based on shipment and delivery records checked by Vexim.
                       </>
                     )}
                   </p>

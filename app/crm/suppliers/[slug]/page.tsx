@@ -45,26 +45,20 @@ export default async function SupplierDetailPage({
   const canManageProducts = hasPermission(session.role, "products.manage");
   const canSeeInternal = hasPermission(session.role, "media.internal");
   const canInspect = hasPermission(session.role, "verifications.inspect");
-  const canApprove = hasPermission(session.role, "verifications.approve");
 
   const store = getStore();
   const supplier = await store.getSupplier(id);
   if (!supplier) notFound();
 
-  const [buyers, products, users] = await Promise.all([
+  const [buyers, products] = await Promise.all([
     listBuyersWithSupplier(),
     store.listProductsBySupplier(id),
-    store.listUsers().catch(() => []),
   ]);
   const [supplierMedia, productMedia, verifications] = await Promise.all([
     store.listMedia("supplier", id),
     store.listMediaForProducts(products.map((p) => p.id)),
     store.listVerifications(id),
   ]);
-  const verificationMedia: Record<string, typeof supplierMedia> = {};
-  await Promise.all(verifications.map(async (v) => {
-    verificationMedia[v.id] = await store.listMedia("verification", v.id).catch(() => []);
-  }));
   // Ảnh đại diện cho từng sản phẩm (ưu tiên ảnh chia sẻ buyer, chưa hết hạn)
   const thumbByProduct = new Map<string, typeof productMedia[number]>();
   for (const m of productMedia) {
@@ -182,12 +176,7 @@ export default async function SupplierDetailPage({
           <VerificationPanel
             supplierId={id}
             verifications={verifications}
-            verificationMedia={verificationMedia}
-            users={users}
-            currentUserId={session.uid}
             canInspect={canInspect}
-            canApprove={canApprove}
-            currentLevel={supplier.verification_level ?? 0}
           />
 
           <Card>

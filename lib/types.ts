@@ -276,26 +276,32 @@ export type VerificationLevel = 1 | 2 | 3;
 
 /** Các hạng mục checklist L1 — giấy tờ doanh nghiệp & an toàn thực phẩm */
 export const L1_DOC_ITEMS = [
-  { key: "business_license", label: "Business registration / Enterprise registration certificate" },
-  { key: "tax_certificate", label: "Tax registration certificate" },
-  { key: "bank_letter", label: "Bank reference letter (within 12 months)" },
-  { key: "food_safety", label: "Food safety / hygiene certificate (ATTP or equivalent)" },
-  { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000 or equivalent FSMS certificate" },
-  { key: "product_certs", label: "Product-specific certifications (organic/fair-trade/RFA/4C… as claimed)" },
-  { key: "export_license", label: "Export/trading license (if applicable)" },
+  { key: "business_license", label: "Đăng ký doanh nghiệp" },
+  { key: "tax_certificate", label: "Mã số thuế / đăng ký thuế" },
+  { key: "bank_letter", label: "Xác nhận tài khoản ngân hàng" },
+  { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm" },
+  { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000 hoặc tương đương" },
+  { key: "product_certs", label: "Chứng chỉ sản phẩm đã công bố" },
+  { key: "export_license", label: "Giấy phép xuất khẩu (nếu áp dụng)" }
 ] as const;
 
 /** Checklist L2 — thăm nhà máy */
 export const L2_VISIT_ITEMS = [
-  { key: "factory_address_confirmed", label: "Factory GPS + address confirmed on-site" },
-  { key: "production_line_seen", label: "Production line seen running (or very recently shut down)" },
-  { key: "warehouse_seen", label: "Warehouse / finished-goods storage inspected" },
-  { key: "qc_lab_seen", label: "QC lab / testing equipment inspected" },
-  { key: "documents_original", label: "Original certificates cross-checked against uploaded copies" },
-  { key: "capacity_verified", label: "Monthly capacity claim cross-checked against machinery + workforce" },
-  { key: "worker_interview", label: "At least one line worker / QC staff interviewed" },
-  { key: "management_interview", label: "Owner / export manager interview on lead times and MOQ" },
-  { key: "photos_taken", label: "Date-stamped photos taken (gate, production line, warehouse, certificate board)" },
+  { key: "factory_address_confirmed", label: "Đối chiếu địa chỉ và GPS tại cơ sở" },
+  { key: "production_line_seen", label: "Quan sát dây chuyền sản xuất" },
+  { key: "warehouse_seen", label: "Kiểm tra kho thành phẩm" },
+  { key: "qc_lab_seen", label: "Kiểm tra thiết bị kiểm soát chất lượng" },
+  { key: "documents_original", label: "Đối chiếu chứng chỉ gốc với bản tải lên" },
+  { key: "capacity_verified", label: "Đối chiếu công suất với máy móc và nhân sự" },
+  { key: "worker_interview", label: "Trao đổi với công nhân / nhân viên QC" },
+  { key: "management_interview", label: "Trao đổi với quản lý về tiến độ và MOQ" },
+  { key: "photos_taken", label: "Ảnh có ngày chụp: cổng, dây chuyền, kho, chứng chỉ" }
+] as const;
+
+export const DELIVERY_ITEMS = [
+  { key: "order_matched", label: "Đối chiếu mã đơn hàng thực tế của Vexim" },
+  { key: "shipping_proof", label: "Đối chiếu vận đơn / chứng từ xuất hàng" },
+  { key: "delivery_proof", label: "Đối chiếu xác nhận giao nhận hoàn tất" },
 ] as const;
 
 export type L1DocKey = typeof L1_DOC_ITEMS[number]["key"];
@@ -313,8 +319,12 @@ export interface Verification {
   visit_lat: number | null;
   /** GPS longitude khi thăm nhà máy (L2) */
   visit_lng: number | null;
-  /** Địa chỉ ghi nhận lúc thăm (L2) */
+  /** Địa chỉ ghi nhận lúc thăm nhà máy */
   visit_address: string | null;
+  /** Một lần kiểm lịch sử giao hàng phải gắn với một lô hàng đã hoàn tất. */
+  shipment_ref: string | null;
+  shipped_on: string | null;
+  shipment_destination: string | null;
   /** Checklist kết quả — map key → boolean (null = chưa kiểm) */
   checklist: Record<string, boolean | null>;
   /** Ghi chú từng mục (key → text) */

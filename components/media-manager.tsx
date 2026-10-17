@@ -46,6 +46,7 @@ export function MediaManager({
   supplierId,
   items,
   allowInternal = true,
+  readOnly = false,
   note,
 }: {
   ownerType: MediaOwnerType;
@@ -54,6 +55,7 @@ export function MediaManager({
   supplierId?: string;
   items: MediaAsset[];
   allowInternal?: boolean;
+  readOnly?: boolean;
   note?: string;
 }) {
   const router = useRouter();
@@ -70,7 +72,7 @@ export function MediaManager({
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
 
-  const effectiveAudience: MediaAudience = kind === "document" ? "internal" : audience;
+  const effectiveAudience: MediaAudience = ownerType === "verification" || kind === "document" ? "internal" : audience;
   const accept = kind === "image" ? MEDIA_ACCEPT.split(",").slice(0, 3).join(",") : MEDIA_ACCEPT;
 
   function feedback(results: { name: string; ok: boolean; message: string }[]) {
@@ -97,9 +99,9 @@ export function MediaManager({
         upload = new File([prepared.main], file.name.replace(/\.[^.]+$/, "") + ".jpg", {
           type: "image/jpeg",
         });
-        form.set("thumb", new File([prepared.thumb], "thumb.jpg", { type: "image/jpeg" }), "thumb");
-        form.set("width", String(prepared.width));
-        form.set("height", String(prepared.height));
+        form.set(`thumb:${upload.name}`, new File([prepared.thumb], "thumb.jpg", { type: "image/jpeg" }), "thumb.jpg");
+        form.set(`width:${upload.name}`, String(prepared.width));
+        form.set(`height:${upload.name}`, String(prepared.height));
       } catch {
         // Không nén được (ảnh lạ/trình duyệt cũ) thì gửi nguyên tệp, server vẫn kiểm tra
       }
@@ -187,9 +189,9 @@ export function MediaManager({
       </div>
 
       {/* Khu tải lên */}
-      <div className="border-b border-ink-200 bg-ink-50/60 px-4 py-3">
+      {!readOnly && <div className="border-b border-ink-200 bg-ink-50/60 px-4 py-3">
         <div className="mb-2.5 flex flex-wrap gap-1.5">
-          {MEDIA_KINDS.map((k) => (
+          {MEDIA_KINDS.filter((k) => ownerType !== "verification" || ["image", "document", "certificate", "video"].includes(k.value)).map((k) => (
             <button
               key={k.value}
               type="button"
@@ -208,7 +210,7 @@ export function MediaManager({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {allowInternal && (
+          {allowInternal && ownerType !== "verification" && (
             <div className="flex overflow-hidden rounded-lg border border-ink-200 bg-white">
               <button
                 type="button"
@@ -260,7 +262,7 @@ export function MediaManager({
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             <input
               className="input flex-1 py-1.5 text-[12.5px]"
-              placeholder="Dán link YouTube / Drive mô tả sản phẩm, dây chuyền, nhà máy…"
+              placeholder={ownerType === "verification" ? "Dán link video YouTube / Drive (quyền xem phụ thuộc nền tảng lưu video)" : "Dán link YouTube / Drive mô tả sản phẩm, dây chuyền, nhà máy…"}
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
             />
@@ -319,13 +321,12 @@ export function MediaManager({
             />
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Danh sách tệp */}
       {items.length === 0 ? (
         <p className="px-4 py-4 text-[12.5px] text-ink-500">
-          Chưa có hình ảnh hay tài liệu nào. Hồ sơ vẫn lưu được — nhưng sản phẩm chỉ nên đánh
-          dấu “Sẵn sàng gửi buyer” khi đã có ảnh hoặc catalogue.
+          {ownerType === "verification" ? "Chưa có bằng chứng. Hãy tải ảnh, chứng từ hoặc thêm link video trước khi nộp duyệt." : "Chưa có hình ảnh hay tài liệu nào."}
         </p>
       ) : (
         <ul className="divide-y divide-ink-100">
@@ -333,6 +334,7 @@ export function MediaManager({
             <MediaRow
               key={m.id}
               asset={m}
+              readOnly={readOnly}
               onPatch={(next) => void patch(m.id, next)}
               onRemove={() => void remove(m)}
             />
@@ -345,10 +347,12 @@ export function MediaManager({
 
 function MediaRow({
   asset,
+  readOnly,
   onPatch,
   onRemove,
 }: {
   asset: MediaAsset;
+  readOnly: boolean;
   onPatch: (patch: {
     caption?: string | null;
     status?: MediaStatus;
@@ -404,22 +408,24 @@ function MediaRow({
           <input
             className="input w-64 flex-1 py-1 text-[12.5px]"
             value={caption}
+            readOnly={readOnly}
             placeholder="Chú thích"
             onChange={(e) => setCaption(e.target.value)}
             onBlur={() => {
-              if ((asset.caption ?? "") !== caption) onPatch({ caption: caption || null });
+              if (!readOnly && (asset.caption ?? "") !== caption) onPatch({ caption: caption || null });
             }}
           />
           <select
             className="input w-auto py-1 text-[12px]"
             value={asset.status}
+            disabled={readOnly}
             onChange={(e) => onPatch({ status: e.target.value as MediaStatus })}
           >
             <option value="unverified">Chưa xác minh</option>
             <option value="checked">Đã kiểm tra</option>
             <option value="expired">Hết hạn</option>
           </select>
-          {asset.kind !== "document" && (
+          {asset.owner_type !== "verification" && asset.kind !== "document" && (
             <select
               className="input w-auto py-1 text-[12px]"
               value={asset.audience}
@@ -449,14 +455,13 @@ function MediaRow({
               Xem tệp
             </a>
           )}
-          <button
+          {!readOnly && <button
             type="button"
             onClick={onRemove}
             className="ml-auto flex items-center gap-1 text-[12px] font-semibold text-red-600 hover:underline"
           >
-            <Trash2 className="h-3.5 w-3.5" />
-            Xoá
-          </button>
+            <Trash2 className="h-3.5 w-3.5" /> Xoá
+          </button>}
         </div>
       </div>
     </li>

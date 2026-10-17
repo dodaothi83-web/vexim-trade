@@ -377,7 +377,7 @@ function StateB({ cat, categoryName, h1, intro, rfqHref }: { cat: Category; cate
 
 function FilterSidebar({ filters, rfqHref }: { filters: CategoryFilter[]; rfqHref: string }) {
   const groups: CategoryFilter[] = filters.length > 0 ? filters : [
-    { key: "verification", label: "Verification", options: [{ value: "l3", label: "Export proven (L3)" }, { value: "l2", label: "Factory audited (L2)" }, { value: "l1", label: "Documents checked (L1)" }] },
+    { key: "verification", label: "Verification", options: [{ value: "l3", label: "Delivery history reviewed" }, { value: "l2", label: "Factory visited" }, { value: "l1", label: "Documents checked" }] },
     { key: "type", label: "Supplier type", options: [{ value: "factory", label: "Factory" }, { value: "trader", label: "Trader" }, { value: "coop", label: "Cooperative" }] },
   ];
   return (
@@ -434,16 +434,16 @@ function VerificationSection() {
       <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
         <div>
           <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-300">How we check suppliers</p>
-          <h2 className="mt-3 text-[24px] font-bold leading-tight sm:text-[28px]">Three levels of checks.</h2>
+          <h2 className="mt-3 text-[24px] font-bold leading-tight sm:text-[28px]">Three evidence-based checks.</h2>
           <p className="mt-3 max-w-md text-[14px] leading-relaxed text-white/75">The badge on each profile shows exactly what we&apos;ve checked. Suppliers we&apos;re still checking don&apos;t get a badge.</p>
           <Link href="/how-we-verify" className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-200 hover:text-white">
             Read the full process <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
         <ol className="grid gap-3 sm:grid-cols-3">
-          <Level n="L1" icon={<ClipboardCheck className="h-5 w-5" />} title="Documents checked" body="We verify business registration, tax code, export licence and certificates against official records." />
-          <Level n="L2" icon={<Factory className="h-5 w-5" />} title="Factory audited" tone="brand" body="Someone from our team visits the factory, confirms the address and production line." />
-          <Level n="L3" icon={<FileCheck2 className="h-5 w-5" />} title="Export proven" body="The supplier has shown records of past export shipments and completed at least one order through Vexim." />
+          <Level n="01" icon={<ClipboardCheck className="h-5 w-5" />} title="Documents checked" body="Our team reviews business registration and relevant supporting certificates." />
+          <Level n="02" icon={<Factory className="h-5 w-5" />} title="Factory visited" tone="brand" body="A team member records the factory location, facilities and visual evidence." />
+          <Level n="03" icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history reviewed" body="Shipment and delivery documents for a completed order are checked. A won enquiry alone does not qualify." />
         </ol>
       </div>
     </section>

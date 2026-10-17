@@ -7,6 +7,7 @@ import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
 import { deleteObject } from "@/lib/media/storage";
+import { verificationMediaEditError } from "@/lib/media/verification-access";
 import { productReadiness } from "@/lib/media/readiness";
 import { generateCompanyIntroduction } from "@/lib/ai/company-introduction";
 import {
@@ -45,6 +46,7 @@ import type {
   EmailAttachment,
   SupplierInput,
   SupplierProductInput,
+  Verification,
   Category,
   MediaOwnerType,
 } from "@/lib/types";
@@ -1868,6 +1870,16 @@ export async function retrySupabaseAction(): Promise<ActionResult> {
 
 /* ------------------------------ MEDIA ------------------------------- */
 
+async function logEvidenceChange(v: Verification, mediaId: string, action: string) {
+  const session = await getSession();
+  await getStore().addAuditLog({
+    actor_id: session?.uid ?? null, actor_email: session?.email ?? null,
+    entity: "supplier", entity_id: v.supplier_id,
+    action: `verification.media.${action}.l${v.target_level}`,
+    before: null, after: { verification_id: v.id, media_id: mediaId },
+  }).catch((err) => console.error("[audit] media change failed", err));
+}
+
 /**
  * Gắn link video vào hồ sơ (video không tải tệp lên — chỉ lưu link).
  */
@@ -1896,6 +1908,7 @@ export async function addMediaLinkAction(input: {
     let supplierId: string | null = null;
     let productId: string | null = null;
     let verificationId: string | null = null;
+    let verification: Verification | null = null;
     if (input.ownerType === "product") {
       productId = input.ownerId;
       const p = await store.getProduct(input.ownerId);
@@ -1905,9 +1918,13 @@ export async function addMediaLinkAction(input: {
     } else {
       verificationId = input.ownerId;
       const v = await store.getVerification(input.ownerId);
-      supplierId = v?.supplier_id ?? null;
+      if (!v) return { ok: false, message: "Không tìm thấy đợt kiểm." };
+      const blocked = await verificationMediaEditError(v);
+      if (blocked) return { ok: false, message: blocked };
+      verification = v;
+      supplierId = v.supplier_id;
     }
-    await store.createMedia({
+    const created = await store.createMedia({
       owner_type: input.ownerType,
       product_id: productId,
       supplier_id: supplierId,
@@ -1927,6 +1944,7 @@ export async function addMediaLinkAction(input: {
       sort_order: 0,
       created_by: null,
     });
+    if (verification) await logEvidenceChange(verification, created.id, "add_link");
     revalidateAll();
     return { ok: true, message: "Đã thêm link (trạng thái: chưa xác minh)." };
   } catch (err) {
@@ -1950,12 +1968,22 @@ export async function updateMediaAction(
   try {
     const current = await store.getMedia(id);
     if (!current) return { ok: false, message: "Không tìm thấy tệp." };
+    let verification: Verification | null = null;
+    if (current.owner_type === "verification") {
+      const v = current.verification_id && await store.getVerification(current.verification_id);
+      if (!v) return { ok: false, message: "Không tìm thấy đợt kiểm." };
+      const blocked = await verificationMediaEditError(v);
+      if (blocked) return { ok: false, message: blocked };
+      verification = v;
+    }
 
     const next: typeof patch = { ...patch };
+    if (current.owner_type === "verification") next.audience = "internal";
     // Giấy tờ nội bộ không bao giờ được chuyển sang chia sẻ buyer
     if (current.kind === "document") next.audience = "internal";
 
     await store.updateMedia(id, next);
+    if (verification) await logEvidenceChange(verification, id, "update");
     revalidateAll();
     return { ok: true, message: "Đã cập nhật tệp." };
   } catch (err) {
@@ -1971,9 +1999,18 @@ export async function deleteMediaAction(id: string): Promise<ActionResult> {
   try {
     const asset = await store.getMedia(id);
     if (!asset) return { ok: false, message: "Không tìm thấy tệp." };
+    let verification: Verification | null = null;
+    if (asset.owner_type === "verification") {
+      const v = asset.verification_id && await store.getVerification(asset.verification_id);
+      if (!v) return { ok: false, message: "Không tìm thấy đợt kiểm." };
+      const blocked = await verificationMediaEditError(v);
+      if (blocked) return { ok: false, message: blocked };
+      verification = v;
+    }
 
     // Nếu sản phẩm đang ở trạng thái "sẵn sàng gửi buyer" thì kiểm tra lại sau khi xoá
     await store.deleteMedia(id);
+    if (verification) await logEvidenceChange(verification, id, "delete");
     for (const path of [asset.storage_path, asset.thumb_path]) {
       if (path) {
         await deleteObject(path).catch(() => null);

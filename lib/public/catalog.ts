@@ -38,8 +38,8 @@ export function verificationBadge(s: Pick<Supplier, "verification_level" | "veri
   if (s.status !== "published" || !s.verification_level || s.verification_level < 1) {
     return { text: "Under audit", tone: "gray" };
   }
-  if (s.verification_level >= 3) return { text: "Export proven", tone: "emerald" };
-  if (s.verification_level === 2) return { text: "Factory audited", tone: "emerald" };
+  if (s.verification_level >= 3) return { text: "Delivery history reviewed", tone: "emerald" };
+  if (s.verification_level === 2) return { text: "Factory visited", tone: "emerald" };
   return { text: "Documents checked", tone: "slate" };
 }
 

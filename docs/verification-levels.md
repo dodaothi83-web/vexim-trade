@@ -1,34 +1,34 @@
-# Xác minh nhà cung cấp: L1, L2, L3
+# Kiểm toán nhà cung cấp
 
-Đây là mức **bằng chứng Vexim đã kiểm tra**, không phải mức thành viên/giá dịch vụ và không phải trạng thái công việc. `Bắt đầu` chỉ tạo **đợt kiểm** trên chính trang nhà cung cấp; nhà cung cấp vẫn **chưa xác minh** cho đến khi người khác duyệt.
+Ba bước hiển thị trong CRM là **Kiểm tra giấy tờ → Thăm nhà máy → Lịch sử giao hàng**. Đây là quy trình tăng dần mức bằng chứng, không phải gói dịch vụ hay điều kiện để *thêm* một nhà cung cấp vào CRM. Bước sau chỉ mở sau khi bước trước được **duyệt** bởi người khác người kiểm.
 
-| Mức | Công việc | Khi nào được hiện trên hồ sơ |
+| Trang | Bằng chứng cần đối chiếu | Điều kiện duyệt |
 | --- | --- | --- |
-| Chưa xác minh | Chưa có kết quả kiểm đã duyệt. | Mặc định. |
-| L1 – Giấy tờ | Người kiểm đối chiếu 7 mục (đăng ký doanh nghiệp, thuế, ngân hàng, ATTP, hệ thống an toàn thực phẩm, chứng chỉ mặt hàng, giấy phép xuất khẩu nếu cần); tải bằng chứng vào **đợt kiểm**, nộp duyệt. | Admin khác người kiểm duyệt hồ sơ L1. |
-| L2 – Nhà máy | Sau L1, đến cơ sở kiểm 9 mục, ghi ngày/địa chỉ/GPS và ảnh; nộp duyệt. | Admin khác người kiểm duyệt hồ sơ L2. |
-| L3 – Giao dịch thực tế | Mức dự kiến cần bằng chứng đơn xuất khẩu hoàn tất. | **Chưa có quy trình cấp L3 trong CRM**; nút L1/L2 không tự tạo L3. Không tự nâng cấp chỉ vì RFQ chuyển `won`. |
+| Kiểm tra giấy tờ (`/audit/documents`) | 7 mục pháp lý/chứng nhận; chứng từ PDF/ảnh, video bổ sung qua link. | Ghi kết quả cả 7 mục, 5 giấy tờ chính đạt, ít nhất một tài liệu/chứng chỉ đính kèm, người khác duyệt. |
+| Thăm nhà máy (`/audit/factory`) | 9 mục tại cơ sở; ngày, địa chỉ, GPS, ảnh hiện trường, video tham chiếu. | Đã duyệt giấy tờ; ghi đủ 9 mục, ngày/địa chỉ/GPS hợp lệ của cơ sở, mục ảnh đạt và ít nhất một ảnh đính kèm, người khác duyệt. |
+| Lịch sử giao hàng (`/audit/deliveries`) | Một lô hàng thực tế: mã lô/đơn, ngày giao, vận đơn và xác nhận giao nhận; ảnh/video chỉ là bổ sung. | Đã duyệt thăm nhà máy; ba mục kiểm đạt, chứng từ giao hàng đính kèm và được đánh dấu “Đã kiểm tra”, người khác duyệt. **RFQ `won` không chứng minh đã giao hàng.** |
 
-## Vì sao nút cũ có thể hiện 404?
+Trang cho phép lưu bản kiểm, thêm/xoá ảnh và chứng từ, thêm/xoá **link video YouTube/Drive**. Video tệp MP4 không tải trực tiếp qua serverless upload hiện tại; chỉ lưu link và quyền xem của video phụ thuộc vào thiết lập chia sẻ của nền tảng bên ngoài. Tất cả bản ghi bằng chứng gắn với một lần kiểm và được giữ **nội bộ**; chỉ người có quyền mới xem được tệp. Khi đã nộp duyệt, chuyên viên không sửa bằng chứng; người có quyền xét duyệt có thể đối chiếu/đánh dấu đã kiểm, trả về để bổ sung. Sau khi duyệt, bằng chứng bị khoá, không thêm/xoá/sửa được.
 
-Nút `Bắt đầu L1` cũ POST qua Next Server Action của trang chi tiết; nếu deployment/action ID của tab cũ đã thay đổi, request có thể thất bại mà trình duyệt rời khỏi trang. Đồng thời schema `supabase/schema.sql` cũ thiếu `verifications.checklist_notes` và các cột L2; lỗi DB khi tạo đợt cũng không được báo rõ trong UI. Không thể khẳng định lỗi 404 trên production thuộc nhánh nào nếu chưa có status/URL trong Network log. Nút mới dùng `POST /api/suppliers/:id/verifications`, trả JSON và hiển thị lỗi/success **ngay trong card**, không điều hướng; click lại không tạo trùng đợt đang mở.
+## Triển khai database
 
-## Triển khai production
-
-1. **Chạy thêm** `supabase/migrations/20261017_verification_workflow.sql` trong SQL Editor của đúng Supabase project, sau migration CMS trước đó. Script idempotent: bổ sung 5 trường của `verifications`, `media_assets.verification_id`, mở quyền owner `verification` **chỉ cho media nội bộ**, cập nhật schema cache PostgREST. Đừng chạy lại toàn bộ `schema.sql` trên production.
-2. Kiểm tra:
+1. Nếu **chưa chạy** migration cũ `supabase/migrations/20261017_verification_workflow.sql`, hãy chạy nó trước. Migration CMS ảnh NCC không chứa các cột checklist / liên kết bằng chứng xác minh.
+2. Sau đó chạy **migration mới** `supabase/migrations/20261017_delivery_history_audit.sql` trong SQL Editor của đúng Supabase project, trước khi deploy code mới. Migration idempotent, thêm `shipment_ref`, `shipped_on`, `shipment_destination` vào `public.verifications`, rồi reload schema cache PostgREST. Không chạy lại toàn bộ `schema.sql` trên production.
+3. Kiểm tra:
 
    ```sql
-   select table_name, column_name from information_schema.columns
-   where table_schema = 'public' and
-     ((table_name = 'verifications' and column_name in
-       ('checklist_notes','visit_lat','visit_lng','visit_address','return_reason'))
-      or (table_name = 'media_assets' and column_name = 'verification_id'))
-   order by table_name, column_name;
-   -- Mong đợi 6 dòng.
+   select column_name from information_schema.columns
+   where table_schema = 'public' and table_name = 'verifications'
+     and column_name in ('shipment_ref', 'shipped_on', 'shipment_destination',
+                         'checklist_notes', 'visit_lat', 'visit_lng', 'visit_address', 'return_reason')
+   order by column_name;
+   -- Mong đợi 8 dòng.
+   select column_name from information_schema.columns
+   where table_schema = 'public' and table_name = 'media_assets'
+     and column_name = 'verification_id';
+   -- Mong đợi 1 dòng.
    ```
 
-3. Deploy code mới, **tải lại hẳn trang** `/crm/suppliers/<id>` (đóng tab cũ nếu cần). Dùng tài khoản admin hoặc sourcing nhấn `Bắt đầu kiểm giấy tờ`: Network phải có `POST /api/suppliers/<id>/verifications` trả `200` JSON; bảng 7 mục xuất hiện bên dưới và cấp hiện tại vẫn là `Chưa xác minh`. Tệp đính kèm nằm trong chính đợt kiểm, chỉ nội bộ xem. Sourcing nộp duyệt; admin **khác người kiểm** duyệt L1, rồi mới có thể lên lịch L2.
-4. Nếu còn lỗi, xem HTTP status + response của POST trong DevTools Network và log Vercel Function cho endpoint trên. Không gửi khoá Supabase hoặc cookie phiên đăng nhập qua chat.
+4. Deploy, tải lại hẳn trang hồ sơ NCC. Mở từng trang kiểm, tải ảnh/tài liệu, thêm và xoá thử link video; nộp duyệt, dùng tài khoản khác duyệt, kiểm tra trang sau được mở. Nếu lỗi, ghi HTTP status/response và log máy chủ, **không gửi credentials**.
 
-Sandbox hiện tại không kết nối được Supabase production; bước chạy SQL/kiểm tra thực tế phải thực hiện ở project của bạn.
+Test local: `node scripts/check-verification-start.mjs && node scripts/check-audit-pages.mjs && npm run typecheck && npm run build`. Chưa kiểm thử production Supabase/Storage thực tế từ sandbox này.

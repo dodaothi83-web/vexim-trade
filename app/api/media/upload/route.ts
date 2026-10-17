@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 
 import { getStore } from "@/lib/db";
-import { guard } from "@/lib/auth/session";
+import { getSession, guard } from "@/lib/auth/session";
 import { extensionFor, validateUpload } from "@/lib/media/validate";
-import { putObject } from "@/lib/media/storage";
+import { deleteObject, putObject } from "@/lib/media/storage";
+import { verificationMediaEditError } from "@/lib/media/verification-access";
 import type { MediaAudience, MediaInput, MediaKind, MediaOwnerType } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -86,6 +87,8 @@ export async function POST(request: Request) {
     if (!v) {
       return NextResponse.json({ ok: false, message: "Không tìm thấy hồ sơ xác minh." }, { status: 404 });
     }
+    const blocked = await verificationMediaEditError(v);
+    if (blocked) return NextResponse.json({ ok: false, message: blocked }, { status: 403 });
     mediaSupplierId = v.supplier_id;
     // verification media luôn internal
     audience = "internal";
@@ -130,12 +133,12 @@ export async function POST(request: Request) {
     const id = randomUUID();
     const ext = extensionFor(check.mime);
     const mainPath = `${prefix}/${id}.${ext}`;
+    let thumbPath: string | null = null;
 
     try {
       await putObject(mainPath, bytes, check.mime);
 
       // Ảnh: lưu kèm bản xem trước do trình duyệt gửi lên
-      let thumbPath: string | null = null;
       const thumb = form.get(`thumb:${file.name}`);
       if (kind === "image" && thumb instanceof File && thumb.size > 0) {
         const thumbBytes = new Uint8Array(await thumb.arrayBuffer());
@@ -171,9 +174,19 @@ export async function POST(request: Request) {
       };
 
       const row = await store.createMedia(input);
+      if (ownerType === "verification") {
+        const session = await getSession();
+        await store.addAuditLog({
+          actor_id: session?.uid ?? null, actor_email: session?.email ?? null,
+          entity: "supplier", entity_id: mediaSupplierId!,
+          action: "verification.media.upload",
+          before: null, after: { verification_id: ownerId, media_id: row.id, kind },
+        }).catch((err) => console.error("[audit] evidence upload failed", err));
+      }
       created.push(row.id);
       results.push({ name: file.name, ok: true, message: "Đã tải lên — trạng thái: chưa xác minh." });
     } catch (err) {
+      await Promise.all([mainPath, thumbPath].filter((p): p is string => !!p).map((p) => deleteObject(p).catch(() => null)));
       results.push({
         name: file.name,
         ok: false,

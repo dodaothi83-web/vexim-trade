@@ -3,12 +3,13 @@ import { revalidatePath } from "next/cache";
 
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
-import { L1_DOC_ITEMS, L2_VISIT_ITEMS } from "@/lib/types";
+import { auditHref, auditItems, auditStep } from "@/lib/verification";
+import type { VerificationLevel } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Create a L1/L2 review inline, without relying on a deployment-specific Server Action ID. */
+/** Create a review and link to its dedicated page (stable route, not a Server Action ID). */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const gate = await guard("verifications.inspect");
   if (gate) return NextResponse.json({ ok: false, message: gate.message }, { status: 403 });
@@ -20,28 +21,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: false, message: "Dữ liệu yêu cầu không hợp lệ." }, { status: 400 });
   }
   const level = Number((payload as { targetLevel?: unknown } | null)?.targetLevel);
-  if (level !== 1 && level !== 2) {
-    return NextResponse.json({ ok: false, message: "Chỉ có thể tạo đợt kiểm giấy tờ (L1) hoặc thăm nhà máy (L2)." }, { status: 400 });
+  if (level !== 1 && level !== 2 && level !== 3) {
+    return NextResponse.json({ ok: false, message: "Bước kiểm tra không hợp lệ." }, { status: 400 });
   }
+  const step = auditStep(level)!;
 
   try {
     const store = getStore();
     const supplier = await store.getSupplier(supplierId);
     if (!supplier) return NextResponse.json({ ok: false, message: "Không tìm thấy nhà cung cấp." }, { status: 404 });
-    const currentLevel = supplier.verification_level ?? 0;
     const verifications = await store.listVerifications(supplierId);
+    const currentLevel = Math.max(0, ...verifications.filter((v) => v.status === "approved").map((v) => v.target_level));
+    if (currentLevel >= level) {
+      return NextResponse.json({ ok: false, message: `${step.title} đã được duyệt; không tạo đợt trùng.` }, { status: 409 });
+    }
     const ongoing = verifications.find((v) => v.target_level === level && v.status !== "approved");
     if (ongoing) {
-      return NextResponse.json({ ok: true, id: ongoing.id, existing: true, message: "Đợt kiểm này đã tồn tại. Bảng kiểm ở ngay bên dưới." });
+      return NextResponse.json({ ok: true, id: ongoing.id, existing: true, href: auditHref(supplierId, level), message: `Mở trang ${step.title.toLowerCase()} đang thực hiện.` });
     }
-    if (currentLevel >= level) {
-      return NextResponse.json({ ok: false, message: `Nhà cung cấp đã được duyệt cấp ${level}; không tạo thêm đợt trùng.` }, { status: 409 });
-    }
-    if (level === 2 && currentLevel < 1) {
-      return NextResponse.json({ ok: false, message: "Cần hoàn tất và được duyệt kiểm giấy tờ L1 trước khi thăm nhà máy L2." }, { status: 409 });
+    if (currentLevel < level - 1) {
+      return NextResponse.json({ ok: false, message: `Cần được duyệt ${auditStep(level - 1)?.title.toLowerCase()} trước khi bắt đầu ${step.title.toLowerCase()}.` }, { status: 409 });
     }
     const session = await getSession();
-    const checklist = Object.fromEntries((level === 1 ? L1_DOC_ITEMS : L2_VISIT_ITEMS).map((it) => [it.key, null]));
+    const checklist = Object.fromEntries(auditItems(level as VerificationLevel).map((it) => [it.key, null]));
     const created = await store.createVerification({
       supplier_id: supplierId,
       target_level: level,
@@ -61,8 +63,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       after: { verification_id: created.id, target_level: level },
     }).catch((error) => console.error("[verification] audit write failed:", error));
     revalidatePath(`/crm/suppliers/${supplierId}`);
+    revalidatePath(auditHref(supplierId, level));
     revalidatePath("/crm/verifications");
-    return NextResponse.json({ ok: true, id: created.id, message: "Đã tạo đợt kiểm. Bảng kiểm ở ngay bên dưới." });
+    return NextResponse.json({ ok: true, id: created.id, href: auditHref(supplierId, level), message: `Đã tạo trang ${step.title.toLowerCase()}.` });
   } catch (error) {
     console.error("[verification] cannot start review:", error);
     const detail = error instanceof Error ? error.message : String(error);

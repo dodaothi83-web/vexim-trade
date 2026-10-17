@@ -538,6 +538,9 @@ function migrateVerifications(db: LocalShape) {
     if (v.visit_lat === undefined) v.visit_lat = null;
     if (v.visit_lng === undefined) v.visit_lng = null;
     if (v.visit_address === undefined) v.visit_address = null;
+    if (v.shipment_ref === undefined) v.shipment_ref = null;
+    if (v.shipped_on === undefined) v.shipped_on = null;
+    if (v.shipment_destination === undefined) v.shipment_destination = null;
     // checklist cũ là mảng -> chuyển sang object rỗng
     if (Array.isArray(v.checklist)) v.checklist = {};
     if (typeof v.checklist !== "object" || v.checklist === null) v.checklist = {};
@@ -1504,6 +1507,9 @@ export const localStore: DataStore = {
       visit_lat: null,
       visit_lng: null,
       visit_address: null,
+      shipment_ref: null,
+      shipped_on: null,
+      shipment_destination: null,
       checklist: {},
       checklist_notes: {},
       return_reason: null,

@@ -693,6 +693,10 @@ alter table public.verifications
   add column if not exists return_reason text;
 alter table public.verifications alter column checklist set default '{}'::jsonb;
 update public.verifications set checklist = '{}'::jsonb where checklist = '[]'::jsonb;
+alter table public.verifications
+  add column if not exists shipment_ref text,
+  add column if not exists shipped_on date,
+  add column if not exists shipment_destination text;
 -- Media for a specific inspection (internal documents/photos); add FK after
 -- verifications exists, since media_assets is declared earlier in this file.
 alter table public.media_assets add column if not exists verification_id uuid;

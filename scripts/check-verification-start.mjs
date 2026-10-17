@@ -15,7 +15,7 @@ let canInspect = true;
 let level = 0;
 let dbError = false;
 const store = {
-  getSupplier: async (id) => id === 'sup-1' ? { id, verification_level: level } : null,
+  getSupplier: async (id) => ['sup-1', 'sup-2'].includes(id) ? { id, verification_level: level } : null,
   listVerifications: async (id) => rows.filter((r) => r.supplier_id === id),
   createVerification: async (input) => {
     if (dbError) throw Error("Could not find the 'checklist_notes' column of 'verifications' in the schema cache");
@@ -30,9 +30,10 @@ const mocks = {
   'next/cache': { revalidatePath: () => {} },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': { guard: async () => canInspect ? null : { message: 'Không có quyền' }, getSession: async () => ({ uid: '00000000-0000-4000-8000-000000000001', email: 'inspector@example.com' }) },
-  '@/lib/types': {
-    L1_DOC_ITEMS: Array.from({ length: 7 }, (_, n) => ({ key: `document_${n}` })),
-    L2_VISIT_ITEMS: Array.from({ length: 9 }, (_, n) => ({ key: `factory_${n}` })),
+  '@/lib/verification': {
+    auditStep: (level) => ({ 1: { title: 'Kiểm tra giấy tờ' }, 2: { title: 'Thăm nhà máy' }, 3: { title: 'Lịch sử giao hàng' } })[level],
+    auditHref: (id, level) => `/crm/suppliers/${id}/audit/${({ 1: 'documents', 2: 'factory', 3: 'deliveries' })[level]}`,
+    auditItems: (level) => Array.from({ length: ({ 1: 7, 2: 9, 3: 3 })[level] }, (_, n) => ({ key: `item_${level}_${n}` })),
   },
 };
 vm.runInNewContext(source, { module, exports: module.exports, require: (name) => {
@@ -50,7 +51,7 @@ async function post(id, targetLevel) {
 canInspect = false;
 assert.equal((await post('sup-1', 1)).status, 403);
 canInspect = true;
-assert.equal((await post('sup-1', 3)).status, 400);
+assert.equal((await post('sup-1', 4)).status, 400);
 assert.equal((await post('unknown', 1)).status, 404);
 assert.equal((await post('sup-1', 2)).status, 409);
 assert.equal((await post('sup-1', 1)).status, 200);
@@ -62,8 +63,15 @@ assert.equal(rows.length, 1, 'double-click must not create another L1 review');
 rows[0].status = 'approved'; level = 1;
 assert.equal((await post('sup-1', 2)).status, 200);
 assert.equal(Object.keys(rows[1].checklist).length, 9);
+assert.equal((await post('sup-1', 3)).status, 409);
+rows[1].status = 'approved'; level = 2;
+const delivery = await post('sup-1', 3);
+assert.equal(delivery.status, 200);
+assert.match(delivery.data.href, /audit\/deliveries$/);
+assert.equal(Object.keys(rows[2].checklist).length, 3);
+assert.equal((await post('sup-1', 3)).data.existing, true);
 level = 0; dbError = true;
-const failed = await post('sup-1', 1);
+const failed = await post('sup-2', 1);
 assert.equal(failed.status, 500);
 assert.match(failed.data.message, /migration/);
 const migration = fs.readFileSync(new URL('../supabase/migrations/20261017_verification_workflow.sql', import.meta.url), 'utf8');
@@ -72,4 +80,4 @@ for (const field of ['checklist_notes', 'visit_lat', 'visit_lng', 'visit_address
 }
 assert.ok(migration.includes("owner_type in ('product','supplier','verification')"));
 assert.ok(migration.includes("audience = 'internal'"));
-console.log('✅ Verification L1/L2: creation, duplicate guard, permissions, prerequisites and schema errors.');
+console.log('✅ Three audit steps: creation, duplicate guard, permissions, prerequisites and schema errors.');

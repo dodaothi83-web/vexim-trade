@@ -4,7 +4,7 @@
 
 - Nhập tên rồi **Lưu nhà cung cấp**: tạo bản nháp ngay; liên hệ/mặt hàng/ảnh có thể bổ sung sau. Trên trang sửa, **Lưu thay đổi** cập nhật nội dung và **giữ nguyên trạng thái hiện tại**.
 - Trạng thái chỉ chuyển khi chọn nút riêng ở **Bước tiếp theo**; nút đó lưu cả thay đổi đang nhập. Luồng: Nháp → Đã nộp → Đang kiểm → Công khai (chỉ người có quyền `suppliers.publish`). Hồ sơ công khai nhưng chưa duyệt L1 hiện nhãn “Under audit/Chưa xác minh”, **không** mang huy hiệu L1/L2. Chờ quyết định nghiệp vụ về việc có cho công khai L0 hay không.
-- Form thông tin **không thể tự gán L1/L2/L3**: chỉ quy trình xác minh ở trang chi tiết mới duyệt và cấp mức. Tạo mới mặc định L0, kể cả request giả mạo.
+- Form thông tin **không thể tự gán cấp xác minh**: chỉ các trang kiểm toán Giấy tờ → Nhà máy → Lịch sử giao hàng mới duyệt và cập nhật mức. Tạo mới chưa xác minh, kể cả request giả mạo.
 - Upload ảnh đại diện/bìa độc lập với nút lưu form; ảnh bổ sung nằm trong mục riêng.
 
 ## Danh mục
