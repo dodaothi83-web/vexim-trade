@@ -101,6 +101,7 @@ assert.ok(!JSON.stringify(result).includes('mock-file-content'), 'Never return r
 assert.equal(result.checks.find((c) => c.key === 'tax_certificate').verdict, 'uncertain', 'Never claim OCR confirms a numeric identifier');
 assert.deepEqual(result.checks.find((c) => c.key === 'tax_certificate').evidence_ids, []);
 assert.match(lastBody.input[0].content[0].text, /tax_certificate và bank_letter chỉ là ô nhập số thủ công/);
+assert.match(lastBody.input[0].content[0].text, /food_safety và haccp_or_brc đều tùy chọn/, 'AI must not describe factory certificates as mandatory for traders');
 assert.equal((await post('review-1', { fileIds: ['missing'] })).status, 422, 'Cannot scan files outside this review');
 assert.equal((await post('review-1', { fileIds: ['asset-1', 'asset-1'] })).status, 400, 'Duplicate IDs rejected');
 assert.equal((await post('review-1', { fileIds: [] })).status, 400);

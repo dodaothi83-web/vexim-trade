@@ -280,7 +280,7 @@ export const L1_DOC_ITEMS = [
   { key: "business_license", label: "Đăng ký doanh nghiệp", required: true },
   { key: "tax_certificate", label: "Mã số thuế", required: true },
   { key: "bank_letter", label: "Số tài khoản ngân hàng", required: true },
-  { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm", required: true },
+  { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm (nếu có)", required: false },
   { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000 (nếu có)", required: false },
   { key: "product_certs", label: "Chứng chỉ sản phẩm đã công bố", required: false },
   { key: "export_license", label: "Giấy phép xuất khẩu (nếu áp dụng)", required: false }
