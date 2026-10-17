@@ -680,10 +680,9 @@ create table if not exists public.verifications (
   approved_by        uuid references public.app_users(id) on delete set null,
   approved_at        timestamptz,
   created_at         timestamptz not null default now(),
-  updated_at         timestamptz not null default now(),
-  constraint verifications_four_eyes check (
-    approved_by is null or inspector_id is null or approved_by <> inspector_id
-  )
+  -- Tạm cho phép admin tự duyệt bản kiểm; vẫn ghi inspector_id và approved_by.
+  -- Cần bật lại kiểm tra hai người khi vận hành đủ nhân sự.
+  updated_at         timestamptz not null default now()
 );
 alter table public.verifications
   add column if not exists checklist_notes jsonb not null default '{}'::jsonb,

@@ -6,6 +6,7 @@ import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { AUDIT_STEPS, auditHref } from "@/lib/verification";
+import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import type { VerificationLevel } from "@/lib/types";
 import { Breadcrumbs, Badge, Card } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -29,8 +30,10 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
   const current = forStep.find((v) => v.status === "approved") ?? forStep[0];
   const media = current && unlocked ? await store.listMedia("verification", current.id) : [];
   const canApprove = hasPermission(session.role, "verifications.approve");
+  const requireSecondReviewer = requireSecondVerificationReviewer();
   const editable = !!current && ["in_progress", "scheduled", "returned"].includes(current.status);
-  const mediaReadOnly = !editable && !(current?.status === "submitted" && canApprove && current.inspector_id !== session.uid);
+  const mediaReadOnly = !editable && !(current?.status === "submitted" && canApprove &&
+    (!requireSecondReviewer || current.inspector_id !== session.uid));
 
   return <>
     <PageHeader
@@ -59,7 +62,7 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
             <p className="text-sm text-ink-600">{current.status === "approved" ? "Bằng chứng được khoá để giữ nguyên hồ sơ đã duyệt." : "Ghi kết quả, đính kèm bằng chứng và nộp xét duyệt khi đã sẵn sàng."}</p>
           </Card>
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
-            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} currentUserId={session.uid} />
+            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} currentUserId={session.uid} requireSecondReviewer={requireSecondReviewer} />
             <div className="space-y-3">
               <MediaManager ownerType="verification" ownerId={current.id} items={media} readOnly={mediaReadOnly} allowInternal={false}
                 title={`Bằng chứng: ${step.title}`}

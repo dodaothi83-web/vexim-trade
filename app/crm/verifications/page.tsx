@@ -14,6 +14,7 @@ import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { inVnBounds } from "@/lib/verification";
+import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import type { AppUser, Verification } from "@/lib/types";
 import { auditHref, auditItems, auditStep } from "@/lib/verification";
 
@@ -73,7 +74,9 @@ export default async function VerificationsPage({
       ]} />
       <PageHeader
         title="Hàng đợi xác minh NCC"
-        sub="Kiểm tra giấy tờ, thăm nhà máy và đối chiếu lịch sử giao hàng. Người kiểm nộp; người khác xét duyệt."
+        sub={requireSecondVerificationReviewer()
+          ? "Kiểm tra giấy tờ, thăm nhà máy và đối chiếu lịch sử giao hàng. Người kiểm nộp; người khác xét duyệt."
+          : "Kiểm tra giấy tờ, thăm nhà máy và đối chiếu lịch sử giao hàng. Quản trị viên có thể tự xác nhận bản kiểm đã nộp (tạm thời)."}
       />
 
       {canApprove && counts.submitted > 0 && (

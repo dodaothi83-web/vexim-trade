@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { auditHref, auditItems } from "@/lib/verification";
+import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import type { Verification, VerificationStatus } from "@/lib/types";
 
 function refreshAudit(v: Verification) {
@@ -20,11 +21,18 @@ async function auditChange(before: Verification, status: VerificationStatus, act
     entity: "supplier", entity_id: before.supplier_id,
     action: `verification.${action}.l${before.target_level}`,
     before: { id: before.id, status: before.status, checklist: before.checklist },
-    after: { id: before.id, status },
+    after: {
+      id: before.id, status,
+      ...(status === "approved" ? {
+        inspector_id: before.inspector_id,
+        approved_by: session?.uid ?? null,
+        self_approved: before.inspector_id != null && before.inspector_id === session?.uid,
+      } : {}),
+    },
   }).catch((err) => console.error("[audit] verification write failed", err));
 }
 
-/** Save the inspector's work or submit it for a separate reviewer. */
+/** Save the inspector's work or submit it for a reviewer (possibly the same admin temporarily). */
 export async function updateVerificationChecklistAction(fd: FormData) {
   const gate = await guard("verifications.inspect");
   if (gate) throw new Error(gate.message);
@@ -91,7 +99,9 @@ async function getReviewable(id: string) {
   if ((await store.listVerifications(before.supplier_id)).some((v) => v.target_level === before.target_level && v.status === "approved")) {
     throw new Error("Bước này đã được duyệt ở đợt kiểm khác.");
   }
-  if (before.inspector_id === session?.uid) throw new Error("Người kiểm không được tự duyệt. Cần người khác xét duyệt.");
+  if (requireSecondVerificationReviewer() && before.inspector_id === session?.uid) {
+    throw new Error("Người kiểm không được tự duyệt. Cần người khác xét duyệt.");
+  }
   return { before, store, session };
 }
 

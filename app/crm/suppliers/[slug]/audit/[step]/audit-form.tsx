@@ -10,8 +10,8 @@ import { auditItems, auditStep } from "@/lib/verification";
 import { Button, formatDate } from "@/components/ui";
 import { approveVerificationAction, returnVerificationAction, updateVerificationChecklistAction } from "../../verification-actions";
 
-export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, currentUserId }: {
-  verification: Verification; evidence: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; currentUserId: string;
+export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, currentUserId, requireSecondReviewer }: {
+  verification: Verification; evidence: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; currentUserId: string; requireSecondReviewer: boolean;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
@@ -21,7 +21,8 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
   const [scanning, setScanning] = useState(false);
   const [aiResult, setAiResult] = useState<(AiDocumentReview & { skipped: string[] }) | null>(null);
   const editable = ["in_progress", "scheduled", "returned"].includes(v.status);
-  const reviewer = canApprove && v.status === "submitted" && currentUserId !== v.inspector_id;
+  const selfReview = currentUserId === v.inspector_id;
+  const reviewer = canApprove && v.status === "submitted" && (!requireSecondReviewer || !selfReview);
   const items = auditItems(v.target_level);
   const readableEvidence = evidence.filter((m) => m.storage_path && ["document", "certificate", "image"].includes(m.kind));
   const evidenceFingerprint = readableEvidence.map((m) => `${m.id}:${m.storage_path}`).join("|");
@@ -93,7 +94,7 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
       if (!reason.trim()) { setFeedback({ ok: false, message: "Hãy ghi lý do cần bổ sung." }); return; }
       fd.set("reason", reason);
     }
-    if (approve && !window.confirm(`Duyệt ${auditStep(v.target_level)?.title.toLowerCase()}? Bằng chứng sẽ được khóa${v.target_level < 3 ? " và bước tiếp theo sẽ mở" : ""}.`)) return;
+    if (approve && !window.confirm(`${selfReview ? "Bạn đang tự xác nhận bản kiểm của mình (chế độ tạm thời). Hãy tự đối chiếu lại chứng từ và kết quả. " : ""}Duyệt ${auditStep(v.target_level)?.title.toLowerCase()}? Bằng chứng sẽ được khóa${v.target_level < 3 ? " và bước tiếp theo sẽ mở" : ""}.`)) return;
     void run(() => approve ? approveVerificationAction(fd) : returnVerificationAction(fd));
   }
 
@@ -169,13 +170,14 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
     </form>
     {reviewer && <div className="space-y-3 border-t border-ink-100 bg-amber-50/50 p-5">
       <p className="text-sm font-semibold text-ink-900">Xét duyệt · xem cả bằng chứng ở cột bên cạnh</p>
+      {selfReview && <p className="text-sm text-amber-900">Bạn đang xác nhận bản kiểm của chính mình (cho phép tạm thời với quyền quản trị). Hãy đối chiếu lại chứng từ trước khi duyệt; hệ thống ghi lại người kiểm và người duyệt.</p>}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="primary" disabled={busy} onClick={() => decide(true)}><CheckCircle2 className="h-4 w-4" /> Duyệt & mở bước tiếp</Button>
         <Button type="button" disabled={busy} onClick={() => decide(false)}><RotateCcw className="h-4 w-4" /> Trả để bổ sung</Button>
       </div>
       <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do trả (bắt buộc khi trả về)" aria-label="Lý do trả hồ sơ" />
     </div>}
-    {canApprove && v.status === "submitted" && currentUserId === v.inspector_id && <p className="border-t border-ink-100 p-4 text-sm text-amber-800">Bạn là người kiểm; cần người khác duyệt.</p>}
+    {canApprove && v.status === "submitted" && selfReview && requireSecondReviewer && <p className="border-t border-ink-100 p-4 text-sm text-amber-800">Bạn là người kiểm; cần người khác duyệt.</p>}
     {v.status === "approved" && <p className="border-t border-ink-100 p-4 text-sm text-emerald-800">Đã duyệt {v.approved_at ? formatDate(v.approved_at) : ""}. Kết quả và bằng chứng chỉ đọc.</p>}
     {feedback && <p role={feedback.ok ? "status" : "alert"} className={"border-t border-ink-100 p-4 text-sm " + (feedback.ok ? "text-emerald-700" : "text-rose-700")}>{feedback.message}</p>}
   </div>;
