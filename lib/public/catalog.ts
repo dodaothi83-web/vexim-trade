@@ -5,7 +5,7 @@
 import "server-only";
 
 import { getStore } from "@/lib/db";
-import { productReadiness } from "@/lib/media/readiness";
+import { isExpired, productReadiness } from "@/lib/media/readiness";
 import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, VerificationLevel } from "@/lib/types";
 import { approvedPublicReviewSummaries, approvedVerificationSteps, type PublicReviewSummaries } from "@/lib/verification-status";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
@@ -37,6 +37,7 @@ export interface PublicSupplierCard extends Supplier {
   primary_category: Category | null;
   main_products: SupplierProduct[];
   gallery_images: string[];      // storage_path các ảnh buyer-shareable
+  product_image_paths: Record<string, string>; // approved buyer image per public product; catalogue-only listings have no image
   public_review_summaries: PublicReviewSummaries;
   approved_verification_steps: VerificationLevel[];
 }
@@ -89,6 +90,7 @@ export async function listPublicSuppliers(options?: {
     primary_category: null as Category | null,
     main_products: (bySupplier.get(s.id) ?? []).filter((p) => buyerVisibleProduct(p, categories, !!s.is_demo)).slice(0, 4),
     gallery_images: [] as string[],
+    product_image_paths: {} as Record<string, string>,
     public_review_summaries: {} as PublicReviewSummaries,
     approved_verification_steps: [] as VerificationLevel[],
   }));
@@ -104,7 +106,7 @@ export async function listPublicSuppliers(options?: {
           store.listVerifications(c.id).catch(() => []),
         ]);
         c.gallery_images = media
-          .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path)
+          .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
           .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
           .map((m) => m.storage_path!)
           .slice(0, 6);
@@ -143,8 +145,8 @@ export async function listPublicSuppliers(options?: {
   return cards;
 }
 
-export async function getPublicSupplierBySlug(slug: string): Promise<PublicSupplierCard | null> {
-  const list = await listPublicSuppliers();
+export async function getPublicSupplierBySlug(slug: string, publicList?: PublicSupplierCard[]): Promise<PublicSupplierCard | null> {
+  const list = publicList ?? await listPublicSuppliers();
   const supplier = list.find((s) => s.slug === slug || (!s.slug && s.id === slug)) ?? null;
   if (!supplier) return null;
   const store = getStore();
@@ -163,8 +165,16 @@ export async function getPublicSupplierBySlug(slug: string): Promise<PublicSuppl
     }
   }
   const publicProducts = eligible.filter((p) => supplier.is_demo || productReadiness(productMedia.filter((m) => m.product_id === p.id)).ready);
+  const productImagePaths: Record<string, string> = {};
+  for (const p of publicProducts) {
+    const image = productMedia.filter((m) => m.owner_type === "product" && m.product_id === p.id &&
+      m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
+      .sort((a, b) => Number(b.id === p.featured_media_id) - Number(a.id === p.featured_media_id) ||
+        a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))[0];
+    if (image?.storage_path) productImagePaths[p.id] = image.storage_path;
+  }
   const gallery = media
-    .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path)
+    .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
     .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
     .map((m) => m.storage_path!)
     .slice(0, 12);
@@ -172,6 +182,7 @@ export async function getPublicSupplierBySlug(slug: string): Promise<PublicSuppl
     ...supplier,
     main_products: publicProducts,
     gallery_images: gallery,
+    product_image_paths: productImagePaths,
     approved_verification_steps: vers.length ? approvedVerificationSteps(vers) : supplier.approved_verification_steps,
     public_review_summaries: approvedPublicReviewSummaries(vers),
   };

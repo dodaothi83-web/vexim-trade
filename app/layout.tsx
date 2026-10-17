@@ -3,8 +3,10 @@ import type { ReactNode } from "react";
 
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
+import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Vexim Trade – Verified Vietnamese food & agriculture sourcing",
     template: "%s · Vexim Trade",

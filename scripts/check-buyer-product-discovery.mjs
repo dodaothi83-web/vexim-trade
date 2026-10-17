@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { arrangeSupplierProducts } from '../lib/public/supplier-product-order.ts';
 import { assignProductCategory } from '../lib/public/category-assignment.ts';
 import { productReadiness } from '../lib/media/readiness.ts';
+import { isSyntheticSupplier } from '../lib/public/supplier-seo.ts';
 import { approvedPublicReviewSummaries, approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from '../lib/verification-status.ts';
 
 const compile = (path, mocks) => {
@@ -95,6 +96,7 @@ const catalog = compile('../lib/public/catalog.ts', catalogMocks);
 const productCatalog = compile('../lib/public/product-catalog.ts', {
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
   '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
+  '@/lib/public/supplier-seo': { isSyntheticSupplier },
 });
 const photoSamples = [
   { ...media[0], id: 'img-first', product_id: 'a0', storage_path: 'products/a0/first.jpg', sort_order: 0 },
@@ -106,6 +108,13 @@ assert.equal(JSON.stringify(productCatalog.shareableProductImages(photoSamples, 
   'An internal cover must never enter the public gallery');
 const cards = await productCatalog.listPublicCategoryProducts(category);
 assert.equal(cards.length, 13, 'Every ready offer from published suppliers gets its own card, without cross-category or test records');
+suppliers.push({ id: 'synthetic', slug: 'vexim-test-supplier-do-not-contact', name: 'Test Supplier', status: 'published', is_demo: false,
+  summary_i18n: { en: 'VEXIM TEST SUPPLIER - DO NOT CONTACT' } });
+products.push(mk('synthetic-product', 'synthetic', 'Cashew W320 sample', { spec: 'TEST ONLY — not a commercial specification' }));
+media.push({ ...media[0], product_id: 'synthetic-product', storage_path: 'products/synthetic-product/image.jpg' });
+assert.equal((await catalog.getPublicSupplierBySlug('vexim-test-supplier-do-not-contact')).main_products.length, 1, 'Published test profile can display its existing test listing truthfully');
+assert.equal((await productCatalog.listPublicCategoryProducts(category)).length, 13, 'A synthetic supplier never becomes a real marketplace listing');
+suppliers.pop(); products.pop(); media.pop();
 assert.equal(cards.filter((p) => p.grade === 'W320').length, 13, 'Grade filter can expose 5 separate W320 offers from B');
 assert.equal(cards.filter((p) => p.supplierId === 'B').length, 5);
 assert.deepEqual(cards.find((p) => p.id === 'a0').verificationSteps, [1, 3], 'Trader passes documents and deliveries without a factory badge');
@@ -133,6 +142,11 @@ const single = arrangeSupplierProducts(oneSupplier, null);
 assert.equal(single.shown.length, 8, 'A filter with one matching supplier still shows all eight offers');
 const profile = await catalog.getPublicSupplierBySlug('company-a');
 assert.equal(profile.main_products.length, 9, 'Profile includes all public products from every category, not the four-card summary');
+assert.equal(profile.product_image_paths.a0, 'products/a0/cover.jpg', 'Supplier cards use the featured buyer-approved product image');
+assert.equal(profile.product_image_paths.test, undefined, 'Test-only product images never appear');
+media.push({ ...media[0], id: 'private-a1', product_id: 'a1', audience: 'internal', storage_path: 'products/a1/private.jpg', sort_order: -5 });
+assert.equal((await catalog.getPublicSupplierBySlug('company-a')).product_image_paths.a1, 'products/a1/image.jpg', 'Internal product images must not leak into supplier cards');
+media.pop();
 assert.ok(profile.main_products.every((p) => p.ready_for_buyer && !p.name.startsWith('TEST ONLY')));
 assert.deepEqual(profile.approved_verification_steps, [1, 3]);
 assert.equal(profile.public_review_summaries[3], undefined, 'Review approval alone never publishes an inspector draft');
@@ -203,8 +217,8 @@ assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can still open
 assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A/, 'Buyer can still request a quote');
 assert.equal((compactCard.match(/<details/g) ?? []).length, 2, 'Compact icon strip keeps only approved supplier checks');
 assert.match(detailPage, /<ProductVerificationIcons levels=\{card\.verificationSteps\}/);
-assert.match(profilePage, /publicProductPrice\(p, s\) \|\| "On request"/);
-assert.match(profilePage, /href=\{`\/products\/\$\{encodeURIComponent\(category\.slug\)\}/);
+assert.match(profilePage, /synthetic \? "Test data · not a price" : publicProductPrice\(p, s\) \|\| "On request"/);
+assert.match(profilePage, /const href = !synthetic && category \? `\/products\/\$\{encodeURIComponent\(category\.slug\)\}/);
 assert.match(detailPage, /View supplier profile/);
 assert.match(detailPage, /#factory-visit/);
 assert.match(detailPage, /#delivery-history/);

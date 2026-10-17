@@ -35,6 +35,7 @@ export function isTestOnlyProduct(name: string): boolean {
 export function withoutDirectContacts(value: string): string {
   return value
     .replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, "[contact via Vexim]")
+    .replace(/(?:https?:\/\/|www\.)[^\s<>]+|\b[a-z\d-]+(?:\.[a-z\d-]+)*\.(?:com|vn|net|org|co|io|biz)(?:\/[^\s<>]*)?/gi, "[contact via Vexim]")
     .replace(/(?:\+?\d[\s().-]?){9,15}\d/g, "[contact via Vexim]");
 }
 

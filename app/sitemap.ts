@@ -2,7 +2,8 @@ import type { MetadataRoute } from "next";
 
 import { listPublishedNews } from "@/lib/blog/queries";
 import { getStore } from "@/lib/db";
-import { listPublicSuppliers } from "@/lib/public/catalog";
+import { getPublicSupplierBySlug, listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catalog";
+import { supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
 
 /** Làm mới danh sách sau tối đa 60 giây */
@@ -39,6 +40,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     listPublicSuppliers().catch(() => []),
   ]);
 
+  // Directory cards do not check product media. Confirm the actual public profile
+  // before advertising it to crawlers; a test or catalogue-only empty profile stays out.
+  const searchableSuppliers: PublicSupplierCard[] = [];
+  for (let i = 0; i < publishedSuppliers.length; i += 20) {
+    const batch = await Promise.all(publishedSuppliers.slice(i, i + 20)
+      .filter(supplierProfileIndexable)
+      .map(async (s) => {
+        const detail = await getPublicSupplierBySlug(s.slug || s.id, publishedSuppliers).catch(() => null);
+        return detail && supplierProfileIndexable(detail) ? s : null;
+      }));
+    searchableSuppliers.push(...batch.filter((s): s is (typeof publishedSuppliers)[number] => s !== null));
+  }
+
   const publicRoutes: MetadataRoute.Sitemap = [
     {
       url: SITE_URL,
@@ -58,13 +72,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.5,
     },
-    ...categories.map((c) => ({
+    ...categories.filter((c) => c.seo_indexable).map((c) => ({
       url: `${SITE_URL}/products/${c.slug}`,
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.7,
     })),
-    ...publishedSuppliers.map((s) => ({
+    ...searchableSuppliers.map((s) => ({
       url: `${SITE_URL}/suppliers/${s.slug}`,
       lastModified: s.updated_at ? new Date(s.updated_at) : new Date(),
       changeFrequency: "weekly" as const,
