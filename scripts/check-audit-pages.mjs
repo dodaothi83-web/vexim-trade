@@ -24,7 +24,7 @@ let row = {
   shipment_ref: 'SHIP-123', shipped_on: '2026-10-10',
   checklist: { order_matched: true, shipping_proof: true, delivery_proof: true }, checklist_notes: {},
 };
-const docKeys = ['license', 'tax', 'export', 'factory', 'identity', 'optional_a', 'optional_b'];
+const docKeys = ['business_license', 'tax_certificate', 'bank_letter', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'];
 const docItems = docKeys.map((key, i) => ({ key, required: i < 5 }));
 const records = [
   { target_level: 1, status: 'approved' }, { target_level: 2, status: 'approved' }, row,
@@ -92,7 +92,8 @@ assert.equal(lastAudit.after.self_approved, false);
 records.splice(0, 1); // remove earlier approved level-one fixture
 Object.assign(row, {
   target_level: 1, status: 'submitted', approved_by: null,
-  checklist: Object.fromEntries(['license', 'tax', 'export', 'factory', 'identity', 'optional_a', 'optional_b'].map((key) => [key, true])),
+  tax_number: '00123456789', bank_account_number: '0001234567',
+  checklist: Object.fromEntries(docKeys.map((key) => [key, true])),
 });
 media.splice(0);
 const missing = await exports.approveVerificationAction(form);
@@ -103,33 +104,49 @@ media.push({ kind: 'video', storage_path: null, external_url: 'https://example.c
 assert.equal((await exports.approveVerificationAction(form)).ok, false, 'A video link is not a legal document');
 media.push({ id: 'photo-1', owner_type: 'verification', verification_id: row.id, supplier_id: row.supplier_id, kind: 'image', storage_path: 'verifications/review-3/license.jpg', status: 'unverified' });
 mediaBlocked = 'Đợt kiểm đã được duyệt';
-assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'license')).ok, false, 'Evidence mutations must respect audit permissions');
+assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'business_license')).ok, false, 'Evidence mutations must respect audit permissions');
 mediaBlocked = null;
 media[1].supplier_id = 'other-supplier';
-assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'license')).ok, false, 'Reject mismatched supplier ownership');
+assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'business_license')).ok, false, 'Reject mismatched supplier ownership');
 media[1].supplier_id = row.supplier_id;
-assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'license')).ok, true);
-assert.equal(media[1].checklist_key, 'license', 'File linked to an item without moving it');
+assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'business_license')).ok, true);
+assert.equal(media[1].checklist_key, 'business_license', 'File linked to an item without moving it');
 assert.equal(lastAudit.before.checklist_key, null, 'Audit records old assignment even with mutable local store');
-assert.equal(lastAudit.after.checklist_key, 'license');
+assert.equal(lastAudit.after.checklist_key, 'business_license');
 assert.equal((await exports.assignVerificationEvidenceAction('photo-1', null)).ok, true);
 assert.equal(media[1].checklist_key, null, 'Unassign does not delete file');
-assert.equal(lastAudit.before.checklist_key, 'license');
+assert.equal(lastAudit.before.checklist_key, 'business_license');
 assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'forged-key')).ok, false);
+assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'tax_certificate')).ok, false, 'Number-only rows cannot accept new file assignments');
 const documentApproved = await exports.approveVerificationAction(form);
 assert.equal(documentApproved.ok, true, 'Photo of a document from this verification qualifies');
 assert.equal(row.status, 'approved');
-Object.assign(row, { status: 'in_progress', checklist: {}, checklist_notes: {}, approved_by: null });
+Object.assign(row, { status: 'in_progress', checklist: {}, checklist_notes: { tax_certificate: 'Ghi chú cũ cần giữ' }, approved_by: null });
 const incomplete = new FormData(); incomplete.set('id', row.id); incomplete.set('status', 'submitted');
 await assert.rejects(exports.updateVerificationChecklistAction(incomplete), /mục bắt buộc/);
-for (const key of docKeys.slice(0, 5)) incomplete.set(`check:${key}`, 'yes');
-incomplete.set('check:optional_a', 'not_applicable');
+for (const key of ['business_license', 'food_safety', 'haccp_or_brc']) incomplete.set(`check:${key}`, 'yes');
+incomplete.set('check:product_certs', 'not_applicable');
+incomplete.set('tax_number', '0123456789');
+incomplete.set('bank_account_number', '000987654321');
 const submitted = await exports.updateVerificationChecklistAction(incomplete);
-assert.equal(submitted.ok, true, 'Optional documents do not block submission');
-assert.equal(row.checklist.optional_a, 'not_applicable');
-assert.equal(row.checklist.optional_b, null);
+assert.equal(submitted.ok, true, 'Three checked documents plus two numeric identifiers allow submission');
+assert.equal(row.tax_number, '0123456789', 'Leading zeroes must survive');
+assert.equal(row.bank_account_number, '000987654321');
+assert.equal(row.checklist.tax_certificate, true);
+assert.equal(row.checklist.bank_letter, true);
+assert.equal(row.checklist_notes.tax_certificate, 'Ghi chú cũ cần giữ', 'Number-only rows must not erase legacy notes');
+assert.equal(row.checklist.product_certs, 'not_applicable');
+assert.equal(row.checklist.export_license, null);
 const optionalApproved = await exports.approveVerificationAction(form);
-assert.equal(optionalApproved.ok, true, 'Only the five required checks must pass');
+assert.equal(optionalApproved.ok, true, 'Three documents, two numbers and optional items pass only after separate approval');
+Object.assign(row, { status: 'in_progress', approved_by: null });
+incomplete.set('tax_number', '12-34');
+assert.match((await exports.updateVerificationChecklistAction(incomplete)).message, /chỉ được nhập chữ số/);
+assert.equal(row.tax_number, '0123456789', 'Invalid identifier must not mutate saved review');
+incomplete.set('tax_number', '');
+assert.match((await exports.updateVerificationChecklistAction(incomplete)).message, /Hãy nhập mã số thuế/);
+Object.assign(row, { status: 'submitted', tax_number: null });
+assert.match((await exports.approveVerificationAction(form)).message, /Cần nhập mã số thuế/, 'Older submitted reviews must be returned to add number');
 const selfApprovalSql = fs.readFileSync(new URL('../supabase/migrations/20261017_temporary_self_verification_approval.sql', import.meta.url), 'utf8');
 assert.match(selfApprovalSql, /drop constraint if exists verifications_four_eyes/);
 const formUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx', import.meta.url), 'utf8');

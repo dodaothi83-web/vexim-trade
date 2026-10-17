@@ -56,7 +56,20 @@ export async function updateVerificationChecklistAction(fd: FormData) {
     const optionalDoc = before.target_level === 1 && !requiredKeys.has(it.key);
     checklist[it.key] = value === "yes" ? true : value === "no" ? false :
       value === "not_applicable" && optionalDoc ? "not_applicable" : null;
-    notes[it.key] = String(fd.get(`note:${it.key}`) ?? "").trim().slice(0, 1000) || null;
+    if (fd.has(`note:${it.key}`)) notes[it.key] = String(fd.get(`note:${it.key}`) ?? "").trim().slice(0, 1000) || null;
+  }
+  // Two identifiers are entered as strings, not scans. Recording a number is not
+  // an external validation and never approves the review automatically.
+  const taxNumber = String(fd.get("tax_number") ?? before.tax_number ?? "").trim();
+  const bankAccountNumber = String(fd.get("bank_account_number") ?? before.bank_account_number ?? "").trim();
+  if (before.target_level === 1) {
+    if (taxNumber && !/^[0-9]{1,32}$/.test(taxNumber)) return { ok: false, message: "Mã số thuế chỉ được nhập chữ số (tối đa 32 số)." };
+    if (bankAccountNumber && !/^[0-9]{1,34}$/.test(bankAccountNumber)) return { ok: false, message: "Số tài khoản chỉ được nhập chữ số (tối đa 34 số)." };
+    checklist.tax_certificate = taxNumber ? true : null;
+    checklist.bank_letter = bankAccountNumber ? true : null;
+    if (nextStatus === "submitted" && (!taxNumber || !bankAccountNumber)) {
+      return { ok: false, message: "Hãy nhập mã số thuế và số tài khoản ngân hàng trước khi nộp duyệt." };
+    }
   }
   if (nextStatus === "submitted" && requiredAuditItems(before.target_level).some((it) =>
     checklist[it.key] !== true && checklist[it.key] !== false)) {
@@ -80,6 +93,7 @@ export async function updateVerificationChecklistAction(fd: FormData) {
   }
   const patch: Partial<Verification> = {
     checklist, checklist_notes: notes, status: nextStatus, return_reason: null,
+    ...(before.target_level === 1 ? { tax_number: taxNumber || null, bank_account_number: bankAccountNumber || null } : {}),
     internal_notes: String(fd.get("internal_notes") || "").trim().slice(0, 5000) || null,
     public_summary_i18n: { en: String(fd.get("public_summary_en") || "").trim().slice(0, 1000) },
   };
@@ -116,6 +130,9 @@ export async function approveVerificationAction(fd: FormData) {
   if (gate) throw new Error(gate.message);
   const { before, store, session } = await getReviewable(String(fd.get("id") || ""));
   const items = auditItems(before.target_level);
+  if (before.target_level === 1 && (!/^[0-9]{1,32}$/.test(before.tax_number ?? "") || !/^[0-9]{1,34}$/.test(before.bank_account_number ?? ""))) {
+    return { ok: false, message: "Cần nhập mã số thuế và số tài khoản ngân hàng bằng chữ số; không cần tải ảnh cho hai mục này. Trả lại để bổ sung nếu bản kiểm đã nộp." };
+  }
   if (requiredAuditItems(before.target_level).some((it) => before.checklist[it.key] !== true && before.checklist[it.key] !== false)) {
     return { ok: false, message: "Còn mục chưa kiểm; trả lại để bổ sung." };
   }
@@ -165,7 +182,7 @@ export async function assignVerificationEvidenceAction(mediaId: string, key: L1D
   }
   const v = await store.getVerification(asset.verification_id);
   if (!v || v.target_level !== 1 || asset.supplier_id !== v.supplier_id ||
-    (key && !L1_DOC_ITEMS.some((it) => it.key === key))) {
+    (key && (["tax_certificate", "bank_letter"].includes(key) || !L1_DOC_ITEMS.some((it) => it.key === key)))) {
     return { ok: false, message: "Mục kiểm giấy tờ không hợp lệ." };
   }
   const blocked = await verificationMediaEditError(v);

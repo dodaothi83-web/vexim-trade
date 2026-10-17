@@ -10,6 +10,7 @@ import { readUploadResponse } from "@/lib/media/upload-response";
 import type { AiDocumentReview } from "@/lib/ai/document-audit";
 import { auditItems, auditStep } from "@/lib/verification";
 import { Button, formatDate } from "@/components/ui";
+import { addMediaLinkAction, deleteMediaAction } from "@/app/actions";
 import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction } from "../../verification-actions";
 
 export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, currentUserId, requireSecondReviewer }: {
@@ -20,6 +21,8 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
   const [reason, setReason] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [showOldEvidence, setShowOldEvidence] = useState(evidence.some((m) => !m.checklist_key));
   const [scanning, setScanning] = useState(false);
   const [aiResult, setAiResult] = useState<(AiDocumentReview & { skipped: string[] }) | null>(null);
   const editable = ["in_progress", "scheduled", "returned"].includes(v.status);
@@ -28,34 +31,44 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
   const canManageEvidence = editable || reviewer;
   const items = auditItems(v.target_level);
   const recorded = (key: string) => v.checklist?.[key] === true || v.checklist?.[key] === false || v.checklist?.[key] === "not_applicable";
-  const unassignedEvidence = v.target_level === 1
-    ? evidence.filter((m) => !m.checklist_key && m.storage_path && ["image", "document", "certificate"].includes(m.kind))
-    : [];
+  const unassignedEvidence = v.target_level === 1 ? evidence.filter((m) => !m.checklist_key) : [];
   const readableEvidence = evidence.filter((m) => m.storage_path && ["document", "certificate", "image"].includes(m.kind));
   const evidenceFingerprint = readableEvidence.map((m) => `${m.id}:${m.storage_path}`).join("|");
   const previousEvidence = useRef(evidenceFingerprint);
+  const justScannedIds = useRef<string[] | null>(null);
+  const scanInFlight = useRef(false);
+  const aiConsent = useRef(false);
   useEffect(() => {
     if (previousEvidence.current !== evidenceFingerprint) {
-      setAiResult(null); // A changed attachment set invalidates the earlier AI assessment.
+      // Keep the fresh scan only if the uploaded files it cites really appeared.
+      if (!justScannedIds.current?.every((id) => readableEvidence.some((m) => m.id === id))) setAiResult(null);
+      justScannedIds.current = null;
       previousEvidence.current = evidenceFingerprint;
     }
   }, [evidenceFingerprint]);
 
-  async function scanDocuments() {
-    if (scanning || busy) return;
-    if (!window.confirm("AI sẽ đọc ảnh/PDF nội bộ đã tải lên và gửi nội dung tệp tới nhà cung cấp AI để phân tích sơ bộ. Tiếp tục?")) return;
+  async function scanDocuments(fileIds?: string[], consented = false, uploadWarning = "") {
+    if (scanInFlight.current || (busy && !consented)) return;
+    if (!consented && !window.confirm("AI sẽ đọc ảnh/PDF nội bộ của đúng đợt kiểm và gửi nội dung tệp tới nhà cung cấp AI để phân tích sơ bộ. Tiếp tục?")) return;
+    scanInFlight.current = true;
     const scannedFingerprint = evidenceFingerprint;
+    justScannedIds.current = null;
     setScanning(true); setFeedback(null); setAiResult(null);
     try {
-      const response = await fetch(`/api/verifications/${encodeURIComponent(v.id)}/ai-review`, { method: "POST" });
+      const response = await fetch(`/api/verifications/${encodeURIComponent(v.id)}/ai-review`, fileIds
+        ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileIds: fileIds.slice(0, 6) }) }
+        : { method: "POST" });
       const data = await response.json() as (AiDocumentReview & { skipped: string[] }) & { message?: string };
       if (!response.ok || !Array.isArray(data.checks)) throw new Error(data.message || "AI chưa phân tích được tài liệu.");
-      if (previousEvidence.current !== scannedFingerprint) throw new Error("Tệp đã thay đổi trong lúc AI phân tích. Hãy chạy lại.");
+      if (!fileIds && previousEvidence.current !== scannedFingerprint) throw new Error("Tệp đã thay đổi trong lúc AI phân tích. Hãy chạy lại.");
+      if (fileIds) justScannedIds.current = fileIds.slice(0, 6);
       setAiResult(data);
-      setFeedback({ ok: true, message: "Đã có gợi ý AI. Xem dẫn chứng từng mục trước khi áp dụng; chưa có kết quả nào được lưu." });
+      setFeedback({ ok: !uploadWarning, message: (fileIds
+        ? "Đã quét tệp vừa tải. Xem gợi ý ngay trong từng mục; AI không tự điền kết quả hay duyệt."
+        : "Đã có gợi ý AI. Xem dẫn chứng từng mục trước khi áp dụng; chưa có kết quả nào được lưu.") + (uploadWarning ? ` ${uploadWarning}` : "") });
     } catch (error) {
-      setFeedback({ ok: false, message: error instanceof Error ? error.message : "Không chạy được AI. Vui lòng kiểm thủ công." });
-    } finally { setScanning(false); }
+      setFeedback({ ok: false, message: `${error instanceof Error ? error.message : "Không chạy được AI. Vui lòng kiểm thủ công."}${uploadWarning ? ` ${uploadWarning}` : ""} Tệp đã tải vẫn được giữ.` });
+    } finally { scanInFlight.current = false; setScanning(false); }
   }
 
   function applySuggestions() {
@@ -64,7 +77,7 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
     const available = new Set(evidence.map((m) => m.id));
     let count = 0;
     for (const check of aiResult.checks) {
-      if (check.verdict === "uncertain" || !check.evidence_ids.some((id) => available.has(id))) continue;
+      if (check.key === "tax_certificate" || check.key === "bank_letter" || check.verdict === "uncertain" || !check.evidence_ids.some((id) => available.has(id))) continue;
       const select = ref.current.elements.namedItem(`check:${check.key}`) as HTMLSelectElement | null;
       const note = ref.current.elements.namedItem(`note:${check.key}`) as HTMLInputElement | null;
       if (!select || select.value) continue; // Never overwrite a human decision.
@@ -87,10 +100,29 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
     } finally { setBusy(false); }
   }
 
+  function removeEvidence(asset: MediaAsset) {
+    if (!canManageEvidence || !window.confirm(`Xóa hẳn tệp “${asset.caption || asset.id}” khỏi đợt kiểm?`)) return;
+    void run(() => deleteMediaAction(asset.id));
+  }
+
+  function addVideo() {
+    if (!canManageEvidence || !videoUrl.trim()) return;
+    void run(async () => {
+      const result = await addMediaLinkAction({ ownerType: "verification", ownerId: v.id, url: videoUrl.trim(), caption: null, audience: "internal" });
+      if (result.ok) setVideoUrl("");
+      return result;
+    });
+  }
+
   async function uploadInline(key: L1DocKey, files: FileList | null) {
     if (!canManageEvidence || busy || !files?.length) return;
+    const autoScan = aiEnabled && editable && (aiConsent.current || window.confirm(
+      "Sau khi tải lên, ảnh/PDF sẽ được gửi đến dịch vụ AI để quét sơ bộ ngay. Nội dung có thể chứa dữ liệu nội bộ; AI không tự duyệt. Đồng ý tự quét? Chọn Hủy vẫn tải tệp nhưng không gửi tới AI.",
+    ));
+    if (autoScan) aiConsent.current = true;
     setBusy(true); setFeedback(null);
     let uploaded = 0;
+    const createdIds: string[] = [];
     const errors: string[] = [];
     for (const file of Array.from(files)) {
       try {
@@ -111,16 +143,19 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
         }
         form.set("files", upload, upload.name);
         const response = await fetch("/api/media/upload", { method: "POST", body: form });
-        const result = await readUploadResponse<{ results?: { ok: boolean; message: string }[]; message?: string }>(response);
-        if (!response.ok || !result.results?.some((r) => r.ok)) throw new Error(result.results?.[0]?.message ?? result.message ?? `HTTP ${response.status}`);
+        const result = await readUploadResponse<{ created?: string[]; results?: { ok: boolean; message: string }[]; message?: string }>(response);
+        if (!response.ok || !result.results?.some((r) => r.ok) || !result.created?.length) throw new Error(result.results?.[0]?.message ?? result.message ?? `HTTP ${response.status}`);
+        createdIds.push(...result.created);
         uploaded++;
       } catch (error) {
         errors.push(`${file.name}: ${error instanceof Error ? error.message : "Không tải lên được."}`);
       }
     }
-    setFeedback({ ok: errors.length === 0, message: [uploaded ? `Đã tải ${uploaded} tệp vào mục kiểm.` : "", ...errors].filter(Boolean).join(" ") });
-    setBusy(false);
+    const uploadWarning = [...errors, ...(createdIds.length > 6 ? [`Chỉ 6/${createdIds.length} tệp mới được quét trong lượt này; có thể quét lại sau.`] : [])].join(" ");
+    setFeedback({ ok: !uploadWarning, message: [uploaded ? `Đã tải ${uploaded} tệp vào mục kiểm.` : "", uploadWarning].filter(Boolean).join(" ") });
     if (uploaded) router.refresh();
+    if (autoScan && createdIds.length) await scanDocuments(createdIds.slice(0, 6), true, uploadWarning);
+    setBusy(false);
   }
 
   function save(status: "in_progress" | "submitted") {
@@ -145,14 +180,14 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
     <div className="border-b border-ink-100 px-5 py-4">
       <h2 className="text-base font-bold text-ink-900">Bảng kiểm & kết quả</h2>
       <p className="mt-1 text-sm text-ink-500">{v.target_level === 1
-        ? `${L1_DOC_ITEMS.filter((it) => it.required && recorded(it.key)).length}/5 mục bắt buộc đã ghi · ${L1_DOC_ITEMS.filter((it) => !it.required && recorded(it.key)).length}/2 mục tùy chọn`
+        ? `${L1_DOC_ITEMS.filter((it) => it.required && (it.key === "tax_certificate" ? !!v.tax_number : it.key === "bank_letter" ? !!v.bank_account_number : recorded(it.key))).length}/5 mục bắt buộc đã ghi · ${L1_DOC_ITEMS.filter((it) => !it.required && recorded(it.key)).length}/2 mục tùy chọn`
         : `${items.filter((it) => recorded(it.key)).length}/${items.length} mục đã ghi kết quả`}</p>
       {v.return_reason && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">Cần bổ sung: {v.return_reason}</p>}
     </div>
     {v.target_level === 1 && editable && <section className="border-b border-brand-100 bg-brand-50/60 px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h3 className="flex items-center gap-2 text-sm font-bold text-ink-900"><Sparkles className="h-4 w-4 text-brand-700" /> AI kiểm tra sơ bộ</h3>
-          <p className="mt-1 text-xs leading-relaxed text-ink-600">Chỉ đọc ảnh/PDF trong card “Bằng chứng: Kiểm tra giấy tờ” của đợt kiểm này, không đọc kho chung NCC. Khi xác nhận, tệp được gửi tới OpenAI để gợi ý có dẫn chứng; không tự lưu hay duyệt.</p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-600">Chèn ảnh/PDF ngay trong mục bên dưới. Nếu đồng ý, tệp mới sẽ được quét ngay; hoặc bấm quét lại các tệp thuộc đợt kiểm này. Không đọc kho chung NCC. AI chỉ gợi ý, không tự lưu hay duyệt.</p>
         </div>
         {aiEnabled && <Button type="button" size="sm" disabled={scanning || busy || readableEvidence.length === 0} onClick={() => void scanDocuments()}>
           {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -160,27 +195,34 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
         </Button>}
       </div>
       {!aiEnabled && <p className="mt-2 text-xs text-amber-800">Chưa cấu hình AI trên máy chủ; vẫn có thể kiểm thủ công.</p>}
-      {readableEvidence.length === 0 && <p className="mt-2 text-xs text-ink-600">Tải ảnh/PDF giấy tờ ở cột bên cạnh trước khi chạy AI.</p>}
+      {readableEvidence.length === 0 && <p className="mt-2 text-xs text-ink-600">Chèn ảnh/PDF ở mục giấy tờ bên dưới trước khi quét.</p>}
       {aiResult && <div className="mt-3 rounded-lg border border-brand-200 bg-white p-3 text-sm text-ink-700">
         <p>{aiResult.summary || "AI đã đọc các tệp. Hãy kiểm từng gợi ý bên dưới."}</p>
         {aiResult.skipped.length > 0 && <p className="mt-2 text-xs text-amber-800">{aiResult.skipped.length} tệp chưa được AI đọc (vượt dung lượng/giới hạn hoặc không hỗ trợ). Không kết luận từ các tệp đó.</p>}
         <Button type="button" size="sm" className="mt-3" onClick={applySuggestions}>Điền nháp mục chưa kiểm</Button>
       </div>}
     </section>}
-    {v.target_level === 1 && unassignedEvidence.length > 0 && <div className="space-y-2 border-b border-ink-100 bg-ink-50/70 px-5 py-4 text-sm">
-      <p className="font-semibold text-ink-800">Bằng chứng cũ / chưa gắn mục ({unassignedEvidence.length})</p>
-      <p className="text-xs text-ink-600">Các tệp này vẫn thuộc đúng đợt kiểm và vẫn dùng được khi đối chiếu. Gắn vào một dòng bên dưới để dễ tìm; không cần tải lại.</p>
-      {unassignedEvidence.map((asset) => <div key={asset.id} className="flex flex-wrap items-center gap-2">
-        <a href={`/api/media/file/${asset.storage_path}`} target="_blank" rel="noreferrer" className="max-w-64 truncate font-medium text-brand-700 underline">{asset.caption || "Mở tệp"}</a>
-        {canManageEvidence && <select className="input w-auto py-1 text-xs" value="" disabled={busy} aria-label={`Gắn ${asset.caption || "tệp"} vào mục kiểm`} onChange={(e) => {
-          const key = e.target.value as L1DocKey;
-          if (key) void run(() => assignVerificationEvidenceAction(asset.id, key));
-        }}>
-          <option value="">Gắn vào mục…</option>
-          {L1_DOC_ITEMS.map((it) => <option key={it.key} value={it.key}>{it.label}</option>)}
-        </select>}
-      </div>)}
-    </div>}
+    {v.target_level === 1 && <details className="border-b border-ink-100 bg-ink-50/60 px-5 py-3 text-sm" open={showOldEvidence} onToggle={(e) => setShowOldEvidence(e.currentTarget.open)}>
+      <summary className="cursor-pointer font-semibold text-ink-800">Tệp cũ chưa gắn mục & link video · {unassignedEvidence.length}</summary>
+      <div className="mt-3 space-y-2">
+        <p className="text-xs text-ink-600">Tệp thuộc đúng đợt kiểm vẫn dùng được. Gắn vào dòng bên dưới để dễ đối chiếu; không cần tải lại. Tệp kho chung NCC không tự chuyển vào đây.</p>
+        {unassignedEvidence.map((asset) => <div key={asset.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2">
+          <a href={asset.storage_path ? `/api/media/file/${asset.storage_path}` : asset.external_url || "#"} target="_blank" rel="noreferrer" className="max-w-72 truncate font-medium text-brand-700 underline">{asset.caption || (asset.kind === "video" ? "Mở video" : "Mở tệp")}</a>
+          {canManageEvidence && asset.storage_path && ["image", "document", "certificate"].includes(asset.kind) && <select className="input w-auto py-1 text-xs" value="" disabled={busy} aria-label={`Gắn ${asset.caption || "tệp"} vào mục kiểm`} onChange={(e) => {
+            const key = e.target.value as L1DocKey;
+            if (key) void run(() => assignVerificationEvidenceAction(asset.id, key));
+          }}>
+            <option value="">Gắn vào mục…</option>
+            {L1_DOC_ITEMS.filter((it) => !["tax_certificate", "bank_letter"].includes(it.key)).map((it) => <option key={it.key} value={it.key}>{it.label}</option>)}
+          </select>}
+          {canManageEvidence && <button type="button" disabled={busy} className="ml-auto text-xs text-rose-700 underline" onClick={() => removeEvidence(asset)}>Xóa</button>}
+        </div>)}
+        {canManageEvidence && <div className="flex flex-wrap gap-2 pt-2">
+          <input type="url" className="input min-w-48 flex-1 text-xs" placeholder="Link video YouTube/Drive (không thay giấy tờ)" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} />
+          <Button type="button" size="sm" disabled={busy || !videoUrl.trim()} onClick={addVideo}>Thêm link</Button>
+        </div>}
+      </div>
+    </details>}
     <form ref={ref} onSubmit={(e) => { e.preventDefault(); save("in_progress"); }}>
         <div className="divide-y divide-ink-100">
           {items.map((it, i) => {
@@ -192,13 +234,20 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
               <label htmlFor={`check-${it.key}`} className="block text-sm font-semibold text-ink-900">
                 {i + 1}. {it.label} {v.target_level === 1 && <span className={optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{optional ? "Tùy chọn" : "Bắt buộc đạt"}</span>}
               </label>
-              <div className="mt-2 grid gap-2 sm:grid-cols-[155px_minmax(0,1fr)]">
+              {v.target_level === 1 && (it.key === "tax_certificate" || it.key === "bank_letter") ? <div className="mt-2 space-y-1.5">
+                <input id={`check-${it.key}`} name={it.key === "tax_certificate" ? "tax_number" : "bank_account_number"}
+                  type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="off" maxLength={it.key === "tax_certificate" ? 32 : 34}
+                  defaultValue={it.key === "tax_certificate" ? v.tax_number ?? "" : v.bank_account_number ?? ""}
+                  className="input max-w-sm text-sm" placeholder={it.key === "tax_certificate" ? "Nhập mã số thuế" : "Nhập số tài khoản"} />
+                <p className="text-xs text-ink-500">Chỉ nhập chữ số, giữ nguyên số 0 ở đầu. Lưu nội bộ; không cần ảnh và không tự xác minh tính hợp lệ.</p>
+                {v.checklist_notes?.[it.key] && <p className="text-xs text-ink-500">Ghi chú cũ: {v.checklist_notes[it.key]}</p>}
+              </div> : <div className="mt-2 grid gap-2 sm:grid-cols-[155px_minmax(0,1fr)]">
                 <select id={`check-${it.key}`} name={`check:${it.key}`} defaultValue={v.checklist?.[it.key] === true ? "yes" : v.checklist?.[it.key] === false ? "no" : v.checklist?.[it.key] === "not_applicable" ? "not_applicable" : ""} className="input text-sm">
                   <option value="">Chưa kiểm</option><option value="yes">Đạt</option><option value="no">Không đạt</option>
                   {optional && <option value="not_applicable">Không áp dụng</option>}
                 </select>
                 <input name={`note:${it.key}`} defaultValue={v.checklist_notes?.[it.key] ?? ""} className="input text-sm" placeholder="Ghi chú, mã chứng từ hoặc điểm cần đối chiếu" />
-              </div>
+              </div>}
             </fieldset>
             {suggestion && <div className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-xs leading-relaxed text-ink-700">
               <strong className={suggestion.verdict === "pass" ? "text-emerald-800" : suggestion.verdict === "fail" ? "text-rose-700" : "text-amber-800"}>
@@ -209,10 +258,10 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
                 return asset ? <a key={id} href={`/api/media/file/${asset.storage_path}`} target="_blank" rel="noreferrer" className="mr-2 font-semibold text-brand-700 underline">{asset.caption || "Mở tệp"}</a> : null;
               })}</span>}
             </div>}
-            {v.target_level === 1 && <div className="rounded-lg border border-ink-200 bg-ink-50/50 p-3">
+            {v.target_level === 1 && (!(["tax_certificate", "bank_letter"].includes(it.key)) || linked.length > 0) && <div className="rounded-lg border border-ink-200 bg-ink-50/50 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-600">
-                <span className="font-semibold">Ảnh/PDF cho mục này · {linked.length} tệp</span>
-                {canManageEvidence && <label className={`inline-flex cursor-pointer items-center gap-1 font-semibold text-brand-700 ${busy ? "pointer-events-none opacity-50" : ""}`}>
+                <span className="font-semibold">{["tax_certificate", "bank_letter"].includes(it.key) ? "Tệp cũ (không bắt buộc)" : "Ảnh/PDF cho mục này"} · {linked.length} tệp</span>
+                {canManageEvidence && !["tax_certificate", "bank_letter"].includes(it.key) && <label className={`inline-flex cursor-pointer items-center gap-1 font-semibold text-brand-700 ${busy ? "pointer-events-none opacity-50" : ""}`}>
                   <Upload className="h-3.5 w-3.5" /> Chèn ảnh/PDF
                   <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple className="sr-only" disabled={busy} aria-label={`Chèn ảnh/PDF cho ${it.label}`} onChange={(e) => {
                     void uploadInline(it.key as L1DocKey, e.target.files);
@@ -226,7 +275,7 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
                   <img src={`/api/media/file/${asset.thumb_path || asset.storage_path}`} alt={asset.caption || "Ảnh bằng chứng"} className="h-10 w-10 rounded object-cover" />
                 ) : <FileText className="h-5 w-5 shrink-0 text-ink-500" />}
                 <span className="min-w-0"><a href={`/api/media/file/${asset.storage_path}`} target="_blank" rel="noreferrer" className="block truncate font-semibold text-brand-700 underline">{asset.caption || "Mở tệp"}</a>
-                  {canManageEvidence && <button type="button" disabled={busy} className="text-ink-500 underline" onClick={() => void run(() => assignVerificationEvidenceAction(asset.id, null))}>Bỏ gắn mục</button>}
+                  {canManageEvidence && <span className="flex gap-2"><button type="button" disabled={busy} className="text-ink-500 underline" onClick={() => void run(() => assignVerificationEvidenceAction(asset.id, null))}>Bỏ gắn</button><button type="button" disabled={busy} className="text-rose-700 underline" onClick={() => removeEvidence(asset)}>Xóa</button></span>}
                 </span>
               </div>)}</div>}
             </div>}
@@ -256,7 +305,7 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
       </div>}
     </form>
     {reviewer && <div className="space-y-3 border-t border-ink-100 bg-amber-50/50 p-5">
-      <p className="text-sm font-semibold text-ink-900">Xét duyệt · xem cả bằng chứng ở cột bên cạnh</p>
+      <p className="text-sm font-semibold text-ink-900">{v.target_level === 1 ? "Xét duyệt · đối chiếu tệp ngay trong các mục bên trên" : "Xét duyệt · xem cả bằng chứng ở cột bên cạnh"}</p>
       {selfReview && <p className="text-sm text-amber-900">Bạn đang xác nhận bản kiểm của chính mình (cho phép tạm thời với quyền quản trị). Hãy đối chiếu lại chứng từ trước khi duyệt; hệ thống ghi lại người kiểm và người duyệt.</p>}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="primary" disabled={busy} onClick={() => decide(true)}><CheckCircle2 className="h-4 w-4" /> Duyệt & mở bước tiếp</Button>

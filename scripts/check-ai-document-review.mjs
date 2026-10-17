@@ -69,7 +69,9 @@ vm.runInNewContext(routeCode, {
     return providerOk ? Response.json({ output_text: JSON.stringify(raw) }) : Response.json({ error: 'provider-failed' }, { status: 500 });
   },
 }, { filename: 'ai-review-route.ts' });
-const post = async (id = 'review-1') => exports.POST(new Request('https://test.local/api/verifications/' + id + '/ai-review', { method: 'POST' }), { params: Promise.resolve({ id }) });
+const post = async (id = 'review-1', body) => exports.POST(new Request('https://test.local/api/verifications/' + id + '/ai-review', {
+  method: 'POST', ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+}), { params: Promise.resolve({ id }) });
 permissions = false; assert.equal((await post()).status, 403); permissions = true;
 mediaAllowed = false; assert.equal((await post()).status, 403); mediaAllowed = true;
 assert.equal((await post('missing')).status, 404);
@@ -96,6 +98,16 @@ assert.equal(lastBody.store, false);
 assert.ok(lastBody.input[1].content.some((c) => c.type === 'input_file' && c.file_data.startsWith('data:application/pdf;base64,')));
 assert.ok(!JSON.stringify(lastBody).includes('example.org'));
 assert.ok(!JSON.stringify(result).includes('mock-file-content'), 'Never return raw document data');
+assert.equal(result.checks.find((c) => c.key === 'tax_certificate').verdict, 'uncertain', 'Never claim OCR confirms a numeric identifier');
+assert.deepEqual(result.checks.find((c) => c.key === 'tax_certificate').evidence_ids, []);
+assert.match(lastBody.input[0].content[0].text, /tax_certificate và bank_letter chỉ là ô nhập số thủ công/);
+assert.equal((await post('review-1', { fileIds: ['missing'] })).status, 422, 'Cannot scan files outside this review');
+assert.equal((await post('review-1', { fileIds: ['asset-1', 'asset-1'] })).status, 400, 'Duplicate IDs rejected');
+assert.equal((await post('review-1', { fileIds: [] })).status, 400);
+const scopedResponse = await post('review-1', { fileIds: ['asset-1'] });
+assert.equal(scopedResponse.status, 200, 'Newly uploaded files can be scanned without waiting for a UI refresh');
+assert.equal((await scopedResponse.json()).checks.find((c) => c.key === 'bank_letter').verdict, 'uncertain');
+assert.equal(reads, 2, 'Only explicitly selected readable file is opened');
 providerOk = false;
 assert.equal((await post()).status, 502, 'Provider failure does not mutate review');
 console.log('✅ AI document scan: permissions, internal evidence, seven-item validation and no auto-approval.');

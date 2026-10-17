@@ -672,6 +672,8 @@ create table if not exists public.verifications (
   visit_date         date,
   checklist          jsonb not null default '{}'::jsonb,
   checklist_notes    jsonb not null default '{}'::jsonb,
+  tax_number         text,
+  bank_account_number text,
   visit_lat          double precision,
   visit_lng          double precision,
   visit_address      text,
@@ -687,6 +689,8 @@ create table if not exists public.verifications (
 );
 alter table public.verifications
   add column if not exists checklist_notes jsonb not null default '{}'::jsonb,
+  add column if not exists tax_number text,
+  add column if not exists bank_account_number text,
   add column if not exists visit_lat double precision,
   add column if not exists visit_lng double precision,
   add column if not exists visit_address text,

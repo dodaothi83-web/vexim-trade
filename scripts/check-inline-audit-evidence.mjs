@@ -48,6 +48,9 @@ function request(ownerType, key, kind = 'image') {
 }
 assert.equal((await exports.POST(request('supplier', 'business_license'))).status, 400, 'Cannot bind supplier-library file to checklist');
 assert.equal((await exports.POST(request('verification', 'invented'))).status, 400, 'Forged checklist key rejected');
+for (const key of ['tax_certificate', 'bank_letter']) {
+  assert.equal((await exports.POST(request('verification', key))).status, 400, `${key} only accepts numeric entry, not a new attachment`);
+}
 level = 2;
 assert.equal((await exports.POST(request('verification', 'business_license'))).status, 400, 'Cannot bind factory file to legal checklist');
 level = 1;
@@ -73,4 +76,12 @@ assert.match(ui, /checklistKey/);
 assert.match(ui, /assignVerificationEvidenceAction/);
 assert.match(ui, /Bắt buộc đạt/);
 assert.match(ui, /Không áp dụng/);
-console.log('✅ Five required/two optional checks and scoped per-item upload/assignment.');
+assert.match(ui, /deleteMediaAction/, 'Inline evidence must retain delete capability');
+assert.match(ui, /addMediaLinkAction/, 'Old video links can still be added');
+assert.match(ui, /scanDocuments\(createdIds\.slice\(0, 6\), true/, 'Upload triggers consented scan of new files');
+assert.match(ui, /inputMode="numeric" pattern="\[0-9\]\*"/, 'Numeric-only input preserves leading zeroes');
+const page = readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/page.tsx', import.meta.url), 'utf8');
+assert.match(page, /step\.level !== 1 && <div/, 'L1 must not render a second media card');
+const numbersSql = readFileSync(new URL('../supabase/migrations/20261017_document_numeric_identifiers.sql', import.meta.url), 'utf8');
+for (const field of ['tax_number', 'bank_account_number']) assert.match(numbersSql, new RegExp(`add column if not exists ${field} text`));
+console.log('✅ Compact L1 inline evidence, number-only fields and immediate optional AI scan.');

@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     );
   }
   if (checklistKey && (ownerType !== "verification" || !["image", "document", "certificate"].includes(kind) ||
-    !L1_DOC_ITEMS.some((it) => it.key === checklistKey))) {
+    ["tax_certificate", "bank_letter"].includes(checklistKey) || !L1_DOC_ITEMS.some((it) => it.key === checklistKey))) {
     return NextResponse.json({ ok: false, message: "Mục kiểm giấy tờ không hợp lệ." }, { status: 400 });
   }
 

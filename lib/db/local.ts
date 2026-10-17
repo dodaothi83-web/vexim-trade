@@ -546,6 +546,8 @@ function migrateVerifications(db: LocalShape) {
     if (Array.isArray(v.checklist)) v.checklist = {};
     if (typeof v.checklist !== "object" || v.checklist === null) v.checklist = {};
     if (typeof v.checklist_notes !== "object" || v.checklist_notes === null) v.checklist_notes = {};
+    if (v.tax_number === undefined) v.tax_number = null;
+    if (v.bank_account_number === undefined) v.bank_account_number = null;
     if (v.return_reason === undefined) v.return_reason = null;
     if (!v.public_summary_i18n || typeof v.public_summary_i18n !== "object") v.public_summary_i18n = {};
   }
@@ -1515,6 +1517,8 @@ export const localStore: DataStore = {
       shipment_destination: null,
       checklist: {},
       checklist_notes: {},
+      tax_number: null,
+      bank_account_number: null,
       return_reason: null,
       public_summary_i18n: {},
       internal_notes: null,

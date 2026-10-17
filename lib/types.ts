@@ -278,8 +278,8 @@ export type VerificationLevel = 1 | 2 | 3;
 /** Các hạng mục checklist L1 — giấy tờ doanh nghiệp & an toàn thực phẩm */
 export const L1_DOC_ITEMS = [
   { key: "business_license", label: "Đăng ký doanh nghiệp", required: true },
-  { key: "tax_certificate", label: "Mã số thuế / đăng ký thuế", required: true },
-  { key: "bank_letter", label: "Xác nhận tài khoản ngân hàng", required: true },
+  { key: "tax_certificate", label: "Mã số thuế", required: true },
+  { key: "bank_letter", label: "Số tài khoản ngân hàng", required: true },
   { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm", required: true },
   { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000 hoặc tương đương", required: true },
   { key: "product_certs", label: "Chứng chỉ sản phẩm đã công bố", required: false },
@@ -330,6 +330,9 @@ export interface Verification {
   checklist: Record<string, boolean | null | "not_applicable">;
   /** Ghi chú từng mục (key → text) */
   checklist_notes: Record<string, string | null>;
+  /** Số được nhập thủ công, nội bộ; giữ dạng chuỗi để không mất số 0 đầu. Không phải kết quả xác minh tự động. */
+  tax_number?: string | null;
+  bank_account_number?: string | null;
   /** Lý do trả hồ sơ (khi status=returned) */
   return_reason: string | null;
   /** Tóm tắt công khai theo ngôn ngữ — chỉ hiện khi approved */
