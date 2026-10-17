@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { Loader2, Save } from "lucide-react";
 
@@ -50,6 +51,7 @@ export function ProductForm({
   categories,
   supplierCategories = [],
   mediaState,
+  savedPrice,
 }: {
   supplier: Supplier;
   product?: SupplierProduct | null;
@@ -57,6 +59,8 @@ export function ProductForm({
   supplierCategories?: string[];
   /** Trạng thái hình ảnh/tài liệu — có thì mới hiện công tắc "Sẵn sàng gửi buyer" */
   mediaState?: { ready: boolean; shareable: number };
+  /** Server projection of the SAVED product, never inferred from unsaved checkbox edits. */
+  savedPrice?: { buyerPrice: string | null; blockers: string[]; publicProduct: boolean };
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -257,8 +261,8 @@ export function ProductForm({
 
       <section className="card p-5">
         <h2 className="text-sm font-bold text-ink-900">3. Điều kiện thương mại tham khảo</h2>
-        <p className="mt-0.5 mb-4 text-xs text-ink-500">
-          Giá nhập cho chính sản phẩm này, không phải giá chung của NCC. Giá chỉ hiện khi tích công khai cho sản phẩm, NCC còn chấp thuận công khai giá (180 ngày), giá hợp lệ, và sản phẩm đã đủ điều kiện công bố; không phải báo giá RFQ.
+        <p className="mt-0.5 mb-4 text-xs text-ink-600">
+          Quyền chia sẻ giá trong hồ sơ doanh nghiệp là sự đồng ý chung của NCC (hiệu lực 180 ngày). Giá chỉ hiện khi <strong>riêng sản phẩm này</strong> cũng được chọn, có giá hợp lệ và đủ điều kiện công bố; đây không phải báo giá RFQ.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Giá tham khảo">
@@ -289,10 +293,20 @@ export function ProductForm({
               onChange={(e) => set("price_valid_until", e.target.value)}
             />
           </Field>
-          <div className="sm:col-span-2 lg:col-span-3 rounded-lg border border-brand-200 bg-brand-50 p-4 text-sm">
-            <label className="flex items-center gap-2 font-semibold text-ink-800"><input type="checkbox" checked={form.price_publicly_visible === true}
-              onChange={(e) => set("price_publicly_visible", e.target.checked)} className="size-4 accent-brand-700" /> Cho phép công khai giá tham khảo của sản phẩm này khi đủ điều kiện</label>
-            <p className="mt-2 text-xs text-ink-600">{!form.price_publicly_visible ? "Đang tắt: buyer thấy On request." : !v("ref_price") || Number(v("ref_price")) <= 0 ? "Chưa có giá lớn hơn 0." : v("price_valid_until") && v("price_valid_until") < new Date().toISOString().slice(0, 10) ? "Giá đã hết hạn." : !supplierPriceConsentCurrent(supplier) ? "NCC chưa chấp thuận hoặc chấp thuận đã quá 180 ngày: cập nhật ở hồ sơ NCC (cần xác nhận thực tế)." : !form.ready_for_buyer ? "Giá đã chọn công khai nhưng sản phẩm chưa sẵn sàng cho buyer; cần ảnh/catalogue được chia sẻ và duyệt đăng." : "Đã chọn công khai giá; còn phụ thuộc trạng thái duyệt, NCC và danh mục xuất bản."}</p>
+          <div className="sm:col-span-2 lg:col-span-3 rounded-lg border border-ink-200 bg-ink-50/60 p-3 text-sm">
+            <label className="flex items-start gap-2 font-semibold text-ink-800"><input type="checkbox" checked={form.price_publicly_visible === true}
+              onChange={(e) => set("price_publicly_visible", e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-brand-700" /> Hiển thị giá tham khảo của sản phẩm này cho buyer khi đủ điều kiện</label>
+            <p className="mt-1 text-xs text-ink-600">{supplierPriceConsentCurrent(supplier) ? "NCC đã đồng ý chia sẻ giá; vẫn cần chọn riêng từng sản phẩm." : "NCC chưa có quyền chia sẻ giá còn hiệu lực; tích ô này không thay thế sự đồng ý của NCC."} Thay đổi chỉ có hiệu lực sau khi lưu.</p>
+            {product && savedPrice && <div className={"mt-3 rounded-md px-3 py-2 text-xs " + (savedPrice.buyerPrice ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950")} role="status">
+              <p className="font-semibold">Giá buyer · bản đã lưu: {savedPrice.buyerPrice ? savedPrice.buyerPrice : savedPrice.publicProduct ? "On request" : "Sản phẩm chưa công khai"}</p>
+              {dirty && <p className="mt-1">Bạn đang sửa form; dòng trên vẫn là trạng thái đã lưu.</p>}
+              {!savedPrice.buyerPrice && <>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4">{savedPrice.blockers.map((reason) => <li key={reason}>{reason}</li>)}
+                  {!savedPrice.publicProduct && <li>Sản phẩm chưa đủ điều kiện công bố ở checklist phía trên (duyệt, danh mục, NCC, ảnh/catalogue hoặc buyer-ready).</li>}
+                </ul>
+                {savedPrice.blockers.some((reason) => reason.includes("NCC")) && <Link href={`/crm/suppliers/${supplier.id}/edit#price-sharing`} className="mt-2 inline-block font-semibold text-brand-700 underline">Kiểm tra quyền chia sẻ giá trong hồ sơ NCC →</Link>}
+              </>}
+            </div>}
           </div>
           <Field label="Incoterm">
             <select className="input" value={v("incoterm")} onChange={(e) => set("incoterm", e.target.value)}>

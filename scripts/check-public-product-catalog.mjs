@@ -55,6 +55,15 @@ assert.match(visibilitySql, /sp\.price_publicly_visible and sp\.ready_for_buyer/
 assert.match(visibilitySql, /and not coalesce\(s\.is_demo, false\)/, 'Anonymous view excludes demo');
 assert.match(visibilitySql, /description_detail/, 'Buyer view projects long description only for approved products');
 assert.match(visibilitySql, /if not exists \(select 1 from information_schema\.columns/, 'Migration rerun must not re-enable opt-outs');
+const editPage = readFileSync(new URL('../app/crm/products/[slug]/edit/page.tsx', import.meta.url), 'utf8');
+const productForm = readFileSync(new URL('../components/product-form.tsx', import.meta.url), 'utf8');
+assert.match(editPage, /savedPrice=\{\{ buyerPrice: visiblePrice, blockers: priceBlockers, publicProduct: canView \}\}/,
+  'CRM passes only saved-state price diagnostics into the product form');
+assert.doesNotMatch(editPage, /Tình trạng giá tham khảo đã lưu/, 'Do not duplicate the price panel above the form');
+assert.match(productForm, /checked=\{form\.price_publicly_visible === true\}/, 'Product-specific price permission remains explicit');
+assert.match(productForm, /Giá buyer · bản đã lưu/, 'Show saved buyer price next to its per-product checkbox');
+assert.match(productForm, /savedPrice\.blockers\.map/, 'When On request, keep the exact saved-state blockers');
+assert.match(productForm, /supplierPriceConsentCurrent\(supplier\)/, 'Explain the separate supplier consent');
 const catalog = readFileSync(new URL('../lib/public/product-catalog.ts', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8');
 const detail = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
