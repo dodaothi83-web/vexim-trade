@@ -108,7 +108,7 @@ export function ProductForm({
           Nhà cung cấp: <strong className="text-ink-800">{supplier.name}</strong>
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Tên sản phẩm" required className="sm:col-span-2">
+          <Field label="Tên sản phẩm" required className="sm:col-span-2 lg:col-span-3">
             <input
               className="input"
               value={v("name")}
@@ -117,12 +117,7 @@ export function ProductForm({
               autoFocus
             />
           </Field>
-          <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm sm:col-span-1">
-            <p className="font-semibold text-ink-700">Ngành hệ thống tự gán</p>
-            <p className="mt-1 font-bold text-brand-800">{assignedCategory?.name_i18n.en || assignedCategory?.slug || "Chưa nhận diện"}</p>
-            <p className="mt-1 text-xs text-ink-500">Đây chỉ là phân loại, không tự công khai. Sau khi lưu, tải ảnh sản phẩm chia sẻ buyer và bật “Sẵn sàng gửi buyer”; NCC và danh mục cũng phải đã đăng.</p>
-            {isTestOnlyProduct(v("name")) && <p className="mt-1 font-semibold text-amber-800">Tên bắt đầu bằng TEST ONLY: sản phẩm sẽ không xuất hiện công khai.</p>}
-          </div>
+          {isTestOnlyProduct(v("name")) && <p className="text-xs font-semibold text-amber-800 sm:col-span-2 lg:col-span-3">Tên bắt đầu bằng TEST ONLY: sản phẩm sẽ không xuất hiện công khai.</p>}
           <Field label="Mô tả ngắn" className="sm:col-span-2 lg:col-span-3">
             <input
               className="input"

@@ -1476,7 +1476,12 @@ export async function updateProductAction(
     await store.updateProduct(id, input);
     const warning = await syncSupplierIndustries(existing.supplier_id);
     revalidateAll();
-    return { ok: true, message: `Đã lưu hồ sơ sản phẩm. ${assigned ? `Hệ thống gán ngành ${assigned}.` : "Chưa nhận diện được ngành; đã tắt sẵn sàng gửi buyer."}${warning ? ` ${warning}` : ""}` };
+    const categoryNotice = existing.reviewed_category_slug
+      ? identityChanged
+        ? "Nội dung sản phẩm đã đổi; cần Vexim chốt lại danh mục trước khi công khai."
+        : "Danh mục Vexim đã chốt được giữ nguyên."
+      : assigned ? `Hệ thống phân loại ${assigned}; không tự công khai.` : "Chưa nhận diện được ngành; đã tắt sẵn sàng gửi buyer.";
+    return { ok: true, message: `Đã lưu hồ sơ sản phẩm. ${categoryNotice}${warning ? ` ${warning}` : ""}` };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }

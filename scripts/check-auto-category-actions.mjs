@@ -57,4 +57,13 @@ assert.equal(rows.get(result.id).category, null, 'Mixed product is not assigned 
 result = await exports.updateProductAction(result.id, { name: 'Mixed cashew rice blend', ready_for_buyer: true, supplier_id: supplier.id });
 assert.equal(result.ok, true);
 assert.equal(rows.get('p-1').ready_for_buyer, false, 'Unclassified product cannot become buyer-ready');
+rows.set('p-reviewed', { id: 'p-reviewed', supplier_id: supplier.id, name: 'Cashew W320',
+  category: 'rice', reviewed_category_slug: 'rice', supplier_originated: true,
+  description: null, spec: null, description_detail: null, ready_for_buyer: false });
+result = await exports.updateProductAction('p-reviewed', { name: 'Cashew W320', supplier_id: supplier.id, category: 'cashew' });
+assert.equal(rows.get('p-reviewed').category, 'rice', 'Staff-reviewed category outranks automatic keyword assignment');
+assert.match(result.message, /Danh mục Vexim đã chốt được giữ nguyên/, 'Save feedback must not claim an auto-guess replaced staff review');
+result = await exports.updateProductAction('p-reviewed', { name: 'Cashew W240', supplier_id: supplier.id });
+assert.equal(rows.get('p-reviewed').reviewed_category_slug, null, 'Changing identity invalidates reviewed category');
+assert.match(result.message, /cần Vexim chốt lại danh mục/, 'Save feedback must explain re-review');
 console.log('✅ Product create/update/delete auto-assign own category and resync supplier industries.');
