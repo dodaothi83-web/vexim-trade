@@ -24,12 +24,13 @@ export interface PublicCategoryProduct {
   imagePaths: string[];
 }
 
-export function shareableProductImages(media: MediaAsset[], productId: string): string[] {
+export function shareableProductImages(media: MediaAsset[], productId: string, featuredMediaId?: string | null, limit = 6): string[] {
   return media.filter((m) => m.owner_type === "product" && m.product_id === productId &&
     m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
-    .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+    .sort((a, b) => Number(b.id === featuredMediaId) - Number(a.id === featuredMediaId) ||
+      a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
     .map((m) => m.storage_path!)
-    .slice(0, 6);
+    .slice(0, limit);
 }
 
 export async function listPublicCategoryProducts(category: Category): Promise<PublicCategoryProduct[]> {
@@ -57,7 +58,7 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
   return candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
     .map((p: SupplierProduct) => {
       const s = byId.get(p.supplier_id)!;
-      const images = shareableProductImages(byProduct.get(p.id) ?? [], p.id);
+      const images = shareableProductImages(byProduct.get(p.id) ?? [], p.id, p.featured_media_id);
       // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
       return {
         id: p.id, name: withoutDirectContacts(p.name_i18n?.en || p.name), grade: productGrade(p.name, p.spec, category.slug),

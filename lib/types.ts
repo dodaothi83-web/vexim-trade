@@ -173,6 +173,8 @@ export interface SupplierProduct {
   supplier_category_proposal?: string | null;
   /** Danh mục staff chọn khi duyệt; ưu tiên hơn suy đoán tên khi xuất bản. */
   reviewed_category_slug?: string | null;
+  /** Staff-selected buyer-shareable product image; null means first eligible image. */
+  featured_media_id?: string | null;
   /** Mảng media_assets.id cho ảnh sản phẩm */
   images?: string[];
   created_at: string;

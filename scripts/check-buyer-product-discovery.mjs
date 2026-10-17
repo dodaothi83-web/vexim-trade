@@ -47,6 +47,8 @@ const products = [
 ];
 const media = products.map((p) => ({ owner_type: 'product', product_id: p.id, kind: 'image', audience: 'buyer',
   status: 'checked', storage_path: `products/${p.id}/image.jpg`, sort_order: 0, created_at: now, expires_on: null }));
+media.push({ ...media[0], id: 'cover-a0', storage_path: 'products/a0/cover.jpg', sort_order: 2 });
+products[0].featured_media_id = 'cover-a0';
 const reviews = [
   { supplier_id: 'A', target_level: 1, status: 'approved' },
   { supplier_id: 'A', target_level: 2, status: 'submitted' },
@@ -94,6 +96,14 @@ const productCatalog = compile('../lib/public/product-catalog.ts', {
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
   '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
 });
+const photoSamples = [
+  { ...media[0], id: 'img-first', product_id: 'a0', storage_path: 'products/a0/first.jpg', sort_order: 0 },
+  { ...media[0], id: 'img-cover', product_id: 'a0', storage_path: 'products/a0/cover.jpg', sort_order: 1 },
+  { ...media[0], id: 'img-private', product_id: 'a0', storage_path: 'products/a0/private.jpg', sort_order: -1, audience: 'internal' },
+];
+assert.equal(JSON.stringify(productCatalog.shareableProductImages(photoSamples, 'a0', 'img-cover')), JSON.stringify(['products/a0/cover.jpg', 'products/a0/first.jpg']));
+assert.equal(JSON.stringify(productCatalog.shareableProductImages(photoSamples, 'a0', 'img-private')), JSON.stringify(['products/a0/first.jpg', 'products/a0/cover.jpg']),
+  'An internal cover must never enter the public gallery');
 const cards = await productCatalog.listPublicCategoryProducts(category);
 assert.equal(cards.length, 13, 'Every ready offer from published suppliers gets its own card, without cross-category or test records');
 assert.equal(cards.filter((p) => p.grade === 'W320').length, 13, 'Grade filter can expose 5 separate W320 offers from B');
@@ -101,7 +111,7 @@ assert.equal(cards.filter((p) => p.supplierId === 'B').length, 5);
 assert.deepEqual(cards.find((p) => p.id === 'a0').verificationSteps, [1, 3], 'Trader passes documents and deliveries without a factory badge');
 assert.deepEqual(cards.find((p) => p.id === 'b0').verificationSteps, [2], 'Factory alone does not imply document review');
 assert.equal(cards.find((p) => p.id === 'a0').verificationCount, 2, 'Ranking counts actual approved checks, not max level');
-assert.equal(cards.find((p) => p.id === 'a0').imagePaths[0], 'products/a0/image.jpg', 'Use the product image, not the category hero');
+assert.equal(cards.find((p) => p.id === 'a0').imagePaths[0], 'products/a0/cover.jpg', 'Staff-selected buyer-shareable cover wins on the product card');
 assert.equal(cards.find((p) => p.id === 'a0').leadTimeDays, 14);
 assert.equal(cards.find((p) => p.id === 'a0').supplierSlug, 'company-a');
 assert.equal(cards.find((p) => p.id === 'b0').price, null, 'No product price without supplier public-price consent');
@@ -160,7 +170,7 @@ assert.match(detailPage, /View supplier profile/);
 const actions = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 const mediaActionSource = actions.slice(actions.indexOf('export async function updateMediaAction('), actions.indexOf('export async function deleteMediaAction('));
 const mediaAction = {};
-const product = { id: 'a0', ready_for_buyer: true };
+const product = { id: 'a0', ready_for_buyer: true, featured_media_id: 'image-a0' };
 const asset = { id: 'image-a0', product_id: 'a0', owner_type: 'product', kind: 'image', audience: 'buyer', status: 'checked', expires_on: null };
 const actionStore = {
   getMedia: async () => asset, updateMedia: async (_id, patch) => Object.assign(asset, patch),
@@ -168,7 +178,8 @@ const actionStore = {
   updateProduct: async (_id, patch) => Object.assign(product, patch),
 };
 vm.runInNewContext(ts.transpileModule(mediaActionSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
-  { exports: mediaAction, guard: async () => null, getStore: () => actionStore, productReadiness, revalidateAll: () => {} });
+  { exports: mediaAction, guard: async () => null, getStore: () => actionStore, productReadiness, isExpired: () => false, revalidateAll: () => {} });
 assert.equal((await mediaAction.updateMediaAction(asset.id, { audience: 'internal' })).ok, true);
 assert.equal(product.ready_for_buyer, false);
+assert.equal(product.featured_media_id, null, 'Revoking buyer access also clears the selected cover');
 console.log('✅ Independent verification badges, filters and buyer discovery: product images, per-supplier W320, interleaved capped/unlimited views, profile safety, price and navigation.');

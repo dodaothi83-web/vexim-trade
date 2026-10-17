@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, ArrowRight, ImageIcon, MapPin } from "lucide-react";
+import { ArrowLeft, ArrowRight, MapPin } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
 import { ProductVerificationIcons } from "@/components/product-verification-icons";
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { listPublicCategoryProducts } from "@/lib/public/product-catalog";
+import { listPublicCategoryProducts, shareableProductImages } from "@/lib/public/product-catalog";
+import { shareableProductVideo } from "@/lib/public/product-video";
+import { ProductMediaGallery } from "@/components/product-media-gallery";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +55,10 @@ export default async function PublicProductDetail({ params }: Props) {
   const detail = await getDetail(slug, productId);
   if (!detail) notFound();
   const { category, card, product: p, preview } = detail;
+  // Product eligibility was checked above; project only buyer-shareable images and safe video embeds.
+  const media = await getStore().listMedia("product", p.id);
+  const images = shareableProductImages(media, p.id, p.featured_media_id, 24);
+  const video = shareableProductVideo(media, p.id);
   const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}`;
   const specs = p.specs && typeof p.specs === "object" ? Object.entries(p.specs).filter(([, value]) => typeof value === "string" || typeof value === "number").slice(0, 12) : [];
 
@@ -62,15 +68,7 @@ export default async function PublicProductDetail({ params }: Props) {
     <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: category.name_i18n.en || slug, href: `/products/${slug}` }, { label: card.name }]} />
     <Link href={`/products/${slug}`} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand-700"><ArrowLeft className="h-4 w-4" /> Back to products</Link>
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(330px,0.8fr)]">
-      <div>
-        <div className="aspect-[4/3] overflow-hidden rounded-2xl border border-ink-200 bg-ink-50">
-          {card.imagePaths[0] ? <img src={`/public-media/${card.imagePaths[0]}`} alt={card.name} className="h-full w-full object-cover" />
-            : <div className="flex h-full items-center justify-center text-ink-300"><ImageIcon className="h-16 w-16" aria-label="No product photo available" /></div>}
-        </div>
-        {card.imagePaths.length > 1 && <div className="mt-3 grid grid-cols-4 gap-2">
-          {card.imagePaths.slice(1).map((path) => <a key={path} href={`/public-media/${path}`} target="_blank" rel="noreferrer" className="aspect-square overflow-hidden rounded-lg border border-ink-200"><img src={`/public-media/${path}`} alt={`${card.name} detail`} className="h-full w-full object-cover" /></a>)}
-        </div>}
-      </div>
+      <ProductMediaGallery name={card.name} images={images} video={video} />
       <div>
         <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
         <h1 className="mt-2 text-3xl font-black leading-tight text-ink-900 sm:text-4xl">{card.name}</h1>

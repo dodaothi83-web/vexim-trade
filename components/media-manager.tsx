@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/actions";
+import { setFeaturedProductImageAction } from "@/app/crm/products/[slug]/edit/featured-image-action";
 import { MEDIA_ACCEPT, prepareImage } from "@/lib/media/client-image";
 import { readUploadResponse } from "@/lib/media/upload-response";
 import { formatBytes, MEDIA_KINDS } from "@/lib/media/limits";
@@ -45,6 +46,7 @@ export function MediaManager({
   ownerId,
   supplierId,
   items,
+  featuredMediaId,
   allowInternal = true,
   readOnly = false,
   title,
@@ -57,6 +59,8 @@ export function MediaManager({
   /** Chỉ dùng khi ownerType = product: NCC chứa sản phẩm (để server kiểm tra) */
   supplierId?: string;
   items: MediaAsset[];
+  /** Product-only: staff-chosen buyer-facing cover image. */
+  featuredMediaId?: string | null;
   allowInternal?: boolean;
   readOnly?: boolean;
   title?: string;
@@ -177,6 +181,16 @@ export function MediaManager({
     router.refresh();
   }
 
+  async function chooseCover(mediaId: string | null) {
+    setBusy(true);
+    try {
+      const res = await setFeaturedProductImageAction(ownerId, mediaId);
+      toast.push({ kind: res.ok ? "success" : "error", title: res.message });
+      if (res.ok) router.refresh();
+    } catch { toast.push({ kind: "error", title: "Không lưu được ảnh đại diện." }); }
+    finally { setBusy(false); }
+  }
+
   async function remove(asset: MediaAsset) {
     const label = asset.caption || asset.external_url || "tệp này";
     if (!window.confirm(`Xoá "${label}"? Tệp sẽ bị xoá khỏi kho lưu trữ.`)) return;
@@ -196,6 +210,10 @@ export function MediaManager({
         {note && <span className="ml-auto text-[11.5px] text-ink-400">{note}</span>}
       </div>
       {scopeHint && <p className="border-b border-brand-100 bg-brand-50/60 px-4 py-3 text-[12.5px] leading-relaxed text-brand-900">{scopeHint}</p>}
+      {ownerType === "product" && !readOnly && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand-100 bg-brand-50/50 px-4 py-3 text-[12.5px] text-brand-900">
+        <p>Ảnh đại diện sản phẩm: chọn trong các ảnh đã <strong>chia sẻ buyer</strong> bên dưới. Nếu chưa chọn, dùng ảnh hợp lệ đầu tiên. Chọn ảnh không tự công khai sản phẩm.</p>
+        {featuredMediaId && <button type="button" disabled={busy} onClick={() => void chooseCover(null)} className="shrink-0 font-semibold underline disabled:opacity-50">Dùng ảnh đầu tiên</button>}
+      </div>}
 
       {/* Khu tải lên */}
       {!readOnly && <div className="border-b border-ink-200 bg-ink-50/60 px-4 py-3">
@@ -344,6 +362,9 @@ export function MediaManager({
               key={m.id}
               asset={m}
               readOnly={readOnly}
+              featured={ownerType === "product" && m.id === featuredMediaId}
+              canChooseCover={ownerType === "product" && !readOnly && !busy && m.kind === "image" && m.audience === "buyer" && !!m.storage_path && !isExpired(m)}
+              onChooseCover={() => void chooseCover(m.id)}
               onPatch={(next) => void patch(m.id, next)}
               onRemove={() => void remove(m)}
             />
@@ -357,11 +378,17 @@ export function MediaManager({
 function MediaRow({
   asset,
   readOnly,
+  featured,
+  canChooseCover,
+  onChooseCover,
   onPatch,
   onRemove,
 }: {
   asset: MediaAsset;
   readOnly: boolean;
+  featured: boolean;
+  canChooseCover: boolean;
+  onChooseCover: () => void;
   onPatch: (patch: {
     caption?: string | null;
     status?: MediaStatus;
@@ -407,6 +434,8 @@ function MediaRow({
           ) : (
             <Badge className="bg-brand-50 text-brand-700">Chia sẻ buyer</Badge>
           )}
+          {featured && <Badge className="bg-amber-50 font-semibold text-amber-800">Ảnh đại diện</Badge>}
+          {canChooseCover && !featured && <button type="button" onClick={onChooseCover} className="rounded-full border border-brand-200 px-2.5 py-0.5 text-[11.5px] font-semibold text-brand-800 hover:border-brand-500 hover:bg-brand-50">Chọn làm ảnh đại diện</button>}
           {asset.expires_on && (
             <span className="text-[11.5px] text-ink-500">HSD {formatDate(asset.expires_on)}</span>
           )}

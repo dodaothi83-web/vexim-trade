@@ -10,7 +10,7 @@ import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
 import { deleteObject } from "@/lib/media/storage";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
-import { productReadiness } from "@/lib/media/readiness";
+import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { generateCompanyIntroduction } from "@/lib/ai/company-introduction";
 import {
   buildFirstTouchLetter,
@@ -2055,13 +2055,16 @@ export async function updateMediaAction(
     // Giấy tờ nội bộ không bao giờ được chuyển sang chia sẻ buyer
     if (current.kind === "document") next.audience = "internal";
 
-    await store.updateMedia(id, next);
+    const updated = await store.updateMedia(id, next);
     if (verification) await logEvidenceChange(verification, id, "update");
     if (current.product_id) {
       const product = await store.getProduct(current.product_id);
-      if (product?.ready_for_buyer && !productReadiness(await store.listMedia("product", current.product_id)).ready) {
-        await store.updateProduct(current.product_id, { ready_for_buyer: false });
-      }
+      const revokeCover = product?.featured_media_id === id &&
+        (updated.audience !== "buyer" || updated.kind !== "image" || isExpired(updated));
+      const revokeReady = product?.ready_for_buyer && !productReadiness(await store.listMedia("product", current.product_id)).ready;
+      if (revokeCover || revokeReady) await store.updateProduct(current.product_id, {
+        ...(revokeCover ? { featured_media_id: null } : {}), ...(revokeReady ? { ready_for_buyer: false } : {}),
+      });
     }
     revalidateAll();
     return { ok: true, message: "Đã cập nhật tệp." };
@@ -2098,12 +2101,12 @@ export async function deleteMediaAction(id: string): Promise<ActionResult> {
 
     if (asset.product_id) {
       const product = await store.getProduct(asset.product_id);
-      if (product?.ready_for_buyer) {
-        const media = await store.listMedia("product", asset.product_id);
-        if (!productReadiness(media).ready) {
-          await store.updateProduct(asset.product_id, { ready_for_buyer: false });
-        }
-      }
+      const revokeReady = product?.ready_for_buyer &&
+        !productReadiness(await store.listMedia("product", asset.product_id)).ready;
+      const revokeCover = product?.featured_media_id === id;
+      if (revokeReady || revokeCover) await store.updateProduct(asset.product_id, {
+        ...(revokeReady ? { ready_for_buyer: false } : {}), ...(revokeCover ? { featured_media_id: null } : {}),
+      });
     }
 
     revalidateAll();

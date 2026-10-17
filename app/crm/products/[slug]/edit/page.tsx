@@ -104,6 +104,7 @@ export default async function EditProductPage({
           ownerId={product.id}
           supplierId={supplier.id}
           items={media}
+          featuredMediaId={product.featured_media_id}
           note="Ảnh/catalogue chia sẻ buyer · giấy tờ nội bộ chỉ dùng trong nhà"
         />
       </div>

@@ -76,7 +76,8 @@ export function SupplierProductStorefront({ products, media, supplierPublished }
       </div>
       {visible.length ? <ul className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-3">{visible.map((p) => {
         const assets = mediaByProduct.get(p.id) ?? [];
-        const image = assets.find((m) => m.kind === "image" && privateMediaUrl(m));
+        const image = assets.find((m) => m.id === p.featured_media_id && m.kind === "image" && m.audience === "buyer" && privateMediaUrl(m)) ??
+          assets.find((m) => m.kind === "image" && privateMediaUrl(m));
         const imageSrc = image && privateMediaUrl(image);
         const status = PRODUCT_STATUS[productReview(p)];
         return <li key={p.id} className="group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-teal-300 hover:shadow-md">

@@ -78,6 +78,7 @@ create index if not exists supplier_products_supplier_idx on public.supplier_pro
 alter table public.supplier_products add column if not exists supplier_category_proposal text;
 alter table public.supplier_products add column if not exists reviewed_category_slug text;
 alter table public.supplier_products add column if not exists supplier_originated boolean not null default false;
+alter table public.supplier_products add column if not exists featured_media_id uuid;
 create index if not exists supplier_products_category_idx on public.supplier_products (category);
 
 -- ---------------------------------------------------------------------------
@@ -345,6 +346,13 @@ create table if not exists public.media_assets (
   )
 );
 
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'supplier_products_featured_media_fk'
+      and conrelid = 'public.supplier_products'::regclass) then
+    alter table public.supplier_products add constraint supplier_products_featured_media_fk
+      foreign key (featured_media_id) references public.media_assets(id) on delete set null;
+  end if;
+end $$;
 create index if not exists media_product_idx  on public.media_assets (product_id, sort_order, created_at);
 create index if not exists media_supplier_idx on public.media_assets (supplier_id, sort_order, created_at);
 create index if not exists media_audience_idx on public.media_assets (audience);
