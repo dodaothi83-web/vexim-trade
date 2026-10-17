@@ -186,6 +186,9 @@ export default async function RfqDetailPage({
         </div>
       </div>
 
+      {sp?.outreach_sent !== undefined && <div role="status" className={`mt-4 rounded-lg border p-3 text-sm ${Number(sp.outreach_skipped) > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+        Resend chấp nhận {Number(sp.outreach_sent) || 0} lời mời NCC; {Number(sp.outreach_skipped) || 0} yêu cầu chưa gửi (có thể đã gửi trước, thiếu email hoặc gửi thất bại). Kiểm tra trạng thái từng NCC trước khi thử lại.
+      </div>}
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         {/* LEFT: RFQ + buyer */}
         <div className="space-y-6 lg:col-span-2">
@@ -315,7 +318,7 @@ export default async function RfqDetailPage({
                 {matches.map((m) => {
                   const sup = supplierMap.get(m.supplier_id);
                   const ms = MATCH_STATUS.find((x) => x.value === m.status) ?? MATCH_STATUS[0];
-                  const canSend = ["proposed", "no_response"].includes(m.status);
+                  const canSend = m.status === "proposed" && !m.sent_to_supplier_at;
                   const canFollowUp = m.status === "no_response" || (!!m.sent_to_supplier_at && ["proposed", "sent_to_supplier"].includes(m.status));
                   const canSelect = m.status === "quoted" || m.status === "presented_to_buyer";
                   const thread = messagesByMatch.get(m.id) ?? [];

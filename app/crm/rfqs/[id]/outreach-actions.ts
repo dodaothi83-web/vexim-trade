@@ -17,9 +17,9 @@ export async function sendRfqToSuppliersAction(fd: FormData) {
   const matchIds = fd.getAll("match_ids").map(String);
   const deadlineDaysRaw = Number(fd.get("deadline_days") ?? 3);
   const deadlineDays = Number.isFinite(deadlineDaysRaw) && deadlineDaysRaw > 0 ? deadlineDaysRaw : 3;
-  await dispatchRfqToSuppliers({ rfqId, matchIds, deadlineDays });
+  const result = await dispatchRfqToSuppliers({ rfqId, matchIds, deadlineDays });
   revalidatePath(`/crm/rfqs/${rfqId}`);
-  redirect(`/crm/rfqs/${rfqId}`);
+  redirect(`/crm/rfqs/${rfqId}?outreach_sent=${result.sent}&outreach_skipped=${result.skipped}`);
 }
 
 export async function presentShortlistAction(fd: FormData) {

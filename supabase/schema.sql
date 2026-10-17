@@ -760,6 +760,15 @@ create index if not exists supplier_verification_requests_queue_idx
 alter table public.supplier_verification_requests enable row level security;
 revoke all on public.supplier_verification_requests from anon, authenticated;
 
+create table if not exists public.supplier_portal_notice_reads (
+  supplier_id uuid not null references public.suppliers(id) on delete cascade,
+  notice_key text not null check (char_length(notice_key) between 1 and 100),
+  read_at timestamptz not null default now(),
+  primary key (supplier_id, notice_key)
+);
+alter table public.supplier_portal_notice_reads enable row level security;
+revoke all on public.supplier_portal_notice_reads from anon, authenticated;
+
 drop trigger if exists verifications_touch on public.verifications;
 create trigger verifications_touch before update on public.verifications
   for each row execute function public.touch_updated_at();
@@ -889,6 +898,10 @@ create table if not exists public.rfq_matches (
   updated_at         timestamptz not null default now(),
   unique (rfq_id, supplier_id)
 );
+alter table public.rfq_matches add column if not exists response_due_at timestamptz;
+alter table public.rfq_matches add column if not exists supplier_replied_at timestamptz;
+create index if not exists rfq_matches_supplier_sent_idx on public.rfq_matches(supplier_id, sent_to_supplier_at desc)
+  where sent_to_supplier_at is not null;
 create index if not exists rfq_matches_rfq_idx on public.rfq_matches (rfq_id, status);
 create index if not exists rfq_matches_supplier_idx on public.rfq_matches (supplier_id, created_at desc);
 

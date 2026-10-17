@@ -24,6 +24,8 @@ import type {
   Rfq,
   RfqAttachment,
   RfqMatch,
+  SupplierRfqInvitation,
+  SupplierNoticeRead,
   Supplier,
   SupplierInput,
   SupplierVerificationRequest,
@@ -994,6 +996,38 @@ export const supabaseStore: DataStore = {
       .order("created_at", { ascending: true });
     if (error) fail("listRfqMatches", error);
     return (data ?? []) as RfqMatch[];
+  },
+  async listSupplierRfqInvitations(supplierId) {
+    const all: SupplierRfqInvitation[] = [];
+    // Page deliberately: PostgREST defaults to 1,000 rows, which would silently undercount reports.
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await must().from("rfq_matches")
+        .select("id,rfq_id,supplier_id,status,sent_to_supplier_at,response_due_at,supplier_replied_at,quote_price,quote_currency,quote_unit,created_at,updated_at,rfq:rfqs!inner(code,product_text,quantity,unit,destination_country,incoterm,needed_by,source_product_id)")
+        .eq("supplier_id", supplierId).not("sent_to_supplier_at", "is", null).neq("status", "proposed")
+        .order("sent_to_supplier_at", { ascending: false }).range(offset, offset + 499);
+      if (error) fail("listSupplierRfqInvitations", error);
+      const batch = (data ?? []) as unknown as SupplierRfqInvitation[];
+      all.push(...batch);
+      if (batch.length < 500) break;
+    }
+    return all;
+  },
+  async listSupplierNoticeReads(supplierId) {
+    const all: SupplierNoticeRead[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await must().from("supplier_portal_notice_reads").select("*")
+        .eq("supplier_id", supplierId).order("read_at", { ascending: false }).range(offset, offset + 499);
+      if (error) fail("listSupplierNoticeReads", error);
+      const batch = (data ?? []) as SupplierNoticeRead[];
+      all.push(...batch);
+      if (batch.length < 500) break;
+    }
+    return all;
+  },
+  async markSupplierNoticeRead(supplierId, noticeKey) {
+    const { error } = await must().from("supplier_portal_notice_reads")
+      .upsert({ supplier_id: supplierId, notice_key: noticeKey }, { onConflict: "supplier_id,notice_key", ignoreDuplicates: true });
+    if (error) fail("markSupplierNoticeRead", error);
   },
   async getRfqMatch(id) {
     const { data, error } = await must()

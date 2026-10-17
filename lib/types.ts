@@ -425,6 +425,8 @@ export interface Rfq {
   /** Ghi chú thêm khi đóng/thua đơn. */
   closed_reason: string | null;
   access_token: string;
+  /** Canonical product detail which opened the RFQ; null for generic / legacy RFQs. */
+  source_product_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -435,6 +437,10 @@ export interface RfqMatch {
   supplier_id: string;
   status: RfqMatchStatus;
   sent_to_supplier_at: string | null;
+  /** Actual outreach deadline, never inferred from RFQ creation time. */
+  response_due_at?: string | null;
+  /** First matched supplier reply from verified Resend inbound; not a quote by itself. */
+  supplier_replied_at?: string | null;
   quote_price: number | null;
   quote_currency: string | null;
   quote_unit: string | null;
@@ -446,6 +452,20 @@ export interface RfqMatch {
   internal_note: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Server-side projection: scoped match joined only to non-sensitive RFQ fields (never buyers/access tokens). */
+export type SupplierRfqInvitation = Pick<RfqMatch,
+  "id" | "rfq_id" | "supplier_id" | "status" | "sent_to_supplier_at" | "response_due_at" | "supplier_replied_at" |
+  "quote_price" | "quote_currency" | "quote_unit" | "created_at" | "updated_at"> & {
+  rfq: Pick<Rfq, "code" | "product_text" | "quantity" | "unit" | "destination_country" |
+    "incoterm" | "needed_by" | "source_product_id">;
+};
+
+export interface SupplierNoticeRead {
+  supplier_id: string;
+  notice_key: string;
+  read_at: string;
 }
 
 export interface Introduction {

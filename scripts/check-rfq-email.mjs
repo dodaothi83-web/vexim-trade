@@ -36,7 +36,7 @@ assert.throws(() => router.buyerReplyAddress('../invalid'));
 const rfq = { id: 'rfq-1', code, buyer_id: 'buyer-1', product_text: 'Cashew', quantity: 100, unit: 'MT', access_token: 'secret-token', lost_reason: 'price', closed_reason: 'INTERNAL ONLY' };
 const buyer = { id: 'buyer-1', email: 'buyer@example.com', cc_emails: 'assistant@example.com', contact_name: 'Jane Smith' };
 const supplier = { id: 'supplier-1', email: 'supplier@example.com', name: 'Factory One' };
-const match = { id, rfq_id: rfq.id, supplier_id: supplier.id };
+const match = { id, rfq_id: rfq.id, supplier_id: supplier.id, sent_to_supplier_at: '2026-10-16T10:00:00Z', supplier_replied_at: null };
 const messages = [];
 const sent = [];
 let transportFailed = false;
@@ -58,6 +58,7 @@ const store = {
   addAuditLog: async () => ({}),
   getBuyer: async (id) => id === buyer.id ? buyer : null,
   getRfqMatch: async (mid) => mid === id ? match : null,
+  updateRfqMatch: async (_mid, patch) => Object.assign(match, patch),
   getSupplier: async (sid) => sid === supplier.id ? supplier : null,
   listRfqMatches: async () => [match],
 };
@@ -90,6 +91,7 @@ const supplierReply = await receive('supplier-reply', 'Factory <supplier@example
 assert.equal(supplierReply.saved, true);
 assert.equal(messages.at(-1).rfq_match_id, id);
 assert.equal(messages.at(-1).rfq_id, rfq.id);
+assert.equal(match.supplier_replied_at, '2026-10-17T10:00:00Z', 'Only a routed supplier reply counts in dashboard');
 assert.equal(messages.at(-1).thread_id, `rfq-${rfq.id}-match-${id}`);
 assert.equal((await receive('supplier-reply', 'supplier@example.com', addr)).reason, 'duplicate');
 

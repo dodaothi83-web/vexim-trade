@@ -27,6 +27,7 @@ import type {
   Rfq,
   RfqAttachment,
   RfqMatch,
+  SupplierNoticeRead,
   Supplier,
   SupplierCategory,
   SupplierInput,
@@ -69,6 +70,7 @@ interface LocalShape {
   rfqs: Rfq[];
   rfq_attachments: RfqAttachment[];
   rfq_matches: RfqMatch[];
+  supplier_portal_notice_reads?: SupplierNoticeRead[];
   introductions: Introduction[];
   audit_log: AuditLogEntry[];
 }
@@ -1691,6 +1693,23 @@ export const localStore: DataStore = {
   async listRfqMatches(rfqId) {
     return (load().rfq_matches ?? []).filter((m) => m.rfq_id === rfqId);
   },
+  async listSupplierRfqInvitations(supplierId) {
+    const db = load();
+    const rfqs = new Map(db.rfqs.map((r) => [r.id, r]));
+    return db.rfq_matches.filter((m) => m.supplier_id === supplierId && m.sent_to_supplier_at && m.status !== "proposed")
+      .map((m) => ({ ...m, rfq: rfqs.get(m.rfq_id)! })).filter((m) => !!m.rfq)
+      .sort((a, b) => b.sent_to_supplier_at!.localeCompare(a.sent_to_supplier_at!));
+  },
+  async listSupplierNoticeReads(supplierId) {
+    return (load().supplier_portal_notice_reads ?? []).filter((r) => r.supplier_id === supplierId);
+  },
+  async markSupplierNoticeRead(supplierId, noticeKey) {
+    mutate((db) => {
+      db.supplier_portal_notice_reads ??= [];
+      if (!db.supplier_portal_notice_reads.some((r) => r.supplier_id === supplierId && r.notice_key === noticeKey))
+        db.supplier_portal_notice_reads.push({ supplier_id: supplierId, notice_key: noticeKey, read_at: new Date().toISOString() });
+    });
+  },
   async getRfqMatch(id) {
     return (load().rfq_matches ?? []).find((m) => m.id === id) ?? null;
   },
@@ -1702,6 +1721,8 @@ export const localStore: DataStore = {
       supplier_id: "",
       status: "proposed" as const,
       sent_to_supplier_at: null,
+      response_due_at: null,
+      supplier_replied_at: null,
       quote_price: null,
       quote_currency: "USD",
       quote_unit: null,

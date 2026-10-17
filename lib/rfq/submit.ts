@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 
 import { getStore } from "@/lib/db";
 import { listPublicSuppliers } from "@/lib/public/catalog";
+import { listPublicCategoryProducts } from "@/lib/public/product-catalog";
 import {
   sendRfqAckBuyer,
   sendRfqNewInternal,
@@ -26,6 +27,7 @@ import { gcRateLimit, rateLimit } from "./rate-limit";
 export interface SubmitRfqInput {
   // Step 1 – product
   product_text: string;
+  source_product_id?: string | null;
   category_slug?: string | null;
   grade?: string | null;
   quantity?: number | null;
@@ -238,9 +240,10 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
 
   // 7) Lấy category theo slug nếu có
   let categoryId: string | null = null;
+  let category = null as Awaited<ReturnType<typeof store.getCategoryBySlug>>;
   if (raw.category_slug) {
-    const cat = await store.getCategoryBySlug(raw.category_slug).catch(() => null);
-    categoryId = cat?.id ?? null;
+    category = await store.getCategoryBySlug(raw.category_slug).catch(() => null);
+    categoryId = category?.id ?? null;
   }
 
   // 8) Sinh code (đếm số RFQ trong ngày để gán seq — đơn giản bằng cách đếm RFQ có code bắt đầu RFQ-YYYYMMDD-)
@@ -257,6 +260,14 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     const pubIds = new Set(publ.map((s) => s.id));
     preferredIds = raw.preferred_supplier_ids.filter((id) => pubIds.has(id));
   }
+
+  // Attribution only when the URL names a real, published buyer-ready product of the preferred supplier.
+  // A buyer may edit product_text; never guess product identity from that free text.
+  const sourceProductId = category?.status === "published" && category.is_published && raw.source_product_id && preferredIds.length
+    ? (await listPublicCategoryProducts(category).catch(() => [])).some((p) => p.id === raw.source_product_id && preferredIds.includes(p.supplierId) &&
+        p.name.trim().toLowerCase() === raw.product_text.trim().toLowerCase())
+      ? raw.source_product_id : null
+    : null;
 
   const utm = {
     ...(raw.utm_source ? { source: raw.utm_source } : {}),
@@ -286,6 +297,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     wants_inspection: raw.wants_inspection ?? false,
     wants_video_call: raw.wants_video_call ?? false,
     preferred_supplier_ids: preferredIds,
+    source_product_id: sourceProductId,
     source_page: raw.source_page ?? null,
     utm,
     referrer: raw.referrer ?? null,

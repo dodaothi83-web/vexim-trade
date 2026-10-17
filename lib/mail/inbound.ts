@@ -258,6 +258,15 @@ export async function processInboundEvent(
     });
 
   if (!saved) return { saved: false, reason: "error" };
+  // Count only a verified, routed reply to an invitation actually sent by Vexim.
+  // Never infer a price/approval from the email body; staff records the quote separately.
+  if (rfqMatchId && supplier) {
+    const match = await store.getRfqMatch(rfqMatchId).catch(() => null);
+    if (match?.supplier_id === supplier.id && match.sent_to_supplier_at && !match.supplier_replied_at) {
+      await store.updateRfqMatch(match.id, { supplier_replied_at: saved.sent_at || new Date().toISOString() })
+        .catch((error) => console.error("[inbound] RFQ supplier reply status:", error));
+    }
+  }
   if (prospect) {
     if (["new", "researched", "ready", "contacted"].includes(prospect.status)) {
       await store.updateProspect(prospect.id, { status: "replied" }).catch(() => null);

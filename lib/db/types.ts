@@ -22,6 +22,8 @@ import type {
   Rfq,
   RfqAttachment,
   RfqMatch,
+  SupplierRfqInvitation,
+  SupplierNoticeRead,
   Supplier,
   SupplierInput,
   SupplierVerificationRequest,
@@ -196,6 +198,9 @@ export interface DataStore {
 
   // RFQ matches
   listRfqMatches(rfqId: string): Promise<RfqMatch[]>;
+  listSupplierRfqInvitations(supplierId: string): Promise<SupplierRfqInvitation[]>;
+  listSupplierNoticeReads(supplierId: string): Promise<SupplierNoticeRead[]>;
+  markSupplierNoticeRead(supplierId: string, noticeKey: string): Promise<void>;
   getRfqMatch(id: string): Promise<RfqMatch | null>;
   createRfqMatch(input: Partial<RfqMatch>): Promise<RfqMatch>;
   updateRfqMatch(id: string, patch: Partial<RfqMatch>): Promise<RfqMatch>;

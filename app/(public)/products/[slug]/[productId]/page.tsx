@@ -53,7 +53,7 @@ export default async function PublicProductDetail({ params }: Props) {
   const detail = await getDetail(slug, productId);
   if (!detail) notFound();
   const { category, card, product: p, preview } = detail;
-  const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}`;
+  const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}`;
   const specs = p.specs && typeof p.specs === "object" ? Object.entries(p.specs).filter(([, value]) => typeof value === "string" || typeof value === "number").slice(0, 12) : [];
 
   return <div className="mx-auto max-w-6xl px-5 pb-24 pt-7 sm:px-6 lg:px-8">

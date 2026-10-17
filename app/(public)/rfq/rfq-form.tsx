@@ -32,6 +32,7 @@ interface CategorySpec {
 interface Props {
   categories: Option[];
   categorySpecs: Record<string, CategorySpec>;
+  initialProductId: string | null;
   initialCategory: string | null;
   initialProduct: string;
   initialSupplierIds: string[];
@@ -55,7 +56,7 @@ const FREQUENCIES = ["One-time", "Monthly", "Quarterly", "Spot", "Contract"];
 const COUNTRIES = ["US", "EU", "UK", "Japan", "Korea", "China", "Middle East", "Australia", "Canada", "Other"];
 const BUSINESS_TYPES = ["Importer / Distributor", "Brand / Manufacturer", "Wholesaler", "Retailer", "Trading company", "Other"];
 
-export function RfqForm({ categories, categorySpecs, initialCategory, initialProduct, initialSupplierIds, wantsSamples, turnstileSiteKey }: Props) {
+export function RfqForm({ categories, categorySpecs, initialCategory, initialProduct, initialProductId, initialSupplierIds, wantsSamples, turnstileSiteKey }: Props) {
   const router = useRouter();
   const params = useSearchParams();
   const [step, setStep] = useState(1);
@@ -68,6 +69,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
     // Product
     category_slug: initialCategory ?? "",
     product_text: initialProduct,
+    source_product_id: initialProductId,
     grade: "",
     quantity: "",
     unit: "MT",
@@ -100,7 +102,10 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
   }));
 
   const update = (k: keyof typeof data, v: string | boolean | string[]) =>
-    setData((d) => ({ ...d, [k]: v }));
+    setData((d) => ({ ...d, [k]: v,
+      ...(k === "product_text" && v !== initialProduct ? { source_product_id: null } : {}),
+      ...(k === "category_slug" && v !== initialCategory ? { source_product_id: null } : {}),
+    }));
 
   function validateStep(s: number): Record<string, string> {
     const e: Record<string, string> = {};
@@ -140,6 +145,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
     startSubmit(async () => {
       const res = await submitRfqAction({
         product_text: data.product_text,
+        source_product_id: data.source_product_id,
         category_slug: data.category_slug || null,
         grade: data.grade || null,
         quantity: data.quantity ? Number(data.quantity) : null,

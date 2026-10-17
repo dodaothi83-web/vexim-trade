@@ -17,6 +17,7 @@ export default async function RfqPage({
   searchParams?: Promise<{
     category?: string;
     product?: string;
+    product_id?: string;
     suppliers?: string;
     sample?: string;
   }>;
@@ -56,6 +57,7 @@ export default async function RfqPage({
         }]))}
         initialCategory={sp?.category ?? null}
         initialProduct={(sp?.product ?? "").slice(0, 150)}
+        initialProductId={sp?.product_id ?? null}
         initialSupplierIds={supplierIds}
         wantsSamples={sp?.sample === "1"}
         turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? null}
