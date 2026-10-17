@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
+import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
@@ -2401,7 +2402,7 @@ export async function createCategoryAction(raw: Record<string, unknown>) {
     revalidateAll();
     return { ok: true, message: `Đã tạo danh mục "${created.name_i18n?.en ?? created.slug}" (trạng thái Nháp).`, id: created.id };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
+    return { ok: false, message: categorySchemaError(err) ?? (err instanceof Error ? err.message : "Lỗi") };
   }
 }
 
@@ -2467,7 +2468,7 @@ export async function updateCategoryAction(id: string, raw: Record<string, unkno
     revalidateAll();
     return { ok: true, message: "Đã lưu danh mục." };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
+    return { ok: false, message: categorySchemaError(err) ?? (err instanceof Error ? err.message : "Lỗi") };
   }
 }
 
