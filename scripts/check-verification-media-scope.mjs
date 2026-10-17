@@ -45,8 +45,10 @@ for (const store of [local, supabase]) {
 const audit = readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/page.tsx', import.meta.url), 'utf8');
 const supplier = readFileSync(new URL('../app/crm/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
 const ai = readFileSync(new URL('../app/api/verifications/[id]/ai-review/route.ts', import.meta.url), 'utf8');
-assert.match(audit, /ownerType="verification"/);
-assert.match(audit, /Tệp trong kho chung của NCC không tự chuyển sang đây/);
+const auditForm = readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx', import.meta.url), 'utf8');
+assert.match(audit, /store\.listMedia\("verification", current\.id\)/);
+assert.match(auditForm, /form\.set\("ownerType", "verification"\)/);
+assert.match(auditForm, /Tệp kho chung NCC không tự chuyển vào đây/);
 assert.match(supplier, /Kho ảnh & tài liệu chung của NCC/);
 assert.match(ai, /store\.listMedia\("verification", id\)/);
 console.log('✅ Supplier files, product media and each verification evidence set remain distinct in both stores and UI.');

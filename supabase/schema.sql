@@ -730,7 +730,11 @@ alter table public.media_assets add constraint media_checklist_key_ck check (
   checklist_key is null or
   (owner_type = 'verification' and verification_id is not null and checklist_key in (
     'business_license', 'tax_certificate', 'bank_letter', 'food_safety',
-    'haccp_or_brc', 'product_certs', 'export_license'
+    'haccp_or_brc', 'product_certs', 'export_license',
+    'factory_address_confirmed', 'production_line_seen', 'warehouse_seen',
+    'qc_lab_seen', 'documents_original', 'capacity_verified',
+    'worker_interview', 'management_interview', 'photos_taken',
+    'order_matched', 'shipping_proof', 'delivery_proof'
   ))
 );
 create index if not exists media_verification_checklist_idx

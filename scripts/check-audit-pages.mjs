@@ -32,12 +32,16 @@ const records = [
 const media = [];
 let mediaBlocked = null;
 let dbFourEyes = false;
+let dbChecklistConstraint = false;
 const store = {
   getVerification: async () => row,
   listVerifications: async () => records,
   listMedia: async (ownerType, ownerId) => { lastMediaLookup = [ownerType, ownerId]; return media; },
   getMedia: async (id) => media.find((m) => m.id === id),
-  updateMedia: async (id, patch) => { const asset = media.find((m) => m.id === id); Object.assign(asset, patch); return asset; },
+  updateMedia: async (id, patch) => {
+    if (dbChecklistConstraint) throw new Error('updateMedia: violates check constraint "media_checklist_key_ck"');
+    const asset = media.find((m) => m.id === id); Object.assign(asset, patch); return asset;
+  },
   updateVerification: async (_id, patch) => {
     if (dbFourEyes && patch.status === 'approved' && patch.approved_by === row.inspector_id) {
       throw new Error('updateVerification: new row for relation "verifications" violates check constraint "verifications_four_eyes"');
@@ -60,18 +64,19 @@ const mocks = {
   '@/lib/types': { L1_DOC_ITEMS: docItems },
   '@/lib/verification': {
     auditHref: () => '/crm/suppliers/supplier-1/audit/deliveries',
-    auditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : docItems,
-    requiredAuditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : docItems.filter((item) => item.required),
+    auditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : level === 2 ? ['factory_address_confirmed', 'photos_taken'].map((key) => ({ key })) : docItems,
+    requiredAuditItems: (level) => level === 1 ? docItems.filter((item) => item.required) : [],
+    auditUploadKind: (level, key) => level === 1 ? (['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'].includes(key) ? 'file' : null) : level === 2 ? (key === 'photos_taken' ? 'image' : null) : (['shipping_proof', 'delivery_proof'].includes(key) ? 'file' : null),
     inVnBounds: (lat, lng) => lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110,
   },
 };
 vm.runInNewContext(js, { exports, require: (name) => { assert.ok(name in mocks, `Unknown import ${name}`); return mocks[name]; }, console: { error: () => {} }, FormData, Date, Error }, { filename: 'verification-actions.ts' });
 const form = new FormData(); form.set('id', row.id);
-assert.match((await exports.approveVerificationAction(form)).message, /chứng từ giao hàng/);
+assert.match((await exports.approveVerificationAction(form)).message, /chứng từ vận chuyển\/giao nhận/);
 media.push({ kind: 'video', status: 'checked', storage_path: null });
-assert.match((await exports.approveVerificationAction(form)).message, /chứng từ giao hàng/);
+assert.match((await exports.approveVerificationAction(form)).message, /chứng từ vận chuyển\/giao nhận/);
 media.push({ kind: 'document', status: 'unverified', storage_path: 'verifications/review-3/bl.pdf' });
-assert.match((await exports.approveVerificationAction(form)).message, /chứng từ giao hàng/);
+assert.match((await exports.approveVerificationAction(form)).message, /chứng từ vận chuyển\/giao nhận/);
 media[1].status = 'checked';
 auditor.uid = row.inspector_id;
 requireSecondReviewer = true;
@@ -100,6 +105,33 @@ requireSecondReviewer = true;
 const independentlyApproved = await exports.approveVerificationAction(form);
 assert.equal(independentlyApproved.ok, true, 'Independent reviewer still works when policy is restored');
 assert.equal(lastAudit.after.self_approved, false);
+// Optional data is never a submission/approval gate for factory or delivery.
+Object.assign(row, { status: 'in_progress', approved_by: null, target_level: 3, checklist: {}, shipment_ref: null, shipped_on: null });
+const emptyForm = new FormData(); emptyForm.set('id', row.id); emptyForm.set('status', 'submitted');
+assert.equal((await exports.updateVerificationChecklistAction(emptyForm)).ok, true, 'Delivery can submit without filling every field');
+media.splice(0, media.length, { kind: 'image', storage_path: 'verifications/review-3/unrelated.jpg' });
+assert.equal((await exports.approveVerificationAction(form)).ok, false, 'Unrelated image cannot establish delivery history');
+Object.assign(media[0], { id: 'shipping-photo', owner_type: 'verification', verification_id: row.id, supplier_id: row.supplier_id, checklist_key: null });
+assert.equal((await exports.assignVerificationEvidenceAction('shipping-photo', 'photos_taken')).ok, false, 'Cannot attach factory key to delivery review');
+dbChecklistConstraint = true;
+const unmigrated = await exports.assignVerificationEvidenceAction('shipping-photo', 'shipping_proof');
+assert.equal(unmigrated.ok, false);
+assert.match(unmigrated.message, /20261017_factory_delivery_inline_evidence\.sql/, 'Missing migration must give actionable feedback');
+assert.equal(media[0].checklist_key, null, 'Failed assignment must not mutate the file');
+dbChecklistConstraint = false;
+assert.equal((await exports.assignVerificationEvidenceAction('shipping-photo', 'shipping_proof')).ok, true, 'Old delivery image can be assigned to shipping row');
+assert.equal((await exports.approveVerificationAction(form)).ok, true, 'Photo of linked shipping proof qualifies without mandatory fields');
+records.splice(1, 1); // remove earlier approved level-two fixture
+Object.assign(row, { target_level: 2, status: 'in_progress', approved_by: null, checklist: {}, visit_date: null, visit_address: null, visit_lat: null, visit_lng: null });
+assert.equal((await exports.updateVerificationChecklistAction(emptyForm)).ok, true, 'Factory can submit without GPS/date/9 checklist answers');
+media.splice(0);
+assert.equal((await exports.approveVerificationAction(form)).ok, false, 'Factory needs a scoped photo for approval');
+media.push({ kind: 'image', storage_path: 'verifications/review-3/certificate.jpg', checklist_key: 'documents_original' });
+assert.equal((await exports.approveVerificationAction(form)).ok, false, 'Photo of a certificate is not a facility photo');
+Object.assign(media[0], { id: 'factory-photo', owner_type: 'verification', verification_id: row.id, supplier_id: row.supplier_id, checklist_key: null });
+assert.equal((await exports.assignVerificationEvidenceAction('factory-photo', 'shipping_proof')).ok, false, 'Cannot attach delivery key to factory review');
+assert.equal((await exports.assignVerificationEvidenceAction('factory-photo', 'photos_taken')).ok, true, 'Old factory photo can be assigned without moving it');
+assert.equal((await exports.approveVerificationAction(form)).ok, true, 'Facility photo qualifies without all checklist answers');
 // An already uploaded scan selected under the "Ảnh" tab must count as L1 evidence.
 // The supplier's general library must never be consulted as a fallback.
 records.splice(0, 1); // remove earlier approved level-one fixture
@@ -184,8 +216,7 @@ const formUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]
 const pageUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/page.tsx', import.meta.url), 'utf8');
 assert.match(formUi, /\(!requireSecondReviewer \|\| !selfReview\)/, 'Admin must see review buttons in temporary mode');
 assert.match(formUi, /Bạn đang xác nhận bản kiểm của chính mình/, 'Self review must be visibly marked');
-assert.match(pageUi, /!requireSecondReviewer \|\| current\.inspector_id !== session\.uid/, 'Evidence UI must use the same policy');
-assert.match(pageUi, /defaultKind=\{step\.level === 2 \? "image" : "document"\}/, 'Document tab should be selected for legal evidence');
+assert.ok(!pageUi.includes('<MediaManager'), 'All audit steps render evidence inline');
 assert.match(formUi, /ok: result\.ok/, 'Expected validation failure must display on the audit page');
 const sql = fs.readFileSync(new URL('../supabase/migrations/20261017_delivery_history_audit.sql', import.meta.url), 'utf8');
 for (const field of ['shipment_ref', 'shipped_on', 'shipment_destination']) assert.ok(sql.includes(`add column if not exists ${field}`));

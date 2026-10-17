@@ -6,8 +6,8 @@ import { getSession, guard } from "@/lib/auth/session";
 import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
-import { L1_DOC_ITEMS } from "@/lib/types";
-import type { MediaAudience, MediaInput, MediaKind, MediaOwnerType } from "@/lib/types";
+import { auditUploadKind } from "@/lib/verification";
+import type { AuditEvidenceKey, MediaAudience, MediaInput, MediaKind, MediaOwnerType } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,9 +60,8 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  if (checklistKey && (ownerType !== "verification" || !["image", "document", "certificate"].includes(kind) ||
-    ["tax_certificate", "bank_letter"].includes(checklistKey) || !L1_DOC_ITEMS.some((it) => it.key === checklistKey))) {
-    return NextResponse.json({ ok: false, message: "Mục kiểm giấy tờ không hợp lệ." }, { status: 400 });
+  if (checklistKey && (ownerType !== "verification" || !["image", "document", "certificate"].includes(kind))) {
+    return NextResponse.json({ ok: false, message: "Chỉ bằng chứng của đợt kiểm mới được gắn vào mục." }, { status: 400 });
   }
 
   const store = getStore();
@@ -93,8 +92,11 @@ export async function POST(request: Request) {
     if (!v) {
       return NextResponse.json({ ok: false, message: "Không tìm thấy hồ sơ xác minh." }, { status: 404 });
     }
-    if (checklistKey && v.target_level !== 1) {
-      return NextResponse.json({ ok: false, message: "Chỉ đợt kiểm giấy tờ mới có mục kiểm này." }, { status: 400 });
+    if (checklistKey) {
+      const accepted = auditUploadKind(v.target_level, checklistKey as AuditEvidenceKey);
+      if (!accepted || accepted === "image" && kind !== "image") {
+        return NextResponse.json({ ok: false, message: "Mục này không nhận loại tệp đã chọn hoặc không thuộc bước kiểm." }, { status: 400 });
+      }
     }
     const blocked = await verificationMediaEditError(v);
     if (blocked) return NextResponse.json({ ok: false, message: blocked }, { status: 403 });
@@ -197,10 +199,13 @@ export async function POST(request: Request) {
       results.push({ name: file.name, ok: true, message: "Đã tải lên — trạng thái: chưa xác minh." });
     } catch (err) {
       await Promise.all([mainPath, thumbPath].filter((p): p is string => !!p).map((p) => deleteObject(p).catch(() => null)));
+      if (err instanceof Error && /media_checklist_key_ck/.test(err.message)) console.error("[media] missing factory/delivery inline evidence migration");
       results.push({
         name: file.name,
         ok: false,
-        message: err instanceof Error ? err.message : "Lỗi khi lưu tệp.",
+        message: err instanceof Error && /media_checklist_key_ck/.test(err.message)
+          ? "CSDL chưa cập nhật mục bằng chứng. Quản trị viên cần chạy migration 20261017_factory_delivery_inline_evidence.sql trên đúng Supabase project. Tệp chưa được lưu."
+          : err instanceof Error ? err.message : "Lỗi khi lưu tệp.",
       });
     }
   }

@@ -296,7 +296,7 @@ export const L2_VISIT_ITEMS = [
   { key: "capacity_verified", label: "Đối chiếu công suất với máy móc và nhân sự" },
   { key: "worker_interview", label: "Trao đổi với công nhân / nhân viên QC" },
   { key: "management_interview", label: "Trao đổi với quản lý về tiến độ và MOQ" },
-  { key: "photos_taken", label: "Ảnh có ngày chụp: cổng, dây chuyền, kho, chứng chỉ" }
+  { key: "photos_taken", label: "Ảnh hiện trường: cổng, dây chuyền, kho" }
 ] as const;
 
 export const DELIVERY_ITEMS = [
@@ -307,6 +307,8 @@ export const DELIVERY_ITEMS = [
 
 export type L1DocKey = typeof L1_DOC_ITEMS[number]["key"];
 export type L2VisitKey = typeof L2_VISIT_ITEMS[number]["key"];
+export type DeliveryKey = typeof DELIVERY_ITEMS[number]["key"];
+export type AuditEvidenceKey = L1DocKey | L2VisitKey | DeliveryKey;
 
 export interface Verification {
   id: string;
@@ -494,7 +496,7 @@ export interface MediaAsset {
   /** Khi owner_type === "verification" — ảnh/giấy tờ đính kèm cho một lần xác minh cụ thể */
   verification_id?: string | null;
   /** Mục bảng kiểm giấy tờ gắn với tệp; null cho bằng chứng chung/tệp cũ. */
-  checklist_key?: L1DocKey | null;
+  checklist_key?: AuditEvidenceKey | null;
   kind: MediaKind;
   audience: MediaAudience;
   status: MediaStatus;

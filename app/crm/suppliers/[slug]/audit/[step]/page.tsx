@@ -10,7 +10,6 @@ import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import type { VerificationLevel } from "@/lib/types";
 import { Breadcrumbs, Badge, Card } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
-import { MediaManager } from "@/components/media-manager";
 import { StartVerificationButton } from "../../start-verification-button";
 import { AuditForm } from "./audit-form";
 
@@ -31,9 +30,6 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
   const media = current && unlocked ? await store.listMedia("verification", current.id) : [];
   const canApprove = hasPermission(session.role, "verifications.approve");
   const requireSecondReviewer = requireSecondVerificationReviewer();
-  const editable = !!current && ["in_progress", "scheduled", "returned"].includes(current.status);
-  const mediaReadOnly = !editable && !(current?.status === "submitted" && canApprove &&
-    (!requireSecondReviewer || current.inspector_id !== session.uid));
 
   return <>
     <PageHeader
@@ -61,16 +57,8 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
             </Badge>
             <p className="text-sm text-ink-600">{current.status === "approved" ? "Bằng chứng được khoá để giữ nguyên hồ sơ đã duyệt." : "Ghi kết quả, đính kèm bằng chứng và nộp xét duyệt khi đã sẵn sàng."}</p>
           </Card>
-          <div className={step.level === 1 ? "max-w-5xl" : "grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]"}>
+          <div className="max-w-5xl">
             <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} currentUserId={session.uid} requireSecondReviewer={requireSecondReviewer} />
-            {step.level !== 1 && <div className="space-y-3">
-              <MediaManager key={current.id} ownerType="verification" ownerId={current.id} items={media} readOnly={mediaReadOnly} allowInternal={false}
-                defaultKind={step.level === 2 ? "image" : "document"}
-                title={`Bằng chứng: ${step.title}`}
-                scopeHint="Chỉ tệp đính kèm trong đợt kiểm này mới được dùng để đối chiếu bảng kiểm. Tệp trong kho chung của NCC không tự chuyển sang đây."
-                note="Chỉ nội bộ · video ngoài cần cấp quyền xem" />
-              {step.level === 3 && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Để duyệt lịch sử giao hàng, cần ít nhất một chứng từ giao hàng được đánh dấu “Đã kiểm tra”. Ảnh hoặc video bổ sung không thay cho vận đơn/xác nhận giao nhận.</p>}
-            </div>}
           </div>
           {current.status === "approved" && step.level < 3 && <Link href={auditHref(supplierId, step.level + 1)} className="btn btn-primary w-fit">Tiếp tục: {AUDIT_STEPS.find((s) => s.level === step.level + 1)?.title} <ArrowRight className="h-4 w-4" /></Link>}
         </>}

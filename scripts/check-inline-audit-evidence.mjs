@@ -15,16 +15,31 @@ assert.equal(L1_DOC_ITEMS.length, 7);
 assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'haccp_or_brc').required, false, 'Traders must not need HACCP to submit');
 assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'food_safety').required, false, 'Traders may not hold food-safety certificates either');
 assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'business_license').required, true, 'Business registration still requires review');
+const types = {};
+vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: types });
+const policy = {};
+vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/verification.ts', import.meta.url), 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText, { exports: policy, require: (path) => path === './types' ? types : null });
+assert.equal(policy.requiredAuditItems(2).length, 0);
+assert.equal(policy.requiredAuditItems(3).length, 0);
+for (const [level, key, expected] of [[2, 'photos_taken', 'image'], [2, 'documents_original', 'file'], [3, 'shipping_proof', 'file'], [3, 'delivery_proof', 'file'], [2, 'worker_interview', null], [3, 'order_matched', null], [3, 'photos_taken', null]]) {
+  assert.equal(policy.auditUploadKind(level, key), expected, `Upload policy: ${level}/${key}`);
+}
 
 let level = 1;
 let blocked = null;
 let inserted = null;
+let dbConstraint = false;
 const verification = () => ({ id: 'ver-1', supplier_id: 'sup-1', target_level: level, status: 'in_progress' });
 const store = {
   getVerification: async () => verification(),
   getSupplier: async () => ({ id: 'sup-1' }),
   getProduct: async () => null,
-  createMedia: async (input) => { inserted = input; return { ...input, id: 'media-1' }; },
+  createMedia: async (input) => {
+    if (dbConstraint) throw new Error('createMedia: violates check constraint "media_checklist_key_ck"');
+    inserted = input; return { ...input, id: 'media-1' };
+  },
   addAuditLog: async () => {},
 };
 const mocks = {
@@ -36,10 +51,11 @@ const mocks = {
   '@/lib/media/storage': { putObject: async () => {}, deleteObject: async () => {} },
   '@/lib/media/verification-access': { verificationMediaEditError: async () => blocked },
   '@/lib/types': { L1_DOC_ITEMS },
+  '@/lib/verification': { auditUploadKind: policy.auditUploadKind },
 };
 const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../app/api/media/upload/route.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-vm.runInNewContext(code, { exports, require: (name) => { assert.ok(name in mocks, `Unknown import ${name}`); return mocks[name]; }, console, File, Uint8Array, Number }, { filename: 'upload-route.ts' });
+vm.runInNewContext(code, { exports, require: (name) => { assert.ok(name in mocks, `Unknown import ${name}`); return mocks[name]; }, console: { error: () => {} }, File, Uint8Array, Number, Error }, { filename: 'upload-route.ts' });
 function request(ownerType, key, kind = 'image') {
   const form = new FormData();
   form.set('ownerType', ownerType);
@@ -56,6 +72,19 @@ for (const key of ['tax_certificate', 'bank_letter']) {
 }
 level = 2;
 assert.equal((await exports.POST(request('verification', 'business_license'))).status, 400, 'Cannot bind factory file to legal checklist');
+assert.equal((await exports.POST(request('verification', 'photos_taken'))).status, 200, 'Factory row accepts its own photo');
+assert.equal(inserted.checklist_key, 'photos_taken');
+assert.equal((await exports.POST(request('verification', 'photos_taken', 'document'))).status, 400, 'Photo row rejects PDF/document kind');
+assert.equal((await exports.POST(request('verification', 'worker_interview'))).status, 400, 'Interview is a text row, not an upload');
+level = 3;
+assert.equal((await exports.POST(request('verification', 'shipping_proof'))).status, 200, 'Delivery evidence is scoped to shipping row');
+assert.equal(inserted.checklist_key, 'shipping_proof');
+assert.equal((await exports.POST(request('verification', 'photos_taken'))).status, 400, 'Factory photo key cannot be forged on delivery review');
+dbConstraint = true;
+const rejected = await exports.POST(request('verification', 'shipping_proof'));
+assert.equal(rejected.status, 400);
+assert.match((await rejected.json()).results[0].message, /20261017_factory_delivery_inline_evidence\.sql/, 'Missing migration must not show raw DB error');
+dbConstraint = false;
 level = 1;
 blocked = 'Đã duyệt';
 assert.equal((await exports.POST(request('verification', 'business_license'))).status, 403, 'Approved verification evidence locked');
@@ -74,6 +103,9 @@ assert.equal(inserted.checklist_key, undefined, 'Legacy/general uploads omit new
 const migration = readFileSync(new URL('../supabase/migrations/20261017_audit_checklist_evidence.sql', import.meta.url), 'utf8');
 assert.match(migration, /add column if not exists checklist_key text/);
 assert.match(migration, /owner_type = 'verification' and verification_id is not null/);
+const extended = readFileSync(new URL('../supabase/migrations/20261017_factory_delivery_inline_evidence.sql', import.meta.url), 'utf8');
+for (const key of ['business_license', 'photos_taken', 'documents_original', 'shipping_proof', 'delivery_proof']) assert.ok(extended.includes(`'${key}'`), `Migration retains or adds ${key}`);
+assert.match(extended, /drop constraint if exists media_checklist_key_ck/);
 const ui = readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx', import.meta.url), 'utf8');
 assert.match(ui, /checklistKey/);
 assert.match(ui, /assignVerificationEvidenceAction/);
@@ -84,10 +116,14 @@ assert.match(ui, /addMediaLinkAction/, 'Old video links can still be added');
 assert.match(ui, /scanDocuments\(createdIds\.slice\(0, 6\), true/, 'Upload triggers consented scan of new files');
 assert.match(ui, /inputMode="numeric" pattern="\[0-9\]\*"/, 'Numeric-only input preserves leading zeroes');
 const page = readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/page.tsx', import.meta.url), 'utf8');
-assert.match(page, /step\.level !== 1 && <div/, 'L1 must not render a second media card');
+assert.ok(!page.includes('<MediaManager'), 'All three audit steps must manage evidence inline');
+for (const input of ['visit_date', 'visit_address', 'visit_lat', 'visit_lng', 'shipment_ref', 'shipped_on']) {
+  assert.ok(ui.includes(`name="${input}"`), `${input} has an inline input`);
+}
+assert.match(ui, /auditUploadKind\(v\.target_level/, 'Photo and document rows use step-specific uploads');
 const publicSupplier = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
 assert.ok(!publicSupplier.includes('Food-safety / HACCP'), 'A verification badge must not claim every trader has HACCP');
 assert.match(publicSupplier, /confirm the certificate holder/, 'Explain issuer/holder scope to buyers');
 const numbersSql = readFileSync(new URL('../supabase/migrations/20261017_document_numeric_identifiers.sql', import.meta.url), 'utf8');
 for (const field of ['tax_number', 'bank_account_number']) assert.match(numbersSql, new RegExp(`add column if not exists ${field} text`));
-console.log('✅ Three required/four optional L1 items (ATTP and HACCP optional), inline evidence and immediate optional AI scan.');
+console.log('✅ Three audit steps: inline scoped uploads, optional L2/L3 forms, evidence keys and migration guards.');
