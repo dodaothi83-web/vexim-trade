@@ -30,6 +30,8 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
   const reviewer = canApprove && v.status === "submitted" && (!requireSecondReviewer || !selfReview);
   const canManageEvidence = editable || reviewer;
   const items = auditItems(v.target_level);
+  const requiredDocs = L1_DOC_ITEMS.filter((it) => it.required);
+  const optionalDocs = L1_DOC_ITEMS.filter((it) => !it.required);
   const recorded = (key: string) => v.checklist?.[key] === true || v.checklist?.[key] === false || v.checklist?.[key] === "not_applicable";
   const unassignedEvidence = v.target_level === 1 ? evidence.filter((m) => !m.checklist_key) : [];
   const readableEvidence = evidence.filter((m) => m.storage_path && ["document", "certificate", "image"].includes(m.kind));
@@ -180,7 +182,7 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
     <div className="border-b border-ink-100 px-5 py-4">
       <h2 className="text-base font-bold text-ink-900">Bảng kiểm & kết quả</h2>
       <p className="mt-1 text-sm text-ink-500">{v.target_level === 1
-        ? `${L1_DOC_ITEMS.filter((it) => it.required && (it.key === "tax_certificate" ? !!v.tax_number : it.key === "bank_letter" ? !!v.bank_account_number : recorded(it.key))).length}/5 mục bắt buộc đã ghi · ${L1_DOC_ITEMS.filter((it) => !it.required && recorded(it.key)).length}/2 mục tùy chọn`
+        ? `${requiredDocs.filter((it) => it.key === "tax_certificate" ? !!v.tax_number : it.key === "bank_letter" ? !!v.bank_account_number : recorded(it.key)).length}/${requiredDocs.length} mục bắt buộc đã ghi · ${optionalDocs.filter((it) => recorded(it.key)).length}/${optionalDocs.length} mục tùy chọn`
         : `${items.filter((it) => recorded(it.key)).length}/${items.length} mục đã ghi kết quả`}</p>
       {v.return_reason && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">Cần bổ sung: {v.return_reason}</p>}
     </div>
@@ -232,7 +234,7 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
             return <div key={it.key} className="space-y-2 px-5 py-4">
             <fieldset disabled={!editable || busy}>
               <label htmlFor={`check-${it.key}`} className="block text-sm font-semibold text-ink-900">
-                {i + 1}. {it.label} {v.target_level === 1 && <span className={optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{optional ? "Tùy chọn" : "Bắt buộc đạt"}</span>}
+                {i + 1}. {it.label} {v.target_level === 1 && <span className={optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{optional ? "Tùy chọn" : ["tax_certificate", "bank_letter"].includes(it.key) && v.target_level === 1 ? "Bắt buộc nhập" : "Bắt buộc đạt"}</span>}
               </label>
               {v.target_level === 1 && (it.key === "tax_certificate" || it.key === "bank_letter") ? <div className="mt-2 space-y-1.5">
                 <input id={`check-${it.key}`} name={it.key === "tax_certificate" ? "tax_number" : "bank_account_number"}
@@ -249,6 +251,8 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
                 <input name={`note:${it.key}`} defaultValue={v.checklist_notes?.[it.key] ?? ""} className="input text-sm" placeholder="Ghi chú, mã chứng từ hoặc điểm cần đối chiếu" />
               </div>}
             </fieldset>
+            {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">Đối chiếu tên pháp nhân và mã số thuế trên đăng ký doanh nghiệp với NCC; nếu dùng tên thương mại khác, ghi rõ căn cứ trong ghi chú. AI không tự xác thực giấy tờ.</p>}
+            {v.target_level === 1 && it.key === "haccp_or_brc" && <p className="text-xs text-ink-600">NCC thương mại không bắt buộc có chứng chỉ này. Nếu dùng chứng chỉ của nhà máy sản xuất, ghi tên nhà máy và mối liên hệ với hàng cung ứng; không coi đó là chứng chỉ của NCC.</p>}
             {suggestion && <div className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-xs leading-relaxed text-ink-700">
               <strong className={suggestion.verdict === "pass" ? "text-emerald-800" : suggestion.verdict === "fail" ? "text-rose-700" : "text-amber-800"}>
                 AI: {suggestion.verdict === "pass" ? "Có vẻ phù hợp — cần đối chiếu" : suggestion.verdict === "fail" ? "Phát hiện điểm không khớp" : "Chưa đủ cơ sở"}

@@ -40,9 +40,11 @@ export async function generateMetadata({ params }: PageProps) {
   if (!s) return { title: "Supplier not found | Veximtrade", robots: { index: false } };
   const name = s.display_name ?? s.name;
   const mainCat = withoutDirectContacts(mainProductNames(s.main_products, 2) || "food products");
+  const level = s.verification_level ?? 0;
+  const review = level >= 2 ? "Factory visit reviewed by Vexim" : level >= 1 ? "Supplier documents reviewed by Vexim" : "Supplier profile on Vexim";
   return {
-    title: `${name} – Verified ${mainCat} ${supplierTypeLabel(s)} in ${s.province ?? "Vietnam"} | Veximtrade`,
-    description: `Factory-audited by Vexim${s.verified_at ? ` on ${s.verified_at.slice(0, 10)}` : ""}. ${mainCat}, MOQ ${s.moq_text ?? "contact"}. Request a quote.`,
+    title: `${name} – ${level >= 1 ? "Verified " : ""}${mainCat} ${supplierTypeLabel(s)} in ${s.province ?? "Vietnam"} | Veximtrade`,
+    description: `${review}${s.verified_at && level >= 1 ? ` on ${s.verified_at.slice(0, 10)}` : ""}. ${mainCat}, MOQ ${s.moq_text ?? "contact"}. Request a quote.`,
   };
 }
 
@@ -298,21 +300,11 @@ export default async function SupplierProfile({ params }: PageProps) {
 
           <section className="mt-10">
             <h2 className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">
-              Certificates
+              Documents &amp; certifications
             </h2>
-            {(s.verification_level ?? 0) >= 1 ? (
-              <ul className="mt-4 flex flex-wrap gap-2 text-[13px]">
-                {["Business registration", "Tax registration", "Food-safety / HACCP"].map((c) => (
-                  <li key={c} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800 ring-1 ring-emerald-200">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> {c}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-4 text-[14px] italic text-ink-400">
-                Certificate list will appear after documents are reviewed and verified by the Vexim desk.
-              </p>
-            )}
+            <p className="mt-4 text-[14px] leading-relaxed text-ink-600">
+              Certifications vary by product and producing facility. A supplier verification badge does not mean the trading company holds HACCP, ISO or another named certificate. Ask Vexim to confirm the certificate holder and the link to the goods being offered.
+            </p>
           </section>
 
           {s.gallery_images.length > 0 && (

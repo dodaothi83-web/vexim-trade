@@ -6,12 +6,14 @@ import ts from 'typescript';
 
 const source = readFileSync(new URL('../lib/types.ts', import.meta.url), 'utf8');
 const itemSection = source.slice(source.indexOf('export const L1_DOC_ITEMS = ['), source.indexOf('] as const;', source.indexOf('export const L1_DOC_ITEMS = [')));
-assert.equal((itemSection.match(/required: true/g) || []).length, 5);
-assert.equal((itemSection.match(/required: false/g) || []).length, 2);
+assert.equal((itemSection.match(/required: true/g) || []).length, 4);
+assert.equal((itemSection.match(/required: false/g) || []).length, 3);
 const actual = {};
 vm.runInNewContext(ts.transpileModule(itemSection + '\n];', { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: actual });
 const L1_DOC_ITEMS = actual.L1_DOC_ITEMS;
 assert.equal(L1_DOC_ITEMS.length, 7);
+assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'haccp_or_brc').required, false, 'Traders must not need HACCP to submit');
+assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'food_safety').required, true, 'Other document policy remains unchanged');
 
 let level = 1;
 let blocked = null;
@@ -82,6 +84,9 @@ assert.match(ui, /scanDocuments\(createdIds\.slice\(0, 6\), true/, 'Upload trigg
 assert.match(ui, /inputMode="numeric" pattern="\[0-9\]\*"/, 'Numeric-only input preserves leading zeroes');
 const page = readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/page.tsx', import.meta.url), 'utf8');
 assert.match(page, /step\.level !== 1 && <div/, 'L1 must not render a second media card');
+const publicSupplier = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
+assert.ok(!publicSupplier.includes('Food-safety / HACCP'), 'A verification badge must not claim every trader has HACCP');
+assert.match(publicSupplier, /confirm the certificate holder/, 'Explain issuer/holder scope to buyers');
 const numbersSql = readFileSync(new URL('../supabase/migrations/20261017_document_numeric_identifiers.sql', import.meta.url), 'utf8');
 for (const field of ['tax_number', 'bank_account_number']) assert.match(numbersSql, new RegExp(`add column if not exists ${field} text`));
-console.log('✅ Compact L1 inline evidence, number-only fields and immediate optional AI scan.');
+console.log('✅ Four required/three optional L1 items (HACCP optional), inline evidence and immediate optional AI scan.');

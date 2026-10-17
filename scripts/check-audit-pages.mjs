@@ -25,7 +25,7 @@ let row = {
   checklist: { order_matched: true, shipping_proof: true, delivery_proof: true }, checklist_notes: {},
 };
 const docKeys = ['business_license', 'tax_certificate', 'bank_letter', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'];
-const docItems = docKeys.map((key, i) => ({ key, required: i < 5 }));
+const docItems = docKeys.map((key, i) => ({ key, required: i < 4 }));
 const records = [
   { target_level: 1, status: 'approved' }, { target_level: 2, status: 'approved' }, row,
 ];
@@ -55,7 +55,7 @@ const mocks = {
   '@/lib/verification': {
     auditHref: () => '/crm/suppliers/supplier-1/audit/deliveries',
     auditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : docItems,
-    requiredAuditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : docItems.slice(0, 5),
+    requiredAuditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : docItems.filter((item) => item.required),
     inVnBounds: (lat, lng) => lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110,
   },
 };
@@ -124,7 +124,7 @@ assert.equal(row.status, 'approved');
 Object.assign(row, { status: 'in_progress', checklist: {}, checklist_notes: { tax_certificate: 'Ghi chú cũ cần giữ' }, approved_by: null });
 const incomplete = new FormData(); incomplete.set('id', row.id); incomplete.set('status', 'submitted');
 await assert.rejects(exports.updateVerificationChecklistAction(incomplete), /mục bắt buộc/);
-for (const key of ['business_license', 'food_safety', 'haccp_or_brc']) incomplete.set(`check:${key}`, 'yes');
+for (const key of ['business_license', 'food_safety']) incomplete.set(`check:${key}`, 'yes');
 incomplete.set('check:product_certs', 'not_applicable');
 incomplete.set('tax_number', '0123456789');
 incomplete.set('bank_account_number', '000987654321');
@@ -135,10 +135,20 @@ assert.equal(row.bank_account_number, '000987654321');
 assert.equal(row.checklist.tax_certificate, true);
 assert.equal(row.checklist.bank_letter, true);
 assert.equal(row.checklist_notes.tax_certificate, 'Ghi chú cũ cần giữ', 'Number-only rows must not erase legacy notes');
+assert.equal(row.checklist.haccp_or_brc, null, 'A trader can leave HACCP empty');
 assert.equal(row.checklist.product_certs, 'not_applicable');
 assert.equal(row.checklist.export_license, null);
 const optionalApproved = await exports.approveVerificationAction(form);
-assert.equal(optionalApproved.ok, true, 'Three documents, two numbers and optional items pass only after separate approval');
+assert.equal(optionalApproved.ok, true, 'Two document checks, two numbers and optional HACCP pass only after separate approval');
+Object.assign(row, { status: 'in_progress', approved_by: null });
+incomplete.set('check:haccp_or_brc', 'not_applicable');
+assert.equal((await exports.updateVerificationChecklistAction(incomplete)).ok, true);
+assert.equal(row.checklist.haccp_or_brc, 'not_applicable', 'Traders can explicitly mark factory certificate N/A');
+assert.equal((await exports.approveVerificationAction(form)).ok, true, 'N/A must not block separate approval');
+Object.assign(row, { status: 'in_progress', approved_by: null });
+incomplete.set('check:food_safety', 'no');
+assert.equal((await exports.updateVerificationChecklistAction(incomplete)).ok, true);
+assert.equal((await exports.approveVerificationAction(form)).ok, false, 'Food safety remains required even with optional HACCP');
 Object.assign(row, { status: 'in_progress', approved_by: null });
 incomplete.set('tax_number', '12-34');
 assert.match((await exports.updateVerificationChecklistAction(incomplete)).message, /chỉ được nhập chữ số/);

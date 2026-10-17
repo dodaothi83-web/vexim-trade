@@ -17,7 +17,7 @@ export function auditItems(level: VerificationLevel) {
   return level === 1 ? L1_DOC_ITEMS : level === 2 ? L2_VISIT_ITEMS : DELIVERY_ITEMS;
 }
 
-/** Five required L1 items (three document checks + two numeric inputs); last two optional. */
+/** Four required L1 items (two document checks + two numeric inputs); HACCP and last two are optional. */
 export function requiredAuditItems(level: VerificationLevel) {
   return level === 1 ? L1_DOC_ITEMS.filter((item) => item.required) : auditItems(level);
 }
