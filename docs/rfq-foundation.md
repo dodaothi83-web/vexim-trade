@@ -45,8 +45,10 @@ Các giá trị cũ (`new/verifying/verified/paused`) được migrate sang `dra
 ## Quy tắc hiển thị công khai
 
 - Anonymous và trình duyệt chỉ đọc qua **view whitelist** (`v_public_suppliers`, `v_public_supplier_products`).
-  View tự động lọc `status='published'`; tự động ẩn FOB nếu `fob_publicly_visible=false` hoặc giá
-  quá 180 ngày chưa cập nhật; ẩn rating khi `rating_count < 3`.
+  View tự động lọc `status='published'`. `v_public_suppliers` không trả giá FOB chung (cột cũ luôn NULL);
+  giá chỉ lấy từ sản phẩm và bị ẩn nếu NCC chưa xác nhận quyền chia sẻ giá trong 180 ngày hoặc giá
+  sản phẩm đã hết hạn; ẩn rating khi `rating_count < 3`. Cần áp dụng migration
+  `20261017_product_only_reference_prices.sql` trên DB đã triển khai để thay đổi whitelist views.
 - Back-office tiếp tục đọc trực tiếp bảng `suppliers/supplier_products` bằng service_role.
 - Khi chưa đủ ≥ 10 hồ sơ published, cờ `PUBLIC_SITE_INDEXABLE=false` → middleware chèn
   `X-Robots-Tag: noindex` cho toàn bộ trang công khai; chỉ mở khi admin bật env này.
@@ -66,7 +68,7 @@ Các giá trị cũ (`new/verifying/verified/paused`) được migrate sang `dra
 | media.internal | ✓ | | ✓ | |
 | users.manage | ✓ | | | |
 
-Ràng buộc **4-eyes**: một đợt xác minh (verifications) chỉ được approved khi `approved_by ≠ inspector_id`.
+Quy tắc **4-eyes** là thiết kế ban đầu. Tạm thời cho phép admin tự duyệt bản kiểm đã nộp, nhưng vẫn ghi cả `inspector_id` và `approved_by`; xem `docs/verification-levels.md` và migration `20261017_temporary_self_verification_approval.sql`. Khi đủ nhân sự cần khôi phục lại ràng buộc hai người.
 Chỉ admin được chuyển `suppliers.status → published` hoặc `suspended`.
 
 ## Chống spam RFQ (GĐ 2)

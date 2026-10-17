@@ -60,12 +60,20 @@ export interface Supplier {
   markets: string | null;
   /** Tóm tắt ngành hàng chính – hồ sơ chi tiết nằm ở từng sản phẩm */
   products: string | null;
+  /** Danh mục NCC tự đề xuất lúc đăng ký, KHÔNG phải liên kết/ngành đã được Vexim xác nhận. */
+  requested_category_slugs?: string[];
+  requested_category_other?: string | null;
+  /** Đánh dấu lần staff chủ động chốt danh mục NCC; không đồng nghĩa công khai NCC. */
+  categories_reviewed_at?: string | null;
   tax_id: string | null;
   payment_terms: string | null;
   lead_time_days: number | null;
   rating: number | null;
   notes: string | null;
   status: SupplierStatus;
+  /** Quyền dùng cổng NCC; độc lập với status công khai và các kết quả xác minh. */
+  onboarding_status?: "not_started" | "pending" | "approved" | "changes_requested";
+  onboarding_note?: string | null;
   /** Năm thành lập */
   founded_year?: number | null;
   /** Số nhân sự */
@@ -84,6 +92,10 @@ export interface Supplier {
   export_markets?: string[];
   /** Nhận làm nhãn riêng / OEM */
   private_label?: boolean;
+  /** Ảnh đại diện công khai (logo hoặc ảnh nhà máy), storage_path trong media hoặc URL công khai */
+  profile_image?: string | null;
+  /** Ảnh bìa trang chi tiết NCC */
+  cover_image?: string | null;
   /** Cấp xác minh 0–3, 0 = chưa xác minh */
   verification_level?: number;
   verified_at?: string | null;
@@ -91,14 +103,21 @@ export interface Supplier {
   /** Điểm đánh giá trung bình (chỉ hiện khi có ≥ 3 đánh giá) */
   rating_avg?: number | null;
   rating_count?: number;
-  /** Giá FOB tham khảo theo range */
+  /** Giá FOB chung cũ: chỉ lưu tương thích, không nhập/hiển thị công khai nữa. */
   fob_min?: number | null;
   fob_max?: number | null;
   fob_unit?: string | null;
   fob_currency?: string | null;
+  /** Lần NCC xác nhận quyền chia sẻ giá từng sản phẩm, không phải ngày cập nhật giá. */
   fob_updated_at?: string | null;
-  /** Đã có sự chấp thuận bằng văn bản của seller để công khai FOB */
+  /** NCC đã chấp thuận bằng văn bản để công khai giá từng sản phẩm. */
   fob_publicly_visible?: boolean;
+  /**
+   * Hồ sơ demo dùng cho preview nội bộ / cho seller xem tại sự kiện.
+   * Luôn được lọc khỏi public list trừ khi VEXIM_SHOW_DEMO=true hoặc staff đăng nhập.
+   * Không dùng tên công ty thật, không xuất hiện trong sitemap/thống kê.
+   */
+  is_demo?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -115,6 +134,8 @@ export interface SupplierProduct {
   /** Nhóm ngành: Nông sản, Thủy sản, Gỗ... — giữ text để tương thích code cũ, ưu tiên qua categories */
   category: string | null;
   description: string | null;
+  /** Optional long-form buyer-facing product information (plain text, no HTML). */
+  description_detail?: string | null;
   spec: string | null;
   /** Thông số theo ngành (JSON linh hoạt) */
   specs?: Record<string, unknown>;
@@ -128,10 +149,16 @@ export interface SupplierProduct {
   packaging: string | null;
   /** Nhận làm nhãn riêng */
   oem: boolean;
+  /** Thiết kế và sản xuất theo yêu cầu; NCC tự khai, không phải xác minh. */
+  odm?: boolean;
   certifications: string | null;
   export_port: string | null;
-  /** Giá tham khảo – KHÔNG tự gửi cho buyer như báo giá chính thức */
+  /** Giá tham khảo từ (hoặc giá đơn nếu không có giá đến) – không phải báo giá RFQ. */
   ref_price: number | null;
+  /** Giá tham khảo đến, tùy chọn; chỉ công khai cùng giá từ hợp lệ và consent. */
+  ref_price_max?: number | null;
+  /** Explicit per-product opt-in, separate from time-limited supplier consent. */
+  price_publicly_visible?: boolean;
   currency: string | null;
   price_valid_until: string | null;
   incoterm: string | null;
@@ -145,6 +172,17 @@ export interface SupplierProduct {
    * hoặc catalogue chia sẻ được cho buyer (xem lib/media/readiness.ts).
    */
   ready_for_buyer: boolean;
+  /** Supplier-authored changes require a separate Vexim decision; distinct from buyer-ready/publication. */
+  supplier_review_status?: "draft" | "pending" | "approved" | "changes_requested";
+  supplier_review_note?: string | null;
+  /** Bản do NCC tạo/sửa: luôn cần danh mục staff xác nhận để được công khai. Legacy/staff cũ = false. */
+  supplier_originated?: boolean;
+  /** Danh mục NCC đề xuất, không được dùng trực tiếp để phân loại public. */
+  supplier_category_proposal?: string | null;
+  /** Danh mục staff chọn khi duyệt; ưu tiên hơn suy đoán tên khi xuất bản. */
+  reviewed_category_slug?: string | null;
+  /** Staff-selected buyer-shareable product image; null means first eligible image. */
+  featured_media_id?: string | null;
   /** Mảng media_assets.id cho ảnh sản phẩm */
   images?: string[];
   created_at: string;
@@ -161,14 +199,79 @@ export interface Category {
   parent_id: string | null;
   name_i18n: I18nString;
   intro_i18n: I18nString;
+  /** Hero H1 override — nếu để trống thì dùng "{Name} suppliers in Vietnam". */
+  h1_i18n?: I18nString | null;
+  /** Khối mô tả dài, đặt sau danh sách NCC (hoặc sau form lead khi chưa có NCC). */
+  body_i18n?: I18nString | null;
+  /** Các cột bảng thông số (xem CategoryColumn). Bảng hiển thị khi có ≥1 cột. */
+  spec_columns?: CategoryColumn[];
+  /** Các hàng trong bảng thông số. */
+  spec_rows?: CategoryRow[];
+  /** Các mục trong khối "thông tin mua hàng" (xem CategoryFact). */
+  buying_facts?: CategoryFact[];
+  /** FAQ — tự render thành accordion và tự sinh schema FAQPage JSON-LD. */
   faq_i18n: { q: string; a: string }[] | I18nString[] | unknown[];
+  /** Mẫu thuộc tính lọc (verification, type, FOB, grade chips, certifications). */
+  filters?: CategoryFilter[];
   seo_title_i18n: I18nString;
   seo_desc_i18n: I18nString;
+  /** Ảnh hero cho trang public + thẻ trang chủ. Đường dẫn trong kho public media (/public-media/categories/xxx.jpg). */
+  hero_image?: string | null;
+  /** Alt text cho ảnh hero (cho SEO + screen readers). */
+  hero_alt_i18n?: I18nString | null;
+  /** Kicker/hàng phụ hiển thị dưới ảnh trên thẻ trang chủ. */
+  homepage_kicker_i18n?: I18nString | null;
+  /** Hiện thẻ category này ở khối "What we source" trang chủ. */
+  active_on_homepage?: boolean;
+  /**
+   * Cờ "đã có hồ sơ NCC công khai" — được tính khi load DB (từ suppliers[]).
+   * Giữ lại để các thành phần cũ (thẻ trang chủ) không phải query riêng.
+   */
+  public_page_ready?: boolean;
+  /** Trạng thái biên tập: draft | published. published mới hiện cho buyer. */
+  status?: "draft" | "published";
+  /** Cho Google index trang này. Mặc định false trong giai đoạn đầu. */
+  seo_indexable?: boolean;
+  /** Slug cũ dùng để tự 301 redirect (khi đổi slug). */
+  previous_slugs?: string[];
+  /** ID người tạo / cập nhật cuối (cho audit). */
+  created_by?: string | null;
+  updated_by?: string | null;
   is_published: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
 }
+
+/** Một cột trong bảng thông số (grade reference). */
+export interface CategoryColumn {
+  key: string;          // khóa duy nhất không đổi
+  label: string;        // tiêu đề cột
+  width?: string;       // class Tailwind (vd: "w-20")
+  emphasis?: boolean;   // in đậm (dùng cho mã grade như W240)
+}
+
+/** Một hàng trong bảng thông số. values map theo column.key; supports [placeholders]. */
+export interface CategoryRow {
+  key: string;
+  values: Record<string, string>;
+}
+
+/** Một mục trong khối "Buying from X" (icon + label + paragraph). */
+export interface CategoryFact {
+  key: string;
+  icon: "scale" | "package" | "ship" | "anchor" | "calendar" | "users" | "shield" | "tag" | "factory" | "check";
+  label: string;
+  value: string;
+}
+
+/** Một chip/bộ lọc trên đầu trang (hiện tại chips grade cho cashew). */
+export interface CategoryFilter {
+  key: string;           // vd: "grade"
+  label: string;         // "Grades"
+  options: { value: string; label: string }[];
+}
+
 
 export interface SupplierCategory {
   supplier_id: string;
@@ -180,6 +283,14 @@ export interface SupplierCategory {
 export type CertificateCheckStatus = "on_file" | "original_seen" | "checked_with_issuer";
 
 export interface Certificate {
+  /** Dedicated review/publication flow, independent of supplier document checks. */
+  holder_name?: string | null;
+  scope_text?: string | null;
+  requested_product_ids?: string[];
+  approved_product_ids?: string[];
+  review_status?: "unreviewed" | "pending" | "changes_requested" | "approved" | "rejected";
+  review_note?: string | null;
+  publicly_visible?: boolean;
   id: string;
   supplier_id: string;
   name: string;
@@ -197,16 +308,87 @@ export interface Certificate {
 
 export type VerificationStatus = "scheduled" | "in_progress" | "submitted" | "approved" | "returned";
 
+export type VerificationLevel = 1 | 2 | 3;
+
+/** Các hạng mục checklist L1 — giấy tờ doanh nghiệp & an toàn thực phẩm */
+export const L1_DOC_ITEMS = [
+  { key: "business_license", label: "Đăng ký doanh nghiệp", required: true },
+  { key: "tax_certificate", label: "Mã số thuế", required: true },
+  { key: "bank_letter", label: "Số tài khoản ngân hàng", required: true },
+  { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm (nếu có)", required: false },
+  { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000 (nếu có)", required: false },
+  { key: "product_certs", label: "Chứng chỉ sản phẩm đã công bố", required: false },
+  { key: "export_license", label: "Giấy phép xuất khẩu (nếu áp dụng)", required: false }
+] as const;
+
+/** Checklist L2 — thăm nhà máy */
+export const L2_VISIT_ITEMS = [
+  { key: "factory_address_confirmed", label: "Đối chiếu địa chỉ và GPS tại cơ sở" },
+  { key: "production_line_seen", label: "Quan sát dây chuyền sản xuất" },
+  { key: "warehouse_seen", label: "Kiểm tra kho thành phẩm" },
+  { key: "qc_lab_seen", label: "Kiểm tra thiết bị kiểm soát chất lượng" },
+  { key: "documents_original", label: "Đối chiếu chứng chỉ gốc với bản tải lên" },
+  { key: "capacity_verified", label: "Đối chiếu công suất với máy móc và nhân sự" },
+  { key: "worker_interview", label: "Trao đổi với công nhân / nhân viên QC" },
+  { key: "management_interview", label: "Trao đổi với quản lý về tiến độ và MOQ" },
+  { key: "photos_taken", label: "Ảnh hiện trường: cổng, dây chuyền, kho" }
+] as const;
+
+export const DELIVERY_ITEMS = [
+  { key: "order_matched", label: "Đối chiếu mã đơn hàng thực tế của Vexim" },
+  { key: "shipping_proof", label: "Đối chiếu vận đơn / chứng từ xuất hàng" },
+  { key: "delivery_proof", label: "Đối chiếu xác nhận giao nhận hoàn tất" },
+] as const;
+
+export type L1DocKey = typeof L1_DOC_ITEMS[number]["key"];
+export type L2VisitKey = typeof L2_VISIT_ITEMS[number]["key"];
+export type DeliveryKey = typeof DELIVERY_ITEMS[number]["key"];
+export type AuditEvidenceKey = L1DocKey | L2VisitKey | DeliveryKey;
+
+/** Yêu cầu Vexim liên hệ để kiểm tra nhà máy / lịch sử giao hàng; không phải kết quả xác minh. */
+export interface SupplierVerificationRequest {
+  supplier_id: string;
+  target_level: 2 | 3;
+  status: "requested" | "contacted";
+  requested_at: string;
+  contacted_at: string | null;
+  contacted_by: string | null;
+}
+
 export interface Verification {
   id: string;
   supplier_id: string;
-  target_level: number;
+  target_level: VerificationLevel;
   status: VerificationStatus;
   inspector_id: string | null;
+  /** L1: ngày nhận đủ tài liệu; L2: ngày thăm nhà máy */
   visit_date: string | null;
-  checklist: unknown[];
+  /** GPS latitude khi thăm nhà máy (L2) */
+  visit_lat: number | null;
+  /** GPS longitude khi thăm nhà máy (L2) */
+  visit_lng: number | null;
+  /** Địa chỉ ghi nhận lúc thăm nhà máy */
+  visit_address: string | null;
+  /** Một lần kiểm lịch sử giao hàng phải gắn với một lô hàng đã hoàn tất. */
+  shipment_ref: string | null;
+  shipped_on: string | null;
+  shipment_destination: string | null;
+  /** Checklist kết quả — null = chưa kiểm; not_applicable chỉ dành cho mục tùy chọn. */
+  checklist: Record<string, boolean | null | "not_applicable">;
+  /** Ghi chú từng mục (key → text) */
+  checklist_notes: Record<string, string | null>;
+  /** Số được nhập thủ công, nội bộ; giữ dạng chuỗi để không mất số 0 đầu. Không phải kết quả xác minh tự động. */
+  tax_number?: string | null;
+  bank_account_number?: string | null;
+  /** Lý do trả hồ sơ (khi status=returned) */
+  return_reason: string | null;
+  /** Bản tóm tắt do người có quyền duyệt soạn; chỉ công khai khi được duyệt riêng. */
   public_summary_i18n: I18nString;
+  public_summary_published_at?: string | null;
+  public_summary_published_by?: string | null;
+  /** Ghi chú nội bộ */
   internal_notes: string | null;
+  /** Người duyệt (chỉ admin) */
   approved_by: string | null;
   approved_at: string | null;
   created_at: string;
@@ -216,15 +398,15 @@ export interface Verification {
 /* ----------------------------- RFQs --------------------------------------- */
 
 export type RfqStatus =
-  | "new"
-  | "qualified"
-  | "matching"
-  | "quoting"
-  | "sampling"
-  | "won"
-  | "lost"
-  | "spam"
-  | "closed";
+  | "new"             // vừa vào hộp, chưa chạm
+  | "needs_review"    // cần kiểm tra / qualify thêm (thiếu thông tin, cần hỏi lại buyer)
+  | "in_progress"     // đang xử lý, chưa đủ NCC để báo giá
+  | "matching"        // đang chọn NCC phù hợp để ghép
+  | "quoted"          // đã gửi báo giá cho buyer
+  | "sampling"        // đang gửi/nhận mẫu
+  | "won"             // chốt đơn
+  | "lost"            // không đi tiếp — BẮT BUỘC có lost_reason
+  | "spam";           // spam/không nghiêm túc, loại ra khỏi hộp chính
 
 export type RfqMatchStatus =
   | "proposed"
@@ -275,8 +457,13 @@ export interface Rfq {
   status: RfqStatus;
   assigned_to: string | null;
   first_response_at: string | null;
+  /** Lý do mất đơn — BẮT BUỘC khi status === "lost". Danh sách gợi ý: price, moq, lead_time, spec, certification, no_response, other */
+  lost_reason: string | null;
+  /** Ghi chú thêm khi đóng/thua đơn. */
   closed_reason: string | null;
   access_token: string;
+  /** Canonical product detail which opened the RFQ; null for generic / legacy RFQs. */
+  source_product_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -287,6 +474,10 @@ export interface RfqMatch {
   supplier_id: string;
   status: RfqMatchStatus;
   sent_to_supplier_at: string | null;
+  /** Actual outreach deadline, never inferred from RFQ creation time. */
+  response_due_at?: string | null;
+  /** First matched supplier reply from verified Resend inbound; not a quote by itself. */
+  supplier_replied_at?: string | null;
   quote_price: number | null;
   quote_currency: string | null;
   quote_unit: string | null;
@@ -298,6 +489,20 @@ export interface RfqMatch {
   internal_note: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Server-side projection: scoped match joined only to non-sensitive RFQ fields (never buyers/access tokens). */
+export type SupplierRfqInvitation = Pick<RfqMatch,
+  "id" | "rfq_id" | "supplier_id" | "status" | "sent_to_supplier_at" | "response_due_at" | "supplier_replied_at" |
+  "quote_price" | "quote_currency" | "quote_unit" | "created_at" | "updated_at"> & {
+  rfq: Pick<Rfq, "code" | "product_text" | "quantity" | "unit" | "destination_country" |
+    "incoterm" | "needed_by" | "source_product_id">;
+};
+
+export interface SupplierNoticeRead {
+  supplier_id: string;
+  notice_key: string;
+  read_at: string;
 }
 
 export interface Introduction {
@@ -333,7 +538,7 @@ export type BuyerConsent = {
 
 /* --------------------------------- MEDIA --------------------------------- */
 
-export type MediaOwnerType = "product" | "supplier";
+export type MediaOwnerType = "product" | "supplier" | "verification";
 
 /**
  * image       – ảnh sản phẩm / ảnh nhà máy, chia sẻ được cho buyer
@@ -355,6 +560,10 @@ export interface MediaAsset {
   owner_type: MediaOwnerType;
   product_id: string | null;
   supplier_id: string | null;
+  /** Khi owner_type === "verification" — ảnh/giấy tờ đính kèm cho một lần xác minh cụ thể */
+  verification_id?: string | null;
+  /** Mục bảng kiểm giấy tờ gắn với tệp; null cho bằng chứng chung/tệp cũ. */
+  checklist_key?: AuditEvidenceKey | null;
   kind: MediaKind;
   audience: MediaAudience;
   status: MediaStatus;
@@ -445,7 +654,7 @@ export interface Activity {
   created_at: string;
 }
 
-export type MessageKind = "auto" | "manual" | "inbound";
+export type MessageKind = "auto" | "manual" | "inbound" | "rfq_outreach" | "rfq_followup" | "shortlist_buyer" | "buyer_status_update";
 export type MessageStatus = "draft" | "sent" | "failed" | "simulated" | "received";
 export type MessageDirection = "buyer" | "supplier";
 
@@ -487,6 +696,10 @@ export interface EmailMessage {
   supplier_id: string | null;
   /** Contact prospect cold (nếu thư được gửi/nhận trước khi có Buyer thật). */
   prospect_id?: string | null;
+  /** Liên kết với RFQ (để hiện timeline ở trang chi tiết RFQ). */
+  rfq_id?: string | null;
+  /** Liên kết với 1 RfqMatch cụ thể (thư cho NCC / hồi âm của NCC). */
+  rfq_match_id?: string | null;
   kind: MessageKind;
   /** chỉ có với email tự động theo giai đoạn */
   stage: string | null;
@@ -608,7 +821,7 @@ export interface ProspectActivity {
 
 /* ------------------------------- NGƯỜI DÙNG ------------------------------ */
 
-export type UserRole = "admin" | "sale" | "sourcing" | "viewer";
+export type UserRole = "admin" | "sale" | "sourcing" | "viewer" | "supplier";
 
 /** Cách tài khoản được xác thực */
 export type AuthProvider = "supabase" | "local";
@@ -618,6 +831,8 @@ export interface AppUser {
   email: string;
   name: string | null;
   role: UserRole;
+  /** Chỉ tài khoản doanh nghiệp được liên kết hồ sơ NCC này. */
+  supplier_id?: string | null;
   /** Tài khoản được tạo bên Supabase Auth (đăng nhập qua Supabase khi có mạng) */
   auth_provider: AuthProvider;
   /** Có mật khẩu nội bộ (dùng khi không kết nối được Supabase) */

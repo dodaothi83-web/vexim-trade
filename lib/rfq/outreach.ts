@@ -11,10 +11,14 @@
  */
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { transport } from "@/lib/email/send";
-import { FROM_ADDRESS, MAIL_DOMAIN, COMPANY } from "@/lib/config";
+import { FROM_ADDRESS, COMPANY } from "@/lib/config";
 import { SITE_URL } from "@/lib/site";
 import { getStore } from "@/lib/db";
-import type { Buyer, Rfq, RfqMatch, Supplier } from "@/lib/types";
+import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { requireRfqStaffSender } from "@/lib/rfq/staff-sender";
+import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
+import { buyerReplyAddress, supplierReplyAddress } from "@/lib/rfq/reply-routing";
+import type { Buyer, EmailMessage, Rfq, RfqMatch, Supplier } from "@/lib/types";
 
 function rfqCode(rfq: Rfq) {
   return rfq.code;
@@ -26,11 +30,6 @@ function shortQty(rfq: Rfq) {
 
 function shortIncoterm(rfq: Rfq) {
   return rfq.incoterm ?? "FOB (thảo luận)";
-}
-
-function supplierReplyTo(rfq: Rfq): string {
-  // Hộp thư chức năng nhận hồi âm từ NCC — trả lời đúng mạch RFQ.
-  return `rfq+${rfq.code.toLowerCase()}@${MAIL_DOMAIN}`;
 }
 
 function fmtDateTime(iso?: string | null) {
@@ -48,6 +47,8 @@ export function buildRfqSupplierEmail(input: {
   deadline: Date;
 }) {
   const { rfq, supplier, deadline } = input;
+  // RFQ text is buyer-entered; suppress direct contacts before any supplier email.
+  const productLabel = withoutDirectContacts(rfq.product_text).slice(0, 150);
   const deadlineStr = deadline.toLocaleDateString("vi-VN", {
     weekday: "long",
     day: "2-digit",
@@ -71,7 +72,7 @@ export function buildRfqSupplierEmail(input: {
 
     <table cellpadding="8" style="border-collapse:collapse;margin-top:10px;font-size:14px;">
       <tr><td style="color:#64748b;width:170px;">Mã yêu cầu</td><td><strong>${escapeHtml(rfq.code)}</strong></td></tr>
-      <tr><td style="color:#64748b;">Mặt hàng</td><td><strong>${escapeHtml(rfq.product_text)}</strong></td></tr>
+      <tr><td style="color:#64748b;">Mặt hàng</td><td><strong>${escapeHtml(productLabel)}</strong></td></tr>
       <tr><td style="color:#64748b;">Số lượng dự kiến</td><td>${escapeHtml(shortQty(rfq))}${rfq.frequency ? ` / ${escapeHtml(rfq.frequency)}` : ""}</td></tr>
       <tr><td style="color:#64748b;">Điều kiện giao</td><td>${escapeHtml(shortIncoterm(rfq))}</td></tr>
       <tr><td style="color:#64748b;">Ngày giao mong muốn</td><td>${escapeHtml(rfq.needed_by ?? "Thương lượng")}</td></tr>
@@ -79,11 +80,6 @@ export function buildRfqSupplierEmail(input: {
           <td>${rfq.target_price ? `${rfq.target_price} ${escapeHtml(rfq.target_price_currency ?? "")}` : "Chưa công khai — vui lòng chào giá tốt nhất"}</td></tr>
     </table>
 
-    ${String((rfq.specs as Record<string, unknown>)?.notes ?? "") ? `
-      <p style="margin-top:14px;"><strong>Ghi chú bổ sung từ buyer:</strong></p>
-      <div style="background:#f8fafc;border-left:3px solid #cbd5e1;padding:10px 14px;border-radius:6px;color:#334155;font-size:13.5px;">
-        ${escapeHtml(String((rfq.specs as Record<string, unknown>)?.notes))}
-      </div>` : ""}
 
     <div style="margin-top:18px;background:#fffbeb;border-left:4px solid #d97706;border-radius:8px;padding:12px 16px;">
       <div style="font-size:11px;font-weight:800;color:#d97706;letter-spacing:.6px;">VIỆC CẦN LÀM — HẠN ${escapeHtml(deadlineStr)}</div>
@@ -105,10 +101,10 @@ export function buildRfqSupplierEmail(input: {
     <p>Trân trọng,<br/>Phòng Xuất khẩu · ${escapeHtml(COMPANY.name)}</p>
   `;
 
-  const subject = `[${rfq.code}] Yêu cầu báo giá — ${escapeHtml(rfq.product_text)}`;
+  const subject = `[${rfq.code}] Yêu cầu báo giá — ${escapeHtml(productLabel)}`;
   return {
     subject,
-    html: wrapPlainEmail({ title, body, preheader: `Mời Anh/Chị chào giá cho đơn ${escapeHtml(rfq.product_text)} — hạn ${deadlineStr}` }),
+    html: wrapPlainEmail({ title, body, preheader: `Mời Anh/Chị chào giá cho đơn ${escapeHtml(productLabel)} — hạn ${deadlineStr}` }),
     text: stripHtml(body),
   };
 }
@@ -138,7 +134,6 @@ export function buildRfqShortlistBuyerEmail(input: {
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(price)}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(incoterm)}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(lead)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12.5px;color:#475569;">${escapeHtml(m.internal_note ?? "—")}</td>
     </tr>`;
   }).join("");
 
@@ -155,7 +150,6 @@ export function buildRfqShortlistBuyerEmail(input: {
           <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Giá</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">ĐK giao</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Lead time</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Ghi chú Vexim</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -206,12 +200,19 @@ export async function dispatchRfqToSuppliers(input: {
   rfqId: string;
   matchIds: string[];
   deadlineDays?: number;
+  actorId: string;
 }): Promise<{ sent: number; skipped: number }> {
   const store = getStore();
   const rfq = await store.getRfq(input.rfqId);
   if (!rfq) throw new Error("RFQ not found");
   const matches = await store.listRfqMatches(rfq.id);
   const supplierIds = new Set(matches.filter((m) => input.matchIds.includes(m.id)).map((m) => m.supplier_id));
+  // Verify the dashboard migration before sending any email, so an invitation is never sent
+  // without a durable response deadline / supplier-facing record.
+  if (supplierIds.size) await Promise.all([
+    store.listSupplierRfqInvitations([...supplierIds][0]), store.listSupplierNoticeReads([...supplierIds][0]),
+  ]);
+  const sender = supplierIds.size ? await requireRfqStaffSender(input.actorId) : null;
   const suppliers = (await store.listSuppliers()).filter((s) => supplierIds.has(s.id));
   const supMap = new Map(suppliers.map((s) => [s.id, s]));
   const deadline = new Date();
@@ -221,16 +222,18 @@ export async function dispatchRfqToSuppliers(input: {
   let skipped = 0;
   for (const m of matches) {
     if (!input.matchIds.includes(m.id)) continue;
+    // Initial invitations are one-shot; follow-ups have a separate staff action.
+    if (m.sent_to_supplier_at || m.status !== "proposed") { skipped++; continue; }
     const sup = supMap.get(m.supplier_id);
-    if (!sup || !sup.email) {
+    if (!sup || !sup.email || !(await canInviteSupplier(sup, store))) {
       skipped += 1;
       continue;
     }
     const email = buildRfqSupplierEmail({ rfq, supplier: sup, deadline });
-    await transport({
+    const delivery = await transport({
       to: [sup.email],
-      from: FROM_ADDRESS,
-      replyTo: supplierReplyTo(rfq),
+      from: sender!.header,
+      replyTo: supplierReplyAddress(rfq.code, m.id),
       subject: email.subject,
       html: email.html,
       text: email.text,
@@ -240,16 +243,46 @@ export async function dispatchRfqToSuppliers(input: {
         "X-Vexim-Anonymous": "1",
       },
     });
+    if (!delivery.ok || delivery.status !== "sent") {
+      console.error(`[rfq] gửi NCC ${sup.id} thất bại: ${delivery.error || (delivery.status === "simulated" ? "email chỉ được mô phỏng" : "chưa được Resend nhận")}`);
+      skipped += 1;
+      continue;
+    }
     await store.updateRfqMatch(m.id, {
       status: "sent_to_supplier",
       sent_to_supplier_at: new Date().toISOString(),
+      response_due_at: deadline.toISOString(),
     });
+    // Ghi vào timeline thư đi
+    await store.addMessage({
+      buyer_id: null,
+      supplier_id: sup.id,
+      rfq_id: rfq.id,
+      rfq_match_id: m.id,
+      kind: "rfq_outreach",
+      stage: null,
+      direction: "supplier",
+      thread_id: `rfq-${rfq.id}-match-${m.id}`,
+      subject: email.subject,
+      to_emails: [sup.email],
+      cc_emails: [],
+      bcc_emails: [],
+      body_html: email.html,
+      body_text: email.text,
+      attachments: [],
+      rfc_message_id: null,
+      read_at: null,
+      status: delivery.status,
+      provider: delivery.provider,
+      error: null,
+      created_by: input.actorId,
+    } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
     sent += 1;
   }
 
-  // Đẩy RFQ sang quoting nếu có ít nhất 1 NCC được gửi
-  if (sent > 0 && !["quoting", "sampling", "won", "lost", "closed"].includes(rfq.status)) {
-    await store.updateRfq(rfq.id, { status: "quoting" });
+  // Đẩy RFQ sang matching nếu có ít nhất 1 NCC được gửi
+  if (sent > 0 && !["matching", "quoted", "sampling", "won", "lost", "spam"].includes(rfq.status)) {
+    await store.updateRfq(rfq.id, { status: "matching" });
   }
   return { sent, skipped };
 }
@@ -277,22 +310,51 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
     .filter((x): x is RfqMatch & { supplier: Supplier } => !!x);
 
   const email = buildRfqShortlistBuyerEmail({ rfq, buyer, matches: matchesWithSup });
-  await transport({
+  const delivery = await transport({
     to: [buyer.email],
     cc: buyer.cc_emails ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean) : undefined,
+    from: FROM_ADDRESS,
+    replyTo: buyerReplyAddress(rfq.code),
     subject: email.subject,
     html: email.html,
     text: email.text,
     headers: { "X-RFQ-Code": rfq.code },
   });
+  // A simulated message is not a delivered shortlist; never advance match/RFQ status on it.
+  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được shortlist buyer: ${delivery.error ?? "Resend chưa gửi thật"}`);
 
   // Đánh dấu các match đã trình buyer
   for (const m of quoted) {
     await store.updateRfqMatch(m.id, { status: "presented_to_buyer", sent_to_buyer_at: new Date().toISOString() });
   }
-  // Ghi nhận thời điểm trả lời đầu tiên (dùng cho SLA)
+  // Ghi timeline email shortlist
+  const toEmails = [buyer.email, ...(buyer.cc_emails ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean) : [])];
+  await store.addMessage({
+    buyer_id: buyer.id,
+    supplier_id: null,
+    rfq_id: rfq.id,
+    rfq_match_id: null,
+    kind: "shortlist_buyer",
+    stage: null,
+    direction: "buyer",
+    thread_id: `rfq-${rfq.id}-buyer`,
+    subject: email.subject,
+    to_emails: toEmails as string[],
+    cc_emails: [],
+    bcc_emails: [],
+    body_html: email.html,
+    body_text: email.text,
+    attachments: [],
+    rfc_message_id: null,
+    read_at: null,
+    status: delivery.status,
+    provider: delivery.provider,
+    error: null,
+    created_by: null,
+  } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
+  // Ghi nhận thời điểm trả lời đầu tiên (dùng cho SLA) và chuyển sang quoted
   await store.updateRfq(rfq.id, {
-    status: "quoting",
+    status: "quoted",
     first_response_at: rfq.first_response_at ?? new Date().toISOString(),
   });
   return { sent: true, quotedCount: quoted.length };

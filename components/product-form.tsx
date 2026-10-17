@@ -1,12 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { Loader2, Save } from "lucide-react";
 
 import { createProductAction, updateProductAction } from "@/app/actions";
-import { PRODUCT_CATEGORIES } from "@/lib/supplier";
-import type { Supplier, SupplierProduct } from "@/lib/types";
+import type { Category, Supplier, SupplierProduct } from "@/lib/types";
+import { assignProductCategory } from "@/lib/public/category-assignment";
+import { isTestOnlyProduct, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { Button, Field, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
@@ -20,6 +22,7 @@ function init(p?: SupplierProduct | null): FormState {
     name: p?.name ?? "",
     category: p?.category ?? "",
     description: p?.description ?? "",
+    description_detail: p?.description_detail ?? "",
     spec: p?.spec ?? "",
     unit: p?.unit ?? "MT",
     moq: p?.moq ?? "",
@@ -27,11 +30,14 @@ function init(p?: SupplierProduct | null): FormState {
     lead_time_days: p?.lead_time_days ?? "",
     packaging: p?.packaging ?? "",
     oem: p?.oem ?? false,
-    samples: p?.samples ?? true,
+    odm: p?.odm ?? false,
+    samples: p?.samples ?? false,
     ready_for_buyer: p?.ready_for_buyer ?? false,
     certifications: p?.certifications ?? "",
     export_port: p?.export_port ?? "",
     ref_price: p?.ref_price ?? "",
+    ref_price_max: p?.ref_price_max ?? "",
+    price_publicly_visible: p?.price_publicly_visible ?? false,
     currency: p?.currency ?? "USD",
     price_valid_until: p?.price_valid_until ?? "",
     incoterm: p?.incoterm ?? "FOB",
@@ -43,12 +49,19 @@ function init(p?: SupplierProduct | null): FormState {
 export function ProductForm({
   supplier,
   product,
+  categories,
+  supplierCategories = [],
   mediaState,
+  savedPrice,
 }: {
   supplier: Supplier;
   product?: SupplierProduct | null;
+  categories: Pick<Category, "id" | "slug" | "name_i18n">[];
+  supplierCategories?: string[];
   /** Trạng thái hình ảnh/tài liệu — có thì mới hiện công tắc "Sẵn sàng gửi buyer" */
   mediaState?: { ready: boolean; shareable: number };
+  /** Server projection of the SAVED product, never inferred from unsaved checkbox edits. */
+  savedPrice?: { buyerPrice: string | null; blockers: string[]; publicProduct: boolean };
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -58,6 +71,9 @@ export function ProductForm({
   const set = (k: string, v: string | number | boolean) => setForm((f) => ({ ...f, [k]: v }));
   const v = (k: string) => String(form[k] ?? "");
   const dirty = product ? JSON.stringify(init(product)) !== JSON.stringify(form) : false;
+  const assignedCategory = assignProductCategory({
+    name: v("name"), spec: v("spec"), description: v("description"), category: product?.category ?? null,
+  }, categories, supplierCategories);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -68,16 +84,21 @@ export function ProductForm({
     setBusy(true);
     const payload = {
       ...form,
+      category: assignedCategory?.slug ?? null,
       supplier_id: supplier.id,
       lead_time_days: v("lead_time_days") ? Number(v("lead_time_days")) : null,
       ref_price: v("ref_price") ? Number(v("ref_price")) : null,
+      ref_price_max: v("ref_price_max") ? Number(v("ref_price_max")) : null,
     };
     try {
       const res = product
         ? await updateProductAction(product.id, payload)
         : await createProductAction(payload);
       toast.push({ kind: res.ok ? "success" : "error", title: res.message });
-      if (res.ok) router.push(`/crm/suppliers/${supplier.id}`);
+      if (res.ok) {
+        if (!product && res.id) router.push(`/crm/products/${res.id}/edit`);
+        else router.refresh(); // Stay here and show the persisted public-price diagnostics.
+      }
     } catch (err) {
       toast.push({ kind: "error", title: "Lỗi khi lưu", lines: [err instanceof Error ? err.message : String(err)] });
     } finally {
@@ -93,7 +114,7 @@ export function ProductForm({
           Nhà cung cấp: <strong className="text-ink-800">{supplier.name}</strong>
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Tên sản phẩm" required className="sm:col-span-2">
+          <Field label="Tên sản phẩm" required className="sm:col-span-2 lg:col-span-3">
             <input
               className="input"
               value={v("name")}
@@ -102,16 +123,7 @@ export function ProductForm({
               autoFocus
             />
           </Field>
-          <Field label="Nhóm ngành">
-            <select className="input" value={v("category")} onChange={(e) => set("category", e.target.value)}>
-              <option value="">— Chọn nhóm —</option>
-              {PRODUCT_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {isTestOnlyProduct(v("name")) && <p className="text-xs font-semibold text-amber-800 sm:col-span-2 lg:col-span-3">Tên bắt đầu bằng TEST ONLY: sản phẩm sẽ không xuất hiện công khai.</p>}
           <Field label="Mô tả ngắn" className="sm:col-span-2 lg:col-span-3">
             <input
               className="input"
@@ -120,13 +132,9 @@ export function ProductForm({
               placeholder="VD: Gạo thơm xay xát trong ngày, đánh bóng nhẹ"
             />
           </Field>
-          <Field label="Đơn vị tính">
-            <input
-              className="input"
-              value={v("unit")}
-              onChange={(e) => set("unit", e.target.value)}
-              placeholder="MT / cont / bộ / thùng"
-            />
+          <Field label="Mô tả chi tiết" hint="Thông tin dài hiển thị dưới trang sản phẩm; văn bản thuần, xuống dòng tùy ý." className="sm:col-span-2 lg:col-span-3">
+            <textarea className="input min-h-40 resize-y" rows={7} maxLength={6000} value={v("description_detail")}
+              onChange={(e) => set("description_detail", e.target.value)} placeholder="Nguồn gốc, tính năng, ứng dụng, đóng gói, lưu ý sử dụng..." />
           </Field>
         </div>
       </section>
@@ -203,6 +211,9 @@ export function ProductForm({
               />
               Có thể gửi mẫu
             </label>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-[12.5px] font-semibold text-ink-700">
+              <input type="checkbox" className="h-4 w-4 accent-[#0f766e]" checked={Boolean(form.odm)} onChange={(e) => set("odm", e.target.checked)} /> Thiết kế & sản xuất theo yêu cầu / ODM
+            </label>
             {mediaState && (
               <label
                 className={cx(
@@ -231,7 +242,7 @@ export function ProductForm({
               </label>
             )}
           </div>
-          <Field label="Chứng nhận / tiêu chuẩn" className="sm:col-span-2 lg:col-span-3">
+          <Field label="Chứng nhận / tiêu chuẩn (tự khai; không tự tạo nhãn buyer)" hint="Nhãn chứng nhận chỉ lấy từ tệp NCC nộp, Vexim kiểm bản sao và quyết định công bố riêng tại hồ sơ NCC → Chứng nhận." className="sm:col-span-2 lg:col-span-3">
             <input
               className="input"
               value={v("certifications")}
@@ -244,20 +255,17 @@ export function ProductForm({
 
       <section className="card p-5">
         <h2 className="text-sm font-bold text-ink-900">3. Điều kiện thương mại tham khảo</h2>
-        <p className="mt-0.5 mb-4 text-xs text-ink-500">
-          Giá chỉ là <strong>tham khảo có thời hạn</strong> — báo giá chính thức phải do NCC xác nhận theo từng RFQ.
+        <p className="mt-0.5 mb-4 text-xs text-ink-600">
+          Quyền chia sẻ giá trong hồ sơ doanh nghiệp là sự đồng ý chung của NCC (hiệu lực 180 ngày). Giá chỉ hiện khi <strong>riêng sản phẩm này</strong> cũng được chọn, có giá hợp lệ và đủ điều kiện công bố; đây không phải báo giá RFQ.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Giá tham khảo">
-            <input
-              type="number"
-              min={0}
-              step={1}
-              className="input"
-              value={v("ref_price")}
-              onChange={(e) => set("ref_price", e.target.value)}
-              placeholder="620"
-            />
+          <Field label="Giá tham khảo từ">
+            <input type="number" min={0} step="0.01" className="input" value={v("ref_price")}
+              onChange={(e) => set("ref_price", e.target.value)} placeholder="620" />
+          </Field>
+          <Field label="Giá tham khảo đến" hint="Tùy chọn. Để trống nếu chỉ có một mức giá; không được thấp hơn giá từ.">
+            <input type="number" min={0} step="0.01" className="input" value={v("ref_price_max")}
+              onChange={(e) => set("ref_price_max", e.target.value)} placeholder="680" />
           </Field>
           <Field label="Tiền tệ">
             <select className="input" value={v("currency")} onChange={(e) => set("currency", e.target.value)}>
@@ -268,6 +276,9 @@ export function ProductForm({
               ))}
             </select>
           </Field>
+          <Field label="Đơn vị giá" hint="VD: MT, kg, thùng; giá buyer sẽ hiển thị theo đơn vị này.">
+            <input className="input" value={v("unit")} onChange={(e) => set("unit", e.target.value)} placeholder="MT / kg / thùng" />
+          </Field>
           <Field label="Giá hiệu lực đến">
             <input
               type="date"
@@ -276,6 +287,21 @@ export function ProductForm({
               onChange={(e) => set("price_valid_until", e.target.value)}
             />
           </Field>
+          <div className="sm:col-span-2 lg:col-span-3 rounded-lg border border-ink-200 bg-ink-50/60 p-3 text-sm">
+            <label className="flex items-start gap-2 font-semibold text-ink-800"><input type="checkbox" checked={form.price_publicly_visible === true}
+              onChange={(e) => set("price_publicly_visible", e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-brand-700" /> Hiển thị giá tham khảo của sản phẩm này cho buyer khi đủ điều kiện</label>
+            <p className="mt-1 text-xs text-ink-600">{supplierPriceConsentCurrent(supplier) ? "NCC đã đồng ý chia sẻ giá; vẫn cần chọn riêng từng sản phẩm." : "NCC chưa có quyền chia sẻ giá còn hiệu lực; tích ô này không thay thế sự đồng ý của NCC."} Thay đổi chỉ có hiệu lực sau khi lưu.</p>
+            {product && savedPrice && <div className={"mt-3 rounded-md px-3 py-2 text-xs " + (savedPrice.buyerPrice ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950")} role="status">
+              <p className="font-semibold">Giá buyer · bản đã lưu: {savedPrice.buyerPrice ? savedPrice.buyerPrice : savedPrice.publicProduct ? "On request" : "Sản phẩm chưa công khai"}</p>
+              {dirty && <p className="mt-1">Bạn đang sửa form; dòng trên vẫn là trạng thái đã lưu.</p>}
+              {!savedPrice.buyerPrice && <>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4">{savedPrice.blockers.map((reason) => <li key={reason}>{reason}</li>)}
+                  {!savedPrice.publicProduct && <li>Sản phẩm chưa đủ điều kiện công bố ở checklist phía trên (duyệt, danh mục, NCC, ảnh/catalogue hoặc buyer-ready).</li>}
+                </ul>
+                {savedPrice.blockers.some((reason) => reason.includes("NCC")) && <Link href={`/crm/suppliers/${supplier.id}/edit#price-sharing`} className="mt-2 inline-block font-semibold text-brand-700 underline">Kiểm tra quyền chia sẻ giá trong hồ sơ NCC →</Link>}
+              </>}
+            </div>}
+          </div>
           <Field label="Incoterm">
             <select className="input" value={v("incoterm")} onChange={(e) => set("incoterm", e.target.value)}>
               {INCOTERMS.map((t) => (

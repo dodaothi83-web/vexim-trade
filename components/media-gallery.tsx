@@ -16,12 +16,14 @@ export function MediaGallery({
   title,
   manageHref,
   emptyHint,
+  scopeHint,
   showInternal = true,
 }: {
   items: MediaAsset[];
   title: string;
   manageHref?: string;
   emptyHint?: string;
+  scopeHint?: string;
   /** Ẩn hoàn toàn tệp nội bộ với người không có quyền media.internal */
   showInternal?: boolean;
 }) {
@@ -46,6 +48,7 @@ export function MediaGallery({
           </Link>
         )}
       </div>
+      {scopeHint && <p className="border-b border-brand-100 bg-brand-50/60 px-4 py-3 text-[12.5px] leading-relaxed text-brand-900">{scopeHint}</p>}
 
       {visible.length === 0 ? (
         <p className="px-4 py-4 text-[12.5px] text-ink-500">

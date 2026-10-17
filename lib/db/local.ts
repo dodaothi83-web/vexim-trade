@@ -27,9 +27,11 @@ import type {
   Rfq,
   RfqAttachment,
   RfqMatch,
+  SupplierNoticeRead,
   Supplier,
   SupplierCategory,
   SupplierInput,
+  SupplierVerificationRequest,
   SupplierProduct,
   SupplierProductInput,
   TemplateOverride,
@@ -37,6 +39,12 @@ import type {
   Verification,
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
+import { DEMO_SUPPLIERS } from "@/lib/db/demo-suppliers";
+import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
+import {
+  CASHEW_CATEGORY_CONFIG,
+  DEFAULT_CATEGORY_CONFIG,
+} from "./category-seed";
 import type { DataStore } from "@/lib/db/types";
 
 interface LocalShape {
@@ -56,11 +64,13 @@ interface LocalShape {
   // RFQ FOUNDATION
   categories: Category[];
   supplier_categories: SupplierCategory[];
+  supplier_verification_requests: SupplierVerificationRequest[];
   certificates: Certificate[];
   verifications: Verification[];
   rfqs: Rfq[];
   rfq_attachments: RfqAttachment[];
   rfq_matches: RfqMatch[];
+  supplier_portal_notice_reads?: SupplierNoticeRead[];
   introductions: Introduction[];
   audit_log: AuditLogEntry[];
 }
@@ -196,51 +206,74 @@ function seed(): LocalShape {
     } satisfies SupplierProduct;
   });
 
-  // Seed category "Cashew" ở local để trang công khai có thể render ở môi trường dev
-  type CatSeed = { slug: string; nameEn: string; introEn: string; seoEn: string; order: number; parent?: string };
+  // Seed categories ở local để trang công khai render trong dev — nội dung chi tiết
+  // (spec/buying facts/FAQ) được điền qua migrateCategoryDefaults() từ category-seed.ts.
+  type CatSeed = { slug: string; nameEn: string; introEn: string; seoEn: string; order: number; parent?: string; content?: keyof typeof seedContentMap };
+  const seedContentMap = {
+    cashew: CASHEW_CATEGORY_CONFIG,
+    pepper: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/pepper.jpg", kicker: "FAQ / cleaned / ASTA", active_on_homepage: true },
+    coffee: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/coffee.jpg", kicker: "Robusta & Arabica", active_on_homepage: true },
+    cinnamon: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/cinnamon.jpg", kicker: "Sticks, split, powder", active_on_homepage: true },
+    coconut: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/coconut.jpg", kicker: "Desiccated, milk, oil", active_on_homepage: true },
+    rice: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/rice.jpg", kicker: "Jasmine, ST25, Japonica", active_on_homepage: true },
+  } as const;
   const catSeeds: CatSeed[] = [
-    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels (WW320/WW240/W180/LP/SP), macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10 },
-    { slug: "cashew", nameEn: "Cashew kernels", introEn: "Verified Vietnamese cashew kernel suppliers, graded WW320, WW240, W180, LP, SP. Factory-audited by Vexim Trade.", seoEn: "Compare verified Vietnamese cashew kernel suppliers by grade, MOQ, certification and lead time.", order: 11, parent: "nuts-kernels" },
+    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10 },
+    { slug: "cashew", nameEn: "Cashew kernels", introEn: CASHEW_CATEGORY_CONFIG.intro!, seoEn: CASHEW_CATEGORY_CONFIG.seo_desc!, order: 11, parent: "nuts-kernels", content: "cashew" },
     { slug: "macadamia", nameEn: "Macadamia", introEn: "Vietnamese macadamia kernels and in-shell from Tây Nguyên plantations.", seoEn: "Vietnamese macadamia suppliers – graded kernels & in-shell.", order: 12, parent: "nuts-kernels" },
-
-    { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters with grade and certification info.", order: 20 },
-    { slug: "pepper-spices", nameEn: "Pepper & spices", introEn: "Vietnamese black/white/red pepper, cinnamon, star anise, ginger and turmeric – steam-sterilised and food-safety certified.", seoEn: "Vietnamese pepper & spice suppliers with steam-sterilisation and food-safety certs.", order: 30 },
-    { slug: "pepper", nameEn: "Pepper", introEn: "Vietnamese black pepper (FAQ/cleaned/ASTA), white pepper and red pepper from Phú Quốc, Đắk Lắk and Gia Lai.", seoEn: "Vietnamese black/white/red pepper exporters – FAQ, cleaned, ASTA grades.", order: 31, parent: "pepper-spices" },
-    { slug: "cinnamon", nameEn: "Cassia cinnamon", introEn: "Vietnamese cassia cinnamon (Yên Bái) in sticks, split, broken, powder and oil.", seoEn: "Vietnamese cassia cinnamon suppliers (sticks, split, powder, oil).", order: 32, parent: "pepper-spices" },
-    { slug: "star-anise", nameEn: "Star anise", introEn: "Vietnamese autumn and spring star anise from Lạng Sơn – whole and broken grades.", seoEn: "Vietnamese star anise exporters (autumn/spring, whole/broken).", order: 33, parent: "pepper-spices" },
-
-    { slug: "coconut", nameEn: "Coconut products", introEn: "Desiccated coconut, coconut milk/cream powder, virgin coconut oil and coconut water from Bến Tre.", seoEn: "Vietnamese coconut product exporters – desiccated, milk/cream, oil, water.", order: 40 },
-    { slug: "rice", nameEn: "Rice", introEn: "Vietnamese Jasmine, ST25, Japonica and glutinous rice from Đồng bằng Sông Cửu Long, milled to export spec.", seoEn: "Vietnamese rice exporters – Jasmine, ST25, Japonica and sticky rice.", order: 50 },
-    { slug: "noodles", nameEn: "Noodles & vermicelli", introEn: "Rice noodles, instant noodles, rice paper and rice vermicelli made with Vietnamese rice and modern drying lines.", seoEn: "Vietnamese noodle and rice-paper suppliers with BRC/IFS/Halal certifications.", order: 60 },
-
-    { slug: "fruit-veg", nameEn: "Fruit & vegetables", introEn: "Fresh and frozen tropical fruit (dragon fruit, pomelo, coconut, mango, passion fruit) and frozen vegetables from GAP-certified growers.", seoEn: "Vietnamese tropical fruit & vegetable exporters – fresh, frozen and IQF.", order: 70 },
-    { slug: "dragon-fruit", nameEn: "Dragon fruit", introEn: "Vietnamese white- and red-flesh dragon fruit from Bình Thuận – packed for export by sea and air.", seoEn: "Vietnamese dragon fruit exporters – white/red flesh, sea & air freight.", order: 71, parent: "fruit-veg" },
-    { slug: "dried-fruit", nameEn: "Dried fruit", introEn: "Dried mango, jackfruit, banana, coconut chips and tropical fruit snacks – no added sugar options.", seoEn: "Vietnamese dried fruit suppliers – soft-dried and crispy options.", order: 72, parent: "fruit-veg" },
-
-    { slug: "seafood", nameEn: "Seafood", introEn: "Pangasius (swai/basa), black tiger shrimp, Vannamei shrimp and squid from ASC/MSC/BAP-certified processors.", seoEn: "Vietnamese seafood exporters – pangasius, shrimp and squid with ASC/BAP/BRC certs.", order: 80 },
-    { slug: "pangasius", nameEn: "Pangasius", introEn: "Frozen pangasius fillets, portions and value-added items from Đồng bằng Sông Cửu Long processors.", seoEn: "Vietnamese pangasius exporters – fillets, portions, well-trimmed, HACCP/BRC/ASC.", order: 81, parent: "seafood" },
-    { slug: "shrimp", nameEn: "Shrimp", introEn: "Black tiger and Vannamei shrimp HLSO/PD/PTO from certified Mekong farms and processors.", seoEn: "Vietnamese shrimp exporters – black tiger & vannamei, raw & cooked.", order: 82, parent: "seafood" },
-
-    { slug: "honey", nameEn: "Honey", introEn: "Vietnamese multi-flower, coffee, lychee and rubber honey – food-grade packing, export-ready.", seoEn: "Vietnamese honey exporters – multi-flower, coffee and lychee honey.", order: 90 },
-    { slug: "tea", nameEn: "Tea", introEn: "Vietnamese black, green, oolong and lotus teas from Thái Nguyên and Lâm Đồng.", seoEn: "Vietnamese tea exporters – black, green, oolong and speciality teas.", order: 95 },
-    { slug: "processed-foods", nameEn: "Processed & convenience foods", introEn: "Spring rolls, instant soups, sauces (nước chấm, tương ớt), canned fruit and Asian ready meals.", seoEn: "Vietnamese processed and convenience food suppliers for private label.", order: 100 },
+    { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20, content: "coffee" },
+    { slug: "pepper-spices", nameEn: "Pepper & spices", introEn: "Vietnamese black/white/red pepper, cinnamon, star anise, ginger and turmeric – steam-sterilised.", seoEn: "Vietnamese pepper & spice suppliers with food-safety certs.", order: 30 },
+    { slug: "pepper", nameEn: "Pepper", introEn: "Vietnamese black pepper (FAQ/cleaned/ASTA), white pepper and red pepper.", seoEn: "Vietnamese black/white/red pepper exporters.", order: 31, parent: "pepper-spices", content: "pepper" },
+    { slug: "cinnamon", nameEn: "Cassia cinnamon", introEn: "Vietnamese cassia cinnamon (Yên Bái) in sticks, split, broken and powder.", seoEn: "Vietnamese cassia cinnamon suppliers.", order: 32, parent: "pepper-spices", content: "cinnamon" },
+    { slug: "star-anise", nameEn: "Star anise", introEn: "Vietnamese autumn and spring star anise from Lạng Sơn.", seoEn: "Vietnamese star anise exporters.", order: 33, parent: "pepper-spices" },
+    { slug: "coconut", nameEn: "Coconut products", introEn: "Desiccated coconut, coconut milk/cream powder, VCO and coconut water from Bến Tre.", seoEn: "Vietnamese coconut product exporters.", order: 40, content: "coconut" },
+    { slug: "rice", nameEn: "Rice", introEn: "Vietnamese Jasmine, ST25, Japonica and glutinous rice from Đồng bằng Sông Cửu Long.", seoEn: "Vietnamese rice exporters – Jasmine, ST25, Japonica.", order: 50, content: "rice" },
+    { slug: "noodles", nameEn: "Noodles & vermicelli", introEn: "Rice noodles, instant noodles, rice paper and rice vermicelli.", seoEn: "Vietnamese noodle and rice-paper suppliers.", order: 60 },
+    { slug: "fruit-veg", nameEn: "Fruit & vegetables", introEn: "Fresh/frozen tropical fruit and frozen vegetables.", seoEn: "Vietnamese tropical fruit & vegetable exporters.", order: 70 },
+    { slug: "dragon-fruit", nameEn: "Dragon fruit", introEn: "Vietnamese white- and red-flesh dragon fruit from Bình Thuận.", seoEn: "Vietnamese dragon fruit exporters.", order: 71, parent: "fruit-veg" },
+    { slug: "dried-fruit", nameEn: "Dried fruit", introEn: "Dried mango, jackfruit, banana, coconut chips and tropical fruit snacks.", seoEn: "Vietnamese dried fruit suppliers.", order: 72, parent: "fruit-veg" },
+    { slug: "seafood", nameEn: "Seafood", introEn: "Pangasius, black tiger shrimp, Vannamei shrimp and squid from ASC/MSC/BAP-certified processors.", seoEn: "Vietnamese seafood exporters with ASC/BAP/BRC certs.", order: 80 },
+    { slug: "pangasius", nameEn: "Pangasius", introEn: "Frozen pangasius fillets and value-added items.", seoEn: "Vietnamese pangasius exporters.", order: 81, parent: "seafood" },
+    { slug: "shrimp", nameEn: "Shrimp", introEn: "Black tiger and Vannamei shrimp from certified Mekong processors.", seoEn: "Vietnamese shrimp exporters.", order: 82, parent: "seafood" },
+    { slug: "honey", nameEn: "Honey", introEn: "Vietnamese multi-flower, coffee and lychee honey, export-ready.", seoEn: "Vietnamese honey exporters.", order: 90 },
+    { slug: "tea", nameEn: "Tea", introEn: "Vietnamese black, green, oolong and lotus teas.", seoEn: "Vietnamese tea exporters.", order: 95 },
+    { slug: "processed-foods", nameEn: "Processed & convenience foods", introEn: "Spring rolls, sauces, canned fruit and Asian ready meals.", seoEn: "Vietnamese processed food suppliers for private label.", order: 100 },
   ];
   const catId = (slug: string) => `cat-seed-${slug}`;
   const now = nowISO(100);
-  const categories: Category[] = catSeeds.map((c) => ({
-    id: catId(c.slug),
-    slug: c.slug,
-    parent_id: c.parent ? catId(c.parent) : null,
-    name_i18n: { en: c.nameEn },
-    intro_i18n: { en: c.introEn },
-    faq_i18n: [],
-    seo_title_i18n: { en: `${c.nameEn} Suppliers in Vietnam – Verified | Vexim Trade` },
-    seo_desc_i18n: { en: c.seoEn },
-    is_published: true,
-    sort_order: c.order,
-    created_at: now,
-    updated_at: now,
-  }));
+  const categories: Category[] = catSeeds.map((c) => {
+    const content = c.content ? seedContentMap[c.content] : DEFAULT_CATEGORY_CONFIG;
+    return {
+      id: catId(c.slug),
+      slug: c.slug,
+      parent_id: c.parent ? catId(c.parent) : null,
+      name_i18n: { en: c.nameEn },
+      intro_i18n: { en: c.introEn },
+      h1_i18n: content.h1 ? { en: content.h1 } : null,
+      body_i18n: content.body ? { en: content.body } : null,
+      faq_i18n: content.faqs ?? [],
+      seo_title_i18n: { en: content.seo_title ?? `${c.nameEn} Suppliers in Vietnam – Verified | Vexim Trade` },
+      seo_desc_i18n: { en: content.seo_desc ?? c.seoEn },
+      hero_image: content.hero_image ?? null,
+      hero_alt_i18n: content.hero_alt ? { en: content.hero_alt } : null,
+      homepage_kicker_i18n: content.kicker ? { en: content.kicker } : null,
+      spec_columns: content.spec_columns ?? [],
+      spec_rows: content.spec_rows ?? [],
+      buying_facts: content.buying_facts ?? [],
+      filters: content.filters ?? [],
+      active_on_homepage: content.active_on_homepage ?? false,
+      public_page_ready: content.public_page_ready ?? false,
+      seo_indexable: content.seo_indexable ?? false,
+      status: "published",
+      previous_slugs: [],
+      created_by: null,
+      updated_by: null,
+      is_published: true,
+      sort_order: c.order,
+      created_at: now,
+      updated_at: now,
+    } as Category;
+  });
 
   return {
     users: [],
@@ -258,6 +291,7 @@ function seed(): LocalShape {
     posts: [],
     categories,
     supplier_categories: [],
+    supplier_verification_requests: [],
     certificates: [],
     verifications: [],
     rfqs: [],
@@ -294,23 +328,42 @@ function normalizeProspects(prospects: Prospect[]) {
  */
 function ensureSeedCategories(db: LocalShape) {
   if (!Array.isArray(db.categories)) db.categories = [];
-  const have = new Set(db.categories.map((c) => c.slug));
-  // Giữ lại nếu người dùng đã tuỳ chỉnh nhiều danh mục (≥ 3) — không tự thêm.
-  if (have.size >= 3) return;
-  type CatSeed = { slug: string; nameEn: string; introEn: string; seoEn: string; order: number; parent?: string };
+
+  // Master seed — THỂ HIỆN DANH MỤC GỐC. Thêm dòng ở đây để tạo category mới khi DB trống;
+  // sau khi tạo rồi, admin quản lý trong /crm/categories.
+  type CatSeed = {
+    slug: string; nameEn: string; introEn: string; seoEn: string; order: number; parent?: string;
+    content?: keyof typeof CONTENT_MAP;
+  };
+  const withDefaults = (overrides: Partial<typeof CASHEW_CATEGORY_CONFIG>): typeof CASHEW_CATEGORY_CONFIG => ({
+    ...DEFAULT_CATEGORY_CONFIG,
+    hero_image: null, kicker: null, active_on_homepage: false, public_page_ready: false, seo_indexable: false,
+    spec_columns: [], spec_rows: [], buying_facts: [], faqs: [], filters: [],
+    body: null, h1: null, seo_title: null, seo_desc: null, hero_alt: null,
+    ...overrides,
+  });
+  const CONTENT_MAP: Record<string, typeof CASHEW_CATEGORY_CONFIG> = {
+    cashew: CASHEW_CATEGORY_CONFIG,
+    pepper: withDefaults({ hero_image: "/images/categories/pepper.jpg", kicker: "FAQ / cleaned / ASTA", active_on_homepage: true }),
+    coffee: withDefaults({ hero_image: "/images/categories/coffee.jpg", kicker: "Robusta & Arabica", active_on_homepage: true }),
+    cinnamon: withDefaults({ hero_image: "/images/categories/cinnamon.jpg", kicker: "Sticks, split, powder", active_on_homepage: true }),
+    coconut: withDefaults({ hero_image: "/images/categories/coconut.jpg", kicker: "Desiccated, milk, oil", active_on_homepage: true }),
+    rice: withDefaults({ hero_image: "/images/categories/rice.jpg", kicker: "Jasmine, ST25, Japonica", active_on_homepage: true }),
+  };
+
   const seeds: CatSeed[] = [
     { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10 },
-    { slug: "cashew", nameEn: "Cashew kernels", introEn: "Verified Vietnamese cashew kernel suppliers, graded WW320, WW240, W180, LP, SP. Factory-audited by Vexim Trade.", seoEn: "Compare verified Vietnamese cashew kernel suppliers by grade, MOQ, certification and lead time.", order: 11, parent: "nuts-kernels" },
+    { slug: "cashew", nameEn: "Cashew kernels", introEn: CASHEW_CATEGORY_CONFIG.intro!, seoEn: CASHEW_CATEGORY_CONFIG.seo_desc!, order: 11, parent: "nuts-kernels", content: "cashew" },
     { slug: "macadamia", nameEn: "Macadamia", introEn: "Vietnamese macadamia kernels and in-shell from Tây Nguyên plantations.", seoEn: "Vietnamese macadamia suppliers – graded kernels & in-shell.", order: 12, parent: "nuts-kernels" },
-    { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20 },
+    { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20, content: "coffee" },
     { slug: "pepper-spices", nameEn: "Pepper & spices", introEn: "Vietnamese black/white/red pepper, cinnamon, star anise, ginger and turmeric – steam-sterilised.", seoEn: "Vietnamese pepper & spice suppliers with food-safety certs.", order: 30 },
-    { slug: "pepper", nameEn: "Pepper", introEn: "Vietnamese black pepper (FAQ/cleaned/ASTA), white pepper and red pepper.", seoEn: "Vietnamese black/white/red pepper exporters.", order: 31, parent: "pepper-spices" },
-    { slug: "cinnamon", nameEn: "Cassia cinnamon", introEn: "Vietnamese cassia cinnamon (Yên Bái) in sticks, split, broken and powder.", seoEn: "Vietnamese cassia cinnamon suppliers.", order: 32, parent: "pepper-spices" },
+    { slug: "pepper", nameEn: "Pepper", introEn: "Vietnamese black pepper (FAQ/cleaned/ASTA), white pepper and red pepper.", seoEn: "Vietnamese black/white/red pepper exporters.", order: 31, parent: "pepper-spices", content: "pepper" },
+    { slug: "cinnamon", nameEn: "Cassia cinnamon", introEn: "Vietnamese cassia cinnamon (Yên Bái) in sticks, split, broken and powder.", seoEn: "Vietnamese cassia cinnamon suppliers.", order: 32, parent: "pepper-spices", content: "cinnamon" },
     { slug: "star-anise", nameEn: "Star anise", introEn: "Vietnamese autumn and spring star anise from Lạng Sơn.", seoEn: "Vietnamese star anise exporters.", order: 33, parent: "pepper-spices" },
-    { slug: "coconut", nameEn: "Coconut products", introEn: "Desiccated coconut, coconut milk/cream powder, VCO and coconut water from Bến Tre.", seoEn: "Vietnamese coconut product exporters.", order: 40 },
-    { slug: "rice", nameEn: "Rice", introEn: "Vietnamese Jasmine, ST25, Japonica and glutinous rice from Đồng bằng Sông Cửu Long.", seoEn: "Vietnamese rice exporters – Jasmine, ST25, Japonica.", order: 50 },
+    { slug: "coconut", nameEn: "Coconut products", introEn: "Desiccated coconut, coconut milk/cream powder, VCO and coconut water from Bến Tre.", seoEn: "Vietnamese coconut product exporters.", order: 40, content: "coconut" },
+    { slug: "rice", nameEn: "Rice", introEn: "Vietnamese Jasmine, ST25, Japonica and glutinous rice from Đồng bằng Sông Cửu Long.", seoEn: "Vietnamese rice exporters – Jasmine, ST25, Japonica.", order: 50, content: "rice" },
     { slug: "noodles", nameEn: "Noodles & vermicelli", introEn: "Rice noodles, instant noodles, rice paper and rice vermicelli.", seoEn: "Vietnamese noodle and rice-paper suppliers.", order: 60 },
-    { slug: "fruit-veg", nameEn: "Fruit & vegetables", introEn: "Fresh/frozen tropical fruit (dragon fruit, pomelo, mango, passion fruit) and frozen vegetables.", seoEn: "Vietnamese tropical fruit & vegetable exporters.", order: 70 },
+    { slug: "fruit-veg", nameEn: "Fruit & vegetables", introEn: "Fresh/frozen tropical fruit and frozen vegetables.", seoEn: "Vietnamese tropical fruit & vegetable exporters.", order: 70 },
     { slug: "dragon-fruit", nameEn: "Dragon fruit", introEn: "Vietnamese white- and red-flesh dragon fruit from Bình Thuận.", seoEn: "Vietnamese dragon fruit exporters.", order: 71, parent: "fruit-veg" },
     { slug: "dried-fruit", nameEn: "Dried fruit", introEn: "Dried mango, jackfruit, banana, coconut chips and tropical fruit snacks.", seoEn: "Vietnamese dried fruit suppliers.", order: 72, parent: "fruit-veg" },
     { slug: "seafood", nameEn: "Seafood", introEn: "Pangasius, black tiger shrimp, Vannamei shrimp and squid from ASC/MSC/BAP-certified processors.", seoEn: "Vietnamese seafood exporters with ASC/BAP/BRC certs.", order: 80 },
@@ -321,22 +374,211 @@ function ensureSeedCategories(db: LocalShape) {
     { slug: "processed-foods", nameEn: "Processed & convenience foods", introEn: "Spring rolls, sauces, canned fruit and Asian ready meals.", seoEn: "Vietnamese processed food suppliers for private label.", order: 100 },
   ];
   const now = new Date().toISOString();
+  const have = new Set(db.categories.map((c) => c.slug));
   for (const c of seeds) {
     if (have.has(c.slug)) continue;
+    const content = c.content ? CONTENT_MAP[c.content] : DEFAULT_CATEGORY_CONFIG;
     db.categories.push({
       id: `cat-seed-${c.slug}`,
       slug: c.slug,
       parent_id: c.parent ? `cat-seed-${c.parent}` : null,
       name_i18n: { en: c.nameEn },
       intro_i18n: { en: c.introEn },
-      faq_i18n: [],
-      seo_title_i18n: { en: `${c.nameEn} Suppliers in Vietnam – Verified | Vexim Trade` },
-      seo_desc_i18n: { en: c.seoEn },
+      h1_i18n: content.h1 ? { en: content.h1 } : null,
+      body_i18n: content.body ? { en: content.body } : null,
+      faq_i18n: content.faqs ?? [],
+      seo_title_i18n: { en: content.seo_title ?? `${c.nameEn} Suppliers in Vietnam – Verified | Vexim Trade` },
+      seo_desc_i18n: { en: content.seo_desc ?? c.seoEn },
+      hero_image: content.hero_image ?? null,
+      hero_alt_i18n: content.hero_alt ? { en: content.hero_alt } : null,
+      homepage_kicker_i18n: content.kicker ? { en: content.kicker } : null,
+      spec_columns: content.spec_columns ?? [],
+      spec_rows: content.spec_rows ?? [],
+      buying_facts: content.buying_facts ?? [],
+      filters: content.filters ?? [],
+      active_on_homepage: content.active_on_homepage ?? false,
+      public_page_ready: content.public_page_ready ?? false,
+      seo_indexable: content.seo_indexable ?? false,
+      status: "published",
+      previous_slugs: [],
+      created_by: null,
+      updated_by: null,
       is_published: true,
       sort_order: c.order,
       created_at: now,
       updated_at: now,
-    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+  }
+}
+
+/**
+ * Điền giá trị mặc định cho các field mới (hero_image, filters, buying_facts, …)
+ * cho category đã tồn tại sẵn trong DB người dùng — chỉ điền khi field đang
+ * null/undefined, KHÔNG ghi đè cấu hình thủ công.
+ */
+function migrateCategoryDefaults(db: LocalShape) {
+  if (!Array.isArray(db.categories)) return;
+  const defaults: Record<string, Partial<import("@/lib/types").Category>> = {
+    cashew: {
+      h1_i18n: { en: CASHEW_CATEGORY_CONFIG.h1! },
+      body_i18n: { en: CASHEW_CATEGORY_CONFIG.body! },
+      hero_image: CASHEW_CATEGORY_CONFIG.hero_image!,
+      hero_alt_i18n: { en: CASHEW_CATEGORY_CONFIG.hero_alt! },
+      homepage_kicker_i18n: { en: CASHEW_CATEGORY_CONFIG.kicker! },
+      spec_columns: CASHEW_CATEGORY_CONFIG.spec_columns,
+      spec_rows: CASHEW_CATEGORY_CONFIG.spec_rows,
+      buying_facts: CASHEW_CATEGORY_CONFIG.buying_facts,
+      faq_i18n: CASHEW_CATEGORY_CONFIG.faqs,
+      filters: CASHEW_CATEGORY_CONFIG.filters,
+      active_on_homepage: true,
+      public_page_ready: true,
+      seo_indexable: false,
+      status: "published",
+    },
+    pepper:   { hero_image: "/images/categories/pepper.jpg",   homepage_kicker_i18n: { en: "FAQ / cleaned / ASTA" },          active_on_homepage: true },
+    coffee:   { hero_image: "/images/categories/coffee.jpg",   homepage_kicker_i18n: { en: "Robusta & Arabica" },              active_on_homepage: true },
+    cinnamon: { hero_image: "/images/categories/cinnamon.jpg", homepage_kicker_i18n: { en: "Sticks, split, powder" },          active_on_homepage: true },
+    coconut:  { hero_image: "/images/categories/coconut.jpg",  homepage_kicker_i18n: { en: "Desiccated, milk, oil" },          active_on_homepage: true },
+    rice:     { hero_image: "/images/categories/rice.jpg",     homepage_kicker_i18n: { en: "Jasmine, ST25, Japonica" },        active_on_homepage: true },
+  };
+  for (const c of db.categories) {
+    // Map is_published -> status cho DB cũ
+    if (!c.status) c.status = c.is_published ? "published" : "draft";
+    if (c.faq_i18n === undefined || c.faq_i18n === null) c.faq_i18n = [];
+    if (!Array.isArray(c.previous_slugs)) c.previous_slugs = [];
+    if (c.active_on_homepage === undefined) c.active_on_homepage = false;
+    if (c.public_page_ready === undefined) c.public_page_ready = false;
+    if (c.seo_indexable === undefined) c.seo_indexable = false;
+    if (!c.spec_columns) c.spec_columns = [];
+    if (!c.spec_rows) c.spec_rows = [];
+    if (!c.buying_facts) c.buying_facts = [];
+    if (!c.filters) c.filters = [];
+    if (c.created_by === undefined) c.created_by = null;
+    if (c.updated_by === undefined) c.updated_by = null;
+    if (c.h1_i18n === undefined) c.h1_i18n = null;
+    if (c.body_i18n === undefined) c.body_i18n = null;
+    if (c.hero_alt_i18n === undefined) c.hero_alt_i18n = null;
+    const d = defaults[c.slug];
+    if (d) {
+      for (const [k, v] of Object.entries(d)) {
+        const key = k as string;
+        const cur = (c as unknown as Record<string, unknown>)[key];
+        if (cur === undefined || cur === null || (Array.isArray(cur) && cur.length === 0)) {
+          (c as unknown as Record<string, unknown>)[key] = v as unknown;
+        }
+      }
+    }
+    // Đồng bộ hoá: is_published = (status === "published")
+    c.is_published = c.status === "published";
+  }
+  // public_page_ready LÀ TRƯỜNG COMPUTED, được tính trong listCategories/getCategory/getCategoryBySlug
+  // (không ghi vào cache/disk, tránh làm bẩn dữ liệu đã persist).
+  // Đặt mặc định false cho record mới tạo; getter sẽ decorate lại khi trả cho caller.
+  const allProducts = db.products ?? [];
+  const allSuppliers = db.suppliers ?? [];
+  const publicSupplierIds = new Set(
+    allSuppliers.filter((s) => s.status === "published" && (!s.is_demo || process.env.VEXIM_SHOW_DEMO === "true")).map((s) => s.id),
+  );
+  const demoIds = new Set(allSuppliers.filter((s) => s.is_demo && process.env.VEXIM_SHOW_DEMO === "true").map((s) => s.id));
+  const eligible = allProducts.filter((p) => publicSupplierIds.has(p.supplier_id) && productReviewApproved(p) && !isTestOnlyProduct(p.name) &&
+    (p.ready_for_buyer || demoIds.has(p.supplier_id)));
+  const ready = new Set((db.categories ?? []).filter((c) => eligible.some((p) =>
+    productBelongsToCategory(p, c, db.categories ?? []))).map((c) => c.slug.toLowerCase()));
+  (db as unknown as { __catReady?: Set<string> }).__catReady = ready;
+}
+
+/** Di chuyển trạng thái cũ → mới; backfill lost_reason; ép buộc lost có lý do chỉ ở tầng server action. */
+function migrateRfqDefaults(db: LocalShape) {
+  if (!Array.isArray(db.rfqs)) return;
+  for (const r of db.rfqs) {
+    if (r.lost_reason === undefined) r.lost_reason = null;
+    // Map status cũ → mới.
+    const s = r.status as string | undefined;
+    if (s === "qualified") r.status = "in_progress";
+    else if (s === "quoting") r.status = "quoted";
+    else if (s === "closed") r.status = "lost";
+  }
+}
+
+function migrateMediaDefaults(db: LocalShape) {
+  if (!Array.isArray(db.media)) return;
+  for (const m of db.media) {
+    if ((m as unknown as { verification_id?: string | null }).verification_id === undefined) {
+      (m as unknown as { verification_id: string | null }).verification_id = null;
+    }
+    if (m.checklist_key === undefined) m.checklist_key = null;
+  }
+}
+
+function migrateSupplierDefaults(db: LocalShape) {
+  if (!Array.isArray(db.suppliers)) return;
+  for (const s of db.suppliers) {
+    if (s.profile_image === undefined) s.profile_image = null;
+    if (s.cover_image === undefined) s.cover_image = null;
+    if (s.verification_level === undefined) s.verification_level = 0;
+  }
+}
+
+function migrateMessageDefaults(db: LocalShape) {
+  if (!Array.isArray(db.messages)) return;
+  for (const m of db.messages) {
+    if ((m as unknown as { rfq_id?: string | null }).rfq_id === undefined) {
+      (m as unknown as { rfq_id: string | null }).rfq_id = null;
+    }
+    if ((m as unknown as { rfq_match_id?: string | null }).rfq_match_id === undefined) {
+      (m as unknown as { rfq_match_id: string | null }).rfq_match_id = null;
+    }
+  }
+}
+
+
+/**
+ * Backfill các field mới cho Verification (L1/L2 checklist, GPS, visit_address,
+ * checklist_notes, return_reason) cho dữ liệu cũ, đồng thời tính lại
+ * verification_level cho từng Supplier dựa trên Verification đã approved.
+ */
+function migrateVerifications(db: LocalShape) {
+  if (!Array.isArray(db.verifications)) db.verifications = [];
+  for (const v of db.verifications) {
+    if (v.visit_lat === undefined) v.visit_lat = null;
+    if (v.visit_lng === undefined) v.visit_lng = null;
+    if (v.visit_address === undefined) v.visit_address = null;
+    if (v.shipment_ref === undefined) v.shipment_ref = null;
+    if (v.shipped_on === undefined) v.shipped_on = null;
+    if (v.shipment_destination === undefined) v.shipment_destination = null;
+    // checklist cũ là mảng -> chuyển sang object rỗng
+    if (Array.isArray(v.checklist)) v.checklist = {};
+    if (typeof v.checklist !== "object" || v.checklist === null) v.checklist = {};
+    if (typeof v.checklist_notes !== "object" || v.checklist_notes === null) v.checklist_notes = {};
+    if (v.tax_number === undefined) v.tax_number = null;
+    if (v.bank_account_number === undefined) v.bank_account_number = null;
+    if (v.return_reason === undefined) v.return_reason = null;
+    if (!v.public_summary_i18n || typeof v.public_summary_i18n !== "object") v.public_summary_i18n = {};
+    if (v.public_summary_published_at === undefined) v.public_summary_published_at = null;
+    if (v.public_summary_published_by === undefined) v.public_summary_published_by = null;
+  }
+
+  // Tính verification_level cho NCC từ danh sách verification đã approved (chỉ áp dụng
+  // cho NCC có hồ sơ verification trong bảng — không reset các level hard-coded từ seed demo
+  // hay cấu hình thủ công).
+  const hasVerification = new Set((db.verifications ?? []).map((v) => v.supplier_id));
+  const levelBySupplier = new Map<string, number>();
+  for (const v of db.verifications) {
+    if (v.status !== "approved") continue;
+    const cur = levelBySupplier.get(v.supplier_id) ?? 0;
+    if ((v.target_level as number) > cur) levelBySupplier.set(v.supplier_id, v.target_level as number);
+  }
+  if (Array.isArray(db.suppliers)) {
+    for (const s of db.suppliers) {
+      if (!hasVerification.has(s.id)) {
+        if (s.verification_level === undefined) s.verification_level = 0;
+        continue;
+      }
+      const lvl = levelBySupplier.get(s.id) ?? 0;
+      s.verification_level = lvl;
+      if (lvl > 0 && !s.verified_at) s.verified_at = new Date().toISOString();
+    }
   }
 }
 
@@ -350,6 +592,119 @@ function removeProspectsWithoutEmail(db: LocalShape) {
       ? { ...message, prospect_id: null }
       : message,
   );
+}
+
+/**
+ * Upsert demo suppliers (is_demo=true) vào local DB khi VEXIM_SHOW_DEMO=true.
+ * Tạo id dạng sup-demo-01…, sản phẩm dạng prod-demo-xx. Không đụng tới dữ liệu thật.
+ */
+function ensureDemoSuppliers(db: LocalShape) {
+  if (process.env.VEXIM_SHOW_DEMO !== "true") {
+    // Xoá các demo cũ còn sót nếu env bị tắt, để không bao giờ lọt ra public.
+    const demoIds = new Set(db.suppliers.filter((s) => s.is_demo).map((s) => s.id));
+    if (!demoIds.size) return;
+    db.suppliers = db.suppliers.filter((s) => !s.is_demo);
+    db.products = db.products.filter((p) => !demoIds.has(p.supplier_id));
+    return;
+  }
+  if (!Array.isArray(db.products)) db.products = [];
+
+  const haveBySlug = new Map(
+    db.suppliers.filter((s) => s.is_demo).map((s) => [s.slug, s] as const),
+  );
+  const now = new Date().toISOString();
+  let prodCounter = db.products.length + 1;
+
+  function normalizeDemoSupplier(raw: (typeof DEMO_SUPPLIERS)[number]["supplier"], idx: number): Supplier {
+    const slugBase = (raw.trade_name || raw.name)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || `demo-supplier-${idx + 1}`;
+    const slug = `${slugBase}-demo-${idx + 1}`;
+    const supplier_type =
+      raw.role === "manufacturer"
+        ? "manufacturer"
+        : raw.role === "trader" || raw.role === "agent" || raw.role === "exporter"
+          ? "trading"
+          : null;
+    return {
+      ...raw,
+      id: `sup-demo-${idx + 1}`,
+      slug,
+      display_name: raw.trade_name || raw.name,
+      supplier_type,
+      summary_i18n: raw.summary_i18n ?? { en: raw.products ?? "" },
+      created_at: now,
+      updated_at: now,
+    } as Supplier;
+  }
+
+  function normalizeDemoProduct(raw: DemoProductSeedLike, supId: string, idx: number) {
+    const name = raw.name ?? `Product ${idx + 1}`;
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || `product-${idx + 1}`;
+    return {
+      id: `prod-demo-${prodCounter++}`,
+      supplier_id: supId,
+      name,
+      slug,
+      name_i18n: { en: name },
+      category: raw.category ?? null,
+      description: null,
+      spec: null,
+      specs: {},
+      unit: null,
+      moq: raw.moq ?? null,
+      moq_qty: null,
+      moq_unit: null,
+      monthly_capacity: null,
+      lead_time_days: raw.lead_time_days ?? null,
+      packaging: null,
+      oem: false,
+      certifications: raw.certifications ?? null,
+      export_port: "Cat Lai (HCMC)",
+      ref_price: raw.ref_price ?? null,
+      ref_price_max: null,
+      currency: raw.currency ?? null,
+      price_valid_until: null,
+      incoterm: null,
+      incoterm_place: null,
+      payment_terms: null,
+      samples: true,
+      ready_for_buyer: false,
+      images: [],
+      is_published: true,
+      created_at: now,
+      updated_at: now,
+    };
+  }
+
+  type DemoProductSeedLike = {
+    name: string;
+    category: string;
+    moq?: string | null;
+    certifications?: string | null;
+    ref_price?: number | null;
+    currency?: string | null;
+    lead_time_days?: number | null;
+  };
+
+  DEMO_SUPPLIERS.forEach((demo, idx) => {
+    const normalized = normalizeDemoSupplier(demo.supplier, idx);
+    const existing = haveBySlug.get(normalized.slug);
+    if (existing) {
+      // Giữ id cũ, cập nhật fields.
+      Object.assign(existing, normalized, { id: existing.id });
+    } else {
+      db.suppliers.push(normalized);
+    }
+    const supId = existing?.id ?? normalized.id;
+    // Xoá các sản phẩm demo cũ của supplier này rồi thêm lại (đơn giản hoá).
+    db.products = db.products.filter((p) => !(p.supplier_id === supId && p.id.startsWith("prod-demo-")));
+    demo.products.forEach((p, pi) => {
+      db.products.push(normalizeDemoProduct(p, supId, pi));
+    });
+  });
 }
 
 function load(): LocalShape {
@@ -369,11 +724,13 @@ function load(): LocalShape {
       if (u.signature_html === undefined) u.signature_html = null;
       if (u.phone === undefined) u.phone = null;
       if (u.sender_email === undefined) u.sender_email = null;
+      if (u.supplier_id === undefined) u.supplier_id = null;
     });
     if (!Array.isArray(c.attachments)) c.attachments = [];
     // RFQ foundation – tương thích với file dữ liệu cũ
     if (!Array.isArray(c.categories)) c.categories = [];
     if (!Array.isArray(c.supplier_categories)) c.supplier_categories = [];
+    if (!Array.isArray(c.supplier_verification_requests)) c.supplier_verification_requests = [];
     if (!Array.isArray(c.certificates)) c.certificates = [];
     if (!Array.isArray(c.verifications)) c.verifications = [];
     if (!Array.isArray(c.rfqs)) c.rfqs = [];
@@ -382,6 +739,13 @@ function load(): LocalShape {
     if (!Array.isArray(c.introductions)) c.introductions = [];
     if (!Array.isArray(c.audit_log)) c.audit_log = [];
     ensureSeedCategories(c);
+    migrateCategoryDefaults(c);
+    migrateRfqDefaults(c);
+    migrateMediaDefaults(c);
+    migrateSupplierDefaults(c);
+    migrateMessageDefaults(c);
+    ensureDemoSuppliers(c);
+    migrateVerifications(c);
     removeProspectsWithoutEmail(c);
     return c;
   }
@@ -404,9 +768,11 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.products)) parsed.products = [];
         if (!Array.isArray(parsed.media)) parsed.media = [];
         if (!Array.isArray(parsed.users)) parsed.users = [];
+        parsed.users.forEach((u) => { if (u.supplier_id === undefined) u.supplier_id = null; });
         if (!Array.isArray(parsed.attachments)) parsed.attachments = [];
         if (!Array.isArray(parsed.categories)) parsed.categories = [];
         if (!Array.isArray(parsed.supplier_categories)) parsed.supplier_categories = [];
+        if (!Array.isArray(parsed.supplier_verification_requests)) parsed.supplier_verification_requests = [];
         if (!Array.isArray(parsed.certificates)) parsed.certificates = [];
         if (!Array.isArray(parsed.verifications)) parsed.verifications = [];
         if (!Array.isArray(parsed.rfqs)) parsed.rfqs = [];
@@ -414,8 +780,14 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.rfq_matches)) parsed.rfq_matches = [];
         if (!Array.isArray(parsed.introductions)) parsed.introductions = [];
         if (!Array.isArray(parsed.audit_log)) parsed.audit_log = [];
-        // Nếu categories cũ chỉ có cashew → merge seed đa ngành (tránh mất danh mục mới khi nâng cấp).
         ensureSeedCategories(parsed);
+        migrateCategoryDefaults(parsed);
+        migrateRfqDefaults(parsed);
+        migrateMediaDefaults(parsed);
+        migrateSupplierDefaults(parsed);
+        migrateMessageDefaults(parsed);
+        ensureDemoSuppliers(parsed);
+        migrateVerifications(parsed);
         removeProspectsWithoutEmail(parsed);
         g.__veximLocal = parsed;
         return parsed;
@@ -425,6 +797,13 @@ function load(): LocalShape {
     // file hỏng thì seed lại
   }
   const fresh = seed();
+  migrateCategoryDefaults(fresh);
+  migrateRfqDefaults(fresh);
+  migrateMediaDefaults(fresh);
+  migrateSupplierDefaults(fresh);
+  migrateMessageDefaults(fresh);
+  ensureDemoSuppliers(fresh);
+  migrateVerifications(fresh);
   g.__veximLocal = fresh;
   persist(fresh);
   return fresh;
@@ -498,12 +877,46 @@ export const localStore: DataStore = {
   async deleteSupplier(id) {
     mutate((db) => {
       db.suppliers = db.suppliers.filter((s) => s.id !== id);
+      db.supplier_verification_requests = (db.supplier_verification_requests ?? []).filter((r) => r.supplier_id !== id);
+      for (const user of db.users) if (user.supplier_id === id) { user.supplier_id = null; user.is_active = false; }
       for (const b of db.buyers) if (b.supplier_id === id) b.supplier_id = null;
       const removedProducts = db.products.filter((pr) => pr.supplier_id === id).map((pr) => pr.id);
+      const removedVerifications = (db.verifications ?? []).filter((v) => v.supplier_id === id).map((v) => v.id);
+      db.verifications = (db.verifications ?? []).filter((v) => v.supplier_id !== id);
       db.products = db.products.filter((pr) => pr.supplier_id !== id);
-      db.media = db.media.filter(
-        (m) => m.supplier_id !== id && !(m.product_id && removedProducts.includes(m.product_id)),
-      );
+      db.media = db.media.filter((m) => {
+        if (m.supplier_id === id) return false;
+        if (m.product_id && removedProducts.includes(m.product_id)) return false;
+        const vid = (m as unknown as { verification_id?: string | null }).verification_id;
+        if (vid && removedVerifications.includes(vid)) return false;
+        return true;
+      });
+    });
+  },
+
+  async listSupplierVerificationRequests(supplierId) {
+    return load().supplier_verification_requests.filter((r) => !supplierId || r.supplier_id === supplierId)
+      .sort((a, b) => b.requested_at.localeCompare(a.requested_at));
+  },
+  async createSupplierVerificationRequest(supplierId, level) {
+    return mutate((db) => {
+      if (!db.suppliers.some((s) => s.id === supplierId)) throw new Error("Không tìm thấy NCC.");
+      if (level !== 2 && level !== 3) throw new Error("Chỉ nhận yêu cầu thăm nhà máy hoặc lịch sử giao hàng.");
+      if (db.supplier_verification_requests.some((r) => r.supplier_id === supplierId && r.target_level === level)) throw new Error("Đã gửi yêu cầu này.");
+      const row: SupplierVerificationRequest = {
+        supplier_id: supplierId, target_level: level, status: "requested", requested_at: new Date().toISOString(),
+        contacted_at: null, contacted_by: null,
+      };
+      db.supplier_verification_requests.push(row);
+      return row;
+    });
+  },
+  async markSupplierVerificationContacted(supplierId, level, actorId) {
+    return mutate((db) => {
+      const row = db.supplier_verification_requests.find((r) => r.supplier_id === supplierId && r.target_level === level);
+      if (!row) throw new Error("Không có yêu cầu này.");
+      if (row.status === "requested") Object.assign(row, { status: "contacted", contacted_at: new Date().toISOString(), contacted_by: actorId });
+      return row;
     });
   },
 
@@ -726,6 +1139,7 @@ export const localStore: DataStore = {
         (u) => u.email.trim().toLowerCase() === input.email.trim().toLowerCase(),
       );
       if (exists) throw new Error("Email này đã có tài khoản.");
+      if (input.supplier_id && db.users.some((u) => u.supplier_id === input.supplier_id)) throw new Error("NCC này đã có tài khoản.");
       const row: AppUserRecord = {
         ...input,
         id: randomUUID(),
@@ -752,6 +1166,16 @@ export const localStore: DataStore = {
       }
       Object.assign(row, cleanPatch(patch), { updated_at: new Date().toISOString() });
       return row;
+    });
+  },
+  async claimSupplierForUser(userId, supplierId) {
+    return mutate((db) => {
+      const user = db.users.find((u) => u.id === userId);
+      if (!user || user.role !== "supplier" || !user.is_active || user.supplier_id ||
+          db.users.some((u) => u.supplier_id === supplierId)) return false;
+      user.supplier_id = supplierId;
+      user.updated_at = new Date().toISOString();
+      return true;
     });
   },
   async deleteUser(id) {
@@ -813,9 +1237,12 @@ export const localStore: DataStore = {
 
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
     return load()
-      .media.filter((m) =>
-        ownerType === "product" ? m.product_id === ownerId : m.supplier_id === ownerId,
-      )
+      .media.filter((m) => {
+        if (m.owner_type !== ownerType) return false;
+        if (ownerType === "product") return m.product_id === ownerId;
+        if (ownerType === "verification") return (m as unknown as { verification_id?: string | null }).verification_id === ownerId;
+        return m.supplier_id === ownerId;
+      })
       .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
   },
   async listMediaForProducts(productIds) {
@@ -836,12 +1263,15 @@ export const localStore: DataStore = {
   },
   async createMedia(input: MediaInput) {
     return mutate((db) => {
+      const now = new Date().toISOString();
       const row: MediaAsset = {
-        ...input,
+        verification_id: null,
+        checklist_key: null,
         id: randomUUID(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+        created_at: now,
+        updated_at: now,
+        ...input,
+      } as MediaAsset;
       db.media.push(row);
       return row;
     });
@@ -865,6 +1295,11 @@ export const localStore: DataStore = {
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
     return rows.slice(0, limit);
+  },
+  async listMessagesForRfq(rfqId) {
+    return [...load().messages]
+      .filter((m) => (m as unknown as { rfq_id?: string | null }).rfq_id === rfqId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
   async getMessage(id) {
     return load().messages.find((m) => m.id === id) ?? null;
@@ -974,32 +1409,59 @@ export const localStore: DataStore = {
 
   /* ----------------------- RFQ FOUNDATION --------------------------------- */
   async listCategories(options?: { publishedOnly?: boolean }): Promise<Category[]> {
-    const all = load().categories ?? [];
-    return options?.publishedOnly ? all.filter((c) => c.is_published) : [...all];
+    const db = load();
+    const ready = (db as unknown as { __catReady?: Set<string> }).__catReady ?? new Set<string>();
+    const decorate = (c: Category): Category => ({ ...c, public_page_ready: ready.has(c.slug.toLowerCase()) });
+    let all = (db.categories ?? []).map(decorate);
+    if (options?.publishedOnly) all = all.filter((c) => c.is_published);
+    return all;
   },
   async getCategory(id) {
-    return (load().categories ?? []).find((c) => c.id === id) ?? null;
+    const db = load();
+    const ready = (db as unknown as { __catReady?: Set<string> }).__catReady ?? new Set<string>();
+    const row = (db.categories ?? []).find((c) => c.id === id) ?? null;
+    return row ? { ...row, public_page_ready: ready.has(row.slug.toLowerCase()) } : null;
   },
   async getCategoryBySlug(slug) {
-    return (load().categories ?? []).find((c) => c.slug === slug) ?? null;
+    const db = load();
+    const ready = (db as unknown as { __catReady?: Set<string> }).__catReady ?? new Set<string>();
+    const row = (db.categories ?? []).find((c) => c.slug === slug) ?? null;
+    return row ? { ...row, public_page_ready: ready.has(row.slug.toLowerCase()) } : null;
   },
   async createCategory(input) {
     const now = new Date().toISOString();
-    const cat = {
+    const patch = cleanPatch(input);
+    const cat: Category = {
       id: randomUUID(),
       slug: "",
       parent_id: null,
       name_i18n: {},
       intro_i18n: {},
+      h1_i18n: null,
+      body_i18n: null,
       faq_i18n: [],
+      spec_columns: [],
+      spec_rows: [],
+      buying_facts: [],
+      filters: [],
       seo_title_i18n: {},
       seo_desc_i18n: {},
+      hero_image: null,
+      hero_alt_i18n: null,
+      homepage_kicker_i18n: null,
+      active_on_homepage: false,
+      public_page_ready: false,
+      seo_indexable: false,
+      status: "draft",
+      previous_slugs: [],
+      created_by: null,
+      updated_by: null,
       is_published: false,
       sort_order: 0,
-      ...cleanPatch(input),
       created_at: now,
       updated_at: now,
-    } as Category;
+      ...patch,
+    };
     mutate((db) => {
       db.categories = [...(db.categories ?? []), cat];
     });
@@ -1009,7 +1471,16 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = (db.categories ?? []).find((c) => c.id === id);
       if (!row) throw new Error("Category not found");
-      Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      const cleaned = cleanPatch({ ...patch, updated_at: new Date().toISOString() });
+      // Slug thay đổi → gom vào previous_slugs để middleware tự 301.
+      if (typeof cleaned.slug === "string" && cleaned.slug && cleaned.slug !== row.slug) {
+        if (row.slug && !row.previous_slugs?.includes(row.slug)) {
+          row.previous_slugs = [...(row.previous_slugs ?? []), row.slug];
+        }
+      }
+      // status -> is_published sync
+      if (cleaned.status) cleaned.is_published = cleaned.status === "published";
+      Object.assign(row, cleaned);
       return row;
     });
   },
@@ -1039,6 +1510,9 @@ export const localStore: DataStore = {
   async listCertificates(supplierId) {
     return (load().certificates ?? []).filter((c) => c.supplier_id === supplierId);
   },
+  async getCertificate(id) {
+    return (load().certificates ?? []).find((c) => c.id === id) ?? null;
+  },
   async createCertificate(input) {
     const now = new Date().toISOString();
     const row = {
@@ -1050,6 +1524,8 @@ export const localStore: DataStore = {
       valid_until: null,
       file_media_id: null,
       check_status: "on_file" as const,
+      holder_name: null, scope_text: null, requested_product_ids: [], approved_product_ids: [],
+      review_status: "unreviewed" as const, review_note: null, publicly_visible: false,
       checked_at: null,
       checked_by: null,
       notes: null,
@@ -1089,8 +1565,20 @@ export const localStore: DataStore = {
       status: "scheduled" as const,
       inspector_id: null,
       visit_date: null,
-      checklist: [],
+      visit_lat: null,
+      visit_lng: null,
+      visit_address: null,
+      shipment_ref: null,
+      shipped_on: null,
+      shipment_destination: null,
+      checklist: {},
+      checklist_notes: {},
+      tax_number: null,
+      bank_account_number: null,
+      return_reason: null,
       public_summary_i18n: {},
+      public_summary_published_at: null,
+      public_summary_published_by: null,
       internal_notes: null,
       approved_by: null,
       approved_at: null,
@@ -1108,8 +1596,19 @@ export const localStore: DataStore = {
       const row = (db.verifications ?? []).find((v) => v.id === id);
       if (!row) throw new Error("Verification not found");
       Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      // Tính lại verification_level cho NCC liên quan
+      const related = db.verifications.filter((v) => v.supplier_id === row.supplier_id && v.status === "approved");
+      const lvl = related.reduce((m, v) => Math.max(m, v.target_level as number), 0);
+      const sup = db.suppliers.find((s) => s.id === row.supplier_id);
+      if (sup) {
+        sup.verification_level = lvl;
+        if (lvl > 0 && !sup.verified_at) sup.verified_at = new Date().toISOString();
+      }
       return row;
     });
+  },
+  async getVerification(id) {
+    return (load().verifications ?? []).find((v) => v.id === id) ?? null;
   },
 
   async listRfqs(options) {
@@ -1158,6 +1657,7 @@ export const localStore: DataStore = {
       status: "new" as const,
       assigned_to: null,
       first_response_at: null,
+      lost_reason: null,
       closed_reason: null,
       access_token: randomUUID(),
       created_at: now,
@@ -1173,7 +1673,12 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = (db.rfqs ?? []).find((r) => r.id === id);
       if (!row) throw new Error("RFQ not found");
-      Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      // Ép buộc lost_reason khi chuyển sang lost.
+      const next = { ...row, ...cleanPatch({ ...patch, updated_at: new Date().toISOString() }) } as typeof row;
+      if (next.status === "lost" && !(next.lost_reason && String(next.lost_reason).trim())) {
+        throw new Error("Bắt buộc chọn lý do thất bại (lost_reason) khi đóng RFQ là lost.");
+      }
+      Object.assign(row, next);
       return row;
     });
   },
@@ -1208,6 +1713,23 @@ export const localStore: DataStore = {
   async listRfqMatches(rfqId) {
     return (load().rfq_matches ?? []).filter((m) => m.rfq_id === rfqId);
   },
+  async listSupplierRfqInvitations(supplierId) {
+    const db = load();
+    const rfqs = new Map(db.rfqs.map((r) => [r.id, r]));
+    return db.rfq_matches.filter((m) => m.supplier_id === supplierId && m.sent_to_supplier_at && m.status !== "proposed")
+      .map((m) => ({ ...m, rfq: rfqs.get(m.rfq_id)! })).filter((m) => !!m.rfq)
+      .sort((a, b) => b.sent_to_supplier_at!.localeCompare(a.sent_to_supplier_at!));
+  },
+  async listSupplierNoticeReads(supplierId) {
+    return (load().supplier_portal_notice_reads ?? []).filter((r) => r.supplier_id === supplierId);
+  },
+  async markSupplierNoticeRead(supplierId, noticeKey) {
+    mutate((db) => {
+      db.supplier_portal_notice_reads ??= [];
+      if (!db.supplier_portal_notice_reads.some((r) => r.supplier_id === supplierId && r.notice_key === noticeKey))
+        db.supplier_portal_notice_reads.push({ supplier_id: supplierId, notice_key: noticeKey, read_at: new Date().toISOString() });
+    });
+  },
   async getRfqMatch(id) {
     return (load().rfq_matches ?? []).find((m) => m.id === id) ?? null;
   },
@@ -1219,6 +1741,8 @@ export const localStore: DataStore = {
       supplier_id: "",
       status: "proposed" as const,
       sent_to_supplier_at: null,
+      response_due_at: null,
+      supplier_replied_at: null,
       quote_price: null,
       quote_currency: "USD",
       quote_unit: null,

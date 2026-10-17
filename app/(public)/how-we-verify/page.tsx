@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ClipboardCheck, Factory, FileCheck2, PackageCheck, ShieldCheck } from "lucide-react";
+import { ArrowRight, CheckCircle2, ClipboardCheck, Factory, FileCheck2, ShieldCheck } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "How we verify suppliers | Veximtrade",
   description:
-    "Our 4-step factory verification: business license check, on-site visit, production & certificate review, and ongoing monitoring.",
+    "Three evidence-based supplier checks: documents, on-site factory visit, and completed delivery history review.",
 };
 
 export default function HowWeVerifyPage() {
@@ -27,105 +27,23 @@ export default function HowWeVerifyPage() {
         How we verify suppliers
       </h1>
       <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-ink-700">
-        Every supplier published on Veximtrade goes through a documented verification by our Hanoi
-        desk. Levels reflect how deep we have checked — so you know exactly what the badge means.
+        Each badge describes one check our team has approved. A supplier may pass delivery history without a factory visit. A profile with no approved checks says “Under audit”.
       </p>
 
       <ol className="mt-12 space-y-10">
-        <Step
-          n={1}
-          icon={<ClipboardCheck className="h-5 w-5" />}
-          title="Document review"
-          body={
-            <>
-              We collect the business registration certificate, tax code, export license (when applicable)
-              and primary product range. Documents are cross-checked against government registries and
-              certificate issuers.
-            </>
-          }
-        />
-        <Step
-          n={2}
-          icon={<Factory className="h-5 w-5" />}
-          title="On-site factory visit"
-          body={
-            <>
-              A Vexim inspector visits the factory, records a short video walkthrough, photographs the
-              production line, warehouse and packaging area, and confirms the address matches the
-              registration. Two staff from our team must sign off the report (4-eyes rule).
-            </>
-          }
-        />
-        <Step
-          n={3}
-          icon={<PackageCheck className="h-5 w-5" />}
-          title="Production, MOQ & pricing check"
-          body={
-            <>
-              We verify actual monthly capacity, lead times, MOQ ranges and sample availability against
-              what is published. Prices shown publicly (if any) are shown only with the supplier&apos;s
-              written consent.
-            </>
-          }
-        />
-        <Step
-          n={4}
-          icon={<FileCheck2 className="h-5 w-5" />}
-          title="Sample & certificate audit"
-          body={
-            <>
-              Where relevant, we check food safety, organic, HACCP, BRC or other certificates directly
-              with the issuer and pull production samples for basic QC before we publish a Level&nbsp;2
-              supplier profile.
-            </>
-          }
-        />
+        <Step n={1} icon={<ClipboardCheck className="h-5 w-5" />} title="Document review" body="We review the supplier's registration and applicable documents, recording the result and supporting evidence. An authorised reviewer approves the check." />
+        <Step n={2} icon={<Factory className="h-5 w-5" />} title="On-site factory visit" body="Where an on-site visit is relevant, our team records facility photos and any available visit details. An authorised reviewer checks the evidence." />
+        <Step n={3} icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history review" body="We check evidence of a completed shipment or delivery independently of a factory visit. Trading companies may pass this review without owning a factory. A won enquiry alone is not proof of delivery." />
       </ol>
 
       <section className="mt-14 rounded-lg border border-ink-200 bg-white p-6 sm:p-8">
-        <h2 className="flex items-center gap-2 text-[18px] font-bold text-ink-900">
-          <ShieldCheck className="h-5 w-5 text-emerald-700" />
-          Verification levels
-        </h2>
-        <ul className="mt-5 space-y-4 text-[14.5px] text-ink-700">
-          <li className="flex gap-3">
-            <span className="mt-0.5 inline-flex h-6 shrink-0 items-center rounded-full bg-slate-100 px-2 text-[11px] font-bold text-slate-700 ring-1 ring-slate-200">
-              L0
-            </span>
-            <span>
-              <strong className="text-ink-900">Documents received, not yet audited.</strong> The supplier
-              has submitted an application; profile is shown only after internal review and never with
-              the Verified badge.
-            </span>
-          </li>
-          <li className="flex gap-3">
-            <span className="mt-0.5 inline-flex h-6 shrink-0 items-center rounded-full bg-emerald-50 px-2 text-[11px] font-bold text-emerald-800 ring-1 ring-emerald-200">
-              L1
-            </span>
-            <span>
-              <strong className="text-ink-900">Factory verified.</strong> Documents confirmed and
-              on-site visit completed by a Vexim inspector.
-            </span>
-          </li>
-          <li className="flex gap-3">
-            <span className="mt-0.5 inline-flex h-6 shrink-0 items-center rounded-full bg-emerald-700 px-2 text-[11px] font-bold text-white">
-              L2
-            </span>
-            <span>
-              <strong className="text-ink-900">Factory + certificates + samples audited.</strong> Highest
-              standard; capacity, certificates and samples re-checked by a second reviewer.
-            </span>
-          </li>
-        </ul>
-        <p className="mt-6 text-[13px] text-ink-500">
-          Verification is point-in-time. We re-verify active suppliers at least once a year and suspend
-          profiles that fail a re-check.
-        </p>
+        <h2 className="flex items-center gap-2 text-[18px] font-bold text-ink-900"><ShieldCheck className="h-5 w-5 text-emerald-700" /> What the badge means</h2>
+        <p className="mt-3 text-[14.5px] leading-relaxed text-ink-700">A supplier receives one badge per approved check. Document review, factory visit and delivery history are independent; passing delivery review does not imply a factory visit. Profiles without an approved review are marked as under audit.</p>
       </section>
 
       <section className="mt-14 rounded-lg border border-ink-900 bg-ink-900 p-8 text-white">
         <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-white/70">
-          Ready to source from verified factories?
+          Ready to source from reviewed suppliers?
         </p>
         <h2 className="mt-2 text-[24px] font-bold leading-snug sm:text-[28px]">
           Send a sourcing request — we reply in one business day.
@@ -135,7 +53,7 @@ export default function HowWeVerifyPage() {
             href="/rfq"
             className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-2.5 text-[14px] font-semibold text-ink-900 hover:bg-ink-100"
           >
-            Start a sourcing request <ArrowRight className="h-4 w-4" />
+            Request a quote <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             href="/"
@@ -168,11 +86,11 @@ function Step({
         </div>
       </div>
       <div>
-        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">Step {n}</p>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">Check {n}</p>
         <h3 className="mt-1 text-[20px] font-bold text-ink-900">{title}</h3>
         <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-700">{body}</p>
         <p className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-emerald-800">
-          <CheckCircle2 className="h-4 w-4" /> Signed off by two Vexim staff before publishing
+          <CheckCircle2 className="h-4 w-4" /> Approved by an authorised reviewer before a badge is shown
         </p>
       </div>
     </li>

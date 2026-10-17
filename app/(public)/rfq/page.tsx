@@ -1,7 +1,7 @@
 import { RfqForm } from "./rfq-form";
 import { Breadcrumbs } from "@/components/ui";
 import { getStore } from "@/lib/db";
-import type { Category } from "@/lib/types";
+import type { Category, CategoryFilter } from "@/lib/types";
 
 export const metadata = {
   title: "Request a quote | Veximtrade",
@@ -16,6 +16,8 @@ export default async function RfqPage({
 }: {
   searchParams?: Promise<{
     category?: string;
+    product?: string;
+    product_id?: string;
     suppliers?: string;
     sample?: string;
   }>;
@@ -40,7 +42,7 @@ export default async function RfqPage({
         className="mt-4 text-[34px] font-bold leading-tight text-ink-900 sm:text-[44px]"
         style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}
       >
-        Start a sourcing request
+        Request a quote
       </h1>
       <p className="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-700">
         Tell us what you need — grade, volume, destination and timeline. Our desk screens suppliers and
@@ -49,9 +51,16 @@ export default async function RfqPage({
 
       <RfqForm
         categories={categories.map((c: Category) => ({ slug: c.slug, name: c.name_i18n?.en ?? c.slug }))}
+        categorySpecs={Object.fromEntries(categories.map((c: Category) => [c.slug, {
+          grades: (c.filters as CategoryFilter[] | null)?.find((f) => f.key === "grade")?.options.map((o) => o.value) ?? [],
+          certs: (c.filters as CategoryFilter[] | null)?.find((f) => f.key === "certifications")?.options.map((o) => o.value) ?? [],
+        }]))}
         initialCategory={sp?.category ?? null}
+        initialProduct={(sp?.product ?? "").slice(0, 150)}
+        initialProductId={sp?.product_id ?? null}
         initialSupplierIds={supplierIds}
         wantsSamples={sp?.sample === "1"}
+        turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? null}
       />
 
       <p className="mt-6 text-[12.5px] leading-relaxed text-ink-500">

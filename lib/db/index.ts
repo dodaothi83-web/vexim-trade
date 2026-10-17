@@ -60,10 +60,16 @@ export function localFallbackAllowed(): boolean {
   const flag = flagValue();
   if (["0", "off", "false", "no"].includes(flag)) return false;
   if (["1", "on", "true", "yes"].includes(flag)) return true;
-  // "auto" (mặc định): bật ở dev/sandbox, tắt ở production
-  return (
-    process.env.NODE_ENV !== "production" || process.env.E2B_SANDBOX === "true"
-  );
+  // "auto" (mặc định):
+  //  - CHỈ bật ở môi trường phát triển local (npm run dev) hoặc E2B sandbox rõ ràng.
+  //  - TẮT ở production, Vercel preview / staging, hoặc bất kỳ NODE_ENV=production nào
+  //    (kể cả preview deploy) — lỗi kết nối Supabase ở preview/production sẽ hiển thị lỗi
+  //    rõ ràng trên UI thay vì âm thầm ghi vào kho cục bộ dễ gây nhầm lẫn dữ liệu.
+  if (process.env.E2B_SANDBOX === "true") return true;
+  if (process.env.NODE_ENV === "production") return false;
+  // Vercel đặt VERCEL_ENV=preview/development/production; coi preview/staging như production.
+  if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "development") return false;
+  return true;
 }
 
 function errorText(error: unknown): string {

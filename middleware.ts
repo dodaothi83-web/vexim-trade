@@ -18,6 +18,7 @@ const ALWAYS_NOINDEX_PREFIXES = [
   "/login",
   "/auth",
   "/crm", // back-office CRM
+  "/supplier", // đăng ký và cổng NCC không được index
   "/api",
   "/_next",
 ];

@@ -23,13 +23,15 @@ import { listBuyersWithSupplier } from "@/lib/queries";
 import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { roleLabel, statusMeta } from "@/lib/supplier";
+import { roleLabel, supplierTypeLabel, statusMeta } from "@/lib/supplier";
 import { isExpired } from "@/lib/media/readiness";
 import { MediaGallery, MediaThumb } from "@/components/media-gallery";
 import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { StageBadge } from "@/components/stage-select";
 import { DeleteSupplierButton } from "@/components/supplier-actions";
+import { VerificationPanel } from "./verification-panel";
+import { OnboardingControls } from "./onboarding-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,7 @@ export default async function SupplierDetailPage({
   const canManage = hasPermission(session.role, "suppliers.manage");
   const canManageProducts = hasPermission(session.role, "products.manage");
   const canSeeInternal = hasPermission(session.role, "media.internal");
+  const canInspect = hasPermission(session.role, "verifications.inspect");
 
   const store = getStore();
   const supplier = await store.getSupplier(id);
@@ -52,9 +55,11 @@ export default async function SupplierDetailPage({
     listBuyersWithSupplier(),
     store.listProductsBySupplier(id),
   ]);
-  const [supplierMedia, productMedia] = await Promise.all([
+  const [supplierMedia, productMedia, verifications, requests] = await Promise.all([
     store.listMedia("supplier", id),
     store.listMediaForProducts(products.map((p) => p.id)),
+    store.listVerifications(id),
+    store.listSupplierVerificationRequests(id).catch((error) => { console.error("[supplier-requests] migration/query failed", error); return []; }),
   ]);
   // Ảnh đại diện cho từng sản phẩm (ưu tiên ảnh chia sẻ buyer, chưa hết hạn)
   const thumbByProduct = new Map<string, typeof productMedia[number]>();
@@ -83,7 +88,7 @@ export default async function SupplierDetailPage({
           />
         }
         title={supplier.name}
-        sub={[supplier.trade_name, roleLabel(supplier.role), supplier.province]
+        sub={[supplier.trade_name, supplier.onboarding_status === "not_started" ? "Chưa khai loại hình" : supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : roleLabel(supplier.role), supplier.province]
           .filter(Boolean)
           .join(" · ")}
         actions={
@@ -102,6 +107,20 @@ export default async function SupplierDetailPage({
           </>
         }
       />
+
+      {canInspect && <div className="mb-5 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm">
+        <Link href={`/crm/suppliers/${id}/certificates`} className="font-bold text-brand-800 underline">Chứng nhận NCC chờ Vexim xét duyệt / quyết định công bố →</Link>
+        <p className="mt-1 text-ink-600">Tách riêng khỏi kho ảnh chung và ba đợt kiểm xác minh NCC; tệp không tự hiện trên sản phẩm.</p>
+      </div>}
+
+      {(supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested" || supplier.onboarding_status === "approved") &&
+        <Card className="mb-5 p-5">
+          <h2 className="text-lg font-bold text-ink-900">Quyền sử dụng cổng nhà cung cấp</h2>
+          <p className="mt-1 text-sm text-ink-600">{supplier.onboarding_status === "approved" ? "Đã được Vexim xác nhận tài khoản." : supplier.onboarding_status === "pending" ? "Hồ sơ đã nộp; tài khoản chưa sử dụng được. Kiểm tra thông tin và giấy tờ trước khi xác nhận." : "Đang chờ nhà cung cấp bổ sung thông tin."} Việc xác nhận này không duyệt giấy tờ hay công khai hồ sơ.</p>
+          {supplier.onboarding_note && <p className="mt-2 text-sm text-amber-800">Yêu cầu bổ sung: {supplier.onboarding_note}</p>}
+          {supplier.onboarding_status === "pending" && canManage && (session.role === "admin" || session.role === "sourcing") &&
+            <OnboardingControls supplierId={id} />}
+        </Card>}
 
       <Card className="mb-5 grid grid-cols-2 divide-ink-200 sm:grid-cols-4 sm:divide-x">
         <Cell label="Trạng thái hồ sơ">
@@ -144,7 +163,7 @@ export default async function SupplierDetailPage({
             <Row icon={<Anchor className="h-3.5 w-3.5" />} label="Thị trường" value={supplier.markets} />
             <Row icon={<FileText className="h-3.5 w-3.5" />} label="Mã số thuế" value={supplier.tax_id} />
             <Row icon={<Banknote className="h-3.5 w-3.5" />} label="Thanh toán" value={supplier.payment_terms} />
-            <Row icon={<Clock className="h-3.5 w-3.5" />} label="Ngành hàng chính" value={supplier.products} />
+            <Row icon={<Clock className="h-3.5 w-3.5" />} label="Mặt hàng" value={supplier.products} />
           </ul>
           {supplier.notes && (
             <div className="border-t border-ink-200 bg-amber-50/50 px-4 py-3">
@@ -162,14 +181,23 @@ export default async function SupplierDetailPage({
 
         <MediaGallery
           items={supplierMedia}
-          title="Hình ảnh & giấy tờ NCC"
+          title="Kho ảnh & tài liệu chung của NCC"
+          scopeHint="Chỉ tệp lưu trong hồ sơ chung. Bằng chứng kiểm tra giấy tờ, thăm nhà máy và giao hàng được quản lý riêng ở từng bước kiểm; tệp ở đây không tự được AI phân tích."
           showInternal={canSeeInternal}
           manageHref={canManage ? `/crm/suppliers/${id}/edit` : undefined}
-          emptyHint="Chưa có ảnh nhà máy hay giấy tờ xác minh. Thêm ở trang Sửa."
+          emptyHint="Chưa có tệp chung. Thêm ở trang Sửa, hoặc vào từng bước kiểm để đính kèm bằng chứng."
         />
+        {canInspect && <Link href={`/crm/suppliers/${id}/audit/documents`} className="inline-block text-sm font-semibold text-brand-700 hover:underline">Mở bước Kiểm tra giấy tờ để đính kèm bằng chứng →</Link>}
         </div>
 
         <div className="space-y-5 lg:col-span-2">
+          <VerificationPanel
+            supplierId={id}
+            verifications={verifications}
+            requests={requests}
+            canInspect={canInspect}
+          />
+
           <Card>
             <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
               <div>

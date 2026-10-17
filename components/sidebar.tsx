@@ -42,6 +42,7 @@ const NAV: {
   { href: "/crm/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view" },
   { href: "/crm/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage" },
   { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view" },
+  { href: "/crm/verifications", label: "Xác minh NCC", icon: ShieldCheck, perm: "verifications.inspect" },
   { href: "/crm/categories", label: "Danh mục công khai", icon: FolderTree, perm: "suppliers.manage" },
   { href: "/crm/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view" },
   { href: "/crm/rfqs", label: "RFQ công khai", icon: FileQuestion, perm: "suppliers.view" },

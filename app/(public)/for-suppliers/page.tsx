@@ -7,7 +7,7 @@ import { Breadcrumbs } from "@/components/ui";
 export const metadata: Metadata = {
   title: "For suppliers – Get listed on Veximtrade",
   description:
-    "Vietnamese manufacturers and exporters: apply to be listed on Veximtrade. We verify your factory, handle international buyer RFQs and manage payments.",
+    "Vietnamese manufacturers and trading companies: register your supplier profile. Independent document, factory visit and delivery history reviews are confirmed by Vexim staff.",
 };
 
 export default function ForSuppliersPage() {
@@ -27,9 +27,7 @@ export default function ForSuppliersPage() {
         For Vietnamese suppliers
       </h1>
       <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-ink-700">
-        We work directly with manufacturers, processors and licensed exporters in Vietnam. We verify
-        your factory, bring qualified international buyers and manage the sourcing desk — so you can
-        focus on production and quality.
+        We work with manufacturers, cooperatives and trading companies in Vietnam. Start with a document review; a factory visit and delivery history review can be requested independently when relevant.
       </p>
 
       <div className="mt-10 grid gap-5 sm:grid-cols-3">
@@ -41,7 +39,7 @@ export default function ForSuppliersPage() {
         <Benefit
           icon={<ShieldCheck className="h-5 w-5" />}
           title="Verified badge & trust"
-          body="Pass our on-site verification and appear with a Factory-verified badge buyers trust. Profiles are indexed publicly as soon as we reach 10+ verified listings."
+          body="Each approved review earns its own badge. A trading company can show reviewed delivery history without claiming a factory visit."
         />
         <Benefit
           icon={<Lock className="h-5 w-5" />}
@@ -55,18 +53,18 @@ export default function ForSuppliersPage() {
         <ol className="mt-5 space-y-5 text-[15px] text-ink-700">
           <StepItem
             n="1"
-            title="Submit your application"
-            body="Send us your company details, main products and factory address. Your profile starts in draft."
+            title="Create an account, then submit your company profile"
+            body="Sign up with email or Google. In your locked supplier dashboard, enter company details and upload documents for Vexim review. Account creation alone does not create or publish a supplier page."
           />
           <StepItem
             n="2"
-            title="We review documents and visit your factory"
-            body="Our Hanoi desk checks your business registration and schedules a short on-site visit (Level 1) or full audit (Level 2)."
+            title="Our staff reviews your documents"
+            body="Vexim separately decides when to enable your dashboard tools. Document, factory visit and delivery-history checks are reviewed independently by authorised staff; none passes automatically when you upload files."
           />
           <StepItem
             n="3"
             title="Go live and receive RFQs"
-            body="Published profiles receive matched RFQs via our desk. We handle buyer communication in English, send you a short brief and coordinate samples."
+            body="Once Vexim separately approves publication and prepares buyer-ready products, published profiles can receive matched RFQs via our desk. We coordinate buyer communication and samples."
           />
           <StepItem
             n="4"
@@ -84,7 +82,7 @@ export default function ForSuppliersPage() {
         <ul className="mt-4 grid gap-2 text-[14px] text-ink-700 sm:grid-cols-2">
           {[
             "Business registration & tax code",
-            "Factory address and main contact",
+            "Main contact and business address",
             "Main product list, MOQ and lead time",
             "Port(s) and Incoterms you usually ship",
             "Export certificates (HACCP, BRC, organic…) if any",
@@ -111,10 +109,10 @@ export default function ForSuppliersPage() {
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           <Link
-            href="mailto:sales@veximtrade.com?subject=Supplier%20application"
+            href="/supplier/register"
             className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-2.5 text-[14px] font-semibold text-ink-900 hover:bg-ink-100"
           >
-            Email sales@veximtrade.com <ArrowRight className="h-4 w-4" />
+            Create supplier account <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             href="/how-we-verify"
@@ -124,8 +122,7 @@ export default function ForSuppliersPage() {
           </Link>
         </div>
         <p className="mt-4 text-[12px] text-white/60">
-          The self-serve application form is coming soon. For now, please email us directly so our desk
-          can start your profile.
+          Create an account and confirm your email first (or continue with Google). Then complete your company profile in the supplier dashboard; Vexim will review it before enabling portal tools.
         </p>
       </section>
     </div>

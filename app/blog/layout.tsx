@@ -21,7 +21,7 @@ export default function BlogLayout({ children }: { children: ReactNode }) {
             href="/#send"
             className="ml-auto flex items-center gap-2 rounded-md bg-brand-600 px-5 py-2.5 text-[15px] font-semibold text-white transition hover:bg-brand-700 md:ml-0"
           >
-            Start a sourcing request
+            Request a quote
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>

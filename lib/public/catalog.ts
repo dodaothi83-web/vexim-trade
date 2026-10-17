@@ -5,7 +5,10 @@
 import "server-only";
 
 import { getStore } from "@/lib/db";
-import type { Category, Supplier, SupplierProduct, SupplierType } from "@/lib/types";
+import { isExpired, productReadiness } from "@/lib/media/readiness";
+import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, VerificationLevel } from "@/lib/types";
+import { approvedPublicReviewSummaries, approvedVerificationSteps, type PublicReviewSummaries } from "@/lib/verification-status";
+import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
 
 /** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
 export const DEFAULT_LOCALE = "en";
@@ -29,38 +32,19 @@ export function supplierTypeLabel(s: Supplier): string {
   return SUPPLIER_TYPE_LABEL[key] ?? SUPPLIER_TYPE_LABEL.none;
 }
 
-/** Hiển thị cấp xác minh: null/0 = "Not yet verified"; 1/2/3 = Verified level N. */
-export interface VerificationBadgeInfo {
-  text: string;
-  tone: "gray" | "emerald";
-}
-export function verificationBadge(s: Pick<Supplier, "verification_level" | "verified_at" | "status">): VerificationBadgeInfo {
-  if (s.status !== "published" || !s.verification_level || s.verification_level < 1) {
-    return { text: "Not yet verified", tone: "gray" };
-  }
-  if (s.verification_level >= 3) return { text: "Verified Level 3", tone: "emerald" };
-  if (s.verification_level === 2) return { text: "Verified Level 2", tone: "emerald" };
-  return { text: "Verified on site", tone: "emerald" };
-}
-
-/** Định dạng khoảng giá FOB (chỉ gọi khi public thấy). */
-export function formatFob(s: Pick<Supplier, "fob_min" | "fob_max" | "fob_unit" | "fob_currency" | "fob_updated_at" | "fob_publicly_visible">): string | null {
-  if (!s.fob_publicly_visible || !s.fob_updated_at) return null;
-  const expired = Date.now() - new Date(s.fob_updated_at).getTime() > 180 * 24 * 3600 * 1000;
-  if (expired) return null;
-  const unit = s.fob_unit ? `/${s.fob_unit}` : "";
-  const cur = s.fob_currency ?? "USD";
-  if (s.fob_min != null && s.fob_max != null && s.fob_max !== s.fob_min) {
-    return `${cur} ${s.fob_min}–${s.fob_max}${unit}`;
-  }
-  if (s.fob_min != null) return `${cur} ${s.fob_min}${unit}`;
-  return null;
-}
-
 export interface PublicSupplierCard extends Supplier {
   categories: Category[];
   primary_category: Category | null;
   main_products: SupplierProduct[];
+  gallery_images: string[];      // storage_path các ảnh buyer-shareable
+  product_image_paths: Record<string, string>; // approved buyer image per public product; catalogue-only listings have no image
+  public_review_summaries: PublicReviewSummaries;
+  approved_verification_steps: VerificationLevel[];
+}
+
+function buyerVisibleProduct(p: SupplierProduct, categories: Category[], demo = false): boolean {
+  return productReviewApproved(p) && (p.ready_for_buyer || demo) && !isTestOnlyProduct(p.name) &&
+    categories.some((c) => c.status === "published" && c.is_published && productBelongsToCategory(p, c, categories));
 }
 
 /**
@@ -68,8 +52,18 @@ export interface PublicSupplierCard extends Supplier {
  * Public site đọc trực tiếp bảng suppliers (chỉ status='published') để còn lọc linh
  * hoạt theo cột; trong tuần 1 MVP, code lọc tay vì view v_public_suppliers ẩn tạm
  * những supplier chưa published.
+ *
+ * Demo suppliers (is_demo=true) bị loại khỏi list công khai trừ khi:
+ *   - VEXIM_SHOW_DEMO="true" trên môi trường preview/staging, hoặc
+ *   - caller truyền includeDemo=true (chỉ dùng cho staff / trang preview nội bộ).
  */
-export async function listPublicSuppliers(options?: { categorySlug?: string }): Promise<PublicSupplierCard[]> {
+export async function listPublicSuppliers(options?: {
+  categorySlug?: string;
+  includeDemo?: boolean;
+}): Promise<PublicSupplierCard[]> {
+  const showDemo =
+    options?.includeDemo === true ||
+    process.env.VEXIM_SHOW_DEMO === "true";
   const store = getStore();
   const [suppliers, products, categories] = await Promise.all([
     store.listSuppliers(),
@@ -79,43 +73,66 @@ export async function listPublicSuppliers(options?: { categorySlug?: string }): 
       : Promise.resolve([] as Category[]),
   ]);
 
-  const filtered = suppliers.filter((s) => s.status === "published");
+  const filtered = suppliers.filter((s) => {
+    if (s.status !== "published") return false;
+    if (s.is_demo && !showDemo) return false;
+    return true;
+  });
   const bySupplier = new Map<string, SupplierProduct[]>();
   for (const p of products) {
     if (!bySupplier.has(p.supplier_id)) bySupplier.set(p.supplier_id, []);
     bySupplier.get(p.supplier_id)!.push(p);
   }
 
-  let cards: PublicSupplierCard[] = filtered.map((s) => ({
+  const baseCards = filtered.map((s) => ({
     ...s,
-    categories: [],
-    primary_category: null,
-    main_products: (bySupplier.get(s.id) ?? []).slice(0, 4),
+    categories: [] as Category[],
+    primary_category: null as Category | null,
+    main_products: (bySupplier.get(s.id) ?? []).filter((p) => buyerVisibleProduct(p, categories, !!s.is_demo)).slice(0, 4),
+    gallery_images: [] as string[],
+    product_image_paths: {} as Record<string, string>,
+    public_review_summaries: {} as PublicReviewSummaries,
+    approved_verification_steps: [] as VerificationLevel[],
   }));
+
+  // Load approvals for EVERY public supplier; do not infer passed steps from
+  // verification_level (e.g. delivery may pass without a factory visit).
+  // Bound concurrency while keeping the earlier gallery-media limit.
+  for (let i = 0; i < baseCards.length; i += 40) {
+    await Promise.all(baseCards.slice(i, i + 40).map(async (c, offset) => {
+      try {
+        const [media, vers] = await Promise.all([
+          i + offset < 50 ? store.listMedia("supplier", c.id).catch(() => []) : Promise.resolve([] as MediaAsset[]),
+          store.listVerifications(c.id).catch(() => []),
+        ]);
+        c.gallery_images = media
+          .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
+          .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+          .map((m) => m.storage_path!)
+          .slice(0, 6);
+        // Even demo listings must not imply a check from the legacy numeric maximum.
+        c.approved_verification_steps = approvedVerificationSteps(vers);
+        c.public_review_summaries = approvedPublicReviewSummaries(vers);
+      } catch { /* best effort */ }
+    }));
+  }
+
+  let cards: PublicSupplierCard[] = baseCards;
 
   if (options?.categorySlug) {
     const cat = categories.find((c) => c.slug === options.categorySlug);
-    const q = options.categorySlug.toLowerCase();
-    cards = cards.filter((s) => {
-      // Ưu tiên match nếu categories đã được gán; nếu chưa thì lọc theo text.
-      const inProducts = (s.main_products ?? []).some(
-        (p) =>
-          (p.category ?? "").toLowerCase().includes(q) ||
-          p.name.toLowerCase().includes(q),
-      );
-      const inSummary =
-        (s.products ?? "").toLowerCase().includes(q) ||
-        t(s.summary_i18n).toLowerCase().includes(q);
-      // unused `cat` warning tránh
-      void cat;
-      return inProducts || inSummary;
-    });
+    // Only an actual product in the requested category qualifies; supplier blurbs
+    // must never pull an unrelated product/supplier onto a category page.
+    cards = cat ? cards.filter((s) => (bySupplier.get(s.id) ?? []).some((p) =>
+      buyerVisibleProduct(p, categories, !!s.is_demo) && productBelongsToCategory(p, cat, categories)))
+      .map((s) => ({ ...s, main_products: s.main_products.filter((p) =>
+        productBelongsToCategory(p, cat, categories)) })) : [];
   }
 
-  // Sắp xếp: verification_level desc → độ đầy đủ hồ sơ → tên.
+  // Sort by actual approved review count, not the legacy maximum level.
   cards.sort((a, b) => {
-    const av = a.verification_level ?? 0;
-    const bv = b.verification_level ?? 0;
+    const av = a.approved_verification_steps.length;
+    const bv = b.approved_verification_steps.length;
     if (bv !== av) return bv - av;
     const score = (s: Supplier) =>
       (s.products ? 1 : 0) + (s.province ? 1 : 0) + (s.moq_text ? 1 : 0) + (s.lead_time_days ? 1 : 0);
@@ -128,13 +145,47 @@ export async function listPublicSuppliers(options?: { categorySlug?: string }): 
   return cards;
 }
 
-export async function getPublicSupplierBySlug(slug: string): Promise<PublicSupplierCard | null> {
-  const list = await listPublicSuppliers();
-  const supplier = list.find((s) => s.slug === slug) ?? null;
+export async function getPublicSupplierBySlug(slug: string, publicList?: PublicSupplierCard[]): Promise<PublicSupplierCard | null> {
+  const list = publicList ?? await listPublicSuppliers();
+  const supplier = list.find((s) => s.slug === slug || (!s.slug && s.id === slug)) ?? null;
   if (!supplier) return null;
+  const store = getStore();
   // Thêm tất cả sản phẩm của NCC (listPublicSuppliers chỉ lấy 4)
-  const products = await getStore().listProductsBySupplier(supplier.id);
-  return { ...supplier, main_products: products };
+  const [products, categories, media, vers] = await Promise.all([
+    store.listProductsBySupplier(supplier.id),
+    store.listCategories({ publishedOnly: true }),
+    store.listMedia("supplier", supplier.id).catch(() => []),
+    store.listVerifications(supplier.id).catch(() => []),
+  ]);
+  const eligible = products.filter((p) => buyerVisibleProduct(p, categories, !!supplier.is_demo));
+  const productMedia: MediaAsset[] = [];
+  if (!supplier.is_demo) {
+    for (let i = 0; i < eligible.length; i += 80) {
+      productMedia.push(...await store.listMediaForProducts(eligible.slice(i, i + 80).map((p) => p.id)));
+    }
+  }
+  const publicProducts = eligible.filter((p) => supplier.is_demo || productReadiness(productMedia.filter((m) => m.product_id === p.id)).ready);
+  const productImagePaths: Record<string, string> = {};
+  for (const p of publicProducts) {
+    const image = productMedia.filter((m) => m.owner_type === "product" && m.product_id === p.id &&
+      m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
+      .sort((a, b) => Number(b.id === p.featured_media_id) - Number(a.id === p.featured_media_id) ||
+        a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))[0];
+    if (image?.storage_path) productImagePaths[p.id] = image.storage_path;
+  }
+  const gallery = media
+    .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
+    .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+    .map((m) => m.storage_path!)
+    .slice(0, 12);
+  return {
+    ...supplier,
+    main_products: publicProducts,
+    gallery_images: gallery,
+    product_image_paths: productImagePaths,
+    approved_verification_steps: vers.length ? approvedVerificationSteps(vers) : supplier.approved_verification_steps,
+    public_review_summaries: approvedPublicReviewSummaries(vers),
+  };
 }
 
 export async function getPublicSuppliersByIds(ids: string[]): Promise<PublicSupplierCard[]> {

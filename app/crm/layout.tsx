@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
 
 import { dataStatus, getStore } from "@/lib/db";
 import { supabaseProbe } from "@/lib/db";
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function AppLayout({ children }: { children: ReactNode }) {
   // Chưa đăng nhập thì đưa về /login (mọi trang trong nhóm này đều được bảo vệ)
   const session = await requireSession();
+  if (session.role === "supplier") redirect("/supplier/portal");
 
   // Thử Supabase một lần thật nhẹ để biết có kết nối được hay không
   try {
