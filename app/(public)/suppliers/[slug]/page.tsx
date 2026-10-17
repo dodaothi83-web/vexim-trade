@@ -16,7 +16,6 @@ import {
 
 import { Breadcrumbs } from "@/components/ui";
 import {
-  formatFob,
   getPublicSupplierBySlug,
   listPublicSuppliers,
   mainProductNames,
@@ -25,6 +24,8 @@ import {
   verificationBadge,
 } from "@/lib/public/catalog";
 import { SITE_URL } from "@/lib/site";
+import { getStore } from "@/lib/db";
+import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export async function generateMetadata({ params }: PageProps) {
   const s = await getPublicSupplierBySlug(slug);
   if (!s) return { title: "Supplier not found | Veximtrade", robots: { index: false } };
   const name = s.display_name ?? s.name;
-  const mainCat = mainProductNames(s.main_products, 2) || "food products";
+  const mainCat = withoutDirectContacts(mainProductNames(s.main_products, 2) || "food products");
   return {
     title: `${name} – Verified ${mainCat} ${supplierTypeLabel(s)} in ${s.province ?? "Vietnam"} | Veximtrade`,
     description: `Factory-audited by Vexim${s.verified_at ? ` on ${s.verified_at.slice(0, 10)}` : ""}. ${mainCat}, MOQ ${s.moq_text ?? "contact"}. Request a quote.`,
@@ -51,8 +52,11 @@ export default async function SupplierProfile({ params }: PageProps) {
   if (!s) notFound();
 
   const badge = verificationBadge(s);
-  const fob = formatFob(s);
-  const name = s.display_name ?? s.name;
+  const categories = (await getStore().listCategories({ publishedOnly: true }))
+    .filter((c) => c.status === "published" && c.is_published);
+  const productCategory = (p: typeof s.main_products[number]) =>
+    categories.find((c) => productBelongsToCategory(p, c, categories));
+  const name = withoutDirectContacts(s.display_name ?? s.name);
   const verifiedDate = s.verified_at
     ? new Date(s.verified_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
     : null;
@@ -69,7 +73,7 @@ export default async function SupplierProfile({ params }: PageProps) {
     "@context": "https://schema.org",
     "@type": "Organization",
     name,
-    url: `${SITE_URL}/suppliers/${s.slug}`,
+    url: `${SITE_URL}/suppliers/${s.slug || s.id}`,
     location: {
       "@type": "Place",
       address: {
@@ -85,7 +89,7 @@ export default async function SupplierProfile({ params }: PageProps) {
         : undefined,
     makesOffer: s.main_products.map((p) => ({
       "@type": "Offer",
-      itemOffered: { "@type": "Product", name: p.name, description: p.spec ?? undefined },
+      itemOffered: { "@type": "Product", name: withoutDirectContacts(p.name), description: p.spec ? withoutDirectContacts(p.spec) : undefined },
     })),
   };
 
@@ -174,7 +178,7 @@ export default async function SupplierProfile({ params }: PageProps) {
               </p>
             )}
             <p className="mt-4 max-w-3xl text-[16px] leading-relaxed text-ink-700">
-              {t(s.summary_i18n) || mainProductNames(s.main_products)}
+              {withoutDirectContacts(t(s.summary_i18n) || mainProductNames(s.main_products))}
             </p>
             {s.latest_verification_summary && (
               <p className="mt-2 rounded-md bg-emerald-50 px-3 py-2 text-[13px] italic text-emerald-800 ring-1 ring-emerald-100">
@@ -189,7 +193,7 @@ export default async function SupplierProfile({ params }: PageProps) {
       <div className="mt-10 grid gap-8 lg:grid-cols-[1.5fr_1fr]">
         {/* Cột trái: 3 tab SSR (không cần JS ỏ bước này vì chỉ có một trang, in sẵn) */}
         <div>
-          <section>
+          <section id="products" className="scroll-mt-24">
             <h2 className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">
               Products &amp; specifications
             </h2>
@@ -211,24 +215,23 @@ export default async function SupplierProfile({ params }: PageProps) {
                       </td>
                     </tr>
                   )}
-                  {s.main_products.map((p) => (
-                    <tr key={p.id}>
-                      <td className="px-4 py-3 align-top font-semibold text-ink-900">{p.name}</td>
-                      <td className="px-4 py-3 align-top text-ink-700">
-                        {p.spec || p.packaging || <span className="italic text-ink-400">on request</span>}
+                  {s.main_products.map((p) => {
+                    const category = productCategory(p);
+                    return <tr key={p.id}>
+                      <td className="px-4 py-3 align-top font-semibold text-ink-900">
+                        {category ? <Link href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}`} className="text-brand-700 hover:underline">{withoutDirectContacts(p.name)}</Link> : withoutDirectContacts(p.name)}
                       </td>
                       <td className="px-4 py-3 align-top text-ink-700">
-                        {p.moq || s.moq_text || "—"}
+                        {withoutDirectContacts(p.spec || p.packaging || "On request")}
                       </td>
                       <td className="px-4 py-3 align-top text-ink-700">
-                        {fob ? (
-                          <span>{fob}</span>
-                        ) : (
-                          <span className="italic text-ink-400">on request</span>
-                        )}
+                        {withoutDirectContacts(p.moq || s.moq_text || "On request")}
                       </td>
-                    </tr>
-                  ))}
+                      <td className="px-4 py-3 align-top text-ink-700">
+                        {publicProductPrice(p, s) || "On request"}
+                      </td>
+                    </tr>;
+                  })}
                 </tbody>
               </table>
             </div>
@@ -304,11 +307,6 @@ export default async function SupplierProfile({ params }: PageProps) {
                     <CheckCircle2 className="h-3.5 w-3.5" /> {c}
                   </li>
                 ))}
-                {s.fob_publicly_visible && fob && (
-                  <li className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-brand-700 ring-1 ring-brand-200">
-                    FOB ref: {fob}
-                  </li>
-                )}
               </ul>
             ) : (
               <p className="mt-4 text-[14px] italic text-ink-400">
@@ -407,7 +405,7 @@ export default async function SupplierProfile({ params }: PageProps) {
               const rProfile = r.profile_image ? `/public-media/${r.profile_image.replace(/^\//,"")}` : null;
               return (
                 <li key={r.id}>
-                  <Link href={`/suppliers/${r.slug}`} className="block overflow-hidden rounded-lg border border-ink-200 bg-white transition hover:shadow-md">
+                  <Link href={`/suppliers/${encodeURIComponent(r.slug || r.id)}`} className="block overflow-hidden rounded-lg border border-ink-200 bg-white transition hover:shadow-md">
                     <div className="flex h-32 items-center justify-center bg-ink-50">
                       {rProfile ? (
                         // eslint-disable-next-line @next/next/no-img-element

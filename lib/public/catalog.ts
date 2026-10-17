@@ -5,7 +5,8 @@
 import "server-only";
 
 import { getStore } from "@/lib/db";
-import type { Category, Supplier, SupplierProduct, SupplierType } from "@/lib/types";
+import { productReadiness } from "@/lib/media/readiness";
+import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType } from "@/lib/types";
 import { isTestOnlyProduct, productBelongsToCategory } from "@/lib/public/product-selection";
 
 /** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
@@ -66,6 +67,11 @@ export interface PublicSupplierCard extends Supplier {
   latest_verification_summary: string | null;
 }
 
+function buyerVisibleProduct(p: SupplierProduct, categories: Category[], demo = false): boolean {
+  return (p.ready_for_buyer || demo) && !isTestOnlyProduct(p.name) &&
+    categories.some((c) => c.status === "published" && c.is_published && productBelongsToCategory(p, c, categories));
+}
+
 /**
  * Lấy danh sách NCC công khai cho trang danh mục.
  * Public site đọc trực tiếp bảng suppliers (chỉ status='published') để còn lọc linh
@@ -107,7 +113,7 @@ export async function listPublicSuppliers(options?: {
     ...s,
     categories: [] as Category[],
     primary_category: null as Category | null,
-    main_products: (bySupplier.get(s.id) ?? []).slice(0, 4),
+    main_products: (bySupplier.get(s.id) ?? []).filter((p) => buyerVisibleProduct(p, categories, !!s.is_demo)).slice(0, 4),
     gallery_images: [] as string[],
     latest_verification_summary: null as string | null,
   }));
@@ -141,9 +147,9 @@ export async function listPublicSuppliers(options?: {
     // Only an actual product in the requested category qualifies; supplier blurbs
     // must never pull an unrelated product/supplier onto a category page.
     cards = cat ? cards.filter((s) => (bySupplier.get(s.id) ?? []).some((p) =>
-      !isTestOnlyProduct(p.name) && productBelongsToCategory(p, cat, categories)))
+      buyerVisibleProduct(p, categories, !!s.is_demo) && productBelongsToCategory(p, cat, categories)))
       .map((s) => ({ ...s, main_products: s.main_products.filter((p) =>
-        !isTestOnlyProduct(p.name) && productBelongsToCategory(p, cat, categories)) })) : [];
+        productBelongsToCategory(p, cat, categories)) })) : [];
   }
 
   // Sắp xếp: verification_level desc → độ đầy đủ hồ sơ → tên.
@@ -164,15 +170,24 @@ export async function listPublicSuppliers(options?: {
 
 export async function getPublicSupplierBySlug(slug: string): Promise<PublicSupplierCard | null> {
   const list = await listPublicSuppliers();
-  const supplier = list.find((s) => s.slug === slug) ?? null;
+  const supplier = list.find((s) => s.slug === slug || (!s.slug && s.id === slug)) ?? null;
   if (!supplier) return null;
   const store = getStore();
   // Thêm tất cả sản phẩm của NCC (listPublicSuppliers chỉ lấy 4)
-  const [products, media, vers] = await Promise.all([
+  const [products, categories, media, vers] = await Promise.all([
     store.listProductsBySupplier(supplier.id),
+    store.listCategories({ publishedOnly: true }),
     store.listMedia("supplier", supplier.id).catch(() => []),
     store.listVerifications(supplier.id).catch(() => []),
   ]);
+  const eligible = products.filter((p) => buyerVisibleProduct(p, categories, !!supplier.is_demo));
+  const productMedia: MediaAsset[] = [];
+  if (!supplier.is_demo) {
+    for (let i = 0; i < eligible.length; i += 80) {
+      productMedia.push(...await store.listMediaForProducts(eligible.slice(i, i + 80).map((p) => p.id)));
+    }
+  }
+  const publicProducts = eligible.filter((p) => supplier.is_demo || productReadiness(productMedia.filter((m) => m.product_id === p.id)).ready);
   const gallery = media
     .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path)
     .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
@@ -183,7 +198,7 @@ export async function getPublicSupplierBySlug(slug: string): Promise<PublicSuppl
     .sort((a, b) => (b.target_level - a.target_level) || ((b.approved_at ?? "").localeCompare(a.approved_at ?? "")));
   return {
     ...supplier,
-    main_products: products,
+    main_products: publicProducts,
     gallery_images: gallery,
     latest_verification_summary: approved[0]?.public_summary_i18n?.en ?? supplier.latest_verification_summary ?? null,
   };

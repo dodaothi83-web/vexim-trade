@@ -78,7 +78,7 @@ export default async function PublicProductDetail({ params }: Props) {
           <Spec label="Grade" value={card.grade} /><Spec label="MOQ" value={card.moq} />
           <Spec label="Reference price" value={card.price || "On request"} />
           <Spec label="Specification" value={p.spec} /><Spec label="Packaging" value={p.packaging} />
-          <Spec label="Lead time" value={p.lead_time_days ? `${p.lead_time_days} days` : null} />
+          <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
           <Spec label="Export port" value={p.export_port} />
           {specs.map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
         </div>
@@ -86,7 +86,7 @@ export default async function PublicProductDetail({ params }: Props) {
         <Link href={rfq} className="btn btn-primary mt-5 w-full justify-center">Request a quote <ArrowRight className="h-4 w-4" /></Link>
         <aside className="mt-6 rounded-xl border border-brand-200 bg-brand-50/60 p-5">
           <h2 className="text-xs font-bold uppercase tracking-widest text-brand-700">Supplied by</h2>
-          <p className="mt-2 text-lg font-bold text-ink-900">{card.supplierName}</p>
+          <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} className="mt-2 inline-block text-lg font-bold text-brand-800 hover:underline">{card.supplierName} → View supplier profile</Link>
           <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-700"><MapPin className="h-4 w-4" />{card.province}, Vietnam</p>
           <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-ink-800"><ShieldCheck className="h-4 w-4 text-brand-700" />{card.verificationLabel}</p>
           <p className="mt-3 text-xs text-ink-600">Vexim coordinates enquiries; direct supplier contacts are not shown.</p>

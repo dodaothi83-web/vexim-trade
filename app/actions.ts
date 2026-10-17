@@ -1414,7 +1414,7 @@ export async function createProductAction(
     const created = await getStore().createProduct(input);
     const warning = await syncSupplierIndustries(created.supplier_id);
     revalidateAll();
-    return { ok: true, message: `Đã thêm sản phẩm “${created.name}”. ${assigned ? `Hệ thống gán ngành ${assigned}.` : "Chưa nhận diện được ngành; sản phẩm vẫn là bản nháp."}${warning ? ` ${warning}` : ""}`, id: created.id };
+    return { ok: true, message: `Đã thêm sản phẩm “${created.name}”. ${assigned ? `Hệ thống gán ngành ${assigned}.` : "Chưa nhận diện được ngành; sản phẩm vẫn là bản nháp."} Tải ảnh/catalogue chia sẻ buyer vào hồ sơ sản phẩm rồi bật “Sẵn sàng gửi buyer” nếu muốn hiển thị công khai.${warning ? ` ${warning}` : ""}`, id: created.id };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -2030,6 +2030,12 @@ export async function updateMediaAction(
 
     await store.updateMedia(id, next);
     if (verification) await logEvidenceChange(verification, id, "update");
+    if (current.product_id) {
+      const product = await store.getProduct(current.product_id);
+      if (product?.ready_for_buyer && !productReadiness(await store.listMedia("product", current.product_id)).ready) {
+        await store.updateProduct(current.product_id, { ready_for_buyer: false });
+      }
+    }
     revalidateAll();
     return { ok: true, message: "Đã cập nhật tệp." };
   } catch (err) {

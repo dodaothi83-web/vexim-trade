@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getStore } from "@/lib/db";
-import { isExpired } from "@/lib/media/readiness";
+import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { listPublicSuppliers, verificationBadge } from "@/lib/public/catalog";
 import { isTestOnlyProduct, productBelongsToCategory, productGrade, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import type { Category, MediaAsset, SupplierProduct } from "@/lib/types";
@@ -18,6 +18,8 @@ export interface PublicCategoryProduct {
   verificationLabel: string;
   supplierName: string;
   supplierId: string;
+  supplierSlug: string | null;
+  leadTimeDays: number | null;
   isDemo: boolean;
   imagePaths: string[];
 }
@@ -45,17 +47,26 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
   for (let i = 0; i < candidates.length; i += 80) {
     media.push(...await store.listMediaForProducts(candidates.slice(i, i + 80).map((p) => p.id)));
   }
-  return candidates.map((p: SupplierProduct) => {
-    const s = byId.get(p.supplier_id)!;
-    const images = shareableProductImages(media, p.id);
-    // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
-    return {
-      id: p.id, name: withoutDirectContacts(p.name_i18n?.en || p.name), grade: productGrade(p.name, p.spec, category.slug),
-      moq: p.moq || s.moq_text || "On request",
-      price: publicProductPrice(p, s), province: s.province || "Vietnam",
-      verificationLevel: s.verification_level ?? 0, verificationLabel: verificationBadge(s).text,
-      supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
-      supplierId: s.id, isDemo: !!s.is_demo, imagePaths: images,
-    };
-  }).sort((a, b) => b.verificationLevel - a.verificationLevel || a.name.localeCompare(b.name));
+  const byProduct = new Map<string, MediaAsset[]>();
+  for (const asset of media) {
+    if (!asset.product_id) continue;
+    const group = byProduct.get(asset.product_id) ?? [];
+    if (!byProduct.has(asset.product_id)) byProduct.set(asset.product_id, group);
+    group.push(asset);
+  }
+  return candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
+    .map((p: SupplierProduct) => {
+      const s = byId.get(p.supplier_id)!;
+      const images = shareableProductImages(byProduct.get(p.id) ?? [], p.id);
+      // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
+      return {
+        id: p.id, name: withoutDirectContacts(p.name_i18n?.en || p.name), grade: productGrade(p.name, p.spec, category.slug),
+        moq: p.moq || s.moq_text || "On request",
+        price: publicProductPrice(p, s), province: s.province || "Vietnam",
+        verificationLevel: s.verification_level ?? 0, verificationLabel: verificationBadge(s).text,
+        supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
+        supplierId: s.id, supplierSlug: s.slug || null, leadTimeDays: p.lead_time_days ?? null,
+        isDemo: !!s.is_demo, imagePaths: images,
+      };
+    }).sort((a, b) => b.verificationLevel - a.verificationLevel || a.name.localeCompare(b.name));
 }

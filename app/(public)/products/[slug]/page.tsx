@@ -200,11 +200,12 @@ function StateA({
       </section>
 
       {cat.hero_image && (
-        <div className="mt-10 overflow-hidden rounded-xl border border-ink-200">
+        <figure className="mt-10 overflow-hidden rounded-xl border border-ink-200">
           <div className="relative aspect-[21/5] max-h-44 w-full bg-ink-50">
             <Image src={cat.hero_image} alt={t(cat.hero_alt_i18n) || categoryName} fill sizes="100vw" className="object-cover" />
           </div>
-        </div>
+          <figcaption className="bg-ink-50 px-3 py-2 text-xs text-ink-600">Category overview image · product photos belong to the individual cards above.</figcaption>
+        </figure>
       )}
 
       {columns.length > 0 && rows.length > 0 && (
@@ -305,11 +306,12 @@ function StateB({ cat, categoryName, h1, intro, rfqHref }: { cat: Category; cate
           <HeroStat k="Language" v="English · Vietnamese" />
         </dl>
         {cat.hero_image && (
-          <div className="mt-8 overflow-hidden rounded-xl border border-ink-200">
+          <figure className="mt-8 overflow-hidden rounded-xl border border-ink-200">
             <div className="relative aspect-[21/9] w-full bg-ink-50">
               <Image src={cat.hero_image} alt={t(cat.hero_alt_i18n) || categoryName} fill sizes="100vw" className="object-cover" priority />
             </div>
-          </div>
+            <figcaption className="bg-ink-50 px-3 py-2 text-xs text-ink-600">Category overview image, not a product listing. Individual product photos appear with buyer-ready offers.</figcaption>
+          </figure>
         )}
       </div>
       <div className="rounded-2xl border border-ink-200 bg-white p-6 shadow-sm">

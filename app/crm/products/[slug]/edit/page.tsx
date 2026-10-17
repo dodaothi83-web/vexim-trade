@@ -1,13 +1,15 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { getStore } from "@/lib/db";
 import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { ProductForm } from "@/components/product-form";
-import { assignSupplierCategories } from "@/lib/public/category-assignment";
+import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
+import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { DeleteProductButton } from "@/components/product-actions";
 import { MediaManager, ReadyHint } from "@/components/media-manager";
-import { productReadiness } from "@/lib/media/readiness";
+import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { requirePagePermission } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +34,13 @@ export default async function EditProductPage({
   const supplierCategories = links.length
     ? links.map((link) => categories.find((c) => c.id === link.category_id)?.slug).filter((slug): slug is string => !!slug)
     : assignSupplierCategories(supplier.products, [], categories).slugs;
+  const match = assignProductCategory(product, categories, supplierCategories);
+  const category = categories.find((c) => c.id === match?.id);
+  const categoryPublished = !!category && category.status === "published" && category.is_published;
+  const canView = supplier.status === "published" && categoryPublished &&
+    (supplier.is_demo ? process.env.VEXIM_SHOW_DEMO === "true" : product.ready_for_buyer && readiness.ready) &&
+    !isTestOnlyProduct(product.name);
+  const productImages = media.filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m));
 
   return (
     <>
@@ -52,6 +61,19 @@ export default async function EditProductPage({
         }
       />
       <div className="mx-auto max-w-4xl space-y-5">
+        <section className="card p-5 text-sm" aria-label="Điều kiện xuất hiện trên website">
+          <h2 className="font-bold text-ink-900">Hiển thị sản phẩm trên website</h2>
+          <p className="mt-1 text-ink-600">Ngành hệ thống tự gán chỉ xác định trang danh mục; ảnh danh mục không phải ảnh sản phẩm. Để ảnh sản phẩm xuất hiện trên thẻ, tải ảnh vào chính hồ sơ này ở mục Hình ảnh &amp; tài liệu bên dưới và chọn “Chia sẻ buyer”.</p>
+          <ul className="mt-3 space-y-1 text-ink-700">
+            <li>{categoryPublished ? "✓" : "○"} Danh mục {category?.name_i18n.en || category?.slug || "chưa nhận diện"} đã đăng</li>
+            <li>{supplier.status === "published" ? "✓" : "○"} NCC đã đăng (không tự chuyển trạng thái khi lưu)</li>
+            <li>{readiness.ready ? "✓" : "○"} Có ít nhất một ảnh/catalogue của sản phẩm được chia sẻ buyer</li>
+            <li>{product.ready_for_buyer ? "✓" : "○"} Đã bật “Sẵn sàng gửi buyer” và lưu hồ sơ</li>
+            <li>{!isTestOnlyProduct(product.name) ? "✓" : "○"} Tên không bắt đầu bằng TEST ONLY</li>
+          </ul>
+          {readiness.ready && !productImages.length && <p className="mt-2 text-amber-800">Catalogue đủ điều kiện gửi buyer nhưng thẻ chưa có ảnh: tải thêm ảnh sản phẩm chia sẻ buyer để không chỉ hiện biểu tượng trống.</p>}
+          {canView && category && <p className="mt-3"><Link className="font-semibold text-brand-700 underline" href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(product.id)}`} target="_blank">Xem trang sản phẩm công khai ↗</Link></p>}
+        </section>
         <ProductForm
           supplier={supplier}
           product={product}
