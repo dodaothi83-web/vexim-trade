@@ -24,14 +24,19 @@ let row = {
   shipment_ref: 'SHIP-123', shipped_on: '2026-10-10',
   checklist: { order_matched: true, shipping_proof: true, delivery_proof: true }, checklist_notes: {},
 };
+const docKeys = ['license', 'tax', 'export', 'factory', 'identity', 'optional_a', 'optional_b'];
+const docItems = docKeys.map((key, i) => ({ key, required: i < 5 }));
 const records = [
   { target_level: 1, status: 'approved' }, { target_level: 2, status: 'approved' }, row,
 ];
 const media = [];
+let mediaBlocked = null;
 const store = {
   getVerification: async () => row,
   listVerifications: async () => records,
   listMedia: async (ownerType, ownerId) => { lastMediaLookup = [ownerType, ownerId]; return media; },
+  getMedia: async (id) => media.find((m) => m.id === id),
+  updateMedia: async (id, patch) => { const asset = media.find((m) => m.id === id); Object.assign(asset, patch); return asset; },
   updateVerification: async (_id, patch) => { Object.assign(row, patch); return row; },
   addAuditLog: async (entry) => { lastAudit = entry; },
   getSupplier: async () => ({ verification_level: 2 }),
@@ -45,11 +50,12 @@ const mocks = {
   },
   '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
   '@/lib/verification-evidence': evidence,
+  '@/lib/media/verification-access': { verificationMediaEditError: async () => mediaBlocked },
+  '@/lib/types': { L1_DOC_ITEMS: docItems },
   '@/lib/verification': {
     auditHref: () => '/crm/suppliers/supplier-1/audit/deliveries',
-    auditItems: (level) => (level === 3
-      ? ['order_matched', 'shipping_proof', 'delivery_proof']
-      : ['license', 'tax', 'export', 'factory', 'identity', 'optional_a', 'optional_b']).map((key) => ({ key })),
+    auditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : docItems,
+    requiredAuditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : docItems.slice(0, 5),
     inVnBounds: (lat, lng) => lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110,
   },
 };
@@ -95,10 +101,35 @@ assert.deepEqual(lastMediaLookup, ['verification', row.id], 'No supplier-library
 assert.match(missing.message, /kho chung NCC/);
 media.push({ kind: 'video', storage_path: null, external_url: 'https://example.com' });
 assert.equal((await exports.approveVerificationAction(form)).ok, false, 'A video link is not a legal document');
-media.push({ kind: 'image', storage_path: 'verifications/review-3/license.jpg', status: 'unverified' });
+media.push({ id: 'photo-1', owner_type: 'verification', verification_id: row.id, supplier_id: row.supplier_id, kind: 'image', storage_path: 'verifications/review-3/license.jpg', status: 'unverified' });
+mediaBlocked = 'Đợt kiểm đã được duyệt';
+assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'license')).ok, false, 'Evidence mutations must respect audit permissions');
+mediaBlocked = null;
+media[1].supplier_id = 'other-supplier';
+assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'license')).ok, false, 'Reject mismatched supplier ownership');
+media[1].supplier_id = row.supplier_id;
+assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'license')).ok, true);
+assert.equal(media[1].checklist_key, 'license', 'File linked to an item without moving it');
+assert.equal(lastAudit.before.checklist_key, null, 'Audit records old assignment even with mutable local store');
+assert.equal(lastAudit.after.checklist_key, 'license');
+assert.equal((await exports.assignVerificationEvidenceAction('photo-1', null)).ok, true);
+assert.equal(media[1].checklist_key, null, 'Unassign does not delete file');
+assert.equal(lastAudit.before.checklist_key, 'license');
+assert.equal((await exports.assignVerificationEvidenceAction('photo-1', 'forged-key')).ok, false);
 const documentApproved = await exports.approveVerificationAction(form);
 assert.equal(documentApproved.ok, true, 'Photo of a document from this verification qualifies');
 assert.equal(row.status, 'approved');
+Object.assign(row, { status: 'in_progress', checklist: {}, checklist_notes: {}, approved_by: null });
+const incomplete = new FormData(); incomplete.set('id', row.id); incomplete.set('status', 'submitted');
+await assert.rejects(exports.updateVerificationChecklistAction(incomplete), /mục bắt buộc/);
+for (const key of docKeys.slice(0, 5)) incomplete.set(`check:${key}`, 'yes');
+incomplete.set('check:optional_a', 'not_applicable');
+const submitted = await exports.updateVerificationChecklistAction(incomplete);
+assert.equal(submitted.ok, true, 'Optional documents do not block submission');
+assert.equal(row.checklist.optional_a, 'not_applicable');
+assert.equal(row.checklist.optional_b, null);
+const optionalApproved = await exports.approveVerificationAction(form);
+assert.equal(optionalApproved.ok, true, 'Only the five required checks must pass');
 const selfApprovalSql = fs.readFileSync(new URL('../supabase/migrations/20261017_temporary_self_verification_approval.sql', import.meta.url), 'utf8');
 assert.match(selfApprovalSql, /drop constraint if exists verifications_four_eyes/);
 const formUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx', import.meta.url), 'utf8');

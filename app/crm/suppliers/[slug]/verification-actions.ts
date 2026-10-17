@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
-import { auditHref, auditItems } from "@/lib/verification";
+import { auditHref, auditItems, requiredAuditItems } from "@/lib/verification";
 import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import { hasDocumentAuditEvidence } from "@/lib/verification-evidence";
-import type { Verification, VerificationStatus } from "@/lib/types";
+import { verificationMediaEditError } from "@/lib/media/verification-access";
+import { L1_DOC_ITEMS, type L1DocKey, type Verification, type VerificationStatus } from "@/lib/types";
 
 function refreshAudit(v: Verification) {
   revalidatePath(auditHref(v.supplier_id, v.target_level));
@@ -49,13 +50,17 @@ export async function updateVerificationChecklistAction(fd: FormData) {
   const checklist: Verification["checklist"] = { ...before.checklist };
   const notes: Verification["checklist_notes"] = { ...before.checklist_notes };
   const items = auditItems(before.target_level);
+  const requiredKeys = new Set(requiredAuditItems(before.target_level).map((it) => it.key));
   for (const it of items) {
     const value = fd.get(`check:${it.key}`);
-    checklist[it.key] = value === "yes" ? true : value === "no" ? false : null;
+    const optionalDoc = before.target_level === 1 && !requiredKeys.has(it.key);
+    checklist[it.key] = value === "yes" ? true : value === "no" ? false :
+      value === "not_applicable" && optionalDoc ? "not_applicable" : null;
     notes[it.key] = String(fd.get(`note:${it.key}`) ?? "").trim().slice(0, 1000) || null;
   }
-  if (nextStatus === "submitted" && items.some((it) => checklist[it.key] === null)) {
-    throw new Error("Hãy ghi kết quả cho tất cả mục kiểm trước khi nộp duyệt.");
+  if (nextStatus === "submitted" && requiredAuditItems(before.target_level).some((it) =>
+    checklist[it.key] !== true && checklist[it.key] !== false)) {
+    throw new Error("Hãy ghi kết quả các mục bắt buộc trước khi nộp duyệt.");
   }
   const visitDate = String(fd.get("visit_date") || "").trim();
   const visitAddress = String(fd.get("visit_address") || "").trim();
@@ -111,7 +116,7 @@ export async function approveVerificationAction(fd: FormData) {
   if (gate) throw new Error(gate.message);
   const { before, store, session } = await getReviewable(String(fd.get("id") || ""));
   const items = auditItems(before.target_level);
-  if (items.some((it) => before.checklist[it.key] !== true && before.checklist[it.key] !== false)) {
+  if (requiredAuditItems(before.target_level).some((it) => before.checklist[it.key] !== true && before.checklist[it.key] !== false)) {
     return { ok: false, message: "Còn mục chưa kiểm; trả lại để bổ sung." };
   }
   if (before.target_level > 1) {
@@ -121,7 +126,7 @@ export async function approveVerificationAction(fd: FormData) {
   // Never fall back to supplier-wide media: only this verification's attachments qualify.
   const media = await store.listMedia("verification", before.id);
   if (before.target_level === 1) {
-    if (items.slice(0, 5).some((it) => before.checklist[it.key] !== true)) return { ok: false, message: "Giấy tờ bắt buộc chưa đạt." };
+    if (requiredAuditItems(1).some((it) => before.checklist[it.key] !== true)) return { ok: false, message: "Giấy tờ bắt buộc chưa đạt." };
     if (!hasDocumentAuditEvidence(media)) {
       return { ok: false, message: "Chưa có ảnh chụp giấy tờ hoặc PDF trong bằng chứng của đợt Kiểm tra giấy tờ này. Tệp ở kho chung NCC không được tính; hãy tải vào đúng đợt kiểm (hoặc trả lại để bổ sung)." };
     }
@@ -147,6 +152,40 @@ export async function approveVerificationAction(fd: FormData) {
   await auditChange(before, "approved", "approve");
   refreshAudit(before);
   return { ok: true, message: "Đã duyệt bước kiểm tra." };
+}
+
+/** Associate old/unassigned evidence with a document check without moving the file. */
+export async function assignVerificationEvidenceAction(mediaId: string, key: L1DocKey | null) {
+  const gate = await guard("media.manage");
+  if (gate) return gate;
+  const store = getStore();
+  const asset = await store.getMedia(mediaId);
+  if (!asset || asset.owner_type !== "verification" || !asset.verification_id) {
+    return { ok: false, message: "Tệp không thuộc đợt kiểm." };
+  }
+  const v = await store.getVerification(asset.verification_id);
+  if (!v || v.target_level !== 1 || asset.supplier_id !== v.supplier_id ||
+    (key && !L1_DOC_ITEMS.some((it) => it.key === key))) {
+    return { ok: false, message: "Mục kiểm giấy tờ không hợp lệ." };
+  }
+  const blocked = await verificationMediaEditError(v);
+  if (blocked) return { ok: false, message: blocked };
+  if (key && (!asset.storage_path || !["image", "document", "certificate"].includes(asset.kind))) {
+    return { ok: false, message: "Chỉ ảnh hoặc PDF trong đợt kiểm mới được gắn vào mục giấy tờ." };
+  }
+  if ((asset.checklist_key ?? null) === key) return { ok: true, message: "Tệp đã gắn với mục này." };
+  const previousKey = asset.checklist_key ?? null;
+  await store.updateMedia(mediaId, { checklist_key: key });
+  const session = await getSession();
+  await store.addAuditLog({
+    actor_id: session?.uid ?? null, actor_email: session?.email ?? null,
+    entity: "supplier", entity_id: v.supplier_id,
+    action: "verification.media.assign",
+    before: { verification_id: v.id, media_id: mediaId, checklist_key: previousKey },
+    after: { verification_id: v.id, media_id: mediaId, checklist_key: key },
+  }).catch((err) => console.error("[audit] evidence assignment failed", err));
+  refreshAudit(v);
+  return { ok: true, message: key ? "Đã gắn tệp vào mục kiểm." : "Đã chuyển tệp về bằng chứng chưa gắn mục." };
 }
 
 export async function returnVerificationAction(fd: FormData) {

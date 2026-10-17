@@ -277,13 +277,13 @@ export type VerificationLevel = 1 | 2 | 3;
 
 /** Các hạng mục checklist L1 — giấy tờ doanh nghiệp & an toàn thực phẩm */
 export const L1_DOC_ITEMS = [
-  { key: "business_license", label: "Đăng ký doanh nghiệp" },
-  { key: "tax_certificate", label: "Mã số thuế / đăng ký thuế" },
-  { key: "bank_letter", label: "Xác nhận tài khoản ngân hàng" },
-  { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm" },
-  { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000 hoặc tương đương" },
-  { key: "product_certs", label: "Chứng chỉ sản phẩm đã công bố" },
-  { key: "export_license", label: "Giấy phép xuất khẩu (nếu áp dụng)" }
+  { key: "business_license", label: "Đăng ký doanh nghiệp", required: true },
+  { key: "tax_certificate", label: "Mã số thuế / đăng ký thuế", required: true },
+  { key: "bank_letter", label: "Xác nhận tài khoản ngân hàng", required: true },
+  { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm", required: true },
+  { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000 hoặc tương đương", required: true },
+  { key: "product_certs", label: "Chứng chỉ sản phẩm đã công bố", required: false },
+  { key: "export_license", label: "Giấy phép xuất khẩu (nếu áp dụng)", required: false }
 ] as const;
 
 /** Checklist L2 — thăm nhà máy */
@@ -326,8 +326,8 @@ export interface Verification {
   shipment_ref: string | null;
   shipped_on: string | null;
   shipment_destination: string | null;
-  /** Checklist kết quả — map key → boolean (null = chưa kiểm) */
-  checklist: Record<string, boolean | null>;
+  /** Checklist kết quả — null = chưa kiểm; not_applicable chỉ dành cho mục tùy chọn. */
+  checklist: Record<string, boolean | null | "not_applicable">;
   /** Ghi chú từng mục (key → text) */
   checklist_notes: Record<string, string | null>;
   /** Lý do trả hồ sơ (khi status=returned) */
@@ -490,6 +490,8 @@ export interface MediaAsset {
   supplier_id: string | null;
   /** Khi owner_type === "verification" — ảnh/giấy tờ đính kèm cho một lần xác minh cụ thể */
   verification_id?: string | null;
+  /** Mục bảng kiểm giấy tờ gắn với tệp; null cho bằng chứng chung/tệp cũ. */
+  checklist_key?: L1DocKey | null;
   kind: MediaKind;
   audience: MediaAudience;
   status: MediaStatus;

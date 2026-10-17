@@ -502,6 +502,7 @@ function migrateMediaDefaults(db: LocalShape) {
     if ((m as unknown as { verification_id?: string | null }).verification_id === undefined) {
       (m as unknown as { verification_id: string | null }).verification_id = null;
     }
+    if (m.checklist_key === undefined) m.checklist_key = null;
   }
 }
 
@@ -1212,6 +1213,7 @@ export const localStore: DataStore = {
       const now = new Date().toISOString();
       const row: MediaAsset = {
         verification_id: null,
+        checklist_key: null,
         id: randomUUID(),
         created_at: now,
         updated_at: now,

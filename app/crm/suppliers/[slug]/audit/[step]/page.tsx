@@ -67,7 +67,9 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
               <MediaManager key={current.id} ownerType="verification" ownerId={current.id} items={media} readOnly={mediaReadOnly} allowInternal={false}
                 defaultKind={step.level === 2 ? "image" : "document"}
                 title={`Bằng chứng: ${step.title}`}
-                scopeHint="Chỉ tệp đính kèm trong đợt kiểm này mới được dùng để đối chiếu bảng kiểm và AI đọc. Tệp trong kho chung của NCC không tự chuyển sang đây."
+                scopeHint={step.level === 1
+                  ? "Có thể tải ảnh/PDF ngay dưới từng dòng bảng kiểm. Tệp cũ chưa gắn mục vẫn ở đây; chọn mục cho chúng ngay trong bảng kiểm. Tệp kho chung NCC không tự chuyển sang đợt kiểm."
+                  : "Chỉ tệp đính kèm trong đợt kiểm này mới được dùng để đối chiếu bảng kiểm. Tệp trong kho chung của NCC không tự chuyển sang đây."}
                 note="Chỉ nội bộ · video ngoài cần cấp quyền xem" />
               {step.level === 1 && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Để duyệt giấy tờ, cần ít nhất một ảnh chụp giấy tờ hoặc PDF trong mục “Bằng chứng: Kiểm tra giấy tờ” ở trên. Ảnh/tài liệu trong kho chung NCC không được tính.</p>}
               {step.level === 3 && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Để duyệt lịch sử giao hàng, cần ít nhất một chứng từ giao hàng được đánh dấu “Đã kiểm tra”. Ảnh hoặc video bổ sung không thay cho vận đơn/xác nhận giao nhận.</p>}

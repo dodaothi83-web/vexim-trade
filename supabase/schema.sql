@@ -317,6 +317,7 @@ create table if not exists public.media_assets (
   audience     text not null default 'buyer' check (audience in ('buyer','internal')),
   status       text not null default 'unverified' check (status in
                  ('unverified','checked','expired')),
+  checklist_key text,
   expires_on   date,
   caption      text,
   -- tệp lưu trong Supabase Storage (hoặc thư mục data/media khi chạy local)
@@ -699,6 +700,7 @@ alter table public.verifications
 -- Media for a specific inspection (internal documents/photos); add FK after
 -- verifications exists, since media_assets is declared earlier in this file.
 alter table public.media_assets add column if not exists verification_id uuid;
+alter table public.media_assets add column if not exists checklist_key text;
 do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'media_assets_verification_id_fkey'
     and conrelid = 'public.media_assets'::regclass) then
@@ -719,6 +721,17 @@ alter table public.media_assets add constraint media_owner_ck check (
 create index if not exists media_verification_idx
   on public.media_assets (verification_id, created_at desc)
   where verification_id is not null;
+alter table public.media_assets drop constraint if exists media_checklist_key_ck;
+alter table public.media_assets add constraint media_checklist_key_ck check (
+  checklist_key is null or
+  (owner_type = 'verification' and verification_id is not null and checklist_key in (
+    'business_license', 'tax_certificate', 'bank_letter', 'food_safety',
+    'haccp_or_brc', 'product_certs', 'export_license'
+  ))
+);
+create index if not exists media_verification_checklist_idx
+  on public.media_assets (verification_id, checklist_key)
+  where owner_type = 'verification' and checklist_key is not null;
 create index if not exists verifications_supplier_idx on public.verifications (supplier_id, created_at desc);
 
 drop trigger if exists verifications_touch on public.verifications;

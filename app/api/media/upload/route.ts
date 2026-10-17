@@ -6,6 +6,7 @@ import { getSession, guard } from "@/lib/auth/session";
 import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
+import { L1_DOC_ITEMS } from "@/lib/types";
 import type { MediaAudience, MediaInput, MediaKind, MediaOwnerType } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
   const ownerType = String(form.get("ownerType") ?? "") as MediaOwnerType;
   const ownerId = String(form.get("ownerId") ?? "").trim();
   const kind = String(form.get("kind") ?? "image") as MediaKind;
+  const checklistKey = String(form.get("checklistKey") ?? "").trim();
   const captionRaw = String(form.get("caption") ?? "").trim();
   const expiresRaw = String(form.get("expiresOn") ?? "").trim();
   let audience = String(form.get("audience") ?? "") as MediaAudience;
@@ -57,6 +59,10 @@ export async function POST(request: Request) {
       { ok: false, message: "Loại tệp không hợp lệ (video chỉ nhận link)." },
       { status: 400 },
     );
+  }
+  if (checklistKey && (ownerType !== "verification" || !["image", "document", "certificate"].includes(kind) ||
+    !L1_DOC_ITEMS.some((it) => it.key === checklistKey))) {
+    return NextResponse.json({ ok: false, message: "Mục kiểm giấy tờ không hợp lệ." }, { status: 400 });
   }
 
   const store = getStore();
@@ -86,6 +92,9 @@ export async function POST(request: Request) {
     const v = await store.getVerification(ownerId);
     if (!v) {
       return NextResponse.json({ ok: false, message: "Không tìm thấy hồ sơ xác minh." }, { status: 404 });
+    }
+    if (checklistKey && v.target_level !== 1) {
+      return NextResponse.json({ ok: false, message: "Chỉ đợt kiểm giấy tờ mới có mục kiểm này." }, { status: 400 });
     }
     const blocked = await verificationMediaEditError(v);
     if (blocked) return NextResponse.json({ ok: false, message: blocked }, { status: 403 });
@@ -157,6 +166,7 @@ export async function POST(request: Request) {
         product_id: ownerType === "product" ? ownerId : null,
         supplier_id: mediaSupplierId,
         verification_id: ownerType === "verification" ? ownerId : null,
+        ...(checklistKey ? { checklist_key: checklistKey as MediaInput["checklist_key"] } : {}),
         kind,
         audience,
         status: "unverified",

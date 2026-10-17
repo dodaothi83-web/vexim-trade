@@ -16,6 +16,11 @@ export function auditStep(level: number) { return AUDIT_STEPS.find((s) => s.leve
 export function auditItems(level: VerificationLevel) {
   return level === 1 ? L1_DOC_ITEMS : level === 2 ? L2_VISIT_ITEMS : DELIVERY_ITEMS;
 }
+
+/** The first five document checks must pass; the last two are optional. */
+export function requiredAuditItems(level: VerificationLevel) {
+  return level === 1 ? L1_DOC_ITEMS.filter((item) => item.required) : auditItems(level);
+}
 export function auditHref(supplierId: string, level: number) {
   const step = auditStep(level);
   return step ? `/crm/suppliers/${encodeURIComponent(supplierId)}/audit/${step.path}` : `/crm/suppliers/${encodeURIComponent(supplierId)}`;

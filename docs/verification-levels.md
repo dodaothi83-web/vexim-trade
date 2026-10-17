@@ -4,9 +4,13 @@ Ba bước hiển thị trong CRM là **Kiểm tra giấy tờ → Thăm nhà m�
 
 | Trang | Bằng chứng cần đối chiếu | Điều kiện duyệt |
 | --- | --- | --- |
-| Kiểm tra giấy tờ (`/audit/documents`) | 7 mục pháp lý/chứng nhận; chứng từ PDF/ảnh, video bổ sung qua link. | Ghi kết quả cả 7 mục, 5 giấy tờ chính đạt, ít nhất một tài liệu/chứng chỉ đính kèm, quản trị viên bấm duyệt riêng. |
+| Kiểm tra giấy tờ (`/audit/documents`) | 7 mục pháp lý/chứng nhận; chứng từ PDF/ảnh, video bổ sung qua link. | Ghi kết quả 5 mục bắt buộc và cả 5 phải đạt; 2 mục cuối tùy chọn (có thể để trống hoặc chọn Không áp dụng); ít nhất một ảnh/PDF của đúng đợt kiểm, quản trị viên bấm duyệt riêng. |
 | Thăm nhà máy (`/audit/factory`) | 9 mục tại cơ sở; ngày, địa chỉ, GPS, ảnh hiện trường, video tham chiếu. | Đã duyệt giấy tờ; ghi đủ 9 mục, ngày/địa chỉ/GPS hợp lệ của cơ sở, mục ảnh đạt và ít nhất một ảnh đính kèm, quản trị viên bấm duyệt riêng. |
 | Lịch sử giao hàng (`/audit/deliveries`) | Một lô hàng thực tế: mã lô/đơn, ngày giao, vận đơn và xác nhận giao nhận; ảnh/video chỉ là bổ sung. | Đã duyệt thăm nhà máy; ba mục kiểm đạt, chứng từ giao hàng đính kèm và được đánh dấu “Đã kiểm tra”, quản trị viên bấm duyệt riêng. **RFQ `won` không chứng minh đã giao hàng.** |
+
+**7 mục giấy tờ:** bắt buộc phải đạt: (1) Đăng ký doanh nghiệp, (2) Mã số thuế / đăng ký thuế, (3) Xác nhận tài khoản ngân hàng, (4) Giấy chứng nhận an toàn thực phẩm, (5) HACCP / BRC / ISO 22000 hoặc tương đương. Tùy chọn: (6) Chứng chỉ sản phẩm đã công bố, (7) Giấy phép xuất khẩu (nếu áp dụng). Mục tùy chọn có thể ghi kết quả, đánh dấu “Không áp dụng” hoặc để trống; không chặn nộp/duyệt. Không tự gán “Đạt” nếu tệp được tải lên hoặc AI đưa ra gợi ý.
+
+**Chèn ảnh/PDF ngay tại mục:** mỗi dòng của bảng kiểm có nút tải ảnh/PDF, thumbnail/link mở tệp và nút bỏ gắn mục. File vẫn là bằng chứng nội bộ của **đúng đợt kiểm**, thêm `media_assets.checklist_key` để gắn vào một mục cụ thể; không chuyển sang kho chung NCC. Tệp cũ chưa có mục vẫn hiển thị ở “Bằng chứng cũ / chưa gắn mục” và có thể gắn bằng thao tác chọn, **không tự chuyển, không xóa hay tải lại**. Bỏ gắn chỉ đưa tệp về danh sách chưa gắn, còn xoá tệp thực hiện qua kho bằng chứng của đợt kiểm. Giữ điều kiện tổng ít nhất một ảnh/PDF để duyệt; **không ép đủ 5 tệp riêng** vì một trang tài liệu có thể chứng minh nhiều mục và tất cả vẫn phải được con người đối chiếu.
 
 **Giấy tờ & lỗi thiếu bằng chứng:** trên trang Kiểm tra giấy tờ, tab tải lên mặc định là “Giấy tờ nội bộ” (nhận PDF hoặc ảnh). Ảnh chụp giấy tờ đã tải trước đó qua tab “Ảnh” **trong đúng đợt kiểm** cũng được tính là bằng chứng, không cần tải lại. Phải có tệp thực tế (`storage_path`), video link không thay thế giấy tờ. Nếu không có tệp hợp lệ, nút Duyệt trả thông báo ngay trong form thay vì lỗi Server Components; sau khi đã Nộp duyệt, chỉ người có quyền duyệt mới thêm tệp, hoặc trả về để người kiểm bổ sung. Hệ thống không tự kết luận tài liệu là thật chỉ dựa trên nhãn loại tệp; người duyệt phải xem và đối chiếu.
 
@@ -40,7 +44,8 @@ Không đổi quyền RBAC của nhân viên thu mua. Nếu app mới chạy tr�
 1. Nếu **chưa chạy** migration cũ `supabase/migrations/20261017_verification_workflow.sql`, hãy chạy nó trước. Migration CMS ảnh NCC không chứa các cột checklist / liên kết bằng chứng xác minh.
 2. Sau đó chạy **migration mới** `supabase/migrations/20261017_delivery_history_audit.sql` trong SQL Editor của đúng Supabase project, trước khi deploy code mới. Migration idempotent, thêm `shipment_ref`, `shipped_on`, `shipment_destination` vào `public.verifications`, rồi reload schema cache PostgREST. Không chạy lại toàn bộ `schema.sql` trên production.
 3. Chạy `supabase/migrations/20261017_temporary_self_verification_approval.sql` trên đúng Supabase project **trước khi deploy** để bỏ CHECK `verifications_four_eyes`. Migration không sửa bản kiểm hiện có.
-4. Kiểm tra:
+4. Chạy `supabase/migrations/20261017_audit_checklist_evidence.sql` **trước khi deploy** để thêm cột nullable `media_assets.checklist_key`. Tệp cũ vẫn chưa gắn mục; không cần backfill dữ liệu, không chạy lại toàn bộ `schema.sql`.
+5. Kiểm tra:
 
    ```sql
    select column_name from information_schema.columns
@@ -51,10 +56,10 @@ Không đổi quyền RBAC của nhân viên thu mua. Nếu app mới chạy tr�
    -- Mong đợi 8 dòng.
    select column_name from information_schema.columns
    where table_schema = 'public' and table_name = 'media_assets'
-     and column_name = 'verification_id';
-   -- Mong đợi 1 dòng.
+     and column_name in ('verification_id', 'checklist_key');
+   -- Mong đợi 2 dòng.
    ```
 
-5. Deploy, tải lại hẳn trang hồ sơ NCC. Mở từng trang kiểm, tải ảnh/tài liệu, thêm và xoá thử link video; nộp duyệt, dùng tài khoản admin đã kiểm để duyệt, kiểm tra `inspector_id = approved_by` và trang sau được mở. Cũng thử với tài khoản sourcing để chắc chắn không có quyền duyệt. Nếu lỗi, ghi HTTP status/response và log máy chủ, **không gửi credentials**.
+6. Deploy, tải lại hẳn trang hồ sơ NCC. Mở trang giấy tờ, chèn ảnh/PDF vào một dòng, gắn thử tệp cũ vào dòng khác, bỏ gắn và kiểm tra tệp không bị xóa. Đánh dấu 5 mục bắt buộc đạt, để trống hoặc chọn Không áp dụng ở 2 mục tùy chọn; nộp duyệt rồi dùng tài khoản admin đã kiểm để duyệt, kiểm tra `inspector_id = approved_by` và trang sau được mở. Cũng thử với tài khoản sourcing để chắc chắn không có quyền duyệt. Nếu lỗi, ghi HTTP status/response và log máy chủ, **không gửi credentials**.
 
-Test local: `node scripts/check-verification-media-scope.mjs && node scripts/check-verification-start.mjs && node scripts/check-audit-pages.mjs && npm run typecheck && npm run build`. Chưa kiểm thử production Supabase/Storage thực tế từ sandbox này.
+Test local: `node scripts/check-inline-audit-evidence.mjs && node scripts/check-verification-media-scope.mjs && node scripts/check-verification-start.mjs && node scripts/check-audit-pages.mjs && npm run typecheck && npm run build`. Chưa kiểm thử production Supabase/Storage thực tế từ sandbox này.
