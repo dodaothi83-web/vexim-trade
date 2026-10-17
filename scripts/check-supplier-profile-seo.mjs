@@ -31,7 +31,9 @@ const real = {
 };
 const synthetic = { ...real, id: 'test', slug: 'vexim-test-supplier-do-not-contact',
   summary_i18n: { en: 'VEXIM TEST SUPPLIER - DO NOT CONTACT. veximglobal.com' },
-  main_products: [{ ...product, id: 'fake', spec: 'TEST ONLY — no verified commercial specification' }],
+  main_products: [{ ...product, id: 'fake', spec: 'TEST ONLY — no verified commercial specification',
+    lead_time_days: 14, packaging: 'Sample bag', description: 'Sample description only.',
+    description_detail: 'Do not email secret@example.com about this test.', ref_price: 999, certifications: 'unreviewed' }],
   product_image_paths: { fake: 'products/fake/test.jpg' }, approved_verification_steps: [1], public_review_summaries: {} };
 const thin = { ...real, id: 'empty', slug: 'empty-supplier', main_products: [] };
 assert.equal(seo.supplierProfileIndexable(real), true);
@@ -126,8 +128,17 @@ const previewHtml = renderToStaticMarkup(await Preview(previewParams(synthetic.s
 assert.match(previewHtml, /Test product preview only/);
 assert.match(previewHtml, /products\/fake\/test.jpg/);
 assert.match(previewHtml, /object-contain/, 'Full preview image is not cropped');
+assert.ok(previewHtml.indexOf('Test product information') < previewHtml.indexOf('Test product photo'),
+  'Product details precede the photo in the mobile reading order');
+for (const fact of ['Specification', 'TEST ONLY — no verified commercial specification', 'MOQ', '1 MT',
+  'Lead time', '14 days · test data', 'Packaging', 'Sample bag', 'Not shown · test data', 'Sample description only.']) {
+  assert.ok(previewHtml.includes(fact), `Test detail includes ${fact}`);
+}
+assert.match(previewHtml, /Open original photo/, 'Opening the raw file is a separate, clearly labeled action');
+assert.doesNotMatch(previewHtml, /<a[^>]*><img/, 'Clicking the photo itself must not navigate away from the product detail');
+assert.match(previewHtml, /\[contact via Vexim\]/);
 assert.match(previewHtml, /Not a commercial offer/);
-assert.doesNotMatch(previewHtml, /Get quote|Request a quote|\/rfq\?/);
+assert.doesNotMatch(previewHtml, /secret@example\.com|999|unreviewed|Get quote|Request a quote|\/rfq\?|Documents checked/);
 await assert.rejects(Preview(previewParams(real.slug, 'p1')), /not found/, 'Real products cannot bypass their regular detail gate');
 await assert.rejects(Preview(previewParams(synthetic.slug, 'missing')), /not found/, 'No arbitrary product is exposed');
 const emptyHtml = renderToStaticMarkup(await Profile(params(thin.slug)));
