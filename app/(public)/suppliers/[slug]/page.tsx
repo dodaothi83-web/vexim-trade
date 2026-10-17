@@ -10,6 +10,9 @@ import { getStore } from "@/lib/db";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import { isSyntheticSupplier, safeJsonLd, supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
+import { getSession } from "@/lib/auth/session";
+import { createTrafficToken } from "@/lib/traffic/server";
+import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +86,10 @@ export default async function SupplierProfile({ params }: PageProps) {
     ],
   };
 
+  const countView = !synthetic && !(await getSession());
   return <div className="mx-auto max-w-7xl px-4 pb-20 pt-7 sm:px-6 lg:px-8">
+    {countView && <SupplierTrafficBeacon pageKey={`profile:${s.id}`}
+      token={createTrafficToken({ kind: "profile", supplierId: s.id, resourceId: s.id, slug })} />}
     {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />}
     <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: name }]} />
     {synthetic && <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">Test profile · Not a commercial supplier offer. Do not use these details to place an order.</p>}

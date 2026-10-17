@@ -98,6 +98,7 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
         ["#report", "Báo cáo"], ["#profile", "Hồ sơ & xác minh"]].map(([href, label]) =>
         <a key={href} href={href} className="rounded-full border border-ink-200 bg-white px-3 py-2 text-ink-700 hover:border-brand-500 hover:text-brand-700">{label}</a>)}
       <Link href="/supplier/portal/products" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Sản phẩm của tôi →</Link>
+      <Link href="/supplier/portal/traffic" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Lượt xem gian hàng →</Link>
       <Link href="/supplier/portal/certificates" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Gửi chứng nhận để Vexim kiểm tra →</Link>
     </nav>
     <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
@@ -121,6 +122,11 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
         <p className="col-span-2 border-t border-slate-100 pt-3 text-xs text-slate-500">Số liệu chỉ của doanh nghiệp bạn; không phải lượt xem hay doanh thu.</p>
       </div>
     </section>
+
+    <Link href="/supplier/portal/traffic" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-4 transition hover:border-teal-400 hover:bg-teal-100">
+      <span><strong className="block text-sm text-teal-950">Lượt xem gian hàng</strong><span className="mt-1 block text-xs text-teal-800">Xem lượt mở hồ sơ, sản phẩm và xu hướng 7–90 ngày · số liệu riêng tư</span></span>
+      <span className="text-sm font-bold text-teal-800">Xem báo cáo →</span>
+    </Link>
 
     <section id="tasks" className="mt-8 scroll-mt-6">
       <SectionTitle icon={<ClipboardCheck className="h-5 w-5" />} title="Việc cần làm" sub="Chỉ RFQ đã được Vexim chuyển cho doanh nghiệp; buyer gửi form không tự tạo lời mời." />

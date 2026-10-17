@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { ArrowLeft, FileCheck2, LayoutDashboard, Package2, Plus } from "lucide-react";
+import { ArrowLeft, FileCheck2, LayoutDashboard, Package2, Plus, ChartNoAxesColumn } from "lucide-react";
 
 /** Private seller workspace; no CRM links and no public/verified claim. */
-export function SupplierWorkspaceHeader({ name, active = "products" }: { name: string; active?: "products" | "new" | "edit" | "certificates" }) {
+export function SupplierWorkspaceHeader({ name, active = "products" }: { name: string; active?: "products" | "new" | "edit" | "certificates" | "traffic" }) {
   return <header className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-7">
       <div className="flex min-w-0 items-center gap-3">
@@ -18,6 +18,8 @@ export function SupplierWorkspaceHeader({ name, active = "products" }: { name: s
         className={`inline-flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${active === "products" || active === "edit" ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}><Package2 className="size-4" aria-hidden="true" /> Sản phẩm</Link>
       <Link href="/supplier/portal/certificates" aria-current={active === "certificates" ? "page" : undefined}
         className={`inline-flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${active === "certificates" ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}><FileCheck2 className="size-4" aria-hidden="true" /> Chứng nhận</Link>
+      <Link href="/supplier/portal/traffic" aria-current={active === "traffic" ? "page" : undefined}
+        className={`inline-flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${active === "traffic" ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}><ChartNoAxesColumn className="size-4" aria-hidden="true" /> Lượt xem</Link>
       <Link href="/supplier/portal/products/new" aria-current={active === "new" ? "page" : undefined}
         className={`inline-flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${active === "new" ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}><Plus className="size-4" aria-hidden="true" /> Thêm sản phẩm</Link>
     </nav>

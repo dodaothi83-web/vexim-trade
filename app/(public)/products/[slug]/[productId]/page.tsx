@@ -14,6 +14,8 @@ import { ProductMediaGallery } from "@/components/product-media-gallery";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
 import { publicCertificateLabels } from "@/lib/public/certificates";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
+import { createTrafficToken } from "@/lib/traffic/server";
+import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +71,10 @@ export default async function PublicProductDetail({ params }: Props) {
   const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}`;
   const specs = p.specs && typeof p.specs === "object" ? Object.entries(p.specs).filter(([, value]) => typeof value === "string" || typeof value === "number").slice(0, 12) : [];
 
+  const countView = !preview && !card.isDemo && !(await getSession());
   return <div className="mx-auto max-w-6xl px-5 pb-24 pt-7 sm:px-6 lg:px-8">
+    {countView && <SupplierTrafficBeacon pageKey={`product:${p.id}`}
+      token={createTrafficToken({ kind: "product", supplierId: p.supplier_id, resourceId: p.id, slug })} />}
     {preview && <p className="mb-4 rounded-lg bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">Staff preview — this category is not public yet.</p>}
     {card.isDemo && <p className="mb-4 rounded-lg bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">DEMO DATA · Sample product, not a real supplier offer.</p>}
     <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: category.name_i18n.en || slug, href: `/products/${slug}` }, { label: card.name }]} />
