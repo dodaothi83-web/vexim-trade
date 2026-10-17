@@ -1184,6 +1184,7 @@ export const localStore: DataStore = {
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
     return load()
       .media.filter((m) => {
+        if (m.owner_type !== ownerType) return false;
         if (ownerType === "product") return m.product_id === ownerId;
         if (ownerType === "verification") return (m as unknown as { verification_id?: string | null }).verification_id === ownerId;
         return m.supplier_id === ownerId;

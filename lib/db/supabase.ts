@@ -335,6 +335,7 @@ export const supabaseStore: DataStore = {
     const { data, error } = await must()
       .from("media_assets")
       .select("*")
+      .eq("owner_type", ownerType)
       .eq(column, ownerId)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });

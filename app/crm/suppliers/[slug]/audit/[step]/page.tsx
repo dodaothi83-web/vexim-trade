@@ -61,7 +61,10 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
             <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} currentUserId={session.uid} />
             <div className="space-y-3">
-              <MediaManager ownerType="verification" ownerId={current.id} items={media} readOnly={mediaReadOnly} allowInternal={false} note="Tệp nội bộ · video ngoài cần đặt quyền chia sẻ phù hợp" />
+              <MediaManager ownerType="verification" ownerId={current.id} items={media} readOnly={mediaReadOnly} allowInternal={false}
+                title={`Bằng chứng: ${step.title}`}
+                scopeHint="Chỉ tệp đính kèm trong đợt kiểm này mới được dùng để đối chiếu bảng kiểm và AI đọc. Tệp trong kho chung của NCC không tự chuyển sang đây."
+                note="Chỉ nội bộ · video ngoài cần cấp quyền xem" />
               {step.level === 3 && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Để duyệt lịch sử giao hàng, cần ít nhất một chứng từ giao hàng được đánh dấu “Đã kiểm tra”. Ảnh hoặc video bổ sung không thay cho vận đơn/xác nhận giao nhận.</p>}
             </div>
           </div>

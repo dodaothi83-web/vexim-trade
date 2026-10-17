@@ -173,11 +173,13 @@ export default async function SupplierDetailPage({
 
         <MediaGallery
           items={supplierMedia}
-          title="Hình ảnh & giấy tờ NCC"
+          title="Kho ảnh & tài liệu chung của NCC"
+          scopeHint="Chỉ tệp lưu trong hồ sơ chung. Bằng chứng kiểm tra giấy tờ, thăm nhà máy và giao hàng được quản lý riêng ở từng bước kiểm; tệp ở đây không tự được AI phân tích."
           showInternal={canSeeInternal}
           manageHref={canManage ? `/crm/suppliers/${id}/edit` : undefined}
-          emptyHint="Chưa có ảnh nhà máy hay giấy tờ xác minh. Thêm ở trang Sửa."
+          emptyHint="Chưa có tệp chung. Thêm ở trang Sửa, hoặc vào từng bước kiểm để đính kèm bằng chứng."
         />
+        {canInspect && <Link href={`/crm/suppliers/${id}/audit/documents`} className="inline-block text-sm font-semibold text-brand-700 hover:underline">Mở bước Kiểm tra giấy tờ để đính kèm bằng chứng →</Link>}
         </div>
 
         <div className="space-y-5 lg:col-span-2">

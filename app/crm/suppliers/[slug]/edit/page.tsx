@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getStore } from "@/lib/db";
@@ -42,8 +43,11 @@ export default async function EditSupplierPage({ params }: { params: Promise<{ s
           </div>
         </details>
         <details className="card p-5">
-          <summary className="cursor-pointer text-base font-bold text-ink-900">Tệp và ảnh bổ sung</summary>
-          <div className="mt-4"><MediaManager ownerType="supplier" ownerId={id} items={media} note="Ảnh có thể chia sẻ với buyer · tài liệu xác minh chỉ để nội bộ" /></div>
+          <summary className="cursor-pointer text-base font-bold text-ink-900">Kho ảnh & tài liệu chung của NCC</summary>
+          <div className="mt-4"><MediaManager ownerType="supplier" ownerId={id} items={media}
+            scopeHint="Tệp ở đây thuộc hồ sơ chung, không được dùng làm bằng chứng hoặc gửi AI trong các bước kiểm. Muốn kiểm giấy tờ, hãy đính kèm tại trang Kiểm tra giấy tờ."
+            note="Ảnh chia sẻ buyer hoặc tài liệu nội bộ" /></div>
+          {hasPermission(session.role, "verifications.inspect") && <Link href={`/crm/suppliers/${id}/audit/documents`} className="mt-3 inline-block text-sm font-semibold text-brand-700 hover:underline">Mở bước Kiểm tra giấy tờ để đính kèm bằng chứng →</Link>}
         </details>
       </div>
     </>

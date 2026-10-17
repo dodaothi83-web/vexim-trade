@@ -8,6 +8,8 @@ Ba bước hiển thị trong CRM là **Kiểm tra giấy tờ → Thăm nhà m�
 | Thăm nhà máy (`/audit/factory`) | 9 mục tại cơ sở; ngày, địa chỉ, GPS, ảnh hiện trường, video tham chiếu. | Đã duyệt giấy tờ; ghi đủ 9 mục, ngày/địa chỉ/GPS hợp lệ của cơ sở, mục ảnh đạt và ít nhất một ảnh đính kèm, người khác duyệt. |
 | Lịch sử giao hàng (`/audit/deliveries`) | Một lô hàng thực tế: mã lô/đơn, ngày giao, vận đơn và xác nhận giao nhận; ảnh/video chỉ là bổ sung. | Đã duyệt thăm nhà máy; ba mục kiểm đạt, chứng từ giao hàng đính kèm và được đánh dấu “Đã kiểm tra”, người khác duyệt. **RFQ `won` không chứng minh đã giao hàng.** |
 
+**Phạm vi tệp:** “Kho ảnh & tài liệu chung của NCC” chỉ hiển thị tệp `owner_type=supplier`. “Bằng chứng: Kiểm tra giấy tờ” (và hai bước kiểm khác) chỉ lấy tệp `owner_type=verification` với `verification_id` của chính đợt kiểm đó. Tệp chung **không tự chuyển** sang bước kiểm và AI không đọc chúng; cần đính kèm tại đúng trang kiểm. Ngược lại, tệp đã tải vào bước kiểm vẫn nằm ở đó nhưng không còn hiện lẫn trong kho chung dù cùng `supplier_id`. Không xoá hay di chuyển tệp đã lưu khi áp dụng thay đổi này.
+
 Trang cho phép lưu bản kiểm, thêm/xoá ảnh và chứng từ, thêm/xoá **link video YouTube/Drive**. Video tệp MP4 không tải trực tiếp qua serverless upload hiện tại; chỉ lưu link và quyền xem của video phụ thuộc vào thiết lập chia sẻ của nền tảng bên ngoài. Tất cả bản ghi bằng chứng gắn với một lần kiểm và được giữ **nội bộ**; chỉ người có quyền mới xem được tệp. Khi đã nộp duyệt, chuyên viên không sửa bằng chứng; người có quyền xét duyệt có thể đối chiếu/đánh dấu đã kiểm, trả về để bổ sung. Sau khi duyệt, bằng chứng bị khoá, không thêm/xoá/sửa được.
 
 ## AI hỗ trợ kiểm giấy tờ (tùy chọn)
@@ -39,4 +41,4 @@ Test local: `node scripts/check-ai-document-review.mjs` (mock API và storage; *
 
 4. Deploy, tải lại hẳn trang hồ sơ NCC. Mở từng trang kiểm, tải ảnh/tài liệu, thêm và xoá thử link video; nộp duyệt, dùng tài khoản khác duyệt, kiểm tra trang sau được mở. Nếu lỗi, ghi HTTP status/response và log máy chủ, **không gửi credentials**.
 
-Test local: `node scripts/check-verification-start.mjs && node scripts/check-audit-pages.mjs && npm run typecheck && npm run build`. Chưa kiểm thử production Supabase/Storage thực tế từ sandbox này.
+Test local: `node scripts/check-verification-media-scope.mjs && node scripts/check-verification-start.mjs && node scripts/check-audit-pages.mjs && npm run typecheck && npm run build`. Chưa kiểm thử production Supabase/Storage thực tế từ sandbox này.

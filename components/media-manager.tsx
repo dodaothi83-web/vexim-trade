@@ -47,7 +47,9 @@ export function MediaManager({
   items,
   allowInternal = true,
   readOnly = false,
+  title,
   note,
+  scopeHint,
 }: {
   ownerType: MediaOwnerType;
   ownerId: string;
@@ -56,7 +58,10 @@ export function MediaManager({
   items: MediaAsset[];
   allowInternal?: boolean;
   readOnly?: boolean;
+  title?: string;
   note?: string;
+  /** Prominent scope explanation, separate from the compact file-count header. */
+  scopeHint?: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -181,12 +186,13 @@ export function MediaManager({
     <div className="card overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3">
         <ImageIcon className="h-4 w-4 text-brand-700" />
-        <h2 className="text-[15px] font-bold text-ink-900">Hình ảnh &amp; tài liệu</h2>
+        <h2 className="text-[15px] font-bold text-ink-900">{title ?? (ownerType === "verification" ? "Bằng chứng riêng của đợt kiểm" : ownerType === "supplier" ? "Kho ảnh & tài liệu chung của NCC" : "Ảnh & tài liệu sản phẩm")}</h2>
         <span className="text-[12px] text-ink-500">
           {items.length ? `${items.length} tệp` : "chưa có tệp nào"}
         </span>
         {note && <span className="ml-auto text-[11.5px] text-ink-400">{note}</span>}
       </div>
+      {scopeHint && <p className="border-b border-brand-100 bg-brand-50/60 px-4 py-3 text-[12.5px] leading-relaxed text-brand-900">{scopeHint}</p>}
 
       {/* Khu tải lên */}
       {!readOnly && <div className="border-b border-ink-200 bg-ink-50/60 px-4 py-3">

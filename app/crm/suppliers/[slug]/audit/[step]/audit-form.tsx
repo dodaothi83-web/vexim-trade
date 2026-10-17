@@ -106,7 +106,7 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
     {v.target_level === 1 && editable && <section className="border-b border-brand-100 bg-brand-50/60 px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h3 className="flex items-center gap-2 text-sm font-bold text-ink-900"><Sparkles className="h-4 w-4 text-brand-700" /> AI kiểm tra sơ bộ</h3>
-          <p className="mt-1 text-xs leading-relaxed text-ink-600">Khi xác nhận, nội dung ảnh/PDF nội bộ sẽ được gửi tới OpenAI để gợi ý có dẫn chứng. Không xác thực giấy tờ thật, không tự lưu hay duyệt.</p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-600">Chỉ đọc ảnh/PDF trong card “Bằng chứng: Kiểm tra giấy tờ” của đợt kiểm này, không đọc kho chung NCC. Khi xác nhận, tệp được gửi tới OpenAI để gợi ý có dẫn chứng; không tự lưu hay duyệt.</p>
         </div>
         {aiEnabled && <Button type="button" size="sm" disabled={scanning || busy || readableEvidence.length === 0} onClick={() => void scanDocuments()}>
           {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
