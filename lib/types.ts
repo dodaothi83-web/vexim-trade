@@ -60,6 +60,11 @@ export interface Supplier {
   markets: string | null;
   /** Tóm tắt ngành hàng chính – hồ sơ chi tiết nằm ở từng sản phẩm */
   products: string | null;
+  /** Danh mục NCC tự đề xuất lúc đăng ký, KHÔNG phải liên kết/ngành đã được Vexim xác nhận. */
+  requested_category_slugs?: string[];
+  requested_category_other?: string | null;
+  /** Đánh dấu lần staff chủ động chốt danh mục NCC; không đồng nghĩa công khai NCC. */
+  categories_reviewed_at?: string | null;
   tax_id: string | null;
   payment_terms: string | null;
   lead_time_days: number | null;
@@ -162,6 +167,12 @@ export interface SupplierProduct {
   /** Supplier-authored changes require a separate Vexim decision; distinct from buyer-ready/publication. */
   supplier_review_status?: "draft" | "pending" | "approved" | "changes_requested";
   supplier_review_note?: string | null;
+  /** Bản do NCC tạo/sửa: luôn cần danh mục staff xác nhận để được công khai. Legacy/staff cũ = false. */
+  supplier_originated?: boolean;
+  /** Danh mục NCC đề xuất, không được dùng trực tiếp để phân loại public. */
+  supplier_category_proposal?: string | null;
+  /** Danh mục staff chọn khi duyệt; ưu tiên hơn suy đoán tên khi xuất bản. */
+  reviewed_category_slug?: string | null;
   /** Mảng media_assets.id cho ảnh sản phẩm */
   images?: string[];
   created_at: string;

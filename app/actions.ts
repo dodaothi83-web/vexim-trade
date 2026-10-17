@@ -1251,6 +1251,7 @@ async function syncSupplierIndustries(supplierId: string): Promise<string | null
       store.getSupplier(supplierId), store.listProductsBySupplier(supplierId), store.listCategories({ publishedOnly: false }),
     ]);
     if (!supplier) return "Không tìm thấy NCC để đồng bộ ngành.";
+    if (supplier.categories_reviewed_at) return null; // Staff's explicit decision wins over keyword inference.
     const assignment = assignSupplierCategories(supplier.products, products, categories);
     // No evidence of an industry yet: do not erase a previously linked category or
     // require the supplier_categories table just to save a name-only draft.
@@ -1446,10 +1447,26 @@ export async function updateProductAction(
     input.supplier_id = existing.supplier_id;
     input.category = existing.category;
     const assigned = await autoAssignProduct(input);
-    if (!assigned) input.ready_for_buyer = false;
+    const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description;
+    // The human-reviewed category outranks text inference when toggling buyer readiness.
+    if (existing.reviewed_category_slug && !identityChanged) input.category = existing.reviewed_category_slug;
+    else if (!assigned) input.ready_for_buyer = false;
+    // An edit to the product identity invalidates the earlier category decision until staff rechecks it.
+    if (existing.reviewed_category_slug && identityChanged) {
+      input.reviewed_category_slug = null;
+      input.ready_for_buyer = false;
+    }
 
+    // Supplier-authored products cannot use the legacy keyword fallback to turn buyer-ready on.
+    if (input.ready_for_buyer && existing.supplier_originated && !input.reviewed_category_slug &&
+        !existing.reviewed_category_slug) return { ok: false, message: "Vexim cần chốt danh mục sản phẩm trước khi bật sẵn sàng gửi buyer." };
     // Only buyer-shareable media can make a classified product ready.
     if (input.ready_for_buyer) {
+      if (existing.reviewed_category_slug) {
+        const reviewed = await store.getCategoryBySlug(existing.reviewed_category_slug);
+        if (!reviewed || reviewed.status !== "published" || !reviewed.is_published)
+          return { ok: false, message: "Danh mục đã chốt không còn xuất bản; Vexim cần chọn lại." };
+      }
       const readiness = productReadiness(await store.listMedia("product", id));
       if (!readiness.ready) return { ok: false, message: `Chưa thể đánh dấu “Sẵn sàng gửi buyer”: ${readiness.message}` };
     }

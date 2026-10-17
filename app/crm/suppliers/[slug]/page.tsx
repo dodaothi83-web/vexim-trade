@@ -33,6 +33,8 @@ import { StageBadge } from "@/components/stage-select";
 import { DeleteSupplierButton } from "@/components/supplier-actions";
 import { VerificationPanel } from "./verification-panel";
 import { OnboardingControls } from "./onboarding-controls";
+import { SupplierCategoryControls } from "./category-controls";
+import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 
 export const dynamic = "force-dynamic";
 
@@ -113,6 +115,12 @@ export default async function SupplierDetailPage({
           </>
         }
       />
+
+      {canManage && (session.role === "admin" || session.role === "sourcing") &&
+        <SupplierCategoryControls supplierId={id} options={categoryProposalOptions(categories)}
+          proposed={supplier.requested_category_slugs ?? []} other={supplier.requested_category_other}
+          confirmed={links.map((item) => item.category_id)} primary={links.find((item) => item.is_primary)?.category_id}
+          reviewed={!!supplier.categories_reviewed_at} />}
 
       {(supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested" || supplier.onboarding_status === "approved") &&
         <Card className="mb-5 p-5">

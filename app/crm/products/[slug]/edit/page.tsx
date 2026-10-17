@@ -12,6 +12,7 @@ import { MediaManager, ReadyHint } from "@/components/media-manager";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { requirePagePermission } from "@/lib/auth/session";
 import { SupplierProductReviewControls } from "./review-controls";
+import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 
 export const dynamic = "force-dynamic";
 
@@ -35,8 +36,11 @@ export default async function EditProductPage({
   const supplierCategories = links.length
     ? links.map((link) => categories.find((c) => c.id === link.category_id)?.slug).filter((slug): slug is string => !!slug)
     : assignSupplierCategories(supplier.products, [], categories).slugs;
-  const match = assignProductCategory(product, categories, supplierCategories);
+  const match = product.reviewed_category_slug
+    ? categories.find((c) => c.slug === product.reviewed_category_slug) ?? null
+    : assignProductCategory(product, categories, supplierCategories);
   const category = categories.find((c) => c.id === match?.id);
+  const categoryOptions = categoryProposalOptions(categories);
   const categoryPublished = !!category && category.status === "published" && category.is_published;
   const canView = productReviewApproved(product) && supplier.status === "published" && categoryPublished &&
     (supplier.is_demo ? process.env.VEXIM_SHOW_DEMO === "true" : product.ready_for_buyer && readiness.ready) &&
@@ -66,16 +70,21 @@ export default async function EditProductPage({
           <h2 className="font-bold text-ink-900">Sản phẩm NCC tự khai · {product.supplier_review_status === "pending" ? "Chờ Vexim kiểm tra" : product.supplier_review_status === "changes_requested" ? "Đã yêu cầu sửa" : "Bản nháp"}</h2>
           <p className="mt-1 text-ink-700">Không công khai sản phẩm hoặc tệp NCC tải lên cho đến khi Vexim xác nhận nội dung, chọn tệp chia sẻ buyer và bật sẵn sàng gửi buyer. Xác nhận sản phẩm không phải duyệt giấy tờ hay công khai NCC.</p>
           {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
-          {product.supplier_review_status === "pending" && (session.role === "admin" || session.role === "sourcing") && <SupplierProductReviewControls id={product.id} />}
+          {product.supplier_review_status === "pending" && (session.role === "admin" || session.role === "sourcing") &&
+            <SupplierProductReviewControls id={product.id} proposal={product.supplier_category_proposal} categories={categoryOptions} />}
         </section>}
+        {product.supplier_review_status === "approved" && (session.role === "admin" || session.role === "sourcing") &&
+          <section className="card p-5"><h2 className="font-bold text-ink-900">Danh mục Vexim xác nhận</h2>
+            <SupplierProductReviewControls id={product.id} proposal={product.supplier_category_proposal}
+              reviewed={product.reviewed_category_slug} categories={categoryOptions} approved /></section>}
         <section className="card p-5 text-sm" aria-label="Điều kiện xuất hiện trên website">
           <h2 className="font-bold text-ink-900">Hiển thị sản phẩm trên website</h2>
-          <p className="mt-1 text-ink-600">Ngành hệ thống tự gán chỉ xác định trang danh mục; ảnh danh mục không phải ảnh sản phẩm. Để ảnh sản phẩm xuất hiện trên thẻ, tải ảnh vào chính hồ sơ này ở mục Hình ảnh &amp; tài liệu bên dưới và chọn “Chia sẻ buyer”.</p>
+          <p className="mt-1 text-ink-600">Danh mục Vexim đã chốt quyết định trang sản phẩm; với sản phẩm cũ chưa có quyết định, hệ thống vẫn gợi ý theo nội dung. Ảnh danh mục không phải ảnh sản phẩm: tải ảnh vào chính hồ sơ này và chọn “Chia sẻ buyer”.</p>
           <ul className="mt-3 space-y-1 text-ink-700">
             <li>{categoryPublished ? "✓" : "○"} Danh mục {category?.name_i18n.en || category?.slug || "chưa nhận diện"} đã đăng</li>
             <li>{supplier.status === "published" ? "✓" : "○"} NCC đã đăng (không tự chuyển trạng thái khi lưu)</li>
             <li>{readiness.ready ? "✓" : "○"} Có ít nhất một ảnh/catalogue của sản phẩm được chia sẻ buyer</li>
-            <li>{productReviewApproved(product) ? "✓" : "○"} Vexim đã xác nhận nội dung sản phẩm</li>
+            <li>{productReviewApproved(product) ? "✓" : "○"} Vexim đã xác nhận nội dung và danh mục sản phẩm NCC</li>
             <li>{product.ready_for_buyer ? "✓" : "○"} Đã bật “Sẵn sàng gửi buyer” và lưu hồ sơ</li>
             <li>{!isTestOnlyProduct(product.name) ? "✓" : "○"} Tên không bắt đầu bằng TEST ONLY</li>
           </ul>

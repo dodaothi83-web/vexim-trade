@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
+import { categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 
 type Result = { ok: boolean; message: string; id?: string };
@@ -30,7 +31,8 @@ function parseProduct(form: FormData, supplierId: string): SupplierProductInput 
     price_valid_until: validUntil || null, incoterm: text(form, "incoterm", 20) || null,
     incoterm_place: text(form, "incoterm_place", 100) || null,
     payment_terms: text(form, "payment_terms", 200) || null,
-    ready_for_buyer: false, supplier_review_status: "draft", supplier_review_note: null, images: [],
+    ready_for_buyer: false, supplier_review_status: "draft", supplier_review_note: null,
+    supplier_originated: true, supplier_category_proposal: null, reviewed_category_slug: null, images: [],
   };
 }
 
@@ -51,6 +53,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     if (existing?.supplier_review_status === "pending") return { ok: false, message: "Sản phẩm đang chờ Vexim kiểm tra; chưa thể sửa." };
     const input = parseProduct(form, access.supplier.id);
     const categories = await store.listCategories({ publishedOnly: false });
+    input.supplier_category_proposal = parseProductCategoryProposal(form, categoryProposalOptions(categories));
     const linked = await store.listSupplierCategories(access.supplier.id);
     const linkedSlugs = linked.map((row) => categories.find((c) => c.id === row.category_id)?.slug).filter((v): v is string => !!v);
     const fallback = linkedSlugs.length ? linkedSlugs : assignSupplierCategories(access.supplier.products, [], categories).slugs;

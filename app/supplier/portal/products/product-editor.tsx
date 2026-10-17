@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AlertCircle, ArrowRight, Check, CheckCircle2, ChevronDown, FileText, LockKeyhole, Package2, Save, Send, UploadCloud, X } from "lucide-react";
 import type { MediaAsset, SupplierProduct } from "@/lib/types";
+import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
 import { saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
 
-type EditorProps = { product?: SupplierProduct; media?: MediaAsset[]; userId?: string };
+type EditorProps = { product?: SupplierProduct; media?: MediaAsset[]; userId?: string; categories: CategoryProposalOption[] };
 const BASE_FIELDS = [
   ["unit", "Đơn vị tính", "Ví dụ: tấn, thùng", 40], ["moq", "Số lượng đặt tối thiểu (MOQ)", "Ví dụ: 1 container", 180],
   ["monthly_capacity", "Năng lực mỗi tháng", "Ví dụ: 200 tấn/tháng", 180], ["packaging", "Bao bì / đóng gói", "Ví dụ: túi hút chân không 25 kg", 300],
@@ -20,7 +21,7 @@ const EXPORT_FIELDS = [
   ["payment_terms", "Điều kiện thanh toán", "Ví dụ: T/T, L/C", 200],
 ] as const;
 
-export function SupplierProductEditor({ product, media = [], userId }: EditorProps) {
+export function SupplierProductEditor({ product, media = [], userId, categories }: EditorProps) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -128,6 +129,15 @@ export function SupplierProductEditor({ product, media = [], userId }: EditorPro
         <div className="border-b border-slate-100 px-5 py-5 sm:px-7"><p className="text-xs font-bold uppercase tracking-widest text-teal-700">Bước 1 · Nội dung</p><h2 className="mt-1 text-xl font-black text-slate-900">Thông tin sản phẩm</h2><p className="mt-1 text-sm text-slate-600">Tên, mô tả và quy cách rõ ràng giúp Vexim kiểm tra nhanh hơn.</p></div>
         <div className="space-y-6 px-5 py-6 sm:px-7">
           <Field label="Tên sản phẩm" hint="Ví dụ: Hạt điều nhân trắng W320" required><input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked} /></Field>
+          {product?.reviewed_category_slug && <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950">
+            Danh mục Vexim đã chốt: <strong>{categories.find((c) => c.slug === product.reviewed_category_slug)?.label ?? product.reviewed_category_slug}</strong>. Danh mục đề xuất bên dưới không tự đổi quyết định này.
+          </p>}
+          <Field label="Danh mục sản phẩm đề xuất" hint="Vexim xác nhận danh mục cuối cùng trước khi sản phẩm có thể xuất hiện trên trang buyer.">
+            <select name="supplier_category_proposal" className="input" defaultValue={product?.supplier_category_proposal ?? ""} disabled={locked}>
+              <option value="">Chưa rõ / để Vexim phân loại</option>
+              {categories.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} · ` : ""}{c.label}</option>)}
+            </select>
+          </Field>
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Mô tả sản phẩm" hint="Nguồn gốc, công dụng, điểm nổi bật"><textarea name="description" className="input min-h-32 resize-y" rows={4} maxLength={1500} placeholder="Giới thiệu ngắn gọn cho Vexim..." defaultValue={product?.description ?? ""} disabled={locked} /></Field>
             <Field label="Quy cách / tiêu chuẩn" hint="Ít nhất một trong hai ô mô tả hoặc quy cách để gửi duyệt"><textarea name="spec" className="input min-h-32 resize-y" rows={4} maxLength={800} placeholder="Ví dụ: Size W320, độ ẩm ≤ 5%, đóng gói 25 kg..." defaultValue={product?.spec ?? ""} disabled={locked} /></Field>

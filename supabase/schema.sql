@@ -36,6 +36,9 @@ create table if not exists public.suppliers (
   updated_at      timestamptz not null default now()
 );
 
+alter table public.suppliers add column if not exists requested_category_slugs text[] not null default '{}';
+alter table public.suppliers add column if not exists requested_category_other text;
+alter table public.suppliers add column if not exists categories_reviewed_at timestamptz;
 create index if not exists suppliers_name_idx on public.suppliers (name);
 
 -- Hồ sơ sản phẩm riêng của từng NCC (để so khớp với RFQ của buyer)
@@ -72,6 +75,9 @@ alter table public.supplier_products
   add column if not exists ready_for_buyer boolean not null default false;
 
 create index if not exists supplier_products_supplier_idx on public.supplier_products (supplier_id);
+alter table public.supplier_products add column if not exists supplier_category_proposal text;
+alter table public.supplier_products add column if not exists reviewed_category_slug text;
+alter table public.supplier_products add column if not exists supplier_originated boolean not null default false;
 create index if not exists supplier_products_category_idx on public.supplier_products (category);
 
 -- ---------------------------------------------------------------------------

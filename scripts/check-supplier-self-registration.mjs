@@ -16,6 +16,12 @@ function load(path, mocks, extra = {}) {
   return mod.exports;
 }
 const keys = ['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'];
+const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', {});
+const categories = [
+  { id: 'c1', slug: 'cashew', parent_id: null, name_i18n: { vi: 'Hạt điều' }, status: 'published', is_published: true, sort_order: 1 },
+  { id: 'c2', slug: 'rice', parent_id: null, name_i18n: { vi: 'Gạo' }, status: 'published', is_published: true, sort_order: 2 },
+  { id: 'c3', slug: 'secret', parent_id: null, name_i18n: { vi: 'Nháp' }, status: 'draft', is_published: false, sort_order: 3 },
+];
 const policy = load('../lib/supplier-portal/policy.ts', { '@/lib/verification': { auditUploadKind: (level, key) => level === 1 && keys.includes(key) ? 'file' : null } });
 const owner = { id: 'u1', email: 'owner@example.com', role: 'supplier', is_active: true, supplier_id: 's1' };
 const doc = { id: 'v1', target_level: 1, supplier_id: 's1', status: 'in_progress' };
@@ -33,6 +39,7 @@ const state = { googleTicket: null, ticketCleared: 0, users: [{ email: 'admin@ve
 const store = {
   mode: 'supabase',
   listUsers: async () => state.users,
+  listCategories: async () => categories,
   getUserByEmail: async (email) => state.users.find((u) => u.email === email) ?? null,
   listSupplierVerificationRequests: async () => { if (state.schemaMissing) throw Error('missing migration'); return state.requests; },
   createSupplier: async (input) => { const r = { ...input, id: `s${state.suppliers.length + 1}` }; state.suppliers.push(r); return r; },
@@ -84,6 +91,7 @@ const mocks = {
   },
   '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: keys },
   '@/lib/supplier-portal/profile-input': profileInput,
+  '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/supplier-portal/profile-evidence': profileEvidence,
   '@/lib/supplier-portal/notify': { notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 2); return 'sent'; } },
   '@/lib/types': { L1_DOC_ITEMS: [{ key: 'business_license' }, { key: 'tax_certificate' }, { key: 'bank_letter' }] },
@@ -95,6 +103,7 @@ const file = new File(['%PDF-1.7 TEST DOCUMENT'], 'license.pdf', { type: 'applic
 function form(email = 'owner@example.com') {
   const fd = new FormData();
   for (const [key, val] of Object.entries({ name: 'Example Trading Co', contact_name: 'Mr A', email, password: 'password123', phone: '0987654321', products: 'Cashew', supplier_type: 'trading', summary_en: 'Cashew processing and export', website: 'https://example.com', founded_year: '2012', employees: '42', capacity_per_month: '200 MT', ports: 'Hai Phong, Da Nang', consent: 'yes', tax_number: '0012345', bank_account_number: '000123', 'request:2': 'yes', 'request:3': 'yes' })) fd.set(key, val);
+  fd.append('requested_category_slugs', 'cashew');
   fd.set('doc:business_license', file);
   fd.set('status', 'published'); fd.set('verification_level', '3');
   return fd;
@@ -107,6 +116,11 @@ state.schemaMissing = true;
 assert.equal((await post(form())).status, 503);
 assert.equal(state.authCalls, 0, 'Missing migration must not create an Auth account');
 state.schemaMissing = false;
+const forgedCategory = form(); forgedCategory.set('requested_category_slugs', 'secret');
+assert.equal((await post(forgedCategory)).status, 400, 'Draft or forged catalogue entries rejected before Auth signup');
+const tooMany = form(); for (let i = 0; i < 5; i++) tooMany.append('requested_category_slugs', 'rice');
+assert.equal((await post(tooMany)).status, 400, 'Five unique categories max');
+assert.equal(state.authCalls, 0);
 state.confirmed = true;
 assert.equal((await post(form())).status, 503, 'Disabled email confirmation must fail closed');
 assert.equal(state.deletedAuth, 1);
@@ -117,6 +131,9 @@ assert.equal(state.suppliers[0].verification_level, 0, 'Forged publish/level fie
 assert.equal(state.users.at(-1).role, 'supplier');
 assert.equal(state.users.at(-1).supplier_id, 's1');
 assert.equal(state.suppliers[0].onboarding_status, 'pending', 'First signup creates the page application');
+assert.equal(JSON.stringify(state.suppliers[0].requested_category_slugs), JSON.stringify(['cashew']));
+assert.equal(state.suppliers[0].categories_reviewed_at ?? null, null);
+assert.equal(state.suppliers[0].status, 'draft', 'A proposed category never publishes the supplier');
 assert.equal(state.suppliers[0].supplier_type, 'trading');
 assert.equal(state.suppliers[0].summary_i18n.en, 'Cashew processing and export');
 assert.equal(state.suppliers[0].website, 'https://example.com');
@@ -137,6 +154,7 @@ const profile = load('../app/api/supplier-portal/profile/route.ts', {
   }) },
   '@/lib/supplier-portal/onboarding': onboarding,
   '@/lib/supplier-portal/profile-input': profileInput,
+  '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/supplier-portal/profile-evidence': profileEvidence,
   '@/lib/supplier-portal/notify': mocks['@/lib/supplier-portal/notify'],
   '@/lib/types': mocks['@/lib/types'],
@@ -152,7 +170,10 @@ assert.equal((await submitProfile(forged)).status, 400);
 state.users[1].supplier_id = 's2';
 assert.equal((await submitProfile(form())).status, 409, 'Cannot submit a foreign supplier profile');
 state.users[1].supplier_id = 's1';
-assert.equal((await submitProfile(form())).status, 200, 'Returned profile may be resubmitted');
+const otherCategory = form(); otherCategory.delete('requested_category_slugs'); otherCategory.set('requested_category_other', 'Macca tách vỏ');
+assert.equal((await submitProfile(otherCategory)).status, 200, 'Returned profile may propose a missing category');
+assert.equal(state.suppliers[0].requested_category_other, 'Macca tách vỏ');
+assert.equal(state.suppliers[0].requested_category_slugs.length, 0);
 assert.equal(state.suppliers[0].onboarding_status, 'pending');
 assert.equal(state.reviews.length, 1, 'Resubmission reuses open document review');
 assert.equal(state.requests.length, 2, 'Resubmission does not duplicate requests');
@@ -285,6 +306,25 @@ assert.equal(onboarding.portalApproved(staffSupplier), true);
 assert.equal(staffSupplier.status, 'draft', 'Account approval cannot publish supplier');
 assert.equal(state.reviews[0].status, 'in_progress', 'Account approval cannot approve document check');
 assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, false, 'No duplicate approval');
+let links = [];
+const categoryActions = load('../app/crm/suppliers/[slug]/category-actions.ts', {
+  'next/cache': { revalidatePath() {} },
+  '@/lib/db': { getStore: () => ({
+    getSupplier: async () => staffSupplier, listCategories: async () => categories,
+    listSupplierCategories: async () => links,
+    setSupplierCategories: async (_id, ids, primary) => { links = ids.map((category_id) => ({ category_id, is_primary: category_id === primary })); },
+    updateSupplier: async (_id, patch) => Object.assign(staffSupplier, patch),
+    addAuditLog: async (entry) => state.audit.push(entry),
+  }) },
+  '@/lib/auth/session': { guard: async () => null, getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'sourcing' }) },
+  '@/lib/supplier-portal/category-proposals': categoryProposals,
+});
+const categoryForm = new FormData(); categoryForm.set('supplier_id', staffSupplierId);
+categoryForm.append('category_id', 'c2'); categoryForm.set('primary_id', 'c2');
+assert.equal((await categoryActions.confirmSupplierCategoriesAction(categoryForm)).ok, true);
+assert.equal(staffSupplier.categories_reviewed_at != null, true);
+assert.equal(links[0].category_id, 'c2', 'Staff choice replaces supplier proposal, not vice versa');
+assert.equal(staffSupplier.status, 'draft', 'Confirming industries does not publish the supplier');
 const gateSchema = fs.readFileSync(new URL('../supabase/migrations/20261017_supplier_onboarding_gate.sql', import.meta.url), 'utf8');
 assert.match(gateSchema, /onboarding_status = 'pending'/);
 assert.doesNotMatch(gateSchema, /onboarding_status = 'approved'/);

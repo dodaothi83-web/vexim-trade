@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { SupplierProfileFields } from "@/app/supplier/portal/supplier-profile-form";
+import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 
-export function SupplierApplicationForm({ googleEmail }: { googleEmail?: string }) {
+export function SupplierApplicationForm({ googleEmail, categories }: { googleEmail?: string; categories: CategoryProposalOption[] }) {
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState(googleEmail ?? "");
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -39,7 +40,7 @@ export function SupplierApplicationForm({ googleEmail }: { googleEmail?: string 
       </>}
     </div>
     <p className="text-sm text-ink-600">Đây là form tạo hồ sơ trang nhà cung cấp, không chỉ tạo tài khoản. Sau khi nộp{googleEmail ? "" : " và xác nhận email"}, bạn đăng nhập xem trạng thái chờ Vexim xác nhận; hồ sơ/sản phẩm không tự công khai.</p>
-    <SupplierProfileFields email={email} />
+    <SupplierProfileFields email={email} categories={categories} />
     <input name="website_hp" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
     <button type="submit" disabled={busy || result?.ok} className="btn btn-primary w-full justify-center">{busy ? "Đang tạo tài khoản..." : "Tạo tài khoản nhà cung cấp"}</button>
     {result && <div role="status" className={`rounded-xl border p-4 text-sm ${result.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>

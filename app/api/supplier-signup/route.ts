@@ -9,6 +9,7 @@ import { passwordProblem } from "@/lib/auth/password";
 import { rateLimit } from "@/lib/rfq/rate-limit";
 import type { SupplierInput } from "@/lib/types";
 import { parseSupplierProfile } from "@/lib/supplier-portal/profile-input";
+import { categoryProposalOptions, parseSupplierCategoryProposals } from "@/lib/supplier-portal/category-proposals";
 import { prepareInitialDocuments, saveInitialEvidence } from "@/lib/supplier-portal/profile-evidence";
 import { notifySupplierRegistration } from "@/lib/supplier-portal/notify";
 import { deleteObject } from "@/lib/media/storage";
@@ -50,6 +51,12 @@ export async function POST(request: Request) {
   const db = getSupabaseClient();
   const store = getStore();
   if (!auth || !db || store.mode !== "supabase") return fail("CSDL chưa khả dụng. Chưa lưu hồ sơ, vui lòng thử lại sau.", 503);
+  let categoryChoices: ReturnType<typeof categoryProposalOptions>;
+  try { categoryChoices = categoryProposalOptions(await store.listCategories({ publishedOnly: true })); }
+  catch { return fail("Không đọc được danh mục Vexim. Vui lòng thử lại sau.", 503); }
+  let proposals: ReturnType<typeof parseSupplierCategoryProposals>;
+  try { proposals = parseSupplierCategoryProposals(form, categoryChoices); }
+  catch (error) { return fail(error instanceof Error ? error.message : "Danh mục không hợp lệ."); }
   try {
     const admins = await store.listUsers();
     if (!admins.some((u) => u.role === "admin" && u.is_active)) return fail("Vexim chưa kích hoạt hệ thống tiếp nhận hồ sơ.", 503);
@@ -97,6 +104,8 @@ export async function POST(request: Request) {
     address: parsed.patch.address ?? null, province: parsed.patch.province ?? null,
     role: parsed.patch.role!, supplier_type: parsed.patch.supplier_type,
     markets: parsed.patch.markets ?? null, products: parsed.patch.products ?? null,
+    requested_category_slugs: proposals.requested_category_slugs,
+    requested_category_other: proposals.requested_category_other,
     tax_id: parsed.patch.tax_id ?? null, payment_terms: parsed.patch.payment_terms ?? null,
     lead_time_days: parsed.patch.lead_time_days ?? null, rating: null, notes: null,
     status: "draft", onboarding_status: "not_started", is_demo: false,
@@ -122,7 +131,8 @@ export async function POST(request: Request) {
     await store.updateSupplier(supplier.id, { onboarding_status: "pending" });
     await store.addAuditLog({ actor_id: user.id, actor_email: email, entity: "supplier", entity_id: supplier.id,
       action: "supplier.self_registration", before: null,
-      after: { onboarding_status: "pending", review_id: review.id, documents: documents.length, requested_steps: parsed.requested } });
+      after: { onboarding_status: "pending", review_id: review.id, documents: documents.length,
+        requested_steps: parsed.requested, category_proposals: proposals.requested_category_slugs } });
     let notification: "sent" | "simulated" | "failed" = "failed";
     try { notification = await notifySupplierRegistration(supplier, parsed.requested); }
     catch (error) { console.error("[supplier-signup] staff notification failed", error); }

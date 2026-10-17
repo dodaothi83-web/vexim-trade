@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { canSubmitProfile } from "@/lib/supplier-portal/onboarding";
 import { parseSupplierProfile } from "@/lib/supplier-portal/profile-input";
+import { categoryProposalOptions, parseSupplierCategoryProposals } from "@/lib/supplier-portal/category-proposals";
 import { prepareInitialDocuments, saveInitialEvidence } from "@/lib/supplier-portal/profile-evidence";
 import { notifySupplierRegistration } from "@/lib/supplier-portal/notify";
 
@@ -25,6 +26,12 @@ export async function POST(request: Request) {
   try { parsed = parseSupplierProfile(form); documents = await prepareInitialDocuments(form); }
   catch (error) { return fail(error instanceof Error ? error.message : "Hồ sơ không hợp lệ."); }
   const { supplier, user, store } = access;
+  let choices: ReturnType<typeof categoryProposalOptions>;
+  try { choices = categoryProposalOptions(await store.listCategories({ publishedOnly: true })); }
+  catch { return fail("Không đọc được danh mục Vexim. Vui lòng thử lại sau.", 503); }
+  let proposals: ReturnType<typeof parseSupplierCategoryProposals>;
+  try { proposals = parseSupplierCategoryProposals(form, choices); }
+  catch (error) { return fail(error instanceof Error ? error.message : "Danh mục không hợp lệ."); }
   try {
     // Re-check the persistent access state before any write. Never accept status/owner from FormData.
     const fresh = await store.getSupplier(supplier.id);
@@ -34,11 +41,13 @@ export async function POST(request: Request) {
       bank: parsed.bank, documents, requested: parsed.requested,
     });
     // Last write opens the staff queue, NOT portal usage, public listing or an audit approval.
-    await store.updateSupplier(fresh.id, { ...parsed.patch, onboarding_status: "pending", onboarding_note: null });
+    await store.updateSupplier(fresh.id, { ...parsed.patch, ...proposals, categories_reviewed_at: null,
+      onboarding_status: "pending", onboarding_note: null });
     await store.addAuditLog({ actor_id: user.id, actor_email: user.email,
       entity: "supplier", entity_id: fresh.id, action: "supplier.profile_submitted",
       before: { onboarding_status: fresh.onboarding_status },
-      after: { onboarding_status: "pending", review_id: review.id, documents: documents.length, requested_steps: parsed.requested } })
+      after: { onboarding_status: "pending", review_id: review.id, documents: documents.length,
+        requested_steps: parsed.requested, category_proposals: proposals.requested_category_slugs } })
       .catch((error) => console.error("[supplier-profile] audit log failed after saving profile", error));
     let notification: "sent" | "simulated" | "failed" = "failed";
     try { notification = await notifySupplierRegistration({ ...fresh, ...parsed.patch }, parsed.requested); }

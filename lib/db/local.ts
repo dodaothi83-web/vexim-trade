@@ -40,7 +40,7 @@ import type {
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
 import { DEMO_SUPPLIERS } from "@/lib/db/demo-suppliers";
-import { isTestOnlyProduct, productBelongsToCategory } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
 import {
   CASHEW_CATEGORY_CONFIG,
   DEFAULT_CATEGORY_CONFIG,
@@ -481,7 +481,7 @@ function migrateCategoryDefaults(db: LocalShape) {
     allSuppliers.filter((s) => s.status === "published" && (!s.is_demo || process.env.VEXIM_SHOW_DEMO === "true")).map((s) => s.id),
   );
   const demoIds = new Set(allSuppliers.filter((s) => s.is_demo && process.env.VEXIM_SHOW_DEMO === "true").map((s) => s.id));
-  const eligible = allProducts.filter((p) => publicSupplierIds.has(p.supplier_id) && !isTestOnlyProduct(p.name) &&
+  const eligible = allProducts.filter((p) => publicSupplierIds.has(p.supplier_id) && productReviewApproved(p) && !isTestOnlyProduct(p.name) &&
     (p.ready_for_buyer || demoIds.has(p.supplier_id)));
   const ready = new Set((db.categories ?? []).filter((c) => eligible.some((p) =>
     productBelongsToCategory(p, c, db.categories ?? []))).map((c) => c.slug.toLowerCase()));

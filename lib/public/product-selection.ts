@@ -4,10 +4,15 @@ import { assignProductCategory } from "@/lib/public/category-assignment";
 
 /** The product itself wins over a stale or incorrect saved category on public reads. */
 export function productBelongsToCategory(
-  product: Pick<SupplierProduct, "category" | "name"> & Partial<Pick<SupplierProduct, "spec" | "description">>,
+  product: Pick<SupplierProduct, "category" | "name"> & Partial<Pick<SupplierProduct, "spec" | "description" | "reviewed_category_slug" | "supplier_originated">>,
   category: Pick<Category, "slug">,
   knownCategories: Pick<Category, "slug" | "name_i18n">[],
 ): boolean {
+  // Supplier-authored products never fall back to keyword inference after a decision was invalidated.
+  if (product.supplier_originated && !product.reviewed_category_slug) return false;
+  // Explicit human decision wins over a keyword guess. An invalid/archived slug fails closed.
+  if (product.reviewed_category_slug) return product.reviewed_category_slug === category.slug &&
+    knownCategories.some((c) => c.slug === product.reviewed_category_slug);
   const choices = knownCategories.map((c) => ({ ...c, id: c.slug }));
   const inferred = assignProductCategory({
     name: product.name, category: product.category,
@@ -16,8 +21,10 @@ export function productBelongsToCategory(
   return inferred?.slug === category.slug;
 }
 
-export function productReviewApproved(product: Pick<SupplierProduct, "supplier_review_status">): boolean {
-  // Missing field belongs to older staff-managed data; supplier submissions explicitly start as draft.
+export function productReviewApproved(product: Pick<SupplierProduct, "supplier_review_status"> & Partial<Pick<SupplierProduct, "supplier_originated" | "reviewed_category_slug">>): boolean {
+  // A supplier-authored product without a current Vexim category decision fails closed.
+  // Historical/staff-managed products (no supplier_originated flag) preserve their prior behavior.
+  if (product.supplier_originated && !product.reviewed_category_slug) return false;
   return product.supplier_review_status === "approved" || product.supplier_review_status == null;
 }
 

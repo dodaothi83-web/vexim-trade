@@ -20,12 +20,17 @@ let product = null;
 const files = [];
 const audit = [];
 let storedBytes = 0;
+const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', {});
+const categories = [
+  { id: '11111111-1111-1111-1111-111111111111', slug: 'cashew', parent_id: null, name_i18n: { vi: 'Hạt điều', en: 'Cashew' }, status: 'published', is_published: true, sort_order: 1 },
+  { id: '22222222-2222-2222-2222-222222222222', slug: 'rice', parent_id: null, name_i18n: { vi: 'Gạo', en: 'Rice' }, status: 'published', is_published: true, sort_order: 2 },
+];
 const store = {
   getProduct: async (id) => id === productId ? product : null,
   createProduct: async (input) => { product = { ...input, id: productId }; return product; },
   updateProduct: async (id, patch) => { assert.equal(id, productId); product = { ...product, ...patch }; return product; },
   listProductsBySupplier: async (id) => id === supplierId ? [product].filter(Boolean) : [],
-  listCategories: async () => [], listSupplierCategories: async () => [],
+  listCategories: async () => categories, listSupplierCategories: async () => [],
   listMedia: async (_owner, id) => id === productId ? files : [],
   createMedia: async (input) => { const row = { ...input, id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }; files.push(row); return row; },
   getMedia: async (id) => files.find((m) => m.id === id) ?? null,
@@ -38,20 +43,26 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   'next/cache': { revalidatePath() {} },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
   '@/lib/supplier-portal/onboarding': onboarding,
+  '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/public/category-assignment': { assignProductCategory: () => null, assignSupplierCategories: () => ({ slugs: [] }) },
 });
 const form = () => {
   const fd = new FormData();
   for (const [key, value] of Object.entries({ name: 'Cashew W320', spec: '25kg vacuum bag', description: 'White kernels',
-    ref_price: '5000', currency: 'USD', supplier_id: 'foreign', ready_for_buyer: 'true', supplier_review_status: 'approved' })) fd.set(key, value);
+    ref_price: '5000', currency: 'USD', supplier_category_proposal: 'cashew', supplier_id: 'foreign', ready_for_buyer: 'true', supplier_review_status: 'approved' })) fd.set(key, value);
   return fd;
 };
 assert.equal((await actions.saveSupplierProductAction(form())).ok, false, 'Pending account cannot create product');
 supplier.onboarding_status = 'approved';
+const invalidProposal = form(); invalidProposal.set('supplier_category_proposal', 'not-in-catalogue');
+assert.equal((await actions.saveSupplierProductAction(invalidProposal)).ok, false, 'Supplier cannot forge a category');
+assert.equal(product, null);
 const created = await actions.saveSupplierProductAction(form());
 assert.equal(created.ok, true); assert.equal(created.id, productId);
 assert.equal(product.supplier_id, supplierId); assert.equal(product.supplier_review_status, 'draft');
 assert.equal(product.ready_for_buyer, false); assert.equal(product.ref_price, 5000);
+assert.equal(product.supplier_category_proposal, 'cashew'); assert.equal(product.reviewed_category_slug, null);
+assert.equal(product.supplier_originated, true);
 const foreignEdit = form(); foreignEdit.set('product_id', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
 assert.equal((await actions.saveSupplierProductAction(foreignEdit)).ok, false);
 const image = new File([new Uint8Array([0xff,0xd8,0xff,0xe0,1,2,3,4,5,6,7,8])], 'cashew.jpg', { type: 'image/jpeg' });
@@ -111,12 +122,17 @@ const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
   '@/lib/auth/session': { guard: async () => denied ? { message: 'denied' } : null,
     getSession: async () => ({ uid: 'reviewer', email: 'staff@example.com', role: 'sourcing' }) },
   '@/lib/db': { getStore: () => store },
+  '@/lib/supplier-portal/category-proposals': categoryProposals,
 });
 const approve = new FormData(); approve.set('product_id', productId); approve.set('decision', 'approved');
 assert.equal((await review.decideSupplierProductAction(approve)).ok, false);
 denied = false;
+assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Staff must explicitly pick a category');
+approve.set('reviewed_category_slug', 'rice');
 assert.equal((await review.decideSupplierProductAction(approve)).ok, true);
 assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, false);
+assert.equal(product.supplier_category_proposal, 'cashew');
+assert.equal(product.reviewed_category_slug, 'rice', 'Staff decision overrides supplier proposal');
 const productView = load('../lib/supplier-portal/product-view.ts', {});
 const visibleFiles = productView.supplierVisibleProductMedia([
   { ...files[0], owner_type: 'product', supplier_id: supplierId, created_by: user.id, kind: 'image' },
@@ -129,14 +145,27 @@ assert.equal(productView.productReview(product), 'approved');
 assert.equal(productView.privateMediaUrl(visibleFiles[0]), `/api/media/file/${visibleFiles[0].storage_path}`);
 assert.equal(productView.privateMediaUrl({ ...visibleFiles[0], storage_path: '../secret' }), null);
 const selection = load('../lib/public/product-selection.ts', {
-  '@/lib/public/category-assignment': { assignProductCategory: () => null },
+  '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => p.name.includes('Cashew') && c.slug === 'cashew') ?? null },
 });
 assert.equal(selection.productReviewApproved(product), true);
+assert.equal(selection.productBelongsToCategory({ ...product, reviewed_category_slug: null, supplier_originated: false }, categories[0], categories), true,
+  'Historical products retain name inference');
+assert.equal(selection.productBelongsToCategory(product, categories[1], categories), true);
+assert.equal(selection.productBelongsToCategory(product, categories[0], categories), false,
+  'A staff-reviewed category outranks both the product name and the supplier proposal');
 product.ready_for_buyer = true; // Staff-only readiness switch; simulate an already-public approved product.
+const correction = new FormData(); correction.set('product_id', productId); correction.set('reviewed_category_slug', 'cashew');
+assert.equal((await review.correctSupplierProductCategoryAction(correction)).ok, true);
+assert.equal(product.reviewed_category_slug, 'cashew'); assert.equal(product.ready_for_buyer, false, 'Category correction cannot publish');
 const revised = form(); revised.set('product_id', productId); revised.set('name', 'Cashew W240');
 assert.equal((await actions.saveSupplierProductAction(revised)).ok, true);
 assert.equal(product.supplier_review_status, 'draft'); assert.equal(product.ready_for_buyer, false);
+assert.equal(product.reviewed_category_slug, null, 'Supplier edits clear the staff category decision');
 assert.equal(selection.productReviewApproved(product), false, 'Supplier edits cannot remain public');
+assert.equal(selection.productBelongsToCategory(product, categories[0], categories), false,
+  'Supplier-originated product without a Vexim category cannot fall back to name inference');
+assert.equal(selection.productReviewApproved({ ...product, supplier_review_status: 'approved' }), false,
+  'Even an approved supplier product cannot publish without its reviewed category');
 assert.equal(audit.some((a) => a.action === 'supplier.product_approved'), true);
 const migration = fs.readFileSync(new URL('../supabase/migrations/20261017_supplier_product_review.sql', import.meta.url), 'utf8');
 assert.match(migration, /supplier_review_status/);
