@@ -81,6 +81,20 @@ assert.ok(!form.includes('Giá FOB thấp nhất') && !form.includes('fob_min'),
 assert.ok(form.includes('Quyền hiển thị giá của sản phẩm'), 'Supplier consent remains separate from product prices');
 const productForm = readFileSync(new URL('../components/product-form.tsx', import.meta.url), 'utf8');
 assert.ok(productForm.includes('value={v("ref_price")}'), 'Each product can enter its own reference price');
+assert.ok(productForm.includes('price_publicly_visible') && productForm.includes('description_detail'), 'Staff can set long description and explicit price opt-in');
+assert.ok(source.includes('price_publicly_visible: bool(raw.price_publicly_visible, false)'), 'Staff server action persists opt-in only when selected');
+const parseProductCode = source.slice(source.indexOf('function parseProductInput('), source.indexOf('async function autoAssignProduct('));
+const productParser = { exports: {} };
+vm.runInNewContext(ts.transpileModule(parseProductCode + '\nexports.parseProductInput = parseProductInput;', {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText, { exports: productParser.exports, str, num, bool });
+const parsedProduct = productParser.exports.parseProductInput({ supplier_id: 'supplier-a', name: 'Cashew',
+  description: 'Short', description_detail: 'Long details\nApplication', ref_price: 7, price_publicly_visible: true,
+  fob_updated_at: '2099-01-01' });
+assert.equal(parsedProduct.description_detail, 'Long details\nApplication');
+assert.equal(parsedProduct.price_publicly_visible, true);
+assert.equal(parsedProduct.fob_updated_at, undefined, 'A product editor cannot forge supplier-wide consent');
+assert.equal(productParser.exports.parseProductInput({}).price_publicly_visible, false, 'No opt-in means private price');
 const compare = readFileSync(new URL('../app/(public)/compare/page.tsx', import.meta.url), 'utf8');
 assert.ok(!compare.includes('formatFob') && compare.includes('See individual products'), 'Comparison must link to per-product prices');
 const categories = readFileSync(new URL('../app/crm/categories/categories-manager.tsx', import.meta.url), 'utf8');

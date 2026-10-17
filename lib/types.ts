@@ -134,6 +134,8 @@ export interface SupplierProduct {
   /** Nhóm ngành: Nông sản, Thủy sản, Gỗ... — giữ text để tương thích code cũ, ưu tiên qua categories */
   category: string | null;
   description: string | null;
+  /** Optional long-form buyer-facing product information (plain text, no HTML). */
+  description_detail?: string | null;
   spec: string | null;
   /** Thông số theo ngành (JSON linh hoạt) */
   specs?: Record<string, unknown>;
@@ -151,6 +153,8 @@ export interface SupplierProduct {
   export_port: string | null;
   /** Giá tham khảo – KHÔNG tự gửi cho buyer như báo giá chính thức */
   ref_price: number | null;
+  /** Explicit per-product opt-in, separate from time-limited supplier consent. */
+  price_publicly_visible?: boolean;
   currency: string | null;
   price_valid_until: string | null;
   incoterm: string | null;

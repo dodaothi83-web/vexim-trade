@@ -21,6 +21,6 @@ export default async function NewSupplierProductPage() {
     <div className="mt-4"><p className="text-xs font-bold uppercase tracking-widest text-teal-700">Hồ sơ sản phẩm mới</p>
       <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Thêm sản phẩm</h1>
       <p className="mt-2 text-sm text-slate-600">Bắt đầu từ tên và quy cách. Bạn có thể lưu bản nháp trước, bổ sung ảnh sau.</p></div>
-    <SupplierProductEditor categories={categories} />
+    <SupplierProductEditor categories={categories} supplier={access.supplier} />
   </main>;
 }

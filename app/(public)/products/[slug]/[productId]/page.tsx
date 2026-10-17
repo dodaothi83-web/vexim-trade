@@ -92,5 +92,9 @@ export default async function PublicProductDetail({ params }: Props) {
         </aside>
       </div>
     </div>
+    {p.description_detail && <section aria-labelledby="product-description-heading" className="mt-12 border-t border-ink-200 pt-8">
+      <h2 id="product-description-heading" className="text-2xl font-black text-ink-900">Product description</h2>
+      <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{withoutDirectContacts(p.description_detail)}</p>
+    </section>}
   </div>;
 }

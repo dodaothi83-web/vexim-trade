@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AlertCircle, ArrowRight, Check, CheckCircle2, ChevronDown, FileText, LockKeyhole, Package2, Save, Send, UploadCloud, X } from "lucide-react";
-import type { MediaAsset, SupplierProduct } from "@/lib/types";
+import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
+import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
 import { saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
 
-type EditorProps = { product?: SupplierProduct; media?: MediaAsset[]; userId?: string; categories: CategoryProposalOption[] };
+type EditorProps = { product?: SupplierProduct; media?: MediaAsset[]; userId?: string; categories: CategoryProposalOption[]; supplier: Supplier };
 const BASE_FIELDS = [
   ["unit", "Đơn vị tính", "Ví dụ: tấn, thùng", 40], ["moq", "Số lượng đặt tối thiểu (MOQ)", "Ví dụ: 1 container", 180],
   ["monthly_capacity", "Năng lực mỗi tháng", "Ví dụ: 200 tấn/tháng", 180], ["packaging", "Bao bì / đóng gói", "Ví dụ: túi hút chân không 25 kg", 300],
@@ -21,7 +22,7 @@ const EXPORT_FIELDS = [
   ["payment_terms", "Điều kiện thanh toán", "Ví dụ: T/T, L/C", 200],
 ] as const;
 
-export function SupplierProductEditor({ product, media = [], userId, categories }: EditorProps) {
+export function SupplierProductEditor({ product, media = [], userId, categories, supplier }: EditorProps) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -139,9 +140,12 @@ export function SupplierProductEditor({ product, media = [], userId, categories 
             </select>
           </Field>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Mô tả sản phẩm" hint="Nguồn gốc, công dụng, điểm nổi bật"><textarea name="description" className="input min-h-32 resize-y" rows={4} maxLength={1500} placeholder="Giới thiệu ngắn gọn cho Vexim..." defaultValue={product?.description ?? ""} disabled={locked} /></Field>
+            <Field label="Mô tả ngắn" hint="Tóm tắt vài câu bên cạnh ảnh sản phẩm"><textarea name="description" className="input min-h-32 resize-y" rows={4} maxLength={1500} placeholder="Giới thiệu ngắn gọn cho Vexim..." defaultValue={product?.description ?? ""} disabled={locked} /></Field>
             <Field label="Quy cách / tiêu chuẩn" hint="Ít nhất một trong hai ô mô tả hoặc quy cách để gửi duyệt"><textarea name="spec" className="input min-h-32 resize-y" rows={4} maxLength={800} placeholder="Ví dụ: Size W320, độ ẩm ≤ 5%, đóng gói 25 kg..." defaultValue={product?.spec ?? ""} disabled={locked} /></Field>
           </div>
+          <Field label="Mô tả chi tiết" hint="Thông tin dài hiển thị bên dưới phần tổng quan của trang sản phẩm; không nhập số điện thoại, email hoặc HTML.">
+            <textarea name="description_detail" className="input min-h-44 resize-y" rows={7} maxLength={6000} placeholder="Nguồn gốc, ứng dụng, đặc điểm, đóng gói, lưu ý..." defaultValue={product?.description_detail ?? ""} disabled={locked} />
+          </Field>
           <div className="border-t border-slate-100 pt-6"><h3 className="text-sm font-bold text-slate-900">Đặt hàng & năng lực</h3><div className="mt-4 grid gap-4 sm:grid-cols-2">{BASE_FIELDS.map(([key, label, placeholder, max]) => <Field key={key} label={label}><input className="input" name={key} maxLength={max} placeholder={placeholder} defaultValue={String(product?.[key] ?? "")} disabled={locked} /></Field>)}</div></div>
           <details className="group rounded-xl border border-slate-200 bg-slate-50/70 p-4">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-bold text-slate-800">Thông tin thương mại & xuất khẩu <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden="true" /></summary>
@@ -151,6 +155,11 @@ export function SupplierProductEditor({ product, media = [], userId, categories 
               <Field label="Giá tham khảo / đơn vị"><input name="ref_price" type="number" min={0} max={1000000000000} step="0.01" className="input" placeholder="Ví dụ: 5000" defaultValue={product?.ref_price ?? ""} disabled={locked} /></Field>
               <Field label="Đơn vị tiền"><input name="currency" className="input" maxLength={10} placeholder="USD" defaultValue={product?.currency ?? ""} disabled={locked} /></Field>
               <Field label="Giá có hiệu lực tới"><input name="price_valid_until" type="date" className="input" defaultValue={product?.price_valid_until ?? ""} disabled={locked} /></Field>
+            </div>
+            <div className="mt-4 rounded-xl border border-teal-200 bg-white p-4 text-sm text-slate-700">
+              <label className="flex items-start gap-2 font-semibold"><input type="checkbox" name="price_publicly_visible" value="yes" defaultChecked={product?.price_publicly_visible ?? false} disabled={locked} className="mt-0.5 size-4 accent-teal-700" /> Hiển thị công khai giá tham khảo của sản phẩm này khi được Vexim duyệt đăng</label>
+              <p className="mt-2 text-xs leading-5">{supplierPriceConsentCurrent(supplier) ? "NCC đã xác nhận chia sẻ giá trong 180 ngày gần đây. Không tự gia hạn khi lưu sản phẩm." : "Chưa có xác nhận chia sẻ giá còn hiệu lực của NCC. Tích xác nhận riêng bên dưới khi muốn công khai giá."} Giá phải lớn hơn 0, chưa hết hạn; ảnh/catalogue, danh mục và hồ sơ NCC phải được Vexim duyệt, xuất bản. Nếu không, buyer sẽ thấy On request.</p>
+              {!supplierPriceConsentCurrent(supplier) && <label className="mt-3 flex items-start gap-2 rounded-lg bg-teal-50 p-3 text-xs font-medium text-teal-950"><input type="checkbox" name="confirm_supplier_price_consent" value="yes" disabled={locked} className="mt-0.5 size-4 shrink-0 accent-teal-700" /> Tôi đại diện NCC xác nhận đồng ý cho Vexim hiển thị công khai giá tham khảo của các sản phẩm tôi chọn công khai. Xác nhận có hiệu lực 180 ngày kể từ khi lưu; không phải báo giá chính thức. Chỉ ghi nhận khi tôi đồng thời chọn công khai giá cho sản phẩm này.</label>}
             </div>
             <div className="mt-5 flex flex-wrap gap-5 text-sm text-slate-700"><label className="inline-flex items-center gap-2"><input type="checkbox" name="oem" value="yes" defaultChecked={product?.oem ?? false} disabled={locked} className="size-4 accent-teal-700" /> Nhận gia công/OEM</label>
               <label className="inline-flex items-center gap-2"><input type="checkbox" name="samples" value="yes" defaultChecked={product?.samples ?? false} disabled={locked} className="size-4 accent-teal-700" /> Có thể gửi mẫu</label></div>

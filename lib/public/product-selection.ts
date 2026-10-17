@@ -48,15 +48,20 @@ export function productGrade(name: string, spec: string | null, categorySlug: st
   return null;
 }
 
-/** Product ref price is public only when supplier consent is current and product price has not expired. */
+/** Consent belongs to the supplier, expires after 180 days, and is never renewed by a normal product edit. */
+export function supplierPriceConsentCurrent(supplier: { fob_publicly_visible?: boolean; fob_updated_at?: string | null }, now = Date.now()): boolean {
+  if (!supplier.fob_publicly_visible || !supplier.fob_updated_at) return false;
+  const age = now - new Date(supplier.fob_updated_at).getTime();
+  return Number.isFinite(age) && age >= 0 && age < 180 * 86400_000;
+}
+
+/** Product ref price is public only when separately opted in, consent is current and the price is valid. */
 export function publicProductPrice(
-  product: Pick<SupplierProduct, "ref_price" | "currency" | "price_valid_until" | "unit">,
+  product: Pick<SupplierProduct, "ref_price" | "currency" | "price_valid_until" | "unit" | "price_publicly_visible">,
   supplier: { fob_publicly_visible?: boolean; fob_updated_at?: string | null },
   today: string = new Date().toISOString().slice(0, 10),
 ): string | null {
-  if (!supplier.fob_publicly_visible || !supplier.fob_updated_at || product.ref_price == null || product.ref_price <= 0) return null;
-  const age = Date.now() - new Date(supplier.fob_updated_at).getTime();
-  if (!Number.isFinite(age) || age < 0 || age > 180 * 86400_000) return null;
+  if (!product.price_publicly_visible || !supplierPriceConsentCurrent(supplier) || product.ref_price == null || product.ref_price <= 0) return null;
   if (product.price_valid_until && product.price_valid_until < today) return null;
   const currency = product.currency || "USD";
   // The CRM currency can already contain a unit (e.g. USD/kg); never invent a conversion to /ton.

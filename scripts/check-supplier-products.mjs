@@ -15,7 +15,7 @@ function load(file, mocks) {
 const supplierId = '12345678-1234-1234-1234-123456789abc';
 const productId = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
 const user = { id: 'owner', email: 'factory@example.com', supplier_id: supplierId, role: 'supplier', is_active: true };
-const supplier = { id: supplierId, name: 'Factory One', products: 'Cashew W320', onboarding_status: 'pending' };
+const supplier = { id: supplierId, fob_publicly_visible: false, fob_updated_at: null, name: 'Factory One', products: 'Cashew W320', onboarding_status: 'pending' };
 let product = null;
 const files = [];
 const audit = [];
@@ -30,6 +30,7 @@ const store = {
   createProduct: async (input) => { product = { ...input, id: productId }; return product; },
   updateProduct: async (id, patch) => { assert.equal(id, productId); product = { ...product, ...patch }; return product; },
   listProductsBySupplier: async (id) => id === supplierId ? [product].filter(Boolean) : [],
+  updateSupplier: async (id, patch) => { assert.equal(id, supplierId); Object.assign(supplier, patch); return supplier; },
   listCategories: async () => categories, listSupplierCategories: async () => [],
   listMedia: async (_owner, id) => id === productId ? files : [],
   createMedia: async (input) => { const row = { ...input, id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }; files.push(row); return row; },
@@ -44,6 +45,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
   '@/lib/supplier-portal/onboarding': onboarding,
   '@/lib/supplier-portal/category-proposals': categoryProposals,
+  '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible && !!s.fob_updated_at && Date.now() - new Date(s.fob_updated_at).getTime() < 180 * 86400_000 },
   '@/lib/public/category-assignment': { assignProductCategory: () => null, assignSupplierCategories: () => ({ slugs: [] }) },
 });
 const form = () => {
@@ -61,8 +63,25 @@ const created = await actions.saveSupplierProductAction(form());
 assert.equal(created.ok, true); assert.equal(created.id, productId);
 assert.equal(product.supplier_id, supplierId); assert.equal(product.supplier_review_status, 'draft');
 assert.equal(product.ready_for_buyer, false); assert.equal(product.ref_price, 5000);
+assert.equal(product.price_publicly_visible, false, 'Saving an entered price does not expose it');
+assert.equal(supplier.fob_updated_at, null, 'Ordinary product saves cannot silently record supplier consent');
+const optIn = form(); optIn.set('product_id', productId); optIn.set('price_publicly_visible', 'yes');
+optIn.set('description_detail', 'Origin and details of this product.');
+assert.equal((await actions.saveSupplierProductAction(optIn)).ok, true);
+assert.equal(product.price_publicly_visible, true); assert.equal(product.description_detail, 'Origin and details of this product.');
+assert.equal(supplier.fob_updated_at, null, 'Product opt-in alone does not create supplier consent');
+const consentForm = form(); consentForm.set('product_id', productId); consentForm.set('price_publicly_visible', 'yes');
+consentForm.set('confirm_supplier_price_consent', 'yes');
+assert.equal((await actions.saveSupplierProductAction(consentForm)).ok, true);
+assert.equal(supplier.fob_publicly_visible, true); assert.ok(supplier.fob_updated_at);
+assert.ok(audit.some((entry) => entry.action === 'supplier.price_consent_confirmed' && entry.actor_id === user.id));
+const consentStamp = supplier.fob_updated_at;
+assert.equal((await actions.saveSupplierProductAction(formWithId())).ok, true);
+assert.equal(product.price_publicly_visible, false, 'Unticking product opt-in hides its price');
+assert.equal(supplier.fob_updated_at, consentStamp, 'Ordinary saves never renew consent');
 assert.equal(product.supplier_category_proposal, 'cashew'); assert.equal(product.reviewed_category_slug, null);
 assert.equal(product.supplier_originated, true);
+function formWithId() { const fd = form(); fd.set('product_id', productId); return fd; }
 const foreignEdit = form(); foreignEdit.set('product_id', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
 assert.equal((await actions.saveSupplierProductAction(foreignEdit)).ok, false);
 const image = new File([new Uint8Array([0xff,0xd8,0xff,0xe0,1,2,3,4,5,6,7,8])], 'cashew.jpg', { type: 'image/jpeg' });

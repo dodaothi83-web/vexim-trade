@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
@@ -21,13 +22,13 @@ function parseProduct(form: FormData, supplierId: string): SupplierProductInput 
   if (validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) throw new Error("Ngày hết hạn giá không hợp lệ.");
   return {
     supplier_id: supplierId, name, slug: null, name_i18n: {}, category: null,
-    description: text(form, "description", 1500) || null, spec: text(form, "spec", 800) || null,
+    description: text(form, "description", 1500) || null, description_detail: text(form, "description_detail", 6000) || null, spec: text(form, "spec", 800) || null,
     specs: {}, unit: text(form, "unit", 40) || null, moq: text(form, "moq", 180) || null,
     moq_qty: null, moq_unit: null, monthly_capacity: text(form, "monthly_capacity", 180) || null,
     lead_time_days: daysRaw ? Number(daysRaw) : null, packaging: text(form, "packaging", 300) || null,
     oem: form.get("oem") === "yes", samples: form.get("samples") === "yes",
     certifications: text(form, "certifications", 300) || null, export_port: text(form, "export_port", 120) || null,
-    ref_price: priceRaw ? Number(priceRaw) : null, currency: priceRaw ? (text(form, "currency", 10) || "USD") : null,
+    ref_price: priceRaw ? Number(priceRaw) : null, price_publicly_visible: form.get("price_publicly_visible") === "yes", currency: priceRaw ? (text(form, "currency", 10) || "USD") : null,
     price_valid_until: validUntil || null, incoterm: text(form, "incoterm", 20) || null,
     incoterm_place: text(form, "incoterm_place", 100) || null,
     payment_terms: text(form, "payment_terms", 200) || null,
@@ -62,14 +63,33 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       ...input, // Reset review and buyer-ready in the same DB write, even when previously public.
       slug: existing.slug, name_i18n: {}, specs: {}, images: existing.images,
     }) : await store.createProduct(input);
+    // Supplier-owned explicit consent is recorded only when the separate checkbox is checked.
+    // A normal product save never silently refreshes the 180-day supplier consent.
+    const confirmConsent = form.get("confirm_supplier_price_consent") === "yes";
+    let consentWarning = "";
+    if (confirmConsent && input.price_publicly_visible && input.ref_price && input.ref_price > 0 &&
+        !supplierPriceConsentCurrent(access.supplier)) {
+      const stamp = new Date().toISOString();
+      try {
+        await store.updateSupplier(access.supplier.id, { fob_publicly_visible: true, fob_updated_at: stamp });
+      } catch (error) {
+        console.error("[supplier-product] consent update", error);
+        consentWarning = "Chưa ghi nhận được xác nhận chia sẻ giá: giá vẫn ẩn, vui lòng thử lưu lại.";
+      }
+      if (!consentWarning) await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
+        entity: "supplier", entity_id: access.supplier.id, action: "supplier.price_consent_confirmed",
+        before: { fob_publicly_visible: access.supplier.fob_publicly_visible, fob_updated_at: access.supplier.fob_updated_at },
+        after: { fob_publicly_visible: true, fob_updated_at: stamp } }).catch((error) => console.error("[supplier-product] consent audit", error));
+    }
     await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "product", entity_id: saved.id, action: existing ? "supplier.product_updated" : "supplier.product_created",
       before: existing ? { review: existing.supplier_review_status, ready: existing.ready_for_buyer } : null,
       after: { review: "draft", ready: false } }).catch((error) => console.error("[supplier-product] audit", error));
     revalidatePath("/supplier/portal/products");
+    revalidatePath("/supplier/portal");
     revalidatePath(`/supplier/portal/products/${saved.id}`);
     revalidatePath(`/crm/products/${saved.id}/edit`);
-    return { ok: true, id: saved.id, message: "Đã lưu bản nháp. Tải ảnh/catalogue thực tế rồi gửi Vexim kiểm tra." };
+    return { ok: true, id: saved.id, message: `Đã lưu bản nháp. ${consentWarning || "Tải ảnh/catalogue thực tế rồi gửi Vexim kiểm tra."}` };
   } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "Không lưu được sản phẩm." }; }
 }
 

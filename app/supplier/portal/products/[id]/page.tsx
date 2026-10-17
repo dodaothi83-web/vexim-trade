@@ -29,6 +29,6 @@ export default async function OwnProductPage({ params }: { params: Promise<{ id:
     <div className="mt-4"><p className="text-xs font-bold uppercase tracking-widest text-teal-700">Chỉnh sửa sản phẩm</p>
       <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">{product.name}</h1>
       <p className="mt-2 text-sm text-slate-600">Hoàn thiện thông tin, kiểm tra tệp đã tải và theo dõi phản hồi của Vexim.</p></div>
-    <SupplierProductEditor product={product} media={media} userId={access.user.id} categories={categories} />
+    <SupplierProductEditor product={product} media={media} userId={access.user.id} categories={categories} supplier={access.supplier} />
   </main>;
 }

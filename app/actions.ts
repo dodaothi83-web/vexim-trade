@@ -1370,7 +1370,8 @@ function parseProductInput(
       ? (raw.name_i18n as Record<string, string>)
       : undefined),
     category: str(raw.category),
-    description: str(raw.description),
+    description: str(raw.description)?.slice(0, 1500) ?? null,
+    description_detail: str(raw.description_detail)?.slice(0, 6000) ?? null,
     spec: str(raw.spec),
     specs: (raw.specs && typeof raw.specs === "object" ? (raw.specs as Record<string, unknown>) : undefined),
     unit: str(raw.unit),
@@ -1384,6 +1385,7 @@ function parseProductInput(
     certifications: str(raw.certifications),
     export_port: str(raw.export_port),
     ref_price: num(raw.ref_price),
+    price_publicly_visible: bool(raw.price_publicly_visible, false),
     currency: str(raw.currency) ?? (num(raw.ref_price) !== null ? "USD" : null),
     price_valid_until: str(raw.price_valid_until),
     incoterm: str(raw.incoterm),
@@ -1447,7 +1449,7 @@ export async function updateProductAction(
     input.supplier_id = existing.supplier_id;
     input.category = existing.category;
     const assigned = await autoAssignProduct(input);
-    const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description;
+    const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description || input.description_detail !== (existing.description_detail ?? null);
     // The human-reviewed category outranks text inference when toggling buyer readiness.
     if (existing.reviewed_category_slug && !identityChanged) input.category = existing.reviewed_category_slug;
     else if (!assigned) input.ready_for_buyer = false;

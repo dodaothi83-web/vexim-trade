@@ -7,7 +7,7 @@ import { Loader2, Save } from "lucide-react";
 import { createProductAction, updateProductAction } from "@/app/actions";
 import type { Category, Supplier, SupplierProduct } from "@/lib/types";
 import { assignProductCategory } from "@/lib/public/category-assignment";
-import { isTestOnlyProduct } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { Button, Field, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
@@ -21,6 +21,7 @@ function init(p?: SupplierProduct | null): FormState {
     name: p?.name ?? "",
     category: p?.category ?? "",
     description: p?.description ?? "",
+    description_detail: p?.description_detail ?? "",
     spec: p?.spec ?? "",
     unit: p?.unit ?? "MT",
     moq: p?.moq ?? "",
@@ -33,6 +34,7 @@ function init(p?: SupplierProduct | null): FormState {
     certifications: p?.certifications ?? "",
     export_port: p?.export_port ?? "",
     ref_price: p?.ref_price ?? "",
+    price_publicly_visible: p?.price_publicly_visible ?? false,
     currency: p?.currency ?? "USD",
     price_valid_until: p?.price_valid_until ?? "",
     incoterm: p?.incoterm ?? "FOB",
@@ -124,6 +126,10 @@ export function ProductForm({
               onChange={(e) => set("description", e.target.value)}
               placeholder="VD: Gạo thơm xay xát trong ngày, đánh bóng nhẹ"
             />
+          </Field>
+          <Field label="Mô tả chi tiết" hint="Thông tin dài hiển thị dưới trang sản phẩm; văn bản thuần, xuống dòng tùy ý." className="sm:col-span-2 lg:col-span-3">
+            <textarea className="input min-h-40 resize-y" rows={7} maxLength={6000} value={v("description_detail")}
+              onChange={(e) => set("description_detail", e.target.value)} placeholder="Nguồn gốc, tính năng, ứng dụng, đóng gói, lưu ý sử dụng..." />
           </Field>
           <Field label="Đơn vị tính">
             <input
@@ -250,7 +256,7 @@ export function ProductForm({
       <section className="card p-5">
         <h2 className="text-sm font-bold text-ink-900">3. Điều kiện thương mại tham khảo</h2>
         <p className="mt-0.5 mb-4 text-xs text-ink-500">
-          Giá nhập cho chính sản phẩm này, không phải giá chung của NCC. Chỉ hiện cho buyer khi NCC đã chấp thuận công khai giá (trong 180 ngày) và giá sản phẩm còn hạn; báo giá chính thức theo từng RFQ.
+          Giá nhập cho chính sản phẩm này, không phải giá chung của NCC. Giá chỉ hiện khi tích công khai cho sản phẩm, NCC còn chấp thuận công khai giá (180 ngày), giá hợp lệ, và sản phẩm đã đủ điều kiện công bố; không phải báo giá RFQ.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Giá tham khảo">
@@ -281,6 +287,11 @@ export function ProductForm({
               onChange={(e) => set("price_valid_until", e.target.value)}
             />
           </Field>
+          <div className="sm:col-span-2 lg:col-span-3 rounded-lg border border-brand-200 bg-brand-50 p-4 text-sm">
+            <label className="flex items-center gap-2 font-semibold text-ink-800"><input type="checkbox" checked={form.price_publicly_visible === true}
+              onChange={(e) => set("price_publicly_visible", e.target.checked)} className="size-4 accent-brand-700" /> Hiển thị công khai giá tham khảo của sản phẩm này</label>
+            <p className="mt-2 text-xs text-ink-600">{!form.price_publicly_visible ? "Đang tắt: buyer thấy On request." : !v("ref_price") || Number(v("ref_price")) <= 0 ? "Chưa có giá lớn hơn 0." : v("price_valid_until") && v("price_valid_until") < new Date().toISOString().slice(0, 10) ? "Giá đã hết hạn." : !supplierPriceConsentCurrent(supplier) ? "NCC chưa chấp thuận hoặc chấp thuận đã quá 180 ngày: cập nhật ở hồ sơ NCC (cần xác nhận thực tế)." : !form.ready_for_buyer ? "Giá đã chọn công khai nhưng sản phẩm chưa sẵn sàng cho buyer; cần ảnh/catalogue được chia sẻ và duyệt đăng." : "Đã chọn công khai giá; còn phụ thuộc trạng thái duyệt, NCC và danh mục xuất bản."}</p>
+          </div>
           <Field label="Incoterm">
             <select className="input" value={v("incoterm")} onChange={(e) => set("incoterm", e.target.value)}>
               {INCOTERMS.map((t) => (
