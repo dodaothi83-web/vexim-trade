@@ -13,6 +13,8 @@ export default function robots(): MetadataRoute.Robots {
     "/compare",
     "/crm",
     "/crm/",
+    "/preview",
+    "/preview/",
     "/auth",
     "/auth/",
     "/login",

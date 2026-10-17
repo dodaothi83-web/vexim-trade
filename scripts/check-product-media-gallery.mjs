@@ -92,6 +92,11 @@ assert.match(html, /products\/abc\/cover\.jpg/);
 assert.match(html, /aria-pressed="true"/);
 assert.match(html, /Enlarge photo of Cashew W320 on this page/);
 assert.doesNotMatch(html, /<iframe|target="_blank"/, 'Gallery must not embed before play or open images in a new tab');
+const illustration = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
+  name: 'Preview only', images: ['/images/categories/cashew-grade.jpg'], video: null, previewStaticMedia: true,
+}));
+assert.match(illustration, /src="\/images\/categories\/cashew-grade.jpg"/, 'Only the staff preview uses the local illustration');
+assert.doesNotMatch(html, /\/images\/categories\//, 'Real product media still comes exclusively from buyer-shareable storage');
 const gallerySource = readFileSync(new URL('../components/product-media-gallery.tsx', import.meta.url), 'utf8');
 assert.match(gallerySource, /createPortal\(/);
 assert.match(gallerySource, /event\.key === "Escape"/);

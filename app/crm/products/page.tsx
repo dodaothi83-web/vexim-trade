@@ -75,9 +75,12 @@ export default async function ProductsPage({
         breadcrumbs={<Breadcrumbs items={[{ label: "Sản phẩm NCC" }]} />}
         title="Sản phẩm nhà cung cấp"
         sub={`${all.length} hồ sơ sản phẩm · giá chỉ là tham khảo có thời hạn, báo giá chính thức do NCC xác nhận theo từng RFQ`}
-        actions={<Link href={reviewQueue ? "/crm/products" : "/crm/products?review=pending"} className="btn btn-soft">
-          {reviewQueue ? "Xem tất cả sản phẩm" : `NCC tự đăng chờ kiểm tra (${all.filter((p) => p.supplier_review_status === "pending").length})`}
-        </Link>}
+        actions={<div className="flex flex-wrap gap-2">
+          <Link href="/preview/product-detail" className="btn btn-soft">Xem thử trang sản phẩm buyer</Link>
+          <Link href={reviewQueue ? "/crm/products" : "/crm/products?review=pending"} className="btn btn-soft">
+            {reviewQueue ? "Xem tất cả sản phẩm" : `NCC tự đăng chờ kiểm tra (${all.filter((p) => p.supplier_review_status === "pending").length})`}
+          </Link>
+        </div>}
       />
 
       {buyer && (
