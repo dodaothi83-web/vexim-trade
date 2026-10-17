@@ -263,7 +263,7 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
         <Field label="Giới thiệu ngắn (tiếng Anh)">
           <textarea rows={3} className="input" value={str("summary_en")} onChange={(e) => set("summary_en", e.target.value)} placeholder="A Vietnam-based supplier of..." />
         </Field>
-        <div className="mt-4 rounded-xl border border-ink-200 bg-ink-50/60 p-4 text-sm">
+        <div id="price-sharing" className="mt-4 scroll-mt-24 rounded-xl border border-ink-200 bg-ink-50/60 p-4 text-sm">
           <h3 className="font-semibold text-ink-800">Quyền hiển thị giá của sản phẩm</h3>
           <p className="mt-1 text-xs text-ink-600">Không nhập giá ở hồ sơ NCC. Giá tham khảo, đơn vị và hạn giá được nhập riêng trong từng sản phẩm; chỉ hiện công khai khi NCC đã chấp thuận bằng văn bản.</p>
           <label className="mt-3 flex items-center gap-2 text-ink-700"><input type="checkbox" checked={Boolean(form.fob_publicly_visible)} onChange={(e) => setForm((f) => ({ ...f, fob_publicly_visible: e.target.checked, fob_updated_at: e.target.checked ? new Date().toISOString() : f.fob_updated_at }))} /> NCC đã chấp thuận công khai giá sản phẩm</label>

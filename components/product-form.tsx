@@ -89,7 +89,10 @@ export function ProductForm({
         ? await updateProductAction(product.id, payload)
         : await createProductAction(payload);
       toast.push({ kind: res.ok ? "success" : "error", title: res.message });
-      if (res.ok) router.push(!product && res.id ? `/crm/products/${res.id}/edit` : `/crm/suppliers/${supplier.id}`);
+      if (res.ok) {
+        if (!product && res.id) router.push(`/crm/products/${res.id}/edit`);
+        else router.refresh(); // Stay here and show the persisted public-price diagnostics.
+      }
     } catch (err) {
       toast.push({ kind: "error", title: "Lỗi khi lưu", lines: [err instanceof Error ? err.message : String(err)] });
     } finally {
@@ -293,7 +296,7 @@ export function ProductForm({
           </Field>
           <div className="sm:col-span-2 lg:col-span-3 rounded-lg border border-brand-200 bg-brand-50 p-4 text-sm">
             <label className="flex items-center gap-2 font-semibold text-ink-800"><input type="checkbox" checked={form.price_publicly_visible === true}
-              onChange={(e) => set("price_publicly_visible", e.target.checked)} className="size-4 accent-brand-700" /> Hiển thị công khai giá tham khảo của sản phẩm này</label>
+              onChange={(e) => set("price_publicly_visible", e.target.checked)} className="size-4 accent-brand-700" /> Cho phép công khai giá tham khảo của sản phẩm này khi đủ điều kiện</label>
             <p className="mt-2 text-xs text-ink-600">{!form.price_publicly_visible ? "Đang tắt: buyer thấy On request." : !v("ref_price") || Number(v("ref_price")) <= 0 ? "Chưa có giá lớn hơn 0." : v("price_valid_until") && v("price_valid_until") < new Date().toISOString().slice(0, 10) ? "Giá đã hết hạn." : !supplierPriceConsentCurrent(supplier) ? "NCC chưa chấp thuận hoặc chấp thuận đã quá 180 ngày: cập nhật ở hồ sơ NCC (cần xác nhận thực tế)." : !form.ready_for_buyer ? "Giá đã chọn công khai nhưng sản phẩm chưa sẵn sàng cho buyer; cần ảnh/catalogue được chia sẻ và duyệt đăng." : "Đã chọn công khai giá; còn phụ thuộc trạng thái duyệt, NCC và danh mục xuất bản."}</p>
           </div>
           <Field label="Incoterm">

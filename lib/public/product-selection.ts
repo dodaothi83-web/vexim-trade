@@ -55,15 +55,33 @@ export function supplierPriceConsentCurrent(supplier: { fob_publicly_visible?: b
   return Number.isFinite(age) && age >= 0 && age < 180 * 86400_000;
 }
 
+type PriceFields = Pick<SupplierProduct, "ref_price" | "currency" | "price_valid_until" | "unit" | "price_publicly_visible">;
+type PriceConsent = { fob_publicly_visible?: boolean; fob_updated_at?: string | null };
+
+/** Private editor diagnostics, in the exact same order and with the same checks as the public price gate. */
+export function productPriceBlockers(
+  product: PriceFields, supplier: PriceConsent,
+  today: string = new Date().toISOString().slice(0, 10), now = Date.now(),
+): string[] {
+  const blockers: string[] = [];
+  if (!product.price_publicly_visible) blockers.push("Chưa bật công khai giá cho riêng sản phẩm này và lưu thay đổi.");
+  if (product.ref_price == null || !Number.isFinite(product.ref_price) || product.ref_price <= 0)
+    blockers.push("Giá tham khảo của sản phẩm phải lớn hơn 0.");
+  if (product.price_valid_until && product.price_valid_until < today)
+    blockers.push(`Giá tham khảo đã hết hạn (${product.price_valid_until}).`);
+  if (!supplier.fob_publicly_visible) blockers.push("NCC chưa xác nhận đồng ý chia sẻ giá; ô công khai của sản phẩm không thay thế quyền này.");
+  else if (!supplierPriceConsentCurrent(supplier, now)) blockers.push("Quyền chia sẻ giá của NCC không còn hiệu lực (quá 180 ngày hoặc ngày xác nhận không hợp lệ); cần NCC xác nhận lại.");
+  return blockers;
+}
+
 /** Product ref price is public only when separately opted in, consent is current and the price is valid. */
 export function publicProductPrice(
-  product: Pick<SupplierProduct, "ref_price" | "currency" | "price_valid_until" | "unit" | "price_publicly_visible">,
-  supplier: { fob_publicly_visible?: boolean; fob_updated_at?: string | null },
+  product: PriceFields,
+  supplier: PriceConsent,
   today: string = new Date().toISOString().slice(0, 10),
 ): string | null {
-  if (!product.price_publicly_visible || !supplierPriceConsentCurrent(supplier) || product.ref_price == null || product.ref_price <= 0) return null;
-  if (product.price_valid_until && product.price_valid_until < today) return null;
+  if (productPriceBlockers(product, supplier, today).length) return null;
   const currency = product.currency || "USD";
   // The CRM currency can already contain a unit (e.g. USD/kg); never invent a conversion to /ton.
-  return `${currency} ${product.ref_price.toLocaleString("en-US")}${currency.includes("/") ? "" : product.unit ? `/${product.unit}` : ""}`;
+  return `${currency} ${product.ref_price!.toLocaleString("en-US")}${currency.includes("/") ? "" : product.unit ? `/${product.unit}` : ""}`;
 }

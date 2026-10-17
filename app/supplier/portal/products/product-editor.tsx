@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AlertCircle, ArrowRight, Check, CheckCircle2, ChevronDown, FileText, LockKeyhole, Package2, Save, Send, UploadCloud, X } from "lucide-react";
 import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
-import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
+import { productPriceBlockers, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
 import { saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
@@ -158,7 +158,14 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
             </div>
             <p className="mt-3 text-xs text-slate-600">Ô “Chứng nhận sản phẩm (tự khai)” không tạo nhãn xác minh. <Link href="/supplier/portal/certificates" className="font-semibold text-teal-800 underline">Tải PDF/ảnh chứng nhận ở mục Chứng nhận để Vexim xét riêng →</Link></p>
             <div className="mt-4 rounded-xl border border-teal-200 bg-white p-4 text-sm text-slate-700">
-              <label className="flex items-start gap-2 font-semibold"><input type="checkbox" name="price_publicly_visible" value="yes" defaultChecked={product?.price_publicly_visible ?? false} disabled={locked} className="mt-0.5 size-4 accent-teal-700" /> Hiển thị công khai giá tham khảo của sản phẩm này khi được Vexim duyệt đăng</label>
+              <label className="flex items-start gap-2 font-semibold"><input type="checkbox" name="price_publicly_visible" value="yes" defaultChecked={product?.price_publicly_visible ?? false} disabled={locked} className="mt-0.5 size-4 accent-teal-700" /> Cho phép công khai giá tham khảo của sản phẩm này khi đủ điều kiện</label>
+              {product && <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-5" role="status">
+                <strong>Tình trạng giá đã lưu:</strong> {productPriceBlockers(product, supplier).length === 0 ? "Sản phẩm và NCC đã cho phép chia sẻ giá." : "Buyer vẫn thấy On request."}
+                <ul className="mt-1 list-disc pl-5">{productPriceBlockers(product, supplier).map((reason) => <li key={reason}>{reason}</li>)}
+                  {(review !== "approved" || !product.ready_for_buyer || supplier.status !== "published") && <li>Vexim còn phải duyệt sản phẩm, chọn danh mục/ảnh buyer và bật sẵn sàng, đồng thời công bố hồ sơ NCC.</li>}
+                </ul>
+                {dirty && <p className="mt-1 font-semibold text-amber-800">Thay đổi ở form chưa lưu; dòng trên là tình trạng trước khi lưu.</p>}
+              </div>}
               <p className="mt-2 text-xs leading-5">{supplierPriceConsentCurrent(supplier) ? "NCC đã xác nhận chia sẻ giá trong 180 ngày gần đây. Không tự gia hạn khi lưu sản phẩm." : "Chưa có xác nhận chia sẻ giá còn hiệu lực của NCC. Tích xác nhận riêng bên dưới khi muốn công khai giá."} Giá phải lớn hơn 0, chưa hết hạn; ảnh/catalogue, danh mục và hồ sơ NCC phải được Vexim duyệt, xuất bản. Nếu không, buyer sẽ thấy On request.</p>
               {!supplierPriceConsentCurrent(supplier) && <label className="mt-3 flex items-start gap-2 rounded-lg bg-teal-50 p-3 text-xs font-medium text-teal-950"><input type="checkbox" name="confirm_supplier_price_consent" value="yes" disabled={locked} className="mt-0.5 size-4 shrink-0 accent-teal-700" /> Tôi đại diện NCC xác nhận đồng ý cho Vexim hiển thị công khai giá tham khảo của các sản phẩm tôi chọn công khai. Xác nhận có hiệu lực 180 ngày kể từ khi lưu; không phải báo giá chính thức. Chỉ ghi nhận khi tôi đồng thời chọn công khai giá cho sản phẩm này.</label>}
             </div>

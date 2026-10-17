@@ -8,7 +8,7 @@ const selection = {};
 const selectionSource = readFileSync(new URL('../lib/public/product-selection.ts', import.meta.url), 'utf8');
 vm.runInNewContext(ts.transpileModule(selectionSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
   { exports: selection, require: (path) => path === '@/lib/public/category-assignment' ? { assignProductCategory } : null, Date });
-const { isTestOnlyProduct, productBelongsToCategory, productGrade, publicProductPrice, withoutDirectContacts } = selection;
+const { isTestOnlyProduct, productBelongsToCategory, productGrade, publicProductPrice, productPriceBlockers, withoutDirectContacts } = selection;
 
 const cats = [
   { slug: 'cashew', name_i18n: { en: 'Cashew kernels' } },
@@ -29,6 +29,15 @@ assert.equal(productGrade('Rice W320', null, 'rice'), null);
 const price = { price_publicly_visible: true, ref_price: 8.4, currency: 'USD/kg', unit: 'kg', price_valid_until: '2099-01-01' };
 const consent = { fob_publicly_visible: true, fob_updated_at: new Date().toISOString() };
 assert.equal(publicProductPrice(price, consent), 'USD/kg 8.4');
+assert.equal(productPriceBlockers(price, consent).length, 0, 'A price with both opt-in and current consent is buyer-visible');
+assert.match(productPriceBlockers({ ...price, price_publicly_visible: false }, consent).join(' '), /sản phẩm này/, 'A missing product tick is explained');
+assert.match(productPriceBlockers(price, { ...consent, fob_publicly_visible: false }).join(' '), /NCC chưa xác nhận/, 'A product tick cannot stand in for supplier consent');
+assert.match(productPriceBlockers(price, { ...consent, fob_updated_at: '2020-01-01' }).join(' '), /180 ngày/, 'Expired consent explains On request');
+assert.match(productPriceBlockers({ ...price, price_valid_until: '2020-01-01' }, consent).join(' '), /hết hạn/, 'Expired price explains On request');
+for (const item of [price, { ...price, price_publicly_visible: false }, { ...price, ref_price: 0 }, { ...price, price_valid_until: '2020-01-01' }]) {
+  assert.equal(Boolean(publicProductPrice(item, consent)), productPriceBlockers(item, consent).length === 0,
+    'Private price diagnosis and public gate must agree');
+}
 assert.equal(publicProductPrice({ ...price, price_publicly_visible: false }, consent), null, 'Product opt-out must hide price even with valid supplier consent');
 assert.equal(publicProductPrice({ ...price, price_publicly_visible: undefined }, consent), null, 'Legacy record without opt-in fails closed');
 assert.equal(publicProductPrice(price, { ...consent, fob_publicly_visible: false }), null);

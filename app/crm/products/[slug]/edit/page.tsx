@@ -6,7 +6,7 @@ import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { ProductForm } from "@/components/product-form";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
-import { isTestOnlyProduct, productReviewApproved } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productReviewApproved, productPriceBlockers, publicProductPrice } from "@/lib/public/product-selection";
 import { DeleteProductButton } from "@/components/product-actions";
 import { MediaManager, ReadyHint } from "@/components/media-manager";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
@@ -46,6 +46,8 @@ export default async function EditProductPage({
     (supplier.is_demo ? process.env.VEXIM_SHOW_DEMO === "true" : product.ready_for_buyer && readiness.ready) &&
     !isTestOnlyProduct(product.name);
   const productImages = media.filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m));
+  const priceBlockers = productPriceBlockers(product, supplier);
+  const visiblePrice = canView && !priceBlockers.length ? publicProductPrice(product, supplier) : null;
 
   return (
     <>
@@ -91,8 +93,21 @@ export default async function EditProductPage({
           {readiness.ready && !productImages.length && <p className="mt-2 text-amber-800">Catalogue đủ điều kiện gửi buyer nhưng thẻ chưa có ảnh: tải thêm ảnh sản phẩm chia sẻ buyer để không chỉ hiện biểu tượng trống.</p>}
           {canView && category && <p className="mt-3"><Link className="font-semibold text-brand-700 underline" href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(product.id)}`} target="_blank">Xem trang sản phẩm công khai ↗</Link></p>}
         </section>
+        <section className="card p-5 text-sm" aria-label="Tình trạng giá tham khảo đã lưu">
+          <h2 className="font-bold text-ink-900">Giá trên trang buyer · trạng thái đã lưu</h2>
+          <p className="mt-1 text-ink-600">Tích công khai giá trong form bên dưới chỉ là cho phép theo sản phẩm. Sau khi tích cần <strong>Lưu thay đổi</strong>; NCC còn phải đồng ý chia sẻ giá trong 180 ngày. Không tự tạo sự đồng ý của NCC khi nhân viên tích vào sản phẩm.</p>
+          {visiblePrice ? <p className="mt-3 rounded-lg bg-emerald-50 p-3 font-semibold text-emerald-900">✓ Đủ điều kiện hiển thị: {visiblePrice}</p>
+            : <div className="mt-3 rounded-lg bg-amber-50 p-3 text-amber-950" role="status">
+              <p className="font-semibold">Buyer hiện thấy “On request”{!canView ? " hoặc chưa truy cập được trang sản phẩm" : ""} vì:</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">{priceBlockers.map((reason) => <li key={reason}>{reason}</li>)}
+                {!canView && <li>Sản phẩm chưa đáp ứng đủ điều kiện công bố ở checklist phía trên (duyệt, danh mục, NCC, ảnh/catalogue hoặc buyer-ready).</li>}
+              </ul>
+              {priceBlockers.some((reason) => reason.includes("NCC")) && <Link href={`/crm/suppliers/${supplier.id}/edit#price-sharing`} className="mt-2 inline-block font-semibold text-brand-700 underline">Mở hồ sơ NCC để kiểm tra quyền chia sẻ giá →</Link>}
+            </div>}
+        </section>
         <p className="text-sm text-ink-600">Chứng nhận không lấy từ ô sản phẩm tự khai. <Link href={`/crm/suppliers/${supplier.id}/certificates`} className="font-semibold text-brand-700 underline">Xem chứng nhận NCC chờ kiểm và quyết định công bố →</Link></p>
         <ProductForm
+          key={`${product.id}:${product.updated_at}`}
           supplier={supplier}
           product={product}
           categories={categories}
