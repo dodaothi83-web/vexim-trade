@@ -7,7 +7,7 @@ import "server-only";
 import { getStore } from "@/lib/db";
 import { productReadiness } from "@/lib/media/readiness";
 import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, VerificationLevel } from "@/lib/types";
-import { approvedVerificationSteps } from "@/lib/verification-status";
+import { approvedPublicReviewSummaries, approvedVerificationSteps, type PublicReviewSummaries } from "@/lib/verification-status";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
 
 /** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
@@ -37,7 +37,7 @@ export interface PublicSupplierCard extends Supplier {
   primary_category: Category | null;
   main_products: SupplierProduct[];
   gallery_images: string[];      // storage_path các ảnh buyer-shareable
-  latest_verification_summary: string | null;
+  public_review_summaries: PublicReviewSummaries;
   approved_verification_steps: VerificationLevel[];
 }
 
@@ -89,7 +89,7 @@ export async function listPublicSuppliers(options?: {
     primary_category: null as Category | null,
     main_products: (bySupplier.get(s.id) ?? []).filter((p) => buyerVisibleProduct(p, categories, !!s.is_demo)).slice(0, 4),
     gallery_images: [] as string[],
-    latest_verification_summary: null as string | null,
+    public_review_summaries: {} as PublicReviewSummaries,
     approved_verification_steps: [] as VerificationLevel[],
   }));
 
@@ -101,7 +101,7 @@ export async function listPublicSuppliers(options?: {
       try {
         const [media, vers] = await Promise.all([
           i + offset < 50 ? store.listMedia("supplier", c.id).catch(() => []) : Promise.resolve([] as MediaAsset[]),
-          (store.listVerifications(c.id) as Promise<Array<{ status: string; target_level: number; public_summary_i18n: Record<string,string>; approved_at: string | null }>>).catch(() => []),
+          store.listVerifications(c.id).catch(() => []),
         ]);
         c.gallery_images = media
           .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path)
@@ -110,12 +110,7 @@ export async function listPublicSuppliers(options?: {
           .slice(0, 6);
         // Even demo listings must not imply a check from the legacy numeric maximum.
         c.approved_verification_steps = approvedVerificationSteps(vers);
-        const approved = vers
-          .filter((v) => v.status === "approved")
-          .sort((a, b) => (b.target_level - a.target_level) || ((b.approved_at ?? "").localeCompare(a.approved_at ?? "")));
-        if (approved.length) {
-          c.latest_verification_summary = approved[0].public_summary_i18n?.en ?? null;
-        }
+        c.public_review_summaries = approvedPublicReviewSummaries(vers);
       } catch { /* best effort */ }
     }));
   }
@@ -173,15 +168,12 @@ export async function getPublicSupplierBySlug(slug: string): Promise<PublicSuppl
     .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
     .map((m) => m.storage_path!)
     .slice(0, 12);
-  const approved = vers
-    .filter((v) => v.status === "approved")
-    .sort((a, b) => (b.target_level - a.target_level) || ((b.approved_at ?? "").localeCompare(a.approved_at ?? "")));
   return {
     ...supplier,
     main_products: publicProducts,
     gallery_images: gallery,
     approved_verification_steps: vers.length ? approvedVerificationSteps(vers) : supplier.approved_verification_steps,
-    latest_verification_summary: approved[0]?.public_summary_i18n?.en ?? null,
+    public_review_summaries: approvedPublicReviewSummaries(vers),
   };
 }
 

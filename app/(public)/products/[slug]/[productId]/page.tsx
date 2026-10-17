@@ -105,7 +105,11 @@ export default async function PublicProductDetail({ params }: Props) {
           <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} className="mt-2 inline-block text-lg font-bold text-brand-800 hover:underline">{card.supplierName} → View supplier profile</Link>
           <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-700"><MapPin className="h-4 w-4" />{card.province}, Vietnam</p>
           <div className="mt-3"><ProductVerificationIcons levels={card.verificationSteps} /></div>
-          <p className="mt-3 text-xs text-ink-600">Vexim coordinates enquiries; direct supplier contacts are not shown.</p>
+          {(card.verificationSteps.includes(2) || card.verificationSteps.includes(3)) && <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+            {card.verificationSteps.includes(2) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#factory-visit`} className="text-brand-700 underline">Factory visit scope on supplier profile</Link>}
+            {card.verificationSteps.includes(3) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#delivery-history`} className="text-brand-700 underline">Delivery review scope on supplier profile</Link>}
+          </div>}
+          <p className="mt-3 text-xs text-ink-600">These are supplier reviews, not certifications of this product. Vexim coordinates enquiries; direct supplier contacts are not shown.</p>
         </aside>
       </div>
     </div>

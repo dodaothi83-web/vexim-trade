@@ -555,6 +555,8 @@ function migrateVerifications(db: LocalShape) {
     if (v.bank_account_number === undefined) v.bank_account_number = null;
     if (v.return_reason === undefined) v.return_reason = null;
     if (!v.public_summary_i18n || typeof v.public_summary_i18n !== "object") v.public_summary_i18n = {};
+    if (v.public_summary_published_at === undefined) v.public_summary_published_at = null;
+    if (v.public_summary_published_by === undefined) v.public_summary_published_by = null;
   }
 
   // Tính verification_level cho NCC từ danh sách verification đã approved (chỉ áp dụng
@@ -1564,6 +1566,8 @@ export const localStore: DataStore = {
       bank_account_number: null,
       return_reason: null,
       public_summary_i18n: {},
+      public_summary_published_at: null,
+      public_summary_published_by: null,
       internal_notes: null,
       approved_by: null,
       approved_at: null,

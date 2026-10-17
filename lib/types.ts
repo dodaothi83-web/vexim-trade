@@ -380,8 +380,10 @@ export interface Verification {
   bank_account_number?: string | null;
   /** Lý do trả hồ sơ (khi status=returned) */
   return_reason: string | null;
-  /** Tóm tắt công khai theo ngôn ngữ — chỉ hiện khi approved */
+  /** Bản tóm tắt do người có quyền duyệt soạn; chỉ công khai khi được duyệt riêng. */
   public_summary_i18n: I18nString;
+  public_summary_published_at?: string | null;
+  public_summary_published_by?: string | null;
   /** Ghi chú nội bộ */
   internal_notes: string | null;
   /** Người duyệt (chỉ admin) */

@@ -92,7 +92,6 @@ export async function updateVerificationChecklistAction(fd: FormData) {
     checklist, checklist_notes: notes, status: nextStatus, return_reason: null,
     ...(before.target_level === 1 ? { tax_number: taxNumber || null, bank_account_number: bankAccountNumber || null } : {}),
     internal_notes: String(fd.get("internal_notes") || "").trim().slice(0, 5000) || null,
-    public_summary_i18n: { en: String(fd.get("public_summary_en") || "").trim().slice(0, 1000) },
   };
   if (before.target_level === 2) {
     Object.assign(patch, { visit_date: visitDate || null, visit_address: visitAddress || null,
@@ -166,6 +165,45 @@ export async function approveVerificationAction(fd: FormData) {
   await auditChange(before, "approved", "approve");
   refreshAudit(before);
   return { ok: true, message: "Đã duyệt bước kiểm tra." };
+}
+
+/** Publication is a second, explicit reviewer decision, independent of approving the review. */
+export async function updateVerificationPublicSummaryAction(fd: FormData) {
+  const gate = await guard("verifications.approve");
+  if (gate) return gate;
+  const store = getStore();
+  const before = await store.getVerification(String(fd.get("id") || ""));
+  if (!before || before.status !== "approved" || ![2, 3].includes(before.target_level)) {
+    return { ok: false, message: "Chỉ bản kiểm nhà máy hoặc giao hàng đã duyệt mới có thể công khai tóm tắt." };
+  }
+  const mode = String(fd.get("mode") || "");
+  if (!["draft", "publish", "hide"].includes(mode)) return { ok: false, message: "Thao tác không hợp lệ." };
+  const summary = String(fd.get("summary") || "").trim();
+  if (mode !== "hide" && summary.length > 1000) return { ok: false, message: "Tóm tắt tối đa 1000 ký tự." };
+  if (mode === "publish") {
+    if (!summary || fd.get("confirmed") !== "yes") return { ok: false, message: "Cần nội dung và xác nhận đã đối chiếu, loại bỏ thông tin nhạy cảm." };
+    // A human checks scope and sensitive commercial terms; reject obvious contact leaks too.
+    if (/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(summary) || /https?:\/\/|www\./i.test(summary) || /(?:\+?\d[\s().-]?){9,15}\d/.test(summary)) {
+      return { ok: false, message: "Tóm tắt chứa email, liên kết hoặc chuỗi số có thể là số điện thoại/mã đơn. Hãy viết lại ở mức khái quát." };
+    }
+  }
+  const session = await getSession();
+  const publishedAt = mode === "publish" ? new Date().toISOString() : null;
+  await store.updateVerification(before.id, {
+    ...(mode === "hide" ? {} : { public_summary_i18n: { en: summary } }),
+    public_summary_published_at: publishedAt,
+    public_summary_published_by: mode === "publish" ? session?.uid ?? null : null,
+  });
+  await store.addAuditLog({
+    actor_id: session?.uid ?? null, actor_email: session?.email ?? null,
+    entity: "supplier", entity_id: before.supplier_id, action: `verification.summary.${mode}`,
+    before: { verification_id: before.id, published_at: before.public_summary_published_at ?? null, summary: before.public_summary_i18n?.en ?? "" },
+    after: { verification_id: before.id, published_at: publishedAt, summary: mode === "hide" ? before.public_summary_i18n?.en ?? "" : summary },
+  }).catch((err) => console.error("[audit] summary publication log failed", err));
+  refreshAudit(before);
+  const supplier = await store.getSupplier(before.supplier_id);
+  if (supplier?.status === "published") revalidatePath(`/suppliers/${supplier.slug || supplier.id}`);
+  return { ok: true, message: mode === "publish" ? "Đã duyệt và công khai tóm tắt." : mode === "hide" ? "Đã ẩn tóm tắt." : "Đã lưu nháp; chưa công khai." };
 }
 
 /** Associate old/unassigned evidence with a row of the same verification. */

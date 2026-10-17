@@ -11,7 +11,7 @@ import type { AiDocumentReview } from "@/lib/ai/document-audit";
 import { auditItems, auditStep, auditUploadKind } from "@/lib/verification";
 import { Button, formatDate } from "@/components/ui";
 import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/actions";
-import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction } from "../../verification-actions";
+import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction, updateVerificationPublicSummaryAction } from "../../verification-actions";
 
 export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, currentUserId, requireSecondReviewer }: {
   verification: Verification; evidence: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; currentUserId: string; requireSecondReviewer: boolean;
@@ -21,6 +21,8 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
   const [reason, setReason] = useState("");
+  const [publicSummary, setPublicSummary] = useState(v.public_summary_i18n?.en ?? "");
+  const [summaryConfirmed, setSummaryConfirmed] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [showOldEvidence, setShowOldEvidence] = useState(evidence.some((m) => !m.checklist_key));
   const [scanning, setScanning] = useState(false);
@@ -170,6 +172,14 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
     void run(() => updateVerificationChecklistAction(fd));
   }
 
+  function savePublicSummary(mode: "draft" | "publish" | "hide") {
+    const fd = new FormData();
+    fd.set("id", v.id); fd.set("mode", mode); fd.set("summary", publicSummary);
+    if (summaryConfirmed) fd.set("confirmed", "yes");
+    if (mode === "publish" && !window.confirm("Duyệt và công khai bản tóm tắt này trên trang NCC? Không công khai chứng từ.")) return;
+    void run(() => updateVerificationPublicSummaryAction(fd));
+  }
+
   function decide(approve: boolean) {
     const fd = new FormData(); fd.set("id", v.id);
     if (!approve) {
@@ -311,7 +321,6 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
         <fieldset disabled={!editable || busy}>
         <div className="space-y-3 border-t border-ink-100 p-5">
           <Field label="Ghi chú nội bộ"><textarea name="internal_notes" rows={3} defaultValue={v.internal_notes ?? ""} className="input" /></Field>
-          <Field label="Tóm tắt công khai (tiếng Anh)"><textarea name="public_summary_en" rows={2} defaultValue={v.public_summary_i18n?.en ?? ""} className="input" placeholder="Chỉ nêu những thông tin đã đối chiếu, không ghi dữ liệu nhạy cảm." /></Field>
         </div>
       </fieldset>
       {editable && <div className="flex flex-wrap justify-end gap-2 border-t border-ink-100 bg-white p-4">
@@ -330,6 +339,18 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
     </div>}
     {canApprove && v.status === "submitted" && selfReview && requireSecondReviewer && <p className="border-t border-ink-100 p-4 text-sm text-amber-800">Bạn là người kiểm; cần người khác duyệt.</p>}
     {v.status === "approved" && <p className="border-t border-ink-100 p-4 text-sm text-emerald-800">Đã duyệt {v.approved_at ? formatDate(v.approved_at) : ""}. Kết quả và bằng chứng chỉ đọc.</p>}
+    {v.status === "approved" && v.target_level > 1 && <section className="border-t border-ink-200 bg-sky-50/40 p-5" aria-label="Tóm tắt công khai riêng">
+      <h3 className="font-semibold text-ink-900">Tóm tắt công khai · {v.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"}</h3>
+      <p className="mt-1 text-xs text-ink-600">Duyệt đợt kiểm không tự công khai phần này. Chỉ người có quyền duyệt mới được soạn, duyệt hoặc ẩn tóm tắt. Không đăng chứng từ, tên buyer, giá, mã đơn hay GPS. Lịch sử giao hàng không mặc nhiên là xuất khẩu.</p>
+      <p className="mt-2 text-xs font-semibold text-ink-700">{v.public_summary_published_at ? `Đang công khai · ${formatDate(v.public_summary_published_at)}` : "Chưa công khai"}</p>
+      {canApprove ? <>
+        <label className="mt-3 block text-sm font-medium text-ink-800">Nội dung buyer nhìn thấy (tiếng Anh)
+          <textarea className="input mt-1" rows={3} maxLength={1000} value={publicSummary} onChange={(e) => { setPublicSummary(e.target.value); setSummaryConfirmed(false); }} placeholder="Only describe the specific evidence Vexim reviewed and its scope." />
+        </label>
+        <label className="mt-3 flex items-start gap-2 text-xs text-ink-700"><input type="checkbox" checked={summaryConfirmed} onChange={(e) => setSummaryConfirmed(e.target.checked)} />Tôi đã đối chiếu nội dung với bằng chứng của đúng đợt kiểm, loại bỏ thông tin nhạy cảm và xác nhận phạm vi phát biểu.</label>
+        <div className="mt-3 flex flex-wrap gap-2"><Button type="button" disabled={busy} onClick={() => savePublicSummary("draft")}>Lưu nháp (ẩn)</Button><Button type="button" variant="primary" disabled={busy || !summaryConfirmed || !publicSummary.trim()} onClick={() => savePublicSummary("publish")}>Duyệt & công khai</Button>{v.public_summary_published_at && <Button type="button" disabled={busy} onClick={() => savePublicSummary("hide")}>Ẩn tóm tắt</Button>}</div>
+      </> : v.public_summary_published_at && <p className="mt-2 whitespace-pre-wrap text-sm text-ink-700">{v.public_summary_i18n?.en}</p>}
+    </section>}
     {feedback && <p aria-hidden="true" className={"border-t border-ink-100 p-4 text-sm " + (feedback.ok ? "text-emerald-700" : "text-rose-700")}>{feedback.message}</p>}
   </div>;
 }

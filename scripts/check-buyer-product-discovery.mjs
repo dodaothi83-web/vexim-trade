@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { arrangeSupplierProducts } from '../lib/public/supplier-product-order.ts';
 import { assignProductCategory } from '../lib/public/category-assignment.ts';
 import { productReadiness } from '../lib/media/readiness.ts';
-import { approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from '../lib/verification-status.ts';
+import { approvedPublicReviewSummaries, approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from '../lib/verification-status.ts';
 
 const compile = (path, mocks) => {
   const exports = {};
@@ -90,7 +90,7 @@ const store = {
   listVerifications: async (id) => reviews.filter((r) => r.supplier_id === id),
 };
 const catalogMocks = { 'server-only': {}, '@/lib/db': { getStore: () => store },
-  '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection, '@/lib/verification-status': { approvedVerificationSteps } };
+  '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection, '@/lib/verification-status': { approvedVerificationSteps, approvedPublicReviewSummaries } };
 const catalog = compile('../lib/public/catalog.ts', catalogMocks);
 const productCatalog = compile('../lib/public/product-catalog.ts', {
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
@@ -135,6 +135,17 @@ const profile = await catalog.getPublicSupplierBySlug('company-a');
 assert.equal(profile.main_products.length, 9, 'Profile includes all public products from every category, not the four-card summary');
 assert.ok(profile.main_products.every((p) => p.ready_for_buyer && !p.name.startsWith('TEST ONLY')));
 assert.deepEqual(profile.approved_verification_steps, [1, 3]);
+assert.equal(profile.public_review_summaries[3], undefined, 'Review approval alone never publishes an inspector draft');
+reviews.find((v) => v.supplier_id === 'A' && v.target_level === 3).public_summary_i18n = { en: 'Private shipment reference ABC-123' };
+assert.equal((await catalog.getPublicSupplierBySlug('company-a')).public_review_summaries[3], undefined, 'Legacy summary must remain hidden without explicit publication');
+reviews.find((v) => v.supplier_id === 'A' && v.target_level === 3).public_summary_published_at = now;
+assert.equal((await catalog.getPublicSupplierBySlug('company-a')).public_review_summaries[3], 'Private shipment reference ABC-123', 'Only separately published summary appears');
+reviews.find((v) => v.supplier_id === 'A' && v.target_level === 3).public_summary_i18n = { en: 'Call +84912345678' };
+assert.equal((await catalog.getPublicSupplierBySlug('company-a')).public_review_summaries[3], undefined, 'Defense in depth blocks obvious contact leaks');
+reviews.find((v) => v.supplier_id === 'A' && v.target_level === 3).public_summary_i18n = { en: 'One delivery record reviewed; export not established.' };
+reviews.find((v) => v.supplier_id === 'A' && v.target_level === 2).public_summary_published_at = now;
+reviews.find((v) => v.supplier_id === 'A' && v.target_level === 2).public_summary_i18n = { en: 'Unapproved visit' };
+assert.equal((await catalog.getPublicSupplierBySlug('company-a')).public_review_summaries[2], undefined, 'Submitted factory review cannot publish');
 // Even suppliers beyond the old 50-card fetch limit must show their actual badges.
 const extras = Array.from({ length: 51 }, (_, i) => ({ id: `extra-${i}`, name: `Extra ${i}`, status: 'published', verification_level: 3, is_demo: false }));
 suppliers.push(...extras);
@@ -166,6 +177,9 @@ assert.match(detailPage, /<ProductVerificationIcons levels=\{card\.verificationS
 assert.match(profilePage, /publicProductPrice\(p, s\) \|\| "On request"/);
 assert.match(profilePage, /href=\{`\/products\/\$\{encodeURIComponent\(category\.slug\)\}/);
 assert.match(detailPage, /View supplier profile/);
+assert.match(detailPage, /#factory-visit/);
+assert.match(detailPage, /#delivery-history/);
+assert.match(profilePage, /Supplier-stated markets \(not independently verified\)/);
 // Changing the last buyer image to internal must revoke buyer-ready immediately.
 const actions = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 const mediaActionSource = actions.slice(actions.indexOf('export async function updateMediaAction('), actions.indexOf('export async function deleteMediaAction('));

@@ -9,7 +9,6 @@ import {
   HelpCircle,
   MapPin,
   Package,
-  ShieldCheck,
   Ship,
   Users,
 } from "lucide-react";
@@ -164,12 +163,6 @@ export default async function SupplierProfile({ params }: PageProps) {
             <p className="mt-4 max-w-3xl text-[16px] leading-relaxed text-ink-700">
               {withoutDirectContacts(t(s.summary_i18n) || mainProductNames(s.main_products))}
             </p>
-            {s.latest_verification_summary && (
-              <p className="mt-2 rounded-md bg-emerald-50 px-3 py-2 text-[13px] italic text-emerald-800 ring-1 ring-emerald-100">
-                <ShieldCheck className="mr-1 inline h-3.5 w-3.5" />
-                {s.latest_verification_summary}
-              </p>
-            )}
           </div>
         </div>
       </section>
@@ -244,6 +237,27 @@ export default async function SupplierProfile({ params }: PageProps) {
             </ul>
           </section>
 
+          <section id="factory-visit" className="mt-10 scroll-mt-24" aria-labelledby="factory-visit-title">
+            <h2 id="factory-visit-title" className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">Facility visited by Vexim</h2>
+            {s.approved_verification_steps.includes(2) ? <>
+              <p className="mt-3 text-sm font-semibold text-emerald-800">Factory visit review approved for this supplier</p>
+              {s.public_review_summaries[2] ? <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{s.public_review_summaries[2]}</p>
+                : <p className="mt-2 text-sm text-ink-600">Visit details have not been released for public viewing.</p>}
+              <p className="mt-2 text-xs text-ink-500">Only the site and observations described above were reviewed. This is not a certification of every product or facility.</p>
+            </> : <p className="mt-3 text-sm text-ink-600">No approved factory visit review is available.</p>}
+          </section>
+
+          <section id="delivery-history" className="mt-10 scroll-mt-24" aria-labelledby="delivery-history-title">
+            <h2 id="delivery-history-title" className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">Export experience &amp; delivery evidence</h2>
+            {(s.export_markets ?? []).length > 0 && <p className="mt-3 text-sm text-ink-700">Supplier-stated markets (not independently verified): {withoutDirectContacts((s.export_markets ?? []).join(", "))}</p>}
+            {s.approved_verification_steps.includes(3) ? <>
+              <p className="mt-3 text-sm font-semibold text-emerald-800">Delivery evidence review approved for this supplier</p>
+              {s.public_review_summaries[3] ? <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{s.public_review_summaries[3]}</p>
+                : <p className="mt-2 text-sm text-ink-600">Reviewed shipment details have not been released for public viewing.</p>}
+              <p className="mt-2 text-xs text-ink-500">A reviewed delivery is not automatically a verified export or proof of the supplier's entire export history. It does not guarantee future shipments.</p>
+            </> : <p className="mt-3 text-sm text-ink-600">No approved delivery evidence review is available. Stated markets are not a Vexim-verified export history.</p>}
+          </section>
+
           <section className="mt-10">
             <h2 className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">
               Documents &amp; certifications
@@ -256,7 +270,7 @@ export default async function SupplierProfile({ params }: PageProps) {
           {s.gallery_images.length > 0 && (
             <section className="mt-10">
               <h2 className="border-b border-ink-200 pb-2 text-[13px] font-bold uppercase tracking-[0.14em] text-ink-500">
-                From the factory
+                Supplier gallery
               </h2>
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {s.gallery_images.map((p) => (
@@ -297,7 +311,7 @@ export default async function SupplierProfile({ params }: PageProps) {
               />
               <InfoRow
                 icon={<Globe2 className="h-4 w-4" />}
-                label="Export markets"
+                label="Supplier-stated export markets"
                 value={(s.export_markets ?? []).join(", ") || "On request"}
               />
             </div>
