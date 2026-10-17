@@ -38,6 +38,7 @@ import type {
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
 import { DEMO_SUPPLIERS } from "@/lib/db/demo-suppliers";
+import { productBelongsToCategory } from "@/lib/public/product-selection";
 import {
   CASHEW_CATEGORY_CONFIG,
   DEFAULT_CATEGORY_CONFIG,
@@ -472,15 +473,13 @@ function migrateCategoryDefaults(db: LocalShape) {
   const allProducts = db.products ?? [];
   const allSuppliers = db.suppliers ?? [];
   const publicSupplierIds = new Set(
-    allSuppliers.filter((s) => s.status === "published").map((s) => s.id),
+    allSuppliers.filter((s) => s.status === "published" && (!s.is_demo || process.env.VEXIM_SHOW_DEMO === "true")).map((s) => s.id),
   );
-  const catSlugHasPublicSupplier = new Set<string>();
-  for (const p of allProducts) {
-    if (!p.supplier_id || !publicSupplierIds.has(p.supplier_id)) continue;
-    const slug = (p.category ?? "").toLowerCase();
-    if (slug) catSlugHasPublicSupplier.add(slug);
-  }
-  (db as unknown as { __catReady?: Set<string> }).__catReady = catSlugHasPublicSupplier;
+  const demoIds = new Set(allSuppliers.filter((s) => s.is_demo && process.env.VEXIM_SHOW_DEMO === "true").map((s) => s.id));
+  const eligible = allProducts.filter((p) => publicSupplierIds.has(p.supplier_id) && (p.ready_for_buyer || demoIds.has(p.supplier_id)));
+  const ready = new Set((db.categories ?? []).filter((c) => eligible.some((p) =>
+    productBelongsToCategory(p, c, db.categories ?? []))).map((c) => c.slug.toLowerCase()));
+  (db as unknown as { __catReady?: Set<string> }).__catReady = ready;
 }
 
 /** Di chuyển trạng thái cũ → mới; backfill lost_reason; ép buộc lost có lý do chỉ ở tầng server action. */

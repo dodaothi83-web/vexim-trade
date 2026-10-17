@@ -17,7 +17,8 @@ export default async function NewProductPage({
 }) {
   const { slug: id } = await params;
   await requirePagePermission("products.manage", "/crm/suppliers");
-  const supplier = await getStore().getSupplier(id);
+  const store = getStore();
+  const [supplier, categories] = await Promise.all([store.getSupplier(id), store.listCategories({ publishedOnly: false })]);
   if (!supplier) notFound();
 
   return (
@@ -36,7 +37,7 @@ export default async function NewProductPage({
         sub="Một hồ sơ cho mỗi dòng sản phẩm / quy cách để dễ so khớp với RFQ của buyer."
       />
       <div className="mx-auto max-w-4xl">
-        <ProductForm supplier={supplier} />
+        <ProductForm supplier={supplier} categories={categories} />
       </div>
     </>
   );

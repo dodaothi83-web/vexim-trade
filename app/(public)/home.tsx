@@ -82,7 +82,7 @@ export default async function HomeContent() {
   const activeCategories = allCategories
     .filter((c) => c.active_on_homepage)
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-  const haveSlug = new Set(allCategories.map((c) => c.slug));
+  // Every published category card leads to its product listing, including the empty state.
   const heroOf = (c: Category) => c.hero_image || FALLBACK_HERO;
 
 
@@ -179,7 +179,7 @@ export default async function HomeContent() {
         </div>
       </section>
 
-      {/* CATEGORIES — thẻ có ảnh, 4 cột, badge "Suppliers available" cho ngành đã có trang */}
+      {/* CATEGORIES — thẻ có ảnh, 4 cột; badge chỉ khi có sản phẩm công khai trong đúng ngành. */}
       <section id="categories" className="bg-white">
         <div className="mx-auto max-w-7xl px-5 py-20 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -200,9 +200,9 @@ export default async function HomeContent() {
 
           <ul className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {activeCategories.map((c) => {
-              // Mọi thẻ category đều link tới /products/[slug]. Badge xanh chỉ hiện khi có NCC public (computed).
-              const href = haveSlug.has(c.slug) ? `/products/${c.slug}` : `/rfq?category=${c.slug}`;
-              const hasSuppliers = Boolean(c.public_page_ready);
+              // Danh mục đã đăng luôn link /products/[slug]; badge chỉ khi có sản phẩm phù hợp và buyer-ready.
+              const href = `/products/${c.slug}`;
+              const hasProducts = Boolean(c.public_page_ready);
               const label = i18n(c.name_i18n, c.slug);
               const kicker = i18n(c.homepage_kicker_i18n, "Tell us what you need");
               return (
@@ -220,9 +220,9 @@ export default async function HomeContent() {
                         className="object-cover transition duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent" />
-                      {hasSuppliers && (
+                      {hasProducts && (
                         <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-white shadow-md">
-                          <span className="h-1.5 w-1.5 rounded-full bg-white" /> Suppliers available
+                          <span className="h-1.5 w-1.5 rounded-full bg-white" /> Products available
                         </span>
                       )}
                     </div>
@@ -230,7 +230,7 @@ export default async function HomeContent() {
                       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-600">{kicker}</p>
                       <h3 className="mt-1.5 text-[15.5px] font-bold text-ink-900 group-hover:text-brand-700">{label}</h3>
                       <p className="mt-auto pt-3 text-[12.5px] font-semibold text-brand-700">
-                        {hasSuppliers ? "Browse suppliers →" : "Tell us what you need →"}
+                        {hasProducts ? "Browse products →" : "Tell us what you need →"}
                       </p>
                     </div>
                   </Link>
@@ -441,7 +441,7 @@ export default async function HomeContent() {
               {activeCategories.map((c) => (
                 <li key={c.slug}>
                   <Link
-                    href={haveSlug.has(c.slug) ? `/products/${c.slug}` : `/rfq?category=${c.slug}`}
+                    href={`/products/${c.slug}`}
                     className="hover:text-brand-700"
                   >
                     {i18n(c.name_i18n, c.slug)}

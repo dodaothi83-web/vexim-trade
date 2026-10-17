@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { getObject } from "@/lib/media/storage";
+import { getStore } from "@/lib/db";
+import { isExpired } from "@/lib/media/readiness";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +33,7 @@ const PUBLIC_IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif)$/i;
 
 function relAllowed(rel: string): boolean {
   if (rel.startsWith("categories/") || rel.startsWith("blog/")) return PUBLIC_IMAGE_EXT.test(rel);
+  if (rel.startsWith("products/")) return /^products\/[a-z0-9_-]+\/[a-z0-9_-]+\.(jpe?g|png|webp)$/i.test(rel);
   if (rel.startsWith("suppliers/")) {
     // Chỉ cho ảnh (đuôi ảnh), chặn PDF/doc và mọi file khác.
     if (!PUBLIC_IMAGE_EXT.test(rel)) return false;
@@ -54,6 +57,21 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
     return new NextResponse("Not found", { status: 404 });
   }
 
+  const isProductImage = rel.startsWith("products/");
+  if (isProductImage) {
+    // Media metadata, not a guess from the filename, determines public access.
+    const store = getStore();
+    const asset = await store.getMediaByPath(rel);
+    if (!asset || asset.owner_type !== "product" || !asset.product_id || asset.kind !== "image" ||
+      asset.audience !== "buyer" || isExpired(asset) ||
+      (asset.storage_path !== rel && asset.thumb_path !== rel)) return new NextResponse("Not found", { status: 404 });
+    const product = await store.getProduct(asset.product_id);
+    if (!product) return new NextResponse("Not found", { status: 404 });
+    const supplier = await store.getSupplier(product.supplier_id);
+    if (!supplier || supplier.status !== "published" || (supplier.is_demo && process.env.VEXIM_SHOW_DEMO !== "true") ||
+      (!product.ready_for_buyer && !supplier.is_demo)) return new NextResponse("Not found", { status: 404 });
+  }
+
   const ext = rel.split(".").pop()?.toLowerCase() ?? "";
   const mime = MIME_BY_EXT[ext] ?? "application/octet-stream";
 
@@ -64,7 +82,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
       headers: {
         "Content-Type": mime,
         "Content-Length": String(object.data.byteLength),
-        "Cache-Control": "public, max-age=604800, immutable",
+        "Cache-Control": isProductImage ? "no-store" : "public, max-age=604800, immutable",
         "X-Content-Type-Options": "nosniff",
       },
     });

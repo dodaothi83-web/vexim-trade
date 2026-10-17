@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
 import { categorySchemaError } from "@/lib/db/category-schema-error";
+import { productBelongsToCategory } from "@/lib/public/product-selection";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
@@ -1361,6 +1362,12 @@ function parseProductInput(
   };
 }
 
+async function productCategoryError(input: { name: string; category: string | null }): Promise<string | null> {
+  const categories = await getStore().listCategories({ publishedOnly: false });
+  if (categories.some((c) => productBelongsToCategory(input, c, categories))) return null;
+  return "Chọn đúng danh mục sản phẩm (ví dụ gạo thuộc Rice, hạt điều thuộc Cashew). Danh mục không rõ hoặc mâu thuẫn với tên sẽ không được lưu để tránh hiển thị sai trên website.";
+}
+
 export async function createProductAction(
   raw: Partial<SupplierProductInput> & Record<string, unknown>,
 ): Promise<ActionResult & { id?: string }> {
@@ -1369,6 +1376,8 @@ export async function createProductAction(
   const input = parseProductInput(raw);
   if (!input.supplier_id) return { ok: false, message: "Thiếu nhà cung cấp." };
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
+  const categoryError = await productCategoryError(input);
+  if (categoryError) return { ok: false, message: categoryError };
   // Hồ sơ vừa tạo chưa thể có ảnh/catalogue nên luôn bắt đầu ở trạng thái chưa sẵn sàng
   input.ready_for_buyer = false;
   try {
@@ -1388,6 +1397,8 @@ export async function updateProductAction(
   if (gate) return gate;
   const input = parseProductInput(raw);
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
+  const categoryError = await productCategoryError(input);
+  if (categoryError) return { ok: false, message: categoryError };
   const store = getStore();
 
   // Cổng chặn: chỉ bật "Sẵn sàng gửi buyer" khi đã có ảnh/catalogue chia sẻ cho buyer

@@ -25,7 +25,7 @@ export default async function EditProductPage({
   if (!product) notFound();
   const supplier = await store.getSupplier(product.supplier_id);
   if (!supplier) notFound();
-  const media = await store.listMedia("product", id);
+  const [media, categories] = await Promise.all([store.listMedia("product", id), store.listCategories({ publishedOnly: false })]);
   const readiness = productReadiness(media);
 
   return (
@@ -50,6 +50,7 @@ export default async function EditProductPage({
         <ProductForm
           supplier={supplier}
           product={product}
+          categories={categories}
           mediaState={{ ready: readiness.ready, shareable: readiness.shareable }}
         />
         <ReadyHint ready={readiness.ready} shareable={readiness.shareable} />

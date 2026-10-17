@@ -5,8 +5,7 @@ import { useState } from "react";
 import { Loader2, Save } from "lucide-react";
 
 import { createProductAction, updateProductAction } from "@/app/actions";
-import { PRODUCT_CATEGORIES } from "@/lib/supplier";
-import type { Supplier, SupplierProduct } from "@/lib/types";
+import type { Category, Supplier, SupplierProduct } from "@/lib/types";
 import { Button, Field, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
@@ -43,10 +42,12 @@ function init(p?: SupplierProduct | null): FormState {
 export function ProductForm({
   supplier,
   product,
+  categories,
   mediaState,
 }: {
   supplier: Supplier;
   product?: SupplierProduct | null;
+  categories: Pick<Category, "slug" | "name_i18n">[];
   /** Trạng thái hình ảnh/tài liệu — có thì mới hiện công tắc "Sẵn sàng gửi buyer" */
   mediaState?: { ready: boolean; shareable: number };
 }) {
@@ -105,11 +106,8 @@ export function ProductForm({
           <Field label="Nhóm ngành">
             <select className="input" value={v("category")} onChange={(e) => set("category", e.target.value)}>
               <option value="">— Chọn nhóm —</option>
-              {PRODUCT_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
+              {form.category && !categories.some((c) => c.slug === form.category) && <option value={String(form.category)}>Giá trị cũ: {form.category} — vui lòng chọn danh mục chính xác</option>}
+              {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name_i18n.en || c.slug}</option>)}
             </select>
           </Field>
           <Field label="Mô tả ngắn" className="sm:col-span-2 lg:col-span-3">

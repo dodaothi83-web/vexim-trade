@@ -16,6 +16,7 @@ export default async function RfqPage({
 }: {
   searchParams?: Promise<{
     category?: string;
+    product?: string;
     suppliers?: string;
     sample?: string;
   }>;
@@ -54,6 +55,7 @@ export default async function RfqPage({
           certs: (c.filters as CategoryFilter[] | null)?.find((f) => f.key === "certifications")?.options.map((o) => o.value) ?? [],
         }]))}
         initialCategory={sp?.category ?? null}
+        initialProduct={(sp?.product ?? "").slice(0, 150)}
         initialSupplierIds={supplierIds}
         wantsSamples={sp?.sample === "1"}
         turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? null}

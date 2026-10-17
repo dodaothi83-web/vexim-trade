@@ -36,6 +36,7 @@ import type {
   Verification,
 } from "@/lib/types";
 import type { DataStore } from "@/lib/db/types";
+import { productBelongsToCategory } from "@/lib/public/product-selection";
 
 /** Bỏ các khoá undefined khỏi patch để không vô tình ghi đè mất dữ liệu cũ. */
 function cleanPatch<T extends Record<string, unknown>>(patch: T): Partial<T> {
@@ -146,16 +147,18 @@ function fail(op: string, error: { message: string } | null): never {
 async function decorateCategoryReadiness(rows: Category[]): Promise<Category[]> {
   if (!rows.length) return rows;
   const [productsResult, suppliersResult] = await Promise.all([
-    must().from("supplier_products").select("supplier_id, category"),
-    must().from("suppliers").select("id, status"),
+    must().from("supplier_products").select("supplier_id, name, category, ready_for_buyer"),
+    must().from("suppliers").select("id, status, is_demo"),
   ]);
   if (productsResult.error) fail("categoryReadiness:products", productsResult.error);
   if (suppliersResult.error) fail("categoryReadiness:suppliers", suppliersResult.error);
-  const published = new Set((suppliersResult.data ?? []).filter((s) => s.status === "published").map((s) => s.id));
-  const ready = new Set((productsResult.data ?? [])
-    .filter((p) => published.has(p.supplier_id))
-    .map((p) => (p.category ?? "").toLowerCase()));
-  return rows.map((c) => ({ ...c, public_page_ready: ready.has(c.slug.toLowerCase()) }));
+  const published = new Set((suppliersResult.data ?? []).filter((s) => s.status === "published" &&
+    (!s.is_demo || process.env.VEXIM_SHOW_DEMO === "true")).map((s) => s.id));
+  const demoIds = new Set((suppliersResult.data ?? []).filter((s) => s.is_demo && process.env.VEXIM_SHOW_DEMO === "true").map((s) => s.id));
+  const visible = (productsResult.data ?? []).filter((p) => published.has(p.supplier_id) &&
+    (p.ready_for_buyer || demoIds.has(p.supplier_id)));
+  return rows.map((c) => ({ ...c, public_page_ready: visible.some((p) =>
+    productBelongsToCategory(p, c, rows)) }));
 }
 
 export const supabaseStore: DataStore = {

@@ -33,6 +33,7 @@ interface Props {
   categories: Option[];
   categorySpecs: Record<string, CategorySpec>;
   initialCategory: string | null;
+  initialProduct: string;
   initialSupplierIds: string[];
   wantsSamples: boolean;
   turnstileSiteKey?: string | null;
@@ -54,7 +55,7 @@ const FREQUENCIES = ["One-time", "Monthly", "Quarterly", "Spot", "Contract"];
 const COUNTRIES = ["US", "EU", "UK", "Japan", "Korea", "China", "Middle East", "Australia", "Canada", "Other"];
 const BUSINESS_TYPES = ["Importer / Distributor", "Brand / Manufacturer", "Wholesaler", "Retailer", "Trading company", "Other"];
 
-export function RfqForm({ categories, categorySpecs, initialCategory, initialSupplierIds, wantsSamples, turnstileSiteKey }: Props) {
+export function RfqForm({ categories, categorySpecs, initialCategory, initialProduct, initialSupplierIds, wantsSamples, turnstileSiteKey }: Props) {
   const router = useRouter();
   const params = useSearchParams();
   const [step, setStep] = useState(1);
@@ -66,7 +67,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialSup
   const [data, setData] = useState(() => ({
     // Product
     category_slug: initialCategory ?? "",
-    product_text: "",
+    product_text: initialProduct,
     grade: "",
     quantity: "",
     unit: "MT",
