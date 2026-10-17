@@ -203,6 +203,7 @@ const { CategoryProductGrid } = compile('../components/category-product-grid.tsx
   'lucide-react': require('lucide-react'),
   '@/components/product-trade-labels': { ProductTradeLabels },
   '@/components/product-verification-icons': { ProductVerificationIcons },
+  '@/components/sponsored-pilot-slot': { SponsoredPilotSlot: () => null },
   '@/lib/public/supplier-product-order': { arrangeSupplierProducts },
 });
 const compactCard = renderToStaticMarkup(React.createElement(CategoryProductGrid, {

@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/page-header";
 import { ProductForm } from "@/components/product-form";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { isTestOnlyProduct, productReviewApproved, productPriceBlockers, publicProductPrice } from "@/lib/public/product-selection";
+import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { DeleteProductButton } from "@/components/product-actions";
 import { MediaManager, ReadyHint } from "@/components/media-manager";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
@@ -42,7 +43,11 @@ export default async function EditProductPage({
   const category = categories.find((c) => c.id === match?.id);
   const categoryOptions = categoryProposalOptions(categories);
   const categoryPublished = !!category && category.status === "published" && category.is_published;
+  // Match the category catalog: a published test profile is still not a real commercial supplier.
+  const commercialSupplier = !isSyntheticSupplier(supplier) ||
+    (!!supplier.is_demo && process.env.VEXIM_SHOW_DEMO === "true");
   const canView = productReviewApproved(product) && supplier.status === "published" && categoryPublished &&
+    commercialSupplier &&
     (supplier.is_demo ? process.env.VEXIM_SHOW_DEMO === "true" : product.ready_for_buyer && readiness.ready) &&
     !isTestOnlyProduct(product.name);
   const productImages = media.filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m));
@@ -85,6 +90,7 @@ export default async function EditProductPage({
           <ul className="mt-3 space-y-1 text-ink-700">
             <li>{categoryPublished ? "✓" : "○"} Danh mục {category?.name_i18n.en || category?.slug || "chưa nhận diện"} đã đăng</li>
             <li>{supplier.status === "published" ? "✓" : "○"} NCC đã đăng (không tự chuyển trạng thái khi lưu)</li>
+            <li>{commercialSupplier ? "✓" : "○"} Hồ sơ NCC không phải dữ liệu thử nghiệm (tên, slug hoặc giới thiệu có TEST / DO NOT CONTACT; hồ sơ demo chỉ xem khi bật chế độ demo)</li>
             <li>{readiness.ready ? "✓" : "○"} Có ít nhất một ảnh/catalogue của sản phẩm được chia sẻ buyer</li>
             <li>{productReviewApproved(product) ? "✓" : "○"} Vexim đã xác nhận nội dung và danh mục sản phẩm NCC</li>
             <li>{product.ready_for_buyer ? "✓" : "○"} Đã bật “Sẵn sàng gửi buyer” và lưu hồ sơ</li>
