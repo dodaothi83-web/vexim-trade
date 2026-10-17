@@ -6,10 +6,8 @@ import { ChevronLeft, ChevronRight, ImageIcon, PlayCircle, X, ZoomIn } from "luc
 import type { PublicProductVideo } from "@/lib/public/product-video";
 
 /** Only buyer-shareable URLs projected by the server may reach this component. */
-export function ProductMediaGallery({ name, images, video, previewStaticMedia = false }: {
+export function ProductMediaGallery({ name, images, video }: {
   name: string; images: string[]; video: PublicProductVideo | null;
-  /** Only the staff-only UI preview may use an explicitly labeled local illustration. */
-  previewStaticMedia?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
@@ -41,8 +39,7 @@ export function ProductMediaGallery({ name, images, video, previewStaticMedia = 
     return () => { window.removeEventListener("keydown", onKeyDown); document.body.style.overflow = previousOverflow; heroRef.current?.focus(); };
   }, [open, images.length]);
 
-  const photo = (path: string) => previewStaticMedia && path === "/images/categories/cashew-grade.jpg"
-    ? path : `/public-media/${path}`;
+  const photo = (path: string) => `/public-media/${path}`;
   return <div className="min-w-0">
     <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-ink-200 bg-ink-50">
       {selected ? <button ref={heroRef} type="button" onClick={() => setOpen(true)}
