@@ -146,6 +146,17 @@ function fail(op: string, error: { message: string } | null): never {
   throw new Error(`${op}: ${error?.message ?? "lỗi không xác định"}`);
 }
 
+/** Only this exact PostgREST schema-cache mismatch gets a single-price compatibility retry. */
+function missingProductPriceRangeColumn(error: { code?: string; message: string } | null): boolean {
+  return !!error && (error.code === "PGRST204" || /schema cache/i.test(error.message)) &&
+    /['"]ref_price_max['"]/.test(error.message) && /supplier_products/.test(error.message);
+}
+
+function priceRangeMigrationRequired(): never {
+  // Never silently discard an entered upper bound: the buyer could see a false single price.
+  throw new Error("Chưa lưu giá đến: PostgREST chưa nhận diện cột supplier_products.ref_price_max (migration chưa áp dụng hoặc schema cache chưa cập nhật). Vexim cần kiểm tra đúng project, áp dụng migration 20261017_product_reference_price_range.sql nếu thiếu cột hoặc nạp lại schema cache nếu cột đã có; các thay đổi trong lần lưu này chưa được ghi.");
+}
+
 /** public_page_ready is derived on read; never send it back to PostgREST. */
 async function decorateCategoryReadiness(rows: Category[]): Promise<Category[]> {
   if (!rows.length) return rows;
@@ -259,23 +270,33 @@ export const supabaseStore: DataStore = {
     return (data ?? []) as SupplierProduct[];
   },
   async createProduct(input: SupplierProductInput) {
-    const { data, error } = await must()
-      .from("supplier_products")
-      .insert(input)
-      .select()
-      .single();
-    if (error) fail("createProduct", error);
-    return data as SupplierProduct;
+    const write = (payload: Partial<SupplierProductInput>) => must()
+      .from("supplier_products").insert(payload).select().single();
+    let result = await write(input);
+    if (missingProductPriceRangeColumn(result.error)) {
+      if (input.ref_price_max != null) priceRangeMigrationRequired();
+      // Old databases can still create a SINGLE-price product. Do not drop a real upper bound.
+      const { ref_price_max: _missing, ...legacy } = input;
+      void _missing;
+      result = await write(legacy);
+    }
+    if (result.error) fail("createProduct", result.error);
+    return result.data as SupplierProduct;
   },
   async updateProduct(id, patch) {
-    const { data, error } = await must()
-      .from("supplier_products")
-      .update({ ...cleanPatch(patch), updated_at: new Date().toISOString() })
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) fail("updateProduct", error);
-    return data as SupplierProduct;
+    const write = (payload: Partial<SupplierProductInput> & { updated_at: string }) => must()
+      .from("supplier_products").update(payload).eq("id", id).select().single();
+    const fields = { ...cleanPatch(patch), updated_at: new Date().toISOString() };
+    let result = await write(fields);
+    if (missingProductPriceRangeColumn(result.error)) {
+      if (patch.ref_price_max != null) priceRangeMigrationRequired();
+      // Retrying only a missing NULL preserves old single-price saves without weakening other gates.
+      const { ref_price_max: _missing, ...legacy } = fields;
+      void _missing;
+      result = await write(legacy);
+    }
+    if (result.error) fail("updateProduct", result.error);
+    return result.data as SupplierProduct;
   },
   async deleteProduct(id) {
     const { error } = await must().from("supplier_products").delete().eq("id", id);

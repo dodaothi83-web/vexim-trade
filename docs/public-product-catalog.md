@@ -27,3 +27,16 @@ Nếu đủ mọi mục nhưng trang buyer vẫn “On request”, kiểm tra đ
 Trong CRM, **Đơn vị giá** nằm cạnh Giá tham khảo từ/đến và tiền tệ, không nằm dưới mô tả. Cổng NCC cũng nhập cùng giá từ, giá đến tùy chọn, tiền tệ và đơn vị ở khối thương mại. `ref_price` hiện có là **giá từ**; `ref_price_max` mặc định `NULL` để dữ liệu cũ tiếp tục hiện một mức giá. Nếu nhập hai giá hợp lệ và giá đến lớn hơn giá từ, card và trang chi tiết buyer hiển thị ví dụ `USD 2–2.5/MT`; nếu bằng nhau, hiển thị một giá. Không tự lấy `suppliers.fob_min/max`, không đổi đơn vị/tiền tệ, và không biến giá tham khảo thành báo giá RFQ. Giá đến không được nhỏ hơn giá từ; server và DB từ chối khoảng ngược. Cờ cho phép của **từng sản phẩm**, sự đồng ý của NCC còn hiệu lực 180 ngày, ngày hết hạn giá và các điều kiện buyer-ready/review/publication vẫn giữ nguyên cho **cả khoảng**.
 
 **Trước khi deploy:** áp dụng `supabase/migrations/20261017_product_reference_price_range.sql` trên đúng project **sau** `20261017_product_detail_price_visibility.sql` và `20261017_certificate_publication_and_odm.sql`. Migration chỉ thêm cột nullable/check và nối thêm cột giá đến vào public view theo đúng các điều kiện bảo vệ giá; không backfill, không tự bật quyền công khai. Không chạy lại `schema.sql` trên production. Chưa áp dụng migration production hoặc xem được giá trị DB của sản phẩm live từ sandbox. Sau khi triển khai, thử giá đơn cũ, khoảng giá hợp lệ, khoảng đảo chiều, và trường hợp thiếu quyền NCC / tắt cờ sản phẩm trên staging có dữ liệu thật.
+
+**Nếu lưu sản phẩm báo `Could not find the 'ref_price_max' column of 'supplier_products' in the schema cache`:** trên **đúng Supabase project mà app đang dùng**, kiểm tra bằng SQL Editor (quyền quản trị, không hiển thị kết quả này trên trang buyer):
+
+```sql
+select column_name from information_schema.columns
+where table_schema = 'public' and table_name = 'supplier_products'
+  and column_name = 'ref_price_max';
+```
+
+- **Không có dòng:** migration trên chưa chạy ở project này; kiểm tra thứ tự các migration tiên quyết rồi áp dụng toàn bộ file `20261017_product_reference_price_range.sql` (gồm cột/check, public view và notify). Chỉ reload schema không thể tạo cột.
+- **Có dòng:** cột đã tồn tại nhưng PostgREST có thể vẫn giữ schema cache cũ; chạy `notify pgrst, 'reload schema';` trên cùng project, chờ cache nạp lại và thử lưu. Nếu vẫn lỗi, đối chiếu Supabase URL của ứng dụng đang chạy và trạng thái migration/schema ở project đó; không kết luận đã sửa chỉ từ một lần notify.
+
+Trong lúc chờ, lớp Supabase chỉ thử lại **một lần** không gửi `ref_price_max` khi giá đến để trống (`NULL`) và lỗi PostgREST xác định đúng cột này; giá đơn và các cờ kiểm duyệt vẫn được lưu. Nếu người nhập có giá đến, thao tác **báo lỗi, không tự bỏ giá đến**; phải hoàn tất migration/cache để lưu khoảng giá. Các lỗi cột khác/quyền DB không được bỏ qua. Test giả lập không cần DB: `node scripts/check-product-price-schema-compat.mjs`; kết quả đó **không** chứng minh migration đã chạy trên production.
