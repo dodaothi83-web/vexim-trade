@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import React from 'react';
+import { createRequire } from 'node:module';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as icons from 'lucide-react';
 
@@ -42,6 +43,13 @@ assert.equal(selection.withoutDirectContacts('See veximglobal.com or www.example
   'See [contact via Vexim] or [contact via Vexim] and [contact via Vexim]');
 const fixtures = [real, synthetic, thin];
 const lookup = async (slug) => fixtures.find((s) => s.slug === slug) ?? null;
+const require = createRequire(import.meta.url);
+const { PublicProductCard } = compile('../components/public-product-card.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
+  'lucide-react': icons,
+  '@/components/product-verification-icons': { ProductVerificationIcons: () => React.createElement('span') },
+});
 const { default: Profile, generateMetadata } = compile('../app/(public)/suppliers/[slug]/page.tsx', {
   'react/jsx-runtime': await import('react/jsx-runtime'),
   'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
@@ -49,6 +57,7 @@ const { default: Profile, generateMetadata } = compile('../app/(public)/supplier
   'lucide-react': icons,
   '@/components/ui': { Breadcrumbs: () => React.createElement('nav') },
   '@/components/public-verification-badges': { PublicVerificationBadges: () => React.createElement('span') },
+  '@/components/public-product-card': { PublicProductCard },
   '@/lib/public/catalog': { getPublicSupplierBySlug: lookup, listPublicSuppliers: async () => fixtures,
     supplierTypeLabel: () => 'Trading company', t: (texts) => texts?.en ?? '' },
   '@/lib/db': { getStore: () => ({ listCategories: async () => [category] }) },
@@ -98,7 +107,7 @@ assert.match(testHtml, /Test profile/);
 assert.match(testHtml, /id="products"/);
 assert.match(testHtml, /Test data · not a price/);
 assert.match(testHtml, /href="\/suppliers\/vexim-test-supplier-do-not-contact\/products\/fake"/, 'Test card opens a noncommercial preview, not a missing category detail');
-assert.match(testHtml, /object-contain/, 'Supplier product photo stays fully visible without crop');
+assert.match(testHtml, /aspect-square[^<]*[\s\S]*?object-cover/, 'Supplier product card uses a square crop');
 assert.doesNotMatch(testHtml, /application\/ld\+json|Get quote|Request a quote|veximglobal\.com/);
 const { default: Preview, generateMetadata: previewMetadata } = compile('../app/(public)/suppliers/[slug]/products/[productId]/page.tsx', {
   'react/jsx-runtime': await import('react/jsx-runtime'),

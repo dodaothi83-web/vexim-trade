@@ -21,6 +21,7 @@ export interface PublicCategoryProduct {
   supplierId: string;
   supplierSlug: string | null;
   leadTimeDays: number | null;
+  incoterm: string | null;
   oem: boolean;
   odm: boolean;
   samples: boolean;
@@ -69,11 +70,11 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
       // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
       return {
         id: p.id, name: withoutDirectContacts(p.name_i18n?.en || p.name), grade: productGrade(p.name, p.spec, category.slug),
-        moq: p.moq || s.moq_text || "On request",
+        moq: p.moq || "On request",
         price: publicProductPrice(p, s), province: s.province || "Vietnam",
         verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
         supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
-        supplierId: s.id, supplierSlug: s.slug || null, leadTimeDays: p.lead_time_days ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
+        supplierId: s.id, supplierSlug: s.slug || null, leadTimeDays: p.lead_time_days ?? null, incoterm: p.incoterm ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
         isDemo: !!s.is_demo, imagePaths: images,
       };
     }).sort((a, b) => b.verificationCount - a.verificationCount || a.name.localeCompare(b.name));

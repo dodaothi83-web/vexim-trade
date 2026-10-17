@@ -50,6 +50,7 @@ const media = products.map((p) => ({ owner_type: 'product', product_id: p.id, ki
   status: 'checked', storage_path: `products/${p.id}/image.jpg`, sort_order: 0, created_at: now, expires_on: null }));
 media.push({ ...media[0], id: 'cover-a0', storage_path: 'products/a0/cover.jpg', sort_order: 2 });
 products[0].featured_media_id = 'cover-a0';
+products[0].incoterm = 'FOB';
 const reviews = [
   { supplier_id: 'A', target_level: 1, status: 'approved' },
   { supplier_id: 'A', target_level: 2, status: 'submitted' },
@@ -122,6 +123,7 @@ assert.deepEqual(cards.find((p) => p.id === 'b0').verificationSteps, [2], 'Facto
 assert.equal(cards.find((p) => p.id === 'a0').verificationCount, 2, 'Ranking counts actual approved checks, not max level');
 assert.equal(cards.find((p) => p.id === 'a0').imagePaths[0], 'products/a0/cover.jpg', 'Staff-selected buyer-shareable cover wins on the product card');
 assert.equal(cards.find((p) => p.id === 'a0').leadTimeDays, 14);
+assert.equal(cards.find((p) => p.id === 'a0').incoterm, 'FOB', 'Price term on the card is projected from the product, not inferred from supplier consent');
 assert.equal(cards.find((p) => p.id === 'a0').supplierSlug, 'company-a');
 assert.equal(cards.find((p) => p.id === 'b0').price, null, 'No product price without supplier public-price consent');
 const initial = arrangeSupplierProducts(cards, 3);
@@ -181,44 +183,63 @@ assert.equal(await catalog.getPublicSupplierBySlug('company-c'), null, 'Draft su
 const grid = readFileSync(new URL('../components/category-product-grid.tsx', import.meta.url), 'utf8');
 const profilePage = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
 const detailPage = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
-assert.match(grid, /<Link href=\{`\/suppliers\//, 'Supplier profile remains independently accessible from every card');
 assert.match(grid, /\+\{count\} more from/);
-assert.match(grid, /<span>MOQ <strong/);
-assert.match(grid, /<span>Lead time <strong/);
-assert.match(grid, /p\.province/);
-assert.match(grid, /p\.price \|\| \"Price on request\"/);
-assert.match(grid, /lg:grid-cols-3 2xl:grid-cols-4/, 'Desktop cards must have room to breathe beside the filters');
-assert.match(grid, /aspect-\[5\/4\]/, 'Images remain visible in a shorter card');
-assert.match(grid, /p\.grade && <span/, 'Grade stays scannable without another text row');
+assert.match(grid, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Category offers use 2/3/4 columns');
 assert.match(grid, /p\.verificationSteps\.includes\(verified/, 'Verification filter matches only the selected approved check');
-assert.match(grid, /<ProductVerificationIcons levels=\{p\.verificationSteps\}/);
-assert.match(grid, /<\/Link>\s*<div className="mx-3 border-t[\s\S]*?<ProductVerificationIcons levels=\{p\.verificationSteps\} compact/, 'Interactive supplier checks remain outside product navigation link');
-// Render a representative buyer card: shrinking the layout must not drop buying facts or independent links.
-const { ProductTradeLabels } = compile('../components/product-trade-labels.tsx', {
-  'react/jsx-runtime': require('react/jsx-runtime'), 'lucide-react': require('lucide-react'),
-});
-const { CategoryProductGrid } = compile('../components/category-product-grid.tsx', {
-  'react/jsx-runtime': require('react/jsx-runtime'), 'react': React,
-  'next/link': { default: ({ href, children }) => React.createElement('a', { href }, children) },
+assert.match(grid, /<PublicProductCard/, 'Category listing uses the common offer card');
+const homePage = readFileSync(new URL('../app/(public)/home.tsx', import.meta.url), 'utf8');
+assert.match(homePage, /listPublicCategoryProducts\(category\)/, 'Home offers must come from the buyer-ready catalogue, not category tiles');
+assert.match(homePage, /p\.isDemo \|\| seen\.has\(p\.id\)/, 'Home excludes demos and duplicate listings');
+assert.match(homePage, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/);
+assert.match(homePage, /homeProducts\.map[\s\S]*?<PublicProductCard/, 'Home includes actual product offers');
+assert.match(profilePage, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Supplier product grid uses 2/3/4 columns');
+const { PublicProductCard } = compile('../components/public-product-card.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
-  '@/components/product-trade-labels': { ProductTradeLabels },
   '@/components/product-verification-icons': { ProductVerificationIcons },
-  '@/components/sponsored-pilot-slot': { SponsoredPilotSlot: () => null },
-  '@/lib/public/supplier-product-order': { arrangeSupplierProducts },
 });
-const compactCard = renderToStaticMarkup(React.createElement(CategoryProductGrid, {
-  products: [{ ...cards.find((p) => p.id === 'a0'), oem: true, odm: true, samples: true }],
-  categorySlug: 'cashew', grades: ['W320'], rfqHref: '/rfq?category=cashew',
-})).split('<article')[1].split('</article>')[0];
-for (const text of ['Cashew W320 lot 0', 'Grade W320', 'MOQ', '1 MT', 'Lead time', '14 days', 'OEM', 'ODM', 'Samples', 'Company A', 'Hanoi', 'Supplier', 'Request quote']) {
+const cardProps = { href: '/products/cashew/a0', imagePath: 'products/a0/cover.jpg',
+  name: 'Cashew W320 lot 0', moq: '1 MT', price: 'USD 7/kg', fob: true, leadTimeDays: 14,
+  supplierName: 'Company A', supplierHref: '/suppliers/company-a', verificationSteps: [1, 3] };
+const compactCard = renderToStaticMarkup(React.createElement(PublicProductCard, cardProps));
+for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'FOB reference', 'USD 7/kg', 'Lead time', '14 days', 'Supplied by', 'Company A', 'View details']) {
   assert.ok(compactCard.includes(text), `Compact card keeps ${text}`);
 }
-assert.match(compactCard, /href="\/suppliers\/company-a"/, 'Buyer can still open the supplier profile');
-assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can still open product details');
-assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A/, 'Buyer can still request a quote');
-assert.equal((compactCard.match(/<details/g) ?? []).length, 2, 'Compact icon strip keeps only approved supplier checks');
+assert.match(compactCard, /aspect-square/);
+assert.match(compactCard, /object-cover/);
+assert.match(compactCard, /line-clamp-2/);
+assert.match(compactCard, /flex h-full min-w-0 flex-col/);
+assert.match(compactCard, /href="\/suppliers\/company-a"/, 'Supplier has an independent profile link');
+assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can open product details');
+assert.equal((compactCard.match(/<details/g) ?? []).length, 2, 'Only individually approved supplier checks are shown');
+const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, fob: false, verificationSteps: [] }));
+assert.match(privatePrice, /Reference price<\/dt><dd[^>]*>On request/);
+assert.doesNotMatch(privatePrice, /FOB reference|USD 7\/kg|Factory visited/);
+const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
+  ...cardProps, href: '/suppliers/company-a/products/a0', test: true,
+}));
+assert.match(testCard, /TEST · Not an offer|Test data · not a price/);
+assert.doesNotMatch(testCard, /USD 7\/kg|Documents checked|Delivery history reviewed|\/rfq/);
+const { default: HomeContent } = compile('../app/(public)/home.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  'next/image': { default: ({ src, alt, ...props }) => React.createElement('img', { src, alt, className: props.className }) },
+  'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
+  'lucide-react': require('lucide-react'),
+  '@/lib/db': { getStore: () => ({ listCategories: async () => [{ ...category, active_on_homepage: true, public_page_ready: true }], listSuppliers: async () => [] }) },
+  '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [cards[0], cards[1], { ...cards[0], id: 'demo', isDemo: true }] },
+  '@/lib/public/supplier-product-order': { arrangeSupplierProducts },
+  '@/components/public-product-card': { PublicProductCard },
+});
+const homeHtml = renderToStaticMarkup(await HomeContent());
+const offersHtml = homeHtml.match(/<section aria-labelledby="home-products-title"[\s\S]*?<\/section>/)?.[0] ?? '';
+assert.match(offersHtml, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/);
+assert.match(offersHtml, /href="\/products\/cashew\/a0"/);
+assert.equal((offersHtml.match(/aria-label="View details of/g) ?? []).length, 2, 'Home has two real offers, not category placeholders or demo products');
+assert.doesNotMatch(offersHtml, /\/products\/cashew\/demo|Test data/);
+assert.match(homeHtml, /id="categories"/, 'Category navigation remains a separate section');
 assert.match(detailPage, /<ProductVerificationIcons levels=\{card\.verificationSteps\}/);
-assert.match(profilePage, /synthetic \? "Test data · not a price" : publicProductPrice\(p, s\) \|\| "On request"/);
+assert.match(profilePage, /price=\{synthetic \? null : publicProductPrice\(p, s\)\}/);
 assert.match(profilePage, /const href = synthetic[\s\S]*?`\/suppliers\/\$\{encodeURIComponent\(s\.slug \|\| s\.id\)\}\/products\/\$\{encodeURIComponent\(p\.id\)\}`/, 'Test products have a safe dedicated preview instead of a dead card');
 assert.match(detailPage, /View supplier profile/);
 assert.match(detailPage, /#factory-visit/);

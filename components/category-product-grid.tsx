@@ -2,10 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronDown, Filter, ImageIcon, MapPin } from "lucide-react";
+import { ChevronDown, Filter } from "lucide-react";
 
-import { ProductTradeLabels } from "@/components/product-trade-labels";
-import { ProductVerificationIcons } from "@/components/product-verification-icons";
+import { PublicProductCard } from "@/components/public-product-card";
 import { SponsoredPilotSlot } from "@/components/sponsored-pilot-slot";
 
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
@@ -29,8 +28,8 @@ function moqGroup(value: string): string {
   return tons <= 1 ? "small" : tons <= 5 ? "medium" : "large";
 }
 
-export function CategoryProductGrid({ products, categorySlug, grades, rfqHref, sponsored }: {
-  products: PublicCategoryProduct[]; categorySlug: string; grades: string[]; rfqHref: string;
+export function CategoryProductGrid({ products, categorySlug, grades, sponsored }: {
+  products: PublicCategoryProduct[]; categorySlug: string; grades: string[];
   sponsored?: PilotPlacement | null;
 }) {
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
@@ -102,33 +101,14 @@ export function CategoryProductGrid({ products, categorySlug, grades, rfqHref, s
         </div>
         {!active && sponsored && <SponsoredPilotSlot product={sponsored.product} ticket={sponsored.ticket}
           campaignId={sponsored.campaignId} categorySlug={categorySlug} />}
-        {visible.length ? <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
-          {shown.map((p) => <article key={p.id} className="relative flex min-w-0 flex-col rounded-xl border border-ink-200 bg-white transition hover:z-20 hover:border-brand-400 hover:shadow-md focus-within:z-20">
-            <Link href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`} className="group flex flex-1 flex-col" aria-label={`View ${p.name}`}>
-              <div className="relative aspect-[5/4] overflow-hidden rounded-t-xl bg-gradient-to-br from-brand-50 to-ink-100">
-                {p.imagePaths[0] ? <img src={`/public-media/${p.imagePaths[0]}`} alt={p.name} className="h-full w-full object-cover transition group-hover:scale-105" />
-                  : <div className="flex h-full items-center justify-center text-ink-300"><ImageIcon className="h-12 w-12" aria-hidden="true" /></div>}
-                {p.isDemo && <span className="absolute left-2 top-2 rounded bg-amber-400 px-2 py-1 text-[10px] font-bold text-amber-950">DEMO</span>}
-                {p.grade && <span className="absolute bottom-2 left-2 rounded bg-white/95 px-2 py-0.5 text-[10px] font-bold text-ink-800 shadow-sm" aria-label={`Grade ${p.grade}`}>{p.grade}</span>}
-              </div>
-              <div className="flex flex-1 flex-col gap-1.5 p-3 sm:p-3.5">
-                <h3 className="line-clamp-2 min-h-10 text-sm font-bold leading-snug text-ink-900 group-hover:text-brand-700">{p.name}</h3>
-                <p className="text-sm font-bold text-brand-800">{p.price || "Price on request"}</p>
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs leading-5 text-ink-600">
-                  <span>MOQ <strong className="text-ink-800">{p.moq}</strong></span>
-                  <span>Lead time <strong className="text-ink-800">{p.leadTimeDays !== null ? `${p.leadTimeDays} days` : "On request"}</strong></span>
-                </div>
-                <ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} compact />
-              </div>
-            </Link>
-            <div className="mx-3 border-t border-ink-100 pt-2 text-xs leading-5 text-ink-600 sm:mx-3.5">
-              <Link href={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`} className="font-semibold text-brand-700 hover:underline">{p.supplierName}</Link>
-              <span className="inline-flex max-w-full items-center gap-1 align-middle"> · <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" /><span className="min-w-0 break-words">{p.province}</span></span>
-            </div>
-            <div className="px-3 py-2 sm:px-3.5"><ProductVerificationIcons levels={p.verificationSteps} compact /></div>
-            <div className="mt-auto px-3 pb-3 sm:px-3.5"><Link href={`${rfqHref}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}`}
-              className="flex min-h-9 items-center justify-center gap-1 rounded-md bg-ink-900 px-2 py-1.5 text-center text-xs font-bold text-white hover:bg-brand-700">Request quote <ArrowRight className="h-3.5 w-3.5" /></Link></div>
-          </article>)}
+        {visible.length ? <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+          {shown.map((p) => <div key={p.id} className="min-w-0">
+            <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
+              imagePath={p.imagePaths[0]} name={p.name} moq={p.moq} price={p.price} fob={p.incoterm?.toUpperCase() === "FOB"}
+              leadTimeDays={p.leadTimeDays} supplierName={p.supplierName}
+              supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
+              verificationSteps={p.verificationSteps} test={p.isDemo} />
+          </div>)}
         </div> : <div className="rounded-xl border border-ink-200 bg-white p-8 text-center">
           <h3 className="font-bold text-ink-900">No products match these filters</h3>
           <p className="mt-2 text-sm text-ink-600">Try another grade or tell us what you need.</p>

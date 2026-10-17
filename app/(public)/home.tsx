@@ -12,6 +12,9 @@ import {
 } from "lucide-react";
 
 import { getStore } from "@/lib/db";
+import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
+import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
+import { PublicProductCard } from "@/components/public-product-card";
 import type { Category } from "@/lib/types";
 
 /** Ảnh placeholder khi category chưa upload hero_image — màu sắc trung tính, không gây nhầm sản phẩm */
@@ -82,9 +85,22 @@ export default async function HomeContent() {
   const activeCategories = allCategories
     .filter((c) => c.active_on_homepage)
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  // Homepage product cards are real buyer-ready offers only, never category hero/demo imagery.
+  // Bound catalogue lookups: homepage is not the full category search page.
+  const homeCategories = activeCategories.filter((c) => c.public_page_ready).slice(0, 4);
+  const productGroups = await Promise.all(homeCategories.map(async (category) => ({
+    category, products: await listPublicCategoryProducts(category),
+  })));
+  const seen = new Set<string>();
+  const offers: Array<PublicCategoryProduct & { categorySlug: string }> = [];
+  for (const { category, products } of productGroups) for (const p of products) {
+    if (p.isDemo || seen.has(p.id)) continue;
+    seen.add(p.id);
+    offers.push({ ...p, categorySlug: category.slug });
+  }
+  const homeProducts = arrangeSupplierProducts(offers, 2).shown.slice(0, 8);
   // Every published category card leads to its product listing, including the empty state.
   const heroOf = (c: Category) => c.hero_image || FALLBACK_HERO;
-
 
   return (
     <div>
@@ -245,6 +261,26 @@ export default async function HomeContent() {
           </p>
         </div>
       </section>
+
+      {homeProducts.length > 0 && <section aria-labelledby="home-products-title" className="bg-ink-50/70">
+        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div><p className="text-xs font-bold uppercase tracking-widest text-brand-700">Buyer-ready listings</p>
+              <h2 id="home-products-title" className="mt-2 text-2xl font-black text-ink-900 sm:text-3xl">Explore products</h2>
+              <p className="mt-2 text-sm text-ink-600">Real products with buyer-shareable media. Supplier checks and reference prices are shown only where applicable.</p></div>
+            <a href="#categories" className="text-sm font-semibold text-brand-700 hover:underline">All categories →</a>
+          </div>
+          <ul className="mt-6 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {homeProducts.map((p) => <li key={p.id} className="min-w-0">
+              <PublicProductCard href={`/products/${encodeURIComponent(p.categorySlug)}/${encodeURIComponent(p.id)}`}
+                imagePath={p.imagePaths[0]} name={p.name} moq={p.moq} price={p.price} fob={p.incoterm?.toUpperCase() === "FOB"}
+                leadTimeDays={p.leadTimeDays} supplierName={p.supplierName}
+                supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
+                verificationSteps={p.verificationSteps} />
+            </li>)}
+          </ul>
+        </div>
+      </section>}
 
       {/* HOW IT WORKS — timeline ngang trên desktop */}
       <section className="bg-ink-50/70">
