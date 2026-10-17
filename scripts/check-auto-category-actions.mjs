@@ -36,7 +36,9 @@ vm.runInNewContext(js, {
   guard: async () => null, getStore: () => store, revalidateAll: () => {},
   assignProductCategory, assignSupplierCategories, productReadiness: () => ({ ready: true }), console,
 }, { filename: 'auto-category-actions.ts' });
-let result = await exports.createProductAction({ name: 'TEST ONLY — Jasmine Rice Sample', supplier_id: supplier.id, category: 'cashew' });
+let result = await exports.createProductAction({ name: 'Cashew W320', supplier_id: supplier.id, ref_price: 10, ref_price_max: 9 });
+assert.equal(result.ok, false, 'Staff cannot save an inverted reference price range');
+result = await exports.createProductAction({ name: 'TEST ONLY — Jasmine Rice Sample', supplier_id: supplier.id, category: 'cashew' });
 assert.equal(result.ok, true);
 assert.equal(rows.get(result.id).category, 'rice', 'Server overrides a spoofed category');
 assert.deepEqual(linked, ['rice', 'cashew'], 'Supplier gets both industries, primary rice from product');

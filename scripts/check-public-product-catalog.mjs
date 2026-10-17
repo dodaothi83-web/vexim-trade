@@ -29,6 +29,13 @@ assert.equal(productGrade('Rice W320', null, 'rice'), null);
 const price = { price_publicly_visible: true, ref_price: 8.4, currency: 'USD/kg', unit: 'kg', price_valid_until: '2099-01-01' };
 const consent = { fob_publicly_visible: true, fob_updated_at: new Date().toISOString() };
 assert.equal(publicProductPrice(price, consent), 'USD/kg 8.4');
+assert.equal(publicProductPrice({ ...price, ref_price: 2, ref_price_max: 2.5, currency: 'USD', unit: 'MT' }, consent), 'USD 2–2.5/MT', 'Optional upper bound renders a per-product range');
+assert.equal(publicProductPrice({ ...price, ref_price_max: price.ref_price }, consent), 'USD/kg 8.4', 'Equal bounds render one price');
+assert.equal(publicProductPrice({ ...price, ref_price_max: null }, consent), 'USD/kg 8.4', 'Historical single prices remain single');
+assert.equal(publicProductPrice({ ...price, ref_price_max: 7 }, consent), null, 'Inverted range is not public');
+assert.match(productPriceBlockers({ ...price, ref_price_max: 7 }, consent).join(' '), /Giá tham khảo đến/, 'Invalid range is diagnosed');
+assert.equal(publicProductPrice({ ...price, ref_price_max: 9 }, { ...consent, fob_publicly_visible: false }), null, 'Range does not bypass supplier consent');
+assert.equal(publicProductPrice({ ...price, ref_price_max: 9, price_publicly_visible: false }, consent), null, 'Range does not bypass product opt-in');
 assert.equal(productPriceBlockers(price, consent).length, 0, 'A price with both opt-in and current consent is buyer-visible');
 assert.match(productPriceBlockers({ ...price, price_publicly_visible: false }, consent).join(' '), /sản phẩm này/, 'A missing product tick is explained');
 assert.match(productPriceBlockers(price, { ...consent, fob_publicly_visible: false }).join(' '), /NCC chưa xác nhận/, 'A product tick cannot stand in for supplier consent');
@@ -55,6 +62,12 @@ assert.match(visibilitySql, /sp\.price_publicly_visible and sp\.ready_for_buyer/
 assert.match(visibilitySql, /and not coalesce\(s\.is_demo, false\)/, 'Anonymous view excludes demo');
 assert.match(visibilitySql, /description_detail/, 'Buyer view projects long description only for approved products');
 assert.match(visibilitySql, /if not exists \(select 1 from information_schema\.columns/, 'Migration rerun must not re-enable opt-outs');
+const rangeSql = readFileSync(new URL('../supabase/migrations/20261017_product_reference_price_range.sql', import.meta.url), 'utf8');
+assert.match(rangeSql, /add column if not exists ref_price_max numeric\(14,2\)/);
+assert.match(rangeSql, /ref_price_max >= ref_price/, 'DB rejects inverted ranges');
+assert.match(rangeSql, /sp\.price_publicly_visible and sp\.ready_for_buyer/, 'SQL projection still checks product opt-in');
+assert.match(rangeSql, /s\.fob_updated_at > now\(\) - interval '180 days'/, 'SQL range remains under supplier consent');
+assert.match(rangeSql, /then sp\.ref_price_max end as ref_price_max/, 'Public view appends a gated upper bound');
 const editPage = readFileSync(new URL('../app/crm/products/[slug]/edit/page.tsx', import.meta.url), 'utf8');
 const productForm = readFileSync(new URL('../components/product-form.tsx', import.meta.url), 'utf8');
 assert.match(editPage, /savedPrice=\{\{ buyerPrice: visiblePrice, blockers: priceBlockers, publicProduct: canView \}\}/,

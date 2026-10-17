@@ -17,7 +17,12 @@ function parseProduct(form: FormData, supplierId: string): SupplierProductInput 
   const daysRaw = text(form, "lead_time_days", 5);
   if (daysRaw && (!/^\d+$/.test(daysRaw) || Number(daysRaw) > 3650)) throw new Error("Thời gian giao hàng không hợp lệ.");
   const priceRaw = text(form, "ref_price", 20);
-  if (priceRaw && (!/^\d+(?:\.\d{1,2})?$/.test(priceRaw) || Number(priceRaw) > 1e12)) throw new Error("Giá tham khảo không hợp lệ.");
+  const priceMaxRaw = text(form, "ref_price_max", 20);
+  if (priceRaw && (!/^\d+(?:\.\d{1,2})?$/.test(priceRaw) || Number(priceRaw) > 999999999999.99)) throw new Error("Giá tham khảo từ không hợp lệ.");
+  if (priceMaxRaw && (!/^\d+(?:\.\d{1,2})?$/.test(priceMaxRaw) || Number(priceMaxRaw) > 999999999999.99 ||
+      !priceRaw || Number(priceRaw) <= 0 || Number(priceMaxRaw) < Number(priceRaw))) {
+    throw new Error("Giá đến phải lớn hơn hoặc bằng giá từ (> 0); bỏ trống nếu chỉ có một mức giá.");
+  }
   const validUntil = text(form, "price_valid_until", 10);
   if (validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) throw new Error("Ngày hết hạn giá không hợp lệ.");
   return {
@@ -28,7 +33,8 @@ function parseProduct(form: FormData, supplierId: string): SupplierProductInput 
     lead_time_days: daysRaw ? Number(daysRaw) : null, packaging: text(form, "packaging", 300) || null,
     oem: form.get("oem") === "yes", odm: form.get("odm") === "yes", samples: form.get("samples") === "yes",
     certifications: text(form, "certifications", 300) || null, export_port: text(form, "export_port", 120) || null,
-    ref_price: priceRaw ? Number(priceRaw) : null, price_publicly_visible: form.get("price_publicly_visible") === "yes", currency: priceRaw ? (text(form, "currency", 10) || "USD") : null,
+    ref_price: priceRaw ? Number(priceRaw) : null, ref_price_max: priceMaxRaw ? Number(priceMaxRaw) : null,
+    price_publicly_visible: form.get("price_publicly_visible") === "yes", currency: priceRaw ? (text(form, "currency", 10) || "USD") : null,
     price_valid_until: validUntil || null, incoterm: text(form, "incoterm", 20) || null,
     incoterm_place: text(form, "incoterm_place", 100) || null,
     payment_terms: text(form, "payment_terms", 200) || null,

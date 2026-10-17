@@ -56,6 +56,11 @@ const form = () => {
 };
 assert.equal((await actions.saveSupplierProductAction(form())).ok, false, 'Pending account cannot create product');
 supplier.onboarding_status = 'approved';
+const invertedPrice = form(); invertedPrice.set('ref_price_max', '4999');
+assert.match((await actions.saveSupplierProductAction(invertedPrice)).message, /Giá đến/, 'Supplier cannot save an inverted range');
+assert.equal(product, null);
+const missingFloor = form(); missingFloor.delete('ref_price'); missingFloor.set('ref_price_max', '5500');
+assert.equal((await actions.saveSupplierProductAction(missingFloor)).ok, false, 'Upper price requires a positive lower price');
 const invalidProposal = form(); invalidProposal.set('supplier_category_proposal', 'not-in-catalogue');
 assert.equal((await actions.saveSupplierProductAction(invalidProposal)).ok, false, 'Supplier cannot forge a category');
 assert.equal(product, null);
@@ -66,8 +71,10 @@ assert.equal(product.ready_for_buyer, false); assert.equal(product.ref_price, 50
 assert.equal(product.price_publicly_visible, false, 'Saving an entered price does not expose it');
 assert.equal(supplier.fob_updated_at, null, 'Ordinary product saves cannot silently record supplier consent');
 const optIn = form(); optIn.set('product_id', productId); optIn.set('price_publicly_visible', 'yes');
+optIn.set('ref_price_max', '5500');
 optIn.set('description_detail', 'Origin and details of this product.');
 assert.equal((await actions.saveSupplierProductAction(optIn)).ok, true);
+assert.equal(product.ref_price_max, 5500, 'Supplier can save an optional range without auto-publication');
 assert.equal(product.price_publicly_visible, true); assert.equal(product.description_detail, 'Origin and details of this product.');
 assert.equal(supplier.fob_updated_at, null, 'Product opt-in alone does not create supplier consent');
 const consentForm = form(); consentForm.set('product_id', productId); consentForm.set('price_publicly_visible', 'yes');

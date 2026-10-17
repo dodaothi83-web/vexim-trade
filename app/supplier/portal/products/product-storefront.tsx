@@ -14,7 +14,9 @@ const FILTERS: { id: ProductReviewFilter; label: string }[] = [
 
 function money(product: SupplierProduct) {
   if (product.ref_price == null) return null;
-  return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(product.ref_price)} ${product.currency || "USD"}${product.unit ? ` / ${product.unit}` : ""}`;
+  const format = (n: number) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(n);
+  const range = product.ref_price_max != null && product.ref_price_max > product.ref_price ? `–${format(product.ref_price_max)}` : "";
+  return `${format(product.ref_price)}${range} ${product.currency || "USD"}${product.unit ? ` / ${product.unit}` : ""}`;
 }
 
 export function SupplierProductStorefront({ products, media, supplierPublished }: {

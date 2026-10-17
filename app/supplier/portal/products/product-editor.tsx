@@ -12,7 +12,7 @@ import { saveSupplierProductAction, submitSupplierProductAction } from "../produ
 
 type EditorProps = { product?: SupplierProduct; media?: MediaAsset[]; userId?: string; categories: CategoryProposalOption[]; supplier: Supplier };
 const BASE_FIELDS = [
-  ["unit", "Đơn vị tính", "Ví dụ: tấn, thùng", 40], ["moq", "Số lượng đặt tối thiểu (MOQ)", "Ví dụ: 1 container", 180],
+  ["moq", "Số lượng đặt tối thiểu (MOQ)", "Ví dụ: 1 container", 180],
   ["monthly_capacity", "Năng lực mỗi tháng", "Ví dụ: 200 tấn/tháng", 180], ["packaging", "Bao bì / đóng gói", "Ví dụ: túi hút chân không 25 kg", 300],
 ] as const;
 const EXPORT_FIELDS = [
@@ -152,8 +152,10 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
             <p className="mt-2 text-xs text-slate-600">Tùy chọn; giá dưới đây là tham khảo tự khai, không phải báo giá RFQ hoặc giá đã được Vexim xác nhận.</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">{EXPORT_FIELDS.map(([key, label, placeholder, max]) => <Field key={key} label={label}><input name={key} className="input" maxLength={max} placeholder={placeholder} defaultValue={String(product?.[key] ?? "")} disabled={locked} /></Field>)}
               <Field label="Thời gian giao hàng (ngày)"><input name="lead_time_days" type="number" min={0} max={3650} className="input" placeholder="Ví dụ: 21" defaultValue={product?.lead_time_days ?? ""} disabled={locked} /></Field>
-              <Field label="Giá tham khảo / đơn vị"><input name="ref_price" type="number" min={0} max={1000000000000} step="0.01" className="input" placeholder="Ví dụ: 5000" defaultValue={product?.ref_price ?? ""} disabled={locked} /></Field>
+              <Field label="Giá tham khảo từ"><input name="ref_price" type="number" min={0} max={999999999999} step="0.01" className="input" placeholder="Ví dụ: 5000" defaultValue={product?.ref_price ?? ""} disabled={locked} /></Field>
+              <Field label="Giá tham khảo đến (tùy chọn)"><input name="ref_price_max" type="number" min={0} max={999999999999} step="0.01" className="input" placeholder="Ví dụ: 5500" defaultValue={product?.ref_price_max ?? ""} disabled={locked} /></Field>
               <Field label="Đơn vị tiền"><input name="currency" className="input" maxLength={10} placeholder="USD" defaultValue={product?.currency ?? ""} disabled={locked} /></Field>
+              <Field label="Đơn vị giá"><input name="unit" className="input" maxLength={40} placeholder="Ví dụ: MT, kg, thùng" defaultValue={product?.unit ?? ""} disabled={locked} /></Field>
               <Field label="Giá có hiệu lực tới"><input name="price_valid_until" type="date" className="input" defaultValue={product?.price_valid_until ?? ""} disabled={locked} /></Field>
             </div>
             <p className="mt-3 text-xs text-slate-600">Ô “Chứng nhận sản phẩm (tự khai)” không tạo nhãn xác minh. <Link href="/supplier/portal/certificates" className="font-semibold text-teal-800 underline">Tải PDF/ảnh chứng nhận ở mục Chứng nhận để Vexim xét riêng →</Link></p>

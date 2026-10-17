@@ -664,6 +664,7 @@ function ensureDemoSuppliers(db: LocalShape) {
       certifications: raw.certifications ?? null,
       export_port: "Cat Lai (HCMC)",
       ref_price: raw.ref_price ?? null,
+      ref_price_max: null,
       currency: raw.currency ?? null,
       price_valid_until: null,
       incoterm: null,

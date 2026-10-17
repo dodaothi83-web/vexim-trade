@@ -36,6 +36,7 @@ function init(p?: SupplierProduct | null): FormState {
     certifications: p?.certifications ?? "",
     export_port: p?.export_port ?? "",
     ref_price: p?.ref_price ?? "",
+    ref_price_max: p?.ref_price_max ?? "",
     price_publicly_visible: p?.price_publicly_visible ?? false,
     currency: p?.currency ?? "USD",
     price_valid_until: p?.price_valid_until ?? "",
@@ -87,6 +88,7 @@ export function ProductForm({
       supplier_id: supplier.id,
       lead_time_days: v("lead_time_days") ? Number(v("lead_time_days")) : null,
       ref_price: v("ref_price") ? Number(v("ref_price")) : null,
+      ref_price_max: v("ref_price_max") ? Number(v("ref_price_max")) : null,
     };
     try {
       const res = product
@@ -133,14 +135,6 @@ export function ProductForm({
           <Field label="Mô tả chi tiết" hint="Thông tin dài hiển thị dưới trang sản phẩm; văn bản thuần, xuống dòng tùy ý." className="sm:col-span-2 lg:col-span-3">
             <textarea className="input min-h-40 resize-y" rows={7} maxLength={6000} value={v("description_detail")}
               onChange={(e) => set("description_detail", e.target.value)} placeholder="Nguồn gốc, tính năng, ứng dụng, đóng gói, lưu ý sử dụng..." />
-          </Field>
-          <Field label="Đơn vị tính">
-            <input
-              className="input"
-              value={v("unit")}
-              onChange={(e) => set("unit", e.target.value)}
-              placeholder="MT / cont / bộ / thùng"
-            />
           </Field>
         </div>
       </section>
@@ -265,16 +259,13 @@ export function ProductForm({
           Quyền chia sẻ giá trong hồ sơ doanh nghiệp là sự đồng ý chung của NCC (hiệu lực 180 ngày). Giá chỉ hiện khi <strong>riêng sản phẩm này</strong> cũng được chọn, có giá hợp lệ và đủ điều kiện công bố; đây không phải báo giá RFQ.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Giá tham khảo">
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              className="input"
-              value={v("ref_price")}
-              onChange={(e) => set("ref_price", e.target.value)}
-              placeholder="620"
-            />
+          <Field label="Giá tham khảo từ">
+            <input type="number" min={0} step="0.01" className="input" value={v("ref_price")}
+              onChange={(e) => set("ref_price", e.target.value)} placeholder="620" />
+          </Field>
+          <Field label="Giá tham khảo đến" hint="Tùy chọn. Để trống nếu chỉ có một mức giá; không được thấp hơn giá từ.">
+            <input type="number" min={0} step="0.01" className="input" value={v("ref_price_max")}
+              onChange={(e) => set("ref_price_max", e.target.value)} placeholder="680" />
           </Field>
           <Field label="Tiền tệ">
             <select className="input" value={v("currency")} onChange={(e) => set("currency", e.target.value)}>
@@ -284,6 +275,9 @@ export function ProductForm({
                 </option>
               ))}
             </select>
+          </Field>
+          <Field label="Đơn vị giá" hint="VD: MT, kg, thùng; giá buyer sẽ hiển thị theo đơn vị này.">
+            <input className="input" value={v("unit")} onChange={(e) => set("unit", e.target.value)} placeholder="MT / kg / thùng" />
           </Field>
           <Field label="Giá hiệu lực đến">
             <input

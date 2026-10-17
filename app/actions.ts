@@ -1386,6 +1386,7 @@ function parseProductInput(
     certifications: str(raw.certifications),
     export_port: str(raw.export_port),
     ref_price: num(raw.ref_price),
+    ref_price_max: num(raw.ref_price_max),
     price_publicly_visible: bool(raw.price_publicly_visible, false),
     currency: str(raw.currency) ?? (num(raw.ref_price) !== null ? "USD" : null),
     price_valid_until: str(raw.price_valid_until),
@@ -1396,6 +1397,17 @@ function parseProductInput(
     ready_for_buyer: bool(raw.ready_for_buyer, false),
     images: Array.isArray(raw.images) ? (raw.images as string[]) : undefined,
   };
+}
+
+function priceRangeInputError(raw: Record<string, unknown>, input: SupplierProductInput): string | null {
+  const upper = raw.ref_price_max;
+  if (upper == null || String(upper).trim() === "") return null;
+  if (!/^\d+(?:\.\d{1,2})?$/.test(String(upper).trim()) || input.ref_price_max == null ||
+      input.ref_price_max > 999999999999.99 || input.ref_price == null || input.ref_price <= 0 ||
+      input.ref_price_max < input.ref_price) {
+    return "Giá đến phải lớn hơn hoặc bằng giá từ (> 0); bỏ trống nếu chỉ có một mức giá.";
+  }
+  return null;
 }
 
 async function autoAssignProduct(input: SupplierProductInput): Promise<string | null> {
@@ -1420,6 +1432,8 @@ export async function createProductAction(
   const input = parseProductInput(raw);
   if (!input.supplier_id) return { ok: false, message: "Thiếu nhà cung cấp." };
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
+  const rangeError = priceRangeInputError(raw, input);
+  if (rangeError) return { ok: false, message: rangeError };
   // Hồ sơ vừa tạo chưa thể có ảnh/catalogue nên luôn bắt đầu ở trạng thái chưa sẵn sàng.
   input.ready_for_buyer = false;
   input.category = null;
@@ -1442,6 +1456,8 @@ export async function updateProductAction(
   if (gate) return gate;
   const input = parseProductInput(raw);
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
+  const rangeError = priceRangeInputError(raw, input);
+  if (rangeError) return { ok: false, message: rangeError };
   const store = getStore();
   try {
     const existing = await store.getProduct(id);

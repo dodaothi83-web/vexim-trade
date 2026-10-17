@@ -153,8 +153,10 @@ export interface SupplierProduct {
   odm?: boolean;
   certifications: string | null;
   export_port: string | null;
-  /** Giá tham khảo – KHÔNG tự gửi cho buyer như báo giá chính thức */
+  /** Giá tham khảo từ (hoặc giá đơn nếu không có giá đến) – không phải báo giá RFQ. */
   ref_price: number | null;
+  /** Giá tham khảo đến, tùy chọn; chỉ công khai cùng giá từ hợp lệ và consent. */
+  ref_price_max?: number | null;
   /** Explicit per-product opt-in, separate from time-limited supplier consent. */
   price_publicly_visible?: boolean;
   currency: string | null;

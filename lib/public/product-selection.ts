@@ -55,7 +55,7 @@ export function supplierPriceConsentCurrent(supplier: { fob_publicly_visible?: b
   return Number.isFinite(age) && age >= 0 && age < 180 * 86400_000;
 }
 
-type PriceFields = Pick<SupplierProduct, "ref_price" | "currency" | "price_valid_until" | "unit" | "price_publicly_visible">;
+type PriceFields = Pick<SupplierProduct, "ref_price" | "currency" | "price_valid_until" | "unit" | "price_publicly_visible"> & Partial<Pick<SupplierProduct, "ref_price_max">>;
 type PriceConsent = { fob_publicly_visible?: boolean; fob_updated_at?: string | null };
 
 /** Private editor diagnostics, in the exact same order and with the same checks as the public price gate. */
@@ -66,7 +66,9 @@ export function productPriceBlockers(
   const blockers: string[] = [];
   if (!product.price_publicly_visible) blockers.push("Chưa bật công khai giá cho riêng sản phẩm này và lưu thay đổi.");
   if (product.ref_price == null || !Number.isFinite(product.ref_price) || product.ref_price <= 0)
-    blockers.push("Giá tham khảo của sản phẩm phải lớn hơn 0.");
+    blockers.push("Giá tham khảo từ của sản phẩm phải lớn hơn 0.");
+  if (product.ref_price_max != null && (!Number.isFinite(product.ref_price_max) || product.ref_price_max <= 0 || product.ref_price == null || product.ref_price_max < product.ref_price))
+    blockers.push("Giá tham khảo đến phải lớn hơn hoặc bằng giá từ; để trống nếu chỉ có một mức giá.");
   if (product.price_valid_until && product.price_valid_until < today)
     blockers.push(`Giá tham khảo đã hết hạn (${product.price_valid_until}).`);
   if (!supplier.fob_publicly_visible) blockers.push("NCC chưa xác nhận đồng ý chia sẻ giá; ô công khai của sản phẩm không thay thế quyền này.");
@@ -83,5 +85,7 @@ export function publicProductPrice(
   if (productPriceBlockers(product, supplier, today).length) return null;
   const currency = product.currency || "USD";
   // The CRM currency can already contain a unit (e.g. USD/kg); never invent a conversion to /ton.
-  return `${currency} ${product.ref_price!.toLocaleString("en-US")}${currency.includes("/") ? "" : product.unit ? `/${product.unit}` : ""}`;
+  const range = product.ref_price_max != null && product.ref_price_max > product.ref_price!
+    ? `–${product.ref_price_max.toLocaleString("en-US")}` : "";
+  return `${currency} ${product.ref_price!.toLocaleString("en-US")}${range}${currency.includes("/") ? "" : product.unit ? `/${product.unit}` : ""}`;
 }
