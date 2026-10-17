@@ -12,6 +12,20 @@ export const dynamic = "force-dynamic";
 const fail = (message: string, status = 400) => NextResponse.json({ ok: false, message }, { status });
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Never send a confirmation email pointing to loopback from a deployed environment. */
+function signupEmailRedirect(): string | null {
+  try {
+    const url = new URL(process.env.SUPPLIER_SIGNUP_REDIRECT_URL?.trim() || `${SITE_URL}/login`);
+    const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+    const loopback = hostname === "localhost" || hostname.endsWith(".localhost") ||
+      /^127\./.test(hostname) || hostname === "[::1]" || hostname === "0.0.0.0";
+    if (url.pathname !== "/login" || url.search || url.hash || url.username || url.password) return null;
+    if (url.protocol === "https:" && !loopback) return url.href;
+    if (process.env.NODE_ENV === "development" && loopback && url.protocol === "http:") return url.href;
+  } catch { /* Reject malformed configuration before creating an Auth user. */ }
+  return null;
+}
+
 /** Account only: no supplier page, RFQs, verification or portal rights until the logged-in business form and staff decision. */
 export async function POST(request: Request) {
   if (await getSession()) return fail("Bạn đã đăng nhập. Hãy mở cổng nhà cung cấp.", 409);
@@ -28,6 +42,8 @@ export async function POST(request: Request) {
   if (email.length > 200 || !EMAIL.test(email)) return fail("Email không hợp lệ.");
   if (name.length < 2 || name.length > 120) return fail("Vui lòng nhập tên người đăng ký (2–120 ký tự).");
   if (password.length > 128 || passwordProblem(password)) return fail("Mật khẩu cần 8–128 ký tự, gồm cả chữ và số.");
+  const emailRedirectTo = signupEmailRedirect();
+  if (!emailRedirectTo) return fail("URL xác nhận email không hợp lệ. Quản trị viên cần cấu hình đường dẫn HTTPS /login, không dùng localhost trên máy chủ.", 503);
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return fail("Chưa cấu hình Supabase cho đăng ký nhà cung cấp.", 503);
   const auth = getSupabaseAuthClient();
   const db = getSupabaseClient();
@@ -48,7 +64,7 @@ export async function POST(request: Request) {
   let authId: string | null = null;
   try {
     const { data, error } = await auth.auth.signUp({ email, password,
-      options: { emailRedirectTo: process.env.SUPPLIER_SIGNUP_REDIRECT_URL || `${SITE_URL}/login` } });
+      options: { emailRedirectTo } });
     if (error || !data.user?.id || data.user.identities?.length === 0) {
       console.warn("[supplier-signup] Auth rejected signup", error?.message ?? "duplicate account");
       return fail("Không tạo được tài khoản. Nếu email đã dùng, hãy đăng nhập hoặc liên hệ Vexim.", 409);

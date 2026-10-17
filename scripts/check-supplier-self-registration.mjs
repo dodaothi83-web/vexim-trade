@@ -35,7 +35,7 @@ for (const denied of [
   [{ ...owner, role: 'viewer' }, doc, 'business_license'],
 ]) assert.equal(policy.canUploadOwnDocument(...denied), false);
 
-const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false };
+const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false };
 const store = {
   mode: 'supabase',
   listUsers: async () => state.users,
@@ -65,7 +65,7 @@ const store = {
   deleteSupplier: async (id) => { state.suppliers = state.suppliers.filter((s) => s.id !== id); state.reviews = state.reviews.filter((r) => r.supplier_id !== id); state.requests = state.requests.filter((r) => r.supplier_id !== id); },
 };
 const auth = { auth: {
-  signUp: async () => { state.authCalls++; return { data: { user: { id: 'auth-1', identities: [{ id: 'identity' }], email_confirmed_at: state.confirmed ? 'now' : null }, session: state.confirmed ? {} : null }, error: null }; },
+  signUp: async ({ options }) => { state.authCalls++; state.lastRedirect = options.emailRedirectTo; return { data: { user: { id: 'auth-1', identities: [{ id: 'identity' }], email_confirmed_at: state.confirmed ? 'now' : null }, session: state.confirmed ? {} : null }, error: null }; },
   admin: { deleteUser: async () => { state.deletedAuth++; } },
 } };
 const profileInput = load('../lib/supplier-portal/profile-input.ts', {});
@@ -90,7 +90,8 @@ const mocks = {
   '@/lib/supplier-portal/notify': { notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 1); return 'sent'; } },
   '@/lib/site': { SITE_URL: 'https://example.com' },
 };
-const { POST } = load('../app/api/supplier-signup/route.ts', mocks);
+const signupEnv = { SUPABASE_SERVICE_ROLE_KEY: 'mock', NODE_ENV: 'production' };
+const { POST } = load('../app/api/supplier-signup/route.ts', mocks, { process: { env: signupEnv } });
 const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
 const file = new File(['%PDF-1.7 TEST DOCUMENT'], 'license.pdf', { type: 'application/pdf' });
 function form(email = 'owner@example.com') {
@@ -110,6 +111,12 @@ function accountForm(email = 'owner@example.com') {
   for (const [key, value] of Object.entries({ name: 'Mr A', email, password: 'password123', consent: 'yes' })) fd.set(key, value);
   return fd;
 }
+for (const bad of ['http://localhost:3000/login', 'https://localhost:3000/login', 'https://localhost./login', 'https://127.0.0.2/login', 'https://[::1]/login', 'http://example.com/login', 'https://example.com/other', 'https://example.com/login?next=//evil.com']) {
+  signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL = bad;
+  assert.equal((await post(accountForm())).status, 503, `Deployed signup must reject unsafe confirmation redirect: ${bad}`);
+  assert.equal(state.authCalls, 0, 'Invalid redirect cannot send confirmation email or create Auth user');
+}
+signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL = 'https://staging.example.com/login';
 state.schemaMissing = true;
 assert.equal((await post(accountForm())).status, 503);
 assert.equal(state.authCalls, 0, 'Missing migration must not create Auth identity');
@@ -122,6 +129,8 @@ assert.equal((await post(accountForm())).status, 503, 'Disabled email confirmati
 assert.equal(state.deletedAuth, 1);
 state.confirmed = false;
 assert.equal((await post(accountForm())).status, 200);
+assert.equal(state.lastRedirect, 'https://staging.example.com/login', 'Staging confirmation URL must be passed to Supabase explicitly');
+delete signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL;
 assert.equal(state.users.at(-1).role, 'supplier');
 assert.equal(state.users.at(-1).supplier_id, null, 'Signup creates only a login; first business form creates the page');
 assert.equal(state.suppliers.length, 0);
