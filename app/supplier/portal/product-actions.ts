@@ -81,7 +81,8 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     if (product.supplier_review_status !== "draft" && product.supplier_review_status !== "changes_requested") return { ok: false, message: "Sản phẩm không ở trạng thái cho phép nộp." };
     if (!product.name || !(product.spec || product.description)) return { ok: false, message: "Cần tên và mô tả/quy cách thực tế." };
     const media = await store.listMedia("product", id);
-    if (!media.some((m) => (m.kind === "image" || m.kind === "catalogue") && m.storage_path && m.supplier_id === access.supplier.id)) {
+    if (!media.some((m) => (m.kind === "image" || m.kind === "catalogue") && m.storage_path &&
+      m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {
       return { ok: false, message: "Cần ít nhất một ảnh sản phẩm hoặc catalogue thật trước khi nộp." };
     }
     await store.updateProduct(id, { supplier_review_status: "pending", supplier_review_note: null, ready_for_buyer: false });

@@ -97,6 +97,9 @@ assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), 
 assert.equal(files.length, 0); assert.equal(storedBytes, 0);
 assert.equal(await postMedia(), 200);
 const submitted = new FormData(); submitted.set('product_id', productId);
+files[0].created_by = 'staff';
+assert.equal((await actions.submitSupplierProductAction(submitted)).ok, false, 'Hidden staff-internal file does not satisfy supplier submission');
+files[0].created_by = user.id;
 assert.equal((await actions.submitSupplierProductAction(submitted)).ok, true);
 assert.equal(product.supplier_review_status, 'pending'); assert.equal(product.ready_for_buyer, false);
 assert.equal(await postMedia(), 409, 'Cannot upload while pending');
@@ -114,6 +117,17 @@ assert.equal((await review.decideSupplierProductAction(approve)).ok, false);
 denied = false;
 assert.equal((await review.decideSupplierProductAction(approve)).ok, true);
 assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, false);
+const productView = load('../lib/supplier-portal/product-view.ts', {});
+const visibleFiles = productView.supplierVisibleProductMedia([
+  { ...files[0], owner_type: 'product', supplier_id: supplierId, created_by: user.id, kind: 'image' },
+  { ...files[0], owner_type: 'product', supplier_id: supplierId, created_by: 'staff', audience: 'internal' },
+  { ...files[0], owner_type: 'product', supplier_id: 'other-supplier', created_by: user.id },
+  { ...files[0], owner_type: 'product', supplier_id: supplierId, created_by: 'staff', audience: 'buyer' },
+], supplierId, user.id);
+assert.equal(visibleFiles.length, 2, 'Storefront never renders foreign or staff-internal media');
+assert.equal(productView.productReview(product), 'approved');
+assert.equal(productView.privateMediaUrl(visibleFiles[0]), `/api/media/file/${visibleFiles[0].storage_path}`);
+assert.equal(productView.privateMediaUrl({ ...visibleFiles[0], storage_path: '../secret' }), null);
 const selection = load('../lib/public/product-selection.ts', {
   '@/lib/public/category-assignment': { assignProductCategory: () => null },
 });

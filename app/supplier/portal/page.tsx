@@ -8,6 +8,7 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { canSubmitProfile, portalApproved } from "@/lib/supplier-portal/onboarding";
 import { buildSupplierDashboard } from "@/lib/supplier-portal/dashboard";
 import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
+import { productReview } from "@/lib/supplier-portal/product-view";
 import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { L1_DOC_ITEMS } from "@/lib/types";
 import { SupplierPortalUpload } from "./supplier-portal-upload";
@@ -79,6 +80,24 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
     <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
       <strong>Vexim đã xác nhận quyền sử dụng cổng.</strong> Hồ sơ công khai: {supplier.status === "draft" ? "chưa công khai" : supplier.status}. Việc duyệt từng đánh giá và công khai NCC/sản phẩm là quyết định riêng của Vexim; không tự động từ RFQ hay giấy tờ đã tải.
     </div>
+
+    <section aria-label="Gian hàng sản phẩm" className="mt-7 grid gap-4 md:grid-cols-[1.5fr_1fr]">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-950 to-teal-800 p-6 text-white shadow-sm sm:p-7">
+        <div className="relative"><p className="text-xs font-bold uppercase tracking-widest text-teal-200">Gian hàng của bạn · riêng tư</p>
+          <h2 className="mt-2 text-2xl font-black">Sản phẩm của tôi</h2>
+          <p className="mt-2 max-w-lg text-sm leading-6 text-teal-50/90">Quản lý ảnh, quy cách và trạng thái duyệt như một gian hàng. Mọi sản phẩm vẫn cần Vexim kiểm tra trước khi có thể chia sẻ buyer.</p>
+          <div className="mt-5 flex flex-wrap gap-3"><Link href="/supplier/portal/products" className="inline-flex items-center rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-teal-900 hover:bg-teal-50">Quản lý sản phẩm →</Link>
+            <Link href="/supplier/portal/products/new" className="inline-flex items-center rounded-xl border border-white/40 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/10">+ Thêm sản phẩm</Link></div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div><p className="text-xs font-semibold text-slate-500">Tổng sản phẩm</p><p className="mt-2 text-3xl font-black text-slate-900">{products.length}</p></div>
+        <div><p className="text-xs font-semibold text-slate-500">Đang chờ Vexim</p><p className="mt-2 text-3xl font-black text-amber-700">{products.filter((p) => productReview(p) === "pending").length}</p></div>
+        <div><p className="text-xs font-semibold text-slate-500">Bản nháp</p><p className="mt-2 text-3xl font-black text-slate-900">{products.filter((p) => productReview(p) === "draft").length}</p></div>
+        <div><p className="text-xs font-semibold text-slate-500">Cần bổ sung</p><p className="mt-2 text-3xl font-black text-rose-700">{products.filter((p) => productReview(p) === "changes_requested").length}</p></div>
+        <p className="col-span-2 border-t border-slate-100 pt-3 text-xs text-slate-500">Số liệu chỉ của doanh nghiệp bạn; không phải lượt xem hay doanh thu.</p>
+      </div>
+    </section>
 
     <section id="tasks" className="mt-8 scroll-mt-6">
       <SectionTitle icon={<ClipboardCheck className="h-5 w-5" />} title="Việc cần làm" sub="Chỉ RFQ đã được Vexim chuyển cho doanh nghiệp; buyer gửi form không tự tạo lời mời." />
