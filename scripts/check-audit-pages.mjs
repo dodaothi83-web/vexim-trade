@@ -6,10 +6,19 @@ import ts from 'typescript';
 
 const text = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-actions.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(text, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const evidenceJs = ts.transpileModule(fs.readFileSync(new URL('../lib/verification-evidence.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const evidence = {};
+vm.runInNewContext(evidenceJs, { exports: evidence }, { filename: 'verification-evidence.ts' });
+assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'video', storage_path: null }]), false);
+assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'image', storage_path: 'verifications/review-1/license.jpg' }]), true);
+assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'document', storage_path: 'verifications/review-1/license.pdf' }]), true);
+assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'certificate', storage_path: 'verifications/review-1/cert.png' }]), true);
+assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'image', storage_path: null }]), false);
 const exports = {};
 const auditor = { uid: 'reviewer-1', email: 'reviewer@example.com', role: 'admin' };
 let requireSecondReviewer = false;
 let lastAudit = null;
+let lastMediaLookup = null;
 let row = {
   id: 'review-3', supplier_id: 'supplier-1', target_level: 3, status: 'submitted', inspector_id: 'inspector-2',
   shipment_ref: 'SHIP-123', shipped_on: '2026-10-10',
@@ -22,7 +31,7 @@ const media = [];
 const store = {
   getVerification: async () => row,
   listVerifications: async () => records,
-  listMedia: async () => media,
+  listMedia: async (ownerType, ownerId) => { lastMediaLookup = [ownerType, ownerId]; return media; },
   updateVerification: async (_id, patch) => { Object.assign(row, patch); return row; },
   addAuditLog: async (entry) => { lastAudit = entry; },
   getSupplier: async () => ({ verification_level: 2 }),
@@ -35,19 +44,22 @@ const mocks = {
     getSession: async () => auditor,
   },
   '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
+  '@/lib/verification-evidence': evidence,
   '@/lib/verification': {
     auditHref: () => '/crm/suppliers/supplier-1/audit/deliveries',
-    auditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : [],
+    auditItems: (level) => (level === 3
+      ? ['order_matched', 'shipping_proof', 'delivery_proof']
+      : ['license', 'tax', 'export', 'factory', 'identity', 'optional_a', 'optional_b']).map((key) => ({ key })),
     inVnBounds: (lat, lng) => lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110,
   },
 };
 vm.runInNewContext(js, { exports, require: (name) => { assert.ok(name in mocks, `Unknown import ${name}`); return mocks[name]; }, console, FormData, Date }, { filename: 'verification-actions.ts' });
 const form = new FormData(); form.set('id', row.id);
-await assert.rejects(exports.approveVerificationAction(form), /chứng từ giao hàng/);
+assert.match((await exports.approveVerificationAction(form)).message, /chứng từ giao hàng/);
 media.push({ kind: 'video', status: 'checked', storage_path: null });
-await assert.rejects(exports.approveVerificationAction(form), /chứng từ giao hàng/);
+assert.match((await exports.approveVerificationAction(form)).message, /chứng từ giao hàng/);
 media.push({ kind: 'document', status: 'unverified', storage_path: 'verifications/review-3/bl.pdf' });
-await assert.rejects(exports.approveVerificationAction(form), /chứng từ giao hàng/);
+assert.match((await exports.approveVerificationAction(form)).message, /chứng từ giao hàng/);
 media[1].status = 'checked';
 auditor.uid = row.inspector_id;
 requireSecondReviewer = true;
@@ -69,6 +81,24 @@ requireSecondReviewer = true;
 const independentlyApproved = await exports.approveVerificationAction(form);
 assert.equal(independentlyApproved.ok, true, 'Independent reviewer still works when policy is restored');
 assert.equal(lastAudit.after.self_approved, false);
+// An already uploaded scan selected under the "Ảnh" tab must count as L1 evidence.
+// The supplier's general library must never be consulted as a fallback.
+records.splice(0, 1); // remove earlier approved level-one fixture
+Object.assign(row, {
+  target_level: 1, status: 'submitted', approved_by: null,
+  checklist: Object.fromEntries(['license', 'tax', 'export', 'factory', 'identity', 'optional_a', 'optional_b'].map((key) => [key, true])),
+});
+media.splice(0);
+const missing = await exports.approveVerificationAction(form);
+assert.equal(missing.ok, false, 'Supplier-wide documents must not satisfy an empty verification');
+assert.deepEqual(lastMediaLookup, ['verification', row.id], 'No supplier-library fallback');
+assert.match(missing.message, /kho chung NCC/);
+media.push({ kind: 'video', storage_path: null, external_url: 'https://example.com' });
+assert.equal((await exports.approveVerificationAction(form)).ok, false, 'A video link is not a legal document');
+media.push({ kind: 'image', storage_path: 'verifications/review-3/license.jpg', status: 'unverified' });
+const documentApproved = await exports.approveVerificationAction(form);
+assert.equal(documentApproved.ok, true, 'Photo of a document from this verification qualifies');
+assert.equal(row.status, 'approved');
 const selfApprovalSql = fs.readFileSync(new URL('../supabase/migrations/20261017_temporary_self_verification_approval.sql', import.meta.url), 'utf8');
 assert.match(selfApprovalSql, /drop constraint if exists verifications_four_eyes/);
 const formUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx', import.meta.url), 'utf8');
@@ -76,6 +106,8 @@ const pageUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]
 assert.match(formUi, /\(!requireSecondReviewer \|\| !selfReview\)/, 'Admin must see review buttons in temporary mode');
 assert.match(formUi, /Bạn đang xác nhận bản kiểm của chính mình/, 'Self review must be visibly marked');
 assert.match(pageUi, /!requireSecondReviewer \|\| current\.inspector_id !== session\.uid/, 'Evidence UI must use the same policy');
+assert.match(pageUi, /defaultKind=\{step\.level === 2 \? "image" : "document"\}/, 'Document tab should be selected for legal evidence');
+assert.match(formUi, /ok: result\.ok/, 'Expected validation failure must display on the audit page');
 const sql = fs.readFileSync(new URL('../supabase/migrations/20261017_delivery_history_audit.sql', import.meta.url), 'utf8');
 for (const field of ['shipment_ref', 'shipped_on', 'shipment_destination']) assert.ok(sql.includes(`add column if not exists ${field}`));
 const accessJs = ts.transpileModule(fs.readFileSync(new URL('../lib/media/verification-access.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;

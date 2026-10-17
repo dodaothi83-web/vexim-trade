@@ -68,13 +68,13 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
     setFeedback({ ok: true, message: `Đã điền nháp ${count} mục chưa kiểm. Hãy đối chiếu tệp và chỉnh sửa trước khi lưu.` });
   }
 
-  async function run(action: () => Promise<{ message: string }>) {
+  async function run(action: () => Promise<{ ok: boolean; message: string }>) {
     if (busy) return;
     setBusy(true); setFeedback(null);
     try {
       const result = await action();
-      setFeedback({ ok: true, message: result.message });
-      router.refresh();
+      setFeedback({ ok: result.ok, message: result.message });
+      if (result.ok) router.refresh();
     } catch (error) {
       setFeedback({ ok: false, message: error instanceof Error ? error.message : "Không lưu được. Vui lòng thử lại." });
     } finally { setBusy(false); }

@@ -6,6 +6,7 @@ import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { auditHref, auditItems } from "@/lib/verification";
 import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
+import { hasDocumentAuditEvidence } from "@/lib/verification-evidence";
 import type { Verification, VerificationStatus } from "@/lib/types";
 
 function refreshAudit(v: Verification) {
@@ -111,30 +112,35 @@ export async function approveVerificationAction(fd: FormData) {
   const { before, store, session } = await getReviewable(String(fd.get("id") || ""));
   const items = auditItems(before.target_level);
   if (items.some((it) => before.checklist[it.key] !== true && before.checklist[it.key] !== false)) {
-    throw new Error("Còn mục chưa kiểm; trả lại để bổ sung.");
+    return { ok: false, message: "Còn mục chưa kiểm; trả lại để bổ sung." };
   }
   if (before.target_level > 1) {
     const prev = (await store.listVerifications(before.supplier_id)).some((v) => v.target_level === before.target_level - 1 && v.status === "approved");
-    if (!prev) throw new Error("Bước trước chưa được duyệt.");
+    if (!prev) return { ok: false, message: "Bước trước chưa được duyệt." };
   }
+  // Never fall back to supplier-wide media: only this verification's attachments qualify.
   const media = await store.listMedia("verification", before.id);
   if (before.target_level === 1) {
-    if (items.slice(0, 5).some((it) => before.checklist[it.key] !== true)) throw new Error("Giấy tờ bắt buộc chưa đạt.");
-    if (!media.some((m) => m.kind === "document" || m.kind === "certificate")) throw new Error("Cần tải giấy tờ làm bằng chứng.");
+    if (items.slice(0, 5).some((it) => before.checklist[it.key] !== true)) return { ok: false, message: "Giấy tờ bắt buộc chưa đạt." };
+    if (!hasDocumentAuditEvidence(media)) {
+      return { ok: false, message: "Chưa có ảnh chụp giấy tờ hoặc PDF trong bằng chứng của đợt Kiểm tra giấy tờ này. Tệp ở kho chung NCC không được tính; hãy tải vào đúng đợt kiểm (hoặc trả lại để bổ sung)." };
+    }
   } else if (before.target_level === 2) {
     if (!before.visit_date || !before.visit_address || before.visit_lat == null || before.visit_lng == null ||
       !Number.isFinite(before.visit_lat) || !Number.isFinite(before.visit_lng) ||
       Math.abs(before.visit_lat) > 90 || Math.abs(before.visit_lng) > 180) {
-      throw new Error("Cần ngày, địa chỉ và GPS hợp lệ của nhà máy.");
+      return { ok: false, message: "Cần ngày, địa chỉ và GPS hợp lệ của nhà máy." };
     }
-    if (before.checklist.photos_taken !== true || !media.some((m) => m.kind === "image")) throw new Error("Cần ảnh thăm nhà máy và xác nhận mục ảnh chụp.");
+    if (before.checklist.photos_taken !== true || !media.some((m) => m.kind === "image" && m.storage_path)) {
+      return { ok: false, message: "Cần ảnh thăm nhà máy và xác nhận mục ảnh chụp." };
+    }
   } else {
     if (!before.shipment_ref?.trim() || !before.shipped_on || before.shipped_on > new Date().toISOString().slice(0, 10)) {
-      throw new Error("Cần mã lô hàng và ngày giao thực tế (không ở tương lai).");
+      return { ok: false, message: "Cần mã lô hàng và ngày giao thực tế (không ở tương lai)." };
     }
-    if (items.some((it) => before.checklist[it.key] !== true)) throw new Error("Cần xác nhận đủ chứng từ xuất hàng và giao nhận.");
+    if (items.some((it) => before.checklist[it.key] !== true)) return { ok: false, message: "Cần xác nhận đủ chứng từ xuất hàng và giao nhận." };
     if (!media.some((m) => m.kind === "document" && m.storage_path && m.status === "checked")) {
-      throw new Error("Cần ít nhất một chứng từ giao hàng đã được kiểm tra (vận đơn hoặc xác nhận giao nhận). RFQ thắng không đủ điều kiện.");
+      return { ok: false, message: "Cần ít nhất một chứng từ giao hàng đã được kiểm tra (vận đơn hoặc xác nhận giao nhận). RFQ thắng không đủ điều kiện." };
     }
   }
   await store.updateVerification(before.id, { status: "approved", approved_by: session?.uid ?? null, approved_at: new Date().toISOString() });

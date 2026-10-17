@@ -50,6 +50,7 @@ export function MediaManager({
   title,
   note,
   scopeHint,
+  defaultKind,
 }: {
   ownerType: MediaOwnerType;
   ownerId: string;
@@ -62,12 +63,14 @@ export function MediaManager({
   note?: string;
   /** Prominent scope explanation, separate from the compact file-count header. */
   scopeHint?: string;
+  /** Start with the evidence type expected by this audit step. */
+  defaultKind?: MediaKind;
 }) {
   const router = useRouter();
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [kind, setKind] = useState<MediaKind>("image");
+  const [kind, setKind] = useState<MediaKind>(defaultKind ?? "image");
   const [audience, setAudience] = useState<MediaAudience>(
     ownerType === "verification" ? "internal" : ownerType === "supplier" ? "buyer" : "buyer",
   );
@@ -305,7 +308,7 @@ export function MediaManager({
                 chọn tệp
               </button>
               <span className="ml-1 text-ink-400">
-                — {kind === "image" ? "JPG/PNG/WebP, ảnh được nén tự động" : "PDF tối đa 15MB"}
+                — {kind === "image" ? "JPG/PNG/WebP, ảnh được nén tự động" : kind === "document" || kind === "certificate" ? "PDF hoặc ảnh JPG/PNG/WebP tối đa 15MB (ảnh lớn chọn tab Ảnh để nén)" : "PDF tối đa 15MB"}
               </span>
             </p>
             {busy && (
