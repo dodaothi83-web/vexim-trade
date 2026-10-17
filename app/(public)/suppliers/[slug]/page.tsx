@@ -116,43 +116,9 @@ export default async function SupplierProfile({ params }: PageProps) {
     </section>
 
     <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
-      {[ ["Products", "products"], ["About", "about"], ["Verification", "verification"], ["Trade details", "trade"] ].map(([label, id]) =>
+      {[ ["About", "about"], ["Verification", "verification"], ["Trade details", "trade"], ["Products", "products"] ].map(([label, id]) =>
         <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
     </nav>
-
-    <section id="products" className="scroll-mt-24 pt-9" aria-labelledby="products-title">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><p className="text-xs font-bold uppercase tracking-widest text-brand-700">Supplier catalogue</p>
-          <h2 id="products-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">Products <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
-          <p className="mt-1 text-sm text-ink-600">{synthetic ? "Test entries on this profile are not commercial offers." : "Listings ready to share with buyers. Prices, where shown, are references; request a quote for current terms."}</p></div>
-      </div>
-      {s.main_products.length ? <ul className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {s.main_products.map((p) => {
-          const category = productCategory(p);
-          const href = !synthetic && category ? `/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}` : null;
-          const image = s.product_image_paths[p.id];
-          const rfq = `/rfq?category=${encodeURIComponent(category?.slug || "")}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`;
-          return <li key={p.id} className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-card transition hover:border-brand-200 hover:shadow-md">
-            <div className="relative flex h-44 items-center justify-center overflow-hidden bg-ink-50">
-              {image ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={mediaUrl(image)} alt={safe(p.name)} className="h-full w-full object-cover transition duration-300 hover:scale-105" loading="lazy" /></> : <div className="flex flex-col items-center gap-2 text-ink-400"><Package className="h-9 w-9" /><span className="text-xs">Catalogue available on request</span></div>}
-              {category && <span className="absolute bottom-3 left-3 rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-ink-800 shadow-sm">{safe(category.name_i18n.en || category.slug)}</span>}
-            </div>
-            <div className="flex flex-1 flex-col p-4">
-              <h3 className="line-clamp-2 min-h-10 text-base font-bold leading-5 text-ink-900">{href ? <Link href={href} className="hover:text-brand-700">{safe(p.name)}</Link> : safe(p.name)}</h3>
-              <p className="mt-2 line-clamp-2 min-h-9 text-xs leading-5 text-ink-600">{safe(p.spec || p.packaging || p.description) || "Contact Vexim for product specifications."}</p>
-              <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-ink-100 pt-3 text-xs">
-                <div><dt className="text-ink-500">MOQ</dt><dd className="mt-1 break-words font-semibold text-ink-800">{safe(p.moq || s.moq_text) || "On request"}</dd></div>
-                <div><dt className="text-ink-500">Reference price</dt><dd className="mt-1 break-words font-bold text-brand-800">{synthetic ? "Test data · not a price" : publicProductPrice(p, s) || "On request"}</dd></div>
-              </dl>
-              <div className="mt-auto flex items-center gap-3 pt-4">
-                {href && <Link href={href} className="text-xs font-semibold text-brand-700 hover:underline">View details <span aria-hidden>→</span></Link>}
-                {!synthetic && <Link href={rfq} className="ml-auto inline-flex items-center gap-1 rounded-lg bg-ink-900 px-3 py-2 text-xs font-bold text-white hover:bg-ink-800">Get quote <ArrowRight className="h-3.5 w-3.5" /></Link>}
-              </div>
-            </div>
-          </li>;
-        })}
-      </ul> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>No buyer-ready products are available on this profile yet. Products appear here only after the listing and shareable media meet publication requirements.</p></div>}
-    </section>
 
     <div className="mt-10 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-6">
@@ -208,6 +174,40 @@ export default async function SupplierProfile({ params }: PageProps) {
         </div>
       </aside>
     </div>
+
+    <section id="products" className="mt-10 scroll-mt-24 border-t border-ink-200 pt-10" aria-labelledby="products-title">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div><p className="text-xs font-bold uppercase tracking-widest text-brand-700">Supplier catalogue</p>
+          <h2 id="products-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">Products <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
+          <p className="mt-1 text-sm text-ink-600">{synthetic ? "Test entries on this profile are not commercial offers." : "Listings ready to share with buyers. Prices, where shown, are references; request a quote for current terms."}</p></div>
+      </div>
+      {s.main_products.length ? <ul className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {s.main_products.map((p) => {
+          const category = productCategory(p);
+          const href = !synthetic && category ? `/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}` : null;
+          const image = s.product_image_paths[p.id];
+          const rfq = `/rfq?category=${encodeURIComponent(category?.slug || "")}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`;
+          return <li key={p.id} className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-card transition hover:border-brand-200 hover:shadow-md">
+            <div className="relative flex h-44 items-center justify-center overflow-hidden bg-ink-50">
+              {image ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={mediaUrl(image)} alt={safe(p.name)} className="h-full w-full object-cover transition duration-300 hover:scale-105" loading="lazy" /></> : <div className="flex flex-col items-center gap-2 text-ink-400"><Package className="h-9 w-9" /><span className="text-xs">Catalogue available on request</span></div>}
+              {category && <span className="absolute bottom-3 left-3 rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-ink-800 shadow-sm">{safe(category.name_i18n.en || category.slug)}</span>}
+            </div>
+            <div className="flex flex-1 flex-col p-4">
+              <h3 className="line-clamp-2 min-h-10 text-base font-bold leading-5 text-ink-900">{href ? <Link href={href} className="hover:text-brand-700">{safe(p.name)}</Link> : safe(p.name)}</h3>
+              <p className="mt-2 line-clamp-2 min-h-9 text-xs leading-5 text-ink-600">{safe(p.spec || p.packaging || p.description) || "Contact Vexim for product specifications."}</p>
+              <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-ink-100 pt-3 text-xs">
+                <div><dt className="text-ink-500">MOQ</dt><dd className="mt-1 break-words font-semibold text-ink-800">{safe(p.moq || s.moq_text) || "On request"}</dd></div>
+                <div><dt className="text-ink-500">Reference price</dt><dd className="mt-1 break-words font-bold text-brand-800">{synthetic ? "Test data · not a price" : publicProductPrice(p, s) || "On request"}</dd></div>
+              </dl>
+              <div className="mt-auto flex items-center gap-3 pt-4">
+                {href && <Link href={href} className="text-xs font-semibold text-brand-700 hover:underline">View details <span aria-hidden>→</span></Link>}
+                {!synthetic && <Link href={rfq} className="ml-auto inline-flex items-center gap-1 rounded-lg bg-ink-900 px-3 py-2 text-xs font-bold text-white hover:bg-ink-800">Get quote <ArrowRight className="h-3.5 w-3.5" /></Link>}
+              </div>
+            </div>
+          </li>;
+        })}
+      </ul> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>No buyer-ready products are available on this profile yet. Products appear here only after the listing and shareable media meet publication requirements.</p></div>}
+    </section>
 
     {related.length > 0 && <section className="mt-12" aria-labelledby="related-title">
       <h2 id="related-title" className="text-lg font-bold text-ink-900">Explore other suppliers</h2>

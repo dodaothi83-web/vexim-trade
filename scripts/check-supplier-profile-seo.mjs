@@ -72,6 +72,16 @@ if (previous === undefined) delete process.env.PUBLIC_SITE_INDEXABLE;
 else process.env.PUBLIC_SITE_INDEXABLE = previous;
 const html = renderToStaticMarkup(await Profile(params(real.slug)));
 assert.match(html, /id="products"/);
+assert.ok(html.indexOf('id="about"') < html.indexOf('id="verification"') &&
+  html.indexOf('id="verification"') < html.indexOf('id="delivery-history"') &&
+  html.indexOf('id="delivery-history"') < html.indexOf('id="products"'),
+  'Products sit below the supplier information and all independent verification sections');
+assert.ok(html.indexOf('id="products"') < html.indexOf('id="related-title"'),
+  'Related suppliers, when present, remain below the product catalogue');
+assert.match(html, /href="#products"/, 'The header still jumps to the moved product section');
+assert.match(html, /href="#verification"/, 'Existing verification deep link still works');
+assert.ok(html.indexOf('href="#verification"') < html.lastIndexOf('href="#products"'),
+  'Section navigation follows the new page order');
 assert.match(html, /products\/p1\/approved.jpg/);
 assert.match(html, /href="\/products\/cashew\/p1"/);
 assert.match(html, /One delivery record reviewed/);
