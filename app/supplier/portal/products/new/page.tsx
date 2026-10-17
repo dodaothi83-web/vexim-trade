@@ -4,7 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { SupplierProductEditor } from "../product-editor";
-import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
+import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { SupplierWorkspaceHeader } from "../workspace-header";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,9 @@ export default async function NewSupplierProductPage() {
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
-  const categories = categoryProposalOptions(await access.store.listCategories({ publishedOnly: true }));
+  const options = categoryProposalOptions(await access.store.listCategories({ publishedOnly: true }));
+  const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
+  const categories = allowedSupplierCategories(access.supplier, options, linked);
   return <main className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 sm:pt-10">
     <SupplierWorkspaceHeader name={access.supplier.display_name || access.supplier.trade_name || access.supplier.name} active="new" />
     <nav aria-label="Đường dẫn" className="mt-6 flex items-center gap-1.5 text-xs text-slate-500"><Link href="/supplier/portal/products" className="hover:text-teal-700">Sản phẩm</Link><ChevronRight className="size-3.5" aria-hidden="true" /><span className="font-semibold text-slate-800">Thêm mới</span></nav>

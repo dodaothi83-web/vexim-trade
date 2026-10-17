@@ -15,7 +15,7 @@ function load(file, mocks) {
 const supplierId = '12345678-1234-1234-1234-123456789abc';
 const productId = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
 const user = { id: 'owner', email: 'factory@example.com', supplier_id: supplierId, role: 'supplier', is_active: true };
-const supplier = { id: supplierId, fob_publicly_visible: false, fob_updated_at: null, name: 'Factory One', products: 'Cashew W320', onboarding_status: 'pending' };
+const supplier = { id: supplierId, fob_publicly_visible: false, fob_updated_at: null, name: 'Factory One', products: 'Cashew W320', onboarding_status: 'pending', requested_category_slugs: ['cashew'] };
 let product = null;
 const files = [];
 const audit = [];
@@ -26,6 +26,7 @@ const categories = [
   { id: '22222222-2222-2222-2222-222222222222', slug: 'rice', parent_id: null, name_i18n: { vi: 'Gạo', en: 'Rice' }, status: 'published', is_published: true, sort_order: 2 },
 ];
 const store = {
+  getSupplier: async (id) => id === supplierId ? supplier : null,
   getProduct: async (id) => id === productId ? product : null,
   createProduct: async (input) => { product = { ...input, id: productId }; return product; },
   updateProduct: async (id, patch) => { assert.equal(id, productId); product = { ...product, ...patch }; return product; },
@@ -46,7 +47,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/supplier-portal/onboarding': onboarding,
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible && !!s.fob_updated_at && Date.now() - new Date(s.fob_updated_at).getTime() < 180 * 86400_000 },
-  '@/lib/public/category-assignment': { assignProductCategory: () => null, assignSupplierCategories: () => ({ slugs: [] }) },
+  '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => c.slug === (p.name.includes('Rice') ? 'rice' : 'cashew')) },
 });
 const form = () => {
   const fd = new FormData();
@@ -63,6 +64,12 @@ const missingFloor = form(); missingFloor.delete('ref_price'); missingFloor.set(
 assert.equal((await actions.saveSupplierProductAction(missingFloor)).ok, false, 'Upper price requires a positive lower price');
 const invalidProposal = form(); invalidProposal.set('supplier_category_proposal', 'not-in-catalogue');
 assert.equal((await actions.saveSupplierProductAction(invalidProposal)).ok, false, 'Supplier cannot forge a category');
+const outsideScope = form(); outsideScope.set('supplier_category_proposal', 'rice');
+assert.equal((await actions.saveSupplierProductAction(outsideScope)).ok, false, 'Published category outside supplier scope is rejected');
+const wrongCommodity = form(); wrongCommodity.set('name', 'Jasmine Rice');
+assert.equal((await actions.saveSupplierProductAction(wrongCommodity)).ok, false, 'Obvious rice product cannot be saved as cashew');
+const noCategory = form(); noCategory.delete('supplier_category_proposal');
+assert.equal((await actions.saveSupplierProductAction(noCategory)).ok, false, 'A product needs one selected category');
 assert.equal(product, null);
 const created = await actions.saveSupplierProductAction(form());
 assert.equal(created.ok, true); assert.equal(created.id, productId);
@@ -149,16 +156,22 @@ const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
     getSession: async () => ({ uid: 'reviewer', email: 'staff@example.com', role: 'sourcing' }) },
   '@/lib/db': { getStore: () => store },
   '@/lib/supplier-portal/category-proposals': categoryProposals,
+  '@/lib/public/category-assignment': { assignProductCategory: (p) => p.name.includes('Rice') ? categories[1] : categories[0] },
 });
 const approve = new FormData(); approve.set('product_id', productId); approve.set('decision', 'approved');
 assert.equal((await review.decideSupplierProductAction(approve)).ok, false);
 denied = false;
 assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Staff must explicitly pick a category');
 approve.set('reviewed_category_slug', 'rice');
+assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Staff cannot approve a category outside the supplier selection');
+approve.set('reviewed_category_slug', 'cashew');
+product.name = 'Jasmine Rice';
+assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Obvious rice product cannot be approved as cashew');
+product.name = 'Cashew W320';
 assert.equal((await review.decideSupplierProductAction(approve)).ok, true);
 assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, false);
 assert.equal(product.supplier_category_proposal, 'cashew');
-assert.equal(product.reviewed_category_slug, 'rice', 'Staff decision overrides supplier proposal');
+assert.equal(product.reviewed_category_slug, 'cashew', 'Staff approves the product in the supplier-selected category');
 const productView = load('../lib/supplier-portal/product-view.ts', {});
 const visibleFiles = productView.supplierVisibleProductMedia([
   { ...files[0], owner_type: 'product', supplier_id: supplierId, created_by: user.id, kind: 'image' },
@@ -176,11 +189,14 @@ const selection = load('../lib/public/product-selection.ts', {
 assert.equal(selection.productReviewApproved(product), true);
 assert.equal(selection.productBelongsToCategory({ ...product, reviewed_category_slug: null, supplier_originated: false }, categories[0], categories), true,
   'Historical products retain name inference');
-assert.equal(selection.productBelongsToCategory(product, categories[1], categories), true);
-assert.equal(selection.productBelongsToCategory(product, categories[0], categories), false,
-  'A staff-reviewed category outranks both the product name and the supplier proposal');
+assert.equal(selection.productBelongsToCategory(product, categories[0], categories), true);
+assert.equal(selection.productBelongsToCategory(product, categories[1], categories), false,
+  'A reviewed product stays in its supplier-selected category');
 product.ready_for_buyer = true; // Staff-only readiness switch; simulate an already-public approved product.
-const correction = new FormData(); correction.set('product_id', productId); correction.set('reviewed_category_slug', 'cashew');
+const correction = new FormData(); correction.set('product_id', productId); correction.set('reviewed_category_slug', 'rice');
+assert.equal((await review.correctSupplierProductCategoryAction(correction)).ok, false, 'Staff cannot move to another supplier category');
+product.reviewed_category_slug = 'rice'; // historical incorrect decision to correct within the selected scope
+correction.set('reviewed_category_slug', 'cashew');
 assert.equal((await review.correctSupplierProductCategoryAction(correction)).ok, true);
 assert.equal(product.reviewed_category_slug, 'cashew'); assert.equal(product.ready_for_buyer, false, 'Category correction cannot publish');
 const revised = form(); revised.set('product_id', productId); revised.set('name', 'Cashew W240');

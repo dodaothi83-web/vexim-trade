@@ -13,7 +13,7 @@ import { MediaManager, ReadyHint } from "@/components/media-manager";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { requirePagePermission } from "@/lib/auth/session";
 import { SupplierProductReviewControls } from "./review-controls";
-import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
+import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,8 @@ export default async function EditProductPage({
     ? categories.find((c) => c.slug === product.reviewed_category_slug) ?? null
     : assignProductCategory(product, categories, supplierCategories);
   const category = categories.find((c) => c.id === match?.id);
-  const categoryOptions = categoryProposalOptions(categories);
+  const linked = supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(supplier.id);
+  const categoryOptions = allowedSupplierCategories(supplier, categoryProposalOptions(categories), linked);
   const categoryPublished = !!category && category.status === "published" && category.is_published;
   // Match the category catalog: a published test profile is still not a real commercial supplier.
   const commercialSupplier = !isSyntheticSupplier(supplier) ||
@@ -80,13 +81,9 @@ export default async function EditProductPage({
           {product.supplier_review_status === "pending" && (session.role === "admin" || session.role === "sourcing") &&
             <SupplierProductReviewControls id={product.id} proposal={product.supplier_category_proposal} categories={categoryOptions} />}
         </section>}
-        {product.supplier_review_status === "approved" && (session.role === "admin" || session.role === "sourcing") &&
-          <section className="card p-5"><h2 className="font-bold text-ink-900">Danh mục Vexim xác nhận</h2>
-            <SupplierProductReviewControls id={product.id} proposal={product.supplier_category_proposal}
-              reviewed={product.reviewed_category_slug} categories={categoryOptions} approved /></section>}
         <section className="card p-5 text-sm" aria-label="Điều kiện xuất hiện trên website">
           <h2 className="font-bold text-ink-900">Hiển thị sản phẩm trên website</h2>
-          <p className="mt-1 text-ink-600">Danh mục Vexim đã chốt quyết định trang sản phẩm; với sản phẩm cũ chưa có quyết định, hệ thống vẫn gợi ý theo nội dung. Ảnh danh mục không phải ảnh sản phẩm: tải ảnh vào chính hồ sơ này và chọn “Chia sẻ buyer”.</p>
+          <p className="mt-1 text-ink-600">NCC chọn trong danh mục Vexim đã mở; Vexim kiểm tra từng sản phẩm trước khi cho công khai. Sản phẩm cũ vẫn dùng quy tắc phân loại lịch sử. Ảnh danh mục không phải ảnh sản phẩm: tải ảnh vào chính hồ sơ này và chọn “Chia sẻ buyer”.</p>
           <ul className="mt-3 space-y-1 text-ink-700">
             <li>{categoryPublished ? "✓" : "○"} Danh mục {category?.name_i18n.en || category?.slug || "chưa nhận diện"} đã đăng</li>
             <li>{supplier.status === "published" ? "✓" : "○"} NCC đã đăng (không tự chuyển trạng thái khi lưu)</li>

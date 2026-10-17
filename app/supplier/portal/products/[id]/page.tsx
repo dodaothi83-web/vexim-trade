@@ -4,7 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
-import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
+import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { SupplierProductEditor } from "../product-editor";
 import { SupplierWorkspaceHeader } from "../workspace-header";
 
@@ -22,7 +22,9 @@ export default async function OwnProductPage({ params }: { params: Promise<{ id:
     access.store.listMedia("product", id), access.store.listCategories({ publishedOnly: true }),
   ]);
   const media = supplierVisibleProductMedia(allMedia, access.supplier.id, access.user.id);
-  const categories = categoryProposalOptions(allCategories);
+  const options = categoryProposalOptions(allCategories);
+  const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
+  const categories = allowedSupplierCategories(access.supplier, options, linked);
   return <main className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 sm:pt-10">
     <SupplierWorkspaceHeader name={access.supplier.display_name || access.supplier.trade_name || access.supplier.name} active="edit" />
     <nav aria-label="Đường dẫn" className="mt-6 flex min-w-0 items-center gap-1.5 text-xs text-slate-500"><Link href="/supplier/portal/products" className="shrink-0 hover:text-teal-700">Sản phẩm</Link><ChevronRight className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate font-semibold text-slate-800">{product.name}</span></nav>

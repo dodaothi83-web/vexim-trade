@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
-import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
-import { categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
+import { categoryProposalOptions, allowedSupplierCategories, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
+import { assignProductCategory } from "@/lib/public/category-assignment";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 
 type Result = { ok: boolean; message: string; id?: string };
@@ -59,12 +59,16 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     if (id && (!existing || existing.supplier_id !== access.supplier.id)) return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
     if (existing?.supplier_review_status === "pending") return { ok: false, message: "Sản phẩm đang chờ Vexim kiểm tra; chưa thể sửa." };
     const input = parseProduct(form, access.supplier.id);
-    const categories = await store.listCategories({ publishedOnly: false });
-    input.supplier_category_proposal = parseProductCategoryProposal(form, categoryProposalOptions(categories));
-    const linked = await store.listSupplierCategories(access.supplier.id);
-    const linkedSlugs = linked.map((row) => categories.find((c) => c.id === row.category_id)?.slug).filter((v): v is string => !!v);
-    const fallback = linkedSlugs.length ? linkedSlugs : assignSupplierCategories(access.supplier.products, [], categories).slugs;
-    input.category = assignProductCategory(input, categories, fallback)?.slug ?? null;
+    const allCategories = await store.listCategories({ publishedOnly: true });
+    const options = categoryProposalOptions(allCategories);
+    const linked = access.supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(access.supplier.id);
+    const allowed = allowedSupplierCategories(access.supplier, options, linked);
+    input.supplier_category_proposal = parseProductCategoryProposal(form, allowed);
+    input.category = input.supplier_category_proposal;
+    // Obvious cross-category goods are rejected before saving, not merely hidden after review.
+    const inferred = assignProductCategory({ name: input.name, spec: input.spec, description: input.description, category: null }, allCategories);
+    if (inferred && inferred.slug !== input.category)
+      throw new Error(`Tên/quy cách có vẻ thuộc ${inferred.name_i18n.vi || inferred.name_i18n.en || inferred.slug}, không phải danh mục đã chọn. Vui lòng kiểm tra lại.`);
     const saved = existing ? await store.updateProduct(existing.id, {
       ...input, // Reset review and buyer-ready in the same DB write, even when previously public.
       slug: existing.slug, name_i18n: {}, specs: {}, images: existing.images,
@@ -109,6 +113,11 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     if (!product || product.supplier_id !== access.supplier.id) return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
     if (product.supplier_review_status !== "draft" && product.supplier_review_status !== "changes_requested") return { ok: false, message: "Sản phẩm không ở trạng thái cho phép nộp." };
     if (!product.name || !(product.spec || product.description)) return { ok: false, message: "Cần tên và mô tả/quy cách thực tế." };
+    const options = categoryProposalOptions(await store.listCategories({ publishedOnly: true }));
+    const linked = access.supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(access.supplier.id);
+    const allowed = allowedSupplierCategories(access.supplier, options, linked);
+    if (!product.supplier_category_proposal || !allowed.some((c) => c.slug === product.supplier_category_proposal))
+      return { ok: false, message: "Sản phẩm chưa có danh mục thuộc phạm vi kinh doanh đã chọn. Hãy lưu lại sản phẩm với danh mục hợp lệ." };
     const media = await store.listMedia("product", id);
     if (!media.some((m) => (m.kind === "image" || m.kind === "catalogue") && m.storage_path &&
       m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {

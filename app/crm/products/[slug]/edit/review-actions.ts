@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
-import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
+import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
+import { assignProductCategory } from "@/lib/public/category-assignment";
 
 type Result = { ok: boolean; message: string };
 
@@ -24,8 +25,18 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
     let reviewedCategory: string | null = null;
     if (decision === "approved") {
       reviewedCategory = String(form.get("reviewed_category_slug") ?? "");
-      const options = categoryProposalOptions(await store.listCategories({ publishedOnly: false }));
-      if (!options.some((c) => c.slug === reviewedCategory)) return { ok: false, message: "Vexim cần chọn một danh mục sản phẩm đang được xuất bản trước khi xác nhận." };
+      const supplier = await store.getSupplier(product.supplier_id);
+      if (!supplier) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
+      const categories = await store.listCategories({ publishedOnly: false });
+      const options = categoryProposalOptions(categories);
+      const linked = supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(supplier.id);
+      if (!allowedSupplierCategories(supplier, options, linked).some((c) => c.slug === reviewedCategory) ||
+          reviewedCategory !== product.supplier_category_proposal) {
+        return { ok: false, message: "Danh mục sản phẩm phải đúng danh mục NCC đã chọn. Nếu mặt hàng khai sai, yêu cầu NCC chỉnh sửa trước khi duyệt." };
+      }
+      const inferred = assignProductCategory({ name: product.name, spec: product.spec, description: product.description, category: null }, categories);
+      if (inferred && inferred.slug !== reviewedCategory)
+        return { ok: false, message: `Tên/quy cách có vẻ thuộc ${inferred.name_i18n.vi || inferred.name_i18n.en || inferred.slug}, không phải danh mục NCC đã chọn. Hãy yêu cầu NCC chỉnh sửa trước khi duyệt.` };
       const media = await store.listMedia("product", id);
       if (!product.name || !(product.spec || product.description) ||
           !media.some((m) => (m.kind === "image" || m.kind === "catalogue") && m.storage_path && m.supplier_id === product.supplier_id)) {
@@ -62,8 +73,16 @@ export async function correctSupplierProductCategoryAction(form: FormData): Prom
     const store = getStore();
     const product = await store.getProduct(id);
     if (!product || product.supplier_review_status !== "approved") return { ok: false, message: "Chỉ được sửa danh mục sản phẩm NCC đã duyệt." };
-    const options = categoryProposalOptions(await store.listCategories({ publishedOnly: false }));
-    if (!options.some((c) => c.slug === slug)) return { ok: false, message: "Chọn danh mục đang được xuất bản." };
+    const supplier = await store.getSupplier(product.supplier_id);
+    if (!supplier) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
+    const categories = await store.listCategories({ publishedOnly: false });
+    const options = categoryProposalOptions(categories);
+    const linked = supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(supplier.id);
+    if (!allowedSupplierCategories(supplier, options, linked).some((c) => c.slug === slug) ||
+        (product.supplier_category_proposal && slug !== product.supplier_category_proposal))
+      return { ok: false, message: "Danh mục phải thuộc phạm vi NCC và khớp mặt hàng NCC đã chọn; hãy yêu cầu NCC cập nhật trước." };
+    const inferred = assignProductCategory({ name: product.name, spec: product.spec, description: product.description, category: null }, categories);
+    if (inferred && inferred.slug !== slug) return { ok: false, message: "Tên/quy cách không khớp danh mục này; hãy yêu cầu NCC chỉnh sửa trước." };
     if (product.reviewed_category_slug === slug) return { ok: true, message: "Danh mục không thay đổi." };
     await store.updateProduct(id, { reviewed_category_slug: slug, category: slug, ready_for_buyer: false });
     await store.addAuditLog({ actor_id: session.uid, actor_email: session.email, entity: "product", entity_id: id,

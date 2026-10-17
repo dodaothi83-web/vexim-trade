@@ -130,15 +130,13 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         <div className="border-b border-slate-100 px-5 py-5 sm:px-7"><p className="text-xs font-bold uppercase tracking-widest text-teal-700">Bước 1 · Nội dung</p><h2 className="mt-1 text-xl font-black text-slate-900">Thông tin sản phẩm</h2><p className="mt-1 text-sm text-slate-600">Tên, mô tả và quy cách rõ ràng giúp Vexim kiểm tra nhanh hơn.</p></div>
         <div className="space-y-6 px-5 py-6 sm:px-7">
           <Field label="Tên sản phẩm" hint="Ví dụ: Hạt điều nhân trắng W320" required><input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked} /></Field>
-          {product?.reviewed_category_slug && <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950">
-            Danh mục Vexim đã chốt: <strong>{categories.find((c) => c.slug === product.reviewed_category_slug)?.label ?? product.reviewed_category_slug}</strong>. Danh mục đề xuất bên dưới không tự đổi quyết định này.
-          </p>}
-          <Field label="Danh mục sản phẩm đề xuất" hint="Vexim xác nhận danh mục cuối cùng trước khi sản phẩm có thể xuất hiện trên trang buyer.">
-            <select name="supplier_category_proposal" className="input" defaultValue={product?.supplier_category_proposal ?? ""} disabled={locked}>
-              <option value="">Chưa rõ / để Vexim phân loại</option>
+          <Field label="Danh mục sản phẩm *" hint="Chỉ chọn trong danh mục kinh doanh của bạn do Vexim mở. Vexim kiểm tra sản phẩm trước khi công khai; chọn danh mục không tự duyệt.">
+            <select name="supplier_category_proposal" className="input" required defaultValue={product?.supplier_category_proposal ?? product?.reviewed_category_slug ?? ""} disabled={locked || !categories.length}>
+              <option value="" disabled>Chọn danh mục sản phẩm</option>
               {categories.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} · ` : ""}{c.label}</option>)}
             </select>
           </Field>
+          {!categories.length && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Bạn chưa chọn danh mục kinh doanh đang mở. <Link href="/supplier/portal/categories" className="font-semibold underline">Chọn danh mục trước khi thêm sản phẩm →</Link></p>}
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Mô tả ngắn" hint="Tóm tắt vài câu bên cạnh ảnh sản phẩm"><textarea name="description" className="input min-h-32 resize-y" rows={4} maxLength={1500} placeholder="Giới thiệu ngắn gọn cho Vexim..." defaultValue={product?.description ?? ""} disabled={locked} /></Field>
             <Field label="Quy cách / tiêu chuẩn" hint="Ít nhất một trong hai ô mô tả hoặc quy cách để gửi duyệt"><textarea name="spec" className="input min-h-32 resize-y" rows={4} maxLength={800} placeholder="Ví dụ: Size W320, độ ẩm ≤ 5%, đóng gói 25 kg..." defaultValue={product?.spec ?? ""} disabled={locked} /></Field>

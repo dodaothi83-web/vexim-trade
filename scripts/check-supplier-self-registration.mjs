@@ -197,8 +197,9 @@ state.suppliers[0].onboarding_status = 'changes_requested';
 const forgedCorrectionVisit = form(); forgedCorrectionVisit.set('request:2', 'yes');
 assert.equal((await submitProfile(forgedCorrectionVisit)).status, 400);
 const otherCategory = form(); otherCategory.delete('requested_category_slugs'); otherCategory.set('requested_category_other', 'Macca tách vỏ');
-assert.equal((await submitProfile(otherCategory)).status, 200, 'Returned profile may propose a missing category');
-assert.equal(state.suppliers[0].requested_category_other, 'Macca tách vỏ');
+assert.equal((await submitProfile(otherCategory)).status, 400, 'Cannot open a free-text category');
+assert.equal(state.suppliers[0].requested_category_other, null);
+assert.equal((await submitProfile(form())).status, 200, 'Returned profile can reselect a Vexim category');
 assert.equal(state.suppliers[0].onboarding_status, 'pending');
 assert.equal(state.reviews.length, 1);
 assert.equal(state.requests.length, 1);
@@ -323,25 +324,9 @@ assert.equal(onboarding.portalApproved(staffSupplier), true);
 assert.equal(staffSupplier.status, 'draft', 'Account approval cannot publish supplier');
 assert.equal(state.reviews[0].status, 'in_progress', 'Account approval cannot approve document check');
 assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, false, 'No duplicate approval');
-let links = [];
-const categoryActions = load('../app/crm/suppliers/[slug]/category-actions.ts', {
-  'next/cache': { revalidatePath() {} },
-  '@/lib/db': { getStore: () => ({
-    getSupplier: async () => staffSupplier, listCategories: async () => categories,
-    listSupplierCategories: async () => links,
-    setSupplierCategories: async (_id, ids, primary) => { links = ids.map((category_id) => ({ category_id, is_primary: category_id === primary })); },
-    updateSupplier: async (_id, patch) => Object.assign(staffSupplier, patch),
-    addAuditLog: async (entry) => state.audit.push(entry),
-  }) },
-  '@/lib/auth/session': { guard: async () => null, getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'sourcing' }) },
-  '@/lib/supplier-portal/category-proposals': categoryProposals,
-});
-const categoryForm = new FormData(); categoryForm.set('supplier_id', staffSupplierId);
-categoryForm.append('category_id', 'c2'); categoryForm.set('primary_id', 'c2');
-assert.equal((await categoryActions.confirmSupplierCategoriesAction(categoryForm)).ok, true);
-assert.equal(staffSupplier.categories_reviewed_at != null, true);
-assert.equal(links[0].category_id, 'c2', 'Staff choice replaces supplier proposal, not vice versa');
-assert.equal(staffSupplier.status, 'draft', 'Confirming industries does not publish the supplier');
+assert.equal(staffSupplier.requested_category_slugs[0], 'cashew', 'Chosen Vexim category is retained without a second staff category approval');
+const staffDetail = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
+assert.doesNotMatch(staffDetail, /SupplierCategoryControls/, 'Duplicate supplier-category approval panel was removed');
 const gateSchema = fs.readFileSync(new URL('../supabase/migrations/20261017_supplier_onboarding_gate.sql', import.meta.url), 'utf8');
 assert.match(gateSchema, /onboarding_status = 'pending'/);
 assert.doesNotMatch(gateSchema, /onboarding_status = 'approved'/);

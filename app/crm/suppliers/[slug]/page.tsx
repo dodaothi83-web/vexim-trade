@@ -25,7 +25,6 @@ import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { roleLabel, supplierTypeLabel, statusMeta } from "@/lib/supplier";
 import { isExpired } from "@/lib/media/readiness";
-import { assignSupplierCategories } from "@/lib/public/category-assignment";
 import { MediaGallery, MediaThumb } from "@/components/media-gallery";
 import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -33,8 +32,6 @@ import { StageBadge } from "@/components/stage-select";
 import { DeleteSupplierButton } from "@/components/supplier-actions";
 import { VerificationPanel } from "./verification-panel";
 import { OnboardingControls } from "./onboarding-controls";
-import { SupplierCategoryControls } from "./category-controls";
-import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 
 export const dynamic = "force-dynamic";
 
@@ -58,17 +55,12 @@ export default async function SupplierDetailPage({
     listBuyersWithSupplier(),
     store.listProductsBySupplier(id),
   ]);
-  const [supplierMedia, productMedia, verifications, categories, links, requests] = await Promise.all([
+  const [supplierMedia, productMedia, verifications, requests] = await Promise.all([
     store.listMedia("supplier", id),
     store.listMediaForProducts(products.map((p) => p.id)),
     store.listVerifications(id),
-    store.listCategories({ publishedOnly: false }),
-    store.listSupplierCategories(id).catch(() => []),
     store.listSupplierVerificationRequests(id).catch((error) => { console.error("[supplier-requests] migration/query failed", error); return []; }),
   ]);
-  const assigned = links.length
-    ? links.map((link) => ({ category: categories.find((c) => c.id === link.category_id), primary: link.is_primary })).filter((item) => !!item.category)
-    : assignSupplierCategories(supplier.products, products, categories).slugs.map((slug, index) => ({ category: categories.find((c) => c.slug === slug), primary: index === 0 }));
   // Ảnh đại diện cho từng sản phẩm (ưu tiên ảnh chia sẻ buyer, chưa hết hạn)
   const thumbByProduct = new Map<string, typeof productMedia[number]>();
   for (const m of productMedia) {
@@ -121,12 +113,6 @@ export default async function SupplierDetailPage({
         <p className="mt-1 text-ink-600">Tách riêng khỏi kho ảnh chung và ba đợt kiểm xác minh NCC; tệp không tự hiện trên sản phẩm.</p>
       </div>}
 
-      {canManage && (session.role === "admin" || session.role === "sourcing") &&
-        <SupplierCategoryControls supplierId={id} options={categoryProposalOptions(categories)}
-          proposed={supplier.requested_category_slugs ?? []} other={supplier.requested_category_other}
-          confirmed={links.map((item) => item.category_id)} primary={links.find((item) => item.is_primary)?.category_id}
-          reviewed={!!supplier.categories_reviewed_at} />}
-
       {(supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested" || supplier.onboarding_status === "approved") &&
         <Card className="mb-5 p-5">
           <h2 className="text-lg font-bold text-ink-900">Quyền sử dụng cổng nhà cung cấp</h2>
@@ -178,8 +164,6 @@ export default async function SupplierDetailPage({
             <Row icon={<FileText className="h-3.5 w-3.5" />} label="Mã số thuế" value={supplier.tax_id} />
             <Row icon={<Banknote className="h-3.5 w-3.5" />} label="Thanh toán" value={supplier.payment_terms} />
             <Row icon={<Clock className="h-3.5 w-3.5" />} label="Mặt hàng" value={supplier.products} />
-            {assigned.length > 0 && <li className="px-4 py-3 text-sm"><span className="font-semibold text-ink-500">Ngành tự gán</span><div className="mt-2 flex flex-wrap gap-1.5">{assigned.map(({ category, primary }) => category &&
-              <span key={category.id} className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">{category.name_i18n.en || category.slug}{primary ? " · chính" : ""}</span>)}</div></li>}
           </ul>
           {supplier.notes && (
             <div className="border-t border-ink-200 bg-amber-50/50 px-4 py-3">

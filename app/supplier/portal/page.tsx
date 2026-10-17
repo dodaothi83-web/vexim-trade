@@ -98,6 +98,7 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
         ["#report", "Báo cáo"], ["#profile", "Hồ sơ & xác minh"]].map(([href, label]) =>
         <a key={href} href={href} className="rounded-full border border-ink-200 bg-white px-3 py-2 text-ink-700 hover:border-brand-500 hover:text-brand-700">{label}</a>)}
       <Link href="/supplier/portal/products" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Sản phẩm của tôi →</Link>
+      <Link href="/supplier/portal/categories" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Danh mục kinh doanh →</Link>
       <Link href="/supplier/portal/traffic" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Lượt xem gian hàng →</Link>
       <Link href="/supplier/portal/certificates" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Gửi chứng nhận để Vexim kiểm tra →</Link>
     </nav>
