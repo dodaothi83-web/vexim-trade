@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
 import {
   ATTACHMENT_BUCKET,
   MAX_FILE_BYTES,
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
       { status: 401 },
     );
   }
-  if (session.role === "viewer") {
+  if (!hasPermission(session.role, "mail.send")) {
     return NextResponse.json(
       { ok: false, message: "Tài khoản của bạn không có quyền gửi email." },
       { status: 403 },

@@ -8,7 +8,7 @@ import { auditHref, auditItems, auditUploadKind, requiredAuditItems } from "@/li
 import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import { hasDocumentAuditEvidence } from "@/lib/verification-evidence";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
-import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
+import { notifyStaffVerificationSubmission, notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { type AuditEvidenceKey, type Verification, type VerificationStatus } from "@/lib/types";
 
 function refreshAudit(v: Verification) {
@@ -35,7 +35,7 @@ async function auditChange(before: Verification, status: VerificationStatus, act
   }).catch((err) => console.error("[audit] verification write failed", err));
 }
 
-/** Save the inspector's work or submit it for a reviewer (possibly the same admin temporarily). */
+/** Save the inspector's work or submit it for an independent reviewer. */
 export async function updateVerificationChecklistAction(fd: FormData) {
   const gate = await guard("verifications.inspect");
   if (gate) throw new Error(gate.message);
@@ -105,7 +105,11 @@ export async function updateVerificationChecklistAction(fd: FormData) {
   await store.updateVerification(id, patch);
   await auditChange(before, nextStatus, nextStatus === "submitted" ? "submit" : "save");
   refreshAudit(before);
-  return { ok: true, message: nextStatus === "submitted" ? "Đã nộp duyệt." : "Đã lưu bản kiểm." };
+  if (nextStatus === "submitted") {
+    const mail = await notifyStaffVerificationSubmission(before.supplier_id, before.target_level);
+    if (mail !== "sent") console.warn("[verification] reviewer notification failed; submission remains queued", mail);
+  }
+  return { ok: true, message: nextStatus === "submitted" ? "Đã nộp duyệt; người kiểm duyệt sẽ xem bằng chứng." : "Đã lưu bản kiểm." };
 }
 
 async function getReviewable(id: string) {
@@ -116,6 +120,7 @@ async function getReviewable(id: string) {
   if ((await store.listVerifications(before.supplier_id)).some((v) => v.target_level === before.target_level && v.status === "approved")) {
     throw new Error("Bước này đã được duyệt ở đợt kiểm khác.");
   }
+  if (!before.inspector_id) throw new Error("Bản kiểm thiếu người kiểm. Cần chuyên viên nộp lại trước khi duyệt.");
   if (requireSecondVerificationReviewer() && before.inspector_id === session?.uid) {
     throw new Error("Người kiểm không được tự duyệt. Cần người khác xét duyệt.");
   }
@@ -155,11 +160,9 @@ export async function approveVerificationAction(fd: FormData) {
   try {
     await store.updateVerification(before.id, { status: "approved", approved_by: session?.uid ?? null, approved_at: new Date().toISOString() });
   } catch (error) {
-    // The temporary self-review policy needs its companion DB migration. Do not
-    // mask unrelated DB failures or claim this verification was approved.
     if (error instanceof Error && /verifications_four_eyes/.test(error.message)) {
-      console.error("[verification] database still enforces verifications_four_eyes; approval not saved");
-      return { ok: false, message: "CSDL vẫn yêu cầu người duyệt khác người kiểm (verifications_four_eyes). Hãy nhờ quản trị viên khác duyệt, hoặc quản trị CSDL chạy migration 20261017_temporary_self_verification_approval.sql trên đúng Supabase project. Bản kiểm vẫn đang chờ duyệt." };
+      console.error("[verification] database rejected the four-eyes approval");
+      return { ok: false, message: "CSDL yêu cầu người duyệt khác người kiểm. Nhờ tài khoản khác xét duyệt; bản kiểm vẫn đang chờ duyệt." };
     }
     throw error;
   }

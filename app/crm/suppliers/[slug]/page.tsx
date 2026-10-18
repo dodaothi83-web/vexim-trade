@@ -29,7 +29,7 @@ import { MediaGallery, MediaThumb } from "@/components/media-gallery";
 import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { StageBadge } from "@/components/stage-select";
-import { DeleteSupplierButton } from "@/components/supplier-actions";
+import { DeleteSupplierButton, SupplierPublicationControls } from "@/components/supplier-actions";
 import { VerificationPanel } from "./verification-panel";
 import { OnboardingControls } from "./onboarding-controls";
 
@@ -43,16 +43,19 @@ export default async function SupplierDetailPage({
   const { slug: id } = await params;
   const session = await requireSession();
   const canManage = hasPermission(session.role, "suppliers.manage");
+  const canPublish = hasPermission(session.role, "suppliers.publish");
   const canManageProducts = hasPermission(session.role, "products.manage");
   const canSeeInternal = hasPermission(session.role, "media.internal");
   const canInspect = hasPermission(session.role, "verifications.inspect");
+  const canViewReviews = hasPermission(session.role, "verifications.view");
+  const canSeeBuyers = hasPermission(session.role, "buyers.view");
 
   const store = getStore();
   const supplier = await store.getSupplier(id);
   if (!supplier) notFound();
 
   const [buyers, products] = await Promise.all([
-    listBuyersWithSupplier(),
+    canSeeBuyers ? listBuyersWithSupplier() : Promise.resolve([]),
     store.listProductsBySupplier(id),
   ]);
   const [supplierMedia, productMedia, verifications, requests] = await Promise.all([
@@ -93,6 +96,7 @@ export default async function SupplierDetailPage({
           .join(" · ")}
         actions={
           <>
+            {canPublish && <SupplierPublicationControls supplierId={id} status={supplier.status} />}
             {canManage && (
               <>
                 <Link href={`/crm/suppliers/${id}/edit`} className="btn btn-ghost">
@@ -108,7 +112,7 @@ export default async function SupplierDetailPage({
         }
       />
 
-      {canInspect && <div className="mb-5 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm">
+      {canViewReviews && <div className="mb-5 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm">
         <Link href={`/crm/suppliers/${id}/certificates`} className="font-bold text-brand-800 underline">Chứng nhận NCC chờ Vexim xét duyệt / quyết định công bố →</Link>
         <p className="mt-1 text-ink-600">Tách riêng khỏi kho ảnh chung và ba đợt kiểm xác minh NCC; tệp không tự hiện trên sản phẩm.</p>
       </div>}
@@ -142,10 +146,10 @@ export default async function SupplierDetailPage({
         <Cell label="Lead time">
           <span className="font-black">{supplier.lead_time_days ? `${supplier.lead_time_days} ngày` : "—"}</span>
         </Cell>
-        <Cell label="Đơn đang chạy">
+        {canSeeBuyers && <Cell label="Đơn đang chạy">
           <span className="font-black">{active.length}</span>
           <span className="text-[11.5px] text-ink-400"> / {attached.length} tổng</span>
-        </Cell>
+        </Cell>}
       </Card>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -196,6 +200,7 @@ export default async function SupplierDetailPage({
             verifications={verifications}
             requests={requests}
             canInspect={canInspect}
+            canViewReviews={canViewReviews}
           />
 
           <Card>
@@ -293,7 +298,7 @@ export default async function SupplierDetailPage({
             )}
           </Card>
 
-          <Card>
+          {canSeeBuyers && <Card>
             <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
               <div>
                 <h2 className="text-[15px] font-bold text-ink-900">Đơn hàng đang giao cho NCC này</h2>
@@ -344,7 +349,7 @@ export default async function SupplierDetailPage({
               <ShieldCheck className="mr-1 inline h-3 w-3" />
               Đơn đánh dấu “ẩn danh” sẽ không tiết lộ tên buyer trong email gửi NCC.
             </p>
-          </Card>
+          </Card>}
         </div>
       </div>
     </>

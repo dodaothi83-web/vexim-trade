@@ -22,8 +22,9 @@ const audit = [];
 let storedBytes = 0;
 let failThumb = false;
 const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', {});
+const attributes = load('../lib/product-attributes.ts', {});
 const categories = [
-  { id: '11111111-1111-1111-1111-111111111111', slug: 'cashew', parent_id: null, name_i18n: { vi: 'Hạt điều', en: 'Cashew' }, status: 'published', is_published: true, sort_order: 1 },
+  { id: '11111111-1111-1111-1111-111111111111', slug: 'cashew', parent_id: null, name_i18n: { vi: 'Hạt điều', en: 'Cashew' }, status: 'published', is_published: true, sort_order: 1, product_fields: [{ key: 'grade', label: 'Grade', type: 'select', options: ['W240', 'W320'], filterable: true }] },
   { id: '22222222-2222-2222-2222-222222222222', slug: 'rice', parent_id: null, name_i18n: { vi: 'Gạo', en: 'Rice' }, status: 'published', is_published: true, sort_order: 2 },
 ];
 const store = {
@@ -48,6 +49,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
   '@/lib/supplier-portal/onboarding': onboarding,
   '@/lib/supplier-portal/category-proposals': categoryProposals,
+  '@/lib/product-attributes': attributes,
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible && !!s.fob_updated_at && Date.now() - new Date(s.fob_updated_at).getTime() < 180 * 86400_000 },
   '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => c.slug === (p.name.includes('Rice') ? 'rice' : 'cashew')) },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async (_supplier, item) => { notices.push(['submitted', item.id]); return 'sent'; } },
@@ -79,6 +81,13 @@ assert.equal(created.ok, true); assert.equal(created.id, productId);
 assert.equal(product.supplier_id, supplierId); assert.equal(product.supplier_review_status, 'draft');
 assert.equal(product.ready_for_buyer, false); assert.equal(product.ref_price, 5000);
 assert.equal(product.price_publicly_visible, false, 'Saving an entered price does not expose it');
+const forgedAttribute = form(); forgedAttribute.set('product_id', productId); forgedAttribute.set('attribute:grade', 'W999');
+assert.equal((await actions.saveSupplierProductAction(forgedAttribute)).ok, false, 'Supplier cannot forge an option in a Vexim category');
+const validAttribute = form(); validAttribute.set('product_id', productId);
+validAttribute.set('attribute:grade', 'W320'); validAttribute.set('attribute:private', 'unreviewed');
+assert.equal((await actions.saveSupplierProductAction(validAttribute)).ok, true);
+assert.equal(product.specs.grade, 'W320');
+assert.equal(product.specs.private, undefined, 'Unconfigured attributes never persist');
 assert.equal(supplier.fob_updated_at, null, 'Ordinary product saves cannot silently record supplier consent');
 const optIn = form(); optIn.set('product_id', productId); optIn.set('price_publicly_visible', 'yes');
 optIn.set('ref_price_max', '5500');
@@ -184,6 +193,7 @@ const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
   '@/lib/db': { getStore: () => store },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async (input) => { notices.push([input.decision, input.entityId]); return 'sent'; } },
   '@/lib/supplier-portal/category-proposals': categoryProposals,
+  '@/lib/product-attributes': attributes,
   '@/lib/public/category-assignment': { assignProductCategory: (p) => p.name.includes('Rice') ? categories[1] : categories[0] },
 });
 const approve = new FormData(); approve.set('product_id', productId); approve.set('decision', 'approved');

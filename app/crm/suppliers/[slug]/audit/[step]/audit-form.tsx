@@ -13,8 +13,8 @@ import { Button, formatDate } from "@/components/ui";
 import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/actions";
 import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction, updateVerificationPublicSummaryAction } from "../../verification-actions";
 
-export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, currentUserId, requireSecondReviewer }: {
-  verification: Verification; evidence: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; currentUserId: string; requireSecondReviewer: boolean;
+export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, canInspect, currentUserId, requireSecondReviewer }: {
+  verification: Verification; evidence: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; currentUserId: string; requireSecondReviewer: boolean;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
@@ -27,10 +27,10 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
   const [showOldEvidence, setShowOldEvidence] = useState(evidence.some((m) => !m.checklist_key));
   const [scanning, setScanning] = useState(false);
   const [aiResult, setAiResult] = useState<(AiDocumentReview & { skipped: string[] }) | null>(null);
-  const editable = ["in_progress", "scheduled", "returned"].includes(v.status);
+  const editable = canInspect && ["in_progress", "scheduled", "returned"].includes(v.status);
   const selfReview = currentUserId === v.inspector_id;
   const reviewer = canApprove && v.status === "submitted" && (!requireSecondReviewer || !selfReview);
-  const canManageEvidence = editable || reviewer;
+  const canManageEvidence = editable;
   const items = auditItems(v.target_level);
   const requiredDocs = L1_DOC_ITEMS.filter((it) => it.required);
   const optionalDocs = L1_DOC_ITEMS.filter((it) => !it.required);
@@ -186,7 +186,7 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
       if (!reason.trim()) { setFeedback({ ok: false, message: "Hãy ghi lý do cần bổ sung." }); return; }
       fd.set("reason", reason);
     }
-    if (approve && !window.confirm(`${selfReview ? "Bạn đang tự xác nhận bản kiểm của mình (chế độ tạm thời). Hãy tự đối chiếu lại chứng từ và kết quả. " : ""}Duyệt ${auditStep(v.target_level)?.title.toLowerCase()}? Bằng chứng sẽ được khóa${v.target_level < 3 ? " và bước tiếp theo sẽ mở" : ""}.`)) return;
+    if (approve && !window.confirm(`Duyệt ${auditStep(v.target_level)?.title.toLowerCase()}? Bằng chứng sẽ được khóa${v.target_level < 3 ? " và bước tiếp theo sẽ mở" : ""}.`)) return;
     void run(() => approve ? approveVerificationAction(fd) : returnVerificationAction(fd));
   }
 
@@ -330,7 +330,7 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, cu
     </form>
     {reviewer && <div className="space-y-3 border-t border-ink-100 bg-amber-50/50 p-5">
       <p className="text-sm font-semibold text-ink-900">Xét duyệt · đối chiếu bằng chứng ngay trong các mục bên trên</p>
-      {selfReview && <p className="text-sm text-amber-900">Bạn đang xác nhận bản kiểm của chính mình (cho phép tạm thời với quyền quản trị). Hãy đối chiếu lại chứng từ trước khi duyệt; hệ thống ghi lại người kiểm và người duyệt.</p>}
+
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="primary" disabled={busy} onClick={() => decide(true)}><CheckCircle2 className="h-4 w-4" /> Duyệt & mở bước tiếp</Button>
         <Button type="button" disabled={busy} onClick={() => decide(false)}><RotateCcw className="h-4 w-4" /> Trả để bổ sung</Button>

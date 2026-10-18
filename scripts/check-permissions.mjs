@@ -8,7 +8,7 @@
  *     đăng nhập + submit RFQ công khai) PHẢI gọi guard() / requirePermission / requireSession ở
  *     mỗi export async function — nếu bỏ sót, anonymous có thể kích hoạt server action.
  *  3. Danh sách quyền trên ROLES trong lib/auth/permissions.ts phải hợp lệ và không bị trùng.
- *  4. Các action đặc thù (verification.approve, users.manage) PHẢI dùng đúng quyền admin-only.
+ *  4. Các quyền quản trị thuần túy chỉ thuộc admin; quyền xét duyệt được chia sẻ có giới hạn cho reviewer.
  *
  * Chạy: node scripts/check-permissions.mjs
  *
@@ -113,7 +113,7 @@ const allPerms = [
   "mail.view","mail.send","templates.manage",
   "settings.view","users.manage","kpi.view","blog.manage",
   "categories.manage","categories.publish",
-  "verifications.inspect","verifications.approve","rfq.manage",
+  "verifications.view","verifications.inspect","verifications.approve","rfq.view","rfq.manage",
 ];
 // Tìm các quyền xuất hiện trong code nhưng không có trong type Permission?
 {
@@ -128,8 +128,8 @@ const allPerms = [
   }
 }
 
-// 4) Quyền admin-only: verifications.approve, users.manage, suppliers.delete, suppliers.publish, categories.publish.
-const adminOnly = ["verifications.approve","users.manage","suppliers.delete","suppliers.publish","categories.publish"];
+// 4) Quyền quản trị thuần túy chỉ cấp admin; quyết định xuất bản/xét duyệt cấp reviewer.
+const adminOnly = ["users.manage","suppliers.delete","traffic.view","templates.manage"];
 for (const p of adminOnly) {
   // Mọc ra ở role matrix không phải admin?
   const roleBlocks = [...permFile.matchAll(/(\w+):\s*\[[\s\S]*?\],\s*\n/g)];
@@ -140,6 +140,32 @@ for (const p of adminOnly) {
       errors.push(`Quyền admin-only "${p}" đang được cấp cho role "${roleName}".`);
     }
   }
+}
+
+// Reviewer cannot edit evidence or user accounts; sourcing cannot approve a review.
+const roleSection = (name) => permFile.split(`  ${name}: [`)[1]?.split('],')[0] ?? '';
+for (const perm of ["suppliers.publish", "categories.publish", "categories.view", "verifications.approve", "verifications.view"]) {
+  if (!roleSection('reviewer').includes(`"${perm}"`)) errors.push(`Reviewer thiếu quyền ${perm}.`);
+}
+for (const perm of ["verifications.inspect", "media.manage", "users.manage", "suppliers.delete", "suppliers.manage", "products.manage", "categories.manage", "mail.send"]) {
+  if (roleSection('reviewer').includes(`"${perm}"`)) errors.push(`Reviewer không được có quyền ${perm}.`);
+}
+for (const perm of ["suppliers.manage", "products.manage", "categories.manage", "verifications.approve"]) {
+  if (roleSection('sale').includes(`"${perm}"`)) errors.push(`Sale không được có quyền ${perm}.`);
+}
+
+// New reviewer cannot browse buyer/mail pages via a guessed URL.
+for (const [path, permission] of [
+  ["app/crm/buyers/page.tsx", "buyers.view"],
+  ["app/crm/buyers/[id]/page.tsx", "buyers.view"],
+  ["app/crm/pipeline/page.tsx", "buyers.view"],
+  ["app/crm/mail/page.tsx", "mail.view"],
+  ["app/crm/mail/[id]/page.tsx", "mail.view"],
+]) {
+  if (!read(join(ROOT, path)).includes(`requirePagePermission("${permission}"`)) errors.push(`${path} phải chặn quyền ${permission}.`);
+}
+if (!read(join(ROOT, "app/crm/suppliers/[slug]/publication-actions.ts")).includes('guard("suppliers.publish")')) {
+  errors.push('Quyết định công khai NCC phải kiểm tra suppliers.publish.');
 }
 
 // 5) settings.view phải có ở mọi role đăng nhập được (vì /crm/settings cho tất cả)

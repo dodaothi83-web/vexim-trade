@@ -383,7 +383,7 @@ on conflict (id) do nothing;
 -- 5c. NGƯỜI DÙNG & PHÂN QUYỀN (app_users)
 --     - Đăng nhập: Supabase Auth khi kết nối được; khi không kết nối được thì
 --       dùng mật khẩu nội bộ (cột password_hash, băm scrypt) — KHÔNG lưu mật khẩu thô.
---     - Quyền do app quyết định theo cột role: admin | sale | sourcing | viewer.
+--     - Quyền do app quyết định theo cột role: admin | sale | sourcing | reviewer | viewer | supplier.
 --       Tài khoản có trong Supabase Auth nhưng không có trong bảng này sẽ không
 --       vào được app.
 --     - Người dùng được tạo từ giao diện (Cài đặt → Người dùng) sẽ được tạo ở
@@ -394,7 +394,7 @@ create table if not exists public.app_users (
   email         text not null,
   name          text,
   role          text not null default 'viewer' check (role in
-                  ('admin','sale','sourcing','viewer','supplier')),
+                  ('admin','sale','sourcing','reviewer','viewer','supplier')),
   auth_provider text not null default 'local' check (auth_provider in ('supabase','local')),
   -- NULL = tài khoản chỉ có bên Supabase Auth (chưa có mật khẩu dự phòng)
   password_hash text,
@@ -617,6 +617,7 @@ alter table public.categories
   add column if not exists h1_i18n jsonb,
   add column if not exists body_i18n jsonb,
   add column if not exists spec_columns jsonb not null default '[]'::jsonb,
+  add column if not exists product_fields jsonb not null default '[]'::jsonb,
   add column if not exists spec_rows jsonb not null default '[]'::jsonb,
   add column if not exists buying_facts jsonb not null default '[]'::jsonb,
   add column if not exists filters jsonb not null default '[]'::jsonb,
@@ -719,9 +720,10 @@ create table if not exists public.verifications (
   approved_by        uuid references public.app_users(id) on delete set null,
   approved_at        timestamptz,
   created_at         timestamptz not null default now(),
-  -- Tạm cho phép admin tự duyệt bản kiểm; vẫn ghi inspector_id và approved_by.
-  -- Cần bật lại kiểm tra hai người khi vận hành đủ nhân sự.
-  updated_at         timestamptz not null default now()
+  legacy_self_approved boolean not null default false,
+  updated_at         timestamptz not null default now(),
+  constraint verifications_four_eyes check (approved_by is null or (inspector_id is not null and
+    (inspector_id <> approved_by or legacy_self_approved)))
 );
 alter table public.verifications
   add column if not exists checklist_notes jsonb not null default '{}'::jsonb,

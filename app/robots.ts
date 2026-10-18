@@ -3,6 +3,7 @@ import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
 
 const INDEXABLE = process.env.PUBLIC_SITE_INDEXABLE === "true";
+const LEGAL_CRAWLABLE = !["preview", "development"].includes(process.env.VERCEL_ENV ?? "");
 
 export default function robots(): MetadataRoute.Robots {
   // Always-disallowed routes (RFQ flow, compare state, back-office, auth, preview, API internals)
@@ -29,9 +30,11 @@ export default function robots(): MetadataRoute.Robots {
     };
   }
 
-  // Staging / pre-launch: block the whole public site, but still give crawlers
-  // an explicit rule so they don't 404 on robots.txt.
+  // Pre-launch production: OAuth reviewers can crawl the exact homepage (/$)
+  // and legal disclosures. Preview/development stays fully disallowed.
   return {
-    rules: [{ userAgent: "*", disallow: "/" }],
+    rules: LEGAL_CRAWLABLE
+      ? [{ userAgent: "*", allow: ["/$", "/privacy-policy", "/terms-of-service"], disallow: "/" }]
+      : [{ userAgent: "*", disallow: "/" }],
   };
 }

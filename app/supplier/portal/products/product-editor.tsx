@@ -9,6 +9,8 @@ import { productPriceBlockers, supplierPriceConsentCurrent } from "@/lib/public/
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
 import { saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
+import { ProductAttributeInputs } from "@/components/product-attribute-inputs";
+import { fieldsFor } from "@/lib/product-attributes";
 
 type EditorProps = { product?: SupplierProduct; media?: MediaAsset[]; userId?: string; categories: CategoryProposalOption[]; supplier: Supplier };
 const BASE_FIELDS = [
@@ -26,6 +28,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(product?.supplier_category_proposal ?? product?.reviewed_category_slug ?? "");
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [uploadResult, setUploadResult] = useState("");
   const [selected, setSelected] = useState<File[]>([]);
@@ -131,12 +134,14 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         <div className="space-y-6 px-5 py-6 sm:px-7">
           <Field label="Tên sản phẩm" hint="Ví dụ: Hạt điều nhân trắng W320" required><input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked} /></Field>
           <Field label="Danh mục sản phẩm *" hint="Chỉ chọn trong danh mục kinh doanh của bạn do Vexim mở. Vexim kiểm tra sản phẩm trước khi công khai; chọn danh mục không tự duyệt.">
-            <select name="supplier_category_proposal" className="input" required defaultValue={product?.supplier_category_proposal ?? product?.reviewed_category_slug ?? ""} disabled={locked || !categories.length}>
+            <select name="supplier_category_proposal" className="input" required value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} disabled={locked || !categories.length}>
               <option value="" disabled>Chọn danh mục sản phẩm</option>
               {categories.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} · ` : ""}{c.label}</option>)}
             </select>
           </Field>
           {!categories.length && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Bạn chưa chọn danh mục kinh doanh đang mở. <Link href="/supplier/portal/categories" className="font-semibold underline">Chọn danh mục trước khi thêm sản phẩm →</Link></p>}
+          <ProductAttributeInputs key={selectedCategory} fields={fieldsFor(categories.find((c) => c.slug === selectedCategory))} disabled={locked}
+            values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}} />
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Mô tả ngắn" hint="Tóm tắt vài câu bên cạnh ảnh sản phẩm"><textarea name="description" className="input min-h-32 resize-y" rows={4} maxLength={1500} placeholder="Giới thiệu ngắn gọn cho Vexim..." defaultValue={product?.description ?? ""} disabled={locked} /></Field>
             <Field label="Quy cách / tiêu chuẩn" hint="Ít nhất một trong hai ô mô tả hoặc quy cách để gửi duyệt"><textarea name="spec" className="input min-h-32 resize-y" rows={4} maxLength={800} placeholder="Ví dụ: Size W320, độ ẩm ≤ 5%, đóng gói 25 kg..." defaultValue={product?.spec ?? ""} disabled={locked} /></Field>

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { validateProductFields } from '../lib/product-attributes.ts';
 
 const source = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 const actions = source.slice(source.indexOf('function parseSupplierInput('), source.indexOf('/* ------------------------- SẢN PHẨM NCC'));
@@ -111,6 +112,7 @@ vm.runInNewContext(categoryJs, {
   exports: categoryExports, str, num, bool,
   guard: async () => null, getSession: async () => ({ role, uid: 'staff-1', email: 'test@veximtrade.com' }),
   hasPermission: (r, p) => r === 'admin' && p === 'categories.publish',
+  validateProductFields,
   getStore: () => ({
     getCategory: async () => category,
     getCategoryBySlug: async () => category,
@@ -129,8 +131,8 @@ res = await categoryExports.updateCategoryAction(category.id, categoryRaw);
 assert.equal(res.ok, true);
 assert.equal(categoryWrite.intro_i18n.en, '', 'Clearing intro must persist');
 res = await categoryExports.updateCategoryAction(category.id, { ...categoryRaw, is_published: 'on' });
-assert.equal(res.ok, true);
-assert.equal(categoryWrite.status, 'published');
+assert.equal(res.ok, false, 'Saving copy cannot also approve publication');
+assert.equal(categoryWrite.status, 'draft');
 
 const aiSource = readFileSync(new URL('../app/api/ai/editor-draft/route.ts', import.meta.url), 'utf8');
 const aiJs = ts.transpileModule(aiSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;

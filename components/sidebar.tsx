@@ -26,6 +26,7 @@ import { logoutAction } from "@/app/auth-actions";
 import { hasPermission, roleMeta, type Permission } from "@/lib/auth/permissions";
 import type { UserRole } from "@/lib/types";
 import { cx } from "@/components/ui";
+import { Logo } from "@/components/brand-logo";
 
 const NAV: {
   href: string;
@@ -39,8 +40,8 @@ const NAV: {
   { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view", group: "marketplace" },
   { href: "/crm/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view", group: "marketplace" },
   { href: "/crm/rfqs", label: "RFQ từ buyer", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
-  { href: "/crm/verifications", label: "Xác minh NCC", icon: ShieldCheck, perm: "verifications.inspect", group: "marketplace" },
-  { href: "/crm/categories", label: "Danh mục sản phẩm", icon: FolderTree, perm: "categories.manage", group: "marketplace" },
+  { href: "/crm/verifications", label: "Xác minh NCC", icon: ShieldCheck, perm: "verifications.view", group: "marketplace" },
+  { href: "/crm/categories", label: "Danh mục sản phẩm", icon: FolderTree, perm: "categories.view", group: "marketplace" },
   { href: "/crm/traffic", label: "Lưu lượng truy cập", icon: ChartNoAxesColumn, perm: "traffic.view", group: "marketplace" },
   { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage", group: "marketplace" },
   { href: "/crm/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view", group: "sales" },
@@ -86,9 +87,7 @@ export function Sidebar({
   const body = (
     <>
       <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-[13px] font-black text-white shadow-sm">
-          VX
-        </div>
+        <Logo tone="white" className="h-[68px] w-[68px]" />
         <div className="min-w-0">
           <p className="truncate text-[15px] leading-tight font-black tracking-tight text-white">
             VEXIM TRADE

@@ -41,7 +41,7 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
 /** Pending certificate claim goes to staff inbox, never directly to buyers or publication. */
 export async function notifySupplierCertificateSubmission(supplier: Supplier, name: string): Promise<"sent" | "simulated" | "failed"> {
   const users = await getStore().listUsers();
-  const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "sourcing"))
+  const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "reviewer" || u.role === "sourcing"))
     .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
   if (!recipients.length) return "failed";
   const staffOrigin = notificationOrigin();
@@ -53,6 +53,25 @@ export async function notifySupplierCertificateSubmission(supplier: Supplier, na
   const result = await transport({ to: recipients, subject: title,
     html: wrapPlainEmail({ title, body }), text: `${title}\nChứng nhận: ${name}\n${url}` });
   return result.ok ? result.status : "failed";
+}
+
+/** A submitted human inspection enters the independent review queue; never an automatic approval. */
+export async function notifyStaffVerificationSubmission(supplierId: string, level: number): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const store = getStore();
+    const users = await store.listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "reviewer"))
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length) return "failed";
+    const supplier = await store.getSupplier(supplierId);
+    const label = level === 1 ? "Kiểm tra giấy tờ" : level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
+    const step = level === 1 ? "documents" : level === 2 ? "factory" : "delivery";
+    const url = `${notificationOrigin()}/crm/suppliers/${encodeURIComponent(supplierId)}/audit/${step}`;
+    const title = `${label} chờ xét duyệt: ${supplier?.name ?? "NCC"}`;
+    const body = `<p>Chuyên viên đã nộp bản kiểm ${escapeHtml(label)} của ${escapeHtml(supplier?.name ?? "NCC")}. Người khác phải tự xem bằng chứng của đúng đợt kiểm và quyết định; nộp không tự phê duyệt.</p><p><a href="${url}">Mở bản kiểm trong CRM →</a></p>`;
+    const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
+    return res.ok ? res.status : "failed";
+  } catch (error) { console.error("[supplier-notify] verification submission", error); return "failed"; }
 }
 
 /** Staff gets a reminder only when a supplier explicitly submits a product, never on draft saves. */

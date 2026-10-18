@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { guard, getSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
 import { isExpired } from "@/lib/media/readiness";
 import { getObject } from "@/lib/media/storage";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
@@ -22,7 +23,7 @@ export async function reviewCertificateAction(form: FormData) {
   const denied = await guard("verifications.approve");
   if (denied) return result(denied.message);
   const session = await getSession();
-  if (!session || session.role !== "admin") return result("Chỉ quản trị Vexim được xét chứng nhận.");
+  if (!session || !hasPermission(session.role, "verifications.approve")) return result("Chỉ người có quyền duyệt được xét chứng nhận.");
   const id = String(form.get("certificate_id") ?? "");
   const decision = String(form.get("decision") ?? "");
   const note = String(form.get("note") ?? "").trim().slice(0, 1000);
@@ -77,7 +78,7 @@ export async function publishCertificateAction(form: FormData) {
   const denied = await guard("suppliers.publish");
   if (denied) return result(denied.message);
   const session = await getSession();
-  if (!session || session.role !== "admin") return result("Chỉ quản trị Vexim được quyết định công bố.");
+  if (!session || !hasPermission(session.role, "suppliers.publish")) return result("Chỉ người có quyền công khai được quyết định hiển thị.");
   const id = String(form.get("certificate_id") ?? "");
   const visible = String(form.get("visible") ?? "") === "yes";
   if (!uuid.test(id)) return result("Mã chứng nhận không hợp lệ.");

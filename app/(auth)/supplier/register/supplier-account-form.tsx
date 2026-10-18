@@ -41,6 +41,6 @@ export function SupplierAccountForm() {
     {message && <p role="status" className={`rounded-lg border p-3 text-sm ${message.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{message.text}{message.ok && <> <Link href="/login" className="font-bold underline">Đến trang đăng nhập</Link></>}</p>}
     <div className="flex items-center gap-3 text-xs text-ink-500"><span className="h-px flex-1 bg-ink-200" />hoặc<span className="h-px flex-1 bg-ink-200" /></div>
     <a href="/api/auth/google/start?intent=signup" className="flex w-full items-center justify-center gap-2 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50"><span aria-hidden="true" className="text-base font-black text-blue-600">G</span> Tiếp tục với Google</a>
-    <p className="text-center text-xs text-ink-500">Tiếp tục với Google đồng nghĩa bạn đồng ý tạo tài khoản nhà cung cấp để gửi hồ sơ cho Vexim. Google chỉ xác thực email; bạn vẫn phải khai doanh nghiệp và chờ Vexim mở quyền.</p>
+    <p className="text-center text-xs leading-5 text-ink-500">Tiếp tục với Google đồng nghĩa bạn đồng ý tạo tài khoản nhà cung cấp để gửi hồ sơ cho Vexim. Google chỉ xác thực email; bạn vẫn phải khai doanh nghiệp và chờ Vexim mở quyền. Xem <Link href="/privacy-policy" className="font-semibold text-brand-700 underline">Privacy Policy</Link> và <Link href="/terms-of-service" className="font-semibold text-brand-700 underline">Terms of Service</Link>.</p>
   </form>;
 }

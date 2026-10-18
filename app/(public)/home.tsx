@@ -16,6 +16,8 @@ import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
 import { PublicProductCard } from "@/components/public-product-card";
+import { Logo } from "@/components/brand-logo";
+import { SocialLinks } from "@/components/social-links";
 import type { Category } from "@/lib/types";
 
 /** Ảnh placeholder khi category chưa upload hero_image — màu sắc trung tính, không gây nhầm sản phẩm */
@@ -493,13 +495,14 @@ export default async function HomeContent() {
           <div className="grid gap-10 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
             <div>
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-700 text-sm font-black text-white">V</div>
+                <Logo className="h-10 w-10" />
                 <span className="text-[16px] font-black tracking-tight text-ink-900">Vexim Trade</span>
               </div>
               <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-ink-500">
                 A sourcing team in Hanoi connecting international buyers with Vietnamese producers.
               </p>
               <p className="mt-5 text-[12.5px] text-ink-400">© 2026 Vexim Global Co., Ltd., Hanoi, Vietnam</p>
+              <SocialLinks className="mt-2" />
             </div>
 
             <FooterCol title="Products">
@@ -519,6 +522,8 @@ export default async function HomeContent() {
             <FooterCol title="Company">
               <li><Link href="/how-we-verify" className="hover:text-brand-700">How we verify suppliers</Link></li>
               <li><Link href="/for-suppliers" className="hover:text-brand-700">For Vietnamese suppliers</Link></li>
+              <li><Link href="/privacy-policy" className="hover:text-brand-700">Privacy Policy</Link></li>
+              <li><Link href="/terms-of-service" className="hover:text-brand-700">Terms of Service</Link></li>
               <li><a href="mailto:hello@veximtrade.com" className="hover:text-brand-700">hello@veximtrade.com</a></li>
             </FooterCol>
 

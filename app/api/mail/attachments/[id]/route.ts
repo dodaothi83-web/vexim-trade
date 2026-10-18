@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { getStore } from "@/lib/db";
 import { getSession, type SessionUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
+import { ownerScopeOf, isOwnedBy } from "@/lib/auth/scope";
+import { loadMailboxData } from "@/lib/mail/mailbox-access";
 import {
   SIGNED_URL_TTL,
   createAttachmentSignedUrl,
@@ -52,6 +54,17 @@ async function loadForAccess(id: string, session: SessionUser): Promise<Access> 
 
   if (!hasPermission(session.role, "mail.view")) {
     return { ok: false, status: 403, message: "Tài khoản của bạn không có quyền xem email." };
+  }
+  const scope = ownerScopeOf(session);
+  if (scope !== null) {
+    const buyerOwned = msg.buyer_id ? isOwnedBy((await store.getBuyer(msg.buyer_id))?.owner, scope) : false;
+    const prospectOwned = msg.prospect_id ? isOwnedBy((await store.getProspect(msg.prospect_id))?.owner, scope) : false;
+    if (!buyerOwned && !prospectOwned) {
+      const mailbox = await loadMailboxData(session, { tolerateErrors: false });
+      if (!mailbox.visibleMessages.some((m) => m.id === msg.id)) {
+        return { ok: false, status: 403, message: "Email của tệp không thuộc phạm vi của bạn." };
+      }
+    }
   }
   return { ok: true, row };
 }

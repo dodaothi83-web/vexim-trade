@@ -2,7 +2,7 @@ import { getStore } from "@/lib/db";
 import { assignSenderEmails, formatFrom } from "@/lib/email/sender";
 import { buildSignature } from "@/lib/email/signature";
 import { emailMode, FROM_ADDRESS } from "@/lib/config";
-import { requireSession } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/session";
 import { isOwnedBy } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { loadMailboxData } from "@/lib/mail/mailbox-access";
@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Hộp thư" };
 
 export default async function MailPage() {
-  const session = await requireSession();
+  const session = await requirePagePermission("mail.view", "/crm/dashboard");
   const canSend = hasPermission(session.role, "mail.send");
 
   const store = getStore();

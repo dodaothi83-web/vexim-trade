@@ -212,7 +212,7 @@ export function LandingSite() {
       {/* ---------- Header ---------- */}
       <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3 sm:px-8">
-          <Logo className="h-12 w-[65px] shrink-0" />
+          <Logo className="h-[60px] w-[60px]" />
           <nav className="ml-auto hidden items-center gap-7 text-[15px] font-medium text-ink-700 md:flex">
             <a href="#problem" className="transition hover:text-brand-700">The problem</a>
             <a href="#work" className="transition hover:text-brand-700">How it works</a>

@@ -24,7 +24,11 @@ export default async function DashboardPage() {
   const canSuppliers = hasPermission(session.role, "suppliers.view");
   const canProducts = hasPermission(session.role, "products.view");
   const canCategories = hasPermission(session.role, "categories.manage");
+  const canViewReviews = hasPermission(session.role, "verifications.view");
+  const canApprove = hasPermission(session.role, "verifications.approve");
   const canInspect = hasPermission(session.role, "verifications.inspect");
+  const canManageSuppliers = hasPermission(session.role, "suppliers.manage");
+  const canManageProducts = hasPermission(session.role, "products.manage");
   const canRfqs = hasPermission(session.role, "rfq.view");
   const canTraffic = hasPermission(session.role, "traffic.view");
   const store = getStore();
@@ -32,8 +36,8 @@ export default async function DashboardPage() {
     canSuppliers ? store.listSuppliers() : Promise.resolve([]),
     canProducts ? store.listProducts() : Promise.resolve([]),
     store.listCategories({ publishedOnly: false }),
-    canInspect ? store.listVerifications() : Promise.resolve([]),
-    canInspect ? store.listSupplierVerificationRequests().catch((error) => {
+    canViewReviews ? store.listVerifications() : Promise.resolve([]),
+    canViewReviews ? store.listSupplierVerificationRequests().catch((error) => {
       console.error("[dashboard] verification requests unavailable", error);
       return null;
     }) : Promise.resolve(null),
@@ -58,16 +62,16 @@ export default async function DashboardPage() {
   const supplierNames = new Map(suppliers.map((s) => [s.id, s.name]));
 
   const queue: Array<{ id: string; label: string; detail: string; href: string; when: string; tone: string }> = [];
-  if (canSuppliers) for (const s of snapshot.pendingSuppliers) queue.push({
+  if (canManageSuppliers) for (const s of snapshot.pendingSuppliers) queue.push({
     id: `supplier:${s.id}`, label: s.name, detail: "Tài khoản NCC · chờ xác nhận quyền truy cập",
     href: `/crm/suppliers/${s.id}`, when: s.updated_at, tone: "bg-sky-500",
   });
-  if (canProducts) for (const p of snapshot.pendingProducts) queue.push({
+  if (canManageProducts) for (const p of snapshot.pendingProducts) queue.push({
     id: `product:${p.id}`, label: p.name, detail: `${supplierNames.get(p.supplier_id) ?? "NCC"} · sản phẩm chờ Vexim duyệt`,
-    href: hasPermission(session.role, "products.manage") ? `/crm/products/${p.id}/edit` : `/crm/products/${p.id}`,
+    href: `/crm/products/${p.id}/edit`,
     when: p.updated_at, tone: "bg-amber-500",
   });
-  if (canInspect) for (const v of snapshot.submittedReviews) queue.push({
+  if (canApprove) for (const v of snapshot.submittedReviews) queue.push({
     id: `review:${v.id}`, label: supplierNames.get(v.supplier_id) ?? "Nhà cung cấp",
     detail: `${v.target_level === 1 ? "Kiểm tra giấy tờ" : v.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"} · chờ xét duyệt`,
     href: "/crm/verifications", when: v.updated_at, tone: "bg-violet-500",
@@ -82,9 +86,9 @@ export default async function DashboardPage() {
     href: "/crm/rfqs", when: r.created_at, tone: "bg-brand-500",
   });
   queue.sort((a, b) => b.when.localeCompare(a.when));
-  const reviewCount = canInspect ? snapshot.submittedReviews.length : 0;
-  const contactCount = canInspect ? snapshot.contactRequests.length : 0;
-  const workload = snapshot.pendingSuppliers.length + snapshot.pendingProducts.length + reviewCount + contactCount + snapshot.newRfqs.length;
+  const reviewCount = canViewReviews ? snapshot.submittedReviews.length : 0;
+  const contactCount = canViewReviews ? snapshot.contactRequests.length : 0;
+  const workload = queue.length;
 
   return (
     <>
@@ -109,7 +113,7 @@ export default async function DashboardPage() {
         <Metric icon={<FolderTree className="h-5 w-5" />} label="Danh mục đã đăng" value={snapshot.publishedCategories.length}
           note={`${snapshot.categoriesWithOffers} danh mục có sản phẩm hiển thị`} href={canCategories ? "/crm/categories" : undefined} />
         <Metric icon={<ClipboardCheck className="h-5 w-5" />} label="Hồ sơ cần xử lý" value={workload}
-          note={canInspect && requests === null ? "Chưa đọc được một phần yêu cầu kiểm định" : "Chờ xác nhận / duyệt / tiếp nhận"} href={workload ? "#marketplace-queue" : undefined} attention={workload > 0} />
+          note={canViewReviews && requests === null ? "Chưa đọc được một phần yêu cầu kiểm định" : "Chờ xác nhận / duyệt / tiếp nhận"} href={workload ? "#marketplace-queue" : undefined} attention={workload > 0} />
       </div>
 
       {canTraffic && <Link href="/crm/traffic" className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-ink-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-md">
@@ -144,12 +148,12 @@ export default async function DashboardPage() {
             <h2 className="text-base font-bold text-ink-900">Các cổng kiểm soát</h2>
             <p className="mt-1 text-xs text-ink-500">Những bước riêng biệt, không cộng dồn thành một nhãn chứng nhận.</p>
             <div className="mt-4 space-y-2">
-              {canSuppliers && <FlowRow href="/crm/suppliers" icon={<UsersRound className="h-4 w-4" />} label="Tài khoản NCC chờ xác nhận" value={snapshot.pendingSuppliers.length} />}
-              {canProducts && <FlowRow href="/crm/products?review=pending" icon={<Boxes className="h-4 w-4" />} label="Sản phẩm chờ duyệt" value={snapshot.pendingProducts.length} />}
-              {canInspect && <FlowRow href="/crm/verifications" icon={<ShieldCheck className="h-4 w-4" />} label="Đợt kiểm chờ xét duyệt" value={reviewCount} />}
+              {canManageSuppliers && <FlowRow href="/crm/suppliers" icon={<UsersRound className="h-4 w-4" />} label="Tài khoản NCC chờ xác nhận" value={snapshot.pendingSuppliers.length} />}
+              {canManageProducts && <FlowRow href="/crm/products?review=pending" icon={<Boxes className="h-4 w-4" />} label="Sản phẩm chờ duyệt" value={snapshot.pendingProducts.length} />}
+              {canApprove && <FlowRow href="/crm/verifications" icon={<ShieldCheck className="h-4 w-4" />} label="Đợt kiểm chờ xét duyệt" value={reviewCount} />}
               {canInspect && requests !== null && <FlowRow href="/crm/verifications" icon={<ClipboardCheck className="h-4 w-4" />} label="Yêu cầu liên hệ kiểm định" value={contactCount} />}
             </div>
-            {canInspect && requests === null && <p className="mt-3 text-xs text-amber-800">Chưa đọc được yêu cầu kiểm định; xem trang xác minh để kiểm tra.</p>}
+            {canViewReviews && requests === null && <p className="mt-3 text-xs text-amber-800">Chưa đọc được yêu cầu kiểm định; xem trang xác minh để kiểm tra.</p>}
           </Card>
           {canRfqs && <Card className="p-5">
             <div className="flex items-center gap-2"><FileQuestion className="h-4 w-4 text-brand-700" /><h2 className="text-base font-bold text-ink-900">Nhu cầu từ buyer</h2></div>

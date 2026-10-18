@@ -6,6 +6,7 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { categoryProposalOptions, allowedSupplierCategories, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import { assignProductCategory } from "@/lib/public/category-assignment";
+import { attributesFromForm, saveProductAttributes } from "@/lib/product-attributes";
 import { notifyStaffProductSubmission } from "@/lib/supplier-portal/notify";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 
@@ -66,13 +67,15 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     const allowed = allowedSupplierCategories(access.supplier, options, linked);
     input.supplier_category_proposal = parseProductCategoryProposal(form, allowed);
     input.category = input.supplier_category_proposal;
+    input.specs = saveProductAttributes(allCategories.find((c) => c.slug === input.category),
+      attributesFromForm(form), existing?.supplier_category_proposal === input.category ? existing.specs : {});
     // Obvious cross-category goods are rejected before saving, not merely hidden after review.
     const inferred = assignProductCategory({ name: input.name, spec: input.spec, description: input.description, category: null }, allCategories);
     if (inferred && inferred.slug !== input.category)
       throw new Error(`Tên/quy cách có vẻ thuộc ${inferred.name_i18n.vi || inferred.name_i18n.en || inferred.slug}, không phải danh mục đã chọn. Vui lòng kiểm tra lại.`);
     const saved = existing ? await store.updateProduct(existing.id, {
       ...input, // Reset review and buyer-ready in the same DB write, even when previously public.
-      slug: existing.slug, name_i18n: {}, specs: {}, images: existing.images,
+      slug: existing.slug, name_i18n: {}, images: existing.images,
     }) : await store.createProduct(input);
     // Supplier-owned explicit consent is recorded only when the separate checkbox is checked.
     // A normal product save never silently refreshes the 180-day supplier consent.

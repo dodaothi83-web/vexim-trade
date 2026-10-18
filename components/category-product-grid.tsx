@@ -8,6 +8,8 @@ import { PublicProductCard } from "@/components/public-product-card";
 import { SponsoredPilotSlot } from "@/components/sponsored-pilot-slot";
 
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
+import type { ProductAttributeField } from "@/lib/types";
+import { fieldsFor } from "@/lib/product-attributes";
 import type { PilotPlacement } from "@/lib/sponsored/pilot";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
 
@@ -28,30 +30,44 @@ function moqGroup(value: string): string {
   return tons <= 1 ? "small" : tons <= 5 ? "medium" : "large";
 }
 
-export function CategoryProductGrid({ products, categorySlug, grades, sponsored }: {
-  products: PublicCategoryProduct[]; categorySlug: string; grades: string[];
+export function CategoryProductGrid({ products, categorySlug, grades, sponsored, productFields = [] }: {
+  products: PublicCategoryProduct[]; categorySlug: string; grades: string[]; productFields?: ProductAttributeField[];
   sponsored?: PilotPlacement | null;
 }) {
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
+  const attributeFilters = fieldsFor({ product_fields: productFields }).filter((f) => f.type === "select" && f.filterable && products.some((p) => !!p.attributes?.[f.key]));
+  const hasStructuredGrade = attributeFilters.some((f) => f.key === "grade");
   const [moq, setMoq] = useState("");
   const [province, setProvince] = useState("");
   const [verified, setVerified] = useState(0);
-  const quick = categorySlug === "cashew" ? CASHEW_CHIPS : grades.map((g) => ({ label: g, grades: [g] }));
-  const allGrades = categorySlug === "cashew" ? [...new Set([...grades, "W180", "W240", "W320", "W450", "SW", "WS", "LP", "SP"])] : grades;
+  const quick = hasStructuredGrade ? [] : categorySlug === "cashew" ? CASHEW_CHIPS : grades.map((g) => ({ label: g, grades: [g] }));
+  const allGrades = hasStructuredGrade ? [] : categorySlug === "cashew" ? [...new Set([...grades, "W180", "W240", "W320", "W450", "SW", "WS", "LP", "SP"])] : grades;
   const provinces = [...new Set(products.map((p) => p.province))].sort();
   const visible = useMemo(() => products.filter((p) =>
     (!selectedGrades.length || (p.grade && selectedGrades.includes(p.grade))) &&
+    attributeFilters.every((field) => !selectedAttributes[field.key] || p.attributes?.[field.key] === selectedAttributes[field.key]) &&
     (!moq || moqGroup(p.moq) === moq) &&
     (!province || p.province === province) && (!verified || p.verificationSteps.includes(verified as 1 | 2 | 3)),
-  ), [products, selectedGrades, moq, province, verified]);
-  const active = selectedGrades.length > 0 || !!moq || !!province || verified > 0;
+  ), [products, selectedGrades, selectedAttributes, moq, province, verified, attributeFilters]);
+  const active = selectedGrades.length > 0 || Object.values(selectedAttributes).some(Boolean) || !!moq || !!province || verified > 0;
   // The initial page gives each supplier up to three cards. Filtering reveals
   // every matching offer without merging W320 listings from different companies.
   const { shown, hidden } = useMemo(() => arrangeSupplierProducts(
     visible, active ? null : new Set(visible.map((p) => p.supplierId)).size < 2 ? 2 : 3,
   ), [visible, active]);
-  const reset = () => { setSelectedGrades([]); setMoq(""); setProvince(""); setVerified(0); };
+  const reset = () => { setSelectedAttributes({}); setSelectedGrades([]); setMoq(""); setProvince(""); setVerified(0); };
   const fields = <div className="space-y-5 text-sm">
+    {attributeFilters.filter((field) => !field.showWhen || !selectedAttributes[field.showWhen.key] ||
+      selectedAttributes[field.showWhen.key] === field.showWhen.value).map((field) => <label key={field.key} className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">{field.label}</span>
+      <select className="input text-sm" value={selectedAttributes[field.key] ?? ""} onChange={(e) => setSelectedAttributes((current) => {
+        const next = { ...current, [field.key]: e.target.value };
+        for (const child of attributeFilters) if (child.showWhen?.key === field.key && child.showWhen.value !== e.target.value) delete next[child.key];
+        return next;
+      })}>
+        <option value="">All</option>{field.options.filter((option) => products.some((p) => p.attributes?.[field.key] === option)).map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+    </label>)}
     {allGrades.length > 0 && <fieldset><legend className="mb-2 text-xs font-bold uppercase tracking-widest text-ink-500">Grade / type</legend>
       <div className="space-y-2">{allGrades.map((g) => <label key={g} className="flex cursor-pointer items-center gap-2 text-ink-700">
         <input type="checkbox" checked={selectedGrades.includes(g)} onChange={() => setSelectedGrades((xs) => xs.includes(g) ? xs.filter((x) => x !== g) : [...xs, g])} />{g}

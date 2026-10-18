@@ -193,6 +193,16 @@ export type SupplierProductInput = Omit<SupplierProduct, "id" | "created_at" | "
 
 /* ----------------- RFQ FOUNDATION — CATEGORIES / SUPPLIER ----------------- */
 
+/** Category-specific product fields configured by Vexim, separate from editorial reference tables. */
+export interface ProductAttributeField {
+  key: string;
+  label: string;
+  type: "select" | "text";
+  options: string[];
+  filterable?: boolean;
+  showWhen?: { key: string; value: string };
+}
+
 export interface Category {
   id: string;
   slug: string;
@@ -205,6 +215,7 @@ export interface Category {
   body_i18n?: I18nString | null;
   /** Các cột bảng thông số (xem CategoryColumn). Bảng hiển thị khi có ≥1 cột. */
   spec_columns?: CategoryColumn[];
+  product_fields?: ProductAttributeField[];
   /** Các hàng trong bảng thông số. */
   spec_rows?: CategoryRow[];
   /** Các mục trong khối "thông tin mua hàng" (xem CategoryFact). */
@@ -821,7 +832,7 @@ export interface ProspectActivity {
 
 /* ------------------------------- NGƯỜI DÙNG ------------------------------ */
 
-export type UserRole = "admin" | "sale" | "sourcing" | "viewer" | "supplier";
+export type UserRole = "admin" | "sale" | "sourcing" | "reviewer" | "viewer" | "supplier";
 
 /** Cách tài khoản được xác thực */
 export type AuthProvider = "supabase" | "local";

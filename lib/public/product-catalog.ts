@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getStore } from "@/lib/db";
+import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { listPublicSuppliers } from "@/lib/public/catalog";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
@@ -12,6 +13,7 @@ export interface PublicCategoryProduct {
   id: string;
   name: string;
   grade: string | null;
+  attributes: Record<string, string>;
   moq: string;
   price: string | null;
   province: string;
@@ -70,7 +72,7 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
       const images = shareableProductImages(byProduct.get(p.id) ?? [], p.id, p.featured_media_id);
       // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
       return {
-        id: p.id, name: withoutDirectContacts(p.name_i18n?.en || p.name), grade: productGrade(p.name, p.spec, category.slug),
+        id: p.id, name: withoutDirectContacts(p.name_i18n?.en || p.name), grade: productGrade(p.name, p.spec, category.slug), attributes: publicProductAttributes(category, p.specs),
         moq: p.moq || "On request",
         price: publicProductPrice(p, s), province: s.province || "Vietnam",
         verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,

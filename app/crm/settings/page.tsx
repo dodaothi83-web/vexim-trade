@@ -102,7 +102,7 @@ export default async function SettingsPage() {
                   Lỗi: <em>{db.reason}</em>
                 </p>
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                  <RetrySupabaseButton />
+                  {hasPermission(session.role, "users.manage") && <RetrySupabaseButton />}
                   <span className="text-[12px] text-ink-500">
                     Thử lại ngay mà không cần khởi động lại app.
                   </span>

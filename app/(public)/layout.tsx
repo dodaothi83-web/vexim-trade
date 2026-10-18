@@ -27,7 +27,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
       <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-5 py-3 sm:px-6 lg:px-8">
           <Link href="/" aria-label="Veximtrade home" className="flex shrink-0 items-center gap-2.5">
-            <Logo className="h-9 w-[48px]" />
+            <Logo className="h-12 w-12" />
             <span className="hidden flex-col leading-tight sm:flex">
               <span
                 className="text-[16.5px] font-black tracking-tight text-brand-800"

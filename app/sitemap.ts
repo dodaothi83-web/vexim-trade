@@ -14,6 +14,10 @@ const INDEXABLE = process.env.PUBLIC_SITE_INDEXABLE === "true";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Blog pages always stay crawlable (existing content, unchanged for MVP).
   const posts = await listPublishedNews().catch(() => []);
+  const legalRoutes: MetadataRoute.Sitemap = [
+    { url: `${SITE_URL}/privacy-policy`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/terms-of-service`, changeFrequency: "yearly", priority: 0.3 },
+  ];
   const blogRoutes: MetadataRoute.Sitemap = [
     {
       url: `${SITE_URL}/blog`,
@@ -31,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   if (!INDEXABLE) {
     // Pre-launch / staging: don't advertise landing or public-catalog pages.
-    return blogRoutes;
+    return [...legalRoutes, ...blogRoutes];
   }
 
   const store = getStore();
@@ -86,5 +90,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
-  return [...publicRoutes, ...blogRoutes];
+  return [...publicRoutes, ...blogRoutes, ...legalRoutes];
 }
