@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { Logo } from "@/components/brand-logo";
+import { SocialLinks } from "@/components/social-links";
 
 /** Public legal documents must load without a session or a working marketplace database. */
 export default function LegalLayout({ children }: { children: ReactNode }) {
@@ -21,9 +22,10 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
     <footer className="border-t border-ink-200 bg-white px-5 py-7 text-sm text-ink-600">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 sm:px-3">
         <p>© {new Date().getFullYear()} VEXIM GLOBAL CO., LTD · Hanoi, Vietnam</p>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <Link href="/" className="hover:text-brand-700">Home</Link>
           <a href="mailto:hello@veximtrade.com" className="hover:text-brand-700">hello@veximtrade.com</a>
+          <SocialLinks />
         </div>
       </div>
     </footer>

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { COMPANY } from "@/lib/config";
 import { Logo } from "@/components/brand-logo";
+import { SocialLinks } from "@/components/social-links";
 
 /** Chân trang dùng chung cho trang chủ và trang blog. */
 export function SiteFooter() {
@@ -21,6 +22,7 @@ export function SiteFooter() {
         <p className="mt-3 text-[12.5px] italic text-slate-500">
           We match the brief. The decision stays with you.
         </p>
+        <SocialLinks className="mt-3" />
       </div>
       <div className="text-[12.5px]">
         <p className="font-semibold text-slate-200">Vexim Global ecosystem</p>
@@ -32,28 +34,6 @@ export function SiteFooter() {
         >
           www.veximglobal.com
         </a>
-        <div className="mt-4 flex items-center gap-3">
-          <a
-            href="https://www.linkedin.com/company/vexim-global/posts/?feedView=all"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Vexim Global on LinkedIn"
-            title="LinkedIn"
-            className="block transition hover:opacity-80"
-          >
-            <img src="/linkedin.png" alt="" width={32} height={32} className="h-8 w-8" />
-          </a>
-          <a
-            href="https://www.facebook.com/profile.php?id=61568290953268"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Vexim Global on Facebook"
-            title="Facebook"
-            className="block transition hover:opacity-80"
-          >
-            <img src="/facebook.png" alt="" width={32} height={32} className="h-8 w-8" />
-          </a>
-        </div>
         <p className="mt-4 font-semibold text-slate-200">Partners &amp; staff</p>
         <a href="/login" className="mt-1 inline-block transition hover:text-white">
           Staff sign in

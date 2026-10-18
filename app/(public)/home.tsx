@@ -17,6 +17,7 @@ import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/pu
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
 import { PublicProductCard } from "@/components/public-product-card";
 import { Logo } from "@/components/brand-logo";
+import { SocialLinks } from "@/components/social-links";
 import type { Category } from "@/lib/types";
 
 /** Ảnh placeholder khi category chưa upload hero_image — màu sắc trung tính, không gây nhầm sản phẩm */
@@ -501,6 +502,7 @@ export default async function HomeContent() {
                 A sourcing team in Hanoi connecting international buyers with Vietnamese producers.
               </p>
               <p className="mt-5 text-[12.5px] text-ink-400">© 2026 Vexim Global Co., Ltd., Hanoi, Vietnam</p>
+              <SocialLinks className="mt-2" />
             </div>
 
             <FooterCol title="Products">

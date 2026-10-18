@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { COMPANY } from "@/lib/config";
+import { SocialLinks } from "@/components/social-links";
 
 /**
  * Footer gọn cho các trang không phải home. Trang chủ (/) tự render footer
@@ -23,6 +24,7 @@ export function SimpleFooter() {
           <Link href="/privacy-policy" className="hover:text-ink-800">Privacy Policy</Link>
           <Link href="/terms-of-service" className="hover:text-ink-800">Terms of Service</Link>
           <a href={`mailto:${COMPANY.email}`} className="hover:text-ink-800">{COMPANY.email}</a>
+          <SocialLinks />
         </div>
       </div>
     </footer>
