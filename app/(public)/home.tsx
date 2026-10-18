@@ -165,7 +165,8 @@ export default async function HomeContent() {
                 </Link>
               </div>
               <div className="mt-10 flex items-center gap-4 border-t border-white/15 pt-5 text-[13px] text-brand-100/80">
-                {supCount > 0 && (
+                {/* Chỉ khoe số hồ sơ công khai khi đã đủ lớn để tạo tin cậy; số nhỏ (vd. 1) gây phản tác dụng. */}
+                {supCount >= 10 && (
                   <>
                     <Stat num={String(supCount)} label="published supplier profiles" />
                     <Divider />
