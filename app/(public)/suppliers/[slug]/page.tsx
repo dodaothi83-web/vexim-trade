@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowRight, CheckCircle2, Clock3, FileCheck2, Globe2, MapPin, Package, ShieldCheck, Ship, Users } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, Globe2, MapPin, Package, ShieldCheck, Ship, Users } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
-import { PublicVerificationBadges } from "@/components/public-verification-badges";
 import { PublicProductCard } from "@/components/public-product-card";
+import { VerificationCoverSeal, VerificationPips, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
+import { PRODUCT_VERIFICATION_EXPLANATIONS } from "@/lib/verification-status";
 import { getPublicSupplierBySlug, listPublicSuppliers, supplierTypeLabel, t } from "@/lib/public/catalog";
 import { getStore } from "@/lib/db";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
@@ -65,6 +66,13 @@ export default async function SupplierProfile({ params }: PageProps) {
   const coverUrl = s.cover_image ? mediaUrl(s.cover_image) : null;
   const avatarUrl = s.profile_image ? mediaUrl(s.profile_image) : null;
   const steps = s.approved_verification_steps;
+  const tier = verificationTier(steps);
+  const STRIP_CLASSES: Record<number, string> = {
+    0: "border-ink-300 bg-ink-50",
+    1: "border-brand-500 bg-brand-50",
+    2: "border-brand-700 bg-brand-50",
+    3: "border-amber-400 bg-gradient-to-r from-brand-50 to-amber-50",
+  };
   const related = (await listPublicSuppliers()).filter((r) => r.id !== s.id && !isSyntheticSupplier(r)).slice(0, 4);
   // A directory profile is not a checkout offer. Only list products that passed the existing public-product gates.
   const jsonLd = {
@@ -98,14 +106,15 @@ export default async function SupplierProfile({ params }: PageProps) {
     <section className="mt-5 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-card" aria-labelledby="supplier-name">
       <div className="relative h-28 bg-gradient-to-r from-ink-900 via-brand-800 to-brand-700 sm:h-40">
         {coverUrl && <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" /><div className="absolute inset-0 bg-gradient-to-r from-ink-900/60 to-transparent" /></>}
-        <span className="absolute right-5 top-5 rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-800">Vietnam supplier profile</span>
+        <span className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-800">Vietnam supplier profile</span>
+        <VerificationCoverSeal levels={steps} />
       </div>
       <div className="relative flex flex-col gap-5 px-5 pb-6 sm:flex-row sm:items-start sm:gap-6 sm:px-8">
         <div className="-mt-9 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-ink-50 text-3xl font-bold text-ink-400 shadow-sm sm:-mt-11 sm:h-24 sm:w-24">
           {avatarUrl ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={avatarUrl} alt="" className="h-full w-full object-cover" /></> : name.slice(0, 1).toUpperCase()}
         </div>
         <div className="min-w-0 flex-1 pt-0 sm:pt-5">
-          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-ink-100 px-2.5 py-1 text-xs font-semibold text-ink-700">{supplierTypeLabel(s)}</span><PublicVerificationBadges levels={steps} compact />
+          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-ink-100 px-2.5 py-1 text-xs font-semibold text-ink-700">{supplierTypeLabel(s)}</span><VerificationTierBadge levels={steps} />
             {s.private_label && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">Private label stated</span>}
           </div>
           <h1 id="supplier-name" className="mt-3 break-words text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">{name}</h1>
@@ -113,6 +122,16 @@ export default async function SupplierProfile({ params }: PageProps) {
             {s.province && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-brand-700" />{safe(s.province)}, Vietnam</span>}
             {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
             {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">Vexim checks</span>
+            <VerificationPips levels={steps} />
+            <span className="text-[13px] font-medium text-ink-600">{steps.length}/3 checks approved</span>
+          </div>
+          <div className={`mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border-l-4 px-3.5 py-2.5 ${STRIP_CLASSES[tier]}`}>
+            <p className="text-[13px] leading-5 text-ink-700"><b className="text-ink-900">Vexim verification:</b>{" "}
+              {steps.length ? <>approved checks: {approvedChecksSummary(steps)}.</> : "this profile is still under audit."}</p>
+            <a href="#verification" className="inline-flex shrink-0 items-center rounded-full border border-brand-200 bg-white px-3 py-1.5 text-xs font-bold text-brand-800 hover:bg-brand-50">{steps.length ? "View checked items" : "Verification pending"}</a>
           </div>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:pt-6">
@@ -134,31 +153,31 @@ export default async function SupplierProfile({ params }: PageProps) {
           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{summary || "Supplier information has not been provided yet. Ask Vexim for details before making a sourcing decision."}</p>
         </section>
         <section id="verification" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="verification-title">
-          <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-brand-700" /><h2 id="verification-title" className="text-lg font-bold text-ink-900">Vexim verification</h2></div>
-          <p className="mt-2 text-xs leading-5 text-ink-600">Each check is independent. Only approved reviews earn badges; “not reviewed” does not mean a failed check.</p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            {([ [1, "Documents checked"], [2, "Factory visit"], [3, "Delivery history"] ] as const).map(([level, label]) =>
-              <div key={level} className={`flex items-center gap-2 rounded-lg border p-3 text-xs font-semibold ${steps.includes(level) ? "border-brand-200 bg-brand-50 text-brand-900" : "border-ink-200 bg-ink-50 text-ink-600"}`}>
-                {steps.includes(level) ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <FileCheck2 className="h-4 w-4 shrink-0 text-ink-400" />}
-                <span>{label}<span className="block font-normal">{steps.includes(level) ? "Review approved" : "Not reviewed"}</span></span>
-              </div>)}
+          <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-brand-700" /><h2 id="verification-title" className="text-lg font-bold text-ink-900">What Vexim checked</h2></div>
+          <p className="mt-2 text-xs leading-5 text-ink-600">Each check is independent. Only approved reviews are marked as approved; “not reviewed” does not mean a failed check.</p>
+          <div className="mt-2">
+            {([ [1, "Documents checked"], [2, "Factory visit"], [3, "Delivery history"] ] as const).map(([level, label]) => {
+              const approvedStep = steps.includes(level);
+              return <div key={level} id={level === 2 ? "factory-visit" : level === 3 ? "delivery-history" : undefined} className="flex scroll-mt-24 gap-3 border-t border-ink-100 py-4 first:border-t-0">
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1 ${approvedStep ? "bg-brand-50 text-brand-800 ring-brand-300" : "bg-ink-50 text-ink-400 ring-ink-200"}`}>
+                  {approvedStep ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-ink-900">{label}</h3>
+                  <p className={`mt-0.5 text-xs font-bold ${approvedStep ? "text-brand-800" : "text-ink-500"}`}>{approvedStep ? "Review approved" : "Not reviewed yet"}</p>
+                  {level === 3 && (s.export_markets ?? []).length > 0 && <p className="mt-1.5 text-sm leading-6 text-ink-700">Supplier-stated markets (not independently verified): {safe((s.export_markets ?? []).join(", "))}</p>}
+                  <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">
+                    {level === 1 && (approvedStep ? PRODUCT_VERIFICATION_EXPLANATIONS[1] : "Vexim has not approved a document review for this supplier yet.")}
+                    {level === 2 && (approvedStep ? (safe(s.public_review_summaries[2]) || "Visit details have not been released for public viewing.") : "No approved factory visit review is available.")}
+                    {level === 3 && (approvedStep ? (safe(s.public_review_summaries[3]) || "Reviewed shipment details have not been released for public viewing.") : "No approved delivery evidence review is available. Stated markets are not a Vexim-verified export history.")}
+                  </p>
+                  {level === 2 && approvedStep && <p className="mt-1.5 text-xs text-ink-500">Only the site described in a published summary was reviewed. This is not a certification of other facilities or products.</p>}
+                  {level === 3 && approvedStep && <p className="mt-1.5 text-xs text-ink-500">A reviewed delivery is not proof of the supplier’s entire export history or a guarantee of future shipments.</p>}
+                </div>
+              </div>;
+            })}
           </div>
-          <p className="mt-4 text-xs leading-5 text-ink-500">Verification is limited to the documents, site or shipment in the relevant review. It does not certify every facility or product. Ask Vexim to confirm the certificate holder and its scope for the goods offered.</p>
-        </section>
-        <section id="factory-visit" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="factory-title">
-          <h2 id="factory-title" className="text-lg font-bold text-ink-900">Facilities visited by Vexim</h2>
-          {steps.includes(2) ? <><p className="mt-2 text-sm font-semibold text-brand-800">Factory visit review approved</p>
-            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{safe(s.public_review_summaries[2]) || "Visit details have not been released for public viewing."}</p>
-            <p className="mt-2 text-xs text-ink-500">Only the site described in a published summary was reviewed. This is not a certification of other facilities or products.</p></>
-            : <p className="mt-2 text-sm text-ink-600">No approved factory visit review is available.</p>}
-        </section>
-        <section id="delivery-history" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="delivery-title">
-          <h2 id="delivery-title" className="text-lg font-bold text-ink-900">Export &amp; delivery evidence</h2>
-          {(s.export_markets ?? []).length > 0 && <p className="mt-2 text-sm text-ink-700">Supplier-stated markets (not independently verified): {safe((s.export_markets ?? []).join(", "))}</p>}
-          {steps.includes(3) ? <><p className="mt-2 text-sm font-semibold text-brand-800">Delivery evidence review approved</p>
-            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{safe(s.public_review_summaries[3]) || "Reviewed shipment details have not been released for public viewing."}</p>
-            <p className="mt-2 text-xs text-ink-500">A reviewed delivery is not proof of the supplier’s entire export history or a guarantee of future shipments.</p></>
-            : <p className="mt-2 text-sm text-ink-600">No approved delivery evidence review is available. Stated markets are not a Vexim-verified export history.</p>}
+          <p className="mt-2 text-xs leading-5 text-ink-500">Verification is limited to the documents, site or shipment in the relevant review. It does not certify every facility or product. Ask Vexim to confirm the certificate holder and its scope for the goods offered.</p>
         </section>
         {s.gallery_images.length > 0 && <section className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="gallery-title">
           <h2 id="gallery-title" className="text-lg font-bold text-ink-900">Supplier gallery</h2>
@@ -211,7 +230,7 @@ export default async function SupplierProfile({ params }: PageProps) {
       <h2 id="related-title" className="text-lg font-bold text-ink-900">Explore other suppliers</h2>
       <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{related.map((r) => <li key={r.id}><Link href={`/suppliers/${encodeURIComponent(r.slug || r.id)}`} className="block h-full rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-200 hover:shadow-card">
         <p className="font-bold text-ink-900">{safe(r.display_name || r.name)}</p><p className="mt-1 text-xs text-ink-600">{safe(r.province) || "Vietnam"} · {supplierTypeLabel(r)}</p>
-        <div className="mt-3"><PublicVerificationBadges levels={r.approved_verification_steps} compact /></div>
+        <div className="mt-3 flex flex-wrap items-center gap-1.5"><VerificationPips levels={r.approved_verification_steps} compact /><VerificationTierBadge levels={r.approved_verification_steps} /></div>
       </Link></li>)}</ul>
     </section>}
   </div>;

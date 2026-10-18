@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight, ClipboardCheck, Factory, FileCheck2, ShieldCheck } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
-import { PublicVerificationBadges } from "@/components/public-verification-badges";
+import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import { listPublicSuppliers } from "@/lib/public/catalog";
 
 export const metadata: Metadata = {
@@ -53,9 +53,9 @@ export default async function HowWeVerifyPage() {
         <p className="mt-3 text-[14.5px] leading-relaxed text-ink-700">
           These are the badges used on supplier profiles. A badge is shown only after an authorised reviewer has approved that check.
         </p>
-        <p className="mt-4"><PublicVerificationBadges levels={[1, 2, 3]} /></p>
+        <p className="mt-4 flex flex-wrap items-center gap-2"><VerificationPips levels={[1, 2, 3]} /><VerificationTierBadge levels={[1, 2, 3]} /></p>
         <p className="mt-4 flex flex-wrap items-center gap-2 text-[14.5px] text-ink-700">
-          A profile with no approved checks yet: <PublicVerificationBadges levels={[]} />
+          A profile with no approved checks yet: <VerificationTierBadge levels={[]} />
         </p>
         {example && exampleHref && (
           <p className="mt-4 text-[14.5px] text-ink-700">
@@ -149,7 +149,7 @@ function Step({
           <h3 className="mt-1 text-[20px] font-bold text-ink-900">{title}</h3>
           <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-700">{body}</p>
           <p className="mt-3 flex flex-wrap items-center gap-2 text-[13px] font-medium text-ink-600">
-            Shown on the profile as: <PublicVerificationBadges levels={[n]} />
+            Shown on the profile as: <VerificationPips levels={[n]} />
           </p>
         </div>
       </div>
