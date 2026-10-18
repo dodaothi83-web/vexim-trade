@@ -53,6 +53,14 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible && !!s.fob_updated_at && Date.now() - new Date(s.fob_updated_at).getTime() < 180 * 86400_000 },
   '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => c.slug === (p.name.includes('Rice') ? 'rice' : 'cashew')) },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async (_supplier, item) => { notices.push(['submitted', item.id]); return 'sent'; } },
+  '@/lib/ai/product-translation-service': {
+    ensureProductEnglishTranslation: async (storeArg, id) => {
+      const current = await storeArg.getProduct(id);
+      if (current?.name_i18n?.en) return { status: 'current', product: current };
+      const saved = await storeArg.updateProduct(id, { name_i18n: { en: current?.name ?? '' }, translation_meta: { source_hash: 'mock', translated_at: new Date().toISOString(), origin: 'ai', model: 'mock' } });
+      return { status: 'translated', product: saved };
+    },
+  },
 });
 const form = () => {
   const fd = new FormData();
@@ -181,6 +189,7 @@ assert.equal((await actions.submitSupplierProductAction(submitted)).ok, false, '
 files[0].created_by = user.id;
 assert.equal((await actions.submitSupplierProductAction(submitted)).ok, true);
 assert.equal(product.supplier_review_status, 'pending'); assert.equal(product.ready_for_buyer, false);
+assert.ok(product.name_i18n?.en, 'Submitting a product auto-creates its English translation');
 assert.equal(notices.length, 1, 'Only submission, not saves, emails staff');
 assert.equal(await postMedia(), 409, 'Cannot upload while pending');
 const pendingEdit = form(); pendingEdit.set('product_id', productId);
@@ -195,6 +204,8 @@ const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/product-attributes': attributes,
   '@/lib/public/category-assignment': { assignProductCategory: (p) => p.name.includes('Rice') ? categories[1] : categories[0] },
+  '@/lib/ai/product-translation-service': { ensureProductEnglishTranslation: async () => ({ status: 'current', product }) },
+  '@/lib/ai/translate-content': { productTranslationPatch: (translation, _source, origin) => ({ name_i18n: { en: translation.name }, description_i18n: { en: translation.description }, spec_i18n: { en: translation.spec }, description_detail_i18n: { en: translation.description_detail }, packaging_i18n: { en: translation.packaging }, certifications_i18n: { en: translation.certifications }, translation_meta: { source_hash: 'mock', translated_at: new Date().toISOString(), origin, model: null } }) },
 });
 const approve = new FormData(); approve.set('product_id', productId); approve.set('decision', 'approved');
 assert.equal((await review.decideSupplierProductAction(approve)).ok, false);

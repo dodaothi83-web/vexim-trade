@@ -134,9 +134,20 @@ export interface SupplierProduct {
   /** Nhóm ngành: Nông sản, Thủy sản, Gỗ... — giữ text để tương thích code cũ, ưu tiên qua categories */
   category: string | null;
   description: string | null;
+  /** Bản tiếng Anh của mô tả, do AI dịch tự động hoặc nhân viên Vexim chốt; trang buyer ưu tiên bản này. */
+  description_i18n?: I18nString;
   /** Optional long-form buyer-facing product information (plain text, no HTML). */
   description_detail?: string | null;
+  description_detail_i18n?: I18nString;
   spec: string | null;
+  spec_i18n?: I18nString;
+  /** Dấu vết bản dịch tiếng Anh: hash nội dung gốc tại thời điểm dịch để phát hiện bản dịch đã cũ khi NCC sửa nội dung. */
+  translation_meta?: {
+    source_hash: string;
+    translated_at: string;
+    origin: "ai" | "staff";
+    model?: string | null;
+  } | null;
   /** Thông số theo ngành (JSON linh hoạt) */
   specs?: Record<string, unknown>;
   unit: string | null;
@@ -147,11 +158,13 @@ export interface SupplierProduct {
   lead_time_days: number | null;
   /** Bao bì / đóng gói */
   packaging: string | null;
+  packaging_i18n?: I18nString;
   /** Nhận làm nhãn riêng */
   oem: boolean;
   /** Thiết kế và sản xuất theo yêu cầu; NCC tự khai, không phải xác minh. */
   odm?: boolean;
   certifications: string | null;
+  certifications_i18n?: I18nString;
   export_port: string | null;
   /** Giá tham khảo từ (hoặc giá đơn nếu không có giá đến) – không phải báo giá RFQ. */
   ref_price: number | null;

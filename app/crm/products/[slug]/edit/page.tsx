@@ -14,6 +14,8 @@ import { MediaManager, ReadyHint } from "@/components/media-manager";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { requirePagePermission } from "@/lib/auth/session";
 import { SupplierProductReviewControls } from "./review-controls";
+import { ProductTranslationPanel } from "./translation-panel";
+import { productTranslationState } from "@/lib/ai/translate-content";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +58,9 @@ export default async function EditProductPage({
   const priceBlockers = productPriceBlockers(product, supplier);
   const visiblePrice = canView && !priceBlockers.length ? publicProductPrice(product, supplier) : null;
 
+  const translationState = productTranslationState(product);
   const websiteChecks: Array<{ done: boolean; label: string }> = [
+    { done: translationState.current, label: translationState.hasEnglish ? "Đã có bản dịch tiếng Anh khớp nội dung gốc (AI dịch, nhân viên chốt ở mục Bản dịch bên dưới)" : "Chưa có bản dịch tiếng Anh; dịch bằng AI ở mục Bản dịch bên dưới trước khi công khai" },
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đã đăng` },
     { done: supplier.status === "published", label: "NCC đã đăng (không tự chuyển trạng thái khi lưu)" },
     { done: commercialSupplier, label: "Hồ sơ NCC không phải dữ liệu thử nghiệm (tên, slug hoặc giới thiệu có TEST / DO NOT CONTACT; hồ sơ demo chỉ xem khi bật chế độ demo)" },
@@ -101,6 +105,29 @@ export default async function EditProductPage({
             supplierCategories={supplierCategories}
             mediaState={{ ready: readiness.ready, shareable: readiness.shareable }}
             savedPrice={{ buyerPrice: visiblePrice, blockers: priceBlockers, publicProduct: canView }}
+          />
+          <ProductTranslationPanel
+            id={product.id}
+            source={{
+              name: product.name ?? "",
+              description: product.description ?? "",
+              spec: product.spec ?? "",
+              description_detail: product.description_detail ?? "",
+              packaging: product.packaging ?? "",
+              certifications: product.certifications ?? "",
+            }}
+            english={{
+              name: product.name_i18n?.en ?? "",
+              description: product.description_i18n?.en ?? "",
+              spec: product.spec_i18n?.en ?? "",
+              description_detail: product.description_detail_i18n?.en ?? "",
+              packaging: product.packaging_i18n?.en ?? "",
+              certifications: product.certifications_i18n?.en ?? "",
+            }}
+            hasEnglish={translationState.hasEnglish}
+            current={translationState.current}
+            translatedAt={translationState.translatedAt}
+            origin={translationState.origin}
           />
           <ReadyHint ready={readiness.ready} shareable={readiness.shareable} />
           <MediaManager

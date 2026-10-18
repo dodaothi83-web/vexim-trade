@@ -92,6 +92,12 @@ export default async function PublicProductDetail({ params }: Props) {
     ...(configuredKeys.size ? [] : Object.entries(p.specs ?? {}).filter(([, value]) => typeof value === "string" || typeof value === "number").map(([key, value]) => [key, String(value)] as [string, string])),
   ].slice(0, 12);
 
+  // Trang buyer hiển thị bản tiếng Anh (AI dịch, nhân viên Vexim đã chốt); chỉ lùi về nội dung gốc khi chưa có bản dịch.
+  const enDescription = p.description_i18n?.en?.trim() || p.description;
+  const enSpec = p.spec_i18n?.en?.trim() || p.spec;
+  const enPackaging = p.packaging_i18n?.en?.trim() || p.packaging;
+  const enDetail = p.description_detail_i18n?.en?.trim() || p.description_detail;
+
   const countView = !preview && !card.isDemo && !(await getSession());
   // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
   // giá trên trang là giá tham khảo qua RFQ, không phải chào bán giao dịch trực tiếp.
@@ -102,7 +108,7 @@ export default async function PublicProductDetail({ params }: Props) {
     name: card.name,
     url: `${SITE_URL}/products/${slug}/${productId}`,
     ...(images.length ? { image: images.map((path) => `${SITE_URL}/public-media/${path.replace(/^\//, "")}`) } : {}),
-    ...(p.description ? { description: withoutDirectContacts(p.description) } : {}),
+    ...(enDescription ? { description: withoutDirectContacts(enDescription) } : {}),
     category: category.name_i18n.en || slug,
     brand: {
       "@type": "Organization",
@@ -123,13 +129,13 @@ export default async function PublicProductDetail({ params }: Props) {
       <div>
         <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
         <h1 className="mt-2 text-3xl font-black leading-tight text-ink-900 sm:text-4xl">{card.name}</h1>
-        {p.description && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(p.description)}</p>}
+        {enDescription && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(enDescription)}</p>}
         {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
           <p className="mt-1.5 text-xs text-ink-500">Product options stated in the listing; confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
         <div className="mt-5 rounded-xl border border-ink-200 bg-white px-5 py-2">
           <Spec label="Grade" value={approvedAttributes.grade ?? card.grade} /><Spec label="MOQ" value={card.moq} />
           <Spec label="Reference price" value={card.price || "On request"} />
-          <Spec label="Specification" value={p.spec} /><Spec label="Packaging" value={p.packaging} />
+          <Spec label="Specification" value={enSpec} /><Spec label="Packaging" value={enPackaging} />
           <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
           <Spec label="Export port" value={p.export_port} />
           {specs.filter(([key]) => key.toLowerCase() !== "grade" || !(approvedAttributes.grade || card.grade)).map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
@@ -159,9 +165,9 @@ export default async function PublicProductDetail({ params }: Props) {
         </aside>
       </div>
     </div>
-    {p.description_detail && <section aria-labelledby="product-description-heading" className="mt-12 border-t border-ink-200 pt-8">
+    {enDetail && <section aria-labelledby="product-description-heading" className="mt-12 border-t border-ink-200 pt-8">
       <h2 id="product-description-heading" className="text-2xl font-black text-ink-900">Product description</h2>
-      <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{withoutDirectContacts(p.description_detail)}</p>
+      <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{withoutDirectContacts(enDetail)}</p>
     </section>}
   </div>;
 }

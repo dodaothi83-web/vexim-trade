@@ -80,6 +80,13 @@ alter table public.supplier_products add column if not exists reviewed_category_
 alter table public.supplier_products add column if not exists supplier_originated boolean not null default false;
 alter table public.supplier_products add column if not exists featured_media_id uuid;
 alter table public.supplier_products add column if not exists description_detail text;
+alter table public.supplier_products add column if not exists name_i18n jsonb not null default '{}'::jsonb;
+alter table public.supplier_products add column if not exists description_i18n jsonb not null default '{}'::jsonb;
+alter table public.supplier_products add column if not exists description_detail_i18n jsonb not null default '{}'::jsonb;
+alter table public.supplier_products add column if not exists spec_i18n jsonb not null default '{}'::jsonb;
+alter table public.supplier_products add column if not exists packaging_i18n jsonb not null default '{}'::jsonb;
+alter table public.supplier_products add column if not exists certifications_i18n jsonb not null default '{}'::jsonb;
+alter table public.supplier_products add column if not exists translation_meta jsonb;
 alter table public.supplier_products add column if not exists price_publicly_visible boolean not null default false;
 alter table public.supplier_products add column if not exists odm boolean not null default false;
 create index if not exists supplier_products_category_idx on public.supplier_products (category);

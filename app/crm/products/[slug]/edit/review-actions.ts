@@ -6,6 +6,8 @@ import { getStore } from "@/lib/db";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { assignProductCategory } from "@/lib/public/category-assignment";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
+import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
+import { productTranslationPatch } from "@/lib/ai/translate-content";
 
 type Result = { ok: boolean; message: string };
 
@@ -62,6 +64,62 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
     revalidatePath("/supplier/portal/products");
     return { ok: true, message: (decision === "approved" ? "Đã xác nhận nội dung. Cần Vexim chọn tệp chia sẻ buyer và bật Sẵn sàng gửi buyer để công khai." : "Đã yêu cầu NCC chỉnh sửa.") + (mail === "sent" ? "" : " Email NCC chưa gửi được; quyết định đã lưu trên cổng.") };
   } catch (error) { console.error("[supplier-product-review]", error); return { ok: false, message: "Không lưu được quyết định." }; }
+}
+
+/** AI dịch (lại) nội dung sản phẩm sang tiếng Anh; dùng khi NCC nộp mà chưa dịch được hoặc vừa sửa nội dung gốc. */
+export async function translateProductEnglishAction(productId: string): Promise<Result> {
+  const denied = await guard("products.manage");
+  if (denied) return { ok: false, message: denied.message };
+  const session = await getSession();
+  if (!session) return { ok: false, message: "Vui lòng đăng nhập." };
+  if (!/^[0-9a-f-]{36}$/i.test(productId)) return { ok: false, message: "Sản phẩm không hợp lệ." };
+  try {
+    const store = getStore();
+    const result = await ensureProductEnglishTranslation(store, productId, { id: session.uid, email: session.email });
+    if (result.status === "unconfigured") return { ok: false, message: "Chức năng AI chưa được cấu hình trên máy chủ. Bạn vẫn có thể tự nhập bản dịch tiếng Anh rồi lưu." };
+    if (result.status === "failed") return { ok: false, message: result.message };
+    revalidatePath(`/crm/products/${productId}/edit`);
+    return { ok: true, message: result.status === "current" ? "Bản dịch tiếng Anh đã khớp nội dung gốc hiện tại." : "Đã dịch nội dung sang tiếng Anh bằng AI. Hãy đọc lại trước khi công khai." };
+  } catch (error) {
+    console.error("[product-translation-action]", error);
+    return { ok: false, message: error instanceof Error ? error.message : "Không dịch được nội dung." };
+  }
+}
+
+/** Nhân viên chốt tay bản dịch tiếng Anh; ghi nguồn "staff" để phân biệt với bản AI trong dấu vết bản dịch. */
+export async function saveProductEnglishAction(form: FormData): Promise<Result> {
+  const denied = await guard("products.manage");
+  if (denied) return { ok: false, message: denied.message };
+  const session = await getSession();
+  if (!session) return { ok: false, message: "Vui lòng đăng nhập." };
+  const id = String(form.get("product_id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Sản phẩm không hợp lệ." };
+  const read = (key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
+  const translation = {
+    name: read("name_en", 180),
+    description: read("description_en", 3000),
+    spec: read("spec_en", 1600),
+    description_detail: read("description_detail_en", 12000),
+    packaging: read("packaging_en", 600),
+    certifications: read("certifications_en", 600),
+  };
+  if (!translation.name) return { ok: false, message: "Cần ít nhất tên sản phẩm bằng tiếng Anh." };
+  try {
+    const store = getStore();
+    const product = await store.getProduct(id);
+    if (!product) return { ok: false, message: "Không tìm thấy sản phẩm." };
+    const saved = await store.updateProduct(id, productTranslationPatch(translation, product, "staff"));
+    await store.addAuditLog({ actor_id: session.uid, actor_email: session.email, entity: "product", entity_id: id,
+      action: "product.translation_staff_saved",
+      before: { translated_at: product.translation_meta?.translated_at ?? null, origin: product.translation_meta?.origin ?? null },
+      after: { translated_at: saved.translation_meta?.translated_at ?? null, origin: "staff" } })
+      .catch((error) => console.error("[product-translation] audit", error));
+    revalidatePath(`/crm/products/${id}/edit`);
+    return { ok: true, message: "Đã lưu bản dịch tiếng Anh." };
+  } catch (error) {
+    console.error("[product-translation-save]", error);
+    return { ok: false, message: "Không lưu được bản dịch." };
+  }
 }
 
 /** Staff may correct a reviewed product's category; buyer readiness must be rechecked separately. */

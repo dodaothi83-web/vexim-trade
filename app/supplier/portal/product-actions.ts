@@ -8,6 +8,7 @@ import { categoryProposalOptions, allowedSupplierCategories, parseProductCategor
 import { assignProductCategory } from "@/lib/public/category-assignment";
 import { attributesFromForm, saveProductAttributes } from "@/lib/product-attributes";
 import { notifyStaffProductSubmission } from "@/lib/supplier-portal/notify";
+import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 
 type Result = { ok: boolean; message: string; id?: string };
@@ -133,9 +134,15 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
       before: { review: product.supplier_review_status }, after: { review: "pending" } }).catch((error) => console.error("[supplier-product] audit", error));
     const mail = await notifyStaffProductSubmission(access.supplier, product);
     if (mail !== "sent") console.warn("[supplier-product] staff email not sent; CRM review queue remains pending", mail);
+    // AI dịch nội dung sang tiếng Anh ngay khi NCC nộp, để nhân viên duyệt luôn trên bản buyer sẽ thấy.
+    // Dịch lỗi không chặn việc nộp; CRM còn nút dịch lại và trường hợp chưa có bản dịch sẽ bị chặn ở bước bật sẵn sàng gửi buyer.
+    const translation = await ensureProductEnglishTranslation(store, id, { id: access.user.id, email: access.user.email });
+    const translationNote = translation.status === "translated" || translation.status === "current"
+      ? " Nội dung đã có bản dịch tiếng Anh do AI soạn để Vexim kiểm tra."
+      : " Bản dịch tiếng Anh sẽ được Vexim hoàn thiện trong lúc kiểm tra.";
     revalidatePath("/supplier/portal/products");
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
-    return { ok: true, message: `Đã gửi Vexim kiểm tra sản phẩm. Chưa được công khai.${mail === "sent" ? "" : " Email nhắc nhân viên chưa gửi được; sản phẩm vẫn nằm trong hàng chờ CRM."}` };
+    return { ok: true, message: `Đã gửi Vexim kiểm tra sản phẩm. Chưa được công khai.${translationNote}${mail === "sent" ? "" : " Email nhắc nhân viên chưa gửi được; sản phẩm vẫn nằm trong hàng chờ CRM."}` };
   } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "Không nộp được sản phẩm." }; }
 }

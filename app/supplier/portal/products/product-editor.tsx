@@ -165,6 +165,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         </div></div>
         {product?.supplier_review_note && <p className="mt-4 whitespace-pre-wrap rounded-xl bg-white p-3 text-sm font-semibold text-rose-800"><AlertCircle className="mr-1 inline size-4" aria-hidden="true" /> Vexim yêu cầu: {product.supplier_review_note}</p>}
         {product?.ready_for_buyer && review === "approved" && <p className="mt-3 text-xs font-semibold text-teal-900">Vexim đã bật sẵn sàng chia sẻ buyer; việc xuất hiện công khai còn tùy trang NCC và danh mục.</p>}
+        {product && <p className="mt-3 text-xs font-semibold text-slate-600">Bản dịch tiếng Anh cho trang buyer: {product.name_i18n?.en?.trim() ? "đã có bản dịch do AI soạn và Vexim kiểm tra." : "Vexim sẽ dịch tự động bằng AI khi kiểm tra sản phẩm này."} Bạn cứ nhập nội dung bằng tiếng Việt, không cần tự dịch.</p>}
       </section>
 
       <form id="product-info" onSubmit={save} onChange={() => setDirty(true)} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
