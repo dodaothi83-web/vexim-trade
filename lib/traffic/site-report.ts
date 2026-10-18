@@ -33,9 +33,14 @@ export function buildSiteTrafficReport(rows: SiteTrafficRow[], days: 7 | 30 | 90
   const top = (prefix: string) => [...pageViews.entries()].filter(([key]) => key.startsWith(prefix))
     .map(([key, views]) => ({ slug: key.slice(prefix.length), views }))
     .sort((a, b) => b.views - a.views || a.slug.localeCompare(b.slug)).slice(0, 5);
+  const categoryRanks = new Map([...pageViews.entries()].filter(([key]) => key.startsWith("category:"))
+    .map(([key, views]) => [key.slice(9), views]));
+  if (sum("cashew")) categoryRanks.set("cashew", (categoryRanks.get("cashew") ?? 0) + sum("cashew"));
+  const topCategories = [...categoryRanks].map(([slug, views]) => ({ slug, views }))
+    .sort((a, b) => b.views - a.views || a.slug.localeCompare(b.slug)).slice(0, 5);
   return {
     total: trend.reduce((value, row) => value + row.views, 0), trend, breakdown,
-    topCategories: top("category:"), topArticles: top("article:"),
+    topCategories, topArticles: top("article:"),
     supplierViews: sum("supplier_profile") + sum("product_detail"),
   };
 }

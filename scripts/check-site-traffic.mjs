@@ -27,6 +27,11 @@ const report = buildSiteTrafficReport(rows, 7, new Date('2026-10-18T23:00:00Z'))
 assert.equal(report.total, 17);
 assert.equal(report.supplierViews, 11);
 assert.deepEqual(report.topCategories, [{ slug: 'rice', views: 3 }]);
+const cashew = buildSiteTrafficReport([
+  { day: '2026-10-18', page_key: 'category:cashew', views: 2 },
+  { day: '2026-10-18', page_key: 'cashew', views: 3 },
+], 7, new Date('2026-10-18T23:00:00Z'));
+assert.deepEqual(cashew.topCategories, [{ slug: 'cashew', views: 5 }], 'Legacy cashew and category views share one top-page label');
 assert.equal(report.trend.length, 7);
 assert.equal(report.breakdown.reduce((sum, group) => sum + group.views, 0), report.total);
 for (const role of ['sale', 'sourcing', 'viewer', 'supplier']) assert.equal(hasPermission(role, 'traffic.view'), false);
