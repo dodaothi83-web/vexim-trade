@@ -194,7 +194,7 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
     <div className="border-b border-ink-100 px-5 py-4">
       <h2 className="text-base font-bold text-ink-900">Bảng kiểm & kết quả</h2>
       <p className="mt-1 text-sm text-ink-500">{v.target_level === 1
-        ? `${requiredDocs.filter((it) => it.key === "tax_certificate" ? !!v.tax_number : it.key === "bank_letter" ? !!v.bank_account_number : recorded(it.key)).length}/${requiredDocs.length} mục bắt buộc đã ghi · ${optionalDocs.filter((it) => recorded(it.key)).length}/${optionalDocs.length} mục tùy chọn`
+        ? `${requiredDocs.filter((it) => it.key === "tax_certificate" ? !!v.tax_number : recorded(it.key)).length}/${requiredDocs.length} mục bắt buộc đã ghi · ${optionalDocs.filter((it) => it.key === "bank_letter" ? !!v.bank_account_number : recorded(it.key)).length}/${optionalDocs.length} mục tùy chọn`
         : `${items.filter((it) => recorded(it.key)).length}/${items.length} mục đã ghi · không bắt buộc điền hết`}</p>
       {v.target_level > 1 && <p className="mt-1 text-xs text-ink-600">{v.target_level === 2 ? "Để duyệt cần ít nhất một ảnh thực tế của đúng đợt kiểm." : "Để duyệt cần chứng từ vận chuyển/giao nhận gắn đúng mục, hoặc chứng từ cũ đã kiểm tra."} Lưu và nộp có thể để trống các ô khác.</p>}
       {v.return_reason && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">Cần bổ sung: {v.return_reason}</p>}

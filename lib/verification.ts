@@ -17,7 +17,7 @@ export function auditItems(level: VerificationLevel) {
   return level === 1 ? L1_DOC_ITEMS : level === 2 ? L2_VISIT_ITEMS : DELIVERY_ITEMS;
 }
 
-/** Three required L1 items (business registration + two numeric inputs); food safety and other certificates are optional. */
+/** Two required L1 items (business registration + mã số thuế dạng số); số tài khoản ngân hàng và các giấy chứng nhận khác là mục tùy chọn. */
 export function requiredAuditItems(level: VerificationLevel) {
   return level === 1 ? L1_DOC_ITEMS.filter((item) => item.required) : [];
 }
