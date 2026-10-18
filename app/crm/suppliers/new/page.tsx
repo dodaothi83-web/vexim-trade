@@ -8,19 +8,31 @@ export const metadata = { title: "Thêm nhà cung cấp" };
 
 export default async function NewSupplierPage() {
   await requirePagePermission("suppliers.manage", "/crm/suppliers");
-  const categories = await getStore().listCategories({ publishedOnly: false });
+  const store = getStore();
+  const [categories, suppliers] = await Promise.all([
+    store.listCategories({ publishedOnly: false }),
+    // Chỉ lấy các trường cần để cảnh báo tạo trùng ngay khi gõ tên.
+    store.listSuppliers().catch(() => []),
+  ]);
+  const existingSuppliers = suppliers.map((s) => ({
+    id: s.id,
+    name: s.name,
+    trade_name: s.trade_name,
+    display_name: s.display_name ?? null,
+    tax_id: s.tax_id,
+    website: s.website,
+    province: s.province,
+  }));
   return (
     <>
       <PageHeader
         title="Thêm nhà cung cấp"
-        sub="Chỉ cần tên để lưu hồ sơ. Thông tin liên hệ và mặt hàng có thể bổ sung sau."
+        sub="Tạo hồ sơ trong 1 phút — chỉ cần tên nhà cung cấp. Các thông tin còn lại bổ sung sau ở trang Sửa."
         breadcrumbs={
           <Breadcrumbs items={[{ label: "Nhà cung cấp", href: "/crm/suppliers" }, { label: "Thêm mới" }]} />
         }
       />
-      <div className="max-w-5xl">
-        <SupplierForm categories={categories} aiEnabled={!!process.env.OPENAI_API_KEY} />
-      </div>
+      <SupplierForm mode="create" categories={categories} existingSuppliers={existingSuppliers} aiEnabled={!!process.env.OPENAI_API_KEY} />
     </>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
+  AlertTriangle,
   ArrowRight,
   ExternalLink,
   Loader2,
@@ -130,14 +132,33 @@ function ChipGroup({
   );
 }
 
+export type ExistingSupplierHint = Pick<Supplier, "id" | "name" | "trade_name" | "display_name" | "tax_id" | "website" | "province">;
+
+/** Bỏ dấu tiếng Việt để so tên NCC khi cảnh báo tạo trùng. */
+function normText(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Quick entry first; the long-tail commercial fields stay available on demand. */
-export function SupplierForm({ supplier, categories, products = [], canPublish = false, aiEnabled = false }: {
+export function SupplierForm({ supplier, categories, products = [], canPublish = false, aiEnabled = false, mode, existingSuppliers = [] }: {
   supplier?: Supplier | null;
   categories: Pick<Category, "id" | "slug" | "name_i18n">[];
   products?: Array<Pick<SupplierProduct, "name" | "category" | "spec" | "description">>;
   canPublish?: boolean;
   aiEnabled?: boolean;
+  /** "create" = form tạo rút gọn (chỉ thông tin cần lúc tạo); mặc định suy ra từ việc có hồ sơ hay chưa. */
+  mode?: "create" | "edit";
+  /** Danh sách NCC hiện có (rút gọn) để cảnh báo tạo trùng ngay khi gõ tên. */
+  existingSuppliers?: ExistingSupplierHint[];
 }) {
+  const isCreate = mode ? mode === "create" : !supplier;
   const router = useRouter();
   const toast = useToast();
   const [form, setForm] = useState<FormState>(() => init(supplier));
@@ -147,7 +168,22 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
   const set = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
   const str = (k: string) => String(form[k] ?? "");
   const arr = (k: string) => (Array.isArray(form[k]) ? (form[k] as string[]) : []);
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string }>({});
   const autoIndustries = assignSupplierCategories(str("products"), products, categories);
+
+  // Cảnh báo tạo trùng: tên gần giống hồ sơ đã có (không chặn cứng — có thể
+  // là đơn vị khác; chỉ nhắc và cho đường tắt mở hồ sơ cũ).
+  const duplicateHints = ((): ExistingSupplierHint[] => {
+    if (!isCreate) return [];
+    const needle = normText(str("name"));
+    if (needle.length < 4) return [];
+    return existingSuppliers
+      .filter((s) => [s.name, s.trade_name, s.display_name].some((cand) => {
+        const c = normText(cand ?? "");
+        return c.length >= 4 && (c === needle || c.includes(needle) || needle.includes(c));
+      }))
+      .slice(0, 2);
+  })();
   const dirty = supplier && JSON.stringify(saved) !== JSON.stringify(form);
   const current = statusMeta(String(saved.status ?? "draft"));
   const consentAge = Date.now() - new Date(String(form.fob_updated_at ?? "")).getTime();
@@ -161,7 +197,13 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
     event?.preventDefault();
     if (busy) return;
     if (!str("name").trim()) {
+      setFieldErrors((e) => ({ ...e, name: "Hãy nhập tên nhà cung cấp." }));
       toast.push({ kind: "error", title: "Vui lòng nhập tên nhà cung cấp." });
+      return;
+    }
+    if (str("email").trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str("email").trim())) {
+      setFieldErrors((e) => ({ ...e, email: "Email chưa đúng định dạng." }));
+      toast.push({ kind: "error", title: "Email nhà cung cấp không hợp lệ." });
       return;
     }
     setBusy(true);
@@ -219,6 +261,141 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
     } finally { setDrafting(false); }
   }
 
+  /* ------------------------- Tạo mới: form rút gọn -------------------------
+   * Chỉ giữ thông tin cần lúc tạo; mọi trường nâng cao (giá, hiển thị công
+   * khai, thương mại, ghi chú…) nằm ở trang Sửa sau khi hồ sơ đã tồn tại.
+   * Khối "Quyền hiển thị giá" cố ý KHÔNG có ở đây: tránh xác nhận pháp lý
+   * khi NCC chưa có sản phẩm/văn bản chấp thuận nào. */
+  if (isCreate) {
+    return (
+      <form onSubmit={(e) => void save(e)} className="space-y-4">
+        <div className="sticky top-2 z-20 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-ink-200 bg-white/95 px-3.5 py-2.5 shadow-sm backdrop-blur">
+          <Link href="/crm/suppliers" className="btn btn-ghost btn-sm px-2.5 py-1.5 text-[13px]">← Danh sách NCC</Link>
+          <div className="flex items-center gap-2">
+            <Link href="/crm/suppliers" className="btn btn-ghost">Huỷ</Link>
+            <Button type="submit" variant="primary" disabled={busy}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Tạo hồ sơ nháp <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="card p-5">
+            <h2 className="text-base font-bold text-ink-900">Thông tin cần lúc tạo</h2>
+            <p className="mb-2 mt-0.5 text-[13px] text-ink-500">Hồ sơ mới luôn ở trạng thái <b>Bản nháp</b> — chưa hiển thị cho buyer cho tới khi được duyệt và công khai.</p>
+
+            <p className="mb-2.5 mt-5 text-[11px] font-extrabold uppercase tracking-widest text-brand-700">Doanh nghiệp</p>
+            <div className="space-y-4">
+              <Field label="Tên nhà cung cấp" required>
+                <input
+                  className={`input ${fieldErrors.name ? "border-rose-400 bg-rose-50/40" : ""}`}
+                  autoFocus
+                  value={str("name")}
+                  aria-invalid={!!fieldErrors.name}
+                  onChange={(e) => { set("name", e.target.value); setFieldErrors((err) => ({ ...err, name: undefined })); }}
+                  placeholder="vd: Công ty TNHH Chế biến Hạt Điều Bình Phước"
+                />
+                {fieldErrors.name && <p className="mt-1 text-xs font-semibold text-rose-600">{fieldErrors.name}</p>}
+                {duplicateHints.length > 0 && (
+                  <div className="mt-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-amber-800">
+                    <p className="flex items-center gap-1.5 font-bold"><AlertTriangle className="h-4 w-4 shrink-0" /> Có thể trùng với hồ sơ đã có:</p>
+                    <ul className="mt-1 space-y-1">
+                      {duplicateHints.map((s) => (
+                        <li key={s.id} className="flex flex-wrap items-center gap-x-2">
+                          <span>“{s.display_name || s.name}”{s.province ? ` · ${s.province}` : ""}</span>
+                          <Link href={`/crm/suppliers/${s.id}`} className="font-bold text-brand-700 hover:underline">Mở hồ sơ →</Link>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-xs">Vẫn tạo mới nếu đây là đơn vị khác — tạo trùng sẽ khiến sản phẩm và xác minh bị chia đôi.</p>
+                  </div>
+                )}
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Loại hình" hint="Một cách phân loại duy nhất cho hồ sơ mới.">
+                  <select className="input" value={str("supplier_type")} onChange={(e) => set("supplier_type", e.target.value || null)}>
+                    <option value="">Chưa chọn</option>
+                    {SUPPLIER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </Field>
+                <Field label="Tỉnh / Thành phố"><input className="input" value={str("province")} onChange={(e) => set("province", e.target.value)} placeholder="vd: Bình Phước" /></Field>
+              </div>
+              <Field label="Mặt hàng chính" hint="Ngành hàng sẽ tự gán từ mặt hàng và sản phẩm — không cần chọn tay.">
+                <input className="input" value={str("products")} onChange={(e) => set("products", e.target.value)} placeholder="Ví dụ: hạt điều W320, gạo Jasmine" />
+                {autoIndustries.slugs.length > 0 && (
+                  <p className="mt-2 flex flex-wrap items-center gap-1.5 rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-[13px] text-brand-900">
+                    Ngành hệ thống tự gán:
+                    {autoIndustries.slugs.map((slug) => {
+                      const category = categories.find((c) => c.slug === slug);
+                      return <span key={slug} className="rounded-full bg-white px-2 py-0.5 text-xs font-bold ring-1 ring-brand-200">{category?.name_i18n.en || slug}{category?.id === autoIndustries.primaryId ? " · chính" : ""}</span>;
+                    })}
+                  </p>
+                )}
+              </Field>
+            </div>
+
+            <p className="mb-2.5 mt-7 text-[11px] font-extrabold uppercase tracking-widest text-brand-700">Liên hệ <span className="font-medium normal-case tracking-normal text-ink-400">(để đội sale liên lạc lại)</span></p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Người liên hệ"><input className="input" value={str("contact_name")} onChange={(e) => set("contact_name", e.target.value)} /></Field>
+              <Field label="Chức vụ"><input className="input" value={str("contact_title")} onChange={(e) => set("contact_title", e.target.value)} placeholder="vd: Giám đốc kinh doanh" /></Field>
+              <Field label="Điện thoại"><input className="input" value={str("phone")} onChange={(e) => set("phone", e.target.value)} placeholder="09xx xxx xxx" /></Field>
+              <Field label="Zalo" hint="Kênh liên hệ chính với nhiều NCC Việt Nam."><input className="input" value={str("zalo")} onChange={(e) => set("zalo", e.target.value)} placeholder="Số Zalo (nếu khác điện thoại)" /></Field>
+              <Field label="Email">
+                <input
+                  className={`input ${fieldErrors.email ? "border-rose-400 bg-rose-50/40" : ""}`}
+                  type="email"
+                  value={str("email")}
+                  aria-invalid={!!fieldErrors.email}
+                  onChange={(e) => { set("email", e.target.value); setFieldErrors((err) => ({ ...err, email: undefined })); }}
+                  placeholder="ten@congty.vn"
+                />
+                {fieldErrors.email && <p className="mt-1 text-xs font-semibold text-rose-600">{fieldErrors.email}</p>}
+              </Field>
+              <Field label="Website"><input className="input" value={str("website")} onChange={(e) => set("website", e.target.value)} placeholder="https://…" /></Field>
+            </div>
+
+            <p className="mt-6 rounded-xl border border-dashed border-ink-200 bg-ink-50/60 px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-500">
+              Các thông tin còn lại — địa chỉ chi tiết, mã số thuế, điều kiện thương mại (MOQ, cảng, incoterm),
+              giới thiệu cho buyer, chấp thuận hiển thị giá… — bổ sung ở <b>trang Sửa</b> sau khi tạo. Không cần điền ngay.
+            </p>
+          </section>
+
+          <aside className="space-y-4 xl:sticky xl:top-20">
+            <div className="card p-4">
+              <h3 className="mb-2 text-sm font-bold text-ink-900">Sau khi tạo sẽ làm gì</h3>
+              <ol className="space-y-0.5">
+                {[
+                  { n: 1, title: "Tạo hồ sơ nháp", desc: "Trang này, chỉ cần tên.", now: true },
+                  { n: 2, title: "Thêm sản phẩm", desc: "Mặt hàng, quy cách, ảnh/catalogue.", now: false },
+                  { n: 3, title: "Kiểm giấy tờ & nhà máy", desc: "Đội Vexim xét duyệt riêng.", now: false },
+                  { n: 4, title: "Nộp duyệt → Công khai", desc: "Buyer mới thấy hồ sơ.", now: false },
+                ].map((s) => (
+                  <li key={s.n} className="flex gap-2.5 py-1.5 text-[13px]">
+                    <span className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11.5px] font-extrabold ${s.now ? "bg-brand-600 text-white" : "bg-ink-100 text-ink-500"}`}>{s.n}</span>
+                    <span className={s.now ? "font-semibold text-ink-900" : "text-ink-500"}>{s.title} <span className="block text-xs font-normal text-ink-400">{s.desc}</span></span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div className="card p-4">
+              <h3 className="mb-2 text-sm font-bold text-ink-900">Đã chuyển khỏi trang tạo</h3>
+              <ul className="list-disc space-y-1.5 pl-4 text-[12.5px] leading-relaxed text-ink-500">
+                <li><b className="text-ink-700">Chấp thuận công khai giá</b> → trang Sửa, cạnh ngữ cảnh sản phẩm.</li>
+                <li><b className="text-ink-700">Tên hiển thị & đường dẫn web</b> → trang Sửa.</li>
+                <li><b className="text-ink-700">MOQ, cảng, incoterm, thị trường</b> → trang Sửa.</li>
+                <li><b className="text-ink-700">Ghi chú nội bộ</b> → trang Sửa.</li>
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-[12.5px] leading-relaxed text-amber-800">
+              <p className="font-bold">Thói quen tốt</p>
+              <p className="mt-0.5">Tìm tên NCC trong danh sách trước khi tạo — tránh trùng hồ sơ khiến sản phẩm và xác minh bị chia đôi.</p>
+            </div>
+          </aside>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={(e) => void save(e)} className="space-y-5">
       <div className="rounded-2xl border border-ink-200 bg-white shadow-sm">
@@ -231,7 +408,8 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
         </div>
         <div className="grid gap-4 p-5 sm:grid-cols-2">
           <Field label="Tên nhà cung cấp" required className="sm:col-span-2">
-            <input className="input" autoFocus required value={str("name")} onChange={(e) => set("name", e.target.value)} placeholder="Tên doanh nghiệp / nhà máy" />
+            <input className={`input ${fieldErrors.name ? "border-rose-400 bg-rose-50/40" : ""}`} autoFocus required value={str("name")} aria-invalid={!!fieldErrors.name} onChange={(e) => { set("name", e.target.value); setFieldErrors((err) => ({ ...err, name: undefined })); }} placeholder="Tên doanh nghiệp / nhà máy" />
+            {fieldErrors.name && <p className="mt-1 text-xs font-semibold text-rose-600">{fieldErrors.name}</p>}
           </Field>
           <Field label="Người liên hệ"><input className="input" value={str("contact_name")} onChange={(e) => set("contact_name", e.target.value)} /></Field>
           <Field label="Điện thoại"><input className="input" value={str("phone")} onChange={(e) => set("phone", e.target.value)} /></Field>

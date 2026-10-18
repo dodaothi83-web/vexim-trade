@@ -1,6 +1,6 @@
 # Phân tích UX & đề xuất thiết kế lại `/crm/suppliers/new` (Thêm nhà cung cấp)
 
-> Ngày: 18/10/2026 · Trạng thái: **phân tích + đề xuất, chưa sửa code** (chờ duyệt như trang Danh mục).
+> Ngày: 18/10/2026 · Trạng thái: **Giai đoạn A đã triển khai** (18/10/2026, được duyệt theo mockup): form tạo rút gọn + cột bước tiếp theo + cảnh báo trùng + lỗi tại ô trong `SupplierForm` (`mode="create"`); trang Sửa giữ bố cục cũ chờ Giai đoạn B và 3 quyết định nghiệp vụ ở mục 4.3.
 > Khảo sát từ mã nguồn production: `app/crm/suppliers/new/page.tsx`,
 > `components/supplier-form.tsx` (338 dòng, **dùng chung cho cả Thêm mới và Sửa**),
 > `app/crm/suppliers/[slug]/edit/page.tsx`, `createSupplierAction` trong `app/actions.ts`,
