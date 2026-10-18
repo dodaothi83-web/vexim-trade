@@ -82,6 +82,7 @@ export async function POST(request: Request) {
   }
 
   const previousStatus = supplier.onboarding_status;
+  const commitmentAcceptedAt = new Date().toISOString();
   try {
     // Saving evidence does not approve the document check or publish the supplier.
     const review = await saveInitialEvidence({ store, supplierId: supplier.id, userId: user.id,
@@ -93,7 +94,13 @@ export async function POST(request: Request) {
       entity: "supplier", entity_id: supplier.id, action: created ? "supplier.first_profile_submitted" : "supplier.profile_submitted",
       before: { onboarding_status: created ? null : previousStatus },
       after: { onboarding_status: "pending", review_id: review.id, documents: documents.length,
-        requested_steps: parsed.requested, category_proposals: proposals.requested_category_slugs } })
+        requested_steps: parsed.requested, category_proposals: proposals.requested_category_slugs,
+        supplier_commitments: {
+          terms_of_service: { accepted: parsed.commitments.terms_of_service_accepted, version: "v1", path: "/terms-of-service" },
+          information_accuracy: { confirmed: parsed.commitments.information_accuracy_confirmed,
+            scope: ["product_name", "product_price", "delivery_time"] },
+          accepted_at: commitmentAcceptedAt,
+        } } })
       .catch((error) => console.error("[supplier-profile] audit log failed", error));
     let notification: "sent" | "simulated" | "failed" = "failed";
     try { notification = await notifySupplierRegistration(supplier, parsed.requested); }

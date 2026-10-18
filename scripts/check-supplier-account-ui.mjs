@@ -71,4 +71,6 @@ assert.equal(portalAccessCalls, 0);
 const actualForm = source('../app/supplier/portal/supplier-profile-form.tsx');
 assert.match(actualForm, /fetch\("\/api\/supplier-portal\/profile"/);
 assert.match(actualForm, /SupplierProfileFields supplier=\{supplier\} email=\{email\}/);
+assert.match(actualForm, /href="\/terms-of-service"/, 'Business form links to the Terms of Service');
+assert.match(actualForm, /name="information_accuracy"/, 'Business form requires the truthfulness confirmation');
 console.log('✅ Account UI: separate signup, one login, locked dashboard business form, no premature portal navigation.');

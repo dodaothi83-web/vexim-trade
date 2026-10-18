@@ -96,7 +96,7 @@ const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
 const file = new File(['%PDF-1.7 TEST DOCUMENT'], 'license.pdf', { type: 'application/pdf' });
 function form(email = 'owner@example.com') {
   const fd = new FormData();
-  for (const [key, val] of Object.entries({ name: 'Example Trading Co', contact_name: 'Mr A', email, password: 'password123', phone: '0987654321', products: 'Cashew', supplier_type: 'trading', summary_en: 'Cashew processing and export', website: 'https://example.com', founded_year: '2012', employees: '42', capacity_per_month: '200 MT', ports: 'Hai Phong, Da Nang', consent: 'yes', tax_number: '0012345', bank_account_number: '000123', 'request:3': 'yes' })) fd.set(key, val);
+  for (const [key, val] of Object.entries({ name: 'Example Trading Co', contact_name: 'Mr A', email, password: 'password123', phone: '0987654321', products: 'Cashew', supplier_type: 'trading', summary_en: 'Cashew processing and export', website: 'https://example.com', founded_year: '2012', employees: '42', capacity_per_month: '200 MT', ports: 'Hai Phong, Da Nang', consent: 'yes', information_accuracy: 'yes', tax_number: '0012345', bank_account_number: '000123', 'request:3': 'yes' })) fd.set(key, val);
   fd.append('requested_category_slugs', 'cashew');
   fd.set('doc:business_license', file);
   fd.set('status', 'published'); fd.set('verification_level', '3');
@@ -169,6 +169,8 @@ const factoryForm = form(); factoryForm.set('supplier_type', 'manufacturer'); fa
 assert.equal(JSON.stringify(profileInput.parseSupplierProfile(factoryForm).requested), JSON.stringify([2, 3]), 'Factory may request both follow-ups');
 const forgedCategory = form(); forgedCategory.set('requested_category_slugs', 'secret');
 assert.equal((await submitProfile(forgedCategory)).status, 400, 'No unpublished category in first business form');
+const missingAccuracy = form(); missingAccuracy.delete('information_accuracy');
+assert.equal((await submitProfile(missingAccuracy)).status, 400, 'Profile requires the product information truthfulness confirmation');
 assert.equal(state.suppliers.length, 0, 'Reject invalid profile before creating supplier page');
 state.failClaim = true;
 assert.equal((await submitProfile(form())).status, 409, 'Concurrent claim fails closed');

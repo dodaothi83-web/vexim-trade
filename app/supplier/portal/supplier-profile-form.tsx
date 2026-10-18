@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Supplier, SupplierType } from "@/lib/types";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
@@ -92,7 +93,19 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
       <label className="mt-4 block text-sm"><span className="mb-1 block font-semibold">Giới thiệu bằng tiếng Anh (cho trang buyer)</span><textarea name="summary_en" rows={4} maxLength={1500} className="input" defaultValue={supplier?.summary_i18n?.en ?? ""} placeholder="A Vietnam-based producer of..." /></label>
       <label className="mt-4 flex gap-2 text-sm"><input type="checkbox" name="private_label" value="yes" defaultChecked={supplier?.private_label ?? false} /> Nhận làm nhãn riêng / OEM</label>
     </section>
-    <label className="flex items-start gap-2 text-sm text-ink-700"><input type="checkbox" name="consent" value="yes" required className="mt-1 h-4 w-4 accent-brand-700" /><span>Tôi đồng ý gửi thông tin và tài liệu cho Vexim kiểm tra nội bộ; tài khoản chưa hoạt động cho đến khi Vexim xác nhận.</span></label>
+    <section className="rounded-xl border border-brand-200 bg-brand-50/60 p-4" aria-labelledby="supplier-commitments-title">
+      <h2 id="supplier-commitments-title" className="text-base font-bold text-ink-900">Xác nhận trước khi gửi hồ sơ</h2>
+      <div className="mt-3 space-y-3">
+        <label className="flex items-start gap-2 text-sm leading-6 text-ink-700">
+          <input type="checkbox" name="consent" value="yes" required className="mt-1 h-4 w-4 shrink-0 accent-brand-700" />
+          <span>Tôi đã đọc và đồng ý với <Link href="/terms-of-service" target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">Điều khoản sử dụng</Link> của Vexim Trade, đồng thời đồng ý gửi thông tin và tài liệu để Vexim kiểm tra nội bộ. Tài khoản chỉ hoạt động sau khi Vexim xác nhận.</span>
+        </label>
+        <label className="flex items-start gap-2 text-sm leading-6 text-ink-700">
+          <input type="checkbox" name="information_accuracy" value="yes" required className="mt-1 h-4 w-4 shrink-0 accent-brand-700" />
+          <span>Tôi chịu trách nhiệm về tính trung thực của thông tin đã cung cấp, gồm tên sản phẩm, giá sản phẩm và thời gian giao hàng, và cam kết thực hiện đúng với những thông tin này.</span>
+        </label>
+      </div>
+    </section>
     </div>
   </>;
 }
@@ -152,9 +165,12 @@ export function SupplierProfileForm({ supplier, email, categories }: { supplier?
       const bad = firstInvalidField(form, s);
       if (bad) {
         setStep(s);
-        setStepError(s === 3 && (bad as HTMLInputElement).name === "consent"
-          ? "Vui lòng tích xác nhận đồng ý trước khi gửi hồ sơ."
-          : "Còn trường bắt buộc chưa điền hoặc chưa đúng định dạng. Vui lòng kiểm tra lại bước này.");
+        const fieldName = (bad as HTMLInputElement).name;
+        setStepError(s === 3 && fieldName === "consent"
+          ? "Vui lòng tích ô đồng ý với Điều khoản sử dụng trước khi gửi hồ sơ."
+          : s === 3 && fieldName === "information_accuracy"
+            ? "Vui lòng tích ô chịu trách nhiệm về tính trung thực của tên, giá sản phẩm và thời gian giao hàng."
+            : "Còn trường bắt buộc chưa điền hoặc chưa đúng định dạng. Vui lòng kiểm tra lại bước này.");
         window.setTimeout(() => { bad.focus(); bad.scrollIntoView({ block: "center", behavior: "smooth" }); }, 50);
         return;
       }

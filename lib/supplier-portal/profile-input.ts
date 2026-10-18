@@ -11,7 +11,12 @@ const positiveInt = (form: FormData, key: string, max: number): number | null =>
 const list = (form: FormData, key: string) => text(form, key, 800).split(/[,;\n]/).map((s) => s.trim()).filter(Boolean).slice(0, 12);
 
 /** Same public-page fields at initial signup and when Vexim requests corrections. No trust in status/owner. */
-export function parseSupplierProfile(form: FormData): { patch: Partial<SupplierInput>; bank: string; requested: (2 | 3)[] } {
+export function parseSupplierProfile(form: FormData): {
+  patch: Partial<SupplierInput>;
+  bank: string;
+  requested: (2 | 3)[];
+  commitments: { terms_of_service_accepted: true; information_accuracy_confirmed: true };
+} {
   const name = text(form, "name", 180);
   const contact = text(form, "contact_name", 120);
   const phone = text(form, "phone", 40);
@@ -27,7 +32,8 @@ export function parseSupplierProfile(form: FormData): { patch: Partial<SupplierI
   if (!/^[0-9]{1,32}$/.test(tax)) throw new Error("Mã số thuế phải là chữ số.");
   // Số tài khoản ngân hàng là mục tuỳ chọn: để trống được, có nhập thì phải là chữ số.
   if (bank && !/^[0-9]{1,34}$/.test(bank)) throw new Error("Số tài khoản ngân hàng phải là chữ số.");
-  if (text(form, "consent", 8) !== "yes") throw new Error("Vui lòng đồng ý gửi hồ sơ cho Vexim kiểm tra.");
+  if (text(form, "consent", 8) !== "yes") throw new Error("Vui lòng đọc và đồng ý với Điều khoản sử dụng trước khi gửi hồ sơ.");
+  if (text(form, "information_accuracy", 8) !== "yes") throw new Error("Vui lòng xác nhận chịu trách nhiệm về tính trung thực của tên, giá sản phẩm và thời gian giao hàng.");
   const website = text(form, "website", 250);
   if (website && !/^https?:\/\/[^\s.]+(?:\.[^\s.]+)+(?:[:/?#][^\s]*)?$/i.test(website)) throw new Error("Website phải là URL http(s) hợp lệ.");
   return {
@@ -53,5 +59,6 @@ export function parseSupplierProfile(form: FormData): { patch: Partial<SupplierI
     },
     bank,
     requested: ([2, 3] as const).filter((level) => form.get(`request:${level}`) === "yes"),
+    commitments: { terms_of_service_accepted: true, information_accuracy_confirmed: true },
   };
 }
