@@ -24,6 +24,7 @@ import {
 import { Breadcrumbs, Button, Field } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { ImagePicker } from "@/components/image-picker";
+import { decideCategoryPublicationAction } from "./publication-actions";
 import { useToast } from "@/components/toast";
 import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow } from "@/lib/types";
 
@@ -161,10 +162,16 @@ export function CategoriesManager({ initialCategories, canPublish = false, aiEna
     const d = drafts[id];
     if (!d) return;
     if (publish !== undefined && !window.confirm(publish ? "Công khai danh mục này trên website?" : "Ẩn danh mục này khỏi website?")) return;
-    const next = { ...d, is_published: publish ?? d.is_published };
-    const fd = toFormData(next);
-    const ok = await run(() => updateCategoryAction(id, Object.fromEntries(fd)));
-    if (ok) setDrafts((prev) => ({ ...prev, [id]: next }));
+    if (publish !== undefined) {
+      const saved = initialCategories.find((category) => category.id === id);
+      if (saved && JSON.stringify(d) !== JSON.stringify(fromCategory(saved)) &&
+          !window.confirm("Nội dung trong form khác bản đã lưu. Quyết định này chỉ áp dụng cho bản đã lưu, không lưu các ô đang nhập. Tiếp tục?")) return;
+      const ok = await run(() => decideCategoryPublicationAction(id, publish));
+      if (ok) setDrafts((prev) => ({ ...prev, [id]: { ...d, is_published: publish } }));
+      return;
+    }
+    const fd = toFormData(d);
+    await run(() => updateCategoryAction(id, Object.fromEntries(fd)));
   }
 
   async function onDelete(id: string) {

@@ -14,7 +14,6 @@ import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { inVnBounds } from "@/lib/verification";
-import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import type { AppUser, Verification } from "@/lib/types";
 import { auditHref, auditItems, auditStep } from "@/lib/verification";
 import { ContactRequestButton } from "./contact-request-button";
@@ -40,11 +39,12 @@ export default async function VerificationsPage({
 }: {
   searchParams?: Promise<{ tab?: string }>;
 }) {
-  const session = await requirePagePermission("verifications.inspect", "/crm/dashboard");
+  const session = await requirePagePermission("verifications.view", "/crm/dashboard");
   const sp = await searchParams;
   const tabKey = sp?.tab ?? "submitted";
   const tab = TABS.find((t) => t.key === tabKey) ?? TABS[0];
   const canApprove = hasPermission(session.role, "verifications.approve");
+  const canInspect = hasPermission(session.role, "verifications.inspect");
 
   const store = getStore();
   const [vers, suppliers, users, requests] = await Promise.all([
@@ -78,9 +78,7 @@ export default async function VerificationsPage({
       ]} />
       <PageHeader
         title="Hàng đợi xác minh NCC"
-        sub={requireSecondVerificationReviewer()
-          ? "Kiểm tra giấy tờ, thăm nhà máy và đối chiếu lịch sử giao hàng. Người kiểm nộp; người khác xét duyệt."
-          : "Kiểm tra giấy tờ, thăm nhà máy và đối chiếu lịch sử giao hàng. Quản trị viên có thể tự xác nhận bản kiểm đã nộp (tạm thời)."}
+        sub="Kiểm tra giấy tờ, thăm nhà máy và lịch sử giao hàng. Người kiểm nộp; người khác xét duyệt."
       />
 
       <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50/60 p-4 sm:p-5">
@@ -89,7 +87,7 @@ export default async function VerificationsPage({
         {openRequests.length ? <ul className="mt-4 space-y-2">{openRequests.map((r) => <li key={`${r.supplier_id}-${r.target_level}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
           <div className="min-w-[180px] flex-1"><Link href={`/crm/suppliers/${r.supplier_id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(r.supplier_id)?.name ?? "NCC"}</Link>
             <p className="mt-0.5 text-xs text-ink-500">{r.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"} · {r.status === "contacted" ? "Đã liên hệ" : "Cần liên hệ"} · {new Date(r.requested_at).toLocaleDateString("vi-VN")}</p></div>
-          {r.status === "requested" && <ContactRequestButton supplierId={r.supplier_id} level={r.target_level} />}
+          {canInspect && r.status === "requested" && <ContactRequestButton supplierId={r.supplier_id} level={r.target_level} />}
           <Link href={auditHref(r.supplier_id, r.target_level)} className="btn btn-ghost btn-sm">Mở trang đánh giá →</Link>
         </li>)}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có yêu cầu cần xử lý.</p>}
       </section>

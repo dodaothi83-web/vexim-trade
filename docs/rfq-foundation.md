@@ -68,7 +68,7 @@ Các giá trị cũ (`new/verifying/verified/paused`) được migrate sang `dra
 | media.internal | ✓ | | ✓ | |
 | users.manage | ✓ | | | |
 
-Quy tắc **4-eyes** là thiết kế ban đầu. Tạm thời cho phép admin tự duyệt bản kiểm đã nộp, nhưng vẫn ghi cả `inspector_id` và `approved_by`; xem `docs/verification-levels.md` và migration `20261017_temporary_self_verification_approval.sql`. Khi đủ nhân sự cần khôi phục lại ràng buộc hai người.
+Quy tắc **4-eyes** đã được khôi phục: người có quyền duyệt (trưởng kiểm duyệt hoặc quản trị) phải khác người nộp bản kiểm; lưu cả `inspector_id` và `approved_by`. Migration `20261018_review_lead_role.sql` phục hồi CHECK cho quyết định mới và giữ nguyên hồ sơ lịch sử; xem `docs/verification-levels.md`.
 Chỉ admin được chuyển `suppliers.status → published` hoặc `suspended`.
 
 ## Chống spam RFQ (GĐ 2)

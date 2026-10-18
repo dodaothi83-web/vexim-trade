@@ -89,16 +89,22 @@ Mọi trang trong CRM đều yêu cầu đăng nhập. Lần đầu mở app khi
 `/login` sẽ mời bạn tạo **quản trị viên đầu tiên** ở `/setup` (tài khoản này luôn có vai trò
 `admin`); sau đó `/setup` tự chuyển về `/login`.
 
-### Bốn vai trò
+### Vai trò nội bộ và doanh nghiệp
 
 Định nghĩa tại [`lib/auth/permissions.ts`](lib/auth/permissions.ts) — sửa `MATRIX` là đổi được quyền.
 
-| Vai trò | Xem | Thêm / sửa |
+| Vai trò | Xem | Thêm / sửa / duyệt |
 | --- | --- | --- |
-| **Quản trị** (`admin`) | tất cả | tất cả, gồm người dùng & phân quyền |
-| **Kinh doanh** (`sale`) | buyer, NCC, sản phẩm, media, hộp thư | buyer (kể cả đổi trạng thái), media, soạn/gửi email |
-| **Thu mua** (`sourcing`) | buyer, NCC, sản phẩm, media, hộp thư | NCC, sản phẩm, media |
-| **Chỉ xem** (`viewer`) | buyer, NCC, sản phẩm, media (chỉ phần chia sẻ buyer), hộp thư | không |
+| **Quản trị** (`admin`) | tất cả | toàn quyền, gồm người dùng & phân quyền; không tự duyệt bản kiểm do mình nộp |
+| **Kinh doanh** (`sale`) | buyer của mình, NCC/sản phẩm, RFQ, hộp thư của mình | buyer/prospect/RFQ/email và blog; không sửa NCC/sản phẩm/danh mục |
+| **Thu mua** (`sourcing`) | NCC, sản phẩm, media nội bộ, xác minh, buyer cơ bản | NCC, sản phẩm, danh mục nháp và bản kiểm; không duyệt xác minh/chứng nhận hoặc công khai |
+| **Trưởng kiểm duyệt** (`reviewer`) | NCC, sản phẩm, bằng chứng/chứng nhận, danh mục | duyệt xác minh/chứng nhận, quyết định công khai NCC/danh mục; không sửa hồ sơ NCC, nội dung danh mục, bằng chứng hoặc tài khoản |
+| **Chỉ xem** (`viewer`) | buyer, NCC, sản phẩm, media chia sẻ buyer, hộp thư | không |
+| **Doanh nghiệp** (`supplier`) | cổng NCC của mình | tự khai/nộp hồ sơ, sản phẩm trong phạm vi được mở; không vào CRM |
+
+
+Công khai NCC và danh mục là thao tác **chỉ đổi trạng thái**, có xác nhận và audit log; trưởng kiểm duyệt không sửa nội dung hồ sơ NCC/danh mục. Danh mục do chính người sửa nội dung lần cuối không được người đó tự công khai. Thu mua xử lý hồ sơ, sản phẩm và bằng chứng; sale phụ trách buyer/prospect/RFQ/mail. Bản kiểm đã nộp chỉ được người khác duyệt (quản trị hoặc trưởng kiểm duyệt); người duyệt không sửa tệp đang chờ duyệt. Cấp nhiều tài khoản `reviewer` qua trang quản lý người dùng sau khi chạy migration `supabase/migrations/20261018_review_lead_role.sql`; không chạy lại migration tự duyệt tạm thời.
+
 
 Riêng **giấy tờ nội bộ** (media `audience = internal`, ví dụ giấy xác minh nhà máy) chỉ **Quản trị**
 và **Thu mua** thấy; người khác không thấy trong danh sách và tải trực tiếp sẽ bị trả `403`.

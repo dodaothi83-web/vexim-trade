@@ -17,7 +17,7 @@ export default async function SuppliersPage() {
 
   const [suppliers, buyers] = await Promise.all([
     getStore().listSuppliers(),
-    listBuyersWithSupplier(ownerScopeOf(session)),
+    hasPermission(session.role, "buyers.view") ? listBuyersWithSupplier(ownerScopeOf(session)) : Promise.resolve([]),
   ]);
 
   const usage: Record<string, { total: number; active: number }> = {};

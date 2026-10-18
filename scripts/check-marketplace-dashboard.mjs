@@ -80,20 +80,22 @@ assert.deepEqual(snap.submittedReviews.map((v) => v.id), ['factory']);
 assert.deepEqual(snap.contactRequests.map((r) => r.target_level), [2], 'An approved delivery review does not resolve a separate factory request');
 assert.deepEqual(snap.newRfqs.map((r) => r.id), ['new', 'review']);
 
-for (const role of ['admin', 'sale', 'sourcing', 'viewer']) {
+for (const role of ['admin', 'sale', 'sourcing', 'reviewer', 'viewer']) {
   assert.equal(hasPermission(role, 'suppliers.view'), true);
   assert.equal(hasPermission(role, 'products.view'), true);
-  assert.equal(hasPermission(role, 'rfq.view'), true, 'RFQ view includes rfq.manage implication');
+  assert.equal(hasPermission(role, 'rfq.view'), role !== 'reviewer', 'Reviewer does not enter buyer RFQ operations');
 }
 assert.equal(hasPermission('viewer', 'verifications.inspect'), false);
 assert.equal(hasPermission('sale', 'verifications.inspect'), false);
 assert.equal(hasPermission('sourcing', 'verifications.inspect'), true);
+assert.equal(hasPermission('reviewer', 'verifications.inspect'), false);
+assert.equal(hasPermission('reviewer', 'verifications.view'), true);
 assert.equal(hasPermission('viewer', 'categories.manage'), false);
 assert.equal(permissionsFor('supplier').length, 0);
 const page = readFileSync(new URL('../app/crm/dashboard/page.tsx', import.meta.url), 'utf8');
 const sidebar = readFileSync(new URL('../components/sidebar.tsx', import.meta.url), 'utf8');
-assert.match(page, /canInspect \? store\.listVerifications\(\)/, 'Verification data is never queried for sale/viewer');
-assert.match(page, /canInspect \? store\.listSupplierVerificationRequests\(\)/);
+assert.match(page, /canViewReviews \? store\.listVerifications\(\)/, 'Verification data is never queried for sale/viewer');
+assert.match(page, /canViewReviews \? store\.listSupplierVerificationRequests\(\)/);
 assert.match(page, /canRfqs \? store\.listRfqs\(\)/);
 assert.match(sidebar, /perm: "rfq\.view"/);
 assert.match(sidebar, /hasPermission\(session\.role, item\.perm\)/);

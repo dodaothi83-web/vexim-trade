@@ -5,7 +5,7 @@ import { FileText, Mail, Users, Zap } from "lucide-react";
 import { getStore } from "@/lib/db";
 import { withPreviewPadding } from "@/lib/email/templates";
 import { getStage } from "@/lib/pipeline";
-import { requireSession } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { loadMailboxData } from "@/lib/mail/mailbox-access";
@@ -22,7 +22,7 @@ export default async function MessagePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await requireSession();
+  const session = await requirePagePermission("mail.view", "/crm/dashboard");
   const canSend = hasPermission(session.role, "mail.send");
 
   const store = getStore();

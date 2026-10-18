@@ -3,7 +3,7 @@ import { KanbanSquare, UserPlus } from "lucide-react";
 
 import { listBuyersWithSupplier, listSalesOwnerNames } from "@/lib/queries";
 import { getStore } from "@/lib/db";
-import { requireSession } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/session";
 import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/page-header";
@@ -18,7 +18,7 @@ export default async function BuyersPage({
 }: {
   searchParams: Promise<{ owner?: string }>;
 }) {
-  const session = await requireSession();
+  const session = await requirePagePermission("buyers.view", "/crm/dashboard");
   const { owner: ownerFilter } = await searchParams;
   const canManage = hasPermission(session.role, "buyers.manage");
 

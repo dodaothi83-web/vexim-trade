@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { getBuyerWithSupplier } from "@/lib/queries";
-import { requireSession } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/session";
 import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getStore } from "@/lib/db";
@@ -39,7 +39,7 @@ export default async function BuyerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await requireSession();
+  const session = await requirePagePermission("buyers.view", "/crm/dashboard");
   const canManage = hasPermission(session.role, "buyers.manage");
   const canCreateSupplier = hasPermission(session.role, "suppliers.manage");
   const canSendMail = hasPermission(session.role, "mail.send");

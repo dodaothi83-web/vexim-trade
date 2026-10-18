@@ -129,8 +129,8 @@ res = await categoryExports.updateCategoryAction(category.id, categoryRaw);
 assert.equal(res.ok, true);
 assert.equal(categoryWrite.intro_i18n.en, '', 'Clearing intro must persist');
 res = await categoryExports.updateCategoryAction(category.id, { ...categoryRaw, is_published: 'on' });
-assert.equal(res.ok, true);
-assert.equal(categoryWrite.status, 'published');
+assert.equal(res.ok, false, 'Saving copy cannot also approve publication');
+assert.equal(categoryWrite.status, 'draft');
 
 const aiSource = readFileSync(new URL('../app/api/ai/editor-draft/route.ts', import.meta.url), 'utf8');
 const aiJs = ts.transpileModule(aiSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;

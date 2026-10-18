@@ -15,8 +15,8 @@ assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'document', storage_path
 assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'certificate', storage_path: 'verifications/review-1/cert.png' }]), true);
 assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'image', storage_path: null }]), false);
 const exports = {};
-const auditor = { uid: 'reviewer-1', email: 'reviewer@example.com', role: 'admin' };
-let requireSecondReviewer = false;
+const auditor = { uid: 'reviewer-1', email: 'reviewer@example.com', role: 'reviewer' };
+let requireSecondReviewer = true;
 let lastAudit = null;
 let lastMediaLookup = null;
 let row = {
@@ -55,11 +55,11 @@ const mocks = {
   'next/cache': { revalidatePath: () => {} },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': {
-    guard: async (permission) => permission === 'verifications.approve' && auditor.role !== 'admin' ? { message: 'Bạn không có quyền xét duyệt' } : null,
+    guard: async (permission) => permission === 'verifications.approve' && !['admin', 'reviewer'].includes(auditor.role) ? { message: 'Bạn không có quyền xét duyệt' } : null,
     getSession: async () => auditor,
   },
   '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
-  '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent' },
+  '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent', notifyStaffVerificationSubmission: async () => 'sent' },
   '@/lib/verification-evidence': evidence,
   '@/lib/media/verification-access': { verificationMediaEditError: async () => mediaBlocked },
   '@/lib/types': { L1_DOC_ITEMS: docItems },
@@ -80,34 +80,21 @@ media.push({ kind: 'document', status: 'unverified', storage_path: 'verification
 assert.match((await exports.approveVerificationAction(form)).message, /chứng từ vận chuyển\/giao nhận/);
 media[1].status = 'checked';
 auditor.uid = row.inspector_id;
-requireSecondReviewer = true;
 await assert.rejects(exports.approveVerificationAction(form), /không được tự duyệt/);
-requireSecondReviewer = false;
+auditor.uid = 'reviewer-1';
 auditor.role = 'sourcing';
 await assert.rejects(exports.approveVerificationAction(form), /không có quyền xét duyệt/);
-auditor.role = 'admin';
-dbFourEyes = true;
-const blockedByDatabase = await exports.approveVerificationAction(form);
-assert.equal(blockedByDatabase.ok, false, 'Legacy DB constraint returns actionable feedback, not a Server Components digest');
-assert.match(blockedByDatabase.message, /20261017_temporary_self_verification_approval\.sql/);
-assert.equal(row.status, 'submitted', 'Rejected approval must remain submitted');
-assert.equal(lastAudit, null, 'Rejected approval must not be logged as approved');
-dbFourEyes = false;
-records.splice(0, 2); // Trader has no approved factory or documents review.
+auditor.role = 'reviewer';
+records.splice(0, 2); // Delivery history has no factory or document prerequisite.
 const approved = await exports.approveVerificationAction(form);
 assert.equal(approved.ok, true);
 assert.equal(row.status, 'approved');
-assert.equal(records.length, 1, 'Delivery history passes without implying a factory or document review');
-assert.equal(row.inspector_id, row.approved_by, 'Self approval must retain both identities');
-assert.equal(lastAudit.after.self_approved, true, 'Self approval must be explicit in audit log');
+assert.equal(records.length, 1);
+assert.notEqual(row.inspector_id, row.approved_by, 'Independent approver must differ from inspector');
+assert.equal(lastAudit.after.self_approved, false);
 assert.equal(lastAudit.actor_id, auditor.uid);
 await assert.rejects(exports.updateVerificationChecklistAction(form), /đã.*duyệt/);
 Object.assign(row, { status: 'submitted', approved_by: null, approved_at: null });
-auditor.uid = 'reviewer-1';
-requireSecondReviewer = true;
-const independentlyApproved = await exports.approveVerificationAction(form);
-assert.equal(independentlyApproved.ok, true, 'Independent reviewer still works when policy is restored');
-assert.equal(lastAudit.after.self_approved, false);
 // Optional data is never a submission/approval gate for factory or delivery.
 Object.assign(row, { status: 'in_progress', approved_by: null, target_level: 3, checklist: {}, shipment_ref: null, shipped_on: null });
 const emptyForm = new FormData(); emptyForm.set('id', row.id); emptyForm.set('status', 'submitted');
@@ -236,12 +223,12 @@ await exports.updateVerificationPublicSummaryAction(summaryForm);
 summaryForm.set('mode', 'hide');
 assert.equal((await exports.updateVerificationPublicSummaryAction(summaryForm)).ok, true);
 assert.equal(row.public_summary_published_at, null, 'Reviewer can withdraw a public summary');
-const selfApprovalSql = fs.readFileSync(new URL('../supabase/migrations/20261017_temporary_self_verification_approval.sql', import.meta.url), 'utf8');
-assert.match(selfApprovalSql, /drop constraint if exists verifications_four_eyes/);
+const separationSql = fs.readFileSync(new URL('../supabase/migrations/20261018_review_lead_role.sql', import.meta.url), 'utf8');
+assert.match(separationSql, /add constraint verifications_four_eyes/);
 const formUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx', import.meta.url), 'utf8');
 const pageUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/page.tsx', import.meta.url), 'utf8');
-assert.match(formUi, /\(!requireSecondReviewer \|\| !selfReview\)/, 'Admin must see review buttons in temporary mode');
-assert.match(formUi, /Bạn đang xác nhận bản kiểm của chính mình/, 'Self review must be visibly marked');
+assert.match(formUi, /!requireSecondReviewer \|\| !selfReview/, 'Review button requires another inspector');
+assert.match(formUi, /canInspect &&/, 'Reviewer cannot edit evidence');
 assert.ok(!pageUi.includes('<MediaManager'), 'All audit steps render evidence inline');
 assert.ok(!pageUi.includes('unlocked') && !pageUi.includes('LockKeyhole'), 'Every review page is reachable independently');
 const panelUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-panel.tsx', import.meta.url), 'utf8');
@@ -258,15 +245,14 @@ vm.runInNewContext(accessJs, { exports: access, require: (name) => ({
   '@/lib/auth/session': { getSession: async () => ({ role: permissionRole, uid: 'reviewer-1' }) },
   '@/lib/auth/permissions': { hasPermission: (role, permission) => role === 'admin' || role === 'sourcing' && permission !== 'verifications.approve' },
   '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
-  '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent' },
+  '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent', notifyStaffVerificationSubmission: async () => 'sent' },
 })[name] }, { filename: 'verification-access.ts' });
 assert.equal(await access.verificationMediaEditError({ status: 'in_progress' }), null);
 assert.match(await access.verificationMediaEditError({ status: 'submitted', inspector_id: 'inspector-2' }), /chờ duyệt/);
 permissionRole = 'admin';
-assert.equal(await access.verificationMediaEditError({ status: 'submitted', inspector_id: 'inspector-2' }), null);
-assert.match(await access.verificationMediaEditError({ status: 'submitted', inspector_id: 'reviewer-1' }), /khác người kiểm/);
-requireSecondReviewer = false;
-assert.equal(await access.verificationMediaEditError({ status: 'submitted', inspector_id: 'reviewer-1' }), null);
+assert.match(await access.verificationMediaEditError({ status: 'submitted', inspector_id: 'inspector-2' }), /trả về/);
+assert.match(await access.verificationMediaEditError({ status: 'submitted', inspector_id: 'reviewer-1' }), /trả về/);
+assert.match(await access.verificationMediaEditError({ status: 'submitted', inspector_id: 'reviewer-1' }), /trả về/);
 assert.match(await access.verificationMediaEditError({ status: 'approved' }), /khóa/);
 permissionRole = 'sale';
 assert.match(await access.verificationMediaEditError({ status: 'in_progress' }), /không có quyền/);
@@ -276,4 +262,4 @@ for (const action of ['addMediaLinkAction', 'updateMediaAction', 'deleteMediaAct
   const src = fs.readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
   assert.ok(src.slice(src.indexOf(`export async function ${action}`), src.indexOf('export async function', src.indexOf(`export async function ${action}`) + 1) + 500).includes('verificationMediaEditError'), `${action} must restrict evidence changes`);
 }
-console.log('✅ Delivery evidence, temporary admin self-review, strict-mode rollback, media locks and migrations.');
+console.log('✅ Delivery evidence, independent reviewer approval, media locks and migrations.');

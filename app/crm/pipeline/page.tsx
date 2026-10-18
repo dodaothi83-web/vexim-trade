@@ -3,7 +3,7 @@ import { UserPlus } from "lucide-react";
 
 import { listBuyersWithSupplier } from "@/lib/queries";
 import { getStage } from "@/lib/pipeline";
-import { requireSession } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/session";
 import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/page-header";
@@ -18,7 +18,7 @@ export default async function PipelinePage({
 }: {
   searchParams: Promise<{ stage?: string }>;
 }) {
-  const session = await requireSession();
+  const session = await requirePagePermission("buyers.view", "/crm/dashboard");
   const canManage = hasPermission(session.role, "buyers.manage");
 
   const { stage } = await searchParams;

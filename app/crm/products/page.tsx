@@ -4,6 +4,7 @@ import { Boxes, CalendarClock, Pencil, Search, ShieldCheck, Sparkles } from "luc
 import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
+import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { listProductsWithSupplier, type ProductWithSupplier } from "@/lib/queries";
 import { roleLabel, statusMeta } from "@/lib/supplier";
 import { Badge, Breadcrumbs, Card, EmptyState, formatDate, formatMoney } from "@/components/ui";
@@ -36,7 +37,8 @@ export default async function ProductsPage({
   const reviewQueue = sp.review === "pending";
 
   const store = getStore();
-  const buyer = buyerId ? await store.getBuyer(buyerId) : null;
+  const candidate = buyerId && hasPermission(session.role, "buyers.view") ? await store.getBuyer(buyerId) : null;
+  const buyer = candidate && isOwnedBy(candidate.owner, ownerScopeOf(session)) ? candidate : null;
 
   const all = await listProductsWithSupplier();
   const productMedia = await store.listMediaForProducts(all.map((r) => r.id));

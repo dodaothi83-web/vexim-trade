@@ -31,12 +31,15 @@ export type Permission =
   /** Xem báo cáo lượt xem toàn website (chỉ admin). */
   | "traffic.view"
   /** Quản lý categories công khai */
+  | "categories.view"
   | "categories.manage"
-  /** Công khai/huỷ công khai category (chỉ admin) */
+  /** Công khai/huỷ công khai category (admin / trưởng kiểm duyệt) */
   | "categories.publish"
   /** Thực hiện kiểm tra xác minh (inspector) */
   | "verifications.inspect"
-  /** Duyệt kết quả xác minh (chỉ admin) */
+  /** Xem đợt kiểm để xét duyệt mà không được sửa bằng chứng */
+  | "verifications.view"
+  /** Duyệt kết quả xác minh (admin / trưởng kiểm duyệt) */
   | "verifications.approve"
   /** Xem RFQ (chỉ đọc, không thao tác) */
   | "rfq.view"
@@ -69,6 +72,12 @@ export const ROLES: {
     description:
       "Nhà cung cấp, sản phẩm, hình ảnh và giấy tờ xác minh nội bộ. Xem buyer ở mức cơ bản.",
     badge: "bg-emerald-600 text-white",
+  },
+  {
+    value: "reviewer",
+    label: "Trưởng kiểm duyệt",
+    description: "Xét duyệt độc lập các đợt kiểm/chứng nhận, quyết định công khai NCC và danh mục; không quản lý tài khoản hay sửa bằng chứng.",
+    badge: "bg-violet-700 text-white",
   },
   {
     value: "supplier",
@@ -118,6 +127,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "traffic.view",
     "categories.manage",
     "categories.publish",
+    "verifications.view",
     "verifications.inspect",
     "verifications.approve",
     "rfq.manage",
@@ -127,16 +137,12 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "buyers.manage",
     "prospects.manage",
     "suppliers.view",
-    "suppliers.manage",
     "products.view",
-    "products.manage",
     "media.view",
-    "media.manage",
     "mail.view",
     "mail.send",
     "kpi.view",
     "blog.manage",
-    "categories.manage",
     "rfq.manage",
     "settings.view",
   ],
@@ -153,15 +159,28 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "mail.send",
     "categories.manage",
     "rfq.manage",
+    "verifications.view",
     "verifications.inspect",
     "settings.view",
+  ],
+  reviewer: [
+    "suppliers.view",
+    "suppliers.publish",
+    "products.view",
+    "media.view",
+    "media.internal",
+    "settings.view",
+    "categories.view",
+    "categories.publish",
+    "verifications.view",
+    "verifications.approve",
   ],
   viewer: VIEW_ONLY,
   supplier: [],
 };
 
 export function permissionsFor(role: UserRole): Permission[] {
-  return MATRIX[role] ?? VIEW_ONLY;
+  return MATRIX[role] ?? []; // Unknown/invalid roles fail closed.
 }
 
 export function hasPermission(role: UserRole | null | undefined, perm: Permission): boolean {

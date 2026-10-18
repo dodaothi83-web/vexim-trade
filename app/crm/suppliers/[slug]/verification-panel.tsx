@@ -6,11 +6,12 @@ import { AUDIT_STEPS, auditHref, auditItems } from "@/lib/verification";
 import { Card } from "@/components/ui";
 import { StartVerificationButton } from "./start-verification-button";
 
-export function VerificationPanel({ supplierId, verifications, requests = [], canInspect }: {
+export function VerificationPanel({ supplierId, verifications, requests = [], canInspect, canViewReviews }: {
   supplierId: string;
   verifications: Verification[];
   requests?: SupplierVerificationRequest[];
   canInspect: boolean;
+  canViewReviews: boolean;
 }) {
   return (
     <Card className="overflow-hidden">
@@ -36,7 +37,7 @@ export function VerificationPanel({ supplierId, verifications, requests = [], ca
               {request && !approved && <p className="mt-1 text-xs font-semibold text-amber-800">NCC đã yêu cầu · {request.status === "contacted" ? "Đã liên hệ" : "Cần liên hệ để lên kế hoạch"}</p>}
               <p className="mt-1 text-xs font-medium text-ink-600">{approved ? "Đã duyệt" : latest ? `${latest.status === "submitted" ? "Chờ duyệt" : latest.status === "returned" ? "Cần bổ sung" : "Đang kiểm"} · ${done}/${auditItems(level).length} mục` : "Chưa bắt đầu"}</p>
             </div>
-            {latest ? <Link href={auditHref(supplierId, level)} className="btn btn-soft shrink-0"><ClipboardCheck className="h-4 w-4" /> Mở trang <ArrowRight className="h-4 w-4" /></Link>
+            {latest && canViewReviews ? <Link href={auditHref(supplierId, level)} className="btn btn-soft shrink-0"><ClipboardCheck className="h-4 w-4" /> Mở trang <ArrowRight className="h-4 w-4" /></Link>
               : canInspect && !approved ? <StartVerificationButton supplierId={supplierId} level={level} />
               : null}
           </li>;

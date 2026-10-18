@@ -19,7 +19,7 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
   const { slug: supplierId, step: path } = await params;
   const step = AUDIT_STEPS.find((s) => s.path === path);
   if (!step) notFound();
-  const session = await requirePagePermission("verifications.inspect", `/crm/suppliers/${supplierId}`);
+  const session = await requirePagePermission("verifications.view", `/crm/suppliers/${supplierId}`);
   const store = getStore();
   const [supplier, all] = await Promise.all([store.getSupplier(supplierId), store.listVerifications(supplierId)]);
   if (!supplier) notFound();
@@ -27,6 +27,7 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
   const current = forStep.find((v) => v.status === "approved") ?? forStep[0];
   const media = current ? await store.listMedia("verification", current.id) : [];
   const canApprove = hasPermission(session.role, "verifications.approve");
+  const canInspect = hasPermission(session.role, "verifications.inspect");
   const requireSecondReviewer = requireSecondVerificationReviewer();
 
   return <>
@@ -45,7 +46,7 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
           return <Link key={item.path} href={auditHref(supplierId, item.level)} className={className} aria-current={item.path === path ? "step" : undefined}>{content}</Link>;
         })}
       </nav>
-      {!current ? <Card className="flex flex-wrap items-center justify-between gap-4 p-6"><div><h2 className="font-bold text-ink-900">Chưa bắt đầu {step.title.toLowerCase()}</h2><p className="text-sm text-ink-500">Tạo đợt kiểm để ghi kết quả và thêm bằng chứng riêng cho bước này.</p></div><StartVerificationButton supplierId={supplierId} level={step.level as VerificationLevel} /></Card>
+      {!current ? <Card className="flex flex-wrap items-center justify-between gap-4 p-6"><div><h2 className="font-bold text-ink-900">Chưa bắt đầu {step.title.toLowerCase()}</h2><p className="text-sm text-ink-500">Tạo đợt kiểm để ghi kết quả và thêm bằng chứng riêng cho bước này.</p></div>{canInspect && <StartVerificationButton supplierId={supplierId} level={step.level as VerificationLevel} />}</Card>
         : <>
           <Card className="flex flex-wrap items-center gap-3 p-4">
             <Badge className={current.status === "approved" ? "bg-emerald-50 text-emerald-700" : current.status === "submitted" ? "bg-amber-50 text-amber-700" : current.status === "returned" ? "bg-rose-50 text-rose-700" : "bg-sky-50 text-sky-700"}>
@@ -54,7 +55,7 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
             <p className="text-sm text-ink-600">{current.status === "approved" ? "Bằng chứng được khoá để giữ nguyên hồ sơ đã duyệt." : "Ghi kết quả, đính kèm bằng chứng và nộp xét duyệt khi đã sẵn sàng."}</p>
           </Card>
           <div className="max-w-5xl">
-            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} currentUserId={session.uid} requireSecondReviewer={requireSecondReviewer} />
+            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} currentUserId={session.uid} requireSecondReviewer={requireSecondReviewer} />
           </div>
         </>}
     </div>

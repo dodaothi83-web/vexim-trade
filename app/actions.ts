@@ -36,6 +36,7 @@ import {
 import { getStage, isStage } from "@/lib/pipeline";
 import { notifyRecipients } from "@/lib/mail/inbound";
 import { isMyMail, type MailViewer } from "@/lib/mail/visibility";
+import { loadMailboxData } from "@/lib/mail/mailbox-access";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import type {
   Buyer,
@@ -1950,7 +1951,7 @@ export async function resendMessageAction(id: string): Promise<ActionResult> {
  * trang Cài đặt — không cần khởi động lại app).
  */
 export async function retrySupabaseAction(): Promise<ActionResult> {
-  const gate = await guard("settings.view");
+  const gate = await guard("users.manage");
   if (gate) return gate;
   resetSupabaseHealth();
   await supabaseProbe();
@@ -2234,18 +2235,21 @@ export async function clearProspectOutreachTemplateAction(id: string): Promise<A
 }
 
 export async function markThreadReadAction(threadIdValue: string): Promise<ActionResult> {
-  const gate = await guard("mail.view");
+  // Reading alone must not mutate shared mail state. Only touch messages this
+  // staff member is actually allowed to see in the buyer mailbox.
+  const gate = await guard("mail.send");
   if (gate) return gate;
-  const now = new Date().toISOString();
-  const store = getStore();
-  const messages = await store.listMessages(500).catch(() => []);
-  const targets = messages.filter(
+  const session = await getSession();
+  if (!session) return { ok: false, message: "Phiên đăng nhập đã hết hạn." };
+  const mailbox = await loadMailboxData(session, { tolerateErrors: false });
+  const targets = mailbox.mailMessages.filter(
     (m) => m.thread_id === threadIdValue && m.kind === "inbound" && !m.read_at,
   );
-  for (const m of targets) {
-    await store.updateMessage(m.id, { read_at: now }).catch(() => null);
-  }
-  revalidatePath("/mail");
+  if (!targets.length) return { ok: true, message: "Không có thư chưa đọc thuộc quyền xem của bạn." };
+  const now = new Date().toISOString();
+  const store = getStore();
+  for (const m of targets) await store.updateMessage(m.id, { read_at: now });
+  revalidatePath("/crm/mail");
   return { ok: true, message: `Đã đánh dấu đọc ${targets.length} thư.` };
 }
 
@@ -2521,16 +2525,11 @@ export async function updateCategoryAction(id: string, raw: Record<string, unkno
 
   const input = parseCategoryInput(raw);
 
-  // Chuyển Đã đăng <-> Nháp yêu cầu quyền categories.publish (chỉ admin).
+  // Content saves cannot also approve publication. Keep a separate status-only decision.
   const wasPublished = existing.is_published && existing.status === "published";
   const wantsPublished = input.is_published && input.status === "published";
   if (wantsPublished !== wasPublished) {
-    if (!session || !hasPermission(session.role, "categories.publish")) {
-      return {
-        ok: false,
-        message: "Chỉ Quản trị (admin) mới được chuyển trạng thái Công khai/Nháp cho trang ngành. Nhờ admin duyệt sau khi bạn đã biên tập xong nội dung.",
-      };
-    }
+    return { ok: false, message: "Lưu nội dung trước, rồi xác nhận công khai/ẩn danh mục bằng thao tác riêng." };
   }
 
   // Nếu người chỉnh sửa KHÔNG có quyền publish → KHÔNG cho thay đổi trạng thái (giữ nguyên trạng thái cũ).

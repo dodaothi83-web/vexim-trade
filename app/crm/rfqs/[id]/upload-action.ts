@@ -15,7 +15,7 @@ const UPLOAD_DIR = path.join(process.cwd(), "data", "rfq-files");
  * Với Supabase mode thì sau này thay bằng storage.from("rfq-attachments").upload().
  */
 export async function uploadRfqAttachmentAction(fd: FormData): Promise<void> {
-  const g = await guard("suppliers.manage");
+  const g = await guard("rfq.manage");
   if (g) return;
   const rfqId = String(fd.get("rfq_id") || "");
   const file = fd.get("file");

@@ -131,13 +131,13 @@ export function MailThreads({
       lastThread.current = current.threadId;
       setReplyOpen(false);
     }
-    if (current.unread === 0) return;
+    if (!canSend || current.unread === 0) return;
     if (marked.current.has(current.threadId)) return;
     marked.current.add(current.threadId);
     void markThreadReadAction(current.threadId).then((res) => {
       if (res.ok) router.refresh();
     });
-  }, [current, router]);
+  }, [current, router, canSend]);
 
   // Mở khung trả lời: chưa gõ gì thì chèn sẵn một dòng trống + chữ ký (như soạn đầy đủ)
   function openReply() {

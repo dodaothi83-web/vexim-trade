@@ -1,8 +1,5 @@
-/**
- * Temporary single-reviewer mode: admin may approve their own submitted audit.
- * Set VERIFICATION_REQUIRE_TWO_PERSON_REVIEW=true to restore independent review
- * in the app after staffing permits. The database constraint is migrated separately.
- */
+/** All new verification approvals require a different human than the inspector.
+ * Kept as a helper so evidence edit checks and the UI use the same rule. */
 export function requireSecondVerificationReviewer(): boolean {
-  return process.env.VERIFICATION_REQUIRE_TWO_PERSON_REVIEW === "true";
+  return true;
 }

@@ -10,7 +10,7 @@ import { getStore } from "@/lib/db";
  * Sử dụng append kiểu: "[2026-10-16 14:30] Minh: nội dung\n[time] Author: nd"
  */
 export async function addRfqNoteAction(fd: FormData): Promise<void> {
-  const g = await guard("suppliers.manage");
+  const g = await guard("rfq.manage");
   if (g) return;
   const rfqId = String(fd.get("rfq_id") || "");
   const text = String(fd.get("note") || "").trim();

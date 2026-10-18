@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Kiểm tra phân quyền theo vai trò bằng cách:
- *   1. Tạo sẵn 4 tài khoản (admin/sale/sourcing/viewer) trong local DB
+ *   1. Tạo sẵn 5 tài khoản (admin/sale/sourcing/reviewer/viewer) trong local DB
  *      (chỉ khi VEXIM_SHOW_DEMO=true và local fallback đang chạy).
  *   2. Ký thủ công session token bằng đúng thuật toán của app (HMAC-SHA256,
  *      secret đọc từ data/auth-secret hoặc AUTH_SECRET).
@@ -96,6 +96,7 @@ const users = [
   { uid: "00000000-0000-0000-0000-000000000002", email: "saletest@vex.im",  name: "Sale Test",   role: "sale" },
   { uid: "00000000-0000-0000-0000-000000000003", email: "sourcing@vex.im", name: "Sourcing Test", role: "sourcing" },
   { uid: "00000000-0000-0000-0000-000000000004", email: "viewer@vex.im",   name: "Viewer Test",  role: "viewer" },
+  { uid: "00000000-0000-0000-0000-000000000005", email: "reviewer@vex.im", name: "Reviewer Test", role: "reviewer" },
 ];
 
 let cleanup = () => {};
@@ -104,17 +105,16 @@ upsertLocalUsers(users);
 
 // ----------------------------- expectations -----------------------------
 // Ma trận quyền mong muốn trên các route (true=200, false=307/redirect, "write"=cũng phải chặn action).
-// Xem lib/auth/permissions.ts — các cổng ở trang danh sách thường chỉ requireSession và tự ẩn action
-// nếu không có quyền. Với trang list chỉ cần ĐĂNG NHẬP là vào được (200). Các trang edit/create/settings
-// riêng sẽ redirect nếu thiếu quyền.
+// Xem lib/auth/permissions.ts — route đọc dữ liệu buyer/mail không mở cho reviewer.
 const routes = [
   // Dashboard & read-heavy — mọi role xem được
   { path: "/crm/dashboard",           all: true },
-  { path: "/crm/buyers",              all: true },
+  { path: "/crm/buyers",              perms: { admin: true, sale: true, sourcing: true, viewer: true } },
+  { path: "/crm/pipeline",            perms: { admin: true, sale: true, sourcing: true, viewer: true } },
   { path: "/crm/suppliers",           all: true },
   { path: "/crm/products",            all: true },
-  { path: "/crm/mail",                all: true },
-  { path: "/crm/rfqs",                all: true },
+  { path: "/crm/mail",                perms: { admin: true, sale: true, sourcing: true, viewer: true } },
+  { path: "/crm/rfqs",                perms: { admin: true, sale: true, sourcing: true, viewer: true } },
   { path: "/crm/settings/profile",    all: true },
 
   // Trang yêu cầu quyền cụ thể
@@ -123,17 +123,17 @@ const routes = [
   // users.manage → chỉ admin
   { path: "/crm/settings/users",      perms: { admin: true } },
   // verifications.inspect → admin/sourcing
-  { path: "/crm/verifications",       perms: { admin: true, sourcing: true } },
-  // categories.manage → admin/sale/sourcing
-  { path: "/crm/categories",          perms: { admin: true, sale: true, sourcing: true } },
+  { path: "/crm/verifications",       perms: { admin: true, sourcing: true, reviewer: true } },
+  // categories.manage → admin/sourcing/reviewer
+  { path: "/crm/categories",          perms: { admin: true, sourcing: true, reviewer: true } },
   // traffic.view → chỉ admin, không dùng quyền xem NCC để lộ báo cáo toàn sàn
   { path: "/crm/traffic",             perms: { admin: true } },
   // prospects.manage → admin/sale
   { path: "/crm/prospects",           perms: { admin: true, sale: true } },
   // buyers.manage → admin/sale (trang thêm mới)
   { path: "/crm/buyers/new",          perms: { admin: true, sale: true } },
-  // suppliers.manage → admin/sale/sourcing
-  { path: "/crm/suppliers/new",       perms: { admin: true, sale: true, sourcing: true } },
+  // suppliers.manage → admin/sourcing
+  { path: "/crm/suppliers/new",       perms: { admin: true, sourcing: true } },
   // blog.manage → admin/sale
   { path: "/crm/posts",               perms: { admin: true, sale: true } },
   { path: "/crm/posts/new",           perms: { admin: true, sale: true } },
@@ -150,14 +150,17 @@ const routes = [
 // Lấy 1 product + 1 supplier slug mẫu để test trang edit/detail
 const dbRaw = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "local-db.json"), "utf8"));
 const sampleProduct = (dbRaw.products || [])[0];
+const sampleBuyer = (dbRaw.buyers || [])[0];
+if (sampleBuyer) routes.push({ path: `/crm/buyers/${sampleBuyer.id}`, perms: { admin: true, sale: true, sourcing: true, viewer: true } });
 const sampleSupplier = (dbRaw.suppliers || [])[0];
 if (sampleProduct) {
-  routes.push({ path: `/crm/products/${sampleProduct.id}/edit`, perms: { admin: true, sale: true, sourcing: true } });
+  routes.push({ path: `/crm/products/${sampleProduct.id}/edit`, perms: { admin: true, sourcing: true } });
 } else {
   console.warn("⚠️  Không có product mẫu, bỏ qua kiểm tra /crm/products/[id]/edit.");
 }
 if (sampleSupplier) {
-  routes.push({ path: `/crm/suppliers/${sampleSupplier.id}`, perms: { admin: true, sale: true, sourcing: true, viewer: true } });
+  routes.push({ path: `/crm/suppliers/${sampleSupplier.id}`, all: true });
+  routes.push({ path: `/crm/suppliers/${sampleSupplier.id}/edit`, perms: { admin: true, sourcing: true } });
 }
 
 // ----------------------------- run -------------------------------------
@@ -175,10 +178,10 @@ let failures = 0;
 console.log("\n🔎 Ma trận phân quyền theo vai trò\n");
 for (const r of routes) {
   const expectations = r.all
-    ? { admin: true, sale: true, sourcing: true, viewer: true }
+    ? { admin: true, sale: true, sourcing: true, reviewer: true, viewer: true }
     : r.perms;
   const pieces = [];
-  for (const role of ["admin", "sale", "sourcing", "viewer"]) {
+  for (const role of ["admin", "sale", "sourcing", "reviewer", "viewer"]) {
     const expected = expectations[role];
     const status = await fetchWithRole(role, r.path);
     // 200 = vào được; 307 = bị đá đi (thiếu quyền hoặc không thấy); 404 = không có (chấp nhận cho trang edit sản phẩm mẫu)

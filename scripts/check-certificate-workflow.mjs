@@ -80,7 +80,8 @@ role = 'admin';
 const actions = load('../app/crm/suppliers/[slug]/certificates/actions.ts', {
   'next/cache': { revalidatePath() {} },
   '@/lib/db': { getStore: () => store },
-  '@/lib/auth/session': { guard: async () => role === 'admin' ? null : { message: 'denied' }, getSession: async () => ({ uid: 'staff', email: 'staff@example.com', role }) },
+  '@/lib/auth/session': { guard: async () => ['admin', 'reviewer'].includes(role) ? null : { message: 'denied' }, getSession: async () => ({ uid: 'staff', email: 'staff@example.com', role }) },
+  '@/lib/auth/permissions': { hasPermission: (r, perm) => ['admin', 'reviewer'].includes(r) && ['verifications.approve', 'suppliers.publish'].includes(perm) },
   '@/lib/media/readiness': { isExpired: (m) => m.status === 'expired' || m.expires_on < '2026-10-17' },
   '@/lib/media/storage': storage,
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async (input) => { decisions.push(input); return 'sent'; } },
@@ -96,13 +97,14 @@ assert.equal((await actions.reviewCertificateAction(actionForm('approved', '')))
 const beforeProof = stored; stored = null;
 assert.equal((await actions.reviewCertificateAction(actionForm('approved'))).ok, false, 'Missing storage object must not pass review');
 stored = beforeProof;
+role = 'reviewer';
 assert.equal((await actions.reviewCertificateAction(actionForm('approved'))).ok, true);
 assert.equal(cert.review_status, 'approved'); assert.equal(cert.publicly_visible, false);
 assert.equal(decisions.at(-1).decision, 'certificate_approved'); assert.equal(media.status, 'checked');
 assert.equal(labels().length, 0, 'Review alone is not publication');
 const publish = new FormData(); publish.set('certificate_id', cid); publish.set('visible', 'yes');
 role = 'supplier'; assert.equal((await actions.publishCertificateAction(publish)).ok, false);
-role = 'admin'; assert.equal((await actions.publishCertificateAction(publish)).ok, true);
+role = 'reviewer'; assert.equal((await actions.publishCertificateAction(publish)).ok, true);
 assert.equal(decisions.at(-1).decision, 'certificate_published');
 assert.equal(labels().length, 1); assert.equal(labels(cert, media, 'ffffffff-ffff-ffff-ffff-ffffffffffff').length, 0);
 assert.match(labels({ ...cert, name: 'ISO sales@factory.example' })[0].name, /\[contact via Vexim\]/, 'Public label redacts contacts');

@@ -10,7 +10,7 @@ export const metadata = { title: "Xét duyệt chứng nhận NCC | Vexim Trade"
 
 export default async function SupplierCertificatesPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: id } = await params;
-  const session = await requirePagePermission("verifications.inspect", "/crm/suppliers");
+  const session = await requirePagePermission("verifications.view", "/crm/suppliers");
   const store = getStore();
   const supplier = await store.getSupplier(id);
   if (!supplier) notFound();
