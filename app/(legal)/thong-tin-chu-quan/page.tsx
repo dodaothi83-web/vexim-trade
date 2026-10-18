@@ -32,14 +32,14 @@ export default function PlatformOperatorPage() {
       <Row label="Mã số doanh nghiệp / mã số thuế">{COMPANY.taxCode}, cấp ngày {COMPANY.registrationDate}</Row>
       <Row label="Địa chỉ trụ sở chính">{COMPANY.address}</Row>
       <Row label="Người đại diện theo pháp luật">{COMPANY.legalRepresentative}</Row>
-      <Row label="Email tiếp nhận phản ánh"><a href="mailto:hello@veximtrade.com" className="font-semibold text-brand-700 underline">hello@veximtrade.com</a></Row>
+      <Row label="Email tiếp nhận phản ánh"><a href="mailto:contact@veximglobal.com" className="font-semibold text-brand-700 underline">contact@veximglobal.com</a></Row>
       <Row label="Điện thoại">{COMPANY.phone}</Row>
     </dl>
 
     <section className="mt-9 space-y-3" aria-labelledby="operator-model">
       <h2 id="operator-model" className="text-xl font-bold text-ink-900">Mô hình hoạt động</h2>
       <p className="text-sm leading-7 text-ink-700">Nhà cung cấp đăng ký tài khoản, gửi hồ sơ doanh nghiệp và sản phẩm để Vexim kiểm tra trước khi thông tin được công khai. Doanh nghiệp mua hàng gửi yêu cầu báo giá qua Vexim. Vexim không cung cấp chức năng đặt hàng trực tuyến, không nhận thanh toán, không giữ tiền của hai bên và không giao kết hợp đồng điện tử trên website. Hợp đồng mua bán do người mua và nhà cung cấp tự thỏa thuận riêng bằng văn bản.</p>
-      <p className="text-sm leading-7 text-ink-700">Hiện Vexim không thu phí nhà cung cấp và không thu phí doanh nghiệp mua hàng khi gửi yêu cầu báo giá.</p>
+      <p className="text-sm leading-7 text-ink-700">Hiện Vexim không thu phí nhà cung cấp và không thu phí doanh nghiệp mua hàng khi gửi yêu cầu báo giá. Cách áp dụng nếu Vexim bắt đầu thu phí trong tương lai được nêu tại mục Phí sử dụng nền tảng trong <Link href="/quy-che-hoat-dong#rules-fees" className="font-semibold text-brand-700 underline">Quy chế hoạt động</Link>.</p>
     </section>
 
     <section className="mt-9 space-y-3" aria-labelledby="operator-registration">

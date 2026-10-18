@@ -27,7 +27,7 @@ export function ComplaintForm({ initialTarget }: { initialTarget?: string }) {
     const body = encodeURIComponent(
       `Họ tên: ${name}\nEmail liên hệ: ${email}\nLoại vấn đề: ${category}\nTrang hoặc đối tượng liên quan: ${target || "Không ghi"}\n\nNội dung:\n${message}\n`,
     );
-    window.location.href = `mailto:hello@veximtrade.com?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:contact@veximglobal.com?subject=${subject}&body=${body}`;
     setSent(true);
   }
 
@@ -53,8 +53,8 @@ export function ComplaintForm({ initialTarget }: { initialTarget?: string }) {
     <label className={label}>Nội dung phản ánh
       <textarea name="message" required rows={6} maxLength={4000} placeholder="Mô tả vấn đề, thời điểm phát hiện và căn cứ kèm theo nếu có." className={`${input} mt-1.5 resize-y`} />
     </label>
-    <p className="text-xs leading-5 text-ink-500">Khi bấm gửi, trình duyệt sẽ mở ứng dụng email của bạn với nội dung đã điền để gửi tới hello@veximtrade.com. Bằng chứng dạng tệp vui lòng đính kèm trực tiếp trong email đó. Không gửi mật khẩu, số tài khoản ngân hàng hoặc giấy tờ tùy thân qua biểu mẫu này.</p>
+    <p className="text-xs leading-5 text-ink-500">Khi bấm gửi, trình duyệt sẽ mở ứng dụng email của bạn với nội dung đã điền để gửi tới contact@veximglobal.com. Bằng chứng dạng tệp vui lòng đính kèm trực tiếp trong email đó. Không gửi mật khẩu, số tài khoản ngân hàng hoặc giấy tờ tùy thân qua biểu mẫu này.</p>
     <button type="submit" className="btn btn-primary justify-center">Mở email và gửi phản ánh</button>
-    {sent && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Đã mở ứng dụng email của bạn. Vui lòng kiểm tra và bấm gửi trong email để hoàn tất. Nếu ứng dụng email không mở, hãy gửi trực tiếp tới hello@veximtrade.com.</p>}
+    {sent && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Đã mở ứng dụng email của bạn. Vui lòng kiểm tra và bấm gửi trong email để hoàn tất. Nếu ứng dụng email không mở, hãy gửi trực tiếp tới contact@veximglobal.com.</p>}
   </form>;
 }

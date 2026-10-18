@@ -29,7 +29,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
         <p>© {new Date().getFullYear()} VEXIM GLOBAL CO., LTD · Số 25/6 Ngõ 51 Ngoạ Long, Tây Tựu, Hà Nội, Việt Nam</p>
         <div className="flex flex-wrap items-center gap-4">
           <Link href="/" className="hover:text-brand-700">Home</Link>
-          <a href="mailto:hello@veximtrade.com" className="hover:text-brand-700">hello@veximtrade.com</a>
+          <a href="mailto:contact@veximglobal.com" className="hover:text-brand-700">contact@veximglobal.com</a>
           <SocialLinks />
         </div>
       </div>

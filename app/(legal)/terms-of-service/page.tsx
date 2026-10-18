@@ -50,7 +50,7 @@ export default function TermsPage() {
 
     <section className="mt-9 space-y-3" aria-labelledby="terms-contact">
       <h2 id="terms-contact" className="text-xl font-bold text-ink-900">7. Changes, questions and contact</h2>
-      <p className="text-sm leading-7 text-ink-700">We may update these terms as the service develops and will revise the effective date when a new version is published. Use of personal information is described in the <Link href="/privacy-policy" className="font-semibold text-brand-700 underline">Privacy Policy</Link>. For questions or complaints, contact VEXIM GLOBAL CO., LTD, Hanoi, Vietnam at <a href="mailto:hello@veximtrade.com" className="font-semibold text-brand-700 underline">hello@veximtrade.com</a>. These terms are subject to applicable Vietnamese law.</p>
+      <p className="text-sm leading-7 text-ink-700">We may update these terms as the service develops and will revise the effective date when a new version is published. Use of personal information is described in the <Link href="/privacy-policy" className="font-semibold text-brand-700 underline">Privacy Policy</Link>. For questions or complaints, contact VEXIM GLOBAL CO., LTD, Hanoi, Vietnam at <a href="mailto:contact@veximglobal.com" className="font-semibold text-brand-700 underline">contact@veximglobal.com</a>. These terms are subject to applicable Vietnamese law.</p>
     </section>
   </article>;
 }

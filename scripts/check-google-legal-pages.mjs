@@ -19,7 +19,7 @@ assert.match(terms, /sending an RFQ/i);
 for (const page of [privacy, terms]) {
   assert.match(page, /title: \{ absolute: "/, 'Avoid duplicate site-name suffix in legal titles');
   assert.match(page, /alternates: \{ canonical: `\$\{SITE_URL\}\//);
-  assert.match(page, /mailto:hello@veximtrade\.com/);
+  assert.match(page, /mailto:contact@veximglobal\.com/);
   assert.match(page, /robots: \{ index: true, follow: true \}/);
 }
 assert.doesNotMatch(legalLayout, /getStore|requireSession|listCategories/, 'Legal pages must not depend on auth or the database');

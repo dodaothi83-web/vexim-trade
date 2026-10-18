@@ -20,6 +20,8 @@ export const COMPANY = {
    * cần đúng tên đăng ký chứ không phải thương hiệu "Vexim Trade". Đổi qua COMPANY_LEGAL_NAME.
    */
   legalName: env.COMPANY_LEGAL_NAME?.trim() || "VEXIM GLOBAL CO., LTD",
+  /** Email công khai tiếp nhận phản ánh, khiếu nại và yêu cầu liên quan đến dữ liệu cá nhân */
+  contactEmail: env.COMPANY_CONTACT_EMAIL?.trim() || "contact@veximglobal.com",
   /** Người đại diện theo pháp luật, công khai trên trang thông tin chủ quản nền tảng */
   legalRepresentative: env.COMPANY_LEGAL_REPRESENTATIVE?.trim() || "Lương Văn Học",
   /** Mã số doanh nghiệp, đồng thời là mã số thuế của công ty */

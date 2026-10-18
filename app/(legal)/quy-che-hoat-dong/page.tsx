@@ -58,7 +58,10 @@ export default function PlatformRulesPage() {
     </Section>
 
     <Section id="rules-fees" title="5. Phí sử dụng nền tảng">
-      <p className={p}>Hiện Vexim không thu phí mở hoặc duy trì tài khoản nhà cung cấp và không thu phí doanh nghiệp mua hàng khi gửi RFQ. Nếu Vexim áp dụng phí trong tương lai, biểu phí và thời điểm áp dụng sẽ được công khai trước khi áp dụng và không áp dụng hồi tố cho thời gian đã sử dụng.</p>
+      <p className={p}>Hiện Vexim không thu phí mở hoặc duy trì tài khoản nhà cung cấp và không thu phí doanh nghiệp mua hàng khi gửi RFQ. Mức phí áp dụng cho các dịch vụ của nền tảng hiện là 0 đồng cho đến khi Vexim công bố biểu phí chính thức theo mục này.</p>
+      <p className={p}>Trong thời gian tới, Vexim có thể xem xét áp dụng một hoặc một số loại phí như phí duy trì tài khoản nhà cung cấp, phí dịch vụ kết nối yêu cầu báo giá, phí quảng cáo hoặc ưu tiên hiển thị và phí cho dịch vụ bổ sung theo yêu cầu. Việc nêu các loại phí dự kiến này không có nghĩa là phí đã được áp dụng.</p>
+      <p className={p}>Trước khi bắt đầu thu hoặc thay đổi phí, Vexim công bố biểu phí trên trang này và thông báo tới tài khoản hoặc email đã đăng ký của nhà cung cấp tối thiểu 20 ngày trước ngày áp dụng. Nội dung công bố gồm loại phí, đối tượng áp dụng, cách tính, thời điểm thu, phương thức thanh toán, điều kiện hoàn phí nếu có và ngày hiệu lực. Thay đổi phí không áp dụng hồi tố cho thời gian đã sử dụng trước ngày hiệu lực.</p>
+      <p className={p}>Nhà cung cấp không đồng ý với biểu phí mới có thể ngừng sử dụng dịch vụ tính phí hoặc đề nghị chấm dứt tài khoản trước ngày áp dụng theo hướng dẫn của Vexim. Việc tiếp tục sử dụng dịch vụ tính phí sau ngày hiệu lực được hiểu là nhà cung cấp đã chấp nhận biểu phí đã công bố, trừ trường hợp hai bên có thỏa thuận riêng bằng văn bản.</p>
       <p className={p}>Giá hiển thị trên trang sản phẩm là giá tham khảo do nhà cung cấp cung cấp trong thời hạn đã xác nhận. Giá này chưa phải là báo giá cam kết cho một giao dịch cụ thể và cần được xác nhận lại trong báo giá chính thức.</p>
     </Section>
 
@@ -77,7 +80,7 @@ export default function PlatformRulesPage() {
     </Section>
 
     <Section id="rules-complaints" title="9. Phản ánh, yêu cầu và khiếu nại">
-      <p className={p}>Người sử dụng gửi phản ánh, yêu cầu, khiếu nại hoặc báo cáo vi phạm qua trang <Link href="/khieu-nai" className="font-semibold text-brand-700 underline">Khiếu nại và báo cáo vi phạm</Link> hoặc email <a href="mailto:hello@veximtrade.com" className="font-semibold text-brand-700 underline">hello@veximtrade.com</a>. Vexim phản hồi ban đầu trong 01 ngày làm việc và thông báo thời gian dự kiến giải quyết theo từng loại vấn đề tại trang khiếu nại.</p>
+      <p className={p}>Người sử dụng gửi phản ánh, yêu cầu, khiếu nại hoặc báo cáo vi phạm qua trang <Link href="/khieu-nai" className="font-semibold text-brand-700 underline">Khiếu nại và báo cáo vi phạm</Link> hoặc email <a href="mailto:contact@veximglobal.com" className="font-semibold text-brand-700 underline">contact@veximglobal.com</a>. Vexim phản hồi ban đầu trong 01 ngày làm việc và thông báo thời gian dự kiến giải quyết theo từng loại vấn đề tại trang khiếu nại.</p>
     </Section>
 
     <Section id="rules-changes" title="10. Thay đổi quy chế">

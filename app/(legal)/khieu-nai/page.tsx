@@ -27,7 +27,7 @@ export default async function ComplaintsPage({ searchParams }: Props) {
 
     <section className="mt-9 space-y-3" aria-labelledby="complaint-form-title">
       <h2 id="complaint-form-title" className="text-xl font-bold text-ink-900">1. Gửi phản ánh trực tuyến</h2>
-      <p className={p}>Điền biểu mẫu dưới đây hoặc gửi email trực tiếp tới <a href="mailto:hello@veximtrade.com" className="font-semibold text-brand-700 underline">hello@veximtrade.com</a>. Vui lòng cung cấp đường liên kết đến trang liên quan và bằng chứng ban đầu nếu có, ví dụ ảnh chụp màn hình, tài liệu chứng minh quyền sở hữu trí tuệ hoặc giấy tờ liên quan đến hàng hóa.</p>
+      <p className={p}>Điền biểu mẫu dưới đây hoặc gửi email trực tiếp tới <a href="mailto:contact@veximglobal.com" className="font-semibold text-brand-700 underline">contact@veximglobal.com</a>. Vui lòng cung cấp đường liên kết đến trang liên quan và bằng chứng ban đầu nếu có, ví dụ ảnh chụp màn hình, tài liệu chứng minh quyền sở hữu trí tuệ hoặc giấy tờ liên quan đến hàng hóa.</p>
       <ComplaintForm initialTarget={target} />
     </section>
 

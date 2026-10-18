@@ -15,7 +15,7 @@ export default function PrivacyPolicyPage() {
     <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-700">Vexim Trade · Legal</p>
     <h1 className="mt-3 text-3xl font-black tracking-tight text-ink-900 sm:text-4xl">Privacy Policy</h1>
     <p className="mt-3 text-sm text-ink-500">Effective date: October 18, 2026 · Version 1</p>
-    <p className="mt-6 text-sm leading-7 text-ink-700">This policy describes how VEXIM GLOBAL CO., LTD (operating Vexim Trade, “Vexim”, “we” or “us”) handles information when you visit <a className="font-semibold text-brand-700 underline" href={SITE_URL}>{SITE_URL}</a>, request a quote, create a supplier account or use our staff tools. Vexim Trade is a business-to-business sourcing platform connecting buyers with Vietnamese suppliers. Questions or privacy requests can be sent to <a className="font-semibold text-brand-700 underline" href="mailto:hello@veximtrade.com">hello@veximtrade.com</a>.</p>
+    <p className="mt-6 text-sm leading-7 text-ink-700">This policy describes how VEXIM GLOBAL CO., LTD (operating Vexim Trade, “Vexim”, “we” or “us”) handles information when you visit <a className="font-semibold text-brand-700 underline" href={SITE_URL}>{SITE_URL}</a>, request a quote, create a supplier account or use our staff tools. Vexim Trade is a business-to-business sourcing platform connecting buyers with Vietnamese suppliers. Questions or privacy requests can be sent to <a className="font-semibold text-brand-700 underline" href="mailto:contact@veximglobal.com">contact@veximglobal.com</a>.</p>
 
     <section className="mt-9 space-y-3" aria-labelledby="privacy-data">
       <h2 id="privacy-data" className="text-xl font-bold text-ink-900">1. Information we collect</h2>
@@ -51,12 +51,12 @@ export default function PrivacyPolicyPage() {
 
     <section className="mt-9 space-y-3" aria-labelledby="privacy-rights">
       <h2 id="privacy-rights" className="text-xl font-bold text-ink-900">6. Your choices and requests</h2>
-      <p className="text-sm leading-7 text-ink-700">You may ask us to access, correct or delete your personal information, withdraw consent where applicable, or ask about our handling of your data by emailing <a href="mailto:hello@veximtrade.com" className="font-semibold text-brand-700 underline">hello@veximtrade.com</a>. We may need to verify your identity and may retain records when required by law or for legitimate security and dispute purposes. Revoking Google sign-in is separate from deleting a Vexim account and may affect your ability to log in. Our service is intended for business users, not children.</p>
+      <p className="text-sm leading-7 text-ink-700">You may ask us to access, correct or delete your personal information, withdraw consent where applicable, or ask about our handling of your data by emailing <a href="mailto:contact@veximglobal.com" className="font-semibold text-brand-700 underline">contact@veximglobal.com</a>. We may need to verify your identity and may retain records when required by law or for legitimate security and dispute purposes. Revoking Google sign-in is separate from deleting a Vexim account and may affect your ability to log in. Our service is intended for business users, not children.</p>
     </section>
 
     <section className="mt-9 space-y-3" aria-labelledby="privacy-changes">
       <h2 id="privacy-changes" className="text-xl font-bold text-ink-900">7. Updates and contact</h2>
-      <p className="text-sm leading-7 text-ink-700">We may update this policy as our service changes. The effective date above will be revised when material changes are published. Contact: VEXIM GLOBAL CO., LTD, Hanoi, Vietnam · <a href="mailto:hello@veximtrade.com" className="font-semibold text-brand-700 underline">hello@veximtrade.com</a>. For rules about using the site, read our <Link href="/terms-of-service" className="font-semibold text-brand-700 underline">Terms of Service</Link>.</p>
+      <p className="text-sm leading-7 text-ink-700">We may update this policy as our service changes. The effective date above will be revised when material changes are published. Contact: VEXIM GLOBAL CO., LTD, Hanoi, Vietnam · <a href="mailto:contact@veximglobal.com" className="font-semibold text-brand-700 underline">contact@veximglobal.com</a>. For rules about using the site, read our <Link href="/terms-of-service" className="font-semibold text-brand-700 underline">Terms of Service</Link>.</p>
     </section>
   </article>;
 }

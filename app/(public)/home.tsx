@@ -528,7 +528,7 @@ export default async function HomeContent() {
               <li><Link href="/khieu-nai" className="hover:text-brand-700">Khiếu nại và báo cáo vi phạm</Link></li>
               <li><Link href="/privacy-policy" className="hover:text-brand-700">Privacy Policy</Link></li>
               <li><Link href="/terms-of-service" className="hover:text-brand-700">Terms of Service</Link></li>
-              <li><a href="mailto:hello@veximtrade.com" className="hover:text-brand-700">hello@veximtrade.com</a></li>
+              <li><a href="mailto:contact@veximglobal.com" className="hover:text-brand-700">contact@veximglobal.com</a></li>
             </FooterCol>
 
             <FooterCol title="Buyers">
