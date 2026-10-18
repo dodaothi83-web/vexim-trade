@@ -9,7 +9,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
     <header className="border-b border-ink-200 bg-white">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <Link href="/" className="flex items-center gap-3 font-black text-brand-800" aria-label="Vexim Trade home">
-          <Logo className="h-9 w-12" /><span>Vexim Trade</span>
+          <Logo className="h-12 w-12" /><span>Vexim Trade</span>
         </Link>
         <nav aria-label="Legal pages" className="flex flex-wrap gap-5 text-sm font-semibold text-ink-700">
           <Link href="/privacy-policy" className="hover:text-brand-700">Privacy Policy</Link>

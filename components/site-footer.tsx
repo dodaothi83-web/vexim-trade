@@ -10,7 +10,7 @@ export function SiteFooter() {
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-start md:justify-between">
       <div>
         {/* Footer luôn nằm trên nền navy (ink-900) -> dùng bản logo trắng */}
-        <Logo tone="white" className="h-10 w-[54px] shrink-0" />
+        <Logo tone="white" className="h-20 w-20" />
         <p className="mt-3 max-w-sm text-[12.5px] leading-relaxed">
           Veximtrade | VEXIM GLOBAL CO., LTD
           <br />

@@ -87,7 +87,7 @@ export function Sidebar({
   const body = (
     <>
       <div className="flex items-center gap-2.5 px-5 py-5">
-        <Logo variant="mark" tone="white" className="h-9 w-9" />
+        <Logo tone="white" className="h-[68px] w-[68px]" />
         <div className="min-w-0">
           <p className="truncate text-[15px] leading-tight font-black tracking-tight text-white">
             VEXIM TRADE

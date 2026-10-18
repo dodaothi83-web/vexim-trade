@@ -13,7 +13,7 @@ export default function BlogLayout({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3 sm:px-8">
           <Link href="/" aria-label="Veximtrade home" className="shrink-0">
-            <Logo className="block h-12 w-[65px]" />
+            <Logo className="h-[60px] w-[60px]" />
           </Link>
           <nav className="ml-auto hidden items-center gap-7 text-[15px] font-medium text-ink-700 md:flex">
             <Link href="/" className="transition hover:text-brand-700">Home</Link>

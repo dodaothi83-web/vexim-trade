@@ -494,7 +494,7 @@ export default async function HomeContent() {
           <div className="grid gap-10 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
             <div>
               <div className="flex items-center gap-2">
-                <Logo variant="mark" className="h-8 w-8" />
+                <Logo className="h-10 w-10" />
                 <span className="text-[16px] font-black tracking-tight text-ink-900">Vexim Trade</span>
               </div>
               <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-ink-500">
