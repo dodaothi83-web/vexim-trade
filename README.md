@@ -81,6 +81,8 @@ một số domain nhất định — Supabase sẽ bị chặn. Khi đó app **k
 Điều khiển bằng biến `VEXIM_LOCAL_FALLBACK`: `auto` (mặc định — bật ở dev/sandbox, tắt ở
 production), `on`, hoặc `off`.
 
+Trường thông số theo từng ngành (Vexim tự nhập, không tự suy diễn từ bảng tham khảo): xem `docs/category-product-attributes.md`; cần migration `supabase/migrations/20261018_category_product_attributes.sql` trước khi deploy.
+
 ---
 
 ## Tài khoản & phân quyền

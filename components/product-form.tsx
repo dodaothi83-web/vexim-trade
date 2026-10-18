@@ -11,6 +11,8 @@ import { assignProductCategory } from "@/lib/public/category-assignment";
 import { isTestOnlyProduct, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { Button, Field, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
+import { ProductAttributeInputs } from "@/components/product-attribute-inputs";
+import { fieldsFor } from "@/lib/product-attributes";
 
 const INCOTERMS = ["EXW", "FOB", "CFR", "CIF", "DAP", "DDP", "FCA"];
 const CURRENCIES = ["USD", "EUR", "VND"];
@@ -56,7 +58,7 @@ export function ProductForm({
 }: {
   supplier: Supplier;
   product?: SupplierProduct | null;
-  categories: Pick<Category, "id" | "slug" | "name_i18n">[];
+  categories: Pick<Category, "id" | "slug" | "name_i18n" | "product_fields">[];
   supplierCategories?: string[];
   /** Trạng thái hình ảnh/tài liệu — có thì mới hiện công tắc "Sẵn sàng gửi buyer" */
   mediaState?: { ready: boolean; shareable: number };
@@ -67,6 +69,9 @@ export function ProductForm({
   const toast = useToast();
   const [form, setForm] = useState<FormState>(() => init(product));
   const [busy, setBusy] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(product?.reviewed_category_slug ?? product?.category ?? "");
+  const [attributes, setAttributes] = useState<Record<string, string>>(() => Object.fromEntries(
+    Object.entries(product?.specs ?? {}).filter(([, v]) => typeof v === "string") as [string, string][]));
 
   const set = (k: string, v: string | number | boolean) => setForm((f) => ({ ...f, [k]: v }));
   const v = (k: string) => String(form[k] ?? "");
@@ -84,7 +89,8 @@ export function ProductForm({
     setBusy(true);
     const payload = {
       ...form,
-      category: assignedCategory?.slug ?? null,
+      product_attributes: attributes,
+      category: selectedCategory || assignedCategory?.slug || null,
       supplier_id: supplier.id,
       lead_time_days: v("lead_time_days") ? Number(v("lead_time_days")) : null,
       ref_price: v("ref_price") ? Number(v("ref_price")) : null,
@@ -138,6 +144,16 @@ export function ProductForm({
           </Field>
         </div>
       </section>
+
+      {supplierCategories.length > 0 && <section className="card p-5">
+        <Field label="Danh mục cho sản phẩm" hint="Chỉ chọn trong phạm vi NCC đã đăng ký. Nếu tên/quy cách cho thấy ngành khác, hệ thống ưu tiên nhận diện từ sản phẩm; chọn không tự duyệt hoặc công khai.">
+          <select className="input mt-1" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+            <option value="">Tự nhận diện theo tên/quy cách</option>
+            {categories.filter((category) => supplierCategories.includes(category.slug)).map((category) => <option key={category.id} value={category.slug}>{category.name_i18n.en || category.slug}</option>)}
+          </select>
+        </Field>
+      </section>}
+      <ProductAttributeInputs fields={fieldsFor(categories.find((category) => category.slug === (assignedCategory?.slug ?? selectedCategory)))} values={attributes} onChange={setAttributes} />
 
       <section className="card p-5">
         <h2 className="mb-4 text-sm font-bold text-ink-900">2. Quy cách &amp; năng lực</h2>

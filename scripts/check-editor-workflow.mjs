@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { validateProductFields } from '../lib/product-attributes.ts';
 
 const source = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 const actions = source.slice(source.indexOf('function parseSupplierInput('), source.indexOf('/* ------------------------- SẢN PHẨM NCC'));
@@ -111,6 +112,7 @@ vm.runInNewContext(categoryJs, {
   exports: categoryExports, str, num, bool,
   guard: async () => null, getSession: async () => ({ role, uid: 'staff-1', email: 'test@veximtrade.com' }),
   hasPermission: (r, p) => r === 'admin' && p === 'categories.publish',
+  validateProductFields,
   getStore: () => ({
     getCategory: async () => category,
     getCategoryBySlug: async () => category,

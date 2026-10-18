@@ -617,6 +617,7 @@ alter table public.categories
   add column if not exists h1_i18n jsonb,
   add column if not exists body_i18n jsonb,
   add column if not exists spec_columns jsonb not null default '[]'::jsonb,
+  add column if not exists product_fields jsonb not null default '[]'::jsonb,
   add column if not exists spec_rows jsonb not null default '[]'::jsonb,
   add column if not exists buying_facts jsonb not null default '[]'::jsonb,
   add column if not exists filters jsonb not null default '[]'::jsonb,

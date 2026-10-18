@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
 import { categorySchemaError } from "@/lib/db/category-schema-error";
+import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
@@ -1411,7 +1412,7 @@ function priceRangeInputError(raw: Record<string, unknown>, input: SupplierProdu
   return null;
 }
 
-async function autoAssignProduct(input: SupplierProductInput): Promise<string | null> {
+async function autoAssignProduct(input: SupplierProductInput, requestedSlug?: string | null): Promise<Category | null> {
   const store = getStore();
   const [categories, supplier, links] = await Promise.all([
     store.listCategories({ publishedOnly: false }), store.getSupplier(input.supplier_id),
@@ -1420,9 +1421,17 @@ async function autoAssignProduct(input: SupplierProductInput): Promise<string | 
   if (!supplier) throw new Error("Không tìm thấy NCC của sản phẩm.");
   const linked = links.map((link) => categories.find((c) => c.id === link.category_id)?.slug).filter((slug): slug is string => !!slug);
   const fallback = linked.length ? linked : assignSupplierCategories(supplier.products, [], categories).slugs;
-  const match = assignProductCategory(input, categories, fallback);
-  input.category = match?.slug ?? null; // Never trust a form-submitted category over the product's own identity.
-  return match?.name_i18n.en || match?.slug || null;
+  const inferred = assignProductCategory(input, categories, fallback);
+  // An explicit choice is used only if text inference cannot identify a category;
+  // never let a forged or out-of-scope form value override a known commodity.
+  const allowed = supplier.requested_category_slugs?.length ? supplier.requested_category_slugs : fallback;
+  const ambiguous = !inferred && requestedSlug && categories.filter((category) =>
+    assignProductCategory({ ...input, category: null }, [category])?.id === category.id).length > 1;
+  const chosen = !inferred && !ambiguous && requestedSlug && allowed.includes(requestedSlug)
+    ? categories.find((category) => category.slug === requestedSlug) ?? null : null;
+  const match = inferred ?? chosen;
+  input.category = match?.slug ?? null;
+  return categories.find((category) => category.id === match?.id) ?? null;
 }
 
 export async function createProductAction(
@@ -1439,11 +1448,12 @@ export async function createProductAction(
   input.ready_for_buyer = false;
   input.category = null;
   try {
-    const assigned = await autoAssignProduct(input);
+    const assigned = await autoAssignProduct(input, str(raw.category));
+    input.specs = saveProductAttributes(assigned, raw.product_attributes);
     const created = await getStore().createProduct(input);
     const warning = await syncSupplierIndustries(created.supplier_id);
     revalidateAll();
-    return { ok: true, message: `Đã thêm sản phẩm “${created.name}”. ${assigned ? `Hệ thống gán ngành ${assigned}.` : "Chưa nhận diện được ngành; sản phẩm vẫn là bản nháp."} Tải ảnh/catalogue chia sẻ buyer vào hồ sơ sản phẩm rồi bật “Sẵn sàng gửi buyer” nếu muốn hiển thị công khai.${warning ? ` ${warning}` : ""}`, id: created.id };
+    return { ok: true, message: `Đã thêm sản phẩm “${created.name}”. ${assigned ? `Hệ thống gán ngành ${assigned.name_i18n.en || assigned.slug}.` : "Chưa nhận diện được ngành; sản phẩm vẫn là bản nháp."} Tải ảnh/catalogue chia sẻ buyer vào hồ sơ sản phẩm rồi bật “Sẵn sàng gửi buyer” nếu muốn hiển thị công khai.${warning ? ` ${warning}` : ""}`, id: created.id };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -1466,8 +1476,13 @@ export async function updateProductAction(
     // Supplier/category are not chosen by arbitrary client payloads.
     input.supplier_id = existing.supplier_id;
     input.category = existing.category;
-    const assigned = await autoAssignProduct(input);
-    const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description || input.description_detail !== (existing.description_detail ?? null);
+    const assigned = await autoAssignProduct(input, str(raw.category));
+    const productCategory = existing.reviewed_category_slug && ![input.name !== existing.name, input.spec !== existing.spec, input.description !== existing.description].some(Boolean)
+      ? await store.getCategoryBySlug(existing.reviewed_category_slug) : assigned;
+    input.specs = saveProductAttributes(productCategory, raw.product_attributes,
+      productCategory?.slug === (existing.reviewed_category_slug ?? existing.category) ? existing.specs : {});
+    const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description || input.description_detail !== (existing.description_detail ?? null) ||
+      JSON.stringify(input.specs) !== JSON.stringify(existing.specs ?? {});
     // The human-reviewed category outranks text inference when toggling buyer readiness.
     if (existing.reviewed_category_slug && !identityChanged) input.category = existing.reviewed_category_slug;
     else if (!assigned) input.ready_for_buyer = false;
@@ -1497,7 +1512,7 @@ export async function updateProductAction(
       ? identityChanged
         ? "Nội dung sản phẩm đã đổi; cần Vexim chốt lại danh mục trước khi công khai."
         : "Danh mục Vexim đã chốt được giữ nguyên."
-      : assigned ? `Hệ thống phân loại ${assigned}; không tự công khai.` : "Chưa nhận diện được ngành; đã tắt sẵn sàng gửi buyer.";
+      : assigned ? `Hệ thống phân loại ${assigned.name_i18n.en || assigned.slug}; không tự công khai.` : "Chưa nhận diện được ngành; đã tắt sẵn sàng gửi buyer.";
     return { ok: true, message: `Đã lưu hồ sơ sản phẩm. ${categoryNotice}${warning ? ` ${warning}` : ""}` };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
@@ -2451,6 +2466,14 @@ function parseCategoryInput(raw: Record<string, unknown>) {
   const buyingFacts = parseJsonList(raw.buying_facts);
   const faqs = parseJsonList(raw.faqs);
   const filters = parseJsonList(raw.filters);
+  // Unlike editorial lists, an invalid product-field payload must not silently erase the schema.
+  let productFieldInput: unknown = [];
+  if (raw.product_fields !== undefined) {
+    if (typeof raw.product_fields !== "string") throw new Error("Cấu hình thông số sản phẩm không hợp lệ.");
+    try { productFieldInput = JSON.parse(raw.product_fields); }
+    catch { throw new Error("Cấu hình thông số sản phẩm không phải JSON hợp lệ."); }
+  }
+  const productFields = validateProductFields(productFieldInput);
   const status = bool(raw.is_published, false) ? "published" : "draft";
   const seoIndexable = bool(raw.seo_indexable, false);
   const activeHome = bool(raw.active_on_homepage, false);
@@ -2466,6 +2489,7 @@ function parseCategoryInput(raw: Record<string, unknown>) {
     spec_rows: specRows as unknown as Category["spec_rows"],
     buying_facts: buyingFacts as Category["buying_facts"],
     filters: filters as Category["filters"],
+    product_fields: productFields,
     seo_title_i18n: { en: seoTitleEn ?? "" } as Category["seo_title_i18n"],
     seo_desc_i18n: { en: seoDescEn ?? "" } as Category["seo_desc_i18n"],
     homepage_kicker_i18n: kickerEn ? ({ en: kickerEn } as Category["homepage_kicker_i18n"]) : null,
@@ -2524,6 +2548,7 @@ export async function updateCategoryAction(id: string, raw: Record<string, unkno
   if (!existing) return { ok: false, message: "Danh mục không tồn tại." };
 
   const input = parseCategoryInput(raw);
+  if (!Object.hasOwn(raw, "product_fields")) input.product_fields = existing.product_fields ?? [];
 
   // Content saves cannot also approve publication. Keep a separate status-only decision.
   const wasPublished = existing.is_published && existing.status === "published";

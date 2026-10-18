@@ -26,7 +26,7 @@ import { PageHeader } from "@/components/page-header";
 import { ImagePicker } from "@/components/image-picker";
 import { decideCategoryPublicationAction } from "./publication-actions";
 import { useToast } from "@/components/toast";
-import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow } from "@/lib/types";
+import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow, ProductAttributeField } from "@/lib/types";
 
 function i18n(v: { en?: string } | null | undefined): string {
   if (!v || typeof v !== "object") return "";
@@ -50,6 +50,7 @@ type CategoryDraft = {
   is_published: boolean;
   sort_order: number;
   spec_columns: CategoryColumn[];
+  product_fields: ProductAttributeField[];
   spec_rows: CategoryRow[];
   buying_facts: CategoryFact[];
   faqs: Array<{ q: string; a: string }>;
@@ -82,6 +83,7 @@ function fromCategory(c: Category): CategoryDraft {
     is_published: c.is_published,
     sort_order: c.sort_order ?? 0,
     spec_columns: cols,
+    product_fields: Array.isArray(c.product_fields) ? c.product_fields : [],
     spec_rows: rows,
     buying_facts: facts,
     faqs,
@@ -106,6 +108,7 @@ function emptyDraft(sortOrder: number): CategoryDraft {
     is_published: false,
     sort_order: sortOrder,
     spec_columns: [],
+    product_fields: [],
     spec_rows: [],
     buying_facts: [],
     faqs: [],
@@ -266,6 +269,7 @@ function toFormData(d: CategoryDraft): FormData {
   fd.set("is_published", d.is_published ? "on" : "");
   fd.set("sort_order", String(d.sort_order));
   fd.set("spec_columns", JSON.stringify(d.spec_columns));
+  fd.set("product_fields", JSON.stringify(d.product_fields));
   fd.set("spec_rows", JSON.stringify(d.spec_rows));
   fd.set("buying_facts", JSON.stringify(d.buying_facts));
   fd.set("faqs", JSON.stringify(d.faqs));
@@ -355,6 +359,8 @@ function CategoryEditor({
         <summary className="cursor-pointer text-base font-bold text-ink-900">Bảng thông số, thông tin mua hàng & câu hỏi</summary>
         <div className="mt-4 space-y-3"><SpecEditor draft={draft} setDraft={setDraft} /><FactsEditor draft={draft} setDraft={setDraft} /><FaqsEditor draft={draft} setDraft={setDraft} /></div>
       </details>
+
+      <ProductFieldsEditor draft={draft} setDraft={setDraft} />
 
       <details className="card p-5">
         <summary className="cursor-pointer text-base font-bold text-ink-900">Hiển thị & tìm kiếm</summary>
@@ -492,4 +498,33 @@ function FaqsEditor({ draft, setDraft }: { draft: CategoryDraft; setDraft: (u: (
       </div>
     </details>
   );
+}
+
+/** Vexim supplies the options for each commodity; this is NOT the reference-spec table above. */
+function ProductFieldsEditor({ draft, setDraft }: { draft: CategoryDraft; setDraft: (u: (d: CategoryDraft) => CategoryDraft) => void }) {
+  const fields = draft.product_fields;
+  const update = (i: number, patch: Partial<ProductAttributeField>) => setDraft((d) => ({ ...d,
+    product_fields: d.product_fields.map((field, j) => j === i ? { ...field, ...patch } : field),
+  }));
+  return <details className="card p-5">
+    <summary className="cursor-pointer text-base font-bold text-ink-900">Trường thông số cho từng sản phẩm · {fields.length} trường</summary>
+    <p className="mt-3 text-sm text-ink-600">Vexim khai báo ở đây; NCC/nhân viên điền giá trị thực trên sản phẩm. Không tự cấp chứng nhận hay tự đăng sản phẩm. Mã trường đã dùng không nên đổi; đổi lựa chọn cũ cần đối chiếu lại sản phẩm hiện có.</p>
+    <div className="mt-4 space-y-4">
+      {fields.map((field, i) => <div key={i} className="rounded-lg border border-ink-200 p-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Tên hiển thị"><input className="input" value={field.label} onChange={(e) => update(i, { label: e.target.value })} placeholder="Grade / Type / Origin" /></Field>
+          <Field label="Mã ổn định (a-z, số, _)" hint="Ví dụ: grade, product_type"><input className="input" value={field.key} onChange={(e) => update(i, { key: e.target.value.toLowerCase() })} /></Field>
+          <Field label="Kiểu nhập"><select className="input" value={field.type} onChange={(e) => update(i, { type: e.target.value as ProductAttributeField["type"], options: e.target.value === "text" ? [] : field.options, filterable: false })}><option value="select">Chọn từ danh sách</option><option value="text">Nhập văn bản</option></select></Field>
+          {field.type === "select" && <Field label="Lựa chọn (mỗi dòng một giá trị)"><textarea className="input" rows={3} value={field.options.join("\n")} onChange={(e) => update(i, { options: e.target.value.split("\n").map((v) => v.trim()).filter(Boolean) })} placeholder="W240\nW320\nW450" /></Field>}
+        </div>
+        {field.type === "select" && <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={!!field.filterable} onChange={(e) => update(i, { filterable: e.target.checked })} /> Cho buyer lọc theo trường này khi có sản phẩm phù hợp</label>}
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm"><span>Chỉ hiện khi</span>
+          <select className="input w-auto" value={field.showWhen?.key ?? ""} onChange={(e) => update(i, { showWhen: e.target.value ? { key: e.target.value, value: "" } : undefined })}><option value="">Luôn hiện</option>{fields.slice(0, i).filter((f) => f.type === "select").map((f) => <option key={f.key} value={f.key}>{f.label || f.key}</option>)}</select>
+          {field.showWhen && <select className="input w-auto" value={field.showWhen.value} onChange={(e) => update(i, { showWhen: { key: field.showWhen!.key, value: e.target.value } })}><option value="">Chọn giá trị</option>{fields.find((f) => f.key === field.showWhen?.key)?.options.map((value) => <option key={value} value={value}>{value}</option>)}</select>}
+        </div>
+        <button type="button" className="mt-3 text-sm font-semibold text-rose-700" onClick={() => setDraft((d) => ({ ...d, product_fields: d.product_fields.filter((_, j) => j !== i) }))}>Xóa trường</button>
+      </div>)}
+      <Button type="button" disabled={fields.length >= 16} onClick={() => setDraft((d) => { let n = d.product_fields.length + 1; while (d.product_fields.some((f) => f.key === `field${n}`)) n++; return { ...d, product_fields: [...d.product_fields, { key: `field${n}`, label: "", type: "select", options: [], filterable: false }] }; })}><Plus className="h-4 w-4" /> Thêm trường sản phẩm</Button>
+    </div>
+  </details>;
 }

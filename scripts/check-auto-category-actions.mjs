@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { assignProductCategory, assignSupplierCategories } from '../lib/public/category-assignment.ts';
+import { saveProductAttributes } from '../lib/product-attributes.ts';
 
 const source = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 const sync = source.slice(source.indexOf('async function syncSupplierIndustries('), source.indexOf('export async function createSupplierAction('));
@@ -18,6 +19,7 @@ const rows = new Map();
 let linked = [];
 const store = {
   listCategories: async () => categories,
+  getCategoryBySlug: async (slug) => categories.find((c) => c.slug === slug) ?? null,
   getSupplier: async (id) => id === supplier.id ? supplier : null,
   listSupplierCategories: async () => linked.map((slug) => ({ category_id: categories.find((c) => c.slug === slug).id })),
   setSupplierCategories: async (_id, ids) => { linked = ids.map((id) => categories.find((c) => c.id === id).slug); },
@@ -34,7 +36,7 @@ vm.runInNewContext(js, {
   num: (v) => v == null || v === '' ? null : Number(v),
   bool: (v, fallback = false) => typeof v === 'boolean' ? v : fallback,
   guard: async () => null, getStore: () => store, revalidateAll: () => {},
-  assignProductCategory, assignSupplierCategories, productReadiness: () => ({ ready: true }), console,
+  assignProductCategory, assignSupplierCategories, saveProductAttributes, productReadiness: () => ({ ready: true }), console,
 }, { filename: 'auto-category-actions.ts' });
 let result = await exports.createProductAction({ name: 'Cashew W320', supplier_id: supplier.id, ref_price: 10, ref_price_max: 9 });
 assert.equal(result.ok, false, 'Staff cannot save an inverted reference price range');
@@ -59,6 +61,12 @@ assert.equal(rows.get(result.id).category, null, 'Mixed product is not assigned 
 result = await exports.updateProductAction(result.id, { name: 'Mixed cashew rice blend', ready_for_buyer: true, supplier_id: supplier.id });
 assert.equal(result.ok, true);
 assert.equal(rows.get('p-1').ready_for_buyer, false, 'Unclassified product cannot become buyer-ready');
+linked = ['cashew', 'rice'];
+result = await exports.createProductAction({ name: 'Unnamed regional specialty', supplier_id: supplier.id, category: 'rice' });
+assert.equal(result.ok, true);
+assert.equal(rows.get(result.id).category, 'rice', 'Staff can select an allowed industry when text inference has no match');
+result = await exports.createProductAction({ name: 'Unnamed regional specialty', supplier_id: supplier.id, category: 'foreign' });
+assert.equal(rows.get(result.id).category, null, 'Form cannot claim an industry outside supplier scope');
 rows.set('p-reviewed', { id: 'p-reviewed', supplier_id: supplier.id, name: 'Cashew W320',
   category: 'rice', reviewed_category_slug: 'rice', supplier_originated: true,
   description: null, spec: null, description_detail: null, ready_for_buyer: false });

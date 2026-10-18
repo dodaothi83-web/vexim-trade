@@ -199,7 +199,7 @@ function StateA({
           </div>
         </div>
 
-        <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored} />
+        <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored} productFields={cat.product_fields ?? []} />
       </section>
 
       {cat.hero_image && (

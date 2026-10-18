@@ -9,6 +9,7 @@ import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { listPublicCategoryProducts, shareableProductImages } from "@/lib/public/product-catalog";
+import { fieldsFor, publicProductAttributes } from "@/lib/product-attributes";
 import { shareableProductVideo } from "@/lib/public/product-video";
 import { ProductMediaGallery } from "@/components/product-media-gallery";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
@@ -70,7 +71,12 @@ export default async function PublicProductDetail({ params }: Props) {
   ]);
   const certificateLabels = publicCertificateLabels(p.supplier_id, p.id, certificates, supplierMedia);
   const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}`;
-  const specs = p.specs && typeof p.specs === "object" ? Object.entries(p.specs).filter(([, value]) => typeof value === "string" || typeof value === "number").slice(0, 12) : [];
+  const approvedAttributes = publicProductAttributes(category, p.specs);
+  const configuredKeys = new Set(fieldsFor(category).map((f) => f.key));
+  const specs = [
+    ...fieldsFor(category).filter((f) => approvedAttributes[f.key]).map((f) => [f.label, approvedAttributes[f.key]] as [string, string]),
+    ...(configuredKeys.size ? [] : Object.entries(p.specs ?? {}).filter(([, value]) => typeof value === "string" || typeof value === "number").map(([key, value]) => [key, String(value)] as [string, string])),
+  ].slice(0, 12);
 
   const countView = !preview && !card.isDemo && !(await getSession());
   return <div className="mx-auto max-w-6xl px-5 pb-24 pt-7 sm:px-6 lg:px-8">
@@ -89,13 +95,14 @@ export default async function PublicProductDetail({ params }: Props) {
         {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
           <p className="mt-1.5 text-xs text-ink-500">Product options stated in the listing; confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
         <div className="mt-5 rounded-xl border border-ink-200 bg-white px-5 py-2">
-          <Spec label="Grade" value={card.grade} /><Spec label="MOQ" value={card.moq} />
+          <Spec label="Grade" value={approvedAttributes.grade ?? card.grade} /><Spec label="MOQ" value={card.moq} />
           <Spec label="Reference price" value={card.price || "On request"} />
           <Spec label="Specification" value={p.spec} /><Spec label="Packaging" value={p.packaging} />
           <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
           <Spec label="Export port" value={p.export_port} />
-          {specs.map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
+          {specs.filter(([key]) => key.toLowerCase() !== "grade" || !(approvedAttributes.grade || card.grade)).map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
         </div>
+        <p className="mt-2 text-xs text-ink-500">Product specifications are supplier-stated and reviewed for listing by Vexim; they are not independent certification. Confirm contract terms through an RFQ.</p>
         {certificateLabels.length > 0 && <section className="mt-5 rounded-xl border border-teal-200 bg-teal-50/40 p-4" aria-labelledby="certificates-heading">
           <h2 id="certificates-heading" className="text-sm font-bold text-ink-900">Documents reviewed for this product</h2>
           <p className="mt-1 text-xs leading-5 text-ink-600">Vexim reviewed copies and their stated holder/scope. This is not independent issuer authentication or a certification issued by Vexim. Original files are shared only on request.</p>

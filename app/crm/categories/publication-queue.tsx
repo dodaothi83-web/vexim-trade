@@ -43,7 +43,8 @@ export function CategoryPublicationQueue({ categories }: { categories: Category[
             <p><strong>Tiêu đề:</strong> {category.h1_i18n?.en || category.name_i18n?.en}</p>
             <p><strong>Mô tả chi tiết:</strong> {category.body_i18n?.en?.replace(/<[^>]+>/g, " ") || "Chưa có"}</p>
             <p><strong>SEO:</strong> {category.seo_title_i18n?.en || "Chưa có"} · {category.seo_desc_i18n?.en || "Chưa có"}</p>
-            <p><strong>Thông số:</strong> {category.spec_columns?.length ?? 0} cột; {category.spec_rows?.length ?? 0} dòng · <strong>FAQ:</strong> {category.faq_i18n?.length ?? 0} mục</p>
+            <p><strong>Thông số tham khảo:</strong> {category.spec_columns?.length ?? 0} cột; {category.spec_rows?.length ?? 0} dòng · <strong>FAQ:</strong> {category.faq_i18n?.length ?? 0} mục</p>
+            <p><strong>Trường nhập trên từng sản phẩm:</strong> {category.product_fields?.length ? category.product_fields.map((f) => `${f.label}: ${f.type === "select" ? f.options.join(", ") : "văn bản"}`).join(" · ") : "Chưa cấu hình"}</p>
             <p className="text-xs text-ink-500">Người sửa nội dung cuối: {category.updated_by || "Hồ sơ cũ chưa có người sửa"}</p>
           </div>
         </details>
