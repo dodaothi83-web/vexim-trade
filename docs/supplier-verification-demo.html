@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Demo hiển thị các cấp xác minh nhà cung cấp · Vexim Trade</title>
+<style>
+  :root{
+    --brand-50:#f0fdfa; --brand-100:#ccfbf1; --brand-200:#99f6e4; --brand-600:#0d9488;
+    --brand-700:#0f766e; --brand-800:#115e59; --brand-900:#134e4a;
+    --ink-50:#f8fafc; --ink-100:#f1f5f9; --ink-200:#e2e8f0; --ink-300:#cbd5e1;
+    --ink-400:#94a3b8; --ink-500:#64748b; --ink-600:#475569; --ink-700:#334155;
+    --ink-800:#1e293b; --ink-900:#0f172a;
+    --emerald-300:#6ee7b7; --emerald-500:#10b981; --emerald-50:#ecfdf5; --emerald-800:#065f46;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--ink-100);color:var(--ink-900)}
+  .wrap{max-width:1024px;margin:0 auto;padding:28px 16px 64px}
+  h1.page{font-size:24px;margin:0 0 6px}
+  .lead{color:var(--ink-600);font-size:14.5px;line-height:1.65;margin:0 0 20px;max-width:760px}
+  .switcher{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  .switcher button{border:1px solid var(--ink-300);background:#fff;border-radius:999px;padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--ink-700);cursor:pointer}
+  .switcher button:hover{border-color:var(--brand-600);color:var(--brand-800)}
+  .switcher button.active{background:var(--brand-700);border-color:var(--brand-700);color:#fff}
+  .note{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:12px;padding:12px 16px;font-size:13.5px;line-height:1.6;margin:12px 0 20px}
+  .browser{background:#fff;border:1px solid var(--ink-200);border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.08)}
+  .browser-bar{display:flex;align-items:center;gap:8px;background:var(--ink-50);border-bottom:1px solid var(--ink-200);padding:9px 14px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--ink-300)}
+  .url{flex:1;background:#fff;border:1px solid var(--ink-200);border-radius:8px;padding:5px 10px;font-size:12.5px;color:var(--ink-500)}
+  .page-inner{padding:22px 22px 26px;background:#fdfdfc}
+  .profile-head{background:#fff;border:1px solid var(--ink-200);border-radius:14px;padding:20px}
+  .head-row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .avatar{width:72px;height:72px;border-radius:16px;background:var(--ink-100);border:1px solid var(--ink-200);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:var(--ink-400);flex-shrink:0}
+  .head-main{flex:1;min-width:240px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:700}
+  .chip-type{background:var(--ink-100);color:var(--ink-700)}
+  .chip-ok{background:var(--brand-50);color:var(--brand-800);border:1px solid var(--brand-200)}
+  .chip-audit{background:var(--ink-100);color:var(--ink-500);border:1px solid var(--ink-200)}
+  .chip svg{width:12px;height:12px}
+  .sup-name{font-size:24px;font-weight:800;margin:10px 0 6px;letter-spacing:-.02em}
+  .meta{font-size:13.5px;color:var(--ink-600);display:flex;flex-wrap:wrap;gap:6px 18px}
+  .cta{margin-left:auto;display:flex;flex-direction:column;gap:8px}
+  .btn-primary{background:var(--brand-700);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer}
+  .btn-ghost{background:#fff;color:var(--ink-800);border:1px solid var(--ink-200);border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:600;cursor:pointer}
+  section.blk{background:#fff;border:1px solid var(--ink-200);border-radius:14px;padding:18px 20px;margin-top:16px}
+  section.blk h2{font-size:16.5px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+  section.blk h2 svg{width:18px;height:18px;color:var(--brand-700)}
+  .sub{font-size:12.5px;color:var(--ink-600);line-height:1.6;margin:4px 0 0}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+  .step{display:flex;gap:8px;align-items:flex-start;border-radius:10px;border:1px solid var(--ink-200);background:var(--ink-50);color:var(--ink-600);padding:11px 12px;font-size:12.5px;font-weight:700}
+  .step.on{border-color:var(--brand-200);background:var(--brand-50);color:var(--brand-900)}
+  .step svg{width:16px;height:16px;flex-shrink:0;margin-top:1px}
+  .step small{display:block;font-weight:400;font-size:11.5px;margin-top:2px}
+  .approved-text{font-size:13.5px;font-weight:700;color:var(--brand-800);margin:8px 0 0}
+  .summary-text{font-size:13.5px;line-height:1.65;color:var(--ink-700);margin:6px 0 0}
+  .fineprint{font-size:11.5px;color:var(--ink-500);margin:8px 0 0;line-height:1.55}
+  .empty-text{font-size:13.5px;color:var(--ink-600);margin:8px 0 0;line-height:1.6}
+  .products{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+  .pcard{border:1px solid var(--ink-200);border-radius:12px;background:#fff;overflow:hidden}
+  .pimg{height:120px;background:linear-gradient(135deg,#fef3c7,#fde68a);display:flex;align-items:center;justify-content:center;font-size:13px;color:#92400e;font-weight:700}
+  .pbody{padding:12px 14px 14px}
+  .pname{font-size:14px;font-weight:700;margin:0}
+  .price{font-size:16px;font-weight:800;color:var(--brand-800);margin:6px 0 2px}
+  .pricesub{font-size:11.5px;color:var(--ink-500);margin:0}
+  .suprow{display:flex;flex-wrap:wrap;align-items:center;gap:1.5px;margin-top:10px}
+  .suprow .lbl{font-size:11px;font-weight:600;color:var(--ink-600);margin-right:4px}
+  .vicon{width:26px;height:26px;border-radius:50%;border:1px solid var(--emerald-300);background:var(--emerald-50);color:var(--emerald-800);display:inline-flex;align-items:center;justify-content:center}
+  .vicon svg{width:14px;height:14px}
+  .no-checks{font-size:11px;color:var(--ink-500)}
+  .compare{margin-top:34px}
+  .compare h2{font-size:19px;margin:0 0 6px}
+  .compare-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+  .ccard{background:#fff;border:1px solid var(--ink-200);border-radius:14px;padding:16px}
+  .ccard h3{font-size:13px;margin:0 0 10px;color:var(--ink-800);line-height:1.5}
+  .ccard .pname{font-size:13px}
+  .ccard .note-sm{font-size:12px;color:var(--ink-600);line-height:1.6;margin:10px 0 0}
+  .callouts{margin-top:28px;background:#fff;border:1px solid var(--ink-200);border-radius:14px;padding:18px 20px}
+  .callouts h2{font-size:17px;margin:0 0 8px}
+  .callouts li{font-size:14px;line-height:1.7;color:var(--ink-700);margin-bottom:4px}
+  @media (max-width:760px){ .steps{grid-template-columns:1fr} .products{grid-template-columns:1fr} .compare-grid{grid-template-columns:1fr 1fr} .cta{margin-left:0} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page">Demo: nhà cung cấp hiển thị khác nhau thế nào theo vòng kiểm đã đạt</h1>
+  <p class="lead">Đây là bản dựng lại giao diện hồ sơ nhà cung cấp công khai của Vexim Trade bằng dữ liệu mẫu (một nhà máy điều ở Bình Phước). Chị bấm qua 4 trường hợp bên dưới để xem buyer nhìn thấy gì ở từng trường hợp. Phần trong khung là giao diện tiếng Anh như buyer thấy thật; phần chú thích nằm ngoài khung.</p>
+
+  <div class="switcher" role="tablist" aria-label="Chọn trường hợp hiển thị">
+    <button type="button" data-scenario="none">A. Chưa qua vòng kiểm nào</button>
+    <button type="button" data-scenario="l1">B. Chỉ kiểm giấy tờ</button>
+    <button type="button" data-scenario="l13">C. Giấy tờ + lịch sử giao hàng</button>
+    <button type="button" data-scenario="full" class="active">D. Đủ 3 vòng: giấy tờ + nhà máy + giao hàng</button>
+  </div>
+
+  <div class="note" id="scenarioNote"></div>
+
+  <div class="browser">
+    <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">veximtrade.com/suppliers/minh-phat-cashew</span></div>
+    <div class="page-inner">
+
+      <div class="profile-head">
+        <div class="head-row">
+          <div class="avatar">M</div>
+          <div class="head-main">
+            <div class="chips">
+              <span class="chip chip-type">Manufacturer</span>
+              <span id="headerBadges" style="display:contents"></span>
+            </div>
+            <p class="sup-name">Minh Phat Cashew Co., Ltd</p>
+            <div class="meta"><span>Binh Phuoc, Vietnam</span><span>Founded 2012</span><span>120 employees</span></div>
+          </div>
+          <div class="cta">
+            <button type="button" class="btn-primary">Request a quote</button>
+            <button type="button" class="btn-ghost">Browse products</button>
+          </div>
+        </div>
+      </div>
+
+      <section class="blk" aria-labelledby="vtitle">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg><span id="vtitle">Vexim verification</span></h2>
+        <p class="sub">Each check is independent. Only approved reviews earn badges; “not reviewed” does not mean a failed check.</p>
+        <div class="steps" id="steps"></div>
+        <p class="fineprint">Verification is limited to the documents, site or shipment in the relevant review. It does not certify every facility or product.</p>
+      </section>
+
+      <section class="blk" aria-labelledby="ftitle">
+        <h2 id="ftitle">Facilities visited by Vexim</h2>
+        <div id="factoryBody"></div>
+      </section>
+
+      <section class="blk" aria-labelledby="dtitle">
+        <h2 id="dtitle">Export &amp; delivery evidence</h2>
+        <p class="summary-text">Supplier-stated markets (not independently verified): India, United Arab Emirates, Netherlands</p>
+        <div id="deliveryBody"></div>
+      </section>
+
+      <section class="blk" aria-labelledby="ptitle">
+        <h2 id="ptitle">Products</h2>
+        <div class="products" id="products"></div>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="compare">
+    <h2>So sánh nhanh trên thẻ sản phẩm</h2>
+    <p class="lead" style="margin-bottom:0">Buyer thường gặp nhà cung cấp lần đầu qua thẻ sản phẩm ở trang danh mục hoặc trang chủ, chưa bấm vào hồ sơ. Hàng biểu tượng tròn dưới tên sản phẩm là thứ thay đổi theo vòng kiểm đã đạt.</p>
+    <div class="compare-grid">
+      <div class="ccard">
+        <h3>A. Chưa qua vòng kiểm nào</h3>
+        <p class="pname">Cashew kernels WW320</p>
+        <div class="suprow"><span class="lbl">Supplier</span><span class="no-checks">No approved checks yet</span></div>
+        <p class="note-sm">Trên hồ sơ: nhãn xám “Under audit”, cả 3 ô kiểm đều ghi “Not reviewed”.</p>
+      </div>
+      <div class="ccard">
+        <h3>B. Chỉ kiểm giấy tờ</h3>
+        <p class="pname">Cashew kernels WW320</p>
+        <div class="suprow"><span class="lbl">Supplier</span><span class="vicon" title="Documents checked"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg></span></div>
+        <p class="note-sm">Có 1 biểu tượng giấy tờ. Trên hồ sơ: 1 huy hiệu xanh ở đầu trang.</p>
+      </div>
+      <div class="ccard">
+        <h3>C. Giấy tờ + lịch sử giao hàng</h3>
+        <p class="pname">Cashew kernels WW320</p>
+        <div class="suprow"><span class="lbl">Supplier</span><span class="vicon" title="Documents checked"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg></span><span class="vicon" title="Delivery history reviewed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18h-5"/><path d="M15 8h4l4 4v4a1 1 0 0 1-1 1h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span></div>
+        <p class="note-sm">Thêm biểu tượng xe tải. Trên hồ sơ có thêm mục tóm tắt các lô hàng đã kiểm.</p>
+      </div>
+      <div class="ccard">
+        <h3>D. Đủ 3 vòng kiểm</h3>
+        <p class="pname">Cashew kernels WW320</p>
+        <div class="suprow"><span class="lbl">Supplier</span><span class="vicon" title="Documents checked"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg></span><span class="vicon" title="Factory visited"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/></svg></span><span class="vicon" title="Delivery history reviewed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18h-5"/><path d="M15 8h4l4 4v4a1 1 0 0 1-1 1h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span></div>
+        <p class="note-sm">Đủ 3 biểu tượng. Trên hồ sơ có đủ 3 huy hiệu và cả hai mục tóm tắt nội dung thật.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callouts">
+    <h2>Đọc nhanh phần khác biệt</h2>
+    <ul>
+      <li><b>Đầu hồ sơ:</b> số huy hiệu xanh tăng theo số vòng kiểm đã đạt. Chưa đạt vòng nào thì hiện nhãn xám “Under audit”.</li>
+      <li><b>Mục Vexim verification:</b> ô nào đạt thì nền xanh và ghi “Review approved”, ô nào chưa đạt để nền xám và ghi “Not reviewed”.</li>
+      <li><b>Hai mục nội dung riêng:</b> “Facilities visited by Vexim” và “Export &amp; delivery evidence” chỉ có văn bản tóm tắt thật khi vòng kiểm tương ứng đã đạt và nhân viên đã bấm công khai bản tóm tắt.</li>
+      <li><b>Thẻ sản phẩm:</b> hàng biểu tượng tròn nhỏ (giấy tờ, nhà máy, xe tải) là dấu hiệu buyer thấy đầu tiên khi lướt danh mục.</li>
+      <li><b>Giới hạn có chủ đích:</b> không có cấp tổng kiểu hạng vàng hay hạng bạc, không đổi màu toàn trang. Mỗi vòng kiểm chỉ nói đúng phạm vi đã kiểm để tránh gây hiểu nhầm.</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+  var ICONS = {
+    doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg>',
+    factory: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/></svg>',
+    truck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18h-5"/><path d="M15 8h4l4 4v4a1 1 0 0 1-1 1h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" fill="currentColor" stroke="none" opacity="0.14"/><path d="M20 6 9 17l-5-5"/></svg>'
+  };
+  var LABELS = { 1: "Documents checked", 2: "Factory visited", 3: "Delivery history reviewed" };
+  var STEP_NAMES = { 1: "Documents checked", 2: "Factory visit", 3: "Delivery history" };
+  var SCENARIOS = {
+    none: {
+      levels: [],
+      note: "<b>Trường hợp A: chưa qua vòng kiểm nào.</b> Đầu hồ sơ hiện nhãn xám “Under audit”. Cả 3 ô kiểm đều ghi “Not reviewed”, hai mục nội dung bên dưới ghi chưa có đợt kiểm được duyệt, thẻ sản phẩm ghi “No approved checks yet”."
+    },
+    l1: {
+      levels: [1],
+      note: "<b>Trường hợp B: chỉ kiểm giấy tờ.</b> Có 1 huy hiệu xanh và 1 ô xanh. Hai mục thăm nhà máy và lịch sử giao hàng vẫn ghi chưa có đợt kiểm được duyệt. Đây là mức phổ biến nhất khi mới nạp dữ liệu."
+    },
+    l13: {
+      levels: [1, 3],
+      note: "<b>Trường hợp C: kiểm giấy tờ và lịch sử giao hàng, chưa thăm nhà máy.</b> Có 2 huy hiệu, mục “Export &amp; delivery evidence” hiện tóm tắt các lô hàng đã kiểm nên hồ sơ có thêm nội dung thật để buyer đọc. Ô thăm nhà máy vẫn ghi “Not reviewed” vì các vòng kiểm độc lập, không suy ra lẫn nhau."
+    },
+    full: {
+      levels: [1, 2, 3],
+      note: "<b>Trường hợp D: đủ 3 vòng kiểm.</b> Đầu hồ sơ đủ 3 huy hiệu xanh, cả 3 ô đều “Review approved”, và có cả hai mục tóm tắt nội dung thật (chuyến thăm nhà máy và các lô hàng đã kiểm). Đây là hồ sơ trông đầy đặn và đáng tin nhất trong hệ thống hiện tại."
+    }
+  };
+  var FACTORY_SUMMARY = "Vexim visited the processing facility in Binh Phuoc on 12 September 2026. The visit covered the drying yard, the steam sterilization line and the metal detection step before packing. The facility operates two peeling lines with about 120 workers at the time of the visit.";
+  var DELIVERY_SUMMARY = "Vexim reviewed documents for three completed shipments in 2025 and 2026, including bills of lading, packing lists and phytosanitary certificates for buyers in India and the Netherlands. Quantities and product descriptions matched the documents provided.";
+
+  function iconFor(level){
+    if (level === 1) return ICONS.doc;
+    if (level === 2) return ICONS.factory;
+    return ICONS.truck;
+  }
+
+  function render(key){
+    var sc = SCENARIOS[key];
+    var levels = sc.levels;
+    document.getElementById("scenarioNote").innerHTML = sc.note;
+
+    var badges = document.getElementById("headerBadges");
+    if (!levels.length) {
+      badges.innerHTML = '<span class="chip chip-audit">Under audit</span>';
+    } else {
+      badges.innerHTML = levels.map(function(l){
+        return '<span class="chip chip-ok">' + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px"><path d="M20 6 9 17l-5-5"/></svg>' + LABELS[l] + "</span>";
+      }).join("");
+    }
+
+    document.getElementById("steps").innerHTML = [1,2,3].map(function(l){
+      var on = levels.indexOf(l) !== -1;
+      return '<div class="step' + (on ? " on" : "") + '">' + (on ? ICONS.check : ICONS.doc) +
+        "<span>" + STEP_NAMES[l] + "<small>" + (on ? "Review approved" : "Not reviewed") + "</small></span></div>";
+    }).join("");
+
+    document.getElementById("factoryBody").innerHTML = levels.indexOf(2) !== -1
+      ? '<p class="approved-text">Factory visit review approved</p><p class="summary-text">' + FACTORY_SUMMARY + '</p><p class="fineprint">Only the site described in a published summary was reviewed. This is not a certification of other facilities or products.</p>'
+      : '<p class="empty-text">No approved factory visit review is available.</p>';
+
+    document.getElementById("deliveryBody").innerHTML = levels.indexOf(3) !== -1
+      ? '<p class="approved-text">Delivery evidence review approved</p><p class="summary-text">' + DELIVERY_SUMMARY + '</p><p class="fineprint">A reviewed delivery is not proof of the supplier’s entire export history or a guarantee of future shipments.</p>'
+      : '<p class="empty-text">No approved delivery evidence review is available. Stated markets are not a Vexim-verified export history.</p>';
+
+    var iconRow = levels.length
+      ? levels.map(function(l){ return '<span class="vicon" title="' + LABELS[l] + '">' + iconFor(l) + "</span>"; }).join("")
+      : '<span class="no-checks">No approved checks yet</span>';
+
+    var products = [
+      { name: "Cashew kernels WW320", price: "USD 7.10 / kg", sub: "Reference price · MOQ 5 MT" },
+      { name: "Cashew kernels LP", price: "USD 4.85 / kg", sub: "Reference price · MOQ 2 MT" }
+    ];
+    document.getElementById("products").innerHTML = products.map(function(p){
+      return '<div class="pcard"><div class="pimg">Ảnh sản phẩm</div><div class="pbody">' +
+        '<p class="pname">' + p.name + '</p><p class="price">' + p.price + '</p><p class="pricesub">' + p.sub + "</p>" +
+        '<div class="suprow"><span class="lbl">Supplier checks</span>' + iconRow + "</div>" +
+        "</div></div>";
+    }).join("");
+
+    var btns = document.querySelectorAll(".switcher button");
+    btns.forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-scenario") === key); });
+  }
+
+  document.querySelectorAll(".switcher button").forEach(function(b){
+    b.addEventListener("click", function(){ render(b.getAttribute("data-scenario")); });
+  });
+  render("full");
+</script>
+</body>
+</html>
