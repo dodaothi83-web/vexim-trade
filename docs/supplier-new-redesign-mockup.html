@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup đề xuất — Thêm nhà cung cấp · Vexim Trade CRM</title>
+<style>
+  :root{--brand:#0f766e;--brand-dark:#115e59;--brand-soft:#f0fdfa;--ink900:#0f172a;--ink700:#334155;--ink500:#64748b;--ink400:#94a3b8;--ink200:#e2e8f0;--ink100:#f1f5f9;--bg:#f4f6fa;--amber:#b45309;--amber-bg:#fffbeb;--red:#b91c1c;--green:#047857;--green-bg:#ecfdf5}
+  *{box-sizing:border-box} body{margin:0;font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink900);-webkit-font-smoothing:antialiased}
+  button{font:inherit;cursor:pointer} input,select,textarea{font:inherit}
+  .layout{display:flex;min-height:100vh}
+  .sidebar{width:232px;flex:0 0 232px;background:linear-gradient(180deg,#0f172a,#134e4a);color:#ccfbf1;padding:20px 14px;display:flex;flex-direction:column;gap:6px}
+  .logo{font-weight:900;color:#fff;font-size:17px;letter-spacing:-.02em;padding:2px 8px}.logo small{display:block;font-weight:500;color:#99f6e4;font-size:11px;margin-top:2px}
+  .navlabel{font-size:10px;font-weight:700;letter-spacing:.15em;color:rgba(204,251,241,.45);padding:14px 8px 6px}
+  .navitem{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:9px;color:rgba(204,251,241,.72);font-size:13.5px;font-weight:500}
+  .navitem.active{background:rgba(255,255,255,.13);color:#fff}
+  .sidefoot{margin-top:auto;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;font-size:12px;color:#e2e8f0}
+  .main{flex:1;min-width:0;padding:26px 30px 60px;max-width:1240px;margin:0 auto;width:100%}
+  .mockbanner{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:12px 16px;font-size:13px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+  .tag-new{font-size:9.5px;font-weight:800;letter-spacing:.06em;background:#fef3c7;color:#92400e;border-radius:99px;padding:2px 6px;white-space:nowrap}
+  .crumb{font-size:12px;color:var(--ink500);margin-bottom:6px}
+  h1{font-size:22px;font-weight:900;letter-spacing:-.02em;margin:0}
+  .sub{font-size:13px;color:var(--ink500);margin-top:4px}
+  .actionbar{position:sticky;top:10px;z-index:5;background:rgba(255,255,255,.96);border:1px solid var(--ink200);border-radius:14px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:14px 0;box-shadow:0 1px 3px rgb(15 23 42/.06)}
+  .btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--ink200);background:#fff;color:var(--ink700);border-radius:10px;padding:8px 14px;font-size:13.5px;font-weight:600}
+  .btn:hover{background:var(--ink100)} .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}.btn.primary:hover{background:var(--brand-dark)}
+  .btn.soft{background:var(--brand-soft);color:var(--brand-dark);border-color:#99f6e4}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start}
+  .card{background:#fff;border:1px solid var(--ink200);border-radius:14px;box-shadow:0 1px 3px rgb(15 23 42/.05);padding:20px}
+  .card h2{font-size:15px;margin:0 0 2px}.card .desc{font-size:12.5px;color:var(--ink500);margin:0 0 14px}
+  .secttl{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--brand);text-transform:uppercase;margin:18px 0 10px}
+  .secttl:first-of-type{margin-top:2px}
+  .f{margin-bottom:12px}.f label{display:block;font-size:13px;font-weight:600;color:var(--ink700);margin-bottom:5px}
+  .f input,.f select{width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:13.5px;background:#fff}
+  .f input:focus,.f select:focus{outline:none;border-color:#14b8a6;box-shadow:0 0 0 3px rgb(20 184 166/.15)}
+  .f input.err{border-color:#f43f5e;background:#fff7f7}
+  .errmsg{color:#e11d48;font-size:12px;font-weight:600;margin-top:4px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .hint{font-size:12px;color:var(--ink400);margin-top:4px}
+  .industry{display:none;margin-top:8px;font-size:12.5px;background:var(--brand-soft);border:1px solid #99f6e4;border-radius:10px;padding:8px 11px;color:var(--brand-dark)}
+  .industry b{background:#fff;border:1px solid #99f6e4;border-radius:99px;padding:2px 8px;font-size:12px}
+  .dup{display:none;margin-top:10px;background:var(--amber-bg);border:1px solid #fcd34d;border-radius:10px;padding:10px 12px;font-size:13px;color:#92400e}
+  .dup a{color:var(--brand);font-weight:700}
+  .rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:76px}
+  .rail .card{padding:16px}
+  .steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0}
+  .steps li{display:flex;gap:10px;font-size:13px;padding:7px 0;color:var(--ink500)}
+  .steps .num{width:22px;height:22px;flex:0 0 22px;border-radius:99px;background:var(--ink100);color:var(--ink500);font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .steps li.now{color:var(--ink900);font-weight:600}.steps li.now .num{background:var(--brand);color:#fff}
+  .removed{font-size:12.5px;color:var(--ink500);line-height:1.65;margin:0;padding-left:16px}
+  .success{display:none;background:var(--green-bg);border:1px solid #a7f3d0;border-radius:14px;padding:16px;font-size:13.5px;color:#065f46;margin-bottom:14px}
+  .toast{position:fixed;right:18px;bottom:18px;background:var(--ink900);color:#fff;border-radius:11px;padding:12px 16px;font-size:13.5px;box-shadow:0 10px 30px rgb(0 0 0/.25);opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1;transform:none}
+  @media(max-width:1000px){.grid{grid-template-columns:1fr}.rail{position:static}.sidebar{display:none}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo">VEXIM TRADE<small>Điều hành sàn TMĐT B2B</small></div>
+    <div class="navlabel">VẬN HÀNH SÀN</div>
+    <div class="navitem">▦&nbsp; Tổng quan sàn</div>
+    <div class="navitem active">▣&nbsp; Nhà cung cấp</div>
+    <div class="navitem">▤&nbsp; Sản phẩm NCC</div>
+    <div class="navitem">?&nbsp; RFQ từ buyer</div>
+    <div class="navitem">🗂&nbsp; Danh mục sản phẩm</div>
+    <div class="navlabel">SALE · HỖ TRỢ BUYER</div>
+    <div class="navitem">◎&nbsp; Buyer</div>
+    <div class="navitem">✉&nbsp; Hộp thư</div>
+    <div class="sidefoot">Nguyễn Văn A<br><span style="color:#99f6e4;font-size:11px">Quản trị viên</span></div>
+  </aside>
+
+  <main class="main">
+    <div class="mockbanner">
+      <span>🧪 <b>Mockup đề xuất — Trang Thêm nhà cung cấp rút gọn (Giai đoạn A)</b>. Thử gõ tên có chữ <b>"Cashew"</b> để xem cảnh báo trùng, điền Mặt hàng để xem tự gán ngành, rồi bấm <b>Tạo hồ sơ nháp</b>.</span>
+      <span class="tag-new">CHƯA PHẢI CODE PRODUCTION</span>
+    </div>
+
+    <div class="crumb">Nhà cung cấp / <b style="color:#334155">Thêm mới</b></div>
+    <h1>Thêm nhà cung cấp</h1>
+    <p class="sub">Tạo hồ sơ trong 1 phút — chỉ cần các thông tin dưới đây. Mọi thứ còn lại bổ sung sau ở trang Sửa.</p>
+
+    <div class="actionbar">
+      <button class="btn" onclick="toast('Quay lại danh sách NCC (mockup)')">← Danh sách NCC</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="toast('Huỷ tạo (mockup)')">Huỷ</button>
+        <button class="btn primary" onclick="createSupplier()">Tạo hồ sơ nháp →</button>
+      </div>
+    </div>
+
+    <div class="success" id="success">
+      ✅ <b>Đã tạo hồ sơ nháp!</b> (Ở bản thật, hệ thống chuyển thẳng tới trang chi tiết NCC.)
+      Bước tiếp theo: <b>Thêm sản phẩm</b> → Kiểm giấy tờ → Nộp duyệt → Công khai.
+      <button class="btn soft" style="margin-left:8px;padding:5px 11px" onclick="toast('Đi tới trang chi tiết NCC (mockup)')">Tới trang chi tiết →</button>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Thông tin cần lúc tạo</h2>
+        <p class="desc">Hồ sơ mới luôn ở trạng thái <b>Bản nháp</b> — chưa hiển thị cho buyer cho tới khi được duyệt và công khai.</p>
+
+        <p class="secttl">Doanh nghiệp</p>
+        <div class="f">
+          <label>Tên nhà cung cấp *</label>
+          <input id="name" placeholder="vd: Công ty TNHH Chế biến Hạt Điều Bình Phước" oninput="checkDup()">
+          <p class="errmsg" id="nameErr" style="display:none">Hãy nhập tên nhà cung cấp.</p>
+          <div class="dup" id="dup">
+            ⚠ <b>Có thể trùng:</b> “Bình Phước Cashew Processing Co.” đã có hồ sơ (Bình Phước · 6 sản phẩm).
+            <a href="#" onclick="toast('Mở hồ sơ NCC đã có (mockup)');return false">Mở hồ sơ →</a>
+            <span style="color:#92400e">· vẫn tạo mới nếu đây là đơn vị khác.</span>
+          </div>
+        </div>
+        <div class="two">
+          <div class="f"><label>Loại hình</label>
+            <select><option>Nhà máy / xưởng chế biến</option><option>Công ty thương mại</option><option>Hợp tác xã</option></select>
+            <p class="hint">Chỉ giữ 1 cách phân loại — bỏ ô “Vai trò” trùng lặp. <span class="tag-new">ĐỀ XUẤT</span></p>
+          </div>
+          <div class="f"><label>Tỉnh / Thành phố</label><input placeholder="vd: Bình Phước"></div>
+        </div>
+        <div class="f">
+          <label>Mặt hàng chính</label>
+          <input id="products" placeholder="vd: hạt điều W240, W320, điều vỡ" oninput="guessIndustry()">
+          <div class="industry" id="industry">Ngành hệ thống tự gán: <b>Hạt điều (Cashew)</b> <span style="color:#64748b">— tự cập nhật lại khi thêm sản phẩm, không cần chọn tay.</span></div>
+        </div>
+
+        <p class="secttl">Liên hệ <span style="text-transform:none;letter-spacing:0;color:#94a3b8;font-weight:500">(để đội sale liên lạc lại)</span></p>
+        <div class="two">
+          <div class="f"><label>Người liên hệ</label><input placeholder="vd: Nguyễn Văn B"></div>
+          <div class="f"><label>Điện thoại / Zalo</label><input placeholder="09xx xxx xxx"><p class="hint">Zalo đưa lên đây — kênh liên hệ chính với NCC Việt Nam. <span class="tag-new">ĐỀ XUẤT</span></p></div>
+        </div>
+        <div class="two">
+          <div class="f"><label>Email</label><input id="email" type="email" placeholder="ten@congty.vn" onblur="checkEmail()"><p class="errmsg" id="emailErr" style="display:none">Email chưa đúng định dạng.</p></div>
+          <div class="f"><label>Website (nếu có)</label><input placeholder="https://…"></div>
+        </div>
+
+        <p style="font-size:12.5px;color:#64748b;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px;padding:10px 12px;margin:16px 0 0">
+          Các thông tin còn lại — địa chỉ chi tiết, mã số thuế, điều kiện thương mại (MOQ, cảng, incoterm),
+          giới thiệu cho buyer, chấp thuận giá… — bổ sung ở <b>trang Sửa</b> sau khi tạo. Không cần điền ngay.
+        </p>
+      </section>
+
+      <aside class="rail">
+        <div class="card">
+          <h2 style="font-size:14px">Sau khi tạo sẽ làm gì <span class="tag-new">MỚI</span></h2>
+          <ol class="steps">
+            <li class="now"><span class="num">1</span><span><b>Tạo hồ sơ nháp</b> — trang này, chỉ cần tên.</span></li>
+            <li><span class="num">2</span><span><b>Thêm sản phẩm</b> — mặt hàng, quy cách, ảnh/catalogue.</span></li>
+            <li><span class="num">3</span><span><b>Kiểm giấy tờ &amp; nhà máy</b> — đội Vexim xét duyệt riêng.</span></li>
+            <li><span class="num">4</span><span><b>Nộp duyệt → Công khai</b> — buyer mới thấy hồ sơ.</span></li>
+          </ol>
+        </div>
+        <div class="card">
+          <h2 style="font-size:14px">Đã chuyển khỏi trang tạo <span class="tag-new">ĐỀ XUẤT</span></h2>
+          <ul class="removed">
+            <li><b>Chấp thuận công khai giá</b> → sang trang Sửa, chỉ bật khi đã có sản phẩm (tránh tick bừa lúc tạo).</li>
+            <li><b>Tên hiển thị &amp; đường dẫn web</b> → trang Sửa, có xem trước URL.</li>
+            <li><b>MOQ, cảng, incoterm, thị trường</b> → tab Thương mại ở trang Sửa.</li>
+            <li><b>Ghi chú nội bộ</b> → tab riêng ở trang Sửa.</li>
+          </ul>
+        </div>
+        <div class="card" style="background:#fffbeb;border-color:#fcd34d">
+          <h2 style="font-size:14px">💡 Thói quen tốt</h2>
+          <p style="font-size:12.5px;color:#92400e;margin:0;line-height:1.6">Tìm tên NCC trong danh sách trước khi tạo — tránh trùng hồ sơ khiến sản phẩm và xác minh bị chia đôi.</p>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+let toastTimer;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),3200)}
+function checkDup(){const v=document.getElementById('name').value.toLowerCase();document.getElementById('dup').style.display=v.includes('cashew')||v.includes('hạt điều')||v.includes('hat dieu')?'block':'none';document.getElementById('nameErr').style.display='none';document.getElementById('name').classList.remove('err')}
+function guessIndustry(){const v=document.getElementById('products').value.toLowerCase();document.getElementById('industry').style.display=(v.includes('điều')||v.includes('dieu')||v.includes('cashew')||v.includes('w320')||v.includes('w240'))?'block':'none'}
+function checkEmail(){const e=document.getElementById('email');const bad=e.value&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.value);document.getElementById('emailErr').style.display=bad?'block':'none';e.classList.toggle('err',bad)}
+function createSupplier(){const n=document.getElementById('name');if(!n.value.trim()){document.getElementById('nameErr').style.display='block';n.classList.add('err');n.focus();window.scrollTo({top:0,behavior:'smooth'});return}checkEmail();document.getElementById('success').style.display='block';window.scrollTo({top:0,behavior:'smooth'});toast('Đã tạo nhà cung cấp (mockup) — trạng thái Bản nháp')}
+</script>
+</body>
+</html>
