@@ -334,7 +334,7 @@ export default async function HomeContent() {
           </div>
 
           {latestPosts.length ? (
-            <ul className={`mt-10 grid gap-5 ${latestPosts.length > 1 ? "md:grid-cols-2" : ""} ${latestPosts.length > 2 ? "lg:grid-cols-3" : ""}`}>
+            <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {latestPosts.map((post) => (
                 <li key={post.id} className="min-w-0">
                   <article className="h-full">
