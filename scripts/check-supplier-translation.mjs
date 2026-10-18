@@ -76,7 +76,7 @@ const compare = fs.readFileSync(new URL('../app/(public)/compare/page.tsx', impo
 assert.match(compare, /supplierMoqDisplay\(s\)/, 'trang so sánh phải hiển thị MOQ bản tiếng Anh');
 
 const form = fs.readFileSync(new URL('../app/supplier/portal/supplier-profile-form.tsx', import.meta.url), 'utf8');
-assert.match(form, /Giới thiệu về công ty của bạn/, 'ô nhập phải là phần giới thiệu công ty của NCC');
+assert.match(form, />Giới thiệu</, 'ô nhập phải là phần giới thiệu của NCC');
 assert.match(form, /Mô tả về điểm khác biệt của công ty hay sản phẩm của bạn\./, 'placeholder phải gợi ý kể điểm khác biệt');
 assert.match(form, /name="intro_source"/, 'form phải gửi phần giới thiệu gốc, không gửi thẳng vào bản tiếng Anh');
 
