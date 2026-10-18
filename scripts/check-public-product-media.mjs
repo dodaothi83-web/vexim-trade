@@ -31,17 +31,25 @@ vm.runInNewContext(code, { exports, require: (key) => mocks[key], Response, Uint
 const get = (path = ['products', 'prod-1', 'photo.jpg']) => exports.GET(new Request('https://test.local'), { params: Promise.resolve({ path }) });
 assert.equal((await get()).status, 200);
 assert.equal(downloads, 1);
-asset = { ...asset, audience: 'internal' }; assert.equal((await get()).status, 404);
+asset = { ...asset, thumb_path: 'products/prod-1/photo-thumb.webp' };
+assert.equal((await get(['products', 'prod-1', 'photo-thumb.webp'])).status, 200,
+  'An approved buyer image may serve its thumbnail through the same gate');
+asset = { ...asset, audience: 'internal' };
+assert.equal((await get(['products', 'prod-1', 'photo-thumb.webp'])).status, 404,
+  'An unapproved thumbnail must remain private');
+assert.equal((await get()).status, 404);
 asset = { ...asset, audience: 'buyer', status: 'expired' }; assert.equal((await get()).status, 404);
 asset = { ...asset, status: 'checked', kind: 'document' }; assert.equal((await get()).status, 404);
 asset = { ...asset, kind: 'image', owner_type: 'supplier' }; assert.equal((await get()).status, 404);
 asset = { ...asset, owner_type: 'product' };
 product = { ...product, ready_for_buyer: false }; assert.equal((await get()).status, 404);
+assert.equal((await get(['products', 'prod-1', 'photo-thumb.webp'])).status, 404,
+  'Revoking buyer readiness also revokes the cached-card source at the gated route');
 product = { ...product, ready_for_buyer: true, supplier_originated: true, supplier_review_status: 'submitted' }; assert.equal((await get()).status, 404);
 product = { ...product, supplier_review_status: 'approved', reviewed_category_slug: null }; assert.equal((await get()).status, 404);
 product = { ...product, supplier_originated: false, supplier_review_status: null, name: 'TEST ONLY — Jasmine Rice Sample' }; assert.equal((await get()).status, 404);
 product = { ...product, name: 'Cashew W320' }; supplier = { ...supplier, status: 'draft' }; assert.equal((await get()).status, 404);
 assert.equal((await get(['products', 'prod-1', 'document.pdf'])).status, 404);
 assert.equal((await get(['products', 'prod-1', 'photo,or(stuff).jpg'])).status, 404);
-assert.equal(downloads, 1, 'Disallowed assets must never be fetched from storage');
+assert.equal(downloads, 2, 'Disallowed assets must never be fetched from storage');
 console.log('✅ Product images are public only for buyer-shareable media of a ready product and published supplier.');

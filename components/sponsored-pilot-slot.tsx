@@ -41,7 +41,7 @@ export function SponsoredPilotSlot({ product, ticket, campaignId, categorySlug }
       <span className="text-xs text-amber-900">Paid placement, not a Vexim verification result</span></div>
     <div className="mt-3 flex items-center gap-3 sm:gap-4">
       <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-ink-300 sm:size-20">
-        {product.imagePaths[0] ? <img src={`/public-media/${product.imagePaths[0]}`} alt="" className="h-full w-full object-cover" /> : <ImageIcon className="size-7" aria-hidden="true" />}
+        {product.imagePaths[0] ? <img src={`/public-media/${product.cardImagePath ?? product.imagePaths[0]}`} alt="" className="h-full w-full object-cover" /> : <ImageIcon className="size-7" aria-hidden="true" />}
       </div>
       <div className="min-w-0 flex-1"><p className="line-clamp-1 text-xs font-medium text-ink-600">{product.supplierName}</p>
         <p className="line-clamp-2 text-sm font-bold text-ink-900 sm:text-base">{product.name}</p>

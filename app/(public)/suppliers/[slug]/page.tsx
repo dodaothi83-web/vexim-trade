@@ -196,7 +196,7 @@ export default async function SupplierProfile({ params }: PageProps) {
             : category ? `/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}` : null;
           if (!href) return null;
           return <li key={p.id} className="min-w-0">
-            <PublicProductCard href={href} imagePath={s.product_image_paths[p.id]}
+            <PublicProductCard href={href} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
               name={safe(p.name)} moq={safe(p.moq) || "On request"}
               price={synthetic ? null : publicProductPrice(p, s)} fob={p.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.lead_time_days ?? null} supplierName={name}

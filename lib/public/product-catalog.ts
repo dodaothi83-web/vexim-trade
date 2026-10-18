@@ -27,14 +27,15 @@ export interface PublicCategoryProduct {
   samples: boolean;
   isDemo: boolean;
   imagePaths: string[];
+  cardImagePath: string | null;
 }
 
-export function shareableProductImages(media: MediaAsset[], productId: string, featuredMediaId?: string | null, limit = 6): string[] {
+export function shareableProductImages(media: MediaAsset[], productId: string, featuredMediaId?: string | null, limit = 6, thumbnail = false): string[] {
   return media.filter((m) => m.owner_type === "product" && m.product_id === productId &&
     m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
     .sort((a, b) => Number(b.id === featuredMediaId) - Number(a.id === featuredMediaId) ||
       a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
-    .map((m) => m.storage_path!)
+    .map((m) => thumbnail ? (m.thumb_path || m.storage_path!) : m.storage_path!)
     .slice(0, limit);
 }
 
@@ -76,6 +77,7 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
         supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
         supplierId: s.id, supplierSlug: s.slug || null, leadTimeDays: p.lead_time_days ?? null, incoterm: p.incoterm ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
         isDemo: !!s.is_demo, imagePaths: images,
+        cardImagePath: shareableProductImages(byProduct.get(p.id) ?? [], p.id, p.featured_media_id, 1, true)[0] ?? null,
       };
     }).sort((a, b) => b.verificationCount - a.verificationCount || a.name.localeCompare(b.name));
 }

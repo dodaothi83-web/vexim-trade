@@ -62,6 +62,7 @@ export default async function PublicProductDetail({ params }: Props) {
   // Product eligibility was checked above; project only buyer-shareable images and safe video embeds.
   const media = await getStore().listMedia("product", p.id);
   const images = shareableProductImages(media, p.id, p.featured_media_id, 24);
+  const thumbnails = shareableProductImages(media, p.id, p.featured_media_id, 24, true);
   const video = shareableProductVideo(media, p.id);
   // The certificates table and private file locations never go to the client.
   const [certificates, supplierMedia] = await Promise.all([
@@ -80,7 +81,7 @@ export default async function PublicProductDetail({ params }: Props) {
     <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: category.name_i18n.en || slug, href: `/products/${slug}` }, { label: card.name }]} />
     <Link href={`/products/${slug}`} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand-700"><ArrowLeft className="h-4 w-4" /> Back to products</Link>
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(330px,0.8fr)]">
-      <ProductMediaGallery name={card.name} images={images} video={video} />
+      <ProductMediaGallery name={card.name} images={images} thumbnails={thumbnails} video={video} />
       <div>
         <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
         <h1 className="mt-2 text-3xl font-black leading-tight text-ink-900 sm:text-4xl">{card.name}</h1>

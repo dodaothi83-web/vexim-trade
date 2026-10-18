@@ -6,8 +6,8 @@ import { ChevronLeft, ChevronRight, ImageIcon, PlayCircle, X, ZoomIn } from "luc
 import type { PublicProductVideo } from "@/lib/public/product-video";
 
 /** Only buyer-shareable URLs projected by the server may reach this component. */
-export function ProductMediaGallery({ name, images, video }: {
-  name: string; images: string[]; video: PublicProductVideo | null;
+export function ProductMediaGallery({ name, images, thumbnails, video }: {
+  name: string; images: string[]; thumbnails?: string[]; video: PublicProductVideo | null;
 }) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
@@ -75,7 +75,7 @@ export function ProductMediaGallery({ name, images, video }: {
             aria-label={`Show photo ${photoIndex + 1} of ${name}`} aria-pressed={index === photoIndex}
             className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${index === photoIndex ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photo(path)} alt="" className="h-full w-full object-cover" />
+            <img src={photo(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
           </button>)}</div> : <div className="flex min-h-20 items-center justify-center gap-2 rounded-lg bg-ink-50 text-xs text-ink-500"><ImageIcon className="h-5 w-5" aria-hidden="true" />No photos shared yet</div>}
       </section>
     </div>

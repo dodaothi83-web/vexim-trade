@@ -20,6 +20,7 @@ let product = null;
 const files = [];
 const audit = [];
 let storedBytes = 0;
+let failThumb = false;
 const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', {});
 const categories = [
   { id: '11111111-1111-1111-1111-111111111111', slug: 'cashew', parent_id: null, name_i18n: { vi: 'Hạt điều', en: 'Cashew' }, status: 'published', is_published: true, sort_order: 1 },
@@ -107,8 +108,14 @@ const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
   'node:crypto': { randomUUID: () => 'aabbccdd-eeee-ffff-aaaa-bbbbbbbbbbbb' },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
   '@/lib/supplier-portal/onboarding': onboarding,
-  '@/lib/media/validate': { validateUpload: (kind, bytes) => kind === 'image' && bytes[0] === 0xff ? { ok: true, mime: 'image/jpeg' } : { ok: false }, extensionFor: () => 'jpg' },
-  '@/lib/media/storage': { putObject: async () => { storedBytes++; }, deleteObject: async () => { storedBytes--; } },
+  '@/lib/media/validate': {
+    validateUpload: (kind, bytes) => kind === 'image' && bytes[0] === 0xff ? { ok: true, mime: 'image/jpeg' }
+      : kind === 'catalogue' && bytes[0] === 0x25 ? { ok: true, mime: 'application/pdf' } : { ok: false },
+    extensionFor: (mime) => mime === 'application/pdf' ? 'pdf' : 'jpg',
+  },
+  '@/lib/media/prepare-supplier-product-image': { prepareSupplierProductImage: async () => ({ main: new Uint8Array([1, 2]), thumb: new Uint8Array([3]), width: 800, height: 600 }) },
+  '@/lib/media/storage': { putObject: async (path) => { if (failThumb && path.endsWith('-thumb.webp')) throw Error('failed thumbnail write'); storedBytes++; },
+    deleteObject: async () => { if (storedBytes) storedBytes--; } },
 });
 async function postMedia(id = productId) {
   const fd = new FormData(); fd.set('kind', 'image'); fd.set('file', image);
@@ -116,9 +123,15 @@ async function postMedia(id = productId) {
   return response.status;
 }
 assert.equal(await postMedia('ffffffff-ffff-ffff-ffff-ffffffffffff'), 403);
+failThumb = true;
+assert.equal(await postMedia(), 503, 'A failed derivative write must not create a media record');
+assert.equal(files.length, 0); assert.equal(storedBytes, 0, 'Roll back the main image if the thumbnail fails');
+failThumb = false;
 assert.equal(await postMedia(), 200);
 assert.equal(files[0].audience, 'internal'); assert.equal(files[0].status, 'unverified');
-assert.equal(files[0].created_by, user.id); assert.equal(storedBytes, 1);
+assert.match(files[0].storage_path, /\.webp$/); assert.match(files[0].thumb_path, /-thumb\.webp$/);
+assert.equal(files[0].mime, 'image/webp'); assert.equal(files[0].width, 800); assert.equal(files[0].height, 600);
+assert.equal(files[0].bytes, 2); assert.equal(files[0].created_by, user.id); assert.equal(storedBytes, 2);
 const mediaRead = load('../app/api/media/file/[...path]/route.ts', {
   'next/server': { NextResponse: Response },
   '@/lib/db': { getStore: () => ({ getMediaByPath: async () => files[0], getUser: async () => user,
@@ -132,6 +145,9 @@ const mediaRead = load('../app/api/media/file/[...path]/route.ts', {
 const assetPath = files[0].storage_path;
 const mediaParams = { params: Promise.resolve({ path: assetPath.split('/') }) };
 assert.equal((await mediaRead.GET(new Request(`https://example.com/api/media/file/${assetPath}`), mediaParams)).status, 200);
+const privateThumbPath = files[0].thumb_path;
+assert.equal((await mediaRead.GET(new Request(`https://example.com/api/media/file/${privateThumbPath}`),
+  { params: Promise.resolve({ path: privateThumbPath.split('/') }) })).status, 200);
 files[0].supplier_id = 'foreign';
 assert.equal((await mediaRead.GET(new Request(`https://example.com/api/media/file/${assetPath}`), mediaParams)).status, 403);
 files[0].supplier_id = supplierId;
@@ -140,7 +156,15 @@ files[0].created_by = 'staff';
 assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), { params: Promise.resolve({ id: productId }) })).status, 403);
 files[0].created_by = user.id;
 assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), { params: Promise.resolve({ id: productId }) })).status, 200);
-assert.equal(files.length, 0); assert.equal(storedBytes, 0);
+assert.equal(files.length, 0); assert.equal(storedBytes, 0, 'Deleting a draft removes both the image and its thumbnail');
+const pdfData = new FormData();
+pdfData.set('kind', 'catalogue'); pdfData.set('file', new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], 'catalogue.pdf'));
+assert.equal((await upload.POST(new Request(deleteUrl, { method: 'POST', body: pdfData }),
+  { params: Promise.resolve({ id: productId }) })).status, 200);
+assert.match(files[0].storage_path, /\.pdf$/); assert.equal(files[0].thumb_path, null);
+assert.equal(files[0].mime, 'application/pdf'); assert.equal(storedBytes, 1);
+assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), { params: Promise.resolve({ id: productId }) })).status, 200);
+assert.equal(storedBytes, 0);
 assert.equal(await postMedia(), 200);
 const submitted = new FormData(); submitted.set('product_id', productId);
 files[0].created_by = 'staff';

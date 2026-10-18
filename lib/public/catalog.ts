@@ -37,7 +37,8 @@ export interface PublicSupplierCard extends Supplier {
   primary_category: Category | null;
   main_products: SupplierProduct[];
   gallery_images: string[];      // storage_path các ảnh buyer-shareable
-  product_image_paths: Record<string, string>; // approved buyer image per public product; catalogue-only listings have no image
+  product_image_paths: Record<string, string>; // full approved image (detail and structured data)
+  product_card_image_paths: Record<string, string>; // approved thumbnail, falls back to full legacy image
   public_review_summaries: PublicReviewSummaries;
   approved_verification_steps: VerificationLevel[];
 }
@@ -91,6 +92,7 @@ export async function listPublicSuppliers(options?: {
     main_products: (bySupplier.get(s.id) ?? []).filter((p) => buyerVisibleProduct(p, categories, !!s.is_demo)).slice(0, 4),
     gallery_images: [] as string[],
     product_image_paths: {} as Record<string, string>,
+    product_card_image_paths: {} as Record<string, string>,
     public_review_summaries: {} as PublicReviewSummaries,
     approved_verification_steps: [] as VerificationLevel[],
   }));
@@ -166,12 +168,16 @@ export async function getPublicSupplierBySlug(slug: string, publicList?: PublicS
   }
   const publicProducts = eligible.filter((p) => supplier.is_demo || productReadiness(productMedia.filter((m) => m.product_id === p.id)).ready);
   const productImagePaths: Record<string, string> = {};
+  const productCardImagePaths: Record<string, string> = {};
   for (const p of publicProducts) {
     const image = productMedia.filter((m) => m.owner_type === "product" && m.product_id === p.id &&
       m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
       .sort((a, b) => Number(b.id === p.featured_media_id) - Number(a.id === p.featured_media_id) ||
         a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))[0];
-    if (image?.storage_path) productImagePaths[p.id] = image.storage_path;
+    if (image?.storage_path) {
+      productImagePaths[p.id] = image.storage_path;
+      productCardImagePaths[p.id] = image.thumb_path || image.storage_path;
+    }
   }
   const gallery = media
     .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
@@ -183,6 +189,7 @@ export async function getPublicSupplierBySlug(slug: string, publicList?: PublicS
     main_products: publicProducts,
     gallery_images: gallery,
     product_image_paths: productImagePaths,
+    product_card_image_paths: productCardImagePaths,
     approved_verification_steps: vers.length ? approvedVerificationSteps(vers) : supplier.approved_verification_steps,
     public_review_summaries: approvedPublicReviewSummaries(vers),
   };

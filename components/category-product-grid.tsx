@@ -104,7 +104,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored 
         {visible.length ? <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
           {shown.map((p) => <div key={p.id} className="min-w-0">
             <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
-              imagePath={p.imagePaths[0]} name={p.name} moq={p.moq} price={p.price} fob={p.incoterm?.toUpperCase() === "FOB"}
+              imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} moq={p.moq} price={p.price} fob={p.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.leadTimeDays} supplierName={p.supplierName}
               supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
               verificationSteps={p.verificationSteps} test={p.isDemo} />

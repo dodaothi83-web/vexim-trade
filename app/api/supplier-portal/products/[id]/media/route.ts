@@ -5,6 +5,7 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
+import { prepareSupplierProductImage } from "@/lib/media/prepare-supplier-product-image";
 import type { MediaKind } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -30,17 +31,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!checked.ok || !checked.mime) return fail(checked.message ?? "Tệp không hợp lệ.");
   const current = await access.store.listMedia("product", id);
   if (current.filter((m) => m.created_by === access.user.id).length >= 12) return fail("Tối đa 12 tệp trên mỗi sản phẩm.");
-  const path = `products/${id}/${randomUUID()}.${extensionFor(checked.mime)}`;
+  let prepared: Awaited<ReturnType<typeof prepareSupplierProductImage>> | null = null;
+  if (kind === "image") {
+    try { prepared = await prepareSupplierProductImage(bytes); }
+    catch { return fail("Ảnh không đọc được hoặc kích thước quá lớn. Chọn ảnh JPG, PNG hoặc WebP khác."); }
+  }
+  const base = `products/${id}/${randomUUID()}`;
+  const path = `${base}.${prepared ? "webp" : extensionFor(checked.mime)}`;
+  const thumbPath = prepared ? `${base}-thumb.webp` : null;
   try {
-    // Recheck ownership/status after parsing before writing to storage.
+    // Recheck ownership/status after image processing, before writing to storage.
     const fresh = await access.store.getProduct(id);
     if (!fresh || fresh.supplier_id !== access.supplier.id || !["draft", "changes_requested"].includes(fresh.supplier_review_status ?? "")) return fail("Trạng thái sản phẩm đã thay đổi.", 409);
-    await putObject(path, bytes, checked.mime);
+    await putObject(path, prepared?.main ?? bytes, prepared ? "image/webp" : checked.mime);
+    if (prepared && thumbPath) await putObject(thumbPath, prepared.thumb, "image/webp");
     const row = await access.store.createMedia({
       owner_type: "product", product_id: id, supplier_id: access.supplier.id, verification_id: null,
       checklist_key: null, kind, audience: "internal", status: "unverified", expires_on: null,
-      caption: file.name.slice(0, 150), storage_path: path, thumb_path: null, external_url: null,
-      mime: checked.mime, bytes: bytes.length, width: null, height: null, sort_order: current.length,
+      caption: file.name.slice(0, 150), storage_path: path, thumb_path: thumbPath, external_url: null,
+      mime: prepared ? "image/webp" : checked.mime, bytes: prepared?.main.length ?? bytes.length,
+      width: prepared?.width ?? null, height: prepared?.height ?? null, sort_order: current.length,
       created_by: access.user.id,
     });
     await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
@@ -50,7 +60,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     revalidatePath(`/crm/products/${id}/edit`);
     return NextResponse.json({ ok: true, message: "Đã tải tệp nội bộ để Vexim kiểm tra; chưa chia sẻ cho buyer." });
   } catch (error) {
-    await deleteObject(path).catch(() => null);
+    await Promise.all([path, thumbPath].filter((p): p is string => !!p)
+      .map((p) => deleteObject(p).catch(() => null)));
     console.error("[supplier-product-media] upload", error);
     return fail("Không lưu được tệp. Vui lòng thử lại.", 503);
   }

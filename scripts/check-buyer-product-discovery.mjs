@@ -48,7 +48,7 @@ const products = [
 ];
 const media = products.map((p) => ({ owner_type: 'product', product_id: p.id, kind: 'image', audience: 'buyer',
   status: 'checked', storage_path: `products/${p.id}/image.jpg`, sort_order: 0, created_at: now, expires_on: null }));
-media.push({ ...media[0], id: 'cover-a0', storage_path: 'products/a0/cover.jpg', sort_order: 2 });
+media.push({ ...media[0], id: 'cover-a0', storage_path: 'products/a0/cover.jpg', thumb_path: 'products/a0/cover-thumb.webp', sort_order: 2 });
 products[0].featured_media_id = 'cover-a0';
 products[0].incoterm = 'FOB';
 const reviews = [
@@ -101,10 +101,12 @@ const productCatalog = compile('../lib/public/product-catalog.ts', {
 });
 const photoSamples = [
   { ...media[0], id: 'img-first', product_id: 'a0', storage_path: 'products/a0/first.jpg', sort_order: 0 },
-  { ...media[0], id: 'img-cover', product_id: 'a0', storage_path: 'products/a0/cover.jpg', sort_order: 1 },
+  { ...media[0], id: 'img-cover', product_id: 'a0', storage_path: 'products/a0/cover.jpg', thumb_path: 'products/a0/cover-thumb.webp', sort_order: 1 },
   { ...media[0], id: 'img-private', product_id: 'a0', storage_path: 'products/a0/private.jpg', sort_order: -1, audience: 'internal' },
 ];
 assert.equal(JSON.stringify(productCatalog.shareableProductImages(photoSamples, 'a0', 'img-cover')), JSON.stringify(['products/a0/cover.jpg', 'products/a0/first.jpg']));
+assert.equal(JSON.stringify(productCatalog.shareableProductImages(photoSamples, 'a0', 'img-cover', 2, true)),
+  JSON.stringify(['products/a0/cover-thumb.webp', 'products/a0/first.jpg']), 'Cards use thumbnails while details retain full images');
 assert.equal(JSON.stringify(productCatalog.shareableProductImages(photoSamples, 'a0', 'img-private')), JSON.stringify(['products/a0/first.jpg', 'products/a0/cover.jpg']),
   'An internal cover must never enter the public gallery');
 const cards = await productCatalog.listPublicCategoryProducts(category);
@@ -121,7 +123,9 @@ assert.equal(cards.filter((p) => p.supplierId === 'B').length, 5);
 assert.deepEqual(cards.find((p) => p.id === 'a0').verificationSteps, [1, 3], 'Trader passes documents and deliveries without a factory badge');
 assert.deepEqual(cards.find((p) => p.id === 'b0').verificationSteps, [2], 'Factory alone does not imply document review');
 assert.equal(cards.find((p) => p.id === 'a0').verificationCount, 2, 'Ranking counts actual approved checks, not max level');
-assert.equal(cards.find((p) => p.id === 'a0').imagePaths[0], 'products/a0/cover.jpg', 'Staff-selected buyer-shareable cover wins on the product card');
+assert.equal(cards.find((p) => p.id === 'a0').imagePaths[0], 'products/a0/cover.jpg', 'Full image remains available on product detail');
+assert.equal(cards.find((p) => p.id === 'a0').cardImagePath, 'products/a0/cover-thumb.webp', 'Cards use only the approved featured thumbnail');
+assert.equal(cards.find((p) => p.id === 'b0').cardImagePath, 'products/b0/image.jpg', 'Legacy files without thumbnails still work');
 assert.equal(cards.find((p) => p.id === 'a0').leadTimeDays, 14);
 assert.equal(cards.find((p) => p.id === 'a0').incoterm, 'FOB', 'Price term on the card is projected from the product, not inferred from supplier consent');
 assert.equal(cards.find((p) => p.id === 'a0').supplierSlug, 'company-a');
@@ -144,7 +148,8 @@ const single = arrangeSupplierProducts(oneSupplier, null);
 assert.equal(single.shown.length, 8, 'A filter with one matching supplier still shows all eight offers');
 const profile = await catalog.getPublicSupplierBySlug('company-a');
 assert.equal(profile.main_products.length, 9, 'Profile includes all public products from every category, not the four-card summary');
-assert.equal(profile.product_image_paths.a0, 'products/a0/cover.jpg', 'Supplier cards use the featured buyer-approved product image');
+assert.equal(profile.product_image_paths.a0, 'products/a0/cover.jpg', 'Full image stays on the detail/structured data');
+assert.equal(profile.product_card_image_paths.a0, 'products/a0/cover-thumb.webp', 'Supplier cards use the approved thumbnail');
 assert.equal(profile.product_image_paths.test, undefined, 'Test-only product images never appear');
 media.push({ ...media[0], id: 'private-a1', product_id: 'a1', audience: 'internal', storage_path: 'products/a1/private.jpg', sort_order: -5 });
 assert.equal((await catalog.getPublicSupplierBySlug('company-a')).product_image_paths.a1, 'products/a1/image.jpg', 'Internal product images must not leak into supplier cards');
@@ -236,6 +241,9 @@ const homeHtml = renderToStaticMarkup(await HomeContent());
 const offersHtml = homeHtml.match(/<section aria-labelledby="home-products-title"[\s\S]*?<\/section>/)?.[0] ?? '';
 assert.match(offersHtml, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/);
 assert.match(offersHtml, /href="\/products\/cashew\/a0"/);
+assert.match(offersHtml, /\/public-media\/products\/a0\/cover-thumb\.webp/, 'Home product cards send the smaller photo');
+assert.match(grid, /p\.cardImagePath \?\? p\.imagePaths\[0\]/, 'Category cards prefer approved thumbnails');
+assert.match(profilePage, /s\.product_card_image_paths\?\.\[p\.id\]/, 'Supplier profile cards prefer approved thumbnails');
 assert.equal((offersHtml.match(/aria-label="View details of/g) ?? []).length, 2, 'Home has two real offers, not category placeholders or demo products');
 assert.doesNotMatch(offersHtml, /\/products\/cashew\/demo|Test data/);
 assert.match(homeHtml, /id="categories"/, 'Category navigation remains a separate section');

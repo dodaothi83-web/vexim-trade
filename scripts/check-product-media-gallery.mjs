@@ -85,10 +85,13 @@ const { ProductMediaGallery } = load('../components/product-media-gallery.tsx', 
   'react/jsx-runtime': require('react/jsx-runtime'), 'lucide-react': require('lucide-react'),
 });
 const html = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
-  name: 'Cashew W320', images: ['products/abc/cover.jpg', 'products/abc/detail.jpg'], video: chosen,
+  name: 'Cashew W320', images: ['products/abc/cover.jpg', 'products/abc/detail.jpg'],
+  thumbnails: ['products/abc/cover-thumb.webp', 'products/abc/detail-thumb.webp'], video: chosen,
 }));
 assert.match(html, /Product video/); assert.match(html, /Product photos/);
-assert.match(html, /products\/abc\/cover\.jpg/);
+assert.match(html, /products\/abc\/cover\.jpg/, 'Full image is available for zoom');
+assert.match(html, /products\/abc\/cover-thumb\.webp/, 'Small gallery tiles load derivatives');
+assert.match(html, /products\/abc\/detail-thumb\.webp/);
 assert.match(html, /aria-pressed="true"/);
 assert.match(html, /Enlarge photo of Cashew W320 on this page/);
 assert.doesNotMatch(html, /<iframe|target="_blank"/, 'Gallery must not embed before play or open images in a new tab');
