@@ -19,6 +19,7 @@ import {
   X,
   FolderTree,
   FileQuestion,
+  ChartNoAxesColumn,
 } from "lucide-react";
 
 import { logoutAction } from "@/app/auth-actions";
@@ -40,6 +41,7 @@ const NAV: {
   { href: "/crm/rfqs", label: "RFQ từ buyer", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
   { href: "/crm/verifications", label: "Xác minh NCC", icon: ShieldCheck, perm: "verifications.inspect", group: "marketplace" },
   { href: "/crm/categories", label: "Danh mục sản phẩm", icon: FolderTree, perm: "categories.manage", group: "marketplace" },
+  { href: "/crm/traffic", label: "Lưu lượng truy cập", icon: ChartNoAxesColumn, perm: "traffic.view", group: "marketplace" },
   { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage", group: "marketplace" },
   { href: "/crm/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view", group: "sales" },
   { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view", group: "sales" },

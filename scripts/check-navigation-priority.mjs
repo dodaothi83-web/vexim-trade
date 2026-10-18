@@ -10,7 +10,7 @@ assert.ok(nav, 'CRM navigation exists');
 const hrefs = [...nav.matchAll(/href: "([^"]+)"/g)].map((m) => m[1]);
 assert.deepEqual(hrefs, [
   '/crm/dashboard', '/crm/suppliers', '/crm/products', '/crm/rfqs',
-  '/crm/verifications', '/crm/categories', '/crm/posts',
+  '/crm/verifications', '/crm/categories', '/crm/traffic', '/crm/posts',
   '/crm/buyers', '/crm/mail', '/crm/prospects', '/crm/team', '/crm/settings',
 ], 'Daily marketplace work comes first; sale and settings are secondary');
 assert.match(sidebar, /href: "\/crm\/categories", label: "Danh mục sản phẩm"/, 'Category menu uses product-focused wording');

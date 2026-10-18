@@ -126,6 +126,8 @@ const routes = [
   { path: "/crm/verifications",       perms: { admin: true, sourcing: true } },
   // categories.manage → admin/sale/sourcing
   { path: "/crm/categories",          perms: { admin: true, sale: true, sourcing: true } },
+  // traffic.view → chỉ admin, không dùng quyền xem NCC để lộ báo cáo toàn sàn
+  { path: "/crm/traffic",             perms: { admin: true } },
   // prospects.manage → admin/sale
   { path: "/crm/prospects",           perms: { admin: true, sale: true } },
   // buyers.manage → admin/sale (trang thêm mới)

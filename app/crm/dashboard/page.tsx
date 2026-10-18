@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRight, Boxes, ClipboardCheck, FileQuestion, FolderTree, PackageCheck,
-  ShieldCheck, Store, UsersRound,
+  ShieldCheck, Store, UsersRound, Activity,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
@@ -10,6 +10,8 @@ import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { buildMarketplaceSnapshot } from "@/lib/dashboard/marketplace";
+import { readSiteTraffic } from "@/lib/traffic/site";
+import { buildSiteTrafficReport } from "@/lib/traffic/site-report";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { productReviewApproved, productBelongsToCategory } from "@/lib/public/product-selection";
 import type { MediaAsset } from "@/lib/types";
@@ -24,8 +26,9 @@ export default async function DashboardPage() {
   const canCategories = hasPermission(session.role, "categories.manage");
   const canInspect = hasPermission(session.role, "verifications.inspect");
   const canRfqs = hasPermission(session.role, "rfq.view");
+  const canTraffic = hasPermission(session.role, "traffic.view");
   const store = getStore();
-  const [suppliers, products, categories, verifications, requests, rfqs] = await Promise.all([
+  const [suppliers, products, categories, verifications, requests, rfqs, trafficRows] = await Promise.all([
     canSuppliers ? store.listSuppliers() : Promise.resolve([]),
     canProducts ? store.listProducts() : Promise.resolve([]),
     store.listCategories({ publishedOnly: false }),
@@ -35,6 +38,10 @@ export default async function DashboardPage() {
       return null;
     }) : Promise.resolve(null),
     canRfqs ? store.listRfqs() : Promise.resolve([]),
+    canTraffic ? readSiteTraffic(7).catch((error) => {
+      console.error("[dashboard] site traffic unavailable", error);
+      return null;
+    }) : Promise.resolve(null),
   ]);
   // Only fetch media for plausible live offers, in bounded batches. Drafts and
   // internal files never become public merely because they are present in storage.
@@ -104,6 +111,13 @@ export default async function DashboardPage() {
         <Metric icon={<ClipboardCheck className="h-5 w-5" />} label="Hồ sơ cần xử lý" value={workload}
           note={canInspect && requests === null ? "Chưa đọc được một phần yêu cầu kiểm định" : "Chờ xác nhận / duyệt / tiếp nhận"} href={workload ? "#marketplace-queue" : undefined} attention={workload > 0} />
       </div>
+
+      {canTraffic && <Link href="/crm/traffic" className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-ink-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-md">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700"><Activity className="h-5 w-5" /></span>
+        <span className="min-w-0 flex-1"><strong className="block text-sm text-ink-900">Lưu lượng truy cập · 7 ngày</strong>
+          <span className="mt-0.5 block text-xs text-ink-500">{trafficRows ? `${buildSiteTrafficReport(trafficRows, 7).total.toLocaleString("vi-VN")} lượt mở trang công khai, không phải người duy nhất` : "Chưa đọc được báo cáo · xem tình trạng kết nối"}</span></span>
+        <span className="text-sm font-bold text-brand-700">Xem báo cáo →</span>
+      </Link>}
 
       <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
         <Card className="overflow-hidden" >
