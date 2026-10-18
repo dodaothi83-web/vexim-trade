@@ -88,6 +88,8 @@ export interface DataStore {
   countUsers(): Promise<number>;
   getUser(id: string): Promise<AppUserRecord | null>;
   getUserByEmail(email: string): Promise<AppUserRecord | null>;
+  /** Tài khoản đăng nhập đang gắn với một hồ sơ NCC (mỗi hồ sơ tối đa một tài khoản). */
+  getUserBySupplierId(supplierId: string): Promise<AppUserRecord | null>;
   createUser(input: AppUserInput): Promise<AppUserRecord>;
   updateUser(id: string, patch: Partial<AppUserRecord>): Promise<AppUserRecord>;
   /** Atomic first-profile claim: prevents concurrent submissions creating multiple supplier pages. */

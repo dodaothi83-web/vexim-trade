@@ -23,7 +23,7 @@ export async function decideSupplierOnboardingAction(form: FormData): Promise<Re
     const supplier = await store.getSupplier(id);
     if (!supplier || supplier.onboarding_status !== "pending") return { ok: false, message: "Hồ sơ không còn ở trạng thái chờ xác nhận. Tải lại trang." };
     if (decision === "approved") {
-      const owner = supplier.email ? await store.getUserByEmail(supplier.email) : null;
+      const owner = await store.getUserBySupplierId(id);
       if (!owner || owner.role !== "supplier" || !owner.is_active || owner.supplier_id !== id) {
         return { ok: false, message: "Không tìm thấy tài khoản NCC đang hoạt động liên kết hồ sơ này." };
       }

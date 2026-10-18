@@ -1133,6 +1133,9 @@ export const localStore: DataStore = {
     const needle = email.trim().toLowerCase();
     return load().users.find((u) => u.email.trim().toLowerCase() === needle) ?? null;
   },
+  async getUserBySupplierId(supplierId) {
+    return load().users.find((u) => u.supplier_id === supplierId) ?? null;
+  },
   async createUser(input) {
     return mutate((db) => {
       const exists = db.users.some(

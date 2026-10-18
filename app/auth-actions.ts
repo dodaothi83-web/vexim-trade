@@ -145,7 +145,7 @@ export async function createUserAction(input: {
 
   const clean = (input.email ?? "").trim();
   if (!EMAIL_RE.test(clean)) return { ok: false, message: "Email không hợp lệ." };
-  if (!isRole(input.role) || input.role === "supplier") return { ok: false, message: "Tài khoản doanh nghiệp chỉ được tạo qua luồng đăng ký NCC." };
+  if (!isRole(input.role) || input.role === "supplier") return { ok: false, message: "Tài khoản doanh nghiệp được tạo qua luồng đăng ký NCC, hoặc nhân viên cấp tại mục Tài khoản cổng nhà cung cấp trong trang chi tiết nhà cung cấp ở CRM." };
   const problem = passwordProblem(input.password ?? "");
   if (problem) return { ok: false, message: problem };
 

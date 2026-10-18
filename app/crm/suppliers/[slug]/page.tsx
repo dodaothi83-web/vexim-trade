@@ -32,6 +32,7 @@ import { StageBadge } from "@/components/stage-select";
 import { DeleteSupplierButton, SupplierPublicationControls } from "@/components/supplier-actions";
 import { VerificationPanel } from "./verification-panel";
 import { OnboardingControls } from "./onboarding-controls";
+import { SupplierAccountControls } from "./account-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,10 @@ export default async function SupplierDetailPage({
         m.audience === "buyer" &&
         !isExpired(m),
     ).length;
+  const accountUser = await store.getUserBySupplierId(id).catch((error) => {
+    console.error("[supplier-account] cannot read linked account", error);
+    return null;
+  });
   const attached = buyers.filter((b) => b.supplier_id === id);
   const active = attached.filter((b) => !["completed", "lost"].includes(b.stage));
   const st = statusMeta(supplier.status);
@@ -116,6 +121,25 @@ export default async function SupplierDetailPage({
         <Link href={`/crm/suppliers/${id}/certificates`} className="font-bold text-brand-800 underline">Chứng nhận NCC chờ Vexim xét duyệt / quyết định công bố →</Link>
         <p className="mt-1 text-ink-600">Tách riêng khỏi kho ảnh chung và ba đợt kiểm xác minh NCC; tệp không tự hiện trên sản phẩm.</p>
       </div>}
+
+      <Card className="mb-5 p-5">
+        <h2 className="text-lg font-bold text-ink-900">Tài khoản cổng nhà cung cấp</h2>
+        <p className="mt-1 text-sm text-ink-600">{accountUser
+          ? "Tài khoản đăng nhập đang gắn với hồ sơ này. Nhà cung cấp dùng tài khoản này để vào cổng, bổ sung hồ sơ và quản lý sản phẩm của mình."
+          : "Hồ sơ này chưa có tài khoản đăng nhập. Nhà cung cấp chưa thể tự quản lý hồ sơ và sản phẩm trên cổng cho đến khi được cấp tài khoản hoặc tự đăng ký."}</p>
+        <SupplierAccountControls
+          supplierId={id}
+          defaultEmail={supplier.email ?? ""}
+          defaultName={supplier.contact_name ?? ""}
+          account={accountUser ? {
+            email: accountUser.email,
+            isActive: accountUser.is_active,
+            lastLoginLabel: accountUser.last_login_at ? formatDate(accountUser.last_login_at) : "Chưa đăng nhập lần nào",
+            createdLabel: formatDate(accountUser.created_at),
+          } : null}
+          canProvision={canManage && (session.role === "admin" || session.role === "sourcing")}
+        />
+      </Card>
 
       {(supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested" || supplier.onboarding_status === "approved") &&
         <Card className="mb-5 p-5">

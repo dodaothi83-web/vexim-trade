@@ -345,6 +345,16 @@ export const supabaseStore: DataStore = {
     if (error) fail("getUserByEmail", error);
     return (data as AppUserRecord) ?? null;
   },
+  async getUserBySupplierId(supplierId) {
+    const { data, error } = await must()
+      .from("app_users")
+      .select("*")
+      .eq("supplier_id", supplierId)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (error) fail("getUserBySupplierId", error);
+    return ((data ?? [])[0] as AppUserRecord) ?? null;
+  },
   async createUser(input: AppUserInput) {
     const { data, error } = await must()
       .from("app_users")

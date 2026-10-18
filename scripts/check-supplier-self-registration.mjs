@@ -318,6 +318,7 @@ const decisions = load('../app/crm/suppliers/[slug]/onboarding-actions.ts', {
   'next/cache': { revalidatePath() {} },
   '@/lib/db': { getStore: () => ({ getSupplier: async () => staffSupplier,
     getUserByEmail: async (email) => email === staffSupplier.email ? { ...owner, supplier_id: staffSupplierId } : null,
+    getUserBySupplierId: async (supplierId) => supplierId === staffSupplierId ? { ...owner, supplier_id: staffSupplierId } : null,
     listVerifications: async () => state.reviews,
     updateSupplier: async (_id, patch) => Object.assign(staffSupplier, patch),
     addAuditLog: async (entry) => { state.audit.push(entry); },
