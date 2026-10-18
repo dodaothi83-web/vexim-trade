@@ -26,8 +26,8 @@ const post = (slug, publishedAt, extra = {}) => ({
 });
 let rows = [
   post('oldest', '2026-09-01T00:00:00Z'),
-  post('newest', '2026-10-18T00:00:00Z', { featured_image: '/blog-media/newest.jpg', featured_image_alt: 'New article cover' }),
-  post('third', '2026-10-01T00:00:00Z'),
+  post('newest', '2026-10-18T00:00:00Z', { featured_image: '/blog-media/blog/newest.jpg', featured_image_alt: 'New article cover' }),
+  post('third', '2026-10-01T00:00:00Z', { featured_image: 'https://cdn.example.com/third.jpg' }),
   post('second', '2026-10-11T00:00:00Z'),
   post('unpublished', '2026-10-20T00:00:00Z', { status: 'draft' }),
   post('unrelated', '2026-10-21T00:00:00Z', { category: 'other' }),
@@ -46,9 +46,13 @@ assert.equal(typeof news.listPublishedNews, 'function');
 const valid = await news.listPublishedNews();
 assert.equal(valid.length, 4);
 assert.equal(valid[0].slug, 'newest');
+const optimizedImages = [];
 const Home = load('../app/(public)/home.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
-  'next/image': { default: ({ src, alt, ...props }) => React.createElement('img', { src, alt, className: props.className }) },
+  'next/image': { default: ({ src, alt, ...props }) => {
+    optimizedImages.push({ src, ...props });
+    return React.createElement('img', { src, alt, className: props.className, sizes: props.sizes, 'data-optimized': 'true' });
+  } },
   'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
   '@/lib/db': { getStore: () => store },
@@ -62,8 +66,11 @@ const section = html.match(/<section aria-labelledby="home-news-title"[\s\S]*?<\
 assert.ok(section, 'Homepage has a real news section');
 assert.match(section, /Latest articles|View all articles/);
 assert.match(section, /href="\/blog\/newest"/);
-assert.match(section, /src="\/blog-media\/newest.jpg"/);
+assert.match(section, /src="\/blog-media\/blog\/newest.jpg"[^>]*data-optimized="true"/, 'Use Next Image for public blog uploads');
+assert.match(section, /sizes="\(max-width: 639px\).*400px"/, 'Offer responsive sizes for blog cards');
+assert.match(section, /src="https:\/\/cdn.example.com\/third.jpg"[^>]*loading="lazy"/, 'Unknown image hosts keep a safe fallback');
 assert.match(section, /New article cover/);
+assert.ok(optimizedImages.some((image) => image.src === '/images/home/hero-cashew-texture.jpg' && image.preload && image.fetchPriority === 'high'), 'Preload the LCP hero at high priority');
 assert.ok(section.indexOf('/blog/newest') < section.indexOf('/blog/second'));
 assert.ok(section.indexOf('/blog/second') < section.indexOf('/blog/third'));
 assert.doesNotMatch(section, /\/blog\/(?:oldest|unpublished|unrelated)/, 'Only three newest published News posts appear');

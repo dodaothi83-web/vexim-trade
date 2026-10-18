@@ -115,7 +115,8 @@ export default async function HomeContent() {
         <Image
           src="/images/home/hero-cashew-texture.jpg"
           alt=""
-          priority
+          preload
+          fetchPriority="high"
           fill
           sizes="100vw"
           className="object-cover opacity-30"
@@ -341,7 +342,20 @@ export default async function HomeContent() {
                     <Link href={`/blog/${post.slug}`} className="group flex h-full flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm transition hover:border-brand-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
                       <div className="relative aspect-[4/3] overflow-hidden bg-brand-50">
                         {post.featured_image ? (
-                          <img src={post.featured_image} alt={post.featured_image_alt || ""} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                          // Blog uploads are public, UUID-named images. Serve responsive card-sized
+                          // variants rather than the full 1200–1450px source; other/legacy URLs
+                          // remain plain images because they may not be allowed by Next's loader.
+                          /^\/blog-media\/blog\/[\w-]+\.(?:jpe?g|png|webp|avif)$/i.test(post.featured_image) ? (
+                            <Image
+                              src={post.featured_image}
+                              alt={post.featured_image_alt || ""}
+                              fill
+                              sizes="(max-width: 639px) calc(100vw - 40px), (max-width: 1023px) calc(50vw - 36px), (max-width: 1279px) calc(33vw - 32px), 400px"
+                              className="object-cover transition duration-500 group-hover:scale-105"
+                            />
+                          ) : (
+                            <img src={post.featured_image} alt={post.featured_image_alt || ""} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                          )
                         ) : (
                           <div className="flex h-full items-center justify-center gap-3 text-brand-700">
                             <FileStack className="h-7 w-7" aria-hidden="true" />
