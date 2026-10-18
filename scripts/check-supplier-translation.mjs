@@ -49,6 +49,14 @@ assert.equal(ai.supplierProfileTranslationState(supplier).current, true);
 assert.equal(ai.supplierProfileTranslationState({ ...supplier, moq_text: '2 tấn cho W320' }).current, false);
 assert.equal(ai.supplierProfileTranslationState({ moq_text: null, export_markets: [] }).hasEnglish, false);
 
+// Câu chuyện NCC tự viết: dịch xong thì khớp; NCC sửa câu chuyện thì phải dịch lại.
+const storySupplier = { ...supplier, intro_source: 'Chúng tôi ép dầu điều từ hạt thu mua tại Bình Phước.' };
+const storyPatch = ai.supplierProfilePatch(parsed, { ...source, intro_source: storySupplier.intro_source }, 'ai', 'gpt-4.1-mini', false);
+assert.equal(ai.supplierProfileTranslationState({ ...storySupplier, ...storyPatch }).summaryCurrent, true);
+assert.equal(ai.supplierProfileTranslationState({ ...storySupplier, ...storyPatch, intro_source: 'Câu chuyện mới.' }).summaryCurrent, false,
+  'sửa phần giới thiệu gốc phải làm bản dịch giới thiệu thành đã cũ');
+assert.ok(ai.supplierSummarySourceHash('abc') !== ai.supplierSummarySourceHash('abcd'));
+
 // Điểm gắn trong luồng thật.
 const route = fs.readFileSync(new URL('../app/api/supplier-portal/profile/route.ts', import.meta.url), 'utf8');
 assert.match(route, /ensureSupplierProfileEnglish\(store, supplier\.id/, 'nộp hồ sơ phải kích hoạt dịch tự động');
@@ -68,11 +76,18 @@ const compare = fs.readFileSync(new URL('../app/(public)/compare/page.tsx', impo
 assert.match(compare, /supplierMoqDisplay\(s\)/, 'trang so sánh phải hiển thị MOQ bản tiếng Anh');
 
 const form = fs.readFileSync(new URL('../app/supplier/portal/supplier-profile-form.tsx', import.meta.url), 'utf8');
-assert.match(form, /không bắt buộc/, 'ô giới thiệu tiếng Anh phải ghi rõ không bắt buộc');
+assert.match(form, /Giới thiệu về công ty của bạn/, 'ô nhập phải là phần giới thiệu công ty của NCC');
+assert.match(form, /Mô tả về điểm khác biệt của công ty hay sản phẩm của bạn\./, 'placeholder phải gợi ý kể điểm khác biệt');
+assert.match(form, /name="intro_source"/, 'form phải gửi phần giới thiệu gốc, không gửi thẳng vào bản tiếng Anh');
+
+const profileInput = fs.readFileSync(new URL('../lib/supplier-portal/profile-input.ts', import.meta.url), 'utf8');
+assert.match(profileInput, /intro_source: text\(form, "intro_source", 1500\)/, 'parser phải lưu phần giới thiệu gốc riêng');
 
 const migration = fs.readFileSync(new URL('../supabase/migrations/20261018_supplier_profile_english_translation.sql', import.meta.url), 'utf8');
 for (const column of ['moq_text_i18n', 'export_markets_i18n', 'profile_translation_meta']) {
   assert.match(migration, new RegExp(column), `migration thiếu cột ${column}`);
 }
+const introMigration = fs.readFileSync(new URL('../supabase/migrations/20261018_supplier_intro_source.sql', import.meta.url), 'utf8');
+assert.match(introMigration, /intro_source/, 'migration phải có cột intro_source');
 
 console.log('✅ Supplier profile translation: parse, freshness hash, submit/staff triggers, summary drafting, buyer display, migration.');

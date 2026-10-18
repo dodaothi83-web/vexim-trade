@@ -82,6 +82,8 @@ export interface Supplier {
   employees?: number | null;
   /** Tóm tắt giới thiệu công khai theo ngôn ngữ */
   summary_i18n?: I18nString;
+  /** Câu chuyện, điểm khác biệt do nhà cung cấp tự viết bằng ngôn ngữ gốc; là nguồn để AI dịch thành summary_i18n.en cho trang buyer. */
+  intro_source?: string | null;
   /** MOQ mô tả dạng text (vd "1 MT for W320") */
   moq_text?: string | null;
   /** Bản tiếng Anh của MOQ dạng text, hiển thị trên trang buyer thay cho nội dung gốc */
@@ -94,8 +96,10 @@ export interface Supplier {
     translated_at: string;
     origin: "ai" | "staff";
     model?: string | null;
-    /** True khi phần giới thiệu tiếng Anh do AI soạn từ dữ kiện hồ sơ vì NCC để trống ô tiếng Anh. */
+    /** True khi phần giới thiệu tiếng Anh do AI soạn từ dữ kiện hồ sơ vì NCC không viết phần giới thiệu. */
     summary_generated?: boolean;
+    /** Hash phần giới thiệu gốc tại thời điểm dịch, để dịch lại khi NCC sửa câu chuyện của họ. */
+    summary_source_hash?: string;
   } | null;
   /** Công suất tháng mô tả text */
   capacity_per_month?: string | null;

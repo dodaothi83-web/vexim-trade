@@ -63,6 +63,7 @@ function init(s?: Supplier | null): FormState {
     founded_year: s?.founded_year ?? "",
     employees: s?.employees ?? "",
     summary_en: s?.summary_i18n?.en ?? "",
+    intro_source: s?.intro_source ?? "",
     moq_text: s?.moq_text ?? "",
     capacity_per_month: s?.capacity_per_month ?? "",
     ports: s?.ports ?? [],
@@ -438,6 +439,10 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
             {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} AI soạn nháp
           </Button>}
         </div>
+        <Field label="Giới thiệu về công ty do NCC tự viết (bản gốc)">
+          <textarea rows={3} className="input" value={str("intro_source")} onChange={(e) => set("intro_source", e.target.value)} placeholder="Mô tả về điểm khác biệt của công ty hay sản phẩm của bạn." />
+          <span className="mt-1 block text-xs leading-5 text-ink-500">Câu chuyện NCC kể trên form đăng ký. Khi lưu, AI dịch lại bản tiếng Anh bên dưới từ nội dung này.</span>
+        </Field>
         <Field label="Giới thiệu ngắn (tiếng Anh)">
           <textarea rows={3} className="input" value={str("summary_en")} onChange={(e) => set("summary_en", e.target.value)} placeholder="A Vietnam-based supplier of..." />
         </Field>

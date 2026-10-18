@@ -1230,6 +1230,7 @@ function parseSupplierInput(
     founded_year: num(raw.founded_year),
     employees: num(raw.employees),
     summary_i18n: i18n(raw.summary_i18n),
+    intro_source: str(raw.intro_source)?.slice(0, 1500) ?? null,
     moq_text: str(raw.moq_text),
     capacity_per_month: str(raw.capacity_per_month),
     ports: arr(raw.ports),
@@ -1344,7 +1345,12 @@ export async function updateSupplierAction(
     // Giữ bản tiếng Anh của MOQ, thị trường xuất khẩu và phần giới thiệu luôn khớp hồ sơ mới lưu;
     // hàm này tự bỏ qua khi bản dịch còn mới và không chặn việc lưu khi AI lỗi.
     const actorSession = await getSession();
-    await ensureSupplierProfileEnglish(store, id, actorSession ? { id: actorSession.uid, email: actorSession.email } : null)
+    // Nhân viên vừa sửa tay bản giới thiệu tiếng Anh mà không đổi câu chuyện gốc của NCC
+    // thì giữ bản đã chốt, không để AI dịch đè trong lần lưu này và các lần lưu sau.
+    const staffEditedSummary = (safeInput.summary_i18n?.en ?? "") !== (existing.summary_i18n?.en ?? "");
+    const introChanged = (safeInput.intro_source ?? null) !== (existing.intro_source ?? null);
+    await ensureSupplierProfileEnglish(store, id, actorSession ? { id: actorSession.uid, email: actorSession.email } : null,
+      { preserveSummary: staffEditedSummary && !introChanged })
       .catch((error) => console.error("[supplier-translation] staff save", error));
     const warning = await syncSupplierIndustries(id);
     revalidateAll();

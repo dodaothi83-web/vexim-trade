@@ -58,7 +58,8 @@ export async function POST(request: Request) {
       lead_time_days: patch.lead_time_days ?? null, rating: null, notes: null,
       status: "draft", onboarding_status: "not_started", is_demo: false,
       verification_level: 0, verified_at: null, fob_publicly_visible: false, fob_updated_at: null,
-      summary_i18n: patch.summary_i18n, founded_year: patch.founded_year, employees: patch.employees,
+      summary_i18n: patch.summary_i18n ?? {}, intro_source: patch.intro_source ?? null,
+      founded_year: patch.founded_year, employees: patch.employees,
       moq_text: patch.moq_text, capacity_per_month: patch.capacity_per_month, ports: patch.ports,
       incoterms: patch.incoterms, export_markets: patch.export_markets, private_label: patch.private_label,
     };

@@ -552,6 +552,7 @@ alter table public.suppliers
   add column if not exists founded_year integer,
   add column if not exists employees integer,
   add column if not exists summary_i18n jsonb not null default '{}'::jsonb,
+  add column if not exists intro_source text,
   add column if not exists moq_text text,
   add column if not exists moq_text_i18n jsonb not null default '{}'::jsonb,
   add column if not exists export_markets_i18n jsonb not null default '{}'::jsonb,

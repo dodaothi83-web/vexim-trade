@@ -47,7 +47,7 @@ export function parseSupplierProfile(form: FormData): {
       address: text(form, "address", 250) || null, tax_id: tax,
       supplier_type: type, role: type === "manufacturer" ? "manufacturer" : "trader",
       website: website || null, markets: text(form, "markets", 800) || null,
-      summary_i18n: { en: text(form, "summary_en", 1500) },
+      intro_source: text(form, "intro_source", 1500) || null,
       founded_year: positiveInt(form, "founded_year", new Date().getFullYear()),
       employees: positiveInt(form, "employees", 1000000),
       capacity_per_month: text(form, "capacity_per_month", 180) || null,
