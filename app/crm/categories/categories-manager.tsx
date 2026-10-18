@@ -193,8 +193,10 @@ export function CategoriesManager({
   const [filter, setFilter] = useState<ListFilter>("all");
   const [level, setLevel] = useState<"all" | "root" | "child">("all");
   const [drafts, setDrafts] = useState<Record<string, CategoryDraft>>({});
-  const [createOpen, setCreateOpen] = useState(false);
+  // null = đóng hộp thoại tạo; id null = tạo ngành tổng hợp, có id = tạo ngành con của ngành đó.
+  const [createParent, setCreateParent] = useState<{ id: string | null; name: string } | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
 
   // Đồng bộ bản nháp với dữ liệu server sau mỗi lần tải lại:
@@ -264,7 +266,7 @@ export function CategoriesManager({
     const fd = toFormData(draft);
     const ok = await run(() => createCategoryAction(Object.fromEntries(fd)));
     if (ok?.id) {
-      setCreateOpen(false);
+      setCreateParent(null);
       setEditorTab("content");
       setEditingId(ok.id);
     }
@@ -449,7 +451,7 @@ export function CategoriesManager({
       <PageHeader
         title="Danh mục sản phẩm"
         sub="Quản lý cây ngành hàng hiển thị cho buyer — kéo thả để sắp xếp, bấm Sửa để viết nội dung. Lưu bản nháp không tự công khai."
-        actions={<Button variant="primary" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" /> Thêm danh mục</Button>}
+        actions={<Button variant="primary" onClick={() => setCreateParent({ id: null, name: "" })}><Plus className="h-4 w-4" /> Thêm danh mục</Button>}
       />
 
       {/* KPI tổng quan */}
@@ -589,11 +591,29 @@ export function CategoriesManager({
                         )}
                         <Button type="button" size="sm" variant="soft" onClick={() => openEditor(c.id)}><Pencil className="h-3.5 w-3.5" /> Sửa</Button>
                         <div className="relative">
-                          <Button type="button" size="sm" aria-label="Thêm thao tác" onClick={() => setOpenMenuId((cur) => (cur === c.id ? null : c.id))}>
+                          <Button type="button" size="sm" aria-label="Thêm thao tác" aria-expanded={openMenuId === c.id} onClick={(e) => {
+                            if (openMenuId === c.id) { setOpenMenuId(null); return; }
+                            // Menu dùng vị trí fixed theo nút bấm: đặt absolute trong bảng
+                            // overflow-x-auto sẽ bị cắt mất, bấm mở mà không thấy gì.
+                            const r = e.currentTarget.getBoundingClientRect();
+                            setMenuPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+                            setOpenMenuId(c.id);
+                          }}>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                           {openMenuId === c.id && (
-                            <div className="absolute right-0 z-30 mt-1 w-52 rounded-xl border border-ink-200 bg-white p-1.5 shadow-xl">
+                            <>
+                              <button type="button" aria-hidden="true" tabIndex={-1} className="fixed inset-0 z-40 cursor-default" onClick={() => setOpenMenuId(null)} />
+                              <div className="fixed z-50 w-52 rounded-xl border border-ink-200 bg-white p-1.5 shadow-xl" style={menuPos ? { top: menuPos.top, right: menuPos.right } : undefined} role="menu">
+                              {!c.parent_id && (
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-ink-700 hover:bg-ink-50"
+                                  onClick={() => { setOpenMenuId(null); setCreateParent({ id: c.id, name: i18n(c.name_i18n) || c.slug }); }}
+                                >
+                                  <CornerDownRight className="h-3.5 w-3.5" /> Thêm danh mục con…
+                                </button>
+                              )}
                               {canPublish && (
                                 <button
                                   type="button"
@@ -613,7 +633,8 @@ export function CategoriesManager({
                               >
                                 <Trash2 className="h-3.5 w-3.5" /> Xoá danh mục…
                               </button>
-                            </div>
+                              </div>
+                            </>
                           )}
                         </div>
                       </div>
@@ -635,11 +656,12 @@ export function CategoriesManager({
         </p>
       </div>
 
-      {createOpen && (
+      {createParent && (
         <CreateCategoryDialog
-          parentOptions={initialCategories.filter((c) => !c.parent_id)}
+          parentId={createParent.id}
+          parentName={createParent.name}
           busy={busy}
-          onClose={() => setCreateOpen(false)}
+          onClose={() => setCreateParent(null)}
           onCreate={onCreate}
         />
       )}
@@ -650,12 +672,16 @@ export function CategoriesManager({
 /* --------------------------- Hộp thoại thêm mới --------------------------- */
 
 function CreateCategoryDialog({
-  parentOptions,
+  parentId,
+  parentName,
   busy,
   onClose,
   onCreate,
 }: {
-  parentOptions: Category[];
+  // Nút "Thêm danh mục" luôn truyền null (chỉ tạo ngành tổng hợp).
+  // Tạo ngành con đi qua menu "..." của từng ngành tổng hợp nên cha đã cố định sẵn.
+  parentId: string | null;
+  parentName: string;
   busy: boolean;
   onClose: () => void;
   onCreate: (input: { name_en: string; slug: string; parent_id: string | null }) => Promise<boolean>;
@@ -663,7 +689,6 @@ function CreateCategoryDialog({
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
-  const [parentId, setParentId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const autoSlug = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -673,18 +698,23 @@ function CreateCategoryDialog({
     const finalSlug = (slugTouched ? slug : autoSlug(name)).trim();
     if (!finalSlug) { setError("Hãy nhập đường dẫn trang."); return; }
     setError(null);
-    await onCreate({ name_en: name.trim(), slug: finalSlug, parent_id: parentId || null });
+    await onCreate({ name_en: name.trim(), slug: finalSlug, parent_id: parentId });
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/50 p-4" role="dialog" aria-modal="true" aria-label="Thêm danh mục mới">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/50 p-4" role="dialog" aria-modal="true" aria-label={parentId ? "Thêm danh mục con" : "Thêm danh mục mới"}>
       <div className="card w-full max-w-md p-5">
         <div className="mb-1 flex items-start justify-between gap-3">
-          <h2 className="text-base font-bold text-ink-900">Thêm danh mục mới</h2>
+          <h2 className="text-base font-bold text-ink-900">{parentId ? "Thêm danh mục con" : "Thêm danh mục mới"}</h2>
           <button type="button" onClick={onClose} className="rounded-md p-1 text-ink-400 hover:bg-ink-50 hover:text-ink-700" aria-label="Đóng"><X className="h-4 w-4" /></button>
         </div>
         <p className="mb-4 text-[13px] text-ink-500">Chỉ cần 3 thông tin — hệ thống tạo <b>bản nháp</b> rồi tự mở màn hình sửa để bổ sung ảnh và nội dung.</p>
         <div className="space-y-3.5">
+          {parentId && (
+            <Field label="Thuộc ngành tổng hợp">
+              <p className="input flex items-center bg-ink-50 font-medium text-ink-700">{parentName}</p>
+            </Field>
+          )}
           <Field label="Tên danh mục (tiếng Anh)" required>
             <input className="input" value={name} autoFocus placeholder="vd: Cashew kernels"
               onChange={(e) => { setName(e.target.value); if (!slugTouched) setSlug(autoSlug(e.target.value)); }} />
@@ -692,12 +722,6 @@ function CreateCategoryDialog({
           <Field label="Đường dẫn trang" required hint="Buyer sẽ thấy: veximtrade.com/products/<đường-dẫn>">
             <input className="input" value={slug} placeholder="cashew-kernels"
               onChange={(e) => { setSlugTouched(true); setSlug(autoSlug(e.target.value)); }} />
-          </Field>
-          <Field label="Danh mục cha (ngành tổng hợp)">
-            <select className="input" value={parentId} onChange={(e) => setParentId(e.target.value)}>
-              <option value="">— Không có (đây là ngành tổng hợp) —</option>
-              {parentOptions.map((c) => <option key={c.id} value={c.id}>{i18n(c.name_i18n) || c.slug}</option>)}
-            </select>
           </Field>
           {error && <p className="flex items-center gap-1.5 text-[13px] font-medium text-rose-600"><AlertTriangle className="h-3.5 w-3.5" /> {error}</p>}
         </div>

@@ -384,6 +384,13 @@ Quy tắc:
    khai ở server** (hiện chỉ cần tên + slug).
 8. Hộp thoại tạo mới 3 ô (§6.3) + ô Danh mục cha trong form.
 
+*Cập nhật sau khi dùng thật: nút “Thêm danh mục” chỉ tạo ngành tổng hợp (bỏ ô chọn
+Danh mục cha trong hộp thoại tạo). Tạo ngành con đi từ menu “...” của từng ngành
+tổng hợp (“Thêm danh mục con…”, cha cố định sẵn). Menu “...” được gắn vị trí cố
+định theo nút bấm vì đặt trong bảng cuộn ngang sẽ bị cắt mất (đây là lý do menu
+trông như không hoạt động), bấm ra ngoài để đóng; mục Xoá giữ nguyên cơ chế chặn
+khi đã có sản phẩm, NCC hoặc RFQ liên quan.*
+
 *Rủi ro: trung bình — chạm `listCategories` (chỉ đọc thêm số đếm) và thêm 1 action sắp xếp.*
 
 ### Giai đoạn 2 — “Chuẩn hoá nền” (khi danh mục/sản phẩm nhiều lên)
