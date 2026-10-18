@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
+import { PublicSpeedInsights } from "@/components/public-speed-insights";
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="vi">
       <body>
         <ToastProvider>{children}</ToastProvider>
+        <PublicSpeedInsights />
       </body>
     </html>
   );
