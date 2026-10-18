@@ -13,6 +13,7 @@ assert.deepEqual(hrefs, [
   '/crm/verifications', '/crm/categories', '/crm/posts',
   '/crm/buyers', '/crm/mail', '/crm/prospects', '/crm/team', '/crm/settings',
 ], 'Daily marketplace work comes first; sale and settings are secondary');
+assert.match(sidebar, /href: "\/crm\/categories", label: "Danh mục sản phẩm"/, 'Category menu uses product-focused wording');
 assert.match(sidebar, /perm: "rfq\.view"/, 'RFQ remains permission-gated');
 assert.match(sidebar, /hasPermission\(session\.role, item\.perm\)/, 'Implied view permissions remain visible');
 assert.match(sidebar, /pathname === "\/crm\/pipeline" \? "\/crm\/buyers"/, 'Pipeline highlights Buyer');
