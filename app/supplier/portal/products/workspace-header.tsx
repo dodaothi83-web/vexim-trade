@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, FileCheck2, LayoutDashboard, Package2, Plus, ChartNoAxesColumn, Layers3 } from "lucide-react";
+import { ArrowLeft, FileCheck2, LayoutDashboard, Package2, ChartNoAxesColumn, Layers3 } from "lucide-react";
 
 /** Private seller workspace; no CRM links and no public/verified claim. */
 export function SupplierWorkspaceHeader({ name, active = "products" }: { name: string; active?: "products" | "new" | "edit" | "certificates" | "traffic" | "categories" }) {
@@ -14,16 +14,14 @@ export function SupplierWorkspaceHeader({ name, active = "products" }: { name: s
     </div>
     <nav aria-label="Điều hướng gian hàng" className="flex gap-1 overflow-x-auto px-4 pt-2 sm:px-6">
       <Link href="/supplier/portal" className="inline-flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50"><LayoutDashboard className="size-4" aria-hidden="true" /> Tổng quan</Link>
-      <Link href="/supplier/portal/products" aria-current={active === "products" || active === "edit" ? "page" : undefined}
-        className={`inline-flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${active === "products" || active === "edit" ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}><Package2 className="size-4" aria-hidden="true" /> Sản phẩm</Link>
+      <Link href="/supplier/portal/products" aria-current={active === "products" || active === "edit" || active === "new" ? "page" : undefined}
+        className={`inline-flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${active === "products" || active === "edit" || active === "new" ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}><Package2 className="size-4" aria-hidden="true" /> Sản phẩm</Link>
       <Link href="/supplier/portal/categories" aria-current={active === "categories" ? "page" : undefined}
         className={`inline-flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${active === "categories" ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}><Layers3 className="size-4" aria-hidden="true" /> Danh mục</Link>
       <Link href="/supplier/portal/certificates" aria-current={active === "certificates" ? "page" : undefined}
         className={`inline-flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${active === "certificates" ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}><FileCheck2 className="size-4" aria-hidden="true" /> Chứng nhận</Link>
       <Link href="/supplier/portal/traffic" aria-current={active === "traffic" ? "page" : undefined}
         className={`inline-flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${active === "traffic" ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}><ChartNoAxesColumn className="size-4" aria-hidden="true" /> Lượt xem</Link>
-      <Link href="/supplier/portal/products/new" aria-current={active === "new" ? "page" : undefined}
-        className={`inline-flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${active === "new" ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-50"}`}><Plus className="size-4" aria-hidden="true" /> Thêm sản phẩm</Link>
     </nav>
   </header>;
 }

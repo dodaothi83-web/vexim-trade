@@ -341,11 +341,12 @@ EMAIL_FROM_NAME=Vexim Trade`}</pre>
           <p className="mt-0.5 text-xs text-ink-500">
             Mỗi giai đoạn có nội dung riêng cho buyer (EN) và cho NCC (VI) — sửa trong{" "}
             <code>lib/email/stage-content.ts</code>. Danh sách giai đoạn ở{" "}
-            <code>lib/pipeline.ts</code>. Xem đầy đủ tại{" "}
-            <Link href="/crm/templates" className="font-semibold text-brand-700 hover:underline">
-              Nội dung email theo giai đoạn
-            </Link>
-            .
+            <code>lib/pipeline.ts</code>.
+            {hasPermission(session.role, "templates.manage") && <>{" "}Xem đầy đủ tại{" "}
+              <Link href="/crm/templates" className="font-semibold text-brand-700 hover:underline">
+                Nội dung email theo giai đoạn
+              </Link>.
+            </>}
           </p>
         </div>
         <table className="w-full border-collapse">

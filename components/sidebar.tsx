@@ -5,20 +5,16 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Boxes,
-  FileText,
   Globe2,
   BarChart3,
-  KanbanSquare,
   LayoutDashboard,
   LogOut,
   Mail,
   Menu,
   Newspaper,
   Package,
-  Pencil,
   Settings2,
   ShieldCheck,
-  UsersRound,
   UserSearch,
   X,
   FolderTree,
@@ -37,22 +33,19 @@ const NAV: {
   perm?: Permission;
   group: "marketplace" | "sales" | "system";
 }[] = [
+  // Luồng vận hành có thể cần xử lý hằng ngày đứng trước cấu hình và nội dung.
   { href: "/crm/dashboard", label: "Tổng quan sàn", icon: LayoutDashboard, group: "marketplace" },
   { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view", group: "marketplace" },
   { href: "/crm/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view", group: "marketplace" },
-  { href: "/crm/categories", label: "Danh mục công khai", icon: FolderTree, perm: "categories.manage", group: "marketplace" },
-  { href: "/crm/verifications", label: "Xác minh NCC", icon: ShieldCheck, perm: "verifications.inspect", group: "marketplace" },
   { href: "/crm/rfqs", label: "RFQ từ buyer", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
+  { href: "/crm/verifications", label: "Xác minh NCC", icon: ShieldCheck, perm: "verifications.inspect", group: "marketplace" },
+  { href: "/crm/categories", label: "Danh mục công khai", icon: FolderTree, perm: "categories.manage", group: "marketplace" },
   { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage", group: "marketplace" },
   { href: "/crm/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view", group: "sales" },
-  { href: "/crm/pipeline", label: "Pipeline", icon: KanbanSquare, perm: "buyers.view", group: "sales" },
-  { href: "/crm/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage", group: "sales" },
   { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view", group: "sales" },
-  { href: "/crm/mail/compose", label: "Soạn email", icon: Pencil, perm: "mail.send", group: "sales" },
+  { href: "/crm/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage", group: "sales" },
   { href: "/crm/team", label: "KPI cá nhân", icon: BarChart3, perm: "kpi.view", group: "sales" },
-  { href: "/crm/templates", label: "Templates", icon: FileText, perm: "templates.manage", group: "sales" },
   { href: "/crm/settings", label: "Cài đặt", icon: Settings2, perm: "settings.view", group: "system" },
-  { href: "/crm/settings/users", label: "Người dùng", icon: UsersRound, perm: "users.manage", group: "system" },
 ];
 const NAV_GROUPS = [
   { key: "marketplace", label: "VẬN HÀNH SÀN" },
@@ -80,10 +73,11 @@ export function Sidebar({
   permissions: Permission[];
 }) {
   const pathname = usePathname();
-  // Chỉ BẬT duy nhất mục khớp dài nhất — tránh hai mục kề nhau cùng sáng nền
-  // ở những trang như /mail/compose (khớp cả /mail) hay /settings/users (khớp cả /settings)
+  // Những trang phụ vẫn đánh dấu mục cha, dù không chiếm riêng một dòng menu.
+  const navPath = pathname === "/crm/pipeline" ? "/crm/buyers" :
+    pathname === "/crm/templates" ? "/crm/settings" : pathname;
   const activeHref = NAV.map((i) => i.href)
-    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .filter((href) => navPath === href || navPath.startsWith(`${href}/`))
     .sort((a, b) => b.length - a.length)[0];
   const [open, setOpen] = useState(false);
 
