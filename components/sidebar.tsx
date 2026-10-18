@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 
 import { logoutAction } from "@/app/auth-actions";
-import { roleMeta, type Permission } from "@/lib/auth/permissions";
+import { hasPermission, roleMeta, type Permission } from "@/lib/auth/permissions";
 import type { UserRole } from "@/lib/types";
 import { cx } from "@/components/ui";
 
@@ -35,24 +35,30 @@ const NAV: {
   label: string;
   icon: typeof LayoutDashboard;
   perm?: Permission;
+  group: "marketplace" | "sales" | "system";
 }[] = [
-  { href: "/crm/dashboard", label: "Tổng quan", icon: LayoutDashboard },
-  { href: "/crm/team", label: "KPI cá nhân", icon: BarChart3, perm: "kpi.view" },
-  { href: "/crm/pipeline", label: "Pipeline", icon: KanbanSquare, perm: "buyers.view" },
-  { href: "/crm/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view" },
-  { href: "/crm/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage" },
-  { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view" },
-  { href: "/crm/verifications", label: "Xác minh NCC", icon: ShieldCheck, perm: "verifications.inspect" },
-  { href: "/crm/categories", label: "Danh mục công khai", icon: FolderTree, perm: "suppliers.manage" },
-  { href: "/crm/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view" },
-  { href: "/crm/rfqs", label: "RFQ công khai", icon: FileQuestion, perm: "suppliers.view" },
-  { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view" },
-  { href: "/crm/mail/compose", label: "Soạn email", icon: Pencil, perm: "mail.send" },
-  { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage" },
-  { href: "/crm/templates", label: "Templates", icon: FileText, perm: "templates.manage" },
-  { href: "/crm/settings", label: "Cài đặt", icon: Settings2, perm: "settings.view" },
-  { href: "/crm/settings/users", label: "Người dùng", icon: UsersRound, perm: "users.manage" },
+  { href: "/crm/dashboard", label: "Tổng quan sàn", icon: LayoutDashboard, group: "marketplace" },
+  { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view", group: "marketplace" },
+  { href: "/crm/products", label: "Sản phẩm NCC", icon: Boxes, perm: "products.view", group: "marketplace" },
+  { href: "/crm/categories", label: "Danh mục công khai", icon: FolderTree, perm: "categories.manage", group: "marketplace" },
+  { href: "/crm/verifications", label: "Xác minh NCC", icon: ShieldCheck, perm: "verifications.inspect", group: "marketplace" },
+  { href: "/crm/rfqs", label: "RFQ từ buyer", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
+  { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage", group: "marketplace" },
+  { href: "/crm/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view", group: "sales" },
+  { href: "/crm/pipeline", label: "Pipeline", icon: KanbanSquare, perm: "buyers.view", group: "sales" },
+  { href: "/crm/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage", group: "sales" },
+  { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view", group: "sales" },
+  { href: "/crm/mail/compose", label: "Soạn email", icon: Pencil, perm: "mail.send", group: "sales" },
+  { href: "/crm/team", label: "KPI cá nhân", icon: BarChart3, perm: "kpi.view", group: "sales" },
+  { href: "/crm/templates", label: "Templates", icon: FileText, perm: "templates.manage", group: "sales" },
+  { href: "/crm/settings", label: "Cài đặt", icon: Settings2, perm: "settings.view", group: "system" },
+  { href: "/crm/settings/users", label: "Người dùng", icon: UsersRound, perm: "users.manage", group: "system" },
 ];
+const NAV_GROUPS = [
+  { key: "marketplace", label: "VẬN HÀNH SÀN" },
+  { key: "sales", label: "SALE · HỖ TRỢ BUYER" },
+  { key: "system", label: "HỆ THỐNG" },
+] as const;
 
 export function Sidebar({
   dataMode,
@@ -91,42 +97,53 @@ export function Sidebar({
           <p className="truncate text-[15px] leading-tight font-black tracking-tight text-white">
             VEXIM TRADE
           </p>
-          <p className="text-[11px] text-brand-200/80">Sale Xuất khẩu CRM</p>
+          <p className="text-[11px] text-brand-200/80">Điều hành sàn TMĐT B2B</p>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-1">
-        {NAV.filter((item) => !item.perm || permissions.includes(item.perm)).map((item) => {
-          const active = item.href === activeHref;
-          const Icon = item.icon;
+      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-1">
+        {NAV_GROUPS.map((group) => {
+          const items = NAV.filter((item) => item.group === group.key && (!item.perm || permissions.includes(item.perm) || hasPermission(session.role, item.perm)));
+          if (!items.length) return null;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setOpen(false)}
-              className={cx(
-                "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition focus-visible:-outline-offset-2",
-                active
-                  ? "bg-white/12 text-white shadow-sm"
-                  : "text-brand-100/70 hover:bg-white/7 hover:text-white",
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span className="flex-1 truncate">{item.label}</span>
-              {item.href === "/crm/mail" && unreadMail > 0 && (
-                <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900">
-                  {unreadMail}
-                </span>
-              )}
-              {item.href === "/crm/buyers" && newBuyers > 0 && (
-                <span
-                  className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900"
-                  title="Buyer mới chưa xử lý"
-                >
-                  {newBuyers} mới
-                </span>
-              )}
-            </Link>
+            <div key={group.key}>
+              <p className="mb-1.5 px-3 text-[10px] font-bold tracking-[0.15em] text-brand-200/50">{group.label}</p>
+              <div className="space-y-0.5">
+                {items.map((item) => {
+                  const active = item.href === activeHref;
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setOpen(false)}
+                      className={cx(
+                        "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition focus-visible:-outline-offset-2",
+                        active
+                          ? "bg-white/12 text-white shadow-sm"
+                          : "text-brand-100/70 hover:bg-white/7 hover:text-white",
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 truncate">{item.label}</span>
+                      {item.href === "/crm/mail" && unreadMail > 0 && (
+                        <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900">
+                          {unreadMail}
+                        </span>
+                      )}
+                      {item.href === "/crm/buyers" && newBuyers > 0 && (
+                        <span
+                          className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900"
+                          title="Buyer mới chưa xử lý"
+                        >
+                          {newBuyers} mới
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </nav>
