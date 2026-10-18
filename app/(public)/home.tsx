@@ -519,6 +519,8 @@ export default async function HomeContent() {
             <FooterCol title="Company">
               <li><Link href="/how-we-verify" className="hover:text-brand-700">How we verify suppliers</Link></li>
               <li><Link href="/for-suppliers" className="hover:text-brand-700">For Vietnamese suppliers</Link></li>
+              <li><Link href="/privacy-policy" className="hover:text-brand-700">Privacy Policy</Link></li>
+              <li><Link href="/terms-of-service" className="hover:text-brand-700">Terms of Service</Link></li>
               <li><a href="mailto:hello@veximtrade.com" className="hover:text-brand-700">hello@veximtrade.com</a></li>
             </FooterCol>
 

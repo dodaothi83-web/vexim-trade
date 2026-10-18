@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Script from "next/script";
 import {
   ArrowLeft,
@@ -118,7 +119,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
       if (!data.company.trim()) e.company = "Enter your company name.";
       if (!data.contact_name.trim()) e.contact_name = "Enter your name.";
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) e.email = "Enter a valid work email.";
-      if (!data.consent) e.consent = "You need to accept the privacy policy.";
+      if (!data.consent) e.consent = "Please agree to the use of your enquiry data.";
     }
     return e;
   }
@@ -442,6 +443,9 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
               to reply to this enquiry. {errors.consent && <span className="text-red-600">(required)</span>}
             </span>
           </label>
+          <p className="pl-6 text-[12px] text-ink-600">
+            Read our <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Privacy Policy</Link> and <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Terms of Service</Link> before submitting.
+          </p>
           <p className="flex items-center gap-1.5 rounded-md bg-ink-50 p-3 text-[12px] text-ink-600">
             <Lock className="h-3.5 w-3.5 text-brand-700" />
             We will never publish your contact details. Suppliers are contacted anonymously until you approve.

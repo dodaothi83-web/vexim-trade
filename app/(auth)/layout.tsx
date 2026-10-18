@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -16,6 +17,10 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
         <div className="card p-6 shadow-pop">{children}</div>
+        <nav aria-label="Legal information" className="mt-5 flex justify-center gap-5 text-xs font-medium text-brand-100">
+          <Link href="/privacy-policy" className="hover:text-white hover:underline">Privacy Policy</Link>
+          <Link href="/terms-of-service" className="hover:text-white hover:underline">Terms of Service</Link>
+        </nav>
       </div>
     </main>
   );

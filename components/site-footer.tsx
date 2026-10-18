@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { COMPANY } from "@/lib/config";
 import { Logo } from "@/components/brand-logo";
 
@@ -56,6 +58,10 @@ export function SiteFooter() {
         <a href="/login" className="mt-1 inline-block transition hover:text-white">
           Staff sign in
         </a>
+        <div className="mt-4 flex flex-wrap gap-4">
+          <Link href="/privacy-policy" className="transition hover:text-white">Privacy Policy</Link>
+          <Link href="/terms-of-service" className="transition hover:text-white">Terms of Service</Link>
+        </div>
       </div>
     </div>
     <div className="border-t border-white/10 py-4 text-center text-[11.5px] text-slate-500">

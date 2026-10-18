@@ -1,7 +1,7 @@
 /**
  * Middleware — thêm X-Robots-Tag:
  *
- *  - noindex toàn site khi PUBLIC_SITE_INDEXABLE !== "true" (mặc định đến khi có ≥10 NCC published).
+ *  - noindex site khi PUBLIC_SITE_INDEXABLE !== "true" (trừ legal URLs để Google OAuth đọc được).
  *  - Luôn noindex /rfq*, /rfq/status/*, /compare?*, /login, /auth/*, /crm/* (back-office).
  *
  * Không can thiệp vào API hay static assets.
@@ -10,6 +10,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const INDEXABLE = process.env.PUBLIC_SITE_INDEXABLE === "true";
+// OAuth verification must reach these public policies even before marketing pages are indexable.
+const LEGAL_PATHS = new Set(["/privacy-policy", "/terms-of-service"]);
+const LEGAL_CRAWLABLE = !["preview", "development"].includes(process.env.VERCEL_ENV ?? "");
 
 // Các prefix LUÔN noindex dù site-wide cờ đang bật.
 const ALWAYS_NOINDEX_PREFIXES = [
@@ -34,7 +37,7 @@ export function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const { pathname } = req.nextUrl;
 
-  const noindex = !INDEXABLE || isAlwaysNoIndex(pathname);
+  const noindex = !(LEGAL_CRAWLABLE && LEGAL_PATHS.has(pathname)) && (!INDEXABLE || isAlwaysNoIndex(pathname));
   if (noindex) {
     res.headers.set("X-Robots-Tag", "noindex, nofollow");
   }

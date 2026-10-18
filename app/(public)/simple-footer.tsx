@@ -17,9 +17,11 @@ export function SimpleFooter() {
     <footer className="mt-16 border-t border-ink-200 bg-white py-8 text-[12.5px] text-ink-500">
       <div className="mx-auto flex max-w-7xl flex-col items-start gap-2 px-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
         <div>© {new Date().getFullYear()} {COMPANY.legalName}, Hanoi, Vietnam</div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <Link href="/how-we-verify" className="hover:text-ink-800">How we verify</Link>
           <Link href="/for-suppliers" className="hover:text-ink-800">For suppliers</Link>
+          <Link href="/privacy-policy" className="hover:text-ink-800">Privacy Policy</Link>
+          <Link href="/terms-of-service" className="hover:text-ink-800">Terms of Service</Link>
           <a href={`mailto:${COMPANY.email}`} className="hover:text-ink-800">{COMPANY.email}</a>
         </div>
       </div>

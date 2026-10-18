@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { RfqForm } from "./rfq-form";
 import { Breadcrumbs } from "@/components/ui";
 import { getStore } from "@/lib/db";
@@ -64,7 +65,7 @@ export default async function RfqPage({
       />
 
       <p className="mt-6 text-[12.5px] leading-relaxed text-ink-500">
-        By submitting, you agree to our privacy policy. We share your request only with shortlisted suppliers,
+        By submitting, you acknowledge our <Link href="/privacy-policy" className="font-semibold text-brand-700 underline">Privacy Policy</Link> and agree to our <Link href="/terms-of-service" className="font-semibold text-brand-700 underline">Terms of Service</Link>. We share your request only with shortlisted suppliers,
         and your email/phone/company are <strong>not</strong> disclosed to suppliers until you approve an introduction.
       </p>
     </div>
