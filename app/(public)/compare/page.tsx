@@ -9,6 +9,7 @@ import {
   mainProductNames,
   supplierTypeLabel,
 } from "@/lib/public/catalog";
+import { supplierMoqDisplay } from "@/lib/public/supplier-english";
 
 export const metadata: Metadata = {
   title: "Compare suppliers | Veximtrade",
@@ -114,7 +115,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                 />
                 <Row
                   label="MOQ"
-                  cells={suppliers.map((s) => <>{s.moq_text || <Dash />}</>)}
+                  cells={suppliers.map((s) => <>{supplierMoqDisplay(s) || <Dash />}</>)}
                 />
                 <Row
                   label="Lead time"

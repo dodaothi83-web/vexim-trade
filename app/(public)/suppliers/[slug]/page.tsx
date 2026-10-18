@@ -8,6 +8,7 @@ import { PublicProductCard } from "@/components/public-product-card";
 import { VerificationCoverSeal, VerificationPips, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
 import { PRODUCT_VERIFICATION_EXPLANATIONS } from "@/lib/verification-status";
 import { getPublicSupplierBySlug, listPublicSuppliers, supplierTypeLabel, t } from "@/lib/public/catalog";
+import { supplierExportMarketsDisplay, supplierMoqDisplay } from "@/lib/public/supplier-english";
 import { getStore } from "@/lib/db";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import { isSyntheticSupplier, safeJsonLd, supplierProfileIndexable } from "@/lib/public/supplier-seo";
@@ -165,7 +166,7 @@ export default async function SupplierProfile({ params }: PageProps) {
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold text-ink-900">{label}</h3>
                   <p className={`mt-0.5 text-xs font-bold ${approvedStep ? "text-brand-800" : "text-ink-500"}`}>{approvedStep ? "Review approved" : "Not reviewed yet"}</p>
-                  {level === 3 && (s.export_markets ?? []).length > 0 && <p className="mt-1.5 text-sm leading-6 text-ink-700">Supplier-stated markets (not independently verified): {safe((s.export_markets ?? []).join(", "))}</p>}
+                  {level === 3 && supplierExportMarketsDisplay(s).length > 0 && <p className="mt-1.5 text-sm leading-6 text-ink-700">Supplier-stated markets (not independently verified): {safe(supplierExportMarketsDisplay(s).join(", "))}</p>}
                   <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">
                     {level === 1 && (approvedStep ? PRODUCT_VERIFICATION_EXPLANATIONS[1] : "Vexim has not approved a document review for this supplier yet.")}
                     {level === 2 && (approvedStep ? (safe(s.public_review_summaries[2]) || "Visit details have not been released for public viewing.") : "No approved factory visit review is available.")}
@@ -190,10 +191,10 @@ export default async function SupplierProfile({ params }: PageProps) {
       <aside id="trade" className="scroll-mt-24 space-y-4 lg:sticky lg:top-24" aria-label="Trade details and enquiry">
         <div className="rounded-xl border border-ink-200 bg-white p-5 shadow-card">
           <h2 className="text-base font-bold text-ink-900">Trade at a glance</h2>
-          <dl className="mt-2"><Fact icon={Package} label="Typical MOQ (supplier-stated)" value={s.moq_text || ""} />
+          <dl className="mt-2"><Fact icon={Package} label="Typical MOQ (supplier-stated)" value={supplierMoqDisplay(s)} />
             <Fact icon={Ship} label="Ports / Incoterms (supplier-stated)" value={[...(s.ports ?? []), ...(s.incoterms ?? [])].join(" · ")} />
             <Fact icon={Clock3} label="Lead time (supplier-stated)" value={s.lead_time_days ? `${s.lead_time_days} days` : ""} />
-            <Fact icon={Globe2} label="Export markets (supplier-stated)" value={(s.export_markets ?? []).join(", ")} /></dl>
+            <Fact icon={Globe2} label="Export markets (supplier-stated)" value={supplierExportMarketsDisplay(s).join(", ")} /></dl>
           {!synthetic && <div className="mt-4 space-y-2"><Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="flex items-center justify-center gap-2 rounded-lg bg-ink-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-ink-800">Request quote <ArrowRight className="h-4 w-4" /></Link>
             <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}&sample=1`} className="flex items-center justify-center rounded-lg border border-ink-200 px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50">Ask about samples</Link></div>}
           <p className="mt-3 text-xs leading-5 text-ink-500">Enquiries go through Vexim Trade. Supplier contact information is not displayed publicly.</p>

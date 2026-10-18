@@ -28,6 +28,8 @@ export type SupplierStatus =
 
 /** Chuỗi dịch JSON theo mã ngôn ngữ: {"en": "...", "ja": "..."}. MVP chỉ có en. */
 export type I18nString = Record<string, string>;
+/** Danh sách ngắn theo ngôn ngữ, ví dụ tên thị trường xuất khẩu: { en: ["United States", "Japan"] } */
+export type I18nList = Record<string, string[]>;
 
 export interface Supplier {
   id: string;
@@ -82,6 +84,19 @@ export interface Supplier {
   summary_i18n?: I18nString;
   /** MOQ mô tả dạng text (vd "1 MT for W320") */
   moq_text?: string | null;
+  /** Bản tiếng Anh của MOQ dạng text, hiển thị trên trang buyer thay cho nội dung gốc */
+  moq_text_i18n?: I18nString;
+  /** Thị trường xuất khẩu theo ngôn ngữ, hiển thị trên trang buyer */
+  export_markets_i18n?: I18nList;
+  /** Dấu vết dịch tự động hồ sơ: hash nội dung gốc (MOQ, thị trường) tại thời điểm dịch để phát hiện bản dịch đã cũ. */
+  profile_translation_meta?: {
+    source_hash: string;
+    translated_at: string;
+    origin: "ai" | "staff";
+    model?: string | null;
+    /** True khi phần giới thiệu tiếng Anh do AI soạn từ dữ kiện hồ sơ vì NCC để trống ô tiếng Anh. */
+    summary_generated?: boolean;
+  } | null;
   /** Công suất tháng mô tả text */
   capacity_per_month?: string | null;
   /** Cảng xuất (mảng) */

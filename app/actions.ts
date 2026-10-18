@@ -24,6 +24,7 @@ import {
 import { extractCompanyProducts, type CompanyProducts } from "@/lib/ai/company-products";
 import { productTranslationState } from "@/lib/ai/translate-content";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
+import { ensureSupplierProfileEnglish } from "@/lib/ai/supplier-translation-service";
 import { readSiteSignals } from "@/lib/ai/site-signals";
 import { hasPermission } from "@/lib/auth/permissions";
 import { nextStatusOptions, statusMeta } from "@/lib/supplier";
@@ -1340,6 +1341,11 @@ export async function updateSupplierAction(
     const { verification_level: _level, verified_at: _verifiedAt, ...safeInput } = input;
     void _level; void _verifiedAt;
     await store.updateSupplier(id, safeInput);
+    // Giữ bản tiếng Anh của MOQ, thị trường xuất khẩu và phần giới thiệu luôn khớp hồ sơ mới lưu;
+    // hàm này tự bỏ qua khi bản dịch còn mới và không chặn việc lưu khi AI lỗi.
+    const actorSession = await getSession();
+    await ensureSupplierProfileEnglish(store, id, actorSession ? { id: actorSession.uid, email: actorSession.email } : null)
+      .catch((error) => console.error("[supplier-translation] staff save", error));
     const warning = await syncSupplierIndustries(id);
     revalidateAll();
     return { ok: true, message: (input.status !== existing.status ? `Đã chuyển sang ${statusMeta(input.status).label}.` : "Đã lưu thông tin nhà cung cấp.") + (warning ? ` ${warning}` : "") };

@@ -7,6 +7,7 @@ import { parseSupplierProfile } from "@/lib/supplier-portal/profile-input";
 import { categoryProposalOptions, parseSupplierCategoryProposals } from "@/lib/supplier-portal/category-proposals";
 import { prepareInitialDocuments, saveInitialEvidence } from "@/lib/supplier-portal/profile-evidence";
 import { notifySupplierRegistration } from "@/lib/supplier-portal/notify";
+import { ensureSupplierProfileEnglish } from "@/lib/ai/supplier-translation-service";
 import type { SupplierInput } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -102,6 +103,10 @@ export async function POST(request: Request) {
           accepted_at: commitmentAcceptedAt,
         } } })
       .catch((error) => console.error("[supplier-profile] audit log failed", error));
+    // AI dịch MOQ và thị trường xuất khẩu sang tiếng Anh, đồng thời soạn phần giới thiệu
+    // tiếng Anh từ dữ kiện hồ sơ nếu NCC để trống. Lỗi dịch không chặn việc nộp hồ sơ.
+    await ensureSupplierProfileEnglish(store, supplier.id, { id: user.id, email: user.email })
+      .catch((error) => console.error("[supplier-profile] translation failed", error));
     let notification: "sent" | "simulated" | "failed" = "failed";
     try { notification = await notifySupplierRegistration(supplier, parsed.requested); }
     catch (error) { console.error("[supplier-profile] staff notification failed", error); }
