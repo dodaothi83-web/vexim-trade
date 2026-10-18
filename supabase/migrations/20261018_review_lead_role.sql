@@ -6,6 +6,10 @@ alter table public.app_users drop constraint if exists app_users_role_check;
 alter table public.app_users add constraint app_users_role_check
   check (role in ('admin','sale','sourcing','reviewer','viewer','supplier'));
 
+-- Drop the old constraint first: even NOT VALID constraints reject updates to
+-- legacy self-approved rows. This transaction installs the new one before commit.
+alter table public.verifications drop constraint if exists verifications_four_eyes;
+
 -- Retain the old self-approved rows without blocking edits to their public summaries.
 -- Only rows self-approved BEFORE this migration receive the explicit legacy marker.
 alter table public.verifications
@@ -16,7 +20,6 @@ update public.verifications set legacy_self_approved = true
 
 -- Restore separation for new approvals; NOT VALID keeps other historical rows intact.
 -- New approvals also need a real inspector. Only pre-existing exceptions can stay self-approved.
-alter table public.verifications drop constraint if exists verifications_four_eyes;
 alter table public.verifications add constraint verifications_four_eyes
   check (approved_by is null or (inspector_id is not null and
     (inspector_id <> approved_by or legacy_self_approved))) not valid;
