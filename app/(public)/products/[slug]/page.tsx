@@ -30,6 +30,8 @@ import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRo
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { sanitizeHtml } from "@/lib/public/sanitize";
+import { SITE_URL } from "@/lib/site";
+import { safeJsonLd } from "@/lib/public/supplier-seo";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +77,7 @@ async function resolveCategory(slug: string) {
 
 export default async function CategoryPage({ params }: PageProps) {
   const { slug } = await params;
-  const { cat, isPreview } = await resolveCategory(slug);
+  const { cat, isPreview, resolvedSlug } = await resolveCategory(slug);
   if (!cat) notFound();
 
   const products = await listPublicCategoryProducts(cat);
@@ -100,8 +102,30 @@ export default async function CategoryPage({ params }: PageProps) {
     : [];
   const filters: CategoryFilter[] = Array.isArray(cat.filters) ? (cat.filters as CategoryFilter[]) : [];
 
+  // Schema cho trang danh mục: đường dẫn breadcrumb luôn có; ItemList chỉ khi đã có sản phẩm.
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "Products", item: `${SITE_URL}/#categories` },
+      { "@type": "ListItem", position: 3, name: categoryName, item: `${SITE_URL}/products/${encodeURIComponent(resolvedSlug)}` },
+    ],
+  };
+  const itemListJsonLd = hasProducts ? {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `${categoryName} products`,
+    itemListElement: products.map((p, index) => ({
+      "@type": "ListItem", position: index + 1, name: p.name,
+      url: `${SITE_URL}/products/${encodeURIComponent(cat.slug)}/${encodeURIComponent(p.id)}`,
+    })),
+  } : null;
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbJsonLd) }} />
+      {itemListJsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(itemListJsonLd) }} />}
       {faqs.length > 0 && (
         <script
           type="application/ld+json"
@@ -144,7 +168,8 @@ export default async function CategoryPage({ params }: PageProps) {
             rfqHref={rfqHref}
           />
         ) : (
-          <StateB cat={cat} categoryName={categoryName} h1={h1} intro={intro} rfqHref={rfqHref} />
+          <StateB cat={cat} categoryName={categoryName} h1={h1} intro={intro} rfqHref={rfqHref}
+            columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} />
         )}
 
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white/95 p-3 shadow-lg backdrop-blur sm:hidden">
@@ -211,6 +236,21 @@ function StateA({
         </figure>
       )}
 
+      <CategoryContentSections columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} categoryName={categoryName} />
+
+      <CtaBlock slug={cat.slug} />
+    </>
+  );
+}
+
+/* ============ Nội dung CMS dùng chung cho cả hai trạng thái ============ */
+
+function CategoryContentSections({ columns, rows, facts, faqs, body, categoryName }: {
+  columns: CategoryColumn[]; rows: CategoryRow[]; facts: CategoryFact[];
+  faqs: Array<{ q: string; a: string }>; body: string | null; categoryName: string;
+}) {
+  return (
+    <>
       {columns.length > 0 && rows.length > 0 && (
         <CollapsibleSection id="specs" eyebrow="Grade reference" title={`${categoryName} specification`} subtitle="Reference spec from the supplier's spec sheet. Final terms are agreed in your contract.">
           <div className="overflow-x-auto rounded-xl border border-ink-200">
@@ -279,16 +319,19 @@ function StateA({
           </ul>
         </section>
       )}
-
-      <CtaBlock slug={cat.slug} />
     </>
   );
 }
 
 /* ================== STATE B — chưa có NCC ================== */
 
-function StateB({ cat, categoryName, h1, intro, rfqHref }: { cat: Category; categoryName: string; h1: string; intro: string; rfqHref: string }) {
+function StateB({ cat, categoryName, h1, intro, rfqHref, columns, rows, facts, faqs, body }: {
+  cat: Category; categoryName: string; h1: string; intro: string; rfqHref: string;
+  columns: CategoryColumn[]; rows: CategoryRow[]; facts: CategoryFact[];
+  faqs: Array<{ q: string; a: string }>; body: string | null;
+}) {
   return (
+    <>
     <section className="mt-6 grid gap-8 lg:grid-cols-[1.05fr_1fr] lg:items-start">
       <div>
         <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-700">
@@ -333,6 +376,9 @@ function StateB({ cat, categoryName, h1, intro, rfqHref }: { cat: Category; cate
         </div>
       </div>
     </section>
+    <CategoryContentSections columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} categoryName={categoryName} />
+    <CtaBlock slug={cat.slug} />
+    </>
   );
 }
 
