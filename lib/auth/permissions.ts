@@ -28,12 +28,18 @@ export type Permission =
   | "users.manage"
   | "kpi.view"
   | "blog.manage"
+  /** Xem báo cáo lượt xem toàn website (chỉ admin). */
+  | "traffic.view"
   /** Quản lý categories công khai */
   | "categories.manage"
+  /** Công khai/huỷ công khai category (chỉ admin) */
+  | "categories.publish"
   /** Thực hiện kiểm tra xác minh (inspector) */
   | "verifications.inspect"
   /** Duyệt kết quả xác minh (chỉ admin) */
   | "verifications.approve"
+  /** Xem RFQ (chỉ đọc, không thao tác) */
+  | "rfq.view"
   /** Xử lý RFQ, ghép seller, gửi báo giá cho buyer */
   | "rfq.manage";
 
@@ -65,6 +71,12 @@ export const ROLES: {
     badge: "bg-emerald-600 text-white",
   },
   {
+    value: "supplier",
+    label: "Doanh nghiệp",
+    description: "Chỉ xem hồ sơ của mình và bổ sung giấy tờ bước đầu qua cổng NCC; không vào CRM.",
+    badge: "bg-sky-100 text-sky-800",
+  },
+  {
     value: "viewer",
     label: "Chỉ xem",
     description: "Chỉ đọc dữ liệu và xem tài liệu chia sẻ buyer, không thao tác.",
@@ -78,6 +90,8 @@ const VIEW_ONLY: Permission[] = [
   "products.view",
   "media.view",
   "mail.view",
+  "settings.view",
+  "rfq.view",
 ];
 
 const MATRIX: Record<UserRole, Permission[]> = {
@@ -101,7 +115,9 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "users.manage",
     "kpi.view",
     "blog.manage",
+    "traffic.view",
     "categories.manage",
+    "categories.publish",
     "verifications.inspect",
     "verifications.approve",
     "rfq.manage",
@@ -120,7 +136,9 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "mail.send",
     "kpi.view",
     "blog.manage",
+    "categories.manage",
     "rfq.manage",
+    "settings.view",
   ],
   sourcing: [
     "buyers.view",
@@ -133,9 +151,13 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "media.internal",
     "mail.view",
     "mail.send",
+    "categories.manage",
+    "rfq.manage",
     "verifications.inspect",
+    "settings.view",
   ],
   viewer: VIEW_ONLY,
+  supplier: [],
 };
 
 export function permissionsFor(role: UserRole): Permission[] {
@@ -144,7 +166,14 @@ export function permissionsFor(role: UserRole): Permission[] {
 
 export function hasPermission(role: UserRole | null | undefined, perm: Permission): boolean {
   if (!role) return false;
-  return permissionsFor(role).includes(perm);
+  const perms = permissionsFor(role);
+  if (perms.includes(perm)) return true;
+  // Quyền `.manage` tự động cấp `.view` trên cùng domain (trừ trường hợp danh sách trắng riêng).
+  if (perm.endsWith(".view")) {
+    const domain = perm.slice(0, -".view".length);
+    return perms.includes(`${domain}.manage` as Permission);
+  }
+  return false;
 }
 
 export function roleLabel(role: UserRole | string): string {

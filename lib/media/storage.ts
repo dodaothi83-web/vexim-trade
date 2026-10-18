@@ -4,13 +4,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { getSupabaseClient, supabaseConfigured } from "@/lib/db/supabase";
+import { localFallbackAllowed } from "@/lib/db";
 
 /**
  * Kho tệp media: tự chọn nơi lưu theo đúng triết lý của tầng dữ liệu.
  *
  *  - Đã cấu hình Supabase  → bucket `vexim-media` (đặt tên qua SUPABASE_MEDIA_BUCKET)
- *  - Chưa / không tới được → thư mục `data/media` (chạy được ngay ở sandbox,
- *    không đẩy tệp lên cloud; thư mục data/ đã nằm trong .gitignore)
+ *  - Chỉ ở local/E2B khi fallback được phép → `data/media`.
+ *    Preview/staging/production phải báo lỗi thay vì ghi vào ổ đĩa serverless.
  */
 
 export type MediaDriver = "supabase" | "local";
@@ -84,7 +85,7 @@ export function mediaStorageStatus(): MediaStorageStatus {
   return {
     driver: supabaseUsable() ? "supabase" : "local",
     bucket: supabaseConfigured() ? mediaBucket() : null,
-    degraded: Boolean(down),
+    degraded: Boolean(down) && localFallbackAllowed(),
     reason: down,
     root: LOCAL_ROOT,
   };
@@ -134,12 +135,15 @@ export async function putObject(
       if (error) throw error;
       return { driver: "supabase", path: clean };
     } catch (error) {
-      if (!looksLikeConnectionError(error)) throw error;
+      if (!looksLikeConnectionError(error) || !localFallbackAllowed()) throw error;
       markDown(error);
-      console.warn("[media] Supabase Storage lỗi kết nối, lưu tạm vào data/media:", error);
+      console.warn("[media] Supabase Storage lỗi kết nối, lưu tạm vào data/media (chỉ dev/E2B):", error);
     }
   }
 
+  if (!localFallbackAllowed()) {
+    throw new Error("Supabase Storage không khả dụng; không được lưu ảnh vào ổ đĩa tạm ở preview/staging/production.");
+  }
   await localPut(clean, data);
   return { driver: "local", path: clean };
 }
@@ -159,11 +163,14 @@ export async function getObject(
         return { data: new Uint8Array(await data.arrayBuffer()), driver: "supabase" };
       }
     } catch (error) {
-      if (!looksLikeConnectionError(error)) throw error;
+      if (!looksLikeConnectionError(error) || !localFallbackAllowed()) throw error;
       markDown(error);
     }
   }
 
+  if (!localFallbackAllowed()) {
+    throw new Error("Supabase Storage không khả dụng; không đọc ảnh từ ổ đĩa tạm ở preview/staging/production.");
+  }
   const local = await localGet(clean);
   return local ? { data: local, driver: "local" } : null;
 }

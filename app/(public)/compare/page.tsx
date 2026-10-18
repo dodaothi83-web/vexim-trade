@@ -3,12 +3,11 @@ import { Metadata } from "next";
 import { ArrowRight, Minus } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
+import { PublicVerificationBadges } from "@/components/public-verification-badges";
 import {
-  formatFob,
   getPublicSuppliersByIds,
   mainProductNames,
   supplierTypeLabel,
-  verificationBadge,
 } from "@/lib/public/catalog";
 
 export const metadata: Metadata = {
@@ -77,25 +76,16 @@ export default async function ComparePage({ searchParams }: PageProps) {
                     Criterion
                   </th>
                   {suppliers.map((s) => {
-                    const b = verificationBadge(s);
                     return (
                       <th key={s.id} className="min-w-[220px] px-4 py-3 align-top">
                         <Link
-                          href={`/suppliers/${s.slug}`}
+                          href={`/suppliers/${encodeURIComponent(s.slug || s.id)}`}
                           className="block text-[15px] font-semibold text-ink-900 hover:text-brand-700"
                         >
                           {s.display_name ?? s.name}
                         </Link>
                         <p className="mt-1 text-[12px] font-medium text-ink-600">{supplierTypeLabel(s)}</p>
-                        <span
-                          className={
-                            b.tone === "emerald"
-                              ? "mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 ring-1 ring-emerald-200"
-                              : "mt-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200"
-                          }
-                        >
-                          {b.text}
-                        </span>
+                        <div className="mt-2"><PublicVerificationBadges levels={s.approved_verification_steps} compact /></div>
                       </th>
                     );
                   })}
@@ -141,8 +131,10 @@ export default async function ComparePage({ searchParams }: PageProps) {
                   cells={suppliers.map((s) => <>{(s.incoterms ?? []).join(", ") || <Dash />}</>)}
                 />
                 <Row
-                  label="FOB reference"
-                  cells={suppliers.map((s) => <>{formatFob(s) ?? <Dash />}</>)}
+                  label="Product prices"
+                  cells={suppliers.map((s) => s.main_products.length
+                    ? <Link href={`/suppliers/${encodeURIComponent(s.slug || s.id)}#products`} className="font-medium text-brand-700 hover:underline">See individual products</Link>
+                    : <Dash />)}
                 />
                 <Row
                   label="Private label"

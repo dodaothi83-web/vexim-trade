@@ -36,6 +36,9 @@ create table if not exists public.suppliers (
   updated_at      timestamptz not null default now()
 );
 
+alter table public.suppliers add column if not exists requested_category_slugs text[] not null default '{}';
+alter table public.suppliers add column if not exists requested_category_other text;
+alter table public.suppliers add column if not exists categories_reviewed_at timestamptz;
 create index if not exists suppliers_name_idx on public.suppliers (name);
 
 -- Hồ sơ sản phẩm riêng của từng NCC (để so khớp với RFQ của buyer)
@@ -72,6 +75,13 @@ alter table public.supplier_products
   add column if not exists ready_for_buyer boolean not null default false;
 
 create index if not exists supplier_products_supplier_idx on public.supplier_products (supplier_id);
+alter table public.supplier_products add column if not exists supplier_category_proposal text;
+alter table public.supplier_products add column if not exists reviewed_category_slug text;
+alter table public.supplier_products add column if not exists supplier_originated boolean not null default false;
+alter table public.supplier_products add column if not exists featured_media_id uuid;
+alter table public.supplier_products add column if not exists description_detail text;
+alter table public.supplier_products add column if not exists price_publicly_visible boolean not null default false;
+alter table public.supplier_products add column if not exists odm boolean not null default false;
 create index if not exists supplier_products_category_idx on public.supplier_products (category);
 
 -- ---------------------------------------------------------------------------
@@ -253,7 +263,7 @@ create index if not exists email_messages_created_idx on public.email_messages (
 -- Chạy lại đoạn này (idempotent) khi nâng cấp từ bản trước:
 alter table public.email_messages drop constraint if exists email_messages_kind_check;
 alter table public.email_messages add constraint email_messages_kind_check
-  check (kind in ('auto','manual','inbound'));
+  check (kind in ('auto','manual','inbound','rfq_outreach','rfq_followup','shortlist_buyer','buyer_status_update'));
 alter table public.email_messages drop constraint if exists email_messages_status_check;
 alter table public.email_messages add constraint email_messages_status_check
   check (status in ('draft','sent','failed','simulated','received'));
@@ -317,6 +327,7 @@ create table if not exists public.media_assets (
   audience     text not null default 'buyer' check (audience in ('buyer','internal')),
   status       text not null default 'unverified' check (status in
                  ('unverified','checked','expired')),
+  checklist_key text,
   expires_on   date,
   caption      text,
   -- tệp lưu trong Supabase Storage (hoặc thư mục data/media khi chạy local)
@@ -338,6 +349,13 @@ create table if not exists public.media_assets (
   )
 );
 
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'supplier_products_featured_media_fk'
+      and conrelid = 'public.supplier_products'::regclass) then
+    alter table public.supplier_products add constraint supplier_products_featured_media_fk
+      foreign key (featured_media_id) references public.media_assets(id) on delete set null;
+  end if;
+end $$;
 create index if not exists media_product_idx  on public.media_assets (product_id, sort_order, created_at);
 create index if not exists media_supplier_idx on public.media_assets (supplier_id, sort_order, created_at);
 create index if not exists media_audience_idx on public.media_assets (audience);
@@ -376,7 +394,7 @@ create table if not exists public.app_users (
   email         text not null,
   name          text,
   role          text not null default 'viewer' check (role in
-                  ('admin','sale','sourcing','viewer')),
+                  ('admin','sale','sourcing','viewer','supplier')),
   auth_provider text not null default 'local' check (auth_provider in ('supabase','local')),
   -- NULL = tài khoản chỉ có bên Supabase Auth (chưa có mật khẩu dự phòng)
   password_hash text,
@@ -396,6 +414,10 @@ alter table public.app_users add column if not exists auth_provider text not nul
 alter table public.app_users add column if not exists password_hash text;
 alter table public.app_users add column if not exists is_active boolean not null default true;
 alter table public.app_users add column if not exists last_login_at timestamptz;
+alter table public.app_users add column if not exists supplier_id uuid references public.suppliers(id) on delete set null;
+create unique index if not exists app_users_supplier_id_key
+  on public.app_users (supplier_id) where supplier_id is not null;
+-- On existing databases, run 20261017_supplier_self_registration.sql to replace the old role CHECK.
 -- Chữ ký email cá nhân (HTML) của từng người dùng; null = dùng chữ ký tự động.
 alter table public.app_users add column if not exists signature_html text;
 -- Số điện thoại cá nhân trong chữ ký email (chạy một lần)
@@ -541,6 +563,11 @@ alter table public.suppliers
   add column if not exists fob_currency text default 'USD',
   add column if not exists fob_updated_at timestamptz,
   add column if not exists fob_publicly_visible boolean not null default false;
+-- Public supplier images and preview-only demo flag.
+alter table public.suppliers
+  add column if not exists profile_image text,
+  add column if not exists cover_image text,
+  add column if not exists is_demo boolean not null default false;
 
 alter table public.suppliers drop constraint if exists suppliers_status_check;
 alter table public.suppliers add constraint suppliers_status_check
@@ -584,6 +611,30 @@ create table if not exists public.categories (
   updated_at  timestamptz not null default now()
 );
 
+-- CMS fields added after the RFQ foundation. public_page_ready is derived on
+-- read from approved suppliers, never written to the categories table.
+alter table public.categories
+  add column if not exists h1_i18n jsonb,
+  add column if not exists body_i18n jsonb,
+  add column if not exists spec_columns jsonb not null default '[]'::jsonb,
+  add column if not exists spec_rows jsonb not null default '[]'::jsonb,
+  add column if not exists buying_facts jsonb not null default '[]'::jsonb,
+  add column if not exists filters jsonb not null default '[]'::jsonb,
+  add column if not exists hero_image text,
+  add column if not exists hero_alt_i18n jsonb,
+  add column if not exists homepage_kicker_i18n jsonb,
+  add column if not exists active_on_homepage boolean not null default false,
+  add column if not exists status text,
+  add column if not exists seo_indexable boolean not null default false,
+  add column if not exists previous_slugs text[] not null default '{}',
+  add column if not exists created_by text,
+  add column if not exists updated_by text;
+update public.categories
+set status = case when is_published then 'published' else 'draft' end
+where status is null;
+alter table public.categories alter column status set default 'draft';
+alter table public.categories alter column status set not null;
+
 create unique index if not exists categories_slug_key on public.categories (slug);
 create index if not exists categories_parent_idx on public.categories (parent_id) where parent_id is not null;
 
@@ -624,6 +675,21 @@ create table if not exists public.certificates (
   updated_at   timestamptz not null default now()
 );
 create index if not exists certificates_supplier_idx on public.certificates (supplier_id);
+alter table public.certificates
+  add column if not exists holder_name text,
+  add column if not exists scope_text text,
+  add column if not exists requested_product_ids uuid[] not null default '{}',
+  add column if not exists approved_product_ids uuid[] not null default '{}',
+  add column if not exists review_status text not null default 'unreviewed',
+  add column if not exists review_note text,
+  add column if not exists publicly_visible boolean not null default false;
+alter table public.certificates drop constraint if exists certificates_review_status_check;
+alter table public.certificates add constraint certificates_review_status_check
+  check (review_status in ('unreviewed', 'pending', 'changes_requested', 'approved', 'rejected'));
+alter table public.certificates enable row level security;
+revoke all on public.certificates from anon, authenticated;
+alter table public.media_assets enable row level security;
+revoke all on public.media_assets from anon, authenticated;
 
 drop trigger if exists certificates_touch on public.certificates;
 create trigger certificates_touch before update on public.certificates
@@ -640,18 +706,120 @@ create table if not exists public.verifications (
                        ('scheduled','in_progress','submitted','approved','returned')),
   inspector_id       uuid references public.app_users(id) on delete set null,
   visit_date         date,
-  checklist          jsonb not null default '[]'::jsonb,
+  checklist          jsonb not null default '{}'::jsonb,
+  checklist_notes    jsonb not null default '{}'::jsonb,
+  tax_number         text,
+  bank_account_number text,
+  visit_lat          double precision,
+  visit_lng          double precision,
+  visit_address      text,
+  return_reason      text,
   public_summary_i18n jsonb not null default '{}'::jsonb,
   internal_notes     text,
   approved_by        uuid references public.app_users(id) on delete set null,
   approved_at        timestamptz,
   created_at         timestamptz not null default now(),
-  updated_at         timestamptz not null default now(),
-  constraint verifications_four_eyes check (
-    approved_by is null or inspector_id is null or approved_by <> inspector_id
-  )
+  -- Tạm cho phép admin tự duyệt bản kiểm; vẫn ghi inspector_id và approved_by.
+  -- Cần bật lại kiểm tra hai người khi vận hành đủ nhân sự.
+  updated_at         timestamptz not null default now()
 );
+alter table public.verifications
+  add column if not exists checklist_notes jsonb not null default '{}'::jsonb,
+  add column if not exists tax_number text,
+  add column if not exists bank_account_number text,
+  add column if not exists visit_lat double precision,
+  add column if not exists visit_lng double precision,
+  add column if not exists visit_address text,
+  add column if not exists return_reason text;
+alter table public.verifications alter column checklist set default '{}'::jsonb;
+update public.verifications set checklist = '{}'::jsonb where checklist = '[]'::jsonb;
+alter table public.verifications
+  add column if not exists shipment_ref text,
+  add column if not exists shipped_on date,
+  add column if not exists shipment_destination text;
+-- Media for a specific inspection (internal documents/photos); add FK after
+-- verifications exists, since media_assets is declared earlier in this file.
+alter table public.media_assets add column if not exists verification_id uuid;
+alter table public.media_assets add column if not exists checklist_key text;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'media_assets_verification_id_fkey'
+    and conrelid = 'public.media_assets'::regclass) then
+    alter table public.media_assets add constraint media_assets_verification_id_fkey
+      foreign key (verification_id) references public.verifications(id) on delete cascade;
+  end if;
+end $$;
+alter table public.media_assets drop constraint if exists media_assets_owner_type_check;
+alter table public.media_assets add constraint media_assets_owner_type_check
+  check (owner_type in ('product','supplier','verification'));
+alter table public.media_assets drop constraint if exists media_owner_ck;
+alter table public.media_assets add constraint media_owner_ck check (
+  (owner_type = 'product' and product_id is not null and verification_id is null) or
+  (owner_type = 'supplier' and supplier_id is not null and product_id is null and verification_id is null) or
+  (owner_type = 'verification' and verification_id is not null and supplier_id is not null
+    and product_id is null and audience = 'internal')
+);
+create index if not exists media_verification_idx
+  on public.media_assets (verification_id, created_at desc)
+  where verification_id is not null;
+alter table public.media_assets drop constraint if exists media_checklist_key_ck;
+alter table public.media_assets add constraint media_checklist_key_ck check (
+  checklist_key is null or
+  (owner_type = 'verification' and verification_id is not null and checklist_key in (
+    'business_license', 'tax_certificate', 'bank_letter', 'food_safety',
+    'haccp_or_brc', 'product_certs', 'export_license',
+    'factory_address_confirmed', 'production_line_seen', 'warehouse_seen',
+    'qc_lab_seen', 'documents_original', 'capacity_verified',
+    'worker_interview', 'management_interview', 'photos_taken',
+    'order_matched', 'shipping_proof', 'delivery_proof'
+  ))
+);
+create index if not exists media_verification_checklist_idx
+  on public.media_assets (verification_id, checklist_key)
+  where owner_type = 'verification' and checklist_key is not null;
 create index if not exists verifications_supplier_idx on public.verifications (supplier_id, created_at desc);
+
+create table if not exists public.supplier_verification_requests (
+  supplier_id uuid not null references public.suppliers(id) on delete cascade,
+  target_level smallint not null check (target_level in (2,3)),
+  status text not null default 'requested' check (status in ('requested','contacted')),
+  requested_at timestamptz not null default now(),
+  contacted_at timestamptz,
+  contacted_by uuid references public.app_users(id) on delete set null,
+  primary key (supplier_id, target_level)
+);
+create index if not exists supplier_verification_requests_queue_idx
+  on public.supplier_verification_requests(status, requested_at desc);
+alter table public.supplier_verification_requests enable row level security;
+revoke all on public.supplier_verification_requests from anon, authenticated;
+
+-- Quyền cổng NCC riêng với status công khai và kết quả từng đợt xác minh.
+alter table public.suppliers add column if not exists onboarding_status text not null default 'not_started';
+alter table public.suppliers add column if not exists onboarding_note text;
+alter table public.suppliers drop constraint if exists suppliers_onboarding_status_check;
+alter table public.suppliers add constraint suppliers_onboarding_status_check
+  check (onboarding_status in ('not_started','pending','approved','changes_requested'));
+update public.suppliers s set onboarding_status = 'pending'
+where s.onboarding_status = 'not_started' and exists (
+  select 1 from public.app_users u where u.supplier_id = s.id and u.role = 'supplier'
+) and s.tax_id is not null and s.products is not null;
+
+-- Moderation of supplier-authored products; pre-existing staff products remain approved.
+alter table public.supplier_products add column if not exists supplier_review_status text not null default 'approved';
+alter table public.supplier_products add column if not exists supplier_review_note text;
+alter table public.supplier_products drop constraint if exists supplier_products_supplier_review_status_check;
+alter table public.supplier_products add constraint supplier_products_supplier_review_status_check
+  check (supplier_review_status in ('draft','pending','approved','changes_requested'));
+create index if not exists supplier_products_review_queue_idx
+  on public.supplier_products(supplier_review_status, updated_at desc);
+
+create table if not exists public.supplier_portal_notice_reads (
+  supplier_id uuid not null references public.suppliers(id) on delete cascade,
+  notice_key text not null check (char_length(notice_key) between 1 and 100),
+  read_at timestamptz not null default now(),
+  primary key (supplier_id, notice_key)
+);
+alter table public.supplier_portal_notice_reads enable row level security;
+revoke all on public.supplier_portal_notice_reads from anon, authenticated;
 
 drop trigger if exists verifications_touch on public.verifications;
 create trigger verifications_touch before update on public.verifications
@@ -698,15 +866,33 @@ create table if not exists public.rfqs (
   spam_score            integer not null default 0,
   spam_flags            text[] not null default '{}',
   status                text not null default 'new' check (status in
-                          ('new','qualified','matching','quoting','sampling',
-                           'won','lost','spam','closed')),
+                          ('new','needs_review','in_progress','matching','quoted',
+                           'sampling','won','lost','spam')),
   assigned_to           uuid references public.app_users(id) on delete set null,
   first_response_at     timestamptz,
   closed_reason         text,
+  lost_reason           text,
   access_token          text not null,
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
 );
+-- Upgrade older installations (the original RFQ status check used legacy values).
+alter table public.rfqs add column if not exists lost_reason text;
+alter table public.rfqs drop constraint if exists rfqs_status_check;
+update public.rfqs set status = case status
+  when 'qualified' then 'in_progress'
+  when 'quoting' then 'matching'
+  when 'closed' then 'lost'
+  else status end
+where status in ('qualified','quoting','closed');
+update public.rfqs set lost_reason = 'legacy_unspecified'
+where status = 'lost' and nullif(trim(lost_reason), '') is null;
+alter table public.rfqs add constraint rfqs_status_check check (status in
+  ('new','needs_review','in_progress','matching','quoted','sampling','won','lost','spam'));
+alter table public.rfqs drop constraint if exists rfqs_lost_reason_check;
+alter table public.rfqs add constraint rfqs_lost_reason_check check (
+  status <> 'lost' or nullif(trim(lost_reason), '') is not null);
+
 create unique index if not exists rfqs_code_key on public.rfqs (code);
 create unique index if not exists rfqs_access_token_key on public.rfqs (access_token);
 create index if not exists rfqs_status_idx on public.rfqs (status, created_at desc);
@@ -764,8 +950,21 @@ create table if not exists public.rfq_matches (
   updated_at         timestamptz not null default now(),
   unique (rfq_id, supplier_id)
 );
+alter table public.rfq_matches add column if not exists response_due_at timestamptz;
+alter table public.rfq_matches add column if not exists supplier_replied_at timestamptz;
+create index if not exists rfq_matches_supplier_sent_idx on public.rfq_matches(supplier_id, sent_to_supplier_at desc)
+  where sent_to_supplier_at is not null;
 create index if not exists rfq_matches_rfq_idx on public.rfq_matches (rfq_id, status);
 create index if not exists rfq_matches_supplier_idx on public.rfq_matches (supplier_id, created_at desc);
+
+-- RFQ timeline linking (một email có thể gắn với 1 RFQ và 1 RfqMatch cụ thể)
+alter table public.email_messages add column if not exists rfq_id uuid references public.rfqs(id) on delete set null;
+alter table public.email_messages add column if not exists rfq_match_id uuid references public.rfq_matches(id) on delete set null;
+create index if not exists email_messages_rfq_idx
+  on public.email_messages (rfq_id, created_at desc);
+-- A single buyer status email per RFQ + stage (atomic claim before sending).
+create unique index if not exists email_messages_buyer_status_once_idx
+  on public.email_messages (rfq_id, stage) where kind = 'buyer_status_update';
 
 drop trigger if exists rfq_matches_touch on public.rfq_matches;
 create trigger rfq_matches_touch before update on public.rfq_matches
@@ -830,14 +1029,12 @@ select
   s.next_reverify_at,
   case when s.rating_count >= 3 then s.rating_avg end   as rating_avg,
   case when s.rating_count >= 3 then s.rating_count end as rating_count,
-  case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then s.fob_min end as fob_min,
-  case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then s.fob_max end as fob_max,
-  case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then s.fob_unit end as fob_unit,
-  case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then s.fob_currency end as fob_currency,
+  -- Legacy supplier-wide price columns retained in the view for compatibility,
+  -- but always empty: reference prices belong to individual products only.
+  case when false then s.fob_min end as fob_min,
+  case when false then s.fob_max end as fob_max,
+  case when false then s.fob_unit end as fob_unit,
+  case when false then s.fob_currency end as fob_currency,
   s.fob_updated_at,
   s.lead_time_days,
   s.updated_at
@@ -852,7 +1049,10 @@ select
   sp.name_i18n,
   coalesce(sp.name_i18n->>'en', sp.name)                as name,
   sp.specs,
-  sp.description,
+  regexp_replace(
+    regexp_replace(sp.description,
+      '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', '[contact via Vexim]', 'gi'),
+    '(\+?[0-9][ ().-]?){9,15}[0-9]', '[contact via Vexim]', 'g') as description,
   sp.packaging,
   sp.moq_qty,
   sp.moq_unit,
@@ -864,14 +1064,44 @@ select
   sp.export_port,
   sp.incoterm,
   sp.incoterm_place,
-  case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then sp.ref_price end as ref_price,
-  case when s.fob_publicly_visible and s.fob_updated_at is not null
-            and s.fob_updated_at > now() - interval '180 days' then sp.currency end as currency,
-  sp.updated_at
+  case when sp.price_publicly_visible and sp.ready_for_buyer
+            and (sp.supplier_review_status is null or sp.supplier_review_status = 'approved')
+            and (not sp.supplier_originated or sp.reviewed_category_slug is not null)
+            and s.fob_publicly_visible and s.fob_updated_at is not null
+            and s.fob_updated_at <= now()
+            and s.fob_updated_at > now() - interval '180 days'
+            and sp.ref_price > 0
+            and (sp.price_valid_until is null or sp.price_valid_until >= current_date)
+       then sp.ref_price end as ref_price,
+  case when sp.price_publicly_visible and sp.ready_for_buyer
+            and (sp.supplier_review_status is null or sp.supplier_review_status = 'approved')
+            and (not sp.supplier_originated or sp.reviewed_category_slug is not null)
+            and s.fob_publicly_visible and s.fob_updated_at is not null
+            and s.fob_updated_at <= now()
+            and s.fob_updated_at > now() - interval '180 days'
+            and sp.ref_price > 0
+            and (sp.price_valid_until is null or sp.price_valid_until >= current_date)
+       then sp.currency end as currency,
+  sp.updated_at,
+  case when sp.ready_for_buyer
+    and (sp.supplier_review_status is null or sp.supplier_review_status = 'approved')
+    and (not sp.supplier_originated or sp.reviewed_category_slug is not null)
+    then regexp_replace(
+    regexp_replace(sp.description_detail,
+      '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', '[contact via Vexim]', 'gi'),
+    '(\+?[0-9][ ().-]?){9,15}[0-9]', '[contact via Vexim]', 'g') end as description_detail,
+  sp.oem,
+  sp.odm
 from public.supplier_products sp
 join public.suppliers s on s.id = sp.supplier_id
-where s.status = 'published';
+where s.status = 'published'
+  and not coalesce(s.is_demo, false)
+  and sp.ready_for_buyer
+  and (sp.supplier_review_status is null or sp.supplier_review_status = 'approved')
+  and (not sp.supplier_originated or exists (
+    select 1 from public.categories c where c.slug = sp.reviewed_category_slug
+      and c.status = 'published' and c.is_published
+  ));
 
 -- ---------------------------------------------------------------------------
 -- 10. SEED – Cashew category

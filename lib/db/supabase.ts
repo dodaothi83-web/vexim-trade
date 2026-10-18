@@ -24,8 +24,11 @@ import type {
   Rfq,
   RfqAttachment,
   RfqMatch,
+  SupplierRfqInvitation,
+  SupplierNoticeRead,
   Supplier,
   SupplierInput,
+  SupplierVerificationRequest,
   SupplierCategory,
   SupplierProduct,
   SupplierProductInput,
@@ -36,6 +39,7 @@ import type {
   Verification,
 } from "@/lib/types";
 import type { DataStore } from "@/lib/db/types";
+import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
 
 /** Bỏ các khoá undefined khỏi patch để không vô tình ghi đè mất dữ liệu cũ. */
 function cleanPatch<T extends Record<string, unknown>>(patch: T): Partial<T> {
@@ -142,6 +146,35 @@ function fail(op: string, error: { message: string } | null): never {
   throw new Error(`${op}: ${error?.message ?? "lỗi không xác định"}`);
 }
 
+/** Only this exact PostgREST schema-cache mismatch gets a single-price compatibility retry. */
+function missingProductPriceRangeColumn(error: { code?: string; message: string } | null): boolean {
+  return !!error && (error.code === "PGRST204" || /schema cache/i.test(error.message)) &&
+    /['"]ref_price_max['"]/.test(error.message) && /supplier_products/.test(error.message);
+}
+
+function priceRangeMigrationRequired(): never {
+  // Never silently discard an entered upper bound: the buyer could see a false single price.
+  throw new Error("Chưa lưu giá đến: PostgREST chưa nhận diện cột supplier_products.ref_price_max (migration chưa áp dụng hoặc schema cache chưa cập nhật). Vexim cần kiểm tra đúng project, áp dụng migration 20261017_product_reference_price_range.sql nếu thiếu cột hoặc nạp lại schema cache nếu cột đã có; các thay đổi trong lần lưu này chưa được ghi.");
+}
+
+/** public_page_ready is derived on read; never send it back to PostgREST. */
+async function decorateCategoryReadiness(rows: Category[]): Promise<Category[]> {
+  if (!rows.length) return rows;
+  const [productsResult, suppliersResult] = await Promise.all([
+    must().from("supplier_products").select("supplier_id, name, category, spec, description, ready_for_buyer, supplier_review_status, supplier_originated, reviewed_category_slug"),
+    must().from("suppliers").select("id, status, is_demo"),
+  ]);
+  if (productsResult.error) fail("categoryReadiness:products", productsResult.error);
+  if (suppliersResult.error) fail("categoryReadiness:suppliers", suppliersResult.error);
+  const published = new Set((suppliersResult.data ?? []).filter((s) => s.status === "published" &&
+    (!s.is_demo || process.env.VEXIM_SHOW_DEMO === "true")).map((s) => s.id));
+  const demoIds = new Set((suppliersResult.data ?? []).filter((s) => s.is_demo && process.env.VEXIM_SHOW_DEMO === "true").map((s) => s.id));
+  const visible = (productsResult.data ?? []).filter((p) => published.has(p.supplier_id) &&
+    productReviewApproved(p) && !isTestOnlyProduct(p.name) && (p.ready_for_buyer || demoIds.has(p.supplier_id)));
+  return rows.map((c) => ({ ...c, public_page_ready: visible.some((p) =>
+    productBelongsToCategory(p, c, rows)) }));
+}
+
 export const supabaseStore: DataStore = {
   mode: "supabase",
 
@@ -186,6 +219,30 @@ export const supabaseStore: DataStore = {
     if (error) fail("deleteSupplier", error);
   },
 
+  async listSupplierVerificationRequests(supplierId) {
+    let query = must().from("supplier_verification_requests").select("*").order("requested_at", { ascending: false });
+    if (supplierId) query = query.eq("supplier_id", supplierId);
+    const { data, error } = await query;
+    if (error) fail("listSupplierVerificationRequests", error);
+    return (data ?? []) as SupplierVerificationRequest[];
+  },
+  async createSupplierVerificationRequest(supplierId, level) {
+    const { data, error } = await must().from("supplier_verification_requests")
+      .insert({ supplier_id: supplierId, target_level: level, status: "requested" }).select().single();
+    if (error) fail("createSupplierVerificationRequest", error);
+    return data as SupplierVerificationRequest;
+  },
+  async markSupplierVerificationContacted(supplierId, level, actorId) {
+    const { data, error } = await must().from("supplier_verification_requests")
+      .update({ status: "contacted", contacted_at: new Date().toISOString(), contacted_by: actorId })
+      .eq("supplier_id", supplierId).eq("target_level", level).eq("status", "requested").select().maybeSingle();
+    if (error) fail("markSupplierVerificationContacted", error);
+    if (data) return data as SupplierVerificationRequest;
+    const existing = (await this.listSupplierVerificationRequests(supplierId)).find((r) => r.target_level === level);
+    if (!existing) throw new Error("Không có yêu cầu này.");
+    return existing;
+  },
+
   async listProducts() {
     const { data, error } = await must()
       .from("supplier_products")
@@ -213,23 +270,33 @@ export const supabaseStore: DataStore = {
     return (data ?? []) as SupplierProduct[];
   },
   async createProduct(input: SupplierProductInput) {
-    const { data, error } = await must()
-      .from("supplier_products")
-      .insert(input)
-      .select()
-      .single();
-    if (error) fail("createProduct", error);
-    return data as SupplierProduct;
+    const write = (payload: Partial<SupplierProductInput>) => must()
+      .from("supplier_products").insert(payload).select().single();
+    let result = await write(input);
+    if (missingProductPriceRangeColumn(result.error)) {
+      if (input.ref_price_max != null) priceRangeMigrationRequired();
+      // Old databases can still create a SINGLE-price product. Do not drop a real upper bound.
+      const { ref_price_max: _missing, ...legacy } = input;
+      void _missing;
+      result = await write(legacy);
+    }
+    if (result.error) fail("createProduct", result.error);
+    return result.data as SupplierProduct;
   },
   async updateProduct(id, patch) {
-    const { data, error } = await must()
-      .from("supplier_products")
-      .update({ ...cleanPatch(patch), updated_at: new Date().toISOString() })
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) fail("updateProduct", error);
-    return data as SupplierProduct;
+    const write = (payload: Partial<SupplierProductInput> & { updated_at: string }) => must()
+      .from("supplier_products").update(payload).eq("id", id).select().single();
+    const fields = { ...cleanPatch(patch), updated_at: new Date().toISOString() };
+    let result = await write(fields);
+    if (missingProductPriceRangeColumn(result.error)) {
+      if (patch.ref_price_max != null) priceRangeMigrationRequired();
+      // Retrying only a missing NULL preserves old single-price saves without weakening other gates.
+      const { ref_price_max: _missing, ...legacy } = fields;
+      void _missing;
+      result = await write(legacy);
+    }
+    if (result.error) fail("updateProduct", result.error);
+    return result.data as SupplierProduct;
   },
   async deleteProduct(id) {
     const { error } = await must().from("supplier_products").delete().eq("id", id);
@@ -297,6 +364,14 @@ export const supabaseStore: DataStore = {
     if (error) fail("updateUser", error);
     return data as AppUserRecord;
   },
+  async claimSupplierForUser(userId, supplierId) {
+    const { data, error } = await must().from("app_users")
+      .update({ supplier_id: supplierId, updated_at: new Date().toISOString() })
+      .eq("id", userId).eq("role", "supplier").eq("is_active", true)
+      .is("supplier_id", null).select("id");
+    if (error) fail("claimSupplierForUser", error);
+    return (data?.length ?? 0) === 1;
+  },
   async deleteUser(id) {
     const { error } = await must().from("app_users").delete().eq("id", id);
     if (error) fail("deleteUser", error);
@@ -309,10 +384,14 @@ export const supabaseStore: DataStore = {
   },
 
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
-    const column = ownerType === "product" ? "product_id" : "supplier_id";
+    const column =
+      ownerType === "product" ? "product_id" :
+      ownerType === "verification" ? "verification_id" :
+      "supplier_id";
     const { data, error } = await must()
       .from("media_assets")
       .select("*")
+      .eq("owner_type", ownerType)
       .eq(column, ownerId)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
@@ -533,6 +612,15 @@ export const supabaseStore: DataStore = {
     if (error) fail("listMessages", error);
     return (data ?? []) as EmailMessage[];
   },
+  async listMessagesForRfq(rfqId) {
+    const { data, error } = await must()
+      .from("email_messages")
+      .select("*")
+      .eq("rfq_id", rfqId)
+      .order("created_at", { ascending: false });
+    if (error) fail("listMessagesForRfq", error);
+    return (data ?? []) as EmailMessage[];
+  },
   async getMessage(id) {
     const { data, error } = await must()
       .from("email_messages")
@@ -721,27 +809,33 @@ export const supabaseStore: DataStore = {
     if (options?.publishedOnly) q = q.eq("is_published", true);
     const { data, error } = await q;
     if (error) fail("listCategories", error);
-    return (data ?? []) as Category[];
+    return decorateCategoryReadiness((data ?? []) as Category[]);
   },
   async getCategory(id) {
     const { data, error } = await must().from("categories").select("*").eq("id", id).maybeSingle();
     if (error) fail("getCategory", error);
-    return (data as Category | null) ?? null;
+    if (!data) return null;
+    return (await decorateCategoryReadiness([data as Category]))[0];
   },
   async getCategoryBySlug(slug) {
     const { data, error } = await must().from("categories").select("*").eq("slug", slug).maybeSingle();
     if (error) fail("getCategoryBySlug", error);
-    return (data as Category | null) ?? null;
+    if (!data) return null;
+    return (await decorateCategoryReadiness([data as Category]))[0];
   },
   async createCategory(input) {
-    const { data, error } = await must().from("categories").insert(cleanPatch(input)).select().single();
+    const { public_page_ready: _computed, ...fields } = input;
+    void _computed;
+    const { data, error } = await must().from("categories").insert(cleanPatch(fields)).select().single();
     if (error) fail("createCategory", error);
     return data as Category;
   },
   async updateCategory(id, patch) {
+    const { public_page_ready: _computed, ...fields } = patch;
+    void _computed;
     const { data, error } = await must()
       .from("categories")
-      .update(cleanPatch({ ...patch, updated_at: new Date().toISOString() }))
+      .update(cleanPatch({ ...fields, updated_at: new Date().toISOString() }))
       .eq("id", id)
       .select()
       .single();
@@ -755,19 +849,22 @@ export const supabaseStore: DataStore = {
 
   // --- Supplier categories (N-N) ---
   async setSupplierCategories(supplierId, categoryIds, primaryId) {
-    const { error: delErr } = await must()
-      .from("supplier_categories")
-      .delete()
-      .eq("supplier_id", supplierId);
-    if (delErr) fail("setSupplierCategories:delete", delErr);
-    if (!categoryIds.length) return;
-    const rows = categoryIds.map((cid) => ({
-      supplier_id: supplierId,
-      category_id: cid,
-      is_primary: primaryId ? cid === primaryId : cid === categoryIds[0],
-    }));
-    const { error: insErr } = await must().from("supplier_categories").insert(rows);
-    if (insErr) fail("setSupplierCategories:insert", insErr);
+    const existing = await this.listSupplierCategories(supplierId);
+    const ids = [...new Set(categoryIds)];
+    // Upsert first: an insertion failure must not erase existing supplier industries.
+    if (ids.length) {
+      const rows = ids.map((cid) => ({
+        supplier_id: supplierId, category_id: cid,
+        is_primary: primaryId ? cid === primaryId : cid === ids[0],
+      }));
+      const { error } = await must().from("supplier_categories").upsert(rows, { onConflict: "supplier_id,category_id" });
+      if (error) fail("setSupplierCategories:upsert", error);
+    }
+    const stale = existing.filter((row) => !ids.includes(row.category_id)).map((row) => row.category_id);
+    if (stale.length) {
+      const { error } = await must().from("supplier_categories").delete().eq("supplier_id", supplierId).in("category_id", stale);
+      if (error) fail("setSupplierCategories:delete", error);
+    }
   },
   async listSupplierCategories(supplierId) {
     const { data, error } = await must()
@@ -787,6 +884,11 @@ export const supabaseStore: DataStore = {
       .order("created_at", { ascending: false });
     if (error) fail("listCertificates", error);
     return (data ?? []) as Certificate[];
+  },
+  async getCertificate(id) {
+    const { data, error } = await must().from("certificates").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getCertificate", error);
+    return (data as Certificate) ?? null;
   },
   async createCertificate(input) {
     const { data, error } = await must().from("certificates").insert(cleanPatch(input)).select().single();
@@ -816,6 +918,11 @@ export const supabaseStore: DataStore = {
     if (error) fail("listVerifications", error);
     return (data ?? []) as Verification[];
   },
+  async getVerification(id) {
+    const { data, error } = await must().from("verifications").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getVerification", error);
+    return (data as Verification | null) ?? null;
+  },
   async createVerification(input) {
     const { data, error } = await must().from("verifications").insert(cleanPatch(input)).select().single();
     if (error) fail("createVerification", error);
@@ -829,7 +936,26 @@ export const supabaseStore: DataStore = {
       .select()
       .single();
     if (error) fail("updateVerification", error);
-    return data as Verification;
+    const v = data as Verification;
+    // Recompute supplier verification_level.
+    try {
+      const { data: approved } = await must()
+        .from("verifications")
+        .select("target_level")
+        .eq("supplier_id", v.supplier_id)
+        .eq("status", "approved");
+      const lvl = (approved ?? []).reduce((m, x) => Math.max(m, Number(x.target_level) || 0), 0);
+      const { data: supplier, error: readError } = await must()
+        .from("suppliers").select("verification_level,verified_at").eq("id", v.supplier_id).single();
+      if (readError) throw readError;
+      if (Number(supplier.verification_level ?? 0) !== lvl || (lvl > 0 && !supplier.verified_at)) {
+        const { error: updateError } = await must().from("suppliers")
+          .update({ verification_level: lvl, verified_at: lvl > 0 ? new Date().toISOString() : null })
+          .eq("id", v.supplier_id);
+        if (updateError) throw updateError;
+      }
+    } catch (error) { console.error("[verification] could not sync supplier badge", error); }
+    return v;
   },
 
   // --- RFQs ---
@@ -904,6 +1030,38 @@ export const supabaseStore: DataStore = {
       .order("created_at", { ascending: true });
     if (error) fail("listRfqMatches", error);
     return (data ?? []) as RfqMatch[];
+  },
+  async listSupplierRfqInvitations(supplierId) {
+    const all: SupplierRfqInvitation[] = [];
+    // Page deliberately: PostgREST defaults to 1,000 rows, which would silently undercount reports.
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await must().from("rfq_matches")
+        .select("id,rfq_id,supplier_id,status,sent_to_supplier_at,response_due_at,supplier_replied_at,quote_price,quote_currency,quote_unit,created_at,updated_at,rfq:rfqs!inner(code,product_text,quantity,unit,destination_country,incoterm,needed_by,source_product_id)")
+        .eq("supplier_id", supplierId).not("sent_to_supplier_at", "is", null).neq("status", "proposed")
+        .order("sent_to_supplier_at", { ascending: false }).range(offset, offset + 499);
+      if (error) fail("listSupplierRfqInvitations", error);
+      const batch = (data ?? []) as unknown as SupplierRfqInvitation[];
+      all.push(...batch);
+      if (batch.length < 500) break;
+    }
+    return all;
+  },
+  async listSupplierNoticeReads(supplierId) {
+    const all: SupplierNoticeRead[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await must().from("supplier_portal_notice_reads").select("*")
+        .eq("supplier_id", supplierId).order("read_at", { ascending: false }).range(offset, offset + 499);
+      if (error) fail("listSupplierNoticeReads", error);
+      const batch = (data ?? []) as SupplierNoticeRead[];
+      all.push(...batch);
+      if (batch.length < 500) break;
+    }
+    return all;
+  },
+  async markSupplierNoticeRead(supplierId, noticeKey) {
+    const { error } = await must().from("supplier_portal_notice_reads")
+      .upsert({ supplier_id: supplierId, notice_key: noticeKey }, { onConflict: "supplier_id,notice_key", ignoreDuplicates: true });
+    if (error) fail("markSupplierNoticeRead", error);
   },
   async getRfqMatch(id) {
     const { data, error } = await must()

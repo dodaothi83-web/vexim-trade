@@ -28,7 +28,7 @@ export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
       return;
     }
     if (res.details?.length) setNotice(res.details.join(" "));
-    router.replace("/crm/dashboard");
+    router.replace(res.redirectTo ?? "/crm/dashboard");
     router.refresh();
   }
 
@@ -91,6 +91,12 @@ export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
         Đăng nhập
       </Button>
+
+      <div className="flex items-center gap-3 text-xs text-ink-500"><span className="h-px flex-1 bg-ink-200" />hoặc<span className="h-px flex-1 bg-ink-200" /></div>
+      <a href="/api/auth/google/start?intent=login" className="flex w-full items-center justify-center gap-2 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50">
+        <span className="text-base font-black text-blue-600" aria-hidden="true">G</span> Đăng nhập với Google
+      </a>
+      <p className="text-center text-xs text-ink-500">Google chỉ xác thực email; tài khoản vẫn phải được Vexim cấp quyền trong hệ thống.</p>
 
       {needsSetup && (
         <p className="flex items-start gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-[12.5px] text-brand-900">

@@ -1,377 +1,182 @@
 import Link from "next/link";
 import {
-  AlertTriangle,
-  ArrowRight,
-  CalendarClock,
-  Factory,
-  LineChart,
-  MailCheck,
-  PackageSearch,
-  TrendingUp,
-  UserPlus,
+  ArrowRight, Boxes, ClipboardCheck, FileQuestion, FolderTree, PackageCheck,
+  ShieldCheck, Store, UsersRound, Activity,
 } from "lucide-react";
 
-import { listBuyersWithSupplier } from "@/lib/queries";
+import { PageHeader } from "@/components/page-header";
+import { Card } from "@/components/ui";
 import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
-import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
-import { emailMode } from "@/lib/config";
-import { FUNNEL_STAGES, getStage } from "@/lib/pipeline";
-import { PageHeader } from "@/components/page-header";
-import { StageBadge } from "@/components/stage-select";
-import { Badge, Card, EmptyState, cx, formatDate, formatMoney, relativeTime } from "@/components/ui";
+import { buildMarketplaceSnapshot } from "@/lib/dashboard/marketplace";
+import { readSiteTraffic } from "@/lib/traffic/site";
+import { buildSiteTrafficReport } from "@/lib/traffic/site-report";
+import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
+import { productReviewApproved, productBelongsToCategory } from "@/lib/public/product-selection";
+import type { MediaAsset } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-const today = () => new Date().toISOString().slice(0, 10);
+export const metadata = { title: "Vận hành sàn | Vexim Trade" };
 
 export default async function DashboardPage() {
   const session = await requireSession();
-  const canManageBuyers = hasPermission(session.role, "buyers.manage");
+  const canSuppliers = hasPermission(session.role, "suppliers.view");
+  const canProducts = hasPermission(session.role, "products.view");
+  const canCategories = hasPermission(session.role, "categories.manage");
+  const canInspect = hasPermission(session.role, "verifications.inspect");
+  const canRfqs = hasPermission(session.role, "rfq.view");
+  const canTraffic = hasPermission(session.role, "traffic.view");
+  const store = getStore();
+  const [suppliers, products, categories, verifications, requests, rfqs, trafficRows] = await Promise.all([
+    canSuppliers ? store.listSuppliers() : Promise.resolve([]),
+    canProducts ? store.listProducts() : Promise.resolve([]),
+    store.listCategories({ publishedOnly: false }),
+    canInspect ? store.listVerifications() : Promise.resolve([]),
+    canInspect ? store.listSupplierVerificationRequests().catch((error) => {
+      console.error("[dashboard] verification requests unavailable", error);
+      return null;
+    }) : Promise.resolve(null),
+    canRfqs ? store.listRfqs() : Promise.resolve([]),
+    canTraffic ? readSiteTraffic(7).catch((error) => {
+      console.error("[dashboard] site traffic unavailable", error);
+      return null;
+    }) : Promise.resolve(null),
+  ]);
+  // Only fetch media for plausible live offers, in bounded batches. Drafts and
+  // internal files never become public merely because they are present in storage.
+  const publishedIds = new Set(suppliers.filter((s) => s.status === "published" && !isSyntheticSupplier(s)).map((s) => s.id));
+  const publishedCategories = categories.filter((c) => c.status === "published" && c.is_published);
+  const candidates = products.filter((p) => publishedIds.has(p.supplier_id) && p.ready_for_buyer &&
+    productReviewApproved(p) && publishedCategories.some((c) => productBelongsToCategory(p, c, categories)));
+  const media: MediaAsset[] = [];
+  for (let i = 0; i < candidates.length; i += 80) {
+    media.push(...await store.listMediaForProducts(candidates.slice(i, i + 80).map((p) => p.id)));
+  }
+  const snapshot = buildMarketplaceSnapshot({ suppliers, products, categories, media, verifications,
+    requests: requests ?? [], rfqs });
+  const supplierNames = new Map(suppliers.map((s) => [s.id, s.name]));
 
-  const buyers = await listBuyersWithSupplier(ownerScopeOf(session));
-  const activities = (await getStore().listActivities()).slice(0, 12);
-  const suppliers = await getStore().listSuppliers();
-  const mode = emailMode();
-  const d0 = today();
-
-  const active = buyers.filter((b) => !getStage(b.stage).terminal);
-  const pipelineValue = active.reduce((s, b) => s + (b.deal_value ?? 0), 0);
-  const executing = buyers.filter((b) =>
-    ["confirmed", "production", "shipping"].includes(b.stage),
-  );
-  const overdue = buyers.filter(
-    (b) => b.next_action_date && b.next_action_date < d0 && !getStage(b.stage).terminal,
-  );
-  const soon = buyers
-    .filter(
-      (b) =>
-        b.next_action_date &&
-        b.next_action_date >= d0 &&
-        !getStage(b.stage).terminal,
-    )
-    .sort((a, b) => (a.next_action_date ?? "").localeCompare(b.next_action_date ?? ""))
-    .slice(0, 6);
-  const needSupplier = buyers.filter(
-    (b) => getStage(b.stage).wantsSupplier && !b.supplier_id && !getStage(b.stage).terminal,
-  );
-  const missingEmail = buyers.filter((b) => !b.email);
-  const nameOf = (id: string) => buyers.find((b) => b.id === id)?.company ?? "—";
-
-  const funnel = FUNNEL_STAGES.map((s) => ({
-    ...s,
-    count: buyers.filter((b) => b.stage === s.key).length,
-    value: buyers
-      .filter((b) => b.stage === s.key)
-      .reduce((sum, b) => sum + (b.deal_value ?? 0), 0),
-  }));
-  const totalCount = funnel.reduce((s, f) => s + f.count, 0) || 1;
+  const queue: Array<{ id: string; label: string; detail: string; href: string; when: string; tone: string }> = [];
+  if (canSuppliers) for (const s of snapshot.pendingSuppliers) queue.push({
+    id: `supplier:${s.id}`, label: s.name, detail: "Tài khoản NCC · chờ xác nhận quyền truy cập",
+    href: `/crm/suppliers/${s.id}`, when: s.updated_at, tone: "bg-sky-500",
+  });
+  if (canProducts) for (const p of snapshot.pendingProducts) queue.push({
+    id: `product:${p.id}`, label: p.name, detail: `${supplierNames.get(p.supplier_id) ?? "NCC"} · sản phẩm chờ Vexim duyệt`,
+    href: hasPermission(session.role, "products.manage") ? `/crm/products/${p.id}/edit` : `/crm/products/${p.id}`,
+    when: p.updated_at, tone: "bg-amber-500",
+  });
+  if (canInspect) for (const v of snapshot.submittedReviews) queue.push({
+    id: `review:${v.id}`, label: supplierNames.get(v.supplier_id) ?? "Nhà cung cấp",
+    detail: `${v.target_level === 1 ? "Kiểm tra giấy tờ" : v.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"} · chờ xét duyệt`,
+    href: "/crm/verifications", when: v.updated_at, tone: "bg-violet-500",
+  });
+  if (canInspect) for (const r of snapshot.contactRequests) queue.push({
+    id: `request:${r.supplier_id}:${r.target_level}`, label: supplierNames.get(r.supplier_id) ?? "Nhà cung cấp",
+    detail: `${r.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"} · yêu cầu liên hệ, chưa phải phê duyệt`,
+    href: "/crm/verifications", when: r.requested_at, tone: "bg-ink-500",
+  });
+  if (canRfqs) for (const r of snapshot.newRfqs) queue.push({
+    id: `rfq:${r.id}`, label: r.code || "RFQ mới", detail: "Buyer gửi yêu cầu · cần tiếp nhận",
+    href: "/crm/rfqs", when: r.created_at, tone: "bg-brand-500",
+  });
+  queue.sort((a, b) => b.when.localeCompare(a.when));
+  const reviewCount = canInspect ? snapshot.submittedReviews.length : 0;
+  const contactCount = canInspect ? snapshot.contactRequests.length : 0;
+  const workload = snapshot.pendingSuppliers.length + snapshot.pendingProducts.length + reviewCount + contactCount + snapshot.newRfqs.length;
 
   return (
     <>
-      <PageHeader
-        title="Tổng quan"
-        sub={`Pipeline xuất khẩu của phòng sale · ${new Date().toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}`}
-        actions={
-          <>
-            {canManageBuyers && (
-              <Link href="/crm/buyers/new" className="btn btn-primary">
-                <UserPlus className="h-4 w-4" />
-                Thêm buyer
+      <PageHeader title="Trung tâm vận hành sàn" sub="Nhà cung cấp, sản phẩm và nội dung công khai là trọng tâm. RFQ và sale là luồng hỗ trợ buyer." />
+
+      <section className="mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-ink-900 via-brand-900 to-brand-700 p-6 text-white shadow-lg sm:p-8">
+        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-brand-100">Vexim Trade · Marketplace operations</p>
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-5">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">Từ hồ sơ NCC đến listing cho buyer</h2>
+            <p className="mt-2 text-sm leading-6 text-brand-100">Theo dõi từng cổng duyệt độc lập. NCC có tài khoản không đồng nghĩa được công khai; sản phẩm đã duyệt vẫn cần danh mục, ảnh/catalogue và trạng thái sẵn sàng.</p>
+          </div>
+          {canProducts && <Link href="/crm/products" className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-brand-900 hover:bg-brand-50">Xem kho sản phẩm <ArrowRight className="h-4 w-4" /></Link>}
+        </div>
+      </section>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Chỉ số vận hành sàn">
+        <Metric icon={<Store className="h-5 w-5" />} label="NCC công khai" value={snapshot.publishedSuppliers.length}
+          note="Trạng thái hồ sơ published" href={canSuppliers ? "/crm/suppliers" : undefined} />
+        <Metric icon={<PackageCheck className="h-5 w-5" />} label="Sản phẩm đang hiển thị" value={snapshot.liveProducts.length}
+          note="Đủ các điều kiện buyer-facing" href={canProducts ? "/crm/products" : undefined} />
+        <Metric icon={<FolderTree className="h-5 w-5" />} label="Danh mục đã đăng" value={snapshot.publishedCategories.length}
+          note={`${snapshot.categoriesWithOffers} danh mục có sản phẩm hiển thị`} href={canCategories ? "/crm/categories" : undefined} />
+        <Metric icon={<ClipboardCheck className="h-5 w-5" />} label="Hồ sơ cần xử lý" value={workload}
+          note={canInspect && requests === null ? "Chưa đọc được một phần yêu cầu kiểm định" : "Chờ xác nhận / duyệt / tiếp nhận"} href={workload ? "#marketplace-queue" : undefined} attention={workload > 0} />
+      </div>
+
+      {canTraffic && <Link href="/crm/traffic" className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-ink-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-md">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700"><Activity className="h-5 w-5" /></span>
+        <span className="min-w-0 flex-1"><strong className="block text-sm text-ink-900">Lưu lượng truy cập · 7 ngày</strong>
+          <span className="mt-0.5 block text-xs text-ink-500">{trafficRows ? `${buildSiteTrafficReport(trafficRows, 7).total.toLocaleString("vi-VN")} lượt mở trang công khai, không phải người duy nhất` : "Chưa đọc được báo cáo · xem tình trạng kết nối"}</span></span>
+        <span className="text-sm font-bold text-brand-700">Xem báo cáo →</span>
+      </Link>}
+
+      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
+        <Card className="overflow-hidden" >
+          <div id="marketplace-queue" className="flex items-start justify-between gap-3 border-b border-ink-200 px-5 py-4">
+            <div><h2 className="text-base font-bold text-ink-900">Hàng đợi vận hành</h2>
+              <p className="mt-1 text-xs text-ink-500">Mở hồ sơ để kiểm tra; lưu hoặc tải file lên không tự phê duyệt.</p></div>
+            <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-800">{workload} mục</span>
+          </div>
+          {queue.length ? <ul className="divide-y divide-ink-100">
+            {queue.slice(0, 7).map((item) => <li key={item.id}>
+              <Link href={item.href} className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-ink-50 focus-visible:outline-offset-[-2px]">
+                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${item.tone}`} aria-hidden="true" />
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-ink-900">{item.label}</span>
+                  <span className="mt-0.5 block text-xs text-ink-500">{item.detail}</span></span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-ink-400" aria-hidden="true" />
               </Link>
-            )}
-          </>
-        }
-      />
+            </li>)}
+          </ul> : <p className="px-5 py-9 text-center text-sm text-ink-500">Chưa có hồ sơ trong các hàng đợi bạn được xem.</p>}
+          {queue.length > 7 && <p className="border-t border-ink-100 px-5 py-3 text-xs text-ink-500">Hiển thị 7 mục gần nhất; mở từng khu vực để xem toàn bộ.</p>}
+        </Card>
 
-      {/* KPI */}
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi
-          icon={<TrendingUp className="h-4 w-4" />}
-          label="Buyer đang chạy"
-          value={String(active.length)}
-          sub={`trên tổng ${buyers.length} buyer`}
-          tone="brand"
-        />
-        <Kpi
-          icon={<LineChart className="h-4 w-4" />}
-          label="Giá trị pipeline"
-          value={formatMoney(pipelineValue)}
-          sub="tổng đơn chưa hoàn tất"
-          tone="ink"
-        />
-        <Kpi
-          icon={<PackageSearch className="h-4 w-4" />}
-          label="Đang thực hiện"
-          value={String(executing.length)}
-          sub="đã chốt cọc / sản xuất / giao hàng"
-          tone="emerald"
-        />
-        <Kpi
-          icon={<CalendarClock className="h-4 w-4" />}
-          label="Việc trễ hạn"
-          value={String(overdue.length)}
-          sub="cần xử lý ngay"
-          tone={overdue.length ? "red" : "ink"}
-        />
-      </div>
-
-      {/* Funnel */}
-      <Card className="mb-5 overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 px-4 py-3">
-          <div>
-            <h2 className="text-[15px] font-bold text-ink-900">Phễu pipeline</h2>
-            <p className="mt-0.5 text-xs text-ink-500">
-              Nhấn vào một giai đoạn để mở pipeline chi tiết
-            </p>
-          </div>
-          <Link href="/crm/pipeline" className="btn btn-ghost text-[13px]">
-            Mở pipeline
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+        <div className="space-y-5">
+          <Card className="p-5">
+            <h2 className="text-base font-bold text-ink-900">Các cổng kiểm soát</h2>
+            <p className="mt-1 text-xs text-ink-500">Những bước riêng biệt, không cộng dồn thành một nhãn chứng nhận.</p>
+            <div className="mt-4 space-y-2">
+              {canSuppliers && <FlowRow href="/crm/suppliers" icon={<UsersRound className="h-4 w-4" />} label="Tài khoản NCC chờ xác nhận" value={snapshot.pendingSuppliers.length} />}
+              {canProducts && <FlowRow href="/crm/products?review=pending" icon={<Boxes className="h-4 w-4" />} label="Sản phẩm chờ duyệt" value={snapshot.pendingProducts.length} />}
+              {canInspect && <FlowRow href="/crm/verifications" icon={<ShieldCheck className="h-4 w-4" />} label="Đợt kiểm chờ xét duyệt" value={reviewCount} />}
+              {canInspect && requests !== null && <FlowRow href="/crm/verifications" icon={<ClipboardCheck className="h-4 w-4" />} label="Yêu cầu liên hệ kiểm định" value={contactCount} />}
+            </div>
+            {canInspect && requests === null && <p className="mt-3 text-xs text-amber-800">Chưa đọc được yêu cầu kiểm định; xem trang xác minh để kiểm tra.</p>}
+          </Card>
+          {canRfqs && <Card className="p-5">
+            <div className="flex items-center gap-2"><FileQuestion className="h-4 w-4 text-brand-700" /><h2 className="text-base font-bold text-ink-900">Nhu cầu từ buyer</h2></div>
+            <p className="mt-2 text-sm text-ink-600">{snapshot.newRfqs.length} RFQ mới hoặc cần rà soát. Đây là yêu cầu báo giá, không phải đơn hàng hay doanh thu.</p>
+            <Link href="/crm/rfqs" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-700 hover:underline">Mở hộp thư RFQ <ArrowRight className="h-4 w-4" /></Link>
+          </Card>}
         </div>
-        <div className="flex h-3 w-full overflow-hidden bg-ink-100">
-          {funnel.map((f) =>
-            f.count === 0 ? null : (
-              <div
-                key={f.key}
-                title={`${f.label}: ${f.count} buyer · ${formatMoney(f.value)}`}
-                style={{ width: `${(f.count / totalCount) * 100}%`, backgroundColor: f.color }}
-              />
-            ),
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-4 xl:grid-cols-8">
-          {funnel.map((f) => (
-            <Link
-              key={f.key}
-              href={`/crm/pipeline?stage=${f.key}`}
-              className="bg-white px-3 py-2.5 transition hover:bg-ink-50"
-            >
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: f.color }} />
-                <span className="truncate text-[11px] font-semibold text-ink-600">{f.label}</span>
-              </span>
-              <span className="mt-1 block text-lg leading-none font-black text-ink-900">
-                {f.count}
-              </span>
-              <span className="mt-0.5 block text-[11px] text-ink-400">{formatMoney(f.value)}</span>
-            </Link>
-          ))}
-        </div>
-      </Card>
-
-      <div className="grid gap-5 xl:grid-cols-3">
-        {/* Việc cần làm */}
-        <Card className="xl:col-span-2">
-          <div className="border-b border-ink-200 px-4 py-3">
-            <h2 className="text-[15px] font-bold text-ink-900">Việc cần làm</h2>
-            <p className="mt-0.5 text-xs text-ink-500">Trễ hạn và sắp đến hạn</p>
-          </div>
-          {[...overdue, ...soon].length === 0 ? (
-            <EmptyState
-              icon={<MailCheck className="h-5 w-5" />}
-              title="Không có việc nào tới hạn"
-              sub="Thêm việc cần làm và hạn xử lý trong trang chi tiết buyer để được nhắc ở đây."
-            />
-          ) : (
-            <ul className="divide-y divide-ink-100">
-              {[...overdue, ...soon].slice(0, 9).map((b) => {
-                const late = (b.next_action_date ?? "") < d0;
-                return (
-                  <li key={b.id}>
-                    <Link
-                      href={`/crm/buyers/${b.id}`}
-                      className="flex items-start gap-3 px-4 py-3 transition hover:bg-brand-50/40"
-                    >
-                      <span
-                        className={cx(
-                          "mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold",
-                          late ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700",
-                        )}
-                      >
-                        <CalendarClock className="h-3 w-3" />
-                        {formatDate(b.next_action_date)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13.5px] font-semibold text-ink-900">
-                          {b.next_action}
-                        </span>
-                        <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
-                          {b.company}
-                          {b.country ? ` · ${b.country}` : ""}
-                          {b.owner ? ` · PT: ${b.owner}` : ""}
-                        </span>
-                      </span>
-                      <StageBadge stage={b.stage} />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Card>
-
-        {/* Hoạt động */}
-        <Card>
-          <div className="border-b border-ink-200 px-4 py-3">
-            <h2 className="text-[15px] font-bold text-ink-900">Hoạt động gần đây</h2>
-          </div>
-          {activities.length === 0 ? (
-            <EmptyState icon={<LineChart className="h-5 w-5" />} title="Chưa có hoạt động" />
-          ) : (
-            <ul className="max-h-[420px] divide-y divide-ink-100 overflow-y-auto">
-              {activities.map((a) => (
-                <li key={a.id} className="px-4 py-2.5">
-                  <div className="flex items-start gap-2">
-                    <span
-                      className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: getStage(a.to_stage ?? "lead").color }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[12.5px] leading-snug text-ink-800">{a.message}</p>
-                      <p className="mt-0.5 text-[11px] text-ink-400">
-                        {nameOf(a.buyer_id)} · {relativeTime(a.created_at)}
-                        {a.created_by ? ` · ${a.created_by}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
       </div>
-
-      {/* Cần chú ý */}
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <Card>
-          <div className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
-            <Factory className="h-4 w-4 text-amber-600" />
-            <h2 className="text-[15px] font-bold text-ink-900">Cần gắn nhà cung cấp</h2>
-            <Badge className="ml-auto bg-amber-50 text-amber-700">{needSupplier.length}</Badge>
-          </div>
-          {needSupplier.length === 0 ? (
-            <EmptyState
-              icon={<MailCheck className="h-5 w-5" />}
-              title="Mọi đơn đã có nhà cung cấp"
-              sub="Các đơn đã qua bước báo giá đều được gắn NCC — email sẽ gửi cho cả hai bên."
-            />
-          ) : (
-            <>
-              <p className="border-b border-amber-100 bg-amber-50/60 px-4 py-2 text-[11.5px] text-amber-800">
-                Các đơn này đã qua bước báo giá nhưng chưa chọn NCC — hiện email chỉ gửi tới buyer.
-              </p>
-              <ul className="divide-y divide-ink-100">
-                {needSupplier.map((b) => (
-                  <li key={b.id}>
-                    <Link
-                      href={`/crm/buyers/${b.id}`}
-                      className="flex items-center gap-3 px-4 py-2.5 transition hover:bg-brand-50/40"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-semibold text-ink-900">
-                          {b.company}
-                        </span>
-                        <span className="block truncate text-[11.5px] text-ink-500">
-                          {b.product || "—"} · {b.quantity || "chưa rõ số lượng"}
-                        </span>
-                      </span>
-                      <StageBadge stage={b.stage} />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </Card>
-
-        <Card>
-          <div className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-            <h2 className="text-[15px] font-bold text-ink-900">Thiếu thông tin liên hệ</h2>
-            <Badge className="ml-auto bg-red-50 text-red-700">
-              {missingEmail.length + suppliers.filter((s) => !s.email).length}
-            </Badge>
-          </div>
-          {missingEmail.length + suppliers.filter((s) => !s.email).length === 0 ? (
-            <EmptyState
-              icon={<MailCheck className="h-5 w-5" />}
-              title="Đủ email cho tất cả buyer &amp; NCC"
-              sub="Hệ thống có thể gửi thông báo tiến độ cho mọi bên liên quan."
-            />
-          ) : (
-            <ul className="divide-y divide-ink-100">
-              {missingEmail.map((b) => (
-                <li key={b.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="min-w-0 flex-1">
-                    <Link
-                      href={`/crm/buyers/${b.id}`}
-                      className="block truncate text-[13px] font-semibold text-ink-900 hover:text-brand-700"
-                    >
-                      {b.company}
-                    </Link>
-                    <span className="text-[11.5px] text-ink-500">Buyer chưa có email</span>
-                  </span>
-                  <Badge className="bg-red-50 text-red-700">không gửi được mail</Badge>
-                </li>
-              ))}
-              {suppliers
-                .filter((s) => !s.email)
-                .map((s) => (
-                  <li key={s.id} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="min-w-0 flex-1">
-                      <Link
-                        href={`/crm/suppliers/${s.id}`}
-                        className="block truncate text-[13px] font-semibold text-ink-900 hover:text-brand-700"
-                      >
-                        {s.name}
-                      </Link>
-                      <span className="text-[11.5px] text-ink-500">NCC chưa có email</span>
-                    </span>
-                    <Badge className="bg-amber-50 text-amber-700">bổ sung email</Badge>
-                  </li>
-                ))}
-            </ul>
-          )}
-        </Card>
-      </div>
+      <p className="mt-5 text-xs leading-5 text-ink-500">Số liệu là ảnh chụp trạng thái hiện tại của dữ liệu nội bộ, không phải lượt truy cập, doanh số, GMV hay cam kết xác minh sản phẩm.</p>
     </>
   );
 }
 
-function Kpi({
-  icon,
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub: string;
-  tone: "brand" | "ink" | "emerald" | "red";
+function Metric({ icon, label, value, note, href, attention = false }: {
+  icon: React.ReactNode; label: string; value: number; note: string; href?: string; attention?: boolean;
 }) {
-  const tones = {
-    brand: "bg-brand-50 text-brand-700",
-    ink: "bg-ink-100 text-ink-600",
-    emerald: "bg-emerald-50 text-emerald-700",
-    red: "bg-red-50 text-red-700",
-  };
-  return (
-    <Card className="p-4">
-      <div className="flex items-start gap-3">
-        <span className={cx("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", tones[tone])}>
-          {icon}
-        </span>
-        <div className="min-w-0">
-          <p className="text-[11.5px] font-semibold tracking-wide text-ink-500 uppercase">{label}</p>
-          <p className="mt-0.5 text-2xl leading-none font-black text-ink-900">{value}</p>
-          <p className="mt-1 truncate text-[11.5px] text-ink-400">{sub}</p>
-        </div>
-      </div>
-    </Card>
-  );
+  const inner = <><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${attention ? "bg-amber-50 text-amber-800" : "bg-brand-50 text-brand-700"}`}>{icon}</span>
+    <span className="mt-4 block text-3xl font-black tracking-tight text-ink-900">{value.toLocaleString("vi-VN")}</span>
+    <span className="mt-1 block text-sm font-bold text-ink-800">{label}</span>
+    <span className="mt-1 block text-xs text-ink-500">{note}</span></>;
+  return href ? <Link href={href} className="flex min-h-44 flex-col rounded-xl border border-ink-200 bg-white p-4 shadow-sm transition hover:border-brand-400 hover:shadow-md">{inner}</Link>
+    : <div className="flex min-h-44 flex-col rounded-xl border border-ink-200 bg-white p-4 shadow-sm">{inner}</div>;
+}
+
+function FlowRow({ href, icon, label, value }: { href: string; icon: React.ReactNode; label: string; value: number }) {
+  return <Link href={href} className="flex items-center gap-3 rounded-lg border border-ink-100 bg-ink-50/60 px-3 py-2.5 text-sm hover:border-brand-300 hover:bg-brand-50">
+    <span className="text-brand-700">{icon}</span><span className="min-w-0 flex-1 text-ink-700">{label}</span>
+    <strong className="text-ink-900">{value}</strong><ArrowRight className="h-3.5 w-3.5 text-ink-400" aria-hidden="true" />
+  </Link>;
 }

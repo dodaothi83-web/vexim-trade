@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 
 import { getStore } from "@/lib/db";
-import { guard } from "@/lib/auth/session";
+import { getSession, guard } from "@/lib/auth/session";
 import { extensionFor, validateUpload } from "@/lib/media/validate";
-import { putObject } from "@/lib/media/storage";
-import type { MediaAudience, MediaInput, MediaKind, MediaOwnerType } from "@/lib/types";
+import { deleteObject, putObject } from "@/lib/media/storage";
+import { verificationMediaEditError } from "@/lib/media/verification-access";
+import { auditUploadKind } from "@/lib/verification";
+import type { AuditEvidenceKey, MediaAudience, MediaInput, MediaKind, MediaOwnerType } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,11 +43,12 @@ export async function POST(request: Request) {
   const ownerType = String(form.get("ownerType") ?? "") as MediaOwnerType;
   const ownerId = String(form.get("ownerId") ?? "").trim();
   const kind = String(form.get("kind") ?? "image") as MediaKind;
+  const checklistKey = String(form.get("checklistKey") ?? "").trim();
   const captionRaw = String(form.get("caption") ?? "").trim();
   const expiresRaw = String(form.get("expiresOn") ?? "").trim();
   let audience = String(form.get("audience") ?? "") as MediaAudience;
 
-  if (ownerType !== "product" && ownerType !== "supplier") {
+  if (ownerType !== "product" && ownerType !== "supplier" && ownerType !== "verification") {
     return NextResponse.json({ ok: false, message: "Đối tượng lưu tệp không hợp lệ." }, { status: 400 });
   }
   if (!ownerId) {
@@ -57,10 +60,14 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (checklistKey && (ownerType !== "verification" || !["image", "document", "certificate"].includes(kind))) {
+    return NextResponse.json({ ok: false, message: "Chỉ bằng chứng của đợt kiểm mới được gắn vào mục." }, { status: 400 });
+  }
 
   const store = getStore();
 
   // Xác thực hồ sơ tồn tại để không tạo tệp mồ côi
+  let mediaSupplierId: string | null = null;
   if (ownerType === "product") {
     const product = await store.getProduct(ownerId);
     if (!product) {
@@ -73,17 +80,35 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-  } else {
+    mediaSupplierId = product.supplier_id;
+  } else if (ownerType === "supplier") {
     const supplier = await store.getSupplier(ownerId);
     if (!supplier) {
       return NextResponse.json({ ok: false, message: "Không tìm thấy nhà cung cấp." }, { status: 404 });
     }
+    mediaSupplierId = ownerId;
+  } else {
+    const v = await store.getVerification(ownerId);
+    if (!v) {
+      return NextResponse.json({ ok: false, message: "Không tìm thấy hồ sơ xác minh." }, { status: 404 });
+    }
+    if (checklistKey) {
+      const accepted = auditUploadKind(v.target_level, checklistKey as AuditEvidenceKey);
+      if (!accepted || accepted === "image" && kind !== "image") {
+        return NextResponse.json({ ok: false, message: "Mục này không nhận loại tệp đã chọn hoặc không thuộc bước kiểm." }, { status: 400 });
+      }
+    }
+    const blocked = await verificationMediaEditError(v);
+    if (blocked) return NextResponse.json({ ok: false, message: blocked }, { status: 403 });
+    mediaSupplierId = v.supplier_id;
+    // verification media luôn internal
+    audience = "internal";
   }
 
   // Giấy tờ nội bộ (giấy phép, xác minh NCC) luôn chỉ nội bộ, không chia sẻ buyer
   if (kind === "document") audience = "internal";
   if (audience !== "buyer" && audience !== "internal") {
-    audience = ownerType === "supplier" ? "internal" : "buyer";
+    audience = ownerType === "product" ? "buyer" : "internal";
   }
   // Chỉ người có quyền xem tài liệu nội bộ mới được tạo tệp nội bộ
   if (audience === "internal") {
@@ -101,7 +126,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Chưa chọn tệp nào." }, { status: 400 });
   }
 
-  const prefix = ownerType === "product" ? `products/${ownerId}` : `suppliers/${ownerId}`;
+  const prefix =
+    ownerType === "product" ? `products/${ownerId}` :
+    ownerType === "verification" ? `verifications/${ownerId}` :
+    `suppliers/${ownerId}`;
   const results: UploadResult[] = [];
   const created: string[] = [];
 
@@ -116,12 +144,12 @@ export async function POST(request: Request) {
     const id = randomUUID();
     const ext = extensionFor(check.mime);
     const mainPath = `${prefix}/${id}.${ext}`;
+    let thumbPath: string | null = null;
 
     try {
       await putObject(mainPath, bytes, check.mime);
 
       // Ảnh: lưu kèm bản xem trước do trình duyệt gửi lên
-      let thumbPath: string | null = null;
       const thumb = form.get(`thumb:${file.name}`);
       if (kind === "image" && thumb instanceof File && thumb.size > 0) {
         const thumbBytes = new Uint8Array(await thumb.arrayBuffer());
@@ -138,7 +166,9 @@ export async function POST(request: Request) {
       const input: MediaInput = {
         owner_type: ownerType,
         product_id: ownerType === "product" ? ownerId : null,
-        supplier_id: ownerType === "supplier" ? ownerId : null,
+        supplier_id: mediaSupplierId,
+        verification_id: ownerType === "verification" ? ownerId : null,
+        ...(checklistKey ? { checklist_key: checklistKey as MediaInput["checklist_key"] } : {}),
         kind,
         audience,
         status: "unverified",
@@ -156,13 +186,26 @@ export async function POST(request: Request) {
       };
 
       const row = await store.createMedia(input);
+      if (ownerType === "verification") {
+        const session = await getSession();
+        await store.addAuditLog({
+          actor_id: session?.uid ?? null, actor_email: session?.email ?? null,
+          entity: "supplier", entity_id: mediaSupplierId!,
+          action: "verification.media.upload",
+          before: null, after: { verification_id: ownerId, media_id: row.id, kind },
+        }).catch((err) => console.error("[audit] evidence upload failed", err));
+      }
       created.push(row.id);
       results.push({ name: file.name, ok: true, message: "Đã tải lên — trạng thái: chưa xác minh." });
     } catch (err) {
+      await Promise.all([mainPath, thumbPath].filter((p): p is string => !!p).map((p) => deleteObject(p).catch(() => null)));
+      if (err instanceof Error && /media_checklist_key_ck/.test(err.message)) console.error("[media] missing factory/delivery inline evidence migration");
       results.push({
         name: file.name,
         ok: false,
-        message: err instanceof Error ? err.message : "Lỗi khi lưu tệp.",
+        message: err instanceof Error && /media_checklist_key_ck/.test(err.message)
+          ? "CSDL chưa cập nhật mục bằng chứng. Quản trị viên cần chạy migration 20261017_factory_delivery_inline_evidence.sql trên đúng Supabase project. Tệp chưa được lưu."
+          : err instanceof Error ? err.message : "Lỗi khi lưu tệp.",
       });
     }
   }

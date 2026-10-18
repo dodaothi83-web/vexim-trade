@@ -4,14 +4,18 @@ import {
   ArrowLeft,
   Building2,
   CalendarClock,
+  Clock4,
   Copy,
   Globe,
+  Inbox,
   Mail,
+  MailPlus,
   MapPin,
   Package,
   Phone,
   Send,
   ShieldAlert,
+  ShieldCheck,
   Tag,
   Timer,
 } from "lucide-react";
@@ -28,27 +32,35 @@ import {
   updateMatchStatusAction,
 } from "./actions";
 import {
-  sendRfqToSuppliersAction,
   presentShortlistAction,
   selectSupplierAction,
+  sendRfqToSuppliersAction,
 } from "./outreach-actions";
+import {
+  composeMatchEmailAction,
+  markLostAction,
+  markSamplingAction,
+  sendFollowUpAction,
+} from "./compose-action";
+import { hasPermission } from "@/lib/auth/permissions";
 import { uploadRfqAttachmentAction } from "./upload-action";
 import { addRfqNoteAction } from "./note-action";
 import type { RfqStatus } from "@/lib/types";
 import { SITE_URL } from "@/lib/site";
+import { approvedVerificationSteps, VERIFICATION_LABELS } from "@/lib/verification-status";
 
 export const dynamic = "force-dynamic";
 
 const STATUS_FLOW: { value: RfqStatus; label: string; dot: string }[] = [
   { value: "new", label: "Mới tiếp nhận", dot: "bg-slate-400" },
-  { value: "qualified", label: "Đã duyệt hợp lệ", dot: "bg-sky-500" },
+  { value: "needs_review", label: "Cần duyệt", dot: "bg-rose-500" },
+  { value: "in_progress", label: "Đang xử lý", dot: "bg-sky-500" },
   { value: "matching", label: "Đang ghép NCC", dot: "bg-amber-500" },
-  { value: "quoting", label: "Đang lấy báo giá", dot: "bg-amber-600" },
+  { value: "quoted", label: "Đã gửi báo giá", dot: "bg-amber-600" },
   { value: "sampling", label: "Đang gửi mẫu", dot: "bg-violet-500" },
   { value: "won", label: "Thành công", dot: "bg-emerald-500" },
-  { value: "lost", label: "Thất bại", dot: "bg-ink-400" },
+  { value: "lost", label: "Thất bại (bắt buộc lý do)", dot: "bg-ink-400" },
   { value: "spam", label: "Cách ly spam", dot: "bg-red-500" },
-  { value: "closed", label: "Đã đóng", dot: "bg-ink-400" },
 ];
 
 const MATCH_STATUS: { value: string; label: string; dot: string }[] = [
@@ -75,30 +87,69 @@ export default async function RfqDetailPage({
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string>>;
 }) {
-  await requirePagePermission("suppliers.manage", "/crm/dashboard");
+  const session = await requirePagePermission("rfq.view", "/crm/dashboard");
+  const canManageRfq = hasPermission(session.role, "rfq.manage");
   const { id } = await params;
   const sp = await searchParams;
   const store = getStore();
   const rfq = await store.getRfq(id);
   if (!rfq) notFound();
-  const [buyer, matches, suppliers, users, attachments, category] = await Promise.all([
+  const [buyer, matches, suppliers, users, attachments, category, products, messages] = await Promise.all([
     store.getBuyer(rfq.buyer_id).catch(() => null),
     store.listRfqMatches(rfq.id).catch(() => []),
     store.listSuppliers().catch(() => []),
     store.listUsers().catch(() => []),
     store.listRfqAttachments(rfq.id).catch(() => []),
     rfq.category_id ? store.getCategory(rfq.category_id).catch(() => null) : Promise.resolve(null),
+    store.listProducts().catch(() => []),
+    store.listMessagesForRfq(rfq.id).catch(() => []),
   ]);
 
+  const reviewedSteps = new Map<string, Array<1 | 2 | 3>>();
+  const relevant = suppliers.filter((s) => s.status === "published" || matches.some((m) => m.supplier_id === s.id));
+  for (let i = 0; i < relevant.length; i += 40) {
+    await Promise.all(relevant.slice(i, i + 40).map(async (s) => {
+      const reviews = await store.listVerifications(s.id).catch(() => []);
+      reviewedSteps.set(s.id, approvedVerificationSteps(reviews));
+    }));
+  }
   const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
+  const productsBySupplier = new Map<string, (typeof products)[number][]>();
+  for (const p of products) {
+    const list = productsBySupplier.get(p.supplier_id) ?? [];
+    list.push(p);
+    productsBySupplier.set(p.supplier_id, list);
+  }
   const matchSupplierIds = new Set(matches.map((m) => m.supplier_id));
+  // Chấm điểm theo các lần kiểm đã duyệt thực tế, không suy ra giấy tờ/nhà máy từ mức tối đa.
+  const qText = (rfq.product_text + " " + (category?.name_i18n?.en ?? "")).toLowerCase();
   const candidates = suppliers
-    .filter(
-      (s) =>
-        s.status === "published" &&
-        !matchSupplierIds.has(s.id)
-    )
-    .slice(0, 50);
+    .filter((s) => s.status === "published" && !matchSupplierIds.has(s.id))
+    .map((s) => {
+      const prods = productsBySupplier.get(s.id) ?? [];
+      let score = 0;
+      const prodText = prods.map((p) => (p.name + " " + (p.category ?? "") + " " + (p.spec ?? ""))).join(" ").toLowerCase();
+      if (prods.some((p) => qText.split(/\s+/).some((w) => w.length >= 3 && (p.name.toLowerCase().includes(w) || (p.category ?? "").toLowerCase().includes(w))))) score += 3;
+      else if (prodText && qText.split(/\s+/).some((w) => w.length >= 4 && prodText.includes(w))) score += 1;
+      score += (reviewedSteps.get(s.id)?.length ?? 0) * 1.5;
+      if (s.lead_time_days && s.moq_text) score += 1;
+      return { s, score };
+    })
+    .filter((x) => x.score > 0 || suppliers.length <= 30) // Không kết quả khớp thì vẫn hiện
+    .sort((a, b) => b.score - a.score || ((reviewedSteps.get(b.s.id)?.length ?? 0) - (reviewedSteps.get(a.s.id)?.length ?? 0)))
+    .slice(0, 50)
+    .map((x) => x.s);
+
+  // Map match → messages
+  const messagesByMatch = new Map<string, (typeof messages)[number][]>();
+  for (const m of messages) {
+    const mid = (m as unknown as { rfq_match_id?: string | null }).rfq_match_id;
+    if (mid) {
+      const list = messagesByMatch.get(mid) ?? [];
+      list.push(m);
+      messagesByMatch.set(mid, list);
+    }
+  }
 
 
 
@@ -135,6 +186,11 @@ export default async function RfqDetailPage({
         </div>
       </div>
 
+      {sp?.selection_email === "failed" && <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Đã lưu NCC được chọn trên cổng, nhưng email NCC chưa gửi được. Vui lòng liên hệ NCC qua Vexim; đừng chọn lại chỉ để thử gửi vì quyết định không tự gửi trùng.</div>}
+      {sp?.selection_email === "sent" && <div role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Resend đã chấp nhận email báo NCC được chọn; chưa phải xác nhận phát tới hộp thư.</div>}
+      {sp?.outreach_sent !== undefined && <div role="status" className={`mt-4 rounded-lg border p-3 text-sm ${Number(sp.outreach_skipped) > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+        Resend chấp nhận {Number(sp.outreach_sent) || 0} lời mời NCC; {Number(sp.outreach_skipped) || 0} yêu cầu chưa gửi (có thể đã gửi trước, thiếu email hoặc gửi thất bại). Kiểm tra trạng thái từng NCC trước khi thử lại.
+      </div>}
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         {/* LEFT: RFQ + buyer */}
         <div className="space-y-6 lg:col-span-2">
@@ -211,7 +267,11 @@ export default async function RfqDetailPage({
               </h2>
               <span className="text-[11.5px] text-ink-500">Chọn 2–4 NCC phù hợp để gửi báo giá so sánh.</span>
             </div>
+            {!canManageRfq && (
+              <p className="mt-2 rounded-md bg-ink-50 px-3 py-2 text-[12.5px] text-ink-500">Bạn đang ở chế độ chỉ xem. Các thao tác ghép NCC, gửi email và lưu báo giá chỉ hiển thị cho tài khoản có quyền <code>rfq.manage</code>.</p>
+            )}
 
+{canManageRfq && (
             <form action={addMatchAction} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="rfq_id" value={rfq.id} />
               <label className="flex flex-col text-[12px] text-ink-600">
@@ -228,7 +288,9 @@ export default async function RfqDetailPage({
               </label>
               <Button type="submit" size="sm">Thêm vào shortlist</Button>
             </form>
+            )}
 
+{canManageRfq && (
             <form action={sendRfqToSuppliersAction} className="mt-4 rounded-md border border-ink-200 bg-ink-50/50 p-3">
               <input type="hidden" name="rfq_id" value={rfq.id} />
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -258,12 +320,15 @@ export default async function RfqDetailPage({
                 {matches.map((m) => {
                   const sup = supplierMap.get(m.supplier_id);
                   const ms = MATCH_STATUS.find((x) => x.value === m.status) ?? MATCH_STATUS[0];
-                  const canSend = ["proposed"].includes(m.status);
+                  const canSend = m.status === "proposed" && !m.sent_to_supplier_at;
+                  const canFollowUp = m.status === "no_response" || (!!m.sent_to_supplier_at && ["proposed", "sent_to_supplier"].includes(m.status));
                   const canSelect = m.status === "quoted" || m.status === "presented_to_buyer";
+                  const thread = messagesByMatch.get(m.id) ?? [];
+                  const passed = reviewedSteps.get(m.supplier_id) ?? [];
                   return (
                     <div key={m.id} className="py-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        {canSend && (
+                        {canManageRfq && canSend && (
                           <input
                             type="checkbox"
                             name="match_ids"
@@ -279,24 +344,79 @@ export default async function RfqDetailPage({
                         ) : (
                           <span className="text-[11.5px] text-red-600">chưa có email</span>
                         )}
+                        {passed.map((step) => <Badge key={step} color="#059669" className="text-[10.5px]">{VERIFICATION_LABELS[step]}</Badge>)}
                         <Badge className="inline-flex items-center gap-1">
                           <span className={"h-1.5 w-1.5 rounded-full " + ms.dot} />
                           {ms.label}
                         </Badge>
-                        {canSelect && (
+                        {canManageRfq && canSelect && (
                           <form action={selectSupplierAction} className="ml-1">
                             <input type="hidden" name="rfq_id" value={rfq.id} />
                             <input type="hidden" name="match_id" value={m.id} />
                             <button type="submit" className="btn btn-soft btn-sm">Chọn NCC này</button>
                           </form>
                         )}
-                        <form action={removeMatchAction} className="ml-auto">
+                        {canManageRfq && canFollowUp && (
+                          <form action={sendFollowUpAction}>
+                            <input type="hidden" name="rfq_id" value={rfq.id} />
+                            <input type="hidden" name="match_id" value={m.id} />
+                            <button type="submit" className="btn btn-ghost btn-sm" title="Nhắc NCC sau khi đã gửi quá 3 ngày mà chưa phản hồi">
+                              <Clock4 className="h-3.5 w-3.5" /> Nhắc phản hồi
+                            </button>
+                          </form>
+                        )}
+{canManageRfq && (<details className="relative ml-1">
+                          <summary className="btn btn-ghost btn-sm cursor-pointer list-none">
+                            <MailPlus className="h-3.5 w-3.5" /> Soạn email
+                          </summary>
+                          <form action={composeMatchEmailAction} className="absolute right-0 z-20 mt-1 w-[440px] max-w-[calc(100vw-2rem)] rounded-lg border border-ink-200 bg-white p-3 shadow-lg">
+                            <input type="hidden" name="rfq_id" value={rfq.id} />
+                            <input type="hidden" name="match_id" value={m.id} />
+                            <label className="flex flex-col text-[11px] text-ink-600">
+                              Tiêu đề
+                              <input name="subject" required className="input mt-1 py-1 text-[13px]" defaultValue={`[Vexim] Về yêu cầu ${rfq.code} – ${rfq.product_text}`} />
+                            </label>
+                            <label className="mt-2 flex flex-col text-[11px] text-ink-600">
+                              Nội dung email (tối đa 2000 từ)
+                              <textarea name="body" required rows={6} className="input mt-1 text-[13px]" defaultValue={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${rfq.product_text} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${rfq.needed_by ?? "—"}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
+                            </label>
+                            <p className="mt-1 text-[10.5px] text-ink-400">Reply-To riêng cho từng match (rfq+{rfq.code.toLowerCase()}-m…); thư trả lời sẽ tự gắn vào timeline.</p>
+                            <div className="mt-2 flex justify-end gap-2">
+                              <button type="reset" className="btn btn-ghost btn-sm">Huỷ</button>
+                              <Button type="submit" size="sm">Gửi</Button>
+                            </div>
+                          </form>
+                        </details>)}
+                        {canManageRfq && (<form action={removeMatchAction} className="ml-auto">
                           <input type="hidden" name="match_id" value={m.id} />
                           <input type="hidden" name="rfq_id" value={rfq.id} />
                           <button type="submit" className="text-[12px] text-red-600 hover:underline">Xoá</button>
-                        </form>
+                        </form>)}
                       </div>
-                      <form action={updateMatchQuoteAction} className="mt-2 grid gap-2 sm:grid-cols-5">
+
+                      {/* Thread per-match */}
+                      {thread.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {thread.slice(0, 3).map((msg) => (
+                            <div key={msg.id} className="flex items-start gap-2 rounded-md bg-ink-50 px-2 py-1.5 text-[12px]">
+                              <span className={"mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-brand-700 " + (msg.kind === "inbound" ? "bg-sky-100 text-sky-700" : "bg-brand-100")}>
+                                {msg.kind === "inbound" ? <Mail className="h-3 w-3" /> : <Send className="h-3 w-3" />}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-ink-700"><strong>{msg.subject}</strong></div>
+                                <div className="text-[11px] text-ink-500">
+                                  {msg.kind === "inbound" ? "← nhận được" : "→ đã gửi tới " + msg.to_emails.join(", ")} · {fmtDate(msg.created_at)}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {thread.length > 3 && (
+                            <p className="text-[11px] text-ink-400">… còn {thread.length - 3} thư, xem đầy đủ trong timeline phía dưới.</p>
+                          )}
+                        </div>
+                      )}
+
+{canManageRfq && (<form action={updateMatchQuoteAction} className="mt-2 grid gap-2 sm:grid-cols-5">
                         <input type="hidden" name="match_id" value={m.id} />
                         <input type="hidden" name="rfq_id" value={rfq.id} />
                         <label className="flex flex-col text-[11px] text-ink-500">
@@ -344,23 +464,6 @@ export default async function RfqDetailPage({
                           />
                         </label>
                         <div className="sm:col-span-5 flex flex-wrap items-end gap-2">
-                          <form action={updateMatchStatusAction} className="flex items-end gap-2">
-                            <input type="hidden" name="match_id" value={m.id} />
-                            <input type="hidden" name="rfq_id" value={rfq.id} />
-                            <label className="flex flex-col text-[11px] text-ink-500">
-                              Trạng thái
-                              <select
-                                name="status"
-                                defaultValue={m.status}
-                                onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                                className="input mt-1 py-1 text-[13px]"
-                              >
-                                {MATCH_STATUS.map((s) => (
-                                  <option key={s.value} value={s.value}>{s.label}</option>
-                                ))}
-                              </select>
-                            </label>
-                          </form>
                           <Button type="submit" size="sm">Lưu báo giá</Button>
                           {m.sent_to_supplier_at && (
                             <span className="text-[11.5px] text-ink-400">Đã gửi NCC: {fmtDate(m.sent_to_supplier_at)}</span>
@@ -369,14 +472,34 @@ export default async function RfqDetailPage({
                             <span className="text-[11.5px] text-emerald-600">Đã trình buyer: {fmtDate(m.sent_to_buyer_at)}</span>
                           )}
                         </div>
-                      </form>
+                      </form>)}
+
+                      {canManageRfq && (<form action={updateMatchStatusAction} className="mt-1 flex items-end gap-2">
+                        <input type="hidden" name="match_id" value={m.id} />
+                        <input type="hidden" name="rfq_id" value={rfq.id} />
+                        <label className="flex flex-col text-[11px] text-ink-500">
+                          Trạng thái
+                          <select
+                            name="status"
+                            defaultValue={m.status}
+                            onChange={(e) => e.currentTarget.form?.requestSubmit()}
+                            className="input mt-1 py-1 text-[13px]"
+                          >
+                            {MATCH_STATUS.filter((s) => s.value !== "selected" || m.status === "selected").map((s) => (
+                              <option key={s.value} value={s.value}>{s.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </form>)}
                     </div>
                   );
                 })}
               </div>
             </form>
+            )}
 
-            {matches.some((m) => m.status === "quoted") && (
+
+{canManageRfq && matches.some((m) => m.status === "quoted") && (
               <form action={presentShortlistAction} className="mt-4 flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
                 <input type="hidden" name="rfq_id" value={rfq.id} />
                 <p className="text-[12.5px] text-emerald-800">
@@ -389,13 +512,56 @@ export default async function RfqDetailPage({
               </form>
             )}
           </section>
+
+          {/* Timeline */}
+          <section className="card">
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-ink-500">
+              <Inbox className="h-4 w-4" /> Timeline thư từ ({messages.length})
+            </h2>
+            {messages.length === 0 ? (
+              <p className="mt-3 text-[13px] text-ink-500">Chưa có email nào cho RFQ này. Thư gửi NCC / buyer / phản hồi sẽ hiện ở đây.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {messages.map((msg) => {
+                  const mid = (msg as unknown as { rfq_match_id?: string | null }).rfq_match_id;
+                  const sup = mid ? supplierMap.get(matches.find((m) => m.id === mid)?.supplier_id ?? "") : null;
+                  const inbound = msg.kind === "inbound";
+                  return (
+                    <li key={msg.id} className="rounded-md border border-ink-200 bg-white p-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 text-[12px]">
+                            <span className={"inline-flex h-5 items-center rounded-full px-1.5 text-[10.5px] font-semibold " + (inbound ? "bg-sky-100 text-sky-800" : "bg-brand-100 text-brand-800")}>
+                              {inbound ? "← NHẬN" : "→ GỬI"}
+                            </span>
+                            <strong className="truncate text-ink-800">{msg.subject}</strong>
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-ink-500">
+                            {sup ? <>Nhà cung cấp: <Link href={`/crm/suppliers/${sup.id}`} className="text-brand-700 hover:underline">{sup.display_name ?? sup.trade_name ?? sup.name}</Link> · </> : null}
+                            {!mid && <span className="text-violet-700">Luồng buyer · </span>}
+                            {inbound ? "thư đến" : "thư đi"} · {fmtDate(msg.created_at)}
+                          </div>
+                        </div>
+                      </div>
+                      {(msg.body_text || msg.body_html) && (
+                        <details className="mt-1.5">
+                          <summary className="cursor-pointer text-[11px] text-ink-500 hover:text-ink-700">Xem nội dung…</summary>
+                          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-ink-50 p-2 font-mono text-[11.5px] text-ink-700">{msg.body_text ?? "(HTML-only email)"}</pre>
+                        </details>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
         </div>
 
         {/* RIGHT: workflow */}
         <div className="space-y-6">
           <section className="card">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Phân công & trạng thái</h2>
-            <form action={assignRfqFormAction} className="mt-3 space-y-3">
+            {canManageRfq && (<form action={assignRfqFormAction} className="mt-3 space-y-3">
               <input type="hidden" name="id" value={rfq.id} />
               <label className="flex flex-col text-[12px] text-ink-600">
                 Chủ trì
@@ -407,19 +573,65 @@ export default async function RfqDetailPage({
                 </select>
               </label>
               <Button type="submit" size="sm">Lưu phân công</Button>
-            </form>
-            <form action={updateRfqStatusFormAction} className="mt-4 space-y-3">
+            </form>)}
+            {canManageRfq && (<form action={updateRfqStatusFormAction} className="mt-4 space-y-3">
               <input type="hidden" name="id" value={rfq.id} />
               <label className="flex flex-col text-[12px] text-ink-600">
                 Trạng thái
-                <select name="status" defaultValue={rfq.status} className="input mt-1 py-1.5 text-[13px]">
-                  {STATUS_FLOW.map((s) => (
+                <select name="status" defaultValue={["sampling", "lost"].includes(rfq.status) ? "" : rfq.status} className="input mt-1 py-1.5 text-[13px]" required>
+                  <option value="" disabled>— Chọn trạng thái —</option>
+                  {STATUS_FLOW.filter((s) => s.value !== "sampling" && s.value !== "lost").map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
+                <span className="mt-1 text-[11px] text-ink-500">Sampling / lost dùng nút Chốt giai đoạn bên dưới để buyer nhận email và lost có lý do.</span>
               </label>
               <Button type="submit" size="sm" variant="soft">Cập nhật trạng thái</Button>
-            </form>
+            </form>)}
+            {!canManageRfq && <p className="mt-3 text-[12px] text-ink-500">Chỉ xem: không thể phân công hoặc đổi trạng thái RFQ.</p>}
+          </section>
+
+          <section className="card">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Chốt giai đoạn</h2>
+            {canManageRfq ? (<div className="mt-3 space-y-2">
+              <form action={markSamplingAction}>
+                <input type="hidden" name="rfq_id" value={rfq.id} />
+                <label className="flex flex-col text-[11px] text-ink-500">
+                  NCC được chọn (nếu có)
+                  <select name="selected_match_id" className="input mt-1 py-1 text-[13px]">
+                    <option value="">— chưa chọn —</option>
+                    {matches.map((m) => {
+                      const sup = supplierMap.get(m.supplier_id);
+                      return <option key={m.id} value={m.id}>{sup?.display_name ?? sup?.name ?? m.id}</option>;
+                    })}
+                  </select>
+                </label>
+                <Button type="submit" size="sm" variant="soft" className="mt-2 w-full">
+                  Đánh dấu đang gửi mẫu
+                </Button>
+              </form>
+              <form action={markLostAction} className="rounded-md border border-red-200 bg-red-50/40 p-2">
+                <input type="hidden" name="rfq_id" value={rfq.id} />
+                <label className="flex flex-col text-[11px] text-red-800">
+                  Đóng mất đơn (bắt buộc lý do)
+                  <select name="lost_reason" required defaultValue="" className="input mt-1 py-1 text-[13px]">
+                    <option value="" disabled>— chọn lý do —</option>
+                    <option value="price">Giá chưa cạnh tranh</option>
+                    <option value="lead_time">Không đáp ứng lead time</option>
+                    <option value="quality">Chất lượng / chứng chỉ chưa đủ</option>
+                    <option value="no_response">NCC không phản hồi</option>
+                    <option value="buyer_went_elsewhere">Buyer chọn NCC khác</option>
+                    <option value="cancelled">Buyer huỷ yêu cầu</option>
+                    <option value="other">Khác</option>
+                  </select>
+                </label>
+                <Button type="submit" size="sm" className="mt-2 w-full bg-red-600 text-white hover:bg-red-700">
+                  Đóng là thất bại
+                </Button>
+              </form>
+            </div>) : (
+              <p className="mt-3 text-[12.5px] text-ink-500">Bạn cần quyền <code>rfq.manage</code> để chuyển trạng thái sampling / đóng mất đơn.</p>
+            )}
           </section>
 
           <section className="card">

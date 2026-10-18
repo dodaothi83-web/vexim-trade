@@ -22,8 +22,11 @@ import type {
   Rfq,
   RfqAttachment,
   RfqMatch,
+  SupplierRfqInvitation,
+  SupplierNoticeRead,
   Supplier,
   SupplierInput,
+  SupplierVerificationRequest,
   SupplierCategory,
   SupplierProduct,
   SupplierProductInput,
@@ -42,6 +45,9 @@ export interface DataStore {
   createSupplier(input: SupplierInput): Promise<Supplier>;
   updateSupplier(id: string, patch: Partial<SupplierInput>): Promise<Supplier>;
   deleteSupplier(id: string): Promise<void>;
+  listSupplierVerificationRequests(supplierId?: string): Promise<SupplierVerificationRequest[]>;
+  createSupplierVerificationRequest(supplierId: string, level: 2 | 3): Promise<SupplierVerificationRequest>;
+  markSupplierVerificationContacted(supplierId: string, level: 2 | 3, actorId: string): Promise<SupplierVerificationRequest>;
 
   listProducts(): Promise<SupplierProduct[]>;
   getProduct(id: string): Promise<SupplierProduct | null>;
@@ -84,6 +90,8 @@ export interface DataStore {
   getUserByEmail(email: string): Promise<AppUserRecord | null>;
   createUser(input: AppUserInput): Promise<AppUserRecord>;
   updateUser(id: string, patch: Partial<AppUserRecord>): Promise<AppUserRecord>;
+  /** Atomic first-profile claim: prevents concurrent submissions creating multiple supplier pages. */
+  claimSupplierForUser(userId: string, supplierId: string): Promise<boolean>;
   deleteUser(id: string): Promise<void>;
   touchUserLogin(id: string): Promise<void>;
 
@@ -109,6 +117,7 @@ export interface DataStore {
   }): Promise<Activity>;
 
   listMessages(limit?: number): Promise<EmailMessage[]>;
+  listMessagesForRfq(rfqId: string): Promise<EmailMessage[]>;
   getMessage(id: string): Promise<EmailMessage | null>;
   addMessage(
     input: Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null },
@@ -166,12 +175,14 @@ export interface DataStore {
 
   // Certificates
   listCertificates(supplierId: string): Promise<Certificate[]>;
+  getCertificate(id: string): Promise<Certificate | null>;
   createCertificate(input: Partial<Certificate>): Promise<Certificate>;
   updateCertificate(id: string, patch: Partial<Certificate>): Promise<Certificate>;
   deleteCertificate(id: string): Promise<void>;
 
   // Verifications
   listVerifications(supplierId?: string): Promise<Verification[]>;
+  getVerification(id: string): Promise<Verification | null>;
   createVerification(input: Partial<Verification>): Promise<Verification>;
   updateVerification(id: string, patch: Partial<Verification>): Promise<Verification>;
 
@@ -190,6 +201,9 @@ export interface DataStore {
 
   // RFQ matches
   listRfqMatches(rfqId: string): Promise<RfqMatch[]>;
+  listSupplierRfqInvitations(supplierId: string): Promise<SupplierRfqInvitation[]>;
+  listSupplierNoticeReads(supplierId: string): Promise<SupplierNoticeRead[]>;
+  markSupplierNoticeRead(supplierId: string, noticeKey: string): Promise<void>;
   getRfqMatch(id: string): Promise<RfqMatch | null>;
   createRfqMatch(input: Partial<RfqMatch>): Promise<RfqMatch>;
   updateRfqMatch(id: string, patch: Partial<RfqMatch>): Promise<RfqMatch>;

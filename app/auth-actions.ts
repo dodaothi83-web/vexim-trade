@@ -21,6 +21,7 @@ export interface AuthResult {
   ok: boolean;
   message: string;
   details?: string[];
+  redirectTo?: string;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -64,7 +65,7 @@ export async function loginAction(email: string, password: string): Promise<Auth
   }
 
   revalidatePath("/", "layout");
-  return { ok: true, message: result.notice ?? "Đăng nhập thành công." };
+  return { ok: true, message: result.notice ?? "Đăng nhập thành công.", redirectTo: result.user.role === "supplier" ? "/supplier/portal" : "/crm/dashboard" };
 }
 
 export async function logoutAction(): Promise<void> {
@@ -144,7 +145,7 @@ export async function createUserAction(input: {
 
   const clean = (input.email ?? "").trim();
   if (!EMAIL_RE.test(clean)) return { ok: false, message: "Email không hợp lệ." };
-  if (!isRole(input.role)) return { ok: false, message: "Vai trò không hợp lệ." };
+  if (!isRole(input.role) || input.role === "supplier") return { ok: false, message: "Tài khoản doanh nghiệp chỉ được tạo qua luồng đăng ký NCC." };
   const problem = passwordProblem(input.password ?? "");
   if (problem) return { ok: false, message: problem };
 
@@ -197,7 +198,7 @@ export async function updateUserAction(
   if (!target) return { ok: false, message: "Không tìm thấy tài khoản." };
 
   const session = await getSession();
-  if (patch.role && !isRole(patch.role)) return { ok: false, message: "Vai trò không hợp lệ." };
+  if (patch.role && (!isRole(patch.role) || patch.role === "supplier" || target.role === "supplier")) return { ok: false, message: "Không thể chuyển vai trò tài khoản doanh nghiệp đã liên kết hồ sơ NCC." };
 
   // Không cho tự hạ quyền / tự khoá chính mình
   if (session?.uid === id) {
@@ -249,6 +250,7 @@ export async function resetUserPasswordAction(
   const store = getStore();
   const target = await store.getUser(id);
   if (!target) return { ok: false, message: "Không tìm thấy tài khoản." };
+  if (target.role === "supplier") return { ok: false, message: "Tài khoản doanh nghiệp phải đặt lại mật khẩu qua Supabase Auth, không tạo mật khẩu dự phòng nội bộ." };
 
   try {
     await store.updateUser(id, { password_hash: await hashPassword(password) });

@@ -3,11 +3,14 @@
 import { revalidatePath } from "next/cache";
 
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
+import { categorySchemaError } from "@/lib/db/category-schema-error";
+import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
 import { deleteObject } from "@/lib/media/storage";
-import { productReadiness } from "@/lib/media/readiness";
+import { verificationMediaEditError } from "@/lib/media/verification-access";
+import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { generateCompanyIntroduction } from "@/lib/ai/company-introduction";
 import {
   buildFirstTouchLetter,
@@ -20,6 +23,7 @@ import {
 import { extractCompanyProducts, type CompanyProducts } from "@/lib/ai/company-products";
 import { readSiteSignals } from "@/lib/ai/site-signals";
 import { hasPermission } from "@/lib/auth/permissions";
+import { nextStatusOptions, statusMeta } from "@/lib/supplier";
 import {
   resolveSender,
   saveDraft,
@@ -44,7 +48,9 @@ import type {
   EmailAttachment,
   SupplierInput,
   SupplierProductInput,
+  Verification,
   Category,
+  MediaOwnerType,
 } from "@/lib/types";
 
 export interface ActionResult {
@@ -1230,13 +1236,32 @@ function parseSupplierInput(
       return n === null ? 0 : Math.max(0, Math.min(3, Math.round(n)));
     })(),
     verified_at: str(raw.verified_at),
-    fob_min: num(raw.fob_min),
-    fob_max: num(raw.fob_max),
-    fob_unit: str(raw.fob_unit),
-    fob_currency: str(raw.fob_currency) ?? (num(raw.fob_min) !== null || num(raw.fob_max) !== null ? "USD" : null),
+    // Giá chỉ lưu ở supplier_products; các cột FOB cũ của NCC được giữ nguyên để tương thích.
+    // Timestamp ở đây là lần xác nhận quyền chia sẻ giá của NCC, không phải ngày cập nhật giá.
     fob_updated_at: str(raw.fob_updated_at),
     fob_publicly_visible: bool(raw.fob_publicly_visible, false),
   };
+}
+
+/** Rebuild supplier industries from its products and the supplier's product summary. */
+async function syncSupplierIndustries(supplierId: string): Promise<string | null> {
+  try {
+    const store = getStore();
+    const [supplier, products, categories] = await Promise.all([
+      store.getSupplier(supplierId), store.listProductsBySupplier(supplierId), store.listCategories({ publishedOnly: false }),
+    ]);
+    if (!supplier) return "Không tìm thấy NCC để đồng bộ ngành.";
+    if (supplier.categories_reviewed_at) return null; // Staff's explicit decision wins over keyword inference.
+    const assignment = assignSupplierCategories(supplier.products, products, categories);
+    // No evidence of an industry yet: do not erase a previously linked category or
+    // require the supplier_categories table just to save a name-only draft.
+    if (!assignment.ids.length) return null;
+    await store.setSupplierCategories(supplierId, assignment.ids, assignment.primaryId);
+    return null;
+  } catch (error) {
+    console.error("[supplier-industries] sync failed", error instanceof Error ? error.name : "unknown");
+    return "Đã lưu hồ sơ nhưng chưa đồng bộ được ngành NCC; kiểm tra bảng supplier_categories rồi thử lưu lại.";
+  }
 }
 
 export async function createSupplierAction(
@@ -1245,16 +1270,22 @@ export async function createSupplierAction(
   const gate = await guard("suppliers.manage");
   if (gate) return gate;
   const input = parseSupplierInput(raw);
+  // Tạo hồ sơ chỉ là lưu nháp; cấp xác minh phải đến từ đợt kiểm đã duyệt.
+  input.status = "draft";
+  input.verification_level = 0;
+  input.verified_at = null;
+  input.fob_updated_at = input.fob_publicly_visible ? new Date().toISOString() : null;
   if (!input.name) return { ok: false, message: "Vui lòng nhập tên nhà cung cấp." };
   if (input.email && !EMAIL_RE.test(input.email)) {
     return { ok: false, message: "Email nhà cung cấp không hợp lệ." };
   }
   try {
     const created = await getStore().createSupplier(input);
+    const warning = await syncSupplierIndustries(created.id);
     revalidateAll();
     return {
       ok: true,
-      message: `Đã thêm nhà cung cấp "${created.name}".`,
+      message: `Đã thêm nhà cung cấp "${created.name}".${warning ? ` ${warning}` : ""}`,
       id: created.id,
     };
   } catch (err) {
@@ -1274,9 +1305,40 @@ export async function updateSupplierAction(
     return { ok: false, message: "Email nhà cung cấp không hợp lệ." };
   }
   try {
-    await getStore().updateSupplier(id, input);
+    const store = getStore();
+    const existing = await store.getSupplier(id);
+    if (!existing) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
+    // Không tự cấp lại quyền công khai giá khi chỉ sửa hồ sơ. Chỉ một lần xác nhận
+    // mới (bật từ trạng thái tắt, hoặc checkbox được chọn lại) gia hạn thêm 180 ngày.
+    if (!Object.hasOwn(raw, "fob_publicly_visible")) {
+      input.fob_publicly_visible = existing.fob_publicly_visible ?? false;
+      input.fob_updated_at = existing.fob_updated_at ?? null;
+    } else if (input.fob_publicly_visible) {
+      input.fob_updated_at = existing.fob_publicly_visible && input.fob_updated_at === existing.fob_updated_at
+        ? existing.fob_updated_at : new Date().toISOString();
+    } else {
+      input.fob_updated_at = existing.fob_updated_at ?? null;
+    }
+    // Lưu nội dung không tự đổi trạng thái. Chỉ thao tác chuyển riêng mới được
+    // gửi status mới, và không cho bỏ qua các bước của quy trình.
+    if (input.status !== existing.status) {
+      if (!nextStatusOptions(existing.status).includes(input.status)) {
+        return { ok: false, message: "Trạng thái không hợp lệ. Tải lại trang và thử lại." };
+      }
+      const session = await getSession();
+      if ((input.status === "published" || existing.status === "published") &&
+        (!session || !hasPermission(session.role, "suppliers.publish"))) {
+        return { ok: false, message: "Bạn không có quyền công khai hoặc ẩn hồ sơ nhà cung cấp." };
+      }
+    }
+    // Form không được quyền cấp L1–L3, kể cả khi request bị sửa thủ công.
+    // Không gửi các trường này để tránh ghi đè kết quả duyệt đồng thời.
+    const { verification_level: _level, verified_at: _verifiedAt, ...safeInput } = input;
+    void _level; void _verifiedAt;
+    await store.updateSupplier(id, safeInput);
+    const warning = await syncSupplierIndustries(id);
     revalidateAll();
-    return { ok: true, message: "Đã lưu thông tin nhà cung cấp." };
+    return { ok: true, message: (input.status !== existing.status ? `Đã chuyển sang ${statusMeta(input.status).label}.` : "Đã lưu thông tin nhà cung cấp.") + (warning ? ` ${warning}` : "") };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -1308,7 +1370,8 @@ function parseProductInput(
       ? (raw.name_i18n as Record<string, string>)
       : undefined),
     category: str(raw.category),
-    description: str(raw.description),
+    description: str(raw.description)?.slice(0, 1500) ?? null,
+    description_detail: str(raw.description_detail)?.slice(0, 6000) ?? null,
     spec: str(raw.spec),
     specs: (raw.specs && typeof raw.specs === "object" ? (raw.specs as Record<string, unknown>) : undefined),
     unit: str(raw.unit),
@@ -1319,9 +1382,12 @@ function parseProductInput(
     lead_time_days: num(raw.lead_time_days),
     packaging: str(raw.packaging),
     oem: bool(raw.oem, false),
+    odm: bool(raw.odm, false),
     certifications: str(raw.certifications),
     export_port: str(raw.export_port),
     ref_price: num(raw.ref_price),
+    ref_price_max: num(raw.ref_price_max),
+    price_publicly_visible: bool(raw.price_publicly_visible, false),
     currency: str(raw.currency) ?? (num(raw.ref_price) !== null ? "USD" : null),
     price_valid_until: str(raw.price_valid_until),
     incoterm: str(raw.incoterm),
@@ -1333,6 +1399,31 @@ function parseProductInput(
   };
 }
 
+function priceRangeInputError(raw: Record<string, unknown>, input: SupplierProductInput): string | null {
+  const upper = raw.ref_price_max;
+  if (upper == null || String(upper).trim() === "") return null;
+  if (!/^\d+(?:\.\d{1,2})?$/.test(String(upper).trim()) || input.ref_price_max == null ||
+      input.ref_price_max > 999999999999.99 || input.ref_price == null || input.ref_price <= 0 ||
+      input.ref_price_max < input.ref_price) {
+    return "Giá đến phải lớn hơn hoặc bằng giá từ (> 0); bỏ trống nếu chỉ có một mức giá.";
+  }
+  return null;
+}
+
+async function autoAssignProduct(input: SupplierProductInput): Promise<string | null> {
+  const store = getStore();
+  const [categories, supplier, links] = await Promise.all([
+    store.listCategories({ publishedOnly: false }), store.getSupplier(input.supplier_id),
+    store.listSupplierCategories(input.supplier_id).catch(() => []),
+  ]);
+  if (!supplier) throw new Error("Không tìm thấy NCC của sản phẩm.");
+  const linked = links.map((link) => categories.find((c) => c.id === link.category_id)?.slug).filter((slug): slug is string => !!slug);
+  const fallback = linked.length ? linked : assignSupplierCategories(supplier.products, [], categories).slugs;
+  const match = assignProductCategory(input, categories, fallback);
+  input.category = match?.slug ?? null; // Never trust a form-submitted category over the product's own identity.
+  return match?.name_i18n.en || match?.slug || null;
+}
+
 export async function createProductAction(
   raw: Partial<SupplierProductInput> & Record<string, unknown>,
 ): Promise<ActionResult & { id?: string }> {
@@ -1341,12 +1432,17 @@ export async function createProductAction(
   const input = parseProductInput(raw);
   if (!input.supplier_id) return { ok: false, message: "Thiếu nhà cung cấp." };
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
-  // Hồ sơ vừa tạo chưa thể có ảnh/catalogue nên luôn bắt đầu ở trạng thái chưa sẵn sàng
+  const rangeError = priceRangeInputError(raw, input);
+  if (rangeError) return { ok: false, message: rangeError };
+  // Hồ sơ vừa tạo chưa thể có ảnh/catalogue nên luôn bắt đầu ở trạng thái chưa sẵn sàng.
   input.ready_for_buyer = false;
+  input.category = null;
   try {
+    const assigned = await autoAssignProduct(input);
     const created = await getStore().createProduct(input);
+    const warning = await syncSupplierIndustries(created.supplier_id);
     revalidateAll();
-    return { ok: true, message: `Đã thêm sản phẩm “${created.name}”.`, id: created.id };
+    return { ok: true, message: `Đã thêm sản phẩm “${created.name}”. ${assigned ? `Hệ thống gán ngành ${assigned}.` : "Chưa nhận diện được ngành; sản phẩm vẫn là bản nháp."} Tải ảnh/catalogue chia sẻ buyer vào hồ sơ sản phẩm rồi bật “Sẵn sàng gửi buyer” nếu muốn hiển thị công khai.${warning ? ` ${warning}` : ""}`, id: created.id };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -1360,24 +1456,48 @@ export async function updateProductAction(
   if (gate) return gate;
   const input = parseProductInput(raw);
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
+  const rangeError = priceRangeInputError(raw, input);
+  if (rangeError) return { ok: false, message: rangeError };
   const store = getStore();
-
-  // Cổng chặn: chỉ bật "Sẵn sàng gửi buyer" khi đã có ảnh/catalogue chia sẻ cho buyer
-  if (input.ready_for_buyer) {
-    const media = await store.listMedia("product", id);
-    const readiness = productReadiness(media);
-    if (!readiness.ready) {
-      return {
-        ok: false,
-        message: `Chưa thể đánh dấu “Sẵn sàng gửi buyer”: ${readiness.message}`,
-      };
-    }
-  }
-
   try {
+    const existing = await store.getProduct(id);
+    if (!existing) return { ok: false, message: "Không tìm thấy sản phẩm." };
+    // Supplier/category are not chosen by arbitrary client payloads.
+    input.supplier_id = existing.supplier_id;
+    input.category = existing.category;
+    const assigned = await autoAssignProduct(input);
+    const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description || input.description_detail !== (existing.description_detail ?? null);
+    // The human-reviewed category outranks text inference when toggling buyer readiness.
+    if (existing.reviewed_category_slug && !identityChanged) input.category = existing.reviewed_category_slug;
+    else if (!assigned) input.ready_for_buyer = false;
+    // An edit to the product identity invalidates the earlier category decision until staff rechecks it.
+    if (existing.reviewed_category_slug && identityChanged) {
+      input.reviewed_category_slug = null;
+      input.ready_for_buyer = false;
+    }
+
+    // Supplier-authored products cannot use the legacy keyword fallback to turn buyer-ready on.
+    if (input.ready_for_buyer && existing.supplier_originated && !input.reviewed_category_slug &&
+        !existing.reviewed_category_slug) return { ok: false, message: "Vexim cần chốt danh mục sản phẩm trước khi bật sẵn sàng gửi buyer." };
+    // Only buyer-shareable media can make a classified product ready.
+    if (input.ready_for_buyer) {
+      if (existing.reviewed_category_slug) {
+        const reviewed = await store.getCategoryBySlug(existing.reviewed_category_slug);
+        if (!reviewed || reviewed.status !== "published" || !reviewed.is_published)
+          return { ok: false, message: "Danh mục đã chốt không còn xuất bản; Vexim cần chọn lại." };
+      }
+      const readiness = productReadiness(await store.listMedia("product", id));
+      if (!readiness.ready) return { ok: false, message: `Chưa thể đánh dấu “Sẵn sàng gửi buyer”: ${readiness.message}` };
+    }
     await store.updateProduct(id, input);
+    const warning = await syncSupplierIndustries(existing.supplier_id);
     revalidateAll();
-    return { ok: true, message: "Đã lưu hồ sơ sản phẩm." };
+    const categoryNotice = existing.reviewed_category_slug
+      ? identityChanged
+        ? "Nội dung sản phẩm đã đổi; cần Vexim chốt lại danh mục trước khi công khai."
+        : "Danh mục Vexim đã chốt được giữ nguyên."
+      : assigned ? `Hệ thống phân loại ${assigned}; không tự công khai.` : "Chưa nhận diện được ngành; đã tắt sẵn sàng gửi buyer.";
+    return { ok: true, message: `Đã lưu hồ sơ sản phẩm. ${categoryNotice}${warning ? ` ${warning}` : ""}` };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -1387,9 +1507,13 @@ export async function deleteProductAction(id: string): Promise<ActionResult> {
   const gate = await guard("products.manage");
   if (gate) return gate;
   try {
-    await getStore().deleteProduct(id);
+    const store = getStore();
+    const existing = await store.getProduct(id);
+    if (!existing) return { ok: false, message: "Không tìm thấy sản phẩm." };
+    await store.deleteProduct(id);
+    const warning = await syncSupplierIndustries(existing.supplier_id);
     revalidateAll();
-    return { ok: true, message: "Đã xoá sản phẩm." };
+    return { ok: true, message: `Đã xoá sản phẩm.${warning ? ` ${warning}` : ""}` };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -1843,11 +1967,21 @@ export async function retrySupabaseAction(): Promise<ActionResult> {
 
 /* ------------------------------ MEDIA ------------------------------- */
 
+async function logEvidenceChange(v: Verification, mediaId: string, action: string) {
+  const session = await getSession();
+  await getStore().addAuditLog({
+    actor_id: session?.uid ?? null, actor_email: session?.email ?? null,
+    entity: "supplier", entity_id: v.supplier_id,
+    action: `verification.media.${action}.l${v.target_level}`,
+    before: null, after: { verification_id: v.id, media_id: mediaId },
+  }).catch((err) => console.error("[audit] media change failed", err));
+}
+
 /**
  * Gắn link video vào hồ sơ (video không tải tệp lên — chỉ lưu link).
  */
 export async function addMediaLinkAction(input: {
-  ownerType: "product" | "supplier";
+  ownerType: MediaOwnerType;
   ownerId: string;
   url: string;
   caption?: string | null;
@@ -1865,17 +1999,35 @@ export async function addMediaLinkAction(input: {
   if (!["http:", "https:"].includes(parsed.protocol)) {
     return { ok: false, message: "Link video không hợp lệ." };
   }
-  if (input.ownerType !== "product" && input.ownerType !== "supplier") {
-    return { ok: false, message: "Đối tượng không hợp lệ." };
-  }
 
   try {
-    await getStore().createMedia({
+    const store = getStore();
+    let supplierId: string | null = null;
+    let productId: string | null = null;
+    let verificationId: string | null = null;
+    let verification: Verification | null = null;
+    if (input.ownerType === "product") {
+      productId = input.ownerId;
+      const p = await store.getProduct(input.ownerId);
+      supplierId = p?.supplier_id ?? null;
+    } else if (input.ownerType === "supplier") {
+      supplierId = input.ownerId;
+    } else {
+      verificationId = input.ownerId;
+      const v = await store.getVerification(input.ownerId);
+      if (!v) return { ok: false, message: "Không tìm thấy đợt kiểm." };
+      const blocked = await verificationMediaEditError(v);
+      if (blocked) return { ok: false, message: blocked };
+      verification = v;
+      supplierId = v.supplier_id;
+    }
+    const created = await store.createMedia({
       owner_type: input.ownerType,
-      product_id: input.ownerType === "product" ? input.ownerId : null,
-      supplier_id: input.ownerType === "supplier" ? input.ownerId : null,
+      product_id: productId,
+      supplier_id: supplierId,
+      verification_id: verificationId,
       kind: "video",
-      audience: input.audience ?? "buyer",
+      audience: input.ownerType === "verification" ? "internal" : (input.audience ?? "buyer"),
       status: "unverified",
       expires_on: null,
       caption: (input.caption ?? "").trim() || parsed.hostname,
@@ -1889,8 +2041,9 @@ export async function addMediaLinkAction(input: {
       sort_order: 0,
       created_by: null,
     });
+    if (verification) await logEvidenceChange(verification, created.id, "add_link");
     revalidateAll();
-    return { ok: true, message: "Đã thêm link video (trạng thái: chưa xác minh)." };
+    return { ok: true, message: "Đã thêm link (trạng thái: chưa xác minh)." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -1912,12 +2065,31 @@ export async function updateMediaAction(
   try {
     const current = await store.getMedia(id);
     if (!current) return { ok: false, message: "Không tìm thấy tệp." };
+    let verification: Verification | null = null;
+    if (current.owner_type === "verification") {
+      const v = current.verification_id && await store.getVerification(current.verification_id);
+      if (!v) return { ok: false, message: "Không tìm thấy đợt kiểm." };
+      const blocked = await verificationMediaEditError(v);
+      if (blocked) return { ok: false, message: blocked };
+      verification = v;
+    }
 
     const next: typeof patch = { ...patch };
+    if (current.owner_type === "verification") next.audience = "internal";
     // Giấy tờ nội bộ không bao giờ được chuyển sang chia sẻ buyer
     if (current.kind === "document") next.audience = "internal";
 
-    await store.updateMedia(id, next);
+    const updated = await store.updateMedia(id, next);
+    if (verification) await logEvidenceChange(verification, id, "update");
+    if (current.product_id) {
+      const product = await store.getProduct(current.product_id);
+      const revokeCover = product?.featured_media_id === id &&
+        (updated.audience !== "buyer" || updated.kind !== "image" || isExpired(updated));
+      const revokeReady = product?.ready_for_buyer && !productReadiness(await store.listMedia("product", current.product_id)).ready;
+      if (revokeCover || revokeReady) await store.updateProduct(current.product_id, {
+        ...(revokeCover ? { featured_media_id: null } : {}), ...(revokeReady ? { ready_for_buyer: false } : {}),
+      });
+    }
     revalidateAll();
     return { ok: true, message: "Đã cập nhật tệp." };
   } catch (err) {
@@ -1933,9 +2105,18 @@ export async function deleteMediaAction(id: string): Promise<ActionResult> {
   try {
     const asset = await store.getMedia(id);
     if (!asset) return { ok: false, message: "Không tìm thấy tệp." };
+    let verification: Verification | null = null;
+    if (asset.owner_type === "verification") {
+      const v = asset.verification_id && await store.getVerification(asset.verification_id);
+      if (!v) return { ok: false, message: "Không tìm thấy đợt kiểm." };
+      const blocked = await verificationMediaEditError(v);
+      if (blocked) return { ok: false, message: blocked };
+      verification = v;
+    }
 
     // Nếu sản phẩm đang ở trạng thái "sẵn sàng gửi buyer" thì kiểm tra lại sau khi xoá
     await store.deleteMedia(id);
+    if (verification) await logEvidenceChange(verification, id, "delete");
     for (const path of [asset.storage_path, asset.thumb_path]) {
       if (path) {
         await deleteObject(path).catch(() => null);
@@ -1944,12 +2125,12 @@ export async function deleteMediaAction(id: string): Promise<ActionResult> {
 
     if (asset.product_id) {
       const product = await store.getProduct(asset.product_id);
-      if (product?.ready_for_buyer) {
-        const media = await store.listMedia("product", asset.product_id);
-        if (!productReadiness(media).ready) {
-          await store.updateProduct(asset.product_id, { ready_for_buyer: false });
-        }
-      }
+      const revokeReady = product?.ready_for_buyer &&
+        !productReadiness(await store.listMedia("product", asset.product_id)).ready;
+      const revokeCover = product?.featured_media_id === id;
+      if (revokeReady || revokeCover) await store.updateProduct(asset.product_id, {
+        ...(revokeReady ? { ready_for_buyer: false } : {}), ...(revokeCover ? { featured_media_id: null } : {}),
+      });
     }
 
     revalidateAll();
@@ -2238,60 +2419,210 @@ export async function submitQuoteLeadAction(input: {
 
 /* ----------------------------- CATEGORIES ----------------------------- */
 
+function parseJsonList(raw: unknown): unknown[] {
+  if (!raw || typeof raw !== "string") return [];
+  const t = raw.trim();
+  if (!t) return [];
+  try {
+    const parsed = JSON.parse(t);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function parseCategoryInput(raw: Record<string, unknown>) {
   const slug = (str(raw.slug) ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const name_en = str(raw.name_en) ?? "";
   const intro_en = str(raw.intro_en) ?? "";
+  const h1_en = str(raw.h1_en) ?? "";
+  const body_en = str(raw.body_en) ?? "";
   const seoTitleEn = str(raw.seo_title_en);
   const seoDescEn = str(raw.seo_desc_en);
+  const kickerEn = str(raw.kicker_en);
+  const heroAltEn = str(raw.hero_alt_en);
+  const heroImage = str(raw.hero_image) || null;
+  const specColumns = parseJsonList(raw.spec_columns);
+  const specRows = parseJsonList(raw.spec_rows);
+  const buyingFacts = parseJsonList(raw.buying_facts);
+  const faqs = parseJsonList(raw.faqs);
+  const filters = parseJsonList(raw.filters);
+  const status = bool(raw.is_published, false) ? "published" : "draft";
+  const seoIndexable = bool(raw.seo_indexable, false);
+  const activeHome = bool(raw.active_on_homepage, false);
   return {
     slug,
     parent_id: str(raw.parent_id) || null,
     name_i18n: name_en ? ({ en: name_en } as Category["name_i18n"]) : undefined,
-    intro_i18n: intro_en ? ({ en: intro_en } as Category["intro_i18n"]) : undefined,
-    seo_title_i18n: seoTitleEn ? ({ en: seoTitleEn } as Category["seo_title_i18n"]) : undefined,
-    seo_desc_i18n: seoDescEn ? ({ en: seoDescEn } as Category["seo_desc_i18n"]) : undefined,
-    is_published: bool(raw.is_published, false),
+    intro_i18n: { en: intro_en } as Category["intro_i18n"],
+    h1_i18n: h1_en ? ({ en: h1_en } as Category["h1_i18n"]) : null,
+    body_i18n: body_en ? ({ en: body_en } as Category["body_i18n"]) : null,
+    faq_i18n: faqs as Category["faq_i18n"],
+    spec_columns: specColumns as Category["spec_columns"],
+    spec_rows: specRows as unknown as Category["spec_rows"],
+    buying_facts: buyingFacts as Category["buying_facts"],
+    filters: filters as Category["filters"],
+    seo_title_i18n: { en: seoTitleEn ?? "" } as Category["seo_title_i18n"],
+    seo_desc_i18n: { en: seoDescEn ?? "" } as Category["seo_desc_i18n"],
+    homepage_kicker_i18n: kickerEn ? ({ en: kickerEn } as Category["homepage_kicker_i18n"]) : null,
+    hero_alt_i18n: heroAltEn ? ({ en: heroAltEn } as Category["hero_alt_i18n"]) : null,
+    hero_image: heroImage,
+    active_on_homepage: activeHome,
+    seo_indexable: seoIndexable,
+    status,
+    is_published: status === "published",
     sort_order: num(raw.sort_order) ?? 0,
   };
 }
 
 export async function createCategoryAction(raw: Record<string, unknown>) {
-  const gate = await guard("suppliers.manage");
+  // Tạo mới mặc định là nháp; không cần quyền publish.
+  const gate = await guard("categories.manage");
   if (gate) return gate;
+  const store = getStore();
+  const session = await getSession();
   const input = parseCategoryInput(raw);
+  // Tạo mới LUÔN ở trạng thái nháp (admin sẽ bật công khai ở lượt sửa sau khi duyệt nội dung).
+  input.status = "draft";
+  input.is_published = false;
   if (!input.slug) return { ok: false, message: "Slug không được để trống." };
   if (!input.name_i18n?.en) return { ok: false, message: "Vui lòng nhập tên danh mục (tiếng Anh)." };
+  if (await store.getCategoryBySlug(input.slug)) return { ok: false, message: `Slug "${input.slug}" đã tồn tại. Chọn slug khác.` };
   try {
-    const created = await getStore().createCategory(input as Partial<Category>);
+    const created = await store.createCategory({
+      ...(input as Partial<Category>),
+      created_by: session?.uid ?? null,
+      updated_by: session?.uid ?? null,
+    });
+    // Audit log
+    await store.addAuditLog({
+      actor_id: session?.uid ?? null,
+      actor_email: session?.email ?? null,
+      entity: "category",
+      entity_id: created.id,
+      action: "create",
+      before: null,
+      after: pickForAudit(created),
+    });
     revalidateAll();
-    return { ok: true, message: `Đã tạo danh mục "${created.name_i18n?.en ?? created.slug}".`, id: created.id };
+    return { ok: true, message: `Đã tạo danh mục "${created.name_i18n?.en ?? created.slug}" (trạng thái Nháp).`, id: created.id };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
+    return { ok: false, message: categorySchemaError(err) ?? (err instanceof Error ? err.message : "Lỗi") };
   }
 }
 
 export async function updateCategoryAction(id: string, raw: Record<string, unknown>) {
-  const gate = await guard("suppliers.manage");
+  const gate = await guard("categories.manage");
   if (gate) return gate;
+  const session = await getSession();
+  const store = getStore();
+  const existing = await store.getCategory(id);
+  if (!existing) return { ok: false, message: "Danh mục không tồn tại." };
+
   const input = parseCategoryInput(raw);
+
+  // Chuyển Đã đăng <-> Nháp yêu cầu quyền categories.publish (chỉ admin).
+  const wasPublished = existing.is_published && existing.status === "published";
+  const wantsPublished = input.is_published && input.status === "published";
+  if (wantsPublished !== wasPublished) {
+    if (!session || !hasPermission(session.role, "categories.publish")) {
+      return {
+        ok: false,
+        message: "Chỉ Quản trị (admin) mới được chuyển trạng thái Công khai/Nháp cho trang ngành. Nhờ admin duyệt sau khi bạn đã biên tập xong nội dung.",
+      };
+    }
+  }
+
+  // Nếu người chỉnh sửa KHÔNG có quyền publish → KHÔNG cho thay đổi trạng thái (giữ nguyên trạng thái cũ).
+  const canPublish = !!(session && hasPermission(session.role, "categories.publish"));
+  if (!canPublish) {
+    input.status = existing.status ?? "draft";
+    input.is_published = existing.is_published;
+    // Hai cờ này cũng làm thay đổi nơi/khả năng xuất hiện trên website.
+    if (input.active_on_homepage !== !!existing.active_on_homepage ||
+      input.seo_indexable !== !!existing.seo_indexable) {
+      return { ok: false, message: "Bạn không có quyền thay đổi hiển thị trang chủ hoặc lập chỉ mục." };
+    }
+  }
+
+  // Slug unique check
+  if (input.slug && input.slug !== existing.slug) {
+    const dup = await store.getCategoryBySlug(input.slug);
+    if (dup && dup.id !== id) return { ok: false, message: `Slug "${input.slug}" đã được dùng bởi danh mục khác.` };
+  }
+
+  // Body sanitize (chỉ cho phép p/h2-h4/ul/ol/li/a/strong/em/br).
+  if (input.body_i18n?.en) {
+    const { sanitizeHtml } = await import("@/lib/public/sanitize");
+    input.body_i18n = { en: sanitizeHtml(input.body_i18n.en as string) };
+  }
+
+  const patch: Partial<Category> = { ...(input as Partial<Category>), updated_by: session?.uid ?? null };
+
   try {
-    await getStore().updateCategory(id, input);
+    const updated = await store.updateCategory(id, patch);
+    await store.addAuditLog({
+      actor_id: session?.uid ?? null,
+      actor_email: session?.email ?? null,
+      entity: "category",
+      entity_id: id,
+      action: wantsPublished && !wasPublished ? "publish" : !wantsPublished && wasPublished ? "unpublish" : "update",
+      before: pickForAudit(existing),
+      after: pickForAudit(updated),
+    });
     revalidateAll();
     return { ok: true, message: "Đã lưu danh mục." };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
+    return { ok: false, message: categorySchemaError(err) ?? (err instanceof Error ? err.message : "Lỗi") };
   }
 }
 
 export async function deleteCategoryAction(id: string) {
-  const gate = await guard("suppliers.manage");
+  const gate = await guard("categories.manage");
   if (gate) return gate;
+  const session = await getSession();
+  const store = getStore();
+  const cat = await store.getCategory(id);
+  if (!cat) return { ok: false, message: "Danh mục không tồn tại." };
+  const [products, rfqs] = await Promise.all([store.listProducts(), store.listRfqs({})]);
+  const hasProducts = products.some((p) => (p.category ?? "").toLowerCase() === cat.slug);
+  const hasRfqs = rfqs.some((r) => (r as { category?: string }).category === cat.slug);
+  if (hasProducts || hasRfqs) {
+    return {
+      ok: false,
+      message:
+        "Không thể xoá vì đã có hồ sơ NCC/sản phẩm hoặc RFQ liên quan. Hãy chuyển trạng thái sang Nháp để ẩn khỏi trang công khai, thay vì xoá.",
+    };
+  }
   try {
-    await getStore().deleteCategory(id);
+    await store.deleteCategory(id);
+    await store.addAuditLog({
+      actor_id: session?.uid ?? null,
+      actor_email: session?.email ?? null,
+      entity: "category",
+      entity_id: id,
+      action: "delete",
+      before: pickForAudit(cat),
+      after: null,
+    });
     revalidateAll();
     return { ok: true, message: "Đã xoá danh mục." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
   }
+}
+
+/** Lấy bản tóm tắt các field hiển thị trong audit log (không log HTML body đầy đủ để khỏi rác). */
+function pickForAudit(c: Category): Record<string, unknown> {
+  return {
+    slug: c.slug,
+    name: c.name_i18n,
+    status: c.status,
+    is_published: c.is_published,
+    active_on_homepage: c.active_on_homepage,
+    seo_indexable: c.seo_indexable,
+    hero_image: c.hero_image,
+    previous_slugs: c.previous_slugs,
+    sort_order: c.sort_order,
+  };
 }

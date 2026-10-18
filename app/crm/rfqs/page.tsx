@@ -21,12 +21,14 @@ export const dynamic = "force-dynamic";
 
 const STATUS_TABS: { key: string; label: string; dotClass?: string }[] = [
   { key: "all", label: "Tất cả" },
-  { key: "new", label: "Mới", dotClass: "bg-sky-500" },
-  { key: "qualified", label: "Đã duyệt", dotClass: "bg-sky-500" },
+  { key: "new", label: "Mới", dotClass: "bg-slate-400" },
+  { key: "needs_review", label: "Cần duyệt", dotClass: "bg-rose-500" },
+  { key: "in_progress", label: "Đang xử lý", dotClass: "bg-sky-500" },
   { key: "matching", label: "Đang ghép NCC", dotClass: "bg-amber-500" },
-  { key: "quoting", label: "Đang lấy báo giá", dotClass: "bg-amber-500" },
+  { key: "quoted", label: "Đã báo giá", dotClass: "bg-amber-600" },
   { key: "sampling", label: "Đang gửi mẫu", dotClass: "bg-violet-500" },
   { key: "won", label: "Thành công", dotClass: "bg-emerald-500" },
+  { key: "lost", label: "Thất bại", dotClass: "bg-ink-400" },
   { key: "spam", label: "Cách ly", dotClass: "bg-red-500" },
 ];
 
@@ -40,18 +42,27 @@ function statusMeta(s: string) {
   );
 }
 
+const SLA_ASSIGN_HOURS = 4;     // phân công trong vòng 4 giờ làm việc
+const SLA_RESPONSE_HOURS = 24;  // phản hồi buyer trong vòng 24 giờ làm việc
+const ACTIVE_ASSIGN: Array<Rfq["status"]> = ["new", "needs_review"];
+const ACTIVE_RESPONSE: Array<Rfq["status"]> = ["new", "needs_review", "in_progress", "matching"];
+const CLOSED: Array<Rfq["status"]> = ["won", "lost", "spam"];
+
 function slaInfo(rfq: Rfq): { label: string; tone: string } {
   const created = new Date(rfq.created_at).getTime();
   const now = Date.now();
   const ageHours = (now - created) / 3_600_000;
-  if (rfq.status === "spam") return { label: "spam quarantine", tone: "text-red-700" };
-  if (rfq.status === "won" || rfq.status === "lost" || rfq.status === "closed") {
-    return { label: "closed", tone: "text-ink-500" };
+  if (rfq.status === "spam") return { label: "cách ly spam", tone: "text-red-700" };
+  if (rfq.status === "needs_review") {
+    if (!rfq.assigned_to && ageHours >= SLA_ASSIGN_HOURS) return { label: "review overdue", tone: "text-red-700" };
+    return { label: "chờ duyệt", tone: "text-rose-700" };
   }
-  if (!rfq.assigned_to && ageHours >= 4) return { label: "unassigned 4h+", tone: "text-red-700" };
-  if (!rfq.first_response_at && ageHours >= 20) return { label: "response due", tone: "text-amber-700" };
-  if (rfq.first_response_at) return { label: "replied", tone: "text-emerald-700" };
-  return { label: `${Math.max(0, Math.round(ageHours * 10) / 10)}h ago`, tone: "text-ink-500" };
+  if (rfq.status === "won") return { label: "won", tone: "text-emerald-700" };
+  if (rfq.status === "lost") return { label: "lost", tone: "text-ink-500" };
+  if (ACTIVE_ASSIGN.includes(rfq.status) && !rfq.assigned_to && ageHours >= SLA_ASSIGN_HOURS) return { label: `chưa phân công ${SLA_ASSIGN_HOURS}h+`, tone: "text-red-700" };
+  if (ACTIVE_RESPONSE.includes(rfq.status) && !rfq.first_response_at && ageHours >= SLA_RESPONSE_HOURS - 4) return { label: "hồi đáp sắp trễ", tone: "text-amber-700" };
+  if (rfq.first_response_at) return { label: "đã hồi đáp", tone: "text-emerald-700" };
+  return { label: `${Math.max(0, Math.round(ageHours * 10) / 10)}h trước`, tone: "text-ink-500" };
 }
 
 export default async function RfqsPage({
@@ -59,7 +70,7 @@ export default async function RfqsPage({
 }: {
   searchParams?: Promise<{ status?: string }>;
 }) {
-  await requirePagePermission("suppliers.manage", "/crm/dashboard");
+  await requirePagePermission("rfq.view", "/crm/dashboard");
   const sp = await searchParams;
   const statusFilter = sp?.status ?? "all";
 

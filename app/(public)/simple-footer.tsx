@@ -1,0 +1,28 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+import { COMPANY } from "@/lib/config";
+
+/**
+ * Footer gọn cho các trang không phải home. Trang chủ (/) tự render footer
+ * đầy đủ (industries + links + contact) trong home.tsx.
+ */
+export function SimpleFooter() {
+  const pathname = usePathname();
+  if (pathname === "/") return null;
+
+  return (
+    <footer className="mt-16 border-t border-ink-200 bg-white py-8 text-[12.5px] text-ink-500">
+      <div className="mx-auto flex max-w-7xl flex-col items-start gap-2 px-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+        <div>© {new Date().getFullYear()} {COMPANY.legalName}, Hanoi, Vietnam</div>
+        <div className="flex items-center gap-4">
+          <Link href="/how-we-verify" className="hover:text-ink-800">How we verify</Link>
+          <Link href="/for-suppliers" className="hover:text-ink-800">For suppliers</Link>
+          <a href={`mailto:${COMPANY.email}`} className="hover:text-ink-800">{COMPANY.email}</a>
+        </div>
+      </div>
+    </footer>
+  );
+}

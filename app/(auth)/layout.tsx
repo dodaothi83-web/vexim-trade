@@ -12,7 +12,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             <p className="text-[17px] leading-tight font-black tracking-tight text-white">
               VEXIM TRADE
             </p>
-            <p className="text-[12px] text-brand-200/80">CRM phòng Sale Xuất khẩu</p>
+            <p className="text-[12px] text-brand-200/80">Cổng nhân viên &amp; nhà cung cấp</p>
           </div>
         </div>
         <div className="card p-6 shadow-pop">{children}</div>

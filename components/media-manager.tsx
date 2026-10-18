@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 
 import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/actions";
+import { setFeaturedProductImageAction } from "@/app/crm/products/[slug]/edit/featured-image-action";
 import { MEDIA_ACCEPT, prepareImage } from "@/lib/media/client-image";
+import { readUploadResponse } from "@/lib/media/upload-response";
 import { formatBytes, MEDIA_KINDS } from "@/lib/media/limits";
 import { isExpired } from "@/lib/media/readiness";
 import type { MediaAsset, MediaAudience, MediaKind, MediaOwnerType, MediaStatus } from "@/lib/types";
@@ -44,24 +46,37 @@ export function MediaManager({
   ownerId,
   supplierId,
   items,
+  featuredMediaId,
   allowInternal = true,
+  readOnly = false,
+  title,
   note,
+  scopeHint,
+  defaultKind,
 }: {
   ownerType: MediaOwnerType;
   ownerId: string;
   /** Chỉ dùng khi ownerType = product: NCC chứa sản phẩm (để server kiểm tra) */
   supplierId?: string;
   items: MediaAsset[];
+  /** Product-only: staff-chosen buyer-facing cover image. */
+  featuredMediaId?: string | null;
   allowInternal?: boolean;
+  readOnly?: boolean;
+  title?: string;
   note?: string;
+  /** Prominent scope explanation, separate from the compact file-count header. */
+  scopeHint?: string;
+  /** Start with the evidence type expected by this audit step. */
+  defaultKind?: MediaKind;
 }) {
   const router = useRouter();
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [kind, setKind] = useState<MediaKind>("image");
+  const [kind, setKind] = useState<MediaKind>(defaultKind ?? "image");
   const [audience, setAudience] = useState<MediaAudience>(
-    ownerType === "supplier" ? "buyer" : "buyer",
+    ownerType === "verification" ? "internal" : ownerType === "supplier" ? "buyer" : "buyer",
   );
   const [caption, setCaption] = useState("");
   const [expiresOn, setExpiresOn] = useState("");
@@ -69,7 +84,7 @@ export function MediaManager({
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
 
-  const effectiveAudience: MediaAudience = kind === "document" ? "internal" : audience;
+  const effectiveAudience: MediaAudience = ownerType === "verification" || kind === "document" ? "internal" : audience;
   const accept = kind === "image" ? MEDIA_ACCEPT.split(",").slice(0, 3).join(",") : MEDIA_ACCEPT;
 
   function feedback(results: { name: string; ok: boolean; message: string }[]) {
@@ -96,9 +111,9 @@ export function MediaManager({
         upload = new File([prepared.main], file.name.replace(/\.[^.]+$/, "") + ".jpg", {
           type: "image/jpeg",
         });
-        form.set("thumb", new File([prepared.thumb], "thumb.jpg", { type: "image/jpeg" }), "thumb");
-        form.set("width", String(prepared.width));
-        form.set("height", String(prepared.height));
+        form.set(`thumb:${upload.name}`, new File([prepared.thumb], "thumb.jpg", { type: "image/jpeg" }), "thumb.jpg");
+        form.set(`width:${upload.name}`, String(prepared.width));
+        form.set(`height:${upload.name}`, String(prepared.height));
       } catch {
         // Không nén được (ảnh lạ/trình duyệt cũ) thì gửi nguyên tệp, server vẫn kiểm tra
       }
@@ -106,12 +121,13 @@ export function MediaManager({
     form.set("files", upload, upload.name);
 
     const res = await fetch("/api/media/upload", { method: "POST", body: form });
-    const data = (await res.json().catch(() => null)) as
-      | { results?: { name: string; ok: boolean; message: string }[]; message?: string }
-      | null;
+    const data = await readUploadResponse<{
+      results?: { name: string; ok: boolean; message: string }[];
+      message?: string;
+    }>(res);
 
-    if (data?.results?.length) return data.results;
-    return [{ name: file.name, ok: false, message: data?.message ?? "Tải lên thất bại." }];
+    if (data.results?.length) return data.results;
+    return [{ name: file.name, ok: false, message: data.message ?? `Tải lên thất bại (HTTP ${res.status}).` }];
   }
 
   async function onFiles(files: FileList | File[] | null) {
@@ -165,6 +181,16 @@ export function MediaManager({
     router.refresh();
   }
 
+  async function chooseCover(mediaId: string | null) {
+    setBusy(true);
+    try {
+      const res = await setFeaturedProductImageAction(ownerId, mediaId);
+      toast.push({ kind: res.ok ? "success" : "error", title: res.message });
+      if (res.ok) router.refresh();
+    } catch { toast.push({ kind: "error", title: "Không lưu được ảnh đại diện." }); }
+    finally { setBusy(false); }
+  }
+
   async function remove(asset: MediaAsset) {
     const label = asset.caption || asset.external_url || "tệp này";
     if (!window.confirm(`Xoá "${label}"? Tệp sẽ bị xoá khỏi kho lưu trữ.`)) return;
@@ -177,17 +203,22 @@ export function MediaManager({
     <div className="card overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3">
         <ImageIcon className="h-4 w-4 text-brand-700" />
-        <h2 className="text-[15px] font-bold text-ink-900">Hình ảnh &amp; tài liệu</h2>
+        <h2 className="text-[15px] font-bold text-ink-900">{title ?? (ownerType === "verification" ? "Bằng chứng riêng của đợt kiểm" : ownerType === "supplier" ? "Kho ảnh & tài liệu chung của NCC" : "Ảnh & tài liệu sản phẩm")}</h2>
         <span className="text-[12px] text-ink-500">
           {items.length ? `${items.length} tệp` : "chưa có tệp nào"}
         </span>
         {note && <span className="ml-auto text-[11.5px] text-ink-400">{note}</span>}
       </div>
+      {scopeHint && <p className="border-b border-brand-100 bg-brand-50/60 px-4 py-3 text-[12.5px] leading-relaxed text-brand-900">{scopeHint}</p>}
+      {ownerType === "product" && !readOnly && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand-100 bg-brand-50/50 px-4 py-3 text-[12.5px] text-brand-900">
+        <p>Ảnh đại diện sản phẩm: chọn trong các ảnh đã <strong>chia sẻ buyer</strong> bên dưới. Nếu chưa chọn, dùng ảnh hợp lệ đầu tiên. Chọn ảnh không tự công khai sản phẩm.</p>
+        {featuredMediaId && <button type="button" disabled={busy} onClick={() => void chooseCover(null)} className="shrink-0 font-semibold underline disabled:opacity-50">Dùng ảnh đầu tiên</button>}
+      </div>}
 
       {/* Khu tải lên */}
-      <div className="border-b border-ink-200 bg-ink-50/60 px-4 py-3">
+      {!readOnly && <div className="border-b border-ink-200 bg-ink-50/60 px-4 py-3">
         <div className="mb-2.5 flex flex-wrap gap-1.5">
-          {MEDIA_KINDS.map((k) => (
+          {MEDIA_KINDS.filter((k) => ownerType !== "verification" || ["image", "document", "certificate", "video"].includes(k.value)).map((k) => (
             <button
               key={k.value}
               type="button"
@@ -206,7 +237,7 @@ export function MediaManager({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {allowInternal && (
+          {allowInternal && ownerType !== "verification" && (
             <div className="flex overflow-hidden rounded-lg border border-ink-200 bg-white">
               <button
                 type="button"
@@ -258,7 +289,7 @@ export function MediaManager({
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             <input
               className="input flex-1 py-1.5 text-[12.5px]"
-              placeholder="Dán link YouTube / Drive mô tả sản phẩm, dây chuyền, nhà máy…"
+              placeholder={ownerType === "verification" ? "Dán link video YouTube / Drive (quyền xem phụ thuộc nền tảng lưu video)" : "Dán link YouTube / Drive mô tả sản phẩm, dây chuyền, nhà máy…"}
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
             />
@@ -295,7 +326,7 @@ export function MediaManager({
                 chọn tệp
               </button>
               <span className="ml-1 text-ink-400">
-                — {kind === "image" ? "JPG/PNG/WebP, ảnh được nén tự động" : "PDF tối đa 15MB"}
+                — {kind === "image" ? "JPG/PNG/WebP, ảnh được nén tự động" : kind === "document" || kind === "certificate" ? "PDF hoặc ảnh JPG/PNG/WebP tối đa 15MB (ảnh lớn chọn tab Ảnh để nén)" : "PDF tối đa 15MB"}
               </span>
             </p>
             {busy && (
@@ -317,13 +348,12 @@ export function MediaManager({
             />
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Danh sách tệp */}
       {items.length === 0 ? (
         <p className="px-4 py-4 text-[12.5px] text-ink-500">
-          Chưa có hình ảnh hay tài liệu nào. Hồ sơ vẫn lưu được — nhưng sản phẩm chỉ nên đánh
-          dấu “Sẵn sàng gửi buyer” khi đã có ảnh hoặc catalogue.
+          {ownerType === "verification" ? "Chưa có bằng chứng. Hãy tải ảnh, chứng từ hoặc thêm link video trước khi nộp duyệt." : "Chưa có hình ảnh hay tài liệu nào."}
         </p>
       ) : (
         <ul className="divide-y divide-ink-100">
@@ -331,6 +361,10 @@ export function MediaManager({
             <MediaRow
               key={m.id}
               asset={m}
+              readOnly={readOnly}
+              featured={ownerType === "product" && m.id === featuredMediaId}
+              canChooseCover={ownerType === "product" && !readOnly && !busy && m.kind === "image" && m.audience === "buyer" && !!m.storage_path && !isExpired(m)}
+              onChooseCover={() => void chooseCover(m.id)}
               onPatch={(next) => void patch(m.id, next)}
               onRemove={() => void remove(m)}
             />
@@ -343,10 +377,18 @@ export function MediaManager({
 
 function MediaRow({
   asset,
+  readOnly,
+  featured,
+  canChooseCover,
+  onChooseCover,
   onPatch,
   onRemove,
 }: {
   asset: MediaAsset;
+  readOnly: boolean;
+  featured: boolean;
+  canChooseCover: boolean;
+  onChooseCover: () => void;
   onPatch: (patch: {
     caption?: string | null;
     status?: MediaStatus;
@@ -392,6 +434,8 @@ function MediaRow({
           ) : (
             <Badge className="bg-brand-50 text-brand-700">Chia sẻ buyer</Badge>
           )}
+          {featured && <Badge className="bg-amber-50 font-semibold text-amber-800">Ảnh đại diện</Badge>}
+          {canChooseCover && !featured && <button type="button" onClick={onChooseCover} className="rounded-full border border-brand-200 px-2.5 py-0.5 text-[11.5px] font-semibold text-brand-800 hover:border-brand-500 hover:bg-brand-50">Chọn làm ảnh đại diện</button>}
           {asset.expires_on && (
             <span className="text-[11.5px] text-ink-500">HSD {formatDate(asset.expires_on)}</span>
           )}
@@ -402,22 +446,24 @@ function MediaRow({
           <input
             className="input w-64 flex-1 py-1 text-[12.5px]"
             value={caption}
+            readOnly={readOnly}
             placeholder="Chú thích"
             onChange={(e) => setCaption(e.target.value)}
             onBlur={() => {
-              if ((asset.caption ?? "") !== caption) onPatch({ caption: caption || null });
+              if (!readOnly && (asset.caption ?? "") !== caption) onPatch({ caption: caption || null });
             }}
           />
           <select
             className="input w-auto py-1 text-[12px]"
             value={asset.status}
+            disabled={readOnly}
             onChange={(e) => onPatch({ status: e.target.value as MediaStatus })}
           >
             <option value="unverified">Chưa xác minh</option>
             <option value="checked">Đã kiểm tra</option>
             <option value="expired">Hết hạn</option>
           </select>
-          {asset.kind !== "document" && (
+          {asset.owner_type !== "verification" && asset.kind !== "document" && (
             <select
               className="input w-auto py-1 text-[12px]"
               value={asset.audience}
@@ -447,14 +493,13 @@ function MediaRow({
               Xem tệp
             </a>
           )}
-          <button
+          {!readOnly && <button
             type="button"
             onClick={onRemove}
             className="ml-auto flex items-center gap-1 text-[12px] font-semibold text-red-600 hover:underline"
           >
-            <Trash2 className="h-3.5 w-3.5" />
-            Xoá
-          </button>
+            <Trash2 className="h-3.5 w-3.5" /> Xoá
+          </button>}
         </div>
       </div>
     </li>
