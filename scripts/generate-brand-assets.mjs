@@ -30,14 +30,9 @@ const mark = await artwork({ left: 280, top: 190, width: 485, height: 315 });
 const markSquare = await sharp({
   create: { width: 512, height: 512, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 0 } },
 }).composite([{ input: mark, gravity: "centre" }]).png().toBuffer();
-const icon = await sharp({
-  create: { width: 192, height: 192, channels: 4, background: "#102349" },
-}).composite([{ input: await sharp(markSquare).resize(172, 172).toBuffer(), gravity: "centre" }]).png().toBuffer();
-
 for (const [relative, contents] of [
   ["../public/logo-vexim-white-wordmark.png", wordmark],
   ["../public/logo-vexim-white-mark.png", markSquare],
-  ["../app/icon.png", icon],
 ]) {
   const url = new URL(relative, import.meta.url);
   if (process.argv.includes("--check")) {
