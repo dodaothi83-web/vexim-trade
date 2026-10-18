@@ -16,6 +16,7 @@ import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
 import { PublicProductCard } from "@/components/public-product-card";
+import { Logo } from "@/components/brand-logo";
 import type { Category } from "@/lib/types";
 
 /** Ảnh placeholder khi category chưa upload hero_image — màu sắc trung tính, không gây nhầm sản phẩm */
@@ -493,7 +494,7 @@ export default async function HomeContent() {
           <div className="grid gap-10 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
             <div>
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-700 text-sm font-black text-white">V</div>
+                <Logo variant="mark" className="h-8 w-8" />
                 <span className="text-[16px] font-black tracking-tight text-ink-900">Vexim Trade</span>
               </div>
               <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-ink-500">

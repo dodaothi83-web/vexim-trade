@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",
     "typecheck": "tsc --noEmit",
+    "brand:assets": "node scripts/generate-brand-assets.mjs",
     "check:supabase": "node scripts/check-supabase.mjs",
     "check:mail": "node --experimental-strip-types --no-warnings scripts/check-mail-visibility.mjs"
   },

@@ -26,6 +26,7 @@ import { logoutAction } from "@/app/auth-actions";
 import { hasPermission, roleMeta, type Permission } from "@/lib/auth/permissions";
 import type { UserRole } from "@/lib/types";
 import { cx } from "@/components/ui";
+import { Logo } from "@/components/brand-logo";
 
 const NAV: {
   href: string;
@@ -86,9 +87,7 @@ export function Sidebar({
   const body = (
     <>
       <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-[13px] font-black text-white shadow-sm">
-          VX
-        </div>
+        <Logo variant="mark" tone="white" className="h-9 w-9" />
         <div className="min-w-0">
           <p className="truncate text-[15px] leading-tight font-black tracking-tight text-white">
             VEXIM TRADE
