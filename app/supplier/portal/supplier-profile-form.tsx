@@ -40,7 +40,7 @@ export function SupplierProfileFields({ supplier, email, categories }: { supplie
         <Field label="Người liên hệ *" name="contact_name" required maxLength={120} defaultValue={supplier?.contact_name ?? ""} />
         <Field label="Điện thoại *" name="phone" required maxLength={40} defaultValue={supplier?.phone ?? ""} />
         <Field label="Mã số thuế (chỉ nhập số) *" name="tax_number" required maxLength={32} inputMode="numeric" pattern="[0-9]+" defaultValue={supplier?.tax_id ?? ""} />
-        <Field label="Số tài khoản ngân hàng (tùy chọn, chỉ nhập số)" name="bank_account_number" maxLength={34} inputMode="numeric" pattern="[0-9]+" />
+        <Field label="Số tài khoản ngân hàng" name="bank_account_number" maxLength={34} inputMode="numeric" pattern="[0-9]+" />
       </div>
     </section>
     <CategoryProposals categories={categories} supplier={supplier} />

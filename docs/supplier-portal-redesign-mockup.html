@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Mockup — Cổng nhà cung cấp Vexim (chia bước)</title>
+<title>Mockup — Cổng nhà cung cấp Vexim (3 bước)</title>
 <style>
-  :root{--brand:#0d9488;--brand700:#0f766e;--brand50:#f0fdfa;--brand100:#ccfbf1;--ink900:#0f172a;--ink700:#334155;--ink500:#64748b;--ink100:#f1f5f9;--ink200:#e2e8f0;--amber:#b45309;--rose:#be123c}
+  :root{--brand:#0d9488;--brand700:#0f766e;--brand50:#f0fdfa;--brand100:#ccfbf1;--ink900:#0f172a;--ink700:#334155;--ink500:#64748b;--ink100:#f1f5f9;--ink200:#e2e8f0;--rose:#be123c}
   *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f1f5f9;color:var(--ink900)}
-  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 64px}
+  .wrap{max-width:880px;margin:0 auto;padding:24px 16px 64px}
   .note{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px}
   .switch{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
   .switch button{border:1px solid var(--ink200);background:#fff;border-radius:999px;padding:8px 14px;font-size:13px;cursor:pointer}
@@ -21,14 +21,6 @@
   .fld input,.fld select,.fld textarea{width:100%;border:1px solid var(--ink200);border-radius:10px;padding:10px 12px;font-size:14px;background:#fff}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}@media(max-width:640px){.grid2{grid-template-columns:1fr}}
   .hint{font-size:12px;color:var(--ink500);margin-top:4px}
-  /* wizard */
-  .wz{display:grid;grid-template-columns:250px 1fr;gap:16px;align-items:start}@media(max-width:820px){.wz{grid-template-columns:1fr}}
-  .steps{list-style:none;margin:0;padding:8px}
-  .steps li{display:flex;gap:10px;padding:10px;border-radius:10px;font-size:14px;color:var(--ink500);cursor:pointer}
-  .steps li .n{width:26px;height:26px;border-radius:50%;border:2px solid var(--ink200);display:grid;place-items:center;font-size:12px;font-weight:700;flex:none;background:#fff}
-  .steps li.cur{color:var(--ink900);background:var(--brand50);font-weight:600}.steps li.cur .n{border-color:var(--brand);color:var(--brand700)}
-  .steps li.done{color:var(--ink700)}.steps li.done .n{background:var(--brand);border-color:var(--brand);color:#fff}
-  .steps small{display:block;font-weight:400;font-size:12px;color:var(--ink500)}
   .bar{height:8px;background:var(--ink100);border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:var(--brand);transition:width .3s}
   .panel{display:none}.panel.on{display:block}
   .chips{display:flex;gap:8px;flex-wrap:wrap}.chip{border:1px solid var(--ink200);border-radius:999px;padding:7px 12px;font-size:13px;cursor:pointer;background:#fff}
@@ -39,7 +31,7 @@
   .row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}@media(max-width:820px){.kpis{grid-template-columns:repeat(2,1fr)}}
   .kpi{background:#fff;border:1px solid var(--ink200);border-radius:14px;padding:14px}.kpi b{font-size:22px}.kpi span{display:block;font-size:12px;color:var(--ink500)}
-  .task{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--ink100);font-size:14px}.task:last-child{border:0}
+  .task{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--ink100);font-size:14px;align-items:center}.task:last-child{border:0}
   .pill{font-size:11px;border-radius:999px;padding:2px 8px;font-weight:700}.p-amber{background:#fef3c7;color:#92400e}.p-green{background:#dcfce7;color:#166534}.p-gray{background:var(--ink100);color:var(--ink500)}
   .chart{display:flex;align-items:flex-end;gap:6px;height:110px;padding-top:8px}.chart i{flex:1;background:var(--brand);border-radius:5px 5px 0 0;opacity:.85}
   .prog{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}@media(max-width:820px){.prog{grid-template-columns:repeat(2,1fr)}}
@@ -47,108 +39,92 @@
   .prog .ok{border-color:var(--brand);background:var(--brand50)}
   dl{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:14px;margin:0}dt{color:var(--ink500)}dd{margin:0;font-weight:500}
   .ok-note{background:var(--brand50);border:1px solid var(--brand100);border-radius:12px;padding:14px;font-size:14px}
+  h3.sect{font-size:15px;margin:22px 0 10px;padding-top:18px;border-top:1px solid var(--ink100)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1 style="font-size:22px;margin:0 0 4px">Cổng nhà cung cấp — bản xem trước (mockup)</h1>
   <p style="color:var(--ink500);font-size:14px;margin:0 0 14px">Đây là HTML tĩnh để duyệt giao diện. Chưa nối dữ liệu thật. Bấm các nút bên dưới để xem 3 trạng thái của <b>/supplier/portal</b>.</p>
-  <div class="note">💡 Đề xuất chính: tách form khai hồ sơ dài 5 mục thành <b>trình từng bước (wizard)</b> có thanh tiến độ, kiểm tra từng bước, bước “Hiển thị cho buyer” cho phép bỏ qua; số tài khoản ngân hàng đổi thành <b>tùy chọn</b>. Trang chủ sau khi mở cổng giữ nguyên nội dung hiện tại nhưng gom theo khối “việc cần làm”.</div>
+  <div class="note">💡 Đề xuất: gộp form khai hồ sơ dài thành <b>3 bước</b>, chuyển bước bằng nút <b>Tiếp tục / Quay lại ở phía dưới</b> (không còn cột danh sách bước bên trái). Số tài khoản ngân hàng không bắt buộc.</div>
 
   <div class="switch" role="tablist">
-    <button class="on" data-s="wizard">1 · Khai hồ sơ (từng bước)</button>
+    <button class="on" data-s="wizard">1 · Khai hồ sơ (3 bước)</button>
     <button data-s="waiting">2 · Đang chờ Vexim xác nhận</button>
     <button data-s="dash">3 · Trang chủ cổng (đã mở cổng)</button>
   </div>
 
-  <!-- ============ SCREEN 1: WIZARD ============ -->
+  <!-- ============ SCREEN 1: WIZARD 3 STEPS ============ -->
   <section class="screen on" id="s-wizard">
     <div class="card" style="padding:14px 20px">
-      <div class="row"><b>Hoàn thành hồ sơ doanh nghiệp</b><span style="font-size:13px;color:var(--ink500)" id="wz-pct">Bước 1/5</span></div>
-      <div class="bar" style="margin-top:10px"><i id="wz-bar" style="width:20%"></i></div>
+      <div class="row"><b>Hoàn thành hồ sơ doanh nghiệp</b><span style="font-size:13px;color:var(--ink500)" id="wz-pct">Bước 1/3 · Thông tin doanh nghiệp</span></div>
+      <div class="bar" style="margin-top:10px"><i id="wz-bar" style="width:33%"></i></div>
     </div>
-    <div class="wz">
-      <aside class="card" style="padding:8px">
-        <ol class="steps" id="wz-steps">
-          <li class="cur" data-go="1"><span class="n">1</span><span>Thông tin doanh nghiệp<small>Tên pháp lý, liên hệ, mã số thuế</small></span></li>
-          <li data-go="2"><span class="n">2</span><span>Danh mục kinh doanh<small>Ngành hàng bạn cung cấp</small></span></li>
-          <li data-go="3"><span class="n">3</span><span>Giấy tờ bước đầu<small>Đăng ký KD, giấy tờ tùy chọn</small></span></li>
-          <li data-go="4"><span class="n">4</span><span>Hiển thị cho buyer <span class="opt">(tùy chọn)</span><small>Tên hiển thị, giới thiệu, năng lực</small></span></li>
-          <li data-go="5"><span class="n">5</span><span>Xác minh thêm &amp; gửi<small>Thăm nhà máy, lịch sử giao hàng</small></span></li>
-        </ol>
-        <p class="hint" style="padding:0 10px 8px">Hồ sơ được lưu nháp khi chuyển bước. Chỉ gửi khi bạn bấm “Gửi hồ sơ” ở bước cuối.</p>
-      </aside>
 
-      <div class="card" style="margin:0">
-        <!-- STEP 1 -->
-        <div class="panel on" data-p="1">
-          <h2 style="font-size:17px;margin:0 0 4px">Bước 1 · Thông tin doanh nghiệp</h2>
-          <p class="hint" style="margin:0 0 16px">Thông tin pháp lý và người liên hệ. Trường có dấu <span class="req">*</span> là bắt buộc.</p>
-          <label class="fld"><span>Tên pháp lý của doanh nghiệp <i class="req">*</i></span><input placeholder="Công ty TNHH …" /></label>
-          <div class="grid2">
-            <label class="fld"><span>Loại hình <i class="req">*</i></span><select><option>Nhà máy / cơ sở sản xuất</option><option>Thương nhân / xuất khẩu</option><option>Hợp tác xã / hộ kinh doanh</option><option>Khác</option></select></label>
-            <label class="fld"><span>Mã số thuế <i class="req">*</i></span><input inputmode="numeric" placeholder="Chỉ nhập số" /></label>
-            <label class="fld"><span>Người liên hệ <i class="req">*</i></span><input /></label>
-            <label class="fld"><span>Chức vụ</span><input /></label>
-            <label class="fld"><span>Số điện thoại <i class="req">*</i></span><input /></label>
-            <label class="fld"><span>Zalo</span><input /></label>
-            <label class="fld"><span>Mặt hàng chính <i class="req">*</i></span><input placeholder="Ví dụ: Hạt điều rang muối" /></label>
-            <label class="fld"><span>Tỉnh / thành phố</span><input /></label>
-            <label class="fld"><span>Website</span><input placeholder="https://…" /></label>
-            <label class="fld"><span>Số tài khoản ngân hàng <span class="opt">(tùy chọn, chỉ nhập số)</span></span><input inputmode="numeric" placeholder="Có thể bổ sung sau" /></label>
-          </div>
+    <div class="card">
+      <!-- STEP 1 -->
+      <div class="panel on" data-p="1">
+        <h2 style="font-size:17px;margin:0 0 4px">Thông tin doanh nghiệp</h2>
+        <p class="hint" style="margin:0 0 16px">Thông tin pháp lý và người liên hệ. Trường có dấu <span class="req">*</span> là bắt buộc.</p>
+        <label class="fld"><span>Tên pháp lý của doanh nghiệp <i class="req">*</i></span><input placeholder="Công ty TNHH …" /></label>
+        <div class="grid2">
+          <label class="fld"><span>Loại hình <i class="req">*</i></span><select><option>Nhà máy / cơ sở sản xuất</option><option>Thương nhân / xuất khẩu</option><option>Hợp tác xã / hộ kinh doanh</option><option>Khác</option></select></label>
+          <label class="fld"><span>Mã số thuế <i class="req">*</i></span><input inputmode="numeric" placeholder="Chỉ nhập số" /></label>
+          <label class="fld"><span>Người liên hệ <i class="req">*</i></span><input /></label>
+          <label class="fld"><span>Chức vụ</span><input /></label>
+          <label class="fld"><span>Số điện thoại <i class="req">*</i></span><input /></label>
+          <label class="fld"><span>Zalo</span><input /></label>
+          <label class="fld"><span>Mặt hàng chính <i class="req">*</i></span><input placeholder="Ví dụ: Hạt điều rang muối" /></label>
+          <label class="fld"><span>Tỉnh / thành phố</span><input /></label>
+          <label class="fld"><span>Website</span><input placeholder="https://…" /></label>
+          <label class="fld"><span>Số tài khoản ngân hàng</span><input inputmode="numeric" /></label>
         </div>
-        <!-- STEP 2 -->
-        <div class="panel" data-p="2">
-          <h2 style="font-size:17px;margin:0 0 4px">Bước 2 · Danh mục kinh doanh</h2>
-          <p class="hint" style="margin:0 0 16px">Chọn các ngành hàng bạn cung cấp. Bạn có thể sửa sau trong cổng.</p>
-          <div class="chips" id="cat-chips">
-            <button type="button" class="chip on">Hạt điều</button><button type="button" class="chip">Cà phê</button><button type="button" class="chip">Hồ tiêu &amp; gia vị</button><button type="button" class="chip on">Trái cây sấy</button><button type="button" class="chip">Gạo</button><button type="button" class="chip">Hải sản</button><button type="button" class="chip">Dừa &amp; sản phẩm dừa</button><button type="button" class="chip">Khác…</button>
-          </div>
-          <label class="fld" style="margin-top:16px"><span>Mặt hàng khác (nếu chưa có)</span><input placeholder="Mỗi mặt hàng cách nhau dấu phẩy" /></label>
+        <h3 class="sect">Danh mục kinh doanh</h3>
+        <p class="hint" style="margin:0 0 10px">Chọn các ngành hàng bạn cung cấp. Bạn có thể sửa sau trong cổng.</p>
+        <div class="chips" id="cat-chips">
+          <button type="button" class="chip on">Hạt điều</button><button type="button" class="chip">Cà phê</button><button type="button" class="chip">Hồ tiêu &amp; gia vị</button><button type="button" class="chip on">Trái cây sấy</button><button type="button" class="chip">Gạo</button><button type="button" class="chip">Hải sản</button><button type="button" class="chip">Dừa &amp; sản phẩm dừa</button><button type="button" class="chip">Khác…</button>
         </div>
-        <!-- STEP 3 -->
-        <div class="panel" data-p="3">
-          <h2 style="font-size:17px;margin:0 0 4px">Bước 3 · Giấy tờ bước đầu</h2>
-          <p class="hint" style="margin:0 0 16px">Mỗi mục tối đa 5 tệp ảnh/PDF, 15&nbsp;MB/tệp. Chưa có đủ giấy tờ vẫn gửi được hồ sơ ở mục bắt buộc.</p>
-          <div style="display:grid;gap:12px">
-            <div class="up"><b>Đăng ký kinh doanh <span class="req">*</span></b>Ảnh/PDF giấy đăng ký doanh nghiệp.<br><button class="btn ghost" type="button" style="margin-top:8px;padding:6px 12px;font-size:13px">+ Thêm tệp</button></div>
-            <div class="up"><b>Giấy chứng nhận ATTP <span class="opt">(tùy chọn)</span></b><br><button class="btn ghost" type="button" style="margin-top:8px;padding:6px 12px;font-size:13px">+ Thêm tệp</button></div>
-            <div class="up"><b>HACCP / ISO / BRC <span class="opt">(tùy chọn)</span></b><br><button class="btn ghost" type="button" style="margin-top:8px;padding:6px 12px;font-size:13px">+ Thêm tệp</button></div>
-            <div class="up"><b>Chứng nhận sản phẩm <span class="opt">(tùy chọn)</span></b>Ví dụ: kiểm nghiệm, hữu cơ…<br><button class="btn ghost" type="button" style="margin-top:8px;padding:6px 12px;font-size:13px">+ Thêm tệp</button></div>
-          </div>
-        </div>
-        <!-- STEP 4 -->
-        <div class="panel" data-p="4">
-          <h2 style="font-size:17px;margin:0 0 4px">Bước 4 · Hiển thị cho buyer <span class="opt">(tùy chọn — có thể bỏ qua)</span></h2>
-          <p class="hint" style="margin:0 0 16px">Đây là nội dung <b>đề xuất</b> để Vexim làm trang nhà cung cấp; chưa công khai cho tới khi Vexim kiểm tra và bạn đồng ý.</p>
-          <div class="grid2">
-            <label class="fld"><span>Tên hiển thị cho buyer</span><input placeholder="Để trống = dùng tên pháp lý" /></label>
-            <label class="fld"><span>Năm thành lập</span><input inputmode="numeric" /></label>
-            <label class="fld"><span>Số nhân viên</span><input /></label>
-            <label class="fld"><span>Năng lực / tháng</span><input placeholder="Ví dụ: 200 MT" /></label>
-            <label class="fld"><span>Cảng xuất thường dùng</span><input /></label>
-            <label class="fld"><span>Incoterms</span><input placeholder="FOB, CIF…" /></label>
-          </div>
-          <label class="fld"><span>Giới thiệu bằng tiếng Anh</span><textarea rows="4" placeholder="Short introduction for international buyers…"></textarea></label>
-        </div>
-        <!-- STEP 5 -->
-        <div class="panel" data-p="5">
-          <h2 style="font-size:17px;margin:0 0 4px">Bước 5 · Xác minh thêm &amp; gửi hồ sơ</h2>
-          <p class="hint" style="margin:0 0 16px">Muốn Vexim xác minh thêm? (không bắt buộc để mở cổng)</p>
-          <label style="display:flex;gap:10px;font-size:14px;margin-bottom:10px"><input type="checkbox" /> Yêu cầu Vexim thăm nhà máy / cơ sở</label>
-          <label style="display:flex;gap:10px;font-size:14px;margin-bottom:16px"><input type="checkbox" /> Có lịch sử giao hàng / xuất khẩu để kiểm chứng</label>
-          <div class="ok-note" style="margin-bottom:16px"><b>Tóm tắt trước khi gửi</b>
-            <dl style="margin-top:10px"><dt>Doanh nghiệp</dt><dd>— (điền ở bước 1)</dd><dt>Danh mục</dt><dd>Hạt điều, Trái cây sấy</dd><dt>Giấy tờ</dt><dd>1 mục bắt buộc · 0 mục tùy chọn (bản xem trước)</dd></dl>
-          </div>
-          <label style="display:flex;gap:10px;font-size:14px"><input type="checkbox" id="consent" /> Tôi xác nhận thông tin đã khai là đúng và đồng ý để Vexim kiểm tra, liên hệ xác minh.</label>
-        </div>
+        <label class="fld" style="margin-top:16px"><span>Mặt hàng khác (nếu chưa có)</span><input placeholder="Mỗi mặt hàng cách nhau dấu phẩy" /></label>
+      </div>
 
-        <div class="row" style="margin-top:20px;border-top:1px solid var(--ink100);padding-top:16px">
-          <button class="btn ghost" id="wz-back" type="button" disabled>← Quay lại</button>
-          <span class="hint" id="wz-msg"></span>
-          <button class="btn" id="wz-next" type="button">Tiếp tục →</button>
+      <!-- STEP 2 -->
+      <div class="panel" data-p="2">
+        <h2 style="font-size:17px;margin:0 0 4px">Giấy tờ bước đầu</h2>
+        <p class="hint" style="margin:0 0 16px">Mỗi mục tối đa 5 tệp ảnh/PDF, 15&nbsp;MB/tệp. Chưa có đủ giấy tờ tùy chọn vẫn gửi được hồ sơ.</p>
+        <div style="display:grid;gap:12px">
+          <div class="up"><b>Đăng ký kinh doanh <span class="req">*</span></b>Ảnh/PDF giấy đăng ký doanh nghiệp.<br><button class="btn ghost" type="button" style="margin-top:8px;padding:6px 12px;font-size:13px">+ Thêm tệp</button></div>
+          <div class="up"><b>Giấy chứng nhận ATTP <span class="opt">(tùy chọn)</span></b><br><button class="btn ghost" type="button" style="margin-top:8px;padding:6px 12px;font-size:13px">+ Thêm tệp</button></div>
+          <div class="up"><b>HACCP / ISO / BRC <span class="opt">(tùy chọn)</span></b><br><button class="btn ghost" type="button" style="margin-top:8px;padding:6px 12px;font-size:13px">+ Thêm tệp</button></div>
+          <div class="up"><b>Chứng nhận sản phẩm <span class="opt">(tùy chọn)</span></b>Ví dụ: kiểm nghiệm, hữu cơ…<br><button class="btn ghost" type="button" style="margin-top:8px;padding:6px 12px;font-size:13px">+ Thêm tệp</button></div>
         </div>
+        <h3 class="sect">Muốn Vexim xác minh thêm? <span class="opt">(không bắt buộc)</span></h3>
+        <label style="display:flex;gap:10px;font-size:14px;margin-bottom:10px"><input type="checkbox" /> Yêu cầu Vexim thăm nhà máy / cơ sở</label>
+        <label style="display:flex;gap:10px;font-size:14px"><input type="checkbox" /> Có lịch sử giao hàng / xuất khẩu để kiểm chứng</label>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="panel" data-p="3">
+        <h2 style="font-size:17px;margin:0 0 4px">Hiển thị cho buyer &amp; gửi hồ sơ</h2>
+        <p class="hint" style="margin:0 0 16px">Phần hiển thị là nội dung <b>đề xuất</b> để Vexim làm trang nhà cung cấp; chưa công khai cho tới khi Vexim kiểm tra và bạn đồng ý. Có thể để trống và bổ sung sau.</p>
+        <div class="grid2">
+          <label class="fld"><span>Tên hiển thị cho buyer</span><input placeholder="Để trống = dùng tên pháp lý" /></label>
+          <label class="fld"><span>Năm thành lập</span><input inputmode="numeric" /></label>
+          <label class="fld"><span>Số nhân viên</span><input /></label>
+          <label class="fld"><span>Năng lực / tháng</span><input placeholder="Ví dụ: 200 MT" /></label>
+          <label class="fld"><span>Cảng xuất thường dùng</span><input /></label>
+          <label class="fld"><span>Incoterms</span><input placeholder="FOB, CIF…" /></label>
+        </div>
+        <label class="fld"><span>Giới thiệu bằng tiếng Anh</span><textarea rows="4" placeholder="Short introduction for international buyers…"></textarea></label>
+        <div class="ok-note" style="margin:18px 0 16px"><b>Tóm tắt trước khi gửi</b>
+          <dl style="margin-top:10px"><dt>Doanh nghiệp</dt><dd>— (điền ở bước 1)</dd><dt>Danh mục</dt><dd>Hạt điều, Trái cây sấy</dd><dt>Giấy tờ</dt><dd>1 mục bắt buộc · 0 mục tùy chọn (bản xem trước)</dd></dl>
+        </div>
+        <label style="display:flex;gap:10px;font-size:14px"><input type="checkbox" id="consent" /> Tôi xác nhận thông tin đã khai là đúng và đồng ý để Vexim kiểm tra, liên hệ xác minh.</label>
+      </div>
+
+      <div class="row" style="margin-top:20px;border-top:1px solid var(--ink100);padding-top:16px">
+        <button class="btn ghost" id="wz-back" type="button" disabled>← Quay lại</button>
+        <span class="hint" id="wz-msg"></span>
+        <button class="btn" id="wz-next" type="button">Tiếp tục →</button>
       </div>
     </div>
   </section>
@@ -212,22 +188,22 @@
   const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
   function show(id){ $$('.screen').forEach(e=>e.classList.toggle('on',e.id==='s-'+id)); $$('.switch button').forEach(b=>b.classList.toggle('on',b.dataset.s===id)); window.scrollTo({top:0,behavior:'smooth'}); }
   $$('.switch button').forEach(b=>b.onclick=()=>show(b.dataset.s));
-  // chips toggle
   $$('#cat-chips .chip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));
-  // wizard
-  let step=1; const total=5;
+  // wizard: 3 bước, chuyển bằng nút ở dưới
+  let step=1; const total=3;
+  const titles={1:'Thông tin doanh nghiệp',2:'Giấy tờ bước đầu',3:'Hiển thị cho buyer & gửi'};
   function render(){
     $$('.panel').forEach(p=>p.classList.toggle('on',+p.dataset.p===step));
-    $$('#wz-steps li').forEach(li=>{const n=+li.dataset.go; li.classList.toggle('cur',n===step); li.classList.toggle('done',n<step); li.querySelector('.n').textContent=n<step?'✓':n;});
-    $('#wz-bar').style.width=(step/total*100)+'%'; $('#wz-pct').textContent='Bước '+step+'/'+total;
-    $('#wz-back').disabled=step===1; $('#wz-next').textContent=step===total?'Gửi hồ sơ ✓':'Tiếp tục →';
-    $('#wz-msg').textContent=step===1?'Bước 1 có các trường bắt buộc *':step===4?'Bước này tùy chọn — có thể bấm Tiếp tục để bỏ qua':'';
+    $('#wz-bar').style.width=(step/total*100)+'%';
+    $('#wz-pct').textContent='Bước '+step+'/'+total+' · '+titles[step];
+    $('#wz-back').disabled=step===1;
+    $('#wz-next').textContent=step===total?'Gửi hồ sơ ✓':'Tiếp tục →';
+    $('#wz-msg').textContent=step===1?'Trường có dấu * là bắt buộc':'';
   }
-  $$('#wz-steps li').forEach(li=>li.onclick=()=>{step=+li.dataset.go;render();});
   $('#wz-back').onclick=()=>{if(step>1){step--;render();}};
   $('#wz-next').onclick=()=>{
     if(step===total){ if(!$('#consent').checked){alert('Vui lòng tích xác nhận trước khi gửi hồ sơ.');return;} alert('Đã gửi hồ sơ (bản xem trước). Vexim sẽ kiểm tra và mở cổng khi giấy tờ bước đầu đạt.'); show('waiting'); return; }
-    step++; render();
+    step++; render(); window.scrollTo({top:0,behavior:'smooth'});
   };
   render();
 </script>
