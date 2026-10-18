@@ -90,7 +90,7 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
         <Field label="Incoterms (ngăn cách bằng dấu phẩy)" name="incoterms" maxLength={800} defaultValue={supplier?.incoterms?.join(", ") ?? ""} />
         <Field label="Điều khoản thanh toán" name="payment_terms" maxLength={200} defaultValue={supplier?.payment_terms ?? ""} />
       </div>
-      <label className="mt-4 block text-sm"><span className="mb-1 block font-semibold">Giới thiệu</span><textarea name="intro_source" rows={4} maxLength={1500} className="input" defaultValue={supplier?.intro_source ?? supplier?.summary_i18n?.en ?? ""} placeholder="Mô tả về điểm khác biệt của công ty hay sản phẩm của bạn." /><span className="mt-1 block text-xs leading-5 text-ink-500">Đây là phần bạn kể câu chuyện của công ty mình cho buyer. Cứ viết bằng tiếng Việt, Vexim sẽ dịch sang tiếng Anh bằng AI để hiển thị trên trang nhà cung cấp. Để trống thì Vexim soạn bản giới thiệu ngắn từ thông tin bạn đã cung cấp ở trên.</span></label>
+      <label className="mt-4 block text-sm"><span className="mb-1 block font-semibold">Giới thiệu</span><textarea name="intro_source" rows={4} maxLength={1500} className="input" defaultValue={supplier?.intro_source ?? supplier?.summary_i18n?.en ?? ""} placeholder="Mô tả về điểm khác biệt của công ty hay sản phẩm của bạn." /></label>
       <label className="mt-4 flex gap-2 text-sm"><input type="checkbox" name="private_label" value="yes" defaultChecked={supplier?.private_label ?? false} /> Nhận làm nhãn riêng / OEM</label>
     </section>
     <section className="rounded-xl border border-brand-200 bg-brand-50/60 p-4" aria-labelledby="supplier-commitments-title">
