@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ClipboardCheck, Factory, FileCheck2, ShieldCheck } from "lucide-react";
+import { ArrowRight, ClipboardCheck, Factory, FileCheck2, ShieldCheck } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
+import { PublicVerificationBadges } from "@/components/public-verification-badges";
+import { listPublicSuppliers } from "@/lib/public/catalog";
 
 export const metadata: Metadata = {
-  title: "How we verify suppliers | Veximtrade",
+  title: { absolute: "How we verify suppliers | Vexim Trade" },
   description:
     "Three evidence-based supplier checks: documents, on-site factory visit, and completed delivery history review.",
   alternates: { canonical: "/how-we-verify" },
@@ -19,7 +22,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HowWeVerifyPage() {
+export default async function HowWeVerifyPage() {
+  // Một hồ sơ thật đã công khai để buyer tự xem huy hiệu; trang vẫn nguyên vẹn khi chưa có hồ sơ nào.
+  const example = await listPublicSuppliers().catch(() => []).then((list) =>
+    list.find((s) => !s.is_demo && s.approved_verification_steps.length > 0) ?? list.find((s) => !s.is_demo) ?? null);
+  const exampleHref = example ? `/suppliers/${encodeURIComponent(example.slug || example.id)}` : null;
+
   return (
     <div className="mx-auto max-w-4xl px-5 py-10 sm:px-8 sm:py-14">
       <Breadcrumbs
@@ -36,18 +44,59 @@ export default function HowWeVerifyPage() {
         How we verify suppliers
       </h1>
       <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-ink-700">
-        Each badge describes one check our team has approved. A supplier may pass delivery history without a factory visit. A profile with no approved checks says “Under audit”.
+        Each badge describes one check our team has approved. The three checks are independent of each other.
+        A supplier may pass the delivery history review without a factory visit. A profile with no approved checks is marked as under audit.
       </p>
 
-      <ol className="mt-12 space-y-10">
-        <Step n={1} icon={<ClipboardCheck className="h-5 w-5" />} title="Document review" body="We review the supplier's registration and applicable documents, recording the result and supporting evidence. An authorised reviewer approves the check." />
-        <Step n={2} icon={<Factory className="h-5 w-5" />} title="On-site factory visit" body="Where an on-site visit is relevant, our team records facility photos and any available visit details. An authorised reviewer checks the evidence." />
-        <Step n={3} icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history review" body="We check evidence of a completed shipment or delivery independently of a factory visit. Trading companies may pass this review without owning a factory. A won enquiry alone is not proof of delivery." />
+      <section className="mt-8 rounded-lg border border-ink-200 bg-white p-6 sm:p-8" aria-label="Verification badges">
+        <h2 className="flex items-center gap-2 text-[18px] font-bold text-ink-900"><ShieldCheck className="h-5 w-5 text-emerald-700" /> The badges on a supplier profile</h2>
+        <p className="mt-3 text-[14.5px] leading-relaxed text-ink-700">
+          These are the badges used on supplier profiles. A badge is shown only after an authorised reviewer has approved that check.
+        </p>
+        <p className="mt-4"><PublicVerificationBadges levels={[1, 2, 3]} /></p>
+        <p className="mt-4 flex flex-wrap items-center gap-2 text-[14.5px] text-ink-700">
+          A profile with no approved checks yet: <PublicVerificationBadges levels={[]} />
+        </p>
+        {example && exampleHref && (
+          <p className="mt-4 text-[14.5px] text-ink-700">
+            See the badges on a live profile:{" "}
+            <Link href={exampleHref} className="font-semibold text-brand-700 underline hover:text-brand-800">
+              {example.display_name || example.name}
+            </Link>
+          </p>
+        )}
+      </section>
+
+      <ol className="mt-12 space-y-6">
+        <Step n={1} icon={<ClipboardCheck className="h-5 w-5" />} title="Document review"
+          body="We review the supplier's business registration, tax code and other applicable documents. The result and the supporting evidence are recorded for each supplier." />
+        <Step n={2} icon={<Factory className="h-5 w-5" />} title="On-site factory visit"
+          body="Where an on-site visit is relevant, a team member records the factory location, facilities and visual evidence from the visit." />
+        <Step n={3} icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history review"
+          body="We check evidence of a completed shipment or delivery independently of a factory visit. Trading companies may pass this review without owning a factory. A won enquiry alone is not proof of delivery." />
       </ol>
 
-      <section className="mt-14 rounded-lg border border-ink-200 bg-white p-6 sm:p-8">
-        <h2 className="flex items-center gap-2 text-[18px] font-bold text-ink-900"><ShieldCheck className="h-5 w-5 text-emerald-700" /> What the badge means</h2>
-        <p className="mt-3 text-[14.5px] leading-relaxed text-ink-700">A supplier receives one badge per approved check. Document review, factory visit and delivery history are independent; passing delivery review does not imply a factory visit. Profiles without an approved review are marked as under audit.</p>
+      <figure className="mt-12 overflow-hidden rounded-xl border border-ink-200">
+        <div className="relative aspect-[16/9] w-full bg-ink-50 sm:aspect-[21/9]">
+          <Image
+            src="/images/home/review-desk.jpg"
+            alt="Inspection checklist and product samples"
+            fill
+            sizes="(max-width: 896px) 100vw, 896px"
+            className="object-cover"
+          />
+        </div>
+        <figcaption className="bg-ink-50 px-3 py-2 text-xs text-ink-600">Verification results are recorded separately for each supplier.</figcaption>
+      </figure>
+
+      <section className="mt-12 rounded-lg border border-ink-200 bg-white p-6 sm:p-8">
+        <h2 className="flex items-center gap-2 text-[18px] font-bold text-ink-900"><ShieldCheck className="h-5 w-5 text-emerald-700" /> What a badge does not mean</h2>
+        <p className="mt-3 text-[14.5px] leading-relaxed text-ink-700">A badge records that one check was approved. It does not:</p>
+        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[14.5px] leading-relaxed text-ink-700">
+          <li>Guarantee product quality or the outcome of any deal.</li>
+          <li>Sign contracts or make payments on your behalf.</li>
+          <li>Replace your own inspection or legal review.</li>
+        </ul>
       </section>
 
       <section className="mt-14 rounded-lg border border-ink-900 bg-ink-900 p-8 text-white">
@@ -55,7 +104,7 @@ export default function HowWeVerifyPage() {
           Ready to source from reviewed suppliers?
         </p>
         <h2 className="mt-2 text-[24px] font-bold leading-snug sm:text-[28px]">
-          Send a sourcing request — we reply in one business day.
+          Send a sourcing request. We reply in one business day.
         </h2>
         <div className="mt-5 flex flex-wrap gap-3">
           <Link
@@ -82,25 +131,27 @@ function Step({
   title,
   body,
 }: {
-  n: number;
+  n: 1 | 2 | 3;
   icon: React.ReactNode;
   title: string;
   body: React.ReactNode;
 }) {
   return (
-    <li className="grid gap-4 sm:grid-cols-[auto_1fr]">
-      <div className="flex items-start">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink-900 text-white">
-          {icon}
+    <li className="rounded-lg border border-ink-200 bg-white p-6 sm:p-8">
+      <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
+        <div className="flex items-start">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink-900 text-white">
+            {icon}
+          </div>
         </div>
-      </div>
-      <div>
-        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">Check {n}</p>
-        <h3 className="mt-1 text-[20px] font-bold text-ink-900">{title}</h3>
-        <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-700">{body}</p>
-        <p className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-emerald-800">
-          <CheckCircle2 className="h-4 w-4" /> Approved by an authorised reviewer before a badge is shown
-        </p>
+        <div>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">Check {n}</p>
+          <h3 className="mt-1 text-[20px] font-bold text-ink-900">{title}</h3>
+          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-700">{body}</p>
+          <p className="mt-3 flex flex-wrap items-center gap-2 text-[13px] font-medium text-ink-600">
+            Shown on the profile as: <PublicVerificationBadges levels={[n]} />
+          </p>
+        </div>
       </div>
     </li>
   );
