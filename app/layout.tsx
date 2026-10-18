@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
 import "./globals.css";
@@ -24,9 +25,13 @@ export const viewport: Viewport = {
   themeColor: "#0f172a",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Site công khai cho buyer là tiếng Anh; CRM, cổng NCC và đăng nhập là tiếng Việt.
+  // Middleware gắn x-pathname vì layout gốc không tự biết route hiện tại.
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  const lang = /^\/(?:crm|supplier|login|auth)(?:\/|$)/.test(pathname) ? "vi" : "en";
   return (
-    <html lang="vi">
+    <html lang={lang}>
       <body>
         <ToastProvider>{children}</ToastProvider>
         <PublicSpeedInsights />

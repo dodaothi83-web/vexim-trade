@@ -8,6 +8,15 @@ export const metadata: Metadata = {
   title: "How we verify suppliers | Veximtrade",
   description:
     "Three evidence-based supplier checks: documents, on-site factory visit, and completed delivery history review.",
+  alternates: { canonical: "/how-we-verify" },
+  openGraph: {
+    title: "How we verify suppliers | Vexim Trade",
+    description:
+      "Three evidence-based supplier checks: documents, on-site factory visit, and completed delivery history review.",
+    url: "/how-we-verify",
+    siteName: "Vexim Trade",
+    type: "website",
+  },
 };
 
 export default function HowWeVerifyPage() {

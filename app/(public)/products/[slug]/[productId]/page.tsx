@@ -17,6 +17,8 @@ import { publicCertificateLabels } from "@/lib/public/certificates";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
+import { SITE_URL } from "@/lib/site";
+import { safeJsonLd } from "@/lib/public/supplier-seo";
 
 export const dynamic = "force-dynamic";
 
@@ -42,11 +44,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, productId } = await params;
   const detail = await getDetail(slug, productId);
   if (!detail) return { title: "Product not found | Vexim Trade", robots: { index: false } };
+  const title = `${detail.card.name} | Vietnam ${detail.category.name_i18n.en || slug} | Vexim Trade`;
+  const description = `${detail.card.name}. MOQ ${detail.card.moq}. Supplied in ${detail.card.province}. Request a quote from Vexim Trade.`;
+  const ogImagePath = detail.card.cardImagePath ?? detail.card.imagePaths[0];
+  const ogImage = ogImagePath ? `${SITE_URL}/public-media/${ogImagePath.replace(/^\//, "")}` : null;
   return {
-    title: `${detail.card.name} | Vietnam ${detail.category.name_i18n.en || slug} | Vexim Trade`,
-    description: `${detail.card.name}. MOQ ${detail.card.moq}. Supplied in ${detail.card.province}. Request a quote from Vexim Trade.`,
+    title,
+    description,
     alternates: { canonical: `/products/${slug}/${productId}` },
     robots: { index: !detail.preview && !detail.card.isDemo && !!detail.category.seo_indexable, follow: true },
+    openGraph: {
+      title, description, url: `/products/${slug}/${productId}`, siteName: "Vexim Trade", type: "website",
+      ...(ogImage ? { images: [{ url: ogImage, alt: detail.card.name }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image", title, description,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
   };
 }
 
@@ -79,7 +93,25 @@ export default async function PublicProductDetail({ params }: Props) {
   ].slice(0, 12);
 
   const countView = !preview && !card.isDemo && !(await getSession());
+  // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
+  // giá trên trang là giá tham khảo qua RFQ, không phải chào bán giao dịch trực tiếp.
+  const indexable = !preview && !card.isDemo && !!category.seo_indexable;
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: card.name,
+    url: `${SITE_URL}/products/${slug}/${productId}`,
+    ...(images.length ? { image: images.map((path) => `${SITE_URL}/public-media/${path.replace(/^\//, "")}`) } : {}),
+    ...(p.description ? { description: withoutDirectContacts(p.description) } : {}),
+    category: category.name_i18n.en || slug,
+    brand: {
+      "@type": "Organization",
+      name: card.supplierName,
+      ...(card.supplierSlug ? { url: `${SITE_URL}/suppliers/${encodeURIComponent(card.supplierSlug)}` } : {}),
+    },
+  };
   return <div className="mx-auto max-w-6xl px-5 pb-24 pt-7 sm:px-6 lg:px-8">
+    {indexable && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />}
     {countView && <SupplierTrafficBeacon pageKey={`product:${p.id}`}
       token={createTrafficToken({ kind: "product", supplierId: p.supplier_id, resourceId: p.id, slug })} />}
     {preview && <p className="mb-4 rounded-lg bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">Staff preview — this category is not public yet.</p>}
