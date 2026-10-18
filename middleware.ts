@@ -11,7 +11,7 @@ import type { NextRequest } from "next/server";
 
 const INDEXABLE = process.env.PUBLIC_SITE_INDEXABLE === "true";
 // OAuth verification must reach these public policies even before marketing pages are indexable.
-const LEGAL_PATHS = new Set(["/privacy-policy", "/terms-of-service"]);
+const LEGAL_PATHS = new Set(["/privacy-policy", "/terms-of-service", "/thong-tin-chu-quan", "/quy-che-hoat-dong", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat", "/khieu-nai"]);
 const LEGAL_CRAWLABLE = !["preview", "development"].includes(process.env.VERCEL_ENV ?? "");
 
 // Các prefix LUÔN noindex dù site-wide cờ đang bật.

@@ -14,12 +14,18 @@ export const COMPANY = {
   phone: env.COMPANY_PHONE?.trim() || "+84373685634",
   address:
     env.COMPANY_ADDRESS?.trim() ||
-    "W2 Tower, Hinode Royal Park, Kim Chung and Di Trach Communes, Hoai Duc District, Hanoi, Vietnam",
+    "Số 25/6 Ngõ 51 Ngoạ Long, Tây Tựu, Hà Nội, Việt Nam",
   /**
    * Tên pháp nhân in hoa (VEXIM GLOBAL CO., LTD) — dùng ở chữ ký email, nơi buyer
    * cần đúng tên đăng ký chứ không phải thương hiệu "Vexim Trade". Đổi qua COMPANY_LEGAL_NAME.
    */
   legalName: env.COMPANY_LEGAL_NAME?.trim() || "VEXIM GLOBAL CO., LTD",
+  /** Người đại diện theo pháp luật, công khai trên trang thông tin chủ quản nền tảng */
+  legalRepresentative: env.COMPANY_LEGAL_REPRESENTATIVE?.trim() || "Lương Văn Học",
+  /** Mã số doanh nghiệp, đồng thời là mã số thuế của công ty */
+  taxCode: env.COMPANY_TAX_CODE?.trim() || "0111040294",
+  /** Ngày cấp đăng ký doanh nghiệp lần đầu */
+  registrationDate: env.COMPANY_REGISTRATION_DATE?.trim() || "29/04/2025",
   tagline: "Vietnam Export Sourcing Partner",
 };
 

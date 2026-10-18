@@ -98,7 +98,7 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
       <div className="mt-3 space-y-3">
         <label className="flex items-start gap-2 text-sm leading-6 text-ink-700">
           <input type="checkbox" name="consent" value="yes" required className="mt-1 h-4 w-4 shrink-0 accent-brand-700" />
-          <span>Tôi đã đọc và đồng ý với <Link href="/terms-of-service" target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">Điều khoản sử dụng</Link> của Vexim Trade, đồng thời đồng ý gửi thông tin và tài liệu để Vexim kiểm tra nội bộ. Tài khoản chỉ hoạt động sau khi Vexim xác nhận.</span>
+          <span>Tôi đã đọc và đồng ý với <Link href="/dieu-khoan-su-dung" target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">Điều khoản sử dụng</Link> của Vexim Trade, đồng thời đồng ý gửi thông tin và tài liệu để Vexim kiểm tra nội bộ. Tài khoản chỉ hoạt động sau khi Vexim xác nhận.</span>
         </label>
         <label className="flex items-start gap-2 text-sm leading-6 text-ink-700">
           <input type="checkbox" name="information_accuracy" value="yes" required className="mt-1 h-4 w-4 shrink-0 accent-brand-700" />

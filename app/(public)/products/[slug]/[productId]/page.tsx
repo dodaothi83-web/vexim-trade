@@ -155,6 +155,7 @@ export default async function PublicProductDetail({ params }: Props) {
             {card.verificationSteps.includes(3) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#delivery-history`} className="text-brand-700 underline">Delivery review scope on supplier profile</Link>}
           </div>}
           <p className="mt-3 text-xs text-ink-600">These are supplier reviews, not certifications of this product. Vexim coordinates enquiries; direct supplier contacts are not shown.</p>
+          <Link href={`/khieu-nai?product=${encodeURIComponent(card.id)}`} className="mt-3 inline-block text-xs font-semibold text-brand-700 underline">Report this listing</Link>
         </aside>
       </div>
     </div>

@@ -39,6 +39,9 @@ export function SiteFooter() {
           Staff sign in
         </a>
         <div className="mt-4 flex flex-wrap gap-4">
+          <Link href="/thong-tin-chu-quan" className="transition hover:text-white">Thông tin chủ quản</Link>
+          <Link href="/quy-che-hoat-dong" className="transition hover:text-white">Quy chế hoạt động</Link>
+          <Link href="/khieu-nai" className="transition hover:text-white">Khiếu nại</Link>
           <Link href="/privacy-policy" className="transition hover:text-white">Privacy Policy</Link>
           <Link href="/terms-of-service" className="transition hover:text-white">Terms of Service</Link>
         </div>

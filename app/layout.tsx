@@ -29,7 +29,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // Site công khai cho buyer là tiếng Anh; CRM, cổng NCC và đăng nhập là tiếng Việt.
   // Middleware gắn x-pathname vì layout gốc không tự biết route hiện tại.
   const pathname = (await headers()).get("x-pathname") ?? "";
-  const lang = /^\/(?:crm|supplier|login|auth)(?:\/|$)/.test(pathname) ? "vi" : "en";
+  const lang = /^\/(?:crm|supplier|login|auth|quy-che-hoat-dong|dieu-khoan-su-dung|chinh-sach-bao-mat|khieu-nai|thong-tin-chu-quan)(?:\/|$)/.test(pathname) ? "vi" : "en";
   return (
     <html lang={lang}>
       <body>

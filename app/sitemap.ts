@@ -17,6 +17,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const legalRoutes: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/privacy-policy`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/terms-of-service`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/thong-tin-chu-quan`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/quy-che-hoat-dong`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/dieu-khoan-su-dung`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/chinh-sach-bao-mat`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/khieu-nai`, changeFrequency: "yearly", priority: 0.3 },
   ];
   const blogRoutes: MetadataRoute.Sitemap = [
     {

@@ -523,6 +523,9 @@ export default async function HomeContent() {
             <FooterCol title="Company">
               <li><Link href="/how-we-verify" className="hover:text-brand-700">How we verify suppliers</Link></li>
               <li><Link href="/for-suppliers" className="hover:text-brand-700">For Vietnamese suppliers</Link></li>
+              <li><Link href="/thong-tin-chu-quan" className="hover:text-brand-700">Thông tin chủ quản nền tảng</Link></li>
+              <li><Link href="/quy-che-hoat-dong" className="hover:text-brand-700">Quy chế hoạt động</Link></li>
+              <li><Link href="/khieu-nai" className="hover:text-brand-700">Khiếu nại và báo cáo vi phạm</Link></li>
               <li><Link href="/privacy-policy" className="hover:text-brand-700">Privacy Policy</Link></li>
               <li><Link href="/terms-of-service" className="hover:text-brand-700">Terms of Service</Link></li>
               <li><a href="mailto:hello@veximtrade.com" className="hover:text-brand-700">hello@veximtrade.com</a></li>
