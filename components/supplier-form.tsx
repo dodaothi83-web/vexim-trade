@@ -6,10 +6,19 @@ import { useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
+  Building2,
+  CheckCircle2,
   ExternalLink,
+  FileText,
+  Globe2,
   Loader2,
+  Minus,
+  Phone,
+  RotateCcw,
   Save,
+  ShieldCheck,
   Sparkles,
+  Truck,
 } from "lucide-react";
 
 import { createSupplierAction, updateSupplierAction } from "@/app/actions";
@@ -129,6 +138,29 @@ function ChipGroup({
         placeholder={otherPlaceholder ?? "Khác..."}
         className="min-w-[120px] flex-1 rounded-md border border-ink-200 bg-white px-2 py-1 text-[12.5px] text-ink-700 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none"
       />
+    </div>
+  );
+}
+
+/** Tiêu đề mục thống nhất cho các thẻ trong form sửa NCC, giống trang sửa sản phẩm. */
+function SectionHead({ icon: Icon, title, sub, action }: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  sub?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <span>
+          <h2 className="text-base font-bold leading-6 text-ink-900">{title}</h2>
+          {sub && <p className="mt-0.5 text-[13px] leading-5 text-ink-500">{sub}</p>}
+        </span>
+      </div>
+      {action}
     </div>
   );
 }
@@ -397,125 +429,200 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
     );
   }
 
+  const completeness = [
+    { label: "Tên doanh nghiệp", done: Boolean(str("name").trim()) },
+    { label: "Người liên hệ và điện thoại", done: Boolean(str("contact_name").trim() && str("phone").trim()) },
+    { label: "Email liên hệ đúng định dạng", done: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str("email").trim()) },
+    { label: "Mặt hàng chính", done: Boolean(str("products").trim()) },
+    { label: "Mã số thuế", done: Boolean(str("tax_id").trim()) },
+    { label: "Giới thiệu cho buyer", done: Boolean(str("intro_source").trim() || str("summary_en").trim()) },
+    { label: "Điều kiện thương mại (MOQ hoặc thị trường xuất khẩu)", done: Boolean(str("moq_text").trim() || arr("export_markets").length > 0) },
+    { label: "Ảnh đại diện", done: Boolean(supplier?.profile_image) },
+  ];
+  const doneCount = completeness.filter((item) => item.done).length;
+
   return (
-    <form onSubmit={(e) => void save(e)} className="space-y-5">
-      <div className="rounded-2xl border border-ink-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4">
-          <div>
-            <h2 className="text-lg font-bold text-ink-900">Thông tin nhà cung cấp</h2>
-            <p className="text-sm text-ink-500">Nhập thông tin đang có. Các mục khác có thể bổ sung sau.</p>
-          </div>
+    <form onSubmit={(e) => void save(e)} className="space-y-4">
+      <div className="sticky top-2 z-20 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-ink-200 bg-white/95 px-3.5 py-2.5 shadow-sm backdrop-blur">
+        <div className="flex items-center gap-2.5">
+          {supplier && <Link href={`/crm/suppliers/${supplier.id}`} className="btn btn-ghost btn-sm px-2.5 py-1.5 text-[13px]">← Xem hồ sơ</Link>}
           <span className={"rounded-full px-3 py-1 text-xs font-semibold " + current.badge}>{current.label}</span>
+          <span className="hidden text-[13px] text-ink-500 md:inline">{dirty ? "Có thay đổi chưa lưu" : "Chưa có thay đổi"}</span>
         </div>
-        <div className="grid gap-4 p-5 sm:grid-cols-2">
-          <Field label="Tên nhà cung cấp" required className="sm:col-span-2">
-            <input className={`input ${fieldErrors.name ? "border-rose-400 bg-rose-50/40" : ""}`} autoFocus required value={str("name")} aria-invalid={!!fieldErrors.name} onChange={(e) => { set("name", e.target.value); setFieldErrors((err) => ({ ...err, name: undefined })); }} placeholder="Tên doanh nghiệp / nhà máy" />
-            {fieldErrors.name && <p className="mt-1 text-xs font-semibold text-rose-600">{fieldErrors.name}</p>}
-          </Field>
-          <Field label="Người liên hệ"><input className="input" value={str("contact_name")} onChange={(e) => set("contact_name", e.target.value)} /></Field>
-          <Field label="Điện thoại"><input className="input" value={str("phone")} onChange={(e) => set("phone", e.target.value)} /></Field>
-          <Field label="Email"><input className="input" type="email" value={str("email")} onChange={(e) => set("email", e.target.value)} /></Field>
-          <Field label="Mặt hàng chính"><input className="input" value={str("products")} onChange={(e) => set("products", e.target.value)} placeholder="Ví dụ: hạt điều W320, gạo Jasmine" /></Field>
-          <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm sm:col-span-2">
-            <p className="font-semibold text-ink-700">Ngành hệ thống tự gán từ sản phẩm và mặt hàng chính</p>
-            <div className="mt-2 flex flex-wrap gap-2">{autoIndustries.slugs.length ? autoIndustries.slugs.map((slug) => {
-              const category = categories.find((c) => c.slug === slug);
-              return <span key={slug} className="rounded-full bg-white px-2.5 py-1 font-semibold text-brand-800 ring-1 ring-brand-200">{category?.name_i18n.en || slug}{category?.id === autoIndustries.primaryId ? " · chính" : ""}</span>;
-            }) : <span className="text-ink-500">Chưa có dữ liệu mặt hàng — sẽ tự cập nhật khi thêm sản phẩm.</span>}</div>
-          </div>
-          <Field label="Tỉnh / Thành phố"><input className="input" value={str("province")} onChange={(e) => set("province", e.target.value)} /></Field>
-          <Field label="Loại hình">
-            <select className="input" value={str("supplier_type")} onChange={(e) => set("supplier_type", e.target.value || null)}>
-              <option value="">Chưa chọn</option>{SUPPLIER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </Field>
-        </div>
-      </div>
-
-      <section className="card p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div><h2 className="text-base font-bold text-ink-900">Giới thiệu cho khách hàng</h2><p className="text-sm text-ink-500">Chỉ xuất hiện trên website khi hồ sơ được công khai.</p></div>
-          {aiEnabled && <Button type="button" size="sm" disabled={drafting || busy} onClick={() => void writeIntroduction()}>
-            {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} AI soạn nháp
-          </Button>}
-        </div>
-        <Field label="Giới thiệu về công ty do NCC tự viết (bản gốc)">
-          <textarea rows={3} className="input" value={str("intro_source")} onChange={(e) => set("intro_source", e.target.value)} placeholder="Mô tả về điểm khác biệt của công ty hay sản phẩm của bạn." />
-          <span className="mt-1 block text-xs leading-5 text-ink-500">Câu chuyện NCC kể trên form đăng ký. Khi lưu, AI dịch lại bản tiếng Anh bên dưới từ nội dung này.</span>
-        </Field>
-        <Field label="Giới thiệu ngắn (tiếng Anh)">
-          <textarea rows={3} className="input" value={str("summary_en")} onChange={(e) => set("summary_en", e.target.value)} placeholder="A Vietnam-based supplier of..." />
-        </Field>
-        <div id="price-sharing" className="mt-4 scroll-mt-24 rounded-xl border border-ink-200 bg-ink-50/60 p-4 text-sm">
-          <h3 className="font-semibold text-ink-800">Quyền hiển thị giá của sản phẩm</h3>
-          <p className="mt-1 text-xs text-ink-600">Không nhập giá ở hồ sơ NCC. Giá tham khảo, đơn vị và hạn giá được nhập riêng trong từng sản phẩm; chỉ hiện công khai khi NCC đã chấp thuận bằng văn bản.</p>
-          <label className="mt-3 flex items-center gap-2 text-ink-700"><input type="checkbox" checked={Boolean(form.fob_publicly_visible)} onChange={(e) => setForm((f) => ({ ...f, fob_publicly_visible: e.target.checked, fob_updated_at: e.target.checked ? new Date().toISOString() : f.fob_updated_at }))} /> NCC đã chấp thuận công khai giá sản phẩm</label>
-          {Boolean(form.fob_publicly_visible) && (
-            <p className="mt-2 text-xs text-ink-600">
-              {consentExpired ? "Lần xác nhận đã quá 180 ngày hoặc không hợp lệ — giá sản phẩm chưa được công khai. Kiểm tra lại chấp thuận bằng văn bản rồi xác nhận lại." : "Chấp thuận có hiệu lực tối đa 180 ngày từ lần xác nhận; giá từng sản phẩm cũng phải còn hạn."}
-            </p>
+        <div className="flex items-center gap-2">
+          {supplier && (
+            <Button type="button" disabled={!dirty || busy} onClick={() => setForm(saved)}>
+              <RotateCcw className="h-4 w-4" /> Hoàn tác
+            </Button>
           )}
-          {consentExpired && <button type="button" className="mt-2 text-xs font-semibold text-brand-700 underline" onClick={() => set("fob_updated_at", new Date().toISOString())}>Đã kiểm tra văn bản, xác nhận lại quyền</button>}
-        </div>
-        <details className="mt-4 rounded-xl border border-ink-200 p-4">
-          <summary className="cursor-pointer font-semibold text-ink-800">Tên hiển thị và đường dẫn</summary>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Field label="Tên hiển thị"><input className="input" value={str("display_name")} onChange={(e) => set("display_name", e.target.value)} /></Field>
-            <Field label="Đường dẫn (slug)"><input className="input" value={str("slug")} onChange={(e) => set("slug", slugify(e.target.value))} placeholder="Tự tạo nếu để trống" /></Field>
-            <Field label="Tên thương mại"><input className="input" value={str("trade_name")} onChange={(e) => set("trade_name", e.target.value)} /></Field>
-            <Field label="Website"><input className="input" value={str("website")} onChange={(e) => set("website", e.target.value)} /></Field>
-          </div>
-        </details>
-      </section>
-
-      <details className="card p-5">
-        <summary className="cursor-pointer text-base font-bold text-ink-900">Địa chỉ, giấy tờ & thông tin khác</summary>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <Field label="Địa chỉ"><input className="input" value={str("address")} onChange={(e) => set("address", e.target.value)} /></Field>
-          <Field label="Mã số thuế"><input className="input" value={str("tax_id")} onChange={(e) => set("tax_id", e.target.value)} /></Field>
-          <Field label="Chức vụ người liên hệ"><input className="input" value={str("contact_title")} onChange={(e) => set("contact_title", e.target.value)} /></Field>
-          <Field label="Zalo"><input className="input" value={str("zalo")} onChange={(e) => set("zalo", e.target.value)} /></Field>
-          <Field label="Quốc gia"><input className="input" value={str("country")} onChange={(e) => set("country", e.target.value)} /></Field>
-          <Field label="Vai trò"><select className="input" value={str("role")} onChange={(e) => set("role", e.target.value)}>{SUPPLIER_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select></Field>
-          <Field label="Năm thành lập"><input type="number" className="input" value={str("founded_year")} onChange={(e) => set("founded_year", e.target.value)} /></Field>
-          <Field label="Số nhân viên"><input type="number" className="input" value={str("employees")} onChange={(e) => set("employees", e.target.value)} /></Field>
-          <Field label="Thời gian giao hàng (ngày)"><input type="number" className="input" value={str("lead_time_days")} onChange={(e) => set("lead_time_days", e.target.value)} /></Field>
-          <Field label="MOQ"><input className="input" value={str("moq_text")} onChange={(e) => set("moq_text", e.target.value)} /></Field>
-          <Field label="Công suất mỗi tháng"><input className="input" value={str("capacity_per_month")} onChange={(e) => set("capacity_per_month", e.target.value)} /></Field>
-          <Field label="Điều khoản thanh toán"><input className="input" value={str("payment_terms")} onChange={(e) => set("payment_terms", e.target.value)} /></Field>
-          <Field label="Thị trường đã phục vụ"><input className="input" value={str("markets")} onChange={(e) => set("markets", e.target.value)} /></Field>
-          <label className="flex items-center gap-2 text-sm text-ink-700"><input type="checkbox" checked={Boolean(form.private_label)} onChange={(e) => set("private_label", e.target.checked)} /> Nhận làm nhãn riêng / OEM</label>
-          <Field label="Cảng xuất" className="sm:col-span-2"><ChipGroup options={VIETNAM_PORTS} value={arr("ports")} onChange={(v) => set("ports", v)} /></Field>
-          <Field label="Điều kiện giao hàng" className="sm:col-span-2"><ChipGroup options={INCOTERM_OPTIONS} value={arr("incoterms")} onChange={(v) => set("incoterms", v)} /></Field>
-          <Field label="Thị trường xuất khẩu" className="sm:col-span-2"><ChipGroup options={EXPORT_MARKETS} value={arr("export_markets")} onChange={(v) => set("export_markets", v)} /></Field>
-          <Field label="Ghi chú nội bộ" className="sm:col-span-2"><textarea className="input" rows={3} value={str("notes")} onChange={(e) => set("notes", e.target.value)} /></Field>
-        </div>
-      </details>
-
-      <div className="sticky bottom-3 z-10 rounded-xl border border-ink-200 bg-white/95 p-3 shadow-lg backdrop-blur sm:flex sm:items-center sm:justify-between sm:gap-4">
-        <div className="mb-2 text-sm sm:mb-0">
-          <span className="font-semibold text-ink-900">{current.label}</span>
-          <span className="ml-2 text-ink-500">{dirty ? "Có thay đổi chưa lưu" : "Lưu không tự đổi trạng thái hay cấp xác minh"}</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {supplier && <Button type="button" disabled={!dirty || busy} onClick={() => setForm(saved)}>Hoàn tác</Button>}
-          <Button type="submit" variant="primary" disabled={busy}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{supplier ? "Lưu thay đổi" : "Lưu nhà cung cấp"}</Button>
+          <Button type="submit" variant="primary" disabled={busy}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu thay đổi
+          </Button>
         </div>
       </div>
 
-      {supplier && (
-        <section className="card p-5">
-          <h2 className="text-base font-bold text-ink-900">Bước tiếp theo</h2>
-          <p className="mt-1 text-sm text-ink-500">Chọn bước khi bạn đã sẵn sàng. Mỗi nút sẽ lưu cả các thay đổi đang nhập.</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {nextOptions.map((nx) => <Button type="button" key={nx} disabled={busy} variant={nx === "published" ? "primary" : "soft"} onClick={() => void transitionTo(nx)}>
-              {nx === "published" ? "Công khai hồ sơ" : nx === "suspended" ? "Tạm ẩn khỏi web" : `Chuyển sang ${statusMeta(nx).label}`} <ArrowRight className="h-3.5 w-3.5" />
-            </Button>)}
-            <a href={`/crm/suppliers/${supplier.id}`} className="btn btn-ghost"><ExternalLink className="h-4 w-4" /> Xem hồ sơ & xác minh</a>
-          </div>
-          <p className="mt-3 text-xs text-ink-500">Giấy tờ, nhà máy và lịch sử giao hàng được xét duyệt ở các trang kiểm toán riêng. Hồ sơ công khai chưa duyệt giấy tờ sẽ hiện “Chưa xác minh”.</p>
-        </section>
-      )}
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <div className="min-w-0 space-y-4">
+          <section className="card p-5">
+            <SectionHead icon={Building2} title="Doanh nghiệp" sub="Thông tin pháp lý và năng lực cơ bản của nhà cung cấp." />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Tên nhà cung cấp" required className="sm:col-span-2">
+                <input className={`input ${fieldErrors.name ? "border-rose-400 bg-rose-50/40" : ""}`} autoFocus required value={str("name")} aria-invalid={!!fieldErrors.name} onChange={(e) => { set("name", e.target.value); setFieldErrors((err) => ({ ...err, name: undefined })); }} placeholder="Tên doanh nghiệp / nhà máy" />
+                {fieldErrors.name && <p className="mt-1 text-xs font-semibold text-rose-600">{fieldErrors.name}</p>}
+              </Field>
+              <Field label="Tên thương mại"><input className="input" value={str("trade_name")} onChange={(e) => set("trade_name", e.target.value)} /></Field>
+              <Field label="Loại hình">
+                <select className="input" value={str("supplier_type")} onChange={(e) => set("supplier_type", e.target.value || null)}>
+                  <option value="">Chưa chọn</option>{SUPPLIER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Tỉnh / Thành phố"><input className="input" value={str("province")} onChange={(e) => set("province", e.target.value)} /></Field>
+              <Field label="Quốc gia"><input className="input" value={str("country")} onChange={(e) => set("country", e.target.value)} /></Field>
+              <Field label="Địa chỉ" className="sm:col-span-2"><input className="input" value={str("address")} onChange={(e) => set("address", e.target.value)} /></Field>
+              <Field label="Năm thành lập"><input type="number" className="input" value={str("founded_year")} onChange={(e) => set("founded_year", e.target.value)} /></Field>
+              <Field label="Số nhân viên"><input type="number" className="input" value={str("employees")} onChange={(e) => set("employees", e.target.value)} /></Field>
+              <Field label="Mặt hàng chính" className="sm:col-span-2"><input className="input" value={str("products")} onChange={(e) => set("products", e.target.value)} placeholder="Ví dụ: hạt điều W320, gạo Jasmine" /></Field>
+              <div className="rounded-xl border border-brand-200 bg-brand-50 p-3.5 text-sm sm:col-span-2">
+                <p className="font-semibold text-ink-700">Ngành hệ thống tự gán từ sản phẩm và mặt hàng chính</p>
+                <div className="mt-2 flex flex-wrap gap-2">{autoIndustries.slugs.length ? autoIndustries.slugs.map((slug) => {
+                  const category = categories.find((c) => c.slug === slug);
+                  return <span key={slug} className="rounded-full bg-white px-2.5 py-1 font-semibold text-brand-800 ring-1 ring-brand-200">{category?.name_i18n.en || slug}{category?.id === autoIndustries.primaryId ? " · chính" : ""}</span>;
+                }) : <span className="text-ink-500">Chưa có dữ liệu mặt hàng, sẽ tự cập nhật khi thêm sản phẩm.</span>}</div>
+              </div>
+            </div>
+          </section>
+
+          <section className="card p-5">
+            <SectionHead icon={Phone} title="Liên hệ" sub="Đầu mối để đội Vexim và buyer liên lạc với nhà cung cấp." />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Người liên hệ"><input className="input" value={str("contact_name")} onChange={(e) => set("contact_name", e.target.value)} /></Field>
+              <Field label="Chức vụ người liên hệ"><input className="input" value={str("contact_title")} onChange={(e) => set("contact_title", e.target.value)} /></Field>
+              <Field label="Điện thoại"><input className="input" value={str("phone")} onChange={(e) => set("phone", e.target.value)} /></Field>
+              <Field label="Zalo"><input className="input" value={str("zalo")} onChange={(e) => set("zalo", e.target.value)} /></Field>
+              <Field label="Email">
+                <input className={`input ${fieldErrors.email ? "border-rose-400 bg-rose-50/40" : ""}`} type="email" value={str("email")} aria-invalid={!!fieldErrors.email} onChange={(e) => { set("email", e.target.value); setFieldErrors((err) => ({ ...err, email: undefined })); }} />
+                {fieldErrors.email && <p className="mt-1 text-xs font-semibold text-rose-600">{fieldErrors.email}</p>}
+              </Field>
+              <Field label="Website"><input className="input" value={str("website")} onChange={(e) => set("website", e.target.value)} placeholder="https://…" /></Field>
+            </div>
+          </section>
+
+          <section className="card p-5">
+            <SectionHead
+              icon={Globe2}
+              title="Hiển thị cho buyer"
+              sub="Chỉ xuất hiện trên website khi hồ sơ được công khai."
+              action={aiEnabled ? (
+                <Button type="button" size="sm" disabled={drafting || busy} onClick={() => void writeIntroduction()}>
+                  {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} AI soạn nháp
+                </Button>
+              ) : undefined}
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Tên hiển thị"><input className="input" value={str("display_name")} onChange={(e) => set("display_name", e.target.value)} /></Field>
+              <Field label="Đường dẫn (slug)"><input className="input" value={str("slug")} onChange={(e) => set("slug", slugify(e.target.value))} placeholder="Tự tạo nếu để trống" /></Field>
+            </div>
+            <div className="mt-4 space-y-4">
+              <Field label="Giới thiệu về công ty do NCC tự viết (bản gốc)">
+                <textarea rows={3} className="input" value={str("intro_source")} onChange={(e) => set("intro_source", e.target.value)} placeholder="Mô tả về điểm khác biệt của công ty hay sản phẩm của bạn." />
+                <span className="mt-1 block text-xs leading-5 text-ink-500">Câu chuyện NCC kể trên form đăng ký. Khi lưu, AI dịch lại bản tiếng Anh bên dưới từ nội dung này.</span>
+              </Field>
+              <Field label="Giới thiệu ngắn (tiếng Anh)">
+                <textarea rows={3} className="input" value={str("summary_en")} onChange={(e) => set("summary_en", e.target.value)} placeholder="A Vietnam-based supplier of..." />
+              </Field>
+            </div>
+          </section>
+
+          <section className="card p-5">
+            <SectionHead icon={Truck} title="Điều kiện thương mại" sub="Điều kiện bán hàng hiển thị cho buyer khi hồ sơ công khai." />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="MOQ"><input className="input" value={str("moq_text")} onChange={(e) => set("moq_text", e.target.value)} /></Field>
+              <Field label="Công suất mỗi tháng"><input className="input" value={str("capacity_per_month")} onChange={(e) => set("capacity_per_month", e.target.value)} /></Field>
+              <Field label="Thời gian giao hàng (ngày)"><input type="number" className="input" value={str("lead_time_days")} onChange={(e) => set("lead_time_days", e.target.value)} /></Field>
+              <Field label="Điều khoản thanh toán"><input className="input" value={str("payment_terms")} onChange={(e) => set("payment_terms", e.target.value)} /></Field>
+              <Field label="Thị trường đã phục vụ" className="sm:col-span-2"><input className="input" value={str("markets")} onChange={(e) => set("markets", e.target.value)} /></Field>
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-ink-200 px-3.5 py-3 text-sm font-medium text-ink-700 sm:col-span-2">
+                Nhận làm nhãn riêng / OEM
+                <input type="checkbox" className="h-4 w-4 shrink-0 accent-brand-700" checked={Boolean(form.private_label)} onChange={(e) => set("private_label", e.target.checked)} />
+              </label>
+              <Field label="Cảng xuất" className="sm:col-span-2"><ChipGroup options={VIETNAM_PORTS} value={arr("ports")} onChange={(v) => set("ports", v)} /></Field>
+              <Field label="Điều kiện giao hàng" className="sm:col-span-2"><ChipGroup options={INCOTERM_OPTIONS} value={arr("incoterms")} onChange={(v) => set("incoterms", v)} /></Field>
+              <Field label="Thị trường xuất khẩu" className="sm:col-span-2"><ChipGroup options={EXPORT_MARKETS} value={arr("export_markets")} onChange={(v) => set("export_markets", v)} /></Field>
+            </div>
+          </section>
+
+          <section className="card p-5">
+            <SectionHead icon={FileText} title="Pháp lý và ghi chú nội bộ" sub="Thông tin nội bộ, không hiển thị cho buyer." />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Mã số thuế"><input className="input" value={str("tax_id")} onChange={(e) => set("tax_id", e.target.value)} /></Field>
+              <Field label="Vai trò"><select className="input" value={str("role")} onChange={(e) => set("role", e.target.value)}>{SUPPLIER_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select></Field>
+              <Field label="Ghi chú nội bộ" className="sm:col-span-2"><textarea className="input" rows={3} value={str("notes")} onChange={(e) => set("notes", e.target.value)} /></Field>
+            </div>
+          </section>
+        </div>
+
+        <aside className="space-y-4 xl:sticky xl:top-20">
+          {supplier && (
+            <section className="card p-4">
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><ShieldCheck className="h-[18px] w-[18px]" /></span>
+                <span>
+                  <h2 className="text-sm font-bold leading-6 text-ink-900">Trạng thái hồ sơ</h2>
+                  <p className="mt-0.5 text-xs leading-5 text-ink-500">Lưu thay đổi không tự đổi trạng thái hay cấp xác minh.</p>
+                </span>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <span className={"rounded-full px-3 py-1 text-xs font-semibold " + current.badge}>{current.label}</span>
+                {dirty && <span className="text-xs font-medium text-amber-700">Có thay đổi chưa lưu</span>}
+              </div>
+              {nextOptions.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {nextOptions.map((nx) => (
+                    <Button type="button" key={nx} disabled={busy} variant={nx === "published" ? "primary" : "soft"} className="w-full justify-center" onClick={() => void transitionTo(nx)}>
+                      {nx === "published" ? "Công khai hồ sơ" : nx === "suspended" ? "Tạm ẩn khỏi web" : `Chuyển sang ${statusMeta(nx).label}`} <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <a href={`/crm/suppliers/${supplier.id}`} className="btn btn-ghost mt-2 w-full justify-center"><ExternalLink className="h-4 w-4" /> Xem hồ sơ và xác minh</a>
+              <p className="mt-3 border-t border-ink-100 pt-3 text-xs leading-5 text-ink-500">Giấy tờ, nhà máy và lịch sử giao hàng được xét duyệt ở các trang kiểm toán riêng. Hồ sơ công khai chưa duyệt giấy tờ sẽ hiện “Chưa xác minh”.</p>
+            </section>
+          )}
+
+          <section id="price-sharing" className="card scroll-mt-24 p-4">
+            <h2 className="text-sm font-bold text-ink-900">Quyền hiển thị giá của sản phẩm</h2>
+            <p className="mt-1 text-xs leading-5 text-ink-600">Không nhập giá ở hồ sơ NCC. Giá tham khảo, đơn vị và hạn giá được nhập riêng trong từng sản phẩm; chỉ hiện công khai khi NCC đã chấp thuận bằng văn bản.</p>
+            <label className="mt-3 flex items-start gap-2 text-sm text-ink-700"><input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-brand-700" checked={Boolean(form.fob_publicly_visible)} onChange={(e) => setForm((f) => ({ ...f, fob_publicly_visible: e.target.checked, fob_updated_at: e.target.checked ? new Date().toISOString() : f.fob_updated_at }))} /> NCC đã chấp thuận công khai giá sản phẩm</label>
+            {Boolean(form.fob_publicly_visible) && (
+              <p className="mt-2 text-xs leading-5 text-ink-600">
+                {consentExpired ? "Lần xác nhận đã quá 180 ngày hoặc không hợp lệ — giá sản phẩm chưa được công khai. Kiểm tra lại chấp thuận bằng văn bản rồi xác nhận lại." : "Chấp thuận có hiệu lực tối đa 180 ngày từ lần xác nhận; giá từng sản phẩm cũng phải còn hạn."}
+              </p>
+            )}
+            {consentExpired && <button type="button" className="mt-2 text-xs font-semibold text-brand-700 underline" onClick={() => set("fob_updated_at", new Date().toISOString())}>Đã kiểm tra văn bản, xác nhận lại quyền</button>}
+          </section>
+
+          <section className="card p-4" aria-label="Mức độ hoàn thiện hồ sơ">
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 className="text-sm font-bold text-ink-900">Mức độ hoàn thiện</h2>
+              <span className="text-xs font-semibold text-ink-500">{doneCount}/{completeness.length}</span>
+            </div>
+            <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-ink-100">
+              <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${Math.round((doneCount / completeness.length) * 100)}%` }} />
+            </div>
+            <ul className="mt-3 space-y-2">
+              {completeness.map((item) => (
+                <li key={item.label} className="flex items-start gap-2 text-[13px] leading-snug">
+                  {item.done
+                    ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                    : <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-amber-400 text-amber-500"><Minus className="h-3 w-3" /></span>}
+                  <span className={item.done ? "text-ink-700" : "font-medium text-ink-800"}>{item.label}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 border-t border-ink-100 pt-3 text-xs leading-5 text-ink-500">Ảnh đại diện và ảnh bìa chỉnh ở mục Ảnh ngay dưới form này.</p>
+          </section>
+        </aside>
+      </div>
     </form>
   );
 }
