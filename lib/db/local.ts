@@ -1716,6 +1716,11 @@ export const localStore: DataStore = {
   async listRfqMatches(rfqId) {
     return (load().rfq_matches ?? []).filter((m) => m.rfq_id === rfqId);
   },
+  async listRfqMatchesBySupplier(supplierId) {
+    return (load().rfq_matches ?? [])
+      .filter((m) => m.supplier_id === supplierId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
   async listSupplierRfqInvitations(supplierId) {
     const db = load();
     const rfqs = new Map(db.rfqs.map((r) => [r.id, r]));

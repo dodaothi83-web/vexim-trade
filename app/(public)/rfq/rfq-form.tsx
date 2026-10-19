@@ -37,6 +37,8 @@ interface Props {
   initialCategory: string | null;
   initialProduct: string;
   initialSupplierIds: string[];
+  /** Nhà cung cấp buyer đã chỉ định từ trang sản phẩm hoặc trang NCC, để hiển thị rõ trong form. */
+  initialSuppliers?: Array<{ id: string; name: string }>;
   wantsSamples: boolean;
   turnstileSiteKey?: string | null;
 }
@@ -57,7 +59,7 @@ const FREQUENCIES = ["One-time", "Monthly", "Quarterly", "Spot", "Contract"];
 const COUNTRIES = ["US", "EU", "UK", "Japan", "Korea", "China", "Middle East", "Australia", "Canada", "Other"];
 const BUSINESS_TYPES = ["Importer / Distributor", "Brand / Manufacturer", "Wholesaler", "Retailer", "Trading company", "Other"];
 
-export function RfqForm({ categories, categorySpecs, initialCategory, initialProduct, initialProductId, initialSupplierIds, wantsSamples, turnstileSiteKey }: Props) {
+export function RfqForm({ categories, categorySpecs, initialCategory, initialProduct, initialProductId, initialSupplierIds, initialSuppliers = [], wantsSamples, turnstileSiteKey }: Props) {
   const router = useRouter();
   const params = useSearchParams();
   const [step, setStep] = useState(1);
@@ -200,6 +202,17 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
 
   return (
     <form onSubmit={submit} className="mt-8">
+      {initialSuppliers.length > 0 ? (
+        <p className="mb-6 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-[13.5px] leading-relaxed text-ink-700">
+          You are requesting a quote from <strong className="text-ink-900">{initialSuppliers.map((s) => s.name).join(", ")}</strong>.
+          Vexim will forward your request to this supplier first, and may suggest other suitable suppliers if they cannot meet your requirements.
+        </p>
+      ) : (
+        <p className="mb-6 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3 text-[13.5px] leading-relaxed text-ink-700">
+          No specific supplier in mind? That is completely fine. Submit your request and Vexim will match it with
+          suitable Vietnamese suppliers, then reply with a shortlist within one business day.
+        </p>
+      )}
       {turnstileSiteKey && (
         <Script
           src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=__VEXIM_ON_TURNSTILE_LOAD&render=explicit"

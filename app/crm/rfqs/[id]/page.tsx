@@ -121,6 +121,8 @@ export default async function RfqDetailPage({
     productsBySupplier.set(p.supplier_id, list);
   }
   const matchSupplierIds = new Set(matches.map((m) => m.supplier_id));
+  // NCC buyer đã chỉ định khi gửi RFQ từ trang sản phẩm hoặc trang NCC (không phải NCC Vexim tự chọn).
+  const preferredSupplierIds = rfq.preferred_supplier_ids ?? [];
   // Chấm điểm theo các lần kiểm đã duyệt thực tế, không suy ra giấy tờ/nhà máy từ mức tối đa.
   const qText = (rfq.product_text + " " + (category?.name_i18n?.en ?? "")).toLowerCase();
   const candidates = suppliers
@@ -271,6 +273,14 @@ export default async function RfqDetailPage({
               <p className="mt-2 rounded-md bg-ink-50 px-3 py-2 text-[12.5px] text-ink-500">Bạn đang ở chế độ chỉ xem. Các thao tác ghép NCC, gửi email và lưu báo giá chỉ hiển thị cho tài khoản có quyền <code>rfq.manage</code>.</p>
             )}
 
+{preferredSupplierIds.length > 0 && (
+              <div className="mt-3 rounded-md border border-brand-200 bg-brand-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-ink-700">
+                <strong className="text-brand-900">Buyer chỉ định nhà cung cấp:</strong>{" "}
+                {preferredSupplierIds.map((pid) => supplierMap.get(pid)?.display_name ?? supplierMap.get(pid)?.trade_name ?? supplierMap.get(pid)?.name ?? pid).join(", ")}.
+                RFQ này được gửi từ trang sản phẩm hoặc trang nhà cung cấp, nên hãy ưu tiên gửi yêu cầu báo giá cho các nhà cung cấp này trước khi tìm thêm đơn vị khác.
+              </div>
+            )}
+
 {canManageRfq && (
             <form action={addMatchAction} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="rfq_id" value={rfq.id} />
@@ -343,6 +353,9 @@ export default async function RfqDetailPage({
                           <span className="text-[11.5px] text-ink-500">{sup.email}</span>
                         ) : (
                           <span className="text-[11.5px] text-red-600">chưa có email</span>
+                        )}
+                        {preferredSupplierIds.includes(m.supplier_id) && (
+                          <Badge className="bg-brand-600 text-[10.5px] text-white">Buyer chỉ định</Badge>
                         )}
                         {passed.map((step) => <Badge key={step} color="#059669" className="text-[10.5px]">{VERIFICATION_LABELS[step]}</Badge>)}
                         <Badge className="inline-flex items-center gap-1">

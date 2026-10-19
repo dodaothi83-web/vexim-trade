@@ -1041,6 +1041,16 @@ export const supabaseStore: DataStore = {
     if (error) fail("listRfqMatches", error);
     return (data ?? []) as RfqMatch[];
   },
+  async listRfqMatchesBySupplier(supplierId) {
+    const { data, error } = await must()
+      .from("rfq_matches")
+      .select("*")
+      .eq("supplier_id", supplierId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) fail("listRfqMatchesBySupplier", error);
+    return (data ?? []) as RfqMatch[];
+  },
   async listSupplierRfqInvitations(supplierId) {
     const all: SupplierRfqInvitation[] = [];
     // Page deliberately: PostgREST defaults to 1,000 rows, which would silently undercount reports.

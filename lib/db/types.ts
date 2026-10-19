@@ -203,6 +203,8 @@ export interface DataStore {
 
   // RFQ matches
   listRfqMatches(rfqId: string): Promise<RfqMatch[]>;
+  /** Mọi lượt khớp của một NCC (cả trạng thái đề xuất), mới nhất trước. */
+  listRfqMatchesBySupplier(supplierId: string): Promise<RfqMatch[]>;
   listSupplierRfqInvitations(supplierId: string): Promise<SupplierRfqInvitation[]>;
   listSupplierNoticeReads(supplierId: string): Promise<SupplierNoticeRead[]>;
   markSupplierNoticeRead(supplierId: string, noticeKey: string): Promise<void>;

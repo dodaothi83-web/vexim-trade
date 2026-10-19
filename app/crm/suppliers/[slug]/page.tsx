@@ -15,6 +15,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  Send,
   ShieldCheck,
   Star,
   UserRound,
@@ -38,6 +39,17 @@ import { OnboardingControls } from "./onboarding-controls";
 import { SupplierAccountControls } from "./account-controls";
 
 export const dynamic = "force-dynamic";
+
+const RFQ_MATCH_LABELS: Record<string, string> = {
+  proposed: "Đã khớp, chờ gửi",
+  sent_to_supplier: "Đã gửi cho NCC",
+  quoted: "Đã có báo giá",
+  declined: "NCC từ chối",
+  no_response: "Không phản hồi",
+  presented_to_buyer: "Đã trình buyer",
+  selected: "Buyer chọn",
+  not_selected: "Không được chọn",
+};
 
 function SectionHead({ icon: Icon, title, sub, action }: {
   icon: React.ComponentType<{ className?: string }>;
@@ -74,6 +86,7 @@ export default async function SupplierDetailPage({
   const canInspect = hasPermission(session.role, "verifications.inspect");
   const canViewReviews = hasPermission(session.role, "verifications.view");
   const canSeeBuyers = hasPermission(session.role, "buyers.view");
+  const canSeeRfqs = hasPermission(session.role, "rfq.view");
 
   const store = getStore();
   const supplier = await store.getSupplier(id);
@@ -107,6 +120,19 @@ export default async function SupplierDetailPage({
     console.error("[supplier-account] cannot read linked account", error);
     return null;
   });
+  const rfqMatches = canSeeRfqs
+    ? await store.listRfqMatchesBySupplier(id).catch((error) => {
+        console.error("[supplier-rfqs] cannot list matches", error);
+        return [];
+      })
+    : [];
+  const rfqRows = (await Promise.all(
+    rfqMatches.slice(0, 8).map(async (match) => {
+      const rfq = await store.getRfq(match.rfq_id).catch(() => null);
+      return rfq ? { match, rfq } : null;
+    }),
+  )).filter((row): row is { match: (typeof rfqMatches)[number]; rfq: NonNullable<Awaited<ReturnType<typeof store.getRfq>>> } => row !== null);
+  const buyerById = new Map(buyers.map((b) => [b.id, b]));
   const attached = buyers.filter((b) => b.supplier_id === id);
   const active = attached.filter((b) => !["completed", "lost"].includes(b.stage));
   const st = statusMeta(supplier.status);
@@ -397,6 +423,45 @@ export default async function SupplierDetailPage({
                 <ShieldCheck className="mr-1 inline h-3 w-3" />
                 Đơn đánh dấu “ẩn danh” sẽ không tiết lộ tên buyer trong email gửi NCC.
               </p>
+            </Card>
+          )}
+
+          {canSeeRfqs && (
+            <Card className="p-5">
+              <SectionHead icon={Send} title="RFQ đã gửi cho NCC này" sub="Các yêu cầu báo giá trong hệ thống RFQ đã khớp với nhà cung cấp này." />
+              {rfqRows.length === 0 ? (
+                <EmptyState
+                  icon={<Send className="h-5 w-5" />}
+                  title="Chưa có RFQ nào"
+                  sub="Khi một RFQ được khớp với nhà cung cấp này, RFQ sẽ hiện ở đây kèm trạng thái xử lý."
+                />
+              ) : (
+                <ul className="divide-y divide-ink-100">
+                  {rfqRows.map(({ match, rfq }) => {
+                    const buyer = buyerById.get(rfq.buyer_id);
+                    return (
+                      <li key={match.id}>
+                        <Link href={`/crm/rfqs/${rfq.id}`} className="block rounded-lg px-2 py-3 transition hover:bg-brand-50/40">
+                          <span className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-[13.5px] font-bold text-brand-800">{rfq.code}</span>
+                            <Badge className="bg-ink-100 text-ink-600">{RFQ_MATCH_LABELS[match.status] ?? match.status}</Badge>
+                          </span>
+                          <span className="mt-0.5 block truncate text-[13px] font-medium text-ink-800">{rfq.product_text}</span>
+                          <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
+                            {[
+                              buyer ? (buyer.hide_buyer_from_supplier ? `Khách thị trường ${buyer.country || "nước ngoài"} (ẩn danh)` : buyer.company) : null,
+                              rfq.quantity ? `${rfq.quantity} ${rfq.unit ?? ""}`.trim() : null,
+                              rfq.destination_country,
+                              formatDate(rfq.created_at),
+                            ].filter(Boolean).join(" · ")}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {rfqMatches.length > 8 && <p className="mt-2 text-xs text-ink-500">Đang hiển thị 8 RFQ gần nhất trong tổng số {rfqMatches.length} RFQ.</p>}
             </Card>
           )}
 
