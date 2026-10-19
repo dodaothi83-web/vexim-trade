@@ -73,6 +73,7 @@ export default function PlatformRulesPage() {
 
     <Section id="rules-account" title="7. Tạm ngừng và chấm dứt tài khoản">
       <p className={p}>Vexim có thể tạm ngừng, hạn chế hoặc chấm dứt tài khoản khi nhà cung cấp cung cấp thông tin sai lệch, nhiều lần không cập nhật thông tin đã hết hiệu lực, giới thiệu hàng hóa vi phạm, không phối hợp xử lý phản ánh hoặc có yêu cầu của cơ quan nhà nước có thẩm quyền. Trừ trường hợp phải xử lý ngay theo yêu cầu của cơ quan nhà nước hoặc để ngăn chặn hành vi gian lận, Vexim thông báo lý do cho nhà cung cấp và hướng dẫn cách gửi ý kiến qua trang <Link href="/khieu-nai" className="font-semibold text-brand-700 underline">Khiếu nại và báo cáo vi phạm</Link>.</p>
+      <p className={p}>Nhà cung cấp có quyền đề nghị chấm dứt tài khoản bất cứ lúc nào bằng văn bản hoặc qua email <a href="mailto:contact@veximglobal.com" className="font-semibold text-brand-700 underline">contact@veximglobal.com</a> mà không phải chịu phí chấm dứt. Trong vòng 03 ngày làm việc kể từ khi nhận được đề nghị, Vexim ngừng chuyển yêu cầu báo giá mới, gỡ thông tin công khai của nhà cung cấp và xác nhận lại bằng email. Việc chấm dứt không làm mất hiệu lực các nghĩa vụ đã phát sinh trước thời điểm chấm dứt, gồm nghĩa vụ đối với giao dịch đã giao kết với người mua, nghĩa vụ phối hợp xử lý khiếu nại và nghĩa vụ cung cấp thông tin cho cơ quan nhà nước có thẩm quyền.</p>
     </Section>
 
     <Section id="rules-data" title="8. Lưu trữ và truy cập dữ liệu">
