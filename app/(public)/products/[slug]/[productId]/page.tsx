@@ -102,6 +102,28 @@ export default async function PublicProductDetail({ params }: Props) {
   // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
   // giá trên trang là giá tham khảo qua RFQ, không phải chào bán giao dịch trực tiếp.
   const indexable = !preview && !card.isDemo && !!category.seo_indexable;
+  // Thuộc tính có cấu trúc chỉ lấy từ dữ kiện đã qua kiểm tra: MOQ và lead time
+  // trên bản ghi sản phẩm công khai, cùng các trường thuộc tính theo danh mục
+  // đã qua kiểm tra hợp lệ. Không lấy thuộc tính thô ngoài cấu hình danh mục.
+  const structuredProperties: Array<{ "@type": "PropertyValue"; name: string; value: string }> = [];
+  const pushProperty = (name: string, value: string | null | undefined) => {
+    const v = value?.trim();
+    if (!v) return;
+    if (structuredProperties.some((item) => item.name.toLowerCase() === name.toLowerCase())) return;
+    structuredProperties.push({ "@type": "PropertyValue", name, value: v });
+  };
+  if (p.moq?.trim()) pushProperty("MOQ", p.moq);
+  if (card.leadTimeDays !== null) pushProperty("Lead time", `${card.leadTimeDays} days`);
+  for (const f of fieldsFor(category)) {
+    if (approvedAttributes[f.key]) pushProperty(f.label, approvedAttributes[f.key]);
+  }
+  // Chứng nhận chỉ gồm chứng nhận đã duyệt, đang còn hạn và áp đúng cho sản
+  // phẩm này theo publicCertificateLabels.
+  const structuredCertifications = certificateLabels.map((c) => ({
+    "@type": "Certification",
+    name: c.name,
+    ...(c.issuer ? { issuedBy: { "@type": "Organization", name: c.issuer } } : {}),
+  }));
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -115,6 +137,8 @@ export default async function PublicProductDetail({ params }: Props) {
       name: card.supplierName,
       ...(card.supplierSlug ? { url: `${SITE_URL}/suppliers/${encodeURIComponent(card.supplierSlug)}` } : {}),
     },
+    ...(structuredProperties.length ? { additionalProperty: structuredProperties } : {}),
+    ...(structuredCertifications.length ? { hasCertification: structuredCertifications } : {}),
   };
   return <div className="mx-auto max-w-6xl px-5 pb-24 pt-7 sm:px-6 lg:px-8">
     {indexable && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />}

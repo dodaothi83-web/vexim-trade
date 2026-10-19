@@ -81,6 +81,10 @@ export default async function SupplierProfile({ params }: PageProps) {
     "@graph": [
       { "@type": "Organization", "@id": `${profileUrl}#organization`, name, url: profileUrl,
         description: summary, ...(avatarUrl ? { image: `${SITE_URL}${avatarUrl}` } : {}),
+        // Năm thành lập và quy mô nhân sự chỉ đưa vào khi vòng kiểm tra giấy tờ
+        // đã được phê duyệt, tức hai dữ kiện này đã đối chiếu với hồ sơ doanh nghiệp.
+        ...(steps.includes(1) && s.founded_year ? { foundingDate: String(s.founded_year) } : {}),
+        ...(steps.includes(1) && s.employees ? { numberOfEmployees: { "@type": "QuantitativeValue", value: s.employees } } : {}),
         address: { "@type": "PostalAddress", ...(safe(s.address) ? { streetAddress: safe(s.address) } : {}), addressRegion: safe(s.province) || undefined, addressCountry: "VN" } },
       { "@type": "BreadcrumbList", itemListElement: [
         { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },

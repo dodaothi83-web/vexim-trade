@@ -73,6 +73,14 @@ Ngoài ra, chưa có trang thư mục tổng hợp toàn bộ nhà cung cấp. H
 - Cân nhắc trang thư mục nhà cung cấp khi số lượng hồ sơ đủ lớn để trang không bị loãng.
 - Định kỳ tự kiểm tra bằng cách đặt câu hỏi mua hàng mẫu trên các công cụ AI phổ biến và ghi lại Vexim có được nhắc tới hay không, kết hợp dữ liệu Google Search Console.
 
+## Đã triển khai gói ưu tiên 1 (ngày 19 tháng 10 năm 2026)
+
+- File llms.txt tại địa chỉ /llms.txt, sinh tự động và giữ gọn: trang cốt lõi, danh mục đang đăng và tối đa 100 hồ sơ nhà cung cấp đạt điều kiện hiển thị cho máy tìm kiếm.
+- Schema Product bổ sung additionalProperty cho MOQ, thời gian giao hàng và các thuộc tính theo danh mục đã qua kiểm tra hợp lệ, cùng hasCertification cho chứng nhận đã duyệt, còn hạn và áp đúng sản phẩm. Vẫn không khai báo offers và aggregateRating.
+- Schema Organization của nhà cung cấp bổ sung foundingDate và numberOfEmployees, chỉ khi vòng kiểm tra giấy tờ đã được phê duyệt.
+- robots.txt khai báo tường minh từng bot AI theo hai nhóm: bot phục vụ tìm kiếm và trích dẫn (OAI-SearchBot, ChatGPT-User, PerplexityBot, Perplexity-User, Claude-SearchBot, Claude-User) và bot thu thập dữ liệu huấn luyện (GPTBot, ClaudeBot, anthropic-ai, CCBot, Google-Extended, Applebot-Extended, Meta-ExternalAgent, cohere-ai). Cả hai nhóm đều được phép truy cập nội dung công khai và vẫn bị chặn khỏi khu vực nội bộ.
+- Script kiểm tra sau deploy: `npm run check:ai-crawl -- [địa chỉ website]`. Script báo lỗi và thoát mã 1 nếu robots.txt chặn toàn bộ website, trang chủ bị gắn noindex hoặc thiếu dữ liệu có cấu trúc, và kiểm tra thêm llms.txt. Chạy script này sau mỗi lần deploy production trước khi coi việc triển khai là hoàn tất.
+
 ## Giới hạn của đợt rà soát này
 
 Rà soát dựa trên mã nguồn và nội dung HTML công khai của bản đang chạy. Đợt này chưa đo được tần suất bot AI thực tế đã vào website, việc đó cần quyền truy cập nhật ký máy chủ hoặc công cụ phân tích lưu lượng, và chưa kiểm chứng được thứ hạng hiển thị thực tế trong câu trả lời của từng hệ thống AI.

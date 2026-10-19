@@ -9,6 +9,7 @@
     "start": "next start -H 0.0.0.0 -p 3000",
     "typecheck": "tsc --noEmit",
     "check:supabase": "node scripts/check-supabase.mjs",
+    "check:ai-crawl": "node scripts/check-ai-crawlability.mjs",
     "check:mail": "node --experimental-strip-types --no-warnings scripts/check-mail-visibility.mjs"
   },
   "dependencies": {
