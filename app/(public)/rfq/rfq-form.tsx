@@ -256,7 +256,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
         <div className="card space-y-4 p-6">
           <Field label="Category" hint="Pick the main category your product belongs to.">
             <select className="input" value={data.category_slug} onChange={(e) => update("category_slug", e.target.value)}>
-              <option value="">— Select —</option>
+              <option value="">Select...</option>
               {categories.map((c) => (
                 <option key={c.slug} value={c.slug}>{c.name}</option>
               ))}
@@ -333,7 +333,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Destination" required error={errors.destination_country}>
               <select className="input" value={data.destination_country} onChange={(e) => update("destination_country", e.target.value)}>
-                <option value="">— Select —</option>
+                <option value="">Select...</option>
                 {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
               </select>
             </Field>
@@ -407,7 +407,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
             </Field>
             <Field label="Country">
               <select className="input" value={data.country} onChange={(e) => update("country", e.target.value)}>
-                <option value="">— Select —</option>
+                <option value="">Select...</option>
                 {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
               </select>
             </Field>
@@ -416,7 +416,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
             </Field>
             <Field label="Business type">
               <select className="input" value={data.business_type} onChange={(e) => update("business_type", e.target.value)}>
-                <option value="">— Select —</option>
+                <option value="">Select...</option>
                 {BUSINESS_TYPES.map((b) => <option key={b}>{b}</option>)}
               </select>
             </Field>

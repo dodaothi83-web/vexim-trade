@@ -7,7 +7,7 @@ import type { Category, CategoryFilter } from "@/lib/types";
 
 export const metadata = {
   title: "Request a quote | Veximtrade",
-  description: "Send a sourcing request — our export desk replies in one business day.",
+  description: "Send a sourcing request and get matched with suitable Vietnamese suppliers.",
   robots: { index: false, follow: true },
 };
 
@@ -52,8 +52,7 @@ export default async function RfqPage({
         Request a quote
       </h1>
       <p className="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-700">
-        Tell us what you need — grade, volume, destination and timeline. Our desk screens suppliers and
-        replies with a shortlist within one business day.
+        Tell us what you need: grade, volume, destination and timeline.
       </p>
 
       <RfqForm
