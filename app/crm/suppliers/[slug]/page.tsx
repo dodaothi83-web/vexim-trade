@@ -4,6 +4,7 @@ import {
   Anchor,
   Banknote,
   Boxes,
+  Building2,
   CalendarClock,
   Clock,
   FileText,
@@ -17,6 +18,7 @@ import {
   ShieldCheck,
   Star,
   UserRound,
+  Users,
 } from "lucide-react";
 
 import { listBuyersWithSupplier } from "@/lib/queries";
@@ -30,17 +32,39 @@ import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } fro
 import { PageHeader } from "@/components/page-header";
 import { StageBadge } from "@/components/stage-select";
 import { DeleteSupplierButton, SupplierPublicationControls } from "@/components/supplier-actions";
+import { VerificationCoverSeal, VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import { VerificationPanel } from "./verification-panel";
 import { OnboardingControls } from "./onboarding-controls";
 import { SupplierAccountControls } from "./account-controls";
 
 export const dynamic = "force-dynamic";
 
+function SectionHead({ icon: Icon, title, sub, action }: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  sub?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <span>
+          <h2 className="text-base font-bold leading-6 text-ink-900">{title}</h2>
+          {sub && <p className="mt-0.5 text-[13px] leading-5 text-ink-500">{sub}</p>}
+        </span>
+      </div>
+      {action}
+    </div>
+  );
+}
+
 export default async function SupplierDetailPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
-}) {
+  params: Promise<{ slug: string }> }) {
   const { slug: id } = await params;
   const session = await requireSession();
   const canManage = hasPermission(session.role, "suppliers.manage");
@@ -86,6 +110,10 @@ export default async function SupplierDetailPage({
   const attached = buyers.filter((b) => b.supplier_id === id);
   const active = attached.filter((b) => !["completed", "lost"].includes(b.stage));
   const st = statusMeta(supplier.status);
+  const approvedLevels = verifications.filter((v) => v.status === "approved").map((v) => v.target_level);
+  const displayName = supplier.display_name || supplier.name;
+  const typeLabel = supplier.onboarding_status === "not_started" ? "Chưa khai loại hình" : supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : roleLabel(supplier.role);
+  const showOnboarding = supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested" || supplier.onboarding_status === "approved";
 
   return (
     <>
@@ -96,7 +124,7 @@ export default async function SupplierDetailPage({
           />
         }
         title={supplier.name}
-        sub={[supplier.trade_name, supplier.onboarding_status === "not_started" ? "Chưa khai loại hình" : supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : roleLabel(supplier.role), supplier.province]
+        sub={[supplier.trade_name, typeLabel, supplier.province]
           .filter(Boolean)
           .join(" · ")}
         actions={
@@ -117,108 +145,105 @@ export default async function SupplierDetailPage({
         }
       />
 
-      {canViewReviews && <div className="mb-5 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm">
-        <Link href={`/crm/suppliers/${id}/certificates`} className="font-bold text-brand-800 underline">Chứng nhận NCC chờ Vexim xét duyệt / quyết định công bố →</Link>
-        <p className="mt-1 text-ink-600">Tách riêng khỏi kho ảnh chung và ba đợt kiểm xác minh NCC; tệp không tự hiện trên sản phẩm.</p>
-      </div>}
-
-      <Card className="mb-5 p-5">
-        <h2 className="text-lg font-bold text-ink-900">Tài khoản cổng nhà cung cấp</h2>
-        <p className="mt-1 text-sm text-ink-600">{accountUser
-          ? "Tài khoản đăng nhập đang gắn với hồ sơ này. Nhà cung cấp dùng tài khoản này để vào cổng, bổ sung hồ sơ và quản lý sản phẩm của mình."
-          : "Hồ sơ này chưa có tài khoản đăng nhập. Nhà cung cấp chưa thể tự quản lý hồ sơ và sản phẩm trên cổng cho đến khi được cấp tài khoản hoặc tự đăng ký."}</p>
-        <SupplierAccountControls
-          supplierId={id}
-          defaultEmail={supplier.email ?? ""}
-          defaultName={supplier.contact_name ?? ""}
-          account={accountUser ? {
-            email: accountUser.email,
-            isActive: accountUser.is_active,
-            lastLoginLabel: accountUser.last_login_at ? formatDate(accountUser.last_login_at) : "Chưa đăng nhập lần nào",
-            createdLabel: formatDate(accountUser.created_at),
-          } : null}
-          canProvision={canManage && (session.role === "admin" || session.role === "sourcing")}
-        />
-      </Card>
-
-      {(supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested" || supplier.onboarding_status === "approved") &&
-        <Card className="mb-5 p-5">
-          <h2 className="text-lg font-bold text-ink-900">Quyền sử dụng cổng nhà cung cấp</h2>
-          <p className="mt-1 text-sm text-ink-600">{supplier.onboarding_status === "approved" ? "Đã được Vexim xác nhận tài khoản." : supplier.onboarding_status === "pending" ? "Hồ sơ đã nộp; tài khoản chưa sử dụng được. Kiểm tra thông tin và giấy tờ trước khi xác nhận." : "Đang chờ nhà cung cấp bổ sung thông tin."} Việc xác nhận này không duyệt giấy tờ hay công khai hồ sơ.</p>
-          {supplier.onboarding_note && <p className="mt-2 text-sm text-amber-800">Yêu cầu bổ sung: {supplier.onboarding_note}</p>}
-          {supplier.onboarding_status === "pending" && canManage && (session.role === "admin" || session.role === "sourcing") &&
-            <OnboardingControls supplierId={id} />}
-        </Card>}
-
-      <Card className="mb-5 grid grid-cols-2 divide-ink-200 sm:grid-cols-4 sm:divide-x">
-        <Cell label="Trạng thái hồ sơ">
-          <Badge className={st.badge}>{st.label}</Badge>
-        </Cell>
-        <Cell label="Đánh giá">
-          <span className="inline-flex items-center gap-0.5">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Star
-                key={n}
-                className={cx(
-                  "h-4 w-4",
-                  n <= (supplier.rating ?? 0) ? "fill-amber-400 text-amber-400" : "text-ink-200",
-                )}
-              />
-            ))}
-          </span>
-        </Cell>
-        <Cell label="Lead time">
-          <span className="font-black">{supplier.lead_time_days ? `${supplier.lead_time_days} ngày` : "—"}</span>
-        </Cell>
-        {canSeeBuyers && <Cell label="Đơn đang chạy">
-          <span className="font-black">{active.length}</span>
-          <span className="text-[11.5px] text-ink-400"> / {attached.length} tổng</span>
-        </Cell>}
-      </Card>
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-1">
-        <Card>
-          <div className="border-b border-ink-200 px-4 py-3">
-            <h2 className="text-[15px] font-bold text-ink-900">Hồ sơ doanh nghiệp</h2>
-          </div>
-          <ul className="divide-y divide-ink-100">
-            <Row icon={<UserRound className="h-3.5 w-3.5" />} label="Người liên hệ" value={[supplier.contact_name, supplier.contact_title].filter(Boolean).join(" · ")} />
-            <Row icon={<Mail className="h-3.5 w-3.5" />} label="Email" value={supplier.email} />
-            <Row icon={<Phone className="h-3.5 w-3.5" />} label="Điện thoại / Zalo" value={[supplier.phone, supplier.zalo].filter(Boolean).join(" · ")} />
-            <Row icon={<Globe2 className="h-3.5 w-3.5" />} label="Website" value={supplier.website} />
-            <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Địa chỉ" value={[supplier.address, supplier.province, supplier.country].filter(Boolean).join(", ")} />
-            <Row icon={<Anchor className="h-3.5 w-3.5" />} label="Thị trường" value={supplier.markets} />
-            <Row icon={<FileText className="h-3.5 w-3.5" />} label="Mã số thuế" value={supplier.tax_id} />
-            <Row icon={<Banknote className="h-3.5 w-3.5" />} label="Thanh toán" value={supplier.payment_terms} />
-            <Row icon={<Clock className="h-3.5 w-3.5" />} label="Mặt hàng" value={supplier.products} />
-          </ul>
-          {supplier.notes && (
-            <div className="border-t border-ink-200 bg-amber-50/50 px-4 py-3">
-              <p className="mb-1 text-[11px] font-bold tracking-wide text-amber-700 uppercase">Ghi chú nội bộ</p>
-              <p className="text-[13px] leading-relaxed whitespace-pre-wrap text-ink-700">{supplier.notes}</p>
-            </div>
+      <section className="card mb-4 overflow-hidden" aria-label="Tổng quan nhà cung cấp">
+        <div className="relative h-32 bg-gradient-to-r from-ink-900 via-brand-800 to-brand-700 sm:h-40">
+          {supplier.cover_image && (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={supplier.cover_image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-r from-ink-900/50 to-transparent" />
+            </>
           )}
-          {!supplier.email && (
-            <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-900">
-              NCC chưa có email nên <strong>không nhận được</strong> thông báo tiến độ tự động. Hãy bổ
-              sung email ở nút “Sửa”.
-            </div>
-          )}
-        </Card>
-
-        <MediaGallery
-          items={supplierMedia}
-          title="Kho ảnh & tài liệu chung của NCC"
-          scopeHint="Chỉ tệp lưu trong hồ sơ chung. Bằng chứng kiểm tra giấy tờ, thăm nhà máy và giao hàng được quản lý riêng ở từng bước kiểm; tệp ở đây không tự được AI phân tích."
-          showInternal={canSeeInternal}
-          manageHref={canManage ? `/crm/suppliers/${id}/edit` : undefined}
-          emptyHint="Chưa có tệp chung. Thêm ở trang Sửa, hoặc vào từng bước kiểm để đính kèm bằng chứng."
-        />
-        {canInspect && <Link href={`/crm/suppliers/${id}/audit/documents`} className="inline-block text-sm font-semibold text-brand-700 hover:underline">Mở bước Kiểm tra giấy tờ để đính kèm bằng chứng →</Link>}
+          <span className={"absolute left-5 top-5 rounded-full px-3 py-1 text-xs font-semibold " + st.badge}>{st.label}</span>
+          <VerificationCoverSeal levels={approvedLevels} />
         </div>
+        <div className="relative px-5 pb-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+            <div className="-mt-9 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-brand-600 text-3xl font-black text-white shadow-sm sm:-mt-11 sm:h-24 sm:w-24">
+              {supplier.profile_image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={supplier.profile_image} alt="" className="h-full w-full object-cover" />
+              ) : displayName.slice(0, 1).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1 lg:pt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="break-words text-xl font-black tracking-tight text-ink-900 sm:text-2xl">{displayName}</h2>
+                <VerificationTierBadge levels={approvedLevels} />
+                <VerificationPips levels={approvedLevels} compact />
+              </div>
+              <p className="mt-1 text-sm text-ink-600">
+                {[supplier.trade_name, typeLabel, supplier.province, supplier.founded_year ? `Thành lập ${supplier.founded_year}` : null, typeof supplier.employees === "number" && supplier.employees > 0 ? `${supplier.employees} nhân viên` : null]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-[13px]">
+                {supplier.phone && (
+                  <a href={`tel:${supplier.phone}`} className="inline-flex items-center gap-1.5 rounded-full bg-ink-50 px-3 py-1.5 font-medium text-ink-700 ring-1 ring-ink-200 transition hover:bg-brand-50 hover:text-brand-800">
+                    <Phone className="h-3.5 w-3.5" /> {supplier.phone}
+                  </a>
+                )}
+                {supplier.email && (
+                  <a href={`mailto:${supplier.email}`} className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-ink-50 px-3 py-1.5 font-medium text-ink-700 ring-1 ring-ink-200 transition hover:bg-brand-50 hover:text-brand-800">
+                    <Mail className="h-3.5 w-3.5" /> <span className="truncate">{supplier.email}</span>
+                  </a>
+                )}
+                {supplier.zalo && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-50 px-3 py-1.5 font-medium text-ink-700 ring-1 ring-ink-200">
+                    <MessageCircle className="h-3.5 w-3.5" /> Zalo {supplier.zalo}
+                  </span>
+                )}
+                {supplier.website && (
+                  <a href={supplier.website.startsWith("http") ? supplier.website : `https://${supplier.website}`} target="_blank" rel="noreferrer" className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-ink-50 px-3 py-1.5 font-medium text-ink-700 ring-1 ring-ink-200 transition hover:bg-brand-50 hover:text-brand-800">
+                    <Globe2 className="h-3.5 w-3.5" /> <span className="truncate">{supplier.website}</span>
+                  </a>
+                )}
+              </div>
+            </div>
+            <dl className="grid shrink-0 grid-cols-2 gap-x-8 gap-y-3 lg:pt-3">
+              <div>
+                <dt className="text-[11px] font-bold uppercase tracking-wide text-ink-500">Sản phẩm</dt>
+                <dd className="mt-0.5 text-lg font-black leading-6 text-ink-900">{products.length}</dd>
+              </div>
+              {canSeeBuyers && (
+                <div>
+                  <dt className="text-[11px] font-bold uppercase tracking-wide text-ink-500">Đơn đang chạy</dt>
+                  <dd className="mt-0.5 text-lg font-black leading-6 text-ink-900">{active.length}<span className="text-xs font-semibold text-ink-400"> / {attached.length} tổng</span></dd>
+                </div>
+              )}
+              <div>
+                <dt className="text-[11px] font-bold uppercase tracking-wide text-ink-500">Lead time</dt>
+                <dd className="mt-0.5 text-lg font-black leading-6 text-ink-900">{supplier.lead_time_days ? `${supplier.lead_time_days} ngày` : "Chưa khai"}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] font-bold uppercase tracking-wide text-ink-500">Đánh giá</dt>
+                <dd className="mt-1 flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Star
+                      key={n}
+                      className={cx(
+                        "h-4 w-4",
+                        n <= (supplier.rating ?? 0) ? "fill-amber-400 text-amber-400" : "text-ink-200",
+                      )}
+                    />
+                  ))}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </section>
 
-        <div className="space-y-5 lg:col-span-2">
+      {canViewReviews && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm">
+          <p className="text-ink-700">
+            <Link href={`/crm/suppliers/${id}/certificates`} className="font-bold text-brand-800 underline">Chứng nhận NCC chờ Vexim xét duyệt / quyết định công bố</Link>
+            <span className="mt-0.5 block text-[13px] text-ink-600 sm:inline sm:before:content-['·_']">Tách riêng khỏi kho ảnh chung và ba đợt kiểm xác minh NCC; tệp không tự hiện trên sản phẩm.</span>
+          </p>
+        </div>
+      )}
+
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <div className="min-w-0 space-y-4">
           <VerificationPanel
             supplierId={id}
             verifications={verifications}
@@ -227,21 +252,18 @@ export default async function SupplierDetailPage({
             canViewReviews={canViewReviews}
           />
 
-          <Card>
-            <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
-              <div>
-                <h2 className="text-[15px] font-bold text-ink-900">Sản phẩm ({products.length})</h2>
-                <p className="mt-0.5 text-xs text-ink-500">
-                  Hồ sơ riêng từng dòng sản phẩm — dùng để so khớp với RFQ của buyer.
-                </p>
-              </div>
-              {canManageProducts && (
+          <Card className="p-5">
+            <SectionHead
+              icon={Boxes}
+              title={`Sản phẩm (${products.length})`}
+              sub="Hồ sơ riêng từng dòng sản phẩm, dùng để so khớp với RFQ của buyer."
+              action={canManageProducts ? (
                 <Link href={`/crm/suppliers/${id}/products/new`} className="btn btn-primary">
                   <Plus className="h-4 w-4" />
                   Thêm sản phẩm
                 </Link>
-              )}
-            </div>
+              ) : undefined}
+            />
             {products.length === 0 ? (
               <EmptyState
                 icon={<Boxes className="h-5 w-5" />}
@@ -258,38 +280,38 @@ export default async function SupplierDetailPage({
             ) : (
               <ul className="divide-y divide-ink-100">
                 {products.map((pr) => (
-                  <li key={pr.id} className="px-4 py-3">
+                  <li key={pr.id} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="flex min-w-0 gap-3">
-                       <MediaThumb asset={thumbByProduct.get(pr.id) ?? null} size="h-14 w-14" />
-                       <div className="min-w-0">
-                        {canManageProducts ? (
-                          <Link
-                            href={`/crm/products/${pr.id}/edit`}
-                            className="text-[13.5px] font-semibold text-ink-900 hover:text-brand-700"
-                          >
-                            {pr.name}
-                          </Link>
-                        ) : (
-                          <span className="text-[13.5px] font-semibold text-ink-900">{pr.name}</span>
-                        )}
-                        <span className="ml-2 align-middle">
-                          <Badge className="bg-brand-50 text-brand-700">{pr.category || "Khác"}</Badge>
-                        </span>
-                        <p className="mt-0.5 text-[12px] text-ink-500">{pr.spec || "—"}</p>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {pr.ready_for_buyer ? (
-                            <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
-                          ) : shareableCount(pr.id) === 0 ? (
-                            <Badge className="bg-amber-50 text-amber-700">Chưa có ảnh/catalogue</Badge>
+                        <MediaThumb asset={thumbByProduct.get(pr.id) ?? null} size="h-14 w-14" />
+                        <div className="min-w-0">
+                          {canManageProducts ? (
+                            <Link
+                              href={`/crm/products/${pr.id}/edit`}
+                              className="text-[13.5px] font-semibold text-ink-900 hover:text-brand-700"
+                            >
+                              {pr.name}
+                            </Link>
                           ) : (
-                            <Badge className="bg-ink-100 text-ink-600">Chưa bật sẵn sàng</Badge>
+                            <span className="text-[13.5px] font-semibold text-ink-900">{pr.name}</span>
                           )}
-                          <span className="text-[11px] text-ink-400">
-                            {shareableCount(pr.id)} tệp gửi được buyer
+                          <span className="ml-2 align-middle">
+                            <Badge className="bg-brand-50 text-brand-700">{pr.category || "Khác"}</Badge>
                           </span>
+                          <p className="mt-0.5 text-[12px] text-ink-500">{pr.spec || "Chưa có quy cách"}</p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            {pr.ready_for_buyer ? (
+                              <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
+                            ) : shareableCount(pr.id) === 0 ? (
+                              <Badge className="bg-amber-50 text-amber-700">Chưa có ảnh/catalogue</Badge>
+                            ) : (
+                              <Badge className="bg-ink-100 text-ink-600">Chưa bật sẵn sàng</Badge>
+                            )}
+                            <span className="text-[11px] text-ink-400">
+                              {shareableCount(pr.id)} tệp gửi được buyer
+                            </span>
+                          </div>
                         </div>
-                       </div>
                       </div>
                       <div className="text-right text-[12.5px]">
                         {pr.ref_price !== null ? (
@@ -322,70 +344,129 @@ export default async function SupplierDetailPage({
             )}
           </Card>
 
-          {canSeeBuyers && <Card>
-            <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
-              <div>
-                <h2 className="text-[15px] font-bold text-ink-900">Đơn hàng đang giao cho NCC này</h2>
-                <p className="mt-0.5 text-xs text-ink-500">
-                  Tổng giá trị {formatMoney(attached.reduce((sum, b) => sum + (b.deal_value ?? 0), 0))}
-                </p>
-              </div>
-            </div>
-            {attached.length === 0 ? (
-              <EmptyState
-                icon={<ShieldCheck className="h-5 w-5" />}
-                title="Chưa có đơn nào gắn NCC này"
-                sub="Vào trang buyer hoặc pipeline, chọn NCC ở cột “Nhà cung cấp” để gắn."
+          {canSeeBuyers && (
+            <Card className="p-5">
+              <SectionHead
+                icon={Users}
+                title="Đơn hàng đang giao cho NCC này"
+                sub={`Tổng giá trị ${formatMoney(attached.reduce((sum, b) => sum + (b.deal_value ?? 0), 0))}`}
               />
-            ) : (
-              <ul className="divide-y divide-ink-100">
-                {attached.map((b) => (
-                  <li key={b.id}>
-                    <Link
-                      href={`/crm/buyers/${b.id}`}
-                      className="flex flex-wrap items-center gap-3 px-4 py-3 transition hover:bg-brand-50/40"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13.5px] font-semibold text-ink-900">
-                          {b.hide_buyer_from_supplier ? (
-                            <>
-                              Khách thị trường {b.country || "nước ngoài"}{" "}
-                              <span className="font-normal text-ink-400">(ẩn danh)</span>
-                            </>
-                          ) : (
-                            b.company
-                          )}
+              {attached.length === 0 ? (
+                <EmptyState
+                  icon={<ShieldCheck className="h-5 w-5" />}
+                  title="Chưa có đơn nào gắn NCC này"
+                  sub="Vào trang buyer hoặc pipeline, chọn NCC ở cột “Nhà cung cấp” để gắn."
+                />
+              ) : (
+                <ul className="divide-y divide-ink-100">
+                  {attached.map((b) => (
+                    <li key={b.id}>
+                      <Link
+                        href={`/crm/buyers/${b.id}`}
+                        className="flex flex-wrap items-center gap-3 rounded-lg px-2 py-3 transition hover:bg-brand-50/40"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13.5px] font-semibold text-ink-900">
+                            {b.hide_buyer_from_supplier ? (
+                              <>
+                                Khách thị trường {b.country || "nước ngoài"}{" "}
+                                <span className="font-normal text-ink-400">(ẩn danh)</span>
+                              </>
+                            ) : (
+                              b.company
+                            )}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
+                            {b.product || "Chưa rõ sản phẩm"} · {b.quantity || "chưa rõ số lượng"}
+                          </span>
                         </span>
-                        <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
-                          {b.product || "—"} · {b.quantity || "—"}
+                        <span className="text-[13px] font-bold text-ink-800">
+                          {formatMoney(b.deal_value)}
                         </span>
-                      </span>
-                      <span className="text-[13px] font-bold text-ink-800">
-                        {formatMoney(b.deal_value)}
-                      </span>
-                      <StageBadge stage={b.stage} />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="border-t border-ink-200 bg-ink-50 px-4 py-2.5 text-[11.5px] text-ink-500">
-              <ShieldCheck className="mr-1 inline h-3 w-3" />
-              Đơn đánh dấu “ẩn danh” sẽ không tiết lộ tên buyer trong email gửi NCC.
-            </p>
-          </Card>}
+                        <StageBadge stage={b.stage} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-3 rounded-xl bg-ink-50 px-3.5 py-2.5 text-[11.5px] leading-5 text-ink-500">
+                <ShieldCheck className="mr-1 inline h-3 w-3" />
+                Đơn đánh dấu “ẩn danh” sẽ không tiết lộ tên buyer trong email gửi NCC.
+              </p>
+            </Card>
+          )}
+
+          <MediaGallery
+            items={supplierMedia}
+            title="Kho ảnh & tài liệu chung của NCC"
+            scopeHint="Chỉ tệp lưu trong hồ sơ chung. Bằng chứng kiểm tra giấy tờ, thăm nhà máy và giao hàng được quản lý riêng ở từng bước kiểm; tệp ở đây không tự được AI phân tích."
+            showInternal={canSeeInternal}
+            manageHref={canManage ? `/crm/suppliers/${id}/edit` : undefined}
+            emptyHint="Chưa có tệp chung. Thêm ở trang Sửa, hoặc vào từng bước kiểm để đính kèm bằng chứng."
+          />
+          {canInspect && <Link href={`/crm/suppliers/${id}/audit/documents`} className="inline-block text-sm font-semibold text-brand-700 hover:underline">Mở bước Kiểm tra giấy tờ để đính kèm bằng chứng →</Link>}
         </div>
+
+        <aside className="space-y-4 xl:sticky xl:top-6">
+          <Card className="p-4">
+            <SectionHead icon={UserRound} title="Tài khoản cổng nhà cung cấp" />
+            <p className="text-sm leading-6 text-ink-600">{accountUser
+              ? "Tài khoản đăng nhập đang gắn với hồ sơ này. Nhà cung cấp dùng tài khoản này để vào cổng, bổ sung hồ sơ và quản lý sản phẩm của mình."
+              : "Hồ sơ này chưa có tài khoản đăng nhập. Nhà cung cấp chưa thể tự quản lý hồ sơ và sản phẩm trên cổng cho đến khi được cấp tài khoản hoặc tự đăng ký."}</p>
+            <SupplierAccountControls
+              supplierId={id}
+              defaultEmail={supplier.email ?? ""}
+              defaultName={supplier.contact_name ?? ""}
+              account={accountUser ? {
+                email: accountUser.email,
+                isActive: accountUser.is_active,
+                lastLoginLabel: accountUser.last_login_at ? formatDate(accountUser.last_login_at) : "Chưa đăng nhập lần nào",
+                createdLabel: formatDate(accountUser.created_at),
+              } : null}
+              canProvision={canManage && (session.role === "admin" || session.role === "sourcing")}
+            />
+            {showOnboarding && (
+              <div className="mt-4 border-t border-ink-100 pt-4">
+                <h3 className="text-sm font-bold text-ink-900">Quyền sử dụng cổng</h3>
+                <p className="mt-1 text-sm leading-6 text-ink-600">{supplier.onboarding_status === "approved" ? "Đã được Vexim xác nhận tài khoản." : supplier.onboarding_status === "pending" ? "Hồ sơ đã nộp; tài khoản chưa sử dụng được. Kiểm tra thông tin và giấy tờ trước khi xác nhận." : "Đang chờ nhà cung cấp bổ sung thông tin."} Việc xác nhận này không duyệt giấy tờ hay công khai hồ sơ.</p>
+                {supplier.onboarding_note && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Yêu cầu bổ sung: {supplier.onboarding_note}</p>}
+                {supplier.onboarding_status === "pending" && canManage && (session.role === "admin" || session.role === "sourcing") &&
+                  <OnboardingControls supplierId={id} />}
+              </div>
+            )}
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="p-4 pb-0">
+              <SectionHead icon={Building2} title="Hồ sơ doanh nghiệp" />
+            </div>
+            <ul className="divide-y divide-ink-100">
+              <Row icon={<UserRound className="h-3.5 w-3.5" />} label="Người liên hệ" value={[supplier.contact_name, supplier.contact_title].filter(Boolean).join(" · ")} />
+              <Row icon={<Mail className="h-3.5 w-3.5" />} label="Email" value={supplier.email} />
+              <Row icon={<Phone className="h-3.5 w-3.5" />} label="Điện thoại / Zalo" value={[supplier.phone, supplier.zalo].filter(Boolean).join(" · ")} />
+              <Row icon={<Globe2 className="h-3.5 w-3.5" />} label="Website" value={supplier.website} />
+              <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Địa chỉ" value={[supplier.address, supplier.province, supplier.country].filter(Boolean).join(", ")} />
+              <Row icon={<Anchor className="h-3.5 w-3.5" />} label="Thị trường" value={supplier.markets} />
+              <Row icon={<FileText className="h-3.5 w-3.5" />} label="Mã số thuế" value={supplier.tax_id} />
+              <Row icon={<Banknote className="h-3.5 w-3.5" />} label="Thanh toán" value={supplier.payment_terms} />
+              <Row icon={<Clock className="h-3.5 w-3.5" />} label="Mặt hàng" value={supplier.products} />
+            </ul>
+            {supplier.notes && (
+              <div className="border-t border-ink-200 bg-amber-50/50 px-4 py-3">
+                <p className="mb-1 text-[11px] font-bold tracking-wide text-amber-700 uppercase">Ghi chú nội bộ</p>
+                <p className="text-[13px] leading-relaxed whitespace-pre-wrap text-ink-700">{supplier.notes}</p>
+              </div>
+            )}
+            {!supplier.email && (
+              <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] leading-5 text-amber-900">
+                NCC chưa có email nên <strong>không nhận được</strong> thông báo tiến độ tự động. Hãy bổ
+                sung email ở nút “Sửa”.
+              </div>
+            )}
+          </Card>
+        </aside>
       </div>
     </>
-  );
-}
-
-function Cell({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="px-4 py-3">
-      <p className="text-[11px] font-bold tracking-wide text-ink-500 uppercase">{label}</p>
-      <div className="mt-1 text-[13.5px] text-ink-900">{children}</div>
-    </div>
   );
 }
 
@@ -406,7 +487,7 @@ function Row({
           {label}
         </span>
         <span className="block text-[13px] break-words text-ink-800">
-          {value || <span className="text-ink-300">—</span>}
+          {value || <span className="text-ink-300">Chưa có</span>}
         </span>
       </span>
     </li>
