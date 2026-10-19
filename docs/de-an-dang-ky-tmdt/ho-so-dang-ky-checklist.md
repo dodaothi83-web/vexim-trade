@@ -12,7 +12,7 @@
 | 2 | Bản chụp giấy phép, giấy chứng nhận đối với ngành, nghề đầu tư kinh doanh có điều kiện | Đang thực hiện | Cần hoàn thành bổ sung ngành nghề thương mại điện tử trong đăng ký doanh nghiệp trước hoặc song song với hồ sơ đăng ký. Gửi kèm bản chụp Giấy chứng nhận đăng ký doanh nghiệp sau thay đổi. |
 | 3 | Đề án hoạt động thương mại điện tử theo Điều 30, Mẫu số 05 | Đã có bản nháp lần 1 | File `de-an-hoat-dong.md` trong thư mục này. Cần bổ sung các mục đánh dấu [ ] rồi chuyển sang bản Word hoặc PDF để ký. |
 | 4 | Quy chế hoạt động livestream bán hàng | Không áp dụng | Nền tảng không có chức năng livestream bán hàng. Nội dung này đã khai rõ trong Đề án. |
-| 5 | Mẫu hợp đồng, thỏa thuận giữa người bán với chủ quản nền tảng | Đã có bản dự thảo | File `mau-thoa-thuan-nguoi-ban.md` trong thư mục này. Bản thỏa thuận này gắn với Điều khoản sử dụng phiên bản 1 đang công khai trên website và cơ chế xác nhận điện tử khi nhà cung cấp nộp hồ sơ. |
+| 5 | Mẫu hợp đồng, thỏa thuận giữa người bán với chủ quản nền tảng | Đã có bản dự thảo lần 2 | File `mau-thoa-thuan-nguoi-ban.md` trong thư mục này, bản hoàn chỉnh phục vụ ký kết thực tế. Bản thỏa thuận này gắn với Điều khoản sử dụng phiên bản 1 đang công khai trên website và cơ chế xác nhận điện tử khi nhà cung cấp nộp hồ sơ. |
 
 ## 2. DỮ LIỆU CẦN CHUẨN BỊ CHO TỜ KHAI MẪU SỐ 02
 
