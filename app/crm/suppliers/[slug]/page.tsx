@@ -112,6 +112,10 @@ export default async function SupplierDetailPage({
   const st = statusMeta(supplier.status);
   const approvedLevels = verifications.filter((v) => v.status === "approved").map((v) => v.target_level);
   const displayName = supplier.display_name || supplier.name;
+  // profile_image/cover_image lưu đường dẫn trong kho tệp, phải chuyển thành URL công khai mới hiển thị được.
+  const supplierImageUrl = (path: string) => (path.startsWith("http") ? path : `/public-media/${path.replace(/^\//, "")}`);
+  const coverUrl = supplier.cover_image ? supplierImageUrl(supplier.cover_image) : null;
+  const avatarUrl = supplier.profile_image ? supplierImageUrl(supplier.profile_image) : null;
   const typeLabel = supplier.onboarding_status === "not_started" ? "Chưa khai loại hình" : supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : roleLabel(supplier.role);
   const showOnboarding = supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested" || supplier.onboarding_status === "approved";
 
@@ -147,10 +151,10 @@ export default async function SupplierDetailPage({
 
       <section className="card mb-4 overflow-hidden" aria-label="Tổng quan nhà cung cấp">
         <div className="relative h-32 bg-gradient-to-r from-ink-900 via-brand-800 to-brand-700 sm:h-40">
-          {supplier.cover_image && (
+          {coverUrl && (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={supplier.cover_image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-r from-ink-900/50 to-transparent" />
             </>
           )}
@@ -160,9 +164,9 @@ export default async function SupplierDetailPage({
         <div className="relative px-5 pb-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
             <div className="-mt-9 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-brand-600 text-3xl font-black text-white shadow-sm sm:-mt-11 sm:h-24 sm:w-24">
-              {supplier.profile_image ? (
+              {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={supplier.profile_image} alt="" className="h-full w-full object-cover" />
+                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : displayName.slice(0, 1).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1 lg:pt-3">

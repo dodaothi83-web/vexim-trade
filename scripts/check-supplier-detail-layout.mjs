@@ -11,6 +11,13 @@ const page = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/page.tsx', imp
 assert.match(page, /supplier\.cover_image/, 'đầu trang phải hiện ảnh bìa của NCC');
 assert.match(page, /supplier\.profile_image/, 'đầu trang phải hiện ảnh đại diện của NCC');
 assert.match(page, /VerificationCoverSeal/, 'phải có huy chương xác minh trên ảnh bìa');
+// profile_image/cover_image lưu đường dẫn kho tệp (suppliers/<id>/profile-*.jpg),
+// bắt buộc chuyển qua /public-media/ như trang công khai, không được dùng thẳng làm src.
+assert.match(page, /`\/public-media\/\$\{path\.replace/, 'phải chuyển đường dẫn kho tệp thành URL /public-media/');
+assert.match(page, /src=\{coverUrl\}/, 'ảnh bìa phải dùng URL đã chuyển đổi');
+assert.match(page, /src=\{avatarUrl\}/, 'ảnh đại diện phải dùng URL đã chuyển đổi');
+assert.ok(!page.includes('src={supplier.cover_image}') && !page.includes('src={supplier.profile_image}'),
+  'không được dùng đường dẫn kho tệp thô làm địa chỉ ảnh');
 assert.match(page, /VerificationTierBadge/, 'phải có huy hiệu mức xác minh cạnh tên');
 assert.match(page, /VerificationPips/, 'phải có ba vòng kiểm xác minh cạnh tên');
 assert.match(page, /approvedLevels/, 'mức xác minh lấy từ các đợt kiểm đã duyệt thật');
