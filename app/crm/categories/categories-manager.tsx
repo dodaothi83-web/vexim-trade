@@ -1048,13 +1048,14 @@ function CategoryEditor({
               <div className="space-y-4">
                 <Field
                   label={<>Giới thiệu ngắn {buyerTag}</>}
+                  hint="Một đến hai câu ở đầu trang danh mục, nói rõ đây là nhóm nhà cung cấp Việt Nam cùng cung cấp loại sản phẩm này để buyer xem, so sánh và gửi yêu cầu báo giá."
                   action={aiEnabled ? (
                     <Button type="button" size="sm" disabled={drafting || busy} onClick={() => void aiIntro()}>
                       {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Tự động soạn nội dung
                     </Button>
                   ) : undefined}
                 >
-                  <textarea className="input" rows={3} value={draft.intro_en} onChange={(e) => set("intro_en", e.target.value)} placeholder="A concise introduction for international buyers…" />
+                  <textarea className="input" rows={3} value={draft.intro_en} onChange={(e) => set("intro_en", e.target.value)} placeholder="Browse Vietnamese suppliers offering this product, compare their products and request a quote." />
                 </Field>
                 <Field
                   label={<>Nội dung chi tiết {buyerTag}</>}

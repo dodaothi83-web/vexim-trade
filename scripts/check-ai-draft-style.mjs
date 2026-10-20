@@ -5,8 +5,9 @@
  * Chạy: node --experimental-strip-types --no-warnings scripts/check-ai-draft-style.mjs
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
-import { sanitizeDraftText } from "../lib/ai/draft-style.ts";
+import { CATEGORY_INTRO_SYSTEM, sanitizeDraftText } from "../lib/ai/draft-style.ts";
 
 const dirty = `## Cashew from Vietnam
 
@@ -27,4 +28,15 @@ assert.ok(clean.includes("Grades W240 and W320"));
 assert.ok(clean.includes("MOQ from 5 MT"));
 assert.ok(clean.split("\n\n").length >= 2, "mất cấu trúc đoạn văn");
 
-console.log("ĐẠT: bộ lọc phong cách loại bỏ dấu vết AI và giữ nguyên đoạn văn.");
+// Prompt giới thiệu danh mục phải định hướng buyer rằng đây là tập hợp nhà
+// cung cấp cùng bán một loại sản phẩm, không phải hồ sơ một công ty hay trang bán hàng.
+assert.match(CATEGORY_INTRO_SYSTEM, /collection of Vietnamese suppliers offering the same type of product/);
+assert.match(CATEGORY_INTRO_SYSTEM, /opening sentence must make that clear/);
+assert.match(CATEGORY_INTRO_SYSTEM, /not a single company's profile/);
+assert.match(CATEGORY_INTRO_SYSTEM, /Vexim Trade is not the seller/);
+assert.match(CATEGORY_INTRO_SYSTEM, /compare the suppliers' products and request a quotation/);
+assert.match(CATEGORY_INTRO_SYSTEM, /Do not invent the number of suppliers/);
+const routeSource = readFileSync(new URL("../app/api/ai/editor-draft/route.ts", import.meta.url), "utf8");
+assert.match(routeSource, /kind === "category" \? CATEGORY_INTRO_SYSTEM : INTRO_SYSTEM/);
+
+console.log("ĐẠT: bộ lọc phong cách loại bỏ dấu vết AI và giữ nguyên đoạn văn; prompt giới thiệu danh mục đúng vai trò tập hợp nhà cung cấp.");

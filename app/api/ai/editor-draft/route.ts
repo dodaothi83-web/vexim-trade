@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { readOutputText } from "@/lib/ai/company-introduction";
-import { FAQ_SYSTEM, HUMAN_STYLE_RULES, parseFaqDraft, sanitizeDraftText } from "@/lib/ai/draft-style";
+import { CATEGORY_INTRO_SYSTEM, FAQ_SYSTEM, HUMAN_STYLE_RULES, parseFaqDraft, sanitizeDraftText } from "@/lib/ai/draft-style";
 import { rateLimit } from "@/lib/rfq/rate-limit";
 
 export const runtime = "nodejs";
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: process.env.OPENAI_EMAIL_DRAFT_MODEL?.trim() || "gpt-4.1-mini",
         input: [
-          { role: "system", content: [{ type: "input_text", text: isFaq ? FAQ_SYSTEM : isBody ? CATEGORY_BODY_SYSTEM : INTRO_SYSTEM }] },
+          { role: "system", content: [{ type: "input_text", text: isFaq ? FAQ_SYSTEM : isBody ? CATEGORY_BODY_SYSTEM : kind === "category" ? CATEGORY_INTRO_SYSTEM : INTRO_SYSTEM }] },
           { role: "user", content: [{ type: "input_text", text: JSON.stringify({ kind, facts }) }] },
         ],
         max_output_tokens: isFaq ? 1300 : isBody ? 900 : 160,
