@@ -62,11 +62,17 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
           <p className="mt-2 whitespace-pre-wrap font-semibold">Nội dung cần bổ sung: {supplier.onboarding_note}</p>}
       </div>
       <SupplierProfileForm supplier={supplier} email={user.email} categories={categoryOptions} />
-    </> : <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
+    </> : <><div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
       <h2 className="text-xl font-bold text-amber-950">Đang chờ Vexim xác nhận thông tin</h2>
       <p className="mt-2 text-sm text-amber-900">Hồ sơ {supplier.name} đã được gửi. Bạn có thể đăng nhập để xem trạng thái này, nhưng RFQ, thông báo, báo cáo và tải thêm tài liệu chưa khả dụng cho đến khi nhân viên Vexim xác nhận quyền sử dụng.</p>
       <p className="mt-3 text-xs text-amber-800">Xác nhận tài khoản không đồng nghĩa duyệt giấy tờ, thăm nhà máy, lịch sử giao hàng hoặc công khai hồ sơ.</p>
-    </div>}
+    </div>
+    <PortalSteps stages={[
+      { label: "Khai hồ sơ", state: "done", note: "Đã gửi" },
+      { label: "Vexim kiểm tra giấy tờ", state: "current", note: "Đang chờ" },
+      { label: "Mở cổng nhà cung cấp", state: "todo", note: "Sau khi đạt bước 2" },
+      { label: "Thêm sản phẩm & nhận RFQ", state: "todo", note: "Sau khi mở cổng" },
+    ]} /></>}
   </main>;
   const [media, requests, invites, reads, products, certificates] = await Promise.all([
     review ? store.listMedia("verification", review.id) : Promise.resolve([]),
@@ -106,6 +112,12 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
     <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
       <strong>Vexim đã xác nhận quyền sử dụng cổng.</strong> Hồ sơ công khai: {supplier.status === "draft" ? "chưa công khai" : supplier.status}. Việc duyệt từng đánh giá và công khai NCC/sản phẩm là quyết định riêng của Vexim; không tự động từ RFQ hay giấy tờ đã tải.
     </div>
+    <PortalSteps stages={[
+      { label: "Hồ sơ doanh nghiệp", state: "done", note: "Hoàn tất" },
+      { label: "Kiểm tra giấy tờ", state: reviews.some((v) => v.target_level === 1 && v.status === "approved") ? "done" : "current", note: reviews.some((v) => v.target_level === 1 && v.status === "approved") ? "Đạt" : "Đang rà soát" },
+      { label: "Cổng NCC", state: "done", note: "Đã mở" },
+      { label: "Sản phẩm & RFQ", state: "current", note: `${products.length} sản phẩm · ${dashboard.tasks.length} việc chờ` },
+    ]} />
 
     <section aria-label="Gian hàng sản phẩm" className="mt-7 grid gap-4 md:grid-cols-[1.5fr_1fr]">
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-950 to-teal-800 p-6 text-white shadow-sm sm:p-7">
@@ -215,6 +227,15 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
     </section>
     <footer className="mt-12 border-t border-ink-200 pt-5 text-xs text-ink-500"><Mail className="mr-1 inline h-3 w-3" /> Vexim là đầu mối điều phối. Không chia sẻ thông tin buyer trước khi các bên được giới thiệu theo quy trình.</footer>
   </main>;
+}
+
+function PortalSteps({ stages }: { stages: { label: string; state: "done" | "current" | "todo"; note: string }[] }) {
+  return <ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{stages.map((stage, i) => (
+    <li key={stage.label} className={`rounded-xl border p-3.5 text-sm ${stage.state === "done" ? "border-brand-300 bg-brand-50" : stage.state === "current" ? "border-amber-300 bg-amber-50" : "border-ink-200 bg-white"}`}>
+      <p className="font-semibold text-ink-900">{stage.state === "done" ? "✓" : i + 1}. {stage.label}</p>
+      <p className={`mt-0.5 text-xs ${stage.state === "done" ? "font-semibold text-brand-800" : "text-ink-500"}`}>{stage.note}</p>
+    </li>))}
+  </ol>;
 }
 
 function date(value: string) { return new Date(value).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }); }

@@ -2,9 +2,13 @@
 
 import { useEffect } from "react";
 
+import { useCookieConsent } from "@/components/cookie-consent";
+
 /** Count actual browser page loads, not crawler SSR/prefetch; no cookie or visitor ID. */
 export function SupplierTrafficBeacon({ token, pageKey }: { token: string; pageKey: string }) {
+  const { analyticsAllowed } = useCookieConsent();
   useEffect(() => {
+    if (!analyticsAllowed) return;
     try {
       const key = `vexim:view:${pageKey}`;
       const last = Number(sessionStorage.getItem(key) || 0);
@@ -16,6 +20,6 @@ export function SupplierTrafficBeacon({ token, pageKey }: { token: string; pageK
       }).then((res) => { if (!res.ok) sessionStorage.removeItem(key); })
         .catch(() => sessionStorage.removeItem(key));
     } catch { /* Tracking must never interrupt the public page, including private browsing. */ }
-  }, [token, pageKey]);
+  }, [token, pageKey, analyticsAllowed]);
   return null;
 }

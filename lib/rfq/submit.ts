@@ -22,6 +22,7 @@ import {
   normalizeCompanyWebsite,
   scoreSpam,
 } from ".";
+import { createPreferredSupplierMatches } from "./auto-match";
 import { gcRateLimit, rateLimit } from "./rate-limit";
 
 export interface SubmitRfqInput {
@@ -324,6 +325,17 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     });
   } catch {
     // audit lỗi không làm hỏng luồng submit
+  }
+
+  // RFQ gửi từ trang sản phẩm hoặc trang NCC có sẵn nhà cung cấp buyer chỉ định:
+  // tạo sẵn lượt khớp ở trạng thái đề xuất để nhân viên chỉ việc kiểm tra rồi gửi.
+  // Không áp dụng khi RFQ đang bị cách ly spam hoặc phải duyệt tay trước.
+  if (rfqStatus === "new" && preferredIds.length > 0) {
+    try {
+      await createPreferredSupplierMatches(store, rfq.id, preferredIds);
+    } catch (err) {
+      console.warn("[rfq] preferred supplier auto-match failed, RFQ already saved:", err);
+    }
   }
 
   // Gửi email (best-effort; lỗi gửi không làm mất RFQ vì đã lưu vào DB).

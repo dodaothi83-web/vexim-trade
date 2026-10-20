@@ -6,8 +6,8 @@ import ts from 'typescript';
 
 const source = readFileSync(new URL('../lib/types.ts', import.meta.url), 'utf8');
 const itemSection = source.slice(source.indexOf('export const L1_DOC_ITEMS = ['), source.indexOf('] as const;', source.indexOf('export const L1_DOC_ITEMS = [')));
-assert.equal((itemSection.match(/required: true/g) || []).length, 3);
-assert.equal((itemSection.match(/required: false/g) || []).length, 4);
+assert.equal((itemSection.match(/required: true/g) || []).length, 2);
+assert.equal((itemSection.match(/required: false/g) || []).length, 5);
 const actual = {};
 vm.runInNewContext(ts.transpileModule(itemSection + '\n];', { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: actual });
 const L1_DOC_ITEMS = actual.L1_DOC_ITEMS;

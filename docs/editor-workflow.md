@@ -9,8 +9,9 @@
 
 ## Danh mục
 
-- Chọn danh mục ở danh sách bên trái; các mục cần viết nằm trên cùng. Bảng thông số/FAQ/SEO nằm trong phần mở rộng.
-- Danh mục mới **luôn là bản nháp**. **Lưu thay đổi** không tự công khai hoặc ẩn. Người có quyền `categories.publish` dùng riêng **Công khai trang/Ẩn khỏi website**; thao tác này cũng lưu nội dung đang nhập. Ảnh bìa chỉ tải được sau khi danh mục có ID.
+- Màn hình mặc định là **danh sách dạng cây** (lọc theo trạng thái, kéo–thả sắp xếp trong cùng nhóm ngành); bấm **Sửa** mới vào form. Form chia theo tab (Cơ bản / Nội dung & ảnh / Thông số / Trường sản phẩm / Mua hàng & FAQ / SEO), cột phải có checklist công khai và xem trước trực tiếp.
+- Thêm danh mục qua hộp thoại 3 ô (tên · đường dẫn · danh mục cha): hệ thống tạo **bản nháp** rồi tự mở màn hình sửa, nên tải ảnh bìa được ngay.
+- **Lưu bản nháp** không tự công khai hoặc ẩn. **Công khai/Ẩn khỏi website** là quyết định riêng áp dụng cho **bản đã lưu**: còn thay đổi chưa lưu thì nút bị khoá kèm lý do hiển thị ngay trên thanh hành động (cùng các điều kiện: đủ mục bắt buộc trong checklist, người công khai khác người sửa cuối).
 - Đổi đường dẫn đã xuất bản vẫn theo cơ chế giữ slug cũ và chuyển tiếp 301; bảng dữ liệu nâng cao còn được lưu nhưng bộ lọc MVP chưa hoạt động không xuất hiện trong luồng chính.
 
 ## AI soạn nháp

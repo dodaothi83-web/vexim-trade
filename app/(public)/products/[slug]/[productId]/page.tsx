@@ -17,6 +17,8 @@ import { publicCertificateLabels } from "@/lib/public/certificates";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
+import { SITE_URL } from "@/lib/site";
+import { safeJsonLd } from "@/lib/public/supplier-seo";
 
 export const dynamic = "force-dynamic";
 
@@ -42,11 +44,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, productId } = await params;
   const detail = await getDetail(slug, productId);
   if (!detail) return { title: "Product not found | Vexim Trade", robots: { index: false } };
+  const title = `${detail.card.name} | Vietnam ${detail.category.name_i18n.en || slug} | Vexim Trade`;
+  const description = `${detail.card.name}. MOQ ${detail.card.moq}. Supplied in ${detail.card.province}. Request a quote from Vexim Trade.`;
+  const ogImagePath = detail.card.cardImagePath ?? detail.card.imagePaths[0];
+  const ogImage = ogImagePath ? `${SITE_URL}/public-media/${ogImagePath.replace(/^\//, "")}` : null;
   return {
-    title: `${detail.card.name} | Vietnam ${detail.category.name_i18n.en || slug} | Vexim Trade`,
-    description: `${detail.card.name}. MOQ ${detail.card.moq}. Supplied in ${detail.card.province}. Request a quote from Vexim Trade.`,
+    title,
+    description,
     alternates: { canonical: `/products/${slug}/${productId}` },
     robots: { index: !detail.preview && !detail.card.isDemo && !!detail.category.seo_indexable, follow: true },
+    openGraph: {
+      title, description, url: `/products/${slug}/${productId}`, siteName: "Vexim Trade", type: "website",
+      ...(ogImage ? { images: [{ url: ogImage, alt: detail.card.name }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image", title, description,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
   };
 }
 
@@ -78,8 +92,56 @@ export default async function PublicProductDetail({ params }: Props) {
     ...(configuredKeys.size ? [] : Object.entries(p.specs ?? {}).filter(([, value]) => typeof value === "string" || typeof value === "number").map(([key, value]) => [key, String(value)] as [string, string])),
   ].slice(0, 12);
 
+  // Trang buyer hiển thị bản tiếng Anh (AI dịch, nhân viên Vexim đã chốt); chỉ lùi về nội dung gốc khi chưa có bản dịch.
+  const enDescription = p.description_i18n?.en?.trim() || p.description;
+  const enSpec = p.spec_i18n?.en?.trim() || p.spec;
+  const enPackaging = p.packaging_i18n?.en?.trim() || p.packaging;
+  const enDetail = p.description_detail_i18n?.en?.trim() || p.description_detail;
+
   const countView = !preview && !card.isDemo && !(await getSession());
+  // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
+  // giá trên trang là giá tham khảo qua RFQ, không phải chào bán giao dịch trực tiếp.
+  const indexable = !preview && !card.isDemo && !!category.seo_indexable;
+  // Thuộc tính có cấu trúc chỉ lấy từ dữ kiện đã qua kiểm tra: MOQ và lead time
+  // trên bản ghi sản phẩm công khai, cùng các trường thuộc tính theo danh mục
+  // đã qua kiểm tra hợp lệ. Không lấy thuộc tính thô ngoài cấu hình danh mục.
+  const structuredProperties: Array<{ "@type": "PropertyValue"; name: string; value: string }> = [];
+  const pushProperty = (name: string, value: string | null | undefined) => {
+    const v = value?.trim();
+    if (!v) return;
+    if (structuredProperties.some((item) => item.name.toLowerCase() === name.toLowerCase())) return;
+    structuredProperties.push({ "@type": "PropertyValue", name, value: v });
+  };
+  if (p.moq?.trim()) pushProperty("MOQ", p.moq);
+  if (card.leadTimeDays !== null) pushProperty("Lead time", `${card.leadTimeDays} days`);
+  for (const f of fieldsFor(category)) {
+    if (approvedAttributes[f.key]) pushProperty(f.label, approvedAttributes[f.key]);
+  }
+  // Chứng nhận chỉ gồm chứng nhận đã duyệt, đang còn hạn và áp đúng cho sản
+  // phẩm này theo publicCertificateLabels.
+  const structuredCertifications = certificateLabels.map((c) => ({
+    "@type": "Certification",
+    name: c.name,
+    ...(c.issuer ? { issuedBy: { "@type": "Organization", name: c.issuer } } : {}),
+  }));
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: card.name,
+    url: `${SITE_URL}/products/${slug}/${productId}`,
+    ...(images.length ? { image: images.map((path) => `${SITE_URL}/public-media/${path.replace(/^\//, "")}`) } : {}),
+    ...(enDescription ? { description: withoutDirectContacts(enDescription) } : {}),
+    category: category.name_i18n.en || slug,
+    brand: {
+      "@type": "Organization",
+      name: card.supplierName,
+      ...(card.supplierSlug ? { url: `${SITE_URL}/suppliers/${encodeURIComponent(card.supplierSlug)}` } : {}),
+    },
+    ...(structuredProperties.length ? { additionalProperty: structuredProperties } : {}),
+    ...(structuredCertifications.length ? { hasCertification: structuredCertifications } : {}),
+  };
   return <div className="mx-auto max-w-6xl px-5 pb-24 pt-7 sm:px-6 lg:px-8">
+    {indexable && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />}
     {countView && <SupplierTrafficBeacon pageKey={`product:${p.id}`}
       token={createTrafficToken({ kind: "product", supplierId: p.supplier_id, resourceId: p.id, slug })} />}
     {preview && <p className="mb-4 rounded-lg bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">Staff preview — this category is not public yet.</p>}
@@ -91,13 +153,13 @@ export default async function PublicProductDetail({ params }: Props) {
       <div>
         <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
         <h1 className="mt-2 text-3xl font-black leading-tight text-ink-900 sm:text-4xl">{card.name}</h1>
-        {p.description && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(p.description)}</p>}
+        {enDescription && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(enDescription)}</p>}
         {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
           <p className="mt-1.5 text-xs text-ink-500">Product options stated in the listing; confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
         <div className="mt-5 rounded-xl border border-ink-200 bg-white px-5 py-2">
           <Spec label="Grade" value={approvedAttributes.grade ?? card.grade} /><Spec label="MOQ" value={card.moq} />
           <Spec label="Reference price" value={card.price || "On request"} />
-          <Spec label="Specification" value={p.spec} /><Spec label="Packaging" value={p.packaging} />
+          <Spec label="Specification" value={enSpec} /><Spec label="Packaging" value={enPackaging} />
           <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
           <Spec label="Export port" value={p.export_port} />
           {specs.filter(([key]) => key.toLowerCase() !== "grade" || !(approvedAttributes.grade || card.grade)).map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
@@ -113,6 +175,7 @@ export default async function PublicProductDetail({ params }: Props) {
         </section>}
         <p className="mt-2 text-xs text-ink-500">Reference prices are indicative, not a binding offer. Final terms are confirmed in the quotation.</p>
         <Link href={rfq} className="btn btn-primary mt-5 w-full justify-center">Request a quote <ArrowRight className="h-4 w-4" /></Link>
+        <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>
         <aside className="mt-6 rounded-xl border border-brand-200 bg-brand-50/60 p-5">
           <h2 className="text-xs font-bold uppercase tracking-widest text-brand-700">Supplied by</h2>
           <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} className="mt-2 inline-block text-lg font-bold text-brand-800 hover:underline">{card.supplierName} → View supplier profile</Link>
@@ -123,12 +186,13 @@ export default async function PublicProductDetail({ params }: Props) {
             {card.verificationSteps.includes(3) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#delivery-history`} className="text-brand-700 underline">Delivery review scope on supplier profile</Link>}
           </div>}
           <p className="mt-3 text-xs text-ink-600">These are supplier reviews, not certifications of this product. Vexim coordinates enquiries; direct supplier contacts are not shown.</p>
+          <Link href={`/khieu-nai?product=${encodeURIComponent(card.id)}`} className="mt-3 inline-block text-xs font-semibold text-brand-700 underline">Report this listing</Link>
         </aside>
       </div>
     </div>
-    {p.description_detail && <section aria-labelledby="product-description-heading" className="mt-12 border-t border-ink-200 pt-8">
+    {enDetail && <section aria-labelledby="product-description-heading" className="mt-12 border-t border-ink-200 pt-8">
       <h2 id="product-description-heading" className="text-2xl font-black text-ink-900">Product description</h2>
-      <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{withoutDirectContacts(p.description_detail)}</p>
+      <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{withoutDirectContacts(enDetail)}</p>
     </section>}
   </div>;
 }

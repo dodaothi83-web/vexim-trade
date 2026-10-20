@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { Logo } from "@/components/brand-logo";
+import { CookieSettingsButton } from "@/components/cookie-consent";
+import { PlatformLegalStrip } from "@/components/platform-legal-strip";
 import { SocialLinks } from "@/components/social-links";
 
 /** Public legal documents must load without a session or a working marketplace database. */
@@ -12,22 +14,21 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
         <Link href="/" className="flex items-center gap-3 font-black text-brand-800" aria-label="Vexim Trade home">
           <Logo className="h-12 w-12" /><span>Vexim Trade</span>
         </Link>
-        <nav aria-label="Legal pages" className="flex flex-wrap gap-5 text-sm font-semibold text-ink-700">
-          <Link href="/privacy-policy" className="hover:text-brand-700">Privacy Policy</Link>
-          <Link href="/terms-of-service" className="hover:text-brand-700">Terms of Service</Link>
-        </nav>
       </div>
     </header>
     <main id="main-content" className="mx-auto max-w-4xl px-5 py-10 sm:px-8 sm:py-14">{children}</main>
-    <footer className="border-t border-ink-200 bg-white px-5 py-7 text-sm text-ink-600">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 sm:px-3">
-        <p>© {new Date().getFullYear()} VEXIM GLOBAL CO., LTD · Hanoi, Vietnam</p>
+    <footer className="border-t border-ink-200 bg-white text-sm text-ink-600">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-5 sm:px-8">
         <div className="flex flex-wrap items-center gap-4">
           <Link href="/" className="hover:text-brand-700">Home</Link>
-          <a href="mailto:hello@veximtrade.com" className="hover:text-brand-700">hello@veximtrade.com</a>
-          <SocialLinks />
+          <Link href="/privacy-policy" className="hover:text-brand-700">Privacy Policy</Link>
+          <Link href="/cookie-policy" className="hover:text-brand-700">Cookie Policy</Link>
+          <CookieSettingsButton className="hover:text-brand-700" />
+          <Link href="/terms-of-service" className="hover:text-brand-700">Terms of Service</Link>
         </div>
+        <SocialLinks />
       </div>
+      <PlatformLegalStrip widthClass="max-w-5xl" />
     </footer>
   </div>;
 }

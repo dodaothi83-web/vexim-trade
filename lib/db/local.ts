@@ -1133,6 +1133,9 @@ export const localStore: DataStore = {
     const needle = email.trim().toLowerCase();
     return load().users.find((u) => u.email.trim().toLowerCase() === needle) ?? null;
   },
+  async getUserBySupplierId(supplierId) {
+    return load().users.find((u) => u.supplier_id === supplierId) ?? null;
+  },
   async createUser(input) {
     return mutate((db) => {
       const exists = db.users.some(
@@ -1712,6 +1715,11 @@ export const localStore: DataStore = {
 
   async listRfqMatches(rfqId) {
     return (load().rfq_matches ?? []).filter((m) => m.rfq_id === rfqId);
+  },
+  async listRfqMatchesBySupplier(supplierId) {
+    return (load().rfq_matches ?? [])
+      .filter((m) => m.supplier_id === supplierId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
   },
   async listSupplierRfqInvitations(supplierId) {
     const db = load();

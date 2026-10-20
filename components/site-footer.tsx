@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { COMPANY } from "@/lib/config";
+import { CookieSettingsButton } from "@/components/cookie-consent";
 import { Logo } from "@/components/brand-logo";
+import { PlatformLegalStrip } from "@/components/platform-legal-strip";
 import { SocialLinks } from "@/components/social-links";
 
 /** Chân trang dùng chung cho trang chủ và trang blog. */
@@ -13,7 +15,7 @@ export function SiteFooter() {
         {/* Footer luôn nằm trên nền navy (ink-900) -> dùng bản logo trắng */}
         <Logo tone="white" className="h-20 w-20" />
         <p className="mt-3 max-w-sm text-[12.5px] leading-relaxed">
-          Veximtrade | VEXIM GLOBAL CO., LTD
+          Vexim Trade | VEXIM GLOBAL CO., LTD
           <br />
           {COMPANY.address}
           <br />
@@ -40,13 +42,13 @@ export function SiteFooter() {
         </a>
         <div className="mt-4 flex flex-wrap gap-4">
           <Link href="/privacy-policy" className="transition hover:text-white">Privacy Policy</Link>
+          <Link href="/cookie-policy" className="transition hover:text-white">Cookie Policy</Link>
+          <CookieSettingsButton className="transition hover:text-white" />
           <Link href="/terms-of-service" className="transition hover:text-white">Terms of Service</Link>
         </div>
       </div>
     </div>
-    <div className="border-t border-white/10 py-4 text-center text-[11.5px] text-slate-500">
-      © {new Date().getFullYear()} Veximtrade | VEXIM GLOBAL CO., LTD
-    </div>
+    <PlatformLegalStrip tone="dark" widthClass="max-w-5xl" />
   </footer>
   );
 }

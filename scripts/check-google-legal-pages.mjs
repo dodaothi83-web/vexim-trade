@@ -19,14 +19,18 @@ assert.match(terms, /sending an RFQ/i);
 for (const page of [privacy, terms]) {
   assert.match(page, /title: \{ absolute: "/, 'Avoid duplicate site-name suffix in legal titles');
   assert.match(page, /alternates: \{ canonical: `\$\{SITE_URL\}\//);
-  assert.match(page, /mailto:hello@veximtrade\.com/);
+  assert.match(page, /mailto:contact@veximglobal\.com/);
   assert.match(page, /robots: \{ index: true, follow: true \}/);
 }
 assert.doesNotMatch(legalLayout, /getStore|requireSession|listCategories/, 'Legal pages must not depend on auth or the database');
-assert.match(middleware, /LEGAL_PATHS = new Set\(\["\/privacy-policy", "\/terms-of-service"\]\)/);
-assert.match(robots, /allow: \["\/\$", "\/privacy-policy", "\/terms-of-service"\]/);
+assert.match(middleware, /LEGAL_PATHS = new Set\(\["\/privacy-policy", "\/terms-of-service", "\/thong-tin-chu-quan", "\/quy-che-hoat-dong", "\/dieu-khoan-su-dung", "\/chinh-sach-bao-mat", "\/khieu-nai"\]\)/);
+assert.match(robots, /allow: \["\/\$", "\/privacy-policy", "\/terms-of-service", "\/thong-tin-chu-quan", "\/quy-che-hoat-dong", "\/dieu-khoan-su-dung", "\/chinh-sach-bao-mat", "\/khieu-nai"\]/);
 assert.match(sitemap, /url: `\$\{SITE_URL\}\/privacy-policy`/);
 assert.match(sitemap, /url: `\$\{SITE_URL\}\/terms-of-service`/);
+for (const route of ["thong-tin-chu-quan", "quy-che-hoat-dong", "dieu-khoan-su-dung", "chinh-sach-bao-mat", "khieu-nai"]) {
+  assert.match(sitemap, new RegExp(`url: \`\\$\\{SITE_URL\\}\\/${route}\``), `Sitemap includes ${route}`);
+  assert.match(read(`app/(legal)/${route}/page.tsx`), /robots: \{ index: true, follow: true \}/, `${route} is indexable`);
+}
 for (const file of [
   'app/(public)/home.tsx', 'app/(public)/simple-footer.tsx', 'components/site-footer.tsx',
   'app/(auth)/layout.tsx', 'app/(auth)/supplier/register/supplier-account-form.tsx',

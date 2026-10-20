@@ -2,11 +2,12 @@ import Link from "next/link";
 import { RfqForm } from "./rfq-form";
 import { Breadcrumbs } from "@/components/ui";
 import { getStore } from "@/lib/db";
+import { listPublicSuppliers } from "@/lib/public/catalog";
 import type { Category, CategoryFilter } from "@/lib/types";
 
 export const metadata = {
   title: "Request a quote | Veximtrade",
-  description: "Send a sourcing request — our export desk replies in one business day.",
+  description: "Send a sourcing request and get matched with suitable Vietnamese suppliers.",
   robots: { index: false, follow: true },
 };
 
@@ -30,6 +31,11 @@ export default async function RfqPage({
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+  const publicSuppliers = supplierIds.length ? await listPublicSuppliers().catch(() => []) : [];
+  const initialSuppliers = supplierIds
+    .map((supId) => publicSuppliers.find((s) => s.id === supId))
+    .filter((s): s is NonNullable<typeof s> => Boolean(s))
+    .map((s) => ({ id: s.id, name: s.display_name || s.name }));
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-10 sm:px-6 lg:px-8">
@@ -46,8 +52,7 @@ export default async function RfqPage({
         Request a quote
       </h1>
       <p className="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-700">
-        Tell us what you need — grade, volume, destination and timeline. Our desk screens suppliers and
-        replies with a shortlist within one business day.
+        Tell us what you need: grade, volume, destination and timeline.
       </p>
 
       <RfqForm
@@ -60,6 +65,7 @@ export default async function RfqPage({
         initialProduct={(sp?.product ?? "").slice(0, 150)}
         initialProductId={sp?.product_id ?? null}
         initialSupplierIds={supplierIds}
+        initialSuppliers={initialSuppliers}
         wantsSamples={sp?.sample === "1"}
         turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? null}
       />

@@ -19,7 +19,9 @@ export async function decideCategoryPublicationAction(id: string, publish: boole
     if (category.is_published === publish && (category.status === "published") === publish) {
       return { ok: false, message: "Trạng thái công khai không thay đổi." };
     }
-    if (publish && category.updated_by === session.uid) {
+    // Quy tắc 2 người: người sửa cuối không được tự công khai bản mình sửa.
+    // Admin toàn quyền là ngoại lệ — vẫn ghi audit log như mọi quyết định khác.
+    if (publish && session.role !== "admin" && category.updated_by === session.uid) {
       return { ok: false, message: "Người chuẩn bị danh mục không được tự công khai; nhờ người khác kiểm duyệt." };
     }
     if (publish && (!category.slug || !category.name_i18n?.en)) {

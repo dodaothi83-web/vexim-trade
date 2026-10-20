@@ -68,8 +68,8 @@ export async function updateVerificationChecklistAction(fd: FormData) {
     if (bankAccountNumber && !/^[0-9]{1,34}$/.test(bankAccountNumber)) return { ok: false, message: "Số tài khoản chỉ được nhập chữ số (tối đa 34 số)." };
     checklist.tax_certificate = taxNumber ? true : null;
     checklist.bank_letter = bankAccountNumber ? true : null;
-    if (nextStatus === "submitted" && (!taxNumber || !bankAccountNumber)) {
-      return { ok: false, message: "Hãy nhập mã số thuế và số tài khoản ngân hàng trước khi nộp duyệt." };
+    if (nextStatus === "submitted" && !taxNumber) {
+      return { ok: false, message: "Hãy nhập mã số thuế trước khi nộp duyệt. Số tài khoản ngân hàng là mục tùy chọn." };
     }
   }
   if (nextStatus === "submitted" && requiredAuditItems(before.target_level).some((it) =>
@@ -131,8 +131,10 @@ export async function approveVerificationAction(fd: FormData) {
   const gate = await guard("verifications.approve");
   if (gate) throw new Error(gate.message);
   const { before, store, session } = await getReviewable(String(fd.get("id") || ""));
-  if (before.target_level === 1 && (!/^[0-9]{1,32}$/.test(before.tax_number ?? "") || !/^[0-9]{1,34}$/.test(before.bank_account_number ?? ""))) {
-    return { ok: false, message: "Cần nhập mã số thuế và số tài khoản ngân hàng bằng chữ số; không cần tải ảnh cho hai mục này. Trả lại để bổ sung nếu bản kiểm đã nộp." };
+  const bankNumber = (before.bank_account_number ?? "").trim();
+  if (before.target_level === 1 && (!/^[0-9]{1,32}$/.test(before.tax_number ?? "") ||
+      (bankNumber && !/^[0-9]{1,34}$/.test(bankNumber)))) {
+    return { ok: false, message: "Cần nhập mã số thuế bằng chữ số; số tài khoản ngân hàng là mục tùy chọn nhưng nếu có thì phải là chữ số. Không cần tải ảnh cho hai mục này. Trả lại để bổ sung nếu bản kiểm đã nộp." };
   }
   if (requiredAuditItems(before.target_level).some((it) => before.checklist[it.key] !== true && before.checklist[it.key] !== false)) {
     return { ok: false, message: "Còn mục chưa kiểm; trả lại để bổ sung." };

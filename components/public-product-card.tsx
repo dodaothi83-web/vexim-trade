@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ImageIcon } from "lucide-react";
 
-import { ProductVerificationIcons } from "@/components/product-verification-icons";
+import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import type { VerificationLevel } from "@/lib/types";
 
 /** One responsive product offer card shared by category, supplier profile and home. */
@@ -28,7 +28,7 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
       <p className="mt-3 break-words border-t border-ink-100 pt-2 leading-5 text-ink-600">Supplied by {supplierHref ?
         <Link href={supplierHref} className="font-semibold text-brand-700 hover:underline">{supplierName}</Link> :
         <span className="font-semibold text-ink-800">{supplierName}</span>}</p>
-      <div className="mt-2 min-w-0"><ProductVerificationIcons levels={test ? [] : verificationSteps} compact /></div>
+      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5"><VerificationPips levels={test ? [] : verificationSteps} compact /><VerificationTierBadge levels={test ? [] : verificationSteps} /></div>
       <div className="mt-auto pt-3"><Link href={href} className="inline-flex min-h-9 w-full items-center justify-center gap-1 rounded-lg bg-ink-900 px-3 py-2 text-center text-xs font-bold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
         View details <ArrowRight className="size-3.5 shrink-0" aria-hidden="true" />
       </Link></div>

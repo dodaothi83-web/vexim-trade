@@ -3,12 +3,13 @@ import { Metadata } from "next";
 import { ArrowRight, Minus } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
-import { PublicVerificationBadges } from "@/components/public-verification-badges";
+import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import {
   getPublicSuppliersByIds,
   mainProductNames,
   supplierTypeLabel,
 } from "@/lib/public/catalog";
+import { supplierMoqDisplay } from "@/lib/public/supplier-english";
 
 export const metadata: Metadata = {
   title: "Compare suppliers | Veximtrade",
@@ -85,7 +86,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                           {s.display_name ?? s.name}
                         </Link>
                         <p className="mt-1 text-[12px] font-medium text-ink-600">{supplierTypeLabel(s)}</p>
-                        <div className="mt-2"><PublicVerificationBadges levels={s.approved_verification_steps} compact /></div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5"><VerificationPips levels={s.approved_verification_steps} compact /><VerificationTierBadge levels={s.approved_verification_steps} /></div>
                       </th>
                     );
                   })}
@@ -114,7 +115,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                 />
                 <Row
                   label="MOQ"
-                  cells={suppliers.map((s) => <>{s.moq_text || <Dash />}</>)}
+                  cells={suppliers.map((s) => <>{supplierMoqDisplay(s) || <Dash />}</>)}
                 />
                 <Row
                   label="Lead time"

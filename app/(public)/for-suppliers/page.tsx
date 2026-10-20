@@ -8,6 +8,15 @@ export const metadata: Metadata = {
   title: "For suppliers – Get listed on Veximtrade",
   description:
     "Vietnamese manufacturers and trading companies: register your supplier profile. Independent document, factory visit and delivery history reviews are confirmed by Vexim staff.",
+  alternates: { canonical: "/for-suppliers" },
+  openGraph: {
+    title: "For suppliers – Get listed on Vexim Trade",
+    description:
+      "Vietnamese manufacturers and trading companies: register your supplier profile. Independent document, factory visit and delivery history reviews are confirmed by Vexim staff.",
+    url: "/for-suppliers",
+    siteName: "Vexim Trade",
+    type: "website",
+  },
 };
 
 export default function ForSuppliersPage() {

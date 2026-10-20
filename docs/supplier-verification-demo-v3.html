@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Demo huy hiệu uy tín theo mẫu sàn TMĐT · Vexim Trade</title>
+<style>
+  :root{
+    --brand-50:#f0fdfa; --brand-100:#ccfbf1; --brand-200:#99f6e4; --brand-300:#5eead4;
+    --brand-500:#14b8a6; --brand-600:#0d9488; --brand-700:#0f766e; --brand-800:#115e59; --brand-900:#134e4a;
+    --ink-50:#f8fafc; --ink-100:#f1f5f9; --ink-200:#e2e8f0; --ink-300:#cbd5e1;
+    --ink-400:#94a3b8; --ink-500:#64748b; --ink-600:#475569; --ink-700:#334155;
+    --ink-800:#1e293b; --ink-900:#0f172a;
+    --gold:#f59e0b; --gold-soft:#fef3c7; --gold-dark:#92400e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--ink-100);color:var(--ink-900)}
+  .wrap{max-width:1060px;margin:0 auto;padding:28px 16px 64px}
+  h1.page{font-size:24px;margin:0 0 6px}
+  .lead{color:var(--ink-600);font-size:14.5px;line-height:1.65;margin:0 0 18px;max-width:820px}
+  .switcher{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  .switcher button{border:1px solid var(--ink-300);background:#fff;border-radius:999px;padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--ink-700);cursor:pointer}
+  .switcher button:hover{border-color:var(--brand-600);color:var(--brand-800)}
+  .switcher button.active{background:var(--brand-700);border-color:var(--brand-700);color:#fff}
+  .note{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:12px;padding:12px 16px;font-size:13.5px;line-height:1.6;margin:12px 0 20px}
+  .browser{background:#fff;border:1px solid var(--ink-200);border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.08)}
+  .browser-bar{display:flex;align-items:center;gap:8px;background:var(--ink-50);border-bottom:1px solid var(--ink-200);padding:9px 14px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--ink-300)}
+  .url{flex:1;background:#fff;border:1px solid var(--ink-200);border-radius:8px;padding:5px 10px;font-size:12.5px;color:var(--ink-500)}
+  .page-inner{padding:22px;background:#fdfdfc}
+
+  .profile-head{background:#fff;border:1px solid var(--ink-200);border-radius:16px;overflow:hidden}
+  .cover{position:relative;height:198px;background:linear-gradient(120deg,#0f766e 0%,#14b8a6 42%,#fbbf24 130%);overflow:hidden}
+  .cover:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 22% 18%,rgba(255,255,255,.35),transparent 28%),linear-gradient(180deg,rgba(15,23,42,.05),rgba(15,23,42,.34));}
+  .cover-skyline{position:absolute;left:0;right:0;bottom:0;height:118px;opacity:.92}
+  .cover-tag{position:absolute;top:14px;left:16px;z-index:3;background:rgba(255,255,255,.92);border-radius:999px;padding:6px 10px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-800)}
+  .cover-caption{position:absolute;left:16px;bottom:14px;z-index:3;color:#fff;font-size:12px;font-weight:700;text-shadow:0 1px 8px rgba(0,0,0,.35)}
+  /* Huy chương ở góc cover, giống vị trí logo verified trên profile sàn TMĐT. Không che avatar. */
+  .cover-seal{position:absolute;top:14px;right:16px;z-index:4;width:70px;height:70px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;border:3px solid rgba(255,255,255,.8);box-shadow:0 10px 24px rgba(15,23,42,.28);text-align:center}
+  .cover-seal svg{width:21px;height:21px;margin-bottom:1px}
+  .cover-seal b{font-size:17px;line-height:1}
+  .cover-seal span{font-size:7.5px;font-weight:900;letter-spacing:.08em}
+  .tier-0 .cover-seal{background:var(--ink-400)}
+  .tier-1 .cover-seal{background:var(--brand-500)}
+  .tier-2 .cover-seal{background:var(--brand-700)}
+  .tier-3 .cover-seal{background:var(--gold);color:#451a03;border-color:#fde68a}
+
+  .head-body{display:flex;gap:18px;padding:0 22px 20px;align-items:flex-start}
+  .avatar{width:96px;height:96px;margin-top:-48px;position:relative;z-index:5;border:4px solid #fff;border-radius:22px;background:linear-gradient(145deg,#fef3c7,#99f6e4 58%,#0f766e);box-shadow:0 12px 28px rgba(15,23,42,.22);display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink-900);flex-shrink:0;overflow:hidden}
+  .avatar svg{width:31px;height:31px;color:var(--brand-900)}
+  .avatar b{font-size:19px;line-height:1;margin-top:3px;letter-spacing:.02em}
+  .avatar span{font-size:8px;font-weight:900;letter-spacing:.12em;color:var(--ink-700)}
+  .head-main{flex:1;min-width:260px;padding-top:14px}
+  .title-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .sup-name{font-size:26px;font-weight:850;margin:0;letter-spacing:-.02em}
+  .title-badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 10px;font-size:11.5px;font-weight:850;white-space:nowrap}
+  .title-badge svg{width:13px;height:13px}
+  .tier-0 .title-badge{background:var(--ink-100);color:var(--ink-500);border:1px solid var(--ink-200)}
+  .tier-1 .title-badge{background:var(--brand-50);color:var(--brand-800);border:1px solid var(--brand-200)}
+  .tier-2 .title-badge{background:var(--brand-100);color:var(--brand-900);border:1px solid var(--brand-300)}
+  .tier-3 .title-badge{background:var(--brand-900);color:#fef3c7;border:1px solid var(--brand-900);box-shadow:inset 0 0 0 1px rgba(245,158,11,.65)}
+  .meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:7px;font-size:13.5px;color:var(--ink-600)}
+  .coverage{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:11px}
+  .coverage-label{font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-500)}
+  .pips{display:inline-flex;gap:5px}
+  .pip{width:25px;height:25px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--ink-200);background:var(--ink-50);color:var(--ink-300)}
+  .pip svg{width:14px;height:14px}
+  .tier-1 .pip.on{background:var(--brand-50);border-color:var(--brand-300);color:var(--brand-700)}
+  .tier-2 .pip.on{background:var(--brand-100);border-color:var(--brand-500);color:var(--brand-800)}
+  .tier-3 .pip.on{background:var(--gold-soft);border-color:var(--gold);color:var(--gold-dark)}
+  .coverage-text{font-size:13px;color:var(--ink-700)}
+  .trust-strip{margin-top:14px;border-left:5px solid var(--ink-300);background:var(--ink-50);border-radius:10px;padding:11px 13px;display:flex;justify-content:space-between;gap:14px;align-items:center}
+  .tier-1 .trust-strip{border-left-color:var(--brand-500);background:var(--brand-50)}
+  .tier-2 .trust-strip{border-left-color:var(--brand-700);background:#e6fffb}
+  .tier-3 .trust-strip{border-left-color:var(--gold);background:linear-gradient(90deg,var(--brand-50),#fffbeb)}
+  .trust-strip p{margin:0;font-size:13.5px;line-height:1.55;color:var(--ink-700)}
+  .trust-strip b{color:var(--ink-900)}
+  .report-link{font-size:12.5px;font-weight:800;color:var(--brand-800);white-space:nowrap;text-decoration:none;border:1px solid var(--brand-200);background:#fff;border-radius:999px;padding:7px 10px}
+  .cta{display:flex;flex-direction:column;gap:8px;padding-top:16px;flex-shrink:0}
+  .btn-primary{background:var(--brand-700);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:750;cursor:pointer}
+  .btn-ghost{background:#fff;color:var(--ink-800);border:1px solid var(--ink-200);border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:650;cursor:pointer}
+
+  section.blk{background:#fff;border:1px solid var(--ink-200);border-radius:14px;padding:18px 20px;margin-top:16px}
+  section.blk h2{font-size:16.5px;margin:0 0 8px}
+  .evidence-row{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--ink-100)}
+  .evidence-row:first-of-type{border-top:none}
+  .eicon{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--ink-200);background:var(--ink-50);color:var(--ink-400)}
+  .eicon svg{width:16px;height:16px}
+  .eicon.on{background:var(--brand-50);border-color:var(--brand-300);color:var(--brand-800)}
+  .evidence-row h3{font-size:14px;margin:0 0 4px}
+  .evidence-row p{font-size:13.5px;line-height:1.65;color:var(--ink-700);margin:0}
+  .evidence-row .status{font-size:12px;font-weight:800;margin-bottom:3px}
+  .ok{color:var(--brand-800)} .notyet{color:var(--ink-500)}
+  .fineprint{font-size:11.5px;color:var(--ink-500);line-height:1.55;margin-top:6px}
+  .products{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+  .pcard{border:1px solid var(--ink-200);border-radius:12px;background:#fff;overflow:hidden}
+  .pimg{height:112px;background:linear-gradient(135deg,#fef3c7,#fde68a);display:flex;align-items:center;justify-content:center;font-size:13px;color:#92400e;font-weight:750}
+  .pbody{padding:12px 14px 14px}
+  .pname{font-size:14px;font-weight:750;margin:0}
+  .price{font-size:16px;font-weight:850;color:var(--brand-800);margin:6px 0 2px}
+  .pricesub{font-size:11.5px;color:var(--ink-500);margin:0}
+  .suprow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px}
+  .mini-pips{display:inline-flex;gap:3px}.mini-pips .pip{width:20px;height:20px}.mini-pips .pip svg{width:11px;height:11px}
+
+  .compare{margin-top:30px;background:#fff;border:1px solid var(--ink-200);border-radius:14px;padding:18px 20px}
+  .compare h2{font-size:17px;margin:0 0 6px}
+  .compare p{font-size:13.5px;color:var(--ink-600);line-height:1.65;margin:0}
+  .mini-list{display:grid;gap:10px;margin-top:14px}
+  .mini-row{display:flex;align-items:center;gap:12px;border:1px solid var(--ink-200);border-radius:12px;padding:10px 12px;background:#fff}
+  .mini-cover{width:88px;height:54px;border-radius:10px;position:relative;flex-shrink:0;background:linear-gradient(135deg,var(--brand-500),#fbbf24);overflow:hidden}
+  .mini-avatar{position:absolute;left:8px;bottom:7px;width:32px;height:32px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--brand-800);box-shadow:0 4px 10px rgba(0,0,0,.18)}
+  .mini-main{flex:1;min-width:180px}.mini-name{font-size:14px;font-weight:800;margin:0}.mini-sub{font-size:12px;color:var(--ink-500);margin:3px 0 0}
+  .callouts{margin-top:16px;background:#fff;border:1px solid var(--ink-200);border-radius:14px;padding:18px 20px}
+  .callouts h2{font-size:17px;margin:0 0 8px}
+  .callouts li{font-size:14px;line-height:1.7;color:var(--ink-700);margin-bottom:4px}
+  .refs{font-size:12.5px;color:var(--ink-500);line-height:1.7;margin-top:14px}
+  .refs a{color:var(--brand-800);font-weight:700;text-decoration:none}
+  @media (max-width:820px){ .head-body{flex-direction:column} .cta{flex-direction:row;flex-wrap:wrap;padding-top:0} .products{grid-template-columns:1fr} .trust-strip{align-items:flex-start;flex-direction:column} .cover-seal{width:60px;height:60px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page">Demo bản 3: giữ ảnh nhà máy, huy hiệu đi cạnh tiêu đề</h1>
+  <p class="lead">Bản này em làm theo mẫu các sàn B2B lớn: ảnh cover nhà máy và logo/avatar vẫn nằm ở vị trí trung tâm như hồ sơ thật. Huy hiệu uy tín chỉ xuất hiện ở góc phải của cover và ngay cạnh tên nhà máy, kèm 3 nấc kiểm chứng nhỏ ở dưới tên. Mức càng cao màu càng đậm, mức cao nhất có huy chương vàng ở góc cover.</p>
+
+  <div class="switcher" role="tablist" aria-label="Chọn trường hợp hiển thị">
+    <button type="button" data-scenario="none">A. Chưa qua vòng kiểm nào</button>
+    <button type="button" data-scenario="l1">B. Chỉ kiểm giấy tờ</button>
+    <button type="button" data-scenario="l13">C. Giấy tờ + lịch sử giao hàng</button>
+    <button type="button" data-scenario="full" class="active">D. Đủ 3 vòng: giấy tờ + nhà máy + giao hàng</button>
+  </div>
+
+  <div class="note" id="scenarioNote"></div>
+
+  <div class="browser">
+    <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">veximtrade.com/suppliers/minh-phat-cashew</span></div>
+    <div class="page-inner">
+
+      <div class="profile-head tier-3" id="profileHead">
+        <div class="cover" aria-label="Ảnh cover nhà máy">
+          <svg class="cover-skyline" viewBox="0 0 1060 150" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 150 L0 104 L92 104 L92 74 L170 74 L170 112 L250 112 L250 58 L340 58 L340 96 L430 96 L430 70 L520 70 L520 118 L620 118 L620 48 L725 48 L725 92 L820 92 L820 66 L920 66 L920 108 L1060 108 L1060 150 Z" fill="rgba(15,23,42,.28)"/>
+            <path d="M250 58 L295 34 L340 58 Z M620 48 L672 20 L725 48 Z" fill="rgba(255,255,255,.35)"/>
+            <g fill="rgba(255,255,255,.55)"><rect x="272" y="76" width="14" height="12"/><rect x="300" y="76" width="14" height="12"/><rect x="646" y="68" width="14" height="12"/><rect x="676" y="68" width="14" height="12"/><rect x="646" y="92" width="14" height="12"/><rect x="676" y="92" width="14" height="12"/></g>
+          </svg>
+          <span class="cover-tag">Vietnam supplier profile</span>
+          <span class="cover-caption">Ảnh cover nhà máy vẫn giữ nguyên vị trí</span>
+          <div class="cover-seal" id="coverSeal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+            <b id="sealNum">3</b><span>CHECKS</span>
+          </div>
+        </div>
+
+        <div class="head-body">
+          <div class="avatar" aria-label="Logo nhà máy">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/></svg>
+            <b>MP</b><span>LOGO</span>
+          </div>
+          <div class="head-main">
+            <div class="title-line">
+              <p class="sup-name">Minh Phat Cashew Co., Ltd</p>
+              <span class="title-badge" id="titleBadge"></span>
+            </div>
+            <div class="meta"><span>Manufacturer</span><span>Binh Phuoc, Vietnam</span><span>Founded 2012</span><span>120 employees</span></div>
+            <div class="coverage">
+              <span class="coverage-label">Vexim checks</span>
+              <span class="pips" id="coveragePips"></span>
+              <span class="coverage-text" id="coverageText"></span>
+            </div>
+            <div class="trust-strip">
+              <p id="trustText"></p>
+              <a class="report-link" href="#evidence" id="reportLink">View checked items</a>
+            </div>
+          </div>
+          <div class="cta">
+            <button type="button" class="btn-primary">Request a quote</button>
+            <button type="button" class="btn-ghost">Browse products</button>
+          </div>
+        </div>
+      </div>
+
+      <section class="blk" id="evidence" aria-labelledby="etitle">
+        <h2 id="etitle">What Vexim checked</h2>
+        <div id="evidenceRows"></div>
+        <p class="fineprint">Các mục này là nội dung báo cáo tóm tắt để buyer đọc sâu, không phải card chọn cấp. Mỗi mục chỉ hiện nội dung khi vòng kiểm tương ứng đã được duyệt và được công khai.</p>
+      </section>
+
+      <section class="blk tier-3" id="productSection" aria-labelledby="ptitle">
+        <h2 id="ptitle">Products</h2>
+        <div class="products" id="products"></div>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="compare">
+    <h2>So sánh nhanh khi buyer lướt danh sách</h2>
+    <p>Trong danh sách hoặc thẻ sản phẩm, buyer chỉ cần thấy ảnh nhỏ của nhà máy, tên và một huy hiệu gọn ngay cạnh tên. Màu huy hiệu mạnh dần theo số vòng kiểm đã đạt.</p>
+    <div class="mini-list" id="miniList"></div>
+  </div>
+
+  <div class="callouts">
+    <h2>Điểm em rút ra từ các sàn TMĐT</h2>
+    <ul>
+      <li>Ảnh cover và logo nhà máy phải giữ vai trò nhận diện chính. Huy hiệu không nên chiếm một dải lớn ở đầu trang.</li>
+      <li>Huy hiệu nên nằm ở hai vị trí buyer quen nhìn: góc cover và ngay cạnh tên nhà cung cấp. Khi lướt danh sách, huy hiệu cũng đi theo tên trong thẻ sản phẩm.</li>
+      <li>Thang thấp lên cao nên thể hiện bằng màu và số nấc nhỏ ngay dưới tên, thay vì bắt buyer đọc nhiều card ở giữa hồ sơ.</li>
+      <li>Chi tiết vòng kiểm vẫn cần có, nhưng đặt ở mục “What Vexim checked” bên dưới như một báo cáo tóm tắt. Đây là phần tạo niềm tin khi buyer đọc sâu.</li>
+    </ul>
+    <p class="refs">Nguồn tham khảo giao diện: Alibaba mô tả logo Verified xuất hiện trên kết quả tìm kiếm, danh sách sản phẩm, trang công ty và trang chi tiết sản phẩm tại <a href="https://fuwu.alibaba.com/page/verifiedsuppliers.htm" target="_blank" rel="noreferrer">trang Verified Suppliers</a>. Made-in-China mô tả logo “Audited Supplier” và báo cáo audit miễn phí tại <a href="https://www.made-in-china.com/audited-suppliers/for-buyers/" target="_blank" rel="noreferrer">trang Audited Suppliers</a>. Global Sources dùng hệ sao để phản ánh mức độ thông tin đã kiểm chứng tại <a href="https://www.globalsources.com/knowledge/how-to-find-verified-suppliers-from-china/" target="_blank" rel="noreferrer">hướng dẫn tìm nhà cung cấp đã kiểm chứng</a>.</p>
+  </div>
+
+</div>
+
+<script>
+  var SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>';
+  var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  var CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+  var LABELS = { 1: "documents checked", 2: "factory visited", 3: "delivery history reviewed" };
+  var TITLES = { 1: "Documents checked", 2: "Factory visit", 3: "Delivery history" };
+  var SUMMARIES = {
+    1: "Business registration evidence was reviewed. Tax and bank details remain supplier provided unless separately confirmed.",
+    2: "Vexim visited the processing facility in Binh Phuoc on 12 September 2026. The visit covered the drying yard, the steam sterilization line and the metal detection step before packing.",
+    3: "Vexim reviewed documents for three completed shipments in 2025 and 2026, including bills of lading, packing lists and phytosanitary certificates for buyers in India and the Netherlands."
+  };
+  var SCENARIOS = {
+    none: { levels: [], tier: 0, badge: "Under audit", note: "<b>Trường hợp A: chưa qua vòng kiểm nào.</b> Ảnh cover và logo vẫn hiện bình thường. Huy chương ở góc cover để xám và số 0, huy hiệu cạnh tên ghi “Under audit”, 3 nấc kiểm chứng đều trống." },
+    l1: { levels: [1], tier: 1, badge: "Level 1 · Basic", note: "<b>Trường hợp B: chỉ kiểm giấy tờ.</b> Nhận diện nhà máy không đổi. Huy hiệu cạnh tên chuyển xanh nhạt, huy chương góc cover số 1 và nấc đầu tiên sáng lên." },
+    l13: { levels: [1, 3], tier: 2, badge: "Level 2 · Advanced", note: "<b>Trường hợp C: giấy tờ cộng lịch sử giao hàng.</b> Huy hiệu xanh đậm hơn, huy chương số 2 và 2 nấc sáng. Dòng chữ vẫn ghi rõ chưa có factory visited, nên không gây hiểu nhầm là đã thăm nhà máy." },
+    full: { levels: [1, 2, 3], tier: 3, badge: "Level 3 · Complete", note: "<b>Trường hợp D: đủ 3 vòng.</b> Đây là trạng thái nổi bật nhất nhưng vẫn không che ảnh nhà máy: huy chương vàng ở góc cover, huy hiệu cạnh tên nền xanh đậm viền vàng, 3 nấc kiểm chứng sáng hết." }
+  };
+
+  function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+  function pips(levels, mini){
+    return [1,2,3].map(function(n){
+      return '<span class="pip' + (levels.indexOf(n) !== -1 ? " on" : "") + '" title="' + TITLES[n] + '">' + SHIELD + "</span>";
+    }).join("");
+  }
+  function checkedSentence(levels){
+    if (!levels.length) return "No approved checks yet.";
+    return "Approved: " + levels.map(function(l){ return LABELS[l]; }).join(" · ");
+  }
+
+  function render(key){
+    var sc = SCENARIOS[key];
+    var levels = sc.levels;
+    document.getElementById("scenarioNote").innerHTML = sc.note;
+    document.getElementById("profileHead").className = "profile-head tier-" + sc.tier;
+    document.getElementById("sealNum").textContent = String(sc.tier);
+    var badge = document.getElementById("titleBadge");
+    badge.innerHTML = SHIELD + "<span>" + sc.badge + "</span>";
+    document.getElementById("coveragePips").innerHTML = pips(levels, false);
+    document.getElementById("coverageText").textContent = levels.length ? (levels.length + "/3 checks approved") : "0/3 checks approved";
+    document.getElementById("trustText").innerHTML = levels.length
+      ? "<b>Vexim verification:</b> " + checkedSentence(levels) + ". Buyer bấm vào mục bên dưới để xem phạm vi đã kiểm."
+      : "<b>Vexim verification:</b> hồ sơ đang chờ kiểm chứng. Buyer vẫn thấy ảnh, logo và thông tin nhà máy, nhưng chưa có huy hiệu uy tín.";
+    document.getElementById("reportLink").textContent = levels.length ? "View checked items" : "Verification pending";
+    document.getElementById("productSection").className = "blk tier-" + sc.tier;
+
+    document.getElementById("evidenceRows").innerHTML = [1,2,3].map(function(n){
+      var on = levels.indexOf(n) !== -1;
+      return '<div class="evidence-row"><div class="eicon' + (on ? " on" : "") + '">' + (on ? CHECK : CLOCK) + '</div>' +
+        '<div><h3>' + TITLES[n] + '</h3><p class="status ' + (on ? "ok" : "notyet") + '">' + (on ? "Review approved" : "Not reviewed yet") + '</p>' +
+        '<p>' + (on ? SUMMARIES[n] : "Chưa có nội dung công khai cho mục này. Khi Vexim duyệt và công khai tóm tắt, nội dung sẽ hiện tại đây.") + "</p></div></div>";
+    }).join("");
+
+    var products = [
+      { name: "Cashew kernels WW320", price: "USD 7.10 / kg", sub: "Reference price · MOQ 5 MT" },
+      { name: "Cashew kernels LP", price: "USD 4.85 / kg", sub: "Reference price · MOQ 2 MT" }
+    ];
+    document.getElementById("products").innerHTML = products.map(function(p){
+      return '<div class="pcard"><div class="pimg">Ảnh sản phẩm</div><div class="pbody">' +
+        '<p class="pname">' + p.name + '</p><p class="price">' + p.price + '</p><p class="pricesub">' + p.sub + "</p>" +
+        '<div class="suprow"><span class="mini-pips">' + pips(levels, true) + '</span><span class="title-badge" style="position:static">' + sc.badge + "</span></div>" +
+        "</div></div>";
+    }).join("");
+
+    document.querySelectorAll(".switcher button").forEach(function(b){
+      b.classList.toggle("active", b.getAttribute("data-scenario") === key);
+    });
+  }
+
+  document.getElementById("miniList").innerHTML = Object.keys(SCENARIOS).map(function(k){
+    var sc = SCENARIOS[k];
+    var names = { none: "A. Chưa kiểm", l1: "B. Giấy tờ", l13: "C. Giấy tờ + giao hàng", full: "D. Đủ 3 vòng" };
+    return '<div class="mini-row tier-' + sc.tier + '"><div class="mini-cover"><span class="mini-avatar">MP</span></div>' +
+      '<div class="mini-main"><p class="mini-name">Minh Phat Cashew Co., Ltd</p><p class="mini-sub">' + names[k] + " · Binh Phuoc, Vietnam</p></div>" +
+      '<span class="pips">' + pips(sc.levels, true) + '</span><span class="title-badge">' + SHIELD + "<span>" + sc.badge + "</span></span></div>";
+  }).join("");
+
+  document.querySelectorAll(".switcher button").forEach(function(b){
+    b.addEventListener("click", function(){ render(b.getAttribute("data-scenario")); });
+  });
+  render("full");
+</script>
+</body>
+</html>

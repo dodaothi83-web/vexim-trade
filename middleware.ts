@@ -11,7 +11,7 @@ import type { NextRequest } from "next/server";
 
 const INDEXABLE = process.env.PUBLIC_SITE_INDEXABLE === "true";
 // OAuth verification must reach these public policies even before marketing pages are indexable.
-const LEGAL_PATHS = new Set(["/privacy-policy", "/terms-of-service"]);
+const LEGAL_PATHS = new Set(["/privacy-policy", "/terms-of-service", "/thong-tin-chu-quan", "/quy-che-hoat-dong", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat", "/khieu-nai"]);
 const LEGAL_CRAWLABLE = !["preview", "development"].includes(process.env.VERCEL_ENV ?? "");
 
 // Các prefix LUÔN noindex dù site-wide cờ đang bật.
@@ -34,8 +34,11 @@ function isAlwaysNoIndex(pathname: string): boolean {
 }
 
 export function middleware(req: NextRequest) {
-  const res = NextResponse.next();
   const { pathname } = req.nextUrl;
+  // Root layout đọc x-pathname để đặt <html lang> đúng khu vực (EN công khai / VI nội bộ).
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", pathname);
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
 
   const noindex = !(LEGAL_CRAWLABLE && LEGAL_PATHS.has(pathname)) && (!INDEXABLE || isAlwaysNoIndex(pathname));
   if (noindex) {

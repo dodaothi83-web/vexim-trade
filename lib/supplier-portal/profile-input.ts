@@ -11,7 +11,12 @@ const positiveInt = (form: FormData, key: string, max: number): number | null =>
 const list = (form: FormData, key: string) => text(form, key, 800).split(/[,;\n]/).map((s) => s.trim()).filter(Boolean).slice(0, 12);
 
 /** Same public-page fields at initial signup and when Vexim requests corrections. No trust in status/owner. */
-export function parseSupplierProfile(form: FormData): { patch: Partial<SupplierInput>; bank: string; requested: (2 | 3)[] } {
+export function parseSupplierProfile(form: FormData): {
+  patch: Partial<SupplierInput>;
+  bank: string;
+  requested: (2 | 3)[];
+  commitments: { terms_of_service_accepted: true; information_accuracy_confirmed: true };
+} {
   const name = text(form, "name", 180);
   const contact = text(form, "contact_name", 120);
   const phone = text(form, "phone", 40);
@@ -24,8 +29,11 @@ export function parseSupplierProfile(form: FormData): { patch: Partial<SupplierI
   // The checkbox is disabled for traders in the shared signup/correction form; reject forged submissions too.
   if (type === "trading" && form.get("request:2") === "yes")
     throw new Error("Thương nhân không thể yêu cầu thăm nhà máy qua form đăng ký. Bạn vẫn có thể chọn Lịch sử giao hàng.");
-  if (!/^[0-9]{1,32}$/.test(tax) || !/^[0-9]{1,34}$/.test(bank)) throw new Error("Mã số thuế và số tài khoản phải là chữ số.");
-  if (text(form, "consent", 8) !== "yes") throw new Error("Vui lòng đồng ý gửi hồ sơ cho Vexim kiểm tra.");
+  if (!/^[0-9]{1,32}$/.test(tax)) throw new Error("Mã số thuế phải là chữ số.");
+  // Số tài khoản ngân hàng là mục tuỳ chọn: để trống được, có nhập thì phải là chữ số.
+  if (bank && !/^[0-9]{1,34}$/.test(bank)) throw new Error("Số tài khoản ngân hàng phải là chữ số.");
+  if (text(form, "consent", 8) !== "yes") throw new Error("Vui lòng đọc và đồng ý với Điều khoản sử dụng trước khi gửi hồ sơ.");
+  if (text(form, "information_accuracy", 8) !== "yes") throw new Error("Vui lòng xác nhận chịu trách nhiệm về tính trung thực của tên, giá sản phẩm và thời gian giao hàng.");
   const website = text(form, "website", 250);
   if (website && !/^https?:\/\/[^\s.]+(?:\.[^\s.]+)+(?:[:/?#][^\s]*)?$/i.test(website)) throw new Error("Website phải là URL http(s) hợp lệ.");
   return {
@@ -39,7 +47,7 @@ export function parseSupplierProfile(form: FormData): { patch: Partial<SupplierI
       address: text(form, "address", 250) || null, tax_id: tax,
       supplier_type: type, role: type === "manufacturer" ? "manufacturer" : "trader",
       website: website || null, markets: text(form, "markets", 800) || null,
-      summary_i18n: { en: text(form, "summary_en", 1500) },
+      intro_source: text(form, "intro_source", 1500) || null,
       founded_year: positiveInt(form, "founded_year", new Date().getFullYear()),
       employees: positiveInt(form, "employees", 1000000),
       capacity_per_month: text(form, "capacity_per_month", 180) || null,
@@ -51,5 +59,6 @@ export function parseSupplierProfile(form: FormData): { patch: Partial<SupplierI
     },
     bank,
     requested: ([2, 3] as const).filter((level) => form.get(`request:${level}`) === "yes"),
+    commitments: { terms_of_service_accepted: true, information_accuracy_confirmed: true },
   };
 }

@@ -16,7 +16,9 @@ import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
 import { PublicProductCard } from "@/components/public-product-card";
+import { CookieSettingsButton } from "@/components/cookie-consent";
 import { Logo } from "@/components/brand-logo";
+import { PlatformLegalStrip } from "@/components/platform-legal-strip";
 import { SocialLinks } from "@/components/social-links";
 import type { Category } from "@/lib/types";
 
@@ -66,7 +68,7 @@ const FAQ = [
   },
   {
     q: "How fast do you reply?",
-    a: "Within one business day for the categories listed above. We come back with 2–4 supplier options, or tell you honestly if we can't match what you're looking for.",
+    a: "Within one business day for the categories listed above. We come back with suppliers that match, or tell you honestly if we can't match what you're looking for.",
   },
   {
     q: "Will suppliers contact me directly?",
@@ -147,8 +149,7 @@ export default async function HomeContent() {
                 Buy from Vietnamese producers you can trust
               </h1>
               <p className="mt-5 max-w-xl text-[16px] leading-relaxed text-brand-100/90 sm:text-[17px]">
-                Cashew, pepper, coffee, coconut, rice and more. Tell us what you need and we'll come back within one business day
-                with 2 to 4 suppliers that fit. We show which checks have actually been completed.
+                Browse verified Vietnamese suppliers and request a quote from the one you choose. Haven’t found the right fit? Send us your requirements and Vexim will shortlist suppliers that match.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link
@@ -165,7 +166,8 @@ export default async function HomeContent() {
                 </Link>
               </div>
               <div className="mt-10 flex items-center gap-4 border-t border-white/15 pt-5 text-[13px] text-brand-100/80">
-                {supCount > 0 && (
+                {/* Chỉ khoe số hồ sơ công khai khi đã đủ lớn để tạo tin cậy; số nhỏ (vd. 1) gây phản tác dụng. */}
+                {supCount >= 10 && (
                   <>
                     <Stat num={String(supCount)} label="published supplier profiles" />
                     <Divider />
@@ -187,7 +189,7 @@ export default async function HomeContent() {
                 <p className="mt-1 text-[13.5px] text-ink-600">Free. No account needed.</p>
                 <ul className="mt-5 space-y-2.5 text-[13.5px] text-ink-700">
                   <Bullet>Suppliers won't see your company name until you choose to talk.</Bullet>
-                  <Bullet>You get 2–4 options that match your specs.</Bullet>
+                  <Bullet>If you haven’t chosen a supplier, we will shortlist suppliers that match your requirements.</Bullet>
                   <Bullet>Each quote shows what we checked ourselves vs. what the supplier told us.</Bullet>
                   <Bullet>We arrange samples and pre-shipment inspection at cost.</Bullet>
                 </ul>
@@ -523,8 +525,10 @@ export default async function HomeContent() {
               <li><Link href="/how-we-verify" className="hover:text-brand-700">How we verify suppliers</Link></li>
               <li><Link href="/for-suppliers" className="hover:text-brand-700">For Vietnamese suppliers</Link></li>
               <li><Link href="/privacy-policy" className="hover:text-brand-700">Privacy Policy</Link></li>
+              <li><Link href="/cookie-policy" className="hover:text-brand-700">Cookie Policy</Link></li>
+              <li><CookieSettingsButton className="hover:text-brand-700" /></li>
               <li><Link href="/terms-of-service" className="hover:text-brand-700">Terms of Service</Link></li>
-              <li><a href="mailto:hello@veximtrade.com" className="hover:text-brand-700">hello@veximtrade.com</a></li>
+              <li><a href="mailto:contact@veximglobal.com" className="hover:text-brand-700">contact@veximglobal.com</a></li>
             </FooterCol>
 
             <FooterCol title="Buyers">
@@ -534,6 +538,7 @@ export default async function HomeContent() {
             </FooterCol>
           </div>
         </div>
+        <PlatformLegalStrip />
       </footer>
     </div>
   );

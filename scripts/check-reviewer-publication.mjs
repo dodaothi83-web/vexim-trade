@@ -46,6 +46,12 @@ assert.equal(logs.at(-1).action, 'publish');
 assert.equal((await categories.decideCategoryPublicationAction(categoryId, false)).ok, true);
 category.updated_by = user.uid;
 assert.equal((await categories.decideCategoryPublicationAction(categoryId, true)).ok, false, 'Last editor cannot publish own category');
+// Ngoại lệ Admin: toàn quyền nên được tự công khai cả bản mình sửa cuối, vẫn qua audit log.
+user = { uid: 'admin-1', email: 'admin@example.com', role: 'admin' };
+category.updated_by = user.uid;
+assert.equal((await categories.decideCategoryPublicationAction(categoryId, true)).ok, true, 'Admin may publish a category they last edited');
+assert.equal(logs.at(-1).actor_id, 'admin-1');
+assert.equal(logs.at(-1).action, 'publish');
 user = { ...user, role: 'sale' };
 assert.equal((await suppliers.decideSupplierPublicationAction(supplierId, 'published')).ok, false);
 assert.equal((await categories.decideCategoryPublicationAction(categoryId, true)).ok, false);

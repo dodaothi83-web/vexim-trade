@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { Logo } from "@/components/brand-logo";
 import { getStore } from "@/lib/db";
 import { SimpleFooter } from "./simple-footer";
+import { WhatsAppChatButton } from "@/components/whatsapp-chat-button";
 import { SiteTrafficBeacon } from "@/components/site-traffic-beacon";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
 
       <main>{children}</main>
 
+      <WhatsAppChatButton />
       <SimpleFooter />
     </div>
   );

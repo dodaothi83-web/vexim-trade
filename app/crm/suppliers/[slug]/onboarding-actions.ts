@@ -23,14 +23,14 @@ export async function decideSupplierOnboardingAction(form: FormData): Promise<Re
     const supplier = await store.getSupplier(id);
     if (!supplier || supplier.onboarding_status !== "pending") return { ok: false, message: "Hồ sơ không còn ở trạng thái chờ xác nhận. Tải lại trang." };
     if (decision === "approved") {
-      const owner = supplier.email ? await store.getUserByEmail(supplier.email) : null;
+      const owner = await store.getUserBySupplierId(id);
       if (!owner || owner.role !== "supplier" || !owner.is_active || owner.supplier_id !== id) {
         return { ok: false, message: "Không tìm thấy tài khoản NCC đang hoạt động liên kết hồ sơ này." };
       }
       const review = (await store.listVerifications(id)).find((v) => v.target_level === 1);
       if (!supplier.name || !supplier.products || !supplier.phone || !supplier.tax_id || !supplier.supplier_type ||
-          !review?.bank_account_number || !review.tax_number) {
-        return { ok: false, message: "Hồ sơ chưa đầy đủ thông tin doanh nghiệp, mã số thuế hoặc số tài khoản." };
+          !review?.tax_number) {
+        return { ok: false, message: "Hồ sơ chưa đầy đủ thông tin doanh nghiệp hoặc mã số thuế." };
       }
     }
     await store.updateSupplier(id, { onboarding_status: decision as "approved" | "changes_requested", onboarding_note: decision === "approved" ? null : note });

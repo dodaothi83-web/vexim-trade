@@ -96,7 +96,7 @@ const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
 const file = new File(['%PDF-1.7 TEST DOCUMENT'], 'license.pdf', { type: 'application/pdf' });
 function form(email = 'owner@example.com') {
   const fd = new FormData();
-  for (const [key, val] of Object.entries({ name: 'Example Trading Co', contact_name: 'Mr A', email, password: 'password123', phone: '0987654321', products: 'Cashew', supplier_type: 'trading', summary_en: 'Cashew processing and export', website: 'https://example.com', founded_year: '2012', employees: '42', capacity_per_month: '200 MT', ports: 'Hai Phong, Da Nang', consent: 'yes', tax_number: '0012345', bank_account_number: '000123', 'request:3': 'yes' })) fd.set(key, val);
+  for (const [key, val] of Object.entries({ name: 'Example Trading Co', contact_name: 'Mr A', email, password: 'password123', phone: '0987654321', products: 'Cashew', supplier_type: 'trading', intro_source: 'Cashew processing and export', website: 'https://example.com', founded_year: '2012', employees: '42', capacity_per_month: '200 MT', ports: 'Hai Phong, Da Nang', consent: 'yes', information_accuracy: 'yes', tax_number: '0012345', bank_account_number: '000123', 'request:3': 'yes' })) fd.set(key, val);
   fd.append('requested_category_slugs', 'cashew');
   fd.set('doc:business_license', file);
   fd.set('status', 'published'); fd.set('verification_level', '3');
@@ -155,6 +155,13 @@ const profile = load('../app/api/supplier-portal/profile/route.ts', {
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/supplier-portal/profile-evidence': profileEvidence,
   '@/lib/supplier-portal/notify': mocks['@/lib/supplier-portal/notify'],
+  '@/lib/ai/supplier-translation-service': {
+    ensureSupplierProfileEnglish: async (storeArg, id) => {
+      const s = await storeArg.getSupplier(id);
+      if (s?.intro_source && !s.summary_i18n?.en) await storeArg.updateSupplier(id, { summary_i18n: { en: s.intro_source } });
+      return { status: 'translated', supplier: s };
+    },
+  },
 });
 async function submitProfile(fd) {
   const response = await profile.POST(new Request('https://example.com/api/supplier-portal/profile', { method: 'POST', body: fd }));
@@ -169,6 +176,8 @@ const factoryForm = form(); factoryForm.set('supplier_type', 'manufacturer'); fa
 assert.equal(JSON.stringify(profileInput.parseSupplierProfile(factoryForm).requested), JSON.stringify([2, 3]), 'Factory may request both follow-ups');
 const forgedCategory = form(); forgedCategory.set('requested_category_slugs', 'secret');
 assert.equal((await submitProfile(forgedCategory)).status, 400, 'No unpublished category in first business form');
+const missingAccuracy = form(); missingAccuracy.delete('information_accuracy');
+assert.equal((await submitProfile(missingAccuracy)).status, 400, 'Profile requires the product information truthfulness confirmation');
 assert.equal(state.suppliers.length, 0, 'Reject invalid profile before creating supplier page');
 state.failClaim = true;
 assert.equal((await submitProfile(form())).status, 409, 'Concurrent claim fails closed');
@@ -189,7 +198,8 @@ assert.equal(state.suppliers[0].onboarding_status, 'pending');
 assert.equal(JSON.stringify(state.suppliers[0].requested_category_slugs), JSON.stringify(['cashew']));
 assert.equal(state.suppliers[0].categories_reviewed_at ?? null, null);
 assert.equal(state.suppliers[0].supplier_type, 'trading');
-assert.equal(state.suppliers[0].summary_i18n.en, 'Cashew processing and export');
+assert.equal(state.suppliers[0].intro_source, 'Cashew processing and export', 'Supplier story is stored as the original introduction');
+assert.equal(state.suppliers[0].summary_i18n.en, 'Cashew processing and export', 'English introduction is derived from the supplier story');
 assert.equal(state.suppliers[0].website, 'https://example.com');
 assert.equal(state.suppliers[0].employees, 42);
 assert.equal(JSON.stringify(state.suppliers[0].ports), JSON.stringify(['Hai Phong', 'Da Nang']));
@@ -308,6 +318,7 @@ const decisions = load('../app/crm/suppliers/[slug]/onboarding-actions.ts', {
   'next/cache': { revalidatePath() {} },
   '@/lib/db': { getStore: () => ({ getSupplier: async () => staffSupplier,
     getUserByEmail: async (email) => email === staffSupplier.email ? { ...owner, supplier_id: staffSupplierId } : null,
+    getUserBySupplierId: async (supplierId) => supplierId === staffSupplierId ? { ...owner, supplier_id: staffSupplierId } : null,
     listVerifications: async () => state.reviews,
     updateSupplier: async (_id, patch) => Object.assign(staffSupplier, patch),
     addAuditLog: async (entry) => { state.audit.push(entry); },

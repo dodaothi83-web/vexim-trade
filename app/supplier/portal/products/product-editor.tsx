@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertCircle, ArrowRight, Check, CheckCircle2, ChevronDown, FileText, LockKeyhole, Package2, Save, Send, UploadCloud, X } from "lucide-react";
 import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
 import { productPriceBlockers, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
@@ -30,6 +30,8 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const [dirty, setDirty] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(product?.supplier_category_proposal ?? product?.reviewed_category_slug ?? "");
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  // Where the latest result belongs: next to the Lưu button ("info") or in the review step ("review").
+  const [resultAt, setResultAt] = useState<"info" | "review">("review");
   const [uploadResult, setUploadResult] = useState("");
   const [selected, setSelected] = useState<File[]>([]);
   const [progress, setProgress] = useState("");
@@ -41,6 +43,28 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
   const canUpload = !!product && !locked && review !== "approved" && !dirty;
 
+  // Warn before leaving with unsaved edits: browser navigation/reload via
+  // beforeunload, in-app <Link> clicks via a capture-phase click guard.
+  // Same-page anchors (e.g. #product-media) and new-tab links are left alone.
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as HTMLElement).closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download")) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
+      if (!window.confirm("Bạn có thay đổi chưa lưu. Rời trang sẽ mất nội dung đang nhập. Vẫn rời trang?")) event.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("click", onClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("click", onClick, true);
+    };
+  }, [dirty]);
+
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (product && review === "approved" && !window.confirm("Lưu thay đổi sẽ rút sản phẩm khỏi trạng thái sẵn sàng cho buyer và đưa về bản nháp để Vexim duyệt lại. Tiếp tục?")) return;
@@ -49,13 +73,13 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       const form = new FormData(event.currentTarget);
       if (product) form.set("product_id", product.id);
       const response = await saveSupplierProductAction(form);
-      setResult(response);
+      setResult(response); setResultAt("info");
       if (response.ok) {
         setDirty(false);
         if (response.id && !product) router.push(`/supplier/portal/products/${response.id}`);
         else router.refresh();
       }
-    } catch { setResult({ ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." }); }
+    } catch { setResult({ ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." }); setResultAt("info"); }
     finally { setBusy(false); }
   }
 
@@ -65,9 +89,9 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     try {
       const form = new FormData(); form.set("product_id", product.id);
       const response = await submitSupplierProductAction(form);
-      setResult(response);
+      setResult(response); setResultAt("review");
       if (response.ok) router.refresh();
-    } catch { setResult({ ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." }); }
+    } catch { setResult({ ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." }); setResultAt("review"); }
     finally { setBusy(false); }
   }
 
@@ -119,6 +143,20 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
   return <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-8">
     <div className="min-w-0 space-y-6">
+      <ol className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:hidden" aria-label="Tiến độ tạo sản phẩm">
+        {[
+          ["#product-info", "01", "Thông tin", !!product],
+          ["#product-media", "02", "Ảnh & catalogue", hasMedia],
+          ["#product-review", "03", "Gửi duyệt", review === "pending" || review === "approved"],
+        ].map(([href, number, label, done]) => (
+          <li key={String(href)} className="min-w-0 flex-1">
+            <a href={String(href)} className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+              <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${done ? "bg-teal-700 text-white" : "bg-slate-100 text-slate-500"}`}>{done ? <Check className="size-3.5" aria-hidden="true" /> : number}</span>
+              <span className="truncate">{label}</span>
+            </a>
+          </li>
+        ))}
+      </ol>
       <section className={`rounded-2xl border p-5 ${review === "changes_requested" ? "border-rose-200 bg-rose-50" : review === "approved" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`} aria-label="Trạng thái xét duyệt">
         <div className="flex items-start gap-3"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/80"><Package2 className="size-5 text-teal-800" aria-hidden="true" /></span><div>
           <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Trạng thái nội dung</p>
@@ -127,6 +165,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         </div></div>
         {product?.supplier_review_note && <p className="mt-4 whitespace-pre-wrap rounded-xl bg-white p-3 text-sm font-semibold text-rose-800"><AlertCircle className="mr-1 inline size-4" aria-hidden="true" /> Vexim yêu cầu: {product.supplier_review_note}</p>}
         {product?.ready_for_buyer && review === "approved" && <p className="mt-3 text-xs font-semibold text-teal-900">Vexim đã bật sẵn sàng chia sẻ buyer; việc xuất hiện công khai còn tùy trang NCC và danh mục.</p>}
+        {product && <p className="mt-3 text-xs font-semibold text-slate-600">Bản dịch tiếng Anh cho trang buyer: {product.name_i18n?.en?.trim() ? "đã có bản dịch do AI soạn và Vexim kiểm tra." : "Vexim sẽ dịch tự động bằng AI khi kiểm tra sản phẩm này."} Bạn cứ nhập nội dung bằng tiếng Việt, không cần tự dịch.</p>}
       </section>
 
       <form id="product-info" onSubmit={save} onChange={() => setDirty(true)} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -183,6 +222,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           {!locked ? <button type="submit" disabled={busy} className="btn btn-primary"><Save className="size-4" aria-hidden="true" /> {busy ? "Đang lưu..." : product ? "Lưu thay đổi" : "Lưu và tiếp tục"}</button> : <span className="inline-flex items-center gap-2 text-sm font-semibold text-amber-900"><LockKeyhole className="size-4" aria-hidden="true" /> Tạm khóa khi Vexim kiểm tra</span>}
           {dirty && !locked && <span className="text-xs font-semibold text-amber-800">Có thay đổi chưa lưu</span>}
           {!product && <span className="text-xs text-slate-600">Tiếp theo: thêm ảnh hoặc catalogue</span>}
+          {result && resultAt === "info" && <p role="status" className={`w-full rounded-lg px-3 py-2 text-sm ${result.ok ? "bg-teal-50 text-teal-900" : "bg-rose-50 text-rose-800"}`}>{result.message}</p>}
         </div>
       </form>
 
@@ -230,7 +270,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           : <div className="mt-5 flex flex-wrap items-center gap-3"><button type="button" onClick={submit} disabled={busy || !canSubmit} className="btn btn-primary"><Send className="size-4" aria-hidden="true" /> {busy ? "Đang xử lý..." : "Gửi Vexim kiểm tra"}</button>
             {dirty && <p className="text-xs font-semibold text-amber-800">Lưu thay đổi ở bước 1 trước khi gửi.</p>}
             {!dirty && product && !canSubmit && <p className="text-xs text-slate-600">Hoàn thành các mục còn thiếu rồi thử lại.</p>}</div>}
-        {result && <p role="status" className={`mt-4 rounded-lg px-3 py-2 text-sm ${result.ok ? "bg-teal-50 text-teal-900" : "bg-rose-50 text-rose-800"}`}>{result.message}</p>}
+        {result && resultAt === "review" && <p role="status" className={`mt-4 rounded-lg px-3 py-2 text-sm ${result.ok ? "bg-teal-50 text-teal-900" : "bg-rose-50 text-rose-800"}`}>{result.message}</p>}
       </section>
       <Link href="/supplier/portal/products" className="inline-flex items-center gap-1 text-sm font-semibold text-teal-700 hover:underline">← Trở lại danh mục sản phẩm</Link>
     </div>

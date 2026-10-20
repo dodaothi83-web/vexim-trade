@@ -28,6 +28,8 @@ export type SupplierStatus =
 
 /** Chuỗi dịch JSON theo mã ngôn ngữ: {"en": "...", "ja": "..."}. MVP chỉ có en. */
 export type I18nString = Record<string, string>;
+/** Danh sách ngắn theo ngôn ngữ, ví dụ tên thị trường xuất khẩu: { en: ["United States", "Japan"] } */
+export type I18nList = Record<string, string[]>;
 
 export interface Supplier {
   id: string;
@@ -80,8 +82,25 @@ export interface Supplier {
   employees?: number | null;
   /** Tóm tắt giới thiệu công khai theo ngôn ngữ */
   summary_i18n?: I18nString;
+  /** Câu chuyện, điểm khác biệt do nhà cung cấp tự viết bằng ngôn ngữ gốc; là nguồn để AI dịch thành summary_i18n.en cho trang buyer. */
+  intro_source?: string | null;
   /** MOQ mô tả dạng text (vd "1 MT for W320") */
   moq_text?: string | null;
+  /** Bản tiếng Anh của MOQ dạng text, hiển thị trên trang buyer thay cho nội dung gốc */
+  moq_text_i18n?: I18nString;
+  /** Thị trường xuất khẩu theo ngôn ngữ, hiển thị trên trang buyer */
+  export_markets_i18n?: I18nList;
+  /** Dấu vết dịch tự động hồ sơ: hash nội dung gốc (MOQ, thị trường) tại thời điểm dịch để phát hiện bản dịch đã cũ. */
+  profile_translation_meta?: {
+    source_hash: string;
+    translated_at: string;
+    origin: "ai" | "staff";
+    model?: string | null;
+    /** True khi phần giới thiệu tiếng Anh do AI soạn từ dữ kiện hồ sơ vì NCC không viết phần giới thiệu. */
+    summary_generated?: boolean;
+    /** Hash phần giới thiệu gốc tại thời điểm dịch, để dịch lại khi NCC sửa câu chuyện của họ. */
+    summary_source_hash?: string;
+  } | null;
   /** Công suất tháng mô tả text */
   capacity_per_month?: string | null;
   /** Cảng xuất (mảng) */
@@ -134,9 +153,20 @@ export interface SupplierProduct {
   /** Nhóm ngành: Nông sản, Thủy sản, Gỗ... — giữ text để tương thích code cũ, ưu tiên qua categories */
   category: string | null;
   description: string | null;
+  /** Bản tiếng Anh của mô tả, do AI dịch tự động hoặc nhân viên Vexim chốt; trang buyer ưu tiên bản này. */
+  description_i18n?: I18nString;
   /** Optional long-form buyer-facing product information (plain text, no HTML). */
   description_detail?: string | null;
+  description_detail_i18n?: I18nString;
   spec: string | null;
+  spec_i18n?: I18nString;
+  /** Dấu vết bản dịch tiếng Anh: hash nội dung gốc tại thời điểm dịch để phát hiện bản dịch đã cũ khi NCC sửa nội dung. */
+  translation_meta?: {
+    source_hash: string;
+    translated_at: string;
+    origin: "ai" | "staff";
+    model?: string | null;
+  } | null;
   /** Thông số theo ngành (JSON linh hoạt) */
   specs?: Record<string, unknown>;
   unit: string | null;
@@ -147,11 +177,13 @@ export interface SupplierProduct {
   lead_time_days: number | null;
   /** Bao bì / đóng gói */
   packaging: string | null;
+  packaging_i18n?: I18nString;
   /** Nhận làm nhãn riêng */
   oem: boolean;
   /** Thiết kế và sản xuất theo yêu cầu; NCC tự khai, không phải xác minh. */
   odm?: boolean;
   certifications: string | null;
+  certifications_i18n?: I18nString;
   export_port: string | null;
   /** Giá tham khảo từ (hoặc giá đơn nếu không có giá đến) – không phải báo giá RFQ. */
   ref_price: number | null;
@@ -325,7 +357,7 @@ export type VerificationLevel = 1 | 2 | 3;
 export const L1_DOC_ITEMS = [
   { key: "business_license", label: "Đăng ký doanh nghiệp", required: true },
   { key: "tax_certificate", label: "Mã số thuế", required: true },
-  { key: "bank_letter", label: "Số tài khoản ngân hàng", required: true },
+  { key: "bank_letter", label: "Số tài khoản ngân hàng", required: false },
   { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm (nếu có)", required: false },
   { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000 (nếu có)", required: false },
   { key: "product_certs", label: "Chứng chỉ sản phẩm đã công bố", required: false },

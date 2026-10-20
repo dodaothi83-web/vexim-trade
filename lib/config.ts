@@ -14,12 +14,26 @@ export const COMPANY = {
   phone: env.COMPANY_PHONE?.trim() || "+84373685634",
   address:
     env.COMPANY_ADDRESS?.trim() ||
-    "W2 Tower, Hinode Royal Park, Kim Chung and Di Trach Communes, Hoai Duc District, Hanoi, Vietnam",
+    "Số 25/6 Ngõ 51 Ngoạ Long, Tây Tựu, Hà Nội, Việt Nam",
   /**
    * Tên pháp nhân in hoa (VEXIM GLOBAL CO., LTD) — dùng ở chữ ký email, nơi buyer
    * cần đúng tên đăng ký chứ không phải thương hiệu "Vexim Trade". Đổi qua COMPANY_LEGAL_NAME.
    */
   legalName: env.COMPANY_LEGAL_NAME?.trim() || "VEXIM GLOBAL CO., LTD",
+  /** Email công khai tiếp nhận phản ánh, khiếu nại và yêu cầu liên quan đến dữ liệu cá nhân */
+  contactEmail: env.COMPANY_CONTACT_EMAIL?.trim() || "contact@veximglobal.com",
+  /** Người đại diện theo pháp luật, công khai trên trang thông tin chủ quản nền tảng */
+  legalRepresentative: env.COMPANY_LEGAL_REPRESENTATIVE?.trim() || "Lương Văn Học",
+  /** Người chịu trách nhiệm sàn giao dịch thương mại điện tử, công khai ở chân trang và trang chủ quản */
+  platformResponsible: env.COMPANY_PLATFORM_RESPONSIBLE?.trim() || "Lương Văn Học",
+  /** Ngày hiệu lực của quy chế hoạt động đang công khai trên website */
+  platformRulesEffectiveDate: env.COMPANY_PLATFORM_RULES_EFFECTIVE_DATE?.trim() || "18/10/2026",
+  /** Số điện thoại hiển thị có khoảng trắng ở chân trang; trường phone giữ dạng dùng cho tel: */
+  phoneDisplay: env.COMPANY_PHONE_DISPLAY?.trim() || "+84 373 685 634",
+  /** Mã số doanh nghiệp, đồng thời là mã số thuế của công ty */
+  taxCode: env.COMPANY_TAX_CODE?.trim() || "0111040294",
+  /** Ngày cấp đăng ký doanh nghiệp lần đầu */
+  registrationDate: env.COMPANY_REGISTRATION_DATE?.trim() || "29/04/2025",
   tagline: "Vietnam Export Sourcing Partner",
 };
 

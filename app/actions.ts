@@ -22,6 +22,9 @@ import {
   type SubjectForm,
 } from "@/lib/ai/first-touch-draft";
 import { extractCompanyProducts, type CompanyProducts } from "@/lib/ai/company-products";
+import { productTranslationState } from "@/lib/ai/translate-content";
+import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
+import { ensureSupplierProfileEnglish } from "@/lib/ai/supplier-translation-service";
 import { readSiteSignals } from "@/lib/ai/site-signals";
 import { hasPermission } from "@/lib/auth/permissions";
 import { nextStatusOptions, statusMeta } from "@/lib/supplier";
@@ -1227,6 +1230,7 @@ function parseSupplierInput(
     founded_year: num(raw.founded_year),
     employees: num(raw.employees),
     summary_i18n: i18n(raw.summary_i18n),
+    intro_source: str(raw.intro_source)?.slice(0, 1500) ?? null,
     moq_text: str(raw.moq_text),
     capacity_per_month: str(raw.capacity_per_month),
     ports: arr(raw.ports),
@@ -1338,6 +1342,16 @@ export async function updateSupplierAction(
     const { verification_level: _level, verified_at: _verifiedAt, ...safeInput } = input;
     void _level; void _verifiedAt;
     await store.updateSupplier(id, safeInput);
+    // Giữ bản tiếng Anh của MOQ, thị trường xuất khẩu và phần giới thiệu luôn khớp hồ sơ mới lưu;
+    // hàm này tự bỏ qua khi bản dịch còn mới và không chặn việc lưu khi AI lỗi.
+    const actorSession = await getSession();
+    // Nhân viên vừa sửa tay bản giới thiệu tiếng Anh mà không đổi câu chuyện gốc của NCC
+    // thì giữ bản đã chốt, không để AI dịch đè trong lần lưu này và các lần lưu sau.
+    const staffEditedSummary = (safeInput.summary_i18n?.en ?? "") !== (existing.summary_i18n?.en ?? "");
+    const introChanged = (safeInput.intro_source ?? null) !== (existing.intro_source ?? null);
+    await ensureSupplierProfileEnglish(store, id, actorSession ? { id: actorSession.uid, email: actorSession.email } : null,
+      { preserveSummary: staffEditedSummary && !introChanged })
+      .catch((error) => console.error("[supplier-translation] staff save", error));
     const warning = await syncSupplierIndustries(id);
     revalidateAll();
     return { ok: true, message: (input.status !== existing.status ? `Đã chuyển sang ${statusMeta(input.status).label}.` : "Đã lưu thông tin nhà cung cấp.") + (warning ? ` ${warning}` : "") };
@@ -1495,6 +1509,7 @@ export async function updateProductAction(
     // Supplier-authored products cannot use the legacy keyword fallback to turn buyer-ready on.
     if (input.ready_for_buyer && existing.supplier_originated && !input.reviewed_category_slug &&
         !existing.reviewed_category_slug) return { ok: false, message: "Vexim cần chốt danh mục sản phẩm trước khi bật sẵn sàng gửi buyer." };
+    let translationWarning = "";
     // Only buyer-shareable media can make a classified product ready.
     if (input.ready_for_buyer) {
       if (existing.reviewed_category_slug) {
@@ -1504,6 +1519,18 @@ export async function updateProductAction(
       }
       const readiness = productReadiness(await store.listMedia("product", id));
       if (!readiness.ready) return { ok: false, message: `Chưa thể đánh dấu “Sẵn sàng gửi buyer”: ${readiness.message}` };
+      // Trang buyer chỉ hiển thị bản tiếng Anh: chưa có bản dịch thì AI dịch ngay tại bước này;
+      // không dịch được và cũng chưa có bản dịch nào thì không cho công khai để tránh lộ nội dung tiếng Việt.
+      const merged = { ...existing, ...input };
+      if (!merged.name_i18n) merged.name_i18n = existing.name_i18n;
+      if (!productTranslationState(merged).current) {
+        const translation = await ensureProductEnglishTranslation(store, id, null, merged);
+        if (translation.status === "failed" || translation.status === "unconfigured") {
+          if (!merged.name_i18n?.en?.trim())
+            return { ok: false, message: "Chưa thể đánh dấu “Sẵn sàng gửi buyer”: sản phẩm chưa có bản dịch tiếng Anh và AI chưa dịch được. Hãy mở mục Bản dịch tiếng Anh trong trang sửa sản phẩm để dịch lại hoặc nhập tay." };
+          translationWarning = " Lưu ý: chưa dịch lại được bản tiếng Anh theo nội dung mới nhất; bản dịch hiện tại có thể đã cũ.";
+        }
+      }
     }
     await store.updateProduct(id, input);
     const warning = await syncSupplierIndustries(existing.supplier_id);
@@ -1513,7 +1540,7 @@ export async function updateProductAction(
         ? "Nội dung sản phẩm đã đổi; cần Vexim chốt lại danh mục trước khi công khai."
         : "Danh mục Vexim đã chốt được giữ nguyên."
       : assigned ? `Hệ thống phân loại ${assigned.name_i18n.en || assigned.slug}; không tự công khai.` : "Chưa nhận diện được ngành; đã tắt sẵn sàng gửi buyer.";
-    return { ok: true, message: `Đã lưu hồ sơ sản phẩm. ${categoryNotice}${warning ? ` ${warning}` : ""}` };
+    return { ok: true, message: `Đã lưu hồ sơ sản phẩm. ${categoryNotice}${translationWarning}${warning ? ` ${warning}` : ""}` };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowRight, ImageIcon } from "lucide-react";
+import { useCookieConsent } from "@/components/cookie-consent";
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
 
 /** Staging pilot only. Dedicated slot, never an organic rank or verification badge. */
@@ -10,7 +11,9 @@ export function SponsoredPilotSlot({ product, ticket, campaignId, categorySlug }
   product: PublicCategoryProduct; ticket: string; campaignId: string; categorySlug: string;
 }) {
   const root = useRef<HTMLElement>(null);
+  const { marketingAllowed } = useCookieConsent();
   const send = (event: "impression" | "click") => {
+    if (!marketingAllowed) return;
     try {
       const key = `vexim:pilot:${campaignId}:${event}`;
       const last = Number(sessionStorage.getItem(key) || 0);

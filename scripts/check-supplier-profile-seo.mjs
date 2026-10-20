@@ -50,7 +50,7 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': icons,
-  '@/components/product-verification-icons': { ProductVerificationIcons: () => React.createElement('span') },
+  '@/components/verification-tier': { VerificationPips: () => React.createElement('span'), VerificationTierBadge: () => React.createElement('span') },
 });
 const { default: Profile, generateMetadata } = compile('../app/(public)/suppliers/[slug]/page.tsx', {
   'react/jsx-runtime': await import('react/jsx-runtime'),
@@ -58,7 +58,8 @@ const { default: Profile, generateMetadata } = compile('../app/(public)/supplier
   'next/navigation': { notFound: () => { throw new Error('not found'); } },
   'lucide-react': icons,
   '@/components/ui': { Breadcrumbs: () => React.createElement('nav') },
-  '@/components/public-verification-badges': { PublicVerificationBadges: () => React.createElement('span') },
+  '@/components/verification-tier': { VerificationCoverSeal: () => React.createElement('span'), VerificationPips: () => React.createElement('span'), VerificationTierBadge: () => React.createElement('span'), approvedChecksSummary: () => '', verificationTier: (levels) => levels.length },
+  '@/lib/verification-status': { PRODUCT_VERIFICATION_EXPLANATIONS: { 1: 'Documents explanation', 2: '', 3: '' } },
   '@/components/public-product-card': { PublicProductCard },
   '@/lib/public/catalog': { getPublicSupplierBySlug: lookup, listPublicSuppliers: async () => fixtures,
     supplierTypeLabel: () => 'Trading company', t: (texts) => texts?.en ?? '' },
