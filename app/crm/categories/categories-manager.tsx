@@ -1035,7 +1035,7 @@ function CategoryEditor({
                 </Field>
                 <div>
                   <p className="label">Ảnh bìa (hiển thị toàn chiều ngang trên trang public)</p>
-                  <ImagePicker value={draft.hero_image} altValue={draft.hero_alt_en} onAltChange={(v) => set("hero_alt_en", v)} onChange={(v) => set("hero_image", v)} uploadUrl={uploadUrl} disabled={busy} hint="Nên dùng ảnh ngang tối thiểu 1600×900 px, đẹp nhất khoảng 1600×686 px (tỉ lệ 21:9), và đặt chủ thể chính ở giữa ảnh: trang danh mục cắt ảnh theo dải ngang 21:9, thẻ ngoài trang chủ cắt 4:3, cả hai đều cắt từ giữa nên ảnh vuông sẽ mất nhiều phần trên và dưới. Ảnh tải lên tự nén về cạnh dài tối đa 1600px, JPEG 0.85." />
+                  <ImagePicker value={draft.hero_image} altValue={draft.hero_alt_en} onAltChange={(v) => set("hero_alt_en", v)} onChange={(v) => set("hero_image", v)} uploadUrl={uploadUrl} disabled={busy} hint="Ảnh ngang tối thiểu 1600×900 px, đẹp nhất khoảng 1600×686 px (tỉ lệ 21:9)." />
                 </div>
               </div>
             </section>
