@@ -15,7 +15,7 @@ export function SiteFooter() {
         {/* Footer luôn nằm trên nền navy (ink-900) -> dùng bản logo trắng */}
         <Logo tone="white" className="h-20 w-20" />
         <p className="mt-3 max-w-sm text-[12.5px] leading-relaxed">
-          Veximtrade | VEXIM GLOBAL CO., LTD
+          Vexim Trade | VEXIM GLOBAL CO., LTD
           <br />
           {COMPANY.address}
           <br />

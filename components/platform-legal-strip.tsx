@@ -25,10 +25,10 @@ export function PlatformLegalStrip({
       aria-label="Thông tin pháp lý của nền tảng"
       className={`border-t ${dark ? "border-white/10 text-slate-400" : "border-ink-200 text-ink-500"}`}
     >
-      <div className={`mx-auto grid gap-7 px-5 py-7 text-[12.5px] leading-6 sm:px-6 md:grid-cols-3 lg:px-8 ${widthClass}`}>
+      <div className={`mx-auto grid gap-7 px-5 py-7 text-[12.5px] leading-6 sm:px-6 md:grid-cols-[0.95fr_1.5fr_0.75fr] lg:gap-10 lg:px-8 ${widthClass}`}>
         <div>
           <p className={`font-bold ${dark ? "text-slate-100" : "text-ink-900"}`}>
-            Copyright © {copyrightYear} VeximTrade.com
+            Copyright © {copyrightYear} Vexim Trade
           </p>
           <p className={`mt-2 font-semibold ${dark ? "text-slate-200" : "text-ink-800"}`}>{COMPANY.legalName}</p>
           <p className="mt-1">{COMPANY.address}</p>
@@ -50,10 +50,10 @@ export function PlatformLegalStrip({
           <p className="mt-2">Người đại diện theo pháp luật: Ông {COMPANY.legalRepresentative}</p>
           <p>Chịu trách nhiệm sàn giao dịch thương mại điện tử: Ông {COMPANY.platformResponsible}</p>
           <p>Quy chế hoạt động có hiệu lực từ ngày {COMPANY.platformRulesEffectiveDate}.</p>
-          <p className="mt-2">Ghi rõ nguồn “VeximTrade.com” khi phát hành lại thông tin từ website này.</p>
+          <p className="mt-2">Ghi rõ nguồn “veximtrade.com” khi phát hành lại thông tin từ website này.</p>
         </div>
 
-        <nav aria-label="Menu quy định của nền tảng">
+        <nav aria-label="Menu quy định của nền tảng" className="md:pl-6 lg:pl-10">
           <p className={`font-bold ${dark ? "text-slate-100" : "text-ink-900"}`}>Quy định của nền tảng</p>
           <ul className="mt-2 space-y-1.5">
             {PLATFORM_LINKS.map((item) => (
