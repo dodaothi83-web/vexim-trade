@@ -17,7 +17,7 @@ export async function GET(): Promise<Response> {
   const lines: string[] = [
     "# Vexim Trade",
     "",
-    "> Vexim Trade connects international buyers with verified Vietnamese manufacturers and exporters. Buyers send a request for quotation (RFQ); Vexim checks supplier documents, factories and delivery history, then returns matched suppliers. The platform does not take orders or payments online.",
+    "> Vexim Trade connects international buyers with verified Vietnamese manufacturers and exporters. Buyers can browse supplier listings and request a quote from a supplier they choose. If they have not found the right fit, they can send a request for quotation (RFQ) and Vexim will shortlist suppliers that match their specs, quantity and market. Suppliers are matched on buyer requirements only; paid listings do not affect recommendations. Supplier checks are shown separately for documents, factory visits and delivery history. After an introduction, buyers contract directly with the chosen supplier; Vexim does not take orders or hold payments online.",
     "",
     "## Core pages",
     `- [Home](${SITE_URL}/): Overview of sourcing from Vietnam and how the RFQ process works.`,

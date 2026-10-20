@@ -32,6 +32,13 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
   const statusLink = rfqUrl(rfq.access_token);
 
   const title = `Your sourcing request ${rfq.code} has been received`;
+  const hasPreferredSupplier = (rfq.preferred_supplier_ids ?? []).length > 0;
+  const matchingStep = hasPreferredSupplier
+    ? "Your request goes to your selected supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else."
+    : "We will select verified suppliers that match your specs, quantity and market, and send you their quotes to compare.";
+  const quoteStep = hasPreferredSupplier
+    ? "If your selected supplier responds, we will send you the quote with MOQ, lead time, certification status and FOB reference where we are authorised to share it."
+    : "You will receive a comparison with MOQ, lead time, certification status and FOB references where we are authorised to share them.";
   const body = `
     <p>Dear ${escapeHtml(buyer.contact_name?.split(" ")[0] ?? "there")},</p>
     <p>Thank you for reaching out to Vexim Trade. Your request <strong>${escapeHtml(rfq.code)}</strong>
@@ -49,8 +56,13 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
       <li>We will assign your request to a desk specialist within 4 business hours (Asia/Ho_Chi_Minh time).</li>
       ${rfq.status === "needs_review"
         ? "<li>Your request is being reviewed manually to make sure it reaches the right desk — expect a reply within one business day.</li>"
-        : "<li>We screen and shortlist suitable suppliers within 24 hours.</li>"}
-      <li>You will receive a comparison with MOQ, lead time, certification status and FOB references where we are authorised to share them.</li>
+        : ""}
+      <li>${matchingStep}</li>
+      ${hasPreferredSupplier ? "" : "<li>Suppliers are matched on your requirements only. Paid listings never affect who we recommend.</li>"}
+      <li>${quoteStep}</li>
+      <li>Your contact details stay private until you agree to an introduction.</li>
+      <li>You sign the contract directly with the supplier you choose. Vexim never holds your payment.</li>
+      <li>Requesting a quote is free for buyers.</li>
     </ul>
     <p>You can check progress any time without logging in using this private link:<br/>
        <a href="${statusLink}">${statusLink}</a>

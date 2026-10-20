@@ -39,19 +39,97 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+const CATEGORY_RFQ_META_SUFFIX =
+  "Request a quote from a supplier you choose, or send your requirements and Vexim will shortlist suppliers that match.";
+
+function categoryMetaDescription(name: string, storedDescription: string): string {
+  const base = storedDescription.trim();
+  const fallback = `Compare verified Vietnamese ${name.toLowerCase()} suppliers. ${CATEGORY_RFQ_META_SUFFIX}`;
+  if (!base) return fallback;
+
+  const hasChosenSupplierPath = /supplier you choose|your chosen supplier|chosen supplier/i.test(base);
+  const hasOpenRequestPath = /shortlist/i.test(base);
+  if (hasChosenSupplierPath && hasOpenRequestPath) return base;
+
+  if (!hasChosenSupplierPath && !hasOpenRequestPath) {
+    const withSuffix = `${base.replace(/[\s.]+$/, "")}. ${CATEGORY_RFQ_META_SUFFIX}`;
+    return withSuffix.length <= 185 ? withSuffix : fallback;
+  }
+
+  const complement = hasChosenSupplierPath
+    ? "If you have not found the right fit, send your requirements and Vexim will shortlist suppliers that match."
+    : "You can also request a quote from a supplier you choose.";
+  const withComplement = `${base.replace(/[\s.]+$/, "")}. ${complement}`;
+  if (withComplement.length <= 185) return withComplement;
+
+  const firstSentence = base.match(/^[^.]+\./)?.[0]?.trim();
+  const shortened = firstSentence ? `${firstSentence} ${CATEGORY_RFQ_META_SUFFIX}` : fallback;
+  return shortened.length <= 185 ? shortened : fallback;
+}
+
+const STANDARD_CATEGORY_FAQS = [
+  {
+    q: "Can I request a quote from a specific supplier?",
+    a: "Yes. Your request goes to that supplier first. If they cannot meet it, Vexim will ask you before suggesting anyone else.",
+  },
+  {
+    q: "How does Vexim match suppliers for an open request?",
+    a: "Suppliers are matched on your requirements only, including your specs, quantity and market. Paid listings never affect who Vexim recommends.",
+  },
+] as const;
+
+function normalizeCategoryFaqText(text: string): string {
+  return text
+    .replace(/\b2\s*(?:to|–|-|—)\s*4\s+(?:supplier\s+options|supplier\s+quotes|suppliers|options|quotes)\b/gi, "matching suppliers")
+    .replace(/\b2\s*(?:to|–|-|—)\s*4\b/g, "matching suppliers")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function categoryFaqs(raw: unknown): Array<{ q: string; a: string }> {
+  const faqs = Array.isArray(raw)
+    ? raw
+        .map((f) => {
+          const item = (f ?? {}) as { q?: unknown; a?: unknown; question?: unknown; answer?: unknown };
+          return {
+            q: normalizeCategoryFaqText(typeof item.q === "string" ? item.q : typeof item.question === "string" ? item.question : ""),
+            a: normalizeCategoryFaqText(typeof item.a === "string" ? item.a : typeof item.answer === "string" ? item.answer : ""),
+          };
+        })
+        .filter((f) => f.q && f.a)
+    : [];
+
+  if (faqs.length === 0) return faqs;
+
+  const hasSpecificSupplierFaq = faqs.some((f) =>
+    /specific supplier|supplier you choose|goes to (?:that|this) supplier first/i.test(`${f.q} ${f.a}`),
+  );
+  const hasMatchingBasisFaq = faqs.some((f) =>
+    /paid listings|matched on your requirements/i.test(`${f.q} ${f.a}`),
+  );
+
+  return [
+    ...faqs,
+    ...(!hasSpecificSupplierFaq ? [STANDARD_CATEGORY_FAQS[0]] : []),
+    ...(!hasMatchingBasisFaq ? [STANDARD_CATEGORY_FAQS[1]] : []),
+  ];
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const { cat, resolvedSlug, isPreview } = await resolveCategory(slug);
   if (!cat) return { title: "Category not found | Vexim Trade", robots: { index: false, follow: false } };
   const name = t(cat.name_i18n);
   const seoTitle = t(cat.seo_title_i18n) || `${name} Products in Vietnam | Vexim Trade`;
-  const seoDesc = t(cat.seo_desc_i18n) || `Explore Vietnamese ${name.toLowerCase()} products by grade, MOQ and supplier verification.`;
+  const seoDesc = categoryMetaDescription(name, t(cat.seo_desc_i18n));
   const indexable = !isPreview && !!cat.seo_indexable;
+  const images = cat.hero_image ? [{ url: cat.hero_image, alt: `${name} suppliers in Vietnam` }] : undefined;
   return {
     title: { absolute: seoTitle },
     description: seoDesc,
     alternates: { canonical: `/products/${resolvedSlug}` },
-    openGraph: { title: seoTitle, description: seoDesc, url: `/products/${resolvedSlug}`, siteName: "Vexim Trade", type: "website", images: cat.hero_image ? [{ url: cat.hero_image }] : undefined },
+    openGraph: { title: seoTitle, description: seoDesc, url: `/products/${resolvedSlug}`, siteName: "Vexim Trade", type: "website", images },
+    twitter: { card: "summary_large_image", title: seoTitle, description: seoDesc, images: cat.hero_image ? [cat.hero_image] : undefined },
     robots: { index: indexable, follow: !isPreview },
   };
 }
@@ -95,11 +173,7 @@ export default async function CategoryPage({ params }: PageProps) {
   const columns: CategoryColumn[] = Array.isArray(cat.spec_columns) ? (cat.spec_columns as CategoryColumn[]) : [];
   const rows: CategoryRow[] = Array.isArray(cat.spec_rows) ? (cat.spec_rows as CategoryRow[]) : [];
   const facts: CategoryFact[] = Array.isArray(cat.buying_facts) ? (cat.buying_facts as CategoryFact[]) : [];
-  const faqs = Array.isArray(cat.faq_i18n)
-    ? (cat.faq_i18n as Array<{ q?: string; a?: string; question?: string; answer?: string }>)
-        .map((f) => ({ q: f.q ?? f.question ?? "", a: f.a ?? f.answer ?? "" }))
-        .filter((f) => f.q && f.a)
-    : [];
+  const faqs = categoryFaqs(cat.faq_i18n);
   const filters: CategoryFilter[] = Array.isArray(cat.filters) ? (cat.filters as CategoryFilter[]) : [];
 
   // Schema cho trang danh mục: đường dẫn breadcrumb luôn có; ItemList chỉ khi đã có sản phẩm.
@@ -131,7 +205,7 @@ export default async function CategoryPage({ params }: PageProps) {
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            __html: safeJsonLd({
               "@context": "https://schema.org",
               "@type": "FAQPage",
               mainEntity: faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),

@@ -60,10 +60,12 @@ const CASHEW_FACTS: CategoryFact[] = [
 ];
 
 const CASHEW_FAQS = [
-  { q: "Do you charge buyers?", a: "No. Requesting quotes is free. We only charge for optional services such as pre-shipment inspection when you ask us to arrange them." },
+  { q: "Do you charge buyers?", a: "No. Requesting a quote is free for buyers. Optional services, such as pre-shipment inspection, are quoted separately before you agree to them." },
   { q: "Can I get samples before ordering?", a: "Yes. We can arrange samples from the suppliers you're interested in. Sample cost and courier charges are paid by the buyer; we'll confirm the amount before anything is sent." },
   { q: "Can I order less than a full container?", a: "Some suppliers accept smaller trial orders. Tell us your volume and we'll find out who can do it." },
-  { q: "Will suppliers contact me directly?", a: "Not until you choose to. Suppliers see your requirements, not your contact details." },
+  { q: "Will suppliers contact me directly?", a: "Not until you agree to an introduction. Suppliers see your requirements, not your contact details." },
+  { q: "Can I request a quote from a specific supplier?", a: "Yes. Your request goes to that supplier first. If they cannot meet it, Vexim will ask you before suggesting anyone else." },
+  { q: "How does Vexim match suppliers for an open request?", a: "Suppliers are matched on your requirements only, including your specs, quantity and market. Paid listings never affect who Vexim recommends." },
 ];
 
 const CASHEW_FILTERS: CategoryFilter[] = [
@@ -83,7 +85,7 @@ export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
     "Most Vietnamese processors grade cashew kernels to the AFI standard. Counts are per pound and the final spec is agreed in your contract. Counts and uses below are to be confirmed by our trading team before we put them in front of a buyer.",
   seo_title: "Cashew Suppliers in Vietnam | W180 to W450 Kernels | Vexim Trade",
   seo_desc:
-    "Compare verified Vietnamese cashew kernel suppliers. W180 to W450, splits and pieces. Request a quote and hear back within one business day.",
+    "Compare verified Vietnamese cashew kernel suppliers, W180 to W450. Request a quote from your chosen supplier, or send requirements and Vexim will shortlist matching suppliers.",
   hero_image: "/images/categories/cashew-hero.jpg",
   hero_alt: "Vietnamese cashew kernels, graded",
   kicker: "W180 – SP, AFI grades",

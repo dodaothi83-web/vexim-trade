@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const HOME_TITLE = "Vexim Trade – Verified Vietnamese food & agriculture sourcing";
 const HOME_DESCRIPTION =
-  "Verified Vietnamese food and agriculture sourcing desk. Browse suppliers or submit a brief to compare quotes from checked Vietnamese suppliers.";
+  "Browse verified Vietnamese suppliers and request a quote from the one you choose, or send your requirements and Vexim will shortlist suppliers that match.";
 const HOME_IMAGE = "/images/home/hero-cashew-texture.jpg";
 
 export const metadata: Metadata = {
@@ -57,6 +57,8 @@ export default async function PublicHomePage() {
         "@id": `${SITE_URL}/#organization`,
         name: COMPANY.name,
         legalName: COMPANY.legalName,
+        description:
+          "Vexim Trade connects international buyers with verified Vietnamese suppliers. Buyers can browse supplier listings, request a quote from a supplier they choose, or send requirements for Vexim to shortlist matching suppliers. After an introduction, buyers contract directly with the chosen supplier; Vexim does not hold buyer payments.",
         url: SITE_URL,
         logo: `${SITE_URL}/logo-vexim.png`,
         email: COMPANY.email,
