@@ -816,6 +816,7 @@ function CategoryEditor({
   const [tab, setTab] = useState<EditorTab>(initialTab);
   const [drafting, setDrafting] = useState(false);
   const [draftingBody, setDraftingBody] = useState(false);
+  const [draftingFaq, setDraftingFaq] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const toast = useToast();
 
@@ -880,6 +881,39 @@ function CategoryEditor({
       toast.push({ kind: "success", title: "Đã điền bản nháp nội dung chi tiết. Hãy kiểm tra và sửa lại trước khi lưu." });
     } catch (error) { toast.push({ kind: "error", title: error instanceof Error ? error.message : "Lỗi AI" }); }
     finally { setDraftingBody(false); }
+  }
+
+  async function aiFaq() {
+    if (!draft.name_en.trim()) { toast.push({ kind: "error", title: "Nhập tên danh mục trước." }); return; }
+    setDraftingFaq(true);
+    try {
+      const response = await fetch("/api/ai/editor-draft", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "category-faq",
+          name: draft.name_en,
+          intro: draft.intro_en,
+          facts: draft.buying_facts.filter((f) => f.label && f.value).map((f) => `${f.label}: ${f.value}`).slice(0, 8),
+          existing: draft.faqs.map((f) => f.q).filter(Boolean).slice(0, 10),
+        }),
+      });
+      const data = await response.json() as { items?: Array<{ q: string; a: string }>; message?: string };
+      if (!response.ok || !data.items?.length) throw new Error(data.message ?? "AI chưa soạn được. Thử lại sau.");
+      const seen = new Set(draft.faqs.map((f) => f.q.trim().toLowerCase()).filter(Boolean));
+      const fresh = data.items.filter((item) => {
+        const keyOfItem = item.q.trim().toLowerCase();
+        if (!keyOfItem || seen.has(keyOfItem)) return false;
+        seen.add(keyOfItem);
+        return true;
+      });
+      if (!fresh.length) {
+        toast.push({ kind: "error", title: "AI chưa gợi ý thêm được câu hỏi mới. Hãy tự thêm hoặc xoá bớt câu cũ rồi thử lại." });
+        return;
+      }
+      setDraft((d) => ({ ...d, faqs: [...d.faqs, ...fresh] }));
+      toast.push({ kind: "success", title: `Đã thêm ${fresh.length} câu hỏi nháp. Hãy kiểm tra và sửa lại trước khi lưu.` });
+    } catch (error) { toast.push({ kind: "error", title: error instanceof Error ? error.message : "Lỗi AI" }); }
+    finally { setDraftingFaq(false); }
   }
 
   const buyerTag = <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-sky-800">Buyer thấy · EN</span>;
@@ -1068,8 +1102,17 @@ function CategoryEditor({
                 <FactsEditor draft={draft} setDraft={setDraft} />
               </div>
               <div className="border-t border-ink-100 pt-6">
-                <h2 className="text-base font-bold text-ink-900">Câu hỏi thường gặp (FAQ)</h2>
-                <p className="mb-4 mt-0.5 text-[13px] text-ink-500">Hiển thị dạng mục mở/đóng ở cuối trang danh mục và hỗ trợ Google hiển thị rich result.</p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-bold text-ink-900">Câu hỏi thường gặp (FAQ)</h2>
+                    <p className="mb-4 mt-0.5 text-[13px] text-ink-500">Hiển thị dạng mục mở/đóng ở cuối trang danh mục và hỗ trợ Google hiển thị rich result.</p>
+                  </div>
+                  {aiEnabled && (
+                    <Button type="button" size="sm" disabled={draftingFaq || busy} onClick={() => void aiFaq()}>
+                      {draftingFaq ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Tự động soạn nội dung
+                    </Button>
+                  )}
+                </div>
                 <FaqsEditor draft={draft} setDraft={setDraft} />
               </div>
             </section>
