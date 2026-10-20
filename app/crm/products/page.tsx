@@ -123,9 +123,14 @@ export default async function ProductsPage({
         title="Sản phẩm nhà cung cấp"
         sub={`${all.length} hồ sơ sản phẩm · giá chỉ là tham khảo có thời hạn, báo giá chính thức do NCC xác nhận theo từng RFQ`}
         actions={canManage ? (
-          <Link href="/crm/suppliers" className="btn btn-primary">
-            Thêm sản phẩm qua hồ sơ NCC
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/crm/products/import" className="btn btn-soft">
+              Nhập từ Excel
+            </Link>
+            <Link href="/crm/suppliers" className="btn btn-primary">
+              Thêm sản phẩm qua hồ sơ NCC
+            </Link>
+          </div>
         ) : undefined}
       />
 
