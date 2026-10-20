@@ -25,6 +25,10 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
   const [summaryConfirmed, setSummaryConfirmed] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [showOldEvidence, setShowOldEvidence] = useState(evidence.some((m) => !m.checklist_key));
+  // UI lạc quan cho nút "Đánh dấu đã kiểm": đổi nhãn ngay khi bấm, hoàn tác nếu server lỗi.
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, "checked" | "unverified">>({});
+  const [markingId, setMarkingId] = useState<string | null>(null);
+  const shownStatus = (asset: MediaAsset) => statusOverrides[asset.id] ?? asset.status;
   const [scanning, setScanning] = useState(false);
   const [aiResult, setAiResult] = useState<(AiDocumentReview & { skipped: string[] }) | null>(null);
   const editable = canInspect && ["in_progress", "scheduled", "returned"].includes(v.status);
@@ -41,7 +45,7 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
     : [];
   const unassignedEvidence = evidence.filter((m) => !m.checklist_key);
   const readableEvidence = evidence.filter((m) => m.storage_path && ["document", "certificate", "image"].includes(m.kind));
-  const evidenceFingerprint = readableEvidence.map((m) => `${m.id}:${m.storage_path}`).join("|");
+  const evidenceFingerprint = readableEvidence.map((m) => `${m.id}:${m.storage_path}:${m.status}`).join("|");
   const previousEvidence = useRef(evidenceFingerprint);
   const justScannedIds = useRef<string[] | null>(null);
   const scanInFlight = useRef(false);
@@ -52,6 +56,8 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
       if (!justScannedIds.current?.every((id) => readableEvidence.some((m) => m.id === id))) setAiResult(null);
       justScannedIds.current = null;
       previousEvidence.current = evidenceFingerprint;
+      // Props server đã về (kể cả status mới): bỏ các giá trị lạc quan.
+      setStatusOverrides({});
     }
   }, [evidenceFingerprint]);
 
@@ -96,21 +102,39 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
     setFeedback({ ok: true, message: `Đã điền nháp ${count} mục chưa kiểm. Hãy đối chiếu tệp và chỉnh sửa trước khi lưu.` });
   }
 
-  async function run(action: () => Promise<{ ok: boolean; message: string }>) {
+  async function run(action: () => Promise<{ ok: boolean; message: string }>, assetId?: string) {
     if (busy) return;
     setBusy(true); setFeedback(null);
+    if (assetId) setMarkingId(assetId);
     try {
       const result = await action();
       setFeedback({ ok: result.ok, message: result.message });
       if (result.ok) router.refresh();
     } catch (error) {
       setFeedback({ ok: false, message: error instanceof Error ? error.message : "Không lưu được. Vui lòng thử lại." });
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setMarkingId(null); }
+  }
+
+  /** Bấm là đổi nhãn ngay (optimistic); server lỗi thì hoàn tác và báo đỏ. */
+  async function toggleChecked(asset: MediaAsset) {
+    if (!canManageEvidence || busy) return;
+    const next = shownStatus(asset) === "checked" ? "unverified" : "checked";
+    setStatusOverrides((o) => ({ ...o, [asset.id]: next }));
+    setMarkingId(asset.id); setBusy(true); setFeedback(null);
+    try {
+      const result = await updateMediaAction(asset.id, { status: next });
+      setFeedback({ ok: result.ok, message: result.message });
+      if (result.ok) router.refresh();
+      else setStatusOverrides((o) => { const c = { ...o }; delete c[asset.id]; return c; });
+    } catch (error) {
+      setStatusOverrides((o) => { const c = { ...o }; delete c[asset.id]; return c; });
+      setFeedback({ ok: false, message: error instanceof Error ? error.message : "Không cập nhật được trạng thái kiểm tra." });
+    } finally { setBusy(false); setMarkingId(null); }
   }
 
   function removeEvidence(asset: MediaAsset) {
     if (!canManageEvidence || !window.confirm(`Xóa hẳn tệp “${asset.caption || asset.id}” khỏi đợt kiểm?`)) return;
-    void run(() => deleteMediaAction(asset.id));
+    void run(() => deleteMediaAction(asset.id), asset.id);
   }
 
   function addVideo() {
@@ -229,8 +253,10 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
         <p className="text-xs text-ink-600">Tệp thuộc đúng đợt kiểm vẫn dùng được. Gắn vào dòng bên dưới để dễ đối chiếu; không cần tải lại. Tệp kho chung NCC không tự chuyển vào đây.</p>
         {unassignedEvidence.map((asset) => <div key={asset.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2">
           <a href={asset.storage_path ? `/api/media/file/${asset.storage_path}` : asset.external_url || "#"} target="_blank" rel="noreferrer" className="max-w-72 truncate font-medium text-brand-700 underline">{asset.caption || (asset.kind === "video" ? "Mở video" : "Mở tệp")}</a>
-          {v.target_level > 1 && asset.storage_path && <span className={asset.status === "checked" ? "text-xs text-emerald-700" : "text-xs text-ink-500"}>{asset.status === "checked" ? "Đã kiểm tra" : "Chưa đánh dấu"}</span>}
-          {canManageEvidence && v.target_level > 1 && asset.storage_path && <button type="button" disabled={busy} className="text-xs text-brand-700 underline" onClick={() => void run(() => updateMediaAction(asset.id, { status: asset.status === "checked" ? "unverified" : "checked" }))}>{asset.status === "checked" ? "Bỏ đánh dấu" : "Đánh dấu đã kiểm"}</button>}
+          {v.target_level > 1 && asset.storage_path && <span className={shownStatus(asset) === "checked" ? "text-xs text-emerald-700" : "text-xs text-ink-500"}>{shownStatus(asset) === "checked" ? "Đã kiểm tra" : "Chưa đánh dấu"}</span>}
+          {canManageEvidence && v.target_level > 1 && asset.storage_path && <button type="button" disabled={busy} className="inline-flex items-center gap-1 text-xs text-brand-700 underline disabled:opacity-50" onClick={() => void toggleChecked(asset)}>
+            {markingId === asset.id && <Loader2 className="h-3 w-3 animate-spin" />}{shownStatus(asset) === "checked" ? "Bỏ đánh dấu" : "Đánh dấu đã kiểm"}
+          </button>}
           {canManageEvidence && asset.storage_path && ["image", "document", "certificate"].includes(asset.kind) && <select className="input w-auto py-1 text-xs" value="" disabled={busy} aria-label={`Gắn ${asset.caption || "tệp"} vào mục kiểm`} onChange={(e) => {
             const key = e.target.value as AuditEvidenceKey;
             if (key) void run(() => assignVerificationEvidenceAction(asset.id, key));
@@ -319,8 +345,14 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
                   <img src={`/api/media/file/${asset.thumb_path || asset.storage_path}`} alt={asset.caption || "Ảnh bằng chứng"} className="h-10 w-10 rounded object-cover" />
                 ) : <FileText className="h-5 w-5 shrink-0 text-ink-500" />}
                 <span className="min-w-0"><a href={`/api/media/file/${asset.storage_path}`} target="_blank" rel="noreferrer" className="block truncate font-semibold text-brand-700 underline">{asset.caption || "Mở tệp"}</a>
-                  {v.target_level > 1 && <span className={asset.status === "checked" ? "text-emerald-700" : "text-ink-500"}>{asset.status === "checked" ? "Đã kiểm tra" : "Chưa đánh dấu kiểm tra"}</span>}
-                  {canManageEvidence && <span className="flex flex-wrap gap-2">{v.target_level > 1 && <button type="button" disabled={busy} className="text-brand-700 underline" onClick={() => void run(() => updateMediaAction(asset.id, { status: asset.status === "checked" ? "unverified" : "checked" }))}>{asset.status === "checked" ? "Bỏ đánh dấu" : "Đánh dấu đã kiểm"}</button>}<button type="button" disabled={busy} className="text-ink-500 underline" onClick={() => void run(() => assignVerificationEvidenceAction(asset.id, null))}>Bỏ gắn</button><button type="button" disabled={busy} className="text-rose-700 underline" onClick={() => removeEvidence(asset)}>Xóa</button></span>}
+                  {v.target_level > 1 && <span className={shownStatus(asset) === "checked" ? "text-emerald-700" : "text-ink-500"}>{shownStatus(asset) === "checked" ? "Đã kiểm tra" : "Chưa đánh dấu kiểm tra"}</span>}
+                  {canManageEvidence && <span className="flex flex-wrap gap-2">{v.target_level > 1 && <button type="button" disabled={busy} className="inline-flex items-center gap-1 text-brand-700 underline disabled:opacity-50" onClick={() => void toggleChecked(asset)}>
+                    {markingId === asset.id && <Loader2 className="h-3 w-3 animate-spin" />}{shownStatus(asset) === "checked" ? "Bỏ đánh dấu" : "Đánh dấu đã kiểm"}
+                  </button>}<button type="button" disabled={busy} className="inline-flex items-center gap-1 text-ink-500 underline disabled:opacity-50" onClick={() => void run(() => assignVerificationEvidenceAction(asset.id, null), asset.id)}>
+                    {markingId === asset.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}Bỏ gắn
+                  </button><button type="button" disabled={busy} className="inline-flex items-center gap-1 text-rose-700 underline disabled:opacity-50" onClick={() => removeEvidence(asset)}>
+                    {markingId === asset.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}Xóa
+                  </button></span>}
                 </span>
               </div>)}</div>}
             </div>}
