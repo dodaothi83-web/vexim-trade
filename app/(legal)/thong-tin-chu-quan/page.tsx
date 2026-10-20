@@ -32,6 +32,7 @@ export default function PlatformOperatorPage() {
       <Row label="Mã số doanh nghiệp / mã số thuế">{COMPANY.taxCode}, cấp ngày {COMPANY.registrationDate}</Row>
       <Row label="Địa chỉ trụ sở chính">{COMPANY.address}</Row>
       <Row label="Người đại diện theo pháp luật">{COMPANY.legalRepresentative}</Row>
+      <Row label="Người chịu trách nhiệm sàn giao dịch thương mại điện tử">{COMPANY.platformResponsible}</Row>
       <Row label="Email tiếp nhận phản ánh"><a href="mailto:contact@veximglobal.com" className="font-semibold text-brand-700 underline">contact@veximglobal.com</a></Row>
       <Row label="Điện thoại">{COMPANY.phone}</Row>
     </dl>

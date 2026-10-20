@@ -3,6 +3,7 @@ import Link from "next/link";
 import { COMPANY } from "@/lib/config";
 import { CookieSettingsButton } from "@/components/cookie-consent";
 import { Logo } from "@/components/brand-logo";
+import { PlatformLegalStrip } from "@/components/platform-legal-strip";
 import { SocialLinks } from "@/components/social-links";
 
 /** Chân trang dùng chung cho trang chủ và trang blog. */
@@ -40,9 +41,6 @@ export function SiteFooter() {
           Staff sign in
         </a>
         <div className="mt-4 flex flex-wrap gap-4">
-          <Link href="/thong-tin-chu-quan" className="transition hover:text-white">Thông tin chủ quản</Link>
-          <Link href="/quy-che-hoat-dong" className="transition hover:text-white">Quy chế hoạt động</Link>
-          <Link href="/khieu-nai" className="transition hover:text-white">Khiếu nại</Link>
           <Link href="/privacy-policy" className="transition hover:text-white">Privacy Policy</Link>
           <Link href="/cookie-policy" className="transition hover:text-white">Cookie Policy</Link>
           <CookieSettingsButton className="transition hover:text-white" />
@@ -50,9 +48,7 @@ export function SiteFooter() {
         </div>
       </div>
     </div>
-    <div className="border-t border-white/10 py-4 text-center text-[11.5px] text-slate-500">
-      © {new Date().getFullYear()} Veximtrade | VEXIM GLOBAL CO., LTD
-    </div>
+    <PlatformLegalStrip tone="dark" widthClass="max-w-5xl" />
   </footer>
   );
 }
