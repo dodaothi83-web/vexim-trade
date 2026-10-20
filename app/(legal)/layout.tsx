@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { Logo } from "@/components/brand-logo";
+import { CookieSettingsButton } from "@/components/cookie-consent";
 import { SocialLinks } from "@/components/social-links";
 
 /** Public legal documents must load without a session or a working marketplace database. */
@@ -19,6 +20,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
           <Link href="/dieu-khoan-su-dung" className="hover:text-brand-700">Điều khoản sử dụng</Link>
           <Link href="/chinh-sach-bao-mat" className="hover:text-brand-700">Chính sách bảo mật</Link>
           <Link href="/privacy-policy" className="hover:text-brand-700">Privacy Policy</Link>
+          <Link href="/cookie-policy" className="hover:text-brand-700">Cookie Policy</Link>
           <Link href="/terms-of-service" className="hover:text-brand-700">Terms of Service</Link>
         </nav>
       </div>
@@ -29,6 +31,8 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
         <p>© {new Date().getFullYear()} VEXIM GLOBAL CO., LTD · Số 25/6 Ngõ 51 Ngoạ Long, Tây Tựu, Hà Nội, Việt Nam</p>
         <div className="flex flex-wrap items-center gap-4">
           <Link href="/" className="hover:text-brand-700">Home</Link>
+          <Link href="/cookie-policy" className="hover:text-brand-700">Cookie Policy</Link>
+          <CookieSettingsButton className="hover:text-brand-700" />
           <a href="mailto:contact@veximglobal.com" className="hover:text-brand-700">contact@veximglobal.com</a>
           <SocialLinks />
         </div>

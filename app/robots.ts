@@ -61,7 +61,7 @@ export default function robots(): MetadataRoute.Robots {
   // and legal disclosures. Preview/development stays fully disallowed.
   return {
     rules: LEGAL_CRAWLABLE
-      ? [{ userAgent: "*", allow: ["/$", "/privacy-policy", "/terms-of-service", "/thong-tin-chu-quan", "/quy-che-hoat-dong", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat", "/khieu-nai"], disallow: "/" }]
+      ? [{ userAgent: "*", allow: ["/$", "/privacy-policy", "/cookie-policy", "/terms-of-service", "/thong-tin-chu-quan", "/quy-che-hoat-dong", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat", "/khieu-nai"], disallow: "/" }]
       : [{ userAgent: "*", disallow: "/" }],
   };
 }

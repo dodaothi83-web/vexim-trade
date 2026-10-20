@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { COMPANY } from "@/lib/config";
+import { CookieSettingsButton } from "@/components/cookie-consent";
 import { Logo } from "@/components/brand-logo";
 import { SocialLinks } from "@/components/social-links";
 
@@ -43,6 +44,8 @@ export function SiteFooter() {
           <Link href="/quy-che-hoat-dong" className="transition hover:text-white">Quy chế hoạt động</Link>
           <Link href="/khieu-nai" className="transition hover:text-white">Khiếu nại</Link>
           <Link href="/privacy-policy" className="transition hover:text-white">Privacy Policy</Link>
+          <Link href="/cookie-policy" className="transition hover:text-white">Cookie Policy</Link>
+          <CookieSettingsButton className="transition hover:text-white" />
           <Link href="/terms-of-service" className="transition hover:text-white">Terms of Service</Link>
         </div>
       </div>

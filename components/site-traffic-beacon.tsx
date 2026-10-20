@@ -2,12 +2,15 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { useCookieConsent } from "@/components/cookie-consent";
 import { publicSitePageKey } from "@/lib/traffic/site-path";
 
 /** Browser page views, not unique visitors. Sensitive routes are excluded by an allowlist. */
 export function SiteTrafficBeacon() {
   const pathname = usePathname();
+  const { analyticsAllowed } = useCookieConsent();
   useEffect(() => {
+    if (!analyticsAllowed) return;
     const page = publicSitePageKey(pathname);
     if (!page) return;
     try {
@@ -21,6 +24,6 @@ export function SiteTrafficBeacon() {
       }).then((res) => { if (!res.ok) sessionStorage.removeItem(key); })
         .catch(() => sessionStorage.removeItem(key));
     } catch { /* Analytics must never block navigation or private browsing. */ }
-  }, [pathname]);
+  }, [pathname, analyticsAllowed]);
   return null;
 }

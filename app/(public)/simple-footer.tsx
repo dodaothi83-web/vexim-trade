@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { COMPANY } from "@/lib/config";
+import { CookieSettingsButton } from "@/components/cookie-consent";
 import { SocialLinks } from "@/components/social-links";
 
 /**
@@ -25,6 +26,8 @@ export function SimpleFooter() {
           <Link href="/quy-che-hoat-dong" className="hover:text-ink-800">Quy chế hoạt động</Link>
           <Link href="/khieu-nai" className="hover:text-ink-800">Khiếu nại</Link>
           <Link href="/privacy-policy" className="hover:text-ink-800">Privacy Policy</Link>
+          <Link href="/cookie-policy" className="hover:text-ink-800">Cookie Policy</Link>
+          <CookieSettingsButton className="hover:text-ink-800" />
           <Link href="/terms-of-service" className="hover:text-ink-800">Terms of Service</Link>
           <a href={`mailto:${COMPANY.email}`} className="hover:text-ink-800">{COMPANY.email}</a>
           <SocialLinks />

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
+import { CookieConsentProvider } from "@/components/cookie-consent";
 import { PublicSpeedInsights } from "@/components/public-speed-insights";
 import { SITE_URL } from "@/lib/site";
 
@@ -33,8 +34,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang={lang}>
       <body>
-        <ToastProvider>{children}</ToastProvider>
-        <PublicSpeedInsights />
+        <ToastProvider>
+          <CookieConsentProvider>
+            {children}
+            <PublicSpeedInsights />
+          </CookieConsentProvider>
+        </ToastProvider>
       </body>
     </html>
   );

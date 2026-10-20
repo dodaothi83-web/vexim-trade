@@ -16,6 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const posts = await listPublishedNews().catch(() => []);
   const legalRoutes: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/privacy-policy`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/cookie-policy`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/terms-of-service`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/thong-tin-chu-quan`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/quy-che-hoat-dong`, changeFrequency: "yearly", priority: 0.3 },

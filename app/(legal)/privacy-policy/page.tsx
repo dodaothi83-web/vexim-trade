@@ -14,7 +14,7 @@ export default function PrivacyPolicyPage() {
   return <article className="rounded-2xl border border-ink-200 bg-white px-5 py-8 shadow-sm sm:px-10 sm:py-10">
     <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-700">Vexim Trade · Legal</p>
     <h1 className="mt-3 text-3xl font-black tracking-tight text-ink-900 sm:text-4xl">Privacy Policy</h1>
-    <p className="mt-3 text-sm text-ink-500">Effective date: October 18, 2026 · Version 1</p>
+    <p className="mt-3 text-sm text-ink-500">Effective date: October 20, 2026 · Version 2</p>
     <p className="mt-6 text-sm leading-7 text-ink-700">This policy describes how VEXIM GLOBAL CO., LTD (operating Vexim Trade, “Vexim”, “we” or “us”) handles information when you visit <a className="font-semibold text-brand-700 underline" href={SITE_URL}>{SITE_URL}</a>, request a quote, create a supplier account or use our staff tools. Vexim Trade is a business-to-business sourcing platform connecting buyers with Vietnamese suppliers. Questions or privacy requests can be sent to <a className="font-semibold text-brand-700 underline" href="mailto:contact@veximglobal.com">contact@veximglobal.com</a>.</p>
 
     <section className="mt-9 space-y-3" aria-labelledby="privacy-data">
@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
       <ul className="list-disc space-y-2 pl-6 text-sm leading-7 text-ink-700">
         <li><strong>Buyer enquiries:</strong> company and contact details, email, phone if supplied, products, specifications, quantity, destination, requested services, messages, consent record and the status of your request. A form may also send campaign parameters or a referrer.</li>
         <li><strong>Supplier accounts and submissions:</strong> account name and email, business and contact details, product information, images, certificates, tax/bank and verification documents you choose to provide, and staff review decisions. Some of these are sensitive business records and remain internal unless a separate public-display decision is made.</li>
-        <li><strong>Use of the site:</strong> page-view totals by date and public page, and limited security or service logs. Our page-view reports are approximate; they do not identify unique buyers or store IP addresses or visitor identifiers in the page-view tables. Browsers may use session storage to avoid repeatedly counting the same page in one tab.</li>
+        <li><strong>Use of the site:</strong> page-view totals by date and public page, and limited security or service logs. Our page-view reports are approximate; they do not identify unique buyers or store IP addresses or visitor identifiers in the page-view tables. Browsers may use session storage to avoid repeatedly counting the same page in one tab. Optional analytics and performance technologies run only after you allow them through Cookie settings. See our <Link href="/cookie-policy" className="font-semibold text-brand-700 underline">Cookie Policy</Link> for the categories and controls.</li>
         <li><strong>Communications:</strong> emails you send to us or receive from us, replies, and records needed to follow up on enquiries or manage accounts.</li>
       </ul>
     </section>
@@ -51,7 +51,7 @@ export default function PrivacyPolicyPage() {
 
     <section className="mt-9 space-y-3" aria-labelledby="privacy-rights">
       <h2 id="privacy-rights" className="text-xl font-bold text-ink-900">6. Your choices and requests</h2>
-      <p className="text-sm leading-7 text-ink-700">You may ask us to access, correct or delete your personal information, withdraw consent where applicable, or ask about our handling of your data by emailing <a href="mailto:contact@veximglobal.com" className="font-semibold text-brand-700 underline">contact@veximglobal.com</a>. We may need to verify your identity and may retain records when required by law or for legitimate security and dispute purposes. Revoking Google sign-in is separate from deleting a Vexim account and may affect your ability to log in. Our service is intended for business users, not children.</p>
+      <p className="text-sm leading-7 text-ink-700">You may ask us to access, correct or delete your personal information, withdraw consent where applicable, or ask about our handling of your data by emailing <a href="mailto:contact@veximglobal.com" className="font-semibold text-brand-700 underline">contact@veximglobal.com</a>. You can change or withdraw cookie choices at any time through <strong>Cookie settings</strong> in the footer of a public page. We may need to verify your identity and may retain records when required by law or for legitimate security and dispute purposes. Revoking Google sign-in is separate from deleting a Vexim account and may affect your ability to log in. Our service is intended for business users, not children.</p>
     </section>
 
     <section className="mt-9 space-y-3" aria-labelledby="privacy-changes">
