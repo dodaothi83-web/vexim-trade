@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const HOME_TITLE = "Vexim Trade – Verified Vietnamese food & agriculture sourcing";
 const HOME_DESCRIPTION =
-  "Verified Vietnamese food and agriculture sourcing desk. Submit a brief and get 2–4 audited supplier quotes in 24 business hours.";
+  "Verified Vietnamese food and agriculture sourcing desk. Browse suppliers or submit a brief to compare quotes from checked Vietnamese suppliers.";
 const HOME_IMAGE = "/images/home/hero-cashew-texture.jpg";
 
 export const metadata: Metadata = {

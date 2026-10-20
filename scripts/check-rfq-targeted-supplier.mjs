@@ -73,7 +73,10 @@ assert.match(supplierPage, /Đã khớp, chờ gửi/, 'phải phân biệt RFQ 
 // Form RFQ công khai: có NCC chỉ định thì nói rõ gửi cho ai; form chung thì báo Vexim tìm NCC.
 const form = fs.readFileSync(new URL('../app/(public)/rfq/rfq-form.tsx', import.meta.url), 'utf8');
 assert.match(form, /You are requesting a quote from/, 'form phải nói rõ NCC buyer đang xin báo giá');
-assert.match(form, /Vexim will match it with\s+suitable Vietnamese suppliers/, 'form chung phải thông báo Vexim hỗ trợ tìm NCC phù hợp');
+assert.match(form, /Your request goes to this supplier first\. If they can’t meet it, we’ll ask you before suggesting anyone else\./, 'form chỉ định phải nói rõ NCC chỉ định được nhận yêu cầu trước và chỉ gợi ý đơn vị khác sau khi hỏi buyer');
+assert.match(form, /Not sure which supplier fits\? Tell us what you need\. Vexim will select verified suppliers that match your specs, quantity and market, and send you their quotes to compare\./, 'form chung phải thông báo Vexim chọn NCC theo yêu cầu để buyer so sánh báo giá');
+assert.match(form, /Suppliers are matched on your requirements only\. Paid listings never affect who we recommend\./, 'form chung phải nói rõ việc ghép NCC không bị ảnh hưởng bởi tin trả phí');
+assert.match(form, /Your contact details stay private until you agree to an introduction\. You sign the contract directly with the supplier you choose\. Vexim never holds your payment\. Free for buyers\./, 'gần nút gửi phải nói rõ quyền riêng tư, ký trực tiếp, Vexim không giữ tiền và buyer không mất phí');
 const rfqPublicPage = fs.readFileSync(new URL('../app/(public)/rfq/page.tsx', import.meta.url), 'utf8');
 assert.match(rfqPublicPage, /initialSuppliers/, 'trang RFQ phải truyền tên NCC chỉ định xuống form');
 

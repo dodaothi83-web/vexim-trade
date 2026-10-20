@@ -49,7 +49,7 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
       <li>We will assign your request to a desk specialist within 4 business hours (Asia/Ho_Chi_Minh time).</li>
       ${rfq.status === "needs_review"
         ? "<li>Your request is being reviewed manually to make sure it reaches the right desk — expect a reply within one business day.</li>"
-        : "<li>We screen and shortlist 2–4 suitable suppliers within 24 hours.</li>"}
+        : "<li>We screen and shortlist suitable suppliers within 24 hours.</li>"}
       <li>You will receive a comparison with MOQ, lead time, certification status and FOB references where we are authorised to share them.</li>
     </ul>
     <p>You can check progress any time without logging in using this private link:<br/>

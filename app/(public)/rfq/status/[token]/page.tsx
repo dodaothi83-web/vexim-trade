@@ -29,7 +29,7 @@ function statusInfo(status: string) {
         tone: "bg-sky-50 text-sky-800 ring-sky-200",
         dot: "bg-sky-500",
         title: "Under review – preparing shortlist",
-        body: "Your request passed our initial screening. We are clarifying any missing details and selecting 2–4 suitable suppliers.",
+        body: "Your request passed our initial screening. We are clarifying any missing details and selecting suitable suppliers.",
         icon: ShieldCheck,
       };
     case "matching":

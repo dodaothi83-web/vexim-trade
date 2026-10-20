@@ -267,7 +267,7 @@ export default async function RfqDetailPage({
               <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">
                 Ghép nhà cung cấp ({matches.length})
               </h2>
-              <span className="text-[11.5px] text-ink-500">Chọn 2–4 NCC phù hợp để gửi báo giá so sánh.</span>
+              <span className="text-[11.5px] text-ink-500">Chọn các NCC phù hợp để gửi báo giá so sánh.</span>
             </div>
             {!canManageRfq && (
               <p className="mt-2 rounded-md bg-ink-50 px-3 py-2 text-[12.5px] text-ink-500">Bạn đang ở chế độ chỉ xem. Các thao tác ghép NCC, gửi email và lưu báo giá chỉ hiển thị cho tài khoản có quyền <code>rfq.manage</code>.</p>

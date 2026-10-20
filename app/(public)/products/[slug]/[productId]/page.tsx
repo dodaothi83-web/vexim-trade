@@ -175,6 +175,7 @@ export default async function PublicProductDetail({ params }: Props) {
         </section>}
         <p className="mt-2 text-xs text-ink-500">Reference prices are indicative, not a binding offer. Final terms are confirmed in the quotation.</p>
         <Link href={rfq} className="btn btn-primary mt-5 w-full justify-center">Request a quote <ArrowRight className="h-4 w-4" /></Link>
+        <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>
         <aside className="mt-6 rounded-xl border border-brand-200 bg-brand-50/60 p-5">
           <h2 className="text-xs font-bold uppercase tracking-widest text-brand-700">Supplied by</h2>
           <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} className="mt-2 inline-block text-lg font-bold text-brand-800 hover:underline">{card.supplierName} → View supplier profile</Link>

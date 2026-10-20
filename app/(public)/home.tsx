@@ -68,7 +68,7 @@ const FAQ = [
   },
   {
     q: "How fast do you reply?",
-    a: "Within one business day for the categories listed above. We come back with 2–4 supplier options, or tell you honestly if we can't match what you're looking for.",
+    a: "Within one business day for the categories listed above. We come back with suppliers that match, or tell you honestly if we can't match what you're looking for.",
   },
   {
     q: "Will suppliers contact me directly?",
@@ -149,8 +149,7 @@ export default async function HomeContent() {
                 Buy from Vietnamese producers you can trust
               </h1>
               <p className="mt-5 max-w-xl text-[16px] leading-relaxed text-brand-100/90 sm:text-[17px]">
-                Cashew, pepper, coffee, coconut, rice and more. Tell us what you need and we'll come back within one business day
-                with 2 to 4 suppliers that fit. We show which checks have actually been completed.
+                Browse verified Vietnamese suppliers and request a quote from the one you choose. Haven’t found the right fit? Send us your requirements and Vexim will shortlist suppliers that match.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link
@@ -190,7 +189,7 @@ export default async function HomeContent() {
                 <p className="mt-1 text-[13.5px] text-ink-600">Free. No account needed.</p>
                 <ul className="mt-5 space-y-2.5 text-[13.5px] text-ink-700">
                   <Bullet>Suppliers won't see your company name until you choose to talk.</Bullet>
-                  <Bullet>You get 2–4 options that match your specs.</Bullet>
+                  <Bullet>If you haven’t chosen a supplier, we will shortlist suppliers that match your requirements.</Bullet>
                   <Bullet>Each quote shows what we checked ourselves vs. what the supplier told us.</Bullet>
                   <Bullet>We arrange samples and pre-shipment inspection at cost.</Bullet>
                 </ul>

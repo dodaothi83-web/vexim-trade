@@ -205,13 +205,13 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
       {initialSuppliers.length > 0 ? (
         <p className="mb-6 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-[13.5px] leading-relaxed text-ink-700">
           You are requesting a quote from <strong className="text-ink-900">{initialSuppliers.map((s) => s.name).join(", ")}</strong>.
-          Vexim will forward your request to this supplier first, and may suggest other suitable suppliers if they cannot meet your requirements.
+          Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.
         </p>
       ) : (
-        <p className="mb-6 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3 text-[13.5px] leading-relaxed text-ink-700">
-          No specific supplier in mind? That is completely fine. Submit your request and Vexim will match it with
-          suitable Vietnamese suppliers, then reply with a shortlist within one business day.
-        </p>
+        <div className="mb-6 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3 text-[13.5px] leading-relaxed text-ink-700">
+          <p>Not sure which supplier fits? Tell us what you need. Vexim will select verified suppliers that match your specs, quantity and market, and send you their quotes to compare.</p>
+          <p className="mt-2">Suppliers are matched on your requirements only. Paid listings never affect who we recommend.</p>
+        </div>
       )}
       {turnstileSiteKey && (
         <Script
@@ -384,7 +384,6 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
           <p className="rounded-md bg-ink-50 p-3 text-[12.5px] leading-relaxed text-ink-600">
             <ShieldCheck className="mr-1 inline h-4 w-4 text-brand-700" />
             Your company identity is not shared with suppliers until you approve an introduction.
-            We reply to your email with a shortlist first.
           </p>
         </div>
       )}
@@ -459,9 +458,9 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
           <p className="pl-6 text-[12px] text-ink-600">
             Read our <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Privacy Policy</Link> and <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Terms of Service</Link> before submitting.
           </p>
-          <p className="flex items-center gap-1.5 rounded-md bg-ink-50 p-3 text-[12px] text-ink-600">
-            <Lock className="h-3.5 w-3.5 text-brand-700" />
-            We will never publish your contact details. Suppliers are contacted anonymously until you approve.
+          <p className="flex items-start gap-1.5 rounded-md bg-ink-50 p-3 text-[12px] leading-relaxed text-ink-600">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-700" />
+            <span>Your contact details stay private until you agree to an introduction. You sign the contract directly with the supplier you choose. Vexim never holds your payment. Free for buyers.</span>
           </p>
         </div>
       )}

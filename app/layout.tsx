@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     template: "%s · Vexim Trade",
   },
   description:
-    "Verified Vietnamese food and agriculture sourcing desk. Submit a brief and get 2–4 audited supplier quotes in 24 business hours.",
+    "Verified Vietnamese food and agriculture sourcing desk. Browse suppliers or submit a brief to compare quotes from checked Vietnamese suppliers.",
   icons: {
     icon: { url: "/favicon.png", type: "image/png", sizes: "500x500" },
     apple: { url: "/favicon.png", type: "image/png" },

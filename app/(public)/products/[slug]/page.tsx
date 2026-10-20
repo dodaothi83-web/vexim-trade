@@ -363,7 +363,7 @@ function StateB({ cat, categoryName, h1, intro, rfqHref, columns, rows, facts, f
       <div className="rounded-2xl border border-ink-200 bg-white p-6 shadow-sm">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-600">Tell us what you need</p>
         <h2 className="mt-2 text-[20px] font-bold leading-tight text-ink-900">Get matched with {categoryName.toLowerCase()} suppliers</h2>
-        <p className="mt-1 text-[13.5px] text-ink-600">Free. No account needed. We&apos;ll send you 2–4 options within one business day.</p>
+        <p className="mt-1 text-[13.5px] text-ink-600">Free. No account needed. We&apos;ll shortlist suppliers that match your requirements and reply within one business day.</p>
         <ul className="mt-5 space-y-2 text-[13.5px] text-ink-700">
           <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Spec and grade you need.</li>
           <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Volume and destination.</li>
