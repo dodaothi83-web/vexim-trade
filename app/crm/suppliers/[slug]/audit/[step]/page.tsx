@@ -6,6 +6,7 @@ import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { AUDIT_STEPS, auditHref } from "@/lib/verification";
+import { submissionStatusLabel } from "@/lib/verification-submission";
 import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import type { VerificationLevel } from "@/lib/types";
 import { Breadcrumbs, Badge, Card } from "@/components/ui";
@@ -21,7 +22,13 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
   if (!step) notFound();
   const session = await requirePagePermission("verifications.view", `/crm/suppliers/${supplierId}`);
   const store = getStore();
-  const [supplier, all] = await Promise.all([store.getSupplier(supplierId), store.listVerifications(supplierId)]);
+  const [supplier, all, submissions] = await Promise.all([
+    store.getSupplier(supplierId),
+    store.listVerifications(supplierId),
+    // Hồ sơ NCC TỰ GỬI cho bước này; bảng chưa có (chưa chạy migration) thì bỏ qua.
+    step.level === 1 ? Promise.resolve([]) : store.listSubmissions(supplierId, step.level as 2 | 3)
+      .catch((error) => { console.error("[self-submissions] migration/query failed", error); return []; }),
+  ]);
   if (!supplier) notFound();
   const forStep = [...all].filter((v) => v.target_level === step.level).sort((a, b) => b.created_at.localeCompare(a.created_at));
   const current = forStep.find((v) => v.status === "approved") ?? forStep[0];
@@ -46,6 +53,20 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
           return <Link key={item.path} href={auditHref(supplierId, item.level)} className={className} aria-current={item.path === path ? "step" : undefined}>{content}</Link>;
         })}
       </nav>
+      {step.level > 1 && submissions.length > 0 && (
+        <Card className="border-teal-200 bg-teal-50/60 p-4">
+          <h2 className="text-sm font-bold text-ink-900">Hồ sơ bằng chứng NCC tự gửi cho bước này ({submissions.length})</h2>
+          <p className="mt-1 text-xs text-ink-600">Doanh nghiệp tự tải ảnh/chứng từ qua cổng L2·L3; AI quét và nêu tín hiệu (EXIF/GPS, giờ chụp, mã xác minh viết tay, nội dung ảnh). Nhận hồ sơ sẽ tạo đợt kiểm của nhân viên kèm bằng chứng — không tự cấp huy hiệu.</p>
+          <ul className="mt-3 space-y-2 text-sm">{submissions.map((sub) => (
+            <li key={sub.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2">
+              <span className="text-xs text-ink-600">{submissionStatusLabel(sub.status)}
+                {sub.verification_code ? ` · mã ${sub.verification_code}` : ""}
+                {sub.ai_scanned_at ? ` · AI quét ${new Date(sub.ai_scanned_at).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : " · chưa quét AI"}
+                {sub.verification_id ? " · đã sao bằng chứng sang đợt kiểm" : ""}</span>
+              <Link href={`/crm/verifications/submissions/${sub.id}`} className="btn btn-ghost btn-sm">Đối chiếu bằng chứng →</Link>
+            </li>))}</ul>
+        </Card>
+      )}
       {!current ? <Card className="flex flex-wrap items-center justify-between gap-4 p-6"><div><h2 className="font-bold text-ink-900">Chưa bắt đầu {step.title.toLowerCase()}</h2><p className="text-sm text-ink-500">Tạo đợt kiểm để ghi kết quả và thêm bằng chứng riêng cho bước này.</p></div>{canInspect && <StartVerificationButton supplierId={supplierId} level={step.level as VerificationLevel} />}</Card>
         : <>
           <Card className="flex flex-wrap items-center gap-3 p-4">

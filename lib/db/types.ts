@@ -26,6 +26,9 @@ import type {
   SupplierNoticeRead,
   Supplier,
   SupplierInput,
+  SupplierSubmission,
+  SupplierSubmissionItem,
+  SupplierSubmissionLink,
   SupplierVerificationRequest,
   SupplierCategory,
   SupplierProduct,
@@ -187,6 +190,22 @@ export interface DataStore {
   getVerification(id: string): Promise<Verification | null>;
   createVerification(input: Partial<Verification>): Promise<Verification>;
   updateVerification(id: string, patch: Partial<Verification>): Promise<Verification>;
+
+  /* ---- Cổng NCC tự gửi bằng chứng L2 (nhà máy) / L3 (lịch sử xuất khẩu) ----
+   * Hồ sơ tự gửi KHÔNG phải kết quả xác minh; duyệt vẫn là đợt kiểm của nhân viên. */
+  listSubmissions(supplierId?: string, level?: 2 | 3): Promise<SupplierSubmission[]>;
+  getSubmission(id: string): Promise<SupplierSubmission | null>;
+  createSubmission(input: Partial<SupplierSubmission>): Promise<SupplierSubmission>;
+  updateSubmission(id: string, patch: Partial<SupplierSubmission>): Promise<SupplierSubmission>;
+  listSubmissionItems(submissionId: string): Promise<SupplierSubmissionItem[]>;
+  getSubmissionItem(id: string): Promise<SupplierSubmissionItem | null>;
+  createSubmissionItem(input: Partial<SupplierSubmissionItem>): Promise<SupplierSubmissionItem>;
+  updateSubmissionItem(id: string, patch: Partial<SupplierSubmissionItem>): Promise<SupplierSubmissionItem>;
+  deleteSubmissionItem(id: string): Promise<void>;
+  listSubmissionLinks(submissionId: string): Promise<SupplierSubmissionLink[]>;
+  createSubmissionLink(input: Partial<SupplierSubmissionLink>): Promise<SupplierSubmissionLink>;
+  updateSubmissionLink(id: string, patch: Partial<SupplierSubmissionLink>): Promise<SupplierSubmissionLink>;
+  deleteSubmissionLink(id: string): Promise<void>;
 
   // RFQs
   listRfqs(options?: { status?: string; assignedTo?: string | null }): Promise<Rfq[]>;

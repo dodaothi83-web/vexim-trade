@@ -204,7 +204,7 @@ export async function POST(request: Request) {
         name: file.name,
         ok: false,
         message: err instanceof Error && /media_checklist_key_ck/.test(err.message)
-          ? "CSDL chưa cập nhật mục bằng chứng. Quản trị viên cần chạy migration 20261017_factory_delivery_inline_evidence.sql trên đúng Supabase project. Tệp chưa được lưu."
+          ? "CSDL chưa cập nhật mục bằng chứng. Quản trị viên cần chạy migration 20261017_factory_delivery_inline_evidence.sql và 20261020_supplier_self_verification_submissions.sql (danh mục 9 ảnh L2) trên đúng Supabase project. Tệp chưa được lưu."
           : err instanceof Error ? err.message : "Lỗi khi lưu tệp.",
       });
     }

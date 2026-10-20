@@ -1,0 +1,99 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Factory, Ship } from "lucide-react";
+
+import { supplierLevelAccess } from "@/lib/supplier-portal/submission-access";
+import { getOrCreateSubmission, loadSubmissionBundle } from "@/lib/verification-submission-service";
+import { buildPortalSubmission, exportSpecs, photoSpecs, type PortalSubmissionView } from "@/lib/supplier-portal/submission-view";
+import { SupplierWorkspaceHeader } from "../products/workspace-header";
+import { VerificationSubmissionPanel } from "./verification-panel";
+
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Xác thực nhà máy & lịch sử xuất khẩu | Vexim Trade", robots: { index: false, follow: false } };
+
+/**
+ * Cổng NCC TỰ GỬI bằng chứng xác thực:
+ *  - L2: 9 ảnh nhà máy (định vị, ban ngày, ảnh gốc, mã xác minh viết tay cho ảnh 🔖)
+ *  - L3: chứng từ lịch sử xuất khẩu + link nguồn công khai
+ * AI quét và nêu tín hiệu; việc xác minh vẫn do nhân viên Vexim đối chiếu và duyệt.
+ */
+export default async function SupplierVerificationPage() {
+  const access = await supplierLevelAccess(2);
+  if (!access) redirect("/login");
+  const { store, supplier, user } = access;
+
+  const [l2, l3] = await Promise.all([2, 3].map(async (level) => {
+    const submission = await getOrCreateSubmission(store, { supplierId: supplier.id, level: level as 2 | 3, userId: user.id });
+    const bundle = await loadSubmissionBundle(store, submission.id);
+    return bundle ? buildPortalSubmission(bundle) : null;
+  })) as (PortalSubmissionView | null)[];
+
+  const photoItems = photoSpecs();
+  const exportItems = exportSpecs();
+
+  return <main className="mx-auto max-w-6xl px-4 pb-20 pt-6 sm:px-6">
+    <SupplierWorkspaceHeader name={supplier.display_name || supplier.trade_name || supplier.name} active="verification" />
+    <div className="mt-6 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 className="text-3xl font-black text-slate-900">Cổng xác thực L2 · L3</h1>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          Doanh nghiệp tự chụp và tự tải bằng chứng. Hệ thống đọc EXIF/GPS của <strong>ảnh gốc</strong>, đối chiếu mã xác minh
+          viết tay và để AI quét sơ bộ. <strong>Tải lên không tự cấp huy hiệu</strong>: nhân viên Vexim phải đối chiếu và một
+          người có quyền duyệt khác phê kết quả.
+        </p>
+      </div>
+      <Link href="/supplier/portal" className="text-sm font-semibold text-teal-800 hover:underline">← Bảng điều khiển</Link>
+    </div>
+
+    {/* Thanh nhảy nhanh 2 cấp — màu phản ánh trạng thái hồ sơ, bấm là cuộn tới đúng bảng. */}
+    <nav aria-label="Chọn cấp xác thực" className="mt-5 flex flex-wrap gap-2">
+      {[{ href: "#level-2", view: l2, name: "L2 · Xác thực nhà máy", icon: <Factory className="size-4" /> },
+        { href: "#level-3", view: l3, name: "L3 · Lịch sử xuất khẩu", icon: <Ship className="size-4" /> }].map((entry) => {
+        const tone = entry.view?.status === "pending_review" ? "border-amber-300 bg-amber-50 text-amber-900"
+          : entry.view?.status === "accepted" ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+          : entry.view?.status === "returned" ? "border-rose-300 bg-rose-50 text-rose-900"
+          : "border-slate-300 bg-white text-slate-700";
+        return <a key={entry.href} href={entry.href} className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition hover:brightness-95 ${tone}`}>
+          {entry.icon} {entry.name}
+          <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold">
+            {entry.view ? `${entry.view.statusLabel} · ${entry.view.uploadedTotal}/${entry.view.requiredTotal}` : "—"}
+          </span>
+        </a>;
+      })}
+    </nav>
+
+    <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Factory className="size-5 text-teal-700" /> L2 · Xác thực nhà máy</h2>
+        <ul className="mt-3 space-y-1 text-[13px] text-slate-700">
+          <li>1. Bật định vị camera, chụp <strong>ban ngày</strong>, không chỉnh sửa.</li>
+          <li>2. Ảnh có 🔖 phải kèm <strong>tờ giấy viết tay mã xác minh</strong> Vexim phát hành (bấm “Tạo mã xác minh”, in hoặc chép tay rồi cầm vào khung hình).</li>
+          <li>3. Gửi <strong>ảnh gốc</strong> — không gửi qua Zalo/Facebook/Messenger vì các ứng dụng này xoá EXIF và nén ảnh.</li>
+        </ul>
+        <p className="mt-3 text-xs text-slate-500">Áp dụng cho mọi ngành hàng: đủ {photoItems.length} ảnh bắt buộc bên dưới.</p>
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Ship className="size-5 text-teal-700" /> L3 · Lịch sử xuất khẩu</h2>
+        <ul className="mt-3 space-y-1 text-[13px] text-slate-700">
+          <li>1. Tải ảnh/PDF chứng từ của <strong>một lô hàng đã xuất thật</strong>: vận đơn, tờ khai hải quan, hoá đơn, phiếu đóng gói, C/O…</li>
+          <li>2. Khai <strong>link nguồn gốc công khai</strong> (trang doanh nghiệp, sàn B2B, tin đăng hội chợ) để hệ thống đối chiếu.</li>
+          <li>3. Che/ẩn số tài khoản ngân hàng, giá mua bán và thông tin buyer nếu bạn không muốn chia sẻ.</li>
+        </ul>
+        <p className="mt-3 text-xs text-slate-500">Thông tin lô hàng là <strong>doanh nghiệp tự khai</strong>, không phải dữ liệu Hải quan. RFQ trúng thầu không thay chứng từ giao hàng.</p>
+      </div>
+    </div>
+
+    {l2 && <VerificationSubmissionPanel view={l2} specs={photoItems} />}
+    {l3 && <VerificationSubmissionPanel view={l3} specs={exportItems} />}
+
+    <details className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+      <summary className="cursor-pointer text-base font-bold">AI quét những gì, và không làm được gì</summary>
+      <ul className="mt-2 list-disc space-y-1 pl-5">
+        <li>AI đọc nội dung từng ảnh: biển tên công ty, dây chuyền, công nhân bảo hộ, nhãn mã lô, tờ giấy viết tay mã xác minh, chứng từ vận đơn/tờ khai.</li>
+        <li>Hệ thống tự đối chiếu kỹ thuật: EXIF còn hay mất (ảnh đã qua Zalo/Facebook), GPS trong ảnh so với vị trí trình duyệt, giờ chụp có phải ban ngày, phần mềm chỉnh sửa.</li>
+        <li>AI <strong>không</strong> xác nhận giấy tờ là thật, không xác nhận doanh nghiệp đã xuất khẩu, không tự duyệt và không tự cấp huy hiệu L2/L3.</li>
+        <li>Hồ sơ đạt sẽ vào hàng đợi; nhân viên Vexim đối chiếu rồi mới mở đợt kiểm chính thức, và người duyệt phải là người khác người kiểm.</li>
+      </ul>
+    </details>
+  </main>;
+}

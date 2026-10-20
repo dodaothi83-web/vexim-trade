@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, FileText, Loader2, RotateCcw, Save, Send, Sparkles, Upload } from "lucide-react";
 
-import { L1_DOC_ITEMS, type AuditEvidenceKey, type MediaAsset, type Verification } from "@/lib/types";
+import { L1_DOC_ITEMS, LEGACY_L2_VISIT_ITEMS, type AuditEvidenceKey, type MediaAsset, type Verification } from "@/lib/types";
 import { prepareImage } from "@/lib/media/client-image";
 import { readUploadResponse } from "@/lib/media/upload-response";
 import type { AiDocumentReview } from "@/lib/ai/document-audit";
@@ -35,6 +35,10 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
   const requiredDocs = L1_DOC_ITEMS.filter((it) => it.required);
   const optionalDocs = L1_DOC_ITEMS.filter((it) => !it.required);
   const recorded = (key: string) => v.checklist?.[key] === true || v.checklist?.[key] === false || v.checklist?.[key] === "not_applicable";
+  // Dữ liệu đợt kiểm L2 lập theo danh mục CŨ: giữ hiển thị read-only để đối soát, không xóa.
+  const legacyL2 = v.target_level === 2
+    ? LEGACY_L2_VISIT_ITEMS.filter((li) => recorded(li.key) || v.checklist_notes?.[li.key] || evidence.some((m) => (m.checklist_key as string | null) === li.key))
+    : [];
   const unassignedEvidence = evidence.filter((m) => !m.checklist_key);
   const readableEvidence = evidence.filter((m) => m.storage_path && ["document", "certificate", "image"].includes(m.kind));
   const evidenceFingerprint = readableEvidence.map((m) => `${m.id}:${m.storage_path}`).join("|");
@@ -254,8 +258,13 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
             return <div key={it.key} className="space-y-2 px-5 py-4">
             <fieldset disabled={!editable || busy}>
               <label htmlFor={`check-${it.key}`} className="block text-sm font-semibold text-ink-900">
-                {i + 1}. {it.label} <span className={optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{optional ? "Tùy chọn" : ["tax_certificate", "bank_letter"].includes(it.key) ? "Bắt buộc nhập" : "Bắt buộc đạt"}</span>
+                {i + 1}. {it.label}{" "}
+                {v.target_level === 2 && "requires_code" in it && it.requires_code && <span title="Ảnh NCC tự gửi phải kèm tờ giấy viết tay mã xác minh Vexim phát hành">🔖</span>}{" "}
+                <span className={optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{v.target_level === 2 ? "" : optional ? "Tùy chọn" : ["tax_certificate", "bank_letter"].includes(it.key) ? "Bắt buộc nhập" : "Bắt buộc đạt"}</span>
               </label>
+              {v.target_level === 2 && "requirement" in it && <p className="mt-0.5 text-xs text-ink-500">
+                {it.requirement} · đối chiếu ảnh NCC tự gửi cùng mục{("requires_code" in it && it.requires_code) ? " · 🔖 kiểm tra tờ mã viết tay trong ảnh" : ""}
+              </p>}
               {v.target_level === 1 && (it.key === "tax_certificate" || it.key === "bank_letter") ? <div className="mt-2 space-y-1.5">
                 <input id={`check-${it.key}`} name={it.key === "tax_certificate" ? "tax_number" : "bank_account_number"}
                   type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="off" maxLength={it.key === "tax_certificate" ? 32 : 34}
@@ -270,8 +279,8 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
                 </select>
                 <input name={`note:${it.key}`} defaultValue={v.checklist_notes?.[it.key] ?? ""} className="input text-sm" placeholder="Ghi chú, dữ liệu đã đối chiếu (nếu có)" />
               </div>}
-              {v.target_level === 2 && it.key === "factory_address_confirmed" && <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Field label="Ngày thăm"><input type="date" name="visit_date" defaultValue={v.visit_date ?? ""} className="input" /></Field>
+              {v.target_level === 2 && it.key === "factory_gate" && <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field label="Ngày thăm / ngày đối chiếu"><input type="date" name="visit_date" defaultValue={v.visit_date ?? ""} className="input" /></Field>
                 <Field label="Địa chỉ cơ sở"><input name="visit_address" defaultValue={v.visit_address ?? ""} className="input" placeholder="Địa chỉ thực tế đã thăm" /></Field>
                 <Field label="GPS vĩ độ"><input type="number" step="any" name="visit_lat" defaultValue={v.visit_lat ?? ""} className="input" /></Field>
                 <Field label="GPS kinh độ"><input type="number" step="any" name="visit_lng" defaultValue={v.visit_lng ?? ""} className="input" /></Field>
@@ -318,6 +327,22 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
           </div>;
           })}
         </div>
+        {v.target_level === 2 && legacyL2.length > 0 && <details className="border-b border-ink-100 bg-ink-50/60 px-5 py-3 text-sm">
+          <summary className="cursor-pointer font-semibold text-ink-800">Danh mục L2 cũ (trước 20/10/2026) · {legacyL2.length} mục có dữ liệu</summary>
+          <p className="mt-2 text-xs text-ink-600">Đợt kiểm này lập theo danh mục cũ nên dữ liệu cũ được giữ nguyên để đối soát (chỉ đọc). Đợt kiểm mới dùng danh mục 9 ảnh chung với cổng NCC tự gửi.</p>
+          <ul className="mt-2 space-y-2">
+            {legacyL2.map((li) => {
+              const files = evidence.filter((m) => (m.checklist_key as string | null) === li.key && m.storage_path);
+              return <li key={li.key} className="rounded-lg bg-white px-3 py-2 text-xs">
+                <p className="font-semibold text-ink-800">{li.label} · {v.checklist?.[li.key] === true ? "Đạt" : v.checklist?.[li.key] === false ? "Không đạt" : v.checklist?.[li.key] === "not_applicable" ? "Không áp dụng" : "Chưa kiểm"}</p>
+                {v.checklist_notes?.[li.key] && <p className="mt-0.5 text-ink-600">Ghi chú: {v.checklist_notes[li.key]}</p>}
+                {files.length > 0 && <p className="mt-1 flex flex-wrap gap-2">{files.map((asset) => (
+                  <a key={asset.id} href={`/api/media/file/${asset.storage_path}`} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">{asset.caption || "Mở tệp"}</a>
+                ))}</p>}
+              </li>;
+            })}
+          </ul>
+        </details>}
         <fieldset disabled={!editable || busy}>
         <div className="space-y-3 border-t border-ink-100 p-5">
           <Field label="Ghi chú nội bộ"><textarea name="internal_notes" rows={3} defaultValue={v.internal_notes ?? ""} className="input" /></Field>

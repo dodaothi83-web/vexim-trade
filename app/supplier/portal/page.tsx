@@ -74,19 +74,20 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
       { label: "Thêm sản phẩm & nhận RFQ", state: "todo", note: "Sau khi mở cổng" },
     ]} /></>}
   </main>;
-  const [media, requests, invites, reads, products, certificates] = await Promise.all([
+  const [media, requests, invites, reads, products, certificates, submissions] = await Promise.all([
     review ? store.listMedia("verification", review.id) : Promise.resolve([]),
     store.listSupplierVerificationRequests(supplier.id),
     store.listSupplierRfqInvitations(supplier.id),
     store.listSupplierNoticeReads(supplier.id),
     store.listProductsBySupplier(supplier.id),
     store.listCertificates(supplier.id),
+    store.listSubmissions(supplier.id).catch((error) => { console.error("[supplier-portal] chưa đọc được hồ sơ tự gửi (migration?)", error); return []; }),
   ]);
   const sp = await searchParams;
   const days: 7 | 30 | 90 = sp?.range === "7" ? 7 : sp?.range === "90" ? 90 : 30;
   const allNotices = sp?.notices === "all";
   const allRfqs = sp?.rfqs === "all";
-  const dashboard = buildSupplierDashboard({ supplierId: supplier.id, supplier, invites, reads, products, certificates, reviews, requests, days });
+  const dashboard = buildSupplierDashboard({ supplierId: supplier.id, supplier, invites, reads, products, certificates, reviews, requests, submissions, days });
   const mine = media.filter((m) => m.created_by === user.id && m.storage_path &&
     INITIAL_DOCUMENT_KEYS.includes(m.checklist_key as typeof INITIAL_DOCUMENT_KEYS[number]));
   const allowedDocUpload = review && (review.status === "in_progress" || review.status === "returned");
@@ -107,6 +108,7 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
       <Link href="/supplier/portal/products" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Sản phẩm của tôi →</Link>
       <Link href="/supplier/portal/categories" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Danh mục kinh doanh →</Link>
       <Link href="/supplier/portal/traffic" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Lượt xem gian hàng →</Link>
+      <Link href="/supplier/portal/verification" className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-2 text-emerald-800 hover:bg-emerald-100">Xác thực nhà máy L2 &amp; xuất khẩu L3 →</Link>
       <Link href="/supplier/portal/certificates" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Gửi chứng nhận để Vexim kiểm tra →</Link>
     </nav>
     <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
@@ -211,10 +213,15 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
           {([2, 3] as const).map((step) => {
             const r = requests.find((req) => req.target_level === step);
             const approved = reviews.some((v) => v.target_level === step && v.status === "approved");
-            return <div key={step} className="border-b border-ink-100 py-3 text-sm last:border-0"><p className="font-semibold">{step === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"}</p>
-              <p className="text-ink-600">{approved ? "Đã được Vexim duyệt sau đánh giá" : r?.status === "contacted" ? "Đã ghi nhận liên hệ · chưa duyệt" : r ? "Vexim sẽ liên hệ lên kế hoạch · chưa duyệt" : "Chưa yêu cầu · chưa duyệt"}</p></div>;
+            const own = submissions.find((s) => s.target_level === step);
+            return <div key={step} className="border-b border-ink-100 py-3 text-sm last:border-0"><p className="font-semibold">{step === 2 ? "Xác thực nhà máy (L2)" : "Lịch sử xuất khẩu (L3)"}</p>
+              <p className="text-ink-600">{approved ? "Đã được Vexim duyệt sau đánh giá" : r?.status === "contacted" ? "Đã ghi nhận liên hệ · chưa duyệt" : r ? "Vexim sẽ liên hệ lên kế hoạch · chưa duyệt" : "Chưa yêu cầu · chưa duyệt"}</p>
+              <p className="mt-1 text-xs text-ink-500">{own
+                ? `Hồ sơ bạn tự gửi: ${own.status === "draft" ? "đang soạn" : own.status === "pending_review" ? "đang chờ Vexim xét duyệt" : own.status === "returned" ? "cần bổ sung" : "đã được Vexim nhận vào đợt kiểm"}.`
+                : "Bạn có thể tự gửi bằng chứng để AI quét trước khi Vexim đối chiếu."}</p></div>;
           })}
-          <p className="mt-2 text-xs text-ink-500">Doanh nghiệp không tự tải bằng chứng thăm nhà máy/giao hàng. Nhãn buyer chỉ xuất hiện cho từng đánh giá được duyệt thực tế.</p>
+          <Link href="/supplier/portal/verification" className="mt-3 inline-block rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800">Mở cổng tự xác thực L2 · L3 →</Link>
+          <p className="mt-2 text-xs text-ink-500">Tải bằng chứng lên không tự cấp huy hiệu: nhãn buyer chỉ xuất hiện cho từng đánh giá được nhân viên Vexim kiểm và người có quyền duyệt phê.</p>
         </div>
       </div>
       <div id="documents" className="mt-4 scroll-mt-6 rounded-xl border border-ink-200 bg-white p-5"><h3 className="font-bold text-ink-900">Kiểm tra giấy tờ · {review?.status === "approved" ? "Đã duyệt" : review?.status === "returned" ? "Cần bổ sung" : review?.status === "submitted" ? "Chờ duyệt" : "Đang rà soát"}</h3>

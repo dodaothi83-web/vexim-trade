@@ -23,9 +23,14 @@ vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/verification.
 }).outputText, { exports: policy, require: (path) => path === './types' ? types : null });
 assert.equal(policy.requiredAuditItems(2).length, 0);
 assert.equal(policy.requiredAuditItems(3).length, 0);
-for (const [level, key, expected] of [[2, 'photos_taken', 'image'], [2, 'documents_original', 'file'], [3, 'shipping_proof', 'file'], [3, 'delivery_proof', 'file'], [2, 'worker_interview', null], [3, 'order_matched', null], [3, 'photos_taken', null]]) {
+for (const [level, key, expected] of [[2, 'factory_gate', 'image'], [2, 'pest_control', 'image'], [3, 'shipping_proof', 'file'], [3, 'delivery_proof', 'file'], [2, 'photos_taken', null], [2, 'documents_original', null], [3, 'order_matched', null], [3, 'factory_gate', null]]) {
   assert.equal(policy.auditUploadKind(level, key), expected, `Upload policy: ${level}/${key}`);
 }
+// Danh mục L2 của người kiểm phải là CHÍNH danh mục 9 ảnh của cổng NCC tự gửi.
+assert.deepEqual(policy.auditItems(2).map((i) => i.key), types.L2_FACTORY_PHOTO_ITEMS.map((i) => i.key), 'Staff L2 checklist shares the supplier 9-photo standard');
+assert.equal(policy.auditItems(2).length, 9);
+assert.equal(types.LEGACY_L2_VISIT_ITEMS.length, 9, 'Legacy L2 catalog kept for historical rows');
+assert.ok(!policy.auditItems(2).some((i) => types.LEGACY_L2_VISIT_KEYS.includes(i.key)), 'New checklist must not reuse legacy keys');
 
 let level = 1;
 let blocked = null;
@@ -72,14 +77,14 @@ for (const key of ['tax_certificate', 'bank_letter']) {
 }
 level = 2;
 assert.equal((await exports.POST(request('verification', 'business_license'))).status, 400, 'Cannot bind factory file to legal checklist');
-assert.equal((await exports.POST(request('verification', 'photos_taken'))).status, 200, 'Factory row accepts its own photo');
-assert.equal(inserted.checklist_key, 'photos_taken');
-assert.equal((await exports.POST(request('verification', 'photos_taken', 'document'))).status, 400, 'Photo row rejects PDF/document kind');
-assert.equal((await exports.POST(request('verification', 'worker_interview'))).status, 400, 'Interview is a text row, not an upload');
+assert.equal((await exports.POST(request('verification', 'factory_gate'))).status, 200, 'Factory gate row accepts its own photo');
+assert.equal(inserted.checklist_key, 'factory_gate');
+assert.equal((await exports.POST(request('verification', 'factory_gate', 'document'))).status, 400, 'Photo row rejects PDF/document kind');
+assert.equal((await exports.POST(request('verification', 'photos_taken'))).status, 400, 'Legacy L2 key is no longer an upload row');
 level = 3;
 assert.equal((await exports.POST(request('verification', 'shipping_proof'))).status, 200, 'Delivery evidence is scoped to shipping row');
 assert.equal(inserted.checklist_key, 'shipping_proof');
-assert.equal((await exports.POST(request('verification', 'photos_taken'))).status, 400, 'Factory photo key cannot be forged on delivery review');
+assert.equal((await exports.POST(request('verification', 'factory_gate'))).status, 400, 'Factory photo key cannot be forged on delivery review');
 dbConstraint = true;
 const rejected = await exports.POST(request('verification', 'shipping_proof'));
 assert.equal(rejected.status, 400);

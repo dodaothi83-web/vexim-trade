@@ -96,6 +96,9 @@ for (const p of allTs) {
       /supplierPortalAccess\s*\(/.test(head) ||
       // approvedAccess wraps supplierPortalAccess + server-side onboarding gate.
       /approvedAccess\s*\(/.test(head) ||
+      // supplierSubmissionAccess rechecks session, supplier role, approved onboarding,
+      // verified email and submission ownership from DB before returning the bundle.
+      /supplierSubmissionAccess\s*\(/.test(head) ||
       (hasTopGuard && /\benforce\s*\(/.test(head));
     if (!callsGuardInFn && !hasTopGuard && !perFnGuard) {
       errors.push(`Server action ${rel}::${fn} không gọi guard/requireSession — bỏ sót kiểm quyền.`);

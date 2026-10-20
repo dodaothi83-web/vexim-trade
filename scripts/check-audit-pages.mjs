@@ -65,9 +65,9 @@ const mocks = {
   '@/lib/types': { L1_DOC_ITEMS: docItems },
   '@/lib/verification': {
     auditHref: () => '/crm/suppliers/supplier-1/audit/deliveries',
-    auditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : level === 2 ? ['factory_address_confirmed', 'photos_taken'].map((key) => ({ key })) : docItems,
+    auditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : level === 2 ? ['factory_gate', 'pest_control'].map((key) => ({ key })) : docItems,
     requiredAuditItems: (level) => level === 1 ? docItems.filter((item) => item.required) : [],
-    auditUploadKind: (level, key) => level === 1 ? (['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'].includes(key) ? 'file' : null) : level === 2 ? (key === 'photos_taken' ? 'image' : null) : (['shipping_proof', 'delivery_proof'].includes(key) ? 'file' : null),
+    auditUploadKind: (level, key) => level === 1 ? (['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'].includes(key) ? 'file' : null) : level === 2 ? (['factory_gate', 'raw_material_warehouse', 'production_line_running', 'packing_area', 'finished_goods_warehouse', 'open_carton_lot_label', 'hygiene_station', 'worker_ppe', 'pest_control'].includes(key) ? 'image' : null) : (['shipping_proof', 'delivery_proof'].includes(key) ? 'file' : null),
     inVnBounds: (lat, lng) => lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110,
   },
 };
@@ -102,7 +102,7 @@ assert.equal((await exports.updateVerificationChecklistAction(emptyForm)).ok, tr
 media.splice(0, media.length, { kind: 'image', storage_path: 'verifications/review-3/unrelated.jpg' });
 assert.equal((await exports.approveVerificationAction(form)).ok, false, 'Unrelated image cannot establish delivery history');
 Object.assign(media[0], { id: 'shipping-photo', owner_type: 'verification', verification_id: row.id, supplier_id: row.supplier_id, checklist_key: null });
-assert.equal((await exports.assignVerificationEvidenceAction('shipping-photo', 'photos_taken')).ok, false, 'Cannot attach factory key to delivery review');
+assert.equal((await exports.assignVerificationEvidenceAction('shipping-photo', 'factory_gate')).ok, false, 'Cannot attach factory key to delivery review');
 dbChecklistConstraint = true;
 const unmigrated = await exports.assignVerificationEvidenceAction('shipping-photo', 'shipping_proof');
 assert.equal(unmigrated.ok, false);
@@ -119,7 +119,8 @@ media.push({ kind: 'image', storage_path: 'verifications/review-3/certificate.jp
 assert.equal((await exports.approveVerificationAction(form)).ok, false, 'Photo of a certificate is not a facility photo');
 Object.assign(media[0], { id: 'factory-photo', owner_type: 'verification', verification_id: row.id, supplier_id: row.supplier_id, checklist_key: null });
 assert.equal((await exports.assignVerificationEvidenceAction('factory-photo', 'shipping_proof')).ok, false, 'Cannot attach delivery key to factory review');
-assert.equal((await exports.assignVerificationEvidenceAction('factory-photo', 'photos_taken')).ok, true, 'Old factory photo can be assigned without moving it');
+assert.equal((await exports.assignVerificationEvidenceAction('factory-photo', 'factory_gate')).ok, true, 'Unassigned factory photo can be attached to the gate row without moving it');
+assert.equal((await exports.assignVerificationEvidenceAction('factory-photo', 'photos_taken')).ok, false, 'Legacy L2 key no longer accepts new attachments');
 assert.equal((await exports.approveVerificationAction(form)).ok, true, 'Facility photo qualifies without all checklist answers');
 // An already uploaded scan selected under the "Ảnh" tab must count as L1 evidence.
 // The supplier's general library must never be consulted as a fallback.

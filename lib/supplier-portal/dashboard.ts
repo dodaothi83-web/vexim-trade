@@ -1,4 +1,4 @@
-import type { Certificate, Supplier, SupplierNoticeRead, SupplierProduct, SupplierRfqInvitation, SupplierVerificationRequest, Verification } from "@/lib/types";
+import type { Certificate, Supplier, SupplierNoticeRead, SupplierProduct, SupplierRfqInvitation, SupplierSubmission, SupplierVerificationRequest, Verification } from "@/lib/types";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 
 export interface PortalNotice {
@@ -40,6 +40,8 @@ export function buildSupplierDashboard(input: {
   certificates?: Certificate[];
   reviews: Verification[];
   requests: SupplierVerificationRequest[];
+  /** Hồ sơ bằng chứng NCC tự gửi qua cổng L2/L3 (nếu bảng supplier_submissions đã có). */
+  submissions?: SupplierSubmission[];
   reads: SupplierNoticeRead[];
   days: 7 | 30 | 90;
   now?: Date;
@@ -91,6 +93,12 @@ export function buildSupplierDashboard(input: {
     }
     if (c.review_status === "changes_requested") add(`cert-changes:${c.id}`, `Chứng nhận cần bổ sung: ${c.name}`, c.review_note || "Mở trang chứng nhận để xem phản hồi.", c.updated_at, "certificate");
     if (c.review_status === "rejected") add(`cert-rejected:${c.id}`, `Chứng nhận không được chấp thuận: ${c.name}`, c.review_note || "Mở trang chứng nhận để xem phản hồi.", c.updated_at, "certificate");
+  }
+  for (const s of (input.submissions ?? []).filter((row) => row.supplier_id === supplierId)) {
+    const label = s.target_level === 2 ? "Xác thực nhà máy (L2)" : "Lịch sử xuất khẩu (L3)";
+    if (s.status === "pending_review") add(`submission-queued:${s.id}`, `Hồ sơ tự gửi đang chờ Vexim xét duyệt: ${label}`, "AI đã quét và xếp hàng đợi. Nhân viên Vexim còn phải đối chiếu; bằng chứng đang bị khóa.", s.submitted_at || s.updated_at, "verification");
+    if (s.status === "returned") add(`submission-returned:${s.id}`, `Hồ sơ tự gửi cần bổ sung: ${label}`, s.review_note || "Mở cổng tự xác thực để xem lý do và tải bằng chứng mới.", s.reviewed_at || s.updated_at, "verification");
+    if (s.status === "accepted") add(`submission-accepted:${s.id}`, `Vexim đã nhận hồ sơ vào đợt kiểm: ${label}`, "Đây chưa phải kết quả duyệt huy hiệu; đợt kiểm của nhân viên vẫn cần người có quyền duyệt phê.", s.reviewed_at || s.updated_at, "verification");
   }
   for (const r of requests.filter((r) => r.supplier_id === supplierId && r.status === "contacted" && r.contacted_at)) {
     const label = r.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";

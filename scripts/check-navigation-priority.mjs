@@ -10,9 +10,9 @@ assert.ok(nav, 'CRM navigation exists');
 const hrefs = [...nav.matchAll(/href: "([^"]+)"/g)].map((m) => m[1]);
 assert.deepEqual(hrefs, [
   '/crm/dashboard', '/crm/suppliers', '/crm/products', '/crm/rfqs',
-  '/crm/verifications', '/crm/categories', '/crm/traffic', '/crm/posts',
+  '/crm/verifications', '/crm/verifications/submissions', '/crm/categories', '/crm/traffic', '/crm/posts',
   '/crm/buyers', '/crm/mail', '/crm/prospects', '/crm/team', '/crm/settings',
-], 'Daily marketplace work comes first; sale and settings are secondary');
+], 'Daily marketplace work comes first; self-submission queue sits with verifications; sale and settings are secondary');
 assert.match(sidebar, /href: "\/crm\/categories", label: "Danh mục sản phẩm"/, 'Category menu uses product-focused wording');
 assert.match(sidebar, /perm: "rfq\.view"/, 'RFQ remains permission-gated');
 assert.match(sidebar, /hasPermission\(session\.role, item\.perm\)/, 'Implied view permissions remain visible');
