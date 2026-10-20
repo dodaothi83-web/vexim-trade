@@ -19,7 +19,10 @@ export default async function SupplierCertificatesPage({ params }: { params: Pro
   ]);
   const byId = new Map(media.map((m) => [m.id, m]));
   return <main className="mx-auto max-w-5xl px-5 py-8">
-    <Link className="text-sm font-semibold text-brand-700 hover:underline" href={`/crm/suppliers/${id}`}>← Hồ sơ {supplier.name}</Link>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <Link className="text-sm font-semibold text-brand-700 hover:underline" href={`/crm/suppliers/${id}`}>← Hồ sơ {supplier.name}</Link>
+      <Link className="text-sm font-semibold text-teal-700 hover:underline" href={`/crm/suppliers/${id}/audit/documents`}>Kiểm tra giấy tờ (L1) →</Link>
+    </div>
     <h1 className="mt-5 text-3xl font-black text-ink-900">Chứng nhận · {supplier.name}</h1>
     <p className="mt-2 text-sm text-ink-600">Luồng độc lập với Kiểm tra giấy tờ/Thăm nhà máy/Lịch sử giao hàng. Tệp NCC nộp chỉ nội bộ; chấp thuận bản sao và công bố trên sản phẩm là hai quyết định riêng. Không tự nhận đã xác thực với cơ quan cấp.</p>
     <div className="mt-6 space-y-5">{certificates.length ? certificates.map((c) => {
@@ -42,6 +45,6 @@ export default async function SupplierCertificatesPage({ params }: { params: Pro
           canReview={hasPermission(session.role, "verifications.approve")}
           canPublish={hasPermission(session.role, "suppliers.publish")} />
       </section>;
-    }) : <div className="rounded-xl border border-dashed border-ink-200 p-8 text-sm text-ink-600">Chưa có chứng nhận NCC gửi theo luồng xét duyệt riêng. Giấy tờ bước đầu vẫn xem ở trang Kiểm tra giấy tờ.</div>}</div>
+    }) : <div className="rounded-xl border border-dashed border-ink-200 p-8 text-sm text-ink-600">Chưa có chứng nhận NCC gửi theo luồng xét duyệt riêng. Giấy tờ bước đầu vẫn xem ở trang <Link className="font-semibold text-brand-700 underline" href={`/crm/suppliers/${id}/audit/documents`}>Kiểm tra giấy tờ (L1)</Link>.</div>}</div>
   </main>;
 }

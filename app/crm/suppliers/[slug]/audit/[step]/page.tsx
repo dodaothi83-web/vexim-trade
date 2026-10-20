@@ -22,12 +22,15 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
   if (!step) notFound();
   const session = await requirePagePermission("verifications.view", `/crm/suppliers/${supplierId}`);
   const store = getStore();
-  const [supplier, all, submissions] = await Promise.all([
+  const [supplier, all, submissions, certificates] = await Promise.all([
     store.getSupplier(supplierId),
     store.listVerifications(supplierId),
     // Hồ sơ NCC TỰ GỬI cho bước này; bảng chưa có (chưa chạy migration) thì bỏ qua.
     step.level === 1 ? Promise.resolve([]) : store.listSubmissions(supplierId, step.level as 2 | 3)
       .catch((error) => { console.error("[self-submissions] migration/query failed", error); return []; }),
+    // Chứng nhận NCC nộp theo luồng xét duyệt RIÊNG — hiện tóm tắt để người kiểm L1 không đi tìm.
+    step.level === 1 ? store.listCertificates(supplierId)
+      .catch((error) => { console.error("[certificates] query failed", error); return []; }) : Promise.resolve([]),
   ]);
   if (!supplier) notFound();
   const forStep = [...all].filter((v) => v.target_level === step.level).sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -75,8 +78,25 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
             </Badge>
             <p className="text-sm text-ink-600">{current.status === "approved" ? "Bằng chứng được khoá để giữ nguyên hồ sơ đã duyệt." : "Ghi kết quả, đính kèm bằng chứng và nộp xét duyệt khi đã sẵn sàng."}</p>
           </Card>
+          {step.level === 1 && certificates.length > 0 && (
+            <Card className="border-teal-200 bg-teal-50/60 p-4">
+              <h2 className="text-sm font-bold text-ink-900">Chứng nhận NCC nộp theo luồng xét duyệt riêng ({certificates.length})</h2>
+              <p className="mt-1 text-xs text-ink-600">Luồng Chứng nhận độc lập với đợt kiểm giấy tờ này: NCC khai đơn vị đứng tên, phạm vi, hiệu lực; “kiểm bản sao” và “công bố theo sản phẩm” là hai quyết định riêng. Các dòng HACCP/ATTP/chứng chỉ bên dưới chỉ ghi nhận bằng chứng nội bộ của đúng đợt kiểm — duyệt L1 không tự công bố chứng nhận.</p>
+              <ul className="mt-3 space-y-1.5">{certificates.map((c) => (
+                <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm">
+                  <span className="min-w-0 text-xs text-ink-700"><strong className="text-ink-900">{c.name}</strong>
+                    {c.holder_name ? ` · đứng tên ${c.holder_name}` : ""}
+                    {c.valid_until ? ` · hiệu lực tới ${c.valid_until}` : ""}</span>
+                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${c.review_status === "approved" ? "bg-emerald-50 text-emerald-700" : c.review_status === "changes_requested" ? "bg-amber-50 text-amber-700" : c.review_status === "rejected" ? "bg-rose-50 text-rose-700" : "bg-sky-50 text-sky-700"}`}>
+                    {c.review_status === "approved" ? (c.publicly_visible ? "Đã kiểm & công bố" : "Đã kiểm bản sao") : c.review_status === "changes_requested" ? "Cần bổ sung" : c.review_status === "rejected" ? "Không chấp thuận" : "Chờ kiểm"}
+                  </span>
+                </li>
+              ))}</ul>
+              <Link href={`/crm/suppliers/${supplierId}/certificates`} className="btn btn-ghost btn-sm mt-3">Xét duyệt chứng nhận →</Link>
+            </Card>
+          )}
           <div className="max-w-5xl">
-            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} currentUserId={session.uid} requireSecondReviewer={requireSecondReviewer} />
+            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} currentUserId={session.uid} requireSecondReviewer={requireSecondReviewer} pendingCertificates={certificates.filter((c) => ["pending", "unreviewed"].includes(c.review_status ?? "unreviewed")).length} />
           </div>
         </>}
     </div>
