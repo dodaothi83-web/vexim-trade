@@ -810,6 +810,7 @@ function CategoryEditor({
   const uploadUrl = draft.id ? `/api/categories/${encodeURIComponent(draft.id)}/hero-image` : "";
   const [tab, setTab] = useState<EditorTab>(initialTab);
   const [drafting, setDrafting] = useState(false);
+  const [draftingBody, setDraftingBody] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const toast = useToast();
 
@@ -855,6 +856,23 @@ function CategoryEditor({
       toast.push({ kind: "success", title: "Đã điền bản nháp. Hãy kiểm tra trước khi lưu." });
     } catch (error) { toast.push({ kind: "error", title: error instanceof Error ? error.message : "Lỗi AI" }); }
     finally { setDrafting(false); }
+  }
+
+  async function aiBody() {
+    if (!draft.name_en.trim()) { toast.push({ kind: "error", title: "Nhập tên danh mục trước." }); return; }
+    if (draft.body_en.trim() && !window.confirm("Thay nội dung chi tiết hiện tại bằng bản nháp AI?")) return;
+    setDraftingBody(true);
+    try {
+      const response = await fetch("/api/ai/editor-draft", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "category-body", name: draft.name_en, intro: draft.intro_en, facts: draft.buying_facts.filter((f) => f.label && f.value).map((f) => `${f.label}: ${f.value}`).slice(0, 8) }),
+      });
+      const data = await response.json() as { text?: string; message?: string };
+      if (!response.ok || !data.text) throw new Error(data.message ?? "AI chưa soạn được. Thử lại sau.");
+      set("body_en", data.text);
+      toast.push({ kind: "success", title: "Đã điền bản nháp nội dung chi tiết. Hãy kiểm tra và sửa lại trước khi lưu." });
+    } catch (error) { toast.push({ kind: "error", title: error instanceof Error ? error.message : "Lỗi AI" }); }
+    finally { setDraftingBody(false); }
   }
 
   const buyerTag = <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-sky-800">Buyer thấy · EN</span>;
@@ -993,8 +1011,15 @@ function CategoryEditor({
                 <Field label={<>Giới thiệu ngắn {buyerTag}</>}>
                   <textarea className="input" rows={3} value={draft.intro_en} onChange={(e) => set("intro_en", e.target.value)} placeholder="A concise introduction for international buyers…" />
                 </Field>
-                <Field label={<>Nội dung chi tiết {buyerTag}</>} hint="Đoạn mô tả dài hiển thị dưới danh sách nhà cung cấp trên trang public.">
-                  <textarea className="input" rows={6} value={draft.body_en} onChange={(e) => set("body_en", e.target.value)} placeholder="Giới thiệu ngành hàng, sản phẩm, điểm cần lưu ý…" />
+                <Field label={<>Nội dung chi tiết {buyerTag}</>} hint="Bài giới thiệu ngành hàng hiển thị dưới danh sách nhà cung cấp trên trang public. Khoảng 3 đến 5 đoạn ngắn: ngành hàng, mặt hàng chính, lưu ý khi mua và cách Vexim hỗ trợ báo giá.">
+                  <textarea className="input" rows={10} value={draft.body_en} onChange={(e) => set("body_en", e.target.value)} placeholder="Giới thiệu ngành hàng, sản phẩm, điểm cần lưu ý…" />
+                  {aiEnabled && (
+                    <div className="mt-2">
+                      <Button type="button" size="sm" disabled={draftingBody || busy} onClick={() => void aiBody()}>
+                        {draftingBody ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} AI soạn nội dung chi tiết
+                      </Button>
+                    </div>
+                  )}
                 </Field>
                 <div>
                   <p className="label">Ảnh bìa (hiển thị toàn chiều ngang trên trang public)</p>
