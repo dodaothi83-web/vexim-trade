@@ -176,12 +176,15 @@ export function CategoriesManager({
   aiEnabled = false,
   stats = {},
   currentUserId = "",
+  isAdmin = false,
 }: {
   initialCategories: Category[];
   canPublish?: boolean;
   aiEnabled?: boolean;
   stats?: Record<string, CategoryStats>;
   currentUserId?: string;
+  /** Admin toàn quyền được tự công khai bản mình sửa cuối (ngoại lệ quy tắc 2 người). */
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -431,6 +434,7 @@ export function CategoriesManager({
         initialTab={editorTab}
         canPublish={canPublish}
         currentUserId={currentUserId}
+        isAdmin={isAdmin}
         aiEnabled={aiEnabled}
       />
     );
@@ -786,7 +790,7 @@ function tabState(key: EditorTab, d: CategoryDraft): "ok" | "part" | "no" {
 }
 
 function CategoryEditor({
-  draft, setDraft, onSave, onPublish, onBack, onPreview, onDelete, busy, initialTab, savedCategory, parentOptions, stats, hasChildren, dirty, canPublish, currentUserId, aiEnabled,
+  draft, setDraft, onSave, onPublish, onBack, onPreview, onDelete, busy, initialTab, savedCategory, parentOptions, stats, hasChildren, dirty, canPublish, currentUserId, isAdmin, aiEnabled,
 }: {
   draft: CategoryDraft;
   setDraft: (updater: CategoryDraft | ((d: CategoryDraft) => CategoryDraft)) => void;
@@ -804,6 +808,7 @@ function CategoryEditor({
   dirty: boolean;
   canPublish?: boolean;
   currentUserId?: string;
+  isAdmin?: boolean;
   aiEnabled?: boolean;
 }) {
   const set = <K extends keyof CategoryDraft>(k: K, v: CategoryDraft[K]) => setDraft((d) => ({ ...d, [k]: v }));
@@ -818,6 +823,8 @@ function CategoryEditor({
   const missingRequired = checklist.filter((i) => i.required && !i.done);
   const published = draft.is_published;
   const selfEdited = !!currentUserId && savedCategory.updated_by === currentUserId;
+  // Quy tắc 2 người chỉ áp cho người không phải Admin; Admin toàn quyền tự công khai được.
+  const selfPublishBlocked = selfEdited && !isAdmin;
 
   // Lý do nút Công khai bị khoá — hiển thị ngay cạnh nút, không chờ bấm mới biết.
   const publishBlockReason = !canPublish
@@ -826,7 +833,7 @@ function CategoryEditor({
       ? "Có thay đổi chưa lưu — hãy Lưu bản nháp trước."
       : !published && missingRequired.length > 0
         ? `Còn thiếu: ${missingRequired.map((i) => i.label.toLowerCase()).join(", ")}.`
-        : !published && selfEdited
+        : !published && selfPublishBlocked
           ? "Bạn là người sửa cuối — cần người khác công khai (quy tắc 2 người)."
           : null;
 
@@ -1000,30 +1007,35 @@ function CategoryEditor({
 
           {tab === "content" && (
             <section className="card p-5">
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-bold text-ink-900">Nội dung & ảnh bìa</h2>
-                  <p className="mt-0.5 text-[13px] text-ink-500">Phần buyer đọc đầu tiên trên trang danh mục — viết bằng tiếng Anh.</p>
-                </div>
-                {aiEnabled && <Button type="button" size="sm" disabled={drafting || busy} onClick={() => void aiIntro()}>{drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} AI soạn giới thiệu</Button>}
+              <div className="mb-4">
+                <h2 className="text-base font-bold text-ink-900">Nội dung & ảnh bìa</h2>
+                <p className="mt-0.5 text-[13px] text-ink-500">Phần buyer đọc đầu tiên trên trang danh mục — viết bằng tiếng Anh.</p>
               </div>
               <div className="space-y-4">
-                <Field label={<>Giới thiệu ngắn {buyerTag}</>}>
+                <Field
+                  label={<>Giới thiệu ngắn {buyerTag}</>}
+                  action={aiEnabled ? (
+                    <Button type="button" size="sm" disabled={drafting || busy} onClick={() => void aiIntro()}>
+                      {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Tự động soạn nội dung
+                    </Button>
+                  ) : undefined}
+                >
                   <textarea className="input" rows={3} value={draft.intro_en} onChange={(e) => set("intro_en", e.target.value)} placeholder="A concise introduction for international buyers…" />
                 </Field>
-                <Field label={<>Nội dung chi tiết {buyerTag}</>} hint="Bài giới thiệu ngành hàng hiển thị dưới danh sách nhà cung cấp trên trang public. Khoảng 3 đến 5 đoạn ngắn: ngành hàng, mặt hàng chính, lưu ý khi mua và cách Vexim hỗ trợ báo giá.">
+                <Field
+                  label={<>Nội dung chi tiết {buyerTag}</>}
+                  hint="Bài giới thiệu ngành hàng hiển thị dưới danh sách nhà cung cấp trên trang public. Khoảng 3 đến 5 đoạn ngắn: ngành hàng, mặt hàng chính, lưu ý khi mua và cách Vexim hỗ trợ báo giá."
+                  action={aiEnabled ? (
+                    <Button type="button" size="sm" disabled={draftingBody || busy} onClick={() => void aiBody()}>
+                      {draftingBody ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Tự động soạn nội dung
+                    </Button>
+                  ) : undefined}
+                >
                   <textarea className="input" rows={10} value={draft.body_en} onChange={(e) => set("body_en", e.target.value)} placeholder="Giới thiệu ngành hàng, sản phẩm, điểm cần lưu ý…" />
-                  {aiEnabled && (
-                    <div className="mt-2">
-                      <Button type="button" size="sm" disabled={draftingBody || busy} onClick={() => void aiBody()}>
-                        {draftingBody ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} AI soạn nội dung chi tiết
-                      </Button>
-                    </div>
-                  )}
                 </Field>
                 <div>
                   <p className="label">Ảnh bìa (hiển thị toàn chiều ngang trên trang public)</p>
-                  <ImagePicker value={draft.hero_image} altValue={draft.hero_alt_en} onAltChange={(v) => set("hero_alt_en", v)} onChange={(v) => set("hero_image", v)} uploadUrl={uploadUrl} disabled={busy} />
+                  <ImagePicker value={draft.hero_image} altValue={draft.hero_alt_en} onAltChange={(v) => set("hero_alt_en", v)} onChange={(v) => set("hero_image", v)} uploadUrl={uploadUrl} disabled={busy} hint="Nên dùng ảnh ngang tối thiểu 1600×900 px, đẹp nhất khoảng 1600×686 px (tỉ lệ 21:9), và đặt chủ thể chính ở giữa ảnh: trang danh mục cắt ảnh theo dải ngang 21:9, thẻ ngoài trang chủ cắt 4:3, cả hai đều cắt từ giữa nên ảnh vuông sẽ mất nhiều phần trên và dưới. Ảnh tải lên tự nén về cạnh dài tối đa 1600px, JPEG 0.85." />
                 </div>
               </div>
             </section>
@@ -1116,9 +1128,9 @@ function CategoryEditor({
                 </li>
               ))}
               <li className="flex items-center gap-2 border-t border-ink-100 pt-2.5 text-[13px]">
-                {selfEdited && !published
+                {selfPublishBlocked && !published
                   ? <><AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" /><span className="font-medium text-ink-800">Người duyệt khác người sửa cuối <span className="block text-[11px] font-normal text-ink-400">Bạn là người sửa cuối — hãy nhờ người khác công khai.</span></span></>
-                  : <><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /><span className="text-ink-700">Người duyệt khác người sửa cuối</span></>}
+                  : <><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /><span className="text-ink-700">Người duyệt khác người sửa cuối{selfEdited && isAdmin && !published && <span className="block text-[11px] font-normal text-ink-400">Bạn là Admin nên được tự công khai bản mình sửa.</span>}</span></>}
               </li>
             </ul>
             <p className="mt-3 text-xs leading-relaxed text-ink-400">Đủ các mục <b>BẮT BUỘC</b> và đã lưu bản nháp, nút Công khai mới bấm được — lý do luôn hiển thị ngay tại thanh trên cùng.</p>

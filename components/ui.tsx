@@ -67,19 +67,32 @@ export function Field({
   required,
   children,
   className,
+  action,
 }: {
   label: ReactNode;
   hint?: string;
   required?: boolean;
   children: ReactNode;
   className?: string;
+  /** Nút thao tác phụ đặt ở phía phải, ngay trên ô nhập liệu. */
+  action?: ReactNode;
 }) {
+  const labelRow = (
+    <div className="label">
+      {label}
+      {required && <span className="ml-0.5 text-red-500">*</span>}
+    </div>
+  );
   return (
     <div className={className}>
-      <div className="label">
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </div>
+      {action ? (
+        <div className="flex items-center justify-between gap-3 [&_.label]:mb-1">
+          {labelRow}
+          <div className="shrink-0">{action}</div>
+        </div>
+      ) : (
+        labelRow
+      )}
       {children}
       {hint && <p className="hint">{hint}</p>}
     </div>

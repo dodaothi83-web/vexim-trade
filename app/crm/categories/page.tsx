@@ -41,6 +41,7 @@ export default async function CategoriesPage() {
       aiEnabled={!!process.env.OPENAI_API_KEY}
       stats={cleanStats}
       currentUserId={session.uid}
+      isAdmin={session.role === "admin"}
     />
   );
 }
