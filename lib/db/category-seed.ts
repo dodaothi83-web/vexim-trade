@@ -11,6 +11,7 @@ import type {
   CategoryColumn,
   CategoryFilter,
   CategoryRow,
+  ProductAttributeField,
 } from "@/lib/types";
 
 export interface CategoryContentSeed {
@@ -26,6 +27,8 @@ export interface CategoryContentSeed {
   spec_rows?: CategoryRow[];
   buying_facts?: CategoryFact[];
   filters?: CategoryFilter[];
+  /** Trường thông số buyer lọc được trên trang nhóm nhỏ (CRM sửa được). */
+  product_fields?: ProductAttributeField[];
   faqs?: Array<{ q: string; a: string }>;
   active_on_homepage?: boolean;
   public_page_ready?: boolean;
@@ -78,6 +81,16 @@ const CASHEW_FILTERS: CategoryFilter[] = [
   ]},
 ];
 
+const CASHEW_PRODUCT_FIELDS: ProductAttributeField[] = [
+  {
+    key: "grade",
+    label: "Grade",
+    type: "select",
+    options: ["W180", "W240", "W320", "W450", "SW", "WS", "LP", "SP"],
+    filterable: true,
+  },
+];
+
 export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
   h1: "Cashew suppliers in Vietnam",
   intro:
@@ -95,6 +108,7 @@ export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
   buying_facts: CASHEW_FACTS,
   faqs: CASHEW_FAQS,
   filters: CASHEW_FILTERS,
+  product_fields: CASHEW_PRODUCT_FIELDS,
   active_on_homepage: true,
   public_page_ready: false, // computed từ NCC published, không hardcode
   seo_indexable: false, // bật sau khi hết [ngoặc vuông] + có hồ sơ thật

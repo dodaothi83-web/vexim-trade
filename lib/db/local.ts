@@ -216,6 +216,11 @@ function seed(): LocalShape {
   // (spec/buying facts/FAQ) được điền qua migrateCategoryDefaults() từ category-seed.ts.
   type CatSeed = { slug: string; nameEn: string; introEn: string; seoEn: string; order: number; parent?: string; content?: keyof typeof seedContentMap };
   const seedContentMap = {
+    "nuts-kernels": {
+      ...DEFAULT_CATEGORY_CONFIG,
+      kicker: "Cashew, macadamia & processed nuts",
+      active_on_homepage: true,
+    },
     cashew: CASHEW_CATEGORY_CONFIG,
     pepper: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/pepper.jpg", kicker: "FAQ / cleaned / ASTA", active_on_homepage: true },
     coffee: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/coffee.jpg", kicker: "Robusta & Arabica", active_on_homepage: true },
@@ -224,7 +229,7 @@ function seed(): LocalShape {
     rice: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/rice.jpg", kicker: "Jasmine, ST25, Japonica", active_on_homepage: true },
   } as const;
   const catSeeds: CatSeed[] = [
-    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10 },
+    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10, content: "nuts-kernels" },
     { slug: "cashew", nameEn: "Cashew kernels", introEn: CASHEW_CATEGORY_CONFIG.intro!, seoEn: CASHEW_CATEGORY_CONFIG.seo_desc!, order: 11, parent: "nuts-kernels", content: "cashew" },
     { slug: "macadamia", nameEn: "Macadamia", introEn: "Vietnamese macadamia kernels and in-shell from Tây Nguyên plantations.", seoEn: "Vietnamese macadamia suppliers – graded kernels & in-shell.", order: 12, parent: "nuts-kernels" },
     { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20, content: "coffee" },
@@ -267,6 +272,7 @@ function seed(): LocalShape {
       spec_rows: content.spec_rows ?? [],
       buying_facts: content.buying_facts ?? [],
       filters: content.filters ?? [],
+      product_fields: content.product_fields ?? [],
       active_on_homepage: content.active_on_homepage ?? false,
       public_page_ready: content.public_page_ready ?? false,
       seo_indexable: content.seo_indexable ?? false,
@@ -361,7 +367,7 @@ function ensureSeedCategories(db: LocalShape) {
   };
 
   const seeds: CatSeed[] = [
-    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10 },
+    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10, content: "nuts-kernels" },
     { slug: "cashew", nameEn: "Cashew kernels", introEn: CASHEW_CATEGORY_CONFIG.intro!, seoEn: CASHEW_CATEGORY_CONFIG.seo_desc!, order: 11, parent: "nuts-kernels", content: "cashew" },
     { slug: "macadamia", nameEn: "Macadamia", introEn: "Vietnamese macadamia kernels and in-shell from Tây Nguyên plantations.", seoEn: "Vietnamese macadamia suppliers – graded kernels & in-shell.", order: 12, parent: "nuts-kernels" },
     { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20, content: "coffee" },
@@ -405,6 +411,7 @@ function ensureSeedCategories(db: LocalShape) {
       spec_rows: content.spec_rows ?? [],
       buying_facts: content.buying_facts ?? [],
       filters: content.filters ?? [],
+      product_fields: content.product_fields ?? [],
       active_on_homepage: content.active_on_homepage ?? false,
       public_page_ready: content.public_page_ready ?? false,
       seo_indexable: content.seo_indexable ?? false,
@@ -440,9 +447,15 @@ function migrateCategoryDefaults(db: LocalShape) {
       buying_facts: CASHEW_CATEGORY_CONFIG.buying_facts,
       faq_i18n: CASHEW_CATEGORY_CONFIG.faqs,
       filters: CASHEW_CATEGORY_CONFIG.filters,
+      product_fields: CASHEW_CATEGORY_CONFIG.product_fields,
       active_on_homepage: true,
       public_page_ready: true,
       seo_indexable: false,
+      status: "published",
+    },
+    "nuts-kernels": {
+      homepage_kicker_i18n: { en: "Cashew, macadamia & processed nuts" },
+      active_on_homepage: true,
       status: "published",
     },
     pepper:   { hero_image: "/images/categories/pepper.jpg",   homepage_kicker_i18n: { en: "FAQ / cleaned / ASTA" },          active_on_homepage: true },

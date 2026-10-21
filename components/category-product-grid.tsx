@@ -13,12 +13,6 @@ import { fieldsFor } from "@/lib/product-attributes";
 import type { PilotPlacement } from "@/lib/sponsored/pilot";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
 
-const CASHEW_CHIPS = [
-  { label: "W180", grades: ["W180"] }, { label: "W240", grades: ["W240"] },
-  { label: "W320", grades: ["W320"] }, { label: "W450", grades: ["W450"] },
-  { label: "Splits", grades: ["WS"] }, { label: "Pieces", grades: ["LP", "SP"] },
-];
-
 function moqGroup(value: string): string {
   const text = value.toLowerCase();
   if (/fcl|container|\bcont\b|20\s*(?:ft|')/.test(text)) return "container";
@@ -41,8 +35,10 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   const [moq, setMoq] = useState("");
   const [province, setProvince] = useState("");
   const [verified, setVerified] = useState(0);
-  const quick = hasStructuredGrade ? [] : categorySlug === "cashew" ? CASHEW_CHIPS : grades.map((g) => ({ label: g, grades: [g] }));
-  const allGrades = hasStructuredGrade ? [] : categorySlug === "cashew" ? [...new Set([...grades, "W180", "W240", "W320", "W450", "SW", "WS", "LP", "SP"])] : grades;
+  // Grade chips/filters come only from the CRM category configuration
+  // (filters + product_fields). No hardcoded commodity demo values.
+  const quick = hasStructuredGrade ? [] : grades.map((g) => ({ label: g, grades: [g] }));
+  const allGrades = hasStructuredGrade ? [] : grades;
   const provinces = [...new Set(products.map((p) => p.province))].sort();
   const visible = useMemo(() => products.filter((p) =>
     (!selectedGrades.length || (p.grade && selectedGrades.includes(p.grade))) &&

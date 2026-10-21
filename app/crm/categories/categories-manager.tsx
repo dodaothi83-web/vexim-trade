@@ -1145,6 +1145,13 @@ function CategoryEditor({
                     <input type="checkbox" className="mt-0.5" checked={draft.seo_indexable} disabled={!canPublish} onChange={(e) => set("seo_indexable", e.target.checked)} />
                     <span>Cho phép Google lập chỉ mục khi công khai{!canPublish && <span className="block text-xs text-ink-400">Chỉ người có quyền công khai mới thay đổi được mục này.</span>}</span>
                   </label>
+                  {(draft.parent_id || hasChildren) && (
+                    <p className="rounded-xl bg-ink-50 px-3.5 py-2.5 text-xs leading-relaxed text-ink-500">
+                      {hasChildren
+                        ? "Đây là danh mục lớn (nhóm cha): trang công khai sẽ liệt kê các nhóm nhỏ bên trong và gộp sản phẩm của các nhóm nhỏ."
+                        : `Đây là nhóm nhỏ thuộc «${parentOptions.find((c) => c.id === draft.parent_id)?.name_i18n?.en || "danh mục cha"}»: nếu danh mục cha bật hiển thị trên trang chủ, nhóm nhỏ sẽ nằm bên trong thẻ của danh mục cha thay vì có thẻ riêng. Niêm yết giúp buyer lọc theo thông số sản phẩm chính là mục «Trường dữ liệu cho từng sản phẩm».`}
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
