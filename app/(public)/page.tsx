@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * Root công khai (/) — trang chủ Vexim Trade đa ngành.
+ * Root công khai (/) — trang chủ Vexim Trade đa ngành (song ngữ Anh - Việt, mặc định Tiếng Anh).
  * - Đã đăng nhập → /crm/dashboard.
  * - Host nội bộ (crm.*, *.vercel.app) → /login cho đội ngũ.
  * - Khác → render HomeContent (hero đa ngành + CTA tới /rfq).
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
 export default async function PublicHomePage({
   searchParams,
 }: {
-  searchParams?: Promise<{ q?: string; cat?: string }>;
+  searchParams?: Promise<{ q?: string; cat?: string; lang?: string }>;
 }) {
   const session = await getSession();
   if (session) redirect("/crm/dashboard");
@@ -55,6 +55,7 @@ export default async function PublicHomePage({
   const params = searchParams ? await searchParams : {};
   const query = typeof params?.q === "string" ? params.q.trim().slice(0, 120) : "";
   const categoryFilter = typeof params?.cat === "string" ? params.cat.trim().slice(0, 60) : "";
+  const lang: "en" | "vi" = params?.lang === "vi" ? "vi" : "en";
   // Schema nền cho trang chủ: tổ chức + website. Không khai SearchAction vì site không có trang tìm kiếm công khai.
   const jsonLd = {
     "@context": "https://schema.org",
@@ -77,7 +78,7 @@ export default async function PublicHomePage({
         "@id": `${SITE_URL}/#website`,
         url: SITE_URL,
         name: COMPANY.name,
-        inLanguage: "en",
+        inLanguage: lang,
         publisher: { "@id": `${SITE_URL}/#organization` },
       },
     ],
@@ -86,7 +87,7 @@ export default async function PublicHomePage({
     <>
       <GoogleTag />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
-      <HomeContent query={query} categoryFilter={categoryFilter} />
+      <HomeContent query={query} categoryFilter={categoryFilter} lang={lang} />
     </>
   );
 }

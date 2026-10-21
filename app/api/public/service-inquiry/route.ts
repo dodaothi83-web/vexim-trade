@@ -7,11 +7,18 @@ import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const VALID_SERVICES: Record<string, string> = {
+const VALID_SERVICES_VI: Record<string, string> = {
   free_listing: "1. Đăng ký lên sàn Miễn phí",
   international_website: "2. Thiết kế website chuẩn thương mại quốc tế",
   featured_ads: "3. Quảng cáo nổi bật",
   fda_compliance: "4. Tuân thủ pháp lý FDA",
+};
+
+const VALID_SERVICES_EN: Record<string, string> = {
+  free_listing: "1. Free Marketplace Listing",
+  international_website: "2. International Trade Website Design",
+  featured_ads: "3. Featured Placement",
+  fda_compliance: "4. US FDA Regulatory Compliance",
 };
 
 function clean(value: unknown, max: number): string {
@@ -31,13 +38,18 @@ export async function POST(request: Request) {
     }
   } catch {
     return NextResponse.json(
-      { ok: false, message: "Không đọc được dữ liệu biểu mẫu." },
+      { ok: false, message: "Invalid request data." },
       { status: 400 },
     );
   }
 
+  const lang = clean(body.lang, 10) === "vi" ? "vi" : "en";
+  const isVi = lang === "vi";
   const serviceKey = clean(body.service_key, 60);
-  const serviceTitle = VALID_SERVICES[serviceKey] ?? clean(body.service_title, 140) ?? "Dịch vụ doanh nghiệp";
+  const serviceTitle =
+    (isVi ? VALID_SERVICES_VI[serviceKey] : VALID_SERVICES_EN[serviceKey]) ||
+    clean(body.service_title, 140) ||
+    (isVi ? "Dịch vụ doanh nghiệp" : "Vexim Trade Business Service");
   const companyName = clean(body.company_name, 160);
   const contactName = clean(body.contact_name, 120);
   const phone = clean(body.phone, 50);
@@ -49,7 +61,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        message: "Vui lòng nhập đầy đủ Tên doanh nghiệp, Người liên hệ, Số điện thoại và Email.",
+        message: isVi
+          ? "Vui lòng nhập đầy đủ Tên doanh nghiệp, Người liên hệ, Số điện thoại và Email."
+          : "Please fill in your Company Name, Contact Name, Phone Number, and Work Email.",
       },
       { status: 400 },
     );
@@ -57,7 +71,10 @@ export async function POST(request: Request) {
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json(
-      { ok: false, message: "Địa chỉ email không hợp lệ." },
+      {
+        ok: false,
+        message: isVi ? "Địa chỉ email không hợp lệ." : "Invalid email address.",
+      },
       { status: 400 },
     );
   }
@@ -74,6 +91,7 @@ export async function POST(request: Request) {
       action: "public.service_inquiry",
       before: null,
       after: {
+        lang,
         service_key: serviceKey || "general",
         service_title: serviceTitle,
         company_name: companyName,
@@ -100,7 +118,7 @@ export async function POST(request: Request) {
     if (recipients.length > 0) {
       const subject = `[Đăng ký dịch vụ] ${serviceTitle} — ${companyName}`;
       const htmlBody = [
-        `<p>Doanh nghiệp vừa gửi yêu cầu đăng ký dịch vụ từ trang chủ Vexim Trade:</p>`,
+        `<p>Doanh nghiệp vừa gửi yêu cầu đăng ký dịch vụ từ trang chủ Vexim Trade (${lang.toUpperCase()}):</p>`,
         `<ul>`,
         `<li><strong>Dịch vụ đăng ký:</strong> ${escapeHtml(serviceTitle)}</li>`,
         `<li><strong>Doanh nghiệp:</strong> ${escapeHtml(companyName)}</li>`,
@@ -124,6 +142,8 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
-    message: `Đã gửi đăng ký "${serviceTitle}" thành công! Đội ngũ Vexim Trade sẽ liên hệ với ${contactName} qua số ${phone} trong vòng 1 ngày làm việc.`,
+    message: isVi
+      ? `Đã gửi đăng ký "${serviceTitle}" thành công! Đội ngũ Vexim Trade sẽ liên hệ với ${contactName} qua số ${phone} trong vòng 1 ngày làm việc.`
+      : `Thank you! Your registration for "${serviceTitle}" has been submitted. The Vexim Trade team will contact ${contactName} via ${phone} within 1 business day.`,
   });
 }
