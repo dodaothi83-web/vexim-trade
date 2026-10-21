@@ -13,7 +13,7 @@ import {
   ClipboardCheck,
   Factory,
   FileCheck2,
-  HelpCircle,
+  FolderTree,
   PackageCheck,
   Scale,
   ShieldCheck,
@@ -39,94 +39,19 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+interface ChildCategoryWithCount {
+  category: Category;
+  name: string;
+  intro: string;
+  productCount: number;
+}
+
 const CATEGORY_RFQ_META_SUFFIX =
   "Request a quote from a supplier you choose, or send your requirements and Vexim will shortlist suppliers that match.";
 
-const CATEGORY_EN_TITLES: Record<string, string> = {
-  cashew: "Cashew Kernels & Value-Added Cashew",
-  "nuts-kernels": "Nutritional Nuts & Kernels",
-  macadamia: "Central Highlands Macadamia Nuts",
-  coffee: "Green Coffee Beans & Roasted Coffee",
-  pepper: "Vietnamese Black & White Pepper",
-  "pepper-spices": "Pepper & Natural Spices",
-  cinnamon: "Cassia Cinnamon & Star Anise",
-  "star-anise": "Lang Son Whole Star Anise",
-  coconut: "Ben Tre Coconut Products",
-  rice: "Fragrant & Export Rice Products",
-  noodles: "Dried Rice Noodles, Vermicelli & Rice Paper",
-  "fruit-veg": "Processed & IQF Fruits & Vegetables",
-  "dragon-fruit": "Fresh & IQF Dragon Fruit",
-  "dried-fruit": "Soft-Dried & Crispy Fruit Snacks",
-  seafood: "Frozen Export Seafood",
-  pangasius: "Frozen Pangasius Fillets",
-  shrimp: "Black Tiger & Vannamei Shrimp",
-  honey: "Natural Export Honey",
-  tea: "Green Tea, Black Tea & Oolong Tea",
-  "processed-foods": "Processed & Packaged Foods",
-};
-
-const CATEGORY_SUBGROUPS_EN: Record<string, string[]> = {
-  cashew: [
-    "Whole white cashew kernels (WW180, WW240, WW320, WW450)",
-    "Scorched & broken kernels for bakery & confectionery (WS, LP, SP)",
-    "Roasted salted, skin-on & flavored retail cashew (OEM)",
-    "Cashew butter & private-label nutritional nut packs",
-  ],
-  "nuts-kernels": [
-    "Export-grade cashew kernels (W240, W320, W450)",
-    "Central Highlands macadamia nuts (in-shell & kernel)",
-    "Blanched peanuts & dried lotus seeds",
-    "Custom roasted & seasoned nut mixes (Private Label)",
-  ],
-  coffee: [
-    "Green Robusta coffee beans (G1, G2, S16, S18 – Wet/Dry)",
-    "Cau Dat & Son La washed Arabica green coffee beans",
-    "Whole-bean roasted & ground coffee for filter and espresso",
-    "Spray-dried & freeze-dried instant coffee (pure & 3-in-1)",
-  ],
-  pepper: [
-    "Whole black pepper (FAQ 500g/l, 550g/l & ASTA grade)",
-    "Double-washed white peppercorns (White Pepper)",
-    "Steam-sterilised ground & cracked black pepper",
-    "Freeze-dried green pepper, red pepper & certified organic pepper",
-  ],
-  "pepper-spices": [
-    "Export-grade black & white peppercorns",
-    "Yen Bai cassia cinnamon tubes, split & powder",
-    "Lang Son dried star anise & black cardamom",
-    "Dried sliced ginger, turmeric & natural spice powders",
-  ],
-  cinnamon: [
-    "Yen Bai cigarette & stick cassia cinnamon (Stick / Cigarette)",
-    "Split, broken & pressed-bale cassia cinnamon",
-    "High-oil pure cassia cinnamon powder (2% – 4% volatile oil)",
-    "Lang Son whole star anise & natural cinnamon essential oil",
-  ],
-  coconut: [
-    "Desiccated coconut (Fine / Medium grade, High Fat)",
-    "Canned & aseptic coconut milk, coconut cream & milk powder",
-    "UHT pure coconut water, canned coconut water & nata de coco",
-    "Cold-pressed Virgin Coconut Oil (VCO) & RBD coconut oil",
-  ],
-  rice: [
-    "Specialty fragrant rice (ST25, ST24 & Jasmine 85)",
-    "Long-grain white rice for export (5%, 15%, 25% broken)",
-    "Japonica round-grain rice (Sushi) & glutinous rice",
-    "Dried rice vermicelli, Pho noodles & export rice paper",
-  ],
-  seafood: [
-    "Frozen Pangasius fillets (Well-trimmed / Untrimmed)",
-    "Vannamei & Black Tiger shrimp (HLSO, PD, PTO, Nobashi)",
-    "Frozen squid, octopus & breaded value-added seafood",
-    "Surimi fish paste & retail-ready frozen seafood packs",
-  ],
-  "fruit-veg": [
-    "IQF frozen tropical fruits (mango, dragon fruit, durian)",
-    "Soft-dried & vacuum-fried fruit snacks for export",
-    "Aseptic fruit puree & juice concentrates in drums",
-    "Export-grade frozen & canned vegetables",
-  ],
-};
+function categoryDisplayName(cat: Category): string {
+  return t(cat.name_i18n) || cat.slug;
+}
 
 function categoryMetaDescription(name: string, storedDescription: string): string {
   const base = storedDescription.trim();
@@ -209,7 +134,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const { cat, resolvedSlug, isPreview } = await resolveCategory(slug);
   if (!cat) return { title: "Category not found | Vexim Trade", robots: { index: false, follow: false } };
-  const name = CATEGORY_EN_TITLES[cat.slug] || t(cat.name_i18n) || cat.slug;
+  const name = categoryDisplayName(cat);
   const seoTitle = t(cat.seo_title_i18n) || `${name} Products & Verified Suppliers in Vietnam | Vexim Trade`;
   const seoDesc = categoryMetaDescription(name, t(cat.seo_desc_i18n));
   const indexable = !isPreview && !!cat.seo_indexable;
@@ -230,33 +155,83 @@ async function resolveCategory(slug: string) {
   const store = (await import("@/lib/db")).getStore();
   const session = await getSession();
   const isStaff = !!(session && hasPermission(session.role, "categories.manage"));
-  const all = typeof store.listCategories === "function" ? await store.listCategories({ publishedOnly: false }) : [];
-  let cat = (all as Category[]).find((c) => c.slug === slug);
+  const all = typeof store.listCategories === "function" ? ((await store.listCategories({ publishedOnly: false })) as Category[]) : [];
+  let cat = all.find((c) => c.slug === slug);
   if (!cat) {
     // Tìm trong previous_slugs → 301
-    cat = (all as Category[]).find((c) => Array.isArray(c.previous_slugs) && c.previous_slugs.includes(slug));
+    cat = all.find((c) => Array.isArray(c.previous_slugs) && c.previous_slugs.includes(slug));
     if (cat) permanentRedirect(`/products/${cat.slug}`);
   }
-  if (!cat) return { cat: null, resolvedSlug: slug, isStaff, isPreview: false };
+  if (!cat) return { cat: null, allCategories: all, resolvedSlug: slug, isStaff, isPreview: false };
   const isPublished = cat.status === "published" && cat.is_published;
   // Người ngoài chỉ xem được category published; staff có categories.manage được xem trước nháp.
-  if (!isPublished && !isStaff) return { cat: null, resolvedSlug: slug, isStaff, isPreview: false };
-  return { cat, resolvedSlug: cat.slug, isStaff, isPreview: !isPublished };
+  if (!isPublished && !isStaff) return { cat: null, allCategories: all, resolvedSlug: slug, isStaff, isPreview: false };
+  return { cat, allCategories: all, resolvedSlug: cat.slug, isStaff, isPreview: !isPublished };
 }
 
 export default async function CategoryPage({ params }: PageProps) {
   const { slug } = await params;
-  const { cat, isPreview, resolvedSlug } = await resolveCategory(slug);
+  const { cat, allCategories, isStaff, isPreview, resolvedSlug } = await resolveCategory(slug);
   if (!cat) notFound();
 
-  const products = await listPublicCategoryProducts(cat);
+  const isVisibleCategory = (c: Category) => isStaff || (c.status === "published" && c.is_published);
+
+  // Kiểm tra quan hệ Nhóm cha (Danh mục lớn) ↔ Nhóm nhỏ (Danh mục con) từ CRM
+  const parentCategory = cat.parent_id
+    ? (allCategories.find((c) => c.id === cat.parent_id && isVisibleCategory(c)) ?? null)
+    : null;
+
+  const childCategories = allCategories
+    .filter((c) => c.parent_id === cat.id && isVisibleCategory(c))
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.slug.localeCompare(b.slug));
+
+  const siblingCategories = parentCategory
+    ? allCategories
+        .filter((c) => c.parent_id === parentCategory.id && isVisibleCategory(c))
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.slug.localeCompare(b.slug))
+    : [];
+
+  // Lấy sản phẩm trực tiếp của danh mục hiện tại + nếu là Danh mục lớn (Nhóm cha) thì tổng hợp cả sản phẩm của các Nhóm nhỏ trực thuộc
+  const directProducts = await listPublicCategoryProducts(cat);
+  const childProductsList = await Promise.all(
+    childCategories.map(async (child) => ({
+      child,
+      products: await listPublicCategoryProducts(child),
+    })),
+  );
+
+  const childGroups: ChildCategoryWithCount[] = childProductsList.map(({ child, products: items }) => ({
+    category: child,
+    name: categoryDisplayName(child),
+    intro: t(child.intro_i18n) || "",
+    productCount: items.length,
+  }));
+
+  const seenProductIds = new Set<string>();
+  const products: PublicCategoryProduct[] = [];
+  for (const item of directProducts) {
+    if (!seenProductIds.has(item.id)) {
+      seenProductIds.add(item.id);
+      products.push(item);
+    }
+  }
+  for (const { products: items } of childProductsList) {
+    for (const item of items) {
+      if (!seenProductIds.has(item.id)) {
+        seenProductIds.add(item.id);
+        products.push(item);
+      }
+    }
+  }
+
   const sponsored = !isPreview ? await pilotPlacement(cat.slug, products) : null;
-  const categoryName = CATEGORY_EN_TITLES[cat.slug] || t(cat.name_i18n) || cat.slug;
+  const categoryName = categoryDisplayName(cat);
+  const parentName = parentCategory ? categoryDisplayName(parentCategory) : null;
   const h1 = cat.slug === "cashew" ? "Vietnam Cashew" : (t(cat.h1_i18n) || `Vietnam ${categoryName}`);
   const intro =
     t(cat.intro_i18n) ||
     `Explore export-ready Vietnamese ${categoryName.toLowerCase()} products and verified suppliers. Compare specifications, MOQ, reference FOB pricing, and independent verification badges (business documents & certificate holder status, factory evidence, and export delivery history), then request a quote from the supplier you choose or send your requirements for Vexim to shortlist matching suppliers.`;
-  const subgroups = CATEGORY_SUBGROUPS_EN[cat.slug] ?? [];
+
   // Sanitize body để chặn HTML/script độc từ CMS (chỉ cho p/h2-h4/ul/ol/li/a/strong/em/br).
   const bodyRaw = t(cat.body_i18n);
   const body = bodyRaw ? sanitizeHtml(bodyRaw) : "";
@@ -270,15 +245,39 @@ export default async function CategoryPage({ params }: PageProps) {
   const faqs = categoryFaqs(cat.faq_i18n);
   const filters: CategoryFilter[] = Array.isArray(cat.filters) ? (cat.filters as CategoryFilter[]) : [];
 
-  // Schema cho trang danh mục: đường dẫn breadcrumb luôn có; ItemList chỉ khi đã có sản phẩm.
+  // Schema cho trang danh mục: đường dẫn breadcrumb luôn có (gồm cả Nhóm cha nếu đây là Nhóm nhỏ); ItemList chỉ khi đã có sản phẩm.
+  const breadcrumbElements = [
+    { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+    { "@type": "ListItem", position: 2, name: "Products", item: `${SITE_URL}/#categories` },
+    ...(parentCategory && parentName
+      ? [
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: parentName,
+            item: `${SITE_URL}/products/${encodeURIComponent(parentCategory.slug)}`,
+          },
+          {
+            "@type": "ListItem",
+            position: 4,
+            name: categoryName,
+            item: `${SITE_URL}/products/${encodeURIComponent(resolvedSlug)}`,
+          },
+        ]
+      : [
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: categoryName,
+            item: `${SITE_URL}/products/${encodeURIComponent(resolvedSlug)}`,
+          },
+        ]),
+  ];
+
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "Products", item: `${SITE_URL}/#categories` },
-      { "@type": "ListItem", position: 3, name: categoryName, item: `${SITE_URL}/products/${encodeURIComponent(resolvedSlug)}` },
-    ],
+    itemListElement: breadcrumbElements,
   };
   const itemListJsonLd = hasProducts ? {
     "@context": "https://schema.org",
@@ -289,6 +288,15 @@ export default async function CategoryPage({ params }: PageProps) {
       url: `${SITE_URL}/products/${encodeURIComponent(cat.slug)}/${encodeURIComponent(p.id)}`,
     })),
   } : null;
+
+  const breadcrumbItems = [
+    { label: "Home", href: "/" },
+    { label: "Products", href: "/#categories" },
+    ...(parentCategory && parentName
+      ? [{ label: parentName, href: `/products/${parentCategory.slug}` }]
+      : []),
+    { label: categoryName },
+  ];
 
   return (
     <>
@@ -318,7 +326,41 @@ export default async function CategoryPage({ params }: PageProps) {
         </div>
       )}
       <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-6 sm:px-6 lg:px-8">
-        <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Products", href: "/#categories" }, { label: categoryName }]} />
+        <Breadcrumbs items={breadcrumbItems} />
+
+        {/* Thanh chuyển nhanh giữa Nhóm cha và các Nhóm nhỏ cùng cấp (khi đang ở trang Nhóm nhỏ) */}
+        {parentCategory && parentName && siblingCategories.length > 0 && (
+          <nav
+            aria-label={`Sub-categories in ${parentName}`}
+            className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs"
+          >
+            <Link
+              href={`/products/${parentCategory.slug}`}
+              className="inline-flex items-center gap-1.5 font-bold text-brand-800 hover:underline"
+            >
+              <FolderTree className="h-3.5 w-3.5" />
+              All {parentName}:
+            </Link>
+            {siblingCategories.map((sib) => {
+              const active = sib.id === cat.id;
+              return (
+                <Link
+                  key={sib.id}
+                  href={`/products/${sib.slug}`}
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-full px-3 py-1 font-semibold transition ${
+                    active
+                      ? "bg-brand-800 text-white shadow-2xs"
+                      : "border border-slate-200 bg-white text-ink-700 hover:border-brand-400 hover:text-brand-800"
+                  }`}
+                >
+                  {categoryDisplayName(sib)}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
+
         {hasProducts ? (
           <StateA
             cat={cat}
@@ -327,7 +369,7 @@ export default async function CategoryPage({ params }: PageProps) {
             categoryName={categoryName}
             h1={h1}
             intro={intro}
-            subgroups={subgroups}
+            childGroups={childGroups}
             body={body}
             columns={columns}
             rows={rows}
@@ -337,28 +379,96 @@ export default async function CategoryPage({ params }: PageProps) {
             rfqHref={rfqHref}
           />
         ) : (
-          <StateB cat={cat} categoryName={categoryName} h1={h1} intro={intro} subgroups={subgroups} rfqHref={rfqHref}
-            columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} />
+          <StateB
+            cat={cat}
+            categoryName={categoryName}
+            h1={h1}
+            intro={intro}
+            childGroups={childGroups}
+            rfqHref={rfqHref}
+            columns={columns}
+            rows={rows}
+            facts={facts}
+            faqs={faqs}
+            body={body}
+          />
         )}
 
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white/95 p-3 shadow-lg backdrop-blur sm:hidden">
           <Link href={rfqHref} className="flex w-full items-center justify-center gap-2 rounded-md bg-brand-700 px-4 py-3 text-[14px] font-bold text-white">
-            Request a quote <ArrowRight className="h-4 w-4" />
-          </Link>
+            Request a quote <ArrowRight className="h-4 w-4" /></Link>
         </div>
       </div>
     </>
   );
 }
 
+/* ============ Khu vực hiển thị các Nhóm nhỏ trên Trang Danh mục lớn (Nhóm cha) ============ */
+
+function SubcategoryDirectory({
+  parentName,
+  childGroups,
+}: {
+  parentName: string;
+  childGroups: ChildCategoryWithCount[];
+}) {
+  if (childGroups.length === 0) return null;
+  return (
+    <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-extrabold uppercase tracking-wider text-brand-700">
+            Sub-categories in {parentName}
+          </p>
+          <h2 className="mt-0.5 text-base font-bold text-ink-900">
+            Select a product sub-category to filter by specific technical grades &amp; parameters
+          </h2>
+        </div>
+      </div>
+
+      <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {childGroups.map(({ category: child, name, intro, productCount }) => (
+          <li key={child.id} className="flex">
+            <Link
+              href={`/products/${child.slug}`}
+              className="group flex w-full flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-brand-400 hover:shadow-md"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-sm font-black text-ink-900 group-hover:text-brand-800">
+                    {name}
+                  </h3>
+                  {productCount > 0 && (
+                    <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 ring-1 ring-emerald-200">
+                      {productCount} product{productCount > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+                {intro && (
+                  <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-ink-600">
+                    {intro}
+                  </p>
+                )}
+              </div>
+              <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-brand-700 group-hover:text-brand-900">
+                View {name.toLowerCase()} &amp; filters <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /* ================== STATE A — đã có NCC ================== */
 
 function StateA({
-  cat, products, sponsored, categoryName, h1, intro, subgroups, body, columns, rows, facts, faqs, filters, rfqHref,
+  cat, products, sponsored, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref,
 }: {
   cat: Category;
   products: PublicCategoryProduct[]; sponsored: PilotPlacement | null;
-  categoryName: string; h1: string; intro: string; subgroups: string[]; body: string | null;
+  categoryName: string; h1: string; intro: string; childGroups: ChildCategoryWithCount[]; body: string | null;
   columns: CategoryColumn[];
   rows: CategoryRow[];
   facts: CategoryFact[];
@@ -384,21 +494,6 @@ function StateA({
               {h1}
             </h1>
             <p className="mt-2 max-w-2xl text-[14.5px] leading-relaxed text-ink-600">{intro}</p>
-            {subgroups.length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Key product sub-groups:
-                </span>
-                {subgroups.map((sub) => (
-                  <span
-                    key={sub}
-                    className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-ink-700"
-                  >
-                    {sub}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="rounded-full bg-brand-50 px-3 py-1 text-[12.5px] font-semibold text-brand-800 ring-1 ring-brand-200">
@@ -407,6 +502,9 @@ function StateA({
             <Link href={rfqHref} className="hidden sm:inline-flex btn btn-primary">Request a quote <ArrowRight className="h-4 w-4" /></Link>
           </div>
         </div>
+
+        {/* Nếu đây là Trang Danh mục lớn (Nhóm cha), hiển thị danh sách các Nhóm nhỏ trực thuộc lấy từ CRM */}
+        <SubcategoryDirectory parentName={categoryName} childGroups={childGroups} />
 
         <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored} productFields={cat.product_fields ?? []} />
       </section>
@@ -509,8 +607,8 @@ function CategoryContentSections({ columns, rows, facts, faqs, body, categoryNam
 
 /* ================== STATE B — chưa có NCC ================== */
 
-function StateB({ cat, categoryName, h1, intro, subgroups, rfqHref, columns, rows, facts, faqs, body }: {
-  cat: Category; categoryName: string; h1: string; intro: string; subgroups: string[]; rfqHref: string;
+function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, rows, facts, faqs, body }: {
+  cat: Category; categoryName: string; h1: string; intro: string; childGroups: ChildCategoryWithCount[]; rfqHref: string;
   columns: CategoryColumn[]; rows: CategoryRow[]; facts: CategoryFact[];
   faqs: Array<{ q: string; a: string }>; body: string | null;
 }) {
@@ -523,18 +621,6 @@ function StateB({ cat, categoryName, h1, intro, subgroups, rfqHref, columns, row
         </div>
         <h1 className="mt-4 text-[34px] font-black leading-[1.05] text-ink-900 sm:text-[44px]">{h1}</h1>
         <p className="mt-5 max-w-xl text-[15.5px] leading-relaxed text-ink-700">{intro}</p>
-        {subgroups.length > 0 && (
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {subgroups.map((sub) => (
-              <span
-                key={sub}
-                className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-ink-700"
-              >
-                {sub}
-              </span>
-            ))}
-          </div>
-        )}
         <p className="mt-3 max-w-xl text-[14.5px] leading-relaxed text-ink-600">
           No buyer-ready products are listed in this category yet. Tell us your spec and we will check suitable producers and their supporting documents before recommending a match.
         </p>
@@ -572,6 +658,9 @@ function StateB({ cat, categoryName, h1, intro, subgroups, rfqHref, columns, row
         </div>
       </div>
     </section>
+
+    <SubcategoryDirectory parentName={categoryName} childGroups={childGroups} />
+
     <CategoryContentSections columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} categoryName={categoryName} />
     <CtaBlock slug={cat.slug} />
     </>

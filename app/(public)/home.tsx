@@ -89,179 +89,21 @@ const CATEGORY_VI_NAMES: Record<string, string> = {
   "processed-foods": "Thực phẩm chế biến & Đóng gói",
 };
 
-/**
- * Danh sách 3-4 nhóm con sản phẩm đặc trưng (Tiếng Anh - mặc định)
- */
-const CATEGORY_SUBGROUPS_EN: Record<string, string[]> = {
-  cashew: [
-    "Whole white cashew kernels (WW180, WW240, WW320, WW450)",
-    "Scorched & broken kernels for bakery & confectionery (WS, LP, SP)",
-    "Roasted salted, skin-on & flavored retail cashew (OEM)",
-    "Cashew butter & private-label nutritional nut packs",
-  ],
-  "nuts-kernels": [
-    "Export-grade cashew kernels (W240, W320, W450)",
-    "Central Highlands macadamia nuts (in-shell & kernel)",
-    "Blanched peanuts & dried lotus seeds",
-    "Custom roasted & seasoned nut mixes (Private Label)",
-  ],
-  coffee: [
-    "Green Robusta coffee beans (G1, G2, S16, S18 – Wet/Dry)",
-    "Cau Dat & Son La washed Arabica green coffee beans",
-    "Whole-bean roasted & ground coffee for filter and espresso",
-    "Spray-dried & freeze-dried instant coffee (pure & 3-in-1)",
-  ],
-  pepper: [
-    "Whole black pepper (FAQ 500g/l, 550g/l & ASTA grade)",
-    "Double-washed white peppercorns (White Pepper)",
-    "Steam-sterilised ground & cracked black pepper",
-    "Freeze-dried green pepper, red pepper & certified organic pepper",
-  ],
-  "pepper-spices": [
-    "Export-grade black & white peppercorns",
-    "Yen Bai cassia cinnamon tubes, split & powder",
-    "Lang Son dried star anise & black cardamom",
-    "Dried sliced ginger, turmeric & natural spice powders",
-  ],
-  cinnamon: [
-    "Yen Bai cigarette & stick cassia cinnamon (Stick / Cigarette)",
-    "Split, broken & pressed-bale cassia cinnamon",
-    "High-oil pure cassia cinnamon powder (2% – 4% volatile oil)",
-    "Lang Son whole star anise & natural cinnamon essential oil",
-  ],
-  coconut: [
-    "Desiccated coconut (Fine / Medium grade, High Fat)",
-    "Canned & aseptic coconut milk, coconut cream & milk powder",
-    "UHT pure coconut water, canned coconut water & nata de coco",
-    "Cold-pressed Virgin Coconut Oil (VCO) & RBD coconut oil",
-  ],
-  rice: [
-    "Specialty fragrant rice (ST25, ST24 & Jasmine 85)",
-    "Long-grain white rice for export (5%, 15%, 25% broken)",
-    "Japonica round-grain rice (Sushi) & glutinous rice",
-    "Dried rice vermicelli, Pho noodles & export rice paper",
-  ],
-  seafood: [
-    "Frozen Pangasius fillets (Well-trimmed / Untrimmed)",
-    "Vannamei & Black Tiger shrimp (HLSO, PD, PTO, Nobashi)",
-    "Frozen squid, octopus & breaded value-added seafood",
-    "Surimi fish paste & retail-ready frozen seafood packs",
-  ],
-  "fruit-veg": [
-    "IQF frozen tropical fruits (mango, dragon fruit, durian)",
-    "Soft-dried & vacuum-fried fruit snacks for export",
-    "Aseptic fruit puree & juice concentrates in drums",
-    "Export-grade frozen & canned vegetables",
-  ],
-};
-
-/**
- * Danh sách 3-4 nhóm con sản phẩm đặc trưng (Tiếng Việt)
- */
-const CATEGORY_SUBGROUPS_VI: Record<string, string[]> = {
-  cashew: [
-    "Nhân điều trắng nguyên hạt (WW180, WW240, WW320, WW450)",
-    "Nhân điều vỡ & mảnh làm bánh kẹo (WS, LP, SP)",
-    "Hạt điều rang muối, vỏ lụa & tẩm vị ăn liền (OEM)",
-    "Bơ hạt điều & hạt dinh dưỡng đóng gói bán lẻ",
-  ],
-  "nuts-kernels": [
-    "Nhân hạt điều xuất khẩu các cấp hạng (W240, W320)",
-    "Hạt mắc ca nứt vỏ & nhân mắc ca Tây Nguyên",
-    "Đậu phộng (lạc nhân) & hạt sen sấy khô",
-    "Hạt hỗn hợp rang sấy gia công nhãn riêng (Private Label)",
-  ],
-  coffee: [
-    "Cà phê nhân xanh Robusta (G1, G2, S16, S18 – Wet/Dry)",
-    "Cà phê nhân xanh Arabica Cầu Đất & Sơn La",
-    "Cà phê hạt rang mộc & cà phê bột pha phin/pha máy",
-    "Cà phê hòa tan sấy phun & sấy thăng hoa (3in1, nguyên chất)",
-  ],
-  pepper: [
-    "Hồ tiêu đen nguyên hạt (FAQ 500g/l, 550g/l & ASTA)",
-    "Hồ tiêu sọ trắng (White Pepper Double Washed)",
-    "Tiêu xay & tiêu nghiền tiệt trùng hơi nước (Steam-sterilised)",
-    "Tiêu xanh sấy lạnh, tiêu đỏ & tiêu hữu cơ (Organic)",
-  ],
-  "pepper-spices": [
-    "Hồ tiêu đen & tiêu trắng xuất khẩu",
-    "Quế ống, quế vụn & bột quế Yên Bái",
-    "Hoa hồi khô Lạng Sơn & thảo quả",
-    "Gừng, nghệ thái lát sấy khô & tinh bột gia vị",
-  ],
-  cinnamon: [
-    "Quế ống điếu & quế cuộn Yên Bái (Stick / Cigarette Cassia)",
-    "Quế chẻ, quế ống sáo & quế vụn ép kiện (Split / Broken)",
-    "Bột quế nguyên chất hàm lượng tinh dầu cao (2% – 4%)",
-    "Hoa hồi khô Lạng Sơn & tinh dầu quế hồi tự nhiên",
-  ],
-  coconut: [
-    "Cơm dừa nạo sấy (Desiccated Coconut Fine / Medium, High Fat)",
-    "Nước cốt dừa, kem dừa & bột sữa dừa đóng lon / Aseptic",
-    "Nước dừa tươi đóng hộp UHT, đóng lon & thạch dừa",
-    "Dầu dừa tinh khiết ép lạnh (VCO) & dầu dừa tinh luyện",
-  ],
-  rice: [
-    "Gạo thơm đặc sản ST25, ST24 & Jasmine 85",
-    "Gạo trắng hạt dài xuất khẩu (5%, 15%, 25% tấm)",
-    "Gạo tròn Japonica (Sushi) & gạo nếp cái hoa vàng",
-    "Bún khô, phở khô, bánh tráng & chế phẩm từ gạo",
-  ],
-  seafood: [
-    "Cá tra phi lê đông lạnh (Well-trimmed / Untrimmed)",
-    "Tôm thẻ chân trắng & tôm sú (HLSO, PD, PTO, Nobashi)",
-    "Mực ống, bạch tuộc & hải sản chế biến tẩm bột",
-    "Chả cá Surimi & thủy sản đóng gói bán lẻ",
-  ],
-  "fruit-veg": [
-    "Trái cây nhiệt đới cấp đông IQF (xoài, thanh long, sầu riêng)",
-    "Trái cây sấy dẻo & sấy giòn xuất khẩu",
-    "Nước ép trái cây cô đặc & Puree đóng phuy Aseptic",
-    "Rau củ đông lạnh & đóng lon tiêu chuẩn xuất khẩu",
-  ],
-};
-
 function getCategoryTitle(cat: Category, lang: HomeLocale): string {
   if (lang === "vi") {
     return CATEGORY_VI_NAMES[cat.slug] || i18n(cat.name_i18n, "vi", cat.slug);
   }
-  return CATEGORY_EN_NAMES[cat.slug] || i18n(cat.name_i18n, "en", cat.slug);
+  return i18n(cat.name_i18n, "en", CATEGORY_EN_NAMES[cat.slug] || cat.slug);
 }
 
-function getSubgroupsForCategory(
-  cat: Category,
-  allCategories: Category[],
-  lang: HomeLocale,
-): string[] {
-  const children = allCategories
+/**
+ * Chỉ lấy các danh mục con thực tế được cấu hình trong CRM (parent_id === cat.id),
+ * không dùng bất kỳ dữ liệu nhóm con demo cứng nào.
+ */
+function getChildCategories(cat: Category, allCategories: Category[]): Category[] {
+  return allCategories
     .filter((c) => c.parent_id === cat.id)
-    .map((c) => getCategoryTitle(c, lang));
-  const preset =
-    lang === "vi"
-      ? (CATEGORY_SUBGROUPS_VI[cat.slug] ?? [])
-      : (CATEGORY_SUBGROUPS_EN[cat.slug] ?? []);
-  const combined = [...children, ...preset];
-  const unique = [...new Set(combined.filter(Boolean))];
-  if (unique.length >= 3) return unique.slice(0, 4);
-
-  const fromFacts = (cat.buying_facts ?? []).map((f) => `${f.label}: ${f.value}`);
-  const fallback =
-    lang === "vi"
-      ? [
-          ...unique,
-          ...fromFacts,
-          "Nguồn hàng trực tiếp từ nhà máy & vùng nguyên liệu Việt Nam",
-          "Đầy đủ hồ sơ pháp lý và chứng nhận ATTP / HACCP / ISO",
-          "Nhận cung ứng số lượng sỉ, gia công OEM / nhãn riêng",
-        ]
-      : [
-          ...unique,
-          ...fromFacts,
-          "Direct sourcing from Vietnamese factories & growing regions",
-          "Verified business documents & food safety certifications (HACCP / ISO / BRC)",
-          "Bulk export volume, OEM & private-label capability",
-        ];
-  return [...new Set(fallback)].slice(0, 4);
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.slug.localeCompare(b.slug));
 }
 
 const FAQ_EN = [
@@ -362,6 +204,15 @@ export default async function HomeContent({
     .filter((c) => c.active_on_homepage)
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
+  // Nếu danh mục cha đã bật hiển thị trên trang chủ, các danh mục con thuộc cha đó
+  // sẽ nằm gọn bên trong thẻ danh mục cha thay vì lặp thành một thẻ lớn riêng biệt.
+  const activeParentIds = new Set(
+    activeCategories.filter((c) => !c.parent_id).map((c) => c.id),
+  );
+  const homepageCardCategories = activeCategories.filter(
+    (c) => !c.parent_id || !activeParentIds.has(c.parent_id),
+  );
+
   const homeCategories = activeCategories.filter((c) => c.public_page_ready).slice(0, 4);
   const productGroups = await Promise.all(
     homeCategories.map(async (category) => ({
@@ -381,24 +232,35 @@ export default async function HomeContent({
   const homeProducts = arrangeSupplierProducts(offers, 2).shown.slice(0, 8);
   const heroOf = (c: Category) => c.hero_image || FALLBACK_HERO;
 
-  // Lọc danh mục theo thanh tìm kiếm (hỗ trợ tìm bằng cả tiếng Anh & tiếng Việt)
+  // Lọc danh mục theo thanh tìm kiếm (chỉ dựa trên dữ liệu thực tế từ CRM)
   const normalizedQuery = query.trim().toLowerCase();
-  const displayedCategories = activeCategories.filter((c) => {
-    if (categoryFilter && c.slug !== categoryFilter) return false;
+  const displayedCategories = homepageCardCategories.filter((c) => {
+    const children = getChildCategories(c, allCategories);
+    if (
+      categoryFilter &&
+      c.slug !== categoryFilter &&
+      !children.some((ch) => ch.slug === categoryFilter)
+    ) {
+      return false;
+    }
     if (!normalizedQuery) return true;
     const viName = (CATEGORY_VI_NAMES[c.slug] ?? "").toLowerCase();
-    const enName = (CATEGORY_EN_NAMES[c.slug] ?? i18n(c.name_i18n, "en", c.slug)).toLowerCase();
-    const subsEn = getSubgroupsForCategory(c, allCategories, "en").join(" ").toLowerCase();
-    const subsVi = getSubgroupsForCategory(c, allCategories, "vi").join(" ").toLowerCase();
+    const enName = getCategoryTitle(c, "en").toLowerCase();
+    const introText = i18n(c.intro_i18n, lang, "").toLowerCase();
+    const childNames = children
+      .map((ch) => `${getCategoryTitle(ch, "en")} ${getCategoryTitle(ch, "vi")} ${ch.slug}`)
+      .join(" ")
+      .toLowerCase();
     return (
       viName.includes(normalizedQuery) ||
       enName.includes(normalizedQuery) ||
       c.slug.toLowerCase().includes(normalizedQuery) ||
-      subsEn.includes(normalizedQuery) ||
-      subsVi.includes(normalizedQuery)
+      introText.includes(normalizedQuery) ||
+      childNames.includes(normalizedQuery)
     );
   });
-  const categoriesToRender = displayedCategories.length > 0 ? displayedCategories : activeCategories;
+  const categoriesToRender =
+    displayedCategories.length > 0 ? displayedCategories : homepageCardCategories;
   const popularKeywords = isVi ? POPULAR_KEYWORDS_VI : POPULAR_KEYWORDS_EN;
   const faqs = isVi ? FAQ_VI : FAQ_EN;
 
@@ -593,12 +455,17 @@ export default async function HomeContent({
           <ul className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {categoriesToRender.map((c) => {
               const href = `/products/${c.slug}`;
-              const hasProducts = Boolean(c.public_page_ready);
+              const childCategories = getChildCategories(c, allCategories);
+              const visibleChildren = childCategories.slice(0, 4);
+              const hasProducts = Boolean(
+                c.public_page_ready || childCategories.some((ch) => ch.public_page_ready),
+              );
               const primaryTitle = getCategoryTitle(c, lang);
               const secondaryLabel = isVi
                 ? i18n(c.name_i18n, "en", c.slug)
                 : (CATEGORY_VI_NAMES[c.slug] || i18n(c.name_i18n, "en", c.slug));
-              const subgroups = getSubgroupsForCategory(c, allCategories, lang).slice(0, 4);
+              const kicker = i18n(c.homepage_kicker_i18n, lang, "");
+              const introText = i18n(c.intro_i18n, lang, "");
 
               return (
                 <li key={c.slug} className="flex">
@@ -621,7 +488,7 @@ export default async function HomeContent({
                       )}
                       <div className="absolute inset-x-4 bottom-3 text-white">
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300">
-                          {secondaryLabel}
+                          {kicker || secondaryLabel}
                         </p>
                         <h3 className="mt-0.5 text-lg font-black leading-snug text-white group-hover:text-amber-200">
                           {primaryTitle}
@@ -629,28 +496,36 @@ export default async function HomeContent({
                       </div>
                     </Link>
 
-                    {/* Danh sách 3-4 nhóm con sản phẩm tương ứng */}
+                    {/* Chỉ hiển thị danh mục con thực tế từ CRM (nếu có) hoặc mô tả thực tế từ CRM */}
                     <div className="flex flex-1 flex-col justify-between p-5">
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                          {isVi
-                            ? `Nhóm sản phẩm chính (${subgroups.length})`
-                            : `Key Product Sub-groups (${subgroups.length})`}
+                      {visibleChildren.length > 0 ? (
+                        <div>
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                            {isVi
+                              ? `Nhóm sản phẩm con (${childCategories.length})`
+                              : `Product Sub-categories (${childCategories.length})`}
+                          </p>
+                          <ul className="mt-2.5 space-y-2">
+                            {visibleChildren.map((child) => (
+                              <li key={child.id}>
+                                <Link
+                                  href={`/products/${child.slug}`}
+                                  className="flex items-start gap-2 rounded-lg px-1.5 py-1 text-[13.5px] leading-snug text-ink-700 transition hover:bg-amber-50 hover:text-brand-800"
+                                >
+                                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                                  <span className="line-clamp-1 font-medium">
+                                    {getCategoryTitle(child, lang)}
+                                  </span>
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : introText ? (
+                        <p className="line-clamp-3 text-[13.5px] leading-relaxed text-ink-600">
+                          {introText}
                         </p>
-                        <ul className="mt-2.5 space-y-2">
-                          {subgroups.map((sub) => (
-                            <li key={sub}>
-                              <Link
-                                href={href}
-                                className="flex items-start gap-2 rounded-lg px-1.5 py-1 text-[13.5px] leading-snug text-ink-700 transition hover:bg-amber-50 hover:text-brand-800"
-                              >
-                                <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                                <span className="line-clamp-1 font-medium">{sub}</span>
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      ) : null}
 
                       {/* Dòng chữ cuối card */}
                       <div className="mt-5 border-t border-slate-100 pt-3.5">
