@@ -698,6 +698,30 @@ alter table public.certificates
 alter table public.certificates drop constraint if exists certificates_review_status_check;
 alter table public.certificates add constraint certificates_review_status_check
   check (review_status in ('unreviewed', 'pending', 'changes_requested', 'approved', 'rejected'));
+-- 21/10/2026: chứng nhận hợp nhất vào L1 — AI quét tệp (đơn vị đứng tên + ngày hết hạn),
+-- tự công bố kèm nhãn chính chủ/đối tác; staff_hidden là phanh ẩn của nhân viên;
+-- expiry_notified lưu mốc cron nhắc hết hạn 60/30/7/1 ngày (idempotent).
+-- Chi tiết: supabase/migrations/20261021_l1_certificate_ai_scan.sql
+alter table public.certificates
+  add column if not exists holder_match text,
+  add column if not exists ai_scanned_at timestamptz,
+  add column if not exists ai_summary text,
+  add column if not exists ai_confidence text,
+  add column if not exists source text not null default 'manual',
+  add column if not exists checklist_key text,
+  add column if not exists verification_id uuid,
+  add column if not exists staff_hidden boolean not null default false,
+  add column if not exists expiry_notified jsonb not null default '{}'::jsonb;
+alter table public.certificates drop constraint if exists certificates_holder_match_check;
+alter table public.certificates add constraint certificates_holder_match_check
+  check (holder_match is null or holder_match in ('owner','partner','unclear'));
+alter table public.certificates drop constraint if exists certificates_ai_confidence_check;
+alter table public.certificates add constraint certificates_ai_confidence_check
+  check (ai_confidence is null or ai_confidence in ('low','medium','high'));
+alter table public.certificates drop constraint if exists certificates_source_check;
+alter table public.certificates add constraint certificates_source_check
+  check (source in ('manual','l1-supplier','l1-staff'));
+create index if not exists certificates_valid_until_idx on public.certificates (valid_until);
 alter table public.certificates enable row level security;
 revoke all on public.certificates from anon, authenticated;
 alter table public.media_assets enable row level security;

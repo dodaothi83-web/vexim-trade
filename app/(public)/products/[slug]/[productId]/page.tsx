@@ -13,7 +13,6 @@ import { fieldsFor, publicProductAttributes } from "@/lib/product-attributes";
 import { shareableProductVideo } from "@/lib/public/product-video";
 import { ProductMediaGallery } from "@/components/product-media-gallery";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
-import { publicCertificateLabels } from "@/lib/public/certificates";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
@@ -79,11 +78,6 @@ export default async function PublicProductDetail({ params }: Props) {
   const images = shareableProductImages(media, p.id, p.featured_media_id, 24);
   const thumbnails = shareableProductImages(media, p.id, p.featured_media_id, 24, true);
   const video = shareableProductVideo(media, p.id);
-  // The certificates table and private file locations never go to the client.
-  const [certificates, supplierMedia] = await Promise.all([
-    getStore().listCertificates(p.supplier_id), getStore().listMedia("supplier", p.supplier_id),
-  ]);
-  const certificateLabels = publicCertificateLabels(p.supplier_id, p.id, certificates, supplierMedia);
   const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}`;
   const approvedAttributes = publicProductAttributes(category, p.specs);
   const configuredKeys = new Set(fieldsFor(category).map((f) => f.key));
@@ -117,13 +111,6 @@ export default async function PublicProductDetail({ params }: Props) {
   for (const f of fieldsFor(category)) {
     if (approvedAttributes[f.key]) pushProperty(f.label, approvedAttributes[f.key]);
   }
-  // Chứng nhận chỉ gồm chứng nhận đã duyệt, đang còn hạn và áp đúng cho sản
-  // phẩm này theo publicCertificateLabels.
-  const structuredCertifications = certificateLabels.map((c) => ({
-    "@type": "Certification",
-    name: c.name,
-    ...(c.issuer ? { issuedBy: { "@type": "Organization", name: c.issuer } } : {}),
-  }));
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -138,7 +125,6 @@ export default async function PublicProductDetail({ params }: Props) {
       ...(card.supplierSlug ? { url: `${SITE_URL}/suppliers/${encodeURIComponent(card.supplierSlug)}` } : {}),
     },
     ...(structuredProperties.length ? { additionalProperty: structuredProperties } : {}),
-    ...(structuredCertifications.length ? { hasCertification: structuredCertifications } : {}),
   };
   return <div className="mx-auto max-w-6xl px-5 pb-24 pt-7 sm:px-6 lg:px-8">
     {indexable && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />}
@@ -165,14 +151,6 @@ export default async function PublicProductDetail({ params }: Props) {
           {specs.filter(([key]) => key.toLowerCase() !== "grade" || !(approvedAttributes.grade || card.grade)).map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
         </div>
         <p className="mt-2 text-xs text-ink-500">Product specifications are supplier-stated and reviewed for listing by Vexim; they are not independent certification. Confirm contract terms through an RFQ.</p>
-        {certificateLabels.length > 0 && <section className="mt-5 rounded-xl border border-teal-200 bg-teal-50/40 p-4" aria-labelledby="certificates-heading">
-          <h2 id="certificates-heading" className="text-sm font-bold text-ink-900">Documents reviewed for this product</h2>
-          <p className="mt-1 text-xs leading-5 text-ink-600">Vexim reviewed copies and their stated holder/scope. This is not independent issuer authentication or a certification issued by Vexim. Original files are shared only on request.</p>
-          <ul className="mt-3 space-y-2">{certificateLabels.map((c) => <li key={c.id} className="rounded-lg border border-teal-100 bg-white p-3 text-sm">
-            <strong className="text-teal-900">{c.name}</strong>
-            <p className="mt-1 text-xs text-ink-600">Holder: {c.holder} · Scope: {c.scope}{c.issuer ? ` · Issuer: ${c.issuer}` : ""} · Valid until: {c.validUntil}</p>
-          </li>)}</ul>
-        </section>}
         <p className="mt-2 text-xs text-ink-500">Reference prices are indicative, not a binding offer. Final terms are confirmed in the quotation.</p>
         <Link href={rfq} className="btn btn-primary mt-5 w-full justify-center">Request a quote <ArrowRight className="h-4 w-4" /></Link>
         <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>

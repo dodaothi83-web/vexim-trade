@@ -13,8 +13,8 @@ import { Button, formatDate } from "@/components/ui";
 import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/actions";
 import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction, updateVerificationPublicSummaryAction } from "../../verification-actions";
 
-export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, canInspect, currentUserId, requireSecondReviewer, pendingCertificates }: {
-  verification: Verification; evidence: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; currentUserId: string; requireSecondReviewer: boolean; pendingCertificates?: number;
+export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, canInspect, currentUserId, requireSecondReviewer }: {
+  verification: Verification; evidence: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; currentUserId: string; requireSecondReviewer: boolean;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
@@ -319,9 +319,8 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
             </fieldset>
             {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">Đối chiếu tên pháp nhân và mã số thuế trên đăng ký doanh nghiệp với NCC; nếu dùng tên thương mại khác, ghi rõ căn cứ trong ghi chú. AI không tự xác thực giấy tờ.</p>}
             {v.target_level === 1 && (it.key === "food_safety" || it.key === "haccp_or_brc") && <p className="text-xs text-ink-600">NCC thương mại không bắt buộc có giấy này. Nếu dùng giấy của nhà máy sản xuất, ghi tên nhà máy và mối liên hệ với hàng cung ứng; không coi đó là giấy đứng tên NCC. Chọn “Không áp dụng” nếu không có.</p>}
-            {v.target_level === 1 && ["food_safety", "haccp_or_brc", "product_certs", "export_license"].includes(it.key) && <p className="flex flex-wrap items-center gap-2 text-xs">
-              <a href={`/crm/suppliers/${encodeURIComponent(v.supplier_id)}/certificates`} className="inline-flex items-center gap-1 font-semibold text-teal-700 underline hover:text-teal-900">Chứng nhận NCC đã nộp theo luồng xét duyệt riêng →</a>
-              {(pendingCertificates ?? 0) > 0 && <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-bold text-teal-800">{pendingCertificates} chứng nhận đang chờ kiểm</span>}
+            {v.target_level === 1 && ["food_safety", "haccp_or_brc", "product_certs", "export_license"].includes(it.key) && <p className="text-xs text-teal-800">
+              Tệp tải lên ở dòng này sẽ được AI tự quét đơn vị đứng tên (chính chủ hay đơn vị đối tác) và ngày hết hạn để hiển thị ở bảng Chứng nhận L1 phía trên.
             </p>}
             {suggestion && <div className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-xs leading-relaxed text-ink-700">
               <strong className={suggestion.verdict === "pass" ? "text-emerald-800" : suggestion.verdict === "fail" ? "text-rose-700" : "text-amber-800"}>

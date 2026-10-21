@@ -57,6 +57,11 @@ const mocks = {
   '@/lib/media/verification-access': { verificationMediaEditError: async () => blocked },
   '@/lib/types': { L1_DOC_ITEMS },
   '@/lib/verification': { auditUploadKind: policy.auditUploadKind },
+  '@/lib/certificate-service': {
+    isL1CertificateKey: (k) => ['food_safety', 'haccp_or_brc', 'product_certs', 'export_license'].includes(k),
+    defaultCertificateLabelForKey: () => 'Giấy chứng nhận',
+    ingestCertificateScan: async () => ({}),
+  },
 };
 const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../app/api/media/upload/route.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;

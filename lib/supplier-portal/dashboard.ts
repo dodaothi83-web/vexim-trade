@@ -86,13 +86,27 @@ export function buildSupplierDashboard(input: {
     if (p.supplier_review_status === "approved") add(`product-approved:${p.id}`, `Đã kiểm nội dung sản phẩm: ${p.name}`, "Sản phẩm chưa tự động được công khai; Vexim còn quyết định việc chia sẻ buyer.", p.updated_at, "product");
     if (p.supplier_review_status === "changes_requested") add(`product-changes:${p.id}`, `Sản phẩm cần chỉnh sửa: ${p.name}`, p.supplier_review_note || "Mở sản phẩm để xem phản hồi của Vexim.", p.updated_at, "product");
   }
+  const todayMs = Date.parse(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
   for (const c of (input.certificates ?? []).filter((c) => c.supplier_id === supplierId)) {
     if (c.review_status === "approved") {
       if (c.publicly_visible) add(`cert-published:${c.id}`, `Chứng nhận được phép hiển thị: ${c.name}`, "Chỉ hiện nhãn trên sản phẩm đúng phạm vi nếu đủ điều kiện; tệp nội bộ vẫn riêng tư.", c.updated_at, "certificate");
       else add(`cert-approved:${c.id}`, `Đã xét duyệt bản sao: ${c.name}`, "Chưa công bố. Việc hiển thị trên trang buyer cần quyết định riêng của Vexim.", c.checked_at || c.updated_at, "certificate");
     }
-    if (c.review_status === "changes_requested") add(`cert-changes:${c.id}`, `Chứng nhận cần bổ sung: ${c.name}`, c.review_note || "Mở trang chứng nhận để xem phản hồi.", c.updated_at, "certificate");
-    if (c.review_status === "rejected") add(`cert-rejected:${c.id}`, `Chứng nhận không được chấp thuận: ${c.name}`, c.review_note || "Mở trang chứng nhận để xem phản hồi.", c.updated_at, "certificate");
+    if (c.review_status === "changes_requested") add(`cert-changes:${c.id}`, `Chứng nhận cần bổ sung: ${c.name}`, c.review_note || "Mở mục Kiểm tra giấy tờ L1 để cập nhật lại.", c.updated_at, "certificate");
+    if (c.review_status === "rejected") add(`cert-rejected:${c.id}`, `Chứng nhận không được chấp thuận: ${c.name}`, c.review_note || "Mở mục Kiểm tra giấy tờ L1 để xem phản hồi.", c.updated_at, "certificate");
+    if (c.review_status !== "rejected" && c.valid_until && /^\d{4}-\d{2}-\d{2}$/.test(c.valid_until)) {
+      const endMs = Date.parse(`${c.valid_until}T00:00:00Z`);
+      const daysLeft = Math.floor((endMs - todayMs) / 86_400_000);
+      if (daysLeft >= 0 && daysLeft <= 60) {
+        add(
+          `cert-expiring:${c.id}`,
+          `Chứng nhận sắp hết hạn (còn ${daysLeft} ngày): ${c.name}`,
+          `Hết hạn ngày ${c.valid_until}. Vào mục Kiểm tra giấy tờ L1 để tải bản mới — AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên.`,
+          c.updated_at || now.toISOString(),
+          "certificate",
+        );
+      }
+    }
   }
   for (const s of (input.submissions ?? []).filter((row) => row.supplier_id === supplierId)) {
     const label = s.target_level === 2 ? "Xác thực nhà máy (L2)" : "Lịch sử xuất khẩu (L3)";

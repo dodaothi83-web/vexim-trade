@@ -10,6 +10,7 @@ import { PRODUCT_VERIFICATION_EXPLANATIONS } from "@/lib/verification-status";
 import { getPublicSupplierBySlug, listPublicSuppliers, supplierTypeLabel, t } from "@/lib/public/catalog";
 import { supplierExportMarketsDisplay, supplierMoqDisplay } from "@/lib/public/supplier-english";
 import { getStore } from "@/lib/db";
+import { publicSupplierCertificates } from "@/lib/public/certificates";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import { isSyntheticSupplier, safeJsonLd, supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
@@ -55,8 +56,12 @@ export default async function SupplierProfile({ params }: PageProps) {
   const s = await getPublicSupplierBySlug(slug);
   if (!s) notFound();
 
-  const categories = (await getStore().listCategories({ publishedOnly: true }))
+  const store = getStore();
+  const categories = (await store.listCategories({ publishedOnly: true }))
     .filter((c) => c.status === "published" && c.is_published);
+  const rawCerts = store.listCertificates ? await store.listCertificates(s.id).catch(() => []) : [];
+  const rawSupplierMedia = store.listMedia ? await store.listMedia("supplier", s.id).catch(() => []) : [];
+  const supplierCertificates = publicSupplierCertificates(s.id, rawCerts, rawSupplierMedia);
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
   const name = safe(s.display_name || s.name);
@@ -147,7 +152,13 @@ export default async function SupplierProfile({ params }: PageProps) {
     </section>
 
     <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
-      {[ ["About", "about"], ["Verification", "verification"], ["Trade details", "trade"], ["Products", "products"] ].map(([label, id]) =>
+      {[
+        ["About", "about"],
+        ["Verification", "verification"],
+        ...(supplierCertificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
+        ["Trade details", "trade"],
+        ["Products", "products"],
+      ].map(([label, id]) =>
         <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
     </nav>
 
@@ -184,6 +195,29 @@ export default async function SupplierProfile({ params }: PageProps) {
           </div>
           <p className="mt-2 text-xs leading-5 text-ink-500">Verification is limited to the documents, site or shipment in the relevant review. It does not certify every facility or product. Ask Vexim to confirm the certificate holder and its scope for the goods offered.</p>
         </section>
+        {supplierCertificates.length > 0 && (
+          <section id="certificates" className="scroll-mt-24 rounded-xl border border-teal-200 bg-teal-50/40 p-5 sm:p-6" aria-labelledby="certificates-title">
+            <h2 id="certificates-title" className="text-lg font-bold text-ink-900">Certificates on file (L1 document scan)</h2>
+            <p className="mt-1 text-xs leading-5 text-ink-600">Copies uploaded by the supplier in L1 document checks and read by Vexim document AI for holder-name match and expiry date. Holder match reflects what is stated on the document copy, not independent issuer authentication.</p>
+            <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+              {supplierCertificates.map((c) => (
+                <li key={c.id} className="rounded-xl border border-teal-100 bg-white p-4 text-sm shadow-2xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <strong className="font-bold text-ink-900">{c.name}</strong>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${c.holderMatch === "owner" ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-1 ring-amber-200"}`}>
+                      {c.holderMatch === "owner" ? "Chính chủ · Registered to supplier" : `Đơn vị đối tác · ${c.holderName}`}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-ink-600">
+                    {c.holderName ? `Holder on document: ${c.holderName} · ` : ""}
+                    {c.issuer ? `Issuer: ${c.issuer} · ` : ""}
+                    Valid until: <strong className="text-ink-900">{c.validUntil}</strong>
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {s.gallery_images.length > 0 && <section className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="gallery-title">
           <h2 id="gallery-title" className="text-lg font-bold text-ink-900">Supplier gallery</h2>
           <p className="mt-1 text-xs text-ink-500">Shared supplier images; not evidence of a factory visit.</p>

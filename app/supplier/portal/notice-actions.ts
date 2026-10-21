@@ -11,7 +11,7 @@ export async function markSupplierNoticeReadAction(form: FormData): Promise<void
   const access = await supplierPortalAccess();
   if (!access || !portalApproved(access.supplier)) return;
   const key = String(form.get("notice_key") ?? "");
-  if (key.length > 100 || !/^(rfq|selected|returned|approved|contacted|product-approved|product-changes|cert-approved|cert-changes|cert-rejected|cert-published|onboarding-approved|submission-queued|submission-returned|submission-accepted):[a-z0-9-]+$/i.test(key)) return;
+  if (key.length > 100 || !/^(rfq|selected|returned|approved|contacted|product-approved|product-changes|cert-approved|cert-changes|cert-rejected|cert-published|cert-expiring|onboarding-approved|submission-queued|submission-returned|submission-accepted):[a-z0-9-]+$/i.test(key)) return;
   const { store, supplier, reviews } = access;
   const [invites, requests, products, certificates] = await Promise.all([
     store.listSupplierRfqInvitations(supplier.id), store.listSupplierVerificationRequests(supplier.id),

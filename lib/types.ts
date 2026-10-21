@@ -324,10 +324,22 @@ export interface SupplierCategory {
 }
 
 export type CertificateCheckStatus = "on_file" | "original_seen" | "checked_with_issuer";
+export type CertificateHolderMatch = "owner" | "partner" | "unclear";
+export type CertificateAiConfidence = "low" | "medium" | "high";
+export type CertificateSource = "manual" | "l1-supplier" | "l1-staff";
 
 export interface Certificate {
-  /** Dedicated review/publication flow, independent of supplier document checks. */
+  /** Dedicated review/publication flow + L1 AI-scanned certificate columns. */
   holder_name?: string | null;
+  holder_match?: CertificateHolderMatch | null;
+  ai_scanned_at?: string | null;
+  ai_summary?: string | null;
+  ai_confidence?: CertificateAiConfidence | null;
+  source?: CertificateSource;
+  checklist_key?: string | null;
+  verification_id?: string | null;
+  staff_hidden?: boolean;
+  expiry_notified?: Record<string, string>;
   scope_text?: string | null;
   requested_product_ids?: string[];
   approved_product_ids?: string[];

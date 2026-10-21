@@ -12,7 +12,9 @@ import { productReview } from "@/lib/supplier-portal/product-view";
 import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { L1_DOC_ITEMS } from "@/lib/types";
+import { daysUntilExpiry } from "@/lib/certificate-service";
 import { SupplierPortalUpload } from "./supplier-portal-upload";
+import { SupplierCertificateUpload } from "./certificate-upload";
 import { SupplierProfileForm } from "./supplier-profile-form";
 import { markSupplierNoticeReadAction } from "./notice-actions";
 
@@ -109,7 +111,7 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
       <Link href="/supplier/portal/categories" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Danh mục kinh doanh →</Link>
       <Link href="/supplier/portal/traffic" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Lượt xem gian hàng →</Link>
       <Link href="/supplier/portal/verification" className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-2 text-emerald-800 hover:bg-emerald-100">Xác thực nhà máy L2 &amp; xuất khẩu L3 →</Link>
-      <Link href="/supplier/portal/certificates" className="rounded-full border border-brand-300 bg-brand-50 px-3 py-2 text-brand-800 hover:bg-brand-100">Gửi chứng nhận để Vexim kiểm tra →</Link>
+      <a href="#documents" className="rounded-full border border-teal-300 bg-teal-50 px-3 py-2 text-teal-900 hover:bg-teal-100">Giấy tờ &amp; chứng nhận L1 →</a>
     </nav>
     <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
       <strong>Vexim đã xác nhận quyền sử dụng cổng.</strong> Hồ sơ công khai: {supplier.status === "draft" ? "chưa công khai" : supplier.status}. Việc duyệt từng đánh giá và công khai NCC/sản phẩm là quyết định riêng của Vexim; không tự động từ RFQ hay giấy tờ đã tải.
@@ -224,12 +226,45 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
           <p className="mt-2 text-xs text-ink-500">Tải bằng chứng lên không tự cấp huy hiệu: nhãn buyer chỉ xuất hiện cho từng đánh giá được nhân viên Vexim kiểm và người có quyền duyệt phê.</p>
         </div>
       </div>
-      <div id="documents" className="mt-4 scroll-mt-6 rounded-xl border border-ink-200 bg-white p-5"><h3 className="font-bold text-ink-900">Kiểm tra giấy tờ · {review?.status === "approved" ? "Đã duyệt" : review?.status === "returned" ? "Cần bổ sung" : review?.status === "submitted" ? "Chờ duyệt" : "Đang rà soát"}</h3>
-        <p className="mt-1 text-sm text-ink-600">AI chỉ gợi ý cho Vexim; tải giấy tờ không tự đánh dấu đạt.</p>
+      <div id="documents" className="mt-4 scroll-mt-6 rounded-xl border border-ink-200 bg-white p-5"><h3 className="font-bold text-ink-900">Kiểm tra giấy tờ &amp; chứng nhận L1 · {review?.status === "approved" ? "Đã duyệt" : review?.status === "returned" ? "Cần bổ sung" : review?.status === "submitted" ? "Chờ duyệt" : "Đang rà soát"}</h3>
+        <p className="mt-1 text-sm text-ink-600">Giấy phép kinh doanh do Vexim đối chiếu thủ công. Các chứng nhận (ATTP, HACCP/ISO/BRC, chứng chỉ sản phẩm, giấy phép xuất khẩu) được AI tự quét đơn vị đứng tên (chính chủ hay đối tác) và ngày hết hạn để hiển thị trên hồ sơ; hệ thống tự nhắc trước 60 / 30 / 7 / 1 ngày hết hạn.</p>
         {mine.length > 0 && <ul className="mt-4 space-y-2 text-sm">{mine.map((m) => <li key={m.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-ink-50 px-3 py-2">
           <span>{L1_DOC_ITEMS.find((i) => i.key === m.checklist_key)?.label ?? "Giấy tờ"}: {m.caption}</span>
           <a href={`/api/media/file/${m.storage_path}`} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">Xem tệp</a></li>)}</ul>}
-        {allowedDocUpload ? <SupplierPortalUpload /> : <p className="mt-4 text-sm text-ink-500">Đợt kiểm hiện không nhận thêm tệp. Liên hệ Vexim nếu cần bổ sung.</p>}
+        {allowedDocUpload ? <SupplierPortalUpload /> : <p className="mt-4 text-sm text-ink-500">Đợt kiểm giấy tờ cơ bản đang khóa thêm tệp; bạn vẫn có thể tải mới hoặc gia hạn các chứng nhận ở khung bên dưới bất kỳ lúc nào.</p>}
+        <div className="mt-5 border-t border-ink-100 pt-4">
+          <h4 className="text-sm font-bold text-ink-900">Chứng nhận đã quét trên hồ sơ L1 ({certificates.length})</h4>
+          {certificates.length > 0 ? (
+            <ul className="mt-3 space-y-2 text-sm">
+              {certificates.map((c) => {
+                const days = daysUntilExpiry(c.valid_until);
+                const isLive = Boolean(c.review_status === "approved" && c.publicly_visible && !c.staff_hidden && days !== null && days >= 0 && (c.holder_match === "owner" || c.holder_match === "partner"));
+                return (
+                  <li key={c.id} className="rounded-lg border border-ink-200 bg-ink-50/60 px-3.5 py-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-semibold text-ink-900">{c.name}{c.number ? ` · #${c.number}` : ""}</span>
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className={`rounded-full px-2.5 py-0.5 font-bold ${c.holder_match === "owner" ? "bg-emerald-100 text-emerald-800" : c.holder_match === "partner" ? "bg-amber-100 text-amber-900" : "bg-slate-200 text-slate-700"}`}>
+                          {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` (${c.holder_name})` : ""}` : c.holder_match === "partner" ? `Đơn vị đối tác: ${c.holder_name || "—"}` : "Chưa rõ đơn vị đứng tên"}
+                        </span>
+                        <span className={`rounded-full px-2.5 py-0.5 font-semibold ${days === null ? "bg-slate-200 text-slate-700" : days < 0 ? "bg-rose-100 text-rose-800" : days <= 60 ? "bg-amber-100 text-amber-900" : "bg-sky-100 text-sky-800"}`}>
+                          {c.valid_until ? `Hết hạn: ${c.valid_until}${days !== null ? (days < 0 ? " — Đã quá hạn, vui lòng tải bản mới" : days <= 60 ? ` — Còn ${days} ngày, nên tải bản gia hạn` : ` (còn ${days} ngày)`) : ""}` : "Chưa đọc được ngày hết hạn"}
+                        </span>
+                        <span className={`rounded-full px-2.5 py-0.5 font-bold ${c.staff_hidden ? "bg-rose-100 text-rose-800" : isLive ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>
+                          {c.staff_hidden ? "Vexim đang ẩn" : isLive ? "Đang hiển thị trên trang công khai" : "Chưa hiển thị công khai"}
+                        </span>
+                      </div>
+                    </div>
+                    {(c.review_note || c.ai_summary) && <p className="mt-1 text-xs text-ink-600">{c.review_note || c.ai_summary}</p>}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="mt-2 text-xs text-ink-500">Chưa có chứng nhận nào trên hồ sơ. Tải PDF/ảnh chứng nhận bên dưới để AI tự quét đơn vị đứng tên và ngày hết hạn.</p>
+          )}
+          <SupplierCertificateUpload certificates={certificates.map((c) => ({ id: c.id, name: c.name, valid_until: c.valid_until }))} />
+        </div>
       </div>
     </section>
     <footer className="mt-12 border-t border-ink-200 pt-5 text-xs text-ink-500"><Mail className="mr-1 inline h-3 w-3" /> Vexim là đầu mối điều phối. Không chia sẻ thông tin buyer trước khi các bên được giới thiệu theo quy trình.</footer>

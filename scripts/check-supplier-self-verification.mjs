@@ -476,6 +476,7 @@ globalThis.fetch = async (url, init) => {
 };
 
 // Đủ 9 ảnh đúng chuẩn → nộp thành công, vào hàng đợi chờ Vexim.
+await store.updateSubmission(submission.id, { code_issued_at: new Date(Date.now() - 3600_000).toISOString() });
 for (const key of types.L2_FACTORY_PHOTO_ITEMS.map((i) => i.key)) {
   if ((await store.listSubmissionItems(submission.id)).some((i) => i.checklist_key === key)) continue;
   currentAccess = { store, submission: await store.getSubmission(submission.id), items: [], links: [], supplierId: 'sup-1', userId: 'user-1', userEmail: 'supplier@example.com' };

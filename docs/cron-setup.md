@@ -54,3 +54,10 @@ Route này chỉ kiểm tra `Authorization: Bearer <CRON_SECRET>` — có thể 
 - GitHub Actions schedule
 - UptimeRobot, healthchecks.io, hay bất kỳ webcron nào
 - Vercel Cron (nếu nâng lên Pro): chỉ cần thêm lại `vercel.json` với schedule mong muốn.
+
+## Cron 2: Nhắc hết hạn chứng nhận L1 (`/api/cron/certificate-expiry`)
+- **URL:** `https://www.veximtrade.com/api/cron/certificate-expiry`
+- **Method:** `GET` · **Header:** `Authorization: Bearer <CRON_SECRET>`
+- **Lịch khuyến nghị:** mỗi ngày 1 lần (`0 2 * * *` — 09:00 giờ Việt Nam).
+- **Cơ chế:** quét các chứng nhận L1 còn hiệu lực trong vòng `60 / 30 / 7 / 1` ngày và gửi thông báo cho nhà cung cấp để vào mục Giấy tờ L1 tải bản gia hạn mới (AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên).
+- **Idempotent:** mỗi mốc (`d60`, `d30`, `d7`, `d1`) được ghi nhận trong `certificates.expiry_notified` nên chạy lặp lại nhiều lần trong ngày không gửi trùng email; khi NCC tải bản mới có `valid_until` mới, các mốc được đặt lại từ đầu.
