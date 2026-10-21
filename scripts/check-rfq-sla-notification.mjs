@@ -41,6 +41,7 @@ const { GET } = load('../app/api/cron/rfq-sla/route.ts', {
   'next/server': { NextResponse: class extends Response { static json(data, init) { return Response.json(data, init); } } },
   '@/lib/db': { getStore: () => store },
   '@/lib/email/rfq': { sendSlaAlert },
+  '@/lib/certificate-service': { sendCertificateExpiryReminders: async () => ({ checked: 0, reminded: 0, alreadyNotified: 0, failed: 0, details: [] }) },
 }, { CRON_SECRET: 'only-for-test' });
 const request = new Request('https://example.com/api/cron/rfq-sla', { headers: { authorization: 'Bearer only-for-test' } });
 assert.equal((await GET(new Request(request.url))).status, 401);

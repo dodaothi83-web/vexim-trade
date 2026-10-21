@@ -18,6 +18,7 @@ import { NextResponse } from "next/server";
 
 import { getStore } from "@/lib/db";
 import { sendSlaAlert } from "@/lib/email/rfq";
+import { sendCertificateExpiryReminders } from "@/lib/certificate-service";
 
 export const dynamic = "force-dynamic";
 
@@ -97,12 +98,25 @@ export async function GET(req: Request) {
     }
   }
 
+  // Chạy gộp luôn kiểm tra nhắc hết hạn chứng nhận L1 (60/30/7/1 ngày, idempotent)
+  // để chỉ cần 1 cron job và 1 mã CRON_SECRET duy nhất.
+  let certificatesReminded = 0;
+  try {
+    if (typeof store.listSuppliers === "function" && typeof store.listCertificates === "function") {
+      const certReport = await sendCertificateExpiryReminders({ store });
+      certificatesReminded = certReport.reminded;
+    }
+  } catch (err) {
+    console.error("[cron] certificate expiry check failed", err);
+  }
+
   return NextResponse.json({
     ok: errors.length === 0,
     provider: "cron-job.org (external)",
     checked: rfqs.length,
     unassigned,
     due,
+    certificatesReminded,
     errors: errors.length ? errors : undefined,
   }, { status: errors.length ? 503 : 200 });
 }
