@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, FileText, Loader2, RotateCcw, Save, Send, Sparkles, Upload } from "lucide-react";
 
-import { L1_DOC_ITEMS, LEGACY_L2_VISIT_ITEMS, type AuditEvidenceKey, type MediaAsset, type Verification } from "@/lib/types";
+import { L1_DOC_ITEMS, LEGACY_L2_VISIT_ITEMS, type AuditEvidenceKey, type Certificate, type MediaAsset, type Verification } from "@/lib/types";
 import { prepareImage } from "@/lib/media/client-image";
 import { readUploadResponse } from "@/lib/media/upload-response";
 import type { AiDocumentReview } from "@/lib/ai/document-audit";
@@ -12,9 +12,10 @@ import { auditItems, auditStep, auditUploadKind } from "@/lib/verification";
 import { Button, formatDate } from "@/components/ui";
 import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/actions";
 import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction, updateVerificationPublicSummaryAction } from "../../verification-actions";
+import { CertificateRowControls } from "./certificate-row-controls";
 
-export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, canInspect, currentUserId, requireSecondReviewer }: {
-  verification: Verification; evidence: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; currentUserId: string; requireSecondReviewer: boolean;
+export function AuditForm({ verification: v, evidence, certificates = [], aiEnabled, canApprove, canInspect, canPublish = false, currentUserId, requireSecondReviewer }: {
+  verification: Verification; evidence: MediaAsset[]; certificates?: Certificate[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; requireSecondReviewer: boolean;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
@@ -319,9 +320,22 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
             </fieldset>
             {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">Đối chiếu tên pháp nhân và mã số thuế trên đăng ký doanh nghiệp với NCC; nếu dùng tên thương mại khác, ghi rõ căn cứ trong ghi chú. AI không tự xác thực giấy tờ.</p>}
             {v.target_level === 1 && (it.key === "food_safety" || it.key === "haccp_or_brc") && <p className="text-xs text-ink-600">NCC thương mại không bắt buộc có giấy này. Nếu dùng giấy của nhà máy sản xuất, ghi tên nhà máy và mối liên hệ với hàng cung ứng; không coi đó là giấy đứng tên NCC. Chọn “Không áp dụng” nếu không có.</p>}
-            {v.target_level === 1 && ["food_safety", "haccp_or_brc", "product_certs", "export_license"].includes(it.key) && <p className="text-xs text-teal-800">
-              Tệp tải lên ở dòng này sẽ được AI tự quét đơn vị đứng tên (chính chủ hay đơn vị đối tác) và ngày hết hạn để hiển thị ở bảng Chứng nhận L1 phía trên.
-            </p>}
+            {v.target_level === 1 && ["food_safety", "haccp_or_brc", "product_certs", "export_license"].includes(it.key) && <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-teal-800">Nhận diện tự động</p>
+              {certificates.filter((c) => c.checklist_key === it.key || (!c.checklist_key && it.key === "product_certs")).map((c) => (
+                <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-teal-200 bg-teal-50/50 px-3 py-1.5 text-xs">
+                  <div className="flex flex-wrap items-center gap-1.5 text-ink-700">
+                    <strong className="text-ink-900">{c.name}</strong>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${c.holder_match === "owner" ? "bg-emerald-100 text-emerald-800" : c.holder_match === "partner" ? "bg-amber-100 text-amber-900" : "bg-slate-200 text-slate-700"}`}>
+                      {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` · ${c.holder_name}` : ""}` : c.holder_match === "partner" ? `Đơn vị đối tác: ${c.holder_name || "—"}` : "Chưa rõ đơn vị đứng tên"}
+                    </span>
+                    {c.valid_until && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">Hạn {c.valid_until}</span>}
+                    {c.staff_hidden && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">Đang ẩn</span>}
+                  </div>
+                  <CertificateRowControls supplierId={v.supplier_id} certificateId={c.id} hasFile={Boolean(c.file_media_id)} staffHidden={Boolean(c.staff_hidden)} canInspect={canInspect} canPublish={canPublish} />
+                </div>
+              ))}
+            </div>}
             {suggestion && <div className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-xs leading-relaxed text-ink-700">
               <strong className={suggestion.verdict === "pass" ? "text-emerald-800" : suggestion.verdict === "fail" ? "text-rose-700" : "text-amber-800"}>
                 AI: {suggestion.verdict === "pass" ? "Có vẻ phù hợp — cần đối chiếu" : suggestion.verdict === "fail" ? "Phát hiện điểm không khớp" : "Chưa đủ cơ sở"}

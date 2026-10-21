@@ -13,8 +13,6 @@ import { Breadcrumbs, Badge, Card } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { StartVerificationButton } from "../../start-verification-button";
 import { AuditForm } from "./audit-form";
-import { CertificateRowControls } from "./certificate-row-controls";
-import { daysUntilExpiry } from "@/lib/certificate-service";
 
 export const dynamic = "force-dynamic";
 
@@ -81,52 +79,8 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
             </Badge>
             <p className="text-sm text-ink-600">{current.status === "approved" ? "Bằng chứng được khoá để giữ nguyên hồ sơ đã duyệt." : "Ghi kết quả, đính kèm bằng chứng và nộp xét duyệt khi đã sẵn sàng."}</p>
           </Card>
-          {step.level === 1 && (
-            <Card className="border-teal-200 bg-teal-50/60 p-4">
-              <h2 className="text-sm font-bold text-ink-900">Chứng nhận AI quét trên hồ sơ L1 ({certificates.length})</h2>
-              <p className="mt-1 text-xs text-ink-600">Khi NCC hoặc nhân viên tải giấy chứng nhận ở 4 dòng tùy chọn bên dưới (hoặc trên cổng NCC L1), AI sẽ tự quét đơn vị đứng tên (<strong>Chính chủ</strong> hay <strong>Đơn vị đối tác</strong>) và ngày hết hạn để hiển thị lên trang công khai. Hệ thống tự nhắc NCC trước 60 / 30 / 7 / 1 ngày hết hạn.</p>
-              {certificates.length === 0 ? (
-                <p className="mt-2 text-xs text-ink-500">Chưa có chứng nhận nào được tải lên.</p>
-              ) : (
-                <ul className="mt-3 space-y-2">{certificates.map((c) => {
-                  const days = daysUntilExpiry(c.valid_until);
-                  const isLive = Boolean(c.review_status === "approved" && c.publicly_visible && !c.staff_hidden && days !== null && days >= 0 && (c.holder_match === "owner" || c.holder_match === "partner"));
-                  return (
-                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm">
-                      <div className="min-w-0 space-y-0.5 text-xs text-ink-700">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <strong className="text-ink-900">{c.name}</strong>
-                          {c.number && <span className="text-ink-500">#{c.number}</span>}
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${c.holder_match === "owner" ? "bg-emerald-50 text-emerald-700" : c.holder_match === "partner" ? "bg-amber-50 text-amber-800" : "bg-slate-100 text-slate-700"}`}>
-                            {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` · ${c.holder_name}` : ""}` : c.holder_match === "partner" ? `Đơn vị đối tác: ${c.holder_name || "—"}` : "Chưa rõ đơn vị đứng tên"}
-                          </span>
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${days === null ? "bg-slate-100 text-slate-600" : days < 0 ? "bg-rose-50 text-rose-700" : days <= 60 ? "bg-amber-50 text-amber-800" : "bg-sky-50 text-sky-700"}`}>
-                            {c.valid_until ? `Hạn ${c.valid_until}${days !== null ? (days < 0 ? " (đã hết hạn)" : ` (còn ${days} ngày)`) : ""}` : "Chưa rõ ngày hết hạn"}
-                          </span>
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${c.staff_hidden ? "bg-rose-50 text-rose-700" : isLive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"}`}>
-                            {c.staff_hidden ? "Nhân viên đang ẩn" : isLive ? "Đang hiển thị công khai" : "Chưa công khai"}
-                          </span>
-                        </div>
-                        {(c.ai_summary || c.review_note) && (
-                          <p className="text-[11px] text-ink-500">{c.review_note || c.ai_summary}</p>
-                        )}
-                      </div>
-                      <CertificateRowControls
-                        supplierId={supplierId}
-                        certificateId={c.id}
-                        hasFile={Boolean(c.file_media_id)}
-                        staffHidden={Boolean(c.staff_hidden)}
-                        canInspect={canInspect}
-                        canPublish={canPublish}
-                      />
-                    </li>
-                  );
-                })}</ul>
-              )}
-            </Card>
-          )}
           <div className="max-w-5xl">
-            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} currentUserId={session.uid} requireSecondReviewer={requireSecondReviewer} />
+            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} certificates={certificates} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} requireSecondReviewer={requireSecondReviewer} />
           </div>
         </>}
     </div>
