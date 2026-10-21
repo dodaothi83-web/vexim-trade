@@ -11,11 +11,11 @@ import { SITE_URL } from "@/lib/site";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Vexim Trade – Verified Vietnamese food & agriculture sourcing",
+    default: "Vexim Trade – Find Verified Food & Agricultural Products and Suppliers in Vietnam",
     template: "%s · Vexim Trade",
   },
   description:
-    "Browse verified Vietnamese suppliers and request a quote from the one you choose, or send your requirements and Vexim will shortlist suppliers that match.",
+    "Find verified Vietnamese food & agricultural products and suppliers across core export categories. Browse verified Vietnamese suppliers and request a quote from the one you choose, or send your requirements and Vexim will shortlist suppliers that match.",
   icons: {
     icon: { url: "/favicon.png", type: "image/png", sizes: "500x500" },
     apple: { url: "/favicon.png", type: "image/png" },

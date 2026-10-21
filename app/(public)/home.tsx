@@ -4,7 +4,6 @@ import {
   ArrowRight,
   ChevronRight,
   FileStack,
-  Globe,
   HelpCircle,
   Search,
 } from "lucide-react";
@@ -337,19 +336,6 @@ const POPULAR_KEYWORDS_VI = [
   { label: "Gạo thơm ST25", href: "/products/rice" },
 ];
 
-function buildSwitchHref(
-  targetLang: HomeLocale,
-  query: string,
-  categoryFilter: string,
-): string {
-  const params = new URLSearchParams();
-  if (query) params.set("q", query);
-  if (categoryFilter) params.set("cat", categoryFilter);
-  if (targetLang === "vi") params.set("lang", "vi");
-  const qs = params.toString();
-  return qs ? `/?${qs}` : "/";
-}
-
 export default async function HomeContent({
   query = "",
   categoryFilter = "",
@@ -416,13 +402,10 @@ export default async function HomeContent({
   const popularKeywords = isVi ? POPULAR_KEYWORDS_VI : POPULAR_KEYWORDS_EN;
   const faqs = isVi ? FAQ_VI : FAQ_EN;
 
-  const enHref = buildSwitchHref("en", query, categoryFilter);
-  const viHref = buildSwitchHref("vi", query, categoryFilter);
-
   return (
     <div lang={lang} className="bg-slate-50 text-ink-900">
       {/* =====================================================================
-          SECTION 1: HERO + THANH TÌM KIẾM SẢN PHẨM + NÚT SONG NGỮ ANH - VIỆT
+          SECTION 1: HERO + THANH TÌM KIẾM SẢN PHẨM
          ===================================================================== */}
       <section className="relative overflow-hidden border-b-4 border-amber-400 bg-gradient-to-b from-brand-900 via-brand-900 to-ink-950 text-white">
         <Image
@@ -436,45 +419,7 @@ export default async function HomeContent({
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-950/90 via-brand-900/80 to-ink-950/90" />
 
-        <div className="relative mx-auto max-w-6xl px-5 py-12 sm:px-6 sm:py-18 lg:px-8">
-          {/* Thanh nút chuyển ngôn ngữ Anh - Việt (Mặc định: Tiếng Anh) */}
-          <div className="mb-5 flex justify-center">
-            <div
-              role="group"
-              aria-label="Language Switcher / Chuyển đổi ngôn ngữ Anh - Việt"
-              className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-ink-950/60 p-1 text-xs font-bold text-white shadow-lg backdrop-blur-xs"
-            >
-              <span className="inline-flex items-center gap-1 pl-2.5 pr-1 text-[11px] font-semibold text-amber-300">
-                <Globe className="h-3.5 w-3.5" />
-                {isVi ? "Ngôn ngữ:" : "Language:"}
-              </span>
-              <Link
-                href={enHref}
-                scroll={false}
-                aria-current={!isVi ? "true" : undefined}
-                className={`rounded-full px-3 py-1 transition ${
-                  !isVi
-                    ? "bg-amber-400 font-black text-ink-950 shadow-xs"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                EN · English
-              </Link>
-              <Link
-                href={viHref}
-                scroll={false}
-                aria-current={isVi ? "true" : undefined}
-                className={`rounded-full px-3 py-1 transition ${
-                  isVi
-                    ? "bg-amber-400 font-black text-ink-950 shadow-xs"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                VI · Tiếng Việt
-              </Link>
-            </div>
-          </div>
-
+        <div className="relative mx-auto max-w-6xl px-5 py-14 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-4xl text-center">
             <span className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-3.5 py-1 text-xs font-black uppercase tracking-[0.16em] text-ink-950 shadow-sm">
               <span className="h-2 w-2 rounded-full bg-brand-900" />

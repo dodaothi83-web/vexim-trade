@@ -11,9 +11,9 @@ import HomeContent from "./home";
 
 export const dynamic = "force-dynamic";
 
-const HOME_TITLE = "Vexim Trade – Verified Vietnamese food & agriculture sourcing";
+const HOME_TITLE = "Vexim Trade – Find Verified Food & Agricultural Products and Suppliers in Vietnam";
 const HOME_DESCRIPTION =
-  "Browse verified Vietnamese suppliers and request a quote from the one you choose, or send your requirements and Vexim will shortlist suppliers that match.";
+  "Find verified Vietnamese food & agricultural products and suppliers across core export categories. Browse verified Vietnamese suppliers and request a quote from the one you choose, or send your requirements and Vexim will shortlist suppliers that match.";
 const HOME_IMAGE = "/images/home/hero-cashew-texture.jpg";
 
 export const metadata: Metadata = {
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     url: "/",
     siteName: "Vexim Trade",
     type: "website",
-    images: [{ url: HOME_IMAGE, alt: "Vietnamese agricultural products sourced by Vexim Trade" }],
+    images: [{ url: HOME_IMAGE, alt: "Verified Vietnamese food & agricultural products on Vexim Trade" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -66,7 +66,7 @@ export default async function PublicHomePage({
         name: COMPANY.name,
         legalName: COMPANY.legalName,
         description:
-          "Vexim Trade connects international buyers with verified Vietnamese suppliers. Buyers can browse supplier listings, request a quote from a supplier they choose, or send requirements for Vexim to shortlist matching suppliers. After an introduction, buyers contract directly with the chosen supplier; Vexim does not hold buyer payments.",
+          "Vexim Trade connects international and domestic buyers with verified Vietnamese food & agricultural suppliers across core product categories and sub-groups. Buyers can browse supplier listings, request a quote from a supplier they choose, or send requirements for Vexim to shortlist matching suppliers. Supplier verification covers business documents, automated certificate holder (Owner vs. Partner Entity) & expiration recognition, factory photo evidence, and export delivery history. Vexim also provides Vietnamese manufacturers with free marketplace listing, international trade website design, featured placement, and US FDA compliance consulting. After an introduction, buyers contract directly with the chosen supplier; Vexim does not hold buyer payments.",
         url: SITE_URL,
         logo: `${SITE_URL}/logo-vexim.png`,
         email: COMPANY.email,

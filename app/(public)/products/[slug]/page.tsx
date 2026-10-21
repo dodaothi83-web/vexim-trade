@@ -42,9 +42,95 @@ interface PageProps {
 const CATEGORY_RFQ_META_SUFFIX =
   "Request a quote from a supplier you choose, or send your requirements and Vexim will shortlist suppliers that match.";
 
+const CATEGORY_EN_TITLES: Record<string, string> = {
+  cashew: "Cashew Kernels & Value-Added Cashew",
+  "nuts-kernels": "Nutritional Nuts & Kernels",
+  macadamia: "Central Highlands Macadamia Nuts",
+  coffee: "Green Coffee Beans & Roasted Coffee",
+  pepper: "Vietnamese Black & White Pepper",
+  "pepper-spices": "Pepper & Natural Spices",
+  cinnamon: "Cassia Cinnamon & Star Anise",
+  "star-anise": "Lang Son Whole Star Anise",
+  coconut: "Ben Tre Coconut Products",
+  rice: "Fragrant & Export Rice Products",
+  noodles: "Dried Rice Noodles, Vermicelli & Rice Paper",
+  "fruit-veg": "Processed & IQF Fruits & Vegetables",
+  "dragon-fruit": "Fresh & IQF Dragon Fruit",
+  "dried-fruit": "Soft-Dried & Crispy Fruit Snacks",
+  seafood: "Frozen Export Seafood",
+  pangasius: "Frozen Pangasius Fillets",
+  shrimp: "Black Tiger & Vannamei Shrimp",
+  honey: "Natural Export Honey",
+  tea: "Green Tea, Black Tea & Oolong Tea",
+  "processed-foods": "Processed & Packaged Foods",
+};
+
+const CATEGORY_SUBGROUPS_EN: Record<string, string[]> = {
+  cashew: [
+    "Whole white cashew kernels (WW180, WW240, WW320, WW450)",
+    "Scorched & broken kernels for bakery & confectionery (WS, LP, SP)",
+    "Roasted salted, skin-on & flavored retail cashew (OEM)",
+    "Cashew butter & private-label nutritional nut packs",
+  ],
+  "nuts-kernels": [
+    "Export-grade cashew kernels (W240, W320, W450)",
+    "Central Highlands macadamia nuts (in-shell & kernel)",
+    "Blanched peanuts & dried lotus seeds",
+    "Custom roasted & seasoned nut mixes (Private Label)",
+  ],
+  coffee: [
+    "Green Robusta coffee beans (G1, G2, S16, S18 – Wet/Dry)",
+    "Cau Dat & Son La washed Arabica green coffee beans",
+    "Whole-bean roasted & ground coffee for filter and espresso",
+    "Spray-dried & freeze-dried instant coffee (pure & 3-in-1)",
+  ],
+  pepper: [
+    "Whole black pepper (FAQ 500g/l, 550g/l & ASTA grade)",
+    "Double-washed white peppercorns (White Pepper)",
+    "Steam-sterilised ground & cracked black pepper",
+    "Freeze-dried green pepper, red pepper & certified organic pepper",
+  ],
+  "pepper-spices": [
+    "Export-grade black & white peppercorns",
+    "Yen Bai cassia cinnamon tubes, split & powder",
+    "Lang Son dried star anise & black cardamom",
+    "Dried sliced ginger, turmeric & natural spice powders",
+  ],
+  cinnamon: [
+    "Yen Bai cigarette & stick cassia cinnamon (Stick / Cigarette)",
+    "Split, broken & pressed-bale cassia cinnamon",
+    "High-oil pure cassia cinnamon powder (2% – 4% volatile oil)",
+    "Lang Son whole star anise & natural cinnamon essential oil",
+  ],
+  coconut: [
+    "Desiccated coconut (Fine / Medium grade, High Fat)",
+    "Canned & aseptic coconut milk, coconut cream & milk powder",
+    "UHT pure coconut water, canned coconut water & nata de coco",
+    "Cold-pressed Virgin Coconut Oil (VCO) & RBD coconut oil",
+  ],
+  rice: [
+    "Specialty fragrant rice (ST25, ST24 & Jasmine 85)",
+    "Long-grain white rice for export (5%, 15%, 25% broken)",
+    "Japonica round-grain rice (Sushi) & glutinous rice",
+    "Dried rice vermicelli, Pho noodles & export rice paper",
+  ],
+  seafood: [
+    "Frozen Pangasius fillets (Well-trimmed / Untrimmed)",
+    "Vannamei & Black Tiger shrimp (HLSO, PD, PTO, Nobashi)",
+    "Frozen squid, octopus & breaded value-added seafood",
+    "Surimi fish paste & retail-ready frozen seafood packs",
+  ],
+  "fruit-veg": [
+    "IQF frozen tropical fruits (mango, dragon fruit, durian)",
+    "Soft-dried & vacuum-fried fruit snacks for export",
+    "Aseptic fruit puree & juice concentrates in drums",
+    "Export-grade frozen & canned vegetables",
+  ],
+};
+
 function categoryMetaDescription(name: string, storedDescription: string): string {
   const base = storedDescription.trim();
-  const fallback = `Compare verified Vietnamese ${name.toLowerCase()} suppliers. ${CATEGORY_RFQ_META_SUFFIX}`;
+  const fallback = `Compare verified Vietnamese ${name.toLowerCase()} products and suppliers. ${CATEGORY_RFQ_META_SUFFIX}`;
   if (!base) return fallback;
 
   const hasChosenSupplierPath = /supplier you choose|your chosen supplier|chosen supplier/i.test(base);
@@ -75,6 +161,10 @@ const STANDARD_CATEGORY_FAQS = [
   {
     q: "How does Vexim match suppliers for an open request?",
     a: "Suppliers are matched on your requirements only, including your specs, quantity and market. Paid listings never affect who Vexim recommends.",
+  },
+  {
+    q: "How are supplier certificates verified on Vexim Trade?",
+    a: "When suppliers upload quality certificates (HACCP, ISO 22000, BRC, Halal, FDA, Organic), Vexim's automated recognition scans the certified holder name and expiration date, labeling each certificate as Owner or Partner Entity.",
   },
 ] as const;
 
@@ -119,17 +209,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const { cat, resolvedSlug, isPreview } = await resolveCategory(slug);
   if (!cat) return { title: "Category not found | Vexim Trade", robots: { index: false, follow: false } };
-  const name = t(cat.name_i18n);
-  const seoTitle = t(cat.seo_title_i18n) || `${name} Products in Vietnam | Vexim Trade`;
+  const name = CATEGORY_EN_TITLES[cat.slug] || t(cat.name_i18n) || cat.slug;
+  const seoTitle = t(cat.seo_title_i18n) || `${name} Products & Verified Suppliers in Vietnam | Vexim Trade`;
   const seoDesc = categoryMetaDescription(name, t(cat.seo_desc_i18n));
   const indexable = !isPreview && !!cat.seo_indexable;
-  const images = cat.hero_image ? [{ url: cat.hero_image, alt: `${name} suppliers in Vietnam` }] : undefined;
+  const heroImage = cat.hero_image || "/images/home/hero-cashew-texture.jpg";
+  const images = [{ url: heroImage, alt: `${name} products and verified suppliers in Vietnam` }];
   return {
     title: { absolute: seoTitle },
     description: seoDesc,
     alternates: { canonical: `/products/${resolvedSlug}` },
     openGraph: { title: seoTitle, description: seoDesc, url: `/products/${resolvedSlug}`, siteName: "Vexim Trade", type: "website", images },
-    twitter: { card: "summary_large_image", title: seoTitle, description: seoDesc, images: cat.hero_image ? [cat.hero_image] : undefined },
+    twitter: { card: "summary_large_image", title: seoTitle, description: seoDesc, images: [heroImage] },
     robots: { index: indexable, follow: !isPreview },
   };
 }
@@ -160,9 +251,12 @@ export default async function CategoryPage({ params }: PageProps) {
 
   const products = await listPublicCategoryProducts(cat);
   const sponsored = !isPreview ? await pilotPlacement(cat.slug, products) : null;
-  const categoryName = t(cat.name_i18n) || cat.slug;
+  const categoryName = CATEGORY_EN_TITLES[cat.slug] || t(cat.name_i18n) || cat.slug;
   const h1 = cat.slug === "cashew" ? "Vietnam Cashew" : (t(cat.h1_i18n) || `Vietnam ${categoryName}`);
-  const intro = t(cat.intro_i18n) || `Explore Vietnamese ${categoryName.toLowerCase()} products. Supplier verification is shown on each listing.`;
+  const intro =
+    t(cat.intro_i18n) ||
+    `Explore export-ready Vietnamese ${categoryName.toLowerCase()} products and verified suppliers. Compare specifications, MOQ, reference FOB pricing, and independent verification badges (business documents & certificate holder status, factory evidence, and export delivery history), then request a quote from the supplier you choose or send your requirements for Vexim to shortlist matching suppliers.`;
+  const subgroups = CATEGORY_SUBGROUPS_EN[cat.slug] ?? [];
   // Sanitize body để chặn HTML/script độc từ CMS (chỉ cho p/h2-h4/ul/ol/li/a/strong/em/br).
   const bodyRaw = t(cat.body_i18n);
   const body = bodyRaw ? sanitizeHtml(bodyRaw) : "";
@@ -233,6 +327,7 @@ export default async function CategoryPage({ params }: PageProps) {
             categoryName={categoryName}
             h1={h1}
             intro={intro}
+            subgroups={subgroups}
             body={body}
             columns={columns}
             rows={rows}
@@ -242,7 +337,7 @@ export default async function CategoryPage({ params }: PageProps) {
             rfqHref={rfqHref}
           />
         ) : (
-          <StateB cat={cat} categoryName={categoryName} h1={h1} intro={intro} rfqHref={rfqHref}
+          <StateB cat={cat} categoryName={categoryName} h1={h1} intro={intro} subgroups={subgroups} rfqHref={rfqHref}
             columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} />
         )}
 
@@ -259,11 +354,11 @@ export default async function CategoryPage({ params }: PageProps) {
 /* ================== STATE A — đã có NCC ================== */
 
 function StateA({
-  cat, products, sponsored, categoryName, h1, intro, body, columns, rows, facts, faqs, filters, rfqHref,
+  cat, products, sponsored, categoryName, h1, intro, subgroups, body, columns, rows, facts, faqs, filters, rfqHref,
 }: {
   cat: Category;
   products: PublicCategoryProduct[]; sponsored: PilotPlacement | null;
-  categoryName: string; h1: string; intro: string; body: string | null;
+  categoryName: string; h1: string; intro: string; subgroups: string[]; body: string | null;
   columns: CategoryColumn[];
   rows: CategoryRow[];
   facts: CategoryFact[];
@@ -289,6 +384,21 @@ function StateA({
               {h1}
             </h1>
             <p className="mt-2 max-w-2xl text-[14.5px] leading-relaxed text-ink-600">{intro}</p>
+            {subgroups.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Key product sub-groups:
+                </span>
+                {subgroups.map((sub) => (
+                  <span
+                    key={sub}
+                    className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-ink-700"
+                  >
+                    {sub}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="rounded-full bg-brand-50 px-3 py-1 text-[12.5px] font-semibold text-brand-800 ring-1 ring-brand-200">
@@ -399,8 +509,8 @@ function CategoryContentSections({ columns, rows, facts, faqs, body, categoryNam
 
 /* ================== STATE B — chưa có NCC ================== */
 
-function StateB({ cat, categoryName, h1, intro, rfqHref, columns, rows, facts, faqs, body }: {
-  cat: Category; categoryName: string; h1: string; intro: string; rfqHref: string;
+function StateB({ cat, categoryName, h1, intro, subgroups, rfqHref, columns, rows, facts, faqs, body }: {
+  cat: Category; categoryName: string; h1: string; intro: string; subgroups: string[]; rfqHref: string;
   columns: CategoryColumn[]; rows: CategoryRow[]; facts: CategoryFact[];
   faqs: Array<{ q: string; a: string }>; body: string | null;
 }) {
@@ -413,6 +523,18 @@ function StateB({ cat, categoryName, h1, intro, rfqHref, columns, rows, facts, f
         </div>
         <h1 className="mt-4 text-[34px] font-black leading-[1.05] text-ink-900 sm:text-[44px]">{h1}</h1>
         <p className="mt-5 max-w-xl text-[15.5px] leading-relaxed text-ink-700">{intro}</p>
+        {subgroups.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {subgroups.map((sub) => (
+              <span
+                key={sub}
+                className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-ink-700"
+              >
+                {sub}
+              </span>
+            ))}
+          </div>
+        )}
         <p className="mt-3 max-w-xl text-[14.5px] leading-relaxed text-ink-600">
           No buyer-ready products are listed in this category yet. Tell us your spec and we will check suitable producers and their supporting documents before recommending a match.
         </p>
@@ -489,9 +611,9 @@ function VerificationSection() {
           </Link>
         </div>
         <ol className="grid gap-3 sm:grid-cols-3">
-          <Level n="01" icon={<ClipboardCheck className="h-5 w-5" />} title="Documents checked" body="Our team reviews business registration and relevant supporting certificates." />
-          <Level n="02" icon={<Factory className="h-5 w-5" />} title="Factory visited" tone="brand" body="A team member records the factory location, facilities and visual evidence." />
-          <Level n="03" icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history reviewed" body="Shipment and delivery documents for a completed order are checked. A won enquiry alone does not qualify." />
+          <Level n="01" icon={<ClipboardCheck className="h-5 w-5" />} title="Documents & certificates checked" body="Business registration is reviewed and quality certificates (HACCP, ISO 22000, BRC, Halal, FDA…) are scanned for holder status (Owner or Partner Entity) and validity date." />
+          <Level n="02" icon={<Factory className="h-5 w-5" />} title="Factory & production verified" tone="brand" body="Production facilities, processing lines, warehouse and geolocation evidence are verified against our 9-point factory checklist." />
+          <Level n="03" icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history reviewed" body="Shipment and export delivery documents (B/L, customs declaration, packing list) for completed orders are reviewed. A won enquiry alone does not qualify." />
         </ol>
       </div>
     </section>
