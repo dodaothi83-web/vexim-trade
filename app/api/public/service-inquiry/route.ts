@@ -1,25 +1,18 @@
 import { NextResponse } from "next/server";
 
+import { COMPANY } from "@/lib/config";
 import { getStore } from "@/lib/db";
+import {
+  buildServiceInquiryAcknowledgement,
+  buildServiceInquiryInternalEmail,
+  serviceDisplayTitle,
+  serviceInquiryReference,
+} from "@/lib/email/service-inquiry";
 import { transport } from "@/lib/email/send";
-import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
+import { isOwnMailAddress } from "@/lib/email/sender";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const VALID_SERVICES_VI: Record<string, string> = {
-  free_listing: "1. Đăng ký lên sàn Miễn phí",
-  international_website: "2. Thiết kế website chuẩn thương mại quốc tế",
-  featured_ads: "3. Quảng cáo nổi bật",
-  fda_compliance: "4. Tuân thủ pháp lý FDA",
-};
-
-const VALID_SERVICES_EN: Record<string, string> = {
-  free_listing: "1. Free Marketplace Listing",
-  international_website: "2. International Trade Website Design",
-  featured_ads: "3. Featured Placement",
-  fda_compliance: "4. US FDA Regulatory Compliance",
-};
 
 function clean(value: unknown, max: number): string {
   if (typeof value !== "string") return "";
@@ -46,10 +39,8 @@ export async function POST(request: Request) {
   const lang = clean(body.lang, 10) === "vi" ? "vi" : "en";
   const isVi = lang === "vi";
   const serviceKey = clean(body.service_key, 60);
-  const serviceTitle =
-    (isVi ? VALID_SERVICES_VI[serviceKey] : VALID_SERVICES_EN[serviceKey]) ||
-    clean(body.service_title, 140) ||
-    (isVi ? "Dịch vụ doanh nghiệp" : "Vexim Trade Business Service");
+  // Tên dịch vụ do server quyết định theo mã dịch vụ; chỉ dùng tiêu đề form khi mã lạ.
+  const serviceTitle = serviceDisplayTitle(serviceKey, lang, clean(body.service_title, 140));
   const companyName = clean(body.company_name, 160);
   const contactName = clean(body.contact_name, 120);
   const phone = clean(body.phone, 50);
@@ -80,7 +71,8 @@ export async function POST(request: Request) {
   }
 
   const store = getStore();
-  const submittedAt = new Date().toISOString();
+  const submittedAt = new Date();
+  const reference = serviceInquiryReference(submittedAt);
 
   await store
     .addAuditLog({
@@ -91,6 +83,7 @@ export async function POST(request: Request) {
       action: "public.service_inquiry",
       before: null,
       after: {
+        reference,
         lang,
         service_key: serviceKey || "general",
         service_title: serviceTitle,
@@ -100,50 +93,77 @@ export async function POST(request: Request) {
         email,
         products_text: productsText || null,
         note: note || null,
-        submitted_at: submittedAt,
+        submitted_at: submittedAt.toISOString(),
       },
     })
     .catch((err) => console.error("[service-inquiry] audit log failed", err));
 
+  const input = {
+    lang,
+    serviceKey,
+    serviceTitle,
+    companyName,
+    contactName,
+    phone,
+    email,
+    productsText,
+    note,
+    reference,
+    submittedAt,
+  } as const;
+
+  // 1) Báo đội Vexim. Reply-To là địa chỉ khách để bấm Trả lời là tới đúng người.
   try {
     const users = await store.listUsers();
     const recipients = [
       ...new Set(
         users
-          .filter((u) => u.is_active && (u.role === "admin" || u.role === "sourcing"))
+          .filter((u) => u.is_active && ["admin", "sale", "sourcing"].includes(u.role))
           .map((u) => u.email.trim().toLowerCase())
           .filter(Boolean),
       ),
     ];
     if (recipients.length > 0) {
-      const subject = `[Đăng ký dịch vụ] ${serviceTitle} — ${companyName}`;
-      const htmlBody = [
-        `<p>Doanh nghiệp vừa gửi yêu cầu đăng ký dịch vụ từ trang chủ Vexim Trade (${lang.toUpperCase()}):</p>`,
-        `<ul>`,
-        `<li><strong>Dịch vụ đăng ký:</strong> ${escapeHtml(serviceTitle)}</li>`,
-        `<li><strong>Doanh nghiệp:</strong> ${escapeHtml(companyName)}</li>`,
-        `<li><strong>Người liên hệ:</strong> ${escapeHtml(contactName)}</li>`,
-        `<li><strong>Điện thoại / Zalo:</strong> ${escapeHtml(phone)}</li>`,
-        `<li><strong>Email:</strong> ${escapeHtml(email)}</li>`,
-        productsText ? `<li><strong>Ngành hàng / Sản phẩm:</strong> ${escapeHtml(productsText)}</li>` : "",
-        note ? `<li><strong>Ghi chú:</strong> ${escapeHtml(note)}</li>` : "",
-        `</ul>`,
-      ].join("");
-      await transport({
+      const mail = buildServiceInquiryInternalEmail(input);
+      const result = await transport({
         to: recipients,
-        subject,
-        html: wrapPlainEmail({ title: escapeHtml(subject), body: htmlBody }),
-        text: `${subject}\nDoanh nghiệp: ${companyName}\nLiên hệ: ${contactName} - ${phone} - ${email}\nSản phẩm: ${productsText}\nGhi chú: ${note}`,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        replyTo: email,
       });
+      if (!result.ok) console.error("[service-inquiry] internal email not sent", result.error);
     }
   } catch (err) {
     console.error("[service-inquiry] email notify failed", err);
   }
 
+  // 2) Xác nhận cho doanh nghiệp đã đăng ký (đúng ngôn ngữ họ dùng trên form).
+  //    Không gửi nếu địa chỉ thuộc domain của Vexim (tránh thư tự quay vòng).
+  let acknowledged = false;
+  if (!isOwnMailAddress(email)) {
+    try {
+      const ack = buildServiceInquiryAcknowledgement(input);
+      const result = await transport({
+        to: [email],
+        subject: ack.subject,
+        html: ack.html,
+        text: ack.text,
+        replyTo: COMPANY.email,
+      });
+      acknowledged = result.ok;
+      if (!result.ok) console.error("[service-inquiry] acknowledgement not sent", result.error);
+    } catch (err) {
+      console.error("[service-inquiry] acknowledgement failed", err);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
+    reference,
+    acknowledged,
     message: isVi
-      ? `Đã gửi đăng ký "${serviceTitle}" thành công! Đội ngũ Vexim Trade sẽ liên hệ với ${contactName} qua số ${phone} trong vòng 1 ngày làm việc.`
-      : `Thank you! Your registration for "${serviceTitle}" has been submitted. The Vexim Trade team will contact ${contactName} via ${phone} within 1 business day.`,
+      ? `Đã nhận đăng ký "${serviceTitle}" của ${companyName}. Mã yêu cầu ${reference}. Chuyên viên Vexim Trade sẽ gọi cho ${contactName} qua số ${phone} trong vòng 1 ngày làm việc.`
+      : `Registration received for "${serviceTitle}" — reference ${reference}. A Vexim Trade consultant will contact ${contactName} on ${phone} within one business day.`,
   });
 }
