@@ -2,16 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
-  BadgeCheck,
-  CheckCircle2,
   ChevronRight,
   FileStack,
-  Globe2,
   HelpCircle,
-  Megaphone,
   Search,
-  ShieldCheck,
-  Store,
 } from "lucide-react";
 
 import { getStore } from "@/lib/db";
@@ -19,6 +13,7 @@ import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
 import { PublicProductCard } from "@/components/public-product-card";
+import { ServiceRegistrationSection } from "@/components/service-registration-section";
 import { CookieSettingsButton } from "@/components/cookie-consent";
 import { Logo } from "@/components/brand-logo";
 import { PlatformLegalStrip } from "@/components/platform-legal-strip";
@@ -42,7 +37,7 @@ function i18n(
   return typeof v === "string" ? v : fallback;
 }
 
-/** Tên hiển thị tiếng Việt ưu tiên theo slug cho giao diện Trang Vàng thực phẩm Việt Nam */
+/** Tên hiển thị tiếng Việt ưu tiên theo slug cho danh mục thực phẩm Việt Nam */
 const CATEGORY_VI_NAMES: Record<string, string> = {
   cashew: "Hạt điều & Nhân điều xuất khẩu",
   "nuts-kernels": "Các loại hạt dinh dưỡng",
@@ -68,7 +63,7 @@ const CATEGORY_VI_NAMES: Record<string, string> = {
 
 /**
  * Danh sách 3-4 nhóm con sản phẩm đặc trưng cho từng danh mục ngành hàng
- * để hiển thị gọn trong từng card kiểu Trang Vàng (không quá 4 dòng/card).
+ * để hiển thị gọn trong từng card (không quá 4 dòng/card).
  */
 const CATEGORY_SUBGROUPS: Record<string, string[]> = {
   cashew: [
@@ -147,74 +142,11 @@ function getSubgroupsForCategory(cat: Category, allCategories: Category[]): stri
     ...unique,
     ...fromFacts,
     "Nguồn hàng trực tiếp từ nhà máy & vùng nguyên liệu Việt Nam",
-    "Đầy đủ hồ sơ pháp lý L1, chứng nhận ATTP / HACCP / ISO",
+    "Đầy đủ hồ sơ pháp lý và chứng nhận ATTP / HACCP / ISO",
     "Nhận cung ứng số lượng sỉ, gia công OEM / nhãn riêng",
   ];
   return [...new Set(fallback)].slice(0, 4);
 }
-
-const SERVICES = [
-  {
-    step: "01",
-    icon: Store,
-    title: "Đăng ký lên sàn Miễn phí",
-    description:
-      "Tạo gian hàng doanh nghiệp và đưa danh mục sản phẩm thực phẩm lên Trang Vàng Vexim Trade hoàn toàn miễn phí.",
-    bullets: [
-      "Khởi tạo hồ sơ pháp nhân nhà máy, công ty thương mại hoặc hợp tác xã nhanh chóng",
-      "Đăng tải sản phẩm kèm quy cách, MOQ, giá tham khảo và năng lực gia công OEM/ODM",
-      "AI tự động quét chứng nhận L1 (ATTP, HACCP, ISO, BRC...) gắn nhãn Chính chủ / Đối tác",
-      "Nhận yêu cầu báo giá (RFQ) đã xác thực từ khách mua hàng trong nước và quốc tế",
-    ],
-    ctaLabel: "Đăng ký gian hàng ngay",
-    ctaHref: "/for-suppliers",
-  },
-  {
-    step: "02",
-    icon: Globe2,
-    title: "Thiết kế website chuẩn thương mại quốc tế",
-    description:
-      "Xây dựng website B2B đa ngôn ngữ chuyên nghiệp, tối ưu chuyển đổi cho doanh nghiệp xuất khẩu thực phẩm & nông sản.",
-    bullets: [
-      "Cấu trúc chuẩn thương mại quốc tế: bảng quy cách, đóng gói, cảng xuất, Incoterms",
-      "Tối ưu SEO đa ngôn ngữ & dữ liệu cấu trúc Schema giúp nhà nhập khẩu dễ tìm thấy",
-      "Tích hợp biểu mẫu nhận yêu cầu báo giá (RFQ) và đồng bộ hồ sơ năng lực nhà máy",
-      "Tốc độ tải nhanh toàn cầu, giao diện hiện đại trên cả máy tính và điện thoại",
-    ],
-    ctaLabel: "Tư vấn thiết kế website",
-    ctaHref: "/rfq",
-  },
-  {
-    step: "03",
-    icon: Megaphone,
-    title: "Quảng cáo nổi bật",
-    description:
-      "Đưa gian hàng và sản phẩm chủ lực lên vị trí ưu tiên tại trang ngành hàng để tiếp cận đúng khách mua đang tìm nguồn hàng.",
-    bullets: [
-      "Hiển thị ưu tiên ở đầu danh mục ngành hàng thực phẩm và khu vực tìm kiếm",
-      "Gắn nhãn nhận diện gian hàng nổi bật giúp tăng tỷ lệ nhấp xem hồ sơ và sản phẩm",
-      "Báo cáo minh bạch lượt xem gian hàng, lượt mở sản phẩm theo chu kỳ 7 – 90 ngày",
-      "Tách biệt rõ ràng với kết quả kiểm duyệt độc lập — giữ trọn độ tin cậy với buyer",
-    ],
-    ctaLabel: "Đăng ký vị trí nổi bật",
-    ctaHref: "/for-suppliers",
-  },
-  {
-    step: "04",
-    icon: ShieldCheck,
-    title: "Tuân thủ pháp lý FDA",
-    description:
-      "Tư vấn và hoàn thiện trọn gói hồ sơ pháp lý xuất khẩu thực phẩm sang thị trường Hoa Kỳ và các thị trường khó tính.",
-    bullets: [
-      "Đăng ký & gia hạn mã số cơ sở thực phẩm FDA (Food Facility Registration) + U.S. Agent",
-      "Rà soát, chỉnh sửa nhãn sản phẩm (Nutrition Facts, thành phần, chất gây dị ứng) chuẩn FDA",
-      "Hỗ trợ hồ sơ FSVP, khai báo Prior Notice và đăng ký FCE/SID cho thực phẩm đóng hộp",
-      "Cập nhật chứng nhận lên hồ sơ L1 kèm lịch nhắc tự động trước 60 / 30 / 7 / 1 ngày hết hạn",
-    ],
-    ctaLabel: "Tư vấn hồ sơ FDA",
-    ctaHref: "/rfq",
-  },
-];
 
 const FAQ = [
   {
@@ -223,23 +155,23 @@ const FAQ = [
   },
   {
     q: "Làm sao biết chứng nhận trên hồ sơ nhà cung cấp là chính chủ hay của đơn vị đối tác?",
-    a: "Khi nhà cung cấp tải chứng nhận (ATTP, HACCP, ISO 22000, BRC, Halal, FDA...) lên bước Kiểm tra giấy tờ L1, hệ thống AI của Vexim tự động quét tên đơn vị được cấp và ngày hết hạn: nếu khớp pháp nhân sẽ hiển thị 'Chính chủ', nếu đứng tên nhà máy gia công/liên kết sẽ ghi rõ 'Đơn vị đối tác' kèm ngày hết hiệu lực.",
+    a: "Khi nhà cung cấp tải chứng nhận (ATTP, HACCP, ISO 22000, BRC, Halal, FDA...) lên hệ thống, công nghệ nhận diện tự động của Vexim quét tên đơn vị được cấp và ngày hết hạn: nếu khớp pháp nhân sẽ hiển thị 'Chính chủ', nếu đứng tên nhà máy gia công/liên kết sẽ ghi rõ 'Đơn vị đối tác' kèm ngày hết hiệu lực.",
   },
   {
     q: "Doanh nghiệp thực phẩm tại Việt Nam đăng ký lên sàn như thế nào?",
-    a: "Doanh nghiệp chỉ cần vào mục 'Dành cho nhà cung cấp' (/for-suppliers) để tạo tài khoản miễn phí, khai báo thông tin pháp nhân và tải giấy phép kinh doanh cùng các chứng nhận L1. Sau khi được mở cổng, bạn có thể đăng sản phẩm và nhận RFQ.",
+    a: "Doanh nghiệp chỉ cần bấm nút 'Đăng ký lên sàn miễn phí' ở mục Dịch vụ phía trên để gửi thông tin, hoặc tạo tài khoản nhà cung cấp để khai báo hồ sơ pháp nhân, tải giấy phép kinh doanh và đăng tải sản phẩm.",
   },
   {
-    q: "Hệ thống xác thực nhà cung cấp của Vexim gồm những bước nào?",
-    a: "Vexim đánh giá độc lập theo 3 cấp độ: (L1) Kiểm tra giấy tờ pháp lý & AI quét chứng nhận, (L2) Xác thực nhà máy thực tế qua bộ 9 ảnh chụp hiện trường kèm toạ độ/mã xác minh, và (L3) Đối chiếu chứng từ lịch sử lô hàng đã xuất khẩu.",
+    q: "Quy trình xác thực nhà cung cấp của Vexim gồm những hạng mục nào?",
+    a: "Vexim đánh giá độc lập qua 3 hạng mục: (1) Kiểm tra giấy tờ pháp lý doanh nghiệp & nhận diện tự động chứng nhận chất lượng, (2) Xác thực nhà máy thực tế qua bộ ảnh chụp hiện trường sản xuất kèm toạ độ và mã xác minh, và (3) Đối chiếu chứng từ lịch sử lô hàng đã xuất khẩu.",
   },
   {
-    q: "Khi chứng nhận ATTP / HACCP / ISO sắp hết hạn thì cập nhật lại ở đâu?",
-    a: "Trước khi chứng nhận hết hạn 60, 30, 7 và 1 ngày, hệ thống tự động gửi thông báo và email nhắc nhà cung cấp. Doanh nghiệp chỉ cần vào mục Giấy tờ L1 tải bản gia hạn mới lên, AI sẽ tự quét lại ngày hết hạn mới và cập nhật hiển thị.",
+    q: "Khi chứng nhận ATTP / HACCP / ISO sắp hết hạn thì cập nhật lại như thế nào?",
+    a: "Trước khi chứng nhận hết hạn 60, 30, 7 và 1 ngày, hệ thống tự động gửi thông báo và email nhắc nhà cung cấp. Doanh nghiệp chỉ cần vào mục Giấy tờ trên cổng nhà cung cấp tải bản gia hạn mới lên, hệ thống sẽ tự động nhận diện lại ngày hết hạn mới và cập nhật hiển thị.",
   },
   {
     q: "Tôi muốn đăng ký gói Thiết kế website quốc tế, Quảng cáo nổi bật hoặc Tuân thủ pháp lý FDA thì làm thế nào?",
-    a: "Bạn có thể nhấn vào nút tư vấn ở từng dịch vụ phía trên hoặc gửi yêu cầu tại trang Liên hệ / Báo giá (/rfq). Đội ngũ chuyên viên Vexim tại Hà Nội sẽ liên hệ tư vấn chi tiết trong vòng 1 ngày làm việc.",
+    a: "Bạn chỉ cần bấm vào nút Đăng ký tương ứng ở từng thẻ dịch vụ phía trên và điền thông tin liên hệ vào biểu mẫu. Đội ngũ chuyên viên Vexim Trade tại Hà Nội sẽ liên hệ tư vấn chi tiết trong vòng 1 ngày làm việc.",
   },
 ];
 
@@ -314,7 +246,7 @@ export default async function HomeContent({
   return (
     <div className="bg-slate-50 text-ink-900">
       {/* =====================================================================
-          SECTION 1: HERO TRANG VÀNG + THANH TÌM KIẾM SẢN PHẨM
+          SECTION 1: HERO + THANH TÌM KIẾM SẢN PHẨM
          ===================================================================== */}
       <section className="relative overflow-hidden border-b-4 border-amber-400 bg-gradient-to-b from-brand-900 via-brand-900 to-ink-950 text-white">
         <Image
@@ -330,20 +262,20 @@ export default async function HomeContent({
 
         <div className="relative mx-auto max-w-6xl px-5 py-14 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-4xl text-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-400/15 px-3.5 py-1 text-xs font-bold uppercase tracking-[0.18em] text-amber-300">
-              <span className="h-2 w-2 rounded-full bg-amber-400" />
-               niên giám &amp; trang vàng B2B thực phẩm Việt Nam
+            <span className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-3.5 py-1 text-xs font-black uppercase tracking-[0.16em] text-ink-950 shadow-sm">
+              <span className="h-2 w-2 rounded-full bg-brand-900" />
+              Vexim Trade · Kết nối giao thương thực phẩm &amp; nông sản Việt Nam
             </span>
 
             <h1 className="mt-5 text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl lg:text-[44px]">
               Tìm sản phẩm và nhà cung cấp nguồn hàng thực phẩm tại Việt Nam
             </h1>
 
-            <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-brand-100/90 sm:text-base">
-              Tra cứu trực tiếp danh bạ ngành hàng nông sản &amp; thực phẩm chế biến, đối chiếu chứng nhận pháp lý L1 – nhà máy L2 – xuất khẩu L3 và kết nối báo giá nhanh.
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/90 sm:text-base">
+              Tra cứu trực tiếp danh mục ngành hàng nông sản &amp; thực phẩm chế biến, đối chiếu hồ sơ pháp lý, năng lực nhà máy, lịch sử xuất khẩu và kết nối báo giá nhanh.
             </p>
 
-            {/* THANH TÌM KIẾM SẢN PHẨM KIỂU TRANG VÀNG */}
+            {/* THANH TÌM KIẾM SẢN PHẨM */}
             <form
               action="/#categories"
               method="get"
@@ -391,7 +323,7 @@ export default async function HomeContent({
             </form>
 
             {/* Từ khóa phổ biến & thống kê nhanh */}
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-brand-100/90">
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-white/90">
               <span className="font-semibold text-amber-300">Tìm nhanh:</span>
               {POPULAR_KEYWORDS.map((item) => (
                 <Link
@@ -405,7 +337,7 @@ export default async function HomeContent({
             </div>
 
             {supCount >= 10 && (
-              <p className="mt-4 text-xs text-brand-100/75">
+              <p className="mt-4 text-xs text-white/80">
                 Đang niêm yết <strong>{supCount}</strong> hồ sơ nhà cung cấp công khai · Phản hồi báo giá trong 1 ngày làm việc.
               </p>
             )}
@@ -421,7 +353,7 @@ export default async function HomeContent({
           <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-5">
             <div>
               <span className="inline-block rounded-md bg-amber-100 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wider text-amber-900">
-                Danh bạ ngành hàng thực phẩm
+                Danh mục nguồn hàng Vexim Trade
               </span>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
                 Danh mục sản phẩm &amp; nhóm nguồn hàng chủ lực
@@ -453,7 +385,7 @@ export default async function HomeContent({
             </div>
           )}
 
-          {/* Lưới 3 card / hàng trên desktop theo đúng cấu trúc Trang Vàng */}
+          {/* Lưới 3 card / hàng trên desktop */}
           <ul className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {categoriesToRender.map((c) => {
               const href = `/products/${c.slug}`;
@@ -530,7 +462,7 @@ export default async function HomeContent({
         </div>
       </section>
 
-      {/* Sản phẩm sẵn sàng chào giá (giữ liên kết dữ liệu thực tế với catalog sản phẩm) */}
+      {/* Sản phẩm sẵn sàng chào giá */}
       {homeProducts.length > 0 && (
         <section aria-labelledby="home-products-title" className="border-t border-slate-200 bg-white py-14">
           <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
@@ -596,7 +528,7 @@ export default async function HomeContent({
               href="/blog"
               className="inline-flex items-center gap-1 text-sm font-bold text-brand-700 hover:text-brand-800"
             >
-              Xem tất cả bài viết (View all articles) <ArrowRight className="h-4 w-4" />
+              Xem tất cả bài viết <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
@@ -678,75 +610,10 @@ export default async function HomeContent({
       </section>
 
       {/* =====================================================================
-          SECTION 4: ĐƯA DOANH NGHIỆP CỦA BẠN ĐƯỢC TÌM - ĐƯỢC TIN - ĐƯỢC CHỌN (4 DỊCH VỤ)
+          SECTION 4: ĐƯA DOANH NGHIỆP CỦA BẠN ĐƯỢC TÌM - ĐƯỢC TIN - ĐƯỢC CHỌN
+          (4 DỊCH VỤ + FORM ĐĂNG KÝ RIÊNG KHI BẤM VÀO TỪNG DỊCH VỤ)
          ===================================================================== */}
-      <section
-        id="services"
-        className="border-t border-slate-200 bg-gradient-to-b from-brand-950 via-brand-900 to-ink-950 py-16 text-white sm:py-20"
-      >
-        <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-3xl text-center">
-            <span className="inline-block rounded-full border border-amber-300/40 bg-amber-400/15 px-3.5 py-1 text-xs font-bold uppercase tracking-widest text-amber-300">
-              Giải pháp dành cho nhà sản xuất &amp; cung ứng Việt Nam
-            </span>
-            <h2 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-4xl">
-              Đưa doanh nghiệp của bạn được tìm - được tin - được chọn
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-brand-100/85 sm:text-base">
-              Hệ sinh thái hỗ trợ toàn diện từ niêm yết gian hàng B2B, chuẩn hóa hiện diện số quốc tế đến quảng bá nổi bật và tuân thủ pháp lý xuất khẩu.
-            </p>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {SERVICES.map((svc) => {
-              const Icon = svc.icon;
-              return (
-                <div
-                  key={svc.title}
-                  className="flex flex-col justify-between rounded-2xl border border-white/15 bg-white/95 p-6 text-ink-900 shadow-xl transition hover:-translate-y-1"
-                >
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400 text-ink-950 shadow-sm">
-                        <Icon className="h-5 w-5" />
-                      </span>
-                      <span className="font-mono text-xs font-black tracking-widest text-brand-700">
-                        DỊCH VỤ {svc.step}
-                      </span>
-                    </div>
-
-                    <h3 className="mt-4 text-lg font-black leading-snug text-ink-950">
-                      {svc.title}
-                    </h3>
-
-                    <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
-                      {svc.description}
-                    </p>
-
-                    <ul className="mt-4 space-y-2 border-t border-slate-100 pt-4 text-[13px] leading-snug text-ink-700">
-                      {svc.bullets.map((b) => (
-                        <li key={b} className="flex items-start gap-2">
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                          <span>{b}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="mt-6 pt-2">
-                    <Link
-                      href={svc.ctaHref}
-                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand-800 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-brand-900"
-                    >
-                      {svc.ctaLabel} <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      <ServiceRegistrationSection />
 
       {/* =====================================================================
           SECTION 5: BỘ CÂU HỎI VÀ TRẢ LỜI (FAQ)
@@ -761,7 +628,7 @@ export default async function HomeContent({
               Bộ câu hỏi và trả lời
             </h2>
             <p className="mt-2 text-sm text-ink-600">
-              Những câu hỏi thường gặp về tra cứu nguồn hàng, cơ chế AI quét chứng nhận L1 và dịch vụ dành cho doanh nghiệp.
+              Những câu hỏi thường gặp về tra cứu nguồn hàng, cơ chế nhận diện chứng nhận tự động và dịch vụ dành cho doanh nghiệp.
             </p>
           </div>
 
@@ -791,7 +658,7 @@ export default async function HomeContent({
                 <span className="text-[16px] font-black tracking-tight text-ink-900">Vexim Trade</span>
               </div>
               <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-ink-500">
-                Trang Vàng kết nối nguồn hàng thực phẩm &amp; nông sản Việt Nam với khách mua trong nước và quốc tế.
+                Nền tảng kết nối nguồn hàng thực phẩm &amp; nông sản Việt Nam với khách mua trong nước và quốc tế.
               </p>
               <p className="mt-5 text-[12.5px] text-ink-400">
                 © 2026 Vexim Global Co., Ltd., Hanoi, Vietnam
@@ -817,12 +684,12 @@ export default async function HomeContent({
             <FooterCol title="Dịch vụ & Nền tảng">
               <li>
                 <Link href="/how-we-verify" className="hover:text-brand-700">
-                  Quy trình xác thực L1 · L2 · L3
+                  Quy trình xác thực nhà cung cấp
                 </Link>
               </li>
               <li>
                 <Link href="/for-suppliers" className="hover:text-brand-700">
-                  Đăng ký nhà cung cấp miễn phí
+                  Dành cho nhà cung cấp
                 </Link>
               </li>
               <li>
