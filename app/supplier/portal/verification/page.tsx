@@ -13,7 +13,8 @@ export const metadata = { title: "Xác thực nhà máy & lịch sử xuất kh�
 
 /**
  * Cổng NCC TỰ GỬI bằng chứng xác thực:
- *  - L2: 9 ảnh nhà máy (định vị, ban ngày, ảnh gốc, mã xác minh viết tay cho ảnh 🔖)
+ *  - L2: 9 ảnh nhà máy, chụp bằng điện thoại là được; bắt buộc có tờ mã xác minh
+ *    do hệ thống phát hành nằm trong khung hình của 3 ảnh 🔖
  *  - L3: chứng từ lịch sử xuất khẩu + link nguồn công khai
  * AI quét và nêu tín hiệu; việc xác minh vẫn do nhân viên Vexim đối chiếu và duyệt.
  */
@@ -37,9 +38,10 @@ export default async function SupplierVerificationPage() {
       <div>
         <h1 className="text-3xl font-black text-slate-900">Cổng xác thực L2 · L3</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Doanh nghiệp tự chụp và tự tải bằng chứng. Hệ thống đọc EXIF/GPS của <strong>ảnh gốc</strong>, đối chiếu mã xác minh
-          viết tay và để AI quét sơ bộ. <strong>Tải lên không tự cấp huy hiệu</strong>: nhân viên Vexim phải đối chiếu và một
-          người có quyền duyệt khác phê kết quả.
+          Doanh nghiệp tự chụp và tự tải bằng chứng. Chụp bằng điện thoại là đủ, không cần ảnh gốc hay bật định vị.
+          <strong> Chỉ một thứ bắt buộc:</strong> tải tờ mã xác minh do hệ thống phát hành, in ra (hoặc mở trên màn hình)
+          và chụp cùng 3 ảnh có đánh dấu 🔖. AI chỉ quét sơ bộ; <strong>tải lên không tự cấp huy hiệu</strong>, nhân viên
+          Vexim vẫn đối chiếu và một người có quyền duyệt khác phê kết quả.
         </p>
       </div>
       <Link href="/supplier/portal" className="text-sm font-semibold text-teal-800 hover:underline">← Bảng điều khiển</Link>
@@ -66,9 +68,9 @@ export default async function SupplierVerificationPage() {
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Factory className="size-5 text-teal-700" /> L2 · Xác thực nhà máy</h2>
         <ul className="mt-3 space-y-1 text-[13px] text-slate-700">
-          <li>1. Bật định vị camera, chụp <strong>ban ngày</strong>, không chỉnh sửa.</li>
-          <li>2. Ảnh có 🔖 phải kèm <strong>tờ giấy viết tay mã xác minh</strong> Vexim phát hành (bấm “Tạo mã xác minh”, in hoặc chép tay rồi cầm vào khung hình).</li>
-          <li>3. Gửi <strong>ảnh gốc</strong> — không gửi qua Zalo/Facebook/Messenger vì các ứng dụng này xoá EXIF và nén ảnh.</li>
+          <li>1. Bấm <strong>“Tạo mã xác minh”</strong>, rồi <strong>tải tờ mã về</strong> (hoặc in ra). Đây là bước bắt buộc.</li>
+          <li>2. Đến từng chỗ trong nhà máy, <strong>đặt tờ mã cạnh cảnh</strong> và chụp 3 ảnh có đánh dấu 🔖: cổng nhà máy, dây chuyền đang chạy, kho thành phẩm. Mã trên giấy phải đọc rõ.</li>
+          <li>3. Chụp 6 ảnh còn lại. Ảnh điện thoại, kể cả ảnh đã gửi qua Zalo, đều nhận. Bật định vị và chụp ban ngày thì tốt hơn, nhưng không bắt buộc.</li>
         </ul>
         <p className="mt-3 text-xs text-slate-500">Áp dụng cho mọi ngành hàng: đủ {photoItems.length} ảnh bắt buộc bên dưới.</p>
       </div>
@@ -90,7 +92,8 @@ export default async function SupplierVerificationPage() {
       <summary className="cursor-pointer text-base font-bold">AI quét những gì, và không làm được gì</summary>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>AI đọc nội dung từng ảnh: biển tên công ty, dây chuyền, công nhân bảo hộ, nhãn mã lô, tờ giấy viết tay mã xác minh, chứng từ vận đơn/tờ khai.</li>
-        <li>Hệ thống tự đối chiếu kỹ thuật: EXIF còn hay mất (ảnh đã qua Zalo/Facebook), GPS trong ảnh so với vị trí trình duyệt, giờ chụp có phải ban ngày, phần mềm chỉnh sửa.</li>
+        <li>Hệ thống ghi lại các tín hiệu kỹ thuật (còn dữ liệu ảnh gốc hay không, có toạ độ hay không, giờ chụp, phần mềm chỉnh sửa) và hiện thành ghi chú cho người duyệt. Từ 21/10/2026 những điểm này <strong>không chặn hồ sơ</strong>.</li>
+        <li>Thứ duy nhất bị chặn: ảnh 🔖 không thấy tờ mã, hoặc mã trong ảnh không khớp mã đã phát hành. Khi đó hồ sơ ở lại bản nháp để doanh nghiệp chụp lại.</li>
         <li>AI <strong>không</strong> xác nhận giấy tờ là thật, không xác nhận doanh nghiệp đã xuất khẩu, không tự duyệt và không tự cấp huy hiệu L2/L3.</li>
         <li>Hồ sơ đạt sẽ vào hàng đợi; nhân viên Vexim đối chiếu rồi mới mở đợt kiểm chính thức, và người duyệt phải là người khác người kiểm.</li>
       </ul>

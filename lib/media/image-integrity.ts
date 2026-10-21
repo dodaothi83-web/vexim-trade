@@ -5,9 +5,13 @@ import { L2_FACTORY_PHOTO_ITEMS, SUBMISSION_FLAG_LABELS, type SubmissionFlag, ty
 /**
  * Đối chứng kỹ thuật của ảnh L2: định vị, thời điểm chụp, dấu hiệu chỉnh sửa.
  *
- * Nguyên tắc: đây là TÍN HIỆU, không phải kết luận. Ảnh thiếu EXIF vẫn có thể là
- * ảnh thật (một số máy/ứng dụng không ghi EXIF), nên hệ thống chỉ nêu cờ để
- * người duyệt của Vexim xem lại — không tự đánh trượt hay tự duyệt.
+ * Từ 21/10/2026 chính sách ảnh được nới: nhà cung cấp chỉ cần chụp bằng điện thoại
+ * và tải lên. Thiếu EXIF, thiếu GPS, ảnh đã qua Zalo hay chụp buổi tối đều KHÔNG
+ * chặn hồ sơ. Mọi tín hiệu ở đây đều là mức "warning" để người duyệt Vexim biết
+ * cần xem kỹ chỗ nào; quyết định vẫn thuộc về người duyệt.
+ *
+ * Riêng tờ mã xác minh viết tay trong 3 ảnh 🔖 là bắt buộc — phần đó xử lý ở
+ * `lib/verification-submission.ts` và `applyAiReviewToItems`, không ở tệp này.
  */
 
 /** Ảnh phải chụp ban ngày: 06:00–18:00 giờ Việt Nam. */
@@ -73,19 +77,21 @@ export function photoIntegrityFlags(input: {
     if (!flags.some((f) => f.flag === flag)) flags.push({ flag, severity, source, detail });
   };
   const item = L2_FACTORY_PHOTO_ITEMS.find((i) => i.key === input.checklistKey);
+  // `item` chỉ dùng để nhận diện mục; từ 21/10/2026 mọi cờ kỹ thuật đều ở mức warning,
+  // vì điều kiện bắt buộc duy nhất còn lại là tờ mã xác minh trong ảnh 🔖.
 
   if (!input.exif.has_exif) {
-    push("no_exif", "warning", "exif", "Không tìm thấy EXIF trong tệp. Ảnh gốc từ camera thường còn EXIF; ảnh đã nén/đăng lại qua Zalo, Facebook… thì mất. Cần người duyệt đối chiếu thêm.");
+    push("no_exif", "warning", "exif", "Tệp không còn dữ liệu ảnh gốc, thường là ảnh đã gửi qua Zalo/Facebook. Vẫn nhận; người duyệt xem kỹ hơn một chút.");
   } else {
     const signal = softwareSignal(input.exif.software);
-    if (signal === "editor") push("edited_software", "hard", "exif", `EXIF ghi phần mềm chỉnh sửa: ${input.exif.software}`);
-    if (signal === "messenger") push("shared_via_app", "hard", "exif", `EXIF ghi ứng dụng chat/mạng xã hội: ${input.exif.software}`);
+    if (signal === "editor") push("edited_software", "warning", "exif", `Dữ liệu ảnh ghi phần mềm chỉnh sửa: ${input.exif.software}. Chỉ để người duyệt lưu ý.`);
+    if (signal === "messenger") push("shared_via_app", "warning", "exif", `Dữ liệu ảnh ghi ứng dụng chat/mạng xã hội: ${input.exif.software}. Không ảnh hưởng việc nộp.`);
   }
 
   const exifLat = input.exif.lat;
   const exifLng = input.exif.lng;
   if (exifLat == null || exifLng == null) {
-    push("no_gps", item?.requires_code ? "hard" : "warning", "gps", "Ảnh không chứa toạ độ GPS. Yêu cầu bật định vị camera khi chụp.");
+    push("no_gps", "warning", "gps", "Ảnh không kèm toạ độ. Không sao, chỉ là ảnh không tự chứng minh được vị trí.");
   } else {
     if (inVnBounds(exifLat, exifLng) === false) push("gps_outside_vn", "warning", "gps", `GPS EXIF ${exifLat.toFixed(4)},${exifLng.toFixed(4)} ngoài phạm vi Việt Nam — kiểm tra lại cơ sở.`);
     const gap = distanceMeters(exifLat, exifLng, input.capture.lat, input.capture.lng);
@@ -98,9 +104,9 @@ export function photoIntegrityFlags(input: {
   if (!capturedAt) {
     push("no_capture_time", "warning", "time", "Không đọc được thời điểm chụp từ EXIF; chỉ có thời điểm tải lên.");
   } else {
-    if (isDaylight(capturedAt) === false) push("not_daylight", "hard", "time", `Ảnh chụp lúc ${formatDaylight(capturedAt)} — ngoài khoảng 06:00–18:00. Yêu cầu chụp ban ngày.`);
+    if (isDaylight(capturedAt) === false) push("not_daylight", "warning", "time", `Ảnh chụp lúc ${formatDaylight(capturedAt)}, ngoài khung 06:00–18:00. Chỉ là ghi chú.`);
     if (input.codeIssuedAt && Date.parse(capturedAt) < Date.parse(input.codeIssuedAt) - 60_000) {
-      push("capture_before_code", item?.requires_code ? "hard" : "warning", "time", `Ảnh chụp trước khi hệ thống phát hành mã xác minh (${formatDaylight(input.codeIssuedAt)}).`);
+      push("capture_before_code", "warning", "time", `Dữ liệu ảnh cho thấy chụp trước khi phát hành mã (${formatDaylight(input.codeIssuedAt)}). Người duyệt sẽ xem lại tờ mã trong ảnh.`);
     }
   }
 

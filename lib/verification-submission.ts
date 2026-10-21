@@ -21,9 +21,27 @@ import {
  *    (bốn mắt) phê duyệt. Chấp thuận hồ sơ chỉ tạo đợt kiểm kèm bằng chứng.
  */
 
+/* ------------------------- chính sách ảnh (tạm thời nới) ------------------------- */
+
+/**
+ * 21/10/2026: tạm GỠ yêu cầu "phải là ảnh gốc, còn EXIF, có GPS, chụp ban ngày".
+ *
+ * Lý do: nhà cung cấp Việt Nam quen chụp bằng điện thoại rồi gửi qua Zalo. Bắt họ
+ * giữ đúng tệp gốc, bật định vị, chụp đúng khung giờ khiến cổng xác thực khó dùng,
+ * hồ sơ nộp rất ít. Nay ảnh nào cũng nhận (JPG/PNG/WebP), kể cả ảnh đã qua ứng dụng
+ * chat. Các tín hiệu kỹ thuật vẫn được ghi lại làm ghi chú cho người duyệt, nhưng
+ * KHÔNG còn là điều kiện để nộp.
+ *
+ * Phần GIỮ NGUYÊN, vẫn bắt buộc: tờ giấy in mã xác minh do hệ thống phát hành phải
+ * nằm trong khung hình của 3 ảnh có đánh dấu 🔖 (cổng nhà máy, dây chuyền đang chạy,
+ * kho thành phẩm). NCC phải tải/in tờ mã rồi chụp cùng cảnh. Thiếu mã, hoặc mã trong
+ * ảnh không khớp mã đã phát hành, thì hồ sơ chưa nộp được.
+ */
+export const ORIGINAL_PHOTO_REQUIRED = false;
+
 /* ------------------------------- kích thước tệp ------------------------------- */
 
-/** Ảnh gốc từ điện thoại có thể lớn; vẫn chặn mức hợp lý để không nghẽn serverless. */
+/** Ảnh điện thoại có thể lớn; vẫn chặn mức hợp lý để không nghẽn serverless. */
 export const MAX_L2_PHOTO_BYTES = 30 * 1024 * 1024;
 /** Chứng từ L3: ảnh hoặc PDF. */
 export const MAX_L3_DOC_BYTES = 15 * 1024 * 1024;
@@ -139,6 +157,20 @@ export function readiness(input: {
   if (missing.length) structural.push(`Còn thiếu ${missing.length} mục bắt buộc: ${missing.join("; ")}.`);
   const withMedia = items.filter((i) => i.media_id);
   if (!withMedia.length) structural.push("Chưa có bằng chứng nào được tải lên.");
+
+  // Phần xác minh danh tính DUY NHẤT còn bắt buộc: tờ mã đã in phải nằm trong ảnh 🔖.
+  if (submission.target_level === 2 && submission.verification_code) {
+    const codeProblems = withMedia
+      .filter((i) => requiresHandwrittenCode(i.checklist_key))
+      .filter((i) => (i.flags ?? []).some((f) => f.severity === "hard" && (f.flag === "code_missing" || f.flag === "code_mismatch")))
+      .map((i) => submissionItemLabel(2, i.checklist_key));
+    if (codeProblems.length) {
+      structural.push(
+        `Tờ mã xác minh chưa đúng ở: ${codeProblems.join("; ")}. In (hoặc mở) tờ mã, đặt cạnh cảnh rồi chụp lại; mã trong ảnh phải khớp mã ${submission.verification_code}.`,
+      );
+    }
+  }
+
   for (const item of withMedia) {
     for (const flag of item.flags ?? []) {
       const text = `${submissionItemLabel(submission.target_level, item.checklist_key)}: ${flag.detail ?? flag.flag}`;

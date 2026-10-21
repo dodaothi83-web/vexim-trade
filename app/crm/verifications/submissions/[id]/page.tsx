@@ -16,7 +16,11 @@ import { LinkProbeButton } from "./link-probe-button";
 
 export const dynamic = "force-dynamic";
 
-/** Trang đối chiếu của nhân viên: ảnh gốc + EXIF/GPS + cờ + kết quả AI của từng mục. */
+/**
+ * Trang đối chiếu của nhân viên: ảnh NCC tải lên + ghi chú kỹ thuật (EXIF/GPS nếu còn)
+ * + kết quả AI của từng mục. Từ 21/10/2026 các tín hiệu kỹ thuật chỉ là ghi chú; điều
+ * kiện chặn duy nhất là tờ mã xác minh trong 3 ảnh 🔖.
+ */
 export default async function SubmissionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await requirePagePermission("verifications.view", "/crm/dashboard");
@@ -96,8 +100,9 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
         <Card className="bg-ink-50 p-4 text-xs text-ink-600">
           <h2 className="text-sm font-bold text-ink-900">Đối chiếu thế nào cho đúng</h2>
           <ul className="mt-2 list-disc space-y-1 pl-4">
-            <li>Ảnh gốc còn EXIF: đối chiếu GPS trong ảnh với địa chỉ NCC khai và vị trí trình duyệt báo.</li>
-            <li>Ảnh mất EXIF: khả năng cao đã gửi qua Zalo/Facebook hoặc lưu lại — yêu cầu NCC gửi ảnh gốc.</li>
+            <li>Còn dữ liệu ảnh: đối chiếu GPS trong ảnh với địa chỉ NCC khai và vị trí trình duyệt báo nếu có.</li>
+            <li>Mất dữ liệu ảnh: thường do NCC gửi qua Zalo/Facebook. Không còn là lỗi bắt buộc phải bổ sung; xem kỹ nội dung ảnh là đủ.</li>
+            <li>Tờ mã xác minh: bắt buộc thấy trong 3 ảnh 🔖 và phải khớp mã đã phát hành. Đây là điểm duy nhất chặn hồ sơ.</li>
             <li>Ảnh 🔖: mở bản gốc, đọc tờ giấy viết tay và so với mã hệ thống phát hành (AI có đọc hộ nhưng không thay mắt người).</li>
             <li>Giờ chụp ngoài 06:00–18:00 hoặc ảnh chụp trước khi phát hành mã → cần giải trình.</li>
             <li>AI chỉ gợi ý: không xác nhận giấy tờ thật, không xác nhận đã xuất khẩu, không tự duyệt.</li>

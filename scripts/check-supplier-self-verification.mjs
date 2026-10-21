@@ -200,6 +200,23 @@ assert.deepEqual(full.missing, []);
 const flagged = rules.readiness({ submission: l2base, items: allItems(rules.requiredPhotoKeys(), [{ flag: 'no_exif', severity: 'warning', source: 'exif', detail: 'x' }]) });
 assert.equal(flagged.ready, true);
 assert.equal(flagged.warnings.length, 9);
+// Cờ kỹ thuật (EXIF/GPS/giờ chụp) không còn chặn; chỉ tờ mã trong ảnh 🔖 mới chặn.
+const codeSheetMissing = rules.readiness({
+  submission: l2base,
+  items: allItems(rules.requiredPhotoKeys()).map((i) => (i.checklist_key === 'factory_gate'
+    ? { ...i, flags: [{ flag: 'code_missing', severity: 'hard', source: 'ai', detail: 'AI không thấy tờ mã' }] }
+    : i)),
+});
+assert.equal(codeSheetMissing.ready, false, 'Ảnh 🔖 không thấy tờ mã thì chưa nộp được');
+assert.match(codeSheetMissing.blockers.join(' '), /Tờ mã xác minh chưa đúng ở: Cổng nhà máy/);
+const codeWrong = rules.readiness({
+  submission: l2base,
+  items: allItems(rules.requiredPhotoKeys()).map((i) => (i.checklist_key === 'finished_goods_warehouse'
+    ? { ...i, flags: [{ flag: 'code_mismatch', severity: 'hard', source: 'ai', detail: 'mã khác' }] }
+    : i)),
+});
+assert.equal(codeWrong.ready, false, 'Mã trong ảnh không khớp mã phát hành thì chưa nộp được');
+assert.equal(rules.ORIGINAL_PHOTO_REQUIRED, false, 'Chính sách tạm nới: không bắt buộc ảnh gốc');
 // L3 chỉ cần 2 chứng từ bắt buộc.
 assert.equal(rules.readiness({ submission: { target_level: 3 }, items: allItems(['bill_of_lading', 'customs_declaration']) }).ready, true);
 assert.equal(rules.readiness({ submission: { target_level: 3 }, items: allItems(['bill_of_lading']) }).ready, false);
@@ -249,15 +266,16 @@ assert.deepEqual(goodFlags.map((f) => f.flag), [], 'Ảnh đúng chuẩn không 
 
 const zaloFlags = integrity.photoIntegrityFlags({ checklistKey: 'factory_gate', exif: exif.parseExif(new Uint8Array([0xff, 0xd8, 0xff, 0xd9])), capture: { lat: null, lng: null }, width: 1000, height: 800, codeIssuedAt: null });
 assert.ok(zaloFlags.some((f) => f.flag === 'no_exif'), 'Ảnh mất EXIF phải bị nêu cờ');
-assert.ok(zaloFlags.some((f) => f.flag === 'no_gps' && f.severity === 'hard'), 'Ảnh 🔖 không GPS là cờ nghiêm trọng');
+assert.ok(zaloFlags.every((f) => f.severity === 'warning'), 'Từ 21/10/2026 không còn cờ kỹ thuật nào ở mức hard: ảnh điện thoại, ảnh qua Zalo đều nhận');
+assert.ok(zaloFlags.some((f) => f.flag === 'no_gps' && f.severity === 'warning'), 'Ảnh không GPS chỉ là ghi chú');
 assert.ok(zaloFlags.some((f) => f.flag === 'no_capture_time'));
 
 const editedFlags = integrity.photoIntegrityFlags({ checklistKey: 'packing_area', exif: { ...parsed, software: 'Adobe Photoshop Lightroom Classic 13.0' }, capture: { lat: 21.0285, lng: 105.8542 }, width: 2000, height: 1500, codeIssuedAt: null });
-assert.ok(editedFlags.some((f) => f.flag === 'edited_software' && f.severity === 'hard'), 'Ảnh chỉnh sửa phải bị nêu cờ hard');
+assert.ok(editedFlags.some((f) => f.flag === 'edited_software' && f.severity === 'warning'), 'Dấu hiệu chỉnh sửa chỉ là ghi chú, không chặn hồ sơ');
 
 const night = jpegWithExif({ dateTime: '2026:10:18 22:40:10' });
 const nightFlags = integrity.photoIntegrityFlags({ checklistKey: 'production_line_running', exif: exif.parseExif(night), capture: { lat: 21.0285, lng: 105.8542 }, width: 3000, height: 4000, codeIssuedAt: null });
-assert.ok(nightFlags.some((f) => f.flag === 'not_daylight' && f.severity === 'hard'), 'Chụp 22:40 phải bị coi là không đúng yêu cầu ban ngày');
+assert.ok(nightFlags.some((f) => f.flag === 'not_daylight' && f.severity === 'warning'), 'Chụp 22:40 chỉ là ghi chú, không chặn hồ sơ');
 
 const beforeCode = integrity.photoIntegrityFlags({ checklistKey: 'factory_gate', exif: parsed, capture: { lat: 21.0285, lng: 105.8542 }, width: 3000, height: 4000, codeIssuedAt: '2026-10-19T01:00:00.000Z' });
 assert.ok(beforeCode.some((f) => f.flag === 'capture_before_code'), 'Ảnh chụp trước khi phát hành mã phải bị nêu cờ');
@@ -411,8 +429,9 @@ const noExifJpeg = new Uint8Array(Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 
 res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('production_line_running', new File([noExifJpeg], 'line.jpg', { type: 'image/jpeg' }), { lat: 21.03, lng: 105.85 }) }), { params: Promise.resolve({ id: submission.id }) });
 body = await res.json();
 assert.equal(body.ok, true);
-assert.ok(body.flags.some((f) => f.flag === 'no_exif'), 'Phải cảnh báo ảnh mất EXIF');
-assert.ok(body.flags.some((f) => f.flag === 'no_gps'), 'Ảnh 🔖 không GPS phải bị nêu cờ');
+assert.ok(body.flags.some((f) => f.flag === 'no_exif'), 'Phải ghi chú ảnh mất EXIF');
+assert.ok(body.flags.some((f) => f.flag === 'no_gps'), 'Ảnh 🔖 không GPS phải được ghi chú');
+assert.ok(body.flags.every((f) => f.severity === 'warning'), 'Ảnh qua Zalo vẫn tải được, không bị cờ hard');
 
 // d) PDF không được nhận ở L2.
 res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('packing_area', new File([new Uint8Array(Buffer.from('%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF'))], 'doc.pdf', { type: 'application/pdf' })) }), { params: Promise.resolve({ id: submission.id }) });
@@ -638,6 +657,22 @@ deleteForm.set('submission_id', submission.id);
 deleteForm.set('item_id', (await store.listSubmissionItems(submission.id))[0].id);
 action = await actions.deleteSubmissionItemAction(deleteForm);
 assert.equal(action.ok, false, 'Hồ sơ đã nhận: bằng chứng phải bị khóa');
+
+/* ------------------- 9. hướng dẫn NCC: nới ảnh, giữ bắt buộc tờ mã ------------------- */
+
+const readPage = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+const panel = readPage('app/supplier/portal/verification/verification-panel.tsx');
+const portalPage = readPage('app/supplier/portal/verification/page.tsx');
+const itemCard = readPage('app/supplier/portal/verification/submission-item-card.tsx');
+
+assert.ok(panel.includes('Tải tờ mã về'), 'Cổng NCC phải có nút tải tờ mã về');
+assert.ok(panel.includes('downloadCodeSheet') && panel.includes('toBlob'), 'Tờ mã phải tải được thành tệp, không chỉ in');
+assert.ok(panel.includes('Bước 2 · Vị trí (không bắt buộc)'), 'Định vị không còn là bước bắt buộc');
+assert.ok(panel.includes('Bước 1 · Tờ mã xác minh (bắt buộc)'), 'Tờ mã vẫn là bước bắt buộc');
+assert.ok(portalPage.includes('kể cả ảnh đã gửi qua Zalo, đều nhận'), 'Trang NCC phải nói rõ ảnh qua Zalo vẫn nhận');
+assert.ok(!portalPage.includes('Gửi <strong>ảnh gốc'), 'Trang NCC không còn đòi ảnh gốc');
+assert.ok(!itemCard.includes('capture={level === 2'), 'Ô chọn tệp không ép mở camera, NCC chọn được ảnh từ thư viện');
+assert.ok(itemCard.includes('bắt buộc có tờ mã xác minh đặt cạnh cảnh'), 'Ảnh 🔖 phải nhắc tờ mã ngay dưới nút tải');
 
 console.log('✅ check-supplier-self-verification: tất cả assertion đạt');
 console.log(`   · 9 ảnh L2 + 6 chứng từ L3 · mã xác minh ${code} · ${aiCalls} lượt gọi AI giả lập · ${mediaRows.length} tệp media · ${verifications.length} đợt kiểm được tạo`);

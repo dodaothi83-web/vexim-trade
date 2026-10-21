@@ -410,7 +410,8 @@ export type DeliveryKey = typeof DELIVERY_ITEMS[number]["key"];
 /**
  * 9 ảnh bắt buộc của L2 — áp dụng cho MỌI ngành hàng. Danh mục này là chuẩn DUY NHẤT:
  * cổng NCC tự gửi dùng để nộp ảnh, người kiểm Vexim dùng làm checklist đối chiếu (L2_VISIT_ITEMS).
- * `requires_code`: ảnh phải có tờ giấy viết tay mã xác minh Vexim phát hành (🔖).
+ * `requires_code`: ảnh phải có tờ mã xác minh Vexim phát hành (🔖). NCC tải/in tờ mã rồi
+ * chụp cùng cảnh. Đây là điều kiện bắt buộc duy nhất của ảnh — EXIF, GPS, giờ chụp chỉ là ghi chú.
  */
 export const L2_FACTORY_PHOTO_ITEMS = [
   { key: "factory_gate", label: "Cổng nhà máy", requirement: "Thấy rõ biển tên công ty", requires_code: true, order: 1 },
@@ -449,15 +450,15 @@ export type ExportDocKey = typeof L3_EXPORT_ITEMS[number]["key"];
  * Cờ KHÔNG phải kết luận: người duyệt của Vexim vẫn là người quyết định.
  */
 export const SUBMISSION_FLAG_LABELS: Record<string, string> = {
-  no_exif: "Không có EXIF — ảnh có thể đã bị nén/đăng lại (Zalo, Facebook, Messenger)",
-  edited_software: "EXIF ghi nhận phần mềm chỉnh sửa ảnh",
-  shared_via_app: "EXIF ghi nhận ảnh đi qua ứng dụng chat/mạng xã hội",
-  no_gps: "Không có toạ độ GPS trong ảnh",
-  gps_outside_vn: "Toạ độ GPS ngoài phạm vi Việt Nam",
-  gps_mismatch: "GPS trong ảnh lệch xa vị trí trình duyệt báo",
-  not_daylight: "Thời điểm chụp ngoài khoảng 06:00–18:00 (giờ VN)",
-  no_capture_time: "Không xác định được thời điểm chụp",
-  capture_before_code: "Ảnh chụp trước khi hệ thống phát hành mã xác minh",
+  no_exif: "Ảnh không còn dữ liệu gốc (thường do gửi qua Zalo/Facebook) — vẫn nhận",
+  edited_software: "Dữ liệu ảnh ghi phần mềm chỉnh sửa — chỉ để lưu ý",
+  shared_via_app: "Ảnh từng đi qua ứng dụng chat/mạng xã hội — vẫn nhận",
+  no_gps: "Ảnh không kèm toạ độ — không bắt buộc",
+  gps_outside_vn: "Toạ độ trong ảnh nằm ngoài Việt Nam",
+  gps_mismatch: "Toạ độ trong ảnh lệch xa vị trí trình duyệt báo",
+  not_daylight: "Ảnh chụp ngoài khung 06:00–18:00 (giờ VN) — chỉ để lưu ý",
+  no_capture_time: "Ảnh không cho biết thời điểm chụp — không bắt buộc",
+  capture_before_code: "Dữ liệu ảnh cho thấy chụp trước khi phát hành mã",
   code_missing: "Không thấy tờ giấy viết tay mã xác minh trong ảnh bắt buộc",
   code_mismatch: "Mã viết tay trong ảnh không khớp mã hệ thống phát hành",
   content_mismatch: "Nội dung ảnh không đúng với mục yêu cầu (AI)",

@@ -11,8 +11,11 @@ function when(value: string | null | undefined) {
 }
 
 /**
- * Một ô bằng chứng: chụp/tải ẢNH GỐC, xem EXIF + GPS + cờ đối chứng + nhận xét AI.
- * Ảnh gửi lên nguyên bản (không nén ở trình duyệt) để hệ thống còn EXIF mà kiểm tra.
+ * Một ô bằng chứng: chụp hoặc chọn ảnh từ máy, xem ghi chú kỹ thuật + nhận xét AI.
+ *
+ * Từ 21/10/2026 ảnh chụp bằng điện thoại là đủ, không bắt buộc ảnh gốc: người dùng
+ * có thể chọn ảnh từ thư viện, kể cả ảnh đã gửi qua Zalo. Điều bắt buộc duy nhất là
+ * 3 mục 🔖 phải có tờ mã xác minh trong khung hình.
  */
 export function SubmissionItemCard({ spec, level, rows, submissionId, editable, gps, codeIssued, onChanged }: {
   spec: PortalItemSpec;
@@ -36,7 +39,7 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
     event.target.value = "";
     if (!file || busy) return;
     if (needsCode && !codeIssued) {
-      const message = "Mục này cần tờ giấy viết tay mã xác minh. Hãy bấm “Tạo mã xác minh”, in hoặc chép tay mã lên giấy rồi chụp cùng.";
+      const message = "Mục này cần tờ mã xác minh. Hãy bấm “Tạo mã xác minh”, tải tờ mã về, in ra giấy rồi chụp cùng cảnh.";
       setError(message);
       onChanged(message, false);
       return;
@@ -115,7 +118,7 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
     {latest && <div className="mt-2.5 text-[11px] text-slate-600">
       {/* Dòng tóm tắt 1 chạm: EXIF còn/mất + GPS + giờ chụp. Chi tiết đầy đủ thu gọn bên dưới. */}
       <p className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-        <span className={latest.hasExif ? "font-bold text-emerald-700" : "font-bold text-rose-700"}>{latest.hasExif ? "EXIF còn (ảnh gốc)" : "EXIF MẤT — nghi qua Zalo/Facebook"}</span>
+        <span className={latest.hasExif ? "font-bold text-emerald-700" : "font-bold text-slate-500"}>{latest.hasExif ? "Có dữ liệu ảnh gốc" : "Không còn dữ liệu ảnh gốc (vẫn nhận)"}</span>
         <span className="inline-flex items-center gap-0.5"><MapPin className="size-3 shrink-0 text-slate-400" />
           {latest.exifLat != null && latest.exifLng != null ? `${latest.exifLat.toFixed(4)}, ${latest.exifLng.toFixed(4)}` : "không có GPS"}</span>
         {latest.exifCapturedLabel && <span>Chụp lúc {latest.exifCapturedLabel}</span>}
@@ -130,6 +133,7 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
           {latest.software && <div><span>Phần mềm ghi tệp: {latest.software}</span></div>}
           {latest.width != null && <div><span>{latest.width}×{latest.height}px · {Math.round((latest.bytes ?? 0) / 1024)} KB</span></div>}
           {latest.captureLat != null && <div><span>Vị trí trình duyệt: {latest.captureLat.toFixed(5)}, {latest.captureLng?.toFixed(5)}{latest.captureAccuracy != null ? ` (±${Math.round(latest.captureAccuracy)} m)` : ""}</span></div>}
+          <div className="sm:col-span-2 text-slate-500">Ảnh không có toạ độ hay bị nén lại vẫn được nhận. Điểm này chỉ giúp người duyệt biết cần xem kỹ chỗ nào.</div>
         </dl>
       </details>
     </div>}
@@ -155,12 +159,13 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
 
     {error && <p role="alert" className="mt-2 text-[11px] font-semibold text-rose-700">{error}</p>}
 
-    <input ref={inputRef} type="file" accept={accept} capture={level === 2 ? "environment" : undefined} className="hidden" onChange={(e) => void onPick(e)} />
+    <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={(e) => void onPick(e)} />
     <button type="button" disabled={!editable || busy} onClick={() => inputRef.current?.click()}
       className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-teal-700 px-3 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
       {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
-      {busy ? "Đang tải..." : rows.length ? "Chụp/tải bản mới" : level === 2 ? "Chụp ảnh tại nhà máy" : "Tải chứng từ"}
+      {busy ? "Đang tải..." : rows.length ? "Chụp/chọn ảnh mới" : level === 2 ? "Chụp hoặc chọn ảnh" : "Tải chứng từ"}
     </button>
+    {needsCode && <p className="mt-1.5 text-[11px] font-semibold text-teal-800">🔖 Ảnh này bắt buộc có tờ mã xác minh đặt cạnh cảnh.</p>}
     {!editable && <p className="mt-1 text-[11px] text-slate-500">Hồ sơ đang chờ xét duyệt hoặc đã được nhận nên bằng chứng bị khóa.</p>}
   </article>;
 }

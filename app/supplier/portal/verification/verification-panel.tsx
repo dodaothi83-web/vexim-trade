@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, Crosshair, Link2, Loader2, MapPin, Printer, RefreshCw, ScanSearch, Send, Sparkles } from "lucide-react";
+import { CheckCircle2, Clock, Crosshair, Download, Link2, Loader2, MapPin, Printer, RefreshCw, ScanSearch, Send, Sparkles } from "lucide-react";
 
 import { VERIFICATION_CODE_TTL_HOURS } from "@/lib/verification-submission";
 import type { PortalItemSpec, PortalSubmissionView } from "@/lib/supplier-portal/submission-view";
@@ -48,6 +48,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [printed, setPrinted] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
 
   const refresh = useCallback(() => { router.refresh(); }, [router]);
   const say = useCallback((text: string, ok: boolean) => {
@@ -81,6 +82,85 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
     } finally { setBusy(""); }
   }
 
+  /**
+   * Tải tờ mã về máy dưới dạng ảnh PNG để in hoặc mở lại khi không có mạng.
+   * Vẽ bằng canvas ở trình duyệt nên không phụ thuộc font của máy chủ.
+   */
+  function downloadCodeSheet(code: string) {
+    const width = 1240, height = 1754;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      setMessage({ text: "Trình duyệt không tạo được tờ mã. Dùng nút “In tờ mã” thay thế.", ok: false });
+      return;
+    }
+    const line = (text: string, x: number, y: number, font: string, color = "#0f172a") => {
+      ctx.fillStyle = color;
+      ctx.font = font;
+      ctx.fillText(text, x, y);
+    };
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#0f766e";
+    ctx.fillRect(0, 0, width, 132);
+    line("VEXIM TRADE", 80, 84, "bold 46px Arial, Helvetica, sans-serif", "#ffffff");
+    line("Phiếu xác minh nhà máy", 80, 226, "bold 44px Arial, Helvetica, sans-serif");
+    line("Cấp L2 · ảnh nhà máy", 80, 272, "26px Arial, Helvetica, sans-serif", "#475569");
+
+    ctx.strokeStyle = "#0f766e";
+    ctx.lineWidth = 6;
+    ctx.setLineDash([20, 14]);
+    ctx.strokeRect(80, 310, width - 160, 300);
+    ctx.setLineDash([]);
+    ctx.textAlign = "center";
+    line("MÃ XÁC MINH", width / 2, 372, "bold 26px Arial, Helvetica, sans-serif", "#0f766e");
+    line(code, width / 2, 478, "bold 86px Arial, Helvetica, sans-serif", "#0b3b36");
+    line(`Mã có hiệu lực ${VERIFICATION_CODE_TTL_HOURS} giờ kể từ lúc phát hành`, width / 2, 540, "24px Arial, Helvetica, sans-serif", "#475569");
+    ctx.textAlign = "left";
+
+    const bullets = [
+      "1. In phiếu này ra giấy (hoặc mở trên một điện thoại thứ hai).",
+      "2. Đặt phiếu cạnh cảnh cần chụp, sao cho đọc rõ mã trong ảnh.",
+      "3. Chụp đủ 3 ảnh có đánh dấu: cổng nhà máy, dây chuyền đang chạy, kho thành phẩm.",
+      "4. Mỗi ảnh chỉ dùng cho đúng hồ sơ này. Chụp lại thì tạo mã mới.",
+    ];
+    bullets.forEach((text, index) => line(text, 96, 690 + index * 56, "26px Arial, Helvetica, sans-serif"));
+
+    line("Không in được? Chép tay đúng mã ở trên vào giấy trắng rồi chụp cùng cảnh.", 96, 958, "bold 26px Arial, Helvetica, sans-serif", "#0b3b36");
+    line("Ngày chụp:  …… / …… / …………", 96, 1060, "28px Arial, Helvetica, sans-serif");
+    line("Người chụp:  …………………………………………", 96, 1120, "28px Arial, Helvetica, sans-serif");
+    line("Chức vụ / bộ phận:  …………………………………", 96, 1180, "28px Arial, Helvetica, sans-serif");
+
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(80, 1260);
+    ctx.lineTo(width - 80, 1260);
+    ctx.stroke();
+    line("Ảnh chụp bằng điện thoại là được, không cần ảnh gốc. Điều bắt buộc là phiếu này phải nằm trong ảnh.", 80, 1320, "24px Arial, Helvetica, sans-serif", "#475569");
+    line("Nhân viên Vexim sẽ đối chiếu mã trên phiếu với mã hệ thống đã phát hành.", 80, 1364, "24px Arial, Helvetica, sans-serif", "#475569");
+    line("Vexim Trade · veximtrade.com/how-we-verify", 80, 1680, "22px Arial, Helvetica, sans-serif", "#94a3b8");
+
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setMessage({ text: "Không tạo được tệp tờ mã. Dùng nút in thay thế.", ok: false });
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `phieu-xac-minh-${code}.png`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setMessage({ text: `Đã tải tờ mã ${code}. In ra giấy rồi đặt cạnh cảnh khi chụp 3 ảnh có đánh dấu 🔖.`, ok: true });
+      setDownloaded(true);
+    }, "image/png");
+  }
+
   function printCodeSheet(code: string) {
     const sheet = window.open("", "_blank", "width=720,height=900");
     if (!sheet) { setMessage({ text: "Trình duyệt chặn cửa sổ in. Hãy cho phép popup để in mã.", ok: false }); return; }
@@ -105,7 +185,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
   <p style="border-bottom:1px solid #94a3b8;height:28px"></p>
   <p><strong>Ngày chụp:</strong> ……/……/………… &nbsp;&nbsp; <strong>Người chụp:</strong> ………………………………</p>
 </div>
-<p class="small">Yêu cầu: bật định vị camera · chụp ban ngày · không chỉnh sửa · gửi ảnh gốc (không gửi qua Zalo/Facebook vì sẽ mất dữ liệu định vị).</p>
+<p class="small">In tờ này ra giấy, đặt cạnh cảnh khi chụp 3 ảnh có đánh dấu. Ảnh chụp bằng điện thoại là đủ, không cần ảnh gốc.</p>
 <script>window.print()</script>
 </body></html>`);
     sheet.document.close();
@@ -209,7 +289,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
 
     {level === 2 && <div className="mt-4 grid gap-3 md:grid-cols-2">
       <div className="rounded-xl border border-teal-200 bg-white p-4">
-        <h3 className="text-sm font-bold text-slate-900">Bước 1 · Mã xác minh viết tay</h3>
+        <h3 className="text-sm font-bold text-slate-900">Bước 1 · Tờ mã xác minh (bắt buộc)</h3>
         {view.code
           ? <div className="mt-2">
               <p className="font-mono text-2xl font-black tracking-[0.12em] text-teal-800">{view.code}</p>
@@ -218,13 +298,18 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
                 {view.codeExpired ? " · ĐÃ HẾT HẠN, hãy tạo mã mới" : ""}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={() => printCodeSheet(view.code!)} className="inline-flex items-center gap-1.5 rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800"><Printer className="size-3.5" /> In tờ mã xác minh</button>
+                <button type="button" onClick={() => downloadCodeSheet(view.code!)} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-3 py-2 text-xs font-bold text-white"><Download className="size-3.5" /> Tải tờ mã về</button>
+                <button type="button" onClick={() => printCodeSheet(view.code!)} className="inline-flex items-center gap-1.5 rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800"><Printer className="size-3.5" /> In tờ mã</button>
                 {view.editable && <button type="button" disabled={busy === "code"} onClick={() => void issueCode()} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"><RefreshCw className="size-3.5" /> Tạo mã mới</button>}
               </div>
-              {printed && <p className="mt-2 text-[11px] text-slate-500">Không in được? Chép tay đúng mã trên vào tờ giấy, ký tên và ghi ngày chụp.</p>}
+              <p className={`mt-2 text-[11px] ${downloaded || printed ? "text-slate-500" : "font-semibold text-teal-800"}`}>
+                {downloaded || printed
+                  ? "Đã có tờ mã. In ra giấy rồi đặt cạnh cảnh khi chụp 3 ảnh có đánh dấu 🔖."
+                  : "Bắt buộc: tải tờ mã về, in ra giấy rồi chụp cùng cảnh ở 3 ảnh có đánh dấu 🔖. Không có tờ mã thì hồ sơ chưa nộp được."}
+              </p>
             </div>
           : <div className="mt-2">
-              <p className="text-xs text-slate-600">Bấm nút để hệ thống phát hành mã. In hoặc chép tay mã lên giấy, cầm vào khung hình khi chụp các ảnh có 🔖 (cổng nhà máy, dây chuyền, kho thành phẩm).</p>
+              <p className="text-xs text-slate-600">Bấm nút để hệ thống phát hành mã. Sau đó tải tờ mã về, in ra giấy và chụp cùng cảnh ở 3 ảnh có 🔖 (cổng nhà máy, dây chuyền, kho thành phẩm).</p>
               <button type="button" disabled={busy === "code" || !view.editable} onClick={() => void issueCode()}
                 className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-3 py-2 text-xs font-bold text-white disabled:bg-slate-300">
                 {busy === "code" ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />} Tạo mã xác minh
@@ -232,12 +317,12 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
             </div>}
       </div>
       <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <h3 className="flex items-center gap-1.5 text-sm font-bold text-slate-900"><Crosshair className="size-4 text-teal-700" /> Bước 2 · Định vị camera</h3>
+        <h3 className="flex items-center gap-1.5 text-sm font-bold text-slate-900"><Crosshair className="size-4 text-teal-700" /> Bước 2 · Vị trí (không bắt buộc)</h3>
         <p className="mt-2 flex items-start gap-1.5 text-xs text-slate-600"><MapPin className="mt-0.5 size-3.5 shrink-0 text-slate-400" />{gpsText}</p>
-        <p className="mt-2 text-xs text-slate-600">Hệ thống đọc cả GPS <strong>bên trong ảnh gốc</strong> (EXIF) và vị trí trình duyệt, rồi đối chiếu hai giá trị. Ảnh không có GPS sẽ bị nêu cờ.</p>
+        <p className="mt-2 text-xs text-slate-600">Cho phép trang dùng vị trí thì hồ sơ có thêm một điểm đối chiếu. Không bật cũng không sao, hệ thống chỉ ghi chú lại cho người duyệt.</p>
         {gps.state !== "on" && <button type="button" disabled={gps.state === "asking" || gps.state === "unsupported"} onClick={() => setGps(NO_GPS)}
           className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700">Hỏi lại quyền định vị</button>}
-        <p className="mt-2 text-[11px] text-slate-500">Mẹo: mở trang này trên điện thoại đang đứng tại nhà máy, chụp trực tiếp bằng camera có bật vị trí, rồi tải ảnh đó lên (không gửi ảnh qua ứng dụng chat trước).</p>
+        <p className="mt-2 text-[11px] text-slate-500">Mẹo: chụp bằng điện thoại ngay tại nhà máy rồi tải thẳng lên đây là nhanh nhất. Ảnh đã gửi qua Zalo cũng nhận.</p>
       </div>
     </div>}
 
@@ -296,7 +381,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
         ? <span className="mr-auto text-[11px] font-semibold text-slate-500">Hồ sơ đang chờ xét hoặc đã được nhận — bằng chứng bị khóa.</span>
         : view.ready
           ? <span className="mr-auto text-[11px] font-semibold text-emerald-800">Đủ mục bắt buộc — sẵn sàng nộp cho Vexim xét duyệt.</span>
-          : <span className="mr-auto text-[11px] font-semibold text-amber-800">Còn thiếu {view.missing.length} mục{level === 2 ? " (hoặc thiếu mã xác minh)" : ""} — xem danh sách vàng phía trên.</span>}
+          : <span className="mr-auto text-[11px] font-semibold text-amber-800">Còn thiếu {view.missing.length} mục{level === 2 ? ", hoặc thiếu tờ mã trong ảnh 🔖" : ""}. Xem danh sách vàng phía trên.</span>}
       <button type="button" disabled={busy !== "" || !view.editable} onClick={() => void runScan(false)}
         className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800 disabled:opacity-50">
         {busy === "scan" ? <Loader2 className="size-3.5 animate-spin" /> : <ScanSearch className="size-3.5" />} AI quét thử

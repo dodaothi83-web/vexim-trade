@@ -47,7 +47,8 @@ function readCapture(form: FormData) {
 
 /**
  * NCC tự tải bằng chứng cho hồ sơ L2/L3 của CHÍNH doanh nghiệp mình.
- * Ảnh gốc được giữ nguyên bytes để còn EXIF/GPS đối chiếu.
+ * Tệp được giữ nguyên bytes. Từ 21/10/2026 không bắt buộc ảnh gốc: ảnh điện thoại,
+ * kể cả ảnh đã qua Zalo/Facebook, đều nhận; EXIF/GPS chỉ ghi chú cho người duyệt.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -102,7 +103,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       ok: true,
       message: saved.replaced
         ? `Đã thay ảnh cũ của mục này (giữ tối đa vài bản). ${saved.flags.length ? "Có điểm cần lưu ý bên dưới." : ""}`
-        : "Đã tải bằng chứng. Hệ thống đã đọc EXIF/GPS của ảnh gốc để đối chiếu.",
+        : saved.flags.length
+          ? "Đã tải ảnh. Có vài điểm ghi chú bên dưới, không ảnh hưởng việc nộp."
+          : "Đã tải ảnh.",
       itemId: saved.item.id,
       flags: saved.flags.map((f) => ({ flag: f.flag, severity: f.severity, detail: f.detail })),
       readiness: readiness({ submission: fresh, items }),

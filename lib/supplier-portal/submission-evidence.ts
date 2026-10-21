@@ -34,9 +34,9 @@ import type {
  * Nhận & lưu bằng chứng do NHÀ CUNG CẤP tự tải lên cho hồ sơ L2/L3.
  *
  * Hai quyết định nghiệp vụ quan trọng:
- *  1. ẢNH GỐC được giữ NGUYÊN bytes (không nén, không re-encode) — đó là bằng
- *     chứng đối chiếu, và cũng là cách duy nhất giữ được EXIF/GPS để kiểm tra
- *     "bật định vị camera" và "không gửi qua Zalo/Facebook".
+ *  1. Tệp được giữ NGUYÊN bytes (không nén, không re-encode) để còn đối chiếu.
+ *     Từ 21/10/2026 KHÔNG bắt buộc ảnh gốc: ảnh chụp bằng điện thoại, kể cả ảnh
+ *     đã gửi qua Zalo/Facebook, đều nhận. EXIF/GPS nếu còn thì ghi lại làm ghi chú.
  *  2. Chỉ tạo thêm ảnh xem trước (thumbnail) và bản giảm cỡ cho AI đọc; cả hai
  *     sinh ra từ bytes gốc ở server, không do client gửi lên.
  */
@@ -87,7 +87,7 @@ export async function readSubmissionFile(level: 2 | 3, key: string, file: File):
   if (!mime) throw new Error("Không nhận dạng được tệp. Hãy gửi ẢNH GỐC định dạng JPG/PNG/WebP (L3 nhận thêm PDF).");
   if (!allowedMimes(level).includes(mime)) {
     throw new Error(level === 2
-      ? `Bước xác thực nhà máy chỉ nhận ảnh JPG/PNG/WebP — tệp này là ${mime}. Không gửi ảnh đã qua Zalo/Facebook.`
+      ? `Bước xác thực nhà máy chỉ nhận ảnh JPG/PNG/WebP, tệp này là ${mime}.`
       : `Bước lịch sử xuất khẩu nhận ảnh JPG/PNG/WebP hoặc PDF — tệp này là ${mime}.`);
   }
   if (level === 2 && mime === "application/pdf") throw new Error("Bước xác thực nhà máy chỉ nhận ảnh chụp.");
@@ -167,13 +167,13 @@ export async function saveSubmissionEvidence(input: {
         codeIssuedAt: submission.code_issued_at,
       })
     : [];
-  // Ảnh 🔖 mà chưa phát hành mã thì không thể đúng yêu cầu.
+  // Phần bắt buộc duy nhất: ảnh 🔖 phải có tờ mã. Chưa phát hành mã thì nêu cờ chặn nộp.
   if (submission.target_level === 2 && requiresHandwrittenCode(key) && !submission.verification_code) {
     flags.push({
       flag: "code_missing",
       severity: "hard",
       source: "system",
-      detail: "Mục này cần tờ giấy viết tay mã xác minh, nhưng hồ sơ chưa được phát hành mã. Hãy bấm “Tạo mã xác minh” rồi chụp lại.",
+      detail: "Mục này cần tờ mã xác minh nhưng hồ sơ chưa phát hành mã. Bấm “Tạo mã xác minh”, tải tờ mã về rồi chụp lại.",
     });
   }
 
