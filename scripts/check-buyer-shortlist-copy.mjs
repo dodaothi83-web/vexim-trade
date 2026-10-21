@@ -16,6 +16,7 @@ const faqPrompt = read("lib/ai/draft-style.ts");
 const crmRfq = read("app/crm/rfqs/[id]/page.tsx");
 const llms = read("app/llms.txt/route.ts");
 const categorySeed = read("lib/db/category-seed.ts");
+const seafoodFaq = read("supabase/migrations/20261021_seafood_category_buyer_first_copy.sql");
 
 assert.ok(
   home.includes("Browse verified Vietnamese suppliers and request a quote from the one you choose. Haven’t found the right fit? Send us your requirements and Vexim will shortlist suppliers that match."),
@@ -48,6 +49,18 @@ assert.ok(categoryPage.includes("const STANDARD_CATEGORY_FAQS"), "Category FAQ o
 assert.ok(categoryPage.includes("safeJsonLd({"), "Category FAQ schema uses escaped JSON-LD output");
 assert.ok(categorySeed.includes("Can I request a quote from a specific supplier?"), "Seeded category FAQs explain chosen-supplier RFQs");
 assert.ok(categorySeed.includes("Paid listings never affect who Vexim recommends."), "Seeded category FAQs explain paid listings do not affect matching");
+assert.ok(
+  categoryPage.includes("If it is not on the page") &&
+    categoryPage.includes("send your request straight to them, no") &&
+    categoryPage.includes("step through us."),
+  "Empty category pages let the buyer contact the supplier first and treat Vexim as the fallback",
+);
+assert.doesNotMatch(categoryPage, /Get matched with/, "Empty category pages do not present Vexim as the first stop for matching");
+assert.ok(
+  seafoodFaq.includes("It goes to that supplier first, not to us.") &&
+    seafoodFaq.includes("We check producers outside these pages"),
+  "Seafood category FAQs follow the buyer-first order",
+);
 
 assert.ok(llms.includes("Buyers can browse supplier listings and request a quote from a supplier they choose."), "llms.txt explains browsing and chosen-supplier RFQs");
 assert.ok(llms.includes("Vexim will shortlist suppliers that match their specs, quantity and market."), "llms.txt explains open RFQ matching");

@@ -622,7 +622,9 @@ function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, r
         <h1 className="mt-4 text-[34px] font-black leading-[1.05] text-ink-900 sm:text-[44px]">{h1}</h1>
         <p className="mt-5 max-w-xl text-[15.5px] leading-relaxed text-ink-700">{intro}</p>
         <p className="mt-3 max-w-xl text-[14.5px] leading-relaxed text-ink-600">
-          No buyer-ready products are listed in this category yet. Tell us your spec and we will check suitable producers and their supporting documents before recommending a match.
+          This category is still being filled. A supplier only appears here once we have checked their papers and the
+          product details they are willing to share openly. When they do, you buy from them directly, the way you would
+          take something off a shelf. We are only needed for what is not on the page yet.
         </p>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Link href={rfqHref} className="btn btn-primary">Request a quote <ArrowRight className="h-4 w-4" /></Link>
@@ -643,18 +645,22 @@ function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, r
         )}
       </div>
       <div className="rounded-2xl border border-ink-200 bg-white p-6 shadow-sm">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-600">Tell us what you need</p>
-        <h2 className="mt-2 text-[20px] font-bold leading-tight text-ink-900">Get matched with {categoryName.toLowerCase()} suppliers</h2>
-        <p className="mt-1 text-[13.5px] text-ink-600">Free. No account needed. We&apos;ll shortlist suppliers that match your requirements and reply within one business day.</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-600">If it is not on the page</p>
+        <h2 className="mt-2 text-[20px] font-bold leading-tight text-ink-900">Looking for something we have not listed?</h2>
+        <p className="mt-1 text-[13.5px] text-ink-600">
+          Start with the supplier whenever a listing fits: read their spec and send your request straight to them, no
+          step through us. If the grade, the packing or the volume you need is not here, tell us and we will look at
+          producers outside these pages. Free, no account needed, and we reply within one business day.
+        </p>
         <ul className="mt-5 space-y-2 text-[13.5px] text-ink-700">
-          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Spec and grade you need.</li>
-          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Volume and destination.</li>
-          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Certifications required (BRC, HACCP, organic…).</li>
+          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />The product, the size or the grade you are after.</li>
+          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Volume, packing and the port it ships to.</li>
+          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Certificates your market asks for (HACCP, BRC, organic and so on).</li>
         </ul>
-        <Link href={rfqHref} className="btn btn-primary mt-6 w-full justify-center">Start your request <ArrowRight className="h-4 w-4" /></Link>
+        <Link href={rfqHref} className="btn btn-primary mt-6 w-full justify-center">Send us the details <ArrowRight className="h-4 w-4" /></Link>
         <div className="mt-5 rounded-lg bg-ink-50 p-4 text-[12.5px] text-ink-600">
           <p className="font-semibold text-ink-800">Product listings coming soon.</p>
-          <p className="mt-1 leading-relaxed">Products appear here after their category and buyer-shareable information are reviewed. Send us your requirements in the meantime.</p>
+          <p className="mt-1 leading-relaxed">Suppliers are checked before they go up, which is why this page is still empty. Until the first listings are live, the form above comes to our sourcing desk and you hear back within one business day.</p>
         </div>
       </div>
     </section>
@@ -716,7 +722,7 @@ function CtaBlock({ slug, compact }: { slug: string; compact?: boolean }) {
         <div>
           <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">Need a specific spec?</p>
           <h3 className="mt-2 text-[24px] font-bold leading-snug text-ink-900 sm:text-[28px]">Can&apos;t find what you need?</h3>
-          <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-ink-700">Tell us the grade, volume, destination and when you need it. We&apos;ll look beyond the suppliers listed here and come back with options, with what we&apos;ve checked clearly marked.</p>
+          <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-ink-700">If nothing on this page fits, tell us the grade, the volume, the destination and the date you need it. We will look at producers who are not listed here and come back with options, each one marked with what we have checked.</p>
           <ul className="mt-4 grid gap-1.5 text-[13.5px] text-ink-700 sm:grid-cols-2">
             {["Matching grade and specs", "MOQ and price guidance", "Factory visit notes", "Help with samples"].map((it) => (
               <li key={it} className="flex items-start gap-1.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />{it}</li>
