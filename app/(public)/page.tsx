@@ -43,11 +43,18 @@ export const metadata: Metadata = {
  * - Khác → render HomeContent (hero đa ngành + CTA tới /rfq).
  * Layout của group (public) tự wrap header + footer.
  */
-export default async function PublicHomePage() {
+export default async function PublicHomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string; cat?: string }>;
+}) {
   const session = await getSession();
   if (session) redirect("/crm/dashboard");
   const host = ((await headers()).get("host") ?? "").toLowerCase();
   if (host.startsWith("crm.") || host.endsWith(".vercel.app")) redirect("/login");
+  const params = searchParams ? await searchParams : {};
+  const query = typeof params?.q === "string" ? params.q.trim().slice(0, 120) : "";
+  const categoryFilter = typeof params?.cat === "string" ? params.cat.trim().slice(0, 60) : "";
   // Schema nền cho trang chủ: tổ chức + website. Không khai SearchAction vì site không có trang tìm kiếm công khai.
   const jsonLd = {
     "@context": "https://schema.org",
@@ -79,7 +86,7 @@ export default async function PublicHomePage() {
     <>
       <GoogleTag />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
-      <HomeContent />
+      <HomeContent query={query} categoryFilter={categoryFilter} />
     </>
   );
 }
