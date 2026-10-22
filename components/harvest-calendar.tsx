@@ -46,8 +46,9 @@ export function HarvestCalendarSection({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">Crop calendar</p>
+          {/* Tránh "cashew kernels is harvested": tên danh mục có thể số nhiều, nên đặt tên làm tân ngữ. */}
           <h2 className="mt-2 max-w-2xl text-[22px] font-bold leading-tight text-ink-900 sm:text-[26px]">
-            When {categoryName.toLowerCase()} is harvested in Vietnam
+            Crop calendar for {categoryName.toLowerCase()} in Vietnam
           </h2>
         </div>
         <p className="text-[12.5px] font-semibold text-ink-600">{headline}</p>
