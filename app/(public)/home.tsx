@@ -15,6 +15,7 @@ import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
 import { PublicProductCard } from "@/components/public-product-card";
 import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
 import { CookieSettingsButton } from "@/components/cookie-consent";
+import { buildPopularSearches } from "@/lib/public/popular-searches";
 import { Logo } from "@/components/brand-logo";
 import { PlatformLegalStrip } from "@/components/platform-legal-strip";
 import { SocialLinks } from "@/components/social-links";
@@ -160,24 +161,6 @@ const FAQ_VI = [
   },
 ];
 
-const POPULAR_KEYWORDS_EN = [
-  { label: "Cashew W320", href: "/products/cashew" },
-  { label: "Robusta Coffee", href: "/products/coffee" },
-  { label: "Black Pepper ASTA", href: "/products/pepper" },
-  { label: "Cassia Cinnamon", href: "/products/cinnamon" },
-  { label: "Desiccated Coconut", href: "/products/coconut" },
-  { label: "ST25 Fragrant Rice", href: "/products/rice" },
-];
-
-const POPULAR_KEYWORDS_VI = [
-  { label: "Hạt điều W320", href: "/products/cashew" },
-  { label: "Cà phê Robusta", href: "/products/coffee" },
-  { label: "Hồ tiêu đen ASTA", href: "/products/pepper" },
-  { label: "Quế ống Yên Bái", href: "/products/cinnamon" },
-  { label: "Cơm dừa sấy khô", href: "/products/coconut" },
-  { label: "Gạo thơm ST25", href: "/products/rice" },
-];
-
 export default async function HomeContent({
   query = "",
   categoryFilter = "",
@@ -261,7 +244,11 @@ export default async function HomeContent({
   });
   const categoriesToRender =
     displayedCategories.length > 0 ? displayedCategories : homepageCardCategories;
-  const popularKeywords = isVi ? POPULAR_KEYWORDS_VI : POPULAR_KEYWORDS_EN;
+  const popularKeywords = buildPopularSearches({
+    categories: allCategories,
+    lang,
+    titleFor: (category) => getCategoryTitle(category as Category, lang),
+  });
   const faqs = isVi ? FAQ_VI : FAQ_EN;
 
   return (
@@ -358,8 +345,8 @@ export default async function HomeContent({
               </div>
             </form>
 
-            {/* Từ khóa phổ biến & thống kê nhanh */}
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-white/90">
+            {/* Từ khóa phổ biến: chỉ hiện chip của danh mục đang có trang thật. */}
+            {popularKeywords.length > 0 && <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-white/90">
               <span className="font-semibold text-amber-300">
                 {isVi ? "Tìm nhanh:" : "Popular searches:"}
               </span>
@@ -372,7 +359,7 @@ export default async function HomeContent({
                   {item.label}
                 </Link>
               ))}
-            </div>
+            </div>}
 
             {supCount >= 10 && (
               <p className="mt-4 text-xs text-white/80">
