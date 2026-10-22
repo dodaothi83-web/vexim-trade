@@ -51,8 +51,8 @@ const PHASES: Phase[] = [
       },
       {
         title: "We screen producers",
-        desc: "We shortlist producers that fit your brief and show what is stated by the producer, what we verified, and what is still open.",
-        output: "A shortlist with each point marked Stated, Verified or Open.",
+        desc: "We find producers that fit your brief and show what is stated by the producer, what we verified, and what is still open.",
+        output: "A list with each point marked Stated, Verified or Open.",
       },
     ],
   },
@@ -112,7 +112,7 @@ const DOES_NOT: string[] = [
 ];
 
 const DOES: string[] = [
-  "Screen and shortlist producers against your brief",
+  "Screen and find producers against your brief",
   "Coordinate samples, meetings, visits and inspections",
   "Send you a written summary after each milestone",
 ];

@@ -96,8 +96,8 @@ export const CASHEW_STEPS: {
   {
     icon: "screen",
     title: "We screen producers",
-    desc: "We shortlist producers that fit and show what is stated by the producer, what we verified, and what is still open.",
-    output: "A shortlist with each point marked Stated, Verified or Open.",
+    desc: "We find producers that fit and show what is stated by the producer, what we verified, and what is still open.",
+    output: "A list with each point marked Stated, Verified or Open.",
   },
   {
     icon: "sample",

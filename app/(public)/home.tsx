@@ -16,6 +16,7 @@ import { PublicProductCard } from "@/components/public-product-card";
 import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
 import { CookieSettingsButton } from "@/components/cookie-consent";
 import { buildPopularSearches } from "@/lib/public/popular-searches";
+import { HOME_HERO_LINE } from "@/lib/public/meta-copy";
 import { Logo } from "@/components/brand-logo";
 import { PlatformLegalStrip } from "@/components/platform-legal-strip";
 import { SocialLinks } from "@/components/social-links";
@@ -25,7 +26,7 @@ import type { Category } from "@/lib/types";
 const FALLBACK_HERO = "/images/home/hero-cashew-texture.jpg";
 
 // Giữ câu mô tả mô hình kết nối cho kiểm thử ngữ nghĩa:
-// Browse verified Vietnamese suppliers and request a quote from the one you choose. Haven’t found the right fit? Send us your requirements and Vexim will shortlist suppliers that match.
+// Câu mô tả lấy từ lib/public/meta-copy.ts, không viết lại tại đây.
 // Browse products →
 
 function i18n(
@@ -110,7 +111,7 @@ function getChildCategories(cat: Category, allCategories: Category[]): Category[
 const FAQ_EN = [
   {
     q: "Is searching products and submitting a Request for Quotation (RFQ) free for buyers?",
-    a: "Yes, 100% free for buyers. You can browse verified Vietnamese food & agricultural suppliers, request a quote directly from the supplier you choose, or send your open requirements so Vexim can shortlist matching factories.",
+    a: "Yes, 100% free for buyers. You can browse verified Vietnamese food & agricultural suppliers, request a quote directly from the supplier you choose, or send your open requirements so we can look for factories that match.",
   },
   {
     q: "How can I tell if a certificate on a supplier profile belongs to the supplier or a partner factory?",
@@ -286,7 +287,7 @@ export default async function HomeContent({
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/90 sm:text-base">
               {isVi
                 ? "Tra cứu trực tiếp danh mục ngành hàng nông sản & thực phẩm chế biến, đối chiếu hồ sơ pháp lý, năng lực nhà máy, lịch sử xuất khẩu và kết nối báo giá nhanh."
-                : "Browse verified Vietnamese suppliers and request a quote from the one you choose. Haven’t found the right fit? Send us your requirements and Vexim will shortlist suppliers that match."}
+                : HOME_HERO_LINE}
             </p>
 
             {/* THANH TÌM KIẾM SẢN PHẨM */}

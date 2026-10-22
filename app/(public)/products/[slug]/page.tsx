@@ -32,6 +32,14 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { sanitizeHtml } from "@/lib/public/sanitize";
 import { SITE_URL } from "@/lib/site";
 import { safeJsonLd } from "@/lib/public/supplier-seo";
+import {
+  CATEGORY_CHOSEN_SUPPLIER_COMPLEMENT,
+  CATEGORY_META_SUFFIX,
+  CATEGORY_OPEN_REQUEST_COMPLEMENT,
+  categoryMetaFallback,
+  hasChosenSupplierPath,
+  hasOpenRequestPath,
+} from "@/lib/public/meta-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +54,6 @@ interface ChildCategoryWithCount {
   productCount: number;
 }
 
-const CATEGORY_RFQ_META_SUFFIX =
-  "Request a quote from a supplier you choose, or send your requirements and Vexim will shortlist suppliers that match.";
 
 function categoryDisplayName(cat: Category): string {
   return t(cat.name_i18n) || cat.slug;
@@ -67,26 +73,24 @@ function categorySeoTitle(name: string, storedTitle: string): string {
 
 function categoryMetaDescription(name: string, storedDescription: string): string {
   const base = storedDescription.trim();
-  const fallback = `Compare verified Vietnamese ${name.toLowerCase()} products and suppliers. ${CATEGORY_RFQ_META_SUFFIX}`;
+  const fallback = categoryMetaFallback(name);
   if (!base) return fallback;
 
-  const hasChosenSupplierPath = /supplier you choose|your chosen supplier|chosen supplier/i.test(base);
-  const hasOpenRequestPath = /shortlist/i.test(base);
-  if (hasChosenSupplierPath && hasOpenRequestPath) return base;
+  const chosen = hasChosenSupplierPath(base);
+  const open = hasOpenRequestPath(base);
+  if (chosen && open) return base;
 
-  if (!hasChosenSupplierPath && !hasOpenRequestPath) {
-    const withSuffix = `${base.replace(/[\s.]+$/, "")}. ${CATEGORY_RFQ_META_SUFFIX}`;
+  if (!chosen && !open) {
+    const withSuffix = `${base.replace(/[\s.]+$/, "")}. ${CATEGORY_META_SUFFIX}`;
     return withSuffix.length <= 185 ? withSuffix : fallback;
   }
 
-  const complement = hasChosenSupplierPath
-    ? "If you have not found the right fit, send your requirements and Vexim will shortlist suppliers that match."
-    : "You can also request a quote from a supplier you choose.";
+  const complement = chosen ? CATEGORY_OPEN_REQUEST_COMPLEMENT : CATEGORY_CHOSEN_SUPPLIER_COMPLEMENT;
   const withComplement = `${base.replace(/[\s.]+$/, "")}. ${complement}`;
   if (withComplement.length <= 185) return withComplement;
 
   const firstSentence = base.match(/^[^.]+\./)?.[0]?.trim();
-  const shortened = firstSentence ? `${firstSentence} ${CATEGORY_RFQ_META_SUFFIX}` : fallback;
+  const shortened = firstSentence ? `${firstSentence} ${CATEGORY_META_SUFFIX}` : fallback;
   return shortened.length <= 185 ? shortened : fallback;
 }
 
@@ -242,7 +246,7 @@ export default async function CategoryPage({ params }: PageProps) {
   const h1 = cat.slug === "cashew" ? "Vietnam Cashew" : (t(cat.h1_i18n) || `Vietnam ${categoryName}`);
   const intro =
     t(cat.intro_i18n) ||
-    `Explore export-ready Vietnamese ${categoryName.toLowerCase()} products and verified suppliers. Compare specifications, MOQ, reference FOB pricing, and independent verification badges (business documents & certificate holder status, factory evidence, and export delivery history), then request a quote from the supplier you choose or send your requirements for Vexim to shortlist matching suppliers.`;
+    `Explore export-ready Vietnamese ${categoryName.toLowerCase()} products and verified suppliers. Compare specifications, MOQ, reference FOB pricing, and independent verification badges (business documents & certificate holder status, factory evidence, and export delivery history), then request a quote from the supplier you choose or send your requirements and we look for suppliers that match.`;
 
   // Sanitize body để chặn HTML/script độc từ CMS (chỉ cho p/h2-h4/ul/ol/li/a/strong/em/br).
   const bodyRaw = t(cat.body_i18n);

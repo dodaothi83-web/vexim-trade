@@ -94,12 +94,12 @@ const CASHEW_PRODUCT_FIELDS: ProductAttributeField[] = [
 export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
   h1: "Cashew suppliers in Vietnam",
   intro:
-    "Whole kernels, splits, roasted salted cashew and value-added cashew products from verified Vietnamese processors and exporters. Compare product specs, MOQ, reference FOB pricing and independent verification badges (business documents & automated certificate holder recognition, factory evidence, and export delivery history), then request a quote from the supplier you choose or send your requirements for Vexim to shortlist matching suppliers.",
+    "Whole kernels, splits, roasted salted cashew and value-added cashew products from verified Vietnamese processors and exporters. Compare product specs, MOQ, reference FOB pricing and independent verification badges (business documents & automated certificate holder recognition, factory evidence, and export delivery history), then request a quote from the supplier you choose or send your requirements and we look for suppliers that match.",
   body:
     "Most Vietnamese processors grade cashew kernels to the AFI standard. Counts are per pound and the final spec is agreed in your contract. Counts and uses below are to be confirmed by our trading team before we put them in front of a buyer.",
   seo_title: "Cashew Suppliers in Vietnam | W180 to W450 Kernels | Vexim Trade",
   seo_desc:
-    "Explore Vietnamese cashew kernel products (WW180–WW450, splits, roasted OEM) and verified suppliers. Request a quote from a supplier you choose, or send your requirements and Vexim will shortlist suppliers that match.",
+    "Explore Vietnamese cashew kernel products (WW180–WW450, splits, roasted OEM) and verified suppliers. Request a quote from a supplier you choose, or send your requirements and we look for suppliers that match.",
   hero_image: "/images/categories/cashew-hero.jpg",
   hero_alt: "Vietnamese cashew kernels, graded",
   kicker: "W180 – SP, AFI grades",

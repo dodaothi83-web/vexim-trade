@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
 import "./globals.css";
+import { HOME_META_DESCRIPTION } from "@/lib/public/meta-copy";
 import { ToastProvider } from "@/components/toast";
 import { CookieConsentProvider } from "@/components/cookie-consent";
 import { PublicSpeedInsights } from "@/components/public-speed-insights";
@@ -14,8 +15,7 @@ export const metadata: Metadata = {
     default: "Vexim Trade – Find Verified Food & Agricultural Products and Suppliers in Vietnam",
     template: "%s · Vexim Trade",
   },
-  description:
-    "Find verified Vietnamese food & agricultural products and suppliers across core export categories. Browse verified Vietnamese suppliers and request a quote from the one you choose, or send your requirements and Vexim will shortlist suppliers that match.",
+  description: HOME_META_DESCRIPTION,
   icons: {
     icon: { url: "/favicon.png", type: "image/png", sizes: "500x500" },
     apple: { url: "/favicon.png", type: "image/png" },

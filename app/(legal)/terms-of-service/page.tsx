@@ -35,7 +35,7 @@ export default function TermsPage() {
 
     <section className="mt-9 space-y-3" aria-labelledby="terms-rfq">
       <h2 id="terms-rfq" className="text-xl font-bold text-ink-900">4. RFQs and introductions</h2>
-      <p className="text-sm leading-7 text-ink-700">Buyers should provide genuine, reasonably complete requirements and use the RFQ service for legitimate business enquiries. Vexim may share requirements with shortlisted suppliers to seek a response, while withholding direct buyer contact details until the buyer approves an introduction. We cannot promise that a particular supplier will respond, that a requested price or delivery date will be available, or that a transaction will be completed. Samples, inspections, payments, shipping and any binding commitments require separate agreement.</p>
+      <p className="text-sm leading-7 text-ink-700">Buyers should provide genuine, reasonably complete requirements and use the RFQ service for legitimate business enquiries. Vexim may share requirements with the suppliers we contact about the request, to seek a response, while withholding direct buyer contact details until the buyer approves an introduction. We cannot promise that a particular supplier will respond, that a requested price or delivery date will be available, or that a transaction will be completed. Samples, inspections, payments, shipping and any binding commitments require separate agreement.</p>
     </section>
 
     <section className="mt-9 space-y-3" aria-labelledby="terms-conduct">

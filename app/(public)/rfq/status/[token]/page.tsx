@@ -28,7 +28,7 @@ function statusInfo(status: string) {
       return {
         tone: "bg-sky-50 text-sky-800 ring-sky-200",
         dot: "bg-sky-500",
-        title: "Under review – preparing shortlist",
+        title: "Under review – preparing your supplier list",
         body: "Your request passed our initial screening. We are clarifying any missing details and selecting suitable suppliers.",
         icon: ShieldCheck,
       };
@@ -39,7 +39,7 @@ function statusInfo(status: string) {
         tone: "bg-amber-50 text-amber-800 ring-amber-200",
         dot: "bg-amber-500",
         title: "Suppliers are responding",
-        body: "We are collecting quotes and lead times from shortlisted suppliers. You will receive a comparison by email within 1 business day.",
+        body: "We are collecting quotes and lead times from the suppliers we contacted. You will receive a comparison by email within 1 business day.",
         icon: Timer,
       };
     case "won":
