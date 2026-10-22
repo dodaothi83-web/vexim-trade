@@ -256,6 +256,8 @@ export interface Category {
   faq_i18n: { q: string; a: string }[] | I18nString[] | unknown[];
   /** Mẫu thuộc tính lọc (verification, type, FOB, grade chips, certifications). */
   filters?: CategoryFilter[];
+  /** Lịch mùa vụ hiển thị trên trang danh mục. Xem HarvestCalendar. */
+  harvest?: HarvestCalendar | null;
   seo_title_i18n: I18nString;
   seo_desc_i18n: I18nString;
   /** Ảnh hero cho trang public + thẻ trang chủ. Đường dẫn trong kho public media (/public-media/categories/xxx.jpg). */
@@ -295,6 +297,40 @@ export interface CategoryColumn {
 }
 
 /** Một hàng trong bảng thông số. values map theo column.key; supports [placeholders]. */
+/**
+ * Một cửa sổ mùa vụ của danh mục.
+ *
+ * Tháng tính từ 1 đến 12. Nếu end_month nhỏ hơn start_month thì cửa sổ vắt qua
+ * năm mới, ví dụ cà phê robusta từ tháng 11 đến tháng 1.
+ */
+export interface HarvestWindow {
+  /** Khóa ổn định cho React, sinh ở trình sửa; không cần duy nhất toàn hệ thống. */
+  id?: string;
+  /** Tên vụ, ví dụ "Main crop" hay "Second crop". */
+  label: string;
+  start_month: number;
+  end_month: number;
+  /** Vùng trồng, hiển thị dạng chú thích dưới biểu đồ. */
+  regions?: string[];
+  /** Vụ chính: biểu đồ tô đậm hơn. */
+  peak?: boolean;
+  note?: string;
+}
+
+/**
+ * Lịch mùa vụ của một danh mục.
+ *
+ * Lưu dạng danh sách cửa sổ chứ không phải mảng 12 tháng, vì gạo có ba vụ rời
+ * nhau và thủy sản cao điểm theo loài. Thanh 12 tháng chỉ là cách vẽ ra từ đây.
+ */
+export interface HarvestCalendar {
+  windows: HarvestWindow[];
+  /** Câu giải thích chung dưới biểu đồ. */
+  note_i18n?: I18nString;
+  /** Ngày rà soát gần nhất (YYYY-MM-DD). Để trống thì giao diện nói rõ là chưa rà soát. */
+  reviewed_on?: string | null;
+}
+
 export interface CategoryRow {
   key: string;
   values: Record<string, string>;

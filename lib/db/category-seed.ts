@@ -12,6 +12,7 @@ import type {
   CategoryFilter,
   CategoryRow,
   ProductAttributeField,
+  HarvestCalendar,
 } from "@/lib/types";
 
 export interface CategoryContentSeed {
@@ -29,6 +30,8 @@ export interface CategoryContentSeed {
   filters?: CategoryFilter[];
   /** Trường thông số buyer lọc được trên trang nhóm nhỏ (CRM sửa được). */
   product_fields?: ProductAttributeField[];
+  /** Lịch mùa vụ. Chỉ khai báo khi đã đối chiếu nguồn; để trống thì trang ẩn khối này. */
+  harvest?: HarvestCalendar | null;
   faqs?: Array<{ q: string; a: string }>;
   active_on_homepage?: boolean;
   public_page_ready?: boolean;
@@ -109,6 +112,23 @@ export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
   faqs: CASHEW_FAQS,
   filters: CASHEW_FILTERS,
   product_fields: CASHEW_PRODUCT_FIELDS,
+  harvest: {
+    windows: [
+      {
+        id: "main",
+        label: "Main crop",
+        start_month: 2,
+        end_month: 5,
+        regions: ["Binh Phuoc", "Dong Nai", "Central Highlands"],
+        peak: true,
+        note: "Picking runs province by province, so the peak moves by a few weeks from year to year.",
+      },
+    ],
+    note_i18n: {
+      en: "Plants process kernels all year because they also buy raw nuts from West Africa and Cambodia. These months are the domestic harvest, not the only window when you can order.",
+    },
+    reviewed_on: null,
+  },
   active_on_homepage: true,
   public_page_ready: false, // computed từ NCC published, không hardcode
   seo_indexable: false, // bật sau khi hết [ngoặc vuông] + có hồ sơ thật

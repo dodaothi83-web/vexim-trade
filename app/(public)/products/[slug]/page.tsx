@@ -23,6 +23,8 @@ import {
 
 import { Breadcrumbs } from "@/components/ui";
 import { CategoryProductGrid } from "@/components/category-product-grid";
+import { HarvestCalendarSection } from "@/components/harvest-calendar";
+import { normalizeHarvest } from "@/lib/public/harvest";
 import { pilotPlacement, type PilotPlacement } from "@/lib/sponsored/pilot";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { t } from "@/lib/public/i18n";
@@ -492,6 +494,8 @@ function StateA({
   filters: CategoryFilter[];
   rfqHref: string;
 }) {
+  // Lịch mùa vụ: chuẩn hóa để dữ liệu cũ hoặc thiếu trường không làm vỡ trang.
+  const harvest = normalizeHarvest(cat.harvest);
   const grades: string[] = [];
   for (const f of filters) {
     if ((f.key || "").toLowerCase().includes("grade") && Array.isArray(f.options)) {
@@ -532,6 +536,14 @@ function StateA({
           </div>
           <figcaption className="bg-ink-50 px-3 py-2 text-xs text-ink-600">Category overview image · product photos belong to the individual cards above.</figcaption>
         </figure>
+      )}
+
+      {harvest && (
+        <HarvestCalendarSection
+          categoryName={categoryName}
+          harvest={harvest}
+          note={t(harvest.note_i18n)}
+        />
       )}
 
       <CategoryContentSections columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} categoryName={categoryName} />
@@ -628,6 +640,7 @@ function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, r
   columns: CategoryColumn[]; rows: CategoryRow[]; facts: CategoryFact[];
   faqs: Array<{ q: string; a: string }>; body: string | null;
 }) {
+  const harvest = normalizeHarvest(cat.harvest);
   return (
     <>
     <section className="mt-6 grid gap-8 lg:grid-cols-[1.05fr_1fr] lg:items-start">
@@ -682,6 +695,14 @@ function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, r
     </section>
 
     <SubcategoryDirectory parentName={categoryName} childGroups={childGroups} />
+
+    {harvest && (
+      <HarvestCalendarSection
+        categoryName={categoryName}
+        harvest={harvest}
+        note={t(harvest.note_i18n)}
+      />
+    )}
 
     <CategoryContentSections columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} categoryName={categoryName} />
     <CtaBlock slug={cat.slug} />

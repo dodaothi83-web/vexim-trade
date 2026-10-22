@@ -34,7 +34,16 @@ import { ImagePicker } from "@/components/image-picker";
 import { decideCategoryPublicationAction } from "./publication-actions";
 import { reorderCategoriesAction } from "./reorder-actions";
 import { useToast } from "@/components/toast";
-import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow, ProductAttributeField } from "@/lib/types";
+import type {
+  Category,
+  CategoryColumn,
+  CategoryFact,
+  CategoryFilter,
+  CategoryRow,
+  HarvestWindow,
+  ProductAttributeField,
+} from "@/lib/types";
+import { HARVEST_MONTH_LABELS, normalizeHarvest } from "@/lib/public/harvest";
 
 export type CategoryStats = { products: number; suppliers: number };
 
@@ -47,7 +56,14 @@ function isPublished(c: Category): boolean {
   return !!(c.is_published && c.status === "published");
 }
 
-type EditorTab = "basic" | "content" | "spec" | "fields" | "faq" | "seo";
+type EditorTab = "basic" | "content" | "spec" | "harvest" | "fields" | "faq" | "seo";
+
+/** Bản nháp lịch mùa vụ trong trình sửa: một khóa en, ngày rà soát dạng chuỗi. */
+type HarvestDraft = {
+  windows: HarvestWindow[];
+  note_en: string;
+  reviewed_on: string;
+};
 
 type CategoryDraft = {
   id?: string;
@@ -69,6 +85,7 @@ type CategoryDraft = {
   spec_columns: CategoryColumn[];
   product_fields: ProductAttributeField[];
   spec_rows: CategoryRow[];
+  harvest: HarvestDraft;
   buying_facts: CategoryFact[];
   faqs: Array<{ q: string; a: string }>;
   filters: CategoryFilter[];
@@ -83,6 +100,7 @@ function fromCategory(c: Category): CategoryDraft {
         .map((f) => ({ q: f.q ?? f.question ?? "", a: f.a ?? f.answer ?? "" }))
     : [];
   const filters: CategoryFilter[] = Array.isArray(c.filters) ? (c.filters as CategoryFilter[]) : [];
+  const harvest = normalizeHarvest(c.harvest);
   return {
     id: c.id,
     slug: c.slug,
@@ -103,6 +121,11 @@ function fromCategory(c: Category): CategoryDraft {
     spec_columns: cols,
     product_fields: Array.isArray(c.product_fields) ? c.product_fields : [],
     spec_rows: rows,
+    harvest: {
+      windows: harvest?.windows ?? [],
+      note_en: i18n(harvest?.note_i18n) || "",
+      reviewed_on: harvest?.reviewed_on ?? "",
+    },
     buying_facts: facts,
     faqs,
     filters,
@@ -129,6 +152,7 @@ function emptyDraft(sortOrder: number): CategoryDraft {
     spec_columns: [],
     product_fields: [],
     spec_rows: [],
+    harvest: { windows: [], note_en: "", reviewed_on: "" },
     buying_facts: [],
     faqs: [],
     filters: [],
@@ -761,6 +785,14 @@ function toFormData(d: CategoryDraft): FormData {
   fd.set("spec_columns", JSON.stringify(d.spec_columns));
   fd.set("product_fields", JSON.stringify(d.product_fields));
   fd.set("spec_rows", JSON.stringify(d.spec_rows));
+  fd.set(
+    "harvest",
+    JSON.stringify({
+      windows: d.harvest.windows,
+      note_i18n: d.harvest.note_en.trim() ? { en: d.harvest.note_en.trim() } : undefined,
+      reviewed_on: d.harvest.reviewed_on || null,
+    }),
+  );
   fd.set("buying_facts", JSON.stringify(d.buying_facts));
   fd.set("faqs", JSON.stringify(d.faqs));
   fd.set("filters", JSON.stringify(d.filters));
@@ -773,6 +805,7 @@ const TABS: Array<{ key: EditorTab; label: string; hint: string }> = [
   { key: "basic", label: "Thông tin cơ bản", hint: "Tên, đường dẫn, danh mục cha" },
   { key: "content", label: "Nội dung & ảnh", hint: "Giới thiệu, nội dung chi tiết, ảnh bìa" },
   { key: "spec", label: "Thông số tham khảo", hint: "Bảng grade/thông số trên trang danh mục" },
+  { key: "harvest", label: "Mùa vụ", hint: "Lịch thu hoạch hiển thị trên trang danh mục" },
   { key: "fields", label: "Trường sản phẩm · Nâng cao", hint: "Trường NCC điền cho từng sản phẩm" },
   { key: "faq", label: "Mua hàng & FAQ", hint: "MOQ, đóng gói, câu hỏi thường gặp" },
   { key: "seo", label: "SEO & hiển thị", hint: "Google, trang chủ, lập chỉ mục" },
@@ -783,6 +816,7 @@ function tabState(key: EditorTab, d: CategoryDraft): "ok" | "part" | "no" {
     case "basic": return d.name_en.trim() && d.slug.trim() ? "ok" : "no";
     case "content": return d.hero_image && d.intro_en.trim() ? "ok" : d.intro_en.trim() || d.body_en.trim() ? "part" : "no";
     case "spec": return d.spec_rows.length > 0 ? "ok" : "no";
+    case "harvest": return d.harvest.windows.some((w) => w.start_month && w.end_month) ? "ok" : "no";
     case "fields": return d.product_fields.length > 0 ? "ok" : "no";
     case "faq": return d.faqs.some((f) => f.q.trim()) ? "ok" : d.buying_facts.length > 0 ? "part" : "no";
     case "seo": return d.seo_title_en.trim() && d.seo_desc_en.trim() ? "ok" : d.seo_title_en.trim() || d.seo_desc_en.trim() ? "part" : "no";
@@ -1084,6 +1118,18 @@ function CategoryEditor({
             </section>
           )}
 
+          {tab === "harvest" && (
+            <section className="card p-5">
+              <h2 className="text-base font-bold text-ink-900">Lịch mùa vụ</h2>
+              <p className="mb-4 mt-0.5 text-[13px] leading-relaxed text-ink-500">
+                Biểu đồ 12 tháng hiển thị trên trang danh mục, đặt sau danh sách nhà cung cấp. Mỗi cửa sổ là một vụ:
+                tháng bắt đầu lớn hơn tháng kết thúc nghĩa là vụ vắt qua năm mới. Danh mục chưa có cửa sổ nào thì khối này
+                ẩn hoàn toàn, không hiện biểu đồ rỗng.
+              </p>
+              <HarvestEditor draft={draft} setDraft={setDraft} />
+            </section>
+          )}
+
           {tab === "fields" && (
             <section className="card p-5">
               <h2 className="text-base font-bold text-ink-900">Trường dữ liệu cho từng sản phẩm <span className="ml-1 rounded bg-ink-100 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-ink-500">Nâng cao</span></h2>
@@ -1226,6 +1272,124 @@ function CategoryEditor({
 }
 
 /* --------------------------- Các trình sửa con --------------------------- */
+
+function HarvestEditor({ draft, setDraft }: { draft: CategoryDraft; setDraft: (u: (d: CategoryDraft) => CategoryDraft) => void }) {
+  const harvest = draft.harvest;
+
+  function setWindows(updater: (windows: HarvestWindow[]) => HarvestWindow[]) {
+    setDraft((d) => ({ ...d, harvest: { ...d.harvest, windows: updater(d.harvest.windows) } }));
+  }
+  function addWindow() {
+    setWindows((windows) => [
+      ...windows,
+      { id: `w${Date.now()}`, label: windows.length === 0 ? "Main crop" : "Second crop", start_month: 1, end_month: 3, regions: [], peak: windows.length === 0, note: "" },
+    ]);
+  }
+  function setWindow(index: number, patch: Partial<HarvestWindow>) {
+    setWindows((windows) => windows.map((w, i) => (i === index ? { ...w, ...patch } : w)));
+  }
+  function removeWindow(index: number) {
+    setWindows((windows) => windows.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <p className="text-[13px] font-semibold text-ink-700">Cửa sổ mùa vụ ({harvest.windows.length})</p>
+          <button type="button" onClick={addWindow} className="btn btn-ghost py-1.5 text-xs">
+            <Plus className="h-3.5 w-3.5" /> Thêm cửa sổ
+          </button>
+        </div>
+
+        {harvest.windows.length === 0 && (
+          <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50 px-3.5 py-3 text-[13px] text-ink-500">
+            Chưa có cửa sổ nào nên trang danh mục chưa hiện biểu đồ mùa vụ.
+          </p>
+        )}
+
+        {harvest.windows.map((w, i) => (
+          <div key={w.id ?? i} className="rounded-xl border border-ink-100 p-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[160px] flex-1">
+                <p className="mb-1 text-xs font-semibold text-ink-500">Tên vụ</p>
+                <input
+                  className="input text-[13px]"
+                  value={w.label}
+                  onChange={(e) => setWindow(i, { label: e.target.value })}
+                  placeholder="Main crop"
+                  aria-label={`Tên vụ, cửa sổ ${i + 1}`}
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-semibold text-ink-500">Từ tháng</p>
+                <select className="input w-24 text-[13px]" value={w.start_month} onChange={(e) => setWindow(i, { start_month: Number(e.target.value) })} aria-label={`Tháng bắt đầu, cửa sổ ${i + 1}`}>
+                  {HARVEST_MONTH_LABELS.map((label, index) => <option key={label} value={index + 1}>{label}</option>)}
+                </select>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-semibold text-ink-500">Đến tháng</p>
+                <select className="input w-24 text-[13px]" value={w.end_month} onChange={(e) => setWindow(i, { end_month: Number(e.target.value) })} aria-label={`Tháng kết thúc, cửa sổ ${i + 1}`}>
+                  {HARVEST_MONTH_LABELS.map((label, index) => <option key={label} value={index + 1}>{label}</option>)}
+                </select>
+              </div>
+              <label className="flex items-center gap-1.5 pb-2 text-xs text-ink-700">
+                <input type="checkbox" checked={!!w.peak} onChange={(e) => setWindow(i, { peak: e.target.checked })} className="h-3.5 w-3.5" />
+                Vụ chính
+              </label>
+              <button type="button" onClick={() => removeWindow(i)} className="ml-auto rounded-md border border-ink-200 p-1.5 text-ink-500 hover:text-red-600" aria-label={`Xoá cửa sổ ${i + 1}`}>
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <input
+                className="input min-w-[200px] flex-1 text-[13px]"
+                value={(w.regions ?? []).join(", ")}
+                onChange={(e) => setWindow(i, { regions: e.target.value.split(",").map((r) => r.trim()).filter(Boolean) })}
+                placeholder="Vùng trồng, cách nhau bằng dấu phẩy (vd: Binh Phuoc, Dong Nai)"
+                aria-label={`Vùng trồng, cửa sổ ${i + 1}`}
+              />
+              <input
+                className="input min-w-[200px] flex-[2] text-[13px]"
+                value={w.note ?? ""}
+                onChange={(e) => setWindow(i, { note: e.target.value })}
+                placeholder="Ghi chú ngắn (không bắt buộc)"
+                aria-label={`Ghi chú, cửa sổ ${i + 1}`}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-4 border-t border-ink-100 pt-4">
+        <Field
+          label="Ghi chú dưới biểu đồ"
+          hint="Một tới hai câu giải thích vì sao vẫn mua được ngoài vụ, hoặc vụ nào quan trọng nhất. Viết bằng tiếng Anh vì buyer đọc phần này."
+        >
+          <textarea
+            className="input"
+            rows={3}
+            value={harvest.note_en}
+            onChange={(e) => setDraft((d) => ({ ...d, harvest: { ...d.harvest, note_en: e.target.value } }))}
+            placeholder="Kernels are processed all year because plants also import raw nuts."
+          />
+        </Field>
+
+        <Field
+          label="Ngày rà soát gần nhất"
+          hint="Để trống thì biểu đồ ghi rõ là chưa rà soát. Chỉ điền sau khi đã đối chiếu lại với nguồn như hiệp hội ngành hoặc Bộ Nông nghiệp."
+        >
+          <input
+            type="date"
+            className="input max-w-52"
+            value={harvest.reviewed_on}
+            onChange={(e) => setDraft((d) => ({ ...d, harvest: { ...d.harvest, reviewed_on: e.target.value } }))}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
 
 function SpecEditor({ draft, setDraft }: { draft: CategoryDraft; setDraft: (u: (d: CategoryDraft) => CategoryDraft) => void }) {
   const cols = draft.spec_columns;
