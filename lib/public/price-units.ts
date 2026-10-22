@@ -41,17 +41,41 @@ export const MARKET_PRICE_UNITS: Record<string, { primary: PriceUnit; secondary?
   coconut: { primary: "mt" },
   "dried-fruits": { primary: "mt" },
   "dried-spices": { primary: "mt" },
+  // Slug đang dùng ngoài production là "spices", không phải "dried-spices".
+  spices: { primary: "mt" },
   "seafood-processed-fisheries-products": { primary: "kg" },
 };
 
 export const DEFAULT_PRICE_UNIT: PriceUnit = "kg";
+
+/**
+ * Đoán đơn vị theo từ khóa trong slug, chỉ dùng khi danh mục chưa có cấu hình và
+ * chưa có trong bảng trên.
+ *
+ * Lý do cần: slug thực tế ngoài production không khớp danh sách mình đoán trước
+ * ("spices" thay cho "dried-spices"). Thà suy theo ngành còn hơn im lặng mặc
+ * định kg cho một ngành bán theo tấn.
+ */
+const UNIT_HINTS: Array<{ pattern: RegExp; unit: PriceUnit }> = [
+  { pattern: /seafood|fisher|shrimp|prawn|fish|squid|tuna|pangasius/, unit: "kg" },
+  { pattern: /cashew|nut|kernel/, unit: "kg" },
+  { pattern: /rice|coffee|pepper|cassia|cinnamon|anise|spice|coconut|fruit|bean|tea|sugar/, unit: "mt" },
+];
+
+export function priceUnitHint(slug: string): PriceUnit | null {
+  const text = (slug || "").toLowerCase();
+  for (const hint of UNIT_HINTS) if (hint.pattern.test(text)) return hint.unit;
+  return null;
+}
 
 /** Đơn vị hiển thị của một danh mục, đọc từ cấu hình trong CRM trước, rồi tới bảng quy ước. */
 export function displayUnitsForCategory(slug: string, configured?: string | null): { primary: PriceUnit; secondary?: PriceUnit } {
   const parsed = parsePriceUnit(configured);
   const market = MARKET_PRICE_UNITS[slug];
   if (parsed) return { primary: parsed, secondary: market?.secondary === parsed ? undefined : market?.secondary };
-  return market ?? { primary: DEFAULT_PRICE_UNIT };
+  if (market) return market;
+  // Cà phê và hồ tiêu không đọc theo pound, còn nhân điều thì có; chỉ nhân điều mới thêm đơn vị phụ.
+  return { primary: priceUnitHint(slug) ?? DEFAULT_PRICE_UNIT };
 }
 
 /**

@@ -84,7 +84,12 @@ const riceUnits = units.displayUnitsForCategory("rice", null);
 assert.equal(riceUnits.primary, "mt", "Rice follows the tonne convention");
 assert.equal(riceUnits.secondary, undefined);
 
+assert.equal(units.displayUnitsForCategory("spices", null).primary, "mt", "The live slug 'spices' resolves to tonnes, not to the guessed 'dried-spices'");
+assert.equal(units.displayUnitsForCategory("dried-spices", null).primary, "mt");
+assert.equal(units.displayUnitsForCategory("some-rice-variety", null).primary, "mt", "An unlisted slug is inferred from its industry keyword");
+assert.equal(units.displayUnitsForCategory("frozen-shrimp", null).primary, "kg");
 assert.equal(units.displayUnitsForCategory("unknown-category", null).primary, "kg", "Unknown categories fall back to kg, never to tonnes");
+assert.equal(units.displayUnitsForCategory("cashew-kernels", null).secondary, undefined, "An inferred cashew slug does not get the pound equivalent unless listed");
 assert.equal(units.displayUnitsForCategory("rice", "kg").primary, "kg", "A configured unit wins over the market default");
 
 /* ---------------- Khoảng giá ---------------- */
