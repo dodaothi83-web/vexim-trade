@@ -8,7 +8,7 @@ import { DELIVERY_ITEMS, L1_DOC_ITEMS, L2_VISIT_ITEMS, type AuditEvidenceKey, ty
 
 export const AUDIT_STEPS = [
   { level: 1, path: "documents", title: "Kiểm tra giấy tờ", short: "Giấy tờ", description: "Đối chiếu giấy phép, chứng nhận và bằng chứng đính kèm." },
-  { level: 2, path: "factory", title: "Thăm nhà máy", short: "Nhà máy", description: "Ghi nhận kiểm tra tại cơ sở, địa chỉ, GPS, hình ảnh và video." },
+  { level: 2, path: "factory", title: "Thăm nhà máy", short: "Nhà máy", description: "Đối chiếu theo danh mục 9 ảnh nhà máy (chuẩn chung với cổng NCC tự gửi); ghi nhận địa chỉ, GPS và hình ảnh thực tế." },
   { level: 3, path: "deliveries", title: "Lịch sử giao hàng", short: "Giao hàng", description: "Đối chiếu một lô hàng đã giao bằng vận đơn và xác nhận giao nhận; RFQ thắng không đủ làm bằng chứng." },
 ] as const;
 
@@ -26,8 +26,9 @@ export function requiredAuditItems(level: VerificationLevel) {
 export function auditUploadKind(level: VerificationLevel, key: AuditEvidenceKey): "image" | "file" | null {
   if (level === 1) return L1_DOC_ITEMS.some((item) => item.key === key) && !["tax_certificate", "bank_letter"].includes(key) ? "file" : null;
   if (level === 2) {
-    if (["production_line_seen", "warehouse_seen", "qc_lab_seen", "photos_taken"].includes(key)) return "image";
-    return key === "documents_original" ? "file" : null;
+    // Cả 9 dòng của danh mục mới đều là dòng ảnh (chuẩn chung với cổng NCC tự gửi).
+    // Key cũ (photos_taken, documents_original…) không còn là dòng tải lên; dữ liệu cũ hiển thị read-only.
+    return L2_VISIT_ITEMS.some((item) => item.key === key) ? "image" : null;
   }
   return ["shipping_proof", "delivery_proof"].includes(key) ? "file" : null;
 }

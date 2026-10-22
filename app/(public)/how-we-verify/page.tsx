@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ClipboardCheck, Factory, FileCheck2, ShieldCheck } from "lucide-react";
+import { ArrowRight, Camera, ClipboardCheck, Factory, FileCheck2, ShieldCheck } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
 import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
@@ -75,6 +75,23 @@ export default async function HowWeVerifyPage() {
         <Step n={3} icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history review"
           body="We check evidence of a completed shipment or delivery independently of a factory visit. Trading companies may pass this review without owning a factory. A won enquiry alone is not proof of delivery." />
       </ol>
+
+      <section className="mt-12 rounded-lg border border-ink-200 bg-white p-6 sm:p-8" aria-label="Supplier evidence submission">
+        <h2 className="flex items-center gap-2 text-[18px] font-bold text-ink-900">
+          <Camera className="h-5 w-5 text-emerald-700" /> Suppliers submit original evidence first
+        </h2>
+        <p className="mt-3 text-[14.5px] leading-relaxed text-ink-700">
+          Before our team reviews checks 2 and 3, the supplier can submit evidence from their own supplier portal:
+          nine original factory photographs (gate, warehouses, running production line, packing, carton with lot label,
+          hygiene station, protective gear, pest control) and export documents such as bills of lading and customs
+          declarations, or public source links.
+        </p>
+        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[14.5px] leading-relaxed text-ink-700">
+          <li>Key photos must show a handwritten Vexim verification code we issue, so the shots cannot be reused from elsewhere.</li>
+          <li>We keep the original files and read camera metadata to flag forwarded, edited, off-daylight or location-mismatched photos.</li>
+          <li>Automated scanning helps our reviewers prioritise, but a badge is only shown after a Vexim reviewer has approved the check. Nothing is approved or published automatically.</li>
+        </ul>
+      </section>
 
       <figure className="mt-12 overflow-hidden rounded-xl border border-ink-200">
         <div className="relative aspect-[16/9] w-full bg-ink-50 sm:aspect-[21/9]">

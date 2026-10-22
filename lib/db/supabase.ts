@@ -28,6 +28,9 @@ import type {
   SupplierNoticeRead,
   Supplier,
   SupplierInput,
+  SupplierSubmission,
+  SupplierSubmissionItem,
+  SupplierSubmissionLink,
   SupplierVerificationRequest,
   SupplierCategory,
   SupplierProduct,
@@ -44,6 +47,15 @@ import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } fr
 /** Bỏ các khoá undefined khỏi patch để không vô tình ghi đè mất dữ liệu cũ. */
 function cleanPatch<T extends Record<string, unknown>>(patch: T): Partial<T> {
   return Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
+
+/** Cột jsonb có thể về null/kiểu lạ; luôn trả mảng cờ để UI không phải phòng thủ. */
+function normalizeSubmission(row: SupplierSubmission): SupplierSubmission {
+  return { ...row, flags: Array.isArray(row.flags) ? row.flags : [], ai_review: row.ai_review ?? null };
+}
+
+function normalizeSubmissionItem(row: SupplierSubmissionItem): SupplierSubmissionItem {
+  return { ...row, flags: Array.isArray(row.flags) ? row.flags : [], has_exif: row.has_exif ?? false };
 }
 
 let client: SupabaseClient | null = null;
@@ -966,6 +978,83 @@ export const supabaseStore: DataStore = {
       }
     } catch (error) { console.error("[verification] could not sync supplier badge", error); }
     return v;
+  },
+
+  // --- Hồ sơ NCC tự gửi L2/L3 (supplier_submissions) ---
+  async listSubmissions(supplierId, level) {
+    let q = must().from("supplier_submissions").select("*").order("updated_at", { ascending: false });
+    if (supplierId) q = q.eq("supplier_id", supplierId);
+    if (level) q = q.eq("target_level", level);
+    const { data, error } = await q;
+    if (error) fail("listSubmissions", error);
+    return (data ?? []).map((row) => normalizeSubmission(row as SupplierSubmission));
+  },
+  async getSubmission(id) {
+    const { data, error } = await must().from("supplier_submissions").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getSubmission", error);
+    return data ? normalizeSubmission(data as SupplierSubmission) : null;
+  },
+  async createSubmission(input) {
+    const { data, error } = await must().from("supplier_submissions").insert(cleanPatch(input)).select().single();
+    if (error) fail("createSubmission", error);
+    return normalizeSubmission(data as SupplierSubmission);
+  },
+  async updateSubmission(id, patch) {
+    const { data, error } = await must()
+      .from("supplier_submissions")
+      .update(cleanPatch({ ...patch, updated_at: new Date().toISOString() }))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateSubmission", error);
+    return normalizeSubmission(data as SupplierSubmission);
+  },
+  async listSubmissionItems(submissionId) {
+    const { data, error } = await must().from("supplier_submission_items").select("*")
+      .eq("submission_id", submissionId).order("uploaded_at", { ascending: true });
+    if (error) fail("listSubmissionItems", error);
+    return (data ?? []).map((row) => normalizeSubmissionItem(row as SupplierSubmissionItem));
+  },
+  async getSubmissionItem(id) {
+    const { data, error } = await must().from("supplier_submission_items").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getSubmissionItem", error);
+    return data ? normalizeSubmissionItem(data as SupplierSubmissionItem) : null;
+  },
+  async createSubmissionItem(input) {
+    const { data, error } = await must().from("supplier_submission_items").insert(cleanPatch(input)).select().single();
+    if (error) fail("createSubmissionItem", error);
+    return normalizeSubmissionItem(data as SupplierSubmissionItem);
+  },
+  async updateSubmissionItem(id, patch) {
+    const { data, error } = await must().from("supplier_submission_items")
+      .update(cleanPatch(patch)).eq("id", id).select().single();
+    if (error) fail("updateSubmissionItem", error);
+    return normalizeSubmissionItem(data as SupplierSubmissionItem);
+  },
+  async deleteSubmissionItem(id) {
+    const { error } = await must().from("supplier_submission_items").delete().eq("id", id);
+    if (error) fail("deleteSubmissionItem", error);
+  },
+  async listSubmissionLinks(submissionId) {
+    const { data, error } = await must().from("supplier_submission_links").select("*")
+      .eq("submission_id", submissionId).order("created_at", { ascending: true });
+    if (error) fail("listSubmissionLinks", error);
+    return (data ?? []) as SupplierSubmissionLink[];
+  },
+  async createSubmissionLink(input) {
+    const { data, error } = await must().from("supplier_submission_links").insert(cleanPatch(input)).select().single();
+    if (error) fail("createSubmissionLink", error);
+    return data as SupplierSubmissionLink;
+  },
+  async updateSubmissionLink(id, patch) {
+    const { data, error } = await must().from("supplier_submission_links")
+      .update(cleanPatch(patch)).eq("id", id).select().single();
+    if (error) fail("updateSubmissionLink", error);
+    return data as SupplierSubmissionLink;
+  },
+  async deleteSubmissionLink(id) {
+    const { error } = await must().from("supplier_submission_links").delete().eq("id", id);
+    if (error) fail("deleteSubmissionLink", error);
   },
 
   // --- RFQs ---

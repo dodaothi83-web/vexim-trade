@@ -5,6 +5,7 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { canUploadOwnDocument } from "@/lib/supplier-portal/policy";
 import { MAX_DOCUMENT_BYTES, saveDocumentEvidence, validateInitialDocument } from "@/lib/supplier-portal/evidence";
+import { defaultCertificateLabelForKey, ingestCertificateScan, isL1CertificateKey } from "@/lib/certificate-service";
 import type { AuditEvidenceKey } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -33,9 +34,23 @@ export async function POST(request: Request) {
     await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "supplier", entity_id: access.supplier.id, action: "supplier.document_upload.l1",
       before: null, after: { verification_id: fresh.id, media_id: row.id, checklist_key: key } });
+    if (isL1CertificateKey(key)) {
+      await ingestCertificateScan({
+        supplier: access.supplier,
+        mediaId: row.id,
+        bytes: prepared.bytes,
+        storagePath: row.storage_path,
+        declaredLabel: defaultCertificateLabelForKey(key),
+        checklistKey: key,
+        verificationId: fresh.id,
+        source: "l1-supplier",
+        actor: { id: access.user.id, email: access.user.email },
+      }).catch((err) => console.error("[supplier-portal] l1 certificate scan", err));
+    }
     revalidatePath("/supplier/portal");
     revalidatePath(`/crm/suppliers/${access.supplier.id}`);
-    return NextResponse.json({ ok: true, message: "Đã tải giấy tờ để Vexim đối chiếu; chưa được xác minh." });
+    revalidatePath(`/crm/suppliers/${access.supplier.id}/audit/documents`);
+    return NextResponse.json({ ok: true, message: "Đã tải giấy tờ để Vexim đối chiếu; chứng nhận (nếu có) đã được đưa qua bước AI quét." });
   } catch (error) {
     console.error("[supplier-portal] upload error", error);
     return NextResponse.json({ ok: false, message: "Không lưu được tệp. Kiểm tra định dạng JPG/PNG/WebP/PDF và migration CSDL; thử lại sau." }, { status: 503 });

@@ -7,6 +7,7 @@ import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
 import { auditUploadKind } from "@/lib/verification";
+import { defaultCertificateLabelForKey, ingestCertificateScan, isL1CertificateKey } from "@/lib/certificate-service";
 import type { AuditEvidenceKey, MediaAudience, MediaInput, MediaKind, MediaOwnerType } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -194,6 +195,22 @@ export async function POST(request: Request) {
           action: "verification.media.upload",
           before: null, after: { verification_id: ownerId, media_id: row.id, kind },
         }).catch((err) => console.error("[audit] evidence upload failed", err));
+        if (isL1CertificateKey(checklistKey) && mediaSupplierId) {
+          const supplier = await store.getSupplier(mediaSupplierId);
+          if (supplier) {
+            await ingestCertificateScan({
+              supplier,
+              mediaId: row.id,
+              bytes,
+              storagePath: mainPath,
+              declaredLabel: captionRaw || defaultCertificateLabelForKey(checklistKey),
+              checklistKey,
+              verificationId: ownerId,
+              source: "l1-staff",
+              actor: { id: session?.uid ?? null, email: session?.email ?? null },
+            }).catch((err) => console.error("[media] l1 certificate scan failed", err));
+          }
+        }
       }
       created.push(row.id);
       results.push({ name: file.name, ok: true, message: "Đã tải lên — trạng thái: chưa xác minh." });
@@ -204,7 +221,7 @@ export async function POST(request: Request) {
         name: file.name,
         ok: false,
         message: err instanceof Error && /media_checklist_key_ck/.test(err.message)
-          ? "CSDL chưa cập nhật mục bằng chứng. Quản trị viên cần chạy migration 20261017_factory_delivery_inline_evidence.sql trên đúng Supabase project. Tệp chưa được lưu."
+          ? "CSDL chưa cập nhật mục bằng chứng. Quản trị viên cần chạy migration 20261017_factory_delivery_inline_evidence.sql và 20261020_supplier_self_verification_submissions.sql (danh mục 9 ảnh L2) trên đúng Supabase project. Tệp chưa được lưu."
           : err instanceof Error ? err.message : "Lỗi khi lưu tệp.",
       });
     }

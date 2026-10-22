@@ -47,14 +47,16 @@ export default async function VerificationsPage({
   const canInspect = hasPermission(session.role, "verifications.inspect");
 
   const store = getStore();
-  const [vers, suppliers, users, requests] = await Promise.all([
+  const [vers, suppliers, users, requests, submissions] = await Promise.all([
     store.listVerifications(),
     store.listSuppliers(),
     store.listUsers().catch(() => [] as AppUser[]),
     store.listSupplierVerificationRequests().catch((error) => { console.error("[verification-requests] migration/query failed", error); return []; }),
+    store.listSubmissions().catch((error) => { console.error("[self-submissions] chưa có bảng supplier_submissions (migration?)", error); return []; }),
   ]);
   const supMap = new Map(suppliers.map((s) => [s.id, s]));
   const userMap = new Map(users.map((u) => [u.id, u]));
+  const pendingSubmissions = submissions.filter((sub) => sub.status === "pending_review" || sub.status === "returned");
   const openRequests = requests.filter((r) => !vers.some((v) =>
     v.supplier_id === r.supplier_id && v.target_level === r.target_level && v.status === "approved"));
 
@@ -80,6 +82,17 @@ export default async function VerificationsPage({
         title="Hàng đợi xác minh NCC"
         sub="Kiểm tra giấy tờ, thăm nhà máy và lịch sử giao hàng. Người kiểm nộp; người khác xét duyệt."
       />
+
+      <section className="mt-5 rounded-xl border border-teal-200 bg-teal-50/60 p-4 sm:p-5">
+        <h2 className="font-bold text-ink-900">Hồ sơ NCC tự gửi qua cổng L2 · L3 ({pendingSubmissions.length} chờ xét)</h2>
+        <p className="mt-1 text-sm text-ink-700">Doanh nghiệp tự chụp 9 ảnh nhà máy bằng điện thoại (không bắt buộc ảnh gốc hay định vị) và tự tải chứng từ xuất khẩu. Bắt buộc duy nhất: tờ mã xác minh của Vexim phải nằm trong 3 ảnh 🔖. AI đã quét và nêu tín hiệu; nhận hồ sơ chỉ tạo đợt kiểm của nhân viên, không tự cấp huy hiệu.</p>
+        {pendingSubmissions.length ? <ul className="mt-4 space-y-2">{pendingSubmissions.slice(0, 8).map((sub) => <li key={sub.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
+          <div className="min-w-[180px] flex-1"><Link href={`/crm/verifications/submissions/${sub.id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(sub.supplier_id)?.name ?? "NCC"}</Link>
+            <p className="mt-0.5 text-xs text-ink-500">{sub.target_level === 2 ? "L2 · xác thực nhà máy" : "L3 · lịch sử xuất khẩu"} · {sub.status === "pending_review" ? "chờ xét duyệt" : sub.status === "returned" ? "cần bổ sung" : "đang soạn"}{sub.ai_scanned_at ? ` · AI đã quét ${new Date(sub.ai_scanned_at).toLocaleDateString("vi-VN")}` : " · chưa quét AI"}</p></div>
+          <Link href={`/crm/verifications/submissions/${sub.id}`} className="btn btn-ghost btn-sm">Đối chiếu bằng chứng →</Link>
+        </li>)}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có hồ sơ tự gửi nào chờ xét.</p>}
+        <Link href="/crm/verifications/submissions" className="mt-3 inline-block text-xs font-semibold text-brand-700 underline">Mở toàn bộ hàng đợi hồ sơ tự gửi →</Link>
+      </section>
 
       <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50/60 p-4 sm:p-5">
         <h2 className="font-bold text-ink-900">Yêu cầu Vexim liên hệ để xác minh thêm ({openRequests.length})</h2>

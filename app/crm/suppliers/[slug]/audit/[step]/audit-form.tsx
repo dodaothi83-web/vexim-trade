@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, FileText, Loader2, RotateCcw, Save, Send, Sparkles, Upload } from "lucide-react";
 
-import { L1_DOC_ITEMS, type AuditEvidenceKey, type MediaAsset, type Verification } from "@/lib/types";
+import { L1_DOC_ITEMS, LEGACY_L2_VISIT_ITEMS, type AuditEvidenceKey, type Certificate, type MediaAsset, type Verification } from "@/lib/types";
 import { prepareImage } from "@/lib/media/client-image";
 import { readUploadResponse } from "@/lib/media/upload-response";
 import type { AiDocumentReview } from "@/lib/ai/document-audit";
@@ -12,9 +12,10 @@ import { auditItems, auditStep, auditUploadKind } from "@/lib/verification";
 import { Button, formatDate } from "@/components/ui";
 import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/actions";
 import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction, updateVerificationPublicSummaryAction } from "../../verification-actions";
+import { CertificateRowControls } from "./certificate-row-controls";
 
-export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, canInspect, currentUserId, requireSecondReviewer }: {
-  verification: Verification; evidence: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; currentUserId: string; requireSecondReviewer: boolean;
+export function AuditForm({ verification: v, evidence, certificates = [], aiEnabled, canApprove, canInspect, canPublish = false, currentUserId, requireSecondReviewer }: {
+  verification: Verification; evidence: MediaAsset[]; certificates?: Certificate[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; requireSecondReviewer: boolean;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
@@ -25,6 +26,10 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
   const [summaryConfirmed, setSummaryConfirmed] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [showOldEvidence, setShowOldEvidence] = useState(evidence.some((m) => !m.checklist_key));
+  // UI lạc quan cho nút "Đánh dấu đã kiểm": đổi nhãn ngay khi bấm, hoàn tác nếu server lỗi.
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, "checked" | "unverified">>({});
+  const [markingId, setMarkingId] = useState<string | null>(null);
+  const shownStatus = (asset: MediaAsset) => statusOverrides[asset.id] ?? asset.status;
   const [scanning, setScanning] = useState(false);
   const [aiResult, setAiResult] = useState<(AiDocumentReview & { skipped: string[] }) | null>(null);
   const editable = canInspect && ["in_progress", "scheduled", "returned"].includes(v.status);
@@ -35,9 +40,13 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
   const requiredDocs = L1_DOC_ITEMS.filter((it) => it.required);
   const optionalDocs = L1_DOC_ITEMS.filter((it) => !it.required);
   const recorded = (key: string) => v.checklist?.[key] === true || v.checklist?.[key] === false || v.checklist?.[key] === "not_applicable";
+  // Dữ liệu đợt kiểm L2 lập theo danh mục CŨ: giữ hiển thị read-only để đối soát, không xóa.
+  const legacyL2 = v.target_level === 2
+    ? LEGACY_L2_VISIT_ITEMS.filter((li) => recorded(li.key) || v.checklist_notes?.[li.key] || evidence.some((m) => (m.checklist_key as string | null) === li.key))
+    : [];
   const unassignedEvidence = evidence.filter((m) => !m.checklist_key);
   const readableEvidence = evidence.filter((m) => m.storage_path && ["document", "certificate", "image"].includes(m.kind));
-  const evidenceFingerprint = readableEvidence.map((m) => `${m.id}:${m.storage_path}`).join("|");
+  const evidenceFingerprint = readableEvidence.map((m) => `${m.id}:${m.storage_path}:${m.status}`).join("|");
   const previousEvidence = useRef(evidenceFingerprint);
   const justScannedIds = useRef<string[] | null>(null);
   const scanInFlight = useRef(false);
@@ -48,6 +57,8 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
       if (!justScannedIds.current?.every((id) => readableEvidence.some((m) => m.id === id))) setAiResult(null);
       justScannedIds.current = null;
       previousEvidence.current = evidenceFingerprint;
+      // Props server đã về (kể cả status mới): bỏ các giá trị lạc quan.
+      setStatusOverrides({});
     }
   }, [evidenceFingerprint]);
 
@@ -92,21 +103,39 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
     setFeedback({ ok: true, message: `Đã điền nháp ${count} mục chưa kiểm. Hãy đối chiếu tệp và chỉnh sửa trước khi lưu.` });
   }
 
-  async function run(action: () => Promise<{ ok: boolean; message: string }>) {
+  async function run(action: () => Promise<{ ok: boolean; message: string }>, assetId?: string) {
     if (busy) return;
     setBusy(true); setFeedback(null);
+    if (assetId) setMarkingId(assetId);
     try {
       const result = await action();
       setFeedback({ ok: result.ok, message: result.message });
       if (result.ok) router.refresh();
     } catch (error) {
       setFeedback({ ok: false, message: error instanceof Error ? error.message : "Không lưu được. Vui lòng thử lại." });
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setMarkingId(null); }
+  }
+
+  /** Bấm là đổi nhãn ngay (optimistic); server lỗi thì hoàn tác và báo đỏ. */
+  async function toggleChecked(asset: MediaAsset) {
+    if (!canManageEvidence || busy) return;
+    const next = shownStatus(asset) === "checked" ? "unverified" : "checked";
+    setStatusOverrides((o) => ({ ...o, [asset.id]: next }));
+    setMarkingId(asset.id); setBusy(true); setFeedback(null);
+    try {
+      const result = await updateMediaAction(asset.id, { status: next });
+      setFeedback({ ok: result.ok, message: result.message });
+      if (result.ok) router.refresh();
+      else setStatusOverrides((o) => { const c = { ...o }; delete c[asset.id]; return c; });
+    } catch (error) {
+      setStatusOverrides((o) => { const c = { ...o }; delete c[asset.id]; return c; });
+      setFeedback({ ok: false, message: error instanceof Error ? error.message : "Không cập nhật được trạng thái kiểm tra." });
+    } finally { setBusy(false); setMarkingId(null); }
   }
 
   function removeEvidence(asset: MediaAsset) {
     if (!canManageEvidence || !window.confirm(`Xóa hẳn tệp “${asset.caption || asset.id}” khỏi đợt kiểm?`)) return;
-    void run(() => deleteMediaAction(asset.id));
+    void run(() => deleteMediaAction(asset.id), asset.id);
   }
 
   function addVideo() {
@@ -225,8 +254,10 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
         <p className="text-xs text-ink-600">Tệp thuộc đúng đợt kiểm vẫn dùng được. Gắn vào dòng bên dưới để dễ đối chiếu; không cần tải lại. Tệp kho chung NCC không tự chuyển vào đây.</p>
         {unassignedEvidence.map((asset) => <div key={asset.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2">
           <a href={asset.storage_path ? `/api/media/file/${asset.storage_path}` : asset.external_url || "#"} target="_blank" rel="noreferrer" className="max-w-72 truncate font-medium text-brand-700 underline">{asset.caption || (asset.kind === "video" ? "Mở video" : "Mở tệp")}</a>
-          {v.target_level > 1 && asset.storage_path && <span className={asset.status === "checked" ? "text-xs text-emerald-700" : "text-xs text-ink-500"}>{asset.status === "checked" ? "Đã kiểm tra" : "Chưa đánh dấu"}</span>}
-          {canManageEvidence && v.target_level > 1 && asset.storage_path && <button type="button" disabled={busy} className="text-xs text-brand-700 underline" onClick={() => void run(() => updateMediaAction(asset.id, { status: asset.status === "checked" ? "unverified" : "checked" }))}>{asset.status === "checked" ? "Bỏ đánh dấu" : "Đánh dấu đã kiểm"}</button>}
+          {v.target_level > 1 && asset.storage_path && <span className={shownStatus(asset) === "checked" ? "text-xs text-emerald-700" : "text-xs text-ink-500"}>{shownStatus(asset) === "checked" ? "Đã kiểm tra" : "Chưa đánh dấu"}</span>}
+          {canManageEvidence && v.target_level > 1 && asset.storage_path && <button type="button" disabled={busy} className="inline-flex items-center gap-1 text-xs text-brand-700 underline disabled:opacity-50" onClick={() => void toggleChecked(asset)}>
+            {markingId === asset.id && <Loader2 className="h-3 w-3 animate-spin" />}{shownStatus(asset) === "checked" ? "Bỏ đánh dấu" : "Đánh dấu đã kiểm"}
+          </button>}
           {canManageEvidence && asset.storage_path && ["image", "document", "certificate"].includes(asset.kind) && <select className="input w-auto py-1 text-xs" value="" disabled={busy} aria-label={`Gắn ${asset.caption || "tệp"} vào mục kiểm`} onChange={(e) => {
             const key = e.target.value as AuditEvidenceKey;
             if (key) void run(() => assignVerificationEvidenceAction(asset.id, key));
@@ -254,8 +285,13 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
             return <div key={it.key} className="space-y-2 px-5 py-4">
             <fieldset disabled={!editable || busy}>
               <label htmlFor={`check-${it.key}`} className="block text-sm font-semibold text-ink-900">
-                {i + 1}. {it.label} <span className={optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{optional ? "Tùy chọn" : ["tax_certificate", "bank_letter"].includes(it.key) ? "Bắt buộc nhập" : "Bắt buộc đạt"}</span>
+                {i + 1}. {it.label}{" "}
+                {v.target_level === 2 && "requires_code" in it && it.requires_code && <span title="Ảnh NCC tự gửi phải kèm tờ giấy viết tay mã xác minh Vexim phát hành">🔖</span>}{" "}
+                <span className={optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{v.target_level === 2 ? "" : optional ? "Tùy chọn" : ["tax_certificate", "bank_letter"].includes(it.key) ? "Bắt buộc nhập" : "Bắt buộc đạt"}</span>
               </label>
+              {v.target_level === 2 && "requirement" in it && <p className="mt-0.5 text-xs text-ink-500">
+                {it.requirement} · đối chiếu ảnh NCC tự gửi cùng mục{("requires_code" in it && it.requires_code) ? " · 🔖 kiểm tra tờ mã viết tay trong ảnh" : ""}
+              </p>}
               {v.target_level === 1 && (it.key === "tax_certificate" || it.key === "bank_letter") ? <div className="mt-2 space-y-1.5">
                 <input id={`check-${it.key}`} name={it.key === "tax_certificate" ? "tax_number" : "bank_account_number"}
                   type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="off" maxLength={it.key === "tax_certificate" ? 32 : 34}
@@ -270,8 +306,8 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
                 </select>
                 <input name={`note:${it.key}`} defaultValue={v.checklist_notes?.[it.key] ?? ""} className="input text-sm" placeholder="Ghi chú, dữ liệu đã đối chiếu (nếu có)" />
               </div>}
-              {v.target_level === 2 && it.key === "factory_address_confirmed" && <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Field label="Ngày thăm"><input type="date" name="visit_date" defaultValue={v.visit_date ?? ""} className="input" /></Field>
+              {v.target_level === 2 && it.key === "factory_gate" && <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field label="Ngày thăm / ngày đối chiếu"><input type="date" name="visit_date" defaultValue={v.visit_date ?? ""} className="input" /></Field>
                 <Field label="Địa chỉ cơ sở"><input name="visit_address" defaultValue={v.visit_address ?? ""} className="input" placeholder="Địa chỉ thực tế đã thăm" /></Field>
                 <Field label="GPS vĩ độ"><input type="number" step="any" name="visit_lat" defaultValue={v.visit_lat ?? ""} className="input" /></Field>
                 <Field label="GPS kinh độ"><input type="number" step="any" name="visit_lng" defaultValue={v.visit_lng ?? ""} className="input" /></Field>
@@ -284,6 +320,22 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
             </fieldset>
             {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">Đối chiếu tên pháp nhân và mã số thuế trên đăng ký doanh nghiệp với NCC; nếu dùng tên thương mại khác, ghi rõ căn cứ trong ghi chú. AI không tự xác thực giấy tờ.</p>}
             {v.target_level === 1 && (it.key === "food_safety" || it.key === "haccp_or_brc") && <p className="text-xs text-ink-600">NCC thương mại không bắt buộc có giấy này. Nếu dùng giấy của nhà máy sản xuất, ghi tên nhà máy và mối liên hệ với hàng cung ứng; không coi đó là giấy đứng tên NCC. Chọn “Không áp dụng” nếu không có.</p>}
+            {v.target_level === 1 && ["food_safety", "haccp_or_brc", "product_certs", "export_license"].includes(it.key) && <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-teal-800">Nhận diện tự động</p>
+              {certificates.filter((c) => c.checklist_key === it.key || (!c.checklist_key && it.key === "product_certs")).map((c) => (
+                <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-teal-200 bg-teal-50/50 px-3 py-1.5 text-xs">
+                  <div className="flex flex-wrap items-center gap-1.5 text-ink-700">
+                    <strong className="text-ink-900">{c.name}</strong>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${c.holder_match === "owner" ? "bg-emerald-100 text-emerald-800" : c.holder_match === "partner" ? "bg-amber-100 text-amber-900" : "bg-slate-200 text-slate-700"}`}>
+                      {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` · ${c.holder_name}` : ""}` : c.holder_match === "partner" ? `Đơn vị đối tác: ${c.holder_name || "—"}` : "Chưa rõ đơn vị đứng tên"}
+                    </span>
+                    {c.valid_until && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">Hạn {c.valid_until}</span>}
+                    {c.staff_hidden && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">Đang ẩn</span>}
+                  </div>
+                  <CertificateRowControls supplierId={v.supplier_id} certificateId={c.id} hasFile={Boolean(c.file_media_id)} staffHidden={Boolean(c.staff_hidden)} canInspect={canInspect} canPublish={canPublish} />
+                </div>
+              ))}
+            </div>}
             {suggestion && <div className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-xs leading-relaxed text-ink-700">
               <strong className={suggestion.verdict === "pass" ? "text-emerald-800" : suggestion.verdict === "fail" ? "text-rose-700" : "text-amber-800"}>
                 AI: {suggestion.verdict === "pass" ? "Có vẻ phù hợp — cần đối chiếu" : suggestion.verdict === "fail" ? "Phát hiện điểm không khớp" : "Chưa đủ cơ sở"}
@@ -310,14 +362,36 @@ export function AuditForm({ verification: v, evidence, aiEnabled, canApprove, ca
                   <img src={`/api/media/file/${asset.thumb_path || asset.storage_path}`} alt={asset.caption || "Ảnh bằng chứng"} className="h-10 w-10 rounded object-cover" />
                 ) : <FileText className="h-5 w-5 shrink-0 text-ink-500" />}
                 <span className="min-w-0"><a href={`/api/media/file/${asset.storage_path}`} target="_blank" rel="noreferrer" className="block truncate font-semibold text-brand-700 underline">{asset.caption || "Mở tệp"}</a>
-                  {v.target_level > 1 && <span className={asset.status === "checked" ? "text-emerald-700" : "text-ink-500"}>{asset.status === "checked" ? "Đã kiểm tra" : "Chưa đánh dấu kiểm tra"}</span>}
-                  {canManageEvidence && <span className="flex flex-wrap gap-2">{v.target_level > 1 && <button type="button" disabled={busy} className="text-brand-700 underline" onClick={() => void run(() => updateMediaAction(asset.id, { status: asset.status === "checked" ? "unverified" : "checked" }))}>{asset.status === "checked" ? "Bỏ đánh dấu" : "Đánh dấu đã kiểm"}</button>}<button type="button" disabled={busy} className="text-ink-500 underline" onClick={() => void run(() => assignVerificationEvidenceAction(asset.id, null))}>Bỏ gắn</button><button type="button" disabled={busy} className="text-rose-700 underline" onClick={() => removeEvidence(asset)}>Xóa</button></span>}
+                  {v.target_level > 1 && <span className={shownStatus(asset) === "checked" ? "text-emerald-700" : "text-ink-500"}>{shownStatus(asset) === "checked" ? "Đã kiểm tra" : "Chưa đánh dấu kiểm tra"}</span>}
+                  {canManageEvidence && <span className="flex flex-wrap gap-2">{v.target_level > 1 && <button type="button" disabled={busy} className="inline-flex items-center gap-1 text-brand-700 underline disabled:opacity-50" onClick={() => void toggleChecked(asset)}>
+                    {markingId === asset.id && <Loader2 className="h-3 w-3 animate-spin" />}{shownStatus(asset) === "checked" ? "Bỏ đánh dấu" : "Đánh dấu đã kiểm"}
+                  </button>}<button type="button" disabled={busy} className="inline-flex items-center gap-1 text-ink-500 underline disabled:opacity-50" onClick={() => void run(() => assignVerificationEvidenceAction(asset.id, null), asset.id)}>
+                    {markingId === asset.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}Bỏ gắn
+                  </button><button type="button" disabled={busy} className="inline-flex items-center gap-1 text-rose-700 underline disabled:opacity-50" onClick={() => removeEvidence(asset)}>
+                    {markingId === asset.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}Xóa
+                  </button></span>}
                 </span>
               </div>)}</div>}
             </div>}
           </div>;
           })}
         </div>
+        {v.target_level === 2 && legacyL2.length > 0 && <details className="border-b border-ink-100 bg-ink-50/60 px-5 py-3 text-sm">
+          <summary className="cursor-pointer font-semibold text-ink-800">Danh mục L2 cũ (trước 20/10/2026) · {legacyL2.length} mục có dữ liệu</summary>
+          <p className="mt-2 text-xs text-ink-600">Đợt kiểm này lập theo danh mục cũ nên dữ liệu cũ được giữ nguyên để đối soát (chỉ đọc). Đợt kiểm mới dùng danh mục 9 ảnh chung với cổng NCC tự gửi.</p>
+          <ul className="mt-2 space-y-2">
+            {legacyL2.map((li) => {
+              const files = evidence.filter((m) => (m.checklist_key as string | null) === li.key && m.storage_path);
+              return <li key={li.key} className="rounded-lg bg-white px-3 py-2 text-xs">
+                <p className="font-semibold text-ink-800">{li.label} · {v.checklist?.[li.key] === true ? "Đạt" : v.checklist?.[li.key] === false ? "Không đạt" : v.checklist?.[li.key] === "not_applicable" ? "Không áp dụng" : "Chưa kiểm"}</p>
+                {v.checklist_notes?.[li.key] && <p className="mt-0.5 text-ink-600">Ghi chú: {v.checklist_notes[li.key]}</p>}
+                {files.length > 0 && <p className="mt-1 flex flex-wrap gap-2">{files.map((asset) => (
+                  <a key={asset.id} href={`/api/media/file/${asset.storage_path}`} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">{asset.caption || "Mở tệp"}</a>
+                ))}</p>}
+              </li>;
+            })}
+          </ul>
+        </details>}
         <fieldset disabled={!editable || busy}>
         <div className="space-y-3 border-t border-ink-100 p-5">
           <Field label="Ghi chú nội bộ"><textarea name="internal_notes" rows={3} defaultValue={v.internal_notes ?? ""} className="input" /></Field>

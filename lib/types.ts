@@ -324,10 +324,22 @@ export interface SupplierCategory {
 }
 
 export type CertificateCheckStatus = "on_file" | "original_seen" | "checked_with_issuer";
+export type CertificateHolderMatch = "owner" | "partner" | "unclear";
+export type CertificateAiConfidence = "low" | "medium" | "high";
+export type CertificateSource = "manual" | "l1-supplier" | "l1-staff";
 
 export interface Certificate {
-  /** Dedicated review/publication flow, independent of supplier document checks. */
+  /** Dedicated review/publication flow + L1 AI-scanned certificate columns. */
   holder_name?: string | null;
+  holder_match?: CertificateHolderMatch | null;
+  ai_scanned_at?: string | null;
+  ai_summary?: string | null;
+  ai_confidence?: CertificateAiConfidence | null;
+  source?: CertificateSource;
+  checklist_key?: string | null;
+  verification_id?: string | null;
+  staff_hidden?: boolean;
+  expiry_notified?: Record<string, string>;
   scope_text?: string | null;
   requested_product_ids?: string[];
   approved_product_ids?: string[];
@@ -364,8 +376,12 @@ export const L1_DOC_ITEMS = [
   { key: "export_license", label: "Giấy phép xuất khẩu (nếu áp dụng)", required: false }
 ] as const;
 
-/** Checklist L2 — thăm nhà máy */
-export const L2_VISIT_ITEMS = [
+/**
+ * Danh mục L2 CŨ (trước 20/10/2026) — CHỈ dùng để hiển thị dữ liệu lịch sử của các
+ * đợt kiểm cũ (kết quả checklist + tệp đã gắn theo key cũ). Đợt kiểm mới dùng chung
+ * chuẩn 9 ảnh nhà máy với cổng NCC tự gửi — xem L2_VISIT_ITEMS bên dưới.
+ */
+export const LEGACY_L2_VISIT_ITEMS = [
   { key: "factory_address_confirmed", label: "Đối chiếu địa chỉ và GPS tại cơ sở" },
   { key: "production_line_seen", label: "Quan sát dây chuyền sản xuất" },
   { key: "warehouse_seen", label: "Kiểm tra kho thành phẩm" },
@@ -377,6 +393,8 @@ export const L2_VISIT_ITEMS = [
   { key: "photos_taken", label: "Ảnh hiện trường: cổng, dây chuyền, kho" }
 ] as const;
 
+export const LEGACY_L2_VISIT_KEYS: readonly string[] = LEGACY_L2_VISIT_ITEMS.map((item) => item.key);
+
 export const DELIVERY_ITEMS = [
   { key: "order_matched", label: "Đối chiếu mã đơn hàng thực tế của Vexim" },
   { key: "shipping_proof", label: "Đối chiếu vận đơn / chứng từ xuất hàng" },
@@ -386,7 +404,193 @@ export const DELIVERY_ITEMS = [
 export type L1DocKey = typeof L1_DOC_ITEMS[number]["key"];
 export type L2VisitKey = typeof L2_VISIT_ITEMS[number]["key"];
 export type DeliveryKey = typeof DELIVERY_ITEMS[number]["key"];
-export type AuditEvidenceKey = L1DocKey | L2VisitKey | DeliveryKey;
+
+/* --------- CỔNG TỰ XÁC THỰC CỦA NHÀ CUNG CẤP (L2 nhà máy / L3 xuất khẩu) --------- */
+
+/**
+ * 9 ảnh bắt buộc của L2 — áp dụng cho MỌI ngành hàng. Danh mục này là chuẩn DUY NHẤT:
+ * cổng NCC tự gửi dùng để nộp ảnh, người kiểm Vexim dùng làm checklist đối chiếu (L2_VISIT_ITEMS).
+ * `requires_code`: ảnh phải có tờ mã xác minh Vexim phát hành (🔖). NCC tải/in tờ mã rồi
+ * chụp cùng cảnh. Đây là điều kiện bắt buộc duy nhất của ảnh — EXIF, GPS, giờ chụp chỉ là ghi chú.
+ */
+export const L2_FACTORY_PHOTO_ITEMS = [
+  { key: "factory_gate", label: "Cổng nhà máy", requirement: "Thấy rõ biển tên công ty", requires_code: true, order: 1 },
+  { key: "raw_material_warehouse", label: "Kho nguyên liệu", requirement: "Chụp rộng, thấy quy mô kho", requires_code: false, order: 2 },
+  { key: "production_line_running", label: "Dây chuyền chính đang chạy", requirement: "Có công nhân đang làm việc", requires_code: true, order: 3 },
+  { key: "packing_area", label: "Khu đóng gói", requirement: "Thấy khu vực đóng gói đang hoạt động", requires_code: false, order: 4 },
+  { key: "finished_goods_warehouse", label: "Kho thành phẩm", requirement: "Hàng đã đóng thùng", requires_code: true, order: 5 },
+  { key: "open_carton_lot_label", label: "Một thùng hàng mở ra", requirement: "Thấy sản phẩm và nhãn có mã lô", requires_code: false, order: 6 },
+  { key: "hygiene_station", label: "Khu rửa tay, thay đồ bảo hộ", requirement: "Trước khi vào xưởng", requires_code: false, order: 7 },
+  { key: "worker_ppe", label: "Công nhân mặc bảo hộ", requirement: "Mũ, khẩu trang, găng tay, áo bảo hộ", requires_code: false, order: 8 },
+  { key: "pest_control", label: "Bẫy / trạm kiểm soát côn trùng, chuột", requirement: "Thấy bẫy hoặc trạm đang đặt tại xưởng", requires_code: false, order: 9 },
+] as const;
+
+export type FactoryPhotoKey = typeof L2_FACTORY_PHOTO_ITEMS[number]["key"];
+
+/**
+ * Checklist L2 của người kiểm Vexim — dùng CHUNG một chuẩn 9 ảnh với cổng NCC tự gửi.
+ * Ảnh NCC tự nộp (khi được nhận vào đợt kiểm) rơi đúng vào dòng cùng key để đối chiếu 1-1.
+ */
+export const L2_VISIT_ITEMS = L2_FACTORY_PHOTO_ITEMS;
+
+/** Chứng từ lịch sử xuất khẩu (L3) — ảnh chụp hoặc bản gốc + link nguồn công khai. */
+export const L3_EXPORT_ITEMS = [
+  { key: "bill_of_lading", label: "Vận đơn đường biển / hàng không (B/L, AWB)", required: true },
+  { key: "customs_declaration", label: "Tờ khai hải quan xuất khẩu", required: true },
+  { key: "commercial_invoice", label: "Hóa đơn thương mại", required: false },
+  { key: "packing_list", label: "Phiếu đóng gói", required: false },
+  { key: "certificate_of_origin", label: "C/O — giấy chứng nhận xuất xứ", required: false },
+  { key: "phytosanitary_or_health", label: "Kiểm dịch / y tế / hun trùng (nếu ngành hàng yêu cầu)", required: false },
+] as const;
+
+export type ExportDocKey = typeof L3_EXPORT_ITEMS[number]["key"];
+
+/**
+ * Loại cờ liêm chính/đối chiếu mà hệ thống tự tính từ EXIF + GPS + AI.
+ * Cờ KHÔNG phải kết luận: người duyệt của Vexim vẫn là người quyết định.
+ */
+export const SUBMISSION_FLAG_LABELS: Record<string, string> = {
+  no_exif: "Ảnh không còn dữ liệu gốc (thường do gửi qua Zalo/Facebook) — vẫn nhận",
+  edited_software: "Dữ liệu ảnh ghi phần mềm chỉnh sửa — chỉ để lưu ý",
+  shared_via_app: "Ảnh từng đi qua ứng dụng chat/mạng xã hội — vẫn nhận",
+  no_gps: "Ảnh không kèm toạ độ — không bắt buộc",
+  gps_outside_vn: "Toạ độ trong ảnh nằm ngoài Việt Nam",
+  gps_mismatch: "Toạ độ trong ảnh lệch xa vị trí trình duyệt báo",
+  not_daylight: "Ảnh chụp ngoài khung 06:00–18:00 (giờ VN) — chỉ để lưu ý",
+  no_capture_time: "Ảnh không cho biết thời điểm chụp — không bắt buộc",
+  capture_before_code: "Dữ liệu ảnh cho thấy chụp trước khi phát hành mã",
+  code_missing: "Không thấy tờ giấy viết tay mã xác minh trong ảnh bắt buộc",
+  code_mismatch: "Mã viết tay trong ảnh không khớp mã hệ thống phát hành",
+  content_mismatch: "Nội dung ảnh không đúng với mục yêu cầu (AI)",
+  resolution_low: "Độ phân giải ảnh thấp bất thường",
+};
+
+export type SubmissionFlag = keyof typeof SUBMISSION_FLAG_LABELS;
+
+/** Nguồn gốc của cờ: máy tự suy ra hay AI đọc ảnh. */
+export type SubmissionFlagSource = "exif" | "gps" | "time" | "ai" | "system";
+
+export interface SubmissionIntegrityFlag {
+  flag: SubmissionFlag;
+  /** "hard" = vi phạm yêu cầu bắt buộc; "warning" = cần người duyệt để ý. */
+  severity: "hard" | "warning";
+  source: SubmissionFlagSource;
+  detail: string | null;
+}
+
+/** Kết quả AI đọc MỘT ảnh/chứng từ. Không bao giờ là quyết định duyệt. */
+export interface AiSubmissionItemReview {
+  verdict: "pass" | "fail" | "uncertain";
+  reason: string | null;
+  /** Chữ AI đọc được trong ảnh (biển tên, nhãn mã lô, tờ giấy viết tay…). */
+  detected_text: string | null;
+  /** AI có thấy mã xác minh viết tay và đọc ra được không. */
+  code_visible: boolean | null;
+  code_read: string | null;
+  flags: SubmissionFlag[];
+}
+
+export interface AiSubmissionReview {
+  model: string;
+  scanned_at: string;
+  summary: string | null;
+  /** true khi AI thấy ảnh có dấu hiệu dàn dựng/chỉnh sửa nội dung. */
+  manipulation_suspected: boolean | null;
+  items: Record<string, AiSubmissionItemReview>;
+}
+
+/** Hồ sơ bằng chứng do NHÀ CUNG CẤP tự gửi — không phải đợt kiểm của nhân viên Vexim. */
+export type SubmissionStatus = "draft" | "pending_review" | "returned" | "accepted";
+
+export interface SupplierSubmission {
+  id: string;
+  supplier_id: string;
+  target_level: 2 | 3;
+  status: SubmissionStatus;
+  /** Người gửi (tài khoản supplier). */
+  created_by: string | null;
+  /** Mã xác minh viết tay cho các ảnh 🔖; null khi chưa bấm “Tạo mã xác minh”. */
+  verification_code: string | null;
+  code_issued_at: string | null;
+  /** Vị trí trình duyệt báo lúc chụp/tải ảnh (đối chiếu với GPS EXIF). */
+  device_lat: number | null;
+  device_lng: number | null;
+  device_accuracy_m: number | null;
+  device_captured_at: string | null;
+  /** NCC tự khai về lô hàng (L3) — luôn là supplier-stated, không phải dữ liệu Hải quan. */
+  shipment_ref: string | null;
+  shipped_on: string | null;
+  shipment_destination: string | null;
+  supplier_note: string | null;
+  /** Cờ hệ thống + AI, đã khử trùng lặp. */
+  flags: SubmissionIntegrityFlag[];
+  ai_review: AiSubmissionReview | null;
+  ai_scanned_at: string | null;
+  submitted_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  /** Đợt kiểm của nhân viên Vexim được tạo khi chấp thuận hồ sơ (bốn mắt vẫn áp dụng ở đó). */
+  verification_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Link nguồn công khai NCC khai cho lịch sử xuất khẩu (L3). */
+export interface SupplierSubmissionLink {
+  id: string;
+  submission_id: string;
+  url: string;
+  label: string | null;
+  /** Domain có nằm trong danh sách nguồn công khai Vexim cho phép quét hay không. */
+  allowed_source: boolean;
+  /** Chỉ quét domain công khai; không bao giờ truy cập link nội bộ/địa chỉ riêng. */
+  fetched_at: string | null;
+  fetch_status: "pending" | "fetched" | "blocked" | "failed" | "manual";
+  fetch_note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+/** Một ảnh/chứng từ của hồ sơ tự gửi, gắn đúng mục bắt buộc. */
+export interface SupplierSubmissionItem {
+  id: string;
+  submission_id: string;
+  supplier_id: string;
+  checklist_key: FactoryPhotoKey | ExportDocKey;
+  media_id: string | null;
+  storage_path: string | null;
+  thumb_path: string | null;
+  /** GPS đọc từ EXIF của ảnh gốc. */
+  exif_lat: number | null;
+  exif_lng: number | null;
+  exif_captured_at: string | null;
+  exif_camera_make: string | null;
+  exif_camera_model: string | null;
+  exif_software: string | null;
+  /** false khi ảnh không còn EXIF (đã bị nén/đăng lại). */
+  has_exif: boolean;
+  mime: string | null;
+  bytes: number | null;
+  width: number | null;
+  height: number | null;
+  /** Vị trí trình duyệt báo đúng lúc chụp ảnh này. */
+  capture_lat: number | null;
+  capture_lng: number | null;
+  capture_accuracy_m: number | null;
+  captured_at: string | null;
+  flags: SubmissionIntegrityFlag[];
+  ai_verdict: "pass" | "fail" | "uncertain" | null;
+  ai_reason: string | null;
+  ai_detected_text: string | null;
+  ai_code_visible: boolean | null;
+  ai_code_read: string | null;
+  uploaded_at: string;
+}
+
+export type SubmissionKey = FactoryPhotoKey | ExportDocKey;
+
+export type AuditEvidenceKey = L1DocKey | L2VisitKey | DeliveryKey | FactoryPhotoKey | ExportDocKey;
 
 /** Yêu cầu Vexim liên hệ để kiểm tra nhà máy / lịch sử giao hàng; không phải kết quả xác minh. */
 export interface SupplierVerificationRequest {

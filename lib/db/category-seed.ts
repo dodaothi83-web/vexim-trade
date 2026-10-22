@@ -11,6 +11,7 @@ import type {
   CategoryColumn,
   CategoryFilter,
   CategoryRow,
+  ProductAttributeField,
 } from "@/lib/types";
 
 export interface CategoryContentSeed {
@@ -26,6 +27,8 @@ export interface CategoryContentSeed {
   spec_rows?: CategoryRow[];
   buying_facts?: CategoryFact[];
   filters?: CategoryFilter[];
+  /** Trường thông số buyer lọc được trên trang nhóm nhỏ (CRM sửa được). */
+  product_fields?: ProductAttributeField[];
   faqs?: Array<{ q: string; a: string }>;
   active_on_homepage?: boolean;
   public_page_ready?: boolean;
@@ -61,6 +64,7 @@ const CASHEW_FACTS: CategoryFact[] = [
 
 const CASHEW_FAQS = [
   { q: "Do you charge buyers?", a: "No. Requesting a quote is free for buyers. Optional services, such as pre-shipment inspection, are quoted separately before you agree to them." },
+  { q: "How are supplier certificates verified on Vexim Trade?", a: "Uploaded certificates (HACCP, ISO 22000, BRC, Halal, FDA, Organic) are scanned to check the certified entity name and expiration date, and are labeled as Owner or Partner Entity on the supplier profile." },
   { q: "Can I get samples before ordering?", a: "Yes. We can arrange samples from the suppliers you're interested in. Sample cost and courier charges are paid by the buyer; we'll confirm the amount before anything is sent." },
   { q: "Can I order less than a full container?", a: "Some suppliers accept smaller trial orders. Tell us your volume and we'll find out who can do it." },
   { q: "Will suppliers contact me directly?", a: "Not until you agree to an introduction. Suppliers see your requirements, not your contact details." },
@@ -77,15 +81,25 @@ const CASHEW_FILTERS: CategoryFilter[] = [
   ]},
 ];
 
+const CASHEW_PRODUCT_FIELDS: ProductAttributeField[] = [
+  {
+    key: "grade",
+    label: "Grade",
+    type: "select",
+    options: ["W180", "W240", "W320", "W450", "SW", "WS", "LP", "SP"],
+    filterable: true,
+  },
+];
+
 export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
   h1: "Cashew suppliers in Vietnam",
   intro:
-    "Whole kernels, splits and pieces from Vietnamese processors. Before a supplier appears here, someone from our team visits the factory and checks their business papers and certificates. Tell us the grade and volume you need, and we'll send you a short list with MOQ, lead time and certificates for each supplier.",
+    "Whole kernels, splits, roasted salted cashew and value-added cashew products from verified Vietnamese processors and exporters. Compare product specs, MOQ, reference FOB pricing and independent verification badges (business documents & automated certificate holder recognition, factory evidence, and export delivery history), then request a quote from the supplier you choose or send your requirements and we look for suppliers that match.",
   body:
     "Most Vietnamese processors grade cashew kernels to the AFI standard. Counts are per pound and the final spec is agreed in your contract. Counts and uses below are to be confirmed by our trading team before we put them in front of a buyer.",
   seo_title: "Cashew Suppliers in Vietnam | W180 to W450 Kernels | Vexim Trade",
   seo_desc:
-    "Compare verified Vietnamese cashew kernel suppliers, W180 to W450. Request a quote from your chosen supplier, or send requirements and Vexim will shortlist matching suppliers.",
+    "Explore Vietnamese cashew kernel products (WW180–WW450, splits, roasted OEM) and verified suppliers. Request a quote from a supplier you choose, or send your requirements and we look for suppliers that match.",
   hero_image: "/images/categories/cashew-hero.jpg",
   hero_alt: "Vietnamese cashew kernels, graded",
   kicker: "W180 – SP, AFI grades",
@@ -94,6 +108,7 @@ export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
   buying_facts: CASHEW_FACTS,
   faqs: CASHEW_FAQS,
   filters: CASHEW_FILTERS,
+  product_fields: CASHEW_PRODUCT_FIELDS,
   active_on_homepage: true,
   public_page_ready: false, // computed từ NCC published, không hardcode
   seo_indexable: false, // bật sau khi hết [ngoặc vuông] + có hồ sơ thật

@@ -267,6 +267,11 @@ const upload = load('../app/api/supplier-portal/evidence/route.ts', {
     validateInitialDocument: async () => ({ bytes: new Uint8Array([1]), mime: 'application/pdf', kind: 'document' }),
     saveDocumentEvidence: async () => { portalState.saved++; return { id: 'm1' }; },
   },
+  '@/lib/certificate-service': {
+    isL1CertificateKey: (k) => ['food_safety', 'haccp_or_brc', 'product_certs', 'export_license'].includes(k),
+    defaultCertificateLabelForKey: () => 'Giấy chứng nhận',
+    ingestCertificateScan: async () => ({}),
+  },
 });
 async function uploadForm(key = 'business_license') {
   const fd = new FormData(); fd.set('checklistKey', key); fd.set('file', file);

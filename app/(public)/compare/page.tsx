@@ -51,7 +51,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
         Compare suppliers
       </h1>
       <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-600">
-        Side-by-side view of up to 4 verified Vietnamese suppliers you shortlisted. Tick &ldquo;+
+        Side-by-side view of up to 4 verified Vietnamese suppliers you selected. Tick &ldquo;+
         Compare&rdquo; on supplier cards to build this list.
       </p>
 
@@ -160,7 +160,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
           <div className="mt-6 rounded-lg border border-ink-200 bg-white p-5 text-[13px] text-ink-600">
             <p>
               Need help choosing? <Link href="/rfq" className="font-semibold text-ink-900 underline underline-offset-2 hover:text-brand-700">Send a sourcing request</Link> and
-              our desk will shortlist suitable suppliers with confirmed quotes within 1 business day.
+              our desk will find suitable suppliers with confirmed quotes within 1 business day.
             </p>
           </div>
         </>

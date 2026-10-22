@@ -31,6 +31,9 @@ import type {
   Supplier,
   SupplierCategory,
   SupplierInput,
+  SupplierSubmission,
+  SupplierSubmissionItem,
+  SupplierSubmissionLink,
   SupplierVerificationRequest,
   SupplierProduct,
   SupplierProductInput,
@@ -65,6 +68,9 @@ interface LocalShape {
   categories: Category[];
   supplier_categories: SupplierCategory[];
   supplier_verification_requests: SupplierVerificationRequest[];
+  supplier_submissions: SupplierSubmission[];
+  supplier_submission_items: SupplierSubmissionItem[];
+  supplier_submission_links: SupplierSubmissionLink[];
   certificates: Certificate[];
   verifications: Verification[];
   rfqs: Rfq[];
@@ -210,6 +216,11 @@ function seed(): LocalShape {
   // (spec/buying facts/FAQ) được điền qua migrateCategoryDefaults() từ category-seed.ts.
   type CatSeed = { slug: string; nameEn: string; introEn: string; seoEn: string; order: number; parent?: string; content?: keyof typeof seedContentMap };
   const seedContentMap = {
+    "nuts-kernels": {
+      ...DEFAULT_CATEGORY_CONFIG,
+      kicker: "Cashew, macadamia & processed nuts",
+      active_on_homepage: true,
+    },
     cashew: CASHEW_CATEGORY_CONFIG,
     pepper: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/pepper.jpg", kicker: "FAQ / cleaned / ASTA", active_on_homepage: true },
     coffee: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/coffee.jpg", kicker: "Robusta & Arabica", active_on_homepage: true },
@@ -218,7 +229,7 @@ function seed(): LocalShape {
     rice: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/rice.jpg", kicker: "Jasmine, ST25, Japonica", active_on_homepage: true },
   } as const;
   const catSeeds: CatSeed[] = [
-    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10 },
+    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10, content: "nuts-kernels" },
     { slug: "cashew", nameEn: "Cashew kernels", introEn: CASHEW_CATEGORY_CONFIG.intro!, seoEn: CASHEW_CATEGORY_CONFIG.seo_desc!, order: 11, parent: "nuts-kernels", content: "cashew" },
     { slug: "macadamia", nameEn: "Macadamia", introEn: "Vietnamese macadamia kernels and in-shell from Tây Nguyên plantations.", seoEn: "Vietnamese macadamia suppliers – graded kernels & in-shell.", order: 12, parent: "nuts-kernels" },
     { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20, content: "coffee" },
@@ -261,6 +272,7 @@ function seed(): LocalShape {
       spec_rows: content.spec_rows ?? [],
       buying_facts: content.buying_facts ?? [],
       filters: content.filters ?? [],
+      product_fields: content.product_fields ?? [],
       active_on_homepage: content.active_on_homepage ?? false,
       public_page_ready: content.public_page_ready ?? false,
       seo_indexable: content.seo_indexable ?? false,
@@ -292,6 +304,9 @@ function seed(): LocalShape {
     categories,
     supplier_categories: [],
     supplier_verification_requests: [],
+    supplier_submissions: [],
+    supplier_submission_items: [],
+    supplier_submission_links: [],
     certificates: [],
     verifications: [],
     rfqs: [],
@@ -352,7 +367,7 @@ function ensureSeedCategories(db: LocalShape) {
   };
 
   const seeds: CatSeed[] = [
-    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10 },
+    { slug: "nuts-kernels", nameEn: "Nuts & kernels", introEn: "Vietnamese cashew kernels, macadamia and processed nuts from audited factories.", seoEn: "Verified Vietnamese nut & kernel suppliers by grade, MOQ and certification.", order: 10, content: "nuts-kernels" },
     { slug: "cashew", nameEn: "Cashew kernels", introEn: CASHEW_CATEGORY_CONFIG.intro!, seoEn: CASHEW_CATEGORY_CONFIG.seo_desc!, order: 11, parent: "nuts-kernels", content: "cashew" },
     { slug: "macadamia", nameEn: "Macadamia", introEn: "Vietnamese macadamia kernels and in-shell from Tây Nguyên plantations.", seoEn: "Vietnamese macadamia suppliers – graded kernels & in-shell.", order: 12, parent: "nuts-kernels" },
     { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20, content: "coffee" },
@@ -396,6 +411,7 @@ function ensureSeedCategories(db: LocalShape) {
       spec_rows: content.spec_rows ?? [],
       buying_facts: content.buying_facts ?? [],
       filters: content.filters ?? [],
+      product_fields: content.product_fields ?? [],
       active_on_homepage: content.active_on_homepage ?? false,
       public_page_ready: content.public_page_ready ?? false,
       seo_indexable: content.seo_indexable ?? false,
@@ -431,9 +447,15 @@ function migrateCategoryDefaults(db: LocalShape) {
       buying_facts: CASHEW_CATEGORY_CONFIG.buying_facts,
       faq_i18n: CASHEW_CATEGORY_CONFIG.faqs,
       filters: CASHEW_CATEGORY_CONFIG.filters,
+      product_fields: CASHEW_CATEGORY_CONFIG.product_fields,
       active_on_homepage: true,
       public_page_ready: true,
       seo_indexable: false,
+      status: "published",
+    },
+    "nuts-kernels": {
+      homepage_kicker_i18n: { en: "Cashew, macadamia & processed nuts" },
+      active_on_homepage: true,
       status: "published",
     },
     pepper:   { hero_image: "/images/categories/pepper.jpg",   homepage_kicker_i18n: { en: "FAQ / cleaned / ASTA" },          active_on_homepage: true },
@@ -579,6 +601,32 @@ function migrateVerifications(db: LocalShape) {
       s.verification_level = lvl;
       if (lvl > 0 && !s.verified_at) s.verified_at = new Date().toISOString();
     }
+  }
+}
+
+/** Hồ sơ NCC tự gửi L2/L3: đảm bảo shape cũ/thiếu cột vẫn đọc được. */
+function migrateSubmissions(db: LocalShape) {
+  if (!Array.isArray(db.supplier_submissions)) db.supplier_submissions = [];
+  if (!Array.isArray(db.supplier_submission_items)) db.supplier_submission_items = [];
+  if (!Array.isArray(db.supplier_submission_links)) db.supplier_submission_links = [];
+  for (const s of db.supplier_submissions) {
+    if (!Array.isArray(s.flags)) s.flags = [];
+    if (s.ai_review === undefined) s.ai_review = null;
+    if (s.verification_id === undefined) s.verification_id = null;
+    if (s.device_lat === undefined) s.device_lat = null;
+    if (s.device_lng === undefined) s.device_lng = null;
+    if (s.device_accuracy_m === undefined) s.device_accuracy_m = null;
+    if (s.device_captured_at === undefined) s.device_captured_at = null;
+    if (s.review_note === undefined) s.review_note = null;
+    if (s.shipment_ref === undefined) s.shipment_ref = null;
+    if (s.shipped_on === undefined) s.shipped_on = null;
+    if (s.shipment_destination === undefined) s.shipment_destination = null;
+    if (s.supplier_note === undefined) s.supplier_note = null;
+  }
+  for (const i of db.supplier_submission_items) {
+    if (!Array.isArray(i.flags)) i.flags = [];
+    if (i.has_exif === undefined) i.has_exif = false;
+    if (i.ai_verdict === undefined) i.ai_verdict = null;
   }
 }
 
@@ -733,6 +781,9 @@ function load(): LocalShape {
     if (!Array.isArray(c.supplier_verification_requests)) c.supplier_verification_requests = [];
     if (!Array.isArray(c.certificates)) c.certificates = [];
     if (!Array.isArray(c.verifications)) c.verifications = [];
+    if (!Array.isArray(c.supplier_submissions)) c.supplier_submissions = [];
+    if (!Array.isArray(c.supplier_submission_items)) c.supplier_submission_items = [];
+    if (!Array.isArray(c.supplier_submission_links)) c.supplier_submission_links = [];
     if (!Array.isArray(c.rfqs)) c.rfqs = [];
     if (!Array.isArray(c.rfq_attachments)) c.rfq_attachments = [];
     if (!Array.isArray(c.rfq_matches)) c.rfq_matches = [];
@@ -746,6 +797,7 @@ function load(): LocalShape {
     migrateMessageDefaults(c);
     ensureDemoSuppliers(c);
     migrateVerifications(c);
+    migrateSubmissions(c);
     removeProspectsWithoutEmail(c);
     return c;
   }
@@ -775,6 +827,9 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.supplier_verification_requests)) parsed.supplier_verification_requests = [];
         if (!Array.isArray(parsed.certificates)) parsed.certificates = [];
         if (!Array.isArray(parsed.verifications)) parsed.verifications = [];
+        if (!Array.isArray(parsed.supplier_submissions)) parsed.supplier_submissions = [];
+        if (!Array.isArray(parsed.supplier_submission_items)) parsed.supplier_submission_items = [];
+        if (!Array.isArray(parsed.supplier_submission_links)) parsed.supplier_submission_links = [];
         if (!Array.isArray(parsed.rfqs)) parsed.rfqs = [];
         if (!Array.isArray(parsed.rfq_attachments)) parsed.rfq_attachments = [];
         if (!Array.isArray(parsed.rfq_matches)) parsed.rfq_matches = [];
@@ -788,6 +843,7 @@ function load(): LocalShape {
         migrateMessageDefaults(parsed);
         ensureDemoSuppliers(parsed);
         migrateVerifications(parsed);
+        migrateSubmissions(parsed);
         removeProspectsWithoutEmail(parsed);
         g.__veximLocal = parsed;
         return parsed;
@@ -804,6 +860,7 @@ function load(): LocalShape {
   migrateMessageDefaults(fresh);
   ensureDemoSuppliers(fresh);
   migrateVerifications(fresh);
+  migrateSubmissions(fresh);
   g.__veximLocal = fresh;
   persist(fresh);
   return fresh;
@@ -1527,7 +1584,9 @@ export const localStore: DataStore = {
       valid_until: null,
       file_media_id: null,
       check_status: "on_file" as const,
-      holder_name: null, scope_text: null, requested_product_ids: [], approved_product_ids: [],
+      holder_name: null, holder_match: null, ai_scanned_at: null, ai_summary: null, ai_confidence: null,
+      source: "manual" as const, checklist_key: null, verification_id: null, staff_hidden: false, expiry_notified: {},
+      scope_text: null, requested_product_ids: [], approved_product_ids: [],
       review_status: "unreviewed" as const, review_note: null, publicly_visible: false,
       checked_at: null,
       checked_by: null,
@@ -1806,6 +1865,156 @@ export const localStore: DataStore = {
       db.introductions = [...(db.introductions ?? []), row];
     });
     return row;
+  },
+
+  /* ---- Cổng NCC tự gửi bằng chứng L2/L3 (kho local/demo) ---- */
+  async listSubmissions(supplierId, level) {
+    let rows = [...(load().supplier_submissions ?? [])];
+    if (supplierId) rows = rows.filter((s) => s.supplier_id === supplierId);
+    if (level) rows = rows.filter((s) => s.target_level === level);
+    return rows.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  },
+  async getSubmission(id) {
+    return (load().supplier_submissions ?? []).find((s) => s.id === id) ?? null;
+  },
+  async createSubmission(input) {
+    const now = new Date().toISOString();
+    const row = {
+      id: randomUUID(),
+      supplier_id: "",
+      target_level: 2,
+      status: "draft",
+      created_by: null,
+      verification_code: null,
+      code_issued_at: null,
+      device_lat: null,
+      device_lng: null,
+      device_accuracy_m: null,
+      device_captured_at: null,
+      shipment_ref: null,
+      shipped_on: null,
+      shipment_destination: null,
+      supplier_note: null,
+      flags: [],
+      ai_review: null,
+      ai_scanned_at: null,
+      submitted_at: null,
+      reviewed_by: null,
+      reviewed_at: null,
+      review_note: null,
+      verification_id: null,
+      created_at: now,
+      updated_at: now,
+      ...cleanPatch(input),
+    } as SupplierSubmission;
+    mutate((db) => {
+      db.supplier_submissions = [...(db.supplier_submissions ?? []), row];
+    });
+    return row;
+  },
+  async updateSubmission(id, patch) {
+    return mutate((db) => {
+      const row = (db.supplier_submissions ?? []).find((s) => s.id === id);
+      if (!row) throw new Error("Submission not found");
+      Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      return row;
+    });
+  },
+  async listSubmissionItems(submissionId) {
+    return (load().supplier_submission_items ?? [])
+      .filter((i) => i.submission_id === submissionId)
+      .sort((a, b) => a.uploaded_at.localeCompare(b.uploaded_at));
+  },
+  async getSubmissionItem(id) {
+    return (load().supplier_submission_items ?? []).find((i) => i.id === id) ?? null;
+  },
+  async createSubmissionItem(input) {
+    const row = {
+      id: randomUUID(),
+      submission_id: "",
+      supplier_id: "",
+      checklist_key: "",
+      media_id: null,
+      storage_path: null,
+      thumb_path: null,
+      exif_lat: null,
+      exif_lng: null,
+      exif_captured_at: null,
+      exif_camera_make: null,
+      exif_camera_model: null,
+      exif_software: null,
+      has_exif: false,
+      mime: null,
+      bytes: null,
+      width: null,
+      height: null,
+      capture_lat: null,
+      capture_lng: null,
+      capture_accuracy_m: null,
+      captured_at: null,
+      flags: [],
+      ai_verdict: null,
+      ai_reason: null,
+      ai_detected_text: null,
+      ai_code_visible: null,
+      ai_code_read: null,
+      uploaded_at: new Date().toISOString(),
+      ...cleanPatch(input),
+    } as SupplierSubmissionItem;
+    mutate((db) => {
+      db.supplier_submission_items = [...(db.supplier_submission_items ?? []), row];
+    });
+    return row;
+  },
+  async updateSubmissionItem(id, patch) {
+    return mutate((db) => {
+      const row = (db.supplier_submission_items ?? []).find((i) => i.id === id);
+      if (!row) throw new Error("Submission item not found");
+      Object.assign(row, cleanPatch(patch));
+      return row;
+    });
+  },
+  async deleteSubmissionItem(id) {
+    mutate((db) => {
+      db.supplier_submission_items = (db.supplier_submission_items ?? []).filter((i) => i.id !== id);
+    });
+  },
+  async listSubmissionLinks(submissionId) {
+    return (load().supplier_submission_links ?? [])
+      .filter((l) => l.submission_id === submissionId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  },
+  async createSubmissionLink(input) {
+    const row = {
+      id: randomUUID(),
+      submission_id: "",
+      url: "",
+      label: null,
+      allowed_source: false,
+      fetched_at: null,
+      fetch_status: "pending",
+      fetch_note: null,
+      created_by: null,
+      created_at: new Date().toISOString(),
+      ...cleanPatch(input),
+    } as SupplierSubmissionLink;
+    mutate((db) => {
+      db.supplier_submission_links = [...(db.supplier_submission_links ?? []), row];
+    });
+    return row;
+  },
+  async updateSubmissionLink(id, patch) {
+    return mutate((db) => {
+      const row = (db.supplier_submission_links ?? []).find((l) => l.id === id);
+      if (!row) throw new Error("Submission link not found");
+      Object.assign(row, cleanPatch(patch));
+      return row;
+    });
+  },
+  async deleteSubmissionLink(id) {
+    mutate((db) => {
+      db.supplier_submission_links = (db.supplier_submission_links ?? []).filter((l) => l.id !== id);
+    });
   },
 
   async addAuditLog(entry) {

@@ -451,7 +451,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
           <label className="flex items-start gap-2 pt-2 text-[13px] text-ink-700">
             <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.consent} onChange={(e) => update("consent", e.target.checked)} />
             <span>
-              I agree to Veximtrade sharing this request with shortlisted suppliers and processing my data
+              I agree to Veximtrade sharing this request with matching suppliers and processing my data
               to reply to this enquiry. {errors.consent && <span className="text-red-600">(required)</span>}
             </span>
           </label>

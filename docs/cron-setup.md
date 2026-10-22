@@ -54,3 +54,8 @@ Route này chỉ kiểm tra `Authorization: Bearer <CRON_SECRET>` — có thể 
 - GitHub Actions schedule
 - UptimeRobot, healthchecks.io, hay bất kỳ webcron nào
 - Vercel Cron (nếu nâng lên Pro): chỉ cần thêm lại `vercel.json` với schedule mong muốn.
+
+## Cron 2: Nhắc hết hạn chứng nhận L1 (đã gộp chung vào `/api/cron/rfq-sla` + có route riêng `/api/cron/certificate-expiry`)
+- **Không cần tạo thêm biến môi trường hay cron job mới:** `/api/cron/rfq-sla` đã tự động chạy kèm bước kiểm tra nhắc hết hạn chứng nhận L1 (`60 / 30 / 7 / 1` ngày) trong cùng một lần gọi, dùng chung đúng biến `CRON_SECRET` hiện có.
+- Nếu muốn tách lịch gọi riêng, bạn cũng có thể trỏ thêm 1 job vào `GET https://www.veximtrade.com/api/cron/certificate-expiry` với **cùng header `Authorization: Bearer <CRON_SECRET>`** (dùng chung chính mã `CRON_SECRET` đã cài).
+- **Idempotent:** mỗi mốc (`d60`, `d30`, `d7`, `d1`) được ghi nhận trong `certificates.expiry_notified` nên dù gọi gộp trong `/api/cron/rfq-sla` hay gọi riêng `/api/cron/certificate-expiry` nhiều lần trong ngày cũng không bao giờ gửi trùng email; khi NCC tải bản mới có `valid_until` mới, các mốc được đặt lại từ đầu.

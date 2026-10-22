@@ -1,0 +1,88 @@
+import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
+
+import { getSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
+import { rateLimit } from "@/lib/rfq/rate-limit";
+import { supplierSubmissionAccess, staffSubmissionAccess } from "@/lib/supplier-portal/submission-access";
+import { submissionEditable } from "@/lib/verification-submission";
+import { scanAndQueueSubmission } from "@/lib/verification-submission-service";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 180;
+
+/**
+ * AI quét hồ sơ NCC tự gửi rồi hệ thống TỰ xếp hàng đợi.
+ *
+ * Ai gọi được:
+ *  - NCC của đúng hồ sơ, khi hồ sơ còn mở (draft/returned) hoặc vừa nộp.
+ *  - Nhân viên có `verifications.inspect` + `media.internal` (quét lại khi đối chiếu).
+ *
+ * AI KHÔNG duyệt và KHÔNG cấp huy hiệu: kết quả chỉ là tín hiệu + lý do trả hồ sơ.
+ */
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  let submit = false;
+  if (request.headers.get("content-type")?.includes("application/json")) {
+    try { submit = Boolean((await request.json() as { submit?: unknown }).submit); } catch { submit = false; }
+  }
+
+  const session = await getSession();
+  const staff = session && hasPermission(session.role, "verifications.inspect") && hasPermission(session.role, "media.internal")
+    ? await staffSubmissionAccess(id)
+    : null;
+  const own = staff ? null : await supplierSubmissionAccess(id);
+  const access = staff ?? own;
+  if (!access) {
+    return NextResponse.json({ ok: false, message: "Không mở được hồ sơ hoặc bạn không có quyền quét." }, { status: 403 });
+  }
+  const isStaff = Boolean(staff);
+  if (!isStaff && !submissionEditable(access.submission.status)) {
+    return NextResponse.json({ ok: false, message: "Hồ sơ đang chờ xét duyệt hoặc đã được nhận; không quét lại được nữa." }, { status: 409 });
+  }
+
+  const limitKey = `submission-scan:${isStaff ? `staff:${session?.uid}` : `supplier:${access.submission.supplier_id}`}`;
+  const rl = rateLimit(limitKey, { windowMs: 30 * 60 * 1000, max: isStaff ? 12 : 4 });
+  if (!rl.ok) {
+    return NextResponse.json({
+      ok: false,
+      message: `Đã hết lượt quét AI trong 30 phút (thử lại sau ~${Math.ceil(rl.resetInMs / 60000)} phút).`,
+    }, { status: 429 });
+  }
+  const supplier = await access.store.getSupplier(access.submission.supplier_id);
+  if (!supplier) return NextResponse.json({ ok: false, message: "Không tìm thấy hồ sơ doanh nghiệp." }, { status: 404 });
+
+  try {
+    const result = await scanAndQueueSubmission(access.store, {
+      bundle: { submission: access.submission, items: access.items, links: access.links },
+      supplier,
+      actorId: isStaff ? session?.uid ?? null : own?.userId ?? null,
+      actorEmail: isStaff ? session?.email ?? null : own?.userEmail ?? null,
+      submit,
+    });
+    revalidatePath("/supplier/portal/verification");
+    revalidatePath(`/crm/verifications/submissions/${access.submission.id}`);
+    revalidatePath("/crm/verifications/submissions");
+    return NextResponse.json({
+      ok: result.ok || !submit,
+      status: result.status,
+      message: result.message,
+      aiScanned: Boolean(result.aiReview),
+      summary: result.aiReview?.summary ?? null,
+      manipulationSuspected: result.aiReview?.manipulation_suspected ?? null,
+      items: Object.entries(result.aiReview?.items ?? {}).map(([key, item]) => ({ key, ...item })),
+      reasons: result.reasons,
+      missing: result.missing,
+      warnings: result.warnings,
+    }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("[submission-ai-scan] lỗi", error instanceof Error ? error.message : error);
+    return NextResponse.json({
+      ok: false,
+      message: error instanceof Error && /AI/.test(error.message)
+        ? error.message
+        : "Hệ thống chưa quét được bằng chứng. Tệp đã tải vẫn được giữ; thử lại sau.",
+    }, { status: 502 });
+  }
+}

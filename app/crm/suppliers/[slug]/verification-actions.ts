@@ -147,7 +147,7 @@ export async function approveVerificationAction(fd: FormData) {
       return { ok: false, message: "Chưa có ảnh chụp giấy tờ hoặc PDF trong bằng chứng của đợt Kiểm tra giấy tờ này. Tệp ở kho chung NCC không được tính; hãy tải vào đúng đợt kiểm (hoặc trả lại để bổ sung)." };
     }
   } else if (before.target_level === 2) {
-    if (!media.some((m) => m.kind === "image" && m.storage_path && m.checklist_key !== "documents_original")) {
+    if (!media.some((m) => m.kind === "image" && m.storage_path && (m.checklist_key as string | null) !== "documents_original")) {
       return { ok: false, message: "Cần ít nhất một ảnh thăm nhà máy trong đúng đợt kiểm trước khi duyệt. Các mục và ô thông tin khác có thể để trống." };
     }
   } else {
@@ -241,7 +241,7 @@ export async function assignVerificationEvidenceAction(mediaId: string, key: Aud
   } catch (error) {
     if (error instanceof Error && /media_checklist_key_ck/.test(error.message)) {
       console.error("[verification] missing factory/delivery inline evidence migration");
-      return { ok: false, message: "CSDL chưa cập nhật mục bằng chứng. Cần chạy migration 20261017_factory_delivery_inline_evidence.sql trước khi gắn tệp." };
+      return { ok: false, message: "CSDL chưa cập nhật mục bằng chứng. Cần chạy migration 20261017_factory_delivery_inline_evidence.sql và 20261020_supplier_self_verification_submissions.sql (danh mục 9 ảnh L2) trước khi gắn tệp." };
     }
     throw error;
   }

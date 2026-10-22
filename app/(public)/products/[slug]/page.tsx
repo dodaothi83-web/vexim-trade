@@ -13,7 +13,7 @@ import {
   ClipboardCheck,
   Factory,
   FileCheck2,
-  HelpCircle,
+  FolderTree,
   PackageCheck,
   Scale,
   ShieldCheck,
@@ -32,6 +32,14 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { sanitizeHtml } from "@/lib/public/sanitize";
 import { SITE_URL } from "@/lib/site";
 import { safeJsonLd } from "@/lib/public/supplier-seo";
+import {
+  CATEGORY_CHOSEN_SUPPLIER_COMPLEMENT,
+  CATEGORY_META_SUFFIX,
+  CATEGORY_OPEN_REQUEST_COMPLEMENT,
+  categoryMetaFallback,
+  hasChosenSupplierPath,
+  hasOpenRequestPath,
+} from "@/lib/public/meta-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -39,31 +47,50 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-const CATEGORY_RFQ_META_SUFFIX =
-  "Request a quote from a supplier you choose, or send your requirements and Vexim will shortlist suppliers that match.";
+interface ChildCategoryWithCount {
+  category: Category;
+  name: string;
+  intro: string;
+  productCount: number;
+}
+
+
+function categoryDisplayName(cat: Category): string {
+  return t(cat.name_i18n) || cat.slug;
+}
+
+/**
+ * Tiêu đề thẻ mặc định. Tên danh mục thủy sản đã kết thúc bằng "Products", ghép thêm
+ * " Products & Verified Suppliers" sẽ ra "Products Products". Bỏ phần thừa thay vì
+ * bắt người biên tập phải nhớ điền seo_title cho từng danh mục.
+ */
+function categorySeoTitle(name: string, storedTitle: string): string {
+  const stored = storedTitle.trim();
+  if (stored) return stored;
+  const suffix = /\bproducts?$/i.test(name.trim()) ? "" : " Products";
+  return `${name}${suffix} & Verified Suppliers in Vietnam | Vexim Trade`;
+}
 
 function categoryMetaDescription(name: string, storedDescription: string): string {
   const base = storedDescription.trim();
-  const fallback = `Compare verified Vietnamese ${name.toLowerCase()} suppliers. ${CATEGORY_RFQ_META_SUFFIX}`;
+  const fallback = categoryMetaFallback(name);
   if (!base) return fallback;
 
-  const hasChosenSupplierPath = /supplier you choose|your chosen supplier|chosen supplier/i.test(base);
-  const hasOpenRequestPath = /shortlist/i.test(base);
-  if (hasChosenSupplierPath && hasOpenRequestPath) return base;
+  const chosen = hasChosenSupplierPath(base);
+  const open = hasOpenRequestPath(base);
+  if (chosen && open) return base;
 
-  if (!hasChosenSupplierPath && !hasOpenRequestPath) {
-    const withSuffix = `${base.replace(/[\s.]+$/, "")}. ${CATEGORY_RFQ_META_SUFFIX}`;
+  if (!chosen && !open) {
+    const withSuffix = `${base.replace(/[\s.]+$/, "")}. ${CATEGORY_META_SUFFIX}`;
     return withSuffix.length <= 185 ? withSuffix : fallback;
   }
 
-  const complement = hasChosenSupplierPath
-    ? "If you have not found the right fit, send your requirements and Vexim will shortlist suppliers that match."
-    : "You can also request a quote from a supplier you choose.";
+  const complement = chosen ? CATEGORY_OPEN_REQUEST_COMPLEMENT : CATEGORY_CHOSEN_SUPPLIER_COMPLEMENT;
   const withComplement = `${base.replace(/[\s.]+$/, "")}. ${complement}`;
   if (withComplement.length <= 185) return withComplement;
 
   const firstSentence = base.match(/^[^.]+\./)?.[0]?.trim();
-  const shortened = firstSentence ? `${firstSentence} ${CATEGORY_RFQ_META_SUFFIX}` : fallback;
+  const shortened = firstSentence ? `${firstSentence} ${CATEGORY_META_SUFFIX}` : fallback;
   return shortened.length <= 185 ? shortened : fallback;
 }
 
@@ -75,6 +102,10 @@ const STANDARD_CATEGORY_FAQS = [
   {
     q: "How does Vexim match suppliers for an open request?",
     a: "Suppliers are matched on your requirements only, including your specs, quantity and market. Paid listings never affect who Vexim recommends.",
+  },
+  {
+    q: "How are supplier certificates verified on Vexim Trade?",
+    a: "When suppliers upload quality certificates (HACCP, ISO 22000, BRC, Halal, FDA, Organic), Vexim's automated recognition scans the certified holder name and expiration date, labeling each certificate as Owner or Partner Entity.",
   },
 ] as const;
 
@@ -119,17 +150,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const { cat, resolvedSlug, isPreview } = await resolveCategory(slug);
   if (!cat) return { title: "Category not found | Vexim Trade", robots: { index: false, follow: false } };
-  const name = t(cat.name_i18n);
-  const seoTitle = t(cat.seo_title_i18n) || `${name} Products in Vietnam | Vexim Trade`;
+  const name = categoryDisplayName(cat);
+  const seoTitle = categorySeoTitle(name, t(cat.seo_title_i18n));
   const seoDesc = categoryMetaDescription(name, t(cat.seo_desc_i18n));
   const indexable = !isPreview && !!cat.seo_indexable;
-  const images = cat.hero_image ? [{ url: cat.hero_image, alt: `${name} suppliers in Vietnam` }] : undefined;
+  const heroImage = cat.hero_image || "/images/home/hero-cashew-texture.jpg";
+  const images = [{ url: heroImage, alt: `${name} products and verified suppliers in Vietnam` }];
   return {
     title: { absolute: seoTitle },
     description: seoDesc,
     alternates: { canonical: `/products/${resolvedSlug}` },
     openGraph: { title: seoTitle, description: seoDesc, url: `/products/${resolvedSlug}`, siteName: "Vexim Trade", type: "website", images },
-    twitter: { card: "summary_large_image", title: seoTitle, description: seoDesc, images: cat.hero_image ? [cat.hero_image] : undefined },
+    twitter: { card: "summary_large_image", title: seoTitle, description: seoDesc, images: [heroImage] },
     robots: { index: indexable, follow: !isPreview },
   };
 }
@@ -139,30 +171,83 @@ async function resolveCategory(slug: string) {
   const store = (await import("@/lib/db")).getStore();
   const session = await getSession();
   const isStaff = !!(session && hasPermission(session.role, "categories.manage"));
-  const all = typeof store.listCategories === "function" ? await store.listCategories({ publishedOnly: false }) : [];
-  let cat = (all as Category[]).find((c) => c.slug === slug);
+  const all = typeof store.listCategories === "function" ? ((await store.listCategories({ publishedOnly: false })) as Category[]) : [];
+  let cat = all.find((c) => c.slug === slug);
   if (!cat) {
     // Tìm trong previous_slugs → 301
-    cat = (all as Category[]).find((c) => Array.isArray(c.previous_slugs) && c.previous_slugs.includes(slug));
+    cat = all.find((c) => Array.isArray(c.previous_slugs) && c.previous_slugs.includes(slug));
     if (cat) permanentRedirect(`/products/${cat.slug}`);
   }
-  if (!cat) return { cat: null, resolvedSlug: slug, isStaff, isPreview: false };
+  if (!cat) return { cat: null, allCategories: all, resolvedSlug: slug, isStaff, isPreview: false };
   const isPublished = cat.status === "published" && cat.is_published;
   // Người ngoài chỉ xem được category published; staff có categories.manage được xem trước nháp.
-  if (!isPublished && !isStaff) return { cat: null, resolvedSlug: slug, isStaff, isPreview: false };
-  return { cat, resolvedSlug: cat.slug, isStaff, isPreview: !isPublished };
+  if (!isPublished && !isStaff) return { cat: null, allCategories: all, resolvedSlug: slug, isStaff, isPreview: false };
+  return { cat, allCategories: all, resolvedSlug: cat.slug, isStaff, isPreview: !isPublished };
 }
 
 export default async function CategoryPage({ params }: PageProps) {
   const { slug } = await params;
-  const { cat, isPreview, resolvedSlug } = await resolveCategory(slug);
+  const { cat, allCategories, isStaff, isPreview, resolvedSlug } = await resolveCategory(slug);
   if (!cat) notFound();
 
-  const products = await listPublicCategoryProducts(cat);
+  const isVisibleCategory = (c: Category) => isStaff || (c.status === "published" && c.is_published);
+
+  // Kiểm tra quan hệ Nhóm cha (Danh mục lớn) ↔ Nhóm nhỏ (Danh mục con) từ CRM
+  const parentCategory = cat.parent_id
+    ? (allCategories.find((c) => c.id === cat.parent_id && isVisibleCategory(c)) ?? null)
+    : null;
+
+  const childCategories = allCategories
+    .filter((c) => c.parent_id === cat.id && isVisibleCategory(c))
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.slug.localeCompare(b.slug));
+
+  const siblingCategories = parentCategory
+    ? allCategories
+        .filter((c) => c.parent_id === parentCategory.id && isVisibleCategory(c))
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.slug.localeCompare(b.slug))
+    : [];
+
+  // Lấy sản phẩm trực tiếp của danh mục hiện tại + nếu là Danh mục lớn (Nhóm cha) thì tổng hợp cả sản phẩm của các Nhóm nhỏ trực thuộc
+  const directProducts = await listPublicCategoryProducts(cat);
+  const childProductsList = await Promise.all(
+    childCategories.map(async (child) => ({
+      child,
+      products: await listPublicCategoryProducts(child),
+    })),
+  );
+
+  const childGroups: ChildCategoryWithCount[] = childProductsList.map(({ child, products: items }) => ({
+    category: child,
+    name: categoryDisplayName(child),
+    intro: t(child.intro_i18n) || "",
+    productCount: items.length,
+  }));
+
+  const seenProductIds = new Set<string>();
+  const products: PublicCategoryProduct[] = [];
+  for (const item of directProducts) {
+    if (!seenProductIds.has(item.id)) {
+      seenProductIds.add(item.id);
+      products.push(item);
+    }
+  }
+  for (const { products: items } of childProductsList) {
+    for (const item of items) {
+      if (!seenProductIds.has(item.id)) {
+        seenProductIds.add(item.id);
+        products.push(item);
+      }
+    }
+  }
+
   const sponsored = !isPreview ? await pilotPlacement(cat.slug, products) : null;
-  const categoryName = t(cat.name_i18n) || cat.slug;
+  const categoryName = categoryDisplayName(cat);
+  const parentName = parentCategory ? categoryDisplayName(parentCategory) : null;
   const h1 = cat.slug === "cashew" ? "Vietnam Cashew" : (t(cat.h1_i18n) || `Vietnam ${categoryName}`);
-  const intro = t(cat.intro_i18n) || `Explore Vietnamese ${categoryName.toLowerCase()} products. Supplier verification is shown on each listing.`;
+  const intro =
+    t(cat.intro_i18n) ||
+    `Explore export-ready Vietnamese ${categoryName.toLowerCase()} products and verified suppliers. Compare specifications, MOQ, reference FOB pricing, and independent verification badges (business documents & certificate holder status, factory evidence, and export delivery history), then request a quote from the supplier you choose or send your requirements and we look for suppliers that match.`;
+
   // Sanitize body để chặn HTML/script độc từ CMS (chỉ cho p/h2-h4/ul/ol/li/a/strong/em/br).
   const bodyRaw = t(cat.body_i18n);
   const body = bodyRaw ? sanitizeHtml(bodyRaw) : "";
@@ -176,15 +261,39 @@ export default async function CategoryPage({ params }: PageProps) {
   const faqs = categoryFaqs(cat.faq_i18n);
   const filters: CategoryFilter[] = Array.isArray(cat.filters) ? (cat.filters as CategoryFilter[]) : [];
 
-  // Schema cho trang danh mục: đường dẫn breadcrumb luôn có; ItemList chỉ khi đã có sản phẩm.
+  // Schema cho trang danh mục: đường dẫn breadcrumb luôn có (gồm cả Nhóm cha nếu đây là Nhóm nhỏ); ItemList chỉ khi đã có sản phẩm.
+  const breadcrumbElements = [
+    { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+    { "@type": "ListItem", position: 2, name: "Products", item: `${SITE_URL}/#categories` },
+    ...(parentCategory && parentName
+      ? [
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: parentName,
+            item: `${SITE_URL}/products/${encodeURIComponent(parentCategory.slug)}`,
+          },
+          {
+            "@type": "ListItem",
+            position: 4,
+            name: categoryName,
+            item: `${SITE_URL}/products/${encodeURIComponent(resolvedSlug)}`,
+          },
+        ]
+      : [
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: categoryName,
+            item: `${SITE_URL}/products/${encodeURIComponent(resolvedSlug)}`,
+          },
+        ]),
+  ];
+
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "Products", item: `${SITE_URL}/#categories` },
-      { "@type": "ListItem", position: 3, name: categoryName, item: `${SITE_URL}/products/${encodeURIComponent(resolvedSlug)}` },
-    ],
+    itemListElement: breadcrumbElements,
   };
   const itemListJsonLd = hasProducts ? {
     "@context": "https://schema.org",
@@ -195,6 +304,15 @@ export default async function CategoryPage({ params }: PageProps) {
       url: `${SITE_URL}/products/${encodeURIComponent(cat.slug)}/${encodeURIComponent(p.id)}`,
     })),
   } : null;
+
+  const breadcrumbItems = [
+    { label: "Home", href: "/" },
+    { label: "Products", href: "/#categories" },
+    ...(parentCategory && parentName
+      ? [{ label: parentName, href: `/products/${parentCategory.slug}` }]
+      : []),
+    { label: categoryName },
+  ];
 
   return (
     <>
@@ -224,7 +342,41 @@ export default async function CategoryPage({ params }: PageProps) {
         </div>
       )}
       <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-6 sm:px-6 lg:px-8">
-        <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Products", href: "/#categories" }, { label: categoryName }]} />
+        <Breadcrumbs items={breadcrumbItems} />
+
+        {/* Thanh chuyển nhanh giữa Nhóm cha và các Nhóm nhỏ cùng cấp (khi đang ở trang Nhóm nhỏ) */}
+        {parentCategory && parentName && siblingCategories.length > 0 && (
+          <nav
+            aria-label={`Sub-categories in ${parentName}`}
+            className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs"
+          >
+            <Link
+              href={`/products/${parentCategory.slug}`}
+              className="inline-flex items-center gap-1.5 font-bold text-brand-800 hover:underline"
+            >
+              <FolderTree className="h-3.5 w-3.5" />
+              All {parentName}:
+            </Link>
+            {siblingCategories.map((sib) => {
+              const active = sib.id === cat.id;
+              return (
+                <Link
+                  key={sib.id}
+                  href={`/products/${sib.slug}`}
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-full px-3 py-1 font-semibold transition ${
+                    active
+                      ? "bg-brand-800 text-white shadow-2xs"
+                      : "border border-slate-200 bg-white text-ink-700 hover:border-brand-400 hover:text-brand-800"
+                  }`}
+                >
+                  {categoryDisplayName(sib)}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
+
         {hasProducts ? (
           <StateA
             cat={cat}
@@ -233,6 +385,7 @@ export default async function CategoryPage({ params }: PageProps) {
             categoryName={categoryName}
             h1={h1}
             intro={intro}
+            childGroups={childGroups}
             body={body}
             columns={columns}
             rows={rows}
@@ -242,28 +395,96 @@ export default async function CategoryPage({ params }: PageProps) {
             rfqHref={rfqHref}
           />
         ) : (
-          <StateB cat={cat} categoryName={categoryName} h1={h1} intro={intro} rfqHref={rfqHref}
-            columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} />
+          <StateB
+            cat={cat}
+            categoryName={categoryName}
+            h1={h1}
+            intro={intro}
+            childGroups={childGroups}
+            rfqHref={rfqHref}
+            columns={columns}
+            rows={rows}
+            facts={facts}
+            faqs={faqs}
+            body={body}
+          />
         )}
 
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white/95 p-3 shadow-lg backdrop-blur sm:hidden">
           <Link href={rfqHref} className="flex w-full items-center justify-center gap-2 rounded-md bg-brand-700 px-4 py-3 text-[14px] font-bold text-white">
-            Request a quote <ArrowRight className="h-4 w-4" />
-          </Link>
+            Request a quote <ArrowRight className="h-4 w-4" /></Link>
         </div>
       </div>
     </>
   );
 }
 
+/* ============ Khu vực hiển thị các Nhóm nhỏ trên Trang Danh mục lớn (Nhóm cha) ============ */
+
+function SubcategoryDirectory({
+  parentName,
+  childGroups,
+}: {
+  parentName: string;
+  childGroups: ChildCategoryWithCount[];
+}) {
+  if (childGroups.length === 0) return null;
+  return (
+    <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-extrabold uppercase tracking-wider text-brand-700">
+            Sub-categories in {parentName}
+          </p>
+          <h2 className="mt-0.5 text-base font-bold text-ink-900">
+            Select a product sub-category to filter by specific technical grades &amp; parameters
+          </h2>
+        </div>
+      </div>
+
+      <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {childGroups.map(({ category: child, name, intro, productCount }) => (
+          <li key={child.id} className="flex">
+            <Link
+              href={`/products/${child.slug}`}
+              className="group flex w-full flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-brand-400 hover:shadow-md"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-sm font-black text-ink-900 group-hover:text-brand-800">
+                    {name}
+                  </h3>
+                  {productCount > 0 && (
+                    <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 ring-1 ring-emerald-200">
+                      {productCount} product{productCount > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+                {intro && (
+                  <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-ink-600">
+                    {intro}
+                  </p>
+                )}
+              </div>
+              <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-brand-700 group-hover:text-brand-900">
+                View {name.toLowerCase()} &amp; filters <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /* ================== STATE A — đã có NCC ================== */
 
 function StateA({
-  cat, products, sponsored, categoryName, h1, intro, body, columns, rows, facts, faqs, filters, rfqHref,
+  cat, products, sponsored, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref,
 }: {
   cat: Category;
   products: PublicCategoryProduct[]; sponsored: PilotPlacement | null;
-  categoryName: string; h1: string; intro: string; body: string | null;
+  categoryName: string; h1: string; intro: string; childGroups: ChildCategoryWithCount[]; body: string | null;
   columns: CategoryColumn[];
   rows: CategoryRow[];
   facts: CategoryFact[];
@@ -297,6 +518,9 @@ function StateA({
             <Link href={rfqHref} className="hidden sm:inline-flex btn btn-primary">Request a quote <ArrowRight className="h-4 w-4" /></Link>
           </div>
         </div>
+
+        {/* Nếu đây là Trang Danh mục lớn (Nhóm cha), hiển thị danh sách các Nhóm nhỏ trực thuộc lấy từ CRM */}
+        <SubcategoryDirectory parentName={categoryName} childGroups={childGroups} />
 
         <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored} productFields={cat.product_fields ?? []} />
       </section>
@@ -399,8 +623,8 @@ function CategoryContentSections({ columns, rows, facts, faqs, body, categoryNam
 
 /* ================== STATE B — chưa có NCC ================== */
 
-function StateB({ cat, categoryName, h1, intro, rfqHref, columns, rows, facts, faqs, body }: {
-  cat: Category; categoryName: string; h1: string; intro: string; rfqHref: string;
+function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, rows, facts, faqs, body }: {
+  cat: Category; categoryName: string; h1: string; intro: string; childGroups: ChildCategoryWithCount[]; rfqHref: string;
   columns: CategoryColumn[]; rows: CategoryRow[]; facts: CategoryFact[];
   faqs: Array<{ q: string; a: string }>; body: string | null;
 }) {
@@ -414,7 +638,9 @@ function StateB({ cat, categoryName, h1, intro, rfqHref, columns, rows, facts, f
         <h1 className="mt-4 text-[34px] font-black leading-[1.05] text-ink-900 sm:text-[44px]">{h1}</h1>
         <p className="mt-5 max-w-xl text-[15.5px] leading-relaxed text-ink-700">{intro}</p>
         <p className="mt-3 max-w-xl text-[14.5px] leading-relaxed text-ink-600">
-          No buyer-ready products are listed in this category yet. Tell us your spec and we will check suitable producers and their supporting documents before recommending a match.
+          This category is still being filled. A supplier only appears here once we have checked their papers and the
+          product details they are willing to share openly. When they do, you buy from them directly, the way you would
+          take something off a shelf. We are only needed for what is not on the page yet.
         </p>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Link href={rfqHref} className="btn btn-primary">Request a quote <ArrowRight className="h-4 w-4" /></Link>
@@ -435,21 +661,28 @@ function StateB({ cat, categoryName, h1, intro, rfqHref, columns, rows, facts, f
         )}
       </div>
       <div className="rounded-2xl border border-ink-200 bg-white p-6 shadow-sm">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-600">Tell us what you need</p>
-        <h2 className="mt-2 text-[20px] font-bold leading-tight text-ink-900">Get matched with {categoryName.toLowerCase()} suppliers</h2>
-        <p className="mt-1 text-[13.5px] text-ink-600">Free. No account needed. We&apos;ll shortlist suppliers that match your requirements and reply within one business day.</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-600">If it is not on the page</p>
+        <h2 className="mt-2 text-[20px] font-bold leading-tight text-ink-900">Looking for something we have not listed?</h2>
+        <p className="mt-1 text-[13.5px] text-ink-600">
+          Start with the supplier whenever a listing fits: read their spec and send your request straight to them, no
+          step through us. If the grade, the packing or the volume you need is not here, tell us and we will look at
+          producers outside these pages. Free, no account needed, and we reply within one business day.
+        </p>
         <ul className="mt-5 space-y-2 text-[13.5px] text-ink-700">
-          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Spec and grade you need.</li>
-          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Volume and destination.</li>
-          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Certifications required (BRC, HACCP, organic…).</li>
+          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />The product, the size or the grade you are after.</li>
+          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Volume, packing and the port it ships to.</li>
+          <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Certificates your market asks for (HACCP, BRC, organic and so on).</li>
         </ul>
-        <Link href={rfqHref} className="btn btn-primary mt-6 w-full justify-center">Start your request <ArrowRight className="h-4 w-4" /></Link>
+        <Link href={rfqHref} className="btn btn-primary mt-6 w-full justify-center">Send us the details <ArrowRight className="h-4 w-4" /></Link>
         <div className="mt-5 rounded-lg bg-ink-50 p-4 text-[12.5px] text-ink-600">
           <p className="font-semibold text-ink-800">Product listings coming soon.</p>
-          <p className="mt-1 leading-relaxed">Products appear here after their category and buyer-shareable information are reviewed. Send us your requirements in the meantime.</p>
+          <p className="mt-1 leading-relaxed">Suppliers are checked before they go up, which is why this page is still empty. Until the first listings are live, the form above comes to our sourcing desk and you hear back within one business day.</p>
         </div>
       </div>
     </section>
+
+    <SubcategoryDirectory parentName={categoryName} childGroups={childGroups} />
+
     <CategoryContentSections columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} categoryName={categoryName} />
     <CtaBlock slug={cat.slug} />
     </>
@@ -489,9 +722,9 @@ function VerificationSection() {
           </Link>
         </div>
         <ol className="grid gap-3 sm:grid-cols-3">
-          <Level n="01" icon={<ClipboardCheck className="h-5 w-5" />} title="Documents checked" body="Our team reviews business registration and relevant supporting certificates." />
-          <Level n="02" icon={<Factory className="h-5 w-5" />} title="Factory visited" tone="brand" body="A team member records the factory location, facilities and visual evidence." />
-          <Level n="03" icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history reviewed" body="Shipment and delivery documents for a completed order are checked. A won enquiry alone does not qualify." />
+          <Level n="01" icon={<ClipboardCheck className="h-5 w-5" />} title="Documents & certificates checked" body="Business registration is reviewed and quality certificates (HACCP, ISO 22000, BRC, Halal, FDA…) are scanned for holder status (Owner or Partner Entity) and validity date." />
+          <Level n="02" icon={<Factory className="h-5 w-5" />} title="Factory & production verified" tone="brand" body="Production facilities, processing lines, warehouse and geolocation evidence are verified against our 9-point factory checklist." />
+          <Level n="03" icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history reviewed" body="Shipment and export delivery documents (B/L, customs declaration, packing list) for completed orders are reviewed. A won enquiry alone does not qualify." />
         </ol>
       </div>
     </section>
@@ -505,7 +738,7 @@ function CtaBlock({ slug, compact }: { slug: string; compact?: boolean }) {
         <div>
           <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">Need a specific spec?</p>
           <h3 className="mt-2 text-[24px] font-bold leading-snug text-ink-900 sm:text-[28px]">Can&apos;t find what you need?</h3>
-          <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-ink-700">Tell us the grade, volume, destination and when you need it. We&apos;ll look beyond the suppliers listed here and come back with options, with what we&apos;ve checked clearly marked.</p>
+          <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-ink-700">If nothing on this page fits, tell us the grade, the volume, the destination and the date you need it. We will look at producers who are not listed here and come back with options, each one marked with what we have checked.</p>
           <ul className="mt-4 grid gap-1.5 text-[13.5px] text-ink-700 sm:grid-cols-2">
             {["Matching grade and specs", "MOQ and price guidance", "Factory visit notes", "Help with samples"].map((it) => (
               <li key={it} className="flex items-start gap-1.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />{it}</li>

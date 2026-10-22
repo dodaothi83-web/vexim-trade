@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 
 import { Logo } from "@/components/brand-logo";
+import { PublicHeaderControls } from "@/components/public-header-controls";
 import { getStore } from "@/lib/db";
 import { SimpleFooter } from "./simple-footer";
 import { WhatsAppChatButton } from "@/components/whatsapp-chat-button";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Public site layout.
- *  - Header: logo · nav (Categories / How we verify / For suppliers) · CTA "Request a quote".
+ *  - Header: logo · nav (Categories / How we verify / For suppliers) · Language Switcher (EN/VI, default EN) · CTA "Request a quote".
  *  - Trang chủ (/) tự render hero + sections + footer đầy đủ trong home.tsx
  *    (industries, links, contact). Các trang khác dùng SimpleFooter gọn
  *    (SimpleFooter tự ẩn ở pathname "/").
@@ -42,21 +42,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
             </span>
           </Link>
 
-          <nav className="ml-6 hidden items-center gap-6 text-[13.5px] font-medium text-ink-700 md:flex">
-            <Link href="/#categories" className="hover:text-brand-700">Categories</Link>
-            <Link href="/how-we-verify" className="hover:text-brand-700">How we verify</Link>
-            <Link href="/for-suppliers" className="hover:text-brand-700">For suppliers</Link>
-          </nav>
-
-          <div className="ml-auto flex items-center gap-3">
-            <Link
-              href="/rfq"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-brand-700 px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-sm transition hover:bg-brand-800"
-            >
-              Request a quote
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
+          <PublicHeaderControls />
         </div>
       </header>
 

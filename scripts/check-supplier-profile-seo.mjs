@@ -64,6 +64,7 @@ const { default: Profile, generateMetadata } = compile('../app/(public)/supplier
   '@/lib/public/catalog': { getPublicSupplierBySlug: lookup, listPublicSuppliers: async () => fixtures,
     supplierTypeLabel: () => 'Trading company', t: (texts) => texts?.en ?? '' },
   '@/lib/db': { getStore: () => ({ listCategories: async () => [category] }) },
+  '@/lib/public/certificates': { publicSupplierCertificates: () => [] },
   '@/lib/public/product-selection': { productBelongsToCategory: () => true, publicProductPrice: () => 'USD 2/MT', withoutDirectContacts: selection.withoutDirectContacts },
   '@/lib/public/supplier-seo': seo, '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/auth/session': { getSession: async () => null },
