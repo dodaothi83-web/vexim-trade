@@ -25,7 +25,8 @@ import { Breadcrumbs } from "@/components/ui";
 import { CategoryProductGrid } from "@/components/category-product-grid";
 import { HarvestCalendarSection } from "@/components/harvest-calendar";
 import { PriceRangeStrip } from "@/components/price-range";
-import { priceRangeForCategory, type PricePoint } from "@/lib/public/price-range";
+import { buildPriceBlock, type GradePricePoint } from "@/lib/public/price-range";
+import { displayUnitsForCategory } from "@/lib/public/price-units";
 import { normalizeHarvest } from "@/lib/public/harvest";
 import { pilotPlacement, type PilotPlacement } from "@/lib/sponsored/pilot";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
@@ -117,7 +118,7 @@ const STANDARD_CATEGORY_FAQS = [
  * Điểm giá dùng để tính khoảng tham khảo: bỏ hồ sơ demo và bỏ sản phẩm mà giá
  * chưa được phép công khai. Cùng một cổng kiểm tra với giá hiện trên thẻ sản phẩm.
  */
-function pricePointsFrom(products: PublicCategoryProduct[]): PricePoint[] {
+function pricePointsFrom(products: PublicCategoryProduct[]): GradePricePoint[] {
   return products
     .filter((p) => !p.isDemoSupplier && p.pricePoint)
     .map((p) => ({
@@ -125,6 +126,7 @@ function pricePointsFrom(products: PublicCategoryProduct[]): PricePoint[] {
       unit: p.pricePoint!.unit,
       currency: p.pricePoint!.currency,
       updatedAt: p.pricePoint!.updatedAt,
+      grade: p.grade,
     }));
 }
 
@@ -513,7 +515,11 @@ function StateA({
 }) {
   // Lịch mùa vụ: chuẩn hóa để dữ liệu cũ hoặc thiếu trường không làm vỡ trang.
   const harvest = normalizeHarvest(cat.harvest);
-  const priceRange = priceRangeForCategory(cat.slug, cat.price_unit, pricePointsFrom(products));
+  const unitConfig = displayUnitsForCategory(cat.slug, cat.price_unit);
+  const priceRange = buildPriceBlock(pricePointsFrom(products), {
+    unit: unitConfig.primary,
+    secondaryUnit: unitConfig.secondary,
+  });
   const grades: string[] = [];
   for (const f of filters) {
     if ((f.key || "").toLowerCase().includes("grade") && Array.isArray(f.options)) {

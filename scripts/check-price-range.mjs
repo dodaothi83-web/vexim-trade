@@ -201,25 +201,96 @@ assert.equal(cashewRange.range.unit, "kg");
 assert.equal(cashewRange.range.secondary.unit, "lb");
 assert.equal(cashewRange.range.secondary.low, 3.45, "The pound equivalent is shown for cashew buyers");
 
+/* ---------------- Tách theo quy cách ---------------- */
+
+const byGrade = priceRange.buildPriceBlock(
+  [
+    { value: 9.4, unit: "kg", grade: "W180", updatedAt: daysAgo(2) },
+    { value: 9.6, unit: "kg", grade: "W180", updatedAt: daysAgo(5) },
+    { value: 9.5, unit: "kg", grade: "W180", updatedAt: daysAgo(8) },
+    { value: 7.0, unit: "kg", grade: "W320", updatedAt: daysAgo(3) },
+    { value: 7.2, unit: "kg", grade: "W320", updatedAt: daysAgo(6) },
+    { value: 7.1, unit: "kg", grade: "W320", updatedAt: daysAgo(9) },
+    { value: 8.0, unit: "kg", updatedAt: daysAgo(4) },
+  ],
+  { now: NOW },
+);
+assert.equal(byGrade.status, "ok");
+assert.equal(byGrade.rows.length, 2, "Each grade gets its own row");
+assert.equal(byGrade.rows[0].grade, "W180", "Rows are ordered by sample count, then premium grade first");
+assert.equal(byGrade.rows[0].low, 9.4);
+assert.equal(byGrade.rows[1].grade, "W320");
+assert.equal(byGrade.rows[1].low, 7);
+assert.equal(byGrade.rows[1].high, 7.2);
+assert.equal(byGrade.unclassified, 1, "A listing without a grade is counted, not silently merged into a row");
+
+const spreadThin = priceRange.buildPriceBlock(
+  [
+    { value: 9.4, unit: "kg", grade: "W180", updatedAt: daysAgo(2) },
+    { value: 7.0, unit: "kg", grade: "W320", updatedAt: daysAgo(3) },
+    { value: 7.2, unit: "kg", grade: "W320", updatedAt: daysAgo(4) },
+  ],
+  { now: NOW, minSamples: 3 },
+);
+assert.equal(spreadThin.status, "too_few", "Splitting across grades must not publish a range built from too few prices");
+assert.equal(spreadThin.needed, 3);
+
+const noGrades = priceRange.buildPriceBlock(
+  [
+    { value: 4.2, unit: "MT", updatedAt: daysAgo(1) },
+    { value: 4.4, unit: "MT", updatedAt: daysAgo(2) },
+    { value: 4.3, unit: "MT", updatedAt: daysAgo(3) },
+  ],
+  { now: NOW, unit: "mt" },
+);
+assert.equal(noGrades.status, "ok");
+assert.equal(noGrades.rows.length, 1, "A category without grades keeps one range");
+assert.equal(noGrades.unclassified, 0);
+
 /* ---------------- Render ---------------- */
 
+const okBlock = priceRange.buildPriceBlock(
+  [
+    { value: 7.6, unit: "kg", updatedAt: daysAgo(3) },
+    { value: 8.4, unit: "kg", updatedAt: daysAgo(10) },
+    { value: 8.0, unit: "kg", updatedAt: daysAgo(20) },
+  ],
+  { now: NOW },
+);
+
 const okHtml = renderToStaticMarkup(
-  React.createElement(strip.PriceRangeStrip, { outcome: ok, categoryName: "Cashew", rfqHref: "/rfq?category=cashew" }),
+  React.createElement(strip.PriceRangeStrip, { outcome: okBlock, categoryName: "Cashew", rfqHref: "/rfq?category=cashew" }),
 );
 assert.ok(okHtml.includes("USD 7.60 to 8.40/kg"), "The range reaches the page with its unit");
 assert.ok(okHtml.includes("3 published prices"), "The sample count is visible");
 assert.ok(okHtml.includes("not a binding offer"), "The disclaimer is always present");
 assert.ok(okHtml.includes('href="/rfq?category=cashew"'), "The block offers a quote path");
 
-const staleHtml = renderToStaticMarkup(
-  React.createElement(strip.PriceRangeStrip, { outcome: stale, categoryName: "Cashew", rfqHref: "/rfq" }),
+const gradeHtml = renderToStaticMarkup(
+  React.createElement(strip.PriceRangeStrip, { outcome: byGrade, categoryName: "Cashew", rfqHref: "/rfq" }),
 );
-assert.ok(staleHtml.includes("more than 45 days old"), "Stale data says so on the page");
+assert.ok(gradeHtml.includes("W180") && gradeHtml.includes("W320"), "Each grade is labelled on the page");
+assert.ok(gradeHtml.includes("USD 7.00 to 7.20/kg") && gradeHtml.includes("USD 9.40 to 9.60/kg"), "Each grade shows its own range");
+assert.ok(!gradeHtml.includes("USD 7.00 to 9.60/kg"), "Grades are never merged into one wide range");
+assert.ok(gradeHtml.includes("not state a grade"), "Ungraded listings are disclosed");
+
+const staleBlock = priceRange.buildPriceBlock(
+  [
+    { value: 7.9, unit: "kg", updatedAt: daysAgo(60) },
+    { value: 8.1, unit: "kg", updatedAt: daysAgo(61) },
+    { value: 8.2, unit: "kg", updatedAt: daysAgo(62) },
+  ],
+  { now: NOW },
+);
+const staleHtml = renderToStaticMarkup(
+  React.createElement(strip.PriceRangeStrip, { outcome: staleBlock, categoryName: "Cashew", rfqHref: "/rfq" }),
+);
+assert.ok(/45 days/.test(staleHtml), "Stale data says so on the page");
 
 const fewHtml = renderToStaticMarkup(
-  React.createElement(strip.PriceRangeStrip, { outcome: tooFew, categoryName: "Cashew", rfqHref: "/rfq" }),
+  React.createElement(strip.PriceRangeStrip, { outcome: spreadThin, categoryName: "Cashew", rfqHref: "/rfq" }),
 );
-assert.ok(!/\d+\.\d{2}\/kg/.test(fewHtml), "No price number appears when there are too few samples");
+assert.ok(!/\d+\.\d{2}\/kg/.test(fewHtml), "No price number appears when grades are too thin");
 assert.ok(fewHtml.includes("Too few published prices"), "The block explains why it is empty");
 
 assert.equal(
@@ -235,7 +306,9 @@ assert.ok(catalog.includes("publicProductPricePoint"), "The catalog exposes nume
 assert.ok(catalog.includes("isDemoSupplier"), "Demo profiles are marked so they stay out of the market range");
 
 const page = readFileSync(new URL("../app/(public)/products/[slug]/page.tsx", import.meta.url), "utf8");
-assert.ok(page.includes("priceRangeForCategory(cat.slug, cat.price_unit"), "The category page computes the range from its own unit setting");
+assert.ok(page.includes("displayUnitsForCategory(cat.slug, cat.price_unit"), "The category page reads its own unit setting");
+assert.ok(page.includes("buildPriceBlock(pricePointsFrom(products)"), "The category page splits the range by grade");
+assert.ok(page.includes("grade: p.grade"), "Grade travels with each price point");
 assert.ok(page.includes("!p.isDemoSupplier && p.pricePoint"), "Demo listings and private prices are excluded before aggregation");
 const stripIndex = page.indexOf("<PriceRangeStrip");
 const gridIndex = page.indexOf("<CategoryProductGrid", stripIndex);

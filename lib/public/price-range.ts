@@ -58,6 +58,8 @@ export type PriceRangeResult = {
   stale: boolean;
   /** Khoảng quy đổi sang đơn vị thứ hai, chỉ khi thị trường đọc song song hai đơn vị. */
   secondary?: { unit: PriceUnit; low: number; high: number };
+  /** Quy cách của dòng này, khi khoảng giá được tách theo quy cách. */
+  grade?: string;
   /** Câu hiển thị sẵn, ví dụ "USD 7.60 to 8.40/kg". */
   lowText: string;
   highText: string;
@@ -145,6 +147,86 @@ export function buildPriceRange(
       rangeText: formatUnitRange(roundedLow, roundedHigh, unit),
     },
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Tách theo quy cách                                                   */
+/* ------------------------------------------------------------------ */
+
+export type GradePricePoint = PricePoint & {
+  /** Quy cách, ví dụ W320. Null nghĩa là sản phẩm không nêu quy cách. */
+  grade?: string | null;
+};
+
+export type PriceBlockOutcome =
+  | {
+      status: "ok";
+      /** Mỗi quy cách một dòng, xếp theo số niêm yết giảm dần. */
+      rows: PriceRangeResult[];
+      /** Số niêm yết không nêu quy cách nên không được xếp vào dòng nào. */
+      unclassified: number;
+    }
+  | { status: "too_few"; usable: number; needed: number }
+  | { status: "none" };
+
+/**
+ * Khoảng giá tách theo quy cách.
+ *
+ * Lý do phải tách: W180 và W320 chênh nhau khoảng 25 phần trăm, gộp vào một
+ * khoảng thì khoảng đó đúng về số học nhưng vô nghĩa với người mua. Nhưng tách
+ * cũng có cái giá của nó: ba niêm yết chia cho ba quy cách thì không quy cách nào
+ * đủ mẫu, và nếu tách cứng thì cả khối biến mất.
+ *
+ * Cách xử lý:
+ *   - Không quy cách nào nhận diện được (ngành chưa có bộ quy cách): giữ một
+ *     khoảng chung như trước, vì lúc đó "quy cách" không phải khái niệm của ngành.
+ *   - Có quy cách: chỉ hiện những quy cách đủ mẫu. Không quy cách nào đủ thì trả
+ *     too_few để giao diện nói rõ là thiếu mẫu theo từng quy cách, thay vì âm
+ *     thầm gộp lại thành một khoảng sai.
+ */
+export function buildPriceBlock(points: GradePricePoint[] | null | undefined, options: PriceRangeOptions = {}): PriceBlockOutcome {
+  const list = Array.isArray(points) ? points : [];
+  const groups = new Map<string, GradePricePoint[]>();
+  const ungraded: GradePricePoint[] = [];
+
+  for (const point of list) {
+    const grade = typeof point.grade === "string" ? point.grade.trim().toUpperCase() : "";
+    if (!grade) {
+      ungraded.push(point);
+      continue;
+    }
+    const group = groups.get(grade) ?? [];
+    group.push(point);
+    groups.set(grade, group);
+  }
+
+  // Ngành chưa khai báo quy cách: giữ nguyên hành vi một khoảng chung.
+  if (groups.size === 0) {
+    const single = buildPriceRange(list, options);
+    if (single.status === "ok") return { status: "ok", rows: [single.range], unclassified: 0 };
+    return single;
+  }
+
+  const rows: PriceRangeResult[] = [];
+  let bestUsable = 0;
+  for (const [grade, group] of groups) {
+    const outcome = buildPriceRange(group, options);
+    if (outcome.status === "ok") rows.push({ ...outcome.range, grade });
+    else if (outcome.status === "too_few") bestUsable = Math.max(bestUsable, outcome.usable);
+  }
+
+  if (rows.length === 0) {
+    return { status: "too_few", usable: bestUsable, needed: options.minSamples ?? 3 };
+  }
+
+  rows.sort((a, b) => b.sampleSize - a.sampleSize || b.low - a.low);
+
+  const ungradedOutcome = buildPriceRange(ungraded, options);
+  const unclassified = ungradedOutcome.status === "ok" ? ungradedOutcome.range.sampleSize
+    : ungradedOutcome.status === "too_few" ? ungradedOutcome.usable
+    : 0;
+
+  return { status: "ok", rows, unclassified };
 }
 
 function round(value: number, unit: PriceUnit): number {
