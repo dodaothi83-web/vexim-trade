@@ -53,6 +53,18 @@ function categoryDisplayName(cat: Category): string {
   return t(cat.name_i18n) || cat.slug;
 }
 
+/**
+ * Tiêu đề thẻ mặc định. Tên danh mục thủy sản đã kết thúc bằng "Products", ghép thêm
+ * " Products & Verified Suppliers" sẽ ra "Products Products". Bỏ phần thừa thay vì
+ * bắt người biên tập phải nhớ điền seo_title cho từng danh mục.
+ */
+function categorySeoTitle(name: string, storedTitle: string): string {
+  const stored = storedTitle.trim();
+  if (stored) return stored;
+  const suffix = /\bproducts?$/i.test(name.trim()) ? "" : " Products";
+  return `${name}${suffix} & Verified Suppliers in Vietnam | Vexim Trade`;
+}
+
 function categoryMetaDescription(name: string, storedDescription: string): string {
   const base = storedDescription.trim();
   const fallback = `Compare verified Vietnamese ${name.toLowerCase()} products and suppliers. ${CATEGORY_RFQ_META_SUFFIX}`;
@@ -135,7 +147,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { cat, resolvedSlug, isPreview } = await resolveCategory(slug);
   if (!cat) return { title: "Category not found | Vexim Trade", robots: { index: false, follow: false } };
   const name = categoryDisplayName(cat);
-  const seoTitle = t(cat.seo_title_i18n) || `${name} Products & Verified Suppliers in Vietnam | Vexim Trade`;
+  const seoTitle = categorySeoTitle(name, t(cat.seo_title_i18n));
   const seoDesc = categoryMetaDescription(name, t(cat.seo_desc_i18n));
   const indexable = !isPreview && !!cat.seo_indexable;
   const heroImage = cat.hero_image || "/images/home/hero-cashew-texture.jpg";
