@@ -2515,6 +2515,13 @@ function parseCategoryInput(raw: Record<string, unknown>) {
   const faqs = parseJsonList(raw.faqs);
   const filters = parseJsonList(raw.filters);
   const harvest = parseHarvestInput(raw.harvest);
+  const priceUnitRaw = str(raw.price_unit)?.trim().toLowerCase();
+  // Lưu dạng chuẩn "mt"; "t", "ton", "tonne" chỉ là cách viết khác của cùng một đơn vị.
+  const priceUnit = priceUnitRaw === "kg" || priceUnitRaw === "lb"
+    ? priceUnitRaw
+    : priceUnitRaw && ["mt", "t", "ton", "tonne"].includes(priceUnitRaw)
+      ? "mt"
+      : null;
   // Unlike editorial lists, an invalid product-field payload must not silently erase the schema.
   let productFieldInput: unknown = [];
   if (raw.product_fields !== undefined) {
@@ -2539,6 +2546,7 @@ function parseCategoryInput(raw: Record<string, unknown>) {
     buying_facts: buyingFacts as Category["buying_facts"],
     filters: filters as Category["filters"],
     ...(harvest === undefined ? {} : { harvest }),
+    ...(raw.price_unit === undefined ? {} : { price_unit: priceUnit }),
     product_fields: productFields,
     seo_title_i18n: { en: seoTitleEn ?? "" } as Category["seo_title_i18n"],
     seo_desc_i18n: { en: seoDescEn ?? "" } as Category["seo_desc_i18n"],

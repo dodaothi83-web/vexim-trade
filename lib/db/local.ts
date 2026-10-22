@@ -274,6 +274,7 @@ function seed(): LocalShape {
       filters: content.filters ?? [],
       product_fields: content.product_fields ?? [],
       harvest: content.harvest ?? null,
+      price_unit: content.price_unit ?? null,
       active_on_homepage: content.active_on_homepage ?? false,
       public_page_ready: content.public_page_ready ?? false,
       seo_indexable: content.seo_indexable ?? false,
@@ -414,6 +415,7 @@ function ensureSeedCategories(db: LocalShape) {
       filters: content.filters ?? [],
       product_fields: content.product_fields ?? [],
       harvest: content.harvest ?? null,
+      price_unit: content.price_unit ?? null,
       active_on_homepage: content.active_on_homepage ?? false,
       public_page_ready: content.public_page_ready ?? false,
       seo_indexable: content.seo_indexable ?? false,
@@ -479,6 +481,7 @@ function migrateCategoryDefaults(db: LocalShape) {
     if (!c.buying_facts) c.buying_facts = [];
     if (!c.filters) c.filters = [];
     if (c.harvest === undefined) c.harvest = null;
+    if (c.price_unit === undefined) c.price_unit = null;
     if (c.created_by === undefined) c.created_by = null;
     if (c.updated_by === undefined) c.updated_by = null;
     if (c.h1_i18n === undefined) c.h1_i18n = null;

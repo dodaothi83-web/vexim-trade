@@ -258,6 +258,11 @@ export interface Category {
   filters?: CategoryFilter[];
   /** Lịch mùa vụ hiển thị trên trang danh mục. Xem HarvestCalendar. */
   harvest?: HarvestCalendar | null;
+  /**
+   * Đơn vị hiển thị giá của danh mục: kg, lb hoặc t (tấn), theo quy ước thị trường.
+   * Để trống thì lấy quy ước mặc định của ngành trong MARKET_PRICE_UNITS.
+   */
+  price_unit?: string | null;
   seo_title_i18n: I18nString;
   seo_desc_i18n: I18nString;
   /** Ảnh hero cho trang public + thẻ trang chủ. Đường dẫn trong kho public media (/public-media/categories/xxx.jpg). */

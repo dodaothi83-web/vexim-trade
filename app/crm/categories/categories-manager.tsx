@@ -86,6 +86,7 @@ type CategoryDraft = {
   product_fields: ProductAttributeField[];
   spec_rows: CategoryRow[];
   harvest: HarvestDraft;
+  price_unit: string;
   buying_facts: CategoryFact[];
   faqs: Array<{ q: string; a: string }>;
   filters: CategoryFilter[];
@@ -121,6 +122,7 @@ function fromCategory(c: Category): CategoryDraft {
     spec_columns: cols,
     product_fields: Array.isArray(c.product_fields) ? c.product_fields : [],
     spec_rows: rows,
+    price_unit: c.price_unit ?? "",
     harvest: {
       windows: harvest?.windows ?? [],
       note_en: i18n(harvest?.note_i18n) || "",
@@ -153,6 +155,7 @@ function emptyDraft(sortOrder: number): CategoryDraft {
     product_fields: [],
     spec_rows: [],
     harvest: { windows: [], note_en: "", reviewed_on: "" },
+    price_unit: "",
     buying_facts: [],
     faqs: [],
     filters: [],
@@ -793,6 +796,7 @@ function toFormData(d: CategoryDraft): FormData {
       reviewed_on: d.harvest.reviewed_on || null,
     }),
   );
+  fd.set("price_unit", d.price_unit);
   fd.set("buying_facts", JSON.stringify(d.buying_facts));
   fd.set("faqs", JSON.stringify(d.faqs));
   fd.set("filters", JSON.stringify(d.filters));
@@ -1115,6 +1119,23 @@ function CategoryEditor({
               <h2 className="text-base font-bold text-ink-900">Bảng thông số tham khảo</h2>
               <p className="mb-4 mt-0.5 text-[13px] text-ink-500">Bảng buyer dùng để đối chiếu grade/quy cách trên trang danh mục. Đây là nội dung tham khảo của trang, <b>không phải</b> thông số của từng nhà cung cấp.</p>
               <SpecEditor draft={draft} setDraft={setDraft} />
+
+              <div className="mt-6 border-t border-ink-100 pt-5">
+                <Field
+                  label="Đơn vị hiển thị giá"
+                  hint="Theo quy ước thị trường của ngành, không theo ý người viết: gạo, hồ tiêu, cà phê, quế, hồi và hoa quả khô niêm yết theo tấn; nhân điều, tôm và cá theo kg. Để trống thì hệ thống tự lấy quy ước của danh mục."
+                >
+                  <select className="input max-w-64" value={draft.price_unit} onChange={(e) => set("price_unit", e.target.value)}>
+                    <option value="">Theo quy ước ngành (mặc định)</option>
+                    <option value="kg">kg — nhân điều, tôm, cá</option>
+                    <option value="mt">tấn — gạo, hồ tiêu, cà phê, quế, hồi</option>
+                    <option value="lb">lb — chỉ dùng khi thị trường đọc pound</option>
+                  </select>
+                </Field>
+                <p className="mt-2 text-xs leading-relaxed text-ink-500">
+                  Khoảng giá tham khảo chỉ hiện khi có ít nhất 3 sản phẩm đã bật công khai giá và còn hiệu lực. Hệ thống tự quy đổi từ đơn vị nhà cung cấp nhập, không gộp đơn vị không đọc được.
+                </p>
+              </div>
             </section>
           )}
 

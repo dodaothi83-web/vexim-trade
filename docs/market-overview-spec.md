@@ -139,7 +139,21 @@ Schema `FAQPage` đã có sẵn, tái dùng.
 
 ## 7. Quy tắc số, chốt thành văn bản để không tranh cãi sau
 
-1. **Đơn vị**: mỗi danh mục có một đơn vị chuẩn duy nhất, lưu trong cấu hình danh mục. Hạt điều: USD/kg. Gạo: USD/tấn. Tôm: USD/kg. Mọi chỗ quy đổi đi qua một hàm duy nhất. Cấm nhập số mà không chọn đơn vị.
+1. **Đơn vị theo quy ước thị trường, không theo ý người viết.** Mỗi danh mục có một đơn vị hiển thị lưu trong cấu hình (`categories.price_unit`); mọi phép tính quy về kg rồi mới đổi ra đơn vị hiển thị. Cấm nhập số mà không xác định được đơn vị: đơn vị lạ thì loại khỏi phép tính, không đoán.
+
+   Quy ước đã đối chiếu ngày 24/10/2026:
+
+   | Ngành | Đơn vị niêm yết | Ghi chú |
+   |---|---|---|
+   | Nhân điều | USD/kg FOB | Nhà chế biến Việt Nam báo USD/kg (SVC, Pacific Production); bản tin quốc tế và VINACAS lại báo USD/lb, nên hiển thị kèm pound |
+   | Hạt điều thô (RCN) | USD/tấn | Khác hoàn toàn nhân điều, không được gộp |
+   | Gạo | USD/tấn | Gạo 5% tấm FOB quanh 420 đến 450 USD/tấn (VFA, World Bank) |
+   | Cà phê robusta | USD/tấn | ICE London và giá FOB Việt Nam; arabica mới tính cent/lb |
+   | Hồ tiêu đen | USD/tấn | Theo cỡ 500 g/l và 550 g/l (IPC) |
+   | Quế, hồi, dừa, hoa quả khô | USD/tấn | Giao dịch công nghiệp |
+   | Tôm, cá | USD/kg | Theo cỡ con trên pound hoặc trên kg |
+
+   Hệ quả kỹ thuật: giá là "tiền trên một đơn vị", không phải khối lượng. 7.900 USD/tấn là 7,90 USD/kg, tức chia 1.000 chứ không phải nhân. Nhầm chiều ở đây làm con số sai một nghìn lần, nên phép quy đổi phải có kiểm thử riêng.
 2. **Tối thiểu 3 niêm yết** mới công bố khoảng giá. Dưới 3 thì ẩn.
 3. **Tuổi dữ liệu**: quá 45 ngày thì ghi rõ, quá 90 ngày thì ẩn. Không bao giờ hiện giá cũ mà không nói là cũ.
 4. **Làm tròn**: hai chữ số thập phân với USD/kg, làm tròn tới 1 USD với USD/tấn. Không hiện nhiều hơn để tránh cảm giác chính xác giả.

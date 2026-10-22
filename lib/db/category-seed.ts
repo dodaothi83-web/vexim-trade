@@ -30,6 +30,8 @@ export interface CategoryContentSeed {
   filters?: CategoryFilter[];
   /** Trường thông số buyer lọc được trên trang nhóm nhỏ (CRM sửa được). */
   product_fields?: ProductAttributeField[];
+  /** Đơn vị hiển thị giá theo quy ước ngành. Để trống thì dùng mặc định trong MARKET_PRICE_UNITS. */
+  price_unit?: string | null;
   /** Lịch mùa vụ. Chỉ khai báo khi đã đối chiếu nguồn; để trống thì trang ẩn khối này. */
   harvest?: HarvestCalendar | null;
   faqs?: Array<{ q: string; a: string }>;
@@ -112,6 +114,7 @@ export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
   faqs: CASHEW_FAQS,
   filters: CASHEW_FILTERS,
   product_fields: CASHEW_PRODUCT_FIELDS,
+  price_unit: "kg",
   harvest: {
     windows: [
       {

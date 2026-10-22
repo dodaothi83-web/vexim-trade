@@ -77,6 +77,28 @@ export function productPriceBlockers(
   return blockers;
 }
 
+/**
+ * Cùng một cổng kiểm tra với publicProductPrice, nhưng trả số thay vì chuỗi.
+ *
+ * Dùng cho khoảng giá tham khảo của danh mục: cần cộng được nhiều nhà cung cấp
+ * nên phải có đơn vị và ngày cập nhật riêng, không thể đọc từ câu đã định dạng.
+ */
+export function publicProductPricePoint(
+  product: PriceFields & { updated_at?: string | null },
+  supplier: PriceConsent,
+  today: string = new Date().toISOString().slice(0, 10),
+): { value: number; unit: string | null; currency: string | null; updatedAt: string | null } | null {
+  if (productPriceBlockers(product, supplier, today).length) return null;
+  const value = product.ref_price;
+  if (value == null || !Number.isFinite(value) || value <= 0) return null;
+  return {
+    value,
+    unit: product.unit ?? null,
+    currency: product.currency || "USD",
+    updatedAt: product.updated_at ?? null,
+  };
+}
+
 /** Product ref price is public only when separately opted in, consent is current and the price is valid. */
 export function publicProductPrice(
   product: PriceFields,

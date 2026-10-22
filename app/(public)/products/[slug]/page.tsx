@@ -24,6 +24,8 @@ import {
 import { Breadcrumbs } from "@/components/ui";
 import { CategoryProductGrid } from "@/components/category-product-grid";
 import { HarvestCalendarSection } from "@/components/harvest-calendar";
+import { PriceRangeStrip } from "@/components/price-range";
+import { priceRangeForCategory, type PricePoint } from "@/lib/public/price-range";
 import { normalizeHarvest } from "@/lib/public/harvest";
 import { pilotPlacement, type PilotPlacement } from "@/lib/sponsored/pilot";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
@@ -110,6 +112,21 @@ const STANDARD_CATEGORY_FAQS = [
     a: "When suppliers upload quality certificates (HACCP, ISO 22000, BRC, Halal, FDA, Organic), Vexim's automated recognition scans the certified holder name and expiration date, labeling each certificate as Owner or Partner Entity.",
   },
 ] as const;
+
+/**
+ * Điểm giá dùng để tính khoảng tham khảo: bỏ hồ sơ demo và bỏ sản phẩm mà giá
+ * chưa được phép công khai. Cùng một cổng kiểm tra với giá hiện trên thẻ sản phẩm.
+ */
+function pricePointsFrom(products: PublicCategoryProduct[]): PricePoint[] {
+  return products
+    .filter((p) => !p.isDemoSupplier && p.pricePoint)
+    .map((p) => ({
+      value: p.pricePoint!.value,
+      unit: p.pricePoint!.unit,
+      currency: p.pricePoint!.currency,
+      updatedAt: p.pricePoint!.updatedAt,
+    }));
+}
 
 function normalizeCategoryFaqText(text: string): string {
   return text
@@ -496,6 +513,7 @@ function StateA({
 }) {
   // Lịch mùa vụ: chuẩn hóa để dữ liệu cũ hoặc thiếu trường không làm vỡ trang.
   const harvest = normalizeHarvest(cat.harvest);
+  const priceRange = priceRangeForCategory(cat.slug, cat.price_unit, pricePointsFrom(products));
   const grades: string[] = [];
   for (const f of filters) {
     if ((f.key || "").toLowerCase().includes("grade") && Array.isArray(f.options)) {
@@ -525,6 +543,8 @@ function StateA({
 
         {/* Nếu đây là Trang Danh mục lớn (Nhóm cha), hiển thị danh sách các Nhóm nhỏ trực thuộc lấy từ CRM */}
         <SubcategoryDirectory parentName={categoryName} childGroups={childGroups} />
+
+        <PriceRangeStrip outcome={priceRange} categoryName={categoryName} rfqHref={rfqHref} />
 
         <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored} productFields={cat.product_fields ?? []} />
       </section>
