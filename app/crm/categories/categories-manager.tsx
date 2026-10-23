@@ -43,7 +43,7 @@ import type {
   HarvestWindow,
   ProductAttributeField,
 } from "@/lib/types";
-import { HARVEST_MONTH_LABELS, normalizeHarvest } from "@/lib/public/harvest";
+import { HARVEST_MONTH_LABELS, normalizeHarvest, type HarvestReviewEntry } from "@/lib/public/harvest";
 
 export type CategoryStats = { products: number; suppliers: number };
 
@@ -199,6 +199,7 @@ type ListFilter = "all" | "published" | "draft" | "noimg" | "incomplete";
 
 export function CategoriesManager({
   initialCategories,
+  harvestReview = [],
   canPublish = false,
   aiEnabled = false,
   stats = {},
@@ -206,6 +207,8 @@ export function CategoriesManager({
   isAdmin = false,
 }: {
   initialCategories: Category[];
+  /** Danh mục có lịch mùa vụ nhưng ngày rà soát trống hoặc đã cũ, tính ở phía máy chủ. */
+  harvestReview?: HarvestReviewEntry[];
   canPublish?: boolean;
   aiEnabled?: boolean;
   stats?: Record<string, CategoryStats>;
@@ -499,6 +502,50 @@ export function CategoriesManager({
           </div>
         ))}
       </div>
+
+      {/* Nhắc rà soát mùa vụ. Tính ở máy chủ từ ngày rà soát trong tab Mùa vụ,
+          nên không có trạng thái nào phải lưu và sửa xong là dòng này tự mất. */}
+      {harvestReview.length > 0 && (
+        <section
+          className="card mb-4 border-amber-200 bg-amber-50/70 px-4 py-3.5"
+          aria-labelledby="harvest-review-heading"
+        >
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <div className="min-w-0 flex-1">
+              <h2 id="harvest-review-heading" className="text-[13px] font-bold text-amber-900">
+                {harvestReview.length} danh mục cần rà soát lại lịch mùa vụ
+              </h2>
+              <p className="mt-1 text-xs leading-relaxed text-amber-800">
+                Mùa vụ không tự cập nhật. Danh sách này gồm những danh mục đã có lịch nhưng
+                thiếu ngày rà soát hoặc đã quá 12 tháng. Mở tab Mùa vụ, đối chiếu nguồn,
+                cập nhật ngày. Bấm vào tên để đi thẳng tới đó.
+              </p>
+              <ul className="mt-2.5 flex flex-wrap gap-1.5">
+                {harvestReview.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => openEditor(item.id, "harvest")}
+                      className="group flex items-center gap-1.5 rounded-full border border-amber-300 bg-white px-2.5 py-1 text-[12.5px] font-semibold text-amber-900 transition hover:border-amber-500 hover:bg-amber-100"
+                      aria-label={`Mở tab Mùa vụ của ${item.name}`}
+                    >
+                      <span className="max-w-[220px] truncate">{item.name}</span>
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10.5px] font-medium text-amber-800 group-hover:bg-amber-200">
+                        {item.state === "stale"
+                          ? item.months_since_review === null
+                            ? "đã cũ"
+                            : `${item.months_since_review} tháng trước`
+                          : "chưa có ngày"}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="card overflow-hidden">
         {/* Thanh lọc */}

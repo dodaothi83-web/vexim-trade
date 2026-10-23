@@ -155,4 +155,69 @@ const specIndex = page.indexOf("<CategoryContentSections", gridIndex);
 assert.ok(gridIndex > -1 && chartIndex > gridIndex, "The chart sits after the product grid");
 assert.ok(chartIndex < specIndex, "The chart sits before the spec block");
 
-console.log("✅ check-harvest-calendar: tháng vắt qua năm mới, chuẩn hóa dữ liệu, render HTML và vị trí sau lưới sản phẩm đều đạt");
+/* ---------------- Nhắc rà soát mùa vụ trong CRM ---------------- */
+
+const TODAY = "2026-10-23";
+const oneWindow = (reviewed) => ({ windows: [{ label: "Main", start_month: 2, end_month: 5 }], reviewed_on: reviewed });
+
+assert.equal(harvest.harvestReviewState(null, TODAY), "missing", "A calendar with no review date is flagged");
+assert.equal(harvest.harvestReviewState("", TODAY), "missing", "An empty review date is flagged");
+assert.equal(harvest.harvestReviewState("2026-10-23", TODAY), "current", "A review dated today is current");
+assert.equal(harvest.harvestReviewState("2025-10-24", TODAY), "current", "One day short of 12 months is still current");
+assert.equal(harvest.harvestReviewState("2025-10-23", TODAY), "stale", "Exactly 12 months old counts as stale");
+assert.equal(harvest.harvestReviewState("2024-10-24", TODAY), "stale", "Two years old counts as stale");
+assert.equal(harvest.harvestReviewState("2026-10-24", TODAY), "current", "A review dated tomorrow is timezone skew, not an error");
+assert.equal(harvest.harvestReviewState("2026-10-30", TODAY), "current", "A week ahead is still inside the tolerance");
+assert.equal(harvest.harvestReviewState("2026-10-31", TODAY), "missing", "Past the tolerance, a future date is treated as a typo");
+assert.equal(harvest.harvestReviewState("2027-01-01", TODAY), "missing", "A wrong year is a typo, not a fresh review");
+assert.equal(harvest.harvestReviewState("not-a-date", TODAY), "missing", "An unparsable date is treated as missing");
+
+assert.equal(harvest.addMonths("2024-01-31", 1), "2024-02-29", "Month maths clamps to the end of February in a leap year");
+assert.equal(harvest.addMonths("2025-01-31", 1), "2025-02-28", "Month maths clamps to the end of February otherwise");
+assert.equal(harvest.addMonths("2025-11-15", 12), "2026-11-15", "Twelve months lands on the same day");
+assert.equal(harvest.addMonths("2025-10-14", 12), "2026-10-14", "Calendar totals stay in October");
+
+assert.equal(harvest.monthsSinceReview("2025-10-23", TODAY), 12, "A full year reads as 12 months");
+assert.equal(harvest.monthsSinceReview("2026-09-24", TODAY), 0, "A partial month rounds down");
+
+const queue = harvest.harvestReviewQueue([
+  { id: "a", slug: "cashew", name_i18n: { en: "Cashew" }, harvest: oneWindow("2024-01-01") },
+  { id: "b", slug: "pepper", name_i18n: { en: "Pepper" }, harvest: oneWindow("2026-10-01") },
+  { id: "c", slug: "rice", name_i18n: { en: "Rice" }, harvest: oneWindow(null) },
+  { id: "d", slug: "nothing", name_i18n: { en: "Nothing" }, harvest: null },
+  { id: "e", slug: "empty", name_i18n: { en: "Empty" }, harvest: { windows: [] } },
+], TODAY);
+
+assert.equal(queue.length, 2, "Only categories that have a calendar and a bad date are listed");
+assert.deepEqual(queue.map((e) => e.slug), ["cashew", "rice"], "Oldest first, then the categories with no date");
+assert.equal(queue[0].state, "stale", "The first entry is the stale one");
+assert.equal(queue[1].state, "missing", "The second entry has no review date");
+assert.equal(queue[1].reviewed_on, null, "A missing review date stays null");
+assert.ok(queue[0].months_since_review > 12, "The stale entry reports how many months have passed");
+assert.equal(
+  harvest.harvestReviewQueue([{ id: "x", slug: "star-anise", harvest: oneWindow(null) }], TODAY)[0].name,
+  "star-anise",
+  "A category without an English name falls back to its slug",
+);
+assert.deepEqual(
+  harvest.harvestReviewQueue([
+    { id: "1", slug: "b", name_i18n: { en: "Beta" }, harvest: oneWindow(null) },
+    { id: "2", slug: "a", name_i18n: { en: "Alpha" }, harvest: oneWindow(null) },
+  ], TODAY).map((e) => e.name),
+  ["Alpha", "Beta"],
+  "Categories with no date are listed alphabetically",
+);
+assert.equal(harvest.harvestReviewQueue(null, TODAY).length, 0, "No categories means no reminder");
+
+/* ---------------- Nối vào trang danh mục của CRM ---------------- */
+
+const crmPage = readFileSync(new URL("../app/crm/categories/page.tsx", import.meta.url), "utf8");
+assert.ok(crmPage.includes("harvestReviewQueue(categories"), "The CRM list computes the reminder on the server");
+assert.ok(crmPage.includes("harvestReview={harvestReview}"), "The reminder is passed to the list component");
+assert.ok(crmPage.includes("Asia/Ho_Chi_Minh"), "The review date is compared in Vietnam time, not server time");
+
+const manager = readFileSync(new URL("../app/crm/categories/categories-manager.tsx", import.meta.url), "utf8");
+assert.ok(manager.includes('openEditor(item.id, "harvest")'), "Each reminder opens the harvest tab directly");
+assert.ok(manager.includes("quá 12 tháng"), "The reminder states the threshold it uses");
+
+console.log("✅ check-harvest-calendar: tháng vắt qua năm mới, chuẩn hóa dữ liệu, render HTML, vị trí sau lưới sản phẩm và nhắc rà soát trong CRM đều đạt");

@@ -134,6 +134,145 @@ export function normalizeHarvest(raw: unknown): HarvestCalendar | null {
   };
 }
 
+/* ------------------------------------------------------------------ *
+ * Nhắc rà soát lịch mùa vụ
+ *
+ * Mùa vụ là dữ liệu biên tập, không có nguồn nào tự đẩy vào. Không có gì nhắc
+ * thì một biểu đồ ghi "Reviewed 24 Oct 2026" sẽ nằm trên trang vài năm và vẫn
+ * trông như mới. Phần dưới đây biến việc đó thành một danh sách trong CRM, tính
+ * từ chính dữ liệu, không lưu trạng thái và không cần cron.
+ * ------------------------------------------------------------------ */
+
+/** Sau ngưỡng này, một lịch mùa vụ được coi là đã cũ. */
+export const HARVEST_REVIEW_MONTHS = 12;
+
+/**
+ * Ngày rà soát xa hơn ngưỡng này trong tương lai là lỗi nhập, không phải một lần
+ * rà soát. Để một tuần dung sai vì người sửa có thể chọn ngày theo múi giờ khác
+ * hoặc chọn "ngày mai" khi đang làm việc muộn, còn gõ nhầm năm thì lệch hàng
+ * trăm ngày.
+ */
+export const HARVEST_REVIEW_FUTURE_DAYS = 7;
+
+/**
+ * none: danh mục chưa cấu hình mùa vụ, không nhắc.
+ * missing: có mùa vụ nhưng ngày rà soát trống hoặc không dùng được.
+ * stale: ngày rà soát cũ hơn ngưỡng.
+ * current: còn trong hạn.
+ */
+export type HarvestReviewState = "none" | "missing" | "stale" | "current";
+
+interface IsoDate {
+  y: number;
+  m: number;
+  d: number;
+}
+
+function parseIsoDate(value: unknown): IsoDate | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [y, m, d] = value.split("-").map(Number);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return { y, m, d };
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/** Cộng thêm tháng, kẹp ngày vào cuối tháng đích (31/01 cộng một tháng ra 28 hoặc 29/02). */
+export function addMonths(iso: string, months: number): string {
+  const date = parseIsoDate(iso);
+  if (!date) return "";
+  const total = date.y * 12 + (date.m - 1) + months;
+  const year = Math.floor(total / 12);
+  const month = (total % 12) + 1;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${pad2(month)}-${pad2(Math.min(date.d, lastDay))}`;
+}
+
+/** Số tháng đã trôi qua kể từ ngày rà soát. Chỉ dùng để hiển thị. */
+export function monthsSinceReview(reviewedOn: string, today: string): number | null {
+  const from = parseIsoDate(reviewedOn);
+  const to = parseIsoDate(today);
+  if (!from || !to) return null;
+  const months = (to.y - from.y) * 12 + (to.m - from.m);
+  return to.d < from.d ? months - 1 : months;
+}
+
+function daysBetween(from: IsoDate, to: IsoDate): number {
+  const ms = Date.UTC(to.y, to.m - 1, to.d) - Date.UTC(from.y, from.m - 1, from.d);
+  return Math.round(ms / 86_400_000);
+}
+
+/**
+ * Trạng thái rà soát của một lịch.
+ *
+ * Ngày ở tương lai xa bị coi là thiếu chứ không phải còn mới: một lần gõ nhầm
+ * năm sẽ khiến lịch không bao giờ bị nhắc lại, đúng thứ cần phát hiện. Lệch vài
+ * ngày thì bỏ qua, vì đó là chuyện múi giờ chứ không phải dữ liệu sai.
+ */
+export function harvestReviewState(
+  reviewedOn: string | null | undefined,
+  today: string,
+): HarvestReviewState {
+  const from = parseIsoDate(reviewedOn);
+  const now = parseIsoDate(today);
+  if (!from || !now) return "missing";
+  if (daysBetween(now, from) > HARVEST_REVIEW_FUTURE_DAYS) return "missing";
+  return addMonths(String(reviewedOn), HARVEST_REVIEW_MONTHS) <= today ? "stale" : "current";
+}
+
+export interface HarvestReviewEntry {
+  id: string;
+  slug: string;
+  name: string;
+  state: "missing" | "stale";
+  reviewed_on: string | null;
+  months_since_review: number | null;
+}
+
+/** Chỉ cần đúng những trường này, để kiểm thử được mà không phải dựng cả Category. */
+export interface HarvestReviewCandidate {
+  id: string;
+  slug: string;
+  name_i18n?: { en?: string | null } | null;
+  harvest?: unknown;
+}
+
+/**
+ * Danh mục cần rà soát lại lịch mùa vụ, cũ nhất lên trước.
+ *
+ * Danh mục chưa cấu hình mùa vụ không nằm trong danh sách: chưa có gì để rà
+ * soát thì nhắc chỉ tạo tiếng ồn. Danh mục thiếu ngày xếp sau vì chưa biết cũ
+ * tới đâu.
+ */
+export function harvestReviewQueue(
+  categories: HarvestReviewCandidate[] | null | undefined,
+  today: string,
+): HarvestReviewEntry[] {
+  const entries: HarvestReviewEntry[] = [];
+  for (const category of Array.isArray(categories) ? categories : []) {
+    if (!category || typeof category.slug !== "string") continue;
+    const calendar = normalizeHarvest(category.harvest);
+    if (!calendar) continue;
+    const state = harvestReviewState(calendar.reviewed_on, today);
+    if (state !== "missing" && state !== "stale") continue;
+    entries.push({
+      id: category.id,
+      slug: category.slug,
+      name: (category.name_i18n?.en ?? "").trim() || category.slug,
+      state,
+      reviewed_on: calendar.reviewed_on ?? null,
+      months_since_review: calendar.reviewed_on ? monthsSinceReview(calendar.reviewed_on, today) : null,
+    });
+  }
+  return entries.sort((a, b) => {
+    if (a.state !== b.state) return a.state === "stale" ? -1 : 1;
+    if (a.state === "stale") return (b.months_since_review ?? 0) - (a.months_since_review ?? 0);
+    return a.name.localeCompare(b.name);
+  });
+}
+
 /** Ngày rà soát dạng đọc được: "23 Oct 2026". Dùng chung với en-GB để không lệch giữa server và client. */
 export function formatReviewedOn(value: string | null | undefined): string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
