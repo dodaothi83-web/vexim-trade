@@ -19,7 +19,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import type { Category, HarvestCalendar, MediaAsset, Supplier, SupplierProduct, Verification } from "@/lib/types";
+import type { Category, HarvestCalendar, MediaAsset, SponsoredPush, Supplier, SupplierProduct, Verification } from "@/lib/types";
 
 const IMAGE_FOR_CATEGORY: Record<string, string> = {
   "cashew-kernels": "cashew-grade.jpg",
@@ -300,6 +300,7 @@ export interface PreviewSeedRows {
   products: SupplierProduct[];
   media: MediaAsset[];
   verifications: Verification[];
+  sponsoredPushes: SponsoredPush[];
 }
 
 /**
@@ -465,5 +466,38 @@ export function previewSeedRows(nowISO: (offsetDays?: number) => string): Previe
     }
   }
 
-  return { suppliers, products, media, verifications };
+  /*
+   * Gói đẩy sản phẩm cho bản xem thử: bốn gói ở hồ tiêu và năm gói ở quế, nhiều
+   * hơn ba suất của vùng đẩy để thấy được luân phiên. Thời hạn đúng 168 giờ như
+   * gói bán thật, tính từ một mốc duy nhất để hai đầu không lệch nhau vài mili
+   * giây.
+   */
+  const pushStart = new Date(now);
+  pushStart.setDate(pushStart.getDate() - 1);
+  const pushEnd = new Date(pushStart.getTime() + 168 * 3600_000);
+  const sponsoredPushes: SponsoredPush[] = [];
+  const addPushes = (categorySlug: string, take: number) => {
+    for (const product of products.filter((p) => p.category === categorySlug).slice(0, take)) {
+      sponsoredPushes.push({
+        id: `push-preview-${sponsoredPushes.length + 1}`,
+        surface: "category",
+        category_slug: categorySlug,
+        supplier_id: product.supplier_id,
+        product_id: product.id,
+        status: "approved",
+        starts_at: pushStart.toISOString(),
+        ends_at: pushEnd.toISOString(),
+        price_amount: 2_500_000,
+        price_currency: "VND",
+        note: "Dữ liệu xem thử ở kho local. Không có trong Supabase.",
+        approved_by: null,
+        approved_at: pushStart.toISOString(),
+        created_at: pushStart.toISOString(),
+      });
+    }
+  };
+  addPushes("pepper", 4);
+  addPushes("cinnamon-star-anise", 5);
+
+  return { suppliers, products, media, verifications, sponsoredPushes };
 }

@@ -22,6 +22,8 @@ import type {
   Rfq,
   RfqAttachment,
   RfqMatch,
+  SponsoredPush,
+  SponsoredPushSurface,
   SupplierRfqInvitation,
   SupplierNoticeRead,
   Supplier,
@@ -99,6 +101,17 @@ export interface DataStore {
   claimSupplierForUser(userId: string, supplierId: string): Promise<boolean>;
   deleteUser(id: string): Promise<void>;
   touchUserLogin(id: string): Promise<void>;
+
+  // ----- Đẩy sản phẩm -----
+  /**
+   * Các gói đang hiệu lực tại thời điểm `now`, đã lọc theo bề mặt và danh mục.
+   * Chỉ trả gói `approved`; nơi gọi vẫn kiểm lại thời hạn.
+   */
+  listSponsoredPushes(input: {
+    surface: SponsoredPushSurface;
+    categorySlug?: string | null;
+    now: string;
+  }): Promise<SponsoredPush[]>;
 
   // ----- Hình ảnh & tài liệu -----
   listMedia(ownerType: MediaOwnerType, ownerId: string): Promise<MediaAsset[]>;

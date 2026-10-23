@@ -33,7 +33,7 @@ Bể gói gấp bốn lần số suất để nhiều nhà cung cấp mua đư�
 
 ## 4. Luân phiên trong vùng đẩy
 
-Vùng đẩy chia thành các **cửa sổ luân phiên 10 phút**. Trong một cửa sổ, thứ tự và tập thẻ được chọn bằng hàm băm của `(mốc cửa sổ, id gói)`. Sang cửa sổ sau, thứ tự đổi. Sau 7 ngày, mỗi gói nhận xấp xỉ cùng số lượt hiển thị.
+Vùng đẩy chia thành các **cửa sổ luân phiên 10 phút**, tính theo giờ UTC. Thứ tự gốc của các gói cố định bằng băm id gói, mỗi cửa sổ xoay danh sách đó đi một bậc rồi lấy ba thẻ đầu. Sang cửa sổ sau thứ tự đổi. Sau 7 ngày, mỗi gói nhận đúng cùng một số lượt hiển thị.
 
 Ba lý do chọn cửa sổ thay vì đảo ngẫu nhiên theo từng lượt tải:
 
@@ -43,7 +43,9 @@ Ba lý do chọn cửa sổ thay vì đảo ngẫu nhiên theo từng lượt t�
 
 Đảo ngẫu nhiên theo từng lượt F5 vẫn cho tỷ lệ tương đương về lâu dài nhưng không kiểm chứng được trong một tuần, và làm mỗi lần tải trang cho ra một bố cục khác nhau dù cùng một người xem. Nếu sau này cần đổi, chỉ đổi hàm chọn, không đổi dữ liệu.
 
-Mô phỏng 1.008 cửa sổ của một tuần với bể 12 gói và 3 suất: mỗi gói nhận từ 239 đến 268 lượt hiển thị, quanh mức 252, lệch dưới 6 phần trăm. Đó là mức cân bằng đủ tốt cho một tuần bán, và kiểm lại được bất cứ lúc nào bằng cùng phép tính.
+Mô phỏng 1.008 cửa sổ của một tuần với bể 12 gói và 3 suất: mỗi gói nhận đúng 252 lượt hiển thị, không gói nào hơn gói nào, và có 12 bố cục khác nhau lặp lại theo vòng. Con số này nói được với nhà cung cấp bằng một câu, không phải kèm chữ "xấp xỉ", và kiểm lại được bất cứ lúc nào bằng cùng phép tính.
+
+Bản đầu chọn thẻ bằng băm của `(mốc cửa sổ, id gói)`. Đo lại thì gói cao nhất nhận 476 lượt, gói thấp nhất 128 trong cùng một tuần. Đó không phải lỗi băm: với 12 gói, 3 suất và 1.008 cửa sổ, mọi cách xếp ngẫu nhiên đều dao động khoảng 18 đến 24 phần trăm, và năm biến thể băm khác nhau cho ra đúng khoảng đó. Xoay vòng bỏ hẳn dao động ấy nên được chọn, đổi lại bố cục lặp lại theo chu kỳ 12 cửa sổ, tức hai tiếng, thay vì ngẫu nhiên vô hạn.
 
 Thứ tự trong vùng đẩy **không phụ thuộc số tiền, ngày mua hay giờ sửa giá**. Mọi gói trong cùng một cửa sổ có cùng cơ hội.
 
@@ -57,7 +59,8 @@ Lý do: đây là thứ buyer B2B dùng để đọc mức độ tin cậy. Xế
 
 - Sản phẩm muốn đẩy vẫn phải qua đủ bốn cổng công khai: hồ sơ được duyệt, sẵn sàng cho buyer kèm ảnh hoặc catalogue, thuộc danh mục đã publish, nhà cung cấp đã publish và không phải hồ sơ demo. Trả tiền không mua được quyền vượt cổng.
 - Sản phẩm trong vùng đẩy **không lặp lại** ở lưới tự nhiên bên dưới.
-- Buyer đang lọc thì thẻ tài trợ cũng phải khớp bộ lọc. Không gói nào khớp thì ẩn cả vùng, không nhồi một sản phẩm không liên quan vào chỗ trống.
+- Buyer đang lọc thì **ẩn cả vùng đẩy**, không nhồi một sản phẩm không liên quan vào chỗ trống. Sản phẩm trả phí khi đó trở lại lưới tự nhiên và chịu đúng bộ lọc như mọi sản phẩm khác, vì nó vẫn là hàng thật của nhà cung cấp.
+- Vùng đẩy **không đụng vào dải giá tham khảo**: dải giá tính trên toàn bộ sản phẩm của danh mục, kể cả sản phẩm đang trả phí. Trả tiền mua chỗ hiển thị, không mua việc bị loại khỏi số liệu thị trường.
 - Nhãn **Tài trợ / Sponsored** hiện sẵn trên thẻ, không cần rê chuột, ở cả hai ngôn ngữ, kèm câu nói rõ đây là vị trí trả tiền và không phải kết quả xác minh.
 - Gói không làm thay đổi huy hiệu xác minh, không mở thêm giấy tờ, không đổi hạng trong lưới tự nhiên.
 - Danh mục chưa publish, sản phẩm chưa sẵn sàng, hoặc nhà cung cấp bị tạm dừng thì gói không hiển thị, kể cả khi còn hạn.
@@ -82,3 +85,16 @@ Thanh toán trực tuyến, hoá đơn, hoàn tiền, chống gian lận nâng c
 ## 10. Hạ tầng
 
 Bảng và ràng buộc nằm ở `supabase/migrations/20261028_sponsored_product_push.sql`. Migration này chỉ tạo chỗ chứa và chặn sai sót, không tạo gói nào và không bật hiển thị. Bảng thử nghiệm cũ `sponsored_pilot_campaigns` giữ nguyên, chỉ dùng ở staging, và sẽ bỏ sau khi cơ chế mới chạy ổn định.
+
+## 11. Phần đã dựng
+
+- `lib/sponsored/rotation.ts`: cửa sổ, thứ tự gốc, xoay vòng, chọn suất. Hàm thuần, không dùng số ngẫu nhiên, không đọc đồng hồ bên trong.
+- `lib/public/sponsored-band.ts`: ghép gói với sản phẩm công khai và bỏ sản phẩm trả phí khỏi lưới tự nhiên khi vùng đẩy đang hiện.
+- `components/sponsored-product-band.tsx`: vùng đẩy có nhãn hai thứ tiếng, dùng lại thẻ sản phẩm của lưới tự nhiên.
+- `app/api/public/sponsored-push/route.ts` và `lib/sponsored/events.ts`: nhận lượt hiển thị và lượt bấm, gọi `record_sponsored_push_event`.
+- `DataStore.listSponsoredPushes`: đọc gói theo bề mặt và danh mục; bản local đọc từ dữ liệu xem thử, bản Supabase lọc `status`, `starts_at`, `ends_at` ngay trong truy vấn.
+- `scripts/check-sponsored-rotation.mjs` và `scripts/check-sponsored-band.mjs`: kiểm bằng số, không cần trình duyệt.
+
+Trang chủ chưa gắn vùng đẩy. Bề mặt đó dùng lại đúng ba tệp trên, chỉ khác số suất và vị trí chèn, nên để làm cùng lúc với việc bán gói trang chủ đầu tiên.
+
+Migration chưa chạy trên Supabase nào và chưa có gói thật. Giao diện chỉ hiện vùng đẩy khi bảng có gói đã duyệt và còn hạn, nên hôm nay trang danh mục vẫn sạch.

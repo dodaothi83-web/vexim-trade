@@ -24,6 +24,7 @@ import type {
   Rfq,
   RfqAttachment,
   RfqMatch,
+  SponsoredPush,
   SupplierRfqInvitation,
   SupplierNoticeRead,
   Supplier,
@@ -405,6 +406,22 @@ export const supabaseStore: DataStore = {
       .eq("id", id);
   },
 
+  async listSponsoredPushes({ surface, categorySlug, now }) {
+    let query = must()
+      .from("sponsored_pushes")
+      .select("*")
+      .eq("surface", surface)
+      .eq("status", "approved")
+      .lte("starts_at", now)
+      .gt("ends_at", now);
+    if (surface === "category") {
+      if (!categorySlug) return [];
+      query = query.eq("category_slug", categorySlug);
+    }
+    const { data, error } = await query;
+    if (error) fail("listSponsoredPushes", error);
+    return (data ?? []) as SponsoredPush[];
+  },
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
     const column =
       ownerType === "product" ? "product_id" :

@@ -30,6 +30,9 @@ import { buildPriceBlock, type GradePricePoint } from "@/lib/public/price-range"
 import { displayUnitsForCategory } from "@/lib/public/price-units";
 import { normalizeHarvest } from "@/lib/public/harvest";
 import { pilotPlacement, type PilotPlacement } from "@/lib/sponsored/pilot";
+import { SPONSORED_SLOTS } from "@/lib/sponsored/rotation";
+import { getStore } from "@/lib/db";
+import { pickSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { t } from "@/lib/public/i18n";
 import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow } from "@/lib/types";
@@ -213,6 +216,28 @@ export default async function CategoryPage({ params }: PageProps) {
   }
 
   const sponsored = !isPreview ? await pilotPlacement(cat.slug, products) : null;
+  /*
+   * Vùng đẩy sản phẩm của gói bán thật, chọn theo cửa sổ mười phút. Gói chạy trên
+   * kho local để xem được khi phát triển; lên production thì đọc từ bảng
+   * `sponsored_pushes`. Lưới tự nhiên bỏ ra đúng những sản phẩm đã lên vùng đẩy,
+   * nên không thẻ nào xuất hiện hai lần; việc bỏ ra làm ở phía giao diện vì chỉ ở
+   * đó mới biết người xem có đang bật bộ lọc hay không.
+   */
+  const nowMs = Date.now();
+  const db = getStore();
+  const livePushes = await db.listSponsoredPushes({
+    surface: "category",
+    categorySlug: cat.slug,
+    now: new Date(nowMs).toISOString(),
+  });
+  const sponsoredBand = pickSponsoredBand({
+    pushes: livePushes,
+    products,
+    slots: SPONSORED_SLOTS.category,
+    surface: "category",
+    categorySlug: cat.slug,
+    nowMs,
+  });
   const categoryName = categoryDisplayName(cat);
   const parentName = parentCategory ? categoryDisplayName(parentCategory) : null;
   const h1 = cat.slug === "cashew" ? "Vietnam Cashew" : (t(cat.h1_i18n) || `Vietnam ${categoryName}`);
@@ -354,6 +379,7 @@ export default async function CategoryPage({ params }: PageProps) {
             cat={cat}
             products={products}
             sponsored={sponsored}
+            sponsoredBand={sponsoredBand}
             categoryName={categoryName}
             h1={h1}
             intro={intro}
@@ -452,10 +478,10 @@ function SubcategoryDirectory({
 /* ================== STATE A — đã có NCC ================== */
 
 function StateA({
-  cat, products, sponsored, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref,
+  cat, products, sponsored, sponsoredBand, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref,
 }: {
   cat: Category;
-  products: PublicCategoryProduct[]; sponsored: PilotPlacement | null;
+  products: PublicCategoryProduct[]; sponsored: PilotPlacement | null; sponsoredBand: SponsoredBandItem[];
   categoryName: string; h1: string; intro: string; childGroups: ChildCategoryWithCount[]; body: string | null;
   columns: CategoryColumn[];
   rows: CategoryRow[];
@@ -503,7 +529,8 @@ function StateA({
 
         <PriceRangeStrip outcome={priceRange} categoryName={categoryName} rfqHref={rfqHref} />
 
-        <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored} productFields={cat.product_fields ?? []} />
+        <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored}
+          sponsoredBand={sponsoredBand} productFields={cat.product_fields ?? []} />
       </section>
 
       {cat.hero_image && (

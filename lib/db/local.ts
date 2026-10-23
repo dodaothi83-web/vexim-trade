@@ -39,6 +39,7 @@ import type {
   SupplierProductInput,
   TemplateOverride,
   ProspectOutreachTemplate,
+  SponsoredPush,
   Verification,
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
@@ -59,6 +60,7 @@ interface LocalShape {
   suppliers: Supplier[];
   products: SupplierProduct[];
   media: MediaAsset[];
+  sponsored_pushes: SponsoredPush[];
   activities: Activity[];
   messages: EmailMessage[];
   template_overrides: TemplateOverride[];
@@ -315,6 +317,7 @@ function seed(): LocalShape {
     suppliers,
     products,
     media: preview.media,
+    sponsored_pushes: preview.sponsoredPushes,
     activities,
     messages: [],
     attachments: [],
@@ -800,6 +803,7 @@ function load(): LocalShape {
     });
     if (!Array.isArray(c.attachments)) c.attachments = [];
     // RFQ foundation – tương thích với file dữ liệu cũ
+    if (!Array.isArray(c.sponsored_pushes)) c.sponsored_pushes = [];
     if (!Array.isArray(c.categories)) c.categories = [];
     if (!Array.isArray(c.supplier_categories)) c.supplier_categories = [];
     if (!Array.isArray(c.supplier_verification_requests)) c.supplier_verification_requests = [];
@@ -1319,6 +1323,15 @@ export const localStore: DataStore = {
     });
   },
 
+  async listSponsoredPushes({ surface, categorySlug, now }) {
+    const at = Date.parse(now);
+    if (!Number.isFinite(at)) return [];
+    return (load().sponsored_pushes ?? []).filter((push) => {
+      if (push.surface !== surface || push.status !== "approved") return false;
+      if (surface === "category" && push.category_slug !== categorySlug) return false;
+      return Date.parse(push.starts_at) <= at && Date.parse(push.ends_at) > at;
+    });
+  },
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
     return load()
       .media.filter((m) => {
