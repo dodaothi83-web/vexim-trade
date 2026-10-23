@@ -20,7 +20,7 @@ assert.doesNotMatch(loader, /store\.listSupplierNoticeReads\(supplier\.id\)\s*,/
 assert.match(page, /Một phần dữ liệu cổng chưa tải được/);
 assert.match(page, /degraded\.map\(\(label\) => <li key=\{label\}>\{label\}<\/li>\)/);
 assert.match(page, /const readsKnown = !degraded\.includes\("trạng thái đã đọc thông báo"\)/);
-assert.match(page, /\{!n\.read && readsKnown && <form action=\{markSupplierNoticeReadAction\}>/, 'Ẩn nút đánh dấu khi chưa đọc được dấu đã đọc');
+assert.match(page, /\{!n\.read && readsKnown && <form action=\{markSupplierNoticeReadAction\}/, 'Ẩn nút đánh dấu khi chưa đọc được dấu đã đọc');
 
 // 3. Server action không được ném lỗi khi bảng dấu đã đọc chưa có.
 const action = read('app/supplier/portal/notice-actions.ts');

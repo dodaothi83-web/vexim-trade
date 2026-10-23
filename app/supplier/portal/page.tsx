@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Bell, ClipboardCheck, FileText, Mail, PackageSearch, TrendingUp } from "lucide-react";
+import { ArrowUpRight, Bell, ChartNoAxesColumn, ClipboardCheck, Clock3, FileCheck2, FileText, FolderTree, Inbox, Mail, Package, PackageSearch, Plus, ShieldCheck, TrendingUp } from "lucide-react";
 
 import { requireSession } from "@/lib/auth/session";
 import { supplierAccountAccess, supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -113,191 +113,367 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
   const mine = media.filter((m) => m.created_by === user.id && m.storage_path &&
     INITIAL_DOCUMENT_KEYS.includes(m.checklist_key as typeof INITIAL_DOCUMENT_KEYS[number]));
   const allowedDocUpload = review && (review.status === "in_progress" || review.status === "returned");
+  // Ảnh chụp nhanh cho phần đầu trang: cùng dữ liệu đã tải, không truy vấn thêm.
+  const approvedCount = products.filter((p) => productReview(p) === "approved").length;
+  const pendingCount = products.filter((p) => productReview(p) === "pending").length;
+  const draftCount = products.filter((p) => productReview(p) === "draft").length;
+  const changesCount = products.filter((p) => productReview(p) === "changes_requested").length;
+  const l1Approved = reviews.some((v) => v.target_level === 1 && v.status === "approved");
+  const l2Approved = reviews.some((v) => v.target_level === 2 && v.status === "approved");
+  const l3Approved = reviews.some((v) => v.target_level === 3 && v.status === "approved");
+  const publishedProfile = supplier.status === "published";
+  const openDues = dashboard.tasks.map((t) => t.dueAt).filter((d): d is string => !!d).sort();
+  const nextDueAt = openDues.find((d) => Date.parse(d) >= Date.now()) ?? null;
+  const overdueDueAt = openDues.find((d) => Date.parse(d) < Date.now()) ?? null;
+  const shownInvites = allRfqs ? dashboard.invites : dashboard.invites.slice(0, 5);
+  const shownNotices = allNotices ? dashboard.notices : dashboard.notices.slice(0, 6);
+  const expiringCerts = certificates.filter((c) => {
+    const left = daysUntilExpiry(c.valid_until);
+    return left !== null && left >= 0 && left <= 60;
+  }).length;
 
   return <>
-    <header className="mb-5 border-b border-ink-200 pb-4">
-      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand-700">Cổng nhà cung cấp · riêng tư</p>
-      <h1 className="mt-1 text-[22px] leading-tight font-black tracking-tight text-ink-900">Bảng điều khiển</h1>
-      <p className="mt-1 text-[13px] text-ink-500">{supplier.name} · {user.email}</p>
+    <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-[11px] font-bold tracking-[0.16em] text-brand-700 uppercase">Cổng nhà cung cấp · riêng tư</p>
+        <h1 className="mt-1 text-[22px] leading-tight font-black tracking-tight text-ink-900">Bảng điều khiển</h1>
+        <p className="mt-1 text-[13px] text-ink-500">{supplier.name} · {user.email}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href="/supplier/portal/products" className="btn btn-ghost">Quản lý sản phẩm</Link>
+        <Link href="/supplier/portal/products/new" className="btn btn-primary"><Plus className="h-4 w-4" aria-hidden="true" />Thêm sản phẩm</Link>
+      </div>
     </header>
+
     {degraded.length > 0 && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <p className="font-bold">Một phần dữ liệu cổng chưa tải được</p>
       <p className="mt-1">Phần còn lại vẫn dùng bình thường. Nếu tình trạng này kéo dài, báo Vexim để kiểm tra cấu hình.</p>
       <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
     </div>}
-    <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
-      <strong>Vexim đã xác nhận quyền sử dụng cổng.</strong> Hồ sơ công khai: {supplier.status === "draft" ? "chưa công khai" : supplier.status}. Việc duyệt từng đánh giá và công khai NCC/sản phẩm là quyết định riêng của Vexim; không tự động từ RFQ hay giấy tờ đã tải.
+
+    <section aria-label="Trạng thái gian hàng" className="mb-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center gap-4 p-4 sm:p-5">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-900 text-[15px] font-black text-white">{initials(supplier.name)}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="truncate text-[15px] font-bold text-ink-900">{supplier.display_name || supplier.trade_name || supplier.name}</h2>
+            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${publishedProfile ? "bg-emerald-50 text-emerald-800" : "bg-ink-100 text-ink-600"}`}>
+              {publishedProfile ? "Hồ sơ đang công khai" : "Hồ sơ chưa công khai"}
+            </span>
+            <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold text-brand-800">Cổng đã mở</span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11.5px] text-ink-600">
+            <LevelChip label="L1 · Giấy tờ" on={l1Approved} pending={review?.status === "submitted" || review?.status === "in_progress"} />
+            <LevelChip label="L2 · Nhà máy" on={l2Approved} pending={submissions.some((s) => s.target_level === 2 && s.status === "pending_review")} />
+            <LevelChip label="L3 · Xuất khẩu" on={l3Approved} pending={submissions.some((s) => s.target_level === 3 && s.status === "pending_review")} />
+            <span>{products.length} sản phẩm</span>
+            <span>{certificates.length} chứng nhận</span>
+            {expiringCerts > 0 && <span className="font-semibold text-amber-800">{expiringCerts} chứng nhận sắp hết hạn</span>}
+          </div>
+        </div>
+        {publishedProfile
+          ? <Link href={`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`} className="btn btn-ghost btn-sm">Xem trang công khai<ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
+          : <span className="max-w-[220px] text-[11px] leading-4 text-ink-500">Trang công khai chỉ mở khi Vexim duyệt nội dung và bật trạng thái published.</span>}
+      </div>
+      <p className="border-t border-ink-100 bg-ink-50/70 px-4 py-2.5 text-[11.5px] leading-5 text-ink-600 sm:px-5">
+        <strong className="font-semibold text-ink-800">Vexim đã xác nhận quyền sử dụng cổng.</strong> Duyệt giấy tờ, xác thực L2/L3 và công khai hồ sơ là các quyết định riêng, không tự động từ RFQ hay giấy tờ đã tải.
+      </p>
+    </section>
+
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Số liệu gian hàng">
+      <Kpi href="/supplier/portal/products" icon={<Package className="h-4 w-4" />} label="Sản phẩm đã duyệt nội dung" value={approvedCount}
+        note={`Trên ${products.length} sản phẩm trong gian hàng`} />
+      <Kpi href="/supplier/portal/products" icon={<Clock3 className="h-4 w-4" />} label="Đang chờ Vexim duyệt" value={pendingCount}
+        note={`${draftCount} bản nháp · ${changesCount} cần chỉnh sửa`} attention={pendingCount > 0 || changesCount > 0} />
+      <Kpi href="#rfqs" icon={<Mail className="h-4 w-4" />} label="RFQ cần bạn phản hồi" value={dashboard.tasks.length}
+        note={nextDueAt ? `Hạn gần nhất ${date(nextDueAt)}` : overdueDueAt ? `Có RFQ quá hạn từ ${date(overdueDueAt)}` : "Không có hạn nào đang mở"} attention={dashboard.tasks.length > 0} />
+      <Kpi href="#notices" icon={<Bell className="h-4 w-4" />} label="Thông báo chưa đọc" value={dashboard.unreadCount}
+        note={readsKnown ? "Đọc xong có thể đánh dấu ngay trong danh sách" : "Chưa đọc được dấu đã đọc, số này có thể cao hơn thực tế"} attention={readsKnown && dashboard.unreadCount > 0} />
     </div>
-    <PortalSteps stages={[
-      { label: "Hồ sơ doanh nghiệp", state: "done", note: "Hoàn tất" },
-      { label: "Kiểm tra giấy tờ", state: reviews.some((v) => v.target_level === 1 && v.status === "approved") ? "done" : "current", note: reviews.some((v) => v.target_level === 1 && v.status === "approved") ? "Đạt" : "Đang rà soát" },
-      { label: "Cổng NCC", state: "done", note: "Đã mở" },
-      { label: "Sản phẩm & RFQ", state: "current", note: `${products.length} sản phẩm · ${dashboard.tasks.length} việc chờ` },
-    ]} />
 
-    <section aria-label="Gian hàng sản phẩm" className="mt-7 grid gap-4 md:grid-cols-[1.5fr_1fr]">
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-ink-900 via-ink-900 to-brand-900 p-6 text-white sm:p-7">
-        <div className="relative"><p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand-200/70">Gian hàng của bạn · riêng tư</p>
-          <h2 className="mt-2 text-xl font-black">Sản phẩm của tôi</h2>
-          <p className="mt-2 max-w-lg text-sm leading-6 text-brand-50/90">Quản lý ảnh, quy cách và trạng thái duyệt như một gian hàng. Mọi sản phẩm vẫn cần Vexim kiểm tra trước khi có thể chia sẻ buyer.</p>
-          <div className="mt-5 flex flex-wrap gap-3"><Link href="/supplier/portal/products" className="inline-flex items-center rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-brand-900 hover:bg-brand-50">Quản lý sản phẩm</Link>
-            <Link href="/supplier/portal/products/new" className="inline-flex items-center rounded-xl border border-white/40 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/10">+ Thêm sản phẩm</Link></div>
+    <section aria-label="Lối tắt trong cổng" className="mt-3 rounded-xl border border-ink-200 bg-white p-3 shadow-sm">
+      <h2 className="sr-only">Lối tắt</h2>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        {([
+          ["/supplier/portal/products", <Package key="i" className="h-4 w-4" aria-hidden="true" />, "Sản phẩm của tôi"],
+          ["/supplier/portal/categories", <FolderTree key="i" className="h-4 w-4" aria-hidden="true" />, "Danh mục kinh doanh"],
+          ["/supplier/portal/traffic", <ChartNoAxesColumn key="i" className="h-4 w-4" aria-hidden="true" />, "Lượt xem gian hàng"],
+          ["/supplier/portal/verification", <ShieldCheck key="i" className="h-4 w-4" aria-hidden="true" />, "Xác thực L2 · L3"],
+          ["#documents", <FileCheck2 key="i" className="h-4 w-4" aria-hidden="true" />, "Giấy tờ & chứng nhận"],
+          ["#rfqs", <Inbox key="i" className="h-4 w-4" aria-hidden="true" />, "RFQ đã chuyển"],
+        ] as const).map(([href, icon, label]) => <Link key={href} href={href}
+          className="flex items-center gap-2.5 rounded-lg border border-ink-100 bg-ink-50/60 px-3 py-2.5 text-[12.5px] font-semibold text-ink-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-900">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-brand-700 shadow-sm">{icon}</span>
+          <span className="min-w-0">{label}</span>
+        </Link>)}
+      </div>
+    </section>
+
+    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
+      <div className="space-y-5">
+        <Panel id="tasks" icon={<ClipboardCheck className="h-4 w-4 text-brand-700" />} title="Việc cần làm" count={dashboard.tasks.length}
+          sub="Chỉ RFQ đã được Vexim chuyển cho doanh nghiệp; buyer gửi form không tự tạo lời mời.">
+          {review?.status === "returned" && <a href="#documents" className="mx-5 mt-4 block rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <strong>Giấy tờ cần bổ sung</strong><span className="ml-2">Xem đợt kiểm và tải thêm giấy tờ được phép</span></a>}
+          {dashboard.tasks.length ? <ul className="divide-y divide-ink-100">
+            {dashboard.tasks.slice(0, 6).map((task) => {
+              const overdue = !!task.dueAt && Date.parse(task.dueAt) < Date.now();
+              return <li key={task.matchId} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${overdue ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-800"}`}>
+                  <Mail className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-ink-900">{task.title}</span>
+                  <span className="mt-0.5 block text-xs text-ink-500">{task.code} · {task.quantity} · {task.destination}</span>
+                  <span className={`mt-0.5 block text-xs ${overdue ? "font-semibold text-rose-700" : "text-ink-500"}`}>
+                    {overdue ? "Đã quá hạn phản hồi: " : "Hạn phản hồi: "}{task.dueAt ? date(task.dueAt) : "theo thư mời của Vexim"}
+                  </span>
+                </span>
+                <a href={`mailto:${supplierReplyAddress(task.code, task.matchId)}?subject=${encodeURIComponent(`Phản hồi ${task.code}`)}`} className="btn btn-ghost btn-sm">Trả lời qua email</a>
+              </li>;
+            })}</ul> : review?.status !== "returned" && <EmptyRow>Chưa có lời mời báo giá cần phản hồi. Vexim sẽ liên hệ khi có RFQ phù hợp.</EmptyRow>}
+          {dashboard.tasks.length > 6 && <p className="border-t border-ink-100 px-5 py-3 text-xs text-ink-500">Hiển thị 6 việc gần nhất. Xem toàn bộ trong danh sách RFQ bên dưới.</p>}
+        </Panel>
+
+        <Panel id="rfqs" icon={<PackageSearch className="h-4 w-4 text-brand-700" />} title="RFQ Vexim đã chuyển" count={dashboard.invites.length}
+          sub="Thông tin buyer được giữ kín. Trả lời email mời chào giá của Vexim, không liên hệ buyer trực tiếp."
+          action={dashboard.invites.length > 5 ? <Link href={`/supplier/portal?rfqs=all#rfqs`} className="text-xs font-bold text-brand-700 hover:underline">Xem tất cả</Link> : undefined}>
+          {dashboard.invites.length ? <ul className="divide-y divide-ink-100">
+            {shownInvites.map((item) => <li key={item.matchId} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-ink-900">{item.title}</span>
+                <span className="mt-0.5 block text-xs text-ink-500">{item.code} · {item.quantity} · {item.destination} · chuyển ngày {date(item.sentAt)}</span>
+                <span className="mt-0.5 block text-xs text-ink-500">Hạn phản hồi: {item.dueAt ? date(item.dueAt) : "theo email Vexim"}{item.quotePrice ? ` · Giá đã ghi nhận: ${item.quotePrice}` : ""}</span>
+                {item.repliedAt && <span className="mt-0.5 block text-xs font-semibold text-emerald-700">Đã ghi nhận phản hồi ngày {date(item.repliedAt)}; Vexim sẽ xử lý nội dung.</span>}
+              </span>
+              <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-800">{item.status}</span>
+            </li>)}</ul> : <EmptyRow>Chưa có RFQ nào được Vexim chuyển cho doanh nghiệp.</EmptyRow>}
+        </Panel>
+
+        <Panel id="report" icon={<TrendingUp className="h-4 w-4 text-brand-700" />} title="Báo cáo lời mời báo giá"
+          sub="Chỉ tính RFQ Vexim thực sự chuyển cho doanh nghiệp, không tính lượt xem hay doanh thu."
+          action={<nav aria-label="Khoảng thời gian báo cáo" className="flex gap-1 rounded-lg border border-ink-200 bg-ink-50 p-1">
+            {([7, 30, 90] as const).map((d) => <Link key={d} href={`/supplier/portal?range=${d}#report`} aria-current={days === d ? "page" : undefined}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-bold ${days === d ? "bg-white text-brand-800 shadow-sm" : "text-ink-500 hover:text-ink-800"}`}>{d} ngày</Link>)}
+          </nav>}>
+          <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-4">
+            {([["Được chuyển", dashboard.report.sent], ["Đã phản hồi", dashboard.report.responded],
+              ["Đã ghi báo giá", dashboard.report.quoted], ["Vexim đã chọn", dashboard.report.selected]] as const).map(([label, value]) =>
+              <div key={label} className="rounded-lg bg-ink-50 px-3 py-2.5">
+                <p className="text-[11px] font-semibold text-ink-600">{label}</p>
+                <p className="mt-1 text-2xl leading-none font-black tabular-nums text-ink-900">{value}</p>
+              </div>)}
+          </div>
+          {dashboard.report.byProduct.length ? <div className="overflow-x-auto border-t border-ink-100">
+            <table className="w-full min-w-[380px] text-left text-sm">
+              <thead className="bg-ink-50 text-[11px] font-semibold text-ink-600"><tr><th scope="col" className="px-5 py-2">Sản phẩm nguồn</th><th scope="col" className="px-3 py-2 text-right">Lời mời</th><th scope="col" className="px-5 py-2 text-right">Có báo giá</th></tr></thead>
+              <tbody className="divide-y divide-ink-100">{dashboard.report.byProduct.map((row) => <tr key={row.id}>
+                <td className="px-5 py-2.5 text-ink-800">{row.name}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-ink-700">{row.sent}</td>
+                <td className="px-5 py-2.5 text-right tabular-nums text-ink-700">{row.quoted}</td>
+              </tr>)}</tbody>
+            </table>
+          </div> : <EmptyRow>Chưa có lời mời trong khoảng thời gian này.</EmptyRow>}
+          <p className="border-t border-ink-100 px-5 py-2.5 text-[11px] leading-4 text-ink-500">RFQ chung hoặc RFQ không có liên kết sản phẩm xác thực được nhóm riêng; không suy đoán từ tên sản phẩm buyer tự nhập.</p>
+        </Panel>
+      </div>
+
+      <div className="space-y-5">
+        <Panel icon={<ShieldCheck className="h-4 w-4 text-brand-700" />} title="Tiến độ cổng">
+          <PortalSteps stages={[
+            { label: "Hồ sơ doanh nghiệp", state: "done", note: "Hoàn tất" },
+            { label: "Kiểm tra giấy tờ L1", state: l1Approved ? "done" : "current", note: l1Approved ? "Đạt" : "Đang rà soát" },
+            { label: "Cổng nhà cung cấp", state: "done", note: "Đã mở" },
+            { label: "Sản phẩm & RFQ", state: "current", note: `${products.length} sản phẩm · ${dashboard.tasks.length} việc chờ` },
+          ]} />
+        </Panel>
+
+        <Panel id="notices" icon={<Bell className="h-4 w-4 text-brand-700" />} title={readsKnown ? `Thông báo · ${dashboard.unreadCount} chưa đọc` : "Thông báo"}
+          sub={readsKnown ? "RFQ, kết quả kiểm tra, sản phẩm và chứng nhận. Đọc thông báo không thay đổi trạng thái xét duyệt."
+            : "Chưa đọc được dấu đã đọc nên mọi thông báo đang hiện như chưa đọc. Nội dung thông báo vẫn đúng."}
+          action={dashboard.notices.length > 6 ? <Link href={`/supplier/portal?notices=all#notices`} className="text-xs font-bold text-brand-700 hover:underline">Xem tất cả</Link> : undefined}>
+          {dashboard.notices.length ? <ul className="divide-y divide-ink-100">{shownNotices.map((n) => {
+            const unread = !n.read && readsKnown;
+            return <li key={n.key} className={`flex items-start gap-3 px-5 py-3.5 ${unread ? "bg-brand-50/40" : ""}`}>
+              <NoticeIcon kind={n.kind} unread={unread} />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] leading-5 font-semibold text-ink-900">{n.title}</p>
+                <p className="mt-0.5 text-xs leading-5 text-ink-600">{n.detail}</p>
+                <p className="mt-1 text-[11px] text-ink-400">{date(n.at)}</p>
+                {!n.read && readsKnown && <form action={markSupplierNoticeReadAction} className="mt-1"><input type="hidden" name="notice_key" value={n.key} />
+                  <button className="text-[11px] font-semibold text-brand-700 hover:underline" type="submit">Đánh dấu đã đọc</button></form>}
+              </div>
+            </li>;
+          })}</ul> : <EmptyRow>Chưa có thông báo mới.</EmptyRow>}
+        </Panel>
+
+        <Panel id="profile" icon={<FileText className="h-4 w-4 text-brand-700" />} title="Hồ sơ & xác minh"
+          sub="Ba đánh giá độc lập. Chỉ nhân viên Vexim có quyền xác nhận kết quả.">
+          <div className="space-y-3 p-5">
+            <VerifyRow level="L1" title="Kiểm tra giấy tờ"
+              status={l1Approved ? "Đã duyệt" : review?.status === "returned" ? "Cần bổ sung" : review?.status === "submitted" ? "Chờ duyệt" : "Đang rà soát"}
+              on={l1Approved} />
+            {([2, 3] as const).map((step) => {
+              const approved = step === 2 ? l2Approved : l3Approved;
+              const own = submissions.find((s) => s.target_level === step);
+              const contact = requests.find((r) => r.target_level === step);
+              const status = approved ? "Đã duyệt" : own?.status === "pending_review" ? "Hồ sơ tự gửi đang chờ xét" : own?.status === "returned" ? "Cần bổ sung bằng chứng"
+                : own?.status === "accepted" ? "Vexim đã nhận vào đợt kiểm" : contact?.status === "contacted" ? "Vexim đã ghi nhận liên hệ" : "Chưa có bằng chứng";
+              return <VerifyRow key={step} level={`L${step}`} title={step === 2 ? "Xác thực nhà máy" : "Lịch sử xuất khẩu"} status={status} on={approved} />;
+            })}
+            <Link href="/supplier/portal/verification" className="btn btn-soft w-full">Mở cổng tự xác thực L2 · L3</Link>
+            <p className="text-[11px] leading-4 text-ink-500">Tải bằng chứng không tự cấp huy hiệu. Nhãn buyer chỉ xuất hiện cho từng đánh giá được nhân viên Vexim kiểm và người có quyền duyệt phê.</p>
+          </div>
+        </Panel>
+      </div>
+    </div>
+
+    <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+      <Panel icon={<FileText className="h-4 w-4 text-brand-700" />} title="Thông tin đã khai" sub="Cần sửa thông tin hoặc số tài khoản đã khai, liên hệ nhân viên Vexim.">
+        <dl className="grid gap-3 p-5 text-sm sm:grid-cols-2">
+          <Info label="Tên doanh nghiệp" value={supplier.name} /><Info label="Mã số thuế (tự khai)" value={review?.tax_number} />
+          <Info label="Người liên hệ" value={supplier.contact_name} /><Info label="Điện thoại" value={supplier.phone} />
+          <Info label="Địa chỉ" value={supplier.address} /><Info label="Mặt hàng chính" value={supplier.products} />
+        </dl>
+      </Panel>
+
+      <Panel id="documents" icon={<FileCheck2 className="h-4 w-4 text-brand-700" />} title="Giấy tờ & chứng nhận L1"
+        sub="Giấy phép kinh doanh do Vexim đối chiếu thủ công. Chứng nhận được AI quét đơn vị đứng tên và ngày hết hạn; hệ thống nhắc trước 60 / 30 / 7 / 1 ngày."
+        action={<span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${l1Approved ? "bg-emerald-50 text-emerald-800" : "bg-ink-100 text-ink-600"}`}>
+          {l1Approved ? "Đã duyệt" : review?.status === "returned" ? "Cần bổ sung" : "Đang rà soát"}</span>}>
+        <div className="space-y-4 p-5">
+          {mine.length > 0 && <ul className="space-y-2 text-sm">{mine.map((m) => <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ink-50 px-3 py-2">
+            <span className="text-ink-800">{L1_DOC_ITEMS.find((i) => i.key === m.checklist_key)?.label ?? "Giấy tờ"}: {m.caption}</span>
+            <a href={`/api/media/file/${m.storage_path}`} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">Xem tệp</a></li>)}</ul>}
+          {allowedDocUpload ? <SupplierPortalUpload /> : <p className="text-[13px] text-ink-500">Đợt kiểm giấy tờ cơ bản đang khóa thêm tệp; bạn vẫn có thể tải mới hoặc gia hạn các chứng nhận bên dưới bất kỳ lúc nào.</p>}
+          <div className="border-t border-ink-100 pt-4">
+            <h3 className="text-[13px] font-bold text-ink-900">Chứng nhận trên hồ sơ ({certificates.length})</h3>
+            {certificates.length > 0 ? <ul className="mt-3 space-y-2 text-sm">{certificates.map((c) => {
+              const left = daysUntilExpiry(c.valid_until);
+              const live = Boolean(c.review_status === "approved" && c.publicly_visible && !c.staff_hidden && left !== null && left >= 0 && (c.holder_match === "owner" || c.holder_match === "partner"));
+              return <li key={c.id} className="rounded-lg border border-ink-200 bg-ink-50/60 px-3.5 py-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold text-ink-900">{c.name}{c.number ? ` · #${c.number}` : ""}</span>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span className={`rounded-full px-2.5 py-0.5 font-bold ${c.holder_match === "owner" ? "bg-emerald-100 text-emerald-800" : c.holder_match === "partner" ? "bg-amber-100 text-amber-900" : "bg-ink-200 text-ink-700"}`}>
+                      {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` (${c.holder_name})` : ""}` : c.holder_match === "partner" ? `Đối tác: ${c.holder_name || "—"}` : "Chưa rõ đơn vị đứng tên"}
+                    </span>
+                    <span className={`rounded-full px-2.5 py-0.5 font-semibold ${left === null ? "bg-ink-200 text-ink-700" : left < 0 ? "bg-rose-100 text-rose-800" : left <= 60 ? "bg-amber-100 text-amber-900" : "bg-sky-100 text-sky-800"}`}>
+                      {c.valid_until ? `Hết hạn ${c.valid_until}${left !== null ? (left < 0 ? " · đã quá hạn, tải bản mới" : left <= 60 ? ` · còn ${left} ngày` : ` · còn ${left} ngày`) : ""}` : "Chưa đọc được ngày hết hạn"}
+                    </span>
+                    <span className={`rounded-full px-2.5 py-0.5 font-bold ${c.staff_hidden ? "bg-rose-100 text-rose-800" : live ? "bg-emerald-100 text-emerald-800" : "bg-ink-200 text-ink-700"}`}>
+                      {c.staff_hidden ? "Vexim đang ẩn" : live ? "Đang hiển thị công khai" : "Chưa hiển thị công khai"}
+                    </span>
+                  </div>
+                </div>
+                {(c.review_note || c.ai_summary) && <p className="mt-1 text-[11px] text-ink-600">{c.review_note || c.ai_summary}</p>}
+              </li>;
+            })}</ul> : <p className="mt-2 text-xs text-ink-500">Chưa có chứng nhận nào trên hồ sơ. Tải PDF hoặc ảnh bên dưới để AI tự quét đơn vị đứng tên và ngày hết hạn.</p>}
+            <SupplierCertificateUpload certificates={certificates.map((c) => ({ id: c.id, name: c.name, valid_until: c.valid_until }))} />
+          </div>
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 rounded-xl border border-ink-200 bg-white p-5 shadow-sm sm:p-6">
-        <div><p className="text-xs font-semibold text-ink-500">Tổng sản phẩm</p><p className="mt-2 text-3xl font-black text-ink-900">{products.length}</p></div>
-        <div><p className="text-xs font-semibold text-ink-500">Đang chờ Vexim</p><p className="mt-2 text-3xl font-black text-amber-700">{products.filter((p) => productReview(p) === "pending").length}</p></div>
-        <div><p className="text-xs font-semibold text-ink-500">Bản nháp</p><p className="mt-2 text-3xl font-black text-ink-900">{products.filter((p) => productReview(p) === "draft").length}</p></div>
-        <div><p className="text-xs font-semibold text-ink-500">Cần bổ sung</p><p className="mt-2 text-3xl font-black text-rose-700">{products.filter((p) => productReview(p) === "changes_requested").length}</p></div>
-        <p className="col-span-2 border-t border-ink-100 pt-3 text-xs text-ink-500">Số liệu chỉ của doanh nghiệp bạn; không phải lượt xem hay doanh thu.</p>
-      </div>
-    </section>
+      </Panel>
+    </div>
 
-    <Link href="/supplier/portal/traffic" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4 transition hover:border-brand-400 hover:bg-brand-100">
-      <span><strong className="block text-sm text-brand-900">Lượt xem gian hàng</strong><span className="mt-1 block text-xs text-brand-800">Xem lượt mở hồ sơ, sản phẩm và xu hướng 7–90 ngày · số liệu riêng tư</span></span>
-      <span className="text-sm font-bold text-brand-800">Xem báo cáo</span>
-    </Link>
-
-    <section id="tasks" className="mt-8 scroll-mt-6">
-      <SectionTitle icon={<ClipboardCheck className="h-5 w-5" />} title="Việc cần làm" sub="Chỉ RFQ đã được Vexim chuyển cho doanh nghiệp; buyer gửi form không tự tạo lời mời." />
-      {review?.status === "returned" && <a href="#documents" className="mt-4 block rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-        <strong>Giấy tờ cần bổ sung</strong><span className="ml-2">Xem đợt kiểm và tải thêm giấy tờ được phép</span></a>}
-      {dashboard.tasks.length ? <div className="mt-4 grid gap-3 sm:grid-cols-2">{dashboard.tasks.slice(0, 8).map((task) => <div key={task.matchId} className="rounded-xl border border-brand-200 bg-brand-50/50 p-4">
-        <p className="text-xs font-bold text-brand-700">{task.code} · {task.status}</p>
-        <p className="mt-1 font-semibold text-ink-900">{task.title}</p>
-        <p className={`mt-1 text-xs ${task.dueAt && Date.parse(task.dueAt) < Date.now() ? "font-semibold text-rose-700" : "text-ink-600"}`}>
-          {task.dueAt && Date.parse(task.dueAt) < Date.now() ? "Đã quá hạn phản hồi: " : "Hạn phản hồi: "}{task.dueAt ? date(task.dueAt) : "Xem thư mời từ Vexim"}</p>
-        <a href={`mailto:${supplierReplyAddress(task.code, task.matchId)}?subject=${encodeURIComponent(`Phản hồi ${task.code}`)}`} className="mt-3 inline-block text-sm font-semibold text-brand-700 underline">Trả lời Vexim qua email</a>
-      </div>)}</div> : review?.status !== "returned" && <Empty text="Chưa có lời mời báo giá cần phản hồi. Vexim sẽ liên hệ khi có RFQ phù hợp." />}
-      {dashboard.tasks.length > 8 && <a href="#rfqs" className="mt-2 inline-block text-xs font-semibold text-brand-700 underline">Xem các RFQ còn lại</a>}
-    </section>
-
-    <section id="rfqs" className="mt-10 scroll-mt-6">
-      <SectionTitle icon={<PackageSearch className="h-5 w-5" />} title={`RFQ đã chuyển cho bạn (${dashboard.invites.length})`} sub="Thông tin buyer được giữ kín; trả lời email mời chào giá của Vexim, không liên hệ buyer trực tiếp." />
-      {dashboard.invites.length ? <ul className="mt-4 space-y-3">{(allRfqs ? dashboard.invites : dashboard.invites.slice(0, 30)).map((item) =>
-        <li key={item.matchId} className="grid gap-2 rounded-xl border border-ink-200 bg-white p-4 text-sm sm:grid-cols-[1fr_auto]">
-          <div><p className="font-bold text-ink-900">{item.code} · {item.title}</p>
-            <p className="mt-1 text-ink-600">{item.quantity} · {item.destination} · Chuyển ngày {date(item.sentAt)}</p>
-            {item.repliedAt && <p className="mt-1 text-xs font-semibold text-emerald-700">Đã ghi nhận email phản hồi ngày {date(item.repliedAt)}; Vexim sẽ xử lý nội dung.</p>}
-            <p className="mt-1 text-xs text-ink-500">Hạn phản hồi: {item.dueAt ? date(item.dueAt) : "Theo email Vexim"}{item.quotePrice ? ` · Giá đã ghi nhận: ${item.quotePrice}` : ""}</p></div>
-          <div className="sm:text-right"><span className="inline-block rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800">{item.status}</span></div>
-        </li>)}</ul> : <Empty text="Chưa có RFQ nào được Vexim chuyển cho doanh nghiệp." />}
-      {dashboard.invites.length > 30 && !allRfqs && <Link href={`/supplier/portal?range=${days}&rfqs=all#rfqs`} className="mt-2 inline-block text-xs font-semibold text-brand-700 underline">Hiển thị tất cả RFQ</Link>}
-    </section>
-
-    <section id="notices" className="mt-10 scroll-mt-6">
-      <SectionTitle icon={<Bell className="h-5 w-5" />} title={readsKnown ? `Thông báo · ${dashboard.unreadCount} chưa đọc` : "Thông báo"} sub={readsKnown
-        ? "RFQ, kết quả kiểm tra, sản phẩm và chứng nhận. Đọc thông báo không thay đổi trạng thái xét duyệt."
-        : "Chưa đọc được dấu đã đọc nên mọi thông báo đang hiện như chưa đọc. Nội dung thông báo vẫn đúng."} />
-      {dashboard.notices.length ? <ul className="mt-4 divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-200 bg-white">{(allNotices ? dashboard.notices : dashboard.notices.slice(0, 20)).map((n) =>
-        <li key={n.key} className={`flex flex-wrap items-start gap-3 p-4 text-sm ${n.read || !readsKnown ? "" : "bg-brand-50/50"}`}>
-          <span className={`mt-2 h-2 w-2 rounded-full ${n.read || !readsKnown ? "bg-ink-200" : "bg-brand-600"}`} aria-hidden="true" />
-          <div className="min-w-[220px] flex-1"><p className="font-bold text-ink-900">{n.title}</p><p className="mt-1 text-ink-600">{n.detail}</p>
-            <p className="mt-1 text-xs text-ink-500">{date(n.at)}</p></div>
-          {!n.read && readsKnown && <form action={markSupplierNoticeReadAction}><input type="hidden" name="notice_key" value={n.key} />
-            <button className="text-xs font-semibold text-brand-700 underline" type="submit">Đánh dấu đã đọc</button></form>}
-        </li>)}</ul> : <Empty text="Chưa có thông báo mới." />}
-      {dashboard.notices.length > 20 && !allNotices && <Link href={`/supplier/portal?range=${days}&notices=all#notices`} className="mt-2 inline-block text-xs font-semibold text-brand-700 underline">Hiển thị tất cả thông báo</Link>}
-    </section>
-
-    <section id="report" className="mt-10 scroll-mt-6">
-      <SectionTitle icon={<TrendingUp className="h-5 w-5" />} title="Báo cáo lời mời báo giá" sub="Chỉ tính RFQ Vexim thực sự chuyển cho doanh nghiệp; không tính lượt xem, RFQ buyer chưa được sàng lọc hoặc doanh thu chưa xác nhận." />
-      <div className="mt-4 flex gap-2">{([7, 30, 90] as const).map((d) => <Link key={d} href={`/supplier/portal?range=${d}#report`}
-        className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${days === d ? "border-brand-700 bg-brand-700 text-white" : "border-ink-200 bg-white text-ink-700"}`}>{d} ngày</Link>)}</div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-4">
-        <Stat label="RFQ được chuyển" value={dashboard.report.sent} /><Stat label="Đã phản hồi / từ chối" value={dashboard.report.responded} />
-        <Stat label="Đã ghi báo giá" value={dashboard.report.quoted} /><Stat label="Được Vexim chọn" value={dashboard.report.selected} />
-      </div>
-      {dashboard.report.byProduct.length ? <div className="mt-4 overflow-x-auto rounded-xl border border-ink-200 bg-white">
-        <table className="w-full min-w-[400px] text-left text-sm"><thead className="bg-ink-50 text-xs font-semibold text-ink-600"><tr><th className="p-3">Sản phẩm nguồn</th><th className="p-3">Lời mời</th><th className="p-3">Có báo giá</th></tr></thead>
-          <tbody className="divide-y divide-ink-100">{dashboard.report.byProduct.map((p) => <tr key={p.id}><td className="p-3">{p.name}</td><td className="p-3">{p.sent}</td><td className="p-3">{p.quoted}</td></tr>)}</tbody></table>
-      </div> : <Empty text="Chưa có lời mời trong khoảng thời gian này." />}
-      <p className="mt-2 text-xs text-ink-500">RFQ cũ hoặc RFQ chung không có liên kết sản phẩm xác thực được nhóm riêng; không suy đoán từ tên sản phẩm buyer tự nhập.</p>
-    </section>
-
-    <section id="profile" className="mt-10 scroll-mt-6">
-      <SectionTitle icon={<FileText className="h-5 w-5" />} title="Hồ sơ & xác minh" sub="Ba đánh giá độc lập. Chỉ nhân viên Vexim có quyền xác nhận kết quả." />
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-ink-200 bg-white p-5"><h3 className="font-bold text-ink-900">Thông tin đã khai</h3>
-          <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-            <Info label="Tên doanh nghiệp" value={supplier.name} /><Info label="Mã số thuế (tự khai)" value={review?.tax_number} />
-            <Info label="Người liên hệ" value={supplier.contact_name} /><Info label="Điện thoại" value={supplier.phone} />
-            <Info label="Địa chỉ" value={supplier.address} /><Info label="Mặt hàng chính" value={supplier.products} />
-          </dl><p className="mt-3 text-xs text-ink-500">Cần sửa thông tin hoặc số tài khoản đã khai? Liên hệ nhân viên Vexim.</p>
-        </div>
-        <div className="rounded-xl border border-ink-200 bg-white p-5"><h3 className="font-bold text-ink-900">Đánh giá bổ sung</h3>
-          {([2, 3] as const).map((step) => {
-            const r = requests.find((req) => req.target_level === step);
-            const approved = reviews.some((v) => v.target_level === step && v.status === "approved");
-            const own = submissions.find((s) => s.target_level === step);
-            return <div key={step} className="border-b border-ink-100 py-3 text-sm last:border-0"><p className="font-semibold">{step === 2 ? "Xác thực nhà máy (L2)" : "Lịch sử xuất khẩu (L3)"}</p>
-              <p className="text-ink-600">{approved ? "Đã được Vexim duyệt sau đánh giá" : r?.status === "contacted" ? "Đã ghi nhận liên hệ · chưa duyệt" : r ? "Vexim sẽ liên hệ lên kế hoạch · chưa duyệt" : "Chưa yêu cầu · chưa duyệt"}</p>
-              <p className="mt-1 text-xs text-ink-500">{own
-                ? `Hồ sơ bạn tự gửi: ${own.status === "draft" ? "đang soạn" : own.status === "pending_review" ? "đang chờ Vexim xét duyệt" : own.status === "returned" ? "cần bổ sung" : "đã được Vexim nhận vào đợt kiểm"}.`
-                : "Bạn có thể tự gửi bằng chứng để AI quét trước khi Vexim đối chiếu."}</p></div>;
-          })}
-          <Link href="/supplier/portal/verification" className="mt-3 inline-block rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800">Mở cổng tự xác thực L2 · L3</Link>
-          <p className="mt-2 text-xs text-ink-500">Tải bằng chứng lên không tự cấp huy hiệu: nhãn buyer chỉ xuất hiện cho từng đánh giá được nhân viên Vexim kiểm và người có quyền duyệt phê.</p>
-        </div>
-      </div>
-      <div id="documents" className="mt-4 scroll-mt-6 rounded-xl border border-ink-200 bg-white p-5"><h3 className="font-bold text-ink-900">Kiểm tra giấy tờ &amp; chứng nhận L1 · {review?.status === "approved" ? "Đã duyệt" : review?.status === "returned" ? "Cần bổ sung" : review?.status === "submitted" ? "Chờ duyệt" : "Đang rà soát"}</h3>
-        <p className="mt-1 text-sm text-ink-600">Giấy phép kinh doanh do Vexim đối chiếu thủ công. Các chứng nhận (ATTP, HACCP/ISO/BRC, chứng chỉ sản phẩm, giấy phép xuất khẩu) được AI tự quét đơn vị đứng tên (chính chủ hay đối tác) và ngày hết hạn để hiển thị trên hồ sơ; hệ thống tự nhắc trước 60 / 30 / 7 / 1 ngày hết hạn.</p>
-        {mine.length > 0 && <ul className="mt-4 space-y-2 text-sm">{mine.map((m) => <li key={m.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-ink-50 px-3 py-2">
-          <span>{L1_DOC_ITEMS.find((i) => i.key === m.checklist_key)?.label ?? "Giấy tờ"}: {m.caption}</span>
-          <a href={`/api/media/file/${m.storage_path}`} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">Xem tệp</a></li>)}</ul>}
-        {allowedDocUpload ? <SupplierPortalUpload /> : <p className="mt-4 text-sm text-ink-500">Đợt kiểm giấy tờ cơ bản đang khóa thêm tệp; bạn vẫn có thể tải mới hoặc gia hạn các chứng nhận ở khung bên dưới bất kỳ lúc nào.</p>}
-        <div className="mt-5 border-t border-ink-100 pt-4">
-          <h4 className="text-sm font-bold text-ink-900">Chứng nhận đã quét trên hồ sơ L1 ({certificates.length})</h4>
-          {certificates.length > 0 ? (
-            <ul className="mt-3 space-y-2 text-sm">
-              {certificates.map((c) => {
-                const days = daysUntilExpiry(c.valid_until);
-                const isLive = Boolean(c.review_status === "approved" && c.publicly_visible && !c.staff_hidden && days !== null && days >= 0 && (c.holder_match === "owner" || c.holder_match === "partner"));
-                return (
-                  <li key={c.id} className="rounded-lg border border-ink-200 bg-ink-50/60 px-3.5 py-2.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-semibold text-ink-900">{c.name}{c.number ? ` · #${c.number}` : ""}</span>
-                      <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                        <span className={`rounded-full px-2.5 py-0.5 font-bold ${c.holder_match === "owner" ? "bg-emerald-100 text-emerald-800" : c.holder_match === "partner" ? "bg-amber-100 text-amber-900" : "bg-ink-200 text-ink-700"}`}>
-                          {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` (${c.holder_name})` : ""}` : c.holder_match === "partner" ? `Đơn vị đối tác: ${c.holder_name || "—"}` : "Chưa rõ đơn vị đứng tên"}
-                        </span>
-                        <span className={`rounded-full px-2.5 py-0.5 font-semibold ${days === null ? "bg-ink-200 text-ink-700" : days < 0 ? "bg-rose-100 text-rose-800" : days <= 60 ? "bg-amber-100 text-amber-900" : "bg-sky-100 text-sky-800"}`}>
-                          {c.valid_until ? `Hết hạn: ${c.valid_until}${days !== null ? (days < 0 ? " — Đã quá hạn, vui lòng tải bản mới" : days <= 60 ? ` — Còn ${days} ngày, nên tải bản gia hạn` : ` (còn ${days} ngày)`) : ""}` : "Chưa đọc được ngày hết hạn"}
-                        </span>
-                        <span className={`rounded-full px-2.5 py-0.5 font-bold ${c.staff_hidden ? "bg-rose-100 text-rose-800" : isLive ? "bg-emerald-100 text-emerald-800" : "bg-ink-200 text-ink-700"}`}>
-                          {c.staff_hidden ? "Vexim đang ẩn" : isLive ? "Đang hiển thị trên trang công khai" : "Chưa hiển thị công khai"}
-                        </span>
-                      </div>
-                    </div>
-                    {(c.review_note || c.ai_summary) && <p className="mt-1 text-xs text-ink-600">{c.review_note || c.ai_summary}</p>}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="mt-2 text-xs text-ink-500">Chưa có chứng nhận nào trên hồ sơ. Tải PDF/ảnh chứng nhận bên dưới để AI tự quét đơn vị đứng tên và ngày hết hạn.</p>
-          )}
-          <SupplierCertificateUpload certificates={certificates.map((c) => ({ id: c.id, name: c.name, valid_until: c.valid_until }))} />
-        </div>
-      </div>
-    </section>
-    <footer className="mt-12 border-t border-ink-200 pt-5 text-xs text-ink-500"><Mail className="mr-1 inline h-3 w-3" /> Vexim là đầu mối điều phối. Không chia sẻ thông tin buyer trước khi các bên được giới thiệu theo quy trình.</footer>
+    <footer className="mt-8 flex items-start gap-2 border-t border-ink-200 pt-4 text-[11px] leading-5 text-ink-500">
+      <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span>Vexim là đầu mối điều phối. Không chia sẻ thông tin buyer trước khi các bên được giới thiệu theo quy trình.</span>
+    </footer>
   </>;
 }
 
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "NCC";
+  const words = parts.filter((w) => /\p{Lu}/u.test(w[0] ?? ""));
+  const pick = words.length >= 2 ? [words[0], words[words.length - 1]] : [parts[0]];
+  return pick.map((w) => w[0]).join("").toUpperCase();
+}
+
+function date(value: string) { return new Date(value).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }); }
+
+function Panel({ id, icon, title, sub, count, action, children }: {
+  id?: string; icon?: React.ReactNode; title: string; sub?: string; count?: number; action?: React.ReactNode; children: React.ReactNode;
+}) {
+  return <section id={id} className="scroll-mt-6 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink-200 px-5 py-4">
+      <div className="min-w-0">
+        <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink-900">
+          {icon}{title}
+          {typeof count === "number" && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{count}</span>}
+        </h2>
+        {sub && <p className="mt-1 text-[11.5px] leading-5 text-ink-500">{sub}</p>}
+      </div>
+      {action}
+    </div>
+    {children}
+  </section>;
+}
+
+function Kpi({ href, icon, label, value, note, attention = false }: {
+  href: string; icon: React.ReactNode; label: string; value: number; note: string; attention?: boolean;
+}) {
+  return <Link href={href} className="group flex min-h-[136px] flex-col rounded-xl border border-ink-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-md">
+    <span className="flex items-center">
+      <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${attention ? "bg-amber-50 text-amber-800" : "bg-brand-50 text-brand-700"}`}>{icon}</span>
+      <ArrowUpRight className="ml-auto h-4 w-4 text-ink-300 transition group-hover:text-brand-600" aria-hidden="true" />
+    </span>
+    <span className="mt-3 block text-[26px] leading-none font-black tracking-tight tabular-nums text-ink-900">{value.toLocaleString("vi-VN")}</span>
+    <span className="mt-1.5 block text-[13px] leading-4 font-bold text-ink-800">{label}</span>
+    <span className="mt-auto block pt-1 text-[11px] leading-4 text-ink-500">{note}</span>
+  </Link>;
+}
+
+function LevelChip({ label, on, pending }: { label: string; on: boolean; pending?: boolean }) {
+  return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${on ? "bg-emerald-50 text-emerald-800" : pending ? "bg-amber-50 text-amber-800" : "bg-ink-100 text-ink-600"}`}>
+    <span className={`h-1.5 w-1.5 rounded-full ${on ? "bg-emerald-600" : pending ? "bg-amber-500" : "bg-ink-400"}`} aria-hidden="true" />
+    {label}
+  </span>;
+}
+
+function VerifyRow({ level, title, status, on }: { level: string; title: string; status: string; on: boolean }) {
+  return <div className="flex items-start gap-3 rounded-lg border border-ink-100 bg-ink-50/60 px-3 py-2.5">
+    <span className={`mt-0.5 flex h-6 w-8 shrink-0 items-center justify-center rounded-md text-[11px] font-black ${on ? "bg-emerald-600 text-white" : "bg-ink-200 text-ink-700"}`}>{level}</span>
+    <span className="min-w-0 flex-1">
+      <span className="block text-[13px] font-semibold text-ink-900">{title}</span>
+      <span className={`mt-0.5 block text-[11.5px] ${on ? "font-semibold text-emerald-700" : "text-ink-600"}`}>{status}</span>
+    </span>
+  </div>;
+}
+
+function NoticeIcon({ kind, unread }: { kind?: string; unread: boolean }) {
+  const map: Record<string, { icon: React.ReactNode; tone: string }> = {
+    rfq: { icon: <Mail className="h-4 w-4" />, tone: "bg-brand-50 text-brand-700" },
+    verification: { icon: <ShieldCheck className="h-4 w-4" />, tone: "bg-emerald-50 text-emerald-700" },
+    contact: { icon: <ClipboardCheck className="h-4 w-4" />, tone: "bg-sky-50 text-sky-700" },
+    product: { icon: <Package className="h-4 w-4" />, tone: "bg-amber-50 text-amber-800" },
+    certificate: { icon: <FileText className="h-4 w-4" />, tone: "bg-ink-100 text-ink-700" },
+  };
+  const style = map[kind ?? ""] ?? { icon: <Bell className="h-4 w-4" />, tone: "bg-ink-100 text-ink-700" };
+  return <span className={`relative mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${style.tone}`}>
+    {style.icon}
+    {unread && <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-brand-600 ring-2 ring-white" aria-hidden="true" />}
+  </span>;
+}
+
 function PortalSteps({ stages }: { stages: { label: string; state: "done" | "current" | "todo"; note: string }[] }) {
-  return <ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{stages.map((stage, i) => (
-    <li key={stage.label} className={`rounded-xl border p-3.5 text-sm ${stage.state === "done" ? "border-brand-300 bg-brand-50" : stage.state === "current" ? "border-amber-300 bg-amber-50" : "border-ink-200 bg-white"}`}>
-      <p className="font-semibold text-ink-900">{stage.state === "done" ? "✓" : i + 1}. {stage.label}</p>
-      <p className={`mt-0.5 text-xs ${stage.state === "done" ? "font-semibold text-brand-800" : "text-ink-500"}`}>{stage.note}</p>
+  return <ol className="space-y-2 p-5">{stages.map((stage, i) => (
+    <li key={stage.label} className="flex items-start gap-3">
+      <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${stage.state === "done" ? "bg-brand-700 text-white" : stage.state === "current" ? "bg-amber-100 text-amber-900 ring-1 ring-amber-300" : "bg-ink-100 text-ink-500"}`}>
+        {stage.state === "done" ? "✓" : i + 1}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block text-[13px] font-semibold ${stage.state === "todo" ? "text-ink-600" : "text-ink-900"}`}>{stage.label}</span>
+        <span className={`mt-0.5 block text-[11.5px] ${stage.state === "done" ? "font-semibold text-brand-800" : "text-ink-500"}`}>{stage.note}</span>
+      </span>
     </li>))}
   </ol>;
 }
 
-function date(value: string) { return new Date(value).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }); }
-function SectionTitle({ icon, title, sub }: { icon: React.ReactNode; title: string; sub: string }) {
-  return <div className="border-b border-ink-200 pb-3"><h2 className="flex items-center gap-2 text-[15px] font-bold text-ink-900">{icon}{title}</h2><p className="mt-1 text-[13px] text-ink-500">{sub}</p></div>;
+function EmptyRow({ children }: { children: React.ReactNode }) {
+  return <p className="px-5 py-8 text-center text-[13px] text-ink-500">{children}</p>;
 }
-function Empty({ text }: { text: string }) { return <p className="mt-4 rounded-xl border border-dashed border-ink-200 bg-white px-5 py-6 text-sm text-ink-500">{text}</p>; }
-function Stat({ label, value }: { label: string; value: number }) { return <div className="rounded-xl border border-ink-200 bg-white px-4 py-5"><p className="text-xs font-semibold text-ink-600">{label}</p><p className="mt-2 text-3xl font-black text-ink-900">{value}</p></div>; }
-function Info({ label, value }: { label: string; value?: string | null }) { return <div><dt className="text-xs font-semibold text-ink-500">{label}</dt><dd className="mt-0.5 text-ink-900">{value || "—"}</dd></div>; }
+
+function Info({ label, value }: { label: string; value?: string | null }) {
+  return <div><dt className="text-[11px] font-semibold text-ink-500">{label}</dt><dd className="mt-0.5 text-[13px] text-ink-900">{value || "—"}</dd></div>;
+}
