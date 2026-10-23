@@ -11,6 +11,23 @@
 - App truyền `emailRedirectTo` vào Supabase Auth `signUp`, nhưng nếu Supabase không cho phép redirect hoặc template dùng Site URL, nó có thể chuyển sang Site URL của project (mặc định thường là `http://localhost:3000`). Code nay từ chối URL override không an toàn **trước khi tạo tài khoản**, nhưng không thể tự thay Site URL/Redirect URLs trong dashboard Supabase. Đừng chia sẻ nguyên link xác nhận: URL chứa token/code; nếu cần chẩn đoán, chỉ cho biết hostname + pathname của link/nơi đến (không query/fragment). Sau khi sửa, thử tài khoản test mới, xác nhận link vào `/login`, rồi đăng nhập; với tài khoản đã nhận mail cũ, kiểm tra `Authentication → Users` xem email đã được xác nhận chưa. Nếu chưa, gửi lại email xác nhận từ luồng Auth an toàn; không tự sửa/copy token trên URL, không tạo trùng app_users bằng cách đăng ký lại cùng email.
 3. Kiểm thử staging bằng 2 NCC và một nhân viên: tạo tài khoản trước bằng email, xác nhận email và đăng nhập → dashboard khóa bắt điền form doanh nghiệp tạo trang NCC → trạng thái chờ; admin/sourcing xác nhận (hoặc yêu cầu bổ sung); sau xác nhận, NCC tạo sản phẩm của mình, tải ảnh/catalogue thật (chỉ nội bộ), nộp duyệt; kiểm tra NCC khác không đọc/sửa được. Vexim xem sản phẩm tại CRM, xác nhận hoặc trả lại; chỉ khi Vexim chọn tệp chia sẻ buyer và bật `ready_for_buyer` mới đủ điều kiện xuất hiện nếu hồ sơ NCC và danh mục đã được xuất bản riêng.
 
+## Nạp hộ nhà cung cấp và bàn giao tài khoản
+
+Đường dùng khi Vexim chủ động nạp dữ liệu nhà cung cấp (không chờ họ tự đăng ký). Không bước nào gửi thư xác nhận email.
+
+1. **Tạo hồ sơ** ở CRM → Nhà cung cấp → Thêm nhà cung cấp, nhập thông tin đã thu thập. Hồ sơ ở trạng thái nháp, chưa công khai.
+2. **Cấp tài khoản** ở trang chi tiết nhà cung cấp, khối "Tài khoản cổng nhà cung cấp": nhập email đăng nhập và mật khẩu tạm (nút "Tạo mật khẩu"). Hệ thống tạo tài khoản Supabase Auth ở trạng thái đã xác nhận nên đăng nhập được ngay, và gắn tài khoản vào đúng hồ sơ. Chỉ `admin` và `sourcing` làm được, và chỉ khi app đang kết nối Supabase.
+3. **Bàn giao cho doanh nghiệp** ở cùng khối, mục "Bàn giao cho doanh nghiệp": nhập email đăng nhập mới của họ và mật khẩu mới. Hệ thống đổi cả hai trên `app_users` và Supabase Auth trong một thao tác, vẫn giữ `email_confirm: true`, nên không có thư xác nhận nào được gửi. Hồ sơ, giấy tờ, sản phẩm, lịch sử kiểm duyệt và nhật ký nằm nguyên trên cùng một tài khoản; chỉ chỗ đăng nhập là đổi.
+4. **Gửi thông tin đăng nhập** cho doanh nghiệp qua kênh liên hệ riêng. Họ vào `/login` bằng email và mật khẩu mới, thấy dashboard khóa cho tới khi điền hồ sơ doanh nghiệp, đúng như nhà cung cấp tự đăng ký.
+
+Điều kiện và giới hạn:
+
+- Email mới không được trùng tài khoản nhà cung cấp khác và không được là email của nhân viên Vexim.
+- Mật khẩu mới bắt buộc, 8–128 ký tự gồm chữ và số. Mật khẩu tạm đã gửi nội bộ không nên dùng tiếp sau khi bàn giao.
+- Nếu Supabase Auth từ chối, email trong `app_users` được trả về như cũ và mật khẩu không đổi; thao tác báo lỗi thay vì để hai bên lệch nhau.
+- Không đổi được email/mật khẩu qua màn Cài đặt → Người dùng: tài khoản doanh nghiệp bị chặn ở đó có chủ ý, vì đăng nhập của họ đi qua Supabase Auth chứ không dùng mật khẩu nội bộ.
+- Nhật ký ghi `supplier.account_provisioned`, `supplier.account_linked` và `supplier.account_handed_over`; không ghi mật khẩu.
+
 ## Một form đăng nhập, thêm Google
 
 - `/login` là **form đăng nhập duy nhất** cho nhân viên Vexim và NCC. `/supplier/register` dùng layout giống login nhưng chỉ tạo tài khoản NCC hạn chế (email + mật khẩu/xác nhận email hoặc Google), không tạo hồ sơ doanh nghiệp/chứng từ/công khai. Sau đăng nhập, `/supplier/portal` hiển thị dashboard khóa và **form doanh nghiệp đầu tiên ngay ở đó**; form này mới tạo trang NCC nháp, lưu chứng từ bước giấy tờ và thông báo nhân viên Vexim. Vexim phải xác nhận quyền cổng riêng rồi NCC mới dùng chức năng sản phẩm/RFQ. `/supplier/apply` là đường dẫn cũ, chỉ chuyển về đăng ký hoặc dashboard; không có form đăng nhập thứ hai. Google đăng ký qua OAuth PKCE và email đã xác thực tạo đúng vai trò `supplier` không liên kết NCC, mở phiên dashboard khóa; Google *đăng nhập* của tài khoản lạ không được tự tạo vai trò. Tài khoản đã có email phải dùng login, không tạo trùng.

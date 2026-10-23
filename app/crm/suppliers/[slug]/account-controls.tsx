@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { provisionSupplierAccountAction } from "./account-actions";
+import { provisionSupplierAccountAction, handOverSupplierAccountAction } from "./account-actions";
 
 export interface SupplierAccountInfo {
   email: string;
@@ -27,17 +27,22 @@ export function SupplierAccountControls({
   defaultName,
   account,
   canProvision,
+  canHandOver,
 }: {
   supplierId: string;
   defaultEmail: string;
   defaultName: string;
   account: SupplierAccountInfo | null;
   canProvision: boolean;
+  canHandOver: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [handoverBusy, setHandoverBusy] = useState(false);
+  const [handoverPassword, setHandoverPassword] = useState("");
+  const [handoverMessage, setHandoverMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,6 +62,24 @@ export function SupplierAccountControls({
     }
   }
 
+  async function handOver(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setHandoverBusy(true);
+    setHandoverMessage(null);
+    try {
+      const result = await handOverSupplierAccountAction(new FormData(event.currentTarget));
+      setHandoverMessage({ ok: result.ok, text: result.message });
+      if (result.ok) {
+        setHandoverPassword("");
+        router.refresh();
+      }
+    } catch {
+      setHandoverMessage({ ok: false, text: "Không kết nối được máy chủ. Vui lòng thử lại." });
+    } finally {
+      setHandoverBusy(false);
+    }
+  }
+
   if (account) {
     return (
       <div className="mt-3 space-y-1 text-sm text-ink-700">
@@ -64,6 +87,33 @@ export function SupplierAccountControls({
         <p>Trạng thái: {account.isActive ? "Đang hoạt động" : "Đã tạm khoá"}</p>
         <p>Ngày cấp: {account.createdLabel}</p>
         <p>Lần đăng nhập gần nhất: {account.lastLoginLabel}</p>
+
+        {canHandOver && (
+          <details className="mt-3 rounded-lg border border-ink-200 bg-ink-50/50 px-3 py-2">
+            <summary className="cursor-pointer text-sm font-semibold text-ink-800">Bàn giao cho doanh nghiệp</summary>
+            <p className="mt-2 text-xs leading-5 text-ink-600">
+              Đổi email đăng nhập sang địa chỉ của doanh nghiệp và đặt mật khẩu mới. Hồ sơ, giấy tờ, sản phẩm và lịch sử duyệt giữ nguyên trên cùng tài khoản. Không có thư xác nhận nào được gửi; gửi email và mật khẩu mới cho họ là đăng nhập được ngay. Email liên hệ trên hồ sơ không đổi, đây chỉ là email đăng nhập.
+            </p>
+            <form onSubmit={handOver} className="mt-3 grid gap-3">
+              <input type="hidden" name="supplier_id" value={supplierId} />
+              <label className="block text-sm">
+                <span className="mb-1 block font-semibold">Email đăng nhập mới *</span>
+                <input name="new_email" type="email" required maxLength={180} className="input" defaultValue={account.email} placeholder="nguoidung@congty.vn" />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block font-semibold">Mật khẩu mới *</span>
+                <span className="flex gap-2">
+                  <input name="new_password" type="text" autoComplete="off" required maxLength={72} className="input" value={handoverPassword} onChange={(event) => setHandoverPassword(event.target.value)} placeholder="Ít nhất 8 ký tự, gồm chữ và số" />
+                  <button type="button" className="btn btn-soft shrink-0" onClick={() => setHandoverPassword(generatePassword())}>Tạo mật khẩu</button>
+                </span>
+              </label>
+              <div>
+                <button type="submit" disabled={handoverBusy} className="btn btn-primary">{handoverBusy ? "Đang bàn giao..." : "Bàn giao tài khoản"}</button>
+              </div>
+            </form>
+            {handoverMessage && <p role="status" className={`mt-2 text-sm ${handoverMessage.ok ? "text-emerald-700" : "text-rose-700"}`}>{handoverMessage.text}</p>}
+          </details>
+        )}
       </div>
     );
   }

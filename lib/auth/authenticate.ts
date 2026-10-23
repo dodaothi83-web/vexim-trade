@@ -291,6 +291,32 @@ export async function updateSupabasePassword(email: string, password: string): P
   }
 }
 
+/**
+ * Bàn giao tài khoản nhà cung cấp: đổi email đăng nhập và mật khẩu trong một lần
+ * gọi, kèm `email_confirm: true` để Supabase coi địa chỉ mới là đã xác nhận và
+ * không gửi thư xác nhận. Đây là thao tác của nhân viên Vexim khi gửi tài khoản
+ * cho doanh nghiệp, không phải đăng ký lại.
+ */
+export async function handOverSupabaseAccount(
+  currentEmail: string,
+  next: { email: string; password: string },
+): Promise<boolean> {
+  const client = getSupabaseAuthClient();
+  if (!client) return false;
+  try {
+    const id = await findSupabaseUserId(currentEmail);
+    if (!id) return false;
+    const { error } = await client.auth.admin.updateUserById(id, {
+      email: next.email.trim().toLowerCase(),
+      email_confirm: true,
+      password: next.password,
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
 async function findSupabaseUserId(email: string): Promise<string | null> {
   const client = getSupabaseAuthClient();
   if (!client) return null;

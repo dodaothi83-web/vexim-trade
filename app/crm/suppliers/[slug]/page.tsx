@@ -480,7 +480,7 @@ export default async function SupplierDetailPage({
           <Card className="p-4">
             <SectionHead icon={UserRound} title="Tài khoản cổng nhà cung cấp" />
             <p className="text-sm leading-6 text-ink-600">{accountUser
-              ? "Tài khoản đăng nhập đang gắn với hồ sơ này. Nhà cung cấp dùng tài khoản này để vào cổng, bổ sung hồ sơ và quản lý sản phẩm của mình."
+              ? "Tài khoản đăng nhập đang gắn với hồ sơ này. Nhà cung cấp dùng tài khoản này để vào cổng, bổ sung hồ sơ và quản lý sản phẩm của mình. Khi đã có địa chỉ email của doanh nghiệp, bàn giao ở mục bên dưới."
               : "Hồ sơ này chưa có tài khoản đăng nhập. Nhà cung cấp chưa thể tự quản lý hồ sơ và sản phẩm trên cổng cho đến khi được cấp tài khoản hoặc tự đăng ký."}</p>
             <SupplierAccountControls
               supplierId={id}
@@ -493,6 +493,7 @@ export default async function SupplierDetailPage({
                 createdLabel: formatDate(accountUser.created_at),
               } : null}
               canProvision={canManage && (session.role === "admin" || session.role === "sourcing")}
+              canHandOver={canManage && (session.role === "admin" || session.role === "sourcing")}
             />
             {showOnboarding && (
               <div className="mt-4 border-t border-ink-100 pt-4">
