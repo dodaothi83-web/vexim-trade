@@ -1,5 +1,7 @@
 # Vị trí tài trợ: nền tảng thử nghiệm, **chưa mở bán**
 
+> Cơ chế bán thật đã chốt ở `docs/sponsored-listing-spec.md`, dùng bảng `sponsored_pushes`. Tài liệu này chỉ còn mô tả bản thử nghiệm ở staging, một suất mỗi danh mục, và sẽ bỏ sau khi cơ chế mới chạy ổn định.
+
 Chỉ là hạ tầng để thử nghiệm sau này, **không** có chiến dịch mặc định, bảng giá, hoá đơn, thu phí hoặc chỉ tiêu traffic. Vị trí tách khỏi kết quả tự nhiên của danh mục; kết quả tự nhiên vẫn xếp xen kẽ NCC và lọc như trước. Vị trí giới hạn **một sản phẩm/danh mục** khi chưa bật bộ lọc và luôn ghi “Sponsored · Tài trợ” / “Paid placement, not a Vexim verification result”. Không tự thêm huy hiệu xác minh, không hiển thị giấy tờ, không mở quyền NCC hay công khai sản phẩm nhờ tài trợ.
 
 ## Điều kiện triển khai
