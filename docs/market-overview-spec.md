@@ -180,6 +180,61 @@ Không có bảng nào lưu dữ liệu buyer thô. Nếu sau này cần chỉ s
 - Thêm một câu miễn trừ cố định, đặt ở cuối trang và không được xoá: giá và số liệu để tham khảo, không phải chào bán, không phải tư vấn đầu tư; điều kiện cuối cùng theo báo giá và hợp đồng.
 - Trang phương pháp `/market-methodology` giải thích cách tính khoảng giá, số mẫu, tần suất cập nhật, và những gì Vexim không làm. Trang này quan trọng hơn nó có vẻ: nó là thứ bảo vệ bạn khi buyer thắc mắc, và là thứ khiến chỉ số tự xây trở nên đáng tin.
 
+### 9.1 Phân vai nguồn: kiểm chứng nội bộ và hiển thị bản địa
+
+Chốt ngày 23/10/2026. Áp dụng cho mọi trang có số liệu, không riêng trang market.
+
+Bốn nguyên tắc dưới đây tồn tại để trả lời một câu hỏi lặp lại nhiều lần: nguồn nào được hiện, nguồn nào chỉ dùng để tự kiểm.
+
+**Nguyên tắc 1. Nguồn kiểm chứng nội bộ không lên trang.**
+
+USDA FAS và cơ sở dữ liệu PSD là công cụ tự kiểm, không phải nội dung hiển thị. Chúng trả lời ba câu hỏi nội bộ: số của mình có vô lý không, cung cầu thế giới đang nghiêng về đâu, danh mục nào đáng mở tiếp. Cả ba câu đó không cần buyer thấy, và việc đưa chúng lên trang không làm buyer tin hơn.
+
+**Nguyên tắc 2. Trên trang, nguồn dẫn là nguồn Việt.**
+
+Số liệu về Việt Nam phải dẫn nguồn Việt: Tổng cục Thống kê, Bộ Nông nghiệp và Môi trường (trước đây là Bộ NN&PTNT), VPSA, VINACAS, VICOFA, VFA.
+
+Lý do không chỉ là cảm giác. Phần lớn số liệu Việt Nam trong PSD được dựng lại từ chính các nguồn này, cộng thêm một lớp ước tính và một độ trễ. Trích USDA cho một con số Việt Nam là trích bản xử lý lại của nguồn Việt, qua hai lớp. Với một nền tảng bán sự xác minh tại chỗ, dẫn nguồn nước ngoài cho dữ liệu trong nước làm trang đọc như báo cáo nghiên cứu và làm yếu đúng lợi thế đang bán.
+
+Điều này không có nghĩa là kỳ thị nguồn nước ngoài. FAS là cơ quan đối ngoại của Bộ Nông nghiệp Mỹ và nhiệm vụ của nó đúng là đánh giá sản xuất của nước khác, nên số của nó về Việt Nam không phải góc nhìn Mỹ. Vấn đề nằm ở chỗ gán nguồn, không nằm ở quốc tịch của tổ chức.
+
+**Nguyên tắc 3. Bối cảnh quốc tế chỉ công bố khi trang market mở, và phải đặt hai nguồn cạnh nhau.**
+
+Khi đã có số Việt Nam của hiệp hội và số toàn cầu của USDA, hiển thị cả hai, mỗi số ghi rõ năm và cơ sở tính (năm thị trường hay năm dương lịch). Hai nguồn cạnh nhau mạnh hơn một, và buyer thấy được chênh lệch là do cách tính chứ không phải do một bên sai.
+
+Trước giai đoạn đó, không đưa số quốc tế lên trang dưới bất kỳ hình thức nào, kể cả một dòng nhỏ ở chân khối.
+
+**Nguyên tắc 4. Dùng được về pháp lý, nhưng chỉ dùng phần được phép.**
+
+PSD công bố dưới giấy phép Creative Commons Attribution 4.0, dùng được cho cả mục đích thương mại, bắt buộc ghi nguồn. Báo cáo GAIN của FAS là tài liệu công. Riêng ảnh lịch mùa vụ trên trang IPAD là ảnh chụp, không trích dẫn lại và không đưa lên trang. Lịch mùa vụ của Vexim phải viết lại thành dữ liệu, có nguồn riêng cho từng vùng.
+
+#### Bảng phân vai nguồn
+
+| Điều được nói trên trang | Nguồn dùng | Không dùng |
+|---|---|---|
+| Diện tích, sản lượng, kim ngạch xuất khẩu của Việt Nam | Tổng cục Thống kê, Bộ Nông nghiệp và Môi trường, hiệp hội ngành | USDA PSD |
+| Tháng thu hoạch theo vùng | VPSA, VINACAS, VICOFA, khuyến nông tỉnh, doanh nghiệp đầu ngành | Lịch mùa vụ của USDA |
+| Quy cách và tiêu chuẩn kỹ thuật | Codex, ASTA, ESA, AFI, IPC | Nguồn thương mại không dẫn chuẩn gốc |
+| Giá FOB Việt Nam | Dữ liệu niêm yết của Vexim, đối chiếu hiệp hội và hải quan | USDA, giá chợ đầu mối trong nước |
+| Bối cảnh cung cầu toàn cầu | USDA PSD, ghi rõ đây là ước tính theo năm thị trường | Số liệu không có nguồn |
+| Giá chợ đầu mối trong nước | Không đưa lên trang | Mọi trường hợp |
+
+#### Hai cái bẫy phải nhớ
+
+**Giá chợ đầu mối không phải giá FOB.** Giá bán buôn ở Bình Điền hay Hóc Môn là giá nội địa, tính bằng đồng, cho hàng đã qua nhiều khâu và không kèm chứng từ xuất khẩu. Giá FOB tính bằng đô la, tại cảng, có bao bì, kiểm dịch và chứng nhận. Hai thị trường khác nhau và chênh nhau xa. Trộn hai loại lên cùng một trang nguy hiểm hơn cả việc trích sai nguồn, vì buyer sẽ dùng con số đó để mặc cả và không có cách nào giải thích.
+
+**Năm thị trường không phải năm vụ.** USDA tính theo năm thị trường, không theo năm dương lịch và không theo vụ của Việt Nam. Cùng một vụ, hai nguồn có thể ra hai con số khác nhau. Luôn ghi cơ sở tính ngay cạnh con số, nếu không người đọc sẽ kết luận một bên sai.
+
+#### Câu tự kiểm trước khi đưa một con số lên trang
+
+Hỏi con số này buyer dùng để làm gì.
+
+Để mặc cả thì phải là giá FOB tính từ dữ liệu thật của Vexim.
+Để hiểu bối cảnh thì nguồn quốc tế được phép.
+Để tin Vexim là người địa phương thì chỉ nguồn Việt mới làm được việc đó.
+
+Ba mục đích khác nhau, ba loại nguồn khác nhau. Một con số không phục vụ được cả ba.
+
 ## 10. SEO và liên kết nội bộ
 
 - Tiêu đề thẻ: `[Tên hàng] Price & Season in Vietnam ([tháng/năm]) | Vexim Trade`. Có tháng năm để Google thấy là trang sống.
@@ -239,6 +294,7 @@ Giai đoạn 0 đến 2 làm được ngay, không cần mua dữ liệu, không
 ## 14. Những gì không làm
 
 - Không dự báo giá, không đưa ra khuyến nghị mua hay bán.
+- Không hiển thị nguồn nước ngoài cho số liệu Việt Nam khi đã có nguồn Việt tương đương, và không lấy ảnh lịch mùa vụ từ trang của cơ quan nước ngoài (mục 9.1).
 - Không hiện giá phái sinh khi chưa có giấy phép, kể cả dạng biểu đồ.
 - Không gộp quy cách khác nhau vào một con số.
 - Không dùng giá của RFQ cho mục đích công khai.
@@ -257,6 +313,7 @@ Giai đoạn 0 đến 2 làm được ngay, không cần mua dữ liệu, không
 - [ ] Có kiểm thử tự động cho bốn trường hợp: đủ mẫu, thiếu mẫu, dữ liệu cũ, quy cách lẫn.
 - [ ] Nút RFQ truyền đúng `source_page` để đo được chuyển đổi.
 - [ ] Trang chạy được khi database trống, không lỗi 500.
+- [ ] Mọi số liệu về Việt Nam dẫn nguồn Việt; không có nhãn USDA hay PSD trên trang công khai (mục 9.1).
 
 ## 16. Câu hỏi cần bạn chốt trước khi code
 
