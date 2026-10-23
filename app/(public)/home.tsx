@@ -11,8 +11,8 @@ import {
 import { getStore } from "@/lib/db";
 import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
-import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
-import { PublicProductCard } from "@/components/public-product-card";
+import { arrangeSupplierProducts, shouldPromoteProductFeed, HOME_FEED_PER_PAGE, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
+import { HomeProductFeed } from "@/components/home-product-feed";
 import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
 import { CookieSettingsButton } from "@/components/cookie-consent";
 import { buildPopularSearches } from "@/lib/public/popular-searches";
@@ -213,7 +213,13 @@ export default async function HomeContent({
       offers.push({ ...p, categorySlug: category.slug });
     }
   }
-  const homeProducts = arrangeSupplierProducts(offers, 2).shown.slice(0, 8);
+  // Thứ tự được chốt ở máy chủ, rồi mới chia trang. Ngưỡng xét trên toàn bộ danh
+  // sách sau khi áp giới hạn mỗi nhà cung cấp, không phải trên trang đầu: từ khi
+  // có phân trang thì người xem với tới được cả danh sách, còn giới hạn hai thẻ
+  // mỗi nhà cung cấp mới là thứ quyết định lưới có phải catalogue của một công ty.
+  const arrangedOffers = arrangeSupplierProducts(offers, HOME_FEED_PER_SUPPLIER).shown;
+  const homeProducts = arrangedOffers.slice(0, HOME_FEED_PER_PAGE);
+  const promoteFeed = shouldPromoteProductFeed(arrangedOffers).promoted;
   const heroOf = (c: Category) => c.hero_image || FALLBACK_HERO;
 
   // Lọc danh mục theo thanh tìm kiếm (chỉ dựa trên dữ liệu thực tế từ CRM)
@@ -251,6 +257,39 @@ export default async function HomeContent({
     titleFor: (category) => getCategoryTitle(category as Category, lang),
   });
   const faqs = isVi ? FAQ_VI : FAQ_EN;
+
+  /*
+   * Lưới sản phẩm của trang chủ. Khai báo thành biến để đặt được ở hai vị trí
+   * khác nhau: trên lưới danh mục khi đã đủ hàng, dưới lưới danh mục khi chưa.
+   * Xem shouldPromoteProductFeed trong lib/public/supplier-product-order.ts.
+   */
+  const productFeedSection = homeProducts.length > 0 ? (
+    <section aria-labelledby="home-products-title" className="border-t border-slate-200 bg-white py-14">
+      <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-brand-700">
+              {isVi ? "Sản phẩm nổi bật trên sàn" : "Featured Marketplace Offers"}
+            </p>
+            <h2 id="home-products-title" className="mt-1.5 text-2xl font-black text-ink-900 sm:text-3xl">
+              {isVi
+                ? "Nguồn hàng thực phẩm sẵn sàng báo giá"
+                : "Export-Ready Food Products from Verified Suppliers"}
+            </h2>
+            <p className="mt-1.5 text-sm text-ink-600">
+              {isVi
+                ? "Sản phẩm thực tế từ các nhà cung cấp đã được kiểm duyệt hồ sơ trên hệ thống."
+                : "Direct product offers from Vietnamese suppliers with reviewed documentation and capabilities."}
+            </p>
+          </div>
+          <a href="#categories" className="text-sm font-semibold text-brand-700 hover:underline">
+            {isVi ? "Xem tất cả danh mục →" : "Browse all categories →"}
+          </a>
+        </div>
+        <HomeProductFeed items={arrangedOffers} isVi={isVi} />
+      </div>
+    </section>
+  ) : null;
 
   return (
     <div lang={lang} className="bg-slate-50 text-ink-900">
@@ -378,6 +417,9 @@ export default async function HomeContent({
           </div>
         </div>
       </section>
+
+      {/* Sản phẩm đã đủ để đứng trên lưới danh mục. Chưa đủ thì khối này rơi xuống dưới. */}
+      {promoteFeed && productFeedSection}
 
       {/* =====================================================================
           SECTION 2: DANH MỤC SẢN PHẨM (3 CARD / HÀNG + 3-4 NHÓM CON + XEM THÊM)
@@ -536,51 +578,8 @@ export default async function HomeContent({
         </div>
       </section>
 
-      {/* Sản phẩm sẵn sàng chào giá */}
-      {homeProducts.length > 0 && (
-        <section aria-labelledby="home-products-title" className="border-t border-slate-200 bg-white py-14">
-          <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-brand-700">
-                  {isVi ? "Sản phẩm nổi bật trên sàn" : "Featured Marketplace Offers"}
-                </p>
-                <h2 id="home-products-title" className="mt-1.5 text-2xl font-black text-ink-900 sm:text-3xl">
-                  {isVi
-                    ? "Nguồn hàng thực phẩm sẵn sàng báo giá"
-                    : "Export-Ready Food Products from Verified Suppliers"}
-                </h2>
-                <p className="mt-1.5 text-sm text-ink-600">
-                  {isVi
-                    ? "Sản phẩm thực tế từ các nhà cung cấp đã được kiểm duyệt hồ sơ trên hệ thống."
-                    : "Direct product offers from Vietnamese suppliers with reviewed documentation and capabilities."}
-                </p>
-              </div>
-              <a href="#categories" className="text-sm font-semibold text-brand-700 hover:underline">
-                {isVi ? "Xem tất cả danh mục →" : "Browse all categories →"}
-              </a>
-            </div>
-            <ul className="mt-6 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-              {homeProducts.map((p) => (
-                <li key={p.id} className="min-w-0">
-                  <PublicProductCard
-                    href={`/products/${encodeURIComponent(p.categorySlug)}/${encodeURIComponent(p.id)}`}
-                    imagePath={p.cardImagePath ?? p.imagePaths[0]}
-                    name={p.name}
-                    moq={p.moq}
-                    price={p.price}
-                    fob={p.incoterm?.toUpperCase() === "FOB"}
-                    leadTimeDays={p.leadTimeDays}
-                    supplierName={p.supplierName}
-                    supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
-                    verificationSteps={p.verificationSteps}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
+      {/* Chưa đủ sản phẩm để mở trang bằng lưới sản phẩm. Vẫn hiện, nhưng sau danh mục. */}
+      {!promoteFeed && productFeedSection}
 
       {/* =====================================================================
           SECTION 3: DANH SÁCH BLOG (4 BÀI / HÀNG)

@@ -17,6 +17,7 @@ const homeMetadata = read("app/(public)/page.tsx");
 const rootLayout = read("app/layout.tsx");
 const productPage = read("app/(public)/products/[slug]/[productId]/page.tsx");
 const categoryPage = read("app/(public)/products/[slug]/page.tsx");
+const categoryFaqCopy = read("lib/public/category-faq.ts");
 const rfqStatus = read("app/(public)/rfq/status/[token]/page.tsx");
 const rfqEmail = read("lib/email/rfq.ts");
 const faqPrompt = read("lib/ai/draft-style.ts");
@@ -102,7 +103,8 @@ assert.ok(
   categoryPage.includes('twitter: { card: "summary_large_image"'),
   "Category Twitter cards use the same description as Open Graph",
 );
-assert.ok(categoryPage.includes("const STANDARD_CATEGORY_FAQS"), "Category FAQ output includes the current supplier-choice and matching explanations");
+assert.ok(categoryFaqCopy.includes("export const STANDARD_CATEGORY_FAQS"), "Category FAQ output includes the current supplier-choice and matching explanations");
+assert.ok(categoryPage.includes('from "@/lib/public/category-faq"'), "The category page renders those standard questions from the shared module");
 assert.ok(categoryPage.includes("safeJsonLd({"), "Category FAQ schema uses escaped JSON-LD output");
 assert.ok(categorySeed.includes("Can I request a quote from a specific supplier?"), "Seeded category FAQs explain chosen-supplier RFQs");
 assert.ok(categorySeed.includes("Paid listings never affect who Vexim recommends."), "Seeded category FAQs explain paid listings do not affect matching");

@@ -234,7 +234,11 @@ const { default: HomeContent } = compile('../app/(public)/home.tsx', {
   '@/lib/db': { getStore: () => ({ listCategories: async () => [{ ...category, active_on_homepage: true, public_page_ready: true }], listSuppliers: async () => [] }) },
   '@/lib/blog/queries': { listPublishedNews: async () => [] },
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [cards[0], cards[1], { ...cards[0], id: 'demo', isDemo: true }] },
-  '@/lib/public/supplier-product-order': { arrangeSupplierProducts },
+  '@/lib/public/supplier-product-order': {
+    arrangeSupplierProducts,
+    shouldPromoteProductFeed: () => ({ promoted: false, products: 0, suppliers: 0 }),
+    HOME_FEED_PER_SUPPLIER: 2,
+  },
   '@/components/public-product-card': { PublicProductCard },
 });
 const homeHtml = renderToStaticMarkup(await HomeContent());

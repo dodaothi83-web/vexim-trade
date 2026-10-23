@@ -33,6 +33,9 @@ export const PRICE_UNIT_LABEL: Record<PriceUnit, { short: string; long: string }
  */
 export const MARKET_PRICE_UNITS: Record<string, { primary: PriceUnit; secondary?: PriceUnit }> = {
   cashew: { primary: "kg", secondary: "lb" },
+  // Slug ra mắt 23/10/2026. Nhân điều giữ pound như bản tin quốc tế, quế hồi đi theo tấn.
+  "cashew-kernels": { primary: "kg", secondary: "lb" },
+  "cinnamon-star-anise": { primary: "mt" },
   coffee: { primary: "mt" },
   rice: { primary: "mt" },
   pepper: { primary: "mt" },

@@ -24,6 +24,8 @@ import type {
   Rfq,
   RfqAttachment,
   RfqMatch,
+  SponsoredPush,
+  SponsoredPushDaily,
   SupplierRfqInvitation,
   SupplierNoticeRead,
   Supplier,
@@ -405,6 +407,70 @@ export const supabaseStore: DataStore = {
       .eq("id", id);
   },
 
+  async listSponsoredPushes({ surface, categorySlug, now }) {
+    let query = must()
+      .from("sponsored_pushes")
+      .select("*")
+      .eq("surface", surface)
+      .eq("status", "approved")
+      .lte("starts_at", now)
+      .gt("ends_at", now);
+    if (surface === "category") {
+      if (!categorySlug) return [];
+      query = query.eq("category_slug", categorySlug);
+    }
+    const { data, error } = await query;
+    if (error) {
+      // Môi trường chưa áp migration thì bảng chưa có. Đó là "chưa bán gói nào",
+      // không phải lỗi trang: trả rỗng để trang danh mục vẫn dựng bình thường.
+      if (error.code === "42P01" || error.code === "PGRST205") return [];
+      fail("listSponsoredPushes", error);
+    }
+    return (data ?? []) as SponsoredPush[];
+  },
+  async listAllSponsoredPushes() {
+    const { data, error } = await must()
+      .from("sponsored_pushes")
+      .select("*")
+      .order("starts_at", { ascending: false });
+    // Không nuốt lỗi ở đây: màn quản trị cần phân biệt "chưa bán gói nào" với
+    // "chưa áp migration". Nuốt lỗi thì cả hai cùng ra danh sách rỗng.
+    if (error) fail("listAllSponsoredPushes", error);
+    return (data ?? []) as SponsoredPush[];
+  },
+  async createSponsoredPush(input) {
+    const { data, error } = await must()
+      .from("sponsored_pushes")
+      .insert({ ...input, status: input.status ?? "draft" })
+      .select()
+      .single();
+    if (error) fail("createSponsoredPush", error);
+    return data as SponsoredPush;
+  },
+  async updateSponsoredPush(id, patch) {
+    const { data, error } = await must()
+      .from("sponsored_pushes")
+      .update(patch)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateSponsoredPush", error);
+    return data as SponsoredPush;
+  },
+  async deleteSponsoredPush(id) {
+    const { error } = await must().from("sponsored_pushes").delete().eq("id", id);
+    if (error) fail("deleteSponsoredPush", error);
+  },
+  async listSponsoredPushDaily(pushIds, sinceDay) {
+    if (!pushIds.length) return [];
+    const { data, error } = await must()
+      .from("sponsored_push_daily")
+      .select("*")
+      .in("push_id", pushIds)
+      .gte("day", sinceDay);
+    if (error) fail("listSponsoredPushDaily", error);
+    return (data ?? []) as SponsoredPushDaily[];
+  },
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
     const column =
       ownerType === "product" ? "product_id" :

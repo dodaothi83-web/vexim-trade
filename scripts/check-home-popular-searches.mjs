@@ -30,20 +30,28 @@ const { buildPopularSearches, POPULAR_SEARCH_LIMIT, POPULAR_SEARCH_LABELS } = lo
 const cat = (slug) => ({ slug, name_i18n: { en: slug } });
 const titleFor = (c) => c.name_i18n.en;
 
-/* ------------- 1. Đúng dữ liệu production: chỉ 3 danh mục, không có chip chết ------------- */
-const production = [cat("dried-fruits"), cat("spices"), cat("seafood-processed-fisheries-products")];
+/* ------------- 1. Đúng dữ liệu production sau bộ ra mắt 23/10/2026 ------------- */
+// Thủy sản đã ẩn nên không còn chip; ba danh mục ra mắt cộng dried-fruits giữ lại.
+const named = (slug, en) => ({ slug, name_i18n: { en } });
+const production = [
+  named("dried-fruits", "Dried fruits"),
+  named("pepper", "Pepper"),
+  named("cashew-kernels", "Cashew kernels"),
+  named("cinnamon-star-anise", "Cinnamon and star anise"),
+];
 const prodChips = buildPopularSearches({ categories: production, lang: "en", titleFor });
 const prodSlugs = new Set(production.map((c) => c.slug));
 for (const chip of prodChips) {
   const slug = decodeURIComponent(chip.href.replace("/products/", ""));
   assert.ok(prodSlugs.has(slug), `Chip "${chip.label}" trỏ vào danh mục không tồn tại: ${chip.href}`);
 }
-assert.equal(prodChips.length, 3, "Chỉ hiện chip cho 3 danh mục đang published");
+assert.equal(prodChips.length, 4, "Mỗi danh mục đang published có đúng một chip");
 assert.equal(JSON.stringify(prodChips.map((c) => c.href)), JSON.stringify([
-  "/products/spices",
-  "/products/seafood-processed-fisheries-products",
+  "/products/pepper",
   "/products/dried-fruits",
-]), "Chip xếp theo thứ tự nhãn thương mại rồi tới danh mục mới");
+  "/products/cashew-kernels",
+  "/products/cinnamon-star-anise",
+]), "Chip xếp theo bảng nhãn thương mại trước, danh mục chưa có nhãn theo sau");
 
 /* ------------- 2. Danh mục cũ có thật trở lại thì chip hiện, không có thì biến mất ------------- */
 const legacySlugs = ["cashew", "coffee", "pepper", "cinnamon", "coconut", "rice"];
@@ -80,4 +88,4 @@ assert.ok(home.includes("buildPopularSearches"), "Trang chủ dùng hàm dựng 
 assert.ok(home.includes("popularKeywords.length > 0"), "Không có chip nào thì ẩn cả dòng Popular searches");
 
 console.log("✅ check-home-popular-searches: chip tìm nhanh chỉ trỏ vào danh mục đang published");
-console.log(`   · production mẫu 3 danh mục → ${prodChips.length} chip · tối đa ${POPULAR_SEARCH_LIMIT} chip`);
+console.log(`   · production mẫu ${production.length} danh mục → ${prodChips.length} chip · tối đa ${POPULAR_SEARCH_LIMIT} chip`);

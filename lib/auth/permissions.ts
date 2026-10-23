@@ -44,7 +44,11 @@ export type Permission =
   /** Xem RFQ (chỉ đọc, không thao tác) */
   | "rfq.view"
   /** Xử lý RFQ, ghép seller, gửi báo giá cho buyer */
-  | "rfq.manage";
+  | "rfq.manage"
+  /** Xem danh sách gói đẩy sản phẩm và số liệu */
+  | "sponsored.view"
+  /** Tạo, duyệt, tạm dừng gói đẩy (chỉ admin: ràng buộc dưới cơ sở dữ liệu cũng đòi admin) */
+  | "sponsored.manage";
 
 export const ROLES: {
   value: UserRole;
@@ -131,6 +135,8 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "verifications.inspect",
     "verifications.approve",
     "rfq.manage",
+    "sponsored.view",
+    "sponsored.manage",
   ],
   sale: [
     "buyers.view",
@@ -144,6 +150,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "kpi.view",
     "blog.manage",
     "rfq.manage",
+    "sponsored.view",
     "settings.view",
   ],
   sourcing: [

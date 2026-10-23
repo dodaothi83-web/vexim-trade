@@ -5,7 +5,7 @@ import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { listPublicSuppliers } from "@/lib/public/catalog";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
-import { isTestOnlyProduct, productBelongsToCategory, productGrade, productReviewApproved, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, pepperGrade, productBelongsToCategory, productGrade, productReviewApproved, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
 import type { Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -45,6 +45,24 @@ export function shareableProductImages(media: MediaAsset[], productId: string, f
     .slice(0, limit);
 }
 
+/**
+ * Quy cách đã có sẵn trong trường dữ liệu của danh mục.
+ *
+ * Với quế và hồi, giá chênh ba lần giữa quế thanh và hoa hồi, nên gộp chung một
+ * khoảng là con số đúng phép tính nhưng vô nghĩa với người mua. Trường
+ * product_type đã tách sẵn hai mặt hàng đó, và đó cũng là thứ bộ lọc dùng.
+ */
+function declaredGrade(
+  category: Pick<Category, "product_fields">,
+  attributes: Record<string, string>,
+): string | null {
+  const keys = (category.product_fields ?? []).map((field) => field.key);
+  for (const key of ["grade", "product_type"]) {
+    if (keys.includes(key) && attributes[key]) return attributes[key];
+  }
+  return null;
+}
+
 export async function listPublicCategoryProducts(category: Category): Promise<PublicCategoryProduct[]> {
   const store = getStore();
   const [suppliers, allProducts, knownCategories] = await Promise.all([
@@ -75,8 +93,13 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
       const s = byId.get(p.supplier_id)!;
       const images = shareableProductImages(byProduct.get(p.id) ?? [], p.id, p.featured_media_id);
       // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
+      const attributes = publicProductAttributes(category, p.specs);
       return {
-        id: p.id, name: withoutDirectContacts(p.name_i18n?.en || p.name), grade: productGrade(p.name, p.spec, category.slug), attributes: publicProductAttributes(category, p.specs),
+        id: p.id, name: withoutDirectContacts(p.name_i18n?.en || p.name),
+        grade: productGrade(p.name, p.spec, category.slug)
+          ?? (category.slug === "pepper" ? pepperGrade(p.name, p.spec) : null)
+          ?? declaredGrade(category, attributes),
+        attributes,
         moq: p.moq || "On request",
         price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: s.province || "Vietnam",
         verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,

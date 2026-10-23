@@ -81,6 +81,13 @@ export function PriceRangeStrip({
         </p>
       )}
 
+      {outcome.thin.length > 0 && (
+        <p className="mt-1.5 text-[12px] text-ink-500">
+          {listPhrase(outcome.thin)} {outcome.thin.length === 1 ? "has" : "have"} fewer than three published prices so
+          far, so no range is shown for {outcome.thin.length === 1 ? "it" : "them"}.
+        </p>
+      )}
+
       {outcome.unclassified > 0 && (
         <p className="mt-1.5 text-[12px] text-ink-500">
           {outcome.unclassified} {outcome.unclassified === 1 ? "listing does" : "listings do"} not state a grade, so
@@ -104,9 +111,20 @@ export function PriceRangeStrip({
   );
 }
 
+/** "Cassia split and Star anise" — grade labels keep their own spelling and case. */
+function listPhrase(items: string[]): string {
+  const named = [...items].sort((a, b) => a.localeCompare(b));
+  return named.length <= 1 ? named.join("") : `${named.slice(0, -1).join(", ")} and ${named.at(-1)}`;
+}
+
 function SingleRow({ range }: { range: PriceRangeResult }) {
+  // Một dòng vẫn phải nêu quy cách: con số này là của W320 hay của 550 g/l, không
+  // phải giá chung cho cả danh mục. Bỏ nhãn đi là nói đúng số nhưng sai phạm vi.
   return (
     <p className="mt-2 text-[22px] font-black leading-tight text-ink-900 sm:text-[26px]">
+      {range.grade && (
+        <span className="mr-2 align-middle text-[12px] font-black uppercase tracking-wide text-brand-700">{range.grade}</span>
+      )}
       {formatUnitRange(range.low, range.high, range.unit)}
       {range.secondary && (
         <span className="ml-2 align-middle text-[13px] font-semibold text-ink-500">

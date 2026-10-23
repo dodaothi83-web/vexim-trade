@@ -8,7 +8,7 @@ const selection = {};
 const selectionSource = readFileSync(new URL('../lib/public/product-selection.ts', import.meta.url), 'utf8');
 vm.runInNewContext(ts.transpileModule(selectionSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
   { exports: selection, require: (path) => path === '@/lib/public/category-assignment' ? { assignProductCategory } : null, Date });
-const { isTestOnlyProduct, productBelongsToCategory, productGrade, publicProductPrice, productPriceBlockers, withoutDirectContacts } = selection;
+const { isTestOnlyProduct, pepperGrade, productBelongsToCategory, productGrade, publicProductPrice, productPriceBlockers, withoutDirectContacts } = selection;
 
 const cats = [
   { slug: 'cashew', name_i18n: { en: 'Cashew kernels' } },
@@ -26,6 +26,11 @@ assert.equal(productBelongsToCategory({ name: 'Cashew W180', category: null }, c
 assert.equal(productGrade('Cashew LP', null, 'cashew'), 'LP');
 assert.equal(productGrade('Cashew splits', null, 'cashew'), 'WS');
 assert.equal(productGrade('Rice W320', null, 'rice'), null);
+assert.equal(productGrade('Cashew kernels W320', 'AFI W320', 'cashew-kernels'), 'W320', 'The launch slug for cashew kernels grades too, not only the legacy cashew slug');
+assert.equal(productGrade('Cashew white splits', null, 'cashew-kernels'), 'WS');
+assert.equal(pepperGrade('Black pepper 550 g/L, machine cleaned', 'moisture 12.5% max'), '550 g/l');
+assert.notEqual(pepperGrade('Black pepper 500 g/L, FAQ', null), pepperGrade('Black pepper 550 g/L, FAQ', null), '500 and 550 g/l are separate price grades');
+assert.equal(pepperGrade('Cassia split, 4 mm', null), null);
 const price = { price_publicly_visible: true, ref_price: 8.4, currency: 'USD/kg', unit: 'kg', price_valid_until: '2099-01-01' };
 const consent = { fob_publicly_visible: true, fob_updated_at: new Date().toISOString() };
 assert.equal(publicProductPrice(price, consent), 'USD/kg 8.4');

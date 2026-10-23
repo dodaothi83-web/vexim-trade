@@ -3,8 +3,25 @@ import { CategoryPublicationQueue } from "./publication-queue";
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
+import { harvestReviewQueue } from "@/lib/public/harvest";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Ngày hôm nay theo giờ Việt Nam, không theo giờ máy chủ.
+ * Ngưỡng rà soát tính bằng tháng nên lệch múi giờ không đổi kết quả, nhưng ngày
+ * hiển thị trong CRM thì phải là ngày người dùng đang sống.
+ */
+function todayInVietnam(): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
 
 export default async function CategoriesPage() {
   const session = await requirePagePermission("categories.view", "/crm/dashboard");
@@ -34,9 +51,15 @@ export default async function CategoriesPage() {
     Object.entries(stats).map(([slug, s]) => [slug, { products: s.products, suppliers: s.suppliers }]),
   );
 
+  // Mùa vụ không tự cập nhật, nên danh mục có lịch nhưng ngày rà soát trống hoặc
+  // đã cũ được đưa lên đầu trang. Sửa và lưu là dòng nhắc tự mất, vì danh sách
+  // tính lại từ dữ liệu mỗi lần tải trang.
+  const harvestReview = harvestReviewQueue(categories, todayInVietnam());
+
   return (
     <CategoriesManager
       initialCategories={categories}
+      harvestReview={harvestReview}
       canPublish={canPublish}
       aiEnabled={!!process.env.OPENAI_API_KEY}
       stats={cleanStats}

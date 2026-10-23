@@ -39,9 +39,37 @@ import type {
   SupplierProductInput,
   TemplateOverride,
   ProspectOutreachTemplate,
+  SponsoredPush,
+  SponsoredPushDaily,
   Verification,
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
+import { PREVIEW_PEPPER_HARVEST, previewCategories, previewSeedRows } from "@/lib/db/preview-seed";
+
+/**
+ * Tài khoản quản trị của kho xem thử. Chỉ tồn tại trong data/local-db.json, không bao
+ * giờ ghi lên Supabase — nhờ vậy mở được trang CRM khi máy chưa nối Supabase.
+ *
+ * Mật khẩu: vexim-demo-2026 (băm scrypt, cùng định dạng với lib/auth/password.ts).
+ * Đổi hoặc bỏ tài khoản này trước khi chạy thật.
+ */
+const PREVIEW_ADMIN: AppUserRecord = {
+  id: "user-local-admin",
+  email: "admin@veximtrade.local",
+  name: "Quản trị xem thử",
+  role: "admin",
+  supplier_id: null,
+  auth_provider: "local",
+  password_hash:
+    "scrypt$1badfe87eb98fc06bbdf63087060de28$d0b71185c3893b4a4f1ea3c9e812793eb2e328432f08e2c971943ab23f3fac9e17440d3cbf9368280c4f11ca0c043f246ee4e27c6edd6e5652e42e5ad81fa6a0",
+  signature_html: null,
+  sender_email: null,
+  phone: null,
+  is_active: true,
+  last_login_at: null,
+  created_at: "2026-01-01T00:00:00.000Z",
+  updated_at: "2026-01-01T00:00:00.000Z",
+};
 import { DEMO_SUPPLIERS } from "@/lib/db/demo-suppliers";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
 import {
@@ -58,6 +86,8 @@ interface LocalShape {
   suppliers: Supplier[];
   products: SupplierProduct[];
   media: MediaAsset[];
+  sponsored_pushes: SponsoredPush[];
+  sponsored_push_daily?: SponsoredPushDaily[];
   activities: Activity[];
   messages: EmailMessage[];
   template_overrides: TemplateOverride[];
@@ -289,14 +319,33 @@ function seed(): LocalShape {
     } as Category;
   });
 
+  // Dữ liệu xem thử cho trang công khai: ba danh mục ra mắt có sản phẩm thật để nhìn
+  // được lưới, khối giá và biểu đồ mùa vụ. Chỉ tồn tại trong kho local.
+  const preview = previewSeedRows(nowISO);
+  suppliers.push(...preview.suppliers);
+  products.push(...preview.products);
+  for (const c of previewCategories(nowISO(0))) {
+    if (!categories.some((existing) => existing.slug === c.slug)) categories.push(c);
+  }
+  // Hồ tiêu đã có sẵn trong seed cũ nhưng thiếu mùa vụ và đơn vị giá, nên trang sẽ
+  // không có biểu đồ. Bổ sung để bản xem thử khớp với production.
+  const pepperCategory = categories.find((c) => c.slug === "pepper");
+  if (pepperCategory) {
+    pepperCategory.harvest = pepperCategory.harvest ?? PREVIEW_PEPPER_HARVEST;
+    pepperCategory.price_unit = pepperCategory.price_unit ?? "mt";
+    pepperCategory.public_page_ready = true;
+  }
+
   return {
-    users: [],
+    users: [PREVIEW_ADMIN],
     buyers,
     prospects: [],
     prospect_activities: [],
     suppliers,
     products,
-    media: [],
+    media: preview.media,
+    sponsored_pushes: preview.sponsoredPushes,
+    sponsored_push_daily: preview.sponsoredPushDaily,
     activities,
     messages: [],
     attachments: [],
@@ -310,7 +359,7 @@ function seed(): LocalShape {
     supplier_submission_items: [],
     supplier_submission_links: [],
     certificates: [],
-    verifications: [],
+    verifications: preview.verifications,
     rfqs: [],
     rfq_attachments: [],
     rfq_matches: [],
@@ -782,6 +831,8 @@ function load(): LocalShape {
     });
     if (!Array.isArray(c.attachments)) c.attachments = [];
     // RFQ foundation – tương thích với file dữ liệu cũ
+    if (!Array.isArray(c.sponsored_pushes)) c.sponsored_pushes = [];
+    if (!Array.isArray(c.sponsored_push_daily)) c.sponsored_push_daily = [];
     if (!Array.isArray(c.categories)) c.categories = [];
     if (!Array.isArray(c.supplier_categories)) c.supplier_categories = [];
     if (!Array.isArray(c.supplier_verification_requests)) c.supplier_verification_requests = [];
@@ -828,6 +879,8 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.users)) parsed.users = [];
         parsed.users.forEach((u) => { if (u.supplier_id === undefined) u.supplier_id = null; });
         if (!Array.isArray(parsed.attachments)) parsed.attachments = [];
+        if (!Array.isArray(parsed.sponsored_pushes)) parsed.sponsored_pushes = [];
+        if (!Array.isArray(parsed.sponsored_push_daily)) parsed.sponsored_push_daily = [];
         if (!Array.isArray(parsed.categories)) parsed.categories = [];
         if (!Array.isArray(parsed.supplier_categories)) parsed.supplier_categories = [];
         if (!Array.isArray(parsed.supplier_verification_requests)) parsed.supplier_verification_requests = [];
@@ -1301,6 +1354,53 @@ export const localStore: DataStore = {
     });
   },
 
+  async listSponsoredPushes({ surface, categorySlug, now }) {
+    const at = Date.parse(now);
+    if (!Number.isFinite(at)) return [];
+    return (load().sponsored_pushes ?? []).filter((push) => {
+      if (push.surface !== surface || push.status !== "approved") return false;
+      if (surface === "category" && push.category_slug !== categorySlug) return false;
+      return Date.parse(push.starts_at) <= at && Date.parse(push.ends_at) > at;
+    });
+  },
+  async listAllSponsoredPushes() {
+    return [...(load().sponsored_pushes ?? [])]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  },
+  async createSponsoredPush(input) {
+    return mutate((db) => {
+      const row: SponsoredPush = {
+        ...input,
+        id: randomUUID(),
+        status: input.status ?? "draft",
+        // Người duyệt do thao tác duyệt ghi, không do biểu mẫu tạo gói ghi.
+        approved_by: null,
+        approved_at: null,
+        created_at: new Date().toISOString(),
+      };
+      db.sponsored_pushes = db.sponsored_pushes ?? [];
+      db.sponsored_pushes.push(row);
+      return row;
+    });
+  },
+  async updateSponsoredPush(id, patch) {
+    return mutate((db) => {
+      const row = (db.sponsored_pushes ?? []).find((p) => p.id === id);
+      if (!row) throw new Error("Không tìm thấy gói đẩy");
+      Object.assign(row, cleanPatch(patch));
+      return row;
+    });
+  },
+  async deleteSponsoredPush(id) {
+    mutate((db) => {
+      db.sponsored_pushes = (db.sponsored_pushes ?? []).filter((p) => p.id !== id);
+    });
+  },
+  async listSponsoredPushDaily(pushIds, sinceDay) {
+    const wanted = new Set(pushIds);
+    return (load().sponsored_push_daily ?? [])
+      .filter((row) => wanted.has(row.push_id) && row.day >= sinceDay);
+  },
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
     return load()
       .media.filter((m) => {

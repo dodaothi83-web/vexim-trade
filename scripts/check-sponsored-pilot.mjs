@@ -111,6 +111,8 @@ assert.equal(writes.length, 2, 'Disabled pilot cannot record');
 const categoryPage = readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8');
 const grid = readFileSync(new URL('../components/category-product-grid.tsx', import.meta.url), 'utf8');
 assert.match(categoryPage, /!isPreview \? await pilotPlacement\(cat\.slug, products\) : null/);
-assert.match(grid, /!active && sponsored && <SponsoredPilotSlot/);
+// Vùng đẩy của gói bán thật đã thay bản thử nghiệm; bản thử nghiệm chỉ còn là
+// đường lùi khi danh mục chưa có gói nào, và vẫn phải nằm trên lưới tự nhiên.
+assert.match(grid, /!active && \(sponsoredBand\.length > 0[\s\S]*: sponsored && <SponsoredPilotSlot/);
 assert.match(grid, /arrangeSupplierProducts\(/, 'Organic listing stays separate');
 console.log('✅ Sponsored pilot: staging-only/off by default, approved buyer-ready product, segregated metrics and organic list.');

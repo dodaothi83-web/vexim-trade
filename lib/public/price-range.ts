@@ -165,6 +165,11 @@ export type PriceBlockOutcome =
       rows: PriceRangeResult[];
       /** Số niêm yết không nêu quy cách nên không được xếp vào dòng nào. */
       unclassified: number;
+      /**
+       * Quy cách có niêm yết nhưng chưa đủ mẫu. Giao diện nêu tên ra, vì nếu chỉ
+       * hiện những dòng đủ mẫu thì người đọc tưởng danh mục chỉ có ngần ấy giá.
+       */
+      thin: string[];
     }
   | { status: "too_few"; usable: number; needed: number }
   | { status: "none" };
@@ -203,16 +208,20 @@ export function buildPriceBlock(points: GradePricePoint[] | null | undefined, op
   // Ngành chưa khai báo quy cách: giữ nguyên hành vi một khoảng chung.
   if (groups.size === 0) {
     const single = buildPriceRange(list, options);
-    if (single.status === "ok") return { status: "ok", rows: [single.range], unclassified: 0 };
+    if (single.status === "ok") return { status: "ok", rows: [single.range], unclassified: 0, thin: [] };
     return single;
   }
 
   const rows: PriceRangeResult[] = [];
+  const thin: string[] = [];
   let bestUsable = 0;
   for (const [grade, group] of groups) {
     const outcome = buildPriceRange(group, options);
     if (outcome.status === "ok") rows.push({ ...outcome.range, grade });
-    else if (outcome.status === "too_few") bestUsable = Math.max(bestUsable, outcome.usable);
+    else if (outcome.status === "too_few") {
+      bestUsable = Math.max(bestUsable, outcome.usable);
+      thin.push(grade);
+    }
   }
 
   if (rows.length === 0) {
@@ -226,7 +235,7 @@ export function buildPriceBlock(points: GradePricePoint[] | null | undefined, op
     : ungradedOutcome.status === "too_few" ? ungradedOutcome.usable
     : 0;
 
-  return { status: "ok", rows, unclassified };
+  return { status: "ok", rows, unclassified, thin };
 }
 
 function round(value: number, unit: PriceUnit): number {

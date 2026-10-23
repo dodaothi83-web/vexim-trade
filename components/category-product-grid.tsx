@@ -2,15 +2,17 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Filter } from "lucide-react";
+import { ArrowRight, ChevronDown, Filter } from "lucide-react";
 
 import { PublicProductCard } from "@/components/public-product-card";
 import { SponsoredPilotSlot } from "@/components/sponsored-pilot-slot";
+import { SponsoredProductBand } from "@/components/sponsored-product-band";
 
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
 import type { ProductAttributeField } from "@/lib/types";
 import { fieldsFor } from "@/lib/product-attributes";
 import type { PilotPlacement } from "@/lib/sponsored/pilot";
+import { withoutSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
 
 function moqGroup(value: string): string {
@@ -24,10 +26,12 @@ function moqGroup(value: string): string {
   return tons <= 1 ? "small" : tons <= 5 ? "medium" : "large";
 }
 
-export function CategoryProductGrid({ products, categorySlug, grades, sponsored, productFields = [] }: {
+export function CategoryProductGrid({ products, categorySlug, grades, sponsored, sponsoredBand = [], productFields = [] }: {
   products: PublicCategoryProduct[]; categorySlug: string; grades: string[]; productFields?: ProductAttributeField[];
-  sponsored?: PilotPlacement | null;
+  sponsored?: PilotPlacement | null; sponsoredBand?: SponsoredBandItem[];
 }) {
+  // Vùng đẩy đang hiện thì bỏ đúng những sản phẩm đó khỏi lưới tự nhiên. Đang lọc
+  // thì vùng đẩy ẩn, và sản phẩm trả phí quay lại lưới như mọi sản phẩm khác.
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
   const attributeFilters = fieldsFor({ product_fields: productFields }).filter((f) => f.type === "select" && f.filterable && products.some((p) => !!p.attributes?.[f.key]));
@@ -39,6 +43,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   // (filters + product_fields). No hardcoded commodity demo values.
   const quick = hasStructuredGrade ? [] : grades.map((g) => ({ label: g, grades: [g] }));
   const allGrades = hasStructuredGrade ? [] : grades;
+  const active = selectedGrades.length > 0 || Object.values(selectedAttributes).some(Boolean) || !!moq || !!province || verified > 0;
   const provinces = [...new Set(products.map((p) => p.province))].sort();
   const visible = useMemo(() => products.filter((p) =>
     (!selectedGrades.length || (p.grade && selectedGrades.includes(p.grade))) &&
@@ -46,12 +51,23 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     (!moq || moqGroup(p.moq) === moq) &&
     (!province || p.province === province) && (!verified || p.verificationSteps.includes(verified as 1 | 2 | 3)),
   ), [products, selectedGrades, selectedAttributes, moq, province, verified, attributeFilters]);
-  const active = selectedGrades.length > 0 || Object.values(selectedAttributes).some(Boolean) || !!moq || !!province || verified > 0;
-  // The initial page gives each supplier up to three cards. Filtering reveals
-  // every matching offer without merging W320 listings from different companies.
-  const { shown, hidden } = useMemo(() => arrangeSupplierProducts(
-    visible, active ? null : new Set(visible.map((p) => p.supplierId)).size < 2 ? 2 : 3,
-  ), [visible, active]);
+  // Trần thẻ của một nhà cung cấp trong danh sách tự nhiên bên dưới, KHÔNG tính
+  // vùng đẩy phía trên. Vùng đẩy là suất cộng thêm (additive slot): nhà cung cấp
+  // mua gói giữ nguyên ba thẻ dưới lưới và có thêm một thẻ ở trên. Người trả tiền
+  // nhận giá trị hiển thị tăng thêm thật, còn người không mua không bị đẩy khỏi
+  // chỗ của họ. Vì vậy thẻ đã lên vùng đẩy được lấy ra khỏi danh sách TRƯỚC khi
+  // áp trần, chứ không phải sau.
+  const supplierCap = new Set(visible.map((p) => p.supplierId)).size < 2 ? 2 : 3;
+  const listPool = useMemo(
+    () => (active ? visible : withoutSponsoredBand(visible, sponsoredBand)),
+    [active, visible, sponsoredBand],
+  );
+  // Lọc xong thì hiện đủ, không áp trần, để người đang tìm một quy cách cụ thể
+  // không bị giấu mất lựa chọn.
+  const { shown, hidden } = useMemo(
+    () => arrangeSupplierProducts(listPool, active ? null : supplierCap),
+    [listPool, active, supplierCap],
+  );
   const reset = () => { setSelectedAttributes({}); setSelectedGrades([]); setMoq(""); setProvince(""); setVerified(0); };
   const fields = <div className="space-y-5 text-sm">
     {attributeFilters.filter((field) => !field.showWhen || !selectedAttributes[field.showWhen.key] ||
@@ -108,11 +124,17 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
           <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-sm font-bold text-ink-800"><span className="flex items-center gap-2"><Filter className="h-4 w-4" /> Filter products</span><ChevronDown className="h-4 w-4" /></summary>
           <div className="border-t border-ink-100 p-4">{fields}</div>
         </details>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600"><p><strong className="text-ink-900">{shown.length}</strong> of {visible.length} products{!active && visible.length > shown.length ? " · up to 3 per supplier" : ""}</p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600"><p><strong className="text-ink-900">{shown.length}</strong> of {visible.length} products{!active && listPool.length > shown.length ? ` · up to ${supplierCap} per supplier in the list below` : ""}</p>
           {active && <button type="button" className="text-xs font-semibold text-brand-700 underline" onClick={reset}>Show all</button>}
         </div>
-        {!active && sponsored && <SponsoredPilotSlot product={sponsored.product} ticket={sponsored.ticket}
-          campaignId={sponsored.campaignId} categorySlug={categorySlug} />}
+        {/* Vùng đẩy chỉ hiện khi người xem chưa lọc gì. Đang lọc mà vẫn thấy thẻ
+            trả phí thì thẻ đó không khớp bộ lọc, và người xem sẽ hiểu sai rằng nó
+            khớp. Thà ẩn cả vùng còn hơn hiện một thẻ sai. Bản thử nghiệm cũ chỉ
+            hiện khi chưa có gói bán thật nào. */}
+        {!active && (sponsoredBand.length > 0
+          ? <SponsoredProductBand items={sponsoredBand} categorySlug={categorySlug} />
+          : sponsored && <SponsoredPilotSlot product={sponsored.product} ticket={sponsored.ticket}
+              campaignId={sponsored.campaignId} categorySlug={categorySlug} />)}
         {visible.length ? <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
           {shown.map((p) => <div key={p.id} className="min-w-0">
             <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
@@ -130,8 +152,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
           {[...hidden].map(([supplierId, count]) => {
             const supplier = products.find((p) => p.supplierId === supplierId)!;
             return <Link key={supplierId} href={`/suppliers/${encodeURIComponent(supplier.supplierSlug || supplierId)}#products`}
-              className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-800 hover:border-brand-500">
-              +{count} more from {supplier.supplierName} →
+              className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-800 hover:border-brand-500">
+              +{count} more from {supplier.supplierName}<ArrowRight className="h-3 w-3" aria-hidden />
             </Link>;
           })}
         </div>}

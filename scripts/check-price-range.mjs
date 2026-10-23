@@ -89,7 +89,12 @@ assert.equal(units.displayUnitsForCategory("dried-spices", null).primary, "mt");
 assert.equal(units.displayUnitsForCategory("some-rice-variety", null).primary, "mt", "An unlisted slug is inferred from its industry keyword");
 assert.equal(units.displayUnitsForCategory("frozen-shrimp", null).primary, "kg");
 assert.equal(units.displayUnitsForCategory("unknown-category", null).primary, "kg", "Unknown categories fall back to kg, never to tonnes");
-assert.equal(units.displayUnitsForCategory("cashew-kernels", null).secondary, undefined, "An inferred cashew slug does not get the pound equivalent unless listed");
+const cashewKernelUnits = units.displayUnitsForCategory("cashew-kernels", null);
+assert.equal(cashewKernelUnits.primary, "kg", "The launch slug for cashew kernels reads in kilograms");
+assert.equal(cashewKernelUnits.secondary, "lb", "The launch slug for cashew kernels also shows pounds, like the trade reports");
+assert.equal(units.displayUnitsForCategory("cashew-raw-nuts", null).secondary, undefined, "An inferred cashew slug does not get the pound equivalent unless listed");
+assert.equal(units.displayUnitsForCategory("cinnamon-star-anise", null).primary, "mt", "The launch slug for cinnamon and star anise reads in tonnes");
+assert.equal(units.displayUnitsForCategory("pepper", null).primary, "mt", "Pepper reads in tonnes");
 assert.equal(units.displayUnitsForCategory("rice", "kg").primary, "kg", "A configured unit wins over the market default");
 
 /* ---------------- Khoảng giá ---------------- */
@@ -228,6 +233,18 @@ assert.equal(byGrade.rows[1].grade, "W320");
 assert.equal(byGrade.rows[1].low, 7);
 assert.equal(byGrade.rows[1].high, 7.2);
 assert.equal(byGrade.unclassified, 1, "A listing without a grade is counted, not silently merged into a row");
+
+const partialThin = priceRange.buildPriceBlock(
+  [
+    { value: 9.4, unit: "kg", grade: "W180", updatedAt: daysAgo(2) },
+    { value: 9.6, unit: "kg", grade: "W180", updatedAt: daysAgo(5) },
+    { value: 9.5, unit: "kg", grade: "W180", updatedAt: daysAgo(8) },
+    { value: 6.6, unit: "kg", grade: "W450", updatedAt: daysAgo(3) },
+  ],
+  { now: NOW },
+);
+assert.equal(partialThin.status, "ok");
+assert.equal(partialThin.thin.join(","), "W450", "A grade with too few prices is named, so the page does not look like it holds only one grade");
 
 const spreadThin = priceRange.buildPriceBlock(
   [
