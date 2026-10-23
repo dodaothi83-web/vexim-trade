@@ -35,7 +35,7 @@ for (const denied of [
   [{ ...owner, role: 'viewer' }, doc, 'business_license'],
 ]) assert.equal(policy.canUploadOwnDocument(...denied), false);
 
-const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, adminCreateCalls: 0, duplicateAuth: false, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false };
+const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false };
 const store = {
   mode: 'supabase',
   listUsers: async () => state.users,
@@ -66,10 +66,7 @@ const store = {
 };
 const auth = { auth: {
   signUp: async ({ options }) => { state.authCalls++; state.lastRedirect = options.emailRedirectTo; return { data: { user: { id: 'auth-1', identities: [{ id: 'identity' }], email_confirmed_at: state.confirmed ? 'now' : null }, session: state.confirmed ? {} : null }, error: null }; },
-  admin: { deleteUser: async () => { state.deletedAuth++; },
-    createUser: async ({ email, email_confirm }) => { state.adminCreateCalls++; state.lastConfirm = email_confirm;
-      if (state.duplicateAuth) return { data: { user: null }, error: { message: 'already registered' } };
-      return { data: { user: { id: `auth-skip-${state.adminCreateCalls}`, email, email_confirmed_at: email_confirm ? 'now' : null } }, error: null }; } },
+  admin: { deleteUser: async () => { state.deletedAuth++; } },
 } };
 const profileInput = load('../lib/supplier-portal/profile-input.ts', {});
 const profileEvidence = load('../lib/supplier-portal/profile-evidence.ts', {
@@ -94,10 +91,6 @@ const mocks = {
   '@/lib/site': { SITE_URL: 'https://example.com' },
 };
 const signupEnv = { SUPABASE_SERVICE_ROLE_KEY: 'mock', NODE_ENV: 'production' };
-// Trợ giúp đọc biến môi trường được nạp thật, cùng một object env, để bộ kiểm đi
-// đúng đường mà route dùng chứ không kiểm một bản sao.
-const signupVerification = load('../lib/auth/signup-verification.ts', {}, { process: { env: signupEnv } });
-mocks['@/lib/auth/signup-verification'] = signupVerification;
 const { POST } = load('../app/api/supplier-signup/route.ts', mocks, { process: { env: signupEnv } });
 const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
 const file = new File(['%PDF-1.7 TEST DOCUMENT'], 'license.pdf', { type: 'application/pdf' });
@@ -144,34 +137,6 @@ assert.equal(state.suppliers.length, 0);
 assert.equal(state.reviews.length, 0);
 assert.equal(state.notify, 0, 'Staff notified on completed business form, not empty account creation');
 assert.equal((await post(accountForm())).status, 409, 'Duplicate email cannot claim another account');
-
-/* Giai đoạn thử: bật cờ thì không gửi thư, tài khoản vẫn tạo được và vẫn đã xác nhận. */
-signupEnv.SUPPLIER_SIGNUP_SKIP_EMAIL_CONFIRM = '1';
-// URL xác nhận cố tình hỏng: bật cờ thì nó không còn được dùng, nên không được chặn.
-signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL = 'http://localhost:3000/login';
-const authCallsBeforeSkip = state.authCalls;
-const skipped = await post(accountForm('staff@veximtrade.com'));
-assert.equal(skipped.status, 200, 'Bật cờ thì đăng ký chạy dù URL xác nhận không hợp lệ');
-assert.equal(skipped.data.emailVerification, 'skipped');
-assert.doesNotMatch(skipped.data.message, /xác nhận email/, 'Thông báo không còn nhắc mở hộp thư');
-assert.equal(state.authCalls, authCallsBeforeSkip, 'Không gọi signUp nên không có thư xác nhận nào được gửi');
-assert.equal(state.lastConfirm, true, 'Tài khoản được tạo ở trạng thái đã xác nhận để đăng nhập được ngay');
-assert.equal(state.users.at(-1).role, 'supplier');
-assert.equal(state.users.at(-1).supplier_id, null, 'Tắt xác minh không cấp quyền nhà cung cấp');
-assert.equal(state.suppliers.length, 0, 'Tắt xác minh không tự tạo trang nhà cung cấp');
-assert.equal(state.audit.at(-1).action, 'supplier.account_registered_without_email_confirmation');
-assert.equal(state.audit.at(-1).after.email_confirmed_by_user, false, 'Nhật ký ghi rõ email chưa do người dùng xác nhận');
-state.duplicateAuth = true;
-assert.equal((await post(accountForm('staff2@veximtrade.com'))).status, 409, 'Email đã có bên Auth vẫn bị từ chối');
-state.duplicateAuth = false;
-const deletedBeforeSkipFailure = state.deletedAuth;
-state.failUser = true;
-assert.equal((await post(accountForm('staff3@veximtrade.com'))).status, 503);
-assert.equal(state.deletedAuth, deletedBeforeSkipFailure + 1, 'Lưu app user lỗi vẫn xoá Auth user vừa tạo');
-state.failUser = false;
-delete signupEnv.SUPPLIER_SIGNUP_SKIP_EMAIL_CONFIRM;
-assert.equal((await post(accountForm('staff4@veximtrade.com'))).status, 503, 'Xoá cờ là xác minh email bật lại, không cần sửa cài đặt Supabase');
-delete signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL;
 
 const access = load('../lib/supplier-portal/access.ts', {
   '@/lib/db': { getStore: () => store },
@@ -264,7 +229,7 @@ store.mode = 'supabase';
 state.failUser = true;
 assert.equal((await post(accountForm('other@example.com'))).status, 503);
 assert.equal(state.suppliers.length, 1, 'Failed account creation does not create a supplier');
-assert.equal(state.deletedAuth, 3, 'Failed account creation cleans up the Auth identity, including the trial-mode account above');
+assert.equal(state.deletedAuth, 2, 'Failed account creation cleans up unconfirmed Auth identity');
 state.failUser = false;
 
 const authStore = { mode: 'local', getUserByEmail: async () => ({ ...owner, auth_provider: 'supabase', password_hash: 'legacy-hash' }) };
@@ -429,4 +394,4 @@ assert.match(schema, /target_level in \(2,3\)/);
 assert.match(schema, /supplier_verification_requests enable row level security/);
 const crmlayout = fs.readFileSync(new URL('../app/crm/layout.tsx', import.meta.url), 'utf8');
 assert.match(crmlayout, /session\.role === "supplier"/);
-console.log('✅ Supplier onboarding: account first, dashboard business form, email confirmation (with the trial switch off and on), staff gate, scoped evidence and permissions.');
+console.log('✅ Supplier onboarding: account first, dashboard business form, email confirmation, staff gate, scoped evidence and permissions.');

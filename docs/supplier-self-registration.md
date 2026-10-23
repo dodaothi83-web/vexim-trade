@@ -5,20 +5,6 @@
 1. Áp dụng migration xác minh, `20261017_supplier_self_registration.sql`, `20261017_supplier_dashboard.sql`, `20261017_supplier_onboarding_gate.sql`, rồi **`20261017_supplier_product_review.sql` và `20261017_supplier_category_proposals.sql` trước khi deploy mã mới** trên đúng Supabase project. Không chạy `schema.sql` trực tiếp lên production. Cột review sản phẩm mặc định `approved` để giữ trạng thái của sản phẩm nhân viên Vexim đã nhập trước đây; sản phẩm mới do NCC tự tạo luôn bắt đầu `draft`. Hồ sơ tài khoản tự đăng ký cũ được migration onboarding đưa vào `pending`, không tự mở quyền.
 2. Giữ service-role, Supabase Auth Confirm email ON và redirect `/login` trong allowlist, email xác nhận hoạt động, Supabase Storage/Resend thật. Admin Vexim phải tồn tại trước khi nhận đăng ký. Form đăng ký gửi thông báo nội bộ cho sourcing/admin sau khi lưu; nếu email gửi lỗi thì hồ sơ vẫn ở hàng chờ CRM.
 
-### Giai đoạn thử: đăng ký không cần xác nhận email
-
-Nhân sự Vexim tự đăng ký như một nhà cung cấp để chạy hết luồng thật, nên trong lúc thử không phải mở hộp thư xác nhận. Bật bằng biến môi trường ở môi trường thử rồi deploy lại:
-
-```
-SUPPLIER_SIGNUP_SKIP_EMAIL_CONFIRM=1
-```
-
-- Khi bật, `/api/supplier-signup` tạo tài khoản bằng `admin.createUser({ email_confirm: true })`, cùng đường với tài khoản do nhân viên tạo trong CRM. Không có thư nào được gửi, tài khoản đã xác nhận nên đăng nhập được ngay, và trang `/supplier/register` hiện một dòng ghi chú về giai đoạn thử.
-- Cần cho biết: chế độ này **không** dùng để mở đăng ký cho nhà cung cấp thật. Nó bỏ đúng bước mở hộp thư; mọi cổng còn lại giữ nguyên: giới hạn 3 lần mỗi giờ mỗi IP, honeypot, checkbox đồng ý, chặn email trùng, preflight `app_users`, ghi audit, xoá Auth user nếu lưu app user lỗi. Tài khoản mới vẫn không có `supplier_id`, không sản phẩm, không xem RFQ cho tới khi Vexim duyệt hồ sơ doanh nghiệp.
-- Nhật ký ghi hành động `supplier.account_registered_without_email_confirmation` thay cho `supplier.account_registered`, kèm `email_confirmed_by_user: false`, để sau này đọc lại biết vì sao địa chỉ đó chưa từng được xác nhận.
-- Bật lại xác minh: xoá biến và deploy lại. Không phải sửa cài đặt Supabase, nên không có trạng thái lửng lơ trong dashboard. Tài khoản đã tạo trong lúc bật cờ vẫn ở trạng thái đã xác nhận; muốn kiểm lại địa chỉ thì xử lý riêng từng tài khoản trong Authentication → Users.
-- Đường đăng nhập không đổi: tài khoản doanh nghiệp vẫn phải có `email_confirmed_at` và vẫn phải qua Supabase Auth (`lib/auth/authenticate.ts`). Chế độ này chỉ làm cho tài khoản mới có sẵn trạng thái đó.
-
 ### Email xác nhận chuyển về localhost:3000
 
 - Kiểm tra **đúng Supabase project đang dùng bởi bản deploy** (Project Settings → API, đối chiếu URL project với `SUPABASE_URL` phía server; không chia sẻ key/token). Trong **Authentication → URL Configuration**: đặt **Site URL** là `https://www.veximtrade.com` (hoặc đúng origin HTTPS của môi trường đó, tuyệt đối không phải localhost trên production); thêm **Redirect URL** chính xác `https://www.veximtrade.com/login` (và `<origin-staging>/login` nếu thử staging). Trong **Authentication → Email Templates → Confirm signup**, nút xác nhận phải dùng `{{ .ConfirmationURL }}`; nếu dùng `{{ .SiteURL }}`/URL hardcode thì không có bước xác nhận hợp lệ. Kiểm tra biến deploy `SUPPLIER_SIGNUP_REDIRECT_URL`: bỏ hẳn để app mặc định về `https://www.veximtrade.com/login`, hoặc đặt đúng `https://<origin-app>/login` đã thêm vào allowlist; redeploy sau khi đổi biến môi trường.

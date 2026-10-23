@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { signupSkipsEmailConfirmation } from "@/lib/auth/signup-verification";
 import { SupplierAccountForm } from "./supplier-account-form";
 
 export const dynamic = "force-dynamic";
@@ -22,11 +21,6 @@ export default async function SupplierRegisterPage({ searchParams }: { searchPar
     <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Nhà cung cấp · Bước 1/2</p>
     <h1 className="mt-2 text-xl font-black text-ink-900">Tạo tài khoản</h1>
     <p className="mt-2 text-sm leading-6 text-ink-600">Đăng ký bằng email hoặc Google. Sau khi đăng nhập, bạn cần khai hồ sơ doanh nghiệp trong cổng nhà cung cấp để Vexim xét duyệt. Chưa có quyền quản lý sản phẩm hoặc xem RFQ.</p>
-    {signupSkipsEmailConfirmation() && (
-      <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Giai đoạn thử nội bộ: tài khoản dùng được ngay sau khi tạo, không cần xác nhận email. Khi mở cho nhà cung cấp thật, bước xác nhận email được bật lại.
-      </p>
-    )}
     {oauth && oauthMessages[oauth] && <p role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{oauthMessages[oauth]}</p>}
     <SupplierAccountForm />
     <p className="mt-5 text-center text-xs text-ink-600">Đã có tài khoản? <Link href="/login" className="font-semibold text-brand-700 underline">Đăng nhập ở form chung</Link></p>
