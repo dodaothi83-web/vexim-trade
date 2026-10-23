@@ -156,7 +156,7 @@ export function HomeProductFeed({
     <>
       <ul
         ref={listRef}
-        className="mt-6 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4"
+        className="mt-6 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3"
       >
         {shown.map((p) => (
           <li key={p.id} className="min-w-0">
