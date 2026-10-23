@@ -21,6 +21,17 @@ export type HomeFeedProduct = PublicCategoryProduct & { categorySlug: string };
  * không có nội dung mới nào. Trang chủ giữ nguyên một địa chỉ, thứ tự sản phẩm
  * vẫn là thứ tự xác minh đã tính ở phía máy chủ.
  */
+/**
+ * Cắt danh sách thành trang. Tách khỏi phần giao diện để kiểm được bằng số, không
+ * cần trình duyệt: trang ngoài dải thì kẹp về đầu hoặc cuối, không trả trang rỗng.
+ */
+export function pageSlice<T>(items: T[], page: number, perPage: number = HOME_FEED_PER_PAGE) {
+  const pageCount = Math.max(1, Math.ceil(items.length / perPage));
+  const current = Math.min(Math.max(1, Math.trunc(page) || 1), pageCount);
+  const start = (current - 1) * perPage;
+  return { shown: items.slice(start, start + perPage), current, pageCount };
+}
+
 export function HomeProductFeed({
   items,
   perPage = HOME_FEED_PER_PAGE,
@@ -33,11 +44,8 @@ export function HomeProductFeed({
   const [page, setPage] = useState(1);
   const listRef = useRef<HTMLUListElement>(null);
   const mounted = useRef(false);
-  const pageCount = Math.max(1, Math.ceil(items.length / perPage));
   // Dữ liệu đổi trong lúc đang xem thì kẹp lại, không để rơi vào trang rỗng.
-  const current = Math.min(page, pageCount);
-  const start = (current - 1) * perPage;
-  const shown = items.slice(start, start + perPage);
+  const { shown, current, pageCount } = pageSlice(items, page, perPage);
 
   // Sang trang thì kéo lưới vào tầm mắt, nhưng chỉ khi nó đã ra khỏi màn hình,
   // để người đang xem trên màn rộng không bị nhảy trang đột ngột.

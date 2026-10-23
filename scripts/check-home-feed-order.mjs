@@ -215,6 +215,17 @@ assert.ok(!singlePage.includes("<nav"), "Six products fill exactly one page, so 
 const twentyOffers = Array.from({ length: 20 }, (_, i) => offer(`w${i}`, `U${i}`));
 assert.ok(renderFeed(twentyOffers).includes("1/4"), "Twenty products split into four pages of six");
 
+/* Bốn trang thật: đủ 24 thẻ thì mỗi trang đầy sáu, không trùng, không sót. */
+const twentyFour = Array.from({ length: 24 }, (_, i) => ({ id: `d${i}` }));
+const pages = [1, 2, 3, 4].map((n) => feedModule.pageSlice(twentyFour, n));
+assert.equal(pages.map((p) => p.shown.length).join(","), "6,6,6,6", "Four pages of six");
+assert.equal(pages[3].pageCount, 4);
+const seenIds = pages.flatMap((p) => p.shown.map((item) => item.id));
+assert.equal(new Set(seenIds).size, 24, "Every product appears exactly once across the pages");
+assert.equal(feedModule.pageSlice(twentyFour, 0).current, 1, "Page zero clamps to the first page");
+assert.equal(feedModule.pageSlice(twentyFour, 9).current, 4, "A page past the end clamps to the last page");
+assert.equal(feedModule.pageSlice([], 3).shown.length, 0, "An empty list has one empty page, not NaN");
+
 /* ---------------- 3. Ô tìm kiếm vẫn trỏ vào lưới danh mục ---------------- */
 
 const home = readFileSync(new URL("../app/(public)/home.tsx", import.meta.url), "utf8");
