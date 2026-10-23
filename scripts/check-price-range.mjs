@@ -234,6 +234,18 @@ assert.equal(byGrade.rows[1].low, 7);
 assert.equal(byGrade.rows[1].high, 7.2);
 assert.equal(byGrade.unclassified, 1, "A listing without a grade is counted, not silently merged into a row");
 
+const partialThin = priceRange.buildPriceBlock(
+  [
+    { value: 9.4, unit: "kg", grade: "W180", updatedAt: daysAgo(2) },
+    { value: 9.6, unit: "kg", grade: "W180", updatedAt: daysAgo(5) },
+    { value: 9.5, unit: "kg", grade: "W180", updatedAt: daysAgo(8) },
+    { value: 6.6, unit: "kg", grade: "W450", updatedAt: daysAgo(3) },
+  ],
+  { now: NOW },
+);
+assert.equal(partialThin.status, "ok");
+assert.equal(partialThin.thin.join(","), "W450", "A grade with too few prices is named, so the page does not look like it holds only one grade");
+
 const spreadThin = priceRange.buildPriceBlock(
   [
     { value: 9.4, unit: "kg", grade: "W180", updatedAt: daysAgo(2) },

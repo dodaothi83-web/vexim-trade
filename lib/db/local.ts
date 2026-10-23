@@ -42,6 +42,7 @@ import type {
   Verification,
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
+import { PREVIEW_PEPPER_HARVEST, previewCategories, previewSeedRows } from "@/lib/db/preview-seed";
 import { DEMO_SUPPLIERS } from "@/lib/db/demo-suppliers";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
 import {
@@ -289,6 +290,23 @@ function seed(): LocalShape {
     } as Category;
   });
 
+  // Dữ liệu xem thử cho trang công khai: ba danh mục ra mắt có sản phẩm thật để nhìn
+  // được lưới, khối giá và biểu đồ mùa vụ. Chỉ tồn tại trong kho local.
+  const preview = previewSeedRows(nowISO);
+  suppliers.push(...preview.suppliers);
+  products.push(...preview.products);
+  for (const c of previewCategories(nowISO(0))) {
+    if (!categories.some((existing) => existing.slug === c.slug)) categories.push(c);
+  }
+  // Hồ tiêu đã có sẵn trong seed cũ nhưng thiếu mùa vụ và đơn vị giá, nên trang sẽ
+  // không có biểu đồ. Bổ sung để bản xem thử khớp với production.
+  const pepperCategory = categories.find((c) => c.slug === "pepper");
+  if (pepperCategory) {
+    pepperCategory.harvest = pepperCategory.harvest ?? PREVIEW_PEPPER_HARVEST;
+    pepperCategory.price_unit = pepperCategory.price_unit ?? "mt";
+    pepperCategory.public_page_ready = true;
+  }
+
   return {
     users: [],
     buyers,
@@ -296,7 +314,7 @@ function seed(): LocalShape {
     prospect_activities: [],
     suppliers,
     products,
-    media: [],
+    media: preview.media,
     activities,
     messages: [],
     attachments: [],
@@ -310,7 +328,7 @@ function seed(): LocalShape {
     supplier_submission_items: [],
     supplier_submission_links: [],
     certificates: [],
-    verifications: [],
+    verifications: preview.verifications,
     rfqs: [],
     rfq_attachments: [],
     rfq_matches: [],

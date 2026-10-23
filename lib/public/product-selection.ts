@@ -39,14 +39,35 @@ export function withoutDirectContacts(value: string): string {
     .replace(/(?:\+?\d[\s().-]?){9,15}\d/g, "[contact via Vexim]");
 }
 
+/**
+ * Danh mục có quy cách đọc được bằng máy.
+ *
+ * "cashew" là slug cũ, "cashew-kernels" là slug ra mắt ngày 23/10/2026. Giữ cả hai
+ * để sản phẩm cũ chưa chuyển slug vẫn tách được quy cách trong khối giá.
+ */
+const GRADED_CATEGORY_SLUGS = new Set(["cashew", "cashew-kernels"]);
+
 export function productGrade(name: string, spec: string | null, categorySlug: string): string | null {
-  if (categorySlug !== "cashew") return null;
+  if (!GRADED_CATEGORY_SLUGS.has(categorySlug)) return null;
   const text = `${name} ${spec ?? ""}`.toUpperCase();
   const code = /\b(W180|W240|W320|W450|SW|WS|LP|SP)\b/.exec(text)?.[1];
   if (code) return code;
   if (/\bSPLITS?\b/.test(text)) return "WS";
   if (/\bPIECES?\b/.test(text)) return "LP";
   return null;
+}
+
+/**
+ * Quy cách hồ tiêu: khối lượng riêng, tính bằng g/l.
+ *
+ * Đây là chỉ tiêu đứng đầu bảng quy cách của ngành (IPC BP-1 từ 550 g/l, BP-2 từ
+ * 500 g/l), nên 500 và 550 là hai mức giá khác nhau chứ không phải một. Gộp lại
+ * thì khoảng giá vừa thấp hơn vừa cao hơn giá thật, và buyer đọc sai mặt hàng.
+ */
+export function pepperGrade(name: string, spec: string | null): string | null {
+  const text = `${name} ${spec ?? ""}`.toUpperCase();
+  const density = /\b(\d{3})\s*G\s*\/\s*L\b/.exec(text)?.[1];
+  return density ? `${density} g/l` : null;
 }
 
 /** Consent belongs to the supplier, expires after 180 days, and is never renewed by a normal product edit. */

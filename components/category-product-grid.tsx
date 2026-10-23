@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Filter } from "lucide-react";
+import { ArrowRight, ChevronDown, Filter } from "lucide-react";
 
 import { PublicProductCard } from "@/components/public-product-card";
 import { SponsoredPilotSlot } from "@/components/sponsored-pilot-slot";
@@ -130,8 +130,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
           {[...hidden].map(([supplierId, count]) => {
             const supplier = products.find((p) => p.supplierId === supplierId)!;
             return <Link key={supplierId} href={`/suppliers/${encodeURIComponent(supplier.supplierSlug || supplierId)}#products`}
-              className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-800 hover:border-brand-500">
-              +{count} more from {supplier.supplierName} →
+              className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-800 hover:border-brand-500">
+              +{count} more from {supplier.supplierName}<ArrowRight className="h-3 w-3" aria-hidden />
             </Link>;
           })}
         </div>}
