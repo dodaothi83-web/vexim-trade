@@ -55,10 +55,13 @@ Lưới tự nhiên bên dưới **không luân phiên ngẫu nhiên và không 
 
 Lý do: đây là thứ buyer B2B dùng để đọc mức độ tin cậy. Xếp theo độ mới sẽ khiến nhà cung cấp nào sửa giá thường xuyên là lên đầu, và khi đó họ không cần mua gói nào cả.
 
+Mỗi nhà cung cấp hiện tối đa **ba thẻ** trong danh sách tự nhiên của một trang danh mục, hoặc hai thẻ khi trang chỉ có một nhà cung cấp. Trần này tính riêng cho danh sách bên dưới, không tính thẻ ở vùng đẩy. Dòng đếm ghi rõ "tối đa ba thẻ mỗi nhà cung cấp trong danh sách bên dưới" để người đọc hiểu con số nói về phần nào.
+
 ## 6. Luật cố định
 
 - Sản phẩm muốn đẩy vẫn phải qua đủ bốn cổng công khai: hồ sơ được duyệt, sẵn sàng cho buyer kèm ảnh hoặc catalogue, thuộc danh mục đã publish, nhà cung cấp đã publish và không phải hồ sơ demo. Trả tiền không mua được quyền vượt cổng.
 - Sản phẩm trong vùng đẩy **không lặp lại** ở lưới tự nhiên bên dưới.
+- **Vùng đẩy là suất cộng thêm, không phải suất thay thế.** Nhà cung cấp mua gói giữ nguyên trần ba thẻ trong danh sách tự nhiên và có thêm một thẻ ở vùng đẩy. Trần của danh sách tính sau khi đã lấy thẻ lên vùng đẩy. Lý do: tiền mua thêm chỗ hiển thị, không mua quyền chen vào chỗ của người khác, nên người không mua không bị đẩy khỏi vị trí của họ. Đổi lại, gói có giá trị hiển thị đo được và nói được với khách bằng một câu.
 - Buyer đang lọc thì **ẩn cả vùng đẩy**, không nhồi một sản phẩm không liên quan vào chỗ trống. Sản phẩm trả phí khi đó trở lại lưới tự nhiên và chịu đúng bộ lọc như mọi sản phẩm khác, vì nó vẫn là hàng thật của nhà cung cấp.
 - Vùng đẩy **không đụng vào dải giá tham khảo**: dải giá tính trên toàn bộ sản phẩm của danh mục, kể cả sản phẩm đang trả phí. Trả tiền mua chỗ hiển thị, không mua việc bị loại khỏi số liệu thị trường.
 - Nhãn **Tài trợ / Sponsored** hiện sẵn trên thẻ, không cần rê chuột, ở cả hai ngôn ngữ, kèm câu nói rõ đây là vị trí trả tiền và không phải kết quả xác minh.

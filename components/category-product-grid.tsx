@@ -51,14 +51,23 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     (!moq || moqGroup(p.moq) === moq) &&
     (!province || p.province === province) && (!verified || p.verificationSteps.includes(verified as 1 | 2 | 3)),
   ), [products, selectedGrades, selectedAttributes, moq, province, verified, attributeFilters]);
-  // The initial page gives each supplier up to three cards. Filtering reveals
-  // every matching offer without merging W320 listings from different companies.
-  // Cards already in the sponsored band above are taken out of the grid, so the
-  // count reads "5 of 8 products": eight match, five sit below the band.
-  const { shown, hidden } = useMemo(() => arrangeSupplierProducts(
-    active ? visible : withoutSponsoredBand(visible, sponsoredBand),
-    active ? null : new Set(visible.map((p) => p.supplierId)).size < 2 ? 2 : 3,
-  ), [visible, active, sponsoredBand]);
+  // Trần thẻ của một nhà cung cấp trong danh sách tự nhiên bên dưới, KHÔNG tính
+  // vùng đẩy phía trên. Vùng đẩy là suất cộng thêm (additive slot): nhà cung cấp
+  // mua gói giữ nguyên ba thẻ dưới lưới và có thêm một thẻ ở trên. Người trả tiền
+  // nhận giá trị hiển thị tăng thêm thật, còn người không mua không bị đẩy khỏi
+  // chỗ của họ. Vì vậy thẻ đã lên vùng đẩy được lấy ra khỏi danh sách TRƯỚC khi
+  // áp trần, chứ không phải sau.
+  const supplierCap = new Set(visible.map((p) => p.supplierId)).size < 2 ? 2 : 3;
+  const listPool = useMemo(
+    () => (active ? visible : withoutSponsoredBand(visible, sponsoredBand)),
+    [active, visible, sponsoredBand],
+  );
+  // Lọc xong thì hiện đủ, không áp trần, để người đang tìm một quy cách cụ thể
+  // không bị giấu mất lựa chọn.
+  const { shown, hidden } = useMemo(
+    () => arrangeSupplierProducts(listPool, active ? null : supplierCap),
+    [listPool, active, supplierCap],
+  );
   const reset = () => { setSelectedAttributes({}); setSelectedGrades([]); setMoq(""); setProvince(""); setVerified(0); };
   const fields = <div className="space-y-5 text-sm">
     {attributeFilters.filter((field) => !field.showWhen || !selectedAttributes[field.showWhen.key] ||
@@ -115,7 +124,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
           <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-sm font-bold text-ink-800"><span className="flex items-center gap-2"><Filter className="h-4 w-4" /> Filter products</span><ChevronDown className="h-4 w-4" /></summary>
           <div className="border-t border-ink-100 p-4">{fields}</div>
         </details>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600"><p><strong className="text-ink-900">{shown.length}</strong> of {visible.length} products{!active && visible.length > shown.length ? " · up to 3 per supplier" : ""}</p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600"><p><strong className="text-ink-900">{shown.length}</strong> of {visible.length} products{!active && listPool.length > shown.length ? ` · up to ${supplierCap} per supplier in the list below` : ""}</p>
           {active && <button type="button" className="text-xs font-semibold text-brand-700 underline" onClick={reset}>Show all</button>}
         </div>
         {/* Vùng đẩy chỉ hiện khi người xem chưa lọc gì. Đang lọc mà vẫn thấy thẻ

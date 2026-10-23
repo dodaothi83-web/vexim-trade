@@ -115,8 +115,16 @@ assert.match(grid, /!active && \(sponsoredBand\.length > 0/, "Đang lọc thì p
 assert.ok(grid.indexOf("<SponsoredProductBand") < grid.indexOf("grid grid-cols-2 items-stretch gap-3"),
   "Vùng đẩy phải nằm trên lưới tự nhiên");
 
+// Vùng đẩy là suất cộng thêm: phải lấy thẻ ra khỏi danh sách TRƯỚC khi áp trần
+// ba thẻ mỗi nhà cung cấp, nếu không gói sẽ ăn vào suất của chính nhà cung cấp đó.
+assert.ok(grid.includes("withoutSponsoredBand(visible, sponsoredBand)"), "Danh sách dưới phải bỏ thẻ đã lên vùng đẩy");
+assert.ok(grid.indexOf("withoutSponsoredBand(visible, sponsoredBand)") < grid.indexOf("arrangeSupplierProducts(listPool"),
+  "Phải bỏ thẻ vùng đẩy trước khi áp trần mỗi nhà cung cấp");
+assert.match(grid, /const supplierCap = /, "Trần mỗi nhà cung cấp phải là một biến dùng chung");
+assert.match(grid, /in the list below/, "Dòng đếm phải nói rõ trần áp cho danh sách bên dưới");
+
 const band = readFileSync(new URL("../components/sponsored-product-band.tsx", import.meta.url), "utf8");
 assert.match(band, /Sponsored · Tài trợ/, "Nhãn phải có cả hai thứ tiếng và hiện sẵn, không cần trỏ chuột");
 assert.match(band, /not a Vexim verification result/, "Nhãn phải nói rõ đây không phải kết quả xác minh");
 
-console.log("✅ check-sponsored-band: ba suất, cùng cửa sổ thì cùng vùng đẩy, không trùng lưới, ẩn khi lọc");
+console.log("✅ check-sponsored-band: ba suất, cùng cửa sổ thì cùng vùng đẩy, không trùng lưới, ẩn khi lọc, vùng đẩy là suất cộng thêm");
