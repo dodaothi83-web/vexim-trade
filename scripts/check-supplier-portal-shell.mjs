@@ -103,4 +103,25 @@ assert.match(pending, /ĐANG CHỜ VEXIM XÁC NHẬN/, 'Cổng chưa mở hiện
 assert.ok(!pending.includes('href="/supplier/portal/rfqs"'), 'Chưa mở cổng thì không hiện mục RFQ');
 assert.ok(pending.includes('href="/supplier/portal"'), 'Vẫn vào được Tổng quan để nộp hồ sơ');
 
+// 6. Hồ sơ doanh nghiệp phản chiếu trang công khai và tự đổi ảnh được ngay trên thẻ hồ sơ.
+const profile = read('app/supplier/portal/profile/page.tsx');
+for (const field of ['Tên pháp nhân', 'Tên thương mại', 'Loại hình', 'Mã số thuế (tự khai)', 'Địa chỉ đăng ký',
+  'Mặt hàng chính', 'Thị trường', 'Công suất mỗi tháng', 'MOQ', 'Cảng xuất', 'Incoterms', 'Thời gian giao',
+  'Giới thiệu trên trang công khai', 'Bước tiếp theo'])
+  assert.ok(profile.includes(field), `Hồ sơ hiển thị ${field}`);
+assert.match(profile, /kind="cover"/, 'Ảnh bìa có nút thêm ảnh');
+assert.match(profile, /kind="profile"/, 'Ảnh đại diện có nút thêm ảnh');
+assert.match(profile, /Đang ở đây/, 'Nói rõ nhà cung cấp đang ở bước xác minh nào');
+assert.match(profile, /supplier\.status === "published"/, 'Chỉ hiện nút xem trang công khai khi hồ sơ đã công khai');
+assert.match(profile, /Liên hệ \(không hiển thị công khai\)/, 'Liên hệ nội bộ được ghi rõ là không công khai');
+
+const upload = read('app/api/supplier-portal/profile-image/route.ts');
+assert.match(upload, /supplierPortalAccess\(\)/, 'Lấy NCC của phiên đang đăng nhập, không nhận id từ client');
+assert.doesNotMatch(upload, /supplier_id"/, 'Không đọc supplier_id từ form');
+assert.match(upload, /portalApproved\(access\.supplier\)/, 'Cổng chưa mở thì không cho đổi ảnh');
+assert.match(upload, /validateUpload\("image", bytes, file\.name\)/, 'Server tự kiểm magic bytes');
+assert.match(upload, /3 \* 1024 \* 1024/, 'Ảnh tối đa 3 MB sau khi nén');
+assert.match(read('components/supplier-photo-button.tsx'), /\/api\/supplier-portal\/profile-image/,
+  'Nút + gửi ảnh lên đúng route của cổng NCC');
+
 console.log('✅ Supplier portal shell: one menu, one page per function, notifications live inside the bell.');
