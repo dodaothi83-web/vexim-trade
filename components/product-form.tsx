@@ -13,6 +13,8 @@ import { Button, Field, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { ProductAttributeInputs } from "@/components/product-attribute-inputs";
 import { fieldsFor } from "@/lib/product-attributes";
+import { gradeKey, resolveGrade } from "@/lib/public/grade-resolution";
+import { composeDisplayName, isPlaceholderDisplayName } from "@/lib/public/display-name";
 
 const INCOTERMS = ["EXW", "FOB", "CFR", "CIF", "DAP", "DDP", "FCA"];
 const CURRENCIES = ["USD", "EUR", "VND"];
@@ -23,6 +25,7 @@ type ProductTab = "info" | "spec" | "trade";
 function init(p?: SupplierProduct | null): FormState {
   return {
     name: p?.name ?? "",
+    display_name: p?.display_name ?? "",
     category: p?.category ?? "",
     description: p?.description ?? "",
     description_detail: p?.description_detail ?? "",
@@ -90,6 +93,38 @@ export function ProductForm({
   const assignedCategory = assignProductCategory({
     name: v("name"), spec: v("spec"), description: v("description"), category: product?.category ?? null,
   }, categories, supplierCategories);
+
+  // Danh mục đang có hiệu lực: người dùng chọn thì theo người dùng, chưa chọn thì
+  // theo gợi ý từ tên/quy cách. Hiện gợi ý ra cho thấy, thay vì để nó chạy ngầm.
+  const activeCategory = categories.find((c) => c.slug === (selectedCategory || assignedCategory?.slug)) ?? null;
+  const suggestedCategory = !selectedCategory && assignedCategory &&
+    (!supplierCategories.length || supplierCategories.includes(assignedCategory.slug)) ? assignedCategory : null;
+  // Quy cách: trường có cấu trúc thắng tên. Tên còn lại để cảnh báo khi hai bên lệch.
+  const grade = resolveGrade({
+    name: v("name"), spec: v("spec"), categorySlug: activeCategory?.slug ?? "", attributes,
+  });
+  const gradeField = fieldsFor(activeCategory).find((f) => (f.key === "grade" || f.key === "product_type") && f.type === "select");
+  const gradeFromNameUsable = !!gradeField && !!grade.fromName && !grade.fromAttributes && gradeField.options.includes(grade.fromName);
+
+  // Tên hiển thị cho buyer: soạn từ danh mục, quy cách, tỉnh và thuộc tính còn lại.
+  // Nhân viên bấm một nút là xong; để trống thì trang buyer dùng tên gốc.
+  const attributeLabels = Object.fromEntries(fieldsFor(activeCategory).map((f) => [f.key, f.label]));
+  const suggestedDisplayName = composeDisplayName({
+    categoryLabel: activeCategory ? activeCategory.name_i18n.en || activeCategory.slug : null,
+    grade: grade.value,
+    province: supplier.province,
+    attributes,
+    attributeLabels,
+  });
+  const displayNamePlaceholder = isPlaceholderDisplayName(v("display_name"));
+  // Tên hiển thị ghi một mức quy cách khác với ô quy cách đã chốt thì buyer đọc
+  // thấy hai mức ở cùng một chỗ, nên phải nói ra thay vì chọn ngầm một bên.
+  const confirmedGrade = grade.source === "attributes" ? grade.value : null;
+  const displayNameGrade = resolveGrade({
+    name: v("display_name"), spec: "", categorySlug: activeCategory?.slug ?? "", attributes: {},
+  }).fromName;
+  const displayNameConflict = !!confirmedGrade && !!displayNameGrade &&
+    gradeKey(confirmedGrade) !== gradeKey(displayNameGrade);
 
   const tabState = (key: ProductTab): "ok" | "part" | "no" => {
     if (key === "info") return v("name").trim() ? (v("description").trim() ? "ok" : "part") : "no";
@@ -204,6 +239,20 @@ export function ProductForm({
               />
               {nameError && <p className="mt-1 text-xs font-semibold text-rose-600">{nameError}</p>}
             </Field>
+            {suggestedCategory && (
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs sm:col-span-2 lg:col-span-3">
+                <span className="font-semibold text-ink-700">Danh mục gợi ý:</span>
+                <span className="font-bold text-brand-800">{suggestedCategory.name_i18n.en || suggestedCategory.slug}</span>
+                <span className="text-ink-500">theo tên sản phẩm</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory(suggestedCategory.slug)}
+                  className="btn btn-primary btn-sm ml-auto"
+                >
+                  Dùng danh mục này
+                </button>
+              </div>
+            )}
             {isTestOnlyProduct(v("name")) && <p className="text-xs font-semibold text-amber-800 sm:col-span-2 lg:col-span-3">Tên bắt đầu bằng TEST ONLY: sản phẩm sẽ không xuất hiện công khai.</p>}
             <Field label="Mô tả ngắn" className="sm:col-span-2 lg:col-span-3">
               <input
@@ -227,7 +276,65 @@ export function ProductForm({
               </select>
             </Field>
           )}
-          <ProductAttributeInputs fields={fieldsFor(categories.find((category) => category.slug === (assignedCategory?.slug ?? selectedCategory)))} values={attributes} onChange={setAttributes} />
+          <ProductAttributeInputs fields={fieldsFor(activeCategory)} values={attributes} onChange={setAttributes} />
+          {grade.conflict && (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              Tên sản phẩm ghi <strong>{grade.fromName}</strong> nhưng ô {gradeField?.label ?? "quy cách"} đang là{" "}
+              <strong>{grade.fromAttributes}</strong>. Khi công khai, hệ thống lấy theo ô quy cách. Sửa một trong hai cho khớp.
+            </p>
+          )}
+          {gradeFromNameUsable && (
+            <p className="text-xs leading-5 text-ink-500">
+              Tên sản phẩm có “{grade.fromName}”.{" "}
+              <button
+                type="button"
+                onClick={() => setAttributes((current) => ({ ...current, [gradeField!.key]: grade.fromName! }))}
+                className="font-semibold text-brand-700 underline"
+              >
+                Điền vào ô {gradeField!.label}
+              </button>{" "}
+              để giá trị nằm trong dữ liệu, không phụ thuộc cách viết tên.
+            </p>
+          )}
+
+          <div className="rounded-xl border border-ink-200 bg-ink-50/60 p-3">
+            <Field
+              label="Tên hiển thị cho buyer"
+              hint="Trang buyer đọc tên này. Để trống thì dùng tên sản phẩm ở trên; tên gốc không bị thay đổi."
+            >
+              <input
+                className={`input ${displayNamePlaceholder ? "border-amber-400 bg-amber-50/40" : ""}`}
+                maxLength={120}
+                value={v("display_name")}
+                onChange={(e) => set("display_name", e.target.value)}
+                placeholder={suggestedDisplayName || "VD: Pepper 550 g/l, Dak Lak"}
+              />
+            </Field>
+            {displayNamePlaceholder && (
+              <p className="mt-1 text-xs font-semibold text-amber-800">“Chưa xác định” không phải tên hiển thị. Để trống để dùng tên gốc.</p>
+            )}
+            {suggestedDisplayName && v("display_name").trim() !== suggestedDisplayName && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                <span className="text-ink-500">Gợi ý:</span>
+                <span className="font-semibold text-ink-800">{suggestedDisplayName}</span>
+                <button
+                  type="button"
+                  onClick={() => set("display_name", suggestedDisplayName)}
+                  className="btn btn-primary btn-sm ml-auto"
+                >
+                  Dùng tên này
+                </button>
+              </div>
+            )}
+            {displayNameConflict && (
+              <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                Tên hiển thị ghi <strong>{displayNameGrade}</strong> nhưng ô quy cách đang là <strong>{confirmedGrade}</strong>. Buyer sẽ đọc hai mức khác nhau. Sửa lại tên hiển thị hoặc ô quy cách.
+              </p>
+            )}
+            <p className="mt-2 text-xs leading-5 text-ink-500">
+              Buyer sẽ thấy: <strong className="text-ink-800">{v("display_name").trim() || v("name") || "chưa có tên"}</strong>
+            </p>
+          </div>
         </section>
       )}
 

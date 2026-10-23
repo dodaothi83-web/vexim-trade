@@ -50,6 +50,7 @@ import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } fr
 import {
   CASHEW_CATEGORY_CONFIG,
   DEFAULT_CATEGORY_CONFIG,
+  PEPPER_CATEGORY_CONFIG,
 } from "./category-seed";
 import type { DataStore } from "@/lib/db/types";
 
@@ -227,7 +228,7 @@ function seed(): LocalShape {
       active_on_homepage: true,
     },
     cashew: CASHEW_CATEGORY_CONFIG,
-    pepper: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/pepper.jpg", kicker: "FAQ / cleaned / ASTA", active_on_homepage: true },
+    pepper: PEPPER_CATEGORY_CONFIG,
     coffee: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/coffee.jpg", kicker: "Robusta & Arabica", active_on_homepage: true },
     cinnamon: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/cinnamon.jpg", kicker: "Sticks, split, powder", active_on_homepage: true },
     coconut: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/coconut.jpg", kicker: "Desiccated, milk, oil", active_on_homepage: true },

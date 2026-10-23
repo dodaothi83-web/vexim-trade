@@ -96,6 +96,28 @@ const CASHEW_PRODUCT_FIELDS: ProductAttributeField[] = [
   },
 ];
 
+/**
+ * Quy cách hồ tiêu: khối lượng riêng, tính bằng g/l.
+ *
+ * Đây là chỉ tiêu đứng đầu bảng quy cách của ngành (IPC BP-1 từ 550 g/l, BP-2 từ
+ * 500 g/l), và 500 với 550 là hai mức giá khác nhau chứ không phải một. Trước đây
+ * danh mục này không có trường nào, nên trang hồ tiêu lọc không được theo quy cách
+ * và quy cách chỉ còn đọc được bằng cách bắt chữ trong tên sản phẩm.
+ *
+ * Tiêu trắng dùng thang riêng, cao hơn tiêu đen ở cùng hạng, nên 600 và 630 g/l
+ * cũng nằm trong danh sách. Để trống được: sản phẩm chưa có phiếu phân tích thì
+ * không phải chọn đại một giá trị.
+ */
+const PEPPER_PRODUCT_FIELDS: ProductAttributeField[] = [
+  {
+    key: "grade",
+    label: "Density (g/l)",
+    type: "select",
+    options: ["500 g/l", "550 g/l", "570 g/l", "580 g/l", "600 g/l", "630 g/l"],
+    filterable: true,
+  },
+];
+
 export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
   h1: "Cashew suppliers in Vietnam",
   intro:
@@ -154,4 +176,16 @@ export const DEFAULT_CATEGORY_CONFIG: CategoryContentSeed = {
   active_on_homepage: false,
   public_page_ready: false,
   seo_indexable: false,
+};
+
+/**
+ * Hồ tiêu: chỉ khai trường quy cách, phần nội dung trang do CRM điền dần như các
+ * danh mục khác. Tách khỏi DEFAULT để danh mục khác không tự có trường của tiêu.
+ */
+export const PEPPER_CATEGORY_CONFIG: CategoryContentSeed = {
+  ...DEFAULT_CATEGORY_CONFIG,
+  hero_image: "/images/categories/pepper.jpg",
+  kicker: "FAQ / cleaned / ASTA",
+  active_on_homepage: true,
+  product_fields: PEPPER_PRODUCT_FIELDS,
 };

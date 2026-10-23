@@ -5,7 +5,9 @@ import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { listPublicSuppliers } from "@/lib/public/catalog";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
-import { isTestOnlyProduct, pepperGrade, productBelongsToCategory, productGrade, productReviewApproved, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
+import { resolveGrade } from "@/lib/public/grade-resolution";
+import { publicProductTitle } from "@/lib/public/display-name";
 import type { Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -45,23 +47,6 @@ export function shareableProductImages(media: MediaAsset[], productId: string, f
     .slice(0, limit);
 }
 
-/**
- * Quy cách đã có sẵn trong trường dữ liệu của danh mục.
- *
- * Với quế và hồi, giá chênh ba lần giữa quế thanh và hoa hồi, nên gộp chung một
- * khoảng là con số đúng phép tính nhưng vô nghĩa với người mua. Trường
- * product_type đã tách sẵn hai mặt hàng đó, và đó cũng là thứ bộ lọc dùng.
- */
-function declaredGrade(
-  category: Pick<Category, "product_fields">,
-  attributes: Record<string, string>,
-): string | null {
-  const keys = (category.product_fields ?? []).map((field) => field.key);
-  for (const key of ["grade", "product_type"]) {
-    if (keys.includes(key) && attributes[key]) return attributes[key];
-  }
-  return null;
-}
 
 export async function listPublicCategoryProducts(category: Category): Promise<PublicCategoryProduct[]> {
   const store = getStore();
@@ -95,10 +80,14 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
       // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
       const attributes = publicProductAttributes(category, p.specs);
       return {
-        id: p.id, name: withoutDirectContacts(p.name_i18n?.en || p.name),
-        grade: productGrade(p.name, p.spec, category.slug)
-          ?? (category.slug === "pepper" ? pepperGrade(p.name, p.spec) : null)
-          ?? declaredGrade(category, attributes),
+        // Tên công khai: bản soạn sẵn nếu có, không thì tên gốc. Danh mục vẫn
+        // suy từ tên gốc (productBelongsToCategory ở trên), không suy từ tên này.
+        id: p.id, name: withoutDirectContacts(publicProductTitle(p)),
+        // Trường có cấu trúc thắng tên gõ tay. Tên chỉ còn là nguồn dự phòng cho
+        // sản phẩm chưa được khai, và là nguồn để cảnh báo khi hai bên lệch nhau.
+        grade: resolveGrade({
+          name: p.name, spec: p.spec, categorySlug: category.slug, attributes,
+        }).value,
         attributes,
         moq: p.moq || "On request",
         price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: s.province || "Vietnam",

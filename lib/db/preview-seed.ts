@@ -248,33 +248,35 @@ interface PreviewProduct {
   moq: string;
   leadTime: number;
   port: string;
+  /** Tên soạn sẵn cho buyer; thiếu thì trang buyer dùng `name`. */
+  displayName?: string;
 }
 
 const PRODUCTS: PreviewProduct[] = [
   // Hạt điều nhân
   { supplier: "dong-nai-cashew", name: "Cashew kernels W320", category: "cashew-kernels", spec: "AFI W320, moisture 5% max, 22.68 kg carton", grade: "W320", unit: "kg", price: 7.35, priceMax: 7.6, moq: "1 x 20ft (15.9 MT)", leadTime: 21, port: "Cat Lai" },
   { supplier: "dong-nai-cashew", name: "Cashew kernels W240", category: "cashew-kernels", spec: "AFI W240, vacuum carton", grade: "W240", unit: "kg", price: 8.1, moq: "1 x 20ft", leadTime: 21, port: "Cat Lai" },
-  { supplier: "binh-phuoc-kernel", name: "Cashew kernels W320, steam treated", category: "cashew-kernels", spec: "AFI W320, steam sterilised, 2 x 11.34 kg", grade: "W320", unit: "kg", price: 7.55, priceMax: 7.8, moq: "5 MT", leadTime: 18, port: "Cat Lai" },
+  { supplier: "binh-phuoc-kernel", name: "Cashew kernels W320, steam treated", category: "cashew-kernels", spec: "AFI W320, steam sterilised, 2 x 11.34 kg", grade: "W320", unit: "kg", price: 7.55, priceMax: 7.8, moq: "5 MT", leadTime: 18, port: "Cat Lai", displayName: "Cashew kernels W320, Dong Nai" },
   { supplier: "binh-phuoc-kernel", name: "Cashew kernels W450", category: "cashew-kernels", spec: "AFI W450, 20 kg carton", grade: "W450", unit: "kg", price: 6.6, moq: "5 MT", leadTime: 18, port: "Cat Lai" },
   { supplier: "long-an-cashew", name: "Cashew kernels W320, vacuum packed", category: "cashew-kernels", spec: "AFI W320, vacuum carton, 22.68 kg", grade: "W320", unit: "kg", price: 7.45, priceMax: 7.7, moq: "1 x 20ft", leadTime: 19, port: "Cat Lai" },
   { supplier: "binh-phuoc-kernel", name: "Cashew white splits WS", category: "cashew-kernels", spec: "White splits, 22.68 kg carton", grade: "WS", unit: "kg", price: 4.9, moq: "5 MT", leadTime: 20, port: "Cat Lai" },
   // Hồ tiêu
-  { supplier: "dak-lak-pepper-mill", name: "Black pepper 550 g/L, machine cleaned", category: "pepper", spec: "550 g/L min, moisture 12.5% max, 25 kg PP", grade: "550 g/L", unit: "mt", price: 6350, priceMax: 6550, moq: "5 MT", leadTime: 14, port: "Cat Lai" },
-  { supplier: "dak-lak-pepper-mill", name: "Black pepper 500 g/L, FAQ", category: "pepper", spec: "500 g/L min, moisture 13% max, 25 kg PP", grade: "500 g/L", unit: "mt", price: 6100, moq: "5 MT", leadTime: 14, port: "Cat Lai" },
-  { supplier: "dak-lak-pepper-mill", name: "White pepper 600 g/L", category: "pepper", spec: "600 g/L min, moisture 13% max, 25 kg PP", grade: "White pepper", unit: "mt", price: 9350, priceMax: 9600, moq: "3 MT", leadTime: 16, port: "Cat Lai" },
-  { supplier: "gia-lai-pepper", name: "Black pepper 550 g/L, FAQ", category: "pepper", spec: "550 g/L min, moisture 12.5% max, 25 kg PP", grade: "550 g/L", unit: "mt", price: 6440, moq: "5 MT", leadTime: 15, port: "Cat Lai" },
-  { supplier: "binh-phuoc-pepper", name: "Black pepper 550 g/L, sun dried", category: "pepper", spec: "550 g/L min, moisture 12.5% max, 25 kg PP", grade: "550 g/L", unit: "mt", price: 6520, moq: "3 MT", leadTime: 16, port: "Cat Lai" },
-  { supplier: "yen-bai-cassia", name: "Black pepper 570 g/L, ASTA cleaned", category: "pepper", spec: "570 g/L min, admixture 0.2% max", grade: "570 g/L", unit: "mt", price: 6600, moq: "5 MT", leadTime: 20, port: "Hai Phong" },
+  { supplier: "dak-lak-pepper-mill", name: "Black pepper 550 g/L, machine cleaned", category: "pepper", spec: "550 g/L min, moisture 12.5% max, 25 kg PP", grade: "550 g/l", unit: "mt", price: 6350, priceMax: 6550, moq: "5 MT", leadTime: 14, port: "Cat Lai", displayName: "Pepper 550 g/l, Dak Lak" },
+  { supplier: "dak-lak-pepper-mill", name: "Black pepper 500 g/L, FAQ", category: "pepper", spec: "500 g/L min, moisture 13% max, 25 kg PP", grade: "500 g/l", unit: "mt", price: 6100, moq: "5 MT", leadTime: 14, port: "Cat Lai" },
+  { supplier: "dak-lak-pepper-mill", name: "White pepper 600 g/L", category: "pepper", spec: "600 g/L min, moisture 13% max, 25 kg PP", grade: "600 g/l", unit: "mt", price: 9350, priceMax: 9600, moq: "3 MT", leadTime: 16, port: "Cat Lai" },
+  { supplier: "gia-lai-pepper", name: "Black pepper 550 g/L, FAQ", category: "pepper", spec: "550 g/L min, moisture 12.5% max, 25 kg PP", grade: "550 g/l", unit: "mt", price: 6440, moq: "5 MT", leadTime: 15, port: "Cat Lai" },
+  { supplier: "binh-phuoc-pepper", name: "Black pepper 550 g/L, sun dried", category: "pepper", spec: "550 g/L min, moisture 12.5% max, 25 kg PP", grade: "550 g/l", unit: "mt", price: 6520, moq: "3 MT", leadTime: 16, port: "Cat Lai" },
+  { supplier: "yen-bai-cassia", name: "Black pepper 570 g/L, ASTA cleaned", category: "pepper", spec: "570 g/L min, admixture 0.2% max", grade: "570 g/l", unit: "mt", price: 6600, moq: "5 MT", leadTime: 20, port: "Hai Phong" },
   // Quế và hồi
   { supplier: "yen-bai-cassia", name: "Cassia whole bark, 3 mm split", category: "cinnamon-star-anise", spec: "Tube 3 mm, oil 2% min, 25 kg bundle", grade: "Cassia whole", unit: "mt", price: 3850, priceMax: 4100, moq: "5 MT", leadTime: 25, port: "Hai Phong" },
-  { supplier: "yen-bai-cassia", name: "Cassia split, 4 mm", category: "cinnamon-star-anise", spec: "Tube 4 mm, moisture 13.5% max", grade: "Cassia split", unit: "mt", price: 3200, moq: "5 MT", leadTime: 25, port: "Hai Phong" },
+  { supplier: "yen-bai-cassia", name: "Cassia split, 4 mm", category: "cinnamon-star-anise", spec: "Tube 4 mm, moisture 13.5% max", grade: "Cassia split", unit: "mt", price: 3200, moq: "5 MT", leadTime: 25, port: "Hai Phong", displayName: "Cassia split 4 mm, Yen Bai" },
   { supplier: "lao-cai-cassia", name: "Cassia whole bark, 4 mm", category: "cinnamon-star-anise", spec: "Tube 4 mm, oil 1.8% min, 25 kg bundle", grade: "Cassia whole", unit: "mt", price: 4050, moq: "5 MT", leadTime: 24, port: "Hai Phong" },
   { supplier: "lao-cai-cassia", name: "Cassia split, 5 mm", category: "cinnamon-star-anise", spec: "Tube 5 mm, moisture 13.5% max", grade: "Cassia split", unit: "mt", price: 3300, moq: "5 MT", leadTime: 24, port: "Hai Phong" },
   { supplier: "cao-bang-cassia", name: "Cassia whole bark, 2.5 mm", category: "cinnamon-star-anise", spec: "Tube 2.5 mm, oil 2.2% min, 25 kg bundle", grade: "Cassia whole", unit: "mt", price: 3950, moq: "3 MT", leadTime: 26, port: "Hai Phong" },
   { supplier: "binh-thuan-cashew", name: "Cashew kernels W240, steam treated", category: "cashew-kernels", spec: "AFI W240, steam sterilised, 22.68 kg carton", grade: "W240", unit: "kg", price: 8.0, priceMax: 8.2, moq: "1 x 20ft", leadTime: 20, port: "Cat Lai" },
   { supplier: "binh-thuan-cashew", name: "Cashew kernels W320, plain", category: "cashew-kernels", spec: "AFI W320, 22.68 kg carton", grade: "W320", unit: "kg", price: 7.3, moq: "5 MT", leadTime: 20, port: "Cat Lai" },
-  { supplier: "dak-nong-pepper", name: "Black pepper 570 g/L, cleaned", category: "pepper", spec: "570 g/L min, moisture 12.5% max, 25 kg PP", grade: "570 g/L", unit: "mt", price: 6780, moq: "5 MT", leadTime: 15, port: "Cat Lai" },
-  { supplier: "dak-nong-pepper", name: "Black pepper 550 g/L, FAQ", category: "pepper", spec: "550 g/L min, moisture 12.5% max, 25 kg PP", grade: "550 g/L", unit: "mt", price: 6580, moq: "5 MT", leadTime: 15, port: "Cat Lai" },
+  { supplier: "dak-nong-pepper", name: "Black pepper 570 g/L, cleaned", category: "pepper", spec: "570 g/L min, moisture 12.5% max, 25 kg PP", grade: "570 g/l", unit: "mt", price: 6780, moq: "5 MT", leadTime: 15, port: "Cat Lai" },
+  { supplier: "dak-nong-pepper", name: "Black pepper 550 g/L, FAQ", category: "pepper", spec: "550 g/L min, moisture 12.5% max, 25 kg PP", grade: "550 g/l", unit: "mt", price: 6580, moq: "5 MT", leadTime: 15, port: "Cat Lai" },
   { supplier: "son-la-cassia", name: "Cassia whole bark, 3.5 mm", category: "cinnamon-star-anise", spec: "Tube 3.5 mm, oil 2% min, 25 kg bundle", grade: "Cassia whole", unit: "mt", price: 4120, moq: "5 MT", leadTime: 27, port: "Hai Phong" },
   { supplier: "son-la-cassia", name: "Cassia split, 4 mm", category: "cinnamon-star-anise", spec: "Tube 4 mm, moisture 13.5% max", grade: "Cassia split", unit: "mt", price: 3260, moq: "5 MT", leadTime: 27, port: "Hai Phong" },
   { supplier: "bac-kan-anise", name: "Star anise, autumn crop", category: "cinnamon-star-anise", spec: "8 points, oil 3.5% min, 10 kg carton", grade: "Star anise", unit: "mt", price: 9150, priceMax: 9400, moq: "3 MT", leadTime: 23, port: "Hai Phong" },
@@ -375,6 +377,7 @@ export function previewSeedRows(nowISO: (offsetDays?: number) => string): Previe
       id,
       supplier_id: bySlug.get(p.supplier)!,
       name: p.name,
+      display_name: p.displayName ?? null,
       slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
       name_i18n: { en: p.name },
       category: p.category,
