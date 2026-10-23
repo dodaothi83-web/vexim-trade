@@ -98,3 +98,49 @@ Bảng và ràng buộc nằm ở `supabase/migrations/20261028_sponsored_produc
 Trang chủ chưa gắn vùng đẩy. Bề mặt đó dùng lại đúng ba tệp trên, chỉ khác số suất và vị trí chèn, nên để làm cùng lúc với việc bán gói trang chủ đầu tiên.
 
 Migration chưa chạy trên Supabase nào và chưa có gói thật. Ở môi trường chưa áp migration, truy vấn gói trả về rỗng thay vì làm hỏng trang danh mục. Giao diện chỉ hiện vùng đẩy khi bảng có gói đã duyệt và còn hạn, nên hôm nay trang danh mục vẫn sạch.
+
+## 12. Kiểm sau khi áp migration
+
+Chạy bốn câu này trong SQL editor của đúng project. Cả bốn chỉ đọc, không tạo gói nào.
+
+```sql
+-- 1. Bảng và cột đã có đủ
+select column_name, data_type, is_nullable
+from information_schema.columns
+where table_schema = 'public' and table_name = 'sponsored_pushes'
+order by ordinal_position;
+
+-- 2. Trigger chặn sai sót đã gắn
+select tgname from pg_trigger
+where tgrelid = 'public.sponsored_pushes'::regclass and not tgisinternal;
+
+-- 3. Hàm đếm và hàm kiểm đã tạo, đúng tham số
+select proname, pg_get_function_identity_arguments(oid) as args
+from pg_proc
+where proname in ('record_sponsored_push_event', 'check_sponsored_push_rules');
+
+-- 4. Chưa có gói nào, và chưa có số liệu
+select count(*) as packages from public.sponsored_pushes;
+select count(*) as daily_rows from public.sponsored_push_daily;
+```
+
+Kỳ vọng: 14 cột, một trigger `sponsored_push_rules_ck`, hai hàm, và hai số đếm bằng 0.
+
+Muốn thử đường ghi nhận lượt hiển thị mà không tạo gói giả: gọi hàm với một mã gói ngẫu nhiên. Hàm tự kiểm lại gói có đang hiệu lực hay không, nên nó trả về mà không ghi gì, và đó là kết quả đúng.
+
+```sql
+select public.record_sponsored_push_event(gen_random_uuid(), 'impression');
+select count(*) as daily_rows from public.sponsored_push_daily;  -- vẫn 0
+```
+
+Muốn thấy vùng đẩy thật thì phải có một gói đã duyệt. Gói cần một admin đang hoạt động trong `app_users`, một sản phẩm đã publish thuộc đúng nhà cung cấp, và hai mốc thời gian cách nhau đúng 168 giờ. Nên thử trên project staging trước, vì gói đã tạo sẽ hiện với buyer ngay khi còn hạn.
+
+```sql
+insert into public.sponsored_pushes
+  (surface, category_slug, supplier_id, product_id, status, starts_at, ends_at, approved_by, approved_at, price_amount, price_currency)
+values
+  ('category', 'pepper', '<supplier_id>', '<product_id>', 'approved',
+   now(), now() + interval '168 hours', '<admin_user_id>', now(), 2500000, 'VND');
+```
+
+Trigger sẽ từ chối nếu thiếu một trong các điều kiện trên, và câu lỗi nói rõ thiếu cái gì. Đó là mục đích của nó, không phải trục trặc.
