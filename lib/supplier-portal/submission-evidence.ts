@@ -185,8 +185,12 @@ export async function saveSubmissionEvidence(input: {
   let media: MediaAsset;
   try {
     media = await store.createMedia({
-      owner_type: "verification",
-      verification_id: submission.id,
+      // Bằng chứng tự gửi là chủ sở hữu RIÊNG: `submission_id` trỏ tới
+      // supplier_submissions(id). Tuyệt đối không ghi id hồ sơ vào
+      // `verification_id` (cột đó có khoá ngoại tới verifications(id)).
+      owner_type: "submission",
+      verification_id: null,
+      submission_id: submission.id,
       supplier_id: submission.supplier_id,
       product_id: null,
       checklist_key: key as MediaAsset["checklist_key"],

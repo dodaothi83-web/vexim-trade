@@ -533,6 +533,7 @@ export const supabaseStore: DataStore = {
     const column =
       ownerType === "product" ? "product_id" :
       ownerType === "verification" ? "verification_id" :
+      ownerType === "submission" ? "submission_id" :
       "supplier_id";
     const { data, error } = await must()
       .from("media_assets")

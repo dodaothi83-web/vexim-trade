@@ -560,6 +560,10 @@ function migrateMediaDefaults(db: LocalShape) {
     if ((m as unknown as { verification_id?: string | null }).verification_id === undefined) {
       (m as unknown as { verification_id: string | null }).verification_id = null;
     }
+    // Bằng chứng của hồ sơ tự gửi dùng submission_id, KHÔNG dùng verification_id.
+    if ((m as unknown as { submission_id?: string | null }).submission_id === undefined) {
+      (m as unknown as { submission_id: string | null }).submission_id = null;
+    }
     if (m.checklist_key === undefined) m.checklist_key = null;
   }
 }
@@ -1397,6 +1401,7 @@ export const localStore: DataStore = {
         if (m.owner_type !== ownerType) return false;
         if (ownerType === "product") return m.product_id === ownerId;
         if (ownerType === "verification") return (m as unknown as { verification_id?: string | null }).verification_id === ownerId;
+        if (ownerType === "submission") return (m as unknown as { submission_id?: string | null }).submission_id === ownerId;
         return m.supplier_id === ownerId;
       })
       .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
@@ -1422,6 +1427,7 @@ export const localStore: DataStore = {
       const now = new Date().toISOString();
       const row: MediaAsset = {
         verification_id: null,
+        submission_id: null,
         checklist_key: null,
         id: randomUUID(),
         created_at: now,

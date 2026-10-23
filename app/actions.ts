@@ -2065,7 +2065,7 @@ export async function addMediaLinkAction(input: {
       supplierId = p?.supplier_id ?? null;
     } else if (input.ownerType === "supplier") {
       supplierId = input.ownerId;
-    } else {
+    } else if (input.ownerType === "verification") {
       verificationId = input.ownerId;
       const v = await store.getVerification(input.ownerId);
       if (!v) return { ok: false, message: "Không tìm thấy đợt kiểm." };
@@ -2073,6 +2073,10 @@ export async function addMediaLinkAction(input: {
       if (blocked) return { ok: false, message: blocked };
       verification = v;
       supplierId = v.supplier_id;
+    } else {
+      // Bằng chứng tự gửi (owner_type = "submission") chỉ nhận link nguồn qua
+      // addSourceLinkAction, không nhận link video ở đây.
+      return { ok: false, message: "Loại hồ sơ không hỗ trợ thêm link video." };
     }
     const created = await store.createMedia({
       owner_type: input.ownerType,

@@ -9,6 +9,9 @@ const rows = [
   { id: 'product', owner_type: 'product', supplier_id: 'sup-1', product_id: 'prod-1', verification_id: null, sort_order: 0, created_at: '2026-01-02' },
   { id: 'docs', owner_type: 'verification', supplier_id: 'sup-1', product_id: null, verification_id: 'review-1', sort_order: 0, created_at: '2026-01-03' },
   { id: 'factory', owner_type: 'verification', supplier_id: 'sup-1', product_id: null, verification_id: 'review-2', sort_order: 0, created_at: '2026-01-04' },
+  // Bằng chứng NCC tự gửi: chủ sở hữu riêng, không mượn verification_id (khoá ngoại
+  // media_assets_verification_id_fkey chỉ nhận id của verifications).
+  { id: 'sub-evidence', owner_type: 'submission', supplier_id: 'sup-1', product_id: null, verification_id: null, submission_id: 'sub-1', sort_order: 0, created_at: '2026-01-05' },
 ];
 function extract(file) {
   const source = readFileSync(new URL(file, import.meta.url), 'utf8');
@@ -41,6 +44,9 @@ for (const store of [local, supabase]) {
   assert.equal((await store.listMedia('supplier', 'sup-1')).map((m) => m.id).join(','), 'shared', 'Supplier library cannot show verification or product evidence');
   assert.equal((await store.listMedia('verification', 'review-1')).map((m) => m.id).join(','), 'docs', 'Audit reads only its own review evidence');
   assert.equal((await store.listMedia('product', 'prod-1')).map((m) => m.id).join(','), 'product');
+  assert.equal((await store.listMedia('submission', 'sub-1')).map((m) => m.id).join(','), 'sub-evidence', 'Submission evidence is scoped by submission_id');
+  assert.equal((await store.listMedia('submission', 'sub-2')).length, 0, 'No other submission can see this evidence');
+  assert.equal((await store.listMedia('verification', 'sub-1')).length, 0, 'A submission id is never read as a verification id');
 }
 const audit = readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/page.tsx', import.meta.url), 'utf8');
 const supplier = readFileSync(new URL('../app/crm/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');

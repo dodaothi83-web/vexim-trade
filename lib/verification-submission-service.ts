@@ -478,6 +478,7 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
     await store.createMedia({
       owner_type: "verification",
       verification_id: verification.id,
+      submission_id: null,
       supplier_id: submission.supplier_id,
       product_id: null,
       checklist_key: media.checklist_key ?? null,

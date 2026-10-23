@@ -836,7 +836,15 @@ export type BuyerConsent = {
 
 /* --------------------------------- MEDIA --------------------------------- */
 
-export type MediaOwnerType = "product" | "supplier" | "verification";
+/**
+ * product      – tệp của một sản phẩm
+ * supplier     – tệp của doanh nghiệp (chứng nhận, catalogue…)
+ * verification – ảnh/giấy tờ của một ĐỢT KIỂM do nhân viên Vexim lập
+ * submission   – bằng chứng NCC tự tải lên cho HỒ SƠ TỰ GỬI (L2/L3), trước khi
+ *                nhân viên chấp thuận. Hai không gian id tách biệt: `submission_id`
+ *                không bao giờ được ghi vào `verification_id`.
+ */
+export type MediaOwnerType = "product" | "supplier" | "verification" | "submission";
 
 /**
  * image       – ảnh sản phẩm / ảnh nhà máy, chia sẻ được cho buyer
@@ -860,6 +868,12 @@ export interface MediaAsset {
   supplier_id: string | null;
   /** Khi owner_type === "verification" — ảnh/giấy tờ đính kèm cho một lần xác minh cụ thể */
   verification_id?: string | null;
+  /**
+   * Khi owner_type === "submission" — bằng chứng NCC tự gửi, gắn với
+   * `supplier_submissions(id)`. Chỉ nhân viên chấp thuận hồ sơ mới sao chép
+   * sang đợt kiểm thật (khi đó verification_id mới được điền).
+   */
+  submission_id?: string | null;
   /** Mục bảng kiểm giấy tờ gắn với tệp; null cho bằng chứng chung/tệp cũ. */
   checklist_key?: AuditEvidenceKey | null;
   kind: MediaKind;

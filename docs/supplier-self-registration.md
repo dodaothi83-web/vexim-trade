@@ -52,6 +52,7 @@ Lỗi hay gặp nhất là chưa chạy đủ migration trên Supabase. Log máy
 | `supplier_portal_notice_reads` | `20261017_supplier_dashboard.sql` |
 | `response_due_at`, `supplier_replied_at`, `source_product_id` | `20261017_supplier_dashboard.sql` |
 | `supplier_submissions` | `20261020_supplier_self_verification_submissions.sql` |
+| `media_assets_verification_id_fkey` (khi NCC tải bằng chứng L2/L3) | `20261031_supplier_submission_media_owner.sql` |
 | `sponsored_push` | `20261028_sponsored_product_push.sql` |
 | `display_name` | `20261030_product_display_name.sql` |
 

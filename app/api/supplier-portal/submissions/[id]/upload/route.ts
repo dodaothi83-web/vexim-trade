@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supplierSubmissionAccess } from "@/lib/supplier-portal/submission-access";
 import { mergeFlags } from "@/lib/media/image-integrity";
 import { readiness } from "@/lib/verification-submission";
+import { migrationHint } from "@/lib/db/migration-hints";
 import { saveSubmissionEvidence, submissionSizeGate } from "@/lib/supplier-portal/submission-evidence";
 import { maxBytesFor } from "@/lib/supplier-portal/submission-evidence";
 
@@ -112,8 +113,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       readiness: readiness({ submission: fresh, items }),
     });
   } catch (error) {
-    console.error("[submission-upload] lỗi", error);
-    const message = error instanceof Error ? error.message : "Không lưu được tệp.";
+    console.error("[submission-upload] lỗi", error, migrationHint(error) ?? "");
+    const raw = error instanceof Error ? error.message : "";
+    // Lỗi ràng buộc CSDL (vd. thiếu migration media_assets.submission_id) không
+    // đẩy nguyên văn tiếng Anh ra cho nhà cung cấp; chỉ báo thử lại và ghi log hint.
+    const message = /violates (foreign key|check) constraint|duplicate key value/i.test(raw)
+      ? "Hệ thống chưa lưu được bằng chứng lúc này. Vexim đã ghi nhận lỗi — bạn thử lại sau ít phút."
+      : raw || "Không lưu được tệp.";
     return json({ ok: false, message }, 400);
   }
 }
