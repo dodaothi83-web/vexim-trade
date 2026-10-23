@@ -137,8 +137,8 @@ export default async function SupplierProfilePage() {
         <ol className="space-y-2">
           {([
             { level: 1, title: "Kiểm tra giấy tờ", status: l1Status, on: l1Approved, href: "/supplier/portal/documents", cta: "Tải giấy tờ L1" },
-            { level: 2, title: "Xác thực nhà máy", status: l2Status, on: l2Approved, href: "/supplier/portal/verification", cta: "Nộp bằng chứng L2" },
-            { level: 3, title: "Lịch sử xuất khẩu", status: l3Status, on: l3Approved, href: "/supplier/portal/verification", cta: "Nộp bằng chứng L3" },
+            { level: 2, title: "Xác thực nhà máy", status: l2Status, on: l2Approved, href: "/supplier/portal/verification/factory", cta: "Nộp bằng chứng L2" },
+            { level: 3, title: "Lịch sử xuất khẩu", status: l3Status, on: l3Approved, href: "/supplier/portal/verification/export", cta: "Nộp bằng chứng L3" },
           ] as const).map((step) => <li key={step.level} className="relative">
             <VerifyRow level={`L${step.level}`} title={step.title} status={step.status} on={step.on} />
             {currentStep === step.level && <span className="absolute top-2.5 right-3 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 ring-1 ring-amber-300">
@@ -154,7 +154,8 @@ export default async function SupplierProfilePage() {
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href="/supplier/portal/documents" className="btn btn-ghost btn-sm">Giấy tờ L1</Link>
-          <Link href="/supplier/portal/verification" className="btn btn-soft btn-sm">Cổng tự xác thực L2 · L3</Link>
+          <Link href="/supplier/portal/verification/factory" className="btn btn-soft btn-sm">Nộp bằng chứng nhà máy</Link>
+          <Link href="/supplier/portal/verification/export" className="btn btn-soft btn-sm">Nộp chứng từ xuất khẩu</Link>
         </div>
         <p className="mt-3 text-[11px] leading-5 text-ink-500">Nhãn xác minh trên trang buyer chỉ xuất hiện cho từng đánh giá được nhân viên Vexim kiểm và người có quyền duyệt phê.</p>
       </Panel>

@@ -662,13 +662,13 @@ assert.equal(action.ok, false, 'Hồ sơ đã nhận: bằng chứng phải bị
 
 const readPage = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const panel = readPage('app/supplier/portal/verification/verification-panel.tsx');
-const portalPage = readPage('app/supplier/portal/verification/page.tsx');
+const portalPage = readPage('app/supplier/portal/verification/level-page.tsx');
 const itemCard = readPage('app/supplier/portal/verification/submission-item-card.tsx');
 
 assert.ok(panel.includes('Tải tờ mã về'), 'Cổng NCC phải có nút tải tờ mã về');
 assert.ok(panel.includes('downloadCodeSheet') && panel.includes('toBlob'), 'Tờ mã phải tải được thành tệp, không chỉ in');
-assert.ok(panel.includes('Bước 2 · Vị trí (không bắt buộc)'), 'Định vị không còn là bước bắt buộc');
-assert.ok(panel.includes('Bước 1 · Tờ mã xác minh (bắt buộc)'), 'Tờ mã vẫn là bước bắt buộc');
+assert.ok(panel.includes('Vị trí khi chụp') && panel.includes('Không bắt buộc'), 'Định vị không còn là bước bắt buộc');
+assert.ok(panel.includes('Tờ mã xác minh') && panel.includes('Bắt buộc'), 'Tờ mã vẫn là bước bắt buộc');
 assert.ok(portalPage.includes('kể cả ảnh đã gửi qua Zalo, đều nhận'), 'Trang NCC phải nói rõ ảnh qua Zalo vẫn nhận');
 assert.ok(!portalPage.includes('Gửi <strong>ảnh gốc'), 'Trang NCC không còn đòi ảnh gốc');
 assert.ok(!itemCard.includes('capture={level === 2'), 'Ô chọn tệp không ép mở camera, NCC chọn được ảnh từ thư viện');

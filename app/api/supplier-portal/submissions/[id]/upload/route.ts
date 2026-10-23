@@ -97,7 +97,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         flags: saved.flags.map((f) => f.flag), replaced: saved.replaced,
       },
     });
-    revalidatePath("/supplier/portal/verification");
+    revalidatePath("/supplier/portal/verification/factory");
+    revalidatePath("/supplier/portal/verification/export");
     revalidatePath(`/crm/verifications/submissions/${submission.id}`);
     return json({
       ok: true,

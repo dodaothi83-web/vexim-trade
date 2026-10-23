@@ -53,8 +53,8 @@ assert.equal(none.percent, 0);
 assert.equal(none.steps.map((s) => s.state).join(','), 'not_started,not_started,not_started');
 assert.match(none.headline, /Bước tiếp theo: Kiểm tra giấy tờ/);
 assert.equal(none.steps[0].href, '/supplier/portal/documents');
-assert.equal(none.steps[1].href, '/supplier/portal/verification#level-2');
-assert.equal(none.steps[2].href, '/supplier/portal/verification#level-3');
+assert.equal(none.steps[1].href, '/supplier/portal/verification/factory', 'L2 có trang riêng');
+assert.equal(none.steps[2].href, '/supplier/portal/verification/export', 'L3 có trang riêng');
 
 // 2. L1 được trả hồ sơ: NCC thấy đúng lý do và màu cảnh báo, không phải “chờ duyệt”.
 const returned = buildVerificationProgress({ ...empty, reviews: [review({ status: 'returned', return_reason: 'Ảnh giấy phép bị mờ' })] });

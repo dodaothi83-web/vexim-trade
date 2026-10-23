@@ -38,7 +38,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         staffEmail: access.session.email,
         note,
       });
-      revalidatePath("/supplier/portal/verification");
+      revalidatePath("/supplier/portal/verification/factory");
+      revalidatePath("/supplier/portal/verification/export");
       revalidatePath(`/crm/suppliers/${access.submission.supplier_id}`);
       revalidatePath("/crm/verifications/submissions");
       return NextResponse.json({
@@ -58,7 +59,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         staffEmail: access.session.email,
         reason: note,
       });
-      revalidatePath("/supplier/portal/verification");
+      revalidatePath("/supplier/portal/verification/factory");
+      revalidatePath("/supplier/portal/verification/export");
       revalidatePath("/crm/verifications/submissions");
       return NextResponse.json({ ok: true, message: "Đã trả hồ sơ kèm lý do; NCC sẽ thấy trong cổng và bổ sung." }, { headers: { "Cache-Control": "no-store" } });
     }

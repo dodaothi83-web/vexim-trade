@@ -21,7 +21,8 @@ export interface SubmissionActionResult {
 }
 
 function revalidate(submissionId: string) {
-  revalidatePath("/supplier/portal/verification");
+  revalidatePath("/supplier/portal/verification/factory");
+  revalidatePath("/supplier/portal/verification/export");
   revalidatePath("/supplier/portal");
   revalidatePath(`/crm/verifications/submissions/${submissionId}`);
   revalidatePath("/crm/verifications/submissions");

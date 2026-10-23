@@ -2,7 +2,26 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, Crosshair, Download, Link2, Loader2, MapPin, Printer, RefreshCw, ScanSearch, Send, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  Camera,
+  CheckCircle2,
+  Clock,
+  Crosshair,
+  Download,
+  Factory,
+  FileText,
+  Link2,
+  Loader2,
+  MapPin,
+  Printer,
+  RefreshCw,
+  ScanSearch,
+  Send,
+  ShieldCheck,
+  Ship,
+  Sparkles,
+} from "lucide-react";
 
 import { VERIFICATION_CODE_TTL_HOURS } from "@/lib/verification-submission";
 import type { PortalItemSpec, PortalSubmissionView } from "@/lib/supplier-portal/submission-view";
@@ -35,8 +54,12 @@ interface ScanResult {
 const NO_GPS: GpsState = { lat: null, lng: null, accuracy: null, at: null, state: "idle" };
 
 /**
- * Bảng điều khiển tự xác thực của MỘT cấp (L2 hoặc L3):
- * tạo mã xác minh, bật định vị, tải 9 ảnh / chứng từ, khai link nguồn, AI quét & nộp.
+ * Bảng điều khiển tự xác thực của MỘT cấp (L2 hoặc L3).
+ *
+ * Bố cục theo nhịp trang sản phẩm của sàn TMĐT: dải tổng quan (trạng thái + tiến độ),
+ * lưới thẻ bằng chứng có ảnh thu nhỏ, cột tóm tắt dính bên phải với nút nộp, và thanh
+ * hành động cố định ở đáy trên điện thoại. Toàn bộ hành vi giữ nguyên: tạo mã, tải/in
+ * tờ mã, định vị, tải tệp, xóa tệp, khai link, AI quét thử, AI quét & nộp, khóa hồ sơ.
  */
 export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmissionView; specs: PortalItemSpec[] }) {
   const router = useRouter();
@@ -264,141 +287,310 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
           : "Chưa có vị trí. Hãy cho phép trang dùng vị trí để ảnh được gắn toạ độ.";
 
   const progress = view.requiredTotal > 0 ? Math.min(100, Math.round((view.uploadedTotal / view.requiredTotal) * 100)) : 0;
+  const doneSpecs = specs.filter((spec) => view.items.some((item) => item.key === spec.key)).length;
+  const totalSpecs = specs.length;
+  const levelTitle = level === 2 ? "Xác thực nhà máy" : "Lịch sử xuất khẩu";
+  const LevelIcon = level === 2 ? Factory : Ship;
+  const locked = !view.editable;
+  const statusTone = view.status === "pending_review" ? "bg-amber-100 text-amber-900"
+    : view.status === "accepted" ? "bg-emerald-100 text-emerald-900"
+      : view.status === "returned" ? "bg-rose-100 text-rose-900"
+        : "bg-ink-100 text-ink-700";
+  const progressNote = locked ? "Hồ sơ đã nộp — bằng chứng bị khóa."
+    : view.ready ? "Đủ mục bắt buộc, sẵn sàng nộp."
+      : `Còn thiếu ${view.missing.length} mục bắt buộc.`;
+  const progressTone = locked ? "text-ink-500" : view.ready ? "text-emerald-800" : "text-amber-800";
 
-  return <section id={`level-${level}`} className="mt-8 scroll-mt-6 rounded-xl border border-ink-200 bg-ink-50/60 p-4 sm:p-6">
-    <header className="flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-xl font-black text-ink-900">{level === 2 ? "L2 · Xác thực nhà máy (9 ảnh bắt buộc)" : "L3 · Lịch sử xuất khẩu"}</h2>
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className={`rounded-full px-3 py-1.5 font-bold ${view.status === "pending_review" ? "bg-amber-100 text-amber-800" : view.status === "accepted" ? "bg-emerald-100 text-emerald-800" : view.status === "returned" ? "bg-rose-100 text-rose-800" : "bg-ink-200 text-ink-700"}`}>{view.statusLabel}</span>
-        <span className="rounded-full bg-white px-3 py-1.5 font-semibold text-ink-600 ring-1 ring-ink-200">{view.uploadedTotal}/{view.requiredTotal} mục bắt buộc</span>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-ink-200" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={`Tiến độ hồ sơ L${level}`}>
-        <div className={`h-full rounded-full transition-all ${view.ready ? "bg-emerald-500" : "bg-brand-600"}`} style={{ width: `${progress}%` }} />
-      </div>
-    </header>
+  return <div id={`level-${level}`} className="mt-5 scroll-mt-20">
 
-    {view.status === "accepted" && <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-      <CheckCircle2 className="mr-1 inline size-4" /> Vexim đã nhận hồ sơ này vào đợt kiểm của nhân viên và khóa bằng chứng. Việc duyệt huy hiệu L{level} là bước riêng, do người có quyền duyệt quyết định.
-    </p>}
-    {view.status === "returned" && view.reviewNote && <p className="mt-3 whitespace-pre-wrap rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
-      <strong>Vexim/AI nêu lý do cần bổ sung:</strong> {view.reviewNote}
-    </p>}
-    {view.status === "pending_review" && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-      <Clock className="mr-1 inline size-4" /> Hồ sơ đang trong hàng đợi chờ Vexim xét duyệt{view.aiScannedAt ? ` · AI quét lúc ${new Date(view.aiScannedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : " · chưa có kết quả quét AI"}.
-    </p>}
-
-    {level === 2 && <div className="mt-4 grid gap-3 md:grid-cols-2">
-      <div className="rounded-xl border border-brand-200 bg-white p-4">
-        <h3 className="text-sm font-bold text-ink-900">Bước 1 · Tờ mã xác minh (bắt buộc)</h3>
-        {view.code
-          ? <div className="mt-2">
-              <p className="font-mono text-2xl font-black tracking-[0.12em] text-brand-800">{view.code}</p>
-              <p className="mt-1 text-xs text-ink-600">
-                Phát hành lúc {view.codeIssuedAt ? new Date(view.codeIssuedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"} · hiệu lực {view.codeTtlHours} giờ
-                {view.codeExpired ? " · ĐÃ HẾT HẠN, hãy tạo mã mới" : ""}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={() => downloadCodeSheet(view.code!)} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-xs font-bold text-white"><Download className="size-3.5" /> Tải tờ mã về</button>
-                <button type="button" onClick={() => printCodeSheet(view.code!)} className="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 px-3 py-2 text-xs font-bold text-brand-800"><Printer className="size-3.5" /> In tờ mã</button>
-                {view.editable && <button type="button" disabled={busy === "code"} onClick={() => void issueCode()} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs font-semibold text-ink-700"><RefreshCw className="size-3.5" /> Tạo mã mới</button>}
-              </div>
-              <p className={`mt-2 text-[11px] ${downloaded || printed ? "text-ink-500" : "font-semibold text-brand-800"}`}>
-                {downloaded || printed
-                  ? "Đã có tờ mã. In ra giấy rồi đặt cạnh cảnh khi chụp 3 ảnh có đánh dấu 🔖."
-                  : "Bắt buộc: tải tờ mã về, in ra giấy rồi chụp cùng cảnh ở 3 ảnh có đánh dấu 🔖. Không có tờ mã thì hồ sơ chưa nộp được."}
-              </p>
-            </div>
-          : <div className="mt-2">
-              <p className="text-xs text-ink-600">Bấm nút để hệ thống phát hành mã. Sau đó tải tờ mã về, in ra giấy và chụp cùng cảnh ở 3 ảnh có 🔖 (cổng nhà máy, dây chuyền, kho thành phẩm).</p>
-              <button type="button" disabled={busy === "code" || !view.editable} onClick={() => void issueCode()}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-xs font-bold text-white disabled:bg-ink-300">
-                {busy === "code" ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />} Tạo mã xác minh
-              </button>
-            </div>}
-      </div>
-      <div className="rounded-xl border border-ink-200 bg-white p-4">
-        <h3 className="flex items-center gap-1.5 text-sm font-bold text-ink-900"><Crosshair className="size-4 text-brand-700" /> Bước 2 · Vị trí (không bắt buộc)</h3>
-        <p className="mt-2 flex items-start gap-1.5 text-xs text-ink-600"><MapPin className="mt-0.5 size-3.5 shrink-0 text-ink-400" />{gpsText}</p>
-        <p className="mt-2 text-xs text-ink-600">Cho phép trang dùng vị trí thì hồ sơ có thêm một điểm đối chiếu. Không bật cũng không sao, hệ thống chỉ ghi chú lại cho người duyệt.</p>
-        {gps.state !== "on" && <button type="button" disabled={gps.state === "asking" || gps.state === "unsupported"} onClick={() => setGps(NO_GPS)}
-          className="mt-3 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs font-semibold text-ink-700">Hỏi lại quyền định vị</button>}
-        <p className="mt-2 text-[11px] text-ink-500">Mẹo: chụp bằng điện thoại ngay tại nhà máy rồi tải thẳng lên đây là nhanh nhất. Ảnh đã gửi qua Zalo cũng nhận.</p>
-      </div>
-    </div>}
-
-    {level === 3 && <div className="mt-4 rounded-xl border border-ink-200 bg-white p-4">
-      <h3 className="text-sm font-bold text-ink-900">Lô hàng dùng làm bằng chứng (doanh nghiệp tự khai)</h3>
-      <form onSubmit={(e) => void saveShipment(e)} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <input type="hidden" name="submission_id" value={view.id} />
-        <label className="text-xs font-semibold text-ink-700">Mã lô / số hợp đồng<input name="shipment_ref" defaultValue={view.shipmentRef ?? ""} maxLength={120} disabled={!view.editable} className="input mt-1" placeholder="VD: PO-2026-118" /></label>
-        <label className="text-xs font-semibold text-ink-700">Ngày giao hàng<input type="date" name="shipped_on" defaultValue={view.shippedOn ?? ""} disabled={!view.editable} className="input mt-1" /></label>
-        <label className="text-xs font-semibold text-ink-700">Nơi đến / cảng dỡ<input name="destination" defaultValue={view.shipmentDestination ?? ""} maxLength={160} disabled={!view.editable} className="input mt-1" placeholder="VD: Hamburg, Đức" /></label>
-        <label className="text-xs font-semibold text-ink-700">Ghi chú (không bắt buộc)<input name="note" defaultValue={view.supplierNote ?? ""} maxLength={500} disabled={!view.editable} className="input mt-1" placeholder="VD: lô hạt điều WW320, 1 container 20ft" /></label>
-        <div className="sm:col-span-2 lg:col-span-4"><button type="submit" disabled={!view.editable || busy !== ""} className="btn btn-ghost text-xs">Lưu thông tin lô hàng</button>
-          <p className="mt-1 text-[11px] text-ink-500">Thông tin này là NCC tự khai, không phải dữ liệu Hải quan; Vexim sẽ đối chiếu với chứng từ bạn tải lên.</p></div>
-      </form>
-      <div className="mt-4 border-t border-ink-100 pt-4">
-        <h4 className="flex items-center gap-1.5 text-sm font-bold text-ink-900"><Link2 className="size-4 text-brand-700" /> Link nguồn gốc công khai</h4>
-        <p className="mt-1 text-xs text-ink-600">Dán link trang công khai có nhắc tới doanh nghiệp/lô hàng (trang doanh nghiệp, hồ sơ trên sàn B2B, tin hội chợ…). Hệ thống chỉ tự đọc các domain trong danh sách nguồn công khai của Vexim; link lạ vẫn được lưu để nhân viên tự mở.</p>
-        <form onSubmit={(e) => void addLink(e)} className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="min-w-[240px] flex-1 text-xs font-semibold text-ink-700">Link (http/https)<input name="url" type="url" required maxLength={800} disabled={!view.editable} className="input mt-1" placeholder="https://..." /></label>
-          <label className="min-w-[180px] flex-1 text-xs font-semibold text-ink-700">Mô tả ngắn<input name="label" maxLength={200} disabled={!view.editable} className="input mt-1" placeholder="VD: hồ sơ doanh nghiệp trên sàn" /></label>
-          <button type="submit" disabled={!view.editable || busy === "link"} className="btn btn-primary text-xs">{busy === "link" ? "Đang lưu..." : "Thêm link"}</button>
-        </form>
-        {view.links.length > 0 && <ul className="mt-3 space-y-2 text-xs">
-          {view.links.map((link) => <li key={link.id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg bg-ink-50 p-2.5">
-            <span className="min-w-0 break-all"><a href={link.url} target="_blank" rel="noreferrer" className="font-semibold text-brand-800 underline">{link.url}</a>
-              {link.label && <span className="text-ink-600"> · {link.label}</span>}
-              <span className="mt-1 block text-[11px] text-ink-600">
-                {link.allowedSource ? "Nguồn công khai được phép quét" : "Ngoài danh sách nguồn công khai — nhân viên sẽ tự mở"}
-                {link.fetchNote ? ` · ${link.fetchNote}` : ""}
-              </span>
+    {/* Dải tổng quan: trạng thái hồ sơ + tiến độ, đọc được trong một lần nhìn. */}
+    <section aria-label={`Tổng quan hồ sơ L${level}`} className="overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-sm">
+      <div className="bg-gradient-to-r from-brand-50 via-white to-white px-4 py-4 sm:px-5 sm:py-5">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-700 text-white shadow-sm">
+              <LevelIcon className="h-5 w-5" aria-hidden="true" />
             </span>
-            {view.editable && <button type="button" onClick={() => void removeLink(link.id)} className="text-[11px] font-semibold text-rose-600 hover:underline">Xóa</button>}
-          </li>)}
-        </ul>}
+            <div className="min-w-0">
+              <p className="text-[10.5px] font-bold tracking-[0.14em] text-brand-700 uppercase">Hồ sơ tự gửi · Bước {level}/3</p>
+              <h2 className="mt-0.5 text-[17px] leading-tight font-black tracking-tight text-ink-900">{levelTitle}</h2>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone}`}>{view.statusLabel}</span>
+                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-ink-600 ring-1 ring-ink-200">
+                  {doneSpecs}/{totalSpecs} {level === 2 ? "ảnh đã tải" : "chứng từ đã tải"}
+                </span>
+                {level === 2 && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-800 ring-1 ring-brand-200">🔖 3 ảnh cần tờ mã</span>}
+              </div>
+            </div>
+          </div>
+          <div className="w-full shrink-0 sm:w-60">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-[11px] font-semibold text-ink-600">Tiến độ bắt buộc</span>
+              <span className="text-[13px] font-black tabular-nums text-ink-900">{view.uploadedTotal}/{view.requiredTotal}</span>
+            </div>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-ink-200" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={`Tiến độ hồ sơ L${level}`}>
+              <div className={`h-full rounded-full transition-all ${view.ready ? "bg-emerald-500" : "bg-brand-600"}`} style={{ width: `${progress}%` }} />
+            </div>
+            <p className={`mt-1.5 text-[11px] font-semibold ${progressTone}`}>{progressNote}</p>
+          </div>
+        </div>
       </div>
-    </div>}
 
-    {message && <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm font-semibold ${message.ok ? "bg-emerald-50 text-emerald-900" : "bg-rose-50 text-rose-900"}`}>{message.text}</p>}
+      {view.status === "accepted" && <p className="border-t border-emerald-100 bg-emerald-50 px-4 py-2.5 text-[12px] leading-5 text-emerald-900 sm:px-5">
+        <CheckCircle2 className="mr-1 inline size-4 align-[-2px]" aria-hidden="true" />
+        Vexim đã nhận hồ sơ này vào đợt kiểm của nhân viên và khóa bằng chứng. Việc duyệt huy hiệu L{level} là bước riêng, do người có quyền duyệt quyết định.
+      </p>}
+      {view.status === "returned" && view.reviewNote && <p className="whitespace-pre-wrap border-t border-rose-100 bg-rose-50 px-4 py-2.5 text-[12px] leading-5 text-rose-900 sm:px-5">
+        <strong>Vexim/AI nêu lý do cần bổ sung:</strong> {view.reviewNote}
+      </p>}
+      {view.status === "pending_review" && <p className="border-t border-amber-100 bg-amber-50 px-4 py-2.5 text-[12px] leading-5 text-amber-900 sm:px-5">
+        <Clock className="mr-1 inline size-4 align-[-2px]" aria-hidden="true" />
+        Hồ sơ đang trong hàng đợi chờ Vexim xét duyệt{view.aiScannedAt ? ` · AI quét lúc ${new Date(view.aiScannedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : " · chưa có kết quả quét AI"}.
+      </p>}
+    </section>
 
-    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {specs.map((spec) => <SubmissionItemCard key={spec.key} spec={spec} level={level} submissionId={view.id} editable={view.editable}
-        rows={view.items.filter((i) => i.key === spec.key)} gps={gps} codeIssued={Boolean(view.code) && !view.codeExpired}
-        onChanged={say} />)}
-    </div>
-
-    {!view.ready && view.missing.length > 0 && <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-      Còn thiếu {view.missing.length} mục bắt buộc: {view.missing.join("; ")}.
-    </p>}
-    {view.blockers.length > 0 && <ul className="mt-2 space-y-1 text-xs text-rose-800">
-      {view.blockers.slice(0, 6).map((b) => <li key={b}>• {b}</li>)}
-    </ul>}
-
-    {/* Thanh hành động dính đáy màn hình: luôn thấy tiến độ + nút nộp dù đang lướt danh sách ảnh dài. */}
-    <div className="sticky bottom-0 z-10 -mx-4 mt-5 flex flex-wrap items-center gap-2 border-t border-ink-200 bg-ink-50/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-      {!view.editable
-        ? <span className="mr-auto text-[11px] font-semibold text-ink-500">Hồ sơ đang chờ xét hoặc đã được nhận — bằng chứng bị khóa.</span>
-        : view.ready
-          ? <span className="mr-auto text-[11px] font-semibold text-emerald-800">Đủ mục bắt buộc — sẵn sàng nộp cho Vexim xét duyệt.</span>
-          : <span className="mr-auto text-[11px] font-semibold text-amber-800">Còn thiếu {view.missing.length} mục{level === 2 ? ", hoặc thiếu tờ mã trong ảnh 🔖" : ""}. Xem danh sách vàng phía trên.</span>}
-      <button type="button" disabled={busy !== "" || !view.editable} onClick={() => void runScan(false)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800 disabled:opacity-50">
-        {busy === "scan" ? <Loader2 className="size-3.5 animate-spin" /> : <ScanSearch className="size-3.5" />} AI quét thử
-      </button>
-      <button type="button" disabled={busy !== "" || !view.editable || !view.ready} onClick={() => void runScan(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-ink-900 px-4 py-2 text-xs font-bold text-white disabled:bg-ink-300">
-        {busy === "submit" ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />} AI quét &amp; nộp hồ sơ
-      </button>
-    </div>
+    {message && <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm font-semibold ${message.ok ? "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200" : "bg-rose-50 text-rose-900 ring-1 ring-rose-200"}`}>{message.text}</p>}
 
     {scan && <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
-      <h3 className="flex items-center gap-1.5 font-bold"><Sparkles className="size-4" /> Kết quả AI tự động</h3>
+      <h3 className="flex items-center gap-1.5 font-bold"><Sparkles className="size-4" aria-hidden="true" /> Kết quả AI tự động</h3>
       <p className="mt-1">{scan.message}</p>
       {scan.summary && <p className="mt-2 text-[13px]">{scan.summary}</p>}
       {scan.reasons.length > 0 && <ul className="mt-2 space-y-1 text-[13px]">{scan.reasons.map((r) => <li key={r}>• {r}</li>)}</ul>}
       {scan.warnings.length > 0 && <p className="mt-2 text-[12px] text-violet-800">Điểm cần lưu ý: {scan.warnings.slice(0, 5).join(" · ")}</p>}
       <p className="mt-2 text-[11px] text-violet-800">AI không xác nhận giấy tờ là thật và không tự duyệt. Hồ sơ đạt sẽ chờ nhân viên Vexim đối chiếu; huy hiệu L{level} chỉ có sau khi một người có quyền duyệt (khác người kiểm) phê.</p>
     </div>}
-  </section>;
+
+    <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
+      <div className="min-w-0 space-y-4">
+
+        {/* L2 · tờ mã xác minh: bắt buộc trước khi chụp 3 ảnh 🔖. */}
+        {level === 2 && <section aria-labelledby="code-title" className="overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-2 border-b border-brand-100 bg-brand-50 px-4 py-3">
+            <h3 id="code-title" className="flex items-center gap-2 text-[14px] font-bold text-brand-900">
+              <Sparkles className="h-4 w-4" aria-hidden="true" /> Tờ mã xác minh
+            </h3>
+            <span className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-bold ${view.code ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>
+              {view.code ? (view.codeExpired ? "Mã đã hết hạn" : "Đã phát hành") : "Bắt buộc"}
+            </span>
+          </div>
+          <div className="p-4">
+            {view.code
+              ? <>
+                  <div className="rounded-xl border border-dashed border-brand-300 bg-brand-50/60 px-3 py-3 text-center">
+                    <p className="text-[10px] font-bold tracking-[0.14em] text-brand-800 uppercase">Mã viết tay lên giấy</p>
+                    <p className="mt-1 font-mono text-xl font-black tracking-[0.14em] break-all text-brand-900 sm:text-2xl">{view.code}</p>
+                  </div>
+                  <p className="mt-2 text-[11px] leading-4 text-ink-600">
+                    Phát hành lúc {view.codeIssuedAt ? new Date(view.codeIssuedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"} · hiệu lực {view.codeTtlHours} giờ
+                    {view.codeExpired ? <strong className="text-rose-700"> · ĐÃ HẾT HẠN, hãy tạo mã mới</strong> : null}
+                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <button type="button" onClick={() => downloadCodeSheet(view.code!)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-brand-800">
+                      <Download className="size-3.5" aria-hidden="true" /> Tải tờ mã về
+                    </button>
+                    <button type="button" onClick={() => printCodeSheet(view.code!)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 px-3 py-2.5 text-xs font-bold text-brand-800 transition hover:bg-brand-100">
+                      <Printer className="size-3.5" aria-hidden="true" /> In tờ mã
+                    </button>
+                  </div>
+                  {view.editable && <button type="button" disabled={busy === "code"} onClick={() => void issueCode()}
+                    className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-ink-600 underline-offset-2 hover:text-ink-900 hover:underline disabled:opacity-50">
+                    {busy === "code" ? <Loader2 className="size-3 animate-spin" aria-hidden="true" /> : <RefreshCw className="size-3" aria-hidden="true" />} Tạo mã mới
+                  </button>}
+                  <p className={`mt-2 text-[11px] leading-4 ${downloaded || printed ? "text-ink-500" : "font-semibold text-brand-800"}`}>
+                    {downloaded || printed
+                      ? "Đã có tờ mã. In ra giấy rồi đặt cạnh cảnh khi chụp 3 ảnh có đánh dấu 🔖."
+                      : "Bắt buộc: tải tờ mã về, in ra giấy rồi chụp cùng cảnh ở 3 ảnh có đánh dấu 🔖. Không có tờ mã thì hồ sơ chưa nộp được."}
+                  </p>
+                </>
+              : <div>
+                  <p className="text-[12px] leading-5 text-ink-600">Bấm nút để hệ thống phát hành mã. Sau đó tải tờ mã về, in ra giấy và chụp cùng cảnh ở 3 ảnh có 🔖 (cổng nhà máy, dây chuyền, kho thành phẩm).</p>
+                  <button type="button" disabled={busy === "code" || !view.editable} onClick={() => void issueCode()}
+                    className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-brand-800 disabled:bg-ink-300">
+                    {busy === "code" ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Sparkles className="size-3.5" aria-hidden="true" />} Tạo mã xác minh
+                  </button>
+                </div>}
+          </div>
+        </section>}
+
+        {/* L3 · lô hàng dùng làm bằng chứng, khai trước khi tải chứng từ. */}
+        {level === 3 && <section aria-labelledby="shipment-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h3 id="shipment-title" className="flex items-center gap-2 text-[14px] font-bold text-ink-900">
+                <Ship className="h-4 w-4 text-brand-700" aria-hidden="true" /> Lô hàng dùng làm bằng chứng
+              </h3>
+              <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Thông tin do doanh nghiệp tự khai để Vexim đối chiếu với chứng từ bạn tải lên.</p>
+            </div>
+            <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[10.5px] font-bold text-ink-600">NCC tự khai</span>
+          </div>
+          <form onSubmit={(e) => void saveShipment(e)} className="mt-3 grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="submission_id" value={view.id} />
+            <label className="text-xs font-semibold text-ink-700">Mã lô / số hợp đồng<input name="shipment_ref" defaultValue={view.shipmentRef ?? ""} maxLength={120} disabled={!view.editable} className="input mt-1" placeholder="VD: PO-2026-118" /></label>
+            <label className="text-xs font-semibold text-ink-700">Ngày giao hàng<input type="date" name="shipped_on" defaultValue={view.shippedOn ?? ""} disabled={!view.editable} className="input mt-1" /></label>
+            <label className="text-xs font-semibold text-ink-700">Nơi đến / cảng dỡ<input name="destination" defaultValue={view.shipmentDestination ?? ""} maxLength={160} disabled={!view.editable} className="input mt-1" placeholder="VD: Hamburg, Đức" /></label>
+            <label className="text-xs font-semibold text-ink-700">Ghi chú (không bắt buộc)<input name="note" defaultValue={view.supplierNote ?? ""} maxLength={500} disabled={!view.editable} className="input mt-1" placeholder="VD: lô hạt điều WW320, 1 container 20ft" /></label>
+            <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
+              <button type="submit" disabled={!view.editable || busy !== ""} className="btn btn-ghost text-xs">Lưu thông tin lô hàng</button>
+              <p className="text-[10.5px] text-ink-500">Không phải dữ liệu Hải quan. RFQ trúng thầu không thay chứng từ giao hàng.</p>
+            </div>
+          </form>
+        </section>}
+
+        {/* Bộ bằng chứng: lưới thẻ ảnh/chứng từ. */}
+        <section aria-labelledby="evidence-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3 id="evidence-title" className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-ink-900">
+                {level === 2 ? "Bộ 9 ảnh nhà máy" : "Chứng từ lô hàng"}
+                <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{doneSpecs}/{totalSpecs}</span>
+              </h3>
+              <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
+                {level === 2
+                  ? "Chạm vào từng ô để chụp hoặc chọn ảnh có sẵn. Ảnh đã gửi qua Zalo vẫn nhận; ba mục 🔖 phải có tờ mã trong khung hình."
+                  : "Tải ảnh chụp hoặc PDF. Vận đơn và tờ khai hải quan là bắt buộc; các mục còn lại nếu bạn có."}
+              </p>
+            </div>
+            <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${view.ready ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
+              {view.ready ? "Đủ điều kiện nộp" : `Thiếu ${view.missing.length} mục`}
+            </span>
+          </div>
+
+          {!view.ready && view.missing.length > 0 && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] leading-5 text-amber-900">
+            Còn thiếu: {view.missing.join("; ")}.
+          </p>}
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {specs.map((spec) => <SubmissionItemCard key={spec.key} spec={spec} level={level} submissionId={view.id} editable={view.editable}
+              rows={view.items.filter((i) => i.key === spec.key)} gps={gps} codeIssued={Boolean(view.code) && !view.codeExpired}
+              onChanged={say} />)}
+          </div>
+        </section>
+
+        {/* L3 · link nguồn công khai. */}
+        {level === 3 && <section aria-labelledby="links-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 id="links-title" className="flex items-center gap-2 text-[14px] font-bold text-ink-900">
+              <Link2 className="h-4 w-4 text-brand-700" aria-hidden="true" /> Link nguồn gốc công khai
+            </h3>
+            <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[10.5px] font-bold text-ink-600">{view.links.length} link</span>
+          </div>
+          <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Dán link trang công khai có nhắc tới doanh nghiệp/lô hàng (trang doanh nghiệp, hồ sơ trên sàn B2B, tin hội chợ…). Hệ thống chỉ tự đọc domain trong danh sách nguồn công khai của Vexim; link lạ vẫn được lưu để nhân viên tự mở.</p>
+          <form onSubmit={(e) => void addLink(e)} className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] sm:items-end">
+            <label className="min-w-0 text-xs font-semibold text-ink-700">Link (http/https)<input name="url" type="url" required maxLength={800} disabled={!view.editable} className="input mt-1" placeholder="https://..." /></label>
+            <label className="min-w-0 text-xs font-semibold text-ink-700">Mô tả ngắn<input name="label" maxLength={200} disabled={!view.editable} className="input mt-1" placeholder="VD: hồ sơ doanh nghiệp trên sàn" /></label>
+            <button type="submit" disabled={!view.editable || busy === "link"} className="btn btn-primary text-xs">{busy === "link" ? "Đang lưu..." : "Thêm link"}</button>
+          </form>
+          {view.links.length > 0 && <ul className="mt-3 space-y-2">
+            {view.links.map((link) => <li key={link.id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-ink-100 bg-ink-50/70 px-3 py-2.5">
+              <span className="min-w-0 text-[11.5px] break-all">
+                <a href={link.url} target="_blank" rel="noreferrer" className="font-semibold text-brand-800 underline">{link.url}</a>
+                {link.label && <span className="text-ink-600"> · {link.label}</span>}
+                <span className="mt-1 block text-[10.5px] text-ink-600">
+                  {link.allowedSource ? "Nguồn công khai được phép quét" : "Ngoài danh sách nguồn công khai — nhân viên sẽ tự mở"}
+                  {link.fetchNote ? ` · ${link.fetchNote}` : ""}
+                </span>
+              </span>
+              {view.editable && <button type="button" onClick={() => void removeLink(link.id)} className="text-[11px] font-semibold text-rose-600 hover:underline">Xóa</button>}
+            </li>)}
+          </ul>}
+        </section>}
+      </div>
+
+      {/* Cột tóm tắt dính: luôn thấy tiến độ và nút nộp khi lướt danh sách dài. */}
+      <aside className="space-y-4 lg:sticky lg:top-20">
+        {level === 2 && <section aria-labelledby="gps-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <h3 id="gps-title" className="flex items-center gap-1.5 text-[13px] font-bold text-ink-900">
+              <Crosshair className="h-4 w-4 text-brand-700" aria-hidden="true" /> Vị trí khi chụp
+            </h3>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${gps.state === "on" ? "bg-emerald-50 text-emerald-800" : "bg-ink-100 text-ink-600"}`}>
+              {gps.state === "on" ? "Đã bật" : "Không bắt buộc"}
+            </span>
+          </div>
+          <p className="mt-2 flex items-start gap-1.5 text-[11.5px] leading-5 text-ink-600"><MapPin className="mt-0.5 size-3.5 shrink-0 text-ink-400" aria-hidden="true" />{gpsText}</p>
+          <p className="mt-1.5 text-[10.5px] leading-4 text-ink-500">Bật định vị giúp hồ sơ có thêm điểm đối chiếu; không bật vẫn nộp được.</p>
+          {gps.state !== "on" && <button type="button" disabled={gps.state === "asking" || gps.state === "unsupported"} onClick={() => setGps(NO_GPS)}
+            className="mt-2 w-full rounded-lg border border-ink-300 bg-white px-3 py-2 text-[11px] font-semibold text-ink-700 disabled:opacity-50">Hỏi lại quyền định vị</button>}
+        </section>}
+
+        <section aria-labelledby="submit-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
+          <h3 id="submit-title" className="text-[14px] font-bold text-ink-900">Nộp hồ sơ</h3>
+          <p className={`mt-1 text-[11.5px] leading-5 ${progressTone}`}>{locked
+            ? "Hồ sơ đang chờ xét hoặc đã được nhận — bằng chứng bị khóa."
+            : view.ready
+              ? "Đủ mục bắt buộc. Nộp để AI quét và Vexim xét duyệt."
+              : `Còn thiếu ${view.missing.length} mục${level === 2 ? ", hoặc thiếu tờ mã trong ảnh 🔖" : ""}.`}</p>
+
+          <dl className="mt-3 grid grid-cols-2 gap-2 text-center">
+            <div className="rounded-lg bg-ink-50 px-2 py-2">
+              <dt className="text-[10px] font-semibold text-ink-500">Mục đã có</dt>
+              <dd className="text-[15px] font-black tabular-nums text-ink-900">{doneSpecs}/{totalSpecs}</dd>
+            </div>
+            <div className="rounded-lg bg-ink-50 px-2 py-2">
+              <dt className="text-[10px] font-semibold text-ink-500">Mục bắt buộc</dt>
+              <dd className="text-[15px] font-black tabular-nums text-ink-900">{view.uploadedTotal}/{view.requiredTotal}</dd>
+            </div>
+          </dl>
+
+          {view.blockers.length > 0 && <details className="mt-3 rounded-lg border border-ink-100 bg-ink-50/70 px-3 py-2">
+            <summary className="cursor-pointer text-[11px] font-bold text-ink-700">Xem {view.blockers.length} việc cần xử lý</summary>
+            <ul className="mt-1.5 space-y-1 text-[10.5px] leading-4 text-ink-600">
+              {view.blockers.slice(0, 6).map((b) => <li key={b} className="flex gap-1.5"><AlertTriangle className="mt-0.5 size-3 shrink-0 text-amber-600" aria-hidden="true" />{b}</li>)}
+            </ul>
+          </details>}
+
+          <div className="mt-3 space-y-2">
+            <button type="button" disabled={busy !== "" || locked || !view.ready} onClick={() => void runScan(true)}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-ink-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-ink-800 disabled:cursor-not-allowed disabled:bg-ink-300">
+              {busy === "submit" ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Send className="size-3.5" aria-hidden="true" />} AI quét &amp; nộp hồ sơ
+            </button>
+            <button type="button" disabled={busy !== "" || locked} onClick={() => void runScan(false)}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-4 py-2.5 text-xs font-bold text-violet-800 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50">
+              {busy === "scan" ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <ScanSearch className="size-3.5" aria-hidden="true" />} AI quét thử
+            </button>
+          </div>
+          <p className="mt-2 text-[10px] leading-4 text-ink-500">AI chỉ gợi ý; tải lên và quét không tự cấp huy hiệu.</p>
+        </section>
+
+        <section aria-labelledby="tips-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
+          <h3 id="tips-title" className="flex items-center gap-1.5 text-[12.5px] font-bold text-brand-900">
+            {level === 2 ? <Camera className="h-4 w-4" aria-hidden="true" /> : <FileText className="h-4 w-4" aria-hidden="true" />}
+            {level === 2 ? "Mẹo chụp ảnh" : "Mẹo chứng từ"}
+          </h3>
+          <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[10.5px] leading-4 text-ink-600">
+            {level === 2
+              ? <>
+                  <li>Chụp ban ngày, đủ sáng, thấy rõ biển tên công ty.</li>
+                  <li>Đặt tờ mã ngay cạnh cảnh, mã phải đọc được trong ảnh.</li>
+                  <li>Chụp ngay tại nhà máy rồi tải lên là nhanh nhất.</li>
+                </>
+              : <>
+                  <li>Chứng từ phải của đúng lô hàng bạn khai bên trên.</li>
+                  <li>Che số tài khoản ngân hàng, giá mua bán, thông tin buyer.</li>
+                  <li>Ảnh chụp hoặc PDF đều nhận; không cần bản gốc.</li>
+                </>}
+          </ul>
+          <p className="mt-2 flex items-start gap-1 text-[10px] leading-4 text-brand-900"><ShieldCheck className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> Nhân viên Vexim đối chiếu; người có quyền duyệt khác người kiểm mới phê kết quả.</p>
+        </section>
+      </aside>
+    </div>
+
+    {/* Thanh hành động cho điện thoại: luôn thấy tiến độ và nút nộp. */}
+    <div className="sticky bottom-0 z-20 mt-4 flex items-center gap-2 rounded-xl border border-ink-200 bg-white/95 p-2.5 shadow-lg backdrop-blur lg:hidden">
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-bold text-ink-900">{view.uploadedTotal}/{view.requiredTotal} mục bắt buộc · {progress}%</p>
+        <p className={`truncate text-[10.5px] ${progressTone}`}>{progressNote}</p>
+      </div>
+      <button type="button" disabled={busy !== "" || locked} onClick={() => void runScan(false)} aria-label="AI quét thử (thanh dưới)"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-300 bg-violet-50 text-violet-800 disabled:opacity-50">
+        {busy === "scan" ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <ScanSearch className="size-4" aria-hidden="true" />}
+      </button>
+      <button type="button" disabled={busy !== "" || locked || !view.ready} onClick={() => void runScan(true)} aria-label="AI quét và nộp hồ sơ (thanh dưới)"
+        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-ink-900 px-3.5 text-xs font-bold text-white disabled:bg-ink-300">
+        {busy === "submit" ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />} Nộp
+      </button>
+    </div>
+  </div>;
 }

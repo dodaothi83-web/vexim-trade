@@ -82,13 +82,13 @@ const STEP_COPY = {
     title: "Thăm nhà máy",
     titleEn: "Factory visit",
     description: "Chín ảnh nhà máy theo danh mục chung, kèm tờ mã xác minh ở 3 ảnh đánh dấu 🔖.",
-    href: "/supplier/portal/verification#level-2",
+    href: "/supplier/portal/verification/factory",
   },
   3: {
     title: "Lịch sử giao hàng",
     titleEn: "Delivery history",
     description: "Một lô hàng đã xuất thật: vận đơn, tờ khai và link nguồn công khai.",
-    href: "/supplier/portal/verification#level-3",
+    href: "/supplier/portal/verification/export",
   },
 } as const;
 
