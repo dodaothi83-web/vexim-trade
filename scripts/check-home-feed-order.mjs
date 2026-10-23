@@ -226,6 +226,31 @@ assert.equal(feedModule.pageSlice(twentyFour, 0).current, 1, "Page zero clamps t
 assert.equal(feedModule.pageSlice(twentyFour, 9).current, 4, "A page past the end clamps to the last page");
 assert.equal(feedModule.pageSlice([], 3).shown.length, 0, "An empty list has one empty page, not NaN");
 
+/* Tự chuyển trang: chỉ khi lưới đã khuất, và mỗi điều kiện dừng đều chặn được. */
+const allowed = {
+  pageCount: 4,
+  seen: true,
+  stopped: false,
+  tabHidden: false,
+  onScreen: false,
+  reducedMotion: false,
+};
+const { autoAdvanceAllowed, nextAutoPage } = feedModule;
+assert.equal(autoAdvanceAllowed(allowed), true, "A grid that has been seen and is now off-screen may advance");
+for (const [key, label] of [
+  ["seen", "The visitor has not seen the grid yet, so it must start at page one"],
+  ["stopped", "A click stops the rotation for good"],
+  ["tabHidden", "A hidden tab does not rotate"],
+  ["onScreen", "Never rotate while the cards are on screen"],
+  ["reducedMotion", "Reduced motion turns the rotation off entirely"],
+]) {
+  assert.equal(autoAdvanceAllowed({ ...allowed, [key]: !allowed[key] }), false, label);
+}
+assert.equal(autoAdvanceAllowed({ ...allowed, pageCount: 1 }), false, "One page needs no rotation");
+assert.equal(nextAutoPage(1, 4), 2);
+assert.equal(nextAutoPage(3, 4), 4);
+assert.equal(nextAutoPage(4, 4), 1, "After the last page it starts over instead of getting stuck");
+
 /* ---------------- 3. Ô tìm kiếm vẫn trỏ vào lưới danh mục ---------------- */
 
 const home = readFileSync(new URL("../app/(public)/home.tsx", import.meta.url), "utf8");
@@ -250,5 +275,10 @@ assert.ok(
   full.indexOf('id="categories"') < full.indexOf("home-news-title"),
   "The blog block stays last, below both the feed and the categories",
 );
+
+const feedSource = readFileSync(new URL("../components/home-product-feed.tsx", import.meta.url), "utf8");
+assert.ok(feedSource.includes("prefers-reduced-motion"), "The rotation respects the reduced-motion setting");
+assert.ok(feedSource.includes("visibilitychange"), "The rotation pauses when the tab is hidden");
+assert.ok(feedSource.includes("IntersectionObserver"), "The rotation is driven by whether the grid is on screen");
 
 console.log("✅ check-home-feed-order: ngưỡng 8 sản phẩm trên 3 nhà cung cấp, thứ tự render, và ô tìm kiếm giữ nguyên đích đến");
