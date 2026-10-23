@@ -1,7 +1,7 @@
 // node scripts/check-supplier-portal-shell.mjs
 // Khung cổng NCC: một menu trái dùng chung, mỗi chức năng một trang, thông báo chỉ ở chuông.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import React from 'react';
@@ -45,20 +45,23 @@ assert.deepEqual(hrefs, [
 assert.doesNotMatch(sidebarSource, /href: "[^"]*#/, 'Menu không trỏ vào neo trong trang tổng quan');
 assert.doesNotMatch(sidebarSource, /href="\/crm/, 'Cổng NCC không hiện đường dẫn CRM');
 
-// Thông báo chỉ ở chuông thanh trên, không phải một mục menu.
+// Thông báo chỉ ở chuông thanh trên: không mục menu, không trang riêng, không dải trạng thái.
 const topbar = read('components/supplier-topbar.tsx');
 assert.ok(!hrefs.includes('/supplier/portal/notifications'), 'Thông báo không nằm trong menu trái');
-assert.match(topbar, /href="\/supplier\/portal\/notifications"/, 'Chuông mở trang thông báo');
+assert.ok(!existsSync(new URL('../app/supplier/portal/notifications', import.meta.url)), 'Không có trang thông báo riêng');
+assert.doesNotMatch(topbar, /next\/link|href="\/supplier\/portal\/notifications"/, 'Chuông không dẫn sang trang khác');
 assert.match(topbar, /aria-label=\{loaded && unread \? `Thông báo, \$\{unread\} chưa đọc` : "Thông báo"\}/,
   'Chuông có nhãn đọc được kèm số chưa đọc');
-assert.match(topbar, /fetch\("\/api\/supplier-portal\/notifications"/, 'Số chưa đọc lấy từ endpoint riêng, không chặn tải trang');
-assert.match(topbar, /thông báo chưa đọc/, 'Có thanh thông báo ngay dưới thanh trên');
+assert.match(topbar, /fetch\("\/api\/supplier-portal\/notifications"/, 'Chuông tự lấy dữ liệu, không chặn tải trang');
+assert.match(topbar, /markSupplierNoticeReadAction/, 'Đánh dấu đã đọc ngay trong chuông');
+assert.match(topbar, /max-h-\[min\(60vh,420px\)\][^"]*overflow-y-auto/, 'Danh sách cuộn trong chuông');
+assert.doesNotMatch(topbar, /border-t border-brand-100 bg-brand-50/, 'Không còn dải tóm tắt thông báo dưới thanh trên');
 assert.doesNotMatch(topbar, /listSupplierRfqInvitations|getStore/, 'Chuông không truy vấn CSDL từ trình duyệt');
 assert.match(read('app/api/supplier-portal/notifications/route.ts'), /buildSupplierNoticeFeed/,
-  'Endpoint thông báo dùng lại đúng lớp dữ liệu của trang thông báo');
+  'Endpoint thông báo dùng lại đúng lớp dữ liệu của cổng');
 
 // 3. Không trang nào tự dựng <main> hay tiêu đề riêng: một ngôn ngữ thị giác.
-for (const page of ['page.tsx', 'rfqs/page.tsx', 'documents/page.tsx', 'profile/page.tsx', 'notifications/page.tsx',
+for (const page of ['page.tsx', 'rfqs/page.tsx', 'documents/page.tsx', 'profile/page.tsx',
   'traffic/page.tsx', 'verification/page.tsx', 'categories/page.tsx']) {
   const source = read(`app/supplier/portal/${page}`);
   assert.doesNotMatch(source, /<main/, `${page} không tự dựng khung main`);
@@ -100,4 +103,4 @@ assert.match(pending, /ĐANG CHỜ VEXIM XÁC NHẬN/, 'Cổng chưa mở hiện
 assert.ok(!pending.includes('href="/supplier/portal/rfqs"'), 'Chưa mở cổng thì không hiện mục RFQ');
 assert.ok(pending.includes('href="/supplier/portal"'), 'Vẫn vào được Tổng quan để nộp hồ sơ');
 
-console.log('✅ Supplier portal shell: one menu, one page per function, notifications behind the bell only.');
+console.log('✅ Supplier portal shell: one menu, one page per function, notifications live inside the bell.');

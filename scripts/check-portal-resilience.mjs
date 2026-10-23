@@ -7,7 +7,7 @@ import ts from 'typescript';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const dashboardPage = read('app/supplier/portal/page.tsx');
-const noticePage = read('app/supplier/portal/notifications/page.tsx');
+const noticeRoute = read('app/api/supplier-portal/notifications/route.ts');
 
 // 1. Tổng quan chỉ tải dữ liệu của tổng quan, qua lớp optional.
 const loaderOf = (source) => {
@@ -28,12 +28,12 @@ assert.doesNotMatch(dashboardPage, /supplierReplyAddress/, 'Tổng quan không m
 assert.match(dashboardPage, /Một phần dữ liệu cổng chưa tải được/);
 assert.match(dashboardPage, /degraded\.map\(\(label\) => <li key=\{label\}>\{label\}<\/li>\)/);
 
-// 3. Trang thông báo là nơi duy nhất hiển thị danh sách, và tải đủ sáu nguồn qua optional.
-const noticeLoader = noticePage.slice(noticePage.indexOf('const [invites, reads, products'), noticePage.indexOf('// Chưa đọc được dấu đã đọc'));
-assert.equal((noticeLoader.match(/optional\(/g) || []).length, 6, 'Trang thông báo tải sáu nguồn qua optional');
-assert.match(noticePage, /const readsKnown = !degraded\.includes\("trạng thái đã đọc thông báo"\)/);
-assert.match(noticePage, /\{!n\.read && readsKnown && <form action=\{markSupplierNoticeReadAction\}/, 'Ẩn nút đánh dấu khi chưa đọc được dấu đã đọc');
-assert.match(noticePage, /Chưa đọc được dấu đã đọc/);
+// 3. Thông báo nằm gọn trong chuông: endpoint nhẹ trả cả nội dung, không có trang riêng.
+assert.match(noticeRoute, /readsKnown/, 'Endpoint nói rõ khi không đọc được dấu đã đọc');
+assert.match(noticeRoute, /slice\(0, 40\)/, 'Chuông nhận danh sách gọn, không tải cả bảng');
+assert.doesNotMatch(noticeRoute, /revalidate|revalidatePath/, 'Endpoint chỉ đọc, không ghi');
+assert.doesNotMatch(read('components/supplier-topbar.tsx'), /href="\/supplier\/portal\/notifications"/,
+  'Không còn trang thông báo riêng để dẫn tới');
 
 // 4. Server action không được ném lỗi khi bảng dấu đã đọc chưa có.
 const action = read('app/supplier/portal/notice-actions.ts');
@@ -80,7 +80,7 @@ const ui = {
 const supplier = { id: 'sup-1', name: 'NCC Mẫu', onboarding_status: 'approved', status: 'draft', contact_name: 'A', phone: '0900', products: 'Hồ tiêu', updated_at: '2026-10-20T00:00:00Z' };
 const thrown = new Error("listSupplierNoticeReads: Could not find the table 'public.supplier_portal_notice_reads' in the schema cache");
 
-function renderPage(source, mocks) {
+function loadModule(source, mocks) {
   const pageExports = {};
   vm.runInNewContext(ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
@@ -89,7 +89,7 @@ function renderPage(source, mocks) {
     require: (key) => { assert.ok(key in mocks, `Trang cần mock ${key}`); return mocks[key]; },
     Date, Error, Promise, URL,
   });
-  return pageExports.default;
+  return pageExports;
 }
 
 const sharedMocks = {
@@ -117,7 +117,7 @@ const sharedMocks = {
 };
 
 // 6a. Tổng quan: bảng chứng nhận và RFQ lỗi, trang vẫn render với cảnh báo.
-const dashHtml = renderToStaticMarkup(await renderPage(dashboardPage, {
+const dashHtml = renderToStaticMarkup(await loadModule(dashboardPage, {
   ...sharedMocks,
   '@/lib/supplier-portal/access': {
     supplierAccountAccess: async () => ({ user: { id: 'u1', email: 'ncc@example.com', supplier_id: 'sup-1' }, store: {} }),
@@ -131,17 +131,17 @@ const dashHtml = renderToStaticMarkup(await renderPage(dashboardPage, {
   '@/lib/supplier-portal/dashboard': { buildSupplierRfqBoard: () => ({
     invites: [], tasks: [], report: { sent: 0, responded: 0, quoted: 0, selected: 0, byProduct: [] },
   }) },
-})({}));
+}).default({}));
 assert.match(dashHtml, /Một phần dữ liệu cổng chưa tải được/, 'Tổng quan vẫn render và hiện cảnh báo');
 assert.match(dashHtml, /danh sách RFQ được chuyển/, 'Cảnh báo nêu đúng phần lỗi');
 assert.match(dashHtml, /chứng nhận/);
 assert.doesNotMatch(dashHtml, /Đánh dấu đã đọc/, 'Tổng quan không còn khối thông báo');
 
-// 6b. Trang thông báo: thiếu bảng dấu đã đọc thì vẫn hiện nội dung, ẩn nút, nói rõ lý do.
-const noticeHtml = renderToStaticMarkup(await renderPage(noticePage, {
-  ...sharedMocks,
+// 6b. Chuông: thiếu bảng dấu đã đọc thì vẫn trả nội dung, chỉ báo readsKnown=false.
+const bellRoute = loadModule(noticeRoute, {
+  'next/server': { NextResponse: { json: (body) => ({ body }) } },
   '@/lib/supplier-portal/access': {
-    supplierPortalAccess: async () => ({ supplier, review: null, reviews: [], user: { id: 'u1', email: 'ncc@example.com' }, store: {
+    supplierPortalAccess: async () => ({ supplier, reviews: [], user: { id: 'u1' }, store: {
       listSupplierNoticeReads: async () => { throw thrown; },
       listSupplierRfqInvitations: async () => [],
       listSupplierVerificationRequests: async () => [],
@@ -150,13 +150,24 @@ const noticeHtml = renderToStaticMarkup(await renderPage(noticePage, {
       listSubmissions: async () => [],
     } }),
   },
+  '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
   '@/lib/supplier-portal/dashboard': { buildSupplierNoticeFeed: () => ({
     unreadCount: 1,
     notices: [{ key: 'approved:1', title: 'Đã duyệt', detail: 'Hồ sơ đã duyệt', at: '2026-10-23T08:00:00Z', read: false, kind: 'verification' }],
   }) },
-})({ searchParams: Promise.resolve({}) }));
-assert.match(noticeHtml, /Chưa đọc được dấu đã đọc/, 'Trang thông báo nói rõ vì sao không có số chưa đọc');
-assert.match(noticeHtml, /Đã duyệt/, 'Nội dung thông báo vẫn hiện dù thiếu bảng');
-assert.doesNotMatch(noticeHtml, /Đánh dấu đã đọc/, 'Không hiện nút không lưu được');
+});
+const degradedBell = await bellRoute.GET();
+assert.equal(degradedBell.body.readsKnown, false, 'Chuông biết là chưa đọc được dấu đã đọc');
+assert.equal(degradedBell.body.items.length, 1, 'Nội dung thông báo vẫn về chuông');
+assert.equal(degradedBell.body.unread, 0, 'Không báo số chưa đọc khi không đọc được dấu');
 
-console.log('✅ Portal resilience: mỗi chức năng một trang, partial loads, visible warning, no dead buttons.');
+const lostAccess = loadModule(noticeRoute, {
+  'next/server': { NextResponse: { json: (body) => ({ body }) } },
+  '@/lib/supplier-portal/access': { supplierPortalAccess: async () => null },
+  '@/lib/supplier-portal/onboarding': { portalApproved: () => false },
+  '@/lib/supplier-portal/dashboard': { buildSupplierNoticeFeed: () => ({ unreadCount: 0, notices: [] }) },
+});
+assert.deepEqual(JSON.parse(JSON.stringify((await lostAccess.GET()).body)), { unread: 0, readsKnown: true, items: [] },
+  'Mất phiên thì chuông trả rỗng, không lỗi 500');
+
+console.log('✅ Portal resilience: mỗi chức năng một trang, chuông tự chịu lỗi, partial loads, không nút chết.');
