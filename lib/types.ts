@@ -1235,3 +1235,26 @@ export interface SponsoredPush {
   approved_at?: string | null;
   created_at: string;
 }
+
+/** Dòng đếm theo ngày UTC của một gói: lượt hiển thị và lượt mở thẻ. */
+export interface SponsoredPushDaily {
+  push_id: string;
+  /** Ngày theo UTC, dạng yyyy-mm-dd. Không cắt theo ngày Việt Nam. */
+  day: string;
+  event_type: "impression" | "click";
+  events: number;
+}
+
+/** Dữ liệu tối thiểu để tạo một gói. Thời hạn luôn đúng 168 giờ, tính ở nơi gọi. */
+export interface SponsoredPushInput {
+  surface: SponsoredPushSurface;
+  category_slug: string;
+  supplier_id: string;
+  product_id: string;
+  status?: "draft" | "approved" | "paused";
+  starts_at: string;
+  ends_at: string;
+  price_amount?: number | null;
+  price_currency?: string | null;
+  note?: string | null;
+}

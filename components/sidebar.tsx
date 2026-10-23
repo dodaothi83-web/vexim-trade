@@ -21,6 +21,7 @@ import {
   FolderTree,
   FileQuestion,
   ChartNoAxesColumn,
+  Megaphone,
 } from "lucide-react";
 
 import { logoutAction } from "@/app/auth-actions";
@@ -44,6 +45,7 @@ const NAV: {
   { href: "/crm/verifications", label: "Xác minh NCC", icon: ShieldCheck, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/verifications/submissions", label: "Hồ sơ NCC tự gửi", icon: UploadCloud, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/categories", label: "Danh mục sản phẩm", icon: FolderTree, perm: "categories.view", group: "marketplace" },
+  { href: "/crm/sponsored", label: "Đẩy sản phẩm", icon: Megaphone, perm: "sponsored.view", group: "marketplace" },
   { href: "/crm/traffic", label: "Lưu lượng truy cập", icon: ChartNoAxesColumn, perm: "traffic.view", group: "marketplace" },
   { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage", group: "marketplace" },
   { href: "/crm/buyers", label: "Buyer", icon: Globe2, perm: "buyers.view", group: "sales" },

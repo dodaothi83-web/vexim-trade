@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Đẩy sản phẩm · bản dựng thử giao diện</title>
+<style>
+  :root{
+    --brand-50:#f0fdfa;--brand-100:#ccfbf1;--brand-200:#99f6e4;--brand-500:#14b8a6;--brand-600:#0d9488;--brand-700:#0f766e;--brand-900:#134e4a;
+    --ink-50:#f8fafc;--ink-100:#f1f5f9;--ink-200:#e2e8f0;--ink-300:#cbd5e1;--ink-400:#94a3b8;--ink-500:#64748b;--ink-600:#475569;--ink-700:#334155;--ink-800:#1e293b;--ink-900:#0f172a;
+    --amber-50:#fffbeb;--amber-100:#fef3c7;--amber-200:#fde68a;--amber-800:#92400e;--amber-900:#78350f;
+    --emerald-50:#ecfdf5;--emerald-200:#a7f3d0;--emerald-800:#065f46;
+    --rose-50:#fff1f2;--rose-200:#fecdd3;--rose-800:#9f1239;
+    --sky-50:#f0f9ff;--sky-200:#bae6fd;--sky-800:#075985;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--ink-50);color:var(--ink-900);font-size:14px;line-height:1.5}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  a{color:inherit;text-decoration:none}
+  .layout{display:flex;min-height:100vh}
+  /* ---------- sidebar ---------- */
+  .side{width:240px;flex:0 0 240px;background:linear-gradient(180deg,var(--ink-900),var(--brand-900));color:#fff;padding:18px 12px;position:sticky;top:0;height:100vh;overflow:auto}
+  .side .logo{display:flex;align-items:center;gap:10px;padding:4px 8px 16px}
+  .side .logo .mark{width:34px;height:34px;border-radius:9px;background:var(--brand-600);display:grid;place-items:center;font-weight:900;font-size:13px}
+  .side .logo b{display:block;font-size:14px;letter-spacing:.02em}
+  .side .logo span{font-size:10.5px;color:var(--brand-200);opacity:.8}
+  .side .group{margin-top:16px;font-size:10px;letter-spacing:.15em;font-weight:700;color:var(--brand-200);opacity:.5;padding:0 10px 6px}
+  .side a.item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;font-size:13px;color:#e2e8f0;opacity:.85}
+  .side a.item:hover{background:rgba(255,255,255,.08);opacity:1}
+  .side a.item.active{background:rgba(255,255,255,.14);opacity:1;font-weight:650}
+  .side .dot{width:6px;height:6px;border-radius:2px;background:currentColor;opacity:.5}
+  .side .count{margin-left:auto;background:var(--amber-200);color:var(--ink-900);border-radius:999px;padding:0 6px;font-size:10px;font-weight:800}
+  /* ---------- main ---------- */
+  main{flex:1;min-width:0}
+  .topbar{display:flex;align-items:center;gap:10px;padding:10px 28px;background:#fff;border-bottom:1px solid var(--ink-200);font-size:12px;color:var(--ink-500)}
+  .topbar .mode{margin-left:auto;display:flex;gap:6px;align-items:center;background:var(--ink-100);border-radius:999px;padding:3px 10px;font-size:11px;font-weight:650;color:var(--ink-600)}
+  .wrap{padding:22px 28px 60px;max-width:1240px}
+  .crumb{font-size:12px;color:var(--ink-500)}
+  .crumb b{color:var(--ink-700)}
+  h1{font-size:26px;letter-spacing:-.02em;margin-top:6px}
+  .lede{color:var(--ink-600);margin-top:6px;max-width:760px}
+  .head{display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap}
+  .head .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:9px 14px;font-size:13px;font-weight:700;border:1px solid transparent}
+  .btn.primary{background:var(--ink-900);color:#fff}
+  .btn.primary:hover{background:var(--brand-700)}
+  .btn.ghost{background:#fff;border-color:var(--ink-200);color:var(--ink-700)}
+  .btn.ghost:hover{border-color:var(--brand-500);color:var(--brand-700)}
+  .btn.small{padding:5px 10px;font-size:12px;font-weight:650}
+  .btn.danger{background:#fff;border-color:var(--rose-200);color:var(--rose-800)}
+  /* ---------- kpi ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:20px}
+  .kpi{background:#fff;border:1px solid var(--ink-200);border-radius:12px;padding:14px 16px}
+  .kpi p{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-500);font-weight:700}
+  .kpi b{display:block;font-size:24px;margin-top:6px;letter-spacing:-.02em}
+  .kpi span{font-size:12px;color:var(--ink-500)}
+  /* ---------- pool ---------- */
+  .panel{background:#fff;border:1px solid var(--ink-200);border-radius:12px;padding:16px 18px;margin-top:16px}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-500)}
+  .pool{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:14px}
+  .pool .bar{height:8px;border-radius:999px;background:var(--ink-100);overflow:hidden;margin-top:7px}
+  .pool .bar i{display:block;height:100%;background:var(--brand-500);border-radius:999px}
+  .pool .row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-700);font-weight:600}
+  .pool .row span{color:var(--ink-500);font-weight:500}
+  .pool .note{font-size:11.5px;color:var(--ink-500);margin-top:6px}
+  /* ---------- tabs + table ---------- */
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:18px}
+  .tab{border:1px solid var(--ink-200);background:#fff;border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:650;color:var(--ink-600);display:inline-flex;gap:7px;align-items:center}
+  .tab[aria-selected="true"]{background:var(--ink-900);border-color:var(--ink-900);color:#fff}
+  .tab .n{border-radius:999px;background:var(--ink-100);color:var(--ink-600);font-size:11px;padding:0 6px}
+  .tab[aria-selected="true"] .n{background:rgba(255,255,255,.2);color:#fff}
+  table{width:100%;border-collapse:separate;border-spacing:0;margin-top:12px;background:#fff;border:1px solid var(--ink-200);border-radius:12px;overflow:hidden}
+  th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-500);padding:10px 14px;background:var(--ink-50);border-bottom:1px solid var(--ink-200);white-space:nowrap}
+  td{padding:12px 14px;border-bottom:1px solid var(--ink-100);vertical-align:top;font-size:13px}
+  tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:#fcfdfe;cursor:pointer}
+  .prod b{display:block;font-size:13px;color:var(--ink-900)}
+  .prod span{color:var(--ink-500);font-size:12px}
+  .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;border:1px solid transparent;white-space:nowrap}
+  .pill.live{background:var(--emerald-50);border-color:var(--emerald-200);color:var(--emerald-800)}
+  .pill.wait{background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-800)}
+  .pill.pause{background:var(--ink-100);border-color:var(--ink-200);color:var(--ink-600)}
+  .pill.done{background:var(--sky-50);border-color:var(--sky-200);color:var(--sky-800)}
+  .pill.cat{background:var(--brand-50);border-color:var(--brand-200);color:var(--brand-700)}
+  .pill.home{background:#f5f3ff;border-color:#ddd6fe;color:#5b21b6}
+  .muted{color:var(--ink-500);font-size:12px}
+  .nowrap{white-space:nowrap}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap}
+  /* ---------- states ---------- */
+  .states{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+  .state{background:#fff;border:1px dashed var(--ink-300);border-radius:12px;padding:18px}
+  .state h3{font-size:13.5px;margin-bottom:6px}
+  .state p{font-size:12.5px;color:var(--ink-600)}
+  .state .tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-400)}
+  .demo-note{margin-top:26px;border-top:1px solid var(--ink-200);padding-top:14px;font-size:12px;color:var(--ink-500)}
+  /* ---------- drawer ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(15,23,42,.42);opacity:0;pointer-events:none;transition:opacity .16s}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,100%);background:#fff;box-shadow:-24px 0 60px rgba(15,23,42,.18);transform:translateX(104%);transition:transform .2s ease;display:flex;flex-direction:column;z-index:5}
+  .drawer.on{transform:none}
+  .drawer header{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--ink-200)}
+  .drawer header b{font-size:15px}
+  .drawer header .x{margin-left:auto;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--ink-500);font-size:18px}
+  .drawer header .x:hover{background:var(--ink-100)}
+  .drawer .body{padding:18px 20px;overflow:auto;flex:1}
+  .drawer footer{padding:14px 20px;border-top:1px solid var(--ink-200);display:flex;gap:8px;justify-content:flex-end;background:var(--ink-50)}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--ink-700);margin-bottom:5px}
+  .field input,.field select,.field textarea{width:100%;border:1px solid var(--ink-300);border-radius:8px;padding:9px 10px;font:inherit;font-size:13px;background:#fff}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--brand-500);outline-offset:1px;border-color:var(--brand-500)}
+  .field .hint{font-size:11.5px;color:var(--ink-500);margin-top:5px}
+  .field input[readonly]{background:var(--ink-50);color:var(--ink-600)}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .callout{border-radius:9px;padding:10px 12px;font-size:12.5px;margin-bottom:14px}
+  .callout.warn{background:var(--amber-50);border:1px solid var(--amber-200);color:var(--amber-900)}
+  .callout.bad{background:var(--rose-50);border:1px solid var(--rose-200);color:var(--rose-800)}
+  .callout.info{background:var(--brand-50);border:1px solid var(--brand-200);color:var(--brand-900)}
+  .kv{display:grid;grid-template-columns:130px 1fr;gap:8px 14px;font-size:13px}
+  .kv dt{color:var(--ink-500)}
+  .kv dd{color:var(--ink-900);font-weight:600}
+  .product{display:flex;gap:12px;align-items:center;background:var(--ink-50);border:1px solid var(--ink-200);border-radius:10px;padding:10px 12px;margin-bottom:16px}
+  .product .thumb{width:54px;height:54px;border-radius:8px;background:linear-gradient(135deg,#d7ede9,#bfe3dc);flex:0 0 54px}
+  .product b{display:block;font-size:13.5px}
+  .product span{font-size:12px;color:var(--ink-500)}
+  .chart{margin-top:10px;background:#fff;border:1px solid var(--ink-200);border-radius:10px;padding:12px 10px 6px}
+  .chart svg{display:block;width:100%;height:auto;overflow:visible}
+  .chart figcaption{font-size:11.5px;color:var(--ink-500);padding:2px 4px 4px}
+  .chart .axis-line{stroke:var(--ink-300);stroke-width:1}
+  .chart .tick{stroke:var(--ink-300);stroke-width:1}
+  .chart .grid{stroke:var(--ink-100);stroke-width:1;stroke-dasharray:3 4}
+  .chart .lab{fill:var(--ink-500);font-size:11px}
+  .chart .title{fill:var(--ink-400);font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .chart .val{fill:var(--ink-700);font-size:11.5px;font-weight:700}
+  .seg{display:flex;background:var(--ink-100);border-radius:9px;padding:3px;gap:3px;margin-bottom:14px}
+  .seg button{flex:1;border-radius:7px;padding:6px;font-size:12.5px;font-weight:650;color:var(--ink-600)}
+  .seg button[aria-pressed="true"]{background:#fff;color:var(--ink-900);box-shadow:0 1px 3px rgba(15,23,42,.12)}
+  @media (max-width:1080px){
+    .side{display:none}
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .pool{grid-template-columns:1fr}
+    .states{grid-template-columns:1fr}
+    .wrap{padding:18px 16px 50px}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="side">
+    <div class="logo">
+      <div class="mark">VX</div>
+      <div><b>VEXIM TRADE</b><span>Điều hành sàn TMĐT B2B</span></div>
+    </div>
+
+    <p class="group">VẬN HÀNH SÀN</p>
+    <a class="item" href="#"><i class="dot"></i>Tổng quan sàn</a>
+    <a class="item" href="#"><i class="dot"></i>Nhà cung cấp</a>
+    <a class="item" href="#"><i class="dot"></i>Sản phẩm NCC</a>
+    <a class="item" href="#"><i class="dot"></i>RFQ từ buyer</a>
+    <a class="item" href="#"><i class="dot"></i>Xác minh NCC</a>
+    <a class="item" href="#"><i class="dot"></i>Danh mục sản phẩm</a>
+    <a class="item active" href="#"><i class="dot"></i>Đẩy sản phẩm<span class="count">2</span></a>
+    <a class="item" href="#"><i class="dot"></i>Lưu lượng truy cập</a>
+
+    <p class="group">SALE · HỖ TRỢ BUYER</p>
+    <a class="item" href="#"><i class="dot"></i>Buyer</a>
+    <a class="item" href="#"><i class="dot"></i>Hộp thư</a>
+    <a class="item" href="#"><i class="dot"></i>Khách hàng mục tiêu</a>
+
+    <p class="group">HỆ THỐNG</p>
+    <a class="item" href="#"><i class="dot"></i>Cài đặt</a>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <span>Đẩy sản phẩm</span>
+      <span class="mode">Dữ liệu: Supabase</span>
+    </div>
+
+    <div class="wrap">
+      <p class="crumb">Tổng quan / <b>Đẩy sản phẩm</b></p>
+      <div class="head">
+        <div>
+          <h1>Đẩy sản phẩm</h1>
+          <p class="lede">Mỗi gói đưa một sản phẩm lên vùng tài trợ của một trang danh mục hoặc trang chủ trong đúng 168 giờ. Thứ tự trong vùng quay vòng theo cửa sổ mười phút, nên mọi gói trong cùng bể nhận số lượt hiển thị bằng nhau.</p>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" onclick="alert('Bản dựng thử: bảng số liệu tuần sẽ mở ở đây.')">Số liệu tuần</button>
+          <button class="btn primary" onclick="openCreate()">Tạo gói</button>
+        </div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><p>Đang chạy</p><b>5</b><span>4 gói danh mục, 1 gói trang chủ</span></div>
+        <div class="kpi"><p>Chờ duyệt</p><b>2</b><span>cần admin duyệt trước khi hiển thị</span></div>
+        <div class="kpi"><p>Lượt hiển thị 7 ngày</p><b>18.420</b><span>1.106 lượt mở thẻ, 6,0%</span></div>
+        <div class="kpi"><p>Hết hạn trong 24 giờ</p><b>2</b><span>nên báo trước cho khách gia hạn</span></div>
+      </div>
+
+      <section class="panel">
+        <h2>Chỗ trống trong bể</h2>
+        <div class="pool">
+          <div>
+            <div class="row">Hồ tiêu <span>9/12 gói</span></div>
+            <div class="bar"><i style="width:75%"></i></div>
+            <p class="note">Còn 3 chỗ. Mỗi gói nhận khoảng 252 lượt hiển thị mỗi tuần.</p>
+          </div>
+          <div>
+            <div class="row">Quế và hồi <span>10/12 gói</span></div>
+            <div class="bar"><i style="width:83%"></i></div>
+            <p class="note">Còn 2 chỗ. Gần đầy, nên báo sale trước khi nhận gói mới.</p>
+          </div>
+          <div>
+            <div class="row">Trang chủ <span>7/8 gói</span></div>
+            <div class="bar"><i style="width:87.5%;background:#d97706"></i></div>
+            <p class="note">Còn 1 chỗ. Bể trang chủ tính chung cho cả trang, không theo danh mục.</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="tabs" role="tablist" aria-label="Lọc gói">
+        <button class="tab" role="tab" aria-selected="true" data-filter="all">Tất cả <span class="n">8</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-filter="draft">Chờ duyệt <span class="n">2</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-filter="approved">Đang chạy <span class="n">5</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-filter="paused">Tạm dừng <span class="n">1</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-filter="ended">Đã kết thúc <span class="n">0</span></button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Sản phẩm</th>
+            <th>Bề mặt</th>
+            <th>Thời gian</th>
+            <th>Giá bán</th>
+            <th>7 ngày</th>
+            <th>Trạng thái</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr data-status="draft">
+            <td class="prod"><b>Hồ tiêu đen 550 g/l, FAQ</b><span>Gia Lai Pepper · Hồ tiêu</span></td>
+            <td><span class="pill cat">Danh mục · Hồ tiêu</span></td>
+            <td class="nowrap">20/10 14:00<span class="muted"><br>27/10 14:00 · 168 giờ</span></td>
+            <td class="nowrap">2.500.000 ₫</td>
+            <td class="muted">chưa chạy</td>
+            <td><span class="pill wait">Chờ duyệt</span></td>
+            <td class="row-actions"><button class="btn small primary" onclick="event.stopPropagation();approve(this)">Duyệt</button></td>
+          </tr>
+          <tr data-status="approved">
+            <td class="prod"><b>Hồ tiêu trắng 630 g/l</b><span>Đắk Lắk Spice · Hồ tiêu</span></td>
+            <td><span class="pill cat">Danh mục · Hồ tiêu</span></td>
+            <td class="nowrap">18/10 09:00<span class="muted"><br>25/10 09:00 · còn 3 ngày</span></td>
+            <td class="nowrap">2.500.000 ₫</td>
+            <td>1.842<span class="muted"><br>37 lượt mở</span></td>
+            <td><span class="pill live">Đang chạy</span></td>
+            <td class="row-actions"><button class="btn small ghost" onclick="event.stopPropagation();pause(this)">Tạm dừng</button></td>
+          </tr>
+          <tr data-status="approved">
+            <td class="prod"><b>Quế thanh Cassia, loại A</b><span>Yên Bái Cassia · Quế và hồi</span></td>
+            <td><span class="pill cat">Danh mục · Quế và hồi</span></td>
+            <td class="nowrap">21/10 08:00<span class="muted"><br>28/10 08:00 · còn 6 ngày</span></td>
+            <td class="nowrap">1.800.000 ₫</td>
+            <td>1.764<span class="muted"><br>29 lượt mở</span></td>
+            <td><span class="pill live">Đang chạy</span></td>
+            <td class="row-actions"><button class="btn small ghost" onclick="event.stopPropagation();pause(this)">Tạm dừng</button></td>
+          </tr>
+          <tr data-status="approved">
+            <td class="prod"><b>Hoa hồi sấy khô, đóng bao 25 kg</b><span>Lạng Sơn Anise · Quế và hồi</span></td>
+            <td><span class="pill cat">Danh mục · Quế và hồi</span></td>
+            <td class="nowrap">22/10 10:00<span class="muted"><br>29/10 10:00 · còn 7 ngày</span></td>
+            <td class="nowrap">1.800.000 ₫</td>
+            <td>1.601<span class="muted"><br>22 lượt mở</span></td>
+            <td><span class="pill live">Đang chạy</span></td>
+            <td class="row-actions"><button class="btn small ghost" onclick="event.stopPropagation();pause(this)">Tạm dừng</button></td>
+          </tr>
+          <tr data-status="approved">
+            <td class="prod"><b>Hạt điều nhân W320</b><span>Bình Phước Cashew · Hạt điều</span></td>
+            <td><span class="pill home">Trang chủ</span></td>
+            <td class="nowrap">19/10 15:00<span class="muted"><br>26/10 15:00 · còn 4 ngày</span></td>
+            <td class="nowrap">4.000.000 ₫</td>
+            <td>2.310<span class="muted"><br>64 lượt mở</span></td>
+            <td><span class="pill live">Đang chạy</span></td>
+            <td class="row-actions"><button class="btn small ghost" onclick="event.stopPropagation();pause(this)">Tạm dừng</button></td>
+          </tr>
+          <tr data-status="approved">
+            <td class="prod"><b>Tiêu đen 570 g/l, ASTA</b><span>Phú Quốc Pepper · Hồ tiêu</span></td>
+            <td><span class="pill cat">Danh mục · Hồ tiêu</span></td>
+            <td class="nowrap">23/10 07:00<span class="muted"><br>30/10 07:00 · còn 8 ngày</span></td>
+            <td class="nowrap">2.500.000 ₫</td>
+            <td>0<span class="muted"><br>mới bắt đầu</span></td>
+            <td><span class="pill live">Đang chạy</span></td>
+            <td class="row-actions"><button class="btn small ghost" onclick="event.stopPropagation();pause(this)">Tạm dừng</button></td>
+          </tr>
+          <tr data-status="paused">
+            <td class="prod"><b>Quế vụn 3 mm</b><span>Yên Bái Cassia · Quế và hồi</span></td>
+            <td><span class="pill cat">Danh mục · Quế và hồi</span></td>
+            <td class="nowrap">17/10 11:00<span class="muted"><br>24/10 11:00 · còn 1 ngày</span></td>
+            <td class="nowrap">1.800.000 ₫</td>
+            <td>402<span class="muted"><br>9 lượt mở</span></td>
+            <td><span class="pill pause">Tạm dừng</span></td>
+            <td class="row-actions"><button class="btn small ghost" onclick="event.stopPropagation();pause(this)">Chạy lại</button></td>
+          </tr>
+          <tr data-status="draft">
+            <td class="prod"><b>Hạt điều nhân W240</b><span>Đồng Nai Cashew · Hạt điều</span></td>
+            <td><span class="pill home">Trang chủ</span></td>
+            <td class="nowrap">24/10 09:00<span class="muted"><br>31/10 09:00 · 168 giờ</span></td>
+            <td class="nowrap">4.000.000 ₫</td>
+            <td class="muted">chưa chạy</td>
+            <td><span class="pill wait">Chờ duyệt</span></td>
+            <td class="row-actions"><button class="btn small primary" onclick="event.stopPropagation();approve(this)">Duyệt</button></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="states">
+        <div class="state">
+          <p class="tag">Trạng thái rỗng</p>
+          <h3>Chưa có gói nào</h3>
+          <p>Khi bảng trống, trang nói rõ đây là chỗ bán vị trí chứ không phải báo lỗi, kèm nút tạo gói và một câu nhắc rằng mọi gói phải qua duyệt.</p>
+        </div>
+        <div class="state">
+          <p class="tag">Bể đã đầy</p>
+          <h3>Ngừng bán, không đẩy người trả trước ra</h3>
+          <p>Danh mục đủ 12 gói trong cùng khoảng thời gian thì nút tạo gói bị chặn, kèm lý do. Hệ quả tính từ dữ liệu, không phải người bán tự nhớ.</p>
+        </div>
+        <div class="state">
+          <p class="tag">Không đủ quyền</p>
+          <h3>Sale chỉ xem, admin mới duyệt</h3>
+          <p>Người không có quyền duyệt vẫn xem được danh sách và số liệu, nhưng không thấy nút duyệt. Quyền thật kiểm lại ở máy chủ, giao diện chỉ ẩn cho gọn.</p>
+        </div>
+      </div>
+
+      <p class="demo-note">Bản dựng thử giao diện, dữ liệu là ví dụ và không nối cơ sở dữ liệu. Bấm vào một dòng để xem chi tiết, bấm “Tạo gói” để xem biểu mẫu.</p>
+    </div>
+  </main>
+</div>
+
+<!-- ============ chi tiết gói ============ -->
+<div class="scrim" id="scrim" onclick="closeAll()"></div>
+
+<section class="drawer" id="detail" aria-hidden="true">
+  <header>
+    <b>Gói đẩy · chi tiết</b>
+    <button class="x" onclick="closeAll()" aria-label="Đóng">×</button>
+  </header>
+  <div class="body">
+    <div class="product">
+      <div class="thumb"></div>
+      <div>
+        <b>Hồ tiêu trắng 630 g/l</b>
+        <span>Đắk Lắk Spice · Danh mục Hồ tiêu</span>
+      </div>
+    </div>
+
+    <div class="callout info">
+      Gói này chia bể với 11 gói khác. Mỗi cửa sổ mười phút, ba thẻ được chọn theo vòng xoay, nên một tuần mỗi gói nhận đúng 252 lượt hiển thị.
+    </div>
+
+    <dl class="kv">
+      <dt>Trạng thái</dt><dd><span class="pill live">Đang chạy</span></dd>
+      <dt>Bắt đầu</dt><dd>18/10/2026 09:00</dd>
+      <dt>Kết thúc</dt><dd>25/10/2026 09:00 <span class="muted">· đúng 168 giờ</span></dd>
+      <dt>Giá bán</dt><dd>2.500.000 ₫</dd>
+      <dt>Người duyệt</dt><dd>Nguyễn Thu Hà · 17/10/2026 16:20</dd>
+      <dt>Mã gói</dt><dd class="muted" style="font-weight:500">8f2c1a44-1d0e-4c6b-9a71-0e6f4b7c2d18</dd>
+    </dl>
+
+    <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-500);margin:20px 0 4px">Lượt hiển thị theo ngày</h2>
+    <figure class="chart">
+      <svg viewBox="0 0 420 214" role="img" aria-label="Biểu đồ đường lượt hiển thị theo ngày: thứ Hai 248 lượt, thứ Ba 291, thứ Tư 262, thứ Năm 305, thứ Sáu 284, thứ Bảy 236, chủ nhật đang chạy 216 lượt tính đến 14 giờ, tổng cộng 1.842 lượt trong tuần">
+        <defs>
+          <linearGradient id="fillImpr" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#14b8a6" stop-opacity=".22"/>
+            <stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+
+        <!-- lưới ngang, mỗi vạch 150 lượt -->
+        <line class="grid" x1="38" y1="40.86" x2="410" y2="40.86"/>
+        <line class="grid" x1="38" y1="109.43" x2="410" y2="109.43"/>
+
+        <!-- vùng dưới đường -->
+        <path d="M 38.00 64.63 C 48.33 61.35, 79.33 46.04, 100.00 44.97 C 120.67 43.90, 141.33 59.30, 162.00 58.23 C 182.67 57.16, 203.33 40.25, 224.00 38.57 C 244.67 36.90, 265.33 42.91, 286.00 48.17 C 306.67 53.43, 327.33 64.93, 348.00 70.11 C 368.67 75.30, 399.67 77.73, 410.00 79.26 L 410.00 178 L 38.00 178 Z" fill="url(#fillImpr)"/>
+
+        <!-- trục tung và trục hoành -->
+        <line class="axis-line" x1="38" y1="16" x2="38" y2="178"/>
+        <line class="axis-line" x1="38" y1="178" x2="410" y2="178"/>
+        <line class="tick" x1="32" y1="40.86" x2="38" y2="40.86"/>
+        <line class="tick" x1="32" y1="109.43" x2="38" y2="109.43"/>
+        <line class="tick" x1="32" y1="178" x2="38" y2="178"/>
+        <text class="lab" x="28" y="44" text-anchor="end">300</text>
+        <text class="lab" x="28" y="113" text-anchor="end">150</text>
+        <text class="lab" x="28" y="182" text-anchor="end">0</text>
+        <text class="title" x="38" y="10">Lượt hiển thị</text>
+        <text class="title" x="224" y="208" text-anchor="middle">Ngày trong tuần</text>
+
+        <!-- đường lượt hiển thị, làm mượt để đọc xu hướng -->
+        <path d="M 38.00 64.63 C 48.33 61.35, 79.33 46.04, 100.00 44.97 C 120.67 43.90, 141.33 59.30, 162.00 58.23 C 182.67 57.16, 203.33 40.25, 224.00 38.57 C 244.67 36.90, 265.33 42.91, 286.00 48.17 C 306.67 53.43, 337.67 66.46, 348.00 70.11" fill="none" stroke="#0d9488" stroke-width="2.4" stroke-linecap="round"/>
+        <!-- đoạn nét đứt: ngày chưa chạy hết, chưa phải số cuối cùng -->
+        <path d="M 348.00 70.11 C 358.33 71.64, 399.67 77.73, 410.00 79.26" fill="none" stroke="#0d9488" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="5 5" opacity=".7"/>
+
+        <!-- điểm dữ liệu -->
+        <circle cx="38.0" cy="64.63" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="100.0" cy="44.97" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="162.0" cy="58.23" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="224.0" cy="38.57" r="4.2" fill="#0d9488" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="286.0" cy="48.17" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="348.0" cy="70.11" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="410.0" cy="79.26" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+
+        <text class="val" x="224" y="28" text-anchor="middle">305</text>
+        <text class="val" x="404" y="70" text-anchor="end">216</text>
+
+        <!-- nhãn ngày, kèm vạch nhỏ trên trục hoành -->
+        <line class="tick" x1="38" y1="178" x2="38" y2="183"/>
+        <line class="tick" x1="100" y1="178" x2="100" y2="183"/>
+        <line class="tick" x1="162" y1="178" x2="162" y2="183"/>
+        <line class="tick" x1="224" y1="178" x2="224" y2="183"/>
+        <line class="tick" x1="286" y1="178" x2="286" y2="183"/>
+        <line class="tick" x1="348" y1="178" x2="348" y2="183"/>
+        <line class="tick" x1="410" y1="178" x2="410" y2="183"/>
+        <text class="lab" x="38" y="195" text-anchor="middle">T2</text>
+        <text class="lab" x="100" y="195" text-anchor="middle">T3</text>
+        <text class="lab" x="162" y="195" text-anchor="middle">T4</text>
+        <text class="lab" x="224" y="195" text-anchor="middle">T5</text>
+        <text class="lab" x="286" y="195" text-anchor="middle">T6</text>
+        <text class="lab" x="348" y="195" text-anchor="middle">T7</text>
+        <text class="lab" x="410" y="195" text-anchor="middle">CN</text>
+      </svg>
+      <figcaption>Tổng 1.842 lượt trong bảy ngày, 37 lượt mở thẻ. Nét đứt ở chủ nhật là ngày chưa chạy hết, nên chưa phải con số cuối cùng.</figcaption>
+    </figure>
+
+    <dl class="kv" style="margin-top:16px">
+      <dt>Lượt mở thẻ</dt><dd>37</dd>
+      <dt>Tỷ lệ mở</dt><dd>2,0%</dd>
+      <dt>So với gói cùng bể</dt><dd>ngang mức chia đều, không thiếu lượt</dd>
+    </dl>
+  </div>
+  <footer>
+    <button class="btn ghost" onclick="closeAll()">Đóng</button>
+    <button class="btn danger" onclick="alert('Bản dựng thử: tạm dừng gói sẽ dừng hiển thị ở lượt dựng trang kế tiếp.')">Tạm dừng gói</button>
+  </footer>
+</section>
+
+<!-- ============ tạo gói ============ -->
+<section class="drawer" id="create" aria-hidden="true">
+  <header>
+    <b>Tạo gói đẩy sản phẩm</b>
+    <button class="x" onclick="closeAll()" aria-label="Đóng">×</button>
+  </header>
+  <div class="body">
+    <div class="callout warn">Gói chỉ hiện với buyer khi sản phẩm đã publish và nhà cung cấp đang hoạt động. Sản phẩm chưa đủ điều kiện không có trong danh sách chọn.</div>
+
+    <div class="field">
+      <label for="p">Sản phẩm</label>
+      <select id="p">
+        <option>Hồ tiêu đen 550 g/l, FAQ · Gia Lai Pepper</option>
+        <option>Hồ tiêu đen 570 g/l, ASTA · Phú Quốc Pepper</option>
+        <option>Quế thanh Cassia loại A · Yên Bái Cassia</option>
+      </select>
+      <p class="hint">Chỉ liệt kê sản phẩm đã qua đủ bốn cổng công khai. Đang có 3 sản phẩm phù hợp ở Hồ tiêu.</p>
+    </div>
+
+    <div class="field">
+      <label>Bề mặt</label>
+      <div class="seg" role="group" aria-label="Chọn bề mặt">
+        <button type="button" aria-pressed="true" onclick="pickSurface('category')">Danh mục</button>
+        <button type="button" aria-pressed="false" onclick="pickSurface('home')">Trang chủ</button>
+      </div>
+      <div id="surfaceCat">
+        <select>
+          <option>Hồ tiêu · còn 3/12 chỗ</option>
+          <option>Quế và hồi · còn 2/12 chỗ</option>
+          <option>Hạt điều · còn 12/12 chỗ</option>
+        </select>
+      </div>
+      <div id="surfaceHome" style="display:none">
+        <select>
+          <option>Trang chủ · còn 1/8 chỗ</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="field">
+        <label for="start">Bắt đầu</label>
+        <input id="start" type="datetime-local" value="2026-10-23T09:00">
+      </div>
+      <div class="field">
+        <label for="end">Kết thúc</label>
+        <input id="end" type="text" value="30/10/2026 09:00" readonly>
+        <p class="hint">Tính sẵn đúng 168 giờ, không cho sửa.</p>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="field">
+        <label for="price">Giá bán</label>
+        <input id="price" type="text" value="2.500.000">
+      </div>
+      <div class="field">
+        <label for="cur">Tiền tệ</label>
+        <select id="cur"><option>VND</option><option>USD</option></select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="note">Ghi chú nội bộ</label>
+      <textarea id="note" rows="2" placeholder="Khách trả trước, hợp đồng số 14/2026"></textarea>
+      <p class="hint">Chỉ nhân viên thấy. Không hiện với buyer.</p>
+    </div>
+
+    <div class="field">
+      <label><input type="checkbox" id="admin" onchange="syncApprove()" style="width:auto;margin-right:6px">Tôi là admin, duyệt ngay sau khi tạo</label>
+      <p class="hint">Không chọn thì gói nằm ở trạng thái chờ duyệt và chưa hiển thị.</p>
+    </div>
+
+    <div id="err" class="callout bad" style="display:none"></div>
+  </div>
+  <footer>
+    <button class="btn ghost" onclick="closeAll()">Huỷ</button>
+    <button class="btn primary" onclick="save()">Lưu gói</button>
+  </footer>
+</section>
+
+<script>
+  const scrim = document.getElementById('scrim');
+  const detail = document.getElementById('detail');
+  const create = document.getElementById('create');
+
+  function openDrawer(el){
+    scrim.classList.add('on');
+    el.classList.add('on');
+    el.setAttribute('aria-hidden','false');
+  }
+  function closeAll(){
+    scrim.classList.remove('on');
+    [detail, create].forEach(el => { el.classList.remove('on'); el.setAttribute('aria-hidden','true'); });
+  }
+  function openCreate(){ document.getElementById('err').style.display='none'; openDrawer(create); }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+
+  document.querySelectorAll('#rows tr').forEach(row => {
+    row.addEventListener('click', () => openDrawer(detail));
+  });
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected','false'));
+      tab.setAttribute('aria-selected','true');
+      const f = tab.dataset.filter;
+      document.querySelectorAll('#rows tr').forEach(row => {
+        row.style.display = (f === 'all' || row.dataset.status === f) ? '' : 'none';
+      });
+    });
+  });
+
+  function pickSurface(kind){
+    document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed','false'));
+    event.currentTarget.setAttribute('aria-pressed','true');
+    document.getElementById('surfaceCat').style.display = kind === 'category' ? '' : 'none';
+    document.getElementById('surfaceHome').style.display = kind === 'home' ? '' : 'none';
+  }
+
+  function syncApprove(){ /* chỗ đánh dấu quyền, bản dựng thử không đổi gì */ }
+
+  function save(){
+    const err = document.getElementById('err');
+    err.style.display = 'block';
+    err.textContent = 'Bản dựng thử: gói thật sẽ được ghi vào cơ sở dữ liệu, kiểm lại thời hạn 168 giờ và bể còn chỗ trước khi lưu.';
+  }
+
+  function approve(btn){
+    btn.closest('tr').querySelector('.pill').outerHTML = '<span class="pill live">Đang chạy</span>';
+    btn.outerHTML = '<button class="btn small ghost" onclick="event.stopPropagation();pause(this)">Tạm dừng</button>';
+  }
+  function pause(btn){
+    const row = btn.closest('tr');
+    const pill = row.querySelector('.pill:not(.cat):not(.home)');
+    if (pill.textContent.trim() === 'Tạm dừng') { pill.className = 'pill live'; pill.textContent = 'Đang chạy'; btn.textContent = 'Tạm dừng'; }
+    else { pill.className = 'pill pause'; pill.textContent = 'Tạm dừng'; btn.textContent = 'Chạy lại'; }
+  }
+</script>
+</body>
+</html>

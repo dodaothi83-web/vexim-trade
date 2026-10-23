@@ -19,7 +19,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import type { Category, HarvestCalendar, MediaAsset, SponsoredPush, Supplier, SupplierProduct, Verification } from "@/lib/types";
+import { ROTATION_WINDOW_MINUTES, SPONSORED_SLOTS } from "@/lib/sponsored/rotation";
+import type { Category, HarvestCalendar, MediaAsset, SponsoredPush, SponsoredPushDaily, Supplier, SupplierProduct, Verification } from "@/lib/types";
 
 const IMAGE_FOR_CATEGORY: Record<string, string> = {
   "cashew-kernels": "cashew-grade.jpg",
@@ -301,6 +302,7 @@ export interface PreviewSeedRows {
   media: MediaAsset[];
   verifications: Verification[];
   sponsoredPushes: SponsoredPush[];
+  sponsoredPushDaily: SponsoredPushDaily[];
 }
 
 /**
@@ -467,37 +469,107 @@ export function previewSeedRows(nowISO: (offsetDays?: number) => string): Previe
   }
 
   /*
-   * Gói đẩy sản phẩm cho bản xem thử: bốn gói ở hồ tiêu và năm gói ở quế, nhiều
-   * hơn ba suất của vùng đẩy để thấy được luân phiên. Thời hạn đúng 168 giờ như
-   * gói bán thật, tính từ một mốc duy nhất để hai đầu không lệch nhau vài mili
-   * giây.
+   * Gói đẩy sản phẩm cho bản xem thử: nhiều hơn ba suất của vùng đẩy để thấy được
+   * luân phiên, và lệch ngày bắt đầu để màn quản trị có cả gói vừa chạy lẫn gói
+   * sắp hết hạn. Thời hạn vẫn đúng 168 giờ như gói bán thật.
+   *
+   * Có thêm một gói chờ duyệt và một gói đang tạm dừng: màn quản trị phải nhìn
+   * thấy cả hai trạng thái đó, không chỉ gói đang chạy.
    */
-  const pushStart = new Date(now);
-  pushStart.setDate(pushStart.getDate() - 1);
-  const pushEnd = new Date(pushStart.getTime() + 168 * 3600_000);
-  const sponsoredPushes: SponsoredPush[] = [];
-  const addPushes = (categorySlug: string, take: number) => {
-    for (const product of products.filter((p) => p.category === categorySlug).slice(0, take)) {
-      sponsoredPushes.push({
-        id: `push-preview-${sponsoredPushes.length + 1}`,
-        surface: "category",
-        category_slug: categorySlug,
-        supplier_id: product.supplier_id,
-        product_id: product.id,
-        status: "approved",
-        starts_at: pushStart.toISOString(),
-        ends_at: pushEnd.toISOString(),
-        price_amount: 2_500_000,
-        price_currency: "VND",
-        note: "Dữ liệu xem thử ở kho local. Không có trong Supabase.",
-        approved_by: null,
-        approved_at: pushStart.toISOString(),
-        created_at: pushStart.toISOString(),
-      });
-    }
+  const DAY_MS = 86_400_000;
+  const pushStartFor = (daysAgo: number) => new Date(Date.parse(now) - daysAgo * DAY_MS);
+  const startForEnd = (daysAgo: number) => {
+    const start = pushStartFor(daysAgo);
+    return { starts_at: start.toISOString(), ends_at: new Date(start.getTime() + 168 * 3600_000).toISOString() };
   };
-  addPushes("pepper", 4);
-  addPushes("cinnamon-star-anise", 5);
+  const sponsoredPushes: SponsoredPush[] = [];
+  const addPush = (
+    product: SupplierProduct,
+    surface: "category" | "home",
+    daysAgo: number,
+    status: "draft" | "approved" | "paused",
+  ) => {
+    sponsoredPushes.push({
+      id: `push-preview-${sponsoredPushes.length + 1}`,
+      surface,
+      category_slug: product.category ?? "",
+      supplier_id: product.supplier_id,
+      product_id: product.id,
+      status,
+      ...startForEnd(daysAgo),
+      price_amount: surface === "home" ? 4_000_000 : 2_500_000,
+      price_currency: "VND",
+      note: "Dữ liệu xem thử ở kho local. Không có trong Supabase.",
+      approved_by: null,
+      approved_at: status === "approved" ? pushStartFor(daysAgo).toISOString() : null,
+      created_at: pushStartFor(daysAgo + 1).toISOString(),
+    });
+  };
 
-  return { suppliers, products, media, verifications, sponsoredPushes };
+  const pepperProducts = products.filter((p) => p.category === "pepper");
+  const cinnamonProducts = products.filter((p) => p.category === "cinnamon-star-anise");
+  const cashewProducts = products.filter((p) => p.category === "cashew-kernels");
+
+  // Hồ tiêu: bốn gói, lệch ngày để có cả gói sắp hết hạn lẫn gói vừa bắt đầu.
+  [6, 4, 1, 0].forEach((daysAgo, index) => {
+    const product = pepperProducts[index];
+    if (product) addPush(product, "category", daysAgo, "approved");
+  });
+  // Quế và hồi: năm gói, cùng cách chia.
+  [6, 5, 3, 1, 0].forEach((daysAgo, index) => {
+    const product = cinnamonProducts[index];
+    if (product) addPush(product, "category", daysAgo, "approved");
+  });
+  // Một gói chờ duyệt và một gói tạm dừng, để màn quản trị có đủ trạng thái.
+  if (pepperProducts[5]) addPush(pepperProducts[5], "category", -1, "draft");
+  if (cinnamonProducts[6]) addPush(cinnamonProducts[6], "category", 2, "paused");
+  // Trang chủ: một gói đang chạy, để thấy bể trang chủ tách khỏi bể danh mục.
+  if (cashewProducts[0]) addPush(cashewProducts[0], "home", 3, "approved");
+
+  /*
+   * Số liệu theo ngày. Con số mỗi tuần suy ra từ chính phép luân phiên chứ không
+   * phải số tròn bịa ra: 1.008 cửa sổ mười phút mỗi tuần, mỗi cửa sổ lấy tối đa
+   * số suất của bề mặt, chia đều cho số gói trong bể. Nhờ vậy bản xem thử không
+   * mâu thuẫn với điều ghi trong đặc tả.
+   *
+   * Chỉ sinh cho những ngày gói đã thật sự chạy, nên gói mới bật hôm nay có một
+   * dòng, gói bật sáu ngày trước có bảy dòng.
+   */
+  const sponsoredPushDaily: SponsoredPushDaily[] = [];
+  const windowsPerWeek = (7 * 24 * 60) / ROTATION_WINDOW_MINUTES;
+  const approved = sponsoredPushes.filter((p) => p.status === "approved");
+  for (const push of approved) {
+    const pool = approved.filter((p) => p.surface === push.surface &&
+      (push.surface === "home" || p.category_slug === push.category_slug));
+    const slots = SPONSORED_SLOTS[push.surface];
+    const perWeek = Math.round((windowsPerWeek * Math.min(slots, pool.length)) / Math.max(1, pool.length));
+    const start = Date.parse(push.starts_at);
+    const end = Date.parse(push.ends_at);
+    // Lưu lượng đọc trang không đều giữa các ngày trong tuần; giữ mức chênh nhỏ
+    // để đường biểu diễn đọc được mà không phóng đại khác biệt.
+    const weekdayWeight = [0.96, 1.04, 1.0, 1.1, 1.02, 0.95, 0.93];
+    let dayIndex = 0;
+    for (let at = start; at < Date.parse(now) && at < end; at += DAY_MS) {
+      const weight = weekdayWeight[new Date(at).getUTCDay()];
+      const impressions = Math.round((perWeek / 7) * weight);
+      sponsoredPushDaily.push({
+        push_id: push.id,
+        day: new Date(at).toISOString().slice(0, 10),
+        event_type: "impression",
+        events: impressions,
+      });
+      // Khoảng bốn phần trăm người thấy thẻ mở thẻ. Tỷ lệ này chỉ để bản xem thử
+      // có số, không phải số đo của khách hàng nào.
+      sponsoredPushDaily.push({
+        push_id: push.id,
+        day: new Date(at).toISOString().slice(0, 10),
+        event_type: "click",
+        events: Math.round(impressions * 0.04),
+      });
+      dayIndex += 1;
+      if (dayIndex > 30) break;
+    }
+  }
+
+  return { suppliers, products, media, verifications, sponsoredPushes, sponsoredPushDaily };
 }

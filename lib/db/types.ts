@@ -23,6 +23,8 @@ import type {
   RfqAttachment,
   RfqMatch,
   SponsoredPush,
+  SponsoredPushDaily,
+  SponsoredPushInput,
   SponsoredPushSurface,
   SupplierRfqInvitation,
   SupplierNoticeRead,
@@ -112,6 +114,25 @@ export interface DataStore {
     categorySlug?: string | null;
     now: string;
   }): Promise<SponsoredPush[]>;
+  /**
+   * Toàn bộ gói cho màn quản trị, mọi trạng thái và mọi thời hạn.
+   *
+   * Khác `listSponsoredPushes` ở chỗ không lọc: người vận hành cần thấy cả gói
+   * chờ duyệt, gói đã tắt và gói đã hết hạn. Ném lỗi khi bảng chưa tồn tại, để
+   * màn quản trị nói được là chưa áp migration thay vì hiện danh sách rỗng.
+   */
+  listAllSponsoredPushes(): Promise<SponsoredPush[]>;
+  createSponsoredPush(input: SponsoredPushInput): Promise<SponsoredPush>;
+  updateSponsoredPush(
+    id: string,
+    patch: Partial<Pick<SponsoredPush,
+      "status" | "starts_at" | "ends_at" | "price_amount" | "price_currency" |
+      "note" | "approved_by" | "approved_at">>,
+  ): Promise<SponsoredPush>;
+  /** Xoá hẳn một gói. Chỉ dùng cho gói còn ở trạng thái nháp, chưa chạy. */
+  deleteSponsoredPush(id: string): Promise<void>;
+  /** Số liệu theo ngày của các gói được chọn, từ `sinceDay` (yyyy-mm-dd, UTC). */
+  listSponsoredPushDaily(pushIds: string[], sinceDay: string): Promise<SponsoredPushDaily[]>;
 
   // ----- Hình ảnh & tài liệu -----
   listMedia(ownerType: MediaOwnerType, ownerId: string): Promise<MediaAsset[]>;

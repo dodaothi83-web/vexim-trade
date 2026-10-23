@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Đẩy sản phẩm · cổng nhà cung cấp · bản dựng thử</title>
+<style>
+  :root{
+    --teal-50:#f0fdfa;--teal-100:#ccfbf1;--teal-200:#99f6e4;--teal-300:#5eead4;
+    --teal-500:#14b8a6;--teal-600:#0d9488;--teal-700:#0f766e;--teal-800:#115e59;--teal-900:#134e4a;
+    --slate-50:#f8fafc;--slate-100:#f1f5f9;--slate-200:#e2e8f0;--slate-300:#cbd5e1;--slate-400:#94a3b8;
+    --slate-500:#64748b;--slate-600:#475569;--slate-700:#334155;--slate-800:#1e293b;--slate-900:#0f172a;
+    --amber-50:#fffbeb;--amber-100:#fef3c7;--amber-200:#fde68a;--amber-800:#92400e;--amber-900:#78350f;
+    --emerald-50:#ecfdf5;--emerald-200:#a7f3d0;--emerald-700:#047857;--emerald-800:#065f46;
+    --rose-50:#fff1f2;--rose-200:#fecdd3;--rose-800:#9f1239;
+    --sky-50:#f0f9ff;--sky-200:#bae6fd;--sky-800:#075985;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--slate-50);color:var(--slate-900);font-size:14px;line-height:1.5}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .shell{max-width:1180px;margin:0 auto;padding:26px 20px 70px}
+
+  /* ---------- khung gian hàng, dùng lại ngôn ngữ của cổng NCC ---------- */
+  .ws{background:#fff;border:1px solid var(--slate-200);border-radius:26px;box-shadow:0 1px 2px rgba(15,23,42,.05);overflow:hidden}
+  .ws .top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;padding:15px 22px;border-bottom:1px solid var(--slate-100)}
+  .ws .who{display:flex;align-items:center;gap:12px;min-width:0}
+  .ws .mark{width:40px;height:40px;flex:0 0 40px;border-radius:16px;background:var(--teal-700);color:#fff;display:grid;place-items:center;font-weight:900;font-size:13px}
+  .ws .who p{font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-700)}
+  .ws .who b{display:block;font-size:15px;color:var(--slate-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ws .back{font-size:12px;font-weight:700;color:var(--slate-600)}
+  .ws .back:hover{color:var(--teal-700)}
+  .ws nav{display:flex;gap:4px;overflow-x:auto;padding:8px 16px 0}
+  .ws nav a{flex:0 0 auto;padding:11px 16px;border-radius:12px 12px 0 0;font-size:13.5px;font-weight:650;color:var(--slate-600)}
+  .ws nav a:hover{background:var(--slate-50)}
+  .ws nav a[aria-current="page"]{background:var(--teal-50);color:var(--teal-800)}
+
+  /* ---------- đầu trang ---------- */
+  .head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:18px;margin-top:30px}
+  .head .eyebrow{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-700)}
+  h1{font-size:32px;letter-spacing:-.025em;margin-top:8px}
+  .lede{margin-top:10px;max-width:620px;font-size:14px;line-height:1.65;color:var(--slate-600)}
+  .head .acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:7px;border-radius:12px;padding:10px 15px;font-size:13px;font-weight:750;border:1px solid transparent}
+  .btn.primary{background:var(--teal-700);color:#fff}
+  .btn.primary:hover{background:var(--teal-800)}
+  .btn.ghost{background:#fff;border-color:var(--slate-200);color:var(--slate-700)}
+  .btn.ghost:hover{border-color:var(--teal-500);color:var(--teal-700)}
+  .btn.small{padding:6px 11px;font-size:12px;border-radius:9px}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+
+  /* ---------- dải ghi chú ---------- */
+  .strip{margin-top:18px;display:flex;gap:11px;align-items:flex-start;background:var(--teal-50);border:1px solid var(--teal-200);border-radius:14px;padding:13px 16px;font-size:13px;line-height:1.6;color:var(--teal-900)}
+  .strip svg{flex:0 0 16px;margin-top:2px}
+  .strip b{font-weight:800}
+
+  /* ---------- KPI ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+  .kpi{background:#fff;border:1px solid var(--slate-200);border-radius:16px;padding:15px 17px}
+  .kpi p{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-500)}
+  .kpi b{display:block;font-size:25px;letter-spacing:-.02em;margin-top:7px}
+  .kpi span{font-size:12px;color:var(--slate-500)}
+  .kpi .up{color:var(--emerald-700);font-weight:700}
+
+  /* ---------- panel / bảng ---------- */
+  .panel{background:#fff;border:1px solid var(--slate-200);border-radius:16px;padding:17px 19px;margin-top:16px}
+  .panel h2{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-500)}
+  .panel .sub{margin-top:5px;font-size:13px;color:var(--slate-600);max-width:64ch;line-height:1.6}
+  /* Bảng nhiều cột: cuộn ngang trong khung riêng thay vì đẩy cả trang rộng ra. */
+  .tblwrap{margin-top:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--slate-200);border-radius:16px;background:#fff}
+  table{width:100%;min-width:760px;border-collapse:separate;border-spacing:0;background:#fff}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--slate-500);font-weight:800;padding:10px 14px;background:var(--slate-50);border-bottom:1px solid var(--slate-200);white-space:nowrap}
+  td{padding:12px 14px;border-bottom:1px solid var(--slate-100);vertical-align:top;font-size:13px}
+  tr:last-child td{border-bottom:0}
+  .prod b{display:block;font-size:13px;color:var(--slate-900)}
+  .prod span{font-size:12px;color:var(--slate-500)}
+  .muted{color:var(--slate-500);font-size:12px}
+  .nowrap{white-space:nowrap}
+  .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:800;border:1px solid transparent;white-space:nowrap}
+  .pill.live{background:var(--emerald-50);border-color:var(--emerald-200);color:var(--emerald-800)}
+  .pill.wait{background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-800)}
+  .pill.done{background:var(--slate-100);border-color:var(--slate-200);color:var(--slate-600)}
+  .pill.cat{background:var(--teal-50);border-color:var(--teal-200);color:var(--teal-800)}
+
+  /* ---------- xem trước thẻ buyer thấy ---------- */
+  .preview{display:grid;grid-template-columns:240px 1fr;gap:22px;align-items:start;margin-top:14px}
+  .band{border:1px solid var(--amber-200);background:#fffdf7;border-radius:14px;padding:11px}
+  .band .lab{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:9px}
+  .band .lab i{font-style:normal;background:var(--amber-200);color:var(--amber-900);border-radius:6px;padding:2px 7px;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+  .band .lab span{font-size:10.5px;color:var(--amber-900)}
+  .card{border:1px solid var(--slate-200);border-radius:12px;overflow:hidden;background:#fff}
+  .card .thumb{aspect-ratio:1;background:linear-gradient(135deg,#d7ede9,#bfe3dc);display:grid;place-items:center;color:var(--teal-800);font-size:10px;font-weight:800;letter-spacing:.1em}
+  .card .body{padding:10px 11px 12px;font-size:11.5px}
+  .card .body b{display:block;font-size:12.5px;line-height:1.35}
+  .card dl{margin-top:7px;display:grid;gap:3px;font-size:11px;color:var(--slate-600)}
+  .card dl div{display:flex;justify-content:space-between;gap:8px}
+  .card dl dd{font-weight:700;color:var(--slate-800)}
+  .card .sup{margin-top:8px;padding-top:7px;border-top:1px solid var(--slate-100);font-size:10.5px;color:var(--slate-600)}
+  .card .sup b{color:var(--slate-800)}
+  .preview .say li{font-size:13px;color:var(--slate-600);line-height:1.65;margin-top:9px;padding-left:16px;position:relative;list-style:none}
+  .preview .say li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:2px;background:var(--teal-300)}
+  .preview .say b{color:var(--slate-900)}
+
+  /* ---------- biểu đồ ---------- */
+  .chart{margin-top:14px;background:#fff;border:1px solid var(--slate-200);border-radius:14px;padding:12px 10px 6px}
+  .chart svg{display:block;width:100%;height:auto;overflow:visible}
+  .chart figcaption{font-size:11.5px;color:var(--slate-500);padding:2px 4px 5px;line-height:1.55}
+  .chart .axis-line{stroke:var(--slate-300);stroke-width:1}
+  .chart .tick{stroke:var(--slate-300);stroke-width:1}
+  .chart .grid{stroke:var(--slate-100);stroke-width:1;stroke-dasharray:3 4}
+  .chart .lab{fill:var(--slate-500);font-size:11px}
+  .chart .title{fill:var(--slate-400);font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+  .chart .val{fill:var(--slate-700);font-size:11.5px;font-weight:800}
+
+  /* ---------- sản phẩm đủ / chưa đủ điều kiện ---------- */
+  .gates{margin-top:14px;border:1px solid var(--slate-200);border-radius:16px;overflow:hidden;background:#fff}
+  .gate{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--slate-100)}
+  .gate:last-child{border-bottom:0}
+  .gate .name{flex:1 1 220px;min-width:0}
+  .gate .name b{display:block;font-size:13px}
+  .gate .name span{font-size:12px;color:var(--slate-500)}
+  .gate .why{flex:1 1 280px;font-size:12px;color:var(--slate-600);line-height:1.55}
+  .gate .why.bad{color:var(--amber-900)}
+  .gate .ok{color:var(--emerald-700);font-weight:800;font-size:12px}
+
+  /* ---------- trạng thái ---------- */
+  .states{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+  .state{background:#fff;border:1px dashed var(--slate-300);border-radius:16px;padding:17px}
+  .state .tag{font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-400)}
+  .state h3{font-size:13.5px;margin:7px 0 6px}
+  .state p{font-size:12.5px;color:var(--slate-600);line-height:1.6}
+
+  .demo{margin-top:26px;border-top:1px solid var(--slate-200);padding-top:15px;font-size:12px;line-height:1.7;color:var(--slate-500);max-width:78ch}
+
+  /* ---------- drawer ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(15,23,42,.42);opacity:0;pointer-events:none;transition:opacity .16s}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100vh;width:min(520px,100%);background:#fff;box-shadow:-24px 0 60px rgba(15,23,42,.18);transform:translateX(104%);transition:transform .2s ease;display:flex;flex-direction:column;z-index:5}
+  .drawer.on{transform:none}
+  .drawer header{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--slate-200)}
+  .drawer header b{font-size:15px}
+  .drawer header .x{margin-left:auto;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:var(--slate-500);font-size:18px}
+  .drawer header .x:hover{background:var(--slate-100)}
+  .drawer .body{padding:18px 20px;overflow:auto;flex:1}
+  .drawer footer{padding:14px 20px;border-top:1px solid var(--slate-200);display:flex;gap:8px;justify-content:flex-end;background:var(--slate-50)}
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:12px;font-weight:800;color:var(--slate-700);margin-bottom:6px}
+  .field select,.field textarea,.field input{width:100%;border:1px solid var(--slate-300);border-radius:10px;padding:10px;font:inherit;font-size:13px;background:#fff}
+  .field select:focus,.field textarea:focus,.field input:focus{outline:2px solid var(--teal-500);outline-offset:1px;border-color:var(--teal-500)}
+  .field input[readonly]{background:var(--slate-50);color:var(--slate-600)}
+  .field .hint{font-size:11.5px;color:var(--slate-500);margin-top:6px;line-height:1.55}
+  .callout{border-radius:11px;padding:11px 13px;font-size:12.5px;line-height:1.6;margin-bottom:15px}
+  .callout.info{background:var(--teal-50);border:1px solid var(--teal-200);color:var(--teal-900)}
+  .callout.warn{background:var(--amber-50);border:1px solid var(--amber-200);color:var(--amber-900)}
+  .callout.bad{background:var(--rose-50);border:1px solid var(--rose-200);color:var(--rose-800)}
+  .seg{display:flex;background:var(--slate-100);border-radius:11px;padding:3px;gap:3px}
+  .seg button{flex:1;border-radius:8px;padding:8px;font-size:12.5px;font-weight:700;color:var(--slate-600)}
+  .seg button[aria-pressed="true"]{background:#fff;color:var(--slate-900);box-shadow:0 1px 3px rgba(15,23,42,.12)}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:9px 14px;font-size:13px}
+  .kv dt{color:var(--slate-500)}
+  .kv dd{font-weight:650}
+
+  @media (max-width:960px){
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .preview{grid-template-columns:1fr}
+    .states{grid-template-columns:1fr}
+    .shell{padding:16px 14px 60px}
+    h1{font-size:27px}
+    .head .acts{margin-left:0;width:100%}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ============ khung gian hàng của nhà cung cấp ============ -->
+  <div class="ws">
+    <div class="top">
+      <div class="who">
+        <span class="mark">ĐL</span>
+        <div>
+          <p>Gian hàng của bạn · riêng tư</p>
+          <b>Đắk Lắk Spice</b>
+        </div>
+      </div>
+      <a class="back" href="#" onclick="return false">← Bảng điều khiển</a>
+    </div>
+    <nav aria-label="Điều hướng gian hàng">
+      <a href="#" onclick="return false">Tổng quan</a>
+      <a href="#" onclick="return false">Sản phẩm</a>
+      <a href="#" onclick="return false">Danh mục</a>
+      <a href="#" onclick="return false">Xác thực L2·L3</a>
+      <a href="#" onclick="return false">Lượt xem</a>
+      <a href="#" aria-current="page" onclick="return false">Đẩy sản phẩm</a>
+    </nav>
+  </div>
+
+  <!-- ============ đầu trang ============ -->
+  <div class="head">
+    <div>
+      <p class="eyebrow">Vị trí trả tiền · cổng nhà cung cấp</p>
+      <h1>Đẩy sản phẩm</h1>
+      <p class="lede">Một gói đưa một sản phẩm của bạn lên vùng tài trợ ở đầu trang danh mục trong 168 giờ. Vùng đó hiện ba thẻ và chia đều lượt hiển thị, nên gói của bạn xuất hiện khoảng một phần tư số lần buyer mở trang.</p>
+    </div>
+    <div class="acts">
+      <button class="btn ghost" onclick="alert('Bản dựng thử: bảng so sánh gói sẽ mở ở đây.')">Bảng giá gói</button>
+      <button class="btn primary" onclick="openReq()">Yêu cầu đẩy sản phẩm</button>
+    </div>
+  </div>
+
+  <div class="strip">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>
+    <p><b>Mua chỗ hiển thị, không mua uy tín.</b> Gói không đổi huy hiệu xác minh, không đổi hạng trong danh sách tự nhiên, và không giúp sản phẩm vượt bốn cổng công khai. Thẻ trả phí luôn mang nhãn Tài trợ / Sponsored để buyer biết.</p>
+  </div>
+
+  <!-- ============ KPI của riêng nhà cung cấp này ============ -->
+  <div class="kpis">
+    <div class="kpi">
+      <p>Đang chạy</p>
+      <b>1</b>
+      <span>Hồ tiêu trắng 630 g/l · còn 3 ngày</span>
+    </div>
+    <div class="kpi">
+      <p>Chờ Vexim duyệt</p>
+      <b>1</b>
+      <span>gói chưa hiển thị cho tới khi được duyệt</span>
+    </div>
+    <div class="kpi">
+      <p>Lượt hiển thị 7 ngày</p>
+      <b>1.842</b>
+      <span class="up">đúng mức chia đều của bể</span>
+    </div>
+    <div class="kpi">
+      <p>Lượt mở thẻ</p>
+      <b>37</b>
+      <span>2,0% số lần thẻ được thấy</span>
+    </div>
+  </div>
+
+  <!-- ============ gói của tôi ============ -->
+  <div class="panel">
+    <h2>Gói của tôi</h2>
+    <p class="sub">Chỉ hiện gói của Đắk Lắk Spice. Con số của nhà cung cấp khác và tình trạng bể bán không hiển thị ở đây.</p>
+  </div>
+
+  <div class="tblwrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Sản phẩm</th>
+        <th>Bề mặt</th>
+        <th>Thời gian</th>
+        <th>Giá gói</th>
+        <th>Lượt hiển thị</th>
+        <th>Lượt mở</th>
+        <th>Trạng thái</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="prod"><b>Hồ tiêu trắng 630 g/l</b><span>Hồ tiêu</span></td>
+        <td><span class="pill cat">Danh mục · Hồ tiêu</span></td>
+        <td class="nowrap">18/10 09:00<span class="muted"><br>25/10 09:00 · còn 3 ngày</span></td>
+        <td class="nowrap">2.500.000 ₫</td>
+        <td>1.842</td>
+        <td>37<span class="muted"><br>2,0%</span></td>
+        <td><span class="pill live">Đang chạy</span></td>
+        <td><button class="btn small ghost" onclick="openDetail()">Số liệu</button></td>
+      </tr>
+      <tr>
+        <td class="prod"><b>Hồ tiêu đen 570 g/l, ASTA</b><span>Hồ tiêu</span></td>
+        <td><span class="pill cat">Danh mục · Hồ tiêu</span></td>
+        <td class="nowrap">dự kiến 26/10 08:00<span class="muted"><br>02/11 08:00 · 168 giờ</span></td>
+        <td class="nowrap">2.500.000 ₫</td>
+        <td class="muted">chưa chạy</td>
+        <td class="muted">chưa chạy</td>
+        <td><span class="pill wait">Chờ Vexim duyệt</span></td>
+        <td><button class="btn small ghost" disabled>Huỷ yêu cầu</button></td>
+      </tr>
+      <tr>
+        <td class="prod"><b>Hồ tiêu đen 550 g/l, FAQ</b><span>Hồ tiêu</span></td>
+        <td><span class="pill cat">Danh mục · Hồ tiêu</span></td>
+        <td class="nowrap">09/10 10:00<span class="muted"><br>16/10 10:00 · đã kết thúc</span></td>
+        <td class="nowrap">2.500.000 ₫</td>
+        <td>1.798</td>
+        <td>24<span class="muted"><br>1,3%</span></td>
+        <td><span class="pill done">Đã kết thúc</span></td>
+        <td><button class="btn small ghost" onclick="openDetail()">Xem lại</button></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ============ buyer thấy gì ============ -->
+  <div class="panel">
+    <h2>Buyer thấy thẻ của bạn như thế này</h2>
+    <p class="sub">Đây là hình dạng thật của thẻ trong vùng tài trợ. Nhãn Tài trợ hiện sẵn, không cần rê chuột, và câu bên dưới nói rõ đây là vị trí trả tiền chứ không phải kết quả xác minh.</p>
+
+    <div class="preview">
+      <div class="band">
+        <div class="lab"><i>Tài trợ · Sponsored</i><span>vị trí trả tiền</span></div>
+        <div class="card">
+          <div class="thumb">ẢNH SẢN PHẨM</div>
+          <div class="body">
+            <b>White pepper 630 g/L</b>
+            <dl>
+              <div><dt>MOQ</dt><dd>1 x 20ft</dd></div>
+              <div><dt>FOB reference</dt><dd>USD 9.1/kg</dd></div>
+              <div><dt>Lead time</dt><dd>18 days</dd></div>
+            </dl>
+            <p class="sup">Supplied by <b>Dak Lak Spice</b></p>
+          </div>
+        </div>
+      </div>
+
+      <ul class="say">
+        <li><b>Thẻ của bạn là suất cộng thêm.</b> Sản phẩm vẫn giữ chỗ trong danh sách tự nhiên theo mức xác minh, và có thêm một thẻ ở vùng tài trợ. Mua gói không lấy chỗ của người khác.</li>
+        <li><b>Chia đều, không ưu tiên trả nhiều.</b> Trong một bể mười hai gói, mỗi gói nhận khoảng 252 lượt hiển thị mỗi tuần. Thứ tự quay vòng theo cửa sổ mười phút, không theo số tiền hay ngày mua.</li>
+        <li><b>Buyer đang lọc thì vùng tài trợ ẩn.</b> Sản phẩm trở về danh sách tự nhiên và chịu đúng bộ lọc như mọi sản phẩm khác. Không nhồi một sản phẩm không liên quan vào chỗ trống.</li>
+        <li><b>Sản phẩm vẫn nằm trong dải giá tham khảo.</b> Giá bạn công khai vẫn được tính vào khoảng giá của danh mục, kể cả khi đang chạy gói.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ số liệu gói đang chạy ============ -->
+  <div class="panel">
+    <h2>Lượt hiển thị theo ngày · Hồ tiêu trắng 630 g/l</h2>
+    <p class="sub">Đếm khi ít nhất một nửa thẻ nằm trong khung nhìn đủ 800ms. Mỗi tab chỉ ghi một lượt cho mỗi gói trong 30 phút, nên con số này gần với số người thật hơn số lần tải trang.</p>
+
+    <figure class="chart">
+      <svg viewBox="0 0 420 214" role="img" aria-label="Biểu đồ đường lượt hiển thị theo ngày: thứ Hai 248 lượt, thứ Ba 291, thứ Tư 262, thứ Năm 305, thứ Sáu 284, thứ Bảy 236, chủ nhật đang chạy 216 lượt tính đến 14 giờ, tổng cộng 1.842 lượt trong tuần">
+        <defs>
+          <linearGradient id="fillImpr" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#14b8a6" stop-opacity=".22"/>
+            <stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+
+        <line class="grid" x1="38" y1="40.86" x2="410" y2="40.86"/>
+        <line class="grid" x1="38" y1="109.43" x2="410" y2="109.43"/>
+
+        <path d="M 38.00 64.63 C 48.33 61.35, 79.33 46.04, 100.00 44.97 C 120.67 43.90, 141.33 59.30, 162.00 58.23 C 182.67 57.16, 203.33 40.25, 224.00 38.57 C 244.67 36.90, 265.33 42.91, 286.00 48.17 C 306.67 53.43, 327.33 64.93, 348.00 70.11 C 368.67 75.30, 399.67 77.73, 410.00 79.26 L 410.00 178 L 38.00 178 Z" fill="url(#fillImpr)"/>
+
+        <line class="axis-line" x1="38" y1="16" x2="38" y2="178"/>
+        <line class="axis-line" x1="38" y1="178" x2="410" y2="178"/>
+        <line class="tick" x1="32" y1="40.86" x2="38" y2="40.86"/>
+        <line class="tick" x1="32" y1="109.43" x2="38" y2="109.43"/>
+        <line class="tick" x1="32" y1="178" x2="38" y2="178"/>
+        <text class="lab" x="28" y="44" text-anchor="end">300</text>
+        <text class="lab" x="28" y="113" text-anchor="end">150</text>
+        <text class="lab" x="28" y="182" text-anchor="end">0</text>
+        <text class="title" x="38" y="10">Lượt hiển thị</text>
+        <text class="title" x="224" y="208" text-anchor="middle">Ngày trong tuần</text>
+
+        <path d="M 38.00 64.63 C 48.33 61.35, 79.33 46.04, 100.00 44.97 C 120.67 43.90, 141.33 59.30, 162.00 58.23 C 182.67 57.16, 203.33 40.25, 224.00 38.57 C 244.67 36.90, 265.33 42.91, 286.00 48.17 C 306.67 53.43, 337.67 66.46, 348.00 70.11" fill="none" stroke="#0d9488" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M 348.00 70.11 C 358.33 71.64, 399.67 77.73, 410.00 79.26" fill="none" stroke="#0d9488" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="5 5" opacity=".7"/>
+
+        <circle cx="38.0" cy="64.63" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="100.0" cy="44.97" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="162.0" cy="58.23" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="224.0" cy="38.57" r="4.2" fill="#0d9488" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="286.0" cy="48.17" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="348.0" cy="70.11" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+        <circle cx="410.0" cy="79.26" r="3.4" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+
+        <text class="val" x="224" y="28" text-anchor="middle">305</text>
+        <text class="val" x="404" y="70" text-anchor="end">216</text>
+
+        <line class="tick" x1="38" y1="178" x2="38" y2="183"/>
+        <line class="tick" x1="100" y1="178" x2="100" y2="183"/>
+        <line class="tick" x1="162" y1="178" x2="162" y2="183"/>
+        <line class="tick" x1="224" y1="178" x2="224" y2="183"/>
+        <line class="tick" x1="286" y1="178" x2="286" y2="183"/>
+        <line class="tick" x1="348" y1="178" x2="348" y2="183"/>
+        <line class="tick" x1="410" y1="178" x2="410" y2="183"/>
+        <text class="lab" x="38" y="195" text-anchor="middle">T2</text>
+        <text class="lab" x="100" y="195" text-anchor="middle">T3</text>
+        <text class="lab" x="162" y="195" text-anchor="middle">T4</text>
+        <text class="lab" x="224" y="195" text-anchor="middle">T5</text>
+        <text class="lab" x="286" y="195" text-anchor="middle">T6</text>
+        <text class="lab" x="348" y="195" text-anchor="middle">T7</text>
+        <text class="lab" x="410" y="195" text-anchor="middle">CN</text>
+      </svg>
+      <figcaption>Tổng 1.842 lượt trong bảy ngày, 37 lượt mở thẻ. Nét đứt ở chủ nhật là ngày chưa chạy hết, nên chưa phải con số cuối cùng.</figcaption>
+    </figure>
+  </div>
+
+  <!-- ============ sản phẩm nào đẩy được ============ -->
+  <div class="panel">
+    <h2>Sản phẩm của tôi và điều kiện đẩy</h2>
+    <p class="sub">Một sản phẩm phải qua đủ bốn cổng công khai thì mới đẩy được. Trả tiền không mua được quyền vượt cổng, nên chỗ nào chưa đạt thì nói rõ cần làm gì.</p>
+  </div>
+
+  <div class="gates">
+    <div class="gate">
+      <div class="name"><b>Hồ tiêu trắng 630 g/l</b><span>Hồ tiêu · đang chạy gói</span></div>
+      <div class="why ok">Đủ điều kiện</div>
+      <button class="btn small ghost" disabled>Đang chạy</button>
+    </div>
+    <div class="gate">
+      <div class="name"><b>Hồ tiêu đen 570 g/l, ASTA</b><span>Hồ tiêu · chờ duyệt</span></div>
+      <div class="why ok">Đủ điều kiện</div>
+      <button class="btn small ghost" disabled>Đã có yêu cầu</button>
+    </div>
+    <div class="gate">
+      <div class="name"><b>Hồ tiêu đen 550 g/l, FAQ</b><span>Hồ tiêu</span></div>
+      <div class="why bad">Chưa sẵn sàng gửi buyer. Cần ít nhất một ảnh sản phẩm hoặc catalogue chia sẻ cho buyer, rồi bật “sẵn sàng gửi buyer”.</div>
+      <button class="btn small primary" onclick="alert('Bản dựng thử: mở trang sửa sản phẩm để thêm ảnh.')">Bổ sung ảnh</button>
+    </div>
+    <div class="gate">
+      <div class="name"><b>Tiêu xay 40 mesh</b><span>Gia vị xay</span></div>
+      <div class="why bad">Danh mục Gia vị xay chưa mở bán trên sàn, nên chưa có trang để đặt thẻ lên.</div>
+      <button class="btn small ghost" disabled>Chưa đẩy được</button>
+    </div>
+  </div>
+
+  <!-- ============ trạng thái ============ -->
+  <div class="states">
+    <div class="state">
+      <p class="tag">Chưa có gói nào</p>
+      <h3>Nói rõ đây là chỗ bán vị trí</h3>
+      <p>Nhà cung cấp chưa mua gói nào thì trang không báo lỗi. Nó giải thích gói làm gì, giá bao nhiêu, và để một nút yêu cầu. Không có khung xám “chưa có dữ liệu”.</p>
+    </div>
+    <div class="state">
+      <p class="tag">Sản phẩm chưa đủ cổng</p>
+      <h3>Chỉ đúng việc cần làm</h3>
+      <p>Không đưa sản phẩm chưa đạt vào danh sách chọn, và cũng không để một dòng chung chung. Mỗi dòng nêu đúng cổng nào chưa qua, kèm nút dẫn tới chỗ sửa.</p>
+    </div>
+    <div class="state">
+      <p class="tag">Đang chờ duyệt</p>
+      <h3>Không hứa ngày chạy</h3>
+      <p>Gói ở trạng thái chờ thì chưa hiện với buyer. Trang ghi “chờ Vexim duyệt”, không ghi “sẽ chạy từ ngày…” cho tới khi thật sự được duyệt.</p>
+    </div>
+  </div>
+
+  <p class="demo">Bản dựng thử giao diện, dữ liệu là ví dụ và không nối cơ sở dữ liệu. Cùng một gói đang xem ở hai phía: màn admin thấy cả bể và nút duyệt, màn này chỉ thấy gói của Đắk Lắk Spice. Bấm “Yêu cầu đẩy sản phẩm” để xem biểu mẫu, bấm “Số liệu” để xem chi tiết gói.</p>
+</div>
+
+<!-- ============ scrim ============ -->
+<div class="scrim" id="scrim" onclick="closeAll()"></div>
+
+<!-- ============ yêu cầu đẩy sản phẩm ============ -->
+<section class="drawer" id="req" aria-hidden="true">
+  <header>
+    <b>Yêu cầu đẩy sản phẩm</b>
+    <button class="x" onclick="closeAll()" aria-label="Đóng">×</button>
+  </header>
+  <div class="body">
+    <div class="callout info">Giai đoạn đầu, Vexim tạo và duyệt gói bằng tay. Bạn gửi yêu cầu, Vexim xác nhận giá và ngày chạy, rồi gói mới hiện với buyer. Chưa có thanh toán trong hệ thống.</div>
+
+    <div class="field">
+      <label for="p">Sản phẩm</label>
+      <select id="p" onchange="checkProduct()">
+        <option value="ok">Hồ tiêu trắng 630 g/l · Hồ tiêu</option>
+        <option value="ok">Hồ tiêu đen 570 g/l, ASTA · Hồ tiêu</option>
+        <option value="bad">Hồ tiêu đen 550 g/l, FAQ · thiếu ảnh</option>
+      </select>
+      <p class="hint">Chỉ sản phẩm đã qua đủ bốn cổng mới chọn được. Sản phẩm thiếu ảnh vẫn hiện để bạn thấy vì sao chưa đẩy được.</p>
+    </div>
+
+    <div class="callout warn" id="warn" hidden>Hồ tiêu đen 550 g/l, FAQ chưa sẵn sàng gửi buyer vì thiếu ảnh hoặc catalogue. Thêm một ảnh chia sẻ cho buyer rồi quay lại, hoặc chọn sản phẩm khác.</div>
+
+    <div class="field">
+      <label>Bề mặt</label>
+      <div class="seg" role="group" aria-label="Chọn bề mặt">
+        <button type="button" aria-pressed="true" onclick="pickSurface(this, 'cat')">Danh mục Hồ tiêu</button>
+        <button type="button" aria-pressed="false" onclick="pickSurface(this, 'home')">Trang chủ</button>
+      </div>
+      <p class="hint" id="surfaceHint">Vùng tài trợ của Hồ tiêu hiện ba thẻ, bể bán mười hai gói. Mỗi gói nhận khoảng 252 lượt hiển thị mỗi tuần.</p>
+    </div>
+
+    <div class="field">
+      <label for="dur">Thời lượng</label>
+      <input id="dur" value="168 giờ (7 ngày, tính liên tục)" readonly>
+      <p class="hint">Gói không chia theo ngày Việt Nam, để phủ buyer ở múi giờ khác.</p>
+    </div>
+
+    <div class="field">
+      <label for="note">Ghi chú cho Vexim</label>
+      <textarea id="note" rows="3" placeholder="Ví dụ: muốn chạy trước đợt giao hàng tháng 11, ưu tiên buyer EU."></textarea>
+    </div>
+
+    <dl class="kv">
+      <dt>Giá gói</dt><dd>Vexim báo khi duyệt</dd>
+      <dt>Hiển thị</dt><dd>sau khi được duyệt</dd>
+      <dt>Kết thúc</dt><dd>tự rời vùng tài trợ sau 168 giờ</dd>
+    </dl>
+  </div>
+  <footer>
+    <button class="btn ghost" onclick="closeAll()">Để sau</button>
+    <button class="btn primary" onclick="submitReq()">Gửi yêu cầu</button>
+  </footer>
+</section>
+
+<!-- ============ chi tiết gói (chỉ số liệu của tôi) ============ -->
+<section class="drawer" id="detail" aria-hidden="true">
+  <header>
+    <b>Gói đẩy · số liệu của tôi</b>
+    <button class="x" onclick="closeAll()" aria-label="Đóng">×</button>
+  </header>
+  <div class="body">
+    <div class="callout info">Bể Hồ tiêu đang có mười hai gói và ba suất hiển thị. Gói của bạn nhận đúng phần chia đều, 252 lượt mỗi tuần, không phụ thuộc số tiền hay ngày mua.</div>
+
+    <dl class="kv">
+      <dt>Sản phẩm</dt><dd>Hồ tiêu trắng 630 g/l</dd>
+      <dt>Trạng thái</dt><dd><span class="pill live">Đang chạy</span></dd>
+      <dt>Bắt đầu</dt><dd>18/10/2026 09:00</dd>
+      <dt>Kết thúc</dt><dd>25/10/2026 09:00 · đúng 168 giờ</dd>
+      <dt>Ngày chạy</dt><dd>còn 3 ngày</dd>
+      <dt>Lượt hiển thị</dt><dd>1.842</dd>
+      <dt>Lượt mở thẻ</dt><dd>37 · 2,0%</dd>
+      <dt>Giá gói</dt><dd>2.500.000 ₫ · đã ghi nhận</dd>
+    </dl>
+
+    <p style="margin-top:18px;font-size:13px;line-height:1.65;color:var(--slate-600)">Số liệu dùng để đối soát và để biết thẻ có được thấy không. Không dùng để tính tiền theo lượt bấm, vì chu kỳ mua nông sản kéo dài nhiều tháng.</p>
+  </div>
+  <footer>
+    <button class="btn ghost" onclick="closeAll()">Đóng</button>
+    <button class="btn ghost" onclick="alert('Bản dựng thử: gửi yêu cầu gia hạn thêm 168 giờ, chờ Vexim duyệt.')">Xin gia hạn</button>
+  </footer>
+</section>
+
+<script>
+  const scrim = document.getElementById('scrim');
+  function open(id){
+    document.querySelectorAll('.drawer').forEach(d => { d.classList.remove('on'); d.setAttribute('aria-hidden','true'); });
+    const el = document.getElementById(id);
+    el.classList.add('on'); el.setAttribute('aria-hidden','false');
+    scrim.classList.add('on');
+  }
+  function closeAll(){
+    document.querySelectorAll('.drawer').forEach(d => { d.classList.remove('on'); d.setAttribute('aria-hidden','true'); });
+    scrim.classList.remove('on');
+  }
+  function openReq(){ open('req'); }
+  function openDetail(){ open('detail'); }
+
+  function pickSurface(btn, kind){
+    btn.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed','false'));
+    btn.setAttribute('aria-pressed','true');
+    document.getElementById('surfaceHint').textContent = kind === 'home'
+      ? 'Vùng tài trợ trang chủ hiện hai thẻ, bể bán tám gói. Bể trang chủ tính chung cho cả trang, không theo danh mục.'
+      : 'Vùng tài trợ của Hồ tiêu hiện ba thẻ, bể bán mười hai gói. Mỗi gói nhận khoảng 252 lượt hiển thị mỗi tuần.';
+  }
+
+  function checkProduct(){
+    const blocked = document.getElementById('p').value === 'bad';
+    document.getElementById('warn').hidden = !blocked;
+  }
+
+  function submitReq(){
+    if (document.getElementById('p').value === 'bad'){
+      alert('Sản phẩm này chưa sẵn sàng gửi buyer nên chưa gửi được yêu cầu. Thêm ảnh hoặc catalogue trước.');
+      return;
+    }
+    closeAll();
+    alert('Bản dựng thử: yêu cầu đã gửi. Gói chỉ hiện với buyer sau khi Vexim duyệt.');
+  }
+
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(); });
+</script>
+</body>
+</html>

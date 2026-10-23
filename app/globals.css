@@ -169,6 +169,13 @@
   .btn-soft:hover:not(:disabled) {
     background: var(--color-brand-100);
   }
+  .btn-sm {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.5rem;
+    gap: 0.3rem;
+  }
   .btn-danger {
     background: #fff;
     color: #b91c1c;

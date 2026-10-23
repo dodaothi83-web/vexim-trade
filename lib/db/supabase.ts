@@ -25,6 +25,7 @@ import type {
   RfqAttachment,
   RfqMatch,
   SponsoredPush,
+  SponsoredPushDaily,
   SupplierRfqInvitation,
   SupplierNoticeRead,
   Supplier,
@@ -426,6 +427,49 @@ export const supabaseStore: DataStore = {
       fail("listSponsoredPushes", error);
     }
     return (data ?? []) as SponsoredPush[];
+  },
+  async listAllSponsoredPushes() {
+    const { data, error } = await must()
+      .from("sponsored_pushes")
+      .select("*")
+      .order("starts_at", { ascending: false });
+    // Không nuốt lỗi ở đây: màn quản trị cần phân biệt "chưa bán gói nào" với
+    // "chưa áp migration". Nuốt lỗi thì cả hai cùng ra danh sách rỗng.
+    if (error) fail("listAllSponsoredPushes", error);
+    return (data ?? []) as SponsoredPush[];
+  },
+  async createSponsoredPush(input) {
+    const { data, error } = await must()
+      .from("sponsored_pushes")
+      .insert({ ...input, status: input.status ?? "draft" })
+      .select()
+      .single();
+    if (error) fail("createSponsoredPush", error);
+    return data as SponsoredPush;
+  },
+  async updateSponsoredPush(id, patch) {
+    const { data, error } = await must()
+      .from("sponsored_pushes")
+      .update(patch)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateSponsoredPush", error);
+    return data as SponsoredPush;
+  },
+  async deleteSponsoredPush(id) {
+    const { error } = await must().from("sponsored_pushes").delete().eq("id", id);
+    if (error) fail("deleteSponsoredPush", error);
+  },
+  async listSponsoredPushDaily(pushIds, sinceDay) {
+    if (!pushIds.length) return [];
+    const { data, error } = await must()
+      .from("sponsored_push_daily")
+      .select("*")
+      .in("push_id", pushIds)
+      .gte("day", sinceDay);
+    if (error) fail("listSponsoredPushDaily", error);
+    return (data ?? []) as SponsoredPushDaily[];
   },
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
     const column =
