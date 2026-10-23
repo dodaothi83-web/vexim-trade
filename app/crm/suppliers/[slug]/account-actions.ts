@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { guard, getSession } from "@/lib/auth/session";
-import { createSupabaseUser, handOverSupabaseAccount } from "@/lib/auth/authenticate";
+import { confirmSupabaseEmail, createSupabaseUser, handOverSupabaseAccount } from "@/lib/auth/authenticate";
 import { passwordProblem } from "@/lib/auth/password";
 import { provisionSupplierAccount } from "@/lib/supplier-portal/provision-account";
 import { handOverSupplierAccount } from "@/lib/supplier-portal/handover-account";
@@ -37,7 +37,7 @@ export async function provisionSupplierAccountAction(form: FormData): Promise<Re
       store,
       id,
       { email, name, tempSecret },
-      { createAuthUser: createSupabaseUser, validatePassword: passwordProblem },
+      { createAuthUser: createSupabaseUser, validatePassword: passwordProblem, confirmAuthUser: confirmSupabaseEmail },
     );
     await store.addAuditLog({
       actor_id: session.uid, actor_email: session.email,

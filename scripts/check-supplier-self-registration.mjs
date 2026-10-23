@@ -65,7 +65,7 @@ const store = {
   deleteSupplier: async (id) => { state.suppliers = state.suppliers.filter((s) => s.id !== id); state.reviews = state.reviews.filter((r) => r.supplier_id !== id); state.requests = state.requests.filter((r) => r.supplier_id !== id); },
 };
 const auth = { auth: {
-  signUp: async ({ options }) => { state.authCalls++; state.lastRedirect = options.emailRedirectTo; return { data: { user: { id: 'auth-1', identities: [{ id: 'identity' }], email_confirmed_at: state.confirmed ? 'now' : null }, session: state.confirmed ? {} : null }, error: null }; },
+  signUp: async ({ options }) => { state.authCalls++; state.lastRedirect = options?.emailRedirectTo ?? null; return { data: { user: { id: 'auth-1', identities: [{ id: 'identity' }], email_confirmed_at: state.confirmed ? 'now' : null }, session: state.confirmed ? {} : null }, error: null }; },
   admin: { deleteUser: async () => { state.deletedAuth++; } },
 } };
 const profileInput = load('../lib/supplier-portal/profile-input.ts', {});
@@ -111,23 +111,44 @@ function accountForm(email = 'owner@example.com') {
   for (const [key, value] of Object.entries({ name: 'Mr A', email, password: 'password123', consent: 'yes' })) fd.set(key, value);
   return fd;
 }
+// Đường dẫn xác nhận không an toàn chỉ là lỗi khi Supabase thật sự phải gửi thư.
+// Tài khoản vừa tạo không được giữ lại, để không có bản ghi nửa vời.
 for (const bad of ['http://localhost:3000/login', 'https://localhost:3000/login', 'https://localhost./login', 'https://127.0.0.2/login', 'https://[::1]/login', 'http://example.com/login', 'https://example.com/other', 'https://example.com/login?next=//evil.com']) {
   signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL = bad;
+  const before = { auth: state.authCalls, deleted: state.deletedAuth, users: state.users.length };
   assert.equal((await post(accountForm())).status, 503, `Deployed signup must reject unsafe confirmation redirect: ${bad}`);
-  assert.equal(state.authCalls, 0, 'Invalid redirect cannot send confirmation email or create Auth user');
+  assert.equal(state.authCalls, before.auth + 1, 'Supabase still gets asked; only the unsafe redirect blocks the account');
+  assert.equal(state.deletedAuth, before.deleted + 1, 'Unconfirmed Auth identity is removed instead of left behind');
+  assert.equal(state.users.length, before.users, 'No app_users row is created without a usable login');
 }
 signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL = 'https://staging.example.com/login';
 state.schemaMissing = true;
+const authCallsBeforeSchema = state.authCalls;
 assert.equal((await post(accountForm())).status, 503);
-assert.equal(state.authCalls, 0, 'Missing migration must not create Auth identity');
+assert.equal(state.authCalls, authCallsBeforeSchema, 'Missing migration must not create Auth identity');
 state.schemaMissing = false;
 const weak = accountForm(); weak.set('password', '123');
 assert.equal((await post(weak)).status, 400);
-assert.equal(state.authCalls, 0);
+assert.equal(state.authCalls, authCallsBeforeSchema, 'A weak password never reaches Supabase');
+// Dự án Supabase đang tắt Confirm email: tài khoản dùng được ngay, không có thư.
+// Đường dẫn xác nhận hỏng cũng không còn là lỗi, vì không ai gửi thư nữa.
+signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL = 'http://localhost:3000/login';
 state.confirmed = true;
-assert.equal((await post(accountForm())).status, 503, 'Disabled email confirmation must fail closed');
-assert.equal(state.deletedAuth, 1);
+const deletedBeforeOpen = state.deletedAuth;
+const openSignup = await post(accountForm('mo@example.com'));
+assert.equal(openSignup.status, 200, 'Confirm email off must not break public signup');
+assert.equal(openSignup.data.emailVerification, 'not_required');
+assert.doesNotMatch(openSignup.data.message, /xác nhận email/, 'Lời nhắn không đòi mở hộp thư khi không có thư');
+assert.match(openSignup.data.message, /Đăng nhập ngay/, 'Lời nhắn nói rõ là vào được ngay');
+assert.equal(state.deletedAuth, deletedBeforeOpen, 'Tài khoản dùng được thì không bị xoá');
+assert.equal(state.users.at(-1).email, 'mo@example.com');
+assert.equal(state.users.at(-1).role, 'supplier');
+assert.equal(state.users.at(-1).supplier_id, null, 'Tắt xác minh vẫn không cấp quyền nhà cung cấp');
+assert.equal(state.audit.at(-1).after.email_confirmation_required, false, 'Nhật ký ghi rõ email chưa qua xác nhận');
+// Bỏ bản ghi thử này để các bước sau vẫn chạy trên đúng tài khoản đầu tiên.
+state.users = state.users.filter((u) => u.email !== 'mo@example.com');
 state.confirmed = false;
+signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL = 'https://staging.example.com/login';
 assert.equal((await post(accountForm())).status, 200);
 assert.equal(state.lastRedirect, 'https://staging.example.com/login', 'Staging confirmation URL must be passed to Supabase explicitly');
 delete signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL;
@@ -226,10 +247,11 @@ store.mode = 'local';
 assert.equal((await post(accountForm('other@example.com'))).status, 503, 'No local public signup');
 assert.equal((await submitProfile(form())).status, 503, 'No local public business form');
 store.mode = 'supabase';
+const deletedBeforeFailUser = state.deletedAuth;
 state.failUser = true;
 assert.equal((await post(accountForm('other@example.com'))).status, 503);
 assert.equal(state.suppliers.length, 1, 'Failed account creation does not create a supplier');
-assert.equal(state.deletedAuth, 2, 'Failed account creation cleans up unconfirmed Auth identity');
+assert.equal(state.deletedAuth, deletedBeforeFailUser + 1, 'Failed account creation cleans up the Auth identity');
 state.failUser = false;
 
 const authStore = { mode: 'local', getUserByEmail: async () => ({ ...owner, auth_provider: 'supabase', password_hash: 'legacy-hash' }) };

@@ -21,6 +21,11 @@ export interface ProvisionSupplierAccountDeps {
   createAuthUser(email: string, password: string): Promise<string | null>;
   /** Kiểm tra mật khẩu tạm; trả về mô tả lỗi hoặc null khi hợp lệ. */
   validatePassword(password: string): string | null;
+  /**
+   * Xác nhận email của tài khoản đã tự đăng ký nhưng chưa mở thư. Không truyền
+   * thì bỏ qua bước này (dùng cho nơi không có Supabase Auth).
+   */
+  confirmAuthUser?(email: string): Promise<boolean>;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -61,6 +66,14 @@ export async function provisionSupplierAccount(
     }
     if (existing.supplier_id) {
       throw new Error("Email này đã gắn với một nhà cung cấp khác. Mỗi tài khoản chỉ quản lý một doanh nghiệp.");
+    }
+    // Xác nhận email trước khi gắn: tài khoản tự đăng ký mà chưa mở thư thì gắn vào
+    // hồ sơ xong vẫn không đăng nhập được, và lỗi đó rất khó đoán cho nhân viên.
+    if (deps.confirmAuthUser) {
+      const confirmed = await deps.confirmAuthUser(existing.email);
+      if (!confirmed) {
+        throw new Error("Tài khoản này chưa xác nhận email và chưa xác nhận được bên Supabase Auth. Chưa gắn vào hồ sơ. Kiểm tra kết nối Supabase hoặc xác nhận email cho tài khoản trong Authentication → Users rồi thử lại.");
+      }
     }
     const claimed = await store.claimSupplierForUser(existing.id, supplierId);
     if (!claimed) throw new Error("Không gắn được tài khoản vào hồ sơ. Tải lại trang rồi thử lại.");

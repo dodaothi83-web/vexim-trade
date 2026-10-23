@@ -3,7 +3,20 @@
 ## Triển khai theo thứ tự
 
 1. Áp dụng migration xác minh, `20261017_supplier_self_registration.sql`, `20261017_supplier_dashboard.sql`, `20261017_supplier_onboarding_gate.sql`, rồi **`20261017_supplier_product_review.sql` và `20261017_supplier_category_proposals.sql` trước khi deploy mã mới** trên đúng Supabase project. Không chạy `schema.sql` trực tiếp lên production. Cột review sản phẩm mặc định `approved` để giữ trạng thái của sản phẩm nhân viên Vexim đã nhập trước đây; sản phẩm mới do NCC tự tạo luôn bắt đầu `draft`. Hồ sơ tài khoản tự đăng ký cũ được migration onboarding đưa vào `pending`, không tự mở quyền.
-2. Giữ service-role, Supabase Auth Confirm email ON và redirect `/login` trong allowlist, email xác nhận hoạt động, Supabase Storage/Resend thật. Admin Vexim phải tồn tại trước khi nhận đăng ký. Form đăng ký gửi thông báo nội bộ cho sourcing/admin sau khi lưu; nếu email gửi lỗi thì hồ sơ vẫn ở hàng chờ CRM.
+2. Giữ service-role, Supabase Storage/Resend thật, và chọn chế độ xác nhận email cho phù hợp (xem mục dưới). Khi bật xác nhận email thì cần redirect `/login` trong allowlist và email xác nhận hoạt động. Admin Vexim phải tồn tại trước khi nhận đăng ký. Form đăng ký gửi thông báo nội bộ cho sourcing/admin sau khi lưu; nếu email gửi lỗi thì hồ sơ vẫn ở hàng chờ CRM.
+
+### Xác nhận email: bật hay tắt trong Supabase
+
+Cài đặt nằm ở Supabase, mục Authentication → Providers → Email → **Confirm email**. Cả hai chế độ đều chạy được, đổi cài đặt là đổi hành vi, không phải sửa mã.
+
+- **Bật** (dùng khi mở đăng ký cho nhà cung cấp thật): Supabase gửi thư, tài khoản chưa xác nhận thì chưa đăng nhập được. App trả lời "Hãy xác nhận email…" và chặn đăng nhập bằng thông báo `email_not_confirmed`.
+- **Tắt** (tiện khi nội bộ chạy thử luồng đăng ký): không có thư nào, tài khoản dùng được ngay. App trả lời "Đăng nhập ngay…" và không đòi cấu hình redirect, vì không có thư để gửi.
+
+Điều không đổi giữa hai chế độ: tài khoản mới vẫn không có `supplier_id`, chưa có trang nhà cung cấp, không sản phẩm và không xem RFQ cho tới khi Vexim duyệt hồ sơ doanh nghiệp. Xác nhận email chỉ chứng minh người đăng ký mở được hộp thư, không phải hàng rào quyền.
+
+Nhật ký đăng ký ghi `email_confirmation_required` trong trường `after`, nên đọc lại biết tài khoản đó tạo trong lúc bật hay tắt xác nhận.
+
+Khi nhân viên gắn một tài khoản nhà cung cấp đã tự đăng ký vào hồ sơ, hệ thống xác nhận email cho tài khoản đó luôn. Tài khoản đang kẹt vì chưa mở thư sẽ dùng được ngay sau khi gắn, không phải vào dashboard Supabase sửa tay.
 
 ### Email xác nhận chuyển về localhost:3000
 
