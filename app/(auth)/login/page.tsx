@@ -86,7 +86,7 @@ export default async function LoginPage({
           ? needsSetup
             ? "Xác thực qua Supabase Auth. Hệ thống chưa có tài khoản nào — tạo quản trị viên qua /setup trước khi dùng Google."
             : "Đăng nhập chung qua Supabase Auth. Tài khoản NCC mới chỉ dùng được dashboard và form hồ sơ; Vexim phải duyệt trước khi mở các chức năng."
-          : "Chưa kết nối được Supabase — nhân viên có thể dùng mật khẩu nội bộ (dự phòng); tài khoản doanh nghiệp cần Supabase và email đã xác nhận."}
+          : "Chưa kết nối được Supabase — nhân viên có thể dùng mật khẩu nội bộ (dự phòng); tài khoản doanh nghiệp cần Supabase để đăng nhập."}
       </p>
 
       {reason && (
