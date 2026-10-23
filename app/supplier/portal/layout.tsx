@@ -6,6 +6,7 @@ import { getStore } from "@/lib/db";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { SupplierSidebar } from "@/components/supplier-sidebar";
+import { SupplierTopbar } from "@/components/supplier-topbar";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,8 @@ export default async function SupplierPortalLayout({ children }: { children: Rea
         publicUrl={publicUrl}
       />
       <div className="lg:pl-60">
-        <main className="mx-auto min-h-screen w-full max-w-[1200px] px-4 pt-16 pb-16 sm:px-6 lg:px-8 lg:pt-8">
+        <SupplierTopbar />
+        <main className="mx-auto min-h-screen w-full max-w-[1500px] px-4 pt-6 pb-16 sm:px-6 lg:px-8">
           {children}
         </main>
       </div>

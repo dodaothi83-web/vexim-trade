@@ -200,7 +200,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
               <Field label="Đơn vị giá"><input name="unit" className="input" maxLength={40} placeholder="Ví dụ: MT, kg, thùng" defaultValue={product?.unit ?? ""} disabled={locked} /></Field>
               <Field label="Giá có hiệu lực tới"><input name="price_valid_until" type="date" className="input" defaultValue={product?.price_valid_until ?? ""} disabled={locked} /></Field>
             </div>
-            <p className="mt-3 text-xs text-ink-600">Ô “Chứng nhận sản phẩm (tự khai)” không tạo nhãn xác minh. <Link href="/supplier/portal#documents" className="font-semibold text-brand-800 underline">Tải PDF/ảnh chứng nhận ở mục Giấy tờ L1 để AI tự quét đơn vị đứng tên &amp; ngày hết hạn</Link></p>
+            <p className="mt-3 text-xs text-ink-600">Ô “Chứng nhận sản phẩm (tự khai)” không tạo nhãn xác minh. <Link href="/supplier/portal/documents" className="font-semibold text-brand-800 underline">Tải PDF/ảnh chứng nhận ở mục Giấy tờ L1 để AI tự quét đơn vị đứng tên &amp; ngày hết hạn</Link></p>
             <div className="mt-4 rounded-xl border border-brand-200 bg-white p-4 text-sm text-ink-700">
               <label className="flex items-start gap-2 font-semibold"><input type="checkbox" name="price_publicly_visible" value="yes" defaultChecked={product?.price_publicly_visible ?? false} disabled={locked} className="mt-0.5 size-4 accent-brand-700" /> Cho phép công khai giá tham khảo của sản phẩm này khi đủ điều kiện</label>
               {product && <div className="mt-3 rounded-lg bg-ink-50 p-3 text-xs leading-5" role="status">

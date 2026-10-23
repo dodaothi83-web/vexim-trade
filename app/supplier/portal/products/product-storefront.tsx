@@ -40,7 +40,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished }
   return <div className="space-y-5">
     <header className="flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-[11px] font-bold tracking-[0.16em] text-brand-700 uppercase">Gian hàng của bạn · riêng tư</p>
+        <p className="text-[11px] font-bold tracking-[0.16em] text-brand-700 uppercase">Cổng nhà cung cấp · riêng tư</p>
         <h1 className="mt-1 text-[22px] leading-tight font-black tracking-tight text-ink-900">Sản phẩm của tôi</h1>
         <p className="mt-1 max-w-2xl text-[13px] text-ink-500">Tạo hồ sơ mặt hàng, thêm ảnh thực tế và gửi Vexim xét duyệt. Đây là khu vực riêng của bạn, không phải trang hiển thị cho buyer.</p>
       </div>

@@ -19,7 +19,7 @@ export default async function NewSupplierProductPage() {
   const categories = allowedSupplierCategories(access.supplier, options, linked);
   return <>
     <PageHeader
-      eyebrow="Hồ sơ sản phẩm mới"
+      eyebrow="Cổng nhà cung cấp · riêng tư"
       title="Thêm sản phẩm"
       sub="Bắt đầu từ tên và quy cách. Bạn có thể lưu bản nháp trước, bổ sung ảnh sau."
       breadcrumbs={<nav aria-label="Đường dẫn" className="flex items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="hover:text-brand-700">Sản phẩm</Link><ChevronRight className="size-3.5" aria-hidden="true" /><span className="font-semibold text-ink-800">Thêm mới</span></nav>}

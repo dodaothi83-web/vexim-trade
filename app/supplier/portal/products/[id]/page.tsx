@@ -27,7 +27,7 @@ export default async function OwnProductPage({ params }: { params: Promise<{ id:
   const categories = allowedSupplierCategories(access.supplier, options, linked);
   return <>
     <PageHeader
-      eyebrow="Chỉnh sửa sản phẩm"
+      eyebrow="Cổng nhà cung cấp · riêng tư"
       title={product.name}
       sub="Hoàn thiện thông tin, kiểm tra tệp đã tải và theo dõi phản hồi của Vexim."
       breadcrumbs={<nav aria-label="Đường dẫn" className="flex min-w-0 items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="shrink-0 hover:text-brand-700">Sản phẩm</Link><ChevronRight className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate font-semibold text-ink-800">{product.name}</span></nav>}

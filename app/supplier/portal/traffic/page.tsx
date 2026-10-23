@@ -39,7 +39,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
 
   return <>
     <PageHeader
-      eyebrow="Gian hàng · số liệu riêng tư"
+      eyebrow="Cổng nhà cung cấp · riêng tư"
       title="Lượt xem gian hàng"
       sub="Theo dõi số lần buyer mở hồ sơ và trang chi tiết sản phẩm công khai của bạn."
       actions={live ? <Link href={`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`} target="_blank" rel="noopener noreferrer"

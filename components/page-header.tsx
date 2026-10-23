@@ -9,6 +9,7 @@ export function PageHeader({
 }: {
   title: string;
   /** Nhãn nhỏ phía trên tiêu đề, dùng cho các khu vực riêng tư như cổng nhà cung cấp. */
+
   eyebrow?: string;
   sub?: string;
   actions?: ReactNode;

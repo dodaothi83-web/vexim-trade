@@ -46,12 +46,18 @@ const user = { id: 'unlinked', email: 'new@example.com', role: 'supplier', is_ac
 let portalAccessCalls = 0;
 const portal = load('../app/supplier/portal/page.tsx', {
   'react/jsx-runtime': jsx, 'next/link': link, 'next/navigation': { redirect: () => { throw Error('unexpected redirect'); } },
-  'lucide-react': icons, '@/lib/auth/session': { requireSession: async () => user },
+  'lucide-react': icons,
+  '@/components/page-header': { PageHeader: ({ title, sub, eyebrow }) => React.createElement('header', null,
+    eyebrow ? React.createElement('p', null, eyebrow) : null, React.createElement('h1', null, title), sub ?? null) }, '@/lib/auth/session': { requireSession: async () => user },
   '@/app/auth-actions': { logoutAction: async () => {} },
   '@/lib/supplier-portal/access': { supplierAccountAccess: async () => ({ user, store: { listCategories: async () => [] } }),
     supplierPortalAccess: async () => { portalAccessCalls++; throw Error('unlinked account reached privileged access'); } },
   '@/lib/supplier-portal/onboarding': { canSubmitProfile: () => true, portalApproved: () => false },
-  '@/lib/supplier-portal/dashboard': { buildSupplierDashboard: () => { throw Error('RFQ dashboard accessed before approval'); } },
+  '@/lib/supplier-portal/dashboard': { buildSupplierRfqBoard: () => { throw Error('RFQ dashboard accessed before approval'); } },
+  '@/lib/certificate-service': { daysUntilExpiry: () => null },
+  '@/lib/db/migration-hints': { migrationHint: () => null },
+  './portal-ui': { Panel: () => null, Kpi: () => null, EmptyRow: () => null, LevelChip: () => null,
+    PortalSteps: () => null, VerifyRow: () => null, Info: () => null, date: () => '' },
   '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: [] },
   '@/lib/supplier-portal/product-view': { productReview: () => 'draft' },
   '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: () => [] },
@@ -63,7 +69,7 @@ const portal = load('../app/supplier/portal/page.tsx', {
   './notice-actions': { markSupplierNoticeReadAction: async () => {} },
 });
 const html = renderToStaticMarkup(await portal.default({}));
-assert.match(html, /Bảng điều khiển/);
+assert.match(html, /Tổng quan/);
 assert.match(html, /Bước 2\/2 · Xác minh doanh nghiệp/);
 assert.match(html, /Company profile form/);
 assert.match(html, /data-email="new@example.com"/);

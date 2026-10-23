@@ -93,7 +93,7 @@ export async function notifySupplierCertificateExpiry(input: {
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const name = (input.certificateName || "Chứng nhận").replace(/[\r\n]/g, " ").slice(0, 140);
-    const url = `${notificationOrigin()}/supplier/portal#documents`;
+    const url = `${notificationOrigin()}/supplier/portal/documents`;
     const title = `Chứng nhận sắp hết hạn (còn ${input.daysLeft} ngày): ${name}`;
     const explanation = `Chứng nhận “${name}” trên hồ sơ L1 của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang buyer. Vui lòng vào mục Giấy tờ L1 để tải bản gia hạn mới — AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên.`;
     const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Cập nhật giấy tờ L1 trên cổng NCC →</a></p>`;
@@ -186,13 +186,13 @@ export async function notifySupplierDecision(input: {
       onboarding_changes_requested: { title: "Vui lòng bổ sung hồ sơ doanh nghiệp", explanation: "Vexim đã xem hồ sơ và yêu cầu bạn bổ sung trước khi mở quyền cổng.", path: "/supplier/portal", showNote: true },
       product_approved: { title: `Đã kiểm tra nội dung sản phẩm: ${name}`, explanation: "Vexim đã xác nhận nội dung; sản phẩm chưa tự động sẵn sàng chia sẻ buyer hoặc công khai.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}` },
       product_changes_requested: { title: `Sản phẩm cần chỉnh sửa: ${name}`, explanation: "Vexim yêu cầu chỉnh sửa rồi gửi lại sản phẩm.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}`, showNote: true },
-      certificate_approved: { title: `Đã kiểm bản sao chứng nhận: ${name}`, explanation: "Vexim đã xét duyệt bản sao. Chứng nhận chưa được công bố; việc hiển thị công khai là quyết định riêng.", path: "/supplier/portal#documents" },
-      certificate_changes_requested: { title: `Chứng nhận cần bổ sung: ${name}`, explanation: "Vexim yêu cầu bổ sung thông tin chứng nhận trong mục Giấy tờ L1.", path: "/supplier/portal#documents", showNote: true },
-      certificate_rejected: { title: `Chứng nhận không được chấp thuận: ${name}`, explanation: "Vexim chưa thể chấp thuận chứng nhận này.", path: "/supplier/portal#documents", showNote: true },
-      certificate_published: { title: `Chứng nhận được phép hiển thị: ${name}`, explanation: "AI/Vexim đã quét và cho phép hiển thị nhãn chứng nhận (kèm trạng thái chính chủ/đơn vị đối tác và ngày hết hạn) nếu sản phẩm công khai và chứng nhận còn hạn. Bằng chứng nội bộ không được công khai.", path: "/supplier/portal#documents" },
-      certificate_withdrawn: { title: `Đã thu hồi hiển thị chứng nhận: ${name}`, explanation: "Vexim đã ngừng hiển thị nhãn chứng nhận trên trang buyer.", path: "/supplier/portal#documents" },
-      verification_approved: { title: `Đã duyệt đánh giá: ${name}`, explanation: "Chỉ đánh giá này được Vexim duyệt; không tự động xác nhận các đánh giá khác hoặc công khai hồ sơ.", path: "/supplier/portal#profile" },
-      verification_returned: { title: `Đánh giá cần bổ sung: ${name}`, explanation: "Vui lòng xem phản hồi và liên hệ nhân viên Vexim để bổ sung đúng đợt kiểm.", path: "/supplier/portal#profile", showNote: true },
+      certificate_approved: { title: `Đã kiểm bản sao chứng nhận: ${name}`, explanation: "Vexim đã xét duyệt bản sao. Chứng nhận chưa được công bố; việc hiển thị công khai là quyết định riêng.", path: "/supplier/portal/documents" },
+      certificate_changes_requested: { title: `Chứng nhận cần bổ sung: ${name}`, explanation: "Vexim yêu cầu bổ sung thông tin chứng nhận trong mục Giấy tờ L1.", path: "/supplier/portal/documents", showNote: true },
+      certificate_rejected: { title: `Chứng nhận không được chấp thuận: ${name}`, explanation: "Vexim chưa thể chấp thuận chứng nhận này.", path: "/supplier/portal/documents", showNote: true },
+      certificate_published: { title: `Chứng nhận được phép hiển thị: ${name}`, explanation: "AI/Vexim đã quét và cho phép hiển thị nhãn chứng nhận (kèm trạng thái chính chủ/đơn vị đối tác và ngày hết hạn) nếu sản phẩm công khai và chứng nhận còn hạn. Bằng chứng nội bộ không được công khai.", path: "/supplier/portal/documents" },
+      certificate_withdrawn: { title: `Đã thu hồi hiển thị chứng nhận: ${name}`, explanation: "Vexim đã ngừng hiển thị nhãn chứng nhận trên trang buyer.", path: "/supplier/portal/documents" },
+      verification_approved: { title: `Đã duyệt đánh giá: ${name}`, explanation: "Chỉ đánh giá này được Vexim duyệt; không tự động xác nhận các đánh giá khác hoặc công khai hồ sơ.", path: "/supplier/portal/profile" },
+      verification_returned: { title: `Đánh giá cần bổ sung: ${name}`, explanation: "Vui lòng xem phản hồi và liên hệ nhân viên Vexim để bổ sung đúng đợt kiểm.", path: "/supplier/portal/profile", showNote: true },
     };
     const item = config[input.decision];
     const url = `${notificationOrigin()}${item.path}`;

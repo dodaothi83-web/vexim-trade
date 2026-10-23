@@ -38,7 +38,7 @@ export default async function SupplierVerificationPage() {
     // thay vì để trang trắng. Người vận hành đọc log để biết file migration cần chạy.
     console.error(`[supplier-portal] chưa mở được hồ sơ tự gửi. ${migrationHint(error) ?? ""}`.trim(), error);
     return <>
-      <PageHeader eyebrow="Xác thực · riêng tư" title="Cổng xác thực L2 · L3" />
+      <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Cổng xác thực L2 · L3" />
       <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
         <h2 className="text-base font-bold">Chưa mở được phần tải bằng chứng</h2>
         <p className="mt-2">Đây là lỗi cấu hình phía Vexim, không phải lỗi tài khoản của bạn. Vexim đã nhận được ghi nhận tự động; bạn thử lại sau hoặc báo trực tiếp cho người phụ trách.</p>
@@ -53,7 +53,7 @@ export default async function SupplierVerificationPage() {
 
   return <>
     <PageHeader
-      eyebrow="Xác thực · riêng tư"
+      eyebrow="Cổng nhà cung cấp · riêng tư"
       title="Cổng xác thực L2 · L3"
       actions={<Link href="/supplier/portal" className="text-sm font-semibold text-brand-800 hover:underline">Về bảng điều khiển</Link>}
     />

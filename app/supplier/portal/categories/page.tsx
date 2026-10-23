@@ -18,7 +18,7 @@ export default async function SupplierCategoriesPage() {
   const allowed = allowedSupplierCategories(access.supplier, options, linked).map((c) => c.slug);
   return <>
     <PageHeader
-      eyebrow="Gian hàng · riêng tư"
+      eyebrow="Cổng nhà cung cấp · riêng tư"
       title="Danh mục kinh doanh"
       sub="Chọn từ danh mục Vexim đã mở. Sau đó sản phẩm của bạn chỉ được chọn trong phạm vi này. Thêm danh mục không tự công khai gian hàng hoặc duyệt sản phẩm."
     />

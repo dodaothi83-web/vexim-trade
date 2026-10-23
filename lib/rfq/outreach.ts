@@ -409,11 +409,11 @@ export async function notifySelectedSupplier(rfq: Rfq, match: RfqMatch, actorId:
       const subject = `[${rfq.code}] Vexim đã chọn hồ sơ của bạn`;
       const body = `<p>Vexim đã chọn hồ sơ chào giá cho yêu cầu <strong>${escapeHtml(rfq.code)}</strong>. Chúng tôi sẽ liên hệ để thống nhất bước tiếp theo.</p>
         <p>Thông tin buyer chưa được chia sẻ trong email này. Vui lòng tiếp tục trao đổi qua Vexim.</p>
-        <p><a href="${SITE_URL}/supplier/portal#rfqs">Xem RFQ trong cổng NCC →</a></p>`;
+        <p><a href="${SITE_URL}/supplier/portal/rfqs">Xem RFQ trong cổng NCC →</a></p>`;
       const delivery = await transport({ to: [supplier.email], from: sender.header,
         replyTo: supplierReplyAddress(rfq.code, match.id), subject,
         html: wrapPlainEmail({ title: escapeHtml(subject), body }),
-        text: `${subject}\nVexim sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin buyer.\n${SITE_URL}/supplier/portal#rfqs`,
+        text: `${subject}\nVexim sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin buyer.\n${SITE_URL}/supplier/portal/rfqs`,
         headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Match": match.id, "X-Vexim-Anonymous": "1" } });
       if (delivery.ok && delivery.status === "sent") email = "sent";
       else console.warn("[rfq] supplier selection email not sent; portal status saved", delivery.error ?? delivery.status);

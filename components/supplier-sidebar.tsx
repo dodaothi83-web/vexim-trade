@@ -5,9 +5,8 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowUpRight,
-  Bell,
+  Building2,
   ChartNoAxesColumn,
-  ClipboardCheck,
   FileText,
   FolderTree,
   LayoutDashboard,
@@ -34,7 +33,7 @@ const NAV: {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
-  group: "shop" | "verify" | "support";
+  group: "shop" | "work" | "verify" | "account";
   /** Chỉ hiện khi cổng đã được Vexim mở quyền. */
   needsApproval?: boolean;
 }[] = [
@@ -42,17 +41,17 @@ const NAV: {
   { href: "/supplier/portal/products", label: "Sản phẩm", icon: Package, group: "shop", needsApproval: true },
   { href: "/supplier/portal/categories", label: "Danh mục kinh doanh", icon: FolderTree, group: "shop", needsApproval: true },
   { href: "/supplier/portal/traffic", label: "Lượt xem gian hàng", icon: ChartNoAxesColumn, group: "shop", needsApproval: true },
+  { href: "/supplier/portal/rfqs", label: "RFQ & báo giá", icon: Mail, group: "work", needsApproval: true },
+  { href: "/supplier/portal/documents", label: "Giấy tờ & chứng nhận L1", icon: FileText, group: "verify", needsApproval: true },
   { href: "/supplier/portal/verification", label: "Xác thực nhà máy L2 · L3", icon: ShieldCheck, group: "verify", needsApproval: true },
-  { href: "/supplier/portal#documents", label: "Giấy tờ & chứng nhận L1", icon: FileText, group: "verify" },
-  { href: "/supplier/portal#rfqs", label: "RFQ Vexim chuyển", icon: Mail, group: "support", needsApproval: true },
-  { href: "/supplier/portal#notices", label: "Thông báo", icon: Bell, group: "support", needsApproval: true },
-  { href: "/supplier/portal#tasks", label: "Việc cần làm", icon: ClipboardCheck, group: "support", needsApproval: true },
+  { href: "/supplier/portal/profile", label: "Hồ sơ doanh nghiệp", icon: Building2, group: "account", needsApproval: true },
 ];
 
 const NAV_GROUPS = [
   { key: "shop", label: "GIAN HÀNG" },
+  { key: "work", label: "CÔNG VIỆC" },
   { key: "verify", label: "XÁC MINH" },
-  { key: "support", label: "VIỆC HẰNG NGÀY" },
+  { key: "account", label: "TÀI KHOẢN" },
 ] as const;
 
 export function SupplierSidebar({
@@ -70,11 +69,10 @@ export function SupplierSidebar({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  // Mục dạng neo (#documents) chỉ đánh dấu khi đang ở đúng trang tổng quan có neo đó.
-  const onPortal = pathname === "/supplier/portal";
-  const activeHref = NAV.map((item) => item.href.split("#")[0])
+  // Mỗi mục là một trang thật; mục dài nhất khớp tiền tố đường dẫn sẽ được chọn.
+  const activeHref = NAV.map((item) => item.href)
     .filter((href) => href !== "/supplier/portal" && (pathname === href || pathname.startsWith(`${href}/`)))
-    .sort((a, b) => b.length - a.length)[0] ?? (onPortal ? "/supplier/portal" : undefined);
+    .sort((a, b) => b.length - a.length)[0] ?? (pathname === "/supplier/portal" ? "/supplier/portal" : undefined);
 
   const body = (
     <>
@@ -96,7 +94,7 @@ export function SupplierSidebar({
               <div className="space-y-0.5">
                 {items.map((item) => {
                   const Icon = item.icon;
-                  const active = activeHref === item.href.split("#")[0] && !item.href.includes("#");
+                  const active = activeHref === item.href;
                   return (
                     <Link
                       key={item.href}
