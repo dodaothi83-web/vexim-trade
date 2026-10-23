@@ -19,6 +19,9 @@ import {
   arrangeSupplierProducts,
   shouldPromoteProductFeed,
   HOME_FEED_PER_PAGE,
+  HOME_FEED_PER_PAGE_WIDE,
+  HOME_FEED_WIDE_QUERY,
+  feedPerPage,
   HOME_FEED_PER_SUPPLIER,
   HOME_FEED_PRODUCTS,
   HOME_FEED_SUPPLIERS,
@@ -139,14 +142,17 @@ async function renderHome(offers) {
       PublicProductCard: ({ name }) => React.createElement("div", { "data-product": name }, name),
     },
     "@/components/home-product-feed": {
-      // Bản thay thế chỉ dựng trang đầu, đủ để kiểm thứ tự render của trang chủ.
-      HomeProductFeed: ({ items }) =>
-        React.createElement(
+      // Bản thay thế chỉ dựng trang đầu ở bề rộng màn hình lớn (tám thẻ), đủ để
+      // kiểm thứ tự render của trang chủ.
+      HomeProductFeed: ({ items }) => {
+        const size = feedPerPage(true);
+        return React.createElement(
           "div",
           {},
-          items.slice(0, 6).map((p) => React.createElement("div", { "data-product": p.name, key: p.id }, p.name)),
-          items.length > 6 ? React.createElement("p", { key: "pager" }, `1/${Math.ceil(items.length / 6)}`) : null,
-        ),
+          items.slice(0, size).map((p) => React.createElement("div", { "data-product": p.name, key: p.id }, p.name)),
+          items.length > size ? React.createElement("p", { key: "pager" }, `1/${Math.ceil(items.length / size)}`) : null,
+        );
+      },
     },
     "@/components/service-registration-section": { ServiceRegistrationSection: () => null },
     "@/components/cookie-consent": { CookieSettingsButton: () => null },
@@ -167,8 +173,8 @@ assert.ok(feedAt > -1, "A full feed renders the product section");
 assert.ok(categoriesAt > -1, "The category grid is still on the page");
 assert.ok(feedAt < categoriesAt, "With enough products the feed sits above the categories");
 assert.ok(full.includes("Featured Marketplace Offers"), "The promoted block keeps its label");
-assert.equal(full.match(/data-product=/g).length, 6, "The first page of a promoted feed holds six cards");
-assert.ok(full.includes("1/2"), "Eight offers are one page of six and a second page of two");
+assert.equal(full.match(/data-product=/g).length, 8, "Trang đầu ở màn rộng giữ đủ tám thẻ, đúng hai hàng bốn cột");
+assert.ok(!full.includes("1/"), "Tám sản phẩm vừa đúng một trang rộng, nên không có ô chuyển trang");
 
 /* Chưa đủ hàng: lưới sản phẩm vẫn hiện, nhưng nằm sau lưới danh mục. */
 const thin = await renderHome([offer("a1", "A"), offer("a2", "A")]);
@@ -190,16 +196,20 @@ const feedModule = compile("../components/home-product-feed.tsx", {
   react: React,
   "react/jsx-runtime": jsx,
   "lucide-react": new Proxy({}, { get: () => () => null }),
-  "@/lib/public/supplier-product-order": { HOME_FEED_PER_PAGE },
+  "@/lib/public/supplier-product-order": { HOME_FEED_PER_PAGE, HOME_FEED_WIDE_QUERY, feedPerPage },
   "@/components/public-product-card": {
     PublicProductCard: ({ name }) => React.createElement("div", { "data-product": name }, name),
   },
 });
 
-const renderFeed = (items) =>
-  renderToStaticMarkup(React.createElement(feedModule.HomeProductFeed, { items, isVi: false }));
+const renderFeed = (items, perPage) =>
+  renderToStaticMarkup(React.createElement(feedModule.HomeProductFeed, { items, perPage, isVi: false }));
 
-assert.equal(HOME_FEED_PER_PAGE, 6, "Six cards fill whole rows at two, three and four columns");
+assert.equal(HOME_FEED_PER_PAGE, 6, "Điện thoại hai cột và máy tính bảng ba cột: sáu thẻ là hai đến ba hàng đầy");
+assert.equal(HOME_FEED_PER_PAGE_WIDE, 8, "Màn rộng bốn cột: tám thẻ là hai hàng đầy");
+assert.equal(feedPerPage(false), 6, "Dưới 1024px dùng sáu thẻ");
+assert.equal(feedPerPage(true), 8, "Từ 1024px dùng tám thẻ");
+assert.equal(HOME_FEED_WIDE_QUERY, "(min-width: 1024px)", "Mốc bốn cột khớp với lg: của lưới");
 
 const nineOffers = Array.from({ length: 9 }, (_, i) => offer(`n${i}`, `S${i}`));
 const firstOfTwo = renderFeed(nineOffers);
@@ -214,6 +224,13 @@ assert.ok(!singlePage.includes("<nav"), "Six products fill exactly one page, so 
 
 const twentyOffers = Array.from({ length: 20 }, (_, i) => offer(`w${i}`, `U${i}`));
 assert.ok(renderFeed(twentyOffers).includes("1/4"), "Twenty products split into four pages of six");
+
+/* Màn rộng: mỗi trang tám thẻ, và trang đầu không còn hàng lẻ. */
+const wideFirst = renderFeed(Array.from({ length: 22 }, (_, i) => offer(`x${i}`, `V${i % 3}`)), 8);
+assert.equal(wideFirst.match(/data-product=/g).length, 8, "Trang đầu ở màn rộng đủ tám thẻ");
+assert.ok(wideFirst.includes("1/3"), "Hai mươi hai sản phẩm chia ba trang tám");
+const wideLast = feedModule.pageSlice(Array.from({ length: 22 }, (_, i) => ({ id: `y${i}` })), 3, 8);
+assert.equal(wideLast.shown.length, 6, "Trang cuối giữ phần còn lại, không bỏ sót sản phẩm nào");
 
 /* Bốn trang thật: đủ 24 thẻ thì mỗi trang đầy sáu, không trùng, không sót. */
 const twentyFour = Array.from({ length: 24 }, (_, i) => ({ id: `d${i}` }));

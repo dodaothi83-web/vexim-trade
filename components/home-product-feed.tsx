@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { PublicProductCard } from "@/components/public-product-card";
-import { HOME_FEED_PER_PAGE } from "@/lib/public/supplier-product-order";
+import { HOME_FEED_PER_PAGE, HOME_FEED_WIDE_QUERY, feedPerPage } from "@/lib/public/supplier-product-order";
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
 
 export type HomeFeedProduct = PublicCategoryProduct & { categorySlug: string };
@@ -56,11 +56,28 @@ export function nextAutoPage(current: number, pageCount: number): number {
 }
 
 /**
+ * Bề rộng màn hình có đủ bốn cột hay không, đọc qua matchMedia.
+ *
+ * Đọc bằng useSyncExternalStore để lần dựng đầu tiên ở trình duyệt dùng đúng
+ * getServerSnapshot (sáu thẻ, hai hàng ba), rồi mới đổi sang tám thẻ, hai hàng
+ * bốn. Nhờ vậy bản máy chủ và bản thuỷ hợp khớp nhau, và khối không cao thêm:
+ * sáu thẻ ba cột với tám thẻ bốn cột đều là hai hàng.
+ */
+function subscribeWide(onChange: () => void): () => void {
+  const query = window.matchMedia(HOME_FEED_WIDE_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+const readWide = () => window.matchMedia(HOME_FEED_WIDE_QUERY).matches;
+const serverWide = () => false;
+
+/**
  * Lưới sản phẩm trang chủ, chia trang ngay trên trình duyệt.
  *
  * Vì sao không để trang chủ dài ra: đây là mặt tiền mời nhà cung cấp, không phải
- * trang danh sách. Sáu thẻ đủ để thấy sàn có hàng thật, phần còn lại nằm ở trang
- * sau với một ô chuyển trang nhỏ.
+ * trang danh sách. Mỗi trang giữ hai đến ba hàng thẻ, phần còn lại nằm ở trang sau
+ * với một ô chuyển trang nhỏ.
  *
  * Vì sao không đổi URL theo trang: mỗi số trang thành một địa chỉ riêng là thêm
  * một bản gần giống của cùng một trang cho máy tìm kiếm phải xử lý, trong khi
@@ -70,13 +87,16 @@ export function nextAutoPage(current: number, pageCount: number): number {
  */
 export function HomeProductFeed({
   items,
-  perPage = HOME_FEED_PER_PAGE,
+  perPage,
   isVi = false,
 }: {
   items: HomeFeedProduct[];
+  /** Ép số thẻ mỗi trang; bỏ trống thì tính theo bề rộng màn hình. */
   perPage?: number;
   isVi?: boolean;
 }) {
+  const wide = useSyncExternalStore(subscribeWide, readWide, serverWide);
+  const size = perPage ?? feedPerPage(wide);
   const [page, setPage] = useState(1);
   const [seen, setSeen] = useState(false);
   const [interacted, setInteracted] = useState(false);
@@ -86,7 +106,9 @@ export function HomeProductFeed({
   const listRef = useRef<HTMLUListElement>(null);
   const scrollWanted = useRef(false);
   // Dữ liệu đổi trong lúc đang xem thì kẹp lại, không để rơi vào trang rỗng.
-  const { shown, current, pageCount } = pageSlice(items, page, perPage);
+  // Đổi cỡ màn hình thì số thẻ mỗi trang đổi theo; pageSlice tự kẹp số trang,
+  // nên không rơi vào trang rỗng khi số trang ít đi.
+  const { shown, current, pageCount } = pageSlice(items, page, size);
   const autoAdvance = autoAdvanceAllowed({
     pageCount,
     seen,
@@ -156,7 +178,12 @@ export function HomeProductFeed({
     <>
       <ul
         ref={listRef}
-        className="mt-6 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3"
+        // Cột thứ tư chỉ bật khi trình duyệt xác nhận màn đủ rộng, cùng lúc với
+        // việc nâng lên tám thẻ. Nhờ vậy bản dựng từ máy chủ (sáu thẻ) xếp hai hàng
+        // ba, không bao giờ lộ một hàng bốn thẻ cộng hai thẻ lẻ trước khi thuỷ hợp.
+        className={`mt-6 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3${
+          wide ? " lg:grid-cols-4" : ""
+        }`}
       >
         {shown.map((p) => (
           <li key={p.id} className="min-w-0">
