@@ -18,6 +18,7 @@ import { createRequire } from "node:module";
 import {
   arrangeSupplierProducts,
   shouldPromoteProductFeed,
+  HOME_FEED_PER_PAGE,
   HOME_FEED_PER_SUPPLIER,
   HOME_FEED_PRODUCTS,
   HOME_FEED_SUPPLIERS,
@@ -129,12 +130,22 @@ async function renderHome(offers) {
     "@/lib/public/supplier-product-order": {
       arrangeSupplierProducts,
       shouldPromoteProductFeed,
+      HOME_FEED_PER_PAGE,
       HOME_FEED_PER_SUPPLIER,
     },
     "@/lib/public/popular-searches": { buildPopularSearches: () => [] },
     "@/lib/public/meta-copy": { HOME_HERO_LINE: "Verified Vietnamese suppliers" },
     "@/components/public-product-card": {
       PublicProductCard: ({ name }) => React.createElement("div", { "data-product": name }, name),
+    },
+    "@/components/home-product-feed": {
+      // Bản thay thế chỉ dựng trang đầu, đủ để kiểm thứ tự render của trang chủ.
+      HomeProductFeed: ({ items }) =>
+        React.createElement(
+          "div",
+          {},
+          items.slice(0, 8).map((p) => React.createElement("div", { "data-product": p.name, key: p.id }, p.name)),
+        ),
     },
     "@/components/service-registration-section": { ServiceRegistrationSection: () => null },
     "@/components/cookie-consent": { CookieSettingsButton: () => null },
@@ -169,6 +180,37 @@ assert.deepEqual(thin.match(/data-product=/g), ["data-product=", "data-product="
 const empty = await renderHome([]);
 assert.ok(!empty.includes('aria-labelledby="home-products-title"'), "No products means no empty section at all");
 assert.ok(empty.includes('id="categories"'), "The category grid carries the page on its own");
+
+/* ---------------- 2b. Chia trang lưới sản phẩm ---------------- */
+
+const feedModule = compile("../components/home-product-feed.tsx", {
+  react: React,
+  "react/jsx-runtime": jsx,
+  "lucide-react": new Proxy({}, { get: () => () => null }),
+  "@/lib/public/supplier-product-order": { HOME_FEED_PER_PAGE },
+  "@/components/public-product-card": {
+    PublicProductCard: ({ name }) => React.createElement("div", { "data-product": name }, name),
+  },
+});
+
+const renderFeed = (items) =>
+  renderToStaticMarkup(React.createElement(feedModule.HomeProductFeed, { items, isVi: false }));
+
+assert.equal(HOME_FEED_PER_PAGE, 8, "Eight cards are a full grid on a wide screen");
+
+const nineOffers = Array.from({ length: 9 }, (_, i) => offer(`n${i}`, `S${i}`));
+const firstOfTwo = renderFeed(nineOffers);
+assert.equal(firstOfTwo.match(/data-product=/g).length, 8, "Only one page of cards is rendered at a time");
+assert.ok(firstOfTwo.includes("1/2"), "The counter reads page one of two");
+assert.match(firstOfTwo, /disabled="" aria-label="Previous page"/, "The previous button is inert on the first page");
+assert.ok(!firstOfTwo.includes('disabled="" aria-label="Next page"'), "The next button is live on the first page");
+
+const singlePage = renderFeed(Array.from({ length: 8 }, (_, i) => offer(`f${i}`, `T${i}`)));
+assert.equal(singlePage.match(/data-product=/g).length, 8);
+assert.ok(!singlePage.includes("<nav"), "Eight products need no pager at all");
+
+const twentyOffers = Array.from({ length: 20 }, (_, i) => offer(`w${i}`, `U${i}`));
+assert.ok(renderFeed(twentyOffers).includes("1/3"), "Twenty products split into three pages");
 
 /* ---------------- 3. Ô tìm kiếm vẫn trỏ vào lưới danh mục ---------------- */
 

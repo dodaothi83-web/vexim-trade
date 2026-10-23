@@ -53,6 +53,15 @@ export const HOME_FEED_SUPPLIERS = 3;
 export const HOME_FEED_PER_SUPPLIER = 2;
 
 /**
+ * Số thẻ mỗi trang của lưới sản phẩm trang chủ.
+ *
+ * Bằng số thẻ của một khung nhìn đầy đủ, nên trang đầu trông y như trước khi có
+ * phân trang, và mỗi lần bấm sang trang là một khung đầy chứ không phải một dải
+ * thẻ lẻ ở cuối.
+ */
+export const HOME_FEED_PER_PAGE = 8;
+
+/**
  * Có đủ hàng để đưa lưới sản phẩm lên trên lưới danh mục hay không.
  *
  * Xét trên danh sách đã áp giới hạn mỗi nhà cung cấp, vì đó mới là thứ buyer

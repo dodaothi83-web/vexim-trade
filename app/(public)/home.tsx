@@ -11,8 +11,8 @@ import {
 import { getStore } from "@/lib/db";
 import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
-import { arrangeSupplierProducts, shouldPromoteProductFeed, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
-import { PublicProductCard } from "@/components/public-product-card";
+import { arrangeSupplierProducts, shouldPromoteProductFeed, HOME_FEED_PER_PAGE, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
+import { HomeProductFeed } from "@/components/home-product-feed";
 import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
 import { CookieSettingsButton } from "@/components/cookie-consent";
 import { buildPopularSearches } from "@/lib/public/popular-searches";
@@ -213,7 +213,10 @@ export default async function HomeContent({
       offers.push({ ...p, categorySlug: category.slug });
     }
   }
-  const homeProducts = arrangeSupplierProducts(offers, HOME_FEED_PER_SUPPLIER).shown.slice(0, 8);
+  // Thứ tự được chốt ở máy chủ, rồi mới chia trang. Ngưỡng xét trên trang đầu,
+  // vì đó là thứ người mở trang chủ nhìn thấy.
+  const arrangedOffers = arrangeSupplierProducts(offers, HOME_FEED_PER_SUPPLIER).shown;
+  const homeProducts = arrangedOffers.slice(0, HOME_FEED_PER_PAGE);
   const promoteFeed = shouldPromoteProductFeed(homeProducts).promoted;
   const heroOf = (c: Category) => c.hero_image || FALLBACK_HERO;
 
@@ -281,24 +284,7 @@ export default async function HomeContent({
             {isVi ? "Xem tất cả danh mục →" : "Browse all categories →"}
           </a>
         </div>
-        <ul className="mt-6 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {homeProducts.map((p) => (
-            <li key={p.id} className="min-w-0">
-              <PublicProductCard
-                href={`/products/${encodeURIComponent(p.categorySlug)}/${encodeURIComponent(p.id)}`}
-                imagePath={p.cardImagePath ?? p.imagePaths[0]}
-                name={p.name}
-                moq={p.moq}
-                price={p.price}
-                fob={p.incoterm?.toUpperCase() === "FOB"}
-                leadTimeDays={p.leadTimeDays}
-                supplierName={p.supplierName}
-                supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
-                verificationSteps={p.verificationSteps}
-              />
-            </li>
-          ))}
-        </ul>
+        <HomeProductFeed items={arrangedOffers} isVi={isVi} />
       </div>
     </section>
   ) : null;
