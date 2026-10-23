@@ -76,10 +76,24 @@ const user = (over) => ({ id: 'u-x', email: 'x@example.com', name: null, role: '
 // Email đã tự đăng ký nhưng chưa gắn doanh nghiệp: gắn vào hồ sơ, không cần mật khẩu tạm.
 {
   const store = makeStore({ users: [user({ id: 'u-self', email: 'self@example.com' })] });
-  const result = await provisionSupplierAccount(store, SUPPLIER_ID, { email: 'self@example.com' }, deps);
+  const confirmed = [];
+  const result = await provisionSupplierAccount(store, SUPPLIER_ID, { email: 'self@example.com' },
+    { ...deps, confirmAuthUser: async (email) => { confirmed.push(email); return true; } });
   assert.equal(result.mode, 'linked');
   assert.equal(result.user.supplier_id, SUPPLIER_ID);
   assert.equal(store.state.created.length, 0, 'gắn tài khoản có sẵn thì không tạo tài khoản mới');
+  assert.equal(JSON.stringify(confirmed), JSON.stringify(['self@example.com']),
+    'xác nhận email trước khi gắn, để tài khoản chưa mở thư không bị gắn mà vẫn không đăng nhập được');
+}
+
+// Không xác nhận được email thì chưa gắn: tránh hồ sơ có tài khoản mà không ai đăng nhập được.
+{
+  const store = makeStore({ users: [user({ id: 'u-self', email: 'pending@example.com' })] });
+  await assert.rejects(
+    provisionSupplierAccount(store, SUPPLIER_ID, { email: 'pending@example.com' },
+      { ...deps, confirmAuthUser: async () => false }),
+    /chưa xác nhận được bên Supabase Auth/);
+  assert.equal(store.state.users[0].supplier_id, null, 'không gắn tài khoản khi chưa xác nhận được email');
 }
 
 // Các trường hợp phải chặn: tài khoản nội bộ, đã gắn NCC khác, đang tạm khoá.
@@ -140,4 +154,9 @@ assert.match(onboardingAction, /getUserBySupplierId/, 'duyệt mở cổng phả
 const usersPage = fs.readFileSync(new URL('../app/auth-actions.ts', import.meta.url), 'utf8');
 assert.match(usersPage, /Tài khoản cổng nhà cung cấp trong trang chi tiết nhà cung cấp/, 'luồng tạo tài khoản nội bộ phải trỏ về đúng nơi cấp tài khoản NCC');
 
-console.log('✅ Supplier account provisioning: create with temp password, link self-registered, duplicate/internal guards, Supabase rollback, CRM surface.');
+assert.match(action, /confirmAuthUser: confirmSupabaseEmail/, 'action cấp tài khoản phải nối bước xác nhận email cho tài khoản tự đăng ký');
+
+const authSource = fs.readFileSync(new URL('../lib/auth/authenticate.ts', import.meta.url), 'utf8');
+assert.match(authSource, /export async function confirmSupabaseEmail/, 'có hàm xác nhận email không gửi thư');
+
+console.log('✅ Supplier account provisioning: create with temp password, link self-registered with email confirmation, duplicate/internal guards, Supabase rollback, CRM surface.');

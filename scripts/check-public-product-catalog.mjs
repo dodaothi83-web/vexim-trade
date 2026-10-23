@@ -85,11 +85,13 @@ assert.match(productForm, /supplierPriceConsentCurrent\(supplier\)/, 'Explain th
 const catalog = readFileSync(new URL('../lib/public/product-catalog.ts', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8');
 const detail = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
-assert.match(detail, /withoutDirectContacts\(p\.description_detail\)/, 'Buyer detail must redact contacts in long plain-text description');
+assert.match(detail, /withoutDirectContacts\(enDetail\)/, 'Buyer detail must redact contacts in long plain-text description');
 assert.match(detail, /whitespace-pre-wrap/, 'Buyer detail retains line breaks without HTML injection');
 const media = readFileSync(new URL('../app/public-media/[...path]/route.ts', import.meta.url), 'utf8');
 assert.match(catalog, /p\.ready_for_buyer/);
 assert.match(catalog, /m\.audience === "buyer"/);
+assert.match(catalog, /resolveGrade\(\{/, 'Grade comes from the shared attribute-first resolver, not from the name');
+assert.match(catalog, /publicProductTitle\(p\)/, 'Public name is the composed display name, falling back to the supplier name');
 assert.match(page, /CategoryProductGrid/);
 assert.ok(!page.includes('SupplierCard'));
 assert.match(media, /asset\.audience !== "buyer"/);

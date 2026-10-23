@@ -6,10 +6,15 @@ import ts from 'typescript';
 import { createRequire } from 'node:module';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { arrangeSupplierProducts } from '../lib/public/supplier-product-order.ts';
+import { arrangeSupplierProducts, feedPerPage, HOME_FEED_PER_PAGE, HOME_FEED_WIDE_QUERY } from '../lib/public/supplier-product-order.ts';
 import { assignProductCategory } from '../lib/public/category-assignment.ts';
 import { productReadiness } from '../lib/media/readiness.ts';
 import { isSyntheticSupplier } from '../lib/public/supplier-seo.ts';
+import * as gradeResolution from '../lib/public/grade-resolution.ts';
+import * as displayName from '../lib/public/display-name.ts';
+import * as productAttributes from '../lib/product-attributes.ts';
+import { HOME_HERO_LINE } from '../lib/public/meta-copy.ts';
+import { buildPopularSearches } from '../lib/public/popular-searches.ts';
 import { approvedPublicReviewSummaries, approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from '../lib/verification-status.ts';
 
 const compile = (path, mocks) => {
@@ -51,6 +56,8 @@ const media = products.map((p) => ({ owner_type: 'product', product_id: p.id, ki
 media.push({ ...media[0], id: 'cover-a0', storage_path: 'products/a0/cover.jpg', thumb_path: 'products/a0/cover-thumb.webp', sort_order: 2 });
 products[0].featured_media_id = 'cover-a0';
 products[0].incoterm = 'FOB';
+// Tên soạn sẵn cho buyer chỉ thay chữ hiển thị; tên gốc vẫn là chứng từ.
+products[0].display_name = 'Cashew kernels W320, Hanoi';
 const reviews = [
   { supplier_id: 'A', target_level: 1, status: 'approved' },
   { supplier_id: 'A', target_level: 2, status: 'submitted' },
@@ -92,6 +99,8 @@ const store = {
   listVerifications: async (id) => reviews.filter((r) => r.supplier_id === id),
 };
 const catalogMocks = { 'server-only': {}, '@/lib/db': { getStore: () => store },
+  '@/lib/public/grade-resolution': gradeResolution, '@/lib/public/display-name': displayName,
+  '@/lib/product-attributes': productAttributes,
   '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection, '@/lib/verification-status': { approvedVerificationSteps, approvedPublicReviewSummaries } };
 const catalog = compile('../lib/public/catalog.ts', catalogMocks);
 const productCatalog = compile('../lib/public/product-catalog.ts', {
@@ -111,6 +120,9 @@ assert.equal(JSON.stringify(productCatalog.shareableProductImages(photoSamples, 
   'An internal cover must never enter the public gallery');
 const cards = await productCatalog.listPublicCategoryProducts(category);
 assert.equal(cards.length, 13, 'Every ready offer from published suppliers gets its own card, without cross-category or test records');
+assert.equal(cards.find((p) => p.id === 'a0').name, 'Cashew kernels W320, Hanoi', 'The composed display name is what the buyer reads');
+assert.equal(cards.find((p) => p.id === 'a1').name, 'Cashew W320 lot 1', 'A product without a display name keeps the supplier name');
+assert.equal(products[0].name, 'Cashew W320 lot 0', 'The supplier name is never rewritten');
 suppliers.push({ id: 'synthetic', slug: 'vexim-test-supplier-do-not-contact', name: 'Test Supplier', status: 'published', is_demo: false,
   summary_i18n: { en: 'VEXIM TEST SUPPLIER - DO NOT CONTACT' } });
 products.push(mk('synthetic-product', 'synthetic', 'Cashew W320 sample', { spec: 'TEST ONLY — not a commercial specification' }));
@@ -193,16 +205,27 @@ assert.match(grid, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Category 
 assert.match(grid, /p\.verificationSteps\.includes\(verified/, 'Verification filter matches only the selected approved check');
 assert.match(grid, /<PublicProductCard/, 'Category listing uses the common offer card');
 const homePage = readFileSync(new URL('../app/(public)/home.tsx', import.meta.url), 'utf8');
+// Lưới thẻ trang chủ nằm trong components/home-product-feed.tsx từ đợt tách
+// lưới theo bề rộng màn hình; trang chỉ còn truyền danh sách đã sắp xếp vào đó.
+const homeFeed = readFileSync(new URL('../components/home-product-feed.tsx', import.meta.url), 'utf8');
 assert.match(homePage, /listPublicCategoryProducts\(category\)/, 'Home offers must come from the buyer-ready catalogue, not category tiles');
 assert.match(homePage, /p\.isDemo \|\| seen\.has\(p\.id\)/, 'Home excludes demos and duplicate listings');
-assert.match(homePage, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/);
-assert.match(homePage, /homeProducts\.map[\s\S]*?<PublicProductCard/, 'Home includes actual product offers');
+assert.match(homePage, /<HomeProductFeed items=\{arrangedOffers\}/, 'Home renders the offer feed from the arranged list');
+assert.match(homeFeed, /grid-cols-2[^"\n]*md:grid-cols-3/, 'Home offers sit in two or three columns before the wide layout');
+assert.match(homeFeed, /wide \? " lg:grid-cols-4" : ""/, 'The fourth column only appears when the browser confirms a wide screen');
+assert.match(homeFeed, /<PublicProductCard/, 'Home includes actual product offers');
 assert.match(profilePage, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Supplier product grid uses 2/3/4 columns');
+const verificationTierModule = compile('../components/verification-tier.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  'lucide-react': require('lucide-react'),
+  '@/lib/verification-status': { VERIFICATION_LABELS },
+});
 const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
   '@/components/product-verification-icons': { ProductVerificationIcons },
+  '@/components/verification-tier': verificationTierModule,
 });
 const cardProps = { href: '/products/cashew/a0', imagePath: 'products/a0/cover.jpg',
   name: 'Cashew W320 lot 0', moq: '1 MT', price: 'USD 7/kg', fob: true, leadTimeDays: 14,
@@ -217,15 +240,28 @@ assert.match(compactCard, /line-clamp-2/);
 assert.match(compactCard, /flex h-full min-w-0 flex-col/);
 assert.match(compactCard, /href="\/suppliers\/company-a"/, 'Supplier has an independent profile link');
 assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can open product details');
-assert.equal((compactCard.match(/<details/g) ?? []).length, 2, 'Only individually approved supplier checks are shown');
+assert.match(compactCard, /aria-label="Vexim checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
+assert.match(compactCard, /Level 2 · Advanced/, 'Card tier counts the approved checks, not a claimed level');
+assert.equal((compactCard.match(/<details/g) ?? []).length, 0, 'Card stays compact; the exact checks open on the detail page');
 const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, fob: false, verificationSteps: [] }));
 assert.match(privatePrice, /Reference price<\/dt><dd[^>]*>On request/);
-assert.doesNotMatch(privatePrice, /FOB reference|USD 7\/kg|Factory visited/);
+assert.doesNotMatch(privatePrice, /FOB reference|USD 7\/kg/, 'No price or FOB claim without consent');
+assert.match(privatePrice, /No Vexim checks approved yet/, 'A supplier with no approved check shows the empty tier, not a badge');
 const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
   ...cardProps, href: '/suppliers/company-a/products/a0', test: true,
 }));
 assert.match(testCard, /TEST · Not an offer|Test data · not a price/);
-assert.doesNotMatch(testCard, /USD 7\/kg|Documents checked|Delivery history reviewed|\/rfq/);
+assert.doesNotMatch(testCard, /USD 7\/kg|\/rfq/, 'A test card carries no price and no quote path');
+assert.match(testCard, /aria-label="No Vexim checks approved yet"/, 'A test card never claims a Vexim check');
+// Lưới thẻ trang chủ là một client component riêng; dựng nó ở đây để bản HTML
+// máy chủ vẫn được kiểm bằng thẻ thật, không phải bằng chuỗi giả.
+const { HomeProductFeed } = compile('../components/home-product-feed.tsx', {
+  react: require('react'),
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  'lucide-react': require('lucide-react'),
+  '@/components/public-product-card': { PublicProductCard },
+  '@/lib/public/supplier-product-order': { feedPerPage, HOME_FEED_PER_PAGE, HOME_FEED_WIDE_QUERY },
+});
 const { default: HomeContent } = compile('../app/(public)/home.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/image': { default: ({ src, alt, ...props }) => React.createElement('img', { src, alt, className: props.className }) },
@@ -240,10 +276,20 @@ const { default: HomeContent } = compile('../app/(public)/home.tsx', {
     HOME_FEED_PER_SUPPLIER: 2,
   },
   '@/components/public-product-card': { PublicProductCard },
+  '@/components/home-product-feed': { HomeProductFeed },
+  // Các khối quanh danh sách sản phẩm không thuộc phạm vi bộ kiểm này.
+  '@/components/service-registration-section': { ServiceRegistrationSection: () => null },
+  '@/components/cookie-consent': { CookieSettingsButton: () => null },
+  '@/components/brand-logo': { Logo: () => null },
+  '@/components/platform-legal-strip': { PlatformLegalStrip: () => null },
+  '@/components/social-links': { SocialLinks: () => null },
+  '@/lib/public/popular-searches': { buildPopularSearches },
+  '@/lib/public/meta-copy': { HOME_HERO_LINE },
 });
 const homeHtml = renderToStaticMarkup(await HomeContent());
 const offersHtml = homeHtml.match(/<section aria-labelledby="home-products-title"[\s\S]*?<\/section>/)?.[0] ?? '';
-assert.match(offersHtml, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/);
+assert.match(offersHtml, /grid-cols-2[^"\n]*md:grid-cols-3/, 'Server HTML keeps whole rows of three until the browser widens the layout');
+assert.doesNotMatch(offersHtml, /lg:grid-cols-4/, 'Server HTML never leaks a half-empty four-column row');
 assert.match(offersHtml, /href="\/products\/cashew\/a0"/);
 assert.match(offersHtml, /\/public-media\/products\/a0\/cover-thumb\.webp/, 'Home product cards send the smaller photo');
 assert.match(grid, /p\.cardImagePath \?\? p\.imagePaths\[0\]/, 'Category cards prefer approved thumbnails');

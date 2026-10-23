@@ -56,7 +56,9 @@ export default async function SponsoredPage({
 }) {
   const session = await requireSession();
   if (!hasPermission(session.role, "sponsored.view")) redirect("/crm/dashboard");
-  const canManage = session.role === "admin" && hasPermission(session.role, "sponsored.manage");
+  // Duyệt gói: admin và trưởng kiểm duyệt. Quyền lấy từ bảng phân quyền, không
+  // viết cứng tên vai trò ở đây để chỗ này không lệch với lib/auth/permissions.ts.
+  const canManage = hasPermission(session.role, "sponsored.manage");
   const sp = await searchParams;
   const flash = MESSAGES[sp.ok ?? ""] ?? MESSAGES[sp.err ?? ""] ?? null;
 

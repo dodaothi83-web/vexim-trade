@@ -42,8 +42,9 @@ export async function POST(request: Request) {
   if (email.length > 200 || !EMAIL.test(email)) return fail("Email không hợp lệ.");
   if (name.length < 2 || name.length > 120) return fail("Vui lòng nhập tên người đăng ký (2–120 ký tự).");
   if (password.length > 128 || passwordProblem(password)) return fail("Mật khẩu cần 8–128 ký tự, gồm cả chữ và số.");
+  // Đường dẫn xác nhận chỉ cần khi Supabase thật sự gửi thư. Dự án đang tắt
+  // Confirm email thì không có thư nào, nên cấu hình này không được chặn đăng ký.
   const emailRedirectTo = signupEmailRedirect();
-  if (!emailRedirectTo) return fail("URL xác nhận email không hợp lệ. Quản trị viên cần cấu hình đường dẫn HTTPS /login, không dùng localhost trên máy chủ.", 503);
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return fail("Chưa cấu hình Supabase cho đăng ký nhà cung cấp.", 503);
   const auth = getSupabaseAuthClient();
   const db = getSupabaseClient();
@@ -62,30 +63,46 @@ export async function POST(request: Request) {
   }
 
   let authId: string | null = null;
+  let needsEmailConfirmation = false;
   try {
+    // Chỉ truyền emailRedirectTo khi đường dẫn hợp lệ; để Supabase dùng Site URL
+    // (thường là localhost) là cách chắc chắn nhất để thư xác nhận đi sai chỗ.
     const { data, error } = await auth.auth.signUp({ email, password,
-      options: { emailRedirectTo } });
+      ...(emailRedirectTo ? { options: { emailRedirectTo } } : {}) });
     if (error || !data.user?.id || data.user.identities?.length === 0) {
       console.warn("[supplier-signup] Auth rejected signup", error?.message ?? "duplicate account");
       return fail("Không tạo được tài khoản. Nếu email đã dùng, hãy đăng nhập hoặc liên hệ Vexim.", 409);
     }
     authId = data.user.id;
-    if (data.session || data.user.email_confirmed_at) {
+    // Supabase trả session (hoặc user đã có email_confirmed_at) khi dự án đang tắt
+    // Confirm email. Đó là cấu hình hợp lệ để chạy thử: tài khoản dùng được ngay.
+    needsEmailConfirmation = !data.session && !data.user.email_confirmed_at;
+    if (needsEmailConfirmation && !emailRedirectTo) {
+      // Có gửi thư mà đường dẫn lại không an toàn → không giữ tài khoản nửa vời.
       await auth.auth.admin.deleteUser(authId);
-      return fail("Supabase phải bật Confirm email trước khi mở đăng ký.", 503);
+      return fail("URL xác nhận email không hợp lệ. Quản trị viên cần cấu hình đường dẫn HTTPS /login, không dùng localhost trên máy chủ.", 503);
     }
   } catch (error) {
     console.error("[supplier-signup] Auth unavailable", error);
-    return fail("Không gửi được email xác nhận. Chưa tạo tài khoản.", 503);
+    return fail("Không tạo được tài khoản. Vui lòng thử lại sau.", 503);
   }
 
   try {
     const user = await store.createUser({ email, name, role: "supplier", supplier_id: null,
       auth_provider: "supabase", password_hash: null, is_active: true });
     await store.addAuditLog({ actor_id: user.id, actor_email: email, entity: "user", entity_id: user.id,
-      action: "supplier.account_registered", before: null, after: { role: "supplier", supplier_id: null } })
+      action: "supplier.account_registered", before: null,
+      // Ghi lại email có được xác nhận hay không: đọc nhật ký là biết ngay tài khoản
+      // này tạo trong lúc dự án tắt Confirm email hay qua thư xác nhận.
+      after: { role: "supplier", supplier_id: null, email_confirmation_required: needsEmailConfirmation } })
       .catch((error) => console.error("[supplier-signup] audit log failed", error));
-    return NextResponse.json({ ok: true, message: "Tài khoản đã tạo. Hãy xác nhận email, đăng nhập ở trang chung rồi khai thông tin doanh nghiệp trong cổng nhà cung cấp." });
+    return NextResponse.json({
+      ok: true,
+      emailVerification: needsEmailConfirmation ? "required" : "not_required",
+      message: needsEmailConfirmation
+        ? "Tài khoản đã tạo. Hãy xác nhận email, đăng nhập ở trang chung rồi khai thông tin doanh nghiệp trong cổng nhà cung cấp."
+        : "Tài khoản đã tạo. Đăng nhập ngay bằng email và mật khẩu vừa đặt rồi khai thông tin doanh nghiệp trong cổng nhà cung cấp.",
+    });
   } catch (error) {
     console.error("[supplier-signup] app user failed", error);
     if (authId) await auth.auth.admin.deleteUser(authId).catch((e) => console.error("[supplier-signup] Auth cleanup failed", e));

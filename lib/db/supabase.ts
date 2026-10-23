@@ -171,6 +171,24 @@ function priceRangeMigrationRequired(): never {
   throw new Error("Chưa lưu giá đến: PostgREST chưa nhận diện cột supplier_products.ref_price_max (migration chưa áp dụng hoặc schema cache chưa cập nhật). Vexim cần kiểm tra đúng project, áp dụng migration 20261017_product_reference_price_range.sql nếu thiếu cột hoặc nạp lại schema cache nếu cột đã có; các thay đổi trong lần lưu này chưa được ghi.");
 }
 
+/** Same single-retry rule for the optional buyer display name column. */
+function missingDisplayNameColumn(error: { code?: string; message: string } | null): boolean {
+  return !!error && (error.code === "PGRST204" || /schema cache/i.test(error.message)) &&
+    /['"]display_name['"]/.test(error.message) && /supplier_products/.test(error.message);
+}
+
+function displayNameMigrationRequired(): never {
+  throw new Error("Chưa lưu tên hiển thị cho buyer: PostgREST chưa nhận diện cột supplier_products.display_name (migration chưa áp dụng hoặc schema cache chưa cập nhật). Vexim cần áp dụng migration 20261030_product_display_name.sql hoặc nạp lại schema cache; các thay đổi trong lần lưu này chưa được ghi.");
+}
+
+/** Bỏ cột tùy chọn khi nó đang rỗng, để cơ sở dữ liệu cũ vẫn lưu được phần còn lại. */
+function withoutEmptyDisplayName<T extends { display_name?: string | null }>(payload: T): T | null {
+  if (payload.display_name) return null;
+  const { display_name: _empty, ...rest } = payload;
+  void _empty;
+  return rest as T;
+}
+
 /** public_page_ready is derived on read; never send it back to PostgREST. */
 async function decorateCategoryReadiness(rows: Category[]): Promise<Category[]> {
   if (!rows.length) return rows;
@@ -287,6 +305,11 @@ export const supabaseStore: DataStore = {
     const write = (payload: Partial<SupplierProductInput>) => must()
       .from("supplier_products").insert(payload).select().single();
     let result = await write(input);
+    if (missingDisplayNameColumn(result.error)) {
+      const legacy = withoutEmptyDisplayName(input);
+      if (!legacy) displayNameMigrationRequired();
+      result = await write(legacy);
+    }
     if (missingProductPriceRangeColumn(result.error)) {
       if (input.ref_price_max != null) priceRangeMigrationRequired();
       // Old databases can still create a SINGLE-price product. Do not drop a real upper bound.
@@ -302,6 +325,11 @@ export const supabaseStore: DataStore = {
       .from("supplier_products").update(payload).eq("id", id).select().single();
     const fields = { ...cleanPatch(patch), updated_at: new Date().toISOString() };
     let result = await write(fields);
+    if (missingDisplayNameColumn(result.error)) {
+      const legacy = withoutEmptyDisplayName(fields);
+      if (!legacy) displayNameMigrationRequired();
+      result = await write(legacy);
+    }
     if (missingProductPriceRangeColumn(result.error)) {
       if (patch.ref_price_max != null) priceRangeMigrationRequired();
       // Retrying only a missing NULL preserves old single-price saves without weakening other gates.

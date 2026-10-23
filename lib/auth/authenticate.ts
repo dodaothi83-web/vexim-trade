@@ -205,7 +205,7 @@ export async function authenticate(email: string, password: string): Promise<Log
         if (raw === "email_not_confirmed") {
           return {
             ok: false,
-            message: "Email chưa được xác nhận trong Supabase. Xác nhận rồi đăng nhập lại.",
+            message: "Email chưa được xác nhận. Mở thư xác nhận trong hộp thư, hoặc nhờ Vexim xác nhận trong hồ sơ nhà cung cấp, rồi đăng nhập lại.",
           };
         }
         return { ok: false, message: WRONG_CREDENTIALS };
@@ -286,6 +286,52 @@ export async function updateSupabasePassword(email: string, password: string): P
     );
     if (error) return false;
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Xác nhận email cho một tài khoản Supabase Auth đang có, không gửi thư.
+ *
+ * Dùng khi nhân viên gắn một tài khoản nhà cung cấp đã tự đăng ký nhưng chưa mở
+ * thư xác nhận: hồ sơ đã đúng người, chỉ thiếu bước xác nhận nên tài khoản không
+ * đăng nhập được. Gọi lại nhiều lần vẫn an toàn.
+ */
+export async function confirmSupabaseEmail(email: string): Promise<boolean> {
+  const client = getSupabaseAuthClient();
+  if (!client) return false;
+  try {
+    const id = await findSupabaseUserId(email);
+    if (!id) return false;
+    const { error } = await client.auth.admin.updateUserById(id, { email_confirm: true });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Bàn giao tài khoản nhà cung cấp: đổi email đăng nhập và mật khẩu trong một lần
+ * gọi, kèm `email_confirm: true` để Supabase coi địa chỉ mới là đã xác nhận và
+ * không gửi thư xác nhận. Đây là thao tác của nhân viên Vexim khi gửi tài khoản
+ * cho doanh nghiệp, không phải đăng ký lại.
+ */
+export async function handOverSupabaseAccount(
+  currentEmail: string,
+  next: { email: string; password: string },
+): Promise<boolean> {
+  const client = getSupabaseAuthClient();
+  if (!client) return false;
+  try {
+    const id = await findSupabaseUserId(currentEmail);
+    if (!id) return false;
+    const { error } = await client.auth.admin.updateUserById(id, {
+      email: next.email.trim().toLowerCase(),
+      email_confirm: true,
+      password: next.password,
+    });
+    return !error;
   } catch {
     return false;
   }

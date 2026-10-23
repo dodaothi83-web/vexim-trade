@@ -150,6 +150,12 @@ export interface SupplierProduct {
   slug?: string | null;
   /** Tên theo ngôn ngữ */
   name_i18n?: I18nString;
+  /**
+   * Tên soạn sẵn cho buyer (mặt hàng, quy cách, tỉnh, tối đa hai chỉ tiêu phụ).
+   * Tên gốc ở trường `name` vẫn là chứng từ của nhà cung cấp và không bị ghi đè.
+   * Để trống thì trang buyer dùng tên gốc.
+   */
+  display_name?: string | null;
   /** Nhóm ngành: Nông sản, Thủy sản, Gỗ... — giữ text để tương thích code cũ, ưu tiên qua categories */
   category: string | null;
   description: string | null;

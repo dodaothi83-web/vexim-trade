@@ -6,6 +6,7 @@ import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/
 import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
+import { isPlaceholderDisplayName } from "@/lib/public/display-name";
 import { normalizeHarvest } from "@/lib/public/harvest";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
@@ -72,6 +73,13 @@ function str(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const t = v.trim();
   return t.length ? t : null;
+}
+
+/** Tên hiển thị rỗng hoặc là chỗ trống ("Chưa xác định") thì coi như chưa soạn. */
+function displayNameInput(v: unknown): string | null {
+  const text = str(v);
+  if (!text || isPlaceholderDisplayName(text)) return null;
+  return text.slice(0, 120);
 }
 
 function num(v: unknown): number | null {
@@ -1382,6 +1390,7 @@ function parseProductInput(
   return {
     supplier_id: str(raw.supplier_id) ?? "",
     name: str(raw.name) ?? "",
+    display_name: displayNameInput(raw.display_name),
     slug: str(raw.slug) || null,
     name_i18n: (raw.name_i18n && typeof raw.name_i18n === "object"
       ? (raw.name_i18n as Record<string, string>)

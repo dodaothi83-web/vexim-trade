@@ -53,13 +53,35 @@ export const HOME_FEED_SUPPLIERS = 3;
 export const HOME_FEED_PER_SUPPLIER = 2;
 
 /**
- * Số thẻ mỗi trang của lưới sản phẩm trang chủ.
+ * Số thẻ mỗi trang của lưới sản phẩm trang chủ, tính theo số cột đang hiển thị.
  *
- * Sáu là số chia hết cho cả hai, ba và bốn cột ở mọi cỡ màn hình, nên mỗi trang
- * xếp thành hàng đầy, không có thẻ lẻ ở cuối hàng. Đổi số này thì số trang đổi
- * theo, không phải sửa chỗ nào khác.
+ * Lưới chia hai cột ở điện thoại, ba cột từ 768px và bốn cột từ 1024px. Mỗi trang
+ * luôn xếp thành hai đến ba hàng đầy, không có thẻ lẻ ở cuối hàng:
+ *
+ *   dưới 768px   2 cột  6 thẻ  →  ba hàng
+ *   768–1023px   3 cột  6 thẻ  →  hai hàng
+ *   từ 1024px    4 cột  8 thẻ  →  hai hàng
+ *
+ * Màn rộng đặt tám thẻ vì đó cũng là số sản phẩm tối thiểu để lưới được đưa lên
+ * đầu trang (HOME_FEED_PRODUCTS): đủ hàng thì cả lưới vừa một trang, không phải
+ * bấm sang trang hai để xem nốt hai thẻ.
  */
 export const HOME_FEED_PER_PAGE = 6;
+
+/** Số thẻ mỗi trang khi lưới đã đủ bốn cột. */
+export const HOME_FEED_PER_PAGE_WIDE = 8;
+
+/** Mốc bốn cột, phải khớp với `lg:` của lưới trong components/home-product-feed.tsx. */
+export const HOME_FEED_WIDE_QUERY = "(min-width: 1024px)";
+
+/**
+ * Số thẻ mỗi trang theo bề rộng màn hình.
+ *
+ * Tách thành hàm thuần để kiểm được bằng số, không cần trình duyệt.
+ */
+export function feedPerPage(wide: boolean): number {
+  return wide ? HOME_FEED_PER_PAGE_WIDE : HOME_FEED_PER_PAGE;
+}
 
 /**
  * Có đủ hàng để đưa lưới sản phẩm lên trên lưới danh mục hay không.

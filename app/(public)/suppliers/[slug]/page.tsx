@@ -12,6 +12,7 @@ import { supplierExportMarketsDisplay, supplierMoqDisplay } from "@/lib/public/s
 import { getStore } from "@/lib/db";
 import { publicSupplierCertificates } from "@/lib/public/certificates";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
+import { publicProductTitle } from "@/lib/public/display-name";
 import { isSyntheticSupplier, safeJsonLd, supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
 import { getSession } from "@/lib/auth/session";
@@ -98,7 +99,7 @@ export default async function SupplierProfile({ params }: PageProps) {
       { "@type": "ItemList", name: `Products from ${name}`, itemListElement: s.main_products.flatMap((p, index) => {
         const category = productCategory(p);
         return category ? [{ "@type": "ListItem", position: index + 1,
-          item: { "@type": "Product", name: safe(p.name),
+          item: { "@type": "Product", name: safe(publicProductTitle(p)),
             url: `${SITE_URL}/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}`,
             ...(s.product_image_paths[p.id] ? { image: `${SITE_URL}${mediaUrl(s.product_image_paths[p.id])}` } : {}) } }] : [];
       }) },
@@ -266,7 +267,7 @@ export default async function SupplierProfile({ params }: PageProps) {
           if (!href) return null;
           return <li key={p.id} className="min-w-0">
             <PublicProductCard href={href} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
-              name={safe(p.name)} moq={safe(p.moq) || "On request"}
+              name={safe(publicProductTitle(p))} moq={safe(p.moq) || "On request"}
               price={synthetic ? null : publicProductPrice(p, s)} fob={p.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.lead_time_days ?? null} supplierName={name}
               supplierHref={`/suppliers/${encodeURIComponent(s.slug || s.id)}`}

@@ -45,36 +45,12 @@ import type {
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
 import { PREVIEW_PEPPER_HARVEST, previewCategories, previewSeedRows } from "@/lib/db/preview-seed";
-
-/**
- * Tài khoản quản trị của kho xem thử. Chỉ tồn tại trong data/local-db.json, không bao
- * giờ ghi lên Supabase — nhờ vậy mở được trang CRM khi máy chưa nối Supabase.
- *
- * Mật khẩu: vexim-demo-2026 (băm scrypt, cùng định dạng với lib/auth/password.ts).
- * Đổi hoặc bỏ tài khoản này trước khi chạy thật.
- */
-const PREVIEW_ADMIN: AppUserRecord = {
-  id: "user-local-admin",
-  email: "admin@veximtrade.local",
-  name: "Quản trị xem thử",
-  role: "admin",
-  supplier_id: null,
-  auth_provider: "local",
-  password_hash:
-    "scrypt$1badfe87eb98fc06bbdf63087060de28$d0b71185c3893b4a4f1ea3c9e812793eb2e328432f08e2c971943ab23f3fac9e17440d3cbf9368280c4f11ca0c043f246ee4e27c6edd6e5652e42e5ad81fa6a0",
-  signature_html: null,
-  sender_email: null,
-  phone: null,
-  is_active: true,
-  last_login_at: null,
-  created_at: "2026-01-01T00:00:00.000Z",
-  updated_at: "2026-01-01T00:00:00.000Z",
-};
 import { DEMO_SUPPLIERS } from "@/lib/db/demo-suppliers";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
 import {
   CASHEW_CATEGORY_CONFIG,
   DEFAULT_CATEGORY_CONFIG,
+  PEPPER_CATEGORY_CONFIG,
 } from "./category-seed";
 import type { DataStore } from "@/lib/db/types";
 
@@ -252,7 +228,7 @@ function seed(): LocalShape {
       active_on_homepage: true,
     },
     cashew: CASHEW_CATEGORY_CONFIG,
-    pepper: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/pepper.jpg", kicker: "FAQ / cleaned / ASTA", active_on_homepage: true },
+    pepper: PEPPER_CATEGORY_CONFIG,
     coffee: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/coffee.jpg", kicker: "Robusta & Arabica", active_on_homepage: true },
     cinnamon: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/cinnamon.jpg", kicker: "Sticks, split, powder", active_on_homepage: true },
     coconut: { ...DEFAULT_CATEGORY_CONFIG, hero_image: "/images/categories/coconut.jpg", kicker: "Desiccated, milk, oil", active_on_homepage: true },
@@ -337,7 +313,7 @@ function seed(): LocalShape {
   }
 
   return {
-    users: [PREVIEW_ADMIN],
+    users: [],
     buyers,
     prospects: [],
     prospect_activities: [],

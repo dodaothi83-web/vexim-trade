@@ -76,7 +76,7 @@ Mỗi nhà cung cấp hiện tối đa **ba thẻ** trong danh sách tự nhiên
 
 ## 8. Vận hành
 
-- Giai đoạn đầu: CRM tạo gói, admin Vexim duyệt bằng tay. Chưa mở tự phục vụ.
+- Giai đoạn đầu: CRM tạo gói, admin hoặc trưởng kiểm duyệt của Vexim duyệt bằng tay. Chưa mở tự phục vụ.
 - Chưa có thanh toán, hoá đơn, hoàn tiền tự động. Thu tiền ngoài hệ thống, ghi nhận bằng trạng thái đã duyệt.
 - Muốn tạm dừng một gói: đổi trạng thái sang `paused`, vùng đẩy tự bỏ gói đó ở lượt dựng kế tiếp.
 - Mở tự phục vụ khi đã chạy đủ số gói để biết tỷ lệ hiển thị thật, và khi có thanh toán cùng hàng chờ duyệt.
@@ -136,14 +136,14 @@ select public.record_sponsored_push_event(gen_random_uuid(), 'impression');
 select count(*) as daily_rows from public.sponsored_push_daily;  -- vẫn 0
 ```
 
-Muốn thấy vùng đẩy thật thì phải có một gói đã duyệt. Gói cần một admin đang hoạt động trong `app_users`, một sản phẩm đã publish thuộc đúng nhà cung cấp, và hai mốc thời gian cách nhau đúng 168 giờ. Nên thử trên project staging trước, vì gói đã tạo sẽ hiện với buyer ngay khi còn hạn.
+Muốn thấy vùng đẩy thật thì phải có một gói đã duyệt. Gói cần một admin hoặc trưởng kiểm duyệt đang hoạt động trong `app_users`, một sản phẩm đã publish thuộc đúng nhà cung cấp, và hai mốc thời gian cách nhau đúng 168 giờ. Nên thử trên project staging trước, vì gói đã tạo sẽ hiện với buyer ngay khi còn hạn.
 
 ```sql
 insert into public.sponsored_pushes
   (surface, category_slug, supplier_id, product_id, status, starts_at, ends_at, approved_by, approved_at, price_amount, price_currency)
 values
   ('category', 'pepper', '<supplier_id>', '<product_id>', 'approved',
-   now(), now() + interval '168 hours', '<admin_user_id>', now(), 2500000, 'VND');
+   now(), now() + interval '168 hours', '<approver_user_id>', now(), 2500000, 'VND');
 ```
 
 Trigger sẽ từ chối nếu thiếu một trong các điều kiện trên, và câu lỗi nói rõ thiếu cái gì. Đó là mục đích của nó, không phải trục trặc.

@@ -314,7 +314,7 @@ export function SponsoredBoard({
         <Drawer title="Tạo gói" onClose={() => setCreating(false)}>
           {candidates.length === 0 ? (
             <p className="text-[13px] leading-6 text-ink-600">
-              Chưa có sản phẩm nào đủ bốn điều kiện công khai để đẩy. Duyệt hồ sơ nhà cung cấp, ảnh sản phẩm và danh mục trước.
+              Chưa có sản phẩm nào đủ bốn điều kiện công khai.
             </p>
           ) : (
             <form action={createPushAction} className="space-y-4">

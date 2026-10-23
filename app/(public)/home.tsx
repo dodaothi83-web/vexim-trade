@@ -11,7 +11,7 @@ import {
 import { getStore } from "@/lib/db";
 import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
-import { arrangeSupplierProducts, shouldPromoteProductFeed, HOME_FEED_PER_PAGE, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
+import { arrangeSupplierProducts, shouldPromoteProductFeed, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
 import { HomeProductFeed } from "@/components/home-product-feed";
 import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
 import { CookieSettingsButton } from "@/components/cookie-consent";
@@ -218,7 +218,9 @@ export default async function HomeContent({
   // có phân trang thì người xem với tới được cả danh sách, còn giới hạn hai thẻ
   // mỗi nhà cung cấp mới là thứ quyết định lưới có phải catalogue của một công ty.
   const arrangedOffers = arrangeSupplierProducts(offers, HOME_FEED_PER_SUPPLIER).shown;
-  const homeProducts = arrangedOffers.slice(0, HOME_FEED_PER_PAGE);
+  // Điều kiện duy nhất để hiện khối: có ít nhất một sản phẩm. Số thẻ mỗi trang do
+  // HomeProductFeed tự tính theo bề rộng màn hình.
+  const hasFeedProducts = arrangedOffers.length > 0;
   const promoteFeed = shouldPromoteProductFeed(arrangedOffers).promoted;
   const heroOf = (c: Category) => c.hero_image || FALLBACK_HERO;
 
@@ -263,7 +265,7 @@ export default async function HomeContent({
    * khác nhau: trên lưới danh mục khi đã đủ hàng, dưới lưới danh mục khi chưa.
    * Xem shouldPromoteProductFeed trong lib/public/supplier-product-order.ts.
    */
-  const productFeedSection = homeProducts.length > 0 ? (
+  const productFeedSection = hasFeedProducts ? (
     <section aria-labelledby="home-products-title" className="border-t border-slate-200 bg-white py-14">
       <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
