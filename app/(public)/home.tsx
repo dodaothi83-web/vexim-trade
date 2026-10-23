@@ -213,11 +213,13 @@ export default async function HomeContent({
       offers.push({ ...p, categorySlug: category.slug });
     }
   }
-  // Thứ tự được chốt ở máy chủ, rồi mới chia trang. Ngưỡng xét trên trang đầu,
-  // vì đó là thứ người mở trang chủ nhìn thấy.
+  // Thứ tự được chốt ở máy chủ, rồi mới chia trang. Ngưỡng xét trên toàn bộ danh
+  // sách sau khi áp giới hạn mỗi nhà cung cấp, không phải trên trang đầu: từ khi
+  // có phân trang thì người xem với tới được cả danh sách, còn giới hạn hai thẻ
+  // mỗi nhà cung cấp mới là thứ quyết định lưới có phải catalogue của một công ty.
   const arrangedOffers = arrangeSupplierProducts(offers, HOME_FEED_PER_SUPPLIER).shown;
   const homeProducts = arrangedOffers.slice(0, HOME_FEED_PER_PAGE);
-  const promoteFeed = shouldPromoteProductFeed(homeProducts).promoted;
+  const promoteFeed = shouldPromoteProductFeed(arrangedOffers).promoted;
   const heroOf = (c: Category) => c.hero_image || FALLBACK_HERO;
 
   // Lọc danh mục theo thanh tìm kiếm (chỉ dựa trên dữ liệu thực tế từ CRM)

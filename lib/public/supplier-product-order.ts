@@ -55,11 +55,11 @@ export const HOME_FEED_PER_SUPPLIER = 2;
 /**
  * Số thẻ mỗi trang của lưới sản phẩm trang chủ.
  *
- * Bằng số thẻ của một khung nhìn đầy đủ, nên trang đầu trông y như trước khi có
- * phân trang, và mỗi lần bấm sang trang là một khung đầy chứ không phải một dải
- * thẻ lẻ ở cuối.
+ * Sáu là số chia hết cho cả hai, ba và bốn cột ở mọi cỡ màn hình, nên mỗi trang
+ * xếp thành hàng đầy, không có thẻ lẻ ở cuối hàng. Đổi số này thì số trang đổi
+ * theo, không phải sửa chỗ nào khác.
  */
-export const HOME_FEED_PER_PAGE = 8;
+export const HOME_FEED_PER_PAGE = 6;
 
 /**
  * Có đủ hàng để đưa lưới sản phẩm lên trên lưới danh mục hay không.

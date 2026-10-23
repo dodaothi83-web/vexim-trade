@@ -226,6 +226,13 @@ const SUPPLIERS: PreviewSupplier[] = [
   { slug: "binh-phuoc-pepper", name: "Binh Phuoc Pepper Cooperative", display: "Binh Phuoc Pepper", province: "Binh Phuoc", type: "cooperative", steps: [1], markets: "EU" },
   { slug: "lao-cai-cassia", name: "Lao Cai Cassia Mill", display: "Lao Cai Cassia", province: "Lao Cai", type: "manufacturer", steps: [1, 2], markets: "China, EU" },
   { slug: "cao-bang-cassia", name: "Cao Bang Cassia Cooperative", display: "Cao Bang Cassia", province: "Cao Bang", type: "cooperative", steps: [1, 2, 3], markets: "EU, India" },
+  // Thêm bốn nhà cung cấp để thử phân trang với nhiều hơn một trang. Mỗi nhà cung
+  // cấp hai mặt hàng, dưới giới hạn hai thẻ mỗi nhà cung cấp, nên cả tám đều lên
+  // được lưới trang chủ chứ không bị giới hạn che mất.
+  { slug: "binh-thuan-cashew", name: "Binh Thuan Cashew JSC", display: "Binh Thuan Cashew", province: "Binh Thuan", type: "manufacturer", steps: [1, 2], markets: "US, EU" },
+  { slug: "dak-nong-pepper", name: "Dak Nong Pepper Export Co.", display: "Dak Nong Pepper", province: "Dak Nong", type: "manufacturer", steps: [1, 2, 3], markets: "EU, US" },
+  { slug: "son-la-cassia", name: "Son La Cassia Cooperative", display: "Son La Cassia", province: "Son La", type: "cooperative", steps: [1, 2], markets: "China, EU" },
+  { slug: "bac-kan-anise", name: "Bac Kan Star Anise Mill", display: "Bac Kan Anise", province: "Bac Kan", type: "manufacturer", steps: [1, 2], markets: "EU, India" },
 ];
 
 interface PreviewProduct {
@@ -263,6 +270,14 @@ const PRODUCTS: PreviewProduct[] = [
   { supplier: "lao-cai-cassia", name: "Cassia whole bark, 4 mm", category: "cinnamon-star-anise", spec: "Tube 4 mm, oil 1.8% min, 25 kg bundle", grade: "Cassia whole", unit: "mt", price: 4050, moq: "5 MT", leadTime: 24, port: "Hai Phong" },
   { supplier: "lao-cai-cassia", name: "Cassia split, 5 mm", category: "cinnamon-star-anise", spec: "Tube 5 mm, moisture 13.5% max", grade: "Cassia split", unit: "mt", price: 3300, moq: "5 MT", leadTime: 24, port: "Hai Phong" },
   { supplier: "cao-bang-cassia", name: "Cassia whole bark, 2.5 mm", category: "cinnamon-star-anise", spec: "Tube 2.5 mm, oil 2.2% min, 25 kg bundle", grade: "Cassia whole", unit: "mt", price: 3950, moq: "3 MT", leadTime: 26, port: "Hai Phong" },
+  { supplier: "binh-thuan-cashew", name: "Cashew kernels W240, steam treated", category: "cashew-kernels", spec: "AFI W240, steam sterilised, 22.68 kg carton", grade: "W240", unit: "kg", price: 8.0, priceMax: 8.2, moq: "1 x 20ft", leadTime: 20, port: "Cat Lai" },
+  { supplier: "binh-thuan-cashew", name: "Cashew kernels W320, plain", category: "cashew-kernels", spec: "AFI W320, 22.68 kg carton", grade: "W320", unit: "kg", price: 7.3, moq: "5 MT", leadTime: 20, port: "Cat Lai" },
+  { supplier: "dak-nong-pepper", name: "Black pepper 570 g/L, cleaned", category: "pepper", spec: "570 g/L min, moisture 12.5% max, 25 kg PP", grade: "570 g/L", unit: "mt", price: 6780, moq: "5 MT", leadTime: 15, port: "Cat Lai" },
+  { supplier: "dak-nong-pepper", name: "Black pepper 550 g/L, FAQ", category: "pepper", spec: "550 g/L min, moisture 12.5% max, 25 kg PP", grade: "550 g/L", unit: "mt", price: 6580, moq: "5 MT", leadTime: 15, port: "Cat Lai" },
+  { supplier: "son-la-cassia", name: "Cassia whole bark, 3.5 mm", category: "cinnamon-star-anise", spec: "Tube 3.5 mm, oil 2% min, 25 kg bundle", grade: "Cassia whole", unit: "mt", price: 4120, moq: "5 MT", leadTime: 27, port: "Hai Phong" },
+  { supplier: "son-la-cassia", name: "Cassia split, 4 mm", category: "cinnamon-star-anise", spec: "Tube 4 mm, moisture 13.5% max", grade: "Cassia split", unit: "mt", price: 3260, moq: "5 MT", leadTime: 27, port: "Hai Phong" },
+  { supplier: "bac-kan-anise", name: "Star anise, autumn crop", category: "cinnamon-star-anise", spec: "8 points, oil 3.5% min, 10 kg carton", grade: "Star anise", unit: "mt", price: 9150, priceMax: 9400, moq: "3 MT", leadTime: 23, port: "Hai Phong" },
+  { supplier: "bac-kan-anise", name: "Star anise, spring crop", category: "cinnamon-star-anise", spec: "8 points, oil 3% min, 10 kg carton", grade: "Star anise", unit: "mt", price: 7850, moq: "3 MT", leadTime: 23, port: "Hai Phong" },
   { supplier: "lang-son-anise", name: "Star anise, autumn crop", category: "cinnamon-star-anise", spec: "8 points, oil 3.5% min, 10 kg carton", grade: "Star anise", unit: "mt", price: 8900, priceMax: 9400, moq: "3 MT", leadTime: 22, port: "Hai Phong" },
   { supplier: "lang-son-anise", name: "Star anise, spring crop", category: "cinnamon-star-anise", spec: "8 points, oil 3% min, 10 kg carton", grade: "Star anise", unit: "mt", price: 7600, moq: "3 MT", leadTime: 22, port: "Hai Phong" },
 ];

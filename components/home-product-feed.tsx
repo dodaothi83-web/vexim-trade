@@ -13,7 +13,7 @@ export type HomeFeedProduct = PublicCategoryProduct & { categorySlug: string };
  * Lưới sản phẩm trang chủ, chia trang ngay trên trình duyệt.
  *
  * Vì sao không để trang chủ dài ra: đây là mặt tiền mời nhà cung cấp, không phải
- * trang danh sách. Tám thẻ đủ để thấy sàn có hàng thật, phần còn lại nằm ở trang
+ * trang danh sách. Sáu thẻ đủ để thấy sàn có hàng thật, phần còn lại nằm ở trang
  * sau với một ô chuyển trang nhỏ.
  *
  * Vì sao không đổi URL theo trang: mỗi số trang thành một địa chỉ riêng là thêm

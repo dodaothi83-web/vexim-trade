@@ -144,7 +144,8 @@ async function renderHome(offers) {
         React.createElement(
           "div",
           {},
-          items.slice(0, 8).map((p) => React.createElement("div", { "data-product": p.name, key: p.id }, p.name)),
+          items.slice(0, 6).map((p) => React.createElement("div", { "data-product": p.name, key: p.id }, p.name)),
+          items.length > 6 ? React.createElement("p", { key: "pager" }, `1/${Math.ceil(items.length / 6)}`) : null,
         ),
     },
     "@/components/service-registration-section": { ServiceRegistrationSection: () => null },
@@ -166,6 +167,8 @@ assert.ok(feedAt > -1, "A full feed renders the product section");
 assert.ok(categoriesAt > -1, "The category grid is still on the page");
 assert.ok(feedAt < categoriesAt, "With enough products the feed sits above the categories");
 assert.ok(full.includes("Featured Marketplace Offers"), "The promoted block keeps its label");
+assert.equal(full.match(/data-product=/g).length, 6, "The first page of a promoted feed holds six cards");
+assert.ok(full.includes("1/2"), "Eight offers are one page of six and a second page of two");
 
 /* Chưa đủ hàng: lưới sản phẩm vẫn hiện, nhưng nằm sau lưới danh mục. */
 const thin = await renderHome([offer("a1", "A"), offer("a2", "A")]);
@@ -196,21 +199,21 @@ const feedModule = compile("../components/home-product-feed.tsx", {
 const renderFeed = (items) =>
   renderToStaticMarkup(React.createElement(feedModule.HomeProductFeed, { items, isVi: false }));
 
-assert.equal(HOME_FEED_PER_PAGE, 8, "Eight cards are a full grid on a wide screen");
+assert.equal(HOME_FEED_PER_PAGE, 6, "Six cards fill whole rows at two, three and four columns");
 
 const nineOffers = Array.from({ length: 9 }, (_, i) => offer(`n${i}`, `S${i}`));
 const firstOfTwo = renderFeed(nineOffers);
-assert.equal(firstOfTwo.match(/data-product=/g).length, 8, "Only one page of cards is rendered at a time");
+assert.equal(firstOfTwo.match(/data-product=/g).length, 6, "Only one page of cards is rendered at a time");
 assert.ok(firstOfTwo.includes("1/2"), "The counter reads page one of two");
 assert.match(firstOfTwo, /disabled="" aria-label="Previous page"/, "The previous button is inert on the first page");
 assert.ok(!firstOfTwo.includes('disabled="" aria-label="Next page"'), "The next button is live on the first page");
 
-const singlePage = renderFeed(Array.from({ length: 8 }, (_, i) => offer(`f${i}`, `T${i}`)));
-assert.equal(singlePage.match(/data-product=/g).length, 8);
-assert.ok(!singlePage.includes("<nav"), "Eight products need no pager at all");
+const singlePage = renderFeed(Array.from({ length: 6 }, (_, i) => offer(`f${i}`, `T${i}`)));
+assert.equal(singlePage.match(/data-product=/g).length, 6);
+assert.ok(!singlePage.includes("<nav"), "Six products fill exactly one page, so no pager is shown");
 
 const twentyOffers = Array.from({ length: 20 }, (_, i) => offer(`w${i}`, `U${i}`));
-assert.ok(renderFeed(twentyOffers).includes("1/3"), "Twenty products split into three pages");
+assert.ok(renderFeed(twentyOffers).includes("1/4"), "Twenty products split into four pages of six");
 
 /* ---------------- 3. Ô tìm kiếm vẫn trỏ vào lưới danh mục ---------------- */
 
@@ -224,6 +227,10 @@ assert.ok(
   "Search results are never redirected into the product feed",
 );
 assert.ok(home.includes("shouldPromoteProductFeed"), "The page asks the shared rule instead of counting locally");
+assert.ok(
+  home.includes("shouldPromoteProductFeed(arrangedOffers)"),
+  "The threshold counts the whole arranged list, not just the first page of the pager",
+);
 assert.ok(
   !/arrangeSupplierProducts\(offers, 2\)/.test(home),
   "The per-supplier cap comes from the shared constant, not a literal",
