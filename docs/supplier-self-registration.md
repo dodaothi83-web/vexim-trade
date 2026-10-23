@@ -86,6 +86,10 @@ Bảng này là hợp đồng vận hành. Thêm một sự kiện mới thì ph
 
 ## Giao diện gian hàng riêng
 
+- Cổng NCC dùng chung khung với CRM: `app/supplier/portal/layout.tsx` gắn menu trái cố định 240px (`components/supplier-sidebar.tsx`) cho mọi trang con, nội dung lệch phải đúng như `app/crm/layout.tsx`. Menu chỉ chứa mục của nhà cung cấp (Tổng quan, Sản phẩm, Danh mục kinh doanh, Lượt xem gian hàng, Xác thực L2 · L3, Giấy tờ L1, RFQ, Thông báo, Việc cần làm), không có đường dẫn CRM. Tài khoản chưa được mở cổng chỉ thấy Tổng quan và Giấy tờ L1 để nộp hồ sơ.
+- Khung trang chỉ đọc phiên, tên doanh nghiệp và `onboarding_status`; mọi dữ liệu nặng vẫn nằm trong từng trang. Vì vậy một bảng thiếu migration vẫn chỉ làm hỏng đúng phần đó, không trắng cả cổng. Màu dùng chung token `brand`/`ink` của CRM, không còn trộn teal/slate riêng.
+- Kiểm tra offline: `node scripts/check-supplier-portal-shell.mjs` (khung menu, mục đang chọn, ẩn mục chưa mở quyền, không lộ link CRM).
+
 - `/supplier/portal/products` là **khu quản lý sản phẩm riêng** bên trong cổng NCC, không phải trang public `/suppliers/[slug]` cho buyer. Từ dashboard NCC đi thẳng vào danh mục sản phẩm; danh mục có thẻ ảnh thật lấy qua API yêu cầu đăng nhập, thống kê trạng thái, tìm kiếm/lọc/sắp xếp và nút thêm sản phẩm. Ảnh của NCC/staff đã chia sẻ buyer mới xuất hiện trong gian hàng riêng; ảnh nội bộ do staff tải không gửi sang browser NCC.
 - `/supplier/portal/products/new` và `/supplier/portal/products/[id]` là luồng ba bước trên mobile và desktop: lưu nội dung → tải ảnh/catalogue (kéo thả hoặc chọn nhiều tệp, tải tuần tự) → gửi xét duyệt. Nội dung đã duyệt sửa sẽ cảnh báo trước khi quay về nháp; có thay đổi chưa lưu thì khóa tải tệp/gửi duyệt để tránh nộp dữ liệu cũ. Trạng thái `approved` chỉ nói **đã duyệt nội dung**, không có nghĩa trang NCC/sản phẩm đã công khai. Khả năng thấy tệp vẫn phụ thuộc tài khoản và `supplier_id` trong API.
 

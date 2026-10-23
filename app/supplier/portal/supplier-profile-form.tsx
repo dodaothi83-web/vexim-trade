@@ -229,9 +229,9 @@ export function SupplierProfileForm({ supplier, email, categories, hasCoreDoc = 
     <SupplierProfileFields supplier={supplier} email={email} categories={categories} step={step} />
     {stepError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">{stepError}</p>}
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-5">
-      <button type="button" onClick={() => goToStep(step - 1)} disabled={step === 1 || busy} className="btn btn-ghost disabled:cursor-not-allowed disabled:opacity-50">← Quay lại</button>
+      <button type="button" onClick={() => goToStep(step - 1)} disabled={step === 1 || busy} className="btn btn-ghost disabled:cursor-not-allowed disabled:opacity-50">Quay lại</button>
       {step < 3
-        ? <button type="button" onClick={nextStep} disabled={busy} className="btn btn-primary">Tiếp tục →</button>
+        ? <button type="button" onClick={nextStep} disabled={busy} className="btn btn-primary">Tiếp tục</button>
         : <button type="submit" disabled={busy || result?.ok} className="btn btn-primary">{busy ? "Đang nộp hồ sơ..." : "Gửi hồ sơ cho Vexim xác nhận"}</button>}
     </div>
     {result && <div role="status" className={`rounded-xl border p-4 text-sm ${result.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>

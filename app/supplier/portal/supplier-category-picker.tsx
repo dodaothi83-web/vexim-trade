@@ -18,7 +18,7 @@ export function SupplierCategoryPicker({ categories, initial = [] }: { categorie
       <option value="">{atLimit ? "Đã chọn đủ 5 danh mục" : available.length ? "Chọn danh mục…" : "Đã chọn hết danh mục đang mở"}</option>
       {available.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} · ` : ""}{c.label}</option>)}
     </select>
-    <div className="flex flex-wrap gap-2">{selected.map((slug) => <span key={slug} className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-950">
+    <div className="flex flex-wrap gap-2">{selected.map((slug) => <span key={slug} className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-900">
       {categories.find((c) => c.slug === slug)?.label ?? slug}
       <button type="button" aria-label={`Bỏ ${slug}`} className="text-rose-700 hover:underline" onClick={() => setSelected((old) => old.filter((item) => item !== slug))}>×</button>
       <input type="hidden" name="requested_category_slugs" value={slug} />

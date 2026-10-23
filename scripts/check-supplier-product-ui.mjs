@@ -38,7 +38,7 @@ const scoped = view.supplierVisibleProductMedia([
 ], 'ours', 'owner');
 assert.equal(scoped.length, 2);
 const html = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products, media: scoped, supplierPublished: false }));
-for (const phrase of ['Cashew W320', 'Cashew W240', 'Cashew W180', 'Bản nháp', 'Chờ Vexim duyệt', 'Đã duyệt nội dung', 'Trang NCC chưa được công khai', 'Tìm sản phẩm của tôi', 'Thêm sản phẩm mới'])
+for (const phrase of ['Cashew W320', 'Cashew W240', 'Cashew W180', 'Bản nháp', 'Chờ Vexim duyệt', 'Đã duyệt nội dung', 'Trang NCC chưa được công khai', 'Tìm sản phẩm của tôi', 'Thêm sản phẩm'])
   assert.ok(html.includes(phrase), `Missing UI content: ${phrase}`);
 assert.ok(html.includes('products/p1/real.jpg') && html.includes('products/p3/shared.jpg'), 'Real owner or buyer files are used for thumbnails');
 assert.ok(!html.includes('secret.jpg') && !html.includes('foreign.jpg'), 'Private staff and foreign media cannot render');

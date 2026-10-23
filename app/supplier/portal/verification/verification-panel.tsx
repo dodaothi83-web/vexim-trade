@@ -265,15 +265,15 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
 
   const progress = view.requiredTotal > 0 ? Math.min(100, Math.round((view.uploadedTotal / view.requiredTotal) * 100)) : 0;
 
-  return <section id={`level-${level}`} className="mt-8 scroll-mt-6 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-6">
+  return <section id={`level-${level}`} className="mt-8 scroll-mt-6 rounded-xl border border-ink-200 bg-ink-50/60 p-4 sm:p-6">
     <header className="flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-xl font-black text-slate-900">{level === 2 ? "L2 · Xác thực nhà máy (9 ảnh bắt buộc)" : "L3 · Lịch sử xuất khẩu"}</h2>
+      <h2 className="text-xl font-black text-ink-900">{level === 2 ? "L2 · Xác thực nhà máy (9 ảnh bắt buộc)" : "L3 · Lịch sử xuất khẩu"}</h2>
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className={`rounded-full px-3 py-1.5 font-bold ${view.status === "pending_review" ? "bg-amber-100 text-amber-800" : view.status === "accepted" ? "bg-emerald-100 text-emerald-800" : view.status === "returned" ? "bg-rose-100 text-rose-800" : "bg-slate-200 text-slate-700"}`}>{view.statusLabel}</span>
-        <span className="rounded-full bg-white px-3 py-1.5 font-semibold text-slate-600 ring-1 ring-slate-200">{view.uploadedTotal}/{view.requiredTotal} mục bắt buộc</span>
+        <span className={`rounded-full px-3 py-1.5 font-bold ${view.status === "pending_review" ? "bg-amber-100 text-amber-800" : view.status === "accepted" ? "bg-emerald-100 text-emerald-800" : view.status === "returned" ? "bg-rose-100 text-rose-800" : "bg-ink-200 text-ink-700"}`}>{view.statusLabel}</span>
+        <span className="rounded-full bg-white px-3 py-1.5 font-semibold text-ink-600 ring-1 ring-ink-200">{view.uploadedTotal}/{view.requiredTotal} mục bắt buộc</span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={`Tiến độ hồ sơ L${level}`}>
-        <div className={`h-full rounded-full transition-all ${view.ready ? "bg-emerald-500" : "bg-teal-600"}`} style={{ width: `${progress}%` }} />
+      <div className="h-2 w-full overflow-hidden rounded-full bg-ink-200" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={`Tiến độ hồ sơ L${level}`}>
+        <div className={`h-full rounded-full transition-all ${view.ready ? "bg-emerald-500" : "bg-brand-600"}`} style={{ width: `${progress}%` }} />
       </div>
     </header>
 
@@ -288,68 +288,68 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
     </p>}
 
     {level === 2 && <div className="mt-4 grid gap-3 md:grid-cols-2">
-      <div className="rounded-xl border border-teal-200 bg-white p-4">
-        <h3 className="text-sm font-bold text-slate-900">Bước 1 · Tờ mã xác minh (bắt buộc)</h3>
+      <div className="rounded-xl border border-brand-200 bg-white p-4">
+        <h3 className="text-sm font-bold text-ink-900">Bước 1 · Tờ mã xác minh (bắt buộc)</h3>
         {view.code
           ? <div className="mt-2">
-              <p className="font-mono text-2xl font-black tracking-[0.12em] text-teal-800">{view.code}</p>
-              <p className="mt-1 text-xs text-slate-600">
+              <p className="font-mono text-2xl font-black tracking-[0.12em] text-brand-800">{view.code}</p>
+              <p className="mt-1 text-xs text-ink-600">
                 Phát hành lúc {view.codeIssuedAt ? new Date(view.codeIssuedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"} · hiệu lực {view.codeTtlHours} giờ
                 {view.codeExpired ? " · ĐÃ HẾT HẠN, hãy tạo mã mới" : ""}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={() => downloadCodeSheet(view.code!)} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-3 py-2 text-xs font-bold text-white"><Download className="size-3.5" /> Tải tờ mã về</button>
-                <button type="button" onClick={() => printCodeSheet(view.code!)} className="inline-flex items-center gap-1.5 rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800"><Printer className="size-3.5" /> In tờ mã</button>
-                {view.editable && <button type="button" disabled={busy === "code"} onClick={() => void issueCode()} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"><RefreshCw className="size-3.5" /> Tạo mã mới</button>}
+                <button type="button" onClick={() => downloadCodeSheet(view.code!)} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-xs font-bold text-white"><Download className="size-3.5" /> Tải tờ mã về</button>
+                <button type="button" onClick={() => printCodeSheet(view.code!)} className="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 px-3 py-2 text-xs font-bold text-brand-800"><Printer className="size-3.5" /> In tờ mã</button>
+                {view.editable && <button type="button" disabled={busy === "code"} onClick={() => void issueCode()} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs font-semibold text-ink-700"><RefreshCw className="size-3.5" /> Tạo mã mới</button>}
               </div>
-              <p className={`mt-2 text-[11px] ${downloaded || printed ? "text-slate-500" : "font-semibold text-teal-800"}`}>
+              <p className={`mt-2 text-[11px] ${downloaded || printed ? "text-ink-500" : "font-semibold text-brand-800"}`}>
                 {downloaded || printed
                   ? "Đã có tờ mã. In ra giấy rồi đặt cạnh cảnh khi chụp 3 ảnh có đánh dấu 🔖."
                   : "Bắt buộc: tải tờ mã về, in ra giấy rồi chụp cùng cảnh ở 3 ảnh có đánh dấu 🔖. Không có tờ mã thì hồ sơ chưa nộp được."}
               </p>
             </div>
           : <div className="mt-2">
-              <p className="text-xs text-slate-600">Bấm nút để hệ thống phát hành mã. Sau đó tải tờ mã về, in ra giấy và chụp cùng cảnh ở 3 ảnh có 🔖 (cổng nhà máy, dây chuyền, kho thành phẩm).</p>
+              <p className="text-xs text-ink-600">Bấm nút để hệ thống phát hành mã. Sau đó tải tờ mã về, in ra giấy và chụp cùng cảnh ở 3 ảnh có 🔖 (cổng nhà máy, dây chuyền, kho thành phẩm).</p>
               <button type="button" disabled={busy === "code" || !view.editable} onClick={() => void issueCode()}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-3 py-2 text-xs font-bold text-white disabled:bg-slate-300">
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-xs font-bold text-white disabled:bg-ink-300">
                 {busy === "code" ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />} Tạo mã xác minh
               </button>
             </div>}
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <h3 className="flex items-center gap-1.5 text-sm font-bold text-slate-900"><Crosshair className="size-4 text-teal-700" /> Bước 2 · Vị trí (không bắt buộc)</h3>
-        <p className="mt-2 flex items-start gap-1.5 text-xs text-slate-600"><MapPin className="mt-0.5 size-3.5 shrink-0 text-slate-400" />{gpsText}</p>
-        <p className="mt-2 text-xs text-slate-600">Cho phép trang dùng vị trí thì hồ sơ có thêm một điểm đối chiếu. Không bật cũng không sao, hệ thống chỉ ghi chú lại cho người duyệt.</p>
+      <div className="rounded-xl border border-ink-200 bg-white p-4">
+        <h3 className="flex items-center gap-1.5 text-sm font-bold text-ink-900"><Crosshair className="size-4 text-brand-700" /> Bước 2 · Vị trí (không bắt buộc)</h3>
+        <p className="mt-2 flex items-start gap-1.5 text-xs text-ink-600"><MapPin className="mt-0.5 size-3.5 shrink-0 text-ink-400" />{gpsText}</p>
+        <p className="mt-2 text-xs text-ink-600">Cho phép trang dùng vị trí thì hồ sơ có thêm một điểm đối chiếu. Không bật cũng không sao, hệ thống chỉ ghi chú lại cho người duyệt.</p>
         {gps.state !== "on" && <button type="button" disabled={gps.state === "asking" || gps.state === "unsupported"} onClick={() => setGps(NO_GPS)}
-          className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700">Hỏi lại quyền định vị</button>}
-        <p className="mt-2 text-[11px] text-slate-500">Mẹo: chụp bằng điện thoại ngay tại nhà máy rồi tải thẳng lên đây là nhanh nhất. Ảnh đã gửi qua Zalo cũng nhận.</p>
+          className="mt-3 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs font-semibold text-ink-700">Hỏi lại quyền định vị</button>}
+        <p className="mt-2 text-[11px] text-ink-500">Mẹo: chụp bằng điện thoại ngay tại nhà máy rồi tải thẳng lên đây là nhanh nhất. Ảnh đã gửi qua Zalo cũng nhận.</p>
       </div>
     </div>}
 
-    {level === 3 && <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-      <h3 className="text-sm font-bold text-slate-900">Lô hàng dùng làm bằng chứng (doanh nghiệp tự khai)</h3>
+    {level === 3 && <div className="mt-4 rounded-xl border border-ink-200 bg-white p-4">
+      <h3 className="text-sm font-bold text-ink-900">Lô hàng dùng làm bằng chứng (doanh nghiệp tự khai)</h3>
       <form onSubmit={(e) => void saveShipment(e)} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <input type="hidden" name="submission_id" value={view.id} />
-        <label className="text-xs font-semibold text-slate-700">Mã lô / số hợp đồng<input name="shipment_ref" defaultValue={view.shipmentRef ?? ""} maxLength={120} disabled={!view.editable} className="input mt-1" placeholder="VD: PO-2026-118" /></label>
-        <label className="text-xs font-semibold text-slate-700">Ngày giao hàng<input type="date" name="shipped_on" defaultValue={view.shippedOn ?? ""} disabled={!view.editable} className="input mt-1" /></label>
-        <label className="text-xs font-semibold text-slate-700">Nơi đến / cảng dỡ<input name="destination" defaultValue={view.shipmentDestination ?? ""} maxLength={160} disabled={!view.editable} className="input mt-1" placeholder="VD: Hamburg, Đức" /></label>
-        <label className="text-xs font-semibold text-slate-700">Ghi chú (không bắt buộc)<input name="note" defaultValue={view.supplierNote ?? ""} maxLength={500} disabled={!view.editable} className="input mt-1" placeholder="VD: lô hạt điều WW320, 1 container 20ft" /></label>
+        <label className="text-xs font-semibold text-ink-700">Mã lô / số hợp đồng<input name="shipment_ref" defaultValue={view.shipmentRef ?? ""} maxLength={120} disabled={!view.editable} className="input mt-1" placeholder="VD: PO-2026-118" /></label>
+        <label className="text-xs font-semibold text-ink-700">Ngày giao hàng<input type="date" name="shipped_on" defaultValue={view.shippedOn ?? ""} disabled={!view.editable} className="input mt-1" /></label>
+        <label className="text-xs font-semibold text-ink-700">Nơi đến / cảng dỡ<input name="destination" defaultValue={view.shipmentDestination ?? ""} maxLength={160} disabled={!view.editable} className="input mt-1" placeholder="VD: Hamburg, Đức" /></label>
+        <label className="text-xs font-semibold text-ink-700">Ghi chú (không bắt buộc)<input name="note" defaultValue={view.supplierNote ?? ""} maxLength={500} disabled={!view.editable} className="input mt-1" placeholder="VD: lô hạt điều WW320, 1 container 20ft" /></label>
         <div className="sm:col-span-2 lg:col-span-4"><button type="submit" disabled={!view.editable || busy !== ""} className="btn btn-ghost text-xs">Lưu thông tin lô hàng</button>
-          <p className="mt-1 text-[11px] text-slate-500">Thông tin này là NCC tự khai, không phải dữ liệu Hải quan; Vexim sẽ đối chiếu với chứng từ bạn tải lên.</p></div>
+          <p className="mt-1 text-[11px] text-ink-500">Thông tin này là NCC tự khai, không phải dữ liệu Hải quan; Vexim sẽ đối chiếu với chứng từ bạn tải lên.</p></div>
       </form>
-      <div className="mt-4 border-t border-slate-100 pt-4">
-        <h4 className="flex items-center gap-1.5 text-sm font-bold text-slate-900"><Link2 className="size-4 text-teal-700" /> Link nguồn gốc công khai</h4>
-        <p className="mt-1 text-xs text-slate-600">Dán link trang công khai có nhắc tới doanh nghiệp/lô hàng (trang doanh nghiệp, hồ sơ trên sàn B2B, tin hội chợ…). Hệ thống chỉ tự đọc các domain trong danh sách nguồn công khai của Vexim; link lạ vẫn được lưu để nhân viên tự mở.</p>
+      <div className="mt-4 border-t border-ink-100 pt-4">
+        <h4 className="flex items-center gap-1.5 text-sm font-bold text-ink-900"><Link2 className="size-4 text-brand-700" /> Link nguồn gốc công khai</h4>
+        <p className="mt-1 text-xs text-ink-600">Dán link trang công khai có nhắc tới doanh nghiệp/lô hàng (trang doanh nghiệp, hồ sơ trên sàn B2B, tin hội chợ…). Hệ thống chỉ tự đọc các domain trong danh sách nguồn công khai của Vexim; link lạ vẫn được lưu để nhân viên tự mở.</p>
         <form onSubmit={(e) => void addLink(e)} className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="min-w-[240px] flex-1 text-xs font-semibold text-slate-700">Link (http/https)<input name="url" type="url" required maxLength={800} disabled={!view.editable} className="input mt-1" placeholder="https://..." /></label>
-          <label className="min-w-[180px] flex-1 text-xs font-semibold text-slate-700">Mô tả ngắn<input name="label" maxLength={200} disabled={!view.editable} className="input mt-1" placeholder="VD: hồ sơ doanh nghiệp trên sàn" /></label>
+          <label className="min-w-[240px] flex-1 text-xs font-semibold text-ink-700">Link (http/https)<input name="url" type="url" required maxLength={800} disabled={!view.editable} className="input mt-1" placeholder="https://..." /></label>
+          <label className="min-w-[180px] flex-1 text-xs font-semibold text-ink-700">Mô tả ngắn<input name="label" maxLength={200} disabled={!view.editable} className="input mt-1" placeholder="VD: hồ sơ doanh nghiệp trên sàn" /></label>
           <button type="submit" disabled={!view.editable || busy === "link"} className="btn btn-primary text-xs">{busy === "link" ? "Đang lưu..." : "Thêm link"}</button>
         </form>
         {view.links.length > 0 && <ul className="mt-3 space-y-2 text-xs">
-          {view.links.map((link) => <li key={link.id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg bg-slate-50 p-2.5">
-            <span className="min-w-0 break-all"><a href={link.url} target="_blank" rel="noreferrer" className="font-semibold text-teal-800 underline">{link.url}</a>
-              {link.label && <span className="text-slate-600"> · {link.label}</span>}
-              <span className="mt-1 block text-[11px] text-slate-600">
+          {view.links.map((link) => <li key={link.id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg bg-ink-50 p-2.5">
+            <span className="min-w-0 break-all"><a href={link.url} target="_blank" rel="noreferrer" className="font-semibold text-brand-800 underline">{link.url}</a>
+              {link.label && <span className="text-ink-600"> · {link.label}</span>}
+              <span className="mt-1 block text-[11px] text-ink-600">
                 {link.allowedSource ? "Nguồn công khai được phép quét" : "Ngoài danh sách nguồn công khai — nhân viên sẽ tự mở"}
                 {link.fetchNote ? ` · ${link.fetchNote}` : ""}
               </span>
@@ -376,9 +376,9 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
     </ul>}
 
     {/* Thanh hành động dính đáy màn hình: luôn thấy tiến độ + nút nộp dù đang lướt danh sách ảnh dài. */}
-    <div className="sticky bottom-0 z-10 -mx-4 mt-5 flex flex-wrap items-center gap-2 border-t border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+    <div className="sticky bottom-0 z-10 -mx-4 mt-5 flex flex-wrap items-center gap-2 border-t border-ink-200 bg-ink-50/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
       {!view.editable
-        ? <span className="mr-auto text-[11px] font-semibold text-slate-500">Hồ sơ đang chờ xét hoặc đã được nhận — bằng chứng bị khóa.</span>
+        ? <span className="mr-auto text-[11px] font-semibold text-ink-500">Hồ sơ đang chờ xét hoặc đã được nhận — bằng chứng bị khóa.</span>
         : view.ready
           ? <span className="mr-auto text-[11px] font-semibold text-emerald-800">Đủ mục bắt buộc — sẵn sàng nộp cho Vexim xét duyệt.</span>
           : <span className="mr-auto text-[11px] font-semibold text-amber-800">Còn thiếu {view.missing.length} mục{level === 2 ? ", hoặc thiếu tờ mã trong ảnh 🔖" : ""}. Xem danh sách vàng phía trên.</span>}
@@ -387,7 +387,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
         {busy === "scan" ? <Loader2 className="size-3.5 animate-spin" /> : <ScanSearch className="size-3.5" />} AI quét thử
       </button>
       <button type="button" disabled={busy !== "" || !view.editable || !view.ready} onClick={() => void runScan(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white disabled:bg-slate-300">
+        className="inline-flex items-center gap-1.5 rounded-lg bg-ink-900 px-4 py-2 text-xs font-bold text-white disabled:bg-ink-300">
         {busy === "submit" ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />} AI quét &amp; nộp hồ sơ
       </button>
     </div>
