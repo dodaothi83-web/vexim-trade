@@ -24,6 +24,7 @@ import {
 import { Breadcrumbs } from "@/components/ui";
 import { CategoryProductGrid } from "@/components/category-product-grid";
 import { HarvestCalendarSection } from "@/components/harvest-calendar";
+import { categoryFaqs } from "@/lib/public/category-faq";
 import { PriceRangeStrip } from "@/components/price-range";
 import { buildPriceBlock, type GradePricePoint } from "@/lib/public/price-range";
 import { displayUnitsForCategory } from "@/lib/public/price-units";
@@ -99,24 +100,11 @@ function categoryMetaDescription(name: string, storedDescription: string): strin
   return shortened.length <= 185 ? shortened : fallback;
 }
 
-const STANDARD_CATEGORY_FAQS = [
-  {
-    q: "Can I request a quote from a specific supplier?",
-    a: "Yes. Your request goes to that supplier first. If they cannot meet it, Vexim will ask you before suggesting anyone else.",
-  },
-  {
-    q: "How does Vexim match suppliers for an open request?",
-    a: "Suppliers are matched on your requirements only, including your specs, quantity and market. Paid listings never affect who Vexim recommends.",
-  },
-  {
-    q: "How are supplier certificates verified on Vexim Trade?",
-    a: "When suppliers upload quality certificates (HACCP, ISO 22000, BRC, Halal, FDA, Organic), Vexim's automated recognition scans the certified holder name and expiration date, labeling each certificate as Owner or Partner Entity.",
-  },
-] as const;
-
 /**
  * Điểm giá dùng để tính khoảng tham khảo: bỏ hồ sơ demo và bỏ sản phẩm mà giá
  * chưa được phép công khai. Cùng một cổng kiểm tra với giá hiện trên thẻ sản phẩm.
+ *
+ * Câu hỏi thường gặp đã chuyển sang lib/public/category-faq.ts để kiểm thử được.
  */
 function pricePointsFrom(products: PublicCategoryProduct[]): GradePricePoint[] {
   return products
@@ -128,43 +116,6 @@ function pricePointsFrom(products: PublicCategoryProduct[]): GradePricePoint[] {
       updatedAt: p.pricePoint!.updatedAt,
       grade: p.grade,
     }));
-}
-
-function normalizeCategoryFaqText(text: string): string {
-  return text
-    .replace(/\b2\s*(?:to|–|-|—)\s*4\s+(?:supplier\s+options|supplier\s+quotes|suppliers|options|quotes)\b/gi, "matching suppliers")
-    .replace(/\b2\s*(?:to|–|-|—)\s*4\b/g, "matching suppliers")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function categoryFaqs(raw: unknown): Array<{ q: string; a: string }> {
-  const faqs = Array.isArray(raw)
-    ? raw
-        .map((f) => {
-          const item = (f ?? {}) as { q?: unknown; a?: unknown; question?: unknown; answer?: unknown };
-          return {
-            q: normalizeCategoryFaqText(typeof item.q === "string" ? item.q : typeof item.question === "string" ? item.question : ""),
-            a: normalizeCategoryFaqText(typeof item.a === "string" ? item.a : typeof item.answer === "string" ? item.answer : ""),
-          };
-        })
-        .filter((f) => f.q && f.a)
-    : [];
-
-  if (faqs.length === 0) return faqs;
-
-  const hasSpecificSupplierFaq = faqs.some((f) =>
-    /specific supplier|supplier you choose|goes to (?:that|this) supplier first/i.test(`${f.q} ${f.a}`),
-  );
-  const hasMatchingBasisFaq = faqs.some((f) =>
-    /paid listings|matched on your requirements/i.test(`${f.q} ${f.a}`),
-  );
-
-  return [
-    ...faqs,
-    ...(!hasSpecificSupplierFaq ? [STANDARD_CATEGORY_FAQS[0]] : []),
-    ...(!hasMatchingBasisFaq ? [STANDARD_CATEGORY_FAQS[1]] : []),
-  ];
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

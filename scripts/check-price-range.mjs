@@ -89,7 +89,12 @@ assert.equal(units.displayUnitsForCategory("dried-spices", null).primary, "mt");
 assert.equal(units.displayUnitsForCategory("some-rice-variety", null).primary, "mt", "An unlisted slug is inferred from its industry keyword");
 assert.equal(units.displayUnitsForCategory("frozen-shrimp", null).primary, "kg");
 assert.equal(units.displayUnitsForCategory("unknown-category", null).primary, "kg", "Unknown categories fall back to kg, never to tonnes");
-assert.equal(units.displayUnitsForCategory("cashew-kernels", null).secondary, undefined, "An inferred cashew slug does not get the pound equivalent unless listed");
+const cashewKernelUnits = units.displayUnitsForCategory("cashew-kernels", null);
+assert.equal(cashewKernelUnits.primary, "kg", "The launch slug for cashew kernels reads in kilograms");
+assert.equal(cashewKernelUnits.secondary, "lb", "The launch slug for cashew kernels also shows pounds, like the trade reports");
+assert.equal(units.displayUnitsForCategory("cashew-raw-nuts", null).secondary, undefined, "An inferred cashew slug does not get the pound equivalent unless listed");
+assert.equal(units.displayUnitsForCategory("cinnamon-star-anise", null).primary, "mt", "The launch slug for cinnamon and star anise reads in tonnes");
+assert.equal(units.displayUnitsForCategory("pepper", null).primary, "mt", "Pepper reads in tonnes");
 assert.equal(units.displayUnitsForCategory("rice", "kg").primary, "kg", "A configured unit wins over the market default");
 
 /* ---------------- Khoảng giá ---------------- */

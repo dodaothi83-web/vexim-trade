@@ -26,7 +26,9 @@ Trang này **không** phải nơi chào giá và không phải nơi dự báo. N
 
 **Hạt điều**, vì hội đủ bốn điều kiện: Việt Nam là nước chế biến và xuất khẩu nhân điều lớn nhất thế giới nên có lưu lượng tìm kiếm thật; dữ liệu trong hệ thống đã có `ref_price` của nhiều nhà cung cấp; quy cách đã chuẩn hoá trong ngành (W180 đến SP) nên `product_fields` dùng được ngay; và đây là ngành mạnh nhất của Vexim.
 
-Danh mục làm tiếp theo: thủy sản (tôm, cá tra), rồi gạo, rồi hồ tiêu.
+Bộ ra mắt chốt ngày 23/10/2026 gồm **hạt điều nhân, hồ tiêu, quế và hồi**, cộng danh mục `dried-fruits` giữ tạm. Danh mục thủy sản gộp đã ẩn, không xoá.
+
+Cà phê và gạo để đợt sau. Cà phê vì buyer là trading house đã quen nhà cung cấp và giá định theo chênh lệch hợp đồng tương lai, nên phần xác minh không được trả tiền. Gạo vì một biểu đồ 12 tháng chưa chứa nổi ba vụ Đông Xuân, Hè Thu, Thu Đông trải khắp các vùng, cần dữ liệu có nguồn trước khi vẽ. Hai danh mục này cũng là hai danh mục duy nhất trong nhóm ra mắt mà USDA PSD phủ tốt, nên đường ống PSD để dành cho lúc đó.
 
 ## 4. Đường dẫn và vị trí
 
