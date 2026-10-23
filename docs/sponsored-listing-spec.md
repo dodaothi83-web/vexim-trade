@@ -97,4 +97,4 @@ Bảng và ràng buộc nằm ở `supabase/migrations/20261028_sponsored_produc
 
 Trang chủ chưa gắn vùng đẩy. Bề mặt đó dùng lại đúng ba tệp trên, chỉ khác số suất và vị trí chèn, nên để làm cùng lúc với việc bán gói trang chủ đầu tiên.
 
-Migration chưa chạy trên Supabase nào và chưa có gói thật. Giao diện chỉ hiện vùng đẩy khi bảng có gói đã duyệt và còn hạn, nên hôm nay trang danh mục vẫn sạch.
+Migration chưa chạy trên Supabase nào và chưa có gói thật. Ở môi trường chưa áp migration, truy vấn gói trả về rỗng thay vì làm hỏng trang danh mục. Giao diện chỉ hiện vùng đẩy khi bảng có gói đã duyệt và còn hạn, nên hôm nay trang danh mục vẫn sạch.

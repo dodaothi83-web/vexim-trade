@@ -419,7 +419,12 @@ export const supabaseStore: DataStore = {
       query = query.eq("category_slug", categorySlug);
     }
     const { data, error } = await query;
-    if (error) fail("listSponsoredPushes", error);
+    if (error) {
+      // Môi trường chưa áp migration thì bảng chưa có. Đó là "chưa bán gói nào",
+      // không phải lỗi trang: trả rỗng để trang danh mục vẫn dựng bình thường.
+      if (error.code === "42P01" || error.code === "PGRST205") return [];
+      fail("listSponsoredPushes", error);
+    }
     return (data ?? []) as SponsoredPush[];
   },
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
