@@ -23,6 +23,11 @@ import {
 
 import { Breadcrumbs } from "@/components/ui";
 import { CategoryProductGrid } from "@/components/category-product-grid";
+import { HarvestCalendarSection } from "@/components/harvest-calendar";
+import { PriceRangeStrip } from "@/components/price-range";
+import { buildPriceBlock, type GradePricePoint } from "@/lib/public/price-range";
+import { displayUnitsForCategory } from "@/lib/public/price-units";
+import { normalizeHarvest } from "@/lib/public/harvest";
 import { pilotPlacement, type PilotPlacement } from "@/lib/sponsored/pilot";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { t } from "@/lib/public/i18n";
@@ -108,6 +113,22 @@ const STANDARD_CATEGORY_FAQS = [
     a: "When suppliers upload quality certificates (HACCP, ISO 22000, BRC, Halal, FDA, Organic), Vexim's automated recognition scans the certified holder name and expiration date, labeling each certificate as Owner or Partner Entity.",
   },
 ] as const;
+
+/**
+ * Điểm giá dùng để tính khoảng tham khảo: bỏ hồ sơ demo và bỏ sản phẩm mà giá
+ * chưa được phép công khai. Cùng một cổng kiểm tra với giá hiện trên thẻ sản phẩm.
+ */
+function pricePointsFrom(products: PublicCategoryProduct[]): GradePricePoint[] {
+  return products
+    .filter((p) => !p.isDemoSupplier && p.pricePoint)
+    .map((p) => ({
+      value: p.pricePoint!.value,
+      unit: p.pricePoint!.unit,
+      currency: p.pricePoint!.currency,
+      updatedAt: p.pricePoint!.updatedAt,
+      grade: p.grade,
+    }));
+}
 
 function normalizeCategoryFaqText(text: string): string {
   return text
@@ -492,6 +513,13 @@ function StateA({
   filters: CategoryFilter[];
   rfqHref: string;
 }) {
+  // Lịch mùa vụ: chuẩn hóa để dữ liệu cũ hoặc thiếu trường không làm vỡ trang.
+  const harvest = normalizeHarvest(cat.harvest);
+  const unitConfig = displayUnitsForCategory(cat.slug, cat.price_unit);
+  const priceRange = buildPriceBlock(pricePointsFrom(products), {
+    unit: unitConfig.primary,
+    secondaryUnit: unitConfig.secondary,
+  });
   const grades: string[] = [];
   for (const f of filters) {
     if ((f.key || "").toLowerCase().includes("grade") && Array.isArray(f.options)) {
@@ -522,6 +550,8 @@ function StateA({
         {/* Nếu đây là Trang Danh mục lớn (Nhóm cha), hiển thị danh sách các Nhóm nhỏ trực thuộc lấy từ CRM */}
         <SubcategoryDirectory parentName={categoryName} childGroups={childGroups} />
 
+        <PriceRangeStrip outcome={priceRange} categoryName={categoryName} rfqHref={rfqHref} />
+
         <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored} productFields={cat.product_fields ?? []} />
       </section>
 
@@ -532,6 +562,14 @@ function StateA({
           </div>
           <figcaption className="bg-ink-50 px-3 py-2 text-xs text-ink-600">Category overview image · product photos belong to the individual cards above.</figcaption>
         </figure>
+      )}
+
+      {harvest && (
+        <HarvestCalendarSection
+          categoryName={categoryName}
+          harvest={harvest}
+          note={t(harvest.note_i18n)}
+        />
       )}
 
       <CategoryContentSections columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} categoryName={categoryName} />
@@ -628,6 +666,7 @@ function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, r
   columns: CategoryColumn[]; rows: CategoryRow[]; facts: CategoryFact[];
   faqs: Array<{ q: string; a: string }>; body: string | null;
 }) {
+  const harvest = normalizeHarvest(cat.harvest);
   return (
     <>
     <section className="mt-6 grid gap-8 lg:grid-cols-[1.05fr_1fr] lg:items-start">
@@ -682,6 +721,14 @@ function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, r
     </section>
 
     <SubcategoryDirectory parentName={categoryName} childGroups={childGroups} />
+
+    {harvest && (
+      <HarvestCalendarSection
+        categoryName={categoryName}
+        harvest={harvest}
+        note={t(harvest.note_i18n)}
+      />
+    )}
 
     <CategoryContentSections columns={columns} rows={rows} facts={facts} faqs={faqs} body={body} categoryName={categoryName} />
     <CtaBlock slug={cat.slug} />

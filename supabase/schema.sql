@@ -632,6 +632,8 @@ alter table public.categories
   add column if not exists spec_rows jsonb not null default '[]'::jsonb,
   add column if not exists buying_facts jsonb not null default '[]'::jsonb,
   add column if not exists filters jsonb not null default '[]'::jsonb,
+  add column if not exists harvest jsonb,
+  add column if not exists price_unit text,
   add column if not exists hero_image text,
   add column if not exists hero_alt_i18n jsonb,
   add column if not exists homepage_kicker_i18n jsonb,

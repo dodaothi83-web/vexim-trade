@@ -6,6 +6,7 @@ import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/
 import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
+import { normalizeHarvest } from "@/lib/public/harvest";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
@@ -2477,6 +2478,26 @@ function parseJsonList(raw: unknown): unknown[] {
   }
 }
 
+/**
+ * Lịch mùa vụ gửi lên dưới dạng JSON. Trả undefined khi biểu mẫu không gửi khóa
+ * này, để lần lưu từ giao diện cũ không xoá mất dữ liệu đã có.
+ */
+function parseHarvestInput(raw: unknown): Category["harvest"] | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null || raw === "") return null;
+  if (typeof raw !== "string") throw new Error("Lịch mùa vụ không hợp lệ.");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Lịch mùa vụ không phải JSON hợp lệ.");
+  }
+  if (parsed === null) return null;
+  const normalized = normalizeHarvest(parsed);
+  if (!normalized) throw new Error("Lịch mùa vụ phải có ít nhất một cửa sổ với tháng bắt đầu và kết thúc hợp lệ.");
+  return normalized;
+}
+
 function parseCategoryInput(raw: Record<string, unknown>) {
   const slug = (str(raw.slug) ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const name_en = str(raw.name_en) ?? "";
@@ -2493,6 +2514,14 @@ function parseCategoryInput(raw: Record<string, unknown>) {
   const buyingFacts = parseJsonList(raw.buying_facts);
   const faqs = parseJsonList(raw.faqs);
   const filters = parseJsonList(raw.filters);
+  const harvest = parseHarvestInput(raw.harvest);
+  const priceUnitRaw = str(raw.price_unit)?.trim().toLowerCase();
+  // Lưu dạng chuẩn "mt"; "t", "ton", "tonne" chỉ là cách viết khác của cùng một đơn vị.
+  const priceUnit = priceUnitRaw === "kg" || priceUnitRaw === "lb"
+    ? priceUnitRaw
+    : priceUnitRaw && ["mt", "t", "ton", "tonne"].includes(priceUnitRaw)
+      ? "mt"
+      : null;
   // Unlike editorial lists, an invalid product-field payload must not silently erase the schema.
   let productFieldInput: unknown = [];
   if (raw.product_fields !== undefined) {
@@ -2516,6 +2545,8 @@ function parseCategoryInput(raw: Record<string, unknown>) {
     spec_rows: specRows as unknown as Category["spec_rows"],
     buying_facts: buyingFacts as Category["buying_facts"],
     filters: filters as Category["filters"],
+    ...(harvest === undefined ? {} : { harvest }),
+    ...(raw.price_unit === undefined ? {} : { price_unit: priceUnit }),
     product_fields: productFields,
     seo_title_i18n: { en: seoTitleEn ?? "" } as Category["seo_title_i18n"],
     seo_desc_i18n: { en: seoDescEn ?? "" } as Category["seo_desc_i18n"],
