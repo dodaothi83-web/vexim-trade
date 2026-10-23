@@ -41,6 +41,7 @@ let reads = 0;
 const store = {
   getVerification: async (id) => id === 'review-1' ? { id, target_level: level, status, supplier_id: 'supplier-1' } : null,
   listMedia: async () => fileList,
+  getSupplier: async () => ({ name: 'NCC Mẫu', trade_name: 'Mẫu Export', display_name: null }),
   addAuditLog: async (entry) => { auditCount++; assert.ok(!JSON.stringify(entry).includes('mock-file-content')); },
   updateVerification: () => { throw new Error('AI must not save or approve'); },
 };
@@ -101,7 +102,9 @@ assert.ok(!JSON.stringify(result).includes('mock-file-content'), 'Never return r
 assert.equal(result.checks.find((c) => c.key === 'tax_certificate').verdict, 'uncertain', 'Never claim OCR confirms a numeric identifier');
 assert.deepEqual(result.checks.find((c) => c.key === 'tax_certificate').evidence_ids, []);
 assert.match(lastBody.input[0].content[0].text, /tax_certificate và bank_letter chỉ là ô nhập số thủ công/);
-assert.match(lastBody.input[0].content[0].text, /food_safety và haccp_or_brc đều tùy chọn/, 'AI must not describe factory certificates as mandatory for traders');
+assert.match(lastBody.input[0].content[0].text, /chỉ cần MỘT trong ba/, 'AI must treat the three core documents as alternatives');
+assert.match(lastBody.input[0].content[0].text, /NCC Mẫu/, 'AI needs the registered name to check who the document belongs to');
+assert.match(lastBody.input[0].content[0].text, /không trả pass/, 'A document standing in another company name must not pass');
 assert.equal((await post('review-1', { fileIds: ['missing'] })).status, 422, 'Cannot scan files outside this review');
 assert.equal((await post('review-1', { fileIds: ['asset-1', 'asset-1'] })).status, 400, 'Duplicate IDs rejected');
 assert.equal((await post('review-1', { fileIds: [] })).status, 400);

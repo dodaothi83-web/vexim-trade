@@ -57,6 +57,7 @@ const portal = load('../app/supplier/portal/page.tsx', {
   '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: () => [] },
   '@/lib/rfq/reply-routing': { supplierReplyAddress: () => '' },
   '@/lib/types': { L1_DOC_ITEMS: [] },
+  '@/lib/verification': { isL1CoreDoc: () => false },
   './supplier-portal-upload': { SupplierPortalUpload: () => null },
   './supplier-profile-form': { SupplierProfileForm: ({ email }) => React.createElement('form', { 'data-email': email }, 'Company profile form') },
   './notice-actions': { markSupplierNoticeReadAction: async () => {} },

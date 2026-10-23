@@ -10,10 +10,18 @@ import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
 import { SupplierCategoryPicker } from "./supplier-category-picker";
 
 const FILE_LABELS: Record<typeof INITIAL_DOCUMENT_KEYS[number], string> = {
-  business_license: "Đăng ký doanh nghiệp", food_safety: "Giấy ATTP (nếu có)",
-  haccp_or_brc: "HACCP/BRC/ISO (nếu có)", product_certs: "Chứng chỉ sản phẩm (nếu có)",
+  business_license: "Đăng ký doanh nghiệp", food_safety: "Giấy ATTP",
+  haccp_or_brc: "HACCP / ISO / FSSC / Halal", product_certs: "Chứng chỉ sản phẩm (nếu có)",
   export_license: "Giấy phép xuất khẩu (nếu áp dụng)",
 };
+
+/** Ba giấy xác minh chính; chọn một là đủ, nhưng phải đứng tên doanh nghiệp đã khai. */
+const CORE_DOC_KEYS = ["business_license", "food_safety", "haccp_or_brc"] as const;
+
+function coreDocChosen(form: HTMLFormElement): boolean {
+  return CORE_DOC_KEYS.some((key) =>
+    Boolean(form.querySelector<HTMLInputElement>(`input[name="doc:${key}"]`)?.files?.length));
+}
 
 const STEP_TITLES = ["Thông tin doanh nghiệp", "Giấy tờ bước đầu", "Hiển thị cho buyer & gửi hồ sơ"] as const;
 
@@ -51,10 +59,11 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
     </div>
     <div data-step-panel={2} className={step === 2 ? "space-y-7" : "hidden"}>
     <section><h2 className="text-xl font-black text-ink-900">Giấy tờ bước đầu · Kiểm tra giấy tờ</h2>
-      <p className="mt-1 text-sm text-ink-600">Ảnh/PDF tối đa 15 MB/tệp, tổng tối đa 5 tệp. ATTP, HACCP không bắt buộc với thương nhân. Tải lên không tự duyệt.</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">{INITIAL_DOCUMENT_KEYS.map((key) =>
-        <label key={key} className="block text-sm"><span className="mb-1 block font-semibold">{FILE_LABELS[key]}</span>
-          <input type="file" name={`doc:${key}`} accept=".pdf,image/jpeg,image/png,image/webp" className="input" /></label>)}</div>
+      <p className="mt-1 text-sm text-ink-600">Chọn ít nhất một trong ba giấy có dấu *: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal. Giấy phải đứng tên doanh nghiệp bạn đã khai ở bước 1, giấy đứng tên đơn vị khác không được tính. Ảnh/PDF tối đa 15 MB/tệp, tổng 5 tệp, tải lên không tự duyệt.</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">{INITIAL_DOCUMENT_KEYS.map((key) => {
+        const core = (CORE_DOC_KEYS as readonly string[]).includes(key);
+        return <label key={key} className="block text-sm"><span className="mb-1 block font-semibold">{FILE_LABELS[key]}{core && <span className="text-rose-700"> *</span>}</span>
+          <input type="file" name={`doc:${key}`} accept=".pdf,image/jpeg,image/png,image/webp" className="input" /></label>; })}</div>
     </section>
     <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">Muốn Vexim xác minh thêm?</h2>
       <p className="mt-1 text-sm text-ink-600">Chọn yêu cầu chỉ để Vexim liên hệ. Mỗi đánh giá được duyệt riêng; thương nhân vẫn có thể yêu cầu kiểm tra lịch sử giao hàng.</p>
@@ -129,7 +138,7 @@ function firstInvalidField(form: HTMLFormElement, step: number): HTMLElement | n
   return null;
 }
 
-export function SupplierProfileForm({ supplier, email, categories }: { supplier?: Supplier; email: string; categories: CategoryProposalOption[] }) {
+export function SupplierProfileForm({ supplier, email, categories, hasCoreDoc = false }: { supplier?: Supplier; email: string; categories: CategoryProposalOption[]; hasCoreDoc?: boolean }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [step, setStep] = useState(1);
@@ -153,6 +162,10 @@ export function SupplierProfileForm({ supplier, email, categories }: { supplier?
       bad.scrollIntoView({ block: "center", behavior: "smooth" });
       return;
     }
+    if (step === 2 && !hasCoreDoc && !coreDocChosen(form)) {
+      setStepError("Chọn ít nhất một trong ba giấy xác minh: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal.");
+      return;
+    }
     goToStep(step + 1);
   }
 
@@ -174,6 +187,11 @@ export function SupplierProfileForm({ supplier, email, categories }: { supplier?
         window.setTimeout(() => { bad.focus(); bad.scrollIntoView({ block: "center", behavior: "smooth" }); }, 50);
         return;
       }
+    }
+    if (!hasCoreDoc && !coreDocChosen(form)) {
+      setStep(2);
+      setStepError("Chọn ít nhất một trong ba giấy xác minh: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal.");
+      return;
     }
     setStepError(null);
     setBusy(true); setResult(null);

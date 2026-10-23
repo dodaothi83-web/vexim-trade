@@ -12,6 +12,7 @@ import { productReview } from "@/lib/supplier-portal/product-view";
 import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { L1_DOC_ITEMS } from "@/lib/types";
+import { isL1CoreDoc } from "@/lib/verification";
 import { daysUntilExpiry } from "@/lib/certificate-service";
 import { SupplierPortalUpload } from "./supplier-portal-upload";
 import { SupplierCertificateUpload } from "./certificate-upload";
@@ -48,6 +49,9 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
   const { supplier, review, reviews, user, store } = access;
   const categoryOptions = !portalApproved(supplier) && canSubmitProfile(supplier)
     ? categoryProposalOptions(await store.listCategories({ publishedOnly: true })) : [];
+  // Giấy xác minh đã có trong đợt kiểm trước thì không bắt NCC tải lại khi bổ sung hồ sơ.
+  const hasCoreDoc = !portalApproved(supplier) && canSubmitProfile(supplier) && !!review &&
+    (await store.listMedia("verification", review.id)).some((m) => m.storage_path && isL1CoreDoc(m.checklist_key));
   // Until Vexim explicitly approves this account, never query/render RFQs, reports or notices.
   if (!portalApproved(supplier)) return <main className="mx-auto max-w-4xl px-5 py-10 sm:py-14">
     <header className="flex items-center justify-between gap-4 border-b border-ink-200 pb-5">
@@ -63,7 +67,7 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
         {supplier.onboarding_status === "changes_requested" && supplier.onboarding_note &&
           <p className="mt-2 whitespace-pre-wrap font-semibold">Nội dung cần bổ sung: {supplier.onboarding_note}</p>}
       </div>
-      <SupplierProfileForm supplier={supplier} email={user.email} categories={categoryOptions} />
+      <SupplierProfileForm supplier={supplier} email={user.email} categories={categoryOptions} hasCoreDoc={hasCoreDoc} />
     </> : <><div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
       <h2 className="text-xl font-bold text-amber-950">Đang chờ Vexim xác nhận thông tin</h2>
       <p className="mt-2 text-sm text-amber-900">Hồ sơ {supplier.name} đã được gửi. Bạn có thể đăng nhập để xem trạng thái này, nhưng RFQ, thông báo, báo cáo và tải thêm tài liệu chưa khả dụng cho đến khi nhân viên Vexim xác nhận quyền sử dụng.</p>
