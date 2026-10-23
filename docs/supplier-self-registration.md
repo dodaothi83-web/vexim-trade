@@ -41,6 +41,24 @@ Khi nhân viên gắn một tài khoản nhà cung cấp đã tự đăng ký v�
 - Không đổi được email/mật khẩu qua màn Cài đặt → Người dùng: tài khoản doanh nghiệp bị chặn ở đó có chủ ý, vì đăng nhập của họ đi qua Supabase Auth chứ không dùng mật khẩu nội bộ.
 - Nhật ký ghi `supplier.account_provisioned`, `supplier.account_linked` và `supplier.account_handed_over`; không ghi mật khẩu.
 
+## Khi cổng NCC báo "Một phần dữ liệu cổng chưa tải được"
+
+Cổng tải từng phần riêng: giấy tờ, yêu cầu kiểm định, RFQ được chuyển, dấu đã đọc thông báo, sản phẩm, chứng nhận, hồ sơ tự gửi. Phần nào lỗi thì phần đó trống và hiện cảnh báo vàng kèm tên phần, các phần còn lại vẫn dùng bình thường. Trang không còn trắng xoá khi một bảng chưa có.
+
+Lỗi hay gặp nhất là chưa chạy đủ migration trên Supabase. Log máy chủ giờ ghi kèm file cần chạy, dạng `Có thể thiếu migration: chạy supabase/migrations/20261017_supplier_dashboard.sql`. Bảng tra nhanh:
+
+| Log nói thiếu | Chạy file |
+| --- | --- |
+| `supplier_portal_notice_reads` | `20261017_supplier_dashboard.sql` |
+| `response_due_at`, `supplier_replied_at`, `source_product_id` | `20261017_supplier_dashboard.sql` |
+| `supplier_submissions` | `20261020_supplier_self_verification_submissions.sql` |
+| `sponsored_push` | `20261028_sponsored_product_push.sql` |
+| `display_name` | `20261030_product_display_name.sql` |
+
+Chạy file SQL trong Supabase SQL Editor, đừng chỉ thêm bảng còn thiếu bằng tay: mỗi file còn tạo index, bật RLS và gửi `notify pgrst, 'reload schema'` để PostgREST thấy thay đổi ngay. Thiếu bước cuối, API vẫn báo "schema cache" dù bảng đã có.
+
+Trong lúc chưa chạy migration, phần RFQ được chuyển và dấu đã đọc sẽ trống. Nút "Đánh dấu đã đọc" tự ẩn vì bấm cũng không lưu được, thay vì hiện ra rồi báo lỗi.
+
 ## Ai nhận thông báo khi có việc mới
 
 Mỗi sự kiện có hai đường: thư điện tử, và chỗ hiện trong CRM. Không có sự kiện nào chỉ sống trong hộp thư của một người.

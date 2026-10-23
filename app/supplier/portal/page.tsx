@@ -14,6 +14,7 @@ import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { L1_DOC_ITEMS } from "@/lib/types";
 import { isL1CoreDoc } from "@/lib/verification";
 import { daysUntilExpiry } from "@/lib/certificate-service";
+import { migrationHint } from "@/lib/db/migration-hints";
 import { SupplierPortalUpload } from "./supplier-portal-upload";
 import { SupplierCertificateUpload } from "./certificate-upload";
 import { SupplierProfileForm } from "./supplier-profile-form";
@@ -80,15 +81,34 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
       { label: "Thêm sản phẩm & nhận RFQ", state: "todo", note: "Sau khi mở cổng" },
     ]} /></>}
   </main>;
+  // Một bảng thiếu migration không được làm trắng cả cổng. Từng phần được tải riêng:
+  // phần nào lỗi thì ghi log, dùng giá trị rỗng và hiện cảnh báo ngay trên trang.
+  const degraded: string[] = [];
+  async function optional<T>(label: string, fallback: T, run: () => Promise<T>): Promise<T> {
+    try { return await run(); } catch (error) {
+      console.error(`[supplier-portal] chưa đọc được ${label}. ${migrationHint(error) ?? ""}`.trim(), error);
+      degraded.push(label);
+      return fallback;
+    }
+  }
   const [media, requests, invites, reads, products, certificates, submissions] = await Promise.all([
-    review ? store.listMedia("verification", review.id) : Promise.resolve([]),
-    store.listSupplierVerificationRequests(supplier.id),
-    store.listSupplierRfqInvitations(supplier.id),
-    store.listSupplierNoticeReads(supplier.id),
-    store.listProductsBySupplier(supplier.id),
-    store.listCertificates(supplier.id),
-    store.listSubmissions(supplier.id).catch((error) => { console.error("[supplier-portal] chưa đọc được hồ sơ tự gửi (migration?)", error); return []; }),
+    optional("giấy tờ của đợt kiểm", [] as Awaited<ReturnType<typeof store.listMedia>>,
+      () => review ? store.listMedia("verification", review.id) : Promise.resolve([])),
+    optional("yêu cầu kiểm định", [] as Awaited<ReturnType<typeof store.listSupplierVerificationRequests>>,
+      () => store.listSupplierVerificationRequests(supplier.id)),
+    optional("danh sách RFQ được chuyển", [] as Awaited<ReturnType<typeof store.listSupplierRfqInvitations>>,
+      () => store.listSupplierRfqInvitations(supplier.id)),
+    optional("trạng thái đã đọc thông báo", [] as Awaited<ReturnType<typeof store.listSupplierNoticeReads>>,
+      () => store.listSupplierNoticeReads(supplier.id)),
+    optional("sản phẩm", [] as Awaited<ReturnType<typeof store.listProductsBySupplier>>,
+      () => store.listProductsBySupplier(supplier.id)),
+    optional("chứng nhận", [] as Awaited<ReturnType<typeof store.listCertificates>>,
+      () => store.listCertificates(supplier.id)),
+    optional("hồ sơ tự gửi", [] as Awaited<ReturnType<typeof store.listSubmissions>>,
+      () => store.listSubmissions(supplier.id)),
   ]);
+  // Chưa đọc được dấu đã đọc thì không hiện nút đánh dấu: bấm vào cũng không lưu được.
+  const readsKnown = !degraded.includes("trạng thái đã đọc thông báo");
   const sp = await searchParams;
   const days: 7 | 30 | 90 = sp?.range === "7" ? 7 : sp?.range === "90" ? 90 : 30;
   const allNotices = sp?.notices === "all";
@@ -107,6 +127,11 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
       </div>
       <form action={logoutAction}><button className="btn btn-ghost" type="submit">Đăng xuất</button></form>
     </header>
+    {degraded.length > 0 && <div role="status" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <p className="font-bold">Một phần dữ liệu cổng chưa tải được</p>
+      <p className="mt-1">Phần còn lại vẫn dùng bình thường. Nếu tình trạng này kéo dài, báo Vexim để kiểm tra cấu hình.</p>
+      <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
+    </div>}
     <nav aria-label="Các mục trong cổng nhà cung cấp" className="my-5 flex flex-wrap gap-2 text-xs font-semibold sm:text-sm">
       {[["#tasks", "Việc cần làm"], ["#rfqs", "RFQ của tôi"], ["#notices", `Thông báo (${dashboard.unreadCount} mới)`],
         ["#report", "Báo cáo"], ["#profile", "Hồ sơ & xác minh"]].map(([href, label]) =>
@@ -178,13 +203,15 @@ export default async function SupplierPortal({ searchParams }: { searchParams?: 
     </section>
 
     <section id="notices" className="mt-10 scroll-mt-6">
-      <SectionTitle icon={<Bell className="h-5 w-5" />} title={`Thông báo · ${dashboard.unreadCount} chưa đọc`} sub="RFQ, kết quả kiểm tra, sản phẩm và chứng nhận. Đọc thông báo không thay đổi trạng thái xét duyệt." />
+      <SectionTitle icon={<Bell className="h-5 w-5" />} title={readsKnown ? `Thông báo · ${dashboard.unreadCount} chưa đọc` : "Thông báo"} sub={readsKnown
+        ? "RFQ, kết quả kiểm tra, sản phẩm và chứng nhận. Đọc thông báo không thay đổi trạng thái xét duyệt."
+        : "Chưa đọc được dấu đã đọc nên mọi thông báo đang hiện như chưa đọc. Nội dung thông báo vẫn đúng."} />
       {dashboard.notices.length ? <ul className="mt-4 divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-200 bg-white">{(allNotices ? dashboard.notices : dashboard.notices.slice(0, 20)).map((n) =>
-        <li key={n.key} className={`flex flex-wrap items-start gap-3 p-4 text-sm ${n.read ? "" : "bg-brand-50/50"}`}>
-          <span className={`mt-2 h-2 w-2 rounded-full ${n.read ? "bg-ink-200" : "bg-brand-600"}`} aria-hidden="true" />
+        <li key={n.key} className={`flex flex-wrap items-start gap-3 p-4 text-sm ${n.read || !readsKnown ? "" : "bg-brand-50/50"}`}>
+          <span className={`mt-2 h-2 w-2 rounded-full ${n.read || !readsKnown ? "bg-ink-200" : "bg-brand-600"}`} aria-hidden="true" />
           <div className="min-w-[220px] flex-1"><p className="font-bold text-ink-900">{n.title}</p><p className="mt-1 text-ink-600">{n.detail}</p>
             <p className="mt-1 text-xs text-ink-500">{date(n.at)}</p></div>
-          {!n.read && <form action={markSupplierNoticeReadAction}><input type="hidden" name="notice_key" value={n.key} />
+          {!n.read && readsKnown && <form action={markSupplierNoticeReadAction}><input type="hidden" name="notice_key" value={n.key} />
             <button className="text-xs font-semibold text-brand-700 underline" type="submit">Đánh dấu đã đọc</button></form>}
         </li>)}</ul> : <Empty text="Chưa có thông báo mới." />}
       {dashboard.notices.length > 20 && !allNotices && <Link href={`/supplier/portal?range=${days}&notices=all#notices`} className="mt-2 inline-block text-xs font-semibold text-brand-700 underline">Hiển thị tất cả thông báo →</Link>}

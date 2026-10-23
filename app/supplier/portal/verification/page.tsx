@@ -5,6 +5,7 @@ import { Factory, Ship } from "lucide-react";
 import { supplierLevelAccess } from "@/lib/supplier-portal/submission-access";
 import { getOrCreateSubmission, loadSubmissionBundle } from "@/lib/verification-submission-service";
 import { buildPortalSubmission, exportSpecs, photoSpecs, type PortalSubmissionView } from "@/lib/supplier-portal/submission-view";
+import { migrationHint } from "@/lib/db/migration-hints";
 import { SupplierWorkspaceHeader } from "../products/workspace-header";
 import { VerificationSubmissionPanel } from "./verification-panel";
 
@@ -23,11 +24,28 @@ export default async function SupplierVerificationPage() {
   if (!access) redirect("/login");
   const { store, supplier, user } = access;
 
-  const [l2, l3] = await Promise.all([2, 3].map(async (level) => {
-    const submission = await getOrCreateSubmission(store, { supplierId: supplier.id, level: level as 2 | 3, userId: user.id });
-    const bundle = await loadSubmissionBundle(store, submission.id);
-    return bundle ? buildPortalSubmission(bundle) : null;
-  })) as (PortalSubmissionView | null)[];
+  let l2: PortalSubmissionView | null = null;
+  let l3: PortalSubmissionView | null = null;
+  try {
+    [l2, l3] = await Promise.all([2, 3].map(async (level) => {
+      const submission = await getOrCreateSubmission(store, { supplierId: supplier.id, level: level as 2 | 3, userId: user.id });
+      const bundle = await loadSubmissionBundle(store, submission.id);
+      return bundle ? buildPortalSubmission(bundle) : null;
+    })) as (PortalSubmissionView | null)[];
+  } catch (error) {
+    // Bảng hồ sơ tự gửi chưa có trên môi trường này: báo cho NCC một câu rõ ràng
+    // thay vì để trang trắng. Người vận hành đọc log để biết file migration cần chạy.
+    console.error(`[supplier-portal] chưa mở được hồ sơ tự gửi. ${migrationHint(error) ?? ""}`.trim(), error);
+    return <main className="mx-auto max-w-6xl px-4 pb-20 pt-6 sm:px-6">
+      <SupplierWorkspaceHeader name={supplier.display_name || supplier.trade_name || supplier.name} active="verification" />
+      <div role="status" className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+        <h1 className="text-lg font-bold">Chưa mở được phần tải bằng chứng</h1>
+        <p className="mt-2">Đây là lỗi cấu hình phía Vexim, không phải lỗi tài khoản của bạn. Vexim đã nhận được ghi nhận tự động; bạn thử lại sau hoặc báo trực tiếp cho người phụ trách.</p>
+        <p className="mt-2">Sản phẩm, RFQ và thông báo ở các mục khác vẫn dùng bình thường.</p>
+        <Link href="/supplier/portal" className="mt-3 inline-block font-semibold text-amber-900 underline">← Về bảng điều khiển</Link>
+      </div>
+    </main>;
+  }
 
   const photoItems = photoSpecs();
   const exportItems = exportSpecs();
