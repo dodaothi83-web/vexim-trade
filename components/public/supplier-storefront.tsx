@@ -41,7 +41,7 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
  */
 export function SupplierStorefront({
   supplier: s, certificates, categories, coverUrl, avatarUrl, synthetic,
-  productLinks = true, rfqActions = true, coverAction, avatarAction, nameTag = "h1",
+  productLinks = true, rfqActions = true, coverAction, avatarAction, verificationActions, nameTag = "h1",
 }: {
   supplier: PublicSupplierCard;
   certificates: PublicSupplierCertificate[];
@@ -55,6 +55,11 @@ export function SupplierStorefront({
   rfqActions?: boolean;
   coverAction?: ReactNode;
   avatarAction?: ReactNode;
+  /**
+   * Khối chỉ nhà cung cấp thấy, chèn ngay dưới phần “What Vexim checked”.
+   * Trang công khai không truyền prop này nên buyer không bao giờ thấy nút nộp bằng chứng.
+   */
+  verificationActions?: ReactNode;
   /** Cấp thẻ cho tên nhà cung cấp. Trang xem trước đã có h1 riêng nên dùng h2. */
   nameTag?: "h1" | "h2";
 }) {
@@ -154,6 +159,7 @@ export function SupplierStorefront({
           </div>
           <p className="mt-2 text-xs leading-5 text-ink-500">Verification is limited to the documents, site or shipment in the relevant review. It does not certify every facility or product. Ask Vexim to confirm the certificate holder and its scope for the goods offered.</p>
         </section>
+        {verificationActions}
         {certificates.length > 0 && (
           <section id="certificates" className="scroll-mt-24 rounded-xl border border-teal-200 bg-teal-50/40 p-5 sm:p-6" aria-labelledby="certificates-title">
             <h2 id="certificates-title" className="text-lg font-bold text-ink-900">Certificates on file (L1 document scan)</h2>

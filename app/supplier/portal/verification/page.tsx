@@ -102,8 +102,8 @@ export default async function SupplierVerificationPage() {
       </div>
     </div>
 
-    {l2 && <VerificationSubmissionPanel view={l2} specs={photoItems} />}
-    {l3 && <VerificationSubmissionPanel view={l3} specs={exportItems} />}
+    {l2 && <div id="level-2" className="scroll-mt-20"><VerificationSubmissionPanel view={l2} specs={photoItems} /></div>}
+    {l3 && <div id="level-3" className="scroll-mt-20"><VerificationSubmissionPanel view={l3} specs={exportItems} /></div>}
 
     <details className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
       <summary className="cursor-pointer text-base font-bold">AI quét những gì, và không làm được gì</summary>

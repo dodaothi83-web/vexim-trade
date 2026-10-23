@@ -12,8 +12,11 @@ import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposal
 import { isL1CoreDoc } from "@/lib/verification";
 import { daysUntilExpiry } from "@/lib/certificate-service";
 import { migrationHint } from "@/lib/db/migration-hints";
+import { buildVerificationProgress } from "@/lib/supplier-portal/verification-progress";
+import type { SupplierSubmissionItem } from "@/lib/types";
 import { SupplierProfileForm } from "./supplier-profile-form";
 import { EmptyRow, Kpi, LevelChip, Panel, PortalSteps, date } from "./portal-ui";
+import { VerificationProgressPanel } from "./verification-progress";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tổng quan cổng nhà cung cấp | Vexim Trade", robots: { index: false, follow: false } };
@@ -79,7 +82,7 @@ export default async function SupplierPortal() {
       return fallback;
     }
   }
-  const [products, invites, certificates, submissions] = await Promise.all([
+  const [products, invites, certificates, submissions, requests, l1Media] = await Promise.all([
     optional("sản phẩm", [] as Awaited<ReturnType<typeof store.listProductsBySupplier>>,
       () => store.listProductsBySupplier(supplier.id)),
     optional("danh sách RFQ được chuyển", [] as Awaited<ReturnType<typeof store.listSupplierRfqInvitations>>,
@@ -88,7 +91,19 @@ export default async function SupplierPortal() {
       () => store.listCertificates(supplier.id)),
     optional("hồ sơ tự gửi", [] as Awaited<ReturnType<typeof store.listSubmissions>>,
       () => store.listSubmissions(supplier.id)),
+    optional("yêu cầu kiểm định", [] as Awaited<ReturnType<typeof store.listSupplierVerificationRequests>>,
+      () => store.listSupplierVerificationRequests(supplier.id)),
+    optional("giấy tờ đợt kiểm", [] as Awaited<ReturnType<typeof store.listMedia>>,
+      () => review ? store.listMedia("verification", review.id) : Promise.resolve([])),
   ]);
+  // Số ảnh/chứng từ đã tải quyết định câu “còn mấy mục”: đọc riêng để một bảng
+  // thiếu migration chỉ làm mất phần đếm, không làm hỏng cả dải tiến độ.
+  const submissionItems = await optional("bằng chứng đã nộp", {} as Record<string, SupplierSubmissionItem[]>,
+    async () => Object.fromEntries(await Promise.all(submissions.map(async (submission) =>
+      [submission.id, await store.listSubmissionItems(submission.id)] as const))));
+  const verification = buildVerificationProgress({
+    supplierId: supplier.id, reviews, submissions, submissionItems, requests, documents: l1Media, userId: user.id,
+  });
   const board = buildSupplierRfqBoard({ supplierId: supplier.id, invites, products, days: 30 });
 
   const approvedCount = products.filter((p) => productReview(p) === "approved").length;
@@ -151,6 +166,8 @@ export default async function SupplierPortal() {
       </div>
     </section>
 
+    <div className="mt-5"><VerificationProgressPanel progress={verification} /></div>
+
     <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Số liệu gian hàng">
       <Kpi href="/supplier/portal/products" icon={<Package className="h-4 w-4" />} label="Sản phẩm đã duyệt nội dung" value={approvedCount}
         note={`Trên ${products.length} sản phẩm trong gian hàng`} />
@@ -162,7 +179,7 @@ export default async function SupplierPortal() {
         note={`${board.report.responded} lời mời đã có phản hồi`} />
     </div>
 
-    <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
+    <div className="mt-5">
       <Panel title="Việc đang chờ bạn" sub="Chỉ hiện mục đang có việc. Mở từng trang để xử lý chi tiết." count={work.length} flush>
         {work.length ? <ul className="divide-y divide-ink-100">{work.map((row) => <li key={row.label}>
           <Link href={row.href} className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-ink-50">
@@ -171,15 +188,6 @@ export default async function SupplierPortal() {
             <span className="text-[13px] font-black tabular-nums text-ink-900">{row.value}</span>
           </Link>
         </li>)}</ul> : <EmptyRow>Không có việc nào đang chờ. Sản phẩm, giấy tờ và RFQ đều đang ở trạng thái ổn.</EmptyRow>}
-      </Panel>
-
-      <Panel title="Tiến độ cổng" sub="Bốn mốc độc lập, không cộng dồn thành một nhãn xác minh.">
-        <PortalSteps stages={[
-          { label: "Hồ sơ doanh nghiệp", state: "done", note: "Hoàn tất" },
-          { label: "Kiểm tra giấy tờ L1", state: l1Approved ? "done" : "current", note: l1Approved ? "Đạt" : "Đang rà soát" },
-          { label: "Cổng nhà cung cấp", state: "done", note: "Đã mở" },
-          { label: "Sản phẩm & RFQ", state: "current", note: `${products.length} sản phẩm · ${board.tasks.length} việc chờ` },
-        ]} />
       </Panel>
     </div>
 

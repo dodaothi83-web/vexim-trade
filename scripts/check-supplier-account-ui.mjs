@@ -64,6 +64,10 @@ const portal = load('../app/supplier/portal/page.tsx', {
   '@/lib/rfq/reply-routing': { supplierReplyAddress: () => '' },
   '@/lib/types': { L1_DOC_ITEMS: [] },
   '@/lib/verification': { isL1CoreDoc: () => false },
+  '@/lib/supplier-portal/verification-progress': { buildVerificationProgress: () => ({
+    steps: [], approvedCount: 0, currentLevel: null, percent: 0, headline: '',
+  }) },
+  './verification-progress': { VerificationProgressPanel: () => null },
   './supplier-portal-upload': { SupplierPortalUpload: () => null },
   './supplier-profile-form': { SupplierProfileForm: ({ email }) => React.createElement('form', { 'data-email': email }, 'Company profile form') },
   './notice-actions': { markSupplierNoticeReadAction: async () => {} },
