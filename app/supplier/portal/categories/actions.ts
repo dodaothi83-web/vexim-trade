@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
-import { categoryProposalOptions, parseSupplierCategoryProposals } from "@/lib/supplier-portal/category-proposals";
+import { categoryProposalOptions, parseSupplierCategoryProposals, productCategorySlug } from "@/lib/supplier-portal/category-proposals";
 
 export async function saveSupplierCategoriesAction(form: FormData): Promise<{ ok: boolean; message: string }> {
   const access = await supplierPortalAccess();
@@ -13,7 +13,7 @@ export async function saveSupplierCategoriesAction(form: FormData): Promise<{ ok
     const selected = parseSupplierCategoryProposals(form, options).requested_category_slugs;
     const products = await access.store.listProductsBySupplier(access.supplier.id);
     const outside = products.find((p) => {
-      const slug = p.reviewed_category_slug || p.supplier_category_proposal || p.category;
+      const slug = productCategorySlug(p);
       return slug && !selected.includes(slug);
     });
     if (outside) return { ok: false, message: `Sản phẩm “${outside.name}” còn thuộc danh mục sẽ bỏ. Liên hệ Vexim để xử lý sản phẩm trước khi bỏ danh mục.` };

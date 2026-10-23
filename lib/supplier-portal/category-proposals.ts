@@ -1,6 +1,23 @@
-import type { Category, Supplier, SupplierCategory } from "@/lib/types";
+import type { Category, Supplier, SupplierCategory, SupplierProduct } from "@/lib/types";
 
-export type CategoryProposalOption = { id: string; slug: string; label: string; group: string | null; product_fields?: Category["product_fields"] };
+export type CategoryProposalOption = {
+  id: string;
+  slug: string;
+  label: string;
+  group: string | null;
+  product_fields?: Category["product_fields"];
+  /** Mô tả ngắn của danh mục (CMS) — chỉ dùng để NCC nhận ra ngành hàng. */
+  intro?: string | null;
+  /** Ảnh bìa danh mục nếu Vexim đã tải; thiếu thì giao diện tự dùng ô chữ. */
+  hero_image?: string | null;
+};
+
+const text = (value: unknown): string | null => (typeof value === "string" && value.trim() ? value.trim() : null);
+const pickVi = (m: Category["intro_i18n"] | undefined): string | null => {
+  if (!m || typeof m !== "object") return null;
+  const record = m as Record<string, unknown>;
+  return text(record.vi) ?? text(record.en) ?? text(Object.values(record)[0]);
+};
 
 /** Only categories Vexim has published in the CMS; suppliers cannot create taxonomy entries. */
 export function categoryProposalOptions(categories: Category[]): CategoryProposalOption[] {
@@ -11,7 +28,8 @@ export function categoryProposalOptions(categories: Category[]): CategoryProposa
     .map((c) => {
       const parent = c.parent_id ? byId.get(c.parent_id) : null;
       return { id: c.id, slug: c.slug, label: c.name_i18n.vi || c.name_i18n.en || c.slug,
-        group: parent?.name_i18n.vi || parent?.name_i18n.en || null, product_fields: c.product_fields ?? [] };
+        group: parent?.name_i18n.vi || parent?.name_i18n.en || null, product_fields: c.product_fields ?? [],
+        intro: pickVi(c.intro_i18n), hero_image: text(c.hero_image) };
     });
 }
 
@@ -33,6 +51,16 @@ export function allowedSupplierCategories(
   const slugs = supplier.requested_category_slugs?.length ? supplier.requested_category_slugs :
     supplier.categories_reviewed_at ? options.filter((c) => linked.some((row) => row.category_id === c.id)).map((c) => c.slug) : [];
   return options.filter((c) => slugs.includes(c.slug));
+}
+
+/**
+ * Danh mục đang gắn với một sản phẩm. Một nơi duy nhất để trang danh mục, form sản phẩm
+ * và server action không hiểu khác nhau về cùng một sản phẩm.
+ */
+export function productCategorySlug(
+  product: Pick<SupplierProduct, "reviewed_category_slug" | "supplier_category_proposal" | "category">,
+): string | null {
+  return product.reviewed_category_slug || product.supplier_category_proposal || product.category || null;
 }
 
 export function parseProductCategoryProposal(form: FormData, options: CategoryProposalOption[]): string {
