@@ -5,6 +5,7 @@
 // dự phòng, và hình học biểu đồ. Tất cả là hàm thuần nên kiểm được bằng số, không
 // cần trình duyệt.
 import assert from "node:assert/strict";
+import { hasPermission } from "../lib/auth/permissions.ts";
 
 import {
   POOL_CAP,
@@ -162,5 +163,20 @@ assert.ok(flat.points.every((point) => point.y === flat.plot.bottom), "Số 0 n�
 const snapshot = (geo) => ({ path: geo.path, points: geo.points, ceiling: geo.ceiling, mid: geo.mid, labelIndices: geo.labelIndices });
 assert.deepEqual(snapshot(buildChartGeometry(week)), snapshot(buildChartGeometry(week)),
   "Cùng dữ liệu phải ra cùng toạ độ");
+
+/* ---------------- Ai được duyệt ---------------- */
+
+assert.ok(hasPermission("admin", "sponsored.manage"), "Admin duyệt được gói");
+assert.ok(hasPermission("reviewer", "sponsored.manage"), "Trưởng kiểm duyệt duyệt được gói");
+assert.ok(hasPermission("reviewer", "sponsored.view"), "Trưởng kiểm duyệt xem được danh sách gói");
+// Chỉ admin và trưởng kiểm duyệt được duyệt. Các vai trò nội bộ khác xem được
+// danh sách nhưng không có nút thao tác; vai trò ngoài Vexim không vào được trang.
+for (const role of ["sale", "sourcing", "viewer", "supplier"]) {
+  assert.ok(!hasPermission(role, "sponsored.manage"), `Vai trò ${role} không duyệt được gói`);
+}
+assert.ok(hasPermission("sale", "sponsored.view"), "Kinh doanh xem được danh sách gói");
+assert.ok(!hasPermission("supplier", "sponsored.view"), "Tài khoản doanh nghiệp không vào trang gói đẩy");
+assert.ok(!hasPermission("viewer", "sponsored.view"), "Vai trò chỉ xem không vào trang gói đẩy");
+assert.ok(!hasPermission(null, "sponsored.manage"), "Không có phiên thì không có quyền");
 
 console.log("check-sponsored-admin: ok");

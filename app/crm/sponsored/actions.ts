@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getStore } from "@/lib/db";
-import { getSession } from "@/lib/auth/session";
+import { getSession, type SessionUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { eligiblePushProducts } from "@/lib/sponsored/eligibility";
 import { POOL_CAP, overlapping } from "@/lib/sponsored/admin";
@@ -19,21 +19,25 @@ function back(code: string, kind: "ok" | "err" = "ok"): never {
 }
 
 /**
- * Duyệt gói là quyền của quản trị, không phải của người bán.
+ * Duyệt gói là quyền của nội bộ Vexim, không phải của người bán: admin và trưởng
+ * kiểm duyệt.
  *
- * Ràng buộc dưới cơ sở dữ liệu cũng đòi `app_users.role = 'admin'` và tài khoản
- * đang hoạt động, nên chặn ở đây cho khớp chứ không thay thế được chốt đó.
+ * Ràng buộc dưới cơ sở dữ liệu cũng chỉ nhận hai vai trò đó và đòi tài khoản đang
+ * hoạt động, nên chặn ở đây cho khớp chứ không thay thế được chốt đó.
  */
-async function requireManager() {
+const APPROVER_ROLES: readonly string[] = ["admin", "reviewer"];
+
+/** Tên hàm này được scripts/check-permissions.mjs nhận diện là cổng kiểm quyền. */
+async function sponsoredManageAccess(): Promise<SessionUser> {
   const session = await getSession();
   if (!session) redirect("/login");
   if (!hasPermission(session.role, "sponsored.manage")) back("forbidden", "err");
-  if (session.role !== "admin") back("forbidden", "err");
+  if (!APPROVER_ROLES.includes(session.role)) back("forbidden", "err");
   return session;
 }
 
 export async function approvePushAction(fd: FormData) {
-  const session = await requireManager();
+  const session = await sponsoredManageAccess();
   const id = String(fd.get("id") ?? "");
   const store = getStore();
   const pushes = await store.listAllSponsoredPushes();
@@ -55,7 +59,7 @@ export async function approvePushAction(fd: FormData) {
 }
 
 export async function pausePushAction(fd: FormData) {
-  const session = await requireManager();
+  const session = await sponsoredManageAccess();
   const id = String(fd.get("id") ?? "");
   const store = getStore();
   const pushes = await store.listAllSponsoredPushes();
@@ -70,7 +74,7 @@ export async function pausePushAction(fd: FormData) {
 }
 
 export async function resumePushAction(fd: FormData) {
-  const session = await requireManager();
+  const session = await sponsoredManageAccess();
   const id = String(fd.get("id") ?? "");
   const store = getStore();
   const pushes = await store.listAllSponsoredPushes();
@@ -91,7 +95,7 @@ export async function resumePushAction(fd: FormData) {
 }
 
 export async function cancelDraftAction(fd: FormData) {
-  await requireManager();
+  await sponsoredManageAccess();
   const id = String(fd.get("id") ?? "");
   const store = getStore();
   const pushes = await store.listAllSponsoredPushes();
@@ -106,7 +110,7 @@ export async function cancelDraftAction(fd: FormData) {
 }
 
 export async function createPushAction(fd: FormData) {
-  await requireManager();
+  await sponsoredManageAccess();
   const store = getStore();
   const productId = String(fd.get("product") ?? "");
   const surface: SponsoredPushSurface = String(fd.get("surface") ?? "category") === "home" ? "home" : "category";

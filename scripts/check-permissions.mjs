@@ -99,6 +99,9 @@ for (const p of allTs) {
       // supplierSubmissionAccess rechecks session, supplier role, approved onboarding,
       // verified email and submission ownership from DB before returning the bundle.
       /supplierSubmissionAccess\s*\(/.test(head) ||
+      // sponsoredManageAccess checks session, sponsored.manage and the approver role
+      // (admin or review lead) before returning the session.
+      /sponsoredManageAccess\s*\(/.test(head) ||
       (hasTopGuard && /\benforce\s*\(/.test(head));
     if (!callsGuardInFn && !hasTopGuard && !perFnGuard) {
       errors.push(`Server action ${rel}::${fn} không gọi guard/requireSession — bỏ sót kiểm quyền.`);

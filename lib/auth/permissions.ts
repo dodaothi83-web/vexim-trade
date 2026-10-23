@@ -47,7 +47,10 @@ export type Permission =
   | "rfq.manage"
   /** Xem danh sách gói đẩy sản phẩm và số liệu */
   | "sponsored.view"
-  /** Tạo, duyệt, tạm dừng gói đẩy (chỉ admin: ràng buộc dưới cơ sở dữ liệu cũng đòi admin) */
+  /**
+   * Tạo, duyệt, tạm dừng gói đẩy. Admin và trưởng kiểm duyệt; ràng buộc dưới cơ sở
+   * dữ liệu chỉ nhận hai vai trò này (xem migration 20261029_sponsored_approver_role.sql).
+   */
   | "sponsored.manage";
 
 export const ROLES: {
@@ -80,7 +83,7 @@ export const ROLES: {
   {
     value: "reviewer",
     label: "Trưởng kiểm duyệt",
-    description: "Xét duyệt độc lập các đợt kiểm/chứng nhận, quyết định công khai NCC và danh mục; không quản lý tài khoản hay sửa bằng chứng.",
+    description: "Xét duyệt độc lập các đợt kiểm/chứng nhận, quyết định công khai NCC và danh mục, duyệt gói đẩy sản phẩm; không quản lý tài khoản hay sửa bằng chứng.",
     badge: "bg-violet-700 text-white",
   },
   {
@@ -181,6 +184,8 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "categories.publish",
     "verifications.view",
     "verifications.approve",
+    "sponsored.view",
+    "sponsored.manage",
   ],
   viewer: VIEW_ONLY,
   supplier: [],
