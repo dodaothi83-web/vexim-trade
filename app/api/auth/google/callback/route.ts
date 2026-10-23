@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
+import { notifyStaffSupplierAccount } from "@/lib/supplier-portal/notify";
 import { createSessionToken, SESSION_COOKIE } from "@/lib/auth/session";
 import { GOOGLE_FLOW_COOKIE, GOOGLE_SIGNUP_COOKIE, googleClient, googleCookieOptions, isVerifiedGoogleUser, parseGoogleFlow, googleRequestOrigin, googleOriginAllowed } from "@/lib/auth/google-oauth";
 
@@ -41,6 +42,8 @@ export async function GET(request: Request) {
       await store.addAuditLog({ actor_id: user.id, actor_email: user.email, entity: "user", entity_id: user.id,
         action: "supplier.account_registered", before: null, after: { role: "supplier", supplier_id: null, provider: "google" } })
         .catch((error) => console.error("[google-oauth] audit log failed", error));
+      await notifyStaffSupplierAccount({ email: user.email, name: user.name, provider: "google" })
+        .catch((error) => console.error("[google-oauth] staff notification failed", error));
     }
     if (!user || !user.is_active) return clear(target("/login?oauth=not_allowed"));
     const res = clear(target(user.role === "supplier" ? "/supplier/portal" : "/crm/dashboard"));

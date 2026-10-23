@@ -5,7 +5,7 @@ import { dataStatus, getStore } from "@/lib/db";
 import { supabaseProbe } from "@/lib/db";
 import { emailMode } from "@/lib/config";
 import { requireSession } from "@/lib/auth/session";
-import { permissionsFor } from "@/lib/auth/permissions";
+import { hasPermission, permissionsFor } from "@/lib/auth/permissions";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { loadMailboxData } from "@/lib/mail/mailbox-access";
 import { Sidebar } from "@/components/sidebar";
@@ -41,6 +41,17 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     newBuyers = buyers.filter((b) => (b.stage ?? "lead") === "lead" && isOwnedBy(b.owner, scope)).length;
   }
 
+  // Badge việc đang chờ ở các khu vực chính. Đếm bằng truy vấn head-count, không tải cả bảng.
+  const store = getStore();
+  const canSuppliers = hasPermission(session.role, "suppliers.view");
+  const canProducts = hasPermission(session.role, "products.view");
+  const canReviews = hasPermission(session.role, "verifications.view");
+  const [pendingSuppliers, pendingProducts, pendingReviews] = await Promise.all([
+    canSuppliers ? store.countSupplierAccountsPending().catch(() => 0) : 0,
+    canProducts ? store.countProductsPendingReview().catch(() => 0) : 0,
+    canReviews ? store.countReviewsAwaitingApproval().catch(() => 0) : 0,
+  ]);
+
   let dbMode: "supabase" | "local" = "local";
   let dbDegraded = false;
   try {
@@ -65,6 +76,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         permissions={permissionsFor(session.role)}
         unreadMail={unreadMail}
         newBuyers={newBuyers}
+        pendingSuppliers={pendingSuppliers}
+        pendingProducts={pendingProducts}
+        pendingReviews={pendingReviews}
       />
       <div className="lg:pl-60">
         <main className="mx-auto min-h-screen w-full max-w-[1500px] px-4 pt-16 pb-16 sm:px-6 lg:px-8 lg:pt-8">

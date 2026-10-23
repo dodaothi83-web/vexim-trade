@@ -18,6 +18,10 @@ const FILE_LABELS: Record<typeof INITIAL_DOCUMENT_KEYS[number], string> = {
 /** Ba giấy xác minh chính; chọn một là đủ, nhưng phải đứng tên doanh nghiệp đã khai. */
 const CORE_DOC_KEYS = ["business_license", "food_safety", "haccp_or_brc"] as const;
 
+function categoriesChosen(form: HTMLFormElement): boolean {
+  return form.querySelectorAll('input[name="requested_category_slugs"]').length > 0;
+}
+
 function coreDocChosen(form: HTMLFormElement): boolean {
   return CORE_DOC_KEYS.some((key) =>
     Boolean(form.querySelector<HTMLInputElement>(`input[name="doc:${key}"]`)?.files?.length));
@@ -162,6 +166,10 @@ export function SupplierProfileForm({ supplier, email, categories, hasCoreDoc = 
       bad.scrollIntoView({ block: "center", behavior: "smooth" });
       return;
     }
+    if (step === 1 && !categoriesChosen(form)) {
+      setStepError("Chọn ít nhất một danh mục kinh doanh ở ô phía trên.");
+      return;
+    }
     if (step === 2 && !hasCoreDoc && !coreDocChosen(form)) {
       setStepError("Chọn ít nhất một trong ba giấy xác minh: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal.");
       return;
@@ -187,6 +195,11 @@ export function SupplierProfileForm({ supplier, email, categories, hasCoreDoc = 
         window.setTimeout(() => { bad.focus(); bad.scrollIntoView({ block: "center", behavior: "smooth" }); }, 50);
         return;
       }
+    }
+    if (!categoriesChosen(form)) {
+      setStep(1);
+      setStepError("Chọn ít nhất một danh mục kinh doanh trước khi gửi hồ sơ.");
+      return;
     }
     if (!hasCoreDoc && !coreDocChosen(form)) {
       setStep(2);

@@ -1218,6 +1218,20 @@ export const localStore: DataStore = {
   async countUsers() {
     return load().users.length;
   },
+  async countSupplierAccountsPending() {
+    const profiles = load().suppliers.filter((s) => s.onboarding_status === "pending" && !s.is_demo).length;
+    // Tài khoản đã đăng ký nhưng chưa nộp hồ sơ: chưa có hàng suppliers để đếm.
+    const logins = load().users.filter((u) => u.role === "supplier" && u.is_active && !u.supplier_id).length;
+    return profiles + logins;
+  },
+  async countProductsPendingReview() {
+    return load().products.filter((p) => p.supplier_review_status === "pending").length;
+  },
+  async countReviewsAwaitingApproval() {
+    const reviews = (load().verifications ?? []).filter((v) => v.status === "submitted").length;
+    const submissions = (load().supplier_submissions ?? []).filter((s) => s.status === "pending_review").length;
+    return reviews + submissions;
+  },
   async getUser(id) {
     return load().users.find((u) => u.id === id) ?? null;
   },

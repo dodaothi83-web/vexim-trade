@@ -3,7 +3,7 @@
 ## Triển khai theo thứ tự
 
 1. Áp dụng migration xác minh, `20261017_supplier_self_registration.sql`, `20261017_supplier_dashboard.sql`, `20261017_supplier_onboarding_gate.sql`, rồi **`20261017_supplier_product_review.sql` và `20261017_supplier_category_proposals.sql` trước khi deploy mã mới** trên đúng Supabase project. Không chạy `schema.sql` trực tiếp lên production. Cột review sản phẩm mặc định `approved` để giữ trạng thái của sản phẩm nhân viên Vexim đã nhập trước đây; sản phẩm mới do NCC tự tạo luôn bắt đầu `draft`. Hồ sơ tài khoản tự đăng ký cũ được migration onboarding đưa vào `pending`, không tự mở quyền.
-2. Giữ service-role, Supabase Storage/Resend thật, và chọn chế độ xác nhận email cho phù hợp (xem mục dưới). Khi bật xác nhận email thì cần redirect `/login` trong allowlist và email xác nhận hoạt động. Admin Vexim phải tồn tại trước khi nhận đăng ký. Form đăng ký gửi thông báo nội bộ cho sourcing/admin sau khi lưu; nếu email gửi lỗi thì hồ sơ vẫn ở hàng chờ CRM.
+2. Giữ service-role, Supabase Storage/Resend thật, và chọn chế độ xác nhận email cho phù hợp (xem mục dưới). Khi bật xác nhận email thì cần redirect `/login` trong allowlist và email xác nhận hoạt động. Admin Vexim phải tồn tại trước khi nhận đăng ký. Mỗi lần tài khoản NCC được tạo (email hoặc Google), hệ thống gửi thư báo cho sourcing/admin ngay, kèm ghi chú rằng chưa có hồ sơ và chưa có gì để duyệt; nộp hồ sơ doanh nghiệp xong thì có thêm một thư nữa có đường dẫn tới trang NCC. Nếu email gửi lỗi thì hồ sơ vẫn ở hàng chờ CRM.
 
 ### Xác nhận email: bật hay tắt trong Supabase
 
@@ -40,6 +40,24 @@ Khi nhân viên gắn một tài khoản nhà cung cấp đã tự đăng ký v�
 - Nếu Supabase Auth từ chối, email trong `app_users` được trả về như cũ và mật khẩu không đổi; thao tác báo lỗi thay vì để hai bên lệch nhau.
 - Không đổi được email/mật khẩu qua màn Cài đặt → Người dùng: tài khoản doanh nghiệp bị chặn ở đó có chủ ý, vì đăng nhập của họ đi qua Supabase Auth chứ không dùng mật khẩu nội bộ.
 - Nhật ký ghi `supplier.account_provisioned`, `supplier.account_linked` và `supplier.account_handed_over`; không ghi mật khẩu.
+
+## Ai nhận thông báo khi có việc mới
+
+Mỗi sự kiện có hai đường: thư điện tử, và chỗ hiện trong CRM. Không có sự kiện nào chỉ sống trong hộp thư của một người.
+
+| Sự kiện | Thư gửi cho | Hiện ở CRM |
+| --- | --- | --- |
+| Tài khoản NCC mới tạo (email hoặc Google) | admin, sourcing | Hàng đợi dashboard "Tài khoản NCC mới · chưa nộp hồ sơ", dòng "Tài khoản NCC chưa nộp hồ sơ", và số ở menu Nhà cung cấp |
+| NCC nộp hồ sơ doanh nghiệp | admin, sourcing | Hàng đợi "Tài khoản NCC · chờ xác nhận quyền truy cập", bảng "Hồ sơ NCC chờ xác nhận" |
+| NCC gửi sản phẩm để duyệt | admin, sourcing | Hàng đợi "sản phẩm chờ Vexim duyệt", số ở menu Sản phẩm |
+| NCC tự gửi hồ sơ thăm nhà máy / lịch sử giao hàng | admin, reviewer | Trang `/crm/verifications/submissions`, số ở menu Xác minh |
+| Chuyên viên nộp một đợt kiểm để duyệt | admin, reviewer | Hàng đợi "chờ xét duyệt", bảng "Đợt kiểm chờ xét duyệt" |
+| Buyer gửi RFQ | người phụ trách nhận thư nội bộ | Hàng đợi "RFQ mới", số ở menu RFQ |
+| Vexim duyệt hoặc trả lại hồ sơ, sản phẩm, đợt kiểm | chính NCC đó | Cổng NCC, mục thông báo |
+
+Số hiện ở menu trái là số việc đang chờ, không phải số chưa đọc, nên không cần bấm để đánh dấu đã xem. Khi máy chủ chưa có `RESEND_API_KEY`, menu trái hiện dòng cảnh báo: thư chỉ ghi log chứ không gửi thật.
+
+Bảng này là hợp đồng vận hành. Thêm một sự kiện mới thì phải thêm cả hai đường, và thêm vào bảng.
 
 ## Một form đăng nhập, thêm Google
 

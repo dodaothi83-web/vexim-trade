@@ -37,7 +37,7 @@ for (const denied of [
   [{ ...owner, role: 'viewer' }, doc, 'business_license'],
 ]) assert.equal(policy.canUploadOwnDocument(...denied), false);
 
-const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false };
+const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false, accountNotices: [] };
 const store = {
   mode: 'supabase',
   listUsers: async () => state.users,
@@ -89,7 +89,10 @@ const mocks = {
   '@/lib/supplier-portal/profile-input': profileInput,
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/supplier-portal/profile-evidence': profileEvidence,
-  '@/lib/supplier-portal/notify': { notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 1); return 'sent'; } },
+  '@/lib/supplier-portal/notify': {
+    notifyStaffSupplierAccount: async (input) => { state.accountNotices.push(input.email); return 'sent'; },
+    notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 1); return 'sent'; },
+  },
   '@/lib/site': { SITE_URL: 'https://example.com' },
   '@/lib/verification': { isL1CoreDoc },
 };
@@ -159,8 +162,11 @@ assert.equal(state.users.at(-1).role, 'supplier');
 assert.equal(state.users.at(-1).supplier_id, null, 'Signup creates only a login; first business form creates the page');
 assert.equal(state.suppliers.length, 0);
 assert.equal(state.reviews.length, 0);
-assert.equal(state.notify, 0, 'Staff notified on completed business form, not empty account creation');
+assert.equal(state.notify, 0, 'Business-form notification stays separate from account creation');
+assert.ok(state.accountNotices.includes('owner@example.com'), 'New supplier login emails staff right away');
+const noticedBefore = state.accountNotices.length;
 assert.equal((await post(accountForm())).status, 409, 'Duplicate email cannot claim another account');
+assert.equal(state.accountNotices.length, noticedBefore, 'A refused duplicate never sends another staff email');
 
 const access = load('../lib/supplier-portal/access.ts', {
   '@/lib/db': { getStore: () => store },

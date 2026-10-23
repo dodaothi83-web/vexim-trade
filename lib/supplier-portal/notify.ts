@@ -38,6 +38,30 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
   return result.ok ? result.status : "failed";
 }
 
+/**
+ * A new supplier login exists but has no business profile yet. Staff should hear about it
+ * immediately so a stalled registration can be followed up; nothing is approved here.
+ */
+export async function notifyStaffSupplierAccount(input: { email: string; name?: string | null; provider: "email" | "google" }): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const users = await getStore().listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "sourcing" || u.role === "admin"))
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length) return "failed";
+    const email = input.email.trim().toLowerCase();
+    const who = (input.name ?? "").trim() || email;
+    const staffOrigin = notificationOrigin();
+    const url = `${staffOrigin}/crm/suppliers`;
+    const title = `Tài khoản NCC mới: ${email}`;
+    const body = `<p>${escapeHtml(who)} vừa tạo tài khoản nhà cung cấp bằng ${input.provider === "google" ? "Google" : "email và mật khẩu"}. <strong>Tài khoản chưa có hồ sơ doanh nghiệp và chưa được mở quyền cổng.</strong></p>
+    <p>Ở bước này chưa có gì để duyệt. Khi họ nộp hồ sơ doanh nghiệp, Vexim nhận thêm một thông báo có đường dẫn thẳng tới trang NCC. Nếu mãi không thấy hồ sơ, đây là danh sách để liên hệ lại.</p>
+    <p><a href="${url}">Mở danh sách nhà cung cấp trong CRM →</a></p>`;
+    const result = await transport({ to: recipients, subject: title,
+      html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
+    return result.ok ? result.status : "failed";
+  } catch (error) { console.error("[supplier-notify] account registered", error); return "failed"; }
+}
+
 /** Pending certificate claim goes to staff inbox, never directly to buyers or publication. */
 export async function notifySupplierCertificateSubmission(supplier: Supplier, name: string): Promise<"sent" | "simulated" | "failed"> {
   const users = await getStore().listUsers();
@@ -103,6 +127,26 @@ export async function notifyStaffVerificationSubmission(supplierId: string, leve
     const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] verification submission", error); return "failed"; }
+}
+
+/** An L2/L3 self-submission just entered the staff review queue; the AI scan is not an approval. */
+export async function notifyStaffSupplierSubmission(supplierId: string, level: 2 | 3): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const store = getStore();
+    const users = await store.listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "reviewer"))
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length) return "failed";
+    const supplier = await store.getSupplier(supplierId);
+    const label = level === 2 ? "hồ sơ thăm nhà máy" : "hồ sơ lịch sử giao hàng";
+    const url = `${notificationOrigin()}/crm/verifications/submissions`;
+    const title = `Hồ sơ NCC tự gửi chờ đối chiếu: ${supplier?.name ?? "NCC"}`;
+    const body = `<p>${escapeHtml(supplier?.name ?? "NCC")} vừa nộp ${escapeHtml(label)}. <strong>Chưa duyệt và chưa công khai.</strong></p>
+    <p>AI đã quét sơ bộ theo yêu cầu, nhưng máy không thay được người đối chiếu. Hãy mở hồ sơ, xem ảnh gốc và quyết định.</p>
+    <p><a href="${url}">Mở hàng chờ hồ sơ tự gửi →</a></p>`;
+    const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
+    return res.ok ? res.status : "failed";
+  } catch (error) { console.error("[supplier-notify] supplier submission", error); return "failed"; }
 }
 
 /** Staff gets a reminder only when a supplier explicitly submits a product, never on draft saves. */

@@ -93,6 +93,15 @@ export interface DataStore {
   // ----- Người dùng & phân quyền -----
   listUsers(): Promise<AppUser[]>;
   countUsers(): Promise<number>;
+  /**
+   * Việc phía NCC đang chờ Vexim: tài khoản đã tạo mà chưa nộp hồ sơ, cộng hồ sơ đã nộp
+   * nhưng chưa được xác nhận quyền cổng. Badge menu Nhà cung cấp.
+   */
+  countSupplierAccountsPending(): Promise<number>;
+  /** Sản phẩm NCC đã gửi, chờ Vexim kiểm nội dung — badge menu Sản phẩm. */
+  countProductsPendingReview(): Promise<number>;
+  /** Đợt kiểm đã nộp, chờ người có quyền duyệt — badge menu Xác minh. */
+  countReviewsAwaitingApproval(): Promise<number>;
   getUser(id: string): Promise<AppUserRecord | null>;
   getUserByEmail(email: string): Promise<AppUserRecord | null>;
   /** Tài khoản đăng nhập đang gắn với một hồ sơ NCC (mỗi hồ sơ tối đa một tài khoản). */
