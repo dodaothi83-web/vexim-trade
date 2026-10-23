@@ -279,6 +279,7 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
         <div className="divide-y divide-ink-100">
           {items.map((it, i) => {
             const suggestion = aiResult?.checks.find((c) => c.key === it.key);
+            const coreDoc = v.target_level === 1 && "core" in it && it.core;
             const optional = v.target_level > 1 || "required" in it && !it.required;
             const uploadKind = auditUploadKind(v.target_level, it.key as AuditEvidenceKey);
             const linked = evidence.filter((m) => m.checklist_key === it.key && m.storage_path);
@@ -287,7 +288,7 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
               <label htmlFor={`check-${it.key}`} className="block text-sm font-semibold text-ink-900">
                 {i + 1}. {it.label}{" "}
                 {v.target_level === 2 && "requires_code" in it && it.requires_code && <span title="Ảnh NCC tự gửi phải kèm tờ giấy viết tay mã xác minh Vexim phát hành">🔖</span>}{" "}
-                <span className={optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{v.target_level === 2 ? "" : optional ? "Tùy chọn" : ["tax_certificate", "bank_letter"].includes(it.key) ? "Bắt buộc nhập" : "Bắt buộc đạt"}</span>
+                <span className={coreDoc ? "ml-1 text-xs font-semibold text-brand-700" : optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{v.target_level === 2 ? "" : coreDoc ? "Bắt buộc 1 trong 3" : optional ? "Tùy chọn" : ["tax_certificate", "bank_letter"].includes(it.key) ? "Bắt buộc nhập" : "Bắt buộc đạt"}</span>
               </label>
               {v.target_level === 2 && "requirement" in it && <p className="mt-0.5 text-xs text-ink-500">
                 {it.requirement} · đối chiếu ảnh NCC tự gửi cùng mục{("requires_code" in it && it.requires_code) ? " · 🔖 kiểm tra tờ mã viết tay trong ảnh" : ""}
@@ -318,8 +319,8 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
                 <Field label="Nơi giao / thị trường"><input name="shipment_destination" defaultValue={v.shipment_destination ?? ""} className="input" /></Field>
               </div>}
             </fieldset>
-            {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">Đối chiếu tên pháp nhân và mã số thuế trên đăng ký doanh nghiệp với NCC; nếu dùng tên thương mại khác, ghi rõ căn cứ trong ghi chú. AI không tự xác thực giấy tờ.</p>}
-            {v.target_level === 1 && (it.key === "food_safety" || it.key === "haccp_or_brc") && <p className="text-xs text-ink-600">NCC thương mại không bắt buộc có giấy này. Nếu dùng giấy của nhà máy sản xuất, ghi tên nhà máy và mối liên hệ với hàng cung ứng; không coi đó là giấy đứng tên NCC. Chọn “Không áp dụng” nếu không có.</p>}
+            {v.target_level === 1 && coreDoc && <p className="text-xs text-ink-600">Chỉ cần đạt một trong ba giấy: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal. Giấy phải đứng tên pháp nhân đã đăng ký; giấy của nhà máy đối tác không thay được giấy xác minh chính. AI không tự xác thực giấy tờ.</p>}
+            {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">Đối chiếu tên pháp nhân và mã số thuế trên giấy với hồ sơ NCC; nếu dùng tên thương mại khác, ghi rõ căn cứ trong ghi chú. Đánh dấu Không đạt khi tên không khớp.</p>}
             {v.target_level === 1 && ["food_safety", "haccp_or_brc", "product_certs", "export_license"].includes(it.key) && <div className="space-y-1.5">
               <p className="text-xs font-semibold text-teal-800">Nhận diện tự động</p>
               {certificates.filter((c) => c.checklist_key === it.key || (!c.checklist_key && it.key === "product_certs")).map((c) => (

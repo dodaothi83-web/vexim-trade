@@ -32,8 +32,9 @@ for (const [path, entry] of [
 }
 const settings = read('app/crm/settings/page.tsx');
 assert.match(settings, /hasPermission\(session\.role, "templates\.manage"\)/, 'Templates entry is hidden from unauthorized roles');
-const supplierNav = read('app/supplier/portal/products/workspace-header.tsx');
+// Cổng NCC dùng chung menu trái với CRM; thêm sản phẩm vẫn là nút hành động, không phải mục menu.
+const supplierNav = read('components/supplier-sidebar.tsx');
 assert.doesNotMatch(supplierNav, /href="\/supplier\/portal\/products\/new"/, 'Add product is an action, not a tab');
-assert.match(supplierNav, /active === "new" \? "page"/, 'Product tab is selected while creating a product');
+assert.match(supplierNav, /pathname\.startsWith\(`\$\{href\}\/`\)/, 'Product section stays selected on nested pages');
 assert.match(read('app/supplier/portal/products/product-storefront.tsx'), /href="\/supplier\/portal\/products\/new"/, 'Supplier can still add a product');
 console.log('✅ Navigation prioritizes marketplace workflows; secondary routes remain accessible and gated.');

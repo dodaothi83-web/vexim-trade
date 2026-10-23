@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import { passwordProblem } from "@/lib/auth/password";
 import { rateLimit } from "@/lib/rfq/rate-limit";
 import { SITE_URL } from "@/lib/site";
+import { notifyStaffSupplierAccount } from "@/lib/supplier-portal/notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,9 +97,14 @@ export async function POST(request: Request) {
       // này tạo trong lúc dự án tắt Confirm email hay qua thư xác nhận.
       after: { role: "supplier", supplier_id: null, email_confirmation_required: needsEmailConfirmation } })
       .catch((error) => console.error("[supplier-signup] audit log failed", error));
+    // Staff learn about the new login right away; a failed mail never blocks the account.
+    let notification: "sent" | "simulated" | "failed" = "failed";
+    try { notification = await notifyStaffSupplierAccount({ email, name, provider: "email" }); }
+    catch (error) { console.error("[supplier-signup] staff notification failed", error); }
     return NextResponse.json({
       ok: true,
       emailVerification: needsEmailConfirmation ? "required" : "not_required",
+      notification,
       message: needsEmailConfirmation
         ? "Tài khoản đã tạo. Hãy xác nhận email, đăng nhập ở trang chung rồi khai thông tin doanh nghiệp trong cổng nhà cung cấp."
         : "Tài khoản đã tạo. Đăng nhập ngay bằng email và mật khẩu vừa đặt rồi khai thông tin doanh nghiệp trong cổng nhà cung cấp.",

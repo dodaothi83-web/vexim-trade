@@ -369,6 +369,36 @@ export const supabaseStore: DataStore = {
     if (error) fail("countUsers", error);
     return count ?? 0;
   },
+  async countSupplierAccountsPending() {
+    const [profiles, logins] = await Promise.all([
+      must().from("suppliers").select("id", { count: "exact", head: true })
+        .eq("onboarding_status", "pending").or("is_demo.is.null,is_demo.eq.false"),
+      must().from("app_users").select("id", { count: "exact", head: true })
+        .eq("role", "supplier").eq("is_active", true).is("supplier_id", null),
+    ]);
+    if (profiles.error) fail("countSupplierAccountsPending", profiles.error);
+    if (logins.error) fail("countSupplierAccountsPending", logins.error);
+    return (profiles.count ?? 0) + (logins.count ?? 0);
+  },
+  async countProductsPendingReview() {
+    const { count, error } = await must()
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("supplier_review_status", "pending");
+    if (error) fail("countProductsPendingReview", error);
+    return count ?? 0;
+  },
+  async countReviewsAwaitingApproval() {
+    const [reviews, submissions] = await Promise.all([
+      must().from("verifications").select("id", { count: "exact", head: true }).eq("status", "submitted"),
+      // Hồ sơ NCC tự gửi (ảnh nhà máy / giao hàng) chờ nhân viên đối chiếu.
+      must().from("supplier_submissions").select("id", { count: "exact", head: true }).eq("status", "pending_review"),
+    ]);
+    if (reviews.error) fail("countReviewsAwaitingApproval", reviews.error);
+    // Bảng submissions có thể chưa có trên bản chưa chạy migration: bỏ qua thay vì làm hỏng badge.
+    if (submissions.error) return reviews.count ?? 0;
+    return (reviews.count ?? 0) + (submissions.count ?? 0);
+  },
   async getUser(id) {
     const { data, error } = await must()
       .from("app_users")

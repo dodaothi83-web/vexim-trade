@@ -49,10 +49,10 @@ export function SupplierCertificateUpload({
   return (
     <form
       onSubmit={onSubmit}
-      className="mt-4 grid gap-3 rounded-xl border border-teal-200 bg-teal-50/50 p-4 sm:grid-cols-3"
+      className="mt-4 grid gap-3 rounded-xl border border-brand-200 bg-brand-50/50 p-4 sm:grid-cols-3"
     >
       <div className="sm:col-span-3">
-        <p className="text-xs font-bold uppercase tracking-wider text-teal-900">
+        <p className="text-xs font-bold uppercase tracking-wider text-brand-900">
           Tải lên hoặc gia hạn chứng nhận L1 (AI tự quét)
         </p>
         <p className="mt-0.5 text-xs text-ink-600">

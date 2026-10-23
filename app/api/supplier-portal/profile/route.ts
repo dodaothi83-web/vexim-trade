@@ -9,6 +9,7 @@ import { prepareInitialDocuments, saveInitialEvidence } from "@/lib/supplier-por
 import { notifySupplierRegistration } from "@/lib/supplier-portal/notify";
 import { ensureSupplierProfileEnglish } from "@/lib/ai/supplier-translation-service";
 import type { SupplierInput } from "@/lib/types";
+import { isL1CoreDoc } from "@/lib/verification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,19 @@ export async function POST(request: Request) {
   let supplier = freshUser.supplier_id ? await store.getSupplier(freshUser.supplier_id) : null;
   if (freshUser.supplier_id && !supplier) return fail("Không đọc được hồ sơ doanh nghiệp đã liên kết. Liên hệ Vexim.", 409);
   if (supplier && !canSubmitProfile(supplier)) return fail("Hồ sơ không ở trạng thái cho phép nộp lại.", 409);
+  // Một trong ba giấy xác minh chính là bắt buộc. Giấy đã nộp ở đợt kiểm trước vẫn tính khi NCC bổ sung hồ sơ.
+  if (!documents.some((document) => isL1CoreDoc(document.key))) {
+    let existingCore = false;
+    try {
+      const prior = freshUser.supplier_id ? await store.listVerifications(freshUser.supplier_id) : [];
+      const open = prior.find((item) => item.target_level === 1 && (item.status === "in_progress" || item.status === "returned"));
+      const media = open ? await store.listMedia("verification", open.id) : [];
+      existingCore = media.some((asset) => asset.storage_path && isL1CoreDoc(asset.checklist_key));
+    } catch (error) { console.error("[supplier-profile] cannot read prior documents", error); }
+    if (!existingCore) {
+      return fail("Cần tải ít nhất một trong ba giấy xác minh: Đăng ký doanh nghiệp, Giấy ATTP, hoặc HACCP/ISO/FSSC/Halal. Giấy phải đứng tên doanh nghiệp bạn đã đăng ký.");
+    }
+  }
   let created = false;
   if (!supplier) {
     const patch = parsed.patch;

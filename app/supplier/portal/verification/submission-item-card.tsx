@@ -85,16 +85,16 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
     }
   }
 
-  return <article className={`rounded-xl border bg-white p-3.5 ${needsCode ? "border-teal-300" : "border-slate-200"}`}>
+  return <article className={`rounded-xl border bg-white p-3.5 ${needsCode ? "border-brand-300" : "border-ink-200"}`}>
     <header className="flex flex-wrap items-start justify-between gap-2">
       <div className="min-w-0">
-        <h3 className="text-sm font-bold text-slate-900">
+        <h3 className="text-sm font-bold text-ink-900">
           {spec.order}. {spec.label}{" "}
           {needsCode && <span title="Phải có tờ giấy viết tay mã xác minh trong khung hình">🔖</span>}
         </h3>
-        <p className="mt-0.5 text-xs text-slate-600">{spec.requirement ?? (spec.required ? "Mục bắt buộc" : "Nếu có")}</p>
+        <p className="mt-0.5 text-xs text-ink-600">{spec.requirement ?? (spec.required ? "Mục bắt buộc" : "Nếu có")}</p>
       </div>
-      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${latest ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${latest ? "bg-emerald-50 text-emerald-700" : "bg-ink-100 text-ink-600"}`}>
         {latest ? "Đã có bằng chứng" : spec.required ? "Chưa có" : "Chưa có (tùy chọn)"}
       </span>
     </header>
@@ -105,26 +105,26 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
           ? <a href={row.href} target="_blank" rel="noreferrer">
               {/* Ảnh bằng chứng phải mở qua route có kiểm tra quyền, không qua next/image công khai. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={row.thumbHref} alt={row.label} className="h-20 w-28 rounded-lg border border-slate-200 object-cover" />
+              <img src={row.thumbHref} alt={row.label} className="h-20 w-28 rounded-lg border border-ink-200 object-cover" />
             </a>
-          : <a href={row.href} target="_blank" rel="noreferrer" className="flex h-20 w-28 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500"><FileText className="size-6" /></a>}
-        <figcaption className="mt-1 flex items-center justify-between gap-1 text-[11px] text-slate-500">
-          <a href={row.href} target="_blank" rel="noreferrer" className="font-semibold text-teal-800 underline">{row.isPdf ? "Mở PDF" : "Mở ảnh gốc"}</a>
+          : <a href={row.href} target="_blank" rel="noreferrer" className="flex h-20 w-28 items-center justify-center rounded-lg border border-ink-200 bg-ink-50 text-ink-500"><FileText className="size-6" /></a>}
+        <figcaption className="mt-1 flex items-center justify-between gap-1 text-[11px] text-ink-500">
+          <a href={row.href} target="_blank" rel="noreferrer" className="font-semibold text-brand-800 underline">{row.isPdf ? "Mở PDF" : "Mở ảnh gốc"}</a>
           {editable && <button type="button" onClick={() => void remove(row)} className="text-rose-600 hover:underline" aria-label={`Xóa bằng chứng ${row.label}`}><Trash2 className="size-3.5" /></button>}
         </figcaption>
       </figure>)}
     </div>}
 
-    {latest && <div className="mt-2.5 text-[11px] text-slate-600">
+    {latest && <div className="mt-2.5 text-[11px] text-ink-600">
       {/* Dòng tóm tắt 1 chạm: EXIF còn/mất + GPS + giờ chụp. Chi tiết đầy đủ thu gọn bên dưới. */}
       <p className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-        <span className={latest.hasExif ? "font-bold text-emerald-700" : "font-bold text-slate-500"}>{latest.hasExif ? "Có dữ liệu ảnh gốc" : "Không còn dữ liệu ảnh gốc (vẫn nhận)"}</span>
-        <span className="inline-flex items-center gap-0.5"><MapPin className="size-3 shrink-0 text-slate-400" />
+        <span className={latest.hasExif ? "font-bold text-emerald-700" : "font-bold text-ink-500"}>{latest.hasExif ? "Có dữ liệu ảnh gốc" : "Không còn dữ liệu ảnh gốc (vẫn nhận)"}</span>
+        <span className="inline-flex items-center gap-0.5"><MapPin className="size-3 shrink-0 text-ink-400" />
           {latest.exifLat != null && latest.exifLng != null ? `${latest.exifLat.toFixed(4)}, ${latest.exifLng.toFixed(4)}` : "không có GPS"}</span>
         {latest.exifCapturedLabel && <span>Chụp lúc {latest.exifCapturedLabel}</span>}
       </p>
       <details className="mt-1">
-        <summary className="cursor-pointer font-semibold text-slate-500 hover:text-slate-700">Chi tiết EXIF/GPS</summary>
+        <summary className="cursor-pointer font-semibold text-ink-500 hover:text-ink-700">Chi tiết EXIF/GPS</summary>
         <dl className="mt-1.5 grid gap-1 sm:grid-cols-2">
           <div><span>Giờ chụp theo EXIF: {latest.exifCapturedLabel ?? "không rõ"}</span></div>
           <div><span>Tải lên lúc: {when(latest.uploadedAt)}</span></div>
@@ -133,7 +133,7 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
           {latest.software && <div><span>Phần mềm ghi tệp: {latest.software}</span></div>}
           {latest.width != null && <div><span>{latest.width}×{latest.height}px · {Math.round((latest.bytes ?? 0) / 1024)} KB</span></div>}
           {latest.captureLat != null && <div><span>Vị trí trình duyệt: {latest.captureLat.toFixed(5)}, {latest.captureLng?.toFixed(5)}{latest.captureAccuracy != null ? ` (±${Math.round(latest.captureAccuracy)} m)` : ""}</span></div>}
-          <div className="sm:col-span-2 text-slate-500">Ảnh không có toạ độ hay bị nén lại vẫn được nhận. Điểm này chỉ giúp người duyệt biết cần xem kỹ chỗ nào.</div>
+          <div className="sm:col-span-2 text-ink-500">Ảnh không có toạ độ hay bị nén lại vẫn được nhận. Điểm này chỉ giúp người duyệt biết cần xem kỹ chỗ nào.</div>
         </dl>
       </details>
     </div>}
@@ -145,27 +145,27 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
       </li>)}
     </ul>}
 
-    {latest?.aiVerdict && <div className="mt-3 rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-700">
+    {latest?.aiVerdict && <div className="mt-3 rounded-lg bg-ink-50 p-2.5 text-[11px] text-ink-700">
       <p className="flex items-center gap-1 font-bold"><Sparkles className="size-3.5 text-violet-600" />
         AI: {latest.aiVerdict === "pass" ? "đúng mục yêu cầu" : latest.aiVerdict === "fail" ? "không đạt" : "chưa đủ cơ sở"}
       </p>
       {latest.aiReason && <p className="mt-1">{latest.aiReason}</p>}
-      {latest.aiDetectedText && <p className="mt-1 text-slate-600">Chữ đọc được: “{latest.aiDetectedText}”</p>}
-      {(latest.aiCodeRead || latest.aiCodeVisible === false) && <p className="mt-1 text-slate-600">
+      {latest.aiDetectedText && <p className="mt-1 text-ink-600">Chữ đọc được: “{latest.aiDetectedText}”</p>}
+      {(latest.aiCodeRead || latest.aiCodeVisible === false) && <p className="mt-1 text-ink-600">
         Mã viết tay: {latest.aiCodeVisible === false ? "không thấy tờ giấy trong ảnh" : `AI đọc được “${latest.aiCodeRead}”`}
       </p>}
-      <p className="mt-1 text-[10px] text-slate-500">AI chỉ gợi ý; kết quả xác minh do nhân viên Vexim quyết định.</p>
+      <p className="mt-1 text-[10px] text-ink-500">AI chỉ gợi ý; kết quả xác minh do nhân viên Vexim quyết định.</p>
     </div>}
 
     {error && <p role="alert" className="mt-2 text-[11px] font-semibold text-rose-700">{error}</p>}
 
     <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={(e) => void onPick(e)} />
     <button type="button" disabled={!editable || busy} onClick={() => inputRef.current?.click()}
-      className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-teal-700 px-3 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
+      className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-ink-300">
       {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
       {busy ? "Đang tải..." : rows.length ? "Chụp/chọn ảnh mới" : level === 2 ? "Chụp hoặc chọn ảnh" : "Tải chứng từ"}
     </button>
-    {needsCode && <p className="mt-1.5 text-[11px] font-semibold text-teal-800">🔖 Ảnh này bắt buộc có tờ mã xác minh đặt cạnh cảnh.</p>}
-    {!editable && <p className="mt-1 text-[11px] text-slate-500">Hồ sơ đang chờ xét duyệt hoặc đã được nhận nên bằng chứng bị khóa.</p>}
+    {needsCode && <p className="mt-1.5 text-[11px] font-semibold text-brand-800">🔖 Ảnh này bắt buộc có tờ mã xác minh đặt cạnh cảnh.</p>}
+    {!editable && <p className="mt-1 text-[11px] text-ink-500">Hồ sơ đang chờ xét duyệt hoặc đã được nhận nên bằng chứng bị khóa.</p>}
   </article>;
 }

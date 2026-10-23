@@ -3,9 +3,9 @@ import { redirect } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { PageHeader } from "@/components/page-header";
 import { SupplierProductEditor } from "../product-editor";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
-import { SupplierWorkspaceHeader } from "../workspace-header";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Thêm sản phẩm | Vexim Trade", robots: { index: false, follow: false } };
@@ -17,12 +17,13 @@ export default async function NewSupplierProductPage() {
   const options = categoryProposalOptions(await access.store.listCategories({ publishedOnly: true }));
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
   const categories = allowedSupplierCategories(access.supplier, options, linked);
-  return <main className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 sm:pt-10">
-    <SupplierWorkspaceHeader name={access.supplier.display_name || access.supplier.trade_name || access.supplier.name} active="new" />
-    <nav aria-label="Đường dẫn" className="mt-6 flex items-center gap-1.5 text-xs text-slate-500"><Link href="/supplier/portal/products" className="hover:text-teal-700">Sản phẩm</Link><ChevronRight className="size-3.5" aria-hidden="true" /><span className="font-semibold text-slate-800">Thêm mới</span></nav>
-    <div className="mt-4"><p className="text-xs font-bold uppercase tracking-widest text-teal-700">Hồ sơ sản phẩm mới</p>
-      <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Thêm sản phẩm</h1>
-      <p className="mt-2 text-sm text-slate-600">Bắt đầu từ tên và quy cách. Bạn có thể lưu bản nháp trước, bổ sung ảnh sau.</p></div>
+  return <>
+    <PageHeader
+      eyebrow="Cổng nhà cung cấp · riêng tư"
+      title="Thêm sản phẩm"
+      sub="Bắt đầu từ tên và quy cách. Bạn có thể lưu bản nháp trước, bổ sung ảnh sau."
+      breadcrumbs={<nav aria-label="Đường dẫn" className="flex items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="hover:text-brand-700">Sản phẩm</Link><ChevronRight className="size-3.5" aria-hidden="true" /><span className="font-semibold text-ink-800">Thêm mới</span></nav>}
+    />
     <SupplierProductEditor categories={categories} supplier={access.supplier} />
-  </main>;
+  </>;
 }

@@ -412,15 +412,19 @@ export type VerificationStatus = "scheduled" | "in_progress" | "submitted" | "ap
 
 export type VerificationLevel = 1 | 2 | 3;
 
-/** Các hạng mục checklist L1 — giấy tờ doanh nghiệp & an toàn thực phẩm */
+/**
+ * Các hạng mục checklist L1 — giấy tờ doanh nghiệp & an toàn thực phẩm.
+ * `core: true` là ba giấy xác minh chính, chọn MỘT trong ba là đủ: đăng ký doanh nghiệp,
+ * ATTP, HACCP/ISO 22000/FSSC/BRC/Halal. `required` chỉ còn dùng cho ô số phải ghi nhận.
+ */
 export const L1_DOC_ITEMS = [
-  { key: "business_license", label: "Đăng ký doanh nghiệp", required: true },
-  { key: "tax_certificate", label: "Mã số thuế", required: true },
-  { key: "bank_letter", label: "Số tài khoản ngân hàng", required: false },
-  { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm (nếu có)", required: false },
-  { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000 (nếu có)", required: false },
-  { key: "product_certs", label: "Chứng chỉ sản phẩm đã công bố", required: false },
-  { key: "export_license", label: "Giấy phép xuất khẩu (nếu áp dụng)", required: false }
+  { key: "business_license", label: "Đăng ký doanh nghiệp", required: false, core: true },
+  { key: "tax_certificate", label: "Mã số thuế", required: true, core: false },
+  { key: "bank_letter", label: "Số tài khoản ngân hàng", required: false, core: false },
+  { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm", required: false, core: true },
+  { key: "haccp_or_brc", label: "HACCP / ISO 22000 / FSSC / BRC / Halal", required: false, core: true },
+  { key: "product_certs", label: "Chứng chỉ sản phẩm đã công bố", required: false, core: false },
+  { key: "export_license", label: "Giấy phép xuất khẩu (nếu áp dụng)", required: false, core: false }
 ] as const;
 
 /**

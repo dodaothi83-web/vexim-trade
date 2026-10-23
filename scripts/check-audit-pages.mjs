@@ -25,7 +25,8 @@ let row = {
   checklist: { order_matched: true, shipping_proof: true, delivery_proof: true }, checklist_notes: {},
 };
 const docKeys = ['business_license', 'tax_certificate', 'bank_letter', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'];
-const docItems = docKeys.map((key, i) => ({ key, required: i < 3 }));
+const coreDocKeys = ['business_license', 'food_safety', 'haccp_or_brc'];
+const docItems = docKeys.map((key) => ({ key, required: key === 'tax_certificate', core: coreDocKeys.includes(key) }));
 const records = [
   { target_level: 1, status: 'approved' }, { target_level: 2, status: 'approved' }, row,
 ];
@@ -67,6 +68,7 @@ const mocks = {
     auditHref: () => '/crm/suppliers/supplier-1/audit/deliveries',
     auditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : level === 2 ? ['factory_gate', 'pest_control'].map((key) => ({ key })) : docItems,
     requiredAuditItems: (level) => level === 1 ? docItems.filter((item) => item.required) : [],
+    coreDocsVerified: (checklist) => coreDocKeys.some((key) => checklist?.[key] === true),
     auditUploadKind: (level, key) => level === 1 ? (['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'].includes(key) ? 'file' : null) : level === 2 ? (['factory_gate', 'raw_material_warehouse', 'production_line_running', 'packing_area', 'finished_goods_warehouse', 'open_carton_lot_label', 'hygiene_station', 'worker_ppe', 'pest_control'].includes(key) ? 'image' : null) : (['shipping_proof', 'delivery_proof'].includes(key) ? 'file' : null),
     inVnBounds: (lat, lng) => lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110,
   },
@@ -157,7 +159,10 @@ assert.equal(documentApproved.ok, true, 'Photo of a document from this verificat
 assert.equal(row.status, 'approved');
 Object.assign(row, { status: 'in_progress', checklist: {}, checklist_notes: { tax_certificate: 'Ghi chú cũ cần giữ' }, approved_by: null });
 const incomplete = new FormData(); incomplete.set('id', row.id); incomplete.set('status', 'submitted');
-await assert.rejects(exports.updateVerificationChecklistAction(incomplete), /mục bắt buộc/);
+// Nộp duyệt chỉ cần mã số thuế đã ghi; giấy xác minh chính do người kiểm ghi khi đối chiếu.
+assert.equal((await exports.updateVerificationChecklistAction(incomplete)).ok, true, 'Submission does not need every document row');
+assert.equal((await exports.approveVerificationAction(form)).ok, false, 'Approval needs one core document marked pass');
+Object.assign(row, { status: 'in_progress', approved_by: null });
 incomplete.set('check:business_license', 'yes');
 incomplete.set('check:product_certs', 'not_applicable');
 incomplete.set('tax_number', '0123456789');
@@ -189,7 +194,13 @@ assert.equal((await exports.approveVerificationAction(form)).ok, true, 'Optional
 Object.assign(row, { status: 'in_progress', approved_by: null });
 incomplete.set('check:business_license', 'no');
 assert.equal((await exports.updateVerificationChecklistAction(incomplete)).ok, true);
-assert.equal((await exports.approveVerificationAction(form)).ok, false, 'Business registration still has to pass');
+assert.equal((await exports.approveVerificationAction(form)).ok, false, 'A failed business registration cannot be approved');
+// Một trong ba giấy xác minh chính là đủ: nhà máy chỉ có HACCP vẫn duyệt được bước giấy tờ.
+Object.assign(row, { status: 'in_progress', approved_by: null });
+incomplete.delete('check:business_license');
+incomplete.set('check:haccp_or_brc', 'yes');
+assert.equal((await exports.updateVerificationChecklistAction(incomplete)).ok, true, 'HACCP alone can be submitted');
+assert.equal((await exports.approveVerificationAction(form)).ok, true, 'One of the three core documents is enough');
 incomplete.set('check:business_license', 'yes');
 Object.assign(row, { status: 'in_progress', approved_by: null });
 incomplete.set('tax_number', '12-34');

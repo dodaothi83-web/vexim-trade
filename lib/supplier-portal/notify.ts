@@ -38,6 +38,30 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
   return result.ok ? result.status : "failed";
 }
 
+/**
+ * A new supplier login exists but has no business profile yet. Staff should hear about it
+ * immediately so a stalled registration can be followed up; nothing is approved here.
+ */
+export async function notifyStaffSupplierAccount(input: { email: string; name?: string | null; provider: "email" | "google" }): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const users = await getStore().listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "sourcing" || u.role === "admin"))
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length) return "failed";
+    const email = input.email.trim().toLowerCase();
+    const who = (input.name ?? "").trim() || email;
+    const staffOrigin = notificationOrigin();
+    const url = `${staffOrigin}/crm/suppliers`;
+    const title = `Tài khoản NCC mới: ${email}`;
+    const body = `<p>${escapeHtml(who)} vừa tạo tài khoản nhà cung cấp bằng ${input.provider === "google" ? "Google" : "email và mật khẩu"}. <strong>Tài khoản chưa có hồ sơ doanh nghiệp và chưa được mở quyền cổng.</strong></p>
+    <p>Ở bước này chưa có gì để duyệt. Khi họ nộp hồ sơ doanh nghiệp, Vexim nhận thêm một thông báo có đường dẫn thẳng tới trang NCC. Nếu mãi không thấy hồ sơ, đây là danh sách để liên hệ lại.</p>
+    <p><a href="${url}">Mở danh sách nhà cung cấp trong CRM →</a></p>`;
+    const result = await transport({ to: recipients, subject: title,
+      html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
+    return result.ok ? result.status : "failed";
+  } catch (error) { console.error("[supplier-notify] account registered", error); return "failed"; }
+}
+
 /** Pending certificate claim goes to staff inbox, never directly to buyers or publication. */
 export async function notifySupplierCertificateSubmission(supplier: Supplier, name: string): Promise<"sent" | "simulated" | "failed"> {
   const users = await getStore().listUsers();
@@ -69,7 +93,7 @@ export async function notifySupplierCertificateExpiry(input: {
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const name = (input.certificateName || "Chứng nhận").replace(/[\r\n]/g, " ").slice(0, 140);
-    const url = `${notificationOrigin()}/supplier/portal#documents`;
+    const url = `${notificationOrigin()}/supplier/portal/documents`;
     const title = `Chứng nhận sắp hết hạn (còn ${input.daysLeft} ngày): ${name}`;
     const explanation = `Chứng nhận “${name}” trên hồ sơ L1 của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang buyer. Vui lòng vào mục Giấy tờ L1 để tải bản gia hạn mới — AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên.`;
     const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Cập nhật giấy tờ L1 trên cổng NCC →</a></p>`;
@@ -103,6 +127,26 @@ export async function notifyStaffVerificationSubmission(supplierId: string, leve
     const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] verification submission", error); return "failed"; }
+}
+
+/** An L2/L3 self-submission just entered the staff review queue; the AI scan is not an approval. */
+export async function notifyStaffSupplierSubmission(supplierId: string, level: 2 | 3): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const store = getStore();
+    const users = await store.listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "reviewer"))
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length) return "failed";
+    const supplier = await store.getSupplier(supplierId);
+    const label = level === 2 ? "hồ sơ thăm nhà máy" : "hồ sơ lịch sử giao hàng";
+    const url = `${notificationOrigin()}/crm/verifications/submissions`;
+    const title = `Hồ sơ NCC tự gửi chờ đối chiếu: ${supplier?.name ?? "NCC"}`;
+    const body = `<p>${escapeHtml(supplier?.name ?? "NCC")} vừa nộp ${escapeHtml(label)}. <strong>Chưa duyệt và chưa công khai.</strong></p>
+    <p>AI đã quét sơ bộ theo yêu cầu, nhưng máy không thay được người đối chiếu. Hãy mở hồ sơ, xem ảnh gốc và quyết định.</p>
+    <p><a href="${url}">Mở hàng chờ hồ sơ tự gửi →</a></p>`;
+    const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
+    return res.ok ? res.status : "failed";
+  } catch (error) { console.error("[supplier-notify] supplier submission", error); return "failed"; }
 }
 
 /** Staff gets a reminder only when a supplier explicitly submits a product, never on draft saves. */
@@ -142,13 +186,13 @@ export async function notifySupplierDecision(input: {
       onboarding_changes_requested: { title: "Vui lòng bổ sung hồ sơ doanh nghiệp", explanation: "Vexim đã xem hồ sơ và yêu cầu bạn bổ sung trước khi mở quyền cổng.", path: "/supplier/portal", showNote: true },
       product_approved: { title: `Đã kiểm tra nội dung sản phẩm: ${name}`, explanation: "Vexim đã xác nhận nội dung; sản phẩm chưa tự động sẵn sàng chia sẻ buyer hoặc công khai.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}` },
       product_changes_requested: { title: `Sản phẩm cần chỉnh sửa: ${name}`, explanation: "Vexim yêu cầu chỉnh sửa rồi gửi lại sản phẩm.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}`, showNote: true },
-      certificate_approved: { title: `Đã kiểm bản sao chứng nhận: ${name}`, explanation: "Vexim đã xét duyệt bản sao. Chứng nhận chưa được công bố; việc hiển thị công khai là quyết định riêng.", path: "/supplier/portal#documents" },
-      certificate_changes_requested: { title: `Chứng nhận cần bổ sung: ${name}`, explanation: "Vexim yêu cầu bổ sung thông tin chứng nhận trong mục Giấy tờ L1.", path: "/supplier/portal#documents", showNote: true },
-      certificate_rejected: { title: `Chứng nhận không được chấp thuận: ${name}`, explanation: "Vexim chưa thể chấp thuận chứng nhận này.", path: "/supplier/portal#documents", showNote: true },
-      certificate_published: { title: `Chứng nhận được phép hiển thị: ${name}`, explanation: "AI/Vexim đã quét và cho phép hiển thị nhãn chứng nhận (kèm trạng thái chính chủ/đơn vị đối tác và ngày hết hạn) nếu sản phẩm công khai và chứng nhận còn hạn. Bằng chứng nội bộ không được công khai.", path: "/supplier/portal#documents" },
-      certificate_withdrawn: { title: `Đã thu hồi hiển thị chứng nhận: ${name}`, explanation: "Vexim đã ngừng hiển thị nhãn chứng nhận trên trang buyer.", path: "/supplier/portal#documents" },
-      verification_approved: { title: `Đã duyệt đánh giá: ${name}`, explanation: "Chỉ đánh giá này được Vexim duyệt; không tự động xác nhận các đánh giá khác hoặc công khai hồ sơ.", path: "/supplier/portal#profile" },
-      verification_returned: { title: `Đánh giá cần bổ sung: ${name}`, explanation: "Vui lòng xem phản hồi và liên hệ nhân viên Vexim để bổ sung đúng đợt kiểm.", path: "/supplier/portal#profile", showNote: true },
+      certificate_approved: { title: `Đã kiểm bản sao chứng nhận: ${name}`, explanation: "Vexim đã xét duyệt bản sao. Chứng nhận chưa được công bố; việc hiển thị công khai là quyết định riêng.", path: "/supplier/portal/documents" },
+      certificate_changes_requested: { title: `Chứng nhận cần bổ sung: ${name}`, explanation: "Vexim yêu cầu bổ sung thông tin chứng nhận trong mục Giấy tờ L1.", path: "/supplier/portal/documents", showNote: true },
+      certificate_rejected: { title: `Chứng nhận không được chấp thuận: ${name}`, explanation: "Vexim chưa thể chấp thuận chứng nhận này.", path: "/supplier/portal/documents", showNote: true },
+      certificate_published: { title: `Chứng nhận được phép hiển thị: ${name}`, explanation: "AI/Vexim đã quét và cho phép hiển thị nhãn chứng nhận (kèm trạng thái chính chủ/đơn vị đối tác và ngày hết hạn) nếu sản phẩm công khai và chứng nhận còn hạn. Bằng chứng nội bộ không được công khai.", path: "/supplier/portal/documents" },
+      certificate_withdrawn: { title: `Đã thu hồi hiển thị chứng nhận: ${name}`, explanation: "Vexim đã ngừng hiển thị nhãn chứng nhận trên trang buyer.", path: "/supplier/portal/documents" },
+      verification_approved: { title: `Đã duyệt đánh giá: ${name}`, explanation: "Chỉ đánh giá này được Vexim duyệt; không tự động xác nhận các đánh giá khác hoặc công khai hồ sơ.", path: "/supplier/portal/profile" },
+      verification_returned: { title: `Đánh giá cần bổ sung: ${name}`, explanation: "Vui lòng xem phản hồi và liên hệ nhân viên Vexim để bổ sung đúng đợt kiểm.", path: "/supplier/portal/profile", showNote: true },
     };
     const item = config[input.decision];
     const url = `${notificationOrigin()}${item.path}`;

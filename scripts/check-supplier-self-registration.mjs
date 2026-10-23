@@ -16,6 +16,8 @@ function load(path, mocks, extra = {}) {
   return mod.exports;
 }
 const keys = ['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'];
+const coreKeys = ['business_license', 'food_safety', 'haccp_or_brc'];
+const isL1CoreDoc = (key) => coreKeys.includes(key);
 const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', {});
 const categories = [
   { id: 'c1', slug: 'cashew', parent_id: null, name_i18n: { vi: 'Hạt điều' }, status: 'published', is_published: true, sort_order: 1 },
@@ -35,7 +37,7 @@ for (const denied of [
   [{ ...owner, role: 'viewer' }, doc, 'business_license'],
 ]) assert.equal(policy.canUploadOwnDocument(...denied), false);
 
-const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false };
+const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false, accountNotices: [] };
 const store = {
   mode: 'supabase',
   listUsers: async () => state.users,
@@ -87,8 +89,12 @@ const mocks = {
   '@/lib/supplier-portal/profile-input': profileInput,
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/supplier-portal/profile-evidence': profileEvidence,
-  '@/lib/supplier-portal/notify': { notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 1); return 'sent'; } },
+  '@/lib/supplier-portal/notify': {
+    notifyStaffSupplierAccount: async (input) => { state.accountNotices.push(input.email); return 'sent'; },
+    notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 1); return 'sent'; },
+  },
   '@/lib/site': { SITE_URL: 'https://example.com' },
+  '@/lib/verification': { isL1CoreDoc },
 };
 const signupEnv = { SUPABASE_SERVICE_ROLE_KEY: 'mock', NODE_ENV: 'production' };
 const { POST } = load('../app/api/supplier-signup/route.ts', mocks, { process: { env: signupEnv } });
@@ -156,8 +162,11 @@ assert.equal(state.users.at(-1).role, 'supplier');
 assert.equal(state.users.at(-1).supplier_id, null, 'Signup creates only a login; first business form creates the page');
 assert.equal(state.suppliers.length, 0);
 assert.equal(state.reviews.length, 0);
-assert.equal(state.notify, 0, 'Staff notified on completed business form, not empty account creation');
+assert.equal(state.notify, 0, 'Business-form notification stays separate from account creation');
+assert.ok(state.accountNotices.includes('owner@example.com'), 'New supplier login emails staff right away');
+const noticedBefore = state.accountNotices.length;
 assert.equal((await post(accountForm())).status, 409, 'Duplicate email cannot claim another account');
+assert.equal(state.accountNotices.length, noticedBefore, 'A refused duplicate never sends another staff email');
 
 const access = load('../lib/supplier-portal/access.ts', {
   '@/lib/db': { getStore: () => store },
@@ -176,6 +185,7 @@ const profile = load('../app/api/supplier-portal/profile/route.ts', {
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/supplier-portal/profile-evidence': profileEvidence,
   '@/lib/supplier-portal/notify': mocks['@/lib/supplier-portal/notify'],
+  '@/lib/verification': { isL1CoreDoc },
   '@/lib/ai/supplier-translation-service': {
     ensureSupplierProfileEnglish: async (storeArg, id) => {
       const s = await storeArg.getSupplier(id);
@@ -197,6 +207,10 @@ const factoryForm = form(); factoryForm.set('supplier_type', 'manufacturer'); fa
 assert.equal(JSON.stringify(profileInput.parseSupplierProfile(factoryForm).requested), JSON.stringify([2, 3]), 'Factory may request both follow-ups');
 const forgedCategory = form(); forgedCategory.set('requested_category_slugs', 'secret');
 assert.equal((await submitProfile(forgedCategory)).status, 400, 'No unpublished category in first business form');
+const noDocuments = form(); noDocuments.delete('doc:business_license');
+const refused = await submitProfile(noDocuments);
+assert.equal(refused.status, 400, 'First profile needs one of the three core documents');
+assert.match(refused.data.message, /ít nhất một trong ba giấy xác minh/);
 const missingAccuracy = form(); missingAccuracy.delete('information_accuracy');
 assert.equal((await submitProfile(missingAccuracy)).status, 400, 'Profile requires the product information truthfulness confirmation');
 assert.equal(state.suppliers.length, 0, 'Reject invalid profile before creating supplier page');
@@ -239,6 +253,9 @@ assert.equal((await submitProfile(forgedCorrectionVisit)).status, 400);
 const otherCategory = form(); otherCategory.delete('requested_category_slugs'); otherCategory.set('requested_category_other', 'Macca tách vỏ');
 assert.equal((await submitProfile(otherCategory)).status, 400, 'Cannot open a free-text category');
 assert.equal(state.suppliers[0].requested_category_other, null);
+const noNewDocs = form(); noNewDocs.delete('doc:business_license');
+assert.equal((await submitProfile(noNewDocs)).status, 200, 'Returned profile keeps the document already in the review');
+state.suppliers[0].onboarding_status = 'changes_requested';
 assert.equal((await submitProfile(form())).status, 200, 'Returned profile can reselect a Vexim category');
 assert.equal(state.suppliers[0].onboarding_status, 'pending');
 assert.equal(state.reviews.length, 1);

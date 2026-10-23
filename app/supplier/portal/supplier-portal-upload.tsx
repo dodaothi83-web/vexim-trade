@@ -7,8 +7,8 @@ import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
 
 const LABELS: Record<typeof INITIAL_DOCUMENT_KEYS[number], string> = {
   business_license: "Đăng ký doanh nghiệp",
-  food_safety: "Giấy ATTP (nếu có)",
-  haccp_or_brc: "HACCP / BRC / ISO (nếu có)",
+  food_safety: "Giấy ATTP",
+  haccp_or_brc: "HACCP / ISO / FSSC / Halal",
   product_certs: "Chứng chỉ sản phẩm (nếu có)",
   export_license: "Giấy phép xuất khẩu (nếu áp dụng)",
 };

@@ -28,11 +28,13 @@ export default async function DashboardPage() {
   const canApprove = hasPermission(session.role, "verifications.approve");
   const canInspect = hasPermission(session.role, "verifications.inspect");
   const canManageSuppliers = hasPermission(session.role, "suppliers.manage");
+  // Danh sách tài khoản chưa có hồ sơ nằm ở trang người dùng, chỉ vai trò quản lý tài khoản mở được.
+  const canSeeAccounts = hasPermission(session.role, "users.manage");
   const canManageProducts = hasPermission(session.role, "products.manage");
   const canRfqs = hasPermission(session.role, "rfq.view");
   const canTraffic = hasPermission(session.role, "traffic.view");
   const store = getStore();
-  const [suppliers, products, categories, verifications, requests, rfqs, trafficRows] = await Promise.all([
+  const [suppliers, products, categories, verifications, requests, rfqs, trafficRows, supplierLogins] = await Promise.all([
     canSuppliers ? store.listSuppliers() : Promise.resolve([]),
     canProducts ? store.listProducts() : Promise.resolve([]),
     store.listCategories({ publishedOnly: false }),
@@ -46,7 +48,13 @@ export default async function DashboardPage() {
       console.error("[dashboard] site traffic unavailable", error);
       return null;
     }) : Promise.resolve(null),
+    // Tài khoản NCC đã đăng ký nhưng chưa nộp hồ sơ: chưa có hàng suppliers để hiện ở hàng đợi.
+    canManageSuppliers ? store.listUsers().catch((error) => {
+      console.error("[dashboard] supplier logins unavailable", error);
+      return [];
+    }) : Promise.resolve([]),
   ]);
+  const accountsWithoutProfile = supplierLogins.filter((u) => u.is_active && u.role === "supplier" && !u.supplier_id);
   // Only fetch media for plausible live offers, in bounded batches. Drafts and
   // internal files never become public merely because they are present in storage.
   const publishedIds = new Set(suppliers.filter((s) => s.status === "published" && !isSyntheticSupplier(s)).map((s) => s.id));
@@ -62,6 +70,10 @@ export default async function DashboardPage() {
   const supplierNames = new Map(suppliers.map((s) => [s.id, s.name]));
 
   const queue: Array<{ id: string; label: string; detail: string; href: string; when: string; tone: string }> = [];
+  if (canSeeAccounts) for (const u of accountsWithoutProfile) queue.push({
+    id: `login:${u.id}`, label: u.email, detail: "Tài khoản NCC mới · chưa nộp hồ sơ doanh nghiệp",
+    href: "/crm/settings/users", when: u.created_at ?? "", tone: "bg-rose-500",
+  });
   if (canManageSuppliers) for (const s of snapshot.pendingSuppliers) queue.push({
     id: `supplier:${s.id}`, label: s.name, detail: "Tài khoản NCC · chờ xác nhận quyền truy cập",
     href: `/crm/suppliers/${s.id}`, when: s.updated_at, tone: "bg-sky-500",
@@ -148,7 +160,8 @@ export default async function DashboardPage() {
             <h2 className="text-base font-bold text-ink-900">Các cổng kiểm soát</h2>
             <p className="mt-1 text-xs text-ink-500">Những bước riêng biệt, không cộng dồn thành một nhãn chứng nhận.</p>
             <div className="mt-4 space-y-2">
-              {canManageSuppliers && <FlowRow href="/crm/suppliers" icon={<UsersRound className="h-4 w-4" />} label="Tài khoản NCC chờ xác nhận" value={snapshot.pendingSuppliers.length} />}
+              {canManageSuppliers && <FlowRow href="/crm/suppliers" icon={<UsersRound className="h-4 w-4" />} label="Hồ sơ NCC chờ xác nhận" value={snapshot.pendingSuppliers.length} />}
+              {canSeeAccounts && <FlowRow href="/crm/settings/users" icon={<UsersRound className="h-4 w-4" />} label="Tài khoản NCC chưa nộp hồ sơ" value={accountsWithoutProfile.length} />}
               {canManageProducts && <FlowRow href="/crm/products?review=pending" icon={<Boxes className="h-4 w-4" />} label="Sản phẩm chờ duyệt" value={snapshot.pendingProducts.length} />}
               {canApprove && <FlowRow href="/crm/verifications" icon={<ShieldCheck className="h-4 w-4" />} label="Đợt kiểm chờ xét duyệt" value={reviewCount} />}
               {canInspect && requests !== null && <FlowRow href="/crm/verifications" icon={<ClipboardCheck className="h-4 w-4" />} label="Yêu cầu liên hệ kiểm định" value={contactCount} />}

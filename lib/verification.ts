@@ -4,7 +4,7 @@
  * từ những file có "use server" ở đầu.
  */
 
-import { DELIVERY_ITEMS, L1_DOC_ITEMS, L2_VISIT_ITEMS, type AuditEvidenceKey, type VerificationLevel } from "./types";
+import { DELIVERY_ITEMS, L1_DOC_ITEMS, L2_VISIT_ITEMS, type AuditEvidenceKey, type Verification, type VerificationLevel } from "./types";
 
 export const AUDIT_STEPS = [
   { level: 1, path: "documents", title: "Kiểm tra giấy tờ", short: "Giấy tờ", description: "Đối chiếu giấy phép, chứng nhận và bằng chứng đính kèm." },
@@ -17,9 +17,25 @@ export function auditItems(level: VerificationLevel) {
   return level === 1 ? L1_DOC_ITEMS : level === 2 ? L2_VISIT_ITEMS : DELIVERY_ITEMS;
 }
 
-/** Two required L1 items (business registration + mã số thuế dạng số); số tài khoản ngân hàng và các giấy chứng nhận khác là mục tùy chọn. */
+/** Mục bắt buộc ghi nhận: ở L1 chỉ còn mã số thuế (ô số). Giấy xác minh chính dùng quy tắc một-trong-ba bên dưới. */
 export function requiredAuditItems(level: VerificationLevel) {
   return level === 1 ? L1_DOC_ITEMS.filter((item) => item.required) : [];
+}
+
+/**
+ * Ba giấy xác minh chính của bước giấy tờ. Nhà máy chỉ cần MỘT trong ba là đủ để xác minh,
+ * nhưng giấy phải đứng tên pháp nhân đã đăng ký với Vexim; giấy của nhà máy đối tác chỉ là
+ * thông tin tham khảo, không thay được giấy xác minh chính.
+ */
+export const L1_CORE_DOC_KEYS = ["business_license", "food_safety", "haccp_or_brc"] as const;
+
+export function isL1CoreDoc(key: string | null | undefined): boolean {
+  return !!key && (L1_CORE_DOC_KEYS as readonly string[]).includes(key);
+}
+
+/** True khi người kiểm đã đánh dấu Đạt ít nhất một trong ba giấy xác minh chính. */
+export function coreDocsVerified(checklist: Verification["checklist"] | null | undefined): boolean {
+  return L1_CORE_DOC_KEYS.some((key) => checklist?.[key] === true);
 }
 
 /** Which rows accept uploads; all other rows are notes/structured inputs. */

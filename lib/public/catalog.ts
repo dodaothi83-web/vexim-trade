@@ -151,6 +151,19 @@ export async function getPublicSupplierBySlug(slug: string, publicList?: PublicS
   const list = publicList ?? await listPublicSuppliers();
   const supplier = list.find((s) => s.slug === slug || (!s.slug && s.id === slug)) ?? null;
   if (!supplier) return null;
+  return getSupplierStorefront(supplier);
+}
+
+/**
+ * Dựng đúng dữ liệu mà trang công khai sẽ hiển thị cho MỘT nhà cung cấp, bất kể hồ sơ đã
+ * published hay chưa. Cổng NCC dùng hàm này cho trang “Trang của tôi” để nhà cung cấp đối
+ * chiếu đúng những gì buyer thấy, kể cả khi hồ sơ chưa lên sóng.
+ *
+ * Cùng phép lọc với trang công khai: sản phẩm phải duyệt nội dung, sẵn sàng cho buyer,
+ * thuộc danh mục đã publish và có tệp dùng được; chứng nhận và cấp xác minh lấy theo
+ * đúng quy tắc công bố.
+ */
+export async function getSupplierStorefront(supplier: Supplier & Partial<PublicSupplierCard>): Promise<PublicSupplierCard> {
   const store = getStore();
   // Thêm tất cả sản phẩm của NCC (listPublicSuppliers chỉ lấy 4)
   const [products, categories, media, vers] = await Promise.all([
@@ -186,11 +199,13 @@ export async function getPublicSupplierBySlug(slug: string, publicList?: PublicS
     .slice(0, 12);
   return {
     ...supplier,
+    categories: supplier.categories ?? [],
+    primary_category: supplier.primary_category ?? null,
     main_products: publicProducts,
     gallery_images: gallery,
     product_image_paths: productImagePaths,
     product_card_image_paths: productCardImagePaths,
-    approved_verification_steps: vers.length ? approvedVerificationSteps(vers) : supplier.approved_verification_steps,
+    approved_verification_steps: vers.length ? approvedVerificationSteps(vers) : (supplier.approved_verification_steps ?? []),
     public_review_summaries: approvedPublicReviewSummaries(vers),
   };
 }

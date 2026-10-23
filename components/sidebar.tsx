@@ -68,6 +68,9 @@ export function Sidebar({
   permissions,
   unreadMail = 0,
   newBuyers = 0,
+  pendingSuppliers = 0,
+  pendingProducts = 0,
+  pendingReviews = 0,
 }: {
   dataMode: "supabase" | "local";
   dataDegraded?: boolean;
@@ -76,6 +79,12 @@ export function Sidebar({
   unreadMail?: number;
   /** Buyer mới (giai đoạn lead) chưa xử lý — badge ở menu Buyer */
   newBuyers?: number;
+  /** Tài khoản NCC chờ Vexim xác nhận quyền cổng — badge ở menu Nhà cung cấp */
+  pendingSuppliers?: number;
+  /** Sản phẩm NCC đã gửi, chờ kiểm nội dung — badge ở menu Sản phẩm */
+  pendingProducts?: number;
+  /** Đợt kiểm đã nộp, chờ người duyệt — badge ở menu Xác minh */
+  pendingReviews?: number;
   session: { name: string; email: string; role: UserRole };
   permissions: Permission[];
 }) {
@@ -111,6 +120,13 @@ export function Sidebar({
                 {items.map((item) => {
                   const active = item.href === activeHref;
                   const Icon = item.icon;
+                  // Badge = số việc đang chờ đúng khu vực đó, giống số thư chưa đọc.
+                  const badge = item.href === "/crm/mail" ? (unreadMail > 0 ? { text: String(unreadMail), title: "Thư đến chưa đọc" } : null)
+                    : item.href === "/crm/buyers" ? (newBuyers > 0 ? { text: `${newBuyers} mới`, title: "Buyer mới chưa xử lý" } : null)
+                    : item.href === "/crm/suppliers" ? (pendingSuppliers > 0 ? { text: `${pendingSuppliers} mới`, title: "Tài khoản NCC chưa nộp hồ sơ hoặc chờ xác nhận" } : null)
+                    : item.href === "/crm/products" ? (pendingProducts > 0 ? { text: `${pendingProducts} chờ`, title: "Sản phẩm chờ duyệt" } : null)
+                    : item.href === "/crm/verifications" ? (pendingReviews > 0 ? { text: `${pendingReviews} chờ`, title: "Đợt kiểm chờ duyệt" } : null)
+                    : null;
                   return (
                     <Link
                       key={item.href}
@@ -125,17 +141,9 @@ export function Sidebar({
                     >
                       <Icon className="h-4 w-4 shrink-0" />
                       <span className="flex-1 truncate">{item.label}</span>
-                      {item.href === "/crm/mail" && unreadMail > 0 && (
-                        <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900">
-                          {unreadMail}
-                        </span>
-                      )}
-                      {item.href === "/crm/buyers" && newBuyers > 0 && (
-                        <span
-                          className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900"
-                          title="Buyer mới chưa xử lý"
-                        >
-                          {newBuyers} mới
+                      {badge && (
+                        <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900" title={badge.title}>
+                          {badge.text}
                         </span>
                       )}
                     </Link>
@@ -148,6 +156,15 @@ export function Sidebar({
       </nav>
 
       <div className="border-t border-white/10 p-3">
+        {/* Trạng thái hệ thống: nói thẳng khi email hoặc CSDL chưa sẵn sàng, để không ai
+            tưởng thông báo đã gửi trong khi máy chủ chỉ ghi log. */}
+        {(emailMode === "local" || dataMode === "local" || dataDegraded) && (
+          <div className="mb-2 rounded-lg border border-amber-300/40 bg-amber-400/10 px-2.5 py-2 text-[11px] leading-4 text-amber-100">
+            {dataDegraded && <p>CSDL đang gián đoạn, dữ liệu có thể chưa cập nhật.</p>}
+            {!dataDegraded && dataMode === "local" && <p>Đang chạy dữ liệu cục bộ, không phải dữ liệu thật.</p>}
+            {emailMode === "local" && <p>Chưa có RESEND_API_KEY: email thông báo chỉ ghi log, không gửi thật.</p>}
+          </div>
+        )}
         {/* Người dùng đang đăng nhập */}
         <div className="mb-2 flex items-center gap-2 rounded-lg bg-white/5 px-2 py-2">
           {/* Bấm vào thẻ tên mình => mở Hồ sơ của tôi */}

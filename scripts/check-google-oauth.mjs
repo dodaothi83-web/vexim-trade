@@ -79,6 +79,7 @@ const callback = load('../app/api/auth/google/callback/route.ts', {
   '@/lib/auth/google-oauth': { ...oauth,
     googleClient: () => ({ auth: { exchangeCodeForSession: async () => ({ data: { user: googleUser() }, error: null }) } }) },
   '@/lib/site': { SITE_URL: 'https://vexim.example' },
+  '@/lib/supplier-portal/notify': { notifyStaffSupplierAccount: async () => 'sent' },
 });
 const callbackUrl = 'https://vexim.example/api/auth/google/callback?code=single-use&sb_flow_id=some-flow';
 assert.ok((await callback.GET(new Request(callbackUrl))).headers.get('location').endsWith('/login?oauth=not_allowed'));

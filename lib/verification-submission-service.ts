@@ -27,6 +27,7 @@ import {
   VERIFICATION_CODE_TTL_HOURS,
 } from "@/lib/verification-submission";
 import type { DataStore } from "@/lib/db/types";
+import { notifyStaffSupplierSubmission } from "@/lib/supplier-portal/notify";
 import type {
   AiSubmissionReview,
   SubmissionIntegrityFlag,
@@ -288,6 +289,12 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
       failed_items: failed.length,
     },
   });
+
+  // Hồ sơ vừa vào hàng chờ: báo cho người đối chiếu. Lỗi gửi thư không làm hỏng hồ sơ đã lưu.
+  if (input.submit && updated.status === "pending_review" && submission.status !== "pending_review") {
+    await notifyStaffSupplierSubmission(submission.supplier_id, submission.target_level as 2 | 3)
+      .catch((error) => console.error("[submission-scan] staff notification failed", error));
+  }
 
   return {
     ok: queue.status === "pending_review",

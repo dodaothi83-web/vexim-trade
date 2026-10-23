@@ -57,7 +57,7 @@ Hồ sơ doanh nghiệp
 - [ ] Mã số thuế dạng số (số tài khoản ngân hàng không bắt buộc)
 
 Kiểm giấy tờ (nhân viên làm thật)
-- [ ] Có ảnh hoặc PDF đăng ký doanh nghiệp trong đợt kiểm
+- [ ] Có ảnh hoặc PDF của ít nhất một trong ba giấy xác minh (đăng ký doanh nghiệp, ATTP, HACCP/ISO/FSSC/Halal) trong đợt kiểm
 - [ ] Đã đối chiếu tên pháp nhân và mã số thuế trên giấy tờ
 - [ ] Người duyệt khác người kiểm đã bấm duyệt
 

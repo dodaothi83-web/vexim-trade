@@ -6,15 +6,17 @@ import ts from 'typescript';
 
 const source = readFileSync(new URL('../lib/types.ts', import.meta.url), 'utf8');
 const itemSection = source.slice(source.indexOf('export const L1_DOC_ITEMS = ['), source.indexOf('] as const;', source.indexOf('export const L1_DOC_ITEMS = [')));
-assert.equal((itemSection.match(/required: true/g) || []).length, 2);
-assert.equal((itemSection.match(/required: false/g) || []).length, 5);
+assert.equal((itemSection.match(/required: true/g) || []).length, 1, 'Only the tax number is a recorded requirement');
+assert.equal((itemSection.match(/required: false/g) || []).length, 6);
 const actual = {};
 vm.runInNewContext(ts.transpileModule(itemSection + '\n];', { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: actual });
 const L1_DOC_ITEMS = actual.L1_DOC_ITEMS;
 assert.equal(L1_DOC_ITEMS.length, 7);
 assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'haccp_or_brc').required, false, 'Traders must not need HACCP to submit');
 assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'food_safety').required, false, 'Traders may not hold food-safety certificates either');
-assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'business_license').required, true, 'Business registration still requires review');
+assert.equal(JSON.stringify(L1_DOC_ITEMS.filter((item) => item.core).map((item) => item.key)),
+  JSON.stringify(['business_license', 'food_safety', 'haccp_or_brc']), 'One of three core documents is enough to verify');
+assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'tax_certificate').required, true, 'Tax number is still recorded');
 const types = {};
 vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: types });
 const policy = {};
@@ -131,7 +133,8 @@ for (const input of ['visit_date', 'visit_address', 'visit_lat', 'visit_lng', 's
   assert.ok(ui.includes(`name="${input}"`), `${input} has an inline input`);
 }
 assert.match(ui, /auditUploadKind\(v\.target_level/, 'Photo and document rows use step-specific uploads');
-const publicSupplier = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
+const publicSupplier = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8') +
+  readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8');
 assert.ok(!publicSupplier.includes('Food-safety / HACCP'), 'A verification badge must not claim every trader has HACCP');
 assert.match(publicSupplier, /confirm the certificate holder/, 'Explain issuer/holder scope to buyers');
 const numbersSql = readFileSync(new URL('../supabase/migrations/20261017_document_numeric_identifiers.sql', import.meta.url), 'utf8');

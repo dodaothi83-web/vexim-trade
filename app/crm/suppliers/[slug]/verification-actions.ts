@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
-import { auditHref, auditItems, auditUploadKind, requiredAuditItems } from "@/lib/verification";
+import { auditHref, auditItems, auditUploadKind, coreDocsVerified, requiredAuditItems } from "@/lib/verification";
 import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import { hasDocumentAuditEvidence } from "@/lib/verification-evidence";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
@@ -142,7 +142,14 @@ export async function approveVerificationAction(fd: FormData) {
   // Never fall back to supplier-wide media: only this verification's attachments qualify.
   const media = await store.listMedia("verification", before.id);
   if (before.target_level === 1) {
-    if (requiredAuditItems(1).some((it) => before.checklist[it.key] !== true)) return { ok: false, message: "Giấy tờ bắt buộc chưa đạt." };
+    if (requiredAuditItems(1).some((it) => before.checklist[it.key] !== true)) return { ok: false, message: "Chưa nhập mã số thuế. Mục này bắt buộc ghi nhận trước khi duyệt." };
+    // Giấy pháp nhân sai tên là điểm dừng, không phải một lựa chọn thay thế.
+    if (before.checklist.business_license === false) {
+      return { ok: false, message: "Đăng ký doanh nghiệp đang đánh dấu Không đạt. Không duyệt bước giấy tờ khi giấy pháp nhân không khớp; trả lại để NCC bổ sung." };
+    }
+    if (!coreDocsVerified(before.checklist)) {
+      return { ok: false, message: "Cần đánh dấu Đạt ít nhất một trong ba giấy xác minh: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal. Giấy phải đứng tên pháp nhân đã đăng ký." };
+    }
     if (!hasDocumentAuditEvidence(media)) {
       return { ok: false, message: "Chưa có ảnh chụp giấy tờ hoặc PDF trong bằng chứng của đợt Kiểm tra giấy tờ này. Tệp ở kho chung NCC không được tính; hãy tải vào đúng đợt kiểm (hoặc trả lại để bổ sung)." };
     }

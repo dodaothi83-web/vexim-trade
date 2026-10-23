@@ -129,7 +129,9 @@ assert.doesNotMatch(
   "Tên soạn sẵn không được tự chứng minh cho danh mục",
 );
 
-const supplierPage = readFileSync(new URL("../app/(public)/suppliers/[slug]/page.tsx", import.meta.url), "utf8");
+// Thân hồ sơ dùng chung với Trang của tôi trong cổng NCC.
+const supplierPage = readFileSync(new URL("../app/(public)/suppliers/[slug]/page.tsx", import.meta.url), "utf8") +
+  readFileSync(new URL("../components/public/supplier-storefront.tsx", import.meta.url), "utf8");
 assert.match(supplierPage, /name=\{safe\(publicProductTitle\(p\)\)\}/, "Thẻ sản phẩm trên hồ sơ NCC cũng đọc tên soạn sẵn");
 assert.match(
   supplierPage,
