@@ -15,6 +15,7 @@ import {
   Menu,
   Package,
   ShieldCheck,
+  Store,
   X,
 } from "lucide-react";
 
@@ -38,6 +39,7 @@ const NAV: {
   needsApproval?: boolean;
 }[] = [
   { href: "/supplier/portal", label: "Tổng quan", icon: LayoutDashboard, group: "shop" },
+  { href: "/supplier/portal/storefront", label: "Trang của tôi", icon: Store, group: "shop", needsApproval: true },
   { href: "/supplier/portal/products", label: "Sản phẩm", icon: Package, group: "shop", needsApproval: true },
   { href: "/supplier/portal/categories", label: "Danh mục kinh doanh", icon: FolderTree, group: "shop", needsApproval: true },
   { href: "/supplier/portal/traffic", label: "Lượt xem gian hàng", icon: ChartNoAxesColumn, group: "shop", needsApproval: true },

@@ -39,8 +39,9 @@ assert.match(layout, /identityFailed && /, 'Chỉ chặn đăng nhập khi thậ
 const nav = sidebarSource.slice(sidebarSource.indexOf('const NAV:'), sidebarSource.indexOf('const NAV_GROUPS'));
 const hrefs = [...nav.matchAll(/href: "([^"]+)"/g)].map((m) => m[1]);
 assert.deepEqual(hrefs, [
-  '/supplier/portal', '/supplier/portal/products', '/supplier/portal/categories', '/supplier/portal/traffic',
-  '/supplier/portal/rfqs', '/supplier/portal/documents', '/supplier/portal/verification', '/supplier/portal/profile',
+  '/supplier/portal', '/supplier/portal/storefront', '/supplier/portal/products', '/supplier/portal/categories',
+  '/supplier/portal/traffic', '/supplier/portal/rfqs', '/supplier/portal/documents',
+  '/supplier/portal/verification', '/supplier/portal/profile',
 ], 'Menu xếp theo tính năng: gian hàng, công việc, xác minh, tài khoản');
 assert.doesNotMatch(sidebarSource, /href: "[^"]*#/, 'Menu không trỏ vào neo trong trang tổng quan');
 assert.doesNotMatch(sidebarSource, /href="\/crm/, 'Cổng NCC không hiện đường dẫn CRM');
@@ -61,7 +62,7 @@ assert.match(read('app/api/supplier-portal/notifications/route.ts'), /buildSuppl
   'Endpoint thông báo dùng lại đúng lớp dữ liệu của cổng');
 
 // 3. Không trang nào tự dựng <main> hay tiêu đề riêng: một ngôn ngữ thị giác.
-for (const page of ['page.tsx', 'rfqs/page.tsx', 'documents/page.tsx', 'profile/page.tsx',
+for (const page of ['page.tsx', 'storefront/page.tsx', 'rfqs/page.tsx', 'documents/page.tsx', 'profile/page.tsx',
   'traffic/page.tsx', 'verification/page.tsx', 'categories/page.tsx']) {
   const source = read(`app/supplier/portal/${page}`);
   assert.doesNotMatch(source, /<main/, `${page} không tự dựng khung main`);
@@ -87,7 +88,7 @@ function renderSidebar(pathname, props) {
 
 const base = { supplierName: 'Dong Nai Cashew', email: 'ncc@example.com', userName: 'Nguyễn Thị B', approved: true, publicUrl: null };
 const html = renderSidebar('/supplier/portal/rfqs', base);
-for (const label of ['Tổng quan', 'Sản phẩm', 'Danh mục kinh doanh', 'Lượt xem gian hàng', 'RFQ &amp; báo giá',
+for (const label of ['Tổng quan', 'Trang của tôi', 'Sản phẩm', 'Danh mục kinh doanh', 'Lượt xem gian hàng', 'RFQ &amp; báo giá',
   'Giấy tờ &amp; chứng nhận L1', 'Xác thực nhà máy L2 · L3', 'Hồ sơ doanh nghiệp'])
   assert.ok(html.includes(label), `Menu có mục ${label}`);
 assert.match(html, /<a href="\/supplier\/portal\/rfqs" aria-current="page"/, 'Mục đang mở được đánh dấu');
@@ -109,11 +110,30 @@ for (const field of ['Tên pháp nhân', 'Tên thương mại', 'Loại hình', 
   'Mặt hàng chính', 'Thị trường', 'Công suất mỗi tháng', 'MOQ', 'Cảng xuất', 'Incoterms', 'Thời gian giao',
   'Giới thiệu trên trang công khai', 'Bước tiếp theo'])
   assert.ok(profile.includes(field), `Hồ sơ hiển thị ${field}`);
-assert.match(profile, /kind="cover"/, 'Ảnh bìa có nút thêm ảnh');
-assert.match(profile, /kind="profile"/, 'Ảnh đại diện có nút thêm ảnh');
+assert.doesNotMatch(profile, /kind="cover"|kind="profile"|SupplierPhotoButton/,
+  'Ảnh bìa và ảnh đại diện thuộc trang buyer thấy, không nằm trong hồ sơ doanh nghiệp');
 assert.match(profile, /Đang ở đây/, 'Nói rõ nhà cung cấp đang ở bước xác minh nào');
-assert.match(profile, /supplier\.status === "published"/, 'Chỉ hiện nút xem trang công khai khi hồ sơ đã công khai');
+assert.match(profile, /href="\/supplier\/portal\/storefront"/, 'Hồ sơ dẫn sang Trang của tôi để đối chiếu');
 assert.match(profile, /Liên hệ \(không hiển thị công khai\)/, 'Liên hệ nội bộ được ghi rõ là không công khai');
+
+// 7. “Trang của tôi”: đúng giao diện buyer, dựng từ component dùng chung với trang công khai.
+const storefront = read('app/supplier/portal/storefront/page.tsx');
+assert.match(storefront, /<SupplierStorefront/, 'Trang của tôi dùng chung khung với trang công khai');
+assert.match(read('app/(public)/suppliers/[slug]/page.tsx'), /<SupplierStorefront/, 'Trang công khai cũng dùng khung đó');
+assert.doesNotMatch(storefront, /notFound\(/, 'Hồ sơ chưa publish vẫn xem trước được, không 404');
+assert.match(storefront, /productLinks=\{published\}/, 'Chưa publish thì sản phẩm không dẫn tới trang 404');
+assert.match(storefront, /rfqActions=\{false\}/, 'Nhà cung cấp không tự gửi RFQ cho chính mình');
+assert.match(storefront, /robots: \{ index: false, follow: false \}/, 'Bản xem trước không vào chỉ mục tìm kiếm');
+assert.doesNotMatch(storefront, /SupplierTrafficBeacon|createTrafficToken/, 'Xem trước không tự đếm lượt xem gian hàng');
+assert.match(storefront, /kind="cover"/, 'Ảnh bìa có nút thêm ảnh ngay trên trang buyer thấy');
+assert.match(storefront, /kind="profile"/, 'Ảnh đại diện có nút thêm ảnh ngay trên trang buyer thấy');
+assert.match(storefront, /Not published yet/, 'Nói rõ hồ sơ chưa lên sóng bằng tiếng Anh như trang buyer');
+assert.match(storefront, /checks approved/ , 'Hiện số bước xác minh đã duyệt');
+assert.match(storefront, /Not reviewed yet/, 'Hiện những bước còn thiếu');
+assert.doesNotMatch(storefront, /chưa hiện với buyer|hidden from buyer/i, 'Không thêm danh sách “chưa hiện với buyer”');
+assert.match(storefront, /getSupplierStorefront\(supplier\)/, 'Dựng đúng dữ liệu buyer thấy cho cả hồ sơ chưa publish');
+assert.match(storefront, /supplierPortalAccess\(\)/, 'Lấy NCC từ phiên đăng nhập');
+assert.match(storefront, /metadata = \{[^}]*index: false/s, 'Trang xem trước noindex');
 
 const upload = read('app/api/supplier-portal/profile-image/route.ts');
 assert.match(upload, /supplierPortalAccess\(\)/, 'Lấy NCC của phiên đang đăng nhập, không nhận id từ client');

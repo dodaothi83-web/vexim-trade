@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { BadgeCheck, Eye, FileText, ShieldCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
-import { SupplierPhotoButton } from "@/components/supplier-photo-button";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierTypeLabel } from "@/lib/supplier";
@@ -13,16 +12,15 @@ import { Info, LevelChip, Panel, VerifyRow } from "../portal-ui";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hồ sơ doanh nghiệp | Vexim Trade", robots: { index: false, follow: false } };
 
-const publicMedia = (path: string) => (path.startsWith("http") ? path : `/public-media/${path.replace(/^\/+/, "")}`);
 const join = (value: (string | null | undefined)[] | undefined) => (value ?? []).filter(Boolean).join(" · ");
 const vi = (value: Record<string, string> | undefined) => value?.vi || value?.en || "";
 
 /**
- * Hồ sơ doanh nghiệp trong cổng NCC, dựng theo đúng khung thẻ hồ sơ bên CRM và trang
- * nhà cung cấp công khai: ảnh bìa, ảnh đại diện, ba cấp xác minh và thông tin thương mại.
+ * Hồ sơ doanh nghiệp: dữ liệu nhà cung cấp đã khai, tình trạng từng cấp xác minh và
+ * thông tin liên hệ nội bộ (không hiển thị công khai).
  *
- * Mục đích: nhà cung cấp nhìn một lần là biết hồ sơ của mình đang hiển thị ra sao và
- * đang dừng ở bước xác minh nào, không phải mở trang công khai rồi tự đối chiếu.
+ * Phần giao diện buyer nhìn thấy nằm ở trang “Trang của tôi”, dùng chung khung với trang
+ * công khai. Ảnh bìa và ảnh đại diện thuộc trang đó, không đặt ở đây.
  */
 export default async function SupplierProfilePage() {
   const access = await supplierPortalAccess();
@@ -66,10 +64,6 @@ export default async function SupplierProfilePage() {
   const currentStep = !l1Approved ? 1 : !l2Approved ? 2 : !l3Approved ? 3 : null;
   const nextGoal = currentStep ? `L${currentStep} · ${currentStep === 1 ? "Giấy tờ" : currentStep === 2 ? "Nhà máy" : "Xuất khẩu"}` : "Đã đủ ba cấp";
   const published = supplier.status === "published";
-  const publicUrl = `/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`;
-  const coverUrl = supplier.cover_image ? publicMedia(supplier.cover_image) : null;
-  const avatarUrl = supplier.profile_image ? publicMedia(supplier.profile_image) : null;
-  const displayName = supplier.display_name || supplier.trade_name || supplier.name;
   const about = vi(supplier.summary_i18n) || supplier.intro_source || "";
   const marketText = supplier.export_markets_i18n?.vi?.join(", ") || join(supplier.export_markets) || supplier.markets || "";
   const typeLabel = supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : "Chưa khai loại hình";
@@ -79,9 +73,9 @@ export default async function SupplierProfilePage() {
       sub="Đây là hồ sơ buyer và nhân viên Vexim nhìn thấy, kèm tình trạng từng cấp xác minh. Mỗi cấp là một kết luận riêng."
       actions={<>
         <span className="rounded-full bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand-800">Bước tiếp theo: {nextGoal}</span>
-        {published && <Link href={publicUrl} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">
-          <Eye className="h-4 w-4" aria-hidden="true" />Xem trang công khai
-        </Link>}
+        <Link href="/supplier/portal/storefront" className="btn btn-ghost">
+          <Eye className="h-4 w-4" aria-hidden="true" />Trang của tôi
+        </Link>
       </>} />
 
     {degraded.length > 0 && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -89,53 +83,7 @@ export default async function SupplierProfilePage() {
       <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
     </div>}
 
-    <section className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm" aria-label="Hồ sơ hiển thị với buyer">
-      <div className="relative h-36 bg-gradient-to-r from-ink-900 via-brand-800 to-brand-700 sm:h-44">
-        {coverUrl && <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
-        <div className="absolute inset-0 bg-gradient-to-t from-ink-900/35 to-transparent" />
-        <span className={`absolute top-4 left-4 rounded-full px-3 py-1 text-[11px] font-bold ${published ? "bg-emerald-50 text-emerald-800" : "bg-white/90 text-ink-700"}`}>
-          {published ? "Đang công khai" : "Chưa công khai"}
-        </span>
-        <SupplierPhotoButton kind="cover" hasImage={!!coverUrl}
-          className="absolute top-3 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />
-      </div>
-
-      <div className="px-5 pb-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          <div className="relative -mt-10 shrink-0">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-brand-600 text-2xl font-black text-white shadow-sm sm:h-24 sm:w-24">
-              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : displayName.slice(0, 1).toUpperCase()}
-            </div>
-            <SupplierPhotoButton kind="profile" hasImage={!!avatarUrl}
-              className="absolute -right-2 -bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-white shadow-md ring-2 ring-white transition hover:bg-brand-800 disabled:opacity-60" />
-          </div>
-
-          <div className="min-w-0 flex-1 lg:pt-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl font-black tracking-tight text-ink-900 sm:text-2xl">{displayName}</h2>
-              <span className="rounded-full bg-ink-100 px-2.5 py-1 text-[11px] font-semibold text-ink-700">{typeLabel}</span>
-            </div>
-            <p className="mt-1 text-[12.5px] text-ink-600">{[supplier.trade_name, supplier.province, supplier.founded_year ? `Thành lập ${supplier.founded_year}` : null,
-              typeof supplier.employees === "number" && supplier.employees > 0 ? `${supplier.employees} nhân sự` : null].filter(Boolean).join(" · ")}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <LevelChip label="L1 · Giấy tờ" on={l1Approved} pending={!l1Approved} />
-              <LevelChip label="L2 · Nhà máy" on={l2Approved} pending={!l2Approved && !!l2Own} />
-              <LevelChip label="L3 · Xuất khẩu" on={l3Approved} pending={!l3Approved && !!l3Own} />
-              <span className="text-[11.5px] font-semibold text-ink-600">{approvedLevels}/3 cấp đã duyệt</span>
-            </div>
-            <p className="mt-2 text-[11px] leading-5 text-ink-500">Bấm dấu + trên ảnh bìa hoặc ảnh đại diện để thêm, đổi ảnh. Ảnh hiện trên trang công khai khi hồ sơ đang công khai.</p>
-          </div>
-
-          <dl className="grid shrink-0 grid-cols-3 gap-x-5 gap-y-2 lg:pt-3 lg:text-right">
-            <div><dt className="text-[11px] font-semibold text-ink-500">Sản phẩm</dt><dd className="text-lg leading-6 font-black text-ink-900">{productRows.length}</dd></div>
-            <div><dt className="text-[11px] font-semibold text-ink-500">Chứng nhận</dt><dd className="text-lg leading-6 font-black text-ink-900">{certificateRows.length}</dd></div>
-            <div><dt className="text-[11px] font-semibold text-ink-500">Cấp duyệt</dt><dd className="text-lg leading-6 font-black text-ink-900">{approvedLevels}/3</dd></div>
-          </dl>
-        </div>
-      </div>
-    </section>
-
-    <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <div className="space-y-5">
         <Panel icon={<FileText className="h-4 w-4 text-brand-700" />} title="Thông tin trên hồ sơ"
           sub="Đối chiếu với trang công khai. Sửa thông tin hoặc số tài khoản đã khai, liên hệ nhân viên Vexim.">

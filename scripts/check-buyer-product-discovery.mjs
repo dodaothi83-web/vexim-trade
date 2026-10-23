@@ -198,7 +198,10 @@ assert.equal((await catalog.getPublicSupplierBySlug('company-a')).main_products.
 media.find((m) => m.product_id === 'a7').status = 'checked';
 assert.equal(await catalog.getPublicSupplierBySlug('company-c'), null, 'Draft supplier has no public profile');
 const grid = readFileSync(new URL('../components/category-product-grid.tsx', import.meta.url), 'utf8');
-const profilePage = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
+// Phần thân hồ sơ nằm trong component dùng chung với cổng NCC (Trang của tôi),
+// trang công khai chỉ còn SEO, JSON-LD và đếm lượt xem.
+const profilePage = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8') +
+  readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8');
 const detailPage = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 assert.match(grid, /\+\{count\} more from/);
 assert.match(grid, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Category offers use 2/3/4 columns');

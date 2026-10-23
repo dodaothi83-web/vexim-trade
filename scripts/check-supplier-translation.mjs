@@ -68,7 +68,8 @@ const service = fs.readFileSync(new URL('../lib/ai/supplier-translation-service.
 assert.match(service, /needsSummary/, 'phải soạn giới thiệu khi NCC để trống ô tiếng Anh');
 assert.match(service, /patch\.summary_i18n/, 'giới thiệu AI chỉ ghi khi đang trống');
 
-const profilePage = fs.readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
+const profilePage = fs.readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8') +
+  fs.readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8');
 assert.match(profilePage, /supplierMoqDisplay\(s\)/, 'trang NCC phải hiển thị MOQ bản tiếng Anh');
 assert.match(profilePage, /supplierExportMarketsDisplay\(s\)/, 'trang NCC phải hiển thị thị trường bản tiếng Anh');
 

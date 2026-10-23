@@ -133,7 +133,8 @@ for (const input of ['visit_date', 'visit_address', 'visit_lat', 'visit_lng', 's
   assert.ok(ui.includes(`name="${input}"`), `${input} has an inline input`);
 }
 assert.match(ui, /auditUploadKind\(v\.target_level/, 'Photo and document rows use step-specific uploads');
-const publicSupplier = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
+const publicSupplier = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8') +
+  readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8');
 assert.ok(!publicSupplier.includes('Food-safety / HACCP'), 'A verification badge must not claim every trader has HACCP');
 assert.match(publicSupplier, /confirm the certificate holder/, 'Explain issuer/holder scope to buyers');
 const numbersSql = readFileSync(new URL('../supabase/migrations/20261017_document_numeric_identifiers.sql', import.meta.url), 'utf8');
