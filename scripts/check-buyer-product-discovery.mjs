@@ -234,18 +234,11 @@ const productTradeLabelsModule = compile('../components/product-trade-labels.tsx
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
 });
-const { ProductVerificationTooltip } = compile('../components/product-verification-tooltip.tsx', {
-  'react/jsx-runtime': require('react/jsx-runtime'),
-  'lucide-react': require('lucide-react'),
-  '@/lib/verification-status': { PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS },
-});
 const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
   '@/components/product-trade-labels': productTradeLabelsModule,
-  '@/components/product-verification-icons': { ProductVerificationIcons },
-  '@/components/product-verification-tooltip': { ProductVerificationTooltip },
   '@/components/verification-tier': verificationTierModule,
 });
 const fullTradeLabels = renderToStaticMarkup(React.createElement(productTradeLabelsModule.ProductTradeLabels, { oem: true, odm: true, samples: true }));
@@ -292,22 +285,24 @@ const standardBadge = renderToStaticMarkup(React.createElement(verificationTierM
 assert.ok(standardBadge.includes('Level 1 · Basic') && !standardBadge.includes('sm:hidden'),
   'Badges outside product cards keep the full label at every size');
 assert.doesNotMatch(compactCard, /Free Sample|ISO Certified|Ready to Ship/, 'Unsupported product claims never become badges');
-assert.equal((compactCard.match(/<details/g) ?? []).length, 1, 'Card keeps one compact disclosure for all three verification explanations');
-assert.match(compactCard, /aria-label="Explain supplier verification levels 1, 2 and 3"/, 'The tooltip trigger has an accessible name');
-const verificationTooltipSource = readFileSync(new URL('../components/product-verification-tooltip.tsx', import.meta.url), 'utf8');
-assert.doesNotMatch(verificationTooltipSource, /lucide-react|<Info\b/, 'The standalone information icon is removed');
-const verificationTrigger = compactCard.match(/<summary[^>]*aria-label="Explain supplier verification levels 1, 2 and 3"[\s\S]*?<\/summary>/)?.[0] ?? '';
-assert.match(verificationTrigger, /Verification checks approved:/, 'The verification shields remain part of the tooltip trigger');
-assert.match(verificationTrigger, /Level 2 · Advanced/, 'The level badge itself opens the explanation without a separate icon');
-assert.match(compactCard, /role="tooltip"/, 'The explanation uses tooltip semantics');
-assert.match(compactCard, /group-hover:block group-focus-within:block peer-open:block/, 'The tooltip opens on hover, keyboard focus and touch');
-assert.match(compactCard, /Level 1 · Documents checked<\/strong><span[^>]*>Approved<\/span>/, 'L1 is explained using its actual approved state');
-assert.match(compactCard, /Level 2 · Factory visited<\/strong><span[^>]*>Not approved<\/span>/, 'L2 is not inferred from another approved check');
-assert.ok(compactCard.includes(`If approved: ${PRODUCT_VERIFICATION_EXPLANATIONS[2]}`), 'An unapproved check is explained conditionally, not as a completed review');
-assert.match(compactCard, /Level 3 · Delivery history reviewed<\/strong><span[^>]*>Approved<\/span>/, 'L3 is explained independently');
-for (const explanation of Object.values(PRODUCT_VERIFICATION_EXPLANATIONS)) {
-  assert.ok(compactCard.includes(explanation), `Card tooltip keeps the canonical explanation: ${explanation}`);
+assert.equal((compactCard.match(/<details/g) ?? []).length, 0, 'The large shared verification disclosure is removed');
+assert.equal((compactCard.match(/role="tooltip"/g) ?? []).length, 3, 'Each shield has its own compact tooltip');
+assert.equal((compactCard.match(/group-hover\/pip:block group-focus-within\/pip:block/g) ?? []).length, 3,
+  'Each tooltip opens on hover and keyboard or touch focus');
+for (const [level, label, status] of [
+  [1, 'Documents checked', 'Approved'],
+  [2, 'Factory visited', 'Not approved'],
+  [3, 'Delivery history reviewed', 'Approved'],
+]) {
+  assert.ok(compactCard.includes(`aria-label="Level ${level} · ${label}: ${status}"`), `Shield ${level} has an accessible name and actual status`);
+  assert.match(compactCard, new RegExp(`Level ${level} · ${label}<\\/strong><span[^>]*>${status}<\\/span>`),
+    `Shield ${level} shows only its short label and status`);
 }
+for (const explanation of Object.values(PRODUCT_VERIFICATION_EXPLANATIONS)) {
+  assert.ok(!compactCard.includes(explanation), 'The long verification paragraph no longer appears on product cards');
+}
+const standardPips = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationPips, { levels: [1] }));
+assert.ok(!standardPips.includes('role="tooltip"'), 'Verification pips outside product cards keep their existing presentation');
 assert.match(compactCard, /overflow-visible rounded-xl/, 'The card does not clip its verification tooltip');
 assert.match(compactCard, /rounded-t-xl bg-ink-50/, 'The product image keeps the accepted rounded card corners');
 const longSupplierCard = renderToStaticMarkup(React.createElement(PublicProductCard, {

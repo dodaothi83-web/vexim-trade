@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowRight, ImageIcon } from "lucide-react";
 
 import { ProductTradeLabels } from "@/components/product-trade-labels";
-import { ProductVerificationTooltip } from "@/components/product-verification-tooltip";
 import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import type { VerificationLevel } from "@/lib/types";
 
@@ -53,11 +52,9 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
           {supplierHref && linkable ? <Link href={supplierHref} title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-brand-700 hover:underline">{supplierName}</Link>
             : <span title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-ink-800">{supplierName}</span>}
         </p>
-        <div className="group relative mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
-          <ProductVerificationTooltip levels={test ? [] : verificationSteps}>
-            <VerificationPips levels={test ? [] : verificationSteps} compact />
-            <VerificationTierBadge levels={test ? [] : verificationSteps} compactOnMobile />
-          </ProductVerificationTooltip>
+        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
+          <VerificationPips levels={test ? [] : verificationSteps} compact shortTooltips />
+          <VerificationTierBadge levels={test ? [] : verificationSteps} compactOnMobile />
         </div>
       </div>
       <div className="mt-auto pt-3">{quote
