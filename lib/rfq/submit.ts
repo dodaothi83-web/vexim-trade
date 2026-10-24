@@ -269,7 +269,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     deal_value: null,
     supplier_id: null,
     hide_buyer_from_supplier: true,
-    stage: "new",
+    stage: "lead",
     owner: null,
     source: raw.source_page ?? "rfq_form",
     priority: "normal" as const,

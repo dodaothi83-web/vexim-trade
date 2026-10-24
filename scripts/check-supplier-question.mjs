@@ -104,6 +104,7 @@ assert.equal(sent.length, beforeConsentMail, 'Moderation and selected-supplier g
 process.env.TURNSTILE_SECRET_KEY = '';
 process.env.RFQ_REJECT_WEBMAIL = 'false';
 const createdRfqs = [];
+const createdBuyers = [];
 const questionAcks = [];
 const exceptionReasons = [];
 let directCalls = 0;
@@ -117,7 +118,7 @@ let distributedCalls = 0;
 const category = { id: 'cat-1', slug: 'cashew', status: 'published', is_published: true };
 const submitStore = {
   listBuyers: async () => [],
-  createBuyer: async (input) => ({ id: 'buyer-1', ...input }),
+  createBuyer: async (input) => { createdBuyers.push(input); return { id: 'buyer-1', ...input }; },
   getCategoryBySlug: async () => category,
   listRfqs: async () => [],
   createRfq: async (input) => { createdRfqs.push(input); return { ...input, id: `r-${createdRfqs.length}`, access_token: 'private-token' }; },
@@ -152,6 +153,7 @@ const direct = await submit.submitRfq(rawQuestion);
 assert.equal(direct.ok, true);
 assert.equal(direct.status, 'matching');
 assert.equal(direct.supplierDelivered, true);
+assert.equal(createdBuyers[0].stage, 'lead', 'New RFQ buyers must satisfy buyers_stage_check');
 assert.equal(createdRfqs[0].specs.inquiry_kind, 'supplier_question');
 assert.equal(createdRfqs[0].specs.contact_share_consent, true);
 assert.equal(createdRfqs[0].specs.notes, rawQuestion.message);
@@ -167,6 +169,7 @@ const quote = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', sh
   quantity: 10, unit: 'MT', destination_country: 'US', message: 'Quote notes' });
 assert.equal(quote.ok, true);
 assert.equal(quote.supplierDelivered, undefined);
+assert.equal(createdBuyers[1].stage, 'lead', 'Quote buyers use the same valid initial pipeline stage');
 assert.equal(directCalls, 1, 'Quote mode never uses direct question delivery');
 assert.equal(distributedCalls, 1, 'Quote mode never calls the supplier-question distributed limiter');
 assert.equal(genericAcks, 1, 'Quote acknowledgement is unchanged');
