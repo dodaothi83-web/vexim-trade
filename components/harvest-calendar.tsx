@@ -3,24 +3,23 @@ import { ArrowRight } from "lucide-react";
 
 import type { HarvestCalendar } from "@/lib/types";
 import {
+  HARVEST_MONTH_FULL,
   HARVEST_MONTH_LABELS,
+  buildHarvestChartGeometry,
   buildMonthStates,
   formatReviewedOn,
   harvestHeadline,
   sortHarvestWindows,
   windowDescription,
   windowRangeText,
-  type HarvestMonthState,
 } from "@/lib/public/harvest";
 
 /**
  * Biểu đồ mùa vụ trên trang danh mục.
  *
- * Vẽ bằng HTML và CSS, không dùng ảnh, để công cụ tìm kiếm đọc được nội dung và
- * trình đọc màn hình đọc được miêu tả. Mười hai cột đủ chỗ ở màn 375px với nhãn
- * tháng ba chữ cái, không phải cuộn ngang.
- *
- * Cùng dữ liệu này sẽ được trang market dùng lại; chỉ khác cách trình bày.
+ * SVG giữ nhãn hai trục và đường cong ở cùng một hệ tọa độ. Trên màn hình hẹp,
+ * khung cuộn ngang để chữ không bị thu nhỏ. Nội dung mùa vụ vẫn có dạng văn bản
+ * cho công cụ tìm kiếm và trình đọc màn hình.
  */
 export function HarvestCalendarSection({
   categoryName,
@@ -31,13 +30,14 @@ export function HarvestCalendarSection({
   categoryName: string;
   harvest: HarvestCalendar;
   note?: string;
-  /** Chỉ truyền khi trang market đã tồn tại, tránh dẫn người đọc tới đường dẫn 404. */
+  /** Only pass an existing market page, never a 404 target. */
   marketHref?: string;
 }) {
   const windows = sortHarvestWindows(harvest.windows);
   if (windows.length === 0) return null;
 
   const states = buildMonthStates(windows);
+  const chart = buildHarvestChartGeometry(states);
   const headline = harvestHeadline(windows);
   const reviewed = formatReviewedOn(harvest.reviewed_on);
 
@@ -54,26 +54,88 @@ export function HarvestCalendarSection({
         <p className="text-[12.5px] font-semibold text-ink-600">{headline}</p>
       </div>
 
-      <div className="mt-6" role="img" aria-label={`Harvest calendar. ${headline}.`}>
-        <div className="grid grid-cols-12 gap-[3px] sm:gap-1.5">
-          {states.map((state, index) => (
-            <div key={HARVEST_MONTH_LABELS[index]} className="flex flex-col items-center gap-1.5">
-              <div className="flex h-20 w-full items-end overflow-hidden rounded bg-ink-50">
-                <span className={`w-full rounded ${state === "peak" ? "bg-brand-700" : state === "harvest" ? "bg-brand-300" : "bg-ink-100"}`} style={{ height: barHeight(state) }} />
-              </div>
-              <span className="text-[9px] font-semibold uppercase tracking-tight text-ink-500 sm:text-[11px]">
-                {HARVEST_MONTH_LABELS[index]}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <div className="mt-6 overflow-x-auto rounded-xl border border-ink-100 bg-ink-50/40 px-2 py-3">
+        <svg
+          viewBox={`0 0 ${chart.width} ${chart.height}`}
+          className="block h-auto w-full min-w-[720px]"
+          role="img"
+          aria-label={`Harvest activity by month for ${categoryName}. ${headline}. The vertical axis shows outside the season, in season and main harvest. The horizontal axis shows January to December.`}
+        >
+          <title>{`Harvest activity by month for ${categoryName}`}</title>
+          <path d={chart.areaPath} fill="var(--color-brand-700)" opacity={0.08} />
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-ink-600">
-        <Legend className="bg-brand-700" label="Main harvest" />
-        <Legend className="bg-brand-300" label="In season" />
-        <Legend className="bg-ink-100" label="Outside the season" />
+          {chart.ticks.map((tick) => (
+            <g key={tick.state}>
+              <line
+                x1={chart.left} x2={chart.right} y1={tick.y} y2={tick.y}
+                stroke="var(--color-ink-200)" strokeWidth={1} strokeDasharray={tick.state === "none" ? undefined : "4 5"}
+              />
+              <line
+                x1={chart.left - 6} x2={chart.left} y1={tick.y} y2={tick.y}
+                stroke="var(--color-ink-400)" strokeWidth={1.2}
+              />
+              <text
+                x={chart.left - 12} y={tick.y + 4} textAnchor="end"
+                fontSize={12} fontWeight={600} fill="var(--color-ink-500)"
+              >
+                {tick.label}
+              </text>
+            </g>
+          ))}
+
+          <line
+            x1={chart.left} x2={chart.left} y1={chart.top} y2={chart.bottom}
+            stroke="var(--color-ink-400)" strokeWidth={1.2}
+          />
+          <line
+            x1={chart.left} x2={chart.right} y1={chart.bottom} y2={chart.bottom}
+            stroke="var(--color-ink-400)" strokeWidth={1.2}
+          />
+          <path
+            d={chart.path} fill="none" stroke="var(--color-brand-700)"
+            strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"
+          />
+
+          {chart.points.map((point) => (
+            <g key={`month-${point.month}`}>
+              <line
+                x1={point.x} x2={point.x} y1={chart.bottom} y2={chart.bottom + 6}
+                stroke="var(--color-ink-400)" strokeWidth={1}
+              />
+              <text
+                x={point.x} y={205} textAnchor="middle"
+                fontSize={12} fontWeight={600} fill="var(--color-ink-500)"
+              >
+                {HARVEST_MONTH_LABELS[point.month - 1]}
+              </text>
+            </g>
+          ))}
+
+          {chart.points.map((point) => (
+            <circle
+              key={`point-${point.month}`} cx={point.x} cy={point.y} r={5}
+              fill={point.state === "peak" ? "var(--color-brand-700)" : point.state === "harvest" ? "var(--color-brand-300)" : "#fff"}
+              stroke={point.state === "none" ? "var(--color-ink-400)" : "var(--color-brand-700)"} strokeWidth={2}
+            >
+              <title>{`${HARVEST_MONTH_FULL[point.month - 1]}: ${point.label}`}</title>
+            </circle>
+          ))}
+
+          <text
+            transform={`translate(22 ${(chart.top + chart.bottom) / 2}) rotate(-90)`} textAnchor="middle"
+            fontSize={12} fontWeight={700} fill="var(--color-ink-600)"
+          >
+            Harvest activity
+          </text>
+          <text
+            x={(chart.left + chart.right) / 2} y={239} textAnchor="middle"
+            fontSize={12} fontWeight={700} fill="var(--color-ink-600)"
+          >
+            Month
+          </text>
+        </svg>
       </div>
+      <p className="mt-2 text-[11px] text-ink-500 md:hidden">Scroll to see all months.</p>
 
       <ul className="mt-5 divide-y divide-ink-100 border-t border-ink-100 text-[13px] text-ink-700">
         {windows.map((window) => (
@@ -110,20 +172,5 @@ export function HarvestCalendarSection({
         )}
       </div>
     </section>
-  );
-}
-
-function barHeight(state: HarvestMonthState): string {
-  if (state === "peak") return "100%";
-  if (state === "harvest") return "62%";
-  return "12%";
-}
-
-function Legend({ className, label }: { className: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={`inline-block h-2.5 w-4 rounded-sm ${className}`} aria-hidden="true" />
-      {label}
-    </span>
   );
 }

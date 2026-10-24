@@ -70,6 +70,20 @@ assert.ok(
   "A peak window wins over a normal window on overlapping months",
 );
 
+/* ---------------- Hình học đường cong và hai trục ---------------- */
+
+const curve = harvest.buildHarvestChartGeometry(["none", "harvest", "peak", "peak", "harvest", "none", "none", "harvest", "peak", "none", "none", "none"]);
+assert.equal(curve.points.length, 12, "The curve keeps one observed point for every month");
+assert.equal(curve.points[0].x, curve.left, "January starts at the y-axis");
+assert.equal(curve.points.at(-1).x, curve.right, "December ends at the right edge");
+assert.equal(curve.points[0].y, curve.bottom, "Outside the season stays on the baseline");
+assert.equal(curve.points[1].y, (curve.top + curve.bottom) / 2, "In season uses the middle activity level");
+assert.equal(curve.points[2].y, curve.top, "Main harvest uses the highest activity level");
+assert.ok(curve.path.startsWith("M ") && curve.path.includes(" C "), "Month points join with smooth cubic curves");
+assert.ok(curve.areaPath.endsWith(" Z"), "The light area closes on the baseline");
+assert.ok(curve.points.every((point) => point.y >= curve.top && point.y <= curve.bottom), "No observed point exceeds the three data levels");
+assert.deepEqual(curve.ticks.map((tick) => tick.label), ["Main harvest", "In season", "Outside the season"], "The y-axis retains categorical season meanings");
+
 assert.equal(harvest.harvestHeadline([{ label: "Main", start_month: 2, end_month: 5 }]), "February to May");
 assert.equal(
   harvest.harvestHeadline([
@@ -115,10 +129,18 @@ const html = renderToStaticMarkup(
   }),
 );
 
-assert.ok(!/<img/i.test(html), "The chart is HTML and CSS, not an image");
+assert.ok(!/<img/i.test(html), "The chart is inline SVG, not an image");
+assert.ok(html.includes("<svg") && html.includes('viewBox="0 0 840 250"'), "The curve renders in a responsive SVG frame");
+assert.ok(html.includes(" C "), "The rendered line uses smooth curve segments");
+assert.equal((html.match(/<circle/g) ?? []).length, 12, "The SVG shows twelve monthly data points");
 assert.ok(html.includes('role="img"'), "The chart exposes a single label to assistive tech");
+for (const label of ["Harvest activity", "Month", "Main harvest", "In season", "Outside the season"]) {
+  assert.ok(html.includes(label), `The axes show ${label}`);
+}
+assert.ok(html.includes("overflow-x-auto") && html.includes("min-w-[720px]"), "Small screens scroll instead of shrinking the axis labels");
+assert.ok(html.includes("Scroll to see all months"), "Mobile visitors receive a scroll cue");
 assert.ok(html.includes("February to May"), "The chart states the season in words");
-assert.ok(html.includes("sr-only"), "A screen-reader description accompanies the bars");
+assert.ok(html.includes("sr-only"), "A screen-reader description accompanies the chart");
 assert.ok(html.includes("Binh Phuoc, Dong Nai"), "Regions reach the page");
 assert.ok(html.includes("Review date not set"), "An unreviewed calendar says so instead of pretending to be verified");
 assert.ok(html.includes("when the crop is harvested, not when it ships"), "The block explains what the months mean");
