@@ -317,11 +317,14 @@ assert.match(detailPage, /parseProductSpecification\(enSpec\)/, 'PDP separates s
 assert.match(detailPage, />Key terms</, 'The gallery-side card keeps only commercial terms');
 assert.match(detailPage, /id="full-specifications-heading"/, 'Technical details have their own specification card');
 const galleryStart = detailPage.indexOf('<ProductMediaGallery');
+const supplierCardStart = detailPage.indexOf('id="supplier-card-title"');
 const fullSpecsStart = detailPage.indexOf('id="full-specifications-heading"');
-assert.ok(fullSpecsStart > galleryStart && fullSpecsStart < detailPage.indexOf('>Key terms</h2>'),
-  'Full specifications sit inside the left column directly below the gallery');
+assert.ok(supplierCardStart > galleryStart && supplierCardStart < detailPage.indexOf('>Key terms</h2>'),
+  'The supplier card sits inside the left column directly below the gallery');
+assert.ok(fullSpecsStart > detailPage.indexOf('>Key terms</h2>') && fullSpecsStart < detailPage.indexOf('id="product-description-heading"'),
+  'Full specifications return to a full-width row between the two-column hero and description');
 const fullSpecsSource = detailPage.slice(fullSpecsStart, detailPage.indexOf('</section>', fullSpecsStart));
-assert.doesNotMatch(fullSpecsSource, /md:grid-cols-2/, 'The left-column specification card stays readable at its actual width');
+assert.match(fullSpecsSource, /md:grid-cols-2/, 'The full-width specification table uses two columns on larger screens');
 const keyTermsStart = detailPage.indexOf('>Key terms</h2>');
 const keyTermsEnd = detailPage.indexOf('</dl>', keyTermsStart);
 const keyTermsSource = detailPage.slice(keyTermsStart, keyTermsEnd);

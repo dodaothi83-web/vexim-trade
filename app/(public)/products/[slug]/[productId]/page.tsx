@@ -157,41 +157,6 @@ export default async function PublicProductDetail({ params }: Props) {
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(330px,0.8fr)]">
       <div className="min-w-0">
         <ProductMediaGallery name={card.name} images={images} thumbnails={thumbnails} video={video} />
-        {(detailRows.length > 0 || additionalSpecs.length > 0) && <section aria-labelledby="full-specifications-heading" className="mt-6 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
-          <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
-            <h2 id="full-specifications-heading" className="text-sm font-bold text-ink-900">Full specifications</h2>
-            <p className="mt-0.5 text-xs text-ink-500">Technical details from the listing</p>
-          </div>
-          <dl className="px-5">
-            {detailRows.map((row, index) => <Spec key={`${row.key}-${index}`} label={row.label} value={row.value} />)}
-            {additionalSpecs.map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
-          </dl>
-        </section>}
-      </div>
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
-        <h1 className="mt-2 text-3xl font-black leading-tight text-ink-900 sm:text-4xl">{card.name}</h1>
-        {enDescription && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(enDescription)}</p>}
-        {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
-          <p className="mt-1.5 text-xs text-ink-500">Product options stated in the listing; confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
-        <div className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
-          <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
-            <h2 className="text-sm font-bold text-ink-900">Key terms</h2>
-            <p className="mt-0.5 text-xs text-ink-500">Commercial details for your RFQ</p>
-          </div>
-          <dl className="px-5">
-            <Spec label="Grade" value={approvedAttributes.grade ?? card.grade} />
-            <Spec label="MOQ" value={card.moq} />
-            <Spec label="Reference price" value={card.price || "On request"} />
-            <Spec label="Packaging" value={detailedPackaging || enPackaging} />
-            <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
-            <Spec label="Incoterm" value={card.incoterm} />
-            <Spec label="Loading port" value={publicExportPortDisplay(p.export_port)} />
-          </dl>
-        </div>
-        <p className="mt-2 text-xs leading-5 text-ink-500">Product details and reference prices are supplier-provided and reviewed for listing. Confirm current specifications, availability and final terms in your RFQ.</p>
-        <Link href={rfq} className="btn btn-primary mt-5 min-h-12 w-full justify-center text-base font-bold shadow-lg shadow-brand-900/20">Request a quote <ArrowRight className="h-5 w-5" /></Link>
-        <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>
         <aside className="mt-6 overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card" aria-labelledby="supplier-card-title">
           <div className="border-b border-brand-100 bg-gradient-to-br from-brand-50 to-white p-5">
             <div className="flex items-start gap-3">
@@ -229,7 +194,40 @@ export default async function PublicProductDetail({ params }: Props) {
           </div>
         </aside>
       </div>
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
+        <h1 className="mt-2 text-3xl font-black leading-tight text-ink-900 sm:text-4xl">{card.name}</h1>
+        {enDescription && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(enDescription)}</p>}
+        {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
+          <p className="mt-1.5 text-xs text-ink-500">Product options stated in the listing; confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
+        <div className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+          <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
+            <h2 className="text-sm font-bold text-ink-900">Key terms</h2>
+            <p className="mt-0.5 text-xs text-ink-500">Commercial details for your RFQ</p>
+          </div>
+          <dl className="px-5">
+            <Spec label="Grade" value={approvedAttributes.grade ?? card.grade} />
+            <Spec label="MOQ" value={card.moq} />
+            <Spec label="Reference price" value={card.price || "On request"} />
+            <Spec label="Packaging" value={detailedPackaging || enPackaging} />
+            <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
+            <Spec label="Incoterm" value={card.incoterm} />
+            <Spec label="Loading port" value={publicExportPortDisplay(p.export_port)} />
+          </dl>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-ink-500">Product details and reference prices are supplier-provided and reviewed for listing. Confirm current specifications, availability and final terms in your RFQ.</p>
+        <Link href={rfq} className="btn btn-primary mt-5 min-h-12 w-full justify-center text-base font-bold shadow-lg shadow-brand-900/20">Request a quote <ArrowRight className="h-5 w-5" /></Link>
+        <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>
+      </div>
     </div>
+    {(detailRows.length > 0 || additionalSpecs.length > 0) && <section aria-labelledby="full-specifications-heading" className="mt-12 border-t border-ink-200 pt-8">
+      <h2 id="full-specifications-heading" className="text-2xl font-black text-ink-900">Full specifications</h2>
+      <p className="mt-1 text-sm text-ink-500">Technical details from the listing</p>
+      <dl className="mt-5 grid gap-x-10 overflow-hidden rounded-xl border border-ink-200 bg-white px-5 shadow-sm md:grid-cols-2">
+        {detailRows.map((row, index) => <Spec key={`${row.key}-${index}`} label={row.label} value={row.value} />)}
+        {additionalSpecs.map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
+      </dl>
+    </section>}
     {enDetail && <section aria-labelledby="product-description-heading" className="mt-10 border-t border-ink-200 pt-8">
       <h2 id="product-description-heading" className="text-2xl font-black text-ink-900">Product description</h2>
       <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{withoutDirectContacts(enDetail)}</p>
