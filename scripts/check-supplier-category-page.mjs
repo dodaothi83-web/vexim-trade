@@ -61,26 +61,47 @@ const products = [
 ];
 const render = (initial) => renderToStaticMarkup(React.createElement(exports.SupplierCategoryWorkspace, { options, initial, products }));
 
-// 1. Lưới danh mục + tổng quan + cột phạm vi + danh sách sản phẩm đều có mặt.
+// 1. Danh sách danh mục + tổng quan + cột phạm vi + danh sách sản phẩm đều có mặt.
 const html = render(['cashew']);
-assert.match(html, /Danh mục Vexim đã mở/, 'Có lưới danh mục Vexim đã mở');
-assert.match(html, /Tìm danh mục, nhóm ngành…/, 'Có ô tìm danh mục');
+assert.match(html, /Danh mục Vexim đã mở/, 'Có khối danh mục Vexim đã mở');
+assert.match(html, /Tìm danh mục…/, 'Có ô tìm danh mục');
 for (const group of ['Hạt &amp; hạt nhân', 'Gia vị', 'Lương thực']) assert.ok(html.includes(group), `Nhóm danh mục ${group} hiện tiêu đề nhóm`);
 assert.match(html, /<button[^>]*aria-pressed="true"/, 'Danh mục đã chọn có aria-pressed');
-assert.match(html, /aspect-\[16\/10\]/, 'Thẻ danh mục có vùng ảnh');
-assert.match(html, /images\/categories\/cashew-hero\.jpg/, 'Danh mục có ảnh bìa dùng ảnh thật');
-assert.match(html, /1 sản phẩm/, 'Thẻ danh mục hiện số sản phẩm đang dùng');
+assert.match(html, /1 sản phẩm/, 'Dòng danh mục hiện số sản phẩm đang dùng');
+
+// 1b. Danh mục là DANH SÁCH, không phải lưới thẻ có ảnh bìa.
+assert.doesNotMatch(html, /<img/, 'Trang danh mục không dùng ảnh bìa');
+assert.doesNotMatch(html, /aspect-\[16\/10\]/, 'Không còn thẻ ảnh tỉ lệ 16:10');
+assert.doesNotMatch(html, /<svg[^>]*data-icon="(?!Check|FolderTree|Info|Package|Search|X)/, 'Chỉ dùng icon điều hướng, không icon trang trí cho danh mục');
+assert.match(html, /<ul class="divide-y divide-ink-100"><li><button type="button" aria-pressed/, 'Danh mục hiện thành dòng trong danh sách');
+assert.match(html, /py-2 text-left/, 'Dòng danh mục gọn (padding nhỏ)');
+assert.match(html, /rounded-\[5px\]/, 'Dòng danh mục có ô tích thay cho ảnh');
+assert.deepEqual((html.match(/<li><button/g) ?? []).length, 6, 'Mỗi danh mục đúng một dòng');
+assert.match(html, /Hiển thị 6\/6 danh mục/, 'Có dòng đếm danh mục đang hiện');
+
+// 1c. Danh mục gốc (không có ngành cha) gom vào nhóm "Danh mục chính", đứng đầu danh sách.
+const rooted = renderToStaticMarkup(React.createElement(exports.SupplierCategoryWorkspace, {
+  options: [{ id: 'r1', slug: 'rice', label: 'Gạo', group: null }, ...options],
+  initial: [], products: [],
+}));
+assert.match(rooted, /Danh mục chính/, 'Danh mục gốc có tiêu đề nhóm rõ ràng');
+assert.ok(rooted.indexOf('Danh mục chính') < rooted.indexOf('Hạt &amp; hạt nhân'), 'Nhóm danh mục gốc đứng đầu danh sách');
 assert.match(html, /role="progressbar"[^>]*aria-valuenow="1"/, 'Cột phạm vi có thanh tiến độ đúng số đã chọn');
 assert.match(html, /Phạm vi đang chọn/, 'Có cột phạm vi đang chọn');
 assert.match(html, /lg:sticky lg:top-20/, 'Cột phạm vi dính khi cuộn');
 assert.match(html, /lg:hidden/, 'Có thanh lưu riêng cho mobile');
 assert.match(html, /Sản phẩm theo danh mục/, 'Có khối sản phẩm theo danh mục');
 assert.match(html, /Ngoài phạm vi/, 'Sản phẩm thuộc danh mục chưa chọn được đánh dấu ngoài phạm vi');
+assert.match(html, /Đã chọn/, 'Dải tổng quan có ô Đã chọn');
 assert.match(html, /Chưa gắn danh mục/, 'Sản phẩm chưa gắn danh mục được nhắc riêng');
 
 // 2. Danh mục đã chọn gửi đúng field cũ, có nút bỏ.
 assert.match(html, /name="requested_category_slugs" value="cashew"/, 'Danh mục đã chọn gửi bằng input ẩn như cũ');
 assert.match(html, /aria-label="Bỏ Hạt điều"/, 'Bỏ được danh mục ngay trong cột phạm vi');
+
+// 2b. Thẻ bìa ảnh đã bị bỏ khỏi kiểu dữ liệu, không còn trường ảnh chết.
+const proposals = read('../lib/supplier-portal/category-proposals.ts');
+assert.doesNotMatch(proposals, /hero_image/, 'Kiểu lựa chọn danh mục không còn mang ảnh bìa');
 
 // 3. Chưa chọn gì: không gửi danh mục nào và có lời nhắc.
 const empty = render([]);
@@ -91,7 +112,7 @@ assert.match(empty, /Cần chuyển trước khi bỏ danh mục/, 'Chưa chọn
 // 4. Đủ 5 danh mục: thẻ còn lại bị khoá, không vượt trần.
 const full = render(['cashew', 'pepper', 'rice', 'coffee', 'cinnamon']);
 assert.match(full, /Đã chọn 5\/5/, 'Hiện đúng trần 5 danh mục');
-assert.match(full, /<button[^>]*disabled=""[^>]*aria-pressed="false"|<button[^>]*aria-pressed="false"[^>]*disabled=""/, 'Thẻ danh mục thứ sáu bị khoá khi đã đủ 5');
+assert.match(full, /<button type="button" disabled="" aria-pressed="false"|<button type="button" aria-pressed="false" disabled=""/, 'Dòng danh mục thứ sáu bị khoá khi đã đủ 5');
 assert.match(full, /Đã chọn đủ 5 danh mục/, 'Có lời giải thích khi chạm trần');
 
 // 5. Trang server: dùng PageHeader, không tự dựng h1/main, chỉ đọc dữ liệu rồi chuyển cho workspace.
@@ -124,4 +145,4 @@ assert.equal(scope.productCategorySlug({ reviewed_category_slug: null, supplier_
 assert.match(source, /saveSupplierCategoriesAction\(new FormData\(event\.currentTarget\)\)/, 'Nút lưu gửi FormData qua server action cũ');
 assert.match(source, /type="submit"/, 'Có nút submit thật trong form');
 assert.match(source, /role="status"/, 'Kết quả lưu được đọc bởi trình đọc màn hình');
-console.log('✅ Supplier category page: lưới danh mục dạng sàn TMĐT, cột phạm vi dính, số sản phẩm theo danh mục — cùng hành vi 1–5 danh mục CMS.');
+console.log('✅ Supplier category page: danh sách danh mục gọn (không ảnh bìa), cột phạm vi dính, số sản phẩm theo danh mục — cùng hành vi 1–5 danh mục CMS.');
