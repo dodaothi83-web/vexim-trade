@@ -39,6 +39,17 @@ function briefReason(error: unknown): string {
   return text.slice(0, 180) || "không rõ nguyên nhân";
 }
 
+/** The same publication gate applies during approval and later summary edits. */
+function publicSummaryValidationError(summary: string, confirmed: boolean): string | null {
+  if (!summary) return "Hãy viết tóm tắt công khai bằng tiếng Anh để buyer hiểu phạm vi đợt kiểm.";
+  if (summary.length > 1000) return "Tóm tắt công khai tối đa 1000 ký tự.";
+  if (!confirmed) return "Hãy xác nhận đã đối chiếu tóm tắt với bằng chứng và loại bỏ thông tin nhạy cảm.";
+  if (/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(summary) || /https?:\/\/|www\./i.test(summary) || /(?:\+?\d[\s().-]?){9,15}\d/.test(summary)) {
+    return "Tóm tắt chứa email, liên kết hoặc chuỗi số có thể là số điện thoại/mã đơn. Hãy viết lại ở mức khái quát.";
+  }
+  return null;
+}
+
 /** Gợi ý đúng việc cần làm khi CSDL chưa khớp mã nguồn (lỗi hay gặp ở production). */
 function technicalHint(message: string): string {
   if (/schema cache|PGRST204|does not exist|column .* of relation/i.test(message)) {
@@ -51,19 +62,31 @@ function technicalHint(message: string): string {
   return "";
 }
 
-async function auditChange(before: Verification, status: VerificationStatus, action: string) {
+async function auditChange(before: Verification, status: VerificationStatus, action: string,
+  publication?: { summary: string; publishedAt: string } | null) {
   const session = await getSession();
   await getStore().addAuditLog({
     actor_id: session?.uid ?? null, actor_email: session?.email ?? null,
     entity: "supplier", entity_id: before.supplier_id,
     action: `verification.${action}.l${before.target_level}`,
-    before: { id: before.id, status: before.status, checklist: before.checklist },
+    before: {
+      id: before.id, status: before.status, checklist: before.checklist,
+      ...(publication ? {
+        public_summary_i18n: before.public_summary_i18n ?? {},
+        public_summary_published_at: before.public_summary_published_at ?? null,
+      } : {}),
+    },
     after: {
       id: before.id, status,
       ...(status === "approved" ? {
         inspector_id: before.inspector_id,
         approved_by: session?.uid ?? null,
         self_approved: before.inspector_id == null || before.inspector_id === session?.uid,
+      } : {}),
+      ...(publication ? {
+        public_summary_i18n: { en: publication.summary },
+        public_summary_published_at: publication.publishedAt,
+        public_summary_published_by: session?.uid ?? null,
       } : {}),
     },
   }).catch((err) => console.error("[audit] verification write failed", err));
@@ -248,9 +271,24 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
       return { ok: false, message: "Cần chứng từ vận chuyển/giao nhận ở đúng đợt kiểm (gắn vào mục tương ứng hoặc chứng từ cũ đã kiểm tra). Ảnh không liên quan hoặc video không đủ điều kiện." };
     }
   }
-  const decision = { status: "approved" as const, approved_by: session?.uid ?? null, approved_at: new Date().toISOString() };
+  const publicSummary = before.target_level > 1 ? String(fd.get("public_summary") || "").trim() : "";
+  if (before.target_level > 1) {
+    const summaryError = publicSummaryValidationError(publicSummary, fd.get("confirm_public_summary") === "yes");
+    if (summaryError) return { ok: false, message: summaryError };
+  }
+  const approvedAt = new Date().toISOString();
+  const publication = before.target_level > 1 ? { summary: publicSummary, publishedAt: approvedAt } : null;
+  const decision = { status: "approved" as const, approved_by: session?.uid ?? null, approved_at: approvedAt };
+  const approvalPatch = {
+    ...decision,
+    ...(publication ? {
+      public_summary_i18n: { en: publication.summary },
+      public_summary_published_at: publication.publishedAt,
+      public_summary_published_by: session?.uid ?? null,
+    } : {}),
+  };
   // Preserve an explicit single-person marker and the corresponding audit entry.
-  const patch = { ...decision, self_approved: singlePersonDecision };
+  const patch = { ...approvalPatch, self_approved: singlePersonDecision };
   try {
     try {
       await store.updateVerification(before.id, patch);
@@ -259,7 +297,7 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
       // thứ tự deploy chặn quyết định; ràng buộc CSDL hiện có vẫn tự chặn nếu chưa tương thích.
       if (!/self_approved/.test(briefReason(error)) || !/schema cache|PGRST204|does not exist/i.test(briefReason(error))) throw error;
       console.warn("[verification] self_approved column missing; approving without it", briefReason(error));
-      await store.updateVerification(before.id, decision);
+      await store.updateVerification(before.id, approvalPatch);
     }
     markCommitted();
   } catch (error) {
@@ -272,16 +310,22 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
     }
     throw error;
   }
-  await auditChange(before, "approved", "approve");
+  await auditChange(before, "approved", "approve", publication);
   const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
   const mail = await softEffect("email duyệt gửi NCC",
     () => notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_approved", name })) ?? "failed";
   if (mail !== "sent") console.warn("[verification] supplier approval email not sent; decision saved", mail);
   await softEffect("làm mới trang kiểm tra", () => refreshAudit(before));
-  return { ok: true, message: "Đã duyệt bước kiểm tra." + (mail === "sent" ? "" : " Email NCC chưa gửi được; kết quả vẫn lưu trên cổng.") };
+  if (publication) {
+    const supplier = await softEffect("đọc hồ sơ NCC", () => store.getSupplier(before.supplier_id));
+    if (supplier?.status === "published") await softEffect("làm mới trang NCC công khai",
+      () => revalidatePath(`/suppliers/${supplier.slug || supplier.id}`));
+  }
+  const message = publication ? "Đã duyệt bước kiểm tra và công khai tóm tắt cho buyer." : "Đã duyệt bước kiểm tra.";
+  return { ok: true, message: message + (mail === "sent" ? "" : " Email NCC chưa gửi được; kết quả vẫn lưu trên cổng.") };
 }
 
-/** Publication is a second, explicit reviewer decision, independent of approving the review. */
+/** Later summary edits remain a separate, explicit reviewer decision. */
 export async function updateVerificationPublicSummaryAction(fd: FormData) {
   try {
     return await savePublicSummary(fd);
@@ -304,11 +348,9 @@ async function savePublicSummary(fd: FormData) {
   const summary = String(fd.get("summary") || "").trim();
   if (mode !== "hide" && summary.length > 1000) return { ok: false, message: "Tóm tắt tối đa 1000 ký tự." };
   if (mode === "publish") {
-    if (!summary || fd.get("confirmed") !== "yes") return { ok: false, message: "Cần nội dung và xác nhận đã đối chiếu, loại bỏ thông tin nhạy cảm." };
     // A human checks scope and sensitive commercial terms; reject obvious contact leaks too.
-    if (/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(summary) || /https?:\/\/|www\./i.test(summary) || /(?:\+?\d[\s().-]?){9,15}\d/.test(summary)) {
-      return { ok: false, message: "Tóm tắt chứa email, liên kết hoặc chuỗi số có thể là số điện thoại/mã đơn. Hãy viết lại ở mức khái quát." };
-    }
+    const summaryError = publicSummaryValidationError(summary, fd.get("confirmed") === "yes");
+    if (summaryError) return { ok: false, message: summaryError };
   }
   const session = await getSession();
   const publishedAt = mode === "publish" ? new Date().toISOString() : null;

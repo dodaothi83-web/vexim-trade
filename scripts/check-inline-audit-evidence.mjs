@@ -136,7 +136,7 @@ assert.match(ui, /auditUploadKind\(v\.target_level/, 'Photo and document rows us
 const publicSupplier = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8') +
   readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8');
 assert.ok(!publicSupplier.includes('Food-safety / HACCP'), 'A verification badge must not claim every trader has HACCP');
-assert.match(publicSupplier, /confirm the certificate holder/, 'Explain issuer/holder scope to buyers');
+assert.match(publicSupplier, /Issuer authentication is a separate check/, 'Explain issuer/holder scope to buyers');
 const numbersSql = readFileSync(new URL('../supabase/migrations/20261017_document_numeric_identifiers.sql', import.meta.url), 'utf8');
 for (const field of ['tax_number', 'bank_account_number']) assert.match(numbersSql, new RegExp(`add column if not exists ${field} text`));
 console.log('✅ Three audit steps: inline scoped uploads, optional L2/L3 forms, evidence keys and migration guards.');

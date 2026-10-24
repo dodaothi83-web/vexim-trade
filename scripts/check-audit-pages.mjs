@@ -101,9 +101,25 @@ assert.equal(noPermission.ok, false, 'Missing permission is refused without thro
 assert.match(noPermission.message, /không có quyền xét duyệt/);
 auditor.role = 'reviewer';
 records.splice(0, 2); // Delivery history has no factory or document prerequisite.
+const missingPublicSummary = await exports.approveVerificationAction(form);
+assert.equal(missingPublicSummary.ok, false, 'L2/L3 approval needs a buyer-facing scope summary');
+assert.match(missingPublicSummary.message, /tóm tắt công khai/);
+assert.equal(row.status, 'submitted', 'Missing summary does not partially approve the review');
+form.set('public_summary', 'Selected delivery documents from the reviewed period were checked for this supplier.');
+const unconfirmedPublicSummary = await exports.approveVerificationAction(form);
+assert.equal(unconfirmedPublicSummary.ok, false, 'The reviewer must confirm the summary against the evidence');
+form.set('confirm_public_summary', 'yes');
+form.set('public_summary', 'Call +84912345678');
+assert.equal((await exports.approveVerificationAction(form)).ok, false, 'Approval also blocks obvious contact leakage');
+form.set('public_summary', 'Selected delivery documents from the reviewed period were checked for this supplier.');
 const approved = await exports.approveVerificationAction(form);
 assert.equal(approved.ok, true);
+assert.match(approved.message, /công khai tóm tắt/);
 assert.equal(row.status, 'approved');
+assert.equal(row.public_summary_i18n.en, form.get('public_summary'), 'Approval publishes the vetted summary in the same write');
+assert.ok(row.public_summary_published_at);
+assert.equal(row.public_summary_published_by, auditor.uid);
+assert.equal(lastAudit.after.public_summary_i18n.en, form.get('public_summary'), 'The approval audit records the published content');
 assert.equal(records.length, 1);
 assert.notEqual(row.inspector_id, row.approved_by, 'Independent approver must differ from inspector');
 assert.equal(lastAudit.after.self_approved, false);
@@ -253,7 +269,7 @@ incomplete.set('tax_number', '');
 assert.match((await exports.updateVerificationChecklistAction(incomplete)).message, /Hãy nhập mã số thuế/);
 Object.assign(row, { status: 'submitted', tax_number: null });
 assert.match((await exports.approveVerificationAction(form)).message, /Cần nhập mã số thuế/, 'Older submitted reviews must be returned to add number');
-// Buyer-facing summaries require a separate human decision after the review is approved.
+// Existing approved reviews can still add, edit or withdraw a public summary separately.
 Object.assign(row, { status: 'submitted', target_level: 3 });
 const summaryForm = new FormData(); summaryForm.set('id', row.id); summaryForm.set('mode', 'publish'); summaryForm.set('summary', 'One shipment record reviewed.'); summaryForm.set('confirmed', 'yes');
 assert.equal((await exports.updateVerificationPublicSummaryAction(summaryForm)).ok, false, 'No publication while review is submitted');
@@ -284,6 +300,8 @@ const formUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]
 const pageUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/page.tsx', import.meta.url), 'utf8');
 assert.match(formUi, /!selfReview \|\| selfApproval/, 'Same-person completion is available to authorized staff');
 assert.match(formUi, /canInspect &&/, 'Reviewer cannot edit evidence');
+assert.match(formUi, /Phạm vi buyer sẽ thấy/, 'L2/L3 approval includes the buyer-facing summary editor');
+assert.match(formUi, /confirm_public_summary/, 'Approval sends the reviewer publication confirmation');
 assert.ok(!pageUi.includes('<MediaManager'), 'All audit steps render evidence inline');
 assert.ok(!pageUi.includes('unlocked') && !pageUi.includes('LockKeyhole'), 'Every review page is reachable independently');
 const panelUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-panel.tsx', import.meta.url), 'utf8');
