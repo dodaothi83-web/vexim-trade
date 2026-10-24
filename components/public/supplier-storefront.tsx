@@ -280,7 +280,7 @@ export function SupplierStorefront({
           <h2 id="products-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">Products <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
           <p className="mt-1 text-sm text-ink-600">{synthetic ? "Test entries on this profile are not commercial offers." : "Listings ready to share with buyers. Prices, where shown, are references; request a quote for current terms."}</p></div>
       </div>
-      {s.main_products.length ? <ul className="mt-5 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+      {s.main_products.length ? <ul className="mt-5 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-5">
         {s.main_products.map((p) => {
           const category = productCategory(p);
           const href = synthetic
