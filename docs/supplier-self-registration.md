@@ -11,6 +11,7 @@
 - **Cam kết/pháp lý gói trong một dòng + link.** Checkbox đồng ý chia sẻ giá chỉ còn “Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai.”, dưới là một câu điều kiện ngắn (180 ngày, không phải báo giá chính thức) và link *Điều khoản*. Không nhồi văn bản hợp đồng vào form.
 - **Mỗi nhãn bước chỉ xuất hiện một lần.** Thanh bước đã cho biết đang ở bước nào; các thẻ con trong bước 1 (Thông tin cơ bản · Thông tin thương mại & xuất khẩu · Đặt hàng & năng lực) không lặp lại chữ “Bước 1”. Panel vẫn giữ `aria-label="Bước 1 · …"` cho trình đọc màn hình.
 - **Không viết tắt nội bộ trong giao diện NCC.** “NCC” thay bằng *doanh nghiệp* / *nhà cung cấp* tuỳ ngữ cảnh (ví dụ chip thông số chỉ còn “Tự thêm”).
+- **Không dùng dấu gạch dài.** Cả cổng NCC không còn ký tự em dash hay en dash: chỗ nối hai vế dùng dấu gạch ngắn hoặc cắt thành câu; khoảng số dùng gạch ngắn (1-5, 8-128, 06:00-18:00); ô trống hiển thị "-". Quét lại bằng: `python3 -c "import pathlib,sys; [print(f) for f in pathlib.Path('app/supplier').rglob('*.ts*') if chr(0x2014) in f.read_text() or chr(0x2013) in f.read_text()]"`.
 - **Tiêu đề tab không nhân đôi thương hiệu.** `metadata.title` của trang con để tên trang, `template` ở `app/layout.tsx` tự thêm “· Vexim Trade”.
 
 ## Triển khai theo thứ tự

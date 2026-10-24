@@ -6,9 +6,9 @@ export type CategoryProposalOption = {
   label: string;
   group: string | null;
   product_fields?: Category["product_fields"];
-  /** Thông số do NCC khác đã tự thêm cho nhóm hàng này — hiện sẵn để dùng lại. */
+  /** Thông số do NCC khác đã tự thêm cho nhóm hàng này - hiện sẵn để dùng lại. */
   supplier_product_fields?: Category["supplier_product_fields"];
-  /** Mô tả ngắn của danh mục (CMS) — chỉ dùng để NCC nhận ra ngành hàng. */
+  /** Mô tả ngắn của danh mục (CMS) - chỉ dùng để NCC nhận ra ngành hàng. */
   intro?: string | null;
 };
 
@@ -39,7 +39,7 @@ export function parseSupplierCategoryProposals(form: FormData, options: Category
   if (!options.length) throw new Error("Chưa có danh mục nào đang mở. Liên hệ bộ phận hỗ trợ trước khi gửi hồ sơ.");
   if (!submitted.length || submitted.length > 5 ||
       submitted.some((v) => typeof v !== "string" || !options.some((c) => c.slug === v)) ||
-      new Set(submitted).size !== submitted.length) throw new Error("Chọn 1–5 danh mục hợp lệ trong danh sách đang mở.");
+      new Set(submitted).size !== submitted.length) throw new Error("Chọn 1-5 danh mục hợp lệ trong danh sách đang mở.");
   // A free-text 'other' field from a stale client must never expand the supplier's allowed scope.
   return { requested_category_slugs: submitted as string[], requested_category_other: null };
 }

@@ -196,7 +196,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
   h1{font-size:18px;margin:0 0 6px}p{margin:6px 0;line-height:1.55;font-size:13px}
   .small{font-size:11px;color:#475569}
 </style></head><body>
-<h1>Mã xác minh nhà máy — Vexim Trade</h1>
+<h1>Mã xác minh nhà máy - Vexim Trade</h1>
 <p class="small">In tờ này (hoặc chép tay đúng mã bên dưới vào một tờ giấy), rồi CẦM VÀO KHUNG HÌNH khi chụp các ảnh có đánh dấu 🔖.</p>
 <div class="box">
   <p style="margin:0;font-size:12px;letter-spacing:.12em">MÃ XÁC MINH VIẾT TAY</p>
@@ -283,7 +283,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
   const gpsText = gps.state === "on" && gps.lat != null
     ? `Đã bật định vị: ${gps.lat.toFixed(5)}, ${gps.lng?.toFixed(5)}${gps.accuracy != null ? ` (±${Math.round(gps.accuracy)} m)` : ""}`
     : gps.state === "asking" ? "Đang xin quyền định vị..."
-      : gps.state === "denied" ? "Trình duyệt đang chặn định vị — hãy bật lại trong cài đặt trang, nếu không ảnh sẽ bị nêu cờ “không có toạ độ”."
+      : gps.state === "denied" ? "Trình duyệt đang chặn định vị - hãy bật lại trong cài đặt trang, nếu không ảnh sẽ bị nêu cờ “không có toạ độ”."
         : gps.state === "unsupported" ? "Thiết bị/trình duyệt không có định vị. Ảnh vẫn tải được nhưng sẽ được ghi chú để kiểm tra thêm."
           : "Chưa có vị trí. Hãy cho phép trang dùng vị trí để ảnh được gắn toạ độ.";
 
@@ -297,7 +297,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
     : view.status === "accepted" ? "bg-emerald-100 text-emerald-900"
       : view.status === "returned" ? "bg-rose-100 text-rose-900"
         : "bg-ink-100 text-ink-700";
-  const progressNote = locked ? "Hồ sơ đã nộp — bằng chứng bị khóa."
+  const progressNote = locked ? "Hồ sơ đã nộp - bằng chứng bị khóa."
     : view.ready ? "Đủ mục bắt buộc, sẵn sàng nộp."
       : `Còn thiếu ${view.missing.length} mục bắt buộc.`;
   const progressTone = locked ? "text-ink-500" : view.ready ? "text-emerald-800" : "text-amber-800";
@@ -382,7 +382,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
                     <p className="mt-1 font-mono text-xl font-black tracking-[0.14em] break-all text-brand-900 sm:text-2xl">{view.code}</p>
                   </div>
                   <p className="mt-2 text-[11px] leading-4 text-ink-600">
-                    Phát hành lúc {view.codeIssuedAt ? new Date(view.codeIssuedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"} · hiệu lực {view.codeTtlHours} giờ
+                    Phát hành lúc {view.codeIssuedAt ? new Date(view.codeIssuedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "-"} · hiệu lực {view.codeTtlHours} giờ
                     {view.codeExpired ? <strong className="text-rose-700"> · ĐÃ HẾT HẠN, hãy tạo mã mới</strong> : null}
                   </p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -489,7 +489,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
                 <a href={link.url} target="_blank" rel="noreferrer" className="font-semibold text-brand-800 underline">{link.url}</a>
                 {link.label && <span className="text-ink-600"> · {link.label}</span>}
                 <span className="mt-1 block text-[10.5px] text-ink-600">
-                  {link.allowedSource ? "Nguồn công khai được phép quét" : "Ngoài danh sách nguồn công khai — nhân viên sẽ tự mở"}
+                  {link.allowedSource ? "Nguồn công khai được phép quét" : "Ngoài danh sách nguồn công khai - nhân viên sẽ tự mở"}
                   {link.fetchNote ? ` · ${link.fetchNote}` : ""}
                 </span>
               </span>
@@ -519,7 +519,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
         <section aria-labelledby="submit-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
           <h3 id="submit-title" className="text-[14px] font-bold text-ink-900">Nộp hồ sơ</h3>
           <p className={`mt-1 text-[11.5px] leading-5 ${progressTone}`}>{locked
-            ? "Hồ sơ đang chờ xét hoặc đã được nhận — bằng chứng bị khóa."
+            ? "Hồ sơ đang chờ xét hoặc đã được nhận - bằng chứng bị khóa."
             : view.ready
               ? "Đủ mục bắt buộc. Nộp để AI quét sơ bộ và chuyển sang bước duyệt."
               : `Còn thiếu ${view.missing.length} mục${level === 2 ? ", hoặc thiếu tờ mã trong ảnh 🔖" : ""}.`}</p>

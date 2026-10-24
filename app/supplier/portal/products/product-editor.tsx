@@ -219,7 +219,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
    * Ghi lại nội dung form mỗi khi NCC sửa để bước 3 phản chiếu ngay.
    *
    * Đọc form qua ref chứ không qua `event.currentTarget`: React dọn `currentTarget` về
-   * null ngay sau handler, còn state updater chạy sau đó — đọc event trong updater sẽ
+   * null ngay sau handler, còn state updater chạy sau đó - đọc event trong updater sẽ
    * làm `new FormData(null)` ném lỗi mỗi lần gõ phím.
    */
   function onFormChange() {
@@ -301,7 +301,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     goToStep(target);
   }
 
-  /** Danh sách việc còn thiếu trước khi gửi — dùng cho cả nút bấm và khối nhắc. */
+  /** Danh sách việc còn thiếu trước khi gửi - dùng cho cả nút bấm và khối nhắc. */
   function submitBlockers(): string[] {
     const blockers: string[] = [];
     if (!product) blockers.push("Lưu sản phẩm ở bước 1 trước khi gửi.");
@@ -426,13 +426,13 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     media.find((m) => m.kind === "image" && privateMediaUrl(m));
   const coverUrl = cover ? privateMediaUrl(cover) : null;
   const commercial = [
-    { label: "Giá tham khảo", value: product?.ref_price != null ? `${product.ref_price}${product.ref_price_max != null ? `–${product.ref_price_max}` : ""} ${product.currency || "USD"}${product.unit ? ` / ${product.unit}` : ""}` : "—" },
-    { label: "MOQ", value: product?.moq || "—" },
-    { label: "Năng lực / tháng", value: product?.monthly_capacity || "—" },
-    { label: "Thời gian giao", value: product?.lead_time_days != null ? `${product.lead_time_days} ngày` : "—" },
-    { label: "Cảng xuất", value: product?.export_port || "—" },
-    { label: "Incoterm", value: [product?.incoterm, product?.incoterm_place].filter(Boolean).join(" · ") || "—" },
-    { label: "Thanh toán", value: product?.payment_terms || "—" },
+    { label: "Giá tham khảo", value: product?.ref_price != null ? `${product.ref_price}${product.ref_price_max != null ? `-${product.ref_price_max}` : ""} ${product.currency || "USD"}${product.unit ? ` / ${product.unit}` : ""}` : "-" },
+    { label: "MOQ", value: product?.moq || "-" },
+    { label: "Năng lực / tháng", value: product?.monthly_capacity || "-" },
+    { label: "Thời gian giao", value: product?.lead_time_days != null ? `${product.lead_time_days} ngày` : "-" },
+    { label: "Cảng xuất", value: product?.export_port || "-" },
+    { label: "Incoterm", value: [product?.incoterm, product?.incoterm_place].filter(Boolean).join(" · ") || "-" },
+    { label: "Thanh toán", value: product?.payment_terms || "-" },
   ];
 
   return <div className="mt-5 space-y-4">
@@ -485,7 +485,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         <form id="product-info" ref={formRef} onSubmit={save} onChange={onFormChange} noValidate>
           <section data-step-panel={1} className={step === 1 ? "space-y-4" : "hidden"} aria-label="Bước 1 · Thông tin sản phẩm">
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead title="Thông tin cơ bản" hint="Tên, danh mục và mô tả — phần buyer đọc đầu tiên." />
+              <SectionHead title="Thông tin cơ bản" hint="Tên, danh mục và mô tả - phần buyer đọc đầu tiên." />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <Field label="Tên sản phẩm" hint="Ví dụ: Hạt điều nhân trắng W320" required>
@@ -568,7 +568,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   {dirty && <p className="mt-1 font-semibold text-amber-800">Thay đổi ở form chưa lưu; dòng trên là tình trạng trước khi lưu.</p>}
                 </div>}
                 <p className="mt-2 text-[11.5px] leading-5">
-                  Giá cần lớn hơn 0 và còn hạn; sản phẩm cần có ảnh/catalogue, danh mục và hồ sơ doanh nghiệp đã được duyệt — nếu chưa, buyer sẽ thấy <em>On request</em>.
+                  Giá cần lớn hơn 0 và còn hạn; sản phẩm cần có ảnh/catalogue, danh mục và hồ sơ doanh nghiệp đã được duyệt - nếu chưa, buyer sẽ thấy <em>On request</em>.
                   {supplierPriceConsentCurrent(supplier) ? " Xác nhận chia sẻ giá đang còn hiệu lực." : ""}
                 </p>
                 {!supplierPriceConsentCurrent(supplier) && <div className="mt-2.5 rounded-md bg-white p-2.5 ring-1 ring-brand-200">
@@ -666,7 +666,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
               hint="Đọc lại đúng nội dung ở bước 1 và 2. Sửa được ngay tại đây, gửi xong hồ sơ mới chuyển sang bước duyệt." />
             <div className="space-y-3 px-4 py-4 sm:px-5">
               {dirty && <p className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] font-semibold text-amber-900">
-                Có thay đổi chưa lưu — nội dung dưới đây là bản đang nhập.
+                Có thay đổi chưa lưu - nội dung dưới đây là bản đang nhập.
                 <button type="button" onClick={() => leaveInfoFor(1)} className="underline">Lưu thay đổi</button>
               </p>}
 
@@ -678,7 +678,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   </li>)}
               </ul>
 
-              {/* Bước 1 — nội dung */}
+              {/* Bước 1 - nội dung */}
               <div className="rounded-lg border border-ink-200">
                 <ReviewHead title="Thông tin sản phẩm" onEdit={() => goToStep(1)} />
                 <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-2">
@@ -697,7 +697,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 </dl>
               </div>
 
-              {/* Bước 1 — thương mại & xuất khẩu */}
+              {/* Bước 1 - thương mại & xuất khẩu */}
               <div className="rounded-lg border border-ink-200">
                 <ReviewHead title="Thông tin thương mại & xuất khẩu" onEdit={() => goToStep(1)} />
                 <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-2">
@@ -713,7 +713,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 </div>
               </div>
 
-              {/* Bước 1 — đặt hàng & năng lực */}
+              {/* Bước 1 - đặt hàng & năng lực */}
               <div className="rounded-lg border border-ink-200">
                 <ReviewHead title="Đặt hàng & năng lực" onEdit={() => goToStep(1)} />
                 <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-3">
@@ -721,7 +721,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 </dl>
               </div>
 
-              {/* Bước 2 — ảnh & catalogue */}
+              {/* Bước 2 - ảnh & catalogue */}
               <div className="rounded-lg border border-ink-200">
                 <ReviewHead title={`Ảnh & catalogue (${media.length} tệp)`} onEdit={() => goToStep(2)} />
                 <div className="px-3.5 py-3">
@@ -742,7 +742,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                       })}
                     </ul>
                     : <p className="rounded-md bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">Chưa có tệp. Quay lại bước 2 để tải ảnh hoặc catalogue thật.</p>}
-                  {media.length > 8 && <p className="mt-1.5 text-[11px] text-ink-500">và {media.length - 8} tệp khác — xem đủ ở bước 2.</p>}
+                  {media.length > 8 && <p className="mt-1.5 text-[11px] text-ink-500">và {media.length - 8} tệp khác - xem đủ ở bước 2.</p>}
                 </div>
               </div>
 
@@ -818,7 +818,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         </div>
       </div>
 
-      {/* Cột phải: thẻ xem nhanh — thương mại & xuất khẩu đọc được ngay, kể cả khi cuộn. */}
+      {/* Cột phải: thẻ xem nhanh - thương mại & xuất khẩu đọc được ngay, kể cả khi cuộn. */}
       <aside className="space-y-3 lg:sticky lg:top-6">
         <div className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
           <div className="relative aspect-[16/9] bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
@@ -861,7 +861,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 /**
  * `step` chỉ truyền khi thẻ này CHÍNH LÀ nội dung của một bước (bước 2, bước 3).
  * Các thẻ con trong bước 1 để trống để không lặp lại chữ “Bước 1” ba lần trên cùng
- * một màn hình — bước đang mở đã hiện ở thanh bước phía trên.
+ * một màn hình - bước đang mở đã hiện ở thanh bước phía trên.
  */
 function SectionHead({ step, title, hint }: { step?: string; title: string; hint?: string }) {
   return <div className="flex flex-wrap items-baseline justify-between gap-1 border-b border-ink-100 px-4 py-3 sm:px-5">

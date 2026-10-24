@@ -8,7 +8,7 @@ import { cleanSupplierAttributeText, mergeAttributeFields } from "@/lib/product-
  * Thông số theo nhóm hàng dành cho nhà cung cấp.
  *
  * Chỉ hiện các thông số có cấu trúc do Vexim khai trong CMS (ví dụ Grade với W320,
- * W180) — những giá trị máy đọc được, dùng cho lọc và đối chiếu quy cách. Mô tả dài
+ * W180) - những giá trị máy đọc được, dùng cho lọc và đối chiếu quy cách. Mô tả dài
  * như độ ẩm, tỷ lệ hạt vỡ đã có ô "Quy cách / tiêu chuẩn" phía dưới, nên không lặp
  * lại ở đây.
  *
@@ -41,7 +41,7 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
   /** Ghi một giá trị mới vào pool của nhóm hàng để NCC sau chọn lại được. */
   function addOption(field: ProductAttributeField, raw: string) {
     const value = cleanSupplierAttributeText(raw, 60);
-    if (!value) { setError("Giá trị mới cần 2–60 ký tự, không kèm link, email hay số điện thoại."); return; }
+    if (!value) { setError("Giá trị mới cần 2-60 ký tự, không kèm link, email hay số điện thoại."); return; }
     if (!field.options.includes(value)) {
       if (field.options.length + 1 > 20) { setError("Một thông số chỉ giữ tối đa 20 lựa chọn."); return; }
       setPool((previous) => {

@@ -76,7 +76,7 @@ export default async function SupplierDocumentsPage() {
               <span className="font-semibold text-ink-900">{c.name}{c.number ? ` · #${c.number}` : ""}</span>
               <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                 <span className={`rounded-full px-2.5 py-0.5 font-bold ${c.holder_match === "owner" ? "bg-emerald-100 text-emerald-800" : c.holder_match === "partner" ? "bg-amber-100 text-amber-900" : "bg-ink-200 text-ink-700"}`}>
-                  {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` (${c.holder_name})` : ""}` : c.holder_match === "partner" ? `Đối tác: ${c.holder_name || "—"}` : "Chưa rõ đơn vị đứng tên"}
+                  {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` (${c.holder_name})` : ""}` : c.holder_match === "partner" ? `Đối tác: ${c.holder_name || "-"}` : "Chưa rõ đơn vị đứng tên"}
                 </span>
                 <span className={`rounded-full px-2.5 py-0.5 font-semibold ${left === null ? "bg-ink-200 text-ink-700" : left < 0 ? "bg-rose-100 text-rose-800" : left <= 60 ? "bg-amber-100 text-amber-900" : "bg-sky-100 text-sky-800"}`}>
                   {c.valid_until ? `Hết hạn ${c.valid_until}${left !== null ? ` · còn ${left} ngày` : ""}` : "Chưa đọc được ngày hết hạn"}

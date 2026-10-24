@@ -130,6 +130,6 @@ export function publicProductPrice(
   const currency = product.currency || "USD";
   // The CRM currency can already contain a unit (e.g. USD/kg); never invent a conversion to /ton.
   const range = product.ref_price_max != null && product.ref_price_max > product.ref_price!
-    ? `–${product.ref_price_max.toLocaleString("en-US")}` : "";
+    ? `-${product.ref_price_max.toLocaleString("en-US")}` : "";
   return `${currency} ${product.ref_price!.toLocaleString("en-US")}${range}${currency.includes("/") ? "" : product.unit ? `/${product.unit}` : ""}`;
 }

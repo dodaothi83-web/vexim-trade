@@ -499,7 +499,7 @@ export const L3_EXPORT_ITEMS = [
   { key: "customs_declaration", label: "Tờ khai hải quan xuất khẩu", required: true },
   { key: "commercial_invoice", label: "Hóa đơn thương mại", required: false },
   { key: "packing_list", label: "Phiếu đóng gói", required: false },
-  { key: "certificate_of_origin", label: "C/O — giấy chứng nhận xuất xứ", required: false },
+  { key: "certificate_of_origin", label: "C/O (giấy chứng nhận xuất xứ)", required: false },
   { key: "phytosanitary_or_health", label: "Kiểm dịch / y tế / hun trùng (nếu ngành hàng yêu cầu)", required: false },
 ] as const;
 
@@ -510,14 +510,14 @@ export type ExportDocKey = typeof L3_EXPORT_ITEMS[number]["key"];
  * Cờ KHÔNG phải kết luận: người duyệt của Vexim vẫn là người quyết định.
  */
 export const SUBMISSION_FLAG_LABELS: Record<string, string> = {
-  no_exif: "Ảnh không còn dữ liệu gốc (thường do gửi qua Zalo/Facebook) — vẫn nhận",
-  edited_software: "Dữ liệu ảnh ghi phần mềm chỉnh sửa — chỉ để lưu ý",
-  shared_via_app: "Ảnh từng đi qua ứng dụng chat/mạng xã hội — vẫn nhận",
-  no_gps: "Ảnh không kèm toạ độ — không bắt buộc",
+  no_exif: "Ảnh không còn dữ liệu gốc (thường do gửi qua Zalo/Facebook), vẫn nhận",
+  edited_software: "Dữ liệu ảnh ghi phần mềm chỉnh sửa, chỉ để lưu ý",
+  shared_via_app: "Ảnh từng đi qua ứng dụng chat/mạng xã hội, vẫn nhận",
+  no_gps: "Ảnh không kèm toạ độ, không bắt buộc",
   gps_outside_vn: "Toạ độ trong ảnh nằm ngoài Việt Nam",
   gps_mismatch: "Toạ độ trong ảnh lệch xa vị trí trình duyệt báo",
-  not_daylight: "Ảnh chụp ngoài khung 06:00–18:00 (giờ VN) — chỉ để lưu ý",
-  no_capture_time: "Ảnh không cho biết thời điểm chụp — không bắt buộc",
+  not_daylight: "Ảnh chụp ngoài khung 06:00-18:00 (giờ VN), chỉ để lưu ý",
+  no_capture_time: "Ảnh không cho biết thời điểm chụp, không bắt buộc",
   capture_before_code: "Dữ liệu ảnh cho thấy chụp trước khi phát hành mã",
   code_missing: "Không thấy tờ giấy viết tay mã xác minh trong ảnh bắt buộc",
   code_mismatch: "Mã viết tay trong ảnh không khớp mã hệ thống phát hành",

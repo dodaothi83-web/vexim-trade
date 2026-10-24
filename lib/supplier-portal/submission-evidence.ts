@@ -88,7 +88,7 @@ export async function readSubmissionFile(level: 2 | 3, key: string, file: File):
   if (!allowedMimes(level).includes(mime)) {
     throw new Error(level === 2
       ? `Bước xác thực nhà máy chỉ nhận ảnh JPG/PNG/WebP, tệp này là ${mime}.`
-      : `Bước lịch sử xuất khẩu nhận ảnh JPG/PNG/WebP hoặc PDF — tệp này là ${mime}.`);
+      : `Bước lịch sử xuất khẩu nhận ảnh JPG/PNG/WebP hoặc PDF - tệp này là ${mime}.`);
   }
   if (level === 2 && mime === "application/pdf") throw new Error("Bước xác thực nhà máy chỉ nhận ảnh chụp.");
   const exif = mime === "application/pdf" ? parseExif(new Uint8Array()) : parseExif(bytes);

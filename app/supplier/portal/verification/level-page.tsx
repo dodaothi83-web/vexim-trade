@@ -12,8 +12,8 @@ import { VerificationSubmissionPanel } from "./verification-panel";
 
 /**
  * Khung dùng chung cho HAI trang xác minh tự gửi:
- *  - `/supplier/portal/verification/factory` — L2, 9 ảnh nhà máy
- *  - `/supplier/portal/verification/export`  — L3, chứng từ lịch sử xuất khẩu
+ *  - `/supplier/portal/verification/factory` - L2, 9 ảnh nhà máy
+ *  - `/supplier/portal/verification/export`  - L3, chứng từ lịch sử xuất khẩu
  *
  * Mỗi trang chỉ tải hồ sơ của đúng cấp mình. Không gộp hai cấp vào một trang để menu,
  * tiến độ và hành động nộp của từng cấp không lẫn nhau.

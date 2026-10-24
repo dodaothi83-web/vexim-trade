@@ -28,7 +28,7 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
   const url = `${staffOrigin}/crm/suppliers/${encodeURIComponent(supplier.id)}`;
   const title = `NCC tự đăng ký: ${supplier.name}`;
   const body = `<p>NCC vừa nộp hồ sơ tự khai (giấy tờ bước đầu nếu đã tải). <strong>Tài khoản chưa được Vexim xác nhận sử dụng cổng; chưa có đánh giá nào được tự động duyệt.</strong></p>
-    <p>Doanh nghiệp: ${escapeHtml(supplier.name)}<br/>Liên hệ: ${escapeHtml(supplier.contact_name ?? "—")} · ${escapeHtml(supplier.email ?? "—")} · ${escapeHtml(supplier.phone ?? "—")}</p>
+    <p>Doanh nghiệp: ${escapeHtml(supplier.name)}<br/>Liên hệ: ${escapeHtml(supplier.contact_name ?? "-")} · ${escapeHtml(supplier.email ?? "-")} · ${escapeHtml(supplier.phone ?? "-")}</p>
     <p>Yêu cầu Vexim liên hệ để xác minh thêm: <strong>${escapeHtml(choices.join(", ") || "Không chọn")}</strong>.
     Nếu có yêu cầu, nhân viên thu mua vui lòng liên hệ sớm để lên kế hoạch và tự tải bằng chứng vào đúng đợt kiểm.</p>
     <p>Chuyên viên kiểm tra hồ sơ gốc/ảnh, sửa checklist thủ công, nộp và người có quyền duyệt mới xác nhận. AI chỉ gợi ý.</p>
@@ -95,7 +95,7 @@ export async function notifySupplierCertificateExpiry(input: {
     const name = (input.certificateName || "Chứng nhận").replace(/[\r\n]/g, " ").slice(0, 140);
     const url = `${notificationOrigin()}/supplier/portal/documents`;
     const title = `Chứng nhận sắp hết hạn (còn ${input.daysLeft} ngày): ${name}`;
-    const explanation = `Chứng nhận “${name}” trên hồ sơ L1 của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang buyer. Vui lòng vào mục Giấy tờ L1 để tải bản gia hạn mới — AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên.`;
+    const explanation = `Chứng nhận “${name}” trên hồ sơ L1 của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang buyer. Vui lòng vào mục Giấy tờ L1 để tải bản gia hạn mới - AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên.`;
     const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Cập nhật giấy tờ L1 trên cổng NCC →</a></p>`;
     const res = await transport({
       to: recipients,

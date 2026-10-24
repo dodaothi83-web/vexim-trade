@@ -19,7 +19,7 @@ export const metadata = { title: "Danh mục kinh doanh", robots: { index: false
 
 /**
  * Phạm vi bán hàng của NCC. Trang chỉ ĐỌC dữ liệu rồi chuyển cho một client component
- * duy nhất; mọi quy tắc (CMS-only, 1–5 danh mục, không bỏ danh mục còn sản phẩm) vẫn
+ * duy nhất; mọi quy tắc (CMS-only, 1-5 danh mục, không bỏ danh mục còn sản phẩm) vẫn
  * nằm ở `saveSupplierCategoriesAction`.
  */
 export default async function SupplierCategoriesPage() {

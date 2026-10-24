@@ -10,7 +10,7 @@ import { PRODUCT_STATUS } from "@/lib/supplier-portal/product-view";
 
 import { saveSupplierCategoriesAction } from "./actions";
 
-/** Trần phạm vi NCC được chọn — phải khớp `parseSupplierCategoryProposals`. */
+/** Trần phạm vi NCC được chọn - phải khớp `parseSupplierCategoryProposals`. */
 const MAX_CATEGORIES = 5;
 
 export type WorkspaceProduct = {
@@ -27,7 +27,7 @@ export type WorkspaceProduct = {
  * Danh mục là thứ để đọc và tích chọn, không phải để ngắm ảnh: bỏ ảnh bìa cho danh sách
  * ngắn lại một nửa và quét nhanh hơn nhiều so với lưới thẻ.
  *
- * Toàn bộ hành vi cũ giữ nguyên: chọn 1–5 danh mục Vexim đã mở, gửi qua
+ * Toàn bộ hành vi cũ giữ nguyên: chọn 1-5 danh mục Vexim đã mở, gửi qua
  * `saveSupplierCategoriesAction`, server vẫn là nơi kiểm tra cuối cùng (không tự
  * duyệt, không tự công khai, không cho bỏ danh mục còn sản phẩm).
  */
@@ -159,7 +159,7 @@ export function SupplierCategoryWorkspace({
                       return <li key={category.slug}>
                         <button type="button" onClick={() => toggle(category.slug)} disabled={blocked}
                           aria-pressed={isSelected}
-                          title={blocked ? "Đã chọn đủ 5 danh mục — bỏ một danh mục để thêm" : undefined}
+                          title={blocked ? "Đã chọn đủ 5 danh mục - bỏ một danh mục để thêm" : undefined}
                           className={`flex w-full items-center gap-3 px-4 py-2 text-left transition ${blocked ? "cursor-not-allowed opacity-45" : "hover:bg-brand-50/60"} ${isSelected ? "bg-brand-50/80" : ""}`}>
                           <span aria-hidden="true" className={`flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border transition ${isSelected ? "border-brand-700 bg-brand-700 text-white" : "border-ink-300 bg-white"}`}>
                             {isSelected && <Check className="size-3" />}
@@ -207,11 +207,11 @@ export function SupplierCategoryWorkspace({
                 </li>;
               })}
               {products.length > 6 && <li className="px-4 py-2 text-[11px] font-semibold text-ink-500">
-                và {products.length - 6} sản phẩm khác — xem đầy đủ ở mục Sản phẩm.
+                và {products.length - 6} sản phẩm khác - xem đầy đủ ở mục Sản phẩm.
               </li>}
             </ul>}
           {unassigned.length > 0 && <p className="border-t border-ink-100 px-4 py-2 text-[11px] text-ink-500">
-            {unassigned.length} sản phẩm chưa gắn danh mục — mở từng sản phẩm để chọn danh mục trong phạm vi này.
+            {unassigned.length} sản phẩm chưa gắn danh mục - mở từng sản phẩm để chọn danh mục trong phạm vi này.
           </p>}
         </section>
       </div>

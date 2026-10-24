@@ -30,7 +30,7 @@ export function SupplierAccountForm() {
       <input name="name" className="input" required minLength={2} maxLength={120} autoComplete="name" /></label>
     <label className="block text-sm"><span className="mb-1 block font-semibold">Email đăng nhập</span>
       <input name="email" type="email" className="input" required maxLength={200} autoComplete="email" /></label>
-    <label className="block text-sm"><span className="mb-1 block font-semibold">Mật khẩu (8–128 ký tự, gồm chữ và số)</span>
+    <label className="block text-sm"><span className="mb-1 block font-semibold">Mật khẩu (8-128 ký tự, gồm chữ và số)</span>
       <span className="relative block"><input name="password" type={show ? "text" : "password"} className="input pr-10" required minLength={8} maxLength={128} autoComplete="new-password" />
         <button type="button" onClick={() => setShow(!show)} aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-ink-500">{show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
     <label className="block text-sm"><span className="mb-1 block font-semibold">Nhập lại mật khẩu</span>

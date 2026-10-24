@@ -52,7 +52,7 @@ export interface VerificationProgress {
   approvedCount: number;
   /** Cấp đầu tiên chưa được duyệt, theo thứ tự 1 → 2 → 3. */
   currentLevel: 1 | 2 | 3 | null;
-  /** 0–100, tính theo số bước đã duyệt trên 3. */
+  /** 0-100, tính theo số bước đã duyệt trên 3. */
   percent: number;
   /** Một câu tóm tắt việc tiếp theo. */
   headline: string;

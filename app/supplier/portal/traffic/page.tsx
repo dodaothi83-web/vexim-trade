@@ -31,7 +31,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
   const chunk = days === 7 ? 1 : days === 30 ? 5 : 10;
   const bars = report ? Array.from({ length: Math.ceil(days / chunk) }, (_, i) => {
     const part = report.trend.slice(i * chunk, (i + 1) * chunk);
-    return { label: `${part[0].day.slice(5)} – ${part.at(-1)!.day.slice(5)}`,
+    return { label: `${part[0].day.slice(5)} đến ${part.at(-1)!.day.slice(5)}`,
       profile: part.reduce((sum, d) => sum + d.profile, 0), product: part.reduce((sum, d) => sum + d.product, 0) };
   }) : [];
   const max = Math.max(1, ...bars.map((b) => b.profile + b.product));

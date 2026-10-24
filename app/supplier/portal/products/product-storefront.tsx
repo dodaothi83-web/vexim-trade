@@ -15,13 +15,13 @@ const FILTERS: { id: ProductReviewFilter; label: string }[] = [
 function money(product: SupplierProduct) {
   if (product.ref_price == null) return null;
   const format = (n: number) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(n);
-  const range = product.ref_price_max != null && product.ref_price_max > product.ref_price ? `–${format(product.ref_price_max)}` : "";
+  const range = product.ref_price_max != null && product.ref_price_max > product.ref_price ? `-${format(product.ref_price_max)}` : "";
   return `${format(product.ref_price)}${range} ${product.currency || "USD"}${product.unit ? ` / ${product.unit}` : ""}`;
 }
 
 export function SupplierProductStorefront({ products, media, supplierPublished, categoryLabels = {}, scope }: {
   products: SupplierProduct[]; media: MediaAsset[]; supplierPublished: boolean;
-  /** Nhãn danh mục tiếng Việt theo slug — để thẻ sản phẩm không hiện slug thô. */
+  /** Nhãn danh mục tiếng Việt theo slug - để thẻ sản phẩm không hiện slug thô. */
   categoryLabels?: Record<string, string>;
   /** Phạm vi danh mục NCC được chọn; sản phẩm ngoài phạm vi bị đánh dấu rõ. */
   scope?: string[];
@@ -83,7 +83,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <label className="relative min-w-[180px] flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -tranink-y-1/2 text-ink-400" aria-hidden="true" />
             <span className="sr-only">Tìm sản phẩm của tôi</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, mô tả, quy cách..." className="input pl-10" /></label>
-          <label className="flex items-center gap-2 text-xs font-semibold text-ink-600"><span>Sắp xếp</span><select className="input min-w-[132px]" value={sort} onChange={(e) => setSort(e.target.value as "recent" | "name")}><option value="recent">Mới cập nhật</option><option value="name">Tên A–Z</option></select></label>
+          <label className="flex items-center gap-2 text-xs font-semibold text-ink-600"><span>Sắp xếp</span><select className="input min-w-[132px]" value={sort} onChange={(e) => setSort(e.target.value as "recent" | "name")}><option value="recent">Mới cập nhật</option><option value="name">Tên A-Z</option></select></label>
         </div>
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Lọc trạng thái sản phẩm">{FILTERS.map((tab) =>
           <button key={tab.id} type="button" aria-pressed={filter === tab.id} onClick={() => setFilter(tab.id)}

@@ -85,7 +85,7 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
     </div>
     <div data-step-panel={3} className={step === 3 ? "space-y-7" : "hidden"}>
     <section><h2 className="text-xl font-black text-ink-900">Thông tin hiển thị trên trang doanh nghiệp</h2>
-      <p className="mt-1 text-sm text-ink-600">Các trường này dựng nên trang giới thiệu doanh nghiệp. Chỉ hiện công khai khi hồ sơ được xuất bản; sản phẩm và ảnh sản phẩm khai riêng sau khi tài khoản được duyệt. Cứ nhập bằng tiếng Việt — MOQ, thị trường xuất khẩu và phần giới thiệu sẽ được dịch tự động sang tiếng Anh cho buyer.</p>
+      <p className="mt-1 text-sm text-ink-600">Các trường này dựng nên trang giới thiệu doanh nghiệp. Chỉ hiện công khai khi hồ sơ được xuất bản; sản phẩm và ảnh sản phẩm khai riêng sau khi tài khoản được duyệt. Cứ nhập bằng tiếng Việt - MOQ, thị trường xuất khẩu và phần giới thiệu sẽ được dịch tự động sang tiếng Anh cho buyer.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="Tên hiển thị trên trang" name="display_name" maxLength={180} defaultValue={supplier?.display_name ?? ""} />
         <Field label="Website (https://...)" name="website" maxLength={250} defaultValue={supplier?.website ?? ""} />
