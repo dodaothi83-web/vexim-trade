@@ -330,6 +330,15 @@ const keyTermsEnd = detailPage.indexOf('</dl>', keyTermsStart);
 const keyTermsSource = detailPage.slice(keyTermsStart, keyTermsEnd);
 assert.ok(!keyTermsSource.includes('detailRows') && !keyTermsSource.includes('additionalSpecs'),
   'Long technical rows stay out of the commercial column');
+const referencePriceStart = detailPage.indexOf('id="reference-price"');
+const tradeLabelsStart = detailPage.indexOf('<ProductTradeLabels');
+assert.ok(referencePriceStart > detailPage.indexOf('{enDescription &&') && referencePriceStart < tradeLabelsStart,
+  'The prominent reference price follows the short description and precedes OEM, ODM and sample labels');
+const referencePriceSource = detailPage.slice(referencePriceStart, tradeLabelsStart);
+assert.match(referencePriceSource, /text-3xl font-black/, 'The standalone reference price uses prominent display typography');
+assert.match(referencePriceSource, /card\.price \|\| "On request"/, 'The standalone price preserves the public-price fallback');
+assert.ok(!keyTermsSource.includes('Reference price'), 'Reference price is not duplicated in Key terms');
+assert.equal((detailPage.match(/>Reference price</g) ?? []).length, 1, 'PDP has one standalone reference-price label');
 assert.match(detailPage, /Product details and reference prices are supplier-provided and reviewed for listing/);
 assert.doesNotMatch(detailPage, /Product specifications are supplier-stated|These are supplier reviews, not certifications/, 'PDP avoids repeated defensive disclaimers');
 assert.match(detailPage, /supplierImageUrl/, 'Supplier card supports the real public profile image');

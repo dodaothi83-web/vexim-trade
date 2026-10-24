@@ -198,6 +198,10 @@ export default async function PublicProductDetail({ params }: Props) {
         <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
         <h1 className="mt-2 text-3xl font-black leading-tight text-ink-900 sm:text-4xl">{card.name}</h1>
         {enDescription && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(enDescription)}</p>}
+        <div id="reference-price" className="mt-5 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Reference price</p>
+          <p className="mt-1 break-words text-3xl font-black leading-tight text-brand-900 sm:text-4xl">{withoutDirectContacts(card.price || "On request")}</p>
+        </div>
         {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
           <p className="mt-1.5 text-xs text-ink-500">Product options stated in the listing; confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
         <div className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
@@ -208,7 +212,6 @@ export default async function PublicProductDetail({ params }: Props) {
           <dl className="px-5">
             <Spec label="Grade" value={approvedAttributes.grade ?? card.grade} />
             <Spec label="MOQ" value={card.moq} />
-            <Spec label="Reference price" value={card.price || "On request"} />
             <Spec label="Packaging" value={detailedPackaging || enPackaging} />
             <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
             <Spec label="Incoterm" value={card.incoterm} />
