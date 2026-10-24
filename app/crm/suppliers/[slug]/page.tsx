@@ -9,6 +9,7 @@ import {
   Clock,
   FileText,
   Globe2,
+  Eye,
   MapPin,
   Mail,
   MessageCircle,
@@ -315,16 +316,12 @@ export default async function SupplierDetailPage({
                       <div className="flex min-w-0 gap-3">
                         <MediaThumb asset={thumbByProduct.get(pr.id) ?? null} size="h-14 w-14" />
                         <div className="min-w-0">
-                          {canManageProducts ? (
-                            <Link
-                              href={`/crm/products/${pr.id}/edit`}
-                              className="text-[13.5px] font-semibold text-ink-900 hover:text-brand-700"
-                            >
-                              {pr.name}
-                            </Link>
-                          ) : (
-                            <span className="text-[13.5px] font-semibold text-ink-900">{pr.name}</span>
-                          )}
+                          <Link
+                            href={`/crm/products/${pr.id}`}
+                            className="text-[13.5px] font-semibold text-ink-900 hover:text-brand-700 hover:underline"
+                          >
+                            {pr.name}
+                          </Link>
                           <span className="ml-2 align-middle">
                             <Badge className="bg-brand-50 text-brand-700">{pr.category || "Khác"}</Badge>
                           </span>
@@ -354,6 +351,17 @@ export default async function SupplierDetailPage({
                         {pr.price_valid_until && (
                           <p className="text-[11px] text-ink-400">hiệu lực đến {formatDate(pr.price_valid_until)}</p>
                         )}
+                        {/* Người kiểm duyệt cần mở xem nội dung trước khi quyết định; sửa là việc riêng. */}
+                        <div className="mt-2 flex flex-wrap justify-end gap-1.5">
+                          <Link href={`/crm/products/${pr.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[12.5px]">
+                            <Eye className="h-3.5 w-3.5" /> Xem
+                          </Link>
+                          {canManageProducts && (
+                            <Link href={`/crm/products/${pr.id}/edit`} className="btn btn-soft px-2.5 py-1.5 text-[12.5px]">
+                              <Pencil className="h-3.5 w-3.5" /> Sửa
+                            </Link>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">

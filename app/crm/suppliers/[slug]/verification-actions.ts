@@ -8,6 +8,7 @@ import { auditHref, auditItems, auditUploadKind, coreDocsVerified, requiredAudit
 import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import { hasDocumentAuditEvidence } from "@/lib/verification-evidence";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
+import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifyStaffVerificationSubmission, notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { type AuditEvidenceKey, type Verification, type VerificationStatus } from "@/lib/types";
 
@@ -15,6 +16,7 @@ function refreshAudit(v: Verification) {
   revalidatePath(auditHref(v.supplier_id, v.target_level));
   revalidatePath(`/crm/suppliers/${v.supplier_id}`);
   revalidatePath("/crm/verifications");
+  refreshCrmBadges();
 }
 
 /**

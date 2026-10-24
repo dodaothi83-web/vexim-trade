@@ -46,10 +46,21 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const canSuppliers = hasPermission(session.role, "suppliers.view");
   const canProducts = hasPermission(session.role, "products.view");
   const canReviews = hasPermission(session.role, "verifications.view");
-  const [pendingSuppliers, pendingProducts, pendingReviews] = await Promise.all([
-    canSuppliers ? store.countSupplierAccountsPending().catch(() => 0) : 0,
-    canProducts ? store.countProductsPendingReview().catch(() => 0) : 0,
-    canReviews ? store.countReviewsAwaitingApproval().catch(() => 0) : 0,
+  // Đếm hỏng thì vẫn chạy trang, nhưng phải để lại dấu vết: trước đây lỗi bị nuốt
+  // thành 0 nên huy hiệu im lặng biến mất mà không ai biết vì sao.
+  const countOrZero = async (label: string, work: () => Promise<number>) => {
+    try {
+      return await work();
+    } catch (error) {
+      console.error(`[crm] đếm việc chờ cho huy hiệu "${label}" thất bại`, error);
+      return 0;
+    }
+  };
+  const [pendingSuppliers, pendingProducts, pendingReviews, pendingSubmissions] = await Promise.all([
+    canSuppliers ? countOrZero("nhà cung cấp", () => store.countSupplierAccountsPending()) : 0,
+    canProducts ? countOrZero("sản phẩm", () => store.countProductsPendingReview()) : 0,
+    canReviews ? countOrZero("đợt kiểm", () => store.countReviewsAwaitingApproval()) : 0,
+    canReviews ? countOrZero("hồ sơ tự gửi", () => store.countSubmissionsPendingReview()) : 0,
   ]);
 
   let dbMode: "supabase" | "local" = "local";
@@ -79,6 +90,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         pendingSuppliers={pendingSuppliers}
         pendingProducts={pendingProducts}
         pendingReviews={pendingReviews}
+        pendingSubmissions={pendingSubmissions}
       />
       <div className="lg:pl-60">
         <main className="mx-auto min-h-screen w-full max-w-[1500px] px-4 pt-16 pb-16 sm:px-6 lg:px-8 lg:pt-8">

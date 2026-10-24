@@ -1232,9 +1232,10 @@ export const localStore: DataStore = {
     return load().products.filter((p) => p.supplier_review_status === "pending").length;
   },
   async countReviewsAwaitingApproval() {
-    const reviews = (load().verifications ?? []).filter((v) => v.status === "submitted").length;
-    const submissions = (load().supplier_submissions ?? []).filter((s) => s.status === "pending_review").length;
-    return reviews + submissions;
+    return (load().verifications ?? []).filter((v) => v.status === "submitted").length;
+  },
+  async countSubmissionsPendingReview() {
+    return (load().supplier_submissions ?? []).filter((s) => s.status === "pending_review").length;
   },
   async getUser(id) {
     return load().users.find((u) => u.id === id) ?? null;

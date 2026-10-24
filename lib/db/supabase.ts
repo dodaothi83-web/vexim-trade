@@ -381,23 +381,28 @@ export const supabaseStore: DataStore = {
     return (profiles.count ?? 0) + (logins.count ?? 0);
   },
   async countProductsPendingReview() {
+    // Bảng thật là supplier_products. Trước đây truy vấn gõ "products" nên production
+    // trả lỗi "relation does not exist"; layout bắt lỗi và trả 0, thành ra sản phẩm NCC
+    // gửi lên không bao giờ hiện huy hiệu chờ duyệt dù email đã gửi.
     const { count, error } = await must()
-      .from("products")
+      .from("supplier_products")
       .select("id", { count: "exact", head: true })
       .eq("supplier_review_status", "pending");
     if (error) fail("countProductsPendingReview", error);
     return count ?? 0;
   },
   async countReviewsAwaitingApproval() {
-    const [reviews, submissions] = await Promise.all([
-      must().from("verifications").select("id", { count: "exact", head: true }).eq("status", "submitted"),
-      // Hồ sơ NCC tự gửi (ảnh nhà máy / giao hàng) chờ nhân viên đối chiếu.
-      must().from("supplier_submissions").select("id", { count: "exact", head: true }).eq("status", "pending_review"),
-    ]);
-    if (reviews.error) fail("countReviewsAwaitingApproval", reviews.error);
-    // Bảng submissions có thể chưa có trên bản chưa chạy migration: bỏ qua thay vì làm hỏng badge.
-    if (submissions.error) return reviews.count ?? 0;
-    return (reviews.count ?? 0) + (submissions.count ?? 0);
+    const { count, error } = await must()
+      .from("verifications").select("id", { count: "exact", head: true }).eq("status", "submitted");
+    if (error) fail("countReviewsAwaitingApproval", error);
+    return count ?? 0;
+  },
+  async countSubmissionsPendingReview() {
+    const { count, error } = await must()
+      .from("supplier_submissions").select("id", { count: "exact", head: true }).eq("status", "pending_review");
+    // Bảng chưa có trên bản chưa chạy migration: không có việc gì để hiện, không làm hỏng badge khác.
+    if (error) return 0;
+    return count ?? 0;
   },
   async getUser(id) {
     const { data, error } = await must()

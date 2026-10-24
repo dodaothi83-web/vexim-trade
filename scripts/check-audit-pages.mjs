@@ -64,6 +64,7 @@ const mocks = {
     getSession: async () => auditor,
   },
   '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
+  '@/lib/crm/badges': { refreshCrmBadges: () => {} },
   '@/lib/supplier-portal/notify': {
     notifySupplierDecision: async () => { if (mailThrows) throw new Error('resend: socket hang up'); return 'sent'; },
     notifyStaffVerificationSubmission: async () => { if (mailThrows) throw new Error('resend: socket hang up'); return 'sent'; },
@@ -326,6 +327,7 @@ vm.runInNewContext(accessJs, { exports: access, require: (name) => ({
   '@/lib/auth/session': { getSession: async () => ({ role: permissionRole, uid: 'reviewer-1' }) },
   '@/lib/auth/permissions': { hasPermission: (role, permission) => role === 'admin' || role === 'sourcing' && permission !== 'verifications.approve' },
   '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
+  '@/lib/crm/badges': { refreshCrmBadges: () => {} },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent', notifyStaffVerificationSubmission: async () => 'sent' },
 })[name] }, { filename: 'verification-access.ts' });
 assert.equal(await access.verificationMediaEditError({ status: 'in_progress' }), null);

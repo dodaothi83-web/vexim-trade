@@ -67,6 +67,7 @@ const mocks = {
       : [{ key: 'plant_photos' }]),
   },
   '@/lib/verification-policy': { requireSecondVerificationReviewer: () => true },
+  '@/lib/crm/badges': { refreshCrmBadges: () => {} },
   '@/lib/verification-evidence': { hasDocumentAuditEvidence: () => true },
   '@/lib/media/verification-access': { verificationMediaEditError: async () => null },
   '@/lib/supplier-portal/notify': {

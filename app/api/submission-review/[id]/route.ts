@@ -5,6 +5,7 @@ import { guard } from "@/lib/auth/session";
 import { staffSubmissionAccess } from "@/lib/supplier-portal/submission-access";
 import { acceptSubmissionIntoVerification, returnSubmission } from "@/lib/verification-submission-service";
 import { auditHref } from "@/lib/verification";
+import { refreshCrmBadges } from "@/lib/crm/badges";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       revalidatePath("/supplier/portal/verification/export");
       revalidatePath(`/crm/suppliers/${access.submission.supplier_id}`);
       revalidatePath("/crm/verifications/submissions");
+      refreshCrmBadges();
       return NextResponse.json({
         ok: true,
         message: "Đã nhận hồ sơ vào đợt kiểm của nhân viên. Bằng chứng đã sao sang đợt kiểm; việc DUYỆT vẫn cần người thứ hai.",
@@ -62,6 +64,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       revalidatePath("/supplier/portal/verification/factory");
       revalidatePath("/supplier/portal/verification/export");
       revalidatePath("/crm/verifications/submissions");
+      refreshCrmBadges();
       return NextResponse.json({ ok: true, message: "Đã trả hồ sơ kèm lý do; NCC sẽ thấy trong cổng và bổ sung." }, { headers: { "Cache-Control": "no-store" } });
     }
     return NextResponse.json({ ok: false, message: "Quyết định không hợp lệ." }, { status: 400 });

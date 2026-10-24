@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { refreshCrmBadges } from "@/lib/crm/badges";
+
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
 import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
@@ -2306,6 +2308,8 @@ export async function markThreadReadAction(threadIdValue: string): Promise<Actio
   const store = getStore();
   for (const m of targets) await store.updateMessage(m.id, { read_at: now });
   revalidatePath("/crm/mail");
+  // Huy hiệu Hộp thư nằm trong layout: không làm mới layout thì số chưa đọc không giảm.
+  refreshCrmBadges();
   return { ok: true, message: `Đã đánh dấu đọc ${targets.length} thư.` };
 }
 

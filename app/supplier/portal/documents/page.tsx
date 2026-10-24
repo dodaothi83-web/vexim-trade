@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, FileCheck2, FileText, FileUp, ShieldCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { FilePicker } from "@/components/file-picker";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
@@ -227,9 +228,13 @@ export default async function SupplierDocumentsPage() {
                   <div className="mt-auto">
                     {allowedDocUpload
                       ? <L1DocUpload checklistKey={row.key} hasFile={Boolean(latest)} />
-                      : <p className="rounded-lg border border-ink-100 bg-ink-50/70 px-2.5 py-2 text-[10px] leading-4 text-ink-500">
-                        Đợt kiểm đã khóa nhận tệp mới. Chứng nhận vẫn tải được ở khối bên dưới.
-                      </p>}
+                      // Đợt đã khóa vẫn giữ nguyên khung tải tệp (mờ đi) thay vì một dòng
+                      // chữ nhỏ: nhà cung cấp thấy ngay ô tải ở đâu và vì sao chưa dùng được.
+                      : <FilePicker compact disabled accept=".pdf,image/jpeg,image/png,image/webp"
+                        title={l1Approved ? "Đã đối chiếu xong" : l1Submitted ? "Đang chờ Vexim đối chiếu" : "Chưa mở được ô tải"}
+                        hint={l1Approved ? "Đã đối chiếu xong. Tải chứng nhận mới ở khối bên dưới nếu cần."
+                          : l1Submitted ? "Ô tải mở lại khi hồ sơ được yêu cầu bổ sung."
+                            : "Cần Vexim xác nhận tài khoản trước khi tải giấy tờ."} />}
                   </div>
                 </div>
               </article>;
