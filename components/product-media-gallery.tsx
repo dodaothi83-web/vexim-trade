@@ -57,23 +57,22 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
       </button> : <div className="flex h-full items-center justify-center gap-2 text-sm text-ink-400"><ImageIcon className="h-9 w-9" aria-hidden="true" />No product photo available</div>}
     </div>
 
-    <div className="mt-3 grid gap-3 sm:grid-cols-2" aria-label="Product video and photos">
-      <section className="min-w-0 rounded-xl border border-ink-200 bg-white p-3">
+    <div className={`mt-3 grid gap-3 ${video ? "sm:grid-cols-2" : ""}`} aria-label={video ? "Product video and photos" : "Product photos"}>
+      {video && <section className="min-w-0 rounded-xl border border-ink-200 bg-white p-3">
         <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-700">Product video</h2>
-        {video ? playing ? <iframe src={video.embedUrl} title={video.title} loading="lazy" referrerPolicy="no-referrer"
+        {playing ? <iframe src={video.embedUrl} title={video.title} loading="lazy" referrerPolicy="no-referrer"
           sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
           className="aspect-video w-full rounded-lg border-0 bg-ink-900" />
           : <button type="button" onClick={() => setPlaying(true)} className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-lg bg-ink-900 px-3 text-center text-sm font-semibold text-white transition hover:bg-brand-800">
             <PlayCircle className="h-9 w-9" aria-hidden="true" />Play video<span className="text-[11px] font-normal text-white/75">Loads from YouTube or Google Drive only when played</span>
-          </button>
-        : <div className="flex aspect-video items-center justify-center gap-2 rounded-lg bg-ink-50 p-3 text-center text-xs text-ink-500"><PlayCircle className="h-5 w-5 shrink-0" aria-hidden="true" />No buyer-shareable video yet</div>}
-      </section>
+          </button>}
+      </section>}
       <section className="min-w-0 rounded-xl border border-ink-200 bg-white p-3">
         <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-700">Product photos {images.length ? `(${images.length})` : ""}</h2>
-        {images.length ? <div className="flex gap-2 overflow-x-auto pb-2" aria-label="Choose a product photo">
+        {images.length ? <div className={video ? "flex gap-2 overflow-x-auto pb-2" : "grid grid-cols-4 gap-2 sm:grid-cols-5"} aria-label="Choose a product photo">
           {images.map((path, photoIndex) => <button key={path} type="button" onClick={() => { setIndex(photoIndex); setZoomPoint("50% 50%"); }}
             aria-label={`Show photo ${photoIndex + 1} of ${name}`} aria-pressed={index === photoIndex}
-            className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${index === photoIndex ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
+            className={`${video ? "h-20 w-20" : "aspect-square w-full"} shrink-0 overflow-hidden rounded-lg border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${index === photoIndex ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={photo(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
           </button>)}</div> : <div className="flex min-h-20 items-center justify-center gap-2 rounded-lg bg-ink-50 text-xs text-ink-500"><ImageIcon className="h-5 w-5" aria-hidden="true" />No photos shared yet</div>}

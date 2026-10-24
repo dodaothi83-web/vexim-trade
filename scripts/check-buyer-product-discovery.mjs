@@ -36,7 +36,7 @@ const rice = { id: 'c-rice', slug: 'rice', name_i18n: { en: 'Rice' }, status: 'p
 const categories = [category, rice];
 const now = new Date().toISOString();
 const suppliers = [
-  { id: 'A', slug: 'company-a', name: 'Company A', supplier_type: 'trading', status: 'published', verification_level: 2, province: 'Hanoi', fob_publicly_visible: true, fob_updated_at: now, is_demo: false },
+  { id: 'A', slug: 'company-a', name: 'Company A', supplier_type: 'trading', status: 'published', verification_level: 2, province: 'Hanoi', profile_image: 'suppliers/a/logo.webp', founded_year: 2014, fob_publicly_visible: true, fob_updated_at: now, is_demo: false },
   { id: 'B', slug: 'company-b', name: 'Company B', status: 'published', verification_level: 1, province: 'Binh Duong', fob_publicly_visible: false, fob_updated_at: now, is_demo: false },
   { id: 'C', slug: 'company-c', name: 'Company C', status: 'draft', verification_level: 3, province: 'Hue', is_demo: false },
 ];
@@ -122,6 +122,8 @@ assert.equal(JSON.stringify(productCatalog.shareableProductImages(photoSamples, 
 const cards = await productCatalog.listPublicCategoryProducts(category);
 assert.equal(cards.length, 13, 'Every ready offer from published suppliers gets its own card, without cross-category or test records');
 assert.equal(cards.find((p) => p.id === 'a0').name, 'Cashew kernels W320, Hanoi', 'The composed display name is what the buyer reads');
+assert.equal(cards.find((p) => p.id === 'a0').supplierProfileImage, 'suppliers/a/logo.webp', 'PDP can use the public supplier profile image');
+assert.equal(cards.find((p) => p.id === 'a0').supplierFoundedYear, 2014, 'PDP can show a real founded year when present');
 assert.equal(cards.find((p) => p.id === 'a1').name, 'Cashew W320 lot 1', 'A product without a display name keeps the supplier name');
 assert.equal(products[0].name, 'Cashew W320 lot 0', 'The supplier name is never rewritten');
 suppliers.push({ id: 'synthetic', slug: 'vexim-test-supplier-do-not-contact', name: 'Test Supplier', status: 'published', is_demo: false,
@@ -307,6 +309,11 @@ assert.match(profilePage, /const href = synthetic[\s\S]*?`\/suppliers\/\$\{encod
 assert.match(detailPage, /View supplier profile/);
 assert.match(detailPage, /#factory-visit/);
 assert.match(detailPage, /#delivery-history/);
+assert.match(detailPage, /parseProductSpecification\(enSpec\)/, 'PDP separates supplier specification lines into key-value rows');
+assert.match(detailPage, /Product details and reference prices are supplier-provided and reviewed for listing/);
+assert.doesNotMatch(detailPage, /Product specifications are supplier-stated|These are supplier reviews, not certifications/, 'PDP avoids repeated defensive disclaimers');
+assert.match(detailPage, /supplierImageUrl/, 'Supplier card supports the real public profile image');
+assert.match(detailPage, /Founded \{card\.supplierFoundedYear\}/, 'Supplier card only shows a founded year when data exists');
 assert.match(profilePage, /Target markets are self-declared by the supplier and pending independent audit\./);
 // Changing the last buyer image to internal must revoke buyer-ready immediately.
 const actions = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');

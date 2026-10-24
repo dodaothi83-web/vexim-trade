@@ -95,6 +95,12 @@ assert.match(html, /products\/abc\/detail-thumb\.webp/);
 assert.match(html, /aria-pressed="true"/);
 assert.match(html, /Enlarge photo of Cashew W320 on this page/);
 assert.doesNotMatch(html, /<iframe|target="_blank"/, 'Gallery must not embed before play or open images in a new tab');
+const noVideoHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
+  name: 'Cashew W320', images: ['products/abc/cover.jpg', 'products/abc/detail.jpg'],
+  thumbnails: ['products/abc/cover-thumb.webp', 'products/abc/detail-thumb.webp'], video: null,
+}));
+assert.doesNotMatch(noVideoHtml, /Product video|No buyer-shareable video/, 'An absent video leaves no dead panel');
+assert.match(noVideoHtml, /grid grid-cols-4 gap-2 sm:grid-cols-5/, 'Photos use the full gallery width when there is no video');
 const gallerySource = readFileSync(new URL('../components/product-media-gallery.tsx', import.meta.url), 'utf8');
 assert.match(gallerySource, /createPortal\(/);
 assert.match(gallerySource, /event\.key === "Escape"/);

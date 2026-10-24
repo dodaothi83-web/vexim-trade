@@ -29,6 +29,8 @@ export interface PublicCategoryProduct {
   supplierName: string;
   supplierId: string;
   supplierSlug: string | null;
+  supplierProfileImage: string | null;
+  supplierFoundedYear: number | null;
   leadTimeDays: number | null;
   incoterm: string | null;
   oem: boolean;
@@ -94,7 +96,8 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
         price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: supplierProvinceDisplay(s) || "Vietnam",
         verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
         supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
-        supplierId: s.id, supplierSlug: s.slug || null, leadTimeDays: p.lead_time_days ?? null, incoterm: p.incoterm ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
+        supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,
+        leadTimeDays: p.lead_time_days ?? null, incoterm: p.incoterm ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
         isDemo: !!s.is_demo, imagePaths: images,
         cardImagePath: shareableProductImages(byProduct.get(p.id) ?? [], p.id, p.featured_media_id, 1, true)[0] ?? null,
       };
