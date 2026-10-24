@@ -314,6 +314,15 @@ assert.match(detailPage, /View supplier profile/);
 assert.match(detailPage, /#factory-visit/);
 assert.match(detailPage, /#delivery-history/);
 assert.match(detailPage, /parseProductSpecification\(enSpec\)/, 'PDP separates supplier specification lines into key-value rows');
+assert.match(detailPage, />Key terms</, 'The gallery-side card keeps only commercial terms');
+assert.match(detailPage, /id="full-specifications-heading"/, 'Technical details move to a full-width section');
+assert.ok(detailPage.indexOf('id="full-specifications-heading"') < detailPage.indexOf('id="product-description-heading"'),
+  'Full specifications appear immediately before the product description');
+const keyTermsStart = detailPage.indexOf('>Key terms</h2>');
+const keyTermsEnd = detailPage.indexOf('</dl>', keyTermsStart);
+const keyTermsSource = detailPage.slice(keyTermsStart, keyTermsEnd);
+assert.ok(!keyTermsSource.includes('detailRows') && !keyTermsSource.includes('additionalSpecs'),
+  'Long technical rows no longer stretch the gallery-side column');
 assert.match(detailPage, /Product details and reference prices are supplier-provided and reviewed for listing/);
 assert.doesNotMatch(detailPage, /Product specifications are supplier-stated|These are supplier reviews, not certifications/, 'PDP avoids repeated defensive disclaimers');
 assert.match(detailPage, /supplierImageUrl/, 'Supplier card supports the real public profile image');
