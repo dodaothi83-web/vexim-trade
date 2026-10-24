@@ -11,7 +11,7 @@ const source = ts.transpileModule(
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } },
 ).outputText;
 
-const admin = { uid: '11111111-2222-4333-8444-555555555555', email: 'reviewer@example.com' };
+const admin = { uid: '11111111-2222-4333-8444-555555555555', email: 'reviewer@example.com', role: 'admin' };
 const baseReview = () => ({
   id: 'review-l1', supplier_id: 'sup-1', target_level: 1, status: 'submitted',
   inspector_id: '99999999-8888-4777-8666-555555555555',
@@ -29,6 +29,8 @@ let revalidateError = null;
 let selfApprovedColumnMissing = false;
 const updates = [];
 const mails = [];
+const auditLogs = [];
+let staffMails = 0;
 
 const store = {
   getVerification: async (id) => (id === review.id ? review : null),
@@ -43,7 +45,7 @@ const store = {
     review = { ...review, ...patch };
     return review;
   },
-  addAuditLog: async () => null,
+  addAuditLog: async (entry) => { auditLogs.push(entry); },
   getSupplier: async () => ({ id: 'sup-1', slug: 'ncc-a', status: 'published' }),
   getUser: async () => ({ id: admin.uid, email: admin.email, name: 'Reviewer', role: 'admin', is_active: true }),
 };
@@ -66,12 +68,14 @@ const mocks = {
       ? [{ key: 'business_license' }, { key: 'food_safety' }, { key: 'tax_certificate' }]
       : [{ key: 'plant_photos' }]),
   },
-  '@/lib/verification-policy': { requireSecondVerificationReviewer: () => true },
+  '@/lib/verification-policy': {
+    canSelfApproveVerification: (role) => ['admin', 'sourcing'].includes(role),
+  },
   '@/lib/crm/badges': { refreshCrmBadges: () => {} },
   '@/lib/verification-evidence': { hasDocumentAuditEvidence: () => true },
   '@/lib/media/verification-access': { verificationMediaEditError: async () => null },
   '@/lib/supplier-portal/notify': {
-    notifyStaffVerificationSubmission: async () => 'sent',
+    notifyStaffVerificationSubmission: async () => { staffMails++; return 'sent'; },
     notifySupplierDecision: async (input) => {
       if (mailError) throw mailError;
       mails.push(input);
@@ -109,12 +113,17 @@ const approve = (id = review.id, confirmSelf = false) => safe(
 );
 const sendBack = (id = review.id, reason = 'Ảnh mờ, cần chụp lại giấy phép') =>
   safe(() => exported.returnVerificationAction(fd({ id, reason })), 'trả về bổ sung');
+const submit = () => safe(
+  () => exported.updateVerificationChecklistAction(fd({ id: review.id, status: 'submitted' })),
+  'nộp bản kiểm',
+);
 
 function reset() {
   review = baseReview();
+  admin.role = 'admin';
   updateError = null; guardError = null; sessionError = null; mailError = null; revalidateError = null;
   selfApprovedColumnMissing = false;
-  updates.length = 0; mails.length = 0;
+  updates.length = 0; mails.length = 0; auditLogs.length = 0; staffMails = 0;
 }
 
 /* 1. Đường thành công: lưu quyết định, gửi email, không ném lỗi. */
@@ -124,7 +133,7 @@ assert.equal(result.ok, true, 'duyệt hợp lệ phải thành công');
 assert.match(result.message, /Đã duyệt bước kiểm tra/);
 assert.equal(updates.length, 1);
 assert.equal(updates[0].patch.status, 'approved');
-assert.equal(updates[0].patch.approved_by, admin.uid, 'ghi đúng người duyệt để ràng buộc bốn mắt kiểm được');
+assert.equal(updates[0].patch.approved_by, admin.uid, 'ghi đúng người duyệt cho quyết định độc lập');
 assert.ok(updates[0].patch.approved_at, 'ghi thời điểm duyệt');
 assert.equal(mails.length, 1);
 
@@ -144,12 +153,22 @@ result = await approve();
 assert.equal(result.ok, false);
 assert.match(result.message, /RLS/);
 
-/* 4. Ràng buộc bốn mắt trong CSDL: thông báo đúng người duyệt. */
+/* 4. Ràng buộc tương thích CSDL: thông báo đúng hướng xử lý. */
 reset();
 updateError = new Error('new row for relation "verifications" violates check constraint "verifications_four_eyes"');
 result = await approve();
 assert.equal(result.ok, false);
 assert.match(result.message, /người duyệt khác người kiểm/);
+
+/* 4b. Migration 34 chỉ mở cho admin: sourcing cần được chỉ migration 35. */
+reset();
+admin.role = 'sourcing';
+review.inspector_id = admin.uid;
+updateError = new Error('Only an active admin can self-approve a verification');
+result = await approve(review.id, true);
+assert.equal(result.ok, false);
+assert.match(result.message, /20261035_single_person_verification/);
+assert.equal(review.status, 'submitted');
 
 /* 5. Lỗi phiên đăng nhập trước khi ghi: vẫn là thông báo, không phải trang lỗi. */
 reset();
@@ -202,9 +221,10 @@ assert.equal(result.ok, true, 'xác nhận rồi thì người duyệt duyệt �
 assert.equal(updates[0].patch.self_approved, true, 'hồ sơ ghi rõ một người vừa đối chiếu vừa duyệt');
 assert.equal(updates[0].patch.approved_by, admin.uid);
 
-/* 10. Đợt ĐÃ có người kiểm thì vẫn bắt buộc người duyệt khác người kiểm. */
+/* 10. A reviewer still cannot approve their own inspection. */
 reset();
 review.inspector_id = admin.uid;
+admin.role = 'reviewer';
 result = await approve(review.id, true);
 assert.equal(result.ok, false, 'tự duyệt đợt mình đã kiểm vẫn bị chặn');
 assert.match(result.message, /cần người khác duyệt/);
@@ -214,16 +234,60 @@ result = await approve(review.id, true);
 assert.equal(result.ok, true, 'người khác duyệt được đợt có người kiểm');
 assert.equal(updates[0].patch.self_approved, false, 'đợt có người kiểm không mang cờ một người');
 
-/* 11. Deploy trước khi chạy migration 20261033: cột self_approved chưa có, quyết
-   định vẫn phải lưu được (ràng buộc bốn mắt, nếu còn, tự chặn ở tầng CSDL). */
+/* 10b. Admin can self-approve only after an explicit confirmation; the decision
+   remains visibly marked as single-person instead of hiding who decided. */
 reset();
-review.inspector_id = null;
+review.inspector_id = admin.uid;
+result = await approve();
+assert.equal(result.ok, false, 'admin self-approval still requires confirmation');
+assert.match(result.message, /xác nhận/);
+assert.equal(updates.length, 0);
+result = await approve(review.id, true);
+assert.equal(result.ok, true, 'confirmed admin self-approval is allowed');
+assert.equal(updates[0].patch.self_approved, true);
+assert.equal(updates[0].patch.approved_by, admin.uid);
+assert.equal(review.status, 'approved');
+assert.equal(auditLogs[0].after.self_approved, true, 'audit log preserves the admin override');
+assert.equal(auditLogs[0].after.inspector_id, admin.uid);
+assert.equal(auditLogs[0].after.approved_by, admin.uid);
+
+/* 10c. Sourcing can complete the whole inspection without waiting for a reviewer. */
+reset();
+admin.role = 'sourcing';
+review.inspector_id = admin.uid;
+result = await approve();
+assert.equal(result.ok, false, 'sourcing also confirms the evidence re-check');
+assert.match(result.message, /xác nhận/);
+result = await approve(review.id, true);
+assert.equal(result.ok, true, 'sourcing can inspect and approve in one workflow');
+assert.equal(updates[0].patch.self_approved, true);
+assert.equal(updates[0].patch.approved_by, admin.uid);
+assert.equal(auditLogs[0].after.self_approved, true);
+
+/* 11. Deploy trước khi chạy migration 20261033: cột self_approved chưa có, quyết
+   định độc lập vẫn phải lưu được; ràng buộc cũ, nếu còn, tự chặn ở tầng CSDL. */
+reset();
 selfApprovedColumnMissing = true;
 result = await approve(review.id, true);
 assert.equal(result.ok, true, 'thiếu cột mới không được chặn lần duyệt');
 assert.equal(review.status, 'approved');
 assert.equal(updates.length, 1, 'ghi lại một lần sau khi bỏ cờ');
 assert.equal('self_approved' in updates[0].patch, false);
+
+/* 12. A self-sufficient inspector does not generate a redundant reviewer email. */
+reset();
+admin.role = 'sourcing';
+review.status = 'in_progress';
+result = await submit();
+assert.equal(result.ok, true);
+assert.match(result.message, /duyệt ngay/);
+assert.equal(staffMails, 0, 'no reviewer wait/email for the single-person workflow');
+reset();
+admin.role = 'reviewer';
+review.status = 'in_progress';
+result = await submit();
+assert.equal(result.ok, true);
+assert.equal(staffMails, 1, 'independent review still notifies the review queue');
 
 reset();
 console.log('✅ Duyệt/trả về bước kiểm tra luôn trả về thông báo, không ném lỗi 500.');

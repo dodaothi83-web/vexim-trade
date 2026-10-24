@@ -15,8 +15,8 @@ import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/
 import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction, updateVerificationPublicSummaryAction } from "../../verification-actions";
 import { CertificateRowControls } from "./certificate-row-controls";
 
-export function AuditForm({ verification: v, evidence, certificates = [], aiEnabled, canApprove, canInspect, canPublish = false, currentUserId, requireSecondReviewer }: {
-  verification: Verification; evidence: MediaAsset[]; certificates?: Certificate[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; requireSecondReviewer: boolean;
+export function AuditForm({ verification: v, evidence, certificates = [], aiEnabled, canApprove, canInspect, canPublish = false, currentUserId, canSelfApprove }: {
+  verification: Verification; evidence: MediaAsset[]; certificates?: Certificate[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; canSelfApprove: boolean;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
@@ -25,8 +25,8 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
   const [reason, setReason] = useState("");
   const [publicSummary, setPublicSummary] = useState(v.public_summary_i18n?.en ?? "");
   const [summaryConfirmed, setSummaryConfirmed] = useState(false);
-  // Đợt do NCC tự tải giấy tờ lên không có người kiểm tách biệt: người duyệt phải
-  // tự xác nhận đã đối chiếu, hồ sơ ghi self_approved.
+  // Supplier-uploaded reviews and same-person completion both require an
+  // explicit re-check confirmation; the stored decision is marked self_approved.
   const [selfConfirm, setSelfConfirm] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [showOldEvidence, setShowOldEvidence] = useState(evidence.some((m) => !m.checklist_key));
@@ -38,7 +38,8 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
   const [aiResult, setAiResult] = useState<(AiDocumentReview & { skipped: string[] }) | null>(null);
   const editable = canInspect && ["in_progress", "scheduled", "returned"].includes(v.status);
   const selfReview = currentUserId === v.inspector_id;
-  const reviewer = canApprove && v.status === "submitted" && (!requireSecondReviewer || !selfReview);
+  const selfApproval = selfReview && canSelfApprove;
+  const reviewer = canApprove && v.status === "submitted" && (!selfReview || selfApproval);
   const canManageEvidence = editable;
   const items = auditItems(v.target_level);
   const requiredDocs = L1_DOC_ITEMS.filter((it) => it.required);
@@ -215,7 +216,7 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
 
   function decide(approve: boolean) {
     const fd = new FormData(); fd.set("id", v.id);
-    if (approve && !v.inspector_id) fd.set("confirm_self_review", selfConfirm ? "yes" : "no");
+    if (approve && (!v.inspector_id || selfApproval)) fd.set("confirm_self_review", selfConfirm ? "yes" : "no");
     if (!approve) {
       if (!reason.trim()) { setFeedback({ ok: false, message: "Hãy ghi lý do cần bổ sung." }); return; }
       fd.set("reason", reason);
@@ -425,6 +426,10 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
     </form>
     {reviewer && <div className="space-y-3 border-t border-ink-100 bg-amber-50/50 p-5">
       <p className="text-sm font-semibold text-ink-900">Xét duyệt · đối chiếu bằng chứng ngay trong các mục bên trên</p>
+      {selfApproval && <label className="flex items-start gap-2 rounded-lg bg-white/80 p-3 text-xs leading-relaxed text-ink-700">
+        <input type="checkbox" className="mt-0.5" checked={selfConfirm} onChange={(e) => setSelfConfirm(e.target.checked)} />
+        <span>Bạn đã kiểm và nộp đợt này. Tôi xác nhận đã tự đối chiếu lại bằng chứng và chịu trách nhiệm khi hoàn tất kiểm và duyệt một mình; hệ thống sẽ ghi dấu tự duyệt và lưu audit log.</span>
+      </label>}
       {!v.inspector_id && <label className="flex items-start gap-2 rounded-lg bg-white/80 p-3 text-xs leading-relaxed text-ink-700">
         <input type="checkbox" className="mt-0.5" checked={selfConfirm} onChange={(e) => setSelfConfirm(e.target.checked)} />
         <span>Đợt này do nhà cung cấp tự tải giấy tờ lên nên chưa có người kiểm tách biệt. Tôi đã tự đối chiếu từng giấy tờ; hồ sơ sẽ ghi rõ một người vừa đối chiếu vừa duyệt.</span>
@@ -436,8 +441,8 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
       </div>
       <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do trả (bắt buộc khi trả về)" aria-label="Lý do trả hồ sơ" />
     </div>}
-    {canApprove && v.status === "submitted" && selfReview && requireSecondReviewer && <p className="border-t border-ink-100 p-4 text-sm text-amber-800">Bạn là người kiểm; cần người khác duyệt.</p>}
-    {v.status === "approved" && <p className="border-t border-ink-100 p-4 text-sm text-emerald-800">Đã duyệt {v.approved_at ? formatDate(v.approved_at) : ""}.{v.self_approved ? " Đợt do nhà cung cấp tự tải giấy tờ: người duyệt tự đối chiếu và duyệt một mình." : ""} Kết quả và bằng chứng chỉ đọc.</p>}
+    {canApprove && v.status === "submitted" && selfReview && !selfApproval && <p className="border-t border-ink-100 p-4 text-sm text-amber-800">Bạn là người kiểm; cần người khác duyệt.</p>}
+    {v.status === "approved" && <p className="border-t border-ink-100 p-4 text-sm text-emerald-800">Đã duyệt {v.approved_at ? formatDate(v.approved_at) : ""}.{v.self_approved && !v.inspector_id ? " Đợt do nhà cung cấp tự tải giấy tờ: người duyệt tự đối chiếu và duyệt một mình." : ""}{v.self_approved && v.inspector_id ? " Một nhân sự đã xác nhận tự đối chiếu và tự duyệt bản kiểm do chính mình thực hiện." : ""} Kết quả và bằng chứng chỉ đọc.</p>}
     {v.status === "approved" && v.target_level > 1 && <section className="border-t border-ink-200 bg-sky-50/40 p-5" aria-label="Tóm tắt công khai riêng">
       <h3 className="font-semibold text-ink-900">Tóm tắt công khai · {v.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"}</h3>
       <p className="mt-1 text-xs text-ink-600">Duyệt đợt kiểm không tự công khai phần này. Chỉ người có quyền duyệt mới được soạn, duyệt hoặc ẩn tóm tắt. Không đăng chứng từ, tên buyer, giá, mã đơn hay GPS. Lịch sử giao hàng không mặc nhiên là xuất khẩu.</p>

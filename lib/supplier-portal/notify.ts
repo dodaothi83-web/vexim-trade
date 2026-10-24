@@ -123,7 +123,7 @@ export async function notifyStaffVerificationSubmission(supplierId: string, leve
     const step = level === 1 ? "documents" : level === 2 ? "factory" : "delivery";
     const url = `${notificationOrigin()}/crm/suppliers/${encodeURIComponent(supplierId)}/audit/${step}`;
     const title = `${label} chờ xét duyệt: ${supplier?.name ?? "NCC"}`;
-    const body = `<p>Chuyên viên đã nộp bản kiểm ${escapeHtml(label)} của ${escapeHtml(supplier?.name ?? "NCC")}. Người khác phải tự xem bằng chứng của đúng đợt kiểm và quyết định; nộp không tự phê duyệt.</p><p><a href="${url}">Mở bản kiểm trong CRM →</a></p>`;
+    const body = `<p>Chuyên viên đã nộp bản kiểm ${escapeHtml(label)} của ${escapeHtml(supplier?.name ?? "NCC")}. Nhân sự có quyền duyệt cần tự xem bằng chứng của đúng đợt kiểm và quyết định; nộp không tự phê duyệt.</p><p><a href="${url}">Mở bản kiểm trong CRM →</a></p>`;
     const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] verification submission", error); return "failed"; }

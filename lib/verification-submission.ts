@@ -17,8 +17,8 @@ import {
  * Ranh giới quan trọng, giữ đúng chính sách sẵn có của hệ thống:
  *  - Hồ sơ tự gửi KHÔNG phải kết quả xác minh. AI chỉ quét và nêu tín hiệu.
  *  - Huy hiệu L2/L3 trên trang buyer chỉ xuất hiện khi một đợt kiểm
- *    `verifications` do nhân viên Vexim lập được người CÓ QUYỀN DUYỆT KHÁC
- *    (bốn mắt) phê duyệt. Chấp thuận hồ sơ chỉ tạo đợt kiểm kèm bằng chứng.
+ *    `verifications` do nhân sự Vexim có quyền duyệt xác nhận. Cùng một nhân sự
+ *    có thể kiểm và duyệt sau xác nhận. Chấp thuận hồ sơ chỉ tạo đợt kiểm kèm bằng chứng.
  */
 
 /* ------------------------- chính sách ảnh (tạm thời nới) ------------------------- */

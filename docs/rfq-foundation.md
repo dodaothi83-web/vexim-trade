@@ -63,12 +63,12 @@ Các giá trị cũ (`new/verifying/verified/paused`) được migrate sang `dra
 | products.manage | ✓ | ✓ | ✓ | |
 | categories.manage | ✓ | | | |
 | verifications.inspect | ✓ | | ✓ | |
-| verifications.approve | ✓ | | | |
+| verifications.approve | ✓ | | ✓ | |
 | rfq.manage | ✓ | ✓ | | |
 | media.internal | ✓ | | ✓ | |
 | users.manage | ✓ | | | |
 
-Quy tắc **4-eyes** đã được khôi phục: người có quyền duyệt (trưởng kiểm duyệt hoặc quản trị) phải khác người nộp bản kiểm; lưu cả `inspector_id` và `approved_by`. Migration `20261018_review_lead_role.sql` phục hồi CHECK cho quyết định mới và giữ nguyên hồ sơ lịch sử; xem `docs/verification-levels.md`.
+Xác minh NCC hiện dùng **quy trình một nhân sự**: admin/thu mua có đủ quyền kiểm + duyệt có thể hoàn tất bản của chính mình sau xác nhận; reviewer vẫn có thể duyệt độc lập khi cần. Luôn lưu `inspector_id`, `approved_by`, `self_approved` và audit log. Migration `20261035_single_person_verification.sql` áp dụng luật hiện tại; xem `docs/verification-levels.md`.
 Chỉ admin được chuyển `suppliers.status → published` hoặc `suspended`.
 
 ## Chống spam RFQ (GĐ 2)

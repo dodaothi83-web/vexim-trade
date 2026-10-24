@@ -22,7 +22,7 @@ const TABS: { key: string; label: string; filter: (s: SupplierSubmission) => boo
 /**
  * Hàng đợi hồ sơ do NHÀ CUNG CẤP TỰ GỬI (L2: 9 ảnh nhà máy, L3: chứng từ xuất khẩu).
  * Đây KHÔNG phải hàng đợi duyệt huy hiệu: nhận hồ sơ chỉ tạo đợt kiểm của nhân viên,
- * việc duyệt vẫn cần người có quyền duyệt khác (bốn mắt).
+ * một nhân sự đủ quyền có thể kiểm và duyệt sau xác nhận; AI không tự duyệt.
  */
 export default async function SubmissionQueuePage({ searchParams }: { searchParams?: Promise<{ tab?: string; level?: string }> }) {
   const session = await requirePagePermission("verifications.view", "/crm/dashboard");

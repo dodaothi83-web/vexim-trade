@@ -44,7 +44,7 @@ import type {
  * Ranh giới giữ nguyên như phần còn lại của hệ thống xác minh:
  *  - AI quét và xếp hàng đợi, KHÔNG duyệt, KHÔNG cấp huy hiệu.
  *  - Nhân viên Vexim chấp thuận hồ sơ → tạo một ĐỢT KIỂM `verifications`
- *    kèm toàn bộ bằng chứng; việc duyệt đợt kiểm đó vẫn cần người thứ hai.
+ *    kèm toàn bộ bằng chứng; một nhân sự đủ quyền có thể kiểm và duyệt sau xác nhận.
  */
 
 export interface SubmissionBundle {
@@ -432,7 +432,7 @@ async function applyAiReviewToItems(store: DataStore, bundle: SubmissionBundle, 
  * Nhân viên Vexim chấp thuận hồ sơ tự gửi: tạo ĐỢT KIỂM của nhân viên
  * (target_level 2/3, status `in_progress`) và SAO CHÉP bằng chứng sang đợt kiểm
  * đó để hồ sơ gốc giữ nguyên làm lịch sử. Duyệt hay không là bước tiếp theo,
- * do người CÓ QUYỀN DUYỆT KHÁC quyết định (bốn mắt).
+ * một nhân sự đủ quyền có thể tự hoàn tất; reviewer độc lập là tùy chọn.
  */
 export async function acceptSubmissionIntoVerification(store: DataStore, input: {
   bundle: SubmissionBundle;

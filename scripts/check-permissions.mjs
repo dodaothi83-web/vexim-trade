@@ -148,13 +148,16 @@ for (const p of adminOnly) {
   }
 }
 
-// Reviewer cannot edit evidence or user accounts; sourcing cannot approve a review.
+// Reviewer cannot edit evidence or accounts; sourcing can complete its own review.
 const roleSection = (name) => permFile.split(`  ${name}: [`)[1]?.split('],')[0] ?? '';
 for (const perm of ["suppliers.publish", "categories.publish", "categories.view", "verifications.approve", "verifications.view"]) {
   if (!roleSection('reviewer').includes(`"${perm}"`)) errors.push(`Reviewer thiếu quyền ${perm}.`);
 }
 for (const perm of ["verifications.inspect", "media.manage", "users.manage", "suppliers.delete", "suppliers.manage", "products.manage", "categories.manage", "mail.send"]) {
   if (roleSection('reviewer').includes(`"${perm}"`)) errors.push(`Reviewer không được có quyền ${perm}.`);
+}
+for (const perm of ["verifications.inspect", "verifications.approve"]) {
+  if (!roleSection('sourcing').includes(`"${perm}"`)) errors.push(`Sourcing thiếu quyền ${perm} cho quy trình một nhân sự.`);
 }
 for (const perm of ["suppliers.manage", "products.manage", "categories.manage", "verifications.approve"]) {
   if (roleSection('sale').includes(`"${perm}"`)) errors.push(`Sale không được có quyền ${perm}.`);
@@ -187,7 +190,8 @@ function assertGuard(file, actionName, expectedPerm) {
   const src = read(join(ROOT, file));
   const idx = src.indexOf(`export async function ${actionName}`);
   if (idx < 0) { warns.push(`Không tìm thấy action ${actionName} trong ${file} — có thể đã đổi tên.`); return; }
-  const head = src.slice(idx, idx + 500);
+  // Guards may sit inside the action's try/catch after resilience comments.
+  const head = src.slice(idx, idx + 800);
   if (!head.includes(`guard("${expectedPerm}"`) && !head.includes(`guard('${expectedPerm}'`)) {
     errors.push(`Action ${file}::${actionName} nên dùng guard("${expectedPerm}") — kiểm tra lại.`);
   }

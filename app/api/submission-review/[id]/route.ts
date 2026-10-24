@@ -14,8 +14,8 @@ export const dynamic = "force-dynamic";
  * Nhân viên Vexim xét hồ sơ NCC TỰ GỬI.
  *
  * Chấp thuận ở đây KHÔNG cấp huy hiệu: nó chỉ tạo một ĐỢT KIỂM của nhân viên
- * kèm toàn bộ bằng chứng, để người kiểm đối chiếu và một người CÓ QUYỀN DUYỆT
- * KHÁC phê (bốn mắt) như quy trình L1/L2/L3 sẵn có.
+ * kèm toàn bộ bằng chứng. Một nhân sự đủ quyền có thể kiểm và duyệt sau
+ * xác nhận; reviewer độc lập là lựa chọn thêm, không còn bắt buộc.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const gate = await guard("verifications.inspect");
@@ -46,7 +46,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       refreshCrmBadges();
       return NextResponse.json({
         ok: true,
-        message: "Đã nhận hồ sơ vào đợt kiểm của nhân viên. Bằng chứng đã sao sang đợt kiểm; việc DUYỆT vẫn cần người thứ hai.",
+        message: "Đã nhận hồ sơ vào đợt kiểm của nhân viên. Bằng chứng đã sao sang đợt kiểm; mở đợt kiểm để đối chiếu và xét duyệt.",
         verificationId: verification.id,
         href: auditHref(access.submission.supplier_id, access.submission.target_level),
       }, { headers: { "Cache-Control": "no-store" } });

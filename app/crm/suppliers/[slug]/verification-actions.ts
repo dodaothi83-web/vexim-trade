@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { auditHref, auditItems, auditUploadKind, coreDocsVerified, requiredAuditItems } from "@/lib/verification";
-import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
+import { canSelfApproveVerification } from "@/lib/verification-policy";
 import { hasDocumentAuditEvidence } from "@/lib/verification-evidence";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
 import { refreshCrmBadges } from "@/lib/crm/badges";
@@ -69,7 +69,7 @@ async function auditChange(before: Verification, status: VerificationStatus, act
   }).catch((err) => console.error("[audit] verification write failed", err));
 }
 
-/** Save the inspector's work or submit it for an independent reviewer. */
+/** Save the inspector's work or submit it for a verification decision. */
 export async function updateVerificationChecklistAction(fd: FormData) {
   let committed = false;
   try {
@@ -152,12 +152,15 @@ async function saveChecklist(fd: FormData, markCommitted: () => void) {
   markCommitted();
   await auditChange(before, nextStatus, nextStatus === "submitted" ? "submit" : "save");
   await softEffect("làm mới trang kiểm tra", () => refreshAudit(before));
-  if (nextStatus === "submitted") {
+  const canFinishOwnReview = nextStatus === "submitted" && canSelfApproveVerification((await getSession())?.role);
+  if (nextStatus === "submitted" && !canFinishOwnReview) {
     const mail = await softEffect("email báo người duyệt",
       () => notifyStaffVerificationSubmission(before.supplier_id, before.target_level)) ?? "failed";
     if (mail !== "sent") console.warn("[verification] reviewer notification failed; submission remains queued", mail);
   }
-  return { ok: true, message: nextStatus === "submitted" ? "Đã nộp duyệt; người kiểm duyệt sẽ xem bằng chứng." : "Đã lưu bản kiểm." };
+  return { ok: true, message: nextStatus === "submitted"
+    ? canFinishOwnReview ? "Đã nộp. Bạn có thể xác nhận đối chiếu và duyệt ngay." : "Đã nộp duyệt; hồ sơ đang chờ tài khoản có quyền duyệt xem bằng chứng."
+    : "Đã lưu bản kiểm." };
 }
 
 async function getReviewable(id: string) {
@@ -168,10 +171,10 @@ async function getReviewable(id: string) {
   if ((await store.listVerifications(before.supplier_id)).some((v) => v.target_level === before.target_level && v.status === "approved")) {
     return { ok: false as const, message: "Bước này đã được duyệt ở đợt kiểm khác." };
   }
-  // Giấy tờ L1 do NCC tự tải lên không có người kiểm tách biệt, nên bốn mắt chỉ
-  // áp dụng khi đợt đã có người kiểm. Trường hợp còn lại người duyệt tự đối
-  // chiếu và phải xác nhận rõ (xem approveReview), hồ sơ ghi self_approved.
-  if (requireSecondVerificationReviewer() && before.inspector_id && before.inspector_id === session?.uid) {
+  // A staff member with both inspect and approve permissions can finish their
+  // own review. Other approvers can still make an independent decision.
+  if (before.inspector_id && before.inspector_id === session?.uid &&
+      !canSelfApproveVerification(session?.role)) {
     return { ok: false as const, message: "Bạn là người kiểm của đợt này; cần người khác duyệt." };
   }
   return { ok: true as const, before, store, session };
@@ -205,6 +208,12 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
   if (before.target_level === 1 && (!/^[0-9]{1,32}$/.test(before.tax_number ?? "") ||
       (bankNumber && !/^[0-9]{1,34}$/.test(bankNumber)))) {
     return { ok: false, message: "Cần nhập mã số thuế bằng chữ số; số tài khoản ngân hàng là mục tùy chọn nhưng nếu có thì phải là chữ số. Không cần tải ảnh cho hai mục này. Trả lại để bổ sung nếu bản kiểm đã nộp." };
+  }
+  const selfApproval = Boolean(before.inspector_id && before.inspector_id === session?.uid &&
+    canSelfApproveVerification(session?.role));
+  const singlePersonDecision = !before.inspector_id || selfApproval;
+  if (selfApproval && fd.get("confirm_self_review") !== "yes") {
+    return { ok: false, message: "Bạn đang duyệt bản kiểm do chính mình thực hiện. Hãy xác nhận đã tự đối chiếu lại bằng chứng; hệ thống sẽ ghi rõ đây là quyết định kiểm và duyệt bởi một người." };
   }
   if (!before.inspector_id && fd.get("confirm_self_review") !== "yes") {
     return { ok: false, message: "Đợt này do nhà cung cấp tự tải lên nên chưa có người kiểm tách biệt. Đánh dấu xác nhận bạn đã tự đối chiếu từng giấy tờ rồi duyệt lần nữa; hệ thống sẽ ghi rõ một người vừa đối chiếu vừa duyệt." };
@@ -240,22 +249,25 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
     }
   }
   const decision = { status: "approved" as const, approved_by: session?.uid ?? null, approved_at: new Date().toISOString() };
-  // Chỉ đợt chưa có người kiểm mới dùng cờ này; đợt đã có người kiểm giữ false.
-  const patch = { ...decision, self_approved: !before.inspector_id };
+  // Preserve an explicit single-person marker and the corresponding audit entry.
+  const patch = { ...decision, self_approved: singlePersonDecision };
   try {
     try {
       await store.updateVerification(before.id, patch);
     } catch (error) {
       // CSDL chưa chạy migration 20261033: cột self_approved chưa có. Không để
-      // thứ tự deploy chặn quyết định; ràng buộc bốn mắt (nếu còn) vẫn tự chặn.
+      // thứ tự deploy chặn quyết định; ràng buộc CSDL hiện có vẫn tự chặn nếu chưa tương thích.
       if (!/self_approved/.test(briefReason(error)) || !/schema cache|PGRST204|does not exist/i.test(briefReason(error))) throw error;
       console.warn("[verification] self_approved column missing; approving without it", briefReason(error));
       await store.updateVerification(before.id, decision);
     }
     markCommitted();
   } catch (error) {
-    if (error instanceof Error && /verifications_four_eyes/.test(error.message)) {
-      console.error("[verification] database rejected the four-eyes approval");
+    if (error instanceof Error && /verifications_four_eyes|check_verification_self_approval|Only an active admin/i.test(error.message)) {
+      console.error("[verification] database rejected the verification approval");
+      if (singlePersonDecision) {
+        return { ok: false, message: "CSDL chưa mở quy trình kiểm và duyệt bởi một người. Chạy migration 20261035_single_person_verification.sql rồi thử lại; bản kiểm vẫn đang chờ duyệt." };
+      }
       return { ok: false, message: "CSDL yêu cầu người duyệt khác người kiểm. Nhờ tài khoản khác xét duyệt; bản kiểm vẫn đang chờ duyệt." };
     }
     throw error;

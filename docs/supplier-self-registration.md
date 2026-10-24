@@ -84,7 +84,7 @@ Mỗi sự kiện có hai đường: thư điện tử, và chỗ hiện trong C
 | NCC nộp hồ sơ doanh nghiệp | admin, sourcing | Hàng đợi "Tài khoản NCC · chờ xác nhận quyền truy cập", bảng "Hồ sơ NCC chờ xác nhận" |
 | NCC gửi sản phẩm để duyệt | admin, sourcing | Hàng đợi "sản phẩm chờ Vexim duyệt", số ở menu Sản phẩm |
 | NCC tự gửi hồ sơ thăm nhà máy / lịch sử giao hàng | admin, reviewer | Trang `/crm/verifications/submissions`, số ở menu Xác minh |
-| Chuyên viên nộp một đợt kiểm để duyệt | admin, reviewer | Hàng đợi "chờ xét duyệt", bảng "Đợt kiểm chờ xét duyệt" |
+| Chuyên viên nộp một đợt kiểm để duyệt | admin, reviewer khi cần duyệt độc lập; không gửi cho luồng một nhân sự | Hàng đợi "chờ xét duyệt", bảng "Đợt kiểm chờ xét duyệt" |
 | Buyer gửi RFQ | người phụ trách nhận thư nội bộ | Hàng đợi "RFQ mới", số ở menu RFQ |
 | Vexim duyệt hoặc trả lại hồ sơ, sản phẩm, đợt kiểm | chính NCC đó | Cổng NCC, mục thông báo |
 
