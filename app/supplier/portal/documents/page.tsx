@@ -13,7 +13,7 @@ import { SupplierCertificateUpload } from "../certificate-upload";
 import { EmptyRow, Panel } from "../portal-ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Giấy tờ & chứng nhận L1 | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "Giấy tờ & chứng nhận L1", robots: { index: false, follow: false } };
 
 /**
  * Trang riêng cho hồ sơ L1: giấy tờ bước đầu của đợt kiểm và các chứng nhận được AI
@@ -48,18 +48,18 @@ export default async function SupplierDocumentsPage() {
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Giấy tờ & chứng nhận L1"
-      sub="Giấy phép kinh doanh do Vexim đối chiếu thủ công. Chứng nhận được AI quét đơn vị đứng tên và ngày hết hạn."
+      sub="Giấy phép kinh doanh được đối chiếu thủ công. Chứng nhận được AI đọc đơn vị đứng tên và ngày hết hạn."
       actions={<span className={`rounded-full px-3 py-1 text-[11px] font-bold ${review?.status === "approved" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>{l1Status}</span>} />
 
     {degraded.length > 0 && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <p className="font-bold">Một phần dữ liệu giấy tờ chưa tải được</p>
-      <p className="mt-1">Phần còn lại vẫn dùng bình thường. Nếu tình trạng này kéo dài, báo Vexim để kiểm tra cấu hình.</p>
+      <p className="mt-1">Phần còn lại vẫn dùng bình thường. Nếu tình trạng này kéo dài, liên hệ bộ phận hỗ trợ để kiểm tra cấu hình.</p>
       <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
     </div>}
 
     <div className="space-y-5">
       <Panel icon={<FileCheck2 className="h-4 w-4 text-brand-700" />} title="Đợt kiểm giấy tờ L1" count={mine.length}
-        sub="Tệp bạn đã tải trong đợt kiểm này. Vexim đối chiếu thủ công; tải lên không tự duyệt.">
+        sub="Tệp bạn đã tải trong đợt kiểm này. Hồ sơ được đối chiếu thủ công; tải lên không có nghĩa là đã được duyệt.">
         {mine.length > 0 && <ul className="mb-4 space-y-2 text-sm">{mine.map((m) => <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ink-50 px-3 py-2">
           <span className="text-ink-800">{L1_DOC_ITEMS.find((i) => i.key === m.checklist_key)?.label ?? "Giấy tờ"}: {m.caption}</span>
           <a href={`/api/media/file/${m.storage_path}`} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">Xem tệp</a></li>)}</ul>}
@@ -67,7 +67,7 @@ export default async function SupplierDocumentsPage() {
       </Panel>
 
       <Panel title="Chứng nhận trên hồ sơ" count={certificates.length}
-        sub="AI đọc đơn vị đứng tên (chính chủ hay đối tác) và ngày hết hạn; hệ thống nhắc trước 60 / 30 / 7 / 1 ngày.">
+        sub="AI đọc đơn vị đứng tên (chính chủ hay đối tác) và ngày hết hạn; nhắc trước 60 / 30 / 7 / 1 ngày.">
         {certificates.length ? <ul className="space-y-2 text-sm">{certificates.map((c) => {
           const left = daysUntilExpiry(c.valid_until);
           const live = Boolean(c.review_status === "approved" && c.publicly_visible && !c.staff_hidden && left !== null && left >= 0 && (c.holder_match === "owner" || c.holder_match === "partner"));
@@ -82,7 +82,7 @@ export default async function SupplierDocumentsPage() {
                   {c.valid_until ? `Hết hạn ${c.valid_until}${left !== null ? ` · còn ${left} ngày` : ""}` : "Chưa đọc được ngày hết hạn"}
                 </span>
                 <span className={`rounded-full px-2.5 py-0.5 font-bold ${c.staff_hidden ? "bg-rose-100 text-rose-800" : live ? "bg-emerald-100 text-emerald-800" : "bg-ink-200 text-ink-700"}`}>
-                  {c.staff_hidden ? "Vexim đang ẩn" : live ? "Đang hiển thị công khai" : "Chưa hiển thị công khai"}
+                  {c.staff_hidden ? "Đang tạm ẩn" : live ? "Đang hiển thị công khai" : "Chưa hiển thị công khai"}
                 </span>
               </div>
             </div>

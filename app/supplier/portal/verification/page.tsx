@@ -8,7 +8,7 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { buildVerificationProgress } from "@/lib/supplier-portal/verification-progress";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Xác minh nhà cung cấp | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "Xác minh nhà cung cấp", robots: { index: false, follow: false } };
 
 /**
  * Điểm vào cũ của cổng tự xác thực. Từ 24/10/2026 hai cấp đã tách thành hai trang
@@ -24,7 +24,7 @@ export default async function SupplierVerificationIndexPage() {
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · Xác minh" title="Chọn cấp xác minh"
-      sub="Mỗi cấp là một trang riêng, một kết luận độc lập của Vexim." />
+      sub="Mỗi cấp là một trang riêng, một kết luận độc lập." />
     <div className="grid gap-3 sm:grid-cols-2">
       {progress.steps.filter((step) => step.level !== 1).map((step) => {
         const href = step.level === 2 ? "/supplier/portal/verification/factory" : "/supplier/portal/verification/export";
@@ -41,6 +41,6 @@ export default async function SupplierVerificationIndexPage() {
         </Link>;
       })}
     </div>
-    <p className="mt-4 text-[11.5px] leading-5 text-ink-500">Tải bằng chứng không tự cấp huy hiệu. Mỗi cấp chỉ chuyển sang “Đã duyệt” khi nhân viên Vexim đối chiếu và người có quyền duyệt phê kết quả.</p>
+    <p className="mt-4 text-[11.5px] leading-5 text-ink-500">Tải bằng chứng không tự cấp huy hiệu. Mỗi cấp chỉ chuyển sang “Đã duyệt” khi hồ sơ được đối chiếu thủ công và người có quyền duyệt phê kết quả.</p>
   </>;
 }

@@ -217,7 +217,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
 
   async function runScan(submit: boolean) {
     if (busy) return;
-    if (submit && !window.confirm("Nộp hồ sơ để AI quét và Vexim xét duyệt? Ảnh/chứng từ sẽ được gửi tới dịch vụ AI để phân tích sơ bộ; bằng chứng bị khóa sau khi nộp.")) return;
+    if (submit && !window.confirm("Nộp hồ sơ để AI quét sơ bộ và chuyển sang bước duyệt? Ảnh/chứng từ sẽ được gửi tới dịch vụ AI để phân tích; bằng chứng bị khóa sau khi nộp.")) return;
     setBusy(submit ? "submit" : "scan"); setMessage(null); setScan(null);
     try {
       const response = await fetch(`/api/supplier-portal/submissions/${encodeURIComponent(view.id)}/ai-scan`, {
@@ -284,7 +284,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
     ? `Đã bật định vị: ${gps.lat.toFixed(5)}, ${gps.lng?.toFixed(5)}${gps.accuracy != null ? ` (±${Math.round(gps.accuracy)} m)` : ""}`
     : gps.state === "asking" ? "Đang xin quyền định vị..."
       : gps.state === "denied" ? "Trình duyệt đang chặn định vị — hãy bật lại trong cài đặt trang, nếu không ảnh sẽ bị nêu cờ “không có toạ độ”."
-        : gps.state === "unsupported" ? "Thiết bị/trình duyệt không có định vị. Ảnh vẫn tải được nhưng sẽ bị nêu cờ để Vexim kiểm tra thêm."
+        : gps.state === "unsupported" ? "Thiết bị/trình duyệt không có định vị. Ảnh vẫn tải được nhưng sẽ được ghi chú để kiểm tra thêm."
           : "Chưa có vị trí. Hãy cho phép trang dùng vị trí để ảnh được gắn toạ độ.";
 
   const progress = view.requiredTotal > 0 ? Math.min(100, Math.round((view.uploadedTotal / view.requiredTotal) * 100)) : 0;
@@ -339,14 +339,14 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
 
       {view.status === "accepted" && <p className="border-t border-emerald-100 bg-emerald-50 px-4 py-2.5 text-[12px] leading-5 text-emerald-900 sm:px-5">
         <CheckCircle2 className="mr-1 inline size-4 align-[-2px]" aria-hidden="true" />
-        Vexim đã nhận hồ sơ này vào đợt kiểm của nhân viên và khóa bằng chứng. Việc duyệt huy hiệu L{level} là bước riêng, do người có quyền duyệt quyết định.
+        Hồ sơ đã được nhận vào đợt kiểm và bằng chứng đã khóa. Việc duyệt huy hiệu L{level} là bước riêng, do người có quyền duyệt quyết định.
       </p>}
       {view.status === "returned" && view.reviewNote && <p className="whitespace-pre-wrap border-t border-rose-100 bg-rose-50 px-4 py-2.5 text-[12px] leading-5 text-rose-900 sm:px-5">
-        <strong>Vexim/AI nêu lý do cần bổ sung:</strong> {view.reviewNote}
+        <strong>Lý do cần bổ sung:</strong> {view.reviewNote}
       </p>}
       {view.status === "pending_review" && <p className="border-t border-amber-100 bg-amber-50 px-4 py-2.5 text-[12px] leading-5 text-amber-900 sm:px-5">
         <Clock className="mr-1 inline size-4 align-[-2px]" aria-hidden="true" />
-        Hồ sơ đang trong hàng đợi chờ Vexim xét duyệt{view.aiScannedAt ? ` · AI quét lúc ${new Date(view.aiScannedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : " · chưa có kết quả quét AI"}.
+        Hồ sơ đang trong hàng đợi duyệt{view.aiScannedAt ? ` · AI quét lúc ${new Date(view.aiScannedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : " · chưa có kết quả quét AI"}.
       </p>}
     </section>
 
@@ -358,7 +358,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
       {scan.summary && <p className="mt-2 text-[13px]">{scan.summary}</p>}
       {scan.reasons.length > 0 && <ul className="mt-2 space-y-1 text-[13px]">{scan.reasons.map((r) => <li key={r}>• {r}</li>)}</ul>}
       {scan.warnings.length > 0 && <p className="mt-2 text-[12px] text-violet-800">Điểm cần lưu ý: {scan.warnings.slice(0, 5).join(" · ")}</p>}
-      <p className="mt-2 text-[11px] text-violet-800">AI không xác nhận giấy tờ là thật và không tự duyệt. Hồ sơ đạt sẽ chờ nhân viên Vexim đối chiếu; huy hiệu L{level} chỉ có sau khi một người có quyền duyệt (khác người kiểm) phê.</p>
+      <p className="mt-2 text-[11px] text-violet-800">AI không xác nhận giấy tờ là thật và không tự duyệt. Hồ sơ đạt sẽ chờ đối chiếu thủ công; huy hiệu L{level} chỉ có sau khi một người có quyền duyệt (khác người kiểm) phê.</p>
     </div>}
 
     <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
@@ -422,7 +422,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
               <h3 id="shipment-title" className="flex items-center gap-2 text-[14px] font-bold text-ink-900">
                 <Ship className="h-4 w-4 text-brand-700" aria-hidden="true" /> Lô hàng dùng làm bằng chứng
               </h3>
-              <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Thông tin do doanh nghiệp tự khai để Vexim đối chiếu với chứng từ bạn tải lên.</p>
+              <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Thông tin do doanh nghiệp tự khai, dùng để đối chiếu với chứng từ bạn tải lên.</p>
             </div>
             <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[10.5px] font-bold text-ink-600">NCC tự khai</span>
           </div>
@@ -477,7 +477,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
             </h3>
             <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[10.5px] font-bold text-ink-600">{view.links.length} link</span>
           </div>
-          <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Dán link trang công khai có nhắc tới doanh nghiệp/lô hàng (trang doanh nghiệp, hồ sơ trên sàn B2B, tin hội chợ…). Hệ thống chỉ tự đọc domain trong danh sách nguồn công khai của Vexim; link lạ vẫn được lưu để nhân viên tự mở.</p>
+          <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Dán link trang công khai có nhắc tới doanh nghiệp/lô hàng (trang doanh nghiệp, hồ sơ trên sàn B2B, tin hội chợ…). Hệ thống chỉ tự đọc domain trong danh sách nguồn công khai; link lạ vẫn được lưu để mở kiểm tra sau.</p>
           <form onSubmit={(e) => void addLink(e)} className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] sm:items-end">
             <label className="min-w-0 text-xs font-semibold text-ink-700">Link (http/https)<input name="url" type="url" required maxLength={800} disabled={!view.editable} className="input mt-1" placeholder="https://..." /></label>
             <label className="min-w-0 text-xs font-semibold text-ink-700">Mô tả ngắn<input name="label" maxLength={200} disabled={!view.editable} className="input mt-1" placeholder="VD: hồ sơ doanh nghiệp trên sàn" /></label>
@@ -521,7 +521,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
           <p className={`mt-1 text-[11.5px] leading-5 ${progressTone}`}>{locked
             ? "Hồ sơ đang chờ xét hoặc đã được nhận — bằng chứng bị khóa."
             : view.ready
-              ? "Đủ mục bắt buộc. Nộp để AI quét và Vexim xét duyệt."
+              ? "Đủ mục bắt buộc. Nộp để AI quét sơ bộ và chuyển sang bước duyệt."
               : `Còn thiếu ${view.missing.length} mục${level === 2 ? ", hoặc thiếu tờ mã trong ảnh 🔖" : ""}.`}</p>
 
           <dl className="mt-3 grid grid-cols-2 gap-2 text-center">
@@ -573,7 +573,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
                   <li>Ảnh chụp hoặc PDF đều nhận; không cần bản gốc.</li>
                 </>}
           </ul>
-          <p className="mt-2 flex items-start gap-1 text-[10px] leading-4 text-brand-900"><ShieldCheck className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> Nhân viên Vexim đối chiếu; người có quyền duyệt khác người kiểm mới phê kết quả.</p>
+          <p className="mt-2 flex items-start gap-1 text-[10px] leading-4 text-brand-900"><ShieldCheck className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> Hồ sơ được đối chiếu thủ công; người có quyền duyệt khác người kiểm mới phê kết quả.</p>
         </section>
       </aside>
     </div>

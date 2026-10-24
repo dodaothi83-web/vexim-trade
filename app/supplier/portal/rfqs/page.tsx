@@ -11,7 +11,7 @@ import { migrationHint } from "@/lib/db/migration-hints";
 import { EmptyRow, Panel, date } from "../portal-ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "RFQ & báo giá | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "RFQ & báo giá", robots: { index: false, follow: false } };
 
 /**
  * Một trang cho toàn bộ công việc RFQ: việc cần trả lời, danh sách đã chuyển và báo cáo.
@@ -46,7 +46,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="RFQ & báo giá"
-      sub="Chỉ những yêu cầu báo giá Vexim thực sự chuyển cho doanh nghiệp. Thông tin buyer được giữ kín."
+      sub="Chỉ những yêu cầu báo giá đã được chuyển tới doanh nghiệp. Thông tin buyer được giữ kín."
       actions={<>
         <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{board.tasks.length} cần phản hồi</span>
         <span className="rounded-full bg-ink-100 px-3 py-1 text-[11px] font-bold text-ink-700">{board.invites.length} lời mời</span>
@@ -54,13 +54,13 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
 
     {degraded.length > 0 && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <p className="font-bold">Một phần dữ liệu RFQ chưa tải được</p>
-      <p className="mt-1">Phần còn lại vẫn dùng bình thường. Nếu tình trạng này kéo dài, báo Vexim để kiểm tra cấu hình.</p>
+      <p className="mt-1">Phần còn lại vẫn dùng bình thường. Nếu tình trạng này kéo dài, liên hệ bộ phận hỗ trợ để kiểm tra cấu hình.</p>
       <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
     </div>}
 
     <div className="space-y-5">
       <Panel icon={<Mail className="h-4 w-4 text-brand-700" />} title="Cần bạn phản hồi" count={board.tasks.length}
-        sub="Trả lời email mời chào giá của Vexim. Không liên hệ buyer trực tiếp." flush>
+        sub="Trả lời thư mời chào giá trong hộp thư của bạn. Không liên hệ buyer trực tiếp." flush>
         {board.tasks.length ? <ul className="divide-y divide-ink-100">
           {board.tasks.map((task) => {
             const overdue = !!task.dueAt && Date.parse(task.dueAt) < Date.now();
@@ -72,7 +72,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
                 <span className="block truncate text-sm font-semibold text-ink-900">{task.title}</span>
                 <span className="mt-0.5 block text-xs text-ink-500">{task.code} · {task.quantity} · {task.destination}</span>
                 <span className={`mt-0.5 block text-xs ${overdue ? "font-semibold text-rose-700" : "text-ink-500"}`}>
-                  {overdue ? "Đã quá hạn phản hồi: " : "Hạn phản hồi: "}{task.dueAt ? date(task.dueAt) : "theo thư mời của Vexim"}
+                  {overdue ? "Đã quá hạn phản hồi: " : "Hạn phản hồi: "}{task.dueAt ? date(task.dueAt) : "theo thư mời đã gửi"}
                 </span>
               </span>
               <a href={`mailto:${supplierReplyAddress(task.code, task.matchId)}?subject=${encodeURIComponent(`Phản hồi ${task.code}`)}`} className="btn btn-ghost btn-sm">Trả lời qua email</a>
@@ -81,22 +81,22 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
       </Panel>
 
       <Panel icon={<PackageSearch className="h-4 w-4 text-brand-700" />} title="Lời mời đã chuyển" count={board.invites.length}
-        sub="Mới nhất ở trên. Mỗi dòng là một lần Vexim chuyển yêu cầu báo giá, không phải đơn hàng."
+        sub="Mới nhất ở trên. Mỗi dòng là một lần yêu cầu báo giá được chuyển tới, không phải đơn hàng."
         action={board.invites.length > 30 && !showAll ? <Link href="/supplier/portal/rfqs?all=1" className="text-xs font-bold text-brand-700 hover:underline">Xem tất cả</Link> : undefined} flush>
         {board.invites.length ? <ul className="divide-y divide-ink-100">
           {shown.map((item) => <li key={item.matchId} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-ink-900">{item.title}</span>
               <span className="mt-0.5 block text-xs text-ink-500">{item.code} · {item.quantity} · {item.destination} · chuyển ngày {date(item.sentAt)}</span>
-              <span className="mt-0.5 block text-xs text-ink-500">Hạn phản hồi: {item.dueAt ? date(item.dueAt) : "theo email Vexim"}{item.quotePrice ? ` · Giá đã ghi nhận: ${item.quotePrice}` : ""}</span>
-              {item.repliedAt && <span className="mt-0.5 block text-xs font-semibold text-emerald-700">Đã ghi nhận phản hồi ngày {date(item.repliedAt)}; Vexim sẽ xử lý nội dung.</span>}
+              <span className="mt-0.5 block text-xs text-ink-500">Hạn phản hồi: {item.dueAt ? date(item.dueAt) : "theo thư mời đã gửi"}{item.quotePrice ? ` · Giá đã ghi nhận: ${item.quotePrice}` : ""}</span>
+              {item.repliedAt && <span className="mt-0.5 block text-xs font-semibold text-emerald-700">Đã ghi nhận phản hồi ngày {date(item.repliedAt)}; nội dung sẽ được xử lý tiếp.</span>}
             </span>
             <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-800">{item.status}</span>
-          </li>)}</ul> : <EmptyRow>Chưa có RFQ nào được Vexim chuyển cho doanh nghiệp.</EmptyRow>}
+          </li>)}</ul> : <EmptyRow>Chưa có RFQ nào được chuyển tới doanh nghiệp.</EmptyRow>}
       </Panel>
 
       <Panel icon={<TrendingUp className="h-4 w-4 text-brand-700" />} title="Báo cáo lời mời báo giá"
-        sub="Chỉ tính RFQ Vexim thực sự chuyển cho doanh nghiệp, không tính lượt xem hay doanh thu."
+        sub="Chỉ tính RFQ thực sự chuyển tới doanh nghiệp, không tính lượt xem hay doanh thu."
         flush
         action={<nav aria-label="Khoảng thời gian báo cáo" className="flex gap-1 rounded-lg border border-ink-200 bg-ink-50 p-1">
           {([7, 30, 90] as const).map((d) => <Link key={d} href={`/supplier/portal/rfqs?range=${d}`} aria-current={days === d ? "page" : undefined}
@@ -104,7 +104,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
         </nav>}>
         <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-4">
           {([["Được chuyển", board.report.sent], ["Đã phản hồi", board.report.responded],
-            ["Đã ghi báo giá", board.report.quoted], ["Vexim đã chọn", board.report.selected]] as const).map(([label, value]) =>
+            ["Đã ghi báo giá", board.report.quoted], ["Được chọn", board.report.selected]] as const).map(([label, value]) =>
             <div key={label} className="rounded-lg bg-ink-50 px-3 py-2.5">
               <p className="text-[11px] font-semibold text-ink-600">{label}</p>
               <p className="mt-1 text-2xl leading-none font-black tabular-nums text-ink-900">{value}</p>

@@ -36,10 +36,10 @@ export function categoryProposalOptions(categories: Category[]): CategoryProposa
 
 export function parseSupplierCategoryProposals(form: FormData, options: CategoryProposalOption[]) {
   const submitted = form.getAll("requested_category_slugs");
-  if (!options.length) throw new Error("Vexim chưa mở danh mục để chọn. Vui lòng liên hệ Vexim trước khi gửi hồ sơ.");
+  if (!options.length) throw new Error("Chưa có danh mục nào đang mở. Liên hệ bộ phận hỗ trợ trước khi gửi hồ sơ.");
   if (!submitted.length || submitted.length > 5 ||
       submitted.some((v) => typeof v !== "string" || !options.some((c) => c.slug === v)) ||
-      new Set(submitted).size !== submitted.length) throw new Error("Chọn 1–5 danh mục hợp lệ trong danh sách Vexim.");
+      new Set(submitted).size !== submitted.length) throw new Error("Chọn 1–5 danh mục hợp lệ trong danh sách đang mở.");
   // A free-text 'other' field from a stale client must never expand the supplier's allowed scope.
   return { requested_category_slugs: submitted as string[], requested_category_other: null };
 }
@@ -66,6 +66,6 @@ export function productCategorySlug(
 
 export function parseProductCategoryProposal(form: FormData, options: CategoryProposalOption[]): string {
   const raw = String(form.get("supplier_category_proposal") ?? "").trim();
-  if (!raw || !options.some((c) => c.slug === raw)) throw new Error("Chọn danh mục sản phẩm trong phạm vi danh mục NCC đã chọn từ Vexim.");
+  if (!raw || !options.some((c) => c.slug === raw)) throw new Error("Chọn danh mục sản phẩm trong phạm vi danh mục doanh nghiệp đã đăng ký.");
   return raw;
 }

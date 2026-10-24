@@ -177,7 +177,7 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
               {(latest.aiCodeRead || latest.aiCodeVisible === false) && <p className="mt-0.5">
                 Mã viết tay: {latest.aiCodeVisible === false ? "không thấy tờ giấy trong ảnh" : `AI đọc được “${latest.aiCodeRead}”`}
               </p>}
-              <p className="mt-0.5 text-ink-500">AI chỉ gợi ý; kết quả xác minh do nhân viên Vexim quyết định.</p>
+              <p className="mt-0.5 text-ink-500">AI chỉ gợi ý; kết quả xác minh do bộ phận duyệt quyết định.</p>
             </div>}
             <p className="text-ink-500">Ảnh không có toạ độ hay bị nén lại vẫn được nhận. Điểm này chỉ giúp người duyệt biết cần xem kỹ chỗ nào.</p>
           </div>

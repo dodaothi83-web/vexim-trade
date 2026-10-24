@@ -10,7 +10,7 @@ import { migrationHint } from "@/lib/db/migration-hints";
 import { Info, LevelChip, Panel, VerifyRow } from "../portal-ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Hồ sơ doanh nghiệp | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "Hồ sơ doanh nghiệp", robots: { index: false, follow: false } };
 
 const join = (value: (string | null | undefined)[] | undefined) => (value ?? []).filter(Boolean).join(" · ");
 const vi = (value: Record<string, string> | undefined) => value?.vi || value?.en || "";
@@ -56,11 +56,11 @@ export default async function SupplierProfilePage() {
   const l2Own = submissionRows.find((s) => s.target_level === 2);
   const l3Own = submissionRows.find((s) => s.target_level === 3);
   const l2Status = l2Approved ? "Đã duyệt" : l2Own?.status === "pending_review" ? "Hồ sơ tự gửi đang chờ xét"
-    : l2Own?.status === "returned" ? "Cần bổ sung bằng chứng" : l2Own?.status === "accepted" ? "Vexim đã nhận vào đợt kiểm"
-    : requestRows.find((r) => r.target_level === 2)?.status === "contacted" ? "Vexim đã ghi nhận liên hệ" : "Chưa có bằng chứng";
+    : l2Own?.status === "returned" ? "Cần bổ sung bằng chứng" : l2Own?.status === "accepted" ? "Đã nhận vào đợt kiểm"
+    : requestRows.find((r) => r.target_level === 2)?.status === "contacted" ? "Đã ghi nhận liên hệ" : "Chưa có bằng chứng";
   const l3Status = l3Approved ? "Đã duyệt" : l3Own?.status === "pending_review" ? "Hồ sơ tự gửi đang chờ xét"
-    : l3Own?.status === "returned" ? "Cần bổ sung bằng chứng" : l3Own?.status === "accepted" ? "Vexim đã nhận vào đợt kiểm"
-    : requestRows.find((r) => r.target_level === 3)?.status === "contacted" ? "Vexim đã ghi nhận liên hệ" : "Chưa có bằng chứng";
+    : l3Own?.status === "returned" ? "Cần bổ sung bằng chứng" : l3Own?.status === "accepted" ? "Đã nhận vào đợt kiểm"
+    : requestRows.find((r) => r.target_level === 3)?.status === "contacted" ? "Đã ghi nhận liên hệ" : "Chưa có bằng chứng";
   const currentStep = !l1Approved ? 1 : !l2Approved ? 2 : !l3Approved ? 3 : null;
   const nextGoal = currentStep ? `L${currentStep} · ${currentStep === 1 ? "Giấy tờ" : currentStep === 2 ? "Nhà máy" : "Xuất khẩu"}` : "Đã đủ ba cấp";
   const published = supplier.status === "published";
@@ -70,7 +70,7 @@ export default async function SupplierProfilePage() {
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Hồ sơ doanh nghiệp"
-      sub="Đây là hồ sơ buyer và nhân viên Vexim nhìn thấy, kèm tình trạng từng cấp xác minh. Mỗi cấp là một kết luận riêng."
+      sub="Đây là hồ sơ buyer và bộ phận duyệt nhìn thấy, kèm tình trạng từng cấp xác minh. Mỗi cấp là một kết luận riêng."
       actions={<>
         <span className="rounded-full bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand-800">Bước tiếp theo: {nextGoal}</span>
         <Link href="/supplier/portal/storefront" className="btn btn-ghost">
@@ -86,7 +86,7 @@ export default async function SupplierProfilePage() {
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <div className="space-y-5">
         <Panel icon={<FileText className="h-4 w-4 text-brand-700" />} title="Thông tin trên hồ sơ"
-          sub="Đối chiếu với trang công khai. Sửa thông tin hoặc số tài khoản đã khai, liên hệ nhân viên Vexim.">
+          sub="Đối chiếu với trang công khai. Cần sửa thông tin hoặc số tài khoản đã khai, liên hệ bộ phận hỗ trợ.">
           <p className="text-[10.5px] font-bold tracking-[0.14em] text-ink-400 uppercase">Doanh nghiệp</p>
           <dl className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
             <Info label="Tên pháp nhân" value={supplier.name} />
@@ -121,19 +121,19 @@ export default async function SupplierProfilePage() {
             <Info label="Zalo" value={supplier.zalo} />
             <Info label="Website" value={supplier.website} />
           </dl>
-          <p className="mt-4 text-[11px] leading-5 text-ink-500">Tên hiển thị, phần giới thiệu và thông tin thương mại là nội dung đề xuất để Vexim biên tập, chưa tự động công khai. Email, điện thoại và giấy tờ nội bộ không hiển thị cho buyer.</p>
+          <p className="mt-4 text-[11px] leading-5 text-ink-500">Tên hiển thị, phần giới thiệu và thông tin thương mại là nội dung đề xuất, sẽ được biên tập trước khi công khai. Email, điện thoại và giấy tờ nội bộ không hiển thị cho buyer.</p>
         </Panel>
 
         <Panel icon={<BadgeCheck className="h-4 w-4 text-brand-700" />} title="Giới thiệu trên trang công khai"
-          sub="Phần buyer đọc đầu tiên. Vexim biên tập lại trước khi công khai.">
+          sub="Phần buyer đọc đầu tiên, được biên tập lại trước khi công khai.">
           {about
             ? <p className="text-[13px] leading-6 whitespace-pre-line text-ink-700">{about}</p>
-            : <p className="text-[13px] leading-6 text-ink-500">Chưa có phần giới thiệu. Gửi nội dung cho nhân viên Vexim để bổ sung trước khi hồ sơ công khai.</p>}
+            : <p className="text-[13px] leading-6 text-ink-500">Chưa có phần giới thiệu. Gửi nội dung để bổ sung trước khi hồ sơ công khai.</p>}
         </Panel>
       </div>
 
       <Panel icon={<ShieldCheck className="h-4 w-4 text-brand-700" />} title="Bạn đang ở bước nào"
-        sub="Ba đánh giá độc lập. Chỉ nhân viên Vexim có quyền xác nhận kết quả.">
+        sub="Ba đánh giá độc lập. Chỉ bộ phận duyệt có quyền xác nhận kết quả.">
         <ol className="space-y-2">
           {([
             { level: 1, title: "Kiểm tra giấy tờ", status: l1Status, on: l1Approved, href: "/supplier/portal/documents", cta: "Tải giấy tờ L1" },
@@ -149,15 +149,15 @@ export default async function SupplierProfilePage() {
         </ol>
         <div className="mt-4 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2.5 text-[11.5px] leading-5 text-ink-700">
           {currentStep
-            ? <>Bước tiếp theo của hồ sơ là <b className="text-ink-900">{nextGoal}</b>. Tải bằng chứng không tự cấp huy hiệu; Vexim kiểm rồi quyết định từng cấp.</>
-            : <>Hồ sơ đã đủ ba cấp xác minh. Vexim vẫn có thể kiểm lại khi giấy tờ hết hạn hoặc có thay đổi.</>}
+            ? <>Bước tiếp theo của hồ sơ là <b className="text-ink-900">{nextGoal}</b>. Tải bằng chứng không tự cấp huy hiệu; từng cấp được kiểm và quyết định riêng.</>
+            : <>Hồ sơ đã đủ ba cấp xác minh. Kết quả có thể được kiểm lại khi giấy tờ hết hạn hoặc có thay đổi.</>}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href="/supplier/portal/documents" className="btn btn-ghost btn-sm">Giấy tờ L1</Link>
           <Link href="/supplier/portal/verification/factory" className="btn btn-soft btn-sm">Nộp bằng chứng nhà máy</Link>
           <Link href="/supplier/portal/verification/export" className="btn btn-soft btn-sm">Nộp chứng từ xuất khẩu</Link>
         </div>
-        <p className="mt-3 text-[11px] leading-5 text-ink-500">Nhãn xác minh trên trang buyer chỉ xuất hiện cho từng đánh giá được nhân viên Vexim kiểm và người có quyền duyệt phê.</p>
+        <p className="mt-3 text-[11px] leading-5 text-ink-500">Nhãn xác minh trên trang buyer chỉ xuất hiện cho từng đánh giá đã được kiểm và phê duyệt.</p>
       </Panel>
     </div>
   </>;

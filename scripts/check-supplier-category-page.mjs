@@ -21,7 +21,7 @@ const actions = {
 
 const status = {
   draft: { label: 'Bản nháp', tone: 'bg-slate-100' },
-  pending: { label: 'Chờ Vexim duyệt', tone: 'bg-amber-100' },
+  pending: { label: 'Chờ duyệt', tone: 'bg-amber-100' },
   changes_requested: { label: 'Cần chỉnh sửa', tone: 'bg-rose-100' },
   approved: { label: 'Đã duyệt nội dung', tone: 'bg-emerald-100' },
 };
@@ -63,7 +63,7 @@ const render = (initial) => renderToStaticMarkup(React.createElement(exports.Sup
 
 // 1. Danh sách danh mục + tổng quan + cột phạm vi + danh sách sản phẩm đều có mặt.
 const html = render(['cashew']);
-assert.match(html, /Danh mục Vexim đã mở/, 'Có khối danh mục Vexim đã mở');
+assert.match(html, /Danh mục đang mở/, 'Có khối danh mục đang mở');
 assert.match(html, /Tìm danh mục…/, 'Có ô tìm danh mục');
 for (const group of ['Hạt &amp; hạt nhân', 'Gia vị', 'Lương thực']) assert.ok(html.includes(group), `Nhóm danh mục ${group} hiện tiêu đề nhóm`);
 assert.match(html, /<button[^>]*aria-pressed="true"/, 'Danh mục đã chọn có aria-pressed');
@@ -122,7 +122,7 @@ assert.doesNotMatch(page, /<h1|<main/, 'Trang không tự dựng tiêu đề/khu
 assert.match(page, /<SupplierCategoryWorkspace/, 'Trang chuyển dữ liệu cho workspace');
 assert.match(page, /productCategorySlug\(product\)/, 'Danh mục của sản phẩm lấy từ một hàm dùng chung');
 assert.match(page, /productReview\(product\)/, 'Trạng thái duyệt lấy từ lớp dữ liệu sản phẩm dùng chung');
-assert.match(page, /Vexim chưa mở danh mục/, 'Giữ nguyên trạng thái chưa có danh mục');
+assert.match(page, /Chưa có danh mục nào để chọn/, 'Giữ nguyên trạng thái chưa có danh mục');
 assert.match(page, /portalApproved\(access\.supplier\)/, 'Giữ kiểm tra quyền cổng');
 assert.match(read('../app/supplier/portal/categories/actions.ts'), /productCategorySlug\(p\)/, 'Server action dùng cùng hàm xác định danh mục của sản phẩm');
 

@@ -29,13 +29,13 @@ const LEVELS = {
     title: "Xác thực nhà máy",
     titleShort: "Nhà máy",
     eyebrow: "Cổng nhà cung cấp · Xác minh L2",
-    description: "Chín ảnh nhà máy theo danh mục chung. Ba ảnh đánh dấu 🔖 phải có tờ mã xác minh do Vexim phát hành.",
+    description: "Chín ảnh nhà máy theo danh mục chung. Ba ảnh đánh dấu 🔖 phải có tờ mã xác minh do hệ thống phát hành.",
     href: "/supplier/portal/verification/factory",
     icon: Factory,
     guide: [
       { title: "Tạo và in tờ mã", body: "Bấm “Tạo mã xác minh” rồi tải tờ mã về (hoặc in ra). Đây là bước bắt buộc duy nhất về giấy tờ." },
       { title: "Chụp 9 ảnh tại nhà máy", body: "Đặt tờ mã cạnh cảnh ở 3 ảnh 🔖: cổng nhà máy, dây chuyền đang chạy, kho thành phẩm. Ảnh điện thoại, kể cả ảnh đã gửi qua Zalo, đều nhận." },
-      { title: "AI quét và nộp", body: "AI chỉ quét sơ bộ. Nhân viên Vexim đối chiếu, người có quyền duyệt khác người kiểm mới phê huy hiệu L2." },
+      { title: "AI quét và nộp", body: "AI chỉ quét sơ bộ. Hồ sơ được đối chiếu thủ công; huy hiệu L2 chỉ được phê khi người duyệt khác người kiểm." },
     ],
   },
   3: {
@@ -48,7 +48,7 @@ const LEVELS = {
     guide: [
       { title: "Chọn một lô đã giao", body: "Khai mã lô, ngày giao và nơi đến. RFQ trúng thầu không thay được chứng từ giao hàng." },
       { title: "Tải chứng từ", body: "Bắt buộc có vận đơn và tờ khai hải quan. Hoá đơn, phiếu đóng gói, C/O… là mục tùy chọn nếu bạn có." },
-      { title: "Thêm link và nộp", body: "Dán link công khai có nhắc tới doanh nghiệp/lô hàng. AI chỉ quét sơ bộ; Vexim vẫn là người đối chiếu và duyệt." },
+      { title: "Thêm link và nộp", body: "Dán link công khai có nhắc tới doanh nghiệp/lô hàng. AI chỉ quét sơ bộ; vẫn phải có người đối chiếu và duyệt." },
     ],
   },
 } as const;
@@ -73,7 +73,7 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
       <PageHeader eyebrow={copy.eyebrow} title={copy.title} />
       <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
         <h2 className="text-base font-bold">Chưa mở được phần tải bằng chứng</h2>
-        <p className="mt-2">Đây là lỗi cấu hình phía Vexim, không phải lỗi tài khoản của bạn. Vexim đã nhận được ghi nhận tự động; bạn thử lại sau hoặc báo trực tiếp cho người phụ trách.</p>
+        <p className="mt-2">Đây là lỗi cấu hình phía hệ thống, không phải lỗi tài khoản của bạn. Ghi nhận đã được gửi tự động; bạn thử lại sau hoặc báo trực tiếp cho người phụ trách.</p>
         <p className="mt-2">Sản phẩm, RFQ và thông báo ở các mục khác vẫn dùng bình thường.</p>
         <Link href="/supplier/portal" className="mt-3 inline-block font-semibold text-amber-900 underline">Về bảng điều khiển</Link>
       </div>
@@ -105,7 +105,7 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
     {view
       ? <VerificationSubmissionPanel view={view} specs={specs} />
       : <div role="status" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-        Chưa mở được hồ sơ xác minh này. Thử tải lại trang; nếu vẫn lỗi, báo nhân viên Vexim.
+        Chưa mở được hồ sơ xác minh này. Thử tải lại trang; nếu vẫn lỗi, liên hệ bộ phận hỗ trợ.
       </div>}
 
     <details className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
@@ -115,7 +115,7 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
         <li>Hệ thống ghi lại các tín hiệu kỹ thuật (còn dữ liệu ảnh gốc hay không, có toạ độ hay không, giờ chụp, phần mềm chỉnh sửa) và hiện thành ghi chú cho người duyệt. Từ 21/10/2026 những điểm này <strong>không chặn hồ sơ</strong>.</li>
         <li>Thứ duy nhất bị chặn: ảnh 🔖 không thấy tờ mã, hoặc mã trong ảnh không khớp mã đã phát hành. Khi đó hồ sơ ở lại bản nháp để doanh nghiệp chụp lại.</li>
         <li>AI <strong>không</strong> xác nhận giấy tờ là thật, không xác nhận doanh nghiệp đã xuất khẩu, không tự duyệt và không tự cấp huy hiệu L2/L3.</li>
-        <li>Hồ sơ đạt sẽ vào hàng đợi; nhân viên Vexim đối chiếu rồi mới mở đợt kiểm chính thức, và người duyệt phải là người khác người kiểm.</li>
+        <li>Hồ sơ đạt sẽ vào hàng đợi; hồ sơ được đối chiếu thủ công rồi mới mở đợt kiểm chính thức, và người duyệt phải khác người kiểm.</li>
       </ul>
     </details>
   </>;

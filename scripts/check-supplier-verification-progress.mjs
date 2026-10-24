@@ -71,7 +71,7 @@ assert.equal(l1Done.approvedCount, 1);
 assert.equal(l1Done.percent, 33);
 assert.equal(l1Done.currentLevel, 2);
 assert.equal(l1Done.steps[0].statusEn, 'Approved');
-assert.equal(l1Done.steps[0].metric, 'Vexim đã duyệt hồ sơ', 'Bước đã duyệt không hiện “Chưa có giấy tờ”');
+assert.equal(l1Done.steps[0].metric, 'Hồ sơ đã được duyệt', 'Bước đã duyệt không hiện “Chưa có giấy tờ”');
 const l1Dated = buildVerificationProgress({ ...empty, reviews: [review({ status: 'approved', approved_at: '2026-10-21T03:00:00Z' })] });
 assert.equal(l1Dated.steps[0].metric, 'Duyệt ngày 21/10/2026');
 
@@ -83,9 +83,9 @@ const l2Pending = buildVerificationProgress({
   submissionItems: { 'sub-2': photos },
 });
 assert.equal(l2Pending.steps[1].state, 'reviewing');
-assert.equal(l2Pending.steps[1].status, 'Chờ Vexim xét');
+assert.equal(l2Pending.steps[1].status, 'Chờ duyệt');
 assert.equal(l2Pending.steps[1].metric, 'Đã tải 9/9 ảnh');
-assert.equal(l2Pending.steps[1].statusEn, 'Vexim is reviewing');
+assert.equal(l2Pending.steps[1].statusEn, 'Under review');
 assert.equal(l2Pending.approvedCount, 0, 'Nộp đủ ảnh không tự thành huy hiệu');
 assert.equal(l2Pending.currentLevel, 1, 'Bước 1 còn trống nên vẫn là bước cần làm trước');
 assert.match(l2Pending.headline, /Bước tiếp theo: Kiểm tra giấy tờ/);
@@ -103,7 +103,7 @@ assert.match(l3Draft.steps[2].note, /Còn 1 chứng từ bắt buộc/);
 // 6. Yêu cầu kiểm định đã được liên hệ: nói rõ là liên hệ lên kế hoạch, vẫn mời tự nộp.
 const contacted = buildVerificationProgress({ ...empty, requests: [{ supplier_id: supplierId, target_level: 2, status: 'contacted' }] });
 assert.equal(contacted.steps[1].state, 'action');
-assert.equal(contacted.steps[1].status, 'Vexim đã liên hệ');
+assert.equal(contacted.steps[1].status, 'Đã ghi nhận liên hệ');
 assert.match(contacted.steps[1].note, /lên kế hoạch/);
 
 // 7. Hai bước đã duyệt: 67%, bước còn lại là lịch sử giao hàng.

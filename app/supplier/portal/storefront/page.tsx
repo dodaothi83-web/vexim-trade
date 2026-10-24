@@ -14,7 +14,7 @@ import { buildVerificationProgress } from "@/lib/supplier-portal/verification-pr
 import { StorefrontVerificationActions } from "../verification-progress";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Trang của tôi | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "Trang của tôi", robots: { index: false, follow: false } };
 
 const CHECKS = [[1, "Documents checked"], [2, "Factory visit"], [3, "Delivery history"]] as const;
 
@@ -65,7 +65,7 @@ export default async function SupplierStorefrontPreviewPage() {
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Trang của tôi" sub="Đúng nội dung buyer nhìn thấy trên hồ sơ công khai." />
     <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
       <p className="font-bold">Chưa dựng được bản xem trước</p>
-      <p className="mt-1 leading-6">Hệ thống chưa đọc được dữ liệu hồ sơ. Hồ sơ của bạn không bị thay đổi. Thử tải lại trang; nếu vẫn lỗi, báo nhân viên Vexim.</p>
+      <p className="mt-1 leading-6">Hệ thống chưa đọc được dữ liệu hồ sơ. Hồ sơ của bạn không bị thay đổi. Thử tải lại trang; nếu vẫn lỗi, liên hệ bộ phận hỗ trợ.</p>
     </div>
   </>;
   const { card, categories, certificates, progress } = loaded;

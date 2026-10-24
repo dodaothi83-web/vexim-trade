@@ -304,9 +304,9 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
     missing: check.missing,
     warnings: check.warnings,
     message: !aiReview
-      ? `Hệ thống chưa quét được bằng AI (${scanError ?? "chưa cấu hình khoá AI hoặc chưa có tệp đọc được"}). Hồ sơ vẫn được ghi nhận; nhân viên Vexim sẽ đối chiếu thủ công.`
+      ? `Hệ thống chưa quét được bằng AI (${scanError ?? "chưa cấu hình khoá AI hoặc chưa có tệp đọc được"}). Hồ sơ vẫn được ghi nhận và sẽ được đối chiếu thủ công.`
       : queue.status === "pending_review"
-        ? "AI đã quét xong và hồ sơ được chuyển vào hàng đợi chờ Vexim xét duyệt."
+        ? "AI đã quét xong và hồ sơ được chuyển vào hàng đợi chờ duyệt."
         : "AI đã quét xong và phát hiện điểm cần bổ sung; hồ sơ được trả lại kèm lý do.",
   };
 }

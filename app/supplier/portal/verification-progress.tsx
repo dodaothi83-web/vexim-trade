@@ -8,7 +8,7 @@ import { Panel } from "./portal-ui";
  * Hai cách nhìn cùng một tiến độ xác minh:
  *  - `VerificationProgressPanel`: khối đầy đủ trên trang tổng quan, đọc như một dải
  *    trạng thái theo thứ tự bước;
- *  - `StorefrontVerificationActions`: bản gọn đặt ngay dưới phần “What Vexim checked”
+ *  - `StorefrontVerificationActions`: bản gọn đặt ngay dưới phần “What we checked”
  *    ở “Trang của tôi”, chỉ nhà cung cấp thấy, để họ bấm thẳng tới nơi nộp bằng chứng.
  *
  * Cả hai chỉ đọc mô hình từ `lib/supplier-portal/verification-progress`; không tự suy ra
@@ -54,7 +54,7 @@ export function VerificationProgressPanel({ progress }: { progress: Verification
     <div className="border-b border-ink-100 px-5 py-4">
       <div className="flex items-center gap-3">
         <div role="progressbar" aria-valuemin={0} aria-valuemax={3} aria-valuenow={progress.approvedCount}
-          aria-label="Số bước xác minh đã được Vexim duyệt" className="h-2 flex-1 overflow-hidden rounded-full bg-ink-100">
+          aria-label="Số bước xác minh đã được duyệt" className="h-2 flex-1 overflow-hidden rounded-full bg-ink-100">
           <div className={`h-full rounded-full ${progress.percent === 100 ? "bg-emerald-500" : "bg-brand-600"}`}
             style={{ width: `${progress.percent}%` }} />
         </div>
@@ -90,7 +90,7 @@ export function VerificationProgressPanel({ progress }: { progress: Verification
 
     <p className="border-t border-ink-100 bg-ink-50/60 px-5 py-3 text-[11px] leading-5 text-ink-500">
       Tải bằng chứng không tự cấp huy hiệu. Mỗi bước chỉ chuyển sang <b className="text-ink-700">Đã duyệt</b> khi
-      nhân viên Vexim đối chiếu và người có quyền duyệt phê kết quả.
+      hồ sơ được đối chiếu thủ công và người có quyền duyệt phê kết quả.
     </p>
   </Panel>;
 }
@@ -107,7 +107,7 @@ export function StorefrontVerificationActions({ progress }: { progress: Verifica
       </span>
     </div>
     <p className="mt-2 text-xs leading-5 text-ink-600">
-      Buyers never see this panel. Add the evidence Vexim still needs; an approved check appears in the section above automatically.
+      Buyers never see this panel. Add the evidence still needed; an approved check appears in the section above automatically.
       Uploading evidence does not grant a badge by itself.
     </p>
     <ol className="mt-3 space-y-2">

@@ -13,10 +13,10 @@ import { INITIAL_DOCUMENT_KEYS } from "./policy";
  * Tiến độ xác minh nhìn từ phía NHÀ CUNG CẤP.
  *
  * Trang tổng quan và “Trang của tôi” cùng dùng một mô hình để hai nơi không thể nói
- * khác nhau. Mỗi bước là một kết luận độc lập của Vexim; ở đây chỉ mô tả đúng những gì
+ * khác nhau. Mỗi bước là một kết luận độc lập; ở đây chỉ mô tả đúng những gì
  * hệ thống đã có:
  *  - `approved`     : đã có đợt kiểm được duyệt (huy hiệu chỉ đến từ bước này);
- *  - `reviewing`    : NCC đã nộp và Vexim đang xét, hoặc đã nhận vào đợt kiểm;
+ *  - `reviewing`    : NCC đã nộp và hồ sơ đang được xét, hoặc đã nhận vào đợt kiểm;
  *  - `action`       : đang chờ NCC làm một việc cụ thể (tải giấy tờ/ảnh/chứng từ);
  *  - `not_started`  : chưa có dữ liệu nào.
  *
@@ -94,7 +94,7 @@ const STEP_COPY = {
 
 const STATUS_EN: Record<VerificationState, string> = {
   approved: "Approved",
-  reviewing: "Vexim is reviewing",
+  reviewing: "Under review",
   action: "Action needed",
   not_started: "Not started",
 };
@@ -163,21 +163,21 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     const approvedOn = shortDate(l1?.approved_at);
     Object.assign(step1, {
       state: "approved", status: "Đã duyệt", statusEn: STATUS_EN.approved,
-      note: "Vexim đã đối chiếu giấy tờ của bạn. Không cần làm gì thêm ở bước này.",
-      metric: approvedOn ? `Duyệt ngày ${approvedOn}` : "Vexim đã duyệt hồ sơ",
-      metricEn: approvedOn ? `Approved ${approvedOn}` : "Approved by Vexim",
+      note: "Giấy tờ của bạn đã được đối chiếu. Không cần làm gì thêm ở bước này.",
+      metric: approvedOn ? `Duyệt ngày ${approvedOn}` : "Hồ sơ đã được duyệt",
+      metricEn: approvedOn ? `Approved ${approvedOn}` : "Approved",
       action: "Xem giấy tờ", actionEn: "View documents", tone: "emerald",
     } satisfies Partial<VerificationProgressStep>);
   } else if (l1?.status === "returned") {
     Object.assign(step1, {
       state: "action", status: "Cần bổ sung", statusEn: STATUS_EN.action, tone: "rose",
-      note: l1.return_reason ? `Vexim yêu cầu bổ sung: ${l1.return_reason}` : "Vexim yêu cầu bổ sung giấy tờ. Mở trang Giấy tờ để tải lại bản đúng.",
+      note: l1.return_reason ? `Cần bổ sung: ${l1.return_reason}` : "Giấy tờ cần bổ sung. Mở trang Giấy tờ để tải lại bản đúng.",
       action: "Bổ sung giấy tờ", actionEn: "Upload documents",
     } satisfies Partial<VerificationProgressStep>);
   } else if (l1?.status === "submitted") {
     Object.assign(step1, {
-      state: "reviewing", status: "Chờ Vexim duyệt", statusEn: STATUS_EN.reviewing, tone: "amber",
-      note: "Bạn đã nộp giấy tờ. Vexim đang đối chiếu thủ công; tải lên không tự duyệt.",
+      state: "reviewing", status: "Chờ duyệt", statusEn: STATUS_EN.reviewing, tone: "amber",
+      note: "Bạn đã nộp giấy tờ và hồ sơ đang được đối chiếu thủ công; tải lên không tự duyệt.",
       action: "Xem giấy tờ", actionEn: "View documents",
     } satisfies Partial<VerificationProgressStep>);
   } else if (l1 || docCount > 0) {
@@ -207,32 +207,32 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     tone: "ink",
   };
 
-  const l2Note = "Ba ảnh 🔖 (cổng, dây chuyền, kho thành phẩm) phải có tờ mã xác minh do Vexim phát hành nằm trong khung hình.";
+  const l2Note = "Ba ảnh 🔖 (cổng, dây chuyền, kho thành phẩm) phải có tờ mã xác minh do hệ thống phát hành nằm trong khung hình.";
   if (l2?.status === "approved") {
     const approvedOn = shortDate(l2.approved_at);
     Object.assign(step2, {
       state: "approved", status: "Đã duyệt", statusEn: STATUS_EN.approved, tone: "emerald",
-      note: "Vexim đã hoàn tất đợt thăm nhà máy và duyệt kết quả.",
-      metric: approvedOn ? `Duyệt ngày ${approvedOn}` : "Duyệt theo đợt kiểm của Vexim",
-      metricEn: approvedOn ? `Approved ${approvedOn}` : "Approved in a Vexim review",
+      note: "Đợt thăm nhà máy đã hoàn tất và kết quả đã được duyệt.",
+      metric: approvedOn ? `Duyệt ngày ${approvedOn}` : "Duyệt theo đợt kiểm",
+      metricEn: approvedOn ? `Approved ${approvedOn}` : "Approved after review",
       action: "Xem bằng chứng", actionEn: "View evidence",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub2?.status === "pending_review") {
     Object.assign(step2, {
-      state: "reviewing", status: "Chờ Vexim xét", statusEn: STATUS_EN.reviewing, tone: "amber",
-      note: "Hồ sơ 9 ảnh đã nộp và đang trong hàng đợi. Bằng chứng tạm khóa; AI chỉ quét sơ bộ, nhân viên Vexim vẫn đối chiếu.",
+      state: "reviewing", status: "Chờ duyệt", statusEn: STATUS_EN.reviewing, tone: "amber",
+      note: "Hồ sơ 9 ảnh đã nộp và đang trong hàng đợi. Bằng chứng tạm khóa; AI chỉ quét sơ bộ, vẫn cần đối chiếu thủ công.",
       action: "Xem hồ sơ đã nộp", actionEn: "View submission",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub2?.status === "returned") {
     Object.assign(step2, {
       state: "action", status: "Cần bổ sung", statusEn: STATUS_EN.action, tone: "rose",
-      note: sub2.review_note || "Vexim yêu cầu bổ sung ảnh nhà máy. Mở cổng xác thực để xem lý do.",
+      note: sub2.review_note || "Cần bổ sung ảnh nhà máy. Mở cổng xác thực để xem lý do.",
       action: "Bổ sung ảnh", actionEn: "Add factory photos",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub2?.status === "accepted") {
     Object.assign(step2, {
       state: "reviewing", status: "Đã vào đợt kiểm", statusEn: STATUS_EN.reviewing, tone: "amber",
-      note: "Vexim đã nhận hồ sơ vào đợt kiểm và sẽ đối chiếu tại nhà máy. Đây chưa phải kết quả duyệt.",
+      note: "Hồ sơ đã vào đợt kiểm và sẽ được đối chiếu tại nhà máy. Đây chưa phải kết quả duyệt.",
       action: "Xem hồ sơ", actionEn: "View submission",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub2) {
@@ -246,14 +246,14 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     } satisfies Partial<VerificationProgressStep>);
   } else if (request2?.status === "contacted") {
     Object.assign(step2, {
-      state: "action", status: "Vexim đã liên hệ", statusEn: STATUS_EN.action, tone: "amber",
-      note: "Vexim đã ghi nhận yêu cầu thăm nhà máy và sẽ liên hệ lên kế hoạch. Bạn có thể tự nộp 9 ảnh ngay để rút ngắn thời gian.",
+      state: "action", status: "Đã ghi nhận liên hệ", statusEn: STATUS_EN.action, tone: "amber",
+      note: "Yêu cầu thăm nhà máy đã được ghi nhận; bộ phận phụ trách sẽ liên hệ lên kế hoạch. Bạn có thể tự nộp 9 ảnh ngay để rút ngắn thời gian.",
       action: "Nộp 9 ảnh nhà máy", actionEn: "Add factory photos",
     } satisfies Partial<VerificationProgressStep>);
   } else if (request2) {
     Object.assign(step2, {
       state: "action", status: "Đã gửi yêu cầu", statusEn: STATUS_EN.action, tone: "amber",
-      note: "Yêu cầu thăm nhà máy đã gửi. Trong lúc chờ, bạn có thể tự nộp 9 ảnh để Vexim đối chiếu song song.",
+      note: "Yêu cầu thăm nhà máy đã gửi. Trong lúc chờ, bạn có thể tự nộp 9 ảnh để được đối chiếu song song.",
       action: "Nộp 9 ảnh nhà máy", actionEn: "Add factory photos",
     } satisfies Partial<VerificationProgressStep>);
   }
@@ -283,27 +283,27 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     const approvedOn = shortDate(l3.approved_at);
     Object.assign(step3, {
       state: "approved", status: "Đã duyệt", statusEn: STATUS_EN.approved, tone: "emerald",
-      note: "Vexim đã duyệt đợt kiểm lịch sử giao hàng của một lô hàng cụ thể.",
-      metric: approvedOn ? `Duyệt ngày ${approvedOn}` : "Duyệt theo đợt kiểm của Vexim",
-      metricEn: approvedOn ? `Approved ${approvedOn}` : "Approved in a Vexim review",
+      note: "Đợt kiểm lịch sử giao hàng của một lô hàng cụ thể đã được duyệt.",
+      metric: approvedOn ? `Duyệt ngày ${approvedOn}` : "Duyệt theo đợt kiểm",
+      metricEn: approvedOn ? `Approved ${approvedOn}` : "Approved after review",
       action: "Xem bằng chứng", actionEn: "View evidence",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub3?.status === "pending_review") {
     Object.assign(step3, {
-      state: "reviewing", status: "Chờ Vexim xét", statusEn: STATUS_EN.reviewing, tone: "amber",
-      note: "Chứng từ đã nộp và đang chờ Vexim đối chiếu. Bằng chứng tạm khóa trong lúc xét.",
+      state: "reviewing", status: "Chờ duyệt", statusEn: STATUS_EN.reviewing, tone: "amber",
+      note: "Chứng từ đã nộp và đang chờ đối chiếu. Bằng chứng tạm khóa trong lúc xét.",
       action: "Xem hồ sơ đã nộp", actionEn: "View submission",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub3?.status === "returned") {
     Object.assign(step3, {
       state: "action", status: "Cần bổ sung", statusEn: STATUS_EN.action, tone: "rose",
-      note: sub3.review_note || "Vexim yêu cầu bổ sung chứng từ giao hàng. Mở cổng xác thực để xem lý do.",
+      note: sub3.review_note || "Cần bổ sung chứng từ giao hàng. Mở cổng xác thực để xem lý do.",
       action: "Bổ sung chứng từ", actionEn: "Add shipping evidence",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub3?.status === "accepted") {
     Object.assign(step3, {
       state: "reviewing", status: "Đã vào đợt kiểm", statusEn: STATUS_EN.reviewing, tone: "amber",
-      note: "Vexim đã nhận chứng từ vào đợt kiểm. Nhân viên Vexim sẽ đối chiếu với lô hàng đã giao.",
+      note: "Chứng từ đã vào đợt kiểm và sẽ được đối chiếu với lô hàng đã giao.",
       action: "Xem hồ sơ", actionEn: "View submission",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub3) {
@@ -317,14 +317,14 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     } satisfies Partial<VerificationProgressStep>);
   } else if (request3?.status === "contacted") {
     Object.assign(step3, {
-      state: "action", status: "Vexim đã liên hệ", statusEn: STATUS_EN.action, tone: "amber",
-      note: "Vexim đã ghi nhận yêu cầu đối chiếu lịch sử giao hàng và sẽ liên hệ lên kế hoạch. Bạn vẫn có thể tự nộp chứng từ.",
+      state: "action", status: "Đã ghi nhận liên hệ", statusEn: STATUS_EN.action, tone: "amber",
+      note: "Yêu cầu đối chiếu lịch sử giao hàng đã được ghi nhận; bộ phận phụ trách sẽ liên hệ lên kế hoạch. Bạn vẫn có thể tự nộp chứng từ.",
       action: "Nộp chứng từ", actionEn: "Add shipping evidence",
     } satisfies Partial<VerificationProgressStep>);
   } else if (request3) {
     Object.assign(step3, {
       state: "action", status: "Đã gửi yêu cầu", statusEn: STATUS_EN.action, tone: "amber",
-      note: "Yêu cầu đối chiếu lịch sử giao hàng đã gửi. Bạn có thể tự nộp chứng từ để Vexim xét song song.",
+      note: "Yêu cầu đối chiếu lịch sử giao hàng đã gửi. Bạn có thể tự nộp chứng từ để được xét song song.",
       action: "Nộp chứng từ", actionEn: "Add shipping evidence",
     } satisfies Partial<VerificationProgressStep>);
   }
@@ -337,7 +337,7 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
   const headline = !current
     ? "Đủ ba bước xác minh. Hồ sơ của bạn đang ở trạng thái đầy đủ nhất."
     : current.state === "reviewing"
-      ? `Bước ${current.level} · ${current.title} đang chờ Vexim xét. Không cần nộp lại; kết quả sẽ hiện ngay tại đây.`
+      ? `Bước ${current.level} · ${current.title} đang chờ duyệt. Không cần nộp lại; kết quả sẽ hiện ngay tại đây.`
       : current.state === "action"
         ? `Bước ${current.level} · ${current.title} đang chờ bạn xử lý.`
         : `Bước tiếp theo: ${current.title}.`;

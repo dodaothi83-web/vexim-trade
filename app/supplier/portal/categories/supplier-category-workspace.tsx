@@ -104,7 +104,7 @@ export function SupplierCategoryWorkspace({
 
   const summary = [
     { key: "picked", label: "Đã chọn", value: `${selected.length}/${MAX_CATEGORIES}`, note: "Tối đa 5 danh mục" },
-    { key: "open", label: "Vexim đang mở", value: String(options.length), note: "Chỉ chọn trong danh sách này" },
+    { key: "open", label: "Danh mục đang mở", value: String(options.length), note: "Chỉ chọn trong danh sách này" },
     { key: "inside", label: "Sản phẩm trong phạm vi", value: `${inScope.length}/${products.length}`, note: "Đang thuộc danh mục đã chọn" },
     { key: "outside", label: "Sản phẩm ngoài phạm vi", value: String(outside.length), note: outside.length ? "Cần chuyển trước khi bỏ danh mục" : "Không có" },
   ];
@@ -130,7 +130,7 @@ export function SupplierCategoryWorkspace({
         <section aria-labelledby="category-catalog-title" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 px-4 py-3.5">
             <div className="min-w-0">
-              <h2 id="category-catalog-title" className="text-base font-black text-ink-900">Danh mục Vexim đã mở</h2>
+              <h2 id="category-catalog-title" className="text-base font-black text-ink-900">Danh mục đang mở</h2>
               <p className="mt-0.5 text-[11.5px] text-ink-500">Bấm vào một dòng để thêm hoặc bỏ. Số bên phải là sản phẩm đang dùng danh mục đó.</p>
             </div>
             <label className="relative w-full sm:w-64">
@@ -190,7 +190,7 @@ export function SupplierCategoryWorkspace({
           </div>
           {products.length === 0
             ? <div className="flex flex-wrap items-center gap-3 px-4 py-5">
-              <p className="flex-1 text-sm text-ink-600">Chưa có sản phẩm nào. Sau khi lưu danh mục, thêm sản phẩm để Vexim xét duyệt.</p>
+              <p className="flex-1 text-sm text-ink-600">Chưa có sản phẩm nào. Sau khi lưu danh mục, thêm sản phẩm để gửi duyệt.</p>
               <Link href="/supplier/portal/products/new" className="btn btn-ghost btn-sm">Thêm sản phẩm đầu tiên</Link>
             </div>
             : <ul className="divide-y divide-ink-100">
@@ -244,7 +244,7 @@ export function SupplierCategoryWorkspace({
             {outside.length} sản phẩm đang nằm ngoài phạm vi. Muốn bỏ danh mục đó, hãy chuyển sản phẩm sang danh mục còn chọn trước.
           </p>}
           <button type="submit" disabled={busy} className="btn btn-primary mt-3 hidden w-full lg:inline-flex">{busy ? "Đang lưu..." : "Lưu danh mục"}</button>
-          <p className="mt-1.5 hidden text-[11px] text-ink-500 lg:block">Chỉ lưu phạm vi được phép chọn. Không tự duyệt hoặc công khai sản phẩm.</p>
+          <p className="mt-1.5 hidden text-[11px] text-ink-500 lg:block">Chỉ lưu phạm vi bán hàng. Việc duyệt và công khai sản phẩm diễn ra ở bước riêng.</p>
         </div>
 
         <div className="rounded-xl border border-ink-200 bg-ink-50/70 p-4">
@@ -252,7 +252,7 @@ export function SupplierCategoryWorkspace({
             <Info className="size-3.5 text-brand-700" aria-hidden="true" />Cần biết
           </h2>
           <ul className="mt-2 space-y-1.5 text-[11.5px] leading-4 text-ink-600">
-            <li>Chỉ chọn được danh mục Vexim đã mở; bạn không tự tạo danh mục mới.</li>
+            <li>Chỉ chọn được danh mục đang mở; bạn không tự tạo danh mục mới.</li>
             <li>Sản phẩm chỉ được chọn danh mục trong phạm vi này.</li>
             <li>Lưu danh mục không duyệt sản phẩm, không công khai gian hàng.</li>
             <li>Bỏ danh mục còn sản phẩm sẽ bị chặn cho tới khi chuyển sản phẩm.</li>

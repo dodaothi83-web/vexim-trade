@@ -182,23 +182,23 @@ export async function notifySupplierDecision(input: {
     if (!recipients.length) return "failed";
     const name = (input.name || "Hồ sơ").replace(/[\r\n]/g, " ").slice(0, 140);
     const config: Record<SupplierDecision, { title: string; explanation: string; path: string; showNote?: boolean }> = {
-      onboarding_approved: { title: "Đã mở quyền sử dụng cổng NCC", explanation: "Vexim đã xác nhận tài khoản. Các đánh giá xác minh, sản phẩm và việc công khai hồ sơ vẫn cần quyết định riêng.", path: "/supplier/portal" },
-      onboarding_changes_requested: { title: "Vui lòng bổ sung hồ sơ doanh nghiệp", explanation: "Vexim đã xem hồ sơ và yêu cầu bạn bổ sung trước khi mở quyền cổng.", path: "/supplier/portal", showNote: true },
-      product_approved: { title: `Đã kiểm tra nội dung sản phẩm: ${name}`, explanation: "Vexim đã xác nhận nội dung; sản phẩm chưa tự động sẵn sàng chia sẻ buyer hoặc công khai.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}` },
-      product_changes_requested: { title: `Sản phẩm cần chỉnh sửa: ${name}`, explanation: "Vexim yêu cầu chỉnh sửa rồi gửi lại sản phẩm.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}`, showNote: true },
-      certificate_approved: { title: `Đã kiểm bản sao chứng nhận: ${name}`, explanation: "Vexim đã xét duyệt bản sao. Chứng nhận chưa được công bố; việc hiển thị công khai là quyết định riêng.", path: "/supplier/portal/documents" },
-      certificate_changes_requested: { title: `Chứng nhận cần bổ sung: ${name}`, explanation: "Vexim yêu cầu bổ sung thông tin chứng nhận trong mục Giấy tờ L1.", path: "/supplier/portal/documents", showNote: true },
-      certificate_rejected: { title: `Chứng nhận không được chấp thuận: ${name}`, explanation: "Vexim chưa thể chấp thuận chứng nhận này.", path: "/supplier/portal/documents", showNote: true },
-      certificate_published: { title: `Chứng nhận được phép hiển thị: ${name}`, explanation: "AI/Vexim đã quét và cho phép hiển thị nhãn chứng nhận (kèm trạng thái chính chủ/đơn vị đối tác và ngày hết hạn) nếu sản phẩm công khai và chứng nhận còn hạn. Bằng chứng nội bộ không được công khai.", path: "/supplier/portal/documents" },
-      certificate_withdrawn: { title: `Đã thu hồi hiển thị chứng nhận: ${name}`, explanation: "Vexim đã ngừng hiển thị nhãn chứng nhận trên trang buyer.", path: "/supplier/portal/documents" },
-      verification_approved: { title: `Đã duyệt đánh giá: ${name}`, explanation: "Chỉ đánh giá này được Vexim duyệt; không tự động xác nhận các đánh giá khác hoặc công khai hồ sơ.", path: "/supplier/portal/profile" },
-      verification_returned: { title: `Đánh giá cần bổ sung: ${name}`, explanation: "Vui lòng xem phản hồi và liên hệ nhân viên Vexim để bổ sung đúng đợt kiểm.", path: "/supplier/portal/profile", showNote: true },
+      onboarding_approved: { title: "Đã mở quyền sử dụng cổng NCC", explanation: "Tài khoản đã được chấp thuận. Các đánh giá xác minh, sản phẩm và việc công khai hồ sơ vẫn cần quyết định riêng.", path: "/supplier/portal" },
+      onboarding_changes_requested: { title: "Vui lòng bổ sung hồ sơ doanh nghiệp", explanation: "Hồ sơ đã được xem và cần bổ sung trước khi mở quyền cổng.", path: "/supplier/portal", showNote: true },
+      product_approved: { title: `Đã kiểm tra nội dung sản phẩm: ${name}`, explanation: "Nội dung đã được duyệt; sản phẩm chưa tự động sẵn sàng chia sẻ buyer hoặc công khai.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}` },
+      product_changes_requested: { title: `Sản phẩm cần chỉnh sửa: ${name}`, explanation: "Sản phẩm cần chỉnh sửa rồi gửi lại.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}`, showNote: true },
+      certificate_approved: { title: `Đã kiểm bản sao chứng nhận: ${name}`, explanation: "Bản sao đã được duyệt. Chứng nhận chưa được công bố; việc hiển thị công khai là quyết định riêng.", path: "/supplier/portal/documents" },
+      certificate_changes_requested: { title: `Chứng nhận cần bổ sung: ${name}`, explanation: "Cần bổ sung thông tin chứng nhận trong mục Giấy tờ L1.", path: "/supplier/portal/documents", showNote: true },
+      certificate_rejected: { title: `Chứng nhận không được chấp thuận: ${name}`, explanation: "Chứng nhận này chưa được chấp thuận.", path: "/supplier/portal/documents", showNote: true },
+      certificate_published: { title: `Chứng nhận được phép hiển thị: ${name}`, explanation: "Chứng nhận đã được quét và cho phép hiển thị nhãn (kèm trạng thái chính chủ/đơn vị đối tác và ngày hết hạn) nếu sản phẩm công khai và chứng nhận còn hạn. Bằng chứng nội bộ không được công khai.", path: "/supplier/portal/documents" },
+      certificate_withdrawn: { title: `Đã thu hồi hiển thị chứng nhận: ${name}`, explanation: "Nhãn chứng nhận đã được ngừng hiển thị trên trang buyer.", path: "/supplier/portal/documents" },
+      verification_approved: { title: `Đã duyệt đánh giá: ${name}`, explanation: "Chỉ đánh giá này được duyệt; không tự động xác nhận các đánh giá khác hoặc công khai hồ sơ.", path: "/supplier/portal/profile" },
+      verification_returned: { title: `Đánh giá cần bổ sung: ${name}`, explanation: "Vui lòng xem phản hồi và liên hệ bộ phận hỗ trợ để bổ sung đúng đợt kiểm.", path: "/supplier/portal/profile", showNote: true },
     };
     const item = config[input.decision];
     const url = `${notificationOrigin()}${item.path}`;
     const note = item.showNote ? input.note?.trim().slice(0, 1000) : null;
-    const body = `<p>${escapeHtml(item.explanation)}</p>${note ? `<p>Phản hồi Vexim: ${escapeHtml(note)}</p>` : ""}<p><a href="${url}">Mở cổng NCC →</a></p>`;
-    const res = await transport({ to: recipients, subject: item.title, html: wrapPlainEmail({ title: escapeHtml(item.title), body }), text: `${item.title}\n${item.explanation}${note ? `\nPhản hồi Vexim: ${note}` : ""}\n${url}` });
+    const body = `<p>${escapeHtml(item.explanation)}</p>${note ? `<p>Phản hồi: ${escapeHtml(note)}</p>` : ""}<p><a href="${url}">Mở cổng NCC →</a></p>`;
+    const res = await transport({ to: recipients, subject: item.title, html: wrapPlainEmail({ title: escapeHtml(item.title), body }), text: `${item.title}\n${item.explanation}${note ? `\nPhản hồi: ${note}` : ""}\n${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] decision", error); return "failed"; }
 }
