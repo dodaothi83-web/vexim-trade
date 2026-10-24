@@ -12,13 +12,14 @@ const noticeRoute = read('app/api/supplier-portal/notifications/route.ts');
 // 1. Tổng quan chỉ tải dữ liệu của tổng quan, qua lớp optional.
 const loaderOf = (source) => {
   const start = source.indexOf('const degraded: string[] = [];');
-  const end = source.indexOf('\n  ]);', start);
+  const end = source.indexOf('const board =', start);
   return source.slice(start, end);
 };
 const dashLoader = loaderOf(dashboardPage);
 assert.ok(dashLoader.length > 0, 'Trang tổng quan có khối tải dữ liệu');
-assert.equal((dashLoader.match(/optional\(/g) || []).length, 4, 'Tổng quan tải bốn nguồn, mỗi nguồn qua optional');
-for (const label of ['sản phẩm', 'danh sách RFQ được chuyển', 'chứng nhận', 'hồ sơ tự gửi'])
+assert.equal((dashLoader.match(/optional\(/g) || []).length, 7, 'Mỗi nguồn dữ liệu của tổng quan đều đi qua optional');
+for (const label of ['sản phẩm', 'danh sách RFQ được chuyển', 'chứng nhận', 'hồ sơ tự gửi',
+  'yêu cầu kiểm định', 'giấy tờ đợt kiểm', 'bằng chứng đã nộp'])
   assert.ok(dashLoader.includes(`optional("${label}"`), `Có nhãn cảnh báo cho ${label}`);
 
 // 2. Tách biệt chức năng: tổng quan không mang thông báo, không mang ô tải giấy tờ.
@@ -54,9 +55,10 @@ assert.equal(migrationHint(new Error('fetch failed')), null, 'Lỗi mạng khôn
 assert.equal(migrationHint(null), null);
 
 // 6. Trang xác thực L2/L3 cũng phải báo lỗi cấu hình thay vì trắng trang.
-const verifyPage = read('app/supplier/portal/verification/page.tsx');
+const verifyPage = read('app/supplier/portal/verification/level-page.tsx');
 assert.match(verifyPage, /chưa mở được hồ sơ tự gửi/, 'Log trang xác thực nêu rõ phần lỗi');
 assert.match(verifyPage, /Chưa mở được phần tải bằng chứng/, 'Trang xác thực có màn hình báo lỗi cho NCC');
+assert.match(verifyPage, /Chưa mở được hồ sơ xác minh này/, 'Hồ sơ rỗng cũng có câu báo thay vì khung trống');
 assert.match(verifyPage, /không phải lỗi tài khoản của bạn/, 'Câu báo lỗi nói rõ lỗi phía Vexim');
 
 /* ------------------------- render thật với bảng bị thiếu ------------------------- */
@@ -109,6 +111,10 @@ const sharedMocks = {
   '@/lib/verification': { isL1CoreDoc: () => false },
   '@/lib/rfq/reply-routing': { supplierReplyAddress: () => '' },
   '@/lib/types': { L1_DOC_ITEMS: [] },
+  '@/lib/supplier-portal/verification-progress': { buildVerificationProgress: () => ({
+    steps: [], approvedCount: 0, currentLevel: null, percent: 0, headline: 'Chưa có dữ liệu xác minh',
+  }) },
+  './verification-progress': { VerificationProgressPanel: ({ progress }) => React.createElement('section', { 'data-progress': String(progress.approvedCount) }) },
   './portal-ui': ui,
   '../portal-ui': ui,
   './supplier-profile-form': { SupplierProfileForm: () => null },
@@ -126,6 +132,9 @@ const dashHtml = renderToStaticMarkup(await loadModule(dashboardPage, {
       listSupplierRfqInvitations: async () => { throw thrown; },
       listCertificates: async () => { throw thrown; },
       listSubmissions: async () => [],
+      listSupplierVerificationRequests: async () => [],
+      listMedia: async () => [],
+      listSubmissionItems: async () => [],
     } }),
   },
   '@/lib/supplier-portal/dashboard': { buildSupplierRfqBoard: () => ({
@@ -136,6 +145,7 @@ assert.match(dashHtml, /Một phần dữ liệu cổng chưa tải được/, '
 assert.match(dashHtml, /danh sách RFQ được chuyển/, 'Cảnh báo nêu đúng phần lỗi');
 assert.match(dashHtml, /chứng nhận/);
 assert.doesNotMatch(dashHtml, /Đánh dấu đã đọc/, 'Tổng quan không còn khối thông báo');
+assert.match(dashHtml, /data-progress="0"/, 'Dải tiến độ xác minh vẫn dựng được khi dữ liệu phụ lỗi');
 
 // 6b. Chuông: thiếu bảng dấu đã đọc thì vẫn trả nội dung, chỉ báo readsKnown=false.
 const bellRoute = loadModule(noticeRoute, {

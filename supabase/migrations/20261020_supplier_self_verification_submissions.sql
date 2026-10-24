@@ -137,9 +137,14 @@ alter table public.supplier_submission_links enable row level security;
 revoke all on public.supplier_submission_links from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 4. Bằng chứng của hồ sơ tự gửi lưu trong media_assets (owner_type='verification',
---    audience='internal', verification_id = id hồ sơ tự gửi) nên cần mở rộng
---    CHECK checklist_key cho 9 ảnh L2 và 6 chứng từ L3. Tệp cũ không bị sửa.
+-- 4. Bằng chứng của hồ sơ tự gửi lưu trong media_assets (audience='internal'),
+--    cần mở rộng CHECK checklist_key cho 9 ảnh L2 và 6 chứng từ L3.
+--    Tệp cũ không bị sửa.
+--    LƯU Ý: bản migration này từng giả định ghi id hồ sơ tự gửi vào
+--    media_assets.verification_id — SAI, vì cột đó có khoá ngoại tới
+--    verifications(id). 20261031_supplier_submission_media_owner.sql thêm
+--    owner_type='submission' + cột submission_id và định nghĩa lại hai CHECK
+--    bên dưới. Luôn chạy migration đó sau file này.
 -- ---------------------------------------------------------------------------
 alter table public.media_assets drop constraint if exists media_checklist_key_ck;
 alter table public.media_assets add constraint media_checklist_key_ck check (

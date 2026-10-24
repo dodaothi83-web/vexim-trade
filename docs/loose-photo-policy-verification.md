@@ -1,6 +1,6 @@
 # Cổng xác thực L2/L3: nới ảnh, siết đúng một chỗ
 
-Cập nhật 21/10/2026. Áp dụng cho `/supplier/portal/verification`.
+Cập nhật 21/10/2026. Áp dụng cho `/supplier/portal/verification/factory` (L2) và `/supplier/portal/verification/export` (L3).
 
 ## Vì sao đổi
 

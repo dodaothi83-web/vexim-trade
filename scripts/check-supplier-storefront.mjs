@@ -38,13 +38,20 @@ function pageMocks({ status = 'draft', steps = [1], fail = false, store } = {}) 
     'next/link': { default: ({ href, children, ...rest }) => React.createElement('a', { href, ...rest }, children) },
     'next/navigation': { redirect: (to) => { throw new Error(`unexpected redirect ${to}`); } },
     '@/lib/supplier-portal/access': { supplierPortalAccess: async () => ({
-      supplier: { ...supplier, status }, user: { id: 'usr-1' },
+      supplier: { ...supplier, status }, user: { id: 'usr-1' }, review: null, reviews: [],
       store: store ?? {
         listCategories: async () => [],
         listCertificates: async () => [],
         listMedia: async () => [],
+        listSubmissions: async () => [],
+        listSupplierVerificationRequests: async () => [],
+        listSubmissionItems: async () => [],
       },
     }) },
+    '@/lib/supplier-portal/verification-progress': { buildVerificationProgress: () => ({
+      steps: [], approvedCount: 1, currentLevel: 2, percent: 33, headline: 'Bước tiếp theo: Thăm nhà máy.',
+    }) },
+    '../verification-progress': { StorefrontVerificationActions: () => React.createElement('div', { 'data-stub': 'verification-actions' }) },
     '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
     '@/lib/db/migration-hints': { migrationHint: () => null },
     '@/lib/public/supplier-seo': { isSyntheticSupplier: () => false },
@@ -65,7 +72,7 @@ function pageMocks({ status = 'draft', steps = [1], fail = false, store } = {}) 
         React.createElement('span', null, `productLinks=${props.productLinks}`),
         React.createElement('span', null, `rfqActions=${props.rfqActions}`),
         React.createElement('span', null, `cover=${props.coverUrl ?? 'none'}`),
-        props.coverAction ?? null, props.avatarAction ?? null);
+        props.coverAction ?? null, props.avatarAction ?? null, props.verificationActions ?? null);
     } },
   };
   return { mocks: base, calls };
@@ -83,6 +90,8 @@ assert.match(draft.html, /Not published yet/, 'Hồ sơ chưa lên sóng đượ
 assert.match(draft.html, /productLinks=false/, 'Chưa publish thì sản phẩm không dẫn đi đâu');
 assert.match(draft.html, /rfqActions=false/, 'Nhà cung cấp không tự gửi RFQ');
 assert.deepEqual(draft.calls.photos, ['cover', 'profile'], 'Ảnh bìa và ảnh đại diện có nút + ngay trên trang buyer thấy');
+assert.match(draft.html, /data-stub="verification-actions"/, 'Dưới phần kiểm toán có khối nút xác minh, chỉ NCC thấy');
+assert.equal(draft.calls.storefront[0].verificationActions != null, true, 'Khối nút được truyền vào đúng chỗ trong khung buyer');
 
 // 2. Tóm tắt xác minh nói rõ cái gì đã duyệt, cái gì còn thiếu.
 assert.match(draft.html, /1 of 3 checks approved/, 'Hiện số bước đã duyệt');

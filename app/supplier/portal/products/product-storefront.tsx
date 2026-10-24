@@ -15,12 +15,16 @@ const FILTERS: { id: ProductReviewFilter; label: string }[] = [
 function money(product: SupplierProduct) {
   if (product.ref_price == null) return null;
   const format = (n: number) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(n);
-  const range = product.ref_price_max != null && product.ref_price_max > product.ref_price ? `–${format(product.ref_price_max)}` : "";
+  const range = product.ref_price_max != null && product.ref_price_max > product.ref_price ? `-${format(product.ref_price_max)}` : "";
   return `${format(product.ref_price)}${range} ${product.currency || "USD"}${product.unit ? ` / ${product.unit}` : ""}`;
 }
 
-export function SupplierProductStorefront({ products, media, supplierPublished }: {
+export function SupplierProductStorefront({ products, media, supplierPublished, categoryLabels = {}, scope }: {
   products: SupplierProduct[]; media: MediaAsset[]; supplierPublished: boolean;
+  /** Nhãn danh mục tiếng Việt theo slug - để thẻ sản phẩm không hiện slug thô. */
+  categoryLabels?: Record<string, string>;
+  /** Phạm vi danh mục NCC được chọn; sản phẩm ngoài phạm vi bị đánh dấu rõ. */
+  scope?: string[];
 }) {
   const [filter, setFilter] = useState<ProductReviewFilter>("all");
   const [query, setQuery] = useState("");
@@ -31,6 +35,11 @@ export function SupplierProductStorefront({ products, media, supplierPublished }
     return grouped;
   }, [media]);
   const counts = useMemo(() => Object.fromEntries(FILTERS.map((f) => [f.id, f.id === "all" ? products.length : products.filter((p) => productReview(p) === f.id).length])), [products]);
+  const label = (slug: string | null) => slug ? categoryLabels[slug] ?? slug : "Chưa gắn danh mục";
+  const outsideScope = useMemo(
+    () => (scope ? products.filter((p) => p.category && !scope.includes(p.category)) : []),
+    [products, scope],
+  );
   const visible = useMemo(() => products.filter((p) =>
     (filter === "all" || productReview(p) === filter) &&
     `${p.name} ${p.spec ?? ""} ${p.description ?? ""}`.toLocaleLowerCase("vi").includes(query.trim().toLocaleLowerCase("vi")))
@@ -42,17 +51,23 @@ export function SupplierProductStorefront({ products, media, supplierPublished }
       <div className="min-w-0">
         <p className="text-[11px] font-bold tracking-[0.16em] text-brand-700 uppercase">Cổng nhà cung cấp · riêng tư</p>
         <h1 className="mt-1 text-[22px] leading-tight font-black tracking-tight text-ink-900">Sản phẩm của tôi</h1>
-        <p className="mt-1 max-w-2xl text-[13px] text-ink-500">Tạo hồ sơ mặt hàng, thêm ảnh thực tế và gửi Vexim xét duyệt. Đây là khu vực riêng của bạn, không phải trang hiển thị cho buyer.</p>
+        <p className="mt-1 max-w-2xl text-[13px] text-ink-500">Tạo hồ sơ mặt hàng, thêm ảnh thực tế và gửi duyệt. Đây là khu vực riêng của bạn, không phải trang hiển thị cho buyer.</p>
       </div>
       <Link href="/supplier/portal/products/new" className="btn btn-primary"><Plus className="size-4" aria-hidden="true" /> Thêm sản phẩm</Link>
     </header>
 
+    {outsideScope.length > 0 && <p className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12.5px] text-amber-900">
+      <span className="font-bold">{outsideScope.length} sản phẩm nằm ngoài phạm vi danh mục</span>
+      <span className="text-amber-800">Các sản phẩm này chưa gắn với danh mục bạn đã đăng ký.</span>
+      <Link href="/supplier/portal/categories" className="font-bold underline">Chọn thêm danh mục</Link>
+    </p>}
+
     <section aria-label="Tổng quan sản phẩm" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {[
         { label: "Tổng sản phẩm", value: counts.all, icon: PackagePlus, note: "Trong gian hàng riêng" },
-        { label: "Bản nháp", value: counts.draft, icon: FileText, note: "Chưa gửi Vexim" },
-        { label: "Đang chờ duyệt", value: counts.pending, icon: Clock3, note: "Vexim đang kiểm tra" },
-        { label: "Cần chỉnh sửa", value: counts.changes_requested, icon: SlidersHorizontal, note: "Xem góp ý của Vexim" },
+        { label: "Bản nháp", value: counts.draft, icon: FileText, note: "Chưa gửi duyệt" },
+        { label: "Đang chờ duyệt", value: counts.pending, icon: Clock3, note: "Chờ phản hồi" },
+        { label: "Cần chỉnh sửa", value: counts.changes_requested, icon: SlidersHorizontal, note: "Xem góp ý" },
       ].map((item) => <div key={item.label} className="rounded-xl border border-ink-200 bg-white p-4 sm:p-5">
         <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold text-ink-600">{item.label}</p><item.icon className="size-4 text-brand-700" aria-hidden="true" /></div>
         <p className="mt-3 text-3xl font-black text-ink-900">{item.value}</p><p className="mt-1 text-xs text-ink-500">{item.note}</p>
@@ -62,13 +77,13 @@ export function SupplierProductStorefront({ products, media, supplierPublished }
     <section aria-label="Danh sách sản phẩm" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <div className="border-b border-ink-100 px-5 py-5 sm:px-7">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-black text-ink-900">Danh mục của bạn</h2>
-          <p className="mt-1 text-xs text-ink-600">Duyệt nội dung ≠ đã xuất hiện công khai. Việc chia sẻ buyer còn tùy trang NCC, danh mục và tệp Vexim chọn.</p></div>
+          <p className="mt-1 text-xs text-ink-600">Duyệt nội dung ≠ đã hiện công khai; việc chia sẻ cho buyer còn tùy hồ sơ doanh nghiệp, danh mục và tệp được chọn.</p></div>
           {!supplierPublished && <span className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Trang NCC chưa được công khai</span>}
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <label className="relative min-w-[180px] flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -tranink-y-1/2 text-ink-400" aria-hidden="true" />
             <span className="sr-only">Tìm sản phẩm của tôi</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, mô tả, quy cách..." className="input pl-10" /></label>
-          <label className="flex items-center gap-2 text-xs font-semibold text-ink-600"><span>Sắp xếp</span><select className="input min-w-[132px]" value={sort} onChange={(e) => setSort(e.target.value as "recent" | "name")}><option value="recent">Mới cập nhật</option><option value="name">Tên A–Z</option></select></label>
+          <label className="flex items-center gap-2 text-xs font-semibold text-ink-600"><span>Sắp xếp</span><select className="input min-w-[132px]" value={sort} onChange={(e) => setSort(e.target.value as "recent" | "name")}><option value="recent">Mới cập nhật</option><option value="name">Tên A-Z</option></select></label>
         </div>
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Lọc trạng thái sản phẩm">{FILTERS.map((tab) =>
           <button key={tab.id} type="button" aria-pressed={filter === tab.id} onClick={() => setFilter(tab.id)}
@@ -87,7 +102,10 @@ export function SupplierProductStorefront({ products, media, supplierPublished }
             <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold shadow-sm ${status.tone}`}>{status.label}</span>
           </Link>
           <div className="flex flex-1 flex-col p-4 sm:p-5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700">{p.category || "Mặt hàng của bạn"}</p>
+            <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold tracking-wider text-brand-700 uppercase">
+              {label(p.category)}
+              {scope && p.category && !scope.includes(p.category) && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] normal-case text-amber-900">Ngoài phạm vi</span>}
+            </p>
             <Link href={`/supplier/portal/products/${p.id}`} className="mt-1 line-clamp-2 text-lg font-bold text-ink-900 hover:text-brand-700">{p.name}</Link>
             <p className="mt-2 line-clamp-2 min-h-10 text-sm text-ink-600">{p.spec || p.description || "Thêm quy cách hoặc mô tả để buyer hiểu rõ sản phẩm."}</p>
             <div className="mt-4 flex items-end justify-between gap-2 border-t border-ink-100 pt-4">
@@ -95,14 +113,14 @@ export function SupplierProductStorefront({ products, media, supplierPublished }
                 {p.moq && <p className="mt-1 line-clamp-1 text-xs text-ink-500">MOQ: {p.moq}</p>}</div>
               <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition group-hover:bg-brand-700 group-hover:text-white"><ArrowRight className="size-4" aria-hidden="true" /></span>
             </div>
-            {p.supplier_review_note && <p className="mt-3 line-clamp-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">Vexim: {p.supplier_review_note}</p>}
-            {p.ready_for_buyer && productReview(p) === "approved" && <p className="mt-3 text-xs font-medium text-brand-800">Vexim đã bật sẵn sàng gửi buyer · không khẳng định đã công khai</p>}
+            {p.supplier_review_note && <p className="mt-3 line-clamp-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">Góp ý: {p.supplier_review_note}</p>}
+            {p.ready_for_buyer && productReview(p) === "approved" && <p className="mt-3 text-xs font-medium text-brand-800">Đã bật sẵn sàng gửi buyer · chỉ hiện khi hồ sơ được công khai</p>}
           </div>
         </li>;
       })}</ul> : <div className="mx-auto max-w-md px-6 py-16 text-center">
         <div className="mx-auto flex size-16 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><PackagePlus className="size-8" aria-hidden="true" /></div>
         <h3 className="mt-4 text-lg font-bold text-ink-900">{products.length ? "Không tìm thấy sản phẩm phù hợp" : "Bắt đầu với sản phẩm đầu tiên"}</h3>
-        <p className="mt-2 text-sm leading-6 text-ink-600">{products.length ? "Thử từ khóa khác hoặc đổi bộ lọc trạng thái." : "Tạo sản phẩm, lưu bản nháp, tải ảnh hoặc catalogue thật rồi gửi Vexim kiểm tra."}</p>
+        <p className="mt-2 text-sm leading-6 text-ink-600">{products.length ? "Thử từ khóa khác hoặc đổi bộ lọc trạng thái." : "Tạo sản phẩm, lưu bản nháp, tải ảnh hoặc catalogue thật rồi gửi duyệt."}</p>
         {products.length === 0 && <Link href="/supplier/portal/products/new" className="btn btn-primary mt-5"><Plus className="size-4" aria-hidden="true" /> Thêm sản phẩm</Link>}
         {products.length > 0 && <button type="button" onClick={() => { setFilter("all"); setQuery(""); }} className="mt-5 text-sm font-semibold text-brand-700 underline">Xóa bộ lọc</button>}
       </div>}

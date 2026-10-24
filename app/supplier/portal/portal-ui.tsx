@@ -104,5 +104,5 @@ export function PortalSteps({ stages }: { stages: { label: string; state: "done"
 
 /** Cặp nhãn và giá trị trong hồ sơ doanh nghiệp. */
 export function Info({ label, value }: { label: string; value?: string | null }) {
-  return <div><dt className="text-[11px] font-semibold text-ink-500">{label}</dt><dd className="mt-0.5 text-[13px] text-ink-900">{value || "—"}</dd></div>;
+  return <div><dt className="text-[11px] font-semibold text-ink-500">{label}</dt><dd className="mt-0.5 text-[13px] text-ink-900">{value || "-"}</dd></div>;
 }

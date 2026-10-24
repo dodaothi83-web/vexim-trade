@@ -34,7 +34,11 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
   ]);
   if (!supplier) notFound();
   const forStep = [...all].filter((v) => v.target_level === step.level).sort((a, b) => b.created_at.localeCompare(a.created_at));
-  const current = forStep.find((v) => v.status === "approved") ?? forStep[0];
+  // Đợt đang chờ duyệt phải hiện trước: nếu ưu tiên đợt đã duyệt thì một hồ sơ
+  // mới nộp (ví dụ chu kỳ xác minh lại) không bao giờ tới được mắt người duyệt.
+  const current = forStep.find((v) => v.status === "submitted")
+    ?? forStep.find((v) => v.status === "approved")
+    ?? forStep[0];
   const media = current ? await store.listMedia("verification", current.id) : [];
   const canApprove = hasPermission(session.role, "verifications.approve");
   const canInspect = hasPermission(session.role, "verifications.inspect");

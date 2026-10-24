@@ -8,7 +8,7 @@ import { SupplierProductEditor } from "../product-editor";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Thêm sản phẩm | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "Thêm sản phẩm", robots: { index: false, follow: false } };
 
 export default async function NewSupplierProductPage() {
   const access = await supplierPortalAccess();

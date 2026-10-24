@@ -8,6 +8,7 @@ import type { CategoryProposalOption } from "@/lib/supplier-portal/category-prop
 import { SUPPLIER_TYPES } from "@/lib/supplier";
 import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
 import { SupplierCategoryPicker } from "./supplier-category-picker";
+import { FilePicker } from "@/components/file-picker";
 
 const FILE_LABELS: Record<typeof INITIAL_DOCUMENT_KEYS[number], string> = {
   business_license: "Đăng ký doanh nghiệp", food_safety: "Giấy ATTP",
@@ -36,7 +37,7 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
   return <>
     <div data-step-panel={1} className={step === 1 ? "space-y-7" : "hidden"}>
     <section><h2 className="text-xl font-black text-ink-900">Thông tin doanh nghiệp</h2>
-      <p className="mt-1 text-sm text-ink-600">Email đăng nhập: {email}. Chọn loại hình để Vexim hiểu đúng doanh nghiệp của bạn; đây không phải quyền truy cập CRM.</p>
+      <p className="mt-1 text-sm text-ink-600">Email đăng nhập: {email}. Chọn loại hình để hồ sơ được xếp đúng nhóm doanh nghiệp; lựa chọn này không mở thêm quyền truy cập nào.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="Tên pháp lý doanh nghiệp *" name="name" required maxLength={180} defaultValue={supplier?.name ?? ""} />
         <Field label="Tên thương mại (nếu có)" name="trade_name" maxLength={180} defaultValue={supplier?.trade_name ?? ""} />
@@ -66,26 +67,32 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
       <p className="mt-1 text-sm text-ink-600">Chọn ít nhất một trong ba giấy có dấu *: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal. Giấy phải đứng tên doanh nghiệp bạn đã khai ở bước 1, giấy đứng tên đơn vị khác không được tính. Ảnh/PDF tối đa 15 MB/tệp, tổng 5 tệp, tải lên không tự duyệt.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">{INITIAL_DOCUMENT_KEYS.map((key) => {
         const core = (CORE_DOC_KEYS as readonly string[]).includes(key);
-        return <label key={key} className="block text-sm"><span className="mb-1 block font-semibold">{FILE_LABELS[key]}{core && <span className="text-rose-700"> *</span>}</span>
-          <input type="file" name={`doc:${key}`} accept=".pdf,image/jpeg,image/png,image/webp" className="input" /></label>; })}</div>
+        return <FilePicker
+          key={key}
+          name={`doc:${key}`}
+          accept=".pdf,image/jpeg,image/png,image/webp"
+          title={FILE_LABELS[key]}
+          requiredMark={core}
+          hint="PDF, JPG, PNG hoặc WEBP, tối đa 15 MB"
+        />; })}</div>
     </section>
-    <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">Muốn Vexim xác minh thêm?</h2>
-      <p className="mt-1 text-sm text-ink-600">Chọn yêu cầu chỉ để Vexim liên hệ. Mỗi đánh giá được duyệt riêng; thương nhân vẫn có thể yêu cầu kiểm tra lịch sử giao hàng.</p>
+    <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">Muốn được xác minh thêm?</h2>
+      <p className="mt-1 text-sm text-ink-600">Chọn nếu bạn muốn được liên hệ để kiểm tra thêm. Mỗi đánh giá xét riêng; thương nhân vẫn có thể yêu cầu kiểm tra lịch sử giao hàng.</p>
       <div className="mt-4 space-y-3">
         <label className={`flex gap-3 rounded-xl border p-4 ${visitLocked ? "cursor-not-allowed border-ink-200 bg-ink-50 text-ink-400" : "border-ink-200"}`}>
           <input type="checkbox" name="request:2" value="yes" checked={visitRequested} onChange={(event) => setVisitRequested(event.target.checked)} disabled={visitLocked} className="mt-1 h-4 w-4 accent-brand-700" />
-          <span><strong className="block">Thăm nhà máy</strong><small className={visitLocked ? "text-ink-500" : "text-ink-600"}>{visitLocked ? "Không áp dụng cho thương nhân trên form đăng ký. Vexim có thể xem xét riêng nếu cần." : "Vexim sẽ liên hệ để kiểm tra và tải bằng chứng theo đúng đợt, không tự duyệt."}</small></span>
+          <span><strong className="block">Thăm nhà máy</strong><small className={visitLocked ? "text-ink-500" : "text-ink-600"}>{visitLocked ? "Không áp dụng cho thương nhân ở bước đăng ký; có thể yêu cầu riêng khi cần." : "Bạn sẽ được liên hệ để kiểm tra và tải bằng chứng theo đợt; gửi yêu cầu không tự duyệt."}</small></span>
         </label>
         <label className="flex gap-3 rounded-xl border border-ink-200 p-4">
           <input type="checkbox" name="request:3" value="yes" className="mt-1 h-4 w-4 accent-brand-700" />
-          <span><strong className="block">Lịch sử giao hàng</strong><small className="text-ink-600">Vexim sẽ liên hệ để kiểm tra và tải bằng chứng theo đúng đợt, không tự duyệt.</small></span>
+          <span><strong className="block">Lịch sử giao hàng</strong><small className="text-ink-600">Bạn sẽ được liên hệ để kiểm tra và tải bằng chứng theo đợt; gửi yêu cầu không tự duyệt.</small></span>
         </label>
       </div>
     </section>
     </div>
     <div data-step-panel={3} className={step === 3 ? "space-y-7" : "hidden"}>
-    <section><h2 className="text-xl font-black text-ink-900">Thông tin hiển thị trên trang NCC</h2>
-      <p className="mt-1 text-sm text-ink-600">Các trường bổ sung giúp Vexim xây trang nhà cung cấp. Chỉ xuất hiện công khai khi Vexim quyết định xuất bản hồ sơ; sản phẩm/ảnh sản phẩm khai riêng sau khi tài khoản được duyệt. Bạn cứ nhập bằng tiếng Việt, các nội dung hiển thị cho buyer nước ngoài như MOQ, thị trường xuất khẩu và phần giới thiệu công ty sẽ được dịch tự động sang tiếng Anh khi Vexim kiểm tra hồ sơ.</p>
+    <section><h2 className="text-xl font-black text-ink-900">Thông tin hiển thị trên trang doanh nghiệp</h2>
+      <p className="mt-1 text-sm text-ink-600">Các trường này dựng nên trang giới thiệu doanh nghiệp. Chỉ hiện công khai khi hồ sơ được xuất bản; sản phẩm và ảnh sản phẩm khai riêng sau khi tài khoản được duyệt. Cứ nhập bằng tiếng Việt - MOQ, thị trường xuất khẩu và phần giới thiệu sẽ được dịch tự động sang tiếng Anh cho buyer.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="Tên hiển thị trên trang" name="display_name" maxLength={180} defaultValue={supplier?.display_name ?? ""} />
         <Field label="Website (https://...)" name="website" maxLength={250} defaultValue={supplier?.website ?? ""} />
@@ -111,7 +118,7 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
       <div className="mt-3 space-y-3">
         <label className="flex items-start gap-2 text-sm leading-6 text-ink-700">
           <input type="checkbox" name="consent" value="yes" required className="mt-1 h-4 w-4 shrink-0 accent-brand-700" />
-          <span>Tôi đã đọc và đồng ý với <Link href="/dieu-khoan-su-dung" target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">Điều khoản sử dụng</Link> của Vexim Trade, đồng thời đồng ý gửi thông tin và tài liệu để Vexim kiểm tra nội bộ. Tài khoản chỉ hoạt động sau khi Vexim xác nhận.</span>
+          <span>Tôi đồng ý với <Link href="/dieu-khoan-su-dung" target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">Điều khoản sử dụng</Link> và cho phép dùng thông tin, tài liệu đã gửi để kiểm tra nội bộ. Tài khoản mở sau khi hồ sơ được chấp thuận.</span>
         </label>
         <label className="flex items-start gap-2 text-sm leading-6 text-ink-700">
           <input type="checkbox" name="information_accuracy" value="yes" required className="mt-1 h-4 w-4 shrink-0 accent-brand-700" />
@@ -125,9 +132,9 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
 
 function CategoryProposals({ categories, supplier }: { categories: CategoryProposalOption[]; supplier?: Supplier }) {
   return <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">Danh mục kinh doanh</h2>
-    <p className="mt-1 text-sm text-ink-600">Chọn các danh mục Vexim đã mở. Sau khi tài khoản được duyệt, bạn chỉ có thể thêm sản phẩm thuộc các danh mục đã chọn; Vexim vẫn kiểm tra từng sản phẩm trước khi công khai.</p>
+    <p className="mt-1 text-sm text-ink-600">Chọn trong các danh mục đang mở. Sau khi tài khoản được duyệt, sản phẩm chỉ được gắn trong phạm vi này; từng sản phẩm vẫn được duyệt trước khi công khai.</p>
     {categories.length ? <SupplierCategoryPicker categories={categories} initial={supplier?.requested_category_slugs ?? []} /> :
-      <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Vexim chưa mở danh mục kinh doanh. Vui lòng liên hệ Vexim trước khi gửi hồ sơ.</p>}
+      <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Chưa có danh mục nào đang mở. Liên hệ bộ phận hỗ trợ trước khi gửi hồ sơ.</p>}
   </section>;
 }
 
@@ -232,10 +239,10 @@ export function SupplierProfileForm({ supplier, email, categories, hasCoreDoc = 
       <button type="button" onClick={() => goToStep(step - 1)} disabled={step === 1 || busy} className="btn btn-ghost disabled:cursor-not-allowed disabled:opacity-50">Quay lại</button>
       {step < 3
         ? <button type="button" onClick={nextStep} disabled={busy} className="btn btn-primary">Tiếp tục</button>
-        : <button type="submit" disabled={busy || result?.ok} className="btn btn-primary">{busy ? "Đang nộp hồ sơ..." : "Gửi hồ sơ cho Vexim xác nhận"}</button>}
+        : <button type="submit" disabled={busy || result?.ok} className="btn btn-primary">{busy ? "Đang nộp hồ sơ..." : "Gửi hồ sơ duyệt"}</button>}
     </div>
     {result && <div role="status" className={`rounded-xl border p-4 text-sm ${result.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>
-      {result.message}{result.ok && result.notification !== "sent" && <p className="mt-1">Email nội bộ có thể chưa gửi; hồ sơ vẫn ở hàng chờ Vexim.</p>}
+      {result.message}{result.ok && result.notification !== "sent" && <p className="mt-1">Email thông báo nội bộ có thể chưa gửi; hồ sơ vẫn nằm trong hàng chờ duyệt.</p>}
     </div>}
   </form>;
 }

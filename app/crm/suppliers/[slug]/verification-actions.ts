@@ -8,6 +8,7 @@ import { auditHref, auditItems, auditUploadKind, coreDocsVerified, requiredAudit
 import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
 import { hasDocumentAuditEvidence } from "@/lib/verification-evidence";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
+import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifyStaffVerificationSubmission, notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { type AuditEvidenceKey, type Verification, type VerificationStatus } from "@/lib/types";
 
@@ -15,6 +16,39 @@ function refreshAudit(v: Verification) {
   revalidatePath(auditHref(v.supplier_id, v.target_level));
   revalidatePath(`/crm/suppliers/${v.supplier_id}`);
   revalidatePath("/crm/verifications");
+  refreshCrmBadges();
+}
+
+/**
+ * Việc phụ chạy SAU khi CSDL đã ghi (email, revalidate, log). Một lỗi ở đây
+ * không được biến quyết định đã lưu thành trang lỗi 500: người dùng chỉ cần
+ * thấy cảnh báo mềm và tải lại trang.
+ */
+async function softEffect<T>(label: string, work: () => Promise<T> | T): Promise<T | null> {
+  try {
+    return await work();
+  } catch (error) {
+    console.error(`[verification] ${label} thất bại sau khi quyết định đã lưu`, error);
+    return null;
+  }
+}
+
+/** Nguyên nhân ngắn gọn để người dùng đọc lại và báo kỹ thuật, không phải cả stack trace. */
+function briefReason(error: unknown): string {
+  const text = (error instanceof Error ? error.message : String(error ?? "")).replace(/\s+/g, " ").trim();
+  return text.slice(0, 180) || "không rõ nguyên nhân";
+}
+
+/** Gợi ý đúng việc cần làm khi CSDL chưa khớp mã nguồn (lỗi hay gặp ở production). */
+function technicalHint(message: string): string {
+  if (/schema cache|PGRST204|does not exist|column .* of relation/i.test(message)) {
+    return " CSDL có thể chưa chạy migration mới; chạy migration rồi thử lại.";
+  }
+  // PostgREST trả lỗi này khi UPDATE khớp 0 dòng, thường vì khoá đang dùng bị RLS chặn ghi.
+  if (/PGRST116|JSON object requested|0 rows|no rows/i.test(message)) {
+    return " Không dòng nào được cập nhật: khoá Supabase của máy chủ có thể đang bị RLS chặn ghi.";
+  }
+  return "";
 }
 
 async function auditChange(before: Verification, status: VerificationStatus, action: string) {
@@ -29,7 +63,7 @@ async function auditChange(before: Verification, status: VerificationStatus, act
       ...(status === "approved" ? {
         inspector_id: before.inspector_id,
         approved_by: session?.uid ?? null,
-        self_approved: before.inspector_id != null && before.inspector_id === session?.uid,
+        self_approved: before.inspector_id == null || before.inspector_id === session?.uid,
       } : {}),
     },
   }).catch((err) => console.error("[audit] verification write failed", err));
@@ -37,16 +71,28 @@ async function auditChange(before: Verification, status: VerificationStatus, act
 
 /** Save the inspector's work or submit it for an independent reviewer. */
 export async function updateVerificationChecklistAction(fd: FormData) {
+  let committed = false;
+  try {
+    return await saveChecklist(fd, () => { committed = true; });
+  } catch (error) {
+    console.error("[verification] checklist action failed", error);
+    return committed
+      ? { ok: true, message: "Đã lưu bản kiểm. Trang chưa tự cập nhật; tải lại trang để thấy nội dung mới." }
+      : { ok: false, message: `Chưa lưu được bản kiểm (${briefReason(error)}).${technicalHint(briefReason(error))} Nội dung trên trang vẫn giữ nguyên.` };
+  }
+}
+
+async function saveChecklist(fd: FormData, markCommitted: () => void) {
   const gate = await guard("verifications.inspect");
-  if (gate) throw new Error(gate.message);
+  if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };
   const id = String(fd.get("id") || "").trim();
   const store = getStore();
   const before = await store.getVerification(id);
-  if (!before) throw new Error("Không tìm thấy đợt kiểm.");
+  if (!before) return { ok: false, message: "Không tìm thấy đợt kiểm." };
   if ((await store.listVerifications(before.supplier_id)).some((v) => v.target_level === before.target_level && v.status === "approved")) {
-    throw new Error("Bước này đã được duyệt; không thể sửa đợt kiểm cũ.");
+    return { ok: false, message: "Bước này đã được duyệt; không thể sửa đợt kiểm cũ." };
   }
-  if (!["in_progress", "scheduled", "returned"].includes(before.status)) throw new Error("Đợt kiểm đã nộp hoặc đã duyệt; không thể sửa.");
+  if (!["in_progress", "scheduled", "returned"].includes(before.status)) return { ok: false, message: "Đợt kiểm đã nộp hoặc đã duyệt; không thể sửa." };
   const nextStatus = fd.get("status") === "submitted" ? "submitted" : "in_progress";
   const checklist: Verification["checklist"] = { ...before.checklist };
   const notes: Verification["checklist_notes"] = { ...before.checklist_notes };
@@ -74,20 +120,20 @@ export async function updateVerificationChecklistAction(fd: FormData) {
   }
   if (nextStatus === "submitted" && requiredAuditItems(before.target_level).some((it) =>
     checklist[it.key] !== true && checklist[it.key] !== false)) {
-    throw new Error("Hãy ghi kết quả các mục bắt buộc trước khi nộp duyệt.");
+    return { ok: false, message: "Hãy ghi kết quả các mục bắt buộc trước khi nộp duyệt." };
   }
   const visitDate = String(fd.get("visit_date") || "").trim();
   const visitAddress = String(fd.get("visit_address") || "").trim();
   const lat = String(fd.get("visit_lat") || "").trim();
   const lng = String(fd.get("visit_lng") || "").trim();
   if (before.target_level === 2 && (lat && !Number.isFinite(Number(lat)) || lng && !Number.isFinite(Number(lng)))) {
-    throw new Error("GPS phải là số hợp lệ.");
+    return { ok: false, message: "GPS phải là số hợp lệ." };
   }
   const shipmentRef = String(fd.get("shipment_ref") || "").trim().slice(0, 150);
   const shippedOn = String(fd.get("shipped_on") || "").trim();
   if (before.target_level === 3 && shippedOn && (!/^\d{4}-\d{2}-\d{2}$/.test(shippedOn) ||
     !Number.isFinite(Date.parse(shippedOn)) || shippedOn > new Date().toISOString().slice(0, 10))) {
-    throw new Error("Ngày giao phải hợp lệ và không thể ở tương lai.");
+    return { ok: false, message: "Ngày giao phải hợp lệ và không thể ở tương lai." };
   }
   const patch: Partial<Verification> = {
     checklist, checklist_notes: notes, status: nextStatus, return_reason: null,
@@ -103,10 +149,12 @@ export async function updateVerificationChecklistAction(fd: FormData) {
       shipment_destination: String(fd.get("shipment_destination") || "").trim().slice(0, 200) || null });
   }
   await store.updateVerification(id, patch);
+  markCommitted();
   await auditChange(before, nextStatus, nextStatus === "submitted" ? "submit" : "save");
-  refreshAudit(before);
+  await softEffect("làm mới trang kiểm tra", () => refreshAudit(before));
   if (nextStatus === "submitted") {
-    const mail = await notifyStaffVerificationSubmission(before.supplier_id, before.target_level);
+    const mail = await softEffect("email báo người duyệt",
+      () => notifyStaffVerificationSubmission(before.supplier_id, before.target_level)) ?? "failed";
     if (mail !== "sent") console.warn("[verification] reviewer notification failed; submission remains queued", mail);
   }
   return { ok: true, message: nextStatus === "submitted" ? "Đã nộp duyệt; người kiểm duyệt sẽ xem bằng chứng." : "Đã lưu bản kiểm." };
@@ -116,25 +164,50 @@ async function getReviewable(id: string) {
   const session = await getSession();
   const store = getStore();
   const before = await store.getVerification(id);
-  if (!before || before.status !== "submitted") throw new Error("Chỉ xét duyệt đợt đã nộp.");
+  if (!before || before.status !== "submitted") return { ok: false as const, message: "Chỉ xét duyệt đợt đã nộp." };
   if ((await store.listVerifications(before.supplier_id)).some((v) => v.target_level === before.target_level && v.status === "approved")) {
-    throw new Error("Bước này đã được duyệt ở đợt kiểm khác.");
+    return { ok: false as const, message: "Bước này đã được duyệt ở đợt kiểm khác." };
   }
-  if (!before.inspector_id) throw new Error("Bản kiểm thiếu người kiểm. Cần chuyên viên nộp lại trước khi duyệt.");
-  if (requireSecondVerificationReviewer() && before.inspector_id === session?.uid) {
-    throw new Error("Người kiểm không được tự duyệt. Cần người khác xét duyệt.");
+  // Giấy tờ L1 do NCC tự tải lên không có người kiểm tách biệt, nên bốn mắt chỉ
+  // áp dụng khi đợt đã có người kiểm. Trường hợp còn lại người duyệt tự đối
+  // chiếu và phải xác nhận rõ (xem approveReview), hồ sơ ghi self_approved.
+  if (requireSecondVerificationReviewer() && before.inspector_id && before.inspector_id === session?.uid) {
+    return { ok: false as const, message: "Bạn là người kiểm của đợt này; cần người khác duyệt." };
   }
-  return { before, store, session };
+  return { ok: true as const, before, store, session };
 }
 
-export async function approveVerificationAction(fd: FormData) {
-  const gate = await guard("verifications.approve");
-  if (gate) throw new Error(gate.message);
-  const { before, store, session } = await getReviewable(String(fd.get("id") || ""));
+export async function approveVerificationAction(fd: FormData): Promise<{ ok: boolean; message: string }> {
+  // A server action that throws becomes HTTP 500 in production and the browser
+  // only shows a minified React digest. Every expected failure returns a
+  // message instead; only a bug reaches the catch below, and even then the
+  // page stays usable.
+  let committed = false;
+  try {
+    // Phiên đăng nhập cũng có thể lỗi (CSDL, cookie hỏng). Đặt trong try để
+    // không nhánh nào biến quyết định thành trang lỗi 500 với mã React lạ.
+    const gate = await guard("verifications.approve");
+    if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };
+    return await approveReview(fd, () => { committed = true; });
+  } catch (error) {
+    console.error("[verification] approve action failed", error);
+    return committed
+      ? { ok: true, message: "Đã duyệt bước kiểm tra. Trang chưa tự cập nhật; tải lại trang để thấy kết quả và mở bước tiếp theo." }
+      : { ok: false, message: `Chưa lưu được quyết định duyệt (${briefReason(error)}).${technicalHint(briefReason(error))} Bản kiểm vẫn đang chờ duyệt.` };
+  }
+}
+
+async function approveReview(fd: FormData, markCommitted: () => void) {
+  const reviewable = await getReviewable(String(fd.get("id") || ""));
+  if (!reviewable.ok) return reviewable;
+  const { before, store, session } = reviewable;
   const bankNumber = (before.bank_account_number ?? "").trim();
   if (before.target_level === 1 && (!/^[0-9]{1,32}$/.test(before.tax_number ?? "") ||
       (bankNumber && !/^[0-9]{1,34}$/.test(bankNumber)))) {
     return { ok: false, message: "Cần nhập mã số thuế bằng chữ số; số tài khoản ngân hàng là mục tùy chọn nhưng nếu có thì phải là chữ số. Không cần tải ảnh cho hai mục này. Trả lại để bổ sung nếu bản kiểm đã nộp." };
+  }
+  if (!before.inspector_id && fd.get("confirm_self_review") !== "yes") {
+    return { ok: false, message: "Đợt này do nhà cung cấp tự tải lên nên chưa có người kiểm tách biệt. Đánh dấu xác nhận bạn đã tự đối chiếu từng giấy tờ rồi duyệt lần nữa; hệ thống sẽ ghi rõ một người vừa đối chiếu vừa duyệt." };
   }
   if (requiredAuditItems(before.target_level).some((it) => before.checklist[it.key] !== true && before.checklist[it.key] !== false)) {
     return { ok: false, message: "Còn mục chưa kiểm; trả lại để bổ sung." };
@@ -166,8 +239,20 @@ export async function approveVerificationAction(fd: FormData) {
       return { ok: false, message: "Cần chứng từ vận chuyển/giao nhận ở đúng đợt kiểm (gắn vào mục tương ứng hoặc chứng từ cũ đã kiểm tra). Ảnh không liên quan hoặc video không đủ điều kiện." };
     }
   }
+  const decision = { status: "approved" as const, approved_by: session?.uid ?? null, approved_at: new Date().toISOString() };
+  // Chỉ đợt chưa có người kiểm mới dùng cờ này; đợt đã có người kiểm giữ false.
+  const patch = { ...decision, self_approved: !before.inspector_id };
   try {
-    await store.updateVerification(before.id, { status: "approved", approved_by: session?.uid ?? null, approved_at: new Date().toISOString() });
+    try {
+      await store.updateVerification(before.id, patch);
+    } catch (error) {
+      // CSDL chưa chạy migration 20261033: cột self_approved chưa có. Không để
+      // thứ tự deploy chặn quyết định; ràng buộc bốn mắt (nếu còn) vẫn tự chặn.
+      if (!/self_approved/.test(briefReason(error)) || !/schema cache|PGRST204|does not exist/i.test(briefReason(error))) throw error;
+      console.warn("[verification] self_approved column missing; approving without it", briefReason(error));
+      await store.updateVerification(before.id, decision);
+    }
+    markCommitted();
   } catch (error) {
     if (error instanceof Error && /verifications_four_eyes/.test(error.message)) {
       console.error("[verification] database rejected the four-eyes approval");
@@ -177,16 +262,26 @@ export async function approveVerificationAction(fd: FormData) {
   }
   await auditChange(before, "approved", "approve");
   const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
-  const mail = await notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_approved", name });
+  const mail = await softEffect("email duyệt gửi NCC",
+    () => notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_approved", name })) ?? "failed";
   if (mail !== "sent") console.warn("[verification] supplier approval email not sent; decision saved", mail);
-  refreshAudit(before);
+  await softEffect("làm mới trang kiểm tra", () => refreshAudit(before));
   return { ok: true, message: "Đã duyệt bước kiểm tra." + (mail === "sent" ? "" : " Email NCC chưa gửi được; kết quả vẫn lưu trên cổng.") };
 }
 
 /** Publication is a second, explicit reviewer decision, independent of approving the review. */
 export async function updateVerificationPublicSummaryAction(fd: FormData) {
+  try {
+    return await savePublicSummary(fd);
+  } catch (error) {
+    console.error("[verification] public summary action failed", error);
+    return { ok: false, message: `Chưa lưu được tóm tắt (${briefReason(error)}). Bản đang công khai vẫn giữ nguyên.` };
+  }
+}
+
+async function savePublicSummary(fd: FormData) {
   const gate = await guard("verifications.approve");
-  if (gate) return gate;
+  if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };
   const store = getStore();
   const before = await store.getVerification(String(fd.get("id") || ""));
   if (!before || before.status !== "approved" || ![2, 3].includes(before.target_level)) {
@@ -216,16 +311,27 @@ export async function updateVerificationPublicSummaryAction(fd: FormData) {
     before: { verification_id: before.id, published_at: before.public_summary_published_at ?? null, summary: before.public_summary_i18n?.en ?? "" },
     after: { verification_id: before.id, published_at: publishedAt, summary: mode === "hide" ? before.public_summary_i18n?.en ?? "" : summary },
   }).catch((err) => console.error("[audit] summary publication log failed", err));
-  refreshAudit(before);
-  const supplier = await store.getSupplier(before.supplier_id);
-  if (supplier?.status === "published") revalidatePath(`/suppliers/${supplier.slug || supplier.id}`);
+  await softEffect("làm mới trang kiểm tra", () => refreshAudit(before));
+  const supplier = await softEffect("đọc hồ sơ NCC",
+    () => store.getSupplier(before.supplier_id));
+  if (supplier?.status === "published") await softEffect("làm mới trang công khai",
+    () => revalidatePath(`/suppliers/${supplier.slug || supplier.id}`));
   return { ok: true, message: mode === "publish" ? "Đã duyệt và công khai tóm tắt." : mode === "hide" ? "Đã ẩn tóm tắt." : "Đã lưu nháp; chưa công khai." };
 }
 
 /** Associate old/unassigned evidence with a row of the same verification. */
 export async function assignVerificationEvidenceAction(mediaId: string, key: AuditEvidenceKey | null) {
+  try {
+    return await assignEvidence(mediaId, key);
+  } catch (error) {
+    console.error("[verification] evidence assignment failed", error);
+    return { ok: false, message: `Chưa gắn được tệp (${briefReason(error)}). Tệp giữ nguyên như trước.` };
+  }
+}
+
+async function assignEvidence(mediaId: string, key: AuditEvidenceKey | null) {
   const gate = await guard("media.manage");
-  if (gate) return gate;
+  if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };
   const store = getStore();
   const asset = await store.getMedia(mediaId);
   if (!asset || asset.owner_type !== "verification" || !asset.verification_id) {
@@ -260,21 +366,39 @@ export async function assignVerificationEvidenceAction(mediaId: string, key: Aud
     before: { verification_id: v.id, media_id: mediaId, checklist_key: previousKey },
     after: { verification_id: v.id, media_id: mediaId, checklist_key: key },
   }).catch((err) => console.error("[audit] evidence assignment failed", err));
-  refreshAudit(v);
+  await softEffect("làm mới trang kiểm tra", () => refreshAudit(v));
   return { ok: true, message: key ? "Đã gắn tệp vào mục kiểm." : "Đã chuyển tệp về bằng chứng chưa gắn mục." };
 }
 
-export async function returnVerificationAction(fd: FormData) {
-  const gate = await guard("verifications.approve");
-  if (gate) throw new Error(gate.message);
-  const { before, store } = await getReviewable(String(fd.get("id") || ""));
+export async function returnVerificationAction(fd: FormData): Promise<{ ok: boolean; message: string }> {
+  let committed = false;
+  try {
+    // Phiên đăng nhập cũng có thể lỗi (CSDL, cookie hỏng). Đặt trong try để
+    // không nhánh nào biến quyết định thành trang lỗi 500 với mã React lạ.
+    const gate = await guard("verifications.approve");
+    if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };
+    return await returnReview(fd, () => { committed = true; });
+  } catch (error) {
+    console.error("[verification] return action failed", error);
+    return committed
+      ? { ok: true, message: "Đã trả về để bổ sung. Trang chưa tự cập nhật; tải lại trang để thấy trạng thái mới." }
+      : { ok: false, message: `Chưa trả về được (${briefReason(error)}). Bản kiểm vẫn đang chờ duyệt.` };
+  }
+}
+
+async function returnReview(fd: FormData, markCommitted: () => void) {
+  const reviewable = await getReviewable(String(fd.get("id") || ""));
+  if (!reviewable.ok) return reviewable;
+  const { before, store } = reviewable;
   const reason = String(fd.get("reason") || "").trim();
-  if (!reason) throw new Error("Cần ghi lý do trả về bổ sung.");
+  if (!reason) return { ok: false, message: "Cần ghi lý do trả về bổ sung." };
   await store.updateVerification(before.id, { status: "returned", return_reason: reason.slice(0, 1000) });
+  markCommitted();
   await auditChange(before, "returned", "return");
   const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
-  const mail = await notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_returned", name, note: reason });
+  const mail = await softEffect("email trả về gửi NCC",
+    () => notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_returned", name, note: reason })) ?? "failed";
   if (mail !== "sent") console.warn("[verification] supplier return email not sent; decision saved", mail);
-  refreshAudit(before);
+  await softEffect("làm mới trang kiểm tra", () => refreshAudit(before));
   return { ok: true, message: "Đã trả về để bổ sung." + (mail === "sent" ? "" : " Email NCC chưa gửi được; kết quả vẫn lưu trên cổng.") };
 }

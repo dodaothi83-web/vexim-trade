@@ -9,7 +9,7 @@ import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { listPublicCategoryProducts, shareableProductImages } from "@/lib/public/product-catalog";
-import { fieldsFor, publicProductAttributes } from "@/lib/product-attributes";
+import { fieldsFor, publicProductAttributes, supplierFieldsFor } from "@/lib/product-attributes";
 import { shareableProductVideo } from "@/lib/public/product-video";
 import { ProductMediaGallery } from "@/components/product-media-gallery";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
@@ -81,9 +81,13 @@ export default async function PublicProductDetail({ params }: Props) {
   const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}`;
   const approvedAttributes = publicProductAttributes(category, p.specs);
   const configuredKeys = new Set(fieldsFor(category).map((f) => f.key));
+  // Thông số NCC tự thêm chưa được Vexim duyệt thành trường của danh mục: không tự lên trang buyer.
+  const supplierKeys = new Set(supplierFieldsFor(category).map((f) => f.key));
+  const legacyKeys = [...supplierKeys].filter((key) => !configuredKeys.has(key));
   const specs = [
     ...fieldsFor(category).filter((f) => approvedAttributes[f.key]).map((f) => [f.label, approvedAttributes[f.key]] as [string, string]),
-    ...(configuredKeys.size ? [] : Object.entries(p.specs ?? {}).filter(([, value]) => typeof value === "string" || typeof value === "number").map(([key, value]) => [key, String(value)] as [string, string])),
+    ...(configuredKeys.size ? [] : Object.entries(p.specs ?? {}).filter(([key, value]) =>
+      (typeof value === "string" || typeof value === "number") && !legacyKeys.includes(key)).map(([key, value]) => [key, String(value)] as [string, string])),
   ].slice(0, 12);
 
   // Trang buyer hiển thị bản tiếng Anh (AI dịch, nhân viên Vexim đã chốt); chỉ lùi về nội dung gốc khi chưa có bản dịch.

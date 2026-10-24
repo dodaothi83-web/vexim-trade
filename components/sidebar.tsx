@@ -71,6 +71,7 @@ export function Sidebar({
   pendingSuppliers = 0,
   pendingProducts = 0,
   pendingReviews = 0,
+  pendingSubmissions = 0,
 }: {
   dataMode: "supabase" | "local";
   dataDegraded?: boolean;
@@ -85,6 +86,8 @@ export function Sidebar({
   pendingProducts?: number;
   /** Đợt kiểm đã nộp, chờ người duyệt — badge ở menu Xác minh */
   pendingReviews?: number;
+  /** Hồ sơ NCC tự gửi đang chờ đối chiếu — badge ở menu Hồ sơ NCC tự gửi */
+  pendingSubmissions?: number;
   session: { name: string; email: string; role: UserRole };
   permissions: Permission[];
 }) {
@@ -126,6 +129,7 @@ export function Sidebar({
                     : item.href === "/crm/suppliers" ? (pendingSuppliers > 0 ? { text: `${pendingSuppliers} mới`, title: "Tài khoản NCC chưa nộp hồ sơ hoặc chờ xác nhận" } : null)
                     : item.href === "/crm/products" ? (pendingProducts > 0 ? { text: `${pendingProducts} chờ`, title: "Sản phẩm chờ duyệt" } : null)
                     : item.href === "/crm/verifications" ? (pendingReviews > 0 ? { text: `${pendingReviews} chờ`, title: "Đợt kiểm chờ duyệt" } : null)
+                    : item.href === "/crm/verifications/submissions" ? (pendingSubmissions > 0 ? { text: `${pendingSubmissions} chờ`, title: "Hồ sơ NCC tự gửi chờ đối chiếu" } : null)
                     : null;
                   return (
                     <Link

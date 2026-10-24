@@ -41,8 +41,8 @@ const hrefs = [...nav.matchAll(/href: "([^"]+)"/g)].map((m) => m[1]);
 assert.deepEqual(hrefs, [
   '/supplier/portal', '/supplier/portal/storefront', '/supplier/portal/products', '/supplier/portal/categories',
   '/supplier/portal/traffic', '/supplier/portal/rfqs', '/supplier/portal/documents',
-  '/supplier/portal/verification', '/supplier/portal/profile',
-], 'Menu xếp theo tính năng: gian hàng, công việc, xác minh, tài khoản');
+  '/supplier/portal/verification/factory', '/supplier/portal/verification/export', '/supplier/portal/profile',
+], 'Menu xếp theo tính năng: gian hàng, công việc, xác minh (L2 và L3 tách riêng), tài khoản');
 assert.doesNotMatch(sidebarSource, /href: "[^"]*#/, 'Menu không trỏ vào neo trong trang tổng quan');
 assert.doesNotMatch(sidebarSource, /href="\/crm/, 'Cổng NCC không hiện đường dẫn CRM');
 
@@ -50,7 +50,8 @@ assert.doesNotMatch(sidebarSource, /href="\/crm/, 'Cổng NCC không hiện đư
 const topbar = read('components/supplier-topbar.tsx');
 assert.ok(!hrefs.includes('/supplier/portal/notifications'), 'Thông báo không nằm trong menu trái');
 assert.ok(!existsSync(new URL('../app/supplier/portal/notifications', import.meta.url)), 'Không có trang thông báo riêng');
-assert.doesNotMatch(topbar, /next\/link|href="\/supplier\/portal\/notifications"/, 'Chuông không dẫn sang trang khác');
+assert.doesNotMatch(topbar, /href="\/supplier\/portal\/notifications"|href="\/crm/, 'Chuông không dẫn sang trang thông báo riêng hay sang CRM');
+assert.match(topbar, /router\.push\(notice\.href/, 'Mỗi dòng thông báo mở đúng trang xử lý việc đó');
 assert.match(topbar, /aria-label=\{loaded && unread \? `Thông báo, \$\{unread\} chưa đọc` : "Thông báo"\}/,
   'Chuông có nhãn đọc được kèm số chưa đọc');
 assert.match(topbar, /fetch\("\/api\/supplier-portal\/notifications"/, 'Chuông tự lấy dữ liệu, không chặn tải trang');
@@ -63,7 +64,7 @@ assert.match(read('app/api/supplier-portal/notifications/route.ts'), /buildSuppl
 
 // 3. Không trang nào tự dựng <main> hay tiêu đề riêng: một ngôn ngữ thị giác.
 for (const page of ['page.tsx', 'storefront/page.tsx', 'rfqs/page.tsx', 'documents/page.tsx', 'profile/page.tsx',
-  'traffic/page.tsx', 'verification/page.tsx', 'categories/page.tsx']) {
+  'traffic/page.tsx', 'categories/page.tsx', 'verification/page.tsx']) {
   const source = read(`app/supplier/portal/${page}`);
   assert.doesNotMatch(source, /<main/, `${page} không tự dựng khung main`);
   assert.doesNotMatch(source, /<h1/, `${page} dùng tiêu đề chung PageHeader`);
@@ -89,7 +90,7 @@ function renderSidebar(pathname, props) {
 const base = { supplierName: 'Dong Nai Cashew', email: 'ncc@example.com', userName: 'Nguyễn Thị B', approved: true, publicUrl: null };
 const html = renderSidebar('/supplier/portal/rfqs', base);
 for (const label of ['Tổng quan', 'Trang của tôi', 'Sản phẩm', 'Danh mục kinh doanh', 'Lượt xem gian hàng', 'RFQ &amp; báo giá',
-  'Giấy tờ &amp; chứng nhận L1', 'Xác thực nhà máy L2 · L3', 'Hồ sơ doanh nghiệp'])
+  'Giấy tờ &amp; chứng nhận L1', 'Xác thực nhà máy L2', 'Lịch sử xuất khẩu L3', 'Hồ sơ doanh nghiệp'])
   assert.ok(html.includes(label), `Menu có mục ${label}`);
 assert.match(html, /<a href="\/supplier\/portal\/rfqs" aria-current="page"/, 'Mục đang mở được đánh dấu');
 assert.match(html, /ncc@example\.com/, 'Menu hiện email đăng nhập');
@@ -144,4 +145,29 @@ assert.match(upload, /3 \* 1024 \* 1024/, 'Ảnh tối đa 3 MB sau khi nén');
 assert.match(read('components/supplier-photo-button.tsx'), /\/api\/supplier-portal\/profile-image/,
   'Nút + gửi ảnh lên đúng route của cổng NCC');
 
-console.log('✅ Supplier portal shell: one menu, one page per function, notifications live inside the bell.');
+// 8. Hai cấp xác minh là hai trang riêng, mỗi trang một mục menu.
+const factoryPage = read('app/supplier/portal/verification/factory/page.tsx');
+const exportPage = read('app/supplier/portal/verification/export/page.tsx');
+assert.match(factoryPage, /<VerificationLevelPage level=\{2\} \/>/, 'Trang nhà máy chỉ dựng hồ sơ L2');
+assert.match(exportPage, /<VerificationLevelPage level=\{3\} \/>/, 'Trang xuất khẩu chỉ dựng hồ sơ L3');
+assert.match(sidebarSource, /href: "\/supplier\/portal\/verification\/factory", label: "Xác thực nhà máy L2", icon: Factory/,
+  'Menu có mục L2 riêng');
+assert.match(sidebarSource, /href: "\/supplier\/portal\/verification\/export", label: "Lịch sử xuất khẩu L3", icon: Ship/,
+  'Menu có mục L3 riêng');
+assert.ok(!hrefs.includes('/supplier/portal/verification'), 'Không còn mục menu gộp L2 · L3');
+assert.doesNotMatch(read('app/supplier/portal/verification/level-page.tsx'), /#level-[23]/,
+  'Hai trang không còn phụ thuộc neo cuộn trong một trang gộp');
+
+// 9. Ô chọn tệp phải là khung rõ ràng, không phải dòng chữ mặc định của trình duyệt.
+for (const file of ['app/supplier/portal/l1-doc-upload.tsx', 'app/supplier/portal/supplier-profile-form.tsx', 'app/supplier/portal/certificate-upload.tsx']) {
+  const src = read(file);
+  assert.doesNotMatch(src, /type="file"[^>]*className="input/, `${file}: ô chọn tệp không dùng input mặc định một dòng`);
+}
+assert.match(read('components/file-picker.tsx'), /sr-only[\s\S]*type="file"|type="file"[\s\S]*sr-only/,
+  'FilePicker giữ input thật để form vẫn gửi tệp và vẫn kiểm tra required');
+// Trang Giấy tờ L1: mỗi thẻ giấy tờ có ô tải riêng, không bắt chọn mục ở ô select rồi mới chọn tệp.
+const docsPage = read('app/supplier/portal/documents/page.tsx');
+assert.match(docsPage, /<L1DocUpload checklistKey=\{row\.key\}/, 'Mỗi mục giấy tờ L1 có ô tải riêng trong thẻ');
+assert.doesNotMatch(docsPage, /<SupplierPortalUpload/, 'Không còn ô chọn tệp dùng chung với select mục tài liệu');
+
+console.log('✅ Supplier portal shell: one menu, one page per function, L2/L3 split, notifications live inside the bell.');

@@ -88,7 +88,7 @@ export async function readSubmissionFile(level: 2 | 3, key: string, file: File):
   if (!allowedMimes(level).includes(mime)) {
     throw new Error(level === 2
       ? `Bước xác thực nhà máy chỉ nhận ảnh JPG/PNG/WebP, tệp này là ${mime}.`
-      : `Bước lịch sử xuất khẩu nhận ảnh JPG/PNG/WebP hoặc PDF — tệp này là ${mime}.`);
+      : `Bước lịch sử xuất khẩu nhận ảnh JPG/PNG/WebP hoặc PDF - tệp này là ${mime}.`);
   }
   if (level === 2 && mime === "application/pdf") throw new Error("Bước xác thực nhà máy chỉ nhận ảnh chụp.");
   const exif = mime === "application/pdf" ? parseExif(new Uint8Array()) : parseExif(bytes);
@@ -185,8 +185,12 @@ export async function saveSubmissionEvidence(input: {
   let media: MediaAsset;
   try {
     media = await store.createMedia({
-      owner_type: "verification",
-      verification_id: submission.id,
+      // Bằng chứng tự gửi là chủ sở hữu RIÊNG: `submission_id` trỏ tới
+      // supplier_submissions(id). Tuyệt đối không ghi id hồ sơ vào
+      // `verification_id` (cột đó có khoá ngoại tới verifications(id)).
+      owner_type: "submission",
+      verification_id: null,
+      submission_id: submission.id,
       supplier_id: submission.supplier_id,
       product_id: null,
       checklist_key: key as MediaAsset["checklist_key"],

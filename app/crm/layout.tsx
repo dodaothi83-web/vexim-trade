@@ -9,6 +9,7 @@ import { hasPermission, permissionsFor } from "@/lib/auth/permissions";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { loadMailboxData } from "@/lib/mail/mailbox-access";
 import { Sidebar } from "@/components/sidebar";
+import { CrmTopbar } from "@/components/crm-topbar";
 
 export const dynamic = "force-dynamic";
 
@@ -46,11 +47,33 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const canSuppliers = hasPermission(session.role, "suppliers.view");
   const canProducts = hasPermission(session.role, "products.view");
   const canReviews = hasPermission(session.role, "verifications.view");
-  const [pendingSuppliers, pendingProducts, pendingReviews] = await Promise.all([
-    canSuppliers ? store.countSupplierAccountsPending().catch(() => 0) : 0,
-    canProducts ? store.countProductsPendingReview().catch(() => 0) : 0,
-    canReviews ? store.countReviewsAwaitingApproval().catch(() => 0) : 0,
+  // Đếm hỏng thì vẫn chạy trang, nhưng phải để lại dấu vết: trước đây lỗi bị nuốt
+  // thành 0 nên huy hiệu im lặng biến mất mà không ai biết vì sao.
+  const countOrZero = async (label: string, work: () => Promise<number>) => {
+    try {
+      return await work();
+    } catch (error) {
+      console.error(`[crm] đếm việc chờ cho huy hiệu "${label}" thất bại`, error);
+      return 0;
+    }
+  };
+  const [pendingSuppliers, pendingProducts, pendingReviews, pendingSubmissions] = await Promise.all([
+    canSuppliers ? countOrZero("nhà cung cấp", () => store.countSupplierAccountsPending()) : 0,
+    canProducts ? countOrZero("sản phẩm", () => store.countProductsPendingReview()) : 0,
+    canReviews ? countOrZero("đợt kiểm", () => store.countReviewsAwaitingApproval()) : 0,
+    canReviews ? countOrZero("hồ sơ tự gửi", () => store.countSubmissionsPendingReview()) : 0,
   ]);
+
+  // Chuông thông báo của CRM: cùng nguồn số với huy hiệu sidebar, nên hai nơi
+  // không bao giờ lệch nhau. Chỉ đưa vào chuông hàng đang có việc.
+  const queues = [
+    { href: "/crm/suppliers", label: "Nhà cung cấp chờ xác nhận quyền cổng", count: pendingSuppliers },
+    { href: "/crm/products?view=pending", label: "Sản phẩm NCC chờ kiểm nội dung", count: pendingProducts },
+    { href: "/crm/verifications", label: "Đợt kiểm chờ duyệt", count: pendingReviews },
+    { href: "/crm/verifications/submissions", label: "Hồ sơ NCC tự gửi chờ đối chiếu", count: pendingSubmissions },
+    { href: "/crm/mail", label: "Thư chưa đọc", count: unreadMail },
+    { href: "/crm/buyers", label: "Buyer mới chưa xử lý", count: newBuyers },
+  ].filter((queue) => queue.count > 0);
 
   let dbMode: "supabase" | "local" = "local";
   let dbDegraded = false;
@@ -79,9 +102,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         pendingSuppliers={pendingSuppliers}
         pendingProducts={pendingProducts}
         pendingReviews={pendingReviews}
+        pendingSubmissions={pendingSubmissions}
       />
       <div className="lg:pl-60">
-        <main className="mx-auto min-h-screen w-full max-w-[1500px] px-4 pt-16 pb-16 sm:px-6 lg:px-8 lg:pt-8">
+        <CrmTopbar queues={queues} />
+        <main className="mx-auto min-h-screen w-full max-w-[1500px] px-4 pt-2 pb-16 sm:px-6 lg:px-8 lg:pt-4">
           {children}
         </main>
       </div>

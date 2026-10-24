@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { FilePicker } from "@/components/file-picker";
+
 const CERT_KEY_OPTIONS = [
   { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000" },
   { key: "food_safety", label: "Giấy chứng nhận ATTP" },
@@ -92,18 +94,16 @@ export function SupplierCertificateUpload({
           className="input text-sm"
         />
       </label>
-      <label className="block text-xs sm:col-span-2">
-        <span className="mb-1 block font-semibold text-ink-800">
-          Tệp PDF hoặc ảnh chứng nhận (tối đa 15 MB)
-        </span>
-        <input
+      <div className="block sm:col-span-2">
+        <FilePicker
           name="file"
-          type="file"
           accept=".pdf,image/jpeg,image/png,image/webp"
-          className="input text-sm"
           required
+          busy={busy}
+          title="Tệp PDF hoặc ảnh chứng nhận"
+          hint="Tối đa 15 MB. Tệp được quét sơ bộ, không tự công khai."
         />
-      </label>
+      </div>
       <div className="flex items-end">
         <button disabled={busy} className="btn btn-primary w-full" type="submit">
           {busy ? "AI đang quét..." : "Tải lên & AI quét"}

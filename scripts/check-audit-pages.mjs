@@ -33,6 +33,9 @@ const records = [
 const media = [];
 let mediaBlocked = null;
 let dbFourEyes = false;
+let dbFailure = null;
+let mailThrows = false;
+let revalidateThrows = false;
 let dbChecklistConstraint = false;
 const store = {
   getVerification: async () => row,
@@ -44,6 +47,7 @@ const store = {
     const asset = media.find((m) => m.id === id); Object.assign(asset, patch); return asset;
   },
   updateVerification: async (_id, patch) => {
+    if (dbFailure) throw new Error(dbFailure);
     if (dbFourEyes && patch.status === 'approved' && patch.approved_by === row.inspector_id) {
       throw new Error('updateVerification: new row for relation "verifications" violates check constraint "verifications_four_eyes"');
     }
@@ -53,14 +57,18 @@ const store = {
   getSupplier: async () => ({ verification_level: 2 }),
 };
 const mocks = {
-  'next/cache': { revalidatePath: () => {} },
+  'next/cache': { revalidatePath: () => { if (revalidateThrows) throw new Error('invariant: static generation store missing'); } },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': {
     guard: async (permission) => permission === 'verifications.approve' && !['admin', 'reviewer'].includes(auditor.role) ? { message: 'Bạn không có quyền xét duyệt' } : null,
     getSession: async () => auditor,
   },
   '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
-  '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent', notifyStaffVerificationSubmission: async () => 'sent' },
+  '@/lib/crm/badges': { refreshCrmBadges: () => {} },
+  '@/lib/supplier-portal/notify': {
+    notifySupplierDecision: async () => { if (mailThrows) throw new Error('resend: socket hang up'); return 'sent'; },
+    notifyStaffVerificationSubmission: async () => { if (mailThrows) throw new Error('resend: socket hang up'); return 'sent'; },
+  },
   '@/lib/verification-evidence': evidence,
   '@/lib/media/verification-access': { verificationMediaEditError: async () => mediaBlocked },
   '@/lib/types': { L1_DOC_ITEMS: docItems },
@@ -73,7 +81,7 @@ const mocks = {
     inVnBounds: (lat, lng) => lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110,
   },
 };
-vm.runInNewContext(js, { exports, require: (name) => { assert.ok(name in mocks, `Unknown import ${name}`); return mocks[name]; }, console: { error: () => {} }, FormData, Date, Error }, { filename: 'verification-actions.ts' });
+vm.runInNewContext(js, { exports, require: (name) => { assert.ok(name in mocks, `Unknown import ${name}`); return mocks[name]; }, console: { error: () => {}, warn: () => {}, log: () => {} }, FormData, Date, Error }, { filename: 'verification-actions.ts' });
 const form = new FormData(); form.set('id', row.id);
 assert.match((await exports.approveVerificationAction(form)).message, /chứng từ vận chuyển\/giao nhận/);
 media.push({ kind: 'video', status: 'checked', storage_path: null });
@@ -82,10 +90,14 @@ media.push({ kind: 'document', status: 'unverified', storage_path: 'verification
 assert.match((await exports.approveVerificationAction(form)).message, /chứng từ vận chuyển\/giao nhận/);
 media[1].status = 'checked';
 auditor.uid = row.inspector_id;
-await assert.rejects(exports.approveVerificationAction(form), /không được tự duyệt/);
+const selfReview = await exports.approveVerificationAction(form);
+assert.equal(selfReview.ok, false, 'Self review is refused without throwing');
+assert.match(selfReview.message, /cần người khác duyệt/);
 auditor.uid = 'reviewer-1';
 auditor.role = 'sourcing';
-await assert.rejects(exports.approveVerificationAction(form), /không có quyền xét duyệt/);
+const noPermission = await exports.approveVerificationAction(form);
+assert.equal(noPermission.ok, false, 'Missing permission is refused without throwing');
+assert.match(noPermission.message, /không có quyền xét duyệt/);
 auditor.role = 'reviewer';
 records.splice(0, 2); // Delivery history has no factory or document prerequisite.
 const approved = await exports.approveVerificationAction(form);
@@ -95,7 +107,37 @@ assert.equal(records.length, 1);
 assert.notEqual(row.inspector_id, row.approved_by, 'Independent approver must differ from inspector');
 assert.equal(lastAudit.after.self_approved, false);
 assert.equal(lastAudit.actor_id, auditor.uid);
-await assert.rejects(exports.updateVerificationChecklistAction(form), /đã.*duyệt/);
+// Lỗi phụ chạy sau khi CSDL đã ghi (email, revalidate) không được biến một lần
+// duyệt đã lưu thành trang lỗi 500 ở production (React #441).
+Object.assign(row, { status: 'submitted', approved_by: null, approved_at: null });
+dbFailure = 'updateVerification: new row for relation "verifications" violates check constraint "verification_summary_publish_ck"';
+const dbRejected = await exports.approveVerificationAction(form);
+assert.equal(dbRejected.ok, false, 'A rejected write returns a message, never a thrown action');
+assert.match(dbRejected.message, /Chưa lưu được quyết định duyệt/);
+assert.equal(row.status, 'submitted', 'A rejected write leaves the review pending');
+dbFailure = "updateVerification: Could not find the 'bank_account_number' column of 'verifications' in the schema cache";
+const migrationMissing = await exports.approveVerificationAction(form);
+assert.match(migrationMissing.message, /chạy migration/, 'Schema-cache failures tell staff to run the migration');
+dbFailure = 'updateVerification: JSON object requested, multiple (or no) rows returned';
+const writeBlocked = await exports.approveVerificationAction(form);
+assert.match(writeBlocked.message, /RLS chặn ghi/, 'A zero-row update points at RLS instead of a React digest');
+dbFailure = null;
+mailThrows = true;
+const mailWarned = await exports.approveVerificationAction(form);
+assert.equal(mailWarned.ok, true, 'A mail failure cannot undo a saved approval');
+assert.match(mailWarned.message, /Email NCC chưa gửi được/);
+assert.equal(row.status, 'approved');
+mailThrows = false;
+Object.assign(row, { status: 'submitted', approved_by: null, approved_at: null });
+revalidateThrows = true;
+const revalidateWarned = await exports.approveVerificationAction(form);
+assert.equal(revalidateWarned.ok, true, 'A revalidate failure cannot 500 an approval');
+assert.equal(row.status, 'approved');
+revalidateThrows = false;
+Object.assign(row, { status: 'submitted', approved_by: null, approved_at: null });
+const lockedEdit = await exports.updateVerificationChecklistAction(form);
+assert.equal(lockedEdit.ok, false, 'Editing an approved review is refused without throwing');
+assert.match(lockedEdit.message, /đã.*duyệt/);
 Object.assign(row, { status: 'submitted', approved_by: null, approved_at: null });
 // Optional data is never a submission/approval gate for factory or delivery.
 Object.assign(row, { status: 'in_progress', approved_by: null, target_level: 3, checklist: {}, shipment_ref: null, shipped_on: null });
@@ -247,6 +289,34 @@ const panelUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verificatio
 assert.ok(!panelUi.includes('approvedLevel'), 'Review panel does not infer previous checks from a highest level');
 const approvalSource = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-actions.ts', import.meta.url), 'utf8');
 assert.ok(!approvalSource.includes('target_level - 1'), 'Delivery approval has no factory prerequisite');
+// Email + revalidate chạy sau khi đã ghi CSDL: phải đi qua softEffect, không được
+// await trần (await trần = throw = HTTP 500/React #441 dù quyết định đã lưu).
+assert.ok(!/await (notifySupplierDecision|notifyStaffVerificationSubmission)\(/.test(approvalSource),
+  'Reviewer mail must never be awaited bare');
+assert.ok(!/^\s*refreshAudit\(/m.test(approvalSource), 'Revalidation must never be awaited bare');
+assert.match(approvalSource, /softEffect\("email duyệt gửi NCC"/);
+// Giấy tờ do NCC tự tải lên có inspector_id = null. Chặn duyệt ở đây là bế tắc:
+// không ai có thể là "người kiểm" của hồ sơ do NCC tự nộp. Thay vào đó người
+// duyệt phải xác nhận đã tự đối chiếu và hồ sơ ghi self_approved.
+assert.ok(!approvalSource.includes('Bản kiểm thiếu người kiểm'), 'A supplier-uploaded review must stay reviewable');
+assert.match(approvalSource, /confirm_self_review/, 'Single reviewer must confirm the comparison');
+assert.match(approvalSource, /self_approved: !before\.inspector_id/, 'The decision records a single-person approval');
+const singleReviewerSql = fs.readFileSync(new URL('../supabase/migrations/20261033_uploaded_documents_single_reviewer.sql', import.meta.url), 'utf8');
+assert.match(singleReviewerSql, /add column if not exists self_approved boolean not null default false/);
+assert.match(singleReviewerSql, /inspector_id is null and self_approved/);
+assert.match(singleReviewerSql, /inspector_id <> approved_by/,
+  'Reviews that do have an inspector still require a different approver');
+assert.match(formUi, /confirm_self_review/, 'The audit page asks for the confirmation');
+assert.match(formUi, /người duyệt tự đối chiếu và duyệt một mình/, 'Approved banner states the single-person decision');
+// guard() cũng có thể lỗi (phiên hỏng, CSDL đọc không được) nên phải nằm TRONG try,
+// nếu không thì một lần duyệt vẫn trả về 500 dù mọi phần khác đã "mềm".
+const bareGuard = 'if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };\n  let committed = false;';
+assert.ok(!approvalSource.includes(bareGuard), 'Approve/return guard must run inside try');
+assert.equal(approvalSource.split('let committed = false;\n  try {').length - 1, 3,
+  'Checklist, approve and return all wrap their whole body');
+const certificateSource = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/certificate-actions.ts', import.meta.url), 'utf8');
+assert.match(certificateSource, /Chưa quét lại được chứng nhận/, 'Certificate rescan reports failures as a message');
+assert.match(certificateSource, /Chưa đổi được trạng thái hiển thị/, 'Certificate visibility reports failures as a message');
 assert.match(formUi, /ok: result\.ok/, 'Expected validation failure must display on the audit page');
 const sql = fs.readFileSync(new URL('../supabase/migrations/20261017_delivery_history_audit.sql', import.meta.url), 'utf8');
 for (const field of ['shipment_ref', 'shipped_on', 'shipment_destination']) assert.ok(sql.includes(`add column if not exists ${field}`));
@@ -257,6 +327,7 @@ vm.runInNewContext(accessJs, { exports: access, require: (name) => ({
   '@/lib/auth/session': { getSession: async () => ({ role: permissionRole, uid: 'reviewer-1' }) },
   '@/lib/auth/permissions': { hasPermission: (role, permission) => role === 'admin' || role === 'sourcing' && permission !== 'verifications.approve' },
   '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
+  '@/lib/crm/badges': { refreshCrmBadges: () => {} },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent', notifyStaffVerificationSubmission: async () => 'sent' },
 })[name] }, { filename: 'verification-access.ts' });
 assert.equal(await access.verificationMediaEditError({ status: 'in_progress' }), null);

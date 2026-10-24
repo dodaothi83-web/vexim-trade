@@ -234,6 +234,8 @@ export type SupplierProductInput = Omit<SupplierProduct, "id" | "created_at" | "
 /** Category-specific product fields configured by Vexim, separate from editorial reference tables. */
 export interface ProductAttributeField {
   key: string;
+  /** true = do nhà cung cấp tự thêm, chưa được Vexim nâng thành trường chính thức của danh mục. */
+  supplier_added?: boolean;
   label: string;
   type: "select" | "text";
   options: string[];
@@ -254,6 +256,13 @@ export interface Category {
   /** Các cột bảng thông số (xem CategoryColumn). Bảng hiển thị khi có ≥1 cột. */
   spec_columns?: CategoryColumn[];
   product_fields?: ProductAttributeField[];
+  /**
+   * Thông số do nhà cung cấp tự thêm cho nhóm hàng này (không phải cấu hình CMS).
+   * Chỉ dùng để gợi ý/điền sẵn cho nhà cung cấp khác trong cùng nhóm hàng và để
+   * Vexim xem khi duyệt; không tham gia bộ lọc buyer. Vexim có thể nâng một mục ở
+   * đây thành `product_fields` chính thức khi muốn công bố cho buyer.
+   */
+  supplier_product_fields?: ProductAttributeField[];
   /** Các hàng trong bảng thông số. */
   spec_rows?: CategoryRow[];
   /** Các mục trong khối "thông tin mua hàng" (xem CategoryFact). */
@@ -490,7 +499,7 @@ export const L3_EXPORT_ITEMS = [
   { key: "customs_declaration", label: "Tờ khai hải quan xuất khẩu", required: true },
   { key: "commercial_invoice", label: "Hóa đơn thương mại", required: false },
   { key: "packing_list", label: "Phiếu đóng gói", required: false },
-  { key: "certificate_of_origin", label: "C/O — giấy chứng nhận xuất xứ", required: false },
+  { key: "certificate_of_origin", label: "C/O (giấy chứng nhận xuất xứ)", required: false },
   { key: "phytosanitary_or_health", label: "Kiểm dịch / y tế / hun trùng (nếu ngành hàng yêu cầu)", required: false },
 ] as const;
 
@@ -501,14 +510,14 @@ export type ExportDocKey = typeof L3_EXPORT_ITEMS[number]["key"];
  * Cờ KHÔNG phải kết luận: người duyệt của Vexim vẫn là người quyết định.
  */
 export const SUBMISSION_FLAG_LABELS: Record<string, string> = {
-  no_exif: "Ảnh không còn dữ liệu gốc (thường do gửi qua Zalo/Facebook) — vẫn nhận",
-  edited_software: "Dữ liệu ảnh ghi phần mềm chỉnh sửa — chỉ để lưu ý",
-  shared_via_app: "Ảnh từng đi qua ứng dụng chat/mạng xã hội — vẫn nhận",
-  no_gps: "Ảnh không kèm toạ độ — không bắt buộc",
+  no_exif: "Ảnh không còn dữ liệu gốc (thường do gửi qua Zalo/Facebook), vẫn nhận",
+  edited_software: "Dữ liệu ảnh ghi phần mềm chỉnh sửa, chỉ để lưu ý",
+  shared_via_app: "Ảnh từng đi qua ứng dụng chat/mạng xã hội, vẫn nhận",
+  no_gps: "Ảnh không kèm toạ độ, không bắt buộc",
   gps_outside_vn: "Toạ độ trong ảnh nằm ngoài Việt Nam",
   gps_mismatch: "Toạ độ trong ảnh lệch xa vị trí trình duyệt báo",
-  not_daylight: "Ảnh chụp ngoài khung 06:00–18:00 (giờ VN) — chỉ để lưu ý",
-  no_capture_time: "Ảnh không cho biết thời điểm chụp — không bắt buộc",
+  not_daylight: "Ảnh chụp ngoài khung 06:00-18:00 (giờ VN), chỉ để lưu ý",
+  no_capture_time: "Ảnh không cho biết thời điểm chụp, không bắt buộc",
   capture_before_code: "Dữ liệu ảnh cho thấy chụp trước khi phát hành mã",
   code_missing: "Không thấy tờ giấy viết tay mã xác minh trong ảnh bắt buộc",
   code_mismatch: "Mã viết tay trong ảnh không khớp mã hệ thống phát hành",
@@ -689,6 +698,12 @@ export interface Verification {
   /** Người duyệt (chỉ admin) */
   approved_by: string | null;
   approved_at: string | null;
+  /**
+   * Đợt kiểm không có người kiểm tách biệt (giấy tờ do NCC tự tải lên): người
+   * duyệt tự đối chiếu và tự duyệt. Cờ này để hồ sơ nói thật điều đó, không
+   * phải để hợp thức hoá việc bỏ bước kiểm.
+   */
+  self_approved?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -836,7 +851,15 @@ export type BuyerConsent = {
 
 /* --------------------------------- MEDIA --------------------------------- */
 
-export type MediaOwnerType = "product" | "supplier" | "verification";
+/**
+ * product      – tệp của một sản phẩm
+ * supplier     – tệp của doanh nghiệp (chứng nhận, catalogue…)
+ * verification – ảnh/giấy tờ của một ĐỢT KIỂM do nhân viên Vexim lập
+ * submission   – bằng chứng NCC tự tải lên cho HỒ SƠ TỰ GỬI (L2/L3), trước khi
+ *                nhân viên chấp thuận. Hai không gian id tách biệt: `submission_id`
+ *                không bao giờ được ghi vào `verification_id`.
+ */
+export type MediaOwnerType = "product" | "supplier" | "verification" | "submission";
 
 /**
  * image       – ảnh sản phẩm / ảnh nhà máy, chia sẻ được cho buyer
@@ -860,6 +883,12 @@ export interface MediaAsset {
   supplier_id: string | null;
   /** Khi owner_type === "verification" — ảnh/giấy tờ đính kèm cho một lần xác minh cụ thể */
   verification_id?: string | null;
+  /**
+   * Khi owner_type === "submission" — bằng chứng NCC tự gửi, gắn với
+   * `supplier_submissions(id)`. Chỉ nhân viên chấp thuận hồ sơ mới sao chép
+   * sang đợt kiểm thật (khi đó verification_id mới được điền).
+   */
+  submission_id?: string | null;
   /** Mục bảng kiểm giấy tờ gắn với tệp; null cho bằng chứng chung/tệp cũ. */
   checklist_key?: AuditEvidenceKey | null;
   kind: MediaKind;

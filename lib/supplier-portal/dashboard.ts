@@ -8,6 +8,8 @@ export interface PortalNotice {
   at: string;
   read: boolean;
   kind: "rfq" | "verification" | "contact" | "product" | "certificate";
+  /** Trang đúng để xử lý thông báo này; bấm vào là tới thẳng chỗ cần xem. */
+  href: string;
 }
 
 export interface PortalInvite {
@@ -27,8 +29,8 @@ export interface PortalInvite {
 const responded = (m: SupplierRfqInvitation) => !!m.supplier_replied_at || m.quote_price != null || m.status === "declined";
 const niceStatus: Record<string, string> = {
   sent_to_supplier: "Chờ bạn phản hồi", quoted: "Đã ghi nhận báo giá", declined: "Đã từ chối",
-  no_response: "Chưa nhận phản hồi", presented_to_buyer: "Vexim đã trình báo giá",
-  selected: "Đã được Vexim chọn", not_selected: "Không được chọn",
+  no_response: "Chưa nhận phản hồi", presented_to_buyer: "Đã trình báo giá",
+  selected: "Được chọn", not_selected: "Không được chọn",
 };
 
 type NoticeInput = {
@@ -56,8 +58,8 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
   return relevant.map((m) => {
     const product = m.rfq!.source_product_id ? productMap.get(m.rfq!.source_product_id) : null;
     return {
-      matchId: m.id, code: m.rfq!.code, title: product ? withoutDirectContacts(product.name_i18n?.en || product.name) : "Mặt hàng do Vexim chuyển",
-      status: niceStatus[m.status] ?? "Vexim đang xử lý", sentAt: m.sent_to_supplier_at!,
+      matchId: m.id, code: m.rfq!.code, title: product ? withoutDirectContacts(product.name_i18n?.en || product.name) : "Mặt hàng theo thư mời",
+      status: niceStatus[m.status] ?? "Đang xử lý", sentAt: m.sent_to_supplier_at!,
       dueAt: m.response_due_at ?? null,
       quantity: m.rfq!.quantity && m.rfq!.unit ? `${m.rfq!.quantity} ${withoutDirectContacts(m.rfq!.unit)}` : "Theo thư mời",
       destination: withoutDirectContacts(m.rfq!.destination_country || "Theo thư mời"),
@@ -125,34 +127,38 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
   const relevant = relevantInvites(supplierId, input.invites);
   const readKeys = new Set(reads.filter((r) => r.supplier_id === supplierId).map((r) => r.notice_key));
   const notices: PortalNotice[] = [];
-  const add = (key: string, title: string, detail: string, at: string, kind: PortalNotice["kind"]) => {
-    if (at && !Number.isNaN(Date.parse(at))) notices.push({ key, title, detail, at, kind, read: readKeys.has(key) });
+  const add = (key: string, title: string, detail: string, at: string, kind: PortalNotice["kind"], href: string) => {
+    if (at && !Number.isNaN(Date.parse(at))) notices.push({ key, title, detail, at, kind, href, read: readKeys.has(key) });
   };
+  // Mỗi thông báo trỏ đúng nơi phải mở, không phải một trang chung.
+  const levelHref = (level: number) => level === 1 ? "/supplier/portal/documents"
+    : level === 2 ? "/supplier/portal/verification/factory" : "/supplier/portal/verification/export";
+  const CERT_HREF = "/supplier/portal/documents#chung-nhan";
   if (input.supplier?.id === supplierId && input.supplier.onboarding_status === "approved") {
-    add(`onboarding-approved:${supplierId}`, "Tài khoản NCC đã được mở quyền", "Bạn có thể dùng cổng NCC. Việc duyệt xác minh và công khai hồ sơ là quyết định riêng.", input.supplier.updated_at, "verification");
+    add(`onboarding-approved:${supplierId}`, "Tài khoản NCC đã được mở quyền", "Bạn có thể dùng cổng NCC. Việc duyệt xác minh và công khai hồ sơ là quyết định riêng.", input.supplier.updated_at, "verification", "/supplier/portal");
   }
   for (const m of relevant) {
-    add(`rfq:${m.id}`, `Vexim đã chuyển yêu cầu báo giá ${m.rfq!.code}`, "Mở danh sách RFQ để xem hạn phản hồi; trả lời email mời báo giá của Vexim.", m.sent_to_supplier_at!, "rfq");
-    if (m.status === "selected") add(`selected:${m.id}`, `Hồ sơ ${m.rfq!.code} đã được Vexim chọn`, "Vexim sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin buyer tại đây.", m.updated_at, "rfq");
+    add(`rfq:${m.id}`, `Yêu cầu báo giá ${m.rfq!.code} đã được chuyển tới`, "Mở danh sách RFQ để xem hạn phản hồi; trả lời email mời báo giá đã nhận.", m.sent_to_supplier_at!, "rfq", "/supplier/portal/rfqs");
+    if (m.status === "selected") add(`selected:${m.id}`, `Hồ sơ ${m.rfq!.code} đã được chọn`, "Bộ phận phụ trách sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin buyer tại đây.", m.updated_at, "rfq", "/supplier/portal/rfqs");
   }
   for (const v of reviews.filter((v) => v.supplier_id === supplierId)) {
     const label = v.target_level === 1 ? "Kiểm tra giấy tờ" : v.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
-    if (v.status === "returned") add(`returned:${v.id}`, `${label} cần bổ sung`, "Liên hệ nhân viên Vexim; giấy tờ bước đầu có thể bổ sung tại hồ sơ.", v.updated_at, "verification");
-    if (v.status === "approved") add(`approved:${v.id}`, `${label} đã được Vexim duyệt`, "Chỉ đánh giá này được xác nhận; việc công khai hồ sơ là quyết định riêng.", v.approved_at || v.updated_at, "verification");
+    if (v.status === "returned") add(`returned:${v.id}`, `${label} cần bổ sung`, "Mở đúng bước để xem lý do và tải lại giấy tờ còn thiếu.", v.updated_at, "verification", levelHref(v.target_level));
+    if (v.status === "approved") add(`approved:${v.id}`, `${label} đã được duyệt`, "Chỉ đánh giá này được xác nhận; việc công khai hồ sơ là quyết định riêng.", v.approved_at || v.updated_at, "verification", levelHref(v.target_level));
   }
   // Only show the current staff decision. Draft saves, uploads and pending review are not decisions.
   for (const p of products.filter((p) => p.supplier_id === supplierId)) {
-    if (p.supplier_review_status === "approved") add(`product-approved:${p.id}`, `Đã kiểm nội dung sản phẩm: ${p.name}`, "Sản phẩm chưa tự động được công khai; Vexim còn quyết định việc chia sẻ buyer.", p.updated_at, "product");
-    if (p.supplier_review_status === "changes_requested") add(`product-changes:${p.id}`, `Sản phẩm cần chỉnh sửa: ${p.name}`, p.supplier_review_note || "Mở sản phẩm để xem phản hồi của Vexim.", p.updated_at, "product");
+    if (p.supplier_review_status === "approved") add(`product-approved:${p.id}`, `Đã kiểm nội dung sản phẩm: ${p.name}`, "Sản phẩm chưa tự động được công khai; việc chia sẻ cho buyer còn được quyết định riêng.", p.updated_at, "product", `/supplier/portal/products/${p.id}`);
+    if (p.supplier_review_status === "changes_requested") add(`product-changes:${p.id}`, `Sản phẩm cần chỉnh sửa: ${p.name}`, p.supplier_review_note || "Mở sản phẩm để xem phản hồi.", p.updated_at, "product", `/supplier/portal/products/${p.id}`);
   }
   const todayMs = Date.parse(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
   for (const c of (input.certificates ?? []).filter((c) => c.supplier_id === supplierId)) {
     if (c.review_status === "approved") {
-      if (c.publicly_visible) add(`cert-published:${c.id}`, `Chứng nhận được phép hiển thị: ${c.name}`, "Chỉ hiện nhãn trên sản phẩm đúng phạm vi nếu đủ điều kiện; tệp nội bộ vẫn riêng tư.", c.updated_at, "certificate");
-      else add(`cert-approved:${c.id}`, `Đã xét duyệt bản sao: ${c.name}`, "Chưa công bố. Việc hiển thị trên trang buyer cần quyết định riêng của Vexim.", c.checked_at || c.updated_at, "certificate");
+      if (c.publicly_visible) add(`cert-published:${c.id}`, `Chứng nhận được phép hiển thị: ${c.name}`, "Chỉ hiện nhãn trên sản phẩm đúng phạm vi nếu đủ điều kiện; tệp nội bộ vẫn riêng tư.", c.updated_at, "certificate", CERT_HREF);
+      else add(`cert-approved:${c.id}`, `Đã xét duyệt bản sao: ${c.name}`, "Chưa công bố. Việc hiển thị trên trang buyer cần được quyết định riêng.", c.checked_at || c.updated_at, "certificate", CERT_HREF);
     }
-    if (c.review_status === "changes_requested") add(`cert-changes:${c.id}`, `Chứng nhận cần bổ sung: ${c.name}`, c.review_note || "Mở mục Kiểm tra giấy tờ L1 để cập nhật lại.", c.updated_at, "certificate");
-    if (c.review_status === "rejected") add(`cert-rejected:${c.id}`, `Chứng nhận không được chấp thuận: ${c.name}`, c.review_note || "Mở mục Kiểm tra giấy tờ L1 để xem phản hồi.", c.updated_at, "certificate");
+    if (c.review_status === "changes_requested") add(`cert-changes:${c.id}`, `Chứng nhận cần bổ sung: ${c.name}`, c.review_note || "Mở mục Kiểm tra giấy tờ L1 để cập nhật lại.", c.updated_at, "certificate", CERT_HREF);
+    if (c.review_status === "rejected") add(`cert-rejected:${c.id}`, `Chứng nhận không được chấp thuận: ${c.name}`, c.review_note || "Mở mục Kiểm tra giấy tờ L1 để xem phản hồi.", c.updated_at, "certificate", CERT_HREF);
     if (c.review_status !== "rejected" && c.valid_until && /^\d{4}-\d{2}-\d{2}$/.test(c.valid_until)) {
       const endMs = Date.parse(`${c.valid_until}T00:00:00Z`);
       const daysLeft = Math.floor((endMs - todayMs) / 86_400_000);
@@ -160,22 +166,23 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
         add(
           `cert-expiring:${c.id}`,
           `Chứng nhận sắp hết hạn (còn ${daysLeft} ngày): ${c.name}`,
-          `Hết hạn ngày ${c.valid_until}. Vào mục Kiểm tra giấy tờ L1 để tải bản mới — AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên.`,
+          `Hết hạn ngày ${c.valid_until}. Vào mục Kiểm tra giấy tờ L1 để tải bản mới - AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên.`,
           c.updated_at || now.toISOString(),
           "certificate",
+          CERT_HREF,
         );
       }
     }
   }
   for (const s of (input.submissions ?? []).filter((row) => row.supplier_id === supplierId)) {
     const label = s.target_level === 2 ? "Xác thực nhà máy (L2)" : "Lịch sử xuất khẩu (L3)";
-    if (s.status === "pending_review") add(`submission-queued:${s.id}`, `Hồ sơ tự gửi đang chờ Vexim xét duyệt: ${label}`, "AI đã quét và xếp hàng đợi. Nhân viên Vexim còn phải đối chiếu; bằng chứng đang bị khóa.", s.submitted_at || s.updated_at, "verification");
-    if (s.status === "returned") add(`submission-returned:${s.id}`, `Hồ sơ tự gửi cần bổ sung: ${label}`, s.review_note || "Mở cổng tự xác thực để xem lý do và tải bằng chứng mới.", s.reviewed_at || s.updated_at, "verification");
-    if (s.status === "accepted") add(`submission-accepted:${s.id}`, `Vexim đã nhận hồ sơ vào đợt kiểm: ${label}`, "Đây chưa phải kết quả duyệt huy hiệu; đợt kiểm của nhân viên vẫn cần người có quyền duyệt phê.", s.reviewed_at || s.updated_at, "verification");
+    if (s.status === "pending_review") add(`submission-queued:${s.id}`, `Hồ sơ tự gửi đang chờ duyệt: ${label}`, "AI đã quét và xếp hàng đợi. Hồ sơ còn phải được đối chiếu thủ công; bằng chứng đang bị khóa.", s.submitted_at || s.updated_at, "verification", levelHref(s.target_level));
+    if (s.status === "returned") add(`submission-returned:${s.id}`, `Hồ sơ tự gửi cần bổ sung: ${label}`, s.review_note || "Mở cổng tự xác thực để xem lý do và tải bằng chứng mới.", s.reviewed_at || s.updated_at, "verification", levelHref(s.target_level));
+    if (s.status === "accepted") add(`submission-accepted:${s.id}`, `Hồ sơ đã được nhận vào đợt kiểm: ${label}`, "Đây chưa phải kết quả duyệt huy hiệu; đợt kiểm vẫn cần người có quyền duyệt phê.", s.reviewed_at || s.updated_at, "verification", levelHref(s.target_level));
   }
   for (const r of requests.filter((r) => r.supplier_id === supplierId && r.status === "contacted" && r.contacted_at)) {
     const label = r.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
-    add(`contacted:${r.target_level}`, `Vexim đã ghi nhận liên hệ: ${label}`, "Đây là liên hệ lên kế hoạch, chưa phải kết quả duyệt.", r.contacted_at!, "contact");
+    add(`contacted:${r.target_level}`, `Đã ghi nhận liên hệ: ${label}`, "Đây là liên hệ lên kế hoạch, chưa phải kết quả duyệt.", r.contacted_at!, "contact", levelHref(r.target_level));
   }
   return notices.sort((a, b) => b.at.localeCompare(a.at));
 }

@@ -420,9 +420,32 @@ assert.ok(storage.has(items[0].storage_path), 'Ảnh gốc phải nằm trong kh
 assert.equal(storage.get(items[0].storage_path).length, bytes.length, 'Phải giữ NGUYÊN bytes ảnh gốc (không nén lại)');
 const gateMedia = mediaRows.find((m) => m.id === items[0].media_id);
 assert.equal(gateMedia.audience, 'internal', 'Bằng chứng tự gửi luôn là nội bộ');
-assert.equal(gateMedia.owner_type, 'verification');
-assert.equal(gateMedia.verification_id, submission.id);
+// Hồi quy FK: media_assets.verification_id trỏ tới verifications(id). Bằng chứng
+// tự gửi phải dùng owner_type 'submission' + submission_id, KHÔNG được nhét id
+// hồ sơ vào verification_id (đó chính là lỗi "media_assets_verification_id_fkey").
+assert.equal(gateMedia.owner_type, 'submission', 'Bằng chứng tự gửi có chủ sở hữu riêng');
+assert.equal(gateMedia.submission_id, submission.id);
+assert.equal(gateMedia.verification_id, null, 'Không được ghi id hồ sơ tự gửi vào verification_id');
 assert.equal(gateMedia.checklist_key, 'factory_gate');
+
+// b2) Hồi quy lỗi production: CSDL thiếu migration mới → createMedia ném lỗi khoá ngoại.
+//     NCC không được thấy nguyên văn lỗi Postgres; tệp vừa ghi phải được dọn khỏi kho.
+{
+  const originalCreateMedia = store.createMedia;
+  const storageBefore = storage.size;
+  store.createMedia = async () => {
+    throw new Error('insert or update on table "media_assets" violates foreign key constraint "media_assets_verification_id_fkey"');
+  };
+  res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('pest_control', new File([bytes], 'pest.jpg', { type: 'image/jpeg' }), { lat: 21.0285, lng: 105.8542 }) }), { params: Promise.resolve({ id: submission.id }) });
+  const failed = await res.json();
+  store.createMedia = originalCreateMedia;
+  assert.equal(res.status, 400);
+  assert.equal(failed.ok, false);
+  assert.ok(!/violates|constraint|media_assets/i.test(failed.message), `Không lộ lỗi CSDL ra NCC: ${failed.message}`);
+  assert.match(failed.message, /thử lại sau ít phút/i);
+  assert.equal(storage.size, storageBefore, 'Lỗi lưu media phải dọn tệp vừa ghi khỏi kho');
+  assert.equal((await store.listSubmissionItems(submission.id)).length, 1, 'Lỗi lưu media không được tạo mục bằng chứng');
+}
 
 // c) Ảnh mất EXIF (kiểu gửi qua Zalo) → nêu cờ, GPS trình duyệt vẫn được ghi.
 const noExifJpeg = new Uint8Array(Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x02, 0x00, 0xff, 0xd9]), Buffer.alloc(64)]));
@@ -585,6 +608,21 @@ assert.equal(verification.inspector_id, 'staff-1');
 assert.equal(verification.approved_by, null, 'Không tự phê duyệt');
 const copied = (await Promise.all(mediaRows.filter((m) => m.verification_id === verification.id).map(async (m) => m))).length;
 assert.equal(copied, 9, 'Phải sao đủ 9 bằng chứng sang đợt kiểm');
+// Mọi verification_id phải là đợt kiểm THẬT (khoá ngoại media_assets_verification_id_fkey).
+const assertMediaOwners = (knownSubmissionIds) => {
+  const verificationIds = new Set(verifications.map((v) => v.id));
+  for (const row of mediaRows) {
+    if (row.verification_id != null) {
+      assert.ok(verificationIds.has(row.verification_id), `verification_id phải là đợt kiểm thật, nhận: ${row.verification_id}`);
+      assert.ok(!knownSubmissionIds.includes(row.verification_id), 'Không bao giờ ghi id hồ sơ tự gửi vào verification_id');
+    }
+    if (row.owner_type === 'submission') {
+      assert.ok(knownSubmissionIds.includes(row.submission_id), 'owner_type submission phải kèm submission_id hợp lệ');
+      assert.equal(row.verification_id, null);
+    }
+  }
+};
+assertMediaOwners([submission.id]);
 stored = await store.getSubmission(submission.id);
 assert.equal(stored.status, 'accepted');
 assert.equal(stored.verification_id, verification.id);
@@ -662,17 +700,41 @@ assert.equal(action.ok, false, 'Hồ sơ đã nhận: bằng chứng phải bị
 
 const readPage = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const panel = readPage('app/supplier/portal/verification/verification-panel.tsx');
-const portalPage = readPage('app/supplier/portal/verification/page.tsx');
+const portalPage = readPage('app/supplier/portal/verification/level-page.tsx');
 const itemCard = readPage('app/supplier/portal/verification/submission-item-card.tsx');
 
 assert.ok(panel.includes('Tải tờ mã về'), 'Cổng NCC phải có nút tải tờ mã về');
 assert.ok(panel.includes('downloadCodeSheet') && panel.includes('toBlob'), 'Tờ mã phải tải được thành tệp, không chỉ in');
-assert.ok(panel.includes('Bước 2 · Vị trí (không bắt buộc)'), 'Định vị không còn là bước bắt buộc');
-assert.ok(panel.includes('Bước 1 · Tờ mã xác minh (bắt buộc)'), 'Tờ mã vẫn là bước bắt buộc');
+assert.ok(panel.includes('Vị trí khi chụp') && panel.includes('Không bắt buộc'), 'Định vị không còn là bước bắt buộc');
+assert.ok(panel.includes('Tờ mã xác minh') && panel.includes('Bắt buộc'), 'Tờ mã vẫn là bước bắt buộc');
 assert.ok(portalPage.includes('kể cả ảnh đã gửi qua Zalo, đều nhận'), 'Trang NCC phải nói rõ ảnh qua Zalo vẫn nhận');
 assert.ok(!portalPage.includes('Gửi <strong>ảnh gốc'), 'Trang NCC không còn đòi ảnh gốc');
 assert.ok(!itemCard.includes('capture={level === 2'), 'Ô chọn tệp không ép mở camera, NCC chọn được ảnh từ thư viện');
 assert.ok(itemCard.includes('bắt buộc có tờ mã xác minh đặt cạnh cảnh'), 'Ảnh 🔖 phải nhắc tờ mã ngay dưới nút tải');
+
+/* ---------------- 10. FK: bằng chứng tự gửi không mượn verification_id ---------------- */
+
+const evidenceService = readPage('lib/supplier-portal/submission-evidence.ts');
+assert.ok(evidenceService.includes('owner_type: "submission"'), 'Bằng chứng tự gửi phải dùng owner_type "submission"');
+assert.ok(evidenceService.includes('submission_id: submission.id'), 'Phải gắn bằng chứng với submission_id của hồ sơ');
+assert.ok(!/verification_id:\s*submission\.id/.test(evidenceService), 'Không được ghi id hồ sơ tự gửi vào verification_id (lỗi FK media_assets_verification_id_fkey)');
+
+const verifyService = readPage('lib/verification-submission-service.ts');
+assert.ok(verifyService.includes('verification_id: verification.id'), 'Khi nhân viên chấp thuận, tệp sao chép phải trỏ tới đợt kiểm THẬT');
+
+const uploadRouteSource = readPage('app/api/supplier-portal/submissions/[id]/upload/route.ts');
+assert.ok(uploadRouteSource.includes('migrationHint(error)'), 'Log lỗi upload phải kèm gợi ý file migration cần chạy');
+assert.ok(!/message = error instanceof Error \? error\.message/.test(uploadRouteSource), 'Không trả nguyên văn lỗi CSDL cho NCC');
+const hints = readPage('lib/db/migration-hints.ts');
+assert.ok(hints.includes('20261031_supplier_submission_media_owner.sql'), 'Phải gợi ý migration media submission khi gặp lỗi FK');
+
+const migration = readPage('supabase/migrations/20261031_supplier_submission_media_owner.sql');
+assert.ok(migration.includes('submission_id uuid'), 'Migration phải thêm cột media_assets.submission_id');
+assert.ok(migration.includes('references public.supplier_submissions(id)'), 'submission_id phải có khoá ngoại tới supplier_submissions');
+assert.ok(migration.includes("owner_type in ('product', 'supplier', 'verification', 'submission')"), 'owner_type phải nhận thêm submission');
+assert.ok(migration.includes("owner_type = 'submission' and submission_id is not null"), 'media_owner_ck phải ràng buộc submission_id');
+
+assertMediaOwners([submission.id, l3.id]);
 
 console.log('✅ check-supplier-self-verification: tất cả assertion đạt');
 console.log(`   · 9 ảnh L2 + 6 chứng từ L3 · mã xác minh ${code} · ${aiCalls} lượt gọi AI giả lập · ${mediaRows.length} tệp media · ${verifications.length} đợt kiểm được tạo`);

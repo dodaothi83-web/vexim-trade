@@ -12,7 +12,7 @@ import { isTestOnlyProduct, supplierPriceConsentCurrent } from "@/lib/public/pro
 import { Button, Field, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { ProductAttributeInputs } from "@/components/product-attribute-inputs";
-import { fieldsFor } from "@/lib/product-attributes";
+import { effectiveFieldsFor, fieldsFor } from "@/lib/product-attributes";
 import { gradeKey, resolveGrade } from "@/lib/public/grade-resolution";
 import { composeDisplayName, isPlaceholderDisplayName } from "@/lib/public/display-name";
 
@@ -68,7 +68,7 @@ export function ProductForm({
 }: {
   supplier: Supplier;
   product?: SupplierProduct | null;
-  categories: Pick<Category, "id" | "slug" | "name_i18n" | "product_fields">[];
+  categories: Pick<Category, "id" | "slug" | "name_i18n" | "product_fields" | "supplier_product_fields">[];
   supplierCategories?: string[];
   /** Trạng thái hình ảnh/tài liệu — có thì mới hiện công tắc "Sẵn sàng gửi buyer" */
   mediaState?: { ready: boolean; shareable: number };
@@ -108,7 +108,10 @@ export function ProductForm({
 
   // Tên hiển thị cho buyer: soạn từ danh mục, quy cách, tỉnh và thuộc tính còn lại.
   // Nhân viên bấm một nút là xong; để trống thì trang buyer dùng tên gốc.
-  const attributeLabels = Object.fromEntries(fieldsFor(activeCategory).map((f) => [f.key, f.label]));
+  const attributeLabels = Object.fromEntries(effectiveFieldsFor(activeCategory).map((f) => [f.key, f.label]));
+  // Nhân viên thấy cả thông số NCC tự thêm, có ghi rõ nguồn để không nhầm là trường CMS.
+  const attributeInputFields = effectiveFieldsFor(activeCategory)
+    .map((field) => field.supplier_added ? { ...field, label: `${field.label} (NCC tự thêm)` } : field);
   const suggestedDisplayName = composeDisplayName({
     categoryLabel: activeCategory ? activeCategory.name_i18n.en || activeCategory.slug : null,
     grade: grade.value,
@@ -276,7 +279,7 @@ export function ProductForm({
               </select>
             </Field>
           )}
-          <ProductAttributeInputs fields={fieldsFor(activeCategory)} values={attributes} onChange={setAttributes} />
+          <ProductAttributeInputs fields={attributeInputFields} values={attributes} onChange={setAttributes} />
           {grade.conflict && (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
               Tên sản phẩm ghi <strong>{grade.fromName}</strong> nhưng ô {gradeField?.label ?? "quy cách"} đang là{" "}

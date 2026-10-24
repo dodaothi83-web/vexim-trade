@@ -5,6 +5,7 @@ import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { assignProductCategory } from "@/lib/public/category-assignment";
+import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import { productTranslationPatch } from "@/lib/ai/translate-content";
@@ -62,6 +63,7 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
     revalidatePath(`/crm/products/${id}/edit`);
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath("/supplier/portal/products");
+    refreshCrmBadges();
     return { ok: true, message: (decision === "approved" ? "Đã xác nhận nội dung. Cần Vexim chọn tệp chia sẻ buyer và bật Sẵn sàng gửi buyer để công khai." : "Đã yêu cầu NCC chỉnh sửa.") + (mail === "sent" ? "" : " Email NCC chưa gửi được; quyết định đã lưu trên cổng.") };
   } catch (error) { console.error("[supplier-product-review]", error); return { ok: false, message: "Không lưu được quyết định." }; }
 }

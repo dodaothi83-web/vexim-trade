@@ -7,6 +7,7 @@ import { confirmSupabaseEmail, createSupabaseUser, handOverSupabaseAccount } fro
 import { passwordProblem } from "@/lib/auth/password";
 import { provisionSupplierAccount } from "@/lib/supplier-portal/provision-account";
 import { handOverSupplierAccount } from "@/lib/supplier-portal/handover-account";
+import { refreshCrmBadges } from "@/lib/crm/badges";
 
 type Result = { ok: boolean; message: string };
 
@@ -48,6 +49,7 @@ export async function provisionSupplierAccountAction(form: FormData): Promise<Re
     }).catch((error) => console.error("[supplier-account] audit log failed", error));
     revalidatePath(`/crm/suppliers/${id}`);
     revalidatePath("/crm/suppliers");
+    refreshCrmBadges();
     return {
       ok: true,
       message: mode === "created"

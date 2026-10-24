@@ -10,9 +10,11 @@ import { getSupplierStorefront } from "@/lib/public/catalog";
 import { publicSupplierCertificates } from "@/lib/public/certificates";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
+import { buildVerificationProgress } from "@/lib/supplier-portal/verification-progress";
+import { StorefrontVerificationActions } from "../verification-progress";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Trang của tôi | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "Trang của tôi", robots: { index: false, follow: false } };
 
 const CHECKS = [[1, "Documents checked"], [2, "Factory visit"], [3, "Delivery history"]] as const;
 
@@ -28,23 +30,33 @@ export default async function SupplierStorefrontPreviewPage() {
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
-  const { supplier, store } = access;
+  const { supplier, store, review, reviews, user } = access;
 
   // Thiếu migration thì báo ngay trên trang, không để cả cổng trắng: nhà cung cấp vẫn
   // vào được các mục khác và biết đây là lỗi dữ liệu chứ không phải hồ sơ của mình.
   let loaded: { card: Awaited<ReturnType<typeof getSupplierStorefront>>; categories: Awaited<ReturnType<typeof store.listCategories>>;
-    certificates: ReturnType<typeof publicSupplierCertificates> } | null = null;
+    certificates: ReturnType<typeof publicSupplierCertificates>;
+    progress: ReturnType<typeof buildVerificationProgress> } | null = null;
   try {
-    const [card, categories, rawCertificates, supplierMedia] = await Promise.all([
+    const [card, categories, rawCertificates, supplierMedia, submissions, requests, l1Media] = await Promise.all([
       getSupplierStorefront(supplier),
       store.listCategories({ publishedOnly: true }),
       store.listCertificates(supplier.id).catch(() => []),
       store.listMedia("supplier", supplier.id).catch(() => []),
+      store.listSubmissions(supplier.id).catch(() => []),
+      store.listSupplierVerificationRequests(supplier.id).catch(() => []),
+      review ? store.listMedia("verification", review.id).catch(() => []) : Promise.resolve([]),
     ]);
+    // Đếm bằng chứng đã nộp để nút ở khối dưới nói đúng “còn mấy ảnh/chứng từ”.
+    const submissionItems = Object.fromEntries(await Promise.all(submissions.map(async (submission) =>
+      [submission.id, await store.listSubmissionItems(submission.id).catch(() => [])] as const)));
     loaded = {
       card,
       categories: categories.filter((c) => c.status === "published" && c.is_published),
       certificates: publicSupplierCertificates(supplier.id, rawCertificates, supplierMedia),
+      progress: buildVerificationProgress({
+        supplierId: supplier.id, reviews, submissions, submissionItems, requests, documents: l1Media, userId: user.id,
+      }),
     };
   } catch (error) {
     console.error(`[supplier-portal] chưa dựng được Trang của tôi. ${migrationHint(error) ?? ""}`.trim(), error);
@@ -53,10 +65,10 @@ export default async function SupplierStorefrontPreviewPage() {
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Trang của tôi" sub="Đúng nội dung buyer nhìn thấy trên hồ sơ công khai." />
     <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
       <p className="font-bold">Chưa dựng được bản xem trước</p>
-      <p className="mt-1 leading-6">Hệ thống chưa đọc được dữ liệu hồ sơ. Hồ sơ của bạn không bị thay đổi. Thử tải lại trang; nếu vẫn lỗi, báo nhân viên Vexim.</p>
+      <p className="mt-1 leading-6">Hệ thống chưa đọc được dữ liệu hồ sơ. Hồ sơ của bạn không bị thay đổi. Thử tải lại trang; nếu vẫn lỗi, liên hệ bộ phận hỗ trợ.</p>
     </div>
   </>;
-  const { card, categories, certificates } = loaded;
+  const { card, categories, certificates, progress } = loaded;
 
   const published = supplier.status === "published";
   const synthetic = isSyntheticSupplier(supplier);
@@ -105,6 +117,7 @@ export default async function SupplierStorefrontPreviewPage() {
         className="absolute right-4 bottom-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />}
       avatarAction={<SupplierPhotoButton kind="profile" hasImage={!!avatarUrl}
         className="absolute -right-2 -bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-white shadow-md ring-2 ring-white transition hover:bg-brand-800 disabled:opacity-60" />}
+      verificationActions={<StorefrontVerificationActions progress={progress} />}
     />
   </>;
 }

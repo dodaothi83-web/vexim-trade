@@ -102,6 +102,8 @@ export interface DataStore {
   countProductsPendingReview(): Promise<number>;
   /** Đợt kiểm đã nộp, chờ người có quyền duyệt — badge menu Xác minh. */
   countReviewsAwaitingApproval(): Promise<number>;
+  /** Hồ sơ NCC tự gửi đang chờ đối chiếu — badge riêng của menu Hồ sơ NCC tự gửi. */
+  countSubmissionsPendingReview(): Promise<number>;
   getUser(id: string): Promise<AppUserRecord | null>;
   getUserByEmail(email: string): Promise<AppUserRecord | null>;
   /** Tài khoản đăng nhập đang gắn với một hồ sơ NCC (mỗi hồ sơ tối đa một tài khoản). */

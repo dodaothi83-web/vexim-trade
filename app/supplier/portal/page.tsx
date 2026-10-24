@@ -12,11 +12,14 @@ import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposal
 import { isL1CoreDoc } from "@/lib/verification";
 import { daysUntilExpiry } from "@/lib/certificate-service";
 import { migrationHint } from "@/lib/db/migration-hints";
+import { buildVerificationProgress } from "@/lib/supplier-portal/verification-progress";
+import type { SupplierSubmissionItem } from "@/lib/types";
 import { SupplierProfileForm } from "./supplier-profile-form";
 import { EmptyRow, Kpi, LevelChip, Panel, PortalSteps, date } from "./portal-ui";
+import { VerificationProgressPanel } from "./verification-progress";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tổng quan cổng nhà cung cấp | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "Tổng quan cổng nhà cung cấp", robots: { index: false, follow: false } };
 
 /**
  * Trang tổng quan chỉ làm một việc: cho doanh nghiệp thấy gian hàng đang ở đâu và
@@ -33,7 +36,7 @@ export default async function SupplierPortal() {
       <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Tổng quan" sub={account.user.email} />
       <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
         <h2 className="text-base font-bold">Bước 2/2 · Xác minh doanh nghiệp</h2>
-        <p className="mt-2 leading-6">Tài khoản đã đăng nhập, nhưng bạn chưa gửi hồ sơ doanh nghiệp. Hãy điền form bên dưới để tạo trang NCC ở trạng thái nháp và gửi Vexim xét duyệt. Trước khi Vexim mở quyền, bạn không thể quản lý sản phẩm, xem RFQ hay sử dụng các chức năng khác.</p>
+        <p className="mt-2 leading-6">Tài khoản đã đăng nhập, nhưng bạn chưa gửi hồ sơ doanh nghiệp. Hãy điền form bên dưới để tạo trang doanh nghiệp ở trạng thái nháp và gửi duyệt. Trong lúc chờ duyệt, bạn chưa thể quản lý sản phẩm, xem RFQ hay dùng các chức năng khác.</p>
       </div>
       <div className="mt-5"><SupplierProfileForm email={account.user.email} categories={categories} /></div>
     </>;
@@ -51,20 +54,20 @@ export default async function SupplierPortal() {
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Tổng quan" sub={user.email} />
     {canSubmitProfile(supplier) ? <>
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-        {supplier.onboarding_status === "changes_requested" ? "Vexim yêu cầu bổ sung thông tin. Vui lòng cập nhật và gửi lại hồ sơ." :
-          "Tài khoản đã tạo. Vui lòng hoàn thiện hồ sơ doanh nghiệp để Vexim xác nhận. Bạn chưa thể sử dụng các tính năng khác."}
+        {supplier.onboarding_status === "changes_requested" ? "Hồ sơ cần bổ sung thông tin. Vui lòng cập nhật và gửi lại." :
+          "Tài khoản đã tạo. Hoàn thiện hồ sơ doanh nghiệp để được xác nhận; các tính năng khác sẽ mở sau bước này."}
         {supplier.onboarding_status === "changes_requested" && supplier.onboarding_note &&
           <p className="mt-2 whitespace-pre-wrap font-semibold">Nội dung cần bổ sung: {supplier.onboarding_note}</p>}
       </div>
       <div className="mt-5"><SupplierProfileForm supplier={supplier} email={user.email} categories={categoryOptions} hasCoreDoc={hasCoreDoc} /></div>
     </> : <><div className="rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
-      <h2 className="text-base font-bold text-amber-950">Đang chờ Vexim xác nhận thông tin</h2>
-      <p className="mt-2 text-sm text-amber-900">Hồ sơ {supplier.name} đã được gửi. Bạn có thể đăng nhập để xem trạng thái này, nhưng RFQ, thông báo, báo cáo và tải thêm tài liệu chưa khả dụng cho đến khi nhân viên Vexim xác nhận quyền sử dụng.</p>
+      <h2 className="text-base font-bold text-amber-950">Hồ sơ đang chờ xác nhận</h2>
+      <p className="mt-2 text-sm text-amber-900">Hồ sơ {supplier.name} đã được gửi. Bạn vẫn đăng nhập được để xem trạng thái, nhưng RFQ, thông báo, báo cáo và tải thêm tài liệu sẽ mở sau khi hồ sơ được xác nhận.</p>
       <p className="mt-3 text-xs text-amber-800">Xác nhận tài khoản không đồng nghĩa duyệt giấy tờ, thăm nhà máy, lịch sử giao hàng hoặc công khai hồ sơ.</p>
     </div>
     <div className="mt-5"><PortalSteps stages={[
       { label: "Khai hồ sơ", state: "done", note: "Đã gửi" },
-      { label: "Vexim kiểm tra giấy tờ", state: "current", note: "Đang chờ" },
+      { label: "Kiểm tra giấy tờ", state: "current", note: "Đang chờ" },
       { label: "Mở cổng nhà cung cấp", state: "todo", note: "Sau khi đạt bước 2" },
       { label: "Thêm sản phẩm & nhận RFQ", state: "todo", note: "Sau khi mở cổng" },
     ]} /></div></>}
@@ -79,7 +82,7 @@ export default async function SupplierPortal() {
       return fallback;
     }
   }
-  const [products, invites, certificates, submissions] = await Promise.all([
+  const [products, invites, certificates, submissions, requests, l1Media] = await Promise.all([
     optional("sản phẩm", [] as Awaited<ReturnType<typeof store.listProductsBySupplier>>,
       () => store.listProductsBySupplier(supplier.id)),
     optional("danh sách RFQ được chuyển", [] as Awaited<ReturnType<typeof store.listSupplierRfqInvitations>>,
@@ -88,7 +91,19 @@ export default async function SupplierPortal() {
       () => store.listCertificates(supplier.id)),
     optional("hồ sơ tự gửi", [] as Awaited<ReturnType<typeof store.listSubmissions>>,
       () => store.listSubmissions(supplier.id)),
+    optional("yêu cầu kiểm định", [] as Awaited<ReturnType<typeof store.listSupplierVerificationRequests>>,
+      () => store.listSupplierVerificationRequests(supplier.id)),
+    optional("giấy tờ đợt kiểm", [] as Awaited<ReturnType<typeof store.listMedia>>,
+      () => review ? store.listMedia("verification", review.id) : Promise.resolve([])),
   ]);
+  // Số ảnh/chứng từ đã tải quyết định câu “còn mấy mục”: đọc riêng để một bảng
+  // thiếu migration chỉ làm mất phần đếm, không làm hỏng cả dải tiến độ.
+  const submissionItems = await optional("bằng chứng đã nộp", {} as Record<string, SupplierSubmissionItem[]>,
+    async () => Object.fromEntries(await Promise.all(submissions.map(async (submission) =>
+      [submission.id, await store.listSubmissionItems(submission.id)] as const))));
+  const verification = buildVerificationProgress({
+    supplierId: supplier.id, reviews, submissions, submissionItems, requests, documents: l1Media, userId: user.id,
+  });
   const board = buildSupplierRfqBoard({ supplierId: supplier.id, invites, products, days: 30 });
 
   const approvedCount = products.filter((p) => productReview(p) === "approved").length;
@@ -109,11 +124,11 @@ export default async function SupplierPortal() {
   const overdueDueAt = openDues.find((d) => Date.parse(d) < Date.now()) ?? null;
 
   const work = [
-    { show: changesCount, href: "/supplier/portal/products", label: "Sản phẩm cần chỉnh sửa theo góp ý của Vexim", value: changesCount, tone: "rose" },
-    { show: pendingCount, href: "/supplier/portal/products", label: "Sản phẩm đang chờ Vexim duyệt nội dung", value: pendingCount, tone: "amber" },
+    { show: changesCount, href: "/supplier/portal/products", label: "Sản phẩm cần chỉnh sửa theo góp ý", value: changesCount, tone: "rose" },
+    { show: pendingCount, href: "/supplier/portal/products", label: "Sản phẩm đang chờ duyệt nội dung", value: pendingCount, tone: "amber" },
     { show: board.tasks.length, href: "/supplier/portal/rfqs", label: "RFQ đang chờ bạn phản hồi", value: board.tasks.length, tone: "amber" },
     { show: expiringCerts, href: "/supplier/portal/documents", label: "Chứng nhận sắp hết hạn trong 60 ngày", value: expiringCerts, tone: "amber" },
-    { show: queuedSubmissions, href: "/supplier/portal/verification", label: "Hồ sơ tự xác thực đang chờ Vexim xét", value: queuedSubmissions, tone: "brand" },
+    { show: queuedSubmissions, href: "/supplier/portal/verification", label: "Hồ sơ xác thực đang chờ xét", value: queuedSubmissions, tone: "brand" },
   ].filter((row) => row.show > 0);
 
   return <>
@@ -122,7 +137,7 @@ export default async function SupplierPortal() {
 
     {degraded.length > 0 && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <p className="font-bold">Một phần dữ liệu cổng chưa tải được</p>
-      <p className="mt-1">Phần còn lại vẫn dùng bình thường. Nếu tình trạng này kéo dài, báo Vexim để kiểm tra cấu hình.</p>
+      <p className="mt-1">Phần còn lại vẫn dùng bình thường. Nếu tình trạng này kéo dài, liên hệ bộ phận hỗ trợ để kiểm tra cấu hình.</p>
       <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
     </div>}
 
@@ -147,14 +162,16 @@ export default async function SupplierPortal() {
         </div>
         {publishedProfile
           ? <Link href={`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`} className="btn btn-ghost btn-sm">Xem trang công khai</Link>
-          : <span className="max-w-[220px] text-[11px] leading-4 text-ink-500">Trang công khai chỉ mở khi Vexim duyệt nội dung và bật trạng thái published.</span>}
+          : <span className="max-w-[220px] text-[11px] leading-4 text-ink-500">Trang công khai chỉ mở sau khi nội dung được duyệt và hồ sơ được xuất bản.</span>}
       </div>
     </section>
+
+    <div className="mt-5"><VerificationProgressPanel progress={verification} /></div>
 
     <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Số liệu gian hàng">
       <Kpi href="/supplier/portal/products" icon={<Package className="h-4 w-4" />} label="Sản phẩm đã duyệt nội dung" value={approvedCount}
         note={`Trên ${products.length} sản phẩm trong gian hàng`} />
-      <Kpi href="/supplier/portal/products" icon={<Clock3 className="h-4 w-4" />} label="Đang chờ Vexim duyệt" value={pendingCount}
+      <Kpi href="/supplier/portal/products" icon={<Clock3 className="h-4 w-4" />} label="Đang chờ duyệt" value={pendingCount}
         note={`${draftCount} bản nháp · ${changesCount} cần chỉnh sửa`} attention={pendingCount > 0 || changesCount > 0} />
       <Kpi href="/supplier/portal/rfqs" icon={<Mail className="h-4 w-4" />} label="RFQ cần bạn phản hồi" value={board.tasks.length}
         note={nextDueAt ? `Hạn gần nhất ${date(nextDueAt)}` : overdueDueAt ? `Có RFQ quá hạn từ ${date(overdueDueAt)}` : "Không có hạn nào đang mở"} attention={board.tasks.length > 0} />
@@ -162,7 +179,7 @@ export default async function SupplierPortal() {
         note={`${board.report.responded} lời mời đã có phản hồi`} />
     </div>
 
-    <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
+    <div className="mt-5">
       <Panel title="Việc đang chờ bạn" sub="Chỉ hiện mục đang có việc. Mở từng trang để xử lý chi tiết." count={work.length} flush>
         {work.length ? <ul className="divide-y divide-ink-100">{work.map((row) => <li key={row.label}>
           <Link href={row.href} className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-ink-50">
@@ -172,27 +189,18 @@ export default async function SupplierPortal() {
           </Link>
         </li>)}</ul> : <EmptyRow>Không có việc nào đang chờ. Sản phẩm, giấy tờ và RFQ đều đang ở trạng thái ổn.</EmptyRow>}
       </Panel>
-
-      <Panel title="Tiến độ cổng" sub="Bốn mốc độc lập, không cộng dồn thành một nhãn xác minh.">
-        <PortalSteps stages={[
-          { label: "Hồ sơ doanh nghiệp", state: "done", note: "Hoàn tất" },
-          { label: "Kiểm tra giấy tờ L1", state: l1Approved ? "done" : "current", note: l1Approved ? "Đạt" : "Đang rà soát" },
-          { label: "Cổng nhà cung cấp", state: "done", note: "Đã mở" },
-          { label: "Sản phẩm & RFQ", state: "current", note: `${products.length} sản phẩm · ${board.tasks.length} việc chờ` },
-        ]} />
-      </Panel>
     </div>
 
     <footer className="mt-8 flex items-start gap-2 border-t border-ink-200 pt-4 text-[11px] leading-5 text-ink-500">
       <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span>Vexim là đầu mối điều phối. Không chia sẻ thông tin buyer trước khi các bên được giới thiệu theo quy trình.</span>
+      <span>Thông tin buyer chỉ được chia sẻ sau khi hai bên đồng ý giới thiệu. Mọi trao đổi đi qua cổng này.</span>
     </footer>
   </>;
 }
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "NCC";
+  if (!parts.length) return "DN";
   const words = parts.filter((w) => /\p{Lu}/u.test(w[0] ?? ""));
   const pick = words.length >= 2 ? [words[0], words[words.length - 1]] : [parts[0]];
   return pick.map((w) => w[0]).join("").toUpperCase();

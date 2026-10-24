@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { guard, getSession } from "@/lib/auth/session";
+import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 
 type Result = { ok: boolean; message: string };
@@ -44,6 +45,7 @@ export async function decideSupplierOnboardingAction(form: FormData): Promise<Re
     revalidatePath(`/crm/suppliers/${id}`);
     revalidatePath("/crm/suppliers");
     revalidatePath("/supplier/portal");
+    refreshCrmBadges();
     return { ok: true, message: (decision === "approved" ? "Đã mở quyền cổng NCC. Chưa duyệt xác minh/công khai hồ sơ." : "Đã lưu yêu cầu bổ sung hồ sơ.") + (mail === "sent" ? "" : " Email NCC chưa gửi được; quyết định đã lưu trên cổng.") };
   } catch (error) {
     console.error("[supplier-onboarding] staff decision failed", error);

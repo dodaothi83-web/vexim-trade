@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   Building2,
   ChartNoAxesColumn,
+  Factory,
   FileText,
   FolderTree,
   LayoutDashboard,
@@ -15,6 +16,7 @@ import {
   Menu,
   Package,
   ShieldCheck,
+  Ship,
   Store,
   X,
 } from "lucide-react";
@@ -45,7 +47,8 @@ const NAV: {
   { href: "/supplier/portal/traffic", label: "Lượt xem gian hàng", icon: ChartNoAxesColumn, group: "shop", needsApproval: true },
   { href: "/supplier/portal/rfqs", label: "RFQ & báo giá", icon: Mail, group: "work", needsApproval: true },
   { href: "/supplier/portal/documents", label: "Giấy tờ & chứng nhận L1", icon: FileText, group: "verify", needsApproval: true },
-  { href: "/supplier/portal/verification", label: "Xác thực nhà máy L2 · L3", icon: ShieldCheck, group: "verify", needsApproval: true },
+  { href: "/supplier/portal/verification/factory", label: "Xác thực nhà máy L2", icon: Factory, group: "verify", needsApproval: true },
+  { href: "/supplier/portal/verification/export", label: "Lịch sử xuất khẩu L3", icon: Ship, group: "verify", needsApproval: true },
   { href: "/supplier/portal/profile", label: "Hồ sơ doanh nghiệp", icon: Building2, group: "account", needsApproval: true },
 ];
 

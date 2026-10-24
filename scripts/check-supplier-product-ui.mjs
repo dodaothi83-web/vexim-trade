@@ -38,13 +38,13 @@ const scoped = view.supplierVisibleProductMedia([
 ], 'ours', 'owner');
 assert.equal(scoped.length, 2);
 const html = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products, media: scoped, supplierPublished: false }));
-for (const phrase of ['Cashew W320', 'Cashew W240', 'Cashew W180', 'Bản nháp', 'Chờ Vexim duyệt', 'Đã duyệt nội dung', 'Trang NCC chưa được công khai', 'Tìm sản phẩm của tôi', 'Thêm sản phẩm'])
+for (const phrase of ['Cashew W320', 'Cashew W240', 'Cashew W180', 'Bản nháp', 'Chờ duyệt', 'Đã duyệt nội dung', 'Trang NCC chưa được công khai', 'Tìm sản phẩm của tôi', 'Thêm sản phẩm'])
   assert.ok(html.includes(phrase), `Missing UI content: ${phrase}`);
 assert.ok(html.includes('products/p1/real.jpg') && html.includes('products/p3/shared.jpg'), 'Real owner or buyer files are used for thumbnails');
 assert.ok(!html.includes('secret.jpg') && !html.includes('foreign.jpg'), 'Private staff and foreign media cannot render');
 assert.ok(!html.includes('Đang bán'), 'Review must not masquerade as public listing');
 const editor = fs.readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
-assert.match(editor, /dirty && !canSubmit|!canSubmit/);
+assert.match(editor, /productCanSubmit\(product, media\) && !dirty/, 'Nút gửi vẫn phụ thuộc dữ liệu đã lưu');
 assert.match(editor, /productCanSubmit\(product, media\)/);
-assert.match(editor, /window\.confirm\("Lưu thay đổi sẽ rút sản phẩm/);
+assert.match(editor, /window\.confirm\("Lưu thay đổi sẽ đưa sản phẩm về bản nháp/);
 console.log('✅ Supplier storefront: responsive product cards, real scoped thumbnails, truthful status and guarded editing.');

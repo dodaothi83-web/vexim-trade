@@ -239,7 +239,7 @@ function seed(): LocalShape {
     { slug: "cashew", nameEn: "Cashew kernels", introEn: CASHEW_CATEGORY_CONFIG.intro!, seoEn: CASHEW_CATEGORY_CONFIG.seo_desc!, order: 11, parent: "nuts-kernels", content: "cashew" },
     { slug: "macadamia", nameEn: "Macadamia", introEn: "Vietnamese macadamia kernels and in-shell from Tây Nguyên plantations.", seoEn: "Vietnamese macadamia suppliers – graded kernels & in-shell.", order: 12, parent: "nuts-kernels" },
     { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20, content: "coffee" },
-    { slug: "pepper-spices", nameEn: "Pepper & spices", introEn: "Vietnamese black/white/red pepper, cinnamon, star anise, ginger and turmeric – steam-sterilised.", seoEn: "Vietnamese pepper & spice suppliers with food-safety certs.", order: 30 },
+    { slug: "pepper-spices", nameEn: "Pepper & spices", introEn: "Vietnamese black/white/red pepper, cinnamon, star anise, ginger and turmeric, steam-sterilised.", seoEn: "Vietnamese pepper & spice suppliers with food-safety certs.", order: 30 },
     { slug: "pepper", nameEn: "Pepper", introEn: "Vietnamese black pepper (FAQ/cleaned/ASTA), white pepper and red pepper.", seoEn: "Vietnamese black/white/red pepper exporters.", order: 31, parent: "pepper-spices", content: "pepper" },
     { slug: "cinnamon", nameEn: "Cassia cinnamon", introEn: "Vietnamese cassia cinnamon (Yên Bái) in sticks, split, broken and powder.", seoEn: "Vietnamese cassia cinnamon suppliers.", order: 32, parent: "pepper-spices", content: "cinnamon" },
     { slug: "star-anise", nameEn: "Star anise", introEn: "Vietnamese autumn and spring star anise from Lạng Sơn.", seoEn: "Vietnamese star anise exporters.", order: 33, parent: "pepper-spices" },
@@ -398,7 +398,7 @@ function ensureSeedCategories(db: LocalShape) {
     { slug: "cashew", nameEn: "Cashew kernels", introEn: CASHEW_CATEGORY_CONFIG.intro!, seoEn: CASHEW_CATEGORY_CONFIG.seo_desc!, order: 11, parent: "nuts-kernels", content: "cashew" },
     { slug: "macadamia", nameEn: "Macadamia", introEn: "Vietnamese macadamia kernels and in-shell from Tây Nguyên plantations.", seoEn: "Vietnamese macadamia suppliers – graded kernels & in-shell.", order: 12, parent: "nuts-kernels" },
     { slug: "coffee", nameEn: "Coffee", introEn: "Robusta and Arabica green coffee from Central Highlands; washed, natural and honey-processed lots.", seoEn: "Vietnamese Robusta/Arabica green coffee exporters.", order: 20, content: "coffee" },
-    { slug: "pepper-spices", nameEn: "Pepper & spices", introEn: "Vietnamese black/white/red pepper, cinnamon, star anise, ginger and turmeric – steam-sterilised.", seoEn: "Vietnamese pepper & spice suppliers with food-safety certs.", order: 30 },
+    { slug: "pepper-spices", nameEn: "Pepper & spices", introEn: "Vietnamese black/white/red pepper, cinnamon, star anise, ginger and turmeric, steam-sterilised.", seoEn: "Vietnamese pepper & spice suppliers with food-safety certs.", order: 30 },
     { slug: "pepper", nameEn: "Pepper", introEn: "Vietnamese black pepper (FAQ/cleaned/ASTA), white pepper and red pepper.", seoEn: "Vietnamese black/white/red pepper exporters.", order: 31, parent: "pepper-spices", content: "pepper" },
     { slug: "cinnamon", nameEn: "Cassia cinnamon", introEn: "Vietnamese cassia cinnamon (Yên Bái) in sticks, split, broken and powder.", seoEn: "Vietnamese cassia cinnamon suppliers.", order: 32, parent: "pepper-spices", content: "cinnamon" },
     { slug: "star-anise", nameEn: "Star anise", introEn: "Vietnamese autumn and spring star anise from Lạng Sơn.", seoEn: "Vietnamese star anise exporters.", order: 33, parent: "pepper-spices" },
@@ -559,6 +559,10 @@ function migrateMediaDefaults(db: LocalShape) {
   for (const m of db.media) {
     if ((m as unknown as { verification_id?: string | null }).verification_id === undefined) {
       (m as unknown as { verification_id: string | null }).verification_id = null;
+    }
+    // Bằng chứng của hồ sơ tự gửi dùng submission_id, KHÔNG dùng verification_id.
+    if ((m as unknown as { submission_id?: string | null }).submission_id === undefined) {
+      (m as unknown as { submission_id: string | null }).submission_id = null;
     }
     if (m.checklist_key === undefined) m.checklist_key = null;
   }
@@ -1228,9 +1232,10 @@ export const localStore: DataStore = {
     return load().products.filter((p) => p.supplier_review_status === "pending").length;
   },
   async countReviewsAwaitingApproval() {
-    const reviews = (load().verifications ?? []).filter((v) => v.status === "submitted").length;
-    const submissions = (load().supplier_submissions ?? []).filter((s) => s.status === "pending_review").length;
-    return reviews + submissions;
+    return (load().verifications ?? []).filter((v) => v.status === "submitted").length;
+  },
+  async countSubmissionsPendingReview() {
+    return (load().supplier_submissions ?? []).filter((s) => s.status === "pending_review").length;
   },
   async getUser(id) {
     return load().users.find((u) => u.id === id) ?? null;
@@ -1397,6 +1402,7 @@ export const localStore: DataStore = {
         if (m.owner_type !== ownerType) return false;
         if (ownerType === "product") return m.product_id === ownerId;
         if (ownerType === "verification") return (m as unknown as { verification_id?: string | null }).verification_id === ownerId;
+        if (ownerType === "submission") return (m as unknown as { submission_id?: string | null }).submission_id === ownerId;
         return m.supplier_id === ownerId;
       })
       .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
@@ -1422,6 +1428,7 @@ export const localStore: DataStore = {
       const now = new Date().toISOString();
       const row: MediaAsset = {
         verification_id: null,
+        submission_id: null,
         checklist_key: null,
         id: randomUUID(),
         created_at: now,

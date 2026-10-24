@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { refreshCrmBadges } from "@/lib/crm/badges";
+
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
 import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
@@ -2065,7 +2067,7 @@ export async function addMediaLinkAction(input: {
       supplierId = p?.supplier_id ?? null;
     } else if (input.ownerType === "supplier") {
       supplierId = input.ownerId;
-    } else {
+    } else if (input.ownerType === "verification") {
       verificationId = input.ownerId;
       const v = await store.getVerification(input.ownerId);
       if (!v) return { ok: false, message: "Không tìm thấy đợt kiểm." };
@@ -2073,6 +2075,10 @@ export async function addMediaLinkAction(input: {
       if (blocked) return { ok: false, message: blocked };
       verification = v;
       supplierId = v.supplier_id;
+    } else {
+      // Bằng chứng tự gửi (owner_type = "submission") chỉ nhận link nguồn qua
+      // addSourceLinkAction, không nhận link video ở đây.
+      return { ok: false, message: "Loại hồ sơ không hỗ trợ thêm link video." };
     }
     const created = await store.createMedia({
       owner_type: input.ownerType,
@@ -2302,6 +2308,8 @@ export async function markThreadReadAction(threadIdValue: string): Promise<Actio
   const store = getStore();
   for (const m of targets) await store.updateMessage(m.id, { read_at: now });
   revalidatePath("/crm/mail");
+  // Huy hiệu Hộp thư nằm trong layout: không làm mới layout thì số chưa đọc không giảm.
+  refreshCrmBadges();
   return { ok: true, message: `Đã đánh dấu đọc ${targets.length} thư.` };
 }
 

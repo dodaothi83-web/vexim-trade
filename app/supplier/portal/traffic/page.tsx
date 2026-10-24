@@ -12,7 +12,7 @@ import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Lượt xem gian hàng | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "Lượt xem gian hàng", robots: { index: false, follow: false } };
 const format = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
 
 export default async function SupplierTrafficPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
@@ -31,7 +31,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
   const chunk = days === 7 ? 1 : days === 30 ? 5 : 10;
   const bars = report ? Array.from({ length: Math.ceil(days / chunk) }, (_, i) => {
     const part = report.trend.slice(i * chunk, (i + 1) * chunk);
-    return { label: `${part[0].day.slice(5)} – ${part.at(-1)!.day.slice(5)}`,
+    return { label: `${part[0].day.slice(5)} đến ${part.at(-1)!.day.slice(5)}`,
       profile: part.reduce((sum, d) => sum + d.profile, 0), product: part.reduce((sum, d) => sum + d.product, 0) };
   }) : [];
   const max = Math.max(1, ...bars.map((b) => b.profile + b.product));
@@ -52,7 +52,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
     </nav>
     {!report ? <div role="status" className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
       <h2 className="font-bold">Chưa có dữ liệu theo dõi</h2>
-      <p className="mt-2 text-sm leading-6">Báo cáo chưa kết nối được bảng thống kê. Vexim cần cấu hình Supabase và áp dụng migration <code>20261017_supplier_traffic_daily.sql</code> trên đúng dự án. Không hiển thị số 0 khi hệ thống chưa ghi nhận được dữ liệu.</p>
+      <p className="mt-2 text-sm leading-6">Báo cáo chưa kết nối được bảng thống kê: hệ thống cần cấu hình Supabase và áp dụng migration <code>20261017_supplier_traffic_daily.sql</code> trên đúng dự án. Không hiển thị số 0 khi chưa ghi nhận được dữ liệu.</p>
     </div> : <>
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         {[
@@ -68,7 +68,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
       {report.total === 0 ? <div role="status" className="mt-6 rounded-xl border border-ink-200 bg-white p-8 text-center sm:p-12">
         <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><Eye className="size-6" /></div>
         <h2 className="mt-4 text-lg font-bold text-ink-900">Chưa có lượt xem trong {days} ngày qua</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-600">Số liệu chỉ bắt đầu từ khi Vexim bật theo dõi. Hồ sơ và sản phẩm cần được công khai để có lượt xem được ghi nhận.</p>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-600">Số liệu chỉ bắt đầu từ khi bật theo dõi. Hồ sơ và sản phẩm cần được công khai để có lượt xem được ghi nhận.</p>
       </div> : <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,1fr)]">
         <section className="rounded-xl border border-ink-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="traffic-trend">
           <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="traffic-trend" className="text-lg font-bold text-ink-900">Xu hướng lượt xem</h2>

@@ -61,7 +61,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       actorEmail: isStaff ? session?.email ?? null : own?.userEmail ?? null,
       submit,
     });
-    revalidatePath("/supplier/portal/verification");
+    revalidatePath("/supplier/portal/verification/factory");
+    revalidatePath("/supplier/portal/verification/export");
     revalidatePath(`/crm/verifications/submissions/${access.submission.id}`);
     revalidatePath("/crm/verifications/submissions");
     return NextResponse.json({
