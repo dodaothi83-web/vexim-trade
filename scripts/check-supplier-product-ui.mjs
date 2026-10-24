@@ -51,4 +51,22 @@ assert.match(editor, /productCanSubmit\(product, media\)/);
 assert.doesNotMatch(editor, /aria-label="Trạng thái công khai"/, 'The separate buyer-visibility panel is removed from the editor');
 assert.match(editor, /const canUpload = !!product && !locked && !dirty && \(review !== "approved" \|\| product\.supplier_originated === true\)/, 'Approved supplier-originated products remain editable and accept media');
 assert.match(editor, /const categoryLocked = review === "approved"/, 'The reviewed category remains staff-controlled');
-console.log('✅ Supplier storefront: responsive product cards, real scoped thumbnails, truthful status and guarded editing.');
+const { SupplierProductReviewControls } = load('../app/crm/products/[slug]/edit/review-controls.tsx', {
+  react: React, 'react/jsx-runtime': jsx,
+  'next/navigation': { useRouter: () => ({ refresh() {} }) },
+  './review-actions': { decideSupplierProductAction: async () => ({ ok: true, message: 'saved' }) },
+});
+const reviewProps = { id: 'p3', proposal: 'cashew', reviewed: 'cashew',
+  categories: [{ slug: 'cashew', label: 'Hạt điều' }] };
+const retryHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, { ...reviewProps, publishOnly: true }));
+assert.ok(retryHtml.includes('Đẩy sản phẩm đã duyệt lên sàn'), 'Legacy approved products get a clear completion action');
+assert.ok(retryHtml.includes('bật sẵn sàng gửi buyer'), 'The completion action explains that it sets buyer readiness');
+assert.ok(!retryHtml.includes('Yêu cầu chỉnh sửa'), 'Publication retry cannot reopen an already approved review');
+const pendingReviewHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, reviewProps));
+assert.ok(pendingReviewHtml.includes('Vexim xác nhận &amp; đẩy lên sàn') && pendingReviewHtml.includes('Yêu cầu chỉnh sửa'),
+  'The ordinary pending review keeps both staff decisions');
+const crmEditPage = fs.readFileSync(new URL('../app/crm/products/[slug]/edit/page.tsx', import.meta.url), 'utf8');
+assert.match(crmEditPage, /needsPublicationRetry = supplierReviewedListing && product\.supplier_review_status === "approved" && !product\.ready_for_buyer/);
+assert.match(crmEditPage, /Chưa lên sàn — dùng nút “Đẩy sản phẩm đã duyệt lên sàn” ở đầu trang/,
+  'The checklist directs staff to the automatic transition instead of a manual flag');
+console.log('✅ Supplier/CRM product UI: truthful status, guarded editing and legacy publication completion.');

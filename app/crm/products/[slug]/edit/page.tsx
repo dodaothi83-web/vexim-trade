@@ -50,6 +50,8 @@ export default async function EditProductPage({
   // Match the category catalog: a published test profile is still not a real commercial supplier.
   const commercialSupplier = !isSyntheticSupplier(supplier) ||
     (!!supplier.is_demo && process.env.VEXIM_SHOW_DEMO === "true");
+  const supplierReviewedListing = !!(product.supplier_originated || product.supplier_category_proposal);
+  const needsPublicationRetry = supplierReviewedListing && product.supplier_review_status === "approved" && !product.ready_for_buyer;
   const canView = productReviewApproved(product) && supplier.status === "published" && categoryPublished &&
     commercialSupplier &&
     (supplier.is_demo ? process.env.VEXIM_SHOW_DEMO === "true" : product.ready_for_buyer && readiness.ready) &&
@@ -66,7 +68,13 @@ export default async function EditProductPage({
     { done: commercialSupplier, label: "Hồ sơ NCC không phải dữ liệu thử nghiệm (tên, slug hoặc giới thiệu có TEST / DO NOT CONTACT; hồ sơ demo chỉ xem khi bật chế độ demo)" },
     { done: readiness.ready, label: "Có ít nhất một ảnh/catalogue của sản phẩm được chia sẻ buyer" },
     { done: productReviewApproved(product), label: "Vexim đã xác nhận nội dung và danh mục sản phẩm NCC" },
-    { done: !!product.ready_for_buyer, label: "Đã bật “Sẵn sàng gửi buyer” và lưu hồ sơ" },
+    { done: !!product.ready_for_buyer, label: supplierReviewedListing
+      ? product.ready_for_buyer
+        ? "Đã tự bật “Sẵn sàng gửi buyer” khi đẩy lên sàn"
+        : product.supplier_review_status === "approved"
+          ? "Chưa lên sàn — dùng nút “Đẩy sản phẩm đã duyệt lên sàn” ở đầu trang"
+          : "“Sẵn sàng gửi buyer” sẽ tự bật khi Vexim xác nhận"
+      : "Đã bật “Sẵn sàng gửi buyer” và lưu hồ sơ" },
     { done: !isTestOnlyProduct(product.name), label: "Tên không bắt đầu bằng TEST ONLY" },
   ];
 
@@ -96,6 +104,17 @@ export default async function EditProductPage({
             {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
             {product.supplier_review_status === "pending" && (session.role === "admin" || session.role === "sourcing") &&
               <SupplierProductReviewControls id={product.id} proposal={product.supplier_category_proposal} categories={categoryOptions} />}
+          </section>}
+          {needsPublicationRetry && (session.role === "admin" || session.role === "sourcing") && <section className="card border-amber-200 bg-amber-50 p-5 text-sm">
+            <h2 className="font-bold text-ink-900">Sản phẩm đã duyệt nhưng chưa lên sàn</h2>
+            <p className="mt-1 text-ink-700">Hồ sơ này được duyệt trước khi thao tác lên sàn được tự động. Không cần duyệt lại hoặc sửa cờ thủ công; hệ thống sẽ kiểm tra lại toàn bộ điều kiện, chia sẻ media buyer và bật sẵn sàng.</p>
+            <SupplierProductReviewControls
+              id={product.id}
+              proposal={product.supplier_category_proposal}
+              reviewed={product.reviewed_category_slug}
+              categories={categoryOptions}
+              publishOnly
+            />
           </section>}
           <ProductForm
             key={`${product.id}:${product.updated_at}`}

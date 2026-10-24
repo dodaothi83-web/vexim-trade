@@ -230,6 +230,20 @@ assert.equal(files[0].audience, 'buyer'); assert.equal(files[0].status, 'checked
 assert.equal(notices.at(-1)[0], 'product_approved');
 assert.equal(product.supplier_category_proposal, 'cashew');
 assert.equal(product.reviewed_category_slug, 'cashew', 'Staff approves the product in the supplier-selected category');
+// Products approved before confirmation became the publication transition can
+// be completed without resetting review or manually editing the readiness flag.
+product.ready_for_buyer = false;
+files[0].audience = 'internal'; files[0].status = 'unverified';
+const retry = new FormData(); retry.set('product_id', productId); retry.set('decision', 'approved');
+assert.equal((await review.decideSupplierProductAction(retry)).ok, true, 'An approved legacy product can be pushed to the marketplace');
+assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, true);
+assert.equal(product.reviewed_category_slug, 'cashew', 'Retry keeps the saved staff category without a form override');
+assert.equal(files[0].audience, 'buyer'); assert.equal(files[0].status, 'checked');
+assert.equal(notices.at(-1)[0], 'product_approved');
+assert.equal(audit.at(-1).action, 'supplier.product_published');
+const publishedNoticeCount = notices.length;
+assert.equal((await review.decideSupplierProductAction(retry)).ok, false, 'A live product cannot be published twice');
+assert.equal(notices.length, publishedNoticeCount, 'Rejected duplicate retry sends no notification');
 assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), { params: Promise.resolve({ id: productId }) })).status, 409,
   'The last buyer file cannot be removed from a live product');
 const productView = load('../lib/supplier-portal/product-view.ts', {});

@@ -30,11 +30,19 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
   try {
     const store = getStore();
     const product = await store.getProduct(id);
-    if (!product || product.supplier_review_status !== "pending") return { ok: false, message: "Sản phẩm không còn chờ Vexim kiểm tra." };
+    if (!product) return { ok: false, message: "Không tìm thấy sản phẩm." };
+    // Products approved before approval became the marketplace transition need
+    // a safe retry. Do not require staff to reset review or find a second flag.
+    const retryApprovedPublication = decision === "approved" && product.supplier_review_status === "approved" &&
+      !product.ready_for_buyer && !!(product.supplier_originated || product.supplier_category_proposal);
+    if (product.supplier_review_status !== "pending" && !retryApprovedPublication)
+      return { ok: false, message: "Sản phẩm không còn chờ Vexim kiểm tra hoặc đã được đẩy lên sàn." };
     let reviewedCategory: string | null = null;
     let mediaToPublish: MediaAsset[] = [];
     if (decision === "approved") {
-      reviewedCategory = String(form.get("reviewed_category_slug") ?? "");
+      reviewedCategory = retryApprovedPublication
+        ? product.reviewed_category_slug ?? product.supplier_category_proposal ?? ""
+        : String(form.get("reviewed_category_slug") ?? "");
       const supplier = await store.getSupplier(product.supplier_id);
       if (!supplier) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
       if (supplier.status !== "published")
@@ -86,8 +94,8 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       throw error;
     }
     await store.addAuditLog({ actor_id: session.uid, actor_email: session.email,
-      entity: "product", entity_id: id, action: decision === "approved" ? "supplier.product_approved" : "supplier.product_changes_requested",
-      before: { review: product.supplier_review_status, category: product.reviewed_category_slug },
+      entity: "product", entity_id: id, action: retryApprovedPublication ? "supplier.product_published" : decision === "approved" ? "supplier.product_approved" : "supplier.product_changes_requested",
+      before: { review: product.supplier_review_status, category: product.reviewed_category_slug, ready: product.ready_for_buyer },
       after: { review: decision, category: reviewedCategory, note: decision === "approved" ? null : note, ready: decision === "approved" } })
       .catch((error) => console.error("[supplier-product-review] audit", error));
     const mail = await notifySupplierDecision({ supplierId: product.supplier_id, entityId: id, name: product.name,
