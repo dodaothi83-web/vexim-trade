@@ -16,14 +16,21 @@ Form dùng Turnstile và Upstash Redis cho gửi trực tiếp. Giới hạn hi�
 
 ## 3. Gắn biến môi trường
 
-Trên Vercel: **Project → Settings → Environment Variables**, thêm bốn biến cho **Production** rồi redeploy. Hosting khác dùng cùng tên biến trong phần cấu hình môi trường.
+Trên Vercel: **Project → Settings → Environment Variables**, thêm hai biến Turnstile cho **Production** rồi redeploy:
 
 ```env
 TURNSTILE_SITE_KEY=site_key_tu_cloudflare
 TURNSTILE_SECRET_KEY=secret_key_tu_cloudflare
+```
+
+Nếu tạo database trong Upstash Console, thêm cặp REST credentials:
+
+```env
 UPSTASH_REDIS_REST_URL=rest_url_tu_upstash
 UPSTASH_REDIS_REST_TOKEN=rest_token_tu_upstash
 ```
+
+Nếu dùng **Vercel → Storage → Upstash Redis** và connect database vào project, Vercel tự inject `KV_REST_API_URL` và `KV_REST_API_TOKEN`. Code nhận trực tiếp cặp này, không cần nhân đôi sang `UPSTASH_REDIS_REST_*`. `KV_URL` là kết nối TCP và không được dùng cho REST client. Nếu có cả hai cặp, code ưu tiên cặp `UPSTASH_REDIS_REST_*` đầy đủ.
 
 Không commit hoặc gửi secret qua chat. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` cũ vẫn được hỗ trợ, nhưng cấu hình mới nên dùng `TURNSTILE_SITE_KEY`.
 

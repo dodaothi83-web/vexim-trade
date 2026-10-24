@@ -12,8 +12,16 @@ let ipLimiter: Ratelimit | null = null;
 let buyerSupplierLimiter: Ratelimit | null = null;
 
 function getLimiters() {
-  const url = process.env.UPSTASH_REDIS_REST_URL?.trim();
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  // Vercel's native Upstash integration injects KV_REST_API_* instead of the
+  // Upstash Console names. Prefer an explicitly configured complete pair and
+  // never combine credentials from two different databases.
+  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
+  const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  const vercelUrl = process.env.KV_REST_API_URL?.trim();
+  const vercelToken = process.env.KV_REST_API_TOKEN?.trim();
+  const useUpstash = Boolean(upstashUrl && upstashToken);
+  const url = useUpstash ? upstashUrl : vercelUrl;
+  const token = useUpstash ? upstashToken : vercelToken;
   if (!url || !token) return null;
   if (!ipLimiter || !buyerSupplierLimiter) {
     const redis = new Redis({ url, token });

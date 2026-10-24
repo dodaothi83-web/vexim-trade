@@ -6,6 +6,7 @@ import ts from 'typescript';
 
 const calls = [];
 let redisInstances = 0;
+const redisConfigs = [];
 let behaviors = {};
 class RatelimitMock {
   constructor(config) { this.config = config; }
@@ -27,7 +28,7 @@ class RatelimitMock {
 class RedisMock {
   constructor(config) {
     if (behaviors.redisThrow) throw new Error('Invalid Redis URL');
-    redisInstances++; this.config = config;
+    redisInstances++; this.config = config; redisConfigs.push(config);
   }
 }
 
@@ -66,6 +67,21 @@ assert.equal(calls[0].algorithm.tokens, 5);
 assert.equal(calls[0].algorithm.window, '1 h');
 assert.equal(calls[1].algorithm.tokens, 3);
 assert.equal(calls[1].algorithm.window, '24 h');
+assert.equal(redisConfigs.at(-1).url, 'https://redis.example.com');
+assert.equal(redisConfigs.at(-1).token, 'secret');
+
+const vercelLimiter = load({ NODE_ENV: 'production', KV_REST_API_URL: 'https://vercel-redis.example.com', KV_REST_API_TOKEN: 'vercel-secret', KV_URL: 'rediss://should-not-be-used' });
+assert.equal((await vercelLimiter.checkSupplierQuestionRateLimit(input)).status, 'ok', 'Vercel native Upstash ENV works without duplicate variables');
+assert.equal(redisConfigs.at(-1).url, 'https://vercel-redis.example.com');
+assert.equal(redisConfigs.at(-1).token, 'vercel-secret');
+const preferredLimiter = load({ NODE_ENV: 'production',
+  UPSTASH_REDIS_REST_URL: 'https://explicit.example.com', UPSTASH_REDIS_REST_TOKEN: 'explicit-secret',
+  KV_REST_API_URL: 'https://vercel-redis.example.com', KV_REST_API_TOKEN: 'vercel-secret' });
+assert.equal((await preferredLimiter.checkSupplierQuestionRateLimit(input)).status, 'ok');
+assert.equal(redisConfigs.at(-1).url, 'https://explicit.example.com', 'A complete explicit pair takes precedence');
+assert.equal(redisConfigs.at(-1).token, 'explicit-secret');
+const incompletePair = load({ NODE_ENV: 'production', UPSTASH_REDIS_REST_URL: 'https://wrong.example.com', KV_REST_API_TOKEN: 'vercel-secret' });
+assert.equal((await incompletePair.checkSupplierQuestionRateLimit(input)).reason, 'not_configured', 'Credentials from different pairs are never combined');
 
 behaviors = { 'vexim:supplier-question:buyer-supplier': { success: false, reset: 1_800_000_100_000 } };
 const limited = await limiter.checkSupplierQuestionRateLimit(input);
@@ -92,7 +108,7 @@ assert.equal(invalidConfigResult.reason, 'unavailable');
 
 const envExample = fs.readFileSync(new URL('../.env.example', import.meta.url), 'utf8');
 const guide = fs.readFileSync(new URL('../docs/supplier-question-security.md', import.meta.url), 'utf8');
-for (const key of ['TURNSTILE_SITE_KEY', 'TURNSTILE_SECRET_KEY', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN']) {
+for (const key of ['TURNSTILE_SITE_KEY', 'TURNSTILE_SECRET_KEY', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'KV_REST_API_URL', 'KV_REST_API_TOKEN']) {
   assert.ok(envExample.includes(key), `${key} is documented in .env.example`);
   assert.ok(guide.includes(key), `${key} is documented in the deployment guide`);
 }
