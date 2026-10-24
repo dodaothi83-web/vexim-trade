@@ -41,7 +41,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
 
   const photo = (path: string) => `/public-media/${path}`;
   return <div className="min-w-0">
-    <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-ink-200 bg-ink-50">
+    <div className="relative aspect-square overflow-hidden rounded-2xl border border-ink-200 bg-ink-50">
       {selected ? <button ref={heroRef} type="button" onClick={() => setOpen(true)}
         onMouseMove={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();

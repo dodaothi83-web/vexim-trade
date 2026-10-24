@@ -613,7 +613,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 ? <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{media.map((asset) => {
                   const url = privateMediaUrl(asset);
                   return <li key={asset.id} className="group relative overflow-hidden rounded-lg border border-ink-200 bg-white">
-                    <div className="relative block aspect-[4/3] overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
+                    <div className="relative block aspect-square overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
                       {asset.kind === "image" && url
                         ? <img src={url} alt={`Ảnh ${asset.caption || product?.name || "sản phẩm"}`} loading="lazy" className="size-full object-cover" />
                         : <span className="flex size-full items-center justify-center text-brand-700"><FileText className="size-8" aria-hidden="true" /></span>}
@@ -821,7 +821,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       {/* Cột phải: thẻ xem nhanh - thương mại & xuất khẩu đọc được ngay, kể cả khi cuộn. */}
       <aside className="space-y-3 lg:sticky lg:top-6">
         <div className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
-          <div className="relative aspect-[16/9] bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
+          <div className="relative aspect-square bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
             {coverUrl
               ? <img src={coverUrl} alt="" className="size-full object-cover" />
               : <span className="flex size-full flex-col items-center justify-center gap-1.5 text-ink-400"><ImageIcon className="size-8 stroke-1" aria-hidden="true" /><span className="text-[11px] font-semibold">Chưa có ảnh</span></span>}

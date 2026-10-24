@@ -700,7 +700,10 @@ function Field({ label, required, children }: { label: string; required?: boolea
  * trang không hiện ảnh vỡ, đội chụp ảnh thấy ngay việc còn thiếu, và alt text đã soạn sẵn.
  */
 function Photo({ photo, ready, onDark = false }: { photo: CashewPhoto; ready: boolean; onDark?: boolean }) {
-  const aspect = { aspectRatio: `${photo.width} / ${photo.height}` };
+  // Product/producer photos use the same 1:1 frame as the marketplace catalogue.
+  // Keep the intrinsic width/height attributes below for image metadata and loading;
+  // object-cover crops inside the square without stretching the source image.
+  const aspect = { aspectRatio: "1 / 1" };
   if (ready) {
     return (
       <img

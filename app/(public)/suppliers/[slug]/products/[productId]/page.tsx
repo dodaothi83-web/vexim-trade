@@ -67,7 +67,7 @@ export default async function TestSupplierProductPreview({ params }: Props) {
         </div>
       </section>
       <section aria-label="Test product photo" className="order-2 min-w-0 lg:order-1">
-        <div className="flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-ink-200 bg-white p-3 sm:aspect-[4/3]">
+        <div className="flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-ink-200 bg-white p-3">
           {mediaUrl ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={mediaUrl} alt={safe(product.name)} className="h-full w-full object-contain" /></>
             : <div className="flex items-center gap-2 text-sm text-ink-500"><ImageIcon className="size-6" /> No buyer-shareable product photo</div>}
         </div>
