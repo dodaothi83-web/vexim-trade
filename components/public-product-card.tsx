@@ -32,12 +32,10 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
       <div className="mb-2 flex h-6 items-center">
         {!test && (oem || odm || samples) && <ProductTradeLabels oem={oem} odm={odm} samples={samples} compact />}
       </div>
-      <div className={`rounded-lg px-2.5 py-2 ${test ? "bg-ink-50" : "bg-brand-50"}`}>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-ink-500">{test ? "Price" : fob ? "FOB reference" : "Reference price"}</p>
-        <p className={`mt-0.5 break-words font-black ${test ? "text-sm leading-5 text-ink-600" : "text-lg leading-6 text-brand-900 sm:text-xl sm:leading-7"}`}>
-          {test ? "Test data · not a price" : price || "On request"}
-        </p>
-      </div>
+      <p className={`break-words ${test ? "text-xs font-semibold leading-4 text-ink-500" : "text-[15px] font-bold leading-5 text-brand-800 sm:text-base"}`}>
+        {test ? "Test data · not a price" : price || "On request"}
+        {!test && fob && <span className="ml-1 text-[9px] font-semibold uppercase tracking-wide text-ink-400">FOB</span>}
+      </p>
       <dl className="mt-2.5 grid grid-cols-2 gap-x-2 text-ink-600">
         <div className="min-w-0">
           <dt className="text-[10px] font-medium uppercase tracking-wide text-ink-500">MOQ</dt>

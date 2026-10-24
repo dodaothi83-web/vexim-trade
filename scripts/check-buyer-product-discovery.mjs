@@ -255,7 +255,7 @@ const cardProps = { href: '/products/cashew/a0', imagePath: 'products/a0/cover.j
   supplierName: 'Company A', supplierHref: '/suppliers/company-a', verificationSteps: [1, 3],
   quoteHref: '/rfq?category=cashew&suppliers=A&product=Cashew%20W320%20lot%200&product_id=a0', oem: true, odm: true, samples: true };
 const compactCard = renderToStaticMarkup(React.createElement(PublicProductCard, cardProps));
-for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'FOB reference', 'USD 7/kg', 'Lead time', '14 days', 'Supplied by', 'Company A', 'OEM/ODM', 'Samples', 'Request a quote']) {
+for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'USD 7/kg', 'Lead time', '14 days', 'Supplied by', 'Company A', 'OEM/ODM', 'Samples', 'Request a quote']) {
   assert.ok(compactCard.includes(text), `Compact card keeps ${text}`);
 }
 assert.match(compactCard, /aspect-square/);
@@ -268,7 +268,9 @@ assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;prod
   'The primary card CTA opens an RFQ prefilled for this product and supplier');
 assert.match(compactCard, /aria-label="Request a quote for Cashew W320 lot 0"/, 'Repeated quote CTAs have product-specific accessible names');
 assert.match(compactCard, /bg-brand-700/, 'The quote CTA uses the primary brand action instead of the dark details treatment');
-assert.match(compactCard, /text-lg leading-6 text-brand-900 sm:text-xl/, 'Reference price is the strongest commercial value on the card');
+assert.match(compactCard, /text-\[15px\] font-bold leading-5 text-brand-800 sm:text-base/, 'Price is only slightly larger than the supporting card content');
+assert.match(compactCard, />FOB</, 'FOB remains visible as a compact suffix');
+assert.doesNotMatch(compactCard, /FOB reference|Reference price|bg-brand-50/, 'Price uses plain text without a heading or tinted background');
 assert.match(compactCard, /mb-2 flex h-6 items-center/, 'A fixed one-row badge slot keeps prices aligned between cards');
 assert.match(compactCard, /mt-2.5 grid grid-cols-2/, 'MOQ and lead time share one compact two-column row');
 assert.match(compactCard, /mt-auto pt-3/, 'The quote action keeps a compact top gap');
@@ -282,9 +284,8 @@ const longSupplierCard = renderToStaticMarkup(React.createElement(PublicProductC
 assert.match(longSupplierCard, /title="VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED"/, 'The full supplier name remains available as a tooltip');
 assert.match(longSupplierCard, /truncate font-semibold text-brand-700/, 'Long supplier names stay on one line instead of stretching the card');
 const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, fob: false, verificationSteps: [] }));
-assert.match(privatePrice, /Reference price/);
 assert.match(privatePrice, /On request/);
-assert.doesNotMatch(privatePrice, /FOB reference|USD 7\/kg/, 'No price or FOB claim without consent');
+assert.doesNotMatch(privatePrice, /FOB reference|>FOB<|USD 7\/kg/, 'No price or FOB claim without consent');
 assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved check shows the empty tier, not a badge');
 const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
   ...cardProps, href: '/suppliers/company-a/products/a0', test: true,
