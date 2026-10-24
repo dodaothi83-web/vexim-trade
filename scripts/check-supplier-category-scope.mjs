@@ -35,7 +35,10 @@ assert.throws(() => scope.parseSupplierCategoryProposals(forgedOther, options), 
 assert.equal(scope.parseSupplierCategoryProposals(form('cashew'), options).requested_category_other, null);
 assert.throws(() => scope.parseProductCategoryProposal(new FormData(), options));
 const outside = new FormData(); outside.set('supplier_category_proposal', 'rice');
-assert.throws(() => scope.parseProductCategoryProposal(outside, scope.allowedSupplierCategories(supplier, options)));
+assert.equal(scope.parseProductCategoryProposal(outside, options), 'rice',
+  'Product drafts can use any published category; scope remains a review aid');
+assert.throws(() => scope.parseProductCategoryProposal(outside, scope.allowedSupplierCategories(supplier, options)),
+  'The scope-limited helper still rejects outside categories when explicitly used');
 
 const audit = [];
 let products = [];

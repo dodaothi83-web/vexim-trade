@@ -66,6 +66,6 @@ export function productCategorySlug(
 
 export function parseProductCategoryProposal(form: FormData, options: CategoryProposalOption[]): string {
   const raw = String(form.get("supplier_category_proposal") ?? "").trim();
-  if (!raw || !options.some((c) => c.slug === raw)) throw new Error("Chọn danh mục sản phẩm trong phạm vi danh mục doanh nghiệp đã đăng ký.");
+  if (!raw || !options.some((c) => c.slug === raw)) throw new Error("Chọn danh mục sản phẩm đang xuất bản.");
   return raw;
 }

@@ -37,7 +37,7 @@ export default async function SupplierCategoriesPage() {
     <PageHeader
       eyebrow="Cổng nhà cung cấp · riêng tư"
       title="Danh mục kinh doanh"
-      sub="Chọn trong danh sách danh mục đang mở. Sản phẩm sau đó chỉ được gắn trong phạm vi này; thêm danh mục không công khai gian hàng hay duyệt sản phẩm."
+      sub="Chọn nhóm hàng trong danh sách đang mở. Phạm vi giúp staff xem xét sản phẩm; thêm danh mục không đăng gian hàng hay duyệt sản phẩm."
       actions={<Link href="/supplier/portal/products" className="btn btn-ghost btn-sm">Sản phẩm của tôi</Link>}
     />
 
@@ -50,6 +50,7 @@ export default async function SupplierCategoriesPage() {
           name: product.name,
           categorySlug: productCategorySlug(product),
           review: productReview(product),
+          readyForBuyer: product.ready_for_buyer === true,
         }))}
       />
       : <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">

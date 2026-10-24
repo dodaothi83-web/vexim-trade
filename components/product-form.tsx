@@ -70,13 +70,14 @@ export function ProductForm({
   product?: SupplierProduct | null;
   categories: Pick<Category, "id" | "slug" | "name_i18n" | "product_fields" | "supplier_product_fields">[];
   supplierCategories?: string[];
-  /** Trạng thái hình ảnh/tài liệu — có thì mới hiện công tắc "Sẵn sàng gửi buyer" */
+  /** Trạng thái media cho sản phẩm do staff quản lý. */
   mediaState?: { ready: boolean; shareable: number };
   /** Server projection of the SAVED product, never inferred from unsaved checkbox edits. */
   savedPrice?: { buyerPrice: string | null; blockers: string[]; publicProduct: boolean };
 }) {
   const router = useRouter();
   const toast = useToast();
+  const supplierReviewedListing = !!(product?.supplier_originated || product?.supplier_category_proposal);
   const [form, setForm] = useState<FormState>(() => init(product));
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<ProductTab>("info");
@@ -417,7 +418,7 @@ export function ProductForm({
               <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-[12.5px] font-semibold text-ink-700">
                 <input type="checkbox" className="h-4 w-4 accent-[#0f766e]" checked={Boolean(form.odm)} onChange={(e) => set("odm", e.target.checked)} /> Thiết kế & sản xuất theo yêu cầu / ODM
               </label>
-              {mediaState && (
+              {mediaState && !supplierReviewedListing && (
                 <label
                   className={cx(
                     "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px] font-semibold",

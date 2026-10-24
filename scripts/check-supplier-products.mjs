@@ -80,9 +80,11 @@ assert.equal((await actions.saveSupplierProductAction(missingFloor)).ok, false, 
 const invalidProposal = form(); invalidProposal.set('supplier_category_proposal', 'not-in-catalogue');
 assert.equal((await actions.saveSupplierProductAction(invalidProposal)).ok, false, 'Supplier cannot forge a category');
 const outsideScope = form(); outsideScope.set('supplier_category_proposal', 'rice');
-assert.equal((await actions.saveSupplierProductAction(outsideScope)).ok, false, 'Published category outside supplier scope is rejected');
+assert.equal((await actions.saveSupplierProductAction(outsideScope)).ok, true, 'Published category outside supplier scope is a review warning, not a draft blocker');
+assert.equal(product.supplier_review_status, 'draft'); product = null;
 const wrongCommodity = form(); wrongCommodity.set('name', 'Jasmine Rice');
-assert.equal((await actions.saveSupplierProductAction(wrongCommodity)).ok, false, 'Obvious rice product cannot be saved as cashew');
+assert.equal((await actions.saveSupplierProductAction(wrongCommodity)).ok, true, 'Keyword and category mismatch is left for staff review');
+assert.equal(product.supplier_review_status, 'draft'); product = null;
 const noCategory = form(); noCategory.delete('supplier_category_proposal');
 assert.equal((await actions.saveSupplierProductAction(noCategory)).ok, false, 'A product needs one selected category');
 assert.equal(product, null);
@@ -218,18 +220,17 @@ const approve = new FormData(); approve.set('product_id', productId); approve.se
 assert.equal((await review.decideSupplierProductAction(approve)).ok, false);
 denied = false;
 assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Staff must explicitly pick a category');
-approve.set('reviewed_category_slug', 'rice');
-assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Staff cannot approve a category outside the supplier selection');
+approve.set('reviewed_category_slug', 'not-in-catalogue');
+assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Staff must choose a published category');
 approve.set('reviewed_category_slug', 'cashew');
 product.name = 'Jasmine Rice';
-assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Obvious rice product cannot be approved as cashew');
+assert.equal((await review.decideSupplierProductAction(approve)).ok, true, 'Keyword mismatch is a warning; staff category is final');
 product.name = 'Cashew W320';
-assert.equal((await review.decideSupplierProductAction(approve)).ok, true);
 assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, true);
 assert.equal(files[0].audience, 'buyer'); assert.equal(files[0].status, 'checked');
 assert.equal(notices.at(-1)[0], 'product_approved');
 assert.equal(product.supplier_category_proposal, 'cashew');
-assert.equal(product.reviewed_category_slug, 'cashew', 'Staff approves the product in the supplier-selected category');
+assert.equal(product.reviewed_category_slug, 'cashew', 'Staff saves the final published category');
 // Products approved before confirmation became the publication transition can
 // be completed without resetting review or manually editing the readiness flag.
 product.ready_for_buyer = false;
@@ -268,8 +269,8 @@ assert.equal(selection.productBelongsToCategory(product, categories[1], categori
   'A reviewed product stays in its supplier-selected category');
 product.ready_for_buyer = true; // Keep the product live while staff corrects its reviewed category.
 const correction = new FormData(); correction.set('product_id', productId); correction.set('reviewed_category_slug', 'rice');
-assert.equal((await review.correctSupplierProductCategoryAction(correction)).ok, false, 'Staff cannot move to another supplier category');
-product.reviewed_category_slug = 'rice'; // historical incorrect decision to correct within the selected scope
+assert.equal((await review.correctSupplierProductCategoryAction(correction)).ok, true, 'Staff can correct the final category within the published catalog');
+assert.equal(product.reviewed_category_slug, 'rice');
 correction.set('reviewed_category_slug', 'cashew');
 assert.equal((await review.correctSupplierProductCategoryAction(correction)).ok, true);
 assert.equal(product.reviewed_category_slug, 'cashew'); assert.equal(product.ready_for_buyer, true, 'Staff category correction preserves the live decision');
@@ -283,6 +284,7 @@ assert.equal(selection.productBelongsToCategory(product, categories[0], categori
 assert.equal(selection.productReviewApproved({ ...product, reviewed_category_slug: null }), false,
   'A supplier-originated product still cannot publish without its reviewed category');
 assert.equal(audit.some((a) => a.action === 'supplier.product_approved'), true);
+assert.equal(audit.some((a) => a.action === 'supplier.product_published'), true);
 const migration = fs.readFileSync(new URL('../supabase/migrations/20261017_supplier_product_review.sql', import.meta.url), 'utf8');
 assert.match(migration, /supplier_review_status/);
 assert.match(fs.readFileSync(new URL('../app/public-media/[...path]/route.ts', import.meta.url), 'utf8'), /productReviewApproved\(product\)/);

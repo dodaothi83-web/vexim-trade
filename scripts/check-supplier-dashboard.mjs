@@ -65,7 +65,7 @@ const decided = dashboard.buildSupplierDashboard({ ...input,
     { id: 'c-b', supplier_id: 's-b', name: 'SECRET factory certificate', review_status: 'approved',
       publicly_visible: true, updated_at: now.toISOString() }],
 });
-assert.ok(decided.notices.some((n) => n.key === 'product-approved:p-a' && n.title.includes('đã lên sàn') && n.detail.includes('hiển thị với buyer')));
+assert.ok(decided.notices.some((n) => n.key === 'product-approved:p-a' && n.title.includes('đã đăng') && n.detail.includes('hiển thị với buyer')));
 assert.ok(decided.notices.some((n) => n.key === 'cert-approved:c-a' && n.detail.includes('Chưa công bố')));
 assert.ok(!JSON.stringify(decided).includes('SECRET factory certificate'), 'Foreign certificate cannot appear');
 const accountNotice = dashboard.buildSupplierDashboard({ ...input, supplier: { id: 's-a', onboarding_status: 'approved', updated_at: now.toISOString() } });

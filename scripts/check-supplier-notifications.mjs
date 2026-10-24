@@ -32,7 +32,7 @@ const product = { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', name: 'Cashew <W32
 assert.equal(await exports.notifyStaffProductSubmission(supplier, product), 'sent');
 assert.equal(JSON.stringify(messages[0].to), JSON.stringify(['admin@example.com', 'sourcing@example.com']));
 assert.ok(messages[0].html.includes('Cashew &lt;W320&gt;'));
-assert.ok(messages[0].html.includes('Chưa được duyệt hay công khai'));
+assert.ok(messages[0].html.includes('Sản phẩm chưa được đăng'));
 assert.equal(await exports.notifySupplierDecision({ supplierId: sid, decision: 'onboarding_changes_requested', note: 'Bổ sung <giấy phép>' }), 'sent');
 assert.equal(JSON.stringify(messages[1].to), JSON.stringify(['owner@example.com']));
 assert.ok(messages[1].html.includes('Bổ sung &lt;giấy phép&gt;'));
@@ -43,7 +43,7 @@ assert.equal(await exports.notifySupplierDecision({ supplierId: sid, decision: '
 assert.ok(messages.at(-1).html.includes('nếu sản phẩm công khai'));
 assert.equal(await exports.notifySupplierDecision({ supplierId: sid, decision: 'product_approved', name: 'Cashew', note: 'PRIVATE STAFF ONLY' }), 'sent');
 assert.ok(!messages.at(-1).html.includes('PRIVATE STAFF ONLY'), 'Approval notes are not sent to suppliers');
-assert.ok(messages.at(-1).html.includes('đẩy lên sàn') && messages.at(-1).html.includes('hiển thị với buyer'), 'Approval notice tells the supplier the product is live');
+assert.ok(messages.at(-1).html.includes('đã được đăng') && messages.at(-1).html.includes('hiển thị cho buyer'), 'Approval notice tells the supplier the product is live');
 assert.ok(!messages.at(-1).html.includes('chưa tự động sẵn sàng'), 'Approval notice no longer describes a separate unpublished step');
 status = 'failed';
 assert.equal(await exports.notifySupplierDecision({ supplierId: sid, decision: 'verification_returned', note: 'Bổ sung ảnh' }), 'failed');

@@ -34,7 +34,7 @@ const view = {
     draft: { label: 'Bản nháp', tone: 'bg-slate-100' },
     pending: { label: 'Chờ duyệt', tone: 'bg-amber-100' },
     changes_requested: { label: 'Cần chỉnh sửa', tone: 'bg-rose-100' },
-    approved: { label: 'Đã lên sàn', tone: 'bg-emerald-100' },
+    approved: { label: 'Đã đăng', tone: 'bg-emerald-100' },
   },
   productReview: (p) => p.supplier_review_status ?? 'approved',
   privateMediaUrl: (m) => m.storage_path ? `/api/media/file/${m.storage_path}` : null,
@@ -92,7 +92,7 @@ const step1 = render();
 
 // 1. Ba bước, mỗi lần chỉ mở MỘT bước; các bước khác vẫn nằm trong DOM (hidden) để
 //    không mất dữ liệu khi gửi form.
-assert.match(step1, /Bước 1 · Thông tin sản phẩm|data-step-panel="1"/, 'Có panel bước 1');
+assert.match(step1, /Bước 1: Thông tin sản phẩm|data-step-panel="1"/, 'Có panel bước 1');
 assert.match(step1, /data-step-panel="2"/, 'Panel bước 2 tồn tại');
 assert.match(step1, /data-step-panel="3"/, 'Panel bước 3 tồn tại');
 assert.match(step1, /data-step-panel="1"[^>]*class="space-y-4"|class="space-y-4"[^>]*data-step-panel="1"/, 'Bước 1 đang mở');
@@ -119,7 +119,7 @@ assert.match(step1, /<h2 class="text-\[15px\] font-black text-ink-900">Đặt h�
 // Nhãn "Bước 1" chỉ hiện ở thanh bước, không lặp lại trên từng thẻ con trong bước 1.
 assert.equal((step1.match(/>Bước 1</g) ?? []).length, 0, 'Không lặp nhãn Bước 1 trên các thẻ con');
 assert.equal((step1.match(/Bước 1/g) ?? []).length, 1, 'Chỉ còn một nhãn Bước 1 (cho trình đọc màn hình của panel)');
-assert.match(step1, /data-step-panel="1" class="space-y-4" aria-label="Bước 1 · Thông tin sản phẩm"/, 'Panel bước 1 vẫn được đánh nhãn cho trình đọc màn hình');
+assert.match(step1, /data-step-panel="1" class="space-y-4" aria-label="Bước 1: Thông tin sản phẩm"/, 'Panel bước 1 vẫn được đánh nhãn cho trình đọc màn hình');
 assert.ok(step1.indexOf('Thông tin thương mại &amp; xuất khẩu') > 0, 'Khối thương mại nằm trong bước 1 đang mở');
 assert.ok(step1.includes('Nhận gia công/OEM') && step1.includes('Có thể gửi mẫu'), 'Ba lựa chọn thương mại hiện ngay');
 
@@ -135,15 +135,15 @@ assert.match(onStep2, /Sang bước 3/, 'Bước 2 có nút sang bước 3');
 const onStep3 = render({ initialStep: 3 });
 assert.equal((onStep3.match(/>Bước 3</g) ?? []).length, 1, 'Thẻ của bước 3 vẫn giữ đúng một nhãn bước');
 assert.match(onStep3, /Trở về bước 2/, 'Bước 3 có nút Trở về bước 2');
-assert.match(onStep3, /Gửi hồ sơ duyệt/, 'Bước 3 có nút gửi hồ sơ');
+assert.match(onStep3, /Gửi duyệt/, 'Bước 3 có nút gửi hồ sơ');
 
 // 3b. Bước 3 là bước XEM LẠI: hiển thị lại toàn bộ dữ liệu bước 1 và tệp của bước 2.
 assert.match(onStep3, /Xem lại toàn bộ hồ sơ/, 'Bước 3 là bước xem lại');
-assert.match(onStep3, /Bước 3 · Xem lại và gửi/, 'Nhãn bước 3 nói rõ xem lại rồi gửi');
-for (const label of ['Thông tin sản phẩm', 'Thông tin thương mại &amp; xuất khẩu', 'Đặt hàng &amp; năng lực', 'Ảnh &amp; catalogue']) {
+assert.match(onStep3, /Bước 3: Xem lại và gửi/, 'Nhãn bước 3 nói rõ xem lại rồi gửi');
+for (const label of ['Thông tin sản phẩm', 'Thông tin thương mại &amp; xuất khẩu', 'Đặt hàng &amp; năng lực', 'Ảnh và catalogue']) {
   assert.ok(onStep3.includes(label), `Bước 3 đọc lại khối ${label}`);
 }
-for (const value of ['Hạt điều nhân W320', 'Hạt &amp; hạt nhân · Hạt điều', 'Hạt điều trắng', 'W320', '7.2', '200 tấn',
+for (const value of ['Hạt điều nhân W320', 'Hạt &amp; hạt nhân / Hạt điều', 'Hạt điều trắng', 'W320', '7.2', '200 tấn',
   'Cát Lái', 'FOB', 'T/T 30%', 'Carton 22.68kg', 'products/p1/a.jpg']) {
   assert.ok(onStep3.includes(value), `Bước 3 hiển thị giá trị đã nhập: ${value}`);
 }
@@ -157,9 +157,9 @@ assert.doesNotMatch(source, /onClick=\{submit\} disabled=\{busy \|\| !canSubmit\
 assert.match(source, /function requestSubmit\(\)/, 'Nút gửi đi qua requestSubmit để luôn phản hồi');
 assert.match(source, /submitBlockers\(\)/, 'Có danh sách việc còn thiếu');
 assert.match(source, /setSubmitHint\(blockers\)/, 'Bấm gửi khi thiếu sẽ hiện lời nhắc thay vì không làm gì');
-assert.match(source, /Đang gửi hồ sơ…/, 'Nút có trạng thái đang gửi');
+assert.match(source, /Đang gửi.../, 'Nút có trạng thái đang gửi');
 assert.match(source, /animate-spin/, 'Có vòng xoay khi đang gửi');
-assert.match(source, /Đã gửi hồ sơ/, 'Gửi xong có xác nhận rõ ràng');
+assert.match(source, /Đã gửi duyệt/, 'Gửi xong có xác nhận rõ ràng');
 assert.match(source, /aria-live="polite"/, 'Lời nhắc được đọc bởi trình đọc màn hình');
 assert.match(source, /id="submit-blockers"/, 'Nút gửi liên kết tới phần giải thích điều kiện');
 
@@ -186,6 +186,8 @@ assert.match(source, /submitSupplierProductAction\(form\)/, 'Vẫn nộp qua sub
 assert.match(source, /productCanSubmit\(product, media\) && !dirty/, 'Nút nộp vẫn phụ thuộc điều kiện dữ liệu');
 assert.doesNotMatch(source, /Lưu thay đổi sẽ đưa sản phẩm về bản nháp/, 'Sửa sản phẩm đã duyệt không còn tự rút khỏi sàn');
 assert.match(source, /const canUpload = !!product && !locked && !dirty && \(review !== "approved" \|\| product\.supplier_originated === true\)/, 'Sản phẩm NCC đã duyệt vẫn tải được ảnh');
+assert.ok(source.includes('useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "")'),
+  'Danh mục staff đã duyệt được ưu tiên khi mở lại editor');
 assert.match(source, /Bạn có thay đổi chưa lưu/, 'Vẫn cảnh báo rời trang khi chưa lưu');
 assert.match(source, /firstInvalidField\(formRef\.current, 1\)/, 'Chặn sang bước khi còn trường bắt buộc');
 assert.match(source, /requestSubmit\(\)/, 'Đi tiếp được sau khi lưu thành công');
@@ -220,7 +222,7 @@ for (const phrase of [
 ]) {
   assert.ok(!source.includes(phrase), `Bỏ giọng hành chính/lặp thương hiệu: ${phrase}`);
 }
-assert.match(step1, /Danh mục được chọn cần phù hợp với hồ sơ doanh nghiệp đã đăng ký\./,
+assert.match(step1, /Chọn danh mục gần nhất\. Danh mục sẽ được kiểm tra khi duyệt\./,
   'Hint danh mục nói đúng mức cần thiết');
 // Chỉ hiện khi chưa có xác nhận chia sẻ giá còn hiệu lực.
 const noConsent = render({ supplier: { ...supplier, fob_publicly_visible: false } });
@@ -230,7 +232,7 @@ assert.match(noConsent, /Hiệu lực 180 ngày kể từ khi lưu; giá tham kh
   'Điều kiện ngắn nằm dưới checkbox');
 assert.match(noConsent, /href="\/dieu-khoan-su-dung"[^>]*>Điều khoản</, 'Có link điều khoản thay vì nhồi văn bản pháp lý');
 assert.doesNotMatch(noConsent, /Tôi đại diện NCC xác nhận/, 'Bỏ câu cam kết dài kiểu hợp đồng');
-assert.match(source, /Gửi hồ sơ duyệt/, 'Nút gửi dùng từ trung tính');
+assert.match(source, /Gửi duyệt/, 'Nút gửi dùng từ trung tính');
 assert.match(source, /Yêu cầu chỉnh sửa:/, 'Phản hồi duyệt gọi đúng việc phải làm');
 
 // 9d. Bố cục bước 1: danh mục chiếm trọn hàng để Mô tả ngắn luôn nằm chung hàng
@@ -274,9 +276,9 @@ assert.match(source, /for \(const key of checkKeys\) if \(form\.querySelector/,
 // 11. Sau xác nhận, NCC quản lý sản phẩm đang trên sàn; không còn panel trạng thái riêng.
 const approved = render({ product: { ...product, supplier_review_status: 'approved', ready_for_buyer: true, reviewed_category_slug: 'cashew' },
   media: [{ ...media[0], audience: 'buyer' }] });
-assert.match(approved, /đang hiển thị trên sàn/);
+assert.match(approved, /đã đăng/);
 assert.match(approved, /type="hidden" name="supplier_category_proposal"/);
-assert.match(approved, /Sản phẩm đã được đẩy lên sàn/);
+assert.match(approved, /Sản phẩm đã đăng/);
 assert.doesNotMatch(approved, /Trạng thái công khai|Hiển thị với buyer/);
 
 console.log('✅ Product page: 3 bước một màn hình, bước 3 đọc lại toàn bộ dữ liệu bước 1–2, nút gửi luôn phản hồi, thương mại & xuất khẩu hiện ngay.');

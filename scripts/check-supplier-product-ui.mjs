@@ -38,13 +38,13 @@ const scoped = view.supplierVisibleProductMedia([
 ], 'ours', 'owner');
 assert.equal(scoped.length, 2);
 const html = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products, media: scoped, supplierPublished: false }));
-for (const phrase of ['Cashew W320', 'Cashew W240', 'Cashew W180', 'Bản nháp', 'Chờ duyệt', 'Đã lên sàn', 'Trang NCC chưa được công khai', 'Tìm sản phẩm của tôi', 'Thêm sản phẩm'])
+for (const phrase of ['Cashew W320', 'Cashew W240', 'Cashew W180', 'Bản nháp', 'Chờ duyệt', 'Đã đăng', 'Trang NCC chưa được công khai', 'Tìm sản phẩm của tôi', 'Thêm sản phẩm'])
   assert.ok(html.includes(phrase), `Missing UI content: ${phrase}`);
 assert.ok(html.includes('products/p1/real.jpg') && html.includes('products/p3/shared.jpg'), 'Real owner or buyer files are used for thumbnails');
 assert.ok(!html.includes('secret.jpg') && !html.includes('foreign.jpg'), 'Private staff and foreign media cannot render');
 assert.ok(!html.includes('Đang bán'), 'Review must not masquerade as public listing');
 assert.ok(!html.includes('Hiển thị với buyer'), 'The separate buyer-visibility panel is removed');
-assert.ok(html.includes('Vexim xác nhận sản phẩm là đẩy sản phẩm lên sàn'), 'The list explains the single review-to-marketplace flow');
+assert.ok(html.includes('Sau khi duyệt, sản phẩm được đăng'), 'The list explains the single review-to-marketplace flow');
 const editor = fs.readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
 assert.match(editor, /productCanSubmit\(product, media\) && !dirty/, 'Nút gửi vẫn phụ thuộc dữ liệu đã lưu');
 assert.match(editor, /productCanSubmit\(product, media\)/);
@@ -58,15 +58,24 @@ const { SupplierProductReviewControls } = load('../app/crm/products/[slug]/edit/
 });
 const reviewProps = { id: 'p3', proposal: 'cashew', reviewed: 'cashew',
   categories: [{ slug: 'cashew', label: 'Hạt điều' }] };
-const retryHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, { ...reviewProps, publishOnly: true }));
-assert.ok(retryHtml.includes('Đẩy sản phẩm đã duyệt lên sàn'), 'Legacy approved products get a clear completion action');
-assert.ok(retryHtml.includes('bật sẵn sàng gửi buyer'), 'The completion action explains that it sets buyer readiness');
-assert.ok(!retryHtml.includes('Yêu cầu chỉnh sửa'), 'Publication retry cannot reopen an already approved review');
-const pendingReviewHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, reviewProps));
-assert.ok(pendingReviewHtml.includes('Vexim xác nhận &amp; đẩy lên sàn') && pendingReviewHtml.includes('Yêu cầu chỉnh sửa'),
-  'The ordinary pending review keeps both staff decisions');
+const retryHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, reviewProps));
+assert.ok(retryHtml.includes('Duyệt và đăng'), 'One staff action publishes pending and legacy products');
+assert.ok(retryHtml.includes('Danh mục đăng'), 'Staff can choose the final published category');
+assert.ok(!retryHtml.includes('Yêu cầu chỉnh sửa'), 'Legacy completion does not reopen the review');
+const pendingReviewHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, { ...reviewProps, allowChanges: true }));
+assert.ok(pendingReviewHtml.includes('Duyệt và đăng') && pendingReviewHtml.includes('Yêu cầu chỉnh sửa'),
+  'Pending review keeps both staff decisions');
 const crmEditPage = fs.readFileSync(new URL('../app/crm/products/[slug]/edit/page.tsx', import.meta.url), 'utf8');
-assert.match(crmEditPage, /needsPublicationRetry = supplierReviewedListing && product\.supplier_review_status === "approved" && !product\.ready_for_buyer/);
-assert.match(crmEditPage, /Chưa lên sàn — dùng nút “Đẩy sản phẩm đã duyệt lên sàn” ở đầu trang/,
-  'The checklist directs staff to the automatic transition instead of a manual flag');
-console.log('✅ Supplier/CRM product UI: truthful status, guarded editing and legacy publication completion.');
+assert.match(crmEditPage, /needsPublicationAction = supplierReviewedListing && \(product\.supplier_review_status === "pending" \|\| needsPublicationRetry\)/);
+assert.match(crmEditPage, /missingWebsiteChecks/);
+assert.match(crmEditPage, /CRM-created products keep their existing checklist/, 'CRM-created product posting stays outside the simplification');
+assert.match(crmEditPage, /supplierReviewedListing \? \[/, 'Only supplier products use the simplified checklist');
+const translationPanel = fs.readFileSync(new URL('../app/crm/products/[slug]/edit/translation-panel.tsx', import.meta.url), 'utf8');
+assert.match(translationPanel, /supplierProduct = false/);
+assert.match(translationPanel, /bản dịch không chặn việc duyệt và đăng/i);
+const productForm = fs.readFileSync(new URL('../components/product-form.tsx', import.meta.url), 'utf8');
+assert.match(productForm, /mediaState && !supplierReviewedListing/);
+const productActions = fs.readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
+assert.match(productActions, /input\.ready_for_buyer = existing\.ready_for_buyer/);
+assert.match(productActions, /if \(input\.ready_for_buyer && !supplierProduct\)/, 'CRM-created products retain the old readiness gate; supplier saves do not change it');
+console.log('✅ Supplier/CRM product UI: one publish action, clear copy and only missing blockers.');

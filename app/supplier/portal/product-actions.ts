@@ -4,8 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
-import { categoryProposalOptions, allowedSupplierCategories, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
-import { assignProductCategory } from "@/lib/public/category-assignment";
+import { categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import {
   attributesFromForm, mergeSupplierAttributePool, sanitizeSupplierAttributePool, saveProductAttributes,
   supplierAttributePoolSignature,
@@ -88,14 +87,14 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     input.certifications = existing?.certifications ?? null;
     const allCategories = await store.listCategories({ publishedOnly: true });
     const options = categoryProposalOptions(allCategories);
-    const linked = access.supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(access.supplier.id);
-    const allowed = allowedSupplierCategories(access.supplier, options, linked);
-    input.supplier_category_proposal = parseProductCategoryProposal(form, allowed);
+    // NCC có thể chọn danh mục gần nhất. Phạm vi đăng ký và gợi ý từ khóa
+    // chỉ hỗ trợ kiểm tra; staff chốt danh mục khi duyệt.
+    input.supplier_category_proposal = parseProductCategoryProposal(form, options);
     input.category = input.supplier_category_proposal;
     if (keepPublished && existing?.supplier_originated && !existing.reviewed_category_slug)
-      return { ok: false, message: "Sản phẩm cần Vexim chốt danh mục trước khi tiếp tục quản lý trên sàn." };
+      return { ok: false, message: "Sản phẩm cần được duyệt danh mục trước khi tiếp tục quản lý." };
     if (keepPublished && existing?.reviewed_category_slug && input.supplier_category_proposal !== existing.reviewed_category_slug)
-      return { ok: false, message: "Sản phẩm đang trên sàn; không thể tự đổi danh mục. Vui lòng liên hệ Vexim nếu cần thay đổi." };
+      return { ok: false, message: "Sản phẩm đã đăng; không thể tự đổi danh mục. Vui lòng liên hệ bộ phận hỗ trợ nếu cần thay đổi." };
     if (keepPublished && existing) {
       // An approved product remains approved and buyer-ready while the owner
       // updates ordinary product information. The reviewed category is locked.
@@ -119,10 +118,6 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     }
     input.specs = saveProductAttributes({ product_fields: category?.product_fields ?? [], supplier_product_fields: pool },
       attributesFromForm(form), existing?.supplier_category_proposal === input.category ? existing.specs : {});
-    // Obvious cross-category goods are rejected before saving, not merely hidden after review.
-    const inferred = assignProductCategory({ name: input.name, spec: input.spec, description: input.description, category: null }, allCategories);
-    if (inferred && inferred.slug !== input.category)
-      throw new Error(`Tên/quy cách có vẻ thuộc ${inferred.name_i18n.vi || inferred.name_i18n.en || inferred.slug}, không phải danh mục đã chọn. Vui lòng kiểm tra lại.`);
     let saved = existing ? await store.updateProduct(existing.id, {
       ...input,
       slug: existing.slug, name_i18n: {}, images: existing.images,
@@ -131,10 +126,16 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     if (keepPublished) {
       // Approved content stays live, so refresh the buyer-facing English copy
       // after an owner edit instead of leaving the old translation in place.
-      const translation = await ensureProductEnglishTranslation(store, saved.id, { id: access.user.id, email: access.user.email });
-      saved = translation.product;
-      if (translation.status === "failed" || translation.status === "unconfigured")
-        translationWarning = " Bản dịch tiếng Anh sẽ được cập nhật lại; nội dung gốc đã được lưu.";
+      // Translation is best effort and must never undo or block the product save.
+      try {
+        const translation = await ensureProductEnglishTranslation(store, saved.id, { id: access.user.id, email: access.user.email });
+        saved = translation.product;
+        if (translation.status === "failed" || translation.status === "unconfigured")
+          translationWarning = " Bản dịch tiếng Anh chưa cập nhật được. Thông tin sản phẩm đã được lưu.";
+      } catch (error) {
+        console.warn("[supplier-product] translation", error);
+        translationWarning = " Bản dịch tiếng Anh chưa cập nhật được. Thông tin sản phẩm đã được lưu.";
+      }
     }
     // Supplier-owned explicit consent is recorded only when the separate checkbox is checked.
     // A normal product save never silently refreshes the 180-day supplier consent.
@@ -167,8 +168,8 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       revalidatePath(`/products/${saved.category}/${saved.id}`);
     }
     return { ok: true, id: saved.id, message: keepPublished
-      ? `Đã lưu thay đổi sản phẩm đã duyệt.${translationWarning}${consentWarning ? ` ${consentWarning}` : ""}`
-      : `Đã lưu bản nháp. ${consentWarning || "Tải ảnh/catalogue thực tế rồi gửi duyệt."}` };
+      ? `Đã lưu thay đổi sản phẩm.${translationWarning}${consentWarning ? ` ${consentWarning}` : ""}`
+      : `Đã lưu bản nháp. ${consentWarning || "Tải ảnh hoặc catalogue rồi gửi duyệt."}` };
   } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "Không lưu được sản phẩm." }; }
 }
 
@@ -180,17 +181,15 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
   try {
     const product = await store.getProduct(id);
     if (!product || product.supplier_id !== access.supplier.id) return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
-    if (product.supplier_review_status !== "draft" && product.supplier_review_status !== "changes_requested") return { ok: false, message: "Sản phẩm không ở trạng thái cho phép nộp." };
-    if (!product.name || !(product.spec || product.description)) return { ok: false, message: "Cần tên và mô tả/quy cách thực tế." };
+    if (product.supplier_review_status !== "draft" && product.supplier_review_status !== "changes_requested") return { ok: false, message: "Sản phẩm không ở trạng thái cho phép gửi duyệt." };
+    if (!product.name || !(product.spec || product.description)) return { ok: false, message: "Cần tên và mô tả hoặc quy cách." };
     const options = categoryProposalOptions(await store.listCategories({ publishedOnly: true }));
-    const linked = access.supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(access.supplier.id);
-    const allowed = allowedSupplierCategories(access.supplier, options, linked);
-    if (!product.supplier_category_proposal || !allowed.some((c) => c.slug === product.supplier_category_proposal))
-      return { ok: false, message: "Sản phẩm chưa có danh mục thuộc phạm vi kinh doanh đã chọn. Hãy lưu lại sản phẩm với danh mục hợp lệ." };
+    if (!product.supplier_category_proposal || !options.some((c) => c.slug === product.supplier_category_proposal))
+      return { ok: false, message: "Chọn danh mục đang xuất bản trước khi gửi duyệt." };
     const media = await store.listMedia("product", id);
     if (!media.some((m) => (m.kind === "image" || m.kind === "catalogue") && m.storage_path &&
       m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {
-      return { ok: false, message: "Cần ít nhất một ảnh sản phẩm hoặc catalogue thật trước khi nộp." };
+      return { ok: false, message: "Cần ít nhất một ảnh hoặc catalogue trước khi gửi duyệt." };
     }
     await store.updateProduct(id, { supplier_review_status: "pending", supplier_review_note: null, ready_for_buyer: false });
     await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
@@ -198,15 +197,15 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
       before: { review: product.supplier_review_status }, after: { review: "pending" } }).catch((error) => console.error("[supplier-product] audit", error));
     const mail = await notifyStaffProductSubmission(access.supplier, product);
     if (mail !== "sent") console.warn("[supplier-product] staff email not sent; CRM review queue remains pending", mail);
-    // AI dịch nội dung sang tiếng Anh ngay khi NCC nộp, để nhân viên duyệt luôn trên bản buyer sẽ thấy.
-    // Dịch lỗi không chặn việc nộp; CRM còn nút dịch lại và trường hợp chưa có bản dịch sẽ bị chặn ở bước bật sẵn sàng gửi buyer.
-    const translation = await ensureProductEnglishTranslation(store, id, { id: access.user.id, email: access.user.email });
-    const translationNote = translation.status === "translated" || translation.status === "current"
-      ? " Nội dung đã có bản dịch tiếng Anh do AI soạn, chờ duyệt lại."
-      : " Bản dịch tiếng Anh sẽ được hoàn thiện trong lúc duyệt.";
+    // Dịch tự động để hỗ trợ duyệt. Kết quả dịch không chặn gửi hoặc đăng sản phẩm.
+    try {
+      await ensureProductEnglishTranslation(store, id, { id: access.user.id, email: access.user.email });
+    } catch (error) {
+      console.warn("[supplier-product] submission translation", error);
+    }
     revalidatePath("/supplier/portal/products");
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
-    return { ok: true, message: `Đã gửi sản phẩm cho Vexim kiểm tra. Sau khi xác nhận, sản phẩm sẽ được đẩy lên sàn và hiển thị với buyer.${translationNote}${mail === "sent" ? "" : " Email nhắc nhân viên chưa gửi được; sản phẩm vẫn nằm trong hàng chờ duyệt."}` };
+    return { ok: true, message: "Đã gửi duyệt. Bạn sẽ nhận thông báo khi sản phẩm được đăng." };
   } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "Không nộp được sản phẩm." }; }
 }

@@ -150,9 +150,9 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
   for (const p of products.filter((p) => p.supplier_id === supplierId)) {
     if (p.supplier_review_status === "approved") {
       const live = p.supplier_originated === true && p.ready_for_buyer === true;
-      add(`product-approved:${p.id}`, live ? `Sản phẩm đã lên sàn: ${p.name}` : `Đã duyệt nội dung sản phẩm: ${p.name}`,
-        live ? "Sản phẩm đã được Vexim xác nhận và đang hiển thị với buyer. Bạn có thể tự quản lý thông tin và hình ảnh sản phẩm."
-          : "Sản phẩm đã được Vexim xác nhận. Trạng thái hiển thị với buyer phụ thuộc các điều kiện công khai của hồ sơ.",
+      add(`product-approved:${p.id}`, live ? `Sản phẩm đã đăng: ${p.name}` : `Sản phẩm đã duyệt, chờ đăng: ${p.name}`,
+        live ? "Sản phẩm đang hiển thị với buyer. Bạn có thể quản lý thông tin và hình ảnh."
+          : "Sản phẩm đã duyệt. Quản trị viên sẽ hoàn tất đăng sản phẩm.",
         p.updated_at, "product", `/supplier/portal/products/${p.id}`);
     }
     if (p.supplier_review_status === "changes_requested") add(`product-changes:${p.id}`, `Sản phẩm cần chỉnh sửa: ${p.name}`, p.supplier_review_note || "Mở sản phẩm để xem phản hồi.", p.updated_at, "product", `/supplier/portal/products/${p.id}`);

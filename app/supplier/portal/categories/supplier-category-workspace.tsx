@@ -18,6 +18,7 @@ export type WorkspaceProduct = {
   name: string;
   categorySlug: string | null;
   review: keyof typeof PRODUCT_STATUS;
+  readyForBuyer?: boolean;
 };
 
 /**
@@ -196,13 +197,14 @@ export function SupplierCategoryWorkspace({
             : <ul className="divide-y divide-ink-100">
               {products.slice(0, 6).map((product) => {
                 const status = PRODUCT_STATUS[product.review] ?? PRODUCT_STATUS.draft;
+                const statusLabel = product.review === "approved" && product.readyForBuyer === false ? "Đã duyệt, chờ đăng" : status.label;
                 const inScopeProduct = !!product.categorySlug && selected.includes(product.categorySlug);
                 return <li key={product.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
                   <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink-900">{product.name}</span>
                   <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-700">
                     {product.categorySlug ? bySlug.get(product.categorySlug)?.label ?? product.categorySlug : "Chưa gắn danh mục"}
                   </span>
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.tone}`}>{status.label}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.tone}`}>{statusLabel}</span>
                   {product.categorySlug && !inScopeProduct && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900">Ngoài phạm vi</span>}
                 </li>;
               })}
@@ -211,7 +213,7 @@ export function SupplierCategoryWorkspace({
               </li>}
             </ul>}
           {unassigned.length > 0 && <p className="border-t border-ink-100 px-4 py-2 text-[11px] text-ink-500">
-            {unassigned.length} sản phẩm chưa gắn danh mục - mở từng sản phẩm để chọn danh mục trong phạm vi này.
+            {unassigned.length} sản phẩm chưa gắn danh mục - mở từng sản phẩm để chọn danh mục đang xuất bản.
           </p>}
         </section>
       </div>
@@ -244,7 +246,7 @@ export function SupplierCategoryWorkspace({
             {outside.length} sản phẩm đang nằm ngoài phạm vi. Muốn bỏ danh mục đó, hãy chuyển sản phẩm sang danh mục còn chọn trước.
           </p>}
           <button type="submit" disabled={busy} className="btn btn-primary mt-3 hidden w-full lg:inline-flex">{busy ? "Đang lưu..." : "Lưu danh mục"}</button>
-          <p className="mt-1.5 hidden text-[11px] text-ink-500 lg:block">Chỉ lưu phạm vi bán hàng. Việc duyệt và công khai sản phẩm diễn ra ở bước riêng.</p>
+          <p className="mt-1.5 hidden text-[11px] text-ink-500 lg:block">Chỉ lưu phạm vi bán hàng. Việc đăng sản phẩm diễn ra ở bước duyệt.</p>
         </div>
 
         <div className="rounded-xl border border-ink-200 bg-ink-50/70 p-4">
@@ -253,7 +255,7 @@ export function SupplierCategoryWorkspace({
           </h2>
           <ul className="mt-2 space-y-1.5 text-[11.5px] leading-4 text-ink-600">
             <li>Chỉ chọn được danh mục đang mở; bạn không tự tạo danh mục mới.</li>
-            <li>Sản phẩm chỉ được chọn danh mục trong phạm vi này.</li>
+            <li>Phạm vi này là thông tin tham khảo khi staff duyệt sản phẩm.</li>
             <li>Lưu danh mục không duyệt sản phẩm, không công khai gian hàng.</li>
             <li>Bỏ danh mục còn sản phẩm sẽ bị chặn cho tới khi chuyển sản phẩm.</li>
           </ul>

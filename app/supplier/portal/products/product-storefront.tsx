@@ -9,7 +9,7 @@ import { PRODUCT_STATUS, privateMediaUrl, productReview, type ProductReviewFilte
 const FILTERS: { id: ProductReviewFilter; label: string }[] = [
   { id: "all", label: "Tất cả" }, { id: "draft", label: "Bản nháp" },
   { id: "pending", label: "Chờ duyệt" }, { id: "changes_requested", label: "Cần sửa" },
-  { id: "approved", label: "Đã duyệt" },
+  { id: "approved", label: "Đã đăng" },
 ];
 
 function money(product: SupplierProduct) {
@@ -77,7 +77,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
     <section aria-label="Danh sách sản phẩm" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <div className="border-b border-ink-100 px-5 py-5 sm:px-7">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-black text-ink-900">Danh mục của bạn</h2>
-          <p className="mt-1 text-xs text-ink-600">Vexim xác nhận sản phẩm là đẩy sản phẩm lên sàn và thông báo cho bạn. Sau đó, bạn có thể tự quản lý thông tin và hình ảnh.</p></div>
+          <p className="mt-1 text-xs text-ink-600">Sau khi duyệt, sản phẩm được đăng và bạn có thể quản lý thông tin, hình ảnh.</p></div>
           {!supplierPublished && <span className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Trang NCC chưa được công khai</span>}
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -95,7 +95,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
           assets.find((m) => m.kind === "image" && privateMediaUrl(m));
         const imageSrc = image && privateMediaUrl(image);
         const status = PRODUCT_STATUS[productReview(p)];
-        const statusLabel = productReview(p) === "approved" && !p.ready_for_buyer ? "Đã duyệt nội dung" : status.label;
+        const statusLabel = productReview(p) === "approved" && !p.ready_for_buyer ? "Đã duyệt, chờ đăng" : status.label;
         return <li key={p.id} className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white transition hover:border-brand-300 hover:shadow-md">
           <Link href={`/supplier/portal/products/${p.id}`} aria-label={`Xem và quản lý ${p.name}`} className="relative block aspect-square overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
             {imageSrc ? <img src={imageSrc} alt={`Ảnh sản phẩm ${p.name}`} loading="lazy" className="size-full object-cover transition duration-300 group-hover:scale-[1.03]" />

@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
-import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
-import { assignProductCategory } from "@/lib/public/category-assignment";
+import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
@@ -36,41 +35,39 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
     const retryApprovedPublication = decision === "approved" && product.supplier_review_status === "approved" &&
       !product.ready_for_buyer && !!(product.supplier_originated || product.supplier_category_proposal);
     if (product.supplier_review_status !== "pending" && !retryApprovedPublication)
-      return { ok: false, message: "Sản phẩm không còn chờ Vexim kiểm tra hoặc đã được đẩy lên sàn." };
+      return { ok: false, message: "Sản phẩm không còn chờ duyệt hoặc đã được đăng." };
     let reviewedCategory: string | null = null;
     let mediaToPublish: MediaAsset[] = [];
     if (decision === "approved") {
+      const submittedCategory = String(form.get("reviewed_category_slug") ?? "").trim();
       reviewedCategory = retryApprovedPublication
-        ? product.reviewed_category_slug ?? product.supplier_category_proposal ?? ""
-        : String(form.get("reviewed_category_slug") ?? "");
+        ? submittedCategory || product.reviewed_category_slug || product.supplier_category_proposal || ""
+        : submittedCategory;
       const supplier = await store.getSupplier(product.supplier_id);
       if (!supplier) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
       if (supplier.status !== "published")
-        return { ok: false, message: "Hồ sơ NCC chưa được công khai. Vexim cần xuất bản hồ sơ NCC trước khi xác nhận đẩy sản phẩm lên sàn." };
+        return { ok: false, message: "Hồ sơ NCC chưa được công khai. Cần công khai hồ sơ NCC trước khi đăng sản phẩm." };
       if (isTestOnlyProduct(product.name) ||
           (isSyntheticSupplier(supplier) && !(supplier.is_demo && process.env.VEXIM_SHOW_DEMO === "true")))
-        return { ok: false, message: "Sản phẩm hoặc hồ sơ đang là dữ liệu thử nghiệm nên không thể đẩy lên sàn." };
+        return { ok: false, message: "Không thể đăng sản phẩm hoặc hồ sơ dùng cho thử nghiệm." };
       const categories = await store.listCategories({ publishedOnly: false });
       const options = categoryProposalOptions(categories);
-      const linked = supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(supplier.id);
-      if (!allowedSupplierCategories(supplier, options, linked).some((c) => c.slug === reviewedCategory) ||
-          reviewedCategory !== product.supplier_category_proposal) {
-        return { ok: false, message: "Danh mục sản phẩm phải đúng danh mục NCC đã chọn. Nếu mặt hàng khai sai, yêu cầu NCC chỉnh sửa trước khi duyệt." };
-      }
-      const inferred = assignProductCategory({ name: product.name, spec: product.spec, description: product.description, category: null }, categories);
-      if (inferred && inferred.slug !== reviewedCategory)
-        return { ok: false, message: `Tên/quy cách có vẻ thuộc ${inferred.name_i18n.vi || inferred.name_i18n.en || inferred.slug}, không phải danh mục NCC đã chọn. Hãy yêu cầu NCC chỉnh sửa trước khi duyệt.` };
+      // Scope and keyword matches are review hints, not extra publication gates.
+      // The category selected by staff is the final decision.
+      if (!options.some((c) => c.slug === reviewedCategory))
+        return { ok: false, message: "Chọn danh mục đang xuất bản trước khi duyệt và đăng." };
       const media = await store.listMedia("product", id);
+      // A missing portal account must not block publication. Without an account,
+      // only files already shared with buyers can be verified as supplier-owned.
       const supplierAccount = await store.getUserBySupplierId(product.supplier_id);
-      if (!supplierAccount) return { ok: false, message: "NCC chưa có tài khoản cổng để nhận thông báo và quản lý sản phẩm." };
       // Only the supplier's own submitted files are promoted by this decision.
       // Staff-internal documents attached to the same product stay private.
       const publishable = media.filter((asset) => asset.owner_type === "product" && asset.product_id === id &&
         (asset.kind === "image" || asset.kind === "catalogue") && !!asset.storage_path &&
         asset.supplier_id === product.supplier_id && !isExpired(asset) &&
-        (asset.audience === "buyer" || (asset.audience === "internal" && asset.created_by === supplierAccount.id)));
+        (asset.audience === "buyer" || (asset.audience === "internal" && !!supplierAccount && asset.created_by === supplierAccount.id)));
       if (!product.name || !(product.spec || product.description) || !publishable.length) {
-        return { ok: false, message: "Cần mô tả/quy cách và ít nhất một ảnh hoặc catalogue hợp lệ do NCC tải lên trước khi đẩy sản phẩm lên sàn." };
+        return { ok: false, message: "Cần tên, mô tả hoặc quy cách và ít nhất một ảnh hoặc catalogue hợp lệ do NCC tải lên." };
       }
       mediaToPublish = publishable.filter((asset) => asset.audience === "internal");
     }
@@ -105,7 +102,7 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath("/supplier/portal/products");
     refreshCrmBadges();
-    return { ok: true, message: (decision === "approved" ? "Đã xác nhận và đẩy sản phẩm lên sàn; sản phẩm hiện hiển thị với buyer." : "Đã yêu cầu NCC chỉnh sửa.") + (mail === "sent" ? "" : " Email NCC chưa gửi được; quyết định đã lưu và thông báo trên cổng vẫn có hiệu lực.") };
+    return { ok: true, message: (decision === "approved" ? "Đã duyệt và đăng sản phẩm." : "Đã yêu cầu NCC chỉnh sửa.") + (mail === "sent" ? "" : " Chưa gửi được email cho NCC. Sản phẩm vẫn được lưu theo trạng thái mới.") };
   } catch (error) { console.error("[supplier-product-review]", error); return { ok: false, message: "Không lưu được quyết định." }; }
 }
 
@@ -182,12 +179,8 @@ export async function correctSupplierProductCategoryAction(form: FormData): Prom
     if (!supplier) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
     const categories = await store.listCategories({ publishedOnly: false });
     const options = categoryProposalOptions(categories);
-    const linked = supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(supplier.id);
-    if (!allowedSupplierCategories(supplier, options, linked).some((c) => c.slug === slug) ||
-        (product.supplier_category_proposal && slug !== product.supplier_category_proposal))
-      return { ok: false, message: "Danh mục phải thuộc phạm vi NCC và khớp mặt hàng NCC đã chọn; hãy yêu cầu NCC cập nhật trước." };
-    const inferred = assignProductCategory({ name: product.name, spec: product.spec, description: product.description, category: null }, categories);
-    if (inferred && inferred.slug !== slug) return { ok: false, message: "Tên/quy cách không khớp danh mục này; hãy yêu cầu NCC chỉnh sửa trước." };
+    if (!options.some((c) => c.slug === slug))
+      return { ok: false, message: "Chọn danh mục đang xuất bản." };
     if (product.reviewed_category_slug === slug) return { ok: true, message: "Danh mục không thay đổi." };
     await store.updateProduct(id, { reviewed_category_slug: slug, category: slug, ready_for_buyer: product.ready_for_buyer });
     await store.addAuditLog({ actor_id: session.uid, actor_email: session.email, entity: "product", entity_id: id,
