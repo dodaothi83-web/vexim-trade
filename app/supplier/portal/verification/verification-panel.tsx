@@ -426,6 +426,10 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
             </div>
             <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[10.5px] font-bold text-ink-600">NCC tự khai</span>
           </div>
+          <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] leading-4 text-emerald-900">
+            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            <span><strong>Chứng từ của bạn được bảo mật và không hiển thị công khai.</strong> Chỉ cần chọn một lô đã giao gần nhất và tải chứng từ của lô đó để xác minh.</span>
+          </p>
           <form onSubmit={(e) => void saveShipment(e)} className="mt-3 grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="submission_id" value={view.id} />
             <label className="text-xs font-semibold text-ink-700">Mã lô / số hợp đồng<input name="shipment_ref" defaultValue={view.shipmentRef ?? ""} maxLength={120} disabled={!view.editable} className="input mt-1" placeholder="VD: PO-2026-118" /></label>
