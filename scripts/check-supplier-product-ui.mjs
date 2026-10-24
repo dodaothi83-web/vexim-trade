@@ -30,6 +30,29 @@ const product = (id, status, name) => ({ id, supplier_id: 'ours', name, descript
 const media = (product_id, supplier_id, created_by, audience, storage_path) => ({ owner_type: 'product', product_id, supplier_id,
   created_by, audience, kind: 'image', storage_path });
 const products = [product('p1', 'draft', 'Cashew W320'), product('p2', 'pending', 'Cashew W240'), product('p3', 'approved', 'Cashew W180')];
+const sixteenItems = Array.from({ length: 16 }, (_, index) => index + 1);
+const firstPage = view.supplierProductPage(sixteenItems, 1);
+assert.equal(view.SUPPLIER_PRODUCTS_PER_PAGE, 15);
+assert.equal(firstPage.shown.length, 15);
+assert.equal(firstPage.shown[0], 1);
+assert.equal(firstPage.shown[14], 15);
+assert.equal(firstPage.currentPage, 1);
+assert.equal(firstPage.pageCount, 2);
+assert.equal(firstPage.firstItem, 1);
+assert.equal(firstPage.lastItem, 15);
+const secondPage = view.supplierProductPage(sixteenItems, 2);
+assert.equal(secondPage.shown.length, 1);
+assert.equal(secondPage.shown[0], 16);
+assert.equal(secondPage.currentPage, 2);
+assert.equal(secondPage.firstItem, 16);
+assert.equal(secondPage.lastItem, 16);
+assert.equal(view.supplierProductPage(sixteenItems, 99).currentPage, 2, 'Page overflow clamps to the last page');
+assert.equal(view.supplierProductPage(sixteenItems, -2).currentPage, 1, 'Invalid low pages clamp to the first page');
+const emptyPage = view.supplierProductPage([], 1);
+assert.equal(emptyPage.shown.length, 0);
+assert.equal(emptyPage.pageCount, 1);
+assert.equal(emptyPage.firstItem, 0);
+assert.equal(emptyPage.lastItem, 0);
 const scoped = view.supplierVisibleProductMedia([
   media('p1', 'ours', 'owner', 'internal', 'products/p1/real.jpg'),
   media('p2', 'ours', 'staff', 'internal', 'products/p2/secret.jpg'),
@@ -45,6 +68,19 @@ assert.ok(!html.includes('secret.jpg') && !html.includes('foreign.jpg'), 'Privat
 assert.ok(!html.includes('Đang bán'), 'Review must not masquerade as public listing');
 assert.ok(!html.includes('Hiển thị với buyer'), 'The separate buyer-visibility panel is removed');
 assert.ok(html.includes('Sau khi duyệt, sản phẩm được đăng'), 'The list explains the single review-to-marketplace flow');
+assert.ok(!html.includes('aria-label="Phân trang danh sách sản phẩm"'), 'Small product lists do not show an unnecessary pager');
+const pagedProducts = Array.from({ length: 16 }, (_, index) =>
+  product(`p${index + 1}`, 'draft', `Cashew lot ${String(index + 1).padStart(2, '0')}`));
+const pagedHtml = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products: pagedProducts, media: [], supplierPublished: true }));
+assert.match(pagedHtml, /sm:grid-cols-2 sm:p-6 lg:grid-cols-3 xl:grid-cols-4/, 'The desktop grid uses four cards per row');
+assert.equal((pagedHtml.match(/aria-label="Xem và quản lý /g) ?? []).length, 15, 'Only 15 product cards render on page one');
+assert.ok(pagedHtml.includes('Cashew lot 01') && pagedHtml.includes('Cashew lot 15'), 'Page one includes products 1 through 15');
+assert.ok(!pagedHtml.includes('Cashew lot 16'), 'Product 16 moves to page two');
+assert.ok(pagedHtml.includes('Hiển thị 1-15 trong 16 sản phẩm'), 'The pager explains the visible range');
+assert.ok(pagedHtml.includes('Mỗi trang tối đa 15 sản phẩm'), 'The page size is clear to suppliers');
+assert.ok(pagedHtml.includes('Trang 1 / 2'), 'The pager shows current and total pages');
+for (const label of ['Phân trang danh sách sản phẩm', 'Trang trước', 'Trang sau'])
+  assert.ok(pagedHtml.includes(`aria-label="${label}"`), `Pager has accessible label: ${label}`);
 const editor = fs.readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
 assert.match(editor, /productCanSubmit\(product, media\) && !dirty/, 'Nút gửi vẫn phụ thuộc dữ liệu đã lưu');
 assert.match(editor, /productCanSubmit\(product, media\)/);

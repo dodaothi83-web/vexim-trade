@@ -2,6 +2,21 @@ import type { MediaAsset, SupplierProduct } from "@/lib/types";
 
 export type ProductReviewFilter = "all" | "draft" | "pending" | "changes_requested" | "approved";
 
+export const SUPPLIER_PRODUCTS_PER_PAGE = 15;
+
+export function supplierProductPage<T>(items: T[], page: number) {
+  const pageCount = Math.max(1, Math.ceil(items.length / SUPPLIER_PRODUCTS_PER_PAGE));
+  const currentPage = Math.min(pageCount, Math.max(1, Math.trunc(page) || 1));
+  const start = (currentPage - 1) * SUPPLIER_PRODUCTS_PER_PAGE;
+  return {
+    shown: items.slice(start, start + SUPPLIER_PRODUCTS_PER_PAGE),
+    currentPage,
+    pageCount,
+    firstItem: items.length ? start + 1 : 0,
+    lastItem: Math.min(start + SUPPLIER_PRODUCTS_PER_PAGE, items.length),
+  };
+}
+
 export const PRODUCT_STATUS: Record<Exclude<ProductReviewFilter, "all">, { label: string; tone: string }> = {
   draft: { label: "Bản nháp", tone: "bg-slate-100 text-slate-700" },
   pending: { label: "Chờ duyệt", tone: "bg-amber-100 text-amber-900" },
