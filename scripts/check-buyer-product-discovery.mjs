@@ -224,7 +224,7 @@ assert.match(homePage, /<HomeProductFeed items=\{arrangedOffers\}/, 'Home render
 assert.match(homeFeed, /grid-cols-2[^"\n]*md:grid-cols-3/, 'Home offers sit in two or three columns before the wide layout');
 assert.match(homeFeed, /wide \? " lg:grid-cols-5" : ""/, 'The fifth column only appears when the browser confirms a wide screen');
 assert.match(homeFeed, /<PublicProductCard/, 'Home includes actual product offers');
-assert.match(profilePage, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Supplier product grid uses 2/3/4 columns');
+assert.match(profilePage, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-5/, 'Supplier product grid uses 2/3/5 columns');
 const verificationTierModule = compile('../components/verification-tier.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
@@ -285,6 +285,11 @@ assert.match(compactCard, /Level 2 · Advanced/, 'Card tier counts the approved 
 assert.doesNotMatch(compactCard, /Free Sample|ISO Certified|Ready to Ship/, 'Unsupported product claims never become badges');
 assert.equal((compactCard.match(/<details/g) ?? []).length, 1, 'Card keeps one compact disclosure for all three verification explanations');
 assert.match(compactCard, /aria-label="Explain supplier verification levels 1, 2 and 3"/, 'The tooltip trigger has an accessible name');
+const verificationTooltipSource = readFileSync(new URL('../components/product-verification-tooltip.tsx', import.meta.url), 'utf8');
+assert.doesNotMatch(verificationTooltipSource, /lucide-react|<Info\b/, 'The standalone information icon is removed');
+const verificationTrigger = compactCard.match(/<summary[^>]*aria-label="Explain supplier verification levels 1, 2 and 3"[\s\S]*?<\/summary>/)?.[0] ?? '';
+assert.match(verificationTrigger, /Verification checks approved:/, 'The verification shields remain part of the tooltip trigger');
+assert.match(verificationTrigger, /Level 2 · Advanced/, 'The level badge itself opens the explanation without a separate icon');
 assert.match(compactCard, /role="tooltip"/, 'The explanation uses tooltip semantics');
 assert.match(compactCard, /group-hover:block group-focus-within:block peer-open:block/, 'The tooltip opens on hover, keyboard focus and touch');
 assert.match(compactCard, /Level 1 · Documents checked<\/strong><span[^>]*>Approved<\/span>/, 'L1 is explained using its actual approved state');

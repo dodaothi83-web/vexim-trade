@@ -54,9 +54,10 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
             : <span title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-ink-800">{supplierName}</span>}
         </p>
         <div className="group relative mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
-          <VerificationPips levels={test ? [] : verificationSteps} compact />
-          <VerificationTierBadge levels={test ? [] : verificationSteps} />
-          <ProductVerificationTooltip levels={test ? [] : verificationSteps} />
+          <ProductVerificationTooltip levels={test ? [] : verificationSteps}>
+            <VerificationPips levels={test ? [] : verificationSteps} compact />
+            <VerificationTierBadge levels={test ? [] : verificationSteps} />
+          </ProductVerificationTooltip>
         </div>
       </div>
       <div className="mt-auto pt-3">{quote

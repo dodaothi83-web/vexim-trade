@@ -1,4 +1,4 @@
-import { Info } from "lucide-react";
+import type { ReactNode } from "react";
 
 import type { VerificationLevel } from "@/lib/types";
 import { PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from "@/lib/verification-status";
@@ -6,15 +6,15 @@ import { PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from "@/lib/ve
 const LEVELS = [1, 2, 3] as const;
 
 /** Explain each independent supplier check without turning it into a product claim. */
-export function ProductVerificationTooltip({ levels }: { levels: readonly VerificationLevel[] }) {
+export function ProductVerificationTooltip({ levels, children }: { levels: readonly VerificationLevel[]; children: ReactNode }) {
   return (
-    <div className="static">
-      <details className="peer">
+    <div className="static min-w-0">
+      <details className="peer min-w-0">
         <summary
           aria-label="Explain supplier verification levels 1, 2 and 3"
-          className="inline-flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full text-ink-400 transition hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 [&::-webkit-details-marker]:hidden"
+          className="flex min-w-0 cursor-pointer list-none flex-wrap items-center gap-1.5 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 [&::-webkit-details-marker]:hidden"
         >
-          <Info className="h-3.5 w-3.5" aria-hidden="true" />
+          {children}
         </summary>
       </details>
       <div
