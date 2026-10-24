@@ -57,6 +57,11 @@ assert.match(topbar, /export function CrmTopbar/);
 assert.match(layout, /<CrmTopbar queues=\{queues\} \/>/, 'CRM layout phải dựng chuông thông báo');
 assert.match(layout, /label: "Hồ sơ NCC tự gửi chờ đối chiếu"/, 'Chuông liệt kê hàng hồ sơ tự gửi');
 assert.match(layout, /filter\(\(queue\) => queue\.count > 0\)/, 'Chuông chỉ hiện việc đang có');
+assert.match(topbar, /router\.refresh\(\)/, 'Chuông tự cập nhật số việc, nhân viên không phải tải lại trang');
+assert.match(topbar, /document\.visibilityState === "visible"/, 'Chuông không hỏi máy chủ khi tab đang ẩn');
+assert.match(topbar, /panelRef\.current\.contains/, 'Bấm ra ngoài thì chuông CRM đóng');
+assert.match(topbar, /event\.key === "Escape"/, 'Esc đóng chuông CRM');
+assert.match(topbar, /window\.addEventListener\("focus"/, 'Quay lại cửa sổ thì chuông làm mới ngay');
 
 const notify = read('lib/supplier-portal/notify.ts');
 assert.match(notify, /export async function notifyStaffDocumentUpload/);

@@ -36,6 +36,8 @@ export async function GET() {
   return NextResponse.json({
     unread: readsKnown ? feed.unreadCount : 0,
     readsKnown,
-    items: feed.notices.slice(0, 40).map((n) => ({ key: n.key, title: n.title, detail: n.detail, at: n.at, read: n.read, kind: n.kind })),
+    items: feed.notices.slice(0, 40).map((n) => ({
+      key: n.key, title: n.title, detail: n.detail, at: n.at, read: n.read, kind: n.kind, href: n.href,
+    })),
   });
 }

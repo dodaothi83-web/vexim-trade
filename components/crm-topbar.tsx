@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Bell, BellRing, CheckCheck } from "lucide-react";
 
 export type CrmQueue = { href: string; label: string; count: number };
@@ -15,8 +16,43 @@ export type CrmQueue = { href: string; label: string; count: number };
  * cộng email. Không có bảng thông báo riêng: số liệu luôn khớp với hàng chờ thật.
  */
 export function CrmTopbar({ queues }: { queues: CrmQueue[] }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const total = queues.reduce((sum, queue) => sum + queue.count, 0);
+
+  // Số việc được tính ở server. Tự làm mới theo nhịp để việc NCC vừa gửi lên
+  // hiện ra mà nhân viên không phải tải lại trang.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") router.refresh();
+    }, 30_000);
+    // Quay lại tab hoặc cửa sổ thì cập nhật ngay, không đợi hết nhịp.
+    const onVisible = () => { if (document.visibilityState === "visible") router.refresh(); };
+    const onFocus = () => router.refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [router]);
+
+  // Esc để đóng, và bấm ra ngoài panel cũng đóng.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    const onPointer = (event: PointerEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [open]);
 
   return <div className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur">
     <div className="mx-auto flex h-14 w-full max-w-[1500px] items-center justify-end gap-2 px-4 pr-4 sm:px-6 lg:px-8">
@@ -36,7 +72,7 @@ export function CrmTopbar({ queues }: { queues: CrmQueue[] }) {
 
         {open && <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden="true" />
-          <div className="fixed inset-x-3 top-14 z-20 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[340px]">
+          <div ref={panelRef} className="fixed inset-x-3 top-14 z-20 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[340px]">
             <div className="flex items-center justify-between gap-2 border-b border-ink-200 px-4 py-3">
               <span className="text-[13px] font-bold text-ink-900">Việc đang chờ</span>
               <span className="text-[11px] text-ink-500">{total ? `${total} việc` : "Đã xử lý hết"}</span>
