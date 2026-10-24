@@ -13,6 +13,7 @@ import { isSyntheticSupplier } from '../lib/public/supplier-seo.ts';
 import * as gradeResolution from '../lib/public/grade-resolution.ts';
 import * as displayName from '../lib/public/display-name.ts';
 import * as productAttributes from '../lib/product-attributes.ts';
+import * as productDetailDisplay from '../lib/public/product-detail-display.ts';
 import { HOME_HERO_LINE } from '../lib/public/meta-copy.ts';
 import { buildPopularSearches } from '../lib/public/popular-searches.ts';
 import { approvedPublicReviewSummaries, approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from '../lib/verification-status.ts';
@@ -56,6 +57,7 @@ const media = products.map((p) => ({ owner_type: 'product', product_id: p.id, ki
 media.push({ ...media[0], id: 'cover-a0', storage_path: 'products/a0/cover.jpg', thumb_path: 'products/a0/cover-thumb.webp', sort_order: 2 });
 products[0].featured_media_id = 'cover-a0';
 products[0].incoterm = 'FOB';
+products[1].moq = '1 tấn';
 // Tên soạn sẵn cho buyer chỉ thay chữ hiển thị; tên gốc vẫn là chứng từ.
 products[0].display_name = 'Cashew kernels W320, Hanoi';
 const reviews = [
@@ -108,6 +110,7 @@ const productCatalog = compile('../lib/public/product-catalog.ts', {
   '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
   '@/lib/public/supplier-seo': { isSyntheticSupplier },
   '@/lib/public/supplier-english': { supplierProvinceDisplay: (s) => s.province || '' },
+  '@/lib/public/product-detail-display': productDetailDisplay,
 });
 const photoSamples = [
   { ...media[0], id: 'img-first', product_id: 'a0', storage_path: 'products/a0/first.jpg', sort_order: 0 },
@@ -125,6 +128,7 @@ assert.equal(cards.find((p) => p.id === 'a0').name, 'Cashew kernels W320, Hanoi'
 assert.equal(cards.find((p) => p.id === 'a0').supplierProfileImage, 'suppliers/a/logo.webp', 'PDP can use the public supplier profile image');
 assert.equal(cards.find((p) => p.id === 'a0').supplierFoundedYear, 2014, 'PDP can show a real founded year when present');
 assert.equal(cards.find((p) => p.id === 'a1').name, 'Cashew W320 lot 1', 'A product without a display name keeps the supplier name');
+assert.equal(cards.find((p) => p.id === 'a1').moq, '1 metric ton', 'Public MOQ uses English without changing the source record');
 assert.equal(products[0].name, 'Cashew W320 lot 0', 'The supplier name is never rewritten');
 suppliers.push({ id: 'synthetic', slug: 'vexim-test-supplier-do-not-contact', name: 'Test Supplier', status: 'published', is_demo: false,
   summary_i18n: { en: 'VEXIM TEST SUPPLIER - DO NOT CONTACT' } });

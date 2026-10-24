@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin } from "lucide-r
 import { Breadcrumbs } from "@/components/ui";
 import { ProductVerificationIcons } from "@/components/product-verification-icons";
 import { VerificationTierBadge } from "@/components/verification-tier";
-import { parseProductSpecification, productSpecificationKey, publicExportPortDisplay } from "@/lib/public/product-detail-display";
+import { parseProductSpecification, productSpecificationKey, publicExportPortDisplay, publicProductMoqDisplay } from "@/lib/public/product-detail-display";
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -125,7 +125,8 @@ export default async function PublicProductDetail({ params }: Props) {
     if (structuredProperties.some((item) => item.name.toLowerCase() === name.toLowerCase())) return;
     structuredProperties.push({ "@type": "PropertyValue", name, value: v });
   };
-  if (p.moq?.trim()) pushProperty("MOQ", p.moq);
+  const structuredMoq = publicProductMoqDisplay(p.moq);
+  if (structuredMoq) pushProperty("MOQ", structuredMoq);
   if (card.leadTimeDays !== null) pushProperty("Lead time", `${card.leadTimeDays} days`);
   for (const f of fieldsFor(category)) {
     if (approvedAttributes[f.key]) pushProperty(f.label, approvedAttributes[f.key]);

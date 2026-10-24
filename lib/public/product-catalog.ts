@@ -9,6 +9,7 @@ import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, pub
 import { resolveGrade } from "@/lib/public/grade-resolution";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
+import { publicProductMoqDisplay } from "@/lib/public/product-detail-display";
 import type { Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -92,7 +93,7 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
           name: p.name, spec: p.spec, categorySlug: category.slug, attributes,
         }).value,
         attributes,
-        moq: p.moq || "On request",
+        moq: publicProductMoqDisplay(p.moq) || "On request",
         price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: supplierProvinceDisplay(s) || "Vietnam",
         verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
         supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),

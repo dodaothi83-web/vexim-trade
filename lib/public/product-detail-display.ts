@@ -43,6 +43,16 @@ export function parseProductSpecification(spec: string | null | undefined): Prod
   return rows;
 }
 
+/** Translate a known Vietnamese MOQ unit without changing the stored value. */
+export function publicProductMoqDisplay(moq: string | null | undefined): string {
+  const value = (moq ?? "").replace(/\s+/g, " ").trim();
+  if (!value) return "";
+  const match = value.match(/^(\d+(?:[.,]\d+)?)\s*(?:tấn|tan)$/i);
+  if (!match) return value;
+  const quantity = Number(match[1].replace(",", "."));
+  return `${match[1]} ${quantity === 1 ? "metric ton" : "metric tons"}`;
+}
+
 /** Use an English label for known port aliases; keep unknown supplier input unchanged. */
 export function publicExportPortDisplay(port: string | null | undefined): string {
   const value = (port ?? "").replace(/\s+/g, " ").trim();

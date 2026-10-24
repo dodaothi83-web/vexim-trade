@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { parseProductSpecification, productSpecificationKey, publicExportPortDisplay } from '../lib/public/product-detail-display.ts';
+import { parseProductSpecification, productSpecificationKey, publicExportPortDisplay, publicProductMoqDisplay } from '../lib/public/product-detail-display.ts';
 
 const parsed = parseProductSpecification(`Composition: 100% natural cashew nuts
 Quality / Grade: Organic, Excellent Grade 1
@@ -24,6 +24,10 @@ assert.deepEqual(parseProductSpecification('Single unstructured note'), [
 ], 'Unstructured supplier content is preserved');
 assert.deepEqual(parseProductSpecification(null), []);
 assert.equal(productSpecificationKey('  Minimum   Order Quantity (MOQ) '), 'minimum order quantity (moq)');
+
+assert.equal(publicProductMoqDisplay('1 tấn'), '1 metric ton');
+assert.equal(publicProductMoqDisplay('2 tấn'), '2 metric tons');
+assert.equal(publicProductMoqDisplay('1 MT'), '1 MT', 'Existing English MOQ stays unchanged');
 
 assert.equal(publicExportPortDisplay('TCTT (Tân Cảng - Cảng Quốc Tế Thị Vải)'),
   'TCTT (Tan Cang - Thi Vai International Port)');
