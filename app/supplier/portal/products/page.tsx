@@ -3,7 +3,6 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
 import { allowedSupplierCategories, categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
-import { getSupplierProductPublication } from "@/lib/supplier-portal/product-publication";
 import { SupplierProductStorefront } from "./product-storefront";
 
 export const dynamic = "force-dynamic";
@@ -15,15 +14,11 @@ export default async function SupplierProductsPage() {
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
   const [products, allCategories] = await Promise.all([
     access.store.listProductsBySupplier(access.supplier.id),
-    access.store.listCategories({ publishedOnly: false }),
+    access.store.listCategories({ publishedOnly: true }),
   ]);
   // One scoped batch query, not one request per card; never send another supplier's internal files to the browser.
   const allMedia = await access.store.listMediaForProducts(products.map((p) => p.id));
   const media = supplierVisibleProductMedia(allMedia, access.supplier.id, access.user.id);
-  const publicationByProduct = Object.fromEntries(products.map((product) => [
-    product.id,
-    getSupplierProductPublication({ product, supplier: access.supplier, media: allMedia, categories: allCategories }),
-  ]));
   // Nhãn danh mục + phạm vi đã chọn: trang sản phẩm nói cùng ngôn ngữ với trang Danh mục
   // kinh doanh thay vì hiện slug thô (cashew-kernels…).
   const options = categoryProposalOptions(allCategories);
@@ -33,7 +28,6 @@ export default async function SupplierProductsPage() {
   return <SupplierProductStorefront
     products={products}
     media={media}
-    publicationByProduct={publicationByProduct}
     supplierPublished={access.supplier.status === "published"}
     categoryLabels={categoryLabels}
     scope={scope}

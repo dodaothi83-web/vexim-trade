@@ -92,7 +92,7 @@ export default async function EditProductPage({
         <div className="min-w-0 space-y-5">
           {product.supplier_review_status && product.supplier_review_status !== "approved" && <section className="card border-amber-200 bg-amber-50 p-5 text-sm">
             <h2 className="font-bold text-ink-900">Sản phẩm NCC tự khai · {product.supplier_review_status === "pending" ? "Chờ Vexim kiểm tra" : product.supplier_review_status === "changes_requested" ? "Đã yêu cầu sửa" : "Bản nháp"}</h2>
-            <p className="mt-1 text-ink-700">Không công khai sản phẩm hoặc tệp NCC tải lên cho đến khi Vexim xác nhận nội dung, chọn tệp chia sẻ buyer và bật sẵn sàng gửi buyer. Xác nhận sản phẩm không phải duyệt giấy tờ hay công khai NCC.</p>
+            <p className="mt-1 text-ink-700">Sản phẩm và tệp NCC chỉ được công khai sau khi Vexim xác nhận. Thao tác xác nhận sẽ chia sẻ tệp NCC đã kiểm tra, đẩy sản phẩm lên sàn và gửi thông báo cho NCC; hồ sơ NCC vẫn phải đang công khai.</p>
             {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
             {product.supplier_review_status === "pending" && (session.role === "admin" || session.role === "sourcing") &&
               <SupplierProductReviewControls id={product.id} proposal={product.supplier_category_proposal} categories={categoryOptions} />}
@@ -143,7 +143,7 @@ export default async function EditProductPage({
         <aside className="space-y-4 xl:sticky xl:top-6">
           <section className="card p-4" aria-label="Điều kiện xuất hiện trên website">
             <h2 className="mb-1 text-sm font-bold text-ink-900">Điều kiện xuất hiện trên website</h2>
-            <p className="mb-3 text-xs leading-relaxed text-ink-500">NCC chọn trong danh mục Vexim đã mở; Vexim kiểm tra từng sản phẩm trước khi cho công khai. Ảnh danh mục không phải ảnh sản phẩm: tải ảnh vào chính hồ sơ này và chọn “Chia sẻ buyer”.</p>
+            <p className="mb-3 text-xs leading-relaxed text-ink-500">NCC chọn trong danh mục Vexim đã mở; Vexim kiểm tra từng sản phẩm trước khi đẩy lên sàn. Tệp NCC được duyệt sẽ chuyển sang chia sẻ buyer; tệp nội bộ của staff vẫn giữ riêng tư.</p>
             <ul className="space-y-2.5">
               {websiteChecks.map((item) => (
                 <li key={item.label} className="flex items-start gap-2 text-[13px] leading-snug">

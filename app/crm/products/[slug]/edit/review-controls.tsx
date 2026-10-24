@@ -23,13 +23,13 @@ export function SupplierProductReviewControls({ id, proposal, reviewed, categori
     finally { setBusy(false); }
   }
   return <div className="mt-4 space-y-4">
-    <p className="text-sm text-ink-700">Danh mục NCC đã chọn: <strong>{selected?.label || proposal || "Chưa chọn danh mục hợp lệ"}</strong>. Vexim kiểm tra sản phẩm thực tế trước khi duyệt; chọn danh mục không tự công khai.</p>
+    <p className="text-sm text-ink-700">Danh mục NCC đã chọn: <strong>{selected?.label || proposal || "Chưa chọn danh mục hợp lệ"}</strong>. Vexim kiểm tra sản phẩm thực tế; nút xác nhận sẽ đẩy sản phẩm lên sàn và thông báo cho NCC.</p>
     {!approved && <>
       <form onSubmit={(e) => void decide(e)} className="flex flex-wrap items-end gap-3">
         <input type="hidden" name="product_id" value={id} />
         <input type="hidden" name="decision" value="approved" />
         <input type="hidden" name="reviewed_category_slug" value={proposal ?? ""} />
-        <button disabled={busy || !selected || selected.slug !== proposal} className="btn btn-primary">Vexim duyệt nội dung sản phẩm</button>
+        <button disabled={busy || !selected || selected.slug !== proposal} className="btn btn-primary">Vexim xác nhận & đẩy lên sàn</button>
       </form>
       {(!selected || selected.slug !== proposal) && <p className="text-xs text-amber-900">NCC phải chọn lại danh mục đang mở và lưu sản phẩm trước khi Vexim duyệt.</p>}
       <form onSubmit={(e) => void decide(e)} className="flex flex-wrap items-end gap-2"><input type="hidden" name="product_id" value={id} /><input type="hidden" name="decision" value="changes_requested" />

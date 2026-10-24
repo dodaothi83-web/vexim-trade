@@ -59,13 +59,13 @@ const approved = dashboard.buildSupplierDashboard({ ...input, reviews: [{ id: 'v
 assert.ok(approved.notices.some((n) => n.title.includes('Lịch sử giao hàng')));
 assert.ok(!approved.notices.some((n) => n.title.includes('Thăm nhà máy')));
 const decided = dashboard.buildSupplierDashboard({ ...input,
-  products: [{ ...products[0], supplier_review_status: 'approved', updated_at: now.toISOString() }, products[1]],
+  products: [{ ...products[0], supplier_review_status: 'approved', supplier_originated: true, ready_for_buyer: true, updated_at: now.toISOString() }, products[1]],
   certificates: [{ id: 'c-a', supplier_id: 's-a', name: 'ISO 22000', review_status: 'approved',
     publicly_visible: false, checked_at: now.toISOString(), updated_at: now.toISOString() },
     { id: 'c-b', supplier_id: 's-b', name: 'SECRET factory certificate', review_status: 'approved',
       publicly_visible: true, updated_at: now.toISOString() }],
 });
-assert.ok(decided.notices.some((n) => n.key === 'product-approved:p-a'));
+assert.ok(decided.notices.some((n) => n.key === 'product-approved:p-a' && n.title.includes('đã lên sàn') && n.detail.includes('hiển thị với buyer')));
 assert.ok(decided.notices.some((n) => n.key === 'cert-approved:c-a' && n.detail.includes('Chưa công bố')));
 assert.ok(!JSON.stringify(decided).includes('SECRET factory certificate'), 'Foreign certificate cannot appear');
 const accountNotice = dashboard.buildSupplierDashboard({ ...input, supplier: { id: 's-a', onboarding_status: 'approved', updated_at: now.toISOString() } });

@@ -34,7 +34,7 @@ const view = {
     draft: { label: 'Bản nháp', tone: 'bg-slate-100' },
     pending: { label: 'Chờ duyệt', tone: 'bg-amber-100' },
     changes_requested: { label: 'Cần chỉnh sửa', tone: 'bg-rose-100' },
-    approved: { label: 'Đã duyệt nội dung', tone: 'bg-emerald-100' },
+    approved: { label: 'Đã lên sàn', tone: 'bg-emerald-100' },
   },
   productReview: (p) => p.supplier_review_status ?? 'approved',
   privateMediaUrl: (m) => m.storage_path ? `/api/media/file/${m.storage_path}` : null,
@@ -184,7 +184,8 @@ assert.match(source, /selectStep/, 'Bấm vào thanh bước để chuyển bư�
 assert.match(source, /saveSupplierProductAction\(form\)/, 'Vẫn lưu qua saveSupplierProductAction');
 assert.match(source, /submitSupplierProductAction\(form\)/, 'Vẫn nộp qua submitSupplierProductAction');
 assert.match(source, /productCanSubmit\(product, media\) && !dirty/, 'Nút nộp vẫn phụ thuộc điều kiện dữ liệu');
-assert.match(source, /window\.confirm\("Lưu thay đổi sẽ đưa sản phẩm về bản nháp/, 'Vẫn cảnh báo khi sửa sản phẩm đã duyệt');
+assert.doesNotMatch(source, /Lưu thay đổi sẽ đưa sản phẩm về bản nháp/, 'Sửa sản phẩm đã duyệt không còn tự rút khỏi sàn');
+assert.match(source, /const canUpload = !!product && !locked && !dirty && \(review !== "approved" \|\| product\.supplier_originated === true\)/, 'Sản phẩm NCC đã duyệt vẫn tải được ảnh');
 assert.match(source, /Bạn có thay đổi chưa lưu/, 'Vẫn cảnh báo rời trang khi chưa lưu');
 assert.match(source, /firstInvalidField\(formRef\.current, 1\)/, 'Chặn sang bước khi còn trường bắt buộc');
 assert.match(source, /requestSubmit\(\)/, 'Đi tiếp được sau khi lưu thành công');
@@ -270,17 +271,12 @@ assert.deepEqual(snapshotFromForm(null, { name: 'giữ nguyên' }), { name: 'gi�
 assert.match(source, /for \(const key of checkKeys\) if \(form\.querySelector/,
   'Checkbox không tick vẫn được ghi nhận là trống');
 
-// 11. Trạng thái công khai là thông tin riêng, không bị gộp với trạng thái duyệt.
-const privatePublication = render({ publication: {
-  isPublic: false, publicHref: null, missing: ['Sản phẩm chưa được bật sẵn sàng gửi buyer sau bước duyệt.'],
-  checks: [{ key: 'ready', label: 'Đã bật sẵn sàng gửi buyer', done: false, missing: 'Sản phẩm chưa được bật sẵn sàng gửi buyer sau bước duyệt.' }],
-} });
-assert.match(privatePublication, /Trạng thái công khai/);
-assert.match(privatePublication, /Chưa công khai/);
-assert.match(privatePublication, /Sản phẩm chưa được bật sẵn sàng gửi buyer/);
-assert.doesNotMatch(privatePublication, /Mở trang buyer/);
-const livePublication = render({ publication: { isPublic: true, publicHref: '/products/cashew/p1', missing: [], checks: [] } });
-assert.match(livePublication, /Đang công khai/);
-assert.match(livePublication, /href="\/products\/cashew\/p1"/);
+// 11. Sau xác nhận, NCC quản lý sản phẩm đang trên sàn; không còn panel trạng thái riêng.
+const approved = render({ product: { ...product, supplier_review_status: 'approved', ready_for_buyer: true, reviewed_category_slug: 'cashew' },
+  media: [{ ...media[0], audience: 'buyer' }] });
+assert.match(approved, /đang hiển thị trên sàn/);
+assert.match(approved, /type="hidden" name="supplier_category_proposal"/);
+assert.match(approved, /Sản phẩm đã được đẩy lên sàn/);
+assert.doesNotMatch(approved, /Trạng thái công khai|Hiển thị với buyer/);
 
 console.log('✅ Product page: 3 bước một màn hình, bước 3 đọc lại toàn bộ dữ liệu bước 1–2, nút gửi luôn phản hồi, thương mại & xuất khẩu hiện ngay.');

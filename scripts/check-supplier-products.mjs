@@ -15,7 +15,7 @@ function load(file, mocks) {
 const supplierId = '12345678-1234-1234-1234-123456789abc';
 const productId = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
 const user = { id: 'owner', email: 'factory@example.com', supplier_id: supplierId, role: 'supplier', is_active: true };
-const supplier = { id: supplierId, fob_publicly_visible: false, fob_updated_at: null, name: 'Factory One', products: 'Cashew W320', onboarding_status: 'pending', requested_category_slugs: ['cashew'] };
+const supplier = { id: supplierId, status: 'published', fob_publicly_visible: false, fob_updated_at: null, name: 'Factory One', products: 'Cashew W320', onboarding_status: 'pending', requested_category_slugs: ['cashew'] };
 let product = null;
 const files = [];
 const audit = [];
@@ -29,6 +29,7 @@ const categories = [
 ];
 const store = {
   getSupplier: async (id) => id === supplierId ? supplier : null,
+  getUserBySupplierId: async (id) => id === supplierId ? user : null,
   getProduct: async (id) => id === productId ? product : null,
   createProduct: async (input) => { product = { ...input, id: productId }; return product; },
   updateProduct: async (id, patch) => { assert.equal(id, productId); product = { ...product, ...patch }; return product; },
@@ -37,6 +38,7 @@ const store = {
   listCategories: async () => categories, listSupplierCategories: async () => [],
   listMedia: async (_owner, id) => id === productId ? files : [],
   createMedia: async (input) => { const row = { ...input, id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }; files.push(row); return row; },
+  updateMedia: async (id, patch) => { const row = files.find((m) => m.id === id); assert.ok(row, `Missing media ${id}`); Object.assign(row, patch); return row; },
   getMedia: async (id) => files.find((m) => m.id === id) ?? null,
   deleteMedia: async (id) => { files.splice(files.findIndex((m) => m.id === id), 1); },
   addAuditLog: async (entry) => audit.push(entry),
@@ -101,7 +103,7 @@ const optIn = form(); optIn.set('product_id', productId); optIn.set('price_publi
 optIn.set('ref_price_max', '5500');
 optIn.set('description_detail', 'Origin and details of this product.');
 assert.equal((await actions.saveSupplierProductAction(optIn)).ok, true);
-assert.equal(product.ref_price_max, 5500, 'Supplier can save an optional range without auto-publication');
+assert.equal(product.ref_price_max, 5500, 'Supplier can save an optional range without changing the publication flow');
 assert.equal(product.price_publicly_visible, true); assert.equal(product.description_detail, 'Origin and details of this product.');
 assert.equal(supplier.fob_updated_at, null, 'Product opt-in alone does not create supplier consent');
 const consentForm = form(); consentForm.set('product_id', productId); consentForm.set('price_publicly_visible', 'yes');
@@ -131,6 +133,7 @@ const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
     extensionFor: (mime) => mime === 'application/pdf' ? 'pdf' : 'jpg',
   },
   '@/lib/media/prepare-supplier-product-image': { prepareSupplierProductImage: async () => ({ main: new Uint8Array([1, 2]), thumb: new Uint8Array([3]), width: 800, height: 600 }) },
+  '@/lib/media/readiness': { isExpired: (asset) => asset.status === 'expired' || (asset.expires_on && asset.expires_on < new Date().toISOString().slice(0, 10)) },
   '@/lib/media/storage': { putObject: async (path) => { if (failThumb && path.endsWith('-thumb.webp')) throw Error('failed thumbnail write'); storedBytes++; },
     deleteObject: async () => { if (storedBytes) storedBytes--; } },
 });
@@ -201,6 +204,10 @@ const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
     getSession: async () => ({ uid: 'reviewer', email: 'staff@example.com', role: 'sourcing' }) },
   '@/lib/db': { getStore: () => store },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async (input) => { notices.push([input.decision, input.entityId]); return 'sent'; } },
+  '@/lib/crm/badges': { refreshCrmBadges() {} },
+  '@/lib/media/readiness': { isExpired: (asset) => asset.status === 'expired' || (asset.expires_on && asset.expires_on < new Date().toISOString().slice(0, 10)) },
+  '@/lib/public/product-selection': { isTestOnlyProduct: (name) => /^\s*(?:\[\s*)?test\s+only\b/i.test(name) },
+  '@/lib/public/supplier-seo': { isSyntheticSupplier: () => false },
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/product-attributes': attributes,
   '@/lib/public/category-assignment': { assignProductCategory: (p) => p.name.includes('Rice') ? categories[1] : categories[0] },
@@ -218,10 +225,13 @@ product.name = 'Jasmine Rice';
 assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Obvious rice product cannot be approved as cashew');
 product.name = 'Cashew W320';
 assert.equal((await review.decideSupplierProductAction(approve)).ok, true);
-assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, false);
+assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, true);
+assert.equal(files[0].audience, 'buyer'); assert.equal(files[0].status, 'checked');
 assert.equal(notices.at(-1)[0], 'product_approved');
 assert.equal(product.supplier_category_proposal, 'cashew');
 assert.equal(product.reviewed_category_slug, 'cashew', 'Staff approves the product in the supplier-selected category');
+assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), { params: Promise.resolve({ id: productId }) })).status, 409,
+  'The last buyer file cannot be removed from a live product');
 const productView = load('../lib/supplier-portal/product-view.ts', {});
 const visibleFiles = productView.supplierVisibleProductMedia([
   { ...files[0], owner_type: 'product', supplier_id: supplierId, created_by: user.id, kind: 'image' },
@@ -242,24 +252,24 @@ assert.equal(selection.productBelongsToCategory({ ...product, reviewed_category_
 assert.equal(selection.productBelongsToCategory(product, categories[0], categories), true);
 assert.equal(selection.productBelongsToCategory(product, categories[1], categories), false,
   'A reviewed product stays in its supplier-selected category');
-product.ready_for_buyer = true; // Staff-only readiness switch; simulate an already-public approved product.
+product.ready_for_buyer = true; // Keep the product live while staff corrects its reviewed category.
 const correction = new FormData(); correction.set('product_id', productId); correction.set('reviewed_category_slug', 'rice');
 assert.equal((await review.correctSupplierProductCategoryAction(correction)).ok, false, 'Staff cannot move to another supplier category');
 product.reviewed_category_slug = 'rice'; // historical incorrect decision to correct within the selected scope
 correction.set('reviewed_category_slug', 'cashew');
 assert.equal((await review.correctSupplierProductCategoryAction(correction)).ok, true);
-assert.equal(product.reviewed_category_slug, 'cashew'); assert.equal(product.ready_for_buyer, false, 'Category correction cannot publish');
+assert.equal(product.reviewed_category_slug, 'cashew'); assert.equal(product.ready_for_buyer, true, 'Staff category correction preserves the live decision');
 const revised = form(); revised.set('product_id', productId); revised.set('name', 'Cashew W240');
 assert.equal((await actions.saveSupplierProductAction(revised)).ok, true);
-assert.equal(product.supplier_review_status, 'draft'); assert.equal(product.ready_for_buyer, false);
-assert.equal(product.reviewed_category_slug, null, 'Supplier edits clear the staff category decision');
-assert.equal(selection.productReviewApproved(product), false, 'Supplier edits cannot remain public');
-assert.equal(selection.productBelongsToCategory(product, categories[0], categories), false,
-  'Supplier-originated product without a Vexim category cannot fall back to name inference');
-assert.equal(selection.productReviewApproved({ ...product, supplier_review_status: 'approved' }), false,
-  'Even an approved supplier product cannot publish without its reviewed category');
+assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, true);
+assert.equal(product.reviewed_category_slug, 'cashew', 'Approved owner edits keep the staff category decision');
+assert.equal(selection.productReviewApproved(product), true, 'Approved owner edits remain public');
+assert.equal(selection.productBelongsToCategory(product, categories[0], categories), true,
+  'The reviewed category remains attached after an owner edit');
+assert.equal(selection.productReviewApproved({ ...product, reviewed_category_slug: null }), false,
+  'A supplier-originated product still cannot publish without its reviewed category');
 assert.equal(audit.some((a) => a.action === 'supplier.product_approved'), true);
 const migration = fs.readFileSync(new URL('../supabase/migrations/20261017_supplier_product_review.sql', import.meta.url), 'utf8');
 assert.match(migration, /supplier_review_status/);
 assert.match(fs.readFileSync(new URL('../app/public-media/[...path]/route.ts', import.meta.url), 'utf8'), /productReviewApproved\(product\)/);
-console.log('✅ Supplier products: own drafts/uploads, staff decision and public gate.');
+console.log('✅ Supplier products: own drafts/uploads, approval-to-marketplace and live owner editing.');

@@ -148,7 +148,13 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
   }
   // Only show the current staff decision. Draft saves, uploads and pending review are not decisions.
   for (const p of products.filter((p) => p.supplier_id === supplierId)) {
-    if (p.supplier_review_status === "approved") add(`product-approved:${p.id}`, `Đã kiểm nội dung sản phẩm: ${p.name}`, "Sản phẩm chưa tự động được công khai; việc chia sẻ cho buyer còn được quyết định riêng.", p.updated_at, "product", `/supplier/portal/products/${p.id}`);
+    if (p.supplier_review_status === "approved") {
+      const live = p.supplier_originated === true && p.ready_for_buyer === true;
+      add(`product-approved:${p.id}`, live ? `Sản phẩm đã lên sàn: ${p.name}` : `Đã duyệt nội dung sản phẩm: ${p.name}`,
+        live ? "Sản phẩm đã được Vexim xác nhận và đang hiển thị với buyer. Bạn có thể tự quản lý thông tin và hình ảnh sản phẩm."
+          : "Sản phẩm đã được Vexim xác nhận. Trạng thái hiển thị với buyer phụ thuộc các điều kiện công khai của hồ sơ.",
+        p.updated_at, "product", `/supplier/portal/products/${p.id}`);
+    }
     if (p.supplier_review_status === "changes_requested") add(`product-changes:${p.id}`, `Sản phẩm cần chỉnh sửa: ${p.name}`, p.supplier_review_note || "Mở sản phẩm để xem phản hồi.", p.updated_at, "product", `/supplier/portal/products/${p.id}`);
   }
   const todayMs = Date.parse(`${now.toISOString().slice(0, 10)}T00:00:00Z`);

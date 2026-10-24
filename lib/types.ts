@@ -206,14 +206,14 @@ export interface SupplierProduct {
   /** Có thể gửi mẫu */
   samples: boolean;
   /**
-   * Sẵn sàng gửi buyer. Chỉ bật được khi hồ sơ đã có ít nhất một ảnh sản phẩm
-   * hoặc catalogue chia sẻ được cho buyer (xem lib/media/readiness.ts).
+   * Cờ kỹ thuật cho phép sản phẩm hiện với buyer; Vexim bật khi xác nhận đẩy sản phẩm lên sàn.
+   * Luôn cần ít nhất một ảnh/catalogue buyer hợp lệ (xem lib/media/readiness.ts).
    */
   ready_for_buyer: boolean;
-  /** Supplier-authored changes require a separate Vexim decision; distinct from buyer-ready/publication. */
+  /** Draft/pending cần Vexim xét; approved là sản phẩm đã được đẩy lên sàn. */
   supplier_review_status?: "draft" | "pending" | "approved" | "changes_requested";
   supplier_review_note?: string | null;
-  /** Bản do NCC tạo/sửa: luôn cần danh mục staff xác nhận để được công khai. Legacy/staff cũ = false. */
+  /** Bản do NCC tạo: cần Vexim xác nhận lần đầu; sau đó NCC quản lý nội dung/ảnh. Legacy/staff cũ = false. */
   supplier_originated?: boolean;
   /** Danh mục NCC đề xuất, không được dùng trực tiếp để phân loại public. */
   supplier_category_proposal?: string | null;

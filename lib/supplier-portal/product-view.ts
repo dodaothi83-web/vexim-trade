@@ -6,7 +6,7 @@ export const PRODUCT_STATUS: Record<Exclude<ProductReviewFilter, "all">, { label
   draft: { label: "Bản nháp", tone: "bg-slate-100 text-slate-700" },
   pending: { label: "Chờ duyệt", tone: "bg-amber-100 text-amber-900" },
   changes_requested: { label: "Cần chỉnh sửa", tone: "bg-rose-100 text-rose-800" },
-  approved: { label: "Đã duyệt nội dung", tone: "bg-emerald-100 text-emerald-800" },
+  approved: { label: "Đã lên sàn", tone: "bg-emerald-100 text-emerald-800" },
 };
 
 /** Existing staff-managed products predate moderation; migration treats them as approved. */
