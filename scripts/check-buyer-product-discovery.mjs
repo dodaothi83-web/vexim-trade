@@ -242,12 +242,20 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   '@/components/product-verification-icons': { ProductVerificationIcons },
   '@/components/verification-tier': verificationTierModule,
 });
+const fullTradeLabels = renderToStaticMarkup(React.createElement(productTradeLabelsModule.ProductTradeLabels, { oem: true, odm: true, samples: true }));
+assert.match(fullTradeLabels, />OEM</, 'PDP keeps the full OEM label');
+assert.match(fullTradeLabels, />ODM</, 'PDP keeps the full ODM label');
+assert.match(fullTradeLabels, />Samples available</, 'PDP keeps the explicit sample-availability label');
+const compactTradeLabels = renderToStaticMarkup(React.createElement(productTradeLabelsModule.ProductTradeLabels, { oem: true, odm: true, samples: true, compact: true }));
+assert.match(compactTradeLabels, />OEM\/ODM</, 'Compact cards combine OEM and ODM into one factual badge');
+assert.match(compactTradeLabels, />Samples</, 'Compact cards shorten the sample badge');
+assert.doesNotMatch(compactTradeLabels, />OEM<|>ODM<|Samples available/, 'Compact badges do not repeat the full three-badge treatment');
 const cardProps = { href: '/products/cashew/a0', imagePath: 'products/a0/cover.jpg',
   name: 'Cashew W320 lot 0', moq: '1 MT', price: 'USD 7/kg', fob: true, leadTimeDays: 14,
   supplierName: 'Company A', supplierHref: '/suppliers/company-a', verificationSteps: [1, 3],
-  quoteHref: '/rfq?category=cashew&suppliers=A&product=Cashew%20W320%20lot%200&product_id=a0', oem: true, samples: true };
+  quoteHref: '/rfq?category=cashew&suppliers=A&product=Cashew%20W320%20lot%200&product_id=a0', oem: true, odm: true, samples: true };
 const compactCard = renderToStaticMarkup(React.createElement(PublicProductCard, cardProps));
-for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'FOB reference', 'USD 7/kg', 'Lead time', '14 days', 'Supplied by', 'Company A', 'OEM', 'Samples available', 'Request a quote']) {
+for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'FOB reference', 'USD 7/kg', 'Lead time', '14 days', 'Supplied by', 'Company A', 'OEM/ODM', 'Samples', 'Request a quote']) {
   assert.ok(compactCard.includes(text), `Compact card keeps ${text}`);
 }
 assert.match(compactCard, /aspect-square/);
@@ -261,6 +269,9 @@ assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;prod
 assert.match(compactCard, /aria-label="Request a quote for Cashew W320 lot 0"/, 'Repeated quote CTAs have product-specific accessible names');
 assert.match(compactCard, /bg-brand-700/, 'The quote CTA uses the primary brand action instead of the dark details treatment');
 assert.match(compactCard, /text-lg leading-6 text-brand-900 sm:text-xl/, 'Reference price is the strongest commercial value on the card');
+assert.match(compactCard, /mb-2 flex h-6 items-center/, 'A fixed one-row badge slot keeps prices aligned between cards');
+assert.match(compactCard, /mt-2.5 grid grid-cols-2/, 'MOQ and lead time share one compact two-column row');
+assert.match(compactCard, /mt-auto pt-3/, 'The quote action keeps a compact top gap');
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
 assert.match(compactCard, /Level 2 · Advanced/, 'Card tier counts the approved checks, not a claimed level');
 assert.doesNotMatch(compactCard, /Free Sample|ISO Certified|Ready to Ship/, 'Unsupported product claims never become badges');
