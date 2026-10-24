@@ -9,7 +9,7 @@ import { supplierTypeLabel, t, type PublicSupplierCard } from "@/lib/public/cata
 import type { Category } from "@/lib/types";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
-import { supplierAddressDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierMoqDisplay, supplierPortsDisplay, supplierProvinceDisplay } from "@/lib/public/supplier-english";
+import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay } from "@/lib/public/supplier-english";
 import { PRODUCT_VERIFICATION_EXPLANATIONS } from "@/lib/verification-status";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
@@ -66,6 +66,13 @@ export function SupplierStorefront({
   const NameTag = nameTag;
   const name = safe(s.display_name || s.name);
   const summary = safe(t(s.summary_i18n));
+  const statedProducts = safe(supplierProductsDisplay(s));
+  const businessDetails = [
+    { label: "Main products", value: statedProducts, wide: true },
+    { label: "Markets served or targeted", value: safe(supplierMarketsDisplay(s)), wide: false },
+    { label: "Monthly capacity", value: safe(supplierCapacityDisplay(s)), wide: false },
+    { label: "Payment terms", value: safe(supplierPaymentTermsDisplay(s)), wide: false },
+  ].filter((item) => item.value);
   const steps = s.approved_verification_steps;
   const tier = verificationTier(steps);
   const productCategory = (p: typeof s.main_products[number]) =>
@@ -130,7 +137,19 @@ export function SupplierStorefront({
       <div className="space-y-6">
         <section id="about" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="about-title">
           <h2 id="about-title" className="text-lg font-bold text-ink-900">About this supplier</h2>
-          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{summary || "Supplier information has not been provided yet. Ask Vexim for details before making a sourcing decision."}</p>
+          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{summary || (businessDetails.length
+            ? "This supplier has not added an introduction yet. See the business details below or ask Vexim for more information."
+            : "Supplier information has not been provided yet. Ask Vexim for details before making a sourcing decision.")}</p>
+          {businessDetails.length > 0 && <div className="mt-5 rounded-xl bg-ink-50/70 p-4 sm:p-5">
+            <h3 className="text-sm font-bold text-ink-900">Business details</h3>
+            <p className="mt-1 text-xs leading-5 text-ink-500">Shared by the supplier. Ask Vexim to confirm the details for your order.</p>
+            <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+              {businessDetails.map((item) => <div key={item.label} className={item.wide ? "sm:col-span-2" : undefined}>
+                <dt className="text-xs font-semibold text-ink-500">{item.label}</dt>
+                <dd className="mt-1 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-ink-800">{item.value}</dd>
+              </div>)}
+            </dl>
+          </div>}
         </section>
         <section id="verification" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="verification-title">
           <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-brand-700" /><h2 id="verification-title" className="text-lg font-bold text-ink-900">What Vexim checked</h2></div>
@@ -242,7 +261,9 @@ export function SupplierStorefront({
               verificationSteps={steps} test={synthetic} linkable={productLinks} />
           </li>;
         })}
-      </ul> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>No buyer-ready products are available on this profile yet. Products appear here only after the listing and shareable media meet publication requirements.</p></div>}
+      </ul> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>{statedProducts && !synthetic
+        ? "No individual product listings are available yet. See the main products above or ask Vexim about specifications and availability."
+        : "No buyer-ready products are available on this profile yet. Products appear here only after the listing and shareable media meet publication requirements."}</p></div>}
     </section>
   </>;
 }
