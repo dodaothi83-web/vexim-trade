@@ -141,6 +141,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
               imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} moq={p.moq} price={p.price} fob={p.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.leadTimeDays} supplierName={p.supplierName}
               supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
+              quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}
+              oem={p.oem} odm={p.odm} samples={p.samples}
               verificationSteps={p.verificationSteps} test={p.isDemo} />
           </div>)}
         </div> : <div className="rounded-xl border border-ink-200 bg-white p-8 text-center">

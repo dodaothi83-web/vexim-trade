@@ -230,18 +230,24 @@ const verificationTierModule = compile('../components/verification-tier.tsx', {
   'lucide-react': require('lucide-react'),
   '@/lib/verification-status': { VERIFICATION_LABELS },
 });
+const productTradeLabelsModule = compile('../components/product-trade-labels.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  'lucide-react': require('lucide-react'),
+});
 const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
+  '@/components/product-trade-labels': productTradeLabelsModule,
   '@/components/product-verification-icons': { ProductVerificationIcons },
   '@/components/verification-tier': verificationTierModule,
 });
 const cardProps = { href: '/products/cashew/a0', imagePath: 'products/a0/cover.jpg',
   name: 'Cashew W320 lot 0', moq: '1 MT', price: 'USD 7/kg', fob: true, leadTimeDays: 14,
-  supplierName: 'Company A', supplierHref: '/suppliers/company-a', verificationSteps: [1, 3] };
+  supplierName: 'Company A', supplierHref: '/suppliers/company-a', verificationSteps: [1, 3],
+  quoteHref: '/rfq?category=cashew&suppliers=A&product=Cashew%20W320%20lot%200&product_id=a0', oem: true, samples: true };
 const compactCard = renderToStaticMarkup(React.createElement(PublicProductCard, cardProps));
-for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'FOB reference', 'USD 7/kg', 'Lead time', '14 days', 'Supplied by', 'Company A', 'View details']) {
+for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'FOB reference', 'USD 7/kg', 'Lead time', '14 days', 'Supplied by', 'Company A', 'OEM', 'Samples available', 'Request a quote']) {
   assert.ok(compactCard.includes(text), `Compact card keeps ${text}`);
 }
 assert.match(compactCard, /aspect-square/);
@@ -249,19 +255,31 @@ assert.match(compactCard, /object-cover/);
 assert.match(compactCard, /line-clamp-2/);
 assert.match(compactCard, /flex h-full min-w-0 flex-col/);
 assert.match(compactCard, /href="\/suppliers\/company-a"/, 'Supplier has an independent profile link');
-assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can open product details');
+assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can open product details through the title or image');
+assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;product=Cashew%20W320%20lot%200&amp;product_id=a0"/,
+  'The primary card CTA opens an RFQ prefilled for this product and supplier');
+assert.match(compactCard, /aria-label="Request a quote for Cashew W320 lot 0"/, 'Repeated quote CTAs have product-specific accessible names');
+assert.match(compactCard, /bg-brand-700/, 'The quote CTA uses the primary brand action instead of the dark details treatment');
+assert.match(compactCard, /text-lg leading-6 text-brand-900 sm:text-xl/, 'Reference price is the strongest commercial value on the card');
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
 assert.match(compactCard, /Level 2 · Advanced/, 'Card tier counts the approved checks, not a claimed level');
+assert.doesNotMatch(compactCard, /Free Sample|ISO Certified|Ready to Ship/, 'Unsupported product claims never become badges');
 assert.equal((compactCard.match(/<details/g) ?? []).length, 0, 'Card stays compact; the exact checks open on the detail page');
+const longSupplierCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
+  ...cardProps, supplierName: 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED',
+}));
+assert.match(longSupplierCard, /title="VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED"/, 'The full supplier name remains available as a tooltip');
+assert.match(longSupplierCard, /truncate font-semibold text-brand-700/, 'Long supplier names stay on one line instead of stretching the card');
 const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, fob: false, verificationSteps: [] }));
-assert.match(privatePrice, /Reference price<\/dt><dd[^>]*>On request/);
+assert.match(privatePrice, /Reference price/);
+assert.match(privatePrice, /On request/);
 assert.doesNotMatch(privatePrice, /FOB reference|USD 7\/kg/, 'No price or FOB claim without consent');
 assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved check shows the empty tier, not a badge');
 const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
   ...cardProps, href: '/suppliers/company-a/products/a0', test: true,
 }));
 assert.match(testCard, /TEST · Not an offer|Test data · not a price/);
-assert.doesNotMatch(testCard, /USD 7\/kg|\/rfq/, 'A test card carries no price and no quote path');
+assert.doesNotMatch(testCard, /USD 7\/kg|\/rfq|Supplier-stated product options/, 'A test card carries no price, quote path or commercial capability badges');
 assert.match(testCard, /aria-label="No verification checks approved yet"/, 'A test card never claims a verification check');
 // Lưới thẻ trang chủ là một client component riêng; dựng nó ở đây để bản HTML
 // máy chủ vẫn được kiểm bằng thẻ thật, không phải bằng chuỗi giả.
@@ -304,6 +322,14 @@ assert.match(offersHtml, /href="\/products\/cashew\/a0"/);
 assert.match(offersHtml, /\/public-media\/products\/a0\/cover-thumb\.webp/, 'Home product cards send the smaller photo');
 assert.match(grid, /p\.cardImagePath \?\? p\.imagePaths\[0\]/, 'Category cards prefer approved thumbnails');
 assert.match(profilePage, /s\.product_card_image_paths\?\.\[p\.id\]/, 'Supplier profile cards prefer approved thumbnails');
+for (const [surface, source] of [['Category', grid], ['Home', homeFeed], ['Supplier profile', profilePage], ['Related products', detailPage]]) {
+  assert.match(source, /quoteHref=/, `${surface} cards provide the product-specific RFQ action`);
+  assert.match(source, /oem=\{/, `${surface} cards use actual OEM data`);
+  assert.match(source, /odm=\{/, `${surface} cards use actual ODM data`);
+  assert.match(source, /samples=\{/, `${surface} cards use actual sample-availability data`);
+}
+assert.match(offersHtml, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;product=Cashew%20kernels%20W320%2C%20Hanoi&amp;product_id=a0"/,
+  'Home cards prefill the current product and supplier in the RFQ');
 assert.equal((offersHtml.match(/aria-label="View details of/g) ?? []).length, 2, 'Home has two real offers, not category placeholders or demo products');
 assert.doesNotMatch(offersHtml, /\/products\/cashew\/demo|Test data/);
 assert.match(homeHtml, /id="categories"/, 'Category navigation remains a separate section');

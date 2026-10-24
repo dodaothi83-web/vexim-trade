@@ -197,7 +197,12 @@ export function HomeProductFeed({
               leadTimeDays={p.leadTimeDays}
               supplierName={p.supplierName}
               supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
+              quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(p.categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}
+              oem={p.oem}
+              odm={p.odm}
+              samples={p.samples}
               verificationSteps={p.verificationSteps}
+              test={p.isDemo}
             />
           </li>
         ))}

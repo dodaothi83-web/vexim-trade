@@ -252,6 +252,8 @@ export default async function PublicProductDetail({ params }: Props) {
             imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} moq={related.moq}
             price={related.price} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays}
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
+            quoteHref={`/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(related.supplierId)}&product=${encodeURIComponent(related.name)}&product_id=${encodeURIComponent(related.id)}`}
+            oem={related.oem} odm={related.odm} samples={related.samples}
             verificationSteps={related.verificationSteps} />
         </li>)}
       </ul>
