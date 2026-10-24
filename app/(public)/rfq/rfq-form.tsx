@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Script from "next/script";
 import {
   ArrowLeft,
   ArrowRight,
@@ -19,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { submitRfqAction } from "./actions";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 import { cx } from "@/components/ui";
 
 interface Option {
@@ -45,16 +45,6 @@ interface Props {
   turnstileSiteKey?: string | null;
 }
 
-declare global {
-  interface Window {
-    turnstile?: {
-      render: (el: HTMLElement | string, opts: { sitekey: string; callback: (token: string) => void; "error-callback"?: () => void; "expired-callback"?: () => void; theme?: "light" | "dark" }) => string;
-      reset: (id: string) => void;
-    };
-    __VEXIM_ON_TURNSTILE_LOAD?: () => void;
-  }
-}
-
 const UNITS = ["MT", "kg", "lb", "container (20')", "container (40')", "pallet", "carton"];
 const INCOTERMS = ["FOB", "CIF", "CFR", "EXW", "DAP", "FCA"];
 const FREQUENCIES = ["One-time", "Monthly", "Quarterly", "Spot", "Contract"];
@@ -70,7 +60,6 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverMsg, setServerMsg] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null);
   const [data, setData] = useState(() => ({
     // Product
     category_slug: initialCategory ?? "",
@@ -104,7 +93,6 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
     consent: false,
     // Honeypot
     websiteHp: "",
-    // Turnstile — MVP bỏ qua; gửi lên chuỗi rỗng, server cho qua nếu secretKey là "x"
   }));
 
   const update = (k: keyof typeof data, v: string | boolean | string[]) =>
@@ -212,45 +200,18 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
     query.delete("intent");
     return `/rfq?${query.toString()}`;
   }, [params]);
-  const turnstileScript = turnstileSiteKey ? (
-    <Script
-      src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=__VEXIM_ON_TURNSTILE_LOAD&render=explicit"
-      strategy="afterInteractive"
-      async
-      defer
-    />
-  ) : null;
   const honeypotControl = (
     <div aria-hidden className="pointer-events-none absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden">
       <label>Leave empty <input tabIndex={-1} autoComplete="off" value={data.websiteHp} onChange={(e) => update("websiteHp", e.target.value)} /></label>
     </div>
   );
   const turnstileControl = turnstileSiteKey ? (
-    <div className="pt-2">
-      <div id="vexime-rfq-turnstile" ref={(el) => {
-        if (!el || turnstileWidgetId) return;
-        const render = () => {
-          if (!window.turnstile) return;
-          const id = window.turnstile.render(el, {
-            sitekey: turnstileSiteKey,
-            callback: (tok) => setTurnstileToken(tok),
-            "expired-callback": () => setTurnstileToken(null),
-            "error-callback": () => setTurnstileToken(null),
-            theme: "light",
-          });
-          setTurnstileWidgetId(id);
-        };
-        if (window.turnstile) render();
-        else window.__VEXIM_ON_TURNSTILE_LOAD = render;
-      }} />
-      <noscript><p className="text-[12px] text-red-600">Bạn cần bật JavaScript để gửi form (chống spam).</p></noscript>
-    </div>
+    <TurnstileWidget siteKey={turnstileSiteKey} onChange={setTurnstileToken} />
   ) : null;
 
   if (isQuestion) {
     return (
       <form onSubmit={submit} className="mt-8">
-        {turnstileScript}
         <div className="mb-6 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
           <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-700"><MessageCircle className="h-4 w-4" />Product question</p>
           <p className="mt-2 break-words text-base font-bold text-ink-900">{initialProduct}</p>
@@ -315,7 +276,6 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
           <p className="mt-2">Suppliers are matched on your requirements only. Paid listings never affect who we recommend.</p>
         </div>
       )}
-      {turnstileScript}
       {/* Step indicator */}
       <ol className="mb-6 flex items-center gap-2 text-[12px] font-semibold">
         {steps.map((s, i) => {
