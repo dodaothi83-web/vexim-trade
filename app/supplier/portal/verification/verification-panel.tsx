@@ -253,13 +253,14 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
   async function addLink(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     form.set("submission_id", view.id);
     setBusy("link");
     try {
       const result = await addSourceLinkAction(form);
       setMessage({ text: result.message, ok: result.ok });
-      if (result.ok) event.currentTarget.reset();
+      if (result.ok) formElement.reset();
       refresh();
     } catch {
       setMessage({ text: "Không lưu được link.", ok: false });

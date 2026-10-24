@@ -43,7 +43,7 @@ const view = {
     media.some((m) => (m.kind === 'image' || m.kind === 'catalogue') && !!m.storage_path),
 };
 
-const { SupplierProductEditor } = load('../app/supplier/portal/products/product-editor.tsx', {
+const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal/products/product-editor.tsx', {
   react: React,
   'react/jsx-runtime': jsx,
   'next/link': { default: Link },
@@ -203,5 +203,23 @@ const listPage = read('../app/supplier/portal/products/page.tsx');
 assert.match(listPage, /categoryLabels=/, 'Trang danh sách truyền nhãn danh mục');
 assert.match(listPage, /scope=\{\[?scope/, 'Trang danh sách truyền phạm vi danh mục');
 assert.match(listPage, /allowedSupplierCategories/, 'Phạm vi lấy từ đúng lớp dữ liệu danh mục');
+
+// 10. Gõ vào bất kỳ ô nào cũng không được làm vỡ trang: handler đọc form qua ref,
+//    vì React dọn `event.currentTarget` về null trước khi state updater chạy.
+assert.doesNotMatch(source, /snapshotFromForm\(event\.currentTarget/,
+  'Không đọc event.currentTarget bên trong state updater (gây FormData(null))');
+assert.doesNotMatch(source, /snapshotFromForm\([^)]*currentTarget/,
+  'Mọi lời gọi snapshotFromForm đều dùng phần tử form đã lấy sẵn');
+assert.match(source, /function onFormChange\(\) \{\s*const form = formRef\.current;/,
+  'onFormChange đọc form qua ref ngay trong handler');
+assert.match(source, /const formElement = event\.currentTarget;/,
+  'save() giữ phần tử form trước khi await');
+assert.match(source, /new FormData\(formElement\)/, 'save() dùng phần tử đã giữ, không dùng lại event sau await');
+assert.match(source, /function snapshotFromForm\(form: HTMLFormElement \| null/,
+  'snapshotFromForm chấp nhận form null');
+assert.deepEqual(snapshotFromForm(null, { name: 'giữ nguyên' }), { name: 'giữ nguyên' },
+  'Chưa có form thì giữ bản nháp cũ, không ném lỗi');
+assert.match(source, /for \(const key of checkKeys\) if \(form\.querySelector/,
+  'Checkbox không tick vẫn được ghi nhận là trống');
 
 console.log('✅ Product page: 3 bước một màn hình, bước 3 đọc lại toàn bộ dữ liệu bước 1–2, nút gửi luôn phản hồi, thương mại & xuất khẩu hiện ngay.');

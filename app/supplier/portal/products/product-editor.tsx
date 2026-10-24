@@ -107,13 +107,23 @@ function snapshotFrom(product?: SupplierProduct): Record<string, string> {
 
 const checkKeys = ["oem", "odm", "samples", "price_publicly_visible"] as const;
 
-/** Đọc toàn bộ form thành bản nháp để bước 3 luôn khớp với những gì đang nhập. */
-function snapshotFromForm(form: HTMLFormElement, previous: Record<string, string>): Record<string, string> {
+/**
+ * Đọc toàn bộ form thành bản nháp để bước 3 luôn khớp với những gì đang nhập.
+ *
+ * Luôn nhận phần tử form đã lấy sẵn: React dọn `event.currentTarget` về null ngay sau
+ * khi handler chạy, nên không được đọc nó bên trong state updater hay sau `await`.
+ */
+export function snapshotFromForm(form: HTMLFormElement | null, previous: Record<string, string>): Record<string, string> {
+  if (!form) return previous;
+  const data = new FormData(form);
   const next: Record<string, string> = { ...previous };
-  new FormData(form).forEach((value, key) => {
-    if (typeof value === "string") next[key] = value;
+  const present = new Set<string>();
+  data.forEach((value, key) => {
+    if (typeof value !== "string") return;
+    next[key] = value;
+    present.add(key);
   });
-  for (const key of checkKeys) if (form.querySelector(`[name="${key}"]`) && !(key in Object.fromEntries(new FormData(form)))) next[key] = "";
+  for (const key of checkKeys) if (form.querySelector(`[name="${key}"]`) && !present.has(key)) next[key] = "";
   return next;
 }
 
@@ -205,10 +215,17 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     };
   }, [dirty]);
 
-  /** Ghi lại nội dung form mỗi khi NCC sửa để bước 3 phản chiếu ngay. */
-  function onFormChange(event: React.FormEvent<HTMLFormElement>) {
+  /**
+   * Ghi lại nội dung form mỗi khi NCC sửa để bước 3 phản chiếu ngay.
+   *
+   * Đọc form qua ref chứ không qua `event.currentTarget`: React dọn `currentTarget` về
+   * null ngay sau handler, còn state updater chạy sau đó — đọc event trong updater sẽ
+   * làm `new FormData(null)` ném lỗi mỗi lần gõ phím.
+   */
+  function onFormChange() {
+    const form = formRef.current;
     setDirty(true);
-    setSnapshot((previous) => snapshotFromForm(event.currentTarget, previous));
+    setSnapshot((previous) => snapshotFromForm(form, previous));
   }
 
   function goToStep(next: Step) {
@@ -223,6 +240,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     if (product && review === "approved" &&
         !window.confirm("Lưu thay đổi sẽ rút sản phẩm khỏi trạng thái sẵn sàng cho buyer và đưa về bản nháp để Vexim duyệt lại. Tiếp tục?")) return;
     const target = advanceTo.current;
@@ -231,7 +249,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     setResult(null);
     setStepError(null);
     try {
-      const form = new FormData(event.currentTarget);
+      const form = new FormData(formElement);
       if (product) form.set("product_id", product.id);
       const response = await saveSupplierProductAction(form);
       setResult(response);
@@ -239,7 +257,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       if (!response.ok) return;
       setDirty(false);
       setSubmitHint(null);
-      setSnapshot(snapshotFromForm(event.currentTarget, snapshot));
+      setSnapshot(snapshotFromForm(formElement, snapshot));
       const id = response.id ?? product?.id;
       if (!product) {
         // Sản phẩm mới: đi tiếp sang trang chi tiết, mở đúng bước vừa chọn.
