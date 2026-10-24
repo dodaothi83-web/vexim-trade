@@ -155,7 +155,19 @@ export default async function PublicProductDetail({ params }: Props) {
     <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: category.name_i18n.en || slug, href: `/products/${slug}` }, { label: card.name }]} />
     <Link href={`/products/${slug}`} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand-700"><ArrowLeft className="h-4 w-4" /> Back to products</Link>
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(330px,0.8fr)]">
-      <ProductMediaGallery name={card.name} images={images} thumbnails={thumbnails} video={video} />
+      <div className="min-w-0">
+        <ProductMediaGallery name={card.name} images={images} thumbnails={thumbnails} video={video} />
+        {(detailRows.length > 0 || additionalSpecs.length > 0) && <section aria-labelledby="full-specifications-heading" className="mt-6 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+          <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
+            <h2 id="full-specifications-heading" className="text-sm font-bold text-ink-900">Full specifications</h2>
+            <p className="mt-0.5 text-xs text-ink-500">Technical details from the listing</p>
+          </div>
+          <dl className="px-5">
+            {detailRows.map((row, index) => <Spec key={`${row.key}-${index}`} label={row.label} value={row.value} />)}
+            {additionalSpecs.map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
+          </dl>
+        </section>}
+      </div>
       <div>
         <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
         <h1 className="mt-2 text-3xl font-black leading-tight text-ink-900 sm:text-4xl">{card.name}</h1>
@@ -218,14 +230,6 @@ export default async function PublicProductDetail({ params }: Props) {
         </aside>
       </div>
     </div>
-    {(detailRows.length > 0 || additionalSpecs.length > 0) && <section aria-labelledby="full-specifications-heading" className="mt-12 border-t border-ink-200 pt-8">
-      <h2 id="full-specifications-heading" className="text-2xl font-black text-ink-900">Full specifications</h2>
-      <p className="mt-1 text-sm text-ink-500">Technical details from the listing</p>
-      <dl className="mt-5 grid gap-x-10 overflow-hidden rounded-xl border border-ink-200 bg-white px-5 shadow-sm md:grid-cols-2">
-        {detailRows.map((row, index) => <Spec key={`${row.key}-${index}`} label={row.label} value={row.value} />)}
-        {additionalSpecs.map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
-      </dl>
-    </section>}
     {enDetail && <section aria-labelledby="product-description-heading" className="mt-10 border-t border-ink-200 pt-8">
       <h2 id="product-description-heading" className="text-2xl font-black text-ink-900">Product description</h2>
       <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{withoutDirectContacts(enDetail)}</p>
