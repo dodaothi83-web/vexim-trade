@@ -149,6 +149,30 @@ export async function notifyStaffSupplierSubmission(supplierId: string, level: 2
   } catch (error) { console.error("[supplier-notify] supplier submission", error); return "failed"; }
 }
 
+/**
+ * NCC vừa bổ sung/thay giấy tờ L1 trong lúc đợt kiểm còn mở. Đây KHÔNG phải nộp duyệt:
+ * nhân viên cần biết có tệp mới để đối chiếu, nhưng không có gì tự chuyển trạng thái.
+ * Chiều còn lại (nhân viên duyệt/trả về) đã có email + chuông trong cổng NCC.
+ */
+export async function notifyStaffDocumentUpload(input: {
+  supplierId: string; supplierName?: string | null; label: string;
+}): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const users = await getStore().listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "reviewer" || u.role === "sourcing"))
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length) return "failed";
+    const url = `${notificationOrigin()}/crm/suppliers/${encodeURIComponent(input.supplierId)}/audit/documents`;
+    const who = (input.supplierName ?? "").trim() || "NCC";
+    const title = `NCC bổ sung giấy tờ L1: ${who}`;
+    const body = `<p>${escapeHtml(who)} vừa tải/thay <strong>${escapeHtml(input.label)}</strong> trong đợt kiểm giấy tờ.</p>
+    <p><strong>Chưa có gì được duyệt.</strong> Đợt kiểm giữ nguyên trạng thái cho tới khi nhân viên đối chiếu bằng chứng và tự quyết định.</p>
+    <p><a href="${url}">Mở đợt kiểm giấy tờ trong CRM →</a></p>`;
+    const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
+    return res.ok ? res.status : "failed";
+  } catch (error) { console.error("[supplier-notify] document upload", error); return "failed"; }
+}
+
 /** Staff gets a reminder only when a supplier explicitly submits a product, never on draft saves. */
 export async function notifyStaffProductSubmission(supplier: Supplier, product: { id: string; name: string }): Promise<"sent" | "simulated" | "failed"> {
   try {

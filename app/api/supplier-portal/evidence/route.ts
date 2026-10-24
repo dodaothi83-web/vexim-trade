@@ -6,7 +6,8 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { canUploadOwnDocument } from "@/lib/supplier-portal/policy";
 import { MAX_DOCUMENT_BYTES, saveDocumentEvidence, validateInitialDocument } from "@/lib/supplier-portal/evidence";
 import { defaultCertificateLabelForKey, ingestCertificateScan, isL1CertificateKey } from "@/lib/certificate-service";
-import type { AuditEvidenceKey } from "@/lib/types";
+import { notifyStaffDocumentUpload } from "@/lib/supplier-portal/notify";
+import { L1_DOC_ITEMS, type AuditEvidenceKey } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,12 @@ export async function POST(request: Request) {
         actor: { id: access.user.id, email: access.user.email },
       }).catch((err) => console.error("[supplier-portal] l1 certificate scan", err));
     }
+    // Nhân viên cần biết có tệp mới để đối chiếu; thư lỗi không được làm hỏng lần tải.
+    const label = L1_DOC_ITEMS.find((item) => item.key === key)?.label ?? "giấy tờ";
+    const mail = await notifyStaffDocumentUpload({
+      supplierId: access.supplier.id, supplierName: access.supplier.name, label,
+    }).catch(() => "failed");
+    if (mail !== "sent") console.warn("[supplier-portal] staff document notice not sent; upload saved", mail);
     revalidatePath("/supplier/portal");
     revalidatePath(`/crm/suppliers/${access.supplier.id}`);
     revalidatePath(`/crm/suppliers/${access.supplier.id}/audit/documents`);

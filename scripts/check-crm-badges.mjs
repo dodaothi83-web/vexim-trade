@@ -50,4 +50,18 @@ assert.ok(!/href=\{`\/crm\/products\/\$\{pr\.id\}\/edit`\}[\s\S]{0,120}\{pr\.nam
 assert.match(supplierPage, /<Eye[^>]*\/> Xem/, 'Có nút Xem');
 assert.match(supplierPage, /<Pencil[^>]*\/> Sửa/, 'Giữ nút Sửa cho người có quyền');
 
-console.log('✅ CRM: huy hiệu đếm đúng bảng, gắn đúng menu, tự trừ sau khi xử lý; sản phẩm có nút Xem.');
+/* 5. Thông báo hai chiều: CRM có chuông riêng cho việc NCC gửi lên, và khi NCC
+   bổ sung giấy tờ L1 thì nhân viên phải được báo (email), không chỉ nằm im trong hàng chờ. */
+const topbar = read('components/crm-topbar.tsx');
+assert.match(topbar, /export function CrmTopbar/);
+assert.match(layout, /<CrmTopbar queues=\{queues\} \/>/, 'CRM layout phải dựng chuông thông báo');
+assert.match(layout, /label: "Hồ sơ NCC tự gửi chờ đối chiếu"/, 'Chuông liệt kê hàng hồ sơ tự gửi');
+assert.match(layout, /filter\(\(queue\) => queue\.count > 0\)/, 'Chuông chỉ hiện việc đang có');
+
+const notify = read('lib/supplier-portal/notify.ts');
+assert.match(notify, /export async function notifyStaffDocumentUpload/);
+assert.match(read('app/api/supplier-portal/evidence/route.ts'), /notifyStaffDocumentUpload\(/,
+  'NCC tải giấy tờ xong phải báo nhân viên');
+assert.match(notify, /Chưa có gì được duyệt/, 'Thư báo không được ngụ ý đã duyệt');
+
+console.log('✅ CRM: huy hiệu đếm đúng bảng, gắn đúng menu, tự trừ sau khi xử lý; sản phẩm có nút Xem; chuông hai chiều đã nối.');
