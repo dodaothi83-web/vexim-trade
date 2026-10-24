@@ -100,17 +100,23 @@ const noVideoHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery
   thumbnails: ['products/abc/cover-thumb.webp', 'products/abc/detail-thumb.webp'], video: null,
 }));
 assert.doesNotMatch(noVideoHtml, /Product video|No buyer-shareable video/, 'An absent video leaves no dead panel');
-assert.ok(noVideoHtml.includes('grid-cols-[3.25rem_minmax(0,1fr)]'), 'The thumbnail rail sits left of the main image');
-assert.match(noVideoHtml, /absolute inset-0 overflow-y-auto/, 'The thumbnail rail is bounded by the main image and scrolls internally');
-assert.match(noVideoHtml, /flex flex-col gap-2/, 'Thumbnails stack vertically instead of taking a row below the image');
-assert.ok(noVideoHtml.indexOf('aria-label="Choose a product photo"') < noVideoHtml.indexOf('aria-label="Enlarge photo of Cashew W320 on this page"'),
-  'The thumbnail rail precedes the main image in reading order');
+assert.ok(noVideoHtml.includes('grid grid-cols-1 items-stretch gap-2 sm:grid-cols-[4rem_minmax(0,1fr)]'),
+  'Mobile uses one full-width image column and the two-column rail returns from sm');
+assert.match(noVideoHtml, /relative aspect-square[^\"]*sm:order-2/, 'The main image is first on mobile and moves right on larger screens');
+assert.match(noVideoHtml, /relative min-w-0 sm:order-1/, 'The thumbnail rail moves left only from sm');
+assert.match(noVideoHtml, /overflow-x-auto pb-1 sm:absolute sm:inset-0 sm:overflow-x-hidden sm:overflow-y-auto/,
+  'Mobile thumbnails scroll horizontally and the desktop rail remains bounded with vertical scrolling');
+assert.match(noVideoHtml, /flex gap-2 sm:flex-col/, 'Thumbnails are horizontal on mobile and vertical from sm');
+assert.match(noVideoHtml, /aspect-square w-16[^\"]*sm:w-full/, 'Mobile thumbnails have a fixed touch-friendly width');
+assert.ok(noVideoHtml.indexOf('aria-label="Enlarge photo of Cashew W320 on this page"') < noVideoHtml.indexOf('aria-label="Choose a product photo"'),
+  'The main image precedes thumbnails in mobile reading order');
+assert.doesNotMatch(noVideoHtml, /grid-cols-\[3\.25rem_minmax\(0,1fr\)\]/, 'The old mobile left rail does not return');
 assert.doesNotMatch(noVideoHtml, /grid grid-cols-4/, 'The old bottom thumbnail grid is removed');
 const manyImagesHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
   name: 'Cashew W320', images: Array.from({ length: 12 }, (_, index) => `products/abc/photo-${index}.jpg`), video: null,
 }));
 assert.equal((manyImagesHtml.match(/aria-label="Show photo /g) ?? []).length, 12, 'Every photo remains available inside the bounded rail');
-assert.match(manyImagesHtml, /absolute inset-0 overflow-y-auto/, 'A large photo set never extends the rail beyond the main image');
+assert.match(manyImagesHtml, /sm:absolute sm:inset-0 sm:overflow-x-hidden sm:overflow-y-auto/, 'A large photo set never extends the desktop rail beyond the main image');
 const singleImageHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
   name: 'Cashew W320', images: ['products/abc/cover.jpg'], video: null,
 }));
