@@ -157,4 +157,12 @@ assert.ok(!hrefs.includes('/supplier/portal/verification'), 'Không còn mục m
 assert.doesNotMatch(read('app/supplier/portal/verification/level-page.tsx'), /#level-[23]/,
   'Hai trang không còn phụ thuộc neo cuộn trong một trang gộp');
 
+// 9. Ô chọn tệp phải là khung rõ ràng, không phải dòng chữ mặc định của trình duyệt.
+for (const file of ['app/supplier/portal/supplier-portal-upload.tsx', 'app/supplier/portal/supplier-profile-form.tsx', 'app/supplier/portal/certificate-upload.tsx']) {
+  const src = read(file);
+  assert.doesNotMatch(src, /type="file"[^>]*className="input/, `${file}: ô chọn tệp không dùng input mặc định một dòng`);
+}
+assert.match(read('components/file-picker.tsx'), /sr-only[\s\S]*type="file"|type="file"[\s\S]*sr-only/,
+  'FilePicker giữ input thật để form vẫn gửi tệp và vẫn kiểm tra required');
+
 console.log('✅ Supplier portal shell: one menu, one page per function, L2/L3 split, notifications live inside the bell.');

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileText, Loader2, RotateCcw, Save, Send, Sparkles, Upload } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, RotateCcw, Save, Send, Sparkles } from "lucide-react";
 
 import { L1_DOC_ITEMS, LEGACY_L2_VISIT_ITEMS, type AuditEvidenceKey, type Certificate, type MediaAsset, type Verification } from "@/lib/types";
 import { prepareImage } from "@/lib/media/client-image";
@@ -10,6 +10,7 @@ import { readUploadResponse } from "@/lib/media/upload-response";
 import type { AiDocumentReview } from "@/lib/ai/document-audit";
 import { auditItems, auditStep, auditUploadKind } from "@/lib/verification";
 import { Button, formatDate } from "@/components/ui";
+import { FilePicker } from "@/components/file-picker";
 import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/actions";
 import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction, updateVerificationPublicSummaryAction } from "../../verification-actions";
 import { CertificateRowControls } from "./certificate-row-controls";
@@ -349,14 +350,16 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
             {(uploadKind || linked.length > 0) && <div className="rounded-lg border border-ink-200 bg-ink-50/50 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-600">
                 <span className="font-semibold">{uploadKind === "image" ? "Ảnh thực tế" : uploadKind === "file" ? "Ảnh/PDF đối chiếu" : "Tệp cũ"} · {linked.length} tệp</span>
-                {canManageEvidence && uploadKind && <label className={`inline-flex cursor-pointer items-center gap-1 font-semibold text-brand-700 ${busy ? "pointer-events-none opacity-50" : ""}`}>
-                  <Upload className="h-3.5 w-3.5" /> {uploadKind === "image" ? "Chèn ảnh" : "Chèn ảnh/PDF"}
-                  <input type="file" accept={uploadKind === "image" ? "image/jpeg,image/png,image/webp" : "image/jpeg,image/png,image/webp,application/pdf"} multiple className="sr-only" disabled={busy} aria-label={`Chèn ${uploadKind === "image" ? "ảnh" : "ảnh/PDF"} cho ${it.label}`} onChange={(e) => {
-                    void uploadInline(it.key as AuditEvidenceKey, e.target.files);
-                    e.target.value = "";
-                  }} />
-                </label>}
               </div>
+              {canManageEvidence && uploadKind && <FilePicker
+                className="mt-2 bg-white"
+                multiple
+                busy={busy}
+                accept={uploadKind === "image" ? "image/jpeg,image/png,image/webp" : "image/jpeg,image/png,image/webp,application/pdf"}
+                title={uploadKind === "image" ? "Chèn ảnh thực tế vào mục này" : "Chèn ảnh hoặc PDF đối chiếu"}
+                hint={uploadKind === "image" ? "JPG, PNG hoặc WEBP, tối đa 8 MB mỗi ảnh. Chọn được nhiều ảnh." : "JPG, PNG hoặc PDF, tối đa 15 MB mỗi tệp. Chọn được nhiều tệp."}
+                onPick={(files) => uploadInline(it.key as AuditEvidenceKey, files)}
+              />}
               {linked.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{linked.map((asset) => <div key={asset.id} className="flex max-w-48 items-center gap-2 rounded-md border border-ink-200 bg-white p-1.5 text-xs">
                 {asset.mime?.startsWith("image/") ? (
                   // eslint-disable-next-line @next/next/no-img-element

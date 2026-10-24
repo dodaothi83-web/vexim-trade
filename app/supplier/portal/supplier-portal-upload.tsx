@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
+import { FilePicker } from "@/components/file-picker";
 
 const LABELS: Record<typeof INITIAL_DOCUMENT_KEYS[number], string> = {
   business_license: "Đăng ký doanh nghiệp",
@@ -33,9 +34,16 @@ export function SupplierPortalUpload() {
     <label className="block flex-1 text-sm"><span className="mb-1 block font-semibold">Mục tài liệu</span>
       <select name="checklistKey" className="input" required>{INITIAL_DOCUMENT_KEYS.map((key) => <option key={key} value={key}>{LABELS[key]}</option>)}</select>
     </label>
-    <label className="block flex-1 text-sm"><span className="mb-1 block font-semibold">Tệp PDF hoặc ảnh (tối đa 15 MB)</span>
-      <input name="file" type="file" accept=".pdf,image/jpeg,image/png,image/webp" className="input" required />
-    </label>
+    <div className="block min-w-0 flex-1 text-sm">
+      <FilePicker
+        name="file"
+        accept=".pdf,image/jpeg,image/png,image/webp"
+        required
+        busy={busy}
+        title="Tệp PDF hoặc ảnh"
+        hint="Tối đa 15 MB mỗi tệp. Tải lên không tự duyệt."
+      />
+    </div>
     <button disabled={busy} className="btn btn-primary" type="submit">{busy ? "Đang tải..." : "Bổ sung giấy tờ"}</button>
     {message && <p role="status" className="w-full text-sm text-ink-700">{message}</p>}
   </form>;

@@ -8,6 +8,7 @@ import type { CategoryProposalOption } from "@/lib/supplier-portal/category-prop
 import { SUPPLIER_TYPES } from "@/lib/supplier";
 import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
 import { SupplierCategoryPicker } from "./supplier-category-picker";
+import { FilePicker } from "@/components/file-picker";
 
 const FILE_LABELS: Record<typeof INITIAL_DOCUMENT_KEYS[number], string> = {
   business_license: "Đăng ký doanh nghiệp", food_safety: "Giấy ATTP",
@@ -66,8 +67,14 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
       <p className="mt-1 text-sm text-ink-600">Chọn ít nhất một trong ba giấy có dấu *: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal. Giấy phải đứng tên doanh nghiệp bạn đã khai ở bước 1, giấy đứng tên đơn vị khác không được tính. Ảnh/PDF tối đa 15 MB/tệp, tổng 5 tệp, tải lên không tự duyệt.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">{INITIAL_DOCUMENT_KEYS.map((key) => {
         const core = (CORE_DOC_KEYS as readonly string[]).includes(key);
-        return <label key={key} className="block text-sm"><span className="mb-1 block font-semibold">{FILE_LABELS[key]}{core && <span className="text-rose-700"> *</span>}</span>
-          <input type="file" name={`doc:${key}`} accept=".pdf,image/jpeg,image/png,image/webp" className="input" /></label>; })}</div>
+        return <FilePicker
+          key={key}
+          name={`doc:${key}`}
+          accept=".pdf,image/jpeg,image/png,image/webp"
+          title={FILE_LABELS[key]}
+          requiredMark={core}
+          hint="PDF, JPG, PNG hoặc WEBP, tối đa 15 MB"
+        />; })}</div>
     </section>
     <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">Muốn được xác minh thêm?</h2>
       <p className="mt-1 text-sm text-ink-600">Chọn nếu bạn muốn được liên hệ để kiểm tra thêm. Mỗi đánh giá xét riêng; thương nhân vẫn có thể yêu cầu kiểm tra lịch sử giao hàng.</p>
