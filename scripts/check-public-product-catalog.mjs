@@ -101,5 +101,7 @@ const crmEdit = readFileSync(new URL('../app/crm/products/[slug]/edit/page.tsx',
 assert.match(crmEdit, /commercialSupplier = !isSyntheticSupplier\(supplier\)/, 'CRM checklist flags test profiles');
 assert.match(crmEdit, /commercialSupplier &&/, 'CRM cannot show a broken public link for synthetic suppliers');
 const home = readFileSync(new URL('../app/(public)/home.tsx', import.meta.url), 'utf8');
-assert.match(home, /Browse products →/);
+assert.match(home, /Browse products →/, 'Desktop category cards keep the browse action');
+assert.match(home, /mt-5 hidden border-t border-slate-100 pt-3\.5 sm:block/, 'The browse action is hidden on phones and returns from sm');
+assert.match(home, /hidden text-\[13\.5px\] leading-relaxed text-ink-600 sm:line-clamp-3/, 'The short category introduction is hidden on phones and retained on desktop');
 console.log('✅ Category catalog excludes rice, projects buyer-shareable product images and protects prices/contacts.');

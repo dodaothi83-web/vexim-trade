@@ -159,7 +159,7 @@ const empty = await renderHome([]);
 assert.ok(!empty.includes('aria-labelledby="home-products-title"'), "No products means no empty section at all");
 assert.ok(empty.includes('id="categories"'), "The category grid carries the page on its own");
 
-/* Tối đa tám danh mục, bốn cột trên desktop và một hoặc hai cột ở màn nhỏ. */
+/* Tối đa tám danh mục, bốn cột trên desktop và hai cột ở màn nhỏ. */
 const tenCategories = Array.from({ length: 10 }, (_, i) => ({
   ...category,
   id: `c-${i + 1}`,
@@ -172,7 +172,9 @@ const categoryStart = categoryPage.indexOf('id="categories"');
 const categoryHtml = categoryPage.slice(categoryStart, categoryPage.indexOf("</section>", categoryStart));
 assert.equal((categoryHtml.match(/<h3/g) ?? []).length, 8, "Only eight category cards render from ten active categories");
 assert.ok(!categoryHtml.includes("Category 9"), "The ninth category moves off the homepage rather than creating a partial third row");
-assert.match(categoryHtml, /grid-cols-1[^"\n]*sm:grid-cols-2 lg:grid-cols-4/, "Categories use one, two, then four responsive columns");
+assert.match(categoryHtml, /grid-cols-2[^"\n]*lg:grid-cols-4/, "Categories use two columns on phones and four on desktop");
+assert.match(categoryHtml, /hidden text-\[13\.5px\][^"\n]*sm:line-clamp-3/, "Category introductions stay on desktop and are hidden on phones");
+assert.match(categoryHtml, /mt-5 hidden border-t[^"\n]*sm:block/, "The Browse products footer stays on desktop and is hidden on phones");
 
 /* ---------------- 2b. Chia trang lưới sản phẩm ---------------- */
 
@@ -189,7 +191,7 @@ const feedModule = compile("../components/home-product-feed.tsx", {
 const renderFeed = (items, perPage) =>
   renderToStaticMarkup(React.createElement(feedModule.HomeProductFeed, { items, perPage, isVi: false }));
 
-assert.equal(HOME_FEED_PER_PAGE, 6, "Điện thoại hai cột và máy tính bảng ba cột: sáu thẻ là hai đến ba hàng đầy");
+assert.equal(HOME_FEED_PER_PAGE, 6, "Điện thoại một cột và máy tính bảng ba cột: sáu thẻ vẫn là số lượng mobile và tablet");
 assert.equal(HOME_FEED_PER_PAGE_WIDE, 15, "Desktop năm cột: 15 thẻ là ba hàng đầy");
 assert.equal(feedPerPage(false), 6, "Dưới 1024px dùng sáu thẻ");
 assert.equal(feedPerPage(true), 15, "Từ 1024px dùng 15 thẻ");

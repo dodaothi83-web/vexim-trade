@@ -177,7 +177,7 @@ export function HomeProductFeed({
       <ul
         ref={listRef}
         // Năm cột và 15 thẻ chỉ bật cùng lúc sau khi trình duyệt xác nhận desktop.
-        className={`mt-6 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3${
+        className={`mt-6 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3${
           wide ? " lg:grid-cols-5" : ""
         }`}
       >

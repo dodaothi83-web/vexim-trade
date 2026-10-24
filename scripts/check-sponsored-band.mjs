@@ -112,7 +112,7 @@ assert.equal(pickSponsoredBand({ pushes, products, slots: 3, surface: "category"
 
 const grid = readFileSync(new URL("../components/category-product-grid.tsx", import.meta.url), "utf8");
 assert.match(grid, /!active && \(sponsoredBand\.length > 0/, "Đang lọc thì phải ẩn cả vùng đẩy");
-assert.ok(grid.indexOf("<SponsoredProductBand") < grid.indexOf("grid grid-cols-2 items-stretch gap-3"),
+assert.ok(grid.indexOf("<SponsoredProductBand") < grid.indexOf("grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2"),
   "Vùng đẩy phải nằm trên lưới tự nhiên");
 
 // Vùng đẩy là suất cộng thêm: phải lấy thẻ ra khỏi danh sách TRƯỚC khi áp trần
@@ -124,6 +124,7 @@ assert.match(grid, /const supplierCap = /, "Trần mỗi nhà cung cấp phải 
 assert.match(grid, /in the list below/, "Dòng đếm phải nói rõ trần áp cho danh sách bên dưới");
 
 const band = readFileSync(new URL("../components/sponsored-product-band.tsx", import.meta.url), "utf8");
+assert.match(band, /mt-3 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3/, "Sponsored cards use one phone column before the wider layouts");
 assert.match(band, /Sponsored · Tài trợ/, "Nhãn phải có cả hai thứ tiếng và hiện sẵn, không cần trỏ chuột");
 assert.match(band, /not a Vexim verification result/, "Nhãn phải nói rõ đây không phải kết quả xác minh");
 assert.match(band, /quoteHref=\{product\.isDemo \? undefined : `\/rfq\?category=/, "Thẻ tài trợ thật dùng CTA báo giá, thẻ demo không có RFQ");

@@ -477,8 +477,8 @@ export default async function HomeContent({
             </div>
           )}
 
-          {/* Tối đa 8 danh mục: 1–2 cột ở màn nhỏ, 4 cột và 2 hàng trên desktop. */}
-          <ul className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Tối đa 8 danh mục: 2 cột ở màn nhỏ, 4 cột và 2 hàng trên desktop. */}
+          <ul className="mt-8 grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
             {categoriesToRender.map((c) => {
               const href = `/products/${c.slug}`;
               const childCategories = getChildCategories(c, allCategories);
@@ -497,33 +497,35 @@ export default async function HomeContent({
                 <li key={c.slug} className="flex">
                   <div className="group flex w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-lg">
                     {/* Ảnh danh mục + Nhãn trạng thái */}
-                    <Link href={href} className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+                    <Link href={href} className="relative aspect-[4/3] overflow-hidden bg-slate-100 sm:aspect-[16/9]">
                       <Image
                         src={heroOf(c)}
                         alt={primaryTitle}
                         fill
-                        sizes="(max-width: 639px) calc(100vw - 40px), (max-width: 1023px) calc(50vw - 36px), (max-width: 1279px) calc(25vw - 32px), 280px"
+                        sizes="(max-width: 639px) calc(50vw - 26px), (max-width: 1023px) calc(50vw - 36px), (max-width: 1279px) calc(25vw - 32px), 280px"
                         className="object-cover transition duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-ink-950/75 via-ink-950/20 to-transparent" />
                       {hasProducts && (
-                        <span className="absolute left-3.5 top-3.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white shadow">
+                        <span className="absolute left-3.5 top-3.5 hidden items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white shadow sm:inline-flex">
                           <span className="h-1.5 w-1.5 rounded-full bg-white" />{" "}
                           {isVi ? "Có sẵn nguồn hàng" : "Suppliers available"}
                         </span>
                       )}
-                      <div className="absolute inset-x-4 bottom-3 text-white">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300">
+                      <div className="absolute inset-x-3 bottom-3 text-white sm:inset-x-4">
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-300 sm:text-[11px]">
                           {kicker || secondaryLabel}
                         </p>
-                        <h3 className="mt-0.5 text-lg font-black leading-snug text-white group-hover:text-amber-200">
+                        <h3 className="mt-0.5 text-sm font-black leading-snug text-white group-hover:text-amber-200 sm:text-lg">
                           {primaryTitle}
                         </h3>
                       </div>
                     </Link>
 
                     {/* Chỉ hiển thị danh mục con thực tế từ CRM (nếu có) hoặc mô tả thực tế từ CRM */}
-                    <div className="flex flex-1 flex-col justify-between p-5">
+                    <div className={visibleChildren.length > 0
+                      ? "flex flex-1 flex-col justify-between p-3 sm:p-5"
+                      : "hidden flex-1 flex-col justify-between p-5 sm:flex"}>
                       {visibleChildren.length > 0 ? (
                         <div>
                           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -548,13 +550,13 @@ export default async function HomeContent({
                           </ul>
                         </div>
                       ) : introText ? (
-                        <p className="line-clamp-3 text-[13.5px] leading-relaxed text-ink-600">
+                        <p className="hidden text-[13.5px] leading-relaxed text-ink-600 sm:line-clamp-3">
                           {introText}
                         </p>
                       ) : null}
 
                       {/* Dòng chữ cuối card */}
-                      <div className="mt-5 border-t border-slate-100 pt-3.5">
+                      <div className="mt-5 hidden border-t border-slate-100 pt-3.5 sm:block">
                         <Link
                           href={href}
                           className="inline-flex w-full items-center justify-between text-[13px] font-bold text-brand-700 group-hover:text-brand-900"
