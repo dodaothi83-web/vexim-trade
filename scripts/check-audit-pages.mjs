@@ -91,7 +91,7 @@ media[1].status = 'checked';
 auditor.uid = row.inspector_id;
 const selfReview = await exports.approveVerificationAction(form);
 assert.equal(selfReview.ok, false, 'Self review is refused without throwing');
-assert.match(selfReview.message, /không được tự duyệt/);
+assert.match(selfReview.message, /cần người khác duyệt/);
 auditor.uid = 'reviewer-1';
 auditor.role = 'sourcing';
 const noPermission = await exports.approveVerificationAction(form);
@@ -294,6 +294,19 @@ assert.ok(!/await (notifySupplierDecision|notifyStaffVerificationSubmission)\(/.
   'Reviewer mail must never be awaited bare');
 assert.ok(!/^\s*refreshAudit\(/m.test(approvalSource), 'Revalidation must never be awaited bare');
 assert.match(approvalSource, /softEffect\("email duyệt gửi NCC"/);
+// Giấy tờ do NCC tự tải lên có inspector_id = null. Chặn duyệt ở đây là bế tắc:
+// không ai có thể là "người kiểm" của hồ sơ do NCC tự nộp. Thay vào đó người
+// duyệt phải xác nhận đã tự đối chiếu và hồ sơ ghi self_approved.
+assert.ok(!approvalSource.includes('Bản kiểm thiếu người kiểm'), 'A supplier-uploaded review must stay reviewable');
+assert.match(approvalSource, /confirm_self_review/, 'Single reviewer must confirm the comparison');
+assert.match(approvalSource, /self_approved: !before\.inspector_id/, 'The decision records a single-person approval');
+const singleReviewerSql = fs.readFileSync(new URL('../supabase/migrations/20261033_uploaded_documents_single_reviewer.sql', import.meta.url), 'utf8');
+assert.match(singleReviewerSql, /add column if not exists self_approved boolean not null default false/);
+assert.match(singleReviewerSql, /inspector_id is null and self_approved/);
+assert.match(singleReviewerSql, /inspector_id <> approved_by/,
+  'Reviews that do have an inspector still require a different approver');
+assert.match(formUi, /confirm_self_review/, 'The audit page asks for the confirmation');
+assert.match(formUi, /người duyệt tự đối chiếu và duyệt một mình/, 'Approved banner states the single-person decision');
 // guard() cũng có thể lỗi (phiên hỏng, CSDL đọc không được) nên phải nằm TRONG try,
 // nếu không thì một lần duyệt vẫn trả về 500 dù mọi phần khác đã "mềm".
 const bareGuard = 'if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };\n  let committed = false;';

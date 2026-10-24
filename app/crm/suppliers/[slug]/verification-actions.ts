@@ -61,7 +61,7 @@ async function auditChange(before: Verification, status: VerificationStatus, act
       ...(status === "approved" ? {
         inspector_id: before.inspector_id,
         approved_by: session?.uid ?? null,
-        self_approved: before.inspector_id != null && before.inspector_id === session?.uid,
+        self_approved: before.inspector_id == null || before.inspector_id === session?.uid,
       } : {}),
     },
   }).catch((err) => console.error("[audit] verification write failed", err));
@@ -166,9 +166,11 @@ async function getReviewable(id: string) {
   if ((await store.listVerifications(before.supplier_id)).some((v) => v.target_level === before.target_level && v.status === "approved")) {
     return { ok: false as const, message: "Bước này đã được duyệt ở đợt kiểm khác." };
   }
-  if (!before.inspector_id) return { ok: false as const, message: "Bản kiểm thiếu người kiểm. Cần chuyên viên nộp lại trước khi duyệt." };
-  if (requireSecondVerificationReviewer() && before.inspector_id === session?.uid) {
-    return { ok: false as const, message: "Người kiểm không được tự duyệt. Cần người khác xét duyệt." };
+  // Giấy tờ L1 do NCC tự tải lên không có người kiểm tách biệt, nên bốn mắt chỉ
+  // áp dụng khi đợt đã có người kiểm. Trường hợp còn lại người duyệt tự đối
+  // chiếu và phải xác nhận rõ (xem approveReview), hồ sơ ghi self_approved.
+  if (requireSecondVerificationReviewer() && before.inspector_id && before.inspector_id === session?.uid) {
+    return { ok: false as const, message: "Bạn là người kiểm của đợt này; cần người khác duyệt." };
   }
   return { ok: true as const, before, store, session };
 }
@@ -202,6 +204,9 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
       (bankNumber && !/^[0-9]{1,34}$/.test(bankNumber)))) {
     return { ok: false, message: "Cần nhập mã số thuế bằng chữ số; số tài khoản ngân hàng là mục tùy chọn nhưng nếu có thì phải là chữ số. Không cần tải ảnh cho hai mục này. Trả lại để bổ sung nếu bản kiểm đã nộp." };
   }
+  if (!before.inspector_id && fd.get("confirm_self_review") !== "yes") {
+    return { ok: false, message: "Đợt này do nhà cung cấp tự tải lên nên chưa có người kiểm tách biệt. Đánh dấu xác nhận bạn đã tự đối chiếu từng giấy tờ rồi duyệt lần nữa; hệ thống sẽ ghi rõ một người vừa đối chiếu vừa duyệt." };
+  }
   if (requiredAuditItems(before.target_level).some((it) => before.checklist[it.key] !== true && before.checklist[it.key] !== false)) {
     return { ok: false, message: "Còn mục chưa kiểm; trả lại để bổ sung." };
   }
@@ -232,8 +237,19 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
       return { ok: false, message: "Cần chứng từ vận chuyển/giao nhận ở đúng đợt kiểm (gắn vào mục tương ứng hoặc chứng từ cũ đã kiểm tra). Ảnh không liên quan hoặc video không đủ điều kiện." };
     }
   }
+  const decision = { status: "approved" as const, approved_by: session?.uid ?? null, approved_at: new Date().toISOString() };
+  // Chỉ đợt chưa có người kiểm mới dùng cờ này; đợt đã có người kiểm giữ false.
+  const patch = { ...decision, self_approved: !before.inspector_id };
   try {
-    await store.updateVerification(before.id, { status: "approved", approved_by: session?.uid ?? null, approved_at: new Date().toISOString() });
+    try {
+      await store.updateVerification(before.id, patch);
+    } catch (error) {
+      // CSDL chưa chạy migration 20261033: cột self_approved chưa có. Không để
+      // thứ tự deploy chặn quyết định; ràng buộc bốn mắt (nếu còn) vẫn tự chặn.
+      if (!/self_approved/.test(briefReason(error)) || !/schema cache|PGRST204|does not exist/i.test(briefReason(error))) throw error;
+      console.warn("[verification] self_approved column missing; approving without it", briefReason(error));
+      await store.updateVerification(before.id, decision);
+    }
     markCommitted();
   } catch (error) {
     if (error instanceof Error && /verifications_four_eyes/.test(error.message)) {

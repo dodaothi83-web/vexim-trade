@@ -698,6 +698,12 @@ export interface Verification {
   /** Người duyệt (chỉ admin) */
   approved_by: string | null;
   approved_at: string | null;
+  /**
+   * Đợt kiểm không có người kiểm tách biệt (giấy tờ do NCC tự tải lên): người
+   * duyệt tự đối chiếu và tự duyệt. Cờ này để hồ sơ nói thật điều đó, không
+   * phải để hợp thức hoá việc bỏ bước kiểm.
+   */
+  self_approved?: boolean;
   created_at: string;
   updated_at: string;
 }

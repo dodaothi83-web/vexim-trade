@@ -26,6 +26,7 @@ let guardError = null;
 let sessionError = null;
 let mailError = null;
 let revalidateError = null;
+let selfApprovedColumnMissing = false;
 const updates = [];
 const mails = [];
 
@@ -35,6 +36,9 @@ const store = {
   listMedia: async () => [{ kind: 'document', storage_path: 'verifications/review-l1/bl.pdf', checklist_key: 'business_license' }],
   updateVerification: async (id, patch) => {
     if (updateError) throw updateError;
+    if (selfApprovedColumnMissing && 'self_approved' in patch) {
+      throw new Error("Could not find the 'self_approved' column of 'verifications' in the schema cache");
+    }
     updates.push({ id, patch });
     review = { ...review, ...patch };
     return review;
@@ -98,13 +102,17 @@ async function safe(call, what) {
   }
 }
 
-const approve = (id = review.id) => safe(() => exported.approveVerificationAction(fd({ id })), 'duyệt bước kiểm');
+const approve = (id = review.id, confirmSelf = false) => safe(
+  () => exported.approveVerificationAction(fd(confirmSelf ? { id, confirm_self_review: 'yes' } : { id })),
+  'duyệt bước kiểm',
+);
 const sendBack = (id = review.id, reason = 'Ảnh mờ, cần chụp lại giấy phép') =>
   safe(() => exported.returnVerificationAction(fd({ id, reason })), 'trả về bổ sung');
 
 function reset() {
   review = baseReview();
   updateError = null; guardError = null; sessionError = null; mailError = null; revalidateError = null;
+  selfApprovedColumnMissing = false;
   updates.length = 0; mails.length = 0;
 }
 
@@ -171,19 +179,50 @@ assert.equal(result.ok, true);
 assert.equal(updates[0].patch.status, 'returned');
 assert.equal(updates[0].patch.return_reason.length > 0, true);
 
-/* 8. Chưa nộp hoặc đã duyệt: thông báo nghiệp vụ, không phải lỗi hệ thống. */
+/* 8. Chưa nộp: thông báo nghiệp vụ, không phải lỗi hệ thống. */
 reset();
 review.status = 'in_progress';
 result = await approve();
 assert.equal(result.ok, false);
 assert.match(result.message, /Chỉ xét duyệt đợt đã nộp/);
+assert.equal(updates.length, 0, 'không ghi gì khi chưa đủ điều kiện duyệt');
+
+/* 9. Giấy tờ do NCC tự tải lên: inspector_id = null. Đợt này VẪN duyệt được,
+   nhưng phải xác nhận tự đối chiếu; hồ sơ ghi self_approved thay vì giả vờ có
+   hai người. Trước đây trường hợp này bị chặn vĩnh viễn. */
 reset();
-review.status = 'submitted';
 review.inspector_id = null;
 result = await approve();
-assert.equal(result.ok, false);
-assert.match(result.message, /thiếu người kiểm/);
-assert.equal(updates.length, 0, 'không ghi gì khi chưa đủ điều kiện duyệt');
+assert.equal(result.ok, false, 'chưa xác nhận thì chưa duyệt');
+assert.match(result.message, /tự đối chiếu/);
+assert.equal(updates.length, 0);
+result = await approve(review.id, true);
+assert.equal(result.ok, true, 'xác nhận rồi thì người duyệt duyệt được');
+assert.equal(updates[0].patch.self_approved, true, 'hồ sơ ghi rõ một người vừa đối chiếu vừa duyệt');
+assert.equal(updates[0].patch.approved_by, admin.uid);
+
+/* 10. Đợt ĐÃ có người kiểm thì vẫn bắt buộc người duyệt khác người kiểm. */
+reset();
+review.inspector_id = admin.uid;
+result = await approve(review.id, true);
+assert.equal(result.ok, false, 'tự duyệt đợt mình đã kiểm vẫn bị chặn');
+assert.match(result.message, /cần người khác duyệt/);
+assert.equal(updates.length, 0);
+review.inspector_id = '99999999-8888-4777-8666-555555555555';
+result = await approve(review.id, true);
+assert.equal(result.ok, true, 'người khác duyệt được đợt có người kiểm');
+assert.equal(updates[0].patch.self_approved, false, 'đợt có người kiểm không mang cờ một người');
+
+/* 11. Deploy trước khi chạy migration 20261033: cột self_approved chưa có, quyết
+   định vẫn phải lưu được (ràng buộc bốn mắt, nếu còn, tự chặn ở tầng CSDL). */
+reset();
+review.inspector_id = null;
+selfApprovedColumnMissing = true;
+result = await approve(review.id, true);
+assert.equal(result.ok, true, 'thiếu cột mới không được chặn lần duyệt');
+assert.equal(review.status, 'approved');
+assert.equal(updates.length, 1, 'ghi lại một lần sau khi bỏ cờ');
+assert.equal('self_approved' in updates[0].patch, false);
 
 reset();
 console.log('✅ Duyệt/trả về bước kiểm tra luôn trả về thông báo, không ném lỗi 500.');
