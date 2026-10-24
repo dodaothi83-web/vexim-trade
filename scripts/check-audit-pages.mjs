@@ -294,6 +294,12 @@ assert.ok(!/await (notifySupplierDecision|notifyStaffVerificationSubmission)\(/.
   'Reviewer mail must never be awaited bare');
 assert.ok(!/^\s*refreshAudit\(/m.test(approvalSource), 'Revalidation must never be awaited bare');
 assert.match(approvalSource, /softEffect\("email duyệt gửi NCC"/);
+// guard() cũng có thể lỗi (phiên hỏng, CSDL đọc không được) nên phải nằm TRONG try,
+// nếu không thì một lần duyệt vẫn trả về 500 dù mọi phần khác đã "mềm".
+const bareGuard = 'if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };\n  let committed = false;';
+assert.ok(!approvalSource.includes(bareGuard), 'Approve/return guard must run inside try');
+assert.equal(approvalSource.split('let committed = false;\n  try {').length - 1, 3,
+  'Checklist, approve and return all wrap their whole body');
 const certificateSource = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/certificate-actions.ts', import.meta.url), 'utf8');
 assert.match(certificateSource, /Chưa quét lại được chứng nhận/, 'Certificate rescan reports failures as a message');
 assert.match(certificateSource, /Chưa đổi được trạng thái hiển thị/, 'Certificate visibility reports failures as a message');

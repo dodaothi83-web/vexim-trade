@@ -178,10 +178,12 @@ export async function approveVerificationAction(fd: FormData): Promise<{ ok: boo
   // only shows a minified React digest. Every expected failure returns a
   // message instead; only a bug reaches the catch below, and even then the
   // page stays usable.
-  const gate = await guard("verifications.approve");
-  if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };
   let committed = false;
   try {
+    // Phiên đăng nhập cũng có thể lỗi (CSDL, cookie hỏng). Đặt trong try để
+    // không nhánh nào biến quyết định thành trang lỗi 500 với mã React lạ.
+    const gate = await guard("verifications.approve");
+    if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };
     return await approveReview(fd, () => { committed = true; });
   } catch (error) {
     console.error("[verification] approve action failed", error);
@@ -351,10 +353,12 @@ async function assignEvidence(mediaId: string, key: AuditEvidenceKey | null) {
 }
 
 export async function returnVerificationAction(fd: FormData): Promise<{ ok: boolean; message: string }> {
-  const gate = await guard("verifications.approve");
-  if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };
   let committed = false;
   try {
+    // Phiên đăng nhập cũng có thể lỗi (CSDL, cookie hỏng). Đặt trong try để
+    // không nhánh nào biến quyết định thành trang lỗi 500 với mã React lạ.
+    const gate = await guard("verifications.approve");
+    if (gate) return { ok: false, message: gate.message ?? "Tài khoản của bạn không có quyền thực hiện thao tác này." };
     return await returnReview(fd, () => { committed = true; });
   } catch (error) {
     console.error("[verification] return action failed", error);
