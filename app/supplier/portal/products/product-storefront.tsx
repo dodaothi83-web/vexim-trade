@@ -83,9 +83,9 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
           {!supplierPublished && <span className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Trang NCC chưa được công khai</span>}
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <label className="relative min-w-[180px] flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -tranink-y-1/2 text-ink-400" aria-hidden="true" />
+          <label className="relative min-w-[180px] flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
             <span className="sr-only">Tìm sản phẩm của tôi</span><input type="search" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Tìm tên, mô tả, quy cách..." className="input pl-10" /></label>
-          <label className="flex items-center gap-2 text-xs font-semibold text-ink-600"><span>Sắp xếp</span><select className="input min-w-[132px]" value={sort} onChange={(e) => { setSort(e.target.value as "recent" | "name"); setPage(1); }}><option value="recent">Mới cập nhật</option><option value="name">Tên A-Z</option></select></label>
+          <label className="ml-auto flex items-center gap-2 text-xs font-semibold text-ink-600"><span>Sắp xếp</span><select className="input min-w-[132px]" value={sort} onChange={(e) => { setSort(e.target.value as "recent" | "name"); setPage(1); }}><option value="recent">Mới cập nhật</option><option value="name">Tên A-Z</option></select></label>
         </div>
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Lọc trạng thái sản phẩm">{FILTERS.map((tab) =>
           <button key={tab.id} type="button" aria-pressed={filter === tab.id} onClick={() => { setFilter(tab.id); setPage(1); }}
