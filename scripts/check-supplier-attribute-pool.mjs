@@ -128,13 +128,17 @@ const html = renderToStaticMarkup(React.createElement(SupplierAttributeInputs, {
   values: { do_am: '13,5%' },
 }));
 assert.match(html, /Thông số theo nhóm hàng/);
-assert.match(html, /viết theo cách nhà máy vẫn gọi/, 'Mô tả nói bằng ngôn ngữ nhà máy');
-assert.match(html, /để nhà cung cấp khác dùng lại/, 'Mô tả nói rõ mục thêm được dùng lại');
-assert.match(html, /Thêm thông số chưa có trong danh sách/);
-assert.match(html, /Tên thông số/);
-assert.match(html, /Giá trị cho sản phẩm này/);
-assert.match(html, /Thêm thông số<\/button>/);
-assert.match(html, /Chưa có trong danh sách\? Thêm giá trị/, 'Có lối thêm lựa chọn mới cho trường có sẵn');
+assert.match(html, /Chọn đúng thông số cho lô hàng này, nếu không có thông số nào phù hợp nhà cung cấp có thể tự thêm\./,
+  'Mô tả đúng câu yêu cầu, không dài dòng');
+assert.doesNotMatch(html, /viết theo cách nhà máy vẫn gọi/, 'Bỏ mô tả dài cũ');
+assert.doesNotMatch(html, /để nhà cung cấp khác dùng lại/, 'Bỏ mô tả dài cũ');
+assert.doesNotMatch(html, /Thêm thông số chưa có trong danh sách/, 'Bỏ tiêu đề khối thêm thông số');
+assert.doesNotMatch(html, /Ví dụ: Độ ẩm, Tỷ lệ hạt vỡ/, 'Bỏ dòng ví dụ dài');
+assert.doesNotMatch(html, /Chưa có trong danh sách\? Thêm giá trị/, 'Bỏ nút chữ dài dưới ô chọn');
+assert.match(html, /＋ Thêm thông số khác/, 'Còn lối gọn để thêm thông số mới');
+assert.match(html, />Thêm<\/button>/, 'Chữ Thêm ngay dưới ô Grade');
+assert.equal((html.match(/class="input min-w-0 flex-1" name="attribute:product_type"/) ?? []).length, 1,
+  'Ô Grade được nới rộng để chứa ô nhập mới bên cạnh');
 assert.match(html, /name="attribute_pool"/, 'Pool được gửi kèm form');
 assert.match(html, /name="attribute:do_am"/);
 assert.match(html, /name="attribute:product_type"/);
@@ -143,15 +147,28 @@ assert.match(html, /NCC tự thêm/, 'Thông số của NCC khác được đán
 assert.match(html, /Cassia powder hạt mịn/, 'Lựa chọn NCC khác đã thêm hiện trong danh sách chọn');
 assert.match(html, /không tạo nhãn xác minh/, 'Nói rõ không phải xác minh');
 
+// Nhóm hàng chưa có thông số nào: mở luôn ô nhập, không phải bấm thêm bước nào.
 const noFieldHtml = renderToStaticMarkup(React.createElement(SupplierAttributeInputs, {
   officialFields: [], supplierFields: [], values: {},
 }));
-assert.match(noFieldHtml, /Thêm thông số chưa có trong danh sách/, 'Nhóm hàng chưa có thông số vẫn thêm mới được');
+assert.match(noFieldHtml, /Tên thông số/, 'Nhóm hàng chưa có thông số vẫn nhập được ngay');
+assert.match(noFieldHtml, /Giá trị cho sản phẩm này/);
+assert.match(noFieldHtml, /aria-label="Tên thông số mới"/);
+assert.doesNotMatch(noFieldHtml, /Thêm thông số chưa có trong danh sách/);
 
 const lockedHtml = renderToStaticMarkup(React.createElement(SupplierAttributeInputs, {
   officialFields: category.product_fields, supplierFields: [], values: {}, disabled: true,
 }));
-assert.doesNotMatch(lockedHtml, /Thêm thông số<\/button>/, 'Sản phẩm đang chờ duyệt thì không thêm được');
+assert.doesNotMatch(lockedHtml, />Thêm<\/button>/, 'Sản phẩm đang chờ duyệt thì không thêm được');
+assert.doesNotMatch(lockedHtml, /＋ Thêm thông số khác/, 'Sản phẩm đang chờ duyệt thì không thêm thông số mới');
+
+// Chữ "Thêm" dưới ô chọn mở ô nhập ngay cạnh ô đó (không phải link chữ dài).
+const component = read('../components/supplier-attribute-inputs.tsx');
+assert.match(component, /optionFor === field\.key && <>/, 'Ô nhập mới nằm cùng hàng với ô chọn');
+assert.match(component, /className="input min-w-0 flex-1" autoFocus maxLength=\{60\} placeholder="Giá trị mới"/,
+  'Ô nhập mới gọn, có nhãn cho trình đọc màn hình');
+assert.match(component, /className="btn btn-primary btn-sm shrink-0" onClick=\{\(\) => addOption\(field, optionDraft\)\}>Thêm<\/button>/,
+  'Nút Thêm nằm ngay cạnh ô nhập mới');
 
 /* 9. Trang sản phẩm truyền cả trường CMS và thông số NCC khác đã thêm. */
 const editor = read('../app/supplier/portal/products/product-editor.tsx');
