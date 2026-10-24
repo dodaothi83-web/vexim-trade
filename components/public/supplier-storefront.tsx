@@ -9,7 +9,7 @@ import { supplierTypeLabel, t, type PublicSupplierCard } from "@/lib/public/cata
 import type { Category } from "@/lib/types";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
-import { supplierExportMarketsDisplay, supplierMoqDisplay } from "@/lib/public/supplier-english";
+import { supplierAddressDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierMoqDisplay, supplierPortsDisplay, supplierProvinceDisplay } from "@/lib/public/supplier-english";
 import { PRODUCT_VERIFICATION_EXPLANATIONS } from "@/lib/verification-status";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
@@ -92,7 +92,7 @@ export function SupplierStorefront({
           </div>
           <NameTag id="supplier-name" className="mt-3 break-words text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">{name}</NameTag>
           <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-600">
-            {s.province && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-brand-700" />{safe(s.province)}, Vietnam</span>}
+            {supplierProvinceDisplay(s) && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-brand-700" />{safe(supplierProvinceDisplay(s))}, Vietnam</span>}
             {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
             {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
           </div>
@@ -195,7 +195,7 @@ export function SupplierStorefront({
         <div className="rounded-xl border border-ink-200 bg-white p-5 shadow-card">
           <h2 className="text-base font-bold text-ink-900">Trade at a glance</h2>
           <dl className="mt-2"><Fact icon={Package} label="Typical MOQ (supplier-stated)" value={supplierMoqDisplay(s)} />
-            <Fact icon={Ship} label="Ports / Incoterms (supplier-stated)" value={[...(s.ports ?? []), ...(s.incoterms ?? [])].join(" · ")} />
+            <Fact icon={Ship} label="Ports / Incoterms (supplier-stated)" value={[...supplierPortsDisplay(s), ...supplierIncotermsDisplay(s)].join(" · ")} />
             <Fact icon={Clock3} label="Lead time (supplier-stated)" value={s.lead_time_days ? `${s.lead_time_days} days` : ""} />
             <Fact icon={Globe2} label="Export markets (supplier-stated)" value={supplierExportMarketsDisplay(s).join(", ")} /></dl>
           {rfqActions && !synthetic && <div className="mt-4 space-y-2"><Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="flex items-center justify-center gap-2 rounded-lg bg-ink-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-ink-800">Request quote <ArrowRight className="h-4 w-4" /></Link>
@@ -209,7 +209,7 @@ export function SupplierStorefront({
           <dl className="mt-2">
             <div className="border-b border-ink-100 py-3"><dt className="text-xs text-ink-500">Legal name</dt><dd className="mt-0.5 break-words text-sm font-semibold text-ink-800">{safe(s.name)}</dd></div>
             {s.trade_name && s.trade_name !== s.name && <div className="border-b border-ink-100 py-3"><dt className="text-xs text-ink-500">Trade name</dt><dd className="mt-0.5 break-words text-sm font-semibold text-ink-800">{safe(s.trade_name)}</dd></div>}
-            <div className="border-b border-ink-100 py-3"><dt className="text-xs text-ink-500">Registered address</dt><dd className="mt-0.5 break-words text-sm font-semibold text-ink-800">{safe(s.address) || (s.province ? `${safe(s.province)}, Vietnam` : "Ask Vexim for the registered address before contracting.")}</dd></div>
+            <div className="border-b border-ink-100 py-3"><dt className="text-xs text-ink-500">Registered address</dt><dd className="mt-0.5 break-words text-sm font-semibold text-ink-800">{safe(supplierAddressDisplay(s)) || (supplierProvinceDisplay(s) ? `${safe(supplierProvinceDisplay(s))}, Vietnam` : "Ask Vexim for the registered address before contracting.")}</dd></div>
             <div className="py-3"><dt className="text-xs text-ink-500">Contact</dt><dd className="mt-0.5 text-sm font-semibold text-ink-800">Through Vexim Trade by RFQ</dd></div>
           </dl>
           <p className="text-xs leading-5 text-ink-500">Legal name and registered address come from the supplier record held by Vexim. Email, phone and internal verification documents are not published.</p>

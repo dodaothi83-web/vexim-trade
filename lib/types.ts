@@ -31,6 +31,18 @@ export type I18nString = Record<string, string>;
 /** Danh sách ngắn theo ngôn ngữ, ví dụ tên thị trường xuất khẩu: { en: ["United States", "Japan"] } */
 export type I18nList = Record<string, string[]>;
 
+/** Bản dịch phái sinh của các trường hồ sơ chưa có cột i18n riêng. */
+export type SupplierProfileEnglishFields = {
+  province?: string;
+  address?: string;
+  products?: string;
+  markets?: string;
+  capacity_per_month?: string;
+  payment_terms?: string;
+  ports?: string[];
+  incoterms?: string[];
+};
+
 export interface Supplier {
   id: string;
   /** Tên pháp nhân */
@@ -90,7 +102,7 @@ export interface Supplier {
   moq_text_i18n?: I18nString;
   /** Thị trường xuất khẩu theo ngôn ngữ, hiển thị trên trang buyer */
   export_markets_i18n?: I18nList;
-  /** Dấu vết dịch tự động hồ sơ: hash nội dung gốc (MOQ, thị trường) tại thời điểm dịch để phát hiện bản dịch đã cũ. */
+  /** Dấu vết dịch tự động hồ sơ: hash toàn bộ nội dung gốc cần dịch tại thời điểm dịch để phát hiện bản dịch đã cũ. */
   profile_translation_meta?: {
     source_hash: string;
     translated_at: string;
@@ -100,6 +112,8 @@ export interface Supplier {
     summary_generated?: boolean;
     /** Hash phần giới thiệu gốc tại thời điểm dịch, để dịch lại khi NCC sửa câu chuyện của họ. */
     summary_source_hash?: string;
+    /** Cache bản tiếng Anh của các trường hồ sơ khác, nằm trong JSONB hiện có để không cần thêm cột. */
+    fields?: SupplierProfileEnglishFields;
   } | null;
   /** Công suất tháng mô tả text */
   capacity_per_month?: string | null;

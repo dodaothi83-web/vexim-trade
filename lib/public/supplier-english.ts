@@ -10,3 +10,40 @@ export function supplierExportMarketsDisplay(supplier: Pick<Supplier, "export_ma
   const translated = (supplier.export_markets_i18n?.en ?? []).map((m) => m?.trim()).filter(Boolean) as string[];
   return translated.length ? translated : supplier.export_markets ?? [];
 }
+
+export function supplierProvinceDisplay(supplier: Pick<Supplier, "province" | "profile_translation_meta">): string {
+  return supplier.profile_translation_meta?.fields?.province?.trim() || supplier.province || "";
+}
+
+export function supplierAddressDisplay(supplier: Pick<Supplier, "address" | "profile_translation_meta">): string {
+  return supplier.profile_translation_meta?.fields?.address?.trim() || supplier.address || "";
+}
+
+export function supplierProductsDisplay(supplier: Pick<Supplier, "products" | "profile_translation_meta">): string {
+  return supplier.profile_translation_meta?.fields?.products?.trim() || supplier.products || "";
+}
+
+export function supplierMarketsDisplay(supplier: Pick<Supplier, "markets" | "profile_translation_meta">): string {
+  return supplier.profile_translation_meta?.fields?.markets?.trim() || supplier.markets || "";
+}
+
+export function supplierCapacityDisplay(supplier: Pick<Supplier, "capacity_per_month" | "profile_translation_meta">): string {
+  return supplier.profile_translation_meta?.fields?.capacity_per_month?.trim() || supplier.capacity_per_month || "";
+}
+
+export function supplierPaymentTermsDisplay(supplier: Pick<Supplier, "payment_terms" | "profile_translation_meta">): string {
+  return supplier.profile_translation_meta?.fields?.payment_terms?.trim() || supplier.payment_terms || "";
+}
+
+function listDisplay(translated: string[] | undefined, source: string[] | undefined): string[] {
+  const values = (translated ?? []).map((item) => item?.trim()).filter(Boolean) as string[];
+  return values.length ? values : source ?? [];
+}
+
+export function supplierPortsDisplay(supplier: Pick<Supplier, "ports" | "profile_translation_meta">): string[] {
+  return listDisplay(supplier.profile_translation_meta?.fields?.ports, supplier.ports);
+}
+
+export function supplierIncotermsDisplay(supplier: Pick<Supplier, "incoterms" | "profile_translation_meta">): string[] {
+  return listDisplay(supplier.profile_translation_meta?.fields?.incoterms, supplier.incoterms);
+}

@@ -1,4 +1,4 @@
-// node scripts/check-supplier-translation.mjs — AI dịch hồ sơ NCC: MOQ, thị trường xuất khẩu,
+// node scripts/check-supplier-translation.mjs — AI dịch các nội dung hồ sơ NCC cho buyer,
 // giới thiệu tiếng Anh khi NCC để trống, phát hiện bản dịch đã cũ và các điểm hiển thị công khai.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -40,6 +40,31 @@ const fallback = ai.parseSupplierProfileTranslation('not json', source);
 assert.equal(fallback.moq_en, source.moq_text);
 assert.deepEqual(fallback.export_markets_en, source.export_markets);
 
+// Các trường hồ sơ khác cũng được dịch và làm mới khi nội dung gốc thay đổi.
+const fullSource = ai.supplierProfileSource({
+  moq_text: '1 tấn', export_markets: ['Hoa Kỳ'], province: 'Bình Phước', address: 'Số 1, đường A',
+  products: 'Hạt điều', markets: 'Việt Nam', capacity_per_month: '10 tấn/tháng', payment_terms: 'Thanh toán sau',
+  ports: ['Cát Lái'], incoterms: ['FOB'],
+});
+const fullTranslation = ai.parseSupplierProfileTranslation(JSON.stringify({
+  moq_en: '1 MT', export_markets_en: ['United States'], province_en: 'Binh Phuoc', address_en: '1 A Street',
+  products_en: 'Cashew kernels', markets_en: 'Vietnam', capacity_per_month_en: '10 MT/month', payment_terms_en: 'Deferred payment',
+  ports_en: ['Cat Lai'], incoterms_en: ['FOB'], summary_en: '',
+}), fullSource);
+assert.equal(fullTranslation.province_en, 'Binh Phuoc');
+assert.equal(fullTranslation.products_en, 'Cashew kernels');
+assert.equal(fullTranslation.payment_terms_en, 'Deferred payment');
+const fullPatch = ai.supplierProfilePatch(fullTranslation, fullSource, 'ai', 'mock');
+assert.equal(fullPatch.profile_translation_meta.fields.address, '1 A Street');
+assert.equal(ai.supplierProfileTranslationState({ ...fullSource, ...fullPatch }).current, true);
+assert.equal(ai.supplierProfileTranslationState({ ...fullSource, ...fullPatch, address: 'Địa chỉ mới' }).current, false);
+
+const english = load('../lib/public/supplier-english.ts', { '@/lib/types': {} });
+const displaySupplier = { province: 'Bình Phước', address: 'Số 1', ports: ['Cát Lái'], profile_translation_meta: { fields: { province: 'Binh Phuoc', address: '1 A Street', ports: ['Cat Lai'] } } };
+assert.equal(english.supplierProvinceDisplay(displaySupplier), 'Binh Phuoc');
+assert.equal(english.supplierAddressDisplay(displaySupplier), '1 A Street');
+assert.equal(english.supplierPortsDisplay(displaySupplier)[0], 'Cat Lai');
+
 // Hash và trạng thái: vừa dịch thì khớp; sửa MOQ gốc thì bản dịch bị coi là đã cũ.
 const patch = ai.supplierProfilePatch(parsed, source, 'ai', 'gpt-4.1-mini', true);
 assert.equal(patch.moq_text_i18n.en, '1 MT for W320');
@@ -67,14 +92,21 @@ assert.match(actions, /ensureSupplierProfileEnglish\(store, id/, 'nhân viên l�
 const service = fs.readFileSync(new URL('../lib/ai/supplier-translation-service.ts', import.meta.url), 'utf8');
 assert.match(service, /needsSummary/, 'phải soạn giới thiệu khi NCC để trống ô tiếng Anh');
 assert.match(service, /patch\.summary_i18n/, 'giới thiệu AI chỉ ghi khi đang trống');
+assert.match(service, /supplierProfileHasSource\(source\) && !state\.current/, 'mọi trường hồ sơ có nguồn đều phải kích hoạt dịch');
+assert.match(service, /fields: supplier\.profile_translation_meta\?\.fields/, 'lưu bản giới thiệu thủ công không được xóa cache các trường khác');
 
 const profilePage = fs.readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8') +
   fs.readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8');
 assert.match(profilePage, /supplierMoqDisplay\(s\)/, 'trang NCC phải hiển thị MOQ bản tiếng Anh');
 assert.match(profilePage, /supplierExportMarketsDisplay\(s\)/, 'trang NCC phải hiển thị thị trường bản tiếng Anh');
+assert.match(profilePage, /supplierProvinceDisplay\(s\)/, 'trang NCC phải hiển thị địa điểm bản tiếng Anh');
+assert.match(profilePage, /supplierAddressDisplay\(s\)/, 'trang NCC phải hiển thị địa chỉ bản tiếng Anh');
+assert.match(profilePage, /supplierPortsDisplay\(s\)/, 'trang NCC phải hiển thị cảng bản tiếng Anh');
 
 const compare = fs.readFileSync(new URL('../app/(public)/compare/page.tsx', import.meta.url), 'utf8');
 assert.match(compare, /supplierMoqDisplay\(s\)/, 'trang so sánh phải hiển thị MOQ bản tiếng Anh');
+assert.match(compare, /supplierProvinceDisplay\(s\)/, 'trang so sánh phải hiển thị địa điểm bản tiếng Anh');
+assert.match(compare, /supplierPortsDisplay\(s\)/, 'trang so sánh phải hiển thị cảng bản tiếng Anh');
 
 const form = fs.readFileSync(new URL('../app/supplier/portal/supplier-profile-form.tsx', import.meta.url), 'utf8');
 assert.match(form, />Giới thiệu</, 'ô nhập phải là phần giới thiệu của NCC');

@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  supplierProfileHasSource,
   supplierProfilePatch,
   supplierProfileSource,
   supplierProfileSourceHash,
@@ -29,9 +30,9 @@ export type EnsureSupplierTranslationResult =
 
 /**
  * Bảo đảm các nội dung hồ sơ NCC hiển thị cho buyer có bản tiếng Anh:
- * MOQ dạng chữ và thị trường xuất khẩu được dịch; phần giới thiệu là bản dịch trung thực
- * câu chuyện NCC tự viết, NCC sửa câu chuyện thì dịch lại. Chỉ khi NCC không viết phần
- * giới thiệu, AI mới soạn nháp từ dữ kiện hồ sơ để trang buyer không bị trống.
+ * MOQ, địa điểm, địa chỉ, mặt hàng, thị trường, công suất, điều khoản, cảng và Incoterms
+ * được dịch cùng phần giới thiệu. NCC sửa nội dung gốc thì toàn bộ bản dịch được làm mới.
+ * Chỉ khi NCC không viết phần giới thiệu, AI mới soạn nháp từ dữ kiện hồ sơ.
  * Lỗi dịch không chặn nghiệp vụ nộp hoặc công khai hồ sơ.
  */
 export async function ensureSupplierProfileEnglish(
@@ -56,13 +57,14 @@ export async function ensureSupplierProfileEnglish(
         model: supplier.profile_translation_meta?.model ?? null,
         summary_generated: false,
         summary_source_hash: supplierSummarySourceHash(story),
+        fields: supplier.profile_translation_meta?.fields,
       },
     }).catch((error) => console.error("[supplier-translation] preserve summary", error));
   }
   // Có câu chuyện tự viết thì dịch lại mỗi khi câu chuyện thay đổi; không có thì soạn nháp khi đang trống.
   const needsSummary = !opts?.preserveSummary && (story ? !state.summaryCurrent
     : !supplier.summary_i18n?.en?.trim() && Boolean(supplier.products?.trim()));
-  const needsTranslation = (Boolean(source.moq_text) || Boolean(source.export_markets.length)) && !state.current;
+  const needsTranslation = supplierProfileHasSource(source) && !state.current;
   if (!needsTranslation && !needsSummary) return { status: "current", supplier };
   if (!translationConfigured()) return { status: "unconfigured", supplier };
   try {

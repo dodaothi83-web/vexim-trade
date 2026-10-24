@@ -107,6 +107,7 @@ const productCatalog = compile('../lib/public/product-catalog.ts', {
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
   '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
   '@/lib/public/supplier-seo': { isSyntheticSupplier },
+  '@/lib/public/supplier-english': { supplierProvinceDisplay: (s) => s.province || '' },
 });
 const photoSamples = [
   { ...media[0], id: 'img-first', product_id: 'a0', storage_path: 'products/a0/first.jpg', sort_order: 0 },

@@ -10,6 +10,7 @@ import { getStore } from "@/lib/db";
 import { publicSupplierCertificates } from "@/lib/public/certificates";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { publicProductTitle } from "@/lib/public/display-name";
+import { supplierAddressDisplay, supplierProvinceDisplay } from "@/lib/public/supplier-english";
 import { isSyntheticSupplier, safeJsonLd, supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
 import { getSession } from "@/lib/auth/session";
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const summary = safe(t(s.summary_i18n)).replace(/\s+/g, " ").trim();
   const description = summary.length > 155 ? `${summary.slice(0, 152).trimEnd()}…` :
     summary || `Explore ${name}'s buyer-ready products and request a quote through Vexim Trade.`;
-  const title = `${name} | ${supplierTypeLabel(s)} in ${safe(s.province) || "Vietnam"}`;
+  const title = `${name} | ${supplierTypeLabel(s)} in ${safe(supplierProvinceDisplay(s)) || "Vietnam"}`;
   const index = process.env.PUBLIC_SITE_INDEXABLE === "true" && supplierProfileIndexable(s);
   return {
     title, description,
@@ -74,7 +75,7 @@ export default async function SupplierProfile({ params }: PageProps) {
         // đã được phê duyệt, tức hai dữ kiện này đã đối chiếu với hồ sơ doanh nghiệp.
         ...(steps.includes(1) && s.founded_year ? { foundingDate: String(s.founded_year) } : {}),
         ...(steps.includes(1) && s.employees ? { numberOfEmployees: { "@type": "QuantitativeValue", value: s.employees } } : {}),
-        address: { "@type": "PostalAddress", ...(safe(s.address) ? { streetAddress: safe(s.address) } : {}), addressRegion: safe(s.province) || undefined, addressCountry: "VN" } },
+        address: { "@type": "PostalAddress", ...(safe(supplierAddressDisplay(s)) ? { streetAddress: safe(supplierAddressDisplay(s)) } : {}), addressRegion: safe(supplierProvinceDisplay(s)) || undefined, addressCountry: "VN" } },
       { "@type": "BreadcrumbList", itemListElement: [
         { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
         { "@type": "ListItem", position: 2, name, item: profileUrl },
@@ -109,7 +110,7 @@ export default async function SupplierProfile({ params }: PageProps) {
     {related.length > 0 && <section className="mt-12" aria-labelledby="related-title">
       <h2 id="related-title" className="text-lg font-bold text-ink-900">Explore other suppliers</h2>
       <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{related.map((r) => <li key={r.id}><Link href={`/suppliers/${encodeURIComponent(r.slug || r.id)}`} className="block h-full rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-200 hover:shadow-card">
-        <p className="font-bold text-ink-900">{safe(r.display_name || r.name)}</p><p className="mt-1 text-xs text-ink-600">{safe(r.province) || "Vietnam"} · {supplierTypeLabel(r)}</p>
+        <p className="font-bold text-ink-900">{safe(r.display_name || r.name)}</p><p className="mt-1 text-xs text-ink-600">{safe(supplierProvinceDisplay(r)) || "Vietnam"} · {supplierTypeLabel(r)}</p>
         <div className="mt-3 flex flex-wrap items-center gap-1.5"><VerificationPips levels={r.approved_verification_steps} compact /><VerificationTierBadge levels={r.approved_verification_steps} /></div>
       </Link></li>)}</ul>
     </section>}

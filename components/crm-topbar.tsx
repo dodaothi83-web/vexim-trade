@@ -96,10 +96,6 @@ export function CrmTopbar({ queues }: { queues: CrmQueue[] }) {
               <CheckCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />
               Không còn việc nào chờ xử lý.
             </p>}
-
-            <div className="border-t border-ink-200 bg-ink-50/60 px-4 py-2 text-[11px] leading-4 text-ink-500">
-              Số việc tự trừ khi bạn duyệt, trả về hoặc xác nhận xong. NCC vẫn nhận email và chuông trong cổng của họ.
-            </div>
           </div>
         </>}
       </div>

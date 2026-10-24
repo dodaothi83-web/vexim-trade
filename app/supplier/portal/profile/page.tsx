@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, Eye, FileText, ShieldCheck } from "lucide-react";
+import { BadgeCheck, Eye, FileText, Pencil, ShieldCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -73,6 +73,9 @@ export default async function SupplierProfilePage() {
       sub="Đây là hồ sơ buyer và bộ phận duyệt nhìn thấy, kèm tình trạng từng cấp xác minh. Mỗi cấp là một kết luận riêng."
       actions={<>
         <span className="rounded-full bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand-800">Bước tiếp theo: {nextGoal}</span>
+        <Link href="/supplier/portal/profile/edit" className="btn btn-primary">
+          <Pencil className="h-4 w-4" aria-hidden="true" />Chỉnh sửa hồ sơ
+        </Link>
         <Link href="/supplier/portal/storefront" className="btn btn-ghost">
           <Eye className="h-4 w-4" aria-hidden="true" />Trang của tôi
         </Link>
@@ -86,7 +89,7 @@ export default async function SupplierProfilePage() {
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <div className="space-y-5">
         <Panel icon={<FileText className="h-4 w-4 text-brand-700" />} title="Thông tin trên hồ sơ"
-          sub="Đối chiếu với trang công khai. Cần sửa thông tin hoặc số tài khoản đã khai, liên hệ bộ phận hỗ trợ.">
+          sub="Bạn có thể cập nhật thông tin liên hệ, giới thiệu và thương mại. Tên pháp nhân, mã số thuế và kết quả xác minh do Vexim quản lý.">
           <p className="text-[10.5px] font-bold tracking-[0.14em] text-ink-400 uppercase">Doanh nghiệp</p>
           <dl className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
             <Info label="Tên pháp nhân" value={supplier.name} />
@@ -107,6 +110,7 @@ export default async function SupplierProfilePage() {
             <Info label="Thị trường" value={marketText} />
             <Info label="Công suất mỗi tháng" value={supplier.capacity_per_month} />
             <Info label="MOQ" value={supplier.moq_text} />
+            <Info label="Điều khoản thanh toán" value={supplier.payment_terms} />
             <Info label="Cảng xuất" value={join(supplier.ports)} />
             <Info label="Incoterms" value={join(supplier.incoterms)} />
             <Info label="Thời gian giao" value={supplier.lead_time_days ? `${supplier.lead_time_days} ngày` : null} />
@@ -121,11 +125,11 @@ export default async function SupplierProfilePage() {
             <Info label="Zalo" value={supplier.zalo} />
             <Info label="Website" value={supplier.website} />
           </dl>
-          <p className="mt-4 text-[11px] leading-5 text-ink-500">Tên hiển thị, phần giới thiệu và thông tin thương mại là nội dung đề xuất, sẽ được biên tập trước khi công khai. Email, điện thoại và giấy tờ nội bộ không hiển thị cho buyer.</p>
+          <p className="mt-4 text-[11px] leading-5 text-ink-500">Tên hiển thị, phần giới thiệu và thông tin thương mại là nội dung do bạn cung cấp. Email, điện thoại và giấy tờ nội bộ không hiển thị cho buyer.</p>
         </Panel>
 
         <Panel icon={<BadgeCheck className="h-4 w-4 text-brand-700" />} title="Giới thiệu trên trang công khai"
-          sub="Phần buyer đọc đầu tiên, được biên tập lại trước khi công khai.">
+          sub="Phần buyer đọc đầu tiên trên trang công khai.">
           {about
             ? <p className="text-[13px] leading-6 whitespace-pre-line text-ink-700">{about}</p>
             : <p className="text-[13px] leading-6 text-ink-500">Chưa có phần giới thiệu. Gửi nội dung để bổ sung trước khi hồ sơ công khai.</p>}
