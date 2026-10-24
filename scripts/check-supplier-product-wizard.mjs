@@ -114,7 +114,41 @@ assert.match(onStep2, /Trở về bước 1/, 'Bước 2 có nút Trở về bư
 assert.match(onStep2, /Sang bước 3/, 'Bước 2 có nút sang bước 3');
 const onStep3 = render({ initialStep: 3 });
 assert.match(onStep3, /Trở về bước 2/, 'Bước 3 có nút Trở về bước 2');
-assert.match(onStep3, /Gửi Vexim kiểm tra/, 'Bước 3 có nút gửi duyệt');
+assert.match(onStep3, /Gửi hồ sơ cho Vexim kiểm tra/, 'Bước 3 có nút gửi hồ sơ');
+
+// 3b. Bước 3 là bước XEM LẠI: hiển thị lại toàn bộ dữ liệu bước 1 và tệp của bước 2.
+assert.match(onStep3, /Xem lại toàn bộ hồ sơ/, 'Bước 3 là bước xem lại');
+assert.match(onStep3, /Bước 3 · Xem lại và gửi/, 'Nhãn bước 3 nói rõ xem lại rồi gửi');
+for (const label of ['Thông tin sản phẩm', 'Thông tin thương mại &amp; xuất khẩu', 'Đặt hàng &amp; năng lực', 'Ảnh &amp; catalogue']) {
+  assert.ok(onStep3.includes(label), `Bước 3 đọc lại khối ${label}`);
+}
+for (const value of ['Hạt điều nhân W320', 'Hạt &amp; hạt nhân · Hạt điều', 'Hạt điều trắng', 'W320', '7.2', '200 tấn',
+  'Cát Lái', 'FOB', 'T/T 30%', 'HACCP', 'Carton 22.68kg', 'products/p1/a.jpg']) {
+  assert.ok(onStep3.includes(value), `Bước 3 hiển thị giá trị đã nhập: ${value}`);
+}
+assert.equal((onStep3.match(/Sửa<\/button>/g) ?? []).length, 4, 'Mỗi khối ở bước 3 có nút Sửa quay lại đúng bước');
+assert.match(source, /ReviewField/, 'Có thành phần đọc lại từng trường');
+assert.match(source, /snapshotFromForm/, 'Bản xem lại cập nhật theo nội dung đang nhập');
+assert.match(source, /price_publicly_visible === "yes"/, 'Cờ thương mại hiện thành chip ở bước 3');
+
+// 3c. Nút gửi luôn phản hồi: không phải nút chết khi còn thiếu điều kiện.
+assert.doesNotMatch(source, /onClick=\{submit\} disabled=\{busy \|\| !canSubmit\}/, 'Nút gửi không bị khoá im lặng');
+assert.match(source, /function requestSubmit\(\)/, 'Nút gửi đi qua requestSubmit để luôn phản hồi');
+assert.match(source, /submitBlockers\(\)/, 'Có danh sách việc còn thiếu');
+assert.match(source, /setSubmitHint\(blockers\)/, 'Bấm gửi khi thiếu sẽ hiện lời nhắc thay vì không làm gì');
+assert.match(source, /Đang gửi hồ sơ…/, 'Nút có trạng thái đang gửi');
+assert.match(source, /animate-spin/, 'Có vòng xoay khi đang gửi');
+assert.match(source, /Đã gửi hồ sơ/, 'Gửi xong có xác nhận rõ ràng');
+assert.match(source, /aria-live="polite"/, 'Lời nhắc được đọc bởi trình đọc màn hình');
+assert.match(source, /id="submit-blockers"/, 'Nút gửi liên kết tới phần giải thích điều kiện');
+
+// 3d. Sẵn sàng thì nói rõ; thiếu thì nút vẫn bấm được và liệt kê việc cần làm.
+assert.match(onStep3, /Hồ sơ đủ điều kiện/, 'Đủ điều kiện thì báo rõ trước khi gửi');
+const missingMedia = render({ initialStep: 3, media: [] });
+const sendButton = (missingMedia.match(/<button[^>]*>[\s\S]{0,80}lucide-send|<button[^>]*aria-describedby="submit-blockers"/) ?? [''])[0];
+assert.ok(sendButton && !/disabled/.test(sendButton.split('>')[0]), 'Thiếu điều kiện vẫn không khoá nút gửi');
+assert.match(missingMedia, /Tải ít nhất một ảnh hoặc catalogue thật ở bước 2/, 'Nói rõ thiếu tệp ở đâu');
+assert.match(missingMedia, /<div id="submit-blockers" aria-live="polite">/, 'Danh sách việc cần làm có aria-live');
 assert.match(onStep2, /data-step-panel="1" class="hidden"/, 'Bước 2 ẩn hẳn form bước 1 (không kéo dài trang) nhưng vẫn giữ dữ liệu để gửi form');
 assert.match(onStep2, /data-step-panel="2" class="space-y-3"/, 'Bước 2 đang mở');
 assert.equal((onStep2.match(/aria-current="step"/g) ?? []).length, 1, 'Ở bước 2 chỉ đánh dấu bước 2');
@@ -155,4 +189,4 @@ assert.match(listPage, /categoryLabels=/, 'Trang danh sách truyền nhãn danh 
 assert.match(listPage, /scope=\{\[?scope/, 'Trang danh sách truyền phạm vi danh mục');
 assert.match(listPage, /allowedSupplierCategories/, 'Phạm vi lấy từ đúng lớp dữ liệu danh mục');
 
-console.log('✅ Product page: 3 bước một màn hình, nút Trở về/Tiếp tục ở đáy, thương mại & xuất khẩu hiện ngay, giữ nguyên hành vi lưu–tải tệp–nộp duyệt.');
+console.log('✅ Product page: 3 bước một màn hình, bước 3 đọc lại toàn bộ dữ liệu bước 1–2, nút gửi luôn phản hồi, thương mại & xuất khẩu hiện ngay.');

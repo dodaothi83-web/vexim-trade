@@ -13,6 +13,7 @@ import {
   FileText,
   ImageIcon,
   LockKeyhole,
+  Pencil,
   Save,
   Send,
   UploadCloud,
@@ -41,7 +42,7 @@ type Step = 1 | 2 | 3;
 const STEPS: { step: Step; title: string; short: string; hint: string }[] = [
   { step: 1, title: "Thông tin sản phẩm", short: "Thông tin", hint: "Tên, quy cách, thương mại" },
   { step: 2, title: "Ảnh & catalogue", short: "Hình ảnh", hint: "Tệp thực tế gửi Vexim" },
-  { step: 3, title: "Gửi Vexim duyệt", short: "Gửi duyệt", hint: "Kiểm tra và nộp" },
+  { step: 3, title: "Xem lại & gửi", short: "Xem lại", hint: "Đọc lại toàn bộ rồi nộp" },
 ];
 
 const BASE_FIELDS = [
@@ -56,6 +57,65 @@ const EXPORT_FIELDS = [
   ["incoterm", "Incoterm", "Ví dụ: FOB", 20],
   ["incoterm_place", "Địa điểm Incoterm", "Ví dụ: Hồ Chí Minh", 100],
 ] as const;
+
+/** Nhóm trường hiển thị ở bước 3 để NCC đọc lại đúng những gì đã nhập ở bước 1. */
+const REVIEW_BASICS = [
+  ["name", "Tên sản phẩm"],
+  ["description", "Mô tả ngắn"],
+  ["spec", "Quy cách / tiêu chuẩn"],
+  ["description_detail", "Mô tả chi tiết"],
+] as const;
+
+const REVIEW_COMMERCIAL = [
+  ["ref_price", "Giá tham khảo từ"],
+  ["ref_price_max", "Giá tham khảo đến"],
+  ["currency", "Đơn vị tiền"],
+  ["unit", "Đơn vị giá"],
+  ["price_valid_until", "Giá có hiệu lực tới"],
+  ["lead_time_days", "Thời gian giao hàng (ngày)"],
+  ["payment_terms", "Điều kiện thanh toán"],
+  ["certifications", "Chứng nhận sản phẩm (tự khai)"],
+  ["export_port", "Cảng xuất"],
+  ["incoterm", "Incoterm"],
+  ["incoterm_place", "Địa điểm Incoterm"],
+] as const;
+
+const REVIEW_ORDER = [
+  ["moq", "Số lượng đặt tối thiểu (MOQ)"],
+  ["monthly_capacity", "Năng lực mỗi tháng"],
+  ["packaging", "Bao bì / đóng gói"],
+] as const;
+
+/** Giá trị khởi tạo của bản xem lại: lấy từ bản đã lưu, rồi cập nhật theo từng lần nhập. */
+function snapshotFrom(product?: SupplierProduct): Record<string, string> {
+  const seed: Record<string, string> = {
+    name: product?.name ?? "",
+    description: product?.description ?? "",
+    spec: product?.spec ?? "",
+    description_detail: product?.description_detail ?? "",
+  };
+  for (const [key] of [...REVIEW_COMMERCIAL, ...REVIEW_ORDER]) {
+    const value = product ? (product as unknown as Record<string, unknown>)[key] : "";
+    seed[key] = value == null ? "" : String(value);
+  }
+  seed.oem = product?.oem ? "yes" : "";
+  seed.odm = product?.odm ? "yes" : "";
+  seed.samples = product?.samples ? "yes" : "";
+  seed.price_publicly_visible = product?.price_publicly_visible ? "yes" : "";
+  return seed;
+}
+
+const checkKeys = ["oem", "odm", "samples", "price_publicly_visible"] as const;
+
+/** Đọc toàn bộ form thành bản nháp để bước 3 luôn khớp với những gì đang nhập. */
+function snapshotFromForm(form: HTMLFormElement, previous: Record<string, string>): Record<string, string> {
+  const next: Record<string, string> = { ...previous };
+  new FormData(form).forEach((value, key) => {
+    if (typeof value === "string") next[key] = value;
+  });
+  for (const key of checkKeys) if (form.querySelector(`[name="${key}"]`) && !(key in Object.fromEntries(new FormData(form)))) next[key] = "";
+  return next;
+}
 
 /** Ô bắt buộc đầu tiên còn trống/sai trong một bước (bỏ qua ô đã khoá và ô ẩn). */
 function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElement | null {
@@ -94,6 +154,11 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const [uploadResult, setUploadResult] = useState("");
   const [selected, setSelected] = useState<File[]>([]);
   const [progress, setProgress] = useState("");
+  // Bản nháp dùng cho bước 3: cập nhật theo từng lần nhập nên NCC đọc lại đúng nội dung
+  // đang có, kể cả phần chưa lưu (kèm cảnh báo phải lưu trước khi gửi).
+  const [snapshot, setSnapshot] = useState<Record<string, string>>(() => snapshotFrom(product));
+  const [submitHint, setSubmitHint] = useState<string[] | null>(null);
+  const [sent, setSent] = useState(false);
 
   const review = product ? productReview(product) : "draft";
   const locked = review === "pending";
@@ -125,6 +190,12 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     };
   }, [dirty]);
 
+  /** Ghi lại nội dung form mỗi khi NCC sửa để bước 3 phản chiếu ngay. */
+  function onFormChange(event: React.FormEvent<HTMLFormElement>) {
+    setDirty(true);
+    setSnapshot((previous) => snapshotFromForm(event.currentTarget, previous));
+  }
+
   function goToStep(next: Step) {
     setStep(next);
     setStepError(null);
@@ -152,6 +223,8 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       setResultAt("info");
       if (!response.ok) return;
       setDirty(false);
+      setSubmitHint(null);
+      setSnapshot(snapshotFromForm(event.currentTarget, snapshot));
       const id = response.id ?? product?.id;
       if (!product) {
         // Sản phẩm mới: đi tiếp sang trang chi tiết, mở đúng bước vừa chọn.
@@ -195,9 +268,40 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     goToStep(target);
   }
 
+  /** Danh sách việc còn thiếu trước khi gửi — dùng cho cả nút bấm và khối nhắc. */
+  function submitBlockers(): string[] {
+    const blockers: string[] = [];
+    if (!product) blockers.push("Lưu sản phẩm ở bước 1 trước khi gửi.");
+    if (!hasDetails) blockers.push("Bổ sung mô tả hoặc quy cách ở bước 1.");
+    if (!hasMedia) blockers.push("Tải ít nhất một ảnh hoặc catalogue thật ở bước 2.");
+    if (dirty) blockers.push("Lưu thay đổi ở bước 1 trước khi gửi.");
+    return blockers;
+  }
+
+  /**
+   * Nút gửi luôn bấm được: nếu còn thiếu thì nói rõ thiếu gì và đưa tới đúng bước,
+   * thay vì để một nút xám không phản hồi.
+   */
+  function requestSubmit() {
+    if (busy) return;
+    const blockers = submitBlockers();
+    if (blockers.length) {
+      setSubmitHint(blockers);
+      setResult(null);
+      // Đưa tới đúng bước cần sửa; nếu đang ở đúng bước đó thì chỉ hiện lời nhắc.
+      if (!product || !hasDetails || dirty) {
+        if (step !== 1) goToStep(1);
+        return;
+      }
+      if (!hasMedia && step !== 2) goToStep(2);
+    }
+    void submit();
+  }
+
   async function submit() {
-    if (!product || !canSubmit) return;
+    if (!product || busy) return;
     setBusy(true);
+    setSubmitHint(null);
     setResult(null);
     setStepError(null);
     try {
@@ -206,7 +310,10 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       const response = await submitSupplierProductAction(form);
       setResult(response);
       setResultAt("review");
-      if (response.ok) router.refresh();
+      if (response.ok) {
+        setSent(true);
+        router.refresh();
+      }
     } catch {
       setResult({ ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." });
       setResultAt("review");
@@ -343,7 +450,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           <AlertCircle className="mr-1 inline size-4" aria-hidden="true" /> Vexim yêu cầu: {product.supplier_review_note}
         </p>}
 
-        <form id="product-info" ref={formRef} onSubmit={save} onChange={() => setDirty(true)} noValidate>
+        <form id="product-info" ref={formRef} onSubmit={save} onChange={onFormChange} noValidate>
           <section data-step-panel={1} className={step === 1 ? "space-y-4" : "hidden"} aria-label="Bước 1 · Thông tin sản phẩm">
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
               <SectionHead step="Bước 1" title="Thông tin cơ bản" hint="Tên, danh mục và mô tả — phần buyer đọc đầu tiên." />
@@ -510,38 +617,117 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           </div>
         </section>
 
-        <section data-step-panel={3} className={step === 3 ? "space-y-3" : "hidden"} aria-label="Bước 3 · Gửi Vexim duyệt" id="product-review">
+        <section data-step-panel={3} className={step === 3 ? "space-y-3" : "hidden"} aria-label="Bước 3 · Xem lại và gửi" id="product-review">
           <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-            <SectionHead step="Bước 3" title="Gửi Vexim duyệt"
-              hint="Nộp hồ sơ không tự duyệt, không tự chia sẻ buyer và không đổi trạng thái công khai trang NCC." />
-            <div className="space-y-4 px-4 py-4 sm:px-5">
+            <SectionHead step="Bước 3" title="Xem lại toàn bộ hồ sơ"
+              hint="Đọc lại đúng nội dung ở bước 1 và 2. Sửa được ngay tại đây, gửi xong mới chuyển cho Vexim." />
+            <div className="space-y-3 px-4 py-4 sm:px-5">
+              {dirty && <p className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] font-semibold text-amber-900">
+                Có thay đổi chưa lưu — nội dung dưới đây là bản đang nhập.
+                <button type="button" onClick={() => leaveInfoFor(1)} className="underline">Lưu thay đổi</button>
+              </p>}
+
               <ul className="grid gap-2 sm:grid-cols-3">
                 {([[!!product, "Đã lưu sản phẩm"], [hasDetails, "Có mô tả/quy cách"], [hasMedia, "Có ảnh/catalogue"]] as const).map(([ready, label]) =>
-                  <li key={label} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-semibold ${ready ? "bg-emerald-50 text-emerald-800" : "bg-ink-100 text-ink-600"}`}>
-                    {ready ? <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" /> : <span className="flex size-4 shrink-0 items-center justify-center rounded-full border border-ink-400 text-[10px]">○</span>}
+                  <li key={label} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-semibold ${ready ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
+                    {ready ? <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" /> : <AlertCircle className="size-4 shrink-0" aria-hidden="true" />}
                     {label}
                   </li>)}
               </ul>
 
-              <dl className="grid gap-x-4 gap-y-1.5 rounded-lg bg-ink-50 px-3.5 py-3 text-[12.5px] sm:grid-cols-2">
-                <div className="flex justify-between gap-2 sm:col-span-2"><dt className="font-semibold text-ink-600">Sản phẩm</dt><dd className="min-w-0 truncate text-right font-semibold text-ink-900">{product?.name ?? "Chưa lưu"}</dd></div>
-                <div className="flex justify-between gap-2"><dt className="font-semibold text-ink-600">Danh mục</dt><dd className="text-right text-ink-900">{categoryLabel}</dd></div>
-                <div className="flex justify-between gap-2"><dt className="font-semibold text-ink-600">Tệp đã tải</dt><dd className="text-right text-ink-900">{media.length} tệp</dd></div>
-                {commercial.slice(0, 4).map((row) => <div key={row.label} className="flex justify-between gap-2">
-                  <dt className="font-semibold text-ink-600">{row.label}</dt><dd className="min-w-0 truncate text-right text-ink-900">{row.value}</dd>
-                </div>)}
-              </dl>
+              {/* Bước 1 — nội dung */}
+              <div className="rounded-lg border border-ink-200">
+                <ReviewHead title="Thông tin sản phẩm" onEdit={() => goToStep(1)} />
+                <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-2">
+                  <div className="sm:col-span-2"><ReviewField label="Tên sản phẩm" value={snapshot.name} strong /></div>
+                  <div><ReviewField label="Danh mục" value={categoryLabel} /></div>
+                  <div><ReviewField label="Thuộc tính ngành" value={Object.entries(product?.specs ?? {}).filter(([, v]) => v != null && v !== "").map(([k, v]) => `${k}: ${String(v)}`).join(" · ") || "—"} /></div>
+                  <div className="sm:col-span-2"><ReviewField label="Mô tả ngắn" value={snapshot.description} /></div>
+                  <div className="sm:col-span-2"><ReviewField label="Quy cách / tiêu chuẩn" value={snapshot.spec} /></div>
+                  <div className="sm:col-span-2"><ReviewField label="Mô tả chi tiết" value={snapshot.description_detail} /></div>
+                </dl>
+              </div>
 
-              {review === "pending"
-                ? <p className="inline-flex items-center gap-2 rounded-lg bg-amber-50 px-3.5 py-2.5 text-[13px] font-semibold text-amber-900"><ClockIcon /> Đã gửi · đang chờ Vexim kiểm tra</p>
+              {/* Bước 1 — thương mại & xuất khẩu */}
+              <div className="rounded-lg border border-ink-200">
+                <ReviewHead title="Thông tin thương mại & xuất khẩu" onEdit={() => goToStep(1)} />
+                <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-2">
+                  {REVIEW_COMMERCIAL.map(([key, label]) => <div key={key}><ReviewField label={label} value={snapshot[key]} /></div>)}
+                </dl>
+                <div className="flex flex-wrap gap-1.5 border-t border-ink-100 px-3.5 py-2.5">
+                  {([
+                    [snapshot.price_publicly_visible === "yes", "Công khai giá khi đủ điều kiện"],
+                    [snapshot.oem === "yes", "Nhận gia công/OEM"],
+                    [snapshot.odm === "yes", "Thiết kế & sản xuất ODM"],
+                    [snapshot.samples === "yes", "Có thể gửi mẫu"],
+                  ] as const).map(([on, label]) => <span key={label} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${on ? "bg-brand-50 text-brand-900 ring-1 ring-brand-200" : "bg-ink-100 text-ink-500 line-through"}`}>{label}</span>)}
+                </div>
+              </div>
+
+              {/* Bước 1 — đặt hàng & năng lực */}
+              <div className="rounded-lg border border-ink-200">
+                <ReviewHead title="Đặt hàng & năng lực" onEdit={() => goToStep(1)} />
+                <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-3">
+                  {REVIEW_ORDER.map(([key, label]) => <div key={key}><ReviewField label={label} value={snapshot[key]} /></div>)}
+                </dl>
+              </div>
+
+              {/* Bước 2 — ảnh & catalogue */}
+              <div className="rounded-lg border border-ink-200">
+                <ReviewHead title={`Ảnh & catalogue (${media.length} tệp)`} onEdit={() => goToStep(2)} />
+                <div className="px-3.5 py-3">
+                  {media.length
+                    ? <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {media.slice(0, 8).map((asset) => {
+                        const url = privateMediaUrl(asset);
+                        return <li key={asset.id} className="relative overflow-hidden rounded-md border border-ink-200 bg-ink-50">
+                          <span className="block aspect-square">
+                            {asset.kind === "image" && url
+                              ? <img src={url} alt={asset.caption || "Ảnh sản phẩm"} className="size-full object-cover" />
+                              : <span className="flex size-full items-center justify-center text-brand-700"><FileText className="size-6" aria-hidden="true" /></span>}
+                          </span>
+                          <span className={`absolute bottom-1 left-1 rounded px-1 py-0.5 text-[9.5px] font-bold ${asset.audience === "buyer" ? "bg-emerald-100 text-emerald-800" : "bg-white/95 text-ink-600"}`}>
+                            {asset.audience === "buyer" ? "Buyer" : "Nội bộ"}
+                          </span>
+                        </li>;
+                      })}
+                    </ul>
+                    : <p className="rounded-md bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">Chưa có tệp. Quay lại bước 2 để tải ảnh hoặc catalogue thật.</p>}
+                  {media.length > 8 && <p className="mt-1.5 text-[11px] text-ink-500">và {media.length - 8} tệp khác — xem đủ ở bước 2.</p>}
+                </div>
+              </div>
+
+              {sent || review === "pending"
+                ? <div role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-[13px] font-semibold text-emerald-900">
+                  <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0 flex-1">Đã gửi hồ sơ. Vexim sẽ kiểm tra và phản hồi; sản phẩm chưa tự công khai.</span>
+                  <Link href="/supplier/portal/products" className="underline">Về danh sách</Link>
+                </div>
                 : review === "approved"
                   ? <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[13px] font-semibold text-emerald-800"><Check className="size-4" aria-hidden="true" /> Nội dung đã được Vexim duyệt</p>
                   : <div className="space-y-2">
-                    <button type="button" onClick={submit} disabled={busy || !canSubmit} className="btn btn-primary"><Send className="size-4" aria-hidden="true" /> {busy ? "Đang xử lý..." : "Gửi Vexim kiểm tra"}</button>
-                    {dirty && <p className="text-[12px] font-semibold text-amber-800">Còn thay đổi chưa lưu ở bước 1 — quay lại lưu trước khi gửi.</p>}
-                    {!dirty && product && !canSubmit && <p className="text-[12px] text-ink-600">Hoàn thành các mục còn thiếu ở bước 1 và 2 rồi thử lại.</p>}
+                    <button type="button" onClick={requestSubmit} disabled={busy}
+                      aria-describedby="submit-blockers"
+                      className="btn btn-primary w-full justify-center sm:w-auto">
+                      {busy
+                        ? <><span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> Đang gửi hồ sơ…</>
+                        : <><Send className="size-4" aria-hidden="true" /> Gửi hồ sơ cho Vexim kiểm tra</>}
+                    </button>
+                    <div id="submit-blockers" aria-live="polite">
+                      {submitHint?.length
+                        ? <ul role="alert" className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12.5px] text-amber-900">
+                          {submitHint.map((hint) => <li key={hint} className="flex gap-1.5"><AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />{hint}</li>)}
+                        </ul>
+                        : canSubmit
+                          ? <p className="text-[12px] text-ink-600">Hồ sơ đủ điều kiện. Gửi không tự duyệt, không tự chia sẻ buyer.</p>
+                          : submitBlockers().length
+                            ? <ul className="space-y-1 text-[12px] text-ink-600">
+                              {submitBlockers().map((hint) => <li key={hint} className="flex gap-1.5"><span className="mt-1.5 size-1 shrink-0 rounded-full bg-ink-400" aria-hidden="true" />{hint}</li>)}
+                            </ul>
+                            : null}
+                    </div>
                   </div>}
-              {result && resultAt === "review" && <p role="status" className={`rounded-lg px-3.5 py-2.5 text-[13px] font-semibold ${result.ok ? "bg-brand-50 text-brand-900" : "bg-rose-50 text-rose-800"}`}>{result.message}</p>}
+              {result && resultAt === "review" && !result.ok && <p role="status" className="rounded-lg bg-rose-50 px-3.5 py-2.5 text-[13px] font-semibold text-rose-800">{result.message}</p>}
               <p className="text-[11.5px] leading-5 text-ink-500">Bản dịch tiếng Anh cho trang buyer: {product?.name_i18n?.en?.trim() ? "đã có bản dịch do AI soạn và Vexim kiểm tra." : "Vexim sẽ dịch tự động bằng AI khi kiểm tra sản phẩm này."} Bạn cứ nhập nội dung bằng tiếng Việt.</p>
             </div>
           </div>
@@ -572,9 +758,13 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 : <button type="submit" form="product-info" onClick={() => { advanceTo.current = 2; }} disabled={busy}
                   className="btn btn-primary btn-sm">{busy ? "Đang lưu..." : "Lưu & tiếp tục"} <ArrowRight className="size-3.5" aria-hidden="true" /></button>)}
             {step === 2 && <button type="button" onClick={() => goToStep(3)} className="btn btn-primary btn-sm">Sang bước 3 <ArrowRight className="size-3.5" aria-hidden="true" /></button>}
-            {step === 3 && (review === "pending" || review === "approved"
-              ? <span className="text-[11.5px] font-semibold text-ink-500">{review === "pending" ? "Đang chờ duyệt" : "Đã duyệt"}</span>
-              : <button type="button" onClick={submit} disabled={busy || !canSubmit} className="btn btn-primary btn-sm"><Send className="size-3.5" aria-hidden="true" /> {busy ? "Đang gửi..." : "Gửi Vexim kiểm tra"}</button>)}
+            {step === 3 && (review === "pending" || review === "approved" || sent
+              ? <span className="text-[11.5px] font-semibold text-emerald-800">{review === "approved" ? "Đã duyệt" : "Đã gửi · chờ Vexim"}</span>
+              : <button type="button" onClick={requestSubmit} disabled={busy} className="btn btn-primary btn-sm">
+                {busy
+                  ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> Đang gửi…</>
+                  : <><Send className="size-3.5" aria-hidden="true" /> Gửi hồ sơ</>}
+              </button>)}
           </div>
         </div>
       </div>
@@ -626,6 +816,23 @@ function SectionHead({ step, title, hint }: { step: string; title: string; hint?
       <h2 className="text-[15px] font-black text-ink-900">{title}</h2>
     </div>
     {hint && <p className="max-w-md text-[11.5px] leading-4 text-ink-500">{hint}</p>}
+  </div>;
+}
+
+function ReviewHead({ title, onEdit }: { title: string; onEdit: () => void }) {
+  return <div className="flex items-center justify-between gap-2 border-b border-ink-100 px-3.5 py-2">
+    <h3 className="text-[12px] font-bold tracking-wide text-ink-800 uppercase">{title}</h3>
+    <button type="button" onClick={onEdit} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11.5px] font-bold text-brand-800 hover:bg-brand-50">
+      <Pencil className="size-3" aria-hidden="true" /> Sửa
+    </button>
+  </div>;
+}
+
+function ReviewField({ label, value, strong }: { label: string; value?: string; strong?: boolean }) {
+  const shown = value?.trim();
+  return <div className="min-w-0">
+    <dt className="text-[11px] font-semibold text-ink-500">{label}</dt>
+    <dd className={`mt-0.5 break-words whitespace-pre-wrap ${strong ? "text-[13px] font-bold text-ink-900" : "text-[12.5px] text-ink-800"} ${shown ? "" : "text-ink-400"}`}>{shown || "Chưa nhập"}</dd>
   </div>;
 }
 

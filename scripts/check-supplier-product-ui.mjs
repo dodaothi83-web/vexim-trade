@@ -44,7 +44,7 @@ assert.ok(html.includes('products/p1/real.jpg') && html.includes('products/p3/sh
 assert.ok(!html.includes('secret.jpg') && !html.includes('foreign.jpg'), 'Private staff and foreign media cannot render');
 assert.ok(!html.includes('Đang bán'), 'Review must not masquerade as public listing');
 const editor = fs.readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
-assert.match(editor, /dirty && !canSubmit|!canSubmit/);
+assert.match(editor, /productCanSubmit\(product, media\) && !dirty/, 'Nút gửi vẫn phụ thuộc dữ liệu đã lưu');
 assert.match(editor, /productCanSubmit\(product, media\)/);
 assert.match(editor, /window\.confirm\("Lưu thay đổi sẽ rút sản phẩm/);
 console.log('✅ Supplier storefront: responsive product cards, real scoped thumbnails, truthful status and guarded editing.');
