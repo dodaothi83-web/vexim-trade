@@ -485,7 +485,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         <form id="product-info" ref={formRef} onSubmit={save} onChange={onFormChange} noValidate>
           <section data-step-panel={1} className={step === 1 ? "space-y-4" : "hidden"} aria-label="Bước 1 · Thông tin sản phẩm">
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead step="Bước 1" title="Thông tin cơ bản" hint="Tên, danh mục và mô tả — phần buyer đọc đầu tiên." />
+              <SectionHead title="Thông tin cơ bản" hint="Tên, danh mục và mô tả — phần buyer đọc đầu tiên." />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <Field label="Tên sản phẩm" hint="Ví dụ: Hạt điều nhân trắng W320" required>
@@ -527,7 +527,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
             {/* Không còn mũi tên gập: thương mại & xuất khẩu hiện ngay từ bước 1. */}
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead step="Bước 1" title="Thông tin thương mại & xuất khẩu" />
+              <SectionHead title="Thông tin thương mại & xuất khẩu" />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2 xl:grid-cols-3">
                 <Field label="Giá tham khảo từ" hint="Để trống nếu chưa muốn công bố giá">
                   <input name="ref_price" type="number" min={0} max={999999999999} step="0.01" className="input" placeholder="Ví dụ: 5000" defaultValue={product?.ref_price ?? ""} disabled={locked} />
@@ -584,7 +584,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
             </div>
 
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead step="Bước 1" title="Đặt hàng & năng lực" />
+              <SectionHead title="Đặt hàng & năng lực" />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-3">
                 {BASE_FIELDS.map(([key, label, placeholder, max]) => <Field key={key} label={label}>
                   <input className="input" name={key} maxLength={max} placeholder={placeholder} defaultValue={String(product?.[key] ?? "")} disabled={locked} />
@@ -851,10 +851,15 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   </div>;
 }
 
-function SectionHead({ step, title, hint }: { step: string; title: string; hint?: string }) {
+/**
+ * `step` chỉ truyền khi thẻ này CHÍNH LÀ nội dung của một bước (bước 2, bước 3).
+ * Các thẻ con trong bước 1 để trống để không lặp lại chữ “Bước 1” ba lần trên cùng
+ * một màn hình — bước đang mở đã hiện ở thanh bước phía trên.
+ */
+function SectionHead({ step, title, hint }: { step?: string; title: string; hint?: string }) {
   return <div className="flex flex-wrap items-baseline justify-between gap-1 border-b border-ink-100 px-4 py-3 sm:px-5">
     <div className="min-w-0">
-      <p className="text-[10px] font-bold tracking-[0.14em] text-brand-700 uppercase">{step}</p>
+      {step && <p className="text-[10px] font-bold tracking-[0.14em] text-brand-700 uppercase">{step}</p>}
       <h2 className="text-[15px] font-black text-ink-900">{title}</h2>
     </div>
     {hint && <p className="max-w-md text-[11.5px] leading-4 text-ink-500">{hint}</p>}

@@ -116,6 +116,10 @@ assert.ok(!source.includes('Điều kiện bán và giao hàng buyer cần thấ
 assert.ok(!source.includes('Số liệu cung ứng giúp buyer'), 'Bỏ mô tả dài ở khối đặt hàng & năng lực');
 assert.match(step1, /<h2 class="text-\[15px\] font-black text-ink-900">Thông tin thương mại &amp; xuất khẩu<\/h2>/, 'Khối thương mại chỉ còn tiêu đề');
 assert.match(step1, /<h2 class="text-\[15px\] font-black text-ink-900">Đặt hàng &amp; năng lực<\/h2>/, 'Khối đặt hàng chỉ còn tiêu đề');
+// Nhãn "Bước 1" chỉ hiện ở thanh bước, không lặp lại trên từng thẻ con trong bước 1.
+assert.equal((step1.match(/>Bước 1</g) ?? []).length, 0, 'Không lặp nhãn Bước 1 trên các thẻ con');
+assert.equal((step1.match(/Bước 1/g) ?? []).length, 1, 'Chỉ còn một nhãn Bước 1 (cho trình đọc màn hình của panel)');
+assert.match(step1, /data-step-panel="1" class="space-y-4" aria-label="Bước 1 · Thông tin sản phẩm"/, 'Panel bước 1 vẫn được đánh nhãn cho trình đọc màn hình');
 assert.ok(step1.indexOf('Thông tin thương mại &amp; xuất khẩu') > 0, 'Khối thương mại nằm trong bước 1 đang mở');
 assert.ok(step1.includes('Nhận gia công/OEM') && step1.includes('Có thể gửi mẫu'), 'Ba lựa chọn thương mại hiện ngay');
 
@@ -125,9 +129,11 @@ assert.match(step1, /Tiếp tục/, 'Bước 1 có nút đi tiếp');
 assert.equal((step1.match(/name="payment_terms"/g) ?? []).length, 1, 'Không lặp ô điều kiện thanh toán');
 assert.match(step1, /href="\/supplier\/portal\/products"/, 'Bước 1 có lối hủy về danh sách');
 const onStep2 = render({ initialStep: 2 });
+assert.equal((onStep2.match(/>Bước 2</g) ?? []).length, 1, 'Thẻ của bước 2 vẫn giữ đúng một nhãn bước');
 assert.match(onStep2, /Trở về bước 1/, 'Bước 2 có nút Trở về bước 1');
 assert.match(onStep2, /Sang bước 3/, 'Bước 2 có nút sang bước 3');
 const onStep3 = render({ initialStep: 3 });
+assert.equal((onStep3.match(/>Bước 3</g) ?? []).length, 1, 'Thẻ của bước 3 vẫn giữ đúng một nhãn bước');
 assert.match(onStep3, /Trở về bước 2/, 'Bước 3 có nút Trở về bước 2');
 assert.match(onStep3, /Gửi hồ sơ cho Vexim kiểm tra/, 'Bước 3 có nút gửi hồ sơ');
 
