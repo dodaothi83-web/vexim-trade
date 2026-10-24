@@ -41,14 +41,33 @@ assert.match(levelPage, /Chưa mở được phần tải bằng chứng/, 'Thi�
 assert.match(levelPage, /không phải lỗi tài khoản của bạn/, 'Câu báo lỗi nói rõ lỗi phía Vexim');
 assert.match(levelPage, /Chưa mở được hồ sơ xác minh này/, 'Hồ sơ rỗng cũng có câu báo');
 
-// Tab chuyển cấp: có đủ hai cấp, đánh dấu cấp đang mở, và vẫn dẫn được sang trang kia.
-assert.match(levelPage, /aria-current=\{active \? "page" : undefined\}/, 'Tab đang mở được đánh dấu');
-assert.match(levelPage, /\(\[2, 3\] as const\)\.map/, 'Tab có đủ hai cấp');
-assert.match(levelPage, /Đang mở/, 'Tab nói rõ cấp đang mở');
+// Tab chuyển bước: ba bước dùng chung một dải tab, đánh dấu bước đang mở, mỗi bước
+// vẫn là một trang riêng.
+assert.match(levelPage, /<LevelTabs current=\{level\} \/>/, 'Trang L2/L3 dùng dải tab chung');
+const levelTabs = read('app/supplier/portal/verification/level-tabs.tsx');
+assert.match(levelTabs, /aria-current=\{active \? "page" : undefined\}/, 'Tab đang mở được đánh dấu');
+assert.match(levelTabs, /VERIFICATION_STEPS\.map/, 'Tab vẽ đủ các bước');
+for (const step of ['/supplier/portal/documents', '/supplier/portal/verification/factory', '/supplier/portal/verification/export'])
+  assert.ok(levelTabs.includes(step), `Tab dẫn tới ${step}`);
+assert.match(levelTabs, /Bước \{step\.level\}\/3/, 'Mỗi tab ghi rõ bước mấy trên ba');
+assert.match(levelTabs, /Đang mở/, 'Tab nói rõ bước đang mở');
 for (const copy of ['Tạo và in tờ mã', 'Chụp 9 ảnh tại nhà máy', 'Chọn một lô đã giao', 'Thêm link và nộp'])
   assert.ok(levelPage.includes(copy), `Có hướng dẫn “${copy}”`);
 assert.ok(levelPage.includes('kể cả ảnh đã gửi qua Zalo, đều nhận'), 'L2 nói rõ ảnh qua Zalo vẫn nhận');
 assert.ok(!levelPage.includes('Gửi <strong>ảnh gốc'), 'Không đòi ảnh gốc');
+assert.ok(!levelPage.includes('AI quét những gì'), 'Đã bỏ khối giải thích AI khỏi trang L2/L3');
+
+/* 2b. Bước 1 (giấy tờ) dùng đúng ngôn ngữ thị giác của L2/L3 nhưng không có nút nộp. */
+const documents = read('app/supplier/portal/documents/page.tsx');
+assert.match(documents, /<LevelTabs current=\{1\} \/>/, 'Trang L1 dùng chung dải tab ba bước');
+assert.match(documents, /role="progressbar"/, 'L1 có dải tiến độ giấy tờ');
+assert.match(documents, /lg:grid-cols-\[minmax\(0,1fr\)_330px\]/, 'L1 có cột tóm tắt dính bên phải như L2/L3');
+assert.match(documents, /lg:sticky lg:top-20/, 'Cột tóm tắt L1 dính khi lướt');
+assert.match(documents, /<SupplierPortalUpload \/>/, 'L1 vẫn tải được giấy tờ');
+assert.match(documents, /<SupplierCertificateUpload certificates=/, 'L1 vẫn tải được chứng nhận');
+assert.match(documents, /Lý do cần bổ sung:/, 'L1 hiện lý do khi bị trả hồ sơ');
+assert.doesNotMatch(documents, /runScan|Nộp hồ sơ/, 'Bước 1 không có nút nộp: nhân viên mở đợt kiểm');
+assert.doesNotMatch(documents, /AI quét những gì/, 'Không lặp lại khối giải thích AI đã bỏ ở L2/L3');
 
 /* 3. Giao diện mới nhưng giữ đủ chức năng của bảng điều khiển cũ. */
 const panel = read('app/supplier/portal/verification/verification-panel.tsx');

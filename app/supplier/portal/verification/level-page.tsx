@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Factory, Ship } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 
@@ -8,6 +8,7 @@ import { supplierLevelAccess } from "@/lib/supplier-portal/submission-access";
 import { getOrCreateSubmission, loadSubmissionBundle } from "@/lib/verification-submission-service";
 import { buildPortalSubmission, exportSpecs, photoSpecs } from "@/lib/supplier-portal/submission-view";
 import { migrationHint } from "@/lib/db/migration-hints";
+import { LevelTabs } from "./level-tabs";
 import { VerificationSubmissionPanel } from "./verification-panel";
 
 /**
@@ -16,7 +17,9 @@ import { VerificationSubmissionPanel } from "./verification-panel";
  *  - `/supplier/portal/verification/export`  - L3, chứng từ lịch sử xuất khẩu
  *
  * Mỗi trang chỉ tải hồ sơ của đúng cấp mình. Không gộp hai cấp vào một trang để menu,
- * tiến độ và hành động nộp của từng cấp không lẫn nhau.
+ * tiến độ và hành động nộp của từng cấp không lẫn nhau. Dải tab ba bước dùng chung với
+ * trang L1 (`level-tabs.tsx`) để ba cấp xác minh đọc như một quy trình. Bước 1 chỉ nộp
+ * giấy tờ do nhân viên đối chiếu, nên không có nút nộp trong khung này.
  *
  * Bố cục lấy nhịp từ trang sản phẩm của sàn TMĐT: tab chuyển cấp ở trên, dải tổng quan
  * (trạng thái + tiến độ), lưới thẻ bằng chứng có ảnh thu nhỏ, và cột tóm tắt dính bên
@@ -27,11 +30,8 @@ import { VerificationSubmissionPanel } from "./verification-panel";
 const LEVELS = {
   2: {
     title: "Xác thực nhà máy",
-    titleShort: "Nhà máy",
     eyebrow: "Cổng nhà cung cấp · Xác minh L2",
     description: "Chín ảnh nhà máy theo danh mục chung. Ba ảnh đánh dấu 🔖 phải có tờ mã xác minh do hệ thống phát hành.",
-    href: "/supplier/portal/verification/factory",
-    icon: Factory,
     guide: [
       { title: "Tạo và in tờ mã", body: "Bấm “Tạo mã xác minh” rồi tải tờ mã về (hoặc in ra). Đây là bước bắt buộc duy nhất về giấy tờ." },
       { title: "Chụp 9 ảnh tại nhà máy", body: "Đặt tờ mã cạnh cảnh ở 3 ảnh 🔖: cổng nhà máy, dây chuyền đang chạy, kho thành phẩm. Ảnh điện thoại, kể cả ảnh đã gửi qua Zalo, đều nhận." },
@@ -40,11 +40,8 @@ const LEVELS = {
   },
   3: {
     title: "Lịch sử xuất khẩu",
-    titleShort: "Xuất khẩu",
     eyebrow: "Cổng nhà cung cấp · Xác minh L3",
     description: "Chứng từ của một lô hàng đã xuất thật: vận đơn, tờ khai hải quan và link nguồn công khai để đối chiếu.",
-    href: "/supplier/portal/verification/export",
-    icon: Ship,
     guide: [
       { title: "Chọn một lô đã giao", body: "Khai mã lô, ngày giao và nơi đến. RFQ trúng thầu không thay được chứng từ giao hàng." },
       { title: "Tải chứng từ", body: "Bắt buộc có vận đơn và tờ khai hải quan. Hoá đơn, phiếu đóng gói, C/O… là mục tùy chọn nếu bạn có." },
@@ -90,7 +87,7 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
       </Link>}
     />
 
-    <TwoLevelTabs current={level} />
+    <LevelTabs current={level} />
 
     <ol className="mt-4 grid gap-2.5 sm:grid-cols-3" aria-label="Ba bước thực hiện">
       {copy.guide.map((step, index) => <li key={step.title} className="flex gap-2.5 rounded-xl border border-ink-200 bg-white px-3.5 py-3 shadow-sm">
@@ -108,39 +105,5 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
         Chưa mở được hồ sơ xác minh này. Thử tải lại trang; nếu vẫn lỗi, liên hệ bộ phận hỗ trợ.
       </div>}
 
-    <details className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-      <summary className="cursor-pointer text-base font-bold">AI quét những gì, và không làm được gì</summary>
-      <ul className="mt-2 list-disc space-y-1 pl-5">
-        <li>AI đọc nội dung từng ảnh: biển tên công ty, dây chuyền, công nhân bảo hộ, nhãn mã lô, tờ giấy viết tay mã xác minh, chứng từ vận đơn/tờ khai.</li>
-        <li>Hệ thống ghi lại các tín hiệu kỹ thuật (còn dữ liệu ảnh gốc hay không, có toạ độ hay không, giờ chụp, phần mềm chỉnh sửa) và hiện thành ghi chú cho người duyệt. Từ 21/10/2026 những điểm này <strong>không chặn hồ sơ</strong>.</li>
-        <li>Thứ duy nhất bị chặn: ảnh 🔖 không thấy tờ mã, hoặc mã trong ảnh không khớp mã đã phát hành. Khi đó hồ sơ ở lại bản nháp để doanh nghiệp chụp lại.</li>
-        <li>AI <strong>không</strong> xác nhận giấy tờ là thật, không xác nhận doanh nghiệp đã xuất khẩu, không tự duyệt và không tự cấp huy hiệu L2/L3.</li>
-        <li>Hồ sơ đạt sẽ vào hàng đợi; hồ sơ được đối chiếu thủ công rồi mới mở đợt kiểm chính thức, và người duyệt phải khác người kiểm.</li>
-      </ul>
-    </details>
   </>;
-}
-
-/** Hai tab cấp xác minh, giữ đúng nhịp điều hướng của trang danh mục sàn TMĐT. */
-function TwoLevelTabs({ current }: { current: 2 | 3 }) {
-  return <nav aria-label="Chọn cấp xác minh" className="mt-4 grid gap-2.5 sm:grid-cols-2">
-    {([2, 3] as const).map((level) => {
-      const tab = LEVELS[level];
-      const Icon = tab.icon;
-      const active = current === level;
-      return <Link key={level} href={tab.href} aria-current={active ? "page" : undefined}
-        className={`group flex items-center gap-3 rounded-xl border px-4 py-3 transition ${active ? "border-brand-400 bg-brand-50 shadow-sm" : "border-ink-200 bg-white hover:border-brand-300 hover:bg-brand-50/40"}`}>
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${active ? "bg-brand-700 text-white" : "bg-ink-100 text-ink-600 group-hover:bg-brand-100 group-hover:text-brand-800"}`}>
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[11px] font-bold tracking-wider text-ink-400 uppercase">Bước {level}/3</span>
-          <span className={`block text-[13.5px] font-bold ${active ? "text-brand-900" : "text-ink-900"}`}>{tab.title}</span>
-        </span>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${active ? "bg-brand-700 text-white" : "bg-ink-100 text-ink-600 group-hover:bg-brand-100 group-hover:text-brand-800"}`}>
-          {active ? "Đang mở" : "Mở"}
-        </span>
-      </Link>;
-    })}
-  </nav>;
 }
