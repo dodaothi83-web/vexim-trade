@@ -352,6 +352,7 @@ assert.match(detailPage, /#factory-visit/);
 assert.match(detailPage, /#delivery-history/);
 assert.match(detailPage, /parseProductSpecification\(enSpec\)/, 'PDP separates supplier specification lines into key-value rows');
 assert.match(detailPage, />Key terms</, 'The gallery-side card keeps only commercial terms');
+assert.match(detailPage, /<h1 className="mt-2 break-words text-2xl font-bold leading-snug tracking-tight text-ink-900 sm:text-3xl">/, 'The product title uses compact typography and wraps long names safely');
 assert.match(detailPage, /id="full-specifications-heading"/, 'Technical details have their own specification card');
 const galleryStart = detailPage.indexOf('<ProductMediaGallery');
 const supplierCardStart = detailPage.indexOf('id="supplier-card-title"');

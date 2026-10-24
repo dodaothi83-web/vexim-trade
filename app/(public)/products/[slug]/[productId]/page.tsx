@@ -158,7 +158,7 @@ export default async function PublicProductDetail({ params }: Props) {
     {card.isDemo && <p className="mb-4 rounded-lg bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">DEMO DATA · Sample product, not a real supplier offer.</p>}
     <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: category.name_i18n.en || slug, href: `/products/${slug}` }, { label: card.name }]} />
     <Link href={`/products/${slug}`} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand-700"><ArrowLeft className="h-4 w-4" /> Back to products</Link>
-    <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(330px,0.8fr)] lg:items-start">
+    <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start">
       <StickyProductColumn>
         <ProductMediaGallery name={card.name} images={images} thumbnails={thumbnails} video={video} />
         <aside className="mt-6 overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card" aria-labelledby="supplier-card-title">
@@ -198,9 +198,9 @@ export default async function PublicProductDetail({ params }: Props) {
           </div>
         </aside>
       </StickyProductColumn>
-      <div>
+      <div className="min-w-0">
         <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
-        <h1 className="mt-2 text-3xl font-black leading-tight text-ink-900 sm:text-4xl">{card.name}</h1>
+        <h1 className="mt-2 break-words text-2xl font-bold leading-snug tracking-tight text-ink-900 sm:text-3xl">{card.name}</h1>
         {enDescription && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(enDescription)}</p>}
         <div id="reference-price" className="mt-5 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
           <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Reference price</p>
