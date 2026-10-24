@@ -37,12 +37,17 @@ const scoped = view.supplierVisibleProductMedia([
   media('p1', 'other', 'owner', 'internal', 'products/p1/foreign.jpg'),
 ], 'ours', 'owner');
 assert.equal(scoped.length, 2);
-const html = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products, media: scoped, supplierPublished: false }));
+const publicationByProduct = Object.fromEntries(products.map((item) => [item.id, {
+  isPublic: false, publicHref: null, missing: ['Sản phẩm chưa được bật sẵn sàng gửi buyer sau bước duyệt.'], checks: [],
+}]));
+const html = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products, media: scoped, publicationByProduct, supplierPublished: false }));
 for (const phrase of ['Cashew W320', 'Cashew W240', 'Cashew W180', 'Bản nháp', 'Chờ duyệt', 'Đã duyệt nội dung', 'Trang NCC chưa được công khai', 'Tìm sản phẩm của tôi', 'Thêm sản phẩm'])
   assert.ok(html.includes(phrase), `Missing UI content: ${phrase}`);
 assert.ok(html.includes('products/p1/real.jpg') && html.includes('products/p3/shared.jpg'), 'Real owner or buyer files are used for thumbnails');
 assert.ok(!html.includes('secret.jpg') && !html.includes('foreign.jpg'), 'Private staff and foreign media cannot render');
 assert.ok(!html.includes('Đang bán'), 'Review must not masquerade as public listing');
+assert.ok(html.includes('Chưa công khai'), 'Each supplier product exposes its buyer visibility state');
+assert.ok(html.includes('Sản phẩm chưa được bật sẵn sàng gửi buyer'), 'The first public-gate reason is visible');
 const editor = fs.readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
 assert.match(editor, /productCanSubmit\(product, media\) && !dirty/, 'Nút gửi vẫn phụ thuộc dữ liệu đã lưu');
 assert.match(editor, /productCanSubmit\(product, media\)/);

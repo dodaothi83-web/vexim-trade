@@ -270,4 +270,17 @@ assert.deepEqual(snapshotFromForm(null, { name: 'giữ nguyên' }), { name: 'gi�
 assert.match(source, /for \(const key of checkKeys\) if \(form\.querySelector/,
   'Checkbox không tick vẫn được ghi nhận là trống');
 
+// 11. Trạng thái công khai là thông tin riêng, không bị gộp với trạng thái duyệt.
+const privatePublication = render({ publication: {
+  isPublic: false, publicHref: null, missing: ['Sản phẩm chưa được bật sẵn sàng gửi buyer sau bước duyệt.'],
+  checks: [{ key: 'ready', label: 'Đã bật sẵn sàng gửi buyer', done: false, missing: 'Sản phẩm chưa được bật sẵn sàng gửi buyer sau bước duyệt.' }],
+} });
+assert.match(privatePublication, /Trạng thái công khai/);
+assert.match(privatePublication, /Chưa công khai/);
+assert.match(privatePublication, /Sản phẩm chưa được bật sẵn sàng gửi buyer/);
+assert.doesNotMatch(privatePublication, /Mở trang buyer/);
+const livePublication = render({ publication: { isPublic: true, publicHref: '/products/cashew/p1', missing: [], checks: [] } });
+assert.match(livePublication, /Đang công khai/);
+assert.match(livePublication, /href="\/products\/cashew\/p1"/);
+
 console.log('✅ Product page: 3 bước một màn hình, bước 3 đọc lại toàn bộ dữ liệu bước 1–2, nút gửi luôn phản hồi, thương mại & xuất khẩu hiện ngay.');

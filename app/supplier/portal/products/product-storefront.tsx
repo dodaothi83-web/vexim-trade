@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowRight, Clock3, FileText, ImageIcon, PackagePlus, Plus, Search, SlidersHorizontal } from "lucide-react";
 import type { MediaAsset, SupplierProduct } from "@/lib/types";
+import type { SupplierProductPublication } from "@/lib/supplier-portal/product-publication";
 import { PRODUCT_STATUS, privateMediaUrl, productReview, type ProductReviewFilter } from "@/lib/supplier-portal/product-view";
 
 const FILTERS: { id: ProductReviewFilter; label: string }[] = [
@@ -19,8 +20,11 @@ function money(product: SupplierProduct) {
   return `${format(product.ref_price)}${range} ${product.currency || "USD"}${product.unit ? ` / ${product.unit}` : ""}`;
 }
 
-export function SupplierProductStorefront({ products, media, supplierPublished, categoryLabels = {}, scope }: {
-  products: SupplierProduct[]; media: MediaAsset[]; supplierPublished: boolean;
+export function SupplierProductStorefront({ products, media, publicationByProduct, supplierPublished, categoryLabels = {}, scope }: {
+  products: SupplierProduct[]; media: MediaAsset[];
+  /** Server-computed public gates; only labels and safe buyer URLs cross to the browser. */
+  publicationByProduct: Record<string, SupplierProductPublication>;
+  supplierPublished: boolean;
   /** Nhãn danh mục tiếng Việt theo slug - để thẻ sản phẩm không hiện slug thô. */
   categoryLabels?: Record<string, string>;
   /** Phạm vi danh mục NCC được chọn; sản phẩm ngoài phạm vi bị đánh dấu rõ. */
@@ -80,6 +84,10 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
           <p className="mt-1 text-xs text-ink-600">Duyệt nội dung ≠ đã hiện công khai; việc chia sẻ cho buyer còn tùy hồ sơ doanh nghiệp, danh mục và tệp được chọn.</p></div>
           {!supplierPublished && <span className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Trang NCC chưa được công khai</span>}
         </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-[11.5px] font-semibold">
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800">Đang công khai: {products.filter((p) => publicationByProduct[p.id]?.isPublic).length}</span>
+          <span className="rounded-full bg-ink-100 px-2.5 py-1 text-ink-700">Chưa công khai: {products.filter((p) => !publicationByProduct[p.id]?.isPublic).length}</span>
+        </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <label className="relative min-w-[180px] flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -tranink-y-1/2 text-ink-400" aria-hidden="true" />
             <span className="sr-only">Tìm sản phẩm của tôi</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, mô tả, quy cách..." className="input pl-10" /></label>
@@ -95,6 +103,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
           assets.find((m) => m.kind === "image" && privateMediaUrl(m));
         const imageSrc = image && privateMediaUrl(image);
         const status = PRODUCT_STATUS[productReview(p)];
+        const publication = publicationByProduct[p.id];
         return <li key={p.id} className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white transition hover:border-brand-300 hover:shadow-md">
           <Link href={`/supplier/portal/products/${p.id}`} aria-label={`Xem và quản lý ${p.name}`} className="relative block aspect-square overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
             {imageSrc ? <img src={imageSrc} alt={`Ảnh sản phẩm ${p.name}`} loading="lazy" className="size-full object-cover transition duration-300 group-hover:scale-[1.03]" />
@@ -114,7 +123,13 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
               <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition group-hover:bg-brand-700 group-hover:text-white"><ArrowRight className="size-4" aria-hidden="true" /></span>
             </div>
             {p.supplier_review_note && <p className="mt-3 line-clamp-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">Góp ý: {p.supplier_review_note}</p>}
-            {p.ready_for_buyer && productReview(p) === "approved" && <p className="mt-3 text-xs font-medium text-brand-800">Đã bật sẵn sàng gửi buyer · chỉ hiện khi hồ sơ được công khai</p>}
+            <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${publication.isPublic ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-ink-200 bg-ink-50 text-ink-700"}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-bold">{publication.isPublic ? "Đang công khai" : "Chưa công khai"}</span>
+                {publication.publicHref && <Link href={publication.publicHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-brand-800 underline">Xem buyer <ArrowRight className="size-3" aria-hidden="true" /></Link>}
+              </div>
+              {!publication.isPublic && publication.missing[0] && <p className="mt-1 leading-5 text-ink-600">{publication.missing[0]}</p>}
+            </div>
           </div>
         </li>;
       })}</ul> : <div className="mx-auto max-w-md px-6 py-16 text-center">

@@ -22,6 +22,7 @@ import {
 import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
 import { productPriceBlockers, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
+import type { SupplierProductPublication } from "@/lib/supplier-portal/product-publication";
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
 import { saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
@@ -35,6 +36,8 @@ type EditorProps = {
   supplier: Supplier;
   /** Trang có thể mở thẳng một bước bằng `?step=2` (sau khi tạo sản phẩm mới). */
   initialStep?: Step;
+  /** Read-only buyer visibility projection; absent only while creating a new product. */
+  publication?: SupplierProductPublication;
 };
 
 type Step = 1 | 2 | 3;
@@ -148,7 +151,7 @@ function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElemen
  * Hành vi cũ giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, media = [], userId, categories, supplier, initialStep = 1 }: EditorProps) {
+export function SupplierProductEditor({ product, media = [], userId, categories, supplier, initialStep = 1, publication }: EditorProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   // Bước sẽ mở sau khi lưu thành công; null = chỉ lưu rồi ở lại.
@@ -477,6 +480,43 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           </p>
           {product?.ready_for_buyer && review === "approved" && <span className="rounded-full bg-white px-2 py-0.5 text-[10.5px] font-bold text-brand-800">Sẵn sàng chia sẻ buyer</span>}
         </section>
+
+        {publication && <section aria-label="Trạng thái công khai" className={`mt-3 rounded-xl border px-4 py-3.5 ${publication.isPublic ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-500">Hiển thị với buyer</p>
+              <h2 className={`mt-1 text-base font-black ${publication.isPublic ? "text-emerald-900" : "text-amber-950"}`}>
+                {publication.isPublic ? "Đang công khai" : "Chưa công khai"}
+              </h2>
+              <p className="mt-1 text-[12px] leading-5 text-ink-700">
+                {publication.isPublic
+                  ? "Sản phẩm đủ điều kiện và đang xuất hiện trên trang buyer."
+                  : review === "approved"
+                    ? "Nội dung đã được duyệt nhưng sản phẩm chưa xuất hiện với buyer. Xem các điều kiện còn thiếu bên dưới."
+                    : "Sản phẩm chưa xuất hiện với buyer. Hoàn tất duyệt và các điều kiện bên dưới."}
+              </p>
+            </div>
+            {publication.publicHref
+              ? <Link href={publication.publicHref} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-brand-800 shadow-sm ring-1 ring-emerald-200 hover:bg-emerald-100">Mở trang buyer <ArrowRight className="size-3.5" aria-hidden="true" /></Link>
+              : <span className="shrink-0 rounded-lg bg-white/70 px-3 py-2 text-[11px] font-semibold text-ink-500">Chưa có trang buyer</span>}
+          </div>
+          {!publication.isPublic && <div className="mt-3 border-t border-amber-200/80 pt-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-ink-600">Điều kiện để xuất hiện với buyer</p>
+            <ul className="mt-2 space-y-1.5">
+              {publication.checks.map((check) => <li key={check.key} className="flex items-start gap-2 text-[12px] leading-5">
+                {check.done
+                  ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
+                  : <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-amber-700" aria-hidden="true" />}
+                <span className={check.done ? "text-ink-600" : "font-medium text-ink-800"}>
+                  {check.label}{!check.done && <span className="block font-normal text-amber-900">{check.missing}</span>}
+                </span>
+              </li>)}
+            </ul>
+            <p className="mt-3 rounded-lg bg-white/70 px-3 py-2 text-[11.5px] leading-5 text-ink-600">
+              Bộ phận duyệt chọn tệp được chia sẻ buyer và bật sẵn sàng sau khi kiểm tra. Nhà cung cấp không tự công khai tệp nội bộ hoặc nội dung chưa được duyệt.
+            </p>
+          </div>}
+        </section>}
 
         {product?.supplier_review_note && <p className="mt-2.5 whitespace-pre-wrap rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-800">
           <AlertCircle className="mr-1 inline size-4" aria-hidden="true" /> Yêu cầu chỉnh sửa: {product.supplier_review_note}
