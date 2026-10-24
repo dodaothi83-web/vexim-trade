@@ -47,4 +47,15 @@ assert.match(page, /OnboardingControls/, 'vẫn xác nhận mở cổng được
 assert.match(page, /Hồ sơ doanh nghiệp/, 'cột phải phải có hồ sơ doanh nghiệp');
 assert.ok(!page.includes('SupplierCategoryControls'), 'không đưa panel chốt ngành trùng lặp quay lại');
 
+// Danh sách sản phẩm dùng cột quét nhanh thay vì chồng badge và thao tác trong cột giá.
+assert.ok(page.includes('Thông tin thương mại') && page.includes('Giá & trạng thái'), 'phải có header cho các cột sản phẩm');
+assert.ok(page.includes('lg:grid-cols-[minmax(0,1.55fr)_minmax(150px,0.85fr)_minmax(180px,0.85fr)]'),
+  'desktop phải dùng lưới 3 cột responsive cho sản phẩm');
+assert.match(page, /<dl className="grid min-w-0 grid-cols-2/, 'mobile giữ các thông tin thương mại trong lưới gọn');
+assert.match(page, /title=\{pr\.name\}/, 'tên dài vẫn có tooltip và link mở hồ sơ đầy đủ');
+for (const label of ['MOQ', 'Năng lực/tháng', 'Lead time', 'Giá tham khảo']) {
+  assert.ok(page.includes(`>${label}<`), `thiếu nhãn thông tin sản phẩm: ${label}`);
+}
+assert.ok(!page.includes('MOQ {pr.moq}'), 'MOQ badges are grouped into labeled facts');
+
 console.log('✅ Supplier detail layout: identity header with cover/avatar/verification, quick stats, grouped main column, sticky portal and profile rail.');

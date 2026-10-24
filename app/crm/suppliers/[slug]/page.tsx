@@ -5,7 +5,6 @@ import {
   Banknote,
   Boxes,
   Building2,
-  CalendarClock,
   Clock,
   FileText,
   Globe2,
@@ -287,7 +286,7 @@ export default async function SupplierDetailPage({
             <SectionHead
               icon={Boxes}
               title={`Sản phẩm (${products.length})`}
-              sub="Hồ sơ riêng từng dòng sản phẩm, dùng để so khớp với RFQ của buyer."
+              sub="Quy cách, MOQ và giá tham khảo được tách thành cột để dễ đối chiếu."
               action={canManageProducts ? (
                 <Link href={`/crm/suppliers/${id}/products/new`} className="btn btn-primary">
                   <Plus className="h-4 w-4" />
@@ -309,76 +308,100 @@ export default async function SupplierDetailPage({
                 }
               />
             ) : (
-              <ul className="divide-y divide-ink-100">
-                {products.map((pr) => (
-                  <li key={pr.id} className="py-3 first:pt-0 last:pb-0">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
+              <>
+                <div className="hidden gap-4 border-b border-ink-200 pb-2 text-[11px] font-bold uppercase tracking-wide text-ink-400 lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(150px,0.85fr)_minmax(180px,0.85fr)]">
+                  <span>Sản phẩm</span>
+                  <span>Thông tin thương mại</span>
+                  <span>Giá & trạng thái</span>
+                </div>
+                <ul className="divide-y divide-ink-100">
+                  {products.map((pr) => (
+                    <li key={pr.id} className="grid gap-4 py-4 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1.55fr)_minmax(150px,0.85fr)_minmax(180px,0.85fr)] lg:first:pt-4">
                       <div className="flex min-w-0 gap-3">
-                        <MediaThumb asset={thumbByProduct.get(pr.id) ?? null} size="h-14 w-14" />
+                        <MediaThumb asset={thumbByProduct.get(pr.id) ?? null} size="h-16 w-16" />
                         <div className="min-w-0">
                           <Link
                             href={`/crm/products/${pr.id}`}
-                            className="text-[13.5px] font-semibold text-ink-900 hover:text-brand-700 hover:underline"
+                            title={pr.name}
+                            className="line-clamp-2 text-[14px] font-bold leading-5 text-ink-900 hover:text-brand-700 hover:underline"
                           >
                             {pr.name}
                           </Link>
-                          <span className="ml-2 align-middle">
-                            <Badge className="bg-brand-50 text-brand-700">{pr.category || "Khác"}</Badge>
-                          </span>
-                          <p className="mt-0.5 text-[12px] text-ink-500">{pr.spec || "Chưa có quy cách"}</p>
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                            {pr.ready_for_buyer ? (
-                              <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
-                            ) : shareableCount(pr.id) === 0 ? (
-                              <Badge className="bg-amber-50 text-amber-700">Chưa có ảnh/catalogue</Badge>
-                            ) : (
-                              <Badge className="bg-ink-100 text-ink-600">Chưa bật sẵn sàng</Badge>
-                            )}
-                            <span className="text-[11px] text-ink-400">
-                              {shareableCount(pr.id)} tệp gửi được buyer
-                            </span>
-                          </div>
+                          <p className="mt-1 text-[12px] font-medium text-ink-500">{pr.category || "Khác"}</p>
+                          <p className="mt-1 line-clamp-2 text-[12.5px] leading-5 text-ink-600" title={pr.spec ?? undefined}>
+                            {pr.spec || "Chưa có quy cách"}
+                          </p>
+                          {(pr.certifications || pr.oem || pr.samples) && (
+                            <p
+                              className="mt-2 line-clamp-2 text-[11.5px] leading-5 text-ink-500"
+                              title={[pr.certifications, pr.oem ? "OEM" : null, pr.samples ? "Có gửi mẫu" : null].filter(Boolean).join(" · ")}
+                            >
+                              {[pr.certifications, pr.oem ? "OEM" : null, pr.samples ? "Có gửi mẫu" : null].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="text-right text-[12.5px]">
-                        {pr.ref_price !== null ? (
-                          <p className="font-bold text-ink-900">
-                            {formatMoney(pr.ref_price)} <span className="font-normal text-ink-400">/ {pr.unit || "đv"} · {pr.incoterm ?? ""} {pr.incoterm_place ?? ""}</span>
-                          </p>
-                        ) : (
-                          <p className="text-ink-400">chưa có giá tham khảo</p>
-                        )}
-                        {pr.price_valid_until && (
-                          <p className="text-[11px] text-ink-400">hiệu lực đến {formatDate(pr.price_valid_until)}</p>
-                        )}
-                        {/* Người kiểm duyệt cần mở xem nội dung trước khi quyết định; sửa là việc riêng. */}
-                        <div className="mt-2 flex flex-wrap justify-end gap-1.5">
-                          <Link href={`/crm/products/${pr.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[12.5px]">
+
+                      <dl className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 border-t border-ink-100 pt-3 text-[12.5px] lg:grid-cols-1 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+                        <div>
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">MOQ</dt>
+                          <dd className="mt-0.5 break-words font-semibold text-ink-800">{pr.moq || "Chưa khai"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Năng lực/tháng</dt>
+                          <dd className="mt-0.5 break-words font-semibold text-ink-800">{pr.monthly_capacity || "Chưa khai"}</dd>
+                        </div>
+                        <div className="col-span-2 lg:col-span-1">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Lead time</dt>
+                          <dd className="mt-0.5 break-words font-semibold text-ink-800">{pr.lead_time_days != null ? `${pr.lead_time_days} ngày` : "Chưa khai"}</dd>
+                        </div>
+                      </dl>
+
+                      <div className="flex min-w-0 flex-col gap-3 border-t border-ink-100 pt-3 lg:h-full lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Giá tham khảo</p>
+                          {pr.ref_price != null ? (
+                            <>
+                              <p className="mt-1 text-[17px] font-bold leading-6 text-ink-900">{formatMoney(pr.ref_price)}</p>
+                              <p className="mt-0.5 break-words text-[12px] text-ink-500">
+                                {pr.incoterm || pr.incoterm_place
+                                  ? `/ ${pr.unit || "đv"} · ${[pr.incoterm, pr.incoterm_place].filter(Boolean).join(" ")}`
+                                  : `/ ${pr.unit || "đv"}`}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="mt-1 text-[12.5px] text-ink-400">Chưa có giá tham khảo</p>
+                          )}
+                          {pr.price_valid_until && (
+                            <p className="mt-1 text-[11px] text-ink-400">Hiệu lực đến {formatDate(pr.price_valid_until)}</p>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3">
+                          {pr.ready_for_buyer ? (
+                            <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
+                          ) : shareableCount(pr.id) === 0 ? (
+                            <Badge className="bg-amber-50 text-amber-700">Chưa có ảnh/catalogue</Badge>
+                          ) : (
+                            <Badge className="bg-ink-100 text-ink-600">Chưa bật sẵn sàng</Badge>
+                          )}
+                          <span className="text-[11px] text-ink-400">{shareableCount(pr.id)} tệp buyer</span>
+                        </div>
+                        {/* Review opens the product first; editing stays a separate action. */}
+                        <div className="mt-auto flex gap-2">
+                          <Link href={`/crm/products/${pr.id}`} className="btn btn-ghost min-w-0 flex-1 justify-center px-2 py-1.5 text-[12px]">
                             <Eye className="h-3.5 w-3.5" /> Xem
                           </Link>
                           {canManageProducts && (
-                            <Link href={`/crm/products/${pr.id}/edit`} className="btn btn-soft px-2.5 py-1.5 text-[12.5px]">
+                            <Link href={`/crm/products/${pr.id}/edit`} className="btn btn-soft min-w-0 flex-1 justify-center px-2 py-1.5 text-[12px]">
                               <Pencil className="h-3.5 w-3.5" /> Sửa
                             </Link>
                           )}
                         </div>
                       </div>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-                      {pr.moq && <Badge className="bg-ink-50 text-ink-600">MOQ {pr.moq}</Badge>}
-                      {pr.monthly_capacity && <Badge className="bg-ink-50 text-ink-600">{pr.monthly_capacity}</Badge>}
-                      {pr.lead_time_days !== null && (
-                        <Badge className="bg-ink-50 text-ink-600">
-                          <CalendarClock className="h-3 w-3" /> {pr.lead_time_days} ngày
-                        </Badge>
-                      )}
-                      {pr.certifications && <Badge className="bg-emerald-50 text-emerald-700">{pr.certifications}</Badge>}
-                      {pr.oem && <Badge className="bg-violet-50 text-violet-700">OEM</Badge>}
-                      {pr.samples && <Badge className="bg-sky-50 text-sky-700">gửi mẫu</Badge>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </Card>
 
