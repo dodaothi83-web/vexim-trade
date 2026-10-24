@@ -343,6 +343,17 @@ assert.match(detailPage, /Product details and reference prices are supplier-prov
 assert.doesNotMatch(detailPage, /Product specifications are supplier-stated|These are supplier reviews, not certifications/, 'PDP avoids repeated defensive disclaimers');
 assert.match(detailPage, /supplierImageUrl/, 'Supplier card supports the real public profile image');
 assert.match(detailPage, /Founded \{card\.supplierFoundedYear\}/, 'Supplier card only shows a founded year when data exists');
+assert.match(detailPage, /categoryProducts\.filter\(\(item\) => item\.id !== card\.id && !item\.isDemo\)\.slice\(0, 4\)/,
+  'Related products exclude the current listing and demo data, with a four-card limit');
+const relatedProductsStart = detailPage.indexOf('id="related-products-heading"');
+assert.ok(relatedProductsStart > detailPage.indexOf('id="product-description-heading"'),
+  'Related products fill the area after the product description');
+const relatedProductsSource = detailPage.slice(relatedProductsStart, detailPage.indexOf('</section>', relatedProductsStart));
+assert.match(relatedProductsSource, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Related products use the responsive 2/3/4-column card grid');
+assert.match(relatedProductsSource, /<PublicProductCard/, 'Related products reuse the common public offer card');
+assert.match(relatedProductsSource, /related\.cardImagePath \?\? related\.imagePaths\[0\]/, 'Related product cards prefer approved thumbnails');
+assert.match(relatedProductsSource, /related\.verificationSteps/, 'Related product cards retain approved supplier checks');
+assert.match(relatedProductsSource, /View all products/, 'Buyers can continue to the full category');
 assert.match(profilePage, /Target markets are self-declared by the supplier and pending independent audit\./);
 // Changing the last buyer image to internal must revoke buyer-ready immediately.
 const actions = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');

@@ -15,6 +15,7 @@ import { fieldsFor, publicProductAttributes, supplierFieldsFor } from "@/lib/pro
 import { shareableProductVideo } from "@/lib/public/product-video";
 import { ProductMediaGallery } from "@/components/product-media-gallery";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
+import { PublicProductCard } from "@/components/public-product-card";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
@@ -32,13 +33,15 @@ async function getDetail(slug: string, productId: string) {
   const published = category.status === "published" && category.is_published;
   const session = !published ? await getSession() : null;
   if (!published && !(session && hasPermission(session.role, "categories.manage"))) return null;
-  const card = (await listPublicCategoryProducts(category)).find((p) => p.id === productId);
+  const categoryProducts = await listPublicCategoryProducts(category);
+  const card = categoryProducts.find((p) => p.id === productId);
   if (!card) return null;
   const product = await store.getProduct(productId);
   if (!product || product.supplier_id !== card.supplierId) return null;
   const categories = await store.listCategories({ publishedOnly: false });
   if (!productBelongsToCategory(product, category, categories)) return null;
-  return { category, card, product, preview: !published };
+  const relatedProducts = categoryProducts.filter((item) => item.id !== card.id && !item.isDemo).slice(0, 4);
+  return { category, card, product, relatedProducts, preview: !published };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -77,7 +80,7 @@ export default async function PublicProductDetail({ params }: Props) {
   const { slug, productId } = await params;
   const detail = await getDetail(slug, productId);
   if (!detail) notFound();
-  const { category, card, product: p, preview } = detail;
+  const { category, card, product: p, relatedProducts, preview } = detail;
   // Product eligibility was checked above; project only buyer-shareable images and safe video embeds.
   const media = await getStore().listMedia("product", p.id);
   const images = shareableProductImages(media, p.id, p.featured_media_id, 24);
@@ -234,6 +237,24 @@ export default async function PublicProductDetail({ params }: Props) {
     {enDetail && <section aria-labelledby="product-description-heading" className="mt-10 border-t border-ink-200 pt-8">
       <h2 id="product-description-heading" className="text-2xl font-black text-ink-900">Product description</h2>
       <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{withoutDirectContacts(enDetail)}</p>
+    </section>}
+    {relatedProducts.length > 0 && <section aria-labelledby="related-products-heading" className="mt-12 border-t border-ink-200 pt-8">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 id="related-products-heading" className="text-2xl font-black text-ink-900">Related products</h2>
+          <p className="mt-1 text-sm text-ink-500">Explore more products in {category.name_i18n.en || slug}.</p>
+        </div>
+        <Link href={`/products/${encodeURIComponent(slug)}`} className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-700 hover:underline">View all products <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+      </div>
+      <ul className="mt-5 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+        {relatedProducts.map((related) => <li key={related.id} className="min-w-0">
+          <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(related.id)}`}
+            imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} moq={related.moq}
+            price={related.price} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays}
+            supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
+            verificationSteps={related.verificationSteps} />
+        </li>)}
+      </ul>
     </section>}
   </div>;
 }
