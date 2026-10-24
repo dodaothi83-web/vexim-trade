@@ -74,7 +74,7 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
       {visible.map((field) => <div key={field.key} className="min-w-0">
         <label className="block text-[12px] font-semibold text-ink-800" htmlFor={`attribute-${field.key}`}>
           {field.label}
-          {field.supplier_added && <span className="ml-1.5 rounded bg-ink-100 px-1 py-0.5 text-[9.5px] font-bold tracking-wide text-ink-500 uppercase">NCC tự thêm</span>}
+          {field.supplier_added && <span className="ml-1.5 rounded bg-ink-100 px-1 py-0.5 text-[9.5px] font-bold tracking-wide text-ink-500 uppercase">Tự thêm</span>}
         </label>
 
         {field.type === "select"

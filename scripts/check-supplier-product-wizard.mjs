@@ -32,7 +32,7 @@ const Link = ({ href, children, ...props }) => React.createElement('a', { href, 
 const view = {
   PRODUCT_STATUS: {
     draft: { label: 'Bản nháp', tone: 'bg-slate-100' },
-    pending: { label: 'Chờ Vexim duyệt', tone: 'bg-amber-100' },
+    pending: { label: 'Chờ duyệt', tone: 'bg-amber-100' },
     changes_requested: { label: 'Cần chỉnh sửa', tone: 'bg-rose-100' },
     approved: { label: 'Đã duyệt nội dung', tone: 'bg-emerald-100' },
   },
@@ -50,7 +50,7 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   'next/navigation': { useRouter: () => ({ push() {}, refresh() {}, replace() {} }) },
   'lucide-react': icons,
   '@/lib/types': {},
-  '@/lib/public/product-selection': { productPriceBlockers: () => [], supplierPriceConsentCurrent: () => true },
+  '@/lib/public/product-selection': { productPriceBlockers: () => [], supplierPriceConsentCurrent: (s) => s?.fob_publicly_visible !== false },
   '@/lib/supplier-portal/category-proposals': {},
   '@/lib/supplier-portal/product-view': view,
   '../product-actions': {
@@ -135,7 +135,7 @@ assert.match(onStep2, /Sang bước 3/, 'Bước 2 có nút sang bước 3');
 const onStep3 = render({ initialStep: 3 });
 assert.equal((onStep3.match(/>Bước 3</g) ?? []).length, 1, 'Thẻ của bước 3 vẫn giữ đúng một nhãn bước');
 assert.match(onStep3, /Trở về bước 2/, 'Bước 3 có nút Trở về bước 2');
-assert.match(onStep3, /Gửi hồ sơ cho Vexim kiểm tra/, 'Bước 3 có nút gửi hồ sơ');
+assert.match(onStep3, /Gửi hồ sơ duyệt/, 'Bước 3 có nút gửi hồ sơ');
 
 // 3b. Bước 3 là bước XEM LẠI: hiển thị lại toàn bộ dữ liệu bước 1 và tệp của bước 2.
 assert.match(onStep3, /Xem lại toàn bộ hồ sơ/, 'Bước 3 là bước xem lại');
@@ -184,7 +184,7 @@ assert.match(source, /selectStep/, 'Bấm vào thanh bước để chuyển bư�
 assert.match(source, /saveSupplierProductAction\(form\)/, 'Vẫn lưu qua saveSupplierProductAction');
 assert.match(source, /submitSupplierProductAction\(form\)/, 'Vẫn nộp qua submitSupplierProductAction');
 assert.match(source, /productCanSubmit\(product, media\) && !dirty/, 'Nút nộp vẫn phụ thuộc điều kiện dữ liệu');
-assert.match(source, /window\.confirm\("Lưu thay đổi sẽ rút sản phẩm/, 'Vẫn cảnh báo khi sửa sản phẩm đã duyệt');
+assert.match(source, /window\.confirm\("Lưu thay đổi sẽ đưa sản phẩm về bản nháp/, 'Vẫn cảnh báo khi sửa sản phẩm đã duyệt');
 assert.match(source, /Bạn có thay đổi chưa lưu/, 'Vẫn cảnh báo rời trang khi chưa lưu');
 assert.match(source, /firstInvalidField\(formRef\.current, 1\)/, 'Chặn sang bước khi còn trường bắt buộc');
 assert.match(source, /requestSubmit\(\)/, 'Đi tiếp được sau khi lưu thành công');
@@ -204,11 +204,37 @@ const storefront = read('../app/supplier/portal/products/product-storefront.tsx'
 assert.match(storefront, /categoryLabels\?: Record<string, string>/, 'Danh sách nhận nhãn danh mục');
 assert.match(storefront, /categoryLabels\[slug\] \?\? slug/, 'Hiện nhãn thay vì slug thô');
 assert.match(storefront, /Ngoài phạm vi/, 'Sản phẩm ngoài phạm vi được đánh dấu');
-assert.match(storefront, /Chỉnh phạm vi danh mục/, 'Có lối sang trang Danh mục kinh doanh');
+assert.match(storefront, /Chọn thêm danh mục/, 'Có lối sang trang Danh mục kinh doanh');
 const listPage = read('../app/supplier/portal/products/page.tsx');
 assert.match(listPage, /categoryLabels=/, 'Trang danh sách truyền nhãn danh mục');
 assert.match(listPage, /scope=\{\[?scope/, 'Trang danh sách truyền phạm vi danh mục');
 assert.match(listPage, /allowedSupplierCategories/, 'Phạm vi lấy từ đúng lớp dữ liệu danh mục');
+
+// 9b. Copy B2B: không lạm dụng tên nền tảng, không giọng hành chính.
+const brandMentions = (step1.match(/Vexim/g) ?? []).length;
+assert.ok(brandMentions <= 1, `Chỉ nhắc tên nền tảng khi thật cần (đang ${brandMentions} lần)`);
+for (const phrase of [
+  'Vexim duyệt', 'Vexim kiểm tra', 'Vexim xác nhận', 'cho Vexim', 'Chờ Vexim',
+  'Tôi đại diện NCC xác nhận đồng ý cho', 'không tự duyệt sản phẩm',
+]) {
+  assert.ok(!source.includes(phrase), `Bỏ giọng hành chính/lặp thương hiệu: ${phrase}`);
+}
+assert.match(step1, /Danh mục được chọn cần phù hợp với hồ sơ doanh nghiệp đã đăng ký\./,
+  'Hint danh mục nói đúng mức cần thiết');
+// Chỉ hiện khi chưa có xác nhận chia sẻ giá còn hiệu lực.
+const noConsent = render({ supplier: { ...supplier, fob_publicly_visible: false } });
+assert.match(noConsent, /Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai\./,
+  'Xác nhận chia sẻ giá gọn một dòng');
+assert.match(noConsent, /Hiệu lực 180 ngày kể từ khi lưu; giá tham khảo không phải báo giá chính thức/,
+  'Điều kiện ngắn nằm dưới checkbox');
+assert.match(noConsent, /href="\/dieu-khoan-su-dung"[^>]*>Điều khoản</, 'Có link điều khoản thay vì nhồi văn bản pháp lý');
+assert.doesNotMatch(noConsent, /Tôi đại diện NCC xác nhận/, 'Bỏ câu cam kết dài kiểu hợp đồng');
+assert.match(source, /Gửi hồ sơ duyệt/, 'Nút gửi dùng từ trung tính');
+assert.match(source, /Yêu cầu chỉnh sửa:/, 'Phản hồi duyệt gọi đúng việc phải làm');
+
+// 9c. Không lặp nhãn bước trên các thẻ con của bước 1.
+assert.equal((step1.match(/>Bước 1</g) ?? []).length, 0, 'Không có chữ "Bước 1" lặp trong nội dung bước 1');
+assert.equal((step1.match(/Bước 1/g) ?? []).length, 1, 'Chỉ panel giữ nhãn Bước 1 cho trình đọc màn hình');
 
 // 10. Gõ vào bất kỳ ô nào cũng không được làm vỡ trang: handler đọc form qua ref,
 //    vì React dọn `event.currentTarget` về null trước khi state updater chạy.

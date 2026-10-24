@@ -4,7 +4,7 @@ export type ProductReviewFilter = "all" | "draft" | "pending" | "changes_request
 
 export const PRODUCT_STATUS: Record<Exclude<ProductReviewFilter, "all">, { label: string; tone: string }> = {
   draft: { label: "Bản nháp", tone: "bg-slate-100 text-slate-700" },
-  pending: { label: "Chờ Vexim duyệt", tone: "bg-amber-100 text-amber-900" },
+  pending: { label: "Chờ duyệt", tone: "bg-amber-100 text-amber-900" },
   changes_requested: { label: "Cần chỉnh sửa", tone: "bg-rose-100 text-rose-800" },
   approved: { label: "Đã duyệt nội dung", tone: "bg-emerald-100 text-emerald-800" },
 };

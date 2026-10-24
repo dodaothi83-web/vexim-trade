@@ -43,7 +43,7 @@ assert.equal(publicProductPrice({ ...price, ref_price_max: 9 }, { ...consent, fo
 assert.equal(publicProductPrice({ ...price, ref_price_max: 9, price_publicly_visible: false }, consent), null, 'Range does not bypass product opt-in');
 assert.equal(productPriceBlockers(price, consent).length, 0, 'A price with both opt-in and current consent is buyer-visible');
 assert.match(productPriceBlockers({ ...price, price_publicly_visible: false }, consent).join(' '), /sản phẩm này/, 'A missing product tick is explained');
-assert.match(productPriceBlockers(price, { ...consent, fob_publicly_visible: false }).join(' '), /NCC chưa xác nhận/, 'A product tick cannot stand in for supplier consent');
+assert.match(productPriceBlockers(price, { ...consent, fob_publicly_visible: false }).join(' '), /chưa xác nhận chia sẻ giá/, 'A product tick cannot stand in for supplier consent');
 assert.match(productPriceBlockers(price, { ...consent, fob_updated_at: '2020-01-01' }).join(' '), /180 ngày/, 'Expired consent explains On request');
 assert.match(productPriceBlockers({ ...price, price_valid_until: '2020-01-01' }, consent).join(' '), /hết hạn/, 'Expired price explains On request');
 for (const item of [price, { ...price, price_publicly_visible: false }, { ...price, ref_price: 0 }, { ...price, price_valid_until: '2020-01-01' }]) {

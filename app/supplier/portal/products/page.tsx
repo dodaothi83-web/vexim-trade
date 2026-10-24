@@ -6,7 +6,7 @@ import { allowedSupplierCategories, categoryProposalOptions } from "@/lib/suppli
 import { SupplierProductStorefront } from "./product-storefront";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Sản phẩm của tôi | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "Sản phẩm của tôi", robots: { index: false, follow: false } };
 
 export default async function SupplierProductsPage() {
   const access = await supplierPortalAccess();

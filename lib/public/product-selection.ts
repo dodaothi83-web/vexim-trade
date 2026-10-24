@@ -93,8 +93,8 @@ export function productPriceBlockers(
     blockers.push("Giá tham khảo đến phải lớn hơn hoặc bằng giá từ; để trống nếu chỉ có một mức giá.");
   if (product.price_valid_until && product.price_valid_until < today)
     blockers.push(`Giá tham khảo đã hết hạn (${product.price_valid_until}).`);
-  if (!supplier.fob_publicly_visible) blockers.push("NCC chưa xác nhận đồng ý chia sẻ giá; ô công khai của sản phẩm không thay thế quyền này.");
-  else if (!supplierPriceConsentCurrent(supplier, now)) blockers.push("Quyền chia sẻ giá của NCC không còn hiệu lực (quá 180 ngày hoặc ngày xác nhận không hợp lệ); cần NCC xác nhận lại.");
+  if (!supplier.fob_publicly_visible) blockers.push("Doanh nghiệp chưa xác nhận chia sẻ giá; ô công khai của sản phẩm không thay thế xác nhận này.");
+  else if (!supplierPriceConsentCurrent(supplier, now)) blockers.push("Xác nhận chia sẻ giá đã hết hiệu lực (quá 180 ngày hoặc ngày xác nhận không hợp lệ); cần xác nhận lại.");
   return blockers;
 }
 

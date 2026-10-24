@@ -41,7 +41,7 @@ type Step = 1 | 2 | 3;
 
 const STEPS: { step: Step; title: string; short: string; hint: string }[] = [
   { step: 1, title: "Thông tin sản phẩm", short: "Thông tin", hint: "Tên, quy cách, thương mại" },
-  { step: 2, title: "Ảnh & catalogue", short: "Hình ảnh", hint: "Tệp thực tế gửi Vexim" },
+  { step: 2, title: "Ảnh & catalogue", short: "Hình ảnh", hint: "Ảnh và tài liệu thật" },
   { step: 3, title: "Xem lại & gửi", short: "Xem lại", hint: "Đọc lại toàn bộ rồi nộp" },
 ];
 
@@ -242,7 +242,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     event.preventDefault();
     const formElement = event.currentTarget;
     if (product && review === "approved" &&
-        !window.confirm("Lưu thay đổi sẽ rút sản phẩm khỏi trạng thái sẵn sàng cho buyer và đưa về bản nháp để Vexim duyệt lại. Tiếp tục?")) return;
+        !window.confirm("Lưu thay đổi sẽ đưa sản phẩm về bản nháp và tạm ẩn khỏi buyer cho tới khi được duyệt lại. Tiếp tục?")) return;
     const target = advanceTo.current;
     advanceTo.current = null;
     setBusy(true);
@@ -294,7 +294,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     if (target > 1 && !product) {
       // Chưa lưu lần nào thì chưa có sản phẩm để tải tệp/nộp: lưu rồi đi tiếp.
       if (target === 2) leaveInfoFor(2);
-      else { setStepError("Lưu thông tin sản phẩm trước khi gửi Vexim duyệt."); }
+      else { setStepError("Lưu thông tin sản phẩm trước khi gửi duyệt."); }
       return;
     }
     if (step === 1 && target > 1) { leaveInfoFor(target); return; }
@@ -395,7 +395,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         uploaded++;
       }
       setSelected([]);
-      setUploadResult(`Đã tải ${uploaded} tệp nội bộ. Chỉ Vexim có thể chọn tệp chia sẻ buyer.`);
+      setUploadResult(`Đã tải ${uploaded} tệp nội bộ. Tệp chỉ được chia sẻ cho buyer sau khi duyệt.`);
     } catch (error) {
       if (uploaded) setSelected(selected.slice(uploaded));
       setUploadResult(`${uploaded ? `Đã tải ${uploaded} tệp; chỉ còn tệp chưa hoàn tất trong danh sách chọn. ` : ""}${error instanceof Error ? error.message : "Không kết nối được máy chủ."}`);
@@ -468,18 +468,18 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{status.label}</span>
           <p className="min-w-0 flex-1 text-[12px] leading-5 text-ink-700">
             {review === "approved"
-              ? "Nội dung đã được Vexim duyệt. Nếu sửa, sản phẩm quay về bản nháp và tạm ngừng sẵn sàng chia sẻ buyer."
+              ? "Nội dung đã được duyệt. Nếu sửa, sản phẩm quay về bản nháp và tạm ngừng chia sẻ cho buyer."
               : review === "pending"
-                ? "Vexim đang kiểm tra. Bạn xem được thông tin nhưng chưa thể chỉnh sửa hoặc tải thêm tệp."
+                ? "Đang chờ duyệt. Bạn xem được thông tin nhưng chưa thể chỉnh sửa hoặc tải thêm tệp."
                 : review === "changes_requested"
-                  ? "Xem phản hồi, chỉnh sửa, lưu lại rồi gửi Vexim kiểm tra lần nữa."
-                  : "Sản phẩm còn riêng tư. Điền thông tin, thêm tệp thật rồi gửi Vexim duyệt."}
+                  ? "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."
+                  : "Sản phẩm còn riêng tư. Điền thông tin, thêm tệp thật rồi gửi duyệt."}
           </p>
           {product?.ready_for_buyer && review === "approved" && <span className="rounded-full bg-white px-2 py-0.5 text-[10.5px] font-bold text-brand-800">Sẵn sàng chia sẻ buyer</span>}
         </section>
 
         {product?.supplier_review_note && <p className="mt-2.5 whitespace-pre-wrap rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-800">
-          <AlertCircle className="mr-1 inline size-4" aria-hidden="true" /> Vexim yêu cầu: {product.supplier_review_note}
+          <AlertCircle className="mr-1 inline size-4" aria-hidden="true" /> Yêu cầu chỉnh sửa: {product.supplier_review_note}
         </p>}
 
         <form id="product-info" ref={formRef} onSubmit={save} onChange={onFormChange} noValidate>
@@ -492,7 +492,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                     <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked} />
                   </Field>
                 </div>
-                <Field label="Danh mục sản phẩm" required hint="Chỉ chọn trong danh mục kinh doanh của bạn. Chọn danh mục không tự duyệt sản phẩm.">
+                <Field label="Danh mục sản phẩm" required hint="Danh mục được chọn cần phù hợp với hồ sơ doanh nghiệp đã đăng ký.">
                   <select name="supplier_category_proposal" className="input" required value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} disabled={locked || !categories.length}>
                     <option value="" disabled>Chọn danh mục sản phẩm</option>
                     {categories.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} · ` : ""}{c.label}</option>)}
@@ -512,7 +512,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                       values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}} />
                   </div>}
                 <Field label="Mô tả ngắn" hint="Tóm tắt vài câu bên cạnh ảnh sản phẩm">
-                  <textarea name="description" className="input min-h-28 resize-y" rows={4} maxLength={1500} placeholder="Giới thiệu ngắn gọn cho Vexim..." defaultValue={product?.description ?? ""} disabled={locked} />
+                  <textarea name="description" className="input min-h-28 resize-y" rows={4} maxLength={1500} placeholder="Giới thiệu ngắn gọn về sản phẩm..." defaultValue={product?.description ?? ""} disabled={locked} />
                 </Field>
                 <Field label="Quy cách / tiêu chuẩn" hint="Cần ít nhất một trong hai ô mô tả hoặc quy cách để gửi duyệt">
                   <textarea name="spec" className="input min-h-28 resize-y" rows={4} maxLength={800} placeholder="Ví dụ: Size W320, độ ẩm ≤ 5%, đóng gói 25 kg..." defaultValue={product?.spec ?? ""} disabled={locked} />
@@ -561,19 +561,26 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   Cho phép công khai giá tham khảo của sản phẩm này khi đủ điều kiện
                 </label>
                 {product && <div className="mt-2.5 rounded-md bg-white p-2.5 text-[11.5px] leading-5" role="status">
-                  <strong>Tình trạng giá đã lưu:</strong> {productPriceBlockers(product, supplier).length === 0 ? "Sản phẩm và NCC đã cho phép chia sẻ giá." : "Buyer vẫn thấy On request."}
+                  <strong>Tình trạng giá đã lưu:</strong> {productPriceBlockers(product, supplier).length === 0 ? "Sản phẩm và doanh nghiệp đã cho phép chia sẻ giá." : "Buyer vẫn thấy On request."}
                   <ul className="mt-1 list-disc pl-5">{productPriceBlockers(product, supplier).map((reason) => <li key={reason}>{reason}</li>)}
-                    {(review !== "approved" || !product.ready_for_buyer || supplier.status !== "published") && <li>Vexim còn phải duyệt sản phẩm, chọn danh mục/ảnh buyer và bật sẵn sàng, đồng thời công bố hồ sơ NCC.</li>}
+                    {(review !== "approved" || !product.ready_for_buyer || supplier.status !== "published") && <li>Sản phẩm còn chờ duyệt nội dung, ảnh chia sẻ buyer và trạng thái sẵn sàng.</li>}
                   </ul>
                   {dirty && <p className="mt-1 font-semibold text-amber-800">Thay đổi ở form chưa lưu; dòng trên là tình trạng trước khi lưu.</p>}
                 </div>}
                 <p className="mt-2 text-[11.5px] leading-5">
-                  {supplierPriceConsentCurrent(supplier) ? "NCC đã xác nhận chia sẻ giá trong 180 ngày gần đây. Không tự gia hạn khi lưu sản phẩm." : "Chưa có xác nhận chia sẻ giá còn hiệu lực. Tích xác nhận riêng bên dưới khi muốn công khai giá."} Giá phải lớn hơn 0, chưa hết hạn; ảnh/catalogue, danh mục và hồ sơ NCC phải được Vexim duyệt, xuất bản. Nếu không, buyer sẽ thấy On request.
+                  Giá cần lớn hơn 0 và còn hạn; sản phẩm cần có ảnh/catalogue, danh mục và hồ sơ doanh nghiệp đã được duyệt — nếu chưa, buyer sẽ thấy <em>On request</em>.
+                  {supplierPriceConsentCurrent(supplier) ? " Xác nhận chia sẻ giá đang còn hiệu lực." : ""}
                 </p>
-                {!supplierPriceConsentCurrent(supplier) && <label className="mt-2.5 flex items-start gap-2 rounded-md bg-white p-2.5 text-[11.5px] font-medium text-brand-900 ring-1 ring-brand-200">
-                  <input type="checkbox" name="confirm_supplier_price_consent" value="yes" disabled={locked} className="mt-0.5 size-4 shrink-0 accent-brand-700" />
-                  Tôi đại diện NCC xác nhận đồng ý cho Vexim hiển thị công khai giá tham khảo của các sản phẩm tôi chọn công khai. Xác nhận có hiệu lực 180 ngày kể từ khi lưu; không phải báo giá chính thức. Chỉ ghi nhận khi tôi đồng thời chọn công khai giá cho sản phẩm này.
-                </label>}
+                {!supplierPriceConsentCurrent(supplier) && <div className="mt-2.5 rounded-md bg-white p-2.5 ring-1 ring-brand-200">
+                  <label className="flex items-start gap-2 text-[11.5px] font-medium text-brand-900">
+                    <input type="checkbox" name="confirm_supplier_price_consent" value="yes" disabled={locked} className="mt-0.5 size-4 shrink-0 accent-brand-700" />
+                    <span>Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai.</span>
+                  </label>
+                  <p className="mt-1 pl-6 text-[10.5px] leading-4 text-ink-500">
+                    Hiệu lực 180 ngày kể từ khi lưu; giá tham khảo không phải báo giá chính thức.{" "}
+                    <Link href="/dieu-khoan-su-dung" className="font-semibold text-brand-800 underline">Điều khoản</Link>
+                  </p>
+                </div>}
               </div>
 
               <div className="mx-4 mb-4 flex flex-wrap gap-x-5 gap-y-2 rounded-lg bg-ink-50 px-3.5 py-2.5 text-[12.5px] text-ink-700 sm:mx-5">
@@ -600,7 +607,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         <section data-step-panel={2} className={step === 2 ? "space-y-3" : "hidden"} aria-label="Bước 2 · Ảnh và catalogue" id="product-media">
           <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
             <SectionHead step="Bước 2" title="Ảnh & catalogue thực tế"
-              hint="JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp chỉ để Vexim kiểm tra, không tự hiện trên trang buyer." />
+              hint="JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp dùng để duyệt nội bộ, không tự hiện trên trang buyer." />
             <div className="space-y-4 px-4 py-4 sm:px-5">
               {media.length > 0
                 ? <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{media.map((asset) => {
@@ -625,7 +632,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                     </div>
                   </li>;
                 })}</ul>
-                : <p className="rounded-lg bg-ink-50 px-3.5 py-6 text-center text-[13px] text-ink-600">Chưa có tệp nào. Thêm ít nhất một ảnh hoặc catalogue thật để gửi Vexim duyệt.</p>}
+                : <p className="rounded-lg bg-ink-50 px-3.5 py-6 text-center text-[13px] text-ink-600">Chưa có tệp nào. Thêm ít nhất một ảnh hoặc catalogue thật để gửi duyệt.</p>}
 
               {canUpload ? <>
                 <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseFiles(Array.from(e.dataTransfer.files)); }}
@@ -646,7 +653,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   </div>
                 </div>}
               </> : <p className="rounded-lg bg-ink-50 px-3.5 py-3 text-[12.5px] text-ink-600">
-                {!product ? "Lưu thông tin sản phẩm trước để mở chức năng tải tệp." : dirty ? "Lưu thay đổi nội dung trước khi tải tệp để không mất phần đang nhập." : review === "approved" ? "Sản phẩm đã duyệt. Nếu cần thêm tệp, hãy lưu thay đổi nội dung trước; sản phẩm sẽ quay lại bản nháp." : "Tạm khóa tải tệp khi Vexim đang kiểm tra."}
+                {!product ? "Lưu thông tin sản phẩm trước để mở chức năng tải tệp." : dirty ? "Lưu thay đổi nội dung trước khi tải tệp để không mất phần đang nhập." : review === "approved" ? "Sản phẩm đã duyệt. Nếu cần thêm tệp, hãy lưu thay đổi nội dung trước; sản phẩm sẽ quay lại bản nháp." : "Tạm khoá tải tệp trong khi chờ duyệt."}
               </p>}
               {(progress || uploadResult) && <p role="status" className={`text-[12.5px] font-semibold ${uploadResult && /không|quá|lỗi|tối đa/i.test(uploadResult) ? "text-rose-700" : "text-brand-800"}`}>{progress || uploadResult}</p>}
             </div>
@@ -656,7 +663,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         <section data-step-panel={3} className={step === 3 ? "space-y-3" : "hidden"} aria-label="Bước 3 · Xem lại và gửi" id="product-review">
           <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
             <SectionHead step="Bước 3" title="Xem lại toàn bộ hồ sơ"
-              hint="Đọc lại đúng nội dung ở bước 1 và 2. Sửa được ngay tại đây, gửi xong mới chuyển cho Vexim." />
+              hint="Đọc lại đúng nội dung ở bước 1 và 2. Sửa được ngay tại đây, gửi xong hồ sơ mới chuyển sang bước duyệt." />
             <div className="space-y-3 px-4 py-4 sm:px-5">
               {dirty && <p className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] font-semibold text-amber-900">
                 Có thay đổi chưa lưu — nội dung dưới đây là bản đang nhập.
@@ -742,18 +749,18 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
               {sent || review === "pending"
                 ? <div role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-[13px] font-semibold text-emerald-900">
                   <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="min-w-0 flex-1">Đã gửi hồ sơ. Vexim sẽ kiểm tra và phản hồi; sản phẩm chưa tự công khai.</span>
+                  <span className="min-w-0 flex-1">Đã gửi hồ sơ. Vexim sẽ phản hồi sau khi duyệt; sản phẩm chưa tự công khai.</span>
                   <Link href="/supplier/portal/products" className="underline">Về danh sách</Link>
                 </div>
                 : review === "approved"
-                  ? <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[13px] font-semibold text-emerald-800"><Check className="size-4" aria-hidden="true" /> Nội dung đã được Vexim duyệt</p>
+                  ? <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[13px] font-semibold text-emerald-800"><Check className="size-4" aria-hidden="true" /> Nội dung đã được duyệt</p>
                   : <div className="space-y-2">
                     <button type="button" onClick={requestSubmit} disabled={busy}
                       aria-describedby="submit-blockers"
                       className="btn btn-primary w-full justify-center sm:w-auto">
                       {busy
                         ? <><span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> Đang gửi hồ sơ…</>
-                        : <><Send className="size-4" aria-hidden="true" /> Gửi hồ sơ cho Vexim kiểm tra</>}
+                        : <><Send className="size-4" aria-hidden="true" /> Gửi hồ sơ duyệt</>}
                     </button>
                     <div id="submit-blockers" aria-live="polite">
                       {submitHint?.length
@@ -770,7 +777,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                     </div>
                   </div>}
               {result && resultAt === "review" && !result.ok && <p role="status" className="rounded-lg bg-rose-50 px-3.5 py-2.5 text-[13px] font-semibold text-rose-800">{result.message}</p>}
-              <p className="text-[11.5px] leading-5 text-ink-500">Bản dịch tiếng Anh cho trang buyer: {product?.name_i18n?.en?.trim() ? "đã có bản dịch do AI soạn và Vexim kiểm tra." : "Vexim sẽ dịch tự động bằng AI khi kiểm tra sản phẩm này."} Bạn cứ nhập nội dung bằng tiếng Việt.</p>
+              <p className="text-[11.5px] leading-5 text-ink-500">{product?.name_i18n?.en?.trim() ? "Bản tiếng Anh cho trang buyer đã có." : "Bản tiếng Anh cho trang buyer được dịch tự động bằng AI khi duyệt."} Bạn cứ nhập bằng tiếng Việt.</p>
             </div>
           </div>
         </section>
@@ -786,7 +793,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           <span className="hidden min-w-0 flex-1 truncate px-1 text-[11.5px] text-ink-500 sm:block">
             {step === 1 ? (dirty ? "Có thay đổi chưa lưu" : product ? "Thông tin đã lưu" : "Chưa lưu sản phẩm")
               : step === 2 ? `${media.length} tệp đã tải`
-                : review === "pending" ? "Đang chờ Vexim kiểm tra" : "Kiểm tra lần cuối rồi gửi"}
+                : review === "pending" ? "Đang chờ duyệt" : "Kiểm tra lần cuối rồi gửi"}
           </span>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -801,7 +808,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   className="btn btn-primary btn-sm">{busy ? "Đang lưu..." : "Lưu & tiếp tục"} <ArrowRight className="size-3.5" aria-hidden="true" /></button>)}
             {step === 2 && <button type="button" onClick={() => goToStep(3)} className="btn btn-primary btn-sm">Sang bước 3 <ArrowRight className="size-3.5" aria-hidden="true" /></button>}
             {step === 3 && (review === "pending" || review === "approved" || sent
-              ? <span className="text-[11.5px] font-semibold text-emerald-800">{review === "approved" ? "Đã duyệt" : "Đã gửi · chờ Vexim"}</span>
+              ? <span className="text-[11.5px] font-semibold text-emerald-800">{review === "approved" ? "Đã duyệt" : "Đã gửi · chờ duyệt"}</span>
               : <button type="button" onClick={requestSubmit} disabled={busy} className="btn btn-primary btn-sm">
                 {busy
                   ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> Đang gửi…</>
@@ -837,10 +844,10 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Luồng duyệt</p>
           <ol className="mt-2 space-y-1.5 text-[11.5px] leading-4 text-ink-600">
             <li className="flex gap-1.5"><span className="font-bold text-brand-700">1.</span>Bạn lưu thông tin và tải tệp thật.</li>
-            <li className="flex gap-1.5"><span className="font-bold text-brand-700">2.</span>Gửi Vexim kiểm tra nội dung.</li>
-            <li className="flex gap-1.5"><span className="font-bold text-brand-700">3.</span>Vexim chọn tệp chia sẻ buyer và bật sẵn sàng.</li>
+            <li className="flex gap-1.5"><span className="font-bold text-brand-700">2.</span>Gửi duyệt nội dung.</li>
+            <li className="flex gap-1.5"><span className="font-bold text-brand-700">3.</span>Chọn tệp chia sẻ buyer và bật sẵn sàng.</li>
           </ol>
-          <p className="mt-2 flex items-start gap-1.5 text-[11px] text-ink-500"><LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Tệp của bạn ở chế độ nội bộ cho tới khi Vexim chọn chia sẻ.</p>
+          <p className="mt-2 flex items-start gap-1.5 text-[11px] text-ink-500"><LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Tệp ở chế độ nội bộ cho tới khi được chọn chia sẻ.</p>
         </div>
 
         <Link href="/supplier/portal/products" className="flex items-center justify-between gap-2 rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-[12px] font-semibold text-ink-700 hover:border-brand-300 hover:text-brand-800">

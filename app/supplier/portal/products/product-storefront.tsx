@@ -51,23 +51,23 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
       <div className="min-w-0">
         <p className="text-[11px] font-bold tracking-[0.16em] text-brand-700 uppercase">Cổng nhà cung cấp · riêng tư</p>
         <h1 className="mt-1 text-[22px] leading-tight font-black tracking-tight text-ink-900">Sản phẩm của tôi</h1>
-        <p className="mt-1 max-w-2xl text-[13px] text-ink-500">Tạo hồ sơ mặt hàng, thêm ảnh thực tế và gửi Vexim xét duyệt. Đây là khu vực riêng của bạn, không phải trang hiển thị cho buyer.</p>
+        <p className="mt-1 max-w-2xl text-[13px] text-ink-500">Tạo hồ sơ mặt hàng, thêm ảnh thực tế và gửi duyệt. Đây là khu vực riêng của bạn, không phải trang hiển thị cho buyer.</p>
       </div>
       <Link href="/supplier/portal/products/new" className="btn btn-primary"><Plus className="size-4" aria-hidden="true" /> Thêm sản phẩm</Link>
     </header>
 
     {outsideScope.length > 0 && <p className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12.5px] text-amber-900">
       <span className="font-bold">{outsideScope.length} sản phẩm nằm ngoài phạm vi danh mục</span>
-      <span className="text-amber-800">Vexim chỉ nhận sản phẩm thuộc danh mục bạn đã chọn.</span>
-      <Link href="/supplier/portal/categories" className="font-bold underline">Chỉnh phạm vi danh mục</Link>
+      <span className="text-amber-800">Các sản phẩm này chưa gắn với danh mục bạn đã đăng ký.</span>
+      <Link href="/supplier/portal/categories" className="font-bold underline">Chọn thêm danh mục</Link>
     </p>}
 
     <section aria-label="Tổng quan sản phẩm" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {[
         { label: "Tổng sản phẩm", value: counts.all, icon: PackagePlus, note: "Trong gian hàng riêng" },
-        { label: "Bản nháp", value: counts.draft, icon: FileText, note: "Chưa gửi Vexim" },
-        { label: "Đang chờ duyệt", value: counts.pending, icon: Clock3, note: "Vexim đang kiểm tra" },
-        { label: "Cần chỉnh sửa", value: counts.changes_requested, icon: SlidersHorizontal, note: "Xem góp ý của Vexim" },
+        { label: "Bản nháp", value: counts.draft, icon: FileText, note: "Chưa gửi duyệt" },
+        { label: "Đang chờ duyệt", value: counts.pending, icon: Clock3, note: "Chờ phản hồi" },
+        { label: "Cần chỉnh sửa", value: counts.changes_requested, icon: SlidersHorizontal, note: "Xem góp ý" },
       ].map((item) => <div key={item.label} className="rounded-xl border border-ink-200 bg-white p-4 sm:p-5">
         <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold text-ink-600">{item.label}</p><item.icon className="size-4 text-brand-700" aria-hidden="true" /></div>
         <p className="mt-3 text-3xl font-black text-ink-900">{item.value}</p><p className="mt-1 text-xs text-ink-500">{item.note}</p>
@@ -77,7 +77,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
     <section aria-label="Danh sách sản phẩm" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <div className="border-b border-ink-100 px-5 py-5 sm:px-7">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-black text-ink-900">Danh mục của bạn</h2>
-          <p className="mt-1 text-xs text-ink-600">Duyệt nội dung ≠ đã xuất hiện công khai. Việc chia sẻ buyer còn tùy trang NCC, danh mục và tệp Vexim chọn.</p></div>
+          <p className="mt-1 text-xs text-ink-600">Duyệt nội dung ≠ đã hiện công khai; việc chia sẻ cho buyer còn tùy hồ sơ doanh nghiệp, danh mục và tệp được chọn.</p></div>
           {!supplierPublished && <span className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Trang NCC chưa được công khai</span>}
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -113,14 +113,14 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
                 {p.moq && <p className="mt-1 line-clamp-1 text-xs text-ink-500">MOQ: {p.moq}</p>}</div>
               <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition group-hover:bg-brand-700 group-hover:text-white"><ArrowRight className="size-4" aria-hidden="true" /></span>
             </div>
-            {p.supplier_review_note && <p className="mt-3 line-clamp-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">Vexim: {p.supplier_review_note}</p>}
-            {p.ready_for_buyer && productReview(p) === "approved" && <p className="mt-3 text-xs font-medium text-brand-800">Vexim đã bật sẵn sàng gửi buyer · không khẳng định đã công khai</p>}
+            {p.supplier_review_note && <p className="mt-3 line-clamp-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">Góp ý: {p.supplier_review_note}</p>}
+            {p.ready_for_buyer && productReview(p) === "approved" && <p className="mt-3 text-xs font-medium text-brand-800">Đã bật sẵn sàng gửi buyer · chỉ hiện khi hồ sơ được công khai</p>}
           </div>
         </li>;
       })}</ul> : <div className="mx-auto max-w-md px-6 py-16 text-center">
         <div className="mx-auto flex size-16 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><PackagePlus className="size-8" aria-hidden="true" /></div>
         <h3 className="mt-4 text-lg font-bold text-ink-900">{products.length ? "Không tìm thấy sản phẩm phù hợp" : "Bắt đầu với sản phẩm đầu tiên"}</h3>
-        <p className="mt-2 text-sm leading-6 text-ink-600">{products.length ? "Thử từ khóa khác hoặc đổi bộ lọc trạng thái." : "Tạo sản phẩm, lưu bản nháp, tải ảnh hoặc catalogue thật rồi gửi Vexim kiểm tra."}</p>
+        <p className="mt-2 text-sm leading-6 text-ink-600">{products.length ? "Thử từ khóa khác hoặc đổi bộ lọc trạng thái." : "Tạo sản phẩm, lưu bản nháp, tải ảnh hoặc catalogue thật rồi gửi duyệt."}</p>
         {products.length === 0 && <Link href="/supplier/portal/products/new" className="btn btn-primary mt-5"><Plus className="size-4" aria-hidden="true" /> Thêm sản phẩm</Link>}
         {products.length > 0 && <button type="button" onClick={() => { setFilter("all"); setQuery(""); }} className="mt-5 text-sm font-semibold text-brand-700 underline">Xóa bộ lọc</button>}
       </div>}

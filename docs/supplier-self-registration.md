@@ -1,5 +1,16 @@
 # Đăng ký trang NCC và sản phẩm do NCC tự khai
 
+## Copy cổng NCC (giọng B2B, không hành chính)
+
+Áp dụng cho mọi trang trong `/supplier/portal`, nhất là trình đăng sản phẩm:
+
+- **Tên nền tảng xuất hiện tối đa một lần trên một màn hình.** Nút, nhãn, hint, lỗi và checkbox dùng từ trung tính: *gửi duyệt*, *chờ duyệt*, *đã duyệt*, *được chọn chia sẻ*. Chỉ nhắc “Vexim” ở câu nói về một con người phản hồi (“Vexim sẽ phản hồi sau khi duyệt”), không nhắc trong nhãn trường. Guardrail: `scripts/check-supplier-product-wizard.mjs` chặn các cụm `Vexim duyệt` / `Vexim kiểm tra` / `cho Vexim` / `Chờ Vexim` và giới hạn số lần nhắc.
+- **Không doạ người dùng.** Hint nói đúng mức cần thiết thay vì nhắc lại quy chế: “Danh mục được chọn cần phù hợp với hồ sơ doanh nghiệp đã đăng ký.” (thay cho “Chọn danh mục không tự duyệt sản phẩm.”).
+- **Cam kết/pháp lý gói trong một dòng + link.** Checkbox đồng ý chia sẻ giá chỉ còn “Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai.”, dưới là một câu điều kiện ngắn (180 ngày, không phải báo giá chính thức) và link *Điều khoản*. Không nhồi văn bản hợp đồng vào form.
+- **Mỗi nhãn bước chỉ xuất hiện một lần.** Thanh bước đã cho biết đang ở bước nào; các thẻ con trong bước 1 (Thông tin cơ bản · Thông tin thương mại & xuất khẩu · Đặt hàng & năng lực) không lặp lại chữ “Bước 1”. Panel vẫn giữ `aria-label="Bước 1 · …"` cho trình đọc màn hình.
+- **Không viết tắt nội bộ trong giao diện NCC.** “NCC” thay bằng *doanh nghiệp* / *nhà cung cấp* tuỳ ngữ cảnh (ví dụ chip thông số chỉ còn “Tự thêm”).
+- **Tiêu đề tab không nhân đôi thương hiệu.** `metadata.title` của trang con để tên trang, `template` ở `app/layout.tsx` tự thêm “· Vexim Trade”.
+
 ## Triển khai theo thứ tự
 
 1. Áp dụng migration xác minh, `20261017_supplier_self_registration.sql`, `20261017_supplier_dashboard.sql`, `20261017_supplier_onboarding_gate.sql`, rồi **`20261017_supplier_product_review.sql` và `20261017_supplier_category_proposals.sql` trước khi deploy mã mới** trên đúng Supabase project. Không chạy `schema.sql` trực tiếp lên production. Cột review sản phẩm mặc định `approved` để giữ trạng thái của sản phẩm nhân viên Vexim đã nhập trước đây; sản phẩm mới do NCC tự tạo luôn bắt đầu `draft`. Hồ sơ tài khoản tự đăng ký cũ được migration onboarding đưa vào `pending`, không tự mở quyền.

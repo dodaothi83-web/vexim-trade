@@ -147,7 +147,7 @@ assert.match(html, /name="attribute_pool"/, 'Pool được gửi kèm form');
 assert.match(html, /name="attribute:do_am"/);
 assert.match(html, /name="attribute:product_type"/);
 assert.match(html, /value="13,5%"/);
-assert.match(html, /NCC tự thêm/, 'Thông số của NCC khác được đánh dấu');
+assert.match(html, /Tự thêm/, 'Thông số của NCC khác được đánh dấu');
 assert.match(html, /Cassia powder hạt mịn/, 'Lựa chọn NCC khác đã thêm hiện trong danh sách chọn');
 assert.match(html, /không tạo nhãn xác minh/, 'Nói rõ không phải xác minh');
 

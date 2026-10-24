@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { SupplierProductEditor } from "../product-editor";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Quản lý sản phẩm | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "Quản lý sản phẩm", robots: { index: false, follow: false } };
 
 /** `?step=2|3` cho phép mở thẳng một bước sau khi lưu sản phẩm mới. */
 function readStep(raw: string | undefined): 1 | 2 | 3 {
@@ -36,7 +36,7 @@ export default async function OwnProductPage({ params, searchParams }: { params:
     <PageHeader
       eyebrow="Cổng nhà cung cấp · riêng tư"
       title={product.name}
-      sub="Hoàn thiện thông tin, kiểm tra tệp đã tải và theo dõi phản hồi của Vexim."
+      sub="Hoàn thiện thông tin, kiểm tra tệp đã tải và theo dõi phản hồi duyệt."
       breadcrumbs={<nav aria-label="Đường dẫn" className="flex min-w-0 items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="shrink-0 hover:text-brand-700">Sản phẩm</Link><ChevronRight className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate font-semibold text-ink-800">{product.name}</span></nav>}
     />
     <SupplierProductEditor product={product} media={media} userId={access.user.id} categories={categories} supplier={access.supplier} initialStep={step} />
