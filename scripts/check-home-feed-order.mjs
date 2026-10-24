@@ -1,12 +1,8 @@
 #!/usr/bin/env node
 // node --experimental-strip-types --no-warnings scripts/check-home-feed-order.mjs
 //
-// Trang chủ đặt lưới sản phẩm ở hai vị trí tuỳ lượng hàng thật:
-//   - đủ hàng  → lưới sản phẩm đứng trên lưới danh mục
-//   - chưa đủ  → lưới sản phẩm nằm dưới, để trang không mở bằng một dải thẻ thưa
-//
-// Kiểm ba thứ: ngưỡng, thứ tự render thật, và việc ô tìm kiếm vẫn trỏ vào lưới
-// danh mục chứ không bị lưới sản phẩm chen vào giữa.
+// Kiểm bốn thứ: thứ tự render cố định, tối đa tám danh mục, phân trang 15 sản
+// phẩm trên desktop, và ô tìm kiếm vẫn trỏ vào lưới danh mục.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
@@ -17,46 +13,22 @@ import { createRequire } from "node:module";
 
 import {
   arrangeSupplierProducts,
-  shouldPromoteProductFeed,
   HOME_FEED_PER_PAGE,
   HOME_FEED_PER_PAGE_WIDE,
   HOME_FEED_WIDE_QUERY,
   feedPerPage,
   HOME_FEED_PER_SUPPLIER,
-  HOME_FEED_PRODUCTS,
-  HOME_FEED_SUPPLIERS,
 } from "../lib/public/supplier-product-order.ts";
 
-/* ---------------- 1. Ngưỡng ---------------- */
+/* ---------------- 1. Giới hạn nhà cung cấp ---------------- */
 
 const many = (suppliers, perSupplier) =>
   Array.from({ length: suppliers * perSupplier }, (_, i) => ({ supplierId: `s${i % suppliers}` }));
 
 assert.equal(HOME_FEED_PER_SUPPLIER, 2, "Two products per supplier, so one company cannot fill the homepage");
-assert.equal(HOME_FEED_SUPPLIERS, 3, "At least three companies, or the feed is one supplier's catalogue");
-
-assert.equal(
-  shouldPromoteProductFeed(many(4, 2)).promoted,
-  true,
-  "Four suppliers at the per-supplier cap is a full feed and moves up",
-);
-assert.equal(shouldPromoteProductFeed(many(4, 1)).promoted, false, "Four products is not enough for the top of the page");
-assert.equal(shouldPromoteProductFeed(many(1, 8)).promoted, false, "One supplier with eight products stays below");
-assert.equal(shouldPromoteProductFeed([]).promoted, false, "No products means no promotion and no section");
-
-const tooFewSellers = shouldPromoteProductFeed(many(2, 4));
-assert.equal(tooFewSellers.products, 8, "The count is taken from the list that is actually rendered");
-assert.equal(tooFewSellers.suppliers, 2);
-assert.equal(tooFewSellers.promoted, false, "Eight products from two suppliers still fail the supplier rule");
-
-// The rendered list is capped per supplier, so the threshold has to be judged on it.
 const cappedForOneSeller = arrangeSupplierProducts(many(1, 20), HOME_FEED_PER_SUPPLIER).shown;
-assert.equal(cappedForOneSeller.length, HOME_FEED_PER_SUPPLIER, "The cap is applied before the threshold is judged");
-assert.equal(
-  shouldPromoteProductFeed(cappedForOneSeller).promoted,
-  false,
-  "A stockpile from one supplier cannot reach the threshold after the cap",
-);
+assert.equal(cappedForOneSeller.length, HOME_FEED_PER_SUPPLIER, "The existing per-supplier cap stays unchanged");
+assert.equal(arrangeSupplierProducts([], HOME_FEED_PER_SUPPLIER).shown.length, 0, "Empty input stays empty");
 
 /* ---------------- 2. Render thật ---------------- */
 
@@ -121,18 +93,17 @@ const offer = (id, supplierId) => ({
   cardImagePath: null,
 });
 
-async function renderHome(offers) {
+async function renderHome(offers, categoryItems = [category]) {
   const { default: HomeContent } = compile("../app/(public)/home.tsx", {
     "react/jsx-runtime": jsx,
     "next/image": { default: ({ src, alt }) => React.createElement("img", { src, alt }) },
     "next/link": { default: ({ href, children, ...rest }) => React.createElement("a", { href, ...rest }, children) },
     "lucide-react": new Proxy({}, { get: () => () => null }),
-    "@/lib/db": { getStore: () => ({ listCategories: async () => [category], listSuppliers: async () => [] }) },
+    "@/lib/db": { getStore: () => ({ listCategories: async () => categoryItems, listSuppliers: async () => [] }) },
     "@/lib/blog/queries": { listPublishedNews: async () => [] },
     "@/lib/public/product-catalog": { listPublicCategoryProducts: async () => offers },
     "@/lib/public/supplier-product-order": {
       arrangeSupplierProducts,
-      shouldPromoteProductFeed,
       HOME_FEED_PER_PAGE,
       HOME_FEED_PER_SUPPLIER,
     },
@@ -142,8 +113,7 @@ async function renderHome(offers) {
       PublicProductCard: ({ name }) => React.createElement("div", { "data-product": name }, name),
     },
     "@/components/home-product-feed": {
-      // Bản thay thế chỉ dựng trang đầu ở bề rộng màn hình lớn (tám thẻ), đủ để
-      // kiểm thứ tự render của trang chủ.
+      // Bản thay thế dựng trang đầu ở desktop (15 thẻ) để kiểm thứ tự render.
       HomeProductFeed: ({ items }) => {
         const size = feedPerPage(true);
         return React.createElement(
@@ -163,32 +133,46 @@ async function renderHome(offers) {
   return renderToStaticMarkup(await HomeContent());
 }
 
-/* Đủ hàng: lưới sản phẩm phải đứng trước lưới danh mục. */
-const full = await renderHome(many(4, 2).map((p, i) => offer(`p${i}`, p.supplierId)));
+/* Có hàng: lưới sản phẩm luôn đứng trước danh mục và lấy 15 thẻ ở trang đầu. */
+const full = await renderHome(many(10, 2).map((p, i) => offer(`p${i}`, p.supplierId)));
 const feedAt = full.indexOf('aria-labelledby="home-products-title"');
 const categoriesAt = full.indexOf('id="categories"');
-const heroAt = full.indexOf('<section', full.indexOf("Popular searches:") - 4000);
 
-assert.ok(feedAt > -1, "A full feed renders the product section");
+assert.ok(feedAt > -1, "A populated feed renders the product section");
 assert.ok(categoriesAt > -1, "The category grid is still on the page");
-assert.ok(feedAt < categoriesAt, "With enough products the feed sits above the categories");
-assert.ok(full.includes("Featured Marketplace Offers"), "The promoted block keeps its label");
-assert.equal(full.match(/data-product=/g).length, 8, "Trang đầu ở màn rộng giữ đủ tám thẻ, đúng hai hàng bốn cột");
-assert.ok(!full.includes("1/"), "Tám sản phẩm vừa đúng một trang rộng, nên không có ô chuyển trang");
+assert.ok(feedAt < categoriesAt, "The feed sits above the categories");
+assert.ok(full.includes("Featured Marketplace Offers"), "The feed keeps its label");
+assert.equal(full.match(/data-product=/g).length, 15, "Desktop page one renders 15 products in three rows of five");
+assert.ok(full.includes("1/2"), "Products after the first 15 remain available on page two");
 
-/* Chưa đủ hàng: lưới sản phẩm vẫn hiện, nhưng nằm sau lưới danh mục. */
+/* Ít hàng cũng giữ cùng vị trí, không còn ngưỡng chuyển xuống dưới. */
 const thin = await renderHome([offer("a1", "A"), offer("a2", "A")]);
 const thinFeedAt = thin.indexOf('aria-labelledby="home-products-title"');
 const thinCategoriesAt = thin.indexOf('id="categories"');
 
 assert.ok(thinFeedAt > -1, "Two products still render, so nothing is lost while the catalogue is small");
-assert.ok(thinFeedAt > thinCategoriesAt, "A thin feed stays below the category grid");
+assert.ok(thinFeedAt > -1 && thinFeedAt < thinCategoriesAt, "A thin feed also stays above the category grid");
 assert.deepEqual(thin.match(/data-product=/g), ["data-product=", "data-product="], "Both real offers are shown");
 
 /* Không có hàng: không render khối nào. */
 const empty = await renderHome([]);
 assert.ok(!empty.includes('aria-labelledby="home-products-title"'), "No products means no empty section at all");
 assert.ok(empty.includes('id="categories"'), "The category grid carries the page on its own");
+
+/* Tối đa tám danh mục, bốn cột trên desktop và một hoặc hai cột ở màn nhỏ. */
+const tenCategories = Array.from({ length: 10 }, (_, i) => ({
+  ...category,
+  id: `c-${i + 1}`,
+  slug: `category-${i + 1}`,
+  name_i18n: { en: `Category ${i + 1}` },
+  sort_order: i + 1,
+}));
+const categoryPage = await renderHome([], tenCategories);
+const categoryStart = categoryPage.indexOf('id="categories"');
+const categoryHtml = categoryPage.slice(categoryStart, categoryPage.indexOf("</section>", categoryStart));
+assert.equal((categoryHtml.match(/<h3/g) ?? []).length, 8, "Only eight category cards render from ten active categories");
+assert.ok(!categoryHtml.includes("Category 9"), "The ninth category moves off the homepage rather than creating a partial third row");
+assert.match(categoryHtml, /grid-cols-1[^"\n]*sm:grid-cols-2 lg:grid-cols-4/, "Categories use one, two, then four responsive columns");
 
 /* ---------------- 2b. Chia trang lưới sản phẩm ---------------- */
 
@@ -206,10 +190,10 @@ const renderFeed = (items, perPage) =>
   renderToStaticMarkup(React.createElement(feedModule.HomeProductFeed, { items, perPage, isVi: false }));
 
 assert.equal(HOME_FEED_PER_PAGE, 6, "Điện thoại hai cột và máy tính bảng ba cột: sáu thẻ là hai đến ba hàng đầy");
-assert.equal(HOME_FEED_PER_PAGE_WIDE, 8, "Màn rộng bốn cột: tám thẻ là hai hàng đầy");
+assert.equal(HOME_FEED_PER_PAGE_WIDE, 15, "Desktop năm cột: 15 thẻ là ba hàng đầy");
 assert.equal(feedPerPage(false), 6, "Dưới 1024px dùng sáu thẻ");
-assert.equal(feedPerPage(true), 8, "Từ 1024px dùng tám thẻ");
-assert.equal(HOME_FEED_WIDE_QUERY, "(min-width: 1024px)", "Mốc bốn cột khớp với lg: của lưới");
+assert.equal(feedPerPage(true), 15, "Từ 1024px dùng 15 thẻ");
+assert.equal(HOME_FEED_WIDE_QUERY, "(min-width: 1024px)", "Mốc năm cột khớp với lg: của lưới");
 
 const nineOffers = Array.from({ length: 9 }, (_, i) => offer(`n${i}`, `S${i}`));
 const firstOfTwo = renderFeed(nineOffers);
@@ -225,12 +209,19 @@ assert.ok(!singlePage.includes("<nav"), "Six products fill exactly one page, so 
 const twentyOffers = Array.from({ length: 20 }, (_, i) => offer(`w${i}`, `U${i}`));
 assert.ok(renderFeed(twentyOffers).includes("1/4"), "Twenty products split into four pages of six");
 
-/* Màn rộng: mỗi trang tám thẻ, và trang đầu không còn hàng lẻ. */
-const wideFirst = renderFeed(Array.from({ length: 22 }, (_, i) => offer(`x${i}`, `V${i % 3}`)), 8);
-assert.equal(wideFirst.match(/data-product=/g).length, 8, "Trang đầu ở màn rộng đủ tám thẻ");
-assert.ok(wideFirst.includes("1/3"), "Hai mươi hai sản phẩm chia ba trang tám");
-const wideLast = feedModule.pageSlice(Array.from({ length: 22 }, (_, i) => ({ id: `y${i}` })), 3, 8);
-assert.equal(wideLast.shown.length, 6, "Trang cuối giữ phần còn lại, không bỏ sót sản phẩm nào");
+/* Desktop: 15 thẻ mỗi trang, phần còn lại nằm nguyên ở trang sau. */
+const wideOffers = Array.from({ length: 22 }, (_, i) => offer(`x${i}`, `V${i % 3}`));
+const wideFirst = renderFeed(wideOffers, HOME_FEED_PER_PAGE_WIDE);
+assert.equal(wideFirst.match(/data-product=/g).length, 15, "Trang đầu ở desktop đủ 15 thẻ");
+assert.ok(wideFirst.includes("1/2"), "Hai mươi hai sản phẩm chia hai trang: 15 và 7");
+const wideItems = Array.from({ length: 22 }, (_, i) => ({ id: `y${i}` }));
+const wideLast = feedModule.pageSlice(wideItems, 2, HOME_FEED_PER_PAGE_WIDE);
+assert.equal(wideLast.shown.length, 7, "Trang cuối giữ đủ bảy sản phẩm còn lại");
+const wideSeen = [
+  ...feedModule.pageSlice(wideItems, 1, HOME_FEED_PER_PAGE_WIDE).shown,
+  ...wideLast.shown,
+];
+assert.equal(new Set(wideSeen.map((item) => item.id)).size, 22, "Pagination neither drops nor duplicates products");
 
 /* Bốn trang thật: đủ 24 thẻ thì mỗi trang đầy sáu, không trùng, không sót. */
 const twentyFour = Array.from({ length: 24 }, (_, i) => ({ id: `d${i}` }));
@@ -279,11 +270,11 @@ assert.ok(
   !home.includes('action="/#home-products-title"'),
   "Search results are never redirected into the product feed",
 );
-assert.ok(home.includes("shouldPromoteProductFeed"), "The page asks the shared rule instead of counting locally");
 assert.ok(
-  home.includes("shouldPromoteProductFeed(arrangedOffers)"),
-  "The threshold counts the whole arranged list, not just the first page of the pager",
+  !home.includes("shouldPromoteProductFeed") && !home.includes("promoteFeed"),
+  "The old catalogue-size placement rule is gone",
 );
+assert.equal((home.match(/\{productFeedSection\}/g) ?? []).length, 1, "The single feed has one fixed render position");
 assert.ok(
   !/arrangeSupplierProducts\(offers, 2\)/.test(home),
   "The per-supplier cap comes from the shared constant, not a literal",
@@ -297,5 +288,6 @@ const feedSource = readFileSync(new URL("../components/home-product-feed.tsx", i
 assert.ok(feedSource.includes("prefers-reduced-motion"), "The rotation respects the reduced-motion setting");
 assert.ok(feedSource.includes("visibilitychange"), "The rotation pauses when the tab is hidden");
 assert.ok(feedSource.includes("IntersectionObserver"), "The rotation is driven by whether the grid is on screen");
+assert.ok(feedSource.includes('wide ? " lg:grid-cols-5" : ""'), "Desktop switches to five columns with the 15-card page size");
 
-console.log("✅ check-home-feed-order: ngưỡng 8 sản phẩm trên 3 nhà cung cấp, thứ tự render, và ô tìm kiếm giữ nguyên đích đến");
+console.log("check-home-feed-order: fixed section order, eight categories, 15-card desktop pages, and search anchor passed");

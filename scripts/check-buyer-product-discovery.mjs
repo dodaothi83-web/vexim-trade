@@ -222,7 +222,7 @@ assert.match(homePage, /listPublicCategoryProducts\(category\)/, 'Home offers mu
 assert.match(homePage, /p\.isDemo \|\| seen\.has\(p\.id\)/, 'Home excludes demos and duplicate listings');
 assert.match(homePage, /<HomeProductFeed items=\{arrangedOffers\}/, 'Home renders the offer feed from the arranged list');
 assert.match(homeFeed, /grid-cols-2[^"\n]*md:grid-cols-3/, 'Home offers sit in two or three columns before the wide layout');
-assert.match(homeFeed, /wide \? " lg:grid-cols-4" : ""/, 'The fourth column only appears when the browser confirms a wide screen');
+assert.match(homeFeed, /wide \? " lg:grid-cols-5" : ""/, 'The fifth column only appears when the browser confirms a wide screen');
 assert.match(homeFeed, /<PublicProductCard/, 'Home includes actual product offers');
 assert.match(profilePage, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Supplier product grid uses 2/3/4 columns');
 const verificationTierModule = compile('../components/verification-tier.tsx', {
@@ -312,7 +312,6 @@ const { default: HomeContent } = compile('../app/(public)/home.tsx', {
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [cards[0], cards[1], { ...cards[0], id: 'demo', isDemo: true }] },
   '@/lib/public/supplier-product-order': {
     arrangeSupplierProducts,
-    shouldPromoteProductFeed: () => ({ promoted: false, products: 0, suppliers: 0 }),
     HOME_FEED_PER_SUPPLIER: 2,
   },
   '@/components/public-product-card': { PublicProductCard },
@@ -329,7 +328,7 @@ const { default: HomeContent } = compile('../app/(public)/home.tsx', {
 const homeHtml = renderToStaticMarkup(await HomeContent());
 const offersHtml = homeHtml.match(/<section aria-labelledby="home-products-title"[\s\S]*?<\/section>/)?.[0] ?? '';
 assert.match(offersHtml, /grid-cols-2[^"\n]*md:grid-cols-3/, 'Server HTML keeps whole rows of three until the browser widens the layout');
-assert.doesNotMatch(offersHtml, /lg:grid-cols-4/, 'Server HTML never leaks a half-empty four-column row');
+assert.doesNotMatch(offersHtml, /lg:grid-cols-5/, 'Server HTML never leaks the wide five-column layout before hydration');
 assert.match(offersHtml, /href="\/products\/cashew\/a0"/);
 assert.match(offersHtml, /\/public-media\/products\/a0\/cover-thumb\.webp/, 'Home product cards send the smaller photo');
 assert.match(grid, /p\.cardImagePath \?\? p\.imagePaths\[0\]/, 'Category cards prefer approved thumbnails');
