@@ -9,8 +9,8 @@ import { CheckCircle2, Loader2, RotateCcw, ScanSearch, Undo2 } from "lucide-reac
  * Hành động của nhân viên với hồ sơ NCC tự gửi.
  *
  * "Nhận vào đợt kiểm" KHÔNG duyệt huy hiệu: nó tạo đợt kiểm `verifications`
- * (người nhận là inspector) và sao bằng chứng sang đó. Người CÓ QUYỀN DUYỆT
- * KHÁC mới là người phê ở trang kiểm, đúng rule bốn mắt sẵn có.
+ * (người nhận là inspector) và sao bằng chứng sang đó. Nhân sự đủ quyền có thể
+ * tự hoàn tất sau xác nhận; reviewer độc lập là lựa chọn thêm.
  */
 export function SubmissionReviewActions({ submissionId, level, status, canReview, verificationHref, aiEnabled }: {
   submissionId: string;

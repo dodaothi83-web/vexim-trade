@@ -126,5 +126,9 @@ assert.match(grid, /in the list below/, "Dòng đếm phải nói rõ trần áp
 const band = readFileSync(new URL("../components/sponsored-product-band.tsx", import.meta.url), "utf8");
 assert.match(band, /Sponsored · Tài trợ/, "Nhãn phải có cả hai thứ tiếng và hiện sẵn, không cần trỏ chuột");
 assert.match(band, /not a Vexim verification result/, "Nhãn phải nói rõ đây không phải kết quả xác minh");
+assert.match(band, /quoteHref=\{product\.isDemo \? undefined : `\/rfq\?category=/, "Thẻ tài trợ thật dùng CTA báo giá, thẻ demo không có RFQ");
+assert.match(band, /oem=\{product\.oem\}/, "Thẻ tài trợ dùng đúng dữ liệu OEM");
+assert.match(band, /odm=\{product\.odm\}/, "Thẻ tài trợ dùng đúng dữ liệu ODM");
+assert.match(band, /samples=\{product\.samples\}/, "Thẻ tài trợ dùng đúng dữ liệu mẫu");
 
 console.log("✅ check-sponsored-band: ba suất, cùng cửa sổ thì cùng vùng đẩy, không trùng lưới, ẩn khi lọc, vùng đẩy là suất cộng thêm");

@@ -205,6 +205,9 @@ export async function dispatchRfqToSuppliers(input: {
   const store = getStore();
   const rfq = await store.getRfq(input.rfqId);
   if (!rfq) throw new Error("RFQ not found");
+  if (rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question") {
+    throw new Error("Đây là câu hỏi trực tiếp cho NCC, không dùng quy trình gửi yêu cầu báo giá.");
+  }
   const matches = await store.listRfqMatches(rfq.id);
   const supplierIds = new Set(matches.filter((m) => input.matchIds.includes(m.id)).map((m) => m.supplier_id));
   // Verify the dashboard migration before sending any email, so an invitation is never sent

@@ -11,7 +11,7 @@ import {
 import { getStore } from "@/lib/db";
 import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
-import { arrangeSupplierProducts, shouldPromoteProductFeed, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
+import { arrangeSupplierProducts, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
 import { HomeProductFeed } from "@/components/home-product-feed";
 import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
 import { CookieSettingsButton } from "@/components/cookie-consent";
@@ -197,7 +197,7 @@ export default async function HomeContent({
     (c) => !c.parent_id || !activeParentIds.has(c.parent_id),
   );
 
-  const homeCategories = activeCategories.filter((c) => c.public_page_ready).slice(0, 4);
+  const homeCategories = activeCategories.filter((c) => c.public_page_ready).slice(0, 8);
   const productGroups = await Promise.all(
     homeCategories.map(async (category) => ({
       category,
@@ -213,15 +213,12 @@ export default async function HomeContent({
       offers.push({ ...p, categorySlug: category.slug });
     }
   }
-  // Thứ tự được chốt ở máy chủ, rồi mới chia trang. Ngưỡng xét trên toàn bộ danh
-  // sách sau khi áp giới hạn mỗi nhà cung cấp, không phải trên trang đầu: từ khi
-  // có phân trang thì người xem với tới được cả danh sách, còn giới hạn hai thẻ
-  // mỗi nhà cung cấp mới là thứ quyết định lưới có phải catalogue của một công ty.
+  // Thứ tự được chốt ở máy chủ rồi mới chia trang. Giới hạn hai thẻ mỗi nhà
+  // cung cấp được giữ nguyên để một công ty không chiếm toàn bộ lưới.
   const arrangedOffers = arrangeSupplierProducts(offers, HOME_FEED_PER_SUPPLIER).shown;
   // Điều kiện duy nhất để hiện khối: có ít nhất một sản phẩm. Số thẻ mỗi trang do
   // HomeProductFeed tự tính theo bề rộng màn hình.
   const hasFeedProducts = arrangedOffers.length > 0;
-  const promoteFeed = shouldPromoteProductFeed(arrangedOffers).promoted;
   const heroOf = (c: Category) => c.hero_image || FALLBACK_HERO;
 
   // Lọc danh mục theo thanh tìm kiếm (chỉ dựa trên dữ liệu thực tế từ CRM)
@@ -251,8 +248,9 @@ export default async function HomeContent({
       childNames.includes(normalizedQuery)
     );
   });
-  const categoriesToRender =
-    displayedCategories.length > 0 ? displayedCategories : homepageCardCategories;
+  const categoriesToRender = (
+    displayedCategories.length > 0 ? displayedCategories : homepageCardCategories
+  ).slice(0, 8);
   const popularKeywords = buildPopularSearches({
     categories: allCategories,
     lang,
@@ -260,11 +258,7 @@ export default async function HomeContent({
   });
   const faqs = isVi ? FAQ_VI : FAQ_EN;
 
-  /*
-   * Lưới sản phẩm của trang chủ. Khai báo thành biến để đặt được ở hai vị trí
-   * khác nhau: trên lưới danh mục khi đã đủ hàng, dưới lưới danh mục khi chưa.
-   * Xem shouldPromoteProductFeed trong lib/public/supplier-product-order.ts.
-   */
+  // Khai báo một lần và luôn đặt trước danh mục khi có sản phẩm.
   const productFeedSection = hasFeedProducts ? (
     <section aria-labelledby="home-products-title" className="border-t border-slate-200 bg-white py-14">
       <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
@@ -420,11 +414,11 @@ export default async function HomeContent({
         </div>
       </section>
 
-      {/* Sản phẩm đã đủ để đứng trên lưới danh mục. Chưa đủ thì khối này rơi xuống dưới. */}
-      {promoteFeed && productFeedSection}
+      {/* Sản phẩm luôn đứng trên danh mục khi có dữ liệu. */}
+      {productFeedSection}
 
       {/* =====================================================================
-          SECTION 2: DANH MỤC SẢN PHẨM (3 CARD / HÀNG + 3-4 NHÓM CON + XEM THÊM)
+          SECTION 2: DANH MỤC SẢN PHẨM (4 CARD / HÀNG + 3-4 NHÓM CON + XEM THÊM)
          ===================================================================== */}
       <section id="categories" className="py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
@@ -483,8 +477,8 @@ export default async function HomeContent({
             </div>
           )}
 
-          {/* Lưới 3 card / hàng trên desktop */}
-          <ul className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {/* Tối đa 8 danh mục: 1–2 cột ở màn nhỏ, 4 cột và 2 hàng trên desktop. */}
+          <ul className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {categoriesToRender.map((c) => {
               const href = `/products/${c.slug}`;
               const childCategories = getChildCategories(c, allCategories);
@@ -508,7 +502,7 @@ export default async function HomeContent({
                         src={heroOf(c)}
                         alt={primaryTitle}
                         fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        sizes="(max-width: 639px) calc(100vw - 40px), (max-width: 1023px) calc(50vw - 36px), (max-width: 1279px) calc(25vw - 32px), 280px"
                         className="object-cover transition duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-ink-950/75 via-ink-950/20 to-transparent" />
@@ -579,9 +573,6 @@ export default async function HomeContent({
           </ul>
         </div>
       </section>
-
-      {/* Chưa đủ sản phẩm để mở trang bằng lưới sản phẩm. Vẫn hiện, nhưng sau danh mục. */}
-      {!promoteFeed && productFeedSection}
 
       {/* =====================================================================
           SECTION 3: DANH SÁCH BLOG (4 BÀI / HÀNG)

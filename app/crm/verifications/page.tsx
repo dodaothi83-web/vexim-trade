@@ -80,7 +80,7 @@ export default async function VerificationsPage({
       ]} />
       <PageHeader
         title="Hàng đợi xác minh NCC"
-        sub="Kiểm tra giấy tờ, thăm nhà máy và lịch sử giao hàng. Người kiểm nộp; người khác xét duyệt."
+        sub="Kiểm tra giấy tờ, thăm nhà máy và lịch sử giao hàng. Một nhân sự đủ quyền có thể kiểm và duyệt; AI chỉ hỗ trợ đối chiếu."
       />
 
       <section className="mt-5 rounded-xl border border-teal-200 bg-teal-50/60 p-4 sm:p-5">

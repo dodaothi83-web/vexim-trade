@@ -8,6 +8,8 @@ import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
 import { resolveGrade } from "@/lib/public/grade-resolution";
 import { publicProductTitle } from "@/lib/public/display-name";
+import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
+import { publicProductMoqDisplay } from "@/lib/public/product-detail-display";
 import type { Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -28,6 +30,8 @@ export interface PublicCategoryProduct {
   supplierName: string;
   supplierId: string;
   supplierSlug: string | null;
+  supplierProfileImage: string | null;
+  supplierFoundedYear: number | null;
   leadTimeDays: number | null;
   incoterm: string | null;
   oem: boolean;
@@ -89,11 +93,12 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
           name: p.name, spec: p.spec, categorySlug: category.slug, attributes,
         }).value,
         attributes,
-        moq: p.moq || "On request",
-        price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: s.province || "Vietnam",
+        moq: publicProductMoqDisplay(p.moq) || "On request",
+        price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: supplierProvinceDisplay(s) || "Vietnam",
         verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
         supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
-        supplierId: s.id, supplierSlug: s.slug || null, leadTimeDays: p.lead_time_days ?? null, incoterm: p.incoterm ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
+        supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,
+        leadTimeDays: p.lead_time_days ?? null, incoterm: p.incoterm ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
         isDemo: !!s.is_demo, imagePaths: images,
         cardImagePath: shareableProductImages(byProduct.get(p.id) ?? [], p.id, p.featured_media_id, 1, true)[0] ?? null,
       };

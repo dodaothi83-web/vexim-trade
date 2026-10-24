@@ -7,7 +7,7 @@ import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { AUDIT_STEPS, auditHref } from "@/lib/verification";
 import { submissionStatusLabel } from "@/lib/verification-submission";
-import { requireSecondVerificationReviewer } from "@/lib/verification-policy";
+import { canSelfApproveVerification } from "@/lib/verification-policy";
 import type { VerificationLevel } from "@/lib/types";
 import { Breadcrumbs, Badge, Card } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -43,7 +43,6 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
   const canApprove = hasPermission(session.role, "verifications.approve");
   const canInspect = hasPermission(session.role, "verifications.inspect");
   const canPublish = hasPermission(session.role, "suppliers.publish");
-  const requireSecondReviewer = requireSecondVerificationReviewer();
 
   return <>
     <PageHeader
@@ -84,7 +83,7 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
             <p className="text-sm text-ink-600">{current.status === "approved" ? "Bằng chứng được khoá để giữ nguyên hồ sơ đã duyệt." : "Ghi kết quả, đính kèm bằng chứng và nộp xét duyệt khi đã sẵn sàng."}</p>
           </Card>
           <div className="max-w-5xl">
-            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} certificates={certificates} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} requireSecondReviewer={requireSecondReviewer} />
+            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} certificates={certificates} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} canSelfApprove={canSelfApproveVerification(session.role)} />
           </div>
         </>}
     </div>

@@ -32,6 +32,8 @@ type EditorProps = {
   media?: MediaAsset[];
   userId?: string;
   categories: CategoryProposalOption[];
+  /** Nhóm hàng đã đăng ký chỉ dùng để cảnh báo, không giới hạn lựa chọn. */
+  categoryScope?: string[];
   supplier: Supplier;
   /** Trang có thể mở thẳng một bước bằng `?step=2` (sau khi tạo sản phẩm mới). */
   initialStep?: Step;
@@ -41,8 +43,8 @@ type Step = 1 | 2 | 3;
 
 const STEPS: { step: Step; title: string; short: string; hint: string }[] = [
   { step: 1, title: "Thông tin sản phẩm", short: "Thông tin", hint: "Tên, quy cách, thương mại" },
-  { step: 2, title: "Ảnh & catalogue", short: "Hình ảnh", hint: "Ảnh và tài liệu thật" },
-  { step: 3, title: "Xem lại & gửi", short: "Xem lại", hint: "Đọc lại toàn bộ rồi nộp" },
+  { step: 2, title: "Ảnh và catalogue", short: "Hình ảnh", hint: "Ảnh và tài liệu thật" },
+  { step: 3, title: "Xem lại và gửi", short: "Xem lại", hint: "Đọc lại rồi gửi duyệt" },
 ];
 
 const BASE_FIELDS = [
@@ -148,7 +150,7 @@ function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElemen
  * Hành vi cũ giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, media = [], userId, categories, supplier, initialStep = 1 }: EditorProps) {
+export function SupplierProductEditor({ product, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   // Bước sẽ mở sau khi lưu thành công; null = chỉ lưu rồi ở lại.
@@ -157,7 +159,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const [step, setStep] = useState<Step>(initialStep);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(product?.supplier_category_proposal ?? product?.reviewed_category_slug ?? "");
+  const [selectedCategory, setSelectedCategory] = useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "");
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [resultAt, setResultAt] = useState<"info" | "review">("review");
   const [stepError, setStepError] = useState<string | null>(null);
@@ -171,12 +173,14 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const [sent, setSent] = useState(false);
 
   const review = product ? productReview(product) : "draft";
+  const live = review === "approved" && product?.ready_for_buyer === true;
   const locked = review === "pending";
   const ownedCount = media.filter((m) => m.created_by === userId).length;
   const hasDetails = !!product && !!(product.spec?.trim() || product.description?.trim());
   const hasMedia = media.some((m) => (m.kind === "image" || m.kind === "catalogue") && !!m.storage_path);
   const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
-  const canUpload = !!product && !locked && review !== "approved" && !dirty;
+  const canUpload = !!product && !locked && !dirty && (review !== "approved" || product.supplier_originated === true);
+  const categoryLocked = review === "approved";
   const activeCategory = categories.find((c) => c.slug === (selectedCategory || product?.category || ""));
   const categoryLabel = activeCategory?.label ?? product?.category ?? "Chưa chọn danh mục";
   // Bước 3 đọc lại thông số bằng nhãn thật (kể cả thông số NCC tự thêm), không phải khoá kỹ thuật.
@@ -241,8 +245,6 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
-    if (product && review === "approved" &&
-        !window.confirm("Lưu thay đổi sẽ đưa sản phẩm về bản nháp và tạm ẩn khỏi buyer cho tới khi được duyệt lại. Tiếp tục?")) return;
     const target = advanceTo.current;
     advanceTo.current = null;
     setBusy(true);
@@ -395,7 +397,9 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         uploaded++;
       }
       setSelected([]);
-      setUploadResult(`Đã tải ${uploaded} tệp nội bộ. Tệp chỉ được chia sẻ cho buyer sau khi duyệt.`);
+      setUploadResult(live
+        ? `Đã tải ${uploaded} tệp lên sản phẩm đã đăng.`
+        : `Đã tải ${uploaded} tệp. Tệp sẽ được kiểm tra khi duyệt.`);
     } catch (error) {
       if (uploaded) setSelected(selected.slice(uploaded));
       setUploadResult(`${uploaded ? `Đã tải ${uploaded} tệp; chỉ còn tệp chưa hoàn tất trong danh sách chọn. ` : ""}${error instanceof Error ? error.message : "Không kết nối được máy chủ."}`);
@@ -406,7 +410,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     }
   }
   async function removeMedia(mediaId: string) {
-    if (!product || dirty || !window.confirm("Xóa tệp nháp này?")) return;
+    if (!product || dirty || !window.confirm(live ? "Xóa tệp này khỏi sản phẩm đang trên sàn?" : "Xóa tệp nháp này?")) return;
     setBusy(true);
     setUploadResult("");
     try {
@@ -422,6 +426,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   }
 
   const status = PRODUCT_STATUS[review];
+  const statusLabel = review === "approved" && !live ? "Đã duyệt, chờ đăng" : status.label;
   const cover = media.find((m) => m.id === product?.featured_media_id && privateMediaUrl(m)) ??
     media.find((m) => m.kind === "image" && privateMediaUrl(m));
   const coverUrl = cover ? privateMediaUrl(cover) : null;
@@ -431,7 +436,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     { label: "Năng lực / tháng", value: product?.monthly_capacity || "-" },
     { label: "Thời gian giao", value: product?.lead_time_days != null ? `${product.lead_time_days} ngày` : "-" },
     { label: "Cảng xuất", value: product?.export_port || "-" },
-    { label: "Incoterm", value: [product?.incoterm, product?.incoterm_place].filter(Boolean).join(" · ") || "-" },
+    { label: "Incoterm", value: [product?.incoterm, product?.incoterm_place].filter(Boolean).join(" / ") || "-" },
     { label: "Thanh toán", value: product?.payment_terms || "-" },
   ];
 
@@ -465,17 +470,18 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         {/* Trạng thái duyệt: một dòng, luôn hiện ở mọi bước. */}
         <section aria-label="Trạng thái xét duyệt"
           className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-4 py-2.5 ${review === "changes_requested" ? "border-rose-200 bg-rose-50" : review === "approved" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
-          <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{status.label}</span>
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{statusLabel}</span>
           <p className="min-w-0 flex-1 text-[12px] leading-5 text-ink-700">
             {review === "approved"
-              ? "Nội dung đã được duyệt. Nếu sửa, sản phẩm quay về bản nháp và tạm ngừng chia sẻ cho buyer."
+              ? live
+                ? "Sản phẩm đã đăng. Bạn có thể cập nhật thông tin và hình ảnh."
+                : "Sản phẩm đã duyệt và đang chờ đăng."
               : review === "pending"
-                ? "Đang chờ duyệt. Bạn xem được thông tin nhưng chưa thể chỉnh sửa hoặc tải thêm tệp."
+                ? "Đã gửi duyệt. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp."
                 : review === "changes_requested"
                   ? "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."
-                  : "Sản phẩm còn riêng tư. Điền thông tin, thêm tệp thật rồi gửi duyệt."}
+                  : "Sản phẩm còn riêng tư. Điền thông tin, thêm tệp rồi gửi duyệt."}
           </p>
-          {product?.ready_for_buyer && review === "approved" && <span className="rounded-full bg-white px-2 py-0.5 text-[10.5px] font-bold text-brand-800">Sẵn sàng chia sẻ buyer</span>}
         </section>
 
         {product?.supplier_review_note && <p className="mt-2.5 whitespace-pre-wrap rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-800">
@@ -483,7 +489,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         </p>}
 
         <form id="product-info" ref={formRef} onSubmit={save} onChange={onFormChange} noValidate>
-          <section data-step-panel={1} className={step === 1 ? "space-y-4" : "hidden"} aria-label="Bước 1 · Thông tin sản phẩm">
+          <section data-step-panel={1} className={step === 1 ? "space-y-4" : "hidden"} aria-label="Bước 1: Thông tin sản phẩm">
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
               <SectionHead title="Thông tin cơ bản" hint="Tên, danh mục và mô tả - phần buyer đọc đầu tiên." />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
@@ -492,11 +498,15 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                     <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked} />
                   </Field>
                 </div>
-                <Field label="Danh mục sản phẩm" required className="md:col-span-2" hint="Danh mục được chọn cần phù hợp với hồ sơ doanh nghiệp đã đăng ký.">
-                  <select name="supplier_category_proposal" className="input" required value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} disabled={locked || !categories.length}>
+                <Field label="Danh mục sản phẩm" required className="md:col-span-2" hint="Chọn danh mục gần nhất. Danh mục sẽ được kiểm tra khi duyệt.">
+                  <select name="supplier_category_proposal" className="input" required value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} disabled={locked || categoryLocked || !categories.length}>
                     <option value="" disabled>Chọn danh mục sản phẩm</option>
-                    {categories.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} · ` : ""}{c.label}</option>)}
+                    {categories.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} / ` : ""}{c.label}</option>)}
                   </select>
+                  {categoryLocked && <input type="hidden" name="supplier_category_proposal" value={selectedCategory} />}
+                  {categoryLocked && <p className="mt-1 text-[11.5px] text-ink-500">Danh mục đã được chốt khi duyệt.</p>}
+                  {!categoryLocked && selectedCategory && categoryScope.length > 0 && !categoryScope.includes(selectedCategory) &&
+                    <p className="mt-1 text-[11.5px] text-amber-800">Danh mục nằm ngoài nhóm hàng đã đăng ký. Bạn vẫn có thể gửi duyệt.</p>}
                 </Field>
                 {!categories.length && <p role="status" className="self-center rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900 md:col-span-2">
                   Bạn chưa chọn danh mục kinh doanh đang mở. <Link href="/supplier/portal/categories" className="font-semibold underline">Chọn danh mục trước khi thêm sản phẩm</Link>
@@ -563,7 +573,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 {product && <div className="mt-2.5 rounded-md bg-white p-2.5 text-[11.5px] leading-5" role="status">
                   <strong>Tình trạng giá đã lưu:</strong> {productPriceBlockers(product, supplier).length === 0 ? "Sản phẩm và doanh nghiệp đã cho phép chia sẻ giá." : "Buyer vẫn thấy On request."}
                   <ul className="mt-1 list-disc pl-5">{productPriceBlockers(product, supplier).map((reason) => <li key={reason}>{reason}</li>)}
-                    {(review !== "approved" || !product.ready_for_buyer || supplier.status !== "published") && <li>Sản phẩm còn chờ duyệt nội dung, ảnh chia sẻ buyer và trạng thái sẵn sàng.</li>}
+                    {(review !== "approved" || !product.ready_for_buyer || supplier.status !== "published") && <li>Sản phẩm chưa đủ điều kiện công khai hoặc hồ sơ doanh nghiệp chưa được xuất bản.</li>}
                   </ul>
                   {dirty && <p className="mt-1 font-semibold text-amber-800">Thay đổi ở form chưa lưu; dòng trên là tình trạng trước khi lưu.</p>}
                 </div>}
@@ -604,23 +614,27 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           </section>
         </form>
 
-        <section data-step-panel={2} className={step === 2 ? "space-y-3" : "hidden"} aria-label="Bước 2 · Ảnh và catalogue" id="product-media">
+        <section data-step-panel={2} className={step === 2 ? "space-y-3" : "hidden"} aria-label="Bước 2: Ảnh và catalogue" id="product-media">
           <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-            <SectionHead step="Bước 2" title="Ảnh & catalogue thực tế"
-              hint="JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp dùng để duyệt nội bộ, không tự hiện trên trang buyer." />
+            <SectionHead step="Bước 2" title="Ảnh và catalogue"
+              hint={live
+                ? "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp tải lên sẽ hiển thị với buyer trên sản phẩm đã đăng."
+                : review === "approved"
+                  ? "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp tải lên ở chế độ nội bộ khi chờ đăng."
+                  : "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp được kiểm tra khi duyệt."} />
             <div className="space-y-4 px-4 py-4 sm:px-5">
               {media.length > 0
                 ? <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{media.map((asset) => {
                   const url = privateMediaUrl(asset);
                   return <li key={asset.id} className="group relative overflow-hidden rounded-lg border border-ink-200 bg-white">
-                    <div className="relative block aspect-[4/3] overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
+                    <div className="relative block aspect-square overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
                       {asset.kind === "image" && url
                         ? <img src={url} alt={`Ảnh ${asset.caption || product?.name || "sản phẩm"}`} loading="lazy" className="size-full object-cover" />
                         : <span className="flex size-full items-center justify-center text-brand-700"><FileText className="size-8" aria-hidden="true" /></span>}
                       <span className={`absolute top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${asset.audience === "buyer" ? "bg-emerald-100 text-emerald-800" : "bg-white/95 text-ink-700"}`}>
                         {asset.audience === "buyer" ? "Chia sẻ buyer" : "Nội bộ"}
                       </span>
-                      {canUpload && asset.audience === "internal" && asset.created_by === userId &&
+                      {canUpload && asset.created_by === userId && (asset.audience === "internal" || review === "approved") &&
                         <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)} aria-label={`Xóa ${asset.caption || "tệp nháp"}`}
                           className="absolute top-2 right-2 rounded-full bg-white/95 p-1.5 text-rose-700 shadow-sm hover:bg-rose-50">
                           <X className="size-3.5" aria-hidden="true" />
@@ -639,28 +653,28 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   className="rounded-lg border-2 border-dashed border-brand-200 bg-brand-50/40 px-4 py-6 text-center transition hover:border-brand-400 focus-within:border-brand-600">
                   <UploadCloud className="mx-auto size-8 text-brand-700" aria-hidden="true" />
                   <p className="mt-1.5 text-[13px] font-semibold text-ink-800">Kéo thả ảnh hoặc catalogue vào đây</p>
-                  <p className="mt-0.5 text-[11.5px] text-ink-500">hoặc chọn tệp từ thiết bị · {ownedCount}/12 tệp của bạn</p>
+                  <p className="mt-0.5 text-[11.5px] text-ink-500">hoặc chọn tệp từ thiết bị. Đã tải {ownedCount}/12 tệp</p>
                   <label className="btn btn-soft relative mt-3 cursor-pointer">Chọn tệp
                     <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" className="sr-only" aria-label="Chọn ảnh sản phẩm hoặc catalogue"
                       onChange={(e) => { chooseFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} /></label>
                 </div>
                 {selected.length > 0 && <div className="rounded-lg border border-brand-200 bg-brand-50 p-3.5">
                   <p className="text-[13px] font-semibold text-brand-900">Đã chọn {selected.length} tệp</p>
-                  <ul className="mt-1.5 max-h-24 space-y-0.5 overflow-auto text-[11.5px] text-brand-900">{selected.map((file, index) => <li key={`${file.name}-${index}`} className="truncate">{file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB</li>)}</ul>
+                  <ul className="mt-1.5 max-h-24 space-y-0.5 overflow-auto text-[11.5px] text-brand-900">{selected.map((file, index) => <li key={`${file.name}-${index}`} className="truncate">{file.name} - {(file.size / 1024 / 1024).toFixed(1)} MB</li>)}</ul>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button type="button" disabled={busy} onClick={upload} className="btn btn-primary btn-sm"><UploadCloud className="size-4" aria-hidden="true" /> Tải {selected.length} tệp</button>
                     <button type="button" disabled={busy} onClick={() => setSelected([])} className="btn btn-ghost btn-sm">Bỏ chọn</button>
                   </div>
                 </div>}
               </> : <p className="rounded-lg bg-ink-50 px-3.5 py-3 text-[12.5px] text-ink-600">
-                {!product ? "Lưu thông tin sản phẩm trước để mở chức năng tải tệp." : dirty ? "Lưu thay đổi nội dung trước khi tải tệp để không mất phần đang nhập." : review === "approved" ? "Sản phẩm đã duyệt. Nếu cần thêm tệp, hãy lưu thay đổi nội dung trước; sản phẩm sẽ quay lại bản nháp." : "Tạm khoá tải tệp trong khi chờ duyệt."}
+                {!product ? "Lưu thông tin sản phẩm trước để mở chức năng tải tệp." : dirty ? "Lưu thay đổi nội dung trước khi tải tệp để không mất phần đang nhập." : "Tạm khoá tải tệp trong khi chờ duyệt."}
               </p>}
               {(progress || uploadResult) && <p role="status" className={`text-[12.5px] font-semibold ${uploadResult && /không|quá|lỗi|tối đa/i.test(uploadResult) ? "text-rose-700" : "text-brand-800"}`}>{progress || uploadResult}</p>}
             </div>
           </div>
         </section>
 
-        <section data-step-panel={3} className={step === 3 ? "space-y-3" : "hidden"} aria-label="Bước 3 · Xem lại và gửi" id="product-review">
+        <section data-step-panel={3} className={step === 3 ? "space-y-3" : "hidden"} aria-label="Bước 3: Xem lại và gửi" id="product-review">
           <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
             <SectionHead step="Bước 3" title="Xem lại toàn bộ hồ sơ"
               hint="Đọc lại đúng nội dung ở bước 1 và 2. Sửa được ngay tại đây, gửi xong hồ sơ mới chuyển sang bước duyệt." />
@@ -723,7 +737,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
               {/* Bước 2 - ảnh & catalogue */}
               <div className="rounded-lg border border-ink-200">
-                <ReviewHead title={`Ảnh & catalogue (${media.length} tệp)`} onEdit={() => goToStep(2)} />
+                <ReviewHead title={`Ảnh và catalogue (${media.length} tệp)`} onEdit={() => goToStep(2)} />
                 <div className="px-3.5 py-3">
                   {media.length
                     ? <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -749,18 +763,18 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
               {sent || review === "pending"
                 ? <div role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-[13px] font-semibold text-emerald-900">
                   <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="min-w-0 flex-1">Đã gửi hồ sơ. Vexim sẽ phản hồi sau khi duyệt; sản phẩm chưa tự công khai.</span>
+                  <span className="min-w-0 flex-1">Đã gửi duyệt. Bạn sẽ nhận thông báo khi sản phẩm được đăng.</span>
                   <Link href="/supplier/portal/products" className="underline">Về danh sách</Link>
                 </div>
                 : review === "approved"
-                  ? <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[13px] font-semibold text-emerald-800"><Check className="size-4" aria-hidden="true" /> Nội dung đã được duyệt</p>
+                  ? <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[13px] font-semibold text-emerald-800"><Check className="size-4" aria-hidden="true" /> {live ? "Sản phẩm đã đăng. Bạn có thể tiếp tục quản lý." : "Sản phẩm đã duyệt và đang chờ đăng."}</p>
                   : <div className="space-y-2">
                     <button type="button" onClick={requestSubmit} disabled={busy}
                       aria-describedby="submit-blockers"
                       className="btn btn-primary w-full justify-center sm:w-auto">
                       {busy
-                        ? <><span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> Đang gửi hồ sơ…</>
-                        : <><Send className="size-4" aria-hidden="true" /> Gửi hồ sơ duyệt</>}
+                        ? <><span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> Đang gửi...</>
+                        : <><Send className="size-4" aria-hidden="true" /> Gửi duyệt</>}
                     </button>
                     <div id="submit-blockers" aria-live="polite">
                       {submitHint?.length
@@ -768,7 +782,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                           {submitHint.map((hint) => <li key={hint} className="flex gap-1.5"><AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />{hint}</li>)}
                         </ul>
                         : canSubmit
-                          ? <p className="text-[12px] text-ink-600">Hồ sơ đủ điều kiện. Gửi không tự duyệt, không tự chia sẻ buyer.</p>
+                          ? <p className="text-[12px] text-ink-600">Hồ sơ đủ điều kiện để gửi duyệt.</p>
                           : submitBlockers().length
                             ? <ul className="space-y-1 text-[12px] text-ink-600">
                               {submitBlockers().map((hint) => <li key={hint} className="flex gap-1.5"><span className="mt-1.5 size-1 shrink-0 rounded-full bg-ink-400" aria-hidden="true" />{hint}</li>)}
@@ -793,26 +807,26 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           <span className="hidden min-w-0 flex-1 truncate px-1 text-[11.5px] text-ink-500 sm:block">
             {step === 1 ? (dirty ? "Có thay đổi chưa lưu" : product ? "Thông tin đã lưu" : "Chưa lưu sản phẩm")
               : step === 2 ? `${media.length} tệp đã tải`
-                : review === "pending" ? "Đang chờ duyệt" : "Kiểm tra lần cuối rồi gửi"}
+                : review === "pending" ? "Đang chờ duyệt" : "Xem lại rồi gửi duyệt"}
           </span>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {step === 1 && !locked && product && dirty &&
               <button type="submit" form="product-info" onClick={() => { advanceTo.current = null; }} disabled={busy}
-                className="btn btn-ghost btn-sm"><Save className="size-3.5" aria-hidden="true" /> Lưu nháp</button>}
+                className="btn btn-ghost btn-sm"><Save className="size-3.5" aria-hidden="true" /> {review === "approved" ? "Lưu thay đổi" : "Lưu nháp"}</button>}
             {step === 1 && (locked
               ? <button type="button" onClick={() => goToStep(2)} className="btn btn-primary btn-sm">Xem tệp <ArrowRight className="size-3.5" aria-hidden="true" /></button>
               : product && !dirty
                 ? <button type="button" onClick={() => leaveInfoFor(2)} className="btn btn-primary btn-sm">Tiếp tục <ArrowRight className="size-3.5" aria-hidden="true" /></button>
                 : <button type="submit" form="product-info" onClick={() => { advanceTo.current = 2; }} disabled={busy}
-                  className="btn btn-primary btn-sm">{busy ? "Đang lưu..." : "Lưu & tiếp tục"} <ArrowRight className="size-3.5" aria-hidden="true" /></button>)}
+                  className="btn btn-primary btn-sm">{busy ? "Đang lưu..." : "Lưu và tiếp tục"} <ArrowRight className="size-3.5" aria-hidden="true" /></button>)}
             {step === 2 && <button type="button" onClick={() => goToStep(3)} className="btn btn-primary btn-sm">Sang bước 3 <ArrowRight className="size-3.5" aria-hidden="true" /></button>}
             {step === 3 && (review === "pending" || review === "approved" || sent
-              ? <span className="text-[11.5px] font-semibold text-emerald-800">{review === "approved" ? "Đã duyệt" : "Đã gửi · chờ duyệt"}</span>
+              ? <span className="text-[11.5px] font-semibold text-emerald-800">{review === "approved" ? (live ? "Đã đăng" : "Đã duyệt, chờ đăng") : "Đã gửi duyệt"}</span>
               : <button type="button" onClick={requestSubmit} disabled={busy} className="btn btn-primary btn-sm">
                 {busy
-                  ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> Đang gửi…</>
-                  : <><Send className="size-3.5" aria-hidden="true" /> Gửi hồ sơ</>}
+                  ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> Đang gửi...</>
+                  : <><Send className="size-3.5" aria-hidden="true" /> Gửi duyệt</>}
               </button>)}
           </div>
         </div>
@@ -821,11 +835,11 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       {/* Cột phải: thẻ xem nhanh - thương mại & xuất khẩu đọc được ngay, kể cả khi cuộn. */}
       <aside className="space-y-3 lg:sticky lg:top-6">
         <div className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
-          <div className="relative aspect-[16/9] bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
+          <div className="relative aspect-square bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
             {coverUrl
               ? <img src={coverUrl} alt="" className="size-full object-cover" />
               : <span className="flex size-full flex-col items-center justify-center gap-1.5 text-ink-400"><ImageIcon className="size-8 stroke-1" aria-hidden="true" /><span className="text-[11px] font-semibold">Chưa có ảnh</span></span>}
-            <span className={`absolute top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${status.tone}`}>{status.label}</span>
+            <span className={`absolute top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${status.tone}`}>{statusLabel}</span>
           </div>
           <div className="px-3.5 py-3">
             <p className="text-[10.5px] font-bold tracking-wider text-brand-700 uppercase">{categoryLabel}</p>

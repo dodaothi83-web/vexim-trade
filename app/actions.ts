@@ -1499,31 +1499,40 @@ export async function updateProductAction(
   try {
     const existing = await store.getProduct(id);
     if (!existing) return { ok: false, message: "Không tìm thấy sản phẩm." };
+    // Supplier products use one staff action to publish. A normal form save
+    // cannot switch the internal readiness flag or bypass that action.
+    const supplierProduct = !!(existing.supplier_originated || existing.supplier_category_proposal);
+    if (supplierProduct) {
+      input.ready_for_buyer = existing.ready_for_buyer;
+      input.reviewed_category_slug = existing.reviewed_category_slug ?? null;
+    }
     // Supplier/category are not chosen by arbitrary client payloads.
     input.supplier_id = existing.supplier_id;
     input.category = existing.category;
     const assigned = await autoAssignProduct(input, str(raw.category));
-    const productCategory = existing.reviewed_category_slug && ![input.name !== existing.name, input.spec !== existing.spec, input.description !== existing.description].some(Boolean)
+    const productCategory = existing.reviewed_category_slug && (supplierProduct || ![input.name !== existing.name, input.spec !== existing.spec, input.description !== existing.description].some(Boolean))
       ? await store.getCategoryBySlug(existing.reviewed_category_slug) : assigned;
     input.specs = saveProductAttributes(productCategory, raw.product_attributes,
       productCategory?.slug === (existing.reviewed_category_slug ?? existing.category) ? existing.specs : {});
     const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description || input.description_detail !== (existing.description_detail ?? null) ||
       JSON.stringify(input.specs) !== JSON.stringify(existing.specs ?? {});
-    // The human-reviewed category outranks text inference when toggling buyer readiness.
-    if (existing.reviewed_category_slug && !identityChanged) input.category = existing.reviewed_category_slug;
-    else if (!assigned) input.ready_for_buyer = false;
-    // An edit to the product identity invalidates the earlier category decision until staff rechecks it.
-    if (existing.reviewed_category_slug && identityChanged) {
+    // The human-reviewed category outranks text inference. Supplier products
+    // keep that staff decision and their internal readiness during ordinary saves.
+    if (existing.reviewed_category_slug && (supplierProduct || !identityChanged)) input.category = existing.reviewed_category_slug;
+    else if (!assigned && !supplierProduct) input.ready_for_buyer = false;
+    // CRM-created products retain the legacy identity-change invalidation.
+    if (existing.reviewed_category_slug && identityChanged && !supplierProduct) {
       input.reviewed_category_slug = null;
       input.ready_for_buyer = false;
     }
 
     // Supplier-authored products cannot use the legacy keyword fallback to turn buyer-ready on.
-    if (input.ready_for_buyer && existing.supplier_originated && !input.reviewed_category_slug &&
+    if (input.ready_for_buyer && supplierProduct && !input.reviewed_category_slug &&
         !existing.reviewed_category_slug) return { ok: false, message: "Vexim cần chốt danh mục sản phẩm trước khi bật sẵn sàng gửi buyer." };
     let translationWarning = "";
-    // Only buyer-shareable media can make a classified product ready.
-    if (input.ready_for_buyer) {
+    // Only buyer-shareable media can make a classified CRM-created product ready.
+    // Supplier readiness is changed only by Duyệt và đăng, not this form.
+    if (input.ready_for_buyer && !supplierProduct) {
       if (existing.reviewed_category_slug) {
         const reviewed = await store.getCategoryBySlug(existing.reviewed_category_slug);
         if (!reviewed || reviewed.status !== "published" || !reviewed.is_published)
@@ -1548,7 +1557,7 @@ export async function updateProductAction(
     const warning = await syncSupplierIndustries(existing.supplier_id);
     revalidateAll();
     const categoryNotice = existing.reviewed_category_slug
-      ? identityChanged
+      ? identityChanged && !supplierProduct
         ? "Nội dung sản phẩm đã đổi; cần Vexim chốt lại danh mục trước khi công khai."
         : "Danh mục Vexim đã chốt được giữ nguyên."
       : assigned ? `Hệ thống phân loại ${assigned.name_i18n.en || assigned.slug}; không tự công khai.` : "Chưa nhận diện được ngành; đã tắt sẵn sàng gửi buyer.";

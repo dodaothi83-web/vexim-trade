@@ -13,6 +13,7 @@ import {
   Loader2,
   Lock,
   MailCheck,
+  MessageCircle,
   Package,
   ShieldCheck,
 } from "lucide-react";
@@ -40,6 +41,7 @@ interface Props {
   /** Nhà cung cấp buyer đã chỉ định từ trang sản phẩm hoặc trang NCC, để hiển thị rõ trong form. */
   initialSuppliers?: Array<{ id: string; name: string }>;
   wantsSamples: boolean;
+  mode?: "quote" | "question";
   turnstileSiteKey?: string | null;
 }
 
@@ -59,8 +61,9 @@ const FREQUENCIES = ["One-time", "Monthly", "Quarterly", "Spot", "Contract"];
 const COUNTRIES = ["US", "EU", "UK", "Japan", "Korea", "China", "Middle East", "Australia", "Canada", "Other"];
 const BUSINESS_TYPES = ["Importer / Distributor", "Brand / Manufacturer", "Wholesaler", "Retailer", "Trading company", "Other"];
 
-export function RfqForm({ categories, categorySpecs, initialCategory, initialProduct, initialProductId, initialSupplierIds, initialSuppliers = [], wantsSamples, turnstileSiteKey }: Props) {
+export function RfqForm({ categories, categorySpecs, initialCategory, initialProduct, initialProductId, initialSupplierIds, initialSuppliers = [], wantsSamples, mode = "quote", turnstileSiteKey }: Props) {
   const router = useRouter();
+  const isQuestion = mode === "question";
   const params = useSearchParams();
   const [step, setStep] = useState(1);
   const [busy, startSubmit] = useTransition();
@@ -142,6 +145,8 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const e3 = validateStep(2);
+    if (isQuestion && !data.message.trim()) e3.message = "Enter your question for the supplier.";
+    if (isQuestion && !data.consent) e3.consent = "Approve sharing these details with the supplier.";
     setErrors(e3);
     if (Object.keys(e3).length) return;
     setServerMsg(null);
@@ -177,7 +182,9 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
         website: data.website || null,
         business_type: data.business_type || null,
         consent: data.consent,
-        source_page: "/rfq",
+        inquiry_kind: isQuestion ? "supplier_question" : "quote",
+        share_contact_consent: isQuestion ? data.consent : false,
+        source_page: isQuestion ? "/rfq?intent=question" : "/rfq",
         referrer: typeof document !== "undefined" ? document.referrer : null,
         utm_source: params.get("utm_source"),
         utm_medium: params.get("utm_medium"),
@@ -199,6 +206,101 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
     { n: 2, label: "Quantity & terms", icon: ClipboardList },
     { n: 3, label: "Your company", icon: Building2 },
   ];
+  const supplierName = initialSuppliers[0]?.name ?? "the selected supplier";
+  const quoteHref = useMemo(() => {
+    const query = new URLSearchParams(params.toString());
+    query.delete("intent");
+    return `/rfq?${query.toString()}`;
+  }, [params]);
+  const turnstileScript = turnstileSiteKey ? (
+    <Script
+      src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=__VEXIM_ON_TURNSTILE_LOAD&render=explicit"
+      strategy="afterInteractive"
+      async
+      defer
+    />
+  ) : null;
+  const honeypotControl = (
+    <div aria-hidden className="pointer-events-none absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden">
+      <label>Leave empty <input tabIndex={-1} autoComplete="off" value={data.websiteHp} onChange={(e) => update("websiteHp", e.target.value)} /></label>
+    </div>
+  );
+  const turnstileControl = turnstileSiteKey ? (
+    <div className="pt-2">
+      <div id="vexime-rfq-turnstile" ref={(el) => {
+        if (!el || turnstileWidgetId) return;
+        const render = () => {
+          if (!window.turnstile) return;
+          const id = window.turnstile.render(el, {
+            sitekey: turnstileSiteKey,
+            callback: (tok) => setTurnstileToken(tok),
+            "expired-callback": () => setTurnstileToken(null),
+            "error-callback": () => setTurnstileToken(null),
+            theme: "light",
+          });
+          setTurnstileWidgetId(id);
+        };
+        if (window.turnstile) render();
+        else window.__VEXIM_ON_TURNSTILE_LOAD = render;
+      }} />
+      <noscript><p className="text-[12px] text-red-600">Bạn cần bật JavaScript để gửi form (chống spam).</p></noscript>
+    </div>
+  ) : null;
+
+  if (isQuestion) {
+    return (
+      <form onSubmit={submit} className="mt-8">
+        {turnstileScript}
+        <div className="mb-6 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-700"><MessageCircle className="h-4 w-4" />Product question</p>
+          <p className="mt-2 break-words text-base font-bold text-ink-900">{initialProduct}</p>
+          <p className="mt-1 text-sm text-ink-600">To: <strong className="text-ink-800">{supplierName}</strong></p>
+        </div>
+        {serverMsg && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-800">{serverMsg}</div>}
+        <div className="card space-y-5 p-5 sm:p-6">
+          <Field label="Your question" required error={errors.message}>
+            <textarea
+              rows={5}
+              className="input resize-y"
+              value={data.message}
+              onChange={(e) => update("message", e.target.value)}
+              placeholder="Ask about specifications, availability, packaging, samples or other product details."
+            />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Company" required error={errors.company}>
+              <input autoComplete="organization" className="input" value={data.company} onChange={(e) => update("company", e.target.value)} placeholder="Your company name" />
+            </Field>
+            <Field label="Your name" required error={errors.contact_name}>
+              <input autoComplete="name" className="input" value={data.contact_name} onChange={(e) => update("contact_name", e.target.value)} placeholder="Jane Doe" />
+            </Field>
+          </div>
+          <Field label="Work email" required error={errors.email} hint="Supplier replies go to this email.">
+            <input autoComplete="email" type="email" className="input" value={data.email} onChange={(e) => update("email", e.target.value)} placeholder="jane@company.com" />
+          </Field>
+          {honeypotControl}
+          {turnstileControl}
+          <label className="flex items-start gap-2 pt-1 text-[13px] leading-relaxed text-ink-700">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.consent} onChange={(e) => update("consent", e.target.checked)} />
+            <span>I agree to share my name, company, email and this question with <strong>{supplierName}</strong> so they can reply directly.</span>
+          </label>
+          {errors.consent && <p className="pl-6 text-[12px] text-red-600">{errors.consent}</p>}
+          <p className="pl-6 text-[12px] text-ink-600">
+            Read our <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Privacy Policy</Link> and <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Terms of Service</Link> before submitting.
+          </p>
+          <p className="flex items-start gap-1.5 rounded-md bg-ink-50 p-3 text-[12px] leading-relaxed text-ink-600">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-700" />
+            <span>Your details are shared with this supplier for this question, not with other suppliers. Vexim keeps the original question for support and moderation.</span>
+          </p>
+          <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold" disabled={busy}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
+            Send to supplier
+          </button>
+          <p className="text-center text-[13px] text-ink-600">Need prices or commercial terms? <Link href={quoteHref} className="font-semibold text-brand-700 underline">Request a quote instead</Link>.</p>
+        </div>
+      </form>
+    );
+  }
 
   return (
     <form onSubmit={submit} className="mt-8">
@@ -213,14 +315,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
           <p className="mt-2">Suppliers are matched on your requirements only. Paid listings never affect who we recommend.</p>
         </div>
       )}
-      {turnstileSiteKey && (
-        <Script
-          src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=__VEXIM_ON_TURNSTILE_LOAD&render=explicit"
-          strategy="afterInteractive"
-          async
-          defer
-        />
-      )}
+      {turnstileScript}
       {/* Step indicator */}
       <ol className="mb-6 flex items-center gap-2 text-[12px] font-semibold">
         {steps.map((s, i) => {
@@ -421,32 +516,8 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
             </Field>
           </div>
 
-          {/* Honeypot — ẩn với user thật */}
-          <div aria-hidden className="pointer-events-none absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden">
-            <label>Leave empty <input tabIndex={-1} autoComplete="off" value={data.websiteHp} onChange={(e) => update("websiteHp", e.target.value)} /></label>
-          </div>
-
-          {turnstileSiteKey && (
-            <div className="pt-2">
-              <div id="vexime-rfq-turnstile" ref={(el) => {
-                if (!el || turnstileWidgetId) return;
-                const render = () => {
-                  if (!window.turnstile) return;
-                  const id = window.turnstile.render(el, {
-                    sitekey: turnstileSiteKey,
-                    callback: (tok) => setTurnstileToken(tok),
-                    "expired-callback": () => setTurnstileToken(null),
-                    "error-callback": () => setTurnstileToken(null),
-                    theme: "light",
-                  });
-                  setTurnstileWidgetId(id);
-                };
-                if (window.turnstile) render();
-                else window.__VEXIM_ON_TURNSTILE_LOAD = render;
-              }} />
-              <noscript><p className="text-[12px] text-red-600">Bạn cần bật JavaScript để gửi form (chống spam).</p></noscript>
-            </div>
-          )}
+          {honeypotControl}
+          {turnstileControl}
 
           <label className="flex items-start gap-2 pt-2 text-[13px] text-ink-700">
             <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.consent} onChange={(e) => update("consent", e.target.checked)} />

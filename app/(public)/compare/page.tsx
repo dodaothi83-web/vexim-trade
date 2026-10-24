@@ -9,7 +9,7 @@ import {
   mainProductNames,
   supplierTypeLabel,
 } from "@/lib/public/catalog";
-import { supplierMoqDisplay } from "@/lib/public/supplier-english";
+import { supplierIncotermsDisplay, supplierMoqDisplay, supplierPortsDisplay, supplierProvinceDisplay } from "@/lib/public/supplier-english";
 
 export const metadata: Metadata = {
   title: "Compare suppliers | Veximtrade",
@@ -96,7 +96,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                 <Row
                   label="Location"
                   cells={suppliers.map((s) => (
-                    <>{s.province ? `${s.province}, Vietnam` : "—"}</>
+                    <>{supplierProvinceDisplay(s) ? `${supplierProvinceDisplay(s)}, Vietnam` : "—"}</>
                   ))}
                 />
                 <Row
@@ -125,11 +125,11 @@ export default async function ComparePage({ searchParams }: PageProps) {
                 />
                 <Row
                   label="Ports"
-                  cells={suppliers.map((s) => <>{(s.ports ?? []).join(", ") || <Dash />}</>)}
+                  cells={suppliers.map((s) => <>{supplierPortsDisplay(s).join(", ") || <Dash />}</>)}
                 />
                 <Row
                   label="Incoterms"
-                  cells={suppliers.map((s) => <>{(s.incoterms ?? []).join(", ") || <Dash />}</>)}
+                  cells={suppliers.map((s) => <>{supplierIncotermsDisplay(s).join(", ") || <Dash />}</>)}
                 />
                 <Row
                   label="Product prices"

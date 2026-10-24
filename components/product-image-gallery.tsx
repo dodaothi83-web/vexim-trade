@@ -21,7 +21,7 @@ export function ProductImageGallery({ images }: { images: GalleryImage[] }) {
 
   if (count === 0) {
     return (
-      <div className="flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-ink-200 bg-ink-50 text-ink-400">
+      <div className="flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-ink-200 bg-ink-50 text-ink-400">
         <ImageIcon className="h-8 w-8" />
         <span className="text-[12px]">Chưa có ảnh sản phẩm</span>
       </div>
@@ -37,7 +37,7 @@ export function ProductImageGallery({ images }: { images: GalleryImage[] }) {
         <img
           src={current.src}
           alt={current.alt}
-          className="aspect-[4/3] w-full object-contain"
+          className="aspect-square w-full object-contain"
         />
         {current.audience === "internal" && (
           <span className="absolute left-2 top-2 rounded-md bg-ink-900/70 px-2 py-0.5 text-[10.5px] font-semibold text-white">

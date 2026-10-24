@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import { getStore } from "@/lib/db";
 import { listPublicSuppliers } from "@/lib/public/catalog";
 import { listPublicCategoryProducts } from "@/lib/public/product-catalog";
+import { SITE_URL } from "@/lib/site";
 import {
   sendRfqAckBuyer,
   sendRfqNewInternal,
@@ -23,6 +24,8 @@ import {
   scoreSpam,
 } from ".";
 import { createPreferredSupplierMatches } from "./auto-match";
+import { deliverSupplierQuestion, sendSupplierQuestionAckBuyer, sendSupplierQuestionExceptionInternal } from "./supplier-question";
+import { checkSupplierQuestionRateLimit } from "./supplier-question-rate-limit";
 import { gcRateLimit, rateLimit } from "./rate-limit";
 
 export interface SubmitRfqInput {
@@ -58,6 +61,8 @@ export interface SubmitRfqInput {
   consent: boolean;
 
   // Metadata
+  inquiry_kind?: "quote" | "supplier_question";
+  share_contact_consent?: boolean;
   source_page?: string | null;
   referrer?: string | null;
   utm_source?: string | null;
@@ -75,6 +80,7 @@ export interface SubmitRfqResult {
   rfqId?: string;
   buyerId?: string;
   status?: string;
+  supplierDelivered?: boolean;
   accessToken?: string;
   statusPageUrl?: string;
   spam?: { score: number; flags: string[]; quarantine: boolean; needsReview: boolean };
@@ -87,9 +93,38 @@ async function firstHeader(name: string): Promise<string | null> {
   return v ?? null;
 }
 
-async function verifyTurnstile(token: string | null | undefined): Promise<boolean> {
+const SUPPLIER_QUESTION_EMAIL = /^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i;
+
+/** Server-side limits for the public direct-delivery payload. Never trust client validation alone. */
+function supplierQuestionValidationError(raw: SubmitRfqInput): string | null {
+  const company = typeof raw.company === "string" ? raw.company.trim() : "";
+  const contactName = typeof raw.contact_name === "string" ? raw.contact_name.trim() : "";
+  const email = typeof raw.email === "string" ? raw.email.trim() : "";
+  const product = typeof raw.product_text === "string" ? raw.product_text.trim() : "";
+  const question = typeof raw.message === "string" ? raw.message.trim() : "";
+  if (!company || !contactName || !email) return "Please enter your company, name and work email.";
+  if (company.length > 200 || contactName.length > 120) return "Company or contact name is too long.";
+  if (email.length > 254 || !SUPPLIER_QUESTION_EMAIL.test(email)) return "Please enter a valid work email address.";
+  if (!product || product.length > 180) return "The product name is missing or too long. Please reopen the product page.";
+  if (question.length < 4 || question.length > 4_000) return "Your question must be between 4 and 4,000 characters.";
+  if (!Array.isArray(raw.preferred_supplier_ids) || raw.preferred_supplier_ids.length !== 1 ||
+      typeof raw.preferred_supplier_ids[0] !== "string" || !raw.preferred_supplier_ids[0].trim() || raw.preferred_supplier_ids[0].length > 100 ||
+      typeof raw.source_product_id !== "string" || !raw.source_product_id.trim() || raw.source_product_id.length > 100) {
+    return "Please open the question form from the product page so we can identify the product and supplier.";
+  }
+  if (!raw.consent || !raw.share_contact_consent) {
+    return "Please approve sharing your contact details with this supplier before sending your question.";
+  }
+  if ((raw.turnstile_token?.length ?? 0) > 4_096) return "The security check is invalid. Please refresh and try again.";
+  return null;
+}
+
+async function verifyTurnstile(token: string | null | undefined, requireConfigured: boolean): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret || secret === "x" || secret === "") return true; // chưa cấu hình => bỏ qua ở dev
+  if (!secret || secret === "x" || secret === "") {
+    // A production question without a configured challenge is reviewed, never sent directly.
+    return !(requireConfigured && process.env.NODE_ENV === "production");
+  }
   if (!token) return false;
   try {
     const ip = (await firstHeader("x-forwarded-for"))?.split(",")[0]?.trim() ?? "127.0.0.1";
@@ -110,6 +145,7 @@ function rejectWebmail(): boolean {
 }
 
 export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
+  const isSupplierQuestion = raw.inquiry_kind === "supplier_question";
   // 1) Rate limit per IP/UA
   gcRateLimit();
   const ip = (await firstHeader("x-forwarded-for"))?.split(",")[0]?.trim() ?? null;
@@ -119,13 +155,27 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   if (!rl.ok) {
     return {
       ok: false,
-      message: "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 giờ.",
+      message: isSupplierQuestion ? "Too many attempts. Please try again later." : "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 giờ.",
       rateLimited: true,
     };
   }
 
+  let questionSecurityReview: "not_configured" | "unavailable" | null = null;
+  if (isSupplierQuestion) {
+    const validationError = supplierQuestionValidationError(raw);
+    if (validationError) return { ok: false, message: validationError };
+    const distributedLimit = await checkSupplierQuestionRateLimit({
+      ipFingerprint: fingerprint(ip, "supplier-question"),
+      buyerSupplierFingerprint: fingerprint(raw.email.trim().toLowerCase(), raw.preferred_supplier_ids![0]),
+    });
+    if (distributedLimit.status === "limited") {
+      return { ok: false, message: "Too many question attempts. Please try again later.", rateLimited: true };
+    }
+    if (distributedLimit.status === "degraded") questionSecurityReview = distributedLimit.reason;
+  }
+
   // 2) Turnstile
-  const turnstileOk = await verifyTurnstile(raw.turnstile_token);
+  const turnstileOk = await verifyTurnstile(raw.turnstile_token, isSupplierQuestion);
 
   // 3) Spam score (3 ngưỡng):
   //    - < 40   : new        → ghi nhận ngay, ack buyer, báo desk (SLA 4h/24h áp dụng).
@@ -147,6 +197,10 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   let ackBuyer = true;
   if (spamScore >= 100) { rfqStatus = "spam"; ackBuyer = false; }
   else if (spamScore >= 40) { rfqStatus = "needs_review"; ackBuyer = true; }
+  if (questionSecurityReview) {
+    flags.push(`rate_limit_${questionSecurityReview}`);
+    if (rfqStatus === "new") rfqStatus = "needs_review";
+  }
 
   // 4) Từ chối webmail nếu cờ bật
   if (rejectWebmail() && isLikelyWebmail(raw.email)) {
@@ -269,6 +323,12 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
         p.name.trim().toLowerCase() === raw.product_text.trim().toLowerCase())
       ? raw.source_product_id : null
     : null;
+  if (isSupplierQuestion && (preferredIds.length !== 1 || !sourceProductId || !category)) {
+    return { ok: false, message: "This product or supplier is no longer available. Please return to the product page and try again." };
+  }
+  const productUrl = isSupplierQuestion && sourceProductId && category
+    ? `${SITE_URL}/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(sourceProductId)}`
+    : null;
 
   const utm = {
     ...(raw.utm_source ? { source: raw.utm_source } : {}),
@@ -285,6 +345,11 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
       grade: raw.grade ?? null,
       packaging: raw.packaging ?? null,
       certifications: raw.certifications ?? null,
+      ...(isSupplierQuestion ? {
+        inquiry_kind: "supplier_question",
+        contact_share_consent: true,
+        notes: raw.message?.trim() ?? "",
+      } : {}),
     },
     quantity: raw.quantity ?? null,
     unit: raw.unit ?? null,
@@ -299,7 +364,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     wants_video_call: raw.wants_video_call ?? false,
     preferred_supplier_ids: preferredIds,
     source_product_id: sourceProductId,
-    source_page: raw.source_page ?? null,
+    source_page: isSupplierQuestion ? "/rfq?intent=question" : raw.source_page ?? null,
     utm,
     referrer: raw.referrer ?? null,
     spam_score: spamScore,
@@ -338,25 +403,67 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     }
   }
 
+  // A clean, consented product question goes straight to its selected supplier.
+  // Quotes keep the existing staff-mediated workflow below.
+  let supplierDelivered = false;
+  let supplierDeliveryReason: string | null = questionSecurityReview ??
+    (rfqStatus !== "new" ? flags.join(", ") || "manual_review" : null);
+  if (isSupplierQuestion && rfqStatus === "new") {
+    try {
+      const delivery = await deliverSupplierQuestion({ rfq, buyer, supplierId: preferredIds[0], productUrl });
+      supplierDelivered = delivery.delivered;
+      supplierDeliveryReason = delivery.reason ?? null;
+      if (!supplierDelivered) console.warn(`[rfq] supplier question ${rfq.code} not delivered: ${delivery.reason ?? "unknown"}`);
+    } catch (err) {
+      supplierDeliveryReason = err instanceof Error ? err.message : "delivery exception";
+      console.warn(`[rfq] supplier question ${rfq.code} delivery failed:`, err);
+    }
+  }
+  const finalStatus: Rfq["status"] = supplierDelivered ? "matching" : rfqStatus;
+
   // Gửi email (best-effort; lỗi gửi không làm mất RFQ vì đã lưu vào DB).
-  try {
-    if (ackBuyer) await sendRfqAckBuyer({ rfq, buyer });
-    await sendRfqNewInternal({ rfq, buyer });
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn("[rfq] email send failed, but rfq is saved:", err);
+  if (isSupplierQuestion) {
+    try {
+      if (ackBuyer) await sendSupplierQuestionAckBuyer({ rfq, buyer, delivered: supplierDelivered });
+    } catch (err) {
+      console.warn("[rfq] supplier question acknowledgement failed, but question is saved:", err);
+    }
+    // The desk is notified for moderation or delivery exceptions, not routine direct questions.
+    if (!supplierDelivered) {
+      try {
+        await sendSupplierQuestionExceptionInternal({ rfq, buyer, reason: supplierDeliveryReason });
+      } catch (err) {
+        console.warn("[rfq] supplier question exception notification failed:", err);
+      }
+    }
+  } else {
+    try {
+      if (ackBuyer) await sendRfqAckBuyer({ rfq, buyer });
+      await sendRfqNewInternal({ rfq, buyer });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[rfq] email send failed, but rfq is saved:", err);
+    }
   }
 
   let message = "Yêu cầu đã được gửi! Kiểm tra email để theo dõi tiến độ.";
   if (rfqStatus === "needs_review") message = "Yêu cầu đã được nhận. Chúng tôi đang xem xét thủ công và sẽ liên lạc lại trong vòng vài giờ làm việc.";
   if (rfqStatus === "spam") message = "Yêu cầu đã được nhận và đang chờ duyệt.";
+  if (isSupplierQuestion) {
+    message = supplierDelivered
+      ? "Your question was sent to the supplier. They can reply directly to your email."
+      : rfqStatus === "needs_review"
+        ? "Your question was received and is being reviewed before it can be shared."
+        : "Your question was saved. Delivery to the supplier is pending.";
+  }
 
   return {
     ok: true,
     message,
     rfqId: rfq.id,
     buyerId: buyer.id,
-    status: rfq.status,
+    status: isSupplierQuestion ? finalStatus : rfq.status,
+    supplierDelivered: isSupplierQuestion ? supplierDelivered : undefined,
     accessToken: rfq.access_token,
     // spam RFQ không tiết lộ link theo dõi (không có ack).
     statusPageUrl: rfqStatus === "spam" ? undefined : `/rfq/status/${rfq.access_token}`,

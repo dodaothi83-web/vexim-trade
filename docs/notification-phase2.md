@@ -6,7 +6,7 @@ Triển khai trên PR #5, tiếp nối `notification-email-audit.md`. Không có
 | --- | --- | --- |
 | NCC **nộp** sản phẩm | Admin + sourcing đang hoạt động: email; hàng chờ CRM vẫn là nguồn sự thật | Không gửi khi tạo/sửa bản nháp hoặc tải tệp; chỉ sau DB chuyển `pending`. |
 | Staff duyệt/yêu cầu sửa hồ sơ doanh nghiệp | Tài khoản NCC đang hoạt động, đúng `supplier_id`: email | Sau DB chuyển trạng thái; NCC chưa được mở cổng vẫn thấy yêu cầu bổ sung khi đăng nhập. Khi được mở quyền có thêm thông báo portal. Không đồng nghĩa duyệt xác minh/công khai. |
-| Staff duyệt/yêu cầu sửa sản phẩm | Cùng tài khoản NCC: email và thông báo portal từ trạng thái review hiện tại | Chỉ sau review thủ công từ `pending`; approval **không tự bật** `ready_for_buyer`. Lời nhắn sửa được escape trong HTML. |
+| Staff duyệt/yêu cầu sửa sản phẩm | Cùng tài khoản NCC: email và thông báo portal từ trạng thái review hiện tại | Chỉ sau review thủ công từ `pending`; approval của sản phẩm NCC chuyển tệp hợp lệ sang buyer, bật `ready_for_buyer` và thông báo sản phẩm đã lên sàn. Lời nhắn sửa được escape trong HTML. |
 | Staff duyệt/yêu cầu sửa/từ chối chứng nhận | Cùng tài khoản NCC: email và thông báo portal | Chỉ sau review thủ công; email “đã kiểm bản sao” khẳng định **chưa công bố**. |
 | Admin quyết định công bố/thu hồi chứng nhận | Cùng tài khoản NCC: email; portal hiển thị trạng thái công bố hiện tại | Công bố là quyết định thứ hai, có kiểm tra phạm vi/tệp/hạn; thao tác không thay đổi không gửi thư trùng. Thu hồi có email riêng, portal chuyển về “đã kiểm/chưa công bố”. |
 | Staff duyệt/trả từng đánh giá xác minh | Cùng tài khoản NCC: email; thông báo portal hiện có | Chỉ sau quyết định ở từng đợt kiểm; không suy ra duyệt các bước khác, không công khai bằng chứng. |

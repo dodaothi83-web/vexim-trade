@@ -15,8 +15,8 @@ import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/
 import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction, updateVerificationPublicSummaryAction } from "../../verification-actions";
 import { CertificateRowControls } from "./certificate-row-controls";
 
-export function AuditForm({ verification: v, evidence, certificates = [], aiEnabled, canApprove, canInspect, canPublish = false, currentUserId, requireSecondReviewer }: {
-  verification: Verification; evidence: MediaAsset[]; certificates?: Certificate[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; requireSecondReviewer: boolean;
+export function AuditForm({ verification: v, evidence, certificates = [], aiEnabled, canApprove, canInspect, canPublish = false, currentUserId, canSelfApprove }: {
+  verification: Verification; evidence: MediaAsset[]; certificates?: Certificate[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; canSelfApprove: boolean;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
@@ -25,8 +25,8 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
   const [reason, setReason] = useState("");
   const [publicSummary, setPublicSummary] = useState(v.public_summary_i18n?.en ?? "");
   const [summaryConfirmed, setSummaryConfirmed] = useState(false);
-  // Đợt do NCC tự tải giấy tờ lên không có người kiểm tách biệt: người duyệt phải
-  // tự xác nhận đã đối chiếu, hồ sơ ghi self_approved.
+  // Supplier-uploaded reviews and same-person completion both require an
+  // explicit re-check confirmation; the stored decision is marked self_approved.
   const [selfConfirm, setSelfConfirm] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [showOldEvidence, setShowOldEvidence] = useState(evidence.some((m) => !m.checklist_key));
@@ -38,9 +38,13 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
   const [aiResult, setAiResult] = useState<(AiDocumentReview & { skipped: string[] }) | null>(null);
   const editable = canInspect && ["in_progress", "scheduled", "returned"].includes(v.status);
   const selfReview = currentUserId === v.inspector_id;
-  const reviewer = canApprove && v.status === "submitted" && (!requireSecondReviewer || !selfReview);
+  const selfApproval = selfReview && canSelfApprove;
+  const reviewer = canApprove && v.status === "submitted" && (!selfReview || selfApproval);
   const canManageEvidence = editable;
   const items = auditItems(v.target_level);
+  const summaryGuide = v.target_level === 2
+    ? "Nêu ngày kiểm, khu vực cơ sở và các hạng mục đã kiểm tra. Chỉ mô tả cơ sở thuộc đợt kiểm này."
+    : "Nêu giai đoạn, loại chứng từ và phạm vi lô hàng đã kiểm tra. Tách rõ thị trường do nhà cung cấp tự khai.";
   const requiredDocs = L1_DOC_ITEMS.filter((it) => it.required);
   const optionalDocs = L1_DOC_ITEMS.filter((it) => !it.required);
   const recorded = (key: string) => v.checklist?.[key] === true || v.checklist?.[key] === false || v.checklist?.[key] === "not_applicable";
@@ -215,12 +219,20 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
 
   function decide(approve: boolean) {
     const fd = new FormData(); fd.set("id", v.id);
-    if (approve && !v.inspector_id) fd.set("confirm_self_review", selfConfirm ? "yes" : "no");
+    if (approve && (!v.inspector_id || selfApproval)) fd.set("confirm_self_review", selfConfirm ? "yes" : "no");
+    if (approve && v.target_level > 1) {
+      if (!publicSummary.trim() || !summaryConfirmed) {
+        setFeedback({ ok: false, message: "Hãy điền tóm tắt công khai và xác nhận đã đối chiếu trước khi duyệt." });
+        return;
+      }
+      fd.set("public_summary", publicSummary.trim());
+      fd.set("confirm_public_summary", "yes");
+    }
     if (!approve) {
       if (!reason.trim()) { setFeedback({ ok: false, message: "Hãy ghi lý do cần bổ sung." }); return; }
       fd.set("reason", reason);
     }
-    if (approve && !window.confirm(`Duyệt ${auditStep(v.target_level)?.title.toLowerCase()}? Bằng chứng sẽ được khóa${v.target_level < 3 ? " và bước tiếp theo sẽ mở" : ""}.`)) return;
+    if (approve && !window.confirm(`Duyệt ${auditStep(v.target_level)?.title.toLowerCase()}? Bằng chứng sẽ được khóa${v.target_level < 3 ? " và bước tiếp theo sẽ mở" : ""}.${v.target_level > 1 ? " Tóm tắt sẽ công khai cùng kết quả; bằng chứng gốc vẫn riêng tư." : ""}`)) return;
     void run(() => approve ? approveVerificationAction(fd) : returnVerificationAction(fd));
   }
 
@@ -425,27 +437,57 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
     </form>
     {reviewer && <div className="space-y-3 border-t border-ink-100 bg-amber-50/50 p-5">
       <p className="text-sm font-semibold text-ink-900">Xét duyệt · đối chiếu bằng chứng ngay trong các mục bên trên</p>
+      {selfApproval && <label className="flex items-start gap-2 rounded-lg bg-white/80 p-3 text-xs leading-relaxed text-ink-700">
+        <input type="checkbox" className="mt-0.5" checked={selfConfirm} onChange={(e) => setSelfConfirm(e.target.checked)} />
+        <span>Bạn đã kiểm và nộp đợt này. Tôi xác nhận đã tự đối chiếu lại bằng chứng và chịu trách nhiệm khi hoàn tất kiểm và duyệt một mình; hệ thống sẽ ghi dấu tự duyệt và lưu audit log.</span>
+      </label>}
       {!v.inspector_id && <label className="flex items-start gap-2 rounded-lg bg-white/80 p-3 text-xs leading-relaxed text-ink-700">
         <input type="checkbox" className="mt-0.5" checked={selfConfirm} onChange={(e) => setSelfConfirm(e.target.checked)} />
         <span>Đợt này do nhà cung cấp tự tải giấy tờ lên nên chưa có người kiểm tách biệt. Tôi đã tự đối chiếu từng giấy tờ; hồ sơ sẽ ghi rõ một người vừa đối chiếu vừa duyệt.</span>
       </label>}
 
+      {v.target_level > 1 && <section className="rounded-xl border border-sky-200 bg-white p-4" aria-label="Tóm tắt công khai khi duyệt">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-ink-900">Phạm vi buyer sẽ thấy</h3>
+            <p className="mt-1 text-xs leading-5 text-ink-600">Viết 3 đến 5 dòng ngắn bằng tiếng Anh. Tóm tắt sẽ hiện ngay trong card xác minh khi bạn duyệt.</p>
+          </div>
+          <span className="rounded-full bg-sky-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-800">Bắt buộc</span>
+        </div>
+        <p className="mt-3 rounded-lg bg-sky-50/70 px-3 py-2 text-xs leading-5 text-ink-700">{summaryGuide}</p>
+        <label className="mt-3 block text-sm font-medium text-ink-800">Tóm tắt công khai (tiếng Anh)
+          <textarea className="input mt-1" rows={4} maxLength={1000} value={publicSummary}
+            onChange={(e) => { setPublicSummary(e.target.value); setSummaryConfirmed(false); }}
+            placeholder="Describe the review timing, evidence checked and scope in 3 to 5 short lines." />
+        </label>
+        <div className="mt-1 flex flex-wrap justify-between gap-2 text-[11px] leading-4 text-ink-500">
+          <span>Không đưa chứng từ, tên buyer, giá, mã đơn, GPS hoặc thông tin liên hệ.</span>
+          <span>{publicSummary.length}/1000</span>
+        </div>
+        <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-ink-700">
+          <input type="checkbox" className="mt-0.5" checked={summaryConfirmed} onChange={(e) => setSummaryConfirmed(e.target.checked)} />
+          <span>Tôi đã đối chiếu tóm tắt với bằng chứng của đúng đợt kiểm, loại bỏ thông tin nhạy cảm và xác nhận đúng phạm vi đã kiểm tra.</span>
+        </label>
+      </section>}
+
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="primary" disabled={busy} onClick={() => decide(true)}><CheckCircle2 className="h-4 w-4" /> Duyệt & mở bước tiếp</Button>
+        <Button type="button" variant="primary" disabled={busy || (v.target_level > 1 && (!publicSummary.trim() || !summaryConfirmed))} onClick={() => decide(true)}><CheckCircle2 className="h-4 w-4" /> Duyệt & mở bước tiếp</Button>
         <Button type="button" disabled={busy} onClick={() => decide(false)}><RotateCcw className="h-4 w-4" /> Trả để bổ sung</Button>
       </div>
       <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do trả (bắt buộc khi trả về)" aria-label="Lý do trả hồ sơ" />
     </div>}
-    {canApprove && v.status === "submitted" && selfReview && requireSecondReviewer && <p className="border-t border-ink-100 p-4 text-sm text-amber-800">Bạn là người kiểm; cần người khác duyệt.</p>}
-    {v.status === "approved" && <p className="border-t border-ink-100 p-4 text-sm text-emerald-800">Đã duyệt {v.approved_at ? formatDate(v.approved_at) : ""}.{v.self_approved ? " Đợt do nhà cung cấp tự tải giấy tờ: người duyệt tự đối chiếu và duyệt một mình." : ""} Kết quả và bằng chứng chỉ đọc.</p>}
+    {canApprove && v.status === "submitted" && selfReview && !selfApproval && <p className="border-t border-ink-100 p-4 text-sm text-amber-800">Bạn là người kiểm; cần người khác duyệt.</p>}
+    {v.status === "approved" && <p className="border-t border-ink-100 p-4 text-sm text-emerald-800">Đã duyệt {v.approved_at ? formatDate(v.approved_at) : ""}.{v.self_approved && !v.inspector_id ? " Đợt do nhà cung cấp tự tải giấy tờ: người duyệt tự đối chiếu và duyệt một mình." : ""}{v.self_approved && v.inspector_id ? " Một nhân sự đã xác nhận tự đối chiếu và tự duyệt bản kiểm do chính mình thực hiện." : ""} Kết quả và bằng chứng chỉ đọc.</p>}
     {v.status === "approved" && v.target_level > 1 && <section className="border-t border-ink-200 bg-sky-50/40 p-5" aria-label="Tóm tắt công khai riêng">
       <h3 className="font-semibold text-ink-900">Tóm tắt công khai · {v.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"}</h3>
-      <p className="mt-1 text-xs text-ink-600">Duyệt đợt kiểm không tự công khai phần này. Chỉ người có quyền duyệt mới được soạn, duyệt hoặc ẩn tóm tắt. Không đăng chứng từ, tên buyer, giá, mã đơn hay GPS. Lịch sử giao hàng không mặc nhiên là xuất khẩu.</p>
+      <p className="mt-1 text-xs text-ink-600">Tóm tắt có thể được cập nhật hoặc ẩn tại đây. Chỉ người có quyền duyệt mới được soạn, duyệt hoặc ẩn tóm tắt. Không đăng chứng từ, tên buyer, giá, mã đơn hay GPS. Lịch sử giao hàng không mặc nhiên là xuất khẩu.</p>
+      <p className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-xs leading-5 text-ink-600">{summaryGuide}</p>
       <p className="mt-2 text-xs font-semibold text-ink-700">{v.public_summary_published_at ? `Đang công khai · ${formatDate(v.public_summary_published_at)}` : "Chưa công khai"}</p>
       {canApprove ? <>
         <label className="mt-3 block text-sm font-medium text-ink-800">Nội dung buyer nhìn thấy (tiếng Anh)
           <textarea className="input mt-1" rows={3} maxLength={1000} value={publicSummary} onChange={(e) => { setPublicSummary(e.target.value); setSummaryConfirmed(false); }} placeholder="Only describe the specific evidence Vexim reviewed and its scope." />
         </label>
+        <p className="mt-1 text-right text-[11px] text-ink-500">{publicSummary.length}/1000</p>
         <label className="mt-3 flex items-start gap-2 text-xs text-ink-700"><input type="checkbox" checked={summaryConfirmed} onChange={(e) => setSummaryConfirmed(e.target.checked)} />Tôi đã đối chiếu nội dung với bằng chứng của đúng đợt kiểm, loại bỏ thông tin nhạy cảm và xác nhận phạm vi phát biểu.</label>
         <div className="mt-3 flex flex-wrap gap-2"><Button type="button" disabled={busy} onClick={() => savePublicSummary("draft")}>Lưu nháp (ẩn)</Button><Button type="button" variant="primary" disabled={busy || !summaryConfirmed || !publicSummary.trim()} onClick={() => savePublicSummary("publish")}>Duyệt & công khai</Button>{v.public_summary_published_at && <Button type="button" disabled={busy} onClick={() => savePublicSummary("hide")}>Ẩn tóm tắt</Button>}</div>
       </> : v.public_summary_published_at && <p className="mt-2 whitespace-pre-wrap text-sm text-ink-700">{v.public_summary_i18n?.en}</p>}

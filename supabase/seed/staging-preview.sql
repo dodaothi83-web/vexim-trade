@@ -183,8 +183,8 @@ on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- 4. XÁC MINH
---    approved_by để trống: chưa có tài khoản admin nào trong project này, và ràng
---    buộc bốn mắt của bảng verifications không cho một dòng tự duyệt.
+--    approved_by để trống: seed không giả lập một quyết định duyệt của tài khoản
+--    thật; các bản ghi này chỉ phục vụ dữ liệu xem trước.
 -- ---------------------------------------------------------------------------
 -- Các bước xác minh đã duyệt, dùng cho huy hiệu trên trang công khai.
 insert into public.verifications (approved_at, checklist, checklist_notes, created_at, id, public_summary_i18n, shipment_destination, shipment_ref, shipped_on, status, supplier_id, target_level, updated_at, visit_date)

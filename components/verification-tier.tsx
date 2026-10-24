@@ -6,7 +6,7 @@ import { VERIFICATION_LABELS } from "@/lib/verification-status";
 export type VerificationTier = 0 | 1 | 2 | 3;
 
 /**
- * Marketplace-style trust level: the tier counts how many independent Vexim
+ * Marketplace-style trust level: the tier counts how many independent
  * checks are approved. The exact checks are always listed next to the badge,
  * so a higher tier never implies a check that did not happen.
  */
@@ -66,7 +66,7 @@ export function VerificationPips({ levels, compact = false }: {
   const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
   return (
     <span className="inline-flex items-center gap-1" role="img"
-      aria-label={approved.length ? `Vexim checks approved: ${approved.map((l) => VERIFICATION_LABELS[l]).join(", ")}` : "No Vexim checks approved yet"}>
+      aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => VERIFICATION_LABELS[l]).join(", ")}` : "No verification checks approved yet"}>
       {([1, 2, 3] as const).map((level) => {
         const on = levels.includes(level);
         return (
@@ -85,7 +85,7 @@ export function VerificationCoverSeal({ levels }: { levels: readonly Verificatio
   const tier = verificationTier(levels);
   return (
     <span className={`absolute right-5 top-5 flex h-16 w-16 flex-col items-center justify-center rounded-full text-center shadow-lg ring-4 sm:h-[70px] sm:w-[70px] ${SEAL_CLASSES[tier]}`}
-      role="img" aria-label={`Vexim verification ${VERIFICATION_TIER_LABELS[tier]}: ${tier} of 3 checks approved`}>
+      role="img" aria-label={`Verification ${VERIFICATION_TIER_LABELS[tier]}: ${tier} of 3 checks approved`}>
       <ShieldCheck className="h-5 w-5" aria-hidden="true" />
       <b className="text-lg leading-none">{tier}</b>
       <span className="text-[7px] font-black tracking-[0.14em]">CHECKS</span>

@@ -39,7 +39,7 @@ export type Permission =
   | "verifications.inspect"
   /** Xem đợt kiểm để xét duyệt mà không được sửa bằng chứng */
   | "verifications.view"
-  /** Duyệt kết quả xác minh (admin / trưởng kiểm duyệt) */
+  /** Duyệt kết quả xác minh (admin / thu mua / trưởng kiểm duyệt) */
   | "verifications.approve"
   /** Xem RFQ (chỉ đọc, không thao tác) */
   | "rfq.view"
@@ -77,7 +77,7 @@ export const ROLES: {
     value: "sourcing",
     label: "Thu mua",
     description:
-      "Nhà cung cấp, sản phẩm, hình ảnh và giấy tờ xác minh nội bộ. Xem buyer ở mức cơ bản.",
+      "Nhà cung cấp, sản phẩm, hình ảnh và giấy tờ xác minh nội bộ. Kiểm và duyệt xác minh theo quy trình một nhân sự. Xem buyer ở mức cơ bản.",
     badge: "bg-emerald-600 text-white",
   },
   {
@@ -171,6 +171,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "rfq.manage",
     "verifications.view",
     "verifications.inspect",
+    "verifications.approve",
     "settings.view",
   ],
   reviewer: [

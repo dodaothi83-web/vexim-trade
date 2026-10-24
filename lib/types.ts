@@ -31,6 +31,18 @@ export type I18nString = Record<string, string>;
 /** Danh sách ngắn theo ngôn ngữ, ví dụ tên thị trường xuất khẩu: { en: ["United States", "Japan"] } */
 export type I18nList = Record<string, string[]>;
 
+/** Bản dịch phái sinh của các trường hồ sơ chưa có cột i18n riêng. */
+export type SupplierProfileEnglishFields = {
+  province?: string;
+  address?: string;
+  products?: string;
+  markets?: string;
+  capacity_per_month?: string;
+  payment_terms?: string;
+  ports?: string[];
+  incoterms?: string[];
+};
+
 export interface Supplier {
   id: string;
   /** Tên pháp nhân */
@@ -90,7 +102,7 @@ export interface Supplier {
   moq_text_i18n?: I18nString;
   /** Thị trường xuất khẩu theo ngôn ngữ, hiển thị trên trang buyer */
   export_markets_i18n?: I18nList;
-  /** Dấu vết dịch tự động hồ sơ: hash nội dung gốc (MOQ, thị trường) tại thời điểm dịch để phát hiện bản dịch đã cũ. */
+  /** Dấu vết dịch tự động hồ sơ: hash toàn bộ nội dung gốc cần dịch tại thời điểm dịch để phát hiện bản dịch đã cũ. */
   profile_translation_meta?: {
     source_hash: string;
     translated_at: string;
@@ -100,6 +112,8 @@ export interface Supplier {
     summary_generated?: boolean;
     /** Hash phần giới thiệu gốc tại thời điểm dịch, để dịch lại khi NCC sửa câu chuyện của họ. */
     summary_source_hash?: string;
+    /** Cache bản tiếng Anh của các trường hồ sơ khác, nằm trong JSONB hiện có để không cần thêm cột. */
+    fields?: SupplierProfileEnglishFields;
   } | null;
   /** Công suất tháng mô tả text */
   capacity_per_month?: string | null;
@@ -206,14 +220,14 @@ export interface SupplierProduct {
   /** Có thể gửi mẫu */
   samples: boolean;
   /**
-   * Sẵn sàng gửi buyer. Chỉ bật được khi hồ sơ đã có ít nhất một ảnh sản phẩm
-   * hoặc catalogue chia sẻ được cho buyer (xem lib/media/readiness.ts).
+   * Cờ kỹ thuật cho phép sản phẩm hiện với buyer; Vexim bật khi xác nhận đẩy sản phẩm lên sàn.
+   * Luôn cần ít nhất một ảnh/catalogue buyer hợp lệ (xem lib/media/readiness.ts).
    */
   ready_for_buyer: boolean;
-  /** Supplier-authored changes require a separate Vexim decision; distinct from buyer-ready/publication. */
+  /** Draft/pending cần Vexim xét; approved là sản phẩm đã được đẩy lên sàn. */
   supplier_review_status?: "draft" | "pending" | "approved" | "changes_requested";
   supplier_review_note?: string | null;
-  /** Bản do NCC tạo/sửa: luôn cần danh mục staff xác nhận để được công khai. Legacy/staff cũ = false. */
+  /** Bản do NCC tạo: cần Vexim xác nhận lần đầu; sau đó NCC quản lý nội dung/ảnh. Legacy/staff cũ = false. */
   supplier_originated?: boolean;
   /** Danh mục NCC đề xuất, không được dùng trực tiếp để phân loại public. */
   supplier_category_proposal?: string | null;
@@ -590,7 +604,7 @@ export interface SupplierSubmission {
   reviewed_by: string | null;
   reviewed_at: string | null;
   review_note: string | null;
-  /** Đợt kiểm của nhân viên Vexim được tạo khi chấp thuận hồ sơ (bốn mắt vẫn áp dụng ở đó). */
+  /** Đợt kiểm của nhân viên Vexim được tạo khi chấp thuận hồ sơ (nhân sự đủ quyền có thể kiểm và duyệt tại đó). */
   verification_id: string | null;
   created_at: string;
   updated_at: string;
@@ -695,13 +709,13 @@ export interface Verification {
   public_summary_published_by?: string | null;
   /** Ghi chú nội bộ */
   internal_notes: string | null;
-  /** Người duyệt (chỉ admin) */
+  /** Người duyệt (nhân sự có quyền xét duyệt xác minh) */
   approved_by: string | null;
   approved_at: string | null;
   /**
-   * Đợt kiểm không có người kiểm tách biệt (giấy tờ do NCC tự tải lên): người
-   * duyệt tự đối chiếu và tự duyệt. Cờ này để hồ sơ nói thật điều đó, không
-   * phải để hợp thức hoá việc bỏ bước kiểm.
+   * Quyết định một nhân sự: đợt NCC tự tải giấy tờ hoặc nhân sự đủ quyền
+   * tự đối chiếu và duyệt chính bản kiểm của mình. Cờ này để hồ sơ nói thật
+   * điều đó, không phải để hợp thức hoá việc bỏ bước kiểm.
    */
   self_approved?: boolean;
   created_at: string;
@@ -809,7 +823,7 @@ export type SupplierRfqInvitation = Pick<RfqMatch,
   "id" | "rfq_id" | "supplier_id" | "status" | "sent_to_supplier_at" | "response_due_at" | "supplier_replied_at" |
   "quote_price" | "quote_currency" | "quote_unit" | "created_at" | "updated_at"> & {
   rfq: Pick<Rfq, "code" | "product_text" | "quantity" | "unit" | "destination_country" |
-    "incoterm" | "needed_by" | "source_product_id">;
+    "incoterm" | "needed_by" | "source_product_id" | "source_page">;
 };
 
 export interface SupplierNoticeRead {

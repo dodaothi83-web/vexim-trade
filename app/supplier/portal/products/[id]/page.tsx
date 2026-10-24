@@ -31,7 +31,7 @@ export default async function OwnProductPage({ params, searchParams }: { params:
   const media = supplierVisibleProductMedia(allMedia, access.supplier.id, access.user.id);
   const options = categoryProposalOptions(allCategories);
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
-  const categories = allowedSupplierCategories(access.supplier, options, linked);
+  const categoryScope = allowedSupplierCategories(access.supplier, options, linked).map((item) => item.slug);
   return <>
     <PageHeader
       eyebrow="Cổng nhà cung cấp · riêng tư"
@@ -39,6 +39,6 @@ export default async function OwnProductPage({ params, searchParams }: { params:
       sub="Hoàn thiện thông tin, kiểm tra tệp đã tải và theo dõi phản hồi duyệt."
       breadcrumbs={<nav aria-label="Đường dẫn" className="flex min-w-0 items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="shrink-0 hover:text-brand-700">Sản phẩm</Link><ChevronRight className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate font-semibold text-ink-800">{product.name}</span></nav>}
     />
-    <SupplierProductEditor product={product} media={media} userId={access.user.id} categories={categories} supplier={access.supplier} initialStep={step} />
+    <SupplierProductEditor product={product} media={media} userId={access.user.id} categories={options} categoryScope={categoryScope} supplier={access.supplier} initialStep={step} />
   </>;
 }

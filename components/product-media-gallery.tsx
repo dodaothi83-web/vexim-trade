@@ -17,6 +17,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const selected = images[index] ?? images[0];
+  const hasThumbnails = images.length > 1;
 
   useEffect(() => {
     if (!open) return;
@@ -41,44 +42,47 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
 
   const photo = (path: string) => `/public-media/${path}`;
   return <div className="min-w-0">
-    <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-ink-200 bg-ink-50">
-      {selected ? <button ref={heroRef} type="button" onClick={() => setOpen(true)}
-        onMouseMove={(event) => {
-          const rect = event.currentTarget.getBoundingClientRect();
-          setZoomPoint(`${Math.max(0, Math.min(100, (event.clientX - rect.left) / rect.width * 100))}% ${Math.max(0, Math.min(100, (event.clientY - rect.top) / rect.height * 100))}%`);
-        }}
-        onMouseLeave={() => setZoomPoint("50% 50%")}
-        className="group relative h-full w-full cursor-zoom-in overflow-hidden text-left" aria-label={`Enlarge photo of ${name} on this page`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo(selected)} alt={`${name} — photo ${index + 1} of ${images.length}`}
-          style={{ transformOrigin: zoomPoint }}
-          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-150 motion-reduce:transition-none" />
-        <span className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-ink-900/80 px-3 py-1.5 text-xs font-semibold text-white"><ZoomIn className="h-3.5 w-3.5" aria-hidden="true" /> <span className="hidden sm:inline">Hover to zoom · Click to enlarge</span><span className="sm:hidden">Tap to enlarge</span></span>
-      </button> : <div className="flex h-full items-center justify-center gap-2 text-sm text-ink-400"><ImageIcon className="h-9 w-9" aria-hidden="true" />No product photo available</div>}
+    <div className={hasThumbnails ? "grid grid-cols-[3.25rem_minmax(0,1fr)] items-stretch gap-2 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-3" : ""}>
+      {hasThumbnails && <section className="relative min-w-0" aria-label="Product photos">
+        <h2 className="sr-only">Product photos ({images.length})</h2>
+        <div className="absolute inset-0 overflow-y-auto overscroll-contain pr-1" role="group" aria-label="Choose a product photo">
+          <div className="flex flex-col gap-2">
+            {images.map((path, photoIndex) => <button key={path} type="button" onClick={() => { setIndex(photoIndex); setZoomPoint("50% 50%"); }}
+              aria-label={`Show photo ${photoIndex + 1} of ${name}`} aria-pressed={index === photoIndex}
+              className={`aspect-square w-full shrink-0 overflow-hidden rounded-lg border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${index === photoIndex ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photo(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
+            </button>)}
+          </div>
+        </div>
+      </section>}
+
+      <div className="relative aspect-square overflow-hidden rounded-2xl border border-ink-200 bg-ink-50">
+        {selected ? <button ref={heroRef} type="button" onClick={() => setOpen(true)}
+          onMouseMove={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            setZoomPoint(`${Math.max(0, Math.min(100, (event.clientX - rect.left) / rect.width * 100))}% ${Math.max(0, Math.min(100, (event.clientY - rect.top) / rect.height * 100))}%`);
+          }}
+          onMouseLeave={() => setZoomPoint("50% 50%")}
+          className="group relative h-full w-full cursor-zoom-in overflow-hidden text-left" aria-label={`Enlarge photo of ${name} on this page`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={photo(selected)} alt={`${name}, photo ${index + 1} of ${images.length}`}
+            style={{ transformOrigin: zoomPoint }}
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-150 motion-reduce:transition-none" />
+          <span className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-ink-900/80 px-3 py-1.5 text-xs font-semibold text-white"><ZoomIn className="h-3.5 w-3.5" aria-hidden="true" /> <span className="hidden sm:inline">Hover to zoom · Click to enlarge</span><span className="sm:hidden">Tap to enlarge</span></span>
+        </button> : <div className="flex h-full items-center justify-center gap-2 text-sm text-ink-400"><ImageIcon className="h-9 w-9" aria-hidden="true" />No product photo available</div>}
+      </div>
     </div>
 
-    <div className="mt-3 grid gap-3 sm:grid-cols-2" aria-label="Product video and photos">
-      <section className="min-w-0 rounded-xl border border-ink-200 bg-white p-3">
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-700">Product video</h2>
-        {video ? playing ? <iframe src={video.embedUrl} title={video.title} loading="lazy" referrerPolicy="no-referrer"
-          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
-          className="aspect-video w-full rounded-lg border-0 bg-ink-900" />
-          : <button type="button" onClick={() => setPlaying(true)} className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-lg bg-ink-900 px-3 text-center text-sm font-semibold text-white transition hover:bg-brand-800">
-            <PlayCircle className="h-9 w-9" aria-hidden="true" />Play video<span className="text-[11px] font-normal text-white/75">Loads from YouTube or Google Drive only when played</span>
-          </button>
-        : <div className="flex aspect-video items-center justify-center gap-2 rounded-lg bg-ink-50 p-3 text-center text-xs text-ink-500"><PlayCircle className="h-5 w-5 shrink-0" aria-hidden="true" />No buyer-shareable video yet</div>}
-      </section>
-      <section className="min-w-0 rounded-xl border border-ink-200 bg-white p-3">
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-700">Product photos {images.length ? `(${images.length})` : ""}</h2>
-        {images.length ? <div className="flex gap-2 overflow-x-auto pb-2" aria-label="Choose a product photo">
-          {images.map((path, photoIndex) => <button key={path} type="button" onClick={() => { setIndex(photoIndex); setZoomPoint("50% 50%"); }}
-            aria-label={`Show photo ${photoIndex + 1} of ${name}`} aria-pressed={index === photoIndex}
-            className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${index === photoIndex ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photo(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
-          </button>)}</div> : <div className="flex min-h-20 items-center justify-center gap-2 rounded-lg bg-ink-50 text-xs text-ink-500"><ImageIcon className="h-5 w-5" aria-hidden="true" />No photos shared yet</div>}
-      </section>
-    </div>
+    {video && <section className="mt-3 min-w-0 rounded-xl border border-ink-200 bg-white p-3">
+      <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-700">Product video</h2>
+      {playing ? <iframe src={video.embedUrl} title={video.title} loading="lazy" referrerPolicy="no-referrer"
+        sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
+        className="aspect-video w-full rounded-lg border-0 bg-ink-900" />
+        : <button type="button" onClick={() => setPlaying(true)} className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-lg bg-ink-900 px-3 text-center text-sm font-semibold text-white transition hover:bg-brand-800">
+          <PlayCircle className="h-9 w-9" aria-hidden="true" />Play video<span className="text-[11px] font-normal text-white/75">Loads from YouTube or Google Drive only when played</span>
+        </button>}
+    </section>}
 
     {open && selected && typeof document !== "undefined" && createPortal(
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={`${name} product photos`} onClick={(event) => { if (event.target === event.currentTarget) setOpen(false); }}
@@ -87,7 +91,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
         <div className="flex w-full max-w-6xl items-center justify-center gap-2 sm:gap-4">
           {images.length > 1 && <button type="button" onClick={() => setIndex((i) => (i - 1 + images.length) % images.length)} aria-label="Previous photo" className="shrink-0 rounded-full bg-white/10 p-2 hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white"><ChevronLeft className="h-6 w-6" aria-hidden="true" /></button>}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photo(selected)} alt={`${name} — enlarged photo ${index + 1} of ${images.length}`} className="max-h-[80vh] min-w-0 max-w-full rounded-lg object-contain" />
+          <img src={photo(selected)} alt={`${name}, enlarged photo ${index + 1} of ${images.length}`} className="max-h-[80vh] min-w-0 max-w-full rounded-lg object-contain" />
           {images.length > 1 && <button type="button" onClick={() => setIndex((i) => (i + 1) % images.length)} aria-label="Next photo" className="shrink-0 rounded-full bg-white/10 p-2 hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white"><ChevronRight className="h-6 w-6" aria-hidden="true" /></button>}
         </div>
         <p className="mt-3 text-xs text-white/80">Photo {index + 1} / {images.length} · Escape to close · Arrow keys to browse</p>

@@ -13,8 +13,8 @@ import {
  *
  * Giữ đúng nguyên tắc của hệ thống: đầu ra của model là dữ liệu KHÔNG TIN CẬY.
  *  - Mọi verdict/flag lạ bị loại; key không có trong checklist bị bỏ.
- *  - `pass` của AI không bao giờ tự duyệt: huy hiệu chỉ đến từ đợt kiểm của
- *    nhân viên Vexim được một người khác có quyền duyệt phê (bốn mắt).
+ *  - `pass` của AI không bao giờ tự duyệt: huy hiệu chỉ đến từ đợt kiểm do
+ *    nhân sự Vexim có quyền duyệt xác nhận; có thể cùng một nhân sự kiểm.
  *  - Không gửi link ra ngoài; chỉ gửi bytes ảnh/chứng từ của đúng hồ sơ.
  */
 

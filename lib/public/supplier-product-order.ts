@@ -33,45 +33,26 @@ export function arrangeSupplierProducts<T extends { supplierId: string }>(
   return { shown, hidden };
 }
 
-/**
- * Số sản phẩm tối thiểu để lưới sản phẩm được đứng trên lưới danh mục.
- *
- * Tám là hai hàng đầy trên lưới bốn cột ở màn rộng, và bốn hàng ở màn điện thoại.
- * Dưới ngưỡng đó, mở trang bằng một dải thẻ thưa sẽ nói với buyer rằng sàn chưa
- * có hàng, đúng ở vị trí đắt nhất của trang.
- *
- * Con số này không phải sở thích. Với giới hạn hai sản phẩm mỗi nhà cung cấp,
- * tám sản phẩm chỉ đạt được khi có ít nhất bốn nhà cung cấp, nên nó tự động bảo
- * đảm lưới không phải catalogue của một công ty.
- */
-export const HOME_FEED_PRODUCTS = 8;
-
-/** Số nhà cung cấp tối thiểu, chốt lại lần nữa để đổi giới hạn trên không phá bảo đảm. */
-export const HOME_FEED_SUPPLIERS = 3;
-
 /** Giới hạn số sản phẩm mỗi nhà cung cấp trên lưới trang chủ. */
 export const HOME_FEED_PER_SUPPLIER = 2;
 
 /**
  * Số thẻ mỗi trang của lưới sản phẩm trang chủ, tính theo số cột đang hiển thị.
  *
- * Lưới chia hai cột ở điện thoại, ba cột từ 768px và bốn cột từ 1024px. Mỗi trang
- * luôn xếp thành hai đến ba hàng đầy, không có thẻ lẻ ở cuối hàng:
+ * Lưới chia hai cột ở điện thoại, ba cột từ 768px và năm cột từ 1024px:
  *
- *   dưới 768px   2 cột  6 thẻ  →  ba hàng
- *   768–1023px   3 cột  6 thẻ  →  hai hàng
- *   từ 1024px    4 cột  8 thẻ  →  hai hàng
+ *   dưới 768px   2 cột   6 thẻ  →  ba hàng
+ *   768–1023px   3 cột   6 thẻ  →  hai hàng
+ *   từ 1024px    5 cột  15 thẻ  →  ba hàng
  *
- * Màn rộng đặt tám thẻ vì đó cũng là số sản phẩm tối thiểu để lưới được đưa lên
- * đầu trang (HOME_FEED_PRODUCTS): đủ hàng thì cả lưới vừa một trang, không phải
- * bấm sang trang hai để xem nốt hai thẻ.
+ * Trang cuối giữ phần còn lại; không cắt hoặc lặp sản phẩm để lấp đủ hàng.
  */
 export const HOME_FEED_PER_PAGE = 6;
 
-/** Số thẻ mỗi trang khi lưới đã đủ bốn cột. */
-export const HOME_FEED_PER_PAGE_WIDE = 8;
+/** 15 thẻ mỗi trang trên lưới năm cột ở desktop. */
+export const HOME_FEED_PER_PAGE_WIDE = 15;
 
-/** Mốc bốn cột, phải khớp với `lg:` của lưới trong components/home-product-feed.tsx. */
+/** Mốc năm cột, phải khớp với `lg:` của lưới trong components/home-product-feed.tsx. */
 export const HOME_FEED_WIDE_QUERY = "(min-width: 1024px)";
 
 /**
@@ -81,23 +62,4 @@ export const HOME_FEED_WIDE_QUERY = "(min-width: 1024px)";
  */
 export function feedPerPage(wide: boolean): number {
   return wide ? HOME_FEED_PER_PAGE_WIDE : HOME_FEED_PER_PAGE;
-}
-
-/**
- * Có đủ hàng để đưa lưới sản phẩm lên trên lưới danh mục hay không.
- *
- * Xét trên danh sách đã áp giới hạn mỗi nhà cung cấp, vì đó mới là thứ buyer
- * thật sự nhìn thấy. Xét trên danh sách thô sẽ cho qua những trường hợp hàng
- * trăm sản phẩm của hai nhà cung cấp mà lưới chỉ hiện được bốn thẻ.
- */
-export function shouldPromoteProductFeed(
-  shown: ReadonlyArray<{ supplierId: string }>,
-): { promoted: boolean; products: number; suppliers: number } {
-  const suppliers = new Set(shown.map((p) => p.supplierId)).size;
-  const products = shown.length;
-  return {
-    promoted: products >= HOME_FEED_PRODUCTS && suppliers >= HOME_FEED_SUPPLIERS,
-    products,
-    suppliers,
-  };
 }

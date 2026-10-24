@@ -24,7 +24,7 @@ const FIELDS: Array<{ key: keyof Texts; label: string; rows: number; limit: numb
 ];
 
 /** Bản dịch tiếng Anh của sản phẩm: AI dịch tự động, nhân viên đọc lại và chốt trước khi công khai cho buyer. */
-export function ProductTranslationPanel({ id, source, english, hasEnglish, current, translatedAt, origin }: {
+export function ProductTranslationPanel({ id, source, english, hasEnglish, current, translatedAt, origin, supplierProduct = false }: {
   id: string;
   source: Texts;
   english: Texts;
@@ -32,6 +32,7 @@ export function ProductTranslationPanel({ id, source, english, hasEnglish, curre
   current: boolean;
   translatedAt: string | null;
   origin: "ai" | "staff" | null;
+  supplierProduct?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -59,18 +60,23 @@ export function ProductTranslationPanel({ id, source, english, hasEnglish, curre
   }
 
   const status = !hasEnglish
-    ? "Chưa có bản dịch tiếng Anh. Sản phẩm chưa thể bật sẵn sàng gửi buyer."
+    ? supplierProduct
+      ? "Chưa có bản dịch tiếng Anh. Bản dịch không chặn việc duyệt và đăng."
+      : "Chưa có bản dịch tiếng Anh. Sản phẩm chưa thể bật sẵn sàng gửi buyer."
     : current
       ? `Đã có bản dịch ${origin === "ai" ? "do AI soạn" : "do nhân viên chốt"}${translatedAt ? `, cập nhật ${new Date(translatedAt).toLocaleString("vi-VN")}` : ""}.`
-      : "Nội dung gốc đã thay đổi sau lần dịch gần nhất; bản dịch có thể đã cũ, nên dịch lại trước khi công khai.";
+      : supplierProduct
+        ? "Nội dung gốc đã thay đổi. Có thể dịch lại; bản dịch không chặn việc duyệt và đăng."
+        : "Nội dung gốc đã thay đổi sau lần dịch gần nhất; bản dịch có thể đã cũ, nên dịch lại trước khi công khai.";
 
   return <section className="card p-5" aria-label="Bản dịch tiếng Anh của sản phẩm">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 className="text-base font-bold text-ink-900">Bản dịch tiếng Anh (trang buyer)</h2>
         <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-600">
-          AI dịch tự động từ nội dung gốc tiếng Việt của nhà cung cấp. Trang buyer chỉ hiển thị bản tiếng Anh;
-          nhân viên cần đọc lại các thông số kỹ thuật trước khi bật sẵn sàng gửi buyer.
+          {supplierProduct
+            ? "AI dịch từ nội dung tiếng Việt để hỗ trợ kiểm tra. Nhân viên có thể đọc lại và dịch lại; bản dịch không chặn việc duyệt và đăng."
+            : "AI dịch tự động từ nội dung gốc tiếng Việt của nhà cung cấp. Trang buyer chỉ hiển thị bản tiếng Anh; nhân viên cần đọc lại các thông số kỹ thuật trước khi bật sẵn sàng gửi buyer."}
         </p>
       </div>
       <button type="button" disabled={busy} onClick={() => void translate()} className="btn btn-primary">

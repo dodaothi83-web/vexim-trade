@@ -23,7 +23,7 @@ const status = {
   draft: { label: 'Bản nháp', tone: 'bg-slate-100' },
   pending: { label: 'Chờ duyệt', tone: 'bg-amber-100' },
   changes_requested: { label: 'Cần chỉnh sửa', tone: 'bg-rose-100' },
-  approved: { label: 'Đã duyệt nội dung', tone: 'bg-emerald-100' },
+  approved: { label: 'Đã đăng', tone: 'bg-emerald-100' },
 };
 
 const source = read('../app/supplier/portal/categories/supplier-category-workspace.tsx');
@@ -55,7 +55,7 @@ const options = [
   { id: 'c6', slug: 'coconut', label: 'Dừa', group: 'Nông sản khác' },
 ];
 const products = [
-  { id: 'p1', name: 'Hạt điều W320', categorySlug: 'cashew', review: 'approved' },
+  { id: 'p1', name: 'Hạt điều W320', categorySlug: 'cashew', review: 'approved', readyForBuyer: true },
   { id: 'p2', name: 'Hồ tiêu đen 550g/l', categorySlug: 'pepper', review: 'pending' },
   { id: 'p3', name: 'Chưa chọn danh mục', categorySlug: null, review: 'draft' },
 ];

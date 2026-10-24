@@ -56,12 +56,10 @@ export function nextAutoPage(current: number, pageCount: number): number {
 }
 
 /**
- * Bề rộng màn hình có đủ bốn cột hay không, đọc qua matchMedia.
+ * Bề rộng màn hình có đủ năm cột hay không, đọc qua matchMedia.
  *
- * Đọc bằng useSyncExternalStore để lần dựng đầu tiên ở trình duyệt dùng đúng
- * getServerSnapshot (sáu thẻ, hai hàng ba), rồi mới đổi sang tám thẻ, hai hàng
- * bốn. Nhờ vậy bản máy chủ và bản thuỷ hợp khớp nhau, và khối không cao thêm:
- * sáu thẻ ba cột với tám thẻ bốn cột đều là hai hàng.
+ * Lần dựng đầu tiên ở trình duyệt dùng đúng getServerSnapshot (6 thẻ), rồi mới
+ * đổi sang 15 thẻ và năm cột trên desktop. Bản máy chủ và bản thuỷ hợp khớp nhau.
  */
 function subscribeWide(onChange: () => void): () => void {
   const query = window.matchMedia(HOME_FEED_WIDE_QUERY);
@@ -178,11 +176,9 @@ export function HomeProductFeed({
     <>
       <ul
         ref={listRef}
-        // Cột thứ tư chỉ bật khi trình duyệt xác nhận màn đủ rộng, cùng lúc với
-        // việc nâng lên tám thẻ. Nhờ vậy bản dựng từ máy chủ (sáu thẻ) xếp hai hàng
-        // ba, không bao giờ lộ một hàng bốn thẻ cộng hai thẻ lẻ trước khi thuỷ hợp.
+        // Năm cột và 15 thẻ chỉ bật cùng lúc sau khi trình duyệt xác nhận desktop.
         className={`mt-6 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3${
-          wide ? " lg:grid-cols-4" : ""
+          wide ? " lg:grid-cols-5" : ""
         }`}
       >
         {shown.map((p) => (
@@ -197,7 +193,12 @@ export function HomeProductFeed({
               leadTimeDays={p.leadTimeDays}
               supplierName={p.supplierName}
               supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
+              quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(p.categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}
+              oem={p.oem}
+              odm={p.odm}
+              samples={p.samples}
               verificationSteps={p.verificationSteps}
+              test={p.isDemo}
             />
           </li>
         ))}

@@ -47,6 +47,66 @@ export function buildMonthStates(windows: HarvestWindow[] | null | undefined): H
   return states;
 }
 
+/** Categorical activity levels, not crop volume or a continuous market metric. */
+export const HARVEST_ACTIVITY_LEVELS: ReadonlyArray<{ state: HarvestMonthState; label: string; level: number }> = [
+  { state: "peak", label: "Main harvest", level: 2 },
+  { state: "harvest", label: "In season", level: 1 },
+  { state: "none", label: "Outside the season", level: 0 },
+];
+
+export const HARVEST_CHART_FRAME = {
+  width: 840, height: 250, left: 118, right: 816, top: 36, bottom: 176,
+} as const;
+
+export interface HarvestChartPoint {
+  month: number;
+  state: HarvestMonthState;
+  label: string;
+  x: number;
+  y: number;
+}
+
+/**
+ * Map the twelve real month states to a smooth SVG curve. Horizontal tangents
+ * keep every segment between its two observed levels, so smoothing cannot
+ * invent a higher peak or a lower trough.
+ */
+export function buildHarvestChartGeometry(states: readonly HarvestMonthState[]) {
+  const frame = HARVEST_CHART_FRAME;
+  const ticks = HARVEST_ACTIVITY_LEVELS.map((item) => ({
+    ...item,
+    y: frame.bottom - (item.level / 2) * (frame.bottom - frame.top),
+  }));
+  const points: HarvestChartPoint[] = Array.from({ length: 12 }, (_, index) => {
+    const state = states[index] ?? "none";
+    const activity = ticks.find((item) => item.state === state)!;
+    return {
+      month: index + 1,
+      state,
+      label: activity.label,
+      x: Number((frame.left + (index * (frame.right - frame.left)) / 11).toFixed(2)),
+      y: activity.y,
+    };
+  });
+  const path = smoothHarvestPath(points);
+  const areaPath = points.length
+    ? `${path} L ${points.at(-1)!.x} ${frame.bottom} L ${points[0].x} ${frame.bottom} Z`
+    : "";
+  return { ...frame, ticks, points, path, areaPath };
+}
+
+function smoothHarvestPath(points: readonly HarvestChartPoint[]): string {
+  if (points.length === 0) return "";
+  let path = `M ${points[0].x} ${points[0].y}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const from = points[index];
+    const to = points[index + 1];
+    const midpoint = Number(((from.x + to.x) / 2).toFixed(2));
+    path += ` C ${midpoint} ${from.y}, ${midpoint} ${to.y}, ${to.x} ${to.y}`;
+  }
+  return path;
+}
+
 /** Sắp theo tháng bắt đầu để biểu đồ và danh sách đọc theo thứ tự thời gian. */
 export function sortHarvestWindows(windows: HarvestWindow[] | null | undefined): HarvestWindow[] {
   return (Array.isArray(windows) ? windows : [])

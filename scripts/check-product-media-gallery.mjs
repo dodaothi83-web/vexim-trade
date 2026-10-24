@@ -95,6 +95,26 @@ assert.match(html, /products\/abc\/detail-thumb\.webp/);
 assert.match(html, /aria-pressed="true"/);
 assert.match(html, /Enlarge photo of Cashew W320 on this page/);
 assert.doesNotMatch(html, /<iframe|target="_blank"/, 'Gallery must not embed before play or open images in a new tab');
+const noVideoHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
+  name: 'Cashew W320', images: ['products/abc/cover.jpg', 'products/abc/detail.jpg'],
+  thumbnails: ['products/abc/cover-thumb.webp', 'products/abc/detail-thumb.webp'], video: null,
+}));
+assert.doesNotMatch(noVideoHtml, /Product video|No buyer-shareable video/, 'An absent video leaves no dead panel');
+assert.ok(noVideoHtml.includes('grid-cols-[3.25rem_minmax(0,1fr)]'), 'The thumbnail rail sits left of the main image');
+assert.match(noVideoHtml, /absolute inset-0 overflow-y-auto/, 'The thumbnail rail is bounded by the main image and scrolls internally');
+assert.match(noVideoHtml, /flex flex-col gap-2/, 'Thumbnails stack vertically instead of taking a row below the image');
+assert.ok(noVideoHtml.indexOf('aria-label="Choose a product photo"') < noVideoHtml.indexOf('aria-label="Enlarge photo of Cashew W320 on this page"'),
+  'The thumbnail rail precedes the main image in reading order');
+assert.doesNotMatch(noVideoHtml, /grid grid-cols-4/, 'The old bottom thumbnail grid is removed');
+const manyImagesHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
+  name: 'Cashew W320', images: Array.from({ length: 12 }, (_, index) => `products/abc/photo-${index}.jpg`), video: null,
+}));
+assert.equal((manyImagesHtml.match(/aria-label="Show photo /g) ?? []).length, 12, 'Every photo remains available inside the bounded rail');
+assert.match(manyImagesHtml, /absolute inset-0 overflow-y-auto/, 'A large photo set never extends the rail beyond the main image');
+const singleImageHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
+  name: 'Cashew W320', images: ['products/abc/cover.jpg'], video: null,
+}));
+assert.doesNotMatch(singleImageHtml, /Choose a product photo/, 'A single image does not leave an empty thumbnail rail');
 const gallerySource = readFileSync(new URL('../components/product-media-gallery.tsx', import.meta.url), 'utf8');
 assert.match(gallerySource, /createPortal\(/);
 assert.match(gallerySource, /event\.key === "Escape"/);

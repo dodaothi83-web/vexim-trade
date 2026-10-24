@@ -16,7 +16,6 @@ assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'certificate', storage_p
 assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'image', storage_path: null }]), false);
 const exports = {};
 const auditor = { uid: 'reviewer-1', email: 'reviewer@example.com', role: 'reviewer' };
-let requireSecondReviewer = true;
 let lastAudit = null;
 let lastMediaLookup = null;
 let row = {
@@ -60,10 +59,12 @@ const mocks = {
   'next/cache': { revalidatePath: () => { if (revalidateThrows) throw new Error('invariant: static generation store missing'); } },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': {
-    guard: async (permission) => permission === 'verifications.approve' && !['admin', 'reviewer'].includes(auditor.role) ? { message: 'Bạn không có quyền xét duyệt' } : null,
+    guard: async (permission) => permission === 'verifications.approve' && !['admin', 'reviewer', 'sourcing'].includes(auditor.role) ? { message: 'Bạn không có quyền xét duyệt' } : null,
     getSession: async () => auditor,
   },
-  '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
+  '@/lib/verification-policy': {
+    canSelfApproveVerification: (role) => ['admin', 'sourcing'].includes(role),
+  },
   '@/lib/crm/badges': { refreshCrmBadges: () => {} },
   '@/lib/supplier-portal/notify': {
     notifySupplierDecision: async () => { if (mailThrows) throw new Error('resend: socket hang up'); return 'sent'; },
@@ -94,15 +95,31 @@ const selfReview = await exports.approveVerificationAction(form);
 assert.equal(selfReview.ok, false, 'Self review is refused without throwing');
 assert.match(selfReview.message, /cần người khác duyệt/);
 auditor.uid = 'reviewer-1';
-auditor.role = 'sourcing';
+auditor.role = 'sale';
 const noPermission = await exports.approveVerificationAction(form);
 assert.equal(noPermission.ok, false, 'Missing permission is refused without throwing');
 assert.match(noPermission.message, /không có quyền xét duyệt/);
 auditor.role = 'reviewer';
 records.splice(0, 2); // Delivery history has no factory or document prerequisite.
+const missingPublicSummary = await exports.approveVerificationAction(form);
+assert.equal(missingPublicSummary.ok, false, 'L2/L3 approval needs a buyer-facing scope summary');
+assert.match(missingPublicSummary.message, /tóm tắt công khai/);
+assert.equal(row.status, 'submitted', 'Missing summary does not partially approve the review');
+form.set('public_summary', 'Selected delivery documents from the reviewed period were checked for this supplier.');
+const unconfirmedPublicSummary = await exports.approveVerificationAction(form);
+assert.equal(unconfirmedPublicSummary.ok, false, 'The reviewer must confirm the summary against the evidence');
+form.set('confirm_public_summary', 'yes');
+form.set('public_summary', 'Call +84912345678');
+assert.equal((await exports.approveVerificationAction(form)).ok, false, 'Approval also blocks obvious contact leakage');
+form.set('public_summary', 'Selected delivery documents from the reviewed period were checked for this supplier.');
 const approved = await exports.approveVerificationAction(form);
 assert.equal(approved.ok, true);
+assert.match(approved.message, /công khai tóm tắt/);
 assert.equal(row.status, 'approved');
+assert.equal(row.public_summary_i18n.en, form.get('public_summary'), 'Approval publishes the vetted summary in the same write');
+assert.ok(row.public_summary_published_at);
+assert.equal(row.public_summary_published_by, auditor.uid);
+assert.equal(lastAudit.after.public_summary_i18n.en, form.get('public_summary'), 'The approval audit records the published content');
 assert.equal(records.length, 1);
 assert.notEqual(row.inspector_id, row.approved_by, 'Independent approver must differ from inspector');
 assert.equal(lastAudit.after.self_approved, false);
@@ -252,13 +269,13 @@ incomplete.set('tax_number', '');
 assert.match((await exports.updateVerificationChecklistAction(incomplete)).message, /Hãy nhập mã số thuế/);
 Object.assign(row, { status: 'submitted', tax_number: null });
 assert.match((await exports.approveVerificationAction(form)).message, /Cần nhập mã số thuế/, 'Older submitted reviews must be returned to add number');
-// Buyer-facing summaries require a separate human decision after the review is approved.
+// Existing approved reviews can still add, edit or withdraw a public summary separately.
 Object.assign(row, { status: 'submitted', target_level: 3 });
 const summaryForm = new FormData(); summaryForm.set('id', row.id); summaryForm.set('mode', 'publish'); summaryForm.set('summary', 'One shipment record reviewed.'); summaryForm.set('confirmed', 'yes');
 assert.equal((await exports.updateVerificationPublicSummaryAction(summaryForm)).ok, false, 'No publication while review is submitted');
 row.status = 'approved';
-auditor.role = 'sourcing';
-assert.match((await exports.updateVerificationPublicSummaryAction(summaryForm)).message, /không có quyền xét duyệt/, 'Only a reviewer can publish');
+auditor.role = 'sale';
+assert.match((await exports.updateVerificationPublicSummaryAction(summaryForm)).message, /không có quyền xét duyệt/, 'Only an authorized approver can publish');
 auditor.role = 'admin';
 summaryForm.delete('confirmed');
 assert.equal((await exports.updateVerificationPublicSummaryAction(summaryForm)).ok, false, 'Separate manual confirmation is required');
@@ -281,8 +298,10 @@ const separationSql = fs.readFileSync(new URL('../supabase/migrations/20261018_r
 assert.match(separationSql, /add constraint verifications_four_eyes/);
 const formUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx', import.meta.url), 'utf8');
 const pageUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/page.tsx', import.meta.url), 'utf8');
-assert.match(formUi, /!requireSecondReviewer \|\| !selfReview/, 'Review button requires another inspector');
+assert.match(formUi, /!selfReview \|\| selfApproval/, 'Same-person completion is available to authorized staff');
 assert.match(formUi, /canInspect &&/, 'Reviewer cannot edit evidence');
+assert.match(formUi, /Phạm vi buyer sẽ thấy/, 'L2/L3 approval includes the buyer-facing summary editor');
+assert.match(formUi, /confirm_public_summary/, 'Approval sends the reviewer publication confirmation');
 assert.ok(!pageUi.includes('<MediaManager'), 'All audit steps render evidence inline');
 assert.ok(!pageUi.includes('unlocked') && !pageUi.includes('LockKeyhole'), 'Every review page is reachable independently');
 const panelUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-panel.tsx', import.meta.url), 'utf8');
@@ -300,12 +319,26 @@ assert.match(approvalSource, /softEffect\("email duyệt gửi NCC"/);
 // duyệt phải xác nhận đã tự đối chiếu và hồ sơ ghi self_approved.
 assert.ok(!approvalSource.includes('Bản kiểm thiếu người kiểm'), 'A supplier-uploaded review must stay reviewable');
 assert.match(approvalSource, /confirm_self_review/, 'Single reviewer must confirm the comparison');
-assert.match(approvalSource, /self_approved: !before\.inspector_id/, 'The decision records a single-person approval');
+assert.match(approvalSource, /singlePersonDecision = !before\.inspector_id \|\| selfApproval/, 'The decision records a single-person approval');
 const singleReviewerSql = fs.readFileSync(new URL('../supabase/migrations/20261033_uploaded_documents_single_reviewer.sql', import.meta.url), 'utf8');
 assert.match(singleReviewerSql, /add column if not exists self_approved boolean not null default false/);
 assert.match(singleReviewerSql, /inspector_id is null and self_approved/);
 assert.match(singleReviewerSql, /inspector_id <> approved_by/,
-  'Reviews that do have an inspector still require a different approver');
+  'Migration 33 retains the legacy independent-review rule before migration 35');
+const adminSelfApprovalSql = fs.readFileSync(new URL('../supabase/migrations/20261034_admin_self_approval.sql', import.meta.url), 'utf8');
+assert.match(adminSelfApprovalSql, /new\.inspector_id = new\.approved_by/);
+assert.match(adminSelfApprovalSql, /u\.role = 'admin'/, 'DB only permits the override for an admin');
+assert.match(adminSelfApprovalSql, /u\.is_active/, 'DB only permits the override for an active account');
+assert.match(adminSelfApprovalSql, /legacy_self_approved or self_approved/);
+assert.match(approvalSource, /self_approved: singlePersonDecision/,
+  'Same-person completion stays marked as a single-person decision');
+assert.match(formUi, /selfApproval && <label/, 'Staff must explicitly confirm same-person completion');
+const singlePersonSql = fs.readFileSync(new URL('../supabase/migrations/20261035_single_person_verification.sql', import.meta.url), 'utf8');
+assert.match(singlePersonSql, /u\.role in \('admin', 'sourcing'\)/,
+  'DB allows only roles holding both inspect and approve permissions');
+assert.match(singlePersonSql, /u\.is_active/);
+assert.ok(!singlePersonSql.includes("u.role in ('admin', 'reviewer', 'sourcing')"),
+  'Reviewer remains an independent approver, not a same-person inspector');
 assert.match(formUi, /confirm_self_review/, 'The audit page asks for the confirmation');
 assert.match(formUi, /người duyệt tự đối chiếu và duyệt một mình/, 'Approved banner states the single-person decision');
 // guard() cũng có thể lỗi (phiên hỏng, CSDL đọc không được) nên phải nằm TRONG try,
@@ -325,8 +358,7 @@ const access = {};
 let permissionRole = 'sourcing';
 vm.runInNewContext(accessJs, { exports: access, require: (name) => ({
   '@/lib/auth/session': { getSession: async () => ({ role: permissionRole, uid: 'reviewer-1' }) },
-  '@/lib/auth/permissions': { hasPermission: (role, permission) => role === 'admin' || role === 'sourcing' && permission !== 'verifications.approve' },
-  '@/lib/verification-policy': { requireSecondVerificationReviewer: () => requireSecondReviewer },
+  '@/lib/auth/permissions': { hasPermission: (role) => role === 'admin' || role === 'sourcing' },
   '@/lib/crm/badges': { refreshCrmBadges: () => {} },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent', notifyStaffVerificationSubmission: async () => 'sent' },
 })[name] }, { filename: 'verification-access.ts' });
@@ -345,4 +377,4 @@ for (const action of ['addMediaLinkAction', 'updateMediaAction', 'deleteMediaAct
   const src = fs.readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
   assert.ok(src.slice(src.indexOf(`export async function ${action}`), src.indexOf('export async function', src.indexOf(`export async function ${action}`) + 1) + 500).includes('verificationMediaEditError'), `${action} must restrict evidence changes`);
 }
-console.log('✅ Delivery evidence, independent reviewer approval, media locks and migrations.');
+console.log('✅ Delivery evidence, single-person/independent approval, media locks and migrations.');

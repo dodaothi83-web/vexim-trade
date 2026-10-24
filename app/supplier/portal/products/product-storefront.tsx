@@ -9,7 +9,7 @@ import { PRODUCT_STATUS, privateMediaUrl, productReview, type ProductReviewFilte
 const FILTERS: { id: ProductReviewFilter; label: string }[] = [
   { id: "all", label: "Tất cả" }, { id: "draft", label: "Bản nháp" },
   { id: "pending", label: "Chờ duyệt" }, { id: "changes_requested", label: "Cần sửa" },
-  { id: "approved", label: "Đã duyệt" },
+  { id: "approved", label: "Đã đăng" },
 ];
 
 function money(product: SupplierProduct) {
@@ -77,7 +77,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
     <section aria-label="Danh sách sản phẩm" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <div className="border-b border-ink-100 px-5 py-5 sm:px-7">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-black text-ink-900">Danh mục của bạn</h2>
-          <p className="mt-1 text-xs text-ink-600">Duyệt nội dung ≠ đã hiện công khai; việc chia sẻ cho buyer còn tùy hồ sơ doanh nghiệp, danh mục và tệp được chọn.</p></div>
+          <p className="mt-1 text-xs text-ink-600">Sau khi duyệt, sản phẩm được đăng và bạn có thể quản lý thông tin, hình ảnh.</p></div>
           {!supplierPublished && <span className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Trang NCC chưa được công khai</span>}
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -95,11 +95,12 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
           assets.find((m) => m.kind === "image" && privateMediaUrl(m));
         const imageSrc = image && privateMediaUrl(image);
         const status = PRODUCT_STATUS[productReview(p)];
+        const statusLabel = productReview(p) === "approved" && !p.ready_for_buyer ? "Đã duyệt, chờ đăng" : status.label;
         return <li key={p.id} className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white transition hover:border-brand-300 hover:shadow-md">
-          <Link href={`/supplier/portal/products/${p.id}`} aria-label={`Xem và quản lý ${p.name}`} className="relative block aspect-[4/3] overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
+          <Link href={`/supplier/portal/products/${p.id}`} aria-label={`Xem và quản lý ${p.name}`} className="relative block aspect-square overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
             {imageSrc ? <img src={imageSrc} alt={`Ảnh sản phẩm ${p.name}`} loading="lazy" className="size-full object-cover transition duration-300 group-hover:scale-[1.03]" />
               : <div className="flex size-full flex-col items-center justify-center gap-3 text-ink-400"><ImageIcon className="size-12 stroke-1" aria-hidden="true" /><span className="text-xs font-semibold">Chưa có ảnh sản phẩm</span></div>}
-            <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold shadow-sm ${status.tone}`}>{status.label}</span>
+            <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold shadow-sm ${status.tone}`}>{statusLabel}</span>
           </Link>
           <div className="flex flex-1 flex-col p-4 sm:p-5">
             <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold tracking-wider text-brand-700 uppercase">
@@ -114,7 +115,6 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
               <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition group-hover:bg-brand-700 group-hover:text-white"><ArrowRight className="size-4" aria-hidden="true" /></span>
             </div>
             {p.supplier_review_note && <p className="mt-3 line-clamp-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">Góp ý: {p.supplier_review_note}</p>}
-            {p.ready_for_buyer && productReview(p) === "approved" && <p className="mt-3 text-xs font-medium text-brand-800">Đã bật sẵn sàng gửi buyer · chỉ hiện khi hồ sơ được công khai</p>}
           </div>
         </li>;
       })}</ul> : <div className="mx-auto max-w-md px-6 py-16 text-center">

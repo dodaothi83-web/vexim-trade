@@ -123,7 +123,7 @@ export async function notifyStaffVerificationSubmission(supplierId: string, leve
     const step = level === 1 ? "documents" : level === 2 ? "factory" : "delivery";
     const url = `${notificationOrigin()}/crm/suppliers/${encodeURIComponent(supplierId)}/audit/${step}`;
     const title = `${label} chờ xét duyệt: ${supplier?.name ?? "NCC"}`;
-    const body = `<p>Chuyên viên đã nộp bản kiểm ${escapeHtml(label)} của ${escapeHtml(supplier?.name ?? "NCC")}. Người khác phải tự xem bằng chứng của đúng đợt kiểm và quyết định; nộp không tự phê duyệt.</p><p><a href="${url}">Mở bản kiểm trong CRM →</a></p>`;
+    const body = `<p>Chuyên viên đã nộp bản kiểm ${escapeHtml(label)} của ${escapeHtml(supplier?.name ?? "NCC")}. Nhân sự có quyền duyệt cần tự xem bằng chứng của đúng đợt kiểm và quyết định; nộp không tự phê duyệt.</p><p><a href="${url}">Mở bản kiểm trong CRM →</a></p>`;
     const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] verification submission", error); return "failed"; }
@@ -181,8 +181,8 @@ export async function notifyStaffProductSubmission(supplier: Supplier, product: 
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const url = `${notificationOrigin()}/crm/products/${encodeURIComponent(product.id)}/edit`;
-    const title = `Sản phẩm chờ kiểm tra: ${product.name.replace(/[\r\n]/g, " ").slice(0, 140)}`;
-    const body = `<p>${escapeHtml(supplier.name)} đã gửi sản phẩm ${escapeHtml(product.name)} để Vexim kiểm tra. <strong>Chưa được duyệt hay công khai.</strong></p><p><a href="${url}">Mở hàng chờ CRM →</a></p>`;
+    const title = `Sản phẩm chờ duyệt: ${product.name.replace(/[\r\n]/g, " ").slice(0, 140)}`;
+    const body = `<p>${escapeHtml(supplier.name)} đã gửi duyệt sản phẩm ${escapeHtml(product.name)}. <strong>Sản phẩm chưa được đăng.</strong></p><p><a href="${url}">Mở sản phẩm trong CRM</a></p>`;
     const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] product submission", error); return "failed"; }
@@ -208,8 +208,8 @@ export async function notifySupplierDecision(input: {
     const config: Record<SupplierDecision, { title: string; explanation: string; path: string; showNote?: boolean }> = {
       onboarding_approved: { title: "Đã mở quyền sử dụng cổng NCC", explanation: "Tài khoản đã được chấp thuận. Các đánh giá xác minh, sản phẩm và việc công khai hồ sơ vẫn cần quyết định riêng.", path: "/supplier/portal" },
       onboarding_changes_requested: { title: "Vui lòng bổ sung hồ sơ doanh nghiệp", explanation: "Hồ sơ đã được xem và cần bổ sung trước khi mở quyền cổng.", path: "/supplier/portal", showNote: true },
-      product_approved: { title: `Đã kiểm tra nội dung sản phẩm: ${name}`, explanation: "Nội dung đã được duyệt; sản phẩm chưa tự động sẵn sàng chia sẻ buyer hoặc công khai.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}` },
-      product_changes_requested: { title: `Sản phẩm cần chỉnh sửa: ${name}`, explanation: "Sản phẩm cần chỉnh sửa rồi gửi lại.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}`, showNote: true },
+      product_approved: { title: `Sản phẩm đã đăng: ${name}`, explanation: "Sản phẩm đã được đăng và hiển thị cho buyer. Bạn có thể quản lý thông tin và hình ảnh trên cổng NCC.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}` },
+      product_changes_requested: { title: `Sản phẩm cần chỉnh sửa: ${name}`, explanation: "Hãy chỉnh sửa rồi gửi duyệt lại.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}`, showNote: true },
       certificate_approved: { title: `Đã kiểm bản sao chứng nhận: ${name}`, explanation: "Bản sao đã được duyệt. Chứng nhận chưa được công bố; việc hiển thị công khai là quyết định riêng.", path: "/supplier/portal/documents" },
       certificate_changes_requested: { title: `Chứng nhận cần bổ sung: ${name}`, explanation: "Cần bổ sung thông tin chứng nhận trong mục Giấy tờ L1.", path: "/supplier/portal/documents", showNote: true },
       certificate_rejected: { title: `Chứng nhận không được chấp thuận: ${name}`, explanation: "Chứng nhận này chưa được chấp thuận.", path: "/supplier/portal/documents", showNote: true },
