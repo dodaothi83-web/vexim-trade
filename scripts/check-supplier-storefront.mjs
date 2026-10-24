@@ -125,7 +125,7 @@ assert.match(read('app/supplier/portal/storefront/page.tsx'), /<SupplierStorefro
 const shared = read('components/public/supplier-storefront.tsx');
 for (const section of ['About this supplier', 'Business details', 'What Vexim checked', 'Trade at a glance', 'Seller information', 'Supplier catalogue'])
   assert.ok(shared.includes(section), `Khung chung có mục ${section}`);
-for (const field of ['supplierProductsDisplay', 'supplierMarketsDisplay', 'supplierCapacityDisplay', 'supplierPaymentTermsDisplay'])
+for (const field of ['supplierSummaryDisplay', 'supplierProductsDisplay', 'supplierMarketsDisplay', 'supplierCapacityDisplay', 'supplierPaymentTermsDisplay'])
   assert.match(shared, new RegExp(`${field}\\(s\\)`), `Trang buyer hiển thị ${field}`);
 assert.match(shared, /See the main products above or ask Vexim about specifications and availability/,
   'Hồ sơ chưa có listing vẫn dẫn buyer tới thông tin mặt hàng chính');

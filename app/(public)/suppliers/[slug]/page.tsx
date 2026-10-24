@@ -5,12 +5,12 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/ui";
 import { SupplierStorefront } from "@/components/public/supplier-storefront";
 import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
-import { getPublicSupplierBySlug, listPublicSuppliers, supplierTypeLabel, t } from "@/lib/public/catalog";
+import { getPublicSupplierBySlug, listPublicSuppliers, supplierTypeLabel } from "@/lib/public/catalog";
 import { getStore } from "@/lib/db";
 import { publicSupplierCertificates } from "@/lib/public/certificates";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { publicProductTitle } from "@/lib/public/display-name";
-import { supplierAddressDisplay, supplierProvinceDisplay } from "@/lib/public/supplier-english";
+import { supplierAddressDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 import { isSyntheticSupplier, safeJsonLd, supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
 import { getSession } from "@/lib/auth/session";
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!s) return { title: "Supplier not found", robots: { index: false } };
   const name = safe(s.display_name || s.name);
   const url = `${SITE_URL}/suppliers/${encodeURIComponent(s.slug || s.id)}`;
-  const summary = safe(t(s.summary_i18n)).replace(/\s+/g, " ").trim();
+  const summary = safe(supplierSummaryDisplay(s)).replace(/\s+/g, " ").trim();
   const description = summary.length > 155 ? `${summary.slice(0, 152).trimEnd()}…` :
     summary || `Explore ${name}'s buyer-ready products and request a quote through Vexim Trade.`;
   const title = `${name} | ${supplierTypeLabel(s)} in ${safe(supplierProvinceDisplay(s)) || "Vietnam"}`;
@@ -57,7 +57,7 @@ export default async function SupplierProfile({ params }: PageProps) {
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
   const name = safe(s.display_name || s.name);
-  const summary = safe(t(s.summary_i18n));
+  const summary = safe(supplierSummaryDisplay(s));
   const synthetic = isSyntheticSupplier(s);
   const structured = supplierProfileIndexable(s);
   const profileUrl = `${SITE_URL}/suppliers/${encodeURIComponent(s.slug || s.id)}`;

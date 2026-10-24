@@ -5,11 +5,11 @@ import type { ReactNode } from "react";
 import { PublicProductCard } from "@/components/public-product-card";
 import { VerificationCoverSeal, VerificationPips, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
-import { supplierTypeLabel, t, type PublicSupplierCard } from "@/lib/public/catalog";
+import { supplierTypeLabel, type PublicSupplierCard } from "@/lib/public/catalog";
 import type { Category } from "@/lib/types";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
-import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay } from "@/lib/public/supplier-english";
+import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 import { PRODUCT_VERIFICATION_EXPLANATIONS } from "@/lib/verification-status";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
@@ -65,7 +65,7 @@ export function SupplierStorefront({
 }) {
   const NameTag = nameTag;
   const name = safe(s.display_name || s.name);
-  const summary = safe(t(s.summary_i18n));
+  const summary = safe(supplierSummaryDisplay(s));
   const statedProducts = safe(supplierProductsDisplay(s));
   const businessDetails = [
     { label: "Main products", value: statedProducts, wide: true },

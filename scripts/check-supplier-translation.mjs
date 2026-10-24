@@ -64,6 +64,10 @@ const displaySupplier = { province: 'Bình Phước', address: 'Số 1', ports: 
 assert.equal(english.supplierProvinceDisplay(displaySupplier), 'Binh Phuoc');
 assert.equal(english.supplierAddressDisplay(displaySupplier), '1 A Street');
 assert.equal(english.supplierPortsDisplay(displaySupplier)[0], 'Cat Lai');
+assert.equal(english.supplierSummaryDisplay({ intro_source: 'Giới thiệu doanh nghiệp', summary_i18n: {} }), 'Giới thiệu doanh nghiệp',
+  'đã có nội dung gốc thì buyer không được thấy phần giới thiệu trống');
+assert.equal(english.supplierSummaryDisplay({ intro_source: 'Giới thiệu gốc', summary_i18n: { en: 'English introduction' } }), 'English introduction',
+  'bản tiếng Anh vẫn được ưu tiên khi đã có');
 
 // Hash và trạng thái: vừa dịch thì khớp; sửa MOQ gốc thì bản dịch bị coi là đã cũ.
 const patch = ai.supplierProfilePatch(parsed, source, 'ai', 'gpt-4.1-mini', true);
@@ -97,6 +101,7 @@ assert.match(service, /fields: supplier\.profile_translation_meta\?\.fields/, 'l
 
 const profilePage = fs.readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8') +
   fs.readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8');
+assert.match(profilePage, /supplierSummaryDisplay\(s\)/, 'trang NCC phải hiển thị giới thiệu bản dịch hoặc nội dung gốc đã có');
 assert.match(profilePage, /supplierMoqDisplay\(s\)/, 'trang NCC phải hiển thị MOQ bản tiếng Anh');
 assert.match(profilePage, /supplierExportMarketsDisplay\(s\)/, 'trang NCC phải hiển thị thị trường bản tiếng Anh');
 assert.match(profilePage, /supplierProvinceDisplay\(s\)/, 'trang NCC phải hiển thị địa điểm bản tiếng Anh');

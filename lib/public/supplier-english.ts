@@ -1,5 +1,13 @@
 import type { Supplier } from "@/lib/types";
 
+/** Giới thiệu cho buyer: ưu tiên bản dịch, nhưng không bỏ trống khi NCC đã có nội dung gốc. */
+export function supplierSummaryDisplay(supplier: Pick<Supplier, "summary_i18n" | "intro_source">): string {
+  const english = supplier.summary_i18n?.en?.trim();
+  if (english) return english;
+  const existing = Object.values(supplier.summary_i18n ?? {}).map((value) => value?.trim()).find(Boolean);
+  return existing || supplier.intro_source?.trim() || "";
+}
+
 /** MOQ hiển thị cho buyer: ưu tiên bản tiếng Anh đã dịch, lùi về nội dung gốc khi chưa có bản dịch. */
 export function supplierMoqDisplay(supplier: Pick<Supplier, "moq_text" | "moq_text_i18n">): string {
   return supplier.moq_text_i18n?.en?.trim() || supplier.moq_text || "";
