@@ -501,16 +501,16 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 {!categories.length && <p role="status" className="self-center rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
                   Bạn chưa chọn danh mục kinh doanh đang mở. <Link href="/supplier/portal/categories" className="font-semibold underline">Chọn danh mục trước khi thêm sản phẩm</Link>
                 </p>}
-                <div className="md:col-span-2">
-                  {selectedCategory
-                    ? <SupplierAttributeInputs key={selectedCategory} disabled={locked}
-                      officialFields={fieldsFor(categories.find((c) => c.slug === selectedCategory))}
-                      supplierFields={supplierFieldsFor(categories.find((c) => c.slug === selectedCategory))}
+                {/* Chỉ hiện khi nhóm hàng có thông số máy đọc được (Grade, Density…).
+                    Mô tả dài như độ ẩm, tỷ lệ hạt vỡ đã có ô "Quy cách / tiêu chuẩn" bên dưới,
+                    nên danh mục chưa khai thông số thì không hiện khối trống. */}
+                {!!selectedCategory && (fieldsFor(activeCategory).length > 0 || supplierFieldsFor(activeCategory).length > 0) &&
+                  <div className="md:col-span-2">
+                    <SupplierAttributeInputs key={selectedCategory} disabled={locked}
+                      officialFields={fieldsFor(activeCategory)}
+                      supplierFields={supplierFieldsFor(activeCategory)}
                       values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}} />
-                    : <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50/50 px-4 py-3 text-[12px] leading-5 text-ink-600">
-                      Chọn danh mục sản phẩm ở trên để khai thông số của nhóm hàng. Thông số chưa có trong danh sách thì thêm ngay tại đó.
-                    </p>}
-                </div>
+                  </div>}
                 <Field label="Mô tả ngắn" hint="Tóm tắt vài câu bên cạnh ảnh sản phẩm">
                   <textarea name="description" className="input min-h-28 resize-y" rows={4} maxLength={1500} placeholder="Giới thiệu ngắn gọn cho Vexim..." defaultValue={product?.description ?? ""} disabled={locked} />
                 </Field>
