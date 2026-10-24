@@ -492,13 +492,13 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                     <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked} />
                   </Field>
                 </div>
-                <Field label="Danh mục sản phẩm" required hint="Danh mục được chọn cần phù hợp với hồ sơ doanh nghiệp đã đăng ký.">
+                <Field label="Danh mục sản phẩm" required className="md:col-span-2" hint="Danh mục được chọn cần phù hợp với hồ sơ doanh nghiệp đã đăng ký.">
                   <select name="supplier_category_proposal" className="input" required value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} disabled={locked || !categories.length}>
                     <option value="" disabled>Chọn danh mục sản phẩm</option>
                     {categories.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} · ` : ""}{c.label}</option>)}
                   </select>
                 </Field>
-                {!categories.length && <p role="status" className="self-center rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
+                {!categories.length && <p role="status" className="self-center rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900 md:col-span-2">
                   Bạn chưa chọn danh mục kinh doanh đang mở. <Link href="/supplier/portal/categories" className="font-semibold underline">Chọn danh mục trước khi thêm sản phẩm</Link>
                 </p>}
                 {/* Chỉ hiện khi nhóm hàng có thông số máy đọc được (Grade, Density…).
@@ -683,7 +683,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 <ReviewHead title="Thông tin sản phẩm" onEdit={() => goToStep(1)} />
                 <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-2">
                   <div className="sm:col-span-2"><ReviewField label="Tên sản phẩm" value={snapshot.name} strong /></div>
-                  <div><ReviewField label="Danh mục" value={categoryLabel} /></div>
+                  <div className="sm:col-span-2"><ReviewField label="Danh mục" value={categoryLabel} /></div>
                   <div className="sm:col-span-2">
                     <dt className="text-[11px] font-semibold text-ink-500">Thông số theo nhóm hàng</dt>
                     {attributeRows.length
@@ -691,8 +691,8 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                         <span key={label} className="rounded-md bg-ink-100 px-1.5 py-0.5 text-[11.5px] text-ink-800"><strong className="font-semibold">{label}:</strong> {value}</span>)}</dd>
                       : <dd className="mt-0.5 text-[12.5px] text-ink-400">Chưa khai thông số</dd>}
                   </div>
-                  <div className="sm:col-span-2"><ReviewField label="Mô tả ngắn" value={snapshot.description} /></div>
-                  <div className="sm:col-span-2"><ReviewField label="Quy cách / tiêu chuẩn" value={snapshot.spec} /></div>
+                  <div><ReviewField label="Mô tả ngắn" value={snapshot.description} /></div>
+                  <div><ReviewField label="Quy cách / tiêu chuẩn" value={snapshot.spec} /></div>
                   <div className="sm:col-span-2"><ReviewField label="Mô tả chi tiết" value={snapshot.description_detail} /></div>
                 </dl>
               </div>
@@ -890,8 +890,8 @@ function ReviewField({ label, value, strong }: { label: string; value?: string; 
   </div>;
 }
 
-function Field({ label, hint, required, children }: { label: string; hint?: string; required?: boolean; children: React.ReactNode }) {
-  return <label className="block text-[12.5px]">
+function Field({ label, hint, required, className, children }: { label: string; hint?: string; required?: boolean; className?: string; children: React.ReactNode }) {
+  return <label className={className ? `block text-[12.5px] ${className}` : "block text-[12.5px]"}>
     <span className="mb-1 block font-semibold text-ink-800">{label}{required && " *"}</span>
     {children}
     {hint && <span className="mt-1 block text-[11px] leading-4 text-ink-500">{hint}</span>}

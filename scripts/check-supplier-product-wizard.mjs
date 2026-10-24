@@ -232,6 +232,22 @@ assert.doesNotMatch(noConsent, /Tôi đại diện NCC xác nhận/, 'Bỏ câu 
 assert.match(source, /Gửi hồ sơ duyệt/, 'Nút gửi dùng từ trung tính');
 assert.match(source, /Yêu cầu chỉnh sửa:/, 'Phản hồi duyệt gọi đúng việc phải làm');
 
+// 9d. Bố cục bước 1: danh mục chiếm trọn hàng để Mô tả ngắn luôn nằm chung hàng
+//     với Quy cách / tiêu chuẩn, kể cả khi nhóm hàng có hoặc không có thông số.
+const labelTag = (name) => `<label class="block text-[12.5px]"><span class="mb-1 block font-semibold text-ink-800">${name}`;
+assert.ok(step1.includes('<label class="block text-[12.5px] md:col-span-2"><span class="mb-1 block font-semibold text-ink-800">Danh mục sản phẩm'),
+  'Danh mục sản phẩm chiếm trọn hàng');
+assert.ok(step1.includes(labelTag('Mô tả ngắn')), 'Mô tả ngắn là ô nửa hàng');
+assert.ok(step1.includes(labelTag('Quy cách / tiêu chuẩn')), 'Quy cách là ô nửa hàng');
+const iDesc = step1.indexOf('name="description"');
+const iSpec = step1.indexOf('name="spec"');
+assert.ok(iDesc > 0 && iSpec > iDesc, 'Mô tả ngắn đứng ngay trước Quy cách để cùng hàng');
+assert.ok(step1.indexOf('name="supplier_category_proposal"') < iDesc, 'Danh mục đứng trước, không chen giữa hai ô này');
+// Bước 3 đọc lại theo đúng bố cục đó: danh mục một hàng, mô tả ngắn và quy cách cùng hàng.
+assert.ok(source.includes('<div className="sm:col-span-2"><ReviewField label="Danh mục"'), 'Bước 3: danh mục chiếm trọn hàng');
+assert.ok(source.includes('<div><ReviewField label="Mô tả ngắn"'), 'Bước 3: mô tả ngắn là ô nửa hàng');
+assert.ok(source.includes('<div><ReviewField label="Quy cách / tiêu chuẩn"'), 'Bước 3: quy cách là ô nửa hàng');
+
 // 9c. Không lặp nhãn bước trên các thẻ con của bước 1.
 assert.equal((step1.match(/>Bước 1</g) ?? []).length, 0, 'Không có chữ "Bước 1" lặp trong nội dung bước 1');
 assert.equal((step1.match(/Bước 1/g) ?? []).length, 1, 'Chỉ panel giữ nhãn Bước 1 cho trình đọc màn hình');
