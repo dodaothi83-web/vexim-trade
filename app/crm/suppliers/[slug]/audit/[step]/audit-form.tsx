@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileText, Loader2, RotateCcw, Save, Send, Sparkles } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, LockKeyhole, RotateCcw, Save, Send, Sparkles } from "lucide-react";
 
 import { L1_DOC_ITEMS, LEGACY_L2_VISIT_ITEMS, type AuditEvidenceKey, type Certificate, type MediaAsset, type Verification } from "@/lib/types";
 import { prepareImage } from "@/lib/media/client-image";
@@ -360,6 +360,19 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
                 hint={uploadKind === "image" ? "JPG, PNG hoặc WEBP, tối đa 8 MB mỗi ảnh. Chọn được nhiều ảnh." : "JPG, PNG hoặc PDF, tối đa 15 MB mỗi tệp. Chọn được nhiều tệp."}
                 onPick={(files) => uploadInline(it.key as AuditEvidenceKey, files)}
               />}
+              {/* Đợt đã nộp hoặc đã duyệt thì vẫn phải thấy rõ chỗ đính kèm nằm ở đâu,
+                  thay vì một dòng chữ trống như thể thiếu giao diện. */}
+              {!canManageEvidence && uploadKind && <div className="mt-2 flex items-start gap-2.5 rounded-lg border-2 border-dashed border-ink-200 bg-white/70 px-3 py-2.5 text-[11.5px] leading-4 text-ink-600">
+                <LockKeyhole className="mt-0.5 size-4 shrink-0 text-ink-400" aria-hidden="true" />
+                <span>
+                  <strong className="block text-ink-800">{v.status === "approved" ? "Bằng chứng đã khóa" : v.status === "submitted" ? "Đang chờ duyệt, chưa nhận thêm tệp" : "Không có quyền thêm tệp"}</strong>
+                  {v.status === "approved"
+                    ? "Đợt kiểm đã duyệt nên không nhận tệp mới; hồ sơ đã duyệt giữ nguyên để đối chiếu."
+                    : v.status === "submitted"
+                      ? "Trả về để bổ sung nếu cần thêm ảnh hoặc PDF vào mục này."
+                      : "Tài khoản của bạn không sửa được bằng chứng của đợt kiểm này."}
+                </span>
+              </div>}
               {linked.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{linked.map((asset) => <div key={asset.id} className="flex max-w-48 items-center gap-2 rounded-md border border-ink-200 bg-white p-1.5 text-xs">
                 {asset.mime?.startsWith("image/") ? (
                   // eslint-disable-next-line @next/next/no-img-element

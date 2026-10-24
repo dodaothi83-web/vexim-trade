@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, FileCheck2, FileText, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, FileCheck2, FileText, FileUp, ShieldCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -9,7 +9,7 @@ import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
 import { L1_DOC_ITEMS } from "@/lib/types";
 import { daysUntilExpiry } from "@/lib/certificate-service";
 import { migrationHint } from "@/lib/db/migration-hints";
-import { SupplierPortalUpload } from "../supplier-portal-upload";
+import { L1DocUpload } from "../l1-doc-upload";
 import { SupplierCertificateUpload } from "../certificate-upload";
 import { LevelTabs } from "../verification/level-tabs";
 
@@ -19,11 +19,29 @@ export const metadata = { title: "Giấy tờ & chứng nhận L1", robots: { in
 /**
  * Bước 1 của quy trình xác minh: giấy tờ doanh nghiệp và chứng nhận ngành hàng.
  *
- * Bố cục dùng đúng nhịp của hai trang tự gửi L2/L3 (`verification/level-page.tsx`):
- * dải tab ba bước, dải tổng quan (trạng thái + tiến độ), cột trái là danh sách giấy tờ
- * dạng thẻ, cột phải dính là tóm tắt và mẹo. Khác L2/L3 ở chỗ bước này KHÔNG có nút
- * nộp: nhân viên mở đợt kiểm và đối chiếu thủ công, nên chỉ có tải tệp lên mà thôi.
+ * Trang dùng đúng ngôn ngữ thị giác của hai trang tự gửi L2/L3
+ * (`verification/level-page.tsx` + `verification/verification-panel.tsx`): dải tab ba
+ * bước, hướng dẫn ba bước, dải tổng quan (trạng thái + tiến độ), lưới thẻ bằng chứng có
+ * ảnh thu nhỏ, cột tóm tắt dính bên phải. Khác L2/L3 ở chỗ bước này không có nút nộp:
+ * nhân viên mở đợt kiểm và đối chiếu thủ công.
  */
+
+const GUIDE = [
+  { title: "Chuẩn bị giấy tờ", body: "Bản chụp hoặc PDF còn hiệu lực. Tên trên giấy phải khớp tên doanh nghiệp đã khai." },
+  { title: "Tải từng mục", body: "Tải tệp ngay trong thẻ của từng giấy tờ, tối đa 15 MB mỗi tệp. Tệp mới thay bản cũ của chính bạn." },
+  { title: "Đối chiếu thủ công", body: "AI chỉ đọc đơn vị đứng tên và ngày hết hạn. Kết quả L1 do người có quyền duyệt quyết định." },
+] as const;
+
+/** Ngày tải tệp, đọc nhanh trong thẻ. */
+function uploadedOn(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+const isImage = (mime: string | null) => Boolean(mime?.startsWith("image/"));
+
 export default async function SupplierDocumentsPage() {
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
@@ -49,11 +67,12 @@ export default async function SupplierDocumentsPage() {
     INITIAL_DOCUMENT_KEYS.includes(m.checklist_key as typeof INITIAL_DOCUMENT_KEYS[number]));
   const allowedDocUpload = !!review && (review.status === "in_progress" || review.status === "returned");
 
-  /* Mỗi mục giấy tờ là một thẻ: nhãn, trạng thái và tệp mới nhất của mục đó. */
+  /* Mỗi mục giấy tờ là một thẻ: ảnh thu nhỏ của tệp mới nhất, trạng thái và ô tải riêng. */
   const docRows = INITIAL_DOCUMENT_KEYS.map((key) => {
+    const item = L1_DOC_ITEMS.find((entry) => entry.key === key);
     const files = mine.filter((m) => m.checklist_key === key)
       .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
-    return { key, label: L1_DOC_ITEMS.find((item) => item.key === key)?.label ?? key, files, latest: files[0] ?? null };
+    return { key, label: item?.label ?? key, core: Boolean(item?.core), files, latest: files[0] ?? null };
   });
   const uploadedDocs = docRows.filter((row) => row.files.length > 0);
   const missingDocs = docRows.filter((row) => row.files.length === 0);
@@ -74,7 +93,7 @@ export default async function SupplierDocumentsPage() {
     (c.holder_match === "owner" || c.holder_match === "partner") && (daysUntilExpiry(c.valid_until) ?? -1) >= 0));
 
   return <>
-    <PageHeader eyebrow="Cổng nhà cung cấp · Xác minh L1" title="Giấy tờ doanh nghiệp"
+    <PageHeader eyebrow="Cổng nhà cung cấp · Xác minh L1" title="Giấy tờ & chứng nhận L1"
       sub="Đăng ký doanh nghiệp và giấy an toàn thực phẩm được đối chiếu thủ công. Chứng nhận được AI đọc đơn vị đứng tên và ngày hết hạn."
       actions={<Link href="/supplier/portal" className="btn btn-ghost btn-sm">
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />Tổng quan
@@ -83,11 +102,7 @@ export default async function SupplierDocumentsPage() {
     <LevelTabs current={1} />
 
     <ol className="mt-4 grid gap-2.5 sm:grid-cols-3" aria-label="Ba bước thực hiện">
-      {[
-        { title: "Chuẩn bị giấy tờ", body: "Bản chụp hoặc PDF còn hiệu lực. Tên trên giấy phải khớp tên doanh nghiệp đã khai." },
-        { title: "Tải từng mục", body: "Chọn đúng mục rồi tải tệp, tối đa 15 MB mỗi tệp. Tải lại bất cứ lúc nào, kể cả khi đợt kiểm đã khóa." },
-        { title: "Đối chiếu thủ công", body: "AI chỉ đọc đơn vị đứng tên và ngày hết hạn. Kết quả L1 do người có quyền duyệt quyết định." },
-      ].map((step, index) => <li key={step.title} className="flex gap-2.5 rounded-xl border border-ink-200 bg-white px-3.5 py-3 shadow-sm">
+      {GUIDE.map((step, index) => <li key={step.title} className="flex gap-2.5 rounded-xl border border-ink-200 bg-white px-3.5 py-3 shadow-sm">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[11px] font-black text-brand-800 ring-1 ring-brand-200">{index + 1}</span>
         <span className="min-w-0">
           <span className="block text-[12.5px] font-bold text-ink-900">{step.title}</span>
@@ -102,7 +117,7 @@ export default async function SupplierDocumentsPage() {
       <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
     </div>}
 
-    {/* Dải tổng quan: trạng thái đợt kiểm + tiến độ giấy tờ, đọc được trong một lần nhìn. */}
+    {/* Dải tổng quan: trạng thái đợt kiểm + tiến độ giấy tờ, cùng nhịp với L2/L3. */}
     <section aria-label="Tổng quan hồ sơ L1" className="mt-4 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-sm">
       <div className="bg-gradient-to-r from-brand-50 via-white to-white px-4 py-4 sm:px-5 sm:py-5">
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
@@ -146,14 +161,14 @@ export default async function SupplierDocumentsPage() {
       </p>}
       {l1Submitted && <p className="border-t border-amber-100 bg-amber-50 px-4 py-2.5 text-[12px] leading-5 text-amber-900 sm:px-5">
         <Clock className="mr-1 inline size-4 align-[-2px]" aria-hidden="true" />
-        Hồ sơ đang chờ đối chiếu thủ công. Tải lên không tự cấp huy hiệu; kết quả do người có quyền duyệt phê.
+        Hồ sơ đang chờ đối chiếu thủ công, bằng chứng tạm khóa. Tải lên không tự cấp huy hiệu; kết quả do người có quyền duyệt phê.
       </p>}
     </section>
 
     <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
       <div className="min-w-0 space-y-4">
 
-        {/* Danh sách giấy tờ dạng thẻ, cùng nhịp với lưới ảnh bằng chứng của L2. */}
+        {/* Lưới thẻ giấy tờ: ảnh thu nhỏ + trạng thái + ô tải riêng, cùng nhịp với bộ ảnh L2. */}
         <section aria-labelledby="docs-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
@@ -162,7 +177,7 @@ export default async function SupplierDocumentsPage() {
                 <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{uploadedDocs.length}/{docRows.length}</span>
               </h3>
               <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
-                Chọn mục cần tải ở ô bên dưới, rồi chọn bản chụp hoặc PDF. Mỗi mục chỉ cần một tệp rõ ràng; tải lại sẽ thay bản cũ của chính bạn.
+                Mỗi mục có ô tải riêng ngay trong thẻ. Mỗi mục chỉ cần một tệp rõ ràng; tải lại sẽ thay bản cũ của chính bạn.
               </p>
             </div>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${missingDocs.length && !l1Approved ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
@@ -170,29 +185,56 @@ export default async function SupplierDocumentsPage() {
             </span>
           </div>
 
-          <ul className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {docRows.map((row) => <li key={row.key} className={`flex flex-col rounded-xl border p-3 ${row.files.length ? "border-ink-200 bg-white" : "border-dashed border-ink-300 bg-ink-50/50"}`}>
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-[12.5px] leading-4 font-bold text-ink-900">{row.label}</span>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${row.files.length ? "bg-emerald-100 text-emerald-800" : "bg-ink-200 text-ink-700"}`}>
-                  {row.files.length ? (row.files.length > 1 ? `${row.files.length} tệp` : "Đã tải") : "Chưa tải"}
-                </span>
-              </div>
-              <p className="mt-1 min-w-0 flex-1 text-[10.5px] leading-4 text-ink-500">
-                {row.latest ? (row.latest.caption || "Tệp đã tải") : "PDF hoặc ảnh, tối đa 15 MB."}
-              </p>
-              {row.latest && <a href={`/api/media/file/${row.latest.storage_path}`} target="_blank" rel="noreferrer"
-                className="mt-2 inline-flex items-center gap-1 self-start text-[11px] font-semibold text-brand-800 underline">
-                <FileText className="size-3" aria-hidden="true" /> Xem tệp
-              </a>}
-            </li>)}
-          </ul>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {docRows.map((row) => {
+              const latest = row.latest;
+              const thumb = latest && isImage(latest.mime) ? `/api/media/file/${latest.thumb_path || latest.storage_path}` : null;
+              return <article key={row.key} className="group flex flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm transition hover:shadow-md">
+                <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-ink-50">
+                  {latest
+                    ? (thumb
+                      ? <a href={`/api/media/file/${latest.storage_path}`} target="_blank" rel="noreferrer" className="block h-full w-full" aria-label={`Mở tệp ${row.label}`}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={thumb} alt={latest.caption || row.label} className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]" />
+                      </a>
+                      : <a href={`/api/media/file/${latest.storage_path}`} target="_blank" rel="noreferrer" className="flex h-full w-full flex-col items-center justify-center gap-1 bg-ink-50 text-ink-500">
+                        <FileText className="h-7 w-7" aria-hidden="true" />
+                        <span className="text-[11px] font-semibold">PDF đã tải</span>
+                      </a>)
+                    : <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-ink-50/80 text-ink-400">
+                      <FileUp className="h-7 w-7" aria-hidden="true" />
+                      <span className="text-[11px] font-semibold">Chưa có tệp</span>
+                    </div>}
+                  <span className={`absolute top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${latest ? "bg-emerald-600 text-white" : row.core ? "bg-white/95 text-amber-900 ring-1 ring-amber-300" : "bg-white/95 text-ink-600 ring-1 ring-ink-200"}`}>
+                    {latest ? "Đã có" : row.core ? "Một trong ba" : "Tùy chọn"}
+                  </span>
+                  {row.files.length > 1 && <span className="absolute right-2 bottom-2 rounded-full bg-ink-900/80 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">{row.files.length} tệp</span>}
+                </div>
 
-          {allowedDocUpload
-            ? <SupplierPortalUpload />
-            : <p className="mt-4 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2.5 text-[11.5px] leading-5 text-ink-600">
-              Đợt kiểm giấy tờ cơ bản đang khóa thêm tệp. Bạn vẫn tải mới hoặc gia hạn chứng nhận ở khung bên dưới bất kỳ lúc nào.
-            </p>}
+                <div className="flex flex-1 flex-col gap-2 p-3">
+                  <div className="min-w-0">
+                    <h4 className="text-[13px] leading-4 font-bold text-ink-900">{row.label}</h4>
+                    <p className="mt-0.5 text-[10.5px] leading-4 text-ink-500">
+                      {latest ? `${latest.caption || "Tệp đã tải"}${uploadedOn(latest.created_at) ? ` · tải ${uploadedOn(latest.created_at)}` : ""}` : "PDF hoặc ảnh, tối đa 15 MB"}
+                    </p>
+                  </div>
+
+                  {latest && <a href={`/api/media/file/${latest.storage_path}`} target="_blank" rel="noreferrer"
+                    className="inline-flex items-center gap-1 self-start text-[11px] font-semibold text-brand-800 underline underline-offset-2">
+                    <FileText className="size-3" aria-hidden="true" /> Xem tệp
+                  </a>}
+
+                  <div className="mt-auto">
+                    {allowedDocUpload
+                      ? <L1DocUpload checklistKey={row.key} hasFile={Boolean(latest)} />
+                      : <p className="rounded-lg border border-ink-100 bg-ink-50/70 px-2.5 py-2 text-[10px] leading-4 text-ink-500">
+                        Đợt kiểm đã khóa nhận tệp mới. Chứng nhận vẫn tải được ở khối bên dưới.
+                      </p>}
+                  </div>
+                </div>
+              </article>;
+            })}
+          </div>
         </section>
 
         {/* Chứng nhận ngành hàng: AI đọc đơn vị đứng tên và ngày hết hạn, người duyệt vẫn là người quyết định. */}
@@ -210,29 +252,31 @@ export default async function SupplierDocumentsPage() {
             <span className="shrink-0 rounded-full bg-ink-100 px-2.5 py-1 text-[10.5px] font-bold text-ink-700">{liveCerts.length} đang hiển thị</span>
           </div>
 
-          {certificates.length ? <ul className="mt-3 space-y-2">
+          {certificates.length ? <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {certificates.map((c) => {
               const left = daysUntilExpiry(c.valid_until);
               const live = Boolean(c.review_status === "approved" && c.publicly_visible && !c.staff_hidden && left !== null && left >= 0 && (c.holder_match === "owner" || c.holder_match === "partner"));
-              return <li key={c.id} className="rounded-xl border border-ink-200 bg-ink-50/60 px-3.5 py-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[12.5px] font-bold text-ink-900">{c.name}{c.number ? ` · #${c.number}` : ""}</span>
-                  <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
-                    <span className={`rounded-full px-2 py-0.5 font-bold ${c.holder_match === "owner" ? "bg-emerald-100 text-emerald-800" : c.holder_match === "partner" ? "bg-amber-100 text-amber-900" : "bg-ink-200 text-ink-700"}`}>
-                      {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` (${c.holder_name})` : ""}` : c.holder_match === "partner" ? `Đối tác: ${c.holder_name || "-"}` : "Chưa rõ đơn vị đứng tên"}
-                    </span>
-                    <span className={`rounded-full px-2 py-0.5 font-semibold ${left === null ? "bg-ink-200 text-ink-700" : left < 0 ? "bg-rose-100 text-rose-800" : left <= 60 ? "bg-amber-100 text-amber-900" : "bg-sky-100 text-sky-800"}`}>
-                      {c.valid_until ? `Hết hạn ${c.valid_until}${left !== null ? ` · còn ${left} ngày` : ""}` : "Chưa đọc được ngày hết hạn"}
-                    </span>
-                    <span className={`rounded-full px-2 py-0.5 font-bold ${c.staff_hidden ? "bg-rose-100 text-rose-800" : live ? "bg-emerald-100 text-emerald-800" : "bg-ink-200 text-ink-700"}`}>
-                      {c.staff_hidden ? "Đang tạm ẩn" : live ? "Đang hiển thị công khai" : "Chưa hiển thị công khai"}
-                    </span>
-                  </div>
+              return <article key={c.id} className="flex flex-col gap-1.5 rounded-xl border border-ink-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h4 className="min-w-0 text-[13px] leading-4 font-bold text-ink-900">
+                    {c.name}{c.number ? <span className="font-semibold text-ink-500"> · #{c.number}</span> : null}
+                  </h4>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${c.staff_hidden ? "bg-rose-100 text-rose-800" : live ? "bg-emerald-100 text-emerald-800" : "bg-ink-100 text-ink-700"}`}>
+                    {c.staff_hidden ? "Đang tạm ẩn" : live ? "Đang hiển thị" : "Chưa công khai"}
+                  </span>
                 </div>
-                {(c.review_note || c.ai_summary) && <p className="mt-1 text-[10.5px] leading-4 text-ink-600">{c.review_note || c.ai_summary}</p>}
-              </li>;
+                <p className="text-[10.5px] leading-4 text-ink-600">
+                  {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` (${c.holder_name})` : ""}`
+                    : c.holder_match === "partner" ? `Đối tác: ${c.holder_name || "-"}`
+                      : "Chưa rõ đơn vị đứng tên"}
+                </p>
+                <span className={`self-start rounded-full px-2 py-0.5 text-[10px] font-semibold ${left === null ? "bg-ink-100 text-ink-700" : left < 0 ? "bg-rose-100 text-rose-800" : left <= 60 ? "bg-amber-100 text-amber-900" : "bg-sky-100 text-sky-800"}`}>
+                  {c.valid_until ? `Hết hạn ${c.valid_until}${left !== null ? ` · còn ${left} ngày` : ""}` : "Chưa đọc được ngày hết hạn"}
+                </span>
+                {(c.review_note || c.ai_summary) && <p className="text-[10.5px] leading-4 text-ink-600">{c.review_note || c.ai_summary}</p>}
+              </article>;
             })}
-          </ul> : <p className="mt-3 rounded-lg border border-dashed border-ink-300 bg-ink-50/50 px-3 py-6 text-center text-[11.5px] text-ink-500">
+          </div> : <p className="mt-3 rounded-lg border border-dashed border-ink-300 bg-ink-50/50 px-3 py-6 text-center text-[11.5px] text-ink-500">
             Chưa có chứng nhận nào trên hồ sơ. Tải PDF hoặc ảnh bên dưới để AI tự quét.
           </p>}
 

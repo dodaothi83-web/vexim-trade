@@ -23,6 +23,7 @@ export function FilePicker({
   busy = false,
   disabled = false,
   onPick,
+  compact = false,
   className = "",
 }: {
   name?: string;
@@ -35,6 +36,8 @@ export function FilePicker({
   busy?: boolean;
   disabled?: boolean;
   onPick?: (files: FileList | null) => void | Promise<void>;
+  /** Bản gọn cho thẻ nhỏ: vẫn giữ khung, icon và nút chọn tệp nhưng thấp hơn. */
+  compact?: boolean;
   className?: string;
 }) {
   const id = useId();
@@ -99,7 +102,9 @@ export function FilePicker({
     onDragLeave={() => setDragging(false)}
     onDrop={onDrop}
     className={[
-      "flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3 text-sm transition",
+      compact
+        ? "flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed px-3 py-2 text-sm transition"
+        : "flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3 text-sm transition",
       inactive
         ? "cursor-not-allowed border-ink-200 bg-ink-50/60 opacity-70"
         : dragging
@@ -108,11 +113,11 @@ export function FilePicker({
       className,
     ].join(" ")}
   >
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
-      {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+    <span className={`flex shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 ${compact ? "h-8 w-8" : "h-10 w-10"}`}>
+      {busy ? <Loader2 className={`${compact ? "h-4 w-4" : "h-5 w-5"} animate-spin`} /> : <Upload className={`${compact ? "h-4 w-4" : "h-5 w-5"}`} />}
     </span>
     <span className="min-w-0 flex-1">
-      <span className="flex items-center gap-1 font-semibold text-ink-900">
+      <span className={`flex items-center gap-1 font-semibold text-ink-900 ${compact ? "text-[12.5px] leading-4" : ""}`}>
         {picked.length > 0 && !onPick ? <FileText className="h-4 w-4 shrink-0 text-ink-500" /> : null}
         <span className="min-w-0 truncate">{title}</span>
         {requiredMark && <span className="text-rose-700">*</span>}
@@ -121,7 +126,7 @@ export function FilePicker({
         {busy ? "Đang tải tệp lên..." : summary || hint || "Bấm để chọn hoặc kéo tệp vào đây"}
       </span>
     </span>
-    <span className="hidden shrink-0 rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-700 sm:inline-block">
+    <span className={`hidden shrink-0 rounded-lg border border-ink-200 font-semibold text-ink-700 sm:inline-block ${compact ? "px-2 py-1 text-[10.5px]" : "px-3 py-1.5 text-xs"}`}>
       {picked.length > 0 ? "Đổi tệp" : "Chọn tệp"}
     </span>
     <input

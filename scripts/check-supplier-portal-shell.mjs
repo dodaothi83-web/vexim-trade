@@ -158,11 +158,15 @@ assert.doesNotMatch(read('app/supplier/portal/verification/level-page.tsx'), /#l
   'Hai trang không còn phụ thuộc neo cuộn trong một trang gộp');
 
 // 9. Ô chọn tệp phải là khung rõ ràng, không phải dòng chữ mặc định của trình duyệt.
-for (const file of ['app/supplier/portal/supplier-portal-upload.tsx', 'app/supplier/portal/supplier-profile-form.tsx', 'app/supplier/portal/certificate-upload.tsx']) {
+for (const file of ['app/supplier/portal/l1-doc-upload.tsx', 'app/supplier/portal/supplier-profile-form.tsx', 'app/supplier/portal/certificate-upload.tsx']) {
   const src = read(file);
   assert.doesNotMatch(src, /type="file"[^>]*className="input/, `${file}: ô chọn tệp không dùng input mặc định một dòng`);
 }
 assert.match(read('components/file-picker.tsx'), /sr-only[\s\S]*type="file"|type="file"[\s\S]*sr-only/,
   'FilePicker giữ input thật để form vẫn gửi tệp và vẫn kiểm tra required');
+// Trang Giấy tờ L1: mỗi thẻ giấy tờ có ô tải riêng, không bắt chọn mục ở ô select rồi mới chọn tệp.
+const docsPage = read('app/supplier/portal/documents/page.tsx');
+assert.match(docsPage, /<L1DocUpload checklistKey=\{row\.key\}/, 'Mỗi mục giấy tờ L1 có ô tải riêng trong thẻ');
+assert.doesNotMatch(docsPage, /<SupplierPortalUpload/, 'Không còn ô chọn tệp dùng chung với select mục tài liệu');
 
 console.log('✅ Supplier portal shell: one menu, one page per function, L2/L3 split, notifications live inside the bell.');

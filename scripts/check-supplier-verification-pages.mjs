@@ -63,7 +63,7 @@ assert.match(documents, /<LevelTabs current=\{1\} \/>/, 'Trang L1 dùng chung d�
 assert.match(documents, /role="progressbar"/, 'L1 có dải tiến độ giấy tờ');
 assert.match(documents, /lg:grid-cols-\[minmax\(0,1fr\)_330px\]/, 'L1 có cột tóm tắt dính bên phải như L2/L3');
 assert.match(documents, /lg:sticky lg:top-20/, 'Cột tóm tắt L1 dính khi lướt');
-assert.match(documents, /<SupplierPortalUpload \/>/, 'L1 vẫn tải được giấy tờ');
+assert.match(documents, /<L1DocUpload checklistKey=\{row\.key\}/, 'L1 tải được giấy tờ ngay trong từng thẻ');
 assert.match(documents, /<SupplierCertificateUpload certificates=/, 'L1 vẫn tải được chứng nhận');
 assert.match(documents, /Lý do cần bổ sung:/, 'L1 hiện lý do khi bị trả hồ sơ');
 assert.doesNotMatch(documents, /runScan|Nộp hồ sơ/, 'Bước 1 không có nút nộp: nhân viên mở đợt kiểm');
