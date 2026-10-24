@@ -105,6 +105,8 @@ process.env.TURNSTILE_SECRET_KEY = '';
 process.env.RFQ_REJECT_WEBMAIL = 'false';
 const createdRfqs = [];
 const createdBuyers = [];
+const buyerUpdates = [];
+let listedBuyers = [];
 const questionAcks = [];
 const exceptionReasons = [];
 let directCalls = 0;
@@ -117,8 +119,13 @@ let distributedResult = { status: 'ok' };
 let distributedCalls = 0;
 const category = { id: 'cat-1', slug: 'cashew', status: 'published', is_published: true };
 const submitStore = {
-  listBuyers: async () => [],
+  listBuyers: async () => listedBuyers,
   createBuyer: async (input) => { createdBuyers.push(input); return { id: 'buyer-1', ...input }; },
+  updateBuyer: async (id, patch) => {
+    buyerUpdates.push({ id, patch });
+    const current = listedBuyers.find((item) => item.id === id) ?? createdBuyers.at(-1) ?? {};
+    return { ...current, id, ...patch };
+  },
   getCategoryBySlug: async () => category,
   listRfqs: async () => [],
   createRfq: async (input) => { createdRfqs.push(input); return { ...input, id: `r-${createdRfqs.length}`, access_token: 'private-token' }; },
@@ -154,6 +161,7 @@ assert.equal(direct.ok, true);
 assert.equal(direct.status, 'matching');
 assert.equal(direct.supplierDelivered, true);
 assert.equal(createdBuyers[0].stage, 'lead', 'New RFQ buyers must satisfy buyers_stage_check');
+assert.equal(buyerUpdates[0].patch.supplier_id, supplier.id, 'A delivered question links the selected supplier in Buyer CRM');
 assert.equal(createdRfqs[0].specs.inquiry_kind, 'supplier_question');
 assert.equal(createdRfqs[0].specs.contact_share_consent, true);
 assert.equal(createdRfqs[0].specs.notes, rawQuestion.message);
@@ -170,6 +178,7 @@ const quote = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', sh
 assert.equal(quote.ok, true);
 assert.equal(quote.supplierDelivered, undefined);
 assert.equal(createdBuyers[1].stage, 'lead', 'Quote buyers use the same valid initial pipeline stage');
+assert.equal(buyerUpdates.length, 1, 'Ordinary quotes do not auto-link a buyer supplier');
 assert.equal(directCalls, 1, 'Quote mode never uses direct question delivery');
 assert.equal(distributedCalls, 1, 'Quote mode never calls the supplier-question distributed limiter');
 assert.equal(genericAcks, 1, 'Quote acknowledgement is unchanged');
@@ -181,6 +190,7 @@ const failed = await submit.submitRfq(rawQuestion);
 assert.equal(failed.ok, true);
 assert.equal(failed.status, 'new');
 assert.equal(failed.supplierDelivered, false);
+assert.equal(buyerUpdates.length, 1, 'A failed question delivery does not establish a CRM supplier link');
 assert.equal(questionAcks.at(-1), false);
 assert.equal(exceptionReasons[0], 'email_not_delivered');
 assert.equal(genericAcks, 1, 'Failed questions still use question-specific acknowledgement');
@@ -244,6 +254,18 @@ for (const invalid of [
   assert.equal(createdRfqs.length, beforeRejected, 'Invalid oversized payloads are rejected before persistence');
 }
 assert.equal(directCalls, 2);
+
+// An existing CRM supplier link and pipeline ownership survive a new direct question.
+const updatesBeforeExistingBuyer = buyerUpdates.length;
+listedBuyers = [{
+  id: 'buyer-existing', company: 'Existing Buyer Co', contact_name: 'Existing Contact',
+  email: rawQuestion.email, supplier_id: 'supplier-existing', stage: 'contacted', owner: 'Sales Owner',
+}];
+await submit.submitRfq(rawQuestion);
+assert.equal(buyerUpdates.length, updatesBeforeExistingBuyer + 1, 'An already linked buyer is not auto-linked a second time');
+assert.equal(buyerUpdates.at(-1).patch.supplier_id, 'supplier-existing', 'A new question never replaces the existing supplier');
+assert.equal(buyerUpdates.at(-1).patch.stage, 'contacted');
+assert.equal(buyerUpdates.at(-1).patch.owner, 'Sales Owner');
 
 const productPage = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 const form = fs.readFileSync(new URL('../app/(public)/rfq/rfq-form.tsx', import.meta.url), 'utf8');

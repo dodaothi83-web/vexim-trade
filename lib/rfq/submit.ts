@@ -283,9 +283,10 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   };
 
   if (buyer) {
-    // Update (giữ stage/owner cũ, không theo GĐ0 spec tự đẩy stage)
+    // Update (giữ stage/owner/supplier cũ, không theo GĐ0 spec tự đẩy stage)
     buyer = await store.updateBuyer(buyer.id, {
       ...buyerInput,
+      supplier_id: buyer.supplier_id,
       stage: buyer.stage,
       owner: buyer.owner,
     });
@@ -417,6 +418,16 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     } catch (err) {
       supplierDeliveryReason = err instanceof Error ? err.message : "delivery exception";
       console.warn(`[rfq] supplier question ${rfq.code} delivery failed:`, err);
+    }
+  }
+  if (supplierDelivered && isSupplierQuestion && !buyer.supplier_id) {
+    // A delivered product question establishes the buyer-supplier link in CRM.
+    // Do not call attachSupplierAction: the question email is the only notification.
+    try {
+      buyer = await store.updateBuyer(buyer.id, { supplier_id: preferredIds[0] });
+    } catch (err) {
+      // Delivery is already confirmed; never turn it into a 500 because CRM linking failed.
+      console.warn(`[rfq] supplier question ${rfq.code} delivered but buyer supplier link failed:`, err);
     }
   }
   const finalStatus: Rfq["status"] = supplierDelivered ? "matching" : rfqStatus;
