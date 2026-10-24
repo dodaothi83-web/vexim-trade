@@ -15,15 +15,15 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
   linkable?: boolean;
 }) {
   const quote = !test && linkable ? quoteHref : undefined;
-  const thumb = <div className="relative h-full min-h-40 w-full overflow-hidden rounded-l-xl bg-ink-50 sm:aspect-square sm:h-auto sm:min-h-0 sm:rounded-l-none sm:rounded-t-xl">
+  const thumb = <div className="relative aspect-square w-full overflow-hidden rounded-l-xl bg-ink-50 sm:rounded-l-none sm:rounded-t-xl">
     {imagePath ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={`/public-media/${imagePath.replace(/^\//, "")}`} alt={name} loading="lazy" className="h-full w-full object-cover" /></>
       : <div className="flex h-full items-center justify-center text-ink-300"><ImageIcon className="size-10" aria-hidden="true" /></div>}
     {test && <span className="absolute left-2 top-2 rounded bg-amber-200 px-2 py-1 text-[10px] font-bold text-amber-950">TEST · Not an offer</span>}
   </div>;
   const title = <h3 className="mb-2 line-clamp-2 min-h-10 text-sm font-bold leading-5 text-ink-900 group-hover:text-brand-700 sm:mb-3">{name}</h3>;
   return <article className={`flex h-full min-w-0 flex-row overflow-visible rounded-xl border border-ink-200 bg-white shadow-card transition focus-within:border-brand-500 sm:flex-col ${linkable ? "hover:border-brand-400 hover:shadow-md" : ""}`}>
-    {linkable ? <Link href={href} aria-label={`View details of ${name}`} className="group block w-[38%] shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:w-full">{thumb}</Link>
-      : <div className="w-[38%] shrink-0 sm:w-full">{thumb}</div>}
+    {linkable ? <Link href={href} aria-label={`View details of ${name}`} className="group block w-[38%] shrink-0 self-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:w-full">{thumb}</Link>
+      : <div className="w-[38%] shrink-0 self-start sm:w-full">{thumb}</div>}
     <div className="flex min-w-0 flex-1 flex-col px-3 pb-3 pt-3 sm:px-3.5 sm:pb-3.5">
       {linkable ? <Link href={href} className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">{title}</Link> : title}
       <div className="mb-2 flex h-6 items-center">

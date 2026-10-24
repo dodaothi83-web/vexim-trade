@@ -257,7 +257,8 @@ const compactCard = renderToStaticMarkup(React.createElement(PublicProductCard, 
 for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'USD 7/kg', 'Lead time', '14 days', 'Supplied by', 'Company A', 'OEM/ODM', 'Samples', 'Request a quote']) {
   assert.ok(compactCard.includes(text), `Compact card keeps ${text}`);
 }
-assert.match(compactCard, /sm:aspect-square/);
+assert.match(compactCard, /relative aspect-square w-full/, 'The product image stays square at every breakpoint');
+assert.doesNotMatch(compactCard, /min-h-40/, 'The image no longer receives a forced tall mobile height');
 assert.match(compactCard, /object-cover/);
 assert.match(compactCard, /line-clamp-2/);
 assert.match(compactCard, /flex h-full min-w-0 flex-row[^"]*sm:flex-col/, 'Cards are horizontal on phones and vertical from sm');
