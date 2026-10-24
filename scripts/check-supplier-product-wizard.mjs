@@ -57,12 +57,19 @@ const { SupplierProductEditor } = load('../app/supplier/portal/products/product-
     saveSupplierProductAction: async () => ({ ok: true, id: 'p1', message: 'Đã lưu bản nháp.' }),
     submitSupplierProductAction: async () => ({ ok: true, message: 'Đã gửi.' }),
   },
-  '@/components/product-attribute-inputs': { ProductAttributeInputs: () => React.createElement('div', { 'data-attribute-inputs': '1' }) },
-  '@/lib/product-attributes': { fieldsFor: () => [] },
+  '@/components/supplier-attribute-inputs': {
+    SupplierAttributeInputs: (props) => React.createElement('div', {
+      'data-attribute-inputs': '1',
+      'data-official': String(props.officialFields?.length ?? 0),
+      'data-supplier': String(props.supplierFields?.length ?? 0),
+    }),
+  },
+  '@/lib/product-attributes': { fieldsFor: () => [], supplierFieldsFor: () => [], effectiveFieldsFor: () => [] },
 });
 
 const categories = [
-  { id: 'c1', slug: 'cashew', label: 'Hạt điều', group: 'Hạt & hạt nhân' },
+  { id: 'c1', slug: 'cashew', label: 'Hạt điều', group: 'Hạt & hạt nhân',
+    supplier_product_fields: [{ key: 'do_am', label: 'Độ ẩm thực tế', type: 'text', options: [], supplier_added: true }] },
   { id: 'c2', slug: 'pepper', label: 'Hồ tiêu', group: 'Gia vị' },
 ];
 const supplier = { id: 'sup-1', status: 'published', fob_publicly_visible: true, fob_updated_at: new Date().toISOString() };

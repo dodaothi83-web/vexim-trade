@@ -6,13 +6,32 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { categoryProposalOptions, allowedSupplierCategories, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import { assignProductCategory } from "@/lib/public/category-assignment";
-import { attributesFromForm, saveProductAttributes } from "@/lib/product-attributes";
+import {
+  attributesFromForm, mergeSupplierAttributePool, sanitizeSupplierAttributePool, saveProductAttributes,
+  supplierAttributePoolSignature,
+} from "@/lib/product-attributes";
 import { notifyStaffProductSubmission } from "@/lib/supplier-portal/notify";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 
 type Result = { ok: boolean; message: string; id?: string };
 const text = (form: FormData, key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
+
+/**
+ * Thông số NCC tự thêm, gửi kèm form dưới dạng JSON. Server kiểm tra lại toàn bộ
+ * (`sanitizeSupplierAttributePool`) chứ không tin nội dung client gửi lên.
+ */
+function attributePoolFromForm(form: FormData): unknown[] {
+  const raw = String(form.get("attribute_pool") ?? "").slice(0, 8000);
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 
 function parseProduct(form: FormData, supplierId: string): SupplierProductInput {
   const name = text(form, "name", 180);
@@ -72,7 +91,19 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     const allowed = allowedSupplierCategories(access.supplier, options, linked);
     input.supplier_category_proposal = parseProductCategoryProposal(form, allowed);
     input.category = input.supplier_category_proposal;
-    input.specs = saveProductAttributes(allCategories.find((c) => c.slug === input.category),
+    const category = allCategories.find((c) => c.slug === input.category) ?? null;
+    // Thông số NCC tự thêm: gộp vào pool của danh mục để NCC khác dùng lại ngay lần sau.
+    // Lỗi ghi pool (ví dụ thiếu migration) không được làm hỏng việc lưu sản phẩm.
+    const savedPool = sanitizeSupplierAttributePool(category?.supplier_product_fields);
+    const pool = mergeSupplierAttributePool(savedPool, attributePoolFromForm(form));
+    if (category && supplierAttributePoolSignature(pool) !== supplierAttributePoolSignature(savedPool)) {
+      try {
+        await store.updateCategory(category.id, { supplier_product_fields: pool });
+      } catch (error) {
+        console.warn("[supplier-product] attribute pool", error);
+      }
+    }
+    input.specs = saveProductAttributes({ product_fields: category?.product_fields ?? [], supplier_product_fields: pool },
       attributesFromForm(form), existing?.supplier_category_proposal === input.category ? existing.specs : {});
     // Obvious cross-category goods are rejected before saving, not merely hidden after review.
     const inferred = assignProductCategory({ name: input.name, spec: input.spec, description: input.description, category: null }, allCategories);

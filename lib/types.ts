@@ -234,6 +234,8 @@ export type SupplierProductInput = Omit<SupplierProduct, "id" | "created_at" | "
 /** Category-specific product fields configured by Vexim, separate from editorial reference tables. */
 export interface ProductAttributeField {
   key: string;
+  /** true = do nhà cung cấp tự thêm, chưa được Vexim nâng thành trường chính thức của danh mục. */
+  supplier_added?: boolean;
   label: string;
   type: "select" | "text";
   options: string[];
@@ -254,6 +256,13 @@ export interface Category {
   /** Các cột bảng thông số (xem CategoryColumn). Bảng hiển thị khi có ≥1 cột. */
   spec_columns?: CategoryColumn[];
   product_fields?: ProductAttributeField[];
+  /**
+   * Thông số do nhà cung cấp tự thêm cho nhóm hàng này (không phải cấu hình CMS).
+   * Chỉ dùng để gợi ý/điền sẵn cho nhà cung cấp khác trong cùng nhóm hàng và để
+   * Vexim xem khi duyệt; không tham gia bộ lọc buyer. Vexim có thể nâng một mục ở
+   * đây thành `product_fields` chính thức khi muốn công bố cho buyer.
+   */
+  supplier_product_fields?: ProductAttributeField[];
   /** Các hàng trong bảng thông số. */
   spec_rows?: CategoryRow[];
   /** Các mục trong khối "thông tin mua hàng" (xem CategoryFact). */

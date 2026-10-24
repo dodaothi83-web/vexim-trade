@@ -24,8 +24,8 @@ import { productPriceBlockers, supplierPriceConsentCurrent } from "@/lib/public/
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
 import { saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
-import { ProductAttributeInputs } from "@/components/product-attribute-inputs";
-import { fieldsFor } from "@/lib/product-attributes";
+import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
+import { effectiveFieldsFor, fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
 
 type EditorProps = {
   product?: SupplierProduct;
@@ -167,8 +167,23 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const hasMedia = media.some((m) => (m.kind === "image" || m.kind === "catalogue") && !!m.storage_path);
   const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
   const canUpload = !!product && !locked && review !== "approved" && !dirty;
-  const categoryLabel = categories.find((c) => c.slug === (selectedCategory || product?.category || ""))?.label
-    ?? product?.category ?? "Chưa chọn danh mục";
+  const activeCategory = categories.find((c) => c.slug === (selectedCategory || product?.category || ""));
+  const categoryLabel = activeCategory?.label ?? product?.category ?? "Chưa chọn danh mục";
+  // Bước 3 đọc lại thông số bằng nhãn thật (kể cả thông số NCC tự thêm), không phải khoá kỹ thuật.
+  const attributeLabels = new Map(effectiveFieldsFor(activeCategory).map((field) => [field.key, field.label]));
+  const attributeRows = (() => {
+    const rows = new Map<string, string>();
+    for (const [key, label] of attributeLabels) {
+      const value = String(snapshot[`attribute:${key}`] ?? product?.specs?.[key] ?? "").trim();
+      if (value) rows.set(label, value);
+    }
+    // Giá trị cũ chưa thuộc trường nào vẫn phải đọc lại được, không giấu khỏi NCC.
+    for (const [key, value] of Object.entries(product?.specs ?? {})) {
+      if (attributeLabels.has(key) || typeof value !== "string" || !value.trim()) continue;
+      rows.set(key, value.trim());
+    }
+    return [...rows.entries()];
+  })();
 
   // Cảnh báo rời trang khi còn thay đổi chưa lưu (đóng tab + bấm link nội bộ).
   useEffect(() => {
@@ -469,8 +484,14 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   Bạn chưa chọn danh mục kinh doanh đang mở. <Link href="/supplier/portal/categories" className="font-semibold underline">Chọn danh mục trước khi thêm sản phẩm</Link>
                 </p>}
                 <div className="md:col-span-2">
-                  <ProductAttributeInputs key={selectedCategory} fields={fieldsFor(categories.find((c) => c.slug === selectedCategory))} disabled={locked}
-                    values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}} />
+                  {selectedCategory
+                    ? <SupplierAttributeInputs key={selectedCategory} disabled={locked}
+                      officialFields={fieldsFor(categories.find((c) => c.slug === selectedCategory))}
+                      supplierFields={supplierFieldsFor(categories.find((c) => c.slug === selectedCategory))}
+                      values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}} />
+                    : <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50/50 px-4 py-3 text-[12px] leading-5 text-ink-600">
+                      Chọn danh mục sản phẩm ở trên để khai thông số của nhóm hàng. Thông số chưa có trong danh sách thì thêm ngay tại đó.
+                    </p>}
                 </div>
                 <Field label="Mô tả ngắn" hint="Tóm tắt vài câu bên cạnh ảnh sản phẩm">
                   <textarea name="description" className="input min-h-28 resize-y" rows={4} maxLength={1500} placeholder="Giới thiệu ngắn gọn cho Vexim..." defaultValue={product?.description ?? ""} disabled={locked} />
@@ -638,7 +659,13 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-2">
                   <div className="sm:col-span-2"><ReviewField label="Tên sản phẩm" value={snapshot.name} strong /></div>
                   <div><ReviewField label="Danh mục" value={categoryLabel} /></div>
-                  <div><ReviewField label="Thuộc tính ngành" value={Object.entries(product?.specs ?? {}).filter(([, v]) => v != null && v !== "").map(([k, v]) => `${k}: ${String(v)}`).join(" · ") || "—"} /></div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-[11px] font-semibold text-ink-500">Thông số theo nhóm hàng</dt>
+                    {attributeRows.length
+                      ? <dd className="mt-1 flex flex-wrap gap-1.5">{attributeRows.map(([label, value]) =>
+                        <span key={label} className="rounded-md bg-ink-100 px-1.5 py-0.5 text-[11.5px] text-ink-800"><strong className="font-semibold">{label}:</strong> {value}</span>)}</dd>
+                      : <dd className="mt-0.5 text-[12.5px] text-ink-400">Chưa khai thông số</dd>}
+                  </div>
                   <div className="sm:col-span-2"><ReviewField label="Mô tả ngắn" value={snapshot.description} /></div>
                   <div className="sm:col-span-2"><ReviewField label="Quy cách / tiêu chuẩn" value={snapshot.spec} /></div>
                   <div className="sm:col-span-2"><ReviewField label="Mô tả chi tiết" value={snapshot.description_detail} /></div>

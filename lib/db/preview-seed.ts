@@ -155,6 +155,11 @@ export function previewCategories(now: string): Category[] {
         { key: "season", icon: "calendar", label: "Season", value: "Domestic nuts arrive from January to May. Kernels ship all year." },
       ],
       product_fields: [{ key: "grade", label: "Grade", type: "select", options: ["W180", "W240", "W320", "W450", "SW", "WS", "LP", "SP"], filterable: true }],
+      // Minh hoạ thông số do NCC khác tự thêm: NCC tiếp theo mở cùng nhóm hàng là thấy sẵn.
+      supplier_product_fields: [
+        { key: "do_am", label: "Độ ẩm thực tế", type: "text", options: [], supplier_added: true },
+        { key: "grade", label: "Grade", type: "select", options: ["SW nửa hạt"], supplier_added: true },
+      ],
       filters: [{ key: "grade", label: "Grades", options: [
         { value: "W180", label: "W180" }, { value: "W240", label: "W240" }, { value: "W320", label: "W320" },
         { value: "W450", label: "W450" }, { value: "WS", label: "WS" }, { value: "LP", label: "LP" },
