@@ -270,11 +270,13 @@ assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;prod
   'The primary card CTA opens an RFQ prefilled for this product and supplier');
 assert.match(compactCard, /aria-label="Request a quote for Cashew W320 lot 0"/, 'Repeated quote CTAs have product-specific accessible names');
 assert.match(compactCard, /bg-brand-700/, 'The quote CTA uses the primary brand action instead of the dark details treatment');
-assert.match(compactCard, /text-\[15px\] font-bold leading-5 text-brand-800 sm:text-base/, 'Price is only slightly larger than the supporting card content');
+assert.match(compactCard, /text-sm font-bold leading-\[18px\] text-brand-800 sm:text-base sm:leading-5/, 'Price is compact on phones and retains its desktop size');
 assert.match(compactCard, />FOB</, 'FOB remains visible as a compact suffix');
 assert.doesNotMatch(compactCard, /FOB reference|Reference price|bg-brand-50/, 'Price uses plain text without a heading or tinted background');
-assert.match(compactCard, /mb-2 flex h-6 items-center/, 'A fixed one-row badge slot keeps prices aligned between cards');
-assert.match(compactCard, /mt-2.5 grid grid-cols-2/, 'MOQ and lead time share one compact two-column row');
+assert.match(compactCard, /mb-1 line-clamp-2 min-h-0[^"]*sm:mb-3 sm:min-h-10/, 'The title releases its extra mobile minimum height and restores desktop alignment');
+assert.match(compactCard, /mb-1 hidden h-5 items-center sm:mb-2 sm:flex sm:h-6/, 'Trade badges do not consume mobile height but keep their desktop slot');
+assert.match(compactCard, /mt-1 flex flex-wrap[^"]*sm:mt-2.5 sm:grid sm:grid-cols-2/, 'MOQ and lead time are inline on phones and become a two-column row on desktop');
+assert.match(compactCard, /flex min-w-0 items-baseline gap-1 sm:block/, 'Mobile commercial terms stay on the same line');
 assert.match(compactCard, /mt-auto hidden pt-3 sm:block/, 'Quote and fallback actions are hidden on phones and return from sm');
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
 assert.match(compactCard, /Level 2 · Advanced/, 'Card tier counts the approved checks, not a claimed level');
