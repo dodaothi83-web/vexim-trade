@@ -234,12 +234,18 @@ const productTradeLabelsModule = compile('../components/product-trade-labels.tsx
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
 });
+const { ProductVerificationTooltip } = compile('../components/product-verification-tooltip.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  'lucide-react': require('lucide-react'),
+  '@/lib/verification-status': { PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS },
+});
 const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
   '@/components/product-trade-labels': productTradeLabelsModule,
   '@/components/product-verification-icons': { ProductVerificationIcons },
+  '@/components/product-verification-tooltip': { ProductVerificationTooltip },
   '@/components/verification-tier': verificationTierModule,
 });
 const fullTradeLabels = renderToStaticMarkup(React.createElement(productTradeLabelsModule.ProductTradeLabels, { oem: true, odm: true, samples: true }));
@@ -277,7 +283,19 @@ assert.match(compactCard, /mt-auto pt-3/, 'The quote action keeps a compact top 
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
 assert.match(compactCard, /Level 2 · Advanced/, 'Card tier counts the approved checks, not a claimed level');
 assert.doesNotMatch(compactCard, /Free Sample|ISO Certified|Ready to Ship/, 'Unsupported product claims never become badges');
-assert.equal((compactCard.match(/<details/g) ?? []).length, 0, 'Card stays compact; the exact checks open on the detail page');
+assert.equal((compactCard.match(/<details/g) ?? []).length, 1, 'Card keeps one compact disclosure for all three verification explanations');
+assert.match(compactCard, /aria-label="Explain supplier verification levels 1, 2 and 3"/, 'The tooltip trigger has an accessible name');
+assert.match(compactCard, /role="tooltip"/, 'The explanation uses tooltip semantics');
+assert.match(compactCard, /group-hover:block group-focus-within:block peer-open:block/, 'The tooltip opens on hover, keyboard focus and touch');
+assert.match(compactCard, /Level 1 · Documents checked<\/strong><span[^>]*>Approved<\/span>/, 'L1 is explained using its actual approved state');
+assert.match(compactCard, /Level 2 · Factory visited<\/strong><span[^>]*>Not approved<\/span>/, 'L2 is not inferred from another approved check');
+assert.ok(compactCard.includes(`If approved: ${PRODUCT_VERIFICATION_EXPLANATIONS[2]}`), 'An unapproved check is explained conditionally, not as a completed review');
+assert.match(compactCard, /Level 3 · Delivery history reviewed<\/strong><span[^>]*>Approved<\/span>/, 'L3 is explained independently');
+for (const explanation of Object.values(PRODUCT_VERIFICATION_EXPLANATIONS)) {
+  assert.ok(compactCard.includes(explanation), `Card tooltip keeps the canonical explanation: ${explanation}`);
+}
+assert.match(compactCard, /overflow-visible rounded-xl/, 'The card does not clip its verification tooltip');
+assert.match(compactCard, /rounded-t-xl bg-ink-50/, 'The product image keeps the accepted rounded card corners');
 const longSupplierCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
   ...cardProps, supplierName: 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED',
 }));
@@ -287,6 +305,7 @@ const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard,
 assert.match(privatePrice, /On request/);
 assert.doesNotMatch(privatePrice, /FOB reference|>FOB<|USD 7\/kg/, 'No price or FOB claim without consent');
 assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved check shows the empty tier, not a badge');
+assert.equal((privatePrice.match(/>Not approved</g) ?? []).length, 3, 'The tooltip never marks a check approved without an actual approved level');
 const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
   ...cardProps, href: '/suppliers/company-a/products/a0', test: true,
 }));

@@ -51,6 +51,7 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': icons,
   '@/components/product-trade-labels': { ProductTradeLabels: () => null },
+  '@/components/product-verification-tooltip': { ProductVerificationTooltip: () => React.createElement('span') },
   '@/components/verification-tier': { VerificationPips: () => React.createElement('span'), VerificationTierBadge: () => React.createElement('span') },
 });
 const { default: Profile, generateMetadata } = compile('../app/(public)/suppliers/[slug]/page.tsx', {

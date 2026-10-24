@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, ImageIcon } from "lucide-react";
 
 import { ProductTradeLabels } from "@/components/product-trade-labels";
+import { ProductVerificationTooltip } from "@/components/product-verification-tooltip";
 import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import type { VerificationLevel } from "@/lib/types";
 
@@ -15,12 +16,12 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
   linkable?: boolean;
 }) {
   const quote = !test && linkable ? quoteHref : undefined;
-  const thumb = <div className="relative aspect-square w-full overflow-hidden bg-ink-50">
+  const thumb = <div className="relative aspect-square w-full overflow-hidden rounded-t-xl bg-ink-50">
     {imagePath ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={`/public-media/${imagePath.replace(/^\//, "")}`} alt={name} loading="lazy" className="h-full w-full object-cover" /></>
       : <div className="flex h-full items-center justify-center text-ink-300"><ImageIcon className="size-10" aria-hidden="true" /></div>}
     {test && <span className="absolute left-2 top-2 rounded bg-amber-200 px-2 py-1 text-[10px] font-bold text-amber-950">TEST · Not an offer</span>}
   </div>;
-  return <article className={`flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-card transition focus-within:border-brand-500 ${linkable ? "hover:border-brand-400 hover:shadow-md" : ""}`}>
+  return <article className={`flex h-full min-w-0 flex-col overflow-visible rounded-xl border border-ink-200 bg-white shadow-card transition focus-within:border-brand-500 ${linkable ? "hover:border-brand-400 hover:shadow-md" : ""}`}>
     {linkable ? <Link href={href} aria-label={`View details of ${name}`} className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
       {thumb}
       <h3 className="mx-3 mt-3 line-clamp-2 min-h-10 text-sm font-bold leading-5 text-ink-900 group-hover:text-brand-700 sm:mx-3.5">{name}</h3>
@@ -52,7 +53,11 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
           {supplierHref && linkable ? <Link href={supplierHref} title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-brand-700 hover:underline">{supplierName}</Link>
             : <span title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-ink-800">{supplierName}</span>}
         </p>
-        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5"><VerificationPips levels={test ? [] : verificationSteps} compact /><VerificationTierBadge levels={test ? [] : verificationSteps} /></div>
+        <div className="group relative mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
+          <VerificationPips levels={test ? [] : verificationSteps} compact />
+          <VerificationTierBadge levels={test ? [] : verificationSteps} />
+          <ProductVerificationTooltip levels={test ? [] : verificationSteps} />
+        </div>
       </div>
       <div className="mt-auto pt-3">{quote
         ? <Link href={quote} aria-label={`Request a quote for ${name}`} className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-2.5 py-2 text-center text-xs font-bold text-white transition hover:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
