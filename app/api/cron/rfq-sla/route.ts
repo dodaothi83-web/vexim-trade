@@ -54,6 +54,8 @@ export async function GET(req: Request) {
 
   for (const rfq of rfqs) {
     if (closed.has(rfq.status)) continue;
+    // Direct supplier questions have moderation/delivery support, not quote SLA alerts.
+    if (rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question") continue;
     const buyer = buyerMap.get(rfq.buyer_id);
     if (!buyer) continue;
     const ageHours = (now - new Date(rfq.created_at).getTime()) / 3_600_000;

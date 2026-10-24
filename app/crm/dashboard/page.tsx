@@ -68,6 +68,10 @@ export default async function DashboardPage() {
   const snapshot = buildMarketplaceSnapshot({ suppliers, products, categories, media, verifications,
     requests: requests ?? [], rfqs });
   const supplierNames = new Map(suppliers.map((s) => [s.id, s.name]));
+  const isSupplierQuestion = (rfq: (typeof snapshot.newRfqs)[number]) =>
+    rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question";
+  const newSupplierQuestions = snapshot.newRfqs.filter(isSupplierQuestion);
+  const newQuoteRfqs = snapshot.newRfqs.filter((rfq) => !isSupplierQuestion(rfq));
 
   const queue: Array<{ id: string; label: string; detail: string; href: string; when: string; tone: string }> = [];
   if (canSeeAccounts) for (const u of accountsWithoutProfile) queue.push({
@@ -93,9 +97,14 @@ export default async function DashboardPage() {
     detail: `${r.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"} · yêu cầu liên hệ, chưa phải phê duyệt`,
     href: "/crm/verifications", when: r.requested_at, tone: "bg-ink-500",
   });
-  if (canRfqs) for (const r of snapshot.newRfqs) queue.push({
+  if (canRfqs) for (const r of newQuoteRfqs) queue.push({
     id: `rfq:${r.id}`, label: r.code || "RFQ mới", detail: "Buyer gửi yêu cầu · cần tiếp nhận",
     href: "/crm/rfqs", when: r.created_at, tone: "bg-brand-500",
+  });
+  if (canRfqs) for (const r of newSupplierQuestions) queue.push({
+    id: `rfq:${r.id}`, label: r.code || "Câu hỏi mới",
+    detail: r.status === "needs_review" ? "Câu hỏi NCC · cần kiểm duyệt" : "Câu hỏi NCC · cần hỗ trợ giao email",
+    href: "/crm/rfqs?status=question", when: r.created_at, tone: "bg-teal-500",
   });
   queue.sort((a, b) => b.when.localeCompare(a.when));
   const reviewCount = canViewReviews ? snapshot.submittedReviews.length : 0;
@@ -170,7 +179,7 @@ export default async function DashboardPage() {
           </Card>
           {canRfqs && <Card className="p-5">
             <div className="flex items-center gap-2"><FileQuestion className="h-4 w-4 text-brand-700" /><h2 className="text-base font-bold text-ink-900">Nhu cầu từ buyer</h2></div>
-            <p className="mt-2 text-sm text-ink-600">{snapshot.newRfqs.length} RFQ mới hoặc cần rà soát. Đây là yêu cầu báo giá, không phải đơn hàng hay doanh thu.</p>
+            <p className="mt-2 text-sm text-ink-600">{newQuoteRfqs.length} RFQ mới hoặc cần rà soát; {newSupplierQuestions.length} câu hỏi NCC cần kiểm duyệt hoặc hỗ trợ giao. Đây không phải đơn hàng hay doanh thu.</p>
             <Link href="/crm/rfqs" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-700 hover:underline">Mở hộp thư RFQ <ArrowRight className="h-4 w-4" /></Link>
           </Card>}
         </div>

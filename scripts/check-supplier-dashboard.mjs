@@ -44,6 +44,11 @@ assert.equal(base.report.sent, 1, 'Period based on sent timestamp, not buyer cre
 assert.equal(base.report.quoted, 0);
 assert.equal(base.report.responded, 0);
 assert.equal(base.unreadCount, 2);
+const directQuestion = { ...make('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 's-a', 'sent_to_supplier', '2026-10-17T09:30:00Z'),
+  rfq: { ...match.rfq, source_page: '/rfq?intent=question' } };
+const withDirectQuestion = dashboard.buildSupplierDashboard({ ...input, invites: [...input.invites, directQuestion] });
+assert.equal(withDirectQuestion.invites.length, 2, 'Direct supplier questions are not quote invitations');
+assert.equal(withDirectQuestion.tasks.length, 1, 'Direct supplier questions do not become supplier quote tasks');
 const replied = dashboard.buildSupplierDashboard({ ...input, invites: [{ ...match, supplier_replied_at: '2026-10-17T10:00:00Z' }, foreign, unsent, legacy] });
 assert.equal(replied.tasks.length, 0, 'Verified supplier response clears the RFQ task');
 assert.equal(replied.report.responded, 1);
@@ -244,7 +249,11 @@ const submit = load('../lib/rfq/submit.ts', {
   '@/lib/db': { getStore: () => submitStore },
   '@/lib/public/catalog': { listPublicSuppliers: async () => [{ id: 's-a' }, { id: 's-b' }] },
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [{ id: 'p-a', name: 'Cashew W320', supplierId: 's-a' }] },
+  '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => null, sendRfqNewInternal: async () => null },
+  './auto-match': { createPreferredSupplierMatches: async () => [] },
+  './supplier-question': { deliverSupplierQuestion: async () => ({ delivered: false }),
+    sendSupplierQuestionAckBuyer: async () => null, sendSupplierQuestionExceptionInternal: async () => null },
   '.': { emailDomain: () => 'example.com', fingerprint: () => 'test', generateAccessToken: () => 'private', generateRfqCode: () => 'RFQ-CODE',
     hasMxRecord: async () => ({ ok: true }), isLikelyWebmail: () => false, normalizeCompanyWebsite: () => null,
     scoreSpam: () => ({ score: 0, flags: [] }) },

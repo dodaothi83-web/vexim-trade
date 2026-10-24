@@ -22,6 +22,10 @@ export async function addMatchAction(fd: FormData) {
   const supplierId = String(fd.get("supplier_id"));
   if (!rfqId || !supplierId) return;
   const store = getStore();
+  const rfq = await store.getRfq(rfqId);
+  if (rfq?.source_page === "/rfq?intent=question" || rfq?.specs?.inquiry_kind === "supplier_question") {
+    throw new Error("Chỉ liên hệ NCC buyer đã chọn cho câu hỏi này. Tạo RFQ mới sau khi buyer đồng ý nếu cần thêm NCC khác.");
+  }
   const existing = await store.listRfqMatches(rfqId);
   if (existing.some((m) => m.supplier_id === supplierId)) {
     revalidatePath(`/crm/rfqs/${rfqId}`);

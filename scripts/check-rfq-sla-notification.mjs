@@ -17,6 +17,8 @@ function load(file, mocks, env = {}) {
 const rfq = { id: 'rfq-1', code: 'RFQ-001', buyer_id: 'buyer-1', status: 'new', assigned_to: null,
   first_response_at: null, specs: {}, product_text: 'Cashew', created_at: new Date(Date.now() - 22 * 3600_000).toISOString() };
 const buyer = { id: 'buyer-1', company: 'Buyer Co', email: 'buyer@example.com' };
+const directQuestion = { ...rfq, id: 'rfq-q-1', code: 'RFQ-Q-001', status: 'matching',
+  source_page: '/rfq?intent=question', specs: { inquiry_kind: 'supplier_question', contact_share_consent: true } };
 let status = 'simulated';
 const mail = [];
 const { sendSlaAlert } = load('../lib/email/rfq.ts', {
@@ -34,7 +36,7 @@ status = 'sent';
 await sendSlaAlert({ kind: 'unassigned_4h', rfq, buyer });
 const updates = [];
 const store = {
-  listRfqs: async () => [rfq], listBuyers: async () => [buyer], listUsers: async () => [],
+  listRfqs: async () => [rfq, directQuestion], listBuyers: async () => [buyer], listUsers: async () => [],
   updateRfq: async (_id, patch) => { updates.push(patch); Object.assign(rfq, patch); return rfq; },
 };
 const { GET } = load('../app/api/cron/rfq-sla/route.ts', {
@@ -62,4 +64,6 @@ assert.equal(updates.length, 2);
 assert.ok(rfq.specs.sla_unassigned_alerted_at && rfq.specs.sla_due_alerted_at);
 await GET(request);
 assert.equal(updates.length, 2, 'Flags prevent duplicate alerts after confirmed acceptance');
-console.log('✅ RFQ SLA alerts: failed/simulated sends remain retryable and cron reports failure.');
+assert.equal(directQuestion.specs.sla_unassigned_alerted_at, undefined, 'Direct questions do not receive quote assignment alerts');
+assert.equal(directQuestion.specs.sla_due_alerted_at, undefined, 'Direct questions do not receive quote response alerts');
+console.log('✅ RFQ SLA alerts: failed/simulated sends remain retryable; direct questions stay outside quote SLA.');

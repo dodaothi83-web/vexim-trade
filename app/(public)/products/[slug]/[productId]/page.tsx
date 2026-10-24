@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin, MessageCircle } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
 import { ProductVerificationIcons } from "@/components/product-verification-icons";
@@ -88,6 +88,7 @@ export default async function PublicProductDetail({ params }: Props) {
   const thumbnails = shareableProductImages(media, p.id, p.featured_media_id, 24, true);
   const video = shareableProductVideo(media, p.id);
   const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}`;
+  const questionRfq = `${rfq}&intent=question`;
   const approvedAttributes = publicProductAttributes(category, p.specs);
   const configuredKeys = new Set(fieldsFor(category).map((f) => f.key));
   // Thông số NCC tự thêm chưa được Vexim duyệt thành trường của danh mục: không tự lên trang buyer.
@@ -193,7 +194,7 @@ export default async function PublicProductDetail({ params }: Props) {
               {card.verificationSteps.includes(3) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#delivery-history`} className="text-brand-700 underline">Delivery review scope</Link>}
             </div>}
             <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand-800 hover:underline">View supplier profile <ArrowRight className="h-4 w-4" /></Link>
-            <p className="mt-3 text-xs leading-5 text-ink-500">Enquiries are coordinated through Vexim. Supplier contact details are not shown.</p>
+            <p className="mt-3 text-xs leading-5 text-ink-500">Quotes are coordinated through Vexim. Supplier contact details are not shown.</p>
             <Link href={`/khieu-nai?product=${encodeURIComponent(card.id)}`} className="mt-3 inline-block text-xs font-semibold text-brand-700 underline">Report this listing</Link>
           </div>
         </aside>
@@ -223,7 +224,10 @@ export default async function PublicProductDetail({ params }: Props) {
           </dl>
         </div>
         <p className="mt-2 text-xs leading-5 text-ink-500">Product details and reference prices are supplier-provided and reviewed for listing. Confirm current specifications, availability and final terms in your RFQ.</p>
-        <Link href={rfq} className="btn btn-primary mt-5 min-h-12 w-full justify-center text-base font-bold shadow-lg shadow-brand-900/20">Request a quote <ArrowRight className="h-5 w-5" /></Link>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <Link href={rfq} className="btn btn-primary min-h-12 w-full justify-center px-2 text-sm font-bold shadow-lg shadow-brand-900/20 sm:px-4 sm:text-base">Request a quote <ArrowRight className="hidden h-5 w-5 sm:block" /></Link>
+          <Link href={questionRfq} aria-label={`Ask supplier about ${card.name}`} className="btn btn-soft min-h-12 w-full justify-center px-2 text-sm font-bold sm:px-4 sm:text-base"><MessageCircle className="h-5 w-5 shrink-0" />Ask supplier</Link>
+        </div>
         <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>
       </div>
     </div>

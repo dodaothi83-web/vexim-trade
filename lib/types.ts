@@ -823,7 +823,7 @@ export type SupplierRfqInvitation = Pick<RfqMatch,
   "id" | "rfq_id" | "supplier_id" | "status" | "sent_to_supplier_at" | "response_due_at" | "supplier_replied_at" |
   "quote_price" | "quote_currency" | "quote_unit" | "created_at" | "updated_at"> & {
   rfq: Pick<Rfq, "code" | "product_text" | "quantity" | "unit" | "destination_country" |
-    "incoterm" | "needed_by" | "source_product_id">;
+    "incoterm" | "needed_by" | "source_product_id" | "source_page">;
 };
 
 export interface SupplierNoticeRead {

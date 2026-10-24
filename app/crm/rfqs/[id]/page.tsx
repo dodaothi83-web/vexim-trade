@@ -156,6 +156,7 @@ export default async function RfqDetailPage({
 
 
   const statusLink = `${SITE_URL}/rfq/status/${rfq.access_token}`;
+  const isSupplierQuestion = rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question";
   const currentStatus = STATUS_FLOW.find((s) => s.value === rfq.status) ?? STATUS_FLOW[0];
 
   return (
@@ -173,8 +174,9 @@ export default async function RfqDetailPage({
           <span className="font-mono">{rfq.code}</span>
           <Badge className="inline-flex items-center gap-1">
             <span className={"h-2 w-2 rounded-full " + currentStatus.dot} />
-            {currentStatus.label}
+            {isSupplierQuestion && rfq.status === "matching" ? "Đã gửi câu hỏi" : currentStatus.label}
           </Badge>
+          {isSupplierQuestion && <Badge color="#0f766e">Câu hỏi trực tiếp cho NCC</Badge>}
           {rfq.status === "spam" && (
             <Badge color="#b91c1c" className="inline-flex items-center gap-1">
               <ShieldAlert className="h-3.5 w-3.5" /> spam score {rfq.spam_score}
@@ -227,7 +229,7 @@ export default async function RfqDetailPage({
               <Field icon={<CalendarClock className="h-4 w-4" />} label="Nhận lúc">{fmtDate(rfq.created_at)}</Field>
               {String((rfq.specs as Record<string, unknown>)?.notes ?? "") && (
                 <div className="sm:col-span-2">
-                  <dt className="text-[11px] uppercase tracking-wider text-ink-400">Ghi chú từ buyer</dt>
+                  <dt className="text-[11px] uppercase tracking-wider text-ink-400">{isSupplierQuestion ? "Câu hỏi từ buyer" : "Ghi chú từ buyer"}</dt>
                   <dd className="mt-1 whitespace-pre-line rounded-md bg-ink-50 p-3 text-[13px] text-ink-700">
                     {String((rfq.specs as Record<string, unknown>)?.notes)}
                   </dd>
@@ -277,11 +279,19 @@ export default async function RfqDetailPage({
               <div className="mt-3 rounded-md border border-brand-200 bg-brand-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-ink-700">
                 <strong className="text-brand-900">Buyer chỉ định nhà cung cấp:</strong>{" "}
                 {preferredSupplierIds.map((pid) => supplierMap.get(pid)?.display_name ?? supplierMap.get(pid)?.trade_name ?? supplierMap.get(pid)?.name ?? pid).join(", ")}.
-                RFQ này được gửi từ trang sản phẩm hoặc trang nhà cung cấp, nên hãy ưu tiên gửi yêu cầu báo giá cho các nhà cung cấp này trước khi tìm thêm đơn vị khác.
+                {isSupplierQuestion
+                  ? "Buyer chỉ đồng ý chia sẻ câu hỏi và liên hệ với NCC này. Không thêm NCC khác nếu chưa có đồng ý mới."
+                  : "RFQ này được gửi từ trang sản phẩm hoặc trang nhà cung cấp, nên hãy ưu tiên gửi yêu cầu báo giá cho các nhà cung cấp này trước khi tìm thêm đơn vị khác."}
               </div>
             )}
 
-{canManageRfq && (
+{isSupplierQuestion && (
+              <p className="mt-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-sky-900">
+                Câu hỏi này dùng email để NCC phản hồi trực tiếp cho buyer. Vexim giữ bản ghi để kiểm duyệt và hỗ trợ khi giao email gặp lỗi; không dùng các nút báo giá cho bản ghi câu hỏi này.
+              </p>
+            )}
+
+{canManageRfq && !isSupplierQuestion && (
             <form action={addMatchAction} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="rfq_id" value={rfq.id} />
               <label className="flex flex-col text-[12px] text-ink-600">
@@ -300,7 +310,7 @@ export default async function RfqDetailPage({
             </form>
             )}
 
-{canManageRfq && (
+{canManageRfq && !isSupplierQuestion && (
             <form action={sendRfqToSuppliersAction} className="mt-4 rounded-md border border-ink-200 bg-ink-50/50 p-3">
               <input type="hidden" name="rfq_id" value={rfq.id} />
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -512,7 +522,7 @@ export default async function RfqDetailPage({
             )}
 
 
-{canManageRfq && matches.some((m) => m.status === "quoted") && (
+{canManageRfq && !isSupplierQuestion && matches.some((m) => m.status === "quoted") && (
               <form action={presentShortlistAction} className="mt-4 flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
                 <input type="hidden" name="rfq_id" value={rfq.id} />
                 <p className="text-[12.5px] text-emerald-800">

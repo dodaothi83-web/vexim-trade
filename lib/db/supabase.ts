@@ -1275,7 +1275,7 @@ export const supabaseStore: DataStore = {
     // Page deliberately: PostgREST defaults to 1,000 rows, which would silently undercount reports.
     for (let offset = 0; ; offset += 500) {
       const { data, error } = await must().from("rfq_matches")
-        .select("id,rfq_id,supplier_id,status,sent_to_supplier_at,response_due_at,supplier_replied_at,quote_price,quote_currency,quote_unit,created_at,updated_at,rfq:rfqs!inner(code,product_text,quantity,unit,destination_country,incoterm,needed_by,source_product_id)")
+        .select("id,rfq_id,supplier_id,status,sent_to_supplier_at,response_due_at,supplier_replied_at,quote_price,quote_currency,quote_unit,created_at,updated_at,rfq:rfqs!inner(code,product_text,quantity,unit,destination_country,incoterm,needed_by,source_product_id,source_page)")
         .eq("supplier_id", supplierId).not("sent_to_supplier_at", "is", null).neq("status", "proposed")
         .order("sent_to_supplier_at", { ascending: false }).range(offset, offset + 499);
       if (error) fail("listSupplierRfqInvitations", error);

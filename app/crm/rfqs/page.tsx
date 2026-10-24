@@ -21,6 +21,7 @@ export const dynamic = "force-dynamic";
 
 const STATUS_TABS: { key: string; label: string; dotClass?: string }[] = [
   { key: "all", label: "Tất cả" },
+  { key: "question", label: "Câu hỏi NCC", dotClass: "bg-teal-500" },
   { key: "new", label: "Mới", dotClass: "bg-slate-400" },
   { key: "needs_review", label: "Cần duyệt", dotClass: "bg-rose-500" },
   { key: "in_progress", label: "Đang xử lý", dotClass: "bg-sky-500" },
@@ -32,7 +33,20 @@ const STATUS_TABS: { key: string; label: string; dotClass?: string }[] = [
   { key: "spam", label: "Cách ly", dotClass: "bg-red-500" },
 ];
 
-function statusMeta(s: string) {
+function isSupplierQuestion(rfq: Rfq) {
+  return rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question";
+}
+
+function matchesStatusTab(rfq: Rfq, tab: string) {
+  if (tab === "all") return true;
+  if (tab === "question") return isSupplierQuestion(rfq);
+  return !isSupplierQuestion(rfq) && rfq.status === tab;
+}
+
+function statusMeta(s: string, question = false) {
+  if (question && s === "matching") return { key: s, label: "Đã gửi câu hỏi", dotClass: "bg-emerald-500" };
+  if (question && s === "new") return { key: s, label: "Chờ giao câu hỏi", dotClass: "bg-amber-500" };
+  if (question && s === "needs_review") return { key: s, label: "Cần duyệt câu hỏi", dotClass: "bg-rose-500" };
   return (
     STATUS_TABS.find((t) => t.key === s) ?? {
       key: s,
@@ -53,6 +67,12 @@ function slaInfo(rfq: Rfq): { label: string; tone: string } {
   const now = Date.now();
   const ageHours = (now - created) / 3_600_000;
   if (rfq.status === "spam") return { label: "cách ly spam", tone: "text-red-700" };
+  if (isSupplierQuestion(rfq)) {
+    if (rfq.status === "needs_review") return { label: "chờ duyệt câu hỏi", tone: "text-rose-700" };
+    if (rfq.status === "matching") return { label: "đã gửi trực tiếp", tone: "text-emerald-700" };
+    if (rfq.status === "new" || rfq.status === "in_progress") return { label: "chờ hỗ trợ giao", tone: "text-amber-700" };
+    return { label: "câu hỏi trực tiếp", tone: "text-ink-500" };
+  }
   if (rfq.status === "needs_review") {
     if (!rfq.assigned_to && ageHours >= SLA_ASSIGN_HOURS) return { label: "review overdue", tone: "text-red-700" };
     return { label: "chờ duyệt", tone: "text-rose-700" };
@@ -83,8 +103,7 @@ export default async function RfqsPage({
   const buyerMap = new Map(buyers.map((b) => [b.id, b]));
   const userMap = new Map(users.map((u) => [u.id, u]));
 
-  const filtered =
-    statusFilter === "all" ? rfqs : rfqs.filter((r) => r.status === statusFilter);
+  const filtered = rfqs.filter((r) => matchesStatusTab(r, statusFilter));
 
 
 
@@ -96,12 +115,12 @@ export default async function RfqsPage({
       ]} />
       <PageHeader
         title="Hộp thư RFQ công khai"
-        sub="Yêu cầu báo giá từ form công khai. Phân công trong 4h, phản hồi buyer trong 24h (giờ làm việc Hanoi)."
+        sub="Yêu cầu báo giá: phân công trong 4h, phản hồi buyer trong 24h (giờ làm việc Hanoi). Câu hỏi trực tiếp có tab riêng và không tính SLA báo giá."
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-1 border-b border-ink-200">
         {STATUS_TABS.map((t) => {
-          const n = t.key === "all" ? rfqs.length : rfqs.filter((r) => r.status === t.key).length;
+          const n = rfqs.filter((r) => matchesStatusTab(r, t.key)).length;
           const active = statusFilter === t.key;
           return (
             <Link
@@ -146,7 +165,7 @@ export default async function RfqsPage({
             <tbody className="divide-y divide-ink-100">
               {filtered.map((r) => {
                 const buyer = buyerMap.get(r.buyer_id);
-                const meta = statusMeta(r.status);
+                const meta = statusMeta(r.status, isSupplierQuestion(r));
                 const sl = slaInfo(r);
                 const assigned = r.assigned_to ? userMap.get(r.assigned_to) : null;
                 const slaIcons: Record<string, React.ReactNode> = {

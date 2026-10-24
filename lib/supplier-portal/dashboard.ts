@@ -49,7 +49,8 @@ type NoticeInput = {
 
 /** RFQ thực sự đã chuyển cho NCC này: bỏ bản nháp, bản đề xuất và bản của NCC khác. */
 function relevantInvites(supplierId: string, invites: SupplierRfqInvitation[]) {
-  return invites.filter((m) => m.supplier_id === supplierId && !!m.sent_to_supplier_at && m.status !== "proposed" && !!m.rfq);
+  return invites.filter((m) => m.supplier_id === supplierId && !!m.sent_to_supplier_at && m.status !== "proposed" && !!m.rfq &&
+    m.rfq.source_page !== "/rfq?intent=question");
 }
 
 /** Không lộ bản ghi buyer, mã truy cập, ghi chú nội bộ hay nội dung buyer tự nhập. */
