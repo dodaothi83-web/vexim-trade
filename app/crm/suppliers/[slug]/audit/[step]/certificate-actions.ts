@@ -11,6 +11,15 @@ import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const result = (ok: boolean, message: string) => ({ ok, message });
 
+/** Revalidation runs after the certificate write; it must never fail the action. */
+async function softRefresh(work: () => void): Promise<void> {
+  try {
+    work();
+  } catch (error) {
+    console.error("[certificate] revalidate failed after the certificate was saved", error);
+  }
+}
+
 function refresh(supplierId: string, slug?: string | null) {
   revalidatePath(`/crm/suppliers/${supplierId}`);
   revalidatePath(`/crm/suppliers/${supplierId}/audit/documents`);
@@ -18,7 +27,22 @@ function refresh(supplierId: string, slug?: string | null) {
   if (slug) revalidatePath(`/suppliers/${slug}`);
 }
 
+/** A thrown server action is HTTP 500 in production; certificates only ever return a soft result. */
+function briefReason(error: unknown): string {
+  const text = (error instanceof Error ? error.message : String(error ?? "")).replace(/\s+/g, " ").trim();
+  return text.slice(0, 180) || "không rõ nguyên nhân";
+}
+
 export async function rescanCertificateAction(supplierId: string, certificateId: string) {
+  try {
+    return await rescanCertificate(supplierId, certificateId);
+  } catch (error) {
+    console.error("[certificate] rescan action failed", error);
+    return result(false, `Chưa quét lại được chứng nhận (${briefReason(error)}). Dữ liệu chứng nhận giữ nguyên.`);
+  }
+}
+
+async function rescanCertificate(supplierId: string, certificateId: string) {
   if ((await guard("verifications.inspect")) !== null) {
     return result(false, "Bạn không có quyền quét lại chứng nhận L1.");
   }
@@ -54,7 +78,7 @@ export async function rescanCertificateAction(supplierId: string, certificateId:
     actor: { id: session.uid, email: session.email },
   });
 
-  refresh(supplier.id, supplier.slug);
+  await softRefresh(() => refresh(supplier.id, supplier.slug));
   const badge = holderMatchBadgeLabel(certificate.holder_match, certificate.holder_name);
   return result(
     true,
@@ -65,6 +89,19 @@ export async function rescanCertificateAction(supplierId: string, certificateId:
 }
 
 export async function toggleCertificateHiddenAction(
+  supplierId: string,
+  certificateId: string,
+  hide: boolean,
+) {
+  try {
+    return await toggleCertificateHidden(supplierId, certificateId, hide);
+  } catch (error) {
+    console.error("[certificate] hide/unhide action failed", error);
+    return result(false, `Chưa đổi được trạng thái hiển thị (${briefReason(error)}). Chứng nhận giữ nguyên như trước.`);
+  }
+}
+
+async function toggleCertificateHidden(
   supplierId: string,
   certificateId: string,
   hide: boolean,
@@ -122,7 +159,7 @@ export async function toggleCertificateHiddenAction(
     }).catch(() => "failed");
   }
 
-  refresh(supplier.id, supplier.slug);
+  await softRefresh(() => refresh(supplier.id, supplier.slug));
   return result(
     true,
     nextHidden
