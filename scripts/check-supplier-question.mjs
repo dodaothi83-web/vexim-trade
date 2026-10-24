@@ -112,6 +112,8 @@ let genericAcks = 0;
 let genericInternal = 0;
 let directResult = { delivered: true };
 let spamScore = 0;
+let distributedResult = { status: 'ok' };
+let distributedCalls = 0;
 const category = { id: 'cat-1', slug: 'cashew', status: 'published', is_published: true };
 const submitStore = {
   listBuyers: async () => [],
@@ -130,8 +132,9 @@ const submit = load('../lib/rfq/submit.ts', {
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => { genericAcks++; }, sendRfqNewInternal: async () => { genericInternal++; } },
   '.': { emailDomain: () => 'example.com', fingerprint: () => 'test', generateAccessToken: () => 'private-token', generateRfqCode: () => 'RFQ-Q-1',
     hasMxRecord: async () => ({ ok: true }), isLikelyWebmail: () => false, normalizeCompanyWebsite: () => null,
-    scoreSpam: () => ({ score: spamScore, flags: [] }) },
+    scoreSpam: (input) => ({ score: spamScore + (input.turnstileOk ? 0 : 60), flags: input.turnstileOk ? [] : ['turnstile_missing'] }) },
   './auto-match': { createPreferredSupplierMatches: async () => { autoMatches++; return []; } },
+  './supplier-question-rate-limit': { checkSupplierQuestionRateLimit: async () => { distributedCalls++; return distributedResult; } },
   './supplier-question': {
     deliverSupplierQuestion: async () => { directCalls++; return directResult; },
     sendSupplierQuestionAckBuyer: async ({ delivered: wasDelivered }) => { questionAcks.push(wasDelivered); },
@@ -165,6 +168,7 @@ const quote = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', sh
 assert.equal(quote.ok, true);
 assert.equal(quote.supplierDelivered, undefined);
 assert.equal(directCalls, 1, 'Quote mode never uses direct question delivery');
+assert.equal(distributedCalls, 1, 'Quote mode never calls the supplier-question distributed limiter');
 assert.equal(genericAcks, 1, 'Quote acknowledgement is unchanged');
 assert.equal(genericInternal, 1, 'Quote desk notification is unchanged');
 assert.equal(questionAcks.length, 1);
@@ -188,6 +192,54 @@ assert.equal(exceptionReasons.length, 2);
 const denied = await submit.submitRfq({ ...rawQuestion, share_contact_consent: false });
 assert.equal(denied.ok, false);
 assert.match(denied.message, /approve sharing/i);
+assert.equal(directCalls, 2);
+
+spamScore = 0;
+directResult = { delivered: true };
+distributedResult = { status: 'degraded', reason: 'not_configured' };
+const notConfigured = await submit.submitRfq(rawQuestion);
+assert.equal(notConfigured.status, 'needs_review');
+assert.ok(createdRfqs.at(-1).spam_flags.includes('rate_limit_not_configured'));
+assert.equal(directCalls, 2, 'Missing production Redis configuration never opens direct delivery');
+assert.equal(exceptionReasons.at(-1), 'not_configured');
+
+distributedResult = { status: 'degraded', reason: 'unavailable' };
+const degraded = await submit.submitRfq(rawQuestion);
+assert.equal(degraded.status, 'needs_review');
+assert.equal(degraded.supplierDelivered, false);
+assert.ok(createdRfqs.at(-1).spam_flags.includes('rate_limit_unavailable'));
+assert.equal(directCalls, 2, 'Redis failure never opens direct delivery');
+assert.equal(exceptionReasons.at(-1), 'unavailable');
+
+distributedResult = { status: 'ok' };
+const previousNodeEnv = process.env.NODE_ENV;
+process.env.NODE_ENV = 'production';
+const missingTurnstile = await submit.submitRfq(rawQuestion);
+if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+else process.env.NODE_ENV = previousNodeEnv;
+assert.equal(missingTurnstile.status, 'needs_review');
+assert.ok(createdRfqs.at(-1).spam_flags.includes('turnstile_missing'));
+assert.equal(directCalls, 2, 'Missing production Turnstile configuration never opens direct delivery');
+assert.equal(exceptionReasons.at(-1), 'turnstile_missing');
+
+const beforeRejected = createdRfqs.length;
+distributedResult = { status: 'limited', resetAt: Date.now() + 60_000 };
+const limited = await submit.submitRfq(rawQuestion);
+assert.equal(limited.ok, false);
+assert.equal(limited.rateLimited, true);
+assert.equal(createdRfqs.length, beforeRejected, 'Rate-limited attempts do not fill the database');
+assert.equal(directCalls, 2);
+
+distributedResult = { status: 'ok' };
+for (const invalid of [
+  { email: 'buyer@example' },
+  { company: 'x'.repeat(201) },
+  { message: 'x'.repeat(4_001) },
+]) {
+  const rejected = await submit.submitRfq({ ...rawQuestion, ...invalid });
+  assert.equal(rejected.ok, false);
+  assert.equal(createdRfqs.length, beforeRejected, 'Invalid oversized payloads are rejected before persistence');
+}
 assert.equal(directCalls, 2);
 
 const productPage = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');

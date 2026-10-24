@@ -252,6 +252,7 @@ const submit = load('../lib/rfq/submit.ts', {
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => null, sendRfqNewInternal: async () => null },
   './auto-match': { createPreferredSupplierMatches: async () => [] },
+  './supplier-question-rate-limit': { checkSupplierQuestionRateLimit: async () => ({ status: 'ok' }) },
   './supplier-question': { deliverSupplierQuestion: async () => ({ delivered: false }),
     sendSupplierQuestionAckBuyer: async () => null, sendSupplierQuestionExceptionInternal: async () => null },
   '.': { emailDomain: () => 'example.com', fingerprint: () => 'test', generateAccessToken: () => 'private', generateRfqCode: () => 'RFQ-CODE',

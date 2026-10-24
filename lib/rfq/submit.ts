@@ -25,6 +25,7 @@ import {
 } from ".";
 import { createPreferredSupplierMatches } from "./auto-match";
 import { deliverSupplierQuestion, sendSupplierQuestionAckBuyer, sendSupplierQuestionExceptionInternal } from "./supplier-question";
+import { checkSupplierQuestionRateLimit } from "./supplier-question-rate-limit";
 import { gcRateLimit, rateLimit } from "./rate-limit";
 
 export interface SubmitRfqInput {
@@ -92,9 +93,38 @@ async function firstHeader(name: string): Promise<string | null> {
   return v ?? null;
 }
 
-async function verifyTurnstile(token: string | null | undefined): Promise<boolean> {
+const SUPPLIER_QUESTION_EMAIL = /^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i;
+
+/** Server-side limits for the public direct-delivery payload. Never trust client validation alone. */
+function supplierQuestionValidationError(raw: SubmitRfqInput): string | null {
+  const company = typeof raw.company === "string" ? raw.company.trim() : "";
+  const contactName = typeof raw.contact_name === "string" ? raw.contact_name.trim() : "";
+  const email = typeof raw.email === "string" ? raw.email.trim() : "";
+  const product = typeof raw.product_text === "string" ? raw.product_text.trim() : "";
+  const question = typeof raw.message === "string" ? raw.message.trim() : "";
+  if (!company || !contactName || !email) return "Please enter your company, name and work email.";
+  if (company.length > 200 || contactName.length > 120) return "Company or contact name is too long.";
+  if (email.length > 254 || !SUPPLIER_QUESTION_EMAIL.test(email)) return "Please enter a valid work email address.";
+  if (!product || product.length > 180) return "The product name is missing or too long. Please reopen the product page.";
+  if (question.length < 4 || question.length > 4_000) return "Your question must be between 4 and 4,000 characters.";
+  if (!Array.isArray(raw.preferred_supplier_ids) || raw.preferred_supplier_ids.length !== 1 ||
+      typeof raw.preferred_supplier_ids[0] !== "string" || !raw.preferred_supplier_ids[0].trim() || raw.preferred_supplier_ids[0].length > 100 ||
+      typeof raw.source_product_id !== "string" || !raw.source_product_id.trim() || raw.source_product_id.length > 100) {
+    return "Please open the question form from the product page so we can identify the product and supplier.";
+  }
+  if (!raw.consent || !raw.share_contact_consent) {
+    return "Please approve sharing your contact details with this supplier before sending your question.";
+  }
+  if ((raw.turnstile_token?.length ?? 0) > 4_096) return "The security check is invalid. Please refresh and try again.";
+  return null;
+}
+
+async function verifyTurnstile(token: string | null | undefined, requireConfigured: boolean): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret || secret === "x" || secret === "") return true; // chưa cấu hình => bỏ qua ở dev
+  if (!secret || secret === "x" || secret === "") {
+    // A production question without a configured challenge is reviewed, never sent directly.
+    return !(requireConfigured && process.env.NODE_ENV === "production");
+  }
   if (!token) return false;
   try {
     const ip = (await firstHeader("x-forwarded-for"))?.split(",")[0]?.trim() ?? "127.0.0.1";
@@ -125,13 +155,27 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   if (!rl.ok) {
     return {
       ok: false,
-      message: "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 giờ.",
+      message: isSupplierQuestion ? "Too many attempts. Please try again later." : "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 giờ.",
       rateLimited: true,
     };
   }
 
+  let questionSecurityReview: "not_configured" | "unavailable" | null = null;
+  if (isSupplierQuestion) {
+    const validationError = supplierQuestionValidationError(raw);
+    if (validationError) return { ok: false, message: validationError };
+    const distributedLimit = await checkSupplierQuestionRateLimit({
+      ipFingerprint: fingerprint(ip, "supplier-question"),
+      buyerSupplierFingerprint: fingerprint(raw.email.trim().toLowerCase(), raw.preferred_supplier_ids![0]),
+    });
+    if (distributedLimit.status === "limited") {
+      return { ok: false, message: "Too many question attempts. Please try again later.", rateLimited: true };
+    }
+    if (distributedLimit.status === "degraded") questionSecurityReview = distributedLimit.reason;
+  }
+
   // 2) Turnstile
-  const turnstileOk = await verifyTurnstile(raw.turnstile_token);
+  const turnstileOk = await verifyTurnstile(raw.turnstile_token, isSupplierQuestion);
 
   // 3) Spam score (3 ngưỡng):
   //    - < 40   : new        → ghi nhận ngay, ack buyer, báo desk (SLA 4h/24h áp dụng).
@@ -153,6 +197,10 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   let ackBuyer = true;
   if (spamScore >= 100) { rfqStatus = "spam"; ackBuyer = false; }
   else if (spamScore >= 40) { rfqStatus = "needs_review"; ackBuyer = true; }
+  if (questionSecurityReview) {
+    flags.push(`rate_limit_${questionSecurityReview}`);
+    if (rfqStatus === "new") rfqStatus = "needs_review";
+  }
 
   // 4) Từ chối webmail nếu cờ bật
   if (rejectWebmail() && isLikelyWebmail(raw.email)) {
@@ -182,16 +230,6 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   }
   if (!raw.company.trim() || !raw.contact_name.trim() || !raw.email.trim()) {
     return { ok: false, message: "Vui lòng điền đầy đủ tên công ty, người liên hệ và email." };
-  }
-
-  if (isSupplierQuestion && (raw.preferred_supplier_ids?.length !== 1 || !raw.source_product_id)) {
-    return { ok: false, message: "Please open the question form from the product page so we can identify the product and supplier." };
-  }
-  if (isSupplierQuestion && !raw.share_contact_consent) {
-    return { ok: false, message: "Please approve sharing your contact details with this supplier before sending your question." };
-  }
-  if (isSupplierQuestion && (raw.message?.trim().length ?? 0) < 4) {
-    return { ok: false, message: "Please enter your question for the supplier." };
   }
 
   // 6) Upsert buyer theo email
@@ -368,7 +406,8 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   // A clean, consented product question goes straight to its selected supplier.
   // Quotes keep the existing staff-mediated workflow below.
   let supplierDelivered = false;
-  let supplierDeliveryReason: string | null = null;
+  let supplierDeliveryReason: string | null = questionSecurityReview ??
+    (rfqStatus !== "new" ? flags.join(", ") || "manual_review" : null);
   if (isSupplierQuestion && rfqStatus === "new") {
     try {
       const delivery = await deliverSupplierQuestion({ rfq, buyer, supplierId: preferredIds[0], productUrl });
