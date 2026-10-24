@@ -37,7 +37,7 @@ export function verificationLabels(levels: readonly VerificationLevel[]): string
 
 /** Buyer-facing explanations describe independently approved SUPPLIER reviews, not product certification. */
 export const PRODUCT_VERIFICATION_EXPLANATIONS: Record<VerificationLevel, string> = {
-  1: "Vexim reviewed this supplier's business registration evidence. Tax and bank numbers are supplier-provided, not independently verified. This is not a product certification.",
-  2: "Vexim approved a visit review for a specific facility associated with this supplier. See the supplier profile for any separately released scope. This is not certification of this product or all facilities.",
-  3: "Vexim approved a review of this supplier's delivery evidence. See the supplier profile for any separately released scope. This does not establish all export history or guarantee future shipments.",
+  1: "Business registration evidence has been reviewed. Tax and bank details are supplier-provided and not independently verified. This is not a product certification.",
+  2: "A specific facility associated with this supplier has been reviewed. See the supplier profile for any separately released scope. This is not certification of this product or all facilities.",
+  3: "Delivery evidence has been reviewed for a specific scope. See the supplier profile for any separately released scope. This does not establish all export history or guarantee future shipments.",
 };

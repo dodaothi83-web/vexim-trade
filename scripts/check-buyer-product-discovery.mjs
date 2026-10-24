@@ -244,19 +244,19 @@ assert.match(compactCard, /line-clamp-2/);
 assert.match(compactCard, /flex h-full min-w-0 flex-col/);
 assert.match(compactCard, /href="\/suppliers\/company-a"/, 'Supplier has an independent profile link');
 assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can open product details');
-assert.match(compactCard, /aria-label="Vexim checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
+assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
 assert.match(compactCard, /Level 2 · Advanced/, 'Card tier counts the approved checks, not a claimed level');
 assert.equal((compactCard.match(/<details/g) ?? []).length, 0, 'Card stays compact; the exact checks open on the detail page');
 const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, fob: false, verificationSteps: [] }));
 assert.match(privatePrice, /Reference price<\/dt><dd[^>]*>On request/);
 assert.doesNotMatch(privatePrice, /FOB reference|USD 7\/kg/, 'No price or FOB claim without consent');
-assert.match(privatePrice, /No Vexim checks approved yet/, 'A supplier with no approved check shows the empty tier, not a badge');
+assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved check shows the empty tier, not a badge');
 const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
   ...cardProps, href: '/suppliers/company-a/products/a0', test: true,
 }));
 assert.match(testCard, /TEST · Not an offer|Test data · not a price/);
 assert.doesNotMatch(testCard, /USD 7\/kg|\/rfq/, 'A test card carries no price and no quote path');
-assert.match(testCard, /aria-label="No Vexim checks approved yet"/, 'A test card never claims a Vexim check');
+assert.match(testCard, /aria-label="No verification checks approved yet"/, 'A test card never claims a verification check');
 // Lưới thẻ trang chủ là một client component riêng; dựng nó ở đây để bản HTML
 // máy chủ vẫn được kiểm bằng thẻ thật, không phải bằng chuỗi giả.
 const { HomeProductFeed } = compile('../components/home-product-feed.tsx', {
@@ -307,7 +307,7 @@ assert.match(profilePage, /const href = synthetic[\s\S]*?`\/suppliers\/\$\{encod
 assert.match(detailPage, /View supplier profile/);
 assert.match(detailPage, /#factory-visit/);
 assert.match(detailPage, /#delivery-history/);
-assert.match(profilePage, /Supplier-stated markets \(not independently verified\)/);
+assert.match(profilePage, /Target markets are self-declared by the supplier and pending independent audit\./);
 // Changing the last buyer image to internal must revoke buyer-ready immediately.
 const actions = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 const mediaActionSource = actions.slice(actions.indexOf('export async function updateMediaAction('), actions.indexOf('export async function deleteMediaAction('));

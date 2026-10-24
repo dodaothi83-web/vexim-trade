@@ -123,12 +123,17 @@ const publicPage = read('app/(public)/suppliers/[slug]/page.tsx');
 assert.match(publicPage, /<SupplierStorefront/, 'Trang công khai dùng khung chung');
 assert.match(read('app/supplier/portal/storefront/page.tsx'), /<SupplierStorefront/, 'Trang của tôi dùng đúng khung đó');
 const shared = read('components/public/supplier-storefront.tsx');
-for (const section of ['About this supplier', 'Business details', 'What Vexim checked', 'Trade at a glance', 'Seller information', 'Supplier catalogue'])
+for (const section of ['About this supplier', 'Business details', 'Verification Status', 'Trade at a glance', 'Seller information', 'Supplier catalogue'])
   assert.ok(shared.includes(section), `Khung chung có mục ${section}`);
 for (const field of ['supplierSummaryDisplay', 'supplierProductsDisplay', 'supplierMarketsDisplay', 'supplierCapacityDisplay', 'supplierPaymentTermsDisplay'])
   assert.match(shared, new RegExp(`${field}\\(s\\)`), `Trang buyer hiển thị ${field}`);
 assert.match(shared, /See the main products above or ask Vexim about specifications and availability/,
   'Hồ sơ chưa có listing vẫn dẫn buyer tới thông tin mặt hàng chính');
+assert.match(shared, /Target markets are self-declared by the supplier and pending independent audit\./,
+  'Thị trường tự khai có trạng thái ngắn gọn, khách quan');
+assert.doesNotMatch(shared, /What Vexim checked|Supplier-stated markets \(not independently verified\)|Stated markets are not a Vexim-verified export history/,
+  'Không dùng tiêu đề hoặc câu phủ định cũ');
+assert.match(shared, /grid items-stretch gap-3 md:grid-cols-3/, 'Ba hạng mục xác minh có bố cục thẻ rõ ràng');
 assert.ok(!shared.includes('chưa hiện với buyer') && !/hidden from buyer/i.test(shared),
   'Không thêm danh sách “chưa hiện với buyer”');
 assert.doesNotMatch(shared, /supplier\.email|supplier\.phone|supplier\.zalo|tax_number|public_review_summaries\[1\]/,
