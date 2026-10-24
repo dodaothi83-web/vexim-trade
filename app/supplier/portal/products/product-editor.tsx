@@ -51,8 +51,9 @@ const BASE_FIELDS = [
   ["packaging", "Bao bì / đóng gói", "Ví dụ: túi hút chân không 25 kg", 300],
 ] as const;
 
+// Chứng nhận không khai ở đây: hồ sơ Giấy tờ L1 là nguồn duy nhất (AI quét đơn vị đứng tên
+// và ngày hết hạn), nên sản phẩm không có ô tự khai để tránh tạo cảm giác được xác minh.
 const EXPORT_FIELDS = [
-  ["certifications", "Chứng nhận sản phẩm (tự khai)", "Ví dụ: ISO 22000, HACCP", 300],
   ["export_port", "Cảng xuất", "Ví dụ: Cát Lái", 120],
   ["incoterm", "Incoterm", "Ví dụ: FOB", 20],
   ["incoterm_place", "Địa điểm Incoterm", "Ví dụ: Hồ Chí Minh", 100],
@@ -74,7 +75,6 @@ const REVIEW_COMMERCIAL = [
   ["price_valid_until", "Giá có hiệu lực tới"],
   ["lead_time_days", "Thời gian giao hàng (ngày)"],
   ["payment_terms", "Điều kiện thanh toán"],
-  ["certifications", "Chứng nhận sản phẩm (tự khai)"],
   ["export_port", "Cảng xuất"],
   ["incoterm", "Incoterm"],
   ["incoterm_place", "Địa điểm Incoterm"],
@@ -400,7 +400,6 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     { label: "Cảng xuất", value: product?.export_port || "—" },
     { label: "Incoterm", value: [product?.incoterm, product?.incoterm_place].filter(Boolean).join(" · ") || "—" },
     { label: "Thanh toán", value: product?.payment_terms || "—" },
-    { label: "Chứng nhận", value: product?.certifications || "—" },
   ];
 
   return <div className="mt-5 space-y-4">
@@ -489,8 +488,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
             {/* Không còn mũi tên gập: thương mại & xuất khẩu hiện ngay từ bước 1. */}
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead step="Bước 1" title="Thông tin thương mại & xuất khẩu"
-                hint="Điều kiện bán và giao hàng buyer cần thấy. Giá là tham khảo tự khai, không phải báo giá RFQ." />
+              <SectionHead step="Bước 1" title="Thông tin thương mại & xuất khẩu" />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2 xl:grid-cols-3">
                 <Field label="Giá tham khảo từ" hint="Để trống nếu chưa muốn công bố giá">
                   <input name="ref_price" type="number" min={0} max={999999999999} step="0.01" className="input" placeholder="Ví dụ: 5000" defaultValue={product?.ref_price ?? ""} disabled={locked} />
@@ -544,11 +542,10 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 <label className="inline-flex items-center gap-2"><input type="checkbox" name="odm" value="yes" defaultChecked={product?.odm ?? false} disabled={locked} className="size-4 accent-brand-700" /> Có dịch vụ thiết kế & sản xuất ODM</label>
                 <label className="inline-flex items-center gap-2"><input type="checkbox" name="samples" value="yes" defaultChecked={product?.samples ?? false} disabled={locked} className="size-4 accent-brand-700" /> Có thể gửi mẫu</label>
               </div>
-              <p className="mx-4 mb-4 text-[11.5px] leading-5 text-ink-600 sm:mx-5">Ô “Chứng nhận sản phẩm (tự khai)” không tạo nhãn xác minh. <Link href="/supplier/portal/documents" className="font-semibold text-brand-800 underline">Tải PDF/ảnh chứng nhận ở mục Giấy tờ L1 để AI tự quét đơn vị đứng tên &amp; ngày hết hạn</Link></p>
             </div>
 
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead step="Bước 1" title="Đặt hàng & năng lực" hint="Số liệu cung ứng giúp buyer và Vexim đánh giá năng lực thực tế." />
+              <SectionHead step="Bước 1" title="Đặt hàng & năng lực" />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-3">
                 {BASE_FIELDS.map(([key, label, placeholder, max]) => <Field key={key} label={label}>
                   <input className="input" name={key} maxLength={max} placeholder={placeholder} defaultValue={String(product?.[key] ?? "")} disabled={locked} />

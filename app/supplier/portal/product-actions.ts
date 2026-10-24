@@ -35,7 +35,9 @@ function parseProduct(form: FormData, supplierId: string): SupplierProductInput 
     moq_qty: null, moq_unit: null, monthly_capacity: text(form, "monthly_capacity", 180) || null,
     lead_time_days: daysRaw ? Number(daysRaw) : null, packaging: text(form, "packaging", 300) || null,
     oem: form.get("oem") === "yes", odm: form.get("odm") === "yes", samples: form.get("samples") === "yes",
-    certifications: text(form, "certifications", 300) || null, export_port: text(form, "export_port", 120) || null,
+    // Không còn ô chứng nhận tự khai ở trang sản phẩm: hồ sơ Giấy tờ L1 (AI quét đơn vị đứng tên
+    // và ngày hết hạn) là nguồn duy nhất. Giữ giá trị cũ nếu Vexim đã ghi trước đây.
+    certifications: null, export_port: text(form, "export_port", 120) || null,
     ref_price: priceRaw ? Number(priceRaw) : null, ref_price_max: priceMaxRaw ? Number(priceMaxRaw) : null,
     price_publicly_visible: form.get("price_publicly_visible") === "yes", currency: priceRaw ? (text(form, "currency", 10) || "USD") : null,
     price_valid_until: validUntil || null, incoterm: text(form, "incoterm", 20) || null,
@@ -62,6 +64,8 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     if (id && (!existing || existing.supplier_id !== access.supplier.id)) return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
     if (existing?.supplier_review_status === "pending") return { ok: false, message: "Sản phẩm đang chờ Vexim kiểm tra; chưa thể sửa." };
     const input = parseProduct(form, access.supplier.id);
+    // Sản phẩm đã có chứng nhận (Vexim nhập trước đây) không bị xoá trắng khi NCC lưu lại.
+    input.certifications = existing?.certifications ?? null;
     const allCategories = await store.listCategories({ publishedOnly: true });
     const options = categoryProposalOptions(allCategories);
     const linked = access.supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(access.supplier.id);

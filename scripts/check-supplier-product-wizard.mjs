@@ -98,9 +98,17 @@ assert.doesNotMatch(source, /<details/, 'Không còn khối gập <details> tron
 // 2. Thông tin thương mại & xuất khẩu HIỆN NGAY ở bước 1, không cần bấm mũi tên.
 assert.match(step1, /Thông tin thương mại &amp; xuất khẩu/, 'Tiêu đề khối thương mại & xuất khẩu hiện ngay');
 for (const field of ['ref_price', 'ref_price_max', 'currency', 'unit', 'price_valid_until', 'lead_time_days',
-  'payment_terms', 'export_port', 'incoterm', 'incoterm_place', 'certifications']) {
+  'payment_terms', 'export_port', 'incoterm', 'incoterm_place']) {
   assert.ok(step1.includes(`name="${field}"`), `Ô ${field} nằm ngay trong bước 1`);
 }
+// Chứng nhận chỉ đến từ hồ sơ Giấy tờ L1: không còn ô tự khai, không còn dòng nhắc về nó.
+assert.ok(!source.includes('name="certifications"'), 'Bỏ ô chứng nhận sản phẩm tự khai');
+assert.ok(!source.includes('Chứng nhận sản phẩm (tự khai)'), 'Bỏ nhãn chứng nhận tự khai');
+assert.ok(!source.includes('Giấy tờ L1 để AI tự quét'), 'Bỏ dòng nhắc tải chứng nhận ở L1');
+assert.ok(!source.includes('Điều kiện bán và giao hàng buyer cần thấy'), 'Bỏ mô tả dài ở khối thương mại');
+assert.ok(!source.includes('Số liệu cung ứng giúp buyer'), 'Bỏ mô tả dài ở khối đặt hàng & năng lực');
+assert.match(step1, /<h2 class="text-\[15px\] font-black text-ink-900">Thông tin thương mại &amp; xuất khẩu<\/h2>/, 'Khối thương mại chỉ còn tiêu đề');
+assert.match(step1, /<h2 class="text-\[15px\] font-black text-ink-900">Đặt hàng &amp; năng lực<\/h2>/, 'Khối đặt hàng chỉ còn tiêu đề');
 assert.ok(step1.indexOf('Thông tin thương mại &amp; xuất khẩu') > 0, 'Khối thương mại nằm trong bước 1 đang mở');
 assert.ok(step1.includes('Nhận gia công/OEM') && step1.includes('Có thể gửi mẫu'), 'Ba lựa chọn thương mại hiện ngay');
 
@@ -123,7 +131,7 @@ for (const label of ['Thông tin sản phẩm', 'Thông tin thương mại &amp;
   assert.ok(onStep3.includes(label), `Bước 3 đọc lại khối ${label}`);
 }
 for (const value of ['Hạt điều nhân W320', 'Hạt &amp; hạt nhân · Hạt điều', 'Hạt điều trắng', 'W320', '7.2', '200 tấn',
-  'Cát Lái', 'FOB', 'T/T 30%', 'HACCP', 'Carton 22.68kg', 'products/p1/a.jpg']) {
+  'Cát Lái', 'FOB', 'T/T 30%', 'Carton 22.68kg', 'products/p1/a.jpg']) {
   assert.ok(onStep3.includes(value), `Bước 3 hiển thị giá trị đã nhập: ${value}`);
 }
 assert.equal((onStep3.match(/Sửa<\/button>/g) ?? []).length, 4, 'Mỗi khối ở bước 3 có nút Sửa quay lại đúng bước');
