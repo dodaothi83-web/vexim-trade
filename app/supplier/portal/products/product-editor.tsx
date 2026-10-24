@@ -88,6 +88,11 @@ const REVIEW_ORDER = [
   ["packaging", "Bao bì / đóng gói"],
 ] as const;
 
+/** Sản phẩm mới được chọn sẵn; sản phẩm đã lưu giữ nguyên lựa chọn hiện có, kể cả bản ghi cũ thiếu cờ. */
+function priceOptInDefault(product?: SupplierProduct): boolean {
+  return product ? product.price_publicly_visible === true : true;
+}
+
 /** Giá trị khởi tạo của bản xem lại: lấy từ bản đã lưu, rồi cập nhật theo từng lần nhập. */
 function snapshotFrom(product?: SupplierProduct): Record<string, string> {
   const seed: Record<string, string> = {
@@ -103,7 +108,7 @@ function snapshotFrom(product?: SupplierProduct): Record<string, string> {
   seed.oem = product?.oem ? "yes" : "";
   seed.odm = product?.odm ? "yes" : "";
   seed.samples = product?.samples ? "yes" : "";
-  seed.price_publicly_visible = product?.price_publicly_visible ? "yes" : "";
+  seed.price_publicly_visible = priceOptInDefault(product) ? "yes" : "";
   return seed;
 }
 
@@ -567,9 +572,10 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
               <div className="mx-4 mb-4 rounded-lg border border-brand-200 bg-brand-50/50 p-3.5 text-[12.5px] text-ink-700 sm:mx-5">
                 <label className="flex items-start gap-2 font-semibold">
-                  <input type="checkbox" name="price_publicly_visible" value="yes" defaultChecked={product?.price_publicly_visible ?? false} disabled={locked} className="mt-0.5 size-4 accent-brand-700" />
+                  <input type="checkbox" name="price_publicly_visible" value="yes" defaultChecked={priceOptInDefault(product)} disabled={locked} className="mt-0.5 size-4 accent-brand-700" />
                   Cho phép công khai giá tham khảo của sản phẩm này khi đủ điều kiện
                 </label>
+                {!product && <p className="mt-1 pl-6 text-[11px] leading-4 text-ink-500">Được chọn sẵn. Bỏ chọn nếu chưa muốn chia sẻ giá.</p>}
                 {product && <div className="mt-2.5 rounded-md bg-white p-2.5 text-[11.5px] leading-5" role="status">
                   <strong>Tình trạng giá đã lưu:</strong> {productPriceBlockers(product, supplier).length === 0 ? "Sản phẩm và doanh nghiệp đã cho phép chia sẻ giá." : "Buyer vẫn thấy On request."}
                   <ul className="mt-1 list-disc pl-5">{productPriceBlockers(product, supplier).map((reason) => <li key={reason}>{reason}</li>)}
