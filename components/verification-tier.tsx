@@ -43,16 +43,21 @@ const SEAL_CLASSES: Record<VerificationTier, string> = {
 };
 
 /** Compact pill shown next to the supplier name, product card or list row. */
-export function VerificationTierBadge({ levels, className = "" }: {
+export function VerificationTierBadge({ levels, className = "", compactOnMobile = false }: {
   levels: readonly VerificationLevel[];
   className?: string;
+  /** Rút gọn “Level 1 · Basic” thành “Level 1” dưới breakpoint sm khi được chọn. */
+  compactOnMobile?: boolean;
 }) {
   const tier = verificationTier(levels);
   const Icon = tier === 0 ? HelpCircle : ShieldCheck;
   return (
     <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${BADGE_CLASSES[tier]} ${className}`}>
       <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      {VERIFICATION_TIER_LABELS[tier]}
+      {compactOnMobile && tier > 0 ? <>
+        <span className="sm:hidden">Level {tier}</span>
+        <span className="hidden sm:inline">{VERIFICATION_TIER_LABELS[tier]}</span>
+      </> : VERIFICATION_TIER_LABELS[tier]}
     </span>
   );
 }

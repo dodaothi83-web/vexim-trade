@@ -56,7 +56,7 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
         <div className="group relative mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
           <ProductVerificationTooltip levels={test ? [] : verificationSteps}>
             <VerificationPips levels={test ? [] : verificationSteps} compact />
-            <VerificationTierBadge levels={test ? [] : verificationSteps} />
+            <VerificationTierBadge levels={test ? [] : verificationSteps} compactOnMobile />
           </ProductVerificationTooltip>
         </div>
       </div>

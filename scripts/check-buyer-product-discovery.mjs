@@ -282,6 +282,15 @@ assert.match(compactCard, /mt-2.5 grid grid-cols-2/, 'MOQ and lead time share on
 assert.match(compactCard, /mt-auto pt-3/, 'The quote action keeps a compact top gap');
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
 assert.match(compactCard, /Level 2 · Advanced/, 'Card tier counts the approved checks, not a claimed level');
+for (const [level, suffix] of [[1, 'Basic'], [2, 'Advanced'], [3, 'Complete']]) {
+  const levels = Array.from({ length: level }, (_, index) => index + 1);
+  const badge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels, compactOnMobile: true }));
+  assert.match(badge, new RegExp(`sm:hidden">Level ${level}<`), `Mobile product cards shorten Level ${level}`);
+  assert.ok(badge.includes(`hidden sm:inline">Level ${level} · ${suffix}<`), `The full Level ${level} label returns from the sm breakpoint`);
+}
+const standardBadge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels: [1] }));
+assert.ok(standardBadge.includes('Level 1 · Basic') && !standardBadge.includes('sm:hidden'),
+  'Badges outside product cards keep the full label at every size');
 assert.doesNotMatch(compactCard, /Free Sample|ISO Certified|Ready to Ship/, 'Unsupported product claims never become badges');
 assert.equal((compactCard.match(/<details/g) ?? []).length, 1, 'Card keeps one compact disclosure for all three verification explanations');
 assert.match(compactCard, /aria-label="Explain supplier verification levels 1, 2 and 3"/, 'The tooltip trigger has an accessible name');
