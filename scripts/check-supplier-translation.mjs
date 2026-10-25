@@ -86,6 +86,67 @@ assert.equal(ai.supplierProfileTranslationState({ ...storySupplier, ...storyPatc
   'sửa phần giới thiệu gốc phải làm bản dịch giới thiệu thành đã cũ');
 assert.ok(ai.supplierSummarySourceHash('abc') !== ai.supplierSummarySourceHash('abcd'));
 
+// Chạy service với AI giả lập: kiểm tra ghi DB, bỏ qua khi hash còn mới và giữ bản nhân sự đã chốt.
+let configured = true;
+let providerCalls = 0;
+const translationService = load('../lib/ai/supplier-translation-service.ts', {
+  '@/lib/ai/translate-supplier': {
+    ...ai,
+    translateSupplierProfile: async ({ source, story }) => {
+      providerCalls += 1;
+      return {
+        model: 'mock-translator',
+        translation: ai.parseSupplierProfileTranslation(JSON.stringify({
+          moq_en: '1 MT', export_markets_en: ['United States'], province_en: 'Binh Phuoc',
+          address_en: '1 A Street', products_en: 'Cashew kernels', markets_en: 'Vietnam',
+          capacity_per_month_en: '10 MT/month', payment_terms_en: 'Deferred payment',
+          ports_en: ['Cat Lai'], incoterms_en: ['FOB'],
+          summary_en: story ? 'A faithful English introduction.' : '',
+        }), source),
+      };
+    },
+  },
+  '@/lib/ai/translate-content': { translationConfigured: () => configured },
+  '@/lib/db/types': {}, '@/lib/types': {},
+});
+let translatedRow = {
+  id: 'sup-translation', ...fullSource,
+  intro_source: 'Giới thiệu doanh nghiệp bằng tiếng Việt.', summary_i18n: {},
+};
+const translationStore = {
+  getSupplier: async () => translatedRow,
+  updateSupplier: async (_id, patch) => { translatedRow = { ...translatedRow, ...patch }; return translatedRow; },
+  addAuditLog: async () => {},
+};
+let ensured = await translationService.ensureSupplierProfileEnglish(translationStore, translatedRow.id, null);
+assert.equal(ensured.status, 'translated');
+assert.equal(translatedRow.summary_i18n.en, 'A faithful English introduction.');
+assert.equal(translatedRow.profile_translation_meta.fields.products, 'Cashew kernels');
+assert.equal(translatedRow.moq_text_i18n.en, '1 MT');
+const callsAfterTranslation = providerCalls;
+ensured = await translationService.ensureSupplierProfileEnglish(translationStore, translatedRow.id, null);
+assert.equal(ensured.status, 'current');
+assert.equal(providerCalls, callsAfterTranslation, 'A fresh source hash must avoid an unnecessary AI request');
+
+translatedRow.summary_i18n = { en: 'Staff-approved English introduction.' };
+translatedRow.profile_translation_meta = { ...translatedRow.profile_translation_meta, summary_source_hash: 'stale' };
+ensured = await translationService.ensureSupplierProfileEnglish(translationStore, translatedRow.id, null, { preserveSummary: true });
+assert.equal(translatedRow.summary_i18n.en, 'Staff-approved English introduction.');
+assert.equal(translatedRow.profile_translation_meta.summary_source_hash,
+  ai.supplierSummarySourceHash(translatedRow.intro_source), 'Preserve the staff decision for later supplier edits');
+translatedRow.products = 'Hạt điều hữu cơ';
+await translationService.ensureSupplierProfileEnglish(translationStore, translatedRow.id, null);
+assert.equal(translatedRow.summary_i18n.en, 'Staff-approved English introduction.',
+  'Translating another source field must not overwrite the curated introduction');
+
+configured = false;
+translatedRow.intro_source = 'Nội dung mới cần dịch.';
+const beforeUnconfigured = translatedRow.summary_i18n.en;
+ensured = await translationService.ensureSupplierProfileEnglish(translationStore, translatedRow.id, null);
+assert.equal(ensured.status, 'unconfigured');
+assert.equal(translatedRow.summary_i18n.en, beforeUnconfigured, 'Missing AI configuration must not erase saved content');
+configured = true;
+
 // Điểm gắn trong luồng thật.
 const route = fs.readFileSync(new URL('../app/api/supplier-portal/profile/route.ts', import.meta.url), 'utf8');
 assert.match(route, /ensureSupplierProfileEnglish\(store, supplier\.id/, 'nộp hồ sơ phải kích hoạt dịch tự động');

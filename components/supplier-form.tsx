@@ -248,10 +248,13 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
     };
     try {
       const res = supplier ? await updateSupplierAction(supplier.id, payload) : await createSupplierAction(payload);
-      toast.push({ kind: res.ok ? "success" : "error", title: res.message });
+      const translationWarning = res.translationStatus === "failed" || res.translationStatus === "unconfigured";
+      toast.push({ kind: !res.ok ? "error" : translationWarning ? "info" : "success", title: res.message });
       if (res.ok) {
-        setSaved(next);
-        setForm(next);
+        // Server trả hồ sơ sau cả bước dịch. Không để state trước lưu ghi đè bản AI ở lần lưu tiếp theo.
+        const persisted = supplier && res.supplier ? init(res.supplier) : next;
+        setSaved(persisted);
+        setForm(persisted);
         if (supplier) router.refresh();
         else if (res.id) router.push(`/crm/suppliers/${res.id}`);
       }
