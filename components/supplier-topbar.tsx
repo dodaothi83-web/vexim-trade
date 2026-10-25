@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, BellRing, CheckCheck, ChevronRight } from "lucide-react";
+import { Bell, BellRing, CheckCheck } from "lucide-react";
 
-import { markSupplierNoticeReadAction } from "@/app/supplier/portal/notice-actions";
+import { markAllSupplierNoticesReadAction, markSupplierNoticeReadAction } from "@/app/supplier/portal/notice-actions";
 
 type NoticeItem = {
   key: string;
@@ -44,11 +44,10 @@ function NoticeIcon({ kind, unread }: { kind?: string; unread: boolean }) {
  * thông báo nào khác trên trang.
  *
  * Chuông tự làm mới (20 giây một lần khi tab đang hiện, và ngay khi quay lại tab), nên
- * quyết định của Vexim hiện ra mà nhà cung cấp không phải tải lại trang. Mỗi dòng bấm
- * được và mở đúng trang cần xử lý; bấm ra ngoài hoặc nhấn Esc thì danh sách tự đóng.
+ * quyết định mới hiện ra mà nhà cung cấp không phải tải lại trang. Tiêu đề thông báo
+ * mở đúng trang cần xử lý; bấm ra ngoài hoặc nhấn Esc thì danh sách tự đóng.
  */
 export function SupplierTopbar() {
-  const router = useRouter();
   const pathname = usePathname();
   const [items, setItems] = useState<NoticeItem[]>([]);
   const [unread, setUnread] = useState(0);
@@ -56,6 +55,7 @@ export function SupplierTopbar() {
   const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
+  const [savingAll, setSavingAll] = useState(false);
   const [fresh, setFresh] = useState(false);
   const previousUnread = useRef<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -134,11 +134,19 @@ export function SupplierTopbar() {
     }
   }
 
-  /** Bấm vào thông báo: đánh dấu đã đọc rồi mở đúng trang của việc đó. */
-  function openNotice(notice: NoticeItem) {
-    setOpen(false);
-    if (!notice.read) void markRead(notice.key);
-    router.push(notice.href || "/supplier/portal");
+  async function markAllRead() {
+    if (!unread || savingAll) return;
+    setSavingAll(true);
+    setItems((prev) => prev.map((notice) => ({ ...notice, read: true })));
+    setUnread(0);
+    try {
+      await markAllSupplierNoticesReadAction();
+      await load();
+    } catch {
+      void load();
+    } finally {
+      setSavingAll(false);
+    }
   }
 
   async function toggle() {
@@ -164,9 +172,18 @@ export function SupplierTopbar() {
           <div ref={panelRef} className="fixed inset-x-3 top-14 z-20 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[380px]">
             <div className="flex items-center justify-between gap-2 border-b border-ink-200 px-4 py-3">
               <span className="text-[13px] font-bold text-ink-900">Thông báo</span>
-              <span className="text-[11px] text-ink-500">
-                {!loaded ? "Đang tải" : !readsKnown ? "Chưa đọc được dấu đã đọc" : unread ? `${unread} chưa đọc` : "Đã đọc hết"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-ink-500">
+                  {!loaded ? "Đang tải" : !readsKnown ? "Chưa đọc được dấu đã đọc" : unread ? `${unread} chưa đọc` : "Đã đọc hết"}
+                </span>
+                {loaded && readsKnown && unread > 0 && (
+                  <button type="button" onClick={() => void markAllRead()} disabled={savingAll}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:underline disabled:opacity-50">
+                    <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                    {savingAll ? "Đang lưu" : "Đã đọc hết"}
+                  </button>
+                )}
+              </div>
             </div>
 
             {items.length ? <ul className="max-h-[min(60vh,420px)] divide-y divide-ink-100 overflow-y-auto">
@@ -176,24 +193,15 @@ export function SupplierTopbar() {
                   <div className="flex items-start gap-3 px-4 py-3 transition hover:bg-brand-50/60">
                     <NoticeIcon kind={n.kind} unread={isUnread} />
                     <div className="min-w-0 flex-1">
-                      <button
-                        type="button"
-                        onClick={() => openNotice(n)}
-                        className="block w-full text-left"
-                      >
-                        <span className="flex items-start gap-1">
-                          <span className="min-w-0 flex-1 text-[12.5px] leading-5 font-semibold text-ink-900">{n.title}</span>
-                          <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-400" aria-hidden="true" />
-                        </span>
-                        {n.detail && <span className="mt-0.5 block text-[11.5px] leading-5 text-ink-600">{n.detail}</span>}
-                      </button>
+                      <Link href={n.href || "/supplier/portal"}
+                        onClick={() => { setOpen(false); if (!n.read) void markRead(n.key); }}
+                        className="block text-[12.5px] leading-5 font-semibold text-ink-900 hover:text-brand-700 hover:underline">
+                        {n.title}
+                      </Link>
+                      {n.detail && <p className="mt-0.5 text-[11.5px] leading-5 text-ink-600">{n.detail}</p>}
                       <div className="mt-1 flex flex-wrap items-center gap-2">
                         <span className="text-[10.5px] text-ink-400">{when(n.at)}</span>
-                        <Link href={n.href || "/supplier/portal"} onClick={() => { if (!n.read) void markRead(n.key); }}
-                          className="text-[10.5px] font-semibold text-brand-700 hover:underline">
-                          Mở việc này
-                        </Link>
-                        {isUnread && <button type="button" onClick={() => void markRead(n.key)} disabled={saving === n.key}
+                        {isUnread && <button type="button" onClick={() => void markRead(n.key)} disabled={savingAll || saving === n.key}
                           className="text-[10.5px] font-semibold text-ink-500 hover:underline disabled:opacity-50">
                           {saving === n.key ? "Đang lưu" : "Đánh dấu đã đọc"}
                         </button>}
@@ -206,9 +214,8 @@ export function SupplierTopbar() {
               {loaded ? "Chưa có thông báo nào." : "Đang tải thông báo."}
             </p>}
 
-            <p className="flex items-start gap-1.5 border-t border-ink-200 bg-ink-50 px-4 py-2.5 text-[10.5px] leading-4 text-ink-500">
-              <CheckCheck className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
-              Hộp thư Vexim là kênh làm việc chính; thông báo ở đây chỉ nhắc việc và mở thẳng tới chỗ cần xem.
+            <p className="border-t border-ink-200 bg-ink-50 px-4 py-2.5 text-[10.5px] leading-4 text-ink-500">
+              Chọn tiêu đề để mở trang cần xử lý.
             </p>
           </div>
         </>}

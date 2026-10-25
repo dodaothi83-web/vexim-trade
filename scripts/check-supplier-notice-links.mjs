@@ -62,9 +62,13 @@ assert.match(topbar, /document\.visibilityState === "visible"/, 'Không gọi m�
 assert.match(topbar, /visibilitychange/, 'Quay lại tab thì làm mới ngay');
 assert.match(topbar, /window\.addEventListener\("focus"/, 'Quay lại cửa sổ thì làm mới ngay');
 
-// 7. Bấm một dòng là đi tới đúng việc, và bấm ra ngoài thì đóng.
-assert.match(topbar, /router\.push\(notice\.href/, 'Bấm dòng thông báo mở đúng trang của việc đó');
-assert.match(topbar, /<Link href=\{n\.href/, 'Dòng thông báo còn có liên kết mở trực tiếp');
+// 7. Tiêu đề là liên kết trực tiếp; không còn nút mở trùng lặp.
+assert.match(topbar, /<Link href=\{n\.href/, 'Tiêu đề thông báo mở đúng trang của việc đó');
+assert.doesNotMatch(topbar, /Mở việc này|router\.push\(notice\.href/, 'Không còn nút mở trùng với tiêu đề');
+assert.match(topbar, /markAllSupplierNoticesReadAction/, 'Có thao tác đánh dấu đã đọc tất cả');
+assert.match(topbar, /Đã đọc hết/);
+assert.match(topbar, /Chọn tiêu đề để mở trang cần xử lý\./, 'Hướng dẫn ngắn gọn, đúng thao tác');
+assert.doesNotMatch(topbar, /Hộp thư Vexim/, 'Không dùng tên công ty trong hướng dẫn thông báo');
 assert.match(topbar, /panelRef\.current\.contains/, 'Bấm ra ngoài panel thì panel đóng');
 assert.match(topbar, /pointerdown/, 'Đóng panel bằng sự kiện bấm thật, không chỉ lớp phủ');
 assert.match(topbar, /event\.key === "Escape"/, 'Esc đóng panel');
