@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ImageIcon, PlayCircle, X, ZoomIn } from "lucide-react";
+import { ProductCompareCheckbox } from "@/components/product-compare-checkbox";
+import type { ProductComparisonSelection } from "@/lib/public/product-comparison";
 import type { PublicProductVideo } from "@/lib/public/product-video";
 
 /** Chỉ nhận cử chỉ ngang rõ ràng; vuốt dọc hoặc rung nhẹ vẫn để trang cuộn tự nhiên. */
@@ -14,8 +16,9 @@ export function productGallerySwipeStep(startX: number, startY: number, endX: nu
 }
 
 /** Only buyer-shareable URLs projected by the server may reach this component. */
-export function ProductMediaGallery({ name, images, thumbnails, video }: {
+export function ProductMediaGallery({ name, images, thumbnails, video, comparison }: {
   name: string; images: string[]; thumbnails?: string[]; video: PublicProductVideo | null;
+  comparison?: ProductComparisonSelection;
 }) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
@@ -90,6 +93,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
             className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-150 motion-reduce:transition-none" />
           <span className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-ink-900/80 px-3 py-1.5 text-xs font-semibold text-white"><ZoomIn className="h-3.5 w-3.5" aria-hidden="true" /> <span className="hidden sm:inline">Hover to zoom · Click to enlarge</span><span className="sm:hidden">Tap to enlarge</span></span>
         </button> : <div className="flex h-full items-center justify-center gap-2 text-sm text-ink-400"><ImageIcon className="h-9 w-9" aria-hidden="true" />No product photo available</div>}
+        {comparison && <ProductCompareCheckbox product={comparison} className="absolute right-3 top-3" />}
       </div>
 
       {hasThumbnails && <section className="relative min-w-0 sm:order-1" aria-label="Product photos">

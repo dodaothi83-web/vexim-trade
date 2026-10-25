@@ -53,6 +53,7 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   '@/components/product-trade-labels': { ProductTradeLabels: () => null },
   '@/components/product-verification-tooltip': { ProductVerificationTooltip: () => React.createElement('span') },
   '@/components/verification-tier': { VerificationPips: () => React.createElement('span'), VerificationTierBadge: () => React.createElement('span') },
+  '@/components/product-compare-checkbox': { ProductCompareCheckbox: () => null },
 });
 const { default: Profile, generateMetadata } = compile('../app/(public)/suppliers/[slug]/page.tsx', {
   'react/jsx-runtime': await import('react/jsx-runtime'),

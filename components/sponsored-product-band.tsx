@@ -19,9 +19,10 @@ import type { SponsoredBandItem } from "@/lib/public/sponsored-band";
  * lường tiếp thị, mỗi gói mỗi loại sự kiện chỉ ghi một lần trong 30 phút trên mỗi
  * tab. Ghi lỗi không bao giờ chặn việc mở trang.
  */
-export function SponsoredProductBand({ items, categorySlug }: {
+export function SponsoredProductBand({ items, categorySlug, comparisonEnabled = true }: {
   items: SponsoredBandItem[];
   categorySlug: string;
+  comparisonEnabled?: boolean;
 }) {
   if (items.length === 0) return null;
   return (
@@ -36,14 +37,14 @@ export function SponsoredProductBand({ items, categorySlug }: {
       </div>
       <div className="mt-3 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
         {items.map((item) => (
-          <SponsoredBandCard key={item.push.id} item={item} categorySlug={categorySlug} />
+          <SponsoredBandCard key={item.push.id} item={item} categorySlug={categorySlug} comparisonEnabled={comparisonEnabled} />
         ))}
       </div>
     </section>
   );
 }
 
-function SponsoredBandCard({ item, categorySlug }: { item: SponsoredBandItem; categorySlug: string }) {
+function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: SponsoredBandItem; categorySlug: string; comparisonEnabled: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const { marketingAllowed } = useCookieConsent();
   const { push, product } = item;
@@ -83,7 +84,9 @@ function SponsoredBandCard({ item, categorySlug }: { item: SponsoredBandItem; ca
 
   const href = `/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(product.id)}`;
   return (
-    <div ref={root} className="min-w-0" onClickCapture={() => send("click")}>
+    <div ref={root} className="min-w-0" onClickCapture={(event) => {
+      if ((event.target as Element).closest("a[href]")) send("click");
+    }}>
       <PublicProductCard
         href={href}
         imagePath={product.cardImagePath ?? product.imagePaths[0]}
@@ -100,6 +103,7 @@ function SponsoredBandCard({ item, categorySlug }: { item: SponsoredBandItem; ca
         samples={product.samples}
         verificationSteps={product.verificationSteps}
         test={product.isDemo}
+        comparison={comparisonEnabled && !product.isDemo ? { id: product.id, categorySlug } : undefined}
       />
     </div>
   );

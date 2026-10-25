@@ -26,9 +26,9 @@ function moqGroup(value: string): string {
   return tons <= 1 ? "small" : tons <= 5 ? "medium" : "large";
 }
 
-export function CategoryProductGrid({ products, categorySlug, grades, sponsored, sponsoredBand = [], productFields = [] }: {
+export function CategoryProductGrid({ products, categorySlug, grades, sponsored, sponsoredBand = [], productFields = [], comparisonEnabled = true }: {
   products: PublicCategoryProduct[]; categorySlug: string; grades: string[]; productFields?: ProductAttributeField[];
-  sponsored?: PilotPlacement | null; sponsoredBand?: SponsoredBandItem[];
+  sponsored?: PilotPlacement | null; sponsoredBand?: SponsoredBandItem[]; comparisonEnabled?: boolean;
 }) {
   // Vùng đẩy đang hiện thì bỏ đúng những sản phẩm đó khỏi lưới tự nhiên. Đang lọc
   // thì vùng đẩy ẩn, và sản phẩm trả phí quay lại lưới như mọi sản phẩm khác.
@@ -132,7 +132,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
             khớp. Thà ẩn cả vùng còn hơn hiện một thẻ sai. Bản thử nghiệm cũ chỉ
             hiện khi chưa có gói bán thật nào. */}
         {!active && (sponsoredBand.length > 0
-          ? <SponsoredProductBand items={sponsoredBand} categorySlug={categorySlug} />
+          ? <SponsoredProductBand items={sponsoredBand} categorySlug={categorySlug} comparisonEnabled={comparisonEnabled} />
           : sponsored && <SponsoredPilotSlot product={sponsored.product} ticket={sponsored.ticket}
               campaignId={sponsored.campaignId} categorySlug={categorySlug} />)}
         {visible.length ? <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -143,7 +143,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
               supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
               quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}
               oem={p.oem} odm={p.odm} samples={p.samples}
-              verificationSteps={p.verificationSteps} test={p.isDemo} />
+              verificationSteps={p.verificationSteps} test={p.isDemo}
+              comparison={comparisonEnabled && !p.isDemo ? { id: p.id, categorySlug } : undefined} />
           </div>)}
         </div> : <div className="rounded-xl border border-ink-200 bg-white p-8 text-center">
           <h3 className="font-bold text-ink-900">No products match these filters</h3>

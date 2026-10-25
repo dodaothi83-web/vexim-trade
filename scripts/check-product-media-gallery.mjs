@@ -83,6 +83,9 @@ assert.equal(media.shareableProductVideo([{ ...videoBase, external_url: 'https:/
 const { ProductMediaGallery, productGallerySwipeStep } = load('../components/product-media-gallery.tsx', {
   react: require('react'), 'react-dom': require('react-dom'),
   'react/jsx-runtime': require('react/jsx-runtime'), 'lucide-react': require('lucide-react'),
+  '@/components/product-compare-checkbox': { ProductCompareCheckbox: ({ product }) => React.createElement('input', {
+    type: 'checkbox', 'aria-label': `Add ${product.name} to comparison`, className: 'absolute right-3 top-3',
+  }) },
 });
 assert.equal(productGallerySwipeStep(100, 100, 40, 105), 1, 'A clear left swipe advances to the next photo');
 assert.equal(productGallerySwipeStep(100, 100, 160, 105), -1, 'A clear right swipe returns to the previous photo');
@@ -125,6 +128,12 @@ const singleImageHtml = renderToStaticMarkup(React.createElement(ProductMediaGal
   name: 'Cashew W320', images: ['products/abc/cover.jpg'], video: null,
 }));
 assert.doesNotMatch(singleImageHtml, /Choose a product photo/, 'A single image does not leave an empty thumbnail rail');
+const comparableGalleryHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
+  name: 'Cashew W320', images: ['products/abc/cover.jpg'], video: null,
+  comparison: { id: 'abc', name: 'Cashew W320', categorySlug: 'cashew', href: '/products/cashew/abc', imagePath: 'products/abc/cover.jpg' },
+}));
+assert.match(comparableGalleryHtml, /aria-label="Add Cashew W320 to comparison"/, 'The public PDP has the same image-corner comparison control');
+assert.doesNotMatch(singleImageHtml, /to comparison/, 'Preview galleries without public comparison data do not show the control');
 const gallerySource = readFileSync(new URL('../components/product-media-gallery.tsx', import.meta.url), 'utf8');
 assert.match(gallerySource, /createPortal\(/);
 assert.match(gallerySource, /event\.key === "Escape"/);

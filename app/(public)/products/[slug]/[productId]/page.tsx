@@ -115,6 +115,13 @@ export default async function PublicProductDetail({ params }: Props) {
   ]);
   const additionalSpecs = specs.filter(([label]) => !occupiedSpecKeys.has(productSpecificationKey(label)));
   const supplierImageUrl = card.supplierProfileImage ? `/public-media/${card.supplierProfileImage.replace(/^\/+/, "")}` : null;
+  const comparison = !preview && !card.isDemo ? {
+    id: card.id,
+    name: card.name,
+    categorySlug: slug,
+    href: `/products/${encodeURIComponent(slug)}/${encodeURIComponent(card.id)}`,
+    imagePath: card.cardImagePath ?? card.imagePaths[0] ?? null,
+  } : undefined;
 
   const countView = !preview && !card.isDemo && !(await getSession());
   // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
@@ -161,7 +168,7 @@ export default async function PublicProductDetail({ params }: Props) {
     <Link href={`/products/${slug}`} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand-700"><ArrowLeft className="h-4 w-4" /> Back to products</Link>
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start">
       <StickyProductColumn>
-        <ProductMediaGallery name={card.name} images={images} thumbnails={thumbnails} video={video} />
+        <ProductMediaGallery name={card.name} images={images} thumbnails={thumbnails} video={video} comparison={comparison} />
         <aside className="mt-6 overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card" aria-labelledby="supplier-card-title">
           <div className="border-b border-brand-100 bg-gradient-to-br from-brand-50 to-white p-5">
             <div className="flex items-start gap-3">
@@ -259,7 +266,8 @@ export default async function PublicProductDetail({ params }: Props) {
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
             quoteHref={`/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(related.supplierId)}&product=${encodeURIComponent(related.name)}&product_id=${encodeURIComponent(related.id)}`}
             oem={related.oem} odm={related.odm} samples={related.samples}
-            verificationSteps={related.verificationSteps} />
+            verificationSteps={related.verificationSteps}
+            comparison={!preview && !related.isDemo ? { id: related.id, categorySlug: slug } : undefined} />
         </li>)}
       </ul>
     </section>}

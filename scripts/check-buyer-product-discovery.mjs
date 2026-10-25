@@ -94,6 +94,7 @@ assert.match(renderChecks([]), /No approved checks yet/);
 const store = {
   listSuppliers: async () => suppliers,
   listProducts: async () => products,
+  getProduct: async (id) => products.find((p) => p.id === id) ?? null,
   listProductsBySupplier: async (id) => products.filter((p) => p.supplier_id === id),
   listCategories: async ({ publishedOnly } = {}) => publishedOnly ? categories : categories,
   listMediaForProducts: async (ids) => media.filter((m) => ids.includes(m.product_id)),
@@ -149,6 +150,10 @@ assert.equal(cards.find((p) => p.id === 'a0').leadTimeDays, 14);
 assert.equal(cards.find((p) => p.id === 'a0').incoterm, 'FOB', 'Price term on the card is projected from the product, not inferred from supplier consent');
 assert.equal(cards.find((p) => p.id === 'a0').supplierSlug, 'company-a');
 assert.equal(cards.find((p) => p.id === 'b0').price, null, 'No product price without supplier public-price consent');
+const comparisonRecords = await productCatalog.getPublicProductRecordsByIds(['a0', 'a0', 'b0', 'draft', 'private-supplier']);
+assert.deepEqual([...comparisonRecords.map((record) => record.card.id)], ['a0', 'b0'],
+  'Comparison IDs preserve order, remove duplicates and exclude unready or unpublished offers');
+assert.equal(comparisonRecords[1].card.price, null, 'The direct comparison query uses the same public-price consent gate');
 const initial = arrangeSupplierProducts(cards, 3);
 assert.equal(initial.shown.length, 6);
 assert.equal(initial.hidden.get('A'), 5);
@@ -240,6 +245,9 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'lucide-react': require('lucide-react'),
   '@/components/product-trade-labels': productTradeLabelsModule,
   '@/components/verification-tier': verificationTierModule,
+  '@/components/product-compare-checkbox': { ProductCompareCheckbox: ({ product }) => React.createElement('input', {
+    type: 'checkbox', 'aria-label': `Add ${product.name} to comparison`, className: 'absolute right-2 top-2',
+  }) },
 });
 const fullTradeLabels = renderToStaticMarkup(React.createElement(productTradeLabelsModule.ProductTradeLabels, { oem: true, odm: true, samples: true }));
 assert.match(fullTradeLabels, />OEM</, 'PDP keeps the full OEM label');
@@ -266,6 +274,11 @@ assert.match(compactCard, /w-\[38%\] shrink-0[^"]*sm:w-full/, 'The phone image t
 assert.match(compactCard, /flex min-w-0 flex-1 flex-col/, 'The product information occupies the flexible content side');
 assert.match(compactCard, /href="\/suppliers\/company-a"/, 'Supplier has an independent profile link');
 assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can open product details through the title or image');
+const comparableCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
+  ...cardProps, comparison: { id: 'a0', categorySlug: 'cashew' },
+}));
+assert.match(comparableCard, /aria-label="Add Cashew W320 lot 0 to comparison"/, 'A public offer has an image comparison checkbox');
+assert.match(comparableCard, /<\/a><input[^>]*class="absolute right-2 top-2"/, 'The image-corner checkbox is a sibling of the product link, not a nested interactive control');
 assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;product=Cashew%20W320%20lot%200&amp;product_id=a0"/,
   'The primary card CTA opens an RFQ prefilled for this product and supplier');
 assert.match(compactCard, /aria-label="Request a quote for Cashew W320 lot 0"/, 'Repeated quote CTAs have product-specific accessible names');
@@ -321,9 +334,10 @@ assert.doesNotMatch(privatePrice, /FOB reference|>FOB<|USD 7\/kg/, 'No price or 
 assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved check shows the empty tier, not a badge');
 assert.equal((privatePrice.match(/>Not approved</g) ?? []).length, 3, 'The tooltip never marks a check approved without an actual approved level');
 const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
-  ...cardProps, href: '/suppliers/company-a/products/a0', test: true,
+  ...cardProps, href: '/suppliers/company-a/products/a0', test: true, comparison: { id: 'a0', categorySlug: 'cashew' },
 }));
 assert.match(testCard, /TEST · Not an offer|Test data · not a price/);
+assert.doesNotMatch(testCard, /to comparison/, 'Demo and preview cards never offer a public comparison selection');
 assert.doesNotMatch(testCard, /USD 7\/kg|\/rfq|Supplier-stated product options/, 'A test card carries no price, quote path or commercial capability badges');
 assert.match(testCard, /aria-label="No verification checks approved yet"/, 'A test card never claims a verification check');
 // Lưới thẻ trang chủ là một client component riêng; dựng nó ở đây để bản HTML

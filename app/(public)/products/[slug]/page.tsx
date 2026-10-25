@@ -391,6 +391,7 @@ export default async function CategoryPage({ params }: PageProps) {
             faqs={faqs}
             filters={filters}
             rfqHref={rfqHref}
+            comparisonEnabled={!isPreview}
           />
         ) : (
           <StateB
@@ -478,11 +479,12 @@ function SubcategoryDirectory({
 /* ================== STATE A — đã có NCC ================== */
 
 function StateA({
-  cat, products, sponsored, sponsoredBand, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref,
+  cat, products, sponsored, sponsoredBand, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref, comparisonEnabled,
 }: {
   cat: Category;
   products: PublicCategoryProduct[]; sponsored: PilotPlacement | null; sponsoredBand: SponsoredBandItem[];
   categoryName: string; h1: string; intro: string; childGroups: ChildCategoryWithCount[]; body: string | null;
+  comparisonEnabled: boolean;
   columns: CategoryColumn[];
   rows: CategoryRow[];
   facts: CategoryFact[];
@@ -530,7 +532,7 @@ function StateA({
         <PriceRangeStrip outcome={priceRange} categoryName={categoryName} rfqHref={rfqHref} />
 
         <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored}
-          sponsoredBand={sponsoredBand} productFields={cat.product_fields ?? []} />
+          sponsoredBand={sponsoredBand} productFields={cat.product_fields ?? []} comparisonEnabled={comparisonEnabled} />
       </section>
 
       {cat.hero_image && (

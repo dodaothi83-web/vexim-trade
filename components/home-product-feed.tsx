@@ -199,6 +199,7 @@ export function HomeProductFeed({
               samples={p.samples}
               verificationSteps={p.verificationSteps}
               test={p.isDemo}
+              comparison={!p.isDemo ? { id: p.id, categorySlug: p.categorySlug } : undefined}
             />
           </li>
         ))}
