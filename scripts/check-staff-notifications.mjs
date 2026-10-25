@@ -9,7 +9,7 @@ const notify = read('lib/supplier-portal/notify.ts');
 assert.match(notify, /export async function notifyStaffSupplierAccount\(/, 'Thư báo tài khoản NCC mới');
 const signup = read('app/api/supplier-signup/route.ts');
 assert.match(signup, /notifyStaffSupplierAccount\(\{ email, name, provider: "email" \}\)/, 'Đăng ký bằng email có báo nhân viên');
-assert.match(signup, /notification,/, 'Phản hồi đăng ký trả lại trạng thái gửi thư');
+assert.doesNotMatch(signup, /notification,|emailVerification:/, 'Phản hồi công khai không tiết lộ trạng thái email hoặc gửi thư nội bộ');
 const google = read('app/api/auth/google/callback/route.ts');
 assert.match(google, /notifyStaffSupplierAccount\(\{ email: user\.email, name: user\.name, provider: "google" \}\)/, 'Đăng ký bằng Google cũng báo nhân viên');
 

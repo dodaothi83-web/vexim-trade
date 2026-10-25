@@ -6,8 +6,9 @@ import { Loader2, ShieldCheck } from "lucide-react";
 
 import { setupAdminAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
-export function SetupForm() {
+export function SetupForm({ turnstileSiteKey = null }: { turnstileSiteKey?: string | null }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -16,21 +17,39 @@ export function SetupForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [challengeVersion, setChallengeVersion] = useState(0);
+
+  function resetChallenge() {
+    setTurnstileToken("");
+    setChallengeVersion((version) => version + 1);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setNotice(null);
-    setBusy(true);
-    const res = await setupAdminAction(email, name, password, password2);
-    setBusy(false);
-    if (!res.ok) {
-      setError(res.message);
+    if (turnstileSiteKey && !turnstileToken) {
+      setError("Vui lòng hoàn tất bước kiểm tra bảo mật.");
       return;
     }
-    if (res.details?.length) setNotice(res.details.join(" "));
-    router.replace("/crm/settings/users");
-    router.refresh();
+    setBusy(true);
+    try {
+      const res = await setupAdminAction(email, name, password, password2, turnstileToken);
+      if (!res.ok) {
+        setError(res.message);
+        resetChallenge();
+        return;
+      }
+      if (res.details?.length) setNotice(res.details.join(" "));
+      router.replace("/crm/settings/users");
+      router.refresh();
+    } catch {
+      setError("Chưa tạo được tài khoản quản trị. Vui lòng thử lại.");
+      resetChallenge();
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -46,6 +65,7 @@ export function SetupForm() {
           placeholder="ten@veximtrade.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          maxLength={254}
           required
         />
       </div>
@@ -60,6 +80,7 @@ export function SetupForm() {
           placeholder="VD: Trần Đức Long"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          maxLength={120}
         />
       </div>
 
@@ -75,6 +96,7 @@ export function SetupForm() {
             placeholder="Ít nhất 8 ký tự, có chữ và số"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            maxLength={128}
             required
           />
         </div>
@@ -88,11 +110,15 @@ export function SetupForm() {
             className="input"
             value={password2}
             onChange={(e) => setPassword2(e.target.value)}
+            maxLength={128}
             required
           />
         </div>
       </div>
 
+      {turnstileSiteKey && (
+        <TurnstileWidget key={challengeVersion} siteKey={turnstileSiteKey} onChange={(token) => setTurnstileToken(token ?? "")} />
+      )}
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-800">
           {error}
@@ -104,7 +130,12 @@ export function SetupForm() {
         </p>
       )}
 
-      <Button type="submit" variant="primary" className="w-full justify-center" disabled={busy}>
+      <Button
+        type="submit"
+        variant="primary"
+        className="w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={busy || Boolean(turnstileSiteKey && !turnstileToken)}
+      >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
         Tạo tài khoản quản trị &amp; đăng nhập
       </Button>

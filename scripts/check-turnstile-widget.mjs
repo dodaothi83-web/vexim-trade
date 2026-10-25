@@ -28,6 +28,28 @@ assert.match(form, /<TurnstileWidget siteKey=\{turnstileSiteKey\} onChange=\{set
 assert.match(form, /turnstile_token: turnstileToken/);
 assert.match(page, /process\.env\.TURNSTILE_SITE_KEY \?\? process\.env\.NEXT_PUBLIC_TURNSTILE_SITE_KEY \?\? null/);
 
+const loginForm = fs.readFileSync(new URL('../components/login-form.tsx', import.meta.url), 'utf8');
+const loginPage = fs.readFileSync(new URL('../app/(auth)/login/page.tsx', import.meta.url), 'utf8');
+const signupForm = fs.readFileSync(new URL('../app/(auth)/supplier/register/supplier-account-form.tsx', import.meta.url), 'utf8');
+const signupPage = fs.readFileSync(new URL('../app/(auth)/supplier/register/page.tsx', import.meta.url), 'utf8');
+const setupForm = fs.readFileSync(new URL('../components/setup-form.tsx', import.meta.url), 'utf8');
+const setupPage = fs.readFileSync(new URL('../app/(auth)/setup/page.tsx', import.meta.url), 'utf8');
+const serviceForm = fs.readFileSync(new URL('../components/service-registration-section.tsx', import.meta.url), 'utf8');
+const home = fs.readFileSync(new URL('../app/(public)/home.tsx', import.meta.url), 'utf8');
+for (const [name, source] of [['login', loginForm], ['supplier signup', signupForm], ['admin setup', setupForm], ['service registration', serviceForm]]) {
+  assert.match(source, /<TurnstileWidget key=\{challengeVersion\}/, `${name} remounts the challenge after a failed submission`);
+  assert.match(source, /resetChallenge\(\)/, `${name} clears a consumed or expired token`);
+  assert.doesNotMatch(source, /Troubleshoot/, `${name} does not add Cloudflare's default error link`);
+}
+assert.match(loginForm, /loginAction\(email, password, turnstileToken\)/);
+assert.match(signupForm, /form\.set\("turnstile_token", turnstileToken\)/);
+assert.match(setupForm, /setupAdminAction\(email, name, password, password2, turnstileToken\)/);
+assert.match(serviceForm, /formData\.set\("turnstile_token", turnstileToken\)/);
+assert.match(serviceForm, /name="website_hp"/);
+for (const source of [loginPage, signupPage, setupPage, home]) {
+  assert.match(source, /process\.env\.TURNSTILE_SITE_KEY \?\? process\.env\.NEXT_PUBLIC_TURNSTILE_SITE_KEY \?\? null/);
+}
+
 // Server rendering must start with an owned loading state, not a Cloudflare error.
 const output = ts.transpileModule(widget, {
   compilerOptions: {

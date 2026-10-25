@@ -12,7 +12,7 @@ function load(path, mocks) {
   const js = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
-  vm.runInNewContext(js, { exports, Date, Set, console, require: (name) => {
+  vm.runInNewContext(js, { exports, Date, Set, console, process, require: (name) => {
     if (name === 'server-only') return {};
     assert.ok(name in mocks, `Unexpected import ${name} in ${path}`);
     return mocks[name];

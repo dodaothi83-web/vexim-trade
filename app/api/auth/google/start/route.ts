@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { checkAuthRateLimit } from "@/lib/auth/abuse-protection";
 import { GOOGLE_FLOW_AGE, GOOGLE_FLOW_COOKIE, googleClient, googleCookieOptions, googleRequestOrigin, googleOriginAllowed } from "@/lib/auth/google-oauth";
 import { supabaseUrl } from "@/lib/db/supabase";
 
@@ -16,6 +17,14 @@ export async function GET(request: Request) {
   if (session) return NextResponse.redirect(new URL(session.role === "supplier" ? "/supplier/portal" : "/crm/dashboard", origin));
   // Never hand an OAuth code back to an origin supplied by an arbitrary Host header.
   if (!googleOriginAllowed(origin)) return NextResponse.redirect(new URL(`${retry}?oauth=origin`, origin));
+  const rate = await checkAuthRateLimit({
+    flow: intent === "signup" ? "supplier-signup" : "login",
+    headers: request.headers,
+  });
+  if (rate.status === "limited") return NextResponse.redirect(new URL(`${retry}?oauth=rate_limited`, origin));
+  if (rate.status === "degraded") {
+    console.warn(`[google-oauth] distributed rate limit ${rate.reason}; local protection remains active`);
+  }
   const items: Record<string, string> = {};
   const client = googleClient(items);
   if (!client) return NextResponse.redirect(new URL(`${retry}?oauth=unavailable`, origin));

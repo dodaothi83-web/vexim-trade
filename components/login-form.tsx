@@ -6,30 +6,46 @@ import { Eye, EyeOff, Loader2, LogIn, ShieldCheck } from "lucide-react";
 
 import { loginAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
-export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
+export function LoginForm({ needsSetup, turnstileSiteKey = null }: { needsSetup: boolean; turnstileSiteKey?: string | null }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [challengeVersion, setChallengeVersion] = useState(0);
+
+  function resetChallenge() {
+    setTurnstileToken("");
+    setChallengeVersion((version) => version + 1);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setNotice(null);
-    setBusy(true);
-    const res = await loginAction(email, password);
-    setBusy(false);
-    if (!res.ok) {
-      setError([res.message, ...(res.details ?? [])].join(" "));
+    if (turnstileSiteKey && !turnstileToken) {
+      setError("Vui lòng hoàn tất bước kiểm tra bảo mật.");
       return;
     }
-    if (res.details?.length) setNotice(res.details.join(" "));
-    router.replace(res.redirectTo ?? "/crm/dashboard");
-    router.refresh();
+    setBusy(true);
+    try {
+      const res = await loginAction(email, password, turnstileToken);
+      if (!res.ok) {
+        setError(res.message);
+        resetChallenge();
+        return;
+      }
+      router.replace(res.redirectTo ?? "/crm/dashboard");
+      router.refresh();
+    } catch {
+      setError("Không đăng nhập được lúc này. Vui lòng thử lại.");
+      resetChallenge();
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -46,6 +62,7 @@ export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
           placeholder="ten@veximtrade.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          maxLength={254}
           required
         />
       </div>
@@ -63,6 +80,7 @@ export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            maxLength={128}
             required
           />
           <button
@@ -76,18 +94,21 @@ export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
         </div>
       </div>
 
+      {turnstileSiteKey && (
+        <TurnstileWidget key={challengeVersion} siteKey={turnstileSiteKey} onChange={(token) => setTurnstileToken(token ?? "")} />
+      )}
       {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-800">
+        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-800">
           {error}
         </p>
       )}
-      {notice && (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
-          {notice}
-        </p>
-      )}
 
-      <Button type="submit" variant="primary" className="w-full justify-center" disabled={busy}>
+      <Button
+        type="submit"
+        variant="primary"
+        className="w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={busy || Boolean(turnstileSiteKey && !turnstileToken)}
+      >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
         Đăng nhập
       </Button>

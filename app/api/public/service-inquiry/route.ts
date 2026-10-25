@@ -10,6 +10,7 @@ import {
 } from "@/lib/email/service-inquiry";
 import { transport } from "@/lib/email/send";
 import { isOwnMailAddress } from "@/lib/email/sender";
+import { protectPublicRequest } from "@/lib/auth/abuse-protection";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,9 @@ function clean(value: unknown, max: number): string {
 }
 
 export async function POST(request: Request) {
+  if (Number(request.headers.get("content-length") ?? 0) > 16_384) {
+    return NextResponse.json({ ok: false, message: "Form data is too large." }, { status: 413 });
+  }
   let body: Record<string, unknown>;
   try {
     const contentType = request.headers.get("content-type") ?? "";
@@ -38,6 +42,9 @@ export async function POST(request: Request) {
 
   const lang = clean(body.lang, 10) === "vi" ? "vi" : "en";
   const isVi = lang === "vi";
+  if (clean(body.website_hp, 200)) {
+    return NextResponse.json({ ok: true, message: isVi ? "Đã ghi nhận đăng ký." : "Registration received." });
+  }
   const serviceKey = clean(body.service_key, 60);
   // Tên dịch vụ do server quyết định theo mã dịch vụ; chỉ dùng tiêu đề form khi mã lạ.
   const serviceTitle = serviceDisplayTitle(serviceKey, lang, clean(body.service_title, 140));
@@ -68,6 +75,23 @@ export async function POST(request: Request) {
       },
       { status: 400 },
     );
+  }
+
+  const protection = await protectPublicRequest({
+    flow: "service-inquiry",
+    headers: request.headers,
+    email,
+    token: clean(body.turnstile_token, 5000),
+  });
+  if (!protection.ok) {
+    return NextResponse.json({
+      ok: false,
+      message: isVi
+        ? protection.message
+        : protection.status === 429
+          ? "Too many attempts. Please try again later."
+          : "We couldn't complete the security check. Please try again.",
+    }, { status: protection.status });
   }
 
   const store = getStore();

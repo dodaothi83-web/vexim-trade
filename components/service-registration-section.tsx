@@ -13,6 +13,8 @@ import {
   X,
 } from "lucide-react";
 
+import { TurnstileWidget } from "@/components/turnstile-widget";
+
 export type ServiceKey =
   | "free_listing"
   | "international_website"
@@ -175,17 +177,25 @@ const SERVICES: ServiceItem[] = [
   },
 ];
 
-export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale }) {
+export function ServiceRegistrationSection({ lang = "en", turnstileSiteKey = null }: { lang?: HomeLocale; turnstileSiteKey?: string | null }) {
   const [activeService, setActiveService] = useState<ServiceKey | null>(null);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [challengeVersion, setChallengeVersion] = useState(0);
 
   const selected = SERVICES.find((s) => s.key === activeService) ?? null;
   const isVi = lang === "vi";
 
+  function resetChallenge() {
+    setTurnstileToken("");
+    setChallengeVersion((version) => version + 1);
+  }
+
   function openModal(key: ServiceKey) {
     setActiveService(key);
     setFeedback(null);
+    resetChallenge();
   }
 
   function closeModal() {
@@ -196,6 +206,10 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selected) return;
+    if (turnstileSiteKey && !turnstileToken) {
+      setFeedback({ ok: false, message: isVi ? "Vui lòng hoàn tất bước kiểm tra bảo mật." : "Please complete the security check." });
+      return;
+    }
     setBusy(true);
     setFeedback(null);
     try {
@@ -204,6 +218,7 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
       formData.set("service_key", selected.key);
       formData.set("service_title", selected.title[lang]);
       formData.set("lang", lang);
+      formData.set("turnstile_token", turnstileToken);
 
       const res = await fetch("/api/public/service-inquiry", {
         method: "POST",
@@ -224,6 +239,8 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
       });
       if (res.ok && payload.ok) {
         formEl.reset();
+      } else {
+        resetChallenge();
       }
     } catch {
       setFeedback({
@@ -232,6 +249,7 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
           ? "Không kết nối được máy chủ. Vui lòng thử lại sau."
           : "Network error. Please try again shortly.",
       });
+      resetChallenge();
     } finally {
       setBusy(false);
     }
@@ -462,6 +480,12 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
                 />
               </label>
 
+              <div aria-hidden className="pointer-events-none absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden">
+                <label>Leave empty <input name="website_hp" tabIndex={-1} autoComplete="off" /></label>
+              </div>
+              {turnstileSiteKey && (
+                <TurnstileWidget key={challengeVersion} siteKey={turnstileSiteKey} onChange={(token) => setTurnstileToken(token ?? "")} />
+              )}
               {feedback && (
                 <div
                   role="status"
@@ -486,8 +510,8 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
                 </button>
                 <button
                   type="submit"
-                  disabled={busy}
-                  className="inline-flex items-center gap-2 rounded-xl bg-brand-800 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-brand-900 disabled:opacity-60"
+                  disabled={busy || feedback?.ok || Boolean(turnstileSiteKey && !turnstileToken)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand-800 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-brand-900 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {busy ? (
                     <>

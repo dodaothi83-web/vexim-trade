@@ -704,7 +704,10 @@ export default async function HomeContent({
       {/* =====================================================================
           SECTION 4: 4 DỊCH VỤ DOANH NGHIỆP + FORM ĐĂNG KÝ RIÊNG (SONG NGỮ EN/VI)
          ===================================================================== */}
-      <ServiceRegistrationSection lang={lang} />
+      <ServiceRegistrationSection
+        lang={lang}
+        turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null}
+      />
 
       {/* =====================================================================
           SECTION 5: BỘ CÂU HỎI VÀ TRẢ LỜI (FAQ)

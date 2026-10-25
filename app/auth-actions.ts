@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 import { getStore } from "@/lib/db";
+import { protectPasswordAuth } from "@/lib/auth/abuse-protection";
 import {
   authenticate,
   createSupabaseUser,
@@ -32,40 +34,44 @@ function isRole(value: unknown): value is UserRole {
 
 /* ------------------------------ ĐĂNG NHẬP ------------------------------ */
 
-export async function loginAction(email: string, password: string): Promise<AuthResult> {
-  const clean = (email ?? "").trim();
-  if (!EMAIL_RE.test(clean)) return { ok: false, message: "Email không hợp lệ." };
+export async function loginAction(email: string, password: string, turnstileToken = ""): Promise<AuthResult> {
+  const clean = (email ?? "").trim().toLowerCase();
+  if (clean.length > 254 || !EMAIL_RE.test(clean)) return { ok: false, message: "Email không hợp lệ." };
   if (!password) return { ok: false, message: "Chưa nhập mật khẩu." };
+  if (password.length > 128) return { ok: false, message: "Email hoặc mật khẩu không đúng." };
 
-  let result;
   try {
-    result = await authenticate(clean, password);
+    const protection = await protectPasswordAuth({
+      flow: "login",
+      headers: await headers(),
+      email: clean,
+      token: turnstileToken,
+    });
+    if (!protection.ok) return { ok: false, message: protection.message };
+
+    const result = await authenticate(clean, password);
+    if (!result.ok) return { ok: false, message: result.message };
+
+    await startSession({
+      uid: result.user.id,
+      email: result.user.email,
+      name: result.user.name ?? result.user.email,
+      role: result.user.role,
+      via: result.via,
+    });
+
+    try {
+      await getStore().touchUserLogin(result.user.id);
+    } catch {
+      /* không quan trọng */
+    }
+
+    revalidatePath("/", "layout");
+    return { ok: true, message: result.notice ?? "Đăng nhập thành công.", redirectTo: result.user.role === "supplier" ? "/supplier/portal" : "/crm/dashboard" };
   } catch (err) {
-    return {
-      ok: false,
-      message: "Không đăng nhập được.",
-      details: [err instanceof Error ? err.message : String(err)],
-    };
+    console.error("[auth] login action failed", err);
+    return { ok: false, message: "Không đăng nhập được lúc này. Vui lòng thử lại sau." };
   }
-
-  if (!result.ok) return { ok: false, message: result.message, details: result.details };
-
-  await startSession({
-    uid: result.user.id,
-    email: result.user.email,
-    name: result.user.name ?? result.user.email,
-    role: result.user.role,
-    via: result.via,
-  });
-
-  try {
-    await getStore().touchUserLogin(result.user.id);
-  } catch {
-    /* không quan trọng */
-  }
-
-  revalidatePath("/", "layout");
-  return { ok: true, message: result.notice ?? "Đăng nhập thành công.", redirectTo: result.user.role === "supplier" ? "/supplier/portal" : "/crm/dashboard" };
 }
 
 export async function logoutAction(): Promise<void> {
@@ -81,19 +87,32 @@ export async function setupAdminAction(
   name: string,
   password: string,
   password2: string,
+  turnstileToken = "",
 ): Promise<AuthResult> {
-  const store = getStore();
-
-  const existing = await store.countUsers();
-  if (existing > 0) {
-    return { ok: false, message: "Hệ thống đã có tài khoản — hãy đăng nhập." };
-  }
-
-  const clean = (email ?? "").trim();
-  if (!EMAIL_RE.test(clean)) return { ok: false, message: "Email không hợp lệ." };
+  const clean = (email ?? "").trim().toLowerCase();
+  if (clean.length > 254 || !EMAIL_RE.test(clean)) return { ok: false, message: "Email không hợp lệ." };
   const problem = passwordProblem(password ?? "");
-  if (problem) return { ok: false, message: problem };
+  if (problem || password.length > 128) return { ok: false, message: problem ?? "Mật khẩu cần 8–128 ký tự, gồm cả chữ và số." };
   if (password !== password2) return { ok: false, message: "Hai lần nhập mật khẩu không khớp." };
+  if ((name ?? "").trim().length > 120) return { ok: false, message: "Tên hiển thị quá dài." };
+
+  const protection = await protectPasswordAuth({
+    flow: "admin-setup",
+    headers: await headers(),
+    email: clean,
+    token: turnstileToken,
+  });
+  if (!protection.ok) return { ok: false, message: protection.message };
+
+  const store = getStore();
+  let existing: number;
+  try {
+    existing = await store.countUsers();
+  } catch (err) {
+    console.error("[auth] admin setup preflight failed", err);
+    return { ok: false, message: "Chưa kiểm tra được trạng thái thiết lập. Vui lòng thử lại sau." };
+  }
+  if (existing > 0) return { ok: false, message: "Hệ thống đã có tài khoản, hãy đăng nhập." };
 
   const details: string[] = [];
   const supabaseId = await createSupabaseUser(clean, password);
@@ -124,10 +143,11 @@ export async function setupAdminAction(
     revalidatePath("/", "layout");
     return { ok: true, message: "Đã tạo tài khoản quản trị và đăng nhập.", details };
   } catch (err) {
+    console.error("[auth] admin setup failed", err);
     const raw = err instanceof Error ? err.message : "Lỗi không xác định";
     const hint = describeAppUsersError(raw);
-    if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
-    return { ok: false, message: raw };
+    if (hint) return { ok: false, message: hint };
+    return { ok: false, message: "Chưa tạo được tài khoản quản trị. Vui lòng thử lại sau." };
   }
 }
 
