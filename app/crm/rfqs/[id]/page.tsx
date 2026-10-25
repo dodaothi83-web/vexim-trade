@@ -47,6 +47,7 @@ import { addRfqNoteAction } from "./note-action";
 import type { RfqStatus } from "@/lib/types";
 import { SITE_URL } from "@/lib/site";
 import { approvedVerificationSteps, VERIFICATION_LABELS } from "@/lib/verification-status";
+import { spamFlagDetail } from "@/lib/rfq/spam-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -179,7 +180,7 @@ export default async function RfqDetailPage({
             {isSupplierQuestion && <Badge color="#0f766e">Câu hỏi trực tiếp cho NCC</Badge>}
             {rfq.status === "spam" && (
               <Badge color="#b91c1c" className="inline-flex items-center gap-1">
-                <ShieldAlert className="h-3.5 w-3.5" /> spam score {rfq.spam_score}
+                <ShieldAlert className="h-3.5 w-3.5" /> Điểm rủi ro {rfq.spam_score}
               </Badge>
             )}
           </div>
@@ -666,12 +667,23 @@ export default async function RfqDetailPage({
           </section>
 
           {rfq.spam_flags.length > 0 && (
-            <section className="card border-red-200 bg-red-50/40 p-4 sm:p-5">
-              <h2 className="flex items-center gap-1 text-sm font-semibold text-red-700">
-                <ShieldAlert className="h-4 w-4" /> Cờ spam
+            <section className={`card p-4 sm:p-5 ${rfq.status === "spam" ? "border-red-200 bg-red-50/40" : "border-amber-200 bg-amber-50/40"}`}>
+              <h2 className={"flex items-center gap-1.5 text-sm font-semibold " + (rfq.status === "spam" ? "text-red-700" : "text-amber-800")}>
+                <ShieldAlert className="h-4 w-4 shrink-0" /> Dấu hiệu cần kiểm tra
               </h2>
-              <ul className="mt-2 list-disc pl-5 text-[12.5px] text-red-800">
-                {rfq.spam_flags.map((f) => <li key={f}>{f}</li>)}
+              <p className="mt-1.5 text-[12px] leading-5 text-ink-600">
+                Đây là các tín hiệu tự động, không đồng nghĩa buyer là spam. Hãy đối chiếu thông tin trước khi quyết định xử lý.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {rfq.spam_flags.map((flag) => {
+                  const detail = spamFlagDetail(flag);
+                  return (
+                    <li key={flag} className="rounded-md border border-ink-100 bg-white/80 px-3 py-2.5">
+                      <p className="text-[12.5px] font-semibold text-ink-800">{detail.label}</p>
+                      <p className="mt-0.5 text-[11.5px] leading-5 text-ink-600">{detail.description}</p>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}
