@@ -22,6 +22,11 @@ type Result = {
     description_detail: string;
     packaging: string;
     certifications: string;
+    moq: string;
+    monthly_capacity: string;
+    payment_terms: string;
+    incoterm_place: string;
+    export_port: string;
   };
 };
 
@@ -122,6 +127,11 @@ export async function translateProductEnglishAction(productId: string): Promise<
         description_detail: saved.description_detail_i18n?.en ?? "",
         packaging: saved.packaging_i18n?.en ?? "",
         certifications: saved.certifications_i18n?.en ?? "",
+        moq: saved.translation_meta?.fields?.moq ?? "",
+        monthly_capacity: saved.translation_meta?.fields?.monthly_capacity ?? "",
+        payment_terms: saved.translation_meta?.fields?.payment_terms ?? "",
+        incoterm_place: saved.translation_meta?.fields?.incoterm_place ?? "",
+        export_port: saved.translation_meta?.fields?.export_port ?? "",
       },
     };
   } catch (error) {
@@ -146,6 +156,11 @@ export async function saveProductEnglishAction(form: FormData): Promise<Result> 
     description_detail: read("description_detail_en", 12000),
     packaging: read("packaging_en", 600),
     certifications: read("certifications_en", 600),
+    moq: read("moq_en", 360),
+    monthly_capacity: read("monthly_capacity_en", 360),
+    payment_terms: read("payment_terms_en", 400),
+    incoterm_place: read("incoterm_place_en", 360),
+    export_port: read("export_port_en", 360),
   };
   if (!translation.name) return { ok: false, message: "Cần ít nhất tên sản phẩm bằng tiếng Anh." };
   try {

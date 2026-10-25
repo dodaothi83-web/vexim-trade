@@ -36,23 +36,43 @@ const source = {
   description_detail: '',
   packaging: 'Thùng carton 25 kg',
   certifications: 'ISO 22000',
+  moq: '1 tấn',
+  monthly_capacity: '100 tấn',
+  payment_terms: 'T/T 30% cọc',
+  incoterm_place: 'Hồ Chí Minh',
+  export_port: 'Cát Lái',
 };
 
 // Parse: JSON trong fence, trường model bỏ trống thì giữ nguyên nguồn thay vì mất nội dung.
-const parsed = ai.parseProductTranslation('```json\n{"name":"White cashew kernels W320","description":"White cashew kernels, moisture ≤ 5%.","spec":"","description_detail":"","packaging":"25 kg carton box","certifications":"ISO 22000"}\n```', source);
+const parsed = ai.parseProductTranslation('```json\n{"name":"White cashew kernels W320","description":"White cashew kernels, moisture ≤ 5%.","spec":"","description_detail":"","packaging":"25 kg carton box","certifications":"ISO 22000","moq":"1 metric ton","monthly_capacity":"100 metric tons","payment_terms":"T/T 30% deposit","incoterm_place":"Ho Chi Minh City","export_port":"Cat Lai"}\n```', source);
 assert.equal(parsed.name, 'White cashew kernels W320');
 assert.equal(parsed.spec, 'Size W320, đóng gói 25 kg', 'trường dịch trống phải lùi về nội dung gốc');
 assert.equal(parsed.packaging, '25 kg carton box');
+assert.equal(parsed.monthly_capacity, '100 metric tons');
+assert.equal(parsed.payment_terms, 'T/T 30% deposit');
+assert.equal(parsed.incoterm_place, 'Ho Chi Minh City');
+assert.equal(parsed.export_port, 'Cat Lai');
+assert.throws(() => ai.parseProductTranslation('not json', source, { strict: true }), /không đúng định dạng/);
+assert.throws(() => ai.parseProductTranslation('{"name":"Only a name"}', source, { strict: true }), /thiếu|chưa trả về/,
+  'AI cannot silently mark missing commercial translations as current');
 
 // Hash đổi khi nội dung gốc đổi, giữ nguyên khi nội dung không đổi.
 const hash1 = ai.productSourceHash(source);
 assert.equal(hash1, ai.productSourceHash({ ...source }));
 assert.notEqual(hash1, ai.productSourceHash({ ...source, spec: 'Size W240' }));
+assert.notEqual(hash1, ai.productSourceHash({ ...source, payment_terms: 'T/T 50% cọc' }));
+const coreOnly = { name: source.name, description: source.description, spec: source.spec, description_detail: '', packaging: source.packaging, certifications: source.certifications };
+assert.equal(ai.productSourceHash(coreOnly), ai.productSourceHash({ ...coreOnly, moq: '' }), 'core-only records keep their legacy hash shape');
 
 // Patch + state: vừa dịch xong thì current; NCC sửa nội dung gốc thì bản dịch bị coi là đã cũ.
 const patch = ai.productTranslationPatch(parsed, source, 'ai', 'gpt-4.1-mini');
 assert.equal(patch.name_i18n.en, 'White cashew kernels W320');
 assert.equal(patch.translation_meta.origin, 'ai');
+assert.equal(patch.translation_meta.fields.moq, '1 metric ton');
+assert.equal(patch.translation_meta.fields.monthly_capacity, '100 metric tons');
+assert.equal(patch.translation_meta.fields.payment_terms, 'T/T 30% deposit');
+assert.equal(patch.translation_meta.fields.incoterm_place, 'Ho Chi Minh City');
+assert.equal(patch.translation_meta.fields.export_port, 'Cat Lai');
 const product = { ...source, ...patch };
 assert.deepEqual(
   (({ hasEnglish, current, origin }) => ({ hasEnglish, current, origin }))(ai.productTranslationState(product)),

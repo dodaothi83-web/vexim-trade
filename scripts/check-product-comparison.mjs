@@ -17,6 +17,16 @@ import {
   toggleProductComparisonSelection,
 } from "../lib/public/product-comparison.ts";
 import { VERIFICATION_LABELS } from "../lib/verification-status.ts";
+import {
+  publicExportPortDisplay,
+  publicProductCapacityDisplay,
+  publicProductMoqDisplay,
+  publicProductPaymentTermsDisplay,
+  publicProductPackagingDisplay,
+  publicProductPlaceDisplay,
+  publicProductPriceDisplay,
+  publicProductUnitDisplay,
+} from "../lib/public/product-detail-display.ts";
 
 const require = createRequire(import.meta.url);
 const jsx = require("react/jsx-runtime");
@@ -125,6 +135,26 @@ const selectedCheckboxHtml = renderToStaticMarkup(React.createElement(ProductCom
 assert.match(selectedCheckboxHtml, /checked=""/);
 assert.match(selectedCheckboxHtml, /aria-label="Remove Product a from comparison"/);
 
+/* ---------- Vietnamese source fallback display ---------- */
+
+assert.equal(publicProductMoqDisplay("1 tấn"), "1 metric ton");
+assert.equal(publicProductMoqDisplay("300 bộ"), "300 sets");
+assert.equal(publicProductCapacityDisplay("100 tấn"), "100 metric tons");
+assert.equal(publicProductCapacityDisplay("200 tấn"), "200 metric tons");
+assert.equal(publicProductCapacityDisplay("2.000 MT / tháng"), "2.000 MT per month");
+assert.equal(publicProductPaymentTermsDisplay("T/T 30% cọc"), "T/T 30% deposit");
+assert.equal(publicProductPaymentTermsDisplay("30% cọc, 70% khi có B/L"), "30% deposit, 70% when B/L is available");
+assert.equal(publicProductPlaceDisplay("Hồ Chí Minh"), "Ho Chi Minh City");
+assert.equal(publicExportPortDisplay("Cát Lái"), "Cat Lai");
+assert.equal(publicProductUnitDisplay("thùng"), "carton");
+assert.equal(publicProductUnitDisplay("bộ"), "set");
+assert.equal(publicProductPriceDisplay("USD 7/thùng"), "USD 7/carton");
+assert.equal(publicProductPackagingDisplay("Bao PP 25kg hoặc 50kg, may kín"), "25kg or 50kg PP bags, sewn closed");
+assert.equal(publicProductPackagingDisplay("Túi 5kg hút chân không, thùng carton"), "5kg vacuum bags, carton box");
+assert.equal(publicProductPackagingDisplay("Túi 250g, thùng 40 túi"), "250g bags, 40 bags per carton");
+assert.equal(publicProductPackagingDisplay("Hút chân không 22,68kg / thùng"), "vacuum packed 22.68kg / carton");
+assert.equal(publicProductPackagingDisplay("Carton 5 lớp + góc bảo vệ"), "5-layer carton + corner protectors");
+
 /* ---------- Buyer-safe server projection ---------- */
 
 const rawCertificates = [
@@ -141,13 +171,13 @@ const certificateModule = compile("../lib/public/certificates.ts", {
 const record = {
   card: {
     id: "a", name: "Cashew W320", grade: "W320", attributes: { grade: "W320", moisture: "5% max", unapproved: "hidden" },
-    moq: "1 MT", price: null, pricePoint: null, cardImagePath: "products/a/cover.webp", imagePaths: ["products/a/full.jpg"],
+    moq: "1 tấn", price: null, pricePoint: null, cardImagePath: "products/a/cover.webp", imagePaths: ["products/a/full.jpg"],
     supplierName: "Company A", supplierId: "A", supplierSlug: "company-a", province: "Hanoi", verificationSteps: [1, 3], leadTimeDays: 14,
   },
   product: {
-    id: "a", supplier_id: "A", packaging: "25 kg bags", packaging_i18n: { en: "25 kg bags" }, ref_price: 999,
-    price_valid_until: "2099-01-01", incoterm: "FOB", incoterm_place: "Cat Lai", export_port: "Cat Lai",
-    monthly_capacity: "100 MT", payment_terms: "T/T", oem: true, odm: false, samples: true,
+    id: "a", supplier_id: "A", packaging: "Bao PP 25kg hoặc 50kg, may kín", packaging_i18n: null, ref_price: 999,
+    price_valid_until: "2099-01-01", incoterm: "FOB", incoterm_place: "Hồ Chí Minh", export_port: "Cát Lái",
+    monthly_capacity: "100 tấn", payment_terms: "T/T 30% cọc", oem: true, odm: false, samples: true,
   },
   supplier: { id: "A", email: "private@example.com" },
   category: { slug: "cashew", name_i18n: { en: "Cashew kernels" } },
@@ -163,7 +193,16 @@ const comparisonData = compile("../lib/public/product-comparison-data.ts", {
   "@/lib/public/certificates": certificateModule,
   "@/lib/public/product-catalog": { getPublicProductRecordsByIds: async (ids) => ids.map((id) => id === "a" ? record : null).filter(Boolean) },
   "@/lib/public/product-comparison": { productDetailHref },
-  "@/lib/public/product-detail-display": { publicExportPortDisplay: (value) => value || "" },
+  "@/lib/public/product-detail-display": {
+    publicExportPortDisplay,
+    publicProductCapacityDisplay,
+    publicProductMoqDisplay,
+    publicProductPaymentTermsDisplay,
+    publicProductPackagingDisplay,
+    publicProductPlaceDisplay,
+    publicProductPriceDisplay,
+    publicProductUnitDisplay,
+  },
   "@/lib/public/product-selection": { withoutDirectContacts },
 });
 const projected = await comparisonData.getPublicProductsForComparison(["a"]);
@@ -172,10 +211,18 @@ assert.equal(projected[0].price, null);
 assert.equal(projected[0].priceCurrency, null);
 assert.equal(projected[0].priceUnit, null);
 assert.equal(projected[0].priceValidUntil, null, "Private price metadata is hidden with the price");
+assert.equal(projected[0].moq, "1 metric ton");
+assert.equal(projected[0].incotermPlace, "Ho Chi Minh City");
+assert.equal(projected[0].exportPort, "Cat Lai");
+assert.equal(projected[0].monthlyCapacity, "100 metric tons");
+assert.equal(projected[0].paymentTerms, "T/T 30% deposit");
+assert.equal(projected[0].packaging, "25kg or 50kg PP bags, sewn closed");
 assert.equal(projected[0].certificates.length, 1);
 assert.equal(projected[0].certificates[0].id, "public-cert");
 assert.deepEqual([...projected[0].specifications.map((specification) => specification.key)], ["moisture"], "Only approved category attributes are compared");
 const projectedJson = JSON.stringify(projected[0]);
+assert.doesNotMatch(projectedJson, /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i,
+  "Vietnamese source values do not leak into the audited comparison projection");
 assert.ok(!projectedJson.includes("999") && !projectedJson.includes("private@example.com") && !projectedJson.includes("internal/evidence.pdf"),
   "Raw prices, supplier contacts and internal evidence never enter the public projection");
 
@@ -236,6 +283,8 @@ for (const text of ["Reference price", "USD 7/kg", "On request", "Price valid un
 }
 assert.match(tableHtml, /overflow-x-auto/);
 assert.match(tableHtml, /sticky left-0/);
+assert.match(tableHtml, /min-w-48/);
+assert.match(tableHtml, /Swipe horizontally to see each product/);
 assert.equal((tableHtml.match(/aria-label="Remove Cashew [ab] from comparison"/g) ?? []).length, 2);
 assert.ok(tableHtml.includes("Some products do not have a public reference price"));
 const crossCategoryHtml = renderToStaticMarkup(React.createElement(tableModule.ProductComparisonTable, {
@@ -250,6 +299,12 @@ const page = readFileSync(new URL("../app/(public)/compare/page.tsx", import.met
 assert.match(page, /searchParams\?\.products === undefined && searchParams\?\.ids !== undefined/, "Legacy supplier IDs keep their existing mode");
 assert.match(page, /parseComparisonIds\(sp\?\.products, 3\)/);
 assert.match(page, /ProductComparisonSync/);
+assert.match(page, /supplier-comparison-scroll-hint/);
+const catalog = readFileSync(new URL("../lib/public/catalog.ts", import.meta.url), "utf8");
+assert.match(catalog, /\.map\(\(p\) => publicProductTitle\(p\)\)/, "Supplier comparison uses English public product names");
+const tray = readFileSync(new URL("../components/product-comparison-tray.tsx", import.meta.url), "utf8");
+assert.match(tray, /snap-x/);
+assert.match(tray, /max-w-\[calc\(100vw-4rem\)\]/);
 const layout = readFileSync(new URL("../app/(public)/layout.tsx", import.meta.url), "utf8");
 assert.match(layout, /ProductComparisonProvider/);
 assert.match(layout, /ProductComparisonTray/);

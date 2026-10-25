@@ -23,7 +23,7 @@ function Availability({ available }: { available: boolean }) {
 function Section({ label, count }: { label: string; count: number }) {
   return (
     <tr>
-      <th colSpan={count + 1} scope="colgroup" className="border-y border-ink-200 bg-ink-50 px-4 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.14em] text-ink-500">
+      <th colSpan={count + 1} scope="colgroup" className="border-y border-ink-200 bg-ink-50 px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.14em] text-ink-500 sm:px-4">
         {label}
       </th>
     </tr>
@@ -37,11 +37,11 @@ function Row({ label, products, children }: {
 }) {
   return (
     <tr className="border-b border-ink-100">
-      <th scope="row" className="sticky left-0 z-10 w-44 min-w-44 bg-white px-4 py-3.5 align-top text-left text-xs font-bold leading-5 text-ink-600">
+      <th scope="row" className="sticky left-0 z-10 w-24 min-w-24 bg-white px-3 py-3 align-top text-left text-[11px] font-bold leading-4 text-ink-600 sm:w-44 sm:min-w-44 sm:px-4 sm:py-3.5 sm:text-xs sm:leading-5">
         {label}
       </th>
       {products.map((product) => (
-        <td key={product.id} className="min-w-60 px-4 py-3.5 align-top text-sm font-medium leading-6 text-ink-800">
+        <td key={product.id} className="min-w-48 px-3 py-3 align-top text-[13px] font-medium leading-5 text-ink-800 sm:min-w-60 sm:px-4 sm:py-3.5 sm:text-sm sm:leading-6">
           {children(product)}
         </td>
       ))}
@@ -89,28 +89,29 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
         <CopyComparisonLink productIds={products.map((product) => product.id)} />
       </div>
 
-      <div role="region" aria-label="Scrollable product comparison" tabIndex={0} className="mt-4 overflow-x-auto rounded-xl border border-ink-200 bg-white shadow-card focus-visible:outline-brand-700">
+      <p id="comparison-scroll-hint" className="mt-4 text-xs font-medium leading-5 text-ink-500 sm:hidden">Swipe horizontally to see each product. Criteria stay visible.</p>
+      <div role="region" aria-label="Scrollable product comparison" aria-describedby="comparison-scroll-hint" tabIndex={0} className="mt-2 scroll-smooth overflow-x-auto rounded-xl border border-ink-200 bg-white shadow-card focus-visible:outline-brand-700 sm:mt-4">
         <table className="min-w-full border-collapse text-left">
           <caption className="sr-only">Side-by-side comparison of selected products and their suppliers</caption>
           <thead>
             <tr className="bg-ink-50">
-              <th scope="col" className="sticky left-0 z-20 w-44 min-w-44 bg-ink-50 px-4 py-4 align-bottom text-[11px] font-black uppercase tracking-[0.14em] text-ink-500">
+              <th scope="col" className="sticky left-0 z-20 w-24 min-w-24 bg-ink-50 px-3 py-3 align-bottom text-[10px] font-black uppercase tracking-[0.1em] text-ink-500 sm:w-44 sm:min-w-44 sm:px-4 sm:py-4 sm:text-[11px] sm:tracking-[0.14em]">
                 Criterion
               </th>
               {products.map((product, index) => (
-                <th key={product.id} scope="col" className="min-w-60 border-l border-ink-100 px-4 py-4 align-top">
-                  <div className="flex items-start gap-3">
-                    <Link href={product.href} className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-ink-300 ring-1 ring-ink-200">
+                <th key={product.id} scope="col" className="min-w-48 border-l border-ink-100 px-3 py-3 align-top sm:min-w-60 sm:px-4 sm:py-4">
+                  <div className="relative flex flex-col items-start gap-2 sm:flex-row sm:gap-3">
+                    <Link href={product.href} className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-ink-300 ring-1 ring-ink-200 sm:size-16">
                       {product.imagePath ? <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={`/public-media/${product.imagePath}`} alt="" className="h-full w-full object-cover" />
                       </> : <ImageIcon className="size-6" aria-hidden="true" />}
                     </Link>
-                    <div className="min-w-0 flex-1">
-                      <Link href={product.href} className="block break-words text-sm font-black leading-5 text-ink-900 hover:text-brand-700">{product.name}</Link>
+                    <div className="w-full min-w-0 flex-1 sm:w-auto">
+                      <Link href={product.href} className="block break-words text-[13px] font-black leading-5 text-ink-900 hover:text-brand-700 sm:text-sm">{product.name}</Link>
                       <Link href={product.supplierHref} className="mt-1 block break-words text-xs font-semibold leading-5 text-brand-700 hover:underline">{product.supplierName}</Link>
                     </div>
-                    <RemoveComparedProduct product={selections[index]} products={selections} />
+                    <div className="absolute right-0 top-0 sm:static"><RemoveComparedProduct product={selections[index]} products={selections} /></div>
                   </div>
                 </th>
               ))}
@@ -178,9 +179,9 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
             ) : <Missing>No public certificates</Missing>}</Row>
 
             <tr className="bg-ink-50/70">
-              <th scope="row" className="sticky left-0 z-10 w-44 min-w-44 bg-ink-50 px-4 py-4 text-left text-xs font-bold text-ink-600">Next step</th>
+              <th scope="row" className="sticky left-0 z-10 w-24 min-w-24 bg-ink-50 px-3 py-3 text-left text-[11px] font-bold text-ink-600 sm:w-44 sm:min-w-44 sm:px-4 sm:py-4 sm:text-xs">Next step</th>
               {products.map((product) => (
-                <td key={product.id} className="min-w-60 border-l border-ink-100 px-4 py-4">
+                <td key={product.id} className="min-w-48 border-l border-ink-100 px-3 py-3 sm:min-w-60 sm:px-4 sm:py-4">
                   <div className="flex flex-col gap-2">
                     <Link href={product.rfqHref} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-xs font-bold text-white hover:bg-brand-800">
                       Request a quote <ArrowRight className="size-3.5" aria-hidden="true" />

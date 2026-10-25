@@ -1,4 +1,11 @@
 import type { Supplier } from "@/lib/types";
+import {
+  publicExportPortDisplay,
+  publicProductCapacityDisplay,
+  publicProductMoqDisplay,
+  publicProductPaymentTermsDisplay,
+  publicProductPlaceDisplay,
+} from "@/lib/public/product-detail-display";
 
 /** Giới thiệu cho buyer: ưu tiên bản dịch, nhưng không bỏ trống khi NCC đã có nội dung gốc. */
 export function supplierSummaryDisplay(supplier: Pick<Supplier, "summary_i18n" | "intro_source">): string {
@@ -15,7 +22,7 @@ export function supplierLegalNameDisplay(supplier: Pick<Supplier, "name" | "prof
 
 /** MOQ hiển thị cho buyer: ưu tiên bản tiếng Anh đã dịch, lùi về nội dung gốc khi chưa có bản dịch. */
 export function supplierMoqDisplay(supplier: Pick<Supplier, "moq_text" | "moq_text_i18n">): string {
-  return supplier.moq_text_i18n?.en?.trim() || supplier.moq_text || "";
+  return publicProductMoqDisplay(supplier.moq_text_i18n?.en?.trim() || supplier.moq_text);
 }
 
 /** Thị trường xuất khẩu hiển thị cho buyer: ưu tiên danh sách tiếng Anh đã dịch. */
@@ -25,7 +32,7 @@ export function supplierExportMarketsDisplay(supplier: Pick<Supplier, "export_ma
 }
 
 export function supplierProvinceDisplay(supplier: Pick<Supplier, "province" | "profile_translation_meta">): string {
-  return supplier.profile_translation_meta?.fields?.province?.trim() || supplier.province || "";
+  return publicProductPlaceDisplay(supplier.profile_translation_meta?.fields?.province?.trim() || supplier.province);
 }
 
 export function supplierAddressDisplay(supplier: Pick<Supplier, "address" | "profile_translation_meta">): string {
@@ -41,11 +48,11 @@ export function supplierMarketsDisplay(supplier: Pick<Supplier, "markets" | "pro
 }
 
 export function supplierCapacityDisplay(supplier: Pick<Supplier, "capacity_per_month" | "profile_translation_meta">): string {
-  return supplier.profile_translation_meta?.fields?.capacity_per_month?.trim() || supplier.capacity_per_month || "";
+  return publicProductCapacityDisplay(supplier.profile_translation_meta?.fields?.capacity_per_month?.trim() || supplier.capacity_per_month);
 }
 
 export function supplierPaymentTermsDisplay(supplier: Pick<Supplier, "payment_terms" | "profile_translation_meta">): string {
-  return supplier.profile_translation_meta?.fields?.payment_terms?.trim() || supplier.payment_terms || "";
+  return publicProductPaymentTermsDisplay(supplier.profile_translation_meta?.fields?.payment_terms?.trim() || supplier.payment_terms);
 }
 
 function listDisplay(translated: string[] | undefined, source: string[] | undefined): string[] {
@@ -54,7 +61,7 @@ function listDisplay(translated: string[] | undefined, source: string[] | undefi
 }
 
 export function supplierPortsDisplay(supplier: Pick<Supplier, "ports" | "profile_translation_meta">): string[] {
-  return listDisplay(supplier.profile_translation_meta?.fields?.ports, supplier.ports);
+  return listDisplay(supplier.profile_translation_meta?.fields?.ports, supplier.ports).map(publicExportPortDisplay);
 }
 
 export function supplierIncotermsDisplay(supplier: Pick<Supplier, "incoterms" | "profile_translation_meta">): string[] {

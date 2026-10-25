@@ -5,7 +5,16 @@ import { fieldsFor } from "@/lib/product-attributes";
 import { publicSupplierCertificates, type PublicSupplierCertificate } from "@/lib/public/certificates";
 import { getPublicProductRecordsByIds } from "@/lib/public/product-catalog";
 import { productDetailHref } from "@/lib/public/product-comparison";
-import { publicExportPortDisplay } from "@/lib/public/product-detail-display";
+import {
+  publicExportPortDisplay,
+  publicProductCapacityDisplay,
+  publicProductMoqDisplay,
+  publicProductPaymentTermsDisplay,
+  publicProductPackagingDisplay,
+  publicProductPlaceDisplay,
+  publicProductPriceDisplay,
+  publicProductUnitDisplay,
+} from "@/lib/public/product-detail-display";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import type { VerificationLevel } from "@/lib/types";
 
@@ -65,6 +74,7 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
 
   return records.map(({ card, product, supplier, category }) => {
     const attributes = card.attributes;
+    const tradeEnglish = product.translation_meta?.fields;
     const specifications = fieldsFor(category)
       .filter((field) => field.key !== "grade" && Boolean(attributes[field.key]))
       .map((field) => ({
@@ -82,19 +92,19 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       categoryName: safe(category.name_i18n.en || category.slug) ?? category.slug,
       grade: safe(attributes.grade ?? card.grade),
       specifications,
-      price: safe(card.price),
+      price: safe(publicProductPriceDisplay(card.price)),
       priceCurrency: card.price && card.pricePoint ? safe(card.pricePoint.currency) : null,
-      priceUnit: card.price && card.pricePoint ? safe(card.pricePoint.unit) : null,
+      priceUnit: card.price && card.pricePoint ? safe(publicProductUnitDisplay(card.pricePoint.unit)) : null,
       priceValidUntil: card.price && product.price_valid_until && /^\d{4}-\d{2}-\d{2}$/.test(product.price_valid_until)
         ? product.price_valid_until : null,
-      moq: safe(card.moq) ?? "Not provided",
-      packaging: safe(product.packaging_i18n?.en?.trim() || product.packaging),
+      moq: safe(publicProductMoqDisplay(tradeEnglish?.moq || card.moq)) ?? "Not provided",
+      packaging: safe(publicProductPackagingDisplay(product.packaging_i18n?.en?.trim() || product.packaging)),
       leadTimeDays: card.leadTimeDays,
       incoterm: safe(product.incoterm),
-      incotermPlace: safe(product.incoterm_place),
-      exportPort: safe(publicExportPortDisplay(product.export_port)),
-      monthlyCapacity: safe(product.monthly_capacity),
-      paymentTerms: safe(product.payment_terms),
+      incotermPlace: safe(publicProductPlaceDisplay(tradeEnglish?.incoterm_place || product.incoterm_place)),
+      exportPort: safe(publicExportPortDisplay(tradeEnglish?.export_port || product.export_port)),
+      monthlyCapacity: safe(publicProductCapacityDisplay(tradeEnglish?.monthly_capacity || product.monthly_capacity)),
+      paymentTerms: safe(publicProductPaymentTermsDisplay(tradeEnglish?.payment_terms || product.payment_terms)),
       oem: Boolean(product.oem),
       odm: Boolean(product.odm),
       samples: Boolean(product.samples),

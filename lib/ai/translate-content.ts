@@ -13,6 +13,11 @@ export const PRODUCT_TRANSLATION_FIELDS = [
   "description_detail",
   "packaging",
   "certifications",
+  "moq",
+  "monthly_capacity",
+  "payment_terms",
+  "incoterm_place",
+  "export_port",
 ] as const;
 
 export type ProductTranslationField = (typeof PRODUCT_TRANSLATION_FIELDS)[number];
@@ -26,17 +31,23 @@ const LIMITS: Record<ProductTranslationField, number> = {
   description_detail: 6000,
   packaging: 300,
   certifications: 300,
+  moq: 180,
+  monthly_capacity: 180,
+  payment_terms: 200,
+  incoterm_place: 180,
+  export_port: 180,
 };
 
 const SYSTEM_PROMPT = `You translate Vietnamese B2B product listing content into English for an international buyer-facing supplier platform.
 
 Rules:
 - Translate faithfully. Do not add claims, certifications, capacities, prices, markets or any fact that is not in the source text.
-- Keep product grade codes, model codes, numbers, units and measurement symbols unchanged (for example W320, ST25, 5% broken, kg, MT, ≤ 5%).
-- Keep proper nouns unchanged, including company names, place names and port names.
+- Keep product grade codes, model codes, numbers, currencies, standard unit symbols and measurement symbols unchanged (for example W320, ST25, 5% broken, kg, MT, ≤ 5%). Translate Vietnamese unit words such as tấn into natural English without converting the quantity.
+- Keep company names and other proper names accurate. Use conventional English spellings for Vietnamese places and ports, such as Ho Chi Minh City and Cat Lai, without changing the location.
 - If a field is already in English, return it as is, only fixing obvious spelling mistakes.
+- Translate moq, monthly_capacity, payment_terms, incoterm_place and export_port faithfully. Keep quantities, currencies, Incoterm codes and commercial facts unchanged.
 - Preserve line breaks and list structure of the source.
-- Return one JSON object only, no markdown, no explanation, with exactly these keys: "name", "description", "spec", "description_detail", "packaging", "certifications". Use an empty string for a field whose source is empty.`;
+- Return one JSON object only, no markdown, no explanation, with exactly these keys: "name", "description", "spec", "description_detail", "packaging", "certifications", "moq", "monthly_capacity", "payment_terms", "incoterm_place", "export_port". Use an empty string for a field whose source is empty.`;
 
 function clean(value: unknown, limit: number): string {
   return typeof value === "string" ? value.replace(/\s+\n/g, "\n").trim().slice(0, limit) : "";
@@ -51,12 +62,29 @@ export function productTranslationSource(product: ProductTranslationSource): Pro
     description_detail: clean(product.description_detail, LIMITS.description_detail),
     packaging: clean(product.packaging, LIMITS.packaging),
     certifications: clean(product.certifications, LIMITS.certifications),
+    moq: clean(product.moq, LIMITS.moq),
+    monthly_capacity: clean(product.monthly_capacity, LIMITS.monthly_capacity),
+    payment_terms: clean(product.payment_terms, LIMITS.payment_terms),
+    incoterm_place: clean(product.incoterm_place, LIMITS.incoterm_place),
+    export_port: clean(product.export_port, LIMITS.export_port),
   };
 }
 
 /** Hash nội dung gốc tại thời điểm dịch; NCC sửa nội dung gốc thì hash lệch và bản dịch bị coi là đã cũ. */
 export function productSourceHash(product: ProductTranslationSource): string {
-  return createHash("sha256").update(JSON.stringify(productTranslationSource(product))).digest("hex").slice(0, 32);
+  const normalized = productTranslationSource(product);
+  // Keep hashes for older core-only records stable. A record with trade text
+  // uses the expanded shape, so its old translation is refreshed once.
+  const hasTradeFields = Boolean(normalized.moq || normalized.monthly_capacity || normalized.payment_terms || normalized.incoterm_place || normalized.export_port);
+  const source = hasTradeFields ? normalized : {
+    name: normalized.name,
+    description: normalized.description,
+    spec: normalized.spec,
+    description_detail: normalized.description_detail,
+    packaging: normalized.packaging,
+    certifications: normalized.certifications,
+  };
+  return createHash("sha256").update(JSON.stringify(source)).digest("hex").slice(0, 32);
 }
 
 function stripFences(text: string): string {
@@ -67,18 +95,31 @@ function stripFences(text: string): string {
   return out;
 }
 
-/** Đọc kết quả dịch từ model; trường nào model bỏ trống nhưng nguồn có chữ thì giữ nguyên nguồn để không mất nội dung. */
-export function parseProductTranslation(text: string, source: ProductTranslationSource): ProductTranslation {
+/** Đọc kết quả dịch từ model; strict mode không đánh dấu field bị thiếu là đã dịch xong. */
+export function parseProductTranslation(
+  text: string,
+  source: ProductTranslationSource,
+  options: { strict?: boolean } = {},
+): ProductTranslation {
   const normalized = productTranslationSource(source);
   let payload: Record<string, unknown> = {};
+  let valid = false;
   try {
-    payload = JSON.parse(stripFences(text)) as Record<string, unknown>;
+    const parsed = JSON.parse(stripFences(text)) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      payload = parsed as Record<string, unknown>;
+      valid = true;
+    }
   } catch {
-    payload = {};
+    valid = false;
   }
+  if (options.strict && !valid) throw new Error("AI trả về bản dịch không đúng định dạng. Hãy thử lại.");
   const result = {} as ProductTranslation;
   for (const field of PRODUCT_TRANSLATION_FIELDS) {
     const translated = clean(payload[field], LIMITS[field] * 2);
+    if (options.strict && normalized[field] && !translated)
+      throw new Error(`AI chưa trả về bản dịch cho trường ${field}. Hãy thử lại.`);
+    // Manual/legacy parsing remains lossless; live AI writes use strict mode.
     result[field] = translated || normalized[field];
   }
   return result;
@@ -87,6 +128,7 @@ export function parseProductTranslation(text: string, source: ProductTranslation
 /** Bản dịch tiếng Anh hiện tại của sản phẩm có khớp nội dung gốc và đủ dùng cho trang buyer hay không. */
 export function productTranslationState(product: Pick<SupplierProduct,
   "name" | "description" | "spec" | "description_detail" | "packaging" | "certifications" |
+  "moq" | "monthly_capacity" | "payment_terms" | "incoterm_place" | "export_port" |
   "name_i18n" | "description_i18n" | "spec_i18n" | "description_detail_i18n" | "packaging_i18n" | "certifications_i18n" | "translation_meta">):
   { hasEnglish: boolean; current: boolean; translatedAt: string | null; origin: "ai" | "staff" | null } {
   const hasEnglish = Boolean(product.name_i18n?.en?.trim());
@@ -118,6 +160,13 @@ export function productTranslationPatch(
       translated_at: new Date().toISOString(),
       origin,
       model: model ?? null,
+      fields: {
+        moq: translation.moq,
+        monthly_capacity: translation.monthly_capacity,
+        payment_terms: translation.payment_terms,
+        incoterm_place: translation.incoterm_place,
+        export_port: translation.export_port,
+      },
     },
   };
 }
@@ -165,7 +214,7 @@ export async function translateProductContent(
   }
   const text = readOutputText(payload);
   if (!text) throw new Error("AI chưa trả về bản dịch. Hãy thử lại sau.");
-  const translation = parseProductTranslation(text, source);
+  const translation = parseProductTranslation(text, source, { strict: true });
   if (!translation.name) throw new Error("AI chưa dịch được tên sản phẩm. Hãy thử lại sau.");
   return { translation, model };
 }

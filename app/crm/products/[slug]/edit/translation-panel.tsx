@@ -13,6 +13,11 @@ type Texts = {
   description_detail: string;
   packaging: string;
   certifications: string;
+  moq: string;
+  monthly_capacity: string;
+  payment_terms: string;
+  incoterm_place: string;
+  export_port: string;
 };
 
 const FIELDS: Array<{ key: keyof Texts; label: string; rows: number; limit: number }> = [
@@ -22,6 +27,11 @@ const FIELDS: Array<{ key: keyof Texts; label: string; rows: number; limit: numb
   { key: "description_detail", label: "Mô tả chi tiết", rows: 6, limit: 12000 },
   { key: "packaging", label: "Đóng gói", rows: 2, limit: 600 },
   { key: "certifications", label: "Chứng nhận", rows: 2, limit: 600 },
+  { key: "moq", label: "MOQ", rows: 1, limit: 360 },
+  { key: "monthly_capacity", label: "Năng lực mỗi tháng", rows: 1, limit: 360 },
+  { key: "payment_terms", label: "Điều kiện thanh toán", rows: 2, limit: 400 },
+  { key: "incoterm_place", label: "Địa điểm Incoterm", rows: 1, limit: 360 },
+  { key: "export_port", label: "Cảng xuất hàng", rows: 1, limit: 360 },
 ];
 
 /** Bản dịch tiếng Anh: AI hỗ trợ, nhân viên đọc lại và chốt trước khi công khai. */

@@ -159,6 +159,15 @@ export interface Supplier {
   updated_at: string;
 }
 
+/** English renderings for product trade fields stored inside translation_meta. */
+export type ProductEnglishFields = {
+  moq?: string;
+  monthly_capacity?: string;
+  payment_terms?: string;
+  incoterm_place?: string;
+  export_port?: string;
+};
+
 /** Hồ sơ sản phẩm riêng của NCC – dùng để so khớp với nhu cầu mua của buyer */
 export interface SupplierProduct {
   id: string;
@@ -190,6 +199,8 @@ export interface SupplierProduct {
     translated_at: string;
     origin: "ai" | "staff";
     model?: string | null;
+    /** English renderings for trade fields without separate i18n columns. */
+    fields?: ProductEnglishFields;
   } | null;
   /** Thông số theo ngành (JSON linh hoạt) */
   specs?: Record<string, unknown>;

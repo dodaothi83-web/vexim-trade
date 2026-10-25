@@ -40,12 +40,12 @@ export default async function ComparePage({ searchParams }: PageProps) {
     const ids = parseComparisonIds(sp?.ids, 4);
     const suppliers = ids.length > 0 ? await getPublicSuppliersByIds(ids) : [];
     return (
-      <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-14">
         <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Compare suppliers" }]} />
-        <h1 className="mt-4 text-[38px] font-bold leading-tight text-ink-900 sm:text-[46px]" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}>
+        <h1 className="mt-4 text-[32px] font-bold leading-tight text-ink-900 sm:text-[46px]" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}>
           Compare suppliers
         </h1>
-        <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-600">
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-600 sm:text-[15px]">
           Side-by-side view of up to 4 published Vietnamese suppliers.
         </p>
 
@@ -58,13 +58,14 @@ export default async function ComparePage({ searchParams }: PageProps) {
           </div>
         ) : (
           <>
-            <div className="mt-8 overflow-x-auto rounded-lg border border-ink-200 bg-white">
+            <p id="supplier-comparison-scroll-hint" className="mt-6 text-xs font-medium leading-5 text-ink-500 sm:hidden">Swipe horizontally to see each supplier. Criteria stay visible.</p>
+            <div role="region" aria-label="Scrollable supplier comparison" aria-describedby="supplier-comparison-scroll-hint" tabIndex={0} className="mt-2 scroll-smooth overflow-x-auto rounded-lg border border-ink-200 bg-white focus-visible:outline-brand-700 sm:mt-8">
               <table className="min-w-full text-left text-[14px]">
                 <thead className="bg-ink-50">
                   <tr>
-                    <th className="sticky left-0 z-10 w-48 bg-ink-50 px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-500">Criterion</th>
+                    <th className="sticky left-0 z-10 w-24 min-w-24 bg-ink-50 px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500 sm:w-48 sm:min-w-48 sm:px-4 sm:text-[12px] sm:tracking-[0.12em]">Criterion</th>
                     {suppliers.map((s) => (
-                      <th key={s.id} className="min-w-[220px] px-4 py-3 align-top">
+                      <th key={s.id} className="min-w-48 px-3 py-3 align-top sm:min-w-[220px] sm:px-4">
                         <Link href={`/suppliers/${encodeURIComponent(s.slug || s.id)}`} className="block text-[15px] font-semibold text-ink-900 hover:text-brand-700">
                           {s.display_name ?? s.name}
                         </Link>
@@ -88,9 +89,9 @@ export default async function ComparePage({ searchParams }: PageProps) {
                     : <Dash />)} />
                   <Row label="Private label" cells={suppliers.map((s) => <>{s.private_label ? "Yes" : "Not stated"}</>)} />
                   <tr className="bg-ink-50/60">
-                    <td className="sticky left-0 z-10 bg-ink-50/60 px-4 py-4 font-semibold text-ink-900" />
+                    <td className="sticky left-0 z-10 w-24 min-w-24 bg-ink-50/60 px-3 py-3 font-semibold text-ink-900 sm:w-48 sm:min-w-48 sm:px-4 sm:py-4" />
                     {suppliers.map((s) => (
-                      <td key={s.id} className="px-4 py-4">
+                      <td key={s.id} className="min-w-48 px-3 py-3 sm:min-w-[220px] sm:px-4 sm:py-4">
                         <Link href={`/rfq?suppliers=${s.id}`} className="inline-flex items-center gap-1.5 rounded-md bg-ink-900 px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-ink-800">
                           Request quote <ArrowRight className="h-3.5 w-3.5" />
                         </Link>
@@ -123,13 +124,13 @@ export default async function ComparePage({ searchParams }: PageProps) {
   }));
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-14">
       <ProductComparisonSync products={selections} fromUrl={sp?.products !== undefined} />
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Compare products" }]} />
-      <h1 className="mt-4 text-[38px] font-bold leading-tight text-ink-900 sm:text-[46px]" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}>
+      <h1 className="mt-4 text-[32px] font-bold leading-tight text-ink-900 sm:text-[46px]" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}>
         Compare products
       </h1>
-      <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-600">
+      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-600 sm:text-[15px]">
         Compare up to 3 product offers side by side. Tick the small box at the top right of a product image to build your list.
       </p>
 
@@ -158,8 +159,8 @@ export default async function ComparePage({ searchParams }: PageProps) {
 function Row({ label, cells }: { label: string; cells: React.ReactNode[] }) {
   return (
     <tr>
-      <td className="sticky left-0 z-10 bg-white px-4 py-3 align-top text-[12.5px] font-semibold uppercase tracking-[0.1em] text-ink-500">{label}</td>
-      {cells.map((c, i) => <td key={i} className="px-4 py-3 align-top text-ink-800">{c}</td>)}
+      <td className="sticky left-0 z-10 w-24 min-w-24 bg-white px-3 py-3 align-top text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-500 sm:w-48 sm:min-w-48 sm:px-4 sm:text-[12.5px] sm:tracking-[0.1em]">{label}</td>
+      {cells.map((c, i) => <td key={i} className="min-w-48 px-3 py-3 align-top text-[13px] leading-5 text-ink-800 sm:min-w-[220px] sm:px-4 sm:text-[14px]">{c}</td>)}
     </tr>
   );
 }

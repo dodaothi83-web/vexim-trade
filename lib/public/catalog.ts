@@ -9,6 +9,7 @@ import { isExpired, productReadiness } from "@/lib/media/readiness";
 import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, VerificationLevel } from "@/lib/types";
 import { approvedPublicReviewSummaries, approvedVerificationSteps, type PublicReviewSummaries } from "@/lib/verification-status";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
+import { publicProductTitle } from "@/lib/public/display-name";
 
 /** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
 export const DEFAULT_LOCALE = "en";
@@ -220,6 +221,6 @@ export async function getPublicSuppliersByIds(ids: string[]): Promise<PublicSupp
 export function mainProductNames(products: SupplierProduct[], max = 3): string {
   return products
     .slice(0, max)
-    .map((p) => p.name)
+    .map((p) => publicProductTitle(p))
     .join(" · ");
 }
