@@ -33,6 +33,8 @@ export type I18nList = Record<string, string[]>;
 
 /** Bản dịch phái sinh của các trường hồ sơ chưa có cột i18n riêng. */
 export type SupplierProfileEnglishFields = {
+  /** English rendering for buyers; the registered supplier.name remains unchanged. */
+  legal_name?: string;
   province?: string;
   address?: string;
   products?: string;

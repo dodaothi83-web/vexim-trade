@@ -100,8 +100,22 @@ assert.equal(ai.supplierProfileTranslationState({
 }).current, false, 'cache từ parser cũ phải được dịch lại');
 assert.equal(ai.supplierProfileTranslationState({ ...fullSource, ...fullPatch, address: 'Địa chỉ mới' }).current, false);
 
+const legalName = 'CÔNG TY TNHH SẢN XUẤT CÔNG NGHIỆP VIỆT THIÊN PHÚ';
+const legalNameEn = 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED';
+const legalSource = ai.supplierProfileSource({ name: legalName });
+assert.throws(() => ai.parseSupplierProfileTranslation('{}', legalSource, { strict: true }), /thiếu nội dung/,
+  'Thiếu tên tiếng Anh phải giữ trạng thái lỗi để thử lại');
+const legalTranslation = ai.parseSupplierProfileTranslation(JSON.stringify({ legal_name_en: legalNameEn }), legalSource, { strict: true });
+const legalPatch = ai.supplierProfilePatch(legalTranslation, legalSource, 'ai', 'mock');
+assert.equal(legalPatch.profile_translation_meta.fields.legal_name, legalNameEn);
+assert.equal(ai.supplierProfileTranslationState({ ...legalSource, ...legalPatch }).current, true);
+assert.equal(ai.supplierProfileTranslationState({ ...legalSource, ...legalPatch, name: 'Tên pháp lý mới' }).current, false,
+  'Sửa tên pháp lý gốc phải làm bản hiển thị tiếng Anh cũ hết hạn');
+
 const english = load('../lib/public/supplier-english.ts', { '@/lib/types': {} });
 const displaySupplier = { province: 'Bình Phước', address: 'Số 1', ports: ['Cát Lái'], profile_translation_meta: { fields: { province: 'Binh Phuoc', address: '1 A Street', ports: ['Cat Lai'] } } };
+assert.equal(english.supplierLegalNameDisplay({ name: legalName, profile_translation_meta: null }), legalName,
+  'Chưa có bản tiếng Anh thì giữ nguyên tên gốc, không tự ý thay đổi');
 assert.equal(english.supplierProvinceDisplay(displaySupplier), 'Binh Phuoc');
 assert.equal(english.supplierAddressDisplay(displaySupplier), '1 A Street');
 assert.equal(english.supplierPortsDisplay(displaySupplier)[0], 'Cat Lai');
@@ -142,6 +156,7 @@ const translationService = load('../lib/ai/supplier-translation-service.ts', {
       return {
         model: 'mock-translator',
         translation: ai.parseSupplierProfileTranslation(JSON.stringify({
+          legal_name_en: 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED',
           moq_en: '1 MT', export_markets_en: ['United States'], province_en: 'Binh Phuoc',
           address_en: '1 A Street', products_en: 'Cashew kernels', markets_en: 'Vietnam',
           capacity_per_month_en: '10 MT/month', payment_terms_en: 'Deferred payment',
@@ -155,7 +170,7 @@ const translationService = load('../lib/ai/supplier-translation-service.ts', {
   '@/lib/db/types': {}, '@/lib/types': {},
 });
 let translatedRow = {
-  id: 'sup-translation', ...fullSource,
+  id: 'sup-translation', name: 'CÔNG TY TNHH SẢN XUẤT CÔNG NGHIỆP VIỆT THIÊN PHÚ', ...fullSource,
   intro_source: 'Giới thiệu doanh nghiệp bằng tiếng Việt.', summary_i18n: {},
 };
 const translationStore = {
@@ -176,6 +191,9 @@ let ensured = await translationService.ensureSupplierProfileEnglish(translationS
 assert.equal(ensured.status, 'translated');
 assert.equal(translatedRow.summary_i18n.en, 'A faithful English introduction.');
 assert.equal(translatedRow.profile_translation_meta.fields.products, 'Cashew kernels');
+assert.equal(translatedRow.profile_translation_meta.fields.legal_name, 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED');
+assert.equal(translatedRow.name, 'CÔNG TY TNHH SẢN XUẤT CÔNG NGHIỆP VIỆT THIÊN PHÚ', 'Bản dịch không được thay tên pháp lý gốc');
+assert.equal(english.supplierLegalNameDisplay(translatedRow), 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED');
 assert.equal(translatedRow.moq_text_i18n.en, '1 MT');
 const callsAfterTranslation = providerCalls;
 ensured = await translationService.ensureSupplierProfileEnglish(translationStore, translatedRow.id, null);
@@ -240,6 +258,7 @@ assert.match(service, /fields: supplier\.profile_translation_meta\?\.fields/, 'l
 const profilePage = fs.readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8') +
   fs.readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8');
 assert.match(profilePage, /supplierSummaryDisplay\(s\)/, 'trang NCC phải hiển thị giới thiệu bản dịch hoặc nội dung gốc đã có');
+assert.match(profilePage, /supplierLegalNameDisplay\(s\)/, 'trang NCC phải hiển thị tên pháp lý bằng bản tiếng Anh đã lưu');
 assert.match(profilePage, /supplierMoqDisplay\(s\)/, 'trang NCC phải hiển thị MOQ bản tiếng Anh');
 assert.match(profilePage, /supplierExportMarketsDisplay\(s\)/, 'trang NCC phải hiển thị thị trường bản tiếng Anh');
 assert.match(profilePage, /supplierProvinceDisplay\(s\)/, 'trang NCC phải hiển thị địa điểm bản tiếng Anh');
