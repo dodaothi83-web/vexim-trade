@@ -282,13 +282,96 @@ export default async function SupplierDetailPage({
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
         <div className="min-w-0 space-y-4">
-          <VerificationPanel
-            supplierId={id}
-            verifications={verifications}
-            requests={requests}
-            canInspect={canInspect}
-            canViewReviews={canViewReviews}
-          />
+          {canSeeRfqs && (
+            <Card className="p-5">
+              <SectionHead icon={Send} title="RFQ đã gửi cho NCC này" sub="Các yêu cầu báo giá trong hệ thống RFQ đã khớp với nhà cung cấp này." />
+              {rfqRows.length === 0 ? (
+                <EmptyState
+                  icon={<Send className="h-5 w-5" />}
+                  title="Chưa có RFQ nào"
+                  sub="Khi một RFQ được khớp với nhà cung cấp này, RFQ sẽ hiện ở đây kèm trạng thái xử lý."
+                />
+              ) : (
+                <ul className="divide-y divide-ink-100">
+                  {rfqRows.map(({ match, rfq }) => {
+                    const buyer = buyerById.get(rfq.buyer_id);
+                    return (
+                      <li key={match.id}>
+                        <Link href={`/crm/rfqs/${rfq.id}`} className="block rounded-lg px-2 py-3 transition hover:bg-brand-50/40">
+                          <span className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-[13.5px] font-bold text-brand-800">{rfq.code}</span>
+                            <Badge className="bg-ink-100 text-ink-600">{RFQ_MATCH_LABELS[match.status] ?? match.status}</Badge>
+                          </span>
+                          <span className="mt-0.5 block truncate text-[13px] font-medium text-ink-800">{rfq.product_text}</span>
+                          <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
+                            {[
+                              buyer ? (buyer.hide_buyer_from_supplier ? `Khách thị trường ${buyer.country || "nước ngoài"} (ẩn danh)` : buyer.company) : null,
+                              rfq.quantity ? `${rfq.quantity} ${rfq.unit ?? ""}`.trim() : null,
+                              rfq.destination_country,
+                              formatDate(rfq.created_at),
+                            ].filter(Boolean).join(" · ")}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {rfqMatches.length > 8 && <p className="mt-2 text-xs text-ink-500">Đang hiển thị 8 RFQ gần nhất trong tổng số {rfqMatches.length} RFQ.</p>}
+            </Card>
+          )}
+
+          {canSeeBuyers && (
+            <Card className="p-5">
+              <SectionHead
+                icon={Users}
+                title="Đơn hàng đang giao cho NCC này"
+                sub={`Tổng giá trị ${formatMoney(attached.reduce((sum, b) => sum + (b.deal_value ?? 0), 0))}`}
+              />
+              {attached.length === 0 ? (
+                <EmptyState
+                  icon={<ShieldCheck className="h-5 w-5" />}
+                  title="Chưa có đơn nào gắn NCC này"
+                  sub="Vào trang buyer hoặc pipeline, chọn NCC ở cột “Nhà cung cấp” để gắn."
+                />
+              ) : (
+                <ul className="divide-y divide-ink-100">
+                  {attached.map((b) => (
+                    <li key={b.id}>
+                      <Link
+                        href={`/crm/buyers/${b.id}`}
+                        className="flex flex-wrap items-center gap-3 rounded-lg px-2 py-3 transition hover:bg-brand-50/40"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13.5px] font-semibold text-ink-900">
+                            {b.hide_buyer_from_supplier ? (
+                              <>
+                                Khách thị trường {b.country || "nước ngoài"}{" "}
+                                <span className="font-normal text-ink-400">(ẩn danh)</span>
+                              </>
+                            ) : (
+                              b.company
+                            )}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
+                            {b.product || "Chưa rõ sản phẩm"} · {b.quantity || "chưa rõ số lượng"}
+                          </span>
+                        </span>
+                        <span className="text-[13px] font-bold text-ink-800">
+                          {formatMoney(b.deal_value)}
+                        </span>
+                        <StageBadge stage={b.stage} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-3 rounded-xl bg-ink-50 px-3.5 py-2.5 text-[11.5px] leading-5 text-ink-500">
+                <ShieldCheck className="mr-1 inline h-3 w-3" />
+                Đơn đánh dấu “ẩn danh” sẽ không tiết lộ tên buyer trong email gửi NCC.
+              </p>
+            </Card>
+          )}
 
           <section id="supplier-products" className="card scroll-mt-24 p-5">
             <SectionHead
@@ -369,96 +452,13 @@ export default async function SupplierDetailPage({
             )}
           </section>
 
-          {canSeeBuyers && (
-            <Card className="p-5">
-              <SectionHead
-                icon={Users}
-                title="Đơn hàng đang giao cho NCC này"
-                sub={`Tổng giá trị ${formatMoney(attached.reduce((sum, b) => sum + (b.deal_value ?? 0), 0))}`}
-              />
-              {attached.length === 0 ? (
-                <EmptyState
-                  icon={<ShieldCheck className="h-5 w-5" />}
-                  title="Chưa có đơn nào gắn NCC này"
-                  sub="Vào trang buyer hoặc pipeline, chọn NCC ở cột “Nhà cung cấp” để gắn."
-                />
-              ) : (
-                <ul className="divide-y divide-ink-100">
-                  {attached.map((b) => (
-                    <li key={b.id}>
-                      <Link
-                        href={`/crm/buyers/${b.id}`}
-                        className="flex flex-wrap items-center gap-3 rounded-lg px-2 py-3 transition hover:bg-brand-50/40"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13.5px] font-semibold text-ink-900">
-                            {b.hide_buyer_from_supplier ? (
-                              <>
-                                Khách thị trường {b.country || "nước ngoài"}{" "}
-                                <span className="font-normal text-ink-400">(ẩn danh)</span>
-                              </>
-                            ) : (
-                              b.company
-                            )}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
-                            {b.product || "Chưa rõ sản phẩm"} · {b.quantity || "chưa rõ số lượng"}
-                          </span>
-                        </span>
-                        <span className="text-[13px] font-bold text-ink-800">
-                          {formatMoney(b.deal_value)}
-                        </span>
-                        <StageBadge stage={b.stage} />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="mt-3 rounded-xl bg-ink-50 px-3.5 py-2.5 text-[11.5px] leading-5 text-ink-500">
-                <ShieldCheck className="mr-1 inline h-3 w-3" />
-                Đơn đánh dấu “ẩn danh” sẽ không tiết lộ tên buyer trong email gửi NCC.
-              </p>
-            </Card>
-          )}
-
-          {canSeeRfqs && (
-            <Card className="p-5">
-              <SectionHead icon={Send} title="RFQ đã gửi cho NCC này" sub="Các yêu cầu báo giá trong hệ thống RFQ đã khớp với nhà cung cấp này." />
-              {rfqRows.length === 0 ? (
-                <EmptyState
-                  icon={<Send className="h-5 w-5" />}
-                  title="Chưa có RFQ nào"
-                  sub="Khi một RFQ được khớp với nhà cung cấp này, RFQ sẽ hiện ở đây kèm trạng thái xử lý."
-                />
-              ) : (
-                <ul className="divide-y divide-ink-100">
-                  {rfqRows.map(({ match, rfq }) => {
-                    const buyer = buyerById.get(rfq.buyer_id);
-                    return (
-                      <li key={match.id}>
-                        <Link href={`/crm/rfqs/${rfq.id}`} className="block rounded-lg px-2 py-3 transition hover:bg-brand-50/40">
-                          <span className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-[13.5px] font-bold text-brand-800">{rfq.code}</span>
-                            <Badge className="bg-ink-100 text-ink-600">{RFQ_MATCH_LABELS[match.status] ?? match.status}</Badge>
-                          </span>
-                          <span className="mt-0.5 block truncate text-[13px] font-medium text-ink-800">{rfq.product_text}</span>
-                          <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
-                            {[
-                              buyer ? (buyer.hide_buyer_from_supplier ? `Khách thị trường ${buyer.country || "nước ngoài"} (ẩn danh)` : buyer.company) : null,
-                              rfq.quantity ? `${rfq.quantity} ${rfq.unit ?? ""}`.trim() : null,
-                              rfq.destination_country,
-                              formatDate(rfq.created_at),
-                            ].filter(Boolean).join(" · ")}
-                          </span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-              {rfqMatches.length > 8 && <p className="mt-2 text-xs text-ink-500">Đang hiển thị 8 RFQ gần nhất trong tổng số {rfqMatches.length} RFQ.</p>}
-            </Card>
-          )}
+          <VerificationPanel
+            supplierId={id}
+            verifications={verifications}
+            requests={requests}
+            canInspect={canInspect}
+            canViewReviews={canViewReviews}
+          />
 
           <MediaGallery
             items={supplierMedia}

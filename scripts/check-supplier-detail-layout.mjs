@@ -1,7 +1,7 @@
 // node scripts/check-supplier-detail-layout.mjs — trang chi tiết NCC trong CRM dùng bố cục
 // giống trang công khai và các trang CRM đã làm mới: đầu trang có ảnh bìa, ảnh đại diện,
-// huy hiệu xác minh và chỉ số nhanh; cột chính cho kiểm toán/sản phẩm/đơn hàng/kho tệp;
-// cột phải cố định cho tài khoản cổng và hồ sơ doanh nghiệp.
+// huy hiệu xác minh và chỉ số nhanh; cột chính ưu tiên RFQ/đơn hàng/sản phẩm
+// trước kiểm toán và kho tệp; cột phải cố định cho tài khoản cổng và hồ sơ doanh nghiệp.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
@@ -39,6 +39,15 @@ assert.match(page, /Đơn hàng đang giao cho NCC này/, 'phải giữ danh sá
 assert.match(page, /Kho ảnh & tài liệu chung của NCC/, 'phải giữ kho ảnh và tài liệu chung');
 assert.match(page, /MediaGallery/, 'vẫn dùng thư viện tệp hiện có');
 
+// Luồng thương mại được ưu tiên: RFQ, đơn hàng, sản phẩm; kiểm toán vẫn nằm bên dưới.
+const rfqPosition = page.indexOf('title="RFQ đã gửi cho NCC này"');
+const orderPosition = page.indexOf('title="Đơn hàng đang giao cho NCC này"');
+const productPosition = page.indexOf('id="supplier-products"');
+const verificationPosition = page.indexOf('<VerificationPanel', productPosition);
+assert.ok(rfqPosition >= 0 && rfqPosition < orderPosition && orderPosition < productPosition,
+  'cột chính phải sắp xếp RFQ trước đơn hàng và sản phẩm');
+assert.ok(verificationPosition > productPosition, 'panel kiểm toán nằm sau ba khối thương mại, không bị ẩn');
+
 // Cột phải gồm tài khoản cổng (gộp quyền sử dụng cổng) và hồ sơ doanh nghiệp.
 assert.match(page, /Tài khoản cổng nhà cung cấp/, 'cột phải phải có thẻ tài khoản cổng');
 assert.match(page, /SupplierAccountControls/, 'vẫn cấp và gắn tài khoản được từ trang chi tiết');
@@ -49,7 +58,7 @@ assert.ok(!page.includes('SupplierCategoryControls'), 'không đưa panel chốt
 
 // Danh sách sản phẩm chỉ giữ thông tin cơ bản; chi tiết nằm ở trang Xem/Sửa.
 const productStart = page.indexOf('id="supplier-products"');
-const productEnd = page.indexOf('Đơn hàng đang giao cho NCC này', productStart);
+const productEnd = page.indexOf('<VerificationPanel', productStart);
 assert.ok(productStart >= 0 && productEnd > productStart, 'phải xác định được khu vực sản phẩm của NCC');
 const productSection = page.slice(productStart, productEnd);
 assert.match(page, /orderCrmProducts\(products\)/, 'sản phẩm chờ duyệt phải được ưu tiên lên đầu');
