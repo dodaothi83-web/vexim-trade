@@ -83,6 +83,7 @@ export default async function SupplierDetailPage({
 }) {
   const [{ slug: id }, sp] = await Promise.all([params, searchParams]);
   const requestedPage = Number(sp.page ?? "1");
+  const activeTab = sp.tab === "review" ? "review" : "overview";
   const session = await requireSession();
   const canManage = hasPermission(session.role, "suppliers.manage");
   const canPublish = hasPermission(session.role, "suppliers.publish");
@@ -150,6 +151,10 @@ export default async function SupplierDetailPage({
   } = paginateCrmProducts(orderedProducts, requestedPage);
   const productPageHref = (nextPage: number) =>
     `${nextPage > 1 ? `/crm/suppliers/${id}?page=${nextPage}` : `/crm/suppliers/${id}`}#supplier-products`;
+  const detailTabs = [
+    { key: "overview", label: "Tổng quan", href: `/crm/suppliers/${id}` },
+    { key: "review", label: "Xét duyệt NCC", href: `/crm/suppliers/${id}?tab=review` },
+  ] as const;
 
   return (
     <>
@@ -268,32 +273,50 @@ export default async function SupplierDetailPage({
         </div>
       </section>
 
-      {canViewReviews && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm">
-          <p className="text-ink-700">
-            <Link href={`/crm/suppliers/${id}/audit/documents`} className="font-bold text-brand-800 underline">Kiểm tra giấy tờ L1 & chứng nhận AI quét</Link>
-            <span className="mt-0.5 block text-[13px] text-ink-600 sm:inline sm:before:content-['·_']">AI tự quét đơn vị đứng tên (chính chủ / đối tác) và ngày hết hạn của chứng nhận L1; tự nhắc NCC trước 60 / 30 / 7 / 1 ngày.</span>
-          </p>
-        </div>
-      )}
-
-      <div id="supplier-review" className="mb-4 scroll-mt-24">
-        <VerificationPanel
-          supplierId={id}
-          verifications={verifications}
-          requests={requests}
-          canInspect={canInspect}
-          canViewReviews={canViewReviews}
-          onboardingStatus={supplier.onboarding_status}
-          onboardingNote={supplier.onboarding_note}
-          supplierStatus={supplier.status}
-          canManage={canManage}
-          canDecideOnboarding={canManage && (session.role === "admin" || session.role === "sourcing")}
-          canPublish={canPublish}
-        />
+      <div className="mb-4 overflow-x-auto border-b border-ink-200">
+        <nav className="flex min-w-max gap-1" aria-label="Phần hồ sơ nhà cung cấp">
+          {detailTabs.map((tab) => (
+            <Link
+              key={tab.key}
+              href={tab.href}
+              aria-current={activeTab === tab.key ? "page" : undefined}
+              className={cx(
+                "border-b-2 px-4 py-2.5 text-sm font-semibold transition",
+                activeTab === tab.key ? "border-brand-600 text-brand-800" : "border-transparent text-ink-500 hover:border-ink-300 hover:text-ink-800",
+              )}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </nav>
       </div>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+      {activeTab === "review" ? (
+        <div id="supplier-review" className="scroll-mt-24">
+          {canViewReviews && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm">
+              <p className="text-ink-700">
+                <Link href={`/crm/suppliers/${id}/audit/documents`} className="font-bold text-brand-800 underline">Kiểm tra giấy tờ L1 & chứng nhận AI quét</Link>
+                <span className="mt-0.5 block text-[13px] text-ink-600 sm:inline sm:before:content-['·_']">AI tự quét đơn vị đứng tên (chính chủ / đối tác) và ngày hết hạn của chứng nhận L1; tự nhắc NCC trước 60 / 30 / 7 / 1 ngày.</span>
+              </p>
+            </div>
+          )}
+          <VerificationPanel
+            supplierId={id}
+            verifications={verifications}
+            requests={requests}
+            canInspect={canInspect}
+            canViewReviews={canViewReviews}
+            onboardingStatus={supplier.onboarding_status}
+            onboardingNote={supplier.onboarding_note}
+            supplierStatus={supplier.status}
+            canManage={canManage}
+            canDecideOnboarding={canManage && (session.role === "admin" || session.role === "sourcing")}
+            canPublish={canPublish}
+          />
+        </div>
+      ) : (
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
         <div className="min-w-0 space-y-4">
           {canSeeRfqs && (
             <Card className="p-5">
@@ -473,7 +496,6 @@ export default async function SupplierDetailPage({
             manageHref={canManage ? `/crm/suppliers/${id}/edit` : undefined}
             emptyHint="Chưa có tệp chung. Thêm ở trang Sửa, hoặc vào từng bước kiểm để đính kèm bằng chứng."
           />
-          {canInspect && <Link href={`/crm/suppliers/${id}/audit/documents`} className="inline-block text-sm font-semibold text-brand-700 hover:underline">Mở bước Kiểm tra giấy tờ để đính kèm bằng chứng →</Link>}
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-6">
@@ -526,7 +548,8 @@ export default async function SupplierDetailPage({
             )}
           </Card>
         </aside>
-      </div>
+        </div>
+      )}
     </>
   );
 }

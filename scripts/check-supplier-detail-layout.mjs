@@ -1,7 +1,7 @@
 // node scripts/check-supplier-detail-layout.mjs — trang chi tiết NCC trong CRM dùng bố cục
 // giống trang công khai và các trang CRM đã làm mới: đầu trang có ảnh bìa, ảnh đại diện,
-// huy hiệu xác minh và chỉ số nhanh; một trung tâm xét duyệt gom các quyết định; cột chính
-// ưu tiên RFQ/đơn hàng/sản phẩm; cột phải giữ tài khoản cổng và hồ sơ doanh nghiệp.
+// huy hiệu xác minh và chỉ số nhanh; hai tab tách Tổng quan khỏi Xét duyệt NCC; tab tổng quan
+// ưu tiên RFQ/đơn hàng/sản phẩm và giữ tài khoản cổng, hồ sơ doanh nghiệp ở cột phải.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
@@ -34,6 +34,20 @@ assert.ok(!page.includes('function Cell('), 'không còn dải thống kê Cell 
 assert.match(page, /xl:grid-cols-\[minmax\(0,1fr\)_330px\]/, 'trang chi tiết phải dùng lưới hai cột thống nhất');
 assert.match(page, /xl:sticky xl:top-6/, 'cột phải phải cố định khi cuộn');
 
+// Hai tab tách nội dung vận hành khỏi luồng xét duyệt.
+assert.match(page, /sp\.tab === "review"/, 'tab phải đọc trạng thái từ URL để giữ đúng tab sau khi refresh');
+assert.match(page, /key: "overview", label: "Tổng quan"/);
+assert.match(page, /key: "review", label: "Xét duyệt NCC"/);
+assert.match(page, /\?tab=review/, 'phải có đường dẫn mở trực tiếp tab xét duyệt');
+const reviewBranchStart = page.indexOf('{activeTab === "review" ? (');
+const overviewBranchStart = page.indexOf(') : (', reviewBranchStart);
+assert.ok(reviewBranchStart >= 0 && overviewBranchStart > reviewBranchStart, 'hai tab phải render hai nhánh nội dung riêng');
+const reviewBranch = page.slice(reviewBranchStart, overviewBranchStart);
+const overviewBranch = page.slice(overviewBranchStart);
+assert.ok(reviewBranch.includes('<VerificationPanel') && !reviewBranch.includes('title="RFQ đã gửi cho NCC này"'),
+  'tab xét duyệt chỉ chứa khu vực xét duyệt');
+assert.ok(!overviewBranch.includes('<VerificationPanel'), 'tab tổng quan không lặp trung tâm xét duyệt');
+
 // Một trung tâm xét duyệt gom mở cổng, xác minh và trạng thái/công khai.
 assert.match(page, /VerificationPanel/, 'phải giữ panel xét duyệt');
 assert.match(reviewPanel, /Trung tâm xét duyệt NCC/);
@@ -54,14 +68,12 @@ assert.match(page, /Đơn hàng đang giao cho NCC này/, 'phải giữ danh sá
 assert.match(page, /Kho ảnh & tài liệu chung của NCC/, 'phải giữ kho ảnh và tài liệu chung');
 assert.match(page, /MediaGallery/, 'vẫn dùng thư viện tệp hiện có');
 
-// Trung tâm xét duyệt nằm trước nội dung chính; trong cột chính RFQ vẫn đi trước đơn hàng và sản phẩm.
-const reviewPosition = page.indexOf('<VerificationPanel');
-const rfqPosition = page.indexOf('title="RFQ đã gửi cho NCC này"');
-const orderPosition = page.indexOf('title="Đơn hàng đang giao cho NCC này"');
-const productPosition = page.indexOf('id="supplier-products"');
-assert.ok(reviewPosition >= 0 && reviewPosition < rfqPosition, 'trung tâm xét duyệt phải dễ thấy trước nội dung chính');
+// Trong tab Tổng quan, cột chính vẫn ưu tiên RFQ, đơn hàng rồi sản phẩm.
+const rfqPosition = overviewBranch.indexOf('title="RFQ đã gửi cho NCC này"');
+const orderPosition = overviewBranch.indexOf('title="Đơn hàng đang giao cho NCC này"');
+const productPosition = overviewBranch.indexOf('id="supplier-products"');
 assert.ok(rfqPosition >= 0 && rfqPosition < orderPosition && orderPosition < productPosition,
-  'cột chính phải sắp xếp RFQ trước đơn hàng và sản phẩm');
+  'tab tổng quan phải sắp xếp RFQ trước đơn hàng và sản phẩm');
 
 // Cột phải chỉ giữ tài khoản đăng nhập và hồ sơ doanh nghiệp, không lặp quyết định mở cổng.
 assert.match(page, /Tài khoản cổng nhà cung cấp/, 'cột phải phải có thẻ tài khoản cổng');
@@ -91,4 +103,4 @@ for (const detail of ['pr.spec', 'pr.moq', 'pr.monthly_capacity', 'pr.lead_time_
   assert.ok(!productSection.includes(detail), `chi tiết phải nằm ở trang sản phẩm, không nằm trong danh sách rút gọn: ${detail}`);
 }
 
-console.log('✅ Supplier detail layout: one review workflow, RFQ → orders → products, sticky portal and profile rail.');
+console.log('✅ Supplier detail layout: overview and review tabs, RFQ → orders → products, sticky portal and profile rail.');

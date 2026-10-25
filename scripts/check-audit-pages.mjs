@@ -304,6 +304,7 @@ assert.match(formUi, /Phạm vi buyer sẽ thấy/, 'L2/L3 approval includes the
 assert.match(formUi, /confirm_public_summary/, 'Approval sends the reviewer publication confirmation');
 assert.ok(!pageUi.includes('<MediaManager'), 'All audit steps render evidence inline');
 assert.ok(!pageUi.includes('unlocked') && !pageUi.includes('LockKeyhole'), 'Every review page is reachable independently');
+assert.match(pageUi, /\?tab=review#supplier-review/, 'Audit pages return to the supplier review tab');
 const panelUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-panel.tsx', import.meta.url), 'utf8');
 assert.ok(!panelUi.includes('approvedLevel'), 'Review panel does not infer previous checks from a highest level');
 const approvalSource = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-actions.ts', import.meta.url), 'utf8');

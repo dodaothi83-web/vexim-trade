@@ -564,7 +564,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
                 <span className={"rounded-full px-3 py-1 text-xs font-semibold " + current.badge}>{current.label}</span>
                 {dirty && <span className="text-xs font-medium text-amber-700">Có thay đổi chưa lưu</span>}
               </div>
-              <a href={`/crm/suppliers/${supplier.id}#supplier-review`} className="btn btn-ghost mt-3 w-full justify-center"><ExternalLink className="h-4 w-4" /> Mở trung tâm xét duyệt</a>
+              <a href={`/crm/suppliers/${supplier.id}?tab=review#supplier-review`} className="btn btn-ghost mt-3 w-full justify-center"><ExternalLink className="h-4 w-4" /> Mở trung tâm xét duyệt</a>
               <p className="mt-3 border-t border-ink-100 pt-3 text-xs leading-5 text-ink-500">Giấy tờ, nhà máy và lịch sử giao hàng được xét duyệt ở các trang kiểm toán riêng. Hồ sơ công khai chưa duyệt giấy tờ sẽ hiện “Chưa xác minh”.</p>
             </section>
           )}

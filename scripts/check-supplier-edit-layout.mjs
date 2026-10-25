@@ -25,7 +25,7 @@ assert.ok(!edit.includes('<details'), 'form sửa không giấu trường quan t
 // Cột phải chỉ xem trạng thái và dẫn về trung tâm xét duyệt, không lặp các nút quyết định.
 assert.match(edit, /Trạng thái hồ sơ/, 'cột phải phải có thẻ trạng thái');
 assert.match(edit, /Mở trung tâm xét duyệt/, 'form sửa phải dẫn về nơi xét duyệt tập trung');
-assert.match(edit, /#supplier-review/);
+assert.match(edit, /\?tab=review#supplier-review/, 'đường dẫn phải mở đúng tab xét duyệt');
 assert.ok(!edit.includes('nextOptions') && !edit.includes('transitionTo') && !edit.includes('Công khai hồ sơ'),
   'không giữ các nút chuyển trạng thái trùng lặp trong form sửa');
 assert.match(edit, /id="price-sharing"/, 'thẻ quyền hiển thị giá phải giữ neo #price-sharing cho trang sản phẩm liên kết tới');
