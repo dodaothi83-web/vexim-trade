@@ -47,6 +47,8 @@ assert.match(translationSchemaRepair, /origin[^\n]+staff/i, 'Backfill không đ�
 const migrationHints = load('../lib/db/migration-hints.ts', {});
 assert.match(migrationHints.migrationHint(new Error("Could not find the 'export_markets_i18n' column in the schema cache")),
   /20261036_supplier_translation_schema_repair\.sql/);
+assert.match(migrationHints.migrationHint(new Error("Could not find the 'raw_material_region' column in the schema cache")),
+  /20261037_supplier_raw_material_profile\.sql/);
 
 const source = { moq_text: '1 tấn cho W320', export_markets: ['Hoa Kỳ', 'Nhật Bản'] };
 const parsed = ai.parseSupplierProfileTranslation(
@@ -87,20 +89,33 @@ try {
 const fullSource = ai.supplierProfileSource({
   moq_text: '1 tấn', export_markets: ['Hoa Kỳ'], province: 'Bình Phước', address: 'Số 1, đường A',
   products: 'Hạt điều', markets: 'Việt Nam', capacity_per_month: '10 tấn/tháng', payment_terms: 'Thanh toán sau',
+  raw_material_region: 'Bình Phước và Đắk Lắk', input_material_origin: 'Việt Nam và Campuchia',
   ports: ['Cát Lái'], incoterms: ['FOB'],
 });
 const fullTranslation = ai.parseSupplierProfileTranslation(JSON.stringify({
   moq_en: '1 MT', export_markets_en: ['United States'], province_en: 'Binh Phuoc', address_en: '1 A Street',
   products_en: 'Cashew kernels', markets_en: 'Vietnam', capacity_per_month_en: '10 MT/month', payment_terms_en: 'Deferred payment',
+  raw_material_region_en: 'Binh Phuoc and Dak Lak', input_material_origin_en: 'Vietnam and Cambodia',
   ports_en: ['Cat Lai'], incoterms_en: ['FOB'], summary_en: '',
 }), fullSource);
 assert.equal(fullTranslation.province_en, 'Binh Phuoc');
 assert.equal(fullTranslation.products_en, 'Cashew kernels');
 assert.equal(fullTranslation.payment_terms_en, 'Deferred payment');
+assert.equal(fullTranslation.raw_material_region_en, 'Binh Phuoc and Dak Lak');
+assert.equal(fullTranslation.input_material_origin_en, 'Vietnam and Cambodia');
+assert.throws(() => ai.parseSupplierProfileTranslation(JSON.stringify({ raw_material_region_en: 'Binh Phuoc' }),
+  { raw_material_region: 'Bình Phước', input_material_origin: 'Việt Nam' }, { strict: true }), /thiếu nội dung/,
+'Thiếu bản dịch xuất xứ nguyên liệu phải giữ trạng thái lỗi, không đánh dấu đã dịch');
 const fullPatch = ai.supplierProfilePatch(fullTranslation, fullSource, 'ai', 'mock');
 assert.equal(fullPatch.profile_translation_meta.version, ai.SUPPLIER_PROFILE_TRANSLATION_VERSION);
 assert.equal(fullPatch.profile_translation_meta.fields.address, '1 A Street');
+assert.equal(fullPatch.profile_translation_meta.fields.raw_material_region, 'Binh Phuoc and Dak Lak');
+assert.equal(fullPatch.profile_translation_meta.fields.input_material_origin, 'Vietnam and Cambodia');
 assert.equal(ai.supplierProfileTranslationState({ ...fullSource, ...fullPatch }).current, true);
+assert.equal(ai.supplierProfileTranslationState({ ...fullSource, ...fullPatch, raw_material_region: 'Lâm Đồng' }).current, false,
+  'Sửa vùng nguyên liệu phải làm toàn bộ cache tiếng Anh hết hạn');
+assert.equal(ai.supplierProfileTranslationState({ ...fullSource, ...fullPatch, input_material_origin: 'Nguồn nhập khẩu mới' }).current, false,
+  'Sửa xuất xứ nguyên liệu phải làm toàn bộ cache tiếng Anh hết hạn');
 assert.equal(ai.supplierProfileTranslationState({
   ...fullSource, ...fullPatch,
   profile_translation_meta: { ...fullPatch.profile_translation_meta, version: 1 },
@@ -138,6 +153,14 @@ assert.equal(english.supplierPortsDisplay(displaySupplier)[0], 'Cat Lai');
 assert.equal(english.supplierMoqDisplay({ moq_text: '1 tấn cho W320', moq_text_i18n: {} }), '1 metric ton for W320');
 assert.equal(english.supplierCapacityDisplay({ capacity_per_month: '100 tấn', profile_translation_meta: null }), '100 metric tons');
 assert.equal(english.supplierPaymentTermsDisplay({ payment_terms: 'T/T 30% cọc', profile_translation_meta: null }), 'T/T 30% deposit');
+assert.equal(english.supplierRawMaterialRegionDisplay({ raw_material_region: 'Hồ Chí Minh', profile_translation_meta: null }), 'Ho Chi Minh City',
+  'Storefront vẫn có thể hiện nguồn đã khai khi bản dịch đang chờ');
+assert.equal(english.supplierInputMaterialOriginDisplay({ input_material_origin: 'Việt Nam', profile_translation_meta: null }), 'Việt Nam');
+assert.equal(english.supplierRawMaterialRegionEnglishDisplay({ raw_material_region: 'Bình Phước', profile_translation_meta: null }), '',
+  'So sánh không được lộ nguyên văn tiếng Việt khi chưa có bản dịch');
+assert.equal(english.supplierInputMaterialOriginEnglishDisplay({ input_material_origin: 'Việt Nam', profile_translation_meta: null }), '');
+assert.equal(english.supplierRawMaterialRegionEnglishDisplay({ profile_translation_meta: { fields: { raw_material_region: 'Hồ Chí Minh' } } }), 'Ho Chi Minh City');
+assert.equal(english.supplierInputMaterialOriginEnglishDisplay({ profile_translation_meta: { fields: { input_material_origin: 'Vietnam and Cambodia' } } }), 'Vietnam and Cambodia');
 assert.equal(english.supplierProvinceDisplay({ province: 'Bình Phước', profile_translation_meta: null }), 'Binh Phuoc');
 assert.equal(english.supplierPortsDisplay({ ports: ['Cát Lái'], profile_translation_meta: null })[0], 'Cat Lai');
 assert.equal(english.supplierSummaryDisplay({ intro_source: 'Giới thiệu doanh nghiệp', summary_i18n: {} }), 'Giới thiệu doanh nghiệp',
@@ -181,6 +204,7 @@ const translationService = load('../lib/ai/supplier-translation-service.ts', {
           moq_en: '1 MT', export_markets_en: ['United States'], province_en: 'Binh Phuoc',
           address_en: '1 A Street', products_en: 'Cashew kernels', markets_en: 'Vietnam',
           capacity_per_month_en: '10 MT/month', payment_terms_en: 'Deferred payment',
+          raw_material_region_en: 'Binh Phuoc and Dak Lak', input_material_origin_en: 'Vietnam and Cambodia',
           ports_en: ['Cat Lai'], incoterms_en: ['FOB'],
           summary_en: story ? 'A faithful English introduction.' : '',
         }), source, { strict: true, requireSummary: Boolean(story) || draftSummary }),
@@ -213,6 +237,8 @@ assert.equal(ensured.status, 'translated');
 assert.equal(translatedRow.summary_i18n.en, 'A faithful English introduction.');
 assert.equal(translatedRow.profile_translation_meta.fields.products, 'Cashew kernels');
 assert.equal(translatedRow.profile_translation_meta.fields.legal_name, 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED');
+assert.equal(translatedRow.profile_translation_meta.fields.raw_material_region, 'Binh Phuoc and Dak Lak');
+assert.equal(translatedRow.profile_translation_meta.fields.input_material_origin, 'Vietnam and Cambodia');
 assert.equal(translatedRow.name, 'CÔNG TY TNHH SẢN XUẤT CÔNG NGHIỆP VIỆT THIÊN PHÚ', 'Bản dịch không được thay tên pháp lý gốc');
 assert.equal(english.supplierLegalNameDisplay(translatedRow), 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED');
 assert.equal(translatedRow.moq_text_i18n.en, '1 MT');
@@ -284,12 +310,16 @@ assert.match(profilePage, /supplierMoqDisplay\(s\)/, 'trang NCC phải hiển th
 assert.match(profilePage, /supplierExportMarketsDisplay\(s\)/, 'trang NCC phải hiển thị thị trường bản tiếng Anh');
 assert.match(profilePage, /supplierProvinceDisplay\(s\)/, 'trang NCC phải hiển thị địa điểm bản tiếng Anh');
 assert.match(profilePage, /supplierAddressDisplay\(s\)/, 'trang NCC phải hiển thị địa chỉ bản tiếng Anh');
+assert.match(profilePage, /supplierRawMaterialRegionDisplay\(s\)/, 'trang NCC phải hiển thị vùng nguyên liệu');
+assert.match(profilePage, /supplierInputMaterialOriginDisplay\(s\)/, 'trang NCC phải hiển thị xuất xứ nguyên liệu');
 assert.match(profilePage, /supplierPortsDisplay\(s\)/, 'trang NCC phải hiển thị cảng bản tiếng Anh');
 
 const compare = fs.readFileSync(new URL('../app/(public)/compare/page.tsx', import.meta.url), 'utf8');
 assert.match(compare, /supplierMoqDisplay\(s\)/, 'trang so sánh phải hiển thị MOQ bản tiếng Anh');
 assert.match(compare, /supplierProvinceDisplay\(s\)/, 'trang so sánh phải hiển thị địa điểm bản tiếng Anh');
 assert.match(compare, /supplierPortsDisplay\(s\)/, 'trang so sánh phải hiển thị cảng bản tiếng Anh');
+assert.match(compare, /supplierRawMaterialRegionEnglishDisplay\(s\)/, 'so sánh NCC chỉ dùng bản tiếng Anh đã lưu cho vùng nguyên liệu');
+assert.match(compare, /supplierInputMaterialOriginEnglishDisplay\(s\)/, 'so sánh NCC chỉ dùng bản tiếng Anh đã lưu cho xuất xứ nguyên liệu');
 
 const form = fs.readFileSync(new URL('../app/supplier/portal/supplier-profile-form.tsx', import.meta.url), 'utf8');
 assert.match(form, />Giới thiệu</, 'ô nhập phải là phần giới thiệu của NCC');

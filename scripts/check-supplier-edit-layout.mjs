@@ -35,7 +35,7 @@ assert.match(edit, /CheckCircle2/, 'checklist hoàn thiện dùng biểu tượn
 
 // Mọi trường của form cũ vẫn còn nguyên ràng buộc dữ liệu.
 for (const field of ['name', 'trade_name', 'supplier_type', 'province', 'country', 'address', 'founded_year', 'employees',
-  'products', 'contact_name', 'contact_title', 'phone', 'zalo', 'email', 'website', 'display_name', 'slug',
+  'products', 'raw_material_region', 'input_material_origin', 'contact_name', 'contact_title', 'phone', 'zalo', 'email', 'website', 'display_name', 'slug',
   'intro_source', 'summary_en', 'moq_text', 'capacity_per_month', 'lead_time_days', 'payment_terms', 'markets',
   'private_label', 'ports', 'incoterms', 'export_markets', 'tax_id', 'role', 'notes']) {
   assert.ok(edit.includes(`"${field}"`), `form sửa bị mất trường ${field}`);

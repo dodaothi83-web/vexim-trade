@@ -55,6 +55,24 @@ export function supplierPaymentTermsDisplay(supplier: Pick<Supplier, "payment_te
   return publicProductPaymentTermsDisplay(supplier.profile_translation_meta?.fields?.payment_terms?.trim() || supplier.payment_terms);
 }
 
+/** Storefronts may show the supplier's source text while a translation is pending. */
+export function supplierRawMaterialRegionDisplay(supplier: Pick<Supplier, "raw_material_region" | "profile_translation_meta">): string {
+  return publicProductPlaceDisplay(supplier.profile_translation_meta?.fields?.raw_material_region?.trim() || supplier.raw_material_region);
+}
+
+export function supplierInputMaterialOriginDisplay(supplier: Pick<Supplier, "input_material_origin" | "profile_translation_meta">): string {
+  return supplier.profile_translation_meta?.fields?.input_material_origin?.trim() || supplier.input_material_origin || "";
+}
+
+/** Comparisons and product details fail closed: never fall back to Vietnamese source text. */
+export function supplierRawMaterialRegionEnglishDisplay(supplier: Pick<Supplier, "profile_translation_meta">): string {
+  return publicProductPlaceDisplay(supplier.profile_translation_meta?.fields?.raw_material_region);
+}
+
+export function supplierInputMaterialOriginEnglishDisplay(supplier: Pick<Supplier, "profile_translation_meta">): string {
+  return supplier.profile_translation_meta?.fields?.input_material_origin?.trim() || "";
+}
+
 function listDisplay(translated: string[] | undefined, source: string[] | undefined): string[] {
   const values = (translated ?? []).map((item) => item?.trim()).filter(Boolean) as string[];
   return values.length ? values : source ?? [];

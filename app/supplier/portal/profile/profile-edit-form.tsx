@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Save } from "lucide-react";
 
 import type { Supplier } from "@/lib/types";
 import { supplierTypeLabel } from "@/lib/supplier";
+import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { saveSupplierProfileEditAction } from "./profile-actions";
 
 export function SupplierProfileEditForm({ supplier, email }: { supplier: Supplier; email: string }) {
@@ -58,6 +59,14 @@ export function SupplierProfileEditForm({ supplier, email }: { supplier: Supplie
         <Field label="Tỉnh / thành" name="province" maxLength={100} defaultValue={supplier.province ?? ""} />
         <Field label="Quốc gia" name="country" maxLength={100} defaultValue={supplier.country ?? "Vietnam"} />
         <Field label="Mặt hàng chính *" name="products" required maxLength={1000} defaultValue={supplier.products ?? ""} />
+        <label className="block text-sm"><span className="mb-1 block font-semibold">Vùng nguyên liệu</span>
+          <RawMaterialRegionInput defaultValue={supplier.raw_material_region ?? ""} />
+          <span className="mt-1 block text-xs leading-5 text-ink-500">Chọn tỉnh/thành hoặc tự nhập vùng, có thể ghi nhiều vùng.</span>
+        </label>
+        <label className="block text-sm"><span className="mb-1 block font-semibold">Xuất xứ nguyên liệu đầu vào</span>
+          <input name="input_material_origin" className="input" maxLength={300} defaultValue={supplier.input_material_origin ?? ""} placeholder="Ví dụ: Việt Nam, Campuchia hoặc nguồn kết hợp" />
+          <span className="mt-1 block text-xs leading-5 text-ink-500">Ghi quốc gia hoặc nguồn nguyên liệu thực tế.</span>
+        </label>
       </div>
       <label className="mt-4 block text-sm"><span className="mb-1 block font-semibold">Giới thiệu doanh nghiệp</span>
         <textarea name="intro_source" rows={5} maxLength={1500} className="input resize-y" defaultValue={supplier.intro_source ?? ""} placeholder="Mô tả điểm khác biệt của doanh nghiệp hoặc sản phẩm." />

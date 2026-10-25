@@ -39,6 +39,8 @@ export interface PublicComparedProduct {
   exportPort: string | null;
   monthlyCapacity: string | null;
   paymentTerms: string | null;
+  rawMaterialRegion: string | null;
+  inputMaterialOrigin: string | null;
   oem: boolean;
   odm: boolean;
   samples: boolean;
@@ -105,6 +107,8 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       exportPort: safe(publicExportPortDisplay(tradeEnglish?.export_port || product.export_port)),
       monthlyCapacity: safe(publicProductCapacityDisplay(tradeEnglish?.monthly_capacity || product.monthly_capacity)),
       paymentTerms: safe(publicProductPaymentTermsDisplay(tradeEnglish?.payment_terms || product.payment_terms)),
+      rawMaterialRegion: safe(card.rawMaterialRegion),
+      inputMaterialOrigin: safe(card.inputMaterialOrigin),
       oem: Boolean(product.oem),
       odm: Boolean(product.odm),
       samples: Boolean(product.samples),

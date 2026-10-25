@@ -43,6 +43,8 @@ export function parseSupplierProfile(form: FormData): {
       contact_name: contact, contact_title: text(form, "contact_title", 100) || null,
       phone, zalo: text(form, "zalo", 40) || null,
       products, province: text(form, "province", 100) || null,
+      raw_material_region: text(form, "raw_material_region", 180) || null,
+      input_material_origin: text(form, "input_material_origin", 300) || null,
       country: text(form, "country", 100) || "Vietnam",
       address: text(form, "address", 250) || null, tax_id: tax,
       supplier_type: type, role: type === "manufacturer" ? "manufacturer" : "trader",

@@ -557,6 +557,8 @@ alter table public.suppliers
   add column if not exists moq_text_i18n jsonb not null default '{}'::jsonb,
   add column if not exists export_markets_i18n jsonb not null default '{}'::jsonb,
   add column if not exists profile_translation_meta jsonb,
+  add column if not exists raw_material_region text,
+  add column if not exists input_material_origin text,
   add column if not exists capacity_per_month text,
   add column if not exists ports text[] not null default '{}',
   add column if not exists incoterms text[] not null default '{}',

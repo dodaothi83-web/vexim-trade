@@ -51,6 +51,8 @@ export async function saveSupplierProfileEditAction(form: FormData): Promise<Res
       country: text(form, "country", 100) || "Vietnam",
       province: text(form, "province", 100) || null,
       products,
+      raw_material_region: text(form, "raw_material_region", 180) || null,
+      input_material_origin: text(form, "input_material_origin", 300) || null,
       markets: text(form, "markets", 800) || null,
       intro_source: text(form, "intro_source", 1500) || null,
       founded_year: positiveInt(form, "founded_year", new Date().getFullYear()),

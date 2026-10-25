@@ -80,6 +80,8 @@ assert.match(page, /Tài khoản cổng nhà cung cấp/, 'cột phải phải c
 assert.match(page, /SupplierAccountControls/, 'vẫn cấp và gắn tài khoản được từ trang chi tiết');
 assert.ok(!page.includes('Quyền sử dụng cổng'), 'quyết định mở cổng chỉ nằm ở trung tâm xét duyệt');
 assert.match(page, /Hồ sơ doanh nghiệp/, 'cột phải phải có hồ sơ doanh nghiệp');
+assert.match(page, /label="Vùng nguyên liệu" value=\{supplier\.raw_material_region/, 'CRM hiển thị vùng nguyên liệu');
+assert.match(page, /label="Xuất xứ nguyên liệu đầu vào" value=\{supplier\.input_material_origin/, 'CRM hiển thị xuất xứ nguyên liệu');
 assert.ok(!page.includes('SupplierCategoryControls'), 'không đưa panel chốt ngành trùng lặp quay lại');
 
 // Danh sách sản phẩm chỉ giữ thông tin cơ bản; chi tiết nằm ở trang Xem/Sửa.

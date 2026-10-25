@@ -8,7 +8,7 @@ import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
 import { resolveGrade } from "@/lib/public/grade-resolution";
 import { publicProductTitle } from "@/lib/public/display-name";
-import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
+import { supplierInputMaterialOriginEnglishDisplay, supplierProvinceDisplay, supplierRawMaterialRegionEnglishDisplay } from "@/lib/public/supplier-english";
 import { publicProductMoqDisplay } from "@/lib/public/product-detail-display";
 import type { Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
@@ -25,6 +25,9 @@ export interface PublicCategoryProduct {
   /** Hồ sơ demo không được tham gia vào khoảng giá thị trường. */
   isDemoSupplier: boolean;
   province: string;
+  /** Saved English only; empty when the supplier-stated source has not been translated. */
+  rawMaterialRegion: string;
+  inputMaterialOrigin: string;
   verificationCount: number;
   verificationSteps: VerificationLevel[];
   supplierName: string;
@@ -72,6 +75,7 @@ function projectPublicCategoryProduct(
     attributes,
     moq: publicProductMoqDisplay(p.moq) || "On request",
     price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: supplierProvinceDisplay(s) || "Vietnam",
+    rawMaterialRegion: supplierRawMaterialRegionEnglishDisplay(s), inputMaterialOrigin: supplierInputMaterialOriginEnglishDisplay(s),
     verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
     supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
     supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,

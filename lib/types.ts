@@ -41,6 +41,8 @@ export type SupplierProfileEnglishFields = {
   markets?: string;
   capacity_per_month?: string;
   payment_terms?: string;
+  raw_material_region?: string;
+  input_material_origin?: string;
   ports?: string[];
   incoterms?: string[];
 };
@@ -65,6 +67,10 @@ export interface Supplier {
   country: string | null;
   address: string | null;
   province: string | null;
+  /** Vùng nguyên liệu do NCC tự khai; cho phép tỉnh/thành gợi ý hoặc vùng tự nhập. */
+  raw_material_region?: string | null;
+  /** Xuất xứ nguyên liệu đầu vào do NCC tự khai, không phải kết quả xác minh độc lập. */
+  input_material_origin?: string | null;
   /**
    * Vai trò cũ (manufacturer/trader/agent/exporter) — giữ lại để code cũ không vỡ
    * khi di chuyển; code mới đọc `supplier_type`.

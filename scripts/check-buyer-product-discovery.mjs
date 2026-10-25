@@ -37,8 +37,11 @@ const rice = { id: 'c-rice', slug: 'rice', name_i18n: { en: 'Rice' }, status: 'p
 const categories = [category, rice];
 const now = new Date().toISOString();
 const suppliers = [
-  { id: 'A', slug: 'company-a', name: 'Company A', supplier_type: 'trading', status: 'published', verification_level: 2, province: 'Hanoi', profile_image: 'suppliers/a/logo.webp', founded_year: 2014, fob_publicly_visible: true, fob_updated_at: now, is_demo: false },
-  { id: 'B', slug: 'company-b', name: 'Company B', status: 'published', verification_level: 1, province: 'Binh Duong', fob_publicly_visible: false, fob_updated_at: now, is_demo: false },
+  { id: 'A', slug: 'company-a', name: 'Company A', supplier_type: 'trading', status: 'published', verification_level: 2, province: 'Hanoi', profile_image: 'suppliers/a/logo.webp', founded_year: 2014, fob_publicly_visible: true, fob_updated_at: now, is_demo: false,
+    raw_material_region: 'Bình Phước và Đắk Lắk', input_material_origin: 'Việt Nam và Campuchia',
+    profile_translation_meta: { fields: { raw_material_region: 'Binh Phuoc and Dak Lak', input_material_origin: 'Vietnam and Cambodia' } } },
+  { id: 'B', slug: 'company-b', name: 'Company B', status: 'published', verification_level: 1, province: 'Binh Duong', fob_publicly_visible: false, fob_updated_at: now, is_demo: false,
+    raw_material_region: 'Bình Dương', input_material_origin: 'Việt Nam' },
   { id: 'C', slug: 'company-c', name: 'Company C', status: 'draft', verification_level: 3, province: 'Hue', is_demo: false },
 ];
 const mk = (id, supplier_id, name, extras = {}) => ({ id, supplier_id, name, category: 'cashew', spec: 'W320', description: null,
@@ -110,7 +113,11 @@ const productCatalog = compile('../lib/public/product-catalog.ts', {
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
   '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
   '@/lib/public/supplier-seo': { isSyntheticSupplier },
-  '@/lib/public/supplier-english': { supplierProvinceDisplay: (s) => s.province || '' },
+  '@/lib/public/supplier-english': {
+    supplierProvinceDisplay: (s) => s.province || '',
+    supplierRawMaterialRegionEnglishDisplay: (s) => s.profile_translation_meta?.fields?.raw_material_region || '',
+    supplierInputMaterialOriginEnglishDisplay: (s) => s.profile_translation_meta?.fields?.input_material_origin || '',
+  },
   '@/lib/public/product-detail-display': productDetailDisplay,
 });
 const photoSamples = [
@@ -128,6 +135,11 @@ assert.equal(cards.length, 13, 'Every ready offer from published suppliers gets 
 assert.equal(cards.find((p) => p.id === 'a0').name, 'Cashew kernels W320, Hanoi', 'The composed display name is what the buyer reads');
 assert.equal(cards.find((p) => p.id === 'a0').supplierProfileImage, 'suppliers/a/logo.webp', 'PDP can use the public supplier profile image');
 assert.equal(cards.find((p) => p.id === 'a0').supplierFoundedYear, 2014, 'PDP can show a real founded year when present');
+assert.equal(cards.find((p) => p.id === 'a0').rawMaterialRegion, 'Binh Phuoc and Dak Lak');
+assert.equal(cards.find((p) => p.id === 'a0').inputMaterialOrigin, 'Vietnam and Cambodia');
+assert.equal(cards.find((p) => p.id === 'b0').rawMaterialRegion, '', 'Product details never fall back to Vietnamese sourcing text');
+assert.equal(cards.find((p) => p.id === 'b0').inputMaterialOrigin, '');
+assert.doesNotMatch(JSON.stringify(cards.find((p) => p.id === 'b0')), /Bình Dương|Việt Nam/);
 assert.equal(cards.find((p) => p.id === 'a1').name, 'Cashew W320 lot 1', 'A product without a display name keeps the supplier name');
 assert.equal(cards.find((p) => p.id === 'a1').moq, '1 metric ton', 'Public MOQ uses English without changing the source record');
 assert.equal(products[0].name, 'Cashew W320 lot 0', 'The supplier name is never rewritten');
@@ -171,6 +183,8 @@ assert.equal(singleInitial.shown.length, 2, 'A single supplier cannot occupy thr
 const single = arrangeSupplierProducts(oneSupplier, null);
 assert.equal(single.shown.length, 8, 'A filter with one matching supplier still shows all eight offers');
 const profile = await catalog.getPublicSupplierBySlug('company-a');
+assert.equal(profile.raw_material_region, 'Bình Phước và Đắk Lắk', 'Public supplier profile retains the persisted sourcing source');
+assert.equal(profile.profile_translation_meta.fields.input_material_origin, 'Vietnam and Cambodia');
 assert.equal(profile.main_products.length, 9, 'Profile includes all public products from every category, not the four-card summary');
 assert.equal(profile.product_image_paths.a0, 'products/a0/cover.jpg', 'Full image stays on the detail/structured data');
 assert.equal(profile.product_card_image_paths.a0, 'products/a0/cover-thumb.webp', 'Supplier cards use the approved thumbnail');
@@ -415,6 +429,9 @@ const keyTermsEnd = detailPage.indexOf('</dl>', keyTermsStart);
 const keyTermsSource = detailPage.slice(keyTermsStart, keyTermsEnd);
 assert.ok(!keyTermsSource.includes('detailRows') && !keyTermsSource.includes('additionalSpecs'),
   'Long technical rows stay out of the commercial column');
+assert.match(keyTermsSource, /label="Raw material region" value=\{card\.rawMaterialRegion\}/);
+assert.match(keyTermsSource, /label="Input material origin" value=\{card\.inputMaterialOrigin\}/);
+assert.doesNotMatch(keyTermsSource, /raw_material_region|input_material_origin/, 'PDP uses only the safe English card projection');
 const referencePriceStart = detailPage.indexOf('id="reference-price"');
 const tradeLabelsStart = detailPage.indexOf('<ProductTradeLabels');
 assert.ok(referencePriceStart > detailPage.indexOf('{enDescription &&') && referencePriceStart < tradeLabelsStart,

@@ -34,6 +34,7 @@ import type { Category, Supplier, SupplierProduct, SupplierStatus } from "@/lib/
 import { assignSupplierCategories } from "@/lib/public/category-assignment";
 import { Button, Field } from "@/components/ui";
 import { useToast } from "@/components/toast";
+import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 
 type FormState = Record<string, unknown>;
 
@@ -56,6 +57,8 @@ function init(s?: Supplier | null): FormState {
     status: s?.status ?? "draft",
     country: s?.country ?? "Vietnam",
     province: s?.province ?? "",
+    raw_material_region: s?.raw_material_region ?? "",
+    input_material_origin: s?.input_material_origin ?? "",
     address: s?.address ?? "",
     website: s?.website ?? "",
     tax_id: s?.tax_id ?? "",
@@ -474,6 +477,12 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
               <Field label="Năm thành lập"><input type="number" className="input" value={str("founded_year")} onChange={(e) => set("founded_year", e.target.value)} /></Field>
               <Field label="Số nhân viên"><input type="number" className="input" value={str("employees")} onChange={(e) => set("employees", e.target.value)} /></Field>
               <Field label="Mặt hàng chính" className="sm:col-span-2"><input className="input" value={str("products")} onChange={(e) => set("products", e.target.value)} placeholder="Ví dụ: hạt điều W320, gạo Jasmine" /></Field>
+              <Field label="Vùng nguyên liệu" hint="Chọn tỉnh/thành hoặc tự nhập vùng, có thể ghi nhiều vùng.">
+                <RawMaterialRegionInput value={str("raw_material_region")} onChange={(e) => set("raw_material_region", e.target.value)} />
+              </Field>
+              <Field label="Xuất xứ nguyên liệu đầu vào" hint="Thông tin do NCC cung cấp, hiển thị cho buyer sau khi được dịch.">
+                <input className="input" maxLength={300} value={str("input_material_origin")} onChange={(e) => set("input_material_origin", e.target.value)} placeholder="Ví dụ: Việt Nam, Campuchia hoặc nguồn kết hợp" />
+              </Field>
               <div className="rounded-xl border border-brand-200 bg-brand-50 p-3.5 text-sm sm:col-span-2">
                 <p className="font-semibold text-ink-700">Ngành hệ thống tự gán từ sản phẩm và mặt hàng chính</p>
                 <div className="mt-2 flex flex-wrap gap-2">{autoIndustries.slugs.length ? autoIndustries.slugs.map((slug) => {

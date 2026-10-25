@@ -228,6 +228,8 @@ export default async function PublicProductDetail({ params }: Props) {
             <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
             <Spec label="Incoterm" value={card.incoterm} />
             <Spec label="Loading port" value={publicExportPortDisplay(p.export_port)} />
+            <Spec label="Raw material region" value={card.rawMaterialRegion} />
+            <Spec label="Input material origin" value={card.inputMaterialOrigin} />
           </dl>
         </div>
         <p className="mt-2 text-xs leading-5 text-ink-500">Product details and reference prices are supplier-provided and reviewed for listing. Confirm current specifications, availability and final terms in your RFQ.</p>

@@ -146,6 +146,8 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
 
             <Section label="Supplier" count={products.length} />
             <Row label="Location" products={products}>{(product) => `${product.province}, Vietnam`}</Row>
+            <Row label="Raw material region" products={products}>{(product) => <Value value={product.rawMaterialRegion} />}</Row>
+            <Row label="Input material origin" products={products}>{(product) => <Value value={product.inputMaterialOrigin} />}</Row>
             <Row label="Independent verification" products={products}>{(product) => (
               <div>
                 <VerificationTierBadge levels={product.verificationSteps} />

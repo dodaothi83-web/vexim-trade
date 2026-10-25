@@ -173,6 +173,7 @@ const record = {
     id: "a", name: "Cashew W320", grade: "W320", attributes: { grade: "W320", moisture: "5% max", unapproved: "hidden" },
     moq: "1 tấn", price: null, pricePoint: null, cardImagePath: "products/a/cover.webp", imagePaths: ["products/a/full.jpg"],
     supplierName: "Company A", supplierId: "A", supplierSlug: "company-a", province: "Hanoi", verificationSteps: [1, 3], leadTimeDays: 14,
+    rawMaterialRegion: "Binh Phuoc and Dak Lak", inputMaterialOrigin: "Vietnam and Cambodia",
   },
   product: {
     id: "a", supplier_id: "A", packaging: "Bao PP 25kg hoặc 50kg, may kín", packaging_i18n: null, ref_price: 999,
@@ -181,6 +182,11 @@ const record = {
   },
   supplier: { id: "A", email: "private@example.com" },
   category: { slug: "cashew", name_i18n: { en: "Cashew kernels" } },
+};
+const untranslatedRecord = {
+  ...record,
+  card: { ...record.card, id: "untranslated", rawMaterialRegion: "", inputMaterialOrigin: "" },
+  product: { ...record.product, id: "untranslated" },
 };
 const store = {
   listCertificates: async () => rawCertificates,
@@ -191,7 +197,7 @@ const comparisonData = compile("../lib/public/product-comparison-data.ts", {
   "@/lib/db": { getStore: () => store },
   "@/lib/product-attributes": { fieldsFor: () => [{ key: "grade", label: "Grade" }, { key: "moisture", label: "Moisture" }] },
   "@/lib/public/certificates": certificateModule,
-  "@/lib/public/product-catalog": { getPublicProductRecordsByIds: async (ids) => ids.map((id) => id === "a" ? record : null).filter(Boolean) },
+  "@/lib/public/product-catalog": { getPublicProductRecordsByIds: async (ids) => ids.map((id) => id === "a" ? record : id === "untranslated" ? untranslatedRecord : null).filter(Boolean) },
   "@/lib/public/product-comparison": { productDetailHref },
   "@/lib/public/product-detail-display": {
     publicExportPortDisplay,
@@ -216,6 +222,11 @@ assert.equal(projected[0].incotermPlace, "Ho Chi Minh City");
 assert.equal(projected[0].exportPort, "Cat Lai");
 assert.equal(projected[0].monthlyCapacity, "100 metric tons");
 assert.equal(projected[0].paymentTerms, "T/T 30% deposit");
+assert.equal(projected[0].rawMaterialRegion, "Binh Phuoc and Dak Lak");
+assert.equal(projected[0].inputMaterialOrigin, "Vietnam and Cambodia");
+const untranslated = await comparisonData.getPublicProductsForComparison(["untranslated"]);
+assert.equal(untranslated[0].rawMaterialRegion, null, "Missing English sourcing data stays empty in comparison");
+assert.equal(untranslated[0].inputMaterialOrigin, null);
 assert.equal(projected[0].packaging, "25kg or 50kg PP bags, sewn closed");
 assert.equal(projected[0].certificates.length, 1);
 assert.equal(projected[0].certificates[0].id, "public-cert");
@@ -249,6 +260,8 @@ const compared = (id, extra = {}) => ({
   exportPort: "Cat Lai",
   monthlyCapacity: "100 MT",
   paymentTerms: "T/T",
+  rawMaterialRegion: "Binh Phuoc and Dak Lak",
+  inputMaterialOrigin: "Vietnam and Cambodia",
   oem: true,
   odm: false,
   samples: true,
@@ -274,11 +287,12 @@ const tableModule = compile("../components/public/product-comparison-table.tsx",
   "@/lib/verification-status": { VERIFICATION_LABELS },
 });
 const tableHtml = renderToStaticMarkup(React.createElement(tableModule.ProductComparisonTable, {
-  products: [compared("a"), compared("b", { price: null, priceCurrency: null, priceUnit: null, priceValidUntil: null, certificates: [] })],
+  products: [compared("a"), compared("b", { price: null, priceCurrency: null, priceUnit: null, priceValidUntil: null, certificates: [], inputMaterialOrigin: null })],
 }));
 for (const text of ["Reference price", "USD 7/kg", "On request", "Price valid until", "MOQ", "Packaging", "Named place",
   "Independent verification", "Documents checked: Approved", "Factory visited: Not approved", "Delivery history reviewed: Approved",
-  "HACCP", "No public certificates", "Copy comparison link", "Request a quote", "do not certify these products or a specific lot"]) {
+  "HACCP", "No public certificates", "Raw material region", "Binh Phuoc and Dak Lak", "Input material origin", "Vietnam and Cambodia", "Not provided",
+  "Copy comparison link", "Request a quote", "do not certify these products or a specific lot"]) {
   assert.ok(tableHtml.includes(text), `Comparison table includes ${text}`);
 }
 assert.match(tableHtml, /overflow-x-auto/);
