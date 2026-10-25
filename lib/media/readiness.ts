@@ -29,6 +29,32 @@ export interface ReadinessResult {
   message: string;
 }
 
+export interface ProductPublicationMediaState {
+  /** Ảnh đã được nhân sự kiểm tra và chủ động chia sẻ cho buyer. */
+  verifiedBuyerImages: number;
+  /** Ảnh/catalogue đang chia sẻ buyer nhưng còn ở trạng thái chưa kiểm tra. */
+  uncheckedBuyerFiles: number;
+  ready: boolean;
+}
+
+/**
+ * Cổng bắt buộc trước khi duyệt và đăng sản phẩm NCC.
+ * Không tự nâng quyền tệp nội bộ và không coi catalogue là ảnh đã xác minh.
+ */
+export function productPublicationMediaState(
+  media: Pick<MediaAsset, "owner_type" | "product_id" | "supplier_id" | "kind" | "audience" | "status" | "expires_on" | "storage_path">[],
+  productId: string,
+  supplierId: string,
+): ProductPublicationMediaState {
+  const files = media.filter((asset) => asset.owner_type === "product" && asset.product_id === productId &&
+    asset.supplier_id === supplierId && (asset.kind === "image" || asset.kind === "catalogue") &&
+    !!asset.storage_path && !isExpired(asset));
+  const buyerFiles = files.filter((asset) => asset.audience === "buyer");
+  const verifiedBuyerImages = buyerFiles.filter((asset) => asset.kind === "image" && asset.status === "checked").length;
+  const uncheckedBuyerFiles = buyerFiles.filter((asset) => asset.status !== "checked").length;
+  return { verifiedBuyerImages, uncheckedBuyerFiles, ready: verifiedBuyerImages > 0 && uncheckedBuyerFiles === 0 };
+}
+
 export function productReadiness(
   media: Pick<MediaAsset, "kind" | "audience" | "status" | "expires_on">[],
 ): ReadinessResult {

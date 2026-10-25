@@ -23,6 +23,7 @@ let storedBytes = 0;
 let failThumb = false;
 const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', {});
 const attributes = load('../lib/product-attributes.ts', {});
+const mediaReadiness = load('../lib/media/readiness.ts', {});
 const categories = [
   { id: '11111111-1111-1111-1111-111111111111', slug: 'cashew', parent_id: null, name_i18n: { vi: 'Hạt điều', en: 'Cashew' }, status: 'published', is_published: true, sort_order: 1, product_fields: [{ key: 'grade', label: 'Grade', type: 'select', options: ['W240', 'W320'], filterable: true }] },
   { id: '22222222-2222-2222-2222-222222222222', slug: 'rice', parent_id: null, name_i18n: { vi: 'Gạo', en: 'Rice' }, status: 'published', is_published: true, sort_order: 2 },
@@ -135,7 +136,7 @@ const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
     extensionFor: (mime) => mime === 'application/pdf' ? 'pdf' : 'jpg',
   },
   '@/lib/media/prepare-supplier-product-image': { prepareSupplierProductImage: async () => ({ main: new Uint8Array([1, 2]), thumb: new Uint8Array([3]), width: 800, height: 600 }) },
-  '@/lib/media/readiness': { isExpired: (asset) => asset.status === 'expired' || (asset.expires_on && asset.expires_on < new Date().toISOString().slice(0, 10)) },
+  '@/lib/media/readiness': mediaReadiness,
   '@/lib/media/storage': { putObject: async (path) => { if (failThumb && path.endsWith('-thumb.webp')) throw Error('failed thumbnail write'); storedBytes++; },
     deleteObject: async () => { if (storedBytes) storedBytes--; } },
 });
@@ -207,7 +208,7 @@ const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
   '@/lib/db': { getStore: () => store },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async (input) => { notices.push([input.decision, input.entityId]); return 'sent'; } },
   '@/lib/crm/badges': { refreshCrmBadges() {} },
-  '@/lib/media/readiness': { isExpired: (asset) => asset.status === 'expired' || (asset.expires_on && asset.expires_on < new Date().toISOString().slice(0, 10)) },
+  '@/lib/media/readiness': mediaReadiness,
   '@/lib/public/product-selection': { isTestOnlyProduct: (name) => /^\s*(?:\[\s*)?test\s+only\b/i.test(name) },
   '@/lib/public/supplier-seo': { isSyntheticSupplier: () => false },
   '@/lib/supplier-portal/category-proposals': categoryProposals,
@@ -224,19 +225,39 @@ approve.set('reviewed_category_slug', 'not-in-catalogue');
 assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Staff must choose a published category');
 approve.set('reviewed_category_slug', 'cashew');
 product.name = 'Jasmine Rice';
+const internalMediaDecision = await review.decideSupplierProductAction(approve);
+assert.equal(internalMediaDecision.ok, false, 'An internal unverified image cannot be published automatically');
+assert.match(internalMediaDecision.message, /Đã kiểm tra và Chia sẻ buyer/);
+assert.equal(product.supplier_review_status, 'pending'); assert.equal(product.ready_for_buyer, false);
+assert.equal(files[0].audience, 'internal'); assert.equal(files[0].status, 'unverified');
+files[0].audience = 'buyer';
+assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Buyer sharing alone does not verify an image');
+assert.equal(product.ready_for_buyer, false);
+files[0].status = 'checked';
+const uncheckedPublicFile = { ...files[0], id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', audience: 'buyer', status: 'unverified', storage_path: 'products/unchecked.jpg' };
+files.push(uncheckedPublicFile);
+const mixedMediaDecision = await review.decideSupplierProductAction(approve);
+assert.equal(mixedMediaDecision.ok, false, 'Every buyer-shared file must be checked');
+assert.match(mixedMediaDecision.message, /Còn 1 tệp chia sẻ buyer chưa được xác minh/);
+uncheckedPublicFile.audience = 'internal';
 assert.equal((await review.decideSupplierProductAction(approve)).ok, true, 'Keyword mismatch is a warning; staff category is final');
+assert.equal(uncheckedPublicFile.audience, 'internal'); assert.equal(uncheckedPublicFile.status, 'unverified',
+  'Publication never promotes or verifies another internal file');
+files.pop();
 product.name = 'Cashew W320';
 assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, true);
 assert.equal(files[0].audience, 'buyer'); assert.equal(files[0].status, 'checked');
 assert.equal(notices.at(-1)[0], 'product_approved');
 assert.equal(product.supplier_category_proposal, 'cashew');
 assert.equal(product.reviewed_category_slug, 'cashew', 'Staff saves the final published category');
-// Products approved before confirmation became the publication transition can
-// be completed without resetting review or manually editing the readiness flag.
+// Approved legacy products still need the same explicit media review before retry.
 product.ready_for_buyer = false;
 files[0].audience = 'internal'; files[0].status = 'unverified';
 const retry = new FormData(); retry.set('product_id', productId); retry.set('decision', 'approved');
-assert.equal((await review.decideSupplierProductAction(retry)).ok, true, 'An approved legacy product can be pushed to the marketplace');
+assert.equal((await review.decideSupplierProductAction(retry)).ok, false, 'Legacy retry cannot bypass the media gate');
+assert.equal(product.ready_for_buyer, false);
+files[0].audience = 'buyer'; files[0].status = 'checked';
+assert.equal((await review.decideSupplierProductAction(retry)).ok, true, 'An approved legacy product can be published after media review');
 assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, true);
 assert.equal(product.reviewed_category_slug, 'cashew', 'Retry keeps the saved staff category without a form override');
 assert.equal(files[0].audience, 'buyer'); assert.equal(files[0].status, 'checked');

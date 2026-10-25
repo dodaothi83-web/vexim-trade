@@ -99,7 +99,8 @@ const { SupplierProductReviewControls } = load('../app/crm/products/[slug]/edit/
   './edit-workspace': { useProductEditWorkspace: () => ({ dirty: editorDirty }) },
 });
 const reviewProps = { id: 'p3', proposal: 'cashew', reviewed: 'cashew',
-  categories: [{ slug: 'cashew', label: 'Hạt điều' }] };
+  categories: [{ slug: 'cashew', label: 'Hạt điều' }],
+  mediaReview: { verifiedBuyerImages: 1, uncheckedBuyerFiles: 0, ready: true } };
 const retryHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, reviewProps));
 assert.ok(retryHtml.includes('Duyệt và đăng'), 'One staff action publishes pending and legacy products');
 assert.ok(retryHtml.includes('Danh mục đăng'), 'Staff can choose the final published category');
@@ -107,6 +108,14 @@ assert.ok(!retryHtml.includes('Yêu cầu chỉnh sửa'), 'Legacy completion do
 const pendingReviewHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, { ...reviewProps, allowChanges: true }));
 assert.ok(pendingReviewHtml.includes('Duyệt và đăng') && pendingReviewHtml.includes('Yêu cầu chỉnh sửa'),
   'Pending review keeps both staff decisions');
+const blockedMediaHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, {
+  ...reviewProps, mediaReview: { verifiedBuyerImages: 0, uncheckedBuyerFiles: 1, ready: false },
+}));
+assert.ok(blockedMediaHtml.includes('Cần ít nhất một ảnh ở trạng thái Đã kiểm tra và Chia sẻ buyer'),
+  'The button explains the exact media settings required');
+assert.ok(blockedMediaHtml.includes('href="#product-media"'), 'The blocker opens the existing media workspace');
+assert.match(blockedMediaHtml, /<button disabled="" class="btn btn-primary">Duyệt và đăng<\/button>/,
+  'Publication stays disabled until media review is complete');
 editorDirty = true;
 const dirtyReviewHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, reviewProps));
 assert.ok(dirtyReviewHtml.includes('Lưu thay đổi trong hồ sơ và bản dịch trước khi duyệt và đăng'),

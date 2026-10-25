@@ -11,7 +11,7 @@ import { isTestOnlyProduct, productReviewApproved, productPriceBlockers, publicP
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { DeleteProductButton } from "@/components/product-actions";
 import { MediaManager, ReadyHint } from "@/components/media-manager";
-import { isExpired, productReadiness } from "@/lib/media/readiness";
+import { isExpired, productPublicationMediaState, productReadiness } from "@/lib/media/readiness";
 import { requirePagePermission } from "@/lib/auth/session";
 import { SupplierProductReviewControls } from "./review-controls";
 import { ProductTranslationPanel } from "./translation-panel";
@@ -37,6 +37,7 @@ export default async function EditProductPage({
   if (!supplier) notFound();
   const [media, categories] = await Promise.all([store.listMedia("product", id), store.listCategories({ publishedOnly: false })]);
   const readiness = productReadiness(media);
+  const publicationMedia = productPublicationMediaState(media, product.id, product.supplier_id);
   const links = await store.listSupplierCategories(supplier.id).catch(() => []);
   const supplierCategories = links.length
     ? links.map((link) => categories.find((c) => c.id === link.category_id)?.slug).filter((slug): slug is string => !!slug)
@@ -71,7 +72,8 @@ export default async function EditProductPage({
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đang xuất bản` },
     { done: supplier.status === "published", label: "Hồ sơ NCC đang công khai" },
     { done: commercialSupplier, label: "Hồ sơ không phải dữ liệu thử nghiệm" },
-    { done: readiness.ready, label: "Có ảnh hoặc catalogue chia sẻ cho buyer", automatic: needsPublicationAction, href: "#product-media" },
+    { done: publicationMedia.verifiedBuyerImages > 0, label: "Ít nhất một ảnh đã kiểm tra và chia sẻ buyer", href: "#product-media" },
+    { done: publicationMedia.uncheckedBuyerFiles === 0, label: "Mọi tệp chia sẻ buyer đã được xác minh", href: "#product-media" },
     { done: productReviewApproved(product) && !!product.ready_for_buyer, label: "Sản phẩm đã được duyệt và đăng", automatic: needsPublicationAction },
     { done: !isTestOnlyProduct(product.name), label: "Tên sản phẩm không phải dữ liệu thử nghiệm" },
   ] : [
@@ -128,7 +130,7 @@ export default async function EditProductPage({
               supplierId={supplier.id}
               items={media}
               featuredMediaId={product.featured_media_id}
-              note={supplierReviewedListing ? "Tệp của NCC sẽ được dùng khi đăng. Tài liệu nội bộ của staff vẫn riêng tư." : "Ảnh/catalogue chia sẻ buyer · giấy tờ nội bộ chỉ dùng trong nhà"}
+              note={supplierReviewedListing ? "Trước khi đăng: chọn Đã kiểm tra và Chia sẻ buyer cho từng tệp công khai. Tệp Nội bộ vẫn riêng tư." : "Ảnh/catalogue chia sẻ buyer · giấy tờ nội bộ chỉ dùng trong nhà"}
             />
           </div>
           <ProductTranslationPanel
@@ -169,6 +171,7 @@ export default async function EditProductPage({
                 categories={categoryOptions}
                 scope={supplierCategoryScope}
                 inferredCategory={inferredCategory?.slug ?? null}
+                mediaReview={publicationMedia}
                 allowChanges={product.supplier_review_status === "pending"}
               />}
           </section>}
