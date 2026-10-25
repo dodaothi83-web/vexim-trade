@@ -102,7 +102,7 @@ const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
 const file = new File(['%PDF-1.7 TEST DOCUMENT'], 'license.pdf', { type: 'application/pdf' });
 function form(email = 'owner@example.com') {
   const fd = new FormData();
-  for (const [key, val] of Object.entries({ name: 'Example Trading Co', contact_name: 'Mr A', email, password: 'password123', phone: '0987654321', products: 'Cashew', supplier_type: 'trading', raw_material_region: 'Đắk Lắk, vùng Buôn Ma Thuột', input_material_origin: 'Việt Nam và Campuchia', intro_source: 'Cashew processing and export', website: 'https://example.com', founded_year: '2012', employees: '42', capacity_per_month: '200 MT', ports: 'Hai Phong, Da Nang', consent: 'yes', information_accuracy: 'yes', tax_number: '0012345', bank_account_number: '000123', 'request:3': 'yes' })) fd.set(key, val);
+  for (const [key, val] of Object.entries({ name: 'Example Trading Co', contact_name: 'Mr A', email, password: 'password123', phone: '0987654321', products: 'Cashew', supplier_type: 'trading', intro_source: 'Cashew processing and export', website: 'https://example.com', founded_year: '2012', employees: '42', capacity_per_month: '200 MT', ports: 'Hai Phong, Da Nang', consent: 'yes', information_accuracy: 'yes', tax_number: '0012345', bank_account_number: '000123', 'request:3': 'yes' })) fd.set(key, val);
   fd.append('requested_category_slugs', 'cashew');
   fd.set('doc:business_license', file);
   fd.set('status', 'published'); fd.set('verification_level', '3');
@@ -237,8 +237,6 @@ assert.equal(JSON.stringify(state.suppliers[0].requested_category_slugs), JSON.s
 assert.equal(state.suppliers[0].categories_reviewed_at ?? null, null);
 assert.equal(state.suppliers[0].supplier_type, 'trading');
 assert.equal(state.suppliers[0].intro_source, 'Cashew processing and export', 'Supplier story is stored as the original introduction');
-assert.equal(state.suppliers[0].raw_material_region, 'Đắk Lắk, vùng Buôn Ma Thuột', 'Custom raw material region is persisted');
-assert.equal(state.suppliers[0].input_material_origin, 'Việt Nam và Campuchia', 'Input material origin is persisted');
 assert.equal(state.suppliers[0].summary_i18n.en, 'Cashew processing and export', 'English introduction is derived from the supplier story');
 assert.equal(state.suppliers[0].website, 'https://example.com');
 assert.equal(state.suppliers[0].employees, 42);

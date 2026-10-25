@@ -25,6 +25,7 @@ import type { CategoryProposalOption } from "@/lib/supplier-portal/category-prop
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
 import { saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
+import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { effectiveFieldsFor, fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
 
 type EditorProps = {
@@ -100,6 +101,8 @@ function snapshotFrom(product?: SupplierProduct): Record<string, string> {
     description: product?.description ?? "",
     spec: product?.spec ?? "",
     description_detail: product?.description_detail ?? "",
+    raw_material_region: product?.raw_material_region ?? "",
+    input_material_origin: product?.input_material_origin ?? "",
   };
   for (const [key] of [...REVIEW_COMMERCIAL, ...REVIEW_ORDER]) {
     const value = product ? (product as unknown as Record<string, unknown>)[key] : "";
@@ -532,6 +535,12 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 <Field label="Quy cách / tiêu chuẩn" hint="Cần ít nhất một trong hai ô mô tả hoặc quy cách để gửi duyệt">
                   <textarea name="spec" className="input min-h-28 resize-y" rows={4} maxLength={800} placeholder="Ví dụ: Size W320, độ ẩm ≤ 5%, đóng gói 25 kg..." defaultValue={product?.spec ?? ""} disabled={locked} />
                 </Field>
+                <Field label="Vùng nguyên liệu" hint="Chọn tỉnh/thành hoặc nhập vùng cụ thể; có thể ghi nhiều vùng cho sản phẩm này.">
+                  <RawMaterialRegionInput defaultValue={product?.raw_material_region ?? ""} disabled={locked} />
+                </Field>
+                <Field label="Xuất xứ nguyên liệu đầu vào" hint="Nguồn trong nước, nhập khẩu hoặc kết hợp của sản phẩm này.">
+                  <input name="input_material_origin" className="input" maxLength={300} placeholder="Ví dụ: Việt Nam, Campuchia hoặc nguồn kết hợp" defaultValue={product?.input_material_origin ?? ""} disabled={locked} />
+                </Field>
                 <div className="md:col-span-2">
                   <Field label="Mô tả chi tiết" hint="Hiển thị dưới phần tổng quan của trang sản phẩm; không nhập số điện thoại, email hoặc HTML.">
                     <textarea name="description_detail" className="input min-h-32 resize-y" rows={6} maxLength={6000} placeholder="Nguồn gốc, ứng dụng, đặc điểm, đóng gói, lưu ý..." defaultValue={product?.description_detail ?? ""} disabled={locked} />
@@ -713,6 +722,8 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   </div>
                   <div><ReviewField label="Mô tả ngắn" value={snapshot.description} /></div>
                   <div><ReviewField label="Quy cách / tiêu chuẩn" value={snapshot.spec} /></div>
+                  <div><ReviewField label="Vùng nguyên liệu" value={snapshot.raw_material_region} /></div>
+                  <div><ReviewField label="Xuất xứ nguyên liệu đầu vào" value={snapshot.input_material_origin} /></div>
                   <div className="sm:col-span-2"><ReviewField label="Mô tả chi tiết" value={snapshot.description_detail} /></div>
                 </dl>
               </div>

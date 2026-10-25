@@ -41,9 +41,8 @@ export function supplierTranslationFailureMessage(error: unknown): string {
 
 /**
  * Bảo đảm các nội dung hồ sơ NCC hiển thị cho buyer có bản tiếng Anh:
- * MOQ, địa điểm, địa chỉ, mặt hàng, vùng và xuất xứ nguyên liệu, thị trường, công suất,
- * điều khoản, cảng và Incoterms được dịch cùng phần giới thiệu. NCC sửa nội dung gốc
- * thì toàn bộ bản dịch được làm mới.
+ * MOQ, địa điểm, địa chỉ, mặt hàng, thị trường, công suất, điều khoản, cảng và Incoterms
+ * được dịch cùng phần giới thiệu. NCC sửa nội dung gốc thì toàn bộ bản dịch được làm mới.
  * Chỉ khi NCC không viết phần giới thiệu, AI mới soạn nháp từ dữ kiện hồ sơ.
  * Lỗi dịch không chặn nghiệp vụ nộp hoặc công khai hồ sơ.
  */

@@ -13,7 +13,7 @@ import {
 } from "@/lib/public/catalog";
 import { parseComparisonIds } from "@/lib/public/product-comparison";
 import { getPublicProductsForComparison } from "@/lib/public/product-comparison-data";
-import { supplierIncotermsDisplay, supplierInputMaterialOriginEnglishDisplay, supplierMoqDisplay, supplierPortsDisplay, supplierProvinceDisplay, supplierRawMaterialRegionEnglishDisplay } from "@/lib/public/supplier-english";
+import { supplierIncotermsDisplay, supplierMoqDisplay, supplierPortsDisplay, supplierProvinceDisplay } from "@/lib/public/supplier-english";
 
 export const dynamic = "force-dynamic";
 
@@ -80,8 +80,6 @@ export default async function ComparePage({ searchParams }: PageProps) {
                   <Row label="Founded" cells={suppliers.map((s) => <>{s.founded_year ?? <Dash />}</>)} />
                   <Row label="Employees" cells={suppliers.map((s) => <>{typeof s.employees === "number" && s.employees > 0 ? `${s.employees}` : <Dash />}</>)} />
                   <Row label="Main products" cells={suppliers.map((s) => <>{mainProductNames(s.main_products) || <Dash />}</>)} />
-                  <Row label="Raw material region" cells={suppliers.map((s) => <>{supplierRawMaterialRegionEnglishDisplay(s) || <Dash />}</>)} />
-                  <Row label="Input material origin" cells={suppliers.map((s) => <>{supplierInputMaterialOriginEnglishDisplay(s) || <Dash />}</>)} />
                   <Row label="MOQ" cells={suppliers.map((s) => <>{supplierMoqDisplay(s) || <Dash />}</>)} />
                   <Row label="Lead time" cells={suppliers.map((s) => <>{s.lead_time_days ? `${s.lead_time_days} days` : <Dash />}</>)} />
                   <Row label="Ports" cells={suppliers.map((s) => <>{supplierPortsDisplay(s).join(", ") || <Dash />}</>)} />

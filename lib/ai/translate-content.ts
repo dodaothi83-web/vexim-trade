@@ -16,6 +16,8 @@ export const PRODUCT_TRANSLATION_FIELDS = [
   "moq",
   "monthly_capacity",
   "payment_terms",
+  "raw_material_region",
+  "input_material_origin",
   "incoterm_place",
   "export_port",
 ] as const;
@@ -34,6 +36,8 @@ const LIMITS: Record<ProductTranslationField, number> = {
   moq: 180,
   monthly_capacity: 180,
   payment_terms: 200,
+  raw_material_region: 180,
+  input_material_origin: 300,
   incoterm_place: 180,
   export_port: 180,
 };
@@ -46,8 +50,9 @@ Rules:
 - Keep company names and other proper names accurate. Use conventional English spellings for Vietnamese places and ports, such as Ho Chi Minh City and Cat Lai, without changing the location.
 - If a field is already in English, return it as is, only fixing obvious spelling mistakes.
 - Translate moq, monthly_capacity, payment_terms, incoterm_place and export_port faithfully. Keep quantities, currencies, Incoterm codes and commercial facts unchanged.
+- Translate raw_material_region and input_material_origin for this specific product. Preserve every stated region, country and combined sourcing fact; do not add verification claims.
 - Preserve line breaks and list structure of the source.
-- Return one JSON object only, no markdown, no explanation, with exactly these keys: "name", "description", "spec", "description_detail", "packaging", "certifications", "moq", "monthly_capacity", "payment_terms", "incoterm_place", "export_port". Use an empty string for a field whose source is empty.`;
+- Return one JSON object only, no markdown, no explanation, with exactly these keys: "name", "description", "spec", "description_detail", "packaging", "certifications", "moq", "monthly_capacity", "payment_terms", "raw_material_region", "input_material_origin", "incoterm_place", "export_port". Use an empty string for a field whose source is empty.`;
 
 function clean(value: unknown, limit: number): string {
   return typeof value === "string" ? value.replace(/\s+\n/g, "\n").trim().slice(0, limit) : "";
@@ -65,6 +70,8 @@ export function productTranslationSource(product: ProductTranslationSource): Pro
     moq: clean(product.moq, LIMITS.moq),
     monthly_capacity: clean(product.monthly_capacity, LIMITS.monthly_capacity),
     payment_terms: clean(product.payment_terms, LIMITS.payment_terms),
+    raw_material_region: clean(product.raw_material_region, LIMITS.raw_material_region),
+    input_material_origin: clean(product.input_material_origin, LIMITS.input_material_origin),
     incoterm_place: clean(product.incoterm_place, LIMITS.incoterm_place),
     export_port: clean(product.export_port, LIMITS.export_port),
   };
@@ -75,7 +82,8 @@ export function productSourceHash(product: ProductTranslationSource): string {
   const normalized = productTranslationSource(product);
   // Keep hashes for older core-only records stable. A record with trade text
   // uses the expanded shape, so its old translation is refreshed once.
-  const hasTradeFields = Boolean(normalized.moq || normalized.monthly_capacity || normalized.payment_terms || normalized.incoterm_place || normalized.export_port);
+  const hasTradeFields = Boolean(normalized.moq || normalized.monthly_capacity || normalized.payment_terms ||
+    normalized.raw_material_region || normalized.input_material_origin || normalized.incoterm_place || normalized.export_port);
   const source = hasTradeFields ? normalized : {
     name: normalized.name,
     description: normalized.description,
@@ -128,8 +136,8 @@ export function parseProductTranslation(
 /** Bản dịch tiếng Anh hiện tại của sản phẩm có khớp nội dung gốc và đủ dùng cho trang buyer hay không. */
 export function productTranslationState(product: Pick<SupplierProduct,
   "name" | "description" | "spec" | "description_detail" | "packaging" | "certifications" |
-  "moq" | "monthly_capacity" | "payment_terms" | "incoterm_place" | "export_port" |
-  "name_i18n" | "description_i18n" | "spec_i18n" | "description_detail_i18n" | "packaging_i18n" | "certifications_i18n" | "translation_meta">):
+  "moq" | "monthly_capacity" | "payment_terms" | "raw_material_region" | "input_material_origin" |
+  "incoterm_place" | "export_port" | "name_i18n" | "description_i18n" | "spec_i18n" | "description_detail_i18n" | "packaging_i18n" | "certifications_i18n" | "translation_meta">):
   { hasEnglish: boolean; current: boolean; translatedAt: string | null; origin: "ai" | "staff" | null } {
   const hasEnglish = Boolean(product.name_i18n?.en?.trim());
   const current = hasEnglish && product.translation_meta?.source_hash === productSourceHash(product);
@@ -164,6 +172,8 @@ export function productTranslationPatch(
         moq: translation.moq,
         monthly_capacity: translation.monthly_capacity,
         payment_terms: translation.payment_terms,
+        raw_material_region: translation.raw_material_region,
+        input_material_origin: translation.input_material_origin,
         incoterm_place: translation.incoterm_place,
         export_port: translation.export_port,
       },

@@ -16,6 +16,8 @@ type Texts = {
   moq: string;
   monthly_capacity: string;
   payment_terms: string;
+  raw_material_region: string;
+  input_material_origin: string;
   incoterm_place: string;
   export_port: string;
 };
@@ -30,6 +32,8 @@ const FIELDS: Array<{ key: keyof Texts; label: string; rows: number; limit: numb
   { key: "moq", label: "MOQ", rows: 1, limit: 360 },
   { key: "monthly_capacity", label: "Năng lực mỗi tháng", rows: 1, limit: 360 },
   { key: "payment_terms", label: "Điều kiện thanh toán", rows: 2, limit: 400 },
+  { key: "raw_material_region", label: "Vùng nguyên liệu", rows: 1, limit: 360 },
+  { key: "input_material_origin", label: "Xuất xứ nguyên liệu đầu vào", rows: 2, limit: 600 },
   { key: "incoterm_place", label: "Địa điểm Incoterm", rows: 1, limit: 360 },
   { key: "export_port", label: "Cảng xuất hàng", rows: 1, limit: 360 },
 ];

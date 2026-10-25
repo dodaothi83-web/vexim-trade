@@ -39,17 +39,21 @@ const source = {
   moq: '1 tấn',
   monthly_capacity: '100 tấn',
   payment_terms: 'T/T 30% cọc',
+  raw_material_region: 'Bình Phước và Đắk Lắk',
+  input_material_origin: 'Việt Nam và Campuchia',
   incoterm_place: 'Hồ Chí Minh',
   export_port: 'Cát Lái',
 };
 
 // Parse: JSON trong fence, trường model bỏ trống thì giữ nguyên nguồn thay vì mất nội dung.
-const parsed = ai.parseProductTranslation('```json\n{"name":"White cashew kernels W320","description":"White cashew kernels, moisture ≤ 5%.","spec":"","description_detail":"","packaging":"25 kg carton box","certifications":"ISO 22000","moq":"1 metric ton","monthly_capacity":"100 metric tons","payment_terms":"T/T 30% deposit","incoterm_place":"Ho Chi Minh City","export_port":"Cat Lai"}\n```', source);
+const parsed = ai.parseProductTranslation('```json\n{"name":"White cashew kernels W320","description":"White cashew kernels, moisture ≤ 5%.","spec":"","description_detail":"","packaging":"25 kg carton box","certifications":"ISO 22000","moq":"1 metric ton","monthly_capacity":"100 metric tons","payment_terms":"T/T 30% deposit","raw_material_region":"Binh Phuoc and Dak Lak","input_material_origin":"Vietnam and Cambodia","incoterm_place":"Ho Chi Minh City","export_port":"Cat Lai"}\n```', source);
 assert.equal(parsed.name, 'White cashew kernels W320');
 assert.equal(parsed.spec, 'Size W320, đóng gói 25 kg', 'trường dịch trống phải lùi về nội dung gốc');
 assert.equal(parsed.packaging, '25 kg carton box');
 assert.equal(parsed.monthly_capacity, '100 metric tons');
 assert.equal(parsed.payment_terms, 'T/T 30% deposit');
+assert.equal(parsed.raw_material_region, 'Binh Phuoc and Dak Lak');
+assert.equal(parsed.input_material_origin, 'Vietnam and Cambodia');
 assert.equal(parsed.incoterm_place, 'Ho Chi Minh City');
 assert.equal(parsed.export_port, 'Cat Lai');
 assert.throws(() => ai.parseProductTranslation('not json', source, { strict: true }), /không đúng định dạng/);
@@ -61,8 +65,10 @@ const hash1 = ai.productSourceHash(source);
 assert.equal(hash1, ai.productSourceHash({ ...source }));
 assert.notEqual(hash1, ai.productSourceHash({ ...source, spec: 'Size W240' }));
 assert.notEqual(hash1, ai.productSourceHash({ ...source, payment_terms: 'T/T 50% cọc' }));
+assert.notEqual(hash1, ai.productSourceHash({ ...source, raw_material_region: 'Lâm Đồng' }), 'Editing this product region invalidates its English cache');
+assert.notEqual(hash1, ai.productSourceHash({ ...source, input_material_origin: 'Việt Nam' }), 'Editing this product input origin invalidates its English cache');
 const coreOnly = { name: source.name, description: source.description, spec: source.spec, description_detail: '', packaging: source.packaging, certifications: source.certifications };
-assert.equal(ai.productSourceHash(coreOnly), ai.productSourceHash({ ...coreOnly, moq: '' }), 'core-only records keep their legacy hash shape');
+assert.equal(ai.productSourceHash(coreOnly), ai.productSourceHash({ ...coreOnly, moq: '', raw_material_region: '', input_material_origin: '' }), 'core-only records keep their legacy hash shape');
 
 // Patch + state: vừa dịch xong thì current; NCC sửa nội dung gốc thì bản dịch bị coi là đã cũ.
 const patch = ai.productTranslationPatch(parsed, source, 'ai', 'gpt-4.1-mini');
@@ -71,6 +77,8 @@ assert.equal(patch.translation_meta.origin, 'ai');
 assert.equal(patch.translation_meta.fields.moq, '1 metric ton');
 assert.equal(patch.translation_meta.fields.monthly_capacity, '100 metric tons');
 assert.equal(patch.translation_meta.fields.payment_terms, 'T/T 30% deposit');
+assert.equal(patch.translation_meta.fields.raw_material_region, 'Binh Phuoc and Dak Lak');
+assert.equal(patch.translation_meta.fields.input_material_origin, 'Vietnam and Cambodia');
 assert.equal(patch.translation_meta.fields.incoterm_place, 'Ho Chi Minh City');
 assert.equal(patch.translation_meta.fields.export_port, 'Cat Lai');
 const product = { ...source, ...patch };
@@ -82,6 +90,9 @@ const edited = { ...product, name: 'Hạt điều nhân trắng W240' };
 const stale = ai.productTranslationState(edited);
 assert.equal(stale.hasEnglish, true);
 assert.equal(stale.current, false, 'sửa nội dung gốc phải làm bản dịch thành đã cũ');
+assert.equal(ai.productTranslationState({ ...product, raw_material_region: 'Lâm Đồng' }).current, false,
+  'A product-specific region edit marks only that product translation stale');
+assert.equal(ai.productTranslationState({ ...product, input_material_origin: 'Nguồn nhập khẩu mới' }).current, false);
 assert.equal(ai.productTranslationState({ ...source }).hasEnglish, false);
 
 // Các điểm gắn trong luồng thật.

@@ -89,6 +89,8 @@ alter table public.supplier_products add column if not exists certifications_i18
 alter table public.supplier_products add column if not exists translation_meta jsonb;
 alter table public.supplier_products add column if not exists price_publicly_visible boolean not null default false;
 alter table public.supplier_products add column if not exists odm boolean not null default false;
+alter table public.supplier_products add column if not exists raw_material_region text;
+alter table public.supplier_products add column if not exists input_material_origin text;
 create index if not exists supplier_products_category_idx on public.supplier_products (category);
 
 -- ---------------------------------------------------------------------------
@@ -557,8 +559,6 @@ alter table public.suppliers
   add column if not exists moq_text_i18n jsonb not null default '{}'::jsonb,
   add column if not exists export_markets_i18n jsonb not null default '{}'::jsonb,
   add column if not exists profile_translation_meta jsonb,
-  add column if not exists raw_material_region text,
-  add column if not exists input_material_origin text,
   add column if not exists capacity_per_month text,
   add column if not exists ports text[] not null default '{}',
   add column if not exists incoterms text[] not null default '{}',

@@ -36,16 +36,13 @@ access = { supplier, store, user: { id: 'user-1', email: 'owner@example.com' } }
 const form = new FormData();
 for (const [key, value] of Object.entries({
   contact_name: 'New contact', phone: '0911111111', products: 'Cashew and pepper', trade_name: 'New trade name',
-  display_name: 'New display name', province: 'Bình Phước', raw_material_region: 'Lâm Đồng, vùng Bảo Lộc',
-  input_material_origin: 'Việt Nam, nguồn nhập khẩu bổ sung', intro_source: 'New story', moq_text: '1 tấn',
+  display_name: 'New display name', province: 'Bình Phước', intro_source: 'New story', moq_text: '1 tấn',
   export_markets: 'Hoa Kỳ, Nhật Bản', ports: 'Cát Lái', incoterms: 'FOB', private_label: 'yes',
 })) form.set(key, value);
 const result = await action(form);
 assert.equal(result.ok, true);
 assert.equal(patch.contact_name, 'New contact');
 assert.equal(patch.products, 'Cashew and pepper');
-assert.equal(patch.raw_material_region, 'Lâm Đồng, vùng Bảo Lộc');
-assert.equal(patch.input_material_origin, 'Việt Nam, nguồn nhập khẩu bổ sung');
 assert.equal(JSON.stringify(patch.export_markets), JSON.stringify(['Hoa Kỳ', 'Nhật Bản']));
 assert.equal(patch.private_label, true);
 for (const locked of ['name', 'tax_id', 'address', 'status', 'onboarding_status', 'supplier_type', 'verification_level'])
@@ -61,14 +58,10 @@ assert.equal((await action(form)).ok, false, 'Pending profiles cannot use the ap
 const profile = fs.readFileSync(new URL('../app/supplier/portal/profile/page.tsx', import.meta.url), 'utf8');
 assert.match(profile, /href="\/supplier\/portal\/profile\/edit"/);
 assert.match(profile, /Chỉnh sửa hồ sơ/);
-assert.match(profile, /Vùng nguyên liệu/);
-assert.match(profile, /Xuất xứ nguyên liệu đầu vào/);
 const editPage = fs.readFileSync(new URL('../app/supplier/portal/profile/edit/page.tsx', import.meta.url), 'utf8');
 assert.match(editPage, /portalApproved/);
 assert.match(editPage, /redirect\("\/supplier\/portal"\)/);
 const editForm = fs.readFileSync(new URL('../app/supplier/portal/profile/profile-edit-form.tsx', import.meta.url), 'utf8');
 assert.match(editForm, /saveSupplierProfileEditAction/);
 assert.match(editForm, /Tên pháp nhân, mã số thuế, địa chỉ đăng ký/);
-assert.match(editForm, /RawMaterialRegionInput/);
-assert.match(editForm, /name="input_material_origin"/);
 console.log('✅ Supplier profile edit: linked-owner access, locked legal/review fields, audit and translation trigger.');

@@ -65,7 +65,6 @@ export async function POST(request: Request) {
       contact_name: patch.contact_name!, contact_title: patch.contact_title ?? null,
       email: user.email, phone: patch.phone!, zalo: patch.zalo ?? null, website: patch.website ?? null,
       country: patch.country ?? "Vietnam", address: patch.address ?? null, province: patch.province ?? null,
-      raw_material_region: patch.raw_material_region ?? null, input_material_origin: patch.input_material_origin ?? null,
       role: patch.role!, supplier_type: patch.supplier_type,
       markets: patch.markets ?? null, products: patch.products ?? null,
       requested_category_slugs: proposals.requested_category_slugs, requested_category_other: proposals.requested_category_other,

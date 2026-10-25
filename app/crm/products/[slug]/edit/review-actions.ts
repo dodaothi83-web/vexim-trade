@@ -25,6 +25,8 @@ type Result = {
     moq: string;
     monthly_capacity: string;
     payment_terms: string;
+    raw_material_region: string;
+    input_material_origin: string;
     incoterm_place: string;
     export_port: string;
   };
@@ -130,6 +132,8 @@ export async function translateProductEnglishAction(productId: string): Promise<
         moq: saved.translation_meta?.fields?.moq ?? "",
         monthly_capacity: saved.translation_meta?.fields?.monthly_capacity ?? "",
         payment_terms: saved.translation_meta?.fields?.payment_terms ?? "",
+        raw_material_region: saved.translation_meta?.fields?.raw_material_region ?? "",
+        input_material_origin: saved.translation_meta?.fields?.input_material_origin ?? "",
         incoterm_place: saved.translation_meta?.fields?.incoterm_place ?? "",
         export_port: saved.translation_meta?.fields?.export_port ?? "",
       },
@@ -159,6 +163,8 @@ export async function saveProductEnglishAction(form: FormData): Promise<Result> 
     moq: read("moq_en", 360),
     monthly_capacity: read("monthly_capacity_en", 360),
     payment_terms: read("payment_terms_en", 400),
+    raw_material_region: read("raw_material_region_en", 360),
+    input_material_origin: read("input_material_origin_en", 600),
     incoterm_place: read("incoterm_place_en", 360),
     export_port: read("export_port_en", 360),
   };

@@ -41,8 +41,6 @@ export type SupplierProfileEnglishFields = {
   markets?: string;
   capacity_per_month?: string;
   payment_terms?: string;
-  raw_material_region?: string;
-  input_material_origin?: string;
   ports?: string[];
   incoterms?: string[];
 };
@@ -67,10 +65,6 @@ export interface Supplier {
   country: string | null;
   address: string | null;
   province: string | null;
-  /** Vùng nguyên liệu do NCC tự khai; cho phép tỉnh/thành gợi ý hoặc vùng tự nhập. */
-  raw_material_region?: string | null;
-  /** Xuất xứ nguyên liệu đầu vào do NCC tự khai, không phải kết quả xác minh độc lập. */
-  input_material_origin?: string | null;
   /**
    * Vai trò cũ (manufacturer/trader/agent/exporter) — giữ lại để code cũ không vỡ
    * khi di chuyển; code mới đọc `supplier_type`.
@@ -172,6 +166,8 @@ export type ProductEnglishFields = {
   payment_terms?: string;
   incoterm_place?: string;
   export_port?: string;
+  raw_material_region?: string;
+  input_material_origin?: string;
 };
 
 /** Hồ sơ sản phẩm riêng của NCC – dùng để so khớp với nhu cầu mua của buyer */
@@ -215,6 +211,10 @@ export interface SupplierProduct {
   moq_qty?: number | null;
   moq_unit?: string | null;
   monthly_capacity: string | null;
+  /** Vùng nguyên liệu của riêng sản phẩm; NCC tự khai, không phải kết quả xác minh. */
+  raw_material_region?: string | null;
+  /** Xuất xứ nguyên liệu đầu vào của riêng sản phẩm; có thể trong nước, nhập khẩu hoặc kết hợp. */
+  input_material_origin?: string | null;
   lead_time_days: number | null;
   /** Bao bì / đóng gói */
   packaging: string | null;

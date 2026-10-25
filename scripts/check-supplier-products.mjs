@@ -68,6 +68,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
 const form = () => {
   const fd = new FormData();
   for (const [key, value] of Object.entries({ name: 'Cashew W320', spec: '25kg vacuum bag', description: 'White kernels',
+    raw_material_region: 'Bình Phước và Đắk Lắk', input_material_origin: 'Việt Nam và Campuchia',
     ref_price: '5000', currency: 'USD', supplier_category_proposal: 'cashew', supplier_id: 'foreign', ready_for_buyer: 'true', supplier_review_status: 'approved' })) fd.set(key, value);
   return fd;
 };
@@ -93,6 +94,8 @@ const created = await actions.saveSupplierProductAction(form());
 assert.equal(created.ok, true); assert.equal(created.id, productId);
 assert.equal(product.supplier_id, supplierId); assert.equal(product.supplier_review_status, 'draft');
 assert.equal(product.ready_for_buyer, false); assert.equal(product.ref_price, 5000);
+assert.equal(product.raw_material_region, 'Bình Phước và Đắk Lắk', 'Supplier product save persists its own raw material region');
+assert.equal(product.input_material_origin, 'Việt Nam và Campuchia', 'Supplier product save persists its own input origin');
 assert.equal(product.price_publicly_visible, false, 'Saving an entered price does not expose it');
 const forgedAttribute = form(); forgedAttribute.set('product_id', productId); forgedAttribute.set('attribute:grade', 'W999');
 assert.equal((await actions.saveSupplierProductAction(forgedAttribute)).ok, false, 'Supplier cannot forge an option in a Vexim category');

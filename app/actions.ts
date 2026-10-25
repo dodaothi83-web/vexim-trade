@@ -1233,8 +1233,6 @@ function parseSupplierInput(
     country: str(raw.country),
     address: str(raw.address),
     province: str(raw.province),
-    raw_material_region: str(raw.raw_material_region)?.slice(0, 180) ?? null,
-    input_material_origin: str(raw.input_material_origin)?.slice(0, 300) ?? null,
     role: (roles.includes(String(raw.role)) ? String(raw.role) : "manufacturer") as SupplierInput["role"],
     supplier_type: raw.supplier_type && types.includes(String(raw.supplier_type))
       ? String(raw.supplier_type) as SupplierInput["supplier_type"]
@@ -1437,6 +1435,8 @@ function parseProductInput(
     moq_qty: num(raw.moq_qty),
     moq_unit: str(raw.moq_unit),
     monthly_capacity: str(raw.monthly_capacity),
+    raw_material_region: str(raw.raw_material_region)?.slice(0, 180) ?? null,
+    input_material_origin: str(raw.input_material_origin)?.slice(0, 300) ?? null,
     lead_time_days: num(raw.lead_time_days),
     packaging: str(raw.packaging),
     oem: bool(raw.oem, false),

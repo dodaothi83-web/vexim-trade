@@ -64,6 +64,11 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
       'data-supplier': String(props.supplierFields?.length ?? 0),
     }),
   },
+  '@/components/raw-material-region-input': {
+    RawMaterialRegionInput: (props) => React.createElement('input', {
+      name: 'raw_material_region', defaultValue: props.defaultValue, disabled: props.disabled,
+    }),
+  },
   '@/lib/product-attributes': { fieldsFor: () => [], supplierFieldsFor: () => [], effectiveFieldsFor: () => [] },
 });
 
@@ -79,6 +84,7 @@ const product = {
   ref_price: 7.2, currency: 'USD', unit: 'kg', moq: '1 tấn', monthly_capacity: '200 tấn', packaging: 'Carton 22.68kg',
   lead_time_days: 21, export_port: 'Cát Lái', incoterm: 'FOB', incoterm_place: 'Hồ Chí Minh',
   payment_terms: 'T/T 30%', certifications: 'HACCP', updated_at: '2026-10-20T00:00:00Z',
+  raw_material_region: 'Đắk Lắk, vùng Buôn Ma Thuột', input_material_origin: 'Việt Nam và Campuchia',
 };
 const media = [{ id: 'm1', owner_type: 'product', product_id: 'p1', supplier_id: 'sup-1', created_by: 'u1',
   audience: 'internal', kind: 'image', storage_path: 'products/p1/a.jpg', caption: 'Ảnh nhà máy' }];
@@ -108,6 +114,11 @@ for (const field of ['ref_price', 'ref_price_max', 'currency', 'unit', 'price_va
   'payment_terms', 'export_port', 'incoterm', 'incoterm_place']) {
   assert.ok(step1.includes(`name="${field}"`), `Ô ${field} nằm ngay trong bước 1`);
 }
+for (const field of ['raw_material_region', 'input_material_origin']) {
+  assert.ok(step1.includes(`name="${field}"`), `Thông tin nguyên liệu của sản phẩm nằm trong bước 1: ${field}`);
+}
+assert.match(step1, /Vùng nguyên liệu/);
+assert.match(step1, /Xuất xứ nguyên liệu đầu vào/);
 // Chứng nhận chỉ đến từ hồ sơ Giấy tờ L1: không còn ô tự khai, không còn dòng nhắc về nó.
 assert.ok(!source.includes('name="certifications"'), 'Bỏ ô chứng nhận sản phẩm tự khai');
 assert.ok(!source.includes('Chứng nhận sản phẩm (tự khai)'), 'Bỏ nhãn chứng nhận tự khai');
@@ -144,7 +155,7 @@ for (const label of ['Thông tin sản phẩm', 'Thông tin thương mại &amp;
   assert.ok(onStep3.includes(label), `Bước 3 đọc lại khối ${label}`);
 }
 for (const value of ['Hạt điều nhân W320', 'Hạt &amp; hạt nhân / Hạt điều', 'Hạt điều trắng', 'W320', '7.2', '200 tấn',
-  'Cát Lái', 'FOB', 'T/T 30%', 'Carton 22.68kg', 'products/p1/a.jpg']) {
+  'Cát Lái', 'FOB', 'T/T 30%', 'Carton 22.68kg', 'Đắk Lắk, vùng Buôn Ma Thuột', 'Việt Nam và Campuchia', 'products/p1/a.jpg']) {
   assert.ok(onStep3.includes(value), `Bước 3 hiển thị giá trị đã nhập: ${value}`);
 }
 assert.equal((onStep3.match(/Sửa<\/button>/g) ?? []).length, 4, 'Mỗi khối ở bước 3 có nút Sửa quay lại đúng bước');

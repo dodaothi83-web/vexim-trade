@@ -533,8 +533,6 @@ export default async function SupplierDetailPage({
               <Row icon={<FileText className="h-3.5 w-3.5" />} label="Mã số thuế" value={supplier.tax_id} />
               <Row icon={<Banknote className="h-3.5 w-3.5" />} label="Thanh toán" value={supplier.payment_terms} />
               <Row icon={<Clock className="h-3.5 w-3.5" />} label="Mặt hàng" value={supplier.products} />
-              <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Vùng nguyên liệu" value={supplier.raw_material_region ?? null} />
-              <Row icon={<Boxes className="h-3.5 w-3.5" />} label="Xuất xứ nguyên liệu đầu vào" value={supplier.input_material_origin ?? null} />
             </ul>
             {supplier.notes && (
               <div className="border-t border-ink-200 bg-amber-50/50 px-4 py-3">

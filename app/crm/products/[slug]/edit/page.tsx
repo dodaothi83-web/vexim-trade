@@ -146,6 +146,8 @@ export default async function EditProductPage({
               moq: product.moq ?? "",
               monthly_capacity: product.monthly_capacity ?? "",
               payment_terms: product.payment_terms ?? "",
+              raw_material_region: product.raw_material_region ?? "",
+              input_material_origin: product.input_material_origin ?? "",
               incoterm_place: product.incoterm_place ?? "",
               export_port: product.export_port ?? "",
             }}
@@ -159,6 +161,8 @@ export default async function EditProductPage({
               moq: product.translation_meta?.fields?.moq ?? "",
               monthly_capacity: product.translation_meta?.fields?.monthly_capacity ?? "",
               payment_terms: product.translation_meta?.fields?.payment_terms ?? "",
+              raw_material_region: product.translation_meta?.fields?.raw_material_region ?? "",
+              input_material_origin: product.translation_meta?.fields?.input_material_origin ?? "",
               incoterm_place: product.translation_meta?.fields?.incoterm_place ?? "",
               export_port: product.translation_meta?.fields?.export_port ?? "",
             }}

@@ -107,8 +107,6 @@ export default async function SupplierProfilePage() {
           <p className="mt-5 text-[10.5px] font-bold tracking-[0.14em] text-ink-400 uppercase">Thương mại</p>
           <dl className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
             <Info label="Mặt hàng chính" value={supplier.products} />
-            <Info label="Vùng nguyên liệu" value={supplier.raw_material_region} />
-            <Info label="Xuất xứ nguyên liệu đầu vào" value={supplier.input_material_origin} />
             <Info label="Thị trường" value={marketText} />
             <Info label="Công suất mỗi tháng" value={supplier.capacity_per_month} />
             <Info label="MOQ" value={supplier.moq_text} />

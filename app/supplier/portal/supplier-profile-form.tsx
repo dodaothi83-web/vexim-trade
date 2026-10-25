@@ -9,7 +9,6 @@ import { SUPPLIER_TYPES } from "@/lib/supplier";
 import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
 import { SupplierCategoryPicker } from "./supplier-category-picker";
 import { FilePicker } from "@/components/file-picker";
-import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 
 const FILE_LABELS: Record<typeof INITIAL_DOCUMENT_KEYS[number], string> = {
   business_license: "Đăng ký doanh nghiệp", food_safety: "Giấy ATTP",
@@ -93,19 +92,11 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
     </div>
     <div data-step-panel={3} className={step === 3 ? "space-y-7" : "hidden"}>
     <section><h2 className="text-xl font-black text-ink-900">Thông tin hiển thị trên trang doanh nghiệp</h2>
-      <p className="mt-1 text-sm text-ink-600">Các trường này dựng nên trang giới thiệu doanh nghiệp. Chỉ hiện công khai khi hồ sơ được xuất bản; sản phẩm và ảnh sản phẩm khai riêng sau khi tài khoản được duyệt. Cứ nhập bằng tiếng Việt - thông tin nguyên liệu, MOQ, thị trường xuất khẩu và phần giới thiệu sẽ được dịch tự động sang tiếng Anh cho buyer.</p>
+      <p className="mt-1 text-sm text-ink-600">Các trường này dựng nên trang giới thiệu doanh nghiệp. Chỉ hiện công khai khi hồ sơ được xuất bản; sản phẩm và ảnh sản phẩm khai riêng sau khi tài khoản được duyệt. Cứ nhập bằng tiếng Việt - MOQ, thị trường xuất khẩu và phần giới thiệu sẽ được dịch tự động sang tiếng Anh cho buyer.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="Tên hiển thị trên trang" name="display_name" maxLength={180} defaultValue={supplier?.display_name ?? ""} />
         <Field label="Website (https://...)" name="website" maxLength={250} defaultValue={supplier?.website ?? ""} />
         <Field label="Quốc gia" name="country" maxLength={100} defaultValue={supplier?.country ?? "Vietnam"} />
-        <label className="block text-sm"><span className="mb-1 block font-semibold">Vùng nguyên liệu</span>
-          <RawMaterialRegionInput defaultValue={supplier?.raw_material_region ?? ""} />
-          <span className="mt-1 block text-xs leading-5 text-ink-500">Chọn tỉnh/thành hoặc tự nhập vùng, có thể ghi nhiều vùng.</span>
-        </label>
-        <label className="block text-sm"><span className="mb-1 block font-semibold">Xuất xứ nguyên liệu đầu vào</span>
-          <input name="input_material_origin" className="input" maxLength={300} defaultValue={supplier?.input_material_origin ?? ""} placeholder="Ví dụ: Việt Nam, Campuchia hoặc nguồn kết hợp" />
-          <span className="mt-1 block text-xs leading-5 text-ink-500">Ghi quốc gia hoặc nguồn nguyên liệu thực tế.</span>
-        </label>
         <Field label="Chức vụ người liên hệ" name="contact_title" maxLength={100} defaultValue={supplier?.contact_title ?? ""} />
         <Field label="Zalo" name="zalo" maxLength={40} defaultValue={supplier?.zalo ?? ""} />
         <Field label="Năm thành lập" name="founded_year" maxLength={4} inputMode="numeric" defaultValue={String(supplier?.founded_year ?? "")} />

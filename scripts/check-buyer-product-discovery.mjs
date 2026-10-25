@@ -37,11 +37,8 @@ const rice = { id: 'c-rice', slug: 'rice', name_i18n: { en: 'Rice' }, status: 'p
 const categories = [category, rice];
 const now = new Date().toISOString();
 const suppliers = [
-  { id: 'A', slug: 'company-a', name: 'Company A', supplier_type: 'trading', status: 'published', verification_level: 2, province: 'Hanoi', profile_image: 'suppliers/a/logo.webp', founded_year: 2014, fob_publicly_visible: true, fob_updated_at: now, is_demo: false,
-    raw_material_region: 'Bình Phước và Đắk Lắk', input_material_origin: 'Việt Nam và Campuchia',
-    profile_translation_meta: { fields: { raw_material_region: 'Binh Phuoc and Dak Lak', input_material_origin: 'Vietnam and Cambodia' } } },
-  { id: 'B', slug: 'company-b', name: 'Company B', status: 'published', verification_level: 1, province: 'Binh Duong', fob_publicly_visible: false, fob_updated_at: now, is_demo: false,
-    raw_material_region: 'Bình Dương', input_material_origin: 'Việt Nam' },
+  { id: 'A', slug: 'company-a', name: 'Company A', supplier_type: 'trading', status: 'published', verification_level: 2, province: 'Hanoi', profile_image: 'suppliers/a/logo.webp', founded_year: 2014, fob_publicly_visible: true, fob_updated_at: now, is_demo: false },
+  { id: 'B', slug: 'company-b', name: 'Company B', status: 'published', verification_level: 1, province: 'Binh Duong', fob_publicly_visible: false, fob_updated_at: now, is_demo: false },
   { id: 'C', slug: 'company-c', name: 'Company C', status: 'draft', verification_level: 3, province: 'Hue', is_demo: false },
 ];
 const mk = (id, supplier_id, name, extras = {}) => ({ id, supplier_id, name, category: 'cashew', spec: 'W320', description: null,
@@ -61,6 +58,15 @@ media.push({ ...media[0], id: 'cover-a0', storage_path: 'products/a0/cover.jpg',
 products[0].featured_media_id = 'cover-a0';
 products[0].incoterm = 'FOB';
 products[1].moq = '1 tấn';
+Object.assign(products[0], {
+  raw_material_region: 'Bình Phước và Đắk Lắk', input_material_origin: 'Việt Nam và Campuchia',
+  translation_meta: { fields: { raw_material_region: 'Binh Phuoc and Dak Lak', input_material_origin: 'Vietnam and Cambodia' } },
+});
+Object.assign(products[1], {
+  raw_material_region: 'Lâm Đồng', input_material_origin: 'Việt Nam',
+  translation_meta: { fields: { raw_material_region: 'Lam Dong', input_material_origin: 'Vietnam' } },
+});
+Object.assign(products[8], { raw_material_region: 'Bình Dương', input_material_origin: 'Việt Nam' });
 // Tên soạn sẵn cho buyer chỉ thay chữ hiển thị; tên gốc vẫn là chứng từ.
 products[0].display_name = 'Cashew kernels W320, Hanoi';
 const reviews = [
@@ -113,11 +119,7 @@ const productCatalog = compile('../lib/public/product-catalog.ts', {
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
   '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
   '@/lib/public/supplier-seo': { isSyntheticSupplier },
-  '@/lib/public/supplier-english': {
-    supplierProvinceDisplay: (s) => s.province || '',
-    supplierRawMaterialRegionEnglishDisplay: (s) => s.profile_translation_meta?.fields?.raw_material_region || '',
-    supplierInputMaterialOriginEnglishDisplay: (s) => s.profile_translation_meta?.fields?.input_material_origin || '',
-  },
+  '@/lib/public/supplier-english': { supplierProvinceDisplay: (s) => s.province || '' },
   '@/lib/public/product-detail-display': productDetailDisplay,
 });
 const photoSamples = [
@@ -137,7 +139,9 @@ assert.equal(cards.find((p) => p.id === 'a0').supplierProfileImage, 'suppliers/a
 assert.equal(cards.find((p) => p.id === 'a0').supplierFoundedYear, 2014, 'PDP can show a real founded year when present');
 assert.equal(cards.find((p) => p.id === 'a0').rawMaterialRegion, 'Binh Phuoc and Dak Lak');
 assert.equal(cards.find((p) => p.id === 'a0').inputMaterialOrigin, 'Vietnam and Cambodia');
-assert.equal(cards.find((p) => p.id === 'b0').rawMaterialRegion, '', 'Product details never fall back to Vietnamese sourcing text');
+assert.equal(cards.find((p) => p.id === 'a1').rawMaterialRegion, 'Lam Dong', 'Each product owns its sourcing region, even for the same supplier');
+assert.equal(cards.find((p) => p.id === 'a1').inputMaterialOrigin, 'Vietnam');
+assert.equal(cards.find((p) => p.id === 'b0').rawMaterialRegion, '', 'Product details never fall back to Vietnamese source text');
 assert.equal(cards.find((p) => p.id === 'b0').inputMaterialOrigin, '');
 assert.doesNotMatch(JSON.stringify(cards.find((p) => p.id === 'b0')), /Bình Dương|Việt Nam/);
 assert.equal(cards.find((p) => p.id === 'a1').name, 'Cashew W320 lot 1', 'A product without a display name keeps the supplier name');
@@ -166,6 +170,8 @@ const comparisonRecords = await productCatalog.getPublicProductRecordsByIds(['a0
 assert.deepEqual([...comparisonRecords.map((record) => record.card.id)], ['a0', 'b0'],
   'Comparison IDs preserve order, remove duplicates and exclude unready or unpublished offers');
 assert.equal(comparisonRecords[1].card.price, null, 'The direct comparison query uses the same public-price consent gate');
+assert.equal(comparisonRecords[0].card.rawMaterialRegion, 'Binh Phuoc and Dak Lak', 'Product comparison reads this product translation');
+assert.equal(comparisonRecords[1].card.rawMaterialRegion, '', 'Missing product English stays empty in comparison');
 const initial = arrangeSupplierProducts(cards, 3);
 assert.equal(initial.shown.length, 6);
 assert.equal(initial.hidden.get('A'), 5);
@@ -183,8 +189,6 @@ assert.equal(singleInitial.shown.length, 2, 'A single supplier cannot occupy thr
 const single = arrangeSupplierProducts(oneSupplier, null);
 assert.equal(single.shown.length, 8, 'A filter with one matching supplier still shows all eight offers');
 const profile = await catalog.getPublicSupplierBySlug('company-a');
-assert.equal(profile.raw_material_region, 'Bình Phước và Đắk Lắk', 'Public supplier profile retains the persisted sourcing source');
-assert.equal(profile.profile_translation_meta.fields.input_material_origin, 'Vietnam and Cambodia');
 assert.equal(profile.main_products.length, 9, 'Profile includes all public products from every category, not the four-card summary');
 assert.equal(profile.product_image_paths.a0, 'products/a0/cover.jpg', 'Full image stays on the detail/structured data');
 assert.equal(profile.product_card_image_paths.a0, 'products/a0/cover-thumb.webp', 'Supplier cards use the approved thumbnail');

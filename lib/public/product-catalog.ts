@@ -8,8 +8,8 @@ import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
 import { resolveGrade } from "@/lib/public/grade-resolution";
 import { publicProductTitle } from "@/lib/public/display-name";
-import { supplierInputMaterialOriginEnglishDisplay, supplierProvinceDisplay, supplierRawMaterialRegionEnglishDisplay } from "@/lib/public/supplier-english";
-import { publicProductMoqDisplay } from "@/lib/public/product-detail-display";
+import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
+import { publicProductMoqDisplay, publicProductPlaceDisplay } from "@/lib/public/product-detail-display";
 import type { Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -25,7 +25,7 @@ export interface PublicCategoryProduct {
   /** Hồ sơ demo không được tham gia vào khoảng giá thị trường. */
   isDemoSupplier: boolean;
   province: string;
-  /** Saved English only; empty when the supplier-stated source has not been translated. */
+  /** Saved product English only; empty when this product's source has not been translated. */
   rawMaterialRegion: string;
   inputMaterialOrigin: string;
   verificationCount: number;
@@ -63,6 +63,7 @@ function projectPublicCategoryProduct(
   const images = shareableProductImages(media, p.id, p.featured_media_id);
   // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
   const attributes = publicProductAttributes(category, p.specs);
+  const tradeEnglish = p.translation_meta?.fields;
   return {
     // Tên công khai: bản soạn sẵn nếu có, không thì tên gốc. Danh mục vẫn
     // suy từ tên gốc (productBelongsToCategory ở trên), không suy từ tên này.
@@ -75,7 +76,8 @@ function projectPublicCategoryProduct(
     attributes,
     moq: publicProductMoqDisplay(p.moq) || "On request",
     price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: supplierProvinceDisplay(s) || "Vietnam",
-    rawMaterialRegion: supplierRawMaterialRegionEnglishDisplay(s), inputMaterialOrigin: supplierInputMaterialOriginEnglishDisplay(s),
+    rawMaterialRegion: publicProductPlaceDisplay(tradeEnglish?.raw_material_region),
+    inputMaterialOrigin: tradeEnglish?.input_material_origin?.trim() || "",
     verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
     supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
     supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,

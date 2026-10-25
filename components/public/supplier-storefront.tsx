@@ -9,7 +9,7 @@ import { supplierTypeLabel, type PublicSupplierCard } from "@/lib/public/catalog
 import type { Category } from "@/lib/types";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
-import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierRawMaterialRegionDisplay, supplierInputMaterialOriginDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
+import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
@@ -76,8 +76,6 @@ export function SupplierStorefront({
   const statedProducts = safe(supplierProductsDisplay(s));
   const businessDetails = [
     { label: "Main products", value: statedProducts, wide: true },
-    { label: "Raw material region", value: safe(supplierRawMaterialRegionDisplay(s)), wide: false },
-    { label: "Input material origin", value: safe(supplierInputMaterialOriginDisplay(s)), wide: false },
     { label: "Markets served or targeted", value: safe(supplierMarketsDisplay(s)), wide: false },
     { label: "Monthly capacity", value: safe(supplierCapacityDisplay(s)), wide: false },
     { label: "Payment terms", value: safe(supplierPaymentTermsDisplay(s)), wide: false },
