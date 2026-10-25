@@ -30,6 +30,17 @@ const ai = load('../lib/ai/translate-supplier.ts', {
   '@/lib/types': {},
 });
 
+const translationSchemaRepair = fs.readFileSync(new URL('../supabase/migrations/20261036_supplier_translation_schema_repair.sql', import.meta.url), 'utf8');
+for (const column of ['intro_source', 'moq_text_i18n', 'export_markets_i18n', 'profile_translation_meta']) {
+  assert.ok(translationSchemaRepair.includes(column), `Repair migration phải bao phủ ${column}.`);
+}
+assert.match(translationSchemaRepair, /notify\s+pgrst/i, 'Repair migration phải reload PostgREST schema cache.');
+assert.match(translationSchemaRepair, /where\s+intro_source\s+is\s+null/i, 'Backfill chỉ chạy khi intro_source còn trống.');
+assert.match(translationSchemaRepair, /origin[^\n]+staff/i, 'Backfill không được đè quyết định giữ bản tiếng Anh của nhân sự.');
+const migrationHints = load('../lib/db/migration-hints.ts', {});
+assert.match(migrationHints.migrationHint(new Error("Could not find the 'export_markets_i18n' column in the schema cache")),
+  /20261036_supplier_translation_schema_repair\.sql/);
+
 const source = { moq_text: '1 tấn cho W320', export_markets: ['Hoa Kỳ', 'Nhật Bản'] };
 const parsed = ai.parseSupplierProfileTranslation(
   '{"moq_en":"1 MT for W320","export_markets_en":["United States","Japan"],"summary_en":""}', source);
@@ -152,6 +163,15 @@ const translationStore = {
   updateSupplier: async (_id, patch) => { translatedRow = { ...translatedRow, ...patch }; return translatedRow; },
   addAuditLog: async () => {},
 };
+const schemaFailure = await translationService.ensureSupplierProfileEnglish({
+  getSupplier: async () => ({ ...translatedRow }),
+  updateSupplier: async () => { throw new Error("updateSupplier: Could not find the 'export_markets_i18n' column of 'suppliers' in the schema cache"); },
+  addAuditLog: async () => {},
+}, translatedRow.id, null);
+assert.equal(schemaFailure.status, 'failed');
+assert.match(schemaFailure.message, /20261036_supplier_translation_schema_repair\.sql/, 'Lỗi schema phải chỉ đúng migration hotfix');
+assert.match(translationService.supplierTranslationFailureMessage(new Error('OPENAI_API_KEY is missing')), /OPENAI_API_KEY/,
+  'Không được che mất các lỗi cấu hình khác');
 let ensured = await translationService.ensureSupplierProfileEnglish(translationStore, translatedRow.id, null);
 assert.equal(ensured.status, 'translated');
 assert.equal(translatedRow.summary_i18n.en, 'A faithful English introduction.');

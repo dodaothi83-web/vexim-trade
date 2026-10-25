@@ -29,6 +29,16 @@ export type EnsureSupplierTranslationResult =
   | { status: "unconfigured"; supplier: Supplier }
   | { status: "failed"; supplier: Supplier; message: string };
 
+/** Lỗi schema phải chỉ rõ cách khắc phục; không bỏ cột rồi giả vờ đã dịch. */
+export function supplierTranslationFailureMessage(error: unknown): string {
+  const detail = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  if (/intro_source|moq_text_i18n|export_markets_i18n|profile_translation_meta/i.test(detail) &&
+    /PGRST204|schema cache|does not exist/i.test(detail)) {
+    return "Database chưa có đủ cột lưu bản dịch. Chạy supabase/migrations/20261036_supplier_translation_schema_repair.sql trên đúng Supabase project, rồi lưu lại hồ sơ.";
+  }
+  return detail || "Không dịch được hồ sơ.";
+}
+
 /**
  * Bảo đảm các nội dung hồ sơ NCC hiển thị cho buyer có bản tiếng Anh:
  * MOQ, địa điểm, địa chỉ, mặt hàng, thị trường, công suất, điều khoản, cảng và Incoterms
@@ -111,6 +121,6 @@ export async function ensureSupplierProfileEnglish(
     return { status: "translated", supplier: saved };
   } catch (error) {
     console.error("[supplier-translation] translate failed", error);
-    return { status: "failed", supplier, message: error instanceof Error ? error.message : "Không dịch được hồ sơ." };
+    return { status: "failed", supplier, message: supplierTranslationFailureMessage(error) };
   }
 }

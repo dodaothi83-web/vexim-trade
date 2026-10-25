@@ -11,6 +11,10 @@ const HINTS: Array<{ match: RegExp; migration: string }> = [
   { match: /supplier_submissions|supplier_submission_items|supplier_submission_links/i, migration: "supabase/migrations/20261020_supplier_self_verification_submissions.sql" },
   { match: /sponsored_push/i, migration: "supabase/migrations/20261028_sponsored_product_push.sql" },
   { match: /display_name/i, migration: "supabase/migrations/20261030_product_display_name.sql" },
+  {
+    match: /intro_source|moq_text_i18n|export_markets_i18n|profile_translation_meta/i,
+    migration: "supabase/migrations/20261036_supplier_translation_schema_repair.sql",
+  },
   // Thông số NCC tự thêm cho nhóm hàng.
   { match: /supplier_product_fields/i, migration: "supabase/migrations/20261032_supplier_attribute_pool.sql" },
   // Bằng chứng hồ sơ tự gửi: thiếu cột submission_id / ràng buộc cũ chưa được nới
