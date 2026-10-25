@@ -623,22 +623,22 @@ export default async function HomeContent({
           </div>
 
           {latestPosts.length ? (
-            <ul className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <ul className="mt-6 grid grid-cols-1 gap-3 sm:mt-8 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
               {latestPosts.map((post) => (
                 <li key={post.id} className="min-w-0">
                   <article className="h-full">
                     <Link
                       href={`/blog/${post.slug}`}
-                      className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-brand-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                      className="group flex h-full flex-row overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-brand-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:flex-col"
                     >
-                      <div className="relative aspect-[4/3] overflow-hidden bg-brand-50">
+                      <div className="relative min-h-[112px] w-[34%] shrink-0 overflow-hidden bg-brand-50 sm:aspect-[4/3] sm:min-h-0 sm:w-full">
                         {post.featured_image ? (
                           /^\/blog-media\/blog\/[\w-]+\.(?:jpe?g|png|webp|avif)$/i.test(post.featured_image) ? (
                             <Image
                               src={post.featured_image}
                               alt={post.featured_image_alt || ""}
                               fill
-                              sizes="(max-width: 639px) calc(100vw - 40px), (max-width: 1023px) calc(50vw - 36px), (max-width: 1279px) calc(25vw - 32px), 320px"
+                              sizes="(max-width: 639px) calc(34vw - 14px), (max-width: 1023px) calc(50vw - 36px), (max-width: 1279px) calc(25vw - 32px), 320px"
                               className="object-cover transition duration-500 group-hover:scale-105"
                             />
                           ) : (
@@ -646,36 +646,36 @@ export default async function HomeContent({
                               src={post.featured_image}
                               alt={post.featured_image_alt || ""}
                               loading="lazy"
-                              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                              className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
                             />
                           )
                         ) : (
-                          <div className="flex h-full items-center justify-center gap-2 text-brand-700">
-                            <FileStack className="h-6 w-6" aria-hidden="true" />
-                            <span className="text-[11px] font-bold uppercase tracking-[0.18em]">
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 text-center text-brand-700 sm:gap-2">
+                            <FileStack className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
+                            <span className="text-[9px] font-bold uppercase tracking-[0.12em] sm:text-[11px] sm:tracking-[0.18em]">
                               Vexim Trade · Blog
                             </span>
                           </div>
                         )}
                       </div>
-                      <div className="flex flex-1 flex-col p-4">
+                      <div className="flex min-w-0 flex-1 flex-col justify-center p-3 sm:justify-start sm:p-4">
                         {post.published_at && (
                           <time
                             dateTime={post.published_at}
-                            className="text-[11px] font-bold uppercase tracking-wide text-amber-700"
+                            className="text-[10px] font-bold uppercase tracking-wide text-amber-700 sm:text-[11px]"
                           >
                             {formatPostDate(post.published_at, lang)}
                           </time>
                         )}
-                        <h3 className="mt-1.5 line-clamp-2 text-[15.5px] font-bold leading-snug text-ink-900 group-hover:text-brand-700">
+                        <h3 className="mt-1 line-clamp-2 text-[14px] font-bold leading-5 text-ink-900 group-hover:text-brand-700 sm:mt-1.5 sm:text-[15.5px] sm:leading-snug">
                           {post.title}
                         </h3>
                         {post.excerpt && (
-                          <p className="mt-2 line-clamp-3 text-[13px] leading-relaxed text-ink-600">
+                          <p className="mt-2 hidden text-[13px] leading-relaxed text-ink-600 sm:line-clamp-3">
                             {post.excerpt}
                           </p>
                         )}
-                        <span className="mt-auto inline-flex items-center gap-1 pt-4 text-xs font-bold text-brand-700">
+                        <span className="mt-auto hidden items-center gap-1 pt-4 text-xs font-bold text-brand-700 sm:inline-flex">
                           {isVi ? "Đọc bài viết" : "Read article"}{" "}
                           <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                         </span>
