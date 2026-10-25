@@ -93,10 +93,15 @@ const offer = (id, supplierId) => ({
   cardImagePath: null,
 });
 
+const homeImages = [];
+
 async function renderHome(offers, categoryItems = [category]) {
   const { default: HomeContent } = compile("../app/(public)/home.tsx", {
     "react/jsx-runtime": jsx,
-    "next/image": { default: ({ src, alt }) => React.createElement("img", { src, alt }) },
+    "next/image": { default: ({ src, alt, ...props }) => {
+      homeImages.push({ src, ...props });
+      return React.createElement("img", { src, alt });
+    } },
     "next/link": { default: ({ href, children, ...rest }) => React.createElement("a", { href, ...rest }, children) },
     "lucide-react": new Proxy({}, { get: () => () => null }),
     "@/lib/db": { getStore: () => ({ listCategories: async () => categoryItems, listSuppliers: async () => [] }) },
@@ -144,6 +149,13 @@ assert.ok(feedAt < categoriesAt, "The feed sits above the categories");
 assert.ok(full.includes("Featured Marketplace Offers"), "The feed keeps its label");
 assert.equal(full.match(/data-product=/g).length, 15, "Desktop page one renders 15 products in three rows of five");
 assert.ok(full.includes("1/2"), "Products after the first 15 remain available on page two");
+
+const heroImage = homeImages.find((image) => typeof image.src === "string" && image.src.includes("images.pexels.com/photos/30658831"));
+assert.ok(heroImage, "The homepage uses the real Pexels coffee-production photo");
+assert.ok(heroImage.preload && heroImage.fetchPriority === "high", "The LCP hero keeps high-priority preload");
+assert.equal(heroImage.quality, 72, "The stock photo is compressed instead of loaded at original quality");
+const heroWebp = heroImage.loader({ src: heroImage.src, width: 960, quality: heroImage.quality });
+assert.match(heroWebp, /fm=webp&w=960&q=72$/, "Pexels serves the selected viewport width as WebP");
 
 /* Ít hàng cũng giữ cùng vị trí, không còn ngưỡng chuyển xuống dưới. */
 const thin = await renderHome([offer("a1", "A"), offer("a2", "A")]);

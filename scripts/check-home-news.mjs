@@ -70,7 +70,6 @@ assert.match(section, /src="\/blog-media\/blog\/newest.jpg"[^>]*data-optimized="
 assert.match(section, /sizes="\(max-width: 639px\).*400px"/, 'Offer responsive sizes for blog cards');
 assert.match(section, /src="https:\/\/cdn.example.com\/third.jpg"[^>]*loading="lazy"/, 'Unknown image hosts keep a safe fallback');
 assert.match(section, /New article cover/);
-assert.ok(optimizedImages.some((image) => image.src === '/images/home/hero-cashew-texture.jpg' && image.preload && image.fetchPriority === 'high'), 'Preload the LCP hero at high priority');
 assert.ok(section.indexOf('/blog/newest') < section.indexOf('/blog/second'));
 assert.ok(section.indexOf('/blog/second') < section.indexOf('/blog/third'));
 assert.doesNotMatch(section, /\/blog\/(?:oldest|unpublished|unrelated)/, 'Only three newest published News posts appear');

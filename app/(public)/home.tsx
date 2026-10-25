@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image, { type ImageLoader } from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -24,6 +24,13 @@ import type { Category } from "@/lib/types";
 
 /** Ảnh placeholder khi category chưa upload hero_image */
 const FALLBACK_HERO = "/images/home/hero-cashew-texture.jpg";
+
+// Ảnh thật: Vietnamese Farmer Sorting Coffee Beans, 1500m Coffee, Lâm Đồng.
+// Nguồn: https://www.pexels.com/photo/vietnamese-farmer-sorting-coffee-beans-30658831/
+// Pexels cho phép dùng miễn phí trên website. CDN trả WebP đúng độ rộng, không dùng ảnh AI.
+const HOME_HERO_PHOTO = "https://images.pexels.com/photos/30658831/pexels-photo-30658831/free-photo-of-vietnamese-farmer-sorting-coffee-beans.jpeg";
+const homeHeroLoader: ImageLoader = ({ src, width, quality }) =>
+  `${src}?auto=compress&cs=tinysrgb&fm=webp&w=${width}&q=${quality ?? 72}`;
 
 // Giữ câu mô tả mô hình kết nối cho kiểm thử ngữ nghĩa:
 // Câu mô tả lấy từ lib/public/meta-copy.ts, không viết lại tại đây.
@@ -294,15 +301,17 @@ export default async function HomeContent({
          ===================================================================== */}
       <section className="relative overflow-hidden border-b-4 border-amber-400 bg-gradient-to-b from-brand-900 via-brand-900 to-ink-950 text-white">
         <Image
-          src="/images/home/hero-cashew-texture.jpg"
+          loader={homeHeroLoader}
+          src={HOME_HERO_PHOTO}
           alt=""
           preload
           fetchPriority="high"
           fill
           sizes="100vw"
-          className="object-cover opacity-20"
+          quality={72}
+          className="object-cover object-[60%_center]"
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-950/90 via-brand-900/80 to-ink-950/90" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-950/85 via-brand-900/65 to-ink-950/75" />
 
         <div className="relative mx-auto max-w-6xl px-5 py-14 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-4xl text-center">
