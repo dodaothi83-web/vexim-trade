@@ -2120,6 +2120,12 @@ export const localStore: DataStore = {
     });
   },
 
+  async listSupplierOnboardingDecisions() {
+    const actions = new Set(["supplier.portal_access_approved", "supplier.profile_changes_requested"]);
+    return (load().audit_log ?? [])
+      .filter((entry) => entry.entity === "supplier" && actions.has(entry.action))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
   async addAuditLog(entry) {
     const row: AuditLogEntry = {
       id: (load().audit_log ?? []).length + 1,

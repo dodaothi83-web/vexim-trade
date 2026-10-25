@@ -282,6 +282,8 @@ export interface DataStore {
   createIntroduction(input: Partial<Introduction>): Promise<Introduction>;
 
   // Audit log
+  /** Thời điểm các quyết định mở cổng hoặc yêu cầu NCC bổ sung hồ sơ. */
+  listSupplierOnboardingDecisions(): Promise<Pick<AuditLogEntry, "entity_id" | "action" | "created_at">[]>;
   addAuditLog(entry: {
     actor_id?: string | null;
     actor_email?: string | null;

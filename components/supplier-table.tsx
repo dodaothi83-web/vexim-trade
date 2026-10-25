@@ -8,13 +8,30 @@ import type { Supplier } from "@/lib/types";
 import { SUPPLIER_STATUSES, roleLabel, supplierTypeLabel, statusMeta } from "@/lib/supplier";
 import { Badge, Button, EmptyState, cx } from "@/components/ui";
 
+const reviewDateFormatter = new Intl.DateTimeFormat("vi-VN", {
+  day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh",
+});
+const reviewTimeFormatter = new Intl.DateTimeFormat("vi-VN", {
+  hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Ho_Chi_Minh",
+});
+
+function reviewDateParts(iso: string | null | undefined) {
+  if (!iso) return null;
+  const value = new Date(iso);
+  if (Number.isNaN(value.getTime())) return null;
+  return { date: reviewDateFormatter.format(value), time: reviewTimeFormatter.format(value) };
+}
+
 export function SupplierTable({
   suppliers,
   usage,
+  reviewedAt = {},
   canManage = false,
 }: {
   suppliers: Supplier[];
   usage: Record<string, { total: number; active: number }>;
+  /** Current onboarding decision time from the audit log, keyed by supplier. */
+  reviewedAt?: Record<string, string>;
   /** Có quyền thêm / sửa nhà cung cấp (suppliers.manage) hay chỉ được xem */
   canManage?: boolean;
 }) {
@@ -99,14 +116,18 @@ export function SupplierTable({
                 <th className="table-th">Mặt hàng</th>
                 <th className="table-th">Khu vực</th>
                 <th className="table-th">Liên hệ</th>
-                <th className="table-th">Lead time</th>
+                <th className="table-th">Tổng đơn hàng</th>
                 <th className="table-th">Đánh giá</th>
                 <th className="table-th">Đơn đang chạy</th>
+                <th className="table-th">Ngày giờ xét duyệt</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((s) => {
                 const u = usage[s.id] ?? { total: 0, active: 0 };
+                const hasReviewDecision = s.onboarding_status === "approved" || s.onboarding_status === "changes_requested";
+                const reviewedAtIso = hasReviewDecision ? reviewedAt[s.id] : null;
+                const review = reviewDateParts(reviewedAtIso);
                 return (
                   <tr key={s.id} className="group transition hover:bg-brand-50/40">
                     <td className="table-td">
@@ -162,8 +183,9 @@ export function SupplierTable({
                       )}
                       {s.phone && <p className="mt-0.5 text-[11.5px] text-ink-500">{s.phone}</p>}
                     </td>
-                    <td className="table-td text-[12.5px] text-ink-600">
-                      {s.lead_time_days ? `${s.lead_time_days} ngày` : "—"}
+                    <td className="table-td whitespace-nowrap">
+                      <span className="text-[13px] font-bold text-ink-900">{u.total.toLocaleString("vi-VN")}</span>
+                      <span className="text-[11.5px] text-ink-500"> đơn</span>
                     </td>
                     <td className="table-td">
                       <span className="inline-flex items-center gap-0.5">
@@ -180,9 +202,19 @@ export function SupplierTable({
                         ))}
                       </span>
                     </td>
-                    <td className="table-td">
-                      <span className="text-[13px] font-bold text-ink-900">{u.active}</span>
-                      <span className="text-[11.5px] text-ink-400"> / {u.total} đơn</span>
+                    <td className="table-td whitespace-nowrap">
+                      <span className="text-[13px] font-bold text-ink-900">{u.active.toLocaleString("vi-VN")}</span>
+                      <span className="text-[11.5px] text-ink-500"> đơn</span>
+                    </td>
+                    <td className="table-td whitespace-nowrap text-[12px] text-ink-600">
+                      {review && reviewedAtIso ? (
+                        <time dateTime={reviewedAtIso}>
+                          <span className="block">{review.date}</span>
+                          <span className="mt-0.5 block text-[11px] text-ink-500">{review.time}</span>
+                        </time>
+                      ) : (
+                        <span className="text-ink-500">{hasReviewDecision ? "Chưa ghi nhận" : "Chưa xét duyệt"}</span>
+                      )}
                     </td>
                   </tr>
                 );

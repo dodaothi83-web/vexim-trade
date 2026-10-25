@@ -1349,6 +1349,16 @@ export const supabaseStore: DataStore = {
   },
 
   // --- Audit log ---
+  async listSupplierOnboardingDecisions() {
+    const { data, error } = await must()
+      .from("audit_log")
+      .select("entity_id,action,created_at")
+      .eq("entity", "supplier")
+      .in("action", ["supplier.portal_access_approved", "supplier.profile_changes_requested"])
+      .order("created_at", { ascending: false });
+    if (error) fail("listSupplierOnboardingDecisions", error);
+    return (data ?? []) as Pick<AuditLogEntry, "entity_id" | "action" | "created_at">[];
+  },
   async addAuditLog(entry) {
     const { data, error } = await must()
       .from("audit_log")

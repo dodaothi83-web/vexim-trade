@@ -1,6 +1,6 @@
 import { listBuyersWithSupplier } from "@/lib/queries";
 import { getStore } from "@/lib/db";
-import { getStage } from "@/lib/pipeline";
+import { buildSupplierOrderUsage, buildSupplierReviewTimes } from "@/lib/crm/supplier-list";
 import { requireSession } from "@/lib/auth/session";
 import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -15,18 +15,18 @@ export default async function SuppliersPage() {
   const session = await requireSession();
   const canManage = hasPermission(session.role, "suppliers.manage");
 
-  const [suppliers, buyers] = await Promise.all([
-    getStore().listSuppliers(),
+  const store = getStore();
+  const [suppliers, buyers, reviewDecisions] = await Promise.all([
+    store.listSuppliers(),
     hasPermission(session.role, "buyers.view") ? listBuyersWithSupplier(ownerScopeOf(session)) : Promise.resolve([]),
+    store.listSupplierOnboardingDecisions().catch((error) => {
+      console.error("[crm-suppliers] cannot load onboarding review times", error);
+      return [];
+    }),
   ]);
 
-  const usage: Record<string, { total: number; active: number }> = {};
-  for (const b of buyers) {
-    if (!b.supplier_id) continue;
-    usage[b.supplier_id] ??= { total: 0, active: 0 };
-    usage[b.supplier_id].total += 1;
-    if (!getStage(b.stage).terminal) usage[b.supplier_id].active += 1;
-  }
+  const usage = buildSupplierOrderUsage(buyers);
+  const reviewedAt = buildSupplierReviewTimes(suppliers, reviewDecisions);
 
   return (
     <>
@@ -34,7 +34,7 @@ export default async function SuppliersPage() {
         title="Nhà cung cấp"
         sub={`${suppliers.length} xưởng / nhà cung cấp · gắn vào đơn để nhận email cập nhật tiến độ bằng tiếng Việt`}
       />
-      <SupplierTable suppliers={suppliers} usage={usage} canManage={canManage} />
+      <SupplierTable suppliers={suppliers} usage={usage} reviewedAt={reviewedAt} canManage={canManage} />
     </>
   );
 }
