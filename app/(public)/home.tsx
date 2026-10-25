@@ -501,9 +501,6 @@ export default async function HomeContent({
                 c.public_page_ready || childCategories.some((ch) => ch.public_page_ready),
               );
               const primaryTitle = getCategoryTitle(c, lang);
-              const secondaryLabel = isVi
-                ? i18n(c.name_i18n, "en", c.slug)
-                : (CATEGORY_VI_NAMES[c.slug] || i18n(c.name_i18n, "en", c.slug));
               const kicker = i18n(c.homepage_kicker_i18n, lang, "");
               const introText = i18n(c.intro_i18n, lang, "");
 
@@ -527,9 +524,11 @@ export default async function HomeContent({
                         </span>
                       )}
                       <div className="absolute inset-x-3 bottom-3 text-white sm:inset-x-4">
-                        <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-300 sm:text-[11px]">
-                          {kicker || secondaryLabel}
-                        </p>
+                        {kicker && (
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-300 sm:text-[11px]">
+                            {kicker}
+                          </p>
+                        )}
                         <h3 className="mt-0.5 text-sm font-black leading-snug text-white group-hover:text-amber-200 sm:text-lg">
                           {primaryTitle}
                         </h3>

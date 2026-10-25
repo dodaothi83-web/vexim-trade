@@ -185,6 +185,18 @@ assert.match(categoryHtml, /grid-cols-2[^"\n]*lg:grid-cols-4/, "Categories use t
 assert.match(categoryHtml, /hidden text-\[13\.5px\][^"\n]*sm:line-clamp-3/, "Category introductions stay on desktop and are hidden on phones");
 assert.match(categoryHtml, /mt-5 hidden border-t[^"\n]*sm:block/, "The Browse products footer stays on desktop and is hidden on phones");
 
+/* Nhãn phụ chỉ đến từ CRM; không lấy tên tiếng Việt cứng làm fallback. */
+const defaultCategoryStart = full.indexOf('id="categories"');
+const defaultCategoryHtml = full.slice(defaultCategoryStart, full.indexOf("</section>", defaultCategoryStart));
+assert.doesNotMatch(defaultCategoryHtml, /Hồ tiêu (?:&amp;|&) Gia vị Việt Nam/, "English cards never fall back to the hardcoded Vietnamese pepper label");
+assert.doesNotMatch(defaultCategoryHtml, /text-amber-300/, "An empty CRM kicker renders no duplicate secondary label");
+const kickerPage = await renderHome([], [{
+  ...category,
+  homepage_kicker_i18n: { en: "Black & white pepper" },
+}]);
+assert.match(kickerPage, /Black &amp; white pepper/, "A real CRM kicker still appears on the category card");
+assert.match(kickerPage, /text-amber-300/, "The CRM kicker keeps its existing visual treatment");
+
 /* ---------------- 2b. Chia trang lưới sản phẩm ---------------- */
 
 const feedModule = compile("../components/home-product-feed.tsx", {
