@@ -44,6 +44,10 @@ const section = compile("../components/harvest-calendar.tsx", {
   "@/lib/public/harvest": harvest,
   "@/lib/types": {},
 });
+const { parseHarvestInput } = compile("../lib/crm/harvest-input.ts", {
+  "@/lib/public/harvest": harvest,
+  "@/lib/types": {},
+});
 
 /* ---------------- Logic tháng ---------------- */
 
@@ -111,6 +115,34 @@ assert.equal(normalized.windows[0].peak, true, "Peak survives normalization");
 assert.equal(normalized.reviewed_on, "2026-10-24", "A valid review date is kept");
 assert.equal(harvest.normalizeHarvest({ windows: [{ label: "Main", start_month: 2, end_month: 5 }], reviewed_on: "24/10" }).reviewed_on, null, "A malformed review date becomes empty instead of leaking to the page");
 
+const sourced = harvest.normalizeHarvest({
+  windows: [{ label: "Main", start_month: 2, end_month: 5, peak: true }],
+  reviewed_on: "2026-10-25",
+  review_origin: "ai",
+  sources: [
+    { title: "Crop authority", url: "https://agriculture.example/season#harvest" },
+    { title: "Duplicate", url: "https://agriculture.example/season" },
+    { title: "Unsafe", url: "javascript:alert(1)" },
+  ],
+});
+assert.equal(sourced.sources.length, 1, "Source normalization removes duplicates and unsafe URLs");
+assert.equal(sourced.sources[0].url, "https://agriculture.example/season", "Source fragments are not stored");
+assert.equal(sourced.review_origin, "ai", "Automatic review provenance survives normalization");
+
+/* ---------------- Category editor save parsing ---------------- */
+
+assert.equal(parseHarvestInput(undefined), undefined, "A missing harvest field leaves the stored value untouched");
+assert.equal(parseHarvestInput(JSON.stringify({ windows: [], reviewed_on: null })), null, "An explicitly empty editor saves as null");
+assert.equal(parseHarvestInput(JSON.stringify({ windows: [], note_i18n: { en: "Old note" }, reviewed_on: "2026-10-25" })), null, "Empty windows remove the whole calendar, including its old metadata");
+assert.throws(() => parseHarvestInput(JSON.stringify({ windows: [{ label: "Bad", start_month: 13, end_month: 2 }] })), /ít nhất một cửa sổ/, "A nonempty invalid calendar is still rejected");
+const manual = parseHarvestInput(JSON.stringify({
+  windows: [{ label: "Main", start_month: 2, end_month: 5, peak: true }],
+  sources: [{ title: "Old source", url: "https://agriculture.example/season" }],
+  review_origin: "ai",
+}));
+assert.equal(manual.review_origin, "staff", "A manual save marks the calendar as staff-reviewed");
+assert.equal(manual.sources, undefined, "A manual save cannot retain stale automatic-source provenance");
+
 /* ---------------- Render ---------------- */
 
 const cashew = {
@@ -158,6 +190,19 @@ const reviewed = renderToStaticMarkup(
 assert.ok(reviewed.includes("Reviewed 24 Oct 2026"), "A reviewed calendar shows the date");
 assert.ok(reviewed.includes('href="/products/cashew/market"'), "The optional link appears only when a target is passed");
 assert.ok(!reviewed.includes("Plants process kernels all year"), "An empty note renders nothing");
+
+const sourcedHtml = renderToStaticMarkup(
+  React.createElement(section.HarvestCalendarSection, {
+    categoryName: "Pepper",
+    harvest: sourced,
+    note: "",
+  }),
+);
+assert.ok(sourcedHtml.includes("Sources for this update"), "The public calendar lists its sources");
+assert.ok(sourcedHtml.includes('href="https://agriculture.example/season"'), "The source URL is linked directly");
+assert.ok(sourcedHtml.includes('rel="noopener noreferrer"'), "External source links use safe rel values");
+assert.ok(sourcedHtml.includes("Sources checked 25 Oct 2026"), "Automatic source verification has a clear review label");
+assert.ok(!sourcedHtml.includes("javascript:alert"), "Unsafe source URLs never reach the page");
 
 assert.equal(
   renderToStaticMarkup(React.createElement(section.HarvestCalendarSection, { categoryName: "Cashew", harvest: { windows: [] } })),

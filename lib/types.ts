@@ -367,6 +367,15 @@ export interface HarvestCalendar {
   note_i18n?: I18nString;
   /** Ngày rà soát gần nhất (YYYY-MM-DD). Để trống thì giao diện nói rõ là chưa rà soát. */
   reviewed_on?: string | null;
+  /** Nguồn đã được hệ thống đọc và dùng cho lần cập nhật này. */
+  sources?: HarvestSource[];
+  /** Phân biệt lần rà soát tự động với nội dung nhân sự nhập tay. */
+  review_origin?: "ai" | "staff";
+}
+
+export interface HarvestSource {
+  title: string;
+  url: string;
 }
 
 export interface CategoryRow {

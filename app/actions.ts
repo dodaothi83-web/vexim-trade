@@ -9,7 +9,7 @@ import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { isPlaceholderDisplayName } from "@/lib/public/display-name";
-import { normalizeHarvest } from "@/lib/public/harvest";
+import { parseHarvestInput } from "@/lib/crm/harvest-input";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
@@ -2530,26 +2530,6 @@ function parseJsonList(raw: unknown): unknown[] {
   } catch {
     return [];
   }
-}
-
-/**
- * Lịch mùa vụ gửi lên dưới dạng JSON. Trả undefined khi biểu mẫu không gửi khóa
- * này, để lần lưu từ giao diện cũ không xoá mất dữ liệu đã có.
- */
-function parseHarvestInput(raw: unknown): Category["harvest"] | undefined {
-  if (raw === undefined) return undefined;
-  if (raw === null || raw === "") return null;
-  if (typeof raw !== "string") throw new Error("Lịch mùa vụ không hợp lệ.");
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("Lịch mùa vụ không phải JSON hợp lệ.");
-  }
-  if (parsed === null) return null;
-  const normalized = normalizeHarvest(parsed);
-  if (!normalized) throw new Error("Lịch mùa vụ phải có ít nhất một cửa sổ với tháng bắt đầu và kết thúc hợp lệ.");
-  return normalized;
 }
 
 function parseCategoryInput(raw: Record<string, unknown>) {

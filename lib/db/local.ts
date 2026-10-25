@@ -2126,6 +2126,12 @@ export const localStore: DataStore = {
       .filter((entry) => entry.entity === "supplier" && actions.has(entry.action))
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
   },
+  async listHarvestResearchRuns() {
+    const actions = new Set(["category.harvest_research_updated", "category.harvest_research_failed"]);
+    return (load().audit_log ?? [])
+      .filter((entry) => entry.entity === "category" && actions.has(entry.action))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
   async addAuditLog(entry) {
     const row: AuditLogEntry = {
       id: (load().audit_log ?? []).length + 1,

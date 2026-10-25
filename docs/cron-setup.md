@@ -59,3 +59,31 @@ Route này chỉ kiểm tra `Authorization: Bearer <CRON_SECRET>` — có thể 
 - **Không cần tạo thêm biến môi trường hay cron job mới:** `/api/cron/rfq-sla` đã tự động chạy kèm bước kiểm tra nhắc hết hạn chứng nhận L1 (`60 / 30 / 7 / 1` ngày) trong cùng một lần gọi, dùng chung đúng biến `CRON_SECRET` hiện có.
 - Nếu muốn tách lịch gọi riêng, bạn cũng có thể trỏ thêm 1 job vào `GET https://www.veximtrade.com/api/cron/certificate-expiry` với **cùng header `Authorization: Bearer <CRON_SECRET>`** (dùng chung chính mã `CRON_SECRET` đã cài).
 - **Idempotent:** mỗi mốc (`d60`, `d30`, `d7`, `d1`) được ghi nhận trong `certificates.expiry_notified` nên dù gọi gộp trong `/api/cron/rfq-sla` hay gọi riêng `/api/cron/certificate-expiry` nhiều lần trong ngày cũng không bao giờ gửi trùng email; khi NCC tải bản mới có `valid_until` mới, các mốc được đặt lại từ đầu.
+
+## Cron 3: Nghiên cứu và cập nhật lịch mùa vụ
+
+Tạo một job chạy mỗi ngày:
+
+- **URL**: `https://www.veximtrade.com/api/cron/harvest-research`
+- **Method**: `GET`
+- **Header**: `Authorization: Bearer <CRON_SECRET>`
+- **Schedule gợi ý**: `30 18 * * *` UTC, tức 01:30 giờ Hà Nội.
+
+Cần `OPENAI_API_KEY` trên môi trường Production. `OPENAI_HARVEST_RESEARCH_MODEL` là tùy chọn, mặc định `gpt-4.1-mini`. Mỗi lần chạy xử lý một danh mục; có thể đặt `HARVEST_RESEARCH_BATCH_SIZE=2` nếu thời gian chạy và hạn mức API cho phép, tối đa 4.
+
+Cơ chế an toàn:
+
+- Chỉ dùng thông tin mùa thu hoạch có URL nguồn và trích dẫn nguyên văn. Hệ thống tự tải lại nguồn để đối chiếu, kiểm tra tháng, vùng và nhãn vụ chính/vụ phụ.
+- Kết quả hợp lệ ghi trực tiếp vào `categories.harvest`, gồm ngày rà soát và danh sách nguồn. Không có bảng đề xuất hoặc bước duyệt thủ công.
+- Nguồn không đọc được, trích dẫn không khớp, dữ liệu mâu thuẫn hoặc thiếu bằng chứng thì giữ nguyên lịch cũ.
+- Trước khi ghi, hệ thống đọc lại danh mục. Nếu nhân sự vừa sửa trong lúc AI chạy, kết quả tự động bị bỏ qua.
+- Mọi lần cập nhật hoặc bỏ qua được ghi vào `audit_log` với action `category.harvest_research_updated` hoặc `category.harvest_research_failed`. Lịch sử này cũng giúp luân phiên danh mục, tránh một danh mục lỗi chặn các danh mục khác.
+
+Kiểm tra thủ công:
+
+```bash
+curl -i -H "Authorization: Bearer <CRON_SECRET>" \
+  "https://www.veximtrade.com/api/cron/harvest-research?batch=1"
+```
+
+Response có `updated`, `unchanged` và chi tiết `results[].code`. `unchanged` không làm mất lịch hiện tại. Nguồn PDF hoặc trang không cho đọc HTML sẽ bị bỏ qua, không được thay bằng kiến thức từ bộ nhớ của model.

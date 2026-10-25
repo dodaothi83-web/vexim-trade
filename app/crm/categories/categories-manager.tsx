@@ -40,6 +40,7 @@ import type {
   CategoryFact,
   CategoryFilter,
   CategoryRow,
+  HarvestSource,
   HarvestWindow,
   ProductAttributeField,
 } from "@/lib/types";
@@ -63,6 +64,8 @@ type HarvestDraft = {
   windows: HarvestWindow[];
   note_en: string;
   reviewed_on: string;
+  sources: HarvestSource[];
+  review_origin?: "ai" | "staff";
 };
 
 type CategoryDraft = {
@@ -127,6 +130,8 @@ function fromCategory(c: Category): CategoryDraft {
       windows: harvest?.windows ?? [],
       note_en: i18n(harvest?.note_i18n) || "",
       reviewed_on: harvest?.reviewed_on ?? "",
+      sources: harvest?.sources ?? [],
+      review_origin: harvest?.review_origin,
     },
     buying_facts: facts,
     faqs,
@@ -154,7 +159,7 @@ function emptyDraft(sortOrder: number): CategoryDraft {
     spec_columns: [],
     product_fields: [],
     spec_rows: [],
-    harvest: { windows: [], note_en: "", reviewed_on: "" },
+    harvest: { windows: [], note_en: "", reviewed_on: "", sources: [] },
     price_unit: "",
     buying_facts: [],
     faqs: [],
@@ -1362,6 +1367,18 @@ function HarvestEditor({ draft, setDraft }: { draft: CategoryDraft; setDraft: (u
 
   return (
     <div className="space-y-5">
+      {(harvest.review_origin === "ai" || harvest.sources.length > 0) && <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3">
+        <p className="text-[13px] font-semibold text-ink-800">
+          {harvest.review_origin === "ai" ? "Lịch được cập nhật tự động sau khi đối chiếu nguồn." : "Nguồn của lần rà soát gần nhất"}
+        </p>
+        {harvest.review_origin === "ai" && <p className="mt-1 text-xs leading-relaxed text-ink-500">Lưu chỉnh sửa tay sẽ chuyển lịch sang rà soát bởi nhân sự.</p>}
+        {harvest.sources.length > 0 && <ul className="mt-2 space-y-1.5">{harvest.sources.map((source) => <li key={source.url}>
+          <a href={source.url} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-start gap-1.5 break-words text-xs font-medium text-brand-700 hover:underline">
+            <ExternalLink className="mt-0.5 h-3 w-3 shrink-0" />{source.title}
+          </a>
+        </li>)}</ul>}
+      </div>}
+
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
           <p className="text-[13px] font-semibold text-ink-700">Cửa sổ mùa vụ ({harvest.windows.length})</p>
