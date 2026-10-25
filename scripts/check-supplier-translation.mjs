@@ -7,13 +7,14 @@ import { createRequire } from 'node:module';
 import ts from 'typescript';
 
 const realRequire = createRequire(import.meta.url);
-function load(file, mocks) {
+function load(file, mocks, globals = {}) {
   const mod = { exports: {} };
   const source = ts.transpileModule(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   vm.runInNewContext(source, {
     module: mod, exports: mod.exports, console, Date, process, JSON, Object, Array, String, Boolean, Promise, Error, RegExp, Map, Set,
+    ...globals,
     require: (id) => {
       if (id === 'server-only') return {};
       if (id === 'node:crypto') return realRequire('node:crypto');
@@ -39,6 +40,30 @@ assert.deepEqual(parsed.export_markets_en, ['United States', 'Japan']);
 const fallback = ai.parseSupplierProfileTranslation('not json', source);
 assert.equal(fallback.moq_en, source.moq_text);
 assert.deepEqual(fallback.export_markets_en, source.export_markets);
+assert.throws(() => ai.parseSupplierProfileTranslation('not json', source, { strict: true }), /không đúng định dạng/,
+  'ghi DB không được chấp nhận JSON hỏng rồi đánh dấu đã dịch');
+assert.throws(() => ai.parseSupplierProfileTranslation(JSON.stringify({ moq_en: '1 MT' }), source, { strict: true }), /thiếu nội dung/,
+  'phản hồi thiếu trường phải được thử lại');
+
+// Kiểm tra chính hàm gọi OpenAI dùng strict mode, với fetch giả lập và không phát sinh request thật.
+const liveAi = load('../lib/ai/translate-supplier.ts', {
+  '@/lib/ai/company-introduction': { readOutputText: (payload) => payload.output_text ?? '' },
+  '@/lib/types': {},
+}, {
+  AbortSignal,
+  fetch: async () => ({ ok: true, json: async () => ({ output_text: 'not json' }) }),
+});
+const previousOpenAiKey = process.env.OPENAI_API_KEY;
+process.env.OPENAI_API_KEY = 'test-key';
+try {
+  await assert.rejects(() => liveAi.translateSupplierProfile({
+    source, facts: { supplier_type_label: 'manufacturer', province: 'Nghệ An', products: 'Hạt tiêu', founded_year: 2016, employees: 100 },
+    story: 'Giới thiệu cần dịch', draftSummary: false,
+  }), /không đúng định dạng/);
+} finally {
+  if (previousOpenAiKey === undefined) delete process.env.OPENAI_API_KEY;
+  else process.env.OPENAI_API_KEY = previousOpenAiKey;
+}
 
 // Các trường hồ sơ khác cũng được dịch và làm mới khi nội dung gốc thay đổi.
 const fullSource = ai.supplierProfileSource({
@@ -55,8 +80,13 @@ assert.equal(fullTranslation.province_en, 'Binh Phuoc');
 assert.equal(fullTranslation.products_en, 'Cashew kernels');
 assert.equal(fullTranslation.payment_terms_en, 'Deferred payment');
 const fullPatch = ai.supplierProfilePatch(fullTranslation, fullSource, 'ai', 'mock');
+assert.equal(fullPatch.profile_translation_meta.version, ai.SUPPLIER_PROFILE_TRANSLATION_VERSION);
 assert.equal(fullPatch.profile_translation_meta.fields.address, '1 A Street');
 assert.equal(ai.supplierProfileTranslationState({ ...fullSource, ...fullPatch }).current, true);
+assert.equal(ai.supplierProfileTranslationState({
+  ...fullSource, ...fullPatch,
+  profile_translation_meta: { ...fullPatch.profile_translation_meta, version: 1 },
+}).current, false, 'cache từ parser cũ phải được dịch lại');
 assert.equal(ai.supplierProfileTranslationState({ ...fullSource, ...fullPatch, address: 'Địa chỉ mới' }).current, false);
 
 const english = load('../lib/public/supplier-english.ts', { '@/lib/types': {} });
@@ -84,6 +114,10 @@ const storyPatch = ai.supplierProfilePatch(parsed, { ...source, intro_source: st
 assert.equal(ai.supplierProfileTranslationState({ ...storySupplier, ...storyPatch }).summaryCurrent, true);
 assert.equal(ai.supplierProfileTranslationState({ ...storySupplier, ...storyPatch, intro_source: 'Câu chuyện mới.' }).summaryCurrent, false,
   'sửa phần giới thiệu gốc phải làm bản dịch giới thiệu thành đã cũ');
+assert.equal(ai.supplierProfileTranslationState({
+  ...storySupplier, ...storyPatch,
+  profile_translation_meta: { ...storyPatch.profile_translation_meta, version: 1, origin: 'staff' },
+}).summaryCurrent, true, 'nâng parser không được làm mất quyết định giữ bản tiếng Anh của nhân sự');
 assert.ok(ai.supplierSummarySourceHash('abc') !== ai.supplierSummarySourceHash('abcd'));
 
 // Chạy service với AI giả lập: kiểm tra ghi DB, bỏ qua khi hash còn mới và giữ bản nhân sự đã chốt.
@@ -92,7 +126,7 @@ let providerCalls = 0;
 const translationService = load('../lib/ai/supplier-translation-service.ts', {
   '@/lib/ai/translate-supplier': {
     ...ai,
-    translateSupplierProfile: async ({ source, story }) => {
+    translateSupplierProfile: async ({ source, story, draftSummary }) => {
       providerCalls += 1;
       return {
         model: 'mock-translator',
@@ -102,7 +136,7 @@ const translationService = load('../lib/ai/supplier-translation-service.ts', {
           capacity_per_month_en: '10 MT/month', payment_terms_en: 'Deferred payment',
           ports_en: ['Cat Lai'], incoterms_en: ['FOB'],
           summary_en: story ? 'A faithful English introduction.' : '',
-        }), source),
+        }), source, { strict: true, requireSummary: Boolean(story) || draftSummary }),
       };
     },
   },
@@ -146,6 +180,29 @@ ensured = await translationService.ensureSupplierProfileEnglish(translationStore
 assert.equal(ensured.status, 'unconfigured');
 assert.equal(translatedRow.summary_i18n.en, beforeUnconfigured, 'Missing AI configuration must not erase saved content');
 configured = true;
+
+// Hồ sơ cũ chỉ có summary tiếng Việt: phải đưa summary vào nguồn dịch, không bỏ sót giới thiệu.
+translatedRow = {
+  id: 'sup-legacy-summary', ...fullSource,
+  intro_source: null, summary_i18n: { en: 'Giới thiệu cũ bằng tiếng Việt.' },
+};
+ensured = await translationService.ensureSupplierProfileEnglish(translationStore, translatedRow.id, null);
+assert.equal(ensured.status, 'translated');
+assert.equal(translatedRow.intro_source, 'Giới thiệu cũ bằng tiếng Việt.');
+assert.equal(translatedRow.summary_i18n.en, 'A faithful English introduction.');
+assert.equal(translatedRow.profile_translation_meta.version, ai.SUPPLIER_PROFILE_TRANSLATION_VERSION);
+
+// Cache do parser cũ ghi nhầm nguyên văn nguồn phải bị vô hiệu và được thay bằng bản dịch mới.
+translatedRow = {
+  id: 'sup-stale-cache', ...fullSource,
+  intro_source: 'Giới thiệu cần dịch lại.', summary_i18n: {},
+  moq_text_i18n: { en: fullSource.moq_text }, export_markets_i18n: { en: fullSource.export_markets },
+  profile_translation_meta: { ...fullPatch.profile_translation_meta, version: 1 },
+};
+ensured = await translationService.ensureSupplierProfileEnglish(translationStore, translatedRow.id, null);
+assert.equal(ensured.status, 'translated');
+assert.equal(translatedRow.profile_translation_meta.fields.products, 'Cashew kernels');
+assert.equal(translatedRow.moq_text_i18n.en, '1 MT');
 
 // Điểm gắn trong luồng thật.
 const route = fs.readFileSync(new URL('../app/api/supplier-portal/profile/route.ts', import.meta.url), 'utf8');

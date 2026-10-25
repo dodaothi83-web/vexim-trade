@@ -104,6 +104,8 @@ export interface Supplier {
   export_markets_i18n?: I18nList;
   /** Dấu vết dịch tự động hồ sơ: hash toàn bộ nội dung gốc cần dịch tại thời điểm dịch để phát hiện bản dịch đã cũ. */
   profile_translation_meta?: {
+    /** Phiên bản parser dịch; cache thiếu phiên bản được xem là cần kiểm tra lại. */
+    version?: number;
     source_hash: string;
     translated_at: string;
     origin: "ai" | "staff";

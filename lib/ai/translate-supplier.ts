@@ -19,6 +19,9 @@ export type SupplierProfileSource = {
   incoterms: string[];
 };
 
+/** Tăng khi quy tắc đọc/ghi bản dịch thay đổi để cache cũ không chặn một lần dịch lại. */
+export const SUPPLIER_PROFILE_TRANSLATION_VERSION = 2;
+
 export type SupplierProfileTranslation = {
   moq_en: string;
   export_markets_en: string[];
@@ -114,14 +117,21 @@ export function supplierProfileTranslationState(supplier: SupplierLike): {
   const moqOk = !source.moq_text || Boolean(supplier.moq_text_i18n?.en?.trim());
   const marketsOk = !source.export_markets.length || Boolean(supplier.export_markets_i18n?.en?.length);
   const hasEnglish = supplierProfileHasSource(source) && moqOk && marketsOk && textOk && listsOk;
+  const meta = supplier.profile_translation_meta;
+  const versionCurrent = meta?.version === SUPPLIER_PROFILE_TRANSLATION_VERSION;
+  const hasStory = Boolean(supplier.intro_source?.trim());
+  const hasSummary = Boolean(supplier.summary_i18n?.en?.trim());
   return {
     hasEnglish,
-    current: hasEnglish && supplier.profile_translation_meta?.source_hash === supplierProfileSourceHash(supplier),
-    translatedAt: supplier.profile_translation_meta?.translated_at ?? null,
-    origin: supplier.profile_translation_meta?.origin ?? null,
-    summaryGenerated: Boolean(supplier.profile_translation_meta?.summary_generated),
-    summaryCurrent: !supplier.intro_source?.trim() ||
-      supplier.profile_translation_meta?.summary_source_hash === supplierSummarySourceHash(supplier.intro_source),
+    current: hasEnglish && versionCurrent && meta?.source_hash === supplierProfileSourceHash(supplier),
+    translatedAt: meta?.translated_at ?? null,
+    origin: meta?.origin ?? null,
+    summaryGenerated: Boolean(meta?.summary_generated),
+    // Bản do nhân sự chốt vẫn được giữ khi nâng phiên bản parser; cache AI cũ phải dịch lại.
+    summaryCurrent: hasStory
+      ? meta?.summary_source_hash === supplierSummarySourceHash(supplier.intro_source) &&
+        (versionCurrent || meta?.origin === "staff")
+      : hasSummary ? versionCurrent || meta?.origin === "staff" : false,
   };
 }
 
@@ -144,13 +154,36 @@ function translatedList(payload: Record<string, unknown>, key: string, source: s
   return translated.length ? translated : source;
 }
 
-/** Read model output; missing pieces fall back to their source instead of disappearing. */
-export function parseSupplierProfileTranslation(text: string, source: SupplierProfileSource): SupplierProfileTranslation {
+/**
+ * Đọc kết quả model. Chế độ strict dùng trước khi ghi DB: thiếu trường hoặc JSON hỏng
+ * phải được coi là lỗi, không được lấy nguyên văn nguồn rồi đánh dấu là đã dịch xong.
+ */
+export function parseSupplierProfileTranslation(
+  text: string,
+  source: SupplierProfileSource,
+  options: { strict?: boolean; requireSummary?: boolean } = {},
+): SupplierProfileTranslation {
   let payload: Record<string, unknown> = {};
   try {
-    payload = JSON.parse(stripFences(text)) as Record<string, unknown>;
+    const parsed: unknown = JSON.parse(stripFences(text));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid object");
+    payload = parsed as Record<string, unknown>;
   } catch {
-    payload = {};
+    if (options.strict) throw new Error("AI trả về bản dịch không đúng định dạng. Hãy thử lại.");
+  }
+  if (options.strict) {
+    const textRequirements: [string, string][] = [
+      ["moq_en", source.moq_text], ["province_en", source.province], ["address_en", source.address],
+      ["products_en", source.products], ["markets_en", source.markets],
+      ["capacity_per_month_en", source.capacity_per_month], ["payment_terms_en", source.payment_terms],
+    ];
+    const listRequirements: [string, string[]][] = [
+      ["export_markets_en", source.export_markets], ["ports_en", source.ports], ["incoterms_en", source.incoterms],
+    ];
+    const incomplete = textRequirements.some(([key, value]) => Boolean(value) && !clean(payload[key], 10000)) ||
+      listRequirements.some(([key, values]) => values.length > 0 && cleanList(payload[key]).length !== values.length) ||
+      (options.requireSummary && !clean(payload.summary_en, 1500));
+    if (incomplete) throw new Error("AI trả về bản dịch thiếu nội dung. Hãy thử lại.");
   }
   return {
     moq_en: translatedText(payload, "moq_en", source.moq_text, 360),
@@ -188,6 +221,7 @@ export function supplierProfilePatch(
     moq_text_i18n: { en: translation.moq_en },
     export_markets_i18n: { en: translation.export_markets_en },
     profile_translation_meta: {
+      version: SUPPLIER_PROFILE_TRANSLATION_VERSION,
       source_hash: supplierProfileSourceHash(supplier),
       translated_at: new Date().toISOString(),
       origin,
@@ -264,5 +298,11 @@ export async function translateSupplierProfile(input: {
   }
   const text = readOutputText(payload);
   if (!text) throw new Error("AI chưa trả về nội dung. Hãy thử lại sau.");
-  return { translation: parseSupplierProfileTranslation(text, input.source), model };
+  return {
+    translation: parseSupplierProfileTranslation(text, input.source, {
+      strict: true,
+      requireSummary: Boolean(input.story.trim()) || input.draftSummary,
+    }),
+    model,
+  };
 }

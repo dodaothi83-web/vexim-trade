@@ -7,6 +7,7 @@ import {
   supplierProfileSourceHash,
   supplierProfileTranslationState,
   supplierSummarySourceHash,
+  SUPPLIER_PROFILE_TRANSLATION_VERSION,
   translateSupplierProfile,
 } from "@/lib/ai/translate-supplier";
 import { translationConfigured } from "@/lib/ai/translate-content";
@@ -45,12 +46,17 @@ export async function ensureSupplierProfileEnglish(
   if (!supplier) throw new Error("Không tìm thấy nhà cung cấp.");
   const source = supplierProfileSource(supplier);
   const state = supplierProfileTranslationState(supplier);
-  const story = supplier.intro_source?.trim() ?? "";
+  const existingSummary = supplier.summary_i18n?.en?.trim() ?? "";
+  // Một số hồ sơ cũ chỉ có summary_i18n.en, chưa có intro_source. Đưa nguyên văn đó
+  // vào nguồn dịch một lần rồi lưu lại intro_source, thay vì bỏ qua phần giới thiệu.
+  const legacyStory = !supplier.intro_source?.trim() && Boolean(existingSummary) && !state.summaryCurrent;
+  const story = supplier.intro_source?.trim() || (legacyStory ? existingSummary : "");
   if (opts?.preserveSummary && story && !state.summaryCurrent) {
     // Nhân viên vừa chốt tay bản tiếng Anh: ghi nhận hash câu chuyện hiện tại để
     // các lần lưu sau không dịch đè mất bản đã chốt, cho đến khi câu chuyện thay đổi.
     await store.updateSupplier(supplierId, {
       profile_translation_meta: {
+        version: SUPPLIER_PROFILE_TRANSLATION_VERSION,
         source_hash: supplier.profile_translation_meta?.source_hash ?? supplierProfileSourceHash(supplier),
         translated_at: supplier.profile_translation_meta?.translated_at ?? new Date().toISOString(),
         origin: "staff",
@@ -61,9 +67,10 @@ export async function ensureSupplierProfileEnglish(
       },
     }).catch((error) => console.error("[supplier-translation] preserve summary", error));
   }
-  // Có câu chuyện tự viết thì dịch lại mỗi khi câu chuyện thay đổi; không có thì soạn nháp khi đang trống.
+  // Có câu chuyện tự viết thì dịch lại khi câu chuyện thay đổi; hồ sơ cũ có summary
+  // nhưng chưa có intro_source cũng phải được dịch từ chính summary đó.
   const needsSummary = !opts?.preserveSummary && (story ? !state.summaryCurrent
-    : !supplier.summary_i18n?.en?.trim() && Boolean(supplier.products?.trim()));
+    : !state.summaryCurrent && Boolean(existingSummary || supplier.products?.trim()));
   const needsTranslation = supplierProfileHasSource(source) && !state.current;
   if (!needsTranslation && !needsSummary) return { status: "current", supplier };
   if (!translationConfigured()) return { status: "unconfigured", supplier };
@@ -80,7 +87,12 @@ export async function ensureSupplierProfileEnglish(
       story,
       draftSummary: !story && needsSummary,
     });
-    const patch = supplierProfilePatch(translation, supplier, "ai", model, !story && needsSummary && Boolean(translation.summary_en));
+    if (needsSummary && !translation.summary_en.trim()) {
+      throw new Error("AI chưa trả về phần giới thiệu tiếng Anh. Hãy thử lại.");
+    }
+    const patch = supplierProfilePatch(translation, legacyStory ? { ...supplier, intro_source: story } : supplier,
+      "ai", model, !story && needsSummary && Boolean(translation.summary_en));
+    if (legacyStory) patch.intro_source = story;
     if (needsSummary && translation.summary_en) {
       patch.summary_i18n = { ...(supplier.summary_i18n ?? {}), en: translation.summary_en };
     }
