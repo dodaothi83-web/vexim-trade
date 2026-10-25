@@ -1,4 +1,4 @@
-import Image, { type ImageLoader } from "next/image";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -29,8 +29,12 @@ const FALLBACK_HERO = "/images/home/hero-cashew-texture.jpg";
 // Nguồn: https://www.pexels.com/photo/vietnamese-farmer-sorting-coffee-beans-30658831/
 // Pexels cho phép dùng miễn phí trên website. CDN trả WebP đúng độ rộng, không dùng ảnh AI.
 const HOME_HERO_PHOTO = "https://images.pexels.com/photos/30658831/pexels-photo-30658831/free-photo-of-vietnamese-farmer-sorting-coffee-beans.jpeg";
-const homeHeroLoader: ImageLoader = ({ src, width, quality }) =>
-  `${src}?auto=compress&cs=tinysrgb&fm=webp&w=${width}&q=${quality ?? 72}`;
+const homeHeroUrl = (width: number) =>
+  `${HOME_HERO_PHOTO}?auto=compress&cs=tinysrgb&fm=webp&w=${width}&q=72`;
+const HOME_HERO_SRC = homeHeroUrl(1600);
+const HOME_HERO_SRCSET = [640, 960, 1280, 1600, 1920]
+  .map((width) => `${homeHeroUrl(width)} ${width}w`)
+  .join(", ");
 
 // Giữ câu mô tả mô hình kết nối cho kiểm thử ngữ nghĩa:
 // Câu mô tả lấy từ lib/public/meta-copy.ts, không viết lại tại đây.
@@ -300,16 +304,17 @@ export default async function HomeContent({
           SECTION 1: HERO + THANH TÌM KIẾM SẢN PHẨM
          ===================================================================== */}
       <section className="relative overflow-hidden border-b-4 border-amber-400 bg-gradient-to-b from-brand-900 via-brand-900 to-ink-950 text-white">
-        <Image
-          loader={homeHeroLoader}
-          src={HOME_HERO_PHOTO}
-          alt=""
-          preload
-          fetchPriority="high"
-          fill
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={HOME_HERO_SRC}
+          srcSet={HOME_HERO_SRCSET}
           sizes="100vw"
-          quality={72}
-          className="object-cover object-[60%_center]"
+          alt=""
+          width={1600}
+          height={1067}
+          loading="eager"
+          fetchPriority="high"
+          className="absolute inset-0 h-full w-full object-cover object-[60%_center]"
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-950/85 via-brand-900/65 to-ink-950/75" />
 

@@ -93,15 +93,10 @@ const offer = (id, supplierId) => ({
   cardImagePath: null,
 });
 
-const homeImages = [];
-
 async function renderHome(offers, categoryItems = [category]) {
   const { default: HomeContent } = compile("../app/(public)/home.tsx", {
     "react/jsx-runtime": jsx,
-    "next/image": { default: ({ src, alt, ...props }) => {
-      homeImages.push({ src, ...props });
-      return React.createElement("img", { src, alt });
-    } },
+    "next/image": { default: ({ src, alt }) => React.createElement("img", { src, alt }) },
     "next/link": { default: ({ href, children, ...rest }) => React.createElement("a", { href, ...rest }, children) },
     "lucide-react": new Proxy({}, { get: () => () => null }),
     "@/lib/db": { getStore: () => ({ listCategories: async () => categoryItems, listSuppliers: async () => [] }) },
@@ -150,12 +145,14 @@ assert.ok(full.includes("Featured Marketplace Offers"), "The feed keeps its labe
 assert.equal(full.match(/data-product=/g).length, 15, "Desktop page one renders 15 products in three rows of five");
 assert.ok(full.includes("1/2"), "Products after the first 15 remain available on page two");
 
-const heroImage = homeImages.find((image) => typeof image.src === "string" && image.src.includes("images.pexels.com/photos/30658831"));
-assert.ok(heroImage, "The homepage uses the real Pexels coffee-production photo");
-assert.ok(heroImage.preload && heroImage.fetchPriority === "high", "The LCP hero keeps high-priority preload");
-assert.equal(heroImage.quality, 72, "The stock photo is compressed instead of loaded at original quality");
-const heroWebp = heroImage.loader({ src: heroImage.src, width: 960, quality: heroImage.quality });
-assert.match(heroWebp, /fm=webp&w=960&q=72$/, "Pexels serves the selected viewport width as WebP");
+assert.ok(full.includes("images.pexels.com/photos/30658831"), "The homepage uses the real Pexels coffee-production photo");
+assert.match(full, /fm=webp(?:&amp;|&)w=960(?:&amp;|&)q=72 960w/, "The responsive srcset requests a compressed 960px WebP");
+assert.ok(full.includes("1920w"), "The srcset also covers wide screens without using the original stock file");
+assert.match(full, /loading="eager"/, "The LCP hero loads immediately");
+assert.match(full, /fetchPriority="high"/i, "The LCP hero keeps high fetch priority");
+const homeSource = readFileSync(new URL("../app/(public)/home.tsx", import.meta.url), "utf8");
+assert.doesNotMatch(homeSource, /loader=\{homeHeroLoader\}/, "The server homepage does not pass a loader function to a Client Component");
+assert.match(homeSource, /srcSet=\{HOME_HERO_SRCSET\}/, "The hero uses static responsive URLs instead of a function prop");
 
 /* Ít hàng cũng giữ cùng vị trí, không còn ngưỡng chuyển xuống dưới. */
 const thin = await renderHome([offer("a1", "A"), offer("a2", "A")]);
