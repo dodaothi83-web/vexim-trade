@@ -110,23 +110,6 @@ export default async function EditProductPage({
       />
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
         <div className="order-2 min-w-0 space-y-5 xl:order-1">
-          {product.supplier_review_status && (product.supplier_review_status !== "approved" || needsPublicationRetry) && <section id="product-review" className="card scroll-mt-24 border-amber-200 bg-amber-50 p-5 text-sm">
-            <h2 className="font-bold text-ink-900">{needsPublicationAction ? "Duyệt và đăng" : product.supplier_review_status === "changes_requested" ? "Cần chỉnh sửa" : "Bản nháp"}</h2>
-            <p className="mt-1 text-ink-700">{needsPublicationAction
-              ? "Kiểm tra nội dung, danh mục và tệp. Một thao tác sẽ hoàn tất việc đăng sản phẩm."
-              : "Sản phẩm chưa được đăng. NCC cần chỉnh sửa và gửi duyệt lại."}</p>
-            {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
-            {needsPublicationAction && (session.role === "admin" || session.role === "sourcing") &&
-              <SupplierProductReviewControls
-                id={product.id}
-                proposal={product.supplier_category_proposal}
-                reviewed={product.reviewed_category_slug}
-                categories={categoryOptions}
-                scope={supplierCategoryScope}
-                inferredCategory={inferredCategory?.slug ?? null}
-                allowChanges={product.supplier_review_status === "pending"}
-              />}
-          </section>}
           <ProductForm
             supplier={supplier}
             product={product}
@@ -172,6 +155,23 @@ export default async function EditProductPage({
             translatedAt={translationState.translatedAt}
             origin={translationState.origin}
           />
+          {product.supplier_review_status && (product.supplier_review_status !== "approved" || needsPublicationRetry) && <section id="product-review" className="card scroll-mt-24 border-amber-200 bg-amber-50 p-5 text-sm">
+            <h2 className="font-bold text-ink-900">{needsPublicationAction ? "Duyệt và đăng" : product.supplier_review_status === "changes_requested" ? "Cần chỉnh sửa" : "Bản nháp"}</h2>
+            <p className="mt-1 text-ink-700">{needsPublicationAction
+              ? "Kiểm tra nội dung, danh mục và tệp. Một thao tác sẽ hoàn tất việc đăng sản phẩm."
+              : "Sản phẩm chưa được đăng. NCC cần chỉnh sửa và gửi duyệt lại."}</p>
+            {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
+            {needsPublicationAction && (session.role === "admin" || session.role === "sourcing") &&
+              <SupplierProductReviewControls
+                id={product.id}
+                proposal={product.supplier_category_proposal}
+                reviewed={product.reviewed_category_slug}
+                categories={categoryOptions}
+                scope={supplierCategoryScope}
+                inferredCategory={inferredCategory?.slug ?? null}
+                allowChanges={product.supplier_review_status === "pending"}
+              />}
+          </section>}
         </div>
 
         <aside className="contents xl:order-2 xl:block xl:space-y-4 xl:sticky xl:top-6">

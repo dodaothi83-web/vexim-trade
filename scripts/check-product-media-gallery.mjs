@@ -134,6 +134,13 @@ assert.match(gallerySource, /onTouchStart=\{onTouchStart\}/, 'The main image lis
 assert.match(gallerySource, /onTouchEnd=\{onTouchEnd\}/, 'The main image completes touch gestures');
 assert.match(gallerySource, /touch-pan-y/, 'Vertical touch gestures still scroll the page');
 assert.match(gallerySource, /suppressClick\.current/, 'A completed swipe does not accidentally open the lightbox');
+const managerSource = readFileSync(new URL('../components/media-manager.tsx', import.meta.url), 'utf8');
+assert.match(managerSource, /function MediaImageLightbox/, 'Staff images have an inline preview dialog');
+assert.match(managerSource, /fileUrl && \(canPreview \? \(/, 'Image actions open the inline preview instead of forcing a new tab');
+assert.match(managerSource, /aria-label=\{`Xem \$\{previewName\} ngay trên trang`\}/, 'The thumbnail itself is an accessible preview trigger');
+assert.match(managerSource, /createPortal\(/);
+assert.match(managerSource, /event\.key === "Escape"/, 'Escape closes the staff image preview');
+assert.match(managerSource, /previousFocus\?\.focus\(\)/, 'Closing the preview restores keyboard focus');
 const migration = readFileSync(new URL('../supabase/migrations/20261017_product_featured_image.sql', import.meta.url), 'utf8');
 assert.match(migration, /featured_media_id uuid/);
 console.log('✅ Product media: staff-only cover, safe public image/video projection, inline zoom/lightbox and gallery slots.');

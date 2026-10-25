@@ -125,6 +125,8 @@ assert.ok(crmEditPage.includes('order-2 min-w-0 space-y-5 xl:order-1') && crmEdi
   'Only publication status precedes the mobile form; desktop keeps the right column');
 assert.ok(crmEditPage.indexOf('<MediaManager') < crmEditPage.indexOf('<ProductTranslationPanel'),
   'Media comes before translation in the editor workflow');
+assert.ok(crmEditPage.indexOf('<ProductTranslationPanel') < crmEditPage.indexOf('<section id="product-review"'),
+  'Review and category selection follow content, media and translation instead of sitting on top');
 assert.ok(!crmEditPage.includes('key={product.id}'),
   'Server refreshes do not remount and erase the active product form');
 assert.ok(crmEditPage.includes('previewImage={previewImage}'),
