@@ -47,15 +47,25 @@ assert.match(page, /OnboardingControls/, 'vẫn xác nhận mở cổng được
 assert.match(page, /Hồ sơ doanh nghiệp/, 'cột phải phải có hồ sơ doanh nghiệp');
 assert.ok(!page.includes('SupplierCategoryControls'), 'không đưa panel chốt ngành trùng lặp quay lại');
 
-// Danh sách sản phẩm dùng cột quét nhanh thay vì chồng badge và thao tác trong cột giá.
-assert.ok(page.includes('Thông tin thương mại') && page.includes('Giá & trạng thái'), 'phải có header cho các cột sản phẩm');
-assert.ok(page.includes('lg:grid-cols-[minmax(0,1.55fr)_minmax(150px,0.85fr)_minmax(180px,0.85fr)]'),
-  'desktop phải dùng lưới 3 cột responsive cho sản phẩm');
-assert.match(page, /<dl className="grid min-w-0 grid-cols-2/, 'mobile giữ các thông tin thương mại trong lưới gọn');
-assert.match(page, /title=\{pr\.name\}/, 'tên dài vẫn có tooltip và link mở hồ sơ đầy đủ');
-for (const label of ['MOQ', 'Năng lực/tháng', 'Lead time', 'Giá tham khảo']) {
-  assert.ok(page.includes(`>${label}<`), `thiếu nhãn thông tin sản phẩm: ${label}`);
+// Danh sách sản phẩm chỉ giữ thông tin cơ bản; chi tiết nằm ở trang Xem/Sửa.
+const productStart = page.indexOf('id="supplier-products"');
+const productEnd = page.indexOf('Đơn hàng đang giao cho NCC này', productStart);
+assert.ok(productStart >= 0 && productEnd > productStart, 'phải xác định được khu vực sản phẩm của NCC');
+const productSection = page.slice(productStart, productEnd);
+assert.match(page, /orderCrmProducts\(products\)/, 'sản phẩm chờ duyệt phải được ưu tiên lên đầu');
+assert.match(page, /paginateCrmProducts\(orderedProducts, requestedPage\)/, 'danh sách phải được phân trang');
+assert.match(productSection, /visibleProducts\.map/, 'chỉ sản phẩm của trang hiện tại được hiển thị');
+assert.match(productSection, /productPageHref\(productPage - 1\)/);
+assert.match(productSection, /productPageHref\(productPage \+ 1\)/);
+assert.match(productSection, /#supplier-products|supplier-products/, 'chuyển trang giữ vị trí tại khu vực sản phẩm');
+assert.match(productSection, /MediaThumb/);
+assert.match(productSection, /pr\.category/);
+assert.match(productSection, /title=\{pr\.name\}/, 'tên dài vẫn có tooltip và link mở hồ sơ đầy đủ');
+for (const label of ['Chờ Vexim kiểm tra', 'Cần NCC sửa', 'Sẵn sàng gửi buyer']) {
+  assert.ok(productSection.includes(label), `thiếu trạng thái cơ bản: ${label}`);
 }
-assert.ok(!page.includes('MOQ {pr.moq}'), 'MOQ badges are grouped into labeled facts');
+for (const detail of ['pr.spec', 'pr.moq', 'pr.monthly_capacity', 'pr.lead_time_days', 'pr.ref_price', 'price_valid_until', 'shareableCount', 'Thông tin thương mại', 'Giá & trạng thái']) {
+  assert.ok(!productSection.includes(detail), `chi tiết phải nằm ở trang sản phẩm, không nằm trong danh sách rút gọn: ${detail}`);
+}
 
 console.log('✅ Supplier detail layout: identity header with cover/avatar/verification, quick stats, grouped main column, sticky portal and profile rail.');

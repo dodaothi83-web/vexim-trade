@@ -5,6 +5,8 @@ import {
   Banknote,
   Boxes,
   Building2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   FileText,
   Globe2,
@@ -27,7 +29,7 @@ import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { roleLabel, supplierTypeLabel, statusMeta } from "@/lib/supplier";
-import { isExpired } from "@/lib/media/readiness";
+import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
 import { MediaGallery, MediaThumb } from "@/components/media-gallery";
 import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -75,9 +77,13 @@ function SectionHead({ icon: Icon, title, sub, action }: {
 
 export default async function SupplierDetailPage({
   params,
+  searchParams,
 }: {
-  params: Promise<{ slug: string }> }) {
-  const { slug: id } = await params;
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const [{ slug: id }, sp] = await Promise.all([params, searchParams]);
+  const requestedPage = Number(sp.page ?? "1");
   const session = await requireSession();
   const canManage = hasPermission(session.role, "suppliers.manage");
   const canPublish = hasPermission(session.role, "suppliers.publish");
@@ -108,14 +114,6 @@ export default async function SupplierDetailPage({
     if (!m.product_id || m.kind !== "image" || m.audience !== "buyer") continue;
     if (!thumbByProduct.has(m.product_id)) thumbByProduct.set(m.product_id, m);
   }
-  const shareableCount = (productId: string) =>
-    productMedia.filter(
-      (m) =>
-        m.product_id === productId &&
-        (m.kind === "image" || m.kind === "catalogue") &&
-        m.audience === "buyer" &&
-        !isExpired(m),
-    ).length;
   const accountUser = await store.getUserBySupplierId(id).catch((error) => {
     console.error("[supplier-account] cannot read linked account", error);
     return null;
@@ -144,6 +142,16 @@ export default async function SupplierDetailPage({
   const avatarUrl = supplier.profile_image ? supplierImageUrl(supplier.profile_image) : null;
   const typeLabel = supplier.onboarding_status === "not_started" ? "Chưa khai loại hình" : supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : roleLabel(supplier.role);
   const showOnboarding = supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested" || supplier.onboarding_status === "approved";
+  const orderedProducts = orderCrmProducts(products);
+  const {
+    visibleRows: visibleProducts,
+    currentPage: productPage,
+    pageCount: productPageCount,
+    firstRow: firstProduct,
+    lastRow: lastProduct,
+  } = paginateCrmProducts(orderedProducts, requestedPage);
+  const productPageHref = (nextPage: number) =>
+    `${nextPage > 1 ? `/crm/suppliers/${id}?page=${nextPage}` : `/crm/suppliers/${id}`}#supplier-products`;
 
   return (
     <>
@@ -282,11 +290,11 @@ export default async function SupplierDetailPage({
             canViewReviews={canViewReviews}
           />
 
-          <Card className="p-5">
+          <section id="supplier-products" className="card scroll-mt-24 p-5">
             <SectionHead
               icon={Boxes}
               title={`Sản phẩm (${products.length})`}
-              sub="Quy cách, MOQ và giá tham khảo được tách thành cột để dễ đối chiếu."
+              sub="Chỉ hiển thị thông tin cơ bản. Chọn Xem hoặc Sửa để mở toàn bộ hồ sơ."
               action={canManageProducts ? (
                 <Link href={`/crm/suppliers/${id}/products/new`} className="btn btn-primary">
                   <Plus className="h-4 w-4" />
@@ -298,7 +306,7 @@ export default async function SupplierDetailPage({
               <EmptyState
                 icon={<Boxes className="h-5 w-5" />}
                 title="Chưa có hồ sơ sản phẩm"
-                sub="Thêm từng dòng sản phẩm với MOQ, chứng nhận và giá tham khảo để so khớp RFQ."
+                sub="Thêm hồ sơ sản phẩm để bắt đầu so khớp RFQ."
                 action={
                   canManageProducts ? (
                     <Link href={`/crm/suppliers/${id}/products/new`} className="btn btn-primary">
@@ -309,101 +317,57 @@ export default async function SupplierDetailPage({
               />
             ) : (
               <>
-                <div className="hidden gap-4 border-b border-ink-200 pb-2 text-[11px] font-bold uppercase tracking-wide text-ink-400 lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(150px,0.85fr)_minmax(180px,0.85fr)]">
-                  <span>Sản phẩm</span>
-                  <span>Thông tin thương mại</span>
-                  <span>Giá & trạng thái</span>
-                </div>
                 <ul className="divide-y divide-ink-100">
-                  {products.map((pr) => (
-                    <li key={pr.id} className="grid gap-4 py-4 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1.55fr)_minmax(150px,0.85fr)_minmax(180px,0.85fr)] lg:first:pt-4">
-                      <div className="flex min-w-0 gap-3">
-                        <MediaThumb asset={thumbByProduct.get(pr.id) ?? null} size="h-16 w-16" />
+                  {visibleProducts.map((pr) => (
+                    <li key={pr.id} className="flex flex-wrap items-center gap-3 py-3">
+                      <div className="flex min-w-[190px] flex-1 items-center gap-3">
+                        <MediaThumb asset={thumbByProduct.get(pr.id) ?? null} size="h-12 w-12" />
                         <div className="min-w-0">
                           <Link
                             href={`/crm/products/${pr.id}`}
                             title={pr.name}
-                            className="line-clamp-2 text-[14px] font-bold leading-5 text-ink-900 hover:text-brand-700 hover:underline"
+                            className="block truncate text-[14px] font-bold text-ink-900 hover:text-brand-700 hover:underline"
                           >
                             {pr.name}
                           </Link>
-                          <p className="mt-1 text-[12px] font-medium text-ink-500">{pr.category || "Khác"}</p>
-                          <p className="mt-1 line-clamp-2 text-[12.5px] leading-5 text-ink-600" title={pr.spec ?? undefined}>
-                            {pr.spec || "Chưa có quy cách"}
-                          </p>
-                          {(pr.certifications || pr.oem || pr.samples) && (
-                            <p
-                              className="mt-2 line-clamp-2 text-[11.5px] leading-5 text-ink-500"
-                              title={[pr.certifications, pr.oem ? "OEM" : null, pr.samples ? "Có gửi mẫu" : null].filter(Boolean).join(" · ")}
-                            >
-                              {[pr.certifications, pr.oem ? "OEM" : null, pr.samples ? "Có gửi mẫu" : null].filter(Boolean).join(" · ")}
-                            </p>
-                          )}
+                          <p className="mt-0.5 truncate text-[12px] text-ink-500">{pr.category || "Khác"}</p>
                         </div>
                       </div>
-
-                      <dl className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 border-t border-ink-100 pt-3 text-[12.5px] lg:grid-cols-1 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-                        <div>
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">MOQ</dt>
-                          <dd className="mt-0.5 break-words font-semibold text-ink-800">{pr.moq || "Chưa khai"}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Năng lực/tháng</dt>
-                          <dd className="mt-0.5 break-words font-semibold text-ink-800">{pr.monthly_capacity || "Chưa khai"}</dd>
-                        </div>
-                        <div className="col-span-2 lg:col-span-1">
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Lead time</dt>
-                          <dd className="mt-0.5 break-words font-semibold text-ink-800">{pr.lead_time_days != null ? `${pr.lead_time_days} ngày` : "Chưa khai"}</dd>
-                        </div>
-                      </dl>
-
-                      <div className="flex min-w-0 flex-col gap-3 border-t border-ink-100 pt-3 lg:h-full lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Giá tham khảo</p>
-                          {pr.ref_price != null ? (
-                            <>
-                              <p className="mt-1 text-[17px] font-bold leading-6 text-ink-900">{formatMoney(pr.ref_price)}</p>
-                              <p className="mt-0.5 break-words text-[12px] text-ink-500">
-                                {pr.incoterm || pr.incoterm_place
-                                  ? `/ ${pr.unit || "đv"} · ${[pr.incoterm, pr.incoterm_place].filter(Boolean).join(" ")}`
-                                  : `/ ${pr.unit || "đv"}`}
-                              </p>
-                            </>
-                          ) : (
-                            <p className="mt-1 text-[12.5px] text-ink-400">Chưa có giá tham khảo</p>
-                          )}
-                          {pr.price_valid_until && (
-                            <p className="mt-1 text-[11px] text-ink-400">Hiệu lực đến {formatDate(pr.price_valid_until)}</p>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3">
-                          {pr.ready_for_buyer ? (
-                            <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
-                          ) : shareableCount(pr.id) === 0 ? (
-                            <Badge className="bg-amber-50 text-amber-700">Chưa có ảnh/catalogue</Badge>
-                          ) : (
-                            <Badge className="bg-ink-100 text-ink-600">Chưa bật sẵn sàng</Badge>
-                          )}
-                          <span className="text-[11px] text-ink-400">{shareableCount(pr.id)} tệp buyer</span>
-                        </div>
-                        {/* Review opens the product first; editing stays a separate action. */}
-                        <div className="mt-auto flex gap-2">
-                          <Link href={`/crm/products/${pr.id}`} className="btn btn-ghost min-w-0 flex-1 justify-center px-2 py-1.5 text-[12px]">
-                            <Eye className="h-3.5 w-3.5" /> Xem
+                      <div className="ml-auto flex flex-wrap items-center gap-2">
+                        {pr.supplier_review_status === "pending" ? (
+                          <Badge className="bg-amber-100 text-amber-900">Chờ Vexim kiểm tra</Badge>
+                        ) : pr.supplier_review_status === "changes_requested" ? (
+                          <Badge className="bg-orange-50 text-orange-800">Cần NCC sửa</Badge>
+                        ) : pr.ready_for_buyer ? (
+                          <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
+                        ) : null}
+                        <Link href={`/crm/products/${pr.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[12px]">
+                          <Eye className="h-3.5 w-3.5" /> Xem
+                        </Link>
+                        {canManageProducts && (
+                          <Link href={`/crm/products/${pr.id}/edit`} className="btn btn-soft px-2.5 py-1.5 text-[12px]">
+                            <Pencil className="h-3.5 w-3.5" /> Sửa
                           </Link>
-                          {canManageProducts && (
-                            <Link href={`/crm/products/${pr.id}/edit`} className="btn btn-soft min-w-0 flex-1 justify-center px-2 py-1.5 text-[12px]">
-                              <Pencil className="h-3.5 w-3.5" /> Sửa
-                            </Link>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </li>
                   ))}
                 </ul>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-3">
+                  <p className="text-[11.5px] text-ink-500">Hiển thị {firstProduct}-{lastProduct} trong {products.length} sản phẩm. Mỗi trang tối đa {CRM_PRODUCTS_PAGE_SIZE} sản phẩm.</p>
+                  {productPageCount > 1 && <nav aria-label="Phân trang sản phẩm của NCC" className="flex items-center gap-2">
+                    {productPage > 1 && <Link href={productPageHref(productPage - 1)} className="btn btn-ghost px-2.5 py-1.5" aria-label="Trang sản phẩm trước">
+                      <ChevronLeft className="h-4 w-4" /> Trước
+                    </Link>}
+                    <span className="min-w-[84px] text-center text-[12px] text-ink-600" aria-current="page">Trang {productPage} / {productPageCount}</span>
+                    {productPage < productPageCount && <Link href={productPageHref(productPage + 1)} className="btn btn-ghost px-2.5 py-1.5" aria-label="Trang sản phẩm sau">
+                      Sau <ChevronRight className="h-4 w-4" />
+                    </Link>}
+                  </nav>}
+                </div>
               </>
             )}
-          </Card>
+          </section>
 
           {canSeeBuyers && (
             <Card className="p-5">
