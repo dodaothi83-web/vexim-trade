@@ -22,9 +22,12 @@ for (const title of ['Doanh nghiệp', 'Liên hệ', 'Hiển thị cho buyer', '
 }
 assert.ok(!edit.includes('<details'), 'form sửa không giấu trường quan trọng trong khối đóng mở nữa');
 
-// Cột phải: trạng thái và chuyển trạng thái, quyền giá giữ nguyên neo cuộn, mức độ hoàn thiện.
+// Cột phải chỉ xem trạng thái và dẫn về trung tâm xét duyệt, không lặp các nút quyết định.
 assert.match(edit, /Trạng thái hồ sơ/, 'cột phải phải có thẻ trạng thái');
-assert.match(edit, /Công khai hồ sơ/, 'cột phải phải có thao tác chuyển trạng thái');
+assert.match(edit, /Mở trung tâm xét duyệt/, 'form sửa phải dẫn về nơi xét duyệt tập trung');
+assert.match(edit, /#supplier-review/);
+assert.ok(!edit.includes('nextOptions') && !edit.includes('transitionTo') && !edit.includes('Công khai hồ sơ'),
+  'không giữ các nút chuyển trạng thái trùng lặp trong form sửa');
 assert.match(edit, /id="price-sharing"/, 'thẻ quyền hiển thị giá phải giữ neo #price-sharing cho trang sản phẩm liên kết tới');
 assert.ok(edit.includes('Quyền hiển thị giá của sản phẩm'), 'phải giữ nguyên khối chấp thuận hiển thị giá');
 assert.match(edit, /Mức độ hoàn thiện/, 'cột phải phải có checklist mức độ hoàn thiện');

@@ -77,7 +77,8 @@ assert.equal(res.ok, true, 'Admin can publish explicitly');
 assert.equal(lastWrite.status, 'published');
 
 const form = readFileSync(new URL('../components/supplier-form.tsx', import.meta.url), 'utf8');
-assert.ok(form.includes('status: nextStatus ?? (saved.status'), 'Save must not silently change status');
+assert.ok(form.includes('status: (saved.status as SupplierStatus)'), 'Save must keep the existing status');
+assert.ok(!form.includes('nextStatus') && !form.includes('transitionTo'), 'Status decisions belong only to the review workflow');
 assert.ok(!form.includes('onClick={() => set("verification_level"'), 'Verification level must not be editable');
 assert.ok(!form.includes('Giá FOB thấp nhất') && !form.includes('fob_min'), 'Supplier form cannot enter a price');
 assert.ok(form.includes('Quyền hiển thị giá của sản phẩm'), 'Supplier consent remains separate from product prices');

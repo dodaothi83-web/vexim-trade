@@ -34,10 +34,9 @@ import { MediaGallery, MediaThumb } from "@/components/media-gallery";
 import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { StageBadge } from "@/components/stage-select";
-import { DeleteSupplierButton, SupplierPublicationControls } from "@/components/supplier-actions";
+import { DeleteSupplierButton } from "@/components/supplier-actions";
 import { VerificationCoverSeal, VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import { VerificationPanel } from "./verification-panel";
-import { OnboardingControls } from "./onboarding-controls";
 import { SupplierAccountControls } from "./account-controls";
 
 export const dynamic = "force-dynamic";
@@ -141,7 +140,6 @@ export default async function SupplierDetailPage({
   const coverUrl = supplier.cover_image ? supplierImageUrl(supplier.cover_image) : null;
   const avatarUrl = supplier.profile_image ? supplierImageUrl(supplier.profile_image) : null;
   const typeLabel = supplier.onboarding_status === "not_started" ? "Chưa khai loại hình" : supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : roleLabel(supplier.role);
-  const showOnboarding = supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested" || supplier.onboarding_status === "approved";
   const orderedProducts = orderCrmProducts(products);
   const {
     visibleRows: visibleProducts,
@@ -167,7 +165,6 @@ export default async function SupplierDetailPage({
           .join(" · ")}
         actions={
           <>
-            {canPublish && <SupplierPublicationControls supplierId={id} status={supplier.status} />}
             {canManage && (
               <>
                 <Link href={`/crm/suppliers/${id}/edit`} className="btn btn-ghost">
@@ -279,6 +276,22 @@ export default async function SupplierDetailPage({
           </p>
         </div>
       )}
+
+      <div id="supplier-review" className="mb-4 scroll-mt-24">
+        <VerificationPanel
+          supplierId={id}
+          verifications={verifications}
+          requests={requests}
+          canInspect={canInspect}
+          canViewReviews={canViewReviews}
+          onboardingStatus={supplier.onboarding_status}
+          onboardingNote={supplier.onboarding_note}
+          supplierStatus={supplier.status}
+          canManage={canManage}
+          canDecideOnboarding={canManage && (session.role === "admin" || session.role === "sourcing")}
+          canPublish={canPublish}
+        />
+      </div>
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
         <div className="min-w-0 space-y-4">
@@ -452,14 +465,6 @@ export default async function SupplierDetailPage({
             )}
           </section>
 
-          <VerificationPanel
-            supplierId={id}
-            verifications={verifications}
-            requests={requests}
-            canInspect={canInspect}
-            canViewReviews={canViewReviews}
-          />
-
           <MediaGallery
             items={supplierMedia}
             title="Kho ảnh & tài liệu chung của NCC"
@@ -490,15 +495,6 @@ export default async function SupplierDetailPage({
               canProvision={canManage && (session.role === "admin" || session.role === "sourcing")}
               canHandOver={canManage && (session.role === "admin" || session.role === "sourcing")}
             />
-            {showOnboarding && (
-              <div className="mt-4 border-t border-ink-100 pt-4">
-                <h3 className="text-sm font-bold text-ink-900">Quyền sử dụng cổng</h3>
-                <p className="mt-1 text-sm leading-6 text-ink-600">{supplier.onboarding_status === "approved" ? "Đã được Vexim xác nhận tài khoản." : supplier.onboarding_status === "pending" ? "Hồ sơ đã nộp; tài khoản chưa sử dụng được. Kiểm tra thông tin và giấy tờ trước khi xác nhận." : "Đang chờ nhà cung cấp bổ sung thông tin."} Việc xác nhận này không duyệt giấy tờ hay công khai hồ sơ.</p>
-                {supplier.onboarding_note && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Yêu cầu bổ sung: {supplier.onboarding_note}</p>}
-                {supplier.onboarding_status === "pending" && canManage && (session.role === "admin" || session.role === "sourcing") &&
-                  <OnboardingControls supplierId={id} />}
-              </div>
-            )}
           </Card>
 
           <Card className="overflow-hidden">
