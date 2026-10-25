@@ -33,6 +33,7 @@ vm.runInNewContext(js, {
   hasPermission: (r, permission) => r === 'admin' && permission === 'suppliers.publish',
   nextStatusOptions: (status) => ({ draft: ['submitted'], submitted: ['in_verification'], in_verification: ['published'], published: ['suspended', 'archived'] })[status] ?? [],
   statusMeta: (status) => ({ label: status }), revalidateAll: () => {},
+  ensureSupplierProfileEnglish: async () => {}, syncSupplierIndustries: async () => null,
 }, { filename: 'supplier-actions.ts' });
 
 let res = await exports.createSupplierAction({ name: 'New', status: 'published', verification_level: 3, verified_at: '2025-01-01', fob_min: 999, fob_max: 1000, fob_publicly_visible: true, fob_updated_at: '2099-01-01' });
@@ -89,7 +90,7 @@ const parseProductCode = source.slice(source.indexOf('function parseProductInput
 const productParser = { exports: {} };
 vm.runInNewContext(ts.transpileModule(parseProductCode + '\nexports.parseProductInput = parseProductInput;', {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText, { exports: productParser.exports, str, num, bool });
+}).outputText, { exports: productParser.exports, str, num, bool, displayNameInput: (value) => str(value)?.slice(0, 120) ?? null });
 const parsedProduct = productParser.exports.parseProductInput({ supplier_id: 'supplier-a', name: 'Cashew',
   description: 'Short', description_detail: 'Long details\nApplication', ref_price: 7, ref_price_max: 9, price_publicly_visible: true,
   fob_updated_at: '2099-01-01' });
@@ -150,6 +151,10 @@ vm.runInNewContext(aiJs, {
     '@/lib/auth/session': { getSession: async () => mockRole && { uid: 'staff-1', role: mockRole } },
     '@/lib/auth/permissions': { hasPermission: (r, p) => r === 'admin' && p === 'categories.manage' },
     '@/lib/ai/company-introduction': { readOutputText: (p) => p.output_text },
+    '@/lib/ai/draft-style': {
+      HUMAN_STYLE_RULES: '', CATEGORY_INTRO_SYSTEM: '', FAQ_SYSTEM: '',
+      sanitizeDraftText: (text) => text, parseFaqDraft: () => [],
+    },
     '@/lib/rfq/rate-limit': { rateLimit: () => ({ ok: true }) },
   })[path],
 }, { filename: 'ai-editor-route.ts' });

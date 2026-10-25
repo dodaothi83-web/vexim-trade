@@ -13,7 +13,18 @@ import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import type { MediaAsset } from "@/lib/types";
 
-type Result = { ok: boolean; message: string };
+type Result = {
+  ok: boolean;
+  message: string;
+  english?: {
+    name: string;
+    description: string;
+    spec: string;
+    description_detail: string;
+    packaging: string;
+    certifications: string;
+  };
+};
 
 export async function decideSupplierProductAction(form: FormData): Promise<Result> {
   const denied = await guard("products.manage");
@@ -118,8 +129,21 @@ export async function translateProductEnglishAction(productId: string): Promise<
     const result = await ensureProductEnglishTranslation(store, productId, { id: session.uid, email: session.email });
     if (result.status === "unconfigured") return { ok: false, message: "Chức năng AI chưa được cấu hình trên máy chủ. Bạn vẫn có thể tự nhập bản dịch tiếng Anh rồi lưu." };
     if (result.status === "failed") return { ok: false, message: result.message };
+    const saved = await store.getProduct(productId);
+    if (!saved) return { ok: false, message: "Không tìm thấy sản phẩm sau khi dịch." };
     revalidatePath(`/crm/products/${productId}/edit`);
-    return { ok: true, message: result.status === "current" ? "Bản dịch tiếng Anh đã khớp nội dung gốc hiện tại." : "Đã dịch nội dung sang tiếng Anh bằng AI. Hãy đọc lại trước khi công khai." };
+    return {
+      ok: true,
+      message: result.status === "current" ? "Bản dịch tiếng Anh đã khớp nội dung gốc hiện tại." : "Đã dịch nội dung sang tiếng Anh bằng AI. Hãy đọc lại trước khi công khai.",
+      english: {
+        name: saved.name_i18n?.en ?? "",
+        description: saved.description_i18n?.en ?? "",
+        spec: saved.spec_i18n?.en ?? "",
+        description_detail: saved.description_detail_i18n?.en ?? "",
+        packaging: saved.packaging_i18n?.en ?? "",
+        certifications: saved.certifications_i18n?.en ?? "",
+      },
+    };
   } catch (error) {
     console.error("[product-translation-action]", error);
     return { ok: false, message: error instanceof Error ? error.message : "Không dịch được nội dung." };

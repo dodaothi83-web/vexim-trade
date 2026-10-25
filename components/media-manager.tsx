@@ -177,7 +177,7 @@ export function MediaManager({
 
   async function patch(id: string, next: Parameters<typeof updateMediaAction>[1]) {
     const res = await updateMediaAction(id, next);
-    if (!res.ok) toast.push({ kind: "error", title: res.message });
+    toast.push({ kind: res.ok ? "success" : "error", title: res.ok ? "Đã lưu thay đổi tệp." : res.message });
     router.refresh();
   }
 
@@ -217,6 +217,7 @@ export function MediaManager({
 
       {/* Khu tải lên */}
       {!readOnly && <div className="border-b border-ink-200 bg-ink-50/60 px-4 py-3">
+        <p className="mb-2.5 text-[11.5px] text-ink-500">Tệp và các thay đổi trong khu này được lưu ngay, tách biệt với nút Lưu thay đổi của hồ sơ.</p>
         <div className="mb-2.5 flex flex-wrap gap-1.5">
           {MEDIA_KINDS.filter((k) => ownerType !== "verification" || ["image", "document", "certificate", "video"].includes(k.value)).map((k) => (
             <button

@@ -91,10 +91,12 @@ assert.match(editor, /productCanSubmit\(product, media\)/);
 assert.doesNotMatch(editor, /aria-label="Trạng thái công khai"/, 'The separate buyer-visibility panel is removed from the editor');
 assert.match(editor, /const canUpload = !!product && !locked && !dirty && \(review !== "approved" \|\| product\.supplier_originated === true\)/, 'Approved supplier-originated products remain editable and accept media');
 assert.match(editor, /const categoryLocked = review === "approved"/, 'The reviewed category remains staff-controlled');
+let editorDirty = false;
 const { SupplierProductReviewControls } = load('../app/crm/products/[slug]/edit/review-controls.tsx', {
   react: React, 'react/jsx-runtime': jsx,
   'next/navigation': { useRouter: () => ({ refresh() {} }) },
   './review-actions': { decideSupplierProductAction: async () => ({ ok: true, message: 'saved' }) },
+  './edit-workspace': { useProductEditWorkspace: () => ({ dirty: editorDirty }) },
 });
 const reviewProps = { id: 'p3', proposal: 'cashew', reviewed: 'cashew',
   categories: [{ slug: 'cashew', label: 'Hạt điều' }] };
@@ -105,16 +107,58 @@ assert.ok(!retryHtml.includes('Yêu cầu chỉnh sửa'), 'Legacy completion do
 const pendingReviewHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, { ...reviewProps, allowChanges: true }));
 assert.ok(pendingReviewHtml.includes('Duyệt và đăng') && pendingReviewHtml.includes('Yêu cầu chỉnh sửa'),
   'Pending review keeps both staff decisions');
+editorDirty = true;
+const dirtyReviewHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, reviewProps));
+assert.ok(dirtyReviewHtml.includes('Lưu thay đổi trong hồ sơ và bản dịch trước khi duyệt và đăng'),
+  'Review explains why publication is waiting for saved edits');
+assert.match(dirtyReviewHtml, /<button disabled="" class="btn btn-primary">Duyệt và đăng<\/button>/,
+  'Publication is disabled while product or translation edits are unsaved');
+editorDirty = false;
 const crmEditPage = fs.readFileSync(new URL('../app/crm/products/[slug]/edit/page.tsx', import.meta.url), 'utf8');
 assert.match(crmEditPage, /needsPublicationAction = supplierReviewedListing && \(product\.supplier_review_status === "pending" \|\| needsPublicationRetry\)/);
 assert.match(crmEditPage, /missingWebsiteChecks/);
 assert.match(crmEditPage, /CRM-created products keep their existing checklist/, 'CRM-created product posting stays outside the simplification');
 assert.match(crmEditPage, /supplierReviewedListing \? \[/, 'Only supplier products use the simplified checklist');
+assert.ok(crmEditPage.includes('const missingWebsiteChecks = websiteChecks.filter((item) => !item.done'),
+  'The status card only lists outstanding readiness work');
+assert.ok(crmEditPage.includes('order-2 min-w-0 space-y-5 xl:order-1') && crmEditPage.includes('contents xl:order-2 xl:block') && crmEditPage.includes('card order-3 p-4'),
+  'Only publication status precedes the mobile form; desktop keeps the right column');
+assert.ok(crmEditPage.indexOf('<MediaManager') < crmEditPage.indexOf('<ProductTranslationPanel'),
+  'Media comes before translation in the editor workflow');
+assert.ok(!crmEditPage.includes('key={product.id}'),
+  'Server refreshes do not remount and erase the active product form');
+assert.ok(crmEditPage.includes('previewImage={previewImage}'),
+  'The editor has an in-form preview backed by the saved cover image');
+const editWorkspace = fs.readFileSync(new URL('../app/crm/products/[slug]/edit/edit-workspace.tsx', import.meta.url), 'utf8');
+assert.ok(editWorkspace.includes('beforeunload') && editWorkspace.includes('event.preventDefault()'),
+  'Shared dirty state protects browser close and reload');
+assert.ok(editWorkspace.includes('window.confirm("Bạn có thay đổi chưa lưu.'),
+  'Internal navigation warns before losing unsaved edits');
 const translationPanel = fs.readFileSync(new URL('../app/crm/products/[slug]/edit/translation-panel.tsx', import.meta.url), 'utf8');
 assert.match(translationPanel, /supplierProduct = false/);
 assert.match(translationPanel, /bản dịch không chặn việc duyệt và đăng/i);
 const productForm = fs.readFileSync(new URL('../components/product-form.tsx', import.meta.url), 'utf8');
 assert.match(productForm, /mediaState && !supplierReviewedListing/);
+assert.ok(productForm.includes('handleTabKeyDown') && productForm.includes('aria-controls={`product-panel-${t.key}`}'),
+  'Product tabs expose relationships and keyboard navigation');
+assert.ok(productForm.includes('<fieldset disabled={busy}') && productForm.includes('disabled={busy || (!!product && !dirty)}'),
+  'Inputs lock during save and clean existing forms disable saving');
+assert.ok(productForm.includes('const priceRangeError =') && productForm.includes('if (priceRangeError) {'),
+  'Invalid price ranges are caught inline and before submission');
+assert.ok(productForm.includes('Xem trước thẻ sản phẩm') && productForm.includes('previewPrice'),
+  'The preview reflects current form values without adding a separate detail page');
+assert.ok(productForm.includes('mayAutoTranslate') && productForm.includes('có thể kích hoạt AI dịch lại'),
+  'Automatic AI translation during product save also requires overwrite confirmation');
+assert.ok(productForm.includes('useRegisterProductEditDirty("source", sourceDirty)'),
+  'Translation waits only for unsaved original text, not unrelated price or category edits');
+assert.ok(translationPanel.includes('sourceDirty') && translationPanel.includes('Lưu nội dung gốc trước khi dịch'),
+  'Translation cannot silently use an older original version');
+assert.ok(translationPanel.includes('response.english') && translationPanel.includes('setSavedValues(response.english)'),
+  'AI responses synchronize displayed and saved English values');
+assert.ok(translationPanel.includes('previousEnglishSnapshot') && translationPanel.includes('setSavedValues(english)'),
+  'Server-side translations also synchronize without erasing unsaved staff edits');
+assert.ok(translationPanel.includes('hasDisplayedEnglish') && translationPanel.includes('window.confirm("Dịch lại bằng AI'),
+  'AI overwrite requires confirmation');
 const productActions = fs.readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 assert.match(productActions, /input\.ready_for_buyer = existing\.ready_for_buyer/);
 assert.match(productActions, /if \(input\.ready_for_buyer && !supplierProduct\)/, 'CRM-created products retain the old readiness gate; supplier saves do not change it');

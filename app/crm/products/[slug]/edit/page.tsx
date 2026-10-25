@@ -17,6 +17,7 @@ import { SupplierProductReviewControls } from "./review-controls";
 import { ProductTranslationPanel } from "./translation-panel";
 import { productTranslationState } from "@/lib/ai/translate-content";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
+import { ProductEditWorkspace } from "./edit-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -60,37 +61,37 @@ export default async function EditProductPage({
     (supplier.is_demo ? process.env.VEXIM_SHOW_DEMO === "true" : product.ready_for_buyer && readiness.ready) &&
     !isTestOnlyProduct(product.name);
   const productImages = media.filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m));
+  const previewMedia = productImages.find((item) => item.id === product.featured_media_id) ?? productImages[0] ?? null;
+  const previewImage = previewMedia ? `/api/media/file/${previewMedia.thumb_path || previewMedia.storage_path}` : null;
   const priceBlockers = productPriceBlockers(product, supplier);
   const visiblePrice = canView && !priceBlockers.length ? publicProductPrice(product, supplier) : null;
 
   const translationState = productTranslationState(product);
-  const websiteChecks: Array<{ done: boolean; label: string; automatic?: boolean }> = supplierReviewedListing ? [
+  const websiteChecks: Array<{ done: boolean; label: string; automatic?: boolean; href?: string }> = supplierReviewedListing ? [
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đang xuất bản` },
     { done: supplier.status === "published", label: "Hồ sơ NCC đang công khai" },
     { done: commercialSupplier, label: "Hồ sơ không phải dữ liệu thử nghiệm" },
-    { done: readiness.ready, label: "Có ảnh hoặc catalogue chia sẻ cho buyer", automatic: needsPublicationAction },
+    { done: readiness.ready, label: "Có ảnh hoặc catalogue chia sẻ cho buyer", automatic: needsPublicationAction, href: "#product-media" },
     { done: productReviewApproved(product) && !!product.ready_for_buyer, label: "Sản phẩm đã được duyệt và đăng", automatic: needsPublicationAction },
     { done: !isTestOnlyProduct(product.name), label: "Tên sản phẩm không phải dữ liệu thử nghiệm" },
   ] : [
     // CRM-created products keep their existing checklist and manual posting flow.
-    { done: translationState.current, label: translationState.hasEnglish ? "Đã có bản dịch tiếng Anh khớp nội dung gốc (AI dịch, nhân viên chốt ở mục Bản dịch bên dưới)" : "Chưa có bản dịch tiếng Anh; dịch bằng AI ở mục Bản dịch bên dưới trước khi công khai" },
+    { done: translationState.current, label: translationState.hasEnglish ? "Bản dịch tiếng Anh cần cập nhật theo nội dung gốc" : "Cần có bản dịch tiếng Anh trước khi công khai", href: "#product-translation" },
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đã đăng` },
     { done: supplier.status === "published", label: "NCC đã đăng (không tự chuyển trạng thái khi lưu)" },
     { done: commercialSupplier, label: "Hồ sơ NCC không phải dữ liệu thử nghiệm (tên, slug hoặc giới thiệu có TEST / DO NOT CONTACT; hồ sơ demo chỉ xem khi bật chế độ demo)" },
-    { done: readiness.ready, label: "Có ít nhất một ảnh/catalogue của sản phẩm được chia sẻ buyer" },
+    { done: readiness.ready, label: "Thêm ít nhất một ảnh hoặc catalogue chia sẻ buyer", href: "#product-media" },
     { done: productReviewApproved(product), label: "Vexim đã xác nhận nội dung và danh mục sản phẩm NCC" },
     { done: !!product.ready_for_buyer, label: "Đã bật “Sẵn sàng gửi buyer” và lưu hồ sơ" },
     { done: !isTestOnlyProduct(product.name), label: "Tên không bắt đầu bằng TEST ONLY" },
   ];
-  // Supplier products show only missing requirements. Automatic media/review
-  // changes are completed by the single publish action, not separate staff steps.
+  // Chỉ hiển thị điều kiện còn thiếu. Sản phẩm đã đủ điều kiện dùng một trạng thái
+  // ngắn, không lặp lại toàn bộ checklist đã hoàn thành.
   const missingWebsiteChecks = websiteChecks.filter((item) => !item.done && !(needsPublicationAction && item.automatic));
-  const shownWebsiteChecks = supplierReviewedListing ? missingWebsiteChecks : websiteChecks;
-  const showLiveSummary = supplierReviewedListing && canView;
-  const showWebsiteSection = supplierReviewedListing ? canView || missingWebsiteChecks.length > 0 : true;
+  const showWebsiteSection = canView || missingWebsiteChecks.length > 0;
 
   return (
-    <>
+    <ProductEditWorkspace>
       <PageHeader
         breadcrumbs={
           <Breadcrumbs
@@ -108,8 +109,8 @@ export default async function EditProductPage({
         }
       />
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
-        <div className="min-w-0 space-y-5">
-          {product.supplier_review_status && (product.supplier_review_status !== "approved" || needsPublicationRetry) && <section className="card border-amber-200 bg-amber-50 p-5 text-sm">
+        <div className="order-2 min-w-0 space-y-5 xl:order-1">
+          {product.supplier_review_status && (product.supplier_review_status !== "approved" || needsPublicationRetry) && <section id="product-review" className="card scroll-mt-24 border-amber-200 bg-amber-50 p-5 text-sm">
             <h2 className="font-bold text-ink-900">{needsPublicationAction ? "Duyệt và đăng" : product.supplier_review_status === "changes_requested" ? "Cần chỉnh sửa" : "Bản nháp"}</h2>
             <p className="mt-1 text-ink-700">{needsPublicationAction
               ? "Kiểm tra nội dung, danh mục và tệp. Một thao tác sẽ hoàn tất việc đăng sản phẩm."
@@ -127,14 +128,26 @@ export default async function EditProductPage({
               />}
           </section>}
           <ProductForm
-            key={`${product.id}:${product.updated_at}`}
             supplier={supplier}
             product={product}
             categories={categories}
             supplierCategories={supplierCategories}
             mediaState={{ ready: readiness.ready, shareable: readiness.shareable }}
             savedPrice={{ buyerPrice: visiblePrice, blockers: priceBlockers, publicProduct: canView }}
+            previewImage={previewImage}
+            savedTranslationCurrent={translationState.current}
           />
+          {!supplierReviewedListing && <ReadyHint ready={readiness.ready} shareable={readiness.shareable} />}
+          <div id="product-media" className="scroll-mt-24">
+            <MediaManager
+              ownerType="product"
+              ownerId={product.id}
+              supplierId={supplier.id}
+              items={media}
+              featuredMediaId={product.featured_media_id}
+              note={supplierReviewedListing ? "Tệp của NCC sẽ được dùng khi đăng. Tài liệu nội bộ của staff vẫn riêng tư." : "Ảnh/catalogue chia sẻ buyer · giấy tờ nội bộ chỉ dùng trong nhà"}
+            />
+          </div>
           <ProductTranslationPanel
             id={product.id}
             supplierProduct={supplierReviewedListing}
@@ -159,42 +172,32 @@ export default async function EditProductPage({
             translatedAt={translationState.translatedAt}
             origin={translationState.origin}
           />
-          {!supplierReviewedListing && <ReadyHint ready={readiness.ready} shareable={readiness.shareable} />}
-          <MediaManager
-            ownerType="product"
-            ownerId={product.id}
-            supplierId={supplier.id}
-            items={media}
-            featuredMediaId={product.featured_media_id}
-            note={supplierReviewedListing ? "Tệp của NCC sẽ được dùng khi đăng. Tài liệu nội bộ của staff vẫn riêng tư." : "Ảnh/catalogue chia sẻ buyer · giấy tờ nội bộ chỉ dùng trong nhà"}
-          />
         </div>
 
-        <aside className="space-y-4 xl:sticky xl:top-6">
-          {showWebsiteSection && <section className="card p-4" aria-label={supplierReviewedListing ? "Điều kiện đăng sản phẩm" : "Điều kiện xuất hiện trên website"}>
-            <h2 className="mb-2 text-sm font-bold text-ink-900">{supplierReviewedListing ? (canView ? "Trạng thái đăng" : "Còn thiếu trước khi đăng") : "Điều kiện xuất hiện trên website"}</h2>
-            {!supplierReviewedListing && <p className="mb-3 text-xs leading-relaxed text-ink-500">NCC chọn trong danh mục Vexim đã mở; Vexim kiểm tra từng sản phẩm trước khi đẩy lên sàn. Tệp NCC được duyệt sẽ chuyển sang chia sẻ buyer; tệp nội bộ của staff vẫn giữ riêng tư.</p>}
-            {showLiveSummary
+        <aside className="contents xl:order-2 xl:block xl:space-y-4 xl:sticky xl:top-6">
+          {showWebsiteSection && <section id="product-publication-status" className="card order-1 scroll-mt-24 p-4" aria-label="Trạng thái công khai sản phẩm">
+            <h2 className="mb-2 text-sm font-bold text-ink-900">{canView ? "Trạng thái đăng" : "Còn thiếu trước khi đăng"}</h2>
+            {canView
               ? <p className="flex items-start gap-2 text-[13px] text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Sản phẩm đang hiển thị với buyer.</p>
               : <ul className="space-y-2.5">
-                {shownWebsiteChecks.map((item) => (
+                {missingWebsiteChecks.map((item) => (
                   <li key={item.label} className="flex items-start gap-2 text-[13px] leading-snug">
-                    {item.done
-                      ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      : <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-amber-400 text-amber-500"><Minus className="h-3 w-3" /></span>}
-                    <span className={item.done ? "text-ink-700" : "font-medium text-ink-800"}>{item.label}</span>
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-amber-400 text-amber-500"><Minus className="h-3 w-3" /></span>
+                    <span className="font-medium text-ink-800">
+                      {item.href ? <Link href={item.href} className="text-brand-800 underline decoration-brand-300 underline-offset-2">{item.label}</Link> : item.label}
+                    </span>
                   </li>
                 ))}
               </ul>}
             {(!supplierReviewedListing || canView) && readiness.ready && !productImages.length && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">{supplierReviewedListing ? "Sản phẩm chỉ có catalogue. Thêm ảnh để thẻ sản phẩm có hình." : "Catalogue đủ điều kiện gửi buyer nhưng thẻ chưa có ảnh: tải thêm ảnh sản phẩm chia sẻ buyer để không chỉ hiện biểu tượng trống."}</p>}
             {canView && category && <p className="mt-3 border-t border-ink-100 pt-3"><Link className="text-[13px] font-semibold text-brand-700 underline" href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(product.id)}`} target="_blank">{supplierReviewedListing ? "Xem sản phẩm đã đăng" : "Xem trang sản phẩm công khai ↗"}</Link></p>}
           </section>}
-          <section className="card p-4 text-[13px] leading-relaxed text-ink-600">
+          <section className="card order-3 p-4 text-[13px] leading-relaxed text-ink-600">
             <h2 className="mb-1 text-sm font-bold text-ink-900">Chứng nhận của NCC</h2>
             <p>Chứng nhận không lấy từ ô sản phẩm tự khai. <Link href={`/crm/suppliers/${supplier.id}/certificates`} className="font-semibold text-brand-700 underline">Xem chứng nhận NCC chờ kiểm và quyết định công bố →</Link></p>
           </section>
         </aside>
       </div>
-    </>
+    </ProductEditWorkspace>
   );
 }
