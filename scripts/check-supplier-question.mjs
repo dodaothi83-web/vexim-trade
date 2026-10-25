@@ -57,6 +57,7 @@ assert.equal(sent[0].to[0], supplier.email);
 assert.equal(sent[0].replyTo, buyer.email, 'Supplier replies route directly to the consenting buyer');
 assert.match(sent[0].html, /peroxide value/);
 assert.match(sent[0].html, /buyer@example\.com/);
+assert.doesNotMatch(sent[0].html, /mailto:/i, 'Buyer email stays plain text; Reply-To handles direct replies without cross-domain mailto links');
 assert.match(sent[0].html, /products\/cashew\/p-a/);
 assert.ok(!sent[0].subject.includes('—'), 'No decorative em dash in the supplier subject');
 assert.equal(match.status, 'sent_to_supplier');
