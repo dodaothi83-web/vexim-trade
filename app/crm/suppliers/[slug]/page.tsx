@@ -5,7 +5,8 @@ import {
   Banknote,
   Boxes,
   Building2,
-  CalendarClock,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   FileText,
   Globe2,
@@ -28,15 +29,14 @@ import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { roleLabel, supplierTypeLabel, statusMeta } from "@/lib/supplier";
-import { isExpired } from "@/lib/media/readiness";
+import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
 import { MediaGallery, MediaThumb } from "@/components/media-gallery";
 import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { StageBadge } from "@/components/stage-select";
-import { DeleteSupplierButton, SupplierPublicationControls } from "@/components/supplier-actions";
+import { DeleteSupplierButton } from "@/components/supplier-actions";
 import { VerificationCoverSeal, VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import { VerificationPanel } from "./verification-panel";
-import { OnboardingControls } from "./onboarding-controls";
 import { SupplierAccountControls } from "./account-controls";
 
 export const dynamic = "force-dynamic";
@@ -76,9 +76,14 @@ function SectionHead({ icon: Icon, title, sub, action }: {
 
 export default async function SupplierDetailPage({
   params,
+  searchParams,
 }: {
-  params: Promise<{ slug: string }> }) {
-  const { slug: id } = await params;
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const [{ slug: id }, sp] = await Promise.all([params, searchParams]);
+  const requestedPage = Number(sp.page ?? "1");
+  const activeTab = sp.tab === "review" ? "review" : "overview";
   const session = await requireSession();
   const canManage = hasPermission(session.role, "suppliers.manage");
   const canPublish = hasPermission(session.role, "suppliers.publish");
@@ -109,14 +114,6 @@ export default async function SupplierDetailPage({
     if (!m.product_id || m.kind !== "image" || m.audience !== "buyer") continue;
     if (!thumbByProduct.has(m.product_id)) thumbByProduct.set(m.product_id, m);
   }
-  const shareableCount = (productId: string) =>
-    productMedia.filter(
-      (m) =>
-        m.product_id === productId &&
-        (m.kind === "image" || m.kind === "catalogue") &&
-        m.audience === "buyer" &&
-        !isExpired(m),
-    ).length;
   const accountUser = await store.getUserBySupplierId(id).catch((error) => {
     console.error("[supplier-account] cannot read linked account", error);
     return null;
@@ -144,7 +141,20 @@ export default async function SupplierDetailPage({
   const coverUrl = supplier.cover_image ? supplierImageUrl(supplier.cover_image) : null;
   const avatarUrl = supplier.profile_image ? supplierImageUrl(supplier.profile_image) : null;
   const typeLabel = supplier.onboarding_status === "not_started" ? "Chưa khai loại hình" : supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : roleLabel(supplier.role);
-  const showOnboarding = supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested" || supplier.onboarding_status === "approved";
+  const orderedProducts = orderCrmProducts(products);
+  const {
+    visibleRows: visibleProducts,
+    currentPage: productPage,
+    pageCount: productPageCount,
+    firstRow: firstProduct,
+    lastRow: lastProduct,
+  } = paginateCrmProducts(orderedProducts, requestedPage);
+  const productPageHref = (nextPage: number) =>
+    `${nextPage > 1 ? `/crm/suppliers/${id}?page=${nextPage}` : `/crm/suppliers/${id}`}#supplier-products`;
+  const detailTabs = [
+    { key: "overview", label: "Tổng quan", href: `/crm/suppliers/${id}` },
+    { key: "review", label: "Xét duyệt NCC", href: `/crm/suppliers/${id}?tab=review` },
+  ] as const;
 
   return (
     <>
@@ -160,7 +170,6 @@ export default async function SupplierDetailPage({
           .join(" · ")}
         actions={
           <>
-            {canPublish && <SupplierPublicationControls supplierId={id} status={supplier.status} />}
             {canManage && (
               <>
                 <Link href={`/crm/suppliers/${id}/edit`} className="btn btn-ghost">
@@ -264,123 +273,89 @@ export default async function SupplierDetailPage({
         </div>
       </section>
 
-      {canViewReviews && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm">
-          <p className="text-ink-700">
-            <Link href={`/crm/suppliers/${id}/audit/documents`} className="font-bold text-brand-800 underline">Kiểm tra giấy tờ L1 & chứng nhận AI quét</Link>
-            <span className="mt-0.5 block text-[13px] text-ink-600 sm:inline sm:before:content-['·_']">AI tự quét đơn vị đứng tên (chính chủ / đối tác) và ngày hết hạn của chứng nhận L1; tự nhắc NCC trước 60 / 30 / 7 / 1 ngày.</span>
-          </p>
-        </div>
-      )}
+      <div className="mb-4 overflow-x-auto border-b border-ink-200">
+        <nav className="flex min-w-max gap-1" aria-label="Phần hồ sơ nhà cung cấp">
+          {detailTabs.map((tab) => (
+            <Link
+              key={tab.key}
+              href={tab.href}
+              aria-current={activeTab === tab.key ? "page" : undefined}
+              className={cx(
+                "border-b-2 px-4 py-2.5 text-sm font-semibold transition",
+                activeTab === tab.key ? "border-brand-600 text-brand-800" : "border-transparent text-ink-500 hover:border-ink-300 hover:text-ink-800",
+              )}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
-        <div className="min-w-0 space-y-4">
+      {activeTab === "review" ? (
+        <div id="supplier-review" className="scroll-mt-24">
+          {canViewReviews && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm">
+              <p className="text-ink-700">
+                <Link href={`/crm/suppliers/${id}/audit/documents`} className="font-bold text-brand-800 underline">Kiểm tra giấy tờ L1 & chứng nhận AI quét</Link>
+                <span className="mt-0.5 block text-[13px] text-ink-600 sm:inline sm:before:content-['·_']">AI tự quét đơn vị đứng tên (chính chủ / đối tác) và ngày hết hạn của chứng nhận L1; tự nhắc NCC trước 60 / 30 / 7 / 1 ngày.</span>
+              </p>
+            </div>
+          )}
           <VerificationPanel
             supplierId={id}
             verifications={verifications}
             requests={requests}
             canInspect={canInspect}
             canViewReviews={canViewReviews}
+            onboardingStatus={supplier.onboarding_status}
+            onboardingNote={supplier.onboarding_note}
+            supplierStatus={supplier.status}
+            canManage={canManage}
+            canDecideOnboarding={canManage && (session.role === "admin" || session.role === "sourcing")}
+            canPublish={canPublish}
           />
-
-          <Card className="p-5">
-            <SectionHead
-              icon={Boxes}
-              title={`Sản phẩm (${products.length})`}
-              sub="Hồ sơ riêng từng dòng sản phẩm, dùng để so khớp với RFQ của buyer."
-              action={canManageProducts ? (
-                <Link href={`/crm/suppliers/${id}/products/new`} className="btn btn-primary">
-                  <Plus className="h-4 w-4" />
-                  Thêm sản phẩm
-                </Link>
-              ) : undefined}
-            />
-            {products.length === 0 ? (
-              <EmptyState
-                icon={<Boxes className="h-5 w-5" />}
-                title="Chưa có hồ sơ sản phẩm"
-                sub="Thêm từng dòng sản phẩm với MOQ, chứng nhận và giá tham khảo để so khớp RFQ."
-                action={
-                  canManageProducts ? (
-                    <Link href={`/crm/suppliers/${id}/products/new`} className="btn btn-primary">
-                      Thêm sản phẩm đầu tiên
-                    </Link>
-                  ) : null
-                }
-              />
-            ) : (
-              <ul className="divide-y divide-ink-100">
-                {products.map((pr) => (
-                  <li key={pr.id} className="py-3 first:pt-0 last:pb-0">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="flex min-w-0 gap-3">
-                        <MediaThumb asset={thumbByProduct.get(pr.id) ?? null} size="h-14 w-14" />
-                        <div className="min-w-0">
-                          <Link
-                            href={`/crm/products/${pr.id}`}
-                            className="text-[13.5px] font-semibold text-ink-900 hover:text-brand-700 hover:underline"
-                          >
-                            {pr.name}
-                          </Link>
-                          <span className="ml-2 align-middle">
-                            <Badge className="bg-brand-50 text-brand-700">{pr.category || "Khác"}</Badge>
+        </div>
+      ) : (
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <div className="min-w-0 space-y-4">
+          {canSeeRfqs && (
+            <Card className="p-5">
+              <SectionHead icon={Send} title="RFQ đã gửi cho NCC này" sub="Các yêu cầu báo giá trong hệ thống RFQ đã khớp với nhà cung cấp này." />
+              {rfqRows.length === 0 ? (
+                <EmptyState
+                  icon={<Send className="h-5 w-5" />}
+                  title="Chưa có RFQ nào"
+                  sub="Khi một RFQ được khớp với nhà cung cấp này, RFQ sẽ hiện ở đây kèm trạng thái xử lý."
+                />
+              ) : (
+                <ul className="divide-y divide-ink-100">
+                  {rfqRows.map(({ match, rfq }) => {
+                    const buyer = buyerById.get(rfq.buyer_id);
+                    return (
+                      <li key={match.id}>
+                        <Link href={`/crm/rfqs/${rfq.id}`} className="block rounded-lg px-2 py-3 transition hover:bg-brand-50/40">
+                          <span className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-[13.5px] font-bold text-brand-800">{rfq.code}</span>
+                            <Badge className="bg-ink-100 text-ink-600">{RFQ_MATCH_LABELS[match.status] ?? match.status}</Badge>
                           </span>
-                          <p className="mt-0.5 text-[12px] text-ink-500">{pr.spec || "Chưa có quy cách"}</p>
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                            {pr.ready_for_buyer ? (
-                              <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
-                            ) : shareableCount(pr.id) === 0 ? (
-                              <Badge className="bg-amber-50 text-amber-700">Chưa có ảnh/catalogue</Badge>
-                            ) : (
-                              <Badge className="bg-ink-100 text-ink-600">Chưa bật sẵn sàng</Badge>
-                            )}
-                            <span className="text-[11px] text-ink-400">
-                              {shareableCount(pr.id)} tệp gửi được buyer
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right text-[12.5px]">
-                        {pr.ref_price !== null ? (
-                          <p className="font-bold text-ink-900">
-                            {formatMoney(pr.ref_price)} <span className="font-normal text-ink-400">/ {pr.unit || "đv"} · {pr.incoterm ?? ""} {pr.incoterm_place ?? ""}</span>
-                          </p>
-                        ) : (
-                          <p className="text-ink-400">chưa có giá tham khảo</p>
-                        )}
-                        {pr.price_valid_until && (
-                          <p className="text-[11px] text-ink-400">hiệu lực đến {formatDate(pr.price_valid_until)}</p>
-                        )}
-                        {/* Người kiểm duyệt cần mở xem nội dung trước khi quyết định; sửa là việc riêng. */}
-                        <div className="mt-2 flex flex-wrap justify-end gap-1.5">
-                          <Link href={`/crm/products/${pr.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[12.5px]">
-                            <Eye className="h-3.5 w-3.5" /> Xem
-                          </Link>
-                          {canManageProducts && (
-                            <Link href={`/crm/products/${pr.id}/edit`} className="btn btn-soft px-2.5 py-1.5 text-[12.5px]">
-                              <Pencil className="h-3.5 w-3.5" /> Sửa
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-                      {pr.moq && <Badge className="bg-ink-50 text-ink-600">MOQ {pr.moq}</Badge>}
-                      {pr.monthly_capacity && <Badge className="bg-ink-50 text-ink-600">{pr.monthly_capacity}</Badge>}
-                      {pr.lead_time_days !== null && (
-                        <Badge className="bg-ink-50 text-ink-600">
-                          <CalendarClock className="h-3 w-3" /> {pr.lead_time_days} ngày
-                        </Badge>
-                      )}
-                      {pr.certifications && <Badge className="bg-emerald-50 text-emerald-700">{pr.certifications}</Badge>}
-                      {pr.oem && <Badge className="bg-violet-50 text-violet-700">OEM</Badge>}
-                      {pr.samples && <Badge className="bg-sky-50 text-sky-700">gửi mẫu</Badge>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+                          <span className="mt-0.5 block truncate text-[13px] font-medium text-ink-800">{rfq.product_text}</span>
+                          <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
+                            {[
+                              buyer ? (buyer.hide_buyer_from_supplier ? `Khách thị trường ${buyer.country || "nước ngoài"} (ẩn danh)` : buyer.company) : null,
+                              rfq.quantity ? `${rfq.quantity} ${rfq.unit ?? ""}`.trim() : null,
+                              rfq.destination_country,
+                              formatDate(rfq.created_at),
+                            ].filter(Boolean).join(" · ")}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {rfqMatches.length > 8 && <p className="mt-2 text-xs text-ink-500">Đang hiển thị 8 RFQ gần nhất trong tổng số {rfqMatches.length} RFQ.</p>}
+            </Card>
+          )}
 
           {canSeeBuyers && (
             <Card className="p-5">
@@ -434,44 +409,84 @@ export default async function SupplierDetailPage({
             </Card>
           )}
 
-          {canSeeRfqs && (
-            <Card className="p-5">
-              <SectionHead icon={Send} title="RFQ đã gửi cho NCC này" sub="Các yêu cầu báo giá trong hệ thống RFQ đã khớp với nhà cung cấp này." />
-              {rfqRows.length === 0 ? (
-                <EmptyState
-                  icon={<Send className="h-5 w-5" />}
-                  title="Chưa có RFQ nào"
-                  sub="Khi một RFQ được khớp với nhà cung cấp này, RFQ sẽ hiện ở đây kèm trạng thái xử lý."
-                />
-              ) : (
+          <section id="supplier-products" className="card scroll-mt-24 p-5">
+            <SectionHead
+              icon={Boxes}
+              title={`Sản phẩm (${products.length})`}
+              sub="Chỉ hiển thị thông tin cơ bản. Chọn Xem hoặc Sửa để mở toàn bộ hồ sơ."
+              action={canManageProducts ? (
+                <Link href={`/crm/suppliers/${id}/products/new`} className="btn btn-primary">
+                  <Plus className="h-4 w-4" />
+                  Thêm sản phẩm
+                </Link>
+              ) : undefined}
+            />
+            {products.length === 0 ? (
+              <EmptyState
+                icon={<Boxes className="h-5 w-5" />}
+                title="Chưa có hồ sơ sản phẩm"
+                sub="Thêm hồ sơ sản phẩm để bắt đầu so khớp RFQ."
+                action={
+                  canManageProducts ? (
+                    <Link href={`/crm/suppliers/${id}/products/new`} className="btn btn-primary">
+                      Thêm sản phẩm đầu tiên
+                    </Link>
+                  ) : null
+                }
+              />
+            ) : (
+              <>
                 <ul className="divide-y divide-ink-100">
-                  {rfqRows.map(({ match, rfq }) => {
-                    const buyer = buyerById.get(rfq.buyer_id);
-                    return (
-                      <li key={match.id}>
-                        <Link href={`/crm/rfqs/${rfq.id}`} className="block rounded-lg px-2 py-3 transition hover:bg-brand-50/40">
-                          <span className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-[13.5px] font-bold text-brand-800">{rfq.code}</span>
-                            <Badge className="bg-ink-100 text-ink-600">{RFQ_MATCH_LABELS[match.status] ?? match.status}</Badge>
-                          </span>
-                          <span className="mt-0.5 block truncate text-[13px] font-medium text-ink-800">{rfq.product_text}</span>
-                          <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
-                            {[
-                              buyer ? (buyer.hide_buyer_from_supplier ? `Khách thị trường ${buyer.country || "nước ngoài"} (ẩn danh)` : buyer.company) : null,
-                              rfq.quantity ? `${rfq.quantity} ${rfq.unit ?? ""}`.trim() : null,
-                              rfq.destination_country,
-                              formatDate(rfq.created_at),
-                            ].filter(Boolean).join(" · ")}
-                          </span>
+                  {visibleProducts.map((pr) => (
+                    <li key={pr.id} className="flex flex-wrap items-center gap-3 py-3">
+                      <div className="flex min-w-[190px] flex-1 items-center gap-3">
+                        <MediaThumb asset={thumbByProduct.get(pr.id) ?? null} size="h-12 w-12" />
+                        <div className="min-w-0">
+                          <Link
+                            href={`/crm/products/${pr.id}`}
+                            title={pr.name}
+                            className="block truncate text-[14px] font-bold text-ink-900 hover:text-brand-700 hover:underline"
+                          >
+                            {pr.name}
+                          </Link>
+                          <p className="mt-0.5 truncate text-[12px] text-ink-500">{pr.category || "Khác"}</p>
+                        </div>
+                      </div>
+                      <div className="ml-auto flex flex-wrap items-center gap-2">
+                        {pr.supplier_review_status === "pending" ? (
+                          <Badge className="bg-amber-100 text-amber-900">Chờ Vexim kiểm tra</Badge>
+                        ) : pr.supplier_review_status === "changes_requested" ? (
+                          <Badge className="bg-orange-50 text-orange-800">Cần NCC sửa</Badge>
+                        ) : pr.ready_for_buyer ? (
+                          <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
+                        ) : null}
+                        <Link href={`/crm/products/${pr.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[12px]">
+                          <Eye className="h-3.5 w-3.5" /> Xem
                         </Link>
-                      </li>
-                    );
-                  })}
+                        {canManageProducts && (
+                          <Link href={`/crm/products/${pr.id}/edit`} className="btn btn-soft px-2.5 py-1.5 text-[12px]">
+                            <Pencil className="h-3.5 w-3.5" /> Sửa
+                          </Link>
+                        )}
+                      </div>
+                    </li>
+                  ))}
                 </ul>
-              )}
-              {rfqMatches.length > 8 && <p className="mt-2 text-xs text-ink-500">Đang hiển thị 8 RFQ gần nhất trong tổng số {rfqMatches.length} RFQ.</p>}
-            </Card>
-          )}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-3">
+                  <p className="text-[11.5px] text-ink-500">Hiển thị {firstProduct}-{lastProduct} trong {products.length} sản phẩm. Mỗi trang tối đa {CRM_PRODUCTS_PAGE_SIZE} sản phẩm.</p>
+                  {productPageCount > 1 && <nav aria-label="Phân trang sản phẩm của NCC" className="flex items-center gap-2">
+                    {productPage > 1 && <Link href={productPageHref(productPage - 1)} className="btn btn-ghost px-2.5 py-1.5" aria-label="Trang sản phẩm trước">
+                      <ChevronLeft className="h-4 w-4" /> Trước
+                    </Link>}
+                    <span className="min-w-[84px] text-center text-[12px] text-ink-600" aria-current="page">Trang {productPage} / {productPageCount}</span>
+                    {productPage < productPageCount && <Link href={productPageHref(productPage + 1)} className="btn btn-ghost px-2.5 py-1.5" aria-label="Trang sản phẩm sau">
+                      Sau <ChevronRight className="h-4 w-4" />
+                    </Link>}
+                  </nav>}
+                </div>
+              </>
+            )}
+          </section>
 
           <MediaGallery
             items={supplierMedia}
@@ -481,7 +496,6 @@ export default async function SupplierDetailPage({
             manageHref={canManage ? `/crm/suppliers/${id}/edit` : undefined}
             emptyHint="Chưa có tệp chung. Thêm ở trang Sửa, hoặc vào từng bước kiểm để đính kèm bằng chứng."
           />
-          {canInspect && <Link href={`/crm/suppliers/${id}/audit/documents`} className="inline-block text-sm font-semibold text-brand-700 hover:underline">Mở bước Kiểm tra giấy tờ để đính kèm bằng chứng →</Link>}
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-6">
@@ -503,15 +517,6 @@ export default async function SupplierDetailPage({
               canProvision={canManage && (session.role === "admin" || session.role === "sourcing")}
               canHandOver={canManage && (session.role === "admin" || session.role === "sourcing")}
             />
-            {showOnboarding && (
-              <div className="mt-4 border-t border-ink-100 pt-4">
-                <h3 className="text-sm font-bold text-ink-900">Quyền sử dụng cổng</h3>
-                <p className="mt-1 text-sm leading-6 text-ink-600">{supplier.onboarding_status === "approved" ? "Đã được Vexim xác nhận tài khoản." : supplier.onboarding_status === "pending" ? "Hồ sơ đã nộp; tài khoản chưa sử dụng được. Kiểm tra thông tin và giấy tờ trước khi xác nhận." : "Đang chờ nhà cung cấp bổ sung thông tin."} Việc xác nhận này không duyệt giấy tờ hay công khai hồ sơ.</p>
-                {supplier.onboarding_note && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Yêu cầu bổ sung: {supplier.onboarding_note}</p>}
-                {supplier.onboarding_status === "pending" && canManage && (session.role === "admin" || session.role === "sourcing") &&
-                  <OnboardingControls supplierId={id} />}
-              </div>
-            )}
           </Card>
 
           <Card className="overflow-hidden">
@@ -543,7 +548,8 @@ export default async function SupplierDetailPage({
             )}
           </Card>
         </aside>
-      </div>
+        </div>
+      )}
     </>
   );
 }

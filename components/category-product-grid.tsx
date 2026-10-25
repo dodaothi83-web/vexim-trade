@@ -135,7 +135,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
           ? <SponsoredProductBand items={sponsoredBand} categorySlug={categorySlug} />
           : sponsored && <SponsoredPilotSlot product={sponsored.product} ticket={sponsored.ticket}
               campaignId={sponsored.campaignId} categorySlug={categorySlug} />)}
-        {visible.length ? <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+        {visible.length ? <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
           {shown.map((p) => <div key={p.id} className="min-w-0">
             <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
               imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} moq={p.moq} price={p.price} fob={p.incoterm?.toUpperCase() === "FOB"}

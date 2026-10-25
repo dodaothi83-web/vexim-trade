@@ -58,8 +58,18 @@ const Home = load('../app/(public)/home.tsx', {
   '@/lib/db': { getStore: () => store },
   '@/lib/blog/queries': news,
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [] },
-  '@/lib/public/supplier-product-order': { arrangeSupplierProducts: () => ({ shown: [] }) },
-  '@/components/public-product-card': { PublicProductCard: () => null },
+  '@/lib/public/supplier-product-order': {
+    arrangeSupplierProducts: () => ({ shown: [] }),
+    HOME_FEED_PER_SUPPLIER: 2,
+  },
+  '@/lib/public/popular-searches': { buildPopularSearches: () => [] },
+  '@/lib/public/meta-copy': { HOME_HERO_LINE: 'Verified Vietnamese suppliers' },
+  '@/components/home-product-feed': { HomeProductFeed: () => null },
+  '@/components/service-registration-section': { ServiceRegistrationSection: () => null },
+  '@/components/cookie-consent': { CookieSettingsButton: () => null },
+  '@/components/brand-logo': { Logo: () => null },
+  '@/components/platform-legal-strip': { PlatformLegalStrip: () => null },
+  '@/components/social-links': { SocialLinks: () => null },
 }).default;
 const html = renderToStaticMarkup(await Home());
 const section = html.match(/<section aria-labelledby="home-news-title"[\s\S]*?<\/section>/)?.[0];
@@ -67,19 +77,24 @@ assert.ok(section, 'Homepage has a real news section');
 assert.match(section, /Latest articles|View all articles/);
 assert.match(section, /href="\/blog\/newest"/);
 assert.match(section, /src="\/blog-media\/blog\/newest.jpg"[^>]*data-optimized="true"/, 'Use Next Image for public blog uploads');
-assert.match(section, /sizes="\(max-width: 639px\).*400px"/, 'Offer responsive sizes for blog cards');
+assert.ok(section.includes('sizes="(max-width: 639px) calc(34vw - 14px)'), 'Mobile blog images request the compact thumbnail width');
 assert.match(section, /src="https:\/\/cdn.example.com\/third.jpg"[^>]*loading="lazy"/, 'Unknown image hosts keep a safe fallback');
 assert.match(section, /New article cover/);
-assert.ok(optimizedImages.some((image) => image.src === '/images/home/hero-cashew-texture.jpg' && image.preload && image.fetchPriority === 'high'), 'Preload the LCP hero at high priority');
+assert.equal((section.match(/<article\b/g) ?? []).length, 4, 'Render four articles once, without separate mobile and desktop cards');
 assert.ok(section.indexOf('/blog/newest') < section.indexOf('/blog/second'));
 assert.ok(section.indexOf('/blog/second') < section.indexOf('/blog/third'));
-assert.doesNotMatch(section, /\/blog\/(?:oldest|unpublished|unrelated)/, 'Only three newest published News posts appear');
-assert.match(section, /sm:grid-cols-2 lg:grid-cols-3/, 'Desktop news grid has three columns');
+assert.ok(section.indexOf('/blog/third') < section.indexOf('/blog/oldest'));
+assert.doesNotMatch(section, /\/blog\/(?:unpublished|unrelated)/, 'Only published News posts appear');
+assert.match(section, /grid-cols-1 gap-3[^"\n]*sm:grid-cols-2[^"\n]*lg:grid-cols-4/, 'Keep one compact row per post on mobile and four columns on desktop');
+assert.match(section, /flex h-full flex-row[^"\n]*sm:flex-col/, 'Cards switch from horizontal on mobile to vertical on larger screens');
+assert.match(section, /min-h-\[112px\] w-\[34%\][^"\n]*sm:aspect-\[4\/3\][^"\n]*sm:w-full/, 'The mobile thumbnail uses about one third of the card');
+assert.match(section, /mt-2 hidden[^"\n]*sm:line-clamp-3/, 'Excerpts stay hidden on mobile and return on larger screens');
+assert.match(section, /mt-auto hidden[^"\n]*sm:inline-flex/, 'The redundant Read article label stays hidden on mobile');
 assert.doesNotMatch(html, /We visit before we list|Our team visits every factory first|factories visited|walked the floor/, 'Old unsupported factory claims must not remain on the homepage');
 rows = rows.filter((p) => ['newest', 'second'].includes(p.slug));
 const twoPosts = renderToStaticMarkup(await Home());
 const twoPostSection = twoPosts.match(/<section aria-labelledby="home-news-title"[\s\S]*?<\/section>/)?.[0] ?? '';
-assert.match(twoPostSection, /sm:grid-cols-2 lg:grid-cols-3/, 'Keep three desktop columns even before a third article is published');
+assert.match(twoPostSection, /sm:grid-cols-2[^"\n]*lg:grid-cols-4/, 'Keep the same responsive grid with fewer articles');
 assert.equal((twoPostSection.match(/<article\b/g) ?? []).length, 2, 'Never invent a third article');
 rows = [];
 const empty = renderToStaticMarkup(await Home());

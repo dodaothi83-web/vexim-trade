@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 
 import { Breadcrumbs, Badge, Button } from "@/components/ui";
-import { PageHeader } from "@/components/page-header";
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { assignRfqFormAction, updateRfqStatusFormAction } from "../actions";
@@ -48,6 +47,7 @@ import { addRfqNoteAction } from "./note-action";
 import type { RfqStatus } from "@/lib/types";
 import { SITE_URL } from "@/lib/site";
 import { approvedVerificationSteps, VERIFICATION_LABELS } from "@/lib/verification-status";
+import { spamFlagDetail } from "@/lib/rfq/spam-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -160,34 +160,34 @@ export default async function RfqDetailPage({
   const currentStatus = STATUS_FLOW.find((s) => s.value === rfq.status) ?? STATUS_FLOW[0];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="min-w-0">
       <Breadcrumbs items={[
         { label: "Tổng quan", href: "/crm/dashboard" },
         { label: "RFQ", href: "/crm/rfqs" },
         { label: rfq.code },
       ]} />
-      <div className="mt-2 flex flex-wrap items-center gap-3">
-        <Link href="/crm/rfqs" className="btn btn-ghost btn-sm">
-          <ArrowLeft className="h-4 w-4" /> Quay lại hộp thư
-        </Link>
-        <h1 className="flex items-center gap-2 text-xl font-bold text-ink-900">
-          <span className="font-mono">{rfq.code}</span>
-          <Badge className="inline-flex items-center gap-1">
-            <span className={"h-2 w-2 rounded-full " + currentStatus.dot} />
-            {isSupplierQuestion && rfq.status === "matching" ? "Đã gửi câu hỏi" : currentStatus.label}
-          </Badge>
-          {isSupplierQuestion && <Badge color="#0f766e">Câu hỏi trực tiếp cho NCC</Badge>}
-          {rfq.status === "spam" && (
-            <Badge color="#b91c1c" className="inline-flex items-center gap-1">
-              <ShieldAlert className="h-3.5 w-3.5" /> spam score {rfq.spam_score}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+          <Link href="/crm/rfqs" className="btn btn-ghost btn-sm">
+            <ArrowLeft className="h-4 w-4" /> Quay lại hộp thư
+          </Link>
+          <h1 className="font-mono text-xl font-bold text-ink-900">{rfq.code}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="inline-flex items-center gap-1">
+              <span className={"h-2 w-2 shrink-0 rounded-full " + currentStatus.dot} />
+              {isSupplierQuestion && rfq.status === "matching" ? "Đã gửi câu hỏi" : currentStatus.label}
             </Badge>
-          )}
-        </h1>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <a href={statusLink} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
-            <Copy className="h-3.5 w-3.5" /> Link theo dõi buyer
-          </a>
+            {isSupplierQuestion && <Badge color="#0f766e">Câu hỏi trực tiếp cho NCC</Badge>}
+            {rfq.status === "spam" && (
+              <Badge color="#b91c1c" className="inline-flex items-center gap-1">
+                <ShieldAlert className="h-3.5 w-3.5" /> Điểm rủi ro {rfq.spam_score}
+              </Badge>
+            )}
+          </div>
         </div>
+        <a href={statusLink} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+          <Copy className="h-3.5 w-3.5" /> Link theo dõi buyer
+        </a>
       </div>
 
       {sp?.selection_email === "failed" && <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Đã lưu NCC được chọn trên cổng, nhưng email NCC chưa gửi được. Vui lòng liên hệ NCC qua Vexim; đừng chọn lại chỉ để thử gửi vì quyết định không tự gửi trùng.</div>}
@@ -195,10 +195,10 @@ export default async function RfqDetailPage({
       {sp?.outreach_sent !== undefined && <div role="status" className={`mt-4 rounded-lg border p-3 text-sm ${Number(sp.outreach_skipped) > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
         Resend chấp nhận {Number(sp.outreach_sent) || 0} lời mời NCC; {Number(sp.outreach_skipped) || 0} yêu cầu chưa gửi (có thể đã gửi trước, thiếu email hoặc gửi thất bại). Kiểm tra trạng thái từng NCC trước khi thử lại.
       </div>}
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+      <div className="mt-5 grid items-start gap-5 xl:grid-cols-3">
         {/* LEFT: RFQ + buyer */}
-        <div className="space-y-6 lg:col-span-2">
-          <section className="card">
+        <div className="min-w-0 space-y-5 xl:col-span-2">
+          <section className="card p-4 sm:p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Yêu cầu</h2>
             <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 text-[13.5px]">
               <Field icon={<Package className="h-4 w-4" />} label="Sản phẩm">
@@ -238,7 +238,7 @@ export default async function RfqDetailPage({
             </dl>
           </section>
 
-          <section className="card">
+          <section className="card p-4 sm:p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Buyer</h2>
             {buyer ? (
               <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 text-[13.5px]">
@@ -264,8 +264,8 @@ export default async function RfqDetailPage({
             )}
           </section>
 
-          <section className="card">
-            <div className="flex items-center justify-between">
+          <section className="card p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">
                 Ghép nhà cung cấp ({matches.length})
               </h2>
@@ -294,9 +294,9 @@ export default async function RfqDetailPage({
 {canManageRfq && !isSupplierQuestion && (
             <form action={addMatchAction} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="rfq_id" value={rfq.id} />
-              <label className="flex flex-col text-[12px] text-ink-600">
+              <label className="flex w-full flex-col text-[12px] text-ink-600 sm:w-auto">
                 <span>Thêm NCC đã duyệt</span>
-                <select name="supplier_id" required className="input mt-1 min-w-[260px] py-1.5 text-[13px]">
+                <select name="supplier_id" required className="input mt-1 py-1.5 text-[13px] sm:min-w-[260px]">
                   <option value="">— Chọn nhà cung cấp —</option>
                   {candidates.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -317,7 +317,7 @@ export default async function RfqDetailPage({
                 <p className="text-[12.5px] text-ink-600">
                   Chọn các NCC để <strong>gửi email yêu cầu báo giá ẩn danh</strong>. Buyer sẽ được giữ kín.
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <label className="flex items-center gap-1 text-[12px] text-ink-600">
                     Hạn phản hồi
                     <select name="deadline_days" defaultValue="3" className="input ml-1 py-1 text-[12px]">
@@ -523,7 +523,7 @@ export default async function RfqDetailPage({
 
 
 {canManageRfq && !isSupplierQuestion && matches.some((m) => m.status === "quoted") && (
-              <form action={presentShortlistAction} className="mt-4 flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
+              <form action={presentShortlistAction} className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
                 <input type="hidden" name="rfq_id" value={rfq.id} />
                 <p className="text-[12.5px] text-emerald-800">
                   Có <strong>{matches.filter((m) => m.status === "quoted").length}</strong> báo giá sẵn sàng.
@@ -537,7 +537,7 @@ export default async function RfqDetailPage({
           </section>
 
           {/* Timeline */}
-          <section className="card">
+          <section className="card p-4 sm:p-5">
             <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-ink-500">
               <Inbox className="h-4 w-4" /> Timeline thư từ ({messages.length})
             </h2>
@@ -581,8 +581,8 @@ export default async function RfqDetailPage({
         </div>
 
         {/* RIGHT: workflow */}
-        <div className="space-y-6">
-          <section className="card">
+        <div className="min-w-0 space-y-5">
+          <section className="card p-4 sm:p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Phân công & trạng thái</h2>
             {canManageRfq && (<form action={assignRfqFormAction} className="mt-3 space-y-3">
               <input type="hidden" name="id" value={rfq.id} />
@@ -614,7 +614,7 @@ export default async function RfqDetailPage({
             {!canManageRfq && <p className="mt-3 text-[12px] text-ink-500">Chỉ xem: không thể phân công hoặc đổi trạng thái RFQ.</p>}
           </section>
 
-          <section className="card">
+          <section className="card p-4 sm:p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Chốt giai đoạn</h2>
             {canManageRfq ? (<div className="mt-3 space-y-2">
               <form action={markSamplingAction}>
@@ -657,7 +657,7 @@ export default async function RfqDetailPage({
             )}
           </section>
 
-          <section className="card">
+          <section className="card p-4 sm:p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">SLA</h2>
             <dl className="mt-3 space-y-1.5 text-[13px]">
               <div className="flex justify-between"><span className="text-ink-500">Nhận lúc</span><span>{fmtDate(rfq.created_at)}</span></div>
@@ -667,23 +667,34 @@ export default async function RfqDetailPage({
           </section>
 
           {rfq.spam_flags.length > 0 && (
-            <section className="card border-red-200 bg-red-50/40">
-              <h2 className="flex items-center gap-1 text-sm font-semibold text-red-700">
-                <ShieldAlert className="h-4 w-4" /> Cờ spam
+            <section className={`card p-4 sm:p-5 ${rfq.status === "spam" ? "border-red-200 bg-red-50/40" : "border-amber-200 bg-amber-50/40"}`}>
+              <h2 className={"flex items-center gap-1.5 text-sm font-semibold " + (rfq.status === "spam" ? "text-red-700" : "text-amber-800")}>
+                <ShieldAlert className="h-4 w-4 shrink-0" /> Dấu hiệu cần kiểm tra
               </h2>
-              <ul className="mt-2 list-disc pl-5 text-[12.5px] text-red-800">
-                {rfq.spam_flags.map((f) => <li key={f}>{f}</li>)}
+              <p className="mt-1.5 text-[12px] leading-5 text-ink-600">
+                Đây là các tín hiệu tự động, không đồng nghĩa buyer là spam. Hãy đối chiếu thông tin trước khi quyết định xử lý.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {rfq.spam_flags.map((flag) => {
+                  const detail = spamFlagDetail(flag);
+                  return (
+                    <li key={flag} className="rounded-md border border-ink-100 bg-white/80 px-3 py-2.5">
+                      <p className="text-[12.5px] font-semibold text-ink-800">{detail.label}</p>
+                      <p className="mt-0.5 text-[11.5px] leading-5 text-ink-600">{detail.description}</p>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}
 
-          <section className="card">
+          <section className="card p-4 sm:p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Tệp đính kèm</h2>
-            <form action={uploadRfqAttachmentAction} className="mt-3 flex items-end gap-2">
+            <form action={uploadRfqAttachmentAction} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="rfq_id" value={rfq.id} />
-              <label className="flex flex-col text-[12px] text-ink-600">
+              <label className="flex min-w-0 flex-1 flex-col text-[12px] text-ink-600">
                 Tải lên (tối đa 10MB)
-                <input name="file" type="file" className="mt-1 text-[12.5px]" />
+                <input name="file" type="file" className="mt-1 w-full text-[12.5px]" />
               </label>
               <Button type="submit" size="sm" variant="soft">Tải lên</Button>
             </form>
@@ -698,7 +709,7 @@ export default async function RfqDetailPage({
             )}
           </section>
 
-          <section className="card">
+          <section className="card p-4 sm:p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Ghi chú nội bộ</h2>
             <form action={addRfqNoteAction} className="mt-3 space-y-2">
               <input type="hidden" name="rfq_id" value={rfq.id} />
@@ -726,11 +737,11 @@ export default async function RfqDetailPage({
 
 function Field({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-2">
-      <span className="mt-0.5 text-ink-400">{icon}</span>
-      <div>
+    <div className="flex min-w-0 items-start gap-2">
+      <span className="mt-0.5 shrink-0 text-ink-400">{icon}</span>
+      <div className="min-w-0">
         <dt className="text-[11px] uppercase tracking-wider text-ink-400">{label}</dt>
-        <dd className="text-[13.5px] text-ink-800">{children}</dd>
+        <dd className="mt-0.5 break-words text-[13.5px] leading-5 text-ink-800">{children}</dd>
       </div>
     </div>
   );

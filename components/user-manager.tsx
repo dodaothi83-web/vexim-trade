@@ -26,6 +26,8 @@ import type { AppUser, UserRole } from "@/lib/types";
 import { Badge, Button, cx, formatDateTime } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
+type AccountTab = "internal" | "supplier";
+
 export function UserManager({
   users,
   supabaseReachable,
@@ -40,12 +42,32 @@ export function UserManager({
 
   // Địa chỉ gửi riêng của từng người — tự sinh từ họ tên, quản trị sửa được trong hồ sơ người đó
   const senderById = assignSenderEmails(users);
+  const [accountTab, setAccountTab] = useState<AccountTab>("internal");
+  const internalUsers = users.filter((user) => user.role !== "supplier");
+  const supplierUsers = users.filter((user) => user.role === "supplier");
+  const visibleUsers = accountTab === "internal" ? internalUsers : supplierUsers;
+  const accountTabs = [
+    { key: "internal" as const, label: "Nhân sự Vexim", count: internalUsers.length },
+    { key: "supplier" as const, label: "Tài khoản NCC", count: supplierUsers.length },
+  ];
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<UserRole>("sale");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+
+  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next: AccountTab = event.key === "Home"
+      ? "internal"
+      : event.key === "End"
+        ? "supplier"
+        : accountTab === "internal" ? "supplier" : "internal";
+    setAccountTab(next);
+    document.getElementById(`account-tab-${next}`)?.focus();
+  }
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -63,7 +85,31 @@ export function UserManager({
 
   return (
     <div className="space-y-5">
-      {/* Tạo tài khoản */}
+      <div className="flex flex-wrap gap-1 border-b border-ink-200" role="tablist" aria-label="Nhóm tài khoản">
+        {accountTabs.map((tab) => (
+          <button
+            key={tab.key}
+            id={`account-tab-${tab.key}`}
+            type="button"
+            role="tab"
+            aria-selected={accountTab === tab.key}
+            aria-controls={`account-panel-${tab.key}`}
+            tabIndex={accountTab === tab.key ? 0 : -1}
+            onClick={() => setAccountTab(tab.key)}
+            onKeyDown={handleTabKeyDown}
+            className={cx(
+              "inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition",
+              accountTab === tab.key ? "border-brand-600 text-brand-800" : "border-transparent text-ink-500 hover:border-ink-300 hover:text-ink-800",
+            )}
+          >
+            {tab.label}
+            <span className="rounded-full bg-ink-100 px-1.5 text-[11px] text-ink-500">{tab.count}</span>
+          </button>
+        ))}
+      </div>
+
+      <div id={`account-panel-${accountTab}`} role="tabpanel" aria-labelledby={`account-tab-${accountTab}`} className="space-y-5">
+      {accountTab === "internal" && (
       <div className="card overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3">
           <UserPlus className="h-4 w-4 text-brand-700" />
@@ -128,15 +174,16 @@ export function UserManager({
           </div>
         </form>
       </div>
+      )}
 
       {/* Danh sách */}
       <div className="card overflow-hidden">
         <div className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
           <ShieldCheck className="h-4 w-4 text-brand-700" />
-          <h2 className="text-[15px] font-bold text-ink-900">Người dùng ({users.length})</h2>
+          <h2 className="text-[15px] font-bold text-ink-900">Người dùng ({visibleUsers.length})</h2>
         </div>
         <ul className="divide-y divide-ink-100">
-          {users.map((u) => (
+          {visibleUsers.map((u) => (
             <UserRow
               key={u.id}
               user={u}
@@ -147,6 +194,7 @@ export function UserManager({
               onToast={(kind, title, lines) => toast.push({ kind, title, lines })}
             />
           ))}
+          {visibleUsers.length === 0 && <li className="px-4 py-8 text-center text-sm text-ink-500">Chưa có tài khoản trong nhóm này.</li>}
         </ul>
       </div>
 
@@ -162,10 +210,11 @@ export function UserManager({
             (băm scrypt, lưu trong cơ sở dữ liệu của app) để công việc không bị chặn.
           </li>
           <li>
-            Tài khoản bên Supabase nhưng chưa có trong danh sách này sẽ <strong>không vào được</strong> —
+            Tài khoản bên Supabase nhưng chưa được thêm vào hệ thống sẽ <strong>không vào được</strong> —
             quyền luôn do app quyết định.
           </li>
         </ul>
+      </div>
       </div>
     </div>
   );

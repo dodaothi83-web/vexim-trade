@@ -43,36 +43,58 @@ const SEAL_CLASSES: Record<VerificationTier, string> = {
 };
 
 /** Compact pill shown next to the supplier name, product card or list row. */
-export function VerificationTierBadge({ levels, className = "" }: {
+export function VerificationTierBadge({ levels, className = "", compactOnMobile = false }: {
   levels: readonly VerificationLevel[];
   className?: string;
+  /** Rút gọn “Level 1 · Basic” thành “Level 1” dưới breakpoint sm khi được chọn. */
+  compactOnMobile?: boolean;
 }) {
   const tier = verificationTier(levels);
   const Icon = tier === 0 ? HelpCircle : ShieldCheck;
   return (
     <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${BADGE_CLASSES[tier]} ${className}`}>
       <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      {VERIFICATION_TIER_LABELS[tier]}
+      {compactOnMobile && tier > 0 ? <>
+        <span className="sm:hidden">Level {tier}</span>
+        <span className="hidden sm:inline">{VERIFICATION_TIER_LABELS[tier]}</span>
+      </> : VERIFICATION_TIER_LABELS[tier]}
     </span>
   );
 }
 
 /** Three small shields, one per independent check, filled only when approved. */
-export function VerificationPips({ levels, compact = false }: {
+export function VerificationPips({ levels, compact = false, shortTooltips = false }: {
   levels: readonly VerificationLevel[];
   compact?: boolean;
+  /** Tooltip nhỏ theo từng cấp, dùng cho thẻ sản phẩm thay vì khung giải thích chung. */
+  shortTooltips?: boolean;
 }) {
   const tier = verificationTier(levels);
   const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
   return (
-    <span className="inline-flex items-center gap-1" role="img"
+    <span className="inline-flex items-center gap-1" role={shortTooltips ? "group" : "img"}
       aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => VERIFICATION_LABELS[l]).join(", ")}` : "No verification checks approved yet"}>
       {([1, 2, 3] as const).map((level) => {
         const on = levels.includes(level);
+        const label = VERIFICATION_LABELS[level];
+        const status = on ? "Approved" : "Not approved";
+        const pipClass = `inline-flex items-center justify-center rounded-full ring-1 ${compact ? "h-5 w-5" : "h-6 w-6"} ${on ? PIP_ON_CLASSES[tier] : "bg-ink-50 text-ink-300 ring-ink-200"}`;
+        const icon = <ShieldCheck className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} aria-hidden="true" />;
+        if (shortTooltips) return (
+          <span key={level} className="group/pip relative inline-flex">
+            <button type="button" aria-label={`Level ${level} · ${label}: ${status}`}
+              className={`${pipClass} cursor-help focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700`}>
+              {icon}
+            </button>
+            <span role="tooltip" className={`pointer-events-none absolute bottom-full z-40 mb-2 hidden w-40 rounded-md bg-ink-900 px-2.5 py-2 text-left font-normal shadow-xl group-hover/pip:block group-focus-within/pip:block ${level === 1 ? "left-0" : level === 2 ? "left-1/2 -translate-x-1/2" : "right-0"}`}>
+              <strong className="block text-[11px] font-bold leading-4 text-white">Level {level} · {label}</strong>
+              <span className={`block text-[10px] font-semibold leading-4 ${on ? "text-emerald-300" : "text-ink-300"}`}>{status}</span>
+            </span>
+          </span>
+        );
         return (
-          <span key={level} title={VERIFICATION_LABELS[level]}
-            className={`inline-flex items-center justify-center rounded-full ring-1 ${compact ? "h-5 w-5" : "h-6 w-6"} ${on ? PIP_ON_CLASSES[tier] : "bg-ink-50 text-ink-300 ring-ink-200"}`}>
-            <ShieldCheck className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} aria-hidden="true" />
+          <span key={level} title={label} className={pipClass}>
+            {icon}
           </span>
         );
       })}

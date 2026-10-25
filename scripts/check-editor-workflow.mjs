@@ -12,6 +12,8 @@ const js = ts.transpileModule(actions, { compilerOptions: { module: ts.ModuleKin
 let current = { id: 'sup-1', name: 'Existing', status: 'draft', verification_level: 1, verified_at: '2025-01-01' };
 let lastWrite = null;
 let role = 'sourcing';
+let lastTranslationOptions = null;
+let translationMode = 'translated';
 const store = {
   async createSupplier(row) { lastWrite = row; return { ...row, id: 'sup-2' }; },
   async getSupplier() { return current; },
@@ -33,6 +35,16 @@ vm.runInNewContext(js, {
   hasPermission: (r, permission) => r === 'admin' && permission === 'suppliers.publish',
   nextStatusOptions: (status) => ({ draft: ['submitted'], submitted: ['in_verification'], in_verification: ['published'], published: ['suspended', 'archived'] })[status] ?? [],
   statusMeta: (status) => ({ label: status }), revalidateAll: () => {},
+  ensureSupplierProfileEnglish: async (_store, _id, _actor, options) => {
+    lastTranslationOptions = options;
+    if (translationMode === 'failed') return { status: 'failed', supplier: current, message: 'OpenAI unavailable' };
+    if (translationMode === 'unconfigured') return { status: 'unconfigured', supplier: current };
+    if (options?.preserveSummary) return { status: 'current', supplier: current };
+    return {
+      status: 'translated',
+      supplier: { ...current, summary_i18n: { ...(current.summary_i18n ?? {}), en: 'Translated introduction' } },
+    };
+  }, syncSupplierIndustries: async () => null,
 }, { filename: 'supplier-actions.ts' });
 
 let res = await exports.createSupplierAction({ name: 'New', status: 'published', verification_level: 3, verified_at: '2025-01-01', fob_min: 999, fob_max: 1000, fob_publicly_visible: true, fob_updated_at: '2099-01-01' });
@@ -75,11 +87,42 @@ res = await exports.updateSupplierAction(current.id, { name: 'Edited', status: '
 assert.equal(res.ok, true, 'Admin can publish explicitly');
 assert.equal(lastWrite.status, 'published');
 
+// The CRM must receive the post-translation row, not just a generic save success.
+current = { ...current, intro_source: 'Giới thiệu gốc', summary_i18n: { en: '' } };
+res = await exports.updateSupplierAction(current.id, {
+  name: 'Edited', status: 'published', intro_source: 'Giới thiệu mới', summary_i18n: { en: '' },
+});
+assert.equal(res.ok, true);
+assert.equal(lastTranslationOptions.preserveSummary, false, 'Changing the source story allows AI to refresh its translation');
+assert.equal(res.translationStatus, 'translated');
+assert.equal(res.supplier.summary_i18n.en, 'Translated introduction', 'Return the English text written by AI');
+assert.match(res.message, /Đã cập nhật bản dịch tiếng Anh/);
+
+current = { ...current, intro_source: 'Giới thiệu mới', summary_i18n: { en: 'Old English' } };
+res = await exports.updateSupplierAction(current.id, {
+  name: 'Edited', status: 'published', intro_source: 'Giới thiệu mới', summary_i18n: { en: 'Curated English' },
+});
+assert.equal(res.ok, true);
+assert.equal(lastTranslationOptions.preserveSummary, true, 'Do not overwrite a staff-curated English introduction');
+assert.equal(res.supplier.summary_i18n.en, 'Curated English');
+
+translationMode = 'failed';
+res = await exports.updateSupplierAction(current.id, {
+  name: 'Edited', status: 'published', intro_source: 'Giới thiệu mới', summary_i18n: { en: 'Curated English' },
+});
+assert.equal(res.ok, true, 'A translation failure must not roll back the saved source');
+assert.equal(res.translationStatus, 'failed');
+assert.match(res.message, /Chưa cập nhật được bản dịch tiếng Anh: OpenAI unavailable/);
+translationMode = 'translated';
+
 const form = readFileSync(new URL('../components/supplier-form.tsx', import.meta.url), 'utf8');
-assert.ok(form.includes('status: nextStatus ?? (saved.status'), 'Save must not silently change status');
+assert.ok(form.includes('status: (saved.status as SupplierStatus)'), 'Save must keep the existing status');
+assert.ok(!form.includes('nextStatus') && !form.includes('transitionTo'), 'Status decisions belong only to the review workflow');
 assert.ok(!form.includes('onClick={() => set("verification_level"'), 'Verification level must not be editable');
 assert.ok(!form.includes('Giá FOB thấp nhất') && !form.includes('fob_min'), 'Supplier form cannot enter a price');
 assert.ok(form.includes('Quyền hiển thị giá của sản phẩm'), 'Supplier consent remains separate from product prices');
+assert.ok(form.includes('supplier && res.supplier ? init(res.supplier) : next'), 'Form must adopt the post-translation supplier returned by the server');
+assert.ok(form.includes('res.translationStatus'), 'Form must distinguish translation warnings from a failed source save');
 const productForm = readFileSync(new URL('../components/product-form.tsx', import.meta.url), 'utf8');
 assert.ok(productForm.includes('value={v("ref_price")}') && productForm.includes('value={v("ref_price_max")}'), 'Each product can enter a lower and optional upper reference price');
 assert.ok(productForm.indexOf('label="Đơn vị giá"') > productForm.indexOf('Giá tham khảo từ'), 'Price unit belongs beside price and currency, not the description');
@@ -89,7 +132,7 @@ const parseProductCode = source.slice(source.indexOf('function parseProductInput
 const productParser = { exports: {} };
 vm.runInNewContext(ts.transpileModule(parseProductCode + '\nexports.parseProductInput = parseProductInput;', {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText, { exports: productParser.exports, str, num, bool });
+}).outputText, { exports: productParser.exports, str, num, bool, displayNameInput: (value) => str(value)?.slice(0, 120) ?? null });
 const parsedProduct = productParser.exports.parseProductInput({ supplier_id: 'supplier-a', name: 'Cashew',
   description: 'Short', description_detail: 'Long details\nApplication', ref_price: 7, ref_price_max: 9, price_publicly_visible: true,
   fob_updated_at: '2099-01-01' });
@@ -150,6 +193,10 @@ vm.runInNewContext(aiJs, {
     '@/lib/auth/session': { getSession: async () => mockRole && { uid: 'staff-1', role: mockRole } },
     '@/lib/auth/permissions': { hasPermission: (r, p) => r === 'admin' && p === 'categories.manage' },
     '@/lib/ai/company-introduction': { readOutputText: (p) => p.output_text },
+    '@/lib/ai/draft-style': {
+      HUMAN_STYLE_RULES: '', CATEGORY_INTRO_SYSTEM: '', FAQ_SYSTEM: '',
+      sanitizeDraftText: (text) => text, parseFaqDraft: () => [],
+    },
     '@/lib/rfq/rate-limit': { rateLimit: () => ({ ok: true }) },
   })[path],
 }, { filename: 'ai-editor-route.ts' });

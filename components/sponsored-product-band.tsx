@@ -34,7 +34,7 @@ export function SponsoredProductBand({ items, categorySlug }: {
           Paid placement, not a Vexim verification result. Thứ tự trả phí, không phải kết quả xác minh của Vexim.
         </p>
       </div>
-      <div className="mt-3 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3">
+      <div className="mt-3 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
         {items.map((item) => (
           <SponsoredBandCard key={item.push.id} item={item} categorySlug={categorySlug} />
         ))}

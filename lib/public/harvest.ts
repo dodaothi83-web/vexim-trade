@@ -1,4 +1,4 @@
-import type { HarvestCalendar, HarvestWindow } from "@/lib/types";
+import type { HarvestCalendar, HarvestSource, HarvestWindow } from "@/lib/types";
 
 /**
  * Lịch mùa vụ: phần logic thuần, không phụ thuộc React.
@@ -173,6 +173,28 @@ function normalizeWindow(raw: unknown, index: number): HarvestWindow | null {
   };
 }
 
+function normalizeSources(raw: unknown): HarvestSource[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const seen = new Set<string>();
+  const sources: HarvestSource[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    try {
+      const url = new URL(asText(record.url));
+      if (!/^https?:$/.test(url.protocol) || url.username || url.password) continue;
+      url.hash = "";
+      if (seen.has(url.href)) continue;
+      seen.add(url.href);
+      sources.push({ url: url.href, title: asText(record.title).slice(0, 200) || url.hostname });
+      if (sources.length >= 8) break;
+    } catch {
+      // Ignore malformed source URLs instead of emitting an unsafe link.
+    }
+  }
+  return sources.length ? sources : undefined;
+}
+
 /**
  * Chuẩn hóa dữ liệu từ database hoặc từ biểu mẫu.
  * Trả null khi không có cửa sổ nào hợp lệ, để giao diện ẩn cả khối thay vì vẽ biểu đồ rỗng.
@@ -191,16 +213,18 @@ export function normalizeHarvest(raw: unknown): HarvestCalendar | null {
     windows,
     note_i18n: note && typeof note === "object" ? (note as HarvestCalendar["note_i18n"]) : undefined,
     reviewed_on: /^\d{4}-\d{2}-\d{2}$/.test(reviewed) ? reviewed : null,
+    sources: normalizeSources(record.sources),
+    review_origin: record.review_origin === "ai" || record.review_origin === "staff" ? record.review_origin : undefined,
   };
 }
 
 /* ------------------------------------------------------------------ *
  * Nhắc rà soát lịch mùa vụ
  *
- * Mùa vụ là dữ liệu biên tập, không có nguồn nào tự đẩy vào. Không có gì nhắc
- * thì một biểu đồ ghi "Reviewed 24 Oct 2026" sẽ nằm trên trang vài năm và vẫn
- * trông như mới. Phần dưới đây biến việc đó thành một danh sách trong CRM, tính
- * từ chính dữ liệu, không lưu trạng thái và không cần cron.
+ * Mùa vụ có thể do nhân sự hoặc tiến trình nghiên cứu tự động cập nhật. Không có
+ * gì nhắc thì một biểu đồ ghi "Reviewed 24 Oct 2026" vẫn có thể nằm trên trang
+ * vài năm và trông như mới. Phần dưới đây biến việc đó thành danh sách trong CRM,
+ * tính từ chính dữ liệu và không cần thêm trạng thái rà soát song song.
  * ------------------------------------------------------------------ */
 
 /** Sau ngưỡng này, một lịch mùa vụ được coi là đã cũ. */

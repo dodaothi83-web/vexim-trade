@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
 import {
   AlertTriangle,
   Clock,
@@ -14,7 +13,7 @@ import { Breadcrumbs, Badge, EmptyState } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
-import { assignRfqInlineAction } from "./actions-inline";
+import { RfqAssignmentSelect } from "./assignment-select";
 import type { AppUser, Buyer, Rfq } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -102,6 +101,7 @@ export default async function RfqsPage({
   ]);
   const buyerMap = new Map(buyers.map((b) => [b.id, b]));
   const userMap = new Map(users.map((u) => [u.id, u]));
+  const assignmentUsers = users.map((u) => ({ id: u.id, name: u.name, email: u.email }));
 
   const filtered = rfqs.filter((r) => matchesStatusTab(r, statusFilter));
 
@@ -197,22 +197,7 @@ export default async function RfqsPage({
                     </td>
                     <td className="px-3 py-2 text-[12.5px] text-ink-700">{r.destination_country ?? "—"}</td>
                     <td className="px-3 py-2">
-                      <form action={assignRfqInlineAction} className="flex items-center gap-1">
-                        <input type="hidden" name="id" value={r.id} />
-                        <select
-                          name="to"
-                          defaultValue={r.assigned_to ?? ""}
-                          onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                          className="input py-1 text-[12px]"
-                        >
-                          <option value="">— Chưa phân công —</option>
-                          {users.map((u) => (
-                            <option key={u.id} value={u.id}>
-                              {u.name ?? u.email}
-                            </option>
-                          ))}
-                        </select>
-                      </form>
+                      <RfqAssignmentSelect rfqId={r.id} assignedTo={r.assigned_to} users={assignmentUsers} />
                     </td>
                     <td className="px-3 py-2">
                       <span className={"inline-flex items-center gap-1 text-[12px] font-medium " + sl.tone}>

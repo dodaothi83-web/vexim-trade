@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ImageIcon, PlayCircle, X, ZoomIn } from "lucide-react";
 import type { PublicProductVideo } from "@/lib/public/product-video";
+
+/** Chỉ nhận cử chỉ ngang rõ ràng; vuốt dọc hoặc rung nhẹ vẫn để trang cuộn tự nhiên. */
+export function productGallerySwipeStep(startX: number, startY: number, endX: number, endY: number): -1 | 0 | 1 {
+  const dx = endX - startX;
+  const dy = endY - startY;
+  if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return 0;
+  return dx < 0 ? 1 : -1;
+}
 
 /** Only buyer-shareable URLs projected by the server may reach this component. */
 export function ProductMediaGallery({ name, images, thumbnails, video }: {
@@ -16,6 +24,8 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
   const heroRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const suppressClick = useRef(false);
   const selected = images[index] ?? images[0];
   const hasThumbnails = images.length > 1;
 
@@ -41,30 +51,39 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
   }, [open, images.length]);
 
   const photo = (path: string) => `/public-media/${path}`;
+  const onTouchStart = (event: TouchEvent<HTMLButtonElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchStart.current = { x: touch.clientX, y: touch.clientY };
+    suppressClick.current = false;
+  };
+  const onTouchEnd = (event: TouchEvent<HTMLButtonElement>) => {
+    const start = touchStart.current;
+    const touch = event.changedTouches[0];
+    touchStart.current = null;
+    if (!start || !touch || images.length < 2) return;
+    const step = productGallerySwipeStep(start.x, start.y, touch.clientX, touch.clientY);
+    if (!step) return;
+    suppressClick.current = true;
+    setIndex((current) => (current + step + images.length) % images.length);
+    setZoomPoint("50% 50%");
+  };
+  const openHero = () => {
+    if (suppressClick.current) { suppressClick.current = false; return; }
+    setOpen(true);
+  };
   return <div className="min-w-0">
-    <div className={hasThumbnails ? "grid grid-cols-[3.25rem_minmax(0,1fr)] items-stretch gap-2 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-3" : ""}>
-      {hasThumbnails && <section className="relative min-w-0" aria-label="Product photos">
-        <h2 className="sr-only">Product photos ({images.length})</h2>
-        <div className="absolute inset-0 overflow-y-auto overscroll-contain pr-1" role="group" aria-label="Choose a product photo">
-          <div className="flex flex-col gap-2">
-            {images.map((path, photoIndex) => <button key={path} type="button" onClick={() => { setIndex(photoIndex); setZoomPoint("50% 50%"); }}
-              aria-label={`Show photo ${photoIndex + 1} of ${name}`} aria-pressed={index === photoIndex}
-              className={`aspect-square w-full shrink-0 overflow-hidden rounded-lg border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${index === photoIndex ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photo(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
-            </button>)}
-          </div>
-        </div>
-      </section>}
-
-      <div className="relative aspect-square overflow-hidden rounded-2xl border border-ink-200 bg-ink-50">
-        {selected ? <button ref={heroRef} type="button" onClick={() => setOpen(true)}
+    <div className={hasThumbnails ? "grid grid-cols-1 items-stretch gap-2 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-3" : ""}>
+      <div className="relative aspect-square overflow-hidden rounded-2xl border border-ink-200 bg-ink-50 sm:order-2">
+        {selected ? <button ref={heroRef} type="button" onClick={openHero}
+          onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
+          onTouchCancel={() => { touchStart.current = null; suppressClick.current = false; }}
           onMouseMove={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
             setZoomPoint(`${Math.max(0, Math.min(100, (event.clientX - rect.left) / rect.width * 100))}% ${Math.max(0, Math.min(100, (event.clientY - rect.top) / rect.height * 100))}%`);
           }}
           onMouseLeave={() => setZoomPoint("50% 50%")}
-          className="group relative h-full w-full cursor-zoom-in overflow-hidden text-left" aria-label={`Enlarge photo of ${name} on this page`}>
+          className="group relative h-full w-full cursor-zoom-in touch-pan-y overflow-hidden text-left" aria-label={`Enlarge photo of ${name} on this page`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={photo(selected)} alt={`${name}, photo ${index + 1} of ${images.length}`}
             style={{ transformOrigin: zoomPoint }}
@@ -72,6 +91,20 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
           <span className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-ink-900/80 px-3 py-1.5 text-xs font-semibold text-white"><ZoomIn className="h-3.5 w-3.5" aria-hidden="true" /> <span className="hidden sm:inline">Hover to zoom · Click to enlarge</span><span className="sm:hidden">Tap to enlarge</span></span>
         </button> : <div className="flex h-full items-center justify-center gap-2 text-sm text-ink-400"><ImageIcon className="h-9 w-9" aria-hidden="true" />No product photo available</div>}
       </div>
+
+      {hasThumbnails && <section className="relative min-w-0 sm:order-1" aria-label="Product photos">
+        <h2 className="sr-only">Product photos ({images.length})</h2>
+        <div className="w-full min-w-0 overflow-x-auto pb-1 sm:absolute sm:inset-0 sm:overflow-x-hidden sm:overflow-y-auto sm:overscroll-contain sm:pb-0 sm:pr-1" role="group" aria-label="Choose a product photo">
+          <div className="flex w-max gap-2 sm:w-full sm:flex-col">
+            {images.map((path, photoIndex) => <button key={path} type="button" onClick={() => { setIndex(photoIndex); setZoomPoint("50% 50%"); }}
+              aria-label={`Show photo ${photoIndex + 1} of ${name}`} aria-pressed={index === photoIndex}
+              className={`aspect-square w-16 shrink-0 overflow-hidden rounded-lg border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:w-full ${index === photoIndex ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photo(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
+            </button>)}
+          </div>
+        </div>
+      </section>}
     </div>
 
     {video && <section className="mt-3 min-w-0 rounded-xl border border-ink-200 bg-white p-3">

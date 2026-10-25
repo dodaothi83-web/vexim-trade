@@ -40,6 +40,8 @@ export function HarvestCalendarSection({
   const chart = buildHarvestChartGeometry(states);
   const headline = harvestHeadline(windows);
   const reviewed = formatReviewedOn(harvest.reviewed_on);
+  const sources = harvest.sources ?? [];
+  const sourceChecked = harvest.review_origin === "ai" && sources.length > 0;
 
   return (
     <section id="crop-calendar" className="mt-14 rounded-2xl border border-ink-200 bg-white p-5 sm:p-6">
@@ -159,9 +161,16 @@ export function HarvestCalendarSection({
 
       {note && <p className="mt-4 text-[13px] leading-relaxed text-ink-600">{note}</p>}
 
+      {sources.length > 0 && <div className="mt-4 rounded-xl bg-ink-50/70 px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">Sources for this update</p>
+        <ul className="mt-1.5 space-y-1">{sources.map((source) => <li key={source.url}>
+          <a href={source.url} target="_blank" rel="noopener noreferrer" className="break-words text-[12.5px] font-medium text-brand-700 hover:underline">{source.title}</a>
+        </li>)}</ul>
+      </div>}
+
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-3">
         <p className="text-[12px] text-ink-500">
-          {reviewed ? `Reviewed ${reviewed}.` : "Review date not set. Treat these months as a planning guide."} Months show
+          {reviewed ? `${sourceChecked ? "Sources checked" : "Reviewed"} ${reviewed}.` : "Review date not set. Treat these months as a planning guide."} Months show
           when the crop is harvested, not when it ships.
         </p>
         {marketHref && (

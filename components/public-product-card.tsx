@@ -15,46 +15,46 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
   linkable?: boolean;
 }) {
   const quote = !test && linkable ? quoteHref : undefined;
-  const thumb = <div className="relative aspect-square w-full overflow-hidden bg-ink-50">
+  const thumb = <div className="relative aspect-square w-full overflow-hidden rounded-l-xl bg-ink-50 sm:rounded-l-none sm:rounded-t-xl">
     {imagePath ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={`/public-media/${imagePath.replace(/^\//, "")}`} alt={name} loading="lazy" className="h-full w-full object-cover" /></>
       : <div className="flex h-full items-center justify-center text-ink-300"><ImageIcon className="size-10" aria-hidden="true" /></div>}
     {test && <span className="absolute left-2 top-2 rounded bg-amber-200 px-2 py-1 text-[10px] font-bold text-amber-950">TEST · Not an offer</span>}
   </div>;
-  return <article className={`flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-card transition focus-within:border-brand-500 ${linkable ? "hover:border-brand-400 hover:shadow-md" : ""}`}>
-    {linkable ? <Link href={href} aria-label={`View details of ${name}`} className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
-      {thumb}
-      <h3 className="mx-3 mt-3 line-clamp-2 min-h-10 text-sm font-bold leading-5 text-ink-900 group-hover:text-brand-700 sm:mx-3.5">{name}</h3>
-    </Link> : <div>
-      {thumb}
-      <h3 className="mx-3 mt-3 line-clamp-2 min-h-10 text-sm font-bold leading-5 text-ink-900 sm:mx-3.5">{name}</h3>
-    </div>}
-    <div className="flex flex-1 flex-col px-3 pb-3 pt-3 sm:px-3.5 sm:pb-3.5">
-      <div className="mb-2 flex h-6 items-center">
+  const title = <h3 className="mb-1 line-clamp-2 min-h-0 text-[13px] font-bold leading-[18px] text-ink-900 group-hover:text-brand-700 sm:mb-3 sm:min-h-10 sm:text-sm sm:leading-5">{name}</h3>;
+  return <article className={`flex h-full min-w-0 flex-row overflow-visible rounded-xl border border-ink-200 bg-white shadow-card transition focus-within:border-brand-500 sm:flex-col ${linkable ? "hover:border-brand-400 hover:shadow-md" : ""}`}>
+    {linkable ? <Link href={href} aria-label={`View details of ${name}`} className="group block w-[38%] shrink-0 self-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:w-full">{thumb}</Link>
+      : <div className="w-[38%] shrink-0 self-start sm:w-full">{thumb}</div>}
+    <div className="flex min-w-0 flex-1 flex-col justify-center p-2 sm:justify-start sm:px-3.5 sm:pb-3.5 sm:pt-3">
+      {linkable ? <Link href={href} className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">{title}</Link> : title}
+      <div className="mb-1 hidden h-5 items-center sm:mb-2 sm:flex sm:h-6">
         {!test && (oem || odm || samples) && <ProductTradeLabels oem={oem} odm={odm} samples={samples} compact />}
       </div>
-      <p className={`break-words ${test ? "text-xs font-semibold leading-4 text-ink-500" : "text-[15px] font-bold leading-5 text-brand-800 sm:text-base"}`}>
+      <p className={`break-words ${test ? "text-xs font-semibold leading-4 text-ink-500" : "text-sm font-bold leading-[18px] text-brand-800 sm:text-base sm:leading-5"}`}>
         {test ? "Test data · not a price" : price || "On request"}
         {!test && fob && <span className="ml-1 text-[9px] font-semibold uppercase tracking-wide text-ink-400">FOB</span>}
       </p>
-      <dl className="mt-2.5 grid grid-cols-2 gap-x-2 text-ink-600">
-        <div className="min-w-0">
-          <dt className="text-[10px] font-medium uppercase tracking-wide text-ink-500">MOQ</dt>
-          <dd className="mt-0.5 break-words text-[11px] font-semibold leading-4 text-ink-800 sm:text-xs">{moq || "On request"}</dd>
+      <dl className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-600 sm:mt-2.5 sm:grid sm:grid-cols-2 sm:gap-x-2">
+        <div className="flex min-w-0 items-baseline gap-1 sm:block">
+          <dt className="text-[9px] font-medium uppercase tracking-wide text-ink-500 sm:text-[10px]">MOQ</dt>
+          <dd className="mt-0 break-words text-[10px] font-semibold leading-4 text-ink-800 sm:mt-0.5 sm:text-xs">{moq || "On request"}</dd>
         </div>
-        <div className="min-w-0">
-          <dt className="text-[10px] font-medium uppercase tracking-wide text-ink-500">Lead time</dt>
-          <dd className="mt-0.5 break-words text-[11px] font-semibold leading-4 text-ink-800 sm:text-xs">{leadTimeDays != null ? `${leadTimeDays} days` : "On request"}</dd>
+        <div className="flex min-w-0 items-baseline gap-1 sm:block">
+          <dt className="text-[9px] font-medium uppercase tracking-wide text-ink-500 sm:text-[10px]">Lead time</dt>
+          <dd className="mt-0 break-words text-[10px] font-semibold leading-4 text-ink-800 sm:mt-0.5 sm:text-xs">{leadTimeDays != null ? `${leadTimeDays} days` : "On request"}</dd>
         </div>
       </dl>
-      <div className="mt-3 border-t border-ink-100 pt-2.5">
-        <p className="flex min-w-0 items-center gap-1.5 text-xs leading-4">
+      <div className="mt-1 border-t border-ink-100 pt-1 sm:mt-3 sm:pt-2.5">
+        <p className="flex min-w-0 items-center gap-1.5 text-[11px] leading-[14px] sm:text-xs sm:leading-4">
           <span className="shrink-0 text-ink-500">Supplied by</span>
           {supplierHref && linkable ? <Link href={supplierHref} title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-brand-700 hover:underline">{supplierName}</Link>
             : <span title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-ink-800">{supplierName}</span>}
         </p>
-        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5"><VerificationPips levels={test ? [] : verificationSteps} compact /><VerificationTierBadge levels={test ? [] : verificationSteps} /></div>
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 sm:mt-1.5 sm:gap-1.5">
+          <VerificationPips levels={test ? [] : verificationSteps} compact shortTooltips />
+          <VerificationTierBadge levels={test ? [] : verificationSteps} compactOnMobile />
+        </div>
       </div>
-      <div className="mt-auto pt-3">{quote
+      <div className="mt-auto hidden pt-3 sm:block">{quote
         ? <Link href={quote} aria-label={`Request a quote for ${name}`} className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-2.5 py-2 text-center text-xs font-bold text-white transition hover:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
           Request a quote <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
         </Link>

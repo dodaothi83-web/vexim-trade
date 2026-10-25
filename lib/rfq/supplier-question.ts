@@ -32,7 +32,7 @@ export function buildSupplierQuestionEmail(input: {
       <tr><td style="color:#64748b;width:130px;">Mã câu hỏi</td><td><strong>${escapeHtml(rfq.code)}</strong></td></tr>
       <tr><td style="color:#64748b;">Sản phẩm</td><td><strong>${escapeHtml(product)}</strong></td></tr>
       <tr><td style="color:#64748b;">Buyer</td><td>${escapeHtml(buyer.contact_name ?? "")}<br/>${escapeHtml(buyer.company)}</td></tr>
-      <tr><td style="color:#64748b;">Email phản hồi</td><td><a href="mailto:${escapeHtml(buyer.email ?? "")}">${escapeHtml(buyer.email ?? "")}</a></td></tr>
+      <tr><td style="color:#64748b;">Email phản hồi</td><td>${escapeHtml(buyer.email ?? "")}</td></tr>
     </table>
     ${productUrl ? `<p><a href="${escapeHtml(productUrl)}">Xem đúng sản phẩm buyer đang hỏi</a></p>` : ""}
     <div style="margin-top:18px;border-left:4px solid #0f766e;background:#f0fdfa;padding:12px 16px;">

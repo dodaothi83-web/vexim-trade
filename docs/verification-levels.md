@@ -1,5 +1,7 @@
 # Kiểm toán nhà cung cấp
 
+> Tài liệu này mô tả hệ thống hiện tại. Business specification chưa triển khai về chu kỳ tái kiểm định nằm tại [Cơ chế tái kiểm định minh bạch 24 tháng](./verification-reverification-cycle.md).
+
 Ba đánh giá độc lập trong CRM: **Kiểm tra giấy tờ**, **Thăm nhà máy**, **Lịch sử giao hàng**. Có thể bắt đầu và duyệt bất kỳ đánh giá nào mà không cần duyệt đánh giá còn lại; doanh nghiệp thương mại không có nhà máy vẫn có thể được duyệt lịch sử giao hàng. Chỉ hiện huy hiệu công khai cho đúng từng đánh giá đã **duyệt**, không suy ra hai đánh giá trước từ giá trị `verification_level` lớn nhất. Một nhân sự có đủ quyền kiểm + duyệt (thu mua hoặc admin) có thể hoàn tất bản của chính mình sau khi xác nhận đối chiếu lại. Reviewer vẫn có thể duyệt độc lập khi cần, nhưng không còn là bước chờ bắt buộc. Quyết định một nhân sự ghi `self_approved` và audit log; AI không tự duyệt.
 
 Trên **thẻ và trang chi tiết sản phẩm** cho buyer, ba kết quả được rút gọn thành icon giấy tờ / nhà máy / giao hàng, có tooltip tiếng Anh khi rê chuột, dùng bàn phím hoặc chạm. Chỉ icon của đúng đợt kiểm đã được duyệt mới xuất hiện; không hiển thị số L1/L2/L3 hay suy diễn bước trước. Tooltip ghi rõ đây là kiểm tra **nhà cung cấp**, không chứng nhận chất lượng sản phẩm; hai số thuế/ngân hàng do NCC cung cấp không được xác minh độc lập. Không có duyệt thì ghi “No approved checks yet”; bản demo không được nhận icon giả từ `verification_level` cũ. Lọc xác minh trong danh mục sản phẩm vẫn dựa trên từng đợt đã duyệt.

@@ -145,6 +145,15 @@ assert.ok(full.includes("Featured Marketplace Offers"), "The feed keeps its labe
 assert.equal(full.match(/data-product=/g).length, 15, "Desktop page one renders 15 products in three rows of five");
 assert.ok(full.includes("1/2"), "Products after the first 15 remain available on page two");
 
+assert.ok(full.includes("images.pexels.com/photos/30658831"), "The homepage uses the real Pexels coffee-production photo");
+assert.match(full, /fm=webp(?:&amp;|&)w=960(?:&amp;|&)q=72 960w/, "The responsive srcset requests a compressed 960px WebP");
+assert.ok(full.includes("1920w"), "The srcset also covers wide screens without using the original stock file");
+assert.match(full, /loading="eager"/, "The LCP hero loads immediately");
+assert.match(full, /fetchPriority="high"/i, "The LCP hero keeps high fetch priority");
+const homeSource = readFileSync(new URL("../app/(public)/home.tsx", import.meta.url), "utf8");
+assert.doesNotMatch(homeSource, /loader=\{homeHeroLoader\}/, "The server homepage does not pass a loader function to a Client Component");
+assert.match(homeSource, /srcSet=\{HOME_HERO_SRCSET\}/, "The hero uses static responsive URLs instead of a function prop");
+
 /* Ít hàng cũng giữ cùng vị trí, không còn ngưỡng chuyển xuống dưới. */
 const thin = await renderHome([offer("a1", "A"), offer("a2", "A")]);
 const thinFeedAt = thin.indexOf('aria-labelledby="home-products-title"');
@@ -159,7 +168,7 @@ const empty = await renderHome([]);
 assert.ok(!empty.includes('aria-labelledby="home-products-title"'), "No products means no empty section at all");
 assert.ok(empty.includes('id="categories"'), "The category grid carries the page on its own");
 
-/* Tối đa tám danh mục, bốn cột trên desktop và một hoặc hai cột ở màn nhỏ. */
+/* Tối đa tám danh mục, bốn cột trên desktop và hai cột ở màn nhỏ. */
 const tenCategories = Array.from({ length: 10 }, (_, i) => ({
   ...category,
   id: `c-${i + 1}`,
@@ -172,7 +181,21 @@ const categoryStart = categoryPage.indexOf('id="categories"');
 const categoryHtml = categoryPage.slice(categoryStart, categoryPage.indexOf("</section>", categoryStart));
 assert.equal((categoryHtml.match(/<h3/g) ?? []).length, 8, "Only eight category cards render from ten active categories");
 assert.ok(!categoryHtml.includes("Category 9"), "The ninth category moves off the homepage rather than creating a partial third row");
-assert.match(categoryHtml, /grid-cols-1[^"\n]*sm:grid-cols-2 lg:grid-cols-4/, "Categories use one, two, then four responsive columns");
+assert.match(categoryHtml, /grid-cols-2[^"\n]*lg:grid-cols-4/, "Categories use two columns on phones and four on desktop");
+assert.match(categoryHtml, /hidden text-\[13\.5px\][^"\n]*sm:line-clamp-3/, "Category introductions stay on desktop and are hidden on phones");
+assert.match(categoryHtml, /mt-5 hidden border-t[^"\n]*sm:block/, "The Browse products footer stays on desktop and is hidden on phones");
+
+/* Nhãn phụ chỉ đến từ CRM; không lấy tên tiếng Việt cứng làm fallback. */
+const defaultCategoryStart = full.indexOf('id="categories"');
+const defaultCategoryHtml = full.slice(defaultCategoryStart, full.indexOf("</section>", defaultCategoryStart));
+assert.doesNotMatch(defaultCategoryHtml, /Hồ tiêu (?:&amp;|&) Gia vị Việt Nam/, "English cards never fall back to the hardcoded Vietnamese pepper label");
+assert.doesNotMatch(defaultCategoryHtml, /text-amber-300/, "An empty CRM kicker renders no duplicate secondary label");
+const kickerPage = await renderHome([], [{
+  ...category,
+  homepage_kicker_i18n: { en: "Black & white pepper" },
+}]);
+assert.match(kickerPage, /Black &amp; white pepper/, "A real CRM kicker still appears on the category card");
+assert.match(kickerPage, /text-amber-300/, "The CRM kicker keeps its existing visual treatment");
 
 /* ---------------- 2b. Chia trang lưới sản phẩm ---------------- */
 
@@ -189,7 +212,7 @@ const feedModule = compile("../components/home-product-feed.tsx", {
 const renderFeed = (items, perPage) =>
   renderToStaticMarkup(React.createElement(feedModule.HomeProductFeed, { items, perPage, isVi: false }));
 
-assert.equal(HOME_FEED_PER_PAGE, 6, "Điện thoại hai cột và máy tính bảng ba cột: sáu thẻ là hai đến ba hàng đầy");
+assert.equal(HOME_FEED_PER_PAGE, 6, "Điện thoại một cột và máy tính bảng ba cột: sáu thẻ vẫn là số lượng mobile và tablet");
 assert.equal(HOME_FEED_PER_PAGE_WIDE, 15, "Desktop năm cột: 15 thẻ là ba hàng đầy");
 assert.equal(feedPerPage(false), 6, "Dưới 1024px dùng sáu thẻ");
 assert.equal(feedPerPage(true), 15, "Từ 1024px dùng 15 thẻ");

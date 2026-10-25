@@ -34,7 +34,7 @@ export default async function UsersPage() {
           />
         }
         title="Người dùng & phân quyền"
-        sub="Tài khoản đăng nhập vào CRM và vai trò của từng người."
+        sub="Quản lý tài khoản nhân sự Vexim và tài khoản NCC theo từng nhóm."
         actions={
           <Link href="/crm/settings" className="btn btn-ghost">
             <ArrowLeft className="h-4 w-4" />

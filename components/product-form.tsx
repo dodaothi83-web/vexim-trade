@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { ArrowLeft, ImageIcon, Loader2, Save } from "lucide-react";
 
 import { createProductAction, updateProductAction } from "@/app/actions";
 import type { Category, Supplier, SupplierProduct } from "@/lib/types";
@@ -15,12 +15,16 @@ import { ProductAttributeInputs } from "@/components/product-attribute-inputs";
 import { effectiveFieldsFor, fieldsFor } from "@/lib/product-attributes";
 import { gradeKey, resolveGrade } from "@/lib/public/grade-resolution";
 import { composeDisplayName, isPlaceholderDisplayName } from "@/lib/public/display-name";
+import { useRegisterProductEditDirty } from "@/app/crm/products/[slug]/edit/edit-workspace";
 
 const INCOTERMS = ["EXW", "FOB", "CFR", "CIF", "DAP", "DDP", "FCA"];
 const CURRENCIES = ["USD", "EUR", "VND"];
 
 type FormState = Record<string, string | number | boolean>;
 type ProductTab = "info" | "spec" | "trade";
+type ProductSnapshot = { form: FormState; attributes: Record<string, string>; category: string };
+
+const ORIGINAL_TEXT_KEYS = ["name", "description", "spec", "description_detail", "packaging", "certifications"] as const;
 
 function init(p?: SupplierProduct | null): FormState {
   return {
@@ -52,6 +56,12 @@ function init(p?: SupplierProduct | null): FormState {
   };
 }
 
+function initAttributes(p?: SupplierProduct | null): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(p?.specs ?? {}).filter(([, value]) => typeof value === "string") as [string, string][],
+  );
+}
+
 const TABS: Array<{ key: ProductTab; label: string; hint: string }> = [
   { key: "info", label: "Thông tin & mô tả", hint: "Tên, danh mục, mô tả cho buyer" },
   { key: "spec", label: "Quy cách & năng lực", hint: "Quy cách, MOQ, đóng gói, chứng nhận tự khai" },
@@ -65,6 +75,8 @@ export function ProductForm({
   supplierCategories = [],
   mediaState,
   savedPrice,
+  previewImage = null,
+  savedTranslationCurrent = true,
 }: {
   supplier: Supplier;
   product?: SupplierProduct | null;
@@ -74,6 +86,10 @@ export function ProductForm({
   mediaState?: { ready: boolean; shareable: number };
   /** Server projection of the SAVED product, never inferred from unsaved checkbox edits. */
   savedPrice?: { buyerPrice: string | null; blockers: string[]; publicProduct: boolean };
+  /** Ảnh đại diện đã lưu, dùng cho preview trực tiếp trong form. */
+  previewImage?: string | null;
+  /** Trạng thái bản dịch đã lưu, để cảnh báo khi thao tác lưu có thể kích hoạt dịch lại. */
+  savedTranslationCurrent?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -83,14 +99,20 @@ export function ProductForm({
   const [tab, setTab] = useState<ProductTab>("info");
   const [nameError, setNameError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState(product?.reviewed_category_slug ?? product?.category ?? "");
-  const [attributes, setAttributes] = useState<Record<string, string>>(() => Object.fromEntries(
-    Object.entries(product?.specs ?? {}).filter(([, v]) => typeof v === "string") as [string, string][]));
+  const [attributes, setAttributes] = useState<Record<string, string>>(() => initAttributes(product));
+  const [savedSnapshot, setSavedSnapshot] = useState<ProductSnapshot>(() => ({
+    form: init(product),
+    attributes: initAttributes(product),
+    category: product?.reviewed_category_slug ?? product?.category ?? "",
+  }));
 
   const set = (k: string, v: string | number | boolean) => setForm((f) => ({ ...f, [k]: v }));
   const v = (k: string) => String(form[k] ?? "");
-  const dirty = JSON.stringify(init(product)) !== JSON.stringify(form) ||
-    JSON.stringify(Object.fromEntries(Object.entries(product?.specs ?? {}).filter(([, x]) => typeof x === "string"))) !== JSON.stringify(attributes) ||
-    (product ? selectedCategory !== (product.reviewed_category_slug ?? product.category ?? "") : selectedCategory !== "");
+  const currentSnapshot: ProductSnapshot = { form, attributes, category: selectedCategory };
+  const dirty = JSON.stringify(currentSnapshot) !== JSON.stringify(savedSnapshot);
+  const sourceDirty = ORIGINAL_TEXT_KEYS.some((key) => form[key] !== savedSnapshot.form[key]);
+  useRegisterProductEditDirty("product", dirty);
+  useRegisterProductEditDirty("source", sourceDirty);
   const assignedCategory = assignProductCategory({
     name: v("name"), spec: v("spec"), description: v("description"), category: product?.category ?? null,
   }, categories, supplierCategories);
@@ -129,22 +151,42 @@ export function ProductForm({
   }).fromName;
   const displayNameConflict = !!confirmedGrade && !!displayNameGrade &&
     gradeKey(confirmedGrade) !== gradeKey(displayNameGrade);
+  const previewName = (displayNamePlaceholder ? "" : v("display_name").trim()) || v("name").trim() || "Chưa có tên sản phẩm";
 
-  const tabState = (key: ProductTab): "ok" | "part" | "no" => {
-    if (key === "info") return v("name").trim() ? (v("description").trim() ? "ok" : "part") : "no";
-    if (key === "spec") return v("spec").trim() || v("moq").trim() ? "ok" : "no";
-    return v("ref_price").trim() ? "ok" : "no";
-  };
+  const priceFromText = v("ref_price").trim();
+  const priceToText = v("ref_price_max").trim();
+  const priceFrom = Number(priceFromText);
+  const priceTo = Number(priceToText);
+  const priceRangeError = priceToText && (
+    !priceFromText || !Number.isFinite(priceFrom) || !Number.isFinite(priceTo) ||
+    priceFrom <= 0 || priceTo < priceFrom
+  ) ? "Giá đến phải lớn hơn hoặc bằng giá từ. Giá từ cần lớn hơn 0." : null;
+  const previewPrice = priceRangeError
+    ? "Kiểm tra giá"
+    : form.price_publicly_visible && priceFromText
+      ? `${v("currency")} ${priceFromText}${priceToText ? `-${priceToText}` : ""}/${v("unit") || "đơn vị"}`
+      : "On request";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy || (product && !dirty)) return;
     if (!v("name").trim()) {
       setNameError("Hãy nhập tên sản phẩm.");
       setTab("info");
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      requestAnimationFrame(() => document.getElementById("product-name")?.focus());
       toast.push({ kind: "error", title: "Chưa nhập tên sản phẩm." });
       return;
     }
+    if (priceRangeError) {
+      setTab("trade");
+      requestAnimationFrame(() => document.getElementById("product-ref-price-max")?.focus());
+      toast.push({ kind: "error", title: priceRangeError });
+      return;
+    }
+    const mayAutoTranslate = !!product && !supplierReviewedListing && Boolean(form.ready_for_buyer) &&
+      (sourceDirty || !savedTranslationCurrent);
+    if (mayAutoTranslate && product?.name_i18n?.en?.trim() &&
+      !window.confirm("Lưu thay đổi này có thể kích hoạt AI dịch lại và thay thế bản tiếng Anh đã lưu. Tiếp tục?")) return;
     setNameError(null);
     setBusy(true);
     const payload = {
@@ -162,6 +204,7 @@ export function ProductForm({
         : await createProductAction(payload);
       toast.push({ kind: res.ok ? "success" : "error", title: res.message });
       if (res.ok) {
+        setSavedSnapshot(currentSnapshot);
         if (!product && res.id) router.push(`/crm/products/${res.id}/edit`);
         else router.refresh(); // Stay here and show the persisted public-price diagnostics.
       }
@@ -172,8 +215,30 @@ export function ProductForm({
     }
   }
 
+  function resetChanges() {
+    if (!dirty || !window.confirm("Hoàn tác toàn bộ thay đổi chưa lưu trong hồ sơ sản phẩm?")) return;
+    setForm(savedSnapshot.form);
+    setAttributes(savedSnapshot.attributes);
+    setSelectedCategory(savedSnapshot.category);
+    setNameError(null);
+  }
+
+  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, current: ProductTab) {
+    const index = TABS.findIndex((item) => item.key === current);
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % TABS.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + TABS.length) % TABS.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = TABS.length - 1;
+    else return;
+    event.preventDefault();
+    const key = TABS[next].key;
+    setTab(key);
+    document.getElementById(`product-tab-${key}`)?.focus();
+  }
+
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="space-y-4" aria-busy={busy}>
       {/* Thanh hành động dính trên cùng — nơi duy nhất chứa nút Lưu */}
       <div className="sticky top-2 z-20 rounded-2xl border border-ink-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-2.5">
@@ -182,66 +247,66 @@ export function ProductForm({
           </Link>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-black tracking-tight text-ink-900">{v("name") || (product ? product.name : "Sản phẩm mới")}</p>
-            <p className="truncate text-[11.5px] text-ink-500">Nhà cung cấp: {supplier.name}</p>
+            <p className="hidden truncate text-[11.5px] text-ink-500 sm:block">Nhà cung cấp: {supplier.name}</p>
           </div>
           {dirty
             ? <span className="text-xs font-bold text-amber-600">● Chưa lưu thay đổi</span>
             : product ? <span className="text-xs font-medium text-ink-400">Đã lưu</span> : null}
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {product && (
-              <Button type="button" size="sm" disabled={!dirty || busy} onClick={() => { setForm(init(product)); setAttributes(Object.fromEntries(Object.entries(product?.specs ?? {}).filter(([, x]) => typeof x === "string") as [string, string][])); setSelectedCategory(product.reviewed_category_slug ?? product.category ?? ""); }}>
+              <Button type="button" size="sm" disabled={!dirty || busy} onClick={resetChanges}>
                 Hoàn tác
               </Button>
             )}
-            <Button type="submit" size="sm" variant="primary" disabled={busy}>
+            <Button type="submit" size="sm" variant="primary" disabled={busy || (!!product && !dirty)}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {product ? "Lưu hồ sơ sản phẩm" : "Thêm sản phẩm"}
+              {product ? "Lưu thay đổi" : "Thêm sản phẩm"}
             </Button>
           </div>
         </div>
         {/* Tab điều hướng */}
         <div className="flex gap-1 overflow-x-auto border-t border-ink-100 px-2.5 py-2" role="tablist" aria-label="Mục hồ sơ sản phẩm">
-          {TABS.map((t) => {
-            const state = tabState(t.key);
-            return (
-              <button
-                key={t.key}
-                type="button"
-                role="tab"
-                aria-selected={tab === t.key}
-                onClick={() => setTab(t.key)}
-                className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-left transition ${tab === t.key ? "bg-brand-50 ring-1 ring-brand-200" : "hover:bg-ink-50"}`}
-              >
-                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${state === "ok" ? "bg-emerald-500" : state === "part" ? "bg-amber-500" : "bg-ink-300"}`} />
-                <span>
-                  <span className="block text-[13px] font-semibold leading-tight text-ink-900">{t.label}</span>
-                  <span className="block text-[11px] leading-tight text-ink-500">{t.hint}</span>
-                </span>
-              </button>
-            );
-          })}
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              id={`product-tab-${t.key}`}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              aria-controls={`product-panel-${t.key}`}
+              tabIndex={tab === t.key ? 0 : -1}
+              onClick={() => setTab(t.key)}
+              onKeyDown={(event) => handleTabKeyDown(event, t.key)}
+              className={`shrink-0 rounded-xl px-3 py-2 text-left transition ${tab === t.key ? "bg-brand-50 ring-1 ring-brand-200" : "hover:bg-ink-50"}`}
+            >
+              <span className="block text-[13px] font-semibold leading-tight text-ink-900">{t.label}</span>
+              <span className="hidden text-[11px] leading-tight text-ink-500 sm:block">{t.hint}</span>
+            </button>
+          ))}
         </div>
       </div>
 
+      <fieldset disabled={busy} className="min-w-0 space-y-4 border-0 p-0">
       {tab === "info" && (
-        <section className="card space-y-4 p-5">
+        <section id="product-panel-info" role="tabpanel" aria-labelledby="product-tab-info" className="card space-y-4 p-5">
           <div>
             <h2 className="text-sm font-bold text-ink-900">Nhận diện sản phẩm</h2>
-            <p className="mt-0.5 text-xs text-ink-500">
-              Nhà cung cấp: <strong className="text-ink-800">{supplier.name}</strong>
-            </p>
+            <p className="mt-0.5 text-xs text-ink-500">Tên gốc được giữ riêng; tên hiển thị cho buyer có thể chỉnh bên dưới.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Tên sản phẩm" required className="sm:col-span-2 lg:col-span-3">
+            <Field label="Tên gốc của sản phẩm" required className="sm:col-span-2 lg:col-span-3">
               <input
+                id="product-name"
+                required
                 className={`input ${nameError ? "border-rose-400 bg-rose-50/40" : ""}`}
                 value={v("name")}
                 aria-invalid={!!nameError}
+                aria-describedby={nameError ? "product-name-error" : undefined}
                 onChange={(e) => { set("name", e.target.value); setNameError(null); }}
                 placeholder="VD: Gạo Jasmine 5% tấm"
-                autoFocus
+                autoFocus={!product}
               />
-              {nameError && <p className="mt-1 text-xs font-semibold text-rose-600">{nameError}</p>}
+              {nameError && <p id="product-name-error" className="mt-1 text-xs font-semibold text-rose-600">{nameError}</p>}
             </Field>
             {suggestedCategory && (
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs sm:col-span-2 lg:col-span-3">
@@ -280,27 +345,6 @@ export function ProductForm({
               </select>
             </Field>
           )}
-          <ProductAttributeInputs fields={attributeInputFields} values={attributes} onChange={setAttributes} />
-          {grade.conflict && (
-            <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-              Tên sản phẩm ghi <strong>{grade.fromName}</strong> nhưng ô {gradeField?.label ?? "quy cách"} đang là{" "}
-              <strong>{grade.fromAttributes}</strong>. Khi công khai, hệ thống lấy theo ô quy cách. Sửa một trong hai cho khớp.
-            </p>
-          )}
-          {gradeFromNameUsable && (
-            <p className="text-xs leading-5 text-ink-500">
-              Tên sản phẩm có “{grade.fromName}”.{" "}
-              <button
-                type="button"
-                onClick={() => setAttributes((current) => ({ ...current, [gradeField!.key]: grade.fromName! }))}
-                className="font-semibold text-brand-700 underline"
-              >
-                Điền vào ô {gradeField!.label}
-              </button>{" "}
-              để giá trị nằm trong dữ liệu, không phụ thuộc cách viết tên.
-            </p>
-          )}
-
           <div className="rounded-xl border border-ink-200 bg-ink-50/60 p-3">
             <Field
               label="Tên hiển thị cho buyer"
@@ -336,17 +380,39 @@ export function ProductForm({
               </p>
             )}
             <p className="mt-2 text-xs leading-5 text-ink-500">
-              Buyer sẽ thấy: <strong className="text-ink-800">{v("display_name").trim() || v("name") || "chưa có tên"}</strong>
+              Buyer sẽ thấy: <strong className="text-ink-800">{previewName}</strong>
             </p>
           </div>
         </section>
       )}
 
       {tab === "spec" && (
-        <section className="card p-5">
+        <section id="product-panel-spec" role="tabpanel" aria-labelledby="product-tab-spec" className="card p-5">
           <h2 className="mb-4 text-sm font-bold text-ink-900">Quy cách &amp; năng lực</h2>
+          <div className="mb-5 space-y-3">
+            <ProductAttributeInputs fields={attributeInputFields} values={attributes} onChange={setAttributes} />
+            {grade.conflict && (
+              <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                Tên gốc ghi <strong>{grade.fromName}</strong> nhưng ô {gradeField?.label ?? "quy cách"} đang là{" "}
+                <strong>{grade.fromAttributes}</strong>. Khi công khai, hệ thống lấy theo ô quy cách. Sửa một trong hai cho khớp.
+              </p>
+            )}
+            {gradeFromNameUsable && (
+              <p className="text-xs leading-5 text-ink-500">
+                Tên gốc có “{grade.fromName}”.{" "}
+                <button
+                  type="button"
+                  onClick={() => setAttributes((current) => ({ ...current, [gradeField!.key]: grade.fromName! }))}
+                  className="font-semibold text-brand-700 underline"
+                >
+                  Điền vào ô {gradeField!.label}
+                </button>{" "}
+                để giá trị nằm trong dữ liệu, không phụ thuộc cách viết tên.
+              </p>
+            )}
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Quy cách / specification" className="sm:col-span-2">
+            <Field label="Thông tin kỹ thuật bổ sung" hint="Nhập thông tin chưa có trường cấu trúc ở trên." className="sm:col-span-2">
               <input
                 className="input"
                 value={v("spec")}
@@ -459,7 +525,7 @@ export function ProductForm({
       )}
 
       {tab === "trade" && (
-        <section className="card p-5">
+        <section id="product-panel-trade" role="tabpanel" aria-labelledby="product-tab-trade" className="card p-5">
           <h2 className="text-sm font-bold text-ink-900">Điều kiện thương mại tham khảo</h2>
           <p className="mt-0.5 mb-4 text-xs text-ink-600">
             Quyền chia sẻ giá trong hồ sơ doanh nghiệp là sự đồng ý chung của NCC (hiệu lực 180 ngày). Giá chỉ hiện khi <strong>riêng sản phẩm này</strong> cũng được chọn, có giá hợp lệ và đủ điều kiện công bố; đây không phải báo giá RFQ.
@@ -470,8 +536,10 @@ export function ProductForm({
                 onChange={(e) => set("ref_price", e.target.value)} placeholder="620" />
             </Field>
             <Field label="Giá tham khảo đến" hint="Tùy chọn. Để trống nếu chỉ có một mức giá; không được thấp hơn giá từ.">
-              <input type="number" min={0} step="0.01" className="input" value={v("ref_price_max")}
+              <input id="product-ref-price-max" type="number" min={0} step="0.01" className={`input ${priceRangeError ? "border-rose-400 bg-rose-50/40" : ""}`} value={v("ref_price_max")}
+                aria-invalid={!!priceRangeError} aria-describedby={priceRangeError ? "product-price-range-error" : undefined}
                 onChange={(e) => set("ref_price_max", e.target.value)} placeholder="680" />
+              {priceRangeError && <p id="product-price-range-error" className="mt-1 text-xs font-semibold text-rose-600">{priceRangeError}</p>}
             </Field>
             <Field label="Tiền tệ">
               <select className="input" value={v("currency")} onChange={(e) => set("currency", e.target.value)}>
@@ -536,6 +604,33 @@ export function ProductForm({
           </div>
         </section>
       )}
+      </fieldset>
+
+      <details className="card overflow-hidden">
+        <summary className="cursor-pointer list-none p-4">
+          <span className="text-sm font-bold text-ink-900">Xem trước thẻ sản phẩm</span>
+          <span className="mt-0.5 block text-xs font-normal text-ink-500">Tên, danh mục, giá và MOQ cập nhật theo nội dung đang nhập.</span>
+        </summary>
+        <div className="border-t border-ink-100 bg-ink-50/50 p-4">
+          <div className="max-w-xs overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+            <div className="flex aspect-square items-center justify-center overflow-hidden bg-ink-100 text-ink-400">
+              {previewImage
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={previewImage} alt="Ảnh đại diện đã lưu" className="h-full w-full object-cover" />
+                : <ImageIcon className="h-10 w-10" aria-hidden="true" />}
+            </div>
+            <div className="p-4">
+              <p className="text-xs font-semibold text-brand-700">{activeCategory?.name_i18n.en || activeCategory?.slug || "Chưa có danh mục"}</p>
+              <h3 className="mt-1 line-clamp-2 text-[15px] font-bold leading-snug text-ink-900">{previewName}</h3>
+              <dl className="mt-3 space-y-1.5 text-xs">
+                <div className="flex justify-between gap-3"><dt className="text-ink-500">Giá trong form</dt><dd className="text-right font-semibold text-ink-800">{previewPrice}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-ink-500">MOQ</dt><dd className="text-right font-semibold text-ink-800">{v("moq").trim() || "On request"}</dd></div>
+              </dl>
+            </div>
+          </div>
+          <p className="mt-3 max-w-md text-xs leading-5 text-ink-500">Đây là preview nội dung đang nhập, không phải trạng thái đã đăng. Ảnh đại diện và điều kiện hiển thị giá thực tế vẫn theo dữ liệu đã lưu.</p>
+        </div>
+      </details>
     </form>
   );
 }

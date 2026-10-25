@@ -24,17 +24,37 @@ function load(relative) {
   const mocks = {
     'next/cache': { revalidatePath() {} },
     '@/lib/auth/session': {
-      guard: async (perm) => ['reviewer', 'admin'].includes(user.role) && ['categories.publish', 'suppliers.publish'].includes(perm) ? null : { message: 'denied' },
+      guard: async (perm) => {
+        if (perm === 'suppliers.manage') return ['admin', 'sourcing'].includes(user.role) ? null : { message: 'denied' };
+        return ['reviewer', 'admin'].includes(user.role) && ['categories.publish', 'suppliers.publish'].includes(perm) ? null : { message: 'denied' };
+      },
       getSession: async () => user,
     },
     '@/lib/db': { getStore: () => store },
-    '@/lib/supplier': { nextStatusOptions: (status) => status === 'in_verification' || status === 'suspended' ? ['published'] : status === 'published' ? ['suspended', 'archived'] : ['submitted'], statusMeta: (s) => ({ label: s }) },
+    '@/lib/supplier': {
+      nextStatusOptions: (status) => ({
+        draft: ['submitted'], submitted: ['in_verification', 'draft'], in_verification: ['published', 'submitted'],
+        published: ['suspended', 'archived'], suspended: ['published', 'archived'], archived: ['draft'],
+      })[status] ?? ['submitted'],
+      statusMeta: (s) => ({ label: s }),
+    },
   };
   vm.runInNewContext(js, { exports, require: (id) => { assert.ok(id in mocks, `Unexpected import ${id}`); return mocks[id]; }, console }, { filename: relative });
   return exports;
 }
 const suppliers = load('../app/crm/suppliers/[slug]/publication-actions.ts');
 const categories = load('../app/crm/categories/publication-actions.ts');
+
+user = { uid: 'sourcing-1', email: 'sourcing@example.com', role: 'sourcing' };
+supplier = { id: supplierId, status: 'draft', name: 'Example' };
+assert.equal((await suppliers.decideSupplierPreparationAction(supplierId, 'submitted')).ok, true);
+assert.deepEqual({ ...supplierPatches.at(-1) }, { status: 'submitted' }, 'Preparation must not write profile fields');
+assert.equal(logs.at(-1).action, 'supplier.preparation_decided');
+assert.equal((await suppliers.decideSupplierPreparationAction(supplierId, 'published')).ok, false, 'Preparation action cannot publish');
+assert.equal((await suppliers.decideSupplierPublicationAction(supplierId, 'published')).ok, false, 'Sourcing cannot publish');
+user = { uid: 'reviewer-1', email: 'reviewer@example.com', role: 'reviewer' };
+assert.equal((await suppliers.decideSupplierPreparationAction(supplierId, 'in_verification')).ok, false, 'Reviewer cannot move private preparation stages');
+supplier = { id: supplierId, status: 'in_verification', name: 'Example' };
 assert.equal((await suppliers.decideSupplierPublicationAction(supplierId, 'published')).ok, true);
 assert.deepEqual({ ...supplierPatches.at(-1) }, { status: 'published' }, 'Publication must not write profile fields');
 assert.equal(logs.at(-1).actor_id, user.uid);
@@ -55,4 +75,4 @@ assert.equal(logs.at(-1).action, 'publish');
 user = { ...user, role: 'sale' };
 assert.equal((await suppliers.decideSupplierPublicationAction(supplierId, 'published')).ok, false);
 assert.equal((await categories.decideCategoryPublicationAction(categoryId, true)).ok, false);
-console.log('✅ Reviewer publication: status-only, audited, gated, category editor cannot self-publish.');
+console.log('✅ Supplier workflow: preparation and publication are status-only, audited and role-gated; category editor cannot self-publish.');

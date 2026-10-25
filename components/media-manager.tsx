@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   CheckCircle2,
   CircleAlert,
@@ -15,6 +16,7 @@ import {
   ShieldCheck,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 
 import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/actions";
@@ -177,7 +179,7 @@ export function MediaManager({
 
   async function patch(id: string, next: Parameters<typeof updateMediaAction>[1]) {
     const res = await updateMediaAction(id, next);
-    if (!res.ok) toast.push({ kind: "error", title: res.message });
+    toast.push({ kind: res.ok ? "success" : "error", title: res.ok ? "Đã lưu thay đổi tệp." : res.message });
     router.refresh();
   }
 
@@ -217,6 +219,7 @@ export function MediaManager({
 
       {/* Khu tải lên */}
       {!readOnly && <div className="border-b border-ink-200 bg-ink-50/60 px-4 py-3">
+        <p className="mb-2.5 text-[11.5px] text-ink-500">Tệp và các thay đổi trong khu này được lưu ngay, tách biệt với nút Lưu thay đổi của hồ sơ.</p>
         <div className="mb-2.5 flex flex-wrap gap-1.5">
           {MEDIA_KINDS.filter((k) => ownerType !== "verification" || ["image", "document", "certificate", "video"].includes(k.value)).map((k) => (
             <button
@@ -398,6 +401,8 @@ function MediaRow({
   onRemove: () => void;
 }) {
   const [caption, setCaption] = useState(asset.caption ?? "");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const closePreview = useCallback(() => setPreviewOpen(false), []);
   const expired = isExpired(asset);
   const status: MediaStatus = expired ? "expired" : asset.status;
   const Icon = KIND_ICON[asset.kind];
@@ -407,15 +412,25 @@ function MediaRow({
       ? `/api/media/file/${asset.storage_path}`
       : null;
   const fileUrl = asset.storage_path ? `/api/media/file/${asset.storage_path}` : null;
+  const canPreview = asset.kind === "image" && !!fileUrl;
+  const previewName = asset.caption?.trim() || (asset.owner_type === "product" ? "Ảnh sản phẩm" : "Ảnh đính kèm");
 
   return (
     <li className="flex flex-wrap items-start gap-3 px-4 py-3">
       <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-ink-200 bg-ink-50">
-        {asset.kind === "video" ? (
+        {canPreview ? (
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="h-full w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+            aria-label={`Xem ${previewName} ngay trên trang`}
+            title="Xem ảnh ngay trên trang"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={thumbUrl ?? fileUrl ?? ""} alt={previewName} className="h-full w-full object-cover" />
+          </button>
+        ) : asset.kind === "video" ? (
           <PlayCircle className="h-6 w-6 text-ink-400" />
-        ) : thumbUrl && asset.mime?.startsWith("image/") ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumbUrl} alt={asset.caption ?? ""} className="h-full w-full object-cover" />
         ) : (
           <Icon className="h-6 w-6 text-ink-400" />
         )}
@@ -483,7 +498,15 @@ function MediaRow({
               Mở link
             </a>
           )}
-          {fileUrl && (
+          {fileUrl && (canPreview ? (
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
+              className="text-[12px] font-semibold text-brand-700 hover:underline"
+            >
+              Xem ảnh
+            </button>
+          ) : (
             <a
               className="text-[12px] font-semibold text-brand-700 hover:underline"
               href={fileUrl}
@@ -492,7 +515,7 @@ function MediaRow({
             >
               Xem tệp
             </a>
-          )}
+          ))}
           {!readOnly && <button
             type="button"
             onClick={onRemove}
@@ -502,7 +525,61 @@ function MediaRow({
           </button>}
         </div>
       </div>
+      {previewOpen && fileUrl && <MediaImageLightbox src={fileUrl} name={previewName} onClose={closePreview} />}
     </li>
+  );
+}
+
+function MediaImageLightbox({ src, name, onClose }: { src: string; name: string; onClose: () => void }) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+      if (event.key === "Tab") {
+        event.preventDefault();
+        closeRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [onClose]);
+
+  return typeof document === "undefined" ? null : createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={name}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/95 p-4 sm:p-8"
+      onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <button
+        ref={closeRef}
+        type="button"
+        onClick={onClose}
+        aria-label="Đóng ảnh"
+        className="absolute right-4 top-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white"
+      >
+        <X className="h-5 w-5" aria-hidden="true" />
+      </button>
+      <figure className="flex min-h-0 max-w-full flex-col items-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={name} className="max-h-[82vh] max-w-full rounded-lg object-contain" />
+        <figcaption className="mt-3 max-w-prose text-center text-sm text-white/85">{name}</figcaption>
+      </figure>
+    </div>,
+    document.body,
   );
 }
 

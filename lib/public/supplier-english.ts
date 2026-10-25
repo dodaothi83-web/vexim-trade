@@ -8,6 +8,11 @@ export function supplierSummaryDisplay(supplier: Pick<Supplier, "summary_i18n" |
   return existing || supplier.intro_source?.trim() || "";
 }
 
+/** Tên pháp lý gốc vẫn nằm trong supplier.name; chỉ ưu tiên bản hiển thị tiếng Anh đã lưu. */
+export function supplierLegalNameDisplay(supplier: Pick<Supplier, "name" | "profile_translation_meta">): string {
+  return supplier.profile_translation_meta?.fields?.legal_name?.trim() || supplier.name || "";
+}
+
 /** MOQ hiển thị cho buyer: ưu tiên bản tiếng Anh đã dịch, lùi về nội dung gốc khi chưa có bản dịch. */
 export function supplierMoqDisplay(supplier: Pick<Supplier, "moq_text" | "moq_text_i18n">): string {
   return supplier.moq_text_i18n?.en?.trim() || supplier.moq_text || "";

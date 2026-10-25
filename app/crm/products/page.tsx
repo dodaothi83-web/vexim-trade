@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Boxes, CalendarClock, Pencil, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { Boxes, CalendarClock, ChevronLeft, ChevronRight, Pencil, Search, ShieldCheck, Sparkles } from "lucide-react";
 
 import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
@@ -11,6 +11,7 @@ import { Badge, Breadcrumbs, Card, EmptyState, formatDate, formatMoney } from "@
 import { PageHeader } from "@/components/page-header";
 import { MediaThumb } from "@/components/media-gallery";
 import { productReadiness } from "@/lib/media/readiness";
+import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export default async function ProductsPage({
     : sp.view === "ready" || sp.view === "changes" || sp.view === "nomedia"
       ? sp.view
       : "all";
+  const requestedPage = Number(sp.page ?? "1");
 
   const store = getStore();
   const candidate = buyerId && hasPermission(session.role, "buyers.view") ? await store.getBuyer(buyerId) : null;
@@ -86,9 +88,6 @@ export default async function ProductsPage({
     tokens.filter((t) =>
       `${r.name} ${r.category} ${r.spec} ${r.description}`.toLowerCase().includes(t),
     ).length;
-  if (tokens.length > 0) {
-    rows = [...rows].sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name, "vi"));
-  }
   if (q) {
     const ql = q.toLowerCase();
     rows = rows.filter(
@@ -96,15 +95,18 @@ export default async function ProductsPage({
         `${r.name} ${r.category} ${r.spec} ${r.supplier?.name ?? ""}`.toLowerCase().includes(ql),
     );
   }
+  rows = orderCrmProducts(rows, tokens.length > 0 ? score : undefined);
+  const { visibleRows, currentPage, pageCount, firstRow, lastRow } = paginateCrmProducts(rows, requestedPage);
 
-  const tabHref = (next: ProductView) => {
+  const productsHref = (nextView: ProductView, nextPage = 1) => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (category) params.set("category", category);
     if (cert) params.set("cert", cert);
     if (verifiedOnly) params.set("verified", "1");
     if (buyerId) params.set("buyer", buyerId);
-    if (next !== "all") params.set("view", next);
+    if (nextView !== "all") params.set("view", nextView);
+    if (nextPage > 1) params.set("page", String(nextPage));
     const qs = params.toString();
     return qs ? `/crm/products?${qs}` : "/crm/products";
   };
@@ -185,7 +187,7 @@ export default async function ProductsPage({
           {viewTabs.map((t) => (
             <Link
               key={t.key}
-              href={tabHref(t.key)}
+              href={productsHref(t.key)}
               role="tab"
               aria-selected={view === t.key}
               className={`rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition ${view === t.key ? "border-ink-900 bg-ink-900 text-white" : "border-ink-200 bg-white text-ink-600 hover:bg-ink-50"}`}
@@ -226,7 +228,7 @@ export default async function ProductsPage({
           <Link href={buyerId ? `/crm/products?buyer=${buyerId}` : "/crm/products"} className="btn btn-ghost">
             Xoá lọc
           </Link>
-          <span className="ml-auto text-xs text-ink-500">Hiển thị {rows.length} / {all.length} sản phẩm</span>
+          <span className="ml-auto text-xs text-ink-500">{rows.length} / {all.length} sản phẩm khớp</span>
         </form>
 
         {rows.length === 0 ? (
@@ -237,7 +239,7 @@ export default async function ProductsPage({
           />
         ) : (
           <ul className="divide-y divide-ink-100">
-            {rows.map((r) => {
+            {visibleRows.map((r) => {
               const matched = tokens.length > 0 && score(r) > 0;
               const st = statusMeta(r.supplier?.status ?? "new");
               const shareable = hasShareableMedia(r.id);
@@ -333,6 +335,18 @@ export default async function ProductsPage({
             })}
           </ul>
         )}
+        {rows.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 px-4 py-3">
+          <p className="text-[11.5px] text-ink-500">Hiển thị {firstRow}-{lastRow} trong {rows.length} sản phẩm. Mỗi trang tối đa {CRM_PRODUCTS_PAGE_SIZE} sản phẩm.</p>
+          {pageCount > 1 && <nav aria-label="Phân trang sản phẩm" className="flex items-center gap-2">
+            {currentPage > 1 && <Link href={productsHref(view, currentPage - 1)} className="btn btn-ghost px-2.5 py-1.5" aria-label="Trang trước">
+              <ChevronLeft className="h-4 w-4" /> Trước
+            </Link>}
+            <span className="min-w-[84px] text-center text-[12px] text-ink-600" aria-current="page">Trang {currentPage} / {pageCount}</span>
+            {currentPage < pageCount && <Link href={productsHref(view, currentPage + 1)} className="btn btn-ghost px-2.5 py-1.5" aria-label="Trang sau">
+              Sau <ChevronRight className="h-4 w-4" />
+            </Link>}
+          </nav>}
+        </div>}
       </Card>
     </>
   );

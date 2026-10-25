@@ -28,7 +28,6 @@ import {
   SUPPLIER_ROLES,
   SUPPLIER_TYPES,
   VIETNAM_PORTS,
-  nextStatusOptions,
   statusMeta,
 } from "@/lib/supplier";
 import type { Category, Supplier, SupplierProduct, SupplierStatus } from "@/lib/types";
@@ -180,11 +179,10 @@ function normText(s: string): string {
 }
 
 /** Quick entry first; the long-tail commercial fields stay available on demand. */
-export function SupplierForm({ supplier, categories, products = [], canPublish = false, aiEnabled = false, mode, existingSuppliers = [] }: {
+export function SupplierForm({ supplier, categories, products = [], aiEnabled = false, mode, existingSuppliers = [] }: {
   supplier?: Supplier | null;
   categories: Pick<Category, "id" | "slug" | "name_i18n">[];
   products?: Array<Pick<SupplierProduct, "name" | "category" | "spec" | "description">>;
-  canPublish?: boolean;
   aiEnabled?: boolean;
   /** "create" = form tạo rút gọn (chỉ thông tin cần lúc tạo); mặc định suy ra từ việc có hồ sơ hay chưa. */
   mode?: "create" | "edit";
@@ -222,11 +220,8 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
   const consentAge = Date.now() - new Date(String(form.fob_updated_at ?? "")).getTime();
   const consentExpired = Boolean(form.fob_publicly_visible) &&
     (!Number.isFinite(consentAge) || consentAge < 0 || consentAge > 180 * 86400_000);
-  const nextOptions = supplier ? nextStatusOptions(current.value).filter((v) =>
-    (v !== "published" && current.value !== "published") || canPublish,
-  ) : [];
 
-  async function save(event?: React.FormEvent, nextStatus?: SupplierStatus) {
+  async function save(event?: React.FormEvent) {
     event?.preventDefault();
     if (busy) return;
     if (!str("name").trim()) {
@@ -241,7 +236,7 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
     }
     setBusy(true);
     const summary_en = str("summary_en").trim();
-    const next = { ...form, status: nextStatus ?? (saved.status as SupplierStatus) ?? "draft" };
+    const next = { ...form, status: (saved.status as SupplierStatus) ?? "draft" };
     const payload = {
       ...next,
       lead_time_days: str("lead_time_days") ? Number(str("lead_time_days")) : null,
@@ -253,10 +248,13 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
     };
     try {
       const res = supplier ? await updateSupplierAction(supplier.id, payload) : await createSupplierAction(payload);
-      toast.push({ kind: res.ok ? "success" : "error", title: res.message });
+      const translationWarning = res.translationStatus === "failed" || res.translationStatus === "unconfigured";
+      toast.push({ kind: !res.ok ? "error" : translationWarning ? "info" : "success", title: res.message });
       if (res.ok) {
-        setSaved(next);
-        setForm(next);
+        // Server trả hồ sơ sau cả bước dịch. Không để state trước lưu ghi đè bản AI ở lần lưu tiếp theo.
+        const persisted = supplier && res.supplier ? init(res.supplier) : next;
+        setSaved(persisted);
+        setForm(persisted);
         if (supplier) router.refresh();
         else if (res.id) router.push(`/crm/suppliers/${res.id}`);
       }
@@ -265,12 +263,6 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
     } finally {
       setBusy(false);
     }
-  }
-
-  async function transitionTo(status: SupplierStatus) {
-    if (status === "published" && !window.confirm("Công khai hồ sơ này trên website? Nếu chưa được duyệt kiểm giấy tờ, hồ sơ sẽ hiển thị Chưa xác minh.")) return;
-    if (status === "archived" && !window.confirm("Lưu trữ hồ sơ này?")) return;
-    await save(undefined, status); // Always use the explicit status, not a stale React state value.
   }
 
   async function writeIntroduction() {
@@ -575,16 +567,7 @@ export function SupplierForm({ supplier, categories, products = [], canPublish =
                 <span className={"rounded-full px-3 py-1 text-xs font-semibold " + current.badge}>{current.label}</span>
                 {dirty && <span className="text-xs font-medium text-amber-700">Có thay đổi chưa lưu</span>}
               </div>
-              {nextOptions.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {nextOptions.map((nx) => (
-                    <Button type="button" key={nx} disabled={busy} variant={nx === "published" ? "primary" : "soft"} className="w-full justify-center" onClick={() => void transitionTo(nx)}>
-                      {nx === "published" ? "Công khai hồ sơ" : nx === "suspended" ? "Tạm ẩn khỏi web" : `Chuyển sang ${statusMeta(nx).label}`} <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
-                  ))}
-                </div>
-              )}
-              <a href={`/crm/suppliers/${supplier.id}`} className="btn btn-ghost mt-2 w-full justify-center"><ExternalLink className="h-4 w-4" /> Xem hồ sơ và xác minh</a>
+              <a href={`/crm/suppliers/${supplier.id}?tab=review#supplier-review`} className="btn btn-ghost mt-3 w-full justify-center"><ExternalLink className="h-4 w-4" /> Mở trung tâm xét duyệt</a>
               <p className="mt-3 border-t border-ink-100 pt-3 text-xs leading-5 text-ink-500">Giấy tờ, nhà máy và lịch sử giao hàng được xét duyệt ở các trang kiểm toán riêng. Hồ sơ công khai chưa duyệt giấy tờ sẽ hiện “Chưa xác minh”.</p>
             </section>
           )}

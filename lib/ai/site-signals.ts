@@ -91,7 +91,7 @@ export function publicHttpUrl(raw: string | null | undefined): URL | null {
   return url;
 }
 
-async function get(url: URL, accept: string, maxBytes: number): Promise<{ buffer: Buffer; type: string } | null> {
+async function get(url: URL, accept: string, maxBytes: number): Promise<{ buffer: Buffer; type: string; url: string } | null> {
   try {
     const response = await fetch(url, {
       headers: { "User-Agent": "VeximTradeOutreach/1.0 (email research)", Accept: accept },
@@ -118,8 +118,9 @@ async function get(url: URL, accept: string, maxBytes: number): Promise<{ buffer
     if (!current.ok) return null;
     const type = (current.headers.get("content-type") ?? "").toLowerCase();
     const buffer = Buffer.from(await current.arrayBuffer());
-    if (buffer.byteLength > maxBytes) return { buffer: buffer.subarray(0, maxBytes) as unknown as Buffer, type };
-    return { buffer, type };
+    const finalUrl = current.url || url.href;
+    if (buffer.byteLength > maxBytes) return { buffer: buffer.subarray(0, maxBytes) as unknown as Buffer, type, url: finalUrl };
+    return { buffer, type, url: finalUrl };
   } catch {
     return null;
   }
@@ -258,4 +259,32 @@ export async function readSiteSignals(website: string | null | undefined): Promi
   const parsed = parseHtml(decode(page.buffer), url);
   parsed.signals.images = await loadImages(parsed.candidates);
   return parsed.signals;
+}
+
+/**
+ * Đọc văn bản của một nguồn công khai để kiểm chứng trích dẫn nghiên cứu.
+ * Không tải ảnh và dùng lại toàn bộ giới hạn URL, redirect, dung lượng và timeout ở trên.
+ */
+export async function readPublicHtml(raw: string | null | undefined): Promise<{ url: string; title: string; text: string } | null> {
+  const url = publicHttpUrl(raw);
+  if (!url) return null;
+  const page = await get(url, "text/html,application/xhtml+xml", MAX_HTML_BYTES);
+  if (!page || !/html|\*\/\*/.test(page.type)) return null;
+  const html = decode(page.buffer)
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ");
+  const rawTitle = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "";
+  const codePoint = (fallback: string, value: number) => Number.isInteger(value) && value >= 0 && value <= 0x10ffff ? String.fromCodePoint(value) : fallback;
+  const title = text(rawTitle, 200) || new URL(page.url).hostname;
+  const plainText = html
+    .replace(/<[^>]{1,1000}>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;|&#34;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (match, hex: string) => codePoint(match, Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (match, code: string) => codePoint(match, Number(code)))
+    .replace(/\s+/g, " ")
+    .trim();
+  return plainText ? { url: page.url, title, text: plainText } : null;
 }

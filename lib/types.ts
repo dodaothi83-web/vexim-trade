@@ -33,6 +33,8 @@ export type I18nList = Record<string, string[]>;
 
 /** Bản dịch phái sinh của các trường hồ sơ chưa có cột i18n riêng. */
 export type SupplierProfileEnglishFields = {
+  /** English rendering for buyers; the registered supplier.name remains unchanged. */
+  legal_name?: string;
   province?: string;
   address?: string;
   products?: string;
@@ -104,6 +106,8 @@ export interface Supplier {
   export_markets_i18n?: I18nList;
   /** Dấu vết dịch tự động hồ sơ: hash toàn bộ nội dung gốc cần dịch tại thời điểm dịch để phát hiện bản dịch đã cũ. */
   profile_translation_meta?: {
+    /** Phiên bản parser dịch; cache thiếu phiên bản được xem là cần kiểm tra lại. */
+    version?: number;
     source_hash: string;
     translated_at: string;
     origin: "ai" | "staff";
@@ -363,6 +367,15 @@ export interface HarvestCalendar {
   note_i18n?: I18nString;
   /** Ngày rà soát gần nhất (YYYY-MM-DD). Để trống thì giao diện nói rõ là chưa rà soát. */
   reviewed_on?: string | null;
+  /** Nguồn đã được hệ thống đọc và dùng cho lần cập nhật này. */
+  sources?: HarvestSource[];
+  /** Phân biệt lần rà soát tự động với nội dung nhân sự nhập tay. */
+  review_origin?: "ai" | "staff";
+}
+
+export interface HarvestSource {
+  title: string;
+  url: string;
 }
 
 export interface CategoryRow {

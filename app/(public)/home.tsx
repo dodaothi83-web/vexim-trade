@@ -25,6 +25,17 @@ import type { Category } from "@/lib/types";
 /** Ảnh placeholder khi category chưa upload hero_image */
 const FALLBACK_HERO = "/images/home/hero-cashew-texture.jpg";
 
+// Ảnh thật: Vietnamese Farmer Sorting Coffee Beans, 1500m Coffee, Lâm Đồng.
+// Nguồn: https://www.pexels.com/photo/vietnamese-farmer-sorting-coffee-beans-30658831/
+// Pexels cho phép dùng miễn phí trên website. CDN trả WebP đúng độ rộng, không dùng ảnh AI.
+const HOME_HERO_PHOTO = "https://images.pexels.com/photos/30658831/pexels-photo-30658831/free-photo-of-vietnamese-farmer-sorting-coffee-beans.jpeg";
+const homeHeroUrl = (width: number) =>
+  `${HOME_HERO_PHOTO}?auto=compress&cs=tinysrgb&fm=webp&w=${width}&q=72`;
+const HOME_HERO_SRC = homeHeroUrl(1600);
+const HOME_HERO_SRCSET = [640, 960, 1280, 1600, 1920]
+  .map((width) => `${homeHeroUrl(width)} ${width}w`)
+  .join(", ");
+
 // Giữ câu mô tả mô hình kết nối cho kiểm thử ngữ nghĩa:
 // Câu mô tả lấy từ lib/public/meta-copy.ts, không viết lại tại đây.
 // Browse products →
@@ -293,16 +304,19 @@ export default async function HomeContent({
           SECTION 1: HERO + THANH TÌM KIẾM SẢN PHẨM
          ===================================================================== */}
       <section className="relative overflow-hidden border-b-4 border-amber-400 bg-gradient-to-b from-brand-900 via-brand-900 to-ink-950 text-white">
-        <Image
-          src="/images/home/hero-cashew-texture.jpg"
-          alt=""
-          preload
-          fetchPriority="high"
-          fill
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={HOME_HERO_SRC}
+          srcSet={HOME_HERO_SRCSET}
           sizes="100vw"
-          className="object-cover opacity-20"
+          alt=""
+          width={1600}
+          height={1067}
+          loading="eager"
+          fetchPriority="high"
+          className="absolute inset-0 h-full w-full object-cover object-[60%_center]"
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-950/90 via-brand-900/80 to-ink-950/90" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-950/85 via-brand-900/65 to-ink-950/75" />
 
         <div className="relative mx-auto max-w-6xl px-5 py-14 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-4xl text-center">
@@ -477,8 +491,8 @@ export default async function HomeContent({
             </div>
           )}
 
-          {/* Tối đa 8 danh mục: 1–2 cột ở màn nhỏ, 4 cột và 2 hàng trên desktop. */}
-          <ul className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Tối đa 8 danh mục: 2 cột ở màn nhỏ, 4 cột và 2 hàng trên desktop. */}
+          <ul className="mt-8 grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
             {categoriesToRender.map((c) => {
               const href = `/products/${c.slug}`;
               const childCategories = getChildCategories(c, allCategories);
@@ -487,9 +501,6 @@ export default async function HomeContent({
                 c.public_page_ready || childCategories.some((ch) => ch.public_page_ready),
               );
               const primaryTitle = getCategoryTitle(c, lang);
-              const secondaryLabel = isVi
-                ? i18n(c.name_i18n, "en", c.slug)
-                : (CATEGORY_VI_NAMES[c.slug] || i18n(c.name_i18n, "en", c.slug));
               const kicker = i18n(c.homepage_kicker_i18n, lang, "");
               const introText = i18n(c.intro_i18n, lang, "");
 
@@ -497,33 +508,37 @@ export default async function HomeContent({
                 <li key={c.slug} className="flex">
                   <div className="group flex w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-lg">
                     {/* Ảnh danh mục + Nhãn trạng thái */}
-                    <Link href={href} className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+                    <Link href={href} className="relative aspect-[4/3] overflow-hidden bg-slate-100 sm:aspect-[16/9]">
                       <Image
                         src={heroOf(c)}
                         alt={primaryTitle}
                         fill
-                        sizes="(max-width: 639px) calc(100vw - 40px), (max-width: 1023px) calc(50vw - 36px), (max-width: 1279px) calc(25vw - 32px), 280px"
+                        sizes="(max-width: 639px) calc(50vw - 26px), (max-width: 1023px) calc(50vw - 36px), (max-width: 1279px) calc(25vw - 32px), 280px"
                         className="object-cover transition duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-ink-950/75 via-ink-950/20 to-transparent" />
                       {hasProducts && (
-                        <span className="absolute left-3.5 top-3.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white shadow">
+                        <span className="absolute left-3.5 top-3.5 hidden items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white shadow sm:inline-flex">
                           <span className="h-1.5 w-1.5 rounded-full bg-white" />{" "}
                           {isVi ? "Có sẵn nguồn hàng" : "Suppliers available"}
                         </span>
                       )}
-                      <div className="absolute inset-x-4 bottom-3 text-white">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300">
-                          {kicker || secondaryLabel}
-                        </p>
-                        <h3 className="mt-0.5 text-lg font-black leading-snug text-white group-hover:text-amber-200">
+                      <div className="absolute inset-x-3 bottom-3 text-white sm:inset-x-4">
+                        {kicker && (
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-300 sm:text-[11px]">
+                            {kicker}
+                          </p>
+                        )}
+                        <h3 className="mt-0.5 text-sm font-black leading-snug text-white group-hover:text-amber-200 sm:text-lg">
                           {primaryTitle}
                         </h3>
                       </div>
                     </Link>
 
                     {/* Chỉ hiển thị danh mục con thực tế từ CRM (nếu có) hoặc mô tả thực tế từ CRM */}
-                    <div className="flex flex-1 flex-col justify-between p-5">
+                    <div className={visibleChildren.length > 0
+                      ? "flex flex-1 flex-col justify-between p-3 sm:p-5"
+                      : "hidden flex-1 flex-col justify-between p-5 sm:flex"}>
                       {visibleChildren.length > 0 ? (
                         <div>
                           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -548,13 +563,13 @@ export default async function HomeContent({
                           </ul>
                         </div>
                       ) : introText ? (
-                        <p className="line-clamp-3 text-[13.5px] leading-relaxed text-ink-600">
+                        <p className="hidden text-[13.5px] leading-relaxed text-ink-600 sm:line-clamp-3">
                           {introText}
                         </p>
                       ) : null}
 
                       {/* Dòng chữ cuối card */}
-                      <div className="mt-5 border-t border-slate-100 pt-3.5">
+                      <div className="mt-5 hidden border-t border-slate-100 pt-3.5 sm:block">
                         <Link
                           href={href}
                           className="inline-flex w-full items-center justify-between text-[13px] font-bold text-brand-700 group-hover:text-brand-900"
@@ -607,22 +622,22 @@ export default async function HomeContent({
           </div>
 
           {latestPosts.length ? (
-            <ul className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <ul className="mt-6 grid grid-cols-1 gap-3 sm:mt-8 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
               {latestPosts.map((post) => (
                 <li key={post.id} className="min-w-0">
                   <article className="h-full">
                     <Link
                       href={`/blog/${post.slug}`}
-                      className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-brand-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                      className="group flex h-full flex-row overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-brand-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:flex-col"
                     >
-                      <div className="relative aspect-[4/3] overflow-hidden bg-brand-50">
+                      <div className="relative min-h-[112px] w-[34%] shrink-0 overflow-hidden bg-brand-50 sm:aspect-[4/3] sm:min-h-0 sm:w-full">
                         {post.featured_image ? (
                           /^\/blog-media\/blog\/[\w-]+\.(?:jpe?g|png|webp|avif)$/i.test(post.featured_image) ? (
                             <Image
                               src={post.featured_image}
                               alt={post.featured_image_alt || ""}
                               fill
-                              sizes="(max-width: 639px) calc(100vw - 40px), (max-width: 1023px) calc(50vw - 36px), (max-width: 1279px) calc(25vw - 32px), 320px"
+                              sizes="(max-width: 639px) calc(34vw - 14px), (max-width: 1023px) calc(50vw - 36px), (max-width: 1279px) calc(25vw - 32px), 320px"
                               className="object-cover transition duration-500 group-hover:scale-105"
                             />
                           ) : (
@@ -630,36 +645,36 @@ export default async function HomeContent({
                               src={post.featured_image}
                               alt={post.featured_image_alt || ""}
                               loading="lazy"
-                              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                              className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
                             />
                           )
                         ) : (
-                          <div className="flex h-full items-center justify-center gap-2 text-brand-700">
-                            <FileStack className="h-6 w-6" aria-hidden="true" />
-                            <span className="text-[11px] font-bold uppercase tracking-[0.18em]">
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 text-center text-brand-700 sm:gap-2">
+                            <FileStack className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
+                            <span className="text-[9px] font-bold uppercase tracking-[0.12em] sm:text-[11px] sm:tracking-[0.18em]">
                               Vexim Trade · Blog
                             </span>
                           </div>
                         )}
                       </div>
-                      <div className="flex flex-1 flex-col p-4">
+                      <div className="flex min-w-0 flex-1 flex-col justify-center p-3 sm:justify-start sm:p-4">
                         {post.published_at && (
                           <time
                             dateTime={post.published_at}
-                            className="text-[11px] font-bold uppercase tracking-wide text-amber-700"
+                            className="text-[10px] font-bold uppercase tracking-wide text-amber-700 sm:text-[11px]"
                           >
                             {formatPostDate(post.published_at, lang)}
                           </time>
                         )}
-                        <h3 className="mt-1.5 line-clamp-2 text-[15.5px] font-bold leading-snug text-ink-900 group-hover:text-brand-700">
+                        <h3 className="mt-1 line-clamp-2 text-[14px] font-bold leading-5 text-ink-900 group-hover:text-brand-700 sm:mt-1.5 sm:text-[15.5px] sm:leading-snug">
                           {post.title}
                         </h3>
                         {post.excerpt && (
-                          <p className="mt-2 line-clamp-3 text-[13px] leading-relaxed text-ink-600">
+                          <p className="mt-2 hidden text-[13px] leading-relaxed text-ink-600 sm:line-clamp-3">
                             {post.excerpt}
                           </p>
                         )}
-                        <span className="mt-auto inline-flex items-center gap-1 pt-4 text-xs font-bold text-brand-700">
+                        <span className="mt-auto hidden items-center gap-1 pt-4 text-xs font-bold text-brand-700 sm:inline-flex">
                           {isVi ? "Đọc bài viết" : "Read article"}{" "}
                           <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                         </span>

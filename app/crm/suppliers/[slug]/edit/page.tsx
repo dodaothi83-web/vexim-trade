@@ -53,7 +53,7 @@ export default async function EditSupplierPage({ params }: { params: Promise<{ s
           { label: "Chỉnh sửa" },
         ]} />}
       />
-      <SupplierForm supplier={supplier} products={products} categories={categories} canPublish={hasPermission(session.role, "suppliers.publish")} aiEnabled={!!process.env.OPENAI_API_KEY} />
+      <SupplierForm supplier={supplier} products={products} categories={categories} aiEnabled={!!process.env.OPENAI_API_KEY} />
 
       <div className="mt-4 grid items-start gap-4 xl:grid-cols-2">
         <section className="card p-5">

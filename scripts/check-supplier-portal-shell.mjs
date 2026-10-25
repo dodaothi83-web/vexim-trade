@@ -51,7 +51,8 @@ const topbar = read('components/supplier-topbar.tsx');
 assert.ok(!hrefs.includes('/supplier/portal/notifications'), 'Thông báo không nằm trong menu trái');
 assert.ok(!existsSync(new URL('../app/supplier/portal/notifications', import.meta.url)), 'Không có trang thông báo riêng');
 assert.doesNotMatch(topbar, /href="\/supplier\/portal\/notifications"|href="\/crm/, 'Chuông không dẫn sang trang thông báo riêng hay sang CRM');
-assert.match(topbar, /router\.push\(notice\.href/, 'Mỗi dòng thông báo mở đúng trang xử lý việc đó');
+assert.match(topbar, /<Link href=\{n\.href/, 'Tiêu đề thông báo mở đúng trang xử lý việc đó');
+assert.doesNotMatch(topbar, /Mở việc này/, 'Không còn liên kết mở trùng với tiêu đề');
 assert.match(topbar, /aria-label=\{loaded && unread \? `Thông báo, \$\{unread\} chưa đọc` : "Thông báo"\}/,
   'Chuông có nhãn đọc được kèm số chưa đọc');
 assert.match(topbar, /fetch\("\/api\/supplier-portal\/notifications"/, 'Chuông tự lấy dữ liệu, không chặn tải trang');

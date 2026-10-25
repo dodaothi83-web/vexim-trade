@@ -9,7 +9,7 @@ import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { isPlaceholderDisplayName } from "@/lib/public/display-name";
-import { normalizeHarvest } from "@/lib/public/harvest";
+import { parseHarvestInput } from "@/lib/crm/harvest-input";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
@@ -28,7 +28,7 @@ import {
 import { extractCompanyProducts, type CompanyProducts } from "@/lib/ai/company-products";
 import { productTranslationState } from "@/lib/ai/translate-content";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
-import { ensureSupplierProfileEnglish } from "@/lib/ai/supplier-translation-service";
+import { ensureSupplierProfileEnglish, type EnsureSupplierTranslationResult } from "@/lib/ai/supplier-translation-service";
 import { readSiteSignals } from "@/lib/ai/site-signals";
 import { hasPermission } from "@/lib/auth/permissions";
 import { nextStatusOptions, statusMeta } from "@/lib/supplier";
@@ -55,6 +55,7 @@ import type {
   ProspectInput,
   ProspectActivityChannel,
   EmailAttachment,
+  Supplier,
   SupplierInput,
   SupplierProductInput,
   Verification,
@@ -67,6 +68,12 @@ export interface ActionResult {
   message: string;
   details?: string[];
   id?: string;
+}
+
+export interface SupplierSaveResult extends ActionResult {
+  /** Dữ liệu sau cả bước dịch để form không ghi đè bản AI bằng giá trị cũ trong trình duyệt. */
+  supplier?: Supplier;
+  translationStatus?: EnsureSupplierTranslationResult["status"];
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1283,7 +1290,7 @@ async function syncSupplierIndustries(supplierId: string): Promise<string | null
 
 export async function createSupplierAction(
   raw: Partial<SupplierInput> & Record<string, unknown>,
-): Promise<ActionResult & { id?: string }> {
+): Promise<SupplierSaveResult> {
   const gate = await guard("suppliers.manage");
   if (gate) return gate;
   const input = parseSupplierInput(raw);
@@ -1313,7 +1320,7 @@ export async function createSupplierAction(
 export async function updateSupplierAction(
   id: string,
   raw: Partial<SupplierInput> & Record<string, unknown>,
-): Promise<ActionResult> {
+): Promise<SupplierSaveResult> {
   const gate = await guard("suppliers.manage");
   if (gate) return gate;
   const input = parseSupplierInput(raw);
@@ -1360,12 +1367,33 @@ export async function updateSupplierAction(
     // thì giữ bản đã chốt, không để AI dịch đè trong lần lưu này và các lần lưu sau.
     const staffEditedSummary = (safeInput.summary_i18n?.en ?? "") !== (existing.summary_i18n?.en ?? "");
     const introChanged = (safeInput.intro_source ?? null) !== (existing.intro_source ?? null);
-    await ensureSupplierProfileEnglish(store, id, actorSession ? { id: actorSession.uid, email: actorSession.email } : null,
-      { preserveSummary: staffEditedSummary && !introChanged })
-      .catch((error) => console.error("[supplier-translation] staff save", error));
+    let translation: EnsureSupplierTranslationResult | null = null;
+    try {
+      translation = await ensureSupplierProfileEnglish(store, id,
+        actorSession ? { id: actorSession.uid, email: actorSession.email } : null,
+        { preserveSummary: staffEditedSummary && !introChanged });
+    } catch (error) {
+      // Nội dung gốc đã lưu; báo lỗi dịch để nhân sự biết cần thử lại, không báo mất hồ sơ.
+      console.error("[supplier-translation] staff save", error);
+    }
+    const translationNote = translation?.status === "translated"
+      ? " Đã cập nhật bản dịch tiếng Anh."
+      : translation?.status === "unconfigured"
+        ? " Chưa dịch tự động vì máy chủ chưa cấu hình OPENAI_API_KEY. Nội dung gốc đã được lưu."
+        : translation?.status === "failed"
+          ? ` Chưa cập nhật được bản dịch tiếng Anh: ${translation.message} Nội dung gốc đã được lưu.`
+          : translation?.status === "current"
+            ? " Bản dịch tiếng Anh đang khớp nội dung gốc."
+            : " Chưa cập nhật được bản dịch tiếng Anh. Nội dung gốc đã được lưu; hãy lưu lại để thử dịch lần nữa.";
     const warning = await syncSupplierIndustries(id);
     revalidateAll();
-    return { ok: true, message: (input.status !== existing.status ? `Đã chuyển sang ${statusMeta(input.status).label}.` : "Đã lưu thông tin nhà cung cấp.") + (warning ? ` ${warning}` : "") };
+    return {
+      ok: true,
+      message: (input.status !== existing.status ? `Đã chuyển sang ${statusMeta(input.status).label}.` : "Đã lưu thông tin nhà cung cấp.") +
+        (warning ? ` ${warning}` : "") + translationNote,
+      supplier: translation?.supplier ?? { ...existing, ...safeInput },
+      translationStatus: translation?.status ?? "failed",
+    };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -2502,26 +2530,6 @@ function parseJsonList(raw: unknown): unknown[] {
   } catch {
     return [];
   }
-}
-
-/**
- * Lịch mùa vụ gửi lên dưới dạng JSON. Trả undefined khi biểu mẫu không gửi khóa
- * này, để lần lưu từ giao diện cũ không xoá mất dữ liệu đã có.
- */
-function parseHarvestInput(raw: unknown): Category["harvest"] | undefined {
-  if (raw === undefined) return undefined;
-  if (raw === null || raw === "") return null;
-  if (typeof raw !== "string") throw new Error("Lịch mùa vụ không hợp lệ.");
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("Lịch mùa vụ không phải JSON hợp lệ.");
-  }
-  if (parsed === null) return null;
-  const normalized = normalizeHarvest(parsed);
-  if (!normalized) throw new Error("Lịch mùa vụ phải có ít nhất một cửa sổ với tháng bắt đầu và kết thúc hợp lệ.");
-  return normalized;
 }
 
 function parseCategoryInput(raw: Record<string, unknown>) {

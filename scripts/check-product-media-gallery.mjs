@@ -80,10 +80,14 @@ assert.equal(chosen.embedUrl, 'https://www.youtube-nocookie.com/embed/dQw4w9WgXc
 assert.equal(chosen.title, '[contact via Vexim] tour');
 assert.equal(media.shareableProductVideo([{ ...videoBase, audience: 'internal' }], pid), null);
 assert.equal(media.shareableProductVideo([{ ...videoBase, external_url: 'https://evil.example/video' }], pid), null);
-const { ProductMediaGallery } = load('../components/product-media-gallery.tsx', {
+const { ProductMediaGallery, productGallerySwipeStep } = load('../components/product-media-gallery.tsx', {
   react: require('react'), 'react-dom': require('react-dom'),
   'react/jsx-runtime': require('react/jsx-runtime'), 'lucide-react': require('lucide-react'),
 });
+assert.equal(productGallerySwipeStep(100, 100, 40, 105), 1, 'A clear left swipe advances to the next photo');
+assert.equal(productGallerySwipeStep(100, 100, 160, 105), -1, 'A clear right swipe returns to the previous photo');
+assert.equal(productGallerySwipeStep(100, 100, 130, 100), 0, 'A small horizontal movement is not a swipe');
+assert.equal(productGallerySwipeStep(100, 100, 40, 180), 0, 'Mostly vertical movement remains page scrolling');
 const html = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
   name: 'Cashew W320', images: ['products/abc/cover.jpg', 'products/abc/detail.jpg'],
   thumbnails: ['products/abc/cover-thumb.webp', 'products/abc/detail-thumb.webp'], video: chosen,
@@ -100,17 +104,23 @@ const noVideoHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery
   thumbnails: ['products/abc/cover-thumb.webp', 'products/abc/detail-thumb.webp'], video: null,
 }));
 assert.doesNotMatch(noVideoHtml, /Product video|No buyer-shareable video/, 'An absent video leaves no dead panel');
-assert.ok(noVideoHtml.includes('grid-cols-[3.25rem_minmax(0,1fr)]'), 'The thumbnail rail sits left of the main image');
-assert.match(noVideoHtml, /absolute inset-0 overflow-y-auto/, 'The thumbnail rail is bounded by the main image and scrolls internally');
-assert.match(noVideoHtml, /flex flex-col gap-2/, 'Thumbnails stack vertically instead of taking a row below the image');
-assert.ok(noVideoHtml.indexOf('aria-label="Choose a product photo"') < noVideoHtml.indexOf('aria-label="Enlarge photo of Cashew W320 on this page"'),
-  'The thumbnail rail precedes the main image in reading order');
+assert.ok(noVideoHtml.includes('grid grid-cols-1 items-stretch gap-2 sm:grid-cols-[4rem_minmax(0,1fr)]'),
+  'Mobile uses one full-width image column and the two-column rail returns from sm');
+assert.match(noVideoHtml, /relative aspect-square[^\"]*sm:order-2/, 'The main image is first on mobile and moves right on larger screens');
+assert.match(noVideoHtml, /relative min-w-0 sm:order-1/, 'The thumbnail rail moves left only from sm');
+assert.match(noVideoHtml, /w-full min-w-0 overflow-x-auto pb-1 sm:absolute sm:inset-0 sm:overflow-x-hidden sm:overflow-y-auto/,
+  'Mobile thumbnails scroll horizontally and the desktop rail remains bounded with vertical scrolling');
+assert.match(noVideoHtml, /flex w-max gap-2 sm:w-full sm:flex-col/, 'The mobile thumbnail track has a scrollable intrinsic width and stacks vertically from sm');
+assert.match(noVideoHtml, /aspect-square w-16[^\"]*sm:w-full/, 'Mobile thumbnails have a fixed touch-friendly width');
+assert.ok(noVideoHtml.indexOf('aria-label="Enlarge photo of Cashew W320 on this page"') < noVideoHtml.indexOf('aria-label="Choose a product photo"'),
+  'The main image precedes thumbnails in mobile reading order');
+assert.doesNotMatch(noVideoHtml, /grid-cols-\[3\.25rem_minmax\(0,1fr\)\]/, 'The old mobile left rail does not return');
 assert.doesNotMatch(noVideoHtml, /grid grid-cols-4/, 'The old bottom thumbnail grid is removed');
 const manyImagesHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
   name: 'Cashew W320', images: Array.from({ length: 12 }, (_, index) => `products/abc/photo-${index}.jpg`), video: null,
 }));
 assert.equal((manyImagesHtml.match(/aria-label="Show photo /g) ?? []).length, 12, 'Every photo remains available inside the bounded rail');
-assert.match(manyImagesHtml, /absolute inset-0 overflow-y-auto/, 'A large photo set never extends the rail beyond the main image');
+assert.match(manyImagesHtml, /sm:absolute sm:inset-0 sm:overflow-x-hidden sm:overflow-y-auto/, 'A large photo set never extends the desktop rail beyond the main image');
 const singleImageHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
   name: 'Cashew W320', images: ['products/abc/cover.jpg'], video: null,
 }));
@@ -120,6 +130,17 @@ assert.match(gallerySource, /createPortal\(/);
 assert.match(gallerySource, /event\.key === "Escape"/);
 assert.match(gallerySource, /event\.key === "ArrowRight"/);
 assert.match(gallerySource, /setZoomPoint/);
+assert.match(gallerySource, /onTouchStart=\{onTouchStart\}/, 'The main image listens for touch gestures');
+assert.match(gallerySource, /onTouchEnd=\{onTouchEnd\}/, 'The main image completes touch gestures');
+assert.match(gallerySource, /touch-pan-y/, 'Vertical touch gestures still scroll the page');
+assert.match(gallerySource, /suppressClick\.current/, 'A completed swipe does not accidentally open the lightbox');
+const managerSource = readFileSync(new URL('../components/media-manager.tsx', import.meta.url), 'utf8');
+assert.match(managerSource, /function MediaImageLightbox/, 'Staff images have an inline preview dialog');
+assert.match(managerSource, /fileUrl && \(canPreview \? \(/, 'Image actions open the inline preview instead of forcing a new tab');
+assert.match(managerSource, /aria-label=\{`Xem \$\{previewName\} ngay trên trang`\}/, 'The thumbnail itself is an accessible preview trigger');
+assert.match(managerSource, /createPortal\(/);
+assert.match(managerSource, /event\.key === "Escape"/, 'Escape closes the staff image preview');
+assert.match(managerSource, /previousFocus\?\.focus\(\)/, 'Closing the preview restores keyboard focus');
 const migration = readFileSync(new URL('../supabase/migrations/20261017_product_featured_image.sql', import.meta.url), 'utf8');
 assert.match(migration, /featured_media_id uuid/);
 console.log('✅ Product media: staff-only cover, safe public image/video projection, inline zoom/lightbox and gallery slots.');

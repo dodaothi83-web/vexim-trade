@@ -15,6 +15,10 @@ export const COMPANY = {
   address:
     env.COMPANY_ADDRESS?.trim() ||
     "Số 25/6 Ngõ 51 Ngoạ Long, Tây Tựu, Hà Nội, Việt Nam",
+  /** Địa chỉ hiển thị trong bản footer tiếng Anh; giữ tên riêng và số nhà theo bản gốc. */
+  addressEn:
+    env.COMPANY_ADDRESS_EN?.trim() ||
+    "No. 25/6, Alley 51, Ngoạ Long, Tây Tựu, Hanoi, Vietnam",
   /**
    * Tên pháp nhân in hoa (VEXIM GLOBAL CO., LTD) — dùng ở chữ ký email, nơi buyer
    * cần đúng tên đăng ký chứ không phải thương hiệu "Vexim Trade". Đổi qua COMPANY_LEGAL_NAME.

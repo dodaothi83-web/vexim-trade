@@ -46,10 +46,10 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
 
   return <>
     <PageHeader
-      breadcrumbs={<Breadcrumbs items={[{ label: "Nhà cung cấp", href: "/crm/suppliers" }, { label: supplier.name, href: `/crm/suppliers/${supplierId}` }, { label: step.title }]} />}
+      breadcrumbs={<Breadcrumbs items={[{ label: "Nhà cung cấp", href: "/crm/suppliers" }, { label: supplier.name, href: `/crm/suppliers/${supplierId}?tab=review#supplier-review` }, { label: step.title }]} />}
       title={step.title}
       sub={`${supplier.name} · ${step.description}`}
-      actions={<Link href={`/crm/suppliers/${supplierId}`} className="btn btn-ghost"><ArrowLeft className="h-4 w-4" /> Hồ sơ NCC</Link>}
+      actions={<Link href={`/crm/suppliers/${supplierId}?tab=review#supplier-review`} className="btn btn-ghost"><ArrowLeft className="h-4 w-4" /> Xét duyệt NCC</Link>}
     />
     <div className="max-w-6xl space-y-5">
       <nav aria-label="Các bước kiểm toán" className="grid gap-2 sm:grid-cols-3">

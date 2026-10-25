@@ -251,7 +251,7 @@ export default async function PublicProductDetail({ params }: Props) {
         </div>
         <Link href={`/products/${encodeURIComponent(slug)}`} className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-700 hover:underline">View all products <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
       </div>
-      <ul className="mt-5 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <ul className="mt-5 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {relatedProducts.map((related) => <li key={related.id} className="min-w-0">
           <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(related.id)}`}
             imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} moq={related.moq}

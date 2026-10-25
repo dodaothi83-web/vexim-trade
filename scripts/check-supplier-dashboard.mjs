@@ -233,6 +233,15 @@ await noticesAction.markSupplierNoticeReadAction(noticeForm('product-approved:p-
 assert.equal(writes.length, 1, 'Cannot mark a foreign supplier product notice');
 await noticesAction.markSupplierNoticeReadAction(noticeForm('product-approved:p-a'));
 assert.equal(writes[1][1], 'product-approved:p-a');
+const beforeMarkAll = writes.length;
+await noticesAction.markAllSupplierNoticesReadAction();
+const markAllWrites = writes.slice(beforeMarkAll);
+assert.ok(markAllWrites.length >= 2, 'Mark all writes every visible notice');
+assert.ok(markAllWrites.every(([supplierId]) => supplierId === 's-a'), 'Mark all stays scoped to the signed-in supplier');
+assert.ok(markAllWrites.some(([, key]) => key === `rfq:${idA}`), 'Mark all includes the supplier RFQ');
+assert.ok(markAllWrites.some(([, key]) => key === 'product-approved:p-a'), 'Mark all includes the supplier product');
+assert.ok(!markAllWrites.some(([, key]) => key === `rfq:${idB}` || key === 'product-approved:p-b'),
+  'Mark all must not write foreign supplier notices');
 
 const schema = fs.readFileSync(new URL('../supabase/migrations/20261017_supplier_dashboard.sql', import.meta.url), 'utf8');
 assert.match(schema, /source_product_id uuid references public\.supplier_products/);

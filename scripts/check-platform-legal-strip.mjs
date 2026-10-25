@@ -2,6 +2,11 @@
 // node scripts/check-platform-legal-strip.mjs
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import vm from "node:vm";
+import ts from "typescript";
+import React from "react";
+import * as jsxRuntime from "react/jsx-runtime";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const read = (name) => readFileSync(new URL(`../${name}`, import.meta.url), "utf8");
 
@@ -55,4 +60,77 @@ for (const [name, file] of [
   assert.doesNotMatch(file, /href="\/khieu-nai"/, `${name} does not duplicate the Vietnamese complaints link above the strip`);
 }
 
-console.log("✅ Platform legal strip, responsible person and footer placement.");
+const company = {
+  legalName: "VEXIM GLOBAL CO., LTD",
+  address: "Số 25/6 Ngõ 51 Ngoạ Long, Tây Tựu, Hà Nội, Việt Nam",
+  addressEn: "No. 25/6, Alley 51, Ngoạ Long, Tây Tựu, Hanoi, Vietnam",
+  contactEmail: "contact@veximglobal.com",
+  phone: "+84373685634",
+  phoneDisplay: "+84 373 685 634",
+  taxCode: "0111040294",
+  registrationDate: "29/04/2025",
+  legalRepresentative: "Lương Văn Học",
+  platformResponsible: "Lương Văn Học",
+  platformRulesEffectiveDate: "18/10/2026",
+};
+
+function renderStrip(lang) {
+  const exports = {};
+  const code = ts.transpileModule(strip, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  const mocks = {
+    react: React,
+    "react/jsx-runtime": jsxRuntime,
+    "next/link": { default: ({ href, children, ...props }) => React.createElement("a", { href, ...props }, children) },
+    "next/navigation": { useSearchParams: () => ({ get: (key) => key === "lang" ? lang : null }) },
+    "@/lib/config": { COMPANY: company },
+  };
+  vm.runInNewContext(code, {
+    exports, module: { exports }, Date,
+    require: (key) => {
+      assert.ok(key in mocks, `Unexpected import: ${key}`);
+      return mocks[key];
+    },
+  });
+  return renderToStaticMarkup(React.createElement(exports.PlatformLegalStrip));
+}
+
+const english = renderStrip(undefined);
+for (const text of [
+  'lang="en"',
+  "Enterprise Registration Certificate No. 0111040294, first issued on 29/04/2025.",
+  "Legal representative: Mr. Lương Văn Học",
+  "Person responsible for the e-commerce platform: Mr. Lương Văn Học",
+  "The Platform Operating Regulations are effective from 18/10/2026.",
+  "Please credit “veximtrade.com” when republishing information from this website.",
+  "Platform Regulations",
+  "Platform Owner Information",
+  "Complaints and Violation Reports",
+  "Terms of Service",
+  "Privacy Policy",
+  company.addressEn,
+]) assert.ok(english.includes(text), `English footer includes: ${text}`);
+assert.ok(!english.includes("Giấy chứng nhận đăng ký doanh nghiệp"), "Default footer does not mix Vietnamese legal copy into English");
+
+const vietnamese = renderStrip("vi");
+for (const text of [
+  'lang="vi"',
+  "Giấy chứng nhận đăng ký doanh nghiệp số 0111040294, cấp lần đầu ngày 29/04/2025.",
+  "Người đại diện theo pháp luật: Ông Lương Văn Học",
+  "Chịu trách nhiệm sàn giao dịch thương mại điện tử: Ông Lương Văn Học",
+  "Quy chế hoạt động có hiệu lực từ ngày 18/10/2026.",
+  "Ghi rõ nguồn “veximtrade.com” khi phát hành lại thông tin từ website này.",
+  "Quy định của nền tảng",
+  "Thông tin chủ quản",
+  "Khiếu nại và báo cáo vi phạm",
+  "Điều khoản sử dụng",
+  "Chính sách bảo mật",
+  company.address,
+]) assert.ok(vietnamese.includes(text), `Vietnamese footer includes: ${text}`);
+assert.ok(!vietnamese.includes("Enterprise Registration Certificate"), "Vietnamese footer does not retain English legal copy");
+for (const href of ["/thong-tin-chu-quan", "/quy-che-hoat-dong", "/khieu-nai", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat"]) {
+  assert.ok(english.includes(`href="${href}"`) && vietnamese.includes(`href="${href}"`), `Both languages preserve ${href}`);
+}
+
+console.log("✅ Platform legal strip, responsible person, bilingual content and footer placement.");

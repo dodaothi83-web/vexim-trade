@@ -87,6 +87,13 @@ for (const [label, pattern] of [
 ])
   assert.match(panel, pattern, `Bảng điều khiển còn chức năng ${label}`);
 
+const shipmentCard = panel.slice(panel.indexOf('{/* L3 · lô hàng'), panel.indexOf('{/* Bộ bằng chứng'));
+for (const copy of [
+  'Chứng từ của bạn được bảo mật và không hiển thị công khai.',
+  'Chỉ cần chọn một lô đã giao gần nhất và tải chứng từ của lô đó để xác minh.',
+]) assert.ok(shipmentCard.includes(copy), `Ghi chú L3 có câu “${copy}”`);
+assert.match(shipmentCard, /level === 3 &&/, 'Ghi chú bảo mật chỉ thuộc luồng xuất khẩu L3');
+
 // Nộp chỉ mở khi đủ mục và hồ sơ còn sửa được; nút nộp không bị biến thành nút chết.
 assert.match(panel, /disabled=\{busy !== "" \|\| locked \|\| !view\.ready\}[\s\S]{0,400}runScan\(true\)/,
   'Nút nộp bị khóa khi thiếu mục hoặc hồ sơ đã nộp');

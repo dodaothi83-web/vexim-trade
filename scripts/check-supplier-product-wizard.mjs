@@ -152,6 +152,29 @@ assert.match(source, /ReviewField/, 'Có thành phần đọc lại từng trư�
 assert.match(source, /snapshotFromForm/, 'Bản xem lại cập nhật theo nội dung đang nhập');
 assert.match(source, /price_publicly_visible === "yes"/, 'Cờ thương mại hiện thành chip ở bước 3');
 
+// Giá của sản phẩm mới mặc định được chia sẻ, nhưng lựa chọn tắt đã lưu không bị bật lại.
+const priceCheckbox = (html) => {
+  const tag = html.match(/<input[^>]*name="price_publicly_visible"[^>]*>/)?.[0];
+  assert.ok(tag, 'Có checkbox chia sẻ giá của sản phẩm');
+  return tag;
+};
+const newProductStep1 = render({ product: undefined, media: [] });
+assert.match(priceCheckbox(newProductStep1), /checked=""/, 'Sản phẩm mới được tick sẵn');
+for (const savedProduct of [product, { ...product, price_publicly_visible: false }]) {
+  assert.doesNotMatch(priceCheckbox(render({ product: savedProduct })), /checked=""/,
+    'Bản ghi cũ thiếu cờ hoặc đã tắt giá vẫn giữ trạng thái riêng tư');
+}
+assert.match(priceCheckbox(render({ product: { ...product, price_publicly_visible: true } })), /checked=""/,
+  'Lựa chọn chia sẻ giá đã lưu vẫn được giữ');
+const priceReviewChip = (html) => {
+  const chip = html.match(/<span class="([^"]*)">Công khai giá khi đủ điều kiện<\/span>/);
+  assert.ok(chip, 'Bước xem lại có trạng thái chia sẻ giá');
+  return chip[1];
+};
+assert.match(priceReviewChip(onStep3), /line-through/, 'Bước xem lại không tự bật giá cho sản phẩm đã lưu ở trạng thái tắt');
+const newProductStep3 = render({ product: undefined, media: [], initialStep: 3 });
+assert.doesNotMatch(priceReviewChip(newProductStep3), /line-through/, 'Bước xem lại khớp lựa chọn mặc định của sản phẩm mới');
+
 // 3c. Nút gửi luôn phản hồi: không phải nút chết khi còn thiếu điều kiện.
 assert.doesNotMatch(source, /onClick=\{submit\} disabled=\{busy \|\| !canSubmit\}/, 'Nút gửi không bị khoá im lặng');
 assert.match(source, /function requestSubmit\(\)/, 'Nút gửi đi qua requestSubmit để luôn phản hồi');

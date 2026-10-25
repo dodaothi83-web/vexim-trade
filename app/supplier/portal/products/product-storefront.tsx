@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, Clock3, FileText, ImageIcon, PackagePlus, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Clock3, FileText, ImageIcon, PackagePlus, Plus, Search, SlidersHorizontal } from "lucide-react";
 import type { MediaAsset, SupplierProduct } from "@/lib/types";
-import { PRODUCT_STATUS, privateMediaUrl, productReview, type ProductReviewFilter } from "@/lib/supplier-portal/product-view";
+import { PRODUCT_STATUS, SUPPLIER_PRODUCTS_PER_PAGE, privateMediaUrl, productReview, supplierProductPage, type ProductReviewFilter } from "@/lib/supplier-portal/product-view";
 
 const FILTERS: { id: ProductReviewFilter; label: string }[] = [
   { id: "all", label: "Tất cả" }, { id: "draft", label: "Bản nháp" },
@@ -29,6 +29,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
   const [filter, setFilter] = useState<ProductReviewFilter>("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"recent" | "name">("recent");
+  const [page, setPage] = useState(1);
   const mediaByProduct = useMemo(() => {
     const grouped = new Map<string, MediaAsset[]>();
     for (const asset of media) if (asset.product_id) grouped.set(asset.product_id, [...(grouped.get(asset.product_id) ?? []), asset]);
@@ -45,6 +46,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
     `${p.name} ${p.spec ?? ""} ${p.description ?? ""}`.toLocaleLowerCase("vi").includes(query.trim().toLocaleLowerCase("vi")))
     .sort((a, b) => sort === "name" ? a.name.localeCompare(b.name, "vi") :
       (Date.parse(b.updated_at ?? "") || 0) - (Date.parse(a.updated_at ?? "") || 0)), [products, filter, query, sort]);
+  const { shown, currentPage, pageCount, firstItem, lastItem } = supplierProductPage(visible, page);
 
   return <div className="space-y-5">
     <header className="flex flex-wrap items-end justify-between gap-3">
@@ -81,15 +83,15 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
           {!supplierPublished && <span className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Trang NCC chưa được công khai</span>}
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <label className="relative min-w-[180px] flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -tranink-y-1/2 text-ink-400" aria-hidden="true" />
-            <span className="sr-only">Tìm sản phẩm của tôi</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, mô tả, quy cách..." className="input pl-10" /></label>
-          <label className="flex items-center gap-2 text-xs font-semibold text-ink-600"><span>Sắp xếp</span><select className="input min-w-[132px]" value={sort} onChange={(e) => setSort(e.target.value as "recent" | "name")}><option value="recent">Mới cập nhật</option><option value="name">Tên A-Z</option></select></label>
+          <label className="relative min-w-[180px] flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
+            <span className="sr-only">Tìm sản phẩm của tôi</span><input type="search" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Tìm tên, mô tả, quy cách..." className="input pl-10" /></label>
+          <label className="ml-auto flex items-center gap-2 text-xs font-semibold text-ink-600"><span>Sắp xếp</span><select className="input min-w-[132px]" value={sort} onChange={(e) => { setSort(e.target.value as "recent" | "name"); setPage(1); }}><option value="recent">Mới cập nhật</option><option value="name">Tên A-Z</option></select></label>
         </div>
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Lọc trạng thái sản phẩm">{FILTERS.map((tab) =>
-          <button key={tab.id} type="button" aria-pressed={filter === tab.id} onClick={() => setFilter(tab.id)}
+          <button key={tab.id} type="button" aria-pressed={filter === tab.id} onClick={() => { setFilter(tab.id); setPage(1); }}
             className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition ${filter === tab.id ? "bg-brand-800 text-white" : "bg-ink-100 text-ink-600 hover:bg-ink-200"}`}>{tab.label} <span className={filter === tab.id ? "text-brand-100" : "text-ink-500"}>{counts[tab.id]}</span></button>)}</div>
       </div>
-      {visible.length ? <ul className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-3">{visible.map((p) => {
+      {visible.length ? <ul className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3 xl:grid-cols-4">{shown.map((p) => {
         const assets = mediaByProduct.get(p.id) ?? [];
         const image = assets.find((m) => m.id === p.featured_media_id && m.kind === "image" && m.audience === "buyer" && privateMediaUrl(m)) ??
           assets.find((m) => m.kind === "image" && privateMediaUrl(m));
@@ -122,7 +124,19 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
         <h3 className="mt-4 text-lg font-bold text-ink-900">{products.length ? "Không tìm thấy sản phẩm phù hợp" : "Bắt đầu với sản phẩm đầu tiên"}</h3>
         <p className="mt-2 text-sm leading-6 text-ink-600">{products.length ? "Thử từ khóa khác hoặc đổi bộ lọc trạng thái." : "Tạo sản phẩm, lưu bản nháp, tải ảnh hoặc catalogue thật rồi gửi duyệt."}</p>
         {products.length === 0 && <Link href="/supplier/portal/products/new" className="btn btn-primary mt-5"><Plus className="size-4" aria-hidden="true" /> Thêm sản phẩm</Link>}
-        {products.length > 0 && <button type="button" onClick={() => { setFilter("all"); setQuery(""); }} className="mt-5 text-sm font-semibold text-brand-700 underline">Xóa bộ lọc</button>}
+        {products.length > 0 && <button type="button" onClick={() => { setFilter("all"); setQuery(""); setPage(1); }} className="mt-5 text-sm font-semibold text-brand-700 underline">Xóa bộ lọc</button>}
+      </div>}
+      {pageCount > 1 && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 px-4 py-3 sm:px-6">
+        <p className="text-[11.5px] text-ink-500">Hiển thị {firstItem}-{lastItem} trong {visible.length} sản phẩm. Mỗi trang tối đa {SUPPLIER_PRODUCTS_PER_PAGE} sản phẩm.</p>
+        <nav aria-label="Phân trang danh sách sản phẩm" className="flex items-center gap-2">
+          <button type="button" className="btn btn-ghost px-2.5 py-1.5" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)} aria-label="Trang trước">
+            <ChevronLeft className="size-4" aria-hidden="true" /> Trước
+          </button>
+          <span className="min-w-[84px] text-center text-[12px] text-ink-600" aria-live="polite">Trang {currentPage} / {pageCount}</span>
+          <button type="button" className="btn btn-ghost px-2.5 py-1.5" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)} aria-label="Trang sau">
+            Sau <ChevronRight className="size-4" aria-hidden="true" />
+          </button>
+        </nav>
       </div>}
     </section>
   </div>;

@@ -211,7 +211,7 @@ const profilePage = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.
   readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8');
 const detailPage = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 assert.match(grid, /\+\{count\} more from/);
-assert.match(grid, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Category offers use 2/3/4 columns');
+assert.match(grid, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Category offers use one column on phones, then 2/3/4 columns');
 assert.match(grid, /p\.verificationSteps\.includes\(verified/, 'Verification filter matches only the selected approved check');
 assert.match(grid, /<PublicProductCard/, 'Category listing uses the common offer card');
 const homePage = readFileSync(new URL('../app/(public)/home.tsx', import.meta.url), 'utf8');
@@ -221,10 +221,10 @@ const homeFeed = readFileSync(new URL('../components/home-product-feed.tsx', imp
 assert.match(homePage, /listPublicCategoryProducts\(category\)/, 'Home offers must come from the buyer-ready catalogue, not category tiles');
 assert.match(homePage, /p\.isDemo \|\| seen\.has\(p\.id\)/, 'Home excludes demos and duplicate listings');
 assert.match(homePage, /<HomeProductFeed items=\{arrangedOffers\}/, 'Home renders the offer feed from the arranged list');
-assert.match(homeFeed, /grid-cols-2[^"\n]*md:grid-cols-3/, 'Home offers sit in two or three columns before the wide layout');
+assert.match(homeFeed, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3/, 'Home offers use one column on phones, then two or three columns');
 assert.match(homeFeed, /wide \? " lg:grid-cols-5" : ""/, 'The fifth column only appears when the browser confirms a wide screen');
 assert.match(homeFeed, /<PublicProductCard/, 'Home includes actual product offers');
-assert.match(profilePage, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Supplier product grid uses 2/3/4 columns');
+assert.match(profilePage, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-5/, 'Supplier product grid uses one column on phones, then 2/3/5 columns');
 const verificationTierModule = compile('../components/verification-tier.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
@@ -239,7 +239,6 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
   '@/components/product-trade-labels': productTradeLabelsModule,
-  '@/components/product-verification-icons': { ProductVerificationIcons },
   '@/components/verification-tier': verificationTierModule,
 });
 const fullTradeLabels = renderToStaticMarkup(React.createElement(productTradeLabelsModule.ProductTradeLabels, { oem: true, odm: true, samples: true }));
@@ -258,26 +257,59 @@ const compactCard = renderToStaticMarkup(React.createElement(PublicProductCard, 
 for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'USD 7/kg', 'Lead time', '14 days', 'Supplied by', 'Company A', 'OEM/ODM', 'Samples', 'Request a quote']) {
   assert.ok(compactCard.includes(text), `Compact card keeps ${text}`);
 }
-assert.match(compactCard, /aspect-square/);
+assert.match(compactCard, /relative aspect-square w-full/, 'The product image stays square at every breakpoint');
+assert.doesNotMatch(compactCard, /min-h-40/, 'The image no longer receives a forced tall mobile height');
 assert.match(compactCard, /object-cover/);
 assert.match(compactCard, /line-clamp-2/);
-assert.match(compactCard, /flex h-full min-w-0 flex-col/);
+assert.match(compactCard, /flex h-full min-w-0 flex-row[^"]*sm:flex-col/, 'Cards are horizontal on phones and vertical from sm');
+assert.match(compactCard, /w-\[38%\] shrink-0[^"]*sm:w-full/, 'The phone image takes 38 percent and the content takes the remaining width');
+assert.match(compactCard, /flex min-w-0 flex-1 flex-col/, 'The product information occupies the flexible content side');
 assert.match(compactCard, /href="\/suppliers\/company-a"/, 'Supplier has an independent profile link');
 assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can open product details through the title or image');
 assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;product=Cashew%20W320%20lot%200&amp;product_id=a0"/,
   'The primary card CTA opens an RFQ prefilled for this product and supplier');
 assert.match(compactCard, /aria-label="Request a quote for Cashew W320 lot 0"/, 'Repeated quote CTAs have product-specific accessible names');
 assert.match(compactCard, /bg-brand-700/, 'The quote CTA uses the primary brand action instead of the dark details treatment');
-assert.match(compactCard, /text-\[15px\] font-bold leading-5 text-brand-800 sm:text-base/, 'Price is only slightly larger than the supporting card content');
+assert.match(compactCard, /text-sm font-bold leading-\[18px\] text-brand-800 sm:text-base sm:leading-5/, 'Price is compact on phones and retains its desktop size');
 assert.match(compactCard, />FOB</, 'FOB remains visible as a compact suffix');
 assert.doesNotMatch(compactCard, /FOB reference|Reference price|bg-brand-50/, 'Price uses plain text without a heading or tinted background');
-assert.match(compactCard, /mb-2 flex h-6 items-center/, 'A fixed one-row badge slot keeps prices aligned between cards');
-assert.match(compactCard, /mt-2.5 grid grid-cols-2/, 'MOQ and lead time share one compact two-column row');
-assert.match(compactCard, /mt-auto pt-3/, 'The quote action keeps a compact top gap');
+assert.match(compactCard, /mb-1 line-clamp-2 min-h-0[^"]*sm:mb-3 sm:min-h-10/, 'The title releases its extra mobile minimum height and restores desktop alignment');
+assert.match(compactCard, /mb-1 hidden h-5 items-center sm:mb-2 sm:flex sm:h-6/, 'Trade badges do not consume mobile height but keep their desktop slot');
+assert.match(compactCard, /mt-1 flex flex-wrap[^"]*sm:mt-2.5 sm:grid sm:grid-cols-2/, 'MOQ and lead time are inline on phones and become a two-column row on desktop');
+assert.match(compactCard, /flex min-w-0 items-baseline gap-1 sm:block/, 'Mobile commercial terms stay on the same line');
+assert.match(compactCard, /mt-auto hidden pt-3 sm:block/, 'Quote and fallback actions are hidden on phones and return from sm');
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
 assert.match(compactCard, /Level 2 · Advanced/, 'Card tier counts the approved checks, not a claimed level');
+for (const [level, suffix] of [[1, 'Basic'], [2, 'Advanced'], [3, 'Complete']]) {
+  const levels = Array.from({ length: level }, (_, index) => index + 1);
+  const badge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels, compactOnMobile: true }));
+  assert.match(badge, new RegExp(`sm:hidden">Level ${level}<`), `Mobile product cards shorten Level ${level}`);
+  assert.ok(badge.includes(`hidden sm:inline">Level ${level} · ${suffix}<`), `The full Level ${level} label returns from the sm breakpoint`);
+}
+const standardBadge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels: [1] }));
+assert.ok(standardBadge.includes('Level 1 · Basic') && !standardBadge.includes('sm:hidden'),
+  'Badges outside product cards keep the full label at every size');
 assert.doesNotMatch(compactCard, /Free Sample|ISO Certified|Ready to Ship/, 'Unsupported product claims never become badges');
-assert.equal((compactCard.match(/<details/g) ?? []).length, 0, 'Card stays compact; the exact checks open on the detail page');
+assert.equal((compactCard.match(/<details/g) ?? []).length, 0, 'The large shared verification disclosure is removed');
+assert.equal((compactCard.match(/role="tooltip"/g) ?? []).length, 3, 'Each shield has its own compact tooltip');
+assert.equal((compactCard.match(/group-hover\/pip:block group-focus-within\/pip:block/g) ?? []).length, 3,
+  'Each tooltip opens on hover and keyboard or touch focus');
+for (const [level, label, status] of [
+  [1, 'Documents checked', 'Approved'],
+  [2, 'Factory visited', 'Not approved'],
+  [3, 'Delivery history reviewed', 'Approved'],
+]) {
+  assert.ok(compactCard.includes(`aria-label="Level ${level} · ${label}: ${status}"`), `Shield ${level} has an accessible name and actual status`);
+  assert.match(compactCard, new RegExp(`Level ${level} · ${label}<\\/strong><span[^>]*>${status}<\\/span>`),
+    `Shield ${level} shows only its short label and status`);
+}
+for (const explanation of Object.values(PRODUCT_VERIFICATION_EXPLANATIONS)) {
+  assert.ok(!compactCard.includes(explanation), 'The long verification paragraph no longer appears on product cards');
+}
+const standardPips = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationPips, { levels: [1] }));
+assert.ok(!standardPips.includes('role="tooltip"'), 'Verification pips outside product cards keep their existing presentation');
+assert.match(compactCard, /overflow-visible rounded-xl/, 'The card does not clip its verification tooltip');
+assert.match(compactCard, /rounded-l-xl bg-ink-50[^"]*sm:rounded-t-xl/, 'The image follows the horizontal phone card and rounded desktop card corners');
 const longSupplierCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
   ...cardProps, supplierName: 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED',
 }));
@@ -287,6 +319,7 @@ const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard,
 assert.match(privatePrice, /On request/);
 assert.doesNotMatch(privatePrice, /FOB reference|>FOB<|USD 7\/kg/, 'No price or FOB claim without consent');
 assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved check shows the empty tier, not a badge');
+assert.equal((privatePrice.match(/>Not approved</g) ?? []).length, 3, 'The tooltip never marks a check approved without an actual approved level');
 const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
   ...cardProps, href: '/suppliers/company-a/products/a0', test: true,
 }));
@@ -327,7 +360,7 @@ const { default: HomeContent } = compile('../app/(public)/home.tsx', {
 });
 const homeHtml = renderToStaticMarkup(await HomeContent());
 const offersHtml = homeHtml.match(/<section aria-labelledby="home-products-title"[\s\S]*?<\/section>/)?.[0] ?? '';
-assert.match(offersHtml, /grid-cols-2[^"\n]*md:grid-cols-3/, 'Server HTML keeps whole rows of three until the browser widens the layout');
+assert.match(offersHtml, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3/, 'Server HTML keeps one phone column before the wider layouts');
 assert.doesNotMatch(offersHtml, /lg:grid-cols-5/, 'Server HTML never leaks the wide five-column layout before hydration');
 assert.match(offersHtml, /href="\/products\/cashew\/a0"/);
 assert.match(offersHtml, /\/public-media\/products\/a0\/cover-thumb\.webp/, 'Home product cards send the smaller photo');
@@ -387,7 +420,7 @@ const relatedProductsStart = detailPage.indexOf('id="related-products-heading"')
 assert.ok(relatedProductsStart > detailPage.indexOf('id="product-description-heading"'),
   'Related products fill the area after the product description');
 const relatedProductsSource = detailPage.slice(relatedProductsStart, detailPage.indexOf('</section>', relatedProductsStart));
-assert.match(relatedProductsSource, /grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Related products use the responsive 2/3/4-column card grid');
+assert.match(relatedProductsSource, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Related products use one phone column, then the responsive 2/3/4-column grid');
 assert.match(relatedProductsSource, /<PublicProductCard/, 'Related products reuse the common public offer card');
 assert.match(relatedProductsSource, /related\.cardImagePath \?\? related\.imagePaths\[0\]/, 'Related product cards prefer approved thumbnails');
 assert.match(relatedProductsSource, /related\.verificationSteps/, 'Related product cards retain approved supplier checks');

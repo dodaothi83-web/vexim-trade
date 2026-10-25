@@ -134,6 +134,8 @@ assert.match(shared, /Target markets are self-declared by the supplier and pendi
 assert.doesNotMatch(shared, /What Vexim checked|Supplier-stated markets \(not independently verified\)|Stated markets are not a Vexim-verified export history/,
   'Không dùng tiêu đề hoặc câu phủ định cũ');
 assert.match(shared, /grid items-stretch gap-3 md:grid-cols-3/, 'Ba hạng mục xác minh có bố cục thẻ rõ ràng');
+assert.match(shared, /mt-5 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-5/,
+  'Supplier catalogue has one phone column, five product cards per desktop row and fewer columns between those sizes');
 assert.ok(!shared.includes('chưa hiện với buyer') && !/hidden from buyer/i.test(shared),
   'Không thêm danh sách “chưa hiện với buyer”');
 assert.doesNotMatch(shared, /supplier\.email|supplier\.phone|supplier\.zalo|tax_number|public_review_summaries\[1\]/,

@@ -8,12 +8,22 @@ import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import { productTranslationPatch } from "@/lib/ai/translate-content";
-import { isExpired } from "@/lib/media/readiness";
+import { productPublicationMediaState } from "@/lib/media/readiness";
 import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
-import type { MediaAsset } from "@/lib/types";
 
-type Result = { ok: boolean; message: string };
+type Result = {
+  ok: boolean;
+  message: string;
+  english?: {
+    name: string;
+    description: string;
+    spec: string;
+    description_detail: string;
+    packaging: string;
+    certifications: string;
+  };
+};
 
 export async function decideSupplierProductAction(form: FormData): Promise<Result> {
   const denied = await guard("products.manage");
@@ -25,7 +35,6 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
   const note = String(form.get("note") ?? "").trim().slice(0, 1000);
   if (!/^[0-9a-f-]{36}$/i.test(id) || !["approved", "changes_requested"].includes(decision)) return { ok: false, message: "Yêu cầu không hợp lệ." };
   if (decision === "changes_requested" && !note) return { ok: false, message: "Cần ghi nội dung yêu cầu bổ sung." };
-  const promoted: MediaAsset[] = [];
   try {
     const store = getStore();
     const product = await store.getProduct(id);
@@ -37,7 +46,6 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
     if (product.supplier_review_status !== "pending" && !retryApprovedPublication)
       return { ok: false, message: "Sản phẩm không còn chờ duyệt hoặc đã được đăng." };
     let reviewedCategory: string | null = null;
-    let mediaToPublish: MediaAsset[] = [];
     if (decision === "approved") {
       const submittedCategory = String(form.get("reviewed_category_slug") ?? "").trim();
       reviewedCategory = retryApprovedPublication
@@ -56,40 +64,23 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       // The category selected by staff is the final decision.
       if (!options.some((c) => c.slug === reviewedCategory))
         return { ok: false, message: "Chọn danh mục đang xuất bản trước khi duyệt và đăng." };
+      if (!product.name || !(product.spec || product.description)) {
+        return { ok: false, message: "Cần tên và mô tả hoặc quy cách trước khi duyệt và đăng." };
+      }
       const media = await store.listMedia("product", id);
-      // A missing portal account must not block publication. Without an account,
-      // only files already shared with buyers can be verified as supplier-owned.
-      const supplierAccount = await store.getUserBySupplierId(product.supplier_id);
-      // Only the supplier's own submitted files are promoted by this decision.
-      // Staff-internal documents attached to the same product stay private.
-      const publishable = media.filter((asset) => asset.owner_type === "product" && asset.product_id === id &&
-        (asset.kind === "image" || asset.kind === "catalogue") && !!asset.storage_path &&
-        asset.supplier_id === product.supplier_id && !isExpired(asset) &&
-        (asset.audience === "buyer" || (asset.audience === "internal" && !!supplierAccount && asset.created_by === supplierAccount.id)));
-      if (!product.name || !(product.spec || product.description) || !publishable.length) {
-        return { ok: false, message: "Cần tên, mô tả hoặc quy cách và ít nhất một ảnh hoặc catalogue hợp lệ do NCC tải lên." };
+      const mediaReview = productPublicationMediaState(media, id, product.supplier_id);
+      if (!mediaReview.verifiedBuyerImages) {
+        return { ok: false, message: "Mở mục Ảnh & tài liệu sản phẩm. Đặt ít nhất một ảnh ở trạng thái Đã kiểm tra và Chia sẻ buyer trước khi đăng." };
       }
-      mediaToPublish = publishable.filter((asset) => asset.audience === "internal");
-    }
-    try {
-      // Publish the reviewed files before flipping the product switch. If the
-      // product write fails, restore any files already promoted in this request.
-      for (const asset of mediaToPublish) {
-        // Snapshot before writing: local stores may return mutable rows.
-        promoted.push({ ...asset });
-        await store.updateMedia(asset.id, { audience: "buyer", status: "checked" });
+      if (mediaReview.uncheckedBuyerFiles) {
+        return { ok: false, message: `Còn ${mediaReview.uncheckedBuyerFiles} tệp chia sẻ buyer chưa được xác minh. Chọn Đã kiểm tra hoặc chuyển tệp về Nội bộ.` };
       }
-      await store.updateProduct(id, {
-        supplier_review_status: decision as "approved" | "changes_requested",
-        supplier_review_note: decision === "approved" ? null : note, ready_for_buyer: decision === "approved",
-        reviewed_category_slug: reviewedCategory, ...(reviewedCategory ? { category: reviewedCategory } : {}),
-      });
-    } catch (error) {
-      await Promise.all(promoted.map((asset) => store.updateMedia(asset.id, {
-        audience: asset.audience, status: asset.status,
-      }).catch((rollbackError) => console.error("[supplier-product-review] media rollback", rollbackError))));
-      throw error;
     }
+    await store.updateProduct(id, {
+      supplier_review_status: decision as "approved" | "changes_requested",
+      supplier_review_note: decision === "approved" ? null : note, ready_for_buyer: decision === "approved",
+      reviewed_category_slug: reviewedCategory, ...(reviewedCategory ? { category: reviewedCategory } : {}),
+    });
     await store.addAuditLog({ actor_id: session.uid, actor_email: session.email,
       entity: "product", entity_id: id, action: retryApprovedPublication ? "supplier.product_published" : decision === "approved" ? "supplier.product_approved" : "supplier.product_changes_requested",
       before: { review: product.supplier_review_status, category: product.reviewed_category_slug, ready: product.ready_for_buyer },
@@ -118,8 +109,21 @@ export async function translateProductEnglishAction(productId: string): Promise<
     const result = await ensureProductEnglishTranslation(store, productId, { id: session.uid, email: session.email });
     if (result.status === "unconfigured") return { ok: false, message: "Chức năng AI chưa được cấu hình trên máy chủ. Bạn vẫn có thể tự nhập bản dịch tiếng Anh rồi lưu." };
     if (result.status === "failed") return { ok: false, message: result.message };
+    const saved = await store.getProduct(productId);
+    if (!saved) return { ok: false, message: "Không tìm thấy sản phẩm sau khi dịch." };
     revalidatePath(`/crm/products/${productId}/edit`);
-    return { ok: true, message: result.status === "current" ? "Bản dịch tiếng Anh đã khớp nội dung gốc hiện tại." : "Đã dịch nội dung sang tiếng Anh bằng AI. Hãy đọc lại trước khi công khai." };
+    return {
+      ok: true,
+      message: result.status === "current" ? "Bản dịch tiếng Anh đã khớp nội dung gốc hiện tại." : "Đã dịch nội dung sang tiếng Anh bằng AI. Hãy đọc lại trước khi công khai.",
+      english: {
+        name: saved.name_i18n?.en ?? "",
+        description: saved.description_i18n?.en ?? "",
+        spec: saved.spec_i18n?.en ?? "",
+        description_detail: saved.description_detail_i18n?.en ?? "",
+        packaging: saved.packaging_i18n?.en ?? "",
+        certifications: saved.certifications_i18n?.en ?? "",
+      },
+    };
   } catch (error) {
     console.error("[product-translation-action]", error);
     return { ok: false, message: error instanceof Error ? error.message : "Không dịch được nội dung." };
