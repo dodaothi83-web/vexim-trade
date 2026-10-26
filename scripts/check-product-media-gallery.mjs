@@ -96,6 +96,18 @@ assert.match(html, /Product video/); assert.match(html, /Product photos/);
 assert.match(html, /products\/abc\/cover\.jpg/, 'Full image is available for zoom');
 assert.match(html, /products\/abc\/cover-thumb\.webp/, 'Small gallery tiles load derivatives');
 assert.match(html, /products\/abc\/detail-thumb\.webp/);
+// Hiệu năng đổi ảnh: preload ảnh kề + crossfade (không nháy trống, không chờ mạng)
+const galleryPerfSource = readFileSync(new URL('../components/product-media-gallery.tsx', import.meta.url), 'utf8');
+assert.match(galleryPerfSource, /new Image\(\)/, 'Ảnh trước/sau được preload để bấm chuyển là có sẵn ngay');
+assert.match(galleryPerfSource, /transition-opacity/, 'Ảnh mới fade vào thay vì nhảy cứng');
+assert.match(galleryPerfSource, /setFadedIn\(true\)/, 'Chỉ fade khi ảnh đã tải xong — không bao giờ nháy trắng');
+assert.match(galleryPerfSource, /preload\.decoding = "async"/, 'Decode ảnh preload không chặn luồng chính');
+assert.equal((html.match(/<img src=\"\/public-media\/products\/abc\/cover\.jpg\"/g) ?? []).length, 1,
+  'SSR chỉ vẽ một ảnh hero; lớp crossfade thứ hai chỉ xuất hiện khi thực sự đổi ảnh');
+const mediaRouteSource = readFileSync(new URL('../app/public-media/[...path]/route.ts', import.meta.url), 'utf8');
+assert.match(mediaRouteSource, /if-none-match/, 'Route phục vụ ảnh hỗ trợ ETag/304 để không tải lại byte');
+assert.match(mediaRouteSource, /max-age=60, must-revalidate/, 'Ảnh qua ACL cho browser cache ngắn + xác nhận lại');
+assert.doesNotMatch(mediaRouteSource, /"no-store"/, 'Không còn no-store — nguyên nhân gallery tải lại nguyên file mỗi lần đổi ảnh');
 assert.match(html, /aria-pressed="true"/);
 assert.match(html, /Enlarge photo of Cashew W320 on this page/);
 assert.doesNotMatch(html, /<iframe|target="_blank"/, 'Gallery must not embed before play or open images in a new tab');
