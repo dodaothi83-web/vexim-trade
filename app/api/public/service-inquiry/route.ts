@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     flow: "service-inquiry",
     headers: request.headers,
     email,
-    token: clean(body.turnstile_token, 5000),
+    token: clean(body.challenge_token, 5000),
   });
   if (!protection.ok) {
     return NextResponse.json({

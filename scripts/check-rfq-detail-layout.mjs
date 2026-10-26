@@ -39,7 +39,7 @@ assert.equal(spamFlagDetail("invalid_phone").label, "Số điện thoại cần 
 assert.match(spamFlagDetail("invalid_phone").description, /ít hơn 7 chữ số/);
 for (const flag of [
   "honeypot_filled",
-  "turnstile_missing",
+  "challenge_missing",
   "webmail_domain",
   "missing_company",
   "invalid_phone",

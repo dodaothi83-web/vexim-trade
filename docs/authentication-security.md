@@ -6,14 +6,14 @@ Tài liệu này mô tả kiểm soát trong mã. Cấu hình Production vẫn p
 
 | Luồng | Kiểm soát |
 | --- | --- |
-| Đăng nhập email và mật khẩu | Turnstile phía server, giới hạn theo IP và theo cặp IP + email, giới hạn độ dài đầu vào, phản hồi không kèm lỗi hệ thống thô |
-| Đăng ký nhà cung cấp bằng email | Turnstile phía server, honeypot, giới hạn theo IP và theo cặp IP + email, kiểm tra consent và mật khẩu, phản hồi chung cho email mới hoặc đã tồn tại |
-| Thiết lập quản trị viên đầu tiên | Turnstile phía server và giới hạn lượt trước khi đọc hoặc tạo tài khoản; điều kiện hệ thống chưa có người dùng vẫn giữ nguyên |
-| Đăng ký dịch vụ ở trang chủ | Turnstile phía server, honeypot, body limit và giới hạn lượt trước audit log hoặc gửi email |
+| Đăng nhập email và mật khẩu | Challenge chống bot tự chủ (proof-of-work) phía server, giới hạn theo IP và theo cặp IP + email, giới hạn độ dài đầu vào, phản hồi không kèm lỗi hệ thống thô |
+| Đăng ký nhà cung cấp bằng email | Challenge chống bot tự chủ phía server, honeypot, giới hạn theo IP và theo cặp IP + email, kiểm tra consent và mật khẩu, phản hồi chung cho email mới hoặc đã tồn tại |
+| Thiết lập quản trị viên đầu tiên | Challenge chống bot tự chủ và giới hạn lượt trước khi đọc hoặc tạo tài khoản; điều kiện hệ thống chưa có người dùng vẫn giữ nguyên |
+| Đăng ký dịch vụ ở trang chủ | Challenge chống bot tự chủ phía server, honeypot, body limit và giới hạn lượt trước audit log hoặc gửi email |
 | Đăng nhập hoặc đăng ký bằng Google | Giới hạn lượt khởi tạo theo IP, PKCE, cookie flow HttpOnly, origin allowlist và email Google đã xác minh |
-| Câu hỏi cho nhà cung cấp | Giữ nguyên kiểm soát hiện có; dùng chung hàm xác minh Turnstile có timeout |
+| Câu hỏi cho nhà cung cấp | Giữ nguyên kiểm soát hiện có; dùng chung hàm xác minh challenge (tín hiệu mềm cho chấm điểm spam) |
 
-Turnstile chỉ nhận token từ client. Quyết định cuối cùng luôn nằm ở server bằng `TURNSTILE_SECRET_KEY`. Token quá dài, thiếu, không hợp lệ hoặc không xác minh được sẽ không tới bước xác thực mật khẩu hoặc tạo tài khoản trong Production. Form tạo challenge mới sau mỗi lần gửi lỗi vì token Turnstile chỉ dùng một lần.
+Challenge chống bot là proof-of-work tự chủ (`lib/security/challenge.ts`): server phát challenge có chữ ký HMAC theo từng form, trình duyệt tính ngầm ~1 giây rồi submit kèm nonce; server kiểm chứng chữ ký, hạn dùng, kết quả băm và salt đã tiêu. KHÔNG còn phụ thuộc dịch vụ ngoài (Cloudflare) nên không có trạng thái mất kết nối. Token thiếu, sai, hết hạn hoặc dùng lại sẽ không tới bước xác thực mật khẩu hoặc tạo tài khoản. Form tạo challenge mới sau mỗi lần gửi lỗi vì một salt chỉ được tiêu một lần.
 
 ## Giới hạn lượt
 
@@ -42,7 +42,7 @@ KV_REST_API_URL=...
 KV_REST_API_TOKEN=...
 ```
 
-Nếu Upstash thiếu cấu hình hoặc lỗi, login và signup vẫn phải qua limiter cục bộ và Turnstile, đồng thời server ghi cảnh báo. Đây là lựa chọn để không khóa toàn bộ người dùng khi Redis mất kết nối. Trong trạng thái này giới hạn giữa nhiều instance không còn hiệu lực. Câu hỏi cho nhà cung cấp không đổi hành vi: yêu cầu vẫn được đưa vào `needs_review` thay vì gửi trực tiếp.
+Nếu Upstash thiếu cấu hình hoặc lỗi, login và signup vẫn phải qua limiter cục bộ và challenge, đồng thời server ghi cảnh báo. Đây là lựa chọn để không khóa toàn bộ người dùng khi Redis mất kết nối. Trong trạng thái này giới hạn giữa nhiều instance không còn hiệu lực. Câu hỏi cho nhà cung cấp không đổi hành vi: yêu cầu vẫn được đưa vào `needs_review` thay vì gửi trực tiếp.
 
 ## Phản hồi và tài khoản
 
@@ -55,23 +55,24 @@ Nếu Upstash thiếu cấu hình hoặc lỗi, login và signup vẫn phải qu
 
 ## Cấu hình Production cần kiểm tra
 
-1. Dùng cùng cặp Turnstile cho các form công khai trên cùng hostname. Site key là công khai, secret key chỉ đặt phía server:
+1. Challenge chống bot tự chủ không cần đăng ký dịch vụ nào. Khoá ký mặc định suy từ `AUTH_SECRET` (HKDF riêng); nếu muốn tách khoá, đặt `CHALLENGE_SECRET`. Độ khó điều chỉnh bằng `CHALLENGE_DIFFICULTY` (mặc định 4):
 
    ```env
-   TURNSTILE_SITE_KEY=...
-   TURNSTILE_SECRET_KEY=...
+   # CHALLENGE_SECRET=...
+   # CHALLENGE_DIFFICULTY=4
    ```
 
-2. Cloudflare widget phải cho phép `www.veximtrade.com`. Nếu thử preview hoặc staging, thêm đúng hostname đó hoặc dùng cặp key riêng cho môi trường đó. Không dùng Turnstile testing keys trên Production.
+2. Không có hostname/domain nào cần khai báo bên ngoài nữa — challenge phát từ chính site (`/api/challenge`), chạy được ở preview/staging/production không cần cấu hình thêm.
 3. Kiểm tra một trong hai cặp Upstash REST credentials trên Vercel Production. Không dùng `KV_URL` cho REST client.
 4. Đặt `AUTH_SECRET` ngẫu nhiên, tối thiểu 32 byte. Không dùng anon key và không commit secret.
 5. Sau deploy, thử đăng ký và đăng nhập hợp lệ, token đã dùng lại, challenge hết hạn và vượt giới hạn. Không gửi mật khẩu thật hoặc secret trong ticket/log/chat.
+6. `CHALLENGE_DISABLED=true` chỉ dành cho sự cố khẩn cấp — xoá biến ngay khi hết lý do.
 
 Kiểm tra offline:
 
 ```sh
 node scripts/check-auth-security.mjs
-node scripts/check-turnstile-widget.mjs
+node scripts/check-form-challenge.mjs
 node scripts/check-service-inquiry-security.mjs
 node scripts/check-google-oauth.mjs
 node scripts/check-supplier-self-registration.mjs

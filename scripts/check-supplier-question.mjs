@@ -102,7 +102,6 @@ assert.equal(unreviewed.reason, 'moderation_required');
 assert.equal(sent.length, beforeConsentMail, 'Moderation and selected-supplier guards cannot be bypassed');
 
 // Full submit wiring: direct questions and staff-mediated quotes share storage, not notification behaviour.
-process.env.TURNSTILE_SECRET_KEY = '';
 process.env.RFQ_REJECT_WEBMAIL = 'false';
 const createdRfqs = [];
 const createdBuyers = [];
@@ -141,7 +140,7 @@ const submit = load('../lib/rfq/submit.ts', {
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => { genericAcks++; }, sendRfqNewInternal: async () => { genericInternal++; } },
   '.': { emailDomain: () => 'example.com', fingerprint: () => 'test', generateAccessToken: () => 'private-token', generateRfqCode: () => 'RFQ-Q-1',
     hasMxRecord: async () => ({ ok: true }), isLikelyWebmail: () => false, normalizeCompanyWebsite: () => null,
-    scoreSpam: (input) => ({ score: spamScore + (input.turnstileOk ? 0 : 60), flags: input.turnstileOk ? [] : ['turnstile_missing'] }) },
+    scoreSpam: (input) => ({ score: spamScore + (input.challengeOk ? 0 : 60), flags: input.challengeOk ? [] : ['challenge_missing'] }) },
   './auto-match': { createPreferredSupplierMatches: async () => { autoMatches++; return []; } },
   './supplier-question-rate-limit': { checkSupplierQuestionRateLimit: async () => { distributedCalls++; return distributedResult; } },
   './supplier-question': {
@@ -150,10 +149,10 @@ const submit = load('../lib/rfq/submit.ts', {
     sendSupplierQuestionExceptionInternal: async ({ reason }) => { exceptionReasons.push(reason); },
   },
   './rate-limit': { gcRateLimit() {}, rateLimit: () => ({ ok: true }) },
-  '@/lib/security/turnstile': { verifyTurnstileToken: async () => ({ ok: true }) },
+  '@/lib/security/challenge': { verifyFormChallenge: ({ token }) => (token ? { ok: true } : { ok: false, reason: 'missing' }) },
 });
 const rawQuestion = {
-  company: 'Buyer Co', contact_name: 'Jane Doe', email: 'buyer@example.com', consent: true,
+  company: 'Buyer Co', contact_name: 'Jane Doe', email: 'buyer@example.com', consent: true, challenge_token: 'solved-token',
   product_text: 'Cashew W320', category_slug: 'cashew', source_product_id: 'p-a', preferred_supplier_ids: [supplier.id],
   inquiry_kind: 'supplier_question', share_contact_consent: true,
   message: 'Can you confirm the peroxide value and available packaging?',
@@ -227,15 +226,11 @@ assert.equal(directCalls, 2, 'Redis failure never opens direct delivery');
 assert.equal(exceptionReasons.at(-1), 'unavailable');
 
 distributedResult = { status: 'ok' };
-const previousNodeEnv = process.env.NODE_ENV;
-process.env.NODE_ENV = 'production';
-const missingTurnstile = await submit.submitRfq(rawQuestion);
-if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
-else process.env.NODE_ENV = previousNodeEnv;
-assert.equal(missingTurnstile.status, 'needs_review');
-assert.ok(createdRfqs.at(-1).spam_flags.includes('turnstile_missing'));
-assert.equal(directCalls, 2, 'Missing production Turnstile configuration never opens direct delivery');
-assert.equal(exceptionReasons.at(-1), 'turnstile_missing');
+const missingChallenge = await submit.submitRfq({ ...rawQuestion, challenge_token: undefined });
+assert.equal(missingChallenge.status, 'needs_review');
+assert.ok(createdRfqs.at(-1).spam_flags.includes('challenge_missing'));
+assert.equal(directCalls, 2, 'A question without a solved challenge never opens direct delivery');
+assert.equal(exceptionReasons.at(-1), 'challenge_missing');
 
 const beforeRejected = createdRfqs.length;
 distributedResult = { status: 'limited', resetAt: Date.now() + 60_000 };

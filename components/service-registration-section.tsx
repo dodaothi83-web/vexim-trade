@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 
-import { TurnstileWidget } from "@/components/turnstile-widget";
+import { FormChallenge } from "@/components/form-challenge";
 
 export type ServiceKey =
   | "free_listing"
@@ -177,18 +177,18 @@ const SERVICES: ServiceItem[] = [
   },
 ];
 
-export function ServiceRegistrationSection({ lang = "en", turnstileSiteKey = null }: { lang?: HomeLocale; turnstileSiteKey?: string | null }) {
+export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale }) {
   const [activeService, setActiveService] = useState<ServiceKey | null>(null);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [challengeToken, setChallengeToken] = useState("");
   const [challengeVersion, setChallengeVersion] = useState(0);
 
   const selected = SERVICES.find((s) => s.key === activeService) ?? null;
   const isVi = lang === "vi";
 
   function resetChallenge() {
-    setTurnstileToken("");
+    setChallengeToken("");
     setChallengeVersion((version) => version + 1);
   }
 
@@ -206,7 +206,7 @@ export function ServiceRegistrationSection({ lang = "en", turnstileSiteKey = nul
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selected) return;
-    if (turnstileSiteKey && !turnstileToken) {
+    if (!challengeToken) {
       setFeedback({ ok: false, message: isVi ? "Vui lòng hoàn tất bước kiểm tra bảo mật." : "Please complete the security check." });
       return;
     }
@@ -218,7 +218,7 @@ export function ServiceRegistrationSection({ lang = "en", turnstileSiteKey = nul
       formData.set("service_key", selected.key);
       formData.set("service_title", selected.title[lang]);
       formData.set("lang", lang);
-      formData.set("turnstile_token", turnstileToken);
+      formData.set("challenge_token", challengeToken);
 
       const res = await fetch("/api/public/service-inquiry", {
         method: "POST",
@@ -483,9 +483,7 @@ export function ServiceRegistrationSection({ lang = "en", turnstileSiteKey = nul
               <div aria-hidden className="pointer-events-none absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden">
                 <label>Leave empty <input name="website_hp" tabIndex={-1} autoComplete="off" /></label>
               </div>
-              {turnstileSiteKey && (
-                <TurnstileWidget key={challengeVersion} siteKey={turnstileSiteKey} onChange={(token) => setTurnstileToken(token ?? "")} />
-              )}
+              <FormChallenge key={challengeVersion} purpose="service-inquiry" onChange={(token) => setChallengeToken(token ?? "")} />
               {feedback && (
                 <div
                   role="status"
@@ -510,7 +508,7 @@ export function ServiceRegistrationSection({ lang = "en", turnstileSiteKey = nul
                 </button>
                 <button
                   type="submit"
-                  disabled={busy || feedback?.ok || Boolean(turnstileSiteKey && !turnstileToken)}
+                  disabled={busy || feedback?.ok || !challengeToken}
                   className="inline-flex items-center gap-2 rounded-xl bg-brand-800 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-brand-900 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {busy ? (

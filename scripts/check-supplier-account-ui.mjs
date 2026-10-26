@@ -23,7 +23,7 @@ const link = { default: ({ href, children, ...props }) => React.createElement('a
 const source = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const form = load('../app/(auth)/supplier/register/supplier-account-form.tsx', {
   'react/jsx-runtime': jsx, 'react': React, 'next/link': link, 'lucide-react': icons,
-  '@/components/turnstile-widget': { TurnstileWidget: () => null },
+  '@/components/form-challenge': { FormChallenge: () => null },
 });
 const formHtml = renderToStaticMarkup(React.createElement(form.SupplierAccountForm));
 for (const fragment of ['name="email"', 'name="password"', 'name="password2"', 'name="consent"', 'intent=signup', 'Tạo tài khoản bằng email'])

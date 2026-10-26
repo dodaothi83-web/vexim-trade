@@ -34,7 +34,7 @@ function isRole(value: unknown): value is UserRole {
 
 /* ------------------------------ ĐĂNG NHẬP ------------------------------ */
 
-export async function loginAction(email: string, password: string, turnstileToken = ""): Promise<AuthResult> {
+export async function loginAction(email: string, password: string, challengeToken = ""): Promise<AuthResult> {
   const clean = (email ?? "").trim().toLowerCase();
   if (clean.length > 254 || !EMAIL_RE.test(clean)) return { ok: false, message: "Email không hợp lệ." };
   if (!password) return { ok: false, message: "Chưa nhập mật khẩu." };
@@ -45,7 +45,7 @@ export async function loginAction(email: string, password: string, turnstileToke
       flow: "login",
       headers: await headers(),
       email: clean,
-      token: turnstileToken,
+      token: challengeToken,
     });
     if (!protection.ok) return { ok: false, message: protection.message };
 
@@ -87,7 +87,7 @@ export async function setupAdminAction(
   name: string,
   password: string,
   password2: string,
-  turnstileToken = "",
+  challengeToken = "",
 ): Promise<AuthResult> {
   const clean = (email ?? "").trim().toLowerCase();
   if (clean.length > 254 || !EMAIL_RE.test(clean)) return { ok: false, message: "Email không hợp lệ." };
@@ -100,7 +100,7 @@ export async function setupAdminAction(
     flow: "admin-setup",
     headers: await headers(),
     email: clean,
-    token: turnstileToken,
+    token: challengeToken,
   });
   if (!protection.ok) return { ok: false, message: protection.message };
 

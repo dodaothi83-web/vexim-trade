@@ -5,7 +5,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
 import { gcRateLimit, rateLimit } from "@/lib/rfq/rate-limit";
-import { verifyTurnstileToken } from "@/lib/security/turnstile";
+import { verifyFormChallenge } from "@/lib/security/challenge";
 
 export type ProtectedFlow = "login" | "supplier-signup" | "admin-setup" | "service-inquiry";
 type Window = "15 m" | "1 h" | "24 h";
@@ -170,16 +170,20 @@ export async function protectPublicRequest({
     message: "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.",
   };
   if (rate.status === "degraded") {
-    // Turnstile and the local limiter still apply. Unlike supplier questions,
-    // a login cannot be put into a moderation queue during a Redis outage.
+    // The form challenge and the local limiter still apply. Unlike supplier
+    // questions, a login cannot be put into a moderation queue during a Redis outage.
     console.warn(`[public-request] ${flow} distributed rate limit ${rate.reason}; local protection remains active`);
   }
 
-  const challenge = await verifyTurnstileToken({ token, remoteIp: requestIp(headers) });
+  // Challenge tự chủ (proof-of-work) — thuần cục bộ nên không còn nhánh
+  // "unavailable/not_configured" như hồi phụ thuộc Cloudflare.
+  const challenge = verifyFormChallenge({ purpose: flow, token });
   if (!challenge.ok) return {
     ok: false,
-    status: challenge.reason === "not_configured" || challenge.reason === "unavailable" ? 503 : 400,
-    message: "Không xác minh được bước bảo mật. Vui lòng thử lại.",
+    status: 400,
+    message: challenge.reason === "expired" || challenge.reason === "replayed"
+      ? "Phiên kiểm tra bảo mật đã hết hạn. Vui lòng thử lại."
+      : "Không xác minh được bước bảo mật. Vui lòng thử lại.",
   };
   return { ok: true };
 }

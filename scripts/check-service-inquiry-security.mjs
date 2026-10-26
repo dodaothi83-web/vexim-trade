@@ -46,7 +46,7 @@ function form() {
   const data = new FormData();
   for (const [key, value] of Object.entries({
     lang: 'en', service_key: 'free_listing', company_name: 'Example Co', contact_name: 'Jane',
-    phone: '+84901234567', email: 'jane@example.com', note: 'Please contact me.', turnstile_token: 'browser-token',
+    phone: '+84901234567', email: 'jane@example.com', note: 'Please contact me.', challenge_token: 'solved-token',
   })) data.set(key, value);
   return data;
 }
@@ -71,7 +71,7 @@ const accepted = await post(form());
 assert.equal(accepted.status, 200);
 assert.equal(accepted.data.ok, true);
 assert.equal(protectionCalls.at(-1).flow, 'service-inquiry');
-assert.equal(protectionCalls.at(-1).token, 'browser-token');
+assert.equal(protectionCalls.at(-1).token, 'solved-token');
 assert.equal(protectionCalls.at(-1).email, 'jane@example.com');
 assert.equal(audits, 1);
 assert.equal(sent.length, 2, 'Existing staff and acknowledgement emails still work after protection');
@@ -98,4 +98,4 @@ const oversized = await post(form(), { 'content-length': '20000' });
 assert.equal(oversized.status, 413);
 assert.equal(audits, 1);
 assert.equal(sent.length, 2);
-console.log('✅ Service registration: honeypot, Turnstile token, rate limit, body cap and existing mail flow passed.');
+console.log('✅ Service registration: honeypot, form challenge token, rate limit, body cap and existing mail flow passed.');

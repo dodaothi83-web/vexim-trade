@@ -4,7 +4,6 @@ import Link from "next/link";
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { supabaseAuthReachable } from "@/lib/auth/authenticate";
-import { turnstileSiteKey } from "@/lib/security/turnstile";
 import { LoginForm } from "@/components/login-form";
 
 export const dynamic = "force-dynamic";
@@ -101,7 +100,6 @@ export default async function LoginPage({
       {sp.oauth && oauthMessage[sp.oauth] && <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{oauthMessage[sp.oauth]}</p>}
       <LoginForm
         needsSetup={needsSetup}
-        turnstileSiteKey={turnstileSiteKey()}
       />
       <p className="mt-5 text-center text-xs text-ink-600">Doanh nghiệp chưa có tài khoản? <Link href="/supplier/register" className="font-semibold text-brand-700 underline">Tạo tài khoản nhà cung cấp</Link></p>
     </>

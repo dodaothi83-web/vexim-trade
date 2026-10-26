@@ -57,7 +57,6 @@ const Home = load('../app/(public)/home.tsx', {
   'lucide-react': require('lucide-react'),
   '@/lib/db': { getStore: () => store },
   '@/lib/blog/queries': news,
-  '@/lib/security/turnstile': { turnstileSiteKey: () => null },
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [] },
   '@/lib/public/supplier-product-order': {
     arrangeSupplierProducts: () => ({ shown: [] }),

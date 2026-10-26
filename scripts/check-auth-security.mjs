@@ -28,50 +28,54 @@ function run(path, mocks, extra = {}) {
   return mod.exports;
 }
 
-// Turnstile is required in production and every network outcome fails safely.
-let fetchCalls = [];
-let fetchBehavior = async () => ({ ok: true, json: async () => ({ success: true }) });
-const turnstileEnv = { NODE_ENV: 'production', TURNSTILE_SECRET_KEY: 'server-secret' };
-const turnstile = run('../lib/security/turnstile.ts', {}, {
-  process: { env: turnstileEnv },
-  fetch: async (...args) => { fetchCalls.push(args); return fetchBehavior(...args); },
-});
-deepEqual(await turnstile.verifyTurnstileToken({ token: '' }), { ok: false, reason: 'missing' });
-assert.equal(fetchCalls.length, 0);
-deepEqual(await turnstile.verifyTurnstileToken({ token: 'x'.repeat(4097) }), { ok: false, reason: 'invalid' });
-deepEqual(await turnstile.verifyTurnstileToken({ token: 'browser-token', remoteIp: '203.0.113.8' }), { ok: true });
-assert.equal(fetchCalls.length, 1);
-const sentBody = new URLSearchParams(fetchCalls[0][1].body);
-assert.equal(sentBody.get('secret'), 'server-secret');
-assert.equal(sentBody.get('response'), 'browser-token');
-assert.equal(sentBody.get('remoteip'), '203.0.113.8');
-fetchBehavior = async () => ({ ok: true, json: async () => ({ success: false }) });
-deepEqual(await turnstile.verifyTurnstileToken({ token: 'bad' }), { ok: false, reason: 'invalid' });
-fetchBehavior = async () => ({ ok: false, status: 503 });
-deepEqual(await turnstile.verifyTurnstileToken({ token: 'token' }), { ok: false, reason: 'unavailable' });
-fetchBehavior = async () => { throw new Error('timeout'); };
-deepEqual(await turnstile.verifyTurnstileToken({ token: 'token' }), { ok: false, reason: 'unavailable' });
-delete turnstileEnv.TURNSTILE_SECRET_KEY;
-deepEqual(await turnstile.verifyTurnstileToken({ token: 'token' }), { ok: false, reason: 'not_configured' });
-const developmentTurnstile = run('../lib/security/turnstile.ts', {}, { process: { env: { NODE_ENV: 'development' } } });
-deepEqual(await developmentTurnstile.verifyTurnstileToken({ token: '' }), { ok: true });
-
-// TURNSTILE_DISABLED=true — công tắc tạm: pass ở production NGAY CẢ khi đã cấu hình key,
-// không gọi Cloudflare, và widget biến mất khỏi mọi form.
-const fetchesBeforeSwitch = fetchCalls.length;
-turnstileEnv.TURNSTILE_SECRET_KEY = 'server-secret';
-turnstileEnv.TURNSTILE_DISABLED = 'true';
-deepEqual(await turnstile.verifyTurnstileToken({ token: 'token' }), { ok: true });
-deepEqual(await turnstile.verifyTurnstileToken({ token: '' }), { ok: true });
-assert.equal(fetchCalls.length, fetchesBeforeSwitch, 'Kill switch skips the Cloudflare verify call entirely');
-assert.equal(turnstile.turnstileSiteKey(), null, 'Widget is hidden on every form while the switch is on');
-delete turnstileEnv.TURNSTILE_DISABLED;
-deepEqual(await turnstile.verifyTurnstileToken({ token: '' }), { ok: false, reason: 'missing' }, 'Removing the switch restores the production challenge');
-assert.equal(turnstile.turnstileSiteKey(), null, 'No site key configured in this env');
-turnstileEnv.TURNSTILE_SITE_KEY = 'site-key-1';
-assert.equal(turnstile.turnstileSiteKey(), 'site-key-1', 'Helper returns the configured key once the switch is off');
-delete turnstileEnv.TURNSTILE_SITE_KEY;
-delete turnstileEnv.TURNSTILE_SECRET_KEY;
+// Form challenge (proof-of-work tự chủ, thay Cloudflare Turnstile): phát → giải →
+// xác minh, chặn dùng chéo purpose, chống replay, hết hạn, giả mạo, công tắc khẩn cấp.
+function solveNode(challenge) {
+  const parts = challenge.split('.');
+  const prefix = '0'.repeat(Number(parts[2]));
+  for (let nonce = 0; nonce < 5_000_000; nonce++) {
+    if (crypto.createHash('sha256').update(`${parts[0]}:${nonce}`).digest('hex').startsWith(prefix)) {
+      return `${challenge}.${nonce}`;
+    }
+  }
+  return null;
+}
+const challengeEnv = { NODE_ENV: 'production', CHALLENGE_DIFFICULTY: '2' };
+const challenge = run('../lib/security/challenge.ts', {
+  'node:crypto': crypto,
+  '@/lib/auth/secret': { getAuthSecret: () => 'unit-test-secret' },
+}, { process: { env: challengeEnv } });
+const issued = challenge.issueFormChallenge('login');
+assert.match(issued, /^[0-9a-f]{32}\.\d+\.2\.[0-9a-f]{32}$/, 'Đúng định dạng salt.issuedMs.difficulty.hmac');
+const solved = solveNode(issued);
+assert.ok(solved, 'Difficulty 2 phải giải được trong vài trăm lần băm');
+deepEqual(challenge.verifyFormChallenge({ purpose: 'login', token: solved }), { ok: true });
+// Challenge của form này không dùng được cho form khác (purpose nằm trong chữ ký).
+deepEqual(challenge.verifyFormChallenge({ purpose: 'supplier-signup', token: solved }), { ok: false, reason: 'signature' });
+// Salt đã tiêu không dùng lại được.
+deepEqual(challenge.verifyFormChallenge({ purpose: 'login', token: solved }), { ok: false, reason: 'replayed' });
+// Token chưa giải / sai dạng / thiếu.
+const fresh = challenge.issueFormChallenge('login');
+deepEqual(challenge.verifyFormChallenge({ purpose: 'login', token: `${fresh}.123` }), { ok: false, reason: 'unsolved' });
+deepEqual(challenge.verifyFormChallenge({ purpose: 'login', token: fresh }), { ok: false, reason: 'malformed' });
+deepEqual(challenge.verifyFormChallenge({ purpose: 'login', token: '' }), { ok: false, reason: 'missing' });
+// Hết hạn sau 15 phút.
+const fresh2 = challenge.issueFormChallenge('login');
+const solved2 = solveNode(fresh2);
+deepEqual(challenge.verifyFormChallenge({ purpose: 'login', token: solved2, nowMs: Date.now() + 16 * 60_000 }), { ok: false, reason: 'expired' });
+// Sửa issuedMs/difficulty làm vỡ chữ ký.
+const tampered = `${fresh2.split('.')[0]}.${Date.now()}.1.${fresh2.split('.')[3]}.${solved2.split('.').at(-1)}`;
+deepEqual(challenge.verifyFormChallenge({ purpose: 'login', token: tampered }), { ok: false, reason: 'signature' });
+// Độ khó kẹp trong 1..6, mặc định 4.
+challengeEnv.CHALLENGE_DIFFICULTY = '9';
+assert.equal(challenge.formChallengeDifficulty(), 6);
+delete challengeEnv.CHALLENGE_DIFFICULTY;
+assert.equal(challenge.formChallengeDifficulty(), 4);
+// Công tắc khẩn cấp CHALLENGE_DISABLED=true: pass hết, kể cả token rỗng.
+challengeEnv.CHALLENGE_DISABLED = 'true';
+deepEqual(challenge.verifyFormChallenge({ purpose: 'login', token: '' }), { ok: true });
+deepEqual(challenge.verifyFormChallenge({ purpose: 'rfq', token: 'whatever' }), { ok: true });
+delete challengeEnv.CHALLENGE_DISABLED;
 
 // Shared local + distributed limiter policies use hashes and safe degradation.
 const redisCalls = [];
@@ -108,7 +112,7 @@ const abuseMocks = {
       return { ok: !localLimited, resetInMs: 60_000 };
     },
   },
-  '@/lib/security/turnstile': { verifyTurnstileToken: async () => { challengeCalls++; return challengeResult; } },
+  '@/lib/security/challenge': { verifyFormChallenge: () => { challengeCalls++; return challengeResult; } },
 };
 const headers = new Headers({ 'x-forwarded-for': '203.0.113.10, 10.0.0.1', 'user-agent': 'auth-test' });
 const missing = run('../lib/auth/abuse-protection.ts', abuseMocks, { process: { env: { NODE_ENV: 'production' } } });
@@ -159,10 +163,10 @@ const redisBeforeLocalStop = redisCalls.length;
 assert.equal((await limiter.checkAuthRateLimit({ flow: 'login', headers })).status, 'limited');
 assert.equal(redisCalls.length, redisBeforeLocalStop, 'Local rejection does not call Redis');
 localLimited = false;
-challengeResult = { ok: false, reason: 'invalid' };
+challengeResult = { ok: false, reason: 'signature' };
 assert.equal((await limiter.protectPasswordAuth({ flow: 'login', headers, email: 'person@example.com', token: 'bad' })).status, 400);
-challengeResult = { ok: false, reason: 'not_configured' };
-assert.equal((await limiter.protectPasswordAuth({ flow: 'login', headers, email: 'person@example.com', token: '' })).status, 503);
+challengeResult = { ok: false, reason: 'expired' };
+assert.equal((await limiter.protectPasswordAuth({ flow: 'login', headers, email: 'person@example.com', token: '' })).status, 400);
 challengeResult = { ok: true };
 deepEqual(await limiter.protectPasswordAuth({ flow: 'login', headers, email: 'person@example.com', token: 'good' }), { ok: true });
 assert.ok(challengeCalls >= 3);
@@ -270,4 +274,4 @@ assert.equal((await authBackend.authenticate(record.email, 'correct-password')).
 
 const secretSource = fs.readFileSync(new URL('../lib/auth/secret.ts', import.meta.url), 'utf8');
 assert.doesNotMatch(secretSource, /\["SUPABASE_ANON_KEY"/, 'A public anon key can never sign app sessions');
-console.log('✅ Auth security: Turnstile, distributed/local limits, safe failures, signup/login/setup wiring and local fallback passed.');
+console.log('✅ Auth security: form challenge (PoW tự chủ), distributed/local limits, safe failures, signup/login/setup wiring and local fallback passed.');

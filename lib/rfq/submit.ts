@@ -26,7 +26,7 @@ import {
 import { createPreferredSupplierMatches } from "./auto-match";
 import { deliverSupplierQuestion, sendSupplierQuestionAckBuyer, sendSupplierQuestionExceptionInternal } from "./supplier-question";
 import { checkSupplierQuestionRateLimit } from "./supplier-question-rate-limit";
-import { isTurnstileDisabled, verifyTurnstileToken } from "@/lib/security/turnstile";
+import { verifyFormChallenge, type ChallengePurpose } from "@/lib/security/challenge";
 import { gcRateLimit, rateLimit } from "./rate-limit";
 
 export interface SubmitRfqInput {
@@ -72,7 +72,7 @@ export interface SubmitRfqInput {
 
   // Anti-spam
   honeypot?: string | null;
-  turnstile_token?: string | null;
+  challenge_token?: string | null;
 }
 
 export interface SubmitRfqResult {
@@ -116,22 +116,16 @@ function supplierQuestionValidationError(raw: SubmitRfqInput): string | null {
   if (!raw.consent || !raw.share_contact_consent) {
     return "Please approve sharing your contact details with this supplier before sending your question.";
   }
-  if ((raw.turnstile_token?.length ?? 0) > 4_096) return "The security check is invalid. Please refresh and try again.";
+  if ((raw.challenge_token?.length ?? 0) > 512) return "The security check is invalid. Please refresh and try again.";
   return null;
 }
 
-async function verifyTurnstile(token: string | null | undefined, requireConfigured: boolean): Promise<boolean> {
-  // TURNSTILE_DISABLED=true tắt tạm mọi kiểm tra Turnstile (công tắc khẩn cấp tập trung
-  // trong lib/security/turnstile.ts) — rate limit và chấm điểm spam vẫn chạy.
-  if (isTurnstileDisabled()) return true;
-  const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret || secret === "x") {
-    // Ordinary quotes keep their existing moderation behavior. A production
-    // supplier question without a configured challenge is never sent directly.
-    return !(requireConfigured && process.env.NODE_ENV === "production");
-  }
-  const ip = (await firstHeader("x-forwarded-for"))?.split(",")[0]?.trim() ?? null;
-  return (await verifyTurnstileToken({ token: token ?? "", remoteIp: ip })).ok;
+/**
+ * Challenge chống bot tự chủ: pass/fail thành tín hiệu mềm cho chấm điểm spam —
+ * RFQ thiếu challenge không bị từ chối thẳng mà rơi vào needs_review như trước.
+ */
+function verifyFormChallengeForRfq(purpose: ChallengePurpose, token: string | null | undefined): boolean {
+  return verifyFormChallenge({ purpose, token }).ok;
 }
 
 function rejectWebmail(): boolean {
@@ -168,8 +162,8 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     if (distributedLimit.status === "degraded") questionSecurityReview = distributedLimit.reason;
   }
 
-  // 2) Turnstile
-  const turnstileOk = await verifyTurnstile(raw.turnstile_token, isSupplierQuestion);
+  // 2) Challenge chống bot (tự chủ, không còn Cloudflare)
+  const challengeOk = verifyFormChallengeForRfq("rfq", raw.challenge_token);
 
   // 3) Spam score (3 ngưỡng):
   //    - < 40   : new        → ghi nhận ngay, ack buyer, báo desk (SLA 4h/24h áp dụng).
@@ -185,7 +179,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     productText: raw.product_text,
     phone: raw.phone,
     honeypot: raw.honeypot,
-    turnstileOk,
+    challengeOk,
   });
   let rfqStatus: Rfq["status"] = "new";
   let ackBuyer = true;

@@ -13,7 +13,7 @@ Tài liệu này ghi lại quyết định kiến trúc cho giai đoạn 0–2 c
   `/how-we-verify`, `/for-suppliers`; middleware noindex khi `PUBLIC_SITE_INDEXABLE=false` (mặc định).
   Form NCC đăng nhập bộ phận kiểm tra nhận hồ sơ → `submitted`; xác minh tại chỗ checklist UI làm sau.
 - **GĐ 2 (Tuần 3–4)** – Form RFQ 3 bước công khai (bước sản phẩm / số lượng-giao / công ty),
-  Turnstile + rate limit + kiểm tra MX domain + honeypot + thời gian điền form, trang trạng thái
+  Challenge chống bot tự chủ + rate limit + kiểm tra MX domain + honeypot + thời gian điền form, trang trạng thái
   `/rfq/status/[token]`, hộp RFQ back-office, SLA giờ làm việc (Asia/Ho_Chi_Minh) + cron cảnh báo,
   ghép seller thủ công, email yêu cầu báo giá ẩn danh buyer, nhập báo giá tay, gửi bảng so sánh
   buyer, tạo `introductions` để bảo vệ không vượt mặt.
@@ -75,7 +75,7 @@ Chỉ admin được chuyển `suppliers.status → published` hoặc `suspended
 
 - Honeypot field `company_website` (giữ cơ chế cũ).
 - Thời gian từ lúc mở form đến submit dưới 5 giây → cách ly.
-- Cloudflare Turnstile (site key / secret key từ env).
+- Challenge chống bot tự chủ (proof-of-work; `CHALLENGE_SECRET`/`CHALLENGE_DIFFICULTY` tùy chọn từ env).
 - Rate limit 3 RFQ / 24h / email; 10 RFQ / 24h / IP.
 - MX record kiểm tra bằng `node:dns/promises`.
 - Webmail domain (gmail/yahoo/hotmail/outlook…) → chấp nhận nhưng cộng `spam_score += 5` và cho vào

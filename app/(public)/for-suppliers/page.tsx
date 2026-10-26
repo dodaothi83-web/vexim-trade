@@ -43,7 +43,7 @@ export default function ForSuppliersPage() {
         <Benefit
           icon={<Globe2 className="h-5 w-5" />}
           title="Qualified international buyers"
-          body="We pre-qualify every RFQ: company check, MX record validation, Turnstile anti-bot and internal spam scoring before it reaches you."
+          body="We pre-qualify every RFQ: company check, MX record validation, an invisible anti-bot challenge and internal spam scoring before it reaches you."
         />
         <Benefit
           icon={<ShieldCheck className="h-5 w-5" />}

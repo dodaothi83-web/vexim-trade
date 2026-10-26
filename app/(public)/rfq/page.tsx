@@ -4,7 +4,6 @@ import { Breadcrumbs } from "@/components/ui";
 import { getStore } from "@/lib/db";
 import { listPublicSuppliers } from "@/lib/public/catalog";
 import type { Category, CategoryFilter } from "@/lib/types";
-import { turnstileSiteKey } from "@/lib/security/turnstile";
 
 export const metadata = {
   title: "Request a quote | Veximtrade",
@@ -73,7 +72,6 @@ export default async function RfqPage({
         initialSuppliers={initialSuppliers}
         wantsSamples={sp?.sample === "1"}
         mode={isQuestion ? "question" : "quote"}
-        turnstileSiteKey={turnstileSiteKey()}
       />
 
       <p className="mt-6 text-[12.5px] leading-relaxed text-ink-500">

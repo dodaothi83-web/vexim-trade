@@ -111,7 +111,6 @@ async function renderHome(offers, categoryItems = [category]) {
     },
     "@/lib/public/popular-searches": { buildPopularSearches: () => [] },
     "@/lib/public/meta-copy": { HOME_HERO_LINE: "Verified Vietnamese suppliers" },
-    "@/lib/security/turnstile": { turnstileSiteKey: () => null },
     "@/components/public-product-card": {
       PublicProductCard: ({ name }) => React.createElement("div", { "data-product": name }, name),
     },
