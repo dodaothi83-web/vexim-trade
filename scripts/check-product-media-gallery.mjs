@@ -102,6 +102,8 @@ assert.match(galleryPerfSource, /new Image\(\)/, 'Ảnh trước/sau được pr
 assert.match(galleryPerfSource, /transition-opacity/, 'Ảnh mới fade vào thay vì nhảy cứng');
 assert.match(galleryPerfSource, /setFadedIn\(true\)/, 'Chỉ fade khi ảnh đã tải xong — không bao giờ nháy trắng');
 assert.match(galleryPerfSource, /preload\.decoding = "async"/, 'Decode ảnh preload không chặn luồng chính');
+assert.match(galleryPerfSource, /img\?\.complete && img\.naturalWidth > 0/,
+  'Anh co san trong cache duoc phat hien qua complete-check — khong phu thuoc su kien load co the bo lo tren WebKit mobile');
 assert.equal((html.match(/<img src=\"\/public-media\/products\/abc\/cover\.jpg\"/g) ?? []).length, 1,
   'SSR chỉ vẽ một ảnh hero; lớp crossfade thứ hai chỉ xuất hiện khi thực sự đổi ảnh');
 const mediaRouteSource = readFileSync(new URL('../app/public-media/[...path]/route.ts', import.meta.url), 'utf8');
@@ -118,7 +120,11 @@ const noVideoHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery
 assert.doesNotMatch(noVideoHtml, /Product video|No buyer-shareable video/, 'An absent video leaves no dead panel');
 assert.ok(noVideoHtml.includes('grid grid-cols-1 items-stretch gap-2 sm:grid-cols-[4rem_minmax(0,1fr)]'),
   'Mobile uses one full-width image column and the two-column rail returns from sm');
-assert.match(noVideoHtml, /relative aspect-square[^\"]*sm:order-2/, 'The main image is first on mobile and moves right on larger screens');
+assert.match(noVideoHtml, /relative[^"]*sm:order-2/, 'The main image is first on mobile and moves right on larger screens');
+assert.match(noVideoHtml, /padding-bottom:100%/,
+  'Khung vuong dung sizer padding-bottom — khong phu thuoc CSS aspect-ratio (iOS <15/WebView cu bo qua → khung teo 0px, anh mat tren mobile)');
+assert.doesNotMatch(noVideoHtml, /relative aspect-square/,
+  'Hero khong con dua vao aspect-square duy nhat — anh absolute khong tu tao chieu cao');
 assert.match(noVideoHtml, /relative min-w-0 sm:order-1/, 'The thumbnail rail moves left only from sm');
 assert.match(noVideoHtml, /w-full min-w-0 overflow-x-auto pb-1 sm:absolute sm:inset-0 sm:overflow-x-hidden sm:overflow-y-auto/,
   'Mobile thumbnails scroll horizontally and the desktop rail remains bounded with vertical scrolling');

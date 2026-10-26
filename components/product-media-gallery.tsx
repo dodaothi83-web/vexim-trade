@@ -116,7 +116,12 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
   };
   return <div className="min-w-0">
     <div className={hasThumbnails ? "grid grid-cols-1 items-stretch gap-2 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-3" : ""}>
-      <div className="relative aspect-square overflow-hidden rounded-2xl border border-ink-200 bg-ink-50 sm:order-2">
+      <div className="relative overflow-hidden rounded-2xl border border-ink-200 bg-ink-50 sm:order-2">
+        {/* Sizer giữ khung vuông bằng padding-bottom:100% (theo % chiều rộng) —
+            hoạt động trên MỌI trình duyệt. aspect-square (CSS aspect-ratio) đơn
+            thuần sẽ bị bỏ qua trên iOS < 15 / WebView cũ: ảnh hero toàn absolute
+            nên khung sẽ teo về 0 chiều cao → ảnh "biến mất" trên mobile đời cũ. */}
+        <div className="w-full" style={{ paddingBottom: "100%" }} aria-hidden="true" />
         {selected ? <button ref={heroRef} type="button" onClick={openHero}
           onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
           onTouchCancel={() => { touchStart.current = null; suppressClick.current = false; }}
@@ -125,7 +130,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
             setZoomPoint(`${Math.max(0, Math.min(100, (event.clientX - rect.left) / rect.width * 100))}% ${Math.max(0, Math.min(100, (event.clientY - rect.top) / rect.height * 100))}%`);
           }}
           onMouseLeave={() => setZoomPoint("50% 50%")}
-          className="group relative h-full w-full cursor-zoom-in touch-pan-y overflow-hidden text-left" aria-label={`Enlarge photo of ${name} on this page`}>
+          className="group absolute inset-0 cursor-zoom-in touch-pan-y overflow-hidden text-left" aria-label={`Enlarge photo of ${name} on this page`}>
           {/* Hai lớp ảnh: lớp dưới là ảnh đã vẽ xong, lớp trên fade vào khi
               tải xong — đổi ảnh không bao giờ nháy trống. Hover-zoom áp lên
               wrapper để cả hai lớp phóng cùng nhau. */}
@@ -140,6 +145,12 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 key={incoming}
+                ref={(img) => {
+                  // Ảnh đã nằm sẵn trong cache có thể "hoàn tất" trước cả khi
+                  // React gắn onLoad (một số WebKit mobile) — check complete
+                  // ngay khi gắn ref để fade luôn chạy.
+                  if (img?.complete && img.naturalWidth > 0) setFadedIn(true);
+                }}
                 src={publicPhotoUrl(incoming)}
                 alt={`${name}, photo ${index + 1} of ${images.length}`}
                 decoding="async"
@@ -155,7 +166,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
             )}
           </div>
           <span className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-ink-900/80 px-3 py-1.5 text-xs font-semibold text-white"><ZoomIn className="h-3.5 w-3.5" aria-hidden="true" /> <span className="hidden sm:inline">Hover to zoom · Click to enlarge</span><span className="sm:hidden">Tap to enlarge</span></span>
-        </button> : <div className="flex h-full items-center justify-center gap-2 text-sm text-ink-400"><ImageIcon className="h-9 w-9" aria-hidden="true" />No product photo available</div>}
+        </button> : <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-ink-400"><ImageIcon className="h-9 w-9" aria-hidden="true" />No product photo available</div>}
       </div>
 
       {hasThumbnails && <section className="relative min-w-0 sm:order-1" aria-label="Product photos">
