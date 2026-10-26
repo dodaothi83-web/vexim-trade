@@ -88,13 +88,15 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <label className="relative min-w-[180px] flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
             <span className="sr-only">Tìm sản phẩm của tôi</span><input type="search" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Tìm tên, mô tả, quy cách..." className="input pl-10" /></label>
-          <label className="ml-auto flex items-center gap-2 text-xs font-semibold text-ink-600"><span>Sắp xếp</span><select className="input min-w-[132px]" value={sort} onChange={(e) => { setSort(e.target.value as "recent" | "name"); setPage(1); }}><option value="recent">Mới cập nhật</option><option value="name">Tên A-Z</option></select></label>
+          {/* .input mặc định width:100% nên select phải có w-auto, nếu không nó giành hết bề rộng label và ép chữ "Sắp xếp" xuống từng dòng. */}
+          <label className="ml-auto flex shrink-0 items-center gap-2 text-xs font-semibold text-ink-600"><span className="whitespace-nowrap">Sắp xếp</span><select className="input w-auto min-w-[132px]" value={sort} onChange={(e) => { setSort(e.target.value as "recent" | "name"); setPage(1); }}><option value="recent">Mới cập nhật</option><option value="name">Tên A-Z</option></select></label>
         </div>
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Lọc trạng thái sản phẩm">{FILTERS.map((tab) =>
           <button key={tab.id} type="button" aria-pressed={filter === tab.id} onClick={() => { setFilter(tab.id); setPage(1); }}
             className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition ${filter === tab.id ? "bg-brand-800 text-white" : "bg-ink-100 text-ink-600 hover:bg-ink-200"}`}>{tab.label} <span className={filter === tab.id ? "text-brand-100" : "text-ink-500"}>{counts[tab.id]}</span></button>)}</div>
       </div>
-      {visible.length ? <ul className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3 xl:grid-cols-4">{shown.map((p) => {
+      {/* 5 thẻ một hàng từ xl trở lên để thẻ nhỏ gọn hơn (trước đó 4 cột, thẻ thứ 5 rơi xuống dòng dưới). */}
+      {visible.length ? <ul className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3 xl:grid-cols-5">{shown.map((p) => {
         const assets = mediaByProduct.get(p.id) ?? [];
         const image = assets.find((m) => m.id === p.featured_media_id && m.kind === "image" && m.audience === "buyer" && privateMediaUrl(m)) ??
           assets.find((m) => m.kind === "image" && privateMediaUrl(m));
@@ -105,19 +107,19 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
           <Link href={`/supplier/portal/products/${p.id}`} aria-label={`Xem và quản lý ${p.name}`} className="relative block aspect-square overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
             {imageSrc ? <img src={imageSrc} alt={`Ảnh sản phẩm ${p.name}`} loading="lazy" className="size-full object-cover transition duration-300 group-hover:scale-[1.03]" />
               : <div className="flex size-full flex-col items-center justify-center gap-3 text-ink-400"><ImageIcon className="size-12 stroke-1" aria-hidden="true" /><span className="text-xs font-semibold">Chưa có ảnh sản phẩm</span></div>}
-            <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold shadow-sm ${status.tone}`}>{statusLabel}</span>
+            <span className={`absolute left-2 top-2 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold shadow-sm ${status.tone}`}>{statusLabel}</span>
           </Link>
-          <div className="flex flex-1 flex-col p-4 sm:p-5">
+          <div className="flex flex-1 flex-col p-3.5">
             <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold tracking-wider text-brand-700 uppercase">
               {label(p.category)}
               {scope && p.category && !scope.includes(p.category) && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] normal-case text-amber-900">Ngoài phạm vi</span>}
             </p>
-            <Link href={`/supplier/portal/products/${p.id}`} className="mt-1 line-clamp-2 text-lg font-bold text-ink-900 hover:text-brand-700">{p.name}</Link>
-            <p className="mt-2 line-clamp-2 min-h-10 text-sm text-ink-600">{p.spec || p.description || "Thêm quy cách hoặc mô tả để buyer hiểu rõ sản phẩm."}</p>
-            <div className="mt-4 flex items-end justify-between gap-2 border-t border-ink-100 pt-4">
-              <div>{money(p) ? <><p className="text-[11px] text-ink-500">Giá tham khảo · tự khai</p><p className="text-sm font-bold text-ink-900">{money(p)}</p></> : <p className="text-xs text-ink-500">Chưa nhập giá tham khảo</p>}
+            <Link href={`/supplier/portal/products/${p.id}`} className="mt-1 line-clamp-2 text-[15px] font-bold text-ink-900 hover:text-brand-700">{p.name}</Link>
+            <p className="mt-1.5 line-clamp-2 min-h-9 text-[13px] text-ink-600">{p.spec || p.description || "Thêm quy cách hoặc mô tả để buyer hiểu rõ sản phẩm."}</p>
+            <div className="mt-3 flex items-end justify-between gap-2 border-t border-ink-100 pt-3">
+              <div>{money(p) ? <><p className="text-[11px] text-ink-500">Giá tham khảo · tự khai</p><p className="text-[13px] font-bold text-ink-900">{money(p)}</p></> : <p className="text-xs text-ink-500">Chưa nhập giá tham khảo</p>}
                 {p.moq && <p className="mt-1 line-clamp-1 text-xs text-ink-500">MOQ: {p.moq}</p>}</div>
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition group-hover:bg-brand-700 group-hover:text-white"><ArrowRight className="size-4" aria-hidden="true" /></span>
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition group-hover:bg-brand-700 group-hover:text-white"><ArrowRight className="size-4" aria-hidden="true" /></span>
             </div>
             {p.supplier_review_note && <p className="mt-3 line-clamp-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">Góp ý: {p.supplier_review_note}</p>}
           </div>
