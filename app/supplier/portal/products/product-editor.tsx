@@ -482,8 +482,8 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_312px]">
       <div className="min-w-0">
-        {/* Trạng thái duyệt: một dòng, luôn hiện ở mọi bước. */}
-        <section aria-label="Trạng thái xét duyệt"
+        {/* Nhãn Bản nháp đã có trên ảnh; chỉ hiện thanh khi trạng thái cần thêm hướng dẫn. */}
+        {review !== "draft" && <section aria-label="Trạng thái xét duyệt"
           className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-4 py-2.5 ${review === "changes_requested" ? "border-rose-200 bg-rose-50" : review === "approved" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{statusLabel}</span>
           <p className="min-w-0 flex-1 text-[12px] leading-5 text-ink-700">
@@ -493,11 +493,9 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 : "Sản phẩm đã duyệt và đang chờ đăng."
               : review === "pending"
                 ? "Đã gửi duyệt. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp."
-                : review === "changes_requested"
-                  ? "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."
-                  : "Sản phẩm còn riêng tư. Điền thông tin, thêm tệp rồi gửi duyệt."}
+                : "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."}
           </p>
-        </section>
+        </section>}
 
         {product?.supplier_review_note && <p className="mt-2.5 whitespace-pre-wrap rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-800">
           <AlertCircle className="mr-1 inline size-4" aria-hidden="true" /> Yêu cầu chỉnh sửa: {product.supplier_review_note}

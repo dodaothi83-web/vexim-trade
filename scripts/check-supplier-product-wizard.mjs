@@ -315,7 +315,17 @@ assert.deepEqual(snapshotFromForm(null, { name: 'giữ nguyên' }), { name: 'gi�
 assert.match(source, /for \(const key of checkKeys\) if \(form\.querySelector/,
   'Checkbox không tick vẫn được ghi nhận là trống');
 
-// 11. Sau xác nhận, NCC quản lý sản phẩm đang trên sàn; không còn panel trạng thái riêng.
+// 11. Bản nháp chỉ có nhãn trên ảnh, không lặp cả thanh trạng thái phía trên form.
+for (const draftHtml of [step1, newProductStep1]) {
+  assert.doesNotMatch(draftHtml, /aria-label="Trạng thái xét duyệt"/, 'Bản nháp không hiện thanh trạng thái trùng lặp');
+  assert.doesNotMatch(draftHtml, /Sản phẩm còn riêng tư\. Điền thông tin, thêm tệp rồi gửi duyệt\./);
+  assert.equal((draftHtml.match(/>Bản nháp</g) ?? []).length, 1, 'Chỉ giữ nhãn Bản nháp trên ảnh');
+}
+const pending = render({ product: { ...product, supplier_review_status: 'pending' } });
+assert.match(pending, /aria-label="Trạng thái xét duyệt"/, 'Các trạng thái cần hướng dẫn vẫn giữ thanh trạng thái');
+assert.match(pending, /Đã gửi duyệt\. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp\./);
+
+// 12. Sau xác nhận, NCC quản lý sản phẩm đang trên sàn; không còn panel trạng thái riêng.
 const approved = render({ product: { ...product, supplier_review_status: 'approved', ready_for_buyer: true, reviewed_category_slug: 'cashew' },
   media: [{ ...media[0], audience: 'buyer' }] });
 assert.match(approved, /đã đăng/);
