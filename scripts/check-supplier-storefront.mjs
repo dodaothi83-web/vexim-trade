@@ -159,7 +159,7 @@ assert.match(publicPage, /break-words text-left text-sm font-semibold leading-5/
   'Related-supplier names use compact left-aligned typography');
 assert.match(shared, /See the main products above or ask Vexim about specifications and availability/,
   'Hồ sơ chưa có listing vẫn dẫn buyer tới thông tin mặt hàng chính');
-assert.match(shared, /Target markets are self-declared by the supplier and pending independent audit\./,
+assert.match(shared, /Supplier-declared - Not verified/,
   'Thị trường tự khai có trạng thái ngắn gọn, khách quan');
 assert.doesNotMatch(shared, /What Vexim checked|Supplier-stated markets \(not independently verified\)|Stated markets are not a Vexim-verified export history/,
   'Không dùng tiêu đề hoặc câu phủ định cũ');

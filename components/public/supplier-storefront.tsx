@@ -202,7 +202,7 @@ export function SupplierStorefront({
                   {level === 3 && supplierExportMarketsDisplay(s).length > 0 && <div className="mt-3 rounded-lg bg-white/80 p-3 ring-1 ring-ink-100">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">Target markets</p>
                     <p className="mt-1 break-words text-sm font-semibold leading-6 text-ink-800">{safe(supplierExportMarketsDisplay(s).join(", "))}</p>
-                    <p className="mt-1 text-[11px] leading-4 text-ink-500">{approvedStep ? "Markets shared by the supplier." : "Target markets are self-declared by the supplier and pending independent audit."}</p>
+                    <p className="mt-1 text-[11px] leading-4 text-ink-500">{approvedStep ? "Markets shared by the supplier." : "Supplier-declared - Not verified"}</p>
                   </div>}
                   <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">
                     {level === 1 && (approvedStep ? "Business registration evidence has been reviewed. Tax and bank details remain supplier-provided." : pending)}
