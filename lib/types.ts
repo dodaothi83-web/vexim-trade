@@ -159,6 +159,17 @@ export interface Supplier {
   updated_at: string;
 }
 
+/** English renderings for product trade fields stored inside translation_meta. */
+export type ProductEnglishFields = {
+  moq?: string;
+  monthly_capacity?: string;
+  payment_terms?: string;
+  incoterm_place?: string;
+  export_port?: string;
+  raw_material_region?: string;
+  input_material_origin?: string;
+};
+
 /** Hồ sơ sản phẩm riêng của NCC – dùng để so khớp với nhu cầu mua của buyer */
 export interface SupplierProduct {
   id: string;
@@ -190,6 +201,8 @@ export interface SupplierProduct {
     translated_at: string;
     origin: "ai" | "staff";
     model?: string | null;
+    /** English renderings for trade fields without separate i18n columns. */
+    fields?: ProductEnglishFields;
   } | null;
   /** Thông số theo ngành (JSON linh hoạt) */
   specs?: Record<string, unknown>;
@@ -198,6 +211,10 @@ export interface SupplierProduct {
   moq_qty?: number | null;
   moq_unit?: string | null;
   monthly_capacity: string | null;
+  /** Vùng nguyên liệu của riêng sản phẩm; NCC tự khai, không phải kết quả xác minh. */
+  raw_material_region?: string | null;
+  /** Xuất xứ nguyên liệu đầu vào của riêng sản phẩm; có thể trong nước, nhập khẩu hoặc kết hợp. */
+  input_material_origin?: string | null;
   lead_time_days: number | null;
   /** Bao bì / đóng gói */
   packaging: string | null;
@@ -695,13 +712,13 @@ export interface Verification {
   target_level: VerificationLevel;
   status: VerificationStatus;
   inspector_id: string | null;
-  /** L1: ngày nhận đủ tài liệu; L2: ngày thăm nhà máy */
+  /** L1: ngày nhận đủ tài liệu; L2: ngày xác thực nhà máy */
   visit_date: string | null;
-  /** GPS latitude khi thăm nhà máy (L2) */
+  /** GPS latitude khi xác thực nhà máy (L2) */
   visit_lat: number | null;
-  /** GPS longitude khi thăm nhà máy (L2) */
+  /** GPS longitude khi xác thực nhà máy (L2) */
   visit_lng: number | null;
-  /** Địa chỉ ghi nhận lúc thăm nhà máy */
+  /** Địa chỉ ghi nhận lúc xác thực nhà máy */
   visit_address: string | null;
   /** Một lần kiểm lịch sử giao hàng phải gắn với một lô hàng đã hoàn tất. */
   shipment_ref: string | null;

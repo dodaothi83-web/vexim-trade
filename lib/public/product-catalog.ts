@@ -3,13 +3,13 @@ import "server-only";
 import { getStore } from "@/lib/db";
 import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
-import { listPublicSuppliers } from "@/lib/public/catalog";
+import { listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catalog";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
 import { resolveGrade } from "@/lib/public/grade-resolution";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
-import { publicProductMoqDisplay } from "@/lib/public/product-detail-display";
+import { publicProductMoqDisplay, publicProductPlaceDisplay } from "@/lib/public/product-detail-display";
 import type { Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -25,6 +25,9 @@ export interface PublicCategoryProduct {
   /** Hồ sơ demo không được tham gia vào khoảng giá thị trường. */
   isDemoSupplier: boolean;
   province: string;
+  /** Saved product English only; empty when this product's source has not been translated. */
+  rawMaterialRegion: string;
+  inputMaterialOrigin: string;
   verificationCount: number;
   verificationSteps: VerificationLevel[];
   supplierName: string;
@@ -51,6 +54,38 @@ export function shareableProductImages(media: MediaAsset[], productId: string, f
     .slice(0, limit);
 }
 
+function projectPublicCategoryProduct(
+  p: SupplierProduct,
+  s: PublicSupplierCard,
+  category: Category,
+  media: MediaAsset[],
+): PublicCategoryProduct {
+  const images = shareableProductImages(media, p.id, p.featured_media_id);
+  // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
+  const attributes = publicProductAttributes(category, p.specs);
+  const tradeEnglish = p.translation_meta?.fields;
+  return {
+    // Tên công khai: bản soạn sẵn nếu có, không thì tên gốc. Danh mục vẫn
+    // suy từ tên gốc (productBelongsToCategory ở trên), không suy từ tên này.
+    id: p.id, name: withoutDirectContacts(publicProductTitle(p)),
+    // Trường có cấu trúc thắng tên gõ tay. Tên chỉ còn là nguồn dự phòng cho
+    // sản phẩm chưa được khai, và là nguồn để cảnh báo khi hai bên lệch nhau.
+    grade: resolveGrade({
+      name: p.name, spec: p.spec, categorySlug: category.slug, attributes,
+    }).value,
+    attributes,
+    moq: publicProductMoqDisplay(p.moq) || "On request",
+    price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: supplierProvinceDisplay(s) || "Vietnam",
+    rawMaterialRegion: publicProductPlaceDisplay(tradeEnglish?.raw_material_region),
+    inputMaterialOrigin: tradeEnglish?.input_material_origin?.trim() || "",
+    verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
+    supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
+    supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,
+    leadTimeDays: p.lead_time_days ?? null, incoterm: p.incoterm ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
+    isDemo: !!s.is_demo, imagePaths: images,
+    cardImagePath: shareableProductImages(media, p.id, p.featured_media_id, 1, true)[0] ?? null,
+  };
+}
 
 export async function listPublicCategoryProducts(category: Category): Promise<PublicCategoryProduct[]> {
   const store = getStore();
@@ -78,29 +113,50 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
     group.push(asset);
   }
   return candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
-    .map((p: SupplierProduct) => {
-      const s = byId.get(p.supplier_id)!;
-      const images = shareableProductImages(byProduct.get(p.id) ?? [], p.id, p.featured_media_id);
-      // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
-      const attributes = publicProductAttributes(category, p.specs);
-      return {
-        // Tên công khai: bản soạn sẵn nếu có, không thì tên gốc. Danh mục vẫn
-        // suy từ tên gốc (productBelongsToCategory ở trên), không suy từ tên này.
-        id: p.id, name: withoutDirectContacts(publicProductTitle(p)),
-        // Trường có cấu trúc thắng tên gõ tay. Tên chỉ còn là nguồn dự phòng cho
-        // sản phẩm chưa được khai, và là nguồn để cảnh báo khi hai bên lệch nhau.
-        grade: resolveGrade({
-          name: p.name, spec: p.spec, categorySlug: category.slug, attributes,
-        }).value,
-        attributes,
-        moq: publicProductMoqDisplay(p.moq) || "On request",
-        price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: supplierProvinceDisplay(s) || "Vietnam",
-        verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
-        supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
-        supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,
-        leadTimeDays: p.lead_time_days ?? null, incoterm: p.incoterm ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
-        isDemo: !!s.is_demo, imagePaths: images,
-        cardImagePath: shareableProductImages(byProduct.get(p.id) ?? [], p.id, p.featured_media_id, 1, true)[0] ?? null,
-      };
-    }).sort((a, b) => b.verificationCount - a.verificationCount || a.name.localeCompare(b.name));
+    .map((p) => projectPublicCategoryProduct(p, byId.get(p.supplier_id)!, category, byProduct.get(p.id) ?? []))
+    .sort((a, b) => b.verificationCount - a.verificationCount || a.name.localeCompare(b.name));
+}
+
+export interface PublicProductRecord {
+  card: PublicCategoryProduct;
+  product: SupplierProduct;
+  supplier: PublicSupplierCard;
+  category: Category;
+}
+
+/**
+ * Resolve a small ID list through the same publication, review, category, media and
+ * price projection as the category catalogue. Raw records stay on the server.
+ */
+export async function getPublicProductRecordsByIds(ids: readonly string[]): Promise<PublicProductRecord[]> {
+  const uniqueIds = [...new Set(ids.map((id) => id.trim()).filter(Boolean))].slice(0, 20);
+  if (!uniqueIds.length) return [];
+  const store = getStore();
+  const [products, suppliers, categories] = await Promise.all([
+    Promise.all(uniqueIds.map((id) => store.getProduct(id))),
+    listPublicSuppliers(),
+    store.listCategories({ publishedOnly: false }),
+  ]);
+  const bySupplier = new Map(suppliers.map((supplier) => [supplier.id, supplier]));
+  const candidates: Array<Omit<PublicProductRecord, "card">> = [];
+  for (const product of products) {
+    if (!product) continue;
+    const supplier = bySupplier.get(product.supplier_id);
+    if (!supplier || supplier.is_demo || isSyntheticSupplier(supplier) ||
+      !productReviewApproved(product) || isTestOnlyProduct(product.name) || !product.ready_for_buyer) continue;
+    const category = categories.find((candidate) =>
+      candidate.status === "published" && candidate.is_published && productBelongsToCategory(product, candidate, categories));
+    if (category) candidates.push({ product, supplier, category });
+  }
+  if (!candidates.length) return [];
+
+  const media = await store.listMediaForProducts(candidates.map(({ product }) => product.id));
+  return candidates.filter(({ product }) =>
+    productReadiness(media.filter((asset) => asset.product_id === product.id)).ready)
+    .map(({ product, supplier, category }) => ({
+      product,
+      supplier,
+      category,
+      card: projectPublicCategoryProduct(product, supplier, category, media.filter((asset) => asset.product_id === product.id)),
+    }));
 }

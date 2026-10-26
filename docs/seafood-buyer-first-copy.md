@@ -64,7 +64,7 @@ their quotes to compare. Paid listings never affect who we recommend.
 
 **Does it cost anything, and do I need an account?**
 No account and no fee. Browsing, writing to suppliers and sending a request are free for buyers. If
-your order needs paid work, such as a pre-shipment inspection or a factory visit, you get the price
+your order needs paid work, such as a pre-shipment inspection or factory verification, you get the price
 first and decide.
 
 **Who do I pay, and who do I sign with?**

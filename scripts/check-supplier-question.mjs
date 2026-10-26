@@ -150,6 +150,7 @@ const submit = load('../lib/rfq/submit.ts', {
     sendSupplierQuestionExceptionInternal: async ({ reason }) => { exceptionReasons.push(reason); },
   },
   './rate-limit': { gcRateLimit() {}, rateLimit: () => ({ ok: true }) },
+  '@/lib/security/turnstile': { verifyTurnstileToken: async () => ({ ok: true }) },
 });
 const rawQuestion = {
   company: 'Buyer Co', contact_name: 'Jane Doe', email: 'buyer@example.com', consent: true,

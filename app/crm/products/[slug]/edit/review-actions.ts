@@ -8,6 +8,7 @@ import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import { productTranslationPatch } from "@/lib/ai/translate-content";
+import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 import { productPublicationMediaState } from "@/lib/media/readiness";
 import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
@@ -22,6 +23,13 @@ type Result = {
     description_detail: string;
     packaging: string;
     certifications: string;
+    moq: string;
+    monthly_capacity: string;
+    payment_terms: string;
+    raw_material_region: string;
+    input_material_origin: string;
+    incoterm_place: string;
+    export_port: string;
   };
 };
 
@@ -122,6 +130,13 @@ export async function translateProductEnglishAction(productId: string): Promise<
         description_detail: saved.description_detail_i18n?.en ?? "",
         packaging: saved.packaging_i18n?.en ?? "",
         certifications: saved.certifications_i18n?.en ?? "",
+        moq: saved.translation_meta?.fields?.moq ?? "",
+        monthly_capacity: saved.translation_meta?.fields?.monthly_capacity ?? "",
+        payment_terms: saved.translation_meta?.fields?.payment_terms ?? "",
+        raw_material_region: saved.translation_meta?.fields?.raw_material_region ?? "",
+        input_material_origin: saved.translation_meta?.fields?.input_material_origin ?? "",
+        incoterm_place: saved.translation_meta?.fields?.incoterm_place ?? "",
+        export_port: saved.translation_meta?.fields?.export_port ?? "",
       },
     };
   } catch (error) {
@@ -139,13 +154,26 @@ export async function saveProductEnglishAction(form: FormData): Promise<Result> 
   const id = String(form.get("product_id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Sản phẩm không hợp lệ." };
   const read = (key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
+  let descriptionDetail: string;
+  try {
+    descriptionDetail = sanitizeProductDescriptionForSave(String(form.get("description_detail_en") ?? ""), { maxTextLength: 12000 });
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Mô tả chi tiết không hợp lệ." };
+  }
   const translation = {
     name: read("name_en", 180),
     description: read("description_en", 3000),
     spec: read("spec_en", 1600),
-    description_detail: read("description_detail_en", 12000),
+    description_detail: descriptionDetail,
     packaging: read("packaging_en", 600),
     certifications: read("certifications_en", 600),
+    moq: read("moq_en", 360),
+    monthly_capacity: read("monthly_capacity_en", 360),
+    payment_terms: read("payment_terms_en", 400),
+    raw_material_region: read("raw_material_region_en", 360),
+    input_material_origin: read("input_material_origin_en", 600),
+    incoterm_place: read("incoterm_place_en", 360),
+    export_port: read("export_port_en", 360),
   };
   if (!translation.name) return { ok: false, message: "Cần ít nhất tên sản phẩm bằng tiếng Anh." };
   try {

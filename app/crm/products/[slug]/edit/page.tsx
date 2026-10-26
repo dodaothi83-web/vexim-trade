@@ -143,6 +143,13 @@ export default async function EditProductPage({
               description_detail: product.description_detail ?? "",
               packaging: product.packaging ?? "",
               certifications: product.certifications ?? "",
+              moq: product.moq ?? "",
+              monthly_capacity: product.monthly_capacity ?? "",
+              payment_terms: product.payment_terms ?? "",
+              raw_material_region: product.raw_material_region ?? "",
+              input_material_origin: product.input_material_origin ?? "",
+              incoterm_place: product.incoterm_place ?? "",
+              export_port: product.export_port ?? "",
             }}
             english={{
               name: product.name_i18n?.en ?? "",
@@ -151,6 +158,13 @@ export default async function EditProductPage({
               description_detail: product.description_detail_i18n?.en ?? "",
               packaging: product.packaging_i18n?.en ?? "",
               certifications: product.certifications_i18n?.en ?? "",
+              moq: product.translation_meta?.fields?.moq ?? "",
+              monthly_capacity: product.translation_meta?.fields?.monthly_capacity ?? "",
+              payment_terms: product.translation_meta?.fields?.payment_terms ?? "",
+              raw_material_region: product.translation_meta?.fields?.raw_material_region ?? "",
+              input_material_origin: product.translation_meta?.fields?.input_material_origin ?? "",
+              incoterm_place: product.translation_meta?.fields?.incoterm_place ?? "",
+              export_port: product.translation_meta?.fields?.export_port ?? "",
             }}
             hasEnglish={translationState.hasEnglish}
             current={translationState.current}

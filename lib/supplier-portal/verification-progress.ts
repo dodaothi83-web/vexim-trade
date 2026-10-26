@@ -79,8 +79,8 @@ const STEP_COPY = {
     href: "/supplier/portal/documents",
   },
   2: {
-    title: "Thăm nhà máy",
-    titleEn: "Factory visit",
+    title: "Xác thực nhà máy",
+    titleEn: "Factory verification",
     description: "Chín ảnh nhà máy theo danh mục chung, kèm tờ mã xác minh ở 3 ảnh đánh dấu 🔖.",
     href: "/supplier/portal/verification/factory",
   },
@@ -212,7 +212,7 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     const approvedOn = shortDate(l2.approved_at);
     Object.assign(step2, {
       state: "approved", status: "Đã duyệt", statusEn: STATUS_EN.approved, tone: "emerald",
-      note: "Đợt thăm nhà máy đã hoàn tất và kết quả đã được duyệt.",
+      note: "Đợt xác thực nhà máy đã hoàn tất và kết quả đã được duyệt.",
       metric: approvedOn ? `Duyệt ngày ${approvedOn}` : "Duyệt theo đợt kiểm",
       metricEn: approvedOn ? `Approved ${approvedOn}` : "Approved after review",
       action: "Xem bằng chứng", actionEn: "View evidence",
@@ -247,13 +247,13 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
   } else if (request2?.status === "contacted") {
     Object.assign(step2, {
       state: "action", status: "Đã ghi nhận liên hệ", statusEn: STATUS_EN.action, tone: "amber",
-      note: "Yêu cầu thăm nhà máy đã được ghi nhận; bộ phận phụ trách sẽ liên hệ lên kế hoạch. Bạn có thể tự nộp 9 ảnh ngay để rút ngắn thời gian.",
+      note: "Yêu cầu xác thực nhà máy đã được ghi nhận; bộ phận phụ trách sẽ liên hệ lên kế hoạch. Bạn có thể tự nộp 9 ảnh ngay để rút ngắn thời gian.",
       action: "Nộp 9 ảnh nhà máy", actionEn: "Add factory photos",
     } satisfies Partial<VerificationProgressStep>);
   } else if (request2) {
     Object.assign(step2, {
       state: "action", status: "Đã gửi yêu cầu", statusEn: STATUS_EN.action, tone: "amber",
-      note: "Yêu cầu thăm nhà máy đã gửi. Trong lúc chờ, bạn có thể tự nộp 9 ảnh để được đối chiếu song song.",
+      note: "Yêu cầu xác thực nhà máy đã gửi. Trong lúc chờ, bạn có thể tự nộp 9 ảnh để được đối chiếu song song.",
       action: "Nộp 9 ảnh nhà máy", actionEn: "Add factory photos",
     } satisfies Partial<VerificationProgressStep>);
   }

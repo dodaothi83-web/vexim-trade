@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { loadProductDescription } from './product-description-test-utils.mjs';
 function load(file, mocks) {
   const mod = { exports: {} };
   const source = ts.transpileModule(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), {
@@ -24,6 +25,7 @@ let failThumb = false;
 const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', {});
 const attributes = load('../lib/product-attributes.ts', {});
 const mediaReadiness = load('../lib/media/readiness.ts', {});
+const { description: productDescription } = loadProductDescription();
 const categories = [
   { id: '11111111-1111-1111-1111-111111111111', slug: 'cashew', parent_id: null, name_i18n: { vi: 'Hạt điều', en: 'Cashew' }, status: 'published', is_published: true, sort_order: 1, product_fields: [{ key: 'grade', label: 'Grade', type: 'select', options: ['W240', 'W320'], filterable: true }] },
   { id: '22222222-2222-2222-2222-222222222222', slug: 'rice', parent_id: null, name_i18n: { vi: 'Gạo', en: 'Rice' }, status: 'published', is_published: true, sort_order: 2 },
@@ -56,6 +58,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible && !!s.fob_updated_at && Date.now() - new Date(s.fob_updated_at).getTime() < 180 * 86400_000 },
   '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => c.slug === (p.name.includes('Rice') ? 'rice' : 'cashew')) },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async (_supplier, item) => { notices.push(['submitted', item.id]); return 'sent'; } },
+  '@/lib/products/product-description': productDescription,
   '@/lib/ai/product-translation-service': {
     ensureProductEnglishTranslation: async (storeArg, id) => {
       const current = await storeArg.getProduct(id);
@@ -68,6 +71,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
 const form = () => {
   const fd = new FormData();
   for (const [key, value] of Object.entries({ name: 'Cashew W320', spec: '25kg vacuum bag', description: 'White kernels',
+    raw_material_region: 'Bình Phước và Đắk Lắk', input_material_origin: 'Việt Nam và Campuchia',
     ref_price: '5000', currency: 'USD', supplier_category_proposal: 'cashew', supplier_id: 'foreign', ready_for_buyer: 'true', supplier_review_status: 'approved' })) fd.set(key, value);
   return fd;
 };
@@ -93,6 +97,8 @@ const created = await actions.saveSupplierProductAction(form());
 assert.equal(created.ok, true); assert.equal(created.id, productId);
 assert.equal(product.supplier_id, supplierId); assert.equal(product.supplier_review_status, 'draft');
 assert.equal(product.ready_for_buyer, false); assert.equal(product.ref_price, 5000);
+assert.equal(product.raw_material_region, 'Bình Phước và Đắk Lắk', 'Supplier product save persists its own raw material region');
+assert.equal(product.input_material_origin, 'Việt Nam và Campuchia', 'Supplier product save persists its own input origin');
 assert.equal(product.price_publicly_visible, false, 'Saving an entered price does not expose it');
 const forgedAttribute = form(); forgedAttribute.set('product_id', productId); forgedAttribute.set('attribute:grade', 'W999');
 assert.equal((await actions.saveSupplierProductAction(forgedAttribute)).ok, false, 'Supplier cannot forge an option in a Vexim category');
@@ -107,7 +113,7 @@ optIn.set('ref_price_max', '5500');
 optIn.set('description_detail', 'Origin and details of this product.');
 assert.equal((await actions.saveSupplierProductAction(optIn)).ok, true);
 assert.equal(product.ref_price_max, 5500, 'Supplier can save an optional range without changing the publication flow');
-assert.equal(product.price_publicly_visible, true); assert.equal(product.description_detail, 'Origin and details of this product.');
+assert.equal(product.price_publicly_visible, true); assert.equal(product.description_detail, '<p>Origin and details of this product.</p>');
 assert.equal(supplier.fob_updated_at, null, 'Product opt-in alone does not create supplier consent');
 const consentForm = form(); consentForm.set('product_id', productId); consentForm.set('price_publicly_visible', 'yes');
 consentForm.set('confirm_supplier_price_consent', 'yes');
@@ -209,6 +215,7 @@ const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async (input) => { notices.push([input.decision, input.entityId]); return 'sent'; } },
   '@/lib/crm/badges': { refreshCrmBadges() {} },
   '@/lib/media/readiness': mediaReadiness,
+  '@/lib/products/product-description': productDescription,
   '@/lib/public/product-selection': { isTestOnlyProduct: (name) => /^\s*(?:\[\s*)?test\s+only\b/i.test(name) },
   '@/lib/public/supplier-seo': { isSyntheticSupplier: () => false },
   '@/lib/supplier-portal/category-proposals': categoryProposals,

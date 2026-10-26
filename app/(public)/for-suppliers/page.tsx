@@ -7,12 +7,12 @@ import { Breadcrumbs } from "@/components/ui";
 export const metadata: Metadata = {
   title: "For suppliers – Get listed on Veximtrade",
   description:
-    "Vietnamese manufacturers and trading companies: register your supplier profile. Independent document, factory visit and delivery history reviews are confirmed by Vexim staff.",
+    "Vietnamese manufacturers and trading companies: register your supplier profile. Independent document checks, factory verification and delivery history reviews are confirmed by Vexim staff.",
   alternates: { canonical: "/for-suppliers" },
   openGraph: {
     title: "For suppliers – Get listed on Vexim Trade",
     description:
-      "Vietnamese manufacturers and trading companies: register your supplier profile. Independent document, factory visit and delivery history reviews are confirmed by Vexim staff.",
+      "Vietnamese manufacturers and trading companies: register your supplier profile. Independent document checks, factory verification and delivery history reviews are confirmed by Vexim staff.",
     url: "/for-suppliers",
     siteName: "Vexim Trade",
     type: "website",
@@ -36,7 +36,7 @@ export default function ForSuppliersPage() {
         For Vietnamese suppliers
       </h1>
       <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-ink-700">
-        We work with manufacturers, cooperatives and trading companies in Vietnam. Start with a document review; a factory visit and delivery history review can be requested independently when relevant.
+        We work with manufacturers, cooperatives and trading companies in Vietnam. Start with a document review; factory verification and a delivery history review can be requested independently when relevant.
       </p>
 
       <div className="mt-10 grid gap-5 sm:grid-cols-3">
@@ -48,7 +48,7 @@ export default function ForSuppliersPage() {
         <Benefit
           icon={<ShieldCheck className="h-5 w-5" />}
           title="Verified badge & trust"
-          body="Each approved review earns its own badge. A trading company can show reviewed delivery history without claiming a factory visit."
+          body="Each approved review earns its own badge. A trading company can show reviewed delivery history without claiming factory verification."
         />
         <Benefit
           icon={<Lock className="h-5 w-5" />}
@@ -68,7 +68,7 @@ export default function ForSuppliersPage() {
           <StepItem
             n="2"
             title="Our staff reviews your documents"
-            body="Vexim separately decides when to enable your dashboard tools. Document, factory visit and delivery-history checks are reviewed independently by authorised staff; none passes automatically when you upload files."
+            body="Vexim separately decides when to enable your dashboard tools. Document checks, factory verification and delivery-history reviews are conducted independently by authorised staff; none passes automatically when you upload files."
           />
           <StepItem
             n="3"

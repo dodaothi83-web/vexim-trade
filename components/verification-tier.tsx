@@ -1,7 +1,7 @@
 import { HelpCircle, ShieldCheck } from "lucide-react";
 
 import type { VerificationLevel } from "@/lib/types";
-import { VERIFICATION_LABELS } from "@/lib/verification-status";
+import { VERIFICATION_LABELS, VERIFICATION_LEVEL_EXPLANATIONS } from "@/lib/verification-status";
 
 export type VerificationTier = 0 | 1 | 2 | 3;
 
@@ -62,7 +62,7 @@ export function VerificationTierBadge({ levels, className = "", compactOnMobile 
   );
 }
 
-/** Three small shields, one per independent check, filled only when approved. */
+/** Three small shields, each with its own explanation and approval status. */
 export function VerificationPips({ levels, compact = false, shortTooltips = false }: {
   levels: readonly VerificationLevel[];
   compact?: boolean;
@@ -72,28 +72,31 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
   const tier = verificationTier(levels);
   const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
   return (
-    <span className="inline-flex items-center gap-1" role={shortTooltips ? "group" : "img"}
+    <span className="inline-flex items-center gap-1" role="group"
       aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => VERIFICATION_LABELS[l]).join(", ")}` : "No verification checks approved yet"}>
       {([1, 2, 3] as const).map((level) => {
         const on = levels.includes(level);
         const label = VERIFICATION_LABELS[level];
         const status = on ? "Approved" : "Not approved";
+        const explanation = VERIFICATION_LEVEL_EXPLANATIONS[level];
+        const accessibleName = `Level ${level} · ${label}: ${status}. ${explanation}`;
         const pipClass = `inline-flex items-center justify-center rounded-full ring-1 ${compact ? "h-5 w-5" : "h-6 w-6"} ${on ? PIP_ON_CLASSES[tier] : "bg-ink-50 text-ink-300 ring-ink-200"}`;
         const icon = <ShieldCheck className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} aria-hidden="true" />;
         if (shortTooltips) return (
           <span key={level} className="group/pip relative inline-flex">
-            <button type="button" aria-label={`Level ${level} · ${label}: ${status}`}
+            <button type="button" aria-label={accessibleName}
               className={`${pipClass} cursor-help focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700`}>
               {icon}
             </button>
-            <span role="tooltip" className={`pointer-events-none absolute bottom-full z-40 mb-2 hidden w-40 rounded-md bg-ink-900 px-2.5 py-2 text-left font-normal shadow-xl group-hover/pip:block group-focus-within/pip:block ${level === 1 ? "left-0" : level === 2 ? "left-1/2 -translate-x-1/2" : "right-0"}`}>
+            <span role="tooltip" className={`pointer-events-none absolute bottom-full z-40 mb-2 hidden w-48 rounded-md bg-ink-900 px-2.5 py-2 text-left font-normal shadow-xl group-hover/pip:block group-focus-within/pip:block ${level === 1 ? "left-0" : level === 2 ? "left-1/2 -translate-x-1/2" : "right-0"}`}>
               <strong className="block text-[11px] font-bold leading-4 text-white">Level {level} · {label}</strong>
               <span className={`block text-[10px] font-semibold leading-4 ${on ? "text-emerald-300" : "text-ink-300"}`}>{status}</span>
+              <span className="mt-0.5 block text-[10px] leading-4 text-ink-200">{explanation}</span>
             </span>
           </span>
         );
         return (
-          <span key={level} title={label} className={pipClass}>
+          <span key={level} role="img" title={accessibleName} aria-label={accessibleName} className={`${pipClass} cursor-help`}>
             {icon}
           </span>
         );

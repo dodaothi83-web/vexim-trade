@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { saveProductEnglishAction, translateProductEnglishAction } from "./review-actions";
+import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
+import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
 import { useProductEditWorkspace, useRegisterProductEditDirty } from "./edit-workspace";
 
 type Texts = {
@@ -13,6 +15,13 @@ type Texts = {
   description_detail: string;
   packaging: string;
   certifications: string;
+  moq: string;
+  monthly_capacity: string;
+  payment_terms: string;
+  raw_material_region: string;
+  input_material_origin: string;
+  incoterm_place: string;
+  export_port: string;
 };
 
 const FIELDS: Array<{ key: keyof Texts; label: string; rows: number; limit: number }> = [
@@ -22,6 +31,13 @@ const FIELDS: Array<{ key: keyof Texts; label: string; rows: number; limit: numb
   { key: "description_detail", label: "Mô tả chi tiết", rows: 6, limit: 12000 },
   { key: "packaging", label: "Đóng gói", rows: 2, limit: 600 },
   { key: "certifications", label: "Chứng nhận", rows: 2, limit: 600 },
+  { key: "moq", label: "MOQ", rows: 1, limit: 360 },
+  { key: "monthly_capacity", label: "Năng lực mỗi tháng", rows: 1, limit: 360 },
+  { key: "payment_terms", label: "Điều kiện thanh toán", rows: 2, limit: 400 },
+  { key: "raw_material_region", label: "Vùng nguyên liệu", rows: 1, limit: 360 },
+  { key: "input_material_origin", label: "Xuất xứ nguyên liệu đầu vào", rows: 2, limit: 600 },
+  { key: "incoterm_place", label: "Địa điểm Incoterm", rows: 1, limit: 360 },
+  { key: "export_port", label: "Cảng xuất hàng", rows: 1, limit: 360 },
 ];
 
 /** Bản dịch tiếng Anh: AI hỗ trợ, nhân viên đọc lại và chốt trước khi công khai. */
@@ -142,22 +158,33 @@ export function ProductTranslationPanel({ id, source, english, hasEnglish, curre
         <fieldset disabled={busy} className="min-w-0 space-y-4 border-0 p-0">
           {visibleFields.map((field) => (
             <div key={field.key} className="grid gap-3 lg:grid-cols-2">
-              <label className="block text-sm">
+              <div className="block min-w-0 text-sm">
                 <span className="mb-1 block font-semibold text-ink-600">Gốc: {field.label}</span>
-                <textarea readOnly rows={field.rows} value={source[field.key]} className="input resize-y bg-ink-50 text-ink-600" aria-label={`Nội dung gốc ${field.label}`} />
-              </label>
-              <label className="block text-sm">
+                {field.key === "description_detail"
+                  ? <div className="rounded-lg border border-ink-200 bg-ink-50 px-3 py-2"><ProductDescriptionPreview value={source[field.key]} /></div>
+                  : <textarea readOnly rows={field.rows} value={source[field.key]} className="input resize-y bg-ink-50 text-ink-600" aria-label={`Nội dung gốc ${field.label}`} />}
+              </div>
+              <div className="block min-w-0 text-sm">
                 <span className="mb-1 block font-semibold text-ink-800">English: {field.label}</span>
-                <textarea
-                  name={`${field.key}_en`}
-                  rows={field.rows}
-                  maxLength={field.limit}
-                  value={values[field.key]}
-                  onChange={(e) => setValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                  className="input resize-y"
-                  aria-label={`Bản tiếng Anh ${field.label}`}
-                />
-              </label>
+                {field.key === "description_detail"
+                  ? <ProductDescriptionEditor
+                      name="description_detail_en"
+                      value={values.description_detail}
+                      onChange={(html) => setValues((prev) => ({ ...prev, description_detail: html }))}
+                      disabled={busy}
+                      minHeight="lg"
+                      ariaLabel="Bản tiếng Anh Mô tả chi tiết"
+                    />
+                  : <textarea
+                      name={`${field.key}_en`}
+                      rows={field.rows}
+                      maxLength={field.limit}
+                      value={values[field.key]}
+                      onChange={(e) => setValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                      className="input resize-y"
+                      aria-label={`Bản tiếng Anh ${field.label}`}
+                    />}
+              </div>
             </div>
           ))}
         </fieldset>

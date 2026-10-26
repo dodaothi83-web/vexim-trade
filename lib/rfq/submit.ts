@@ -26,6 +26,7 @@ import {
 import { createPreferredSupplierMatches } from "./auto-match";
 import { deliverSupplierQuestion, sendSupplierQuestionAckBuyer, sendSupplierQuestionExceptionInternal } from "./supplier-question";
 import { checkSupplierQuestionRateLimit } from "./supplier-question-rate-limit";
+import { verifyTurnstileToken } from "@/lib/security/turnstile";
 import { gcRateLimit, rateLimit } from "./rate-limit";
 
 export interface SubmitRfqInput {
@@ -121,23 +122,13 @@ function supplierQuestionValidationError(raw: SubmitRfqInput): string | null {
 
 async function verifyTurnstile(token: string | null | undefined, requireConfigured: boolean): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret || secret === "x" || secret === "") {
-    // A production question without a configured challenge is reviewed, never sent directly.
+  if (!secret || secret === "x") {
+    // Ordinary quotes keep their existing moderation behavior. A production
+    // supplier question without a configured challenge is never sent directly.
     return !(requireConfigured && process.env.NODE_ENV === "production");
   }
-  if (!token) return false;
-  try {
-    const ip = (await firstHeader("x-forwarded-for"))?.split(",")[0]?.trim() ?? "127.0.0.1";
-    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ secret, response: token, remoteip: ip }),
-    });
-    const data = (await res.json()) as { success: boolean };
-    return data.success === true;
-  } catch {
-    return false;
-  }
+  const ip = (await firstHeader("x-forwarded-for"))?.split(",")[0]?.trim() ?? null;
+  return (await verifyTurnstileToken({ token: token ?? "", remoteIp: ip })).ok;
 }
 
 function rejectWebmail(): boolean {

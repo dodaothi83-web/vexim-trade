@@ -80,9 +80,9 @@ const PHASES: Phase[] = [
         output: "A written summary to you after every meeting.",
       },
       {
-        title: "Factory visit",
+        title: "Factory verification",
         desc: "In person, or by video call with a screen recording if travel is not possible. Travel costs are paid by you.",
-        output: "A visit plan and the agenda for the day.",
+        output: "A factory verification plan and agenda.",
         optional: true,
       },
     ],
@@ -452,7 +452,7 @@ export function LandingSite() {
               No portal and no subscription. If we cannot find a fit this season, we say so plainly.
             </p>
             <ul className="mt-8 space-y-3 text-[16px] text-ink-800">
-              <li className="flex items-center gap-3"><Mail className="h-5 w-5 text-brand-700" />{COMPANY.email}</li>
+              <li className="flex items-center gap-3"><Mail className="h-5 w-5 text-brand-700" />{COMPANY.contactEmail}</li>
               <li className="flex items-center gap-3"><Phone className="h-5 w-5 text-brand-700" />{COMPANY.phone}</li>
               <li className="flex items-start gap-3"><MapPin className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />{COMPANY.address}</li>
             </ul>

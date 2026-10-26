@@ -67,6 +67,7 @@ export default async function LoginPage({
     not_allowed: "Email Google đã được xác thực nhưng chưa được cấp quyền trong hệ thống Vexim, hoặc tài khoản đang bị khóa.",
     failed: "Không hoàn tất được xác thực Google. Vui lòng thử lại.",
     invalid: "Yêu cầu đăng nhập Google không hợp lệ.",
+    rate_limited: "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.",
   };
 
   const store = getStore();
@@ -97,7 +98,10 @@ export default async function LoginPage({
       )}
 
       {sp.oauth && oauthMessage[sp.oauth] && <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{oauthMessage[sp.oauth]}</p>}
-      <LoginForm needsSetup={needsSetup} />
+      <LoginForm
+        needsSetup={needsSetup}
+        turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null}
+      />
       <p className="mt-5 text-center text-xs text-ink-600">Doanh nghiệp chưa có tài khoản? <Link href="/supplier/register" className="font-semibold text-brand-700 underline">Tạo tài khoản nhà cung cấp</Link></p>
     </>
   );

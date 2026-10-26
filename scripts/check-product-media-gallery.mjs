@@ -125,7 +125,9 @@ const singleImageHtml = renderToStaticMarkup(React.createElement(ProductMediaGal
   name: 'Cashew W320', images: ['products/abc/cover.jpg'], video: null,
 }));
 assert.doesNotMatch(singleImageHtml, /Choose a product photo/, 'A single image does not leave an empty thumbnail rail');
+assert.doesNotMatch(singleImageHtml, /to comparison/, 'A standalone product gallery does not show comparison selection');
 const gallerySource = readFileSync(new URL('../components/product-media-gallery.tsx', import.meta.url), 'utf8');
+assert.doesNotMatch(gallerySource, /ProductCompareCheckbox|comparison/, 'Comparison belongs to eligible product lists, not a standalone gallery');
 assert.match(gallerySource, /createPortal\(/);
 assert.match(gallerySource, /event\.key === "Escape"/);
 assert.match(gallerySource, /event\.key === "ArrowRight"/);

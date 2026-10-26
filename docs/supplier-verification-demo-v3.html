@@ -216,8 +216,8 @@
   var SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>';
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
   var CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
-  var LABELS = { 1: "documents checked", 2: "factory visited", 3: "delivery history reviewed" };
-  var TITLES = { 1: "Documents checked", 2: "Factory visit", 3: "Delivery history" };
+  var LABELS = { 1: "documents checked", 2: "factory verification", 3: "delivery history reviewed" };
+  var TITLES = { 1: "Documents checked", 2: "Factory verification", 3: "Delivery history" };
   var SUMMARIES = {
     1: "Business registration evidence was reviewed. Tax and bank details remain supplier provided unless separately confirmed.",
     2: "Vexim visited the processing facility in Binh Phuoc on 12 September 2026. The visit covered the drying yard, the steam sterilization line and the metal detection step before packing.",
@@ -226,7 +226,7 @@
   var SCENARIOS = {
     none: { levels: [], tier: 0, badge: "Under audit", note: "<b>Trường hợp A: chưa qua vòng kiểm nào.</b> Ảnh cover và logo vẫn hiện bình thường. Huy chương ở góc cover để xám và số 0, huy hiệu cạnh tên ghi “Under audit”, 3 nấc kiểm chứng đều trống." },
     l1: { levels: [1], tier: 1, badge: "Level 1 · Basic", note: "<b>Trường hợp B: chỉ kiểm giấy tờ.</b> Nhận diện nhà máy không đổi. Huy hiệu cạnh tên chuyển xanh nhạt, huy chương góc cover số 1 và nấc đầu tiên sáng lên." },
-    l13: { levels: [1, 3], tier: 2, badge: "Level 2 · Advanced", note: "<b>Trường hợp C: giấy tờ cộng lịch sử giao hàng.</b> Huy hiệu xanh đậm hơn, huy chương số 2 và 2 nấc sáng. Dòng chữ vẫn ghi rõ chưa có factory visited, nên không gây hiểu nhầm là đã thăm nhà máy." },
+    l13: { levels: [1, 3], tier: 2, badge: "Level 2 · Advanced", note: "<b>Trường hợp C: giấy tờ cộng lịch sử giao hàng.</b> Huy hiệu xanh đậm hơn, huy chương số 2 và 2 nấc sáng. Dòng chữ vẫn ghi rõ chưa có factory verification, nên không gây hiểu nhầm là đã xác thực nhà máy." },
     full: { levels: [1, 2, 3], tier: 3, badge: "Level 3 · Complete", note: "<b>Trường hợp D: đủ 3 vòng.</b> Đây là trạng thái nổi bật nhất nhưng vẫn không che ảnh nhà máy: huy chương vàng ở góc cover, huy hiệu cạnh tên nền xanh đậm viền vàng, 3 nấc kiểm chứng sáng hết." }
   };
 

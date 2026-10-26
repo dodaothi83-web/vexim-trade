@@ -39,7 +39,8 @@ function fallbackMaterial(): { material: string; from: string } | null {
     ["SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY],
     ["SUPABASE_SECRET_KEY", process.env.SUPABASE_SECRET_KEY],
     ["SUPABASE_JWT_SECRET", process.env.SUPABASE_JWT_SECRET],
-    ["SUPABASE_ANON_KEY", process.env.SUPABASE_ANON_KEY],
+    // Never derive a session-signing key from SUPABASE_ANON_KEY: that value is
+    // public in browser clients and would let an attacker forge a session.
   ];
   for (const [name, value] of candidates) {
     const v = value?.trim();

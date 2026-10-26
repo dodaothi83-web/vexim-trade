@@ -11,10 +11,14 @@
     "check:supabase": "node scripts/check-supabase.mjs",
     "check:ai-crawl": "node scripts/check-ai-crawlability.mjs",
     "check:mail": "node --experimental-strip-types --no-warnings scripts/check-mail-visibility.mjs",
-    "check:harvest": "node --experimental-strip-types --no-warnings scripts/check-harvest-calendar.mjs && node --experimental-strip-types --no-warnings scripts/check-harvest-research.mjs"
+    "check:harvest": "node --experimental-strip-types --no-warnings scripts/check-harvest-calendar.mjs && node --experimental-strip-types --no-warnings scripts/check-harvest-research.mjs",
+    "check:compare": "node --experimental-strip-types --no-warnings scripts/check-product-comparison.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",
+    "@tiptap/pm": "^3.32.0",
+    "@tiptap/react": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0",
     "@upstash/ratelimit": "^2.2.0",
     "@upstash/redis": "^1.39.0",
     "@vercel/speed-insights": "^2.0.0",

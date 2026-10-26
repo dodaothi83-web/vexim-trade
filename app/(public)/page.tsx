@@ -69,7 +69,7 @@ export default async function PublicHomePage({
           "Vexim Trade connects international and domestic buyers with verified Vietnamese food & agricultural suppliers across core product categories and sub-groups. Buyers can browse supplier listings, request a quote from a supplier they choose, or send requirements and we look for suppliers that match. Supplier verification covers business documents, automated certificate holder (Owner vs. Partner Entity) & expiration recognition, factory photo evidence, and export delivery history. Vexim also provides Vietnamese manufacturers with free marketplace listing, international trade website design, featured placement, and US FDA compliance consulting. After an introduction, buyers contract directly with the chosen supplier; Vexim does not hold buyer payments.",
         url: SITE_URL,
         logo: `${SITE_URL}/logo-vexim.png`,
-        email: COMPANY.email,
+        email: COMPANY.contactEmail,
         telephone: COMPANY.phone,
         address: { "@type": "PostalAddress", streetAddress: COMPANY.address, addressCountry: "VN" },
       },

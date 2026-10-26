@@ -18,7 +18,7 @@ Vexim Trade là danh bạ nhà cung cấp nông sản Việt Nam cho người mu
 
 Hồ tiêu ghi theo g/l. Hạt điều ghi W320, W240. Quế ghi theo đường kính ống. Buyer lọc đúng thứ mình cần, thay vì mở mười cái tên na ná nhau rồi đoán.
 
-Ba bước kiểm, duyệt riêng từng bước: giấy tờ doanh nghiệp, thăm nhà máy, lịch sử giao hàng. Bước nào xong thì huy hiệu bước đó hiện trên hồ sơ. Không gộp, không suy bước này ra bước kia. Buyer nhìn thấy đúng ba việc đã xảy ra, không phải một con số chung chung.
+Ba bước kiểm, duyệt riêng từng bước: giấy tờ doanh nghiệp, xác thực nhà máy, lịch sử giao hàng. Bước nào xong thì huy hiệu bước đó hiện trên hồ sơ. Không gộp, không suy bước này ra bước kia. Buyer nhìn thấy đúng ba việc đã xảy ra, không phải một con số chung chung.
 
 Mỗi danh mục hiện tối đa ba thẻ cho một nhà cung cấp. Nhà lớn không chiếm hết trang, nhà nhỏ vẫn có chỗ đứng cạnh nhà lớn để buyer so.
 

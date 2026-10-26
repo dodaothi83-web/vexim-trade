@@ -30,7 +30,7 @@ const mocks = {
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': { guard: async () => canInspect ? null : { message: 'Không có quyền' }, getSession: async () => ({ uid: '00000000-0000-4000-8000-000000000001', email: 'inspector@example.com' }) },
   '@/lib/verification': {
-    auditStep: (level) => ({ 1: { title: 'Kiểm tra giấy tờ' }, 2: { title: 'Thăm nhà máy' }, 3: { title: 'Lịch sử giao hàng' } })[level],
+    auditStep: (level) => ({ 1: { title: 'Kiểm tra giấy tờ' }, 2: { title: 'Xác thực nhà máy' }, 3: { title: 'Lịch sử giao hàng' } })[level],
     auditHref: (id, level) => `/crm/suppliers/${id}/audit/${({ 1: 'documents', 2: 'factory', 3: 'deliveries' })[level]}`,
     auditItems: (level) => Array.from({ length: ({ 1: 7, 2: 9, 3: 3 })[level] }, (_, n) => ({ key: `item_${level}_${n}` })),
   },
@@ -60,7 +60,7 @@ assert.equal(Object.keys(rows[0].checklist).length, 3);
 assert.equal((await post('sup-2', 3)).data.existing, true);
 rows[0].status = 'approved';
 assert.equal((await post('sup-2', 3)).status, 409, 'Same approved check cannot be restarted');
-assert.equal((await post('sup-2', 2)).status, 200, 'A prior delivery approval must not imply a factory visit');
+assert.equal((await post('sup-2', 2)).status, 200, 'A prior delivery approval must not imply factory verification');
 assert.equal((await post('sup-2', 1)).status, 200, 'Document review remains independent');
 assert.equal(rows.length, 3);
 assert.equal((await post('sup-1', 1)).status, 200);

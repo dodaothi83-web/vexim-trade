@@ -491,7 +491,7 @@ export default async function SupplierDetailPage({
           <MediaGallery
             items={supplierMedia}
             title="Kho ảnh & tài liệu chung của NCC"
-            scopeHint="Chỉ tệp lưu trong hồ sơ chung. Bằng chứng kiểm tra giấy tờ, thăm nhà máy và giao hàng được quản lý riêng ở từng bước kiểm; tệp ở đây không tự được AI phân tích."
+            scopeHint="Chỉ tệp lưu trong hồ sơ chung. Bằng chứng kiểm tra giấy tờ, xác thực nhà máy và giao hàng được quản lý riêng ở từng bước kiểm; tệp ở đây không tự được AI phân tích."
             showInternal={canSeeInternal}
             manageHref={canManage ? `/crm/suppliers/${id}/edit` : undefined}
             emptyHint="Chưa có tệp chung. Thêm ở trang Sửa, hoặc vào từng bước kiểm để đính kèm bằng chứng."

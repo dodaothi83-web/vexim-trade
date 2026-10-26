@@ -16,7 +16,8 @@ import * as productAttributes from '../lib/product-attributes.ts';
 import * as productDetailDisplay from '../lib/public/product-detail-display.ts';
 import { HOME_HERO_LINE } from '../lib/public/meta-copy.ts';
 import { buildPopularSearches } from '../lib/public/popular-searches.ts';
-import { approvedPublicReviewSummaries, approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from '../lib/verification-status.ts';
+import { hasProductComparisonPeer } from '../lib/public/product-comparison.ts';
+import { approvedPublicReviewSummaries, approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS, VERIFICATION_LEVEL_EXPLANATIONS } from '../lib/verification-status.ts';
 
 const compile = (path, mocks) => {
   const exports = {};
@@ -58,6 +59,15 @@ media.push({ ...media[0], id: 'cover-a0', storage_path: 'products/a0/cover.jpg',
 products[0].featured_media_id = 'cover-a0';
 products[0].incoterm = 'FOB';
 products[1].moq = '1 tấn';
+Object.assign(products[0], {
+  raw_material_region: 'Bình Phước và Đắk Lắk', input_material_origin: 'Việt Nam và Campuchia',
+  translation_meta: { fields: { raw_material_region: 'Binh Phuoc and Dak Lak', input_material_origin: 'Vietnam and Cambodia' } },
+});
+Object.assign(products[1], {
+  raw_material_region: 'Lâm Đồng', input_material_origin: 'Việt Nam',
+  translation_meta: { fields: { raw_material_region: 'Lam Dong', input_material_origin: 'Vietnam' } },
+});
+Object.assign(products[8], { raw_material_region: 'Bình Dương', input_material_origin: 'Việt Nam' });
 // Tên soạn sẵn cho buyer chỉ thay chữ hiển thị; tên gốc vẫn là chứng từ.
 products[0].display_name = 'Cashew kernels W320, Hanoi';
 const reviews = [
@@ -85,15 +95,16 @@ assert.match(mixed, /Documents checked/);
 assert.match(mixed, /not independently verified/, 'Tooltip must not claim tax or bank numbers were verified');
 assert.match(mixed, /not a product certification/, 'Supplier icon must not imply product certification');
 assert.match(mixed, /Delivery history reviewed/);
-assert.doesNotMatch(mixed, /Factory visited|\bL[123]\b/, 'Do not imply a factory review or show internal level numbers');
+assert.doesNotMatch(mixed, /Factory verification|\bL[123]\b/, 'Do not imply a factory review or show internal level numbers');
 assert.match(mixed, /<summary[^>]*aria-label=/, 'Icon explanation is available to screen readers and touch via native details');
 assert.match(mixed, /group-hover:block group-focus-within:block peer-open:block/, 'Tooltip opens on hover, keyboard focus and touch');
 assert.equal((renderChecks([2]).match(/<details/g) ?? []).length, 1, 'Factory approval alone does not imply documents or delivery');
-assert.doesNotMatch(renderChecks([]), /<details|Factory visited|Documents checked|Delivery history reviewed/);
+assert.doesNotMatch(renderChecks([]), /<details|Factory verification|Documents checked|Delivery history reviewed/);
 assert.match(renderChecks([]), /No approved checks yet/);
 const store = {
   listSuppliers: async () => suppliers,
   listProducts: async () => products,
+  getProduct: async (id) => products.find((p) => p.id === id) ?? null,
   listProductsBySupplier: async (id) => products.filter((p) => p.supplier_id === id),
   listCategories: async ({ publishedOnly } = {}) => publishedOnly ? categories : categories,
   listMediaForProducts: async (ids) => media.filter((m) => ids.includes(m.product_id)),
@@ -127,6 +138,13 @@ assert.equal(cards.length, 13, 'Every ready offer from published suppliers gets 
 assert.equal(cards.find((p) => p.id === 'a0').name, 'Cashew kernels W320, Hanoi', 'The composed display name is what the buyer reads');
 assert.equal(cards.find((p) => p.id === 'a0').supplierProfileImage, 'suppliers/a/logo.webp', 'PDP can use the public supplier profile image');
 assert.equal(cards.find((p) => p.id === 'a0').supplierFoundedYear, 2014, 'PDP can show a real founded year when present');
+assert.equal(cards.find((p) => p.id === 'a0').rawMaterialRegion, 'Binh Phuoc and Dak Lak');
+assert.equal(cards.find((p) => p.id === 'a0').inputMaterialOrigin, 'Vietnam and Cambodia');
+assert.equal(cards.find((p) => p.id === 'a1').rawMaterialRegion, 'Lam Dong', 'Each product owns its sourcing region, even for the same supplier');
+assert.equal(cards.find((p) => p.id === 'a1').inputMaterialOrigin, 'Vietnam');
+assert.equal(cards.find((p) => p.id === 'b0').rawMaterialRegion, '', 'Product details never fall back to Vietnamese source text');
+assert.equal(cards.find((p) => p.id === 'b0').inputMaterialOrigin, '');
+assert.doesNotMatch(JSON.stringify(cards.find((p) => p.id === 'b0')), /Bình Dương|Việt Nam/);
 assert.equal(cards.find((p) => p.id === 'a1').name, 'Cashew W320 lot 1', 'A product without a display name keeps the supplier name');
 assert.equal(cards.find((p) => p.id === 'a1').moq, '1 metric ton', 'Public MOQ uses English without changing the source record');
 assert.equal(products[0].name, 'Cashew W320 lot 0', 'The supplier name is never rewritten');
@@ -149,6 +167,12 @@ assert.equal(cards.find((p) => p.id === 'a0').leadTimeDays, 14);
 assert.equal(cards.find((p) => p.id === 'a0').incoterm, 'FOB', 'Price term on the card is projected from the product, not inferred from supplier consent');
 assert.equal(cards.find((p) => p.id === 'a0').supplierSlug, 'company-a');
 assert.equal(cards.find((p) => p.id === 'b0').price, null, 'No product price without supplier public-price consent');
+const comparisonRecords = await productCatalog.getPublicProductRecordsByIds(['a0', 'a0', 'b0', 'draft', 'private-supplier']);
+assert.deepEqual([...comparisonRecords.map((record) => record.card.id)], ['a0', 'b0'],
+  'Comparison IDs preserve order, remove duplicates and exclude unready or unpublished offers');
+assert.equal(comparisonRecords[1].card.price, null, 'The direct comparison query uses the same public-price consent gate');
+assert.equal(comparisonRecords[0].card.rawMaterialRegion, 'Binh Phuoc and Dak Lak', 'Product comparison reads this product translation');
+assert.equal(comparisonRecords[1].card.rawMaterialRegion, '', 'Missing product English stays empty in comparison');
 const initial = arrangeSupplierProducts(cards, 3);
 assert.equal(initial.shown.length, 6);
 assert.equal(initial.hidden.get('A'), 5);
@@ -224,11 +248,15 @@ assert.match(homePage, /<HomeProductFeed items=\{arrangedOffers\}/, 'Home render
 assert.match(homeFeed, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3/, 'Home offers use one column on phones, then two or three columns');
 assert.match(homeFeed, /wide \? " lg:grid-cols-5" : ""/, 'The fifth column only appears when the browser confirms a wide screen');
 assert.match(homeFeed, /<PublicProductCard/, 'Home includes actual product offers');
-assert.match(profilePage, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-5/, 'Supplier product grid uses one column on phones, then 2/3/5 columns');
+const supplierProductRail = readFileSync(new URL('../components/public/supplier-product-rail.tsx', import.meta.url), 'utf8');
+assert.match(supplierProductRail, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3/,
+  'Supplier products keep one phone column, then two or three columns');
+assert.match(supplierProductRail, /lg:flex[^"\n]*lg:overflow-x-auto/, 'Desktop supplier products scroll horizontally');
+assert.match(profilePage, /lg:w-\[calc\(\(100%_-_4rem\)\/5\)\]/, 'Five supplier product cards fit the desktop viewport');
 const verificationTierModule = compile('../components/verification-tier.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
-  '@/lib/verification-status': { VERIFICATION_LABELS },
+  '@/lib/verification-status': { VERIFICATION_LABELS, VERIFICATION_LEVEL_EXPLANATIONS },
 });
 const productTradeLabelsModule = compile('../components/product-trade-labels.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
@@ -240,6 +268,9 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'lucide-react': require('lucide-react'),
   '@/components/product-trade-labels': productTradeLabelsModule,
   '@/components/verification-tier': verificationTierModule,
+  '@/components/product-compare-checkbox': { ProductCompareCheckbox: ({ product }) => React.createElement('input', {
+    type: 'checkbox', 'aria-label': `Add ${product.name} to comparison`, className: 'absolute right-2 top-2',
+  }) },
 });
 const fullTradeLabels = renderToStaticMarkup(React.createElement(productTradeLabelsModule.ProductTradeLabels, { oem: true, odm: true, samples: true }));
 assert.match(fullTradeLabels, />OEM</, 'PDP keeps the full OEM label');
@@ -266,6 +297,11 @@ assert.match(compactCard, /w-\[38%\] shrink-0[^"]*sm:w-full/, 'The phone image t
 assert.match(compactCard, /flex min-w-0 flex-1 flex-col/, 'The product information occupies the flexible content side');
 assert.match(compactCard, /href="\/suppliers\/company-a"/, 'Supplier has an independent profile link');
 assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can open product details through the title or image');
+const comparableCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
+  ...cardProps, comparison: { id: 'a0', categorySlug: 'cashew' },
+}));
+assert.match(comparableCard, /aria-label="Add Cashew W320 lot 0 to comparison"/, 'A public offer has an image comparison checkbox');
+assert.match(comparableCard, /<\/a><input[^>]*class="absolute right-2 top-2"/, 'The image-corner checkbox is a sibling of the product link, not a nested interactive control');
 assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;product=Cashew%20W320%20lot%200&amp;product_id=a0"/,
   'The primary card CTA opens an RFQ prefilled for this product and supplier');
 assert.match(compactCard, /aria-label="Request a quote for Cashew W320 lot 0"/, 'Repeated quote CTAs have product-specific accessible names');
@@ -296,18 +332,27 @@ assert.equal((compactCard.match(/group-hover\/pip:block group-focus-within\/pip:
   'Each tooltip opens on hover and keyboard or touch focus');
 for (const [level, label, status] of [
   [1, 'Documents checked', 'Approved'],
-  [2, 'Factory visited', 'Not approved'],
+  [2, 'Factory verification', 'Not approved'],
   [3, 'Delivery history reviewed', 'Approved'],
 ]) {
-  assert.ok(compactCard.includes(`aria-label="Level ${level} · ${label}: ${status}"`), `Shield ${level} has an accessible name and actual status`);
+  const explanation = VERIFICATION_LEVEL_EXPLANATIONS[level];
+  const accessibleName = `Level ${level} · ${label}: ${status}. ${explanation}`;
+  assert.ok(compactCard.includes(`aria-label="${accessibleName}"`), `Shield ${level} has its own accessible explanation and actual status`);
   assert.match(compactCard, new RegExp(`Level ${level} · ${label}<\\/strong><span[^>]*>${status}<\\/span>`),
-    `Shield ${level} shows only its short label and status`);
+    `Shield ${level} shows its own label and status`);
+  assert.ok(compactCard.includes(`>${explanation}</span>`), `Shield ${level} shows its distinct short explanation`);
 }
+assert.equal(new Set(Object.values(VERIFICATION_LEVEL_EXPLANATIONS)).size, 3, 'The three levels never share one generic explanation');
 for (const explanation of Object.values(PRODUCT_VERIFICATION_EXPLANATIONS)) {
   assert.ok(!compactCard.includes(explanation), 'The long verification paragraph no longer appears on product cards');
 }
 const standardPips = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationPips, { levels: [1] }));
-assert.ok(!standardPips.includes('role="tooltip"'), 'Verification pips outside product cards keep their existing presentation');
+assert.ok(!standardPips.includes('role="tooltip"'), 'Verification pips outside product cards use native per-level tooltips without overlay clipping');
+assert.equal((standardPips.match(/role="img"/g) ?? []).length, 3, 'Each standard shield keeps an independent accessible tooltip');
+for (const level of [1, 2, 3]) {
+  const accessibleName = `Level ${level} · ${VERIFICATION_LABELS[level]}: ${level === 1 ? 'Approved' : 'Not approved'}. ${VERIFICATION_LEVEL_EXPLANATIONS[level]}`;
+  assert.ok(standardPips.includes(`title="${accessibleName}"`), `Standard shield ${level} has its own native tooltip`);
+}
 assert.match(compactCard, /overflow-visible rounded-xl/, 'The card does not clip its verification tooltip');
 assert.match(compactCard, /rounded-l-xl bg-ink-50[^"]*sm:rounded-t-xl/, 'The image follows the horizontal phone card and rounded desktop card corners');
 const longSupplierCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
@@ -321,9 +366,10 @@ assert.doesNotMatch(privatePrice, /FOB reference|>FOB<|USD 7\/kg/, 'No price or 
 assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved check shows the empty tier, not a badge');
 assert.equal((privatePrice.match(/>Not approved</g) ?? []).length, 3, 'The tooltip never marks a check approved without an actual approved level');
 const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
-  ...cardProps, href: '/suppliers/company-a/products/a0', test: true,
+  ...cardProps, href: '/suppliers/company-a/products/a0', test: true, comparison: { id: 'a0', categorySlug: 'cashew' },
 }));
 assert.match(testCard, /TEST · Not an offer|Test data · not a price/);
+assert.doesNotMatch(testCard, /to comparison/, 'Demo and preview cards never offer a public comparison selection');
 assert.doesNotMatch(testCard, /USD 7\/kg|\/rfq|Supplier-stated product options/, 'A test card carries no price, quote path or commercial capability badges');
 assert.match(testCard, /aria-label="No verification checks approved yet"/, 'A test card never claims a verification check');
 // Lưới thẻ trang chủ là một client component riêng; dựng nó ở đây để bản HTML
@@ -334,7 +380,18 @@ const { HomeProductFeed } = compile('../components/home-product-feed.tsx', {
   'lucide-react': require('lucide-react'),
   '@/components/public-product-card': { PublicProductCard },
   '@/lib/public/supplier-product-order': { feedPerPage, HOME_FEED_PER_PAGE, HOME_FEED_WIDE_QUERY },
+  '@/lib/public/product-comparison': { hasProductComparisonPeer },
 });
+const feedOffer = (id, categorySlug = 'cashew') => ({ ...cards.find((product) => product.id === id), categorySlug });
+const renderOfferFeed = (items) => renderToStaticMarkup(React.createElement(HomeProductFeed, { items, perPage: 15 }));
+assert.doesNotMatch(renderOfferFeed([feedOffer('a0')]), /to comparison/, 'A one-product feed has no comparison checkbox');
+assert.doesNotMatch(renderOfferFeed([feedOffer('a0'), feedOffer('a1')]), /to comparison/,
+  'A feed with only one supplier has no comparison checkbox');
+assert.doesNotMatch(renderOfferFeed([feedOffer('a0'), feedOffer('b0', 'rice')]), /to comparison/,
+  'Products from different categories are not presented as direct alternatives');
+const mixedSupplierFeed = renderOfferFeed([feedOffer('a0'), feedOffer('b0')]);
+assert.equal((mixedSupplierFeed.match(/to comparison/g) ?? []).length, 2,
+  'Two same-category suppliers make both comparison checkboxes available');
 const { default: HomeContent } = compile('../app/(public)/home.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/image': { default: ({ src, alt, ...props }) => React.createElement('img', { src, alt, className: props.className }) },
@@ -401,6 +458,9 @@ const keyTermsEnd = detailPage.indexOf('</dl>', keyTermsStart);
 const keyTermsSource = detailPage.slice(keyTermsStart, keyTermsEnd);
 assert.ok(!keyTermsSource.includes('detailRows') && !keyTermsSource.includes('additionalSpecs'),
   'Long technical rows stay out of the commercial column');
+assert.match(keyTermsSource, /label="Raw material region" value=\{card\.rawMaterialRegion\}/);
+assert.match(keyTermsSource, /label="Input material origin" value=\{card\.inputMaterialOrigin\}/);
+assert.doesNotMatch(keyTermsSource, /raw_material_region|input_material_origin/, 'PDP uses only the safe English card projection');
 const referencePriceStart = detailPage.indexOf('id="reference-price"');
 const tradeLabelsStart = detailPage.indexOf('<ProductTradeLabels');
 assert.ok(referencePriceStart > detailPage.indexOf('{enDescription &&') && referencePriceStart < tradeLabelsStart,

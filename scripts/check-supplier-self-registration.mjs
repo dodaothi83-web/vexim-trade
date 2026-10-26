@@ -85,7 +85,7 @@ const mocks = {
   '@/lib/db/supabase': { getSupabaseAuthClient: () => auth, getSupabaseClient: () => ({ from: () => ({ select: () => ({ limit: async () => ({ error: state.schemaMissing ? Error('missing') : null }) }) }) }) },
   '@/lib/auth/session': { getSession: async () => null },
   '@/lib/auth/password': { passwordProblem: (p) => p.length < 8 ? 'short' : null },
-  '@/lib/rfq/rate-limit': { rateLimit: () => ({ ok: true }) },
+  '@/lib/auth/abuse-protection': { protectPasswordAuth: async () => ({ ok: true }) },
   '@/lib/supplier-portal/profile-input': profileInput,
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/supplier-portal/profile-evidence': profileEvidence,
@@ -143,9 +143,9 @@ state.confirmed = true;
 const deletedBeforeOpen = state.deletedAuth;
 const openSignup = await post(accountForm('mo@example.com'));
 assert.equal(openSignup.status, 200, 'Confirm email off must not break public signup');
-assert.equal(openSignup.data.emailVerification, 'not_required');
-assert.doesNotMatch(openSignup.data.message, /xác nhận email/, 'Lời nhắn không đòi mở hộp thư khi không có thư');
-assert.match(openSignup.data.message, /Đăng nhập ngay/, 'Lời nhắn nói rõ là vào được ngay');
+assert.equal(openSignup.data.emailVerification, undefined, 'Public response does not expose Auth configuration');
+assert.equal(openSignup.data.notification, undefined, 'Public response does not expose internal staff mail status');
+assert.match(openSignup.data.message, /Yêu cầu đã được ghi nhận/, 'Accepted response stays generic for new and existing emails');
 assert.equal(state.deletedAuth, deletedBeforeOpen, 'Tài khoản dùng được thì không bị xoá');
 assert.equal(state.users.at(-1).email, 'mo@example.com');
 assert.equal(state.users.at(-1).role, 'supplier');
@@ -155,7 +155,8 @@ assert.equal(state.audit.at(-1).after.email_confirmation_required, false, 'Nhậ
 state.users = state.users.filter((u) => u.email !== 'mo@example.com');
 state.confirmed = false;
 signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL = 'https://staging.example.com/login';
-assert.equal((await post(accountForm())).status, 200);
+const acceptedSignup = await post(accountForm());
+assert.equal(acceptedSignup.status, 200);
 assert.equal(state.lastRedirect, 'https://staging.example.com/login', 'Staging confirmation URL must be passed to Supabase explicitly');
 delete signupEnv.SUPPLIER_SIGNUP_REDIRECT_URL;
 assert.equal(state.users.at(-1).role, 'supplier');
@@ -165,8 +166,10 @@ assert.equal(state.reviews.length, 0);
 assert.equal(state.notify, 0, 'Business-form notification stays separate from account creation');
 assert.ok(state.accountNotices.includes('owner@example.com'), 'New supplier login emails staff right away');
 const noticedBefore = state.accountNotices.length;
-assert.equal((await post(accountForm())).status, 409, 'Duplicate email cannot claim another account');
-assert.equal(state.accountNotices.length, noticedBefore, 'A refused duplicate never sends another staff email');
+const duplicateSignup = await post(accountForm());
+assert.equal(duplicateSignup.status, 200, 'Duplicate email gets the same public status as a new request');
+assert.deepEqual(duplicateSignup.data, acceptedSignup.data, 'Duplicate and new registration responses do not enumerate accounts');
+assert.equal(state.accountNotices.length, noticedBefore, 'A duplicate never sends another staff email');
 
 const access = load('../lib/supplier-portal/access.ts', {
   '@/lib/db': { getStore: () => store },
@@ -202,7 +205,7 @@ accountEnabled = false;
 assert.equal((await submitProfile(form())).status, 403, 'Only a signed-in supplier may create its first business page');
 accountEnabled = true;
 const forgedVisit = form(); forgedVisit.set('request:2', 'yes');
-assert.equal((await submitProfile(forgedVisit)).status, 400, 'Trader cannot request a factory visit even by forging FormData');
+assert.equal((await submitProfile(forgedVisit)).status, 400, 'Trader cannot request factory verification even by forging FormData');
 const factoryForm = form(); factoryForm.set('supplier_type', 'manufacturer'); factoryForm.set('request:2', 'yes');
 assert.equal(JSON.stringify(profileInput.parseSupplierProfile(factoryForm).requested), JSON.stringify([2, 3]), 'Factory may request both follow-ups');
 const forgedCategory = form(); forgedCategory.set('requested_category_slugs', 'secret');
@@ -306,6 +309,8 @@ const upload = load('../app/api/supplier-portal/evidence/route.ts', {
     validateInitialDocument: async () => ({ bytes: new Uint8Array([1]), mime: 'application/pdf', kind: 'document' }),
     saveDocumentEvidence: async () => { portalState.saved++; return { id: 'm1' }; },
   },
+  '@/lib/supplier-portal/notify': { notifyStaffDocumentUpload: async () => 'sent' },
+  '@/lib/types': { L1_DOC_ITEMS: [{ key: 'business_license' }, { key: 'tax_certificate' }, { key: 'bank_letter' }] },
   '@/lib/certificate-service': {
     isL1CertificateKey: (k) => ['food_safety', 'haccp_or_brc', 'product_certs', 'export_license'].includes(k),
     defaultCertificateLabelForKey: () => 'Giấy chứng nhận',
@@ -358,6 +363,7 @@ const staffSupplier = { ...state.suppliers[0], id: staffSupplierId };
 let denyApproval = true;
 const decisionMails = [];
 const decisions = load('../app/crm/suppliers/[slug]/onboarding-actions.ts', {
+  '@/lib/crm/badges': { refreshCrmBadges: async () => null },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async (input) => { decisionMails.push(input); return 'sent'; } },
   'next/cache': { revalidatePath() {} },
   '@/lib/db': { getStore: () => ({ getSupplier: async () => staffSupplier,

@@ -3,10 +3,12 @@ import { ArrowRight, CheckCircle2, Clock3, Factory, FileCheck2, Globe2, Info, Ma
 import type { ReactNode } from "react";
 
 import { PublicProductCard } from "@/components/public-product-card";
-import { VerificationCoverSeal, VerificationPips, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
+import { SupplierProductRail } from "@/components/public/supplier-product-rail";
+import { VerificationCoverSeal, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
 import { supplierTypeLabel, type PublicSupplierCard } from "@/lib/public/catalog";
 import type { Category } from "@/lib/types";
+import { VERIFICATION_LEVEL_EXPLANATIONS } from "@/lib/verification-status";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
@@ -23,7 +25,7 @@ const STRIP_CLASSES: Record<number, string> = {
 
 const VERIFICATION_ITEMS = [
   { level: 1, label: "Documents checked", pending: "Covers business registration evidence.", Icon: FileCheck2 },
-  { level: 2, label: "Factory visit", pending: "Covers a specific facility associated with the supplier.", Icon: Factory },
+  { level: 2, label: "Factory verification", pending: "Covers a specific facility associated with the supplier.", Icon: Factory },
   { level: 3, label: "Delivery history", pending: "Covers delivery documents and the reviewed shipment scope.", Icon: Truck },
 ] as const;
 
@@ -80,6 +82,9 @@ export function SupplierStorefront({
   ].filter((item) => item.value);
   const steps = s.approved_verification_steps;
   const tier = verificationTier(steps);
+  const verificationSummary = steps.length
+    ? `${steps.length}/3 approved · ${approvedChecksSummary(steps)}`
+    : "Independent checks are shown below.";
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
 
@@ -102,25 +107,16 @@ export function SupplierStorefront({
           <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-ink-100 px-2.5 py-1 text-xs font-semibold text-ink-700">{supplierTypeLabel(s)}</span><VerificationTierBadge levels={steps} />
             {s.private_label && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">Private label stated</span>}
           </div>
-          <NameTag id="supplier-name" className="mt-3 break-words text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">{name}</NameTag>
+          <NameTag id="supplier-name" className="mt-2 break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>
           <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-600">
             {supplierProvinceDisplay(s) && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-brand-700" />{safe(supplierProvinceDisplay(s))}, Vietnam</span>}
             {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
             {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
           </div>
-          <div className={`mt-4 rounded-xl border px-4 py-3 ${STRIP_CLASSES[tier]}`}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <VerificationPips levels={steps} />
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-500">Verification status</p>
-                  <p className="mt-0.5 break-words text-[13px] font-medium leading-5 text-ink-800">
-                    {steps.length ? <>{steps.length}/3 approved · {approvedChecksSummary(steps)}</> : "Independent checks are shown below."}
-                  </p>
-                </div>
-              </div>
-              <a href="#verification" className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand-200 bg-white px-3 py-1.5 text-xs font-bold text-brand-800 shadow-sm hover:bg-brand-50">View details <ArrowRight className="h-3 w-3" /></a>
-            </div>
+          <div className={`mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 ${STRIP_CLASSES[tier]}`}>
+            <ShieldCheck className="h-4 w-4 shrink-0 text-brand-700" aria-hidden="true" />
+            <p className="min-w-0 flex-1 truncate text-left text-xs font-medium leading-5 text-ink-700" title={verificationSummary}>{verificationSummary}</p>
+            <a href="#verification" className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-ink-500 underline-offset-4 transition hover:text-brand-700 hover:underline">View details <ArrowRight className="h-3 w-3" aria-hidden="true" /></a>
           </div>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:pt-6">
@@ -184,23 +180,33 @@ export function SupplierStorefront({
             <div className="grid items-stretch gap-3 md:grid-cols-3">
               {VERIFICATION_ITEMS.map(({ level, label, pending, Icon }) => {
                 const approvedStep = steps.includes(level);
+                const reviewStatus = approvedStep ? "Approved" : "Not approved";
+                const iconTooltip = `Level ${level} · ${label}: ${reviewStatus}. ${VERIFICATION_LEVEL_EXPLANATIONS[level]}`;
                 return <article key={level} id={level === 2 ? "factory-visit" : level === 3 ? "delivery-history" : undefined}
                   className={`min-w-0 scroll-mt-24 rounded-xl border p-4 shadow-sm ${approvedStep ? "border-emerald-200 bg-emerald-50/40" : "border-ink-200 bg-ink-50/60"}`}>
                   <div className="flex items-start justify-between gap-3">
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${approvedStep ? "bg-emerald-100 text-emerald-800" : "bg-white text-ink-400 ring-1 ring-ink-200"}`}><Icon className="h-4 w-4" /></span>
+                    <span className="group/level relative inline-flex">
+                      <button type="button" aria-label={iconTooltip}
+                        className={`flex h-9 w-9 shrink-0 cursor-help items-center justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${approvedStep ? "bg-emerald-100 text-emerald-800" : "bg-white text-ink-400 ring-1 ring-ink-200"}`}><Icon className="h-4 w-4" aria-hidden="true" /></button>
+                      <span role="tooltip" className="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden w-56 rounded-md bg-ink-900 px-3 py-2 text-left shadow-xl group-hover/level:block group-focus-within/level:block">
+                        <strong className="block text-[11px] font-bold leading-4 text-white">Level {level} · {label}</strong>
+                        <span className={`block text-[10px] font-semibold leading-4 ${approvedStep ? "text-emerald-300" : "text-ink-300"}`}>{reviewStatus}</span>
+                        <span className="mt-0.5 block text-[10px] leading-4 text-ink-200">{VERIFICATION_LEVEL_EXPLANATIONS[level]}</span>
+                      </span>
+                    </span>
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${approvedStep ? "bg-emerald-100 text-emerald-800" : "bg-ink-100 text-ink-500"}`}>
-                      {approvedStep ? <CheckCircle2 className="h-3 w-3" /> : <Clock3 className="h-3 w-3" />}{approvedStep ? "Approved" : "Pending review"}
+                      {approvedStep ? <CheckCircle2 className="h-3 w-3" /> : <Clock3 className="h-3 w-3" />}{reviewStatus}
                     </span>
                   </div>
                   <h3 className="mt-3 text-sm font-bold text-ink-900">{label}</h3>
                   {level === 3 && supplierExportMarketsDisplay(s).length > 0 && <div className="mt-3 rounded-lg bg-white/80 p-3 ring-1 ring-ink-100">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">Target markets</p>
                     <p className="mt-1 break-words text-sm font-semibold leading-6 text-ink-800">{safe(supplierExportMarketsDisplay(s).join(", "))}</p>
-                    <p className="mt-1 text-[11px] leading-4 text-ink-500">{approvedStep ? "Markets shared by the supplier." : "Target markets are self-declared by the supplier and pending independent audit."}</p>
+                    <p className="mt-1 text-[11px] leading-4 text-ink-500">{approvedStep ? "Markets shared by the supplier." : "Supplier-declared - Not verified"}</p>
                   </div>}
                   <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">
                     {level === 1 && (approvedStep ? "Business registration evidence has been reviewed. Tax and bank details remain supplier-provided." : pending)}
-                    {level === 2 && (approvedStep ? (safe(s.public_review_summaries[2]) || "Detailed visit scope is available on request.") : pending)}
+                    {level === 2 && (approvedStep ? (safe(s.public_review_summaries[2]) || "Detailed factory verification scope is available on request.") : pending)}
                     {level === 3 && (approvedStep ? (safe(s.public_review_summaries[3]) || "Detailed delivery scope is available on request.") : pending)}
                   </p>
                   {approvedStep && level !== 1 && <p className="mt-2 text-xs leading-5 text-ink-500">{level === 2 ? "Applies only to the reviewed facility." : "Applies only to the reviewed delivery evidence."}</p>}
@@ -239,7 +245,7 @@ export function SupplierStorefront({
         )}
         {s.gallery_images.length > 0 && <section className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="gallery-title">
           <h2 id="gallery-title" className="text-lg font-bold text-ink-900">Supplier gallery</h2>
-          <p className="mt-1 text-xs text-ink-500">Shared supplier images; not evidence of a factory visit.</p>
+          <p className="mt-1 text-xs text-ink-500">Shared supplier images; not evidence of factory verification.</p>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{s.gallery_images.map((path) => <a key={path} href={mediaUrl(path)} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg bg-ink-50 ring-1 ring-ink-200">
             {/* eslint-disable-next-line @next/next/no-img-element */}<img src={mediaUrl(path)} alt={`${name} gallery`} loading="lazy" className="h-32 w-full object-cover transition hover:scale-105 sm:h-40" />
           </a>)}</div>
@@ -280,7 +286,7 @@ export function SupplierStorefront({
           <h2 id="products-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">Products <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
           <p className="mt-1 text-sm text-ink-600">{synthetic ? "Test entries on this profile are not commercial offers." : "Listings ready to share with buyers. Prices, where shown, are references; request a quote for current terms."}</p></div>
       </div>
-      {s.main_products.length ? <ul className="mt-5 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-5">
+      {s.main_products.length ? <SupplierProductRail productCount={s.main_products.length}>
         {s.main_products.map((p) => {
           const category = productCategory(p);
           const href = synthetic
@@ -288,7 +294,7 @@ export function SupplierStorefront({
             : category ? `/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}` : null;
           if (!href) return null;
           const productName = safe(publicProductTitle(p));
-          return <li key={p.id} className="min-w-0">
+          return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
             <PublicProductCard href={href} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
               name={productName} moq={safe(p.moq) || "On request"}
               price={synthetic ? null : publicProductPrice(p, s)} fob={p.incoterm?.toUpperCase() === "FOB"}
@@ -299,7 +305,7 @@ export function SupplierStorefront({
               verificationSteps={steps} test={synthetic} linkable={productLinks} />
           </li>;
         })}
-      </ul> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>{statedProducts && !synthetic
+      </SupplierProductRail> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>{statedProducts && !synthetic
         ? "No individual product listings are available yet. See the main products above or ask Vexim about specifications and availability."
         : "No buyer-ready products are available on this profile yet. Products appear here only after the listing and shareable media meet publication requirements."}</p></div>}
     </section>

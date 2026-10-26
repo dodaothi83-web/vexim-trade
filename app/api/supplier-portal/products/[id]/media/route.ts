@@ -73,6 +73,44 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 }
 
+/** Supplier picks which of the product's own images represents it; picking never publishes or shares anything new. */
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const access = await supplierPortalAccess();
+  if (!access || !portalApproved(access.supplier)) return fail("Tài khoản chưa được duyệt.", 403);
+  const { id } = await params;
+  const product = await access.store.getProduct(id);
+  if (!product || product.supplier_id !== access.supplier.id) return fail("Sản phẩm không thuộc tài khoản của bạn.", 403);
+  if (!canManage(product)) return fail("Sản phẩm đang chờ duyệt; tạm khóa đổi ảnh đại diện.", 409);
+  let mediaId = "";
+  try {
+    const body = await request.json() as { media_id?: unknown };
+    if (typeof body.media_id === "string") mediaId = body.media_id;
+  } catch { return fail("Không đọc được yêu cầu."); }
+  if (!/^[0-9a-f-]{36}$/i.test(mediaId)) return fail("Mã ảnh không hợp lệ.");
+  const asset = await access.store.getMedia(mediaId);
+  // Ảnh đại diện phải là ảnh của đúng sản phẩm này, tài khoản nhìn thấy được và còn hiệu lực.
+  if (!asset || asset.owner_type !== "product" || asset.product_id !== id || asset.supplier_id !== access.supplier.id ||
+    asset.kind !== "image" || !asset.storage_path || isExpired(asset) ||
+    (asset.created_by !== access.user.id && asset.audience !== "buyer"))
+    return fail("Chỉ được chọn ảnh của đúng sản phẩm mà tài khoản này thấy được.", 403);
+  if ((product.featured_media_id ?? null) === mediaId)
+    return NextResponse.json({ ok: true, message: "Ảnh này đang là ảnh đại diện." });
+  try {
+    const fresh = await access.store.getProduct(id);
+    if (!fresh || fresh.supplier_id !== access.supplier.id || !canManage(fresh))
+      return fail("Trạng thái sản phẩm đã thay đổi.", 409);
+    await access.store.updateProduct(id, { featured_media_id: mediaId });
+    await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
+      entity: "product", entity_id: id, action: "supplier.product_featured_image_changed",
+      before: { featured_media_id: product.featured_media_id ?? null }, after: { featured_media_id: mediaId } })
+      .catch((error) => console.error("[supplier-product-media] audit", error));
+    revalidatePath(`/supplier/portal/products/${id}`);
+    revalidatePath(`/crm/products/${id}/edit`);
+    revalidatePath("/products", "layout");
+    return NextResponse.json({ ok: true, message: "Đã đặt ảnh đại diện; ảnh cũ về lại danh sách." });
+  } catch (error) { console.error("[supplier-product-media] featured", error); return fail("Không lưu được ảnh đại diện.", 503); }
+}
+
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await supplierPortalAccess();
   if (!access || !portalApproved(access.supplier)) return fail("Tài khoản chưa được duyệt.", 403);

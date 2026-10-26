@@ -93,6 +93,8 @@ export default async function ProductDetailPage({
             <Field label="Đơn vị" value={product.unit} />
             <Field label="MOQ" value={product.moq} />
             <Field label="Sản lượng / tháng" value={product.monthly_capacity} />
+            <Field label="Vùng nguyên liệu" value={product.raw_material_region} />
+            <Field label="Xuất xứ nguyên liệu đầu vào" value={product.input_material_origin} />
             <Field
               label="Thời gian giao"
               value={product.lead_time_days ? `${product.lead_time_days} ngày` : null}

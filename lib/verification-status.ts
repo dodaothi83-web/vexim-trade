@@ -27,8 +27,15 @@ export function approvedPublicReviewSummaries(rows: ReadonlyArray<{
 
 export const VERIFICATION_LABELS: Record<VerificationLevel, string> = {
   1: "Documents checked",
-  2: "Factory visited",
+  2: "Factory verification",
   3: "Delivery history reviewed",
+};
+
+/** Distinct short explanations for each level's own tooltip. */
+export const VERIFICATION_LEVEL_EXPLANATIONS: Record<VerificationLevel, string> = {
+  1: "Business registration evidence has been reviewed. Tax and bank details are not independently verified.",
+  2: "A specific factory associated with the supplier has been reviewed. This does not cover every facility or product.",
+  3: "Delivery evidence has been reviewed for a specific scope. Future shipments are not guaranteed.",
 };
 
 export function verificationLabels(levels: readonly VerificationLevel[]): string[] {

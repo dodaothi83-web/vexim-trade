@@ -260,7 +260,7 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
     }
   } else if (before.target_level === 2) {
     if (!media.some((m) => m.kind === "image" && m.storage_path && (m.checklist_key as string | null) !== "documents_original")) {
-      return { ok: false, message: "Cần ít nhất một ảnh thăm nhà máy trong đúng đợt kiểm trước khi duyệt. Các mục và ô thông tin khác có thể để trống." };
+      return { ok: false, message: "Cần ít nhất một ảnh nhà máy trong đúng đợt xác thực trước khi duyệt. Các mục và ô thông tin khác có thể để trống." };
     }
   } else {
     // New inline evidence is assigned to a shipping/receipt row. Preserve older
@@ -311,7 +311,7 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
     throw error;
   }
   await auditChange(before, "approved", "approve", publication);
-  const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
+  const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng";
   const mail = await softEffect("email duyệt gửi NCC",
     () => notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_approved", name })) ?? "failed";
   if (mail !== "sent") console.warn("[verification] supplier approval email not sent; decision saved", mail);
@@ -449,7 +449,7 @@ async function returnReview(fd: FormData, markCommitted: () => void) {
   await store.updateVerification(before.id, { status: "returned", return_reason: reason.slice(0, 1000) });
   markCommitted();
   await auditChange(before, "returned", "return");
-  const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
+  const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng";
   const mail = await softEffect("email trả về gửi NCC",
     () => notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_returned", name, note: reason })) ?? "failed";
   if (mail !== "sent") console.warn("[verification] supplier return email not sent; decision saved", mail);

@@ -35,7 +35,7 @@ draft → submitted → in_verification → published ⇄ suspended → archived
 
 - `draft`: sale tạo / seller tự đăng ký, chưa nộp đủ.
 - `submitted`: đã nộp đủ hồ sơ, chờ bộ phận kiểm tra.
-- `in_verification`: bộ phận đang xem (hoặc đi thăm nhà máy).
+- `in_verification`: bộ phận đang xem (hoặc đi xác thực nhà máy).
 - `published`: đã duyệt và hiện trên trang công khai (chỉ những NCC này mới hiện qua v_public_*).
 - `suspended`: tạm ngừng công khai (vi phạm, hàng chờ xác minh lại…).
 - `archived`: loại khỏi danh sách hoạt động.

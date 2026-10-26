@@ -91,6 +91,11 @@ assert.match(editor, /productCanSubmit\(product, media\)/);
 assert.doesNotMatch(editor, /aria-label="Trạng thái công khai"/, 'The separate buyer-visibility panel is removed from the editor');
 assert.match(editor, /const canUpload = !!product && !locked && !dirty && \(review !== "approved" \|\| product\.supplier_originated === true\)/, 'Approved supplier-originated products remain editable and accept media');
 assert.match(editor, /const categoryLocked = review === "approved"/, 'The reviewed category remains staff-controlled');
+assert.ok(editor.includes('<ProductDescriptionEditor') && editor.includes('onChange={onDescriptionDetailChange}'),
+  'Supplier detail edits use the shared editor and its existing dirty/snapshot update path');
+assert.ok(editor.includes('name="description_detail"') && editor.includes('value={snapshot.description_detail}'),
+  'The existing FormData save contract receives the canonical rich HTML');
+assert.match(editor, /<ProductDescriptionPreview value=\{snapshot\.description_detail\}/, 'Supplier review renders the same safe detail format');
 let editorDirty = false;
 const { SupplierProductReviewControls } = load('../app/crm/products/[slug]/edit/review-controls.tsx', {
   react: React, 'react/jsx-runtime': jsx,

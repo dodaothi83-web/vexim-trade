@@ -19,6 +19,7 @@ import {
   feedPerPage,
   HOME_FEED_PER_SUPPLIER,
 } from "../lib/public/supplier-product-order.ts";
+import { hasProductComparisonPeer } from "../lib/public/product-comparison.ts";
 
 /* ---------------- 1. Giới hạn nhà cung cấp ---------------- */
 
@@ -70,6 +71,7 @@ const category = {
 
 const offer = (id, supplierId) => ({
   id,
+  categorySlug: "pepper",
   name: `Pepper lot ${id}`,
   grade: "550 g/L",
   attributes: {},
@@ -204,6 +206,7 @@ const feedModule = compile("../components/home-product-feed.tsx", {
   "react/jsx-runtime": jsx,
   "lucide-react": new Proxy({}, { get: () => () => null }),
   "@/lib/public/supplier-product-order": { HOME_FEED_PER_PAGE, HOME_FEED_WIDE_QUERY, feedPerPage },
+  "@/lib/public/product-comparison": { hasProductComparisonPeer },
   "@/components/public-product-card": {
     PublicProductCard: ({ name }) => React.createElement("div", { "data-product": name }, name),
   },

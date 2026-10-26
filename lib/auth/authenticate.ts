@@ -143,6 +143,9 @@ function isNetworkError(error: unknown): boolean {
 }
 
 const WRONG_CREDENTIALS = "Email hoặc mật khẩu không đúng.";
+// A real scrypt hash used only to keep unknown and passwordless local accounts
+// on the same password-verification path as accounts with a stored hash.
+const DUMMY_PASSWORD_HASH = "scrypt$6f13d6a8241f4a8eb067c17a62f17ef4$2b3bdfa1105c4854cc033df739f0ba198414e5a3370e45919fa3436a4fe66e3b2cb3bc5dbc2452aa1dc85df65fac34c21fd3f0ef9d87afe181a956eac61149fa";
 
 export async function authenticate(email: string, password: string): Promise<LoginResult> {
   const store = getStore();
@@ -226,20 +229,20 @@ export async function authenticate(email: string, password: string): Promise<Log
     if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
     throw err;
   }
-  if (!record) return { ok: false, message: WRONG_CREDENTIALS };
-  if (!record.is_active) return { ok: false, message: "Tài khoản đã bị tạm khoá." };
-  if (record.role === "supplier") return { ok: false, message: "Tài khoản doanh nghiệp cần xác nhận email và đăng nhập qua Supabase; không có mật khẩu nội bộ." };
-
-  if (!record.password_hash) {
-    return {
-      ok: false,
-      message: `Không kết nối được Supabase, và tài khoản ${clean} chưa có mật khẩu dự phòng. ` +
-        "Hãy đăng nhập khi có mạng, hoặc nhờ quản trị viên đặt mật khẩu nội bộ.",
-    };
+  if (!record) {
+    await verifyPassword(password, DUMMY_PASSWORD_HASH);
+    return { ok: false, message: WRONG_CREDENTIALS };
+  }
+  // Never reveal account status, role or fallback configuration before a local
+  // password has been verified. Suppliers still cannot use this fallback.
+  if (record.role === "supplier" || !record.password_hash) {
+    await verifyPassword(password, DUMMY_PASSWORD_HASH);
+    return { ok: false, message: WRONG_CREDENTIALS };
   }
 
   const valid = await verifyPassword(password, record.password_hash);
   if (!valid) return { ok: false, message: WRONG_CREDENTIALS };
+  if (!record.is_active) return { ok: false, message: "Tài khoản đã bị tạm khoá." };
 
   return {
     ok: true,

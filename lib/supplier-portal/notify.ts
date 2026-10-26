@@ -23,7 +23,7 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
   const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "sourcing" || u.role === "admin"))
     .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
   if (!recipients.length) return "failed";
-  const choices = requested.map((n) => n === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng");
+  const choices = requested.map((n) => n === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng");
   const staffOrigin = notificationOrigin();
   const url = `${staffOrigin}/crm/suppliers/${encodeURIComponent(supplier.id)}`;
   const title = `NCC tự đăng ký: ${supplier.name}`;
@@ -119,7 +119,7 @@ export async function notifyStaffVerificationSubmission(supplierId: string, leve
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const supplier = await store.getSupplier(supplierId);
-    const label = level === 1 ? "Kiểm tra giấy tờ" : level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
+    const label = level === 1 ? "Kiểm tra giấy tờ" : level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng";
     const step = level === 1 ? "documents" : level === 2 ? "factory" : "delivery";
     const url = `${notificationOrigin()}/crm/suppliers/${encodeURIComponent(supplierId)}/audit/${step}`;
     const title = `${label} chờ xét duyệt: ${supplier?.name ?? "NCC"}`;
@@ -138,7 +138,7 @@ export async function notifyStaffSupplierSubmission(supplierId: string, level: 2
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const supplier = await store.getSupplier(supplierId);
-    const label = level === 2 ? "hồ sơ thăm nhà máy" : "hồ sơ lịch sử giao hàng";
+    const label = level === 2 ? "hồ sơ xác thực nhà máy" : "hồ sơ lịch sử giao hàng";
     const url = `${notificationOrigin()}/crm/verifications/submissions`;
     const title = `Hồ sơ NCC tự gửi chờ đối chiếu: ${supplier?.name ?? "NCC"}`;
     const body = `<p>${escapeHtml(supplier?.name ?? "NCC")} vừa nộp ${escapeHtml(label)}. <strong>Chưa duyệt và chưa công khai.</strong></p>

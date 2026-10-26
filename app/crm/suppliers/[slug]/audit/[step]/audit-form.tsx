@@ -325,8 +325,8 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
                 <input name={`note:${it.key}`} defaultValue={v.checklist_notes?.[it.key] ?? ""} className="input text-sm" placeholder="Ghi chú, dữ liệu đã đối chiếu (nếu có)" />
               </div>}
               {v.target_level === 2 && it.key === "factory_gate" && <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Field label="Ngày thăm / ngày đối chiếu"><input type="date" name="visit_date" defaultValue={v.visit_date ?? ""} className="input" /></Field>
-                <Field label="Địa chỉ cơ sở"><input name="visit_address" defaultValue={v.visit_address ?? ""} className="input" placeholder="Địa chỉ thực tế đã thăm" /></Field>
+                <Field label="Ngày xác thực / ngày đối chiếu"><input type="date" name="visit_date" defaultValue={v.visit_date ?? ""} className="input" /></Field>
+                <Field label="Địa chỉ cơ sở"><input name="visit_address" defaultValue={v.visit_address ?? ""} className="input" placeholder="Địa chỉ cơ sở được đối chiếu" /></Field>
                 <Field label="GPS vĩ độ"><input type="number" step="any" name="visit_lat" defaultValue={v.visit_lat ?? ""} className="input" /></Field>
                 <Field label="GPS kinh độ"><input type="number" step="any" name="visit_lng" defaultValue={v.visit_lng ?? ""} className="input" /></Field>
               </div>}
@@ -479,7 +479,7 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
     {canApprove && v.status === "submitted" && selfReview && !selfApproval && <p className="border-t border-ink-100 p-4 text-sm text-amber-800">Bạn là người kiểm; cần người khác duyệt.</p>}
     {v.status === "approved" && <p className="border-t border-ink-100 p-4 text-sm text-emerald-800">Đã duyệt {v.approved_at ? formatDate(v.approved_at) : ""}.{v.self_approved && !v.inspector_id ? " Đợt do nhà cung cấp tự tải giấy tờ: người duyệt tự đối chiếu và duyệt một mình." : ""}{v.self_approved && v.inspector_id ? " Một nhân sự đã xác nhận tự đối chiếu và tự duyệt bản kiểm do chính mình thực hiện." : ""} Kết quả và bằng chứng chỉ đọc.</p>}
     {v.status === "approved" && v.target_level > 1 && <section className="border-t border-ink-200 bg-sky-50/40 p-5" aria-label="Tóm tắt công khai riêng">
-      <h3 className="font-semibold text-ink-900">Tóm tắt công khai · {v.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"}</h3>
+      <h3 className="font-semibold text-ink-900">Tóm tắt công khai · {v.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng"}</h3>
       <p className="mt-1 text-xs text-ink-600">Tóm tắt có thể được cập nhật hoặc ẩn tại đây. Chỉ người có quyền duyệt mới được soạn, duyệt hoặc ẩn tóm tắt. Không đăng chứng từ, tên buyer, giá, mã đơn hay GPS. Lịch sử giao hàng không mặc nhiên là xuất khẩu.</p>
       <p className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-xs leading-5 text-ink-600">{summaryGuide}</p>
       <p className="mt-2 text-xs font-semibold text-ink-700">{v.public_summary_published_at ? `Đang công khai · ${formatDate(v.public_summary_published_at)}` : "Chưa công khai"}</p>

@@ -16,6 +16,7 @@ import {
   Pencil,
   Save,
   Send,
+  Star,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -25,6 +26,9 @@ import type { CategoryProposalOption } from "@/lib/supplier-portal/category-prop
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
 import { saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
+import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
+import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
+import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
 import { effectiveFieldsFor, fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
 
 type EditorProps = {
@@ -100,6 +104,8 @@ function snapshotFrom(product?: SupplierProduct): Record<string, string> {
     description: product?.description ?? "",
     spec: product?.spec ?? "",
     description_detail: product?.description_detail ?? "",
+    raw_material_region: product?.raw_material_region ?? "",
+    input_material_origin: product?.input_material_origin ?? "",
   };
   for (const [key] of [...REVIEW_COMMERCIAL, ...REVIEW_ORDER]) {
     const value = product ? (product as unknown as Record<string, unknown>)[key] : "";
@@ -113,6 +119,30 @@ function snapshotFrom(product?: SupplierProduct): Record<string, string> {
 }
 
 const checkKeys = ["oem", "odm", "samples", "price_publicly_visible"] as const;
+
+/**
+ * So sánh hai bản nháp. Dirty được tính từ so sánh trực tiếp thay vì cờ setDirty
+ * để event change ảo (tiptap, autofill, framework re-mount input) không kẹt cờ.
+ */
+function snapshotsEqual(a: Record<string, string>, b: Record<string, string>) {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const key of keys) if (a[key] !== b[key]) return false;
+  return true;
+}
+
+/**
+ * Báo lỗi hành động ra console + toast. Trước đây mọi lỗi đều hiện chung
+ * "Không kết nối được máy chủ" nên không phân biệt được: mất mạng, tab còn mở
+ * từ trước bản cập nhật (action ID cũ → HTTP 400), hay lỗi máy chủ (HTTP 500).
+ * Console giữ vết đầy đủ (kể cả digest) để chẩn đoán; toast nêu rõ hành động hỏng.
+ */
+function reportActionError(error: unknown, what: string) {
+  console.error(`[supplier-product] ${what} thất bại:`, error);
+  const detail = error instanceof Error && error.message ? error.message.trim() : "";
+  if (detail && !/failed to fetch|fetch failed|networkerror/i.test(detail))
+    return { ok: false, message: `${what} thất bại: ${detail}` };
+  return { ok: false, message: `${what} thất bại — mất kết nối hoặc trang đã cũ sau bản cập nhật. Tải lại trang (F5) rồi thử lại.` };
+}
 
 /**
  * Đọc toàn bộ form thành bản nháp để bước 3 luôn khớp với những gì đang nhập.
@@ -163,12 +193,11 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
   const [step, setStep] = useState<Step>(initialStep);
   const [busy, setBusy] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "");
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [resultAt, setResultAt] = useState<"info" | "review">("review");
+  // Thông báo nổi sau mỗi hành động (lưu, gửi duyệt, tải/xóa tệp) thay cho các dòng chữ tĩnh khó để ý.
+  const [toast, setToast] = useState<{ ok: boolean; message: string } | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
-  const [uploadResult, setUploadResult] = useState("");
+  const [coverHover, setCoverHover] = useState(false);
   const [selected, setSelected] = useState<File[]>([]);
   const [progress, setProgress] = useState("");
   // Bản nháp dùng cho bước 3: cập nhật theo từng lần nhập nên NCC đọc lại đúng nội dung
@@ -176,10 +205,27 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const [snapshot, setSnapshot] = useState<Record<string, string>>(() => snapshotFrom(product));
   const [submitHint, setSubmitHint] = useState<string[] | null>(null);
   const [sent, setSent] = useState(false);
+  // Mốc "đã lưu": gieo một lần sau khi mount, cập nhật sau mỗi lần lưu thành công.
+  // dirty suy ra từ snapshot so với mốc nên sự kiện change ảo không thể làm cờ kẹt true.
+  const [baseline, setBaseline] = useState<Record<string, string> | null>(null);
+  const baselineSeeded = useRef(false);
+  useEffect(() => {
+    if (baselineSeeded.current) return;
+    baselineSeeded.current = true;
+    setBaseline(snapshotFromForm(formRef.current, snapshotFrom(product)));
+  }, []);
+
+  // Thông báo tự ẩn: thành công 4.5 giây, lỗi ở lại 8 giây để kịp đọc.
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), toast.ok ? 4500 : 8000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const review = product ? productReview(product) : "draft";
   const live = review === "approved" && product?.ready_for_buyer === true;
   const locked = review === "pending";
+  const dirty = baseline !== null && !snapshotsEqual(snapshot, baseline);
   const ownedCount = media.filter((m) => m.created_by === userId).length;
   const hasDetails = !!product && !!(product.spec?.trim() || product.description?.trim());
   const hasMedia = media.some((m) => (m.kind === "image" || m.kind === "catalogue") && !!m.storage_path);
@@ -233,8 +279,11 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
    */
   function onFormChange() {
     const form = formRef.current;
-    setDirty(true);
     setSnapshot((previous) => snapshotFromForm(form, previous));
+  }
+
+  function onDescriptionDetailChange(html: string) {
+    setSnapshot((previous) => ({ ...previous, description_detail: html }));
   }
 
   function goToStep(next: Step) {
@@ -253,18 +302,18 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     const target = advanceTo.current;
     advanceTo.current = null;
     setBusy(true);
-    setResult(null);
+    setToast(null);
     setStepError(null);
     try {
       const form = new FormData(formElement);
       if (product) form.set("product_id", product.id);
       const response = await saveSupplierProductAction(form);
-      setResult(response);
-      setResultAt("info");
+      setToast(response);
       if (!response.ok) return;
-      setDirty(false);
       setSubmitHint(null);
-      setSnapshot(snapshotFromForm(formElement, snapshot));
+      const saved = snapshotFromForm(formElement, snapshot);
+      setSnapshot(saved);
+      setBaseline(saved);
       const id = response.id ?? product?.id;
       if (!product) {
         // Sản phẩm mới: đi tiếp sang trang chi tiết, mở đúng bước vừa chọn.
@@ -273,9 +322,8 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       }
       router.refresh();
       if (target) goToStep(target);
-    } catch {
-      setResult({ ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." });
-      setResultAt("info");
+    } catch (error) {
+      setToast(reportActionError(error, "Lưu sản phẩm"));
     } finally {
       setBusy(false);
     }
@@ -327,7 +375,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     const blockers = submitBlockers();
     if (blockers.length) {
       setSubmitHint(blockers);
-      setResult(null);
+      setToast(null);
       // Đưa tới đúng bước cần sửa; nếu đang ở đúng bước đó thì chỉ hiện lời nhắc.
       if (!product || !hasDetails || dirty) {
         if (step !== 1) goToStep(1);
@@ -342,21 +390,19 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     if (!product || busy) return;
     setBusy(true);
     setSubmitHint(null);
-    setResult(null);
+    setToast(null);
     setStepError(null);
     try {
       const form = new FormData();
       form.set("product_id", product.id);
       const response = await submitSupplierProductAction(form);
-      setResult(response);
-      setResultAt("review");
+      setToast(response);
       if (response.ok) {
         setSent(true);
         router.refresh();
       }
-    } catch {
-      setResult({ ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." });
-      setResultAt("review");
+    } catch (error) {
+      setToast(reportActionError(error, "Gửi duyệt"));
     } finally {
       setBusy(false);
     }
@@ -369,23 +415,21 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   }
   function chooseFiles(files: File[]) {
     if (ownedCount + files.length > 12) {
-      setUploadResult(`Chỉ được tải tối đa 12 tệp; hiện bạn đã có ${ownedCount} tệp.`);
+      setToast({ ok: false, message: `Chỉ được tải tối đa 12 tệp; hiện bạn đã có ${ownedCount} tệp.` });
       setSelected([]);
       return;
     }
     const invalid = files.find((file) => !uploadKind(file) || file.size > (uploadKind(file) === "catalogue" ? 15 : 8) * 1024 * 1024);
     if (invalid) {
-      setUploadResult(`Tệp “${invalid.name}” không đúng định dạng hoặc quá dung lượng. Ảnh tối đa 8 MB, PDF tối đa 15 MB.`);
+      setToast({ ok: false, message: `Tệp “${invalid.name}” không đúng định dạng hoặc quá dung lượng. Ảnh tối đa 8 MB, PDF tối đa 15 MB.` });
       setSelected([]);
       return;
     }
-    setUploadResult("");
     setSelected(files);
   }
   async function upload() {
     if (!product || !canUpload || !selected.length) return;
     setBusy(true);
-    setUploadResult("");
     let uploaded = 0;
     try {
       for (let index = 0; index < selected.length; index++) {
@@ -397,34 +441,63 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         body.set("kind", kind);
         body.set("file", file);
         const response = await fetch(`/api/supplier-portal/products/${product.id}/media`, { method: "POST", body });
-        const data = await response.json() as { ok: boolean; message: string };
-        if (!response.ok || !data.ok) throw Error(data.message || "Không tải được tệp.");
+        // Trang lỗi (404/413/500...) trả HTML: đọc .json() sẽ ném — bắt lại để giữ mã HTTP thật.
+        const data = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
+        if (!response.ok || !data?.ok) throw Error(data?.message || `Không tải được tệp (HTTP ${response.status}).`);
         uploaded++;
       }
       setSelected([]);
-      setUploadResult(live
+      setToast({ ok: true, message: live
         ? `Đã tải ${uploaded} tệp lên sản phẩm đã đăng.`
-        : `Đã tải ${uploaded} tệp. Tệp sẽ được kiểm tra khi duyệt.`);
+        : `Đã tải ${uploaded} tệp. Tệp sẽ được kiểm tra khi duyệt.` });
     } catch (error) {
       if (uploaded) setSelected(selected.slice(uploaded));
-      setUploadResult(`${uploaded ? `Đã tải ${uploaded} tệp; chỉ còn tệp chưa hoàn tất trong danh sách chọn. ` : ""}${error instanceof Error ? error.message : "Không kết nối được máy chủ."}`);
+      const failure = reportActionError(error, "Tải tệp");
+      setToast({ ok: false, message: `${uploaded ? `Đã tải ${uploaded} tệp; chỉ còn tệp chưa hoàn tất trong danh sách chọn. ` : ""}${failure.message}` });
     } finally {
       setProgress("");
       setBusy(false);
       if (uploaded) router.refresh();
     }
   }
+  /** Kéo ảnh khác vào ô ảnh đại diện (hoặc bấm nút sao) để thay; ảnh cũ tự về lại danh sách. */
+  async function makeCover(mediaId: string) {
+    if (!product || busy || mediaId === cover?.id) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/supplier-portal/products/${product.id}/media`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ media_id: mediaId }),
+      });
+      // Trang lỗi (404/500...) trả HTML: đọc .json() sẽ ném — báo rõ mã HTTP thay vì "mất kết nối".
+      if (!response.ok) {
+        setToast({ ok: false, message: `Đặt ảnh đại diện thất bại (HTTP ${response.status}). Tải lại trang rồi thử lại.` });
+        return;
+      }
+      const data = await response.json() as { ok: boolean; message: string };
+      setToast(data);
+      if (data.ok) router.refresh();
+    } catch (error) {
+      setToast(reportActionError(error, "Đặt ảnh đại diện"));
+    } finally {
+      setBusy(false);
+    }
+  }
   async function removeMedia(mediaId: string) {
     if (!product || dirty || !window.confirm(live ? "Xóa tệp này khỏi sản phẩm đang trên sàn?" : "Xóa tệp nháp này?")) return;
     setBusy(true);
-    setUploadResult("");
     try {
       const response = await fetch(`/api/supplier-portal/products/${product.id}/media?media_id=${encodeURIComponent(mediaId)}`, { method: "DELETE" });
+      if (!response.ok) {
+        setToast({ ok: false, message: `Xóa tệp thất bại (HTTP ${response.status}). Tải lại trang rồi thử lại.` });
+        return;
+      }
       const data = await response.json() as { ok: boolean; message: string };
-      setUploadResult(data.message);
+      setToast(data);
       if (data.ok) router.refresh();
-    } catch {
-      setUploadResult("Không kết nối được máy chủ.");
+    } catch (error) {
+      setToast(reportActionError(error, "Xóa tệp"));
     } finally {
       setBusy(false);
     }
@@ -472,22 +545,17 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_312px]">
       <div className="min-w-0">
-        {/* Trạng thái duyệt: một dòng, luôn hiện ở mọi bước. */}
-        <section aria-label="Trạng thái xét duyệt"
-          className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-4 py-2.5 ${review === "changes_requested" ? "border-rose-200 bg-rose-50" : review === "approved" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+        {/* Chỉ trạng thái cần NCC hành động mới hiện thanh: "Đã đăng" đã có nhãn ở thanh đáy và panel bước 3,
+            không lặp khối tĩnh sát thanh chọn bước. Kết quả mỗi hành động bắn qua thông báo nổi. */}
+        {(review === "pending" || review === "changes_requested") && <section aria-label="Trạng thái xét duyệt"
+          className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-4 py-2.5 ${review === "changes_requested" ? "border-rose-200 bg-rose-50" : "border-amber-200 bg-amber-50"}`}>
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{statusLabel}</span>
           <p className="min-w-0 flex-1 text-[12px] leading-5 text-ink-700">
-            {review === "approved"
-              ? live
-                ? "Sản phẩm đã đăng. Bạn có thể cập nhật thông tin và hình ảnh."
-                : "Sản phẩm đã duyệt và đang chờ đăng."
-              : review === "pending"
-                ? "Đã gửi duyệt. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp."
-                : review === "changes_requested"
-                  ? "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."
-                  : "Sản phẩm còn riêng tư. Điền thông tin, thêm tệp rồi gửi duyệt."}
+            {review === "pending"
+              ? "Đã gửi duyệt. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp."
+              : "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."}
           </p>
-        </section>
+        </section>}
 
         {product?.supplier_review_note && <p className="mt-2.5 whitespace-pre-wrap rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-800">
           <AlertCircle className="mr-1 inline size-4" aria-hidden="true" /> Yêu cầu chỉnh sửa: {product.supplier_review_note}
@@ -532,10 +600,19 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 <Field label="Quy cách / tiêu chuẩn" hint="Cần ít nhất một trong hai ô mô tả hoặc quy cách để gửi duyệt">
                   <textarea name="spec" className="input min-h-28 resize-y" rows={4} maxLength={800} placeholder="Ví dụ: Size W320, độ ẩm ≤ 5%, đóng gói 25 kg..." defaultValue={product?.spec ?? ""} disabled={locked} />
                 </Field>
+                <Field label="Vùng nguyên liệu" hint="Chọn tỉnh/thành hoặc nhập vùng cụ thể; có thể ghi nhiều vùng cho sản phẩm này.">
+                  <RawMaterialRegionInput defaultValue={product?.raw_material_region ?? ""} disabled={locked} />
+                </Field>
+                <Field label="Xuất xứ nguyên liệu đầu vào" hint="Nguồn trong nước, nhập khẩu hoặc kết hợp của sản phẩm này.">
+                  <input name="input_material_origin" className="input" maxLength={300} placeholder="Ví dụ: Việt Nam, Campuchia hoặc nguồn kết hợp" defaultValue={product?.input_material_origin ?? ""} disabled={locked} />
+                </Field>
                 <div className="md:col-span-2">
-                  <Field label="Mô tả chi tiết" hint="Hiển thị dưới phần tổng quan của trang sản phẩm; không nhập số điện thoại, email hoặc HTML.">
-                    <textarea name="description_detail" className="input min-h-32 resize-y" rows={6} maxLength={6000} placeholder="Nguồn gốc, ứng dụng, đặc điểm, đóng gói, lưu ý..." defaultValue={product?.description_detail ?? ""} disabled={locked} />
-                  </Field>
+                  <div className="text-[12.5px]">
+                    <span className="mb-1 block font-semibold text-ink-800">Mô tả chi tiết</span>
+                    <ProductDescriptionEditor id="supplier-product-description-detail" name="description_detail"
+                      value={snapshot.description_detail} onChange={onDescriptionDetailChange} disabled={locked || busy} />
+                    <span className="mt-1 block text-[11px] leading-4 text-ink-500">Dùng tiêu đề, in đậm, in nghiêng và danh sách để buyer dễ đọc. Không nhập thông tin liên hệ trực tiếp.</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -616,7 +693,6 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
             </div>
 
             {stepError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-[13px] font-semibold text-rose-900">{stepError}</p>}
-            {result && resultAt === "info" && <p role="status" className={`rounded-lg px-3.5 py-2.5 text-[13px] font-semibold ${result.ok ? "bg-brand-50 text-brand-900" : "bg-rose-50 text-rose-800"}`}>{result.message}</p>}
           </section>
         </form>
 
@@ -629,10 +705,37 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   ? "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp tải lên ở chế độ nội bộ khi chờ đăng."
                   : "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp được kiểm tra khi duyệt."} />
             <div className="space-y-4 px-4 py-4 sm:px-5">
-              {media.length > 0
-                ? <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{media.map((asset) => {
+              {/* Ô ảnh đại diện riêng: kéo một ảnh khác từ danh sách vào ô này là thay ngay, ảnh cũ tự về lại danh sách. */}
+              <div
+                onDragOver={(event) => { if (canUpload) { event.preventDefault(); setCoverHover(true); } }}
+                onDragLeave={() => setCoverHover(false)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setCoverHover(false);
+                  if (!canUpload || event.dataTransfer.files.length) return;
+                  const dragged = event.dataTransfer.getData("text/plain");
+                  if (dragged) void makeCover(dragged);
+                }}
+                className={`flex flex-wrap items-center gap-4 rounded-xl border-2 border-dashed p-4 transition ${coverHover ? "border-brand-500 bg-brand-50" : canUpload ? "border-brand-200 bg-brand-50/40" : "border-ink-200 bg-ink-50"}`}
+              >
+                <div className="size-24 shrink-0 overflow-hidden rounded-lg border border-ink-200 bg-white sm:size-28">
+                  {coverUrl
+                    ? <img src={coverUrl} alt="Ảnh đại diện" className="size-full object-cover" />
+                    : <span className="flex size-full flex-col items-center justify-center gap-1 text-ink-400"><ImageIcon className="size-6" aria-hidden="true" /><span className="text-[10px] font-semibold">Chưa có ảnh</span></span>}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-ink-900">Ảnh đại diện</p>
+                  <p className="mt-0.5 text-[12px] leading-5 text-ink-600">{canUpload
+                    ? "Ảnh này hiện đầu tiên với buyer. Kéo một ảnh khác từ danh sách vào ô này (hoặc bấm nút sao ở góc ảnh) để thay; ảnh cũ tự về lại danh sách."
+                    : "Ảnh này hiện đầu tiên với buyer."}</p>
+                </div>
+              </div>
+              {media.filter((asset) => asset.id !== cover?.id).length > 0
+                ? <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{media.filter((asset) => asset.id !== cover?.id).map((asset) => {
                   const url = privateMediaUrl(asset);
-                  return <li key={asset.id} className="group relative overflow-hidden rounded-lg border border-ink-200 bg-white">
+                  return <li key={asset.id} className="group relative overflow-hidden rounded-lg border border-ink-200 bg-white"
+                    draggable={canUpload && asset.kind === "image"}
+                    onDragStart={(event) => { event.dataTransfer.setData("text/plain", asset.id); event.dataTransfer.effectAllowed = "move"; }}>
                     <div className="relative block aspect-square overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
                       {asset.kind === "image" && url
                         ? <img src={url} alt={`Ảnh ${asset.caption || product?.name || "sản phẩm"}`} loading="lazy" className="size-full object-cover" />
@@ -640,9 +743,14 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                       <span className={`absolute top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${asset.audience === "buyer" ? "bg-emerald-100 text-emerald-800" : "bg-white/95 text-ink-700"}`}>
                         {asset.audience === "buyer" ? "Chia sẻ buyer" : "Nội bộ"}
                       </span>
+                      {canUpload && asset.kind === "image" &&
+                        <button type="button" disabled={busy} onClick={() => void makeCover(asset.id)} aria-label={`Đặt ${asset.caption || "ảnh này"} làm ảnh đại diện`} title="Đặt làm ảnh đại diện"
+                          className="absolute top-2 right-2 rounded-full bg-white/95 p-1.5 text-brand-700 shadow-sm hover:bg-brand-50">
+                          <Star className="size-3.5" aria-hidden="true" />
+                        </button>}
                       {canUpload && asset.created_by === userId && (asset.audience === "internal" || review === "approved") &&
                         <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)} aria-label={`Xóa ${asset.caption || "tệp nháp"}`}
-                          className="absolute top-2 right-2 rounded-full bg-white/95 p-1.5 text-rose-700 shadow-sm hover:bg-rose-50">
+                          className="absolute top-2 left-11 rounded-full bg-white/95 p-1.5 text-rose-700 shadow-sm hover:bg-rose-50">
                           <X className="size-3.5" aria-hidden="true" />
                         </button>}
                     </div>
@@ -652,7 +760,9 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                     </div>
                   </li>;
                 })}</ul>
-                : <p className="rounded-lg bg-ink-50 px-3.5 py-6 text-center text-[13px] text-ink-600">Chưa có tệp nào. Thêm ít nhất một ảnh hoặc catalogue thật để gửi duyệt.</p>}
+                : <p className="rounded-lg bg-ink-50 px-3.5 py-6 text-center text-[13px] text-ink-600">{media.length
+                  ? "Ảnh đại diện đang là ảnh duy nhất của sản phẩm. Tải thêm ảnh hoặc catalogue nếu cần."
+                  : "Chưa có tệp nào. Thêm ít nhất một ảnh hoặc catalogue thật để gửi duyệt."}</p>}
 
               {canUpload ? <>
                 <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseFiles(Array.from(e.dataTransfer.files)); }}
@@ -672,10 +782,13 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                     <button type="button" disabled={busy} onClick={() => setSelected([])} className="btn btn-ghost btn-sm">Bỏ chọn</button>
                   </div>
                 </div>}
-              </> : <p className="rounded-lg bg-ink-50 px-3.5 py-3 text-[12.5px] text-ink-600">
-                {!product ? "Lưu thông tin sản phẩm trước để mở chức năng tải tệp." : dirty ? "Lưu thay đổi nội dung trước khi tải tệp để không mất phần đang nhập." : "Tạm khoá tải tệp trong khi chờ duyệt."}
-              </p>}
-              {(progress || uploadResult) && <p role="status" className={`text-[12.5px] font-semibold ${uploadResult && /không|quá|lỗi|tối đa/i.test(uploadResult) ? "text-rose-700" : "text-brand-800"}`}>{progress || uploadResult}</p>}
+              </> : <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12.5px] leading-5 text-amber-900">
+                {!product ? "Lưu thông tin sản phẩm ở bước 1 trước; sau đó quay lại đây để tải ảnh và catalogue."
+                  : dirty ? "Có thay đổi ở bước 1 chưa lưu. Quay lại bước 1 bấm Lưu, rồi chuyển sang bước 2 để tải tệp."
+                  : locked ? "Sản phẩm đang chờ duyệt nên tạm khoá tải tệp — nội dung đang duyệt không thay đổi giữa chừng. Khi được duyệt hoặc bị trả về, bạn tải thêm được ngay."
+                  : "Sản phẩm này được quản lý từ trước nên tài khoản chưa tự sửa được tệp. Liên hệ bộ phận hỗ trợ nếu cần bổ sung ảnh hoặc catalogue."}
+              </div>}
+              {progress && <p role="status" className="text-[12.5px] font-semibold text-brand-800">{progress}</p>}
             </div>
           </div>
         </section>
@@ -687,7 +800,8 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
             <div className="space-y-3 px-4 py-4 sm:px-5">
               {dirty && <p className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] font-semibold text-amber-900">
                 Có thay đổi chưa lưu - nội dung dưới đây là bản đang nhập.
-                <button type="button" onClick={() => leaveInfoFor(1)} className="underline">Lưu thay đổi</button>
+                <button type="button" onClick={() => leaveInfoFor(3)} className="underline">Lưu ngay</button>
+                <button type="button" onClick={() => { if (window.confirm("Bỏ các thay đổi chưa lưu và tải lại nội dung đã lưu?")) window.location.reload(); }} className="underline">Bỏ thay đổi</button>
               </p>}
 
               <ul className="grid gap-2 sm:grid-cols-3">
@@ -713,7 +827,12 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   </div>
                   <div><ReviewField label="Mô tả ngắn" value={snapshot.description} /></div>
                   <div><ReviewField label="Quy cách / tiêu chuẩn" value={snapshot.spec} /></div>
-                  <div className="sm:col-span-2"><ReviewField label="Mô tả chi tiết" value={snapshot.description_detail} /></div>
+                  <div><ReviewField label="Vùng nguyên liệu" value={snapshot.raw_material_region} /></div>
+                  <div><ReviewField label="Xuất xứ nguyên liệu đầu vào" value={snapshot.input_material_origin} /></div>
+                  <div className="min-w-0 sm:col-span-2">
+                    <dt className="text-[11px] font-semibold text-ink-500">Mô tả chi tiết</dt>
+                    <dd className="mt-1 rounded-lg bg-ink-50 px-3 py-2"><ProductDescriptionPreview value={snapshot.description_detail} /></dd>
+                  </div>
                 </dl>
               </div>
 
@@ -775,20 +894,13 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 : review === "approved"
                   ? <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[13px] font-semibold text-emerald-800"><Check className="size-4" aria-hidden="true" /> {live ? "Sản phẩm đã đăng. Bạn có thể tiếp tục quản lý." : "Sản phẩm đã duyệt và đang chờ đăng."}</p>
                   : <div className="space-y-2">
-                    <button type="button" onClick={requestSubmit} disabled={busy}
-                      aria-describedby="submit-blockers"
-                      className="btn btn-primary w-full justify-center sm:w-auto">
-                      {busy
-                        ? <><span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> Đang gửi...</>
-                        : <><Send className="size-4" aria-hidden="true" /> Gửi duyệt</>}
-                    </button>
                     <div id="submit-blockers" aria-live="polite">
                       {submitHint?.length
                         ? <ul role="alert" className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12.5px] text-amber-900">
                           {submitHint.map((hint) => <li key={hint} className="flex gap-1.5"><AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />{hint}</li>)}
                         </ul>
                         : canSubmit
-                          ? <p className="text-[12px] text-ink-600">Hồ sơ đủ điều kiện để gửi duyệt.</p>
+                          ? <p className="text-[12px] text-ink-600">Hồ sơ đủ điều kiện để gửi duyệt - bấm Gửi duyệt ở thanh dưới cùng.</p>
                           : submitBlockers().length
                             ? <ul className="space-y-1 text-[12px] text-ink-600">
                               {submitBlockers().map((hint) => <li key={hint} className="flex gap-1.5"><span className="mt-1.5 size-1 shrink-0 rounded-full bg-ink-400" aria-hidden="true" />{hint}</li>)}
@@ -796,7 +908,6 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                             : null}
                     </div>
                   </div>}
-              {result && resultAt === "review" && !result.ok && <p role="status" className="rounded-lg bg-rose-50 px-3.5 py-2.5 text-[13px] font-semibold text-rose-800">{result.message}</p>}
               <p className="text-[11.5px] leading-5 text-ink-500">{product?.name_i18n?.en?.trim() ? "Bản tiếng Anh cho trang buyer đã có." : "Bản tiếng Anh cho trang buyer được dịch tự động bằng AI khi duyệt."} Bạn cứ nhập bằng tiếng Việt.</p>
             </div>
           </div>
@@ -829,7 +940,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
             {step === 2 && <button type="button" onClick={() => goToStep(3)} className="btn btn-primary btn-sm">Sang bước 3 <ArrowRight className="size-3.5" aria-hidden="true" /></button>}
             {step === 3 && (review === "pending" || review === "approved" || sent
               ? <span className="text-[11.5px] font-semibold text-emerald-800">{review === "approved" ? (live ? "Đã đăng" : "Đã duyệt, chờ đăng") : "Đã gửi duyệt"}</span>
-              : <button type="button" onClick={requestSubmit} disabled={busy} className="btn btn-primary btn-sm">
+              : <button type="button" onClick={requestSubmit} disabled={busy} aria-describedby="submit-blockers" className="btn btn-primary btn-sm">
                 {busy
                   ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> Đang gửi...</>
                   : <><Send className="size-3.5" aria-hidden="true" /> Gửi duyệt</>}
@@ -875,6 +986,17 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         </Link>
       </aside>
     </div>
+
+    {/* Thông báo kết quả mỗi hành động: nổi góc phải phía trên thanh đáy, tự ẩn sau vài giây. */}
+    {toast && <div role="status" aria-live="polite"
+      className={`fixed right-4 bottom-24 z-50 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2.5 rounded-xl border px-4 py-3 text-[13px] font-semibold shadow-lg sm:right-6 sm:bottom-28 ${toast.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>
+      {toast.ok
+        ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+        : <AlertCircle className="mt-0.5 size-4 shrink-0 text-rose-600" aria-hidden="true" />}
+      <span className="min-w-0 flex-1 leading-5">{toast.message}</span>
+      <button type="button" onClick={() => setToast(null)} aria-label="Đóng thông báo"
+        className="shrink-0 rounded p-0.5 opacity-60 transition hover:opacity-100"><X className="size-4" aria-hidden="true" /></button>
+    </div>}
   </div>;
 }
 

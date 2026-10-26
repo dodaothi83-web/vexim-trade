@@ -175,14 +175,14 @@
       <li>Bỏ 3 ô card check ở giữa hồ sơ như anh yêu cầu.</li>
       <li>Đưa một huy hiệu mức duy nhất lên đầu hồ sơ, ngay phía trên tên nhà cung cấp: có huy chương tròn ghi số vòng kiểm, thanh mức 3 nấc và màu nền đậm dần theo mức.</li>
       <li>Trên thẻ sản phẩm, hàng biểu tượng rời rạc được gọn lại thành một nhãn mức nhỏ cùng màu, để buyer lướt danh mục vẫn nhận ra ngay hồ sơ mạnh hay yếu.</li>
-      <li>Hai mục nội dung thật (tóm tắt chuyến thăm nhà máy và tóm tắt lô hàng đã kiểm) vẫn giữ ở dưới, vì đây là phần nội dung làm nên độ tin cậy khi buyer đọc sâu.</li>
+      <li>Hai mục nội dung thật (tóm tắt chuyến xác thực nhà máy và tóm tắt lô hàng đã kiểm) vẫn giữ ở dưới, vì đây là phần nội dung làm nên độ tin cậy khi buyer đọc sâu.</li>
     </ul>
   </div>
 
 </div>
 
 <script>
-  var LABELS = { 1: "documents checked", 2: "factory visited", 3: "delivery history reviewed" };
+  var LABELS = { 1: "documents checked", 2: "factory verification", 3: "delivery history reviewed" };
   var SCENARIOS = {
     none: {
       levels: [], tier: 0,
@@ -197,7 +197,7 @@
     l13: {
       levels: [1, 3], tier: 2,
       title: "Advanced verification", pill: "Level 2 · Advanced",
-      note: "<b>Trường hợp C: giấy tờ cộng lịch sử giao hàng, chưa thăm nhà máy.</b> Màu xanh đậm lên rõ rệt, huy chương số 2, thanh mức sáng 2 nấc. Phần chữ ghi rõ đã kiểm giấy tờ và lịch sử giao hàng, không tự suy ra là đã thăm nhà máy."
+      note: "<b>Trường hợp C: giấy tờ cộng lịch sử giao hàng, chưa xác thực nhà máy.</b> Màu xanh đậm lên rõ rệt, huy chương số 2, thanh mức sáng 2 nấc. Phần chữ ghi rõ đã kiểm giấy tờ và lịch sử giao hàng, không tự suy ra là đã xác thực nhà máy."
     },
     full: {
       levels: [1, 2, 3], tier: 3,
@@ -230,8 +230,8 @@
     pill.textContent = sc.pill;
 
     document.getElementById("factoryBody").innerHTML = levels.indexOf(2) !== -1
-      ? '<p class="approved-text">Factory visit review approved</p><p class="summary-text">' + FACTORY_SUMMARY + '</p><p class="fineprint">Only the site described in a published summary was reviewed. This is not a certification of other facilities or products.</p>'
-      : '<p class="empty-text">No approved factory visit review is available.</p>';
+      ? '<p class="approved-text">Factory verification approved</p><p class="summary-text">' + FACTORY_SUMMARY + '</p><p class="fineprint">Only the site described in a published summary was reviewed. This is not a certification of other facilities or products.</p>'
+      : '<p class="empty-text">No approved factory verification is available.</p>';
 
     document.getElementById("deliveryBody").innerHTML = levels.indexOf(3) !== -1
       ? '<p class="approved-text">Delivery evidence review approved</p><p class="summary-text">' + DELIVERY_SUMMARY + '</p><p class="fineprint">A reviewed delivery is not proof of the supplier’s entire export history or a guarantee of future shipments.</p>'

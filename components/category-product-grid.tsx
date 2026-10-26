@@ -14,6 +14,7 @@ import { fieldsFor } from "@/lib/product-attributes";
 import type { PilotPlacement } from "@/lib/sponsored/pilot";
 import { withoutSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
+import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
 function moqGroup(value: string): string {
   const text = value.toLowerCase();
@@ -26,9 +27,9 @@ function moqGroup(value: string): string {
   return tons <= 1 ? "small" : tons <= 5 ? "medium" : "large";
 }
 
-export function CategoryProductGrid({ products, categorySlug, grades, sponsored, sponsoredBand = [], productFields = [] }: {
+export function CategoryProductGrid({ products, categorySlug, grades, sponsored, sponsoredBand = [], productFields = [], comparisonEnabled = true }: {
   products: PublicCategoryProduct[]; categorySlug: string; grades: string[]; productFields?: ProductAttributeField[];
-  sponsored?: PilotPlacement | null; sponsoredBand?: SponsoredBandItem[];
+  sponsored?: PilotPlacement | null; sponsoredBand?: SponsoredBandItem[]; comparisonEnabled?: boolean;
 }) {
   // Vùng đẩy đang hiện thì bỏ đúng những sản phẩm đó khỏi lưới tự nhiên. Đang lọc
   // thì vùng đẩy ẩn, và sản phẩm trả phí quay lại lưới như mọi sản phẩm khác.
@@ -68,6 +69,9 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     () => arrangeSupplierProducts(listPool, active ? null : supplierCap),
     [listPool, active, supplierCap],
   );
+  const comparisonOffers = useMemo(() => visible.map((product) => ({
+    id: product.id, supplierId: product.supplierId, categorySlug, isDemo: product.isDemo,
+  })), [visible, categorySlug]);
   const reset = () => { setSelectedAttributes({}); setSelectedGrades([]); setMoq(""); setProvince(""); setVerified(0); };
   const fields = <div className="space-y-5 text-sm">
     {attributeFilters.filter((field) => !field.showWhen || !selectedAttributes[field.showWhen.key] ||
@@ -99,7 +103,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     <label className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">Supplier verification</span>
       <select className="input text-sm" value={verified} onChange={(e) => setVerified(Number(e.target.value))}>
         <option value={0}>All suppliers</option><option value={1}>Documents checked</option>
-        <option value={2}>Factory visited</option><option value={3}>Delivery history reviewed</option>
+        <option value={2}>Factory verification</option><option value={3}>Delivery history reviewed</option>
       </select>
     </label>
     {active && <button type="button" onClick={reset} className="font-semibold text-brand-700 underline">Clear filters</button>}
@@ -132,7 +136,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
             khớp. Thà ẩn cả vùng còn hơn hiện một thẻ sai. Bản thử nghiệm cũ chỉ
             hiện khi chưa có gói bán thật nào. */}
         {!active && (sponsoredBand.length > 0
-          ? <SponsoredProductBand items={sponsoredBand} categorySlug={categorySlug} />
+          ? <SponsoredProductBand items={sponsoredBand} categorySlug={categorySlug} comparisonEnabled={comparisonEnabled} />
           : sponsored && <SponsoredPilotSlot product={sponsored.product} ticket={sponsored.ticket}
               campaignId={sponsored.campaignId} categorySlug={categorySlug} />)}
         {visible.length ? <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -143,7 +147,10 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
               supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
               quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}
               oem={p.oem} odm={p.odm} samples={p.samples}
-              verificationSteps={p.verificationSteps} test={p.isDemo} />
+              verificationSteps={p.verificationSteps} test={p.isDemo}
+              comparison={comparisonEnabled && hasProductComparisonPeer(comparisonOffers, {
+                id: p.id, supplierId: p.supplierId, categorySlug, isDemo: p.isDemo,
+              }) ? { id: p.id, categorySlug } : undefined} />
           </div>)}
         </div> : <div className="rounded-xl border border-ink-200 bg-white p-8 text-center">
           <h3 className="font-bold text-ink-900">No products match these filters</h3>

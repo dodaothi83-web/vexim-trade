@@ -7,6 +7,8 @@ import { getStore } from "@/lib/db";
 import { SimpleFooter } from "./simple-footer";
 import { WhatsAppChatButton } from "@/components/whatsapp-chat-button";
 import { SiteTrafficBeacon } from "@/components/site-traffic-beacon";
+import { ProductComparisonProvider } from "@/components/product-comparison-provider";
+import { ProductComparisonTray } from "@/components/product-comparison-tray";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
   await store.listCategories({ publishedOnly: true }); // warm cache
 
   return (
+    <ProductComparisonProvider>
     <div lang="en" className="min-h-screen bg-white text-ink-900">
       <SiteTrafficBeacon />
       <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
@@ -48,8 +51,10 @@ export default async function PublicLayout({ children }: { children: ReactNode }
 
       <main>{children}</main>
 
+      <ProductComparisonTray />
       <WhatsAppChatButton />
       <SimpleFooter />
     </div>
+    </ProductComparisonProvider>
   );
 }

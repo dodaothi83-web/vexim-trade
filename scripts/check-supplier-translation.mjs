@@ -5,6 +5,13 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
+import {
+  publicExportPortDisplay,
+  publicProductCapacityDisplay,
+  publicProductMoqDisplay,
+  publicProductPaymentTermsDisplay,
+  publicProductPlaceDisplay,
+} from '../lib/public/product-detail-display.ts';
 
 const realRequire = createRequire(import.meta.url);
 function load(file, mocks, globals = {}) {
@@ -112,13 +119,27 @@ assert.equal(ai.supplierProfileTranslationState({ ...legalSource, ...legalPatch 
 assert.equal(ai.supplierProfileTranslationState({ ...legalSource, ...legalPatch, name: 'Tên pháp lý mới' }).current, false,
   'Sửa tên pháp lý gốc phải làm bản hiển thị tiếng Anh cũ hết hạn');
 
-const english = load('../lib/public/supplier-english.ts', { '@/lib/types': {} });
+const english = load('../lib/public/supplier-english.ts', {
+  '@/lib/types': {},
+  '@/lib/public/product-detail-display': {
+    publicExportPortDisplay,
+    publicProductCapacityDisplay,
+    publicProductMoqDisplay,
+    publicProductPaymentTermsDisplay,
+    publicProductPlaceDisplay,
+  },
+});
 const displaySupplier = { province: 'Bình Phước', address: 'Số 1', ports: ['Cát Lái'], profile_translation_meta: { fields: { province: 'Binh Phuoc', address: '1 A Street', ports: ['Cat Lai'] } } };
 assert.equal(english.supplierLegalNameDisplay({ name: legalName, profile_translation_meta: null }), legalName,
   'Chưa có bản tiếng Anh thì giữ nguyên tên gốc, không tự ý thay đổi');
 assert.equal(english.supplierProvinceDisplay(displaySupplier), 'Binh Phuoc');
 assert.equal(english.supplierAddressDisplay(displaySupplier), '1 A Street');
 assert.equal(english.supplierPortsDisplay(displaySupplier)[0], 'Cat Lai');
+assert.equal(english.supplierMoqDisplay({ moq_text: '1 tấn cho W320', moq_text_i18n: {} }), '1 metric ton for W320');
+assert.equal(english.supplierCapacityDisplay({ capacity_per_month: '100 tấn', profile_translation_meta: null }), '100 metric tons');
+assert.equal(english.supplierPaymentTermsDisplay({ payment_terms: 'T/T 30% cọc', profile_translation_meta: null }), 'T/T 30% deposit');
+assert.equal(english.supplierProvinceDisplay({ province: 'Bình Phước', profile_translation_meta: null }), 'Binh Phuoc');
+assert.equal(english.supplierPortsDisplay({ ports: ['Cát Lái'], profile_translation_meta: null })[0], 'Cat Lai');
 assert.equal(english.supplierSummaryDisplay({ intro_source: 'Giới thiệu doanh nghiệp', summary_i18n: {} }), 'Giới thiệu doanh nghiệp',
   'đã có nội dung gốc thì buyer không được thấy phần giới thiệu trống');
 assert.equal(english.supplierSummaryDisplay({ intro_source: 'Giới thiệu gốc', summary_i18n: { en: 'English introduction' } }), 'English introduction',

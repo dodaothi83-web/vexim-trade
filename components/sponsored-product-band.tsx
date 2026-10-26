@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { PublicProductCard } from "@/components/public-product-card";
 import { useCookieConsent } from "@/components/cookie-consent";
 import type { SponsoredBandItem } from "@/lib/public/sponsored-band";
+import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
 /**
  * Vùng đẩy sản phẩm: tối đa ba thẻ, nằm trên lưới tự nhiên, luôn có nhãn nhìn
@@ -19,10 +20,17 @@ import type { SponsoredBandItem } from "@/lib/public/sponsored-band";
  * lường tiếp thị, mỗi gói mỗi loại sự kiện chỉ ghi một lần trong 30 phút trên mỗi
  * tab. Ghi lỗi không bao giờ chặn việc mở trang.
  */
-export function SponsoredProductBand({ items, categorySlug }: {
+export function SponsoredProductBand({ items, categorySlug, comparisonEnabled = true }: {
   items: SponsoredBandItem[];
   categorySlug: string;
+  comparisonEnabled?: boolean;
 }) {
+  const comparisonOffers = items.map(({ product }) => ({
+    id: product.id, supplierId: product.supplierId, categorySlug, isDemo: product.isDemo,
+  }));
+  const comparableProductIds = new Set(comparisonOffers.filter((product) =>
+    hasProductComparisonPeer(comparisonOffers, product)
+  ).map((product) => product.id));
   if (items.length === 0) return null;
   return (
     <section aria-label="Sponsored products" className="mb-5 rounded-xl border border-amber-200 bg-amber-50/60 p-3 sm:p-4">
@@ -36,14 +44,15 @@ export function SponsoredProductBand({ items, categorySlug }: {
       </div>
       <div className="mt-3 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
         {items.map((item) => (
-          <SponsoredBandCard key={item.push.id} item={item} categorySlug={categorySlug} />
+          <SponsoredBandCard key={item.push.id} item={item} categorySlug={categorySlug}
+            comparisonEnabled={comparisonEnabled && comparableProductIds.has(item.product.id)} />
         ))}
       </div>
     </section>
   );
 }
 
-function SponsoredBandCard({ item, categorySlug }: { item: SponsoredBandItem; categorySlug: string }) {
+function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: SponsoredBandItem; categorySlug: string; comparisonEnabled: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const { marketingAllowed } = useCookieConsent();
   const { push, product } = item;
@@ -83,7 +92,9 @@ function SponsoredBandCard({ item, categorySlug }: { item: SponsoredBandItem; ca
 
   const href = `/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(product.id)}`;
   return (
-    <div ref={root} className="min-w-0" onClickCapture={() => send("click")}>
+    <div ref={root} className="min-w-0" onClickCapture={(event) => {
+      if ((event.target as Element).closest("a[href]")) send("click");
+    }}>
       <PublicProductCard
         href={href}
         imagePath={product.cardImagePath ?? product.imagePaths[0]}
@@ -100,6 +111,7 @@ function SponsoredBandCard({ item, categorySlug }: { item: SponsoredBandItem; ca
         samples={product.samples}
         verificationSteps={product.verificationSteps}
         test={product.isDemo}
+        comparison={comparisonEnabled && !product.isDemo ? { id: product.id, categorySlug } : undefined}
       />
     </div>
   );

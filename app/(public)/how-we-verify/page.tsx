@@ -10,12 +10,12 @@ import { listPublicSuppliers } from "@/lib/public/catalog";
 export const metadata: Metadata = {
   title: { absolute: "How we verify suppliers | Vexim Trade" },
   description:
-    "Three evidence-based supplier checks: documents, on-site factory visit, and completed delivery history review.",
+    "Three evidence-based supplier checks: documents, factory verification, and completed delivery history review.",
   alternates: { canonical: "/how-we-verify" },
   openGraph: {
     title: "How we verify suppliers | Vexim Trade",
     description:
-      "Three evidence-based supplier checks: documents, on-site factory visit, and completed delivery history review.",
+      "Three evidence-based supplier checks: documents, factory verification, and completed delivery history review.",
     url: "/how-we-verify",
     siteName: "Vexim Trade",
     type: "website",
@@ -45,7 +45,7 @@ export default async function HowWeVerifyPage() {
       </h1>
       <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-ink-700">
         Each badge describes one check our team has approved. The three checks are independent of each other.
-        A supplier may pass the delivery history review without a factory visit. A profile with no approved checks is marked as under audit.
+        A supplier may pass the delivery history review without factory verification. A profile with no approved checks is marked as under audit.
       </p>
 
       <section className="mt-8 rounded-lg border border-ink-200 bg-white p-6 sm:p-8" aria-label="Verification badges">
@@ -70,10 +70,10 @@ export default async function HowWeVerifyPage() {
       <ol className="mt-12 space-y-6">
         <Step n={1} icon={<ClipboardCheck className="h-5 w-5" />} title="Document review"
           body="We review the supplier's business registration, tax code and other applicable documents. The result and the supporting evidence are recorded for each supplier." />
-        <Step n={2} icon={<Factory className="h-5 w-5" />} title="On-site factory visit"
+        <Step n={2} icon={<Factory className="h-5 w-5" />} title="Factory verification"
           body="Where an on-site visit is relevant, a team member records the factory location, facilities and visual evidence from the visit." />
         <Step n={3} icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history review"
-          body="We check evidence of a completed shipment or delivery independently of a factory visit. Trading companies may pass this review without owning a factory. A won enquiry alone is not proof of delivery." />
+          body="We check evidence of a completed shipment or delivery independently of factory verification. Trading companies may pass this review without owning a factory. A won enquiry alone is not proof of delivery." />
       </ol>
 
       <section className="mt-12 rounded-lg border border-ink-200 bg-white p-6 sm:p-8" aria-label="Supplier evidence submission">

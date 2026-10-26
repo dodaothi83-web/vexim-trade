@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PublicProductCard } from "@/components/public-product-card";
 import { HOME_FEED_PER_PAGE, HOME_FEED_WIDE_QUERY, feedPerPage } from "@/lib/public/supplier-product-order";
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
+import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
 export type HomeFeedProduct = PublicCategoryProduct & { categorySlug: string };
 
@@ -199,6 +200,7 @@ export function HomeProductFeed({
               samples={p.samples}
               verificationSteps={p.verificationSteps}
               test={p.isDemo}
+              comparison={hasProductComparisonPeer(items, p) ? { id: p.id, categorySlug: p.categorySlug } : undefined}
             />
           </li>
         ))}

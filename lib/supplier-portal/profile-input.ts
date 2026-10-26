@@ -28,7 +28,7 @@ export function parseSupplierProfile(form: FormData): {
   if (!TYPES.includes(type)) throw new Error("Chọn loại hình nhà máy, thương nhân hoặc hợp tác xã.");
   // The checkbox is disabled for traders in the shared signup/correction form; reject forged submissions too.
   if (type === "trading" && form.get("request:2") === "yes")
-    throw new Error("Thương nhân không thể yêu cầu thăm nhà máy qua form đăng ký. Bạn vẫn có thể chọn Lịch sử giao hàng.");
+    throw new Error("Thương nhân không thể yêu cầu xác thực nhà máy qua form đăng ký. Bạn vẫn có thể chọn Lịch sử giao hàng.");
   if (!/^[0-9]{1,32}$/.test(tax)) throw new Error("Mã số thuế phải là chữ số.");
   // Số tài khoản ngân hàng là mục tuỳ chọn: để trống được, có nhập thì phải là chữ số.
   if (bank && !/^[0-9]{1,34}$/.test(bank)) throw new Error("Số tài khoản ngân hàng phải là chữ số.");

@@ -85,8 +85,12 @@ assert.match(productForm, /supplierPriceConsentCurrent\(supplier\)/, 'Explain th
 const catalog = readFileSync(new URL('../lib/public/product-catalog.ts', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8');
 const detail = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
-assert.match(detail, /withoutDirectContacts\(enDetail\)/, 'Buyer detail must redact contacts in long plain-text description');
-assert.match(detail, /whitespace-pre-wrap/, 'Buyer detail retains line breaks without HTML injection');
+const productDescription = readFileSync(new URL('../components/public/product-description.tsx', import.meta.url), 'utf8');
+assert.match(detail, /<ProductDescription value=\{enDetail\}[^>]*\/>/, 'Buyer detail uses the shared safe rich-text renderer');
+assert.match(productDescription, /withoutDirectContacts\(value \?\? ""\)/, 'Long descriptions still redact direct contacts');
+assert.match(productDescription, /sanitizeProductDescriptionHtml\(withoutDirectContacts/, 'Buyer rendering sanitizes again after contact redaction');
+assert.match(productDescription, /className=\{`product-description \$\{className\}`\}/, 'Buyer detail keeps dedicated professional spacing');
+assert.match(productForm, /<ProductDescriptionEditor/, 'Staff CMS uses the shared rich-text editor');
 const media = readFileSync(new URL('../app/public-media/[...path]/route.ts', import.meta.url), 'utf8');
 assert.match(catalog, /p\.ready_for_buyer/);
 assert.match(catalog, /m\.audience === "buyer"/);

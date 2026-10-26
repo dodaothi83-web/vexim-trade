@@ -16,6 +16,9 @@ type Actor = { id: string; email: string } | null;
 const sourceOf = (p: ProductTranslationSource): ProductTranslationSource => ({
   name: p.name, description: p.description, spec: p.spec,
   description_detail: p.description_detail, packaging: p.packaging, certifications: p.certifications,
+  moq: p.moq, monthly_capacity: p.monthly_capacity, payment_terms: p.payment_terms,
+  raw_material_region: p.raw_material_region, input_material_origin: p.input_material_origin,
+  incoterm_place: p.incoterm_place, export_port: p.export_port,
 });
 
 export type EnsureTranslationResult =

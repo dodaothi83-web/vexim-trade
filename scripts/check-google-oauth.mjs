@@ -59,9 +59,12 @@ const store = { mode: 'supabase', getUserByEmail: async () => currentUser,
   listUsers: async () => [{ role: 'admin', is_active: true }],
   createUser: async (input) => { createdSupplierAccounts++; currentUser = { ...input, id: 'new-supplier' }; return currentUser; },
   addAuditLog: async () => null, touchUserLogin: async () => null };
+let oauthRate = { status: 'ok' };
+const oauthRateCalls = [];
 const start = load('../app/api/auth/google/start/route.ts', {
   'next/server': { NextResponse },
   '@/lib/auth/session': { getSession: async () => null },
+  '@/lib/auth/abuse-protection': { checkAuthRateLimit: async (input) => { oauthRateCalls.push(input); return oauthRate; } },
   '@/lib/auth/google-oauth': oauth,
   '@/lib/db/supabase': { supabaseUrl: () => 'https://example.supabase.co' },
   '@/lib/site': { SITE_URL: 'https://vexim.example' },
@@ -71,6 +74,11 @@ assert.ok((await start.GET(new Request('https://vexim.example/api/auth/google/st
 const started = await start.GET(new Request('https://vexim.example/api/auth/google/start?intent=signup'));
 assert.ok(started.headers.get('location').startsWith('https://example.supabase.co/auth/v1/authorize?'));
 assert.ok(cookieSet.some(([name, value]) => name === 'vxt_google_flow' && JSON.parse(value).intent === 'signup'));
+assert.equal(oauthRateCalls.at(-1).flow, 'supplier-signup');
+oauthRate = { status: 'limited' };
+assert.ok((await start.GET(new Request('https://vexim.example/api/auth/google/start?intent=login'))).headers.get('location').endsWith('/login?oauth=rate_limited'));
+assert.equal(oauthRateCalls.at(-1).flow, 'login');
+oauthRate = { status: 'ok' };
 const callback = load('../app/api/auth/google/callback/route.ts', {
   'next/server': { NextResponse }, 'next/cache': { revalidatePath() {} },
   'next/headers': { cookies: async () => ({ get: () => ({ value: flowValue }) }) },

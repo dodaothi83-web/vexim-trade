@@ -10,6 +10,7 @@ import {
   supplierAttributePoolSignature,
 } from "@/lib/product-attributes";
 import { notifyStaffProductSubmission } from "@/lib/supplier-portal/notify";
+import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 
@@ -48,9 +49,13 @@ function parseProduct(form: FormData, supplierId: string): SupplierProductInput 
   if (validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) throw new Error("Ngày hết hạn giá không hợp lệ.");
   return {
     supplier_id: supplierId, name, slug: null, name_i18n: {}, category: null,
-    description: text(form, "description", 1500) || null, description_detail: text(form, "description_detail", 6000) || null, spec: text(form, "spec", 800) || null,
+    description: text(form, "description", 1500) || null,
+    description_detail: sanitizeProductDescriptionForSave(String(form.get("description_detail") ?? "")) || null,
+    spec: text(form, "spec", 800) || null,
     specs: {}, unit: text(form, "unit", 40) || null, moq: text(form, "moq", 180) || null,
     moq_qty: null, moq_unit: null, monthly_capacity: text(form, "monthly_capacity", 180) || null,
+    raw_material_region: text(form, "raw_material_region", 180) || null,
+    input_material_origin: text(form, "input_material_origin", 300) || null,
     lead_time_days: daysRaw ? Number(daysRaw) : null, packaging: text(form, "packaging", 300) || null,
     oem: form.get("oem") === "yes", odm: form.get("odm") === "yes", samples: form.get("samples") === "yes",
     // Không còn ô chứng nhận tự khai ở trang sản phẩm: hồ sơ Giấy tờ L1 (AI quét đơn vị đứng tên
