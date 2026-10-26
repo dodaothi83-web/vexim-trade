@@ -5,6 +5,9 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ImageIcon, PlayCircle, X, ZoomIn } from "lucide-react";
 import type { PublicProductVideo } from "@/lib/public/product-video";
 
+/** URL ảnh công khai — dùng chung cho hero, lightbox và preloader. */
+export const publicPhotoUrl = (path: string) => `/public-media/${path}`;
+
 /** Chỉ nhận cử chỉ ngang rõ ràng; vuốt dọc hoặc rung nhẹ vẫn để trang cuộn tự nhiên. */
 export function productGallerySwipeStep(startX: number, startY: number, endX: number, endY: number): -1 | 0 | 1 {
   const dx = endX - startX;
@@ -21,6 +24,11 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
   const [open, setOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [zoomPoint, setZoomPoint] = useState("50% 50%");
+  // Crossfade: `shown` là ảnh đã vẽ xong, `incoming` nằm phía trên, mờ dần vào
+  // khi tải xong rồi mới thay lớp dưới — không bao giờ nháy trắng khi đổi ảnh.
+  const [shown, setShown] = useState<string | null>(images[0] ?? null);
+  const [incoming, setIncoming] = useState<string | null>(null);
+  const [fadedIn, setFadedIn] = useState(false);
   const heroRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -28,6 +36,41 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
   const suppressClick = useRef(false);
   const selected = images[index] ?? images[0];
   const hasThumbnails = images.length > 1;
+
+  useEffect(() => {
+    const target = images[index] ?? images[0] ?? null;
+    if (!target || target === shown) {
+      setIncoming(null);
+      setFadedIn(false);
+      return;
+    }
+    setIncoming(target);
+    setFadedIn(false);
+  }, [index, images, shown]);
+
+  useEffect(() => {
+    if (!incoming) return;
+    // Dự phòng khi transitionend không đến (motion-reduce tắt transition, tab ẩn).
+    const settle = setTimeout(() => {
+      setShown(incoming);
+      setIncoming(null);
+      setFadedIn(false);
+    }, 280);
+    return () => clearTimeout(settle);
+  }, [incoming]);
+
+  // Preload ảnh trước/sau: bấm mũi tên hay thumbnail kế tiếp là ảnh đã nằm sẵn
+  // trong cache trình duyệt → đổi ảnh tức thì thay vì chờ mạng.
+  useEffect(() => {
+    if (images.length < 2) return;
+    for (const path of [images[(index + 1) % images.length], images[(index - 1 + images.length) % images.length]]) {
+      if (!path || path === shown) continue;
+      const preload = new Image();
+      preload.decoding = "async";
+      preload.src = publicPhotoUrl(path);
+    }
+  }, [index, images, shown]);
+
 
   useEffect(() => {
     if (!open) return;
@@ -50,7 +93,6 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
     return () => { window.removeEventListener("keydown", onKeyDown); document.body.style.overflow = previousOverflow; heroRef.current?.focus(); };
   }, [open, images.length]);
 
-  const photo = (path: string) => `/public-media/${path}`;
   const onTouchStart = (event: TouchEvent<HTMLButtonElement>) => {
     const touch = event.touches[0];
     if (!touch) return;
@@ -84,10 +126,34 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
           }}
           onMouseLeave={() => setZoomPoint("50% 50%")}
           className="group relative h-full w-full cursor-zoom-in touch-pan-y overflow-hidden text-left" aria-label={`Enlarge photo of ${name} on this page`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photo(selected)} alt={`${name}, photo ${index + 1} of ${images.length}`}
-            style={{ transformOrigin: zoomPoint }}
-            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-150 motion-reduce:transition-none" />
+          {/* Hai lớp ảnh: lớp dưới là ảnh đã vẽ xong, lớp trên fade vào khi
+              tải xong — đổi ảnh không bao giờ nháy trống. Hover-zoom áp lên
+              wrapper để cả hai lớp phóng cùng nhau. */}
+          <div className="absolute inset-0 transition-transform duration-200 group-hover:scale-150 motion-reduce:transition-none" style={{ transformOrigin: zoomPoint }}>
+            {shown && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={publicPhotoUrl(shown)} alt={incoming ? "" : `${name}, photo ${index + 1} of ${images.length}`}
+                decoding="async" aria-hidden={incoming ? true : undefined}
+                className="absolute inset-0 h-full w-full object-cover" />
+            )}
+            {incoming && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                key={incoming}
+                src={publicPhotoUrl(incoming)}
+                alt={`${name}, photo ${index + 1} of ${images.length}`}
+                decoding="async"
+                onLoad={() => setFadedIn(true)}
+                onError={() => { setIncoming(null); setFadedIn(false); }}
+                onTransitionEnd={(event) => {
+                  if (event.propertyName !== "opacity" || !fadedIn) return;
+                  setShown(incoming);
+                  setIncoming(null);
+                  setFadedIn(false);
+                }}
+                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 motion-reduce:transition-none ${fadedIn ? "opacity-100" : "opacity-0"}`} />
+            )}
+          </div>
           <span className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-ink-900/80 px-3 py-1.5 text-xs font-semibold text-white"><ZoomIn className="h-3.5 w-3.5" aria-hidden="true" /> <span className="hidden sm:inline">Hover to zoom · Click to enlarge</span><span className="sm:hidden">Tap to enlarge</span></span>
         </button> : <div className="flex h-full items-center justify-center gap-2 text-sm text-ink-400"><ImageIcon className="h-9 w-9" aria-hidden="true" />No product photo available</div>}
       </div>
@@ -100,7 +166,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
               aria-label={`Show photo ${photoIndex + 1} of ${name}`} aria-pressed={index === photoIndex}
               className={`aspect-square w-16 shrink-0 overflow-hidden rounded-lg border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:w-full ${index === photoIndex ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photo(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
+              <img src={publicPhotoUrl(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
             </button>)}
           </div>
         </div>
@@ -124,7 +190,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
         <div className="flex w-full max-w-6xl items-center justify-center gap-2 sm:gap-4">
           {images.length > 1 && <button type="button" onClick={() => setIndex((i) => (i - 1 + images.length) % images.length)} aria-label="Previous photo" className="shrink-0 rounded-full bg-white/10 p-2 hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white"><ChevronLeft className="h-6 w-6" aria-hidden="true" /></button>}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photo(selected)} alt={`${name}, enlarged photo ${index + 1} of ${images.length}`} className="max-h-[80vh] min-w-0 max-w-full rounded-lg object-contain" />
+          <img src={publicPhotoUrl(selected)} alt={`${name}, enlarged photo ${index + 1} of ${images.length}`} className="max-h-[80vh] min-w-0 max-w-full rounded-lg object-contain" />
           {images.length > 1 && <button type="button" onClick={() => setIndex((i) => (i + 1) % images.length)} aria-label="Next photo" className="shrink-0 rounded-full bg-white/10 p-2 hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white"><ChevronRight className="h-6 w-6" aria-hidden="true" /></button>}
         </div>
         <p className="mt-3 text-xs text-white/80">Photo {index + 1} / {images.length} · Escape to close · Arrow keys to browse</p>

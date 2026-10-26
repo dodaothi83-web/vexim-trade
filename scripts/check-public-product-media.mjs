@@ -1,5 +1,6 @@
 // node scripts/check-public-product-media.mjs — mocked storage/DB, no network.
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
@@ -18,6 +19,7 @@ const store = {
 const exports = {};
 const mocks = {
   'next/server': { NextResponse: class extends Response {} },
+  'node:crypto': { createHash },
   '@/lib/media/storage': { getObject: async () => { downloads++; return { data: new Uint8Array([255, 216, 255, 1]) }; } },
   '@/lib/db': { getStore: () => store },
   '@/lib/media/readiness': { isExpired: (a) => a.status === 'expired' },
@@ -28,7 +30,8 @@ const mocks = {
   },
 };
 vm.runInNewContext(code, { exports, require: (key) => mocks[key], Response, Uint8Array, Headers, process: { env: {} } });
-const get = (path = ['products', 'prod-1', 'photo.jpg']) => exports.GET(new Request('https://test.local'), { params: Promise.resolve({ path }) });
+const get = (path = ['products', 'prod-1', 'photo.jpg'], headers = {}) =>
+  exports.GET(new Request('https://test.local', { headers }), { params: Promise.resolve({ path }) });
 assert.equal((await get()).status, 200);
 assert.equal(downloads, 1);
 asset = { ...asset, thumb_path: 'products/prod-1/photo-thumb.webp' };
@@ -52,4 +55,22 @@ product = { ...product, name: 'Cashew W320' }; supplier = { ...supplier, status:
 assert.equal((await get(['products', 'prod-1', 'document.pdf'])).status, 404);
 assert.equal((await get(['products', 'prod-1', 'photo,or(stuff).jpg'])).status, 404);
 assert.equal(downloads, 2, 'Disallowed assets must never be fetched from storage');
+
+// ---- Hiệu năng gallery: ETag/304 + đệm byte trong-process ----
+asset = { ...asset, audience: 'buyer', status: 'checked', kind: 'image', owner_type: 'product' };
+product = { supplier_id: 'sup-1', ready_for_buyer: true, name: 'Cashew W320', supplier_originated: false, supplier_review_status: null };
+supplier = { status: 'published', is_demo: false };
+const cached = await get();
+assert.equal(cached.status, 200);
+assert.equal(downloads, 2, 'Xem lại ảnh đã phục vụ: đệm trong-process thay vì gọi Storage lại');
+const etag = cached.headers.get('etag');
+assert.ok(etag, 'ETag phải có để trình duyệt xác nhận lại bằng 304');
+assert.equal(cached.headers.get('cache-control'), 'private, max-age=60, must-revalidate',
+  'Ảnh qua ACL: browser cache 60 giây rồi bắt buộc xác nhận lại — thu hồi vẫn áp dụng');
+assert.equal((await get(['products', 'prod-1', 'photo.jpg'], { 'if-none-match': etag })).status, 304,
+  'ETag khớp → 304, không chảy byte nào khi đổi qua lại giữa các ảnh');
+assert.equal((await get(['products', 'prod-1', 'photo.jpg'], { 'if-none-match': '"khac-nhau"' })).status, 200);
+assert.equal(downloads, 2, 'Cả 304 lẫn 200-từ-đệm đều không chạm Storage');
+asset = { ...asset, audience: 'internal' };
+assert.equal((await get()).status, 404, 'Thu hồi quyền vẫn thắng bộ đệm: ACL chạy trước khi tra ETag/byte');
 console.log('✅ Product images are public only for buyer-shareable media of a ready product and published supplier.');
