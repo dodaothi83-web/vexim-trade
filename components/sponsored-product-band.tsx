@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { PublicProductCard } from "@/components/public-product-card";
 import { useCookieConsent } from "@/components/cookie-consent";
 import type { SponsoredBandItem } from "@/lib/public/sponsored-band";
+import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
 /**
  * Vùng đẩy sản phẩm: tối đa ba thẻ, nằm trên lưới tự nhiên, luôn có nhãn nhìn
@@ -24,6 +25,12 @@ export function SponsoredProductBand({ items, categorySlug, comparisonEnabled = 
   categorySlug: string;
   comparisonEnabled?: boolean;
 }) {
+  const comparisonOffers = items.map(({ product }) => ({
+    id: product.id, supplierId: product.supplierId, categorySlug, isDemo: product.isDemo,
+  }));
+  const comparableProductIds = new Set(comparisonOffers.filter((product) =>
+    hasProductComparisonPeer(comparisonOffers, product)
+  ).map((product) => product.id));
   if (items.length === 0) return null;
   return (
     <section aria-label="Sponsored products" className="mb-5 rounded-xl border border-amber-200 bg-amber-50/60 p-3 sm:p-4">
@@ -37,7 +44,8 @@ export function SponsoredProductBand({ items, categorySlug, comparisonEnabled = 
       </div>
       <div className="mt-3 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
         {items.map((item) => (
-          <SponsoredBandCard key={item.push.id} item={item} categorySlug={categorySlug} comparisonEnabled={comparisonEnabled} />
+          <SponsoredBandCard key={item.push.id} item={item} categorySlug={categorySlug}
+            comparisonEnabled={comparisonEnabled && comparableProductIds.has(item.product.id)} />
         ))}
       </div>
     </section>

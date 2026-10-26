@@ -112,7 +112,6 @@ export default async function SupplierStorefrontPreviewPage() {
       synthetic={synthetic}
       productLinks={published}
       rfqActions={false}
-      comparisonEnabled={false}
       nameTag="h2"
       coverAction={<SupplierPhotoButton kind="cover" hasImage={!!coverUrl}
         className="absolute right-4 bottom-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />}

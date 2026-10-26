@@ -10,6 +10,27 @@ export interface ProductComparisonSelection {
 
 export type ProductComparisonToggleResult = "added" | "removed" | "limit" | "invalid";
 
+export interface ProductComparisonPeer {
+  id: string;
+  supplierId: string;
+  categorySlug: string;
+  isDemo?: boolean;
+}
+
+/** A checkbox is useful only when the visible context offers a real cross-supplier alternative. */
+export function hasProductComparisonPeer(
+  products: readonly ProductComparisonPeer[],
+  candidate: ProductComparisonPeer,
+): boolean {
+  if (candidate.isDemo || !candidate.categorySlug) return false;
+  return products.some((product) =>
+    product.id !== candidate.id &&
+    product.categorySlug === candidate.categorySlug &&
+    product.supplierId !== candidate.supplierId &&
+    !product.isDemo
+  );
+}
+
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,99}$/i;
 
 export function parseComparisonIds(raw: string | undefined, limit: number): string[] {

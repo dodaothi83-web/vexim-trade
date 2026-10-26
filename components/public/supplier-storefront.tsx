@@ -46,7 +46,7 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
  */
 export function SupplierStorefront({
   supplier: s, certificates, categories, coverUrl, avatarUrl, synthetic,
-  productLinks = true, rfqActions = true, comparisonEnabled = true, coverAction, avatarAction, verificationActions, nameTag = "h1",
+  productLinks = true, rfqActions = true, coverAction, avatarAction, verificationActions, nameTag = "h1",
 }: {
   supplier: PublicSupplierCard;
   certificates: PublicSupplierCertificate[];
@@ -58,8 +58,6 @@ export function SupplierStorefront({
   productLinks?: boolean;
   /** Tắt nút gửi RFQ ở bản xem trước của chính nhà cung cấp. */
   rfqActions?: boolean;
-  /** Only buyer-facing public storefronts expose comparison selection. */
-  comparisonEnabled?: boolean;
   coverAction?: ReactNode;
   avatarAction?: ReactNode;
   /**
@@ -298,8 +296,7 @@ export function SupplierStorefront({
               supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
               quoteHref={productLinks && rfqActions && !synthetic && category ? `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(productName)}&product_id=${encodeURIComponent(p.id)}` : undefined}
               oem={p.oem} odm={p.odm} samples={p.samples}
-              verificationSteps={steps} test={synthetic} linkable={productLinks}
-              comparison={comparisonEnabled && productLinks && !synthetic && category ? { id: p.id, categorySlug: category.slug } : undefined} />
+              verificationSteps={steps} test={synthetic} linkable={productLinks} />
           </li>;
         })}
       </ul> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>{statedProducts && !synthetic

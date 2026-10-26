@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   MAX_PRODUCT_COMPARISONS,
+  hasProductComparisonPeer,
   normalizeProductComparisonSelection,
   parseComparisonIds,
   productComparisonHref,
@@ -92,6 +93,24 @@ const normalized = normalizeProductComparisonSelection([
 assert.equal(normalized.length, 1);
 assert.equal(normalized[0].href, "/products/cashew/a", "Persisted URLs are rebuilt, never trusted");
 assert.deepEqual(normalizeProductComparisonSelection("not an array"), []);
+
+/* ---------- Contextual checkbox visibility ---------- */
+
+const peer = (id, supplierId, categorySlug = "cashew", extra = {}) => ({ id, supplierId, categorySlug, ...extra });
+const singleOffer = [peer("a", "A")];
+assert.equal(hasProductComparisonPeer(singleOffer, singleOffer[0]), false, "A standalone product has nothing to compare");
+const sameSupplierOffers = [peer("a", "A"), peer("b", "A")];
+assert.equal(hasProductComparisonPeer(sameSupplierOffers, sameSupplierOffers[0]), false,
+  "A supplier-only catalogue does not offer cross-supplier comparison");
+const mixedSupplierOffers = [peer("a", "A"), peer("b", "B")];
+assert.equal(hasProductComparisonPeer(mixedSupplierOffers, mixedSupplierOffers[0]), true);
+assert.equal(hasProductComparisonPeer(mixedSupplierOffers, mixedSupplierOffers[1]), true);
+const crossCategoryOffers = [peer("a", "A"), peer("b", "B", "rice")];
+assert.equal(hasProductComparisonPeer(crossCategoryOffers, crossCategoryOffers[0]), false,
+  "A different category is not a meaningful alternative");
+const demoPeerOffers = [peer("a", "A"), peer("b", "B", "cashew", { isDemo: true })];
+assert.equal(hasProductComparisonPeer(demoPeerOffers, demoPeerOffers[0]), false, "Demo products cannot create a comparison peer");
+assert.equal(hasProductComparisonPeer(mixedSupplierOffers, { ...mixedSupplierOffers[0], isDemo: true }), false);
 
 /* ---------- Truthful comparison warnings ---------- */
 
@@ -326,16 +345,21 @@ const actions = readFileSync(new URL("../components/product-comparison-actions.t
 const urlToSelectionEffect = actions.slice(actions.indexOf("useEffect(() => {", actions.indexOf("// URL -> selection")), actions.indexOf("// On an empty compare URL"));
 assert.doesNotMatch(urlToSelectionEffect, /localSignature/, "A pending removal cannot reapply old URL props");
 const portalPreview = readFileSync(new URL("../app/supplier/portal/storefront/page.tsx", import.meta.url), "utf8");
-assert.match(portalPreview, /comparisonEnabled={false}/, "Supplier-portal previews never expose buyer selection");
+assert.doesNotMatch(portalPreview, /comparisonEnabled|comparison=/, "Supplier-portal previews never expose buyer selection");
 for (const file of [
   "../components/category-product-grid.tsx",
   "../components/home-product-feed.tsx",
-  "../components/public/supplier-storefront.tsx",
   "../components/sponsored-product-band.tsx",
   "../app/(public)/products/[slug]/[productId]/page.tsx",
 ]) {
   const source = readFileSync(new URL(file, import.meta.url), "utf8");
-  assert.match(source, /comparison=/, `${file} exposes the comparison control on public offers`);
+  assert.match(source, /hasProductComparisonPeer/, `${file} checks for a real alternative before showing comparison`);
 }
+const supplierStorefront = readFileSync(new URL("../components/public/supplier-storefront.tsx", import.meta.url), "utf8");
+assert.doesNotMatch(supplierStorefront, /comparisonEnabled|comparison=/, "A single-supplier catalogue has no comparison checkboxes");
+const productDetailPage = readFileSync(new URL("../app/(public)/products/[slug]/[productId]/page.tsx", import.meta.url), "utf8");
+assert.doesNotMatch(productDetailPage, /ProductMediaGallery[^>]*comparison=/, "A standalone product gallery has no comparison checkbox");
+const gallery = readFileSync(new URL("../components/product-media-gallery.tsx", import.meta.url), "utf8");
+assert.doesNotMatch(gallery, /ProductCompareCheckbox|comparison/, "The shared gallery no longer owns comparison selection");
 
-console.log("✅ Product comparison: max 3, dedupe, image checkbox, safe public data, warnings, share links and independent supplier checks.");
+console.log("✅ Product comparison: contextual checkbox, max 3, dedupe, safe public data, warnings, share links and independent supplier checks.");

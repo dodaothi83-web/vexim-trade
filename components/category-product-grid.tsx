@@ -14,6 +14,7 @@ import { fieldsFor } from "@/lib/product-attributes";
 import type { PilotPlacement } from "@/lib/sponsored/pilot";
 import { withoutSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
+import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
 function moqGroup(value: string): string {
   const text = value.toLowerCase();
@@ -68,6 +69,9 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     () => arrangeSupplierProducts(listPool, active ? null : supplierCap),
     [listPool, active, supplierCap],
   );
+  const comparisonOffers = useMemo(() => visible.map((product) => ({
+    id: product.id, supplierId: product.supplierId, categorySlug, isDemo: product.isDemo,
+  })), [visible, categorySlug]);
   const reset = () => { setSelectedAttributes({}); setSelectedGrades([]); setMoq(""); setProvince(""); setVerified(0); };
   const fields = <div className="space-y-5 text-sm">
     {attributeFilters.filter((field) => !field.showWhen || !selectedAttributes[field.showWhen.key] ||
@@ -144,7 +148,9 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
               quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}
               oem={p.oem} odm={p.odm} samples={p.samples}
               verificationSteps={p.verificationSteps} test={p.isDemo}
-              comparison={comparisonEnabled && !p.isDemo ? { id: p.id, categorySlug } : undefined} />
+              comparison={comparisonEnabled && hasProductComparisonPeer(comparisonOffers, {
+                id: p.id, supplierId: p.supplierId, categorySlug, isDemo: p.isDemo,
+              }) ? { id: p.id, categorySlug } : undefined} />
           </div>)}
         </div> : <div className="rounded-xl border border-ink-200 bg-white p-8 text-center">
           <h3 className="font-bold text-ink-900">No products match these filters</h3>

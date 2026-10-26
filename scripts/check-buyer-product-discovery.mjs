@@ -16,6 +16,7 @@ import * as productAttributes from '../lib/product-attributes.ts';
 import * as productDetailDisplay from '../lib/public/product-detail-display.ts';
 import { HOME_HERO_LINE } from '../lib/public/meta-copy.ts';
 import { buildPopularSearches } from '../lib/public/popular-searches.ts';
+import { hasProductComparisonPeer } from '../lib/public/product-comparison.ts';
 import { approvedPublicReviewSummaries, approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from '../lib/verification-status.ts';
 
 const compile = (path, mocks) => {
@@ -366,7 +367,18 @@ const { HomeProductFeed } = compile('../components/home-product-feed.tsx', {
   'lucide-react': require('lucide-react'),
   '@/components/public-product-card': { PublicProductCard },
   '@/lib/public/supplier-product-order': { feedPerPage, HOME_FEED_PER_PAGE, HOME_FEED_WIDE_QUERY },
+  '@/lib/public/product-comparison': { hasProductComparisonPeer },
 });
+const feedOffer = (id, categorySlug = 'cashew') => ({ ...cards.find((product) => product.id === id), categorySlug });
+const renderOfferFeed = (items) => renderToStaticMarkup(React.createElement(HomeProductFeed, { items, perPage: 15 }));
+assert.doesNotMatch(renderOfferFeed([feedOffer('a0')]), /to comparison/, 'A one-product feed has no comparison checkbox');
+assert.doesNotMatch(renderOfferFeed([feedOffer('a0'), feedOffer('a1')]), /to comparison/,
+  'A feed with only one supplier has no comparison checkbox');
+assert.doesNotMatch(renderOfferFeed([feedOffer('a0'), feedOffer('b0', 'rice')]), /to comparison/,
+  'Products from different categories are not presented as direct alternatives');
+const mixedSupplierFeed = renderOfferFeed([feedOffer('a0'), feedOffer('b0')]);
+assert.equal((mixedSupplierFeed.match(/to comparison/g) ?? []).length, 2,
+  'Two same-category suppliers make both comparison checkboxes available');
 const { default: HomeContent } = compile('../app/(public)/home.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/image': { default: ({ src, alt, ...props }) => React.createElement('img', { src, alt, className: props.className }) },
