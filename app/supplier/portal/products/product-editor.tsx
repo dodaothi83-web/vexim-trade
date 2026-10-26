@@ -692,7 +692,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
               </> : <p className="rounded-lg bg-ink-50 px-3.5 py-3 text-[12.5px] text-ink-600">
                 {!product ? "Lưu thông tin sản phẩm trước để mở chức năng tải tệp." : dirty ? "Lưu thay đổi nội dung trước khi tải tệp để không mất phần đang nhập." : "Tạm khoá tải tệp trong khi chờ duyệt."}
               </p>}
-              {(progress || uploadResult) && <p role="status" className={`text-[12.5px] font-semibold ${uploadResult && /không|quá|lỗi|tối đa/i.test(uploadResult) ? "text-rose-700" : "text-brand-800"}`}>{progress || uploadResult}</p>}
+              {(progress || uploadResult) && <p role="status" className={`text-[12.5px] font-semibold break-words ${uploadResult && /không|quá|lỗi|tối đa/i.test(uploadResult) ? "text-rose-700" : "text-brand-800"}`}>{progress || uploadResult}</p>}
             </div>
           </div>
         </section>

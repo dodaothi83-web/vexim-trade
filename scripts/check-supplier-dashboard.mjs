@@ -281,4 +281,23 @@ assert.equal(createdRfqs.at(-1).source_product_id, null, 'Other supplier cannot 
 
 const productPage = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 assert.match(productPage, /product_id=\$\{encodeURIComponent\(card\.id\)\}/);
+
+// ---- Mobile: không trang nào của cổng NCC được tràn lề ngang ----
+// Audit thật trên 14 trang portal (kèm email/website dài 112+ ký tự) chỉ thấy tràn
+// ở 2 component dùng chung; chốt không cho hồi quy.
+const pageHeader = fs.readFileSync(new URL('../components/page-header.tsx', import.meta.url), 'utf8');
+assert.match(pageHeader, /mt-1 text-\[13px\] break-words/, 'Phụ đề PageHeader (thường là email) phải ngắt dòng được');
+assert.match(pageHeader, /leading-tight font-black tracking-tight break-words/, 'Tiêu đề trang phải ngắt dòng được');
+const portalUi = fs.readFileSync(new URL('../app/supplier/portal/portal-ui.tsx', import.meta.url), 'utf8');
+assert.match(portalUi, /Info[\s\S]{0,400}break-words/, 'Info (email/website hồ sơ) phải break-words + min-w-0');
+assert.match(portalUi, /Info[\s\S]{0,400}min-w-0/, 'Info nằm trong flex/grid cần min-w-0 để con co được');
+const editor = fs.readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
+assert.match(editor, /font-semibold break-words/, 'Dòng trạng thái upload (chứa tên file dài) phải break-words');
+const rfqsPage = fs.readFileSync(new URL('../app/supplier/portal/rfqs/page.tsx', import.meta.url), 'utf8');
+assert.match(rfqsPage, /overflow-x-auto[\s\S]{0,120}<table/, 'Bảng RFQ phải nằm trong wrapper cuộn ngang trên mobile');
+const trafficPage = fs.readFileSync(new URL('../app/supplier/portal/traffic/page.tsx', import.meta.url), 'utf8');
+assert.match(trafficPage, /overflow-x-auto[\s\S]{0,120}<table/, 'Bảng lượt xem phải nằm trong wrapper cuộn ngang trên mobile');
+const sidebar = fs.readFileSync(new URL('../components/supplier-sidebar.tsx', import.meta.url), 'utf8');
+assert.match(sidebar, /hidden w-60[\s\S]{0,200}lg:flex/, 'Sidebar cố định chỉ hiện từ lg; mobile dùng drawer');
+assert.match(sidebar, /fixed inset-0 z-50 lg:hidden/, 'Mobile có drawer phủ toàn màn hình, không tràn');
 console.log('✅ Supplier dashboard: isolation, anonymous invitations, honest metrics, read receipts, verified outreach and migration gate.');

@@ -102,7 +102,8 @@ export function PortalSteps({ stages }: { stages: { label: string; state: "done"
   </ol>;
 }
 
-/** Cặp nhãn và giá trị trong hồ sơ doanh nghiệp. */
+/** Cặp nhãn và giá trị trong hồ sơ doanh nghiệp. Giá trị có thể là email/website
+ *  dài không có khoảng trắng — break-words để không tràn lề trên mobile. */
 export function Info({ label, value }: { label: string; value?: string | null }) {
-  return <div><dt className="text-[11px] font-semibold text-ink-500">{label}</dt><dd className="mt-0.5 text-[13px] text-ink-900">{value || "-"}</dd></div>;
+  return <div className="min-w-0"><dt className="text-[11px] font-semibold text-ink-500">{label}</dt><dd className="mt-0.5 text-[13px] break-words text-ink-900">{value || "-"}</dd></div>;
 }
