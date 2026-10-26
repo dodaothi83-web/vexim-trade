@@ -7,6 +7,7 @@ import { listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catal
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
 import { resolveGrade } from "@/lib/public/grade-resolution";
+import { rankPublicCategoryProducts } from "@/lib/public/ranking";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
 import { publicProductMoqDisplay, publicProductPlaceDisplay } from "@/lib/public/product-detail-display";
@@ -112,9 +113,11 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
     if (!byProduct.has(asset.product_id)) byProduct.set(asset.product_id, group);
     group.push(asset);
   }
-  return candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
-    .map((p) => projectPublicCategoryProduct(p, byId.get(p.supplier_id)!, category, byProduct.get(p.id) ?? []))
-    .sort((a, b) => b.verificationCount - a.verificationCount || a.name.localeCompare(b.name));
+  // GĐ1 xếp hạng: hàm thuần lib/public/ranking.ts thay bộ so sánh inline. Mọi trọng số
+  // mặc định bằng 0 nên thứ tự GIỐNG HỆT verificationCount DESC → tên A-Z → thứ tự vào;
+  // bậc xen kẽ NCC (arrangeSupplierProducts) và cổng công khai giữ nguyên chỗ cũ.
+  return rankPublicCategoryProducts(candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
+    .map((p) => projectPublicCategoryProduct(p, byId.get(p.supplier_id)!, category, byProduct.get(p.id) ?? [])));
 }
 
 export interface PublicProductRecord {

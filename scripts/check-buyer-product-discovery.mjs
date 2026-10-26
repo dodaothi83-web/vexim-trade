@@ -116,9 +116,13 @@ const catalogMocks = { 'server-only': {}, '@/lib/db': { getStore: () => store },
   '@/lib/product-attributes': productAttributes,
   '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection, '@/lib/verification-status': { approvedVerificationSteps, approvedPublicReviewSummaries } };
 const catalog = compile('../lib/public/catalog.ts', catalogMocks);
+// GĐ1 xếp hạng: module thuần không import gì nên compile không cần mock; bơm bản thật
+// vào product-catalog để đường xếp hạng mới chạy đúng trong kiểm này.
+const ranking = compile('../lib/public/ranking.ts', {});
 const productCatalog = compile('../lib/public/product-catalog.ts', {
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
   '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
+  '@/lib/public/ranking': ranking,
   '@/lib/public/supplier-seo': { isSyntheticSupplier },
   '@/lib/public/supplier-english': { supplierProvinceDisplay: (s) => s.province || '' },
   '@/lib/public/product-detail-display': productDetailDisplay,
