@@ -7,8 +7,31 @@ export type TurnstileCheck =
   | { ok: false; reason: "missing" | "invalid" | "not_configured" | "unavailable" };
 
 /**
+ * Công tắc tạm thời: `TURNSTILE_DISABLED=true` tắt TOÀN BỘ kiểm tra Turnstile —
+ * widget không render ở mọi form, server không bắt token, kể cả khi đã cấu hình key.
+ * Dành cho sự kiện bảo trì/khẩn cấp (vd challenge của Cloudflare bị chặn theo mạng
+ * khiến người thật không đăng nhập được). Rate limit và các lớp bảo vệ khác VẪN
+ * chạy. Xóa biến (hoặc đặt false) là bật lại ngay — không cần sửa code.
+ */
+export function isTurnstileDisabled(): boolean {
+  return process.env.TURNSTILE_DISABLED?.trim().toLowerCase() === "true";
+}
+
+/**
+ * Site key cho widget phía client. Null khi chưa cấu hình hoặc khi đang tắt tạm —
+ * form khi đó không chặn nút bấm và không hiện vùng kiểm tra.
+ */
+export function turnstileSiteKey(): string | null {
+  if (isTurnstileDisabled()) return null;
+  const key = (process.env.TURNSTILE_SITE_KEY ?? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "").trim();
+  return key || null;
+}
+
+/**
  * Verify a browser token with Cloudflare. Authentication and registration fail
  * closed in production; local development can still run without Turnstile keys.
+ * `TURNSTILE_DISABLED=true` is the only production opt-out — an explicit,
+ * temporary kill switch that keeps every other protection layer active.
  */
 export async function verifyTurnstileToken({
   token,
@@ -19,6 +42,7 @@ export async function verifyTurnstileToken({
   remoteIp?: string | null;
   timeoutMs?: number;
 }): Promise<TurnstileCheck> {
+  if (isTurnstileDisabled()) return { ok: true };
   const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
   if (!secret) return process.env.NODE_ENV === "production"
     ? { ok: false, reason: "not_configured" }

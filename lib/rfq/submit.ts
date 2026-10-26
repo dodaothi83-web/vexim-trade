@@ -26,7 +26,7 @@ import {
 import { createPreferredSupplierMatches } from "./auto-match";
 import { deliverSupplierQuestion, sendSupplierQuestionAckBuyer, sendSupplierQuestionExceptionInternal } from "./supplier-question";
 import { checkSupplierQuestionRateLimit } from "./supplier-question-rate-limit";
-import { verifyTurnstileToken } from "@/lib/security/turnstile";
+import { isTurnstileDisabled, verifyTurnstileToken } from "@/lib/security/turnstile";
 import { gcRateLimit, rateLimit } from "./rate-limit";
 
 export interface SubmitRfqInput {
@@ -121,6 +121,9 @@ function supplierQuestionValidationError(raw: SubmitRfqInput): string | null {
 }
 
 async function verifyTurnstile(token: string | null | undefined, requireConfigured: boolean): Promise<boolean> {
+  // TURNSTILE_DISABLED=true tắt tạm mọi kiểm tra Turnstile (công tắc khẩn cấp tập trung
+  // trong lib/security/turnstile.ts) — rate limit và chấm điểm spam vẫn chạy.
+  if (isTurnstileDisabled()) return true;
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret || secret === "x") {
     // Ordinary quotes keep their existing moderation behavior. A production

@@ -26,7 +26,10 @@ assert.match(widget, /Try again/);
 assert.doesNotMatch(widget, /Troubleshoot/, 'The application does not render Cloudflare\'s default error link');
 assert.match(form, /<TurnstileWidget siteKey=\{turnstileSiteKey\} onChange=\{setTurnstileToken\} \/>/);
 assert.match(form, /turnstile_token: turnstileToken/);
-assert.match(page, /process\.env\.TURNSTILE_SITE_KEY \?\? process\.env\.NEXT_PUBLIC_TURNSTILE_SITE_KEY \?\? null/);
+// Pages read the key through the shared helper so TURNSTILE_DISABLED=true hides the
+// widget everywhere without touching code or deleting keys.
+assert.match(page, /turnstileSiteKey=\{turnstileSiteKey\(\)\}/);
+assert.match(page, /import \{ turnstileSiteKey \} from "@\/lib\/security\/turnstile";/);
 
 const loginForm = fs.readFileSync(new URL('../components/login-form.tsx', import.meta.url), 'utf8');
 const loginPage = fs.readFileSync(new URL('../app/(auth)/login/page.tsx', import.meta.url), 'utf8');
@@ -46,9 +49,12 @@ assert.match(signupForm, /form\.set\("turnstile_token", turnstileToken\)/);
 assert.match(setupForm, /setupAdminAction\(email, name, password, password2, turnstileToken\)/);
 assert.match(serviceForm, /formData\.set\("turnstile_token", turnstileToken\)/);
 assert.match(serviceForm, /name="website_hp"/);
-for (const source of [loginPage, signupPage, setupPage, home]) {
-  assert.match(source, /process\.env\.TURNSTILE_SITE_KEY \?\? process\.env\.NEXT_PUBLIC_TURNSTILE_SITE_KEY \?\? null/);
+for (const [name, source] of [['login page', loginPage], ['supplier signup page', signupPage], ['admin setup page', setupPage], ['home service form', home]]) {
+  assert.match(source, /turnstileSiteKey=\{turnstileSiteKey\(\)\}/, `${name} reads the key through the shared helper`);
 }
+const turnstileLib = fs.readFileSync(new URL('../lib/security/turnstile.ts', import.meta.url), 'utf8');
+assert.match(turnstileLib, /TURNSTILE_DISABLED/, 'A temporary kill switch can disable the challenge via env alone');
+assert.match(turnstileLib, /if \(isTurnstileDisabled\(\)\) return \{ ok: true \};/, 'The switch is checked before anything else in verification');
 
 // Server rendering must start with an owned loading state, not a Cloudflare error.
 const output = ts.transpileModule(widget, {

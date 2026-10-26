@@ -21,6 +21,7 @@ import { Logo } from "@/components/brand-logo";
 import { PlatformLegalStrip } from "@/components/platform-legal-strip";
 import { SocialLinks } from "@/components/social-links";
 import type { Category } from "@/lib/types";
+import { turnstileSiteKey } from "@/lib/security/turnstile";
 
 /** Ảnh placeholder khi category chưa upload hero_image */
 const FALLBACK_HERO = "/images/home/hero-cashew-texture.jpg";
@@ -706,7 +707,7 @@ export default async function HomeContent({
          ===================================================================== */}
       <ServiceRegistrationSection
         lang={lang}
-        turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null}
+        turnstileSiteKey={turnstileSiteKey()}
       />
 
       {/* =====================================================================

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
+import { turnstileSiteKey } from "@/lib/security/turnstile";
 import { SupplierAccountForm } from "./supplier-account-form";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export default async function SupplierRegisterPage({ searchParams }: { searchPar
     <h1 className="mt-2 text-xl font-black text-ink-900">Tạo tài khoản</h1>
     <p className="mt-2 text-sm leading-6 text-ink-600">Đăng ký bằng email hoặc Google. Sau khi đăng nhập, bạn khai hồ sơ doanh nghiệp trong cổng nhà cung cấp để được duyệt. Trong lúc chờ, chưa có quyền quản lý sản phẩm hoặc xem RFQ.</p>
     {oauth && oauthMessages[oauth] && <p role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{oauthMessages[oauth]}</p>}
-    <SupplierAccountForm turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null} />
+    <SupplierAccountForm turnstileSiteKey={turnstileSiteKey()} />
     <p className="mt-5 text-center text-xs text-ink-600">Đã có tài khoản? <Link href="/login" className="font-semibold text-brand-700 underline">Đăng nhập ở form chung</Link></p>
   </>;
 }

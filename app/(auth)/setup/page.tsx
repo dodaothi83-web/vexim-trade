@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { supabaseAuthReachable } from "@/lib/auth/authenticate";
+import { turnstileSiteKey } from "@/lib/security/turnstile";
 import { SetupForm } from "@/components/setup-form";
 
 export const dynamic = "force-dynamic";
@@ -66,7 +67,7 @@ export default async function SetupPage() {
         )}
       </p>
 
-      <SetupForm turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null} />
+      <SetupForm turnstileSiteKey={turnstileSiteKey()} />
 
       <p className="mt-4 text-center text-[12px] text-ink-500">
         Đã có tài khoản rồi?{" "}

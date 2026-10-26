@@ -56,6 +56,23 @@ deepEqual(await turnstile.verifyTurnstileToken({ token: 'token' }), { ok: false,
 const developmentTurnstile = run('../lib/security/turnstile.ts', {}, { process: { env: { NODE_ENV: 'development' } } });
 deepEqual(await developmentTurnstile.verifyTurnstileToken({ token: '' }), { ok: true });
 
+// TURNSTILE_DISABLED=true — công tắc tạm: pass ở production NGAY CẢ khi đã cấu hình key,
+// không gọi Cloudflare, và widget biến mất khỏi mọi form.
+const fetchesBeforeSwitch = fetchCalls.length;
+turnstileEnv.TURNSTILE_SECRET_KEY = 'server-secret';
+turnstileEnv.TURNSTILE_DISABLED = 'true';
+deepEqual(await turnstile.verifyTurnstileToken({ token: 'token' }), { ok: true });
+deepEqual(await turnstile.verifyTurnstileToken({ token: '' }), { ok: true });
+assert.equal(fetchCalls.length, fetchesBeforeSwitch, 'Kill switch skips the Cloudflare verify call entirely');
+assert.equal(turnstile.turnstileSiteKey(), null, 'Widget is hidden on every form while the switch is on');
+delete turnstileEnv.TURNSTILE_DISABLED;
+deepEqual(await turnstile.verifyTurnstileToken({ token: '' }), { ok: false, reason: 'missing' }, 'Removing the switch restores the production challenge');
+assert.equal(turnstile.turnstileSiteKey(), null, 'No site key configured in this env');
+turnstileEnv.TURNSTILE_SITE_KEY = 'site-key-1';
+assert.equal(turnstile.turnstileSiteKey(), 'site-key-1', 'Helper returns the configured key once the switch is off');
+delete turnstileEnv.TURNSTILE_SITE_KEY;
+delete turnstileEnv.TURNSTILE_SECRET_KEY;
+
 // Shared local + distributed limiter policies use hashes and safe degradation.
 const redisCalls = [];
 const redisConfigs = [];
