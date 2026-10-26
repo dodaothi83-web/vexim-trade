@@ -212,7 +212,14 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   useEffect(() => {
     if (baselineSeeded.current) return;
     baselineSeeded.current = true;
-    setBaseline(snapshotFromForm(formRef.current, snapshotFrom(product)));
+    // Gieo CẢ snapshot lẫn baseline từ chính form vừa render để hai bản luôn cùng bộ khoá.
+    // Trước đây chỉ gieo baseline từ form (chứa thêm supplier_category_proposal,
+    // attribute_pool...) còn snapshot chỉ có khoá của snapshotFrom(product) → hai bản
+    // khác khoá → dirty = true ngay khi mở lại sản phẩm đã lưu dù chưa sửa gì, khiến
+    // bước 1 hiện "Lưu thay đổi" và việc chuyển bước tự động lưu một lần nữa.
+    const initial = snapshotFromForm(formRef.current, snapshotFrom(product));
+    setSnapshot(initial);
+    setBaseline(initial);
   }, []);
 
   // Thông báo tự ẩn: thành công 4.5 giây, lỗi ở lại 8 giây để kịp đọc.
