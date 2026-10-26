@@ -23,8 +23,8 @@ for (const page of [privacy, terms]) {
   assert.match(page, /robots: \{ index: true, follow: true \}/);
 }
 assert.doesNotMatch(legalLayout, /getStore|requireSession|listCategories/, 'Legal pages must not depend on auth or the database');
-assert.match(middleware, /LEGAL_PATHS = new Set\(\["\/privacy-policy", "\/terms-of-service", "\/thong-tin-chu-quan", "\/quy-che-hoat-dong", "\/dieu-khoan-su-dung", "\/chinh-sach-bao-mat", "\/khieu-nai"\]\)/);
-assert.match(robots, /allow: \["\/\$", "\/privacy-policy", "\/terms-of-service", "\/thong-tin-chu-quan", "\/quy-che-hoat-dong", "\/dieu-khoan-su-dung", "\/chinh-sach-bao-mat", "\/khieu-nai"\]/);
+assert.match(middleware, /LEGAL_PATHS = new Set\(\["\/privacy-policy", "\/cookie-policy", "\/terms-of-service", "\/thong-tin-chu-quan", "\/quy-che-hoat-dong", "\/dieu-khoan-su-dung", "\/chinh-sach-bao-mat", "\/khieu-nai"\]\)/);
+assert.match(robots, /allow: \["\/\$", "\/privacy-policy", "\/cookie-policy", "\/terms-of-service", "\/thong-tin-chu-quan", "\/quy-che-hoat-dong", "\/dieu-khoan-su-dung", "\/chinh-sach-bao-mat", "\/khieu-nai"\]/);
 assert.match(sitemap, /url: `\$\{SITE_URL\}\/privacy-policy`/);
 assert.match(sitemap, /url: `\$\{SITE_URL\}\/terms-of-service`/);
 for (const route of ["thong-tin-chu-quan", "quy-che-hoat-dong", "dieu-khoan-su-dung", "chinh-sach-bao-mat", "khieu-nai"]) {

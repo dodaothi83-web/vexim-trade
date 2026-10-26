@@ -8,12 +8,9 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <div className="w-full max-w-md">
         <div className="mb-5 flex items-center gap-3">
           <Logo tone="white" className="h-20 w-20" />
-          <div>
-            <p className="text-[17px] leading-tight font-black tracking-tight text-white">
-              VEXIM TRADE
-            </p>
-            <p className="text-[12px] text-brand-200/80">Cổng nhân viên &amp; nhà cung cấp</p>
-          </div>
+          <p className="text-[17px] leading-tight font-black tracking-tight text-white">
+            VEXIM TRADE
+          </p>
         </div>
         <div className="card p-6 shadow-pop">{children}</div>
         <nav aria-label="Legal information" className="mt-5 flex justify-center gap-5 text-xs font-medium text-brand-100">

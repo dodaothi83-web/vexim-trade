@@ -13,40 +13,34 @@ export const metadata = { title: "Đăng nhập" };
 /** Lời giải thích khi bị đưa về /login dù cookie phiên vẫn còn */
 const REASON_BOX: Record<string, { title: string; body: React.ReactNode }> = {
   not_found: {
-    title: "Phiên đăng nhập hợp lệ nhưng không tìm thấy tài khoản trong bảng app_users",
+    title: "Không tìm thấy tài khoản của bạn",
     body: (
       <>
-        Hai khả năng thường gặp:
-        <ul className="mt-1 ml-4 list-disc space-y-1">
-          <li>
-            Máy chủ đang kết nối Supabase bằng <strong>khoá anon</strong> trong khi bảng{" "}
-            <code>app_users</code> bật <strong>Row Level Security</strong>. RLS ẩn dòng chứ không báo
-            lỗi, nên app tưởng tài khoản không tồn tại. Cách sửa: thêm{" "}
-            <code>SUPABASE_SERVICE_ROLE_KEY</code> vào biến môi trường rồi khởi động lại app. Chính
-            sách RLS kiểu “người dùng đã đăng nhập chỉ xem hồ sơ của mình” <strong>không áp dụng cho
-            máy chủ app</strong> — máy chủ luôn truy vấn bằng khoá của app.
-          </li>
-          <li>Tài khoản vừa bị xoá hoặc email trong bảng app_users khác với email đang đăng nhập.</li>
-        </ul>
+        Phiên đăng nhập còn hiệu lực nhưng tài khoản không còn trong hệ thống (bị xóa hoặc đổi email).
+        Hãy đăng nhập lại; nếu vẫn không được, liên hệ quản trị viên Vexim.
+        <AdminHint text="Nếu vừa đổi cấu hình: RLS trên bảng app_users chặn khoá anon cũng gây đúng lỗi này — thêm SUPABASE_SERVICE_ROLE_KEY." />
       </>
     ),
   },
   locked: {
-    title: "Tài khoản đã bị tạm khoá",
-    body: <>Nhờ quản trị viên mở khoá trong Cài đặt → Người dùng &amp; phân quyền.</>,
+    title: "Tài khoản đã bị tạm khóa",
+    body: <>Vui lòng liên hệ quản trị viên Vexim để được mở khóa.</>,
   },
   unreadable: {
-    title: "Máy chủ không đọc được bảng app_users",
+    title: "Máy chủ tạm thời không đọc được dữ liệu tài khoản",
     body: (
       <>
-        Thường là do bảng <code>app_users</code> bật Row Level Security nhưng khoá Supabase đang dùng
-        không bỏ qua được RLS. Thêm <code>SUPABASE_SERVICE_ROLE_KEY</code> (khoá service_role,{" "}
-        <strong>không phải anon</strong>) vào biến môi trường rồi khởi động lại app. Đừng tắt RLS để
-        dùng khoá anon — bảng này giữ mật khẩu đã băm.
+        Vui lòng thử lại sau ít phút. Nếu vẫn lỗi, liên hệ quản trị viên Vexim.
+        <AdminHint text="Kiểm tra SUPABASE_SERVICE_ROLE_KEY (khoá service_role, không phải anon). Đừng tắt RLS để dùng khoá anon — bảng này giữ mật khẩu đã băm." />
       </>
     ),
   },
 };
+
+/** Gợi ý kỹ thuật dành cho quản trị viên — chữ nhỏ, màu nhạt, chỉ hiện trong hộp lỗi. */
+function AdminHint({ text }: { text: string }) {
+  return <p className="mt-1.5 text-[11.5px] leading-relaxed text-red-700/70">Quản trị viên: {text}</p>;
+}
 
 export default async function LoginPage({
   searchParams,
@@ -59,7 +53,7 @@ export default async function LoginPage({
   const sp = await searchParams;
   const reason = REASON_BOX[sp.reason ?? ""];
   const oauthMessage: Record<string, string> = {
-    unavailable: "Chưa cấu hình Google OAuth hoặc Supabase; vui lòng đăng nhập bằng mật khẩu.",
+    unavailable: "Đăng nhập bằng Google chưa sẵn sàng — vui lòng dùng email và mật khẩu.",
     origin: "Tên miền này chưa được cấu hình cho Google OAuth. Liên hệ quản trị Vexim.",
     cancelled: "Đăng nhập Google bị hủy hoặc phiên đã hết hạn; vui lòng thử lại.",
     unverified: "Google chưa xác thực email hoặc không trả về danh tính hợp lệ.",
@@ -81,14 +75,12 @@ export default async function LoginPage({
 
   return (
     <>
-      <h1 className="text-[18px] font-black text-ink-900">Đăng nhập</h1>
-      <p className="mt-1 mb-5 text-[12.5px] text-ink-500">
-        {supabaseOk
-          ? needsSetup
-            ? "Xác thực qua Supabase Auth. Hệ thống chưa có tài khoản nào — tạo quản trị viên qua /setup trước khi dùng Google."
-            : "Đăng nhập chung qua Supabase Auth. Tài khoản NCC mới chỉ dùng được dashboard và form hồ sơ; Vexim phải duyệt trước khi mở các chức năng."
-          : "Chưa kết nối được Supabase. Nhân viên có thể dùng mật khẩu nội bộ (dự phòng); tài khoản doanh nghiệp cần Supabase và email đã xác nhận."}
-      </p>
+      <h1 className={`text-[18px] font-black text-ink-900${supabaseOk ? " mb-5" : ""}`}>Đăng nhập</h1>
+      {!supabaseOk && (
+        <p className="mt-1 mb-5 text-[12.5px] text-ink-500">
+          Đăng nhập bằng Google tạm thời không khả dụng — vui lòng dùng email và mật khẩu.
+        </p>
+      )}
 
       {reason && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-red-900">

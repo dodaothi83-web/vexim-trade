@@ -33,6 +33,15 @@ const signupSource = source('../app/api/supplier-signup/route.ts');
 assert.doesNotMatch(signupSource, /createSupplier\(|saveInitialEvidence\(/);
 assert.match(signupSource, /supplier_id: null/);
 assert.match(source('../app/(auth)/login/page.tsx'), /href="\/supplier\/register"/);
+// Trang đăng nhập nói tiếng người dùng, không lộ hạ tầng: không "Supabase Auth",
+// không đoạn văn quy chế; chỉ hiện thông báo ngắn khi Google tạm không dùng được.
+const loginPageSource = source('../app/(auth)/login/page.tsx');
+assert.doesNotMatch(loginPageSource, /Supabase Auth|Row Level Security|Tài khoản NCC mới chỉ dùng được|Vexim phải duyệt trước khi mở/,
+  'Trang đăng nhập không giải thích công nghệ nền hay quy chế phân quyền');
+assert.match(loginPageSource, /Đăng nhập bằng Google tạm thời không khả dụng/,
+  'Khi Google suy giảm vẫn có thông báo ngắn gọn, không nhắc công nghệ');
+assert.doesNotMatch(source('../app/(auth)/layout.tsx'), /Cổng nhân viên/,
+  'Không còn dòng phụ đề hành chính dưới logo');
 assert.match(source('../app/supplier/apply/page.tsx'), /"\/supplier\/register"/);
 
 const register = load('../app/(auth)/supplier/register/page.tsx', {
