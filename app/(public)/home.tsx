@@ -130,7 +130,7 @@ const FAQ_EN = [
   },
   {
     q: "How does Vexim verify suppliers listed on the platform?",
-    a: "Vexim conducts independent reviews across three areas: (1) Business registration documents & automated quality certificate recognition, (2) On-site factory and production floor photo verification with geolocation and verification code, and (3) Export shipment & delivery record checks.",
+    a: "Vexim conducts independent reviews across three areas: (1) Business registration documents & automated quality certificate recognition, (2) Factory verification using production-floor photos with geolocation and a verification code, and (3) Export shipment & delivery record checks.",
   },
   {
     q: "How can a Vietnamese food manufacturer or exporter list products on Vexim Trade?",

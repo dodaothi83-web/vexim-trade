@@ -750,7 +750,7 @@ function VerificationSection() {
         </div>
         <ol className="grid gap-3 sm:grid-cols-3">
           <Level n="01" icon={<ClipboardCheck className="h-5 w-5" />} title="Documents & certificates checked" body="Business registration is reviewed and quality certificates (HACCP, ISO 22000, BRC, Halal, FDA…) are scanned for holder status (Owner or Partner Entity) and validity date." />
-          <Level n="02" icon={<Factory className="h-5 w-5" />} title="Factory & production verified" tone="brand" body="Production facilities, processing lines, warehouse and geolocation evidence are verified against our 9-point factory checklist." />
+          <Level n="02" icon={<Factory className="h-5 w-5" />} title="Factory verification" tone="brand" body="Production facilities, processing lines, warehouse and geolocation evidence are verified against our 9-point factory checklist." />
           <Level n="03" icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history reviewed" body="Shipment and export delivery documents (B/L, customs declaration, packing list) for completed orders are reviewed. A won enquiry alone does not qualify." />
         </ol>
       </div>
@@ -767,7 +767,7 @@ function CtaBlock({ slug, compact }: { slug: string; compact?: boolean }) {
           <h3 className="mt-2 text-[24px] font-bold leading-snug text-ink-900 sm:text-[28px]">Can&apos;t find what you need?</h3>
           <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-ink-700">If nothing on this page fits, tell us the grade, the volume, the destination and the date you need it. We will look at producers who are not listed here and come back with options, each one marked with what we have checked.</p>
           <ul className="mt-4 grid gap-1.5 text-[13.5px] text-ink-700 sm:grid-cols-2">
-            {["Matching grade and specs", "MOQ and price guidance", "Factory visit notes", "Help with samples"].map((it) => (
+            {["Matching grade and specs", "MOQ and price guidance", "Factory verification notes", "Help with samples"].map((it) => (
               <li key={it} className="flex items-start gap-1.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />{it}</li>
             ))}
           </ul>

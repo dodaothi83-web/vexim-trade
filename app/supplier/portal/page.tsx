@@ -63,7 +63,7 @@ export default async function SupplierPortal() {
     </> : <><div className="rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
       <h2 className="text-base font-bold text-amber-950">Hồ sơ đang chờ xác nhận</h2>
       <p className="mt-2 text-sm text-amber-900">Hồ sơ {supplier.name} đã được gửi. Bạn vẫn đăng nhập được để xem trạng thái, nhưng RFQ, thông báo, báo cáo và tải thêm tài liệu sẽ mở sau khi hồ sơ được xác nhận.</p>
-      <p className="mt-3 text-xs text-amber-800">Xác nhận tài khoản không đồng nghĩa duyệt giấy tờ, thăm nhà máy, lịch sử giao hàng hoặc công khai hồ sơ.</p>
+      <p className="mt-3 text-xs text-amber-800">Xác nhận tài khoản không đồng nghĩa duyệt giấy tờ, xác thực nhà máy, lịch sử giao hàng hoặc công khai hồ sơ.</p>
     </div>
     <div className="mt-5"><PortalSteps stages={[
       { label: "Khai hồ sơ", state: "done", note: "Đã gửi" },

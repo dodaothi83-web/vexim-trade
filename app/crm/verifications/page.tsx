@@ -80,7 +80,7 @@ export default async function VerificationsPage({
       ]} />
       <PageHeader
         title="Hàng đợi xác minh NCC"
-        sub="Kiểm tra giấy tờ, thăm nhà máy và lịch sử giao hàng. Một nhân sự đủ quyền có thể kiểm và duyệt; AI chỉ hỗ trợ đối chiếu."
+        sub="Kiểm tra giấy tờ, xác thực nhà máy và lịch sử giao hàng. Một nhân sự đủ quyền có thể kiểm và duyệt; AI chỉ hỗ trợ đối chiếu."
       />
 
       <section className="mt-5 rounded-xl border border-teal-200 bg-teal-50/60 p-4 sm:p-5">
@@ -99,7 +99,7 @@ export default async function VerificationsPage({
         <p className="mt-1 text-sm text-ink-700">NCC chỉ chọn nhu cầu; nhân viên liên hệ sớm để lên kế hoạch, tự thu thập/tải bằng chứng. Không tự duyệt hay cấp nhãn.</p>
         {openRequests.length ? <ul className="mt-4 space-y-2">{openRequests.map((r) => <li key={`${r.supplier_id}-${r.target_level}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
           <div className="min-w-[180px] flex-1"><Link href={`/crm/suppliers/${r.supplier_id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(r.supplier_id)?.name ?? "NCC"}</Link>
-            <p className="mt-0.5 text-xs text-ink-500">{r.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"} · {r.status === "contacted" ? "Đã liên hệ" : "Cần liên hệ"} · {new Date(r.requested_at).toLocaleDateString("vi-VN")}</p></div>
+            <p className="mt-0.5 text-xs text-ink-500">{r.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng"} · {r.status === "contacted" ? "Đã liên hệ" : "Cần liên hệ"} · {new Date(r.requested_at).toLocaleDateString("vi-VN")}</p></div>
           {canInspect && r.status === "requested" && <ContactRequestButton supplierId={r.supplier_id} level={r.target_level} />}
           <Link href={auditHref(r.supplier_id, r.target_level)} className="btn btn-ghost btn-sm">Mở trang đánh giá →</Link>
         </li>)}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có yêu cầu cần xử lý.</p>}

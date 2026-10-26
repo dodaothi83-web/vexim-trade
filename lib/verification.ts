@@ -8,7 +8,7 @@ import { DELIVERY_ITEMS, L1_DOC_ITEMS, L2_VISIT_ITEMS, type AuditEvidenceKey, ty
 
 export const AUDIT_STEPS = [
   { level: 1, path: "documents", title: "Kiểm tra giấy tờ", short: "Giấy tờ", description: "Đối chiếu giấy phép, chứng nhận và bằng chứng đính kèm." },
-  { level: 2, path: "factory", title: "Thăm nhà máy", short: "Nhà máy", description: "Đối chiếu theo danh mục 9 ảnh nhà máy (chuẩn chung với cổng NCC tự gửi); ghi nhận địa chỉ, GPS và hình ảnh thực tế." },
+  { level: 2, path: "factory", title: "Xác thực nhà máy", short: "Nhà máy", description: "Đối chiếu theo danh mục 9 ảnh nhà máy (chuẩn chung với cổng NCC tự gửi); ghi nhận địa chỉ, GPS và hình ảnh thực tế." },
   { level: 3, path: "deliveries", title: "Lịch sử giao hàng", short: "Giao hàng", description: "Đối chiếu một lô hàng đã giao bằng vận đơn và xác nhận giao nhận; RFQ thắng không đủ làm bằng chứng." },
 ] as const;
 
@@ -53,7 +53,7 @@ export function auditHref(supplierId: string, level: number) {
   return step ? `/crm/suppliers/${encodeURIComponent(supplierId)}/audit/${step.path}` : `/crm/suppliers/${encodeURIComponent(supplierId)}`;
 }
 
-/** Ước chừng toạ độ Việt Nam để cảnh báo GPS sai khi thăm nhà máy. */
+/** Ước chừng toạ độ Việt Nam để cảnh báo GPS sai khi xác thực nhà máy. */
 export function inVnBounds(lat: number | null, lng: number | null): boolean | null {
   if (lat == null || lng == null) return null;
   return lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110;

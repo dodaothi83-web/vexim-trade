@@ -80,9 +80,9 @@ const PHASES: Phase[] = [
         output: "A written summary to you after every meeting.",
       },
       {
-        title: "Factory visit",
+        title: "Factory verification",
         desc: "In person, or by video call with a screen recording if travel is not possible. Travel costs are paid by you.",
-        output: "A visit plan and the agenda for the day.",
+        output: "A factory verification plan and agenda.",
         optional: true,
       },
     ],

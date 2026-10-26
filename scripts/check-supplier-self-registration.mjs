@@ -205,7 +205,7 @@ accountEnabled = false;
 assert.equal((await submitProfile(form())).status, 403, 'Only a signed-in supplier may create its first business page');
 accountEnabled = true;
 const forgedVisit = form(); forgedVisit.set('request:2', 'yes');
-assert.equal((await submitProfile(forgedVisit)).status, 400, 'Trader cannot request a factory visit even by forging FormData');
+assert.equal((await submitProfile(forgedVisit)).status, 400, 'Trader cannot request factory verification even by forging FormData');
 const factoryForm = form(); factoryForm.set('supplier_type', 'manufacturer'); factoryForm.set('request:2', 'yes');
 assert.equal(JSON.stringify(profileInput.parseSupplierProfile(factoryForm).requested), JSON.stringify([2, 3]), 'Factory may request both follow-ups');
 const forgedCategory = form(); forgedCategory.set('requested_category_slugs', 'secret');

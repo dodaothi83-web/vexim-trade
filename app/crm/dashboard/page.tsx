@@ -89,12 +89,12 @@ export default async function DashboardPage() {
   });
   if (canApprove) for (const v of snapshot.submittedReviews) queue.push({
     id: `review:${v.id}`, label: supplierNames.get(v.supplier_id) ?? "Nhà cung cấp",
-    detail: `${v.target_level === 1 ? "Kiểm tra giấy tờ" : v.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"} · chờ xét duyệt`,
+    detail: `${v.target_level === 1 ? "Kiểm tra giấy tờ" : v.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng"} · chờ xét duyệt`,
     href: "/crm/verifications", when: v.updated_at, tone: "bg-violet-500",
   });
   if (canInspect) for (const r of snapshot.contactRequests) queue.push({
     id: `request:${r.supplier_id}:${r.target_level}`, label: supplierNames.get(r.supplier_id) ?? "Nhà cung cấp",
-    detail: `${r.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng"} · yêu cầu liên hệ, chưa phải phê duyệt`,
+    detail: `${r.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng"} · yêu cầu liên hệ, chưa phải phê duyệt`,
     href: "/crm/verifications", when: r.requested_at, tone: "bg-ink-500",
   });
   if (canRfqs) for (const r of newQuoteRfqs) queue.push({

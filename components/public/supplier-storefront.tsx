@@ -8,6 +8,7 @@ import { VerificationCoverSeal, VerificationTierBadge, approvedChecksSummary, ve
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
 import { supplierTypeLabel, type PublicSupplierCard } from "@/lib/public/catalog";
 import type { Category } from "@/lib/types";
+import { VERIFICATION_LEVEL_EXPLANATIONS } from "@/lib/verification-status";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
@@ -24,7 +25,7 @@ const STRIP_CLASSES: Record<number, string> = {
 
 const VERIFICATION_ITEMS = [
   { level: 1, label: "Documents checked", pending: "Covers business registration evidence.", Icon: FileCheck2 },
-  { level: 2, label: "Factory visit", pending: "Covers a specific facility associated with the supplier.", Icon: Factory },
+  { level: 2, label: "Factory verification", pending: "Covers a specific facility associated with the supplier.", Icon: Factory },
   { level: 3, label: "Delivery history", pending: "Covers delivery documents and the reviewed shipment scope.", Icon: Truck },
 ] as const;
 
@@ -179,12 +180,22 @@ export function SupplierStorefront({
             <div className="grid items-stretch gap-3 md:grid-cols-3">
               {VERIFICATION_ITEMS.map(({ level, label, pending, Icon }) => {
                 const approvedStep = steps.includes(level);
+                const reviewStatus = approvedStep ? "Approved" : "Not approved";
+                const iconTooltip = `Level ${level} · ${label}: ${reviewStatus}. ${VERIFICATION_LEVEL_EXPLANATIONS[level]}`;
                 return <article key={level} id={level === 2 ? "factory-visit" : level === 3 ? "delivery-history" : undefined}
                   className={`min-w-0 scroll-mt-24 rounded-xl border p-4 shadow-sm ${approvedStep ? "border-emerald-200 bg-emerald-50/40" : "border-ink-200 bg-ink-50/60"}`}>
                   <div className="flex items-start justify-between gap-3">
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${approvedStep ? "bg-emerald-100 text-emerald-800" : "bg-white text-ink-400 ring-1 ring-ink-200"}`}><Icon className="h-4 w-4" /></span>
+                    <span className="group/level relative inline-flex">
+                      <button type="button" aria-label={iconTooltip}
+                        className={`flex h-9 w-9 shrink-0 cursor-help items-center justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${approvedStep ? "bg-emerald-100 text-emerald-800" : "bg-white text-ink-400 ring-1 ring-ink-200"}`}><Icon className="h-4 w-4" aria-hidden="true" /></button>
+                      <span role="tooltip" className="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden w-56 rounded-md bg-ink-900 px-3 py-2 text-left shadow-xl group-hover/level:block group-focus-within/level:block">
+                        <strong className="block text-[11px] font-bold leading-4 text-white">Level {level} · {label}</strong>
+                        <span className={`block text-[10px] font-semibold leading-4 ${approvedStep ? "text-emerald-300" : "text-ink-300"}`}>{reviewStatus}</span>
+                        <span className="mt-0.5 block text-[10px] leading-4 text-ink-200">{VERIFICATION_LEVEL_EXPLANATIONS[level]}</span>
+                      </span>
+                    </span>
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${approvedStep ? "bg-emerald-100 text-emerald-800" : "bg-ink-100 text-ink-500"}`}>
-                      {approvedStep ? <CheckCircle2 className="h-3 w-3" /> : <Clock3 className="h-3 w-3" />}{approvedStep ? "Approved" : "Pending review"}
+                      {approvedStep ? <CheckCircle2 className="h-3 w-3" /> : <Clock3 className="h-3 w-3" />}{reviewStatus}
                     </span>
                   </div>
                   <h3 className="mt-3 text-sm font-bold text-ink-900">{label}</h3>
@@ -195,7 +206,7 @@ export function SupplierStorefront({
                   </div>}
                   <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">
                     {level === 1 && (approvedStep ? "Business registration evidence has been reviewed. Tax and bank details remain supplier-provided." : pending)}
-                    {level === 2 && (approvedStep ? (safe(s.public_review_summaries[2]) || "Detailed visit scope is available on request.") : pending)}
+                    {level === 2 && (approvedStep ? (safe(s.public_review_summaries[2]) || "Detailed factory verification scope is available on request.") : pending)}
                     {level === 3 && (approvedStep ? (safe(s.public_review_summaries[3]) || "Detailed delivery scope is available on request.") : pending)}
                   </p>
                   {approvedStep && level !== 1 && <p className="mt-2 text-xs leading-5 text-ink-500">{level === 2 ? "Applies only to the reviewed facility." : "Applies only to the reviewed delivery evidence."}</p>}
@@ -234,7 +245,7 @@ export function SupplierStorefront({
         )}
         {s.gallery_images.length > 0 && <section className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="gallery-title">
           <h2 id="gallery-title" className="text-lg font-bold text-ink-900">Supplier gallery</h2>
-          <p className="mt-1 text-xs text-ink-500">Shared supplier images; not evidence of a factory visit.</p>
+          <p className="mt-1 text-xs text-ink-500">Shared supplier images; not evidence of factory verification.</p>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{s.gallery_images.map((path) => <a key={path} href={mediaUrl(path)} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg bg-ink-50 ring-1 ring-ink-200">
             {/* eslint-disable-next-line @next/next/no-img-element */}<img src={mediaUrl(path)} alt={`${name} gallery`} loading="lazy" className="h-32 w-full object-cover transition hover:scale-105 sm:h-40" />
           </a>)}</div>

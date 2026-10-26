@@ -17,7 +17,7 @@ import * as productDetailDisplay from '../lib/public/product-detail-display.ts';
 import { HOME_HERO_LINE } from '../lib/public/meta-copy.ts';
 import { buildPopularSearches } from '../lib/public/popular-searches.ts';
 import { hasProductComparisonPeer } from '../lib/public/product-comparison.ts';
-import { approvedPublicReviewSummaries, approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from '../lib/verification-status.ts';
+import { approvedPublicReviewSummaries, approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS, VERIFICATION_LEVEL_EXPLANATIONS } from '../lib/verification-status.ts';
 
 const compile = (path, mocks) => {
   const exports = {};
@@ -95,11 +95,11 @@ assert.match(mixed, /Documents checked/);
 assert.match(mixed, /not independently verified/, 'Tooltip must not claim tax or bank numbers were verified');
 assert.match(mixed, /not a product certification/, 'Supplier icon must not imply product certification');
 assert.match(mixed, /Delivery history reviewed/);
-assert.doesNotMatch(mixed, /Factory visited|\bL[123]\b/, 'Do not imply a factory review or show internal level numbers');
+assert.doesNotMatch(mixed, /Factory verification|\bL[123]\b/, 'Do not imply a factory review or show internal level numbers');
 assert.match(mixed, /<summary[^>]*aria-label=/, 'Icon explanation is available to screen readers and touch via native details');
 assert.match(mixed, /group-hover:block group-focus-within:block peer-open:block/, 'Tooltip opens on hover, keyboard focus and touch');
 assert.equal((renderChecks([2]).match(/<details/g) ?? []).length, 1, 'Factory approval alone does not imply documents or delivery');
-assert.doesNotMatch(renderChecks([]), /<details|Factory visited|Documents checked|Delivery history reviewed/);
+assert.doesNotMatch(renderChecks([]), /<details|Factory verification|Documents checked|Delivery history reviewed/);
 assert.match(renderChecks([]), /No approved checks yet/);
 const store = {
   listSuppliers: async () => suppliers,
@@ -256,7 +256,7 @@ assert.match(profilePage, /lg:w-\[calc\(\(100%_-_4rem\)\/5\)\]/, 'Five supplier 
 const verificationTierModule = compile('../components/verification-tier.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
-  '@/lib/verification-status': { VERIFICATION_LABELS },
+  '@/lib/verification-status': { VERIFICATION_LABELS, VERIFICATION_LEVEL_EXPLANATIONS },
 });
 const productTradeLabelsModule = compile('../components/product-trade-labels.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
@@ -332,18 +332,27 @@ assert.equal((compactCard.match(/group-hover\/pip:block group-focus-within\/pip:
   'Each tooltip opens on hover and keyboard or touch focus');
 for (const [level, label, status] of [
   [1, 'Documents checked', 'Approved'],
-  [2, 'Factory visited', 'Not approved'],
+  [2, 'Factory verification', 'Not approved'],
   [3, 'Delivery history reviewed', 'Approved'],
 ]) {
-  assert.ok(compactCard.includes(`aria-label="Level ${level} · ${label}: ${status}"`), `Shield ${level} has an accessible name and actual status`);
+  const explanation = VERIFICATION_LEVEL_EXPLANATIONS[level];
+  const accessibleName = `Level ${level} · ${label}: ${status}. ${explanation}`;
+  assert.ok(compactCard.includes(`aria-label="${accessibleName}"`), `Shield ${level} has its own accessible explanation and actual status`);
   assert.match(compactCard, new RegExp(`Level ${level} · ${label}<\\/strong><span[^>]*>${status}<\\/span>`),
-    `Shield ${level} shows only its short label and status`);
+    `Shield ${level} shows its own label and status`);
+  assert.ok(compactCard.includes(`>${explanation}</span>`), `Shield ${level} shows its distinct short explanation`);
 }
+assert.equal(new Set(Object.values(VERIFICATION_LEVEL_EXPLANATIONS)).size, 3, 'The three levels never share one generic explanation');
 for (const explanation of Object.values(PRODUCT_VERIFICATION_EXPLANATIONS)) {
   assert.ok(!compactCard.includes(explanation), 'The long verification paragraph no longer appears on product cards');
 }
 const standardPips = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationPips, { levels: [1] }));
-assert.ok(!standardPips.includes('role="tooltip"'), 'Verification pips outside product cards keep their existing presentation');
+assert.ok(!standardPips.includes('role="tooltip"'), 'Verification pips outside product cards use native per-level tooltips without overlay clipping');
+assert.equal((standardPips.match(/role="img"/g) ?? []).length, 3, 'Each standard shield keeps an independent accessible tooltip');
+for (const level of [1, 2, 3]) {
+  const accessibleName = `Level ${level} · ${VERIFICATION_LABELS[level]}: ${level === 1 ? 'Approved' : 'Not approved'}. ${VERIFICATION_LEVEL_EXPLANATIONS[level]}`;
+  assert.ok(standardPips.includes(`title="${accessibleName}"`), `Standard shield ${level} has its own native tooltip`);
+}
 assert.match(compactCard, /overflow-visible rounded-xl/, 'The card does not clip its verification tooltip');
 assert.match(compactCard, /rounded-l-xl bg-ink-50[^"]*sm:rounded-t-xl/, 'The image follows the horizontal phone card and rounded desktop card corners');
 const longSupplierCard = renderToStaticMarkup(React.createElement(PublicProductCard, {

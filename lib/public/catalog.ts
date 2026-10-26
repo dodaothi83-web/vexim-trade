@@ -99,7 +99,7 @@ export async function listPublicSuppliers(options?: {
   }));
 
   // Load approvals for EVERY public supplier; do not infer passed steps from
-  // verification_level (e.g. delivery may pass without a factory visit).
+  // verification_level (e.g. delivery may pass without factory verification).
   // Bound concurrency while keeping the earlier gallery-media limit.
   for (let i = 0; i < baseCards.length; i += 40) {
     await Promise.all(baseCards.slice(i, i + 40).map(async (c, offset) => {

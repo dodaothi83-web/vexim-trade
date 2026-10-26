@@ -143,7 +143,7 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
     if (m.status === "selected") add(`selected:${m.id}`, `Hồ sơ ${m.rfq!.code} đã được chọn`, "Bộ phận phụ trách sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin buyer tại đây.", m.updated_at, "rfq", "/supplier/portal/rfqs");
   }
   for (const v of reviews.filter((v) => v.supplier_id === supplierId)) {
-    const label = v.target_level === 1 ? "Kiểm tra giấy tờ" : v.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
+    const label = v.target_level === 1 ? "Kiểm tra giấy tờ" : v.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng";
     if (v.status === "returned") add(`returned:${v.id}`, `${label} cần bổ sung`, "Mở đúng bước để xem lý do và tải lại giấy tờ còn thiếu.", v.updated_at, "verification", levelHref(v.target_level));
     if (v.status === "approved") add(`approved:${v.id}`, `${label} đã được duyệt`, "Chỉ đánh giá này được xác nhận; việc công khai hồ sơ là quyết định riêng.", v.approved_at || v.updated_at, "verification", levelHref(v.target_level));
   }
@@ -188,7 +188,7 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
     if (s.status === "accepted") add(`submission-accepted:${s.id}`, `Hồ sơ đã được nhận vào đợt kiểm: ${label}`, "Đây chưa phải kết quả duyệt huy hiệu; đợt kiểm vẫn cần người có quyền duyệt phê.", s.reviewed_at || s.updated_at, "verification", levelHref(s.target_level));
   }
   for (const r of requests.filter((r) => r.supplier_id === supplierId && r.status === "contacted" && r.contacted_at)) {
-    const label = r.target_level === 2 ? "Thăm nhà máy" : "Lịch sử giao hàng";
+    const label = r.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng";
     add(`contacted:${r.target_level}`, `Đã ghi nhận liên hệ: ${label}`, "Đây là liên hệ lên kế hoạch, chưa phải kết quả duyệt.", r.contacted_at!, "contact", levelHref(r.target_level));
   }
   return notices.sort((a, b) => b.at.localeCompare(a.at));

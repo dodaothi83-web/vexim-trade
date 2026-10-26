@@ -16,7 +16,7 @@ import { StorefrontVerificationActions } from "../verification-progress";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Trang của tôi", robots: { index: false, follow: false } };
 
-const CHECKS = [[1, "Documents checked"], [2, "Factory visit"], [3, "Delivery history"]] as const;
+const CHECKS = [[1, "Documents checked"], [2, "Factory verification"], [3, "Delivery history"]] as const;
 
 /**
  * “Trang của tôi”: đúng giao diện buyer nhìn thấy, dựng từ cùng component với trang công

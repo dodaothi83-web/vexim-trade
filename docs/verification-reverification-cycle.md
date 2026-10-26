@@ -57,7 +57,7 @@ Phần review cần xác lập:
 - Dây chuyền, thiết bị và hoạt động sản xuất liên quan đến nhóm sản phẩm đã khai báo.
 - Ngày review và phạm vi cơ sở, nhóm sản phẩm được ghi nhận.
 
-Chỉ dùng nhãn `Factory visited` khi có kiểm tra thực địa. Nếu review bằng giấy tờ, hình ảnh hoặc trực tuyến thì phải dùng nhãn đúng như `Facility reviewed`, không ngụ ý đã đến nhà máy.
+Chỉ dùng nhãn `Factory verification` khi đợt xác thực L2 đã được duyệt cho một cơ sở cụ thể. Tóm tắt phải ghi rõ phạm vi và phương thức đối chiếu (thực địa, hình ảnh hoặc trực tuyến); không ngụ ý đã đến nhà máy khi chưa có kiểm tra thực địa và không mở rộng kết quả sang cơ sở hay sản phẩm khác.
 
 ### 3.4. Bằng chứng L2 cho trading company
 
@@ -169,7 +169,7 @@ Bản build tương lai cần bảo đảm:
 
 1. Supplier chỉ upload hoặc submit hồ sơ thì chưa có chu kỳ và chưa có ngày xác minh public.
 2. Manufacturer được duyệt đúng cơ sở và shipment theo scope; không tạo claim cho mọi cơ sở hoặc sản phẩm.
-3. Trader không có factory vẫn được duyệt qua nguồn hàng, vai trò giao dịch và shipment phù hợp; không xuất hiện claim `Factory visited`.
+3. Trader không có factory vẫn được duyệt qua nguồn hàng, vai trò giao dịch và shipment phù hợp; không xuất hiện claim `Factory verification`.
 4. L2 được duyệt trước, L3 được duyệt sau thì cả hai dùng cùng `valid_until`; ngày này không đổi khi thêm L3.
 5. Renewal đang ở `pending_review` khi tới hạn không giữ L2/L3 current và không giữ điều kiện marketing.
 6. Qua hạn chưa renewal, supplier về L1 nếu pháp lý còn hợp lệ, campaign và quảng cáo ngừng phân phối, còn organic listing và RFQ vẫn hoạt động theo các điều kiện khác.

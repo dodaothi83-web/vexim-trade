@@ -997,7 +997,7 @@ export const localStore: DataStore = {
   async createSupplierVerificationRequest(supplierId, level) {
     return mutate((db) => {
       if (!db.suppliers.some((s) => s.id === supplierId)) throw new Error("Không tìm thấy NCC.");
-      if (level !== 2 && level !== 3) throw new Error("Chỉ nhận yêu cầu thăm nhà máy hoặc lịch sử giao hàng.");
+      if (level !== 2 && level !== 3) throw new Error("Chỉ nhận yêu cầu xác thực nhà máy hoặc lịch sử giao hàng.");
       if (db.supplier_verification_requests.some((r) => r.supplier_id === supplierId && r.target_level === level)) throw new Error("Đã gửi yêu cầu này.");
       const row: SupplierVerificationRequest = {
         supplier_id: supplierId, target_level: level, status: "requested", requested_at: new Date().toISOString(),

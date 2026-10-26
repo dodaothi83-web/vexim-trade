@@ -62,7 +62,7 @@ assert.equal(JSON.stringify(long.report.byProduct.map((g) => [g.name, g.sent])),
 const approved = dashboard.buildSupplierDashboard({ ...input, reviews: [{ id: 'v3', supplier_id: 's-a', target_level: 3, status: 'approved', approved_at: now.toISOString(), updated_at: now.toISOString() },
   { id: 'v2', supplier_id: 's-b', target_level: 2, status: 'approved', approved_at: now.toISOString() }] });
 assert.ok(approved.notices.some((n) => n.title.includes('Lịch sử giao hàng')));
-assert.ok(!approved.notices.some((n) => n.title.includes('Thăm nhà máy')));
+assert.ok(!approved.notices.some((n) => n.title.includes('Xác thực nhà máy')));
 const decided = dashboard.buildSupplierDashboard({ ...input,
   products: [{ ...products[0], supplier_review_status: 'approved', supplier_originated: true, ready_for_buyer: true, updated_at: now.toISOString() }, products[1]],
   certificates: [{ id: 'c-a', supplier_id: 's-a', name: 'ISO 22000', review_status: 'approved',
@@ -259,6 +259,7 @@ const submit = load('../lib/rfq/submit.ts', {
   '@/lib/public/catalog': { listPublicSuppliers: async () => [{ id: 's-a' }, { id: 's-b' }] },
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [{ id: 'p-a', name: 'Cashew W320', supplierId: 's-a' }] },
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
+  '@/lib/security/turnstile': { verifyTurnstileToken: async () => ({ ok: true }) },
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => null, sendRfqNewInternal: async () => null },
   './auto-match': { createPreferredSupplierMatches: async () => [] },
   './supplier-question-rate-limit': { checkSupplierQuestionRateLimit: async () => ({ status: 'ok' }) },

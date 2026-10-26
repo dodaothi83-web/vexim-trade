@@ -712,13 +712,13 @@ export interface Verification {
   target_level: VerificationLevel;
   status: VerificationStatus;
   inspector_id: string | null;
-  /** L1: ngày nhận đủ tài liệu; L2: ngày thăm nhà máy */
+  /** L1: ngày nhận đủ tài liệu; L2: ngày xác thực nhà máy */
   visit_date: string | null;
-  /** GPS latitude khi thăm nhà máy (L2) */
+  /** GPS latitude khi xác thực nhà máy (L2) */
   visit_lat: number | null;
-  /** GPS longitude khi thăm nhà máy (L2) */
+  /** GPS longitude khi xác thực nhà máy (L2) */
   visit_lng: number | null;
-  /** Địa chỉ ghi nhận lúc thăm nhà máy */
+  /** Địa chỉ ghi nhận lúc xác thực nhà máy */
   visit_address: string | null;
   /** Một lần kiểm lịch sử giao hàng phải gắn với một lô hàng đã hoàn tất. */
   shipment_ref: string | null;

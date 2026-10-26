@@ -309,7 +309,7 @@ const tableHtml = renderToStaticMarkup(React.createElement(tableModule.ProductCo
   products: [compared("a"), compared("b", { price: null, priceCurrency: null, priceUnit: null, priceValidUntil: null, certificates: [], inputMaterialOrigin: null })],
 }));
 for (const text of ["Reference price", "USD 7/kg", "On request", "Price valid until", "MOQ", "Packaging", "Named place",
-  "Independent verification", "Documents checked: Approved", "Factory visited: Not approved", "Delivery history reviewed: Approved",
+  "Independent verification", "Documents checked: Approved", "Factory verification: Not approved", "Delivery history reviewed: Approved",
   "HACCP", "No public certificates", "Raw material region", "Binh Phuoc and Dak Lak", "Input material origin", "Vietnam and Cambodia", "Not provided",
   "Copy comparison link", "Request a quote", "do not certify these products or a specific lot"]) {
   assert.ok(tableHtml.includes(text), `Comparison table includes ${text}`);

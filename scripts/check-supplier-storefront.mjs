@@ -50,7 +50,7 @@ function pageMocks({ status = 'draft', steps = [1], fail = false, store } = {}) 
       },
     }) },
     '@/lib/supplier-portal/verification-progress': { buildVerificationProgress: () => ({
-      steps: [], approvedCount: 1, currentLevel: 2, percent: 33, headline: 'Bước tiếp theo: Thăm nhà máy.',
+      steps: [], approvedCount: 1, currentLevel: 2, percent: 33, headline: 'Bước tiếp theo: Xác thực nhà máy.',
     }) },
     '../verification-progress': { StorefrontVerificationActions: () => React.createElement('div', { 'data-stub': 'verification-actions' }) },
     '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
@@ -97,7 +97,7 @@ assert.equal(draft.calls.storefront[0].verificationActions != null, true, 'Khố
 // 2. Tóm tắt xác minh nói rõ cái gì đã duyệt, cái gì còn thiếu.
 assert.match(draft.html, /1 of 3 checks approved/, 'Hiện số bước đã duyệt');
 assert.match(draft.html, /Approved: Documents checked/, 'Nêu tên bước đã duyệt');
-assert.match(draft.html, /Not reviewed yet: Factory visit, Delivery history/, 'Nêu đúng bước còn thiếu');
+assert.match(draft.html, /Not reviewed yet: Factory verification, Delivery history/, 'Nêu đúng bước còn thiếu');
 
 const published = await render({ status: 'published', steps: [1, 2, 3] });
 assert.match(published.html, /productLinks=true/, 'Hồ sơ đã publish thì sản phẩm dẫn được');
@@ -139,6 +139,19 @@ assert.match(supplierHeader, /text-ink-500[^\n]*hover:text-brand-700[^\n]*>View 
   'The verification details link is muted instead of a large pill button');
 assert.doesNotMatch(supplierHeader, />Verification status<|<VerificationPips/,
   'The compact header removes the old two-line label and pip group');
+assert.match(shared, /level: 2, label: "Factory verification"/, 'Level 2 uses the factory-verification label');
+assert.match(shared, /const reviewStatus = approvedStep \? "Approved" : "Not approved"/,
+  'Each supplier verification card states its own approval status');
+assert.match(shared, /const iconTooltip = `Level \$\{level\} · \$\{label\}: \$\{reviewStatus\}\. \$\{VERIFICATION_LEVEL_EXPLANATIONS\[level\]\}`/,
+  'Each supplier verification icon tooltip has its own explanation and approval status');
+assert.match(shared, /<button type="button" aria-label=\{iconTooltip\}/,
+  'Each supplier verification icon is keyboard and touch focusable');
+assert.match(shared, /group-hover\/level:block group-focus-within\/level:block/,
+  'Supplier verification tooltips open on hover, keyboard focus and touch');
+assert.match(shared, /<span role="tooltip"[\s\S]*?\{VERIFICATION_LEVEL_EXPLANATIONS\[level\]\}/,
+  'The visible supplier tooltip contains the current level explanation');
+assert.doesNotMatch(shared, /Factory visit|Factory visited|Thăm nhà máy|thăm nhà máy/,
+  'The supplier profile never falls back to the old Level 2 terminology');
 assert.match(publicPage, /id="related-title" className="text-left text-base font-semibold/,
   'The related-supplier heading uses compact left-aligned typography');
 assert.match(publicPage, /flex items-center gap-3/, 'Related-supplier logos align with the text block');

@@ -114,7 +114,7 @@ export const CASHEW_STEPS: {
   {
     icon: "ship",
     title: "Before and after shipment",
-    desc: "Optional factory visit (in person or by video) and optional independent pre-shipment inspection. Travel and inspection fees are paid by you.",
+    desc: "Optional factory verification (in person or by video) and optional independent pre-shipment inspection. Travel and inspection fees are paid by you.",
     output: "Inspection results before the goods leave, then confirmed dates and documents as they are issued.",
   },
 ];

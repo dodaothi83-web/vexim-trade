@@ -125,7 +125,7 @@ assert.ok(
 
 assert.ok(llms.includes("Buyers can browse supplier listings and request a quote from a supplier they choose."), "llms.txt explains browsing and chosen-supplier RFQs");
 assert.ok(llms.includes("we look for suppliers that match their specs, quantity and market"), "llms.txt explains the open request without the old wording");
-assert.ok(llms.includes("Supplier checks are shown separately for documents, factory visits and delivery history."), "llms.txt does not imply every supplier passed every check");
+assert.ok(llms.includes("Supplier checks are shown separately for documents, factory verification and delivery history."), "llms.txt does not imply every supplier passed every check");
 assert.ok(llms.includes("buyers contract directly with the chosen supplier; Vexim does not take orders or hold payments online."), "llms.txt explains direct contracting and no online orders or held payments");
 
 /* ---------- Prompt AI soạn FAQ ---------- */

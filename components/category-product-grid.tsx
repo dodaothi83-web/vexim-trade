@@ -103,7 +103,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     <label className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">Supplier verification</span>
       <select className="input text-sm" value={verified} onChange={(e) => setVerified(Number(e.target.value))}>
         <option value={0}>All suppliers</option><option value={1}>Documents checked</option>
-        <option value={2}>Factory visited</option><option value={3}>Delivery history reviewed</option>
+        <option value={2}>Factory verification</option><option value={3}>Delivery history reviewed</option>
       </select>
     </label>
     {active && <button type="button" onClick={reset} className="font-semibold text-brand-700 underline">Clear filters</button>}
