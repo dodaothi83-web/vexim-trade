@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
 /** Token đặc biệt: server đang bật CHALLENGE_DISABLED nên không cần giải. */
 export const CHALLENGE_DISABLED_TOKEN = "__challenge_disabled__";
@@ -54,6 +54,8 @@ export async function solveFormChallenge(challenge: string): Promise<string | nu
  * request ra bên ngoài (điều khiến người dùng mạng VN bị chặn 401). Trình duyệt
  * tự lấy challenge từ chính site, tính proof-of-work ngầm (≈1 giây) rồi trả token.
  * Người thật không phải làm gì cả; bot script phải tốn công tính mới submit được.
+ * Giao diện HOÀN TOÀN ẨN khi chạy bình thường (chỉ còn sr-only cho trình đọc màn
+ * hình); một dòng lỗi + thử lại chỉ xuất hiện khi challenge không chạy được.
  */
 export function FormChallenge({ purpose, onChange }: {
   purpose: string;
@@ -108,34 +110,31 @@ export function FormChallenge({ purpose, onChange }: {
 
   const retry = () => setAttempt((value) => value + 1);
 
+  // Bình thường (loading/success) widget HOÀN TOÀN ẨN: challenge chạy ngầm, không
+  // còn khung "Security check complete" lộ giao diện kỹ thuật hay chiếm chỗ trong
+  // form. Trình đọc màn hình vẫn có dòng trạng thái sr-only. CHỈ khi thật sự lỗi
+  // (mất kết nối tới chính site, trình duyệt không có WebCrypto) mới hiện một dòng
+  // nhỏ kèm nút thử lại — vì khi đó nút submit đang bị khóa, ẩn luôn thì người dùng
+  // không biết vì sao không bấm được.
   return (
-    <div className="pt-2" data-form-challenge-status={status}>
-      <div className="relative min-h-[65px] overflow-hidden rounded-xl border border-ink-200 bg-white">
-        {status === "loading" && (
-          <div role="status" className="flex min-h-[65px] items-center justify-center gap-2 px-4 text-sm text-ink-500">
-            <Loader2 className="h-4 w-4 animate-spin text-brand-700" aria-hidden="true" />
-            Loading security check…
-          </div>
-        )}
-        {status === "success" && (
-          <div role="status" className="flex min-h-[65px] items-center justify-center gap-2 px-4 text-sm font-semibold text-emerald-700">
-            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-            Security check complete
-          </div>
-        )}
-        {status === "error" && (
-          <div role="alert" className="flex min-h-[65px] flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 text-sm text-ink-600">
-            <span className="inline-flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
-              We couldn’t complete the security check.
-            </span>
-            <button type="button" onClick={retry} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-bold text-brand-700 transition hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-              Try again
-            </button>
-          </div>
-        )}
-      </div>
+    <div data-form-challenge-status={status}>
+      {status !== "error" && (
+        <p role="status" className="sr-only">
+          {status === "success" ? "Security check complete" : "Loading security check…"}
+        </p>
+      )}
+      {status === "error" && (
+        <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[12.5px] text-ink-600">
+          <span className="inline-flex items-center gap-1.5">
+            <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+            We couldn’t complete the security check.
+          </span>
+          <button type="button" onClick={retry} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-bold text-brand-700 transition hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            Try again
+          </button>
+        </div>
+      )}
       <noscript><p className="mt-2 text-[12px] text-red-600">Please enable JavaScript to complete the security check.</p></noscript>
     </div>
   );

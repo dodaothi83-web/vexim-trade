@@ -82,11 +82,16 @@ assert.match(widgetSource, /payload\.disabled/, 'Widget tôn trọng công tắc
 assert.match(widgetSource, /Try again/);
 assert.doesNotMatch(widgetSource, /Troubleshoot/, 'Không render link lỗi mặc định của bên thứ ba');
 
-// SSR khởi đầu là trạng thái loading có chủ, không phải lỗi.
+// SSR: luồng bình thường HOÀN TOÀN ẨN — chỉ còn dòng sr-only cho trình đọc màn hình,
+// không còn khung kỹ thuật "Security check complete" chiếm chỗ.
 const html = renderToStaticMarkup(React.createElement(FormChallenge, { purpose: 'login', onChange: () => {} }));
 assert.match(html, /data-form-challenge-status="loading"/);
 assert.match(html, /Loading security check/);
+assert.match(html, /sr-only/, 'Trạng thái bình thường chỉ còn cho trình đọc màn hình');
+assert.doesNotMatch(html, /min-h-\[65px\]|rounded-xl border/, 'Không còn khung viền lộ giao diện kỹ thuật');
 assert.doesNotMatch(html, /Troubleshoot/);
+assert.doesNotMatch(widgetSource, /min-h-\[65px\]/, 'Widget không còn khung 65px');
+assert.match(widgetSource, /role="alert"/, 'Lỗi thật vẫn có dòng nhỏ báo + thử lại, không khóa nút submit vô lý');
 
 /* ---------- 3. Route phát challenge ---------- */
 const routeSource = read('../app/api/challenge/route.ts');
