@@ -8,6 +8,7 @@ import ts from 'typescript';
 import React from 'react';
 import * as jsxRuntime from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -134,8 +135,30 @@ assert.match(shared, /Target markets are self-declared by the supplier and pendi
 assert.doesNotMatch(shared, /What Vexim checked|Supplier-stated markets \(not independently verified\)|Stated markets are not a Vexim-verified export history/,
   'Không dùng tiêu đề hoặc câu phủ định cũ');
 assert.match(shared, /grid items-stretch gap-3 md:grid-cols-3/, 'Ba hạng mục xác minh có bố cục thẻ rõ ràng');
-assert.match(shared, /mt-5 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-5/,
-  'Supplier catalogue has one phone column, five product cards per desktop row and fewer columns between those sizes');
+assert.match(shared, /<SupplierProductRail productCount=\{s\.main_products\.length\}>/,
+  'Supplier catalogue uses the shared product rail');
+assert.match(shared, /lg:w-\[calc\(\(100%_-_4rem\)\/5\)\] lg:shrink-0/,
+  'Each desktop rail item takes one fifth of the visible width after gaps');
+const { SupplierProductRail } = load('components/public/supplier-product-rail.tsx', {
+  react: React, 'react/jsx-runtime': jsxRuntime, 'lucide-react': { ChevronLeft, ChevronRight },
+});
+const railItems = (count) => Array.from({ length: count }, (_, index) => React.createElement('li', { key: index }, `Product ${index + 1}`));
+const sixProductRail = renderToStaticMarkup(React.createElement(SupplierProductRail, { productCount: 6 }, railItems(6)));
+assert.match(sixProductRail, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3/,
+  'Phone and tablet catalogue grids remain unchanged');
+assert.match(sixProductRail, /lg:flex[^"\n]*lg:overflow-x-auto/, 'Desktop enables native horizontal scrolling');
+assert.match(sixProductRail, /Scroll horizontally to explore all 6 products/);
+assert.match(sixProductRail, /aria-label="Show previous products"/);
+assert.match(sixProductRail, /aria-label="Show next products"/);
+assert.equal((sixProductRail.match(/<li/g) ?? []).length, 6, 'The rail keeps all products in document order');
+const fiveProductRail = renderToStaticMarkup(React.createElement(SupplierProductRail, { productCount: 5 }, railItems(5)));
+assert.doesNotMatch(fiveProductRail, /Show previous products|Show next products|Scroll horizontally/,
+  'Five or fewer products do not show unnecessary carousel controls');
+assert.match(publicPage, /r\.profile_image \? mediaUrl\(r\.profile_image\)/,
+  'Related suppliers use their own stored profile image');
+assert.match(publicPage, /src=\{relatedLogoUrl\}/, 'Related supplier logos use the safe public-media URL');
+assert.match(publicPage, /relatedName\.charAt\(0\)\.toUpperCase\(\) \|\| "S"/,
+  'A missing related-supplier logo has a clear initial fallback');
 assert.ok(!shared.includes('chưa hiện với buyer') && !/hidden from buyer/i.test(shared),
   'Không thêm danh sách “chưa hiện với buyer”');
 assert.doesNotMatch(shared, /supplier\.email|supplier\.phone|supplier\.zalo|tax_number|public_review_summaries\[1\]/,

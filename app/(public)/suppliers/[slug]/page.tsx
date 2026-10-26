@@ -109,10 +109,22 @@ export default async function SupplierProfile({ params }: PageProps) {
 
     {related.length > 0 && <section className="mt-12" aria-labelledby="related-title">
       <h2 id="related-title" className="text-lg font-bold text-ink-900">Explore other suppliers</h2>
-      <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{related.map((r) => <li key={r.id}><Link href={`/suppliers/${encodeURIComponent(r.slug || r.id)}`} className="block h-full rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-200 hover:shadow-card">
-        <p className="font-bold text-ink-900">{safe(r.display_name || r.name)}</p><p className="mt-1 text-xs text-ink-600">{safe(supplierProvinceDisplay(r)) || "Vietnam"} · {supplierTypeLabel(r)}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-1.5"><VerificationPips levels={r.approved_verification_steps} compact /><VerificationTierBadge levels={r.approved_verification_steps} /></div>
-      </Link></li>)}</ul>
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{related.map((r) => {
+        const relatedName = safe(r.display_name || r.name);
+        const relatedLogoUrl = r.profile_image ? mediaUrl(r.profile_image) : null;
+        return <li key={r.id}><Link href={`/suppliers/${encodeURIComponent(r.slug || r.id)}`} className="block h-full rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-200 hover:shadow-card">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-ink-100 bg-white text-lg font-bold text-brand-700">
+              {relatedLogoUrl ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={relatedLogoUrl} alt="" loading="lazy" className="h-full w-full object-contain p-1" /></> : relatedName.charAt(0).toUpperCase() || "S"}
+            </div>
+            <div className="min-w-0">
+              <p className="break-words font-bold text-ink-900">{relatedName}</p>
+              <p className="mt-1 text-xs text-ink-600">{safe(supplierProvinceDisplay(r)) || "Vietnam"} · {supplierTypeLabel(r)}</p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5"><VerificationPips levels={r.approved_verification_steps} compact /><VerificationTierBadge levels={r.approved_verification_steps} /></div>
+        </Link></li>;
+      })}</ul>
     </section>}
   </div>;
 }

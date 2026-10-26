@@ -248,7 +248,11 @@ assert.match(homePage, /<HomeProductFeed items=\{arrangedOffers\}/, 'Home render
 assert.match(homeFeed, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3/, 'Home offers use one column on phones, then two or three columns');
 assert.match(homeFeed, /wide \? " lg:grid-cols-5" : ""/, 'The fifth column only appears when the browser confirms a wide screen');
 assert.match(homeFeed, /<PublicProductCard/, 'Home includes actual product offers');
-assert.match(profilePage, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-5/, 'Supplier product grid uses one column on phones, then 2/3/5 columns');
+const supplierProductRail = readFileSync(new URL('../components/public/supplier-product-rail.tsx', import.meta.url), 'utf8');
+assert.match(supplierProductRail, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3/,
+  'Supplier products keep one phone column, then two or three columns');
+assert.match(supplierProductRail, /lg:flex[^"\n]*lg:overflow-x-auto/, 'Desktop supplier products scroll horizontally');
+assert.match(profilePage, /lg:w-\[calc\(\(100%_-_4rem\)\/5\)\]/, 'Five supplier product cards fit the desktop viewport');
 const verificationTierModule = compile('../components/verification-tier.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
