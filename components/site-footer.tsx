@@ -19,7 +19,7 @@ export function SiteFooter() {
           <br />
           {COMPANY.address}
           <br />
-          {COMPANY.phone} · {COMPANY.email}
+          {COMPANY.phone} · {COMPANY.contactEmail}
         </p>
         <p className="mt-3 text-[12.5px] italic text-slate-500">
           We match the brief. The decision stays with you.

@@ -60,6 +60,18 @@ for (const [name, file] of [
   assert.doesNotMatch(file, /href="\/khieu-nai"/, `${name} does not duplicate the Vietnamese complaints link above the strip`);
 }
 
+for (const [name, file] of [
+  ["simple footer", simpleFooter],
+  ["site footer", siteFooter],
+  ["home structured data", read("app/(public)/page.tsx")],
+  ["landing contact", read("components/landing-site.tsx")],
+  ["cashew contact", read("components/cashew-landing.tsx")],
+]) {
+  assert.ok(file.includes("COMPANY.contactEmail"), `${name} uses the standard public contact email`);
+  assert.doesNotMatch(file, /COMPANY\.email/, `${name} does not expose the operational mailbox as the public contact`);
+}
+assert.ok(home.includes('href="mailto:contact@veximglobal.com"'), "Home footer displays the standard public contact email");
+
 const company = {
   legalName: "VEXIM GLOBAL CO., LTD",
   address: "Số 25/6 Ngõ 51 Ngoạ Long, Tây Tựu, Hà Nội, Việt Nam",

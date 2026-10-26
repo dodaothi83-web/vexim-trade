@@ -496,8 +496,8 @@ export function CashewLanding({
             <ul className="mt-8 space-y-3 text-[15.5px] text-slate-200">
               <li className="flex items-center gap-3">
                 <Mail className="h-5 w-5 shrink-0 text-[#D9A441]" />
-                <a href={`mailto:${COMPANY.email}`} className="transition hover:text-white">
-                  {COMPANY.email}
+                <a href={`mailto:${COMPANY.contactEmail}`} className="transition hover:text-white">
+                  {COMPANY.contactEmail}
                 </a>
               </li>
               <li className="flex items-center gap-3">

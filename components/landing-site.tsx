@@ -452,7 +452,7 @@ export function LandingSite() {
               No portal and no subscription. If we cannot find a fit this season, we say so plainly.
             </p>
             <ul className="mt-8 space-y-3 text-[16px] text-ink-800">
-              <li className="flex items-center gap-3"><Mail className="h-5 w-5 text-brand-700" />{COMPANY.email}</li>
+              <li className="flex items-center gap-3"><Mail className="h-5 w-5 text-brand-700" />{COMPANY.contactEmail}</li>
               <li className="flex items-center gap-3"><Phone className="h-5 w-5 text-brand-700" />{COMPANY.phone}</li>
               <li className="flex items-start gap-3"><MapPin className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />{COMPANY.address}</li>
             </ul>

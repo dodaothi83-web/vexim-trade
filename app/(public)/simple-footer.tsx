@@ -27,7 +27,7 @@ export function SimpleFooter() {
           <Link href="/cookie-policy" className="hover:text-ink-800">Cookie Policy</Link>
           <CookieSettingsButton className="hover:text-ink-800" />
           <Link href="/terms-of-service" className="hover:text-ink-800">Terms of Service</Link>
-          <a href={`mailto:${COMPANY.email}`} className="hover:text-ink-800">{COMPANY.email}</a>
+          <a href={`mailto:${COMPANY.contactEmail}`} className="hover:text-ink-800">{COMPANY.contactEmail}</a>
           <SocialLinks />
         </div>
       </div>
