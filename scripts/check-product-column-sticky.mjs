@@ -22,7 +22,7 @@ assert.doesNotMatch(component, /addEventListener\("scroll"/, "CSS owns the stick
 
 const page = readFileSync(new URL("../app/(public)/products/[slug]/[productId]/page.tsx", import.meta.url), "utf8");
 assert.match(page, /lg:items-start/, "The two-column grid provides a natural sticky release boundary");
-assert.match(page, /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(0,2fr\)\]/, "The gallery and supplier panel takes one third and product content takes two thirds on desktop");
+assert.match(page, /lg:grid-cols-\[minmax\(0,2fr\)_minmax\(0,3fr\)\]/, "The gallery and supplier panel takes 40% and product content takes 60% on desktop");
 assert.match(page, /<StickyProductColumn>/, "Gallery and supplier content use the sticky left panel");
 const stickyEnd = page.indexOf("</StickyProductColumn>");
 assert.ok(stickyEnd > page.indexOf("<ProductMediaGallery"), "The sticky panel contains the gallery");
