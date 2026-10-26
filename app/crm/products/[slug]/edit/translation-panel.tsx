@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { saveProductEnglishAction, translateProductEnglishAction } from "./review-actions";
+import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
+import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
 import { useProductEditWorkspace, useRegisterProductEditDirty } from "./edit-workspace";
 
 type Texts = {
@@ -156,22 +158,33 @@ export function ProductTranslationPanel({ id, source, english, hasEnglish, curre
         <fieldset disabled={busy} className="min-w-0 space-y-4 border-0 p-0">
           {visibleFields.map((field) => (
             <div key={field.key} className="grid gap-3 lg:grid-cols-2">
-              <label className="block text-sm">
+              <div className="block min-w-0 text-sm">
                 <span className="mb-1 block font-semibold text-ink-600">Gốc: {field.label}</span>
-                <textarea readOnly rows={field.rows} value={source[field.key]} className="input resize-y bg-ink-50 text-ink-600" aria-label={`Nội dung gốc ${field.label}`} />
-              </label>
-              <label className="block text-sm">
+                {field.key === "description_detail"
+                  ? <div className="rounded-lg border border-ink-200 bg-ink-50 px-3 py-2"><ProductDescriptionPreview value={source[field.key]} /></div>
+                  : <textarea readOnly rows={field.rows} value={source[field.key]} className="input resize-y bg-ink-50 text-ink-600" aria-label={`Nội dung gốc ${field.label}`} />}
+              </div>
+              <div className="block min-w-0 text-sm">
                 <span className="mb-1 block font-semibold text-ink-800">English: {field.label}</span>
-                <textarea
-                  name={`${field.key}_en`}
-                  rows={field.rows}
-                  maxLength={field.limit}
-                  value={values[field.key]}
-                  onChange={(e) => setValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                  className="input resize-y"
-                  aria-label={`Bản tiếng Anh ${field.label}`}
-                />
-              </label>
+                {field.key === "description_detail"
+                  ? <ProductDescriptionEditor
+                      name="description_detail_en"
+                      value={values.description_detail}
+                      onChange={(html) => setValues((prev) => ({ ...prev, description_detail: html }))}
+                      disabled={busy}
+                      minHeight="lg"
+                      ariaLabel="Bản tiếng Anh Mô tả chi tiết"
+                    />
+                  : <textarea
+                      name={`${field.key}_en`}
+                      rows={field.rows}
+                      maxLength={field.limit}
+                      value={values[field.key]}
+                      onChange={(e) => setValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                      className="input resize-y"
+                      aria-label={`Bản tiếng Anh ${field.label}`}
+                    />}
+              </div>
             </div>
           ))}
         </fieldset>

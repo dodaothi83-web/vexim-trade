@@ -8,6 +8,7 @@ import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import { productTranslationPatch } from "@/lib/ai/translate-content";
+import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 import { productPublicationMediaState } from "@/lib/media/readiness";
 import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
@@ -153,11 +154,17 @@ export async function saveProductEnglishAction(form: FormData): Promise<Result> 
   const id = String(form.get("product_id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Sản phẩm không hợp lệ." };
   const read = (key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
+  let descriptionDetail: string;
+  try {
+    descriptionDetail = sanitizeProductDescriptionForSave(String(form.get("description_detail_en") ?? ""), { maxTextLength: 12000 });
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Mô tả chi tiết không hợp lệ." };
+  }
   const translation = {
     name: read("name_en", 180),
     description: read("description_en", 3000),
     spec: read("spec_en", 1600),
-    description_detail: read("description_detail_en", 12000),
+    description_detail: descriptionDetail,
     packaging: read("packaging_en", 600),
     certifications: read("certifications_en", 600),
     moq: read("moq_en", 360),

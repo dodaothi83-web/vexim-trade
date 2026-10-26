@@ -6,6 +6,7 @@ import { ArrowLeft, ExternalLink, ImageIcon } from "lucide-react";
 import { getPublicSupplierBySlug } from "@/lib/public/catalog";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { ProductDescription } from "@/components/public/product-description";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ slug: string; productId: string }> };
@@ -79,7 +80,7 @@ export default async function TestSupplierProductPreview({ params }: Props) {
     {(product.description || product.description_detail) && <section className="mt-10 border-t border-ink-200 pt-8" aria-labelledby="test-description-title">
       <h2 id="test-description-title" className="text-2xl font-black text-ink-900">Test description</h2>
       {product.description && <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{safe(product.description)}</p>}
-      {product.description_detail && <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{safe(product.description_detail)}</p>}
+      {product.description_detail && <ProductDescription value={product.description_detail} className="mt-4 max-w-3xl" />}
     </section>}
   </main>;
 }

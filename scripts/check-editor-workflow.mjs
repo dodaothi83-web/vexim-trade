@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { validateProductFields } from '../lib/product-attributes.ts';
+import { loadProductDescription } from './product-description-test-utils.mjs';
 
 const source = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 const actions = source.slice(source.indexOf('function parseSupplierInput('), source.indexOf('/* ------------------------- SẢN PHẨM NCC'));
@@ -132,11 +133,12 @@ const parseProductCode = source.slice(source.indexOf('function parseProductInput
 const productParser = { exports: {} };
 vm.runInNewContext(ts.transpileModule(parseProductCode + '\nexports.parseProductInput = parseProductInput;', {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText, { exports: productParser.exports, str, num, bool, displayNameInput: (value) => str(value)?.slice(0, 120) ?? null });
+}).outputText, { exports: productParser.exports, str, num, bool, displayNameInput: (value) => str(value)?.slice(0, 120) ?? null,
+  sanitizeProductDescriptionForSave: loadProductDescription().description.sanitizeProductDescriptionForSave });
 const parsedProduct = productParser.exports.parseProductInput({ supplier_id: 'supplier-a', name: 'Cashew',
   description: 'Short', description_detail: 'Long details\nApplication', ref_price: 7, ref_price_max: 9, price_publicly_visible: true,
   fob_updated_at: '2099-01-01' });
-assert.equal(parsedProduct.description_detail, 'Long details\nApplication');
+assert.equal(parsedProduct.description_detail, '<p>Long details<br />Application</p>');
 assert.equal(parsedProduct.price_publicly_visible, true);
 assert.equal(parsedProduct.ref_price_max, 9);
 assert.equal(parsedProduct.fob_updated_at, undefined, 'A product editor cannot forge supplier-wide consent');
@@ -156,6 +158,7 @@ vm.runInNewContext(categoryJs, {
   guard: async () => null, getSession: async () => ({ role, uid: 'staff-1', email: 'test@veximtrade.com' }),
   hasPermission: (r, p) => r === 'admin' && p === 'categories.publish',
   validateProductFields,
+  parseHarvestInput: (value) => value,
   getStore: () => ({
     getCategory: async () => category,
     getCategoryBySlug: async () => category,

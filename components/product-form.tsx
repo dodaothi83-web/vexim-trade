@@ -13,6 +13,7 @@ import { Button, Field, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { ProductAttributeInputs } from "@/components/product-attribute-inputs";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
+import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
 import { effectiveFieldsFor, fieldsFor } from "@/lib/product-attributes";
 import { gradeKey, resolveGrade } from "@/lib/public/grade-resolution";
 import { composeDisplayName, isPlaceholderDisplayName } from "@/lib/public/display-name";
@@ -337,9 +338,9 @@ export function ProductForm({
                 placeholder="VD: Gạo thơm xay xát trong ngày, đánh bóng nhẹ"
               />
             </Field>
-            <Field label="Mô tả chi tiết" hint="Thông tin dài hiển thị dưới trang sản phẩm; văn bản thuần, xuống dòng tùy ý." className="sm:col-span-2 lg:col-span-3">
-              <textarea className="input min-h-40 resize-y" rows={7} maxLength={6000} value={v("description_detail")}
-                onChange={(e) => set("description_detail", e.target.value)} placeholder="Nguồn gốc, tính năng, ứng dụng, đóng gói, lưu ý sử dụng..." />
+            <Field label="Mô tả chi tiết" hint="Dùng tiêu đề, in đậm, in nghiêng và danh sách để nội dung dễ đọc trên trang sản phẩm." className="sm:col-span-2 lg:col-span-3">
+              <ProductDescriptionEditor id="product-description-detail" value={v("description_detail")}
+                onChange={(html) => set("description_detail", html)} disabled={busy} minHeight="lg" />
             </Field>
           </div>
 

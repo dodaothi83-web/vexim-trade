@@ -7,6 +7,7 @@ import { refreshCrmBadges } from "@/lib/crm/badges";
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
 import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
+import { sanitizeProductDescriptionForSave, sanitizeProductDescriptionHtml } from "@/lib/products/product-description";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { isPlaceholderDisplayName } from "@/lib/public/display-name";
 import { parseHarvestInput } from "@/lib/crm/harvest-input";
@@ -1427,7 +1428,7 @@ function parseProductInput(
       : undefined),
     category: str(raw.category),
     description: str(raw.description)?.slice(0, 1500) ?? null,
-    description_detail: str(raw.description_detail)?.slice(0, 6000) ?? null,
+    description_detail: sanitizeProductDescriptionForSave(str(raw.description_detail)) || null,
     spec: str(raw.spec),
     specs: (raw.specs && typeof raw.specs === "object" ? (raw.specs as Record<string, unknown>) : undefined),
     unit: str(raw.unit),
@@ -1495,7 +1496,12 @@ export async function createProductAction(
 ): Promise<ActionResult & { id?: string }> {
   const gate = await guard("products.manage");
   if (gate) return gate;
-  const input = parseProductInput(raw);
+  let input: SupplierProductInput;
+  try {
+    input = parseProductInput(raw);
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Nội dung sản phẩm không hợp lệ." };
+  }
   if (!input.supplier_id) return { ok: false, message: "Thiếu nhà cung cấp." };
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
   const rangeError = priceRangeInputError(raw, input);
@@ -1521,7 +1527,12 @@ export async function updateProductAction(
 ): Promise<ActionResult> {
   const gate = await guard("products.manage");
   if (gate) return gate;
-  const input = parseProductInput(raw);
+  let input: SupplierProductInput;
+  try {
+    input = parseProductInput(raw);
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Nội dung sản phẩm không hợp lệ." };
+  }
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
   const rangeError = priceRangeInputError(raw, input);
   if (rangeError) return { ok: false, message: rangeError };
@@ -1544,7 +1555,8 @@ export async function updateProductAction(
       ? await store.getCategoryBySlug(existing.reviewed_category_slug) : assigned;
     input.specs = saveProductAttributes(productCategory, raw.product_attributes,
       productCategory?.slug === (existing.reviewed_category_slug ?? existing.category) ? existing.specs : {});
-    const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description || input.description_detail !== (existing.description_detail ?? null) ||
+    const existingDescriptionDetail = sanitizeProductDescriptionHtml(existing.description_detail) || null;
+    const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description || input.description_detail !== existingDescriptionDetail ||
       JSON.stringify(input.specs) !== JSON.stringify(existing.specs ?? {});
     // The human-reviewed category outranks text inference. Supplier products
     // keep that staff decision and their internal readiness during ordinary saves.

@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { assignProductCategory, assignSupplierCategories } from '../lib/public/category-assignment.ts';
 import { saveProductAttributes } from '../lib/product-attributes.ts';
+import { loadProductDescription } from './product-description-test-utils.mjs';
 
 const source = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 const sync = source.slice(source.indexOf('async function syncSupplierIndustries('), source.indexOf('export async function createSupplierAction('));
@@ -37,15 +38,19 @@ vm.runInNewContext(js, {
   bool: (v, fallback = false) => typeof v === 'boolean' ? v : fallback,
   guard: async () => null, getStore: () => store, revalidateAll: () => {},
   assignProductCategory, assignSupplierCategories, saveProductAttributes, productReadiness: () => ({ ready: true }), console,
+  sanitizeProductDescriptionForSave: loadProductDescription().description.sanitizeProductDescriptionForSave,
+  sanitizeProductDescriptionHtml: loadProductDescription().description.sanitizeProductDescriptionHtml,
+  displayNameInput: (value) => typeof value === 'string' ? value.trim().slice(0, 120) || null : null,
+  productTranslationState: () => ({ current: true }),
 }, { filename: 'auto-category-actions.ts' });
 let result = await exports.createProductAction({ name: 'Cashew W320', supplier_id: supplier.id, ref_price: 10, ref_price_max: 9 });
 assert.equal(result.ok, false, 'Staff cannot save an inverted reference price range');
 result = await exports.createProductAction({ name: 'TEST ONLY — Jasmine Rice Sample', supplier_id: supplier.id, category: 'cashew' });
-assert.equal(result.ok, true);
+assert.equal(result.ok, true, result.message);
 assert.equal(rows.get(result.id).category, 'rice', 'Server overrides a spoofed category');
 assert.deepEqual(linked, ['rice', 'cashew'], 'Supplier gets both industries, primary rice from product');
 result = await exports.updateProductAction('p-1', { name: 'Cashew W320', supplier_id: supplier.id, ready_for_buyer: true, category: 'rice' });
-assert.equal(result.ok, true);
+assert.equal(result.ok, true, result.message);
 assert.equal(rows.get('p-1').category, 'cashew');
 assert.deepEqual(linked, ['cashew']);
 result = await exports.updateProductAction('p-1', { name: 'Jasmine Rice', supplier_id: supplier.id, ready_for_buyer: true, category: 'cashew' });
@@ -67,6 +72,15 @@ assert.equal(result.ok, true);
 assert.equal(rows.get(result.id).category, 'rice', 'Staff can select an allowed industry when text inference has no match');
 result = await exports.createProductAction({ name: 'Unnamed regional specialty', supplier_id: supplier.id, category: 'foreign' });
 assert.equal(rows.get(result.id).category, null, 'Form cannot claim an industry outside supplier scope');
+rows.set('p-crm-reviewed', { id: 'p-crm-reviewed', supplier_id: supplier.id, name: 'Cashew W320',
+  category: 'rice', reviewed_category_slug: 'rice', supplier_originated: false,
+  description: null, spec: null, description_detail: 'Long details\nApplication', ready_for_buyer: false });
+result = await exports.updateProductAction('p-crm-reviewed', { name: 'Cashew W320', supplier_id: supplier.id,
+  category: 'rice', description_detail: 'Long details\nApplication' });
+assert.equal(result.ok, true, result.message);
+assert.equal(rows.get('p-crm-reviewed').description_detail, '<p>Long details<br />Application</p>', 'Saving lazily canonicalizes legacy detail');
+assert.equal(rows.get('p-crm-reviewed').reviewed_category_slug, 'rice',
+  'Canonicalizing legacy detail is not an identity change and cannot clear staff review');
 rows.set('p-reviewed', { id: 'p-reviewed', supplier_id: supplier.id, name: 'Cashew W320',
   category: 'rice', reviewed_category_slug: 'rice', supplier_originated: true,
   description: null, spec: null, description_detail: null, ready_for_buyer: false });
@@ -74,6 +88,6 @@ result = await exports.updateProductAction('p-reviewed', { name: 'Cashew W320', 
 assert.equal(rows.get('p-reviewed').category, 'rice', 'Staff-reviewed category outranks automatic keyword assignment');
 assert.match(result.message, /Danh mục Vexim đã chốt được giữ nguyên/, 'Save feedback must not claim an auto-guess replaced staff review');
 result = await exports.updateProductAction('p-reviewed', { name: 'Cashew W240', supplier_id: supplier.id });
-assert.equal(rows.get('p-reviewed').reviewed_category_slug, null, 'Changing identity invalidates reviewed category');
-assert.match(result.message, /cần Vexim chốt lại danh mục/, 'Save feedback must explain re-review');
+assert.equal(rows.get('p-reviewed').reviewed_category_slug, 'rice', 'Supplier products retain the staff-reviewed category during ordinary edits');
+assert.match(result.message, /Danh mục Vexim đã chốt được giữ nguyên/, 'Save feedback confirms the reviewed category is preserved');
 console.log('✅ Product create/update/delete auto-assign own category and resync supplier industries.');

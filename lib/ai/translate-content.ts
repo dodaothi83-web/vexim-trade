@@ -3,6 +3,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { readOutputText } from "@/lib/ai/company-introduction";
+import { hasProductDescriptionMarkup } from "@/lib/products/product-description-format";
+import { sanitizeProductDescriptionForSave, sanitizeProductDescriptionHtml } from "@/lib/products/product-description";
 import type { SupplierProduct } from "@/lib/types";
 
 /** Các trường chữ của sản phẩm được dịch sang tiếng Anh cho trang buyer. */
@@ -52,10 +54,19 @@ Rules:
 - Translate moq, monthly_capacity, payment_terms, incoterm_place and export_port faithfully. Keep quantities, currencies, Incoterm codes and commercial facts unchanged.
 - Translate raw_material_region and input_material_origin for this specific product. Preserve every stated region, country and combined sourcing fact; do not add verification claims.
 - Preserve line breaks and list structure of the source.
+- description_detail may contain sanitized HTML using only p, h2, h3, ul, li, strong, em and br. Translate only the text nodes and preserve every tag and its structure. Do not add attributes, links, images or other tags. If the source is plain text, keep it as plain text.
 - Return one JSON object only, no markdown, no explanation, with exactly these keys: "name", "description", "spec", "description_detail", "packaging", "certifications", "moq", "monthly_capacity", "payment_terms", "raw_material_region", "input_material_origin", "incoterm_place", "export_port". Use an empty string for a field whose source is empty.`;
 
 function clean(value: unknown, limit: number): string {
   return typeof value === "string" ? value.replace(/\s+\n/g, "\n").trim().slice(0, limit) : "";
+}
+
+/** Never slice rich HTML through a tag. Legacy plain text keeps its existing hash behavior. */
+function cleanDescriptionDetail(value: unknown, plainTextLimit: number): string {
+  if (hasProductDescriptionMarkup(typeof value === "string" ? value : "")) {
+    return sanitizeProductDescriptionHtml(value as string);
+  }
+  return clean(value, plainTextLimit);
 }
 
 /** Chuẩn hóa đầu vào trước khi dịch và trước khi tính hash, để hai nơi luôn khớp nhau. */
@@ -64,7 +75,7 @@ export function productTranslationSource(product: ProductTranslationSource): Pro
     name: clean(product.name, LIMITS.name),
     description: clean(product.description, LIMITS.description),
     spec: clean(product.spec, LIMITS.spec),
-    description_detail: clean(product.description_detail, LIMITS.description_detail),
+    description_detail: cleanDescriptionDetail(product.description_detail, LIMITS.description_detail),
     packaging: clean(product.packaging, LIMITS.packaging),
     certifications: clean(product.certifications, LIMITS.certifications),
     moq: clean(product.moq, LIMITS.moq),
@@ -124,7 +135,9 @@ export function parseProductTranslation(
   if (options.strict && !valid) throw new Error("AI trả về bản dịch không đúng định dạng. Hãy thử lại.");
   const result = {} as ProductTranslation;
   for (const field of PRODUCT_TRANSLATION_FIELDS) {
-    const translated = clean(payload[field], LIMITS[field] * 2);
+    const translated = field === "description_detail"
+      ? cleanDescriptionDetail(payload[field], LIMITS[field] * 2)
+      : clean(payload[field], LIMITS[field] * 2);
     if (options.strict && normalized[field] && !translated)
       throw new Error(`AI chưa trả về bản dịch cho trường ${field}. Hãy thử lại.`);
     // Manual/legacy parsing remains lossless; live AI writes use strict mode.
@@ -160,7 +173,9 @@ export function productTranslationPatch(
     name_i18n: { en: translation.name },
     description_i18n: { en: translation.description },
     spec_i18n: { en: translation.spec },
-    description_detail_i18n: { en: translation.description_detail },
+    description_detail_i18n: {
+      en: sanitizeProductDescriptionForSave(translation.description_detail, { maxTextLength: LIMITS.description_detail * 2 }),
+    },
     packaging_i18n: { en: translation.packaging },
     certifications_i18n: { en: translation.certifications },
     translation_meta: {

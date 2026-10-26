@@ -7,8 +7,10 @@ import { createRequire } from "node:module";
 import ts from "typescript";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { loadProductDescription } from "./product-description-test-utils.mjs";
 
 const require = createRequire(import.meta.url);
+const { description: productDescription } = loadProductDescription();
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 function compile(path, mocks = {}, { jsx = false, append = "", source = null } = {}) {
@@ -26,6 +28,7 @@ function compile(path, mocks = {}, { jsx = false, append = "", source = null } =
       return mocks[key];
     },
     React, FormData, Date, String, Number, Boolean, Object, Array, RegExp, Error, JSON,
+    sanitizeProductDescriptionForSave: productDescription.sanitizeProductDescriptionForSave,
     console, process,
   }, { filename: path });
   return module.exports;

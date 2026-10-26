@@ -69,6 +69,14 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
       name: 'raw_material_region', defaultValue: props.defaultValue, disabled: props.disabled,
     }),
   },
+  '@/components/products/product-description-editor': {
+    ProductDescriptionEditor: (props) => React.createElement('input', {
+      type: 'hidden', id: props.id, name: props.name, value: props.value, disabled: props.disabled, readOnly: true,
+    }),
+  },
+  '@/components/products/product-description-preview': {
+    ProductDescriptionPreview: (props) => React.createElement('div', { className: 'product-description' }, props.value || 'Chưa có mô tả chi tiết.'),
+  },
   '@/lib/product-attributes': { fieldsFor: () => [], supplierFieldsFor: () => [], effectiveFieldsFor: () => [] },
 });
 

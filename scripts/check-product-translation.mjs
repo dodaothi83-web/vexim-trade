@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
+import { loadProductDescription } from './product-description-test-utils.mjs';
 
 const realRequire = createRequire(import.meta.url);
 function load(file, mocks) {
@@ -24,8 +25,11 @@ function load(file, mocks) {
   return mod.exports;
 }
 
+const { description: productDescription, format: productDescriptionFormat } = loadProductDescription();
 const ai = load('../lib/ai/translate-content.ts', {
   '@/lib/ai/company-introduction': { readOutputText: () => '' },
+  '@/lib/products/product-description': productDescription,
+  '@/lib/products/product-description-format': productDescriptionFormat,
   '@/lib/types': {},
 });
 
@@ -60,11 +64,46 @@ assert.throws(() => ai.parseProductTranslation('not json', source, { strict: tru
 assert.throws(() => ai.parseProductTranslation('{"name":"Only a name"}', source, { strict: true }), /thiếu|chưa trả về/,
   'AI cannot silently mark missing commercial translations as current');
 
+// Rich detail keeps the approved structure, removes unsafe markup, and participates in source hashing.
+const richSource = {
+  ...source,
+  description_detail: '<h2>Nguồn gốc</h2><p><strong>Điều W320</strong></p><ul><li>Độ ẩm ≤ 5%</li></ul>',
+};
+const richParsed = ai.parseProductTranslation(JSON.stringify({
+  name: 'White cashew kernels W320', description: parsed.description,
+  spec: parsed.spec,
+  description_detail: '<h2 class="source">Origin</h2><p><strong onclick="bad()">Cashew W320</strong></p><ul><li>Moisture ≤ 5%</li></ul>',
+  packaging: parsed.packaging, certifications: parsed.certifications, moq: parsed.moq,
+  monthly_capacity: parsed.monthly_capacity, payment_terms: parsed.payment_terms,
+  raw_material_region: parsed.raw_material_region, input_material_origin: parsed.input_material_origin,
+  incoterm_place: parsed.incoterm_place, export_port: parsed.export_port,
+}), richSource);
+assert.equal(richParsed.description_detail, '<h2>Origin</h2><p><strong>Cashew W320</strong></p><ul><li>Moisture ≤ 5%</li></ul>');
+assert.match(fs.readFileSync(new URL('../lib/ai/translate-content.ts', import.meta.url), 'utf8'), /p, h2, h3, ul, li, strong, em and br/);
+const richPatch = ai.productTranslationPatch({
+  ...richParsed, description_detail: '<h3 class="draft">Processing</h3><p><em>Food grade</em></p>',
+}, richSource, 'staff');
+assert.equal(richPatch.description_detail_i18n.en, '<h3>Processing</h3><p><em>Food grade</em></p>');
+const legacyPatch = ai.productTranslationPatch({ ...parsed, description_detail: 'Long details\nApplication' }, source, 'ai');
+assert.equal(legacyPatch.description_detail_i18n.en, '<p>Long details<br />Application</p>',
+  'AI writes lazily migrate legacy plain English detail to the same canonical HTML format');
+assert.equal(legacyPatch.translation_meta.source_hash, ai.productSourceHash(source),
+  'Canonicalizing the English write does not change the legacy source hash');
+assert.throws(() => ai.productTranslationPatch({
+  ...richParsed, description_detail: `<p>${'x'.repeat(12001)}</p>`,
+}, richSource, 'ai'), /12[.,]000|12000/, 'AI writes reject oversized rich text instead of storing or slicing it');
+
 // Hash đổi khi nội dung gốc đổi, giữ nguyên khi nội dung không đổi.
 const hash1 = ai.productSourceHash(source);
 assert.equal(hash1, ai.productSourceHash({ ...source }));
 assert.notEqual(hash1, ai.productSourceHash({ ...source, spec: 'Size W240' }));
 assert.notEqual(hash1, ai.productSourceHash({ ...source, payment_terms: 'T/T 50% cọc' }));
+const legacyLongSource = { ...source, description_detail: `${'Legacy detail  '.repeat(500)}\nNext line` };
+const legacyClean = legacyLongSource.description_detail.replace(/\s+\n/g, '\n').trim().slice(0, 6000);
+const legacyHash = realRequire('node:crypto').createHash('sha256')
+  .update(JSON.stringify({ ...legacyLongSource, description_detail: legacyClean })).digest('hex').slice(0, 32);
+assert.equal(ai.productSourceHash(legacyLongSource), legacyHash,
+  'legacy plain-text hashing must not change when rich HTML support is introduced');
 assert.notEqual(hash1, ai.productSourceHash({ ...source, raw_material_region: 'Lâm Đồng' }), 'Editing this product region invalidates its English cache');
 assert.notEqual(hash1, ai.productSourceHash({ ...source, input_material_origin: 'Việt Nam' }), 'Editing this product input origin invalidates its English cache');
 const coreOnly = { name: source.name, description: source.description, spec: source.spec, description_detail: '', packaging: source.packaging, certifications: source.certifications };

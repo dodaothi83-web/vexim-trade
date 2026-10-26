@@ -17,6 +17,7 @@ import { ProductMediaGallery } from "@/components/product-media-gallery";
 import { StickyProductColumn } from "@/components/sticky-product-column";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
 import { PublicProductCard } from "@/components/public-product-card";
+import { ProductDescription } from "@/components/public/product-description";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
@@ -247,7 +248,7 @@ export default async function PublicProductDetail({ params }: Props) {
     </section>}
     {enDetail && <section aria-labelledby="product-description-heading" className="mt-10 border-t border-ink-200 pt-8">
       <h2 id="product-description-heading" className="text-2xl font-black text-ink-900">Product description</h2>
-      <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{withoutDirectContacts(enDetail)}</p>
+      <ProductDescription value={enDetail} className="mt-4 max-w-3xl" />
     </section>}
     {relatedProducts.length > 0 && <section aria-labelledby="related-products-heading" className="mt-12 border-t border-ink-200 pt-8">
       <div className="flex flex-wrap items-end justify-between gap-3">

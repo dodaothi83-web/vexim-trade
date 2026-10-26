@@ -26,6 +26,8 @@ import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from
 import { saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
+import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
+import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
 import { effectiveFieldsFor, fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
 
 type EditorProps = {
@@ -238,6 +240,11 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     const form = formRef.current;
     setDirty(true);
     setSnapshot((previous) => snapshotFromForm(form, previous));
+  }
+
+  function onDescriptionDetailChange(html: string) {
+    setDirty(true);
+    setSnapshot((previous) => ({ ...previous, description_detail: html }));
   }
 
   function goToStep(next: Step) {
@@ -542,9 +549,12 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   <input name="input_material_origin" className="input" maxLength={300} placeholder="Ví dụ: Việt Nam, Campuchia hoặc nguồn kết hợp" defaultValue={product?.input_material_origin ?? ""} disabled={locked} />
                 </Field>
                 <div className="md:col-span-2">
-                  <Field label="Mô tả chi tiết" hint="Hiển thị dưới phần tổng quan của trang sản phẩm; không nhập số điện thoại, email hoặc HTML.">
-                    <textarea name="description_detail" className="input min-h-32 resize-y" rows={6} maxLength={6000} placeholder="Nguồn gốc, ứng dụng, đặc điểm, đóng gói, lưu ý..." defaultValue={product?.description_detail ?? ""} disabled={locked} />
-                  </Field>
+                  <div className="text-[12.5px]">
+                    <span className="mb-1 block font-semibold text-ink-800">Mô tả chi tiết</span>
+                    <ProductDescriptionEditor id="supplier-product-description-detail" name="description_detail"
+                      value={snapshot.description_detail} onChange={onDescriptionDetailChange} disabled={locked || busy} />
+                    <span className="mt-1 block text-[11px] leading-4 text-ink-500">Dùng tiêu đề, in đậm, in nghiêng và danh sách để buyer dễ đọc. Không nhập thông tin liên hệ trực tiếp.</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -724,7 +734,10 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   <div><ReviewField label="Quy cách / tiêu chuẩn" value={snapshot.spec} /></div>
                   <div><ReviewField label="Vùng nguyên liệu" value={snapshot.raw_material_region} /></div>
                   <div><ReviewField label="Xuất xứ nguyên liệu đầu vào" value={snapshot.input_material_origin} /></div>
-                  <div className="sm:col-span-2"><ReviewField label="Mô tả chi tiết" value={snapshot.description_detail} /></div>
+                  <div className="min-w-0 sm:col-span-2">
+                    <dt className="text-[11px] font-semibold text-ink-500">Mô tả chi tiết</dt>
+                    <dd className="mt-1 rounded-lg bg-ink-50 px-3 py-2"><ProductDescriptionPreview value={snapshot.description_detail} /></dd>
+                  </div>
                 </dl>
               </div>
 
