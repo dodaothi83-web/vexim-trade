@@ -1,4 +1,4 @@
-# Xếp hạng lưới tự nhiên — GĐ1 (đã dựng)
+# Xếp hạng lưới tự nhiên — GĐ1 + GĐ2 (đã dựng)
 
 > Đặc tả đầy đủ + mô phỏng kéo trọng số nằm ở phiên bản `docs/marketplace-ranking-spec.md`
 > và `docs/marketplace-ranking-simulator.html` (sandbox kia). Bản ghi này chỉ chốt phần
@@ -39,7 +39,7 @@ giờ cập nhật; vùng đẩy tài trợ xoay cửa sổ 10 phút, tách kh�
 
 | Nhóm | Trọng số mục tiêu | Tín hiệu | Nguồn |
 |---|---|---|---|
-| Tin cậy còn hiệu lực | 30 | số bước xác minh **còn hiệu lực** / 3 | GĐ2 nối evidence của NCC; chưa có ngữ cảnh thì = 0 |
+| Tin cậy còn hiệu lực | 30 | số bước xác minh **còn hiệu lực** / 3 | `card.evidenceValidSteps` — GĐ2 đã nối evidence (xem dưới) |
 | Chào hàng còn giá trị | 30 | giá còn công khai (cổng giá đã kiểm opt-in + consent ≤ 180 ngày + `price_valid_until`) | `card.price != null` |
 | Độ khớp có cấu trúc | 15 | khớp grade/tỉnh của bộ lọc buyer đang áp; không lọc thì thưởng việc đã khai grade | `card.grade`, `card.province` + ngữ cảnh filter |
 | Đầy đủ dữ liệu | 15 | grade · giá · MOQ · thời gian giao · incoterm · có ảnh (6 mục) | trường có cấu trúc của thẻ |
@@ -52,20 +52,54 @@ không đếm ký tự, tiền không chạm lưới tự nhiên (vùng đẩy t
 tính server-side, chỉ là một tín hiệu trong cùng tầng xác minh; NCC thấy lời nhắc
 "còn thiếu N mục", không vòng tròn 0-5, không sao, không Premium.
 
-## Ba quyết định còn mở (chưa thay đổi hành vi)
+## Ba quyết định đã chốt ở GĐ2
 
-1. **Tầng xác minh cứng?** — Đã cứng sẵn từ hôm nay (verificationCount là bậc đầu);
-   GĐ1 giữ nguyên. Bật điểm không làm 2/3 vượt 3/3 (script đã kiểm).
-2. **Chứng nhận L1 hết hạn** — chỉ trừ điểm nhóm "tin cậy còn hiệu lực", hay đưa vào
-   cổng ẩn sản phẩm? Khuyến nghị: trừ điểm trước (đổi cổng là thay đổi hiển thị lớn,
-   cần số liệu回流 từ cron nhắc hết hạn 60/30/7/1 ngày).
-3. **Route `/search`** — ô search đang đẩy `/search?q=` nhưng route chưa tồn tại;
-   "độ khớp có cấu trúc" vì thế mới chỉ áp được cho bộ lọc danh mục. Làm `/search`
-   thật thì tín hiệu khớp mới có ngữ cảnh filter.
+1. **Tầng xác minh cứng?** — GIỮ CỨNG (B2 vẫn là bậc đầu của comparator). Chứng nhận
+   hết hạn đến mấy cũng không hạ tầng: NCC 3/3 hết hạn cả 3 bước vẫn đứng trên NCC 2/3
+   dữ liệu đẹp (script đã kiểm cả vectơ này).
+2. **Chứng nhận L1 hết hạn** — TRỪ ĐIỂM nhóm "tin cậy còn hiệu lực", KHÔNG đưa vào
+   cổng ẩn. Lý do: đổi cổng là thay đổi hiển thị lớn, cần số liệu quay lại từ cron nhắc hết
+   hạn 60/30/7/1 ngày trước khi tính; trừ điểm là hồi phục được (gia hạn giấy tờ là
+   thấy đường ngay), còn giấu listing thì NCC không biết đường nào mà sửa.
+3. **Route `/search`** — ĐÃ LÀM (xem dưới).
 
-## GĐ2 (đề xuất tiếp theo, chưa làm)
+## GĐ2 đã land
 
-- Nối evidence còn hiệu lực của NCC vào bối cảnh xếp hạng (trustAlive).
-- Truyền filter grade/tỉnh từ trang danh mục vào `RankingContext` (structuredMatch).
-- Bật dần trọng số từ 0, mỗi lần bật chạy lại mô phỏng + check script.
-- Cân nhắc bật `fnv1a` cho hoà tuyệt đối khi cần thứ tự không phụ thuộc thứ tự đọc CSDL.
+- **Evidence còn hiệu lực** (`evidenceValidVerificationSteps` trong ranking.ts, thuần,
+  nhận `today` làm tham số để không đọc đồng hồ):
+  - L2/L3 là xác minh theo sự kiện → đã duyệt là còn hiệu lực, không có khái niệm hết hạn.
+  - L1 dựa trên chứng nhận giấy tờ: chỉ trừ đúng 1 bước khi NCC đã duyệt L1, CÓ chứng
+    nhận đã duyệt (`review_status === "approved"`, không bị `staff_hidden`) mà TẤT CẢ
+    đều quá hạn (`valid_until` dạng YYYY-MM-DD < today).
+  - Fail-open có chủ đích: NCC legacy không có chứng nhận nào, chứng nhận bị ẩn hết,
+    `valid_until` thiếu/sai dạng, hay lỗi đọc CSDL ở caller → không trừ. Cổng hiển thị
+    công khai vẫn là chuyện riêng của `publicSupplierCertificates` (publicly_visible,
+    file media, holder); đây chỉ đo độ tin cậy.
+  - `publicly_visible` KHÔNG ảnh hưởng evidence — đó là lựa chọn hiển thị, không phải
+    độ tin cậy.
+- **Nối vào pipeline**: `listPublicCategoryProducts` đọc `store.listCertificates` theo
+  batch 40 NCC (chỉ những NCC đã duyệt L1), tính `evidenceValidSteps` cho từng thẻ.
+  Lỗi từng NCC thì `.catch(() => [])` — fail-open.
+- **Bật trọng số đặc tả**: trang danh mục truyền `SPEC_RANKING_WEIGHTS` (30/30/15/15/10)
+  vào `rankPublicCategoryProducts`. Tầng vẫn cứng nên bật điểm chỉ đổi thứ tự TRONG
+  TẦNG; `ZERO_RANKING_WEIGHTS` vẫn tái tạo đúng sort cũ (property test giữ nguyên).
+- **Route `/search`** (`app/(public)/search/page.tsx`, server component, English,
+  `robots: noindex, follow`):
+  - Cùng đường ống gate + xếp hạng của trang danh mục (mọi cổng công khai giữ nguyên),
+    từ khoá là bộ lọc B1: AND mọi token trên tên hiển thị · grade · tên NCC · tên danh
+    mục · giá trị thuộc tính có cấu trúc. Khớp từ khoá KHÔNG mang điểm — structuredMatch
+    vẫn chỉ thưởng grade đã khai.
+  - Kết quả nhóm theo danh mục, mỗi nhóm dùng lại `CategoryProductGrid` (lọc grade/MOQ/
+    tỉnh/xác minh, trần NCC, so sánh); tối đa 12 thẻ/danh mục, 48 thẻ, 6 NCC.
+  - NCC khớp theo tên/tỉnh (loại demo + synthetic), link sang hồ sơ; empty state dẫn
+    sang RFQ; không có `q` thì hiện gợi ý duyệt danh mục.
+- **Kiểm**: `check-marketplace-ranking.mjs` thêm rule evidence + trustAlive + tầng vẫn
+  cứng trước evidence; `check-buyer-product-discovery.mjs` thêm mock `listCertificates`
+  + assert hết hạn trừ đúng 1 bước mà listing vẫn hiện đủ.
+
+## Còn mở cho GĐ3 (nếu làm tiếp)
+
+- Truyền filter grade/tỉnh đang chọn từ `CategoryProductGrid` (client) vào ngữ cảnh
+  xếp hạng để structuredMatch có filter thật — hiện lọc xảy ra sau xếp hạng ở client.
+- Bật `fnv1a` cho hoà tuyệt đối khi cần thứ tự không phụ thuộc thứ tự đọc từ CSDL.
+- Theo dõi số liệu thực tế sau khi bật 30/30/15/15/10 để hiệu chỉnh nếu cần.

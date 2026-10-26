@@ -1,9 +1,9 @@
-// node scripts/check-marketplace-ranking.mjs — GĐ1: hàm xếp hạng thuần tái tạo đúng thứ tự hiện tại.
+// node scripts/check-marketplace-ranking.mjs — GĐ1+GĐ2: hàm xếp hạng thuần + evidence + trọng số đặc tả.
 //
-// Lời hứa GĐ1: rankPublicCategoryProducts(cards) với ZERO_RANKING_WEIGHTS phải cho ra
-// ĐÚNG thứ tự của bộ so sánh đang chạy trong lib/public/product-catalog.ts:
-//   verificationCount DESC → tên A-Z (localeCompare mặc định) → thứ tự vào (sort ổn định).
-// Chứng minh bằng property test trên 400 hoán vị có hạt giống + các tính chất riêng.
+// Lời hứa còn nguyên: rankPublicCategoryProducts(cards) với ZERO_RANKING_WEIGHTS phải
+// cho ra ĐÚNG thứ tự của bộ so sánh cũ (verificationCount DESC → tên A-Z → thứ tự vào)
+// — property test 400 hoán vị có hạt giống. GĐ2 thêm: rule evidence còn hiệu lực,
+// tín hiệu trustAlive đọc từ thẻ, và trang danh mục truyền SPEC_RANKING_WEIGHTS.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -19,7 +19,8 @@ function compile(path) {
 }
 
 const {
-  rankPublicCategoryProducts, compareRankedProducts, rankingScore, rankingTier,
+  rankPublicCategoryProducts, compareRankedProducts, rankingScore, rankingTier, trustAliveSignal,
+  evidenceValidVerificationSteps,
   ZERO_RANKING_WEIGHTS, SPEC_RANKING_WEIGHTS, fnv1a,
 } = compile('../lib/public/ranking.ts');
 
@@ -27,8 +28,11 @@ const {
 const catalogSource = readFileSync(new URL('../lib/public/product-catalog.ts', import.meta.url), 'utf8');
 assert.match(catalogSource, /rankPublicCategoryProducts\(/, 'product-catalog đi qua hàm xếp hạng mới');
 assert.doesNotMatch(catalogSource, /\.sort\(\(a, b\) => b\.verificationCount/, 'Bộ so sánh inline cũ đã nhường chỗ cho ranking.ts');
+assert.match(catalogSource, /SPEC_RANKING_WEIGHTS/, 'GĐ2: trang danh mục truyền trọng số đặc tả vào hàm xếp hạng');
+assert.match(catalogSource, /evidenceValidVerificationSteps\(/, 'Evidence còn hiệu lực được tính qua rule chung');
+assert.match(catalogSource, /listCertificates\(/, 'Chứng nhận của NCC được đọc để đối chiếu hiệu lực L1');
 assert.equal(Object.values(SPEC_RANKING_WEIGHTS).reduce((sum, w) => sum + w, 0), 100, 'Trọng số mục tiêu của đặc tả cộng đúng 100');
-assert.ok(Object.values(ZERO_RANKING_WEIGHTS).every((w) => w === 0), 'GĐ1 mặc định mọi trọng số bằng 0');
+assert.ok(Object.values(ZERO_RANKING_WEIGHTS).every((w) => w === 0), 'Trọng số 0 vẫn là mặc định của hàm thuần (tái tạo thứ tự cũ)');
 
 /* ---------- Dữ liệu giả định: đủ các tầng 0-3, tên trùng, dấu tiếng Việt ---------- */
 function card(overrides) {
@@ -118,5 +122,56 @@ assert.equal(fnv1a('product-42'), fnv1a('product-42'), 'Băm ổn định dành 
 // g) Tầng đọc từ thẻ công khai, không tự suy cấp còn thiếu.
 assert.equal(rankingTier(card({ verificationCount: 2 })), 2);
 
+/* ---------- 4. GĐ2: rule evidence còn hiệu lực (quyết định: trừ điểm, KHÔNG cổng ẩn) ---------- */
+const TODAY = '2026-10-26';
+const cert = (overrides) => ({ review_status: 'approved', staff_hidden: false, valid_until: '2099-01-01', ...overrides });
+// L1 đã duyệt + chứng nhận còn hạn → giữ đủ 3 bước.
+assert.equal(evidenceValidVerificationSteps([1, 2, 3], [cert({ valid_until: '2099-01-01' })], TODAY), 3,
+  'Chứng nhận L1 còn hạn giữ đủ số bước');
+// Tất cả chứng nhận đã duyệt đều quá hạn → trừ đúng 1 bước (chỉ L1 bị ảnh hưởng).
+assert.equal(evidenceValidVerificationSteps([1, 2, 3], [cert({ valid_until: '2020-01-01' }), cert({ valid_until: '2024-12-31' })], TODAY), 2,
+  'L1 hết hạn trừ đúng một bước — L2/L3 theo sự kiện không bị ảnh hưởng');
+// Hỗn hợp hết hạn + còn hạn → còn sống.
+assert.equal(evidenceValidVerificationSteps([1, 2, 3], [cert({ valid_until: '2020-01-01' }), cert({})], TODAY), 3,
+  'Một chứng nhận còn hạn là đủ');
+// Không có chứng nhận nào (NCC legacy / lỗi đọc CSDL) → fail-open, không trừ.
+assert.equal(evidenceValidVerificationSteps([1, 2, 3], [], TODAY), 3, 'NCC legacy không có bảng chứng nhận vẫn giữ số bước');
+// Chỉ còn chứng nhận bị nhân viên ẩn → không đếm được → fail-open.
+assert.equal(evidenceValidVerificationSteps([1, 2, 3], [cert({ valid_until: '2099-01-01', staff_hidden: true })], TODAY), 3,
+  'Chứng nhận bị ẩn không là chứng cứ sống; ẩn hết thì rơi về fail-open');
+// Trạng thái chưa duyệt không là chứng cứ: không cộng cũng không trừ (fail-open).
+assert.equal(evidenceValidVerificationSteps([1, 2, 3], [cert({ valid_until: '2099-01-01', review_status: 'pending' })], TODAY), 3,
+  'Chứng nhận chưa duyệt không làm mất hiệu lực các bước đã duyệt');
+// valid_until thiếu hoặc sai dạng ISO → coi như còn hạn, không phạt dữ liệu lỗi.
+assert.equal(evidenceValidVerificationSteps([1], [cert({ valid_until: null })], TODAY), 1, 'Giấy tờ không ghi hạn không bị coi là hết hạn');
+assert.equal(evidenceValidVerificationSteps([1], [cert({ valid_until: '20990101' })], TODAY), 1, 'Ngày sai dạng không bị coi là hết hạn');
+// Chỉ có L1 thì trừ xuống 0, không âm.
+assert.equal(evidenceValidVerificationSteps([1], [cert({ valid_until: '2020-01-01' })], TODAY), 0, 'Trừ không xuống dưới 0');
+// NCC chưa duyệt L1: chứng nhận hết hạn không đổi gì (không có gì để trừ).
+assert.equal(evidenceValidVerificationSteps([2, 3], [cert({ valid_until: '2020-01-01' })], TODAY), 2,
+  'L2/L3 là xác minh theo sự kiện — không bao giờ hết hạn');
+
+/* ---------- 5. GĐ2: trustAlive đọc từ thẻ; trừ điểm đổi thứ tự TRONG TẦNG ---------- */
+// Tín hiệu đọc evidenceValidSteps trên từng thẻ; thiếu dữ liệu thì = 0, không tự suy.
+assert.equal(trustAliveSignal(card({ evidenceValidSteps: 3 })), 1);
+assert.equal(trustAliveSignal(card({ evidenceValidSteps: 2 })), 2 / 3);
+assert.equal(trustAliveSignal(card({})), 0, 'Thẻ không có dữ liệu evidence thì tín hiệu tin cậy bằng 0');
+assert.equal(trustAliveSignal(card({ evidenceValidSteps: null })), 0);
+const trustDrop = rankingScore(card({ evidenceValidSteps: 3 }), SPEC_RANKING_WEIGHTS) -
+  rankingScore(card({ evidenceValidSteps: 2 }), SPEC_RANKING_WEIGHTS);
+assert.ok(Math.abs(trustDrop - SPEC_RANKING_WEIGHTS.trustAlive / 3) < 1e-9,
+  'Mất đúng 1/3 nhóm tin cậy khi một bước hết hiệu lực');
+// Cùng tầng 3/3: thẻ đủ dữ liệu nhưng L1 hết hạn (evidence 2) thua thẻ evidence 3 —
+// đặt tên ngược A-Z để chứng minh điểm thắng tên.
+const staleWinner = card({ id: 'aaa-stale', name: 'Aaa hết hạn', evidenceValidSteps: 3 });
+const freshLoser = card({ id: 'zzz-fresh', name: 'Zzz còn hạn', evidenceValidSteps: 2 });
+assert.equal(rankPublicCategoryProducts([freshLoser, staleWinner], SPEC_RANKING_WEIGHTS)[0].id, 'aaa-stale',
+  'Trong cùng tầng: evidence còn hiệu lực thắng tên A-Z');
+// Tầng vẫn cứng trước evidence: 3/3 hết hạn cả 3 bước (evidence 0) vẫn trên 2/3 còn đủ.
+const tier3AllStale = card({ id: 't3-stale', name: 'Aaa', verificationCount: 3, evidenceValidSteps: 0 });
+assert.equal(rankPublicCategoryProducts([tier2Full, tier3AllStale], SPEC_RANKING_WEIGHTS)[0].id, 't3-stale',
+  'Chứng nhận hết hạn chỉ trừ điểm trong tầng — KHÔNG hạ tầng, không cổng ẩn');
+
 console.log('✓ Tầng cứng 3/2/1/0, điểm chỉ so trong tầng, tín hiệu server-side, sort ổn định, băm deterministic');
-console.log('✅ Marketplace ranking GĐ1: hàm thuần tách đúng, mọi trọng số = 0 tái tạo y hệt thứ tự hiện tại.');
+console.log('✓ GĐ2 evidence: L1 hết hạn trừ đúng 1 bước, L2/L3 không hết hạn, fail-open cho NCC legacy và dữ liệu lỗi');
+console.log('✅ Marketplace ranking GĐ1+GĐ2: hàm thuần tách đúng, trọng số 0 tái tạo thứ tự cũ, đặc tả 30/30/15/15/10 đã bật ở trang danh mục.');
