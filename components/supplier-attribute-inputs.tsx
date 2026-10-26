@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ProductAttributeField } from "@/lib/types";
 import { cleanSupplierAttributeText, mergeAttributeFields } from "@/lib/product-attributes";
 
@@ -16,11 +16,19 @@ import { cleanSupplierAttributeText, mergeAttributeFields } from "@/lib/product-
  * `attribute_pool` và server lưu vào danh mục để NCC khác dùng lại. Thông số tự thêm
  * không tạo nhãn xác minh và không tự hiện cho buyer; Vexim xem khi duyệt.
  */
-export function SupplierAttributeInputs({ officialFields, supplierFields = [], values, disabled = false }: {
+export function SupplierAttributeInputs({ officialFields, supplierFields = [], values, disabled = false, onCommit }: {
   officialFields: ProductAttributeField[];
   supplierFields?: ProductAttributeField[];
   values?: Record<string, unknown> | null;
   disabled?: boolean;
+  /**
+   * Báo lại pool + giá trị đang chọn mỗi khi thay đổi. Ô ẩn attribute_pool và các ô
+   * attribute:* do state React quản nên giá trị DOM cập nhật SAU sự kiện change;
+   * riêng flow "Thêm giá trị mới" dùng nút type="button" nên không bao giờ làm nổ
+   * event change của form — form cha cần được báo trực tiếp để cờ "có thay đổi"
+   * không bỏ sót (bỏ sót thì thay đổi mất khi chuyển bước mà không tự lưu).
+   */
+  onCommit?: (poolJson: string, draft: Record<string, string>) => void;
 }) {
   const [pool, setPool] = useState<ProductAttributeField[]>(supplierFields);
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(
@@ -30,6 +38,8 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
   const [error, setError] = useState<string | null>(null);
 
   const fields = useMemo(() => mergeAttributeFields(officialFields, pool), [officialFields, pool]);
+  const poolJson = JSON.stringify(pool);
+  useEffect(() => { onCommit?.(poolJson, draft); }, [poolJson, draft, onCommit]);
   const visible = fields.filter((field) => !field.showWhen || draft[field.showWhen.key] === field.showWhen.value);
   // Danh mục chưa có thông số nào: không hiện khối trống, quy cách đã nằm ở ô bên dưới.
   if (!fields.length) return null;
