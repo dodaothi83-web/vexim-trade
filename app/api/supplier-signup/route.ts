@@ -52,12 +52,12 @@ export async function POST(request: Request) {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const name = String(form.get("name") ?? "").trim();
   const password = String(form.get("password") ?? "");
-  const turnstileToken = String(form.get("turnstile_token") ?? "").trim();
+  const challengeToken = String(form.get("challenge_token") ?? "").trim();
   if (email.length > 254 || !EMAIL.test(email)) return fail("Email không hợp lệ.");
   if (name.length < 2 || name.length > 120) return fail("Vui lòng nhập tên người đăng ký (2–120 ký tự).");
   if (password.length > 128 || passwordProblem(password)) return fail("Mật khẩu cần 8–128 ký tự, gồm cả chữ và số.");
 
-  const protection = await protectPasswordAuth({ flow: "supplier-signup", headers: request.headers, email, token: turnstileToken });
+  const protection = await protectPasswordAuth({ flow: "supplier-signup", headers: request.headers, email, token: challengeToken });
   if (!protection.ok) return fail(protection.message, protection.status);
 
   // Đường dẫn xác nhận chỉ cần khi Supabase thật sự gửi thư. Dự án đang tắt

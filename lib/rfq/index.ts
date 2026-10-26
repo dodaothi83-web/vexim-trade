@@ -4,7 +4,7 @@
  * Cung cấp:
  *  - generateRfqCode(): mã RFQ-YYYYMMDD-XXXXX (tăng dần trong ngày, khi có va chạm thử lại).
  *  - generateAccessToken(): token 128-bit an toàn URL-friendly.
- *  - scoreSpam(): chấm điểm RFQ cho heuristic spam (không thay thế MX/Turnstile).
+ *  - scoreSpam(): chấm điểm RFQ cho heuristic spam (không thay thế MX/challenge chống bot).
  *  - isLikelyWebmail(): kiểm tra tên miền webmail (chặn mua dùng gmail/yahoo khi cờ bật).
  *  - resolveMx(): (light) kiểm tra MX tồn tại của domain qua DNS — cần NODE tls, fallback bằng allowlist phổ thông khi DNS fail.
  */
@@ -77,7 +77,7 @@ export function scoreSpam(input: {
   productText?: string | null;
   phone?: string | null;
   honeypot?: string | null;
-  turnstileOk?: boolean;
+  challengeOk?: boolean;
 }): SpamScore {
   const flags: string[] = [];
   let score = 0;
@@ -86,8 +86,8 @@ export function scoreSpam(input: {
     flags.push("honeypot_filled");
     score += 100;
   }
-  if (!input.turnstileOk) {
-    flags.push("turnstile_missing");
+  if (!input.challengeOk) {
+    flags.push("challenge_missing");
     score += 60;
   }
   if (input.email && isLikelyWebmail(input.email)) {

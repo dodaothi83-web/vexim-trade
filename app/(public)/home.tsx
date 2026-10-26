@@ -706,7 +706,6 @@ export default async function HomeContent({
          ===================================================================== */}
       <ServiceRegistrationSection
         lang={lang}
-        turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null}
       />
 
       {/* =====================================================================

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 import { submitRfqAction } from "./actions";
-import { TurnstileWidget } from "@/components/turnstile-widget";
+import { FormChallenge } from "@/components/form-challenge";
 import { cx } from "@/components/ui";
 
 interface Option {
@@ -42,7 +42,6 @@ interface Props {
   initialSuppliers?: Array<{ id: string; name: string }>;
   wantsSamples: boolean;
   mode?: "quote" | "question";
-  turnstileSiteKey?: string | null;
 }
 
 const UNITS = ["MT", "kg", "lb", "container (20')", "container (40')", "pallet", "carton"];
@@ -51,7 +50,7 @@ const FREQUENCIES = ["One-time", "Monthly", "Quarterly", "Spot", "Contract"];
 const COUNTRIES = ["US", "EU", "UK", "Japan", "Korea", "China", "Middle East", "Australia", "Canada", "Other"];
 const BUSINESS_TYPES = ["Importer / Distributor", "Brand / Manufacturer", "Wholesaler", "Retailer", "Trading company", "Other"];
 
-export function RfqForm({ categories, categorySpecs, initialCategory, initialProduct, initialProductId, initialSupplierIds, initialSuppliers = [], wantsSamples, mode = "quote", turnstileSiteKey }: Props) {
+export function RfqForm({ categories, categorySpecs, initialCategory, initialProduct, initialProductId, initialSupplierIds, initialSuppliers = [], wantsSamples, mode = "quote" }: Props) {
   const router = useRouter();
   const isQuestion = mode === "question";
   const params = useSearchParams();
@@ -59,7 +58,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
   const [busy, startSubmit] = useTransition();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverMsg, setServerMsg] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [data, setData] = useState(() => ({
     // Product
     category_slug: initialCategory ?? "",
@@ -178,7 +177,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
         utm_medium: params.get("utm_medium"),
         utm_campaign: params.get("utm_campaign"),
         honeypot: data.websiteHp,
-        turnstile_token: turnstileToken,
+        challenge_token: challengeToken,
       });
       if (!res.ok) {
         setServerMsg(res.message);
@@ -205,9 +204,9 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
       <label>Leave empty <input tabIndex={-1} autoComplete="off" value={data.websiteHp} onChange={(e) => update("websiteHp", e.target.value)} /></label>
     </div>
   );
-  const turnstileControl = turnstileSiteKey ? (
-    <TurnstileWidget siteKey={turnstileSiteKey} onChange={setTurnstileToken} />
-  ) : null;
+  const challengeControl = (
+    <FormChallenge purpose="rfq" onChange={setChallengeToken} />
+  );
 
   if (isQuestion) {
     return (
@@ -240,7 +239,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
             <input autoComplete="email" type="email" className="input" value={data.email} onChange={(e) => update("email", e.target.value)} placeholder="jane@company.com" />
           </Field>
           {honeypotControl}
-          {turnstileControl}
+          {challengeControl}
           <label className="flex items-start gap-2 pt-1 text-[13px] leading-relaxed text-ink-700">
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.consent} onChange={(e) => update("consent", e.target.checked)} />
             <span>I agree to share my name, company, email and this question with <strong>{supplierName}</strong> so they can reply directly.</span>
@@ -477,7 +476,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
           </div>
 
           {honeypotControl}
-          {turnstileControl}
+          {challengeControl}
 
           <label className="flex items-start gap-2 pt-2 text-[13px] text-ink-700">
             <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.consent} onChange={(e) => update("consent", e.target.checked)} />

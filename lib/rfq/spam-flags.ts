@@ -8,9 +8,9 @@ const SPAM_FLAG_DETAILS: Record<string, SpamFlagDetail> = {
     label: "Biểu mẫu có dấu hiệu tự động",
     description: "Trường ẩn chống spam đã bị điền. Dấu hiệu này thường gặp khi bot gửi biểu mẫu.",
   },
-  turnstile_missing: {
+  challenge_missing: {
     label: "Chưa xác minh được bước bảo mật",
-    description: "Hệ thống chưa xác nhận được bước kiểm tra người dùng khi yêu cầu được gửi.",
+    description: "Hệ thống chưa xác nhận được bước kiểm tra người dùng (challenge chống bot) khi yêu cầu được gửi.",
   },
   webmail_domain: {
     label: "Dùng email miễn phí",

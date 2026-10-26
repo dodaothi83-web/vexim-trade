@@ -4,17 +4,17 @@ import Link from "next/link";
 import { useState } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
-import { TurnstileWidget } from "@/components/turnstile-widget";
+import { FormChallenge } from "@/components/form-challenge";
 
-export function SupplierAccountForm({ turnstileSiteKey = null }: { turnstileSiteKey?: string | null }) {
+export function SupplierAccountForm() {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [challengeToken, setChallengeToken] = useState("");
   const [challengeVersion, setChallengeVersion] = useState(0);
 
   function resetChallenge() {
-    setTurnstileToken("");
+    setChallengeToken("");
     setChallengeVersion((version) => version + 1);
   }
 
@@ -26,12 +26,12 @@ export function SupplierAccountForm({ turnstileSiteKey = null }: { turnstileSite
       setMessage({ ok: false, text: "Hai lần nhập mật khẩu không khớp." });
       return;
     }
-    if (turnstileSiteKey && !turnstileToken) {
+    if (!challengeToken) {
       setMessage({ ok: false, text: "Vui lòng hoàn tất bước kiểm tra bảo mật." });
       return;
     }
     form.delete("password2");
-    form.set("turnstile_token", turnstileToken);
+    form.set("challenge_token", challengeToken);
     setBusy(true);
     setMessage(null);
     try {
@@ -78,12 +78,10 @@ export function SupplierAccountForm({ turnstileSiteKey = null }: { turnstileSite
       <div aria-hidden className="pointer-events-none absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden">
         <label>Leave empty <input name="website_hp" tabIndex={-1} autoComplete="off" /></label>
       </div>
-      {turnstileSiteKey && (
-        <TurnstileWidget key={challengeVersion} siteKey={turnstileSiteKey} onChange={(token) => setTurnstileToken(token ?? "")} />
-      )}
+      <FormChallenge key={challengeVersion} purpose="supplier-signup" onChange={(token) => setChallengeToken(token ?? "")} />
       <button
         type="submit"
-        disabled={busy || message?.ok || Boolean(turnstileSiteKey && !turnstileToken)}
+        disabled={busy || message?.ok || !challengeToken}
         className="btn btn-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Đang tạo tài khoản…</> : "Tạo tài khoản bằng email"}

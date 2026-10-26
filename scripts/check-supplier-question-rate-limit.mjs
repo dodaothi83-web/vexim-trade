@@ -108,7 +108,7 @@ assert.equal(invalidConfigResult.reason, 'unavailable');
 
 const envExample = fs.readFileSync(new URL('../.env.example', import.meta.url), 'utf8');
 const guide = fs.readFileSync(new URL('../docs/supplier-question-security.md', import.meta.url), 'utf8');
-for (const key of ['TURNSTILE_SITE_KEY', 'TURNSTILE_SECRET_KEY', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'KV_REST_API_URL', 'KV_REST_API_TOKEN']) {
+for (const key of ['CHALLENGE_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'KV_REST_API_URL', 'KV_REST_API_TOKEN']) {
   assert.ok(envExample.includes(key), `${key} is documented in .env.example`);
   assert.ok(guide.includes(key), `${key} is documented in the deployment guide`);
 }

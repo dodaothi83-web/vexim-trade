@@ -6,33 +6,33 @@ import { Eye, EyeOff, Loader2, LogIn, ShieldCheck } from "lucide-react";
 
 import { loginAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui";
-import { TurnstileWidget } from "@/components/turnstile-widget";
+import { FormChallenge } from "@/components/form-challenge";
 
-export function LoginForm({ needsSetup, turnstileSiteKey = null }: { needsSetup: boolean; turnstileSiteKey?: string | null }) {
+export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [challengeToken, setChallengeToken] = useState("");
   const [challengeVersion, setChallengeVersion] = useState(0);
 
   function resetChallenge() {
-    setTurnstileToken("");
+    setChallengeToken("");
     setChallengeVersion((version) => version + 1);
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (turnstileSiteKey && !turnstileToken) {
+    if (!challengeToken) {
       setError("Vui lòng hoàn tất bước kiểm tra bảo mật.");
       return;
     }
     setBusy(true);
     try {
-      const res = await loginAction(email, password, turnstileToken);
+      const res = await loginAction(email, password, challengeToken);
       if (!res.ok) {
         setError(res.message);
         resetChallenge();
@@ -94,9 +94,7 @@ export function LoginForm({ needsSetup, turnstileSiteKey = null }: { needsSetup:
         </div>
       </div>
 
-      {turnstileSiteKey && (
-        <TurnstileWidget key={challengeVersion} siteKey={turnstileSiteKey} onChange={(token) => setTurnstileToken(token ?? "")} />
-      )}
+      <FormChallenge key={challengeVersion} purpose="login" onChange={(token) => setChallengeToken(token ?? "")} />
       {error && (
         <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-800">
           {error}
@@ -107,7 +105,7 @@ export function LoginForm({ needsSetup, turnstileSiteKey = null }: { needsSetup:
         type="submit"
         variant="primary"
         className="w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={busy || Boolean(turnstileSiteKey && !turnstileToken)}
+        disabled={busy || !challengeToken}
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
         Đăng nhập

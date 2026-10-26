@@ -6,9 +6,9 @@ import { Loader2, ShieldCheck } from "lucide-react";
 
 import { setupAdminAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui";
-import { TurnstileWidget } from "@/components/turnstile-widget";
+import { FormChallenge } from "@/components/form-challenge";
 
-export function SetupForm({ turnstileSiteKey = null }: { turnstileSiteKey?: string | null }) {
+export function SetupForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -17,11 +17,11 @@ export function SetupForm({ turnstileSiteKey = null }: { turnstileSiteKey?: stri
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [challengeToken, setChallengeToken] = useState("");
   const [challengeVersion, setChallengeVersion] = useState(0);
 
   function resetChallenge() {
-    setTurnstileToken("");
+    setChallengeToken("");
     setChallengeVersion((version) => version + 1);
   }
 
@@ -29,13 +29,13 @@ export function SetupForm({ turnstileSiteKey = null }: { turnstileSiteKey?: stri
     e.preventDefault();
     setError(null);
     setNotice(null);
-    if (turnstileSiteKey && !turnstileToken) {
+    if (!challengeToken) {
       setError("Vui lòng hoàn tất bước kiểm tra bảo mật.");
       return;
     }
     setBusy(true);
     try {
-      const res = await setupAdminAction(email, name, password, password2, turnstileToken);
+      const res = await setupAdminAction(email, name, password, password2, challengeToken);
       if (!res.ok) {
         setError(res.message);
         resetChallenge();
@@ -116,9 +116,7 @@ export function SetupForm({ turnstileSiteKey = null }: { turnstileSiteKey?: stri
         </div>
       </div>
 
-      {turnstileSiteKey && (
-        <TurnstileWidget key={challengeVersion} siteKey={turnstileSiteKey} onChange={(token) => setTurnstileToken(token ?? "")} />
-      )}
+      <FormChallenge key={challengeVersion} purpose="admin-setup" onChange={(token) => setChallengeToken(token ?? "")} />
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-800">
           {error}
@@ -134,7 +132,7 @@ export function SetupForm({ turnstileSiteKey = null }: { turnstileSiteKey?: stri
         type="submit"
         variant="primary"
         className="w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={busy || Boolean(turnstileSiteKey && !turnstileToken)}
+        disabled={busy || !challengeToken}
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
         Tạo tài khoản quản trị &amp; đăng nhập

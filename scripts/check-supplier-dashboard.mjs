@@ -259,7 +259,7 @@ const submit = load('../lib/rfq/submit.ts', {
   '@/lib/public/catalog': { listPublicSuppliers: async () => [{ id: 's-a' }, { id: 's-b' }] },
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [{ id: 'p-a', name: 'Cashew W320', supplierId: 's-a' }] },
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
-  '@/lib/security/turnstile': { verifyTurnstileToken: async () => ({ ok: true }) },
+  '@/lib/security/challenge': { verifyFormChallenge: () => ({ ok: true }) },
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => null, sendRfqNewInternal: async () => null },
   './auto-match': { createPreferredSupplierMatches: async () => [] },
   './supplier-question-rate-limit': { checkSupplierQuestionRateLimit: async () => ({ status: 'ok' }) },
