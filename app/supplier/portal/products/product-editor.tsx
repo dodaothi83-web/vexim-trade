@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -212,7 +212,14 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   useEffect(() => {
     if (baselineSeeded.current) return;
     baselineSeeded.current = true;
-    setBaseline(snapshotFromForm(formRef.current, snapshotFrom(product)));
+    // Gieo CẢ snapshot lẫn baseline từ chính form vừa render để hai bản luôn cùng bộ khoá.
+    // Trước đây chỉ gieo baseline từ form (chứa thêm supplier_category_proposal,
+    // attribute_pool...) còn snapshot chỉ có khoá của snapshotFrom(product) → hai bản
+    // khác khoá → dirty = true ngay khi mở lại sản phẩm đã lưu dù chưa sửa gì, khiến
+    // bước 1 hiện "Lưu thay đổi" và việc chuyển bước tự động lưu một lần nữa.
+    const initial = snapshotFromForm(formRef.current, snapshotFrom(product));
+    setSnapshot(initial);
+    setBaseline(initial);
   }, []);
 
   // Thông báo tự ẩn: thành công 4.5 giây, lỗi ở lại 8 giây để kịp đọc.
@@ -285,6 +292,19 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   function onDescriptionDetailChange(html: string) {
     setSnapshot((previous) => ({ ...previous, description_detail: html }));
   }
+
+  /**
+   * Ô ẩn attribute_pool và các ô attribute:* đổi giá trị DOM sau event change, và flow
+   * "Thêm giá trị mới" chỉ là nút type="button" (không có event change của form) —
+   * nên component thông số báo trực tiếp để snapshot luôn khớp form thật.
+   */
+  const onAttributesCommit = useCallback((poolJson: string, draft: Record<string, string>) => {
+    setSnapshot((previous) => {
+      const next: Record<string, string> = { ...previous, attribute_pool: poolJson };
+      for (const [key, value] of Object.entries(draft)) next[`attribute:${key}`] = value;
+      return next;
+    });
+  }, []);
 
   function goToStep(next: Step) {
     setStep(next);
@@ -592,7 +612,8 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                     <SupplierAttributeInputs key={selectedCategory} disabled={locked}
                       officialFields={fieldsFor(activeCategory)}
                       supplierFields={supplierFieldsFor(activeCategory)}
-                      values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}} />
+                      values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}}
+                      onCommit={onAttributesCommit} />
                   </div>}
                 <Field label="Mô tả ngắn" hint="Tóm tắt vài câu bên cạnh ảnh sản phẩm">
                   <textarea name="description" className="input min-h-28 resize-y" rows={4} maxLength={1500} placeholder="Giới thiệu ngắn gọn về sản phẩm..." defaultValue={product?.description ?? ""} disabled={locked} />

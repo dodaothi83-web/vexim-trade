@@ -77,6 +77,11 @@ const reviews = [
   { supplier_id: 'B', target_level: 2, status: 'approved' },
   { supplier_id: 'C', target_level: 3, status: 'approved' },
 ];
+// GĐ2 evidence: A đã duyệt L1 nên chứng nhận được đối chiếu hiệu lực; B chỉ có L2
+// (xác minh theo sự kiện) nên không cần đọc chứng nhận.
+const certificates = [
+  { supplier_id: 'A', review_status: 'approved', staff_hidden: false, publicly_visible: true, valid_until: '2099-01-01' },
+];
 assert.deepEqual(approvedVerificationSteps(reviews.filter((r) => r.supplier_id === 'A')), [1, 3]);
 assert.deepEqual(approvedVerificationSteps(reviews.filter((r) => r.supplier_id === 'B')), [2]);
 assert.deepEqual(verificationLabels([1, 3]), ['Documents checked', 'Delivery history reviewed']);
@@ -110,15 +115,20 @@ const store = {
   listMediaForProducts: async (ids) => media.filter((m) => ids.includes(m.product_id)),
   listMedia: async () => [],
   listVerifications: async (id) => reviews.filter((r) => r.supplier_id === id),
+  listCertificates: async (id) => certificates.filter((c) => c.supplier_id === id),
 };
 const catalogMocks = { 'server-only': {}, '@/lib/db': { getStore: () => store },
   '@/lib/public/grade-resolution': gradeResolution, '@/lib/public/display-name': displayName,
   '@/lib/product-attributes': productAttributes,
   '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection, '@/lib/verification-status': { approvedVerificationSteps, approvedPublicReviewSummaries } };
 const catalog = compile('../lib/public/catalog.ts', catalogMocks);
+// GĐ1 xếp hạng: module thuần không import gì nên compile không cần mock; bơm bản thật
+// vào product-catalog để đường xếp hạng mới chạy đúng trong kiểm này.
+const ranking = compile('../lib/public/ranking.ts', {});
 const productCatalog = compile('../lib/public/product-catalog.ts', {
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
   '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
+  '@/lib/public/ranking': ranking,
   '@/lib/public/supplier-seo': { isSyntheticSupplier },
   '@/lib/public/supplier-english': { supplierProvinceDisplay: (s) => s.province || '' },
   '@/lib/public/product-detail-display': productDetailDisplay,
@@ -155,11 +165,20 @@ media.push({ ...media[0], product_id: 'synthetic-product', storage_path: 'produc
 assert.equal((await catalog.getPublicSupplierBySlug('vexim-test-supplier-do-not-contact')).main_products.length, 1, 'Published test profile can display its existing test listing truthfully');
 assert.equal((await productCatalog.listPublicCategoryProducts(category)).length, 13, 'A synthetic supplier never becomes a real marketplace listing');
 suppliers.pop(); products.pop(); media.pop();
+// GĐ2: chứng nhận L1 hết hạn chỉ TRỪ ĐIỂM trong tầng — listing vẫn hiện đủ 13 thẻ.
+certificates[0].valid_until = '2020-01-01';
+const staleCards = await productCatalog.listPublicCategoryProducts(category);
+assert.equal(staleCards.length, 13, 'Expired L1 evidence deducts points, never hides the listing');
+assert.equal(staleCards.find((p) => p.id === 'a0').evidenceValidSteps, 1, 'An expired L1 certificate deducts exactly one trust step');
+assert.equal(staleCards.find((p) => p.id === 'b0').evidenceValidSteps, 1, 'The deduction never touches event-based L2 steps');
+certificates[0].valid_until = '2099-01-01';
 assert.equal(cards.filter((p) => p.grade === 'W320').length, 13, 'Grade filter can expose 5 separate W320 offers from B');
 assert.equal(cards.filter((p) => p.supplierId === 'B').length, 5);
 assert.deepEqual(cards.find((p) => p.id === 'a0').verificationSteps, [1, 3], 'Trader passes documents and deliveries without a factory badge');
 assert.deepEqual(cards.find((p) => p.id === 'b0').verificationSteps, [2], 'Factory alone does not imply document review');
 assert.equal(cards.find((p) => p.id === 'a0').verificationCount, 2, 'Ranking counts actual approved checks, not max level');
+assert.equal(cards.find((p) => p.id === 'a0').evidenceValidSteps, 2, 'A valid L1 certificate keeps both approved steps alive for ranking');
+assert.equal(cards.find((p) => p.id === 'b0').evidenceValidSteps, 1, 'L2 verification is event-based and never expires');
 assert.equal(cards.find((p) => p.id === 'a0').imagePaths[0], 'products/a0/cover.jpg', 'Full image remains available on product detail');
 assert.equal(cards.find((p) => p.id === 'a0').cardImagePath, 'products/a0/cover-thumb.webp', 'Cards use only the approved featured thumbnail');
 assert.equal(cards.find((p) => p.id === 'b0').cardImagePath, 'products/b0/image.jpg', 'Legacy files without thumbnails still work');
