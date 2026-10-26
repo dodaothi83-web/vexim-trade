@@ -131,6 +131,20 @@ function snapshotsEqual(a: Record<string, string>, b: Record<string, string>) {
 }
 
 /**
+ * Báo lỗi hành động ra console + toast. Trước đây mọi lỗi đều hiện chung
+ * "Không kết nối được máy chủ" nên không phân biệt được: mất mạng, tab còn mở
+ * từ trước bản cập nhật (action ID cũ → HTTP 400), hay lỗi máy chủ (HTTP 500).
+ * Console giữ vết đầy đủ (kể cả digest) để chẩn đoán; toast nêu rõ hành động hỏng.
+ */
+function reportActionError(error: unknown, what: string) {
+  console.error(`[supplier-product] ${what} thất bại:`, error);
+  const detail = error instanceof Error && error.message ? error.message.trim() : "";
+  if (detail && !/failed to fetch|fetch failed|networkerror/i.test(detail))
+    return { ok: false, message: `${what} thất bại: ${detail}` };
+  return { ok: false, message: `${what} thất bại — mất kết nối hoặc trang đã cũ sau bản cập nhật. Tải lại trang (F5) rồi thử lại.` };
+}
+
+/**
  * Đọc toàn bộ form thành bản nháp để bước 3 luôn khớp với những gì đang nhập.
  *
  * Luôn nhận phần tử form đã lấy sẵn: React dọn `event.currentTarget` về null ngay sau
@@ -308,8 +322,8 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       }
       router.refresh();
       if (target) goToStep(target);
-    } catch {
-      setToast({ ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." });
+    } catch (error) {
+      setToast(reportActionError(error, "Lưu sản phẩm"));
     } finally {
       setBusy(false);
     }
@@ -387,8 +401,8 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         setSent(true);
         router.refresh();
       }
-    } catch {
-      setToast({ ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." });
+    } catch (error) {
+      setToast(reportActionError(error, "Gửi duyệt"));
     } finally {
       setBusy(false);
     }
@@ -427,8 +441,9 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         body.set("kind", kind);
         body.set("file", file);
         const response = await fetch(`/api/supplier-portal/products/${product.id}/media`, { method: "POST", body });
-        const data = await response.json() as { ok: boolean; message: string };
-        if (!response.ok || !data.ok) throw Error(data.message || "Không tải được tệp.");
+        // Trang lỗi (404/413/500...) trả HTML: đọc .json() sẽ ném — bắt lại để giữ mã HTTP thật.
+        const data = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
+        if (!response.ok || !data?.ok) throw Error(data?.message || `Không tải được tệp (HTTP ${response.status}).`);
         uploaded++;
       }
       setSelected([]);
@@ -437,7 +452,8 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         : `Đã tải ${uploaded} tệp. Tệp sẽ được kiểm tra khi duyệt.` });
     } catch (error) {
       if (uploaded) setSelected(selected.slice(uploaded));
-      setToast({ ok: false, message: `${uploaded ? `Đã tải ${uploaded} tệp; chỉ còn tệp chưa hoàn tất trong danh sách chọn. ` : ""}${error instanceof Error ? error.message : "Không kết nối được máy chủ."}` });
+      const failure = reportActionError(error, "Tải tệp");
+      setToast({ ok: false, message: `${uploaded ? `Đã tải ${uploaded} tệp; chỉ còn tệp chưa hoàn tất trong danh sách chọn. ` : ""}${failure.message}` });
     } finally {
       setProgress("");
       setBusy(false);
@@ -454,11 +470,16 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ media_id: mediaId }),
       });
+      // Trang lỗi (404/500...) trả HTML: đọc .json() sẽ ném — báo rõ mã HTTP thay vì "mất kết nối".
+      if (!response.ok) {
+        setToast({ ok: false, message: `Đặt ảnh đại diện thất bại (HTTP ${response.status}). Tải lại trang rồi thử lại.` });
+        return;
+      }
       const data = await response.json() as { ok: boolean; message: string };
       setToast(data);
       if (data.ok) router.refresh();
-    } catch {
-      setToast({ ok: false, message: "Không kết nối được máy chủ." });
+    } catch (error) {
+      setToast(reportActionError(error, "Đặt ảnh đại diện"));
     } finally {
       setBusy(false);
     }
@@ -468,11 +489,15 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     setBusy(true);
     try {
       const response = await fetch(`/api/supplier-portal/products/${product.id}/media?media_id=${encodeURIComponent(mediaId)}`, { method: "DELETE" });
+      if (!response.ok) {
+        setToast({ ok: false, message: `Xóa tệp thất bại (HTTP ${response.status}). Tải lại trang rồi thử lại.` });
+        return;
+      }
       const data = await response.json() as { ok: boolean; message: string };
       setToast(data);
       if (data.ok) router.refresh();
-    } catch {
-      setToast({ ok: false, message: "Không kết nối được máy chủ." });
+    } catch (error) {
+      setToast(reportActionError(error, "Xóa tệp"));
     } finally {
       setBusy(false);
     }
