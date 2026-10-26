@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { PublicProductCard } from "@/components/public-product-card";
 import { SupplierProductRail } from "@/components/public/supplier-product-rail";
-import { VerificationCoverSeal, VerificationPips, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
+import { VerificationCoverSeal, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
 import { supplierTypeLabel, type PublicSupplierCard } from "@/lib/public/catalog";
 import type { Category } from "@/lib/types";
@@ -81,6 +81,9 @@ export function SupplierStorefront({
   ].filter((item) => item.value);
   const steps = s.approved_verification_steps;
   const tier = verificationTier(steps);
+  const verificationSummary = steps.length
+    ? `${steps.length}/3 approved · ${approvedChecksSummary(steps)}`
+    : "Independent checks are shown below.";
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
 
@@ -103,25 +106,16 @@ export function SupplierStorefront({
           <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-ink-100 px-2.5 py-1 text-xs font-semibold text-ink-700">{supplierTypeLabel(s)}</span><VerificationTierBadge levels={steps} />
             {s.private_label && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">Private label stated</span>}
           </div>
-          <NameTag id="supplier-name" className="mt-3 break-words text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">{name}</NameTag>
+          <NameTag id="supplier-name" className="mt-2 break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>
           <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-600">
             {supplierProvinceDisplay(s) && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-brand-700" />{safe(supplierProvinceDisplay(s))}, Vietnam</span>}
             {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
             {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
           </div>
-          <div className={`mt-4 rounded-xl border px-4 py-3 ${STRIP_CLASSES[tier]}`}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <VerificationPips levels={steps} />
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-500">Verification status</p>
-                  <p className="mt-0.5 break-words text-[13px] font-medium leading-5 text-ink-800">
-                    {steps.length ? <>{steps.length}/3 approved · {approvedChecksSummary(steps)}</> : "Independent checks are shown below."}
-                  </p>
-                </div>
-              </div>
-              <a href="#verification" className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand-200 bg-white px-3 py-1.5 text-xs font-bold text-brand-800 shadow-sm hover:bg-brand-50">View details <ArrowRight className="h-3 w-3" /></a>
-            </div>
+          <div className={`mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 ${STRIP_CLASSES[tier]}`}>
+            <ShieldCheck className="h-4 w-4 shrink-0 text-brand-700" aria-hidden="true" />
+            <p className="min-w-0 flex-1 truncate text-left text-xs font-medium leading-5 text-ink-700" title={verificationSummary}>{verificationSummary}</p>
+            <a href="#verification" className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-ink-500 underline-offset-4 transition hover:text-brand-700 hover:underline">View details <ArrowRight className="h-3 w-3" aria-hidden="true" /></a>
           </div>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:pt-6">

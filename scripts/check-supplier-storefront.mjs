@@ -128,6 +128,22 @@ for (const section of ['About this supplier', 'Business details', 'Verification 
   assert.ok(shared.includes(section), `Khung chung có mục ${section}`);
 for (const field of ['supplierSummaryDisplay', 'supplierProductsDisplay', 'supplierMarketsDisplay', 'supplierCapacityDisplay', 'supplierPaymentTermsDisplay'])
   assert.match(shared, new RegExp(`${field}\\(s\\)`), `Trang buyer hiển thị ${field}`);
+const supplierHeader = shared.slice(shared.indexOf('<section className="mt-5'), shared.indexOf('<nav aria-label="Supplier sections"'));
+assert.match(supplierHeader, /text-left text-xl font-bold leading-7[^"\n]*sm:text-2xl sm:leading-8/,
+  'The supplier name uses compact, left-aligned typography');
+assert.match(supplierHeader, /mt-3 flex items-center gap-2 rounded-lg border px-3 py-2/,
+  'The verification summary stays on one compact row');
+assert.match(supplierHeader, /<ShieldCheck[^>]+\/>[\s\S]*title=\{verificationSummary\}/,
+  'A single icon precedes the verification summary');
+assert.match(supplierHeader, /text-ink-500[^\n]*hover:text-brand-700[^\n]*>View details/,
+  'The verification details link is muted instead of a large pill button');
+assert.doesNotMatch(supplierHeader, />Verification status<|<VerificationPips/,
+  'The compact header removes the old two-line label and pip group');
+assert.match(publicPage, /id="related-title" className="text-left text-base font-semibold/,
+  'The related-supplier heading uses compact left-aligned typography');
+assert.match(publicPage, /flex items-center gap-3/, 'Related-supplier logos align with the text block');
+assert.match(publicPage, /break-words text-left text-sm font-semibold leading-5/,
+  'Related-supplier names use compact left-aligned typography');
 assert.match(shared, /See the main products above or ask Vexim about specifications and availability/,
   'Hồ sơ chưa có listing vẫn dẫn buyer tới thông tin mặt hàng chính');
 assert.match(shared, /Target markets are self-declared by the supplier and pending independent audit\./,
