@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Check, Globe } from "lucide-react";
+import { ArrowRight, Check, Globe, LogIn } from "lucide-react";
 
 function HeaderControlsInner() {
   const pathname = usePathname() || "/";
@@ -68,6 +68,15 @@ function HeaderControlsInner() {
       </nav>
 
       <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
+        {/* Đăng nhập cho NCC/nhân viên: link nhỏ, không tranh CTA chính với buyer */}
+        <Link
+          href="/login"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-[13px] font-semibold text-ink-700 transition hover:bg-ink-50 hover:text-brand-800 sm:px-3"
+        >
+          <LogIn className="h-4 w-4" aria-hidden="true" />
+          <span>{isVi ? "Đăng nhập" : "Sign in"}</span>
+        </Link>
+
         {/* Nút icon quả địa cầu mở dropdown chọn ngôn ngữ (Mặc định: Tiếng Anh) */}
         <div ref={dropdownRef} className="relative">
           <button

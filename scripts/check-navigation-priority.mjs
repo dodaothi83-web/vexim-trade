@@ -37,4 +37,11 @@ const supplierNav = read('components/supplier-sidebar.tsx');
 assert.doesNotMatch(supplierNav, /href="\/supplier\/portal\/products\/new"/, 'Add product is an action, not a tab');
 assert.match(supplierNav, /pathname\.startsWith\(`\$\{href\}\/`\)/, 'Product section stays selected on nested pages');
 assert.match(read('app/supplier/portal/products/product-storefront.tsx'), /href="\/supplier\/portal\/products\/new"/, 'Supplier can still add a product');
+// Trang công khai phải có lối vào đăng nhập nhìn thấy được — không bắt NCC/nhân viên gõ tay /login.
+const headerControls = read('components/public-header-controls.tsx');
+assert.match(headerControls, /href="\/login"/, 'Public header links to the login form');
+assert.match(headerControls, /isVi \? "Đăng nhập" : "Sign in"/, 'Header sign-in is bilingual like the rest of the header');
+assert.match(headerControls, /href="\/rfq"/, 'Request-a-quote stays the primary header CTA for buyers');
+const forSuppliers = read('app/(public)/for-suppliers/page.tsx');
+assert.match(forSuppliers, /href="\/login"/, 'For-suppliers page offers sign-in for existing accounts');
 console.log('✅ Navigation prioritizes marketplace workflows; secondary routes remain accessible and gated.');

@@ -133,6 +133,13 @@ export default function ForSuppliersPage() {
         <p className="mt-4 text-[12px] text-white/60">
           Create an account and confirm your email first (or continue with Google). Then complete your company profile in the supplier dashboard; Vexim will review it before enabling portal tools.
         </p>
+        <p className="mt-1.5 text-[12px] text-white/60">
+          Already registered?{" "}
+          <Link href="/login" className="font-semibold text-white underline underline-offset-2 hover:text-white/80">
+            Sign in to your supplier portal
+          </Link>
+          .
+        </p>
       </section>
     </div>
   );
