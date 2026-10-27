@@ -6,6 +6,7 @@ import ts from "typescript";
 import React from "react";
 import { createRequire } from "node:module";
 import { renderToStaticMarkup } from "react-dom/server";
+import { loadProductDescription } from "./product-description-test-utils.mjs";
 
 import {
   MAX_PRODUCT_COMPARISONS,
@@ -52,6 +53,19 @@ const selectionModule = compile("../lib/public/product-selection.ts", {
   "@/lib/public/category-assignment": { assignProductCategory: () => null },
 });
 const { withoutDirectContacts } = selectionModule;
+const { description, format } = loadProductDescription();
+const translationModule = compile("../lib/ai/translate-content.ts", {
+  "server-only": {},
+  "node:crypto": require("node:crypto"),
+  "@/lib/ai/company-introduction": { readOutputText: () => "" },
+  "@/lib/products/product-description": description,
+  "@/lib/products/product-description-format": format,
+});
+const productPortModule = compile("../lib/public/product-export-port.ts", {
+  "server-only": {},
+  "@/lib/ai/translate-content": translationModule,
+  "@/lib/public/product-detail-display": { publicExportPortDisplay },
+});
 
 /* ---------- Selection rules ---------- */
 
@@ -228,6 +242,7 @@ const comparisonData = compile("../lib/public/product-comparison-data.ts", {
     publicProductPriceDisplay,
     publicProductUnitDisplay,
   },
+  "@/lib/public/product-export-port": productPortModule,
   "@/lib/public/product-selection": { withoutDirectContacts },
 });
 const projected = await comparisonData.getPublicProductsForComparison(["a"]);

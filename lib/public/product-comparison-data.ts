@@ -7,7 +7,6 @@ import { publicSupplierCertificates, type PublicSupplierCertificate } from "@/li
 import { getPublicProductRecordsByIds } from "@/lib/public/product-catalog";
 import { productDetailHref } from "@/lib/public/product-comparison";
 import {
-  publicExportPortDisplay,
   publicProductCapacityDisplay,
   publicProductMoqDisplay,
   publicProductPaymentTermsDisplay,
@@ -16,6 +15,7 @@ import {
   publicProductPriceDisplay,
   publicProductUnitDisplay,
 } from "@/lib/public/product-detail-display";
+import { publicProductExportPortDisplay } from "@/lib/public/product-export-port";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import type { VerificationLevel } from "@/lib/types";
 
@@ -106,7 +106,7 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       leadTimeDays: card.leadTimeDays,
       incoterm: safe(product.incoterm),
       incotermPlace: safe(publicProductPlaceDisplay(tradeEnglish?.incoterm_place || product.incoterm_place)),
-      exportPort: safe(publicExportPortDisplay(tradeEnglish?.export_port || product.export_port)),
+      exportPort: safe(publicProductExportPortDisplay(product)),
       monthlyCapacity: safe(publicProductCapacityDisplay(tradeEnglish?.monthly_capacity || product.monthly_capacity)),
       paymentTerms: safe(publicProductPaymentTermsDisplay(tradeEnglish?.payment_terms || product.payment_terms)),
       rawMaterialRegion: safe(card.rawMaterialRegion),

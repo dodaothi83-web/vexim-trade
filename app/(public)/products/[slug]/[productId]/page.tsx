@@ -6,7 +6,8 @@ import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin, MessageCircle }
 import { Breadcrumbs } from "@/components/ui";
 import { ProductVerificationIcons } from "@/components/product-verification-icons";
 import { VerificationTierBadge } from "@/components/verification-tier";
-import { parseProductSpecification, productSpecificationKey, publicExportPortDisplay, publicProductMoqDisplay } from "@/lib/public/product-detail-display";
+import { parseProductSpecification, productSpecificationKey, publicProductMoqDisplay } from "@/lib/public/product-detail-display";
+import { publicProductExportPortDisplay } from "@/lib/public/product-export-port";
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -226,7 +227,7 @@ export default async function PublicProductDetail({ params }: Props) {
             <Spec label="Packaging" value={detailedPackaging || enPackaging} />
             <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
             <Spec label="Incoterm" value={card.incoterm} />
-            <Spec label="Loading port" value={publicExportPortDisplay(p.export_port)} />
+            <Spec label="Loading port" value={publicProductExportPortDisplay(p)} />
             <Spec label="Raw material region" value={card.rawMaterialRegion} />
             <Spec label="Input material origin" value={card.inputMaterialOrigin} />
           </dl>
