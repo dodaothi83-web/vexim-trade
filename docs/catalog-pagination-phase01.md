@@ -1,5 +1,7 @@
 # Đọc đầy đủ dữ liệu catalogue — giai đoạn 1
 
+Tài liệu này mô tả giai đoạn 1. Quy tắc xếp riêng của trang tìm kiếm được điều chỉnh ở giai đoạn 2: xem `docs/search-ranking-phase02.md`.
+
 ## Phạm vi
 
 Các đường đọc Supabase cho sản phẩm, nhà cung cấp, danh mục, dữ liệu kiểm tra danh mục, ảnh/tài liệu, xác minh và chứng nhận dùng phân trang theo UUID tăng dần. Danh sách gói tài trợ và báo cáo ngày cũng được đọc đủ; báo cáo có khoá ghép `(push_id, day, event_type)`. Các danh sách không thuộc catalogue/RFQ khác chưa được rà toàn bộ trong thay đổi này.
@@ -25,6 +27,6 @@ Trên staging có dữ liệu đại diện và được phép sử dụng, so s
 ## Kiểm thử trong kho mã
 
 - `node --experimental-strip-types --no-warnings scripts/check-catalog-pagination.mjs`: Supabase JS thật gửi tới HTTP giả lập; 2.237 sản phẩm, 1.237 NCC, 3.507 media và 1.260 dòng thống kê; giới hạn phản hồi 137 và 1, nhiều lô, lỗi giữa trang, thứ tự sai, thêm/xoá trong lúc đọc.
-- `npm run check:search`: đi qua mọi trang của 1.025 sản phẩm và 1.009 nhà cung cấp, so với thứ tự xếp hạng hiện tại; dữ liệu trong bộ nhớ, không đo mạng thực.
+- `npm run check:search`: đi qua mọi trang của 1.025 sản phẩm và 1.009 nhà cung cấp, kiểm độ khớp và vòng NCC theo quy tắc tìm kiếm giai đoạn 2; dữ liệu trong bộ nhớ, không đo mạng thực.
 - `node scripts/check-sponsored-phase01-migration.mjs`: migration trên PGlite cách ly, không có kết nối production hay kiểm thử nhiều phiên đồng thời.
 - `node --experimental-strip-types --no-warnings scripts/check-sponsored-phase01-actions.mjs` và `node scripts/check-sponsored-store-cas.mjs`: kiểm thao tác, giao diện, lỗi số liệu và compare-and-set với adapter giả lập.

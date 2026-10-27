@@ -6,6 +6,7 @@ import { Breadcrumbs } from "@/components/ui";
 import { PublicProductCard } from "@/components/public-product-card";
 import { getStore } from "@/lib/db";
 import { getCategoryTitle } from "@/lib/public/category-names";
+import { gradeFromAttributes } from "@/lib/public/grade-resolution";
 import {
   listPublicCategoryProducts,
   loadPublicProductCatalogSnapshot,
@@ -13,7 +14,8 @@ import {
 } from "@/lib/public/product-catalog";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
-import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
+import { compareRankedProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
+import { orderSearchProducts, productSearchRelevance, type SearchRelevance } from "@/lib/public/search-ranking";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
 import type { Category, Supplier } from "@/lib/types";
@@ -38,9 +40,15 @@ type Param = string | string[] | undefined;
 type SearchParams = { q?: Param; cat?: Param; lang?: Param; p?: Param; s?: Param };
 type SearchLinkState = { query: string; category: string; lang: Locale; productPage: number; supplierPage: number };
 
-type ProductGroup = { category: Category; name: string; products: PublicCategoryProduct[] };
+type ProductResult = { category: Category; categoryName: string; product: PublicCategoryProduct; relevance: SearchRelevance };
 type SupplierResult = { id: string; slug: string | null; name: string; province: string; checks: number };
-type Results = { groups: ProductGroup[]; suppliers: SupplierResult[]; incomplete: boolean };
+type Results = {
+  products: ProductResult[];
+  suppliers: SupplierResult[];
+  directSupplierMatch: boolean;
+  exactSupplierNameMatch: boolean;
+  incomplete: boolean;
+};
 
 function first(value: Param): string {
   return typeof value === "string" ? value : Array.isArray(value) ? value[0] ?? "" : "";
@@ -55,7 +63,7 @@ function categoryName(category: Category, lang: Locale): string {
   return withoutDirectContacts(getCategoryTitle(category, lang));
 }
 
-/** Không phân biệt hoa/thường hoặc dấu tiếng Việt; từ khoá chỉ lọc, không cộng điểm. */
+/** Không phân biệt hoa/thường hoặc dấu tiếng Việt khi tìm. */
 function normalize(value: string): string {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
 }
@@ -101,13 +109,6 @@ function categorySearchText(category: Category, byId: Map<string, Category>): st
 
 function supplierSearchText(supplier: Pick<Supplier, "province" | "profile_translation_meta" | "display_name" | "trade_name" | "name" | "slug">): string {
   return searchText([supplier.display_name, supplier.trade_name, supplier.name, supplier.slug, supplierProvinceDisplay(supplier)]);
-}
-
-function productSearchText(product: PublicCategoryProduct, categoryText: string, supplierText: string): string {
-  return searchText([
-    product.name, product.grade, product.supplierName, categoryText, supplierText,
-    ...Object.values(product.attributes ?? {}),
-  ]);
 }
 
 function searchHref(state: SearchLinkState): string {
@@ -246,7 +247,7 @@ async function findResults(tokens: string[], categories: Category[], selected: C
   const eligibleSupplierIds = new Set<string>();
   const productMatchSupplierIds = new Set<string>();
   const seenProductIds = new Set<string>();
-  const groups: ProductGroup[] = [];
+  const matches: ProductResult[] = [];
   let incomplete = false;
   const today = new Date().toISOString().slice(0, 10);
 
@@ -264,29 +265,36 @@ async function findResults(tokens: string[], categories: Category[], selected: C
       }
       const category = batch[j];
       const categoryText = categorySearchText(category, byCategoryId);
-      const matches: PublicCategoryProduct[] = [];
+      const name = categoryName(category, lang);
       for (const product of outcome.value) {
         // Demo/test không phải là kết quả mua bán, kể cả khi môi trường bật preview.
         if (product.isDemo || product.isDemoSupplier) continue;
         eligibleSupplierIds.add(product.supplierId);
-        if (!matchesTokens(productSearchText(product, categoryText, supplierText.get(product.supplierId) ?? ""), tokens)) continue;
+        const relevance = productSearchRelevance(tokens, {
+          product: searchText([product.name, ...Object.values(product.attributes ?? {})]),
+          grade: searchText([product.grade]),
+          structuredGrade: searchText([gradeFromAttributes(product.attributes)]),
+          category: categoryText,
+          supplier: searchText([product.supplierName, supplierText.get(product.supplierId)]),
+        });
+        if (!relevance) continue;
         productMatchSupplierIds.add(product.supplierId);
         if (!seenProductIds.has(product.id)) {
           seenProductIds.add(product.id);
-          matches.push(product);
+          matches.push({ product, category, categoryName: name, relevance });
         }
-      }
-      if (matches.length) {
-        // Vẫn xen kẽ nhà cung cấp như lưới danh mục, nhưng không cắt bớt kết quả tìm kiếm.
-        groups.push({ category, name: categoryName(category, lang), products: arrangeSupplierProducts(matches, null).shown });
       }
     }
   }
 
-  const suppliers = snapshot.suppliers
-    .filter((supplier) => !supplier.is_demo && !isSyntheticSupplier(supplier) &&
-      (!selected || eligibleSupplierIds.has(supplier.id)) &&
-      (matchesTokens(supplierText.get(supplier.id) ?? "", tokens) || productMatchSupplierIds.has(supplier.id)))
+  const availableSuppliers = snapshot.suppliers.filter((supplier) => !supplier.is_demo && !isSyntheticSupplier(supplier) &&
+    (!selected || eligibleSupplierIds.has(supplier.id)));
+  const directSupplierMatch = tokens.length > 0 && availableSuppliers.some((supplier) => matchesTokens(supplierText.get(supplier.id) ?? "", tokens));
+  const exactSupplierNameMatch = tokens.length > 1 && availableSuppliers.some((supplier) =>
+    [supplier.display_name, supplier.trade_name, supplier.name].some((name) =>
+      searchText([name]).trim().replace(/\s+/g, " ") === tokens.join(" ")));
+  const suppliers = availableSuppliers
+    .filter((supplier) => matchesTokens(supplierText.get(supplier.id) ?? "", tokens) || productMatchSupplierIds.has(supplier.id))
     .map((supplier) => ({
       id: supplier.id,
       slug: supplier.slug || null,
@@ -294,27 +302,34 @@ async function findResults(tokens: string[], categories: Category[], selected: C
       province: withoutDirectContacts(supplierProvinceDisplay(supplier) || (lang === "vi" ? "Việt Nam" : "Vietnam")),
       checks: supplier.approved_verification_steps.length,
     }));
-  return { groups, suppliers, incomplete };
+  // Xếp trên toàn bộ danh mục trước khi chia trang: độ khớp trước, sau đó mỗi
+  // vòng một thẻ/NCC; tầng và điểm hiện tại chỉ quyết định thứ tự trong vòng.
+  const products = orderSearchProducts(matches, (a, b) => compareRankedProducts(a, b, SPEC_RANKING_WEIGHTS));
+  return { products, suppliers, directSupplierMatch, exactSupplierNameMatch, incomplete };
 }
 
 function SearchResults({ results, state }: { results: Results; state: SearchLinkState }) {
-  const { groups, suppliers, incomplete } = results;
+  const { products, suppliers, directSupplierMatch, exactSupplierNameMatch, incomplete } = results;
   const isVi = state.lang === "vi";
-  const totalProducts = groups.reduce((total, group) => total + group.products.length, 0);
+  const totalProducts = products.length;
   const productPages = Math.max(1, Math.ceil(totalProducts / PRODUCT_PAGE_SIZE));
   const supplierPages = Math.max(1, Math.ceil(suppliers.length / SUPPLIER_PAGE_SIZE));
   const productPage = Math.min(state.productPage, productPages);
   const supplierPage = Math.min(state.supplierPage, supplierPages);
   const linkState = { ...state, productPage, supplierPage };
   const start = (productPage - 1) * PRODUCT_PAGE_SIZE;
-  let offset = 0;
-  const shownGroups = groups.flatMap((group) => {
-    const begin = Math.max(0, start - offset);
-    const end = Math.min(group.products.length, start + PRODUCT_PAGE_SIZE - offset);
-    offset += group.products.length;
-    return begin < end ? [{ ...group, shown: group.products.slice(begin, end) }] : [];
-  });
+  const shownProducts = products.slice(start, start + PRODUCT_PAGE_SIZE);
   const shownSuppliers = suppliers.slice((supplierPage - 1) * SUPPLIER_PAGE_SIZE, supplierPage * SUPPLIER_PAGE_SIZE);
+  // An exact multi-word supplier name leads, even if its words occur on a card.
+  // Otherwise complete product/category matches and exact codes lead; a weak
+  // product match does not displace a direct supplier match.
+  const tokenCount = normalize(state.query).split(/\s+/).filter(Boolean).length;
+  const productFirst = tokenCount > 0 && !exactSupplierNameMatch && (products.some(({ relevance }) =>
+    relevance.productCodes > 0 || relevance.coreTokens === tokenCount) ||
+    (!directSupplierMatch && products.some(({ relevance }) => relevance.coreTokens > 0)));
+  const comparisonOffers = products.map(({ product, category }) => ({
+    id: product.id, supplierId: product.supplierId, categorySlug: category.slug, isDemo: product.isDemo,
+  }));
 
   if (!totalProducts && !suppliers.length) {
     if (incomplete) return <SearchError lang={state.lang} partial />;
@@ -338,66 +353,70 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
     </section>;
   }
 
+  const supplierSection = suppliers.length > 0 ? <section id="search-suppliers" className="mt-8 scroll-mt-24" aria-label={isVi ? "Nhà cung cấp phù hợp" : "Matching suppliers"}>
+    <h2 className="flex items-center gap-2 text-lg font-bold text-ink-900"><Users className="h-5 w-5 text-brand-700" aria-hidden="true" />{isVi ? "Nhà cung cấp" : "Suppliers"}</h2>
+    <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {shownSuppliers.map((supplier) => <li key={supplier.id} className="min-w-0">
+        <Link href={localHref(`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`, state.lang)}
+          className="group flex h-full flex-col rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-500">
+          <span className="break-words font-bold text-ink-900 group-hover:text-brand-700">{supplier.name}</span>
+          <span className="mt-1 text-xs text-ink-500">{supplier.province}
+            {supplier.checks > 0 && (isVi ? ` · Đã duyệt ${supplier.checks} nội dung xác minh` : ` · ${supplier.checks} verified check${supplier.checks === 1 ? "" : "s"}`)}
+          </span>
+        </Link>
+      </li>)}
+    </ul>
+    <Pagination kind="supplier" page={supplierPage} pages={supplierPages} total={suppliers.length} size={SUPPLIER_PAGE_SIZE} state={linkState} />
+  </section> : null;
+
+  const productSection = totalProducts > 0 ? <section id="search-products" className="mt-8 scroll-mt-24" aria-label={isVi ? "Sản phẩm phù hợp" : "Matching products"}>
+    <h2 className="text-lg font-bold text-ink-900">{isVi ? "Sản phẩm" : "Products"}</h2>
+    <p className="mt-1 text-xs leading-5 text-ink-500">
+      {state.query
+        ? (isVi ? "Ưu tiên sản phẩm khớp từ khóa; xen kẽ nhà cung cấp khi có thể." : "Relevant products first; suppliers alternate when possible.")
+        : (isVi ? "Xen kẽ nhà cung cấp khi có thể." : "Suppliers alternate when possible.")}
+    </p>
+    <ul className="mt-4 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+      {shownProducts.map(({ product, category, categoryName: name }) => {
+        const slug = encodeURIComponent(category.slug);
+        const productHref = localHref(`/products/${slug}/${encodeURIComponent(product.id)}`, state.lang);
+        const quoteHref = localHref(`/rfq?category=${slug}&suppliers=${encodeURIComponent(product.supplierId)}&product=${encodeURIComponent(product.name)}&product_id=${encodeURIComponent(product.id)}`, state.lang);
+        return <li key={product.id} className="flex min-w-0 flex-col">
+          <Link href={localHref(`/products/${slug}`, state.lang)} title={name}
+            aria-label={isVi ? `Xem danh mục ${name}` : `View ${name} category`}
+            className="mb-2 flex min-w-0 items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
+            <span className="truncate">{name}</span><ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <PublicProductCard href={productHref} imagePath={product.cardImagePath ?? product.imagePaths[0]}
+              name={product.name} moq={product.moq} price={product.price} fob={product.incoterm?.toUpperCase() === "FOB"}
+              leadTimeDays={product.leadTimeDays} supplierName={product.supplierName}
+              supplierHref={localHref(`/suppliers/${encodeURIComponent(product.supplierSlug || product.supplierId)}`, state.lang)}
+              quoteHref={quoteHref} oem={product.oem} odm={product.odm} samples={product.samples}
+              verificationSteps={product.verificationSteps} l2Scope={product.l2Scope}
+              comparison={hasProductComparisonPeer(comparisonOffers, { id: product.id, supplierId: product.supplierId, categorySlug: category.slug, isDemo: product.isDemo })
+                ? { id: product.id, categorySlug: category.slug } : undefined} />
+          </div>
+        </li>;
+      })}
+    </ul>
+    <Pagination kind="product" page={productPage} pages={productPages} total={totalProducts} size={PRODUCT_PAGE_SIZE} state={linkState} />
+  </section> : null;
+
+  const countClass = "rounded-full bg-brand-50 px-2.5 py-1 ring-1 ring-brand-200";
+  const productCount = isVi ? `${totalProducts} sản phẩm` : `${totalProducts} product${totalProducts === 1 ? "" : "s"}`;
+  const supplierCount = isVi ? `${suppliers.length} nhà cung cấp` : `${suppliers.length} supplier${suppliers.length === 1 ? "" : "s"}`;
   return <>
     {incomplete && <SearchError lang={state.lang} partial />}
     <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold text-brand-700">
-      <span className="rounded-full bg-brand-50 px-2.5 py-1 ring-1 ring-brand-200">
-        {isVi ? `${totalProducts} sản phẩm` : `${totalProducts} product${totalProducts === 1 ? "" : "s"}`}
-      </span>
-      <span className="rounded-full bg-brand-50 px-2.5 py-1 ring-1 ring-brand-200">
-        {isVi ? `${suppliers.length} nhà cung cấp` : `${suppliers.length} supplier${suppliers.length === 1 ? "" : "s"}`}
-      </span>
+      {totalProducts > 0 ? <a href="#search-products" className={`${countClass} hover:bg-brand-100`}>{productCount}</a>
+        : <span className={countClass}>{productCount}</span>}
+      {suppliers.length > 0 ? <a href="#search-suppliers" className={`${countClass} hover:bg-brand-100`}>{supplierCount}</a>
+        : <span className={countClass}>{supplierCount}</span>}
     </div>
 
-    {suppliers.length > 0 && <section className="mt-8" aria-label={isVi ? "Nhà cung cấp phù hợp" : "Matching suppliers"}>
-      <h2 className="flex items-center gap-2 text-lg font-bold text-ink-900"><Users className="h-5 w-5 text-brand-700" aria-hidden="true" />{isVi ? "Nhà cung cấp" : "Suppliers"}</h2>
-      <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {shownSuppliers.map((supplier) => <li key={supplier.id} className="min-w-0">
-          <Link href={localHref(`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`, state.lang)}
-            className="group flex h-full flex-col rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-500">
-            <span className="break-words font-bold text-ink-900 group-hover:text-brand-700">{supplier.name}</span>
-            <span className="mt-1 text-xs text-ink-500">{supplier.province}
-              {supplier.checks > 0 && (isVi ? ` · Đã duyệt ${supplier.checks} nội dung xác minh` : ` · ${supplier.checks} verified check${supplier.checks === 1 ? "" : "s"}`)}
-            </span>
-          </Link>
-        </li>)}
-      </ul>
-      <Pagination kind="supplier" page={supplierPage} pages={supplierPages} total={suppliers.length} size={SUPPLIER_PAGE_SIZE} state={linkState} />
-    </section>}
-
-    {totalProducts > 0 && <section className="mt-10" aria-label={isVi ? "Sản phẩm phù hợp" : "Matching products"}>
-      <h2 className="text-lg font-bold text-ink-900">{isVi ? "Sản phẩm" : "Products"}</h2>
-      {shownGroups.map((group) => {
-        const comparisonOffers = group.products.map((product) => ({ id: product.id, supplierId: product.supplierId, categorySlug: group.category.slug, isDemo: product.isDemo }));
-        return <div key={group.category.id} className="mt-6">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <h3 className="break-words font-bold text-ink-900">{group.name}</h3>
-            <Link href={localHref(`/products/${encodeURIComponent(group.category.slug)}`, state.lang)}
-              className="inline-flex items-center gap-1 text-xs font-bold text-brand-700 hover:text-brand-900">
-              {isVi ? "Xem danh mục" : "View category"}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </Link>
-          </div>
-          <div className="mt-4 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {group.shown.map((product) => {
-              const category = encodeURIComponent(group.category.slug);
-              const productHref = localHref(`/products/${category}/${encodeURIComponent(product.id)}`, state.lang);
-              const quoteHref = localHref(`/rfq?category=${category}&suppliers=${encodeURIComponent(product.supplierId)}&product=${encodeURIComponent(product.name)}&product_id=${encodeURIComponent(product.id)}`, state.lang);
-              return <div key={product.id} className="min-w-0">
-                <PublicProductCard href={productHref} imagePath={product.cardImagePath ?? product.imagePaths[0]}
-                  name={product.name} moq={product.moq} price={product.price} fob={product.incoterm?.toUpperCase() === "FOB"}
-                  leadTimeDays={product.leadTimeDays} supplierName={product.supplierName}
-                  supplierHref={localHref(`/suppliers/${encodeURIComponent(product.supplierSlug || product.supplierId)}`, state.lang)}
-                  quoteHref={quoteHref} oem={product.oem} odm={product.odm} samples={product.samples}
-                  verificationSteps={product.verificationSteps} l2Scope={product.l2Scope}
-                  comparison={hasProductComparisonPeer(comparisonOffers, { id: product.id, supplierId: product.supplierId, categorySlug: group.category.slug, isDemo: product.isDemo })
-                    ? { id: product.id, categorySlug: group.category.slug } : undefined} />
-              </div>;
-            })}
-          </div>
-        </div>;
-      })}
-      <Pagination kind="product" page={productPage} pages={productPages} total={totalProducts} size={PRODUCT_PAGE_SIZE} state={linkState} />
-    </section>}
+    {productFirst ? productSection : supplierSection}
+    {productFirst ? supplierSection : productSection}
   </>;
 }
 
