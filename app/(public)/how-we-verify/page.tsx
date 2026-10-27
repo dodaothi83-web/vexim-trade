@@ -10,12 +10,12 @@ import { listPublicSuppliers } from "@/lib/public/catalog";
 export const metadata: Metadata = {
   title: { absolute: "How we verify suppliers | Vexim Trade" },
   description:
-    "Three evidence-based supplier checks: documents, factory verification, and completed delivery history review.",
+    "Three independent supplier checks: documents, a factory or partner contract review, and shipment evidence.",
   alternates: { canonical: "/how-we-verify" },
   openGraph: {
     title: "How we verify suppliers | Vexim Trade",
     description:
-      "Three evidence-based supplier checks: documents, factory verification, and completed delivery history review.",
+      "Three independent supplier checks: documents, a factory or partner contract review, and shipment evidence.",
     url: "/how-we-verify",
     siteName: "Vexim Trade",
     type: "website",
@@ -53,7 +53,7 @@ export default async function HowWeVerifyPage() {
         <p className="mt-3 text-[14.5px] leading-relaxed text-ink-700">
           These are the badges used on supplier profiles. A badge is shown only after an authorised reviewer has approved that check.
         </p>
-        <p className="mt-4 flex flex-wrap items-center gap-2"><VerificationPips levels={[1, 2, 3]} /><VerificationTierBadge levels={[1, 2, 3]} /></p>
+        <p className="mt-4 flex flex-wrap items-center gap-2"><VerificationPips levels={[1, 2, 3]} l2Scope="factory" /><VerificationTierBadge levels={[1, 2, 3]} /></p>
         <p className="mt-4 flex flex-wrap items-center gap-2 text-[14.5px] text-ink-700">
           A profile with no approved checks yet: <VerificationTierBadge levels={[]} />
         </p>
@@ -70,10 +70,10 @@ export default async function HowWeVerifyPage() {
       <ol className="mt-12 space-y-6">
         <Step n={1} icon={<ClipboardCheck className="h-5 w-5" />} title="Document review"
           body="We review the supplier's business registration, tax code and other applicable documents. The result and the supporting evidence are recorded for each supplier." />
-        <Step n={2} icon={<Factory className="h-5 w-5" />} title="Factory verification"
-          body="Where an on-site visit is relevant, a team member records the factory location, facilities and visual evidence from the visit." />
+        <Step n={2} icon={<Factory className="h-5 w-5" />} title="Factory or partner contract review"
+          body="Manufacturers and cooperatives can submit factory evidence. Trading companies can submit a contract with a partner factory. A partner contract review does not establish factory ownership or an on-site inspection." />
         <Step n={3} icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history review"
-          body="We check evidence of a completed shipment or delivery independently of factory verification. Trading companies may pass this review without owning a factory. A won enquiry alone is not proof of delivery." />
+          body="We review suitable export or shipment evidence. It does not by itself prove that an end buyer received the goods. A won enquiry alone is not proof of shipment." />
       </ol>
 
       <section className="mt-12 rounded-lg border border-ink-200 bg-white p-6 sm:p-8" aria-label="Supplier evidence submission">
@@ -81,15 +81,14 @@ export default async function HowWeVerifyPage() {
           <Camera className="h-5 w-5 text-emerald-700" /> Suppliers submit original evidence first
         </h2>
         <p className="mt-3 text-[14.5px] leading-relaxed text-ink-700">
-          Before our team reviews checks 2 and 3, the supplier can submit evidence from their own supplier portal:
-          nine original factory photographs (gate, warehouses, running production line, packing, carton with lot label,
-          hygiene station, protective gear, pest control) and export documents such as bills of lading and customs
-          declarations, or public source links.
+          Checks 2 and 3 are optional. Manufacturers and cooperatives can submit nine factory photos;
+          trading companies submit a contract with a partner factory and may add photos. For check 3,
+          suppliers can provide any suitable export evidence; a bill of lading is not mandatory.
         </p>
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[14.5px] leading-relaxed text-ink-700">
-          <li>Key photos must show a handwritten Vexim verification code we issue, so the shots cannot be reused from elsewhere.</li>
-          <li>We keep the original files and read camera metadata to flag forwarded, edited, off-daylight or location-mismatched photos.</li>
-          <li>Automated scanning helps our reviewers prioritise, but a badge is only shown after a Vexim reviewer has approved the check. Nothing is approved or published automatically.</li>
+          <li>For factory-photo submissions, key photos must show a handwritten Vexim verification code. Partner contracts do not require a code or nine photos.</li>
+          <li>For factory photos, camera data may help flag issues for a reviewer. Partner contracts and export evidence are checked by staff.</li>
+          <li>Staff decide whether to approve a check. Uploaded evidence is not published automatically.</li>
         </ul>
       </section>
 
@@ -166,7 +165,8 @@ function Step({
           <h3 className="mt-1 text-[20px] font-bold text-ink-900">{title}</h3>
           <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-700">{body}</p>
           <p className="mt-3 flex flex-wrap items-center gap-2 text-[13px] font-medium text-ink-600">
-            Shown on the profile as: <VerificationPips levels={[n]} />
+            Shown on the profile as: <VerificationPips levels={[n]} l2Scope={n === 2 ? "factory" : null} />
+            {n === 2 && <> or <VerificationPips levels={[2]} l2Scope="partner_contract" /></>}
           </p>
         </div>
       </div>

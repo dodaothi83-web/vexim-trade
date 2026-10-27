@@ -261,6 +261,8 @@ export interface DataStore {
   getSubmission(id: string): Promise<SupplierSubmission | null>;
   createSubmission(input: Partial<SupplierSubmission>): Promise<SupplierSubmission>;
   updateSubmission(id: string, patch: Partial<SupplierSubmission>): Promise<SupplierSubmission>;
+  /** Chỉ đổi bản nháp/trả bổ sung nếu trạng thái chưa bị thay đổi. */
+  updateEditableSubmission(id: string, patch: Partial<SupplierSubmission>): Promise<SupplierSubmission | null>;
   listSubmissionItems(submissionId: string): Promise<SupplierSubmissionItem[]>;
   getSubmissionItem(id: string): Promise<SupplierSubmissionItem | null>;
   createSubmissionItem(input: Partial<SupplierSubmissionItem>): Promise<SupplierSubmissionItem>;

@@ -1,5 +1,9 @@
 import "server-only";
 
+import { isPartnerL2, l2ScopeForSupplier, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
+
+import { submissionEvidenceErrorMessage } from "@/lib/supplier-portal/submission-evidence-errors";
+
 import {
   AI_SUBMISSION_DEFAULT_MODEL,
   AI_SUBMISSION_MODEL_ENV,
@@ -32,6 +36,7 @@ import type {
   AiSubmissionReview,
   SubmissionIntegrityFlag,
   Supplier,
+  SupplierType,
   SupplierSubmission,
   SupplierSubmissionItem,
   SupplierSubmissionLink,
@@ -42,7 +47,7 @@ import type {
  * Nghiệp vụ phía server của cổng NCC tự gửi bằng chứng L2/L3.
  *
  * Ranh giới giữ nguyên như phần còn lại của hệ thống xác minh:
- *  - AI quét và xếp hàng đợi, KHÔNG duyệt, KHÔNG cấp huy hiệu.
+ *  - L2 có thể dùng AI; L3 gửi thẳng cho nhân viên. Không tự duyệt hay cấp huy hiệu.
  *  - Nhân viên Vexim chấp thuận hồ sơ → tạo một ĐỢT KIỂM `verifications`
  *    kèm toàn bộ bằng chứng; một nhân sự đủ quyền có thể kiểm và duyệt sau xác nhận.
  */
@@ -68,16 +73,27 @@ export async function getOrCreateSubmission(store: DataStore, input: {
   supplierId: string;
   level: 2 | 3;
   userId: string | null;
+  supplierType: SupplierType | null | undefined;
 }): Promise<SupplierSubmission> {
+  const scope = input.level === 2 ? l2ScopeForSupplier(input.supplierType) : null;
+  if (input.level === 2 && !scope) throw new Error("Hồ sơ chưa có loại hình nhà cung cấp. Liên hệ nhân viên để cập nhật trước khi mở L2.");
   const existing = await store.listSubmissions(input.supplierId, input.level);
-  const open = openSubmission(existing, input.level);
+  const open = openSubmission(existing, input.level, scope);
   if (open) return open;
-  return store.createSubmission({
-    supplier_id: input.supplierId,
-    target_level: input.level,
-    status: "draft",
-    created_by: input.userId,
-  });
+  try {
+    return await store.createSubmission({
+      supplier_id: input.supplierId,
+      target_level: input.level,
+      ...(scope ? { l2_scope: scope } : {}),
+      status: "draft",
+      created_by: input.userId,
+    });
+  } catch (error) {
+    // Concurrent requests can race the unique open-case constraint.
+    const winner = openSubmission(await store.listSubmissions(input.supplierId, input.level), input.level, scope);
+    if (winner) return winner;
+    throw error;
+  }
 }
 
 /**
@@ -90,6 +106,9 @@ export async function issueCodeForSubmission(store: DataStore, input: {
   userEmail: string | null;
   supplierName: string;
 }): Promise<{ code: string; issuedAt: string }> {
+  if (isPartnerL2(input.submission)) {
+    throw new Error("Hồ sơ đối tác không cần mã ảnh nhà máy.");
+  }
   if (!submissionEditable(input.submission.status)) {
     throw new Error("Hồ sơ đã nộp hoặc đã xét; không thể phát hành mã mới.");
   }
@@ -216,11 +235,8 @@ export interface SubmissionScanResult {
 }
 
 /**
- * AI quét toàn bộ bằng chứng của hồ sơ rồi HỆ THỐNG tự xếp hàng đợi:
- *  - đủ mục + AI không báo fail → `pending_review` (chờ Vexim xét duyệt)
- *  - AI báo fail / thiếu mục     → `returned` kèm lý do để NCC bổ sung ngay
- * Chưa cấu hình OPENAI_API_KEY: hồ sơ vẫn nộp được, chuyển sang chờ duyệt và
- * ghi rõ là chưa có kết quả quét tự động (nhân viên đối chiếu thủ công).
+ * L2 giữ luồng AI hiện tại; L3 chỉ kiểm điều kiện tệp rồi gửi nhân viên đối chiếu.
+ * Không lần quét AI hay kết quả AI cũ nào được quyết định trạng thái L3.
  */
 export async function scanAndQueueSubmission(store: DataStore, input: {
   bundle: SubmissionBundle;
@@ -231,7 +247,68 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
 }): Promise<SubmissionScanResult> {
   const { bundle, supplier } = input;
   const submission = bundle.submission;
+  const partner = isPartnerL2(submission);
   const preCheck = readiness({ submission, items: bundle.items });
+  if (!l2ScopeMatchesSupplier(submission, supplier.supplier_type)) return {
+    ok: false, status: submission.status, aiReview: null, reasons: [], missing: preCheck.missing, warnings: preCheck.warnings,
+    message: "Loại hình doanh nghiệp chưa rõ hoặc đã thay đổi. Liên hệ nhân viên để kiểm tra lại hồ sơ L2.",
+  };
+  if (submission.target_level === 3 || partner) {
+    // Chặn cả các caller cũ và caller server, không chỉ ẩn nút trên giao diện.
+    if (!input.submit) return {
+      ok: false, status: submission.status, aiReview: null, reasons: [],
+      missing: preCheck.missing, warnings: preCheck.warnings,
+      message: partner ? "Hợp đồng đối tác do nhân viên kiểm tra, không quét bằng AI." : "Chứng từ L3 do nhân viên kiểm tra, không quét bằng AI.",
+    };
+    if (!submissionEditable(submission.status)) return {
+      ok: false, status: submission.status, aiReview: null, reasons: [],
+      missing: preCheck.missing, warnings: preCheck.warnings,
+      message: "Hồ sơ đã nộp hoặc đã xét. Hãy tải lại trang để xem trạng thái.",
+    };
+    if (!preCheck.ready) return {
+      ok: false, status: submission.status, aiReview: null, reasons: preCheck.blockers,
+      missing: preCheck.missing, warnings: preCheck.warnings,
+      message: partner ? "Hãy tải hợp đồng với nhà máy đối tác trước khi nộp." : "Hãy tải ít nhất một chứng từ xuất khẩu trước khi nộp.",
+    };
+    const now = new Date().toISOString();
+    const beforeStatus = submission.status;
+    const previousReviewNote = beforeStatus === "returned" ? submission.review_note : null;
+    const previousReviewer = beforeStatus === "returned" ? submission.reviewed_by : null;
+    // Chỉ chuyển trạng thái nếu hồ sơ vẫn mở; không ghi đè kết quả nhân viên
+    // hoặc tạo lần nộp thứ hai khi có hai yêu cầu đồng thời.
+    let updated: SupplierSubmission | null;
+    try {
+      updated = await store.updateEditableSubmission(submission.id, {
+        status: "pending_review", submitted_at: now, review_note: null,
+      });
+    } catch (error) {
+      const message = submissionEvidenceErrorMessage(error);
+      if (!message) throw error;
+      return { ok: false, status: submission.status, aiReview: null, reasons: [message],
+        missing: preCheck.missing, warnings: preCheck.warnings, message };
+    }
+    if (!updated) return {
+      ok: false, status: (await store.getSubmission(submission.id))?.status ?? submission.status,
+      aiReview: null, reasons: [], missing: [], warnings: preCheck.warnings,
+      message: "Trạng thái hồ sơ đã thay đổi. Hãy tải lại trang để xem kết quả.",
+    };
+    // Kết quả AI cũ và cờ cũ vẫn được giữ để đối soát lịch sử, không sử dụng ở đây.
+    await store.addAuditLog({
+      actor_id: input.actorId, actor_email: input.actorEmail,
+      entity: "supplier", entity_id: submission.supplier_id,
+      action: `supplier.submission.submitted.l${submission.target_level}`,
+      before: { status: beforeStatus, review_note: previousReviewNote, reviewed_by: previousReviewer },
+      after: { submission_id: submission.id, status: updated.status, review_method: "manual", l2_scope: submission.l2_scope ?? null },
+    }).catch((error) => console.error("[submission] audit failed", error));
+    const notification = await notifyStaffSupplierSubmission(submission.supplier_id, submission.target_level, submission.l2_scope)
+      .catch((error) => { console.error("[submission] staff notification failed", error); return "failed" as const; });
+    if (notification === "failed") console.warn("[submission] staff notification not sent; submission is still in the queue");
+    return {
+      ok: true, status: updated.status, aiReview: null, reasons: [], missing: [],
+      warnings: preCheck.warnings,
+      message: partner ? "Đã nộp hồ sơ. Nhân viên sẽ đối chiếu hợp đồng với nhà máy đối tác và phản hồi." : "Đã nộp hồ sơ. Nhân viên sẽ kiểm tra chứng từ và phản hồi.",
+    };
+  }
   if (input.submit && !preCheck.ready) {
     // Hồ sơ ở lại bản nháp: NCC còn thiếu mục bắt buộc thì chưa vào hàng đợi.
     await store.updateSubmission(submission.id, { review_note: preCheck.blockers.join(" ").slice(0, 1900) });
@@ -316,6 +393,8 @@ export async function runEvidenceScan(input: {
   bundle: SubmissionBundle;
   supplier: Supplier;
 }): Promise<AiSubmissionReview | null> {
+  // Phòng vệ cho mọi caller, kể cả khi bỏ qua scanAndQueueSubmission.
+  if (input.bundle.submission.target_level === 3 || isPartnerL2(input.bundle.submission)) return null;
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) return null;
   const { bundle, supplier } = input;
@@ -449,9 +528,38 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
   if (submission.status !== "pending_review" && submission.status !== "returned") {
     throw new Error("Chỉ nhận hồ sơ đang chờ xét duyệt hoặc cần bổ sung.");
   }
+  if (submission.target_level === 2) {
+    const supplier = await store.getSupplier(submission.supplier_id);
+    if (!supplier || !l2ScopeMatchesSupplier(submission, supplier.supplier_type)) {
+      throw new Error("Loại hình doanh nghiệp không khớp phạm vi hồ sơ L2. Hãy xác minh và cập nhật loại hình trước khi tiếp tục; giữ hồ sơ cũ để đối chiếu.");
+    }
+    if (isPartnerL2(submission) && !readiness({ submission, items: bundle.items }).ready) {
+      throw new Error("Chưa có hợp đồng với nhà máy đối tác trong hồ sơ. Hãy yêu cầu NCC bổ sung.");
+    }
+  }
+  // Validate every referenced manual file before creating a review; never copy
+  // another entity's file just because an item points at its media id.
+  const sourceFiles: Array<{ item: SupplierSubmissionItem; media: NonNullable<Awaited<ReturnType<DataStore["getMedia"]>>> }> = [];
+  const manual = submission.target_level === 3 || isPartnerL2(submission);
+  for (const item of bundle.items) {
+    if (!item.media_id) continue;
+    const media = await store.getMedia(item.media_id);
+    if (manual && (!media || item.submission_id !== submission.id || item.supplier_id !== submission.supplier_id ||
+      media.owner_type !== "submission" || media.submission_id !== submission.id || media.supplier_id !== submission.supplier_id ||
+      media.audience !== "internal" || media.checklist_key !== item.checklist_key || !item.storage_path?.trim() ||
+      media.storage_path !== item.storage_path || !["image", "document"].includes(media.kind) ||
+      (isPartnerL2(submission) && item.checklist_key === "partner_factory_photos" && media.kind !== "image"))) {
+      throw new Error("Bằng chứng không thuộc đúng hồ sơ hoặc doanh nghiệp. Hãy kiểm tra lại tệp trước khi nhận.");
+    }
+    if (media) sourceFiles.push({ item, media });
+  }
+  if (isPartnerL2(submission) && !sourceFiles.some(({ item }) => item.checklist_key === "partner_factory_contract")) {
+    throw new Error("Chưa có hợp đồng hợp lệ với nhà máy đối tác trong hồ sơ.");
+  }
   const verification = await store.createVerification({
     supplier_id: submission.supplier_id,
     target_level: submission.target_level,
+    ...(submission.target_level === 2 ? { l2_scope: submission.l2_scope ?? "factory" } : {}),
     status: "in_progress",
     inspector_id: staffId,
     visit_date: submission.submitted_at ? submission.submitted_at.slice(0, 10) : null,
@@ -464,17 +572,16 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
     checklist: {},
     checklist_notes: {},
     internal_notes: [
-      `Hồ sơ NCC tự gửi ${submission.id} (L${submission.target_level}).`,
-      submission.ai_scanned_at ? `AI quét lúc ${submission.ai_scanned_at}${submission.ai_review?.summary ? `: ${submission.ai_review.summary.slice(0, 400)}` : ""}.` : "Chưa có kết quả quét AI.",
-      "Bằng chứng do NCC tự chụp/tự tải; AI và EXIF chỉ là tín hiệu đối chiếu, chưa phải xác minh.",
+      `Hồ sơ NCC tự gửi ${submission.id} (L${submission.target_level}${isPartnerL2(submission) ? " · hợp đồng nhà máy đối tác" : ""}).`,
+      submission.ai_scanned_at
+        ? `${submission.target_level === 3 ? "Lịch sử AI cũ, chỉ tham khảo" : "AI quét"} lúc ${submission.ai_scanned_at}${submission.ai_review?.summary ? `: ${submission.ai_review.summary.slice(0, 400)}` : ""}.`
+        : submission.target_level === 3 || isPartnerL2(submission) ? "Chứng từ do nhân viên đối chiếu." : "Chưa có kết quả quét AI.",
+      isPartnerL2(submission) ? "Hợp đồng với nhà máy đối tác; không mặc định cơ sở thuộc NCC hay đã được kiểm thực địa." : "Bằng chứng do NCC tự chụp/tự tải; AI và EXIF chỉ là tín hiệu đối chiếu, chưa phải xác minh.",
       input.note?.trim() ? `Ghi chú người nhận hồ sơ: ${input.note.trim().slice(0, 600)}` : "",
     ].filter(Boolean).join("\n"),
   });
 
-  for (const item of bundle.items) {
-    if (!item.media_id) continue;
-    const media = await store.getMedia(item.media_id);
-    if (!media) continue;
+  for (const { media } of sourceFiles) {
     await store.createMedia({
       owner_type: "verification",
       verification_id: verification.id,
@@ -511,7 +618,7 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
     entity: "supplier", entity_id: submission.supplier_id,
     action: `staff.submission.accepted.l${submission.target_level}`,
     before: { submission_id: submission.id, status: submission.status },
-    after: { submission_id: submission.id, verification_id: verification.id, items: bundle.items.filter((i) => i.media_id).length },
+    after: { submission_id: submission.id, verification_id: verification.id, l2_scope: verification.l2_scope ?? null, items: bundle.items.filter((i) => i.media_id).length },
   });
   return { verification };
 }

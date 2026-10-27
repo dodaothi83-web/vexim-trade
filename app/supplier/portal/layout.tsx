@@ -48,6 +48,7 @@ export default async function SupplierPortalLayout({ children }: { children: Rea
         email={user?.email || session.email}
         userName={user?.name ?? session.name}
         approved={approved}
+        partner={supplier?.supplier_type === "trading"}
         publicUrl={publicUrl}
       />
       <div className="lg:pl-60">

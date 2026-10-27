@@ -198,7 +198,7 @@ export function HomeProductFeed({
               oem={p.oem}
               odm={p.odm}
               samples={p.samples}
-              verificationSteps={p.verificationSteps}
+              verificationSteps={p.verificationSteps} l2Scope={p.l2Scope}
               test={p.isDemo}
               comparison={hasProductComparisonPeer(items, p) ? { id: p.id, categorySlug: p.categorySlug } : undefined}
             />

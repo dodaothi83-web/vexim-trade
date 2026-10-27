@@ -1,3 +1,4 @@
+import type { PublicL2Scope } from "@/lib/verification-status";
 import Link from "next/link";
 import { ArrowRight, ImageIcon } from "lucide-react";
 
@@ -8,10 +9,10 @@ import type { ProductComparisonSelection } from "@/lib/public/product-comparison
 import type { VerificationLevel } from "@/lib/types";
 
 /** One responsive product offer card shared by category, supplier profile and home. */
-export function PublicProductCard({ href, imagePath, name, moq, price, fob, leadTimeDays, supplierName, supplierHref, verificationSteps, quoteHref, oem, odm, samples, test = false, linkable = true, comparison }: {
+export function PublicProductCard({ href, imagePath, name, moq, price, fob, leadTimeDays, supplierName, supplierHref, verificationSteps, l2Scope, quoteHref, oem, odm, samples, test = false, linkable = true, comparison }: {
   href: string; imagePath?: string | null; name: string; moq: string; price: string | null; fob?: boolean;
   leadTimeDays: number | null; supplierName: string; supplierHref?: string;
-  verificationSteps: readonly VerificationLevel[]; quoteHref: string | undefined;
+  verificationSteps: readonly VerificationLevel[]; l2Scope?: PublicL2Scope; quoteHref: string | undefined;
   oem?: boolean; odm?: boolean; samples?: boolean; test?: boolean;
   /** Tắt đường dẫn ở bản xem trước khi hồ sơ chưa công khai, để không dẫn tới trang 404. */
   linkable?: boolean;
@@ -64,7 +65,7 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
             : <span title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-ink-800">{supplierName}</span>}
         </p>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 sm:mt-1.5 sm:gap-1.5">
-          <VerificationPips levels={test ? [] : verificationSteps} compact shortTooltips />
+          <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} compact shortTooltips />
           <VerificationTierBadge levels={test ? [] : verificationSteps} compactOnMobile />
         </div>
       </div>

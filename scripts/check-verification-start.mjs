@@ -14,7 +14,7 @@ const rows = [];
 let canInspect = true;
 let dbError = false;
 const store = {
-  getSupplier: async (id) => ['sup-1', 'sup-2', 'sup-3'].includes(id) ? { id, verification_level: 3 } : null,
+  getSupplier: async (id) => ['sup-1', 'sup-2', 'sup-3', 'sup-unknown'].includes(id) ? { id, verification_level: 3, supplier_type: id === 'sup-2' ? 'trading' : id === 'sup-unknown' ? null : 'manufacturer' } : null,
   listVerifications: async (id) => rows.filter((r) => r.supplier_id === id),
   createVerification: async (input) => {
     if (dbError) throw Error("Could not find the 'checklist_notes' column of 'verifications' in the schema cache");
@@ -28,11 +28,15 @@ const mocks = {
   'next/server': { NextResponse: { json: (body, init) => Response.json(body, init) } },
   'next/cache': { revalidatePath: () => {} },
   '@/lib/db': { getStore: () => store },
+  '@/lib/l2-scope': {
+    l2ScopeForSupplier: (type) => type === 'trading' ? 'partner_contract' : ['manufacturer', 'cooperative'].includes(type) ? 'factory' : null,
+    effectiveL2Scope: (scope) => scope ?? 'factory',
+  },
   '@/lib/auth/session': { guard: async () => canInspect ? null : { message: 'Không có quyền' }, getSession: async () => ({ uid: '00000000-0000-4000-8000-000000000001', email: 'inspector@example.com' }) },
   '@/lib/verification': {
     auditStep: (level) => ({ 1: { title: 'Kiểm tra giấy tờ' }, 2: { title: 'Xác thực nhà máy' }, 3: { title: 'Lịch sử giao hàng' } })[level],
     auditHref: (id, level) => `/crm/suppliers/${id}/audit/${({ 1: 'documents', 2: 'factory', 3: 'deliveries' })[level]}`,
-    auditItems: (level) => Array.from({ length: ({ 1: 7, 2: 9, 3: 3 })[level] }, (_, n) => ({ key: `item_${level}_${n}` })),
+    auditItems: (level, scope) => Array.from({ length: level === 2 && scope === 'partner_contract' ? 2 : ({ 1: 7, 2: 9, 3: 3 })[level] }, (_, n) => ({ key: `item_${level}_${n}` })),
   },
 };
 vm.runInNewContext(source, { module, exports: module.exports, require: (name) => {
@@ -60,7 +64,10 @@ assert.equal(Object.keys(rows[0].checklist).length, 3);
 assert.equal((await post('sup-2', 3)).data.existing, true);
 rows[0].status = 'approved';
 assert.equal((await post('sup-2', 3)).status, 409, 'Same approved check cannot be restarted');
-assert.equal((await post('sup-2', 2)).status, 200, 'A prior delivery approval must not imply factory verification');
+assert.equal((await post('sup-2', 2)).status, 200, 'A prior delivery approval must not imply partner contract review');
+assert.equal(rows[1].l2_scope, 'partner_contract');
+assert.equal(Object.keys(rows[1].checklist).length, 2);
+assert.equal((await post('sup-unknown', 2)).status, 400, 'Unknown type must not default to factory');
 assert.equal((await post('sup-2', 1)).status, 200, 'Document review remains independent');
 assert.equal(rows.length, 3);
 assert.equal((await post('sup-1', 1)).status, 200);
@@ -72,6 +79,7 @@ assert.equal(rows.length, 4, 'double-click must not create another review');
 rows[3].status = 'approved';
 assert.equal((await post('sup-1', 2)).status, 200);
 assert.equal(Object.keys(rows[4].checklist).length, 9);
+assert.equal(rows[4].l2_scope, 'factory');
 assert.equal((await post('sup-1', 3)).status, 200, 'Delivery can also begin while factory review is pending');
 dbError = true;
 const failed = await post('sup-3', 1);

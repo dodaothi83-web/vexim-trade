@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { AlertTriangle, Camera, FileText, Image, Loader2, MapPin, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 
 import type { PortalItemSpec, PortalItemView } from "@/lib/supplier-portal/submission-view";
+import { MAX_ITEMS_PER_KEY } from "@/lib/verification-submission";
 import { deleteSubmissionItemAction } from "./submission-actions";
 
 function when(value: string | null | undefined) {
@@ -19,36 +20,40 @@ function when(value: string | null | undefined) {
  * thể chọn ảnh từ thư viện, kể cả ảnh đã gửi qua Zalo. Điều bắt buộc duy nhất là 3 mục
  * 🔖 phải có tờ mã xác minh trong khung hình.
  */
-export function SubmissionItemCard({ spec, level, rows, submissionId, editable, gps, codeIssued, onChanged }: {
+export function SubmissionItemCard({ spec, level, partner = false, rows, submissionId, editable, paused, gps, codeIssued, onChanged, onBusyChange }: {
   spec: PortalItemSpec;
   level: 2 | 3;
+  partner?: boolean;
   rows: PortalItemView[];
   submissionId: string;
   editable: boolean;
+  paused: boolean;
   gps: { lat: number | null; lng: number | null; accuracy: number | null; at: string | null };
   codeIssued: boolean;
   onChanged: (message: string, ok: boolean) => void;
+  onBusyChange: (busy: boolean) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const latest = rows[0] ?? null;
   const needsCode = level === 2 && spec.requiresCode;
+  const full = (level === 3 || partner) && rows.length >= MAX_ITEMS_PER_KEY;
   const hardFlags = latest?.flags.filter((flag) => flag.severity === "hard") ?? [];
   const softFlags = latest?.flags.filter((flag) => flag.severity !== "hard") ?? [];
-  const accept = level === 2 ? "image/jpeg,image/png,image/webp" : "image/jpeg,image/png,image/webp,application/pdf";
+  const accept = level === 3 || (partner && spec.key === "partner_factory_contract") ? "image/jpeg,image/png,image/webp,application/pdf" : "image/jpeg,image/png,image/webp";
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || busy) return;
+    if (!file || busy || paused || !editable || full) return;
     if (needsCode && !codeIssued) {
       const message = "Mục này cần tờ mã xác minh. Hãy bấm “Tạo mã xác minh”, tải tờ mã về, in ra giấy rồi chụp cùng cảnh.";
       setError(message);
       onChanged(message, false);
       return;
     }
-    setBusy(true); setError(null);
+    setBusy(true); onBusyChange(true); setError(null);
     try {
       const form = new FormData();
       form.set("checklistKey", spec.key);
@@ -67,14 +72,14 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
       setError(message);
       onChanged(message, false);
     } finally {
-      setBusy(false);
+      setBusy(false); onBusyChange(false);
     }
   }
 
-  async function remove(row: PortalItemView) {
-    if (!editable || busy) return;
-    if (!window.confirm(`Xóa hẳn bằng chứng của mục “${spec.label}”? Tệp gốc cũng bị xóa khỏi kho.`)) return;
-    setBusy(true);
+  async function remove(row: PortalItemView, index: number) {
+    if (!editable || busy || paused) return;
+    if (!window.confirm(`Xóa tệp ${index + 1} của mục “${spec.label}”? Tệp gốc cũng bị xóa khỏi kho.`)) return;
+    setBusy(true); onBusyChange(true);
     try {
       const form = new FormData();
       form.set("submission_id", submissionId);
@@ -85,7 +90,7 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
     } catch {
       onChanged("Không xóa được bằng chứng.", false);
     } finally {
-      setBusy(false);
+      setBusy(false); onBusyChange(false);
     }
   }
 
@@ -104,12 +109,12 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
               <span className="text-[11px] font-semibold">{latest.isPdf ? "PDF đã tải" : "Tệp đã tải"}</span>
             </a>)
         : <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-ink-50/80 text-ink-400">
-            {level === 2 ? <Camera className="h-7 w-7" aria-hidden="true" /> : <FileText className="h-7 w-7" aria-hidden="true" />}
+            {level === 2 && !partner ? <Camera className="h-7 w-7" aria-hidden="true" /> : <FileText className="h-7 w-7" aria-hidden="true" />}
             <span className="text-[11px] font-semibold">Chưa có bằng chứng</span>
           </div>}
 
       <span className={`absolute top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${latest ? "bg-emerald-600 text-white" : spec.required ? "bg-white/95 text-amber-900 ring-1 ring-amber-300" : "bg-white/95 text-ink-600 ring-1 ring-ink-200"}`}>
-        {latest ? "Đã có" : spec.required ? "Bắt buộc" : "Tùy chọn"}
+        {latest ? "Đã có" : level === 3 ? "Chọn nếu phù hợp" : spec.required ? "Bắt buộc" : "Tùy chọn"}
       </span>
       {needsCode && <span title="Phải có tờ giấy viết tay mã xác minh trong khung hình"
         className="absolute top-2 right-2 rounded-full bg-brand-700/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">🔖 Cần tờ mã</span>}
@@ -141,14 +146,14 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
 
       <div className="mt-auto space-y-1.5 pt-1">
         {rows.length > 0 && <ul className="space-y-1">
-          {rows.map((row) => <li key={row.id} className="flex items-center justify-between gap-2 rounded-md bg-ink-50 px-2 py-1 text-[10.5px]">
-            <a href={row.href} target="_blank" rel="noreferrer" className="min-w-0 truncate font-semibold text-brand-800 underline underline-offset-2">{row.isPdf ? "Mở PDF" : "Mở ảnh gốc"}</a>
-            {editable && <button type="button" onClick={() => void remove(row)} className="shrink-0 text-rose-600 hover:underline" aria-label={`Xóa bằng chứng ${row.label}`}><Trash2 className="size-3.5" aria-hidden="true" /></button>}
+          {rows.map((row, index) => <li key={row.id} className="flex items-center justify-between gap-2 rounded-md bg-ink-50 px-2 py-1 text-[10.5px]">
+            <a href={row.href} target="_blank" rel="noreferrer" className="min-w-0 truncate font-semibold text-brand-800 underline underline-offset-2">{row.isPdf ? "Mở PDF" : "Mở ảnh"} {index + 1} · {when(row.uploadedAt)}</a>
+            {editable && <button type="button" disabled={busy || paused} onClick={() => void remove(row, index)} className="shrink-0 text-rose-600 hover:underline disabled:opacity-40" aria-label={`Xóa tệp ${index + 1} của ${row.label}`}><Trash2 className="size-3.5" aria-hidden="true" /></button>}
           </li>)}
         </ul>}
 
         {latest && <details className="rounded-md border border-ink-100 bg-ink-50/60 px-2 py-1.5">
-          <summary className="cursor-pointer text-[10.5px] font-semibold text-ink-600">Chi tiết kỹ thuật &amp; AI</summary>
+          <summary className="cursor-pointer text-[10.5px] font-semibold text-ink-600">{level === 2 && !partner ? "Chi tiết kỹ thuật & AI" : "Chi tiết tệp"}</summary>
           <div className="mt-1.5 space-y-1.5 text-[10.5px] leading-4 text-ink-600">
             <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className={latest.hasExif ? "font-bold text-emerald-700" : "font-bold text-ink-500"}>{latest.hasExif ? "Có dữ liệu ảnh gốc" : "Không còn dữ liệu ảnh gốc (vẫn nhận)"}</span>
@@ -179,18 +184,19 @@ export function SubmissionItemCard({ spec, level, rows, submissionId, editable, 
               </p>}
               <p className="mt-0.5 text-ink-500">AI chỉ gợi ý; kết quả xác minh do bộ phận duyệt quyết định.</p>
             </div>}
-            <p className="text-ink-500">Ảnh không có toạ độ hay bị nén lại vẫn được nhận. Điểm này chỉ giúp người duyệt biết cần xem kỹ chỗ nào.</p>
+            {level === 2 && !partner && <p className="text-ink-500">Ảnh không có toạ độ hay bị nén lại vẫn được nhận. Điểm này chỉ giúp người duyệt biết cần xem kỹ chỗ nào.</p>}
           </div>
         </details>}
 
         {error && <p role="alert" className="text-[10.5px] font-semibold text-rose-700">{error}</p>}
 
         <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={(e) => void onPick(e)} />
-        <button type="button" disabled={!editable || busy} onClick={() => inputRef.current?.click()}
+        <button type="button" disabled={!editable || busy || paused || full} onClick={() => inputRef.current?.click()}
           className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-[11px] font-bold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-ink-300">
           {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Camera className="size-3.5" aria-hidden="true" />}
-          {busy ? "Đang tải..." : rows.length ? "Chụp/thay bằng chứng" : level === 2 ? "Chụp hoặc chọn ảnh" : "Tải chứng từ"}
+          {busy ? "Đang xử lý..." : full ? `Đã đủ ${MAX_ITEMS_PER_KEY} tệp` : (level === 3 || partner) ? rows.length ? "Tải thêm tệp" : "Tải tệp" : rows.length ? "Chụp/thay bằng chứng" : "Chụp hoặc chọn ảnh"}
         </button>
+        {full && editable && <p className="text-[10px] text-ink-500">Xóa một tệp nếu cần tải tệp khác.</p>}
         {needsCode && <p className="text-[10px] font-semibold text-brand-800">🔖 Ảnh này bắt buộc có tờ mã xác minh đặt cạnh cảnh.</p>}
         {!editable && <p className="text-[10px] text-ink-500">Hồ sơ đang chờ xét hoặc đã được nhận nên bằng chứng bị khóa.</p>}
       </div>

@@ -109,7 +109,7 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
         oem={product.oem}
         odm={product.odm}
         samples={product.samples}
-        verificationSteps={product.verificationSteps}
+        verificationSteps={product.verificationSteps} l2Scope={product.l2Scope}
         test={product.isDemo}
         comparison={comparisonEnabled && !product.isDemo ? { id: product.id, categorySlug } : undefined}
       />

@@ -27,13 +27,15 @@ const policy = load('../lib/supplier-portal/policy.ts', {
   '@/lib/types': types,
   '@/lib/verification': { auditUploadKind: () => null },
 });
+const scope = load('../lib/l2-scope.ts');
 const { buildVerificationProgress } = load('../lib/supplier-portal/verification-progress.ts', {
   '@/lib/types': types,
+  '@/lib/l2-scope': scope,
   './policy': policy,
 });
 
 const supplierId = 'sup-1';
-const empty = { supplierId, reviews: [], submissions: [], requests: [], documents: [] };
+const empty = { supplierId, supplierType: 'manufacturer', reviews: [], submissions: [], requests: [], documents: [] };
 const review = (over = {}) => ({
   id: 'v1', supplier_id: supplierId, target_level: 1, status: 'in_progress', return_reason: null,
   created_at: '2026-10-20T00:00:00Z', updated_at: '2026-10-20T00:00:00Z', ...over,
@@ -90,15 +92,18 @@ assert.equal(l2Pending.approvedCount, 0, 'Nộp đủ ảnh không tự thành h
 assert.equal(l2Pending.currentLevel, 1, 'Bước 1 còn trống nên vẫn là bước cần làm trước');
 assert.match(l2Pending.headline, /Bước tiếp theo: Kiểm tra giấy tờ/);
 
-// 5. L3 nháp mới có 1/2 chứng từ bắt buộc: vẫn là việc NCC phải làm tiếp.
+// 5. Một chứng từ L3 đủ để nộp; chưa phải được duyệt.
 const l3Draft = buildVerificationProgress({
   ...empty,
   submissions: [submission({ id: 'sub-3', target_level: 3 })],
   submissionItems: { 'sub-3': [item('sub-3', 'bill_of_lading')] },
 });
 assert.equal(l3Draft.steps[2].state, 'action');
-assert.equal(l3Draft.steps[2].metric, 'Đã nộp 1/2 chứng từ bắt buộc');
-assert.match(l3Draft.steps[2].note, /Còn 1 chứng từ bắt buộc/);
+assert.equal(l3Draft.steps[2].metric, 'Đã tải 1 loại chứng từ');
+assert.match(l3Draft.steps[2].note, /nộp cho nhân viên kiểm tra/);
+assert.equal(l3Draft.approvedCount, 0);
+const l3Empty = buildVerificationProgress({ ...empty, submissions: [submission({ id: 'sub-3', target_level: 3 })] });
+assert.match(l3Empty.steps[2].note, /ít nhất một chứng từ/);
 
 // 6. Yêu cầu kiểm định đã được liên hệ: nói rõ là liên hệ lên kế hoạch, vẫn mời tự nộp.
 const contacted = buildVerificationProgress({ ...empty, requests: [{ supplier_id: supplierId, target_level: 2, status: 'contacted' }] });
@@ -159,3 +164,16 @@ for (const step of none.steps) {
 assert.equal(none.steps[1].actionEn, 'Start step 2');
 
 console.log('✅ Verification progress: đúng thứ tự bước, đúng trạng thái, không tự cấp huy hiệu, tách dữ liệu NCC.');
+
+// Loại hình quyết định đúng luồng; lịch sử nhà máy không được chuyển thành đối tác.
+const partner = buildVerificationProgress({ ...empty, supplierType: 'trading',
+  reviews: [review({ target_level: 2, status: 'approved', l2_scope: null })],
+  submissions: [submission({ l2_scope: 'partner_contract' })],
+  submissionItems: { 'sub-2': [item('sub-2', 'partner_factory_contract')] },
+});
+assert.notEqual(partner.steps[1].state, 'approved', 'Duyệt nhà máy cũ không là duyệt đối tác');
+assert.match(partner.steps[1].title, /đối tác/i);
+assert.match(partner.steps[1].metric, /hợp đồng/i);
+const missingType = buildVerificationProgress({ ...empty, supplierType: null, reviews: [review({ target_level: 2, status: 'approved' })] });
+assert.notEqual(missingType.steps[1].state, 'approved');
+assert.match(missingType.steps[1].note, /loại hình/i);

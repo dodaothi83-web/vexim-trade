@@ -102,7 +102,7 @@ export default async function SupplierPortal() {
     async () => Object.fromEntries(await Promise.all(submissions.map(async (submission) =>
       [submission.id, await store.listSubmissionItems(submission.id)] as const))));
   const verification = buildVerificationProgress({
-    supplierId: supplier.id, reviews, submissions, submissionItems, requests, documents: l1Media, userId: user.id,
+    supplierId: supplier.id, supplierType: supplier.supplier_type, reviews, submissions, submissionItems, requests, documents: l1Media, userId: user.id,
   });
   const board = buildSupplierRfqBoard({ supplierId: supplier.id, invites, products, days: 30 });
 

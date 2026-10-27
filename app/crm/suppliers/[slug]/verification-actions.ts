@@ -5,8 +5,9 @@ import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { auditHref, auditItems, auditUploadKind, coreDocsVerified, requiredAuditItems } from "@/lib/verification";
+import { isPartnerL2, l2ScopeMatchesSupplier, sameVerificationScope } from "@/lib/l2-scope";
 import { canSelfApproveVerification } from "@/lib/verification-policy";
-import { hasDocumentAuditEvidence } from "@/lib/verification-evidence";
+import { hasDeliveryAuditEvidence, hasDocumentAuditEvidence } from "@/lib/verification-evidence";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
 import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifyStaffVerificationSubmission, notifySupplierDecision } from "@/lib/supplier-portal/notify";
@@ -112,14 +113,18 @@ async function saveChecklist(fd: FormData, markCommitted: () => void) {
   const store = getStore();
   const before = await store.getVerification(id);
   if (!before) return { ok: false, message: "Không tìm thấy đợt kiểm." };
-  if ((await store.listVerifications(before.supplier_id)).some((v) => v.target_level === before.target_level && v.status === "approved")) {
+  if ((await store.listVerifications(before.supplier_id)).some((v) => sameVerificationScope(v, before) && v.status === "approved")) {
     return { ok: false, message: "Bước này đã được duyệt; không thể sửa đợt kiểm cũ." };
   }
   if (!["in_progress", "scheduled", "returned"].includes(before.status)) return { ok: false, message: "Đợt kiểm đã nộp hoặc đã duyệt; không thể sửa." };
+  if (before.target_level === 2) {
+    const supplier = await store.getSupplier(before.supplier_id);
+    if (!supplier || !l2ScopeMatchesSupplier(before, supplier.supplier_type)) return { ok: false, message: "Loại hình chưa rõ hoặc không khớp phạm vi đợt kiểm. Hãy xác minh lại loại hình; giữ đợt cũ để đối chiếu." };
+  }
   const nextStatus = fd.get("status") === "submitted" ? "submitted" : "in_progress";
   const checklist: Verification["checklist"] = { ...before.checklist };
   const notes: Verification["checklist_notes"] = { ...before.checklist_notes };
-  const items = auditItems(before.target_level);
+  const items = auditItems(before.target_level, before.l2_scope);
   const requiredKeys = new Set<string>(requiredAuditItems(before.target_level).map((it) => it.key));
   for (const it of items) {
     const value = fd.get(`check:${it.key}`);
@@ -163,7 +168,7 @@ async function saveChecklist(fd: FormData, markCommitted: () => void) {
     ...(before.target_level === 1 ? { tax_number: taxNumber || null, bank_account_number: bankAccountNumber || null } : {}),
     internal_notes: String(fd.get("internal_notes") || "").trim().slice(0, 5000) || null,
   };
-  if (before.target_level === 2) {
+  if (before.target_level === 2 && !isPartnerL2(before)) {
     Object.assign(patch, { visit_date: visitDate || null, visit_address: visitAddress || null,
       visit_lat: lat ? Number(lat) : null, visit_lng: lng ? Number(lng) : null });
   }
@@ -178,7 +183,7 @@ async function saveChecklist(fd: FormData, markCommitted: () => void) {
   const canFinishOwnReview = nextStatus === "submitted" && canSelfApproveVerification((await getSession())?.role);
   if (nextStatus === "submitted" && !canFinishOwnReview) {
     const mail = await softEffect("email báo người duyệt",
-      () => notifyStaffVerificationSubmission(before.supplier_id, before.target_level)) ?? "failed";
+      () => notifyStaffVerificationSubmission(before.supplier_id, before.target_level, before.l2_scope, before.id)) ?? "failed";
     if (mail !== "sent") console.warn("[verification] reviewer notification failed; submission remains queued", mail);
   }
   return { ok: true, message: nextStatus === "submitted"
@@ -191,7 +196,7 @@ async function getReviewable(id: string) {
   const store = getStore();
   const before = await store.getVerification(id);
   if (!before || before.status !== "submitted") return { ok: false as const, message: "Chỉ xét duyệt đợt đã nộp." };
-  if ((await store.listVerifications(before.supplier_id)).some((v) => v.target_level === before.target_level && v.status === "approved")) {
+  if ((await store.listVerifications(before.supplier_id)).some((v) => sameVerificationScope(v, before) && v.status === "approved")) {
     return { ok: false as const, message: "Bước này đã được duyệt ở đợt kiểm khác." };
   }
   // A staff member with both inspect and approve permissions can finish their
@@ -259,16 +264,22 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
       return { ok: false, message: "Chưa có ảnh chụp giấy tờ hoặc PDF trong bằng chứng của đợt Kiểm tra giấy tờ này. Tệp ở kho chung NCC không được tính; hãy tải vào đúng đợt kiểm (hoặc trả lại để bổ sung)." };
     }
   } else if (before.target_level === 2) {
-    if (!media.some((m) => m.kind === "image" && m.storage_path && (m.checklist_key as string | null) !== "documents_original")) {
+    const supplier = await store.getSupplier(before.supplier_id);
+    if (!supplier || !l2ScopeMatchesSupplier(before, supplier.supplier_type)) return { ok: false, message: "Loại hình doanh nghiệp chưa rõ hoặc không khớp phạm vi đợt kiểm. Hãy xác minh lại trước khi duyệt." };
+    if (isPartnerL2(before)) {
+      if (!media.some((m) => m.owner_type === "verification" && m.verification_id === before.id && m.supplier_id === before.supplier_id && m.checklist_key === "partner_factory_contract" && ["image", "document"].includes(m.kind) && m.audience === "internal" && m.status === "checked" && m.storage_path?.trim())) {
+        return { ok: false, message: "Cần hợp đồng với nhà máy đối tác trong đúng đợt kiểm; mở và đánh dấu đã kiểm trước khi duyệt." };
+      }
+      if (before.checklist.partner_identity_confirmed !== true || before.checklist.partner_scope_confirmed !== true) {
+        return { ok: false, message: "Hãy xác nhận đúng hai bên hợp đồng và phạm vi đối tác; không suy ra sở hữu hay kiểm thực địa." };
+      }
+    } else if (!media.some((m) => m.kind === "image" && m.storage_path && (m.checklist_key as string | null) !== "documents_original")) {
       return { ok: false, message: "Cần ít nhất một ảnh nhà máy trong đúng đợt xác thực trước khi duyệt. Các mục và ô thông tin khác có thể để trống." };
     }
   } else {
-    // New inline evidence is assigned to a shipping/receipt row. Preserve older
-    // documents already reviewed in the previous media manager without backfill.
-    if (!media.some((m) => m.storage_path &&
-      (["shipping_proof", "delivery_proof"].includes(m.checklist_key ?? "") && ["image", "document", "certificate"].includes(m.kind) ||
-        m.kind === "document" && m.status === "checked"))) {
-      return { ok: false, message: "Cần chứng từ vận chuyển/giao nhận ở đúng đợt kiểm (gắn vào mục tương ứng hoặc chứng từ cũ đã kiểm tra). Ảnh không liên quan hoặc video không đủ điều kiện." };
+    // Giữ điều kiện cũ; chứng từ NCC tự gửi phải được nhân viên đánh dấu đã kiểm.
+    if (!hasDeliveryAuditEvidence(media)) {
+      return { ok: false, message: "Cần chứng từ phù hợp trong đúng đợt kiểm. Hãy đối chiếu và đánh dấu chứng từ NCC tự gửi đã kiểm, hoặc gắn chứng từ vào mục vận chuyển/giao nhận." };
     }
   }
   const publicSummary = before.target_level > 1 ? String(fd.get("public_summary") || "").trim() : "";
@@ -311,7 +322,7 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
     throw error;
   }
   await auditChange(before, "approved", "approve", publication);
-  const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng";
+  const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? isPartnerL2(before) ? "Nhà máy đối tác" : "Xác thực nhà máy" : "Lịch sử giao hàng";
   const mail = await softEffect("email duyệt gửi NCC",
     () => notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_approved", name })) ?? "failed";
   if (mail !== "sent") console.warn("[verification] supplier approval email not sent; decision saved", mail);
@@ -392,13 +403,13 @@ async function assignEvidence(mediaId: string, key: AuditEvidenceKey | null) {
     return { ok: false, message: "Tệp không thuộc đợt kiểm." };
   }
   const v = await store.getVerification(asset.verification_id);
-  if (!v || asset.supplier_id !== v.supplier_id || (key && !auditUploadKind(v.target_level, key))) {
+  if (!v || asset.supplier_id !== v.supplier_id || (key && !auditUploadKind(v.target_level, key, v.l2_scope))) {
     return { ok: false, message: "Mục bằng chứng không thuộc bước kiểm này." };
   }
   const blocked = await verificationMediaEditError(v);
   if (blocked) return { ok: false, message: blocked };
   if (key && (!asset.storage_path || !["image", "document", "certificate"].includes(asset.kind) ||
-    (auditUploadKind(v.target_level, key) === "image" && asset.kind !== "image"))) {
+    (auditUploadKind(v.target_level, key, v.l2_scope) === "image" && asset.kind !== "image"))) {
     return { ok: false, message: "Mục ảnh chỉ nhận ảnh; mục chứng từ nhận ảnh hoặc PDF trong đúng đợt kiểm." };
   }
   if ((asset.checklist_key ?? null) === key) return { ok: true, message: "Tệp đã gắn với mục này." };
@@ -449,7 +460,7 @@ async function returnReview(fd: FormData, markCommitted: () => void) {
   await store.updateVerification(before.id, { status: "returned", return_reason: reason.slice(0, 1000) });
   markCommitted();
   await auditChange(before, "returned", "return");
-  const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng";
+  const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? isPartnerL2(before) ? "Nhà máy đối tác" : "Xác thực nhà máy" : "Lịch sử giao hàng";
   const mail = await softEffect("email trả về gửi NCC",
     () => notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_returned", name, note: reason })) ?? "failed";
   if (mail !== "sent") console.warn("[verification] supplier return email not sent; decision saved", mail);

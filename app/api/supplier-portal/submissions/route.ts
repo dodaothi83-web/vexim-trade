@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   if (!access) return NextResponse.json({ ok: false, message: "Tài khoản NCC chưa được Vexim mở quyền." }, { status: 403 });
   try {
     const submission = await getOrCreateSubmission(access.store, {
-      supplierId: access.supplier.id, level, userId: access.user.id,
+      supplierId: access.supplier.id, level, userId: access.user.id, supplierType: access.supplier.supplier_type,
     });
     const bundle = await loadSubmissionBundle(access.store, submission.id);
     if (!bundle) return NextResponse.json({ ok: false, message: "Không mở được hồ sơ." }, { status: 500 });
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, submission: bundle.submission, readiness: check }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[submissions] không tạo được hồ sơ", error);
-    return NextResponse.json({ ok: false, message: "Chưa mở được hồ sơ. Kiểm tra migration supplier_submissions rồi thử lại." }, { status: 503 });
+    const message = error instanceof Error && error.message.includes("chưa có loại hình") ? error.message : "Chưa mở được hồ sơ. Kiểm tra migration supplier_submissions rồi thử lại.";
+    return NextResponse.json({ ok: false, message }, { status: 503 });
   }
 }

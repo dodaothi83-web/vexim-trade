@@ -2,9 +2,11 @@ import crypto from "node:crypto";
 
 import {
   L2_FACTORY_PHOTO_ITEMS,
+  L2_PARTNER_ITEMS,
   L3_EXPORT_ITEMS,
   type ExportDocKey,
   type FactoryPhotoKey,
+  type L2VerificationScope,
   type SubmissionIntegrityFlag,
   type SubmissionStatus,
   type SupplierSubmission,
@@ -15,7 +17,7 @@ import {
  * Luật của cổng NHÀ CUNG CẤP TỰ GỬI bằng chứng L2 (nhà máy) / L3 (lịch sử xuất khẩu).
  *
  * Ranh giới quan trọng, giữ đúng chính sách sẵn có của hệ thống:
- *  - Hồ sơ tự gửi KHÔNG phải kết quả xác minh. AI chỉ quét và nêu tín hiệu.
+ *  - Hồ sơ tự gửi KHÔNG phải kết quả xác minh. L2 có thể dùng AI; L3 do nhân viên đối chiếu.
  *  - Huy hiệu L2/L3 trên trang buyer chỉ xuất hiện khi một đợt kiểm
  *    `verifications` do nhân sự Vexim có quyền duyệt xác nhận. Cùng một nhân sự
  *    có thể kiểm và duyệt sau xác nhận. Chấp thuận hồ sơ chỉ tạo đợt kiểm kèm bằng chứng.
@@ -105,12 +107,13 @@ export function requiredDocKeys(): ExportDocKey[] {
   return L3_EXPORT_ITEMS.filter((i) => i.required).map((i) => i.key);
 }
 
-export function submissionItemKeys(level: 2 | 3): string[] {
-  return level === 2 ? [...requiredPhotoKeys()] : L3_EXPORT_ITEMS.map((i) => i.key);
+export function submissionItemKeys(level: 2 | 3, scope?: L2VerificationScope | null): string[] {
+  return level === 2 ? scope === "partner_contract" ? L2_PARTNER_ITEMS.map((i) => i.key) : [...requiredPhotoKeys()] : L3_EXPORT_ITEMS.map((i) => i.key);
 }
 
 export function submissionItemLabel(level: 2 | 3, key: string): string {
-  if (level === 2) return L2_FACTORY_PHOTO_ITEMS.find((i) => i.key === key)?.label ?? key;
+  if (level === 3 && key === "any_export_evidence") return "Ít nhất một chứng từ xuất khẩu";
+  if (level === 2) return L2_PARTNER_ITEMS.find((i) => i.key === key)?.label ?? L2_FACTORY_PHOTO_ITEMS.find((i) => i.key === key)?.label ?? key;
   return L3_EXPORT_ITEMS.find((i) => i.key === key)?.label ?? key;
 }
 
@@ -123,10 +126,15 @@ export function requiresHandwrittenCode(key: string): boolean {
 }
 
 /** Thiếu mục nào để nộp hồ sơ. */
-export function missingKeys(submission: Pick<SupplierSubmission, "target_level" | "verification_code">, items: Pick<SupplierSubmissionItem, "checklist_key" | "media_id">[]): string[] {
+export function missingKeys(submission: Pick<SupplierSubmission, "target_level" | "verification_code" | "l2_scope">, items: (Pick<SupplierSubmissionItem, "checklist_key" | "media_id"> & Partial<Pick<SupplierSubmissionItem, "storage_path">>)[]): string[] {
   const have = new Set(items.filter((i) => i.media_id).map((i) => i.checklist_key));
-  const required = submission.target_level === 2 ? requiredPhotoKeys() : requiredDocKeys();
-  return required.filter((key) => !have.has(key));
+  if (submission.target_level === 3) {
+    return L3_EXPORT_ITEMS.some((item) => have.has(item.key)) ? [] : ["any_export_evidence"];
+  }
+  if (submission.l2_scope === "partner_contract") {
+    return items.some((i) => i.checklist_key === "partner_factory_contract" && i.media_id && i.storage_path?.trim()) ? [] : ["partner_factory_contract"];
+  }
+  return requiredPhotoKeys().filter((key) => !have.has(key));
 }
 
 /* --------------------------------- trạng thái --------------------------------- */
@@ -138,20 +146,21 @@ export function submissionEditable(status: SubmissionStatus): boolean {
 
 /** Đã đủ điều kiện kỹ thuật để chuyển sang chờ Vexim xét duyệt. */
 export function readiness(input: {
-  submission: Pick<SupplierSubmission, "target_level" | "verification_code" | "code_issued_at">;
-  items: Pick<SupplierSubmissionItem, "checklist_key" | "media_id" | "flags">[];
+  submission: Pick<SupplierSubmission, "target_level" | "verification_code" | "code_issued_at" | "l2_scope">;
+  items: (Pick<SupplierSubmissionItem, "checklist_key" | "media_id" | "flags"> & Partial<Pick<SupplierSubmissionItem, "storage_path">>)[];
   now?: Date;
 }): { ready: boolean; missing: string[]; blockers: string[]; warnings: string[] } {
   const { submission, items } = input;
+  const factory = submission.target_level === 2 && submission.l2_scope !== "partner_contract";
   const missing = missingKeys(submission, items).map((key) => submissionItemLabel(submission.target_level, key));
   /** `structural` = thiếu mục/thiếu mã: chặn nộp. Cờ liêm chính chỉ cảnh báo. */
   const structural: string[] = [];
   const blockers: string[] = [];
   const warnings: string[] = [];
-  if (submission.target_level === 2 && !submission.verification_code) {
+  if (factory && !submission.verification_code) {
     structural.push("Chưa tạo mã xác minh. Bấm “Tạo mã xác minh”, in/viết tay mã lên giấy rồi chụp cùng các ảnh có đánh dấu 🔖.");
   }
-  if (submission.target_level === 2 && codeExpired(submission, input.now)) {
+  if (factory && codeExpired(submission, input.now)) {
     structural.push(`Mã xác minh đã quá ${VERIFICATION_CODE_TTL_HOURS} giờ. Hãy tạo mã mới và chụp lại các ảnh 🔖.`);
   }
   if (missing.length) structural.push(`Còn thiếu ${missing.length} mục bắt buộc: ${missing.join("; ")}.`);
@@ -159,7 +168,7 @@ export function readiness(input: {
   if (!withMedia.length) structural.push("Chưa có bằng chứng nào được tải lên.");
 
   // Phần xác minh danh tính DUY NHẤT còn bắt buộc: tờ mã đã in phải nằm trong ảnh 🔖.
-  if (submission.target_level === 2 && submission.verification_code) {
+  if (factory && submission.verification_code) {
     const codeProblems = withMedia
       .filter((i) => requiresHandwrittenCode(i.checklist_key))
       .filter((i) => (i.flags ?? []).some((f) => f.severity === "hard" && (f.flag === "code_missing" || f.flag === "code_mismatch")))
@@ -173,6 +182,8 @@ export function readiness(input: {
 
   for (const item of withMedia) {
     for (const flag of item.flags ?? []) {
+      // Kết quả AI L3 cũ được lưu lịch sử, không ảnh hưởng luồng đối chiếu mới.
+      if (submission.target_level === 3 && flag.source === "ai") continue;
       const text = `${submissionItemLabel(submission.target_level, item.checklist_key)}: ${flag.detail ?? flag.flag}`;
       (flag.severity === "hard" ? blockers : warnings).push(text);
     }
@@ -277,8 +288,9 @@ export function assessSourceLink(raw: string): SourceLinkAssessment {
 }
 
 /** Hồ sơ đang mở (chưa accepted) của một NCC ở một cấp — dùng để giới hạn spam. */
-export function openSubmission<T extends Pick<SupplierSubmission, "target_level" | "status">>(submissions: T[], level: 2 | 3): T | null {
-  return submissions.find((s) => s.target_level === level && s.status !== "accepted") ?? null;
+export function openSubmission<T extends Pick<SupplierSubmission, "target_level" | "status" | "l2_scope">>(submissions: T[], level: 2 | 3, scope?: L2VerificationScope | null): T | null {
+  return submissions.find((s) => s.target_level === level && s.status !== "accepted" &&
+    (level !== 2 || (s.l2_scope ?? "factory") === (scope ?? "factory"))) ?? null;
 }
 
 export function submissionStatusLabel(status: SubmissionStatus): string {

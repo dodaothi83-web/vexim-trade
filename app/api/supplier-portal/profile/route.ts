@@ -44,6 +44,23 @@ export async function POST(request: Request) {
   let supplier = freshUser.supplier_id ? await store.getSupplier(freshUser.supplier_id) : null;
   if (freshUser.supplier_id && !supplier) return fail("Không đọc được hồ sơ doanh nghiệp đã liên kết. Liên hệ Vexim.", 409);
   if (supplier && !canSubmitProfile(supplier)) return fail("Hồ sơ không ở trạng thái cho phép nộp lại.", 409);
+  if (supplier?.onboarding_status === "changes_requested") {
+    if (!supplier.supplier_type || parsed.patch.supplier_type !== supplier.supplier_type) return fail("Loại hình đã gửi không tự sửa tại đây. Liên hệ nhân viên để kiểm tra và cập nhật.", 409);
+    // Even a concurrent staff correction must not be overwritten by a stale form.
+    delete parsed.patch.supplier_type;
+    delete parsed.patch.role;
+  }
+  // A failed first attempt can already have saved a review or files. Do not
+  // attach them to a different tax identity on retry, even in not_started.
+  if (supplier && (supplier.tax_id ?? null) !== (parsed.patch.tax_id ?? null)) {
+    try {
+      const [reviews, submissions] = await Promise.all([store.listVerifications(supplier.id), store.listSubmissions(supplier.id)]);
+      if (reviews.length || submissions.length) return fail("Hồ sơ đã có bằng chứng. Liên hệ nhân viên để kiểm tra mã số thuế; pháp nhân khác cần hồ sơ riêng.", 409);
+    } catch (error) {
+      console.error("[supplier-profile] cannot check identity history", error);
+      return fail("Chưa kiểm tra được lịch sử hồ sơ. Vui lòng thử lại hoặc liên hệ Vexim.", 503);
+    }
+  }
   // Một trong ba giấy xác minh chính là bắt buộc. Giấy đã nộp ở đợt kiểm trước vẫn tính khi NCC bổ sung hồ sơ.
   if (!documents.some((document) => isL1CoreDoc(document.key))) {
     let existingCore = false;

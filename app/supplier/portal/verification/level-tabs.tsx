@@ -14,7 +14,7 @@ export const VERIFICATION_STEPS = [
   { level: 3, title: "Lịch sử xuất khẩu", href: "/supplier/portal/verification/export", icon: Ship },
 ] as const;
 
-export function LevelTabs({ current }: { current: 1 | 2 | 3 }) {
+export function LevelTabs({ current, partner = false }: { current: 1 | 2 | 3; partner?: boolean }) {
   return <nav aria-label="Chọn bước xác minh" className="mt-4 grid gap-2.5 sm:grid-cols-3">
     {VERIFICATION_STEPS.map((step) => {
       const Icon = step.icon;
@@ -26,7 +26,7 @@ export function LevelTabs({ current }: { current: 1 | 2 | 3 }) {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[11px] font-bold tracking-wider text-ink-400 uppercase">Bước {step.level}/3</span>
-          <span className={`block text-[13.5px] font-bold ${active ? "text-brand-900" : "text-ink-900"}`}>{step.title}</span>
+          <span className={`block text-[13.5px] font-bold ${active ? "text-brand-900" : "text-ink-900"}`}>{step.level === 2 && partner ? "Nhà máy đối tác" : step.title}</span>
         </span>
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${active ? "bg-brand-700 text-white" : "bg-ink-100 text-ink-600 group-hover:bg-brand-100 group-hover:text-brand-800"}`}>
           {active ? "Đang mở" : "Mở"}

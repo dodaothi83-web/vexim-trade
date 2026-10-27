@@ -1,3 +1,4 @@
+import type { PublicL2Scope } from "@/lib/verification-status";
 import "server-only";
 
 import { getStore } from "@/lib/db";
@@ -48,6 +49,7 @@ export interface PublicComparedProduct {
   supplierHref: string;
   province: string;
   verificationSteps: VerificationLevel[];
+  l2Scope?: PublicL2Scope;
   certificates: PublicSupplierCertificate[];
   rfqHref: string;
 }
@@ -116,6 +118,7 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       supplierHref: `/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`,
       province: card.province,
       verificationSteps: card.verificationSteps,
+      l2Scope: card.l2Scope,
       certificates: certificatesBySupplier.get(supplier.id) ?? [],
       rfqHref: `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(supplier.id)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(product.id)}`,
     };

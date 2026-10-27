@@ -46,7 +46,7 @@ import { uploadRfqAttachmentAction } from "./upload-action";
 import { addRfqNoteAction } from "./note-action";
 import type { RfqStatus } from "@/lib/types";
 import { SITE_URL } from "@/lib/site";
-import { approvedVerificationSteps, VERIFICATION_LABELS } from "@/lib/verification-status";
+import { approvedL2Scope, approvedVerificationSteps, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 import { spamFlagDetail } from "@/lib/rfq/spam-flags";
 
 export const dynamic = "force-dynamic";
@@ -106,11 +106,13 @@ export default async function RfqDetailPage({
   ]);
 
   const reviewedSteps = new Map<string, Array<1 | 2 | 3>>();
+  const reviewedL2Scopes = new Map<string, PublicL2Scope>();
   const relevant = suppliers.filter((s) => s.status === "published" || matches.some((m) => m.supplier_id === s.id));
   for (let i = 0; i < relevant.length; i += 40) {
     await Promise.all(relevant.slice(i, i + 40).map(async (s) => {
       const reviews = await store.listVerifications(s.id).catch(() => []);
       reviewedSteps.set(s.id, approvedVerificationSteps(reviews));
+      reviewedL2Scopes.set(s.id, approvedL2Scope(reviews));
     }));
   }
   const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
@@ -367,7 +369,7 @@ export default async function RfqDetailPage({
                         {preferredSupplierIds.includes(m.supplier_id) && (
                           <Badge className="bg-brand-600 text-[10.5px] text-white">Buyer chỉ định</Badge>
                         )}
-                        {passed.map((step) => <Badge key={step} color="#059669" className="text-[10.5px]">{VERIFICATION_LABELS[step]}</Badge>)}
+                        {passed.map((step) => <Badge key={step} color="#059669" className="text-[10.5px]">{verificationLabel(step, reviewedL2Scopes.get(m.supplier_id) ?? null)}</Badge>)}
                         <Badge className="inline-flex items-center gap-1">
                           <span className={"h-1.5 w-1.5 rounded-full " + ms.dot} />
                           {ms.label}

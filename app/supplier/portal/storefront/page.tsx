@@ -1,3 +1,4 @@
+import { verificationLabel } from "@/lib/verification-status";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -55,7 +56,7 @@ export default async function SupplierStorefrontPreviewPage() {
       categories: categories.filter((c) => c.status === "published" && c.is_published),
       certificates: publicSupplierCertificates(supplier.id, rawCertificates, supplierMedia),
       progress: buildVerificationProgress({
-        supplierId: supplier.id, reviews, submissions, submissionItems, requests, documents: l1Media, userId: user.id,
+        supplierId: supplier.id, supplierType: supplier.supplier_type, reviews, submissions, submissionItems, requests, documents: l1Media, userId: user.id,
       }),
     };
   } catch (error) {
@@ -73,8 +74,8 @@ export default async function SupplierStorefrontPreviewPage() {
   const published = supplier.status === "published";
   const synthetic = isSyntheticSupplier(supplier);
   const steps = card.approved_verification_steps;
-  const approved = CHECKS.filter(([level]) => steps.includes(level)).map(([, label]) => label);
-  const missing = CHECKS.filter(([level]) => !steps.includes(level)).map(([, label]) => label);
+  const approved = CHECKS.filter(([level]) => steps.includes(level)).map(([level, label]) => level === 2 ? verificationLabel(2, card.approved_l2_scope ?? null) : label);
+  const missing = CHECKS.filter(([level]) => !steps.includes(level)).map(([level, label]) => level === 2 && supplier.supplier_type === "trading" ? "Partner factory contract" : label);
   const coverUrl = supplier.cover_image ? `/public-media/${supplier.cover_image.replace(/^\/+/, "")}` : null;
   const avatarUrl = supplier.profile_image ? `/public-media/${supplier.profile_image.replace(/^\/+/, "")}` : null;
 

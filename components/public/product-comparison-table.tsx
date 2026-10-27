@@ -6,7 +6,7 @@ import { CopyComparisonLink, RemoveComparedProduct } from "@/components/product-
 import { VerificationTierBadge } from "@/components/verification-tier";
 import { productComparisonWarnings, type ProductComparisonSelection } from "@/lib/public/product-comparison";
 import type { PublicComparedProduct } from "@/lib/public/product-comparison-data";
-import { VERIFICATION_LABELS } from "@/lib/verification-status";
+import { verificationLabel } from "@/lib/verification-status";
 
 function Missing({ children = "Not provided" }: { children?: string }) {
   return <span className="font-normal text-ink-400">{children}</span>;
@@ -157,7 +157,7 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
                     return (
                       <li key={level} className="flex items-start gap-2 text-xs leading-5">
                         {approved ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" aria-hidden="true" /> : <Minus className="mt-0.5 size-3.5 shrink-0 text-ink-300" aria-hidden="true" />}
-                        <span className={approved ? "text-ink-800" : "text-ink-400"}>{VERIFICATION_LABELS[level]}: {approved ? "Approved" : "Not approved"}</span>
+                        <span className={approved ? "text-ink-800" : "text-ink-400"}>{verificationLabel(level, product.l2Scope)}: {approved ? "Approved" : "Not approved"}</span>
                       </li>
                     );
                   })}

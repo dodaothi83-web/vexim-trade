@@ -12,9 +12,10 @@ import { CheckCircle2, Loader2, RotateCcw, ScanSearch, Undo2 } from "lucide-reac
  * (người nhận là inspector) và sao bằng chứng sang đó. Nhân sự đủ quyền có thể
  * tự hoàn tất sau xác nhận; reviewer độc lập là lựa chọn thêm.
  */
-export function SubmissionReviewActions({ submissionId, level, status, canReview, verificationHref, aiEnabled }: {
+export function SubmissionReviewActions({ submissionId, level, partner = false, status, canReview, verificationHref, aiEnabled }: {
   submissionId: string;
   level: 2 | 3;
+  partner?: boolean;
   status: string;
   canReview: boolean;
   verificationHref: string | null;
@@ -24,7 +25,7 @@ export function SubmissionReviewActions({ submissionId, level, status, canReview
   const [busy, setBusy] = useState<"" | "accept" | "return" | "scan">("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const decidable = canReview && (status === "pending_review" || status === "returned" || status === "draft");
+  const decidable = canReview && (status === "pending_review" || status === "returned");
 
   async function decide(decision: "accept" | "return") {
     if (busy) return;
@@ -33,7 +34,7 @@ export function SubmissionReviewActions({ submissionId, level, status, canReview
       return;
     }
     if (decision === "accept" && !window.confirm(
-      `Nhận hồ sơ L${level} này vào đợt kiểm của bạn? Hệ thống sẽ tạo đợt kiểm mới và sao toàn bộ bằng chứng sang. Bạn KHÔNG tự duyệt được đợt kiểm đó — cần người có quyền duyệt khác.`,
+      `Nhận hồ sơ L${level} này vào đợt kiểm của bạn? Hệ thống sẽ tạo đợt kiểm mới và sao toàn bộ bằng chứng sang. Nhân sự có quyền vẫn phải đối chiếu và quyết định duyệt riêng.`,
     )) return;
     setBusy(decision); setMessage(null);
     try {
@@ -74,11 +75,13 @@ export function SubmissionReviewActions({ submissionId, level, status, canReview
     {decidable && <>
       <p className="mt-2 text-xs text-ink-600">
         Nhận hồ sơ sẽ tạo một <strong>đợt kiểm của nhân viên</strong> kèm toàn bộ bằng chứng. Duyệt hay không là bước sau,
-        do người có quyền duyệt <strong>khác người kiểm</strong> quyết định — hồ sơ NCC tự gửi không bao giờ tự thành huy hiệu.
+        do người có quyền duyệt quyết định — hồ sơ NCC tự gửi không bao giờ tự thành huy hiệu.
       </p>
       <label className="mt-3 block text-xs font-semibold text-ink-700">Ghi chú / lý do (bắt buộc khi trả hồ sơ)
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={1200} className="input mt-1"
-          placeholder={status === "returned" ? "Ví dụ: ảnh cổng nhà máy không thấy biển tên; cần chụp lại đúng mã VX-..." : "Ghi chú chuyển cho người kiểm tiếp theo (không hiển thị cho NCC)"} />
+          placeholder={status === "returned"
+            ? partner ? "Ví dụ: hợp đồng chưa thể hiện rõ doanh nghiệp và nhà máy đối tác." : level === 3 ? "Ví dụ: chứng từ chưa thể hiện vai trò của doanh nghiệp trong lô hàng." : "Ví dụ: ảnh cổng nhà máy không thấy biển tên; cần chụp lại đúng mã VX-..."
+            : "Ghi chú chuyển cho người kiểm tiếp theo (không hiển thị cho NCC)"} />
       </label>
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" disabled={busy !== ""} onClick={() => void decide("accept")}
@@ -92,12 +95,12 @@ export function SubmissionReviewActions({ submissionId, level, status, canReview
       </div>
     </>}
     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3">
-      {aiEnabled
+      {level === 2 && !partner && aiEnabled
         ? <button type="button" disabled={busy !== ""} onClick={() => void rescan()}
             className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800 disabled:opacity-50">
             {busy === "scan" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />} Quét lại bằng AI
           </button>
-        : <span className="text-[11px] text-ink-500">Chưa cấu hình OPENAI_API_KEY nên không có quét tự động; đối chiếu thủ công.</span>}
+        : level === 2 && !partner ? <span className="text-[11px] text-ink-500">Chưa cấu hình OPENAI_API_KEY nên không có quét tự động; đối chiếu thủ công.</span> : null}
       {verificationHref && <Link href={verificationHref} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs font-semibold text-ink-700 hover:border-brand-400">
         <RotateCcw className="h-3.5 w-3.5" /> Mở đợt kiểm đã tạo
       </Link>}

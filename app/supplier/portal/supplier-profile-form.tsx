@@ -33,23 +33,26 @@ const STEP_TITLES = ["Thông tin doanh nghiệp", "Giấy tờ bước đầu", 
 export function SupplierProfileFields({ supplier, email, categories, step }: { supplier?: Supplier; email: string; categories: CategoryProposalOption[]; step: number }) {
   const [supplierType, setSupplierType] = useState<SupplierType | "">(supplier?.supplier_type ?? "");
   const [visitRequested, setVisitRequested] = useState(false);
-  const visitLocked = supplierType === "trading";
+  const lockedType = supplier?.onboarding_status === "changes_requested";
   return <>
     <div data-step-panel={1} className={step === 1 ? "space-y-7" : "hidden"}>
     <section><h2 className="text-xl font-black text-ink-900">Thông tin doanh nghiệp</h2>
-      <p className="mt-1 text-sm text-ink-600">Email đăng nhập: {email}. Chọn loại hình để hồ sơ được xếp đúng nhóm doanh nghiệp; lựa chọn này không mở thêm quyền truy cập nào.</p>
+      <p className="mt-1 text-sm text-ink-600">Email đăng nhập: {email}. {lockedType ? "Loại hình đã gửi không tự sửa tại đây." : "Chọn loại hình để hồ sơ được xếp đúng nhóm doanh nghiệp; lựa chọn này không mở thêm quyền truy cập nào."}</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="Tên pháp lý doanh nghiệp *" name="name" required maxLength={180} defaultValue={supplier?.name ?? ""} />
         <Field label="Tên thương mại (nếu có)" name="trade_name" maxLength={180} defaultValue={supplier?.trade_name ?? ""} />
         <label className="block text-sm"><span className="mb-1 block font-semibold">Loại hình nhà cung cấp *</span>
-          <select name="supplier_type" className="input" required value={supplierType} onChange={(event) => {
+          {lockedType ? <>
+            <input name="supplier_type" type="hidden" value={supplierType} />
+            <span className="input block bg-ink-50">{SUPPLIER_TYPES.find((type) => type.value === supplierType)?.label ?? "Chưa khai"}</span>
+            <span className="mt-1 block text-xs text-ink-500">Nếu sai hoặc chưa khai, liên hệ nhân viên để kiểm tra và cập nhật.</span>
+          </> : <select name="supplier_type" className="input" required value={supplierType} onChange={(event) => {
             const next = event.target.value as SupplierType | "";
             setSupplierType(next);
-            if (next === "trading") setVisitRequested(false);
           }}>
             <option value="" disabled>Chọn nhà máy / thương nhân / hợp tác xã</option>
             {SUPPLIER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-          </select>
+          </select>}
         </label>
         <Field label="Mặt hàng chính *" name="products" required maxLength={1000} defaultValue={supplier?.products ?? ""} />
         <Field label="Tỉnh / thành" name="province" maxLength={100} defaultValue={supplier?.province ?? ""} />
@@ -77,11 +80,11 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
         />; })}</div>
     </section>
     <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">Muốn được xác minh thêm?</h2>
-      <p className="mt-1 text-sm text-ink-600">Chọn nếu bạn muốn được liên hệ để kiểm tra thêm. Mỗi đánh giá xét riêng; thương nhân vẫn có thể yêu cầu kiểm tra lịch sử giao hàng.</p>
+      <p className="mt-1 text-sm text-ink-600">Chọn nếu bạn muốn được liên hệ để kiểm tra thêm. Mỗi đánh giá được xét riêng; gửi yêu cầu không tự cấp xác minh.</p>
       <div className="mt-4 space-y-3">
-        <label className={`flex gap-3 rounded-xl border p-4 ${visitLocked ? "cursor-not-allowed border-ink-200 bg-ink-50 text-ink-400" : "border-ink-200"}`}>
-          <input type="checkbox" name="request:2" value="yes" checked={visitRequested} onChange={(event) => setVisitRequested(event.target.checked)} disabled={visitLocked} className="mt-1 h-4 w-4 accent-brand-700" />
-          <span><strong className="block">Xác thực nhà máy</strong><small className={visitLocked ? "text-ink-500" : "text-ink-600"}>{visitLocked ? "Không áp dụng cho thương nhân ở bước đăng ký; có thể yêu cầu riêng khi cần." : "Bạn sẽ được liên hệ để kiểm tra và tải bằng chứng theo đợt; gửi yêu cầu không tự duyệt."}</small></span>
+        <label className="flex gap-3 rounded-xl border border-ink-200 p-4">
+          <input type="checkbox" name="request:2" value="yes" checked={visitRequested} onChange={(event) => setVisitRequested(event.target.checked)} className="mt-1 h-4 w-4 accent-brand-700" />
+          <span><strong className="block">{supplierType === "trading" ? "Đối chiếu nhà máy đối tác" : "Xác thực nhà máy"}</strong><small className="text-ink-600">{supplierType === "trading" ? "Cần hợp đồng với nhà máy đối tác; ảnh là tùy chọn. Nhân viên sẽ đối chiếu, không tự duyệt." : "Bạn sẽ được liên hệ để kiểm tra và tải bằng chứng theo đợt; gửi yêu cầu không tự duyệt."}</small></span>
         </label>
         <label className="flex gap-3 rounded-xl border border-ink-200 p-4">
           <input type="checkbox" name="request:3" value="yes" className="mt-1 h-4 w-4 accent-brand-700" />

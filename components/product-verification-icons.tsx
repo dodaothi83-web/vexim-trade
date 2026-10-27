@@ -1,12 +1,12 @@
 import { Factory, FileCheck2, Truck } from "lucide-react";
 
 import type { VerificationLevel } from "@/lib/types";
-import { PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS } from "@/lib/verification-status";
+import { verificationExplanation, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 
 const ICONS = { 1: FileCheck2, 2: Factory, 3: Truck } as const;
 
 /** Product pages show only individually approved SUPPLIER checks, never inferred cumulative levels. */
-export function ProductVerificationIcons({ levels, compact = false }: { levels: readonly VerificationLevel[]; compact?: boolean }) {
+export function ProductVerificationIcons({ levels, compact = false, l2Scope }: { levels: readonly VerificationLevel[]; compact?: boolean; l2Scope?: PublicL2Scope }) {
   const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
 
   return <div className="relative w-full" role="group" aria-label="Vexim supplier checks (not product certification)">
@@ -14,8 +14,8 @@ export function ProductVerificationIcons({ levels, compact = false }: { levels: 
       <span className="mr-0.5 text-[11px] font-semibold text-ink-600">{compact ? "Supplier" : "Supplier checks"}</span>
       {approved.length ? approved.map((level) => {
         const Icon = ICONS[level];
-        const label = VERIFICATION_LABELS[level];
-        const explanation = PRODUCT_VERIFICATION_EXPLANATIONS[level];
+        const label = verificationLabel(level, l2Scope);
+        const explanation = verificationExplanation(level, l2Scope, true);
         return <div key={level} className="group shrink-0">
           <details className="peer">
             <summary aria-label={`${label}. ${explanation}`}

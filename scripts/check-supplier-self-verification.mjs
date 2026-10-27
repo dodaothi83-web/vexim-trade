@@ -165,8 +165,9 @@ assert.deepEqual(types.L2_FACTORY_PHOTO_ITEMS.map((i) => i.order), [1, 2, 3, 4, 
 assert.deepEqual(types.L2_FACTORY_PHOTO_ITEMS.filter((i) => i.requires_code).map((i) => i.key),
   ['factory_gate', 'production_line_running', 'finished_goods_warehouse'], 'Chỉ 3 ảnh 🔖 cần mã viết tay');
 assert.equal(types.L2_FACTORY_PHOTO_ITEMS.every((i) => typeof i.requirement === 'string' && i.requirement.length > 3), true);
-assert.equal(types.L3_EXPORT_ITEMS.length, 6);
-assert.deepEqual(types.L3_EXPORT_ITEMS.filter((i) => i.required).map((i) => i.key), ['bill_of_lading', 'customs_declaration']);
+assert.equal(types.L3_EXPORT_ITEMS.length, 7);
+assert.deepEqual(types.L3_EXPORT_ITEMS.filter((i) => i.required).map((i) => i.key), []);
+assert.ok(types.L3_EXPORT_ITEMS.some((i) => i.key === 'other_export_evidence'));
 
 const rules = load('lib/verification-submission.ts');
 const code = rules.issueVerificationCode(2);
@@ -217,9 +218,15 @@ const codeWrong = rules.readiness({
 });
 assert.equal(codeWrong.ready, false, 'Mã trong ảnh không khớp mã phát hành thì chưa nộp được');
 assert.equal(rules.ORIGINAL_PHOTO_REQUIRED, false, 'Chính sách tạm nới: không bắt buộc ảnh gốc');
-// L3 chỉ cần 2 chứng từ bắt buộc.
-assert.equal(rules.readiness({ submission: { target_level: 3 }, items: allItems(['bill_of_lading', 'customs_declaration']) }).ready, true);
-assert.equal(rules.readiness({ submission: { target_level: 3 }, items: allItems(['bill_of_lading']) }).ready, false);
+// L3 cần ít nhất một chứng từ bất kỳ trong danh mục, không bắt buộc vận đơn/tờ khai.
+assert.equal(rules.readiness({ submission: { target_level: 3 }, items: [] }).ready, false);
+assert.equal(rules.readiness({ submission: { target_level: 3 }, items: allItems(['factory_gate']) }).ready, false);
+for (const { key } of types.L3_EXPORT_ITEMS) {
+  assert.equal(rules.readiness({ submission: { target_level: 3 }, items: allItems([key]) }).ready, true, `Chỉ có ${key} vẫn được gửi để nhân viên xem`);
+}
+const oldAiFlags = rules.readiness({ submission: { target_level: 3 }, items: allItems(['other_export_evidence'], [{ flag: 'content_mismatch', severity: 'hard', source: 'ai', detail: 'AI cũ báo không đạt' }]) });
+assert.equal(oldAiFlags.ready, true);
+assert.equal(oldAiFlags.blockers.length, 0, 'Cờ AI cũ không gây cản trở hay báo sai');
 
 assert.deepEqual(rules.autoQueueStatus({ ready: true, aiFailedItems: [], manipulationSuspected: false }).status, 'pending_review');
 assert.deepEqual(rules.autoQueueStatus({ ready: true, aiFailedItems: ['Cổng nhà máy: không thấy biển tên'], manipulationSuspected: false }).status, 'returned');
@@ -335,12 +342,17 @@ let idSeq = 0;
 const nextId = (prefix) => `${prefix}-${++idSeq}`;
 
 const store = {
-  getSupplier: async (id) => (id === 'sup-1' ? { id: 'sup-1', name: 'Công ty TNHH Thực phẩm ABC', address: 'Hà Nội', onboarding_status: 'approved' } : null),
+  getSupplier: async (id) => (id === 'sup-1' ? { id: 'sup-1', name: 'Công ty TNHH Thực phẩm ABC', address: 'Hà Nội', supplier_type: 'manufacturer', onboarding_status: 'approved' } : null),
   getUser: async () => null,
   listSubmissions: async (supplierId, level) => submissionRows.filter((s) => (!supplierId || s.supplier_id === supplierId) && (!level || s.target_level === level)),
   getSubmission: async (id) => submissionRows.find((s) => s.id === id) ?? null,
   createSubmission: async (input) => { const row = { id: nextId('sub'), status: 'draft', flags: [], ai_review: null, verification_code: null, code_issued_at: null, device_lat: null, device_lng: null, device_accuracy_m: null, device_captured_at: null, submitted_at: null, reviewed_by: null, reviewed_at: null, review_note: null, verification_id: null, shipment_ref: null, shipped_on: null, shipment_destination: null, supplier_note: null, ai_scanned_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...input }; submissionRows.push(row); return row; },
   updateSubmission: async (id, patch) => { const row = submissionRows.find((s) => s.id === id); Object.assign(row, patch, { updated_at: new Date().toISOString() }); return row; },
+  updateEditableSubmission: async (id, patch) => {
+    const row = submissionRows.find((s) => s.id === id);
+    if (!row || !['draft', 'returned'].includes(row.status)) return null;
+    Object.assign(row, patch, { updated_at: new Date().toISOString() }); return row;
+  },
   listSubmissionItems: async (submissionId) => itemRows.filter((i) => i.submission_id === submissionId),
   getSubmissionItem: async (id) => itemRows.find((i) => i.id === id) ?? null,
   createSubmissionItem: async (input) => { const row = { id: nextId('item'), flags: [], has_exif: false, uploaded_at: new Date().toISOString(), ...input }; itemRows.push(row); return row; },
@@ -489,14 +501,16 @@ const aiResponse = (verdictByKey) => ({
 });
 let aiCalls = 0;
 let aiVerdicts = {};
+let throwRevalidation = false;
+const staffNotifications = [];
 const scanRoute = makeLoader({
   'next/server': { NextResponse: { json: (body, init) => Response.json(body, init) } },
-  'next/cache': { revalidatePath: () => {} },
+  'next/cache': { revalidatePath: () => { if (throwRevalidation) throw new Error('simulated cache failure'); } },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': { getSession: async () => ({ uid: 'user-1', email: 'supplier@example.com', role: 'supplier' }) },
   '@/lib/auth/permissions': { hasPermission: () => false },
   '@/lib/supplier-portal/submission-access': {
-    supplierSubmissionAccess: async () => currentAccess,
+    supplierSubmissionAccess: async (id) => currentAccess?.submission.id === id && currentAccess.supplierId === currentAccess.submission.supplier_id ? currentAccess : null,
     staffSubmissionAccess: async () => null,
   },
   '@/lib/media/storage': {
@@ -504,6 +518,7 @@ const scanRoute = makeLoader({
     getObject: async (p) => (storage.has(p) ? { data: storage.get(p), driver: 'local' } : null),
     deleteObject: async (p) => { storage.delete(p); },
   },
+  '@/lib/supplier-portal/notify': { notifyStaffSupplierSubmission: async (supplierId, level) => { staffNotifications.push({ supplierId, level }); return 'sent'; } },
   sharp: sharpStub,
 })('app/api/supplier-portal/submissions/[id]/ai-scan/route.ts');
 
@@ -564,6 +579,14 @@ assert.equal(body.status, 'pending_review', 'Không có AI thì vẫn phải cho
 assert.equal(body.aiScanned, false);
 assert.match(body.message, /chưa quét được bằng AI/i);
 process.env.OPENAI_API_KEY = 'test-key';
+
+// Hết lượt AI L2 không tiêu thụ hoặc chặn hạn mức gửi thủ công L3.
+await store.updateSubmission(submission.id, { status: 'draft' });
+currentAccess = { store, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id), links: [], supplierId: 'sup-1', userId: 'user-1', userEmail: 'supplier@example.com' };
+res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: false }) }), { params: Promise.resolve({ id: submission.id }) });
+assert.equal(res.status, 200);
+res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: false }) }), { params: Promise.resolve({ id: submission.id }) });
+assert.equal(res.status, 429, 'Đã hết lượt AI L2');
 
 /* ------------------------------ 8. nhân viên xét hồ sơ ------------------------------ */
 
@@ -632,22 +655,106 @@ assert.match(verification.internal_notes, /Hồ sơ NCC tự gửi/, 'Đợt ki�
 /* ------------------------------ 9. L3: chứng từ + link nguồn ------------------------------ */
 
 const l3 = await store.createSubmission({ supplier_id: 'sup-1', target_level: 3, status: 'draft', created_by: 'user-1' });
+const aiCallsBeforeL3 = aiCalls;
 currentAccess = { store, submission: l3, items: [], links: [], supplierId: 'sup-1', userId: 'user-1', userEmail: 'supplier@example.com' };
-const pdfBytes = new Uint8Array(Buffer.from('%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n'));
-res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('bill_of_lading', new File([pdfBytes], 'bl.pdf', { type: 'application/pdf' })) }), { params: Promise.resolve({ id: l3.id }) });
+const submitReq = (submit) => new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit }) });
+res = await scanRoute.POST(submitReq(true), { params: Promise.resolve({ id: l3.id }) });
 body = await res.json();
-assert.equal(body.ok, true, `L3 phải nhận PDF: ${JSON.stringify(body)}`);
+assert.equal(body.ok, false, 'L3 rỗng không được nộp');
+assert.match(body.message, /ít nhất một chứng từ/);
+assert.equal((await store.getSubmission(l3.id)).status, 'draft');
+
+const pdfBytes = new Uint8Array(Buffer.from('%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n'));
+res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('other_export_evidence', new File([pdfBytes], 'other.pdf', { type: 'application/pdf' })) }), { params: Promise.resolve({ id: l3.id }) });
+body = await res.json();
+assert.equal(body.ok, true, `L3 phải nhận PDF chứng từ khác: ${JSON.stringify(body)}`);
 assert.deepEqual(body.flags, [], 'L3 không áp cờ định vị/ban ngày của ảnh nhà máy');
 const pdfItem = (await store.listSubmissionItems(l3.id))[0];
 assert.equal(pdfItem.mime, 'application/pdf');
 assert.equal(pdfItem.has_exif, false);
+assert.equal(aiCalls, aiCallsBeforeL3, 'Tải lên không gọi AI');
+assert.equal((await store.getMedia(pdfItem.media_id)).audience, 'internal');
 
-// L3 chưa đủ 2 chứng từ bắt buộc thì chưa nộp được.
-currentAccess = { store, submission: await store.getSubmission(l3.id), items: await store.listSubmissionItems(l3.id), links: [], supplierId: 'sup-1', userId: 'user-1', userEmail: 'supplier@example.com' };
-res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: true }) }), { params: Promise.resolve({ id: l3.id }) });
+const evidenceOps = makeLoader({
+  '@/lib/media/storage': {
+    putObject: async (p, data) => { storage.set(p, data); return { driver: 'local', path: p }; },
+    deleteObject: async (p) => { storage.delete(p); },
+  }, sharp: sharpStub,
+})('lib/supplier-portal/submission-evidence.ts');
+
+// Nếu lưu mục mới thất bại hoặc hồ sơ vừa đổi trạng thái, chứng từ cũ không mất.
+{
+  const beforeFiles = storage.size, beforeMedia = mediaRows.length;
+  const createItem = store.createSubmissionItem;
+  store.createSubmissionItem = async () => { throw new Error('simulated item insert failure'); };
+  res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('other_export_evidence', new File([bytes], 'failed.jpg', { type: 'image/jpeg' })) }), { params: Promise.resolve({ id: l3.id }) });
+  store.createSubmissionItem = createItem;
+  assert.equal(res.status, 400);
+  assert.equal(storage.size, beforeFiles);
+  assert.equal(mediaRows.length, beforeMedia);
+  assert.ok(storage.has(pdfItem.storage_path), 'Lỗi lưu mới không xoá chứng từ cũ');
+
+  store.createSubmissionItem = async () => { throw new Error('createSubmissionItem: L3_EVIDENCE_LIMIT'); };
+  res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('other_export_evidence', new File([bytes], 'race.jpg', { type: 'image/jpeg' })) }), { params: Promise.resolve({ id: l3.id }) });
+  store.createSubmissionItem = createItem;
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).message, /xóa một tệp/i, 'Lỗi CSDL được đổi thành hướng dẫn cho NCC');
+  assert.equal(storage.size, beforeFiles);
+  assert.ok(storage.has(pdfItem.storage_path));
+
+  const getSubmission = store.getSubmission;
+  store.getSubmission = async (id) => id === l3.id ? { ...await getSubmission(id), status: 'pending_review' } : getSubmission(id);
+  res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('other_export_evidence', new File([bytes], 'stale.jpg', { type: 'image/jpeg' })) }), { params: Promise.resolve({ id: l3.id }) });
+  store.getSubmission = getSubmission;
+  assert.equal(res.status, 400, 'Hồ sơ đổi trạng thái trong khi tải thì không lưu mục mới');
+  assert.equal(storage.size, beforeFiles);
+  assert.equal(mediaRows.length, beforeMedia);
+  assert.ok(storage.has(pdfItem.storage_path));
+
+  const deleteItem = store.deleteSubmissionItem;
+  store.deleteSubmissionItem = async () => { throw new Error('simulated delete failure'); };
+  await assert.rejects(evidenceOps.removeSubmissionItem(store, pdfItem), /simulated delete failure/);
+  store.deleteSubmissionItem = deleteItem;
+  assert.ok(storage.has(pdfItem.storage_path), 'Lỗi xoá bản ghi không xoá tệp gốc');
+}
+
+// Nhiều chứng từ được giữ tới ba tệp mỗi mục; không tự xoá chứng từ cũ.
+for (const fileName of ['second.jpg', 'third.jpg']) {
+  currentAccess = { ...currentAccess, submission: await store.getSubmission(l3.id), items: await store.listSubmissionItems(l3.id) };
+  res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('other_export_evidence', new File([bytes], fileName, { type: 'image/jpeg' })) }), { params: Promise.resolve({ id: l3.id }) });
+  assert.equal((await res.json()).ok, true);
+}
+assert.equal((await store.listSubmissionItems(l3.id)).length, 3, 'Giữ được ba tệp cùng loại');
+assert.ok((await store.listSubmissionItems(l3.id)).some((item) => item.id === pdfItem.id), 'PDF vẫn còn khi chưa vượt giới hạn');
+res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('other_export_evidence', new File([pdfBytes], 'fourth.pdf', { type: 'application/pdf' })) }), { params: Promise.resolve({ id: l3.id }) });
 body = await res.json();
-assert.equal(body.ok, false);
-assert.ok(body.message.includes('thiếu') || body.reasons.some((r) => /tờ khai hải quan/i.test(r)), `L3 thiếu chứng từ phải báo rõ: ${JSON.stringify(body)}`);
+assert.equal(res.status, 400);
+assert.match(body.message, /xóa một tệp/i);
+assert.equal((await store.listSubmissionItems(l3.id)).length, 3);
+assert.ok((await store.listSubmissionItems(l3.id)).some((item) => item.id === pdfItem.id), 'Tệp cũ không bị tự động xoá');
+assert.ok(storage.has(pdfItem.storage_path));
+await evidenceOps.removeSubmissionItem(store, pdfItem); // NCC chọn xóa chứng từ cũ.
+res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('other_export_evidence', new File([pdfBytes], 'fourth.pdf', { type: 'application/pdf' })) }), { params: Promise.resolve({ id: l3.id }) });
+assert.equal((await res.json()).ok, true);
+assert.equal((await store.listSubmissionItems(l3.id)).length, 3);
+assert.equal(aiCalls, aiCallsBeforeL3, 'Không gửi ảnh hay PDF lúc tải');
+
+// Tệp sai loại hoặc quá cỡ vẫn bị từ chối.
+currentAccess = { ...currentAccess, submission: await store.getSubmission(l3.id), items: await store.listSubmissionItems(l3.id) };
+res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('commercial_invoice', new File(['not an image'], 'bad.txt', { type: 'text/plain' })) }), { params: Promise.resolve({ id: l3.id }) });
+assert.equal(res.status, 400);
+res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('other_export_evidence', new File([new Uint8Array(15 * 1024 * 1024 + 1)], 'big.pdf', { type: 'application/pdf' })) }), { params: Promise.resolve({ id: l3.id }) });
+assert.equal(res.status, 413);
+assert.equal((await store.listSubmissionItems(l3.id)).length, 3);
+
+// API cũ quét thử cũng bị chặn, không thay đổi hồ sơ hay gọi AI.
+res = await scanRoute.POST(submitReq(false), { params: Promise.resolve({ id: l3.id }) });
+assert.equal(res.status, 409);
+assert.equal((await store.getSubmission(l3.id)).status, 'draft');
+assert.equal(aiCalls, aiCallsBeforeL3);
+res = await scanRoute.POST(submitReq('false'), { params: Promise.resolve({ id: l3.id }) });
+assert.equal(res.status, 409, 'Chuỗi false không được hiểu thành yêu cầu nộp');
+assert.equal((await store.getSubmission(l3.id)).status, 'draft');
 
 // Link nguồn: domain công khai được lưu kèm cờ allowed; link nội bộ bị chặn.
 const actions = makeLoader({
@@ -685,6 +792,115 @@ codeForm.set('submission_id', l3.id);
 action = await actions.issueSubmissionCodeAction(codeForm);
 assert.equal(action.ok, true, `L3 vẫn phát hành mã được (không bắt buộc dùng): ${action.message}`);
 
+// Tái nộp một hồ sơ cũ từng bị AI trả: dữ liệu lịch sử được giữ, không cản nộp.
+const legacyItem = (await store.listSubmissionItems(l3.id)).find((item) => item.mime === 'image/jpeg');
+await store.updateSubmissionItem(legacyItem.id, { ai_verdict: 'fail', ai_reason: 'AI cũ báo không đạt', flags: [{ flag: 'content_mismatch', severity: 'hard', source: 'ai', detail: 'AI cũ báo không đạt' }] });
+const oldReview = { model: 'old-model', summary: 'Kết quả AI cũ', manipulation_suspected: true, items: {} };
+await store.updateSubmission(l3.id, { status: 'returned', review_note: 'AI cũ trả hồ sơ', reviewed_by: null, ai_review: oldReview, ai_scanned_at: '2026-10-20T00:00:00Z' });
+currentAccess = { store, submission: { ...(await store.getSubmission(l3.id)) }, items: await store.listSubmissionItems(l3.id), links: await store.listSubmissionLinks(l3.id), supplierId: 'sup-1', userId: 'user-1', userEmail: 'supplier@example.com' };
+const portalView = load('lib/supplier-portal/submission-view.ts');
+const supplierView = portalView.buildPortalSubmission(currentAccess);
+assert.equal(supplierView.ready, true);
+assert.equal(supplierView.requiredTotal, 1);
+assert.equal(supplierView.uploadedTotal, 1);
+assert.equal(supplierView.aiScannedAt, null, 'NCC không bị hiểu nhầm kết quả AI cũ là yêu cầu mới');
+assert.equal(supplierView.items.find((item) => item.id === legacyItem.id).aiVerdict, null);
+assert.match(supplierView.reviewNote, /có thể nộp lại/);
+assert.match(supplierView.reviewNote, /AI cũ trả hồ sơ/, 'Giữ ghi chú trước đây khi chưa nộp lại');
+assert.doesNotMatch(supplierView.reviewNote, /lần quét trước/, 'Không phỏng đoán nguồn của trạng thái cũ');
+const staffView = portalView.buildPortalSubmission(currentAccess, { forStaff: true });
+assert.equal(staffView.items.find((item) => item.id === legacyItem.id).aiVerdict, 'fail', 'Nhân viên vẫn xem được lịch sử');
+
+const updateEditable = store.updateEditableSubmission;
+store.updateEditableSubmission = async () => { throw new Error('updateEditableSubmission: L3_EVIDENCE_REQUIRED'); };
+res = await scanRoute.POST(submitReq(true), { params: Promise.resolve({ id: l3.id }) });
+body = await res.json();
+store.updateEditableSubmission = updateEditable;
+assert.equal(body.ok, false);
+assert.match(body.message, /tải ít nhất một chứng từ/i, 'Bằng chứng vừa bị xóa không thể nộp với dữ liệu cũ');
+assert.equal((await store.getSubmission(l3.id)).status, 'returned');
+
+throwRevalidation = true;
+res = await scanRoute.POST(submitReq(true), { params: Promise.resolve({ id: l3.id }) });
+throwRevalidation = false;
+body = await res.json();
+assert.equal(res.status, 200, 'Hết hạn mức AI L2 hoặc lỗi làm mới cache không được chặn hồ sơ đã nộp');
+assert.equal(body.ok, true);
+assert.equal(body.status, 'pending_review');
+assert.equal(body.aiScanned, false);
+assert.equal(aiCalls, aiCallsBeforeL3, 'Ảnh và PDF L3 không được gửi AI dù key tồn tại');
+assert.equal((await store.getSubmission(l3.id)).review_note, null);
+assert.deepEqual((await store.getSubmission(l3.id)).ai_review, oldReview, 'Không xóa lịch sử AI cũ');
+assert.equal((await store.getSubmissionItem(legacyItem.id)).ai_verdict, 'fail');
+const submittedAudit = auditRows.find((a) => a.action === 'supplier.submission.submitted.l3' && a.after.review_method === 'manual');
+assert.ok(submittedAudit);
+assert.equal(submittedAudit.before.review_note, 'AI cũ trả hồ sơ', 'Lưu ghi chú trước đó khi nộp lại');
+assert.ok(staffNotifications.some((n) => n.supplierId === 'sup-1' && n.level === 3), 'Gửi thông báo nhân viên khi nộp');
+assert.equal(verifications.filter((v) => v.target_level === 3).length, 0, 'Nộp không tự tạo/duyệt xác minh');
+
+// Tài khoản khác hoặc hồ sơ đang chờ không thể nộp lại.
+currentAccess = { ...currentAccess, supplierId: 'sup-2' };
+res = await scanRoute.POST(submitReq(true), { params: Promise.resolve({ id: l3.id }) });
+assert.equal(res.status, 403);
+currentAccess = { ...currentAccess, supplierId: 'sup-1', submission: await store.getSubmission(l3.id) };
+res = await scanRoute.POST(submitReq(true), { params: Promise.resolve({ id: l3.id }) });
+assert.equal(res.status, 409);
+res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('other_export_evidence', new File([bytes], 'locked.jpg', { type: 'image/jpeg' })) }), { params: Promise.resolve({ id: l3.id }) });
+assert.equal(res.status, 400, 'Không tải thêm khi chờ kiểm');
+
+// Nhân viên cũng không thể gọi đường quét cũ cho L3.
+const staffScanRoute = makeLoader({
+  'next/server': { NextResponse: { json: (body, init) => Response.json(body, init) } },
+  'next/cache': { revalidatePath: () => {} },
+  '@/lib/auth/session': { getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'sourcing' }) },
+  '@/lib/auth/permissions': { hasPermission: () => true },
+  '@/lib/supplier-portal/submission-access': { staffSubmissionAccess: async () => ({ ...currentAccess, session: { uid: 'staff-1' } }), supplierSubmissionAccess: async () => null },
+  '@/lib/media/storage': { getObject: async () => { throw new Error('Không được đọc tệp để gửi AI'); } },
+  '@/lib/supplier-portal/notify': { notifyStaffSupplierSubmission: async () => 'sent' },
+})('app/api/supplier-portal/submissions/[id]/ai-scan/route.ts');
+for (const submit of [false, true]) {
+  res = await staffScanRoute.POST(submitReq(submit), { params: Promise.resolve({ id: l3.id }) });
+  assert.equal(res.status, 409);
+}
+assert.equal(aiCalls, aiCallsBeforeL3);
+
+// Phòng vệ trực tiếp ở service, không phụ thuộc route/UI.
+let unexpectedStorageReads = 0;
+const manualService = makeLoader({
+  '@/lib/media/storage': { getObject: async () => { unexpectedStorageReads++; throw new Error('L3 không được đọc cho AI'); } },
+  '@/lib/supplier-portal/notify': { notifyStaffSupplierSubmission: async () => 'sent' },
+})('lib/verification-submission-service.ts');
+const l3Bundle = { submission: await store.getSubmission(l3.id), items: await store.listSubmissionItems(l3.id), links: await store.listSubmissionLinks(l3.id) };
+assert.equal(await manualService.runEvidenceScan({ bundle: l3Bundle, supplier: await store.getSupplier('sup-1') }), null);
+assert.equal(unexpectedStorageReads, 0);
+const noScan = await manualService.scanAndQueueSubmission(store, { bundle: l3Bundle, supplier: await store.getSupplier('sup-1'), actorId: 'staff-1', actorEmail: null, submit: false });
+assert.equal(noScan.ok, false);
+assert.equal((await store.getSubmission(l3.id)).status, 'pending_review');
+
+// Nhân viên nhận vào đợt kiểm riêng; file vẫn nội bộ và chưa được duyệt.
+staffAccess = { store, ...l3Bundle, session: { uid: 'staff-1', email: 'inspector@veximtrade.com', role: 'sourcing' }, canReview: true };
+res = await reviewRoute.POST(new Request('http://x/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision: 'accept', note: 'Đối chiếu thủ công' }) }), { params: Promise.resolve({ id: l3.id }) });
+body = await res.json();
+assert.equal(body.ok, true);
+const l3Verification = await store.getVerification(body.verificationId);
+assert.equal(l3Verification.target_level, 3);
+assert.equal(l3Verification.status, 'in_progress');
+assert.equal(l3Verification.approved_by, null);
+const l3Copied = mediaRows.filter((m) => m.verification_id === l3Verification.id);
+assert.equal(l3Copied.length, 3);
+assert.ok(l3Copied.every((m) => m.audience === 'internal' && m.status === 'unverified' && m.checklist_key === 'other_export_evidence'));
+const evidenceRules = load('lib/verification-evidence.ts');
+assert.equal(evidenceRules.hasDeliveryAuditEvidence(l3Copied), false, 'Bản sao chưa kiểm không tự đủ điều kiện duyệt');
+l3Copied[0].status = 'checked'; // Tương ứng thao tác nhân viên tự mở và đánh dấu đã kiểm.
+assert.equal(evidenceRules.hasDeliveryAuditEvidence(l3Copied), true);
+
+// Yêu cầu cũ đến muộn không ghi đè hồ sơ đã nhận nhờ cập nhật có điều kiện.
+const staleBundle = { ...l3Bundle, submission: { ...l3Bundle.submission, status: 'returned' } };
+const staleResult = await manualService.scanAndQueueSubmission(store, { bundle: staleBundle, supplier: await store.getSupplier('sup-1'), actorId: 'user-1', actorEmail: null, submit: true });
+assert.equal(staleResult.ok, false);
+assert.equal((await store.getSubmission(l3.id)).status, 'accepted');
+assert.equal(aiCalls, aiCallsBeforeL3);
+
 currentAccess = { store, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id), links: [], supplierId: 'sup-1', userId: 'user-1', userEmail: 'supplier@example.com' };
 const lockedForm = new FormData();
 lockedForm.set('submission_id', submission.id);
@@ -714,6 +930,9 @@ assert.ok(itemCard.includes('bắt buộc có tờ mã xác minh đặt cạnh c
 
 /* ---------------- 10. FK: bằng chứng tự gửi không mượn verification_id ---------------- */
 
+const previewEvidence = makeLoader({ sharp: sharpStub })('lib/supplier-portal/submission-evidence.ts');
+assert.equal((await previewEvidence.derivePreviews('image/jpeg', bytes, false)).forAi, null, 'L3 không tạo bản thu nhỏ AI');
+assert.ok((await previewEvidence.derivePreviews('image/jpeg', bytes, true)).forAi, 'L2 giữ bản thu nhỏ AI');
 const evidenceService = readPage('lib/supplier-portal/submission-evidence.ts');
 assert.ok(evidenceService.includes('owner_type: "submission"'), 'Bằng chứng tự gửi phải dùng owner_type "submission"');
 assert.ok(evidenceService.includes('submission_id: submission.id'), 'Phải gắn bằng chứng với submission_id của hồ sơ');
@@ -727,6 +946,9 @@ assert.ok(uploadRouteSource.includes('migrationHint(error)'), 'Log lỗi upload 
 assert.ok(!/message = error instanceof Error \? error\.message/.test(uploadRouteSource), 'Không trả nguyên văn lỗi CSDL cho NCC');
 const hints = readPage('lib/db/migration-hints.ts');
 assert.ok(hints.includes('20261031_supplier_submission_media_owner.sql'), 'Phải gợi ý migration media submission khi gặp lỗi FK');
+const migrationHints = load('lib/db/migration-hints.ts');
+assert.match(migrationHints.migrationHint(new Error('violates check constraint "supplier_submission_items_key_ck"')), /20261039_l3_other_export_evidence/);
+assert.match(migrationHints.migrationHint(new Error('violates check constraint "media_checklist_key_ck"')), /20261039_l3_other_export_evidence/);
 
 const migration = readPage('supabase/migrations/20261031_supplier_submission_media_owner.sql');
 assert.ok(migration.includes('submission_id uuid'), 'Migration phải thêm cột media_assets.submission_id');
@@ -737,4 +959,65 @@ assert.ok(migration.includes("owner_type = 'submission' and submission_id is not
 assertMediaOwners([submission.id, l3.id]);
 
 console.log('✅ check-supplier-self-verification: tất cả assertion đạt');
-console.log(`   · 9 ảnh L2 + 6 chứng từ L3 · mã xác minh ${code} · ${aiCalls} lượt gọi AI giả lập · ${mediaRows.length} tệp media · ${verifications.length} đợt kiểm được tạo`);
+console.log(`   · 9 ảnh L2 + 7 loại chứng từ L3 · mã xác minh ${code} · ${aiCalls} lượt gọi AI giả lập · ${mediaRows.length} tệp media · ${verifications.length} đợt kiểm được tạo`);
+
+/* L2 trader: scope snapshot, manual contract and staff acceptance. */
+const originalGetSupplier = store.getSupplier;
+let traderType = 'trading';
+store.getSupplier = async (id) => id === 'sup-trader'
+  ? { id, name: 'Trading Company', supplier_type: traderType, onboarding_status: 'approved' }
+  : originalGetSupplier(id);
+const oldFactory = await store.createSubmission({ supplier_id: 'sup-trader', target_level: 2, status: 'draft', l2_scope: null });
+const partnerSub = await manualService.getOrCreateSubmission(store, { supplierId: 'sup-trader', level: 2, userId: 'trader-user', supplierType: 'trading' });
+assert.notEqual(partnerSub.id, oldFactory.id, 'Previous factory draft is never relabelled as a partner case');
+assert.equal(partnerSub.l2_scope, 'partner_contract');
+assert.equal((await store.getSubmission(oldFactory.id)).l2_scope, null);
+assert.equal((await manualService.getOrCreateSubmission(store, { supplierId: 'sup-trader', level: 2, userId: 'trader-user', supplierType: 'trading' })).id, partnerSub.id);
+await assert.rejects(manualService.getOrCreateSubmission(store, { supplierId: 'sup-trader', level: 2, userId: 'trader-user', supplierType: null }), /loại hình/i);
+const coopSub = await manualService.getOrCreateSubmission(store, { supplierId: 'sup-coop', level: 2, userId: 'coop-user', supplierType: 'cooperative' });
+assert.equal(coopSub.l2_scope, 'factory', 'Cooperative remains on factory flow');
+assert.equal(rules.readiness({ submission: partnerSub, items: [] }).ready, false);
+currentAccess = { store, submission: partnerSub, items: [], links: [], supplierId: 'sup-trader', userId: 'trader-user', userEmail: 'trader@example.com' };
+res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('partner_factory_photos', new File([bytes], 'optional.jpg', { type: 'image/jpeg' })) }), { params: Promise.resolve({ id: partnerSub.id }) });
+assert.equal(res.status, 200);
+assert.equal(rules.readiness({ submission: partnerSub, items: await store.listSubmissionItems(partnerSub.id) }).ready, false, 'Optional photo alone is not a contract');
+res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('factory_gate', new File([bytes], 'factory.jpg', { type: 'image/jpeg' })) }), { params: Promise.resolve({ id: partnerSub.id }) });
+assert.notEqual(res.status, 200, 'Partner cannot upload factory-checklist items');
+res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('partner_factory_contract', new File([pdfBytes], 'contract.pdf', { type: 'application/pdf' })) }), { params: Promise.resolve({ id: partnerSub.id }) });
+assert.equal(res.status, 200, 'A PDF contract is accepted');
+let partnerItems = await store.listSubmissionItems(partnerSub.id);
+assert.equal(rules.readiness({ submission: partnerSub, items: partnerItems }).ready, true, 'Contract is enough, without 9 photos, code or GPS');
+assert.ok(partnerItems.every((item) => !item.flags?.length), 'No AI/EXIF flags on partner evidence');
+const partnerBundle = { submission: partnerSub, items: partnerItems, links: [] };
+const beforeAi = aiCalls;
+assert.equal(await manualService.runEvidenceScan({ bundle: partnerBundle, supplier: await store.getSupplier('sup-trader') }), null);
+assert.equal((await manualService.scanAndQueueSubmission(store, { bundle: partnerBundle, supplier: await store.getSupplier('sup-trader'), actorId: 'trader-user', actorEmail: null, submit: false })).ok, false);
+currentAccess = { ...currentAccess, items: partnerItems };
+res = await scanRoute.POST(submitReq(false), { params: Promise.resolve({ id: partnerSub.id }) });
+assert.equal(res.status, 409, 'Manual partner evidence cannot be sent to AI');
+res = await scanRoute.POST(submitReq(true), { params: Promise.resolve({ id: partnerSub.id }) });
+assert.equal((await res.json()).ok, true);
+assert.equal(partnerSub.status, 'pending_review');
+assert.equal(aiCalls, beforeAi, 'Submitting a partner contract never calls AI');
+assert.equal(partnerSub.verification_code, null);
+// Direct service calls cannot copy a file from another legal entity.
+const originalContract = partnerItems.find((item) => item.checklist_key === 'partner_factory_contract');
+const forgedPartner = { ...partnerBundle, submission: { ...partnerSub }, items: [{ ...originalContract, media_id: gateMedia.id, storage_path: gateMedia.storage_path }] };
+const beforeReviews = verifications.length;
+await assert.rejects(manualService.acceptSubmissionIntoVerification(store, { bundle: forgedPartner, staffId: 'staff-1', staffEmail: null }), /không thuộc đúng hồ sơ/i);
+assert.equal(verifications.length, beforeReviews, 'Invalid evidence must not create even an orphan review');
+traderType = 'manufacturer';
+await assert.rejects(manualService.acceptSubmissionIntoVerification(store, { bundle: { ...partnerBundle, submission: { ...partnerSub } }, staffId: 'staff-1', staffEmail: null }), /không khớp phạm vi/i);
+traderType = 'trading';
+staffAccess = { store, submission: partnerSub, items: partnerItems, links: [], session: { uid: 'staff-1', email: 'inspector@veximtrade.com', role: 'sourcing' }, canReview: true };
+res = await reviewRoute.POST(new Request('http://x/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision: 'accept' }) }), { params: Promise.resolve({ id: partnerSub.id }) });
+body = await res.json();
+assert.equal(body.ok, true, body.message);
+const partnerReview = await store.getVerification(body.verificationId);
+assert.equal(partnerReview.l2_scope, 'partner_contract');
+assert.equal(partnerReview.status, 'in_progress');
+assert.ok(body.href.includes(`review=${encodeURIComponent(partnerReview.id)}`), 'Review link targets the exact snapshot');
+const partnerCopies = mediaRows.filter((m) => m.verification_id === partnerReview.id);
+assert.equal(partnerCopies.length, 2);
+assert.ok(partnerCopies.every((m) => m.audience === 'internal' && m.status === 'unverified'));
+console.log('✅ L2 partner: type-specific draft, PDF contract, manual queue, scope changes and exact-review evidence.');

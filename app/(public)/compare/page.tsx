@@ -70,7 +70,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
                           {s.display_name ?? s.name}
                         </Link>
                         <p className="mt-1 text-[12px] font-medium text-ink-600">{supplierTypeLabel(s)}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5"><VerificationPips levels={s.approved_verification_steps} compact /><VerificationTierBadge levels={s.approved_verification_steps} /></div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5"><VerificationPips levels={s.approved_verification_steps} l2Scope={s.approved_l2_scope ?? null} compact /><VerificationTierBadge levels={s.approved_verification_steps} /></div>
                       </th>
                     ))}
                   </tr>

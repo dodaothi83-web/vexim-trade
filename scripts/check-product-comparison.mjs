@@ -17,7 +17,7 @@ import {
   productDetailHref,
   toggleProductComparisonSelection,
 } from "../lib/public/product-comparison.ts";
-import { VERIFICATION_LABELS } from "../lib/verification-status.ts";
+import { VERIFICATION_LABELS, verificationLabel } from "../lib/verification-status.ts";
 import {
   publicExportPortDisplay,
   publicProductCapacityDisplay,
@@ -303,13 +303,13 @@ const tableModule = compile("../components/public/product-comparison-table.tsx",
   },
   "@/components/verification-tier": { VerificationTierBadge: () => React.createElement("span", null, "Level 2") },
   "@/lib/public/product-comparison": { productComparisonWarnings },
-  "@/lib/verification-status": { VERIFICATION_LABELS },
+  "@/lib/verification-status": { VERIFICATION_LABELS, verificationLabel },
 });
 const tableHtml = renderToStaticMarkup(React.createElement(tableModule.ProductComparisonTable, {
   products: [compared("a"), compared("b", { price: null, priceCurrency: null, priceUnit: null, priceValidUntil: null, certificates: [], inputMaterialOrigin: null })],
 }));
 for (const text of ["Reference price", "USD 7/kg", "On request", "Price valid until", "MOQ", "Packaging", "Named place",
-  "Independent verification", "Documents checked: Approved", "Factory verification: Not approved", "Delivery history reviewed: Approved",
+  "Independent verification", "Documents checked: Approved", "L2 review: Not approved", "Delivery history reviewed: Approved",
   "HACCP", "No public certificates", "Raw material region", "Binh Phuoc and Dak Lak", "Input material origin", "Vietnam and Cambodia", "Not provided",
   "Copy comparison link", "Request a quote", "do not certify these products or a specific lot"]) {
   assert.ok(tableHtml.includes(text), `Comparison table includes ${text}`);
@@ -325,6 +325,12 @@ const crossCategoryHtml = renderToStaticMarkup(React.createElement(tableModule.P
 }));
 assert.ok(crossCategoryHtml.includes("different categories"));
 assert.doesNotMatch(crossCategoryHtml, />Grade</, "Cross-category comparisons do not align unlike grade schemas");
+const partnerCompareHtml = renderToStaticMarkup(React.createElement(tableModule.ProductComparisonTable, {
+  products: [compared("p", { verificationSteps: [2], l2Scope: "partner_contract" })],
+}));
+assert.match(partnerCompareHtml, /Partner factory contract reviewed: Approved/);
+assert.doesNotMatch(partnerCompareHtml, /Factory verification: Approved/);
+
 
 /* ---------- Route and public-surface wiring ---------- */
 

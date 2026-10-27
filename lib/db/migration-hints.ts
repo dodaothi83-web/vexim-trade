@@ -8,6 +8,10 @@
 const HINTS: Array<{ match: RegExp; migration: string }> = [
   { match: /supplier_portal_notice_reads/i, migration: "supabase/migrations/20261017_supplier_dashboard.sql" },
   { match: /response_due_at|supplier_replied_at|source_product_id/i, migration: "supabase/migrations/20261017_supplier_dashboard.sql" },
+  { match: /l2_scope/i, migration: "supabase/migrations/20261040_l2_partner_contract.sql" },
+  // L3 mở thêm key chứng từ khác; CHECK cũ từ 20261020/20261031 chưa nhận key này.
+  { match: /supplier_submission_items_key_ck/i, migration: "supabase/migrations/20261039_l3_other_export_evidence.sql và supabase/migrations/20261040_l2_partner_contract.sql" },
+  { match: /media_checklist_key_ck/i, migration: "supabase/migrations/20261031_supplier_submission_media_owner.sql, supabase/migrations/20261039_l3_other_export_evidence.sql và supabase/migrations/20261040_l2_partner_contract.sql" },
   { match: /supplier_submissions|supplier_submission_items|supplier_submission_links/i, migration: "supabase/migrations/20261020_supplier_self_verification_submissions.sql" },
   { match: /sponsored_push/i, migration: "supabase/migrations/20261028_sponsored_product_push.sql" },
   { match: /display_name/i, migration: "supabase/migrations/20261030_product_display_name.sql" },

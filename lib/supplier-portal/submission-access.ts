@@ -3,6 +3,7 @@ import "server-only";
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
+import { l2ScopeMatchesSupplier } from "@/lib/l2-scope";
 import { portalApproved } from "./onboarding";
 import { supplierAccountAccess } from "./access";
 import { loadSubmissionBundle, type SubmissionBundle } from "@/lib/verification-submission-service";
@@ -32,7 +33,7 @@ export async function supplierSubmissionAccess(submissionId: string): Promise<Su
   const supplier = await store.getSupplier(supplierId);
   if (!supplier || !portalApproved(supplier)) return null;
   const bundle = await loadSubmissionBundle(store, submissionId);
-  if (!bundle || bundle.submission.supplier_id !== supplierId) return null;
+  if (!bundle || bundle.submission.supplier_id !== supplierId || !l2ScopeMatchesSupplier(bundle.submission, supplier.supplier_type)) return null;
   return { ...bundle, store, supplierId, userId: account.user.id, userEmail: account.user.email };
 }
 

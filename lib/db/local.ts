@@ -54,6 +54,11 @@ import {
   PEPPER_CATEGORY_CONFIG,
 } from "./category-seed";
 import type { DataStore } from "@/lib/db/types";
+import { L3_EXPORT_ITEMS } from "@/lib/types";
+import { effectiveL2Scope, isPartnerL2, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
+import { MAX_ITEMS_PER_KEY } from "@/lib/verification-submission";
+
+const L3_EVIDENCE_KEYS = new Set<string>(L3_EXPORT_ITEMS.map((item) => item.key));
 
 interface LocalShape {
   users: AppUserRecord[];
@@ -942,6 +947,34 @@ function mutate<T>(fn: (db: LocalShape) => T): T {
   return out;
 }
 
+/** Mirror the SQL locks/privacy rules in the local datastore. */
+function guardManualMedia(db: LocalShape, before: MediaAsset | null, after: MediaAsset | null): void {
+  const oldSubmission = before?.submission_id ? (db.supplier_submissions ?? []).find((s) => s.id === before.submission_id) : null;
+  const newSubmission = after?.submission_id ? (db.supplier_submissions ?? []).find((s) => s.id === after.submission_id) : null;
+  const manual = (s: SupplierSubmission | null | undefined) => !!s && (s.target_level === 3 || isPartnerL2(s));
+  if (before && after && before.submission_id !== after.submission_id && (manual(oldSubmission) || manual(newSubmission))) throw new Error("L2_PARTNER_PRIVATE_EVIDENCE");
+  const parent = manual(oldSubmission) ? oldSubmission : manual(newSubmission) ? newSubmission : null;
+  if (parent) {
+    if (!["draft", "returned"].includes(parent.status)) {
+      const orphanDelete = !after && before && !(db.supplier_submission_items ?? []).some((item) => item.media_id === before.id);
+      if (!orphanDelete) throw new Error("L3_SUBMISSION_LOCKED");
+    }
+    if (after && (after.owner_type !== "submission" || after.submission_id !== parent.id || after.supplier_id !== parent.supplier_id ||
+      after.audience !== "internal" || !["image", "document", "certificate"].includes(after.kind) ||
+      (isPartnerL2(parent) && (!after.checklist_key || !["partner_factory_contract", "partner_factory_photos"].includes(after.checklist_key) ||
+        (after.checklist_key === "partner_factory_photos" && after.kind !== "image") || (after.checklist_key === "partner_factory_contract" && !["image", "document"].includes(after.kind)))) ||
+      (parent.target_level === 3 && (!after.checklist_key || !L3_EVIDENCE_KEYS.has(after.checklist_key))))) throw new Error("L2_PARTNER_PRIVATE_EVIDENCE");
+  }
+  const oldReview = before?.verification_id ? (db.verifications ?? []).find((v) => v.id === before.verification_id) : null;
+  const newReview = after?.verification_id ? (db.verifications ?? []).find((v) => v.id === after.verification_id) : null;
+  if (before && after && before.verification_id !== after.verification_id && (oldReview && isPartnerL2(oldReview) || newReview && isPartnerL2(newReview))) throw new Error("L2_PARTNER_PRIVATE_EVIDENCE");
+  const review = oldReview && isPartnerL2(oldReview) ? oldReview : newReview && isPartnerL2(newReview) ? newReview : null;
+  if (review) {
+    if (!["scheduled", "in_progress", "returned"].includes(review.status)) throw new Error("L2_PARTNER_REVIEW_LOCKED");
+    if (after && (after.verification_id !== review.id || after.supplier_id !== review.supplier_id || after.owner_type !== "verification" || after.audience !== "internal")) throw new Error("L2_PARTNER_PRIVATE_EVIDENCE");
+  }
+}
+
 export const localStore: DataStore = {
   mode: "local",
 
@@ -1470,6 +1503,7 @@ export const localStore: DataStore = {
         updated_at: now,
         ...input,
       } as MediaAsset;
+      guardManualMedia(db, null, row);
       db.media.push(row);
       return row;
     });
@@ -1478,12 +1512,15 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = db.media.find((m) => m.id === id);
       if (!row) throw new Error("Không tìm thấy tệp");
+      guardManualMedia(db, row, { ...row, ...cleanPatch(patch) });
       Object.assign(row, cleanPatch(patch), { updated_at: new Date().toISOString() });
       return row;
     });
   },
   async deleteMedia(id) {
     mutate((db) => {
+      const before = db.media.find((m) => m.id === id);
+      if (before) guardManualMedia(db, before, null);
       db.media = db.media.filter((m) => m.id !== id);
       // Giống FK ON DELETE SET NULL của Supabase khi xóa ảnh đại diện.
       for (const product of db.products) if (product.featured_media_id === id) product.featured_media_id = null;
@@ -1816,6 +1853,9 @@ export const localStore: DataStore = {
       ...cleanPatch(input),
     } as Verification;
     mutate((db) => {
+      const supplier = db.suppliers.find((s) => s.id === row.supplier_id);
+      if (row.target_level === 2 && !l2ScopeMatchesSupplier(row, supplier?.supplier_type)) throw new Error("L2_SCOPE_TYPE_MISMATCH");
+      if (isPartnerL2(row) && row.status === "approved") throw new Error("L2_PARTNER_APPROVAL_REQUIRES_REVIEW");
       db.verifications = [...(db.verifications ?? []), row];
     });
     return row;
@@ -1824,6 +1864,18 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = (db.verifications ?? []).find((v) => v.id === id);
       if (!row) throw new Error("Verification not found");
+      if ((patch.supplier_id !== undefined && patch.supplier_id !== row.supplier_id) ||
+          (patch.target_level !== undefined && patch.target_level !== row.target_level) ||
+          (patch.l2_scope !== undefined && patch.l2_scope !== (row.l2_scope ?? null))) throw new Error("VERIFICATION_SCOPE_IMMUTABLE");
+      if (row.target_level === 2 && patch.status === "approved" && row.status !== "approved") {
+        const supplier = db.suppliers.find((s) => s.id === row.supplier_id);
+        if (!l2ScopeMatchesSupplier(row, supplier?.supplier_type)) throw new Error("L2_SCOPE_TYPE_MISMATCH");
+        if (isPartnerL2(row)) {
+          const checklist = patch.checklist ?? row.checklist;
+          if (checklist.partner_identity_confirmed !== true || checklist.partner_scope_confirmed !== true) throw new Error("L2_PARTNER_SCOPE_CONFIRM_REQUIRED");
+          if (!(db.media ?? []).some((m) => m.verification_id === row.id && m.supplier_id === row.supplier_id && m.owner_type === "verification" && m.checklist_key === "partner_factory_contract" && m.audience === "internal" && m.status === "checked" && m.storage_path && ["image", "document"].includes(m.kind))) throw new Error("L2_PARTNER_CONTRACT_CHECK_REQUIRED");
+        }
+      }
       Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
       // Tính lại verification_level cho NCC liên quan
       const related = db.verifications.filter((v) => v.supplier_id === row.supplier_id && v.status === "approved");
@@ -2075,6 +2127,9 @@ export const localStore: DataStore = {
       ...cleanPatch(input),
     } as SupplierSubmission;
     mutate((db) => {
+      const supplier = db.suppliers.find((s) => s.id === row.supplier_id);
+      if (row.target_level === 2 && !l2ScopeMatchesSupplier(row, supplier?.supplier_type)) throw new Error("L2_SCOPE_TYPE_MISMATCH");
+      if ((db.supplier_submissions ?? []).some((s) => s.supplier_id === row.supplier_id && s.target_level === row.target_level && s.status !== "accepted" && row.status !== "accepted" && (row.target_level !== 2 || effectiveL2Scope(s.l2_scope) === effectiveL2Scope(row.l2_scope)))) throw new Error("duplicate open submission");
       db.supplier_submissions = [...(db.supplier_submissions ?? []), row];
     });
     return row;
@@ -2083,6 +2138,26 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = (db.supplier_submissions ?? []).find((s) => s.id === id);
       if (!row) throw new Error("Submission not found");
+      if ((patch.supplier_id !== undefined && patch.supplier_id !== row.supplier_id) ||
+          (patch.target_level !== undefined && patch.target_level !== row.target_level) ||
+          (patch.l2_scope !== undefined && patch.l2_scope !== (row.l2_scope ?? null))) throw new Error("VERIFICATION_SCOPE_IMMUTABLE");
+      if (row.target_level === 2 && patch.status === "pending_review" && row.status !== "pending_review" && !l2ScopeMatchesSupplier(row, db.suppliers.find((supplier) => supplier.id === row.supplier_id)?.supplier_type)) throw new Error("L2_SCOPE_TYPE_MISMATCH");
+      if (isPartnerL2(row) && patch.status === "pending_review" && row.status !== "pending_review" && !(db.supplier_submission_items ?? []).some((i) =>
+        i.submission_id === id && i.supplier_id === row.supplier_id && i.checklist_key === "partner_factory_contract" && i.media_id && i.storage_path?.trim() && (db.media ?? []).some((m) => m.id === i.media_id && m.owner_type === "submission" && m.submission_id === id && m.supplier_id === row.supplier_id && m.checklist_key === i.checklist_key && m.storage_path === i.storage_path && m.audience === "internal" && ["image", "document"].includes(m.kind)))) throw new Error("L2_PARTNER_CONTRACT_REQUIRED");
+      Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      return row;
+    });
+  },
+  async updateEditableSubmission(id, patch) {
+    return mutate((db) => {
+      const row = (db.supplier_submissions ?? []).find((s) => s.id === id);
+      if (!row || (row.status !== "draft" && row.status !== "returned")) return null;
+      if (row.target_level === 3 && patch.status === "pending_review" && !(db.supplier_submission_items ?? []).some((item) =>
+        item.submission_id === id && item.media_id && item.storage_path?.trim() && L3_EVIDENCE_KEYS.has(item.checklist_key))) return null;
+      if (row.target_level === 2 && patch.status === "pending_review" && !l2ScopeMatchesSupplier(row, db.suppliers.find((supplier) => supplier.id === row.supplier_id)?.supplier_type)) throw new Error("L2_SCOPE_TYPE_MISMATCH");
+      if (isPartnerL2(row) && patch.status === "pending_review" && !(db.supplier_submission_items ?? []).some((i) =>
+        i.submission_id === id && i.supplier_id === row.supplier_id && i.checklist_key === "partner_factory_contract" && i.media_id && i.storage_path?.trim() && (db.media ?? []).some((m) => m.id === i.media_id && m.owner_type === "submission" && m.submission_id === id && m.supplier_id === row.supplier_id && m.checklist_key === i.checklist_key && m.storage_path === i.storage_path && m.audience === "internal" && ["image", "document"].includes(m.kind)))) throw new Error("L2_PARTNER_CONTRACT_REQUIRED");
+      if ((patch.supplier_id !== undefined && patch.supplier_id !== row.supplier_id) || (patch.target_level !== undefined && patch.target_level !== row.target_level) || (patch.l2_scope !== undefined && patch.l2_scope !== (row.l2_scope ?? null))) throw new Error("VERIFICATION_SCOPE_IMMUTABLE");
       Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
       return row;
     });
@@ -2129,6 +2204,13 @@ export const localStore: DataStore = {
       ...cleanPatch(input),
     } as SupplierSubmissionItem;
     mutate((db) => {
+      const submission = (db.supplier_submissions ?? []).find((s) => s.id === row.submission_id);
+      if (submission && ((isPartnerL2(submission) && (submission.supplier_id !== row.supplier_id || !["partner_factory_contract", "partner_factory_photos"].includes(row.checklist_key))) || (!isPartnerL2(submission) && ["partner_factory_contract", "partner_factory_photos"].includes(row.checklist_key)))) throw new Error("L2_PARTNER_KEY_MISMATCH");
+      if (submission && (submission.target_level === 3 || isPartnerL2(submission))) {
+        if (submission.status !== "draft" && submission.status !== "returned") throw new Error("L3_SUBMISSION_LOCKED");
+        const count = (db.supplier_submission_items ?? []).filter((i) => i.submission_id === row.submission_id && i.checklist_key === row.checklist_key && i.media_id).length;
+        if (row.media_id && count >= MAX_ITEMS_PER_KEY) throw new Error("L3_EVIDENCE_LIMIT");
+      }
       db.supplier_submission_items = [...(db.supplier_submission_items ?? []), row];
     });
     return row;
@@ -2137,12 +2219,27 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = (db.supplier_submission_items ?? []).find((i) => i.id === id);
       if (!row) throw new Error("Submission item not found");
+      const parent = (db.supplier_submissions ?? []).find((sub) => sub.id === row.submission_id);
+      const destination = patch.submission_id && patch.submission_id !== row.submission_id ? (db.supplier_submissions ?? []).find((sub) => sub.id === patch.submission_id) : null;
+      const manual = (sub: SupplierSubmission | null | undefined) => !!sub && (sub.target_level === 3 || isPartnerL2(sub));
+      const touchesFile = ["submission_id", "supplier_id", "checklist_key", "media_id", "storage_path"].some((key) => Object.hasOwn(patch, key));
+      if (touchesFile && destination && (manual(parent) || manual(destination))) throw new Error("L2_PARTNER_KEY_MISMATCH");
+      if (touchesFile && parent && manual(parent)) {
+        if (!["draft", "returned"].includes(parent.status)) throw new Error("L3_SUBMISSION_LOCKED");
+        if ((patch.supplier_id !== undefined && patch.supplier_id !== row.supplier_id) || (patch.checklist_key !== undefined && patch.checklist_key !== row.checklist_key)) throw new Error("L2_PARTNER_KEY_MISMATCH");
+        if (!row.media_id && patch.media_id && (db.supplier_submission_items ?? []).filter((item) => item.submission_id === row.submission_id && item.checklist_key === row.checklist_key && item.media_id).length >= 3) throw new Error("L3_EVIDENCE_LIMIT");
+      }
       Object.assign(row, cleanPatch(patch));
       return row;
     });
   },
   async deleteSubmissionItem(id) {
     mutate((db) => {
+      const item = (db.supplier_submission_items ?? []).find((i) => i.id === id);
+      const submission = item && (db.supplier_submissions ?? []).find((s) => s.id === item.submission_id);
+      if (submission && (submission.target_level === 3 || isPartnerL2(submission)) && submission.status !== "draft" && submission.status !== "returned") {
+        throw new Error("L3_SUBMISSION_LOCKED");
+      }
       db.supplier_submission_items = (db.supplier_submission_items ?? []).filter((i) => i.id !== id);
     });
   },

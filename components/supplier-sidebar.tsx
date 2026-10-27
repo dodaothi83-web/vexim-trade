@@ -65,12 +65,14 @@ export function SupplierSidebar({
   userName,
   approved,
   publicUrl,
+  partner = false,
 }: {
   supplierName: string;
   email: string;
   userName?: string | null;
   approved: boolean;
   publicUrl?: string | null;
+  partner?: boolean;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -112,7 +114,7 @@ export function SupplierSidebar({
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0" />
-                      <span className="flex-1 truncate">{item.label}</span>
+                      <span className="flex-1 truncate">{partner && item.href === "/supplier/portal/verification/factory" ? "Nhà máy đối tác L2" : item.label}</span>
                     </Link>
                   );
                 })}

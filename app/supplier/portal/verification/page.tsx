@@ -20,7 +20,7 @@ export default async function SupplierVerificationIndexPage() {
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
   const { reviews, supplier } = access;
-  const progress = buildVerificationProgress({ supplierId: supplier.id, reviews });
+  const progress = buildVerificationProgress({ supplierId: supplier.id, supplierType: supplier.supplier_type, reviews });
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · Xác minh" title="Chọn cấp xác minh"

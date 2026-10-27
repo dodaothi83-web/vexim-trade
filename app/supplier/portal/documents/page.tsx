@@ -100,7 +100,7 @@ export default async function SupplierDocumentsPage() {
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />Tổng quan
       </Link>} />
 
-    <LevelTabs current={1} />
+    <LevelTabs current={1} partner={supplier.supplier_type === "trading"} />
 
     <ol className="mt-4 grid gap-2.5 sm:grid-cols-3" aria-label="Ba bước thực hiện">
       {GUIDE.map((step, index) => <li key={step.title} className="flex gap-2.5 rounded-xl border border-ink-200 bg-white px-3.5 py-3 shadow-sm">

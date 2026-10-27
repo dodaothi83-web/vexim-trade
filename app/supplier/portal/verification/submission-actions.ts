@@ -1,5 +1,7 @@
 "use server";
 
+import { submissionEvidenceErrorMessage } from "@/lib/supplier-portal/submission-evidence-errors";
+
 import { revalidatePath } from "next/cache";
 
 import { supplierSubmissionAccess } from "@/lib/supplier-portal/submission-access";
@@ -101,7 +103,7 @@ export async function addSourceLinkAction(form: FormData): Promise<SubmissionAct
     return {
       ok: true,
       message: assessment.allowed
-        ? "Đã lưu link nguồn công khai; hệ thống sẽ thử đọc trang này để đối chiếu."
+        ? "Đã lưu link nguồn công khai để nhân viên đối chiếu."
         : `Đã lưu link. ${assessment.reason}`,
     };
   } catch (error) {
@@ -144,8 +146,8 @@ export async function deleteSubmissionItemAction(form: FormData): Promise<Submis
       before: null, after: { submission_id: id, item_id: itemId, checklist_key: item.checklist_key },
     });
     revalidate(id);
-    return { ok: true, message: "Đã xoá bằng chứng và tệp gốc trong kho." };
+    return { ok: true, message: "Đã xoá bằng chứng khỏi hồ sơ." };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Không xoá được." };
+    return { ok: false, message: submissionEvidenceErrorMessage(error) ?? (error instanceof Error ? error.message : "Không xoá được.") };
   }
 }
