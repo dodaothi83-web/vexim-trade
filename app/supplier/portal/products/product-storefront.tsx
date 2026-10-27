@@ -19,12 +19,21 @@ function money(product: SupplierProduct) {
   return `${format(product.ref_price)}${range} ${product.currency || "USD"}${product.unit ? ` / ${product.unit}` : ""}`;
 }
 
-export function SupplierProductStorefront({ products, media, supplierPublished, categoryLabels = {}, scope }: {
+/** Bản gọn của điểm hoàn thiện đủ để vẽ badge, tính sẵn phía server. */
+export interface CompletenessSummary {
+  score: number;
+  label: string;
+  tone: string;
+}
+
+export function SupplierProductStorefront({ products, media, supplierPublished, categoryLabels = {}, scope, completenessByProduct = {} }: {
   products: SupplierProduct[]; media: MediaAsset[]; supplierPublished: boolean;
   /** Nhãn danh mục tiếng Việt theo slug - để thẻ sản phẩm không hiện slug thô. */
   categoryLabels?: Record<string, string>;
   /** Phạm vi danh mục NCC được chọn; sản phẩm ngoài phạm vi bị đánh dấu rõ. */
   scope?: string[];
+  /** Điểm hoàn thiện hồ sơ theo product.id (từ dữ liệu đã lưu, tính phía server). */
+  completenessByProduct?: Record<string, CompletenessSummary>;
 }) {
   const [filter, setFilter] = useState<ProductReviewFilter>("all");
   const [query, setQuery] = useState("");
@@ -103,6 +112,12 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
             {imageSrc ? <img src={imageSrc} alt={`Ảnh sản phẩm ${p.name}`} loading="lazy" className="size-full object-cover transition duration-300 group-hover:scale-[1.03]" />
               : <div className="flex size-full flex-col items-center justify-center gap-3 text-ink-400"><ImageIcon className="size-12 stroke-1" aria-hidden="true" /><span className="text-xs font-semibold">Chưa có ảnh sản phẩm</span></div>}
             <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold shadow-sm ${status.tone}`}>{statusLabel}</span>
+            {completenessByProduct[p.id] && (
+              <span title={`Điểm hoàn thiện hồ sơ: ${completenessByProduct[p.id].score}/100 — ${completenessByProduct[p.id].label}`}
+                className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-bold shadow-sm ${completenessByProduct[p.id].tone}`}>
+                {completenessByProduct[p.id].score}/100
+              </span>
+            )}
           </Link>
           <div className="flex flex-1 flex-col p-4 sm:p-5">
             <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold tracking-wider text-brand-700 uppercase">

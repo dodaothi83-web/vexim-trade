@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
+import type { ProductCompleteness } from "@/lib/supplier-portal/product-completeness";
 import { productPriceBlockers, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
@@ -40,6 +41,8 @@ type EditorProps = {
   supplier: Supplier;
   /** Trang có thể mở thẳng một bước bằng `?step=2` (sau khi tạo sản phẩm mới). */
   initialStep?: Step;
+  /** Điểm hoàn thiện từ dữ liệu đã lưu; chỉ trang sửa sản phẩm truyền vào. */
+  completeness?: ProductCompleteness;
 };
 
 type Step = 1 | 2 | 3;
@@ -160,7 +163,7 @@ function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElemen
  * Hành vi cũ giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
+export function SupplierProductEditor({ product, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1, completeness }: EditorProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   // Bước sẽ mở sau khi lưu thành công; null = chỉ lưu rồi ở lại.
@@ -479,6 +482,32 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         })}
       </ol>
     </nav>
+
+    {completeness && product && (
+      <section aria-label="Điểm hoàn thiện hồ sơ sản phẩm" className="rounded-xl border border-ink-200 bg-white px-3.5 py-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-black ${completeness.tone}`}>
+            Hoàn thiện {completeness.score}/100 · {completeness.label}
+          </span>
+          <p className="min-w-0 text-[11.5px] leading-relaxed text-ink-500">
+            Điểm đo mức độ sẵn sàng của hồ sơ với buyer quốc tế — ảnh thật, thông tin mua hàng, bản tiếng Anh.
+            Điểm tính từ dữ liệu đã lưu; {dirty ? <span className="font-semibold text-amber-700">đang có thay đổi chưa lưu</span> : "lưu sản phẩm để cập nhật điểm"}.
+          </p>
+        </div>
+        {completeness.missing.length > 0 && (
+          <ul className="mt-2.5 flex flex-wrap gap-1.5">
+            {completeness.missing.slice(0, 5).map((item) => (
+              <li key={item.key}>
+                <button type="button" onClick={() => selectStep(item.step)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-ink-50 px-2.5 py-1 text-[11.5px] font-semibold text-ink-700 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-800">
+                  <span aria-hidden="true">+{item.points}</span>{item.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    )}
 
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_312px]">
       <div className="min-w-0">

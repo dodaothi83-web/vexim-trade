@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/page-header";
 import { MediaThumb } from "@/components/media-gallery";
 import { productReadiness } from "@/lib/media/readiness";
 import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
+import { productCompleteness } from "@/lib/supplier-portal/product-completeness";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,8 @@ export default async function ProductsPage({
     if (!thumbByProduct.has(m.product_id)) thumbByProduct.set(m.product_id, m);
   }
   const hasShareableMedia = (id: string) => productReadiness(mediaByProduct.get(id) ?? []).ready;
+  // Điểm hoàn thiện hồ sơ: staff nhìn thấy sản phẩm nào cần đẩy NCC bổ sung.
+  const completenessByProduct = new Map(all.map((r) => [r.id, productCompleteness(r, mediaByProduct.get(r.id) ?? [])]));
   const categories = [...new Set(all.map((r) => r.category).filter(Boolean))] as string[];
 
   const viewCounts: Record<ProductView, number> = {
@@ -266,6 +269,11 @@ export default async function ProductsPage({
                         ) : (
                           <Badge className="bg-amber-50 text-amber-700">Thiếu ảnh/catalogue</Badge>
                         )}
+                        {(() => {
+                          const complete = completenessByProduct.get(r.id);
+                          if (!complete) return null;
+                          return <span title={`Điểm hoàn thiện hồ sơ: ${complete.score}/100 — ${complete.label}. Việc còn thiếu: ${complete.missing.slice(0, 3).map((m) => m.label).join("; ") || "đã đủ"}`}><Badge className={complete.tone}>Hoàn thiện {complete.score}/100</Badge></span>;
+                        })()}
                       </div>
                       <p className="mt-0.5 line-clamp-1 text-[12px] text-ink-500">{r.spec || r.description || "—"}</p>
                       <p className="mt-1 text-[12px] text-ink-600">

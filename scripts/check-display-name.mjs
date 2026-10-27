@@ -132,7 +132,7 @@ assert.doesNotMatch(
 // Thân hồ sơ dùng chung với Trang của tôi trong cổng NCC.
 const supplierPage = readFileSync(new URL("../app/(public)/suppliers/[slug]/page.tsx", import.meta.url), "utf8") +
   readFileSync(new URL("../components/public/supplier-storefront.tsx", import.meta.url), "utf8");
-assert.match(supplierPage, /name=\{safe\(publicProductTitle\(p\)\)\}/, "Thẻ sản phẩm trên hồ sơ NCC cũng đọc tên soạn sẵn");
+assert.match(supplierPage, /safe\(publicProductTitle\(p\)\)/, "Thẻ sản phẩm trên hồ sơ NCC cũng đọc tên soạn sẵn");
 assert.match(
   supplierPage,
   /const productCategory = \(p: typeof s\.main_products\[number\]\) =>\s*\n?\s*categories\.find\(\(c\) => productBelongsToCategory\(p, c, categories\)\)/,

@@ -54,6 +54,31 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   '@/components/product-verification-tooltip': { ProductVerificationTooltip: () => React.createElement('span') },
   '@/components/verification-tier': { VerificationPips: () => React.createElement('span'), VerificationTierBadge: () => React.createElement('span') },
   '@/components/product-compare-checkbox': { ProductCompareCheckbox: () => null },
+  '@/components/public/product-description': { ProductDescription: ({ value }) => React.createElement('div', null, value) },
+});
+// Hàm hiển thị tiếng Anh của hồ sơ NCC: mock passthrough để storefront vẽ đúng dữ liệu fixture.
+const supplierEnglish = {
+  supplierAddressDisplay: (s) => s.address ?? '', supplierCapacityDisplay: (s) => s.capacity ?? '',
+  supplierExportMarketsDisplay: (s) => s.export_markets ?? [], supplierIncotermsDisplay: (s) => s.incoterms ?? [],
+  supplierLegalNameDisplay: (s) => s.legal_name ?? '', supplierMarketsDisplay: (s) => s.markets ?? '',
+  supplierMoqDisplay: (s) => s.moq ?? '', supplierPaymentTermsDisplay: (s) => s.payment_terms ?? '',
+  supplierPortsDisplay: (s) => s.ports ?? [], supplierProductsDisplay: (s) => s.products ?? '',
+  supplierProvinceDisplay: (s) => s.province ?? '', supplierSummaryDisplay: (s) => s.summary ?? '',
+};
+const verificationTierMock = { VerificationCoverSeal: () => React.createElement('span'), VerificationPips: () => React.createElement('span'), VerificationTierBadge: () => React.createElement('span'), approvedChecksSummary: () => '', verificationTier: (levels) => levels.length };
+// Thân hồ sơ (về sau tách thành component dùng chung) phải là bản THẬT để các assert HTML/JSON-LD còn ý nghĩa.
+const storefront = compile('../components/public/supplier-storefront.tsx', {
+  'react/jsx-runtime': await import('react/jsx-runtime'),
+  'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
+  'lucide-react': icons,
+  '@/components/public-product-card': { PublicProductCard },
+  '@/components/public/supplier-product-rail': { SupplierProductRail: ({ children }) => React.createElement('ul', null, children) },
+  '@/components/verification-tier': verificationTierMock,
+  '@/lib/verification-status': { VERIFICATION_LEVEL_EXPLANATIONS: { 1: 'Documents explanation', 2: 'Factory explanation', 3: 'Delivery explanation' } },
+  '@/lib/public/catalog': { supplierTypeLabel: () => 'Trading company' },
+  '@/lib/public/display-name': { publicProductTitle: (p) => p.display_name ?? p.name },
+  '@/lib/public/product-selection': { productBelongsToCategory: () => true, publicProductPrice: () => 'USD 2/MT', withoutDirectContacts: selection.withoutDirectContacts },
+  '@/lib/public/supplier-english': supplierEnglish,
 });
 const { default: Profile, generateMetadata } = compile('../app/(public)/suppliers/[slug]/page.tsx', {
   'react/jsx-runtime': await import('react/jsx-runtime'),
@@ -61,9 +86,12 @@ const { default: Profile, generateMetadata } = compile('../app/(public)/supplier
   'next/navigation': { notFound: () => { throw new Error('not found'); } },
   'lucide-react': icons,
   '@/components/ui': { Breadcrumbs: () => React.createElement('nav') },
-  '@/components/verification-tier': { VerificationCoverSeal: () => React.createElement('span'), VerificationPips: () => React.createElement('span'), VerificationTierBadge: () => React.createElement('span'), approvedChecksSummary: () => '', verificationTier: (levels) => levels.length },
+  '@/components/verification-tier': verificationTierMock,
   '@/lib/verification-status': { PRODUCT_VERIFICATION_EXPLANATIONS: { 1: 'Documents explanation', 2: '', 3: '' } },
   '@/components/public-product-card': { PublicProductCard },
+  '@/components/public/supplier-storefront': storefront,
+  '@/lib/public/display-name': { publicProductTitle: (p) => p.display_name ?? p.name },
+  '@/lib/public/supplier-english': supplierEnglish,
   '@/lib/public/catalog': { getPublicSupplierBySlug: lookup, listPublicSuppliers: async () => fixtures,
     supplierTypeLabel: () => 'Trading company', t: (texts) => texts?.en ?? '' },
   '@/lib/db': { getStore: () => ({ listCategories: async () => [category] }) },
@@ -124,6 +152,7 @@ const { default: Preview, generateMetadata: previewMetadata } = compile('../app/
   '@/lib/public/catalog': { getPublicSupplierBySlug: lookup },
   '@/lib/public/supplier-seo': seo,
   '@/lib/public/product-selection': { withoutDirectContacts: selection.withoutDirectContacts },
+  '@/components/public/product-description': { ProductDescription: ({ value }) => React.createElement('div', null, selection.withoutDirectContacts(value ?? '')) },
 });
 const previewParams = (slug, productId) => ({ params: Promise.resolve({ slug, productId }) });
 const previewMeta = await previewMetadata(previewParams(synthetic.slug, 'fake'));

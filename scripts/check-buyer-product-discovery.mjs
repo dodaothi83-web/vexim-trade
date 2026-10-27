@@ -118,6 +118,7 @@ const catalogMocks = { 'server-only': {}, '@/lib/db': { getStore: () => store },
 const catalog = compile('../lib/public/catalog.ts', catalogMocks);
 const productCatalog = compile('../lib/public/product-catalog.ts', {
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
+  '@/lib/supplier-portal/product-completeness': { productCompleteness: () => ({ score: 60, label: 'Tốt', tone: 'bg-sky-50 text-sky-700', checks: [], missing: [] }), completenessLabel: (score) => ({ label: 'Tốt', tone: 'bg-sky-50 text-sky-700' }) },
   '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
   '@/lib/public/supplier-seo': { isSyntheticSupplier },
   '@/lib/public/supplier-english': { supplierProvinceDisplay: (s) => s.province || '' },
@@ -485,7 +486,7 @@ assert.match(relatedProductsSource, /<PublicProductCard/, 'Related products reus
 assert.match(relatedProductsSource, /related\.cardImagePath \?\? related\.imagePaths\[0\]/, 'Related product cards prefer approved thumbnails');
 assert.match(relatedProductsSource, /related\.verificationSteps/, 'Related product cards retain approved supplier checks');
 assert.match(relatedProductsSource, /View all products/, 'Buyers can continue to the full category');
-assert.match(profilePage, /Target markets are self-declared by the supplier and pending independent audit\./);
+assert.match(profilePage, /Supplier-declared - Not verified/, 'Export markets stay clearly supplier-declared until audited');
 // Changing the last buyer image to internal must revoke buyer-ready immediately.
 const actions = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 const mediaActionSource = actions.slice(actions.indexOf('export async function updateMediaAction('), actions.indexOf('export async function deleteMediaAction('));

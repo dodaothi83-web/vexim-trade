@@ -10,6 +10,7 @@ import { resolveGrade } from "@/lib/public/grade-resolution";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
 import { publicProductMoqDisplay, publicProductPlaceDisplay } from "@/lib/public/product-detail-display";
+import { productCompleteness } from "@/lib/supplier-portal/product-completeness";
 import type { Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -79,6 +80,7 @@ function projectPublicCategoryProduct(
     rawMaterialRegion: publicProductPlaceDisplay(tradeEnglish?.raw_material_region),
     inputMaterialOrigin: tradeEnglish?.input_material_origin?.trim() || "",
     verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
+    // Tín hiệu xếp hạng phụ (sau tầng xác minh); không render cho buyer xem.
     supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
     supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,
     leadTimeDays: p.lead_time_days ?? null, incoterm: p.incoterm ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
@@ -112,9 +114,20 @@ export async function listPublicCategoryProducts(category: Category): Promise<Pu
     if (!byProduct.has(asset.product_id)) byProduct.set(asset.product_id, group);
     group.push(asset);
   }
-  return candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
-    .map((p) => projectPublicCategoryProduct(p, byId.get(p.supplier_id)!, category, byProduct.get(p.id) ?? []))
-    .sort((a, b) => b.verificationCount - a.verificationCount || a.name.localeCompare(b.name));
+  // Điểm hoàn thiện (lib/supplier-portal/product-completeness.ts) chỉ dùng để xếp thứ tự
+  // phía server; nó KHÔNG nằm trên thẻ sản phẩm để không bao giờ gửi xuống browser —
+  // buyer chỉ nhìn thấy tầng xác minh.
+  const scored = candidates
+    .filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
+    .map((p) => ({
+      card: projectPublicCategoryProduct(p, byId.get(p.supplier_id)!, category, byProduct.get(p.id) ?? []),
+      completeness: productCompleteness(p, byProduct.get(p.id) ?? []).score,
+    }));
+  // Thứ tự: tầng xác minh của NCC > hồ sơ hoàn thiện > tên. Điểm hoàn thiện là
+  // tín hiệu PHỤ — không bao giờ đưa sản phẩm của NCC ít xác minh lên trên.
+  return scored
+    .sort((a, b) => b.card.verificationCount - a.card.verificationCount || b.completeness - a.completeness || a.card.name.localeCompare(b.card.name))
+    .map((entry) => entry.card);
 }
 
 export interface PublicProductRecord {

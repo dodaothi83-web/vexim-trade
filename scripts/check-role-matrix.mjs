@@ -150,7 +150,23 @@ const routes = [
 // Lấy 1 product + 1 supplier slug mẫu để test trang edit/detail
 const dbRaw = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "local-db.json"), "utf8"));
 const sampleProduct = (dbRaw.products || [])[0];
-const sampleBuyer = (dbRaw.buyers || [])[0];
+// Buyer mẫu phải hiện với mọi role đang test: sale bị giới hạn theo owner = tên người dùng,
+// nên ưu tiên buyer chưa gán owner; nếu dữ liệu demo ai cũng có owner thì dùng buyer do
+// tài khoản sale test nắm (giữ nguyên pattern upsert user test phía trên).
+let sampleBuyer = (dbRaw.buyers || []).find((b) => !(b.owner ?? "").trim())
+  ?? (dbRaw.buyers || []).find((b) => b.owner === "Sale Test");
+if (!sampleBuyer && (dbRaw.buyers || []).length) {
+  // Dữ liệu demo gán owner hết cho người thật → chèn 1 buyer test cho role sale
+  // (cùng cách thức như upsert user test phía trên, giữ lại sau khi chạy).
+  sampleBuyer = {
+    id: "buy-role-matrix-test", company: "Role Matrix Test Buyer", contact_name: "Sale Test",
+    email: "role-matrix-test@vex.im", owner: "Sale Test", stage: "new", source: "other",
+    product: "Test product", spec: null, quantity: null, country: "VN",
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+  };
+  dbRaw.buyers.push(sampleBuyer);
+  fs.writeFileSync(path.join(ROOT, "data", "local-db.json"), JSON.stringify(dbRaw, null, 2));
+}
 if (sampleBuyer) routes.push({ path: `/crm/buyers/${sampleBuyer.id}`, perms: { admin: true, sale: true, sourcing: true, viewer: true } });
 const sampleSupplier = (dbRaw.suppliers || [])[0];
 if (sampleProduct) {
