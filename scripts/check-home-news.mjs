@@ -53,7 +53,7 @@ const Home = load('../app/(public)/home.tsx', {
     optimizedImages.push({ src, ...props });
     return React.createElement('img', { src, alt, className: props.className, sizes: props.sizes, 'data-optimized': 'true' });
   } },
-  'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
+  'next/link': { default: ({ href, children, prefetch: _prefetch, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
   '@/lib/db': { getStore: () => store },
   '@/lib/blog/queries': news,
@@ -63,6 +63,7 @@ const Home = load('../app/(public)/home.tsx', {
     HOME_FEED_PER_SUPPLIER: 2,
   },
   '@/lib/public/popular-searches': { buildPopularSearches: () => [] },
+  '@/lib/public/category-names': load('../lib/public/category-names.ts', {}),
   '@/lib/public/meta-copy': { HOME_HERO_LINE: 'Verified Vietnamese suppliers' },
   '@/components/home-product-feed': { HomeProductFeed: () => null },
   '@/components/service-registration-section': { ServiceRegistrationSection: () => null },

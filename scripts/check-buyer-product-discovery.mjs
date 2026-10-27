@@ -16,6 +16,7 @@ import * as productAttributes from '../lib/product-attributes.ts';
 import * as productDetailDisplay from '../lib/public/product-detail-display.ts';
 import { HOME_HERO_LINE } from '../lib/public/meta-copy.ts';
 import { buildPopularSearches } from '../lib/public/popular-searches.ts';
+import { getCategoryTitle } from '../lib/public/category-names.ts';
 import { hasProductComparisonPeer } from '../lib/public/product-comparison.ts';
 import { approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS, VERIFICATION_LEVEL_EXPLANATIONS } from '../lib/verification-status.ts';
 import * as verificationStatus from '../lib/verification-status.ts';
@@ -435,6 +436,7 @@ const { default: HomeContent } = compile('../app/(public)/home.tsx', {
   '@/components/platform-legal-strip': { PlatformLegalStrip: () => null },
   '@/components/social-links': { SocialLinks: () => null },
   '@/lib/public/popular-searches': { buildPopularSearches },
+  '@/lib/public/category-names': { getCategoryTitle },
   '@/lib/public/meta-copy': { HOME_HERO_LINE },
 });
 const homeHtml = renderToStaticMarkup(await HomeContent());

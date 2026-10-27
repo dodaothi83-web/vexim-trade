@@ -99,11 +99,29 @@ function projectPublicCategoryProduct(
   };
 }
 
-export async function listPublicCategoryProducts(category: Category, options?: { today?: string }): Promise<PublicCategoryProduct[]> {
+/** Server-only snapshot for callers that need the same gated catalogue across several categories. */
+export interface PublicProductCatalogSnapshot {
+  suppliers: PublicSupplierCard[];
+  products: SupplierProduct[];
+  categories: Category[];
+}
+
+export async function loadPublicProductCatalogSnapshot(options?: { categories?: Category[] }): Promise<PublicProductCatalogSnapshot> {
   const store = getStore();
-  const [suppliers, allProducts, knownCategories] = await Promise.all([
-    listPublicSuppliers(), store.listProducts(), store.listCategories({ publishedOnly: false }),
+  const [suppliers, products, categories] = await Promise.all([
+    listPublicSuppliers(), store.listProducts(),
+    options?.categories ? Promise.resolve(options.categories) : store.listCategories({ publishedOnly: false }),
   ]);
+  return { suppliers, products, categories };
+}
+
+export async function listPublicCategoryProducts(category: Category, options?: {
+  today?: string;
+  snapshot?: PublicProductCatalogSnapshot;
+}): Promise<PublicCategoryProduct[]> {
+  const store = getStore();
+  const { suppliers, products: allProducts, categories: knownCategories } =
+    options?.snapshot ?? await loadPublicProductCatalogSnapshot();
   // "Hôm nay" do server truyền vào (chuỗi YYYY-MM-DD UTC) — module xếp hạng thuần không
   // đọc đồng hồ; check script bơm ngày cố định để assert được kết quả.
   const today = options?.today ?? new Date().toISOString().slice(0, 10);
