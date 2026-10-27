@@ -38,7 +38,7 @@ export function SiteFooter() {
         </a>
         <p className="mt-4 font-semibold text-slate-200">Partners &amp; staff</p>
         <a href="/login" className="mt-1 inline-block transition hover:text-white">
-          Staff sign in
+          Supplier &amp; staff sign in
         </a>
         <div className="mt-4 flex flex-wrap gap-4">
           <Link href="/privacy-policy" className="transition hover:text-white">Privacy Policy</Link>

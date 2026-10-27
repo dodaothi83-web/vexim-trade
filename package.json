@@ -13,6 +13,7 @@
     "check:mail": "node --experimental-strip-types --no-warnings scripts/check-mail-visibility.mjs",
     "check:harvest": "node --experimental-strip-types --no-warnings scripts/check-harvest-calendar.mjs && node --experimental-strip-types --no-warnings scripts/check-harvest-research.mjs",
     "check:compare": "node --experimental-strip-types --no-warnings scripts/check-product-comparison.mjs",
+    "check:public-sign-in": "node scripts/check-public-sign-in.mjs",
     "check:supplier-products": "node scripts/check-supplier-products.mjs && node scripts/check-supplier-product-wizard.mjs && node scripts/check-supplier-product-ui.mjs && node scripts/check-supplier-product-local.mjs && node scripts/check-supplier-storage-cleanup.mjs && node scripts/check-supplier-product-migration.mjs && node scripts/check-public-product-media.mjs"
   },
   "dependencies": {

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { Logo } from "@/components/brand-logo";
+import { PublicSignInLink } from "@/components/public-sign-in-link";
 import { CookieSettingsButton } from "@/components/cookie-consent";
 import { PlatformLegalStrip } from "@/components/platform-legal-strip";
 import { SocialLinks } from "@/components/social-links";
@@ -14,6 +15,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
         <Link href="/" className="flex items-center gap-3 font-black text-brand-800" aria-label="Vexim Trade home">
           <Logo className="h-12 w-12" /><span>Vexim Trade</span>
         </Link>
+        <PublicSignInLink />
       </div>
     </header>
     <main id="main-content" className="mx-auto max-w-4xl px-5 py-10 sm:px-8 sm:py-14">{children}</main>
