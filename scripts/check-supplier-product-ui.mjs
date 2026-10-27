@@ -29,7 +29,8 @@ const product = (id, status, name) => ({ id, supplier_id: 'ours', name, descript
   moq: '1 container', category: 'Cashew', updated_at: '2026-10-17T00:00:00Z' });
 const media = (product_id, supplier_id, created_by, audience, storage_path) => ({ owner_type: 'product', product_id, supplier_id,
   created_by, audience, kind: 'image', storage_path });
-const products = [product('p1', 'draft', 'Cashew W320'), product('p2', 'pending', 'Cashew W240'), product('p3', 'approved', 'Cashew W180')];
+const products = [product('p1', 'draft', 'Cashew W320'), product('p2', 'pending', 'Cashew W240'),
+  product('p3', 'approved', 'Cashew W180'), product('p4', 'paused', 'Cashew paused')];
 const sixteenItems = Array.from({ length: 16 }, (_, index) => index + 1);
 const firstPage = view.supplierProductPage(sixteenItems, 1);
 assert.equal(view.SUPPLIER_PRODUCTS_PER_PAGE, 15);
@@ -61,11 +62,11 @@ const scoped = view.supplierVisibleProductMedia([
 ], 'ours', 'owner');
 assert.equal(scoped.length, 2);
 const html = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products, media: scoped, supplierPublished: false }));
-for (const phrase of ['Cashew W320', 'Cashew W240', 'Cashew W180', 'Bản nháp', 'Chờ duyệt', 'Đã đăng', 'Trang NCC chưa được công khai', 'Tìm sản phẩm của tôi', 'Thêm sản phẩm'])
+for (const phrase of ['Cashew W320', 'Cashew W240', 'Cashew W180', 'Cashew paused', 'Bản nháp', 'Chờ duyệt', 'Đã đăng', 'Đã tạm ẩn', 'Trang NCC chưa được công khai', 'Tìm sản phẩm của tôi', 'Thêm sản phẩm'])
   assert.ok(html.includes(phrase), `Missing UI content: ${phrase}`);
 assert.match(html, /left-3 top-1\/2 size-4 -translate-y-1\/2 text-ink-400/, 'The search icon is vertically centered in the input');
 assert.doesNotMatch(html, /-tranink-y-1\/2/, 'The misspelled vertical-centering utility does not return');
-assert.match(html, /<label class="ml-auto flex items-center gap-2 text-xs font-semibold text-ink-600"><span>Sắp xếp<\/span>/,
+assert.match(html, /<label class="ml-auto flex [^"]*items-center[^"]*"><span[^>]*>Sắp xếp<\/span>/,
   'The sort/filter control is pushed to the right of search');
 assert.ok(html.includes('products/p1/real.jpg') && html.includes('products/p3/shared.jpg'), 'Real owner or buyer files are used for thumbnails');
 assert.ok(!html.includes('secret.jpg') && !html.includes('foreign.jpg'), 'Private staff and foreign media cannot render');
@@ -76,7 +77,7 @@ assert.ok(!html.includes('aria-label="Phân trang danh sách sản phẩm"'), 'S
 const pagedProducts = Array.from({ length: 16 }, (_, index) =>
   product(`p${index + 1}`, 'draft', `Cashew lot ${String(index + 1).padStart(2, '0')}`));
 const pagedHtml = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products: pagedProducts, media: [], supplierPublished: true }));
-assert.match(pagedHtml, /sm:grid-cols-2 sm:p-6 lg:grid-cols-3 xl:grid-cols-4/, 'The desktop grid uses four cards per row');
+assert.match(pagedHtml, /sm:grid-cols-2 sm:p-6 lg:grid-cols-3 xl:grid-cols-5/, 'The desktop grid uses five cards per row');
 assert.equal((pagedHtml.match(/aria-label="Xem và quản lý /g) ?? []).length, 15, 'Only 15 product cards render on page one');
 assert.ok(pagedHtml.includes('Cashew lot 01') && pagedHtml.includes('Cashew lot 15'), 'Page one includes products 1 through 15');
 assert.ok(!pagedHtml.includes('Cashew lot 16'), 'Product 16 moves to page two');
@@ -89,7 +90,8 @@ const editor = fs.readFileSync(new URL('../app/supplier/portal/products/product-
 assert.match(editor, /productCanSubmit\(product, media\) && !dirty/, 'Nút gửi vẫn phụ thuộc dữ liệu đã lưu');
 assert.match(editor, /productCanSubmit\(product, media\)/);
 assert.doesNotMatch(editor, /aria-label="Trạng thái công khai"/, 'The separate buyer-visibility panel is removed from the editor');
-assert.match(editor, /const canUpload = !!product && !locked && !dirty && \(review !== "approved" \|\| product\.supplier_originated === true\)/, 'Approved supplier-originated products remain editable and accept media');
+assert.ok(editor.includes('!["approved", "paused"].includes(review) || product.supplier_originated === true'),
+  'Approved or paused supplier-originated products can manage their own media');
 assert.match(editor, /const categoryLocked = review === "approved"/, 'The reviewed category remains staff-controlled');
 assert.ok(editor.includes('<ProductDescriptionEditor') && editor.includes('onChange={onDescriptionDetailChange}'),
   'Supplier detail edits use the shared editor and its existing dirty/snapshot update path');
@@ -128,6 +130,10 @@ assert.ok(dirtyReviewHtml.includes('Lưu thay đổi trong hồ sơ và bản d�
 assert.match(dirtyReviewHtml, /<button disabled="" class="btn btn-primary">Duyệt và đăng<\/button>/,
   'Publication is disabled while product or translation edits are unsaved');
 editorDirty = false;
+const crmList = fs.readFileSync(new URL('../app/crm/products/page.tsx', import.meta.url), 'utf8');
+const crmSupplier = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
+assert.match(crmList, /supplier_review_status === "paused"[\s\S]*?NCC đã tạm ẩn/, 'CRM list labels paused products');
+assert.match(crmSupplier, /supplier_review_status === "paused"[\s\S]*?NCC đã tạm ẩn/, 'Supplier CRM page labels paused products');
 const crmEditPage = fs.readFileSync(new URL('../app/crm/products/[slug]/edit/page.tsx', import.meta.url), 'utf8');
 assert.match(crmEditPage, /needsPublicationAction = supplierReviewedListing && \(product\.supplier_review_status === "pending" \|\| needsPublicationRetry\)/);
 assert.match(crmEditPage, /missingWebsiteChecks/);

@@ -19,9 +19,23 @@ const user = { id: 'owner', email: 'factory@example.com', supplier_id: supplierI
 const supplier = { id: supplierId, status: 'published', fob_publicly_visible: false, fob_updated_at: null, name: 'Factory One', products: 'Cashew W320', onboarding_status: 'pending', requested_category_slugs: ['cashew'] };
 let product = null;
 const files = [];
+const externalFiles = [];
 const audit = [];
 let storedBytes = 0;
 let failThumb = false;
+let failCleanup = false;
+let draftLinked = false;
+let mediaLinked = false;
+let interfereWithCas = null;
+const deletedPaths = [];
+const storage = {
+  putObject: async (path) => { if (failThumb && path.endsWith('-thumb.webp')) throw Error('failed thumbnail write'); storedBytes++; },
+  deleteObject: async (path) => {
+    if (failCleanup) throw Error('storage unavailable');
+    deletedPaths.push(path);
+    if (storedBytes) storedBytes--;
+  },
+};
 const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', {});
 const attributes = load('../lib/product-attributes.ts', {});
 const mediaReadiness = load('../lib/media/readiness.ts', {});
@@ -36,6 +50,21 @@ const store = {
   getProduct: async (id) => id === productId ? product : null,
   createProduct: async (input) => { product = { ...input, id: productId }; return product; },
   updateProduct: async (id, patch) => { assert.equal(id, productId); product = { ...product, ...patch }; return product; },
+  updateSupplierProductIfState: async (id, sid, expected, patch) => {
+    if (interfereWithCas) { const interfere = interfereWithCas; interfereWithCas = null; interfere(); }
+    if (!product || product.id !== id || product.supplier_id !== sid ||
+        (product.supplier_review_status ?? null) !== expected.review || product.ready_for_buyer !== expected.ready) return null;
+    product = { ...product, ...patch }; return product;
+  },
+  deleteSupplierDraftProduct: async (id, sid) => {
+    if (!product || product.id !== id || product.supplier_id !== sid || product.supplier_review_status !== 'draft' ||
+        !product.supplier_originated || product.ready_for_buyer !== false || product.reviewed_category_slug != null)
+      return { status: 'not_deletable' };
+    if (draftLinked) return { status: 'has_links' };
+    const paths = [...new Set(files.flatMap((file) => [file.storage_path, file.thumb_path]).filter(Boolean))];
+    files.length = 0; product = null;
+    return { status: 'deleted', paths };
+  },
   listProductsBySupplier: async (id) => id === supplierId ? [product].filter(Boolean) : [],
   updateSupplier: async (id, patch) => { assert.equal(id, supplierId); Object.assign(supplier, patch); return supplier; },
   listCategories: async () => categories, listSupplierCategories: async () => [],
@@ -43,7 +72,24 @@ const store = {
   createMedia: async (input) => { const row = { ...input, id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }; files.push(row); return row; },
   updateMedia: async (id, patch) => { const row = files.find((m) => m.id === id); assert.ok(row, `Missing media ${id}`); Object.assign(row, patch); return row; },
   getMedia: async (id) => files.find((m) => m.id === id) ?? null,
+  getMediaByPath: async (path) => [...files, ...externalFiles].find((m) => m.storage_path === path || m.thumb_path === path) ?? null,
   deleteMedia: async (id) => { files.splice(files.findIndex((m) => m.id === id), 1); },
+  deleteSupplierProductMedia: async (pid, sid, uid, mid) => {
+    if (!product || product.id !== pid || product.supplier_id !== sid ||
+        !(['draft', 'changes_requested'].includes(product.supplier_review_status) ||
+          (['approved', 'paused'].includes(product.supplier_review_status) && product.supplier_originated === true)))
+      return { status: 'state_changed' };
+    const asset = files.find((m) => m.id === mid);
+    if (!asset || asset.owner_type !== 'product' || asset.product_id !== pid || asset.supplier_id !== sid || asset.created_by !== uid ||
+        (product.supplier_review_status === 'draft' && asset.audience !== 'internal')) return { status: 'forbidden' };
+    if (product.supplier_review_status === 'approved' && product.ready_for_buyer && asset.audience === 'buyer' &&
+        !files.some((m) => m.id !== mid && m.owner_type === 'product' && m.product_id === pid && m.supplier_id === sid &&
+          ['image', 'catalogue'].includes(m.kind) && m.audience === 'buyer' && m.storage_path && !mediaReadiness.isExpired(m)))
+      return { status: 'last_file' };
+    if (mediaLinked) return { status: 'has_links' };
+    files.splice(files.indexOf(asset), 1);
+    return { status: 'deleted', kind: asset.kind, paths: [asset.storage_path, asset.thumb_path].filter(Boolean) };
+  },
   addAuditLog: async (entry) => audit.push(entry),
 };
 const access = () => ({ store, supplier: { ...supplier }, user });
@@ -59,6 +105,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => c.slug === (p.name.includes('Rice') ? 'rice' : 'cashew')) },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async (_supplier, item) => { notices.push(['submitted', item.id]); return 'sent'; } },
   '@/lib/products/product-description': productDescription,
+  '@/lib/media/storage': storage,
   '@/lib/ai/product-translation-service': {
     ensureProductEnglishTranslation: async (storeArg, id) => {
       const current = await storeArg.getProduct(id);
@@ -143,8 +190,7 @@ const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
   },
   '@/lib/media/prepare-supplier-product-image': { prepareSupplierProductImage: async () => ({ main: new Uint8Array([1, 2]), thumb: new Uint8Array([3]), width: 800, height: 600 }) },
   '@/lib/media/readiness': mediaReadiness,
-  '@/lib/media/storage': { putObject: async (path) => { if (failThumb && path.endsWith('-thumb.webp')) throw Error('failed thumbnail write'); storedBytes++; },
-    deleteObject: async () => { if (storedBytes) storedBytes--; } },
+  '@/lib/media/storage': storage,
 });
 async function postMedia(id = productId) {
   const fd = new FormData(); fd.set('kind', 'image'); fd.set('file', image);
@@ -313,6 +359,158 @@ assert.equal(selection.productReviewApproved({ ...product, reviewed_category_slu
   'A supplier-originated product still cannot publish without its reviewed category');
 assert.equal(audit.some((a) => a.action === 'supplier.product_approved'), true);
 assert.equal(audit.some((a) => a.action === 'supplier.product_published'), true);
+// Pausing is explicit, retains media/history and blocks every public product gate.
+const snapshotBeforePause = { ...product };
+const fileCountBeforePause = files.length;
+assert.equal((await actions.deleteSupplierDraftProductAction(productId)).ok, false, 'A published product cannot be hard-deleted by its supplier');
+assert.equal((await actions.pauseSupplierProductAction(productId)).ok, true);
+assert.equal(product.supplier_review_status, 'paused'); assert.equal(product.ready_for_buyer, false);
+assert.equal(product.reviewed_category_slug, snapshotBeforePause.reviewed_category_slug);
+assert.equal(files.length, fileCountBeforePause, 'Pause retains the uploaded media');
+assert.equal(selection.productReviewApproved(product), false);
+assert.equal(selection.productReviewApproved({ ...product, ready_for_buyer: true }), false, 'Even demo/readiness bypass cannot publish a paused product');
+assert.equal(productView.productReview(product), 'paused');
+assert.equal(productView.productCanSubmit(product, files), true, 'Paused products can enter the review queue again');
+assert.equal((await actions.pauseSupplierProductAction(productId)).ok, false, 'Pause is not a route to re-publish');
+assert.equal((await actions.deleteSupplierDraftProductAction(productId)).ok, false, 'Paused products cannot be hard-deleted');
+const pausedSave = formWithId(); pausedSave.set('name', 'Cashew W180 revised');
+assert.equal((await actions.saveSupplierProductAction(pausedSave)).ok, true);
+assert.equal(product.supplier_review_status, 'paused', 'Saving while paused never re-publishes');
+assert.equal(product.ready_for_buyer, false); assert.equal(product.reviewed_category_slug, 'cashew');
+assert.equal((await actions.submitSupplierProductAction(submitted)).ok, true);
+assert.equal(product.supplier_review_status, 'pending'); assert.equal(product.ready_for_buyer, false);
+assert.equal((await actions.pauseSupplierProductAction(productId)).ok, false, 'A pending review cannot be paused or overwritten');
+assert.equal((await actions.deleteSupplierDraftProductAction(productId)).ok, false, 'A pending review cannot be deleted');
+assert.equal((await review.decideSupplierProductAction(approve)).ok, true, 'Staff must explicitly approve a re-submission');
+assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, true);
+
+// Legacy staff-created products also get a safe re-review path, without pretending
+// that they were originally created by the supplier or letting save make a draft.
+product = { ...product, supplier_originated: false, supplier_category_proposal: null, reviewed_category_slug: null, category: 'cashew' };
+assert.equal((await actions.saveSupplierProductAction(formWithId())).ok, false, 'Legacy live edits require an explicit pause/review');
+assert.equal(product.supplier_review_status, 'approved');
+assert.equal((await actions.pauseSupplierProductAction(productId)).ok, true);
+assert.equal((await actions.submitSupplierProductAction(submitted)).ok, true, 'Legacy products can resubmit with their valid old category');
+assert.equal(product.supplier_category_proposal, 'cashew'); assert.equal(product.supplier_originated, false);
+const requestChanges = new FormData(); requestChanges.set('product_id', productId);
+requestChanges.set('decision', 'changes_requested'); requestChanges.set('note', 'Bổ sung quy cách.');
+assert.equal((await review.decideSupplierProductAction(requestChanges)).ok, true);
+assert.equal(product.supplier_review_status, 'changes_requested');
+assert.equal((await actions.saveSupplierProductAction(formWithId())).ok, true);
+assert.equal(product.supplier_review_status, 'changes_requested', 'Saving a returned listing does not turn it into a deletable draft');
+assert.equal(product.supplier_originated, false); assert.equal(product.supplier_review_note, 'Bổ sung quy cách.');
+assert.equal((await actions.deleteSupplierDraftProductAction(productId)).ok, false);
+assert.equal((await actions.submitSupplierProductAction(submitted)).ok, true);
+assert.equal((await review.decideSupplierProductAction(approve)).ok, true);
+assert.equal(product.ready_for_buyer, true); assert.equal(product.supplier_originated, false);
+assert.equal((await actions.saveSupplierProductAction(formWithId())).ok, true, 'After re-review, legacy product edits retain the reviewed status');
+assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, true);
+assert.equal(product.supplier_originated, false);
+
+// If another operation changes the state after reading, stale saves/reviews lose CAS.
+interfereWithCas = () => { product = { ...product, supplier_review_status: 'paused', ready_for_buyer: false }; };
+const staleSave = await actions.saveSupplierProductAction(formWithId());
+assert.equal(staleSave.ok, false); assert.match(staleSave.message, /đã thay đổi/);
+assert.equal(product.supplier_review_status, 'paused'); assert.equal(product.ready_for_buyer, false);
+product = { ...product, supplier_review_status: 'approved', ready_for_buyer: true };
+interfereWithCas = () => { product = { ...product, supplier_review_status: 'pending', ready_for_buyer: false }; };
+const stalePause = await actions.pauseSupplierProductAction(productId);
+assert.equal(stalePause.ok, false); assert.equal(product.supplier_review_status, 'pending');
+interfereWithCas = () => { product = { ...product, supplier_review_status: 'paused', ready_for_buyer: false }; };
+const staleReview = await review.decideSupplierProductAction(approve);
+assert.equal(staleReview.ok, false); assert.equal(product.supplier_review_status, 'paused');
+
+// Media permissions and last-buyer-file guard remain enforced server-side.
+product = { ...product, supplier_originated: true, supplier_review_status: 'approved', ready_for_buyer: true };
+files[0].created_by = user.id; files[0].audience = 'buyer'; files[0].status = 'checked';
+const remove = (id = files[0]?.id, owner = productId) => upload.DELETE(new Request(
+  `https://example.com/api/supplier-portal/products/${owner}/media?media_id=${id}`, { method: 'DELETE' }),
+  { params: Promise.resolve({ id: owner }) });
+product.supplier_review_status = 'pending'; assert.equal((await remove()).status, 409);
+product.supplier_review_status = 'approved'; files[0].created_by = 'another-user';
+assert.equal((await remove()).status, 403, 'Cannot remove another user\'s upload');
+files[0].created_by = user.id; product.supplier_id = 'foreign';
+assert.equal((await remove()).status, 403, 'Cannot remove another supplier\'s file');
+product.supplier_id = supplierId; product.supplier_originated = false;
+assert.equal((await remove()).status, 409, 'Legacy staff-managed media is not supplier-editable');
+product.supplier_originated = true;
+const lastFile = await remove(); assert.equal(lastFile.status, 409);
+assert.match((await lastFile.json()).message, /cuối cùng/, 'The API returns the actual reason, not just HTTP 409');
+files.push({ ...files[0], id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+  storage_path: `products/${productId}/replacement.webp`, thumb_path: null });
+mediaLinked = true;
+const linkedFile = await remove(); assert.equal(linkedFile.status, 409); assert.match((await linkedFile.json()).message, /dữ liệu khác/);
+mediaLinked = false;
+const concurrentDeletes = await Promise.all(files.map((file) => remove(file.id)));
+assert.deepEqual(concurrentDeletes.map((response) => response.status).sort(), [200, 409],
+  'Two concurrent deletes cannot remove the final buyer file');
+assert.equal(files.length, 1);
+product.supplier_review_status = 'paused'; product.ready_for_buyer = false;
+assert.equal((await remove()).status, 200, 'Paused product can remove its final own file while hidden');
+assert.equal(files.length, 0);
+files.push({ id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', owner_type: 'product', product_id: productId,
+  supplier_id: supplierId, created_by: user.id, kind: 'image', audience: 'buyer', status: 'checked',
+  storage_path: `products/${productId}/returned.webp`, thumb_path: null });
+product.supplier_review_status = 'changes_requested';
+assert.equal((await remove()).status, 200, 'The owner can remove an old buyer image while making requested changes');
+assert.equal(files.length, 0);
+product.supplier_review_status = 'paused';
+assert.equal((await actions.submitSupplierProductAction(submitted)).ok, false, 'A hidden product without media cannot be resubmitted');
+product = { ...product, supplier_review_status: 'draft', ready_for_buyer: false, reviewed_category_slug: null };
+files.push({ id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', owner_type: 'product', product_id: productId,
+  supplier_id: supplierId, created_by: user.id, kind: 'image', audience: 'internal', status: 'unverified',
+  storage_path: `products/${productId}/cleanup.webp`, thumb_path: null });
+failCleanup = true;
+const cleanupMediaResponse = await remove();
+const cleanupMediaBody = await cleanupMediaResponse.json();
+assert.equal(cleanupMediaResponse.status, 200); assert.equal(cleanupMediaBody.warning, true);
+assert.match(cleanupMediaBody.message, /chưa dọn/);
+assert.ok(audit.at(-1).after.pending_cleanup_paths.includes(`products/${productId}/cleanup.webp`));
+failCleanup = false;
+
+// Draft deletion checks ownership, draft-only state, historical links, and cleanup.
+const draft = { ...product, supplier_originated: true, supplier_review_status: 'draft', ready_for_buyer: false,
+  reviewed_category_slug: null, supplier_category_proposal: 'cashew' };
+product = { ...draft, supplier_id: 'foreign' };
+assert.equal((await actions.deleteSupplierDraftProductAction(productId)).ok, false);
+assert.equal((await actions.pauseSupplierProductAction(productId)).ok, false);
+product = { ...draft }; supplier.onboarding_status = 'pending';
+assert.equal((await actions.deleteSupplierDraftProductAction(productId)).ok, false, 'Portal approval is required');
+supplier.onboarding_status = 'approved';
+for (const patch of [
+  { supplier_review_status: 'pending' }, { supplier_review_status: 'changes_requested' },
+  { supplier_review_status: 'approved' }, { supplier_review_status: 'paused' },
+  { supplier_originated: false }, { ready_for_buyer: true }, { reviewed_category_slug: 'cashew' },
+]) {
+  product = { ...draft, ...patch };
+  assert.equal((await actions.deleteSupplierDraftProductAction(productId)).ok, false, `Cannot delete ${JSON.stringify(patch)}`);
+  assert.ok(product, 'Denied deletion keeps the product');
+}
+product = { ...draft }; draftLinked = true;
+assert.match((await actions.deleteSupplierDraftProductAction(productId)).message, /dữ liệu liên quan/);
+assert.ok(product, 'Linked draft and its history are retained'); draftLinked = false;
+const mainPath = `products/${productId}/main.webp`, thumbPath = `products/${productId}/main-thumb.webp`;
+files.push({ id: 'draft-media', storage_path: mainPath, thumb_path: thumbPath });
+failCleanup = true;
+const cleanupFailure = await actions.deleteSupplierDraftProductAction(productId);
+assert.equal(cleanupFailure.ok, true); assert.equal(cleanupFailure.warning, true);
+assert.equal(product, null, 'Database deletion remains successful even if Storage cleanup fails');
+assert.match(cleanupFailure.message, /chưa dọn/);
+assert.ok(audit.at(-1).after.pending_cleanup_paths.includes(mainPath), 'Remaining paths are recorded for staff');
+failCleanup = false; product = { ...draft };
+files.push({ id: 'draft-media', storage_path: mainPath, thumb_path: thumbPath });
+const deleted = await actions.deleteSupplierDraftProductAction(productId);
+assert.equal(deleted.ok, true); assert.equal(deleted.warning, false); assert.equal(product, null);
+assert.ok(deletedPaths.includes(mainPath) && deletedPaths.includes(thumbPath), 'Both original and thumbnail are removed');
+product = { ...draft };
+files.push({ id: 'draft-media', storage_path: mainPath, thumb_path: 'shared/other.webp' });
+externalFiles.push({ storage_path: mainPath });
+const protectedCleanup = await actions.deleteSupplierDraftProductAction(productId);
+assert.equal(protectedCleanup.warning, true, 'Shared or out-of-scope paths are kept and reported');
+assert.ok(audit.at(-1).after.pending_cleanup_paths.includes(mainPath));
+assert.ok(audit.at(-1).after.pending_cleanup_paths.includes('shared/other.webp'));
+externalFiles.length = 0;
+
 const migration = fs.readFileSync(new URL('../supabase/migrations/20261017_supplier_product_review.sql', import.meta.url), 'utf8');
 assert.match(migration, /supplier_review_status/);
 assert.match(fs.readFileSync(new URL('../app/public-media/[...path]/route.ts', import.meta.url), 'utf8'), /productReviewApproved\(product\)/);

@@ -35,10 +35,11 @@ const view = {
     pending: { label: 'Chờ duyệt', tone: 'bg-amber-100' },
     changes_requested: { label: 'Cần chỉnh sửa', tone: 'bg-rose-100' },
     approved: { label: 'Đã đăng', tone: 'bg-emerald-100' },
+    paused: { label: 'Đã tạm ẩn', tone: 'bg-slate-200' },
   },
   productReview: (p) => p.supplier_review_status ?? 'approved',
   privateMediaUrl: (m) => m.storage_path ? `/api/media/file/${m.storage_path}` : null,
-  productCanSubmit: (p, media) => ['draft', 'changes_requested'].includes(p.supplier_review_status ?? 'approved') &&
+  productCanSubmit: (p, media) => ['draft', 'changes_requested', 'paused'].includes(p.supplier_review_status ?? 'approved') &&
     !!(p.name?.trim() && (p.description?.trim() || p.spec?.trim())) &&
     media.some((m) => (m.kind === 'image' || m.kind === 'catalogue') && !!m.storage_path),
 };
@@ -53,9 +54,12 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/public/product-selection': { productPriceBlockers: () => [], supplierPriceConsentCurrent: (s) => s?.fob_publicly_visible !== false },
   '@/lib/supplier-portal/category-proposals': {},
   '@/lib/supplier-portal/product-view': view,
+  '@/components/toast': { useToast: () => ({ push() {} }) },
   '../product-actions': {
     saveSupplierProductAction: async () => ({ ok: true, id: 'p1', message: 'Đã lưu bản nháp.' }),
     submitSupplierProductAction: async () => ({ ok: true, message: 'Đã gửi.' }),
+    deleteSupplierDraftProductAction: async () => ({ ok: true, message: 'Đã xóa.' }),
+    pauseSupplierProductAction: async () => ({ ok: true, message: 'Đã tạm ẩn.' }),
   },
   '@/components/supplier-attribute-inputs': {
     SupplierAttributeInputs: (props) => React.createElement('div', {
@@ -227,7 +231,8 @@ assert.match(source, /saveSupplierProductAction\(form\)/, 'Vẫn lưu qua saveSu
 assert.match(source, /submitSupplierProductAction\(form\)/, 'Vẫn nộp qua submitSupplierProductAction');
 assert.match(source, /productCanSubmit\(product, media\) && !dirty/, 'Nút nộp vẫn phụ thuộc điều kiện dữ liệu');
 assert.doesNotMatch(source, /Lưu thay đổi sẽ đưa sản phẩm về bản nháp/, 'Sửa sản phẩm đã duyệt không còn tự rút khỏi sàn');
-assert.match(source, /const canUpload = !!product && !locked && !dirty && \(review !== "approved" \|\| product\.supplier_originated === true\)/, 'Sản phẩm NCC đã duyệt vẫn tải được ảnh');
+assert.ok(source.includes('!["approved", "paused"].includes(review) || product.supplier_originated === true'),
+  'Sản phẩm NCC đã duyệt hoặc tạm ẩn vẫn quản lý được ảnh của mình');
 assert.ok(source.includes('useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "")'),
   'Danh mục staff đã duyệt được ưu tiên khi mở lại editor');
 assert.match(source, /Bạn có thay đổi chưa lưu/, 'Vẫn cảnh báo rời trang khi chưa lưu');
@@ -333,4 +338,35 @@ assert.match(approved, /type="hidden" name="supplier_category_proposal"/);
 assert.match(approved, /Sản phẩm đã đăng/);
 assert.doesNotMatch(approved, /Trạng thái công khai|Hiển thị với buyer/);
 
-console.log('✅ Product page: 3 bước một màn hình, bước 3 đọc lại toàn bộ dữ liệu bước 1–2, nút gửi luôn phản hồi, thương mại & xuất khẩu hiện ngay.');
+// 13. Ảnh đại diện (kể cả ảnh duy nhất) có thao tác xóa khi đúng người và trạng thái.
+const ownDraft = { ...product, supplier_originated: true, featured_media_id: 'm1' };
+const oneCover = render({ product: ownDraft, media, initialStep: 2 });
+assert.match(oneCover, /aria-label="Xóa ảnh đại diện"/, 'Có thể xóa trực tiếp ảnh đại diện duy nhất của bản nháp');
+assert.match(oneCover, /Xóa bản nháp/, 'Nháp do NCC tạo có thao tác xóa vĩnh viễn');
+assert.doesNotMatch(render({ product: ownDraft, media: [{ ...media[0], created_by: 'someone-else' }] }), /aria-label="Xóa ảnh đại diện"/,
+  'Không có nút xóa tệp do người khác tải');
+assert.doesNotMatch(render({ product: { ...ownDraft, supplier_review_status: 'pending' } }), /aria-label="Xóa ảnh đại diện"|Xóa bản nháp/,
+  'Đang duyệt khóa xóa ảnh và sản phẩm');
+const ownApproved = { ...ownDraft, supplier_review_status: 'approved', ready_for_buyer: true, reviewed_category_slug: 'cashew' };
+const approvedOwnHtml = render({ product: ownApproved, media: [{ ...media[0], audience: 'buyer' }] });
+assert.match(approvedOwnHtml, /aria-label="Xóa ảnh đại diện"/, 'Ảnh do mình tải có nút xóa cả khi đang đăng (server kiểm tra tệp cuối)');
+assert.match(approvedOwnHtml, /Tạm ẩn sản phẩm/);
+assert.doesNotMatch(approvedOwnHtml, /Xóa bản nháp/);
+const paused = render({ product: { ...ownApproved, supplier_review_status: 'paused', ready_for_buyer: false },
+  media: [{ ...media[0], audience: 'buyer' }], initialStep: 3 });
+assert.match(paused, /Đã tạm ẩn/);
+assert.match(paused, /gửi duyệt ở bước 3 và chờ phê duyệt/);
+assert.match(paused, /aria-label="Xóa ảnh đại diện"/);
+assert.doesNotMatch(paused, /Xóa bản nháp|Tạm ẩn sản phẩm/);
+const returned = render({ product: { ...ownApproved, supplier_review_status: 'changes_requested', ready_for_buyer: false },
+  media: [{ ...media[0], audience: 'buyer' }] });
+assert.match(returned, /aria-label="Xóa ảnh đại diện"/, 'Tệp buyer cũ của chính mình vẫn sửa được khi được yêu cầu chỉnh sửa');
+assert.doesNotMatch(returned, /Xóa bản nháp/);
+const legacyPaused = render({ product: { ...ownApproved, supplier_originated: false, supplier_review_status: 'paused',
+  supplier_category_proposal: null, reviewed_category_slug: null, ready_for_buyer: false }, initialStep: 3 });
+assert.match(legacyPaused, /Gửi duyệt/, 'Sản phẩm staff tạo cũ vẫn có luồng gửi duyệt lại');
+assert.doesNotMatch(legacyPaused, /aria-label="Xóa ảnh đại diện"/, 'Tệp staff quản lý vẫn bị khóa');
+assert.match(source, /data\?\.message \|\| `Xóa tệp thất bại \(HTTP/, 'Lỗi xóa hiển thị lý do API hoặc HTTP nếu không có JSON');
+assert.match(source, /data\?\.message \|\| `Đặt ảnh đại diện thất bại \(HTTP/, 'Lỗi đổi ảnh hiển thị lý do API');
+
+console.log('✅ Product page: wizard, cover deletion, draft deletion and pause/review controls.');

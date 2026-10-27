@@ -112,11 +112,8 @@ async function localGet(rel: string): Promise<Uint8Array | null> {
 }
 
 async function localDelete(rel: string) {
-  try {
-    await fs.rm(path.join(LOCAL_ROOT, safePath(rel)), { force: true });
-  } catch {
-    /* bỏ qua */
-  }
+  // force=true đã bỏ qua tệp không tồn tại; lỗi quyền/ổ đĩa phải được báo cho caller.
+  await fs.rm(path.join(LOCAL_ROOT, safePath(rel)), { force: true });
 }
 
 /** Lưu một tệp. Tự chuyển sang đĩa nếu Supabase Storage lỗi kết nối. */
@@ -179,11 +176,15 @@ export async function deleteObject(rel: string): Promise<void> {
   const clean = safePath(rel);
   if (supabaseUsable()) {
     try {
-      await getSupabaseClient()!.storage.from(mediaBucket()).remove([clean]);
+      const { error } = await getSupabaseClient()!.storage.from(mediaBucket()).remove([clean]);
+      if (error) throw error;
     } catch (error) {
-      if (!looksLikeConnectionError(error)) throw error;
-      markDown(error);
+      if (looksLikeConnectionError(error)) markDown(error);
+      // Không coi bản local đã xóa là bằng chứng tệp trên Storage cũng đã bị xóa.
+      throw error;
     }
+  } else if (supabaseConfigured() || !localFallbackAllowed()) {
+    throw new Error("Supabase Storage không khả dụng; chưa thể xóa tệp.");
   }
   await localDelete(clean);
 }

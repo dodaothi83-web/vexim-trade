@@ -3,7 +3,7 @@ export const CRM_PRODUCTS_PAGE_SIZE = 15;
 type ProductListRow = {
   id: string;
   name: string;
-  supplier_review_status?: "draft" | "pending" | "approved" | "changes_requested";
+  supplier_review_status?: "draft" | "pending" | "approved" | "changes_requested" | "paused";
 };
 
 /** Chờ Vexim kiểm tra luôn đứng trước; mức độ khớp và tên chỉ sắp xếp trong từng nhóm. */

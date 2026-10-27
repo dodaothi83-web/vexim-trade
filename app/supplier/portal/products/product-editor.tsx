@@ -10,6 +10,7 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  EyeOff,
   FileText,
   ImageIcon,
   LockKeyhole,
@@ -17,6 +18,7 @@ import {
   Save,
   Send,
   Star,
+  Trash2,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -24,7 +26,8 @@ import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
 import { productPriceBlockers, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
-import { saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
+import { deleteSupplierDraftProductAction, pauseSupplierProductAction, saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
+import { useToast } from "@/components/toast";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
@@ -141,7 +144,7 @@ function reportActionError(error: unknown, what: string) {
   const detail = error instanceof Error && error.message ? error.message.trim() : "";
   if (detail && !/failed to fetch|fetch failed|networkerror/i.test(detail))
     return { ok: false, message: `${what} thất bại: ${detail}` };
-  return { ok: false, message: `${what} thất bại — mất kết nối hoặc trang đã cũ sau bản cập nhật. Tải lại trang (F5) rồi thử lại.` };
+  return { ok: false, message: `${what} thất bại - mất kết nối hoặc trang đã cũ sau bản cập nhật. Tải lại trang (F5) rồi thử lại.` };
 }
 
 /**
@@ -187,6 +190,7 @@ function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElemen
  */
 export function SupplierProductEditor({ product, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
   const router = useRouter();
+  const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   // Bước sẽ mở sau khi lưu thành công; null = chỉ lưu rồi ở lại.
   const advanceTo = useRef<Step | null>(null);
@@ -195,7 +199,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const [busy, setBusy] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "");
   // Thông báo nổi sau mỗi hành động (lưu, gửi duyệt, tải/xóa tệp) thay cho các dòng chữ tĩnh khó để ý.
-  const [toast, setToast] = useState<{ ok: boolean; message: string } | null>(null);
+  const [toast, setToast] = useState<{ ok: boolean; message: string; warning?: boolean } | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
   const [coverHover, setCoverHover] = useState(false);
   const [selected, setSelected] = useState<File[]>([]);
@@ -225,20 +229,26 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   // Thông báo tự ẩn: thành công 4.5 giây, lỗi ở lại 8 giây để kịp đọc.
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(() => setToast(null), toast.ok ? 4500 : 8000);
+    const timer = setTimeout(() => setToast(null), toast.ok && !toast.warning ? 4500 : 8000);
     return () => clearTimeout(timer);
   }, [toast]);
 
   const review = product ? productReview(product) : "draft";
   const live = review === "approved" && product?.ready_for_buyer === true;
-  const locked = review === "pending";
+  const legacyManaged = review === "approved" && !!product && !product.supplier_originated && !product.supplier_category_proposal;
+  const locked = review === "pending" || legacyManaged;
   const dirty = baseline !== null && !snapshotsEqual(snapshot, baseline);
   const ownedCount = media.filter((m) => m.created_by === userId).length;
   const hasDetails = !!product && !!(product.spec?.trim() || product.description?.trim());
   const hasMedia = media.some((m) => (m.kind === "image" || m.kind === "catalogue") && !!m.storage_path);
   const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
-  const canUpload = !!product && !locked && !dirty && (review !== "approved" || product.supplier_originated === true);
-  const categoryLocked = review === "approved";
+  const canUpload = !!product && !locked && !dirty &&
+    (!["approved", "paused"].includes(review) || product.supplier_originated === true);
+  const canDeleteAsset = (asset: MediaAsset) => canUpload && !!userId && asset.created_by === userId &&
+    (asset.audience === "internal" || review === "approved" || review === "paused" || review === "changes_requested");
+  const canDeleteDraft = !!product && review === "draft" && product.supplier_originated === true &&
+    !product.ready_for_buyer && product.reviewed_category_slug == null;
+  const categoryLocked = review === "approved" || (review === "paused" && !!product?.reviewed_category_slug);
   const activeCategory = categories.find((c) => c.slug === (selectedCategory || product?.category || ""));
   const categoryLabel = activeCategory?.label ?? product?.category ?? "Chưa chọn danh mục";
   // Bước 3 đọc lại thông số bằng nhãn thật (kể cả thông số NCC tự thêm), không phải khoá kỹ thuật.
@@ -402,6 +412,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         return;
       }
       if (!hasMedia && step !== 2) goToStep(2);
+      return;
     }
     void submit();
   }
@@ -490,14 +501,14 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ media_id: mediaId }),
       });
-      // Trang lỗi (404/500...) trả HTML: đọc .json() sẽ ném — báo rõ mã HTTP thay vì "mất kết nối".
-      if (!response.ok) {
-        setToast({ ok: false, message: `Đặt ảnh đại diện thất bại (HTTP ${response.status}). Tải lại trang rồi thử lại.` });
+      // Ưu tiên lý do API trả về; proxy có thể trả HTML thay vì JSON.
+      const data = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
+      if (!response.ok || !data?.ok) {
+        setToast({ ok: false, message: data?.message || `Đặt ảnh đại diện thất bại (HTTP ${response.status}). Tải lại trang rồi thử lại.` });
         return;
       }
-      const data = await response.json() as { ok: boolean; message: string };
-      setToast(data);
-      if (data.ok) router.refresh();
+      setToast({ ok: true, message: data.message || "Đã cập nhật ảnh đại diện." });
+      router.refresh();
     } catch (error) {
       setToast(reportActionError(error, "Đặt ảnh đại diện"));
     } finally {
@@ -505,17 +516,19 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     }
   }
   async function removeMedia(mediaId: string) {
-    if (!product || dirty || !window.confirm(live ? "Xóa tệp này khỏi sản phẩm đang trên sàn?" : "Xóa tệp nháp này?")) return;
+    if (!product || busy || !canUpload || !window.confirm(live
+      ? "Xóa tệp này khỏi sản phẩm đang trên sàn? Không thể hoàn tác."
+      : "Xóa tệp này khỏi sản phẩm? Không thể hoàn tác.")) return;
     setBusy(true);
     try {
       const response = await fetch(`/api/supplier-portal/products/${product.id}/media?media_id=${encodeURIComponent(mediaId)}`, { method: "DELETE" });
-      if (!response.ok) {
-        setToast({ ok: false, message: `Xóa tệp thất bại (HTTP ${response.status}). Tải lại trang rồi thử lại.` });
+      const data = await response.json().catch(() => null) as { ok?: boolean; message?: string; warning?: boolean } | null;
+      if (!response.ok || !data?.ok) {
+        setToast({ ok: false, message: data?.message || `Xóa tệp thất bại (HTTP ${response.status}). Tải lại trang rồi thử lại.` });
         return;
       }
-      const data = await response.json() as { ok: boolean; message: string };
-      setToast(data);
-      if (data.ok) router.refresh();
+      setToast({ ok: true, warning: data.warning, message: data.message || "Đã xóa tệp khỏi sản phẩm." });
+      router.refresh();
     } catch (error) {
       setToast(reportActionError(error, "Xóa tệp"));
     } finally {
@@ -523,9 +536,40 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     }
   }
 
+  async function deleteDraft() {
+    if (!product || busy || dirty || !canDeleteDraft || !window.confirm(
+      `Xóa vĩnh viễn bản nháp “${product.name}” và các tệp của sản phẩm? Không thể hoàn tác. Sản phẩm có dữ liệu liên quan sẽ không được xóa.`,
+    )) return;
+    setBusy(true);
+    try {
+      const response = await deleteSupplierDraftProductAction(product.id);
+      if (!response.ok) { setToast(response); return; }
+      globalToast.push({ kind: response.warning ? "info" : "success", title: response.message,
+        ...(response.warning ? { lines: ["Tệp còn lại đã được ghi nhận để kiểm tra.", "Vui lòng liên hệ bộ phận hỗ trợ để hoàn tất."] } : {}) });
+      router.push("/supplier/portal/products");
+      router.refresh();
+    } catch (error) {
+      setToast(reportActionError(error, "Xóa bản nháp"));
+    } finally { setBusy(false); }
+  }
+
+  async function pauseProduct() {
+    if (!product || busy || dirty || review !== "approved" || !window.confirm(
+      `Tạm ẩn “${product.name}” khỏi buyer? Sản phẩm và lịch sử được giữ. Khi muốn đăng lại, bạn cần gửi duyệt và chờ phê duyệt.`,
+    )) return;
+    setBusy(true);
+    try {
+      const response = await pauseSupplierProductAction(product.id);
+      setToast(response);
+      if (response.ok) router.refresh();
+    } catch (error) {
+      setToast(reportActionError(error, "Tạm ẩn sản phẩm"));
+    } finally { setBusy(false); }
+  }
+
   const status = PRODUCT_STATUS[review];
   const statusLabel = review === "approved" && !live ? "Đã duyệt, chờ đăng" : status.label;
-  const cover = media.find((m) => m.id === product?.featured_media_id && privateMediaUrl(m)) ??
+  const cover = media.find((m) => m.id === product?.featured_media_id && m.kind === "image" && privateMediaUrl(m)) ??
     media.find((m) => m.kind === "image" && privateMediaUrl(m));
   const coverUrl = cover ? privateMediaUrl(cover) : null;
   const commercial = [
@@ -567,15 +611,21 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       <div className="min-w-0">
         {/* Chỉ trạng thái cần NCC hành động mới hiện thanh: "Đã đăng" đã có nhãn ở thanh đáy và panel bước 3,
             không lặp khối tĩnh sát thanh chọn bước. Kết quả mỗi hành động bắn qua thông báo nổi. */}
-        {(review === "pending" || review === "changes_requested") && <section aria-label="Trạng thái xét duyệt"
-          className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-4 py-2.5 ${review === "changes_requested" ? "border-rose-200 bg-rose-50" : "border-amber-200 bg-amber-50"}`}>
+        {(review === "pending" || review === "changes_requested" || review === "paused") && <section aria-label="Trạng thái xét duyệt"
+          className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-4 py-2.5 ${review === "changes_requested" ? "border-rose-200 bg-rose-50" : review === "paused" ? "border-slate-300 bg-slate-50" : "border-amber-200 bg-amber-50"}`}>
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{statusLabel}</span>
           <p className="min-w-0 flex-1 text-[12px] leading-5 text-ink-700">
             {review === "pending"
               ? "Đã gửi duyệt. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp."
-              : "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."}
+              : review === "paused"
+                ? "Sản phẩm đang ẩn khỏi buyer. Muốn đăng lại, hãy gửi duyệt ở bước 3 và chờ phê duyệt."
+                : "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."}
           </p>
         </section>}
+
+        {legacyManaged && <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12px] leading-5 text-amber-900">
+          Sản phẩm này được quản lý từ trước. Để cập nhật nội dung, hãy tạm ẩn rồi gửi duyệt lại, hoặc liên hệ bộ phận hỗ trợ.
+        </p>}
 
         {product?.supplier_review_note && <p className="mt-2.5 whitespace-pre-wrap rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-800">
           <AlertCircle className="mr-1 inline size-4" aria-hidden="true" /> Yêu cầu chỉnh sửa: {product.supplier_review_note}
@@ -744,12 +794,17 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                     ? <img src={coverUrl} alt="Ảnh đại diện" className="size-full object-cover" />
                     : <span className="flex size-full flex-col items-center justify-center gap-1 text-ink-400"><ImageIcon className="size-6" aria-hidden="true" /><span className="text-[10px] font-semibold">Chưa có ảnh</span></span>}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-bold text-ink-900">Ảnh đại diện</p>
                   <p className="mt-0.5 text-[12px] leading-5 text-ink-600">{canUpload
-                    ? "Ảnh này hiện đầu tiên với buyer. Kéo một ảnh khác từ danh sách vào ô này (hoặc bấm nút sao ở góc ảnh) để thay; ảnh cũ tự về lại danh sách."
+                    ? "Ảnh này hiện đầu tiên với buyer. Kéo ảnh khác vào ô này (hoặc bấm nút sao) để thay; bạn cũng có thể xóa ảnh do mình tải."
                     : "Ảnh này hiện đầu tiên với buyer."}</p>
                 </div>
+                {cover && canDeleteAsset(cover) && <button type="button" disabled={busy} onClick={() => void removeMedia(cover.id)}
+                  aria-label="Xóa ảnh đại diện" title="Xóa ảnh đại diện"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50">
+                  <Trash2 className="size-3.5" aria-hidden="true" /> Xóa ảnh
+                </button>}
               </div>
               {media.filter((asset) => asset.id !== cover?.id).length > 0
                 ? <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{media.filter((asset) => asset.id !== cover?.id).map((asset) => {
@@ -769,7 +824,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                           className="absolute top-2 right-2 rounded-full bg-white/95 p-1.5 text-brand-700 shadow-sm hover:bg-brand-50">
                           <Star className="size-3.5" aria-hidden="true" />
                         </button>}
-                      {canUpload && asset.created_by === userId && (asset.audience === "internal" || review === "approved") &&
+                      {canDeleteAsset(asset) &&
                         <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)} aria-label={`Xóa ${asset.caption || "tệp nháp"}`}
                           className="absolute top-2 left-11 rounded-full bg-white/95 p-1.5 text-rose-700 shadow-sm hover:bg-rose-50">
                           <X className="size-3.5" aria-hidden="true" />
@@ -805,8 +860,9 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 </div>}
               </> : <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12.5px] leading-5 text-amber-900">
                 {!product ? "Lưu thông tin sản phẩm ở bước 1 trước; sau đó quay lại đây để tải ảnh và catalogue."
-                  : dirty ? "Có thay đổi ở bước 1 chưa lưu. Quay lại bước 1 bấm Lưu, rồi chuyển sang bước 2 để tải tệp."
-                  : locked ? "Sản phẩm đang chờ duyệt nên tạm khoá tải tệp — nội dung đang duyệt không thay đổi giữa chừng. Khi được duyệt hoặc bị trả về, bạn tải thêm được ngay."
+                  : dirty ? "Có thay đổi ở bước 1 chưa lưu. Quay lại bước 1 bấm Lưu, rồi chuyển sang bước 2 để quản lý tệp."
+                  : legacyManaged ? "Sản phẩm này được quản lý từ trước nên tài khoản chưa tự sửa được tệp. Liên hệ bộ phận hỗ trợ nếu cần bổ sung ảnh hoặc catalogue."
+                  : locked ? "Sản phẩm đang chờ duyệt nên tạm khoá tải tệp - nội dung đang duyệt không thay đổi giữa chừng. Khi được duyệt hoặc bị trả về, bạn tải thêm được ngay."
                   : "Sản phẩm này được quản lý từ trước nên tài khoản chưa tự sửa được tệp. Liên hệ bộ phận hỗ trợ nếu cần bổ sung ảnh hoặc catalogue."}
               </div>}
               {progress && <p role="status" className="text-[12.5px] font-semibold text-brand-800">{progress}</p>}
@@ -992,6 +1048,22 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           </div>
         </div>
 
+        {product && (canDeleteDraft || review === "approved") && <section aria-label="Quản lý sản phẩm" className="rounded-xl border border-ink-200 bg-white p-3.5">
+          <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Quản lý sản phẩm</p>
+          {canDeleteDraft ? <>
+            <p className="mt-2 text-[11.5px] leading-5 text-ink-600">Xóa vĩnh viễn bản nháp chưa duyệt và tệp của sản phẩm. Không thể hoàn tác.</p>
+            <button type="button" disabled={busy || dirty} onClick={() => void deleteDraft()} className="btn btn-ghost btn-sm mt-2 text-rose-700 disabled:opacity-50">
+              <Trash2 className="size-3.5" aria-hidden="true" /> Xóa bản nháp
+            </button>
+          </> : <>
+            <p className="mt-2 text-[11.5px] leading-5 text-ink-600">Ẩn khỏi buyer, giữ lịch sử. Muốn đăng lại cần gửi duyệt.</p>
+            <button type="button" disabled={busy || dirty} onClick={() => void pauseProduct()} className="btn btn-ghost btn-sm mt-2 text-ink-700 disabled:opacity-50">
+              <EyeOff className="size-3.5" aria-hidden="true" /> Tạm ẩn sản phẩm
+            </button>
+          </>}
+          {dirty && <p className="mt-2 text-[11px] text-amber-800">Lưu hoặc bỏ thay đổi chưa lưu trước khi tiếp tục.</p>}
+        </section>}
+
         <div className="rounded-xl border border-ink-200 bg-ink-50/70 p-3.5">
           <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Luồng duyệt</p>
           <ol className="mt-2 space-y-1.5 text-[11.5px] leading-4 text-ink-600">
@@ -1010,10 +1082,12 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
     {/* Thông báo kết quả mỗi hành động: nổi góc phải phía trên thanh đáy, tự ẩn sau vài giây. */}
     {toast && <div role="status" aria-live="polite"
-      className={`fixed right-4 bottom-24 z-50 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2.5 rounded-xl border px-4 py-3 text-[13px] font-semibold shadow-lg sm:right-6 sm:bottom-28 ${toast.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>
-      {toast.ok
-        ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
-        : <AlertCircle className="mt-0.5 size-4 shrink-0 text-rose-600" aria-hidden="true" />}
+      className={`fixed right-4 bottom-24 z-50 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2.5 rounded-xl border px-4 py-3 text-[13px] font-semibold shadow-lg sm:right-6 sm:bottom-28 ${toast.warning ? "border-amber-200 bg-amber-50 text-amber-900" : toast.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>
+      {toast.warning
+        ? <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden="true" />
+        : toast.ok
+          ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+          : <AlertCircle className="mt-0.5 size-4 shrink-0 text-rose-600" aria-hidden="true" />}
       <span className="min-w-0 flex-1 leading-5">{toast.message}</span>
       <button type="button" onClick={() => setToast(null)} aria-label="Đóng thông báo"
         className="shrink-0 rounded p-0.5 opacity-60 transition hover:opacity-100"><X className="size-4" aria-hidden="true" /></button>

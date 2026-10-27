@@ -29,7 +29,8 @@ const mocks = {
       (p.supplier_review_status === 'approved' || p.supplier_review_status == null),
   },
 };
-vm.runInNewContext(code, { exports, require: (key) => mocks[key], Response, Uint8Array, Headers, process: { env: {} } });
+const runtimeEnv = {};
+vm.runInNewContext(code, { exports, require: (key) => mocks[key], Response, Uint8Array, Headers, process: { env: runtimeEnv } });
 const get = (path = ['products', 'prod-1', 'photo.jpg'], headers = {}) =>
   exports.GET(new Request('https://test.local', { headers }), { params: Promise.resolve({ path }) });
 assert.equal((await get()).status, 200);
@@ -73,4 +74,11 @@ assert.equal((await get(['products', 'prod-1', 'photo.jpg'], { 'if-none-match': 
 assert.equal(downloads, 2, 'Cả 304 lẫn 200-từ-đệm đều không chạm Storage');
 asset = { ...asset, audience: 'internal' };
 assert.equal((await get()).status, 404, 'Thu hồi quyền vẫn thắng bộ đệm: ACL chạy trước khi tra ETag/byte');
+asset = { ...asset, audience: 'buyer' };
+supplier = { status: 'published', is_demo: true }; runtimeEnv.VEXIM_SHOW_DEMO = 'true';
+product = { ...product, supplier_review_status: 'paused', ready_for_buyer: false };
+assert.equal((await get(['products', 'prod-1', 'photo.jpg'], { 'if-none-match': etag })).status, 404,
+  'A paused demo product stays private even when demo bypasses readiness and bytes were cached');
+product = { ...product, supplier_review_status: 'approved' };
+assert.equal((await get()).status, 200, 'An approved demo product can still bypass readiness as before');
 console.log('✅ Product images are public only for buyer-shareable media of a ready product and published supplier.');

@@ -791,6 +791,11 @@ export default async function HomeContent({
                 </Link>
               </li>
               <li>
+                <Link href="/login" prefetch={false} className="hover:text-brand-700">
+                  {isVi ? "Đăng nhập" : "Sign in"}
+                </Link>
+              </li>
+              <li>
                 <Link href="/privacy-policy" className="hover:text-brand-700">
                   {isVi ? "Chính sách bảo mật (Privacy Policy)" : "Privacy Policy"}
                 </Link>

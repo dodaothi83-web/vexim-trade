@@ -457,6 +457,8 @@ export default async function SupplierDetailPage({
                           <Badge className="bg-amber-100 text-amber-900">Chờ Vexim kiểm tra</Badge>
                         ) : pr.supplier_review_status === "changes_requested" ? (
                           <Badge className="bg-orange-50 text-orange-800">Cần NCC sửa</Badge>
+                        ) : pr.supplier_review_status === "paused" ? (
+                          <Badge className="bg-slate-200 text-slate-800">NCC đã tạm ẩn</Badge>
                         ) : pr.ready_for_buyer ? (
                           <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
                         ) : null}

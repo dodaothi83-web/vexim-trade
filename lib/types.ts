@@ -171,6 +171,8 @@ export type ProductEnglishFields = {
 };
 
 /** Hồ sơ sản phẩm riêng của NCC – dùng để so khớp với nhu cầu mua của buyer */
+export type SupplierProductReviewStatus = "draft" | "pending" | "approved" | "changes_requested" | "paused";
+
 export interface SupplierProduct {
   id: string;
   supplier_id: string;
@@ -245,8 +247,8 @@ export interface SupplierProduct {
    * Luôn cần ít nhất một ảnh/catalogue buyer hợp lệ (xem lib/media/readiness.ts).
    */
   ready_for_buyer: boolean;
-  /** Draft/pending cần Vexim xét; approved là sản phẩm đã được đẩy lên sàn. */
-  supplier_review_status?: "draft" | "pending" | "approved" | "changes_requested";
+  /** `paused`: NCC tạm ẩn sản phẩm đã duyệt; muốn đăng lại phải gửi Vexim xét. */
+  supplier_review_status?: SupplierProductReviewStatus;
   supplier_review_note?: string | null;
   /** Bản do NCC tạo: cần Vexim xác nhận lần đầu; sau đó NCC quản lý nội dung/ảnh. Legacy/staff cũ = false. */
   supplier_originated?: boolean;

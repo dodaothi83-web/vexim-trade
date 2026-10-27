@@ -5,6 +5,25 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Check, Globe } from "lucide-react";
 
+import { PublicSignInLink } from "@/components/public-sign-in-link";
+
+function QuoteLink({ isVi = false }: { isVi?: boolean }) {
+  const label = isVi ? "Yêu cầu báo giá" : "Request a quote";
+
+  return (
+    <Link
+      href="/rfq"
+      aria-label={label}
+      lang={isVi ? "vi" : "en"}
+      className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-brand-700 px-3 text-[12px] font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 sm:px-4 sm:text-[13.5px]"
+    >
+      <span className="xl:hidden">{isVi ? "Báo giá" : "Quote"}</span>
+      <span className="hidden xl:inline">{label}</span>
+      <ArrowRight className="hidden h-3.5 w-3.5 xl:block" aria-hidden="true" />
+    </Link>
+  );
+}
+
 function HeaderControlsInner() {
   const pathname = usePathname() || "/";
   const router = useRouter();
@@ -55,7 +74,7 @@ function HeaderControlsInner() {
 
   return (
     <>
-      <nav className="ml-6 hidden items-center gap-6 text-[13.5px] font-medium text-ink-700 md:flex">
+      <nav className="ml-3 hidden items-center gap-3 whitespace-nowrap text-[12px] font-medium text-ink-700 md:flex lg:ml-6 lg:gap-6 lg:text-[13.5px]">
         <Link href={isVi ? "/?lang=vi#categories" : "/#categories"} className="hover:text-brand-700">
           {isVi ? "Danh mục" : "Categories"}
         </Link>
@@ -67,7 +86,7 @@ function HeaderControlsInner() {
         </Link>
       </nav>
 
-      <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-2 lg:gap-3">
         {/* Nút icon quả địa cầu mở dropdown chọn ngôn ngữ (Mặc định: Tiếng Anh) */}
         <div ref={dropdownRef} className="relative">
           <button
@@ -119,13 +138,8 @@ function HeaderControlsInner() {
           )}
         </div>
 
-        <Link
-          href="/rfq"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-brand-700 px-3.5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-brand-800 sm:px-4 sm:text-[13.5px]"
-        >
-          <span>{isVi ? "Yêu cầu báo giá" : "Request a quote"}</span>
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
+        <PublicSignInLink lang={lang} />
+        <QuoteLink isVi={isVi} />
       </div>
     </>
   );
@@ -134,13 +148,13 @@ function HeaderControlsInner() {
 function HeaderControlsFallback() {
   return (
     <>
-      <nav className="ml-6 hidden items-center gap-6 text-[13.5px] font-medium text-ink-700 md:flex">
+      <nav className="ml-3 hidden items-center gap-3 whitespace-nowrap text-[12px] font-medium text-ink-700 md:flex lg:ml-6 lg:gap-6 lg:text-[13.5px]">
         <Link href="/#categories" className="hover:text-brand-700">Categories</Link>
         <Link href="/how-we-verify" className="hover:text-brand-700">How we verify</Link>
         <Link href="/for-suppliers" className="hover:text-brand-700">For suppliers</Link>
       </nav>
 
-      <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-2 lg:gap-3">
         <button
           type="button"
           aria-label="Language switcher / Chuyển đổi ngôn ngữ"
@@ -149,13 +163,8 @@ function HeaderControlsFallback() {
           <Globe className="h-4.5 w-4.5" />
         </button>
 
-        <Link
-          href="/rfq"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-brand-700 px-3.5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-brand-800 sm:px-4 sm:text-[13.5px]"
-        >
-          Request a quote
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
+        <PublicSignInLink />
+        <QuoteLink />
       </div>
     </>
   );

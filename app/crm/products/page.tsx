@@ -259,7 +259,9 @@ export default async function ProductsPage({
                         <Badge className="bg-brand-50 text-brand-700">{r.category || "Khác"}</Badge>
                         {r.supplier_review_status === "pending" && <Badge className="bg-amber-100 text-amber-900">NCC tự đăng · chờ Vexim kiểm tra</Badge>}
                         {r.supplier_review_status === "changes_requested" && <Badge className="bg-orange-50 text-orange-800">Cần NCC sửa</Badge>}
-                        {r.ready_for_buyer ? (
+                        {r.supplier_review_status === "paused" ? (
+                          <Badge className="bg-slate-200 text-slate-800">NCC đã tạm ẩn</Badge>
+                        ) : r.ready_for_buyer ? (
                           <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
                         ) : shareable ? (
                           <Badge className="bg-ink-100 text-ink-600">Chưa bật sẵn sàng gửi buyer</Badge>
