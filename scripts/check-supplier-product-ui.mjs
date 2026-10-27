@@ -89,7 +89,8 @@ const editor = fs.readFileSync(new URL('../app/supplier/portal/products/product-
 assert.match(editor, /productCanSubmit\(product, media\) && !dirty/, 'Nút gửi vẫn phụ thuộc dữ liệu đã lưu');
 assert.match(editor, /productCanSubmit\(product, media\)/);
 assert.doesNotMatch(editor, /aria-label="Trạng thái công khai"/, 'The separate buyer-visibility panel is removed from the editor');
-assert.match(editor, /const canUpload = !!product && !locked && !dirty && \(review !== "approved" \|\| product\.supplier_originated === true\)/, 'Approved supplier-originated products remain editable and accept media');
+assert.match(editor, /const canUpload = !!product && !locked && !dirty;/, 'Đã duyệt — kể cả sản phẩm Vexim quản lý — vẫn hiện khu tải ở bước 2');
+assert.match(editor, /const veximManaged = review === "approved" && product\?\.supplier_originated !== true;/, 'Sản phẩm Vexim quản lý: tệp mới vào Nội bộ chờ Vexim kiểm tra');
 assert.match(editor, /const categoryLocked = review === "approved"/, 'The reviewed category remains staff-controlled');
 assert.ok(editor.includes('<ProductDescriptionEditor') && editor.includes('onChange={onDescriptionDetailChange}'),
   'Supplier detail edits use the shared editor and its existing dirty/snapshot update path');

@@ -12,9 +12,13 @@ import type { MediaKind } from "@/lib/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const fail = (message: string, status = 400) => NextResponse.json({ ok: false, message }, { status });
-const canManage = (product: { supplier_review_status?: string; supplier_originated?: boolean }) =>
+const canManage = (product: { supplier_review_status?: string }) =>
   product.supplier_review_status === "draft" || product.supplier_review_status === "changes_requested" ||
-  (product.supplier_review_status === "approved" && product.supplier_originated === true);
+  product.supplier_review_status === "approved";
+// Sản phẩm Vexim quản lý (không do NCC tự tạo): NCC vẫn được tải tệp, nhưng tệp mới
+// luôn ở chế độ Nội bộ — nhân viên Vexim kiểm tra rồi mới bật chia sẻ buyer.
+const uploadsGoBuyerVisible = (product: { supplier_review_status?: string; ready_for_buyer?: boolean; supplier_originated?: boolean }) =>
+  product.supplier_review_status === "approved" && product.ready_for_buyer === true && product.supplier_originated === true;
 
 /** Draft files stay private; files added to an approved product are buyer-visible. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -51,7 +55,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (prepared && thumbPath) await putObject(thumbPath, prepared.thumb, "image/webp");
     const row = await access.store.createMedia({
       owner_type: "product", product_id: id, supplier_id: access.supplier.id, verification_id: null,
-      checklist_key: null, kind, audience: fresh.supplier_review_status === "approved" && fresh.ready_for_buyer ? "buyer" : "internal", status: "unverified", expires_on: null,
+      checklist_key: null, kind, audience: uploadsGoBuyerVisible(fresh) ? "buyer" : "internal", status: "unverified", expires_on: null,
       caption: file.name.slice(0, 150), storage_path: path, thumb_path: thumbPath, external_url: null,
       mime: prepared ? "image/webp" : checked.mime, bytes: prepared?.main.length ?? bytes.length,
       width: prepared?.width ?? null, height: prepared?.height ?? null, sort_order: current.length,

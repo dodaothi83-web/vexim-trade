@@ -227,7 +227,8 @@ assert.match(source, /saveSupplierProductAction\(form\)/, 'Vẫn lưu qua saveSu
 assert.match(source, /submitSupplierProductAction\(form\)/, 'Vẫn nộp qua submitSupplierProductAction');
 assert.match(source, /productCanSubmit\(product, media\) && !dirty/, 'Nút nộp vẫn phụ thuộc điều kiện dữ liệu');
 assert.doesNotMatch(source, /Lưu thay đổi sẽ đưa sản phẩm về bản nháp/, 'Sửa sản phẩm đã duyệt không còn tự rút khỏi sàn');
-assert.match(source, /const canUpload = !!product && !locked && !dirty && \(review !== "approved" \|\| product\.supplier_originated === true\)/, 'Sản phẩm NCC đã duyệt vẫn tải được ảnh');
+assert.match(source, /const canUpload = !!product && !locked && !dirty;/, 'Sản phẩm NCC đã duyệt vẫn tải được ảnh — kể cả sản phẩm Vexim quản lý');
+assert.match(source, /Nội bộ — sẽ được kiểm tra trước khi chia sẻ cho buyer/, 'Gợi ý bước 2 nói rõ tệp Vexim-managed vào Nội bộ trước');
 assert.ok(source.includes('useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "")'),
   'Danh mục staff đã duyệt được ưu tiên khi mở lại editor');
 assert.match(source, /Bạn có thay đổi chưa lưu/, 'Vẫn cảnh báo rời trang khi chưa lưu');

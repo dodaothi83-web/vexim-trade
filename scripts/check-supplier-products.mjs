@@ -275,6 +275,21 @@ assert.equal((await review.decideSupplierProductAction(retry)).ok, false, 'A liv
 assert.equal(notices.length, publishedNoticeCount, 'Rejected duplicate retry sends no notification');
 assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), { params: Promise.resolve({ id: productId }) })).status, 409,
   'The last buyer file cannot be removed from a live product');
+// Quy tắc tải tệp cho sản phẩm đã duyệt: khu tải bước 2 không còn ẩn với sản phẩm Vexim quản lý.
+// NCC tải được tệp, nhưng tệp mới vào Nội bộ — Vexim kiểm tra rồi mới chia sẻ buyer.
+product.supplier_originated = false;
+assert.equal(await postMedia(), 200, 'Supplier can upload to a Vexim-managed approved product');
+assert.equal(files.at(-1).audience, 'internal', 'Uploads on Vexim-managed products stay internal until staff shares them');
+assert.equal(files.at(-1).status, 'unverified');
+product.supplier_review_status = 'pending';
+assert.equal(await postMedia(), 409, 'Pending review still locks uploads');
+product.supplier_review_status = 'approved';
+product.supplier_originated = true;
+assert.equal(await postMedia(), 200, 'Supplier-originated live products keep direct uploads');
+assert.equal(files.at(-1).audience, 'buyer', 'Supplier-originated live uploads remain buyer-visible');
+const editorSource = fs.readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
+assert.doesNotMatch(editorSource, /canUpload[^\n]*supplier_originated/, 'The step-2 upload area is no longer hidden for Vexim-managed approved products');
+assert.match(editorSource, /Nội bộ — sẽ được kiểm tra trước khi chia sẻ cho buyer/, 'The hint explains the internal-until-reviewed rule');
 const productView = load('../lib/supplier-portal/product-view.ts', {});
 const visibleFiles = productView.supplierVisibleProductMedia([
   { ...files[0], owner_type: 'product', supplier_id: supplierId, created_by: user.id, kind: 'image' },

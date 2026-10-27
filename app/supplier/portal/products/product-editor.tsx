@@ -187,12 +187,17 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
   const review = product ? productReview(product) : "draft";
   const live = review === "approved" && product?.ready_for_buyer === true;
+  // Tệp NCC tải lên chỉ hiện buyer ngay trên sản phẩm NCC tự tạo; sản phẩm do nhân viên
+  // nhập thì tệp mới vào Nội bộ chờ kiểm tra (khớp canManage/audience ở API media).
+  const uploadsGoLive = live && product?.supplier_originated === true;
   const locked = review === "pending";
   const ownedCount = media.filter((m) => m.created_by === userId).length;
   const hasDetails = !!product && !!(product.spec?.trim() || product.description?.trim());
   const hasMedia = media.some((m) => (m.kind === "image" || m.kind === "catalogue") && !!m.storage_path);
   const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
-  const canUpload = !!product && !locked && !dirty && (review !== "approved" || product.supplier_originated === true);
+  const canUpload = !!product && !locked && !dirty;
+  // Sản phẩm đã duyệt do nhân viên nhập liệu: NCC vẫn tải được tệp; tệp mới vào Nội bộ chờ duyệt.
+  const veximManaged = review === "approved" && product?.supplier_originated !== true;
   const categoryLocked = review === "approved";
   const activeCategory = categories.find((c) => c.slug === (selectedCategory || product?.category || ""));
   const categoryLabel = activeCategory?.label ?? product?.category ?? "Chưa chọn danh mục";
@@ -415,9 +420,11 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         uploaded++;
       }
       setSelected([]);
-      setUploadResult(live
+      setUploadResult(uploadsGoLive
         ? `Đã tải ${uploaded} tệp lên sản phẩm đã đăng.`
-        : `Đã tải ${uploaded} tệp. Tệp sẽ được kiểm tra khi duyệt.`);
+        : veximManaged
+          ? `Đã tải ${uploaded} tệp ở chế độ Nội bộ — sẽ được kiểm tra trước khi chia sẻ cho buyer.`
+          : `Đã tải ${uploaded} tệp. Tệp sẽ được kiểm tra khi duyệt.`);
     } catch (error) {
       if (uploaded) setSelected(selected.slice(uploaded));
       setUploadResult(`${uploaded ? `Đã tải ${uploaded} tệp; chỉ còn tệp chưa hoàn tất trong danh sách chọn. ` : ""}${error instanceof Error ? error.message : "Không kết nối được máy chủ."}`);
@@ -428,7 +435,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     }
   }
   async function removeMedia(mediaId: string) {
-    if (!product || dirty || !window.confirm(live ? "Xóa tệp này khỏi sản phẩm đang trên sàn?" : "Xóa tệp nháp này?")) return;
+    if (!product || dirty || !window.confirm(uploadsGoLive ? "Xóa tệp này khỏi sản phẩm đang trên sàn?" : "Xóa tệp nháp này?")) return;
     setBusy(true);
     setUploadResult("");
     try {
@@ -669,11 +676,13 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
         <section data-step-panel={2} className={step === 2 ? "space-y-3" : "hidden"} aria-label="Bước 2: Ảnh và catalogue" id="product-media">
           <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
             <SectionHead step="Bước 2" title="Ảnh và catalogue"
-              hint={live
+              hint={uploadsGoLive
                 ? "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp tải lên sẽ hiển thị với buyer trên sản phẩm đã đăng."
-                : review === "approved"
-                  ? "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp tải lên ở chế độ nội bộ khi chờ đăng."
-                  : "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp được kiểm tra khi duyệt."} />
+                : veximManaged
+                  ? "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp tải lên ở chế độ Nội bộ — sẽ được kiểm tra trước khi chia sẻ cho buyer."
+                  : review === "approved"
+                    ? "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp tải lên ở chế độ nội bộ khi chờ đăng."
+                    : "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp được kiểm tra khi duyệt."} />
             <div className="space-y-4 px-4 py-4 sm:px-5">
               {media.length > 0
                 ? <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{media.map((asset) => {
