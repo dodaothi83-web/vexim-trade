@@ -344,6 +344,27 @@ export const supabaseStore: DataStore = {
     const { error } = await must().from("supplier_products").delete().eq("id", id);
     if (error) fail("deleteProduct", error);
   },
+  async updateSupplierProductIfState(id, supplierId, expected, patch) {
+    let query = must().from("supplier_products")
+      .update({ ...cleanPatch(patch), updated_at: new Date().toISOString() })
+      .eq("id", id).eq("supplier_id", supplierId).eq("ready_for_buyer", expected.ready);
+    query = expected.review === null
+      ? query.is("supplier_review_status", null)
+      : query.eq("supplier_review_status", expected.review);
+    const { data, error } = await query.select().maybeSingle();
+    if (error) fail("updateSupplierProductIfState", error);
+    return (data as SupplierProduct | null) ?? null;
+  },
+  async deleteSupplierDraftProduct(id, supplierId) {
+    const { data, error } = await must().rpc("delete_supplier_draft_product", {
+      p_product_id: id, p_supplier_id: supplierId,
+    });
+    if (error) fail("deleteSupplierDraftProduct", error);
+    if (data?.status === "deleted" && Array.isArray(data.paths))
+      return { status: "deleted", paths: data.paths.filter((path: unknown): path is string => typeof path === "string") };
+    if (data?.status === "not_deletable" || data?.status === "has_links") return { status: data.status };
+    throw new Error("Kết quả xóa bản nháp không hợp lệ.");
+  },
 
   async listUsers() {
     const cols =
@@ -613,6 +634,17 @@ export const supabaseStore: DataStore = {
   async deleteMedia(id) {
     const { error } = await must().from("media_assets").delete().eq("id", id);
     if (error) fail("deleteMedia", error);
+  },
+  async deleteSupplierProductMedia(productId, supplierId, userId, mediaId) {
+    const { data, error } = await must().rpc("delete_supplier_product_media", {
+      p_product_id: productId, p_supplier_id: supplierId, p_user_id: userId, p_media_id: mediaId,
+    });
+    if (error) fail("deleteSupplierProductMedia", error);
+    if (data?.status === "deleted" && Array.isArray(data.paths) &&
+        ["image", "catalogue", "certificate", "document", "video"].includes(data.kind))
+      return { status: "deleted", kind: data.kind, paths: data.paths.filter((path: unknown): path is string => typeof path === "string") };
+    if (["forbidden", "state_changed", "last_file", "has_links"].includes(data?.status)) return { status: data.status };
+    throw new Error("Kết quả xóa tệp không hợp lệ.");
   },
 
   async listBuyers() {

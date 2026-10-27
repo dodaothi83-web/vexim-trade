@@ -110,6 +110,7 @@ export default async function SupplierPortal() {
   const pendingCount = products.filter((p) => productReview(p) === "pending").length;
   const draftCount = products.filter((p) => productReview(p) === "draft").length;
   const changesCount = products.filter((p) => productReview(p) === "changes_requested").length;
+  const pausedCount = products.filter((p) => productReview(p) === "paused").length;
   const l1Approved = reviews.some((v) => v.target_level === 1 && v.status === "approved");
   const l2Approved = reviews.some((v) => v.target_level === 2 && v.status === "approved");
   const l3Approved = reviews.some((v) => v.target_level === 3 && v.status === "approved");
@@ -172,7 +173,7 @@ export default async function SupplierPortal() {
       <Kpi href="/supplier/portal/products" icon={<Package className="h-4 w-4" />} label="Sản phẩm đã duyệt nội dung" value={approvedCount}
         note={`Trên ${products.length} sản phẩm trong gian hàng`} />
       <Kpi href="/supplier/portal/products" icon={<Clock3 className="h-4 w-4" />} label="Đang chờ duyệt" value={pendingCount}
-        note={`${draftCount} bản nháp · ${changesCount} cần chỉnh sửa`} attention={pendingCount > 0 || changesCount > 0} />
+        note={`${draftCount} bản nháp · ${changesCount} cần chỉnh sửa · ${pausedCount} tạm ẩn`} attention={pendingCount > 0 || changesCount > 0} />
       <Kpi href="/supplier/portal/rfqs" icon={<Mail className="h-4 w-4" />} label="RFQ cần bạn phản hồi" value={board.tasks.length}
         note={nextDueAt ? `Hạn gần nhất ${date(nextDueAt)}` : overdueDueAt ? `Có RFQ quá hạn từ ${date(overdueDueAt)}` : "Không có hạn nào đang mở"} attention={board.tasks.length > 0} />
       <Kpi href="/supplier/portal/rfqs?range=30" icon={<ChartNoAxesColumn className="h-4 w-4" />} label="RFQ nhận trong 30 ngày" value={board.report.sent}

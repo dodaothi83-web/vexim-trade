@@ -47,6 +47,7 @@ import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
 import { PREVIEW_PEPPER_HARVEST, previewCategories, previewSeedRows } from "@/lib/db/preview-seed";
 import { DEMO_SUPPLIERS } from "@/lib/db/demo-suppliers";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
+import { isExpired } from "@/lib/media/readiness";
 import {
   CASHEW_CATEGORY_CONFIG,
   DEFAULT_CATEGORY_CONFIG,
@@ -1053,6 +1054,40 @@ export const localStore: DataStore = {
       db.media = db.media.filter((m) => m.product_id !== id);
     });
   },
+  async updateSupplierProductIfState(id, supplierId, expected, patch) {
+    return mutate((db) => {
+      const row = db.products.find((p) => p.id === id && p.supplier_id === supplierId);
+      if (!row || (row.supplier_review_status ?? null) !== expected.review || row.ready_for_buyer !== expected.ready) return null;
+      Object.assign(row, cleanPatch(patch), { updated_at: new Date().toISOString() });
+      return row;
+    });
+  },
+  async deleteSupplierDraftProduct(id, supplierId) {
+    return mutate((db) => {
+      const row = db.products.find((p) => p.id === id && p.supplier_id === supplierId);
+      if (!row || row.supplier_review_status !== "draft" || row.supplier_originated !== true ||
+          row.ready_for_buyer !== false || row.reviewed_category_slug != null) return { status: "not_deletable" };
+      const assets = db.media.filter((m) => m.product_id === id);
+      const assetIds = new Set(assets.map((m) => m.id));
+      const assetPaths = new Set(assets.flatMap((m) => [m.storage_path, m.thumb_path]).filter((p): p is string => !!p));
+      const linked = assets.some((m) => m.owner_type !== "product" || m.supplier_id !== supplierId) ||
+        db.rfqs.some((r) => r.source_product_id === id) ||
+        db.audit_log.some((a) => a.entity === "product" && a.entity_id === id &&
+          ["supplier.product_approved", "supplier.product_published", "supplier.product_paused"].includes(a.action)) ||
+        db.sponsored_pushes.some((p) => p.product_id === id) ||
+        db.certificates.some((c) => c.requested_product_ids?.includes(id) || c.approved_product_ids?.includes(id) ||
+          (c.file_media_id && assetIds.has(c.file_media_id))) ||
+        db.supplier_submission_items.some((item) => (item.media_id && assetIds.has(item.media_id)) ||
+          (item.storage_path && assetPaths.has(item.storage_path)) || (item.thumb_path && assetPaths.has(item.thumb_path))) ||
+        db.products.some((p) => p.id !== id && ((p.featured_media_id && assetIds.has(p.featured_media_id)) ||
+          p.images?.some((mediaId) => assetIds.has(mediaId))));
+      if (linked) return { status: "has_links" };
+      const paths = [...new Set(assets.flatMap((m) => [m.storage_path, m.thumb_path]).filter((path): path is string => !!path))];
+      db.products = db.products.filter((p) => p.id !== id);
+      db.media = db.media.filter((m) => m.product_id !== id);
+      return { status: "deleted", paths };
+    });
+  },
 
   async listBuyers() {
     return [...load().buyers].sort(
@@ -1450,6 +1485,35 @@ export const localStore: DataStore = {
   async deleteMedia(id) {
     mutate((db) => {
       db.media = db.media.filter((m) => m.id !== id);
+      // Giống FK ON DELETE SET NULL của Supabase khi xóa ảnh đại diện.
+      for (const product of db.products) if (product.featured_media_id === id) product.featured_media_id = null;
+    });
+  },
+  async deleteSupplierProductMedia(productId, supplierId, userId, mediaId) {
+    return mutate((db) => {
+      const product = db.products.find((p) => p.id === productId && p.supplier_id === supplierId);
+      if (!product || !(product.supplier_review_status === "draft" || product.supplier_review_status === "changes_requested" ||
+          ((product.supplier_review_status === "approved" || product.supplier_review_status === "paused") && product.supplier_originated === true)))
+        return { status: "state_changed" };
+      const asset = db.media.find((m) => m.id === mediaId);
+      if (!asset || asset.owner_type !== "product" || asset.product_id !== productId || asset.supplier_id !== supplierId ||
+          asset.created_by !== userId || (product.supplier_review_status === "draft" && asset.audience !== "internal"))
+        return { status: "forbidden" };
+      if (product.supplier_review_status === "approved" && product.ready_for_buyer && asset.audience === "buyer") {
+        const replacement = db.media.some((m) => m.id !== mediaId && m.owner_type === "product" && m.product_id === productId &&
+          m.supplier_id === supplierId && (m.kind === "image" || m.kind === "catalogue") && m.audience === "buyer" &&
+          !!m.storage_path && !isExpired(m));
+        if (!replacement) return { status: "last_file" };
+      }
+      const paths = [asset.storage_path, asset.thumb_path].filter((p): p is string => !!p);
+      const linked = db.certificates.some((c) => c.file_media_id === mediaId) ||
+        db.supplier_submission_items.some((i) => i.media_id === mediaId ||
+          (!!i.storage_path && paths.includes(i.storage_path)) || (!!i.thumb_path && paths.includes(i.thumb_path))) ||
+        db.products.some((p) => p.id !== productId && (p.featured_media_id === mediaId || p.images?.includes(mediaId)));
+      if (linked) return { status: "has_links" };
+      db.media = db.media.filter((m) => m.id !== mediaId);
+      if (product.featured_media_id === mediaId) product.featured_media_id = null;
+      return { status: "deleted", kind: asset.kind, paths };
     });
   },
 

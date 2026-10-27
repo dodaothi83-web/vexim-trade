@@ -54,7 +54,8 @@ export default async function EditProductPage({
   // Match the category catalog: a published test profile is still not a real commercial supplier.
   const commercialSupplier = !isSyntheticSupplier(supplier) ||
     (!!supplier.is_demo && process.env.VEXIM_SHOW_DEMO === "true");
-  const supplierReviewedListing = !!(product.supplier_originated || product.supplier_category_proposal);
+  // Cả sản phẩm CRM cũ đã được NCC tạm ẩn đều phải qua luồng duyệt khi đăng lại.
+  const supplierReviewedListing = !!(product.supplier_originated || product.supplier_category_proposal || product.supplier_review_status === "paused");
   const needsPublicationRetry = supplierReviewedListing && product.supplier_review_status === "approved" && !product.ready_for_buyer;
   const needsPublicationAction = supplierReviewedListing && (product.supplier_review_status === "pending" || needsPublicationRetry);
   const canView = productReviewApproved(product) && supplier.status === "published" && categoryPublished &&
@@ -172,10 +173,12 @@ export default async function EditProductPage({
             origin={translationState.origin}
           />
           {product.supplier_review_status && (product.supplier_review_status !== "approved" || needsPublicationRetry) && <section id="product-review" className="card scroll-mt-24 border-amber-200 bg-amber-50 p-5 text-sm">
-            <h2 className="font-bold text-ink-900">{needsPublicationAction ? "Duyệt và đăng" : product.supplier_review_status === "changes_requested" ? "Cần chỉnh sửa" : "Bản nháp"}</h2>
+            <h2 className="font-bold text-ink-900">{needsPublicationAction ? "Duyệt và đăng" : product.supplier_review_status === "changes_requested" ? "Cần chỉnh sửa" : product.supplier_review_status === "paused" ? "NCC đã tạm ẩn" : "Bản nháp"}</h2>
             <p className="mt-1 text-ink-700">{needsPublicationAction
               ? "Kiểm tra nội dung, danh mục và tệp. Một thao tác sẽ hoàn tất việc đăng sản phẩm."
-              : "Sản phẩm chưa được đăng. NCC cần chỉnh sửa và gửi duyệt lại."}</p>
+              : product.supplier_review_status === "paused"
+                ? "Sản phẩm đang ẩn. NCC phải gửi duyệt lại trước khi Vexim có thể đăng."
+                : "Sản phẩm chưa được đăng. NCC cần chỉnh sửa và gửi duyệt lại."}</p>
             {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
             {needsPublicationAction && (session.role === "admin" || session.role === "sourcing") &&
               <SupplierProductReviewControls

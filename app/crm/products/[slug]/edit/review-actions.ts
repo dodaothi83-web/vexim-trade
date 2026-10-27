@@ -84,14 +84,17 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
         return { ok: false, message: `Còn ${mediaReview.uncheckedBuyerFiles} tệp chia sẻ buyer chưa được xác minh. Chọn Đã kiểm tra hoặc chuyển tệp về Nội bộ.` };
       }
     }
-    await store.updateProduct(id, {
-      supplier_review_status: decision as "approved" | "changes_requested",
-      supplier_review_note: decision === "approved" ? null : note, ready_for_buyer: decision === "approved",
-      reviewed_category_slug: reviewedCategory, ...(reviewedCategory ? { category: reviewedCategory } : {}),
-    });
+    const previous = { review: product.supplier_review_status ?? null, category: product.reviewed_category_slug, ready: product.ready_for_buyer };
+    const updated = await store.updateSupplierProductIfState(id, product.supplier_id,
+      { review: previous.review, ready: previous.ready }, {
+        supplier_review_status: decision as "approved" | "changes_requested",
+        supplier_review_note: decision === "approved" ? null : note, ready_for_buyer: decision === "approved",
+        reviewed_category_slug: reviewedCategory, ...(reviewedCategory ? { category: reviewedCategory } : {}),
+      });
+    if (!updated) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi xét duyệt." };
     await store.addAuditLog({ actor_id: session.uid, actor_email: session.email,
       entity: "product", entity_id: id, action: retryApprovedPublication ? "supplier.product_published" : decision === "approved" ? "supplier.product_approved" : "supplier.product_changes_requested",
-      before: { review: product.supplier_review_status, category: product.reviewed_category_slug, ready: product.ready_for_buyer },
+      before: previous,
       after: { review: decision, category: reviewedCategory, note: decision === "approved" ? null : note, ready: decision === "approved" } })
       .catch((error) => console.error("[supplier-product-review] audit", error));
     const mail = await notifySupplierDecision({ supplierId: product.supplier_id, entityId: id, name: product.name,
@@ -100,6 +103,9 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
     revalidatePath(`/crm/products/${id}/edit`);
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath("/supplier/portal/products");
+    revalidatePath("/products", "layout");
+    revalidatePath("/suppliers", "layout");
+    revalidatePath("/");
     refreshCrmBadges();
     return { ok: true, message: (decision === "approved" ? "Đã duyệt và đăng sản phẩm." : "Đã yêu cầu NCC chỉnh sửa.") + (mail === "sent" ? "" : " Chưa gửi được email cho NCC. Sản phẩm vẫn được lưu theo trạng thái mới.") };
   } catch (error) { console.error("[supplier-product-review]", error); return { ok: false, message: "Không lưu được quyết định." }; }

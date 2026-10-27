@@ -1542,7 +1542,7 @@ export async function updateProductAction(
     if (!existing) return { ok: false, message: "Không tìm thấy sản phẩm." };
     // Supplier products use one staff action to publish. A normal form save
     // cannot switch the internal readiness flag or bypass that action.
-    const supplierProduct = !!(existing.supplier_originated || existing.supplier_category_proposal);
+    const supplierProduct = !!(existing.supplier_originated || existing.supplier_category_proposal || existing.supplier_review_status === "paused");
     if (supplierProduct) {
       input.ready_for_buyer = existing.ready_for_buyer;
       input.reviewed_category_slug = existing.reviewed_category_slug ?? null;
@@ -1595,7 +1595,9 @@ export async function updateProductAction(
         }
       }
     }
-    await store.updateProduct(id, input);
+    const updated = await store.updateSupplierProductIfState(id, existing.supplier_id,
+      { review: existing.supplier_review_status ?? null, ready: existing.ready_for_buyer }, input);
+    if (!updated) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi lưu." };
     const warning = await syncSupplierIndustries(existing.supplier_id);
     revalidateAll();
     const categoryNotice = existing.reviewed_category_slug

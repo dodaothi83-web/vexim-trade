@@ -1,6 +1,6 @@
-import type { MediaAsset, SupplierProduct } from "@/lib/types";
+import type { MediaAsset, SupplierProduct, SupplierProductReviewStatus } from "@/lib/types";
 
-export type ProductReviewFilter = "all" | "draft" | "pending" | "changes_requested" | "approved";
+export type ProductReviewFilter = "all" | SupplierProductReviewStatus;
 
 export const SUPPLIER_PRODUCTS_PER_PAGE = 15;
 
@@ -22,6 +22,7 @@ export const PRODUCT_STATUS: Record<Exclude<ProductReviewFilter, "all">, { label
   pending: { label: "Chờ duyệt", tone: "bg-amber-100 text-amber-900" },
   changes_requested: { label: "Cần chỉnh sửa", tone: "bg-rose-100 text-rose-800" },
   approved: { label: "Đã đăng", tone: "bg-emerald-100 text-emerald-800" },
+  paused: { label: "Đã tạm ẩn", tone: "bg-slate-200 text-slate-800" },
 };
 
 /** Existing staff-managed products predate moderation; migration treats them as approved. */
@@ -41,7 +42,7 @@ export function privateMediaUrl(asset: MediaAsset): string | null {
 }
 
 export function productCanSubmit(product: SupplierProduct, media: MediaAsset[]): boolean {
-  return ["draft", "changes_requested"].includes(productReview(product)) &&
+  return ["draft", "changes_requested", "paused"].includes(productReview(product)) &&
     !!(product.name.trim() && (product.description?.trim() || product.spec?.trim())) &&
     media.some((asset) => (asset.kind === "image" || asset.kind === "catalogue") && !!asset.storage_path && asset.supplier_id === product.supplier_id);
 }

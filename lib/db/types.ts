@@ -37,6 +37,7 @@ import type {
   SupplierCategory,
   SupplierProduct,
   SupplierProductInput,
+  SupplierProductReviewStatus,
   TemplateOverride,
   ProspectOutreachTemplate,
   Post,
@@ -44,6 +45,14 @@ import type {
   PostStatus,
   Verification,
 } from "@/lib/types";
+
+export type SupplierDraftDeleteResult =
+  | { status: "deleted"; paths: string[] }
+  | { status: "not_deletable" | "has_links" };
+
+export type SupplierMediaDeleteResult =
+  | { status: "deleted"; paths: string[]; kind: MediaAsset["kind"] }
+  | { status: "forbidden" | "state_changed" | "last_file" | "has_links" };
 
 export interface DataStore {
   mode: "supabase" | "local";
@@ -62,6 +71,14 @@ export interface DataStore {
   createProduct(input: SupplierProductInput): Promise<SupplierProduct>;
   updateProduct(id: string, patch: Partial<SupplierProductInput>): Promise<SupplierProduct>;
   deleteProduct(id: string): Promise<void>;
+  /** Compare-and-set: không ghi đè trạng thái duyệt/ẩn vừa thay đổi ở một tab khác. */
+  updateSupplierProductIfState(
+    id: string, supplierId: string,
+    expected: { review: SupplierProductReviewStatus | null; ready: boolean },
+    patch: Partial<SupplierProductInput>,
+  ): Promise<SupplierProduct | null>;
+  /** Chỉ xóa nháp thuộc NCC, chưa có lịch sử liên quan; trả đường dẫn tệp để dọn kho. */
+  deleteSupplierDraftProduct(id: string, supplierId: string): Promise<SupplierDraftDeleteResult>;
 
   listBuyers(): Promise<Buyer[]>;
   getBuyer(id: string): Promise<Buyer | null>;
@@ -155,6 +172,8 @@ export interface DataStore {
   createMedia(input: MediaInput): Promise<MediaAsset>;
   updateMedia(id: string, patch: Partial<MediaInput>): Promise<MediaAsset>;
   deleteMedia(id: string): Promise<void>;
+  /** Xóa tệp NCC trong transaction cùng kiểm tra trạng thái và tệp buyer cuối. */
+  deleteSupplierProductMedia(productId: string, supplierId: string, userId: string, mediaId: string): Promise<SupplierMediaDeleteResult>;
 
   listActivities(buyerId?: string): Promise<Activity[]>;
   addActivity(input: {

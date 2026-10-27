@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, BadgeCheck, ChevronLeft, ChevronRight, Clock3, FileText, ImageIcon, PackagePlus, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, BadgeCheck, ChevronLeft, ChevronRight, Clock3, EyeOff, FileText, ImageIcon, PackagePlus, Plus, Search, SlidersHorizontal } from "lucide-react";
 import type { MediaAsset, SupplierProduct } from "@/lib/types";
 import { PRODUCT_STATUS, SUPPLIER_PRODUCTS_PER_PAGE, privateMediaUrl, productReview, supplierProductPage, type ProductReviewFilter } from "@/lib/supplier-portal/product-view";
 
 const FILTERS: { id: ProductReviewFilter; label: string }[] = [
   { id: "all", label: "Tất cả" }, { id: "draft", label: "Bản nháp" },
   { id: "pending", label: "Chờ duyệt" }, { id: "changes_requested", label: "Cần sửa" },
-  { id: "approved", label: "Đã đăng" },
+  { id: "approved", label: "Đã đăng" }, { id: "paused", label: "Đã tạm ẩn" },
 ];
 
 function money(product: SupplierProduct) {
@@ -64,14 +64,15 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
       <Link href="/supplier/portal/categories" className="font-bold underline">Chọn thêm danh mục</Link>
     </p>}
 
-    {/* 5 thẻ stat gọn trên cùng một hàng: icon chip màu theo trạng thái (khớp nhãn lưới bên dưới), số nhỏ để bớt thô. */}
-    <section aria-label="Tổng quan sản phẩm" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+    {/* Thống kê theo trạng thái, kể cả sản phẩm đang tạm ẩn. */}
+    <section aria-label="Tổng quan sản phẩm" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
       {[
         { label: "Tổng sản phẩm", value: counts.all, icon: PackagePlus, tone: "bg-brand-50 text-brand-700" },
         { label: "Bản nháp", value: counts.draft, icon: FileText, tone: "bg-slate-100 text-slate-700" },
         { label: "Chờ duyệt", value: counts.pending, icon: Clock3, tone: "bg-amber-100 text-amber-900" },
         { label: "Cần chỉnh sửa", value: counts.changes_requested, icon: SlidersHorizontal, tone: "bg-rose-100 text-rose-800" },
         { label: "Đã đăng", value: counts.approved, icon: BadgeCheck, tone: "bg-emerald-100 text-emerald-800" },
+        { label: "Đã tạm ẩn", value: counts.paused, icon: EyeOff, tone: "bg-slate-200 text-slate-800" },
       ].map((item) => <div key={item.label} className="flex items-center gap-3 rounded-xl border border-ink-200 bg-white px-3.5 py-3">
         <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><item.icon className="size-4" aria-hidden="true" /></span>
         <span className="min-w-0"><p className="truncate text-[11px] font-semibold text-ink-600">{item.label}</p>
