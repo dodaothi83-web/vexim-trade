@@ -62,7 +62,7 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
         body: JSON.stringify({ submit: false }),
       });
       const data = await response.json() as { ok?: boolean; message?: string };
-      setMessage({ ok: Boolean(response.ok), text: data.message ?? (response.ok ? "Đã quét lại." : "Không quét được.") });
+      setMessage({ ok: Boolean(response.ok && data.ok), text: data.message ?? (response.ok && data.ok ? "Đã quét lại." : "Không quét được.") });
       router.refresh();
     } catch {
       setMessage({ ok: false, text: "Không kết nối được máy chủ." });

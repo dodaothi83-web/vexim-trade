@@ -84,6 +84,30 @@ const photoButtonAt = factoryCard.indexOf('Chụp hoặc chọn ảnh</button>')
 assert.ok(codeNoteAt >= 0 && photoButtonAt > codeNoteAt, 'Lưu ý tờ mã nằm trên nút tải ảnh');
 assert.match(factoryCard, /mt-auto space-y-1\.5 pt-1/, 'Nút tải nằm sát đáy thẻ để các nút thẳng hàng');
 
+// Old `hard` AI flags are suggestions, not claims the supplier must fix an item.
+const aiRow = { ...row, key: 'factory_gate', label: 'Cổng nhà máy', mime: 'image/jpeg', isPdf: false,
+  flags: [
+    { flag: 'code_missing', label: 'Không thấy tờ mã', severity: 'hard', source: 'ai', detail: 'AI chưa thấy tờ mã' },
+    { flag: 'no_gps', label: 'Không có GPS', severity: 'hard', source: 'gps', detail: 'Không bắt buộc' },
+  ],
+  aiVerdict: 'fail', aiReason: 'AI chưa thấy tờ mã', aiCodeVisible: false };
+const aiView = { ...l2View, ready: true, code: 'VX-L2-ABCD-EFGH', items: [aiRow], uploadedTotal: 1,
+  aiSummary: 'AI tóm tắt lần quét', aiFindings: ['AI nghi ảnh dàn dựng'], aiFindingsMayBeOutdated: true };
+const aiHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: aiView, specs: l2Specs }));
+assert.match(aiHtml, /AI:.*cần kiểm tra/);
+assert.match(aiHtml, /AI lưu ý/);
+assert.match(aiHtml, /2 điểm cần lưu ý/);
+assert.doesNotMatch(aiHtml, /điểm bắt buộc cần sửa|AI:.*không đạt/);
+assert.match(aiHtml, /AI chỉ gợi ý, không tự trả hay duyệt/);
+assert.match(aiHtml, /AI tóm tắt lần quét/);
+assert.match(aiHtml, /AI nghi ảnh dàn dựng/, 'Gợi ý AI vẫn hiển thị sau khi tải lại trang');
+assert.match(aiHtml, /Kết quả quét trước có thể không khớp ảnh hiện tại/);
+const needsCodeView = { ...l2View, missing: [], ready: false };
+const needsCodeHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: needsCodeView, specs: l2Specs }));
+assert.match(needsCodeHtml, /Cần kiểm tra mã/);
+assert.doesNotMatch(needsCodeHtml, /thiếu 0 mục/i);
+
+
 const staffProps = { submissionId: 'sub', status: 'pending_review', canReview: true, verificationHref: null, aiEnabled: true };
 const staffL3 = renderToStaticMarkup(React.createElement(SubmissionReviewActions, { ...staffProps, level: 3 }));
 const staffL2 = renderToStaticMarkup(React.createElement(SubmissionReviewActions, { ...staffProps, level: 2 }));

@@ -24,7 +24,7 @@ const mocks = {
   '@/lib/db/preview-seed': { PREVIEW_PEPPER_HARVEST: null, previewCategories: () => [], previewSeedRows: () => ({ suppliers: [], products: [] }) },
   '@/lib/db/demo-suppliers': { DEMO_SUPPLIERS: [] },
   '@/lib/l2-scope': l2Scope,
-  '@/lib/types': { L3_EXPORT_ITEMS: ['bill_of_lading', 'customs_declaration', 'commercial_invoice', 'packing_list', 'certificate_of_origin', 'phytosanitary_or_health', 'other_export_evidence'].map((key) => ({ key })) },
+  '@/lib/types': { L2_FACTORY_PHOTO_ITEMS: [], L3_EXPORT_ITEMS: ['bill_of_lading', 'customs_declaration', 'commercial_invoice', 'packing_list', 'certificate_of_origin', 'phytosanitary_or_health', 'other_export_evidence'].map((key) => ({ key })) },
   '@/lib/verification-submission': { MAX_ITEMS_PER_KEY: 3 },
   '@/lib/public/product-selection': { isTestOnlyProduct: () => false, productBelongsToCategory: () => false, productReviewApproved: () => false },
   '@/lib/media/readiness': { isExpired: (m) => m.status === 'expired' || !!(m.expires_on && m.expires_on < new Date().toISOString().slice(0, 10)) },

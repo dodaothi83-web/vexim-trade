@@ -552,8 +552,8 @@ export const L2_PARTNER_REVIEW_ITEMS = [
 
 
 /**
- * Checklist L2 của người kiểm Vexim — dùng CHUNG một chuẩn 9 ảnh với cổng NCC tự gửi.
- * Ảnh NCC tự nộp (khi được nhận vào đợt kiểm) rơi đúng vào dòng cùng key để đối chiếu 1-1.
+ * Danh mục L2 của người kiểm và cổng NCC có cùng 9 dòng ảnh.
+ * Điều kiện nộp/duyệt hai luồng khác nhau; ảnh NCC được sao vào đúng dòng cùng key.
  */
 export const L2_VISIT_ITEMS = L2_FACTORY_PHOTO_ITEMS;
 
@@ -597,7 +597,7 @@ export type SubmissionFlagSource = "exif" | "gps" | "time" | "ai" | "system";
 
 export interface SubmissionIntegrityFlag {
   flag: SubmissionFlag;
-  /** "hard" = vi phạm yêu cầu bắt buộc; "warning" = cần người duyệt để ý. */
+  /** Mức gợi ý hiển thị. Cờ AI, kể cả `hard` trong dữ liệu cũ, không quyết định nộp hay duyệt. */
   severity: "hard" | "warning";
   source: SubmissionFlagSource;
   detail: string | null;
@@ -622,6 +622,12 @@ export interface AiSubmissionReview {
   /** true khi AI thấy ảnh có dấu hiệu dàn dựng/chỉnh sửa nội dung. */
   manipulation_suspected: boolean | null;
   items: Record<string, AiSubmissionItemReview>;
+  /** Identity of the evidence and code read by this scan; absent on older records. */
+  evidence_snapshot?: string;
+  /** Exact item IDs sent to AI; historical reviews may not include this. */
+  scanned_item_ids?: string[];
+  /** Additional photos for already-scanned categories that were not sent. */
+  unscanned_extra_count?: number;
 }
 
 /** Hồ sơ bằng chứng do NHÀ CUNG CẤP tự gửi — không phải đợt kiểm của nhân viên Vexim. */

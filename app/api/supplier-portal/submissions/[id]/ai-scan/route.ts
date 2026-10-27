@@ -47,18 +47,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: false, message: "Hồ sơ đang chờ xét duyệt hoặc đã được nhận; không thể thay đổi." }, { status: 409 });
   }
 
-  // L3 có giới hạn nộp riêng, không dùng hoặc tiêu thụ hạn mức quét AI của L2.
-  const limitKey = manualExport
-    ? `submission-manual:supplier:${access.submission.supplier_id}`
-    : `submission-scan:${isStaff ? `staff:${session?.uid}` : `supplier:${access.submission.supplier_id}`}`;
-  const rl = rateLimit(limitKey, { windowMs: 30 * 60 * 1000, max: manualExport ? 12 : isStaff ? 12 : 4 });
-  if (!rl.ok) {
-    return NextResponse.json({
+  const actorKey = isStaff ? `staff:${session?.uid}` : `supplier:${access.submission.supplier_id}`;
+  // Submission has its own abuse limit. Exhausting the optional AI quota must
+  // not prevent a complete factory case from reaching a person.
+  if (submit) {
+    const submitLimit = rateLimit(`${manualExport ? "submission-manual" : "submission-factory-submit"}:${actorKey}`, { windowMs: 30 * 60 * 1000, max: 12 });
+    if (!submitLimit.ok) return NextResponse.json({
       ok: false,
-      message: manualExport
-        ? `Bạn đã nộp quá nhiều lần. Hãy thử lại sau khoảng ${Math.ceil(rl.resetInMs / 60000)} phút.`
-        : `Đã hết lượt quét AI trong 30 phút (thử lại sau ~${Math.ceil(rl.resetInMs / 60000)} phút).`,
+      message: `Bạn đã nộp quá nhiều lần. Hãy thử lại sau khoảng ${Math.ceil(submitLimit.resetInMs / 60000)} phút.`,
     }, { status: 429 });
+  }
+  let skipAi = false;
+  if (!manualExport) {
+    const scanLimit = rateLimit(`submission-scan:${actorKey}`, { windowMs: 30 * 60 * 1000, max: isStaff ? 12 : 4 });
+    if (!scanLimit.ok && !submit) return NextResponse.json({
+      ok: false,
+      message: `Đã hết lượt quét AI trong 30 phút (thử lại sau ~${Math.ceil(scanLimit.resetInMs / 60000)} phút).`,
+    }, { status: 429 });
+    skipAi = !scanLimit.ok;
   }
   const supplier = await access.store.getSupplier(access.submission.supplier_id);
   if (!supplier) return NextResponse.json({ ok: false, message: "Không tìm thấy hồ sơ doanh nghiệp." }, { status: 404 });
@@ -70,6 +76,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       actorId: isStaff ? session?.uid ?? null : own?.userId ?? null,
       actorEmail: isStaff ? session?.email ?? null : own?.userEmail ?? null,
       submit,
+      skipAi,
     });
     // Refresh is a side effect: never report a saved submission as failed if it throws.
     try {
@@ -81,7 +88,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       console.error("[submission] revalidation failed", error);
     }
     return NextResponse.json({
-      ok: result.ok || !submit,
+      ok: result.ok,
       status: result.status,
       message: result.message,
       aiScanned: Boolean(result.aiReview),

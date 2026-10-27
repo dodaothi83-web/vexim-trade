@@ -110,26 +110,48 @@ result = await clickAndRender(baseView, { submit: false, httpOk: true, body: {
   ok: true, status: 'draft', aiScanned: true, message: scanned, summary: scanned, reasons: [], warnings: [],
 } });
 assert.equal(occurrences(result.html, scanned), 1, 'Identical AI message and summary are not repeated');
-assert.match(result.html, /Kết quả AI tự động/);
+assert.match(result.html, /Gợi ý từ AI/);
 
-const returned = 'AI đã quét xong và phát hiện điểm cần bổ sung.';
+const flagged = 'Hồ sơ đã được gửi. AI có điểm cần kiểm tra; nhân viên sẽ đối chiếu và quyết định.';
+const aiReason = 'Cổng nhà máy: AI chưa thấy tờ mã';
 result = await clickAndRender(baseView, { submit: true, httpOk: true, body: {
-  ok: false, status: 'returned', aiScanned: true, message: returned, summary: null, reasons: ['Cần bổ sung ảnh'], warnings: [],
+  ok: true, status: 'pending_review', aiScanned: true, message: flagged, summary: null,
+  reasons: [aiReason], warnings: [`AI lưu ý · ${aiReason}`],
 } });
-assert.equal(occurrences(result.html, returned), 1);
-assert.match(result.html, /role="alert"[^>]*[\s\S]*?Cần bổ sung ảnh/);
+assert.equal(occurrences(result.html, flagged), 1);
+assert.equal(occurrences(result.html, aiReason), 1, 'A finding and its identical AI flag are not repeated');
+assert.match(result.html, /role="status"[^>]*[\s\S]*?Cổng nhà máy/);
+assert.match(result.html, /AI chỉ gợi ý, không tự trả hay duyệt hồ sơ/);
+assert.doesNotMatch(result.html, /hồ sơ được trả lại|AI.*không đạt/i);
+
+// A real structural/business failure remains an alert, not an AI decision.
+const blocked = 'Chưa nộp được: hồ sơ còn thiếu mục bắt buộc hoặc thiếu mã xác minh.';
+result = await clickAndRender(baseView, { submit: true, httpOk: true, body: {
+  ok: false, status: 'draft', aiScanned: false, message: blocked, summary: null, reasons: ['Cần tạo mã'], warnings: [],
+} });
+assert.equal(occurrences(result.html, blocked), 1);
+assert.match(result.html, /role="alert"[^>]*[\s\S]*?Cần tạo mã/);
+
+const olderView = { ...baseView, aiSummary: 'Lần trước AI có nhận xét.', aiFindings: ['AI nghi ảnh dàn dựng.'], aiFindingsMayBeOutdated: true };
+const olderMessage = 'Hồ sơ đã được gửi. Kết quả AI từ lần trước có thể không khớp ảnh hiện tại; nhân viên sẽ đối chiếu.';
+result = await clickAndRender(olderView, { submit: true, httpOk: true, body: {
+  ok: true, status: 'pending_review', aiScanned: false, message: olderMessage, reasons: [], warnings: [],
+} });
+assert.match(result.html, /AI nghi ảnh dàn dựng/, 'Kết quả trước vẫn có thể xem khi lượt mới không khả dụng');
+assert.equal(occurrences(result.html, 'AI chỉ gợi ý, không tự trả hay duyệt hồ sơ.'), 1, 'Không nhắc lại cùng thông báo AI ở hai khung');
+assert.equal(occurrences(result.html, 'không khớp ảnh hiện tại'), 1, 'Không nhắc lặp cảnh báo kết quả cũ');
 
 const failure = 'Chưa xử lý được hồ sơ. Thử lại sau.';
 result = await clickAndRender(baseView, { submit: false, httpOk: false, body: { message: failure } });
 assert.equal(occurrences(result.html, failure), 1, 'HTTP errors are still shown once');
-assert.doesNotMatch(result.html, /Trạng thái quét AI|Kết quả AI tự động/);
+assert.doesNotMatch(result.html, /Trạng thái quét AI|Gợi ý từ AI/);
 assert.equal(result.refreshes, 0);
 
 for (const view of [{ ...baseView, level: 3, l2Scope: null }, { ...baseView, l2Scope: 'partner_contract' }]) {
   const manual = 'Đã nộp hồ sơ. Nhân viên sẽ kiểm tra và phản hồi.';
   result = await clickAndRender(view, { submit: true, httpOk: true, body: { ok: true, message: manual } });
   assert.equal(occurrences(result.html, manual), 1, 'Manual L2/L3 submission feedback is preserved');
-  assert.doesNotMatch(result.html, /Trạng thái quét AI|Kết quả AI tự động/);
+  assert.doesNotMatch(result.html, /Trạng thái quét AI|Gợi ý từ AI/);
   assert.equal(result.refreshes, 1);
 }
 console.log('✅ L2 scan feedback: one result, clear draft/submission states, visible errors; manual L2/L3 messages retained.');

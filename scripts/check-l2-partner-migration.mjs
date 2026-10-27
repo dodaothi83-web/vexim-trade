@@ -108,7 +108,30 @@ try {
   await exec(`delete from public.suppliers where id=${q(2)}`);
   assert.equal((await db.query(`select count(*)::int as n from public.verifications where supplier_id=${q(2)}`)).rows[0].n, 0);
   assert.equal((await db.query(`select count(*)::int as n from public.media_assets where supplier_id=${q(2)}`)).rows[0].n, 0);
-  console.log('✅ L2 migration: legacy scope preserved, partner contract/private files and human approval guarded; scope changes and cascades tested.');
+  // Run the new factory guards after the partner migration and exercise their
+  // interaction with its existing triggers and foreign-key cascades.
+  await exec(`alter table public.supplier_submissions add column verification_code text, add column code_issued_at timestamptz;
+    alter table public.supplier_submission_items add column flags jsonb not null default '[]', add column thumb_path text, add column mime text, add column ai_verdict text;`);
+  const factoryGuard = readFileSync(new URL('../supabase/migrations/20261041_l2_factory_submission_guards.sql', import.meta.url), 'utf8');
+  await exec(factoryGuard);
+  assert.equal((await db.query(`select status from public.supplier_submissions where id=${q(21)}`)).rows[0].status, 'pending_review', 'Existing factory status is preserved');
+  await exec(`insert into public.suppliers values (${q(5)},'manufacturer');
+    insert into public.supplier_submissions(id,supplier_id,target_level,status,l2_scope,verification_code,code_issued_at)
+      values (${q(80)},${q(5)},2,'draft','factory','VX-L2-ABCD-EFGH',now());`);
+  const factoryKeys = ['factory_gate','raw_material_warehouse','production_line_running','packing_area','finished_goods_warehouse','open_carton_lot_label','hygiene_station','worker_ppe','pest_control'];
+  for (const [index, key] of factoryKeys.entries()) {
+    await exec(`insert into public.media_assets values (${q(100 + index)},'submission',${q(5)},null,${q(80)},'internal','${key}','image','unverified','factory-${index}.jpg');
+      insert into public.supplier_submission_items(id,submission_id,supplier_id,checklist_key,media_id,storage_path)
+        values (${q(120 + index)},${q(80)},${q(5)},'${key}',${q(100 + index)},'factory-${index}.jpg');`);
+  }
+  await exec(`update public.supplier_submission_items set flags='[{"flag":"code_missing","source":"ai","severity":"hard"}]' where id=${q(120)};
+    update public.supplier_submissions set status='pending_review' where id=${q(80)};
+    update public.supplier_submission_items set ai_verdict='fail' where id=${q(120)};`);
+  await expect(`delete from public.supplier_submission_items where id=${q(120)}`, /L2_FACTORY_LOCKED/);
+  await expect(`delete from public.media_assets where id=${q(100)}`, /L2_FACTORY_LOCKED/);
+  await exec(`delete from public.suppliers where id=${q(5)}`);
+  assert.equal((await db.query(`select count(*)::int as n from public.supplier_submission_items where submission_id=${q(80)}`)).rows[0].n, 0, 'Factory cascade still works with both migrations');
+  console.log('✅ L2 migration: legacy scope preserved, partner contract/private files and human approval guarded; scope changes, combined factory guards and cascades tested.');
 } finally {
   await db.close();
 }

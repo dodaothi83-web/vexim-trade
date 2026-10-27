@@ -39,8 +39,10 @@ export function SubmissionItemCard({ spec, level, partner = false, rows, submiss
   const latest = rows[0] ?? null;
   const needsCode = level === 2 && spec.requiresCode;
   const full = (level === 3 || partner) && rows.length >= MAX_ITEMS_PER_KEY;
-  const hardFlags = latest?.flags.filter((flag) => flag.severity === "hard") ?? [];
-  const softFlags = latest?.flags.filter((flag) => flag.severity !== "hard") ?? [];
+  // Only a system code gate requires a fix; historic AI/technical flags are notes.
+  const requiresFix = (flag: PortalItemView["flags"][number]) => needsCode && flag.source !== "ai" && flag.severity === "hard" && (flag.flag === "code_missing" || flag.flag === "code_mismatch");
+  const hardFlags = latest?.flags.filter(requiresFix) ?? [];
+  const softFlags = latest?.flags.filter((flag) => !requiresFix(flag)) ?? [];
   const accept = level === 3 || (partner && spec.key === "partner_factory_contract") ? "image/jpeg,image/png,image/webp,application/pdf" : "image/jpeg,image/png,image/webp";
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
@@ -119,7 +121,7 @@ export function SubmissionItemCard({ spec, level, partner = false, rows, submiss
       {needsCode && <span title="Phải có tờ giấy viết tay mã xác minh trong khung hình"
         className="absolute top-2 right-2 rounded-full bg-brand-700/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">🔖 Cần tờ mã</span>}
       {latest?.aiVerdict && <span className={`absolute bottom-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${latest.aiVerdict === "pass" ? "bg-violet-100 text-violet-900" : latest.aiVerdict === "fail" ? "bg-rose-100 text-rose-900" : "bg-white/95 text-violet-900"}`}>
-        AI: {latest.aiVerdict === "pass" ? "đúng mục" : latest.aiVerdict === "fail" ? "chưa đạt" : "chưa đủ cơ sở"}
+        AI: {latest.aiVerdict === "pass" ? "có vẻ phù hợp" : latest.aiVerdict === "fail" ? "cần kiểm tra" : "chưa đủ cơ sở"}
       </span>}
       {rows.length > 1 && <span className="absolute right-2 bottom-2 rounded-full bg-ink-900/80 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">{rows.length} tệp</span>}
     </div>
@@ -169,18 +171,18 @@ export function SubmissionItemCard({ spec, level, partner = false, rows, submiss
               {latest.captureLat != null && <div>Vị trí trình duyệt: {latest.captureLat.toFixed(5)}, {latest.captureLng?.toFixed(5)}{latest.captureAccuracy != null ? ` (±${Math.round(latest.captureAccuracy)} m)` : ""}</div>}
             </dl>
             {latest.flags.length > 0 && <ul className="space-y-1">
-              {latest.flags.map((flag) => <li key={flag.flag} className={`rounded px-1.5 py-1 ${flag.severity === "hard" ? "bg-rose-50 text-rose-800" : "bg-amber-50 text-amber-800"}`}>
-                <strong>{flag.label}.</strong> {flag.detail ?? ""}
+              {latest.flags.map((flag) => <li key={flag.flag} className={`rounded px-1.5 py-1 ${requiresFix(flag) ? "bg-rose-50 text-rose-800" : "bg-amber-50 text-amber-800"}`}>
+                <strong>{flag.source === "ai" ? "AI lưu ý · " : ""}{flag.label}.</strong> {flag.detail ?? ""}
               </li>)}
             </ul>}
             {latest.aiVerdict && <div className="rounded bg-white/80 px-1.5 py-1 ring-1 ring-violet-100">
               <p className="flex items-center gap-1 font-bold text-violet-900"><Sparkles className="size-3 text-violet-600" aria-hidden="true" />
-                AI: {latest.aiVerdict === "pass" ? "đúng mục yêu cầu" : latest.aiVerdict === "fail" ? "không đạt" : "chưa đủ cơ sở"}
+                AI: {latest.aiVerdict === "pass" ? "có vẻ phù hợp" : latest.aiVerdict === "fail" ? "cần kiểm tra" : "chưa đủ cơ sở"}
               </p>
               {latest.aiReason && <p className="mt-0.5">{latest.aiReason}</p>}
               {latest.aiDetectedText && <p className="mt-0.5">Chữ đọc được: “{latest.aiDetectedText}”</p>}
               {(latest.aiCodeRead || latest.aiCodeVisible === false) && <p className="mt-0.5">
-                Mã viết tay: {latest.aiCodeVisible === false ? "không thấy tờ giấy trong ảnh" : `AI đọc được “${latest.aiCodeRead}”`}
+                Mã viết tay: {latest.aiCodeVisible === false ? "AI chưa thấy tờ giấy trong ảnh" : `AI đọc được “${latest.aiCodeRead}”`}
               </p>}
               <p className="mt-0.5 text-ink-500">AI chỉ gợi ý; kết quả xác minh do bộ phận duyệt quyết định.</p>
             </div>}

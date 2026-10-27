@@ -35,7 +35,7 @@ const LEVELS = {
     guide: [
       { title: "Tạo và in tờ mã", body: "Bấm “Tạo mã xác minh” rồi tải tờ mã về (hoặc in ra). Đây là bước bắt buộc duy nhất về giấy tờ." },
       { title: "Chụp 9 ảnh tại nhà máy", body: "Đặt tờ mã cạnh cảnh ở 3 ảnh 🔖: cổng nhà máy, dây chuyền đang chạy, kho thành phẩm. Ảnh điện thoại, kể cả ảnh đã gửi qua Zalo, đều nhận." },
-      { title: "AI quét và nộp", body: "AI chỉ quét sơ bộ. Hồ sơ được đối chiếu thủ công; người có quyền duyệt quyết định kết quả." },
+      { title: "AI quét và nộp", body: "AI nêu điểm cần kiểm tra, không tự trả hay duyệt. Nhân viên đối chiếu và quyết định kết quả." },
     ],
   },
   3: {

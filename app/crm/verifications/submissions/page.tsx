@@ -5,7 +5,7 @@ import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { isPartnerL2 } from "@/lib/l2-scope";
-import { readiness, submissionStatusLabel } from "@/lib/verification-submission";
+import { aiReviewFindings, aiReviewMayBeOutdated, readiness, submissionStatusLabel } from "@/lib/verification-submission";
 import type { Supplier, SupplierSubmission, SupplierSubmissionItem } from "@/lib/types";
 import { Breadcrumbs, Badge, Card, EmptyState } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -82,7 +82,8 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
         const supplier = supplierMap.get(s.supplier_id);
         const items = itemsBySubmission.get(s.id) ?? [];
         const check = readiness({ submission: s, items });
-        const hard = items.flatMap((i) => i.flags ?? []).filter((f) => f.severity === "hard" && (s.target_level === 2 || f.source !== "ai")).length;
+        const hard = items.flatMap((i) => i.flags ?? []).filter((f) => f.severity === "hard" && f.source !== "ai").length;
+        const aiFindings = s.target_level === 2 && !isPartnerL2(s) ? aiReviewFindings(s.ai_review, s.verification_code) : [];
         return <li key={s.id}>
           <Card className="p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -100,8 +101,10 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
                   {s.target_level === 2 && !isPartnerL2(s) ? (s.verification_code ? ` · mã ${s.verification_code}` : " · chưa phát hành mã") : " · nhân viên kiểm tra"}
                   {s.ai_scanned_at ? ` · ${s.target_level === 3 ? "AI cũ" : "AI quét"} ${new Date(s.ai_scanned_at).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : s.target_level === 2 && !isPartnerL2(s) ? " · chưa quét AI" : ""}
                 </p>
-                {hard > 0 && <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" /> {hard} cờ nghiêm trọng (mất EXIF, sai mã, GPS lệch, ảnh chỉnh sửa…)</p>}
-                {s.ai_review?.summary && <p className="mt-1 line-clamp-2 max-w-3xl text-xs text-ink-600"><ScanSearch className="mr-1 inline h-3.5 w-3.5 text-violet-600" />{s.target_level === 3 && "AI cũ, chỉ tham khảo: "}{s.ai_review.summary}</p>}
+                {hard > 0 && <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" /> {hard} điểm cần kiểm tra</p>}
+                {aiFindings.length > 0 && <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-amber-800"><AlertTriangle className="h-3.5 w-3.5" /> AI lưu ý {aiFindings.length} điểm; nhân viên cần đối chiếu</p>}
+                {s.target_level === 2 && !isPartnerL2(s) && itemsBySubmission.has(s.id) && aiReviewMayBeOutdated(s, items) && <p className="mt-1 text-xs font-semibold text-amber-800">Lần quét trước có thể không khớp ảnh hiện tại.</p>}
+                {s.ai_review?.summary && <p className="mt-1 line-clamp-2 max-w-3xl text-xs text-ink-600"><ScanSearch className="mr-1 inline h-3.5 w-3.5 text-violet-600" />{s.target_level === 3 ? "AI cũ, chỉ tham khảo: " : "AI gợi ý: "}{s.ai_review.summary}</p>}
               </div>
               <Link href={`/crm/verifications/submissions/${s.id}`} className={`btn ${canReview ? "btn-primary" : "btn-ghost"} shrink-0 text-xs`}>
                 {s.status === "pending_review" && canReview ? "Đối chiếu & xét" : "Xem hồ sơ"}

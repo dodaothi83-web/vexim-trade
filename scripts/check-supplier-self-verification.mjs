@@ -185,9 +185,9 @@ const expired = rules.codeExpired({ code_issued_at: new Date(Date.now() - (rules
 assert.equal(expired, true, 'Mã quá hạn phải bị coi là hết hạn');
 assert.equal(rules.codeExpired({ code_issued_at: new Date().toISOString() }), false);
 
-/* ------------------------------ 2. readiness & hàng đợi tự động ------------------------------ */
+/* ------------------------------ 2. điều kiện nộp & AI chỉ hỗ trợ ------------------------------ */
 
-const allItems = (keys, flags = []) => keys.map((checklist_key) => ({ checklist_key, media_id: `m-${checklist_key}`, flags }));
+const allItems = (keys, flags = []) => keys.map((checklist_key) => ({ checklist_key, media_id: `m-${checklist_key}`, storage_path: `photos/${checklist_key}.jpg`, flags }));
 const l2base = { target_level: 2, verification_code: 'VX-L2-AAAA-BBBB', code_issued_at: new Date().toISOString() };
 
 assert.equal(rules.readiness({ submission: { ...l2base, verification_code: null }, items: allItems(rules.requiredPhotoKeys()) }).ready, false, 'Thiếu mã thì chưa nộp được');
@@ -197,26 +197,41 @@ assert.deepEqual(rules.readiness({ submission: l2base, items: allItems(missingOn
 const full = rules.readiness({ submission: l2base, items: allItems(rules.requiredPhotoKeys()) });
 assert.equal(full.ready, true);
 assert.deepEqual(full.missing, []);
+assert.equal(rules.readiness({ submission: { ...l2base, code_issued_at: null }, items: allItems(rules.requiredPhotoKeys()) }).ready, false, 'Không có thời điểm cấp thì không thể khẳng định mã còn hiệu lực');
+const noPath = allItems(rules.requiredPhotoKeys()).map((item, i) => i === 0 ? { ...item, storage_path: null } : item);
+assert.equal(rules.readiness({ submission: l2base, items: noPath }).ready, false, 'Mục không có tệp thực không tính là đã tải');
+
 // Cờ nghiêm trọng KHÔNG chặn nộp (NCC vẫn gửi được để giải trình) nhưng phải hiện ra.
 const flagged = rules.readiness({ submission: l2base, items: allItems(rules.requiredPhotoKeys(), [{ flag: 'no_exif', severity: 'warning', source: 'exif', detail: 'x' }]) });
 assert.equal(flagged.ready, true);
 assert.equal(flagged.warnings.length, 9);
-// Cờ kỹ thuật (EXIF/GPS/giờ chụp) không còn chặn; chỉ tờ mã trong ảnh 🔖 mới chặn.
-const codeSheetMissing = rules.readiness({
+// Historic AI code flags, even `hard`, are suggestions and never block sending.
+for (const [flag, key] of [['code_missing', 'factory_gate'], ['code_mismatch', 'finished_goods_warehouse']]) {
+  const check = rules.readiness({
+    submission: l2base,
+    items: allItems(rules.requiredPhotoKeys()).map((i) => i.checklist_key === key
+      ? { ...i, flags: [{ flag, severity: 'hard', source: 'ai', detail: 'AI cần kiểm tra mã' }] }
+      : i),
+  });
+  assert.equal(check.ready, true, `${flag} do AI đọc không được chặn nộp`);
+  assert.equal(check.blockers.length, 0);
+  assert.ok(check.warnings.some((w) => w.includes('AI lưu ý') && w.includes('AI cần kiểm tra mã')));
+}
+// A system flag for an image uploaded before a code was issued is still a gate.
+const preCodeUpload = rules.readiness({
   submission: l2base,
-  items: allItems(rules.requiredPhotoKeys()).map((i) => (i.checklist_key === 'factory_gate'
-    ? { ...i, flags: [{ flag: 'code_missing', severity: 'hard', source: 'ai', detail: 'AI không thấy tờ mã' }] }
-    : i)),
+  items: allItems(rules.requiredPhotoKeys()).map((i) => i.checklist_key === 'factory_gate'
+    ? { ...i, flags: [{ flag: 'code_missing', severity: 'hard', source: 'system', detail: 'Tải trước khi phát hành mã' }] }
+    : i),
 });
-assert.equal(codeSheetMissing.ready, false, 'Ảnh 🔖 không thấy tờ mã thì chưa nộp được');
-assert.match(codeSheetMissing.blockers.join(' '), /Tờ mã xác minh chưa đúng ở: Cổng nhà máy/);
-const codeWrong = rules.readiness({
-  submission: l2base,
-  items: allItems(rules.requiredPhotoKeys()).map((i) => (i.checklist_key === 'finished_goods_warehouse'
-    ? { ...i, flags: [{ flag: 'code_mismatch', severity: 'hard', source: 'ai', detail: 'mã khác' }] }
-    : i)),
-});
-assert.equal(codeWrong.ready, false, 'Mã trong ảnh không khớp mã phát hành thì chưa nộp được');
+assert.equal(preCodeUpload.ready, false);
+assert.match(preCodeUpload.blockers.join(' '), /Tờ mã xác minh chưa đúng ở: Cổng nhà máy/);
+const oldGpsHard = rules.readiness({ submission: l2base, items: allItems(rules.requiredPhotoKeys(), [{ flag: 'no_gps', severity: 'hard', source: 'gps', detail: 'Ảnh thiếu GPS cũ' }]) });
+assert.equal(oldGpsHard.ready, true);
+assert.equal(oldGpsHard.blockers.length, 0, 'Cờ kỹ thuật cũ không hiển thị là việc bắt buộc');
+assert.ok(oldGpsHard.warnings.some((warning) => warning.includes('Ảnh thiếu GPS cũ')));
+
+assert.equal(rules.readiness({ submission: { ...l2base, code_issued_at: new Date(Date.now() - 73 * 3600_000).toISOString() }, items: allItems(rules.requiredPhotoKeys()) }).ready, false, 'Mã quá hạn vẫn chặn nộp');
 assert.equal(rules.ORIGINAL_PHOTO_REQUIRED, false, 'Chính sách tạm nới: không bắt buộc ảnh gốc');
 // L3 cần ít nhất một chứng từ bất kỳ trong danh mục, không bắt buộc vận đơn/tờ khai.
 assert.equal(rules.readiness({ submission: { target_level: 3 }, items: [] }).ready, false);
@@ -228,10 +243,7 @@ const oldAiFlags = rules.readiness({ submission: { target_level: 3 }, items: all
 assert.equal(oldAiFlags.ready, true);
 assert.equal(oldAiFlags.blockers.length, 0, 'Cờ AI cũ không gây cản trở hay báo sai');
 
-assert.deepEqual(rules.autoQueueStatus({ ready: true, aiFailedItems: [], manipulationSuspected: false }).status, 'pending_review');
-assert.deepEqual(rules.autoQueueStatus({ ready: true, aiFailedItems: ['Cổng nhà máy: không thấy biển tên'], manipulationSuspected: false }).status, 'returned');
-assert.deepEqual(rules.autoQueueStatus({ ready: true, aiFailedItems: [], manipulationSuspected: true }).status, 'returned');
-assert.deepEqual(rules.autoQueueStatus({ ready: false, aiFailedItems: [], manipulationSuspected: null }).status, 'returned');
+assert.equal(rules.autoQueueStatus, undefined, 'AI không còn quyết định trạng thái hồ sơ');
 
 /* ------------------------------ 3. link nguồn công khai (chống SSRF) ------------------------------ */
 
@@ -348,9 +360,9 @@ const store = {
   getSubmission: async (id) => submissionRows.find((s) => s.id === id) ?? null,
   createSubmission: async (input) => { const row = { id: nextId('sub'), status: 'draft', flags: [], ai_review: null, verification_code: null, code_issued_at: null, device_lat: null, device_lng: null, device_accuracy_m: null, device_captured_at: null, submitted_at: null, reviewed_by: null, reviewed_at: null, review_note: null, verification_id: null, shipment_ref: null, shipped_on: null, shipment_destination: null, supplier_note: null, ai_scanned_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...input }; submissionRows.push(row); return row; },
   updateSubmission: async (id, patch) => { const row = submissionRows.find((s) => s.id === id); Object.assign(row, patch, { updated_at: new Date().toISOString() }); return row; },
-  updateEditableSubmission: async (id, patch) => {
+  updateEditableSubmission: async (id, patch, expectedStatus) => {
     const row = submissionRows.find((s) => s.id === id);
-    if (!row || !['draft', 'returned'].includes(row.status)) return null;
+    if (!row || !['draft', 'returned'].includes(row.status) || (expectedStatus && row.status !== expectedStatus)) return null;
     Object.assign(row, patch, { updated_at: new Date().toISOString() }); return row;
   },
   listSubmissionItems: async (submissionId) => itemRows.filter((i) => i.submission_id === submissionId),
@@ -493,10 +505,15 @@ assert.equal(freshSubmission.device_lng, 105.8542);
 
 /* ------------------------------ 7. nộp hồ sơ + AI tự xếp hàng đợi ------------------------------ */
 
+let aiManipulation = false;
 const aiResponse = (verdictByKey) => ({
   output: [{ content: [{ type: 'output_text', text: JSON.stringify({
-    items: types.L2_FACTORY_PHOTO_ITEMS.map((item) => ({ key: item.key, verdict: verdictByKey[item.key] ?? 'uncertain', reason: `AI: ${item.label}`, detected_text: null, code_visible: null, code_read: null, flags: [] })),
-    summary: 'Hồ sơ đủ 9 ảnh; biển tên công ty đọc được.', manipulation_suspected: false,
+    items: types.L2_FACTORY_PHOTO_ITEMS.map((item) => ({
+      key: item.key, verdict: typeof verdictByKey[item.key] === 'string' ? verdictByKey[item.key] : 'uncertain',
+      reason: null, detected_text: null, code_visible: null, code_read: null, flags: [],
+      ...(typeof verdictByKey[item.key] === 'object' ? verdictByKey[item.key] : {}),
+    })),
+    summary: 'Hồ sơ đủ 9 ảnh; biển tên công ty đọc được.', manipulation_suspected: aiManipulation,
   }) }] }],
 });
 let aiCalls = 0;
@@ -543,6 +560,80 @@ for (const key of types.L2_FACTORY_PHOTO_ITEMS.map((i) => i.key)) {
 currentAccess = { store, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id), links: [], supplierId: 'sup-1', userId: 'user-1', userEmail: 'supplier@example.com' };
 assert.equal((await store.listSubmissionItems(submission.id)).length, 9, 'Phải đủ 9 ảnh');
 
+// A partial scan may omit oversized/unavailable photos. A model must not be
+// allowed to claim it saw them; the actual omission is visible to the reviewer.
+const oversizedPath = currentAccess.items.find((item) => item.checklist_key === 'factory_gate').storage_path;
+const partialScanService = makeLoader({
+  '@/lib/media/storage': { getObject: async (path) => ({ data: path === oversizedPath ? new Uint8Array(4 * 1024 * 1024 + 1) : new Uint8Array([1, 2, 3]), driver: 'local' }) },
+  '@/lib/supplier-portal/notify': { notifyStaffSupplierSubmission: async () => 'sent' },
+})('lib/verification-submission-service.ts');
+const normalFetch = globalThis.fetch;
+let modelImageCount = 0;
+globalThis.fetch = async (_url, init) => {
+  const request = JSON.parse(init.body);
+  modelImageCount = request.input[1].content.filter((part) => part.type === 'input_image').length;
+  return Response.json(aiResponse({ factory_gate: { verdict: 'pass', reason: 'Bịa là đã thấy ảnh', detected_text: 'Bịa chữ' }, packing_area: 'pass' }));
+};
+const partialScan = await partialScanService.runEvidenceScan({ bundle: { submission: currentAccess.submission, items: currentAccess.items, links: [] }, supplier: await store.getSupplier('sup-1') });
+globalThis.fetch = normalFetch;
+assert.equal(modelImageCount, 8, 'Ảnh vượt giới hạn không được gửi cho AI');
+assert.equal(partialScan.items.factory_gate.verdict, 'uncertain', 'Không tin kết luận bịa cho ảnh chưa gửi');
+assert.equal(partialScan.items.factory_gate.detected_text, null);
+assert.match(partialScan.items.factory_gate.reason, /chưa quét được ảnh/);
+assert.equal(partialScan.items.packing_area.verdict, 'pass', 'Ảnh thực sự được quét vẫn giữ gợi ý');
+assert.ok(rules.aiReviewFindings(partialScan, currentAccess.submission.verification_code).some((finding) => /Cổng nhà máy.*chưa quét/.test(finding)));
+const readFailureService = makeLoader({
+  '@/lib/media/storage': { getObject: async (path) => { if (path === oversizedPath) throw new Error('private storage failure'); return { data: new Uint8Array([1, 2, 3]), driver: 'local' }; } },
+  '@/lib/supplier-portal/notify': { notifyStaffSupplierSubmission: async () => 'sent' },
+})('lib/verification-submission-service.ts');
+globalThis.fetch = async () => Response.json(aiResponse({ factory_gate: 'pass' }));
+const failedReadReview = await readFailureService.runEvidenceScan({ bundle: { submission: currentAccess.submission, items: currentAccess.items, links: [] }, supplier: await store.getSupplier('sup-1') });
+globalThis.fetch = normalFetch;
+assert.equal(failedReadReview.items.factory_gate.verdict, 'uncertain');
+assert.match(failedReadReview.items.factory_gate.reason, /chưa quét được ảnh/);
+
+
+// Multiple photos in one category cannot consume the whole AI limit or attach
+// one photo's verdict to a different, unsent photo.
+const duplicateItems = currentAccess.items.map((item) => ({ ...item, flags: [...item.flags] }));
+const originalGate = duplicateItems.find((item) => item.checklist_key === 'factory_gate');
+const duplicateGate = { ...originalGate, id: 'unscanned-gate', storage_path: 'too-large-duplicate.jpg', uploaded_at: '2099-01-01T00:00:00Z',
+  ai_verdict: 'fail', flags: [{ flag: 'code_missing', source: 'ai', severity: 'hard' }, { flag: 'no_gps', source: 'gps', severity: 'warning' }] };
+duplicateItems.push(duplicateGate);
+const duplicateSubmission = { ...currentAccess.submission, status: 'draft', ai_review: null, ai_scanned_at: null };
+const duplicateService = makeLoader({
+  '@/lib/media/storage': { getObject: async (path) => ({ data: path === duplicateGate.storage_path ? new Uint8Array(4 * 1024 * 1024 + 1) : new Uint8Array([1, 2, 3]), driver: 'local' }) },
+  '@/lib/supplier-portal/notify': { notifyStaffSupplierSubmission: async () => 'sent' },
+})('lib/verification-submission-service.ts');
+const duplicateStore = {
+  getSubmission: async () => duplicateSubmission,
+  listSubmissionItems: async () => duplicateItems,
+  updateSubmissionItem: async (id, patch) => { const item = duplicateItems.find((row) => row.id === id); Object.assign(item, patch); return item; },
+  updateSubmission: async (_id, patch) => { Object.assign(duplicateSubmission, patch); return duplicateSubmission; },
+  addAuditLog: async () => ({}),
+};
+globalThis.fetch = async (_url, init) => {
+  const request = JSON.parse(init.body);
+  modelImageCount = request.input[1].content.filter((part) => part.type === 'input_image').length;
+  return Response.json(aiResponse({ factory_gate: 'pass' }));
+};
+const duplicateResult = await duplicateService.scanAndQueueSubmission(duplicateStore, { bundle: { submission: duplicateSubmission, items: duplicateItems, links: [] },
+  supplier: await store.getSupplier('sup-1'), actorId: 'staff-1', actorEmail: null, submit: false });
+globalThis.fetch = normalFetch;
+assert.equal(modelImageCount, 9, 'Tối đa một ảnh mỗi mục, không để ảnh trùng chiếm chỗ mục khác');
+assert.ok(duplicateResult.aiReview.scanned_item_ids.includes(originalGate.id));
+assert.ok(!duplicateResult.aiReview.scanned_item_ids.includes(duplicateGate.id));
+assert.equal(duplicateResult.aiReview.unscanned_extra_count, 1);
+assert.ok(duplicateResult.reasons.some((reason) => /chưa quét thêm 1 ảnh/.test(reason)));
+assert.equal(originalGate.ai_verdict, 'pass');
+assert.equal(duplicateGate.ai_verdict, null, 'Ảnh không gửi AI không nhận verdict của ảnh khác');
+assert.ok(!duplicateGate.flags.some((flag) => flag.source === 'ai'));
+assert.ok(duplicateGate.flags.some((flag) => flag.source === 'gps'), 'Giữ ghi chú kỹ thuật cũ');
+const duplicateView = load('lib/supplier-portal/submission-view.ts').buildPortalSubmission({ submission: duplicateSubmission, items: duplicateItems, links: [] }, { forStaff: true });
+assert.equal(duplicateView.items.find((item) => item.id === duplicateGate.id).aiVerdict, null);
+
+
+
 aiVerdicts = {};
 res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: true }) }), { params: Promise.resolve({ id: submission.id }) });
 body = await res.json();
@@ -557,18 +648,57 @@ assert.equal(stored.ai_review.model, 'gpt-4.1-mini');
 assert.equal(Object.keys(stored.ai_review.items).length, 9);
 assert.ok(auditRows.some((a) => a.action === 'supplier.submission.ai_scan.l2'), 'Phải ghi audit log lượt quét');
 
-// AI báo fail một mục → hệ thống TỰ trả hồ sơ kèm lý do (không đưa vào hàng đợi).
+// AI reports a failed photo, missing/wrong code and possible manipulation:
+// all findings go to staff, but no AI output returns or blocks a complete case.
 await store.updateSubmission(submission.id, { status: 'draft' });
-aiVerdicts = { factory_gate: 'fail' };
+aiVerdicts = {
+  factory_gate: { verdict: 'fail', reason: 'Không thấy cổng', code_visible: false, flags: ['content_mismatch', 'code_missing'] },
+  production_line_running: { verdict: 'uncertain', code_visible: true, code_read: 'VX-L2-WRONG-CODE', flags: [] },
+};
+aiManipulation = true;
 currentAccess = { store, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id), links: [], supplierId: 'sup-1', userId: 'user-1', userEmail: 'supplier@example.com' };
+const noticesBeforeFlagged = staffNotifications.length;
 res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: true }) }), { params: Promise.resolve({ id: submission.id }) });
 body = await res.json();
-assert.equal(body.status, 'returned', 'AI báo fail thì hồ sơ phải bị trả lại');
-assert.ok(body.reasons.some((r) => r.includes('Cổng nhà máy')), `Lý do trả phải nêu đúng mục: ${body.reasons}`);
+assert.equal(body.ok, true);
+assert.equal(body.status, 'pending_review', 'AI nghi ngờ không được tự trả hoặc chặn');
+assert.match(body.message, /đã được gửi.*nhân viên.*quyết định/i);
+assert.ok(body.reasons.some((r) => r.includes('Cổng nhà máy') && r.includes('tờ mã')), `Phải nêu điểm nghi thiếu mã: ${body.reasons}`);
+assert.ok(body.reasons.some((r) => r.includes('Dây chuyền') && r.includes('không khớp')), `Phải nêu điểm nghi sai mã: ${body.reasons}`);
+assert.ok(body.reasons.some((r) => /chỉnh sửa|dàn dựng/.test(r)), `Phải nêu nghi vấn dàn dựng: ${body.reasons}`);
+assert.equal(staffNotifications.length, noticesBeforeFlagged + 1, 'Hồ sơ có cảnh báo vẫn báo cho nhân viên');
 stored = await store.getSubmission(submission.id);
-assert.match(stored.review_note, /Cổng nhà máy/);
+assert.equal(stored.review_note, null, 'Gợi ý AI không được giả làm lý do nhân viên trả');
+assert.equal(stored.ai_review.manipulation_suspected, true);
 const gateItem = (await store.listSubmissionItems(submission.id)).find((i) => i.checklist_key === 'factory_gate');
 assert.equal(gateItem.ai_verdict, 'fail', 'Kết quả AI phải ghi xuống từng mục');
+assert.ok(gateItem.flags.some((f) => f.source === 'ai' && f.flag === 'code_missing' && f.severity === 'warning'));
+assert.equal(rules.readiness({ submission: stored, items: await store.listSubmissionItems(submission.id) }).ready, true);
+const portalFactory = load('lib/supplier-portal/submission-view.ts');
+const staffFactoryView = portalFactory.buildPortalSubmission({ submission: stored, items: await store.listSubmissionItems(submission.id), links: [] }, { forStaff: true });
+assert.ok(staffFactoryView.aiFindings.some((finding) => finding.includes('Cổng nhà máy')));
+assert.ok(staffFactoryView.aiFindings.some((finding) => /dàn dựng/.test(finding)));
+assert.equal(staffFactoryView.aiFindingsMayBeOutdated, false, 'Kết quả ứng với ảnh và mã hiện tại');
+const originalEvidence = await store.listSubmissionItems(submission.id);
+const changedEvidence = originalEvidence.map((item) => item.id === gateItem.id ? { ...item, storage_path: `${item.storage_path}-replacement` } : item);
+const changedView = portalFactory.buildPortalSubmission({ submission: stored, items: changedEvidence, links: [] }, { forStaff: true });
+assert.equal(changedView.aiFindingsMayBeOutdated, true, 'Cảnh báo kết quả cũ khi ảnh thay đổi');
+assert.equal(rules.aiReviewMayBeOutdated({ ...stored, verification_code: 'VX-L2-NEW-CODE' }, originalEvidence), true, 'Đổi mã cũng làm kết quả cũ');
+assert.equal(rules.aiReviewMayBeOutdated({ ...stored, ai_review: { ...stored.ai_review, evidence_snapshot: undefined } }, originalEvidence), true, 'Kết quả lịch sử không có snapshot vẫn hiển thị là có thể cũ');
+assert.equal(rules.aiReviewMayBeOutdated(stored, [...originalEvidence].reverse()), false, 'Thứ tự ảnh không ảnh hưởng snapshot');
+assert.ok(rules.aiReviewFindings({ items: { packing_area: { verdict: 'uncertain', reason: 'Ảnh khu đóng gói quá tối', flags: [] } } }, stored.verification_code).some((finding) => /quá tối/.test(finding)), 'Điểm chưa chắc chắn có nhận xét vẫn hiện cho nhân viên');
+
+
+// A later successful scan replaces stale AI flags; non-AI integrity flags survive.
+await store.updateSubmission(submission.id, { status: 'draft' });
+aiVerdicts = {}; aiManipulation = false;
+const gateNonAiBefore = gateItem.flags.filter((f) => f.source !== 'ai').map((f) => f.flag);
+currentAccess = { ...currentAccess, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id) };
+res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: false }) }), { params: Promise.resolve({ id: submission.id }) });
+body = await res.json();
+assert.equal(body.status, 'draft');
+assert.equal(gateItem.flags.some((f) => f.source === 'ai'), false, 'Quét lại phải thay cảnh báo AI cũ');
+assert.deepEqual(gateItem.flags.filter((f) => f.source !== 'ai').map((f) => f.flag), gateNonAiBefore);
 
 // Không có OPENAI_API_KEY → hồ sơ vẫn nộp được, ghi rõ chưa quét AI.
 delete process.env.OPENAI_API_KEY;
@@ -585,14 +715,17 @@ assert.doesNotMatch(body.message, /chưa cấu hình|tệp đọc được|\([^)
 await store.updateSubmission(submission.id, { status: 'draft' });
 currentAccess = { store, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id), links: [], supplierId: 'sup-1', userId: 'user-1', userEmail: 'supplier@example.com' };
 res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: false }) }), { params: Promise.resolve({ id: submission.id }) });
-assert.equal(res.status, 200);
-body = await res.json();
-assert.equal(body.status, 'draft', 'Quét thử không tự nộp hồ sơ');
-assert.equal(body.message, 'Hệ thống chưa quét được bằng AI. Hãy hoàn thiện và nộp hồ sơ để nhân viên đối chiếu.');
-assert.doesNotMatch(body.message, /đã được gửi|chưa cấu hình|tệp đọc được/i);
-process.env.OPENAI_API_KEY = 'test-key';
-res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: false }) }), { params: Promise.resolve({ id: submission.id }) });
 assert.equal(res.status, 429, 'Đã hết lượt AI L2');
+process.env.OPENAI_API_KEY = 'test-key';
+const aiCallsBeforeQuotaSubmit = aiCalls;
+res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: true }) }), { params: Promise.resolve({ id: submission.id }) });
+body = await res.json();
+assert.equal(res.status, 200);
+assert.equal(body.ok, true);
+assert.equal(body.status, 'pending_review', 'Hết lượt AI không được chặn nộp hồ sơ');
+assert.equal(body.aiScanned, false);
+assert.equal(aiCalls, aiCallsBeforeQuotaSubmit, 'Không gọi AI khi đã hết lượt');
+assert.match(body.message, /đã được gửi để nhân viên đối chiếu/);
 
 // Nhân viên có hạn mức riêng; quét thử không được nói nhầm rằng hồ sơ đã nộp.
 const staffScanFactory = makeLoader({
@@ -609,7 +742,7 @@ aiVerdicts = {};
 res = await staffScanFactory.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: false }) }), { params: Promise.resolve({ id: submission.id }) });
 body = await res.json();
 assert.equal(body.aiScanned, true);
-assert.equal(body.status, 'draft');
+assert.equal(body.status, 'pending_review', 'Nhân viên quét lại không thay trạng thái đang chờ');
 assert.equal(body.message, 'AI đã quét thử. Hãy xem kết quả trước khi tiếp tục.');
 
 // Không tiết lộ lỗi kỹ thuật, kể cả khi dịch vụ AI thực sự phát sinh lỗi.
@@ -624,6 +757,139 @@ assert.equal(body.aiScanned, false);
 assert.equal(body.status, 'pending_review');
 assert.equal(body.message, 'Hệ thống chưa quét được bằng AI. Hồ sơ vẫn được lưu để nhân viên đối chiếu.');
 assert.doesNotMatch(body.message, /sensitive|chưa cấu hình|tệp đọc được/);
+assert.ok((await store.getSubmission(submission.id)).ai_review, 'Giữ kết quả quét thành công trước đó khi dịch vụ lỗi');
+
+// Even a staff rescan reporting a failure/manipulation cannot overturn a
+// human decision made while the AI request is in flight.
+aiVerdicts = { factory_gate: { verdict: 'fail', code_visible: false, reason: 'AI không thấy tờ mã', flags: ['code_missing'] } };
+aiManipulation = true;
+await store.updateSubmission(submission.id, { status: 'pending_review', review_note: 'Ghi chú cũ' });
+currentAccess = { ...currentAccess, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id) };
+globalThis.fetch = async () => {
+  await store.updateSubmission(submission.id, { status: 'returned', review_note: 'Nhân viên yêu cầu bổ sung.', reviewed_by: 'reviewer-1' });
+  return Response.json(aiResponse(aiVerdicts));
+};
+res = await staffScanFactory.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: false }) }), { params: Promise.resolve({ id: submission.id }) });
+body = await res.json();
+assert.equal(body.ok, true);
+assert.equal(body.status, 'returned', 'Quét lại không hoàn tác quyết định của nhân viên');
+assert.equal((await store.getSubmission(submission.id)).review_note, 'Nhân viên yêu cầu bổ sung.');
+assert.equal((await store.getSubmission(submission.id)).reviewed_by, 'reviewer-1');
+assert.ok(body.reasons.some((r) => /tờ mã/.test(r)));
+assert.ok(body.reasons.some((r) => /dàn dựng/.test(r)));
+globalThis.fetch = previousFetch;
+
+// A submission started from a draft cannot overwrite a different returned
+// state recorded by staff while the scan runs.
+await store.updateSubmission(submission.id, { status: 'draft', review_note: null, reviewed_by: null });
+currentAccess = { ...currentAccess, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id) };
+globalThis.fetch = async () => {
+  await store.updateSubmission(submission.id, { status: 'returned', review_note: 'Nhân viên vừa trả hồ sơ.', reviewed_by: 'reviewer-2' });
+  return Response.json(aiResponse(aiVerdicts));
+};
+res = await staffScanFactory.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: true }) }), { params: Promise.resolve({ id: submission.id }) });
+body = await res.json();
+assert.equal(body.ok, false);
+assert.equal(body.status, 'returned');
+assert.match(body.message, /vừa thay đổi/i);
+assert.equal((await store.getSubmission(submission.id)).review_note, 'Nhân viên vừa trả hồ sơ.');
+globalThis.fetch = previousFetch;
+
+// Changed evidence cannot receive findings for the previous photo or be sent
+// as if it were the version the supplier submitted.
+await store.updateSubmission(submission.id, { status: 'draft', review_note: null, reviewed_by: null });
+currentAccess = { ...currentAccess, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id) };
+const oldPath = gateItem.storage_path;
+globalThis.fetch = async () => { gateItem.storage_path = `${oldPath}-changed`; return Response.json(aiResponse(aiVerdicts)); };
+res = await staffScanFactory.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: true }) }), { params: Promise.resolve({ id: submission.id }) });
+body = await res.json();
+assert.equal(body.ok, false);
+assert.equal(body.status, 'draft');
+assert.match(body.message, /vừa thay đổi/i);
+gateItem.storage_path = oldPath;
+globalThis.fetch = previousFetch;
+
+// A failure writing an individual AI result cannot block submission; the full
+// review still reaches the staff view independently of the per-item write.
+const originalUpdateItem = store.updateSubmissionItem;
+gateItem.ai_verdict = 'pass'; // old per-item value will not be updated
+store.updateSubmissionItem = async (id, patch) => {
+  if (id === gateItem.id) throw new Error('simulated per-item AI write failure');
+  return originalUpdateItem(id, patch);
+};
+currentAccess = { ...currentAccess, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id) };
+res = await staffScanFactory.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: true }) }), { params: Promise.resolve({ id: submission.id }) });
+body = await res.json();
+store.updateSubmissionItem = originalUpdateItem;
+assert.equal(body.ok, true);
+assert.equal(body.status, 'pending_review');
+assert.ok(body.reasons.some((r) => r.includes('Cổng nhà máy')));
+const savedAfterItemFailure = await store.getSubmission(submission.id);
+const afterItemFailureView = portalFactory.buildPortalSubmission({ submission: savedAfterItemFailure, items: await store.listSubmissionItems(submission.id), links: [] }, { forStaff: true });
+assert.ok(afterItemFailureView.aiFindings.some((r) => r.includes('Cổng nhà máy')), 'CRM vẫn thấy kết quả AI đầy đủ ở hồ sơ');
+assert.equal(afterItemFailureView.items.find((item) => item.id === gateItem.id).aiVerdict, 'fail', 'Kết quả hồ sơ mới thắng metadata cũ khi không lưu được mục ảnh');
+assert.ok(!afterItemFailureView.items.find((item) => item.id === gateItem.id).flags.some((flag) => flag.source === 'ai'), 'Không trình bày cờ AI cũ như kết quả mới');
+aiVerdicts = {}; aiManipulation = false;
+
+// The final status compare-and-swap protects a staff decision made in the
+// narrow window after the last read but before the conditional write.
+const originalUpdateEditable = store.updateEditableSubmission;
+await store.updateSubmission(submission.id, { status: 'draft', review_note: null, reviewed_by: null });
+store.updateEditableSubmission = async (id, patch, expected) => {
+  await store.updateSubmission(id, { status: 'returned', review_note: 'Nhân viên vừa trả ở bước cuối.', reviewed_by: 'reviewer-cas' });
+  return originalUpdateEditable(id, patch, expected);
+};
+currentAccess = { ...currentAccess, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id) };
+res = await staffScanFactory.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: true }) }), { params: Promise.resolve({ id: submission.id }) });
+body = await res.json();
+store.updateEditableSubmission = originalUpdateEditable;
+assert.equal(body.ok, false);
+assert.equal(body.status, 'returned');
+assert.match(body.message, /vừa thay đổi/i);
+assert.equal((await store.getSubmission(submission.id)).review_note, 'Nhân viên vừa trả ở bước cuối.');
+
+// When only the optional root AI payload fails to save, retry the same CAS
+// without it. A real status write failure still propagates instead of lying.
+await store.updateSubmission(submission.id, { status: 'draft', review_note: null, reviewed_by: null });
+let rootAiFailures = 0;
+store.updateEditableSubmission = async (id, patch, expected) => {
+  if (patch.ai_review) { rootAiFailures++; throw new Error('simulated AI payload save failure'); }
+  return originalUpdateEditable(id, patch, expected);
+};
+currentAccess = { ...currentAccess, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id) };
+res = await staffScanFactory.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: true }) }), { params: Promise.resolve({ id: submission.id }) });
+body = await res.json();
+store.updateEditableSubmission = originalUpdateEditable;
+assert.equal(rootAiFailures, 1);
+assert.equal(body.ok, true);
+assert.equal(body.status, 'pending_review');
+assert.equal(body.aiScanned, false);
+assert.match(body.message, /Chưa lưu được kết quả AI/i);
+
+// If no new scan can run after a photo was changed, keep the old findings but
+// tell both sides they may not describe the new evidence; still accept the case.
+const skipService = makeLoader({
+  '@/lib/media/storage': { getObject: async () => { throw new Error('skipAi must not read storage'); } },
+  '@/lib/supplier-portal/notify': { notifyStaffSupplierSubmission: async () => 'sent' },
+})('lib/verification-submission-service.ts');
+await store.updateSubmission(submission.id, { status: 'draft' });
+const unchangedPath = gateItem.storage_path;
+gateItem.storage_path = `${unchangedPath}-new-photo`;
+const skippedBundle = { submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id), links: [] };
+const skippedResult = await skipService.scanAndQueueSubmission(store, { bundle: skippedBundle, supplier: await store.getSupplier('sup-1'), actorId: 'user-1', actorEmail: null, submit: true, skipAi: true });
+assert.equal(skippedResult.ok, true);
+assert.equal(skippedResult.status, 'pending_review');
+assert.match(skippedResult.message, /lần trước.*không khớp ảnh hiện tại/i);
+const skippedView = portalFactory.buildPortalSubmission({ submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id), links: [] }, { forStaff: true });
+assert.equal(skippedView.aiFindingsMayBeOutdated, true);
+gateItem.storage_path = unchangedPath;
+
+// A stale create-code request must not revert a case already sent by another tab.
+const staleCodeInput = { ...(await store.getSubmission(submission.id)), status: 'draft' };
+const codeBeforeRace = (await store.getSubmission(submission.id)).verification_code;
+await assert.rejects(skipService.issueCodeForSubmission(store, { submission: staleCodeInput, userId: 'user-1', userEmail: null, supplierName: 'ABC' }), /Hồ sơ vừa thay đổi/);
+assert.equal((await store.getSubmission(submission.id)).status, 'pending_review');
+assert.equal((await store.getSubmission(submission.id)).verification_code, codeBeforeRace);
 
 /* ------------------------------ 8. nhân viên xét hồ sơ ------------------------------ */
 

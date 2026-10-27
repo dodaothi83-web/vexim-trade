@@ -82,7 +82,7 @@ for (const [label, pattern] of [
   ['AI quét thử', /runScan\(false\)/],
   ['AI quét & nộp', /runScan\(true\)/],
   ['khóa hồ sơ sau khi nộp', /!view\.editable|locked/],
-  ['kết quả AI', /Kết quả AI tự động/],
+  ['gợi ý AI', /Gợi ý từ AI/],
   ['tiến độ', /role="progressbar"/],
 ])
   assert.match(panel, pattern, `Bảng điều khiển còn chức năng ${label}`);

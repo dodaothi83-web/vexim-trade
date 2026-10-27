@@ -4,6 +4,7 @@ import {
   L2_FACTORY_PHOTO_ITEMS,
   L2_PARTNER_ITEMS,
   L3_EXPORT_ITEMS,
+  type AiSubmissionReview,
   type ExportDocKey,
   type FactoryPhotoKey,
   type L2VerificationScope,
@@ -34,10 +35,10 @@ import {
  * chat. Các tín hiệu kỹ thuật vẫn được ghi lại làm ghi chú cho người duyệt, nhưng
  * KHÔNG còn là điều kiện để nộp.
  *
- * Phần GIỮ NGUYÊN, vẫn bắt buộc: tờ giấy in mã xác minh do hệ thống phát hành phải
- * nằm trong khung hình của 3 ảnh có đánh dấu 🔖 (cổng nhà máy, dây chuyền đang chạy,
- * kho thành phẩm). NCC phải tải/in tờ mã rồi chụp cùng cảnh. Thiếu mã, hoặc mã trong
- * ảnh không khớp mã đã phát hành, thì hồ sơ chưa nộp được.
+ * Phần GIỮ NGUYÊN, vẫn bắt buộc: tờ mã xác minh do hệ thống phát hành phải nằm
+ * trong 3 ảnh có đánh dấu 🔖 (cổng nhà máy, dây chuyền đang chạy, kho thành phẩm).
+ * NCC cần tạo mã còn hiệu lực và tải đủ ảnh trước khi nộp. AI chỉ nêu nghi ngờ
+ * về tờ mã; nhân viên đối chiếu và quyết định có yêu cầu bổ sung hay không.
  */
 export const ORIGINAL_PHOTO_REQUIRED = false;
 
@@ -125,9 +126,54 @@ export function requiresHandwrittenCode(key: string): boolean {
   return L2_FACTORY_PHOTO_ITEMS.some((i) => i.key === key && i.requires_code);
 }
 
+/** Identifies exactly the evidence and code supplied to a scan. */
+export function evidenceSnapshot(
+  submission: Pick<SupplierSubmission, "verification_code" | "code_issued_at">,
+  items: SupplierSubmissionItem[],
+): string {
+  return JSON.stringify({
+    code: submission.verification_code,
+    issued: submission.code_issued_at,
+    items: items.map((item) => [item.id, item.checklist_key, item.media_id, item.storage_path])
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+  });
+}
+
+/** Old results stay visible, but must not be mistaken for a scan of changed evidence. */
+export function aiReviewMayBeOutdated(submission: SupplierSubmission, items: SupplierSubmissionItem[]): boolean {
+  const review = submission.ai_review;
+  return Boolean(review && (!review.evidence_snapshot || review.evidence_snapshot !== evidenceSnapshot(submission, items)));
+}
+
+/** Findings are suggestions for a person, never a reason to return or block a case. */
+export function aiReviewFindings(review: AiSubmissionReview | null, issuedCode: string | null): string[] {
+  if (!review) return [];
+  const findings: string[] = [];
+  for (const [key, item] of Object.entries(review.items ?? {})) {
+    if (!item || typeof item !== "object") continue;
+    const details: string[] = [];
+    const flags = Array.isArray(item.flags) ? item.flags : [];
+    if (item.verdict === "fail" || (item.verdict === "uncertain" && Boolean(item.reason)) || flags.includes("content_mismatch")) {
+      details.push(item.reason || "Ảnh có thể chưa phù hợp với mục này.");
+    }
+    if (requiresHandwrittenCode(key)) {
+      const mismatch = codeMatches(issuedCode, item.code_read) === false || flags.includes("code_mismatch");
+      const missing = item.code_visible === false || flags.includes("code_missing");
+      if (mismatch) details.push("AI đọc mã có thể không khớp mã đã phát hành.");
+      else if (missing) details.push("AI chưa thấy tờ mã trong ảnh.");
+    }
+    if (details.length) findings.push(`${submissionItemLabel(2, key)}: ${[...new Set(details)].join(" ")}`);
+  }
+  if (review.unscanned_extra_count && Number.isInteger(review.unscanned_extra_count) && review.unscanned_extra_count > 0) {
+    findings.push(`AI chưa quét thêm ${review.unscanned_extra_count} ảnh; nhân viên sẽ kiểm tra.`);
+  }
+  if (review.manipulation_suspected) findings.push("AI nghi ngờ ảnh bị chỉnh sửa hoặc dàn dựng.");
+  return findings;
+}
+
 /** Thiếu mục nào để nộp hồ sơ. */
 export function missingKeys(submission: Pick<SupplierSubmission, "target_level" | "verification_code" | "l2_scope">, items: (Pick<SupplierSubmissionItem, "checklist_key" | "media_id"> & Partial<Pick<SupplierSubmissionItem, "storage_path">>)[]): string[] {
-  const have = new Set(items.filter((i) => i.media_id).map((i) => i.checklist_key));
+  const have = new Set(items.filter((i) => i.media_id && (submission.target_level !== 2 || submission.l2_scope === "partner_contract" || Boolean(i.storage_path?.trim()))).map((i) => i.checklist_key));
   if (submission.target_level === 3) {
     return L3_EXPORT_ITEMS.some((item) => have.has(item.key)) ? [] : ["any_export_evidence"];
   }
@@ -155,7 +201,6 @@ export function readiness(input: {
   const missing = missingKeys(submission, items).map((key) => submissionItemLabel(submission.target_level, key));
   /** `structural` = thiếu mục/thiếu mã: chặn nộp. Cờ liêm chính chỉ cảnh báo. */
   const structural: string[] = [];
-  const blockers: string[] = [];
   const warnings: string[] = [];
   if (factory && !submission.verification_code) {
     structural.push("Chưa tạo mã xác minh. Bấm “Tạo mã xác minh”, in/viết tay mã lên giấy rồi chụp cùng các ảnh có đánh dấu 🔖.");
@@ -163,56 +208,48 @@ export function readiness(input: {
   if (factory && codeExpired(submission, input.now)) {
     structural.push(`Mã xác minh đã quá ${VERIFICATION_CODE_TTL_HOURS} giờ. Hãy tạo mã mới và chụp lại các ảnh 🔖.`);
   }
+  if (factory && submission.verification_code && (!submission.code_issued_at || Number.isNaN(Date.parse(submission.code_issued_at)))) {
+    structural.push("Không xác định được thời điểm phát hành mã. Hãy tạo mã mới và chụp lại các ảnh 🔖.");
+  }
   if (missing.length) structural.push(`Còn thiếu ${missing.length} mục bắt buộc: ${missing.join("; ")}.`);
   const withMedia = items.filter((i) => i.media_id);
   if (!withMedia.length) structural.push("Chưa có bằng chứng nào được tải lên.");
 
-  // Phần xác minh danh tính DUY NHẤT còn bắt buộc: tờ mã đã in phải nằm trong ảnh 🔖.
+  // A system flag can identify an image uploaded before any code was issued.
+  // AI reading a missing/wrong code, including an old `hard` flag, is only a
+  // finding: the person reviewing the actual photo decides whether it is valid.
   if (factory && submission.verification_code) {
     const codeProblems = withMedia
       .filter((i) => requiresHandwrittenCode(i.checklist_key))
-      .filter((i) => (i.flags ?? []).some((f) => f.severity === "hard" && (f.flag === "code_missing" || f.flag === "code_mismatch")))
+      .filter((i) => (i.flags ?? []).some((f) => f.source !== "ai" && f.severity === "hard" && (f.flag === "code_missing" || f.flag === "code_mismatch")))
       .map((i) => submissionItemLabel(2, i.checklist_key));
     if (codeProblems.length) {
       structural.push(
-        `Tờ mã xác minh chưa đúng ở: ${codeProblems.join("; ")}. In (hoặc mở) tờ mã, đặt cạnh cảnh rồi chụp lại; mã trong ảnh phải khớp mã ${submission.verification_code}.`,
+        `Tờ mã xác minh chưa đúng ở: ${codeProblems.join("; ")}. In hoặc chép tờ mã ra giấy, đặt cạnh cảnh rồi chụp lại; mã trong ảnh phải khớp mã ${submission.verification_code}.`,
       );
     }
   }
 
   for (const item of withMedia) {
     for (const flag of item.flags ?? []) {
-      // Kết quả AI L3 cũ được lưu lịch sử, không ảnh hưởng luồng đối chiếu mới.
-      if (submission.target_level === 3 && flag.source === "ai") continue;
-      const text = `${submissionItemLabel(submission.target_level, item.checklist_key)}: ${flag.detail ?? flag.flag}`;
-      (flag.severity === "hard" ? blockers : warnings).push(text);
+      // L2 AI results are suggestions even when a historical flag says "hard".
+      // Old L3 AI flags are retained in history but do not affect its new flow.
+      if (flag.source === "ai" && (submission.target_level === 3 || submission.l2_scope === "partner_contract")) continue;
+      // Structural code flags are already explained above; all other historic
+      // EXIF/GPS/time flags, even if marked hard, are notes rather than gates.
+      if (factory && requiresHandwrittenCode(item.checklist_key) && flag.source !== "ai" && flag.severity === "hard" && (flag.flag === "code_missing" || flag.flag === "code_mismatch")) continue;
+      const text = `${flag.source === "ai" ? "AI lưu ý · " : ""}${submissionItemLabel(submission.target_level, item.checklist_key)}: ${flag.detail ?? flag.flag}`;
+      warnings.push(text);
     }
   }
   return {
-    // Cờ "hard" KHÔNG chặn việc nộp: NCC vẫn gửi được để Vexim xem và phản hồi,
-    // nhưng hồ sơ hiện rõ các điểm phải giải trình. Chỉ thiếu mục/mã là chặn.
+    // AI and integrity flags never determine the decision. Missing mandatory
+    // files/code and system-detected pre-code uploads remain structural gates.
     ready: structural.length === 0,
     missing,
-    blockers: [...structural, ...blockers],
+    blockers: structural,
     warnings,
   };
-}
-
-/**
- * AI quét xong thì hệ thống tự xếp hồ sơ vào hàng đợi phù hợp:
- *  - `ai_clear`: đủ mục, AI không có mục nào `fail` → chờ Vexim xét duyệt.
- *  - `needs_fix`: AI báo fail / nghi dàn dựng → trả về để NCC bổ sung ngay,
- *    kèm lý do; NCC sửa xong nộp lại, Vexim vẫn là người quyết định cuối.
- */
-export function autoQueueStatus(input: {
-  ready: boolean;
-  aiFailedItems: string[];
-  manipulationSuspected: boolean | null;
-}): { status: "pending_review" | "returned"; aiClear: boolean; reasons: string[] } {
-  const reasons = [...input.aiFailedItems];
-  if (input.manipulationSuspected) reasons.push("AI nghi ngờ ảnh bị chỉnh sửa nội dung/dàn dựng.");
-  if (!input.ready) return { status: "returned", aiClear: false, reasons };
-  return reasons.length ? { status: "returned", aiClear: false, reasons } : { status: "pending_review", aiClear: true, reasons: [] };
 }
 
 /* ------------------------------ link nguồn công khai ------------------------------ */

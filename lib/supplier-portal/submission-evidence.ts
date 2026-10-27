@@ -236,6 +236,9 @@ export async function saveSubmissionEvidence(input: {
   let replaced = 0;
   let item: SupplierSubmissionItem;
   try {
+    // Kiểm lại trước khi thay ảnh: hồ sơ có thể vừa được nộp ở một tab khác.
+    const freshBeforeReplacement = await store.getSubmission(submission.id);
+    if (!freshBeforeReplacement || !submissionAcceptsUploads(freshBeforeReplacement)) throw new Error("Hồ sơ đã nộp/đã xét; không thể tải thêm bằng chứng.");
     // Giữ nguyên cách thay ảnh L2; L3 chỉ xoá khi NCC chủ động chọn tệp.
     if (!manual) {
       const existing = (await store.listSubmissionItems(submission.id))
@@ -250,9 +253,9 @@ export async function saveSubmissionEvidence(input: {
 
     // Bảo vệ trường hợp trạng thái đổi trong lúc tải. Lần kiểm thứ hai cũng
     // tránh nhận tệp thứ tư khi một tab khác vừa tải xong.
+    const fresh = await store.getSubmission(submission.id);
+    if (!fresh || !submissionAcceptsUploads(fresh)) throw new Error("Hồ sơ đã nộp/đã xét; không thể tải thêm bằng chứng.");
     if (manual) {
-      const fresh = await store.getSubmission(submission.id);
-      if (!fresh || !submissionAcceptsUploads(fresh)) throw new Error("Hồ sơ đã nộp/đã xét; không thể tải thêm bằng chứng.");
       const current = (await store.listSubmissionItems(submission.id)).filter((row) => row.checklist_key === key && row.media_id);
       if (current.length >= MAX_ITEMS_PER_KEY) throw new Error(`Mỗi mục giữ tối đa ${MAX_ITEMS_PER_KEY} tệp. Hãy xóa một tệp trước khi tải thêm.`);
     }

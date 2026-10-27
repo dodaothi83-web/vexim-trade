@@ -224,7 +224,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
     if (busy || evidenceBusy || (manual && !submit)) return;
     if (submit && !window.confirm(manual
       ? "Nộp hồ sơ để nhân viên kiểm tra? Chứng từ sẽ tạm khóa trong khi xét."
-      : "Nộp hồ sơ để AI quét sơ bộ và chuyển sang bước duyệt? Ảnh sẽ được gửi tới dịch vụ AI để phân tích; bằng chứng bị khóa sau khi nộp.")) return;
+      : "Nộp hồ sơ để nhân viên đối chiếu? Ảnh có thể được gửi tới dịch vụ AI để quét sơ bộ. AI chỉ nêu điểm cần kiểm tra, không tự trả hay duyệt; bằng chứng tạm khóa sau khi nộp.")) return;
     setBusy(submit ? "submit" : "scan"); setMessage(null); setScan(null);
     try {
       const response = await fetch(`/api/supplier-portal/submissions/${encodeURIComponent(view.id)}/ai-scan`, {
@@ -298,7 +298,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
           : "Chưa có vị trí. Hãy cho phép trang dùng vị trí để ảnh được gắn toạ độ.";
 
   const progress = view.requiredTotal > 0 ? Math.min(100, Math.round((view.uploadedTotal / view.requiredTotal) * 100)) : 0;
-  const doneSpecs = specs.filter((spec) => view.items.some((item) => item.key === spec.key)).length;
+  const doneSpecs = specs.filter((spec) => view.items.some((item) => item.key === spec.key && item.href)).length;
   const totalSpecs = specs.length;
   const levelTitle = partner ? "Nhà máy đối tác" : level === 2 ? "Xác thực nhà máy" : "Lịch sử xuất khẩu";
   const LevelIcon = level === 2 ? Factory : Ship;
@@ -309,8 +309,13 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
         : "bg-ink-100 text-ink-700";
   const progressNote = locked ? "Hồ sơ đã nộp - bằng chứng bị khóa."
     : view.ready ? level === 2 ? "Đủ mục bắt buộc, sẵn sàng nộp." : "Đã có chứng từ, sẵn sàng nộp."
-      : level === 2 ? `Còn thiếu ${view.missing.length} mục bắt buộc.` : "Tải ít nhất một chứng từ.";
+      : level === 2 ? view.missing.length ? `Còn thiếu ${view.missing.length} mục bắt buộc.` : "Cần kiểm tra mã xác minh." : "Tải ít nhất một chứng từ.";
   const progressTone = locked ? "text-ink-500" : view.ready ? "text-emerald-800" : "text-amber-800";
+  // A finding may also exist as an item flag; avoid repeating the same AI text.
+  const scanWarnings = (scan?.warnings ?? []).filter((warning) => {
+    const text = warning.replace(/^AI lưu ý · /, "");
+    return !(scan?.reasons ?? []).some((reason) => reason === text || reason.startsWith(`${text} `));
+  });
 
   return <div id={`level-${level}`} className="mt-5 scroll-mt-20">
 
@@ -363,13 +368,21 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
     {message && <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm font-semibold ${message.ok ? "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200" : "bg-rose-50 text-rose-900 ring-1 ring-rose-200"}`}>{message.text}</p>}
 
     {factory && scan && <div role={scan.ok ? "status" : "alert"} className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
-      <h3 className="flex items-center gap-1.5 font-bold"><Sparkles className="size-4" aria-hidden="true" /> {scan.aiScanned ? "Kết quả AI tự động" : "Trạng thái quét AI"}</h3>
+      <h3 className="flex items-center gap-1.5 font-bold"><Sparkles className="size-4" aria-hidden="true" /> {scan.aiScanned ? "Gợi ý từ AI" : "Trạng thái quét AI"}</h3>
       <p className="mt-1">{scan.message}</p>
       {scan.summary && scan.summary !== scan.message && <p className="mt-2 text-[13px]">{scan.summary}</p>}
       {scan.reasons.length > 0 && <ul className="mt-2 space-y-1 text-[13px]">{scan.reasons.map((r) => <li key={r}>• {r}</li>)}</ul>}
-      {scan.warnings.length > 0 && <p className="mt-2 text-[12px] text-violet-800">Điểm cần lưu ý: {scan.warnings.slice(0, 5).join(" · ")}</p>}
-      <p className="mt-2 text-[11px] text-violet-800">AI không xác nhận giấy tờ là thật và không tự duyệt. Hồ sơ đạt sẽ chờ đối chiếu thủ công; huy hiệu L{level} chỉ có sau khi người có quyền duyệt phê.</p>
+      {scanWarnings.length > 0 && <p className="mt-2 text-[12px] text-violet-800">Điểm cần lưu ý: {scanWarnings.slice(0, 5).join(" · ")}</p>}
+      <p className="mt-2 text-[11px] text-violet-800">AI chỉ gợi ý, không tự trả hay duyệt hồ sơ. Nhân viên sẽ đối chiếu và quyết định.</p>
     </div>}
+
+    {factory && (!scan || !scan.aiScanned) && (view.aiSummary || view.aiFindings?.length > 0 || view.aiFindingsMayBeOutdated) && <section aria-label="Gợi ý từ AI" className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
+      <h3 className="flex items-center gap-1.5 font-bold"><Sparkles className="size-4" aria-hidden="true" /> Gợi ý từ AI</h3>
+      {view.aiFindingsMayBeOutdated && !scan?.message.includes("không khớp ảnh hiện tại") && <p className="mt-1 font-semibold">Kết quả quét trước có thể không khớp ảnh hiện tại.</p>}
+      {view.aiSummary && <p className="mt-1">{view.aiSummary}</p>}
+      {view.aiFindings?.length > 0 && <ul className="mt-2 space-y-1 text-[13px]">{view.aiFindings.map((finding) => <li key={finding}>• {finding}</li>)}</ul>}
+      {!scan && <p className="mt-2 text-[11px] text-violet-800">AI chỉ gợi ý, không tự trả hay duyệt hồ sơ. Nhân viên sẽ đối chiếu và quyết định.</p>}
+    </section>}
 
     <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
       <div className="min-w-0 space-y-4">
@@ -412,7 +425,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
                   <p className={`mt-2 text-[11px] leading-4 ${downloaded || printed ? "text-ink-500" : "font-semibold text-brand-800"}`}>
                     {downloaded || printed
                       ? "Đã có tờ mã. In ra giấy rồi đặt cạnh cảnh khi chụp 3 ảnh có đánh dấu 🔖."
-                      : "Bắt buộc: tải tờ mã về, in ra giấy rồi chụp cùng cảnh ở 3 ảnh có đánh dấu 🔖. Không có tờ mã thì hồ sơ chưa nộp được."}
+                      : "Bắt buộc: tải tờ mã về, in ra giấy rồi chụp cùng cảnh ở 3 ảnh có đánh dấu 🔖. Nhân viên sẽ đối chiếu tờ mã trong ảnh."}
                   </p>
                 </>
               : <div>
@@ -470,7 +483,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
               </p>
             </div>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${view.ready ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
-              {view.ready ? "Đủ điều kiện nộp" : `Thiếu ${view.missing.length} mục`}
+              {view.ready ? "Đủ điều kiện nộp" : view.missing.length ? `Thiếu ${view.missing.length} mục` : "Cần kiểm tra mã"}
             </span>
           </div>
 
@@ -537,8 +550,8 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
           <p className={`mt-1 text-[11.5px] leading-5 ${progressTone}`}>{locked
             ? "Hồ sơ đang chờ xét hoặc đã được nhận - bằng chứng bị khóa."
             : view.ready
-              ? factory ? "Đủ mục bắt buộc. Nộp để AI quét sơ bộ và chuyển sang bước duyệt." : "Đã có chứng từ. Nộp để nhân viên kiểm tra."
-              : partner ? "Tải hợp đồng với nhà máy đối tác." : level === 2 ? `Còn thiếu ${view.missing.length} mục, hoặc thiếu tờ mã trong ảnh 🔖.` : "Tải ít nhất một chứng từ phù hợp."}</p>
+              ? factory ? "Đủ mục bắt buộc. Nộp để nhân viên đối chiếu; AI chỉ hỗ trợ kiểm tra." : "Đã có chứng từ. Nộp để nhân viên kiểm tra."
+              : partner ? "Tải hợp đồng với nhà máy đối tác." : level === 2 ? view.missing.length ? `Còn thiếu ${view.missing.length} mục bắt buộc.` : "Hãy kiểm tra mã xác minh." : "Tải ít nhất một chứng từ phù hợp."}</p>
 
           <dl className="mt-3 grid grid-cols-2 gap-2 text-center">
             <div className="rounded-lg bg-ink-50 px-2 py-2">
@@ -568,7 +581,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
               {busy === "scan" ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <ScanSearch className="size-3.5" aria-hidden="true" />} AI quét thử
             </button>}
           </div>
-          <p className="mt-2 text-[10px] leading-4 text-ink-500">{factory ? "AI chỉ gợi ý; tải lên và quét không tự cấp huy hiệu." : "Nhân viên kiểm tra và quyết định; nộp hồ sơ không tự cấp xác minh."}</p>
+          <p className="mt-2 text-[10px] leading-4 text-ink-500">{factory ? "AI chỉ gợi ý, không tự trả hay duyệt; nhân viên quyết định." : "Nhân viên kiểm tra và quyết định; nộp hồ sơ không tự cấp xác minh."}</p>
         </section>
 
         <section aria-labelledby="tips-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">

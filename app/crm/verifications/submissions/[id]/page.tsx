@@ -18,8 +18,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Trang đối chiếu của nhân viên: ảnh NCC tải lên + ghi chú kỹ thuật (EXIF/GPS nếu còn)
- * + kết quả AI của từng mục. Từ 21/10/2026 các tín hiệu kỹ thuật chỉ là ghi chú; điều
- * kiện chặn duy nhất là tờ mã xác minh trong 3 ảnh 🔖.
+ * + kết quả AI của từng mục. Tờ mã vẫn được yêu cầu ở 3 ảnh 🔖, nhưng AI chỉ
+ * gợi ý; nhân viên xem ảnh và quyết định có yêu cầu bổ sung hay không.
  */
 export default async function SubmissionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -53,7 +53,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
               ? <Badge className="bg-rose-50 text-rose-800">Thiếu {check.missing.length} mục: {check.missing.join(", ")}</Badge>
               : <Badge className="bg-emerald-50 text-emerald-800">Đủ mục bắt buộc</Badge>}
             {view.aiScannedAt && <Badge className="bg-violet-50 text-violet-800">{view.level === 3 ? "Lịch sử AI cũ" : "AI quét"} {new Date(view.aiScannedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</Badge>}
-            {view.aiManipulation && <Badge className="bg-rose-100 text-rose-900">{view.level === 3 ? "AI cũ từng nghi" : "AI nghi"} ảnh bị chỉnh sửa/dàn dựng</Badge>}
+            {view.level === 3 && view.aiManipulation && <Badge className="bg-rose-100 text-rose-900">AI cũ từng nghi ảnh bị chỉnh sửa/dàn dựng</Badge>}
           </div>
           <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
             {!partner && <Info label="Mã xác minh đã phát hành" value={view.code ? `${view.code}${view.codeExpired ? " (hết hạn)" : ""}` : "Chưa phát hành"} />}
@@ -67,6 +67,12 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           {view.reviewNote && <p className="mt-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-900"><strong>Ghi chú xét / lý do trả:</strong> {view.reviewNote}</p>}
           {view.aiSummary && <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-violet-50 p-3 text-xs text-violet-900">
             <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span><strong>{view.level === 3 ? "Lịch sử AI cũ, chỉ tham khảo" : "Tóm tắt AI"}{view.aiModel ? ` (${view.aiModel})` : ""}:</strong> {view.aiSummary}</span></p>}
+          {view.aiFindingsMayBeOutdated && <p className="mt-2 rounded-lg bg-amber-50 p-3 text-xs font-semibold text-amber-900">Kết quả AI từ lần quét trước có thể không khớp ảnh hiện tại. Hãy đối chiếu lại.</p>}
+          {view.aiFindings.length > 0 && <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+            <strong>AI lưu ý — cần nhân viên kiểm tra</strong>
+            <ul className="mt-1 space-y-1">{view.aiFindings.map((finding) => <li key={finding}>• {finding}</li>)}</ul>
+            <p className="mt-2">Đây là gợi ý, không phải kết luận. Nhân viên quyết định nhận hoặc trả hồ sơ.</p>
+          </div>}
         </Card>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -133,7 +139,7 @@ function EvidenceCard({ index, spec, rows, level }: { index: number; spec: { key
       </div>
       {latest?.aiVerdict
         ? <Badge className={latest.aiVerdict === "fail" ? "bg-rose-50 text-rose-800" : latest.aiVerdict === "pass" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}>
-            {level === 3 ? "AI cũ" : "AI"}: {latest.aiVerdict === "pass" ? "đúng mục" : latest.aiVerdict === "fail" ? "không đạt" : "chưa đủ cơ sở"}
+            {level === 3 ? "AI cũ" : "AI"}: {latest.aiVerdict === "pass" ? "có vẻ phù hợp" : latest.aiVerdict === "fail" ? "cần kiểm tra" : "chưa đủ cơ sở"}
           </Badge>
         : <Badge className="bg-ink-100 text-ink-600">{latest ? "Đã tải" : "Chưa có bằng chứng"}</Badge>}
     </div>
@@ -161,8 +167,8 @@ function EvidenceCard({ index, spec, rows, level }: { index: number; spec: { key
         </dl>
       </div>
       {row.flags.length > 0 && <ul className="mt-2 space-y-1">
-        {row.flags.map((flag) => <li key={flag.flag} className={`flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] ${flag.severity === "hard" ? "bg-rose-50 text-rose-800" : "bg-amber-50 text-amber-800"}`}>
-          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span><strong>{level === 3 && flag.source === "ai" ? "AI cũ · " : ""}{flag.label}.</strong> {flag.detail ?? ""}</span></li>)}
+        {row.flags.map((flag) => <li key={flag.flag} className={`flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] ${flag.severity === "hard" && flag.source !== "ai" ? "bg-rose-50 text-rose-800" : "bg-amber-50 text-amber-800"}`}>
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span><strong>{flag.source === "ai" ? level === 3 ? "AI cũ · " : "AI lưu ý · " : ""}{flag.label}.</strong> {flag.detail ?? ""}</span></li>)}
       </ul>}
       {(row.aiReason || row.aiDetectedText || row.aiCodeRead) && <div className="mt-2 rounded-lg bg-violet-50 p-2.5 text-[11px] text-violet-900">
         {row.aiReason && <p><strong>{level === 3 ? "AI cũ, chỉ tham khảo" : "AI"}:</strong> {row.aiReason}</p>}

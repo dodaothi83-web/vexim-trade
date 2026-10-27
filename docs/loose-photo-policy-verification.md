@@ -1,6 +1,6 @@
 # Cổng xác thực L2/L3: nới ảnh, siết đúng một chỗ
 
-Cập nhật 21/10/2026. Áp dụng cho `/supplier/portal/verification/factory` (L2) và `/supplier/portal/verification/export` (L3).
+Cập nhật chính sách AI: L2 nhà máy dùng AI để gợi ý, không tự chặn/trả/duyệt; L2 đối tác và L3 do nhân viên đối chiếu. Tài liệu này mô tả yêu cầu ảnh L2 tại `/supplier/portal/verification/factory`.
 
 ## Vì sao đổi
 
@@ -21,18 +21,17 @@ Nay nguyên tắc là: **ảnh nào cũng nhận, chỉ một thứ bắt buộc
 | Cờ `hard` cho thiếu EXIF/GPS/giờ chụp | Tất cả chuyển `warning` |
 
 Các tín hiệu kỹ thuật vẫn được đọc và hiện cho nhân viên duyệt, nhưng xếp vào mục ghi
-chú, không chặn hồ sơ. Chúng nằm trong `lib/media/image-integrity.ts`; muốn siết lại
-sau này chỉ cần đổi các `"warning"` về `"hard"`.
+chú, không chặn hồ sơ. Chúng nằm trong `lib/media/image-integrity.ts`.
 
-## Giữ bắt buộc (và làm chặt hơn)
+## Giữ yêu cầu tờ mã
 
-1. Ba ảnh 🔖 (cổng nhà máy, dây chuyền đang chạy, kho thành phẩm) phải có **tờ mã xác
-   minh** do hệ thống phát hành nằm trong khung hình.
-2. Không phát hành mã thì không tải được ảnh 🔖 (đã chặn ở cả giao diện và server).
-3. AI đọc ảnh: không thấy tờ mã (`code_missing`) hoặc mã không khớp mã đã phát hành
-   (`code_mismatch`) là cờ `hard`, hồ sơ **chưa nộp được**. Đây là cờ `hard` duy nhất
-   còn lại. Trước đây chỉ nằm trong danh sách cảnh báo, nay được đưa vào điều kiện nộp
-   ở `readiness()`.
+1. NCC tự nộp đủ 9 ảnh; ba ảnh 🔖 (cổng nhà máy, dây chuyền đang chạy, kho thành phẩm)
+   phải có **tờ mã xác minh** do hệ thống phát hành nằm trong khung hình.
+2. Mã hệ thống phải được phát hành và còn hiệu lực khi nộp. Ảnh được tải trước khi
+   phát hành mã có cờ hệ thống yêu cầu chụp lại; giao diện yêu cầu tạo mã trước.
+3. Nếu AI không thấy hoặc đọc mã không khớp, kết quả chỉ là **gợi ý**. Hồ sơ đủ ảnh
+   và mã vẫn gửi được; nhân viên mở ảnh, đối chiếu rồi quyết định có trả bổ sung không.
+   Cờ AI cũ có mức `hard` cũng không chặn. AI không tự trả hay tự duyệt.
 
 ## Nút "Tải tờ mã về" (mới)
 
@@ -46,8 +45,8 @@ nút in và hướng dẫn chép tay mã.
 
 ## Những chỗ đã sửa
 
-- `lib/verification-submission.ts`: hằng `ORIGINAL_PHOTO_REQUIRED = false`, luật chặn
-  mới cho `code_missing` / `code_mismatch`.
+- `lib/verification-submission.ts`: hằng `ORIGINAL_PHOTO_REQUIRED = false`, kiểm đủ
+  ảnh/mã và chỉ xem nhận định AI về tờ mã là cảnh báo.
 - `lib/media/image-integrity.ts`: hạ toàn bộ cờ kỹ thuật về `warning`, viết lại lời
   nhắc bằng giọng bình thường.
 - `lib/types.ts`: nhãn cờ không còn hù dọa ("vẫn nhận", "không bắt buộc").
@@ -59,12 +58,13 @@ nút in và hướng dẫn chép tay mã.
   nút tải tờ mã, đổi "Bước 2 · Định vị camera" thành "Vị trí (không bắt buộc)", viết
   lại 3 bước hướng dẫn.
 - `app/crm/verifications/*`: nhân viên đọc đúng luật mới khi đối chiếu.
-- `scripts/check-supplier-self-verification.mjs`: cập nhật kỳ vọng `warning`, thêm test
-  cho luật chặn tờ mã và cho nút tải tờ mã.
+- `scripts/check-supplier-self-verification.mjs`: kiểm tra cờ AI không chặn nộp,
+  yêu cầu ảnh/mã hệ thống và nút tải tờ mã.
 
 ## Lưu ý khi triển khai
 
-- Không cần migration DB.
+- Chạy `supabase/migrations/20261041_l2_factory_submission_guards.sql` sau migration L2 đối tác và trước khi deploy. Migration bảo vệ đủ ảnh/mã và khóa sửa bằng chứng trong lúc xét, không đổi trạng thái hồ sơ cũ; thử trên staging Supabase trước production.
+- Kết quả AI cũ vẫn được giữ để tham khảo; nếu ảnh hoặc mã đã đổi, giao diện nhắc nhân viên đối chiếu lại.
 - Nếu chưa cấu hình `OPENAI_API_KEY`, hệ thống không đọc được mã trong ảnh; khi đó nhân
   viên Vexim phải đối chiếu tờ mã bằng mắt. Điều kiện "phải phát hành mã trước khi tải
   ảnh 🔖" vẫn giữ nguyên.

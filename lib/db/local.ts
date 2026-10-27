@@ -54,11 +54,20 @@ import {
   PEPPER_CATEGORY_CONFIG,
 } from "./category-seed";
 import type { DataStore } from "@/lib/db/types";
-import { L3_EXPORT_ITEMS } from "@/lib/types";
+import { L2_FACTORY_PHOTO_ITEMS, L3_EXPORT_ITEMS } from "@/lib/types";
 import { effectiveL2Scope, isPartnerL2, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
-import { MAX_ITEMS_PER_KEY } from "@/lib/verification-submission";
+import { MAX_ITEMS_PER_KEY, readiness } from "@/lib/verification-submission";
 
 const L3_EVIDENCE_KEYS = new Set<string>(L3_EXPORT_ITEMS.map((item) => item.key));
+const L2_FACTORY_KEYS = new Set<string>(L2_FACTORY_PHOTO_ITEMS.map((item) => item.key));
+
+function guardFactoryPending(row: SupplierSubmission, patch: Partial<SupplierSubmission>, items: SupplierSubmissionItem[]): void {
+  if (row.target_level !== 2 || isPartnerL2(row) || patch.status !== "pending_review" || row.status === "pending_review") return;
+  const relevant = items.filter((item) => item.submission_id === row.id && item.supplier_id === row.supplier_id);
+  const check = readiness({ submission: { ...row, ...patch }, items: relevant });
+  if (check.missing.length) throw new Error("L2_FACTORY_PHOTOS_REQUIRED");
+  if (!check.ready) throw new Error("L2_FACTORY_CODE_REQUIRED");
+}
 
 interface LocalShape {
   users: AppUserRecord[];
@@ -2144,20 +2153,22 @@ export const localStore: DataStore = {
       if (row.target_level === 2 && patch.status === "pending_review" && row.status !== "pending_review" && !l2ScopeMatchesSupplier(row, db.suppliers.find((supplier) => supplier.id === row.supplier_id)?.supplier_type)) throw new Error("L2_SCOPE_TYPE_MISMATCH");
       if (isPartnerL2(row) && patch.status === "pending_review" && row.status !== "pending_review" && !(db.supplier_submission_items ?? []).some((i) =>
         i.submission_id === id && i.supplier_id === row.supplier_id && i.checklist_key === "partner_factory_contract" && i.media_id && i.storage_path?.trim() && (db.media ?? []).some((m) => m.id === i.media_id && m.owner_type === "submission" && m.submission_id === id && m.supplier_id === row.supplier_id && m.checklist_key === i.checklist_key && m.storage_path === i.storage_path && m.audience === "internal" && ["image", "document"].includes(m.kind)))) throw new Error("L2_PARTNER_CONTRACT_REQUIRED");
+      guardFactoryPending(row, patch, db.supplier_submission_items ?? []);
       Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
       return row;
     });
   },
-  async updateEditableSubmission(id, patch) {
+  async updateEditableSubmission(id, patch, expectedStatus) {
     return mutate((db) => {
       const row = (db.supplier_submissions ?? []).find((s) => s.id === id);
-      if (!row || (row.status !== "draft" && row.status !== "returned")) return null;
+      if (!row || (row.status !== "draft" && row.status !== "returned") || (expectedStatus && row.status !== expectedStatus)) return null;
       if (row.target_level === 3 && patch.status === "pending_review" && !(db.supplier_submission_items ?? []).some((item) =>
         item.submission_id === id && item.media_id && item.storage_path?.trim() && L3_EVIDENCE_KEYS.has(item.checklist_key))) return null;
       if (row.target_level === 2 && patch.status === "pending_review" && !l2ScopeMatchesSupplier(row, db.suppliers.find((supplier) => supplier.id === row.supplier_id)?.supplier_type)) throw new Error("L2_SCOPE_TYPE_MISMATCH");
       if (isPartnerL2(row) && patch.status === "pending_review" && !(db.supplier_submission_items ?? []).some((i) =>
         i.submission_id === id && i.supplier_id === row.supplier_id && i.checklist_key === "partner_factory_contract" && i.media_id && i.storage_path?.trim() && (db.media ?? []).some((m) => m.id === i.media_id && m.owner_type === "submission" && m.submission_id === id && m.supplier_id === row.supplier_id && m.checklist_key === i.checklist_key && m.storage_path === i.storage_path && m.audience === "internal" && ["image", "document"].includes(m.kind)))) throw new Error("L2_PARTNER_CONTRACT_REQUIRED");
       if ((patch.supplier_id !== undefined && patch.supplier_id !== row.supplier_id) || (patch.target_level !== undefined && patch.target_level !== row.target_level) || (patch.l2_scope !== undefined && patch.l2_scope !== (row.l2_scope ?? null))) throw new Error("VERIFICATION_SCOPE_IMMUTABLE");
+      guardFactoryPending(row, patch, db.supplier_submission_items ?? []);
       Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
       return row;
     });
@@ -2206,6 +2217,10 @@ export const localStore: DataStore = {
     mutate((db) => {
       const submission = (db.supplier_submissions ?? []).find((s) => s.id === row.submission_id);
       if (submission && ((isPartnerL2(submission) && (submission.supplier_id !== row.supplier_id || !["partner_factory_contract", "partner_factory_photos"].includes(row.checklist_key))) || (!isPartnerL2(submission) && ["partner_factory_contract", "partner_factory_photos"].includes(row.checklist_key)))) throw new Error("L2_PARTNER_KEY_MISMATCH");
+      if (submission && submission.target_level === 2 && !isPartnerL2(submission)) {
+        if (!["draft", "returned"].includes(submission.status)) throw new Error("L2_FACTORY_LOCKED");
+        if (row.supplier_id !== submission.supplier_id || !L2_FACTORY_KEYS.has(row.checklist_key)) throw new Error("L2_FACTORY_ITEM_INVALID");
+      }
       if (submission && (submission.target_level === 3 || isPartnerL2(submission))) {
         if (submission.status !== "draft" && submission.status !== "returned") throw new Error("L3_SUBMISSION_LOCKED");
         const count = (db.supplier_submission_items ?? []).filter((i) => i.submission_id === row.submission_id && i.checklist_key === row.checklist_key && i.media_id).length;
@@ -2222,8 +2237,14 @@ export const localStore: DataStore = {
       const parent = (db.supplier_submissions ?? []).find((sub) => sub.id === row.submission_id);
       const destination = patch.submission_id && patch.submission_id !== row.submission_id ? (db.supplier_submissions ?? []).find((sub) => sub.id === patch.submission_id) : null;
       const manual = (sub: SupplierSubmission | null | undefined) => !!sub && (sub.target_level === 3 || isPartnerL2(sub));
-      const touchesFile = ["submission_id", "supplier_id", "checklist_key", "media_id", "storage_path"].some((key) => Object.hasOwn(patch, key));
+      const touchesFile = ["submission_id", "supplier_id", "checklist_key", "media_id", "storage_path", "thumb_path", "mime"].some((key) => Object.hasOwn(patch, key));
+      const factory = (sub: SupplierSubmission | null | undefined) => !!sub && sub.target_level === 2 && !isPartnerL2(sub);
       if (touchesFile && destination && (manual(parent) || manual(destination))) throw new Error("L2_PARTNER_KEY_MISMATCH");
+      if (touchesFile && destination && (factory(parent) || factory(destination))) throw new Error("L2_FACTORY_ITEM_INVALID");
+      if (touchesFile && parent && factory(parent)) {
+        if (!["draft", "returned"].includes(parent.status)) throw new Error("L2_FACTORY_LOCKED");
+        if ((patch.supplier_id !== undefined && patch.supplier_id !== parent.supplier_id) || (patch.checklist_key !== undefined && !L2_FACTORY_KEYS.has(patch.checklist_key))) throw new Error("L2_FACTORY_ITEM_INVALID");
+      }
       if (touchesFile && parent && manual(parent)) {
         if (!["draft", "returned"].includes(parent.status)) throw new Error("L3_SUBMISSION_LOCKED");
         if ((patch.supplier_id !== undefined && patch.supplier_id !== row.supplier_id) || (patch.checklist_key !== undefined && patch.checklist_key !== row.checklist_key)) throw new Error("L2_PARTNER_KEY_MISMATCH");
@@ -2237,6 +2258,7 @@ export const localStore: DataStore = {
     mutate((db) => {
       const item = (db.supplier_submission_items ?? []).find((i) => i.id === id);
       const submission = item && (db.supplier_submissions ?? []).find((s) => s.id === item.submission_id);
+      if (submission && submission.target_level === 2 && !isPartnerL2(submission) && !["draft", "returned"].includes(submission.status)) throw new Error("L2_FACTORY_LOCKED");
       if (submission && (submission.target_level === 3 || isPartnerL2(submission)) && submission.status !== "draft" && submission.status !== "returned") {
         throw new Error("L3_SUBMISSION_LOCKED");
       }

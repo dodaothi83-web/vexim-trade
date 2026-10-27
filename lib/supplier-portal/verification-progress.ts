@@ -241,14 +241,16 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
   } else if (sub2?.status === "pending_review") {
     Object.assign(step2, {
       state: "reviewing", status: "Chờ duyệt", statusEn: STATUS_EN.reviewing, tone: "amber",
-      note: partner ? "Hồ sơ đối tác đã nộp và đang chờ nhân viên đối chiếu hợp đồng." : "Hồ sơ 9 ảnh đã nộp và đang trong hàng đợi. Bằng chứng tạm khóa; AI chỉ quét sơ bộ, vẫn cần đối chiếu thủ công.",
+      note: partner ? "Hồ sơ đối tác đã nộp và đang chờ nhân viên đối chiếu hợp đồng." : "Hồ sơ 9 ảnh đã nộp và đang chờ nhân viên đối chiếu. AI chỉ hỗ trợ kiểm tra.",
       action: "Xem hồ sơ đã nộp", actionEn: "View submission",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub2?.status === "returned") {
     Object.assign(step2, {
       state: "action", status: "Cần bổ sung", statusEn: STATUS_EN.action, tone: "rose",
-      note: sub2.review_note || (partner ? "Cần bổ sung hợp đồng với nhà máy đối tác." : "Cần bổ sung ảnh nhà máy. Mở cổng xác thực để xem lý do."),
-      action: partner ? "Bổ sung hợp đồng" : "Bổ sung ảnh", actionEn: partner ? "Add contract" : "Add factory photos",
+      note: !partner && sub2.ai_scanned_at && !sub2.reviewed_by
+        ? `${sub2.review_note ? `Ghi chú trước đây: ${sub2.review_note} ` : ""}Bạn có thể nộp lại để nhân viên kiểm tra.`
+        : sub2.review_note || (partner ? "Cần bổ sung hợp đồng với nhà máy đối tác." : "Cần bổ sung ảnh nhà máy. Mở cổng xác thực để xem lý do."),
+      action: partner ? "Bổ sung hợp đồng" : sub2.ai_scanned_at && !sub2.reviewed_by ? "Xem và nộp lại" : "Bổ sung ảnh", actionEn: partner ? "Add contract" : sub2.ai_scanned_at && !sub2.reviewed_by ? "Review and resubmit" : "Add factory photos",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub2?.status === "accepted") {
     Object.assign(step2, {
