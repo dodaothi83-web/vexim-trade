@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // node --experimental-strip-types --no-warnings scripts/check-home-feed-order.mjs
 //
-// Kiểm bốn thứ: thứ tự render cố định, tối đa tám danh mục, phân trang 15 sản
-// phẩm trên desktop, và ô tìm kiếm vẫn trỏ vào lưới danh mục.
+// Kiểm thứ tự render cố định, tối đa tám danh mục, phân trang 15 sản
+// phẩm trên desktop và ô tìm kiếm trỏ tới trang kết quả.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
@@ -20,6 +20,7 @@ import {
   HOME_FEED_PER_SUPPLIER,
 } from "../lib/public/supplier-product-order.ts";
 import { hasProductComparisonPeer } from "../lib/public/product-comparison.ts";
+import { getCategoryTitle } from "../lib/public/category-names.ts";
 
 /* ---------------- 1. Giới hạn nhà cung cấp ---------------- */
 
@@ -95,11 +96,11 @@ const offer = (id, supplierId) => ({
   cardImagePath: null,
 });
 
-async function renderHome(offers, categoryItems = [category]) {
+async function renderHome(offers, categoryItems = [category], props = {}) {
   const { default: HomeContent } = compile("../app/(public)/home.tsx", {
     "react/jsx-runtime": jsx,
     "next/image": { default: ({ src, alt }) => React.createElement("img", { src, alt }) },
-    "next/link": { default: ({ href, children, ...rest }) => React.createElement("a", { href, ...rest }, children) },
+    "next/link": { default: ({ href, children, prefetch: _prefetch, ...rest }) => React.createElement("a", { href, ...rest }, children) },
     "lucide-react": new Proxy({}, { get: () => () => null }),
     "@/lib/db": { getStore: () => ({ listCategories: async () => categoryItems, listSuppliers: async () => [] }) },
     "@/lib/blog/queries": { listPublishedNews: async () => [] },
@@ -110,6 +111,7 @@ async function renderHome(offers, categoryItems = [category]) {
       HOME_FEED_PER_SUPPLIER,
     },
     "@/lib/public/popular-searches": { buildPopularSearches: () => [] },
+    "@/lib/public/category-names": { getCategoryTitle },
     "@/lib/public/meta-copy": { HOME_HERO_LINE: "Verified Vietnamese suppliers" },
     "@/components/public-product-card": {
       PublicProductCard: ({ name }) => React.createElement("div", { "data-product": name }, name),
@@ -132,7 +134,7 @@ async function renderHome(offers, categoryItems = [category]) {
     "@/components/platform-legal-strip": { PlatformLegalStrip: () => null },
     "@/components/social-links": { SocialLinks: () => null },
   });
-  return renderToStaticMarkup(await HomeContent());
+  return renderToStaticMarkup(await HomeContent(props));
 }
 
 /* Có hàng: lưới sản phẩm luôn đứng trước danh mục và lấy 15 thẻ ở trang đầu. */
@@ -285,17 +287,33 @@ assert.equal(nextAutoPage(1, 4), 2);
 assert.equal(nextAutoPage(3, 4), 4);
 assert.equal(nextAutoPage(4, 4), 1, "After the last page it starts over instead of getting stuck");
 
-/* ---------------- 3. Ô tìm kiếm vẫn trỏ vào lưới danh mục ---------------- */
+/* ---------------- 3. Ô tìm kiếm đi đến trang kết quả ---------------- */
 
 const home = readFileSync(new URL("../app/(public)/home.tsx", import.meta.url), "utf8");
 assert.ok(
-  home.includes('action="/#categories"'),
-  "Submitting the hero search still lands on the category grid, even when the feed is above it",
+  home.includes('action="/search"'),
+  "Submitting the hero search opens product and supplier results",
 );
 assert.ok(
   !home.includes('action="/#home-products-title"'),
   "Search results are never redirected into the product feed",
 );
+const searchForm = full.match(/<form\b[^>]*role="search"[\s\S]*?<\/form>/)?.[0];
+assert.ok(searchForm, "The homepage exposes an accessible search form");
+assert.match(searchForm, /action="\/search"/);
+assert.match(searchForm, /method="get"/);
+assert.match(searchForm, /name="cat"/);
+assert.match(searchForm, /name="q"/);
+assert.match(searchForm, /name="lang"[^>]*value="en"/);
+assert.match(searchForm, /for="home-search-query"/, "The text input has an accessible label");
+assert.match(searchForm, /maxLength="120"/);
+assert.match(searchForm, /grid-cols-1[^"\n]*sm:grid-cols-\[220px_minmax\(0,1fr\)_auto\]/, "The phone grid permits all controls to shrink");
+assert.doesNotMatch(searchForm, /placeholder="[^"]*(?:certification|HACCP|FDA|Organic)/, "The placeholder does not promise certificate search");
+const vietnamese = await renderHome([], [category], { lang: "vi", query: "W320", categoryFilter: "pepper" });
+const vietnameseForm = vietnamese.match(/<form\b[^>]*role="search"[\s\S]*?<\/form>/)?.[0];
+assert.match(vietnameseForm, /name="lang"[^>]*value="vi"/);
+assert.match(vietnameseForm, /value="W320"/);
+assert.match(vietnameseForm, /value="pepper"[^>]*selected=""/, "The selected category travels with the query");
 assert.ok(
   !home.includes("shouldPromoteProductFeed") && !home.includes("promoteFeed"),
   "The old catalogue-size placement rule is gone",
@@ -316,4 +334,4 @@ assert.ok(feedSource.includes("visibilitychange"), "The rotation pauses when the
 assert.ok(feedSource.includes("IntersectionObserver"), "The rotation is driven by whether the grid is on screen");
 assert.ok(feedSource.includes('wide ? " lg:grid-cols-5" : ""'), "Desktop switches to five columns with the 15-card page size");
 
-console.log("check-home-feed-order: fixed section order, eight categories, 15-card desktop pages, and search anchor passed");
+console.log("check-home-feed-order: fixed section order, eight categories, 15-card desktop pages, and search route passed");

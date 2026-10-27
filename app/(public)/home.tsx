@@ -16,6 +16,7 @@ import { HomeProductFeed } from "@/components/home-product-feed";
 import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
 import { CookieSettingsButton } from "@/components/cookie-consent";
 import { buildPopularSearches } from "@/lib/public/popular-searches";
+import { getCategoryTitle } from "@/lib/public/category-names";
 import { HOME_HERO_LINE } from "@/lib/public/meta-copy";
 import { Logo } from "@/components/brand-logo";
 import { PlatformLegalStrip } from "@/components/platform-legal-strip";
@@ -52,61 +53,6 @@ function i18n(
       ? (record.vi ?? record.en ?? Object.values(record)[0])
       : (record.en ?? record.vi ?? Object.values(record)[0]);
   return typeof v === "string" ? v : fallback;
-}
-
-/** Tên hiển thị tiếng Anh chuẩn thương mại B2B cho các danh mục thực phẩm & nông sản */
-const CATEGORY_EN_NAMES: Record<string, string> = {
-  cashew: "Cashew Kernels & Value-Added Cashew",
-  "nuts-kernels": "Nutritional Nuts & Kernels",
-  macadamia: "Central Highlands Macadamia Nuts",
-  coffee: "Green Coffee Beans & Roasted Coffee",
-  pepper: "Vietnamese Black & White Pepper",
-  "pepper-spices": "Pepper & Natural Spices",
-  cinnamon: "Cassia Cinnamon & Star Anise",
-  "star-anise": "Lang Son Whole Star Anise",
-  coconut: "Ben Tre Coconut Products",
-  rice: "Fragrant & Export Rice Products",
-  noodles: "Dried Rice Noodles, Vermicelli & Rice Paper",
-  "fruit-veg": "Processed & IQF Fruits & Vegetables",
-  "dragon-fruit": "Fresh & IQF Dragon Fruit",
-  "dried-fruit": "Soft-Dried & Crispy Fruit Snacks",
-  seafood: "Frozen Export Seafood",
-  pangasius: "Frozen Pangasius Fillets",
-  shrimp: "Black Tiger & Vannamei Shrimp",
-  honey: "Natural Export Honey",
-  tea: "Green Tea, Black Tea & Oolong Tea",
-  "processed-foods": "Processed & Packaged Foods",
-};
-
-/** Tên hiển thị tiếng Việt ưu tiên theo slug cho danh mục thực phẩm Việt Nam */
-const CATEGORY_VI_NAMES: Record<string, string> = {
-  cashew: "Hạt điều & Nhân điều xuất khẩu",
-  "nuts-kernels": "Các loại hạt dinh dưỡng",
-  macadamia: "Hạt mắc ca Tây Nguyên",
-  coffee: "Cà phê Nhân xanh & Rang xay",
-  pepper: "Hồ tiêu & Gia vị Việt Nam",
-  "pepper-spices": "Hồ tiêu & Gia vị tự nhiên",
-  cinnamon: "Quế & Hoa hồi xuất khẩu",
-  "star-anise": "Hoa hồi Lạng Sơn",
-  coconut: "Sản phẩm từ Dừa Bến Tre",
-  rice: "Gạo xuất khẩu & Chế phẩm từ gạo",
-  noodles: "Bún, Phở khô & Bánh tráng",
-  "fruit-veg": "Trái cây & Rau củ chế biến",
-  "dragon-fruit": "Thanh long tươi & đông lạnh",
-  "dried-fruit": "Trái cây sấy dẻo & sấy giòn",
-  seafood: "Thủy hải sản đông lạnh xuất khẩu",
-  pangasius: "Cá tra phi lê đông lạnh",
-  shrimp: "Tôm sú & Tôm thẻ chân trắng",
-  honey: "Mật ong tự nhiên xuất khẩu",
-  tea: "Trà xanh, Trà đen & Trà Ô long",
-  "processed-foods": "Thực phẩm chế biến & Đóng gói",
-};
-
-function getCategoryTitle(cat: Category, lang: HomeLocale): string {
-  if (lang === "vi") {
-    return CATEGORY_VI_NAMES[cat.slug] || i18n(cat.name_i18n, "vi", cat.slug);
-  }
-  return i18n(cat.name_i18n, "en", CATEGORY_EN_NAMES[cat.slug] || cat.slug);
 }
 
 /**
@@ -244,7 +190,7 @@ export default async function HomeContent({
       return false;
     }
     if (!normalizedQuery) return true;
-    const viName = (CATEGORY_VI_NAMES[c.slug] ?? "").toLowerCase();
+    const viName = getCategoryTitle(c, "vi").toLowerCase();
     const enName = getCategoryTitle(c, "en").toLowerCase();
     const introText = i18n(c.intro_i18n, lang, "").toLowerCase();
     const childNames = children
@@ -341,7 +287,7 @@ export default async function HomeContent({
 
             {/* THANH TÌM KIẾM SẢN PHẨM */}
             <form
-              action="/#categories"
+              action="/search"
               method="get"
               role="search"
               aria-label={
@@ -351,8 +297,8 @@ export default async function HomeContent({
               }
               className="mt-8 rounded-2xl border-2 border-amber-400 bg-white p-2 shadow-2xl shadow-black/35 sm:p-2.5"
             >
-              {isVi && <input type="hidden" name="lang" value="vi" />}
-              <div className="grid gap-2 sm:grid-cols-[220px_minmax(0,1fr)_auto]">
+              <input type="hidden" name="lang" value={lang} />
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[220px_minmax(0,1fr)_auto]">
                 <label className="sr-only" htmlFor="home-search-category">
                   {isVi ? "Chọn danh mục ngành hàng" : "Select product category"}
                 </label>
@@ -360,7 +306,7 @@ export default async function HomeContent({
                   id="home-search-category"
                   name="cat"
                   defaultValue={categoryFilter}
-                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-semibold text-ink-800 focus:border-brand-600 focus:bg-white focus:outline-none"
+                  className="h-12 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-semibold text-ink-800 focus:border-brand-600 focus:bg-white focus:outline-none"
                 >
                   <option value="">{isVi ? "Tất cả danh mục" : "All categories"}</option>
                   {activeCategories.map((c) => (
@@ -370,16 +316,21 @@ export default async function HomeContent({
                   ))}
                 </select>
 
-                <div className="relative flex items-center">
-                  <Search className="pointer-events-none absolute left-3.5 h-5 w-5 text-slate-400" />
+                <div className="relative flex min-w-0 items-center">
+                  <Search className="pointer-events-none absolute left-3.5 h-5 w-5 text-slate-400" aria-hidden="true" />
+                  <label htmlFor="home-search-query" className="sr-only">
+                    {isVi ? "Tên sản phẩm, quy cách hoặc nhà cung cấp" : "Product, grade or supplier"}
+                  </label>
                   <input
+                    id="home-search-query"
                     type="search"
                     name="q"
+                    maxLength={120}
                     defaultValue={query}
                     placeholder={
                       isVi
-                        ? "Nhập tên sản phẩm, nhóm nông sản, tiêu chuẩn (HACCP, FDA, Organic)..."
-                        : "Search product name, grade, or certification (W320, Robusta, HACCP, FDA, Organic)..."
+                        ? "Tên sản phẩm, quy cách hoặc nhà cung cấp"
+                        : "Product, grade or supplier name"
                     }
                     className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-ink-900 placeholder:text-slate-400 focus:border-brand-600 focus:outline-none"
                   />
