@@ -4,7 +4,7 @@ import { getStore } from "@/lib/db";
 import { transport } from "@/lib/email/send";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { SITE_URL } from "@/lib/site";
-import type { Supplier } from "@/lib/types";
+import type { L2VerificationScope, Supplier } from "@/lib/types";
 
 function notificationOrigin(): string {
   try {
@@ -23,7 +23,7 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
   const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "sourcing" || u.role === "admin"))
     .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
   if (!recipients.length) return "failed";
-  const choices = requested.map((n) => n === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng");
+  const choices = requested.map((n) => n === 2 ? supplier.supplier_type === "trading" ? "Đối chiếu nhà máy đối tác" : "Xác thực nhà máy" : "Lịch sử giao hàng");
   const staffOrigin = notificationOrigin();
   const url = `${staffOrigin}/crm/suppliers/${encodeURIComponent(supplier.id)}`;
   const title = `NCC tự đăng ký: ${supplier.name}`;
@@ -111,7 +111,7 @@ export async function notifySupplierCertificateExpiry(input: {
 }
 
 /** A submitted human inspection enters the independent review queue; never an automatic approval. */
-export async function notifyStaffVerificationSubmission(supplierId: string, level: number): Promise<"sent" | "simulated" | "failed"> {
+export async function notifyStaffVerificationSubmission(supplierId: string, level: number, scope?: L2VerificationScope | null, reviewId?: string | null): Promise<"sent" | "simulated" | "failed"> {
   try {
     const store = getStore();
     const users = await store.listUsers();
@@ -119,9 +119,9 @@ export async function notifyStaffVerificationSubmission(supplierId: string, leve
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const supplier = await store.getSupplier(supplierId);
-    const label = level === 1 ? "Kiểm tra giấy tờ" : level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng";
-    const step = level === 1 ? "documents" : level === 2 ? "factory" : "delivery";
-    const url = `${notificationOrigin()}/crm/suppliers/${encodeURIComponent(supplierId)}/audit/${step}`;
+    const label = level === 1 ? "Kiểm tra giấy tờ" : level === 2 ? scope === "partner_contract" ? "Nhà máy đối tác" : "Xác thực nhà máy" : "Lịch sử giao hàng";
+    const step = level === 1 ? "documents" : level === 2 ? "factory" : "deliveries";
+    const url = `${notificationOrigin()}/crm/suppliers/${encodeURIComponent(supplierId)}/audit/${step}${reviewId ? `?review=${encodeURIComponent(reviewId)}` : ""}`;
     const title = `${label} chờ xét duyệt: ${supplier?.name ?? "NCC"}`;
     const body = `<p>Chuyên viên đã nộp bản kiểm ${escapeHtml(label)} của ${escapeHtml(supplier?.name ?? "NCC")}. Nhân sự có quyền duyệt cần tự xem bằng chứng của đúng đợt kiểm và quyết định; nộp không tự phê duyệt.</p><p><a href="${url}">Mở bản kiểm trong CRM →</a></p>`;
     const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
@@ -129,8 +129,8 @@ export async function notifyStaffVerificationSubmission(supplierId: string, leve
   } catch (error) { console.error("[supplier-notify] verification submission", error); return "failed"; }
 }
 
-/** An L2/L3 self-submission just entered the staff review queue; the AI scan is not an approval. */
-export async function notifyStaffSupplierSubmission(supplierId: string, level: 2 | 3): Promise<"sent" | "simulated" | "failed"> {
+/** An L2/L3 self-submission just entered the staff review queue, not an approval. */
+export async function notifyStaffSupplierSubmission(supplierId: string, level: 2 | 3, scope?: L2VerificationScope | null): Promise<"sent" | "simulated" | "failed"> {
   try {
     const store = getStore();
     const users = await store.listUsers();
@@ -138,11 +138,11 @@ export async function notifyStaffSupplierSubmission(supplierId: string, level: 2
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const supplier = await store.getSupplier(supplierId);
-    const label = level === 2 ? "hồ sơ xác thực nhà máy" : "hồ sơ lịch sử giao hàng";
+    const label = level === 2 ? scope === "partner_contract" ? "hồ sơ nhà máy đối tác" : "hồ sơ xác thực nhà máy" : "hồ sơ lịch sử giao hàng";
     const url = `${notificationOrigin()}/crm/verifications/submissions`;
     const title = `Hồ sơ NCC tự gửi chờ đối chiếu: ${supplier?.name ?? "NCC"}`;
     const body = `<p>${escapeHtml(supplier?.name ?? "NCC")} vừa nộp ${escapeHtml(label)}. <strong>Chưa duyệt và chưa công khai.</strong></p>
-    <p>AI đã quét sơ bộ theo yêu cầu, nhưng máy không thay được người đối chiếu. Hãy mở hồ sơ, xem ảnh gốc và quyết định.</p>
+    <p>${level === 2 ? scope === "partner_contract" ? "Đối chiếu hợp đồng, hai bên và phạm vi đối tác; không suy ra sở hữu hay kiểm thực địa." : "Mở hồ sơ và đối chiếu ảnh; kết quả AI nếu có chỉ để tham khảo." : "Mở hồ sơ và tự kiểm tra chứng từ, căn cứ xuất khẩu và vai trò của doanh nghiệp."}</p>
     <p><a href="${url}">Mở hàng chờ hồ sơ tự gửi →</a></p>`;
     const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return res.ok ? res.status : "failed";

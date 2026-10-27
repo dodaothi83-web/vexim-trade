@@ -17,7 +17,8 @@ import * as productDetailDisplay from '../lib/public/product-detail-display.ts';
 import { HOME_HERO_LINE } from '../lib/public/meta-copy.ts';
 import { buildPopularSearches } from '../lib/public/popular-searches.ts';
 import { hasProductComparisonPeer } from '../lib/public/product-comparison.ts';
-import { approvedPublicReviewSummaries, approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS, VERIFICATION_LEVEL_EXPLANATIONS } from '../lib/verification-status.ts';
+import { approvedVerificationSteps, verificationLabels, PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS, VERIFICATION_LEVEL_EXPLANATIONS } from '../lib/verification-status.ts';
+import * as verificationStatus from '../lib/verification-status.ts';
 
 const compile = (path, mocks) => {
   const exports = {};
@@ -91,7 +92,7 @@ const require = createRequire(import.meta.url);
 const { ProductVerificationIcons } = compile('../components/product-verification-icons.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
-  '@/lib/verification-status': { PRODUCT_VERIFICATION_EXPLANATIONS, VERIFICATION_LABELS },
+  '@/lib/verification-status': verificationStatus,
 });
 const renderChecks = (levels) => renderToStaticMarkup(React.createElement(ProductVerificationIcons, { levels }));
 const mixed = renderChecks([1, 3]);
@@ -120,7 +121,7 @@ const store = {
 const catalogMocks = { 'server-only': {}, '@/lib/db': { getStore: () => store },
   '@/lib/public/grade-resolution': gradeResolution, '@/lib/public/display-name': displayName,
   '@/lib/product-attributes': productAttributes,
-  '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection, '@/lib/verification-status': { approvedVerificationSteps, approvedPublicReviewSummaries } };
+  '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection, '@/lib/verification-status': verificationStatus };
 const catalog = compile('../lib/public/catalog.ts', catalogMocks);
 // GĐ1 xếp hạng: module thuần không import gì nên compile không cần mock; bơm bản thật
 // vào product-catalog để đường xếp hạng mới chạy đúng trong kiểm này.
@@ -255,7 +256,7 @@ const profilePage = readFileSync(new URL('../app/(public)/suppliers/[slug]/page.
 const detailPage = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 assert.match(grid, /\+\{count\} more from/);
 assert.match(grid, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3 lg:grid-cols-4/, 'Category offers use one column on phones, then 2/3/4 columns');
-assert.match(grid, /p\.verificationSteps\.includes\(verified/, 'Verification filter matches only the selected approved check');
+assert.match(grid, /matchesVerificationFilter\(p\.verificationSteps, p\.l2Scope, verified\)/, 'Verification filter matches the selected approved check and its scope');
 assert.match(grid, /<PublicProductCard/, 'Category listing uses the common offer card');
 const homePage = readFileSync(new URL('../app/(public)/home.tsx', import.meta.url), 'utf8');
 // Lưới thẻ trang chủ nằm trong components/home-product-feed.tsx từ đợt tách
@@ -275,7 +276,7 @@ assert.match(profilePage, /lg:w-\[calc\(\(100%_-_4rem\)\/5\)\]/, 'Five supplier 
 const verificationTierModule = compile('../components/verification-tier.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
-  '@/lib/verification-status': { VERIFICATION_LABELS, VERIFICATION_LEVEL_EXPLANATIONS },
+  '@/lib/verification-status': verificationStatus,
 });
 const productTradeLabelsModule = compile('../components/product-trade-labels.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
@@ -283,7 +284,7 @@ const productTradeLabelsModule = compile('../components/product-trade-labels.tsx
 });
 const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
-  'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
+  'next/link': { default: ({ href, children, prefetch, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
   '@/components/product-trade-labels': productTradeLabelsModule,
   '@/components/verification-tier': verificationTierModule,
@@ -301,7 +302,7 @@ assert.match(compactTradeLabels, />Samples</, 'Compact cards shorten the sample 
 assert.doesNotMatch(compactTradeLabels, />OEM<|>ODM<|Samples available/, 'Compact badges do not repeat the full three-badge treatment');
 const cardProps = { href: '/products/cashew/a0', imagePath: 'products/a0/cover.jpg',
   name: 'Cashew W320 lot 0', moq: '1 MT', price: 'USD 7/kg', fob: true, leadTimeDays: 14,
-  supplierName: 'Company A', supplierHref: '/suppliers/company-a', verificationSteps: [1, 3],
+  supplierName: 'Company A', supplierHref: '/suppliers/company-a', verificationSteps: [1, 3], l2Scope: 'factory',
   quoteHref: '/rfq?category=cashew&suppliers=A&product=Cashew%20W320%20lot%200&product_id=a0', oem: true, odm: true, samples: true };
 const compactCard = renderToStaticMarkup(React.createElement(PublicProductCard, cardProps));
 for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'USD 7/kg', 'Lead time', '14 days', 'Supplied by', 'Company A', 'OEM/ODM', 'Samples', 'Request a quote']) {
@@ -363,9 +364,11 @@ for (const [level, label, status] of [
 }
 assert.equal(new Set(Object.values(VERIFICATION_LEVEL_EXPLANATIONS)).size, 3, 'The three levels never share one generic explanation');
 for (const explanation of Object.values(PRODUCT_VERIFICATION_EXPLANATIONS)) {
-  assert.ok(!compactCard.includes(explanation), 'The long verification paragraph no longer appears on product cards');
+  if (!Object.values(VERIFICATION_LEVEL_EXPLANATIONS).includes(explanation)) {
+    assert.ok(!compactCard.includes(explanation), 'Product-specific long explanations do not replace compact card tooltips');
+  }
 }
-const standardPips = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationPips, { levels: [1] }));
+const standardPips = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationPips, { levels: [1], l2Scope: 'factory' }));
 assert.ok(!standardPips.includes('role="tooltip"'), 'Verification pips outside product cards use native per-level tooltips without overlay clipping');
 assert.equal((standardPips.match(/role="img"/g) ?? []).length, 3, 'Each standard shield keeps an independent accessible tooltip');
 for (const level of [1, 2, 3]) {
@@ -414,7 +417,7 @@ assert.equal((mixedSupplierFeed.match(/to comparison/g) ?? []).length, 2,
 const { default: HomeContent } = compile('../app/(public)/home.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/image': { default: ({ src, alt, ...props }) => React.createElement('img', { src, alt, className: props.className }) },
-  'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
+  'next/link': { default: ({ href, children, prefetch, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
   '@/lib/db': { getStore: () => ({ listCategories: async () => [{ ...category, active_on_homepage: true, public_page_ready: true }], listSuppliers: async () => [] }) },
   '@/lib/blog/queries': { listPublishedNews: async () => [] },
@@ -504,7 +507,8 @@ assert.match(relatedProductsSource, /<PublicProductCard/, 'Related products reus
 assert.match(relatedProductsSource, /related\.cardImagePath \?\? related\.imagePaths\[0\]/, 'Related product cards prefer approved thumbnails');
 assert.match(relatedProductsSource, /related\.verificationSteps/, 'Related product cards retain approved supplier checks');
 assert.match(relatedProductsSource, /View all products/, 'Buyers can continue to the full category');
-assert.match(profilePage, /Target markets are self-declared by the supplier and pending independent audit\./);
+assert.match(profilePage, /Markets shared by the supplier\./);
+assert.match(profilePage, /Supplier-declared - Not verified/, 'Target markets are not represented as verified shipment destinations');
 // Changing the last buyer image to internal must revoke buyer-ready immediately.
 const actions = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 const mediaActionSource = actions.slice(actions.indexOf('export async function updateMediaAction('), actions.indexOf('export async function deleteMediaAction('));

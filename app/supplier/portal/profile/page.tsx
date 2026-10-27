@@ -5,6 +5,7 @@ import { BadgeCheck, Eye, FileText, Pencil, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { effectiveL2Scope, l2ScopeForSupplier } from "@/lib/l2-scope";
 import { supplierTypeLabel } from "@/lib/supplier";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { Info, LevelChip, Panel, VerifyRow } from "../portal-ui";
@@ -48,21 +49,22 @@ export default async function SupplierProfilePage() {
   ]);
 
   const l1Approved = reviews.some((v) => v.target_level === 1 && v.status === "approved");
-  const l2Approved = reviews.some((v) => v.target_level === 2 && v.status === "approved");
+  const l2Scope = l2ScopeForSupplier(supplier.supplier_type);
+  const l2Approved = reviews.some((v) => v.target_level === 2 && v.status === "approved" && l2Scope !== null && effectiveL2Scope(v.l2_scope) === l2Scope);
   const l3Approved = reviews.some((v) => v.target_level === 3 && v.status === "approved");
   const approvedLevels = [l1Approved, l2Approved, l3Approved].filter(Boolean).length;
   const l1Status = l1Approved ? "Đã duyệt" : review?.status === "returned" ? "Cần bổ sung"
     : review?.status === "submitted" ? "Chờ duyệt" : "Đang rà soát";
-  const l2Own = submissionRows.find((s) => s.target_level === 2);
+  const l2Own = submissionRows.find((s) => s.target_level === 2 && l2Scope !== null && effectiveL2Scope(s.l2_scope) === l2Scope);
   const l3Own = submissionRows.find((s) => s.target_level === 3);
-  const l2Status = l2Approved ? "Đã duyệt" : l2Own?.status === "pending_review" ? "Hồ sơ tự gửi đang chờ xét"
+  const l2Status = !l2Scope ? "Cần cập nhật loại hình" : l2Approved ? "Đã duyệt" : l2Own?.status === "pending_review" ? "Hồ sơ tự gửi đang chờ xét"
     : l2Own?.status === "returned" ? "Cần bổ sung bằng chứng" : l2Own?.status === "accepted" ? "Đã nhận vào đợt kiểm"
     : requestRows.find((r) => r.target_level === 2)?.status === "contacted" ? "Đã ghi nhận liên hệ" : "Chưa có bằng chứng";
   const l3Status = l3Approved ? "Đã duyệt" : l3Own?.status === "pending_review" ? "Hồ sơ tự gửi đang chờ xét"
     : l3Own?.status === "returned" ? "Cần bổ sung bằng chứng" : l3Own?.status === "accepted" ? "Đã nhận vào đợt kiểm"
     : requestRows.find((r) => r.target_level === 3)?.status === "contacted" ? "Đã ghi nhận liên hệ" : "Chưa có bằng chứng";
   const currentStep = !l1Approved ? 1 : !l2Approved ? 2 : !l3Approved ? 3 : null;
-  const nextGoal = currentStep ? `L${currentStep} · ${currentStep === 1 ? "Giấy tờ" : currentStep === 2 ? "Nhà máy" : "Xuất khẩu"}` : "Đã đủ ba cấp";
+  const nextGoal = currentStep ? `L${currentStep} · ${currentStep === 1 ? "Giấy tờ" : currentStep === 2 ? l2Scope === "partner_contract" ? "Nhà máy đối tác" : "Nhà máy" : "Xuất khẩu"}` : "Đã đủ ba cấp";
   const published = supplier.status === "published";
   const about = vi(supplier.summary_i18n) || supplier.intro_source || "";
   const marketText = supplier.export_markets_i18n?.vi?.join(", ") || join(supplier.export_markets) || supplier.markets || "";
@@ -141,7 +143,7 @@ export default async function SupplierProfilePage() {
         <ol className="space-y-2">
           {([
             { level: 1, title: "Kiểm tra giấy tờ", status: l1Status, on: l1Approved, href: "/supplier/portal/documents", cta: "Tải giấy tờ L1" },
-            { level: 2, title: "Xác thực nhà máy", status: l2Status, on: l2Approved, href: "/supplier/portal/verification/factory", cta: "Nộp bằng chứng L2" },
+            { level: 2, title: l2Scope === "partner_contract" ? "Nhà máy đối tác" : "Xác thực nhà máy", status: l2Status, on: l2Approved, href: "/supplier/portal/verification/factory", cta: "Nộp bằng chứng L2" },
             { level: 3, title: "Lịch sử xuất khẩu", status: l3Status, on: l3Approved, href: "/supplier/portal/verification/export", cta: "Nộp bằng chứng L3" },
           ] as const).map((step) => <li key={step.level} className="relative">
             <VerifyRow level={`L${step.level}`} title={step.title} status={step.status} on={step.on} />
@@ -158,7 +160,7 @@ export default async function SupplierProfilePage() {
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href="/supplier/portal/documents" className="btn btn-ghost btn-sm">Giấy tờ L1</Link>
-          <Link href="/supplier/portal/verification/factory" className="btn btn-soft btn-sm">Nộp bằng chứng nhà máy</Link>
+          <Link href="/supplier/portal/verification/factory" className="btn btn-soft btn-sm">{l2Scope === "partner_contract" ? "Nộp hợp đồng đối tác" : "Nộp bằng chứng nhà máy"}</Link>
           <Link href="/supplier/portal/verification/export" className="btn btn-soft btn-sm">Nộp chứng từ xuất khẩu</Link>
         </div>
         <p className="mt-3 text-[11px] leading-5 text-ink-500">Nhãn xác minh trên trang buyer chỉ xuất hiện cho từng đánh giá đã được kiểm và phê duyệt.</p>

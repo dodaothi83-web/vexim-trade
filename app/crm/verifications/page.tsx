@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/page-header";
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
+import { isPartnerL2, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
 import { inVnBounds } from "@/lib/verification";
 import type { AppUser, Verification } from "@/lib/types";
 import { auditHref, auditItems, auditStep } from "@/lib/verification";
@@ -58,7 +59,7 @@ export default async function VerificationsPage({
   const userMap = new Map(users.map((u) => [u.id, u]));
   const pendingSubmissions = submissions.filter((sub) => sub.status === "pending_review" || sub.status === "returned");
   const openRequests = requests.filter((r) => !vers.some((v) =>
-    v.supplier_id === r.supplier_id && v.target_level === r.target_level && v.status === "approved"));
+    v.supplier_id === r.supplier_id && v.target_level === r.target_level && v.status === "approved" && l2ScopeMatchesSupplier(v, supMap.get(r.supplier_id)?.supplier_type)));
 
   // Hàm kiểm tra toạ độ có ở Việt Nam hay không (dùng helper chung)
   const inVn = (v: Verification) => {
@@ -85,10 +86,10 @@ export default async function VerificationsPage({
 
       <section className="mt-5 rounded-xl border border-teal-200 bg-teal-50/60 p-4 sm:p-5">
         <h2 className="font-bold text-ink-900">Hồ sơ NCC tự gửi qua cổng L2 · L3 ({pendingSubmissions.length} chờ xét)</h2>
-        <p className="mt-1 text-sm text-ink-700">Doanh nghiệp tự chụp 9 ảnh nhà máy bằng điện thoại (không bắt buộc ảnh gốc hay định vị) và tự tải chứng từ xuất khẩu. Bắt buộc duy nhất: tờ mã xác minh của Vexim phải nằm trong 3 ảnh 🔖. AI đã quét và nêu tín hiệu; nhận hồ sơ chỉ tạo đợt kiểm của nhân viên, không tự cấp huy hiệu.</p>
+        <p className="mt-1 text-sm text-ink-700">L2 nhà máy có thể dùng AI để xem ảnh. L2 đối tác và chứng từ L3 do nhân viên kiểm tra. Nhận hồ sơ chỉ tạo đợt kiểm, không tự cấp huy hiệu.</p>
         {pendingSubmissions.length ? <ul className="mt-4 space-y-2">{pendingSubmissions.slice(0, 8).map((sub) => <li key={sub.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
           <div className="min-w-[180px] flex-1"><Link href={`/crm/verifications/submissions/${sub.id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(sub.supplier_id)?.name ?? "NCC"}</Link>
-            <p className="mt-0.5 text-xs text-ink-500">{sub.target_level === 2 ? "L2 · xác thực nhà máy" : "L3 · lịch sử xuất khẩu"} · {sub.status === "pending_review" ? "chờ xét duyệt" : sub.status === "returned" ? "cần bổ sung" : "đang soạn"}{sub.ai_scanned_at ? ` · AI đã quét ${new Date(sub.ai_scanned_at).toLocaleDateString("vi-VN")}` : " · chưa quét AI"}</p></div>
+            <p className="mt-0.5 text-xs text-ink-500">{isPartnerL2(sub) ? "L2 · nhà máy đối tác" : sub.target_level === 2 ? "L2 · xác thực nhà máy" : "L3 · lịch sử xuất khẩu"} · {sub.status === "pending_review" ? "chờ xét duyệt" : sub.status === "returned" ? "cần bổ sung" : "đang soạn"}{sub.ai_scanned_at ? ` · ${sub.target_level === 3 ? "AI cũ" : "AI đã quét"} ${new Date(sub.ai_scanned_at).toLocaleDateString("vi-VN")}` : sub.target_level === 2 && !isPartnerL2(sub) ? " · chưa quét AI" : " · nhân viên kiểm tra"}</p></div>
           <Link href={`/crm/verifications/submissions/${sub.id}`} className="btn btn-ghost btn-sm">Đối chiếu bằng chứng →</Link>
         </li>)}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có hồ sơ tự gửi nào chờ xét.</p>}
         <Link href="/crm/verifications/submissions" className="mt-3 inline-block text-xs font-semibold text-brand-700 underline">Mở toàn bộ hàng đợi hồ sơ tự gửi →</Link>
@@ -99,7 +100,7 @@ export default async function VerificationsPage({
         <p className="mt-1 text-sm text-ink-700">NCC chỉ chọn nhu cầu; nhân viên liên hệ sớm để lên kế hoạch, tự thu thập/tải bằng chứng. Không tự duyệt hay cấp nhãn.</p>
         {openRequests.length ? <ul className="mt-4 space-y-2">{openRequests.map((r) => <li key={`${r.supplier_id}-${r.target_level}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
           <div className="min-w-[180px] flex-1"><Link href={`/crm/suppliers/${r.supplier_id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(r.supplier_id)?.name ?? "NCC"}</Link>
-            <p className="mt-0.5 text-xs text-ink-500">{r.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng"} · {r.status === "contacted" ? "Đã liên hệ" : "Cần liên hệ"} · {new Date(r.requested_at).toLocaleDateString("vi-VN")}</p></div>
+            <p className="mt-0.5 text-xs text-ink-500">{r.target_level === 2 ? supMap.get(r.supplier_id)?.supplier_type === "trading" ? "Nhà máy đối tác" : "Xác thực nhà máy" : "Lịch sử giao hàng"} · {r.status === "contacted" ? "Đã liên hệ" : "Cần liên hệ"} · {new Date(r.requested_at).toLocaleDateString("vi-VN")}</p></div>
           {canInspect && r.status === "requested" && <ContactRequestButton supplierId={r.supplier_id} level={r.target_level} />}
           <Link href={auditHref(r.supplier_id, r.target_level)} className="btn btn-ghost btn-sm">Mở trang đánh giá →</Link>
         </li>)}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có yêu cầu cần xử lý.</p>}
@@ -138,19 +139,19 @@ export default async function VerificationsPage({
           {filtered.map((v) => {
             const sup = supMap.get(v.supplier_id);
             const inspector = v.inspector_id ? userMap.get(v.inspector_id) : null;
-            const items = auditItems(v.target_level).length;
+            const items = auditItems(v.target_level, v.l2_scope).length;
             const doneCount = Object.values(v.checklist).filter((x) => x === true || x === false).length;
             const vn = inVn(v);
             return (
               <Card key={v.id} className="p-0">
                 <Link
-                  href={auditHref(v.supplier_id, v.target_level)}
+                  href={auditHref(v.supplier_id, v.target_level, v.id)}
                   className="flex flex-wrap items-start gap-4 px-4 py-4 transition hover:bg-ink-50/60"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge className={LEVEL_BADGE[v.target_level] ?? LEVEL_BADGE[1]}>
-                        {auditStep(v.target_level)?.title ?? "Kiểm toán"}
+                        {isPartnerL2(v) ? "Nhà máy đối tác" : auditStep(v.target_level)?.title ?? "Kiểm toán"}
                       </Badge>
                       <Badge className={TABS.find((t) => t.filter(v))?.tone ?? tab.tone}>
                         {v.status === "scheduled" ? "Đã lên lịch" :

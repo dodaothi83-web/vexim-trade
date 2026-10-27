@@ -8,7 +8,7 @@ import { VerificationCoverSeal, VerificationTierBadge, approvedChecksSummary, ve
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
 import { supplierTypeLabel, type PublicSupplierCard } from "@/lib/public/catalog";
 import type { Category } from "@/lib/types";
-import { VERIFICATION_LEVEL_EXPLANATIONS } from "@/lib/verification-status";
+import { verificationExplanation, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
@@ -81,9 +81,11 @@ export function SupplierStorefront({
     { label: "Payment terms", value: safe(supplierPaymentTermsDisplay(s)), wide: false },
   ].filter((item) => item.value);
   const steps = s.approved_verification_steps;
+  const l2Scope: PublicL2Scope = s.approved_l2_scope ?? null;
+  const plannedL2Scope: PublicL2Scope = s.supplier_type === "trading" ? "partner_contract" : s.supplier_type === "manufacturer" || s.supplier_type === "cooperative" ? "factory" : null;
   const tier = verificationTier(steps);
   const verificationSummary = steps.length
-    ? `${steps.length}/3 approved · ${approvedChecksSummary(steps)}`
+    ? `${steps.length}/3 approved · ${approvedChecksSummary(steps, l2Scope)}`
     : "Independent checks are shown below.";
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
@@ -178,11 +180,15 @@ export function SupplierStorefront({
           </div>
           <div className="p-4 sm:p-5">
             <div className="grid items-stretch gap-3 md:grid-cols-3">
-              {VERIFICATION_ITEMS.map(({ level, label, pending, Icon }) => {
+              {VERIFICATION_ITEMS.map(({ level, label: defaultLabel, pending: defaultPending, Icon }) => {
                 const approvedStep = steps.includes(level);
+                const scope = level === 2 ? approvedStep ? l2Scope : plannedL2Scope : null;
+                const label = level === 2 ? verificationLabel(2, scope) : defaultLabel;
+                const pending = level === 2 && scope === "partner_contract" ? "Covers a contract with a partner factory; not a factory inspection." : level === 2 && scope === null ? "The review scope is not specified." : defaultPending;
+                const explanation = verificationExplanation(level, scope);
                 const reviewStatus = approvedStep ? "Approved" : "Not approved";
-                const iconTooltip = `Level ${level} · ${label}: ${reviewStatus}. ${VERIFICATION_LEVEL_EXPLANATIONS[level]}`;
-                return <article key={level} id={level === 2 ? "factory-visit" : level === 3 ? "delivery-history" : undefined}
+                const iconTooltip = `Level ${level} · ${label}: ${reviewStatus}. ${explanation}`;
+                return <article key={level} id={level === 2 ? scope === "partner_contract" ? "partner-factory-contract" : "factory-visit" : level === 3 ? "delivery-history" : undefined}
                   className={`min-w-0 scroll-mt-24 rounded-xl border p-4 shadow-sm ${approvedStep ? "border-emerald-200 bg-emerald-50/40" : "border-ink-200 bg-ink-50/60"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <span className="group/level relative inline-flex">
@@ -191,7 +197,7 @@ export function SupplierStorefront({
                       <span role="tooltip" className="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden w-56 rounded-md bg-ink-900 px-3 py-2 text-left shadow-xl group-hover/level:block group-focus-within/level:block">
                         <strong className="block text-[11px] font-bold leading-4 text-white">Level {level} · {label}</strong>
                         <span className={`block text-[10px] font-semibold leading-4 ${approvedStep ? "text-emerald-300" : "text-ink-300"}`}>{reviewStatus}</span>
-                        <span className="mt-0.5 block text-[10px] leading-4 text-ink-200">{VERIFICATION_LEVEL_EXPLANATIONS[level]}</span>
+                        <span className="mt-0.5 block text-[10px] leading-4 text-ink-200">{explanation}</span>
                       </span>
                     </span>
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${approvedStep ? "bg-emerald-100 text-emerald-800" : "bg-ink-100 text-ink-500"}`}>
@@ -206,10 +212,13 @@ export function SupplierStorefront({
                   </div>}
                   <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">
                     {level === 1 && (approvedStep ? "Business registration evidence has been reviewed. Tax and bank details remain supplier-provided." : pending)}
-                    {level === 2 && (approvedStep ? (safe(s.public_review_summaries[2]) || "Detailed factory verification scope is available on request.") : pending)}
+                    {level === 2 && !approvedStep && pending}
+                    {level === 2 && approvedStep && (scope === "factory" || scope === "both") && <span className="block">{scope === "both" && <strong className="block">Factory review</strong>}{safe(s.public_review_summaries[2]) || "Detailed factory review scope is available on request."}</span>}
+                    {level === 2 && approvedStep && (scope === "partner_contract" || scope === "both") && <span id={scope === "both" ? "partner-factory-contract" : undefined} className="mt-2 block scroll-mt-24">{scope === "both" && <strong className="block">Partner factory contract</strong>}{safe(s.partner_review_summary) || "The supplier's contract with a partner factory was reviewed. Details are available on request."}</span>}
+                    {level === 2 && approvedStep && scope === null && "Review scope is available on request."}
                     {level === 3 && (approvedStep ? (safe(s.public_review_summaries[3]) || "Detailed delivery scope is available on request.") : pending)}
                   </p>
-                  {approvedStep && level !== 1 && <p className="mt-2 text-xs leading-5 text-ink-500">{level === 2 ? "Applies only to the reviewed facility." : "Applies only to the reviewed delivery evidence."}</p>}
+                  {approvedStep && level !== 1 && <p className="mt-2 text-xs leading-5 text-ink-500">{level === 2 ? scope === "partner_contract" ? "The contract review does not establish ownership or a factory inspection." : scope === "both" ? "Each result applies only to its separately reviewed scope." : scope === "factory" ? "Applies only to the reviewed facility." : "Ask for the review scope." : "Applies only to the evidence reviewed; it does not by itself prove an end buyer received the goods."}</p>}
                 </article>;
               })}
             </div>
@@ -302,7 +311,7 @@ export function SupplierStorefront({
               supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
               quoteHref={productLinks && rfqActions && !synthetic && category ? `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(productName)}&product_id=${encodeURIComponent(p.id)}` : undefined}
               oem={p.oem} odm={p.odm} samples={p.samples}
-              verificationSteps={steps} test={synthetic} linkable={productLinks} />
+              verificationSteps={steps} l2Scope={l2Scope} test={synthetic} linkable={productLinks} />
           </li>;
         })}
       </SupplierProductRail> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>{statedProducts && !synthetic

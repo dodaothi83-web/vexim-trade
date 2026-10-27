@@ -183,7 +183,7 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
   }
   for (const s of (input.submissions ?? []).filter((row) => row.supplier_id === supplierId)) {
     const label = s.target_level === 2 ? "Xác thực nhà máy (L2)" : "Lịch sử xuất khẩu (L3)";
-    if (s.status === "pending_review") add(`submission-queued:${s.id}`, `Hồ sơ tự gửi đang chờ duyệt: ${label}`, "AI đã quét và xếp hàng đợi. Hồ sơ còn phải được đối chiếu thủ công; bằng chứng đang bị khóa.", s.submitted_at || s.updated_at, "verification", levelHref(s.target_level));
+    if (s.status === "pending_review") add(`submission-queued:${s.id}`, `Hồ sơ tự gửi đang chờ duyệt: ${label}`, "Hồ sơ đang chờ nhân viên đối chiếu; bằng chứng tạm khóa trong khi xét.", s.submitted_at || s.updated_at, "verification", levelHref(s.target_level));
     if (s.status === "returned") add(`submission-returned:${s.id}`, `Hồ sơ tự gửi cần bổ sung: ${label}`, s.review_note || "Mở cổng tự xác thực để xem lý do và tải bằng chứng mới.", s.reviewed_at || s.updated_at, "verification", levelHref(s.target_level));
     if (s.status === "accepted") add(`submission-accepted:${s.id}`, `Hồ sơ đã được nhận vào đợt kiểm: ${label}`, "Đây chưa phải kết quả duyệt huy hiệu; đợt kiểm vẫn cần người có quyền duyệt phê.", s.reviewed_at || s.updated_at, "verification", levelHref(s.target_level));
   }

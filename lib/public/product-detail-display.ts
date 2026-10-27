@@ -171,6 +171,9 @@ const PLACE_NAMES: Record<string, string> = {
   "ha noi": "Hanoi",
   "da nang": "Da Nang",
   "hai phong": "Hai Phong",
+  "dinh vu": "Dinh Vu",
+  "nam dinh vu": "Nam Dinh Vu",
+  "nam hai dinh vu": "Nam Hai Dinh Vu",
   "can tho": "Can Tho",
   "dong nai": "Dong Nai",
   "binh duong": "Binh Duong",
@@ -187,13 +190,18 @@ const PLACE_NAMES: Record<string, string> = {
   "song than": "Song Than",
 };
 
+function normalizedPlaceKey(value: string): string {
+  // Vietnamese Đ/đ does not decompose into D/d under Unicode normalization.
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/đ/g, "d").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 /** Use conventional English spellings for known Vietnamese place aliases. */
 export function publicProductPlaceDisplay(place: string | null | undefined): string {
   const value = (place ?? "").replace(/\s+/g, " ").trim();
   if (!value) return "";
-  const normalized = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  if (PLACE_NAMES[normalized]) return PLACE_NAMES[normalized];
+  const alias = PLACE_NAMES[normalizedPlaceKey(value)];
+  if (typeof alias === "string") return alias;
   return value
     .replace(/\bHồ Chí Minh\b/gi, "Ho Chi Minh City")
     .replace(/\bCát Lái\b/gi, "Cat Lai")
@@ -202,14 +210,47 @@ export function publicProductPlaceDisplay(place: string | null | undefined): str
     .replace(/\bcảng xuất\b/gi, "export port");
 }
 
-/** Use an English label for known port aliases; keep unknown supplier input unchanged. */
+const TCTT_DISPLAY = "TCTT (Tan Cang - Thi Vai International Port)";
+const TCTT_DESCRIPTIONS = new Set([
+  "tan cang cang quoc te thi vai",
+  "tan cang thi vai international port",
+  "tan cang thi vai",
+  "cang quoc te thi vai",
+]);
+const PORT_NAMES: Record<string, string> = {
+  "cang cat lai": "Cat Lai Port",
+  "cat lai port": "Cat Lai Port",
+  "cang cai mep": "Cai Mep Port",
+  "cai mep port": "Cai Mep Port",
+  "cang hai phong": "Hai Phong Port",
+  "hai phong port": "Hai Phong Port",
+  "cang da nang": "Da Nang Port",
+  "da nang port": "Da Nang Port",
+  "cang dinh vu": "Dinh Vu Port",
+  "dinh vu port": "Dinh Vu Port",
+  "cang nam dinh vu": "Nam Dinh Vu Port",
+  "nam dinh vu port": "Nam Dinh Vu Port",
+  "cang nam hai dinh vu": "Nam Hai Dinh Vu Port",
+  "nam hai dinh vu port": "Nam Hai Dinh Vu Port",
+  "tctt tan cang cang quoc te thi vai": TCTT_DISPLAY,
+};
+
+/** Use known port/place spellings; preserve unknown input instead of guessing. */
 export function publicExportPortDisplay(port: string | null | undefined): string {
   const value = (port ?? "").replace(/\s+/g, " ").trim();
   if (!value) return "";
-  const normalized = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  if (normalized.includes("tctt") && normalized.includes("thi vai")) {
-    return "TCTT (Tan Cang - Thi Vai International Port)";
-  }
-  return publicProductPlaceDisplay(value);
+  // Replace only a recognized TCTT description, not the entire list of ports.
+  const knownTctt = value.replace(/\bTCTT\s*\(([^()]*)\)/gi, (match, description: string) =>
+    TCTT_DESCRIPTIONS.has(normalizedPlaceKey(description)) ? TCTT_DISPLAY : match);
+  // A port may be accompanied by a city or another port. Translate only whole
+  // known parts, preserving the separators and not confusing similarly named ports.
+  return knownTctt.split(/([,;/()])/).map((part, index) => {
+    if (index % 2) return part;
+    const place = part.trim();
+    if (!place) return part;
+    const start = part.indexOf(place);
+    const alias = PORT_NAMES[normalizedPlaceKey(place)];
+    const display = typeof alias === "string" ? alias : publicProductPlaceDisplay(place);
+    return `${part.slice(0, start)}${display}${part.slice(start + place.length)}`;
+  }).join("");
 }

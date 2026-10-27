@@ -32,9 +32,9 @@ assert.doesNotMatch(chooser, /VerificationSubmissionPanel|SupplierPortalUpload|b
 /* 2. Khung chung: mỗi lần mở chỉ tải đúng cấp, đúng danh mục, đúng bộ thông số. */
 const levelPage = read('app/supplier/portal/verification/level-page.tsx');
 assert.match(levelPage, /supplierLevelAccess\(level\)/, 'Quyền truy cập lấy theo đúng cấp');
-assert.match(levelPage, /getOrCreateSubmission\(store, \{ supplierId: supplier\.id, level, userId: user\.id \}\)/,
+assert.match(levelPage, /getOrCreateSubmission\(store, \{ supplierId: supplier\.id, level, userId: user\.id, supplierType: supplier\.supplier_type \}\)/,
   'Chỉ mở/tạo hồ sơ của đúng cấp');
-assert.match(levelPage, /level === 2 \? photoSpecs\(\) : exportSpecs\(\)/, 'Danh mục đi theo cấp');
+assert.match(levelPage, /level === 2 \? partner \? partnerSpecs\(\) : photoSpecs\(\) : exportSpecs\(\)/, 'Danh mục đi theo cấp');
 assert.match(levelPage, /<VerificationSubmissionPanel view=\{view\} specs=\{specs\} \/>/, 'Bảng điều khiển dùng đúng khung cũ');
 assert.match(levelPage, /chưa mở được hồ sơ tự gửi/, 'Lỗi đọc hồ sơ có log');
 assert.match(levelPage, /Chưa mở được phần tải bằng chứng/, 'Thiếu bảng có màn hình báo cho NCC');
@@ -43,7 +43,7 @@ assert.match(levelPage, /Chưa mở được hồ sơ xác minh này/, 'Hồ sơ
 
 // Tab chuyển bước: ba bước dùng chung một dải tab, đánh dấu bước đang mở, mỗi bước
 // vẫn là một trang riêng.
-assert.match(levelPage, /<LevelTabs current=\{level\} \/>/, 'Trang L2/L3 dùng dải tab chung');
+assert.match(levelPage, /<LevelTabs current=\{level\} partner=/, 'Trang L2/L3 dùng dải tab chung');
 const levelTabs = read('app/supplier/portal/verification/level-tabs.tsx');
 assert.match(levelTabs, /aria-current=\{active \? "page" : undefined\}/, 'Tab đang mở được đánh dấu');
 assert.match(levelTabs, /VERIFICATION_STEPS\.map/, 'Tab vẽ đủ các bước');
@@ -51,7 +51,7 @@ for (const step of ['/supplier/portal/documents', '/supplier/portal/verification
   assert.ok(levelTabs.includes(step), `Tab dẫn tới ${step}`);
 assert.match(levelTabs, /Bước \{step\.level\}\/3/, 'Mỗi tab ghi rõ bước mấy trên ba');
 assert.match(levelTabs, /Đang mở/, 'Tab nói rõ bước đang mở');
-for (const copy of ['Tạo và in tờ mã', 'Chụp 9 ảnh tại nhà máy', 'Chọn một lô đã giao', 'Thêm link và nộp'])
+for (const copy of ['Tạo và in tờ mã', 'Chụp 9 ảnh tại nhà máy', 'Chọn một lô hàng', 'Nộp hồ sơ'])
   assert.ok(levelPage.includes(copy), `Có hướng dẫn “${copy}”`);
 assert.ok(levelPage.includes('kể cả ảnh đã gửi qua Zalo, đều nhận'), 'L2 nói rõ ảnh qua Zalo vẫn nhận');
 assert.ok(!levelPage.includes('Gửi <strong>ảnh gốc'), 'Không đòi ảnh gốc');
@@ -59,7 +59,7 @@ assert.ok(!levelPage.includes('AI quét những gì'), 'Đã bỏ khối giải 
 
 /* 2b. Bước 1 (giấy tờ) dùng đúng ngôn ngữ thị giác của L2/L3 nhưng không có nút nộp. */
 const documents = read('app/supplier/portal/documents/page.tsx');
-assert.match(documents, /<LevelTabs current=\{1\} \/>/, 'Trang L1 dùng chung dải tab ba bước');
+assert.match(documents, /<LevelTabs current=\{1\} partner=/, 'Trang L1 dùng chung dải tab ba bước');
 assert.match(documents, /role="progressbar"/, 'L1 có dải tiến độ giấy tờ');
 assert.match(documents, /lg:grid-cols-\[minmax\(0,1fr\)_330px\]/, 'L1 có cột tóm tắt dính bên phải như L2/L3');
 assert.match(documents, /lg:sticky lg:top-20/, 'Cột tóm tắt L1 dính khi lướt');
@@ -82,7 +82,7 @@ for (const [label, pattern] of [
   ['AI quét thử', /runScan\(false\)/],
   ['AI quét & nộp', /runScan\(true\)/],
   ['khóa hồ sơ sau khi nộp', /!view\.editable|locked/],
-  ['kết quả AI', /Kết quả AI tự động/],
+  ['gợi ý AI', /Gợi ý từ AI/],
   ['tiến độ', /role="progressbar"/],
 ])
   assert.match(panel, pattern, `Bảng điều khiển còn chức năng ${label}`);
@@ -90,12 +90,12 @@ for (const [label, pattern] of [
 const shipmentCard = panel.slice(panel.indexOf('{/* L3 · lô hàng'), panel.indexOf('{/* Bộ bằng chứng'));
 for (const copy of [
   'Chứng từ của bạn được bảo mật và không hiển thị công khai.',
-  'Chỉ cần chọn một lô đã giao gần nhất và tải chứng từ của lô đó để xác minh.',
+  'Chọn một lô hàng đã xuất và tải chứng từ của lô đó để nhân viên kiểm tra.',
 ]) assert.ok(shipmentCard.includes(copy), `Ghi chú L3 có câu “${copy}”`);
 assert.match(shipmentCard, /level === 3 &&/, 'Ghi chú bảo mật chỉ thuộc luồng xuất khẩu L3');
 
 // Nộp chỉ mở khi đủ mục và hồ sơ còn sửa được; nút nộp không bị biến thành nút chết.
-assert.match(panel, /disabled=\{busy !== "" \|\| locked \|\| !view\.ready\}[\s\S]{0,400}runScan\(true\)/,
+assert.match(panel, /disabled=\{busy !== "" \|\| evidenceBusy \|\| locked \|\| !view\.ready\}[\s\S]{0,400}runScan\(true\)/,
   'Nút nộp bị khóa khi thiếu mục hoặc hồ sơ đã nộp');
 assert.match(panel, /lg:sticky lg:top-20/, 'Cột tóm tắt dính khi lướt danh sách dài');
 assert.match(panel, /sticky bottom-0[^"]*lg:hidden/, 'Điện thoại có thanh hành động luôn thấy');
@@ -107,10 +107,11 @@ assert.match(card, /\/api\/supplier-portal\/submissions\/\$\{encodeURIComponent\
   'Thẻ tải tệp lên đúng route cũ');
 assert.match(card, /deleteSubmissionItemAction/, 'Thẻ vẫn xóa được bằng chứng');
 assert.match(card, /accept=\{accept\}/, 'Vẫn giới hạn đúng loại tệp');
-assert.match(card, /level === 2 \? "image\/jpeg,image\/png,image\/webp" : "image\/jpeg,image\/png,image\/webp,application\/pdf"/,
-  'L2 chỉ ảnh, L3 nhận thêm PDF');
+assert.match(card, /level === 3 \|\| \(partner && spec\.key === "partner_factory_contract"\) \? "image\/jpeg,image\/png,image\/webp,application\/pdf"/,
+  'L2 nhà máy chỉ ảnh, hợp đồng và L3 nhận thêm PDF');
 assert.doesNotMatch(card, /capture=\{level === 2/, 'Không ép mở camera');
-assert.match(card, /Chi tiết kỹ thuật/, 'Vẫn xem được chi tiết kỹ thuật/AI');
+assert.match(card, /Chi tiết kỹ thuật/, 'L2 vẫn xem được chi tiết kỹ thuật/AI');
+assert.match(card, /level === 2 && !partner \? "Chi tiết kỹ thuật & AI" : "Chi tiết tệp"/, 'L3 không hiện nhãn AI trong chi tiết tệp');
 assert.match(card, /hardFlags/, 'Cờ bắt buộc vẫn nổi bật trên thẻ');
 assert.match(card, /bắt buộc có tờ mã xác minh đặt cạnh cảnh/, 'Ảnh 🔖 nhắc tờ mã ngay trong thẻ');
 assert.match(card, /Mở ảnh gốc|Mở PDF/, 'Bấm mở được tệp gốc qua route kiểm quyền');

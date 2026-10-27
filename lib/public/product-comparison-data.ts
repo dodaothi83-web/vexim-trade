@@ -1,3 +1,4 @@
+import type { PublicL2Scope } from "@/lib/verification-status";
 import "server-only";
 
 import { getStore } from "@/lib/db";
@@ -6,7 +7,6 @@ import { publicSupplierCertificates, type PublicSupplierCertificate } from "@/li
 import { getPublicProductRecordsByIds } from "@/lib/public/product-catalog";
 import { productDetailHref } from "@/lib/public/product-comparison";
 import {
-  publicExportPortDisplay,
   publicProductCapacityDisplay,
   publicProductMoqDisplay,
   publicProductPaymentTermsDisplay,
@@ -15,6 +15,7 @@ import {
   publicProductPriceDisplay,
   publicProductUnitDisplay,
 } from "@/lib/public/product-detail-display";
+import { publicProductExportPortDisplay } from "@/lib/public/product-export-port";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import type { VerificationLevel } from "@/lib/types";
 
@@ -48,6 +49,7 @@ export interface PublicComparedProduct {
   supplierHref: string;
   province: string;
   verificationSteps: VerificationLevel[];
+  l2Scope?: PublicL2Scope;
   certificates: PublicSupplierCertificate[];
   rfqHref: string;
 }
@@ -104,7 +106,7 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       leadTimeDays: card.leadTimeDays,
       incoterm: safe(product.incoterm),
       incotermPlace: safe(publicProductPlaceDisplay(tradeEnglish?.incoterm_place || product.incoterm_place)),
-      exportPort: safe(publicExportPortDisplay(tradeEnglish?.export_port || product.export_port)),
+      exportPort: safe(publicProductExportPortDisplay(product)),
       monthlyCapacity: safe(publicProductCapacityDisplay(tradeEnglish?.monthly_capacity || product.monthly_capacity)),
       paymentTerms: safe(publicProductPaymentTermsDisplay(tradeEnglish?.payment_terms || product.payment_terms)),
       rawMaterialRegion: safe(card.rawMaterialRegion),
@@ -116,6 +118,7 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       supplierHref: `/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`,
       province: card.province,
       verificationSteps: card.verificationSteps,
+      l2Scope: card.l2Scope,
       certificates: certificatesBySupplier.get(supplier.id) ?? [],
       rfqHref: `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(supplier.id)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(product.id)}`,
     };

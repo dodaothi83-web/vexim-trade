@@ -7,13 +7,29 @@ import ts from 'typescript';
 const text = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-actions.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(text, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const evidenceJs = ts.transpileModule(fs.readFileSync(new URL('../lib/verification-evidence.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const typesJs = ts.transpileModule(fs.readFileSync(new URL('../lib/types.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const realTypes = {};
+vm.runInNewContext(typesJs, { exports: realTypes }, { filename: 'types.ts' });
 const evidence = {};
-vm.runInNewContext(evidenceJs, { exports: evidence }, { filename: 'verification-evidence.ts' });
+vm.runInNewContext(evidenceJs, { exports: evidence, require: (id) => { assert.equal(id, '@/lib/types'); return realTypes; } }, { filename: 'verification-evidence.ts' });
 assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'video', storage_path: null }]), false);
 assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'image', storage_path: 'verifications/review-1/license.jpg' }]), true);
 assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'document', storage_path: 'verifications/review-1/license.pdf' }]), true);
 assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'certificate', storage_path: 'verifications/review-1/cert.png' }]), true);
 assert.equal(evidence.hasDocumentAuditEvidence([{ kind: 'image', storage_path: null }]), false);
+// Chứng từ tự gửi không tự đủ điều kiện duyệt; nhân viên phải đánh dấu đã kiểm.
+for (const { key } of realTypes.L3_EXPORT_ITEMS) {
+  const file = { kind: 'image', checklist_key: key, storage_path: 'verifications/review-3/file.jpg', status: 'unverified' };
+  assert.equal(evidence.hasDeliveryAuditEvidence([file]), false, `${key}: chưa kiểm không đủ`);
+  assert.equal(evidence.hasDeliveryAuditEvidence([{ ...file, status: 'checked' }]), true, `${key}: đã kiểm đủ điều kiện kỹ thuật`);
+  assert.equal(evidence.hasDeliveryAuditEvidence([{ ...file, status: 'checked', storage_path: null }]), false);
+}
+assert.equal(evidence.hasDeliveryAuditEvidence([{ kind: 'video', checklist_key: 'other_export_evidence', storage_path: 'x', status: 'checked' }]), false);
+assert.equal(evidence.hasDeliveryAuditEvidence([{ kind: 'image', checklist_key: null, storage_path: 'x', status: 'checked' }]), false);
+assert.equal(evidence.hasDeliveryAuditEvidence([{ kind: 'image', checklist_key: 'shipping_proof', storage_path: 'x', status: 'unverified' }]), true, 'Quy tắc hồ sơ cũ giữ nguyên');
+
+const l2Scope = {};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/l2-scope.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: l2Scope }, { filename: 'l2-scope.ts' });
 const exports = {};
 const auditor = { uid: 'reviewer-1', email: 'reviewer@example.com', role: 'reviewer' };
 let lastAudit = null;
@@ -53,7 +69,7 @@ const store = {
     Object.assign(row, patch); return row;
   },
   addAuditLog: async (entry) => { lastAudit = entry; },
-  getSupplier: async () => ({ verification_level: 2 }),
+  getSupplier: async () => ({ verification_level: 2, supplier_type: 'manufacturer' }),
 };
 const mocks = {
   'next/cache': { revalidatePath: () => { if (revalidateThrows) throw new Error('invariant: static generation store missing'); } },
@@ -71,24 +87,25 @@ const mocks = {
     notifyStaffVerificationSubmission: async () => { if (mailThrows) throw new Error('resend: socket hang up'); return 'sent'; },
   },
   '@/lib/verification-evidence': evidence,
+  '@/lib/l2-scope': l2Scope,
   '@/lib/media/verification-access': { verificationMediaEditError: async () => mediaBlocked },
   '@/lib/types': { L1_DOC_ITEMS: docItems },
   '@/lib/verification': {
     auditHref: () => '/crm/suppliers/supplier-1/audit/deliveries',
-    auditItems: (level) => level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : level === 2 ? ['factory_gate', 'pest_control'].map((key) => ({ key })) : docItems,
+    auditItems: (level, scope) => level === 2 && scope === 'partner_contract' ? realTypes.L2_PARTNER_REVIEW_ITEMS : level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : level === 2 ? ['factory_gate', 'pest_control'].map((key) => ({ key })) : docItems,
     requiredAuditItems: (level) => level === 1 ? docItems.filter((item) => item.required) : [],
     coreDocsVerified: (checklist) => coreDocKeys.some((key) => checklist?.[key] === true),
-    auditUploadKind: (level, key) => level === 1 ? (['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'].includes(key) ? 'file' : null) : level === 2 ? (['factory_gate', 'raw_material_warehouse', 'production_line_running', 'packing_area', 'finished_goods_warehouse', 'open_carton_lot_label', 'hygiene_station', 'worker_ppe', 'pest_control'].includes(key) ? 'image' : null) : (['shipping_proof', 'delivery_proof'].includes(key) ? 'file' : null),
+    auditUploadKind: (level, key, scope) => level === 2 && scope === 'partner_contract' ? key === 'partner_factory_contract' ? 'file' : key === 'partner_factory_photos' ? 'image' : null : level === 1 ? (['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'].includes(key) ? 'file' : null) : level === 2 ? (['factory_gate', 'raw_material_warehouse', 'production_line_running', 'packing_area', 'finished_goods_warehouse', 'open_carton_lot_label', 'hygiene_station', 'worker_ppe', 'pest_control'].includes(key) ? 'image' : null) : (['shipping_proof', 'delivery_proof'].includes(key) ? 'file' : null),
     inVnBounds: (lat, lng) => lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110,
   },
 };
 vm.runInNewContext(js, { exports, require: (name) => { assert.ok(name in mocks, `Unknown import ${name}`); return mocks[name]; }, console: { error: () => {}, warn: () => {}, log: () => {} }, FormData, Date, Error }, { filename: 'verification-actions.ts' });
 const form = new FormData(); form.set('id', row.id);
-assert.match((await exports.approveVerificationAction(form)).message, /chứng từ vận chuyển\/giao nhận/);
+assert.match((await exports.approveVerificationAction(form)).message, /Cần chứng từ phù hợp/);
 media.push({ kind: 'video', status: 'checked', storage_path: null });
-assert.match((await exports.approveVerificationAction(form)).message, /chứng từ vận chuyển\/giao nhận/);
+assert.match((await exports.approveVerificationAction(form)).message, /Cần chứng từ phù hợp/);
 media.push({ kind: 'document', status: 'unverified', storage_path: 'verifications/review-3/bl.pdf' });
-assert.match((await exports.approveVerificationAction(form)).message, /chứng từ vận chuyển\/giao nhận/);
+assert.match((await exports.approveVerificationAction(form)).message, /Cần chứng từ phù hợp/);
 media[1].status = 'checked';
 auditor.uid = row.inspector_id;
 const selfReview = await exports.approveVerificationAction(form);
@@ -303,6 +320,7 @@ assert.match(formUi, /canInspect &&/, 'Reviewer cannot edit evidence');
 assert.match(formUi, /Phạm vi buyer sẽ thấy/, 'L2/L3 approval includes the buyer-facing summary editor');
 assert.match(formUi, /confirm_public_summary/, 'Approval sends the reviewer publication confirmation');
 assert.ok(!pageUi.includes('<MediaManager'), 'All audit steps render evidence inline');
+assert.match(pageUi, /item\.level !== 2 \|\| \(scope !== null && effectiveL2Scope\(v\.l2_scope\) === scope\)/, 'L2 navigation completion matches the current scope');
 assert.ok(!pageUi.includes('unlocked') && !pageUi.includes('LockKeyhole'), 'Every review page is reachable independently');
 assert.match(pageUi, /\?tab=review#supplier-review/, 'Audit pages return to the supplier review tab');
 const panelUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-panel.tsx', import.meta.url), 'utf8');
@@ -379,3 +397,29 @@ for (const action of ['addMediaLinkAction', 'updateMediaAction', 'deleteMediaAct
   assert.ok(src.slice(src.indexOf(`export async function ${action}`), src.indexOf('export async function', src.indexOf(`export async function ${action}`) + 1) + 500).includes('verificationMediaEditError'), `${action} must restrict evidence changes`);
 }
 console.log('✅ Delivery evidence, single-person/independent approval, media locks and migrations.');
+
+// Trader's contract review is independent of an older factory approval.
+store.getSupplier = async () => ({ supplier_type: 'trading' });
+Object.assign(row, { target_level: 2, l2_scope: 'partner_contract', status: 'in_progress', inspector_id: 'inspector-2', approved_by: null, checklist: {}, checklist_notes: {} });
+records.splice(0, records.length, { id: 'legacy-factory', target_level: 2, l2_scope: null, status: 'approved' }, row);
+media.splice(0);
+const partnerForm = new FormData(); partnerForm.set('id', row.id); partnerForm.set('status', 'submitted');
+assert.equal((await exports.updateVerificationChecklistAction(partnerForm)).ok, true, 'Factory approval must not block partner-scope submission');
+assert.match((await exports.approveVerificationAction(form)).message, /hợp đồng/i);
+media.push({ id: 'contract', owner_type: 'verification', verification_id: row.id, supplier_id: 'other', checklist_key: 'partner_factory_contract', kind: 'document', audience: 'internal', status: 'checked', storage_path: 'contract.pdf' });
+assert.match((await exports.approveVerificationAction(form)).message, /hợp đồng/i, 'Contract from another supplier cannot qualify');
+media[0].supplier_id = row.supplier_id; media[0].status = 'unverified';
+assert.match((await exports.approveVerificationAction(form)).message, /đánh dấu đã kiểm/i);
+media[0].status = 'checked';
+assert.match((await exports.approveVerificationAction(form)).message, /xác nhận/i, 'Both human confirmations are required');
+Object.assign(row, { status: 'in_progress', checklist: {} });
+partnerForm.set('check:partner_identity_confirmed', 'yes'); partnerForm.set('check:partner_scope_confirmed', 'yes');
+assert.equal((await exports.updateVerificationChecklistAction(partnerForm)).ok, true);
+assert.equal(row.checklist.partner_identity_confirmed, true); assert.equal(row.checklist.partner_scope_confirmed, true);
+store.getSupplier = async () => ({ supplier_type: 'manufacturer' });
+assert.match((await exports.approveVerificationAction(form)).message, /không khớp/i, 'Cannot approve after type changes');
+store.getSupplier = async () => ({ supplier_type: 'trading' });
+form.set('public_summary', 'A contract with a partner factory was reviewed for the stated relationship.');
+assert.equal((await exports.approveVerificationAction(form)).ok, true, 'Staff explicitly approves only the checked contract scope');
+assert.equal(row.status, 'approved');
+console.log('✅ L2 staff: scoped history, checked contract, confirmations and type mismatch enforced.');

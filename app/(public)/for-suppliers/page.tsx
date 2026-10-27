@@ -36,7 +36,7 @@ export default function ForSuppliersPage() {
         For Vietnamese suppliers
       </h1>
       <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-ink-700">
-        We work with manufacturers, cooperatives and trading companies in Vietnam. Start with a document review; factory verification and a delivery history review can be requested independently when relevant.
+        We work with manufacturers, cooperatives and trading companies in Vietnam. Start with a document review. Factory evidence or a partner-factory contract, and export evidence, can be reviewed separately when relevant.
       </p>
 
       <div className="mt-10 grid gap-5 sm:grid-cols-3">
@@ -48,7 +48,7 @@ export default function ForSuppliersPage() {
         <Benefit
           icon={<ShieldCheck className="h-5 w-5" />}
           title="Verified badge & trust"
-          body="Each approved review earns its own badge. A trading company can show reviewed delivery history without claiming factory verification."
+          body="Each approved review earns its own badge. A trading company can submit its partner-factory contract without claiming it owns the factory or that the factory was inspected."
         />
         <Benefit
           icon={<Lock className="h-5 w-5" />}

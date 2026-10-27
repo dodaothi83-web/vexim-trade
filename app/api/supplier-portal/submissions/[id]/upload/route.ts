@@ -5,6 +5,7 @@ import { supplierSubmissionAccess } from "@/lib/supplier-portal/submission-acces
 import { mergeFlags } from "@/lib/media/image-integrity";
 import { readiness } from "@/lib/verification-submission";
 import { migrationHint } from "@/lib/db/migration-hints";
+import { submissionEvidenceErrorMessage } from "@/lib/supplier-portal/submission-evidence-errors";
 import { saveSubmissionEvidence, submissionSizeGate } from "@/lib/supplier-portal/submission-evidence";
 import { maxBytesFor } from "@/lib/supplier-portal/submission-evidence";
 
@@ -65,9 +66,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const key = String(form.get("checklistKey") ?? "").trim();
   const file = form.get("file");
-  if (!(file instanceof File)) return json({ ok: false, message: "Thiếu tệp ảnh." }, 400);
-  if (file.size > maxBytesFor(submission.target_level)) {
-    return json({ ok: false, message: `Tệp vượt giới hạn ${Math.round(maxBytesFor(submission.target_level) / 1024 / 1024)} MB.` }, 413);
+  if (!(file instanceof File)) return json({ ok: false, message: submission.target_level === 3 || submission.l2_scope === "partner_contract" ? "Thiếu tệp bằng chứng." : "Thiếu tệp ảnh." }, 400);
+  if (file.size > maxBytesFor(submission.target_level, submission.l2_scope, key)) {
+    return json({ ok: false, message: `Tệp vượt giới hạn ${Math.round(maxBytesFor(submission.target_level, submission.l2_scope, key) / 1024 / 1024)} MB.` }, 413);
   }
 
   try {
@@ -76,7 +77,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       store: access.store, submission, key, file, capture, createdBy: access.userId,
     });
     // Ghi GPS của trình duyệt lên hồ sơ nếu đây là lần tải đầu tiên có toạ độ.
-    if (capture.lat != null && capture.lng != null && submission.device_lat == null) {
+    if (submission.target_level === 2 && submission.l2_scope !== "partner_contract" && capture.lat != null && capture.lng != null && submission.device_lat == null) {
       await access.store.updateSubmission(submission.id, {
         device_lat: capture.lat,
         device_lng: capture.lng,
@@ -104,10 +105,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return json({
       ok: true,
       message: saved.replaced
-        ? `Đã thay ảnh cũ của mục này (giữ tối đa vài bản). ${saved.flags.length ? "Có điểm cần lưu ý bên dưới." : ""}`
+        ? `Đã thay ${submission.target_level === 3 ? "tệp" : "ảnh"} cũ của mục này (giữ tối đa vài bản). ${saved.flags.length ? "Có điểm cần lưu ý bên dưới." : ""}`
         : saved.flags.length
           ? "Đã tải ảnh. Có vài điểm ghi chú bên dưới, không ảnh hưởng việc nộp."
-          : "Đã tải ảnh.",
+          : submission.target_level === 3 || submission.l2_scope === "partner_contract" ? "Đã tải bằng chứng." : "Đã tải ảnh.",
       itemId: saved.item.id,
       flags: saved.flags.map((f) => ({ flag: f.flag, severity: f.severity, detail: f.detail })),
       readiness: readiness({ submission: fresh, items }),
@@ -117,9 +118,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const raw = error instanceof Error ? error.message : "";
     // Lỗi ràng buộc CSDL (vd. thiếu migration media_assets.submission_id) không
     // đẩy nguyên văn tiếng Anh ra cho nhà cung cấp; chỉ báo thử lại và ghi log hint.
-    const message = /violates (foreign key|check) constraint|duplicate key value/i.test(raw)
+    const message = submissionEvidenceErrorMessage(error) ?? (/violates (foreign key|check) constraint|duplicate key value/i.test(raw)
       ? "Hệ thống chưa lưu được bằng chứng lúc này. Vexim đã ghi nhận lỗi — bạn thử lại sau ít phút."
-      : raw || "Không lưu được tệp.";
+      : raw || "Không lưu được tệp.");
     return json({ ok: false, message }, 400);
   }
 }

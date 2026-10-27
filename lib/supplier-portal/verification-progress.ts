@@ -2,11 +2,13 @@ import {
   L2_FACTORY_PHOTO_ITEMS,
   L3_EXPORT_ITEMS,
   type MediaAsset,
+  type SupplierType,
   type SupplierSubmission,
   type SupplierSubmissionItem,
   type SupplierVerificationRequest,
   type Verification,
 } from "@/lib/types";
+import { effectiveL2Scope, l2ScopeForSupplier } from "@/lib/l2-scope";
 import { INITIAL_DOCUMENT_KEYS } from "./policy";
 
 /**
@@ -60,6 +62,7 @@ export interface VerificationProgress {
 
 export interface VerificationProgressInput {
   supplierId: string;
+  supplierType?: SupplierType | null;
   reviews: Verification[];
   submissions?: SupplierSubmission[];
   /** Bằng chứng đã tải của từng hồ sơ tự gửi, theo `submission.id`. */
@@ -87,7 +90,7 @@ const STEP_COPY = {
   3: {
     title: "Lịch sử giao hàng",
     titleEn: "Delivery history",
-    description: "Một lô hàng đã xuất thật: vận đơn, tờ khai và link nguồn công khai.",
+    description: "Chứng từ phù hợp của một lô hàng đã xuất, do nhân viên đối chiếu.",
     href: "/supplier/portal/verification/export",
   },
 } as const;
@@ -100,8 +103,7 @@ const STATUS_EN: Record<VerificationState, string> = {
 };
 
 const L2_TOTAL = L2_FACTORY_PHOTO_ITEMS.length;
-const L3_REQUIRED = L3_EXPORT_ITEMS.filter((item) => item.required);
-const L3_TOTAL = L3_REQUIRED.length;
+const L3_KEYS = L3_EXPORT_ITEMS.map((item) => item.key);
 
 const isInitialDocKey = (key: string | null | undefined): boolean =>
   !!key && (INITIAL_DOCUMENT_KEYS as readonly string[]).includes(key);
@@ -188,9 +190,13 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
   }
 
   /* ------------------------------ Bước 2: nhà máy ------------------------------ */
-  const l2 = latestReview(input.reviews, input.supplierId, 2);
-  const sub2 = latestSubmission(submissions, input.supplierId, 2);
-  const done2 = countUploaded(sub2 ? items[sub2.id] : undefined, L2_FACTORY_PHOTO_ITEMS.map((item) => item.key));
+  // The profile may have changed since an older review. Match the saved scope,
+  // never present an old factory approval as an approved partner contract.
+  const scope = "supplierType" in input ? l2ScopeForSupplier(input.supplierType) : "factory";
+  const partner = scope === "partner_contract";
+  const l2 = latestReview(input.reviews.filter((v) => v.target_level !== 2 || (scope !== null && effectiveL2Scope(v.l2_scope) === scope)), input.supplierId, 2);
+  const sub2 = latestSubmission(submissions.filter((s) => s.target_level !== 2 || (scope !== null && effectiveL2Scope(s.l2_scope) === scope)), input.supplierId, 2);
+  const done2 = countUploaded(sub2 ? items[sub2.id] : undefined, partner ? ["partner_factory_contract"] : L2_FACTORY_PHOTO_ITEMS.map((item) => item.key));
   const request2 = requests.find((r) => r.supplier_id === input.supplierId && r.target_level === 2) ?? null;
 
   const step2: VerificationProgressStep = {
@@ -207,12 +213,27 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     tone: "ink",
   };
 
+  if (partner) Object.assign(step2, {
+    title: "Nhà máy đối tác", titleEn: "Partner contract review",
+    description: "Đối chiếu hợp đồng với nhà máy đối tác; ảnh là tùy chọn.",
+    note: "Tải hợp đồng với nhà máy đối tác. Nhân viên đối chiếu; không tự duyệt.",
+    metric: done2 ? "Đã tải hợp đồng" : "Chưa tải hợp đồng",
+    metricEn: done2 ? "Contract uploaded" : "No contract uploaded",
+  } satisfies Partial<VerificationProgressStep>);
+  if (!scope) Object.assign(step2, {
+    title: "Xác minh L2", titleEn: "L2 verification",
+    description: "Cần cập nhật loại hình nhà cung cấp trước khi mở bước L2.",
+    note: "Chưa rõ loại hình nhà cung cấp. Liên hệ nhân viên để cập nhật trước khi mở L2.",
+    metric: "Chưa rõ loại hình", metricEn: "Supplier type needed",
+    action: "Xem hướng dẫn", actionEn: "View guidance",
+  } satisfies Partial<VerificationProgressStep>);
+
   const l2Note = "Ba ảnh 🔖 (cổng, dây chuyền, kho thành phẩm) phải có tờ mã xác minh do hệ thống phát hành nằm trong khung hình.";
   if (l2?.status === "approved") {
     const approvedOn = shortDate(l2.approved_at);
     Object.assign(step2, {
       state: "approved", status: "Đã duyệt", statusEn: STATUS_EN.approved, tone: "emerald",
-      note: "Đợt xác thực nhà máy đã hoàn tất và kết quả đã được duyệt.",
+      note: partner ? "Hợp đồng với nhà máy đối tác đã được đối chiếu và duyệt. Kết quả không xác nhận sở hữu nhà máy hay kiểm thực địa." : "Đợt xác thực nhà máy đã hoàn tất và kết quả đã được duyệt.",
       metric: approvedOn ? `Duyệt ngày ${approvedOn}` : "Duyệt theo đợt kiểm",
       metricEn: approvedOn ? `Approved ${approvedOn}` : "Approved after review",
       action: "Xem bằng chứng", actionEn: "View evidence",
@@ -220,48 +241,50 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
   } else if (sub2?.status === "pending_review") {
     Object.assign(step2, {
       state: "reviewing", status: "Chờ duyệt", statusEn: STATUS_EN.reviewing, tone: "amber",
-      note: "Hồ sơ 9 ảnh đã nộp và đang trong hàng đợi. Bằng chứng tạm khóa; AI chỉ quét sơ bộ, vẫn cần đối chiếu thủ công.",
+      note: partner ? "Hồ sơ đối tác đã nộp và đang chờ nhân viên đối chiếu hợp đồng." : "Hồ sơ 9 ảnh đã nộp và đang chờ nhân viên đối chiếu. AI chỉ hỗ trợ kiểm tra.",
       action: "Xem hồ sơ đã nộp", actionEn: "View submission",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub2?.status === "returned") {
     Object.assign(step2, {
       state: "action", status: "Cần bổ sung", statusEn: STATUS_EN.action, tone: "rose",
-      note: sub2.review_note || "Cần bổ sung ảnh nhà máy. Mở cổng xác thực để xem lý do.",
-      action: "Bổ sung ảnh", actionEn: "Add factory photos",
+      note: !partner && sub2.ai_scanned_at && !sub2.reviewed_by
+        ? `${sub2.review_note ? `Ghi chú trước đây: ${sub2.review_note} ` : ""}Bạn có thể nộp lại để nhân viên kiểm tra.`
+        : sub2.review_note || (partner ? "Cần bổ sung hợp đồng với nhà máy đối tác." : "Cần bổ sung ảnh nhà máy. Mở cổng xác thực để xem lý do."),
+      action: partner ? "Bổ sung hợp đồng" : sub2.ai_scanned_at && !sub2.reviewed_by ? "Xem và nộp lại" : "Bổ sung ảnh", actionEn: partner ? "Add contract" : sub2.ai_scanned_at && !sub2.reviewed_by ? "Review and resubmit" : "Add factory photos",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub2?.status === "accepted") {
     Object.assign(step2, {
       state: "reviewing", status: "Đã vào đợt kiểm", statusEn: STATUS_EN.reviewing, tone: "amber",
-      note: "Hồ sơ đã vào đợt kiểm và sẽ được đối chiếu tại nhà máy. Đây chưa phải kết quả duyệt.",
+      note: partner ? "Hồ sơ đã vào đợt kiểm để đối chiếu hợp đồng. Đây chưa phải kết quả duyệt." : "Hồ sơ đã vào đợt kiểm và sẽ được đối chiếu tại nhà máy. Đây chưa phải kết quả duyệt.",
       action: "Xem hồ sơ", actionEn: "View submission",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub2) {
     Object.assign(step2, {
       state: "action", status: "Đang hoàn thiện", statusEn: STATUS_EN.action, tone: "amber",
-      note: done2 < L2_TOTAL
+      note: partner ? (done2 ? "Đã có hợp đồng; nộp để nhân viên đối chiếu." : "Tải hợp đồng với nhà máy đối tác; ảnh là tùy chọn.") : done2 < L2_TOTAL
         ? `Còn ${L2_TOTAL - done2} ảnh bắt buộc. ${l2Note}`
         : `Đã đủ ${L2_TOTAL} ảnh. Mở cổng xác thực để kiểm tra lần cuối và bấm nộp hồ sơ.`,
-      action: done2 < L2_TOTAL ? "Tải ảnh nhà máy" : "Nộp hồ sơ 9 ảnh",
-      actionEn: done2 < L2_TOTAL ? "Add factory photos" : "Submit 9 photos",
+      action: partner ? (done2 ? "Nộp hợp đồng" : "Tải hợp đồng") : done2 < L2_TOTAL ? "Tải ảnh nhà máy" : "Nộp hồ sơ 9 ảnh",
+      actionEn: partner ? (done2 ? "Submit contract" : "Add contract") : done2 < L2_TOTAL ? "Add factory photos" : "Submit 9 photos",
     } satisfies Partial<VerificationProgressStep>);
-  } else if (request2?.status === "contacted") {
+  } else if (scope && request2?.status === "contacted") {
     Object.assign(step2, {
       state: "action", status: "Đã ghi nhận liên hệ", statusEn: STATUS_EN.action, tone: "amber",
-      note: "Yêu cầu xác thực nhà máy đã được ghi nhận; bộ phận phụ trách sẽ liên hệ lên kế hoạch. Bạn có thể tự nộp 9 ảnh ngay để rút ngắn thời gian.",
-      action: "Nộp 9 ảnh nhà máy", actionEn: "Add factory photos",
+      note: partner ? "Yêu cầu đối chiếu nhà máy đối tác đã được ghi nhận. Bạn có thể tự nộp hợp đồng." : "Yêu cầu xác thực nhà máy đã được ghi nhận; bộ phận phụ trách sẽ liên hệ lên kế hoạch. Bạn có thể tự nộp 9 ảnh ngay để rút ngắn thời gian.",
+      action: partner ? "Nộp hợp đồng" : "Nộp 9 ảnh nhà máy", actionEn: partner ? "Add contract" : "Add factory photos",
     } satisfies Partial<VerificationProgressStep>);
-  } else if (request2) {
+  } else if (scope && request2) {
     Object.assign(step2, {
       state: "action", status: "Đã gửi yêu cầu", statusEn: STATUS_EN.action, tone: "amber",
-      note: "Yêu cầu xác thực nhà máy đã gửi. Trong lúc chờ, bạn có thể tự nộp 9 ảnh để được đối chiếu song song.",
-      action: "Nộp 9 ảnh nhà máy", actionEn: "Add factory photos",
+      note: partner ? "Yêu cầu đối chiếu nhà máy đối tác đã gửi. Bạn có thể tự nộp hợp đồng." : "Yêu cầu xác thực nhà máy đã gửi. Trong lúc chờ, bạn có thể tự nộp 9 ảnh để được đối chiếu song song.",
+      action: partner ? "Nộp hợp đồng" : "Nộp 9 ảnh nhà máy", actionEn: partner ? "Add contract" : "Add factory photos",
     } satisfies Partial<VerificationProgressStep>);
   }
 
   /* --------------------------- Bước 3: lịch sử giao hàng --------------------------- */
   const l3 = latestReview(input.reviews, input.supplierId, 3);
   const sub3 = latestSubmission(submissions, input.supplierId, 3);
-  const done3 = countUploaded(sub3 ? items[sub3.id] : undefined, L3_REQUIRED.map((item) => item.key));
+  const done3 = countUploaded(sub3 ? items[sub3.id] : undefined, L3_KEYS);
   const request3 = requests.find((r) => r.supplier_id === input.supplierId && r.target_level === 3) ?? null;
 
   const step3: VerificationProgressStep = {
@@ -270,15 +293,15 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     state: "not_started",
     status: "Chưa bắt đầu",
     statusEn: STATUS_EN.not_started,
-    note: "Tải vận đơn và tờ khai của một lô đã xuất thật. RFQ trúng thầu không đủ làm bằng chứng giao hàng.",
-    metric: `Đã nộp ${done3}/${L3_TOTAL} chứng từ bắt buộc`,
-    metricEn: `${done3}/${L3_TOTAL} required shipping documents`,
+    note: "Tải chứng từ phù hợp của một lô đã xuất. Không bắt buộc vận đơn; nhân viên sẽ kiểm tra hồ sơ.",
+    metric: done3 ? `Đã tải ${done3} loại chứng từ` : "Chưa tải chứng từ",
+    metricEn: done3 ? `${done3} evidence type${done3 === 1 ? "" : "s"} uploaded` : "No evidence uploaded",
     action: "Bắt đầu bước 3",
     actionEn: "Start step 3",
     tone: "ink",
   };
 
-  const l3Note = "Che số tài khoản ngân hàng, giá mua bán và thông tin buyer nếu bạn không muốn chia sẻ.";
+  const l3Note = "Có thể che thông tin nhạy cảm, nhưng cần giữ đủ dữ kiện để đối chiếu.";
   if (l3?.status === "approved") {
     const approvedOn = shortDate(l3.approved_at);
     Object.assign(step3, {
@@ -297,7 +320,9 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
   } else if (sub3?.status === "returned") {
     Object.assign(step3, {
       state: "action", status: "Cần bổ sung", statusEn: STATUS_EN.action, tone: "rose",
-      note: sub3.review_note || "Cần bổ sung chứng từ giao hàng. Mở cổng xác thực để xem lý do.",
+      note: sub3.ai_scanned_at && !sub3.reviewed_by
+        ? `${sub3.review_note ? `Ghi chú trước đây: ${sub3.review_note} ` : ""}Bạn có thể nộp lại để nhân viên kiểm tra.`
+        : sub3.review_note || "Cần bổ sung chứng từ giao hàng. Mở cổng xác thực để xem lý do.",
       action: "Bổ sung chứng từ", actionEn: "Add shipping evidence",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub3?.status === "accepted") {
@@ -309,11 +334,11 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
   } else if (sub3) {
     Object.assign(step3, {
       state: "action", status: "Đang hoàn thiện", statusEn: STATUS_EN.action, tone: "amber",
-      note: done3 < L3_TOTAL
-        ? `Còn ${L3_TOTAL - done3} chứng từ bắt buộc (vận đơn, tờ khai hải quan). ${l3Note}`
-        : "Đã đủ chứng từ bắt buộc. Mở cổng để kiểm tra link nguồn và bấm nộp hồ sơ.",
-      action: done3 < L3_TOTAL ? "Tải chứng từ" : "Nộp hồ sơ chứng từ",
-      actionEn: done3 < L3_TOTAL ? "Add shipping evidence" : "Submit shipping evidence",
+      note: done3 === 0
+        ? `Tải ít nhất một chứng từ phù hợp. ${l3Note}`
+        : "Đã có chứng từ. Mở cổng để nộp cho nhân viên kiểm tra; có thể bổ sung thêm chứng từ liên quan.",
+      action: done3 === 0 ? "Tải chứng từ" : "Nộp hồ sơ chứng từ",
+      actionEn: done3 === 0 ? "Add shipping evidence" : "Submit shipping evidence",
     } satisfies Partial<VerificationProgressStep>);
   } else if (request3?.status === "contacted") {
     Object.assign(step3, {

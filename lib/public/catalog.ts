@@ -7,7 +7,7 @@ import "server-only";
 import { getStore } from "@/lib/db";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, VerificationLevel } from "@/lib/types";
-import { approvedPublicReviewSummaries, approvedVerificationSteps, type PublicReviewSummaries } from "@/lib/verification-status";
+import { approvedL2Scope, approvedPartnerReviewSummary, approvedPublicReviewSummaries, approvedVerificationSteps, type PublicL2Scope, type PublicReviewSummaries } from "@/lib/verification-status";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
 import { publicProductTitle } from "@/lib/public/display-name";
 
@@ -42,6 +42,8 @@ export interface PublicSupplierCard extends Supplier {
   product_card_image_paths: Record<string, string>; // approved thumbnail, falls back to full legacy image
   public_review_summaries: PublicReviewSummaries;
   approved_verification_steps: VerificationLevel[];
+  approved_l2_scope?: PublicL2Scope;
+  partner_review_summary?: string;
 }
 
 function buyerVisibleProduct(p: SupplierProduct, categories: Category[], demo = false): boolean {
@@ -96,6 +98,8 @@ export async function listPublicSuppliers(options?: {
     product_card_image_paths: {} as Record<string, string>,
     public_review_summaries: {} as PublicReviewSummaries,
     approved_verification_steps: [] as VerificationLevel[],
+    approved_l2_scope: null as PublicL2Scope,
+    partner_review_summary: undefined as string | undefined,
   }));
 
   // Load approvals for EVERY public supplier; do not infer passed steps from
@@ -115,6 +119,8 @@ export async function listPublicSuppliers(options?: {
           .slice(0, 6);
         // Even demo listings must not imply a check from the legacy numeric maximum.
         c.approved_verification_steps = approvedVerificationSteps(vers);
+        c.approved_l2_scope = approvedL2Scope(vers);
+        c.partner_review_summary = approvedPartnerReviewSummary(vers);
         c.public_review_summaries = approvedPublicReviewSummaries(vers);
       } catch { /* best effort */ }
     }));
@@ -207,6 +213,8 @@ export async function getSupplierStorefront(supplier: Supplier & Partial<PublicS
     product_image_paths: productImagePaths,
     product_card_image_paths: productCardImagePaths,
     approved_verification_steps: vers.length ? approvedVerificationSteps(vers) : (supplier.approved_verification_steps ?? []),
+    approved_l2_scope: vers.length ? approvedL2Scope(vers) : (supplier.approved_l2_scope ?? null),
+    partner_review_summary: vers.length ? approvedPartnerReviewSummary(vers) : supplier.partner_review_summary,
     public_review_summaries: approvedPublicReviewSummaries(vers),
   };
 }

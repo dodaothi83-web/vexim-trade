@@ -1,5 +1,6 @@
 "use client";
 
+import { matchesVerificationFilter } from "@/lib/verification-status";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown, Filter } from "lucide-react";
@@ -50,7 +51,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     (!selectedGrades.length || (p.grade && selectedGrades.includes(p.grade))) &&
     attributeFilters.every((field) => !selectedAttributes[field.key] || p.attributes?.[field.key] === selectedAttributes[field.key]) &&
     (!moq || moqGroup(p.moq) === moq) &&
-    (!province || p.province === province) && (!verified || p.verificationSteps.includes(verified as 1 | 2 | 3)),
+    (!province || p.province === province) && matchesVerificationFilter(p.verificationSteps, p.l2Scope, verified),
   ), [products, selectedGrades, selectedAttributes, moq, province, verified, attributeFilters]);
   // Trần thẻ của một nhà cung cấp trong danh sách tự nhiên bên dưới, KHÔNG tính
   // vùng đẩy phía trên. Vùng đẩy là suất cộng thêm (additive slot): nhà cung cấp
@@ -103,7 +104,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     <label className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">Supplier verification</span>
       <select className="input text-sm" value={verified} onChange={(e) => setVerified(Number(e.target.value))}>
         <option value={0}>All suppliers</option><option value={1}>Documents checked</option>
-        <option value={2}>Factory verification</option><option value={3}>Delivery history reviewed</option>
+        <option value={2}>Factory verification</option><option value={4}>Partner factory contract reviewed</option><option value={3}>Delivery history reviewed</option>
       </select>
     </label>
     {active && <button type="button" onClick={reset} className="font-semibold text-brand-700 underline">Clear filters</button>}
@@ -147,7 +148,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
               supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
               quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}
               oem={p.oem} odm={p.odm} samples={p.samples}
-              verificationSteps={p.verificationSteps} test={p.isDemo}
+              verificationSteps={p.verificationSteps} l2Scope={p.l2Scope} test={p.isDemo}
               comparison={comparisonEnabled && hasProductComparisonPeer(comparisonOffers, {
                 id: p.id, supplierId: p.supplierId, categorySlug, isDemo: p.isDemo,
               }) ? { id: p.id, categorySlug } : undefined} />

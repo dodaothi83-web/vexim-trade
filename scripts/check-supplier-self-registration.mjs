@@ -54,6 +54,7 @@ const store = {
   },
   createVerification: async (input) => { const r = { ...input, id: `v${state.reviews.length + 1}` }; state.reviews.push(r); return r; },
   listVerifications: async (id) => state.reviews.filter((r) => r.supplier_id === id),
+  listSubmissions: async () => [],
   listMedia: async (_type, id) => state.media.filter((m) => m.verification_id === id),
   updateVerification: async (id, patch) => Object.assign(state.reviews.find((r) => r.id === id), patch),
   getSupplier: async (id) => state.suppliers.find((r) => r.id === id) ?? null,
@@ -205,7 +206,7 @@ accountEnabled = false;
 assert.equal((await submitProfile(form())).status, 403, 'Only a signed-in supplier may create its first business page');
 accountEnabled = true;
 const forgedVisit = form(); forgedVisit.set('request:2', 'yes');
-assert.equal((await submitProfile(forgedVisit)).status, 400, 'Trader cannot request factory verification even by forging FormData');
+assert.equal(JSON.stringify(profileInput.parseSupplierProfile(forgedVisit).requested), JSON.stringify([2, 3]), 'Trader may request optional L2 partner review');
 const factoryForm = form(); factoryForm.set('supplier_type', 'manufacturer'); factoryForm.set('request:2', 'yes');
 assert.equal(JSON.stringify(profileInput.parseSupplierProfile(factoryForm).requested), JSON.stringify([2, 3]), 'Factory may request both follow-ups');
 const forgedCategory = form(); forgedCategory.set('requested_category_slugs', 'secret');
@@ -228,7 +229,10 @@ assert.equal(state.suppliers[0].onboarding_status, 'not_started');
 assert.equal(state.users[1].supplier_id, 's1');
 assert.equal(await access.supplierPortalAccess() !== null, true, 'Linked draft is available only to limited account access');
 state.failRequest = false;
-assert.equal((await submitProfile(form())).status, 200);
+const wrongDraftIdentity = form(); wrongDraftIdentity.set('tax_number', '99999999');
+assert.equal((await submitProfile(wrongDraftIdentity)).status, 409, 'A failed draft with saved evidence cannot change legal entity');
+state.suppliers[0].supplier_type = 'manufacturer';
+assert.equal((await submitProfile(form())).status, 200, 'An unsubmitted draft may still change type');
 assert.equal(state.suppliers.length, 1, 'Retry never creates a second supplier page');
 assert.equal(state.suppliers[0].status, 'draft');
 assert.equal(state.suppliers[0].verification_level, 0, 'Forged publish/level fields ignored');
@@ -251,8 +255,14 @@ assert.equal(state.notify, 1, 'Notify staff after business profile submission');
 assert.equal(onboarding.portalApproved(state.suppliers[0]), false);
 assert.equal((await submitProfile(form())).status, 409, 'Pending profile cannot resubmit');
 state.suppliers[0].onboarding_status = 'changes_requested';
-const forgedCorrectionVisit = form(); forgedCorrectionVisit.set('request:2', 'yes');
-assert.equal((await submitProfile(forgedCorrectionVisit)).status, 400);
+state.suppliers[0].supplier_type = null;
+assert.equal((await submitProfile(form())).status, 409, 'Legacy missing type is never silently assigned by the supplier');
+state.suppliers[0].supplier_type = 'trading';
+const forgedCorrectionVisit = form(); forgedCorrectionVisit.set('supplier_type', 'manufacturer'); forgedCorrectionVisit.set('request:2', 'yes');
+assert.equal((await submitProfile(forgedCorrectionVisit)).status, 409, 'Type cannot be changed by a returned-profile POST');
+assert.equal(state.suppliers[0].supplier_type, 'trading');
+const forgedTax = form(); forgedTax.set('tax_number', '99999999');
+assert.equal((await submitProfile(forgedTax)).status, 409, 'A different tax identity cannot inherit existing evidence');
 const otherCategory = form(); otherCategory.delete('requested_category_slugs'); otherCategory.set('requested_category_other', 'Macca tách vỏ');
 assert.equal((await submitProfile(otherCategory)).status, 400, 'Cannot open a free-text category');
 assert.equal(state.suppliers[0].requested_category_other, null);

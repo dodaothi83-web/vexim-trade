@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { parseProductSpecification, productSpecificationKey, publicExportPortDisplay, publicProductMoqDisplay } from '../lib/public/product-detail-display.ts';
+import { parseProductSpecification, productSpecificationKey, publicExportPortDisplay, publicProductMoqDisplay, publicProductPlaceDisplay } from '../lib/public/product-detail-display.ts';
 
 const parsed = parseProductSpecification(`Composition: 100% natural cashew nuts
 Quality / Grade: Organic, Excellent Grade 1
@@ -31,7 +31,28 @@ assert.equal(publicProductMoqDisplay('1 MT'), '1 MT', 'Existing English MOQ stay
 
 assert.equal(publicExportPortDisplay('TCTT (Tân Cảng - Cảng Quốc Tế Thị Vải)'),
   'TCTT (Tan Cang - Thi Vai International Port)');
-assert.equal(publicExportPortDisplay('Cat Lai Port'), 'Cat Lai Port', 'Unknown ports keep their supplied name');
+assert.equal(publicExportPortDisplay('Nam Đình Vũ'), 'Nam Dinh Vu');
+assert.equal(publicExportPortDisplay('  NAM   ĐÌNH VŨ  '), 'Nam Dinh Vu', 'Capitalization and extra spaces match the same port');
+assert.equal(publicExportPortDisplay('Nam Đình Vũ'.normalize('NFD')), 'Nam Dinh Vu', 'Decomposed accents are recognized');
+assert.equal(publicExportPortDisplay('Cảng Nam Đình Vũ'), 'Nam Dinh Vu Port');
+assert.equal(publicExportPortDisplay('Nam Đình Vũ Port'), 'Nam Dinh Vu Port');
+assert.equal(publicExportPortDisplay('Nam Đình Vũ (Hải Phòng)'), 'Nam Dinh Vu (Hai Phong)');
+assert.equal(publicExportPortDisplay('Nam Đình Vũ, Cát Lái / Hải Phòng'), 'Nam Dinh Vu, Cat Lai / Hai Phong');
+assert.equal(publicExportPortDisplay('TCTT (Tân Cảng - Cảng Quốc Tế Thị Vải), Nam Đình Vũ'),
+  'TCTT (Tan Cang - Thi Vai International Port), Nam Dinh Vu', 'A TCTT alias does not swallow other listed ports');
+assert.equal(publicExportPortDisplay('TCTT (Tân Cảng - Cảng Quốc Tế Thị Vải) (Hải Phòng)'),
+  'TCTT (Tan Cang - Thi Vai International Port) (Hai Phong)', 'Locations after TCTT are not lost');
+assert.equal(publicExportPortDisplay('TCTT (Cảng khác tại Thị Vải)'), 'TCTT (Cảng khác tại Thị Vải)',
+  'An unrecognized TCTT description is not replaced with a guessed port');
+assert.equal(publicProductPlaceDisplay('Đà Nẵng'), 'Da Nang', 'Vietnamese Đ is a letter, not a removable accent');
+assert.equal(publicProductPlaceDisplay('Đắk Lắk'), 'Dak Lak');
+assert.equal(publicExportPortDisplay('Nam Hải Đình Vũ'), 'Nam Hai Dinh Vu', 'A similarly named port stays distinct from Nam Dinh Vu');
+assert.equal(publicExportPortDisplay('Cảng Nam Hải Đình Vũ'), 'Nam Hai Dinh Vu Port');
+assert.equal(publicExportPortDisplay('Đình Vũ'), 'Dinh Vu');
+assert.equal(publicExportPortDisplay('Cảng Cát Lái'), 'Cat Lai Port');
+assert.equal(publicExportPortDisplay('Cảng Hải Phòng'), 'Hai Phong Port');
+assert.equal(publicExportPortDisplay('Cat Lai Port'), 'Cat Lai Port', 'Existing English port names stay unchanged');
+assert.equal(publicExportPortDisplay('Cảng Chưa Biết'), 'Cảng Chưa Biết', 'Unknown Vietnamese names are not guessed');
 assert.equal(publicExportPortDisplay(null), '');
 
-console.log('✅ PDP display: structured specification rows, lossless fallback and English port alias.');
+console.log('✅ PDP display: structured specification rows, lossless fallback and English port aliases.');

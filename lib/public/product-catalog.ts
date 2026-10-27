@@ -1,3 +1,4 @@
+import type { PublicL2Scope } from "@/lib/verification-status";
 import "server-only";
 
 import { getStore } from "@/lib/db";
@@ -31,6 +32,7 @@ export interface PublicCategoryProduct {
   inputMaterialOrigin: string;
   verificationCount: number;
   verificationSteps: VerificationLevel[];
+  l2Scope?: PublicL2Scope;
   /**
    * Số bước xác minh còn hiệu lực (0-3): L2/L3 đã duyệt là còn; L1 chỉ còn khi NCC
    * có chứng nhận đã duyệt còn hạn (hoặc không có chứng nhận nào để đối chiếu —
@@ -87,6 +89,7 @@ function projectPublicCategoryProduct(
     rawMaterialRegion: publicProductPlaceDisplay(tradeEnglish?.raw_material_region),
     inputMaterialOrigin: tradeEnglish?.input_material_origin?.trim() || "",
     verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
+    l2Scope: s.approved_l2_scope ?? null,
     evidenceValidSteps: evidenceValidSteps ?? s.approved_verification_steps.length,
     supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
     supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,

@@ -1,7 +1,7 @@
 import { HelpCircle, ShieldCheck } from "lucide-react";
 
 import type { VerificationLevel } from "@/lib/types";
-import { VERIFICATION_LABELS, VERIFICATION_LEVEL_EXPLANATIONS } from "@/lib/verification-status";
+import { verificationExplanation, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 
 export type VerificationTier = 0 | 1 | 2 | 3;
 
@@ -63,9 +63,10 @@ export function VerificationTierBadge({ levels, className = "", compactOnMobile 
 }
 
 /** Three small shields, each with its own explanation and approval status. */
-export function VerificationPips({ levels, compact = false, shortTooltips = false }: {
+export function VerificationPips({ levels, compact = false, shortTooltips = false, l2Scope }: {
   levels: readonly VerificationLevel[];
   compact?: boolean;
+  l2Scope?: PublicL2Scope;
   /** Tooltip nhỏ theo từng cấp, dùng cho thẻ sản phẩm thay vì khung giải thích chung. */
   shortTooltips?: boolean;
 }) {
@@ -73,12 +74,12 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
   const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
   return (
     <span className="inline-flex items-center gap-1" role="group"
-      aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => VERIFICATION_LABELS[l]).join(", ")}` : "No verification checks approved yet"}>
+      aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => verificationLabel(l, l2Scope)).join(", ")}` : "No verification checks approved yet"}>
       {([1, 2, 3] as const).map((level) => {
         const on = levels.includes(level);
-        const label = VERIFICATION_LABELS[level];
+        const label = verificationLabel(level, l2Scope);
         const status = on ? "Approved" : "Not approved";
-        const explanation = VERIFICATION_LEVEL_EXPLANATIONS[level];
+        const explanation = verificationExplanation(level, l2Scope);
         const accessibleName = `Level ${level} · ${label}: ${status}. ${explanation}`;
         const pipClass = `inline-flex items-center justify-center rounded-full ring-1 ${compact ? "h-5 w-5" : "h-6 w-6"} ${on ? PIP_ON_CLASSES[tier] : "bg-ink-50 text-ink-300 ring-ink-200"}`;
         const icon = <ShieldCheck className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} aria-hidden="true" />;
@@ -119,7 +120,7 @@ export function VerificationCoverSeal({ levels }: { levels: readonly Verificatio
 }
 
 /** Buyer-facing sentence listing exactly which checks were approved. */
-export function approvedChecksSummary(levels: readonly VerificationLevel[]): string {
+export function approvedChecksSummary(levels: readonly VerificationLevel[], l2Scope?: PublicL2Scope): string {
   const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
-  return approved.map((level) => VERIFICATION_LABELS[level].charAt(0).toLowerCase() + VERIFICATION_LABELS[level].slice(1)).join(" · ");
+  return approved.map((level) => { const label = verificationLabel(level, l2Scope); return label.charAt(0).toLowerCase() + label.slice(1); }).join(" · ");
 }

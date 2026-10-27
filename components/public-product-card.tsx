@@ -1,3 +1,4 @@
+import type { PublicL2Scope } from "@/lib/verification-status";
 import Link from "next/link";
 import { ArrowRight, ImageIcon } from "lucide-react";
 
@@ -8,10 +9,10 @@ import type { ProductComparisonSelection } from "@/lib/public/product-comparison
 import type { VerificationLevel } from "@/lib/types";
 
 /** One responsive product offer card shared by category, supplier profile and home. */
-export function PublicProductCard({ href, imagePath, name, moq, price, fob, leadTimeDays, supplierName, supplierHref, verificationSteps, quoteHref, oem, odm, samples, test = false, linkable = true, comparison }: {
+export function PublicProductCard({ href, imagePath, name, moq, price, fob, leadTimeDays, supplierName, supplierHref, verificationSteps, l2Scope, quoteHref, oem, odm, samples, test = false, linkable = true, comparison }: {
   href: string; imagePath?: string | null; name: string; moq: string; price: string | null; fob?: boolean;
   leadTimeDays: number | null; supplierName: string; supplierHref?: string;
-  verificationSteps: readonly VerificationLevel[]; quoteHref: string | undefined;
+  verificationSteps: readonly VerificationLevel[]; l2Scope?: PublicL2Scope; quoteHref: string | undefined;
   oem?: boolean; odm?: boolean; samples?: boolean; test?: boolean;
   /** Tắt đường dẫn ở bản xem trước khi hồ sơ chưa công khai, để không dẫn tới trang 404. */
   linkable?: boolean;
@@ -19,6 +20,8 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
   comparison?: { id: string; categorySlug: string };
 }) {
   const quote = !test && linkable ? quoteHref : undefined;
+  // This is a supplier contract check, not a claim about product quality or factory ownership.
+  const partnerContractReviewed = !test && verificationSteps.includes(2) && (l2Scope === "partner_contract" || l2Scope === "both");
   const comparisonItem: ProductComparisonSelection | null = comparison && linkable && !test ? {
     id: comparison.id,
     categorySlug: comparison.categorySlug,
@@ -64,7 +67,8 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
             : <span title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-ink-800">{supplierName}</span>}
         </p>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 sm:mt-1.5 sm:gap-1.5">
-          <VerificationPips levels={test ? [] : verificationSteps} compact shortTooltips />
+          <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} compact shortTooltips />
+          {partnerContractReviewed && <span title="The supplier's partner factory contract was reviewed; this is not a factory inspection." className="inline-flex items-center rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-brand-800 ring-1 ring-brand-200"><span aria-hidden="true">Partner contract</span><span className="sr-only">Partner factory contract reviewed</span></span>}
           <VerificationTierBadge levels={test ? [] : verificationSteps} compactOnMobile />
         </div>
       </div>

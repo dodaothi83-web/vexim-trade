@@ -65,6 +65,7 @@ const portal = load('../app/supplier/portal/page.tsx', {
   '@/lib/rfq/reply-routing': { supplierReplyAddress: () => '' },
   '@/lib/types': { L1_DOC_ITEMS: [] },
   '@/lib/verification': { isL1CoreDoc: () => false },
+  '@/lib/l2-scope': { l2ScopeForSupplier: (type) => type === 'trading' ? 'partner_contract' : ['manufacturer', 'cooperative'].includes(type) ? 'factory' : null },
   '@/lib/supplier-portal/verification-progress': { buildVerificationProgress: () => ({
     steps: [], approvedCount: 0, currentLevel: null, percent: 0, headline: '',
   }) },

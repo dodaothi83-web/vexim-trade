@@ -42,6 +42,7 @@ interface GpsState {
 }
 
 interface ScanResult {
+  ok: boolean;
   status: string;
   message: string;
   aiScanned: boolean;
@@ -64,10 +65,14 @@ const NO_GPS: GpsState = { lat: null, lng: null, accuracy: null, at: null, state
 export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmissionView; specs: PortalItemSpec[] }) {
   const router = useRouter();
   const level = view.level;
+  const partner = level === 2 && view.l2Scope === "partner_contract";
+  const factory = level === 2 && !partner;
+  const manual = level === 3 || partner;
   const [gps, setGps] = useState<GpsState>(view.deviceLat != null
     ? { lat: view.deviceLat, lng: view.deviceLng, accuracy: view.deviceAccuracy, at: null, state: "on" }
     : NO_GPS);
   const [busy, setBusy] = useState<"" | "code" | "scan" | "submit" | "link">("");
+  const [evidenceBusy, setEvidenceBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [printed, setPrinted] = useState(false);
@@ -81,7 +86,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
 
   // Định vị là yêu cầu bắt buộc của L2: hỏi quyền ngay khi mở bảng.
   useEffect(() => {
-    if (level !== 2 || gps.state !== "idle") return;
+    if (!factory || gps.state !== "idle") return;
     if (typeof navigator === "undefined" || !navigator.geolocation) { setGps((g) => ({ ...g, state: "unsupported" })); return; }
     setGps((g) => ({ ...g, state: "asking" }));
     navigator.geolocation.getCurrentPosition(
@@ -89,7 +94,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
       () => setGps((g) => ({ ...g, state: "denied" })),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
     );
-  }, [level, gps.state]);
+  }, [factory, gps.state]);
 
   async function issueCode() {
     if (busy) return;
@@ -216,8 +221,10 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
   }
 
   async function runScan(submit: boolean) {
-    if (busy) return;
-    if (submit && !window.confirm("Nộp hồ sơ để AI quét sơ bộ và chuyển sang bước duyệt? Ảnh/chứng từ sẽ được gửi tới dịch vụ AI để phân tích; bằng chứng bị khóa sau khi nộp.")) return;
+    if (busy || evidenceBusy || (manual && !submit)) return;
+    if (submit && !window.confirm(manual
+      ? "Nộp hồ sơ để nhân viên kiểm tra? Chứng từ sẽ tạm khóa trong khi xét."
+      : "Nộp hồ sơ để nhân viên đối chiếu? Ảnh có thể được gửi tới dịch vụ AI để quét sơ bộ. AI chỉ nêu điểm cần kiểm tra, không tự trả hay duyệt; bằng chứng tạm khóa sau khi nộp.")) return;
     setBusy(submit ? "submit" : "scan"); setMessage(null); setScan(null);
     try {
       const response = await fetch(`/api/supplier-portal/submissions/${encodeURIComponent(view.id)}/ai-scan`, {
@@ -225,10 +232,13 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submit }),
       });
-      const data = await response.json() as (ScanResult & { ok?: boolean; message?: string }) & { message?: string };
-      if (!response.ok) { setMessage({ text: data.message ?? "Không quét được.", ok: false }); return; }
-      setScan({ status: data.status, message: data.message ?? "", aiScanned: Boolean(data.aiScanned), summary: data.summary ?? null, reasons: data.reasons ?? [], missing: data.missing ?? [], warnings: data.warnings ?? [] });
-      setMessage({ text: data.message ?? "Đã quét.", ok: Boolean(data.ok) });
+      const data = await response.json() as Partial<ScanResult>;
+      if (!response.ok) { setMessage({ text: data.message ?? "Chưa xử lý được hồ sơ.", ok: false }); return; }
+      if (factory) {
+        setScan({ ok: Boolean(data.ok), status: data.status ?? view.status, message: data.message ?? "Chưa xử lý được hồ sơ.", aiScanned: Boolean(data.aiScanned), summary: data.summary ?? null, reasons: data.reasons ?? [], missing: data.missing ?? [], warnings: data.warnings ?? [] });
+      } else {
+        setMessage({ text: data.message ?? "Đã gửi hồ sơ.", ok: Boolean(data.ok) });
+      }
       refresh();
     } catch {
       setMessage({ text: "Không kết nối được máy chủ. Tệp đã tải vẫn được giữ.", ok: false });
@@ -288,9 +298,9 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
           : "Chưa có vị trí. Hãy cho phép trang dùng vị trí để ảnh được gắn toạ độ.";
 
   const progress = view.requiredTotal > 0 ? Math.min(100, Math.round((view.uploadedTotal / view.requiredTotal) * 100)) : 0;
-  const doneSpecs = specs.filter((spec) => view.items.some((item) => item.key === spec.key)).length;
+  const doneSpecs = specs.filter((spec) => view.items.some((item) => item.key === spec.key && item.href)).length;
   const totalSpecs = specs.length;
-  const levelTitle = level === 2 ? "Xác thực nhà máy" : "Lịch sử xuất khẩu";
+  const levelTitle = partner ? "Nhà máy đối tác" : level === 2 ? "Xác thực nhà máy" : "Lịch sử xuất khẩu";
   const LevelIcon = level === 2 ? Factory : Ship;
   const locked = !view.editable;
   const statusTone = view.status === "pending_review" ? "bg-amber-100 text-amber-900"
@@ -298,9 +308,14 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
       : view.status === "returned" ? "bg-rose-100 text-rose-900"
         : "bg-ink-100 text-ink-700";
   const progressNote = locked ? "Hồ sơ đã nộp - bằng chứng bị khóa."
-    : view.ready ? "Đủ mục bắt buộc, sẵn sàng nộp."
-      : `Còn thiếu ${view.missing.length} mục bắt buộc.`;
+    : view.ready ? level === 2 ? "Đủ mục bắt buộc, sẵn sàng nộp." : "Đã có chứng từ, sẵn sàng nộp."
+      : level === 2 ? view.missing.length ? `Còn thiếu ${view.missing.length} mục bắt buộc.` : "Cần kiểm tra mã xác minh." : "Tải ít nhất một chứng từ.";
   const progressTone = locked ? "text-ink-500" : view.ready ? "text-emerald-800" : "text-amber-800";
+  // A finding may also exist as an item flag; avoid repeating the same AI text.
+  const scanWarnings = (scan?.warnings ?? []).filter((warning) => {
+    const text = warning.replace(/^AI lưu ý · /, "");
+    return !(scan?.reasons ?? []).some((reason) => reason === text || reason.startsWith(`${text} `));
+  });
 
   return <div id={`level-${level}`} className="mt-5 scroll-mt-20">
 
@@ -318,9 +333,9 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone}`}>{view.statusLabel}</span>
                 <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-ink-600 ring-1 ring-ink-200">
-                  {doneSpecs}/{totalSpecs} {level === 2 ? "ảnh đã tải" : "chứng từ đã tải"}
+                  {partner ? `${view.items.length} tệp đã tải` : level === 2 ? `${doneSpecs}/${totalSpecs} ảnh đã tải` : `${view.items.length} chứng từ đã tải`}
                 </span>
-                {level === 2 && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-800 ring-1 ring-brand-200">🔖 3 ảnh cần tờ mã</span>}
+                {factory && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-800 ring-1 ring-brand-200">🔖 3 ảnh cần tờ mã</span>}
               </div>
             </div>
           </div>
@@ -346,26 +361,34 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
       </p>}
       {view.status === "pending_review" && <p className="border-t border-amber-100 bg-amber-50 px-4 py-2.5 text-[12px] leading-5 text-amber-900 sm:px-5">
         <Clock className="mr-1 inline size-4 align-[-2px]" aria-hidden="true" />
-        Hồ sơ đang trong hàng đợi duyệt{view.aiScannedAt ? ` · AI quét lúc ${new Date(view.aiScannedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : " · chưa có kết quả quét AI"}.
+        {manual ? "Hồ sơ đang chờ nhân viên kiểm tra." : <>Hồ sơ đang trong hàng đợi duyệt{view.aiScannedAt ? ` · AI quét lúc ${new Date(view.aiScannedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : " · chưa có kết quả quét AI"}.</>}
       </p>}
     </section>
 
     {message && <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm font-semibold ${message.ok ? "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200" : "bg-rose-50 text-rose-900 ring-1 ring-rose-200"}`}>{message.text}</p>}
 
-    {scan && <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
-      <h3 className="flex items-center gap-1.5 font-bold"><Sparkles className="size-4" aria-hidden="true" /> Kết quả AI tự động</h3>
+    {factory && scan && <div role={scan.ok ? "status" : "alert"} className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
+      <h3 className="flex items-center gap-1.5 font-bold"><Sparkles className="size-4" aria-hidden="true" /> {scan.aiScanned ? "Gợi ý từ AI" : "Trạng thái quét AI"}</h3>
       <p className="mt-1">{scan.message}</p>
-      {scan.summary && <p className="mt-2 text-[13px]">{scan.summary}</p>}
+      {scan.summary && scan.summary !== scan.message && <p className="mt-2 text-[13px]">{scan.summary}</p>}
       {scan.reasons.length > 0 && <ul className="mt-2 space-y-1 text-[13px]">{scan.reasons.map((r) => <li key={r}>• {r}</li>)}</ul>}
-      {scan.warnings.length > 0 && <p className="mt-2 text-[12px] text-violet-800">Điểm cần lưu ý: {scan.warnings.slice(0, 5).join(" · ")}</p>}
-      <p className="mt-2 text-[11px] text-violet-800">AI không xác nhận giấy tờ là thật và không tự duyệt. Hồ sơ đạt sẽ chờ đối chiếu thủ công; huy hiệu L{level} chỉ có sau khi một người có quyền duyệt (khác người kiểm) phê.</p>
+      {scanWarnings.length > 0 && <p className="mt-2 text-[12px] text-violet-800">Điểm cần lưu ý: {scanWarnings.slice(0, 5).join(" · ")}</p>}
+      <p className="mt-2 text-[11px] text-violet-800">AI chỉ gợi ý, không tự trả hay duyệt hồ sơ. Nhân viên sẽ đối chiếu và quyết định.</p>
     </div>}
+
+    {factory && (!scan || !scan.aiScanned) && (view.aiSummary || view.aiFindings?.length > 0 || view.aiFindingsMayBeOutdated) && <section aria-label="Gợi ý từ AI" className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
+      <h3 className="flex items-center gap-1.5 font-bold"><Sparkles className="size-4" aria-hidden="true" /> Gợi ý từ AI</h3>
+      {view.aiFindingsMayBeOutdated && !scan?.message.includes("không khớp ảnh hiện tại") && <p className="mt-1 font-semibold">Kết quả quét trước có thể không khớp ảnh hiện tại.</p>}
+      {view.aiSummary && <p className="mt-1">{view.aiSummary}</p>}
+      {view.aiFindings?.length > 0 && <ul className="mt-2 space-y-1 text-[13px]">{view.aiFindings.map((finding) => <li key={finding}>• {finding}</li>)}</ul>}
+      {!scan && <p className="mt-2 text-[11px] text-violet-800">AI chỉ gợi ý, không tự trả hay duyệt hồ sơ. Nhân viên sẽ đối chiếu và quyết định.</p>}
+    </section>}
 
     <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
       <div className="min-w-0 space-y-4">
 
         {/* L2 · tờ mã xác minh: bắt buộc trước khi chụp 3 ảnh 🔖. */}
-        {level === 2 && <section aria-labelledby="code-title" className="overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-sm">
+        {factory && <section aria-labelledby="code-title" className="overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-sm">
           <div className="flex items-center justify-between gap-2 border-b border-brand-100 bg-brand-50 px-4 py-3">
             <h3 id="code-title" className="flex items-center gap-2 text-[14px] font-bold text-brand-900">
               <Sparkles className="h-4 w-4" aria-hidden="true" /> Tờ mã xác minh
@@ -402,7 +425,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
                   <p className={`mt-2 text-[11px] leading-4 ${downloaded || printed ? "text-ink-500" : "font-semibold text-brand-800"}`}>
                     {downloaded || printed
                       ? "Đã có tờ mã. In ra giấy rồi đặt cạnh cảnh khi chụp 3 ảnh có đánh dấu 🔖."
-                      : "Bắt buộc: tải tờ mã về, in ra giấy rồi chụp cùng cảnh ở 3 ảnh có đánh dấu 🔖. Không có tờ mã thì hồ sơ chưa nộp được."}
+                      : "Bắt buộc: tải tờ mã về, in ra giấy rồi chụp cùng cảnh ở 3 ảnh có đánh dấu 🔖. Nhân viên sẽ đối chiếu tờ mã trong ảnh."}
                   </p>
                 </>
               : <div>
@@ -428,7 +451,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
           </div>
           <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] leading-4 text-emerald-900">
             <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-            <span><strong>Chứng từ của bạn được bảo mật và không hiển thị công khai.</strong> Chỉ cần chọn một lô đã giao gần nhất và tải chứng từ của lô đó để xác minh.</span>
+            <span><strong>Chứng từ của bạn được bảo mật và không hiển thị công khai.</strong> Chọn một lô hàng đã xuất và tải chứng từ của lô đó để nhân viên kiểm tra.</span>
           </p>
           <form onSubmit={(e) => void saveShipment(e)} className="mt-3 grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="submission_id" value={view.id} />
@@ -448,17 +471,19 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               <h3 id="evidence-title" className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-ink-900">
-                {level === 2 ? "Bộ 9 ảnh nhà máy" : "Chứng từ lô hàng"}
+                {partner ? "Hợp đồng và ảnh đối tác" : level === 2 ? "Bộ 9 ảnh nhà máy" : "Chứng từ lô hàng"}
                 <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{doneSpecs}/{totalSpecs}</span>
               </h3>
               <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
-                {level === 2
-                  ? "Chạm vào từng ô để chụp hoặc chọn ảnh có sẵn. Ảnh đã gửi qua Zalo vẫn nhận; ba mục 🔖 phải có tờ mã trong khung hình."
-                  : "Tải ảnh chụp hoặc PDF. Vận đơn và tờ khai hải quan là bắt buộc; các mục còn lại nếu bạn có."}
+                {partner
+                  ? "Hợp đồng là bắt buộc; ảnh đối tác là tùy chọn. Hợp đồng nhận ảnh hoặc PDF, ảnh đối tác nhận JPG/PNG/WebP. Mỗi mục giữ tối đa 3 tệp. Chứng từ được giữ nội bộ, không hiển thị công khai."
+                  : level === 2
+                    ? "Chạm vào từng ô để chụp hoặc chọn ảnh có sẵn. Ảnh đã gửi qua Zalo vẫn nhận; ba mục 🔖 phải có tờ mã trong khung hình."
+                    : "Tải ít nhất một chứng từ phù hợp dạng ảnh hoặc PDF; không bắt buộc vận đơn. Nhân viên sẽ xem chứng từ có đủ căn cứ và thể hiện vai trò doanh nghiệp hay không. Mỗi mục giữ tối đa 3 tệp; xóa một tệp nếu cần tải tệp khác."}
               </p>
             </div>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${view.ready ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
-              {view.ready ? "Đủ điều kiện nộp" : `Thiếu ${view.missing.length} mục`}
+              {view.ready ? "Đủ điều kiện nộp" : view.missing.length ? `Thiếu ${view.missing.length} mục` : "Cần kiểm tra mã"}
             </span>
           </div>
 
@@ -467,9 +492,9 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
           </p>}
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {specs.map((spec) => <SubmissionItemCard key={spec.key} spec={spec} level={level} submissionId={view.id} editable={view.editable}
+            {specs.map((spec) => <SubmissionItemCard key={spec.key} spec={spec} level={level} partner={partner} submissionId={view.id} editable={view.editable} paused={Boolean(busy) || evidenceBusy}
               rows={view.items.filter((i) => i.key === spec.key)} gps={gps} codeIssued={Boolean(view.code) && !view.codeExpired}
-              onChanged={say} />)}
+              onChanged={say} onBusyChange={setEvidenceBusy} />)}
           </div>
         </section>
 
@@ -481,7 +506,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
             </h3>
             <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[10.5px] font-bold text-ink-600">{view.links.length} link</span>
           </div>
-          <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Dán link trang công khai có nhắc tới doanh nghiệp/lô hàng (trang doanh nghiệp, hồ sơ trên sàn B2B, tin hội chợ…). Hệ thống chỉ tự đọc domain trong danh sách nguồn công khai; link lạ vẫn được lưu để mở kiểm tra sau.</p>
+          <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Dán link trang công khai có nhắc tới doanh nghiệp hoặc lô hàng. Nhân viên sẽ kiểm tra khi đối chiếu hồ sơ.</p>
           <form onSubmit={(e) => void addLink(e)} className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] sm:items-end">
             <label className="min-w-0 text-xs font-semibold text-ink-700">Link (http/https)<input name="url" type="url" required maxLength={800} disabled={!view.editable} className="input mt-1" placeholder="https://..." /></label>
             <label className="min-w-0 text-xs font-semibold text-ink-700">Mô tả ngắn<input name="label" maxLength={200} disabled={!view.editable} className="input mt-1" placeholder="VD: hồ sơ doanh nghiệp trên sàn" /></label>
@@ -493,7 +518,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
                 <a href={link.url} target="_blank" rel="noreferrer" className="font-semibold text-brand-800 underline">{link.url}</a>
                 {link.label && <span className="text-ink-600"> · {link.label}</span>}
                 <span className="mt-1 block text-[10.5px] text-ink-600">
-                  {link.allowedSource ? "Nguồn công khai được phép quét" : "Ngoài danh sách nguồn công khai - nhân viên sẽ tự mở"}
+                  {link.allowedSource ? "Nguồn công khai có thể kiểm tra" : "Ngoài danh sách nguồn công khai - nhân viên sẽ tự mở"}
                   {link.fetchNote ? ` · ${link.fetchNote}` : ""}
                 </span>
               </span>
@@ -505,7 +530,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
 
       {/* Cột tóm tắt dính: luôn thấy tiến độ và nút nộp khi lướt danh sách dài. */}
       <aside className="space-y-4 lg:sticky lg:top-20">
-        {level === 2 && <section aria-labelledby="gps-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
+        {factory && <section aria-labelledby="gps-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <h3 id="gps-title" className="flex items-center gap-1.5 text-[13px] font-bold text-ink-900">
               <Crosshair className="h-4 w-4 text-brand-700" aria-hidden="true" /> Vị trí khi chụp
@@ -525,8 +550,8 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
           <p className={`mt-1 text-[11.5px] leading-5 ${progressTone}`}>{locked
             ? "Hồ sơ đang chờ xét hoặc đã được nhận - bằng chứng bị khóa."
             : view.ready
-              ? "Đủ mục bắt buộc. Nộp để AI quét sơ bộ và chuyển sang bước duyệt."
-              : `Còn thiếu ${view.missing.length} mục${level === 2 ? ", hoặc thiếu tờ mã trong ảnh 🔖" : ""}.`}</p>
+              ? factory ? "Đủ mục bắt buộc. Nộp để nhân viên đối chiếu; AI chỉ hỗ trợ kiểm tra." : "Đã có chứng từ. Nộp để nhân viên kiểm tra."
+              : partner ? "Tải hợp đồng với nhà máy đối tác." : level === 2 ? view.missing.length ? `Còn thiếu ${view.missing.length} mục bắt buộc.` : "Hãy kiểm tra mã xác minh." : "Tải ít nhất một chứng từ phù hợp."}</p>
 
           <dl className="mt-3 grid grid-cols-2 gap-2 text-center">
             <div className="rounded-lg bg-ink-50 px-2 py-2">
@@ -534,7 +559,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
               <dd className="text-[15px] font-black tabular-nums text-ink-900">{doneSpecs}/{totalSpecs}</dd>
             </div>
             <div className="rounded-lg bg-ink-50 px-2 py-2">
-              <dt className="text-[10px] font-semibold text-ink-500">Mục bắt buộc</dt>
+              <dt className="text-[10px] font-semibold text-ink-500">{level === 2 ? "Mục bắt buộc" : "Chứng từ tối thiểu"}</dt>
               <dd className="text-[15px] font-black tabular-nums text-ink-900">{view.uploadedTotal}/{view.requiredTotal}</dd>
             </div>
           </dl>
@@ -547,37 +572,41 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
           </details>}
 
           <div className="mt-3 space-y-2">
-            <button type="button" disabled={busy !== "" || locked || !view.ready} onClick={() => void runScan(true)}
+            <button type="button" disabled={busy !== "" || evidenceBusy || locked || !view.ready} onClick={() => void runScan(true)}
               className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-ink-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-ink-800 disabled:cursor-not-allowed disabled:bg-ink-300">
-              {busy === "submit" ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Send className="size-3.5" aria-hidden="true" />} AI quét &amp; nộp hồ sơ
+              {busy === "submit" ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Send className="size-3.5" aria-hidden="true" />} {factory ? "AI quét & nộp hồ sơ" : "Nộp hồ sơ"}
             </button>
-            <button type="button" disabled={busy !== "" || locked} onClick={() => void runScan(false)}
+            {factory && <button type="button" disabled={busy !== "" || evidenceBusy || locked} onClick={() => void runScan(false)}
               className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-4 py-2.5 text-xs font-bold text-violet-800 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50">
               {busy === "scan" ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <ScanSearch className="size-3.5" aria-hidden="true" />} AI quét thử
-            </button>
+            </button>}
           </div>
-          <p className="mt-2 text-[10px] leading-4 text-ink-500">AI chỉ gợi ý; tải lên và quét không tự cấp huy hiệu.</p>
+          <p className="mt-2 text-[10px] leading-4 text-ink-500">{factory ? "AI chỉ gợi ý, không tự trả hay duyệt; nhân viên quyết định." : "Nhân viên kiểm tra và quyết định; nộp hồ sơ không tự cấp xác minh."}</p>
         </section>
 
         <section aria-labelledby="tips-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
           <h3 id="tips-title" className="flex items-center gap-1.5 text-[12.5px] font-bold text-brand-900">
-            {level === 2 ? <Camera className="h-4 w-4" aria-hidden="true" /> : <FileText className="h-4 w-4" aria-hidden="true" />}
-            {level === 2 ? "Mẹo chụp ảnh" : "Mẹo chứng từ"}
+            {factory ? <Camera className="h-4 w-4" aria-hidden="true" /> : <FileText className="h-4 w-4" aria-hidden="true" />}
+            {factory ? "Mẹo chụp ảnh" : "Mẹo chứng từ"}
           </h3>
           <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[10.5px] leading-4 text-ink-600">
-            {level === 2
+            {factory
               ? <>
                   <li>Chụp ban ngày, đủ sáng, thấy rõ biển tên công ty.</li>
                   <li>Đặt tờ mã ngay cạnh cảnh, mã phải đọc được trong ảnh.</li>
                   <li>Chụp ngay tại nhà máy rồi tải lên là nhanh nhất.</li>
                 </>
-              : <>
+              : partner ? <>
+                  <li>Giữ rõ tên doanh nghiệp của bạn và nhà máy đối tác trong hợp đồng.</li>
+                  <li>Có thể che giá và thông tin nhạy cảm, nhưng giữ đủ nội dung để đối chiếu.</li>
+                  <li>Đối chiếu hợp đồng không xác nhận sở hữu nhà máy hay kiểm thực địa.</li>
+                </> : <>
                   <li>Chứng từ phải của đúng lô hàng bạn khai bên trên.</li>
-                  <li>Che số tài khoản ngân hàng, giá mua bán, thông tin buyer.</li>
+                  <li>Có thể che giá, số tài khoản và thông tin nhạy cảm; giữ đủ dữ kiện để đối chiếu giao dịch.</li>
                   <li>Ảnh chụp hoặc PDF đều nhận; không cần bản gốc.</li>
                 </>}
           </ul>
-          <p className="mt-2 flex items-start gap-1 text-[10px] leading-4 text-brand-900"><ShieldCheck className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> Hồ sơ được đối chiếu thủ công; người có quyền duyệt khác người kiểm mới phê kết quả.</p>
+          <p className="mt-2 flex items-start gap-1 text-[10px] leading-4 text-brand-900"><ShieldCheck className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> Hồ sơ được đối chiếu thủ công; kết quả do người có quyền duyệt quyết định.</p>
         </section>
       </aside>
     </div>
@@ -585,14 +614,14 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
     {/* Thanh hành động cho điện thoại: luôn thấy tiến độ và nút nộp. */}
     <div className="sticky bottom-0 z-20 mt-4 flex items-center gap-2 rounded-xl border border-ink-200 bg-white/95 p-2.5 shadow-lg backdrop-blur lg:hidden">
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-bold text-ink-900">{view.uploadedTotal}/{view.requiredTotal} mục bắt buộc · {progress}%</p>
+        <p className="text-[11px] font-bold text-ink-900">{view.uploadedTotal}/{view.requiredTotal} {level === 2 ? "mục bắt buộc" : "chứng từ tối thiểu"} · {progress}%</p>
         <p className={`truncate text-[10.5px] ${progressTone}`}>{progressNote}</p>
       </div>
-      <button type="button" disabled={busy !== "" || locked} onClick={() => void runScan(false)} aria-label="AI quét thử (thanh dưới)"
+      {factory && <button type="button" disabled={busy !== "" || evidenceBusy || locked} onClick={() => void runScan(false)} aria-label="AI quét thử (thanh dưới)"
         className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-300 bg-violet-50 text-violet-800 disabled:opacity-50">
         {busy === "scan" ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <ScanSearch className="size-4" aria-hidden="true" />}
-      </button>
-      <button type="button" disabled={busy !== "" || locked || !view.ready} onClick={() => void runScan(true)} aria-label="AI quét và nộp hồ sơ (thanh dưới)"
+      </button>}
+      <button type="button" disabled={busy !== "" || evidenceBusy || locked || !view.ready} onClick={() => void runScan(true)} aria-label={factory ? "AI quét và nộp hồ sơ" : "Nộp hồ sơ"}
         className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-ink-900 px-3.5 text-xs font-bold text-white disabled:bg-ink-300">
         {busy === "submit" ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />} Nộp
       </button>

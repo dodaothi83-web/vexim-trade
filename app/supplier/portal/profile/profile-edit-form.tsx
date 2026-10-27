@@ -39,6 +39,7 @@ export function SupplierProfileEditForm({ supplier, email }: { supplier: Supplie
         <Readonly label="Tên pháp nhân" value={supplier.name} />
         <Readonly label="Mã số thuế" value={supplier.tax_id} />
         <Readonly label="Loại hình" value={supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : "Chưa khai"} />
+        <p className="text-xs text-ink-500">Nếu khai sai loại hình, liên hệ nhân viên để kiểm tra và cập nhật. Kết quả L2 cũ vẫn giữ phạm vi đã xét.</p>
         <Readonly label="Email đăng nhập" value={email} />
         <div className="sm:col-span-2"><Readonly label="Địa chỉ đăng ký" value={supplier.address} /></div>
       </dl>

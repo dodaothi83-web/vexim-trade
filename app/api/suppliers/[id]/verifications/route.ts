@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
+import { effectiveL2Scope, l2ScopeForSupplier } from "@/lib/l2-scope";
 import { auditHref, auditItems, auditStep } from "@/lib/verification";
 import type { VerificationLevel } from "@/lib/types";
 
@@ -30,19 +31,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const store = getStore();
     const supplier = await store.getSupplier(supplierId);
     if (!supplier) return NextResponse.json({ ok: false, message: "Không tìm thấy nhà cung cấp." }, { status: 404 });
+    const scope = level === 2 ? l2ScopeForSupplier(supplier.supplier_type) : null;
+    if (level === 2 && !scope) return NextResponse.json({ ok: false, message: "Chưa rõ loại hình nhà cung cấp. Hãy xác minh và cập nhật trước khi tạo L2." }, { status: 400 });
     const verifications = await store.listVerifications(supplierId);
-    if (verifications.some((v) => v.target_level === level && v.status === "approved")) {
+    const sameScope = (v: typeof verifications[number]) => v.target_level === level && (level !== 2 || effectiveL2Scope(v.l2_scope) === scope);
+    if (verifications.some((v) => sameScope(v) && v.status === "approved")) {
       return NextResponse.json({ ok: false, message: `${step.title} đã được duyệt; không tạo đợt trùng.` }, { status: 409 });
     }
-    const ongoing = verifications.find((v) => v.target_level === level && v.status !== "approved");
+    const ongoing = verifications.find((v) => sameScope(v) && v.status !== "approved");
     if (ongoing) {
-      return NextResponse.json({ ok: true, id: ongoing.id, existing: true, href: auditHref(supplierId, level), message: `Mở trang ${step.title.toLowerCase()} đang thực hiện.` });
+      return NextResponse.json({ ok: true, id: ongoing.id, existing: true, href: auditHref(supplierId, level, ongoing.id), message: `Mở trang ${step.title.toLowerCase()} đang thực hiện.` });
     }
     const session = await getSession();
-    const checklist = Object.fromEntries(auditItems(level as VerificationLevel).map((it) => [it.key, null]));
+    const checklist = Object.fromEntries(auditItems(level as VerificationLevel, scope).map((it) => [it.key, null]));
     const created = await store.createVerification({
       supplier_id: supplierId,
       target_level: level,
+      ...(scope ? { l2_scope: scope } : {}),
       status: level === 1 ? "in_progress" : "scheduled",
       inspector_id: session?.uid ?? null,
       checklist,
@@ -56,12 +61,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       entity_id: supplierId,
       action: `verification.start.l${level}`,
       before: { approved_steps: verifications.filter((v) => v.status === "approved").map((v) => v.target_level) },
-      after: { verification_id: created.id, target_level: level },
+      after: { verification_id: created.id, target_level: level, l2_scope: scope },
     }).catch((error) => console.error("[verification] audit write failed:", error));
     revalidatePath(`/crm/suppliers/${supplierId}`);
     revalidatePath(auditHref(supplierId, level));
     revalidatePath("/crm/verifications");
-    return NextResponse.json({ ok: true, id: created.id, href: auditHref(supplierId, level), message: `Đã tạo trang ${step.title.toLowerCase()}.` });
+    return NextResponse.json({ ok: true, id: created.id, href: auditHref(supplierId, level, created.id), message: `Đã tạo trang ${step.title.toLowerCase()}.` });
   } catch (error) {
     console.error("[verification] cannot start review:", error);
     const detail = error instanceof Error ? error.message : String(error);

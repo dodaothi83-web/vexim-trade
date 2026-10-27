@@ -1,7 +1,7 @@
 import { VerificationLevelPage } from "../level-page";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Xác thực nhà máy (L2)", robots: { index: false, follow: false } };
+export const metadata = { title: "Xác minh L2", robots: { index: false, follow: false } };
 
 /**
  * L2 - xác thực nhà máy bằng 9 ảnh tự chụp.

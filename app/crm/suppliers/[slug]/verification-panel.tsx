@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, ClipboardCheck, ShieldCheck } from "lucide-react";
 
 import type { Supplier, SupplierStatus, SupplierVerificationRequest, Verification, VerificationLevel } from "@/lib/types";
+import { effectiveL2Scope, isPartnerL2, l2ScopeForSupplier } from "@/lib/l2-scope";
 import { AUDIT_STEPS, auditHref, auditItems } from "@/lib/verification";
 import { statusMeta } from "@/lib/supplier";
 import { Card } from "@/components/ui";
@@ -18,6 +19,7 @@ const ONBOARDING_META = {
 
 export function VerificationPanel({
   supplierId,
+  supplierType,
   verifications,
   requests = [],
   canInspect,
@@ -30,6 +32,7 @@ export function VerificationPanel({
   canPublish,
 }: {
   supplierId: string;
+  supplierType?: Supplier["supplier_type"];
   verifications: Verification[];
   requests?: SupplierVerificationRequest[];
   canInspect: boolean;
@@ -82,22 +85,23 @@ export function VerificationPanel({
         <ol className="divide-y divide-ink-100">
           {AUDIT_STEPS.map((step, index) => {
             const level = step.level as VerificationLevel;
-            const byStep = [...verifications].filter((v) => v.target_level === level).sort((a, b) => b.created_at.localeCompare(a.created_at));
+            const scope = level === 2 ? l2ScopeForSupplier(supplierType) : null;
+            const byStep = [...verifications].filter((v) => v.target_level === level && (level !== 2 || (scope !== null && effectiveL2Scope(v.l2_scope) === scope))).sort((a, b) => b.created_at.localeCompare(a.created_at));
             const latest = byStep.find((v) => v.status === "approved") ?? byStep[0];
             const approved = latest?.status === "approved";
             const request = requests.find((r) => r.target_level === level);
-            const done = auditItems(level).filter((it) => latest?.checklist[it.key] === true || latest?.checklist[it.key] === false).length;
+            const done = auditItems(level, latest?.l2_scope).filter((it) => latest?.checklist[it.key] === true || latest?.checklist[it.key] === false).length;
             return <li key={step.path} className="flex flex-wrap items-center gap-4 p-4 sm:p-5">
               <span className={"flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold " + (approved ? "bg-emerald-100 text-emerald-800" : latest ? "bg-brand-50 text-brand-700" : "bg-ink-100 text-ink-500")}>
                 {approved ? <CheckCircle2 className="h-5 w-5" /> : index + 1}
               </span>
               <div className="min-w-0 flex-1">
-                <h3 className="font-bold text-ink-900">{step.title}</h3>
-                <p className="mt-0.5 text-xs leading-relaxed text-ink-500">{step.description}</p>
+                <h3 className="font-bold text-ink-900">{level === 2 && scope === "partner_contract" ? "Nhà máy đối tác" : step.title}</h3>
+                <p className="mt-0.5 text-xs leading-relaxed text-ink-500">{level === 2 && scope === "partner_contract" ? "Đối chiếu hợp đồng với nhà máy đối tác; không suy ra sở hữu hay kiểm thực địa." : step.description}</p>
                 {request && !approved && <p className="mt-1 text-xs font-semibold text-amber-800">NCC đã yêu cầu · {request.status === "contacted" ? "Đã liên hệ" : "Cần liên hệ để lên kế hoạch"}</p>}
-                <p className="mt-1 text-xs font-medium text-ink-600">{approved ? "Đã duyệt" : latest ? `${latest.status === "submitted" ? "Chờ duyệt" : latest.status === "returned" ? "Cần bổ sung" : "Đang kiểm"} · ${done}/${auditItems(level).length} mục` : "Chưa bắt đầu"}</p>
+                <p className="mt-1 text-xs font-medium text-ink-600">{approved ? "Đã duyệt" : latest ? `${latest.status === "submitted" ? "Chờ duyệt" : latest.status === "returned" ? "Cần bổ sung" : "Đang kiểm"} · ${done}/${auditItems(level, latest?.l2_scope).length} mục` : "Chưa bắt đầu"}</p>
               </div>
-              {latest && canViewReviews ? <Link href={auditHref(supplierId, level)} className="btn btn-soft shrink-0"><ClipboardCheck className="h-4 w-4" /> Mở trang <ArrowRight className="h-4 w-4" /></Link>
+              {latest && canViewReviews ? <Link href={auditHref(supplierId, level, latest.id)} className="btn btn-soft shrink-0"><ClipboardCheck className="h-4 w-4" /> Mở trang <ArrowRight className="h-4 w-4" /></Link>
                 : canInspect && !approved ? <StartVerificationButton supplierId={supplierId} level={level} />
                 : null}
             </li>;

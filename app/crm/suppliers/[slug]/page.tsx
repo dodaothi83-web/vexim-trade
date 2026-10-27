@@ -1,3 +1,4 @@
+import { approvedL2Scope } from "@/lib/verification-status";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -209,7 +210,7 @@ export default async function SupplierDetailPage({
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="break-words text-xl font-black tracking-tight text-ink-900 sm:text-2xl">{displayName}</h2>
                 <VerificationTierBadge levels={approvedLevels} />
-                <VerificationPips levels={approvedLevels} compact />
+                <VerificationPips levels={approvedLevels} l2Scope={approvedL2Scope(verifications)} compact />
               </div>
               <p className="mt-1 text-sm text-ink-600">
                 {[supplier.trade_name, typeLabel, supplier.province, supplier.founded_year ? `Thành lập ${supplier.founded_year}` : null, typeof supplier.employees === "number" && supplier.employees > 0 ? `${supplier.employees} nhân viên` : null]
@@ -303,6 +304,7 @@ export default async function SupplierDetailPage({
           )}
           <VerificationPanel
             supplierId={id}
+            supplierType={supplier.supplier_type}
             verifications={verifications}
             requests={requests}
             canInspect={canInspect}

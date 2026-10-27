@@ -7,6 +7,9 @@ import crypto from 'node:crypto';
 import vm from 'node:vm';
 import ts from 'typescript';
 
+const l2Scope = {};
+new Function('exports', ts.transpileModule(fs.readFileSync(new URL('../lib/l2-scope.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(l2Scope);
+
 const source = ts.transpileModule(fs.readFileSync(new URL('../lib/db/local.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
 }).outputText;
@@ -20,6 +23,9 @@ const mocks = {
   '@/lib/db/seed': { SEED_BUYERS: [], SEED_PRODUCTS: [], SEED_SUPPLIERS: [] },
   '@/lib/db/preview-seed': { PREVIEW_PEPPER_HARVEST: null, previewCategories: () => [], previewSeedRows: () => ({ suppliers: [], products: [] }) },
   '@/lib/db/demo-suppliers': { DEMO_SUPPLIERS: [] },
+  '@/lib/l2-scope': l2Scope,
+  '@/lib/types': { L2_FACTORY_PHOTO_ITEMS: [], L3_EXPORT_ITEMS: ['bill_of_lading', 'customs_declaration', 'commercial_invoice', 'packing_list', 'certificate_of_origin', 'phytosanitary_or_health', 'other_export_evidence'].map((key) => ({ key })) },
+  '@/lib/verification-submission': { MAX_ITEMS_PER_KEY: 3 },
   '@/lib/public/product-selection': { isTestOnlyProduct: () => false, productBelongsToCategory: () => false, productReviewApproved: () => false },
   '@/lib/media/readiness': { isExpired: (m) => m.status === 'expired' || !!(m.expires_on && m.expires_on < new Date().toISOString().slice(0, 10)) },
   './category-seed': { CASHEW_CATEGORY_CONFIG: config, DEFAULT_CATEGORY_CONFIG: config, PEPPER_CATEGORY_CONFIG: config },

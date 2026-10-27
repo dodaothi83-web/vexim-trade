@@ -1333,6 +1333,18 @@ export async function updateSupplierAction(
     const store = getStore();
     const existing = await store.getSupplier(id);
     if (!existing) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
+    // Loại hình do nhân viên xử lý sau đăng ký. Xác nhận rõ phạm vi cũ không
+    // tự chuyển; hồ sơ và đợt kiểm đã tạo vẫn gắn với phạm vi đã lưu.
+    if (!Object.hasOwn(raw, "supplier_type")) input.supplier_type = existing.supplier_type ?? null;
+    if (!Object.hasOwn(raw, "tax_id")) input.tax_id = existing.tax_id ?? null;
+    const typeChanged = (input.supplier_type ?? null) !== (existing.supplier_type ?? null);
+    if (typeChanged && raw.confirm_l2_scope_review !== true) return { ok: false, message: "Hãy xác nhận đã kiểm tra loại hình và phạm vi L2 trước khi lưu. Hồ sơ và kết quả cũ không tự chuyển." };
+    // Một mã số thuế đã có bằng chứng không thể bị thay bằng pháp nhân khác
+    // trong cùng hồ sơ: tạo hồ sơ mới thay vì chuyển kết quả giữa doanh nghiệp.
+    if (existing.tax_id && existing.tax_id !== input.tax_id) {
+      const [reviews, submissions] = await Promise.all([store.listVerifications(id), store.listSubmissions(id)]);
+      if (reviews.length || submissions.length) return { ok: false, message: "Hồ sơ đã có lịch sử xác minh. Không thể thay mã số thuế trên hồ sơ này; hãy tạo hồ sơ riêng cho pháp nhân khác và giữ lịch sử cũ." };
+    }
     // Không tự cấp lại quyền công khai giá khi chỉ sửa hồ sơ. Chỉ một lần xác nhận
     // mới (bật từ trạng thái tắt, hoặc checkbox được chọn lại) gia hạn thêm 180 ngày.
     if (!Object.hasOwn(raw, "fob_publicly_visible")) {
@@ -1361,6 +1373,15 @@ export async function updateSupplierAction(
     const { verification_level: _level, verified_at: _verifiedAt, ...safeInput } = input;
     void _level; void _verifiedAt;
     await store.updateSupplier(id, safeInput);
+    if (typeChanged) {
+      const actor = await getSession();
+      await store.addAuditLog({
+        actor_id: actor?.uid ?? null, actor_email: actor?.email ?? null,
+        entity: "supplier", entity_id: id, action: "supplier.type.changed",
+        before: { supplier_type: existing.supplier_type ?? null },
+        after: { supplier_type: safeInput.supplier_type ?? null, l2_history_unchanged: true },
+      }).catch((error) => console.error("[supplier] type-change audit failed", error));
+    }
     // Giữ bản tiếng Anh của MOQ, thị trường xuất khẩu và phần giới thiệu luôn khớp hồ sơ mới lưu;
     // hàm này tự bỏ qua khi bản dịch còn mới và không chặn việc lưu khi AI lỗi.
     const actorSession = await getSession();
@@ -2230,8 +2251,14 @@ export async function deleteMediaAction(id: string): Promise<ActionResult> {
     await store.deleteMedia(id);
     if (verification) await logEvidenceChange(verification, id, "delete");
     for (const path of [asset.storage_path, asset.thumb_path]) {
-      if (path) {
-        await deleteObject(path).catch(() => null);
+      if (!path) continue;
+      try {
+        // Một chứng từ NCC có thể được gắn thêm vào đợt kiểm mà vẫn dùng chung
+        // tệp gốc. Không xóa bytes khi bản ghi khác còn tham chiếu đường dẫn này.
+        if (!await store.getMediaByPath(path)) await deleteObject(path);
+      } catch (error) {
+        // Nếu không kiểm tra được tham chiếu, giữ tệp thay vì xóa nhầm lịch sử.
+        console.error("[media] shared-path cleanup failed", error);
       }
     }
 

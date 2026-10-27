@@ -66,7 +66,7 @@ export function VerificationProgressPanel({ progress }: { progress: Verification
     <ol className="divide-y divide-ink-100">
       {progress.steps.map((step) => {
         const current = progress.currentLevel === step.level;
-        return <li key={step.level} className="flex flex-wrap items-start gap-3 px-5 py-4 sm:flex-nowrap">
+        return <li key={step.level} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 px-5 py-4 sm:flex">
           <StepDot step={step} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -81,7 +81,7 @@ export function VerificationProgressPanel({ progress }: { progress: Verification
               {step.note}
             </p>
           </div>
-          <Link href={step.href} className={`${current ? "btn btn-primary" : "btn btn-ghost"} btn-sm shrink-0 self-center`}>
+          <Link href={step.href} className={`${current ? "btn btn-primary" : "btn btn-ghost"} btn-sm col-start-2 justify-self-start sm:shrink-0 sm:self-center`}>
             {step.action}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </li>;
@@ -113,7 +113,7 @@ export function StorefrontVerificationActions({ progress }: { progress: Verifica
     <ol className="mt-3 space-y-2">
       {progress.steps.map((step) => {
         const current = progress.currentLevel === step.level;
-        return <li key={step.level} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-3 py-2.5">
+        return <li key={step.level} className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-lg border border-ink-200 bg-white px-3 py-2.5 sm:flex sm:flex-wrap">
           <StepDot step={step} size="h-7 w-7 text-[11px]" icon="h-3.5 w-3.5" />
           <div className="min-w-0 flex-1">
             <span className="block text-[12.5px] font-bold text-ink-900">{step.titleEn}</span>
@@ -126,7 +126,7 @@ export function StorefrontVerificationActions({ progress }: { progress: Verifica
               <span>{step.metricEn}</span>
             </span>
           </div>
-          <Link href={step.href} className={`${current ? "btn btn-primary" : "btn btn-ghost"} btn-sm shrink-0`}>
+          <Link href={step.href} className={`${current ? "btn btn-primary" : "btn btn-ghost"} btn-sm col-start-2 justify-self-start sm:shrink-0`}>
             {step.actionEn}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </li>;

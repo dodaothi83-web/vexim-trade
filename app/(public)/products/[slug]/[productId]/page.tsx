@@ -6,7 +6,8 @@ import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin, MessageCircle }
 import { Breadcrumbs } from "@/components/ui";
 import { ProductVerificationIcons } from "@/components/product-verification-icons";
 import { VerificationTierBadge } from "@/components/verification-tier";
-import { parseProductSpecification, productSpecificationKey, publicExportPortDisplay, publicProductMoqDisplay } from "@/lib/public/product-detail-display";
+import { parseProductSpecification, productSpecificationKey, publicProductMoqDisplay } from "@/lib/public/product-detail-display";
+import { publicProductExportPortDisplay } from "@/lib/public/product-export-port";
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -193,9 +194,10 @@ export default async function PublicProductDetail({ params }: Props) {
               <p className="text-xs font-bold text-ink-800">Supplier verification</p>
               <span className="text-xs font-semibold text-ink-500">{card.verificationSteps.length}/3 approved</span>
             </div>
-            <div className="mt-2"><ProductVerificationIcons levels={card.verificationSteps} /></div>
+            <div className="mt-2"><ProductVerificationIcons levels={card.verificationSteps} l2Scope={card.l2Scope} /></div>
             {(card.verificationSteps.includes(2) || card.verificationSteps.includes(3)) && <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-              {card.verificationSteps.includes(2) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#factory-visit`} className="text-brand-700 underline">Factory verification scope</Link>}
+              {card.verificationSteps.includes(2) && (card.l2Scope === "factory" || card.l2Scope === "both") && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#factory-visit`} className="text-brand-700 underline">Factory verification scope</Link>}
+              {card.verificationSteps.includes(2) && (card.l2Scope === "partner_contract" || card.l2Scope === "both") && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#partner-factory-contract`} className="text-brand-700 underline">Partner contract review scope</Link>}
               {card.verificationSteps.includes(3) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#delivery-history`} className="text-brand-700 underline">Delivery review scope</Link>}
             </div>}
             <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand-800 hover:underline">View supplier profile <ArrowRight className="h-4 w-4" /></Link>
@@ -225,7 +227,7 @@ export default async function PublicProductDetail({ params }: Props) {
             <Spec label="Packaging" value={detailedPackaging || enPackaging} />
             <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
             <Spec label="Incoterm" value={card.incoterm} />
-            <Spec label="Loading port" value={publicExportPortDisplay(p.export_port)} />
+            <Spec label="Loading port" value={publicProductExportPortDisplay(p)} />
             <Spec label="Raw material region" value={card.rawMaterialRegion} />
             <Spec label="Input material origin" value={card.inputMaterialOrigin} />
           </dl>
@@ -266,7 +268,7 @@ export default async function PublicProductDetail({ params }: Props) {
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
             quoteHref={`/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(related.supplierId)}&product=${encodeURIComponent(related.name)}&product_id=${encodeURIComponent(related.id)}`}
             oem={related.oem} odm={related.odm} samples={related.samples}
-            verificationSteps={related.verificationSteps}
+            verificationSteps={related.verificationSteps} l2Scope={related.l2Scope}
             comparison={!preview && hasProductComparisonPeer(relatedComparisonOffers, {
               id: related.id, supplierId: related.supplierId, categorySlug: slug, isDemo: related.isDemo,
             }) ? { id: related.id, categorySlug: slug } : undefined} />

@@ -467,6 +467,9 @@ export type VerificationStatus = "scheduled" | "in_progress" | "submitted" | "ap
 
 export type VerificationLevel = 1 | 2 | 3;
 
+/** L2 scope is recorded per submission and review; null is the legacy factory flow. */
+export type L2VerificationScope = "factory" | "partner_contract";
+
 /**
  * Các hạng mục checklist L1 — giấy tờ doanh nghiệp & an toàn thực phẩm.
  * `core: true` là ba giấy xác minh chính, chọn MỘT trong ba là đủ: đăng ký doanh nghiệp,
@@ -533,20 +536,36 @@ export const L2_FACTORY_PHOTO_ITEMS = [
 
 export type FactoryPhotoKey = typeof L2_FACTORY_PHOTO_ITEMS[number]["key"];
 
+/** Commercial suppliers: contract with a partner factory is required; photos are optional. */
+export const L2_PARTNER_ITEMS = [
+  { key: "partner_factory_contract", label: "Hợp đồng với nhà máy đối tác", requirement: "Thể hiện doanh nghiệp của bạn và nhà máy đối tác", required: true, order: 1 },
+  { key: "partner_factory_photos", label: "Ảnh nhà máy đối tác (nếu có)", requirement: "Ảnh bổ sung, không bắt buộc", required: false, order: 2 },
+] as const;
+export type PartnerEvidenceKey = typeof L2_PARTNER_ITEMS[number]["key"];
+
+/** Staff record these after inspecting the contract; they are not supplier claims. */
+export const L2_PARTNER_REVIEW_ITEMS = [
+  ...L2_PARTNER_ITEMS,
+  { key: "partner_identity_confirmed", label: "Đối chiếu đúng doanh nghiệp và nhà máy đối tác" },
+  { key: "partner_scope_confirmed", label: "Xác nhận phạm vi hợp đồng, không suy ra sở hữu hoặc kiểm thực địa" },
+] as const;
+
+
 /**
- * Checklist L2 của người kiểm Vexim — dùng CHUNG một chuẩn 9 ảnh với cổng NCC tự gửi.
- * Ảnh NCC tự nộp (khi được nhận vào đợt kiểm) rơi đúng vào dòng cùng key để đối chiếu 1-1.
+ * Danh mục L2 của người kiểm và cổng NCC có cùng 9 dòng ảnh.
+ * Điều kiện nộp/duyệt hai luồng khác nhau; ảnh NCC được sao vào đúng dòng cùng key.
  */
 export const L2_VISIT_ITEMS = L2_FACTORY_PHOTO_ITEMS;
 
-/** Chứng từ lịch sử xuất khẩu (L3) — ảnh chụp hoặc bản gốc + link nguồn công khai. */
+/** Các loại chứng từ L3. Cần ít nhất một tệp, không bắt buộc loại cụ thể. */
 export const L3_EXPORT_ITEMS = [
-  { key: "bill_of_lading", label: "Vận đơn đường biển / hàng không (B/L, AWB)", required: true },
-  { key: "customs_declaration", label: "Tờ khai hải quan xuất khẩu", required: true },
+  { key: "bill_of_lading", label: "Vận đơn đường biển / hàng không (B/L, AWB)", required: false },
+  { key: "customs_declaration", label: "Tờ khai hải quan xuất khẩu", required: false },
   { key: "commercial_invoice", label: "Hóa đơn thương mại", required: false },
   { key: "packing_list", label: "Phiếu đóng gói", required: false },
   { key: "certificate_of_origin", label: "C/O (giấy chứng nhận xuất xứ)", required: false },
-  { key: "phytosanitary_or_health", label: "Kiểm dịch / y tế / hun trùng (nếu ngành hàng yêu cầu)", required: false },
+  { key: "phytosanitary_or_health", label: "Kiểm dịch / y tế / hun trùng", required: false },
+  { key: "other_export_evidence", label: "Chứng từ xuất khẩu khác", required: false },
 ] as const;
 
 export type ExportDocKey = typeof L3_EXPORT_ITEMS[number]["key"];
@@ -578,7 +597,7 @@ export type SubmissionFlagSource = "exif" | "gps" | "time" | "ai" | "system";
 
 export interface SubmissionIntegrityFlag {
   flag: SubmissionFlag;
-  /** "hard" = vi phạm yêu cầu bắt buộc; "warning" = cần người duyệt để ý. */
+  /** Mức gợi ý hiển thị. Cờ AI, kể cả `hard` trong dữ liệu cũ, không quyết định nộp hay duyệt. */
   severity: "hard" | "warning";
   source: SubmissionFlagSource;
   detail: string | null;
@@ -603,6 +622,12 @@ export interface AiSubmissionReview {
   /** true khi AI thấy ảnh có dấu hiệu dàn dựng/chỉnh sửa nội dung. */
   manipulation_suspected: boolean | null;
   items: Record<string, AiSubmissionItemReview>;
+  /** Identity of the evidence and code read by this scan; absent on older records. */
+  evidence_snapshot?: string;
+  /** Exact item IDs sent to AI; historical reviews may not include this. */
+  scanned_item_ids?: string[];
+  /** Additional photos for already-scanned categories that were not sent. */
+  unscanned_extra_count?: number;
 }
 
 /** Hồ sơ bằng chứng do NHÀ CUNG CẤP tự gửi — không phải đợt kiểm của nhân viên Vexim. */
@@ -612,6 +637,8 @@ export interface SupplierSubmission {
   id: string;
   supplier_id: string;
   target_level: 2 | 3;
+  /** Saved scope, never inferred later from the supplier’s current type. */
+  l2_scope?: L2VerificationScope | null;
   status: SubmissionStatus;
   /** Người gửi (tài khoản supplier). */
   created_by: string | null;
@@ -663,7 +690,7 @@ export interface SupplierSubmissionItem {
   id: string;
   submission_id: string;
   supplier_id: string;
-  checklist_key: FactoryPhotoKey | ExportDocKey;
+  checklist_key: FactoryPhotoKey | PartnerEvidenceKey | ExportDocKey;
   media_id: string | null;
   storage_path: string | null;
   thumb_path: string | null;
@@ -694,9 +721,9 @@ export interface SupplierSubmissionItem {
   uploaded_at: string;
 }
 
-export type SubmissionKey = FactoryPhotoKey | ExportDocKey;
+export type SubmissionKey = FactoryPhotoKey | PartnerEvidenceKey | ExportDocKey;
 
-export type AuditEvidenceKey = L1DocKey | L2VisitKey | DeliveryKey | FactoryPhotoKey | ExportDocKey;
+export type AuditEvidenceKey = L1DocKey | L2VisitKey | DeliveryKey | FactoryPhotoKey | PartnerEvidenceKey | ExportDocKey | "partner_identity_confirmed" | "partner_scope_confirmed";
 
 /** Yêu cầu Vexim liên hệ để kiểm tra nhà máy / lịch sử giao hàng; không phải kết quả xác minh. */
 export interface SupplierVerificationRequest {
@@ -712,6 +739,8 @@ export interface Verification {
   id: string;
   supplier_id: string;
   target_level: VerificationLevel;
+  /** Scope of this individual L2 review, unchanged if the supplier type changes. */
+  l2_scope?: L2VerificationScope | null;
   status: VerificationStatus;
   inspector_id: string | null;
   /** L1: ngày nhận đủ tài liệu; L2: ngày xác thực nhà máy */

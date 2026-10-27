@@ -1171,6 +1171,16 @@ export const supabaseStore: DataStore = {
     if (error) fail("updateSubmission", error);
     return normalizeSubmission(data as SupplierSubmission);
   },
+  async updateEditableSubmission(id, patch, expectedStatus) {
+    const query = must().from("supplier_submissions")
+      .update(cleanPatch({ ...patch, updated_at: new Date().toISOString() }))
+      .eq("id", id);
+    const { data, error } = await (expectedStatus
+      ? query.eq("status", expectedStatus)
+      : query.in("status", ["draft", "returned"])).select().maybeSingle();
+    if (error) fail("updateEditableSubmission", error);
+    return data ? normalizeSubmission(data as SupplierSubmission) : null;
+  },
   async listSubmissionItems(submissionId) {
     const { data, error } = await must().from("supplier_submission_items").select("*")
       .eq("submission_id", submissionId).order("uploaded_at", { ascending: true });

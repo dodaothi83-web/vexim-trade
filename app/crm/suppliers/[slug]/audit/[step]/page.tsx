@@ -6,6 +6,7 @@ import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { AUDIT_STEPS, auditHref } from "@/lib/verification";
+import { effectiveL2Scope, isPartnerL2, l2ScopeForSupplier, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
 import { submissionStatusLabel } from "@/lib/verification-submission";
 import { canSelfApproveVerification } from "@/lib/verification-policy";
 import type { VerificationLevel } from "@/lib/types";
@@ -16,7 +17,7 @@ import { AuditForm } from "./audit-form";
 
 export const dynamic = "force-dynamic";
 
-export default async function AuditStepPage({ params }: { params: Promise<{ slug: string; step: string }> }) {
+export default async function AuditStepPage({ params, searchParams }: { params: Promise<{ slug: string; step: string }>; searchParams?: Promise<{ review?: string }> }) {
   const { slug: supplierId, step: path } = await params;
   const step = AUDIT_STEPS.find((s) => s.path === path);
   if (!step) notFound();
@@ -36,9 +37,15 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
   const forStep = [...all].filter((v) => v.target_level === step.level).sort((a, b) => b.created_at.localeCompare(a.created_at));
   // Đợt đang chờ duyệt phải hiện trước: nếu ưu tiên đợt đã duyệt thì một hồ sơ
   // mới nộp (ví dụ chu kỳ xác minh lại) không bao giờ tới được mắt người duyệt.
-  const current = forStep.find((v) => v.status === "submitted")
-    ?? forStep.find((v) => v.status === "approved")
-    ?? forStep[0];
+  const requestedId = (await searchParams)?.review;
+  const scope = step.level === 2 ? l2ScopeForSupplier(supplier.supplier_type) : null;
+  const matching = step.level === 2 ? forStep.filter((v) => scope && effectiveL2Scope(v.l2_scope) === scope) : forStep;
+  const current = requestedId ? forStep.find((v) => v.id === requestedId)
+    : matching.find((v) => v.status === "submitted") ?? matching.find((v) => v.status === "approved") ?? matching[0];
+  if (requestedId && !current) notFound();
+  const partner = step.level === 2 && (current ? isPartnerL2(current) : scope === "partner_contract");
+  const title = partner ? "Nhà máy đối tác" : step.title;
+  const description = partner ? "Đối chiếu hợp đồng với nhà máy đối tác; không suy ra sở hữu hay kiểm thực địa." : step.description;
   const media = current ? await store.listMedia("verification", current.id) : [];
   const canApprove = hasPermission(session.role, "verifications.approve");
   const canInspect = hasPermission(session.role, "verifications.inspect");
@@ -46,35 +53,43 @@ export default async function AuditStepPage({ params }: { params: Promise<{ slug
 
   return <>
     <PageHeader
-      breadcrumbs={<Breadcrumbs items={[{ label: "Nhà cung cấp", href: "/crm/suppliers" }, { label: supplier.name, href: `/crm/suppliers/${supplierId}?tab=review#supplier-review` }, { label: step.title }]} />}
-      title={step.title}
-      sub={`${supplier.name} · ${step.description}`}
+      breadcrumbs={<Breadcrumbs items={[{ label: "Nhà cung cấp", href: "/crm/suppliers" }, { label: supplier.name, href: `/crm/suppliers/${supplierId}?tab=review#supplier-review` }, { label: title }]} />}
+      title={title}
+      sub={`${supplier.name} · ${description}`}
       actions={<Link href={`/crm/suppliers/${supplierId}?tab=review#supplier-review`} className="btn btn-ghost"><ArrowLeft className="h-4 w-4" /> Xét duyệt NCC</Link>}
     />
     <div className="max-w-6xl space-y-5">
       <nav aria-label="Các bước kiểm toán" className="grid gap-2 sm:grid-cols-3">
         {AUDIT_STEPS.map((item, i) => {
-          const done = all.some((v) => v.target_level === item.level && v.status === "approved");
+          const done = all.some((v) => v.target_level === item.level && v.status === "approved" && (item.level !== 2 || (scope !== null && effectiveL2Scope(v.l2_scope) === scope)));
           const className = "flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold " + (item.path === path ? "border-brand-500 bg-brand-50 text-brand-800" : "border-ink-200 bg-white text-ink-700 hover:border-brand-300");
-          const content = <><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs ring-1 ring-ink-200">{done ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : i + 1}</span>{item.title}</>;
+          const content = <><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs ring-1 ring-ink-200">{done ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : i + 1}</span>{item.level === 2 && scope === "partner_contract" ? "Nhà máy đối tác" : item.title}</>;
           return <Link key={item.path} href={auditHref(supplierId, item.level)} className={className} aria-current={item.path === path ? "step" : undefined}>{content}</Link>;
         })}
       </nav>
       {step.level > 1 && submissions.length > 0 && (
         <Card className="border-teal-200 bg-teal-50/60 p-4">
           <h2 className="text-sm font-bold text-ink-900">Hồ sơ bằng chứng NCC tự gửi cho bước này ({submissions.length})</h2>
-          <p className="mt-1 text-xs text-ink-600">Doanh nghiệp tự tải ảnh/chứng từ qua cổng L2·L3; AI quét và nêu tín hiệu (EXIF/GPS, giờ chụp, mã xác minh viết tay, nội dung ảnh). Nhận hồ sơ sẽ tạo đợt kiểm của nhân viên kèm bằng chứng — không tự cấp huy hiệu.</p>
+          <p className="mt-1 text-xs text-ink-600">{step.level === 2 ? "Xem phạm vi ghi trên từng hồ sơ; hồ sơ nhà máy và hồ sơ đối tác được giữ riêng." : "Nhân viên trực tiếp đối chiếu chứng từ xuất khẩu và vai trò của doanh nghiệp."} Nhận hồ sơ tạo đợt kiểm kèm bằng chứng, không tự cấp huy hiệu.</p>
           <ul className="mt-3 space-y-2 text-sm">{submissions.map((sub) => (
             <li key={sub.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2">
-              <span className="text-xs text-ink-600">{submissionStatusLabel(sub.status)}
+              <span className="text-xs text-ink-600">{step.level === 2 ? isPartnerL2(sub) ? "Đối tác · " : "Nhà máy · " : ""}{submissionStatusLabel(sub.status)}
                 {sub.verification_code ? ` · mã ${sub.verification_code}` : ""}
-                {sub.ai_scanned_at ? ` · AI quét ${new Date(sub.ai_scanned_at).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : " · chưa quét AI"}
+                {sub.ai_scanned_at ? ` · ${step.level === 3 ? "AI cũ" : "AI quét"} ${new Date(sub.ai_scanned_at).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : step.level === 2 && !isPartnerL2(sub) ? " · chưa quét AI" : " · nhân viên kiểm tra"}
                 {sub.verification_id ? " · đã sao bằng chứng sang đợt kiểm" : ""}</span>
               <Link href={`/crm/verifications/submissions/${sub.id}`} className="btn btn-ghost btn-sm">Đối chiếu bằng chứng →</Link>
             </li>))}</ul>
         </Card>
       )}
-      {!current ? <Card className="flex flex-wrap items-center justify-between gap-4 p-6"><div><h2 className="font-bold text-ink-900">Chưa bắt đầu {step.title.toLowerCase()}</h2><p className="text-sm text-ink-500">Tạo đợt kiểm để ghi kết quả và thêm bằng chứng riêng cho bước này.</p></div>{canInspect && <StartVerificationButton supplierId={supplierId} level={step.level as VerificationLevel} />}</Card>
+      {step.level === 2 && forStep.length > 0 && <Card className="p-4">
+        <h2 className="text-sm font-bold text-ink-900">Các đợt L2 đã lưu</h2>
+        <p className="mt-1 text-xs text-ink-600">Mỗi đợt giữ phạm vi riêng; thay đổi loại hình không đổi kết quả cũ.</p>
+        <ul className="mt-2 space-y-1 text-xs">{forStep.map((v) => <li key={v.id}>
+          <Link className="text-brand-700 underline" href={auditHref(supplierId, 2, v.id)}>{isPartnerL2(v) ? "Hợp đồng nhà máy đối tác" : "Xác thực nhà máy"} · {v.status} · {v.created_at.slice(0, 10)}</Link>
+        </li>)}</ul>
+      </Card>}
+      {current && step.level === 2 && !l2ScopeMatchesSupplier(current, supplier.supplier_type) && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Loại hình hiện tại chưa rõ hoặc khác phạm vi của đợt này. Xác minh loại hình trước khi tiếp tục; không chuyển kết quả cũ.</p>}
+      {!current ? <Card className="flex flex-wrap items-center justify-between gap-4 p-6"><div><h2 className="font-bold text-ink-900">Chưa bắt đầu {title.toLowerCase()}</h2><p className="text-sm text-ink-500">Tạo đợt kiểm để ghi kết quả và thêm bằng chứng riêng cho bước này.</p></div>{canInspect && <StartVerificationButton supplierId={supplierId} level={step.level as VerificationLevel} />}</Card>
         : <>
           <Card className="flex flex-wrap items-center gap-3 p-4">
             <Badge className={current.status === "approved" ? "bg-emerald-50 text-emerald-700" : current.status === "submitted" ? "bg-amber-50 text-amber-700" : current.status === "returned" ? "bg-rose-50 text-rose-700" : "bg-sky-50 text-sky-700"}>

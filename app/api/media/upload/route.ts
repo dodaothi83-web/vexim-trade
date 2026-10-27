@@ -94,7 +94,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, message: "Không tìm thấy hồ sơ xác minh." }, { status: 404 });
     }
     if (checklistKey) {
-      const accepted = auditUploadKind(v.target_level, checklistKey as AuditEvidenceKey);
+      const accepted = auditUploadKind(v.target_level, checklistKey as AuditEvidenceKey, v.l2_scope);
       if (!accepted || accepted === "image" && kind !== "image") {
         return NextResponse.json({ ok: false, message: "Mục này không nhận loại tệp đã chọn hoặc không thuộc bước kiểm." }, { status: 400 });
       }

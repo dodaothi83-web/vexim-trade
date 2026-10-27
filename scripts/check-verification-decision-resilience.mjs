@@ -6,6 +6,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 
+const l2Scope = {};
+new Function('exports', ts.transpileModule(fs.readFileSync(new URL('../lib/l2-scope.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(l2Scope);
+
 const source = ts.transpileModule(
   fs.readFileSync(new URL('../app/crm/suppliers/[slug]/verification-actions.ts', import.meta.url), 'utf8'),
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } },
@@ -68,11 +71,12 @@ const mocks = {
       ? [{ key: 'business_license' }, { key: 'food_safety' }, { key: 'tax_certificate' }]
       : [{ key: 'plant_photos' }]),
   },
+  '@/lib/l2-scope': l2Scope,
   '@/lib/verification-policy': {
     canSelfApproveVerification: (role) => ['admin', 'sourcing'].includes(role),
   },
   '@/lib/crm/badges': { refreshCrmBadges: () => {} },
-  '@/lib/verification-evidence': { hasDocumentAuditEvidence: () => true },
+  '@/lib/verification-evidence': { hasDocumentAuditEvidence: () => true, hasDeliveryAuditEvidence: () => true },
   '@/lib/media/verification-access': { verificationMediaEditError: async () => null },
   '@/lib/supplier-portal/notify': {
     notifyStaffVerificationSubmission: async () => { staffMails++; return 'sent'; },

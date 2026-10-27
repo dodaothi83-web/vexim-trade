@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         ok: true,
         message: "Đã nhận hồ sơ vào đợt kiểm của nhân viên. Bằng chứng đã sao sang đợt kiểm; mở đợt kiểm để đối chiếu và xét duyệt.",
         verificationId: verification.id,
-        href: auditHref(access.submission.supplier_id, access.submission.target_level),
+        href: auditHref(access.submission.supplier_id, access.submission.target_level, verification.id),
       }, { headers: { "Cache-Control": "no-store" } });
     }
     if (decision === "return") {
