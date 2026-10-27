@@ -548,6 +548,7 @@ res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', hea
 body = await res.json();
 assert.equal(body.status, 'pending_review', `Hồ sơ đúng chuẩn phải vào hàng đợi chờ duyệt: ${JSON.stringify(body)}`);
 assert.equal(body.aiScanned, true);
+assert.match(body.message, /chuyển vào hàng đợi chờ duyệt/i, 'Nộp thành công phải nói rõ hồ sơ đã vào hàng đợi');
 assert.equal(aiCalls, 1);
 let stored = await store.getSubmission(submission.id);
 assert.equal(stored.status, 'pending_review');
@@ -577,16 +578,52 @@ res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', hea
 body = await res.json();
 assert.equal(body.status, 'pending_review', 'Không có AI thì vẫn phải cho nộp để Vexim kiểm thủ công');
 assert.equal(body.aiScanned, false);
-assert.match(body.message, /chưa quét được bằng AI/i);
-process.env.OPENAI_API_KEY = 'test-key';
+assert.equal(body.message, 'Hệ thống chưa quét được bằng AI. Hồ sơ đã được gửi để nhân viên đối chiếu.');
+assert.doesNotMatch(body.message, /chưa cấu hình|tệp đọc được|\([^)]*\)/i, 'Không lộ lý do kỹ thuật trong thông báo NCC');
 
 // Hết lượt AI L2 không tiêu thụ hoặc chặn hạn mức gửi thủ công L3.
 await store.updateSubmission(submission.id, { status: 'draft' });
 currentAccess = { store, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id), links: [], supplierId: 'sup-1', userId: 'user-1', userEmail: 'supplier@example.com' };
 res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: false }) }), { params: Promise.resolve({ id: submission.id }) });
 assert.equal(res.status, 200);
+body = await res.json();
+assert.equal(body.status, 'draft', 'Quét thử không tự nộp hồ sơ');
+assert.equal(body.message, 'Hệ thống chưa quét được bằng AI. Hãy hoàn thiện và nộp hồ sơ để nhân viên đối chiếu.');
+assert.doesNotMatch(body.message, /đã được gửi|chưa cấu hình|tệp đọc được/i);
+process.env.OPENAI_API_KEY = 'test-key';
 res = await scanRoute.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: false }) }), { params: Promise.resolve({ id: submission.id }) });
 assert.equal(res.status, 429, 'Đã hết lượt AI L2');
+
+// Nhân viên có hạn mức riêng; quét thử không được nói nhầm rằng hồ sơ đã nộp.
+const staffScanFactory = makeLoader({
+  'next/server': { NextResponse: { json: (value, init) => Response.json(value, init) } },
+  'next/cache': { revalidatePath: () => {} },
+  '@/lib/auth/session': { getSession: async () => ({ uid: 'staff-scan-1', email: 'staff@example.com', role: 'sourcing' }) },
+  '@/lib/auth/permissions': { hasPermission: () => true },
+  '@/lib/supplier-portal/submission-access': { staffSubmissionAccess: async () => currentAccess, supplierSubmissionAccess: async () => null },
+  '@/lib/media/storage': { getObject: async (p) => storage.has(p) ? { data: storage.get(p), driver: 'local' } : null },
+  '@/lib/supplier-portal/notify': { notifyStaffSupplierSubmission: async () => 'sent' },
+  sharp: sharpStub,
+})('app/api/supplier-portal/submissions/[id]/ai-scan/route.ts');
+aiVerdicts = {};
+res = await staffScanFactory.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: false }) }), { params: Promise.resolve({ id: submission.id }) });
+body = await res.json();
+assert.equal(body.aiScanned, true);
+assert.equal(body.status, 'draft');
+assert.equal(body.message, 'AI đã quét thử. Hãy xem kết quả trước khi tiếp tục.');
+
+// Không tiết lộ lỗi kỹ thuật, kể cả khi dịch vụ AI thực sự phát sinh lỗi.
+await store.updateSubmission(submission.id, { status: 'pending_review' });
+currentAccess = { ...currentAccess, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id) };
+const previousFetch = globalThis.fetch;
+globalThis.fetch = async () => { throw new Error('sensitive provider error'); };
+res = await staffScanFactory.POST(new Request('http://x/ai-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submit: false }) }), { params: Promise.resolve({ id: submission.id }) });
+globalThis.fetch = previousFetch;
+body = await res.json();
+assert.equal(body.aiScanned, false);
+assert.equal(body.status, 'pending_review');
+assert.equal(body.message, 'Hệ thống chưa quét được bằng AI. Hồ sơ vẫn được lưu để nhân viên đối chiếu.');
+assert.doesNotMatch(body.message, /sensitive|chưa cấu hình|tệp đọc được/);
 
 /* ------------------------------ 8. nhân viên xét hồ sơ ------------------------------ */
 

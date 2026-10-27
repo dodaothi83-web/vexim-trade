@@ -69,9 +69,10 @@ export function EmptyRow({ children }: { children: ReactNode }) {
 
 /** Trạng thái ba cấp xác minh, dùng lại ở trang tổng quan và trang hồ sơ. */
 export function LevelChip({ label, on, pending }: { label: string; on: boolean; pending?: boolean }) {
-  return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${on ? "bg-emerald-50 text-emerald-800" : pending ? "bg-amber-50 text-amber-800" : "bg-ink-100 text-ink-600"}`}>
+  const status = on ? "Đã duyệt" : pending ? "Đang chờ xét" : "Chưa duyệt";
+  return <span title={status} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${on ? "bg-emerald-50 text-emerald-800" : pending ? "bg-amber-50 text-amber-800" : "bg-ink-100 text-ink-600"}`}>
     <span className={`h-1.5 w-1.5 rounded-full ${on ? "bg-emerald-600" : pending ? "bg-amber-500" : "bg-ink-400"}`} aria-hidden="true" />
-    {label}
+    {label}<span className="sr-only">: {status}</span>
   </span>;
 }
 

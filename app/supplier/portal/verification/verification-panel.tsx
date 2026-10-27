@@ -42,6 +42,7 @@ interface GpsState {
 }
 
 interface ScanResult {
+  ok: boolean;
   status: string;
   message: string;
   aiScanned: boolean;
@@ -231,10 +232,13 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submit }),
       });
-      const data = await response.json() as (ScanResult & { ok?: boolean; message?: string }) & { message?: string };
+      const data = await response.json() as Partial<ScanResult>;
       if (!response.ok) { setMessage({ text: data.message ?? "Chưa xử lý được hồ sơ.", ok: false }); return; }
-      if (factory) setScan({ status: data.status, message: data.message ?? "", aiScanned: Boolean(data.aiScanned), summary: data.summary ?? null, reasons: data.reasons ?? [], missing: data.missing ?? [], warnings: data.warnings ?? [] });
-      setMessage({ text: data.message ?? "Đã gửi hồ sơ.", ok: Boolean(data.ok) });
+      if (factory) {
+        setScan({ ok: Boolean(data.ok), status: data.status ?? view.status, message: data.message ?? "Chưa xử lý được hồ sơ.", aiScanned: Boolean(data.aiScanned), summary: data.summary ?? null, reasons: data.reasons ?? [], missing: data.missing ?? [], warnings: data.warnings ?? [] });
+      } else {
+        setMessage({ text: data.message ?? "Đã gửi hồ sơ.", ok: Boolean(data.ok) });
+      }
       refresh();
     } catch {
       setMessage({ text: "Không kết nối được máy chủ. Tệp đã tải vẫn được giữ.", ok: false });
@@ -358,10 +362,10 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
 
     {message && <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm font-semibold ${message.ok ? "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200" : "bg-rose-50 text-rose-900 ring-1 ring-rose-200"}`}>{message.text}</p>}
 
-    {factory && scan && <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
-      <h3 className="flex items-center gap-1.5 font-bold"><Sparkles className="size-4" aria-hidden="true" /> Kết quả AI tự động</h3>
+    {factory && scan && <div role={scan.ok ? "status" : "alert"} className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
+      <h3 className="flex items-center gap-1.5 font-bold"><Sparkles className="size-4" aria-hidden="true" /> {scan.aiScanned ? "Kết quả AI tự động" : "Trạng thái quét AI"}</h3>
       <p className="mt-1">{scan.message}</p>
-      {scan.summary && <p className="mt-2 text-[13px]">{scan.summary}</p>}
+      {scan.summary && scan.summary !== scan.message && <p className="mt-2 text-[13px]">{scan.summary}</p>}
       {scan.reasons.length > 0 && <ul className="mt-2 space-y-1 text-[13px]">{scan.reasons.map((r) => <li key={r}>• {r}</li>)}</ul>}
       {scan.warnings.length > 0 && <p className="mt-2 text-[12px] text-violet-800">Điểm cần lưu ý: {scan.warnings.slice(0, 5).join(" · ")}</p>}
       <p className="mt-2 text-[11px] text-violet-800">AI không xác nhận giấy tờ là thật và không tự duyệt. Hồ sơ đạt sẽ chờ đối chiếu thủ công; huy hiệu L{level} chỉ có sau khi người có quyền duyệt phê.</p>
@@ -489,7 +493,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
             </h3>
             <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[10.5px] font-bold text-ink-600">{view.links.length} link</span>
           </div>
-          <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Dán link trang công khai có nhắc tới doanh nghiệp/lô hàng (trang doanh nghiệp, hồ sơ trên sàn B2B, tin hội chợ…). Hệ thống chỉ tự đọc domain trong danh sách nguồn công khai; link lạ vẫn được lưu để mở kiểm tra sau.</p>
+          <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Dán link trang công khai có nhắc tới doanh nghiệp hoặc lô hàng. Nhân viên sẽ kiểm tra khi đối chiếu hồ sơ.</p>
           <form onSubmit={(e) => void addLink(e)} className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] sm:items-end">
             <label className="min-w-0 text-xs font-semibold text-ink-700">Link (http/https)<input name="url" type="url" required maxLength={800} disabled={!view.editable} className="input mt-1" placeholder="https://..." /></label>
             <label className="min-w-0 text-xs font-semibold text-ink-700">Mô tả ngắn<input name="label" maxLength={200} disabled={!view.editable} className="input mt-1" placeholder="VD: hồ sơ doanh nghiệp trên sàn" /></label>

@@ -61,6 +61,8 @@ assert.match(exportHtml, /Nộp hồ sơ/);
 assert.match(exportHtml, /aria-label="Nộp hồ sơ"/, 'Mobile action is a manual submit');
 assert.match(exportHtml, /không bắt buộc vận đơn/i);
 assert.match(exportHtml, /nhân viên kiểm tra/i);
+assert.match(exportHtml, /Nhân viên sẽ kiểm tra khi đối chiếu hồ sơ/);
+assert.doesNotMatch(exportHtml, /Hệ thống chỉ tự đọc domain/, 'Source links are checked by staff, not read automatically on upload');
 assert.match(exportHtml, /không hiển thị công khai/i);
 assert.doesNotMatch(exportHtml, /\bAI\b/i, 'L3 must not render AI buttons or AI results');
 assert.doesNotMatch(exportHtml, /vận đơn và tờ khai hải quan là bắt buộc/i);
@@ -76,6 +78,11 @@ const l2Html = renderToStaticMarkup(React.createElement(VerificationSubmissionPa
 assert.match(l2Html, /AI quét thử/);
 assert.match(l2Html, /AI quét &amp; nộp hồ sơ/);
 assert.match(l2Html, /Tờ mã xác minh/);
+const factoryCard = l2Html.match(/<article class="group[\s\S]*?<\/article>/)?.[0] ?? '';
+const codeNoteAt = factoryCard.indexOf('Ảnh này bắt buộc có tờ mã xác minh đặt cạnh cảnh.');
+const photoButtonAt = factoryCard.indexOf('Chụp hoặc chọn ảnh</button>');
+assert.ok(codeNoteAt >= 0 && photoButtonAt > codeNoteAt, 'Lưu ý tờ mã nằm trên nút tải ảnh');
+assert.match(factoryCard, /mt-auto space-y-1\.5 pt-1/, 'Nút tải nằm sát đáy thẻ để các nút thẳng hàng');
 
 const staffProps = { submissionId: 'sub', status: 'pending_review', canReview: true, verificationHref: null, aiEnabled: true };
 const staffL3 = renderToStaticMarkup(React.createElement(SubmissionReviewActions, { ...staffProps, level: 3 }));

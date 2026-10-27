@@ -20,6 +20,8 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
   comparison?: { id: string; categorySlug: string };
 }) {
   const quote = !test && linkable ? quoteHref : undefined;
+  // This is a supplier contract check, not a claim about product quality or factory ownership.
+  const partnerContractReviewed = !test && verificationSteps.includes(2) && (l2Scope === "partner_contract" || l2Scope === "both");
   const comparisonItem: ProductComparisonSelection | null = comparison && linkable && !test ? {
     id: comparison.id,
     categorySlug: comparison.categorySlug,
@@ -66,6 +68,7 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
         </p>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 sm:mt-1.5 sm:gap-1.5">
           <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} compact shortTooltips />
+          {partnerContractReviewed && <span title="The supplier's partner factory contract was reviewed; this is not a factory inspection." className="inline-flex items-center rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-brand-800 ring-1 ring-brand-200"><span aria-hidden="true">Partner contract</span><span className="sr-only">Partner factory contract reviewed</span></span>}
           <VerificationTierBadge levels={test ? [] : verificationSteps} compactOnMobile />
         </div>
       </div>

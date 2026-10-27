@@ -189,6 +189,7 @@ export function SubmissionItemCard({ spec, level, partner = false, rows, submiss
         </details>}
 
         {error && <p role="alert" className="text-[10.5px] font-semibold text-rose-700">{error}</p>}
+        {needsCode && <p className="text-[10px] font-semibold text-brand-800">🔖 Ảnh này bắt buộc có tờ mã xác minh đặt cạnh cảnh.</p>}
 
         <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={(e) => void onPick(e)} />
         <button type="button" disabled={!editable || busy || paused || full} onClick={() => inputRef.current?.click()}
@@ -197,7 +198,6 @@ export function SubmissionItemCard({ spec, level, partner = false, rows, submiss
           {busy ? "Đang xử lý..." : full ? `Đã đủ ${MAX_ITEMS_PER_KEY} tệp` : (level === 3 || partner) ? rows.length ? "Tải thêm tệp" : "Tải tệp" : rows.length ? "Chụp/thay bằng chứng" : "Chụp hoặc chọn ảnh"}
         </button>
         {full && editable && <p className="text-[10px] text-ink-500">Xóa một tệp nếu cần tải tệp khác.</p>}
-        {needsCode && <p className="text-[10px] font-semibold text-brand-800">🔖 Ảnh này bắt buộc có tờ mã xác minh đặt cạnh cảnh.</p>}
         {!editable && <p className="text-[10px] text-ink-500">Hồ sơ đang chờ xét hoặc đã được nhận nên bằng chứng bị khóa.</p>}
       </div>
     </div>

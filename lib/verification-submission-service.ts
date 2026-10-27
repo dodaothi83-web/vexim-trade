@@ -321,12 +321,10 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
 
   // AI lỗi/không cấu hình thì KHÔNG làm mất hồ sơ: vẫn xếp hàng đợi, ghi rõ chưa quét.
   let aiReview: AiSubmissionReview | null = null;
-  let scanError: string | null = null;
   try {
     aiReview = await runEvidenceScan({ bundle, supplier });
   } catch (error) {
-    scanError = error instanceof Error ? error.message : "Không quét được bằng chứng.";
-    console.error("[submission-scan] AI scan failed", scanError);
+    console.error("[submission-scan] AI scan failed", error instanceof Error ? error.message : error);
   }
   const itemsAfter = aiReview ? await applyAiReviewToItems(store, bundle, aiReview) : bundle.items;
   const check = readiness({ submission, items: itemsAfter });
@@ -381,10 +379,20 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
     missing: check.missing,
     warnings: check.warnings,
     message: !aiReview
-      ? `Hệ thống chưa quét được bằng AI (${scanError ?? "chưa cấu hình khoá AI hoặc chưa có tệp đọc được"}). Hồ sơ vẫn được ghi nhận và sẽ được đối chiếu thủ công.`
-      : queue.status === "pending_review"
-        ? "AI đã quét xong và hồ sơ được chuyển vào hàng đợi chờ duyệt."
-        : "AI đã quét xong và phát hiện điểm cần bổ sung; hồ sơ được trả lại kèm lý do.",
+      ? input.submit
+        ? queue.status === "pending_review"
+          ? "Hệ thống chưa quét được bằng AI. Hồ sơ đã được gửi để nhân viên đối chiếu."
+          : "Hệ thống chưa quét được bằng AI. Hồ sơ chưa được gửi; hãy kiểm tra các mục cần bổ sung."
+        : submissionEditable(submission.status)
+          ? "Hệ thống chưa quét được bằng AI. Hãy hoàn thiện và nộp hồ sơ để nhân viên đối chiếu."
+          : "Hệ thống chưa quét được bằng AI. Hồ sơ vẫn được lưu để nhân viên đối chiếu."
+      : !input.submit
+        ? queue.status === "pending_review"
+          ? "AI đã quét thử. Hãy xem kết quả trước khi tiếp tục."
+          : "AI đã quét thử. Hãy kiểm tra các mục cần bổ sung."
+        : queue.status === "pending_review"
+          ? "AI đã quét xong và hồ sơ được chuyển vào hàng đợi chờ duyệt."
+          : "AI đã quét xong và phát hiện điểm cần bổ sung; hồ sơ được trả lại kèm lý do.",
   };
 }
 

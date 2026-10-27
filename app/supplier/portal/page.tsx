@@ -13,6 +13,7 @@ import { isL1CoreDoc } from "@/lib/verification";
 import { daysUntilExpiry } from "@/lib/certificate-service";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { buildVerificationProgress } from "@/lib/supplier-portal/verification-progress";
+import { l2ScopeForSupplier } from "@/lib/l2-scope";
 import type { SupplierSubmissionItem } from "@/lib/types";
 import { SupplierProfileForm } from "./supplier-profile-form";
 import { EmptyRow, Kpi, LevelChip, Panel, PortalSteps, date } from "./portal-ui";
@@ -112,7 +113,11 @@ export default async function SupplierPortal() {
   const changesCount = products.filter((p) => productReview(p) === "changes_requested").length;
   const pausedCount = products.filter((p) => productReview(p) === "paused").length;
   const l1Approved = reviews.some((v) => v.target_level === 1 && v.status === "approved");
-  const l2Approved = reviews.some((v) => v.target_level === 2 && v.status === "approved");
+  // Use the same scope-aware state as the progress panel: an older factory
+  // result must never light up a trader's partner-contract check (or vice versa).
+  const l2Step = verification.steps.find((step) => step.level === 2);
+  const l2Scope = l2ScopeForSupplier(supplier.supplier_type);
+  const l2Label = l2Scope === "partner_contract" ? "L2 · Nhà máy đối tác" : l2Scope === "factory" ? "L2 · Nhà máy" : "L2 · Chưa rõ loại hình";
   const l3Approved = reviews.some((v) => v.target_level === 3 && v.status === "approved");
   const publishedProfile = supplier.status === "published";
   const expiringCerts = certificates.filter((c) => {
@@ -143,27 +148,27 @@ export default async function SupplierPortal() {
     </div>}
 
     <section aria-label="Trạng thái gian hàng" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center gap-4 p-4 sm:p-5">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-900 text-[15px] font-black text-white">{initials(supplier.name)}</span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-[15px] font-bold text-ink-900">{supplier.display_name || supplier.trade_name || supplier.name}</h2>
-            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${publishedProfile ? "bg-emerald-50 text-emerald-800" : "bg-ink-100 text-ink-600"}`}>
-              {publishedProfile ? "Hồ sơ đang công khai" : "Hồ sơ chưa công khai"}
-            </span>
-            <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold text-brand-800">Cổng đã mở</span>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11.5px] text-ink-600">
-            <LevelChip label="L1 · Giấy tờ" on={l1Approved} pending={review?.status === "submitted" || review?.status === "in_progress"} />
-            <LevelChip label="L2 · Nhà máy" on={l2Approved} pending={submissions.some((s) => s.target_level === 2 && s.status === "pending_review")} />
-            <LevelChip label="L3 · Xuất khẩu" on={l3Approved} pending={submissions.some((s) => s.target_level === 3 && s.status === "pending_review")} />
-            <span>{products.length} sản phẩm</span>
-            <span>{certificates.length} chứng nhận</span>
-          </div>
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-2 p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:p-5">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-900 text-[15px] font-black text-white sm:row-span-2">{initials(supplier.name)}</span>
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:col-start-2 sm:row-start-1">
+          <h2 className="truncate text-[15px] font-bold text-ink-900">{supplier.display_name || supplier.trade_name || supplier.name}</h2>
+          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${publishedProfile ? "bg-emerald-50 text-emerald-800" : "bg-ink-100 text-ink-600"}`}>
+            {publishedProfile ? "Hồ sơ đang công khai" : "Hồ sơ chưa công khai"}
+          </span>
+          <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold text-brand-800">Cổng đã mở</span>
         </div>
-        {publishedProfile
-          ? <Link href={`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`} className="btn btn-ghost btn-sm">Xem trang công khai</Link>
-          : <span className="max-w-[220px] text-[11px] leading-4 text-ink-500">Trang công khai chỉ mở sau khi nội dung được duyệt và hồ sơ được xuất bản.</span>}
+        <div className="col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11.5px] text-ink-600 sm:col-span-1 sm:col-start-2 sm:row-start-2 sm:gap-x-4">
+          <LevelChip label="L1 · Giấy tờ" on={l1Approved} pending={review?.status === "submitted" || review?.status === "in_progress"} />
+          <LevelChip label={l2Label} on={l2Step?.state === "approved"} pending={l2Step?.state === "reviewing"} />
+          <LevelChip label="L3 · Xuất khẩu" on={l3Approved} pending={submissions.some((s) => s.target_level === 3 && s.status === "pending_review")} />
+          <span>{products.length} sản phẩm</span>
+          <span>{certificates.length} chứng nhận</span>
+        </div>
+        <div className="col-span-2 mt-1 sm:col-span-1 sm:col-start-3 sm:row-span-2 sm:row-start-1 sm:mt-0">
+          {publishedProfile
+            ? <Link href={`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`} className="btn btn-ghost btn-sm w-full sm:w-auto">Xem trang công khai</Link>
+            : <p className="max-w-[220px] text-[11px] leading-4 text-ink-500">Trang công khai chỉ mở sau khi nội dung được duyệt và hồ sơ được xuất bản.</p>}
+        </div>
       </div>
     </section>
 

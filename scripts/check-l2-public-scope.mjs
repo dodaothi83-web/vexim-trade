@@ -31,6 +31,8 @@ function load(file) {
     if (id === '@/lib/public/display-name') return { publicProductTitle: () => '' };
     if (id === '@/lib/public/product-selection') return { withoutDirectContacts: (value) => value, productBelongsToCategory: () => false, publicProductPrice: () => null };
     if (id === '@/components/public-product-card') return { PublicProductCard: () => null };
+    if (id === '@/components/product-compare-checkbox') return { ProductCompareCheckbox: () => null };
+    if (id === '@/components/product-trade-labels') return { ProductTradeLabels: () => null };
     if (id === '@/components/public/supplier-product-rail') return { SupplierProductRail: ({ children }) => React.createElement('ul', null, children) };
     if (id.startsWith('@/')) return load(`${id.slice(2)}.tsx`.replace(/verification-status\.tsx$/, 'verification-status.ts'));
     return nativeRequire(id);
@@ -69,6 +71,21 @@ assert.match(pips, /Partner factory contract reviewed/);
 assert.doesNotMatch(pips, /Factory verification/);
 assert.match(icons, /Partner factory contract reviewed/);
 assert.match(icons, /not a product certification/);
+
+// The compact visible badge is shown only for an approved partner-scope review,
+// not for type alone, pending checks, legacy factory cases or demo cards.
+const { PublicProductCard } = load('components/public-product-card.tsx');
+const cardProps = { href: '/products/cashew/p1', name: 'Cashew', moq: '1 MT', price: null, leadTimeDays: 14,
+  supplierName: 'Trading company', verificationSteps: [1, 2], quoteHref: undefined };
+const renderCard = (extras) => renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, ...extras }));
+const label = /<span aria-hidden="true">Partner contract<\/span><span class="sr-only">Partner factory contract reviewed<\/span>/;
+assert.match(renderCard({ l2Scope: 'partner_contract' }), label);
+assert.match(renderCard({ l2Scope: 'both' }), label, 'Both reviews retain the separate partner label');
+for (const extras of [{ l2Scope: 'factory' }, { l2Scope: null }, { l2Scope: undefined },
+  { l2Scope: 'partner_contract', verificationSteps: [1] }, { l2Scope: 'partner_contract', test: true }]) {
+  assert.doesNotMatch(renderCard(extras), label, 'No unapproved or incorrectly scoped partner label');
+}
+
 
 const { SupplierStorefront } = load('components/public/supplier-storefront.tsx');
 const base = { id: 's', name: 'Trader', supplier_type: 'trading', approved_verification_steps: [2],

@@ -222,8 +222,10 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
   } satisfies Partial<VerificationProgressStep>);
   if (!scope) Object.assign(step2, {
     title: "Xác minh L2", titleEn: "L2 verification",
+    description: "Cần cập nhật loại hình nhà cung cấp trước khi mở bước L2.",
     note: "Chưa rõ loại hình nhà cung cấp. Liên hệ nhân viên để cập nhật trước khi mở L2.",
     metric: "Chưa rõ loại hình", metricEn: "Supplier type needed",
+    action: "Xem hướng dẫn", actionEn: "View guidance",
   } satisfies Partial<VerificationProgressStep>);
 
   const l2Note = "Ba ảnh 🔖 (cổng, dây chuyền, kho thành phẩm) phải có tờ mã xác minh do hệ thống phát hành nằm trong khung hình.";

@@ -175,5 +175,7 @@ assert.notEqual(partner.steps[1].state, 'approved', 'Duyệt nhà máy cũ khôn
 assert.match(partner.steps[1].title, /đối tác/i);
 assert.match(partner.steps[1].metric, /hợp đồng/i);
 const missingType = buildVerificationProgress({ ...empty, supplierType: null, reviews: [review({ target_level: 2, status: 'approved' })] });
+assert.doesNotMatch(missingType.steps[1].description, /9 ảnh|Chín ảnh|nhà máy/i, 'Không mặc định nội dung nhà máy khi chưa rõ loại hình');
+assert.match(missingType.steps[1].description, /loại hình/i);
 assert.notEqual(missingType.steps[1].state, 'approved');
 assert.match(missingType.steps[1].note, /loại hình/i);
