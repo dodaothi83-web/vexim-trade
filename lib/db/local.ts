@@ -1455,17 +1455,20 @@ export const localStore: DataStore = {
       return row;
     });
   },
-  async updateSponsoredPush(id, patch) {
+  async updateSponsoredPushIfStatus(id, expected, patch) {
     return mutate((db) => {
-      const row = (db.sponsored_pushes ?? []).find((p) => p.id === id);
-      if (!row) throw new Error("Không tìm thấy gói đẩy");
+      const row = (db.sponsored_pushes ?? []).find((p) => p.id === id && p.status === expected);
+      if (!row) return null;
       Object.assign(row, cleanPatch(patch));
       return row;
     });
   },
-  async deleteSponsoredPush(id) {
-    mutate((db) => {
-      db.sponsored_pushes = (db.sponsored_pushes ?? []).filter((p) => p.id !== id);
+  async deleteSponsoredDraft(id) {
+    return mutate((db) => {
+      const rows = db.sponsored_pushes ?? [];
+      const found = rows.some((p) => p.id === id && p.status === "draft");
+      db.sponsored_pushes = rows.filter((p) => !(p.id === id && p.status === "draft"));
+      return found;
     });
   },
   async listSponsoredPushDaily(pushIds, sinceDay) {
@@ -1783,6 +1786,10 @@ export const localStore: DataStore = {
   async listCertificates(supplierId) {
     return (load().certificates ?? []).filter((c) => c.supplier_id === supplierId);
   },
+  async listCertificatesForSuppliers(supplierIds) {
+    const ids = new Set(supplierIds);
+    return (load().certificates ?? []).filter((c) => ids.has(c.supplier_id));
+  },
   async getCertificate(id) {
     return (load().certificates ?? []).find((c) => c.id === id) ?? null;
   },
@@ -1830,6 +1837,10 @@ export const localStore: DataStore = {
   async listVerifications(supplierId) {
     const all = load().verifications ?? [];
     return supplierId ? all.filter((v) => v.supplier_id === supplierId) : [...all];
+  },
+  async listVerificationsForSuppliers(supplierIds) {
+    const ids = new Set(supplierIds);
+    return (load().verifications ?? []).filter((v) => ids.has(v.supplier_id));
   },
   async createVerification(input) {
     const now = new Date().toISOString();

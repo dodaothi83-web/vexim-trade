@@ -114,21 +114,21 @@ const SERVICES: ServiceItem[] = [
       vi: "Quảng cáo nổi bật",
     },
     description: {
-      en: "Highlight your storefront and flagship products at the top of category pages to reach active buyers faster.",
-      vi: "Đưa gian hàng và sản phẩm chủ lực lên vị trí ưu tiên tại trang ngành hàng để tiếp cận đúng khách mua đang tìm nguồn hàng.",
+      en: "Feature one eligible product in the sponsored section of its category page.",
+      vi: "Đưa một sản phẩm đủ điều kiện vào khu vực tài trợ trên trang danh mục.",
     },
     bullets: {
       en: [
-        "Priority placement at the top of food category pages and search results",
-        "Featured supplier badge to increase profile visits and product inquiry clicks",
-        "Transparent performance reports on storefront views and product clicks over 7–90 day cycles",
-        "Clearly separated from independent verification results to maintain full buyer trust",
+        "Shown in rotation above the product list when the category page has no filters applied",
+        "The package lasts 168 hours from approval",
+        "The product card is clearly marked Sponsored; placement does not change verification or organic ranking",
+        "Recorded card views and link clicks are available in the report; actual reach is not guaranteed",
       ],
       vi: [
-        "Hiển thị ưu tiên ở đầu danh mục ngành hàng thực phẩm và khu vực tìm kiếm",
-        "Gắn nhãn nhận diện gian hàng nổi bật giúp tăng tỷ lệ nhấp xem hồ sơ và sản phẩm",
-        "Báo cáo minh bạch lượt xem gian hàng, lượt mở sản phẩm theo chu kỳ 7 – 90 ngày",
-        "Tách biệt rõ ràng với kết quả kiểm duyệt độc lập — giữ trọn độ tin cậy với người mua",
+        "Luân phiên ở đầu danh sách sản phẩm khi trang danh mục chưa bật bộ lọc",
+        "Thời hạn gói là 168 giờ kể từ lúc duyệt",
+        "Thẻ có nhãn Tài trợ; quảng cáo không thay đổi kết quả xác minh hay thứ hạng tự nhiên",
+        "Có báo cáo lượt hiển thị và lượt nhấp ghi nhận được; không cam kết số lượt tiếp cận",
       ],
     },
     ctaLabel: {

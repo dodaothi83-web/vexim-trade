@@ -263,7 +263,7 @@ const homePage = readFileSync(new URL('../app/(public)/home.tsx', import.meta.ur
 // Lưới thẻ trang chủ nằm trong components/home-product-feed.tsx từ đợt tách
 // lưới theo bề rộng màn hình; trang chỉ còn truyền danh sách đã sắp xếp vào đó.
 const homeFeed = readFileSync(new URL('../components/home-product-feed.tsx', import.meta.url), 'utf8');
-assert.match(homePage, /listPublicCategoryProducts\(category\)/, 'Home offers must come from the buyer-ready catalogue, not category tiles');
+assert.match(homePage, /listPublicCategoryProducts\(category,\s*\{\s*snapshot/, 'Home offers must come from the buyer-ready catalogue, not category tiles');
 assert.match(homePage, /p\.isDemo \|\| seen\.has\(p\.id\)/, 'Home excludes demos and duplicate listings');
 assert.match(homePage, /<HomeProductFeed items=\{arrangedOffers\}/, 'Home renders the offer feed from the arranged list');
 assert.match(homeFeed, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3/, 'Home offers use one column on phones, then two or three columns');
@@ -422,7 +422,7 @@ const { default: HomeContent } = compile('../app/(public)/home.tsx', {
   'lucide-react': require('lucide-react'),
   '@/lib/db': { getStore: () => ({ listCategories: async () => [{ ...category, active_on_homepage: true, public_page_ready: true }], listSuppliers: async () => [] }) },
   '@/lib/blog/queries': { listPublishedNews: async () => [] },
-  '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [cards[0], cards[1], { ...cards[0], id: 'demo', isDemo: true }] },
+  '@/lib/public/product-catalog': { loadPublicProductCatalogSnapshot: async () => ({}), listPublicCategoryProducts: async () => [cards[0], cards[1], { ...cards[0], id: 'demo', isDemo: true }] },
   '@/lib/public/supplier-product-order': {
     arrangeSupplierProducts,
     HOME_FEED_PER_SUPPLIER: 2,

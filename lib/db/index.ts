@@ -158,6 +158,9 @@ const resilientSupabaseStore: DataStore = new Proxy(supabaseStore, {
       try {
         return await (original as AnyFn).apply(target, args);
       } catch (error) {
+        // A failed multi-page catalogue read must not be replaced with an
+        // unrelated local dataset and presented as a complete live result.
+        if ((error as { preventLocalFallback?: boolean } | null)?.preventLocalFallback) throw error;
         if (!canFallback || !looksLikeConnectionError(error)) throw error;
         markDown(error);
         return useBackup();

@@ -20,7 +20,7 @@ import {
   pushState,
   summarize,
   totalsByPush,
-  weeklyImpressions,
+  weeklyRotationWindows,
 } from "../lib/sponsored/admin.ts";
 import { buildChartGeometry } from "../lib/sponsored/chart-geometry.ts";
 
@@ -52,6 +52,7 @@ assert.equal(WINDOWS_PER_WEEK, 1008, "Một tuần có 1.008 cửa sổ mười 
 
 assert.equal(pushState(push(), NOW), "live");
 assert.equal(pushState(push({ status: "draft" }), NOW), "pending", "Gói nháp là chờ duyệt");
+assert.equal(pushState(push({ status: "draft", ends_at: at(-32) }), NOW), "pending", "Nháp cũ vẫn chờ duyệt vì thời hạn tính lại lúc duyệt");
 assert.equal(pushState(push({ status: "paused" }), NOW), "paused");
 assert.equal(pushState(push({ starts_at: at(24), ends_at: at(24 + 168) }), NOW), "scheduled",
   "Đã duyệt nhưng chưa tới giờ thì không phải đang chạy");
@@ -87,12 +88,12 @@ assert.equal(pool.length, 3, "Gói nháp và gói hết hạn không tạo dòng
 
 /* ---------------- Số lượt dự phòng ---------------- */
 
-assert.equal(weeklyImpressions(12, "category"), 252, "Bể đầy 12 gói, 3 suất: đúng 252 lượt mỗi gói mỗi tuần");
-assert.equal(weeklyImpressions(8, "home"), 252, "Bể trang chủ đầy 8 gói, 2 suất: cũng 252 lượt");
-assert.equal(weeklyImpressions(1, "category"), 1008, "Bể một gói thì gói đó nhận mọi cửa sổ, không nhân đôi");
-assert.equal(weeklyImpressions(0, "category"), 0, "Bể rỗng thì không chia cho ai");
-assert.equal(weeklyImpressions(4, "category"), 756);
-assert.ok(weeklyImpressions(5, "category") < weeklyImpressions(4, "category"),
+assert.equal(weeklyRotationWindows(12, "category"), 252, "Bể đầy 12 gói, 3 suất: khoảng 252 vòng chọn mỗi gói mỗi tuần");
+assert.equal(weeklyRotationWindows(8, "home"), 252, "Bể trang chủ đầy 8 gói, 2 suất: cũng 252 vòng");
+assert.equal(weeklyRotationWindows(1, "category"), 1008, "Bể một gói thì gói đó nhận mọi cửa sổ, không nhân đôi");
+assert.equal(weeklyRotationWindows(0, "category"), 0, "Bể rỗng thì không chia cho ai");
+assert.equal(weeklyRotationWindows(4, "category"), 756);
+assert.ok(weeklyRotationWindows(5, "category") < weeklyRotationWindows(4, "category"),
   "Bể đông hơn thì mỗi gói nhận ít hơn");
 
 /* ---------------- Chồng lấn cửa sổ ---------------- */
@@ -107,6 +108,9 @@ assert.equal(overlapping(existing, { surface: "home", category_slug: "pepper", s
 assert.equal(overlapping([...existing, push({ id: "b", status: "draft", starts_at: at(0), ends_at: at(168) })],
   { surface: "category", category_slug: "pepper", starts_at: at(0), ends_at: at(168) }).length, 1,
   "Gói nháp không chiếm suất");
+assert.equal(overlapping([push({ status: "paused", starts_at: at(0), ends_at: at(168) })],
+  { surface: "category", category_slug: "pepper", starts_at: at(0), ends_at: at(168) }).length, 1,
+  "Gói đã bán nhưng tạm dừng vẫn giữ suất cho tới hết hạn");
 
 /* ---------------- Tổng hợp số liệu ---------------- */
 
@@ -122,9 +126,16 @@ assert.equal(clickRate(5, 220), 2.3);
 assert.equal(clickRate(0, 0), 0, "Chưa có lượt hiển thị thì không chia cho 0");
 assert.equal(dayKeyDaysAgo(NOW, 6), "2026-10-17", "Bảy ngày gần nhất tính cả hôm nay");
 
-const summary = summarize([push({ id: "a" }), push({ id: "b", status: "draft" })], totals, NOW);
-assert.equal(summary.live, 1);
-assert.equal(summary.pending, 1);
+const summary = summarize([
+  push({ id: "a" }),
+  push({ id: "b", status: "draft" }),
+  push({ id: "category-paused", status: "paused", ends_at: at(2) }),
+  push({ id: "home-running", surface: "home", ends_at: at(2) }),
+  push({ id: "home-draft", surface: "home", status: "draft" }),
+], totals, NOW);
+assert.equal(summary.live, 1, "Không tính gói trang chủ không hiển thị là đang chạy");
+assert.equal(summary.pending, 1, "Nháp trang chủ không thể duyệt, không tính vào tổng chờ duyệt");
+assert.equal(summary.expiring, 1, "Chỉ nhắc gói danh mục sắp hết hạn, kể cả tạm dừng");
 
 /* ---------------- Hình học biểu đồ ---------------- */
 

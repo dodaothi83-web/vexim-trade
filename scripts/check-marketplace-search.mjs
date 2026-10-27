@@ -127,10 +127,21 @@ const store = {
     return rows;
   },
   listMedia: async () => [],
-  listMediaForProducts: async (ids) => { track("productMedia"); return media.filter((m) => ids.includes(m.product_id)); },
-  listVerifications: async (id) => (id === "alpha" ? [1, 2, 3] : id === "beta" ? [1] : [])
-    .map((target_level) => ({ target_level, status: "approved" })),
-  listCertificates: async () => [],
+  listMediaForProducts: async (ids) => {
+    track("productMedia");
+    if (failure === "media") throw new Error("simulated media page failure");
+    const wanted = new Set(ids);
+    return media.filter((m) => wanted.has(m.product_id));
+  },
+  listVerifications: async (id) => {
+    if (failure === "verification") throw new Error("simulated verification page failure");
+    return (id === "alpha" ? [1, 2, 3] : id === "beta" ? [1] : [])
+      .map((target_level) => ({ target_level, status: "approved" }));
+  },
+  listCertificates: async () => {
+    if (failure === "certificate") throw new Error("simulated certificate page failure");
+    return [];
+  },
 };
 const db = { getStore: () => store };
 const catalog = load("../lib/public/catalog.ts", {
@@ -227,7 +238,7 @@ assert.match(html, /Danh mục:/);
 assert.deepEqual(new Set(ids(html)), new Set(["a-w320", "a-w320b", "a-w320c", "a-w320d"]), "All four matching offers from one supplier must remain visible");
 assert.ok(supplierHrefs(html).includes("alpha"), "A matched product also makes its supplier discoverable");
 assert.equal(counts.suppliers, 1, "All category calls share one supplier snapshot");
-assert.equal(counts.products, 2, "One read for supplier projection and one shared product snapshot, not one per category");
+assert.equal(counts.products, 1, "Supplier projection and every category share one product snapshot");
 assert.ok(!JSON.stringify(cardProps).includes("private-review-marker"));
 assert.ok(!JSON.stringify(cardProps).includes("private-spec-marker"));
 assert.ok(!html.includes("private/evidence.jpg"));
@@ -285,7 +296,29 @@ assert.doesNotMatch(html, /Không tìm thấy kết quả/);
 html = await render({ q: "rice", lang: "vi" });
 assert.match(html, /Một số kết quả chưa tải được/);
 assert.ok(ids(html).includes("rice-st25"), "A failing category does not hide healthy category results");
+failure = "verification";
+html = await render({ q: "W320", lang: "vi" });
+assert.match(html, /Chưa tải được kết quả tìm kiếm/, "A failed evidence page does not silently erase a supplier's checks");
+failure = "media";
+html = await render({ q: "W320", cat: "cashew", lang: "vi" });
+assert.match(html, /Một số kết quả chưa tải được/, "A failed media page is not reported as no matching products");
+failure = "certificate";
+html = await render({ q: "W320", cat: "cashew", lang: "vi" });
+assert.match(html, /Một số kết quả chưa tải được/, "A failed certificate page cannot silently change the existing ranking");
 failure = "";
+const sharedSnapshot = await productCatalog.loadPublicProductCatalogSnapshot({ categories });
+counts = {};
+const [concurrentA, concurrentB] = await Promise.all([
+  productCatalog.listPublicCategoryProducts(cashew, { snapshot: sharedSnapshot }),
+  productCatalog.listPublicCategoryProducts(cashew, { snapshot: sharedSnapshot }),
+]);
+assert.equal(JSON.stringify(concurrentA), JSON.stringify(concurrentB));
+assert.equal(counts.productMedia, 1, "Concurrent requests within one server snapshot share in-flight media reads");
+const cachedCategories = [...sharedSnapshot.categoryByProduct];
+assert.ok(cachedCategories.length > 0, "Product categories are computed within the request");
+await productCatalog.listPublicCategoryProducts(categories.find((c) => c.slug === "rice"), { snapshot: sharedSnapshot });
+assert.equal(JSON.stringify([...sharedSnapshot.categoryByProduct]), JSON.stringify(cachedCategories),
+  "Another category reuses the same per-product category decisions");
 
 // A larger set exercises both independent pagers and verifies that every card
 // remains reachable exactly once, in the same interleaved ranked order.
@@ -315,4 +348,45 @@ const beyond = await render({ q: "Bulkneedle", cat: "cashew", p: "999999", s: "9
 assert.equal(ids(beyond).length, 5, "Out-of-range pages clamp to the last page");
 assert.match(beyond, /Page 3 of 3/);
 
-console.log("✅ Marketplace search: home-compatible q/cat/lang, public gates and private data, EN/VI accents, parent/child scope, errors, unchanged ranking and complete pagination.");
+// Exercise the real catalogue, unchanged ranking and every search page above
+// PostgREST's typical 1,000-row cap. Timing is local/in-memory, not production.
+for (let i = 0; i < 125; i++) suppliers.push(supplier(`scale-supplier-${i}`, `Scaleneedle supplier ${i}`));
+const large = Array.from({ length: 1025 }, (_, i) => product(`scale-${i}`, `scale-supplier-${i % 125}`, "cashew", `Scaleneedle lot ${String(i).padStart(4, "0")}`));
+rows = [...baseProducts, ...large];
+media = [...baseProducts.map((p) => mediaFor(p)), ...large.map((p) => mediaFor(p))];
+const scaleExpected = productOrder.arrangeSupplierProducts((await productCatalog.listPublicCategoryProducts(cashew))
+  .filter((p) => p.name.toLowerCase().includes("scaleneedle")), null).shown.map((p) => p.id);
+const scaleStarted = performance.now();
+const seenPages = [];
+for (let p = 1; p <= Math.ceil(large.length / 24); p++) {
+  const rendered = await render({ q: "Scaleneedle", cat: "cashew", lang: "vi", p: String(p) });
+  assert.match(rendered, /1025 sản phẩm/);
+  assert.match(rendered, /125 nhà cung cấp/);
+  assert.equal(counts.products, 1, "Each search shares the product read across suppliers and categories");
+  seenPages.push(...ids(rendered));
+}
+assert.equal(seenPages.length, 1025);
+assert.equal(new Set(seenPages).size, 1025, "All pages have distinct offers");
+assert.deepEqual(seenPages, scaleExpected, "Every offer is reachable exactly once in the pre-existing ranked order");
+const scaleMs = Math.round(performance.now() - scaleStarted);
+
+// Suppliers have their own independent 12-card pager; test beyond 1,000 too.
+suppliers.length = 0;
+for (let i = 0; i < 1009; i++) suppliers.push(supplier(`wide-supplier-${i}`, `Wideneedle supplier ${String(i).padStart(4, "0")}`));
+const wide = suppliers.map((s, i) => product(`wide-product-${i}`, s.id, "cashew", `Wideneedle lot ${String(i).padStart(4, "0")}`));
+rows = wide;
+media = wide.map((p) => mediaFor(p));
+store.listVerificationsForSuppliers = async () => [];
+const supplierStarted = performance.now();
+const supplierPages = [];
+for (let s = 1; s <= Math.ceil(suppliers.length / 12); s++) {
+  const rendered = await render({ q: "Wideneedle", cat: "cashew", lang: "vi", s: String(s) });
+  assert.match(rendered, /1009 nhà cung cấp/);
+  supplierPages.push(...supplierHrefs(rendered));
+}
+assert.equal(supplierPages.length, 1009);
+assert.equal(new Set(supplierPages).size, 1009, "All supplier pages have distinct suppliers");
+assert.deepEqual(new Set(supplierPages), new Set(suppliers.map((s) => s.slug)), "No supplier disappears after the first 1,000");
+const supplierMs = Math.round(performance.now() - supplierStarted);
+
+console.log(`✅ Marketplace search: unchanged ranking, 1,025 products / 43 pages (${scaleMs} ms) and 1,009 suppliers / 85 pages (${supplierMs} ms), local in-memory timings only.`);

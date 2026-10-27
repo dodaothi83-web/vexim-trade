@@ -6,7 +6,7 @@ import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catalog";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
-import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductCategorySlug, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
 import { resolveGrade } from "@/lib/public/grade-resolution";
 import { evidenceValidVerificationSteps, rankPublicCategoryProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { publicProductTitle } from "@/lib/public/display-name";
@@ -104,15 +104,45 @@ export interface PublicProductCatalogSnapshot {
   suppliers: PublicSupplierCard[];
   products: SupplierProduct[];
   categories: Category[];
+  /** Each product's category uses the same rules and category list for this request. */
+  categoryByProduct: Map<string, string | null>;
+  /** Request-scoped promises only; raw evidence stays on the server. */
+  mediaByProduct: Map<string, Promise<MediaAsset[]>>;
+  certificatesBySupplier: Map<string, Promise<Certificate[]>>;
 }
 
 export async function loadPublicProductCatalogSnapshot(options?: { categories?: Category[] }): Promise<PublicProductCatalogSnapshot> {
   const store = getStore();
-  const [suppliers, products, categories] = await Promise.all([
-    listPublicSuppliers(), store.listProducts(),
+  const [rawSuppliers, products, categories] = await Promise.all([
+    store.listSuppliers(), store.listProducts(),
     options?.categories ? Promise.resolve(options.categories) : store.listCategories({ publishedOnly: false }),
   ]);
-  return { suppliers, products, categories };
+  const suppliers = await listPublicSuppliers({ source: { suppliers: rawSuppliers, products, categories } });
+  return { suppliers, products, categories, categoryByProduct: new Map(), mediaByProduct: new Map(), certificatesBySupplier: new Map() };
+}
+
+/** Share a single in-flight batch among overlapping categories in the same request. */
+async function cachedByOwner<T>(
+  ids: readonly string[], cache: Map<string, Promise<T[]>>,
+  read: (ids: string[]) => Promise<T[]>, owner: (row: T) => string | null | undefined,
+): Promise<T[]> {
+  const unique = [...new Set(ids)];
+  const missing = unique.filter((id) => !cache.has(id));
+  if (missing.length) {
+    const grouped = read(missing).then((rows) => {
+      const map = new Map<string, T[]>();
+      for (const row of rows) {
+        const id = owner(row);
+        if (!id) continue;
+        const group = map.get(id) ?? [];
+        if (!map.has(id)) map.set(id, group);
+        group.push(row);
+      }
+      return map;
+    });
+    for (const id of missing) cache.set(id, grouped.then((map) => map.get(id) ?? []));
+  }
+  return (await Promise.all(unique.map((id) => cache.get(id)!))).flat();
 }
 
 export async function listPublicCategoryProducts(category: Category, options?: {
@@ -120,24 +150,27 @@ export async function listPublicCategoryProducts(category: Category, options?: {
   snapshot?: PublicProductCatalogSnapshot;
 }): Promise<PublicCategoryProduct[]> {
   const store = getStore();
-  const { suppliers, products: allProducts, categories: knownCategories } =
-    options?.snapshot ?? await loadPublicProductCatalogSnapshot();
+  const snapshot = options?.snapshot ?? await loadPublicProductCatalogSnapshot();
+  const { suppliers, products: allProducts, categories: knownCategories } = snapshot;
   // "Hôm nay" do server truyền vào (chuỗi YYYY-MM-DD UTC) — module xếp hạng thuần không
   // đọc đồng hồ; check script bơm ngày cố định để assert được kết quả.
   const today = options?.today ?? new Date().toISOString().slice(0, 10);
   const byId = new Map(suppliers.map((s) => [s.id, s]));
+  const categoryFor = (product: SupplierProduct) => {
+    if (!snapshot.categoryByProduct.has(product.id)) {
+      snapshot.categoryByProduct.set(product.id, publicProductCategorySlug(product, knownCategories));
+    }
+    return snapshot.categoryByProduct.get(product.id);
+  };
   const candidates = allProducts.filter((p) =>
     byId.has(p.supplier_id) &&
     // A published test profile can be inspected at its own URL, but is not a market listing.
     (!isSyntheticSupplier(byId.get(p.supplier_id)!) || byId.get(p.supplier_id)?.is_demo) &&
     productReviewApproved(p) && !isTestOnlyProduct(p.name) &&
     (p.ready_for_buyer || byId.get(p.supplier_id)?.is_demo) &&
-    productBelongsToCategory(p, category, knownCategories));
-  const media: MediaAsset[] = [];
-  // Bounded batches keep the Supabase URL and result size reasonable for large catalogs.
-  for (let i = 0; i < candidates.length; i += 80) {
-    media.push(...await store.listMediaForProducts(candidates.slice(i, i + 80).map((p) => p.id)));
-  }
+    categoryFor(p) === category.slug);
+  const media = await cachedByOwner(candidates.map((p) => p.id), snapshot.mediaByProduct,
+    (ids) => store.listMediaForProducts(ids), (asset) => asset.product_id);
   const byProduct = new Map<string, MediaAsset[]>();
   for (const asset of media) {
     if (!asset.product_id) continue;
@@ -145,17 +178,19 @@ export async function listPublicCategoryProducts(category: Category, options?: {
     if (!byProduct.has(asset.product_id)) byProduct.set(asset.product_id, group);
     group.push(asset);
   }
-  // GĐ2 evidence: chỉ NCC đã duyệt L1 mới cần đối chiếu chứng nhận — L2/L3 là xác minh
-  // theo sự kiện, không có khái niệm hết hạn. Lỗi đọc CSDL của một NCC thì coi như
-  // không có chứng nhận (fail-open), không giấu NCC khỏi lưới.
+  // Only L1 needs the existing certificate validity check. Failed pages must be
+  // surfaced, not treated as "no certificates" and silently change ranking.
   const l1SupplierIds = [...new Set(candidates
     .filter((p) => byId.get(p.supplier_id)?.approved_verification_steps.includes(1))
     .map((p) => p.supplier_id))];
-  const certificates: Certificate[] = [];
-  for (let i = 0; i < l1SupplierIds.length; i += 40) {
-    certificates.push(...(await Promise.all(l1SupplierIds.slice(i, i + 40)
-      .map((id) => store.listCertificates(id).catch(() => [] as Certificate[])))).flat());
-  }
+  const certificates = await cachedByOwner(l1SupplierIds, snapshot.certificatesBySupplier, async (ids) => {
+    if (typeof store.listCertificatesForSuppliers === "function") return store.listCertificatesForSuppliers(ids);
+    const rows: Certificate[] = [];
+    for (let i = 0; i < ids.length; i += 40) {
+      rows.push(...(await Promise.all(ids.slice(i, i + 40).map((id) => store.listCertificates(id)))).flat());
+    }
+    return rows;
+  }, (cert) => cert.supplier_id);
   const certsBySupplier = new Map<string, Certificate[]>();
   for (const cert of certificates) {
     const group = certsBySupplier.get(cert.supplier_id) ?? [];

@@ -1,6 +1,7 @@
 import "server-only";
 
-import { listPublicCategoryProducts } from "@/lib/public/product-catalog";
+import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot } from "@/lib/public/product-catalog";
+import type { SponsoredPush } from "@/lib/types";
 import { getStore } from "@/lib/db";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 
@@ -26,12 +27,13 @@ export interface PushCandidate {
 
 export async function eligiblePushProducts(): Promise<PushCandidate[]> {
   const store = getStore();
-  const categories = await store.listCategories({ publishedOnly: true });
+  const categories = (await store.listCategories({ publishedOnly: true })).filter((c) => c.status === "published");
   const byProduct = new Map<string, PushCandidate>();
+  const snapshot = categories.length ? await loadPublicProductCatalogSnapshot() : null;
   for (const category of categories) {
-    const products = await listPublicCategoryProducts(category);
+    const products = await listPublicCategoryProducts(category, snapshot ? { snapshot } : undefined);
     for (const product of products) {
-      if (byProduct.has(product.id)) continue;
+      if (product.isDemo || byProduct.has(product.id)) continue;
       byProduct.set(product.id, {
         productId: product.id,
         name: withoutDirectContacts(product.name),
@@ -45,4 +47,14 @@ export async function eligiblePushProducts(): Promise<PushCandidate[]> {
   }
   return [...byProduct.values()].sort((a, b) =>
     a.categoryName.localeCompare(b.categoryName) || a.name.localeCompare(b.name));
+}
+
+/** Recheck the package's actual category and supplier, not just the first category
+ * in the create form. A product may legitimately belong to both a parent and child. */
+export async function isPushProductEligible(push: Pick<SponsoredPush, "product_id" | "supplier_id" | "category_slug">): Promise<boolean> {
+  const categories = await getStore().listCategories({ publishedOnly: true });
+  const category = categories.find((c) => c.slug === push.category_slug && c.status === "published");
+  if (!category) return false;
+  const products = await listPublicCategoryProducts(category);
+  return products.some((p) => !p.isDemo && p.id === push.product_id && p.supplierId === push.supplier_id);
 }

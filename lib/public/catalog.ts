@@ -6,9 +6,9 @@ import "server-only";
 
 import { getStore } from "@/lib/db";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
-import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, VerificationLevel } from "@/lib/types";
+import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, Verification, VerificationLevel } from "@/lib/types";
 import { approvedL2Scope, approvedPartnerReviewSummary, approvedPublicReviewSummaries, approvedVerificationSteps, type PublicL2Scope, type PublicReviewSummaries } from "@/lib/verification-status";
-import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductCategorySlug } from "@/lib/public/product-selection";
 import { publicProductTitle } from "@/lib/public/display-name";
 
 /** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
@@ -47,8 +47,9 @@ export interface PublicSupplierCard extends Supplier {
 }
 
 function buyerVisibleProduct(p: SupplierProduct, categories: Category[], demo = false): boolean {
-  return productReviewApproved(p) && (p.ready_for_buyer || demo) && !isTestOnlyProduct(p.name) &&
-    categories.some((c) => c.status === "published" && c.is_published && productBelongsToCategory(p, c, categories));
+  if (!productReviewApproved(p) || (!p.ready_for_buyer && !demo) || isTestOnlyProduct(p.name)) return false;
+  const slug = publicProductCategorySlug(p, categories);
+  return categories.some((c) => c.slug === slug && c.status === "published" && c.is_published);
 }
 
 /**
@@ -64,18 +65,22 @@ function buyerVisibleProduct(p: SupplierProduct, categories: Category[], demo = 
 export async function listPublicSuppliers(options?: {
   categorySlug?: string;
   includeDemo?: boolean;
+  /** Server-only preloaded rows, shared with the product catalogue. */
+  source?: { suppliers: Supplier[]; products: SupplierProduct[]; categories: Category[] };
 }): Promise<PublicSupplierCard[]> {
   const showDemo =
     options?.includeDemo === true ||
     process.env.VEXIM_SHOW_DEMO === "true";
   const store = getStore();
-  const [suppliers, products, categories] = await Promise.all([
-    store.listSuppliers(),
-    store.listProducts(),
-    typeof store.listCategories === "function"
-      ? store.listCategories({ publishedOnly: true })
-      : Promise.resolve([] as Category[]),
-  ]);
+  const [suppliers, products, categories] = options?.source
+    ? [options.source.suppliers, options.source.products, options.source.categories.filter((c) => c.is_published)]
+    : await Promise.all([
+      store.listSuppliers(),
+      store.listProducts(),
+      typeof store.listCategories === "function"
+        ? store.listCategories({ publishedOnly: true })
+        : Promise.resolve([] as Category[]),
+    ]);
 
   const filtered = suppliers.filter((s) => {
     if (s.status !== "published") return false;
@@ -102,27 +107,33 @@ export async function listPublicSuppliers(options?: {
     partner_review_summary: undefined as string | undefined,
   }));
 
-  // Load approvals for EVERY public supplier; do not infer passed steps from
-  // verification_level (e.g. delivery may pass without factory verification).
-  // Bound concurrency while keeping the earlier gallery-media limit.
+  // Read every approval, in bounded supplier batches when supported. A failed
+  // page must not silently turn a verified supplier into an unverified one.
+  const byVerificationSupplier = new Map<string, Verification[]>();
+  const batched = typeof store.listVerificationsForSuppliers === "function";
+  if (batched && baseCards.length) {
+    for (const row of await store.listVerificationsForSuppliers(baseCards.map((c) => c.id))) {
+      const group = byVerificationSupplier.get(row.supplier_id) ?? [];
+      if (!byVerificationSupplier.has(row.supplier_id)) byVerificationSupplier.set(row.supplier_id, group);
+      group.push(row);
+    }
+  }
   for (let i = 0; i < baseCards.length; i += 40) {
     await Promise.all(baseCards.slice(i, i + 40).map(async (c, offset) => {
-      try {
-        const [media, vers] = await Promise.all([
-          i + offset < 50 ? store.listMedia("supplier", c.id).catch(() => []) : Promise.resolve([] as MediaAsset[]),
-          store.listVerifications(c.id).catch(() => []),
-        ]);
-        c.gallery_images = media
-          .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
-          .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
-          .map((m) => m.storage_path!)
-          .slice(0, 6);
-        // Even demo listings must not imply a check from the legacy numeric maximum.
-        c.approved_verification_steps = approvedVerificationSteps(vers);
-        c.approved_l2_scope = approvedL2Scope(vers);
-        c.partner_review_summary = approvedPartnerReviewSummary(vers);
-        c.public_review_summaries = approvedPublicReviewSummaries(vers);
-      } catch { /* best effort */ }
+      const [media, vers] = await Promise.all([
+        i + offset < 50 ? store.listMedia("supplier", c.id) : Promise.resolve([] as MediaAsset[]),
+        batched ? Promise.resolve(byVerificationSupplier.get(c.id) ?? []) : store.listVerifications(c.id),
+      ]);
+      c.gallery_images = media
+        .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
+        .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+        .map((m) => m.storage_path!)
+        .slice(0, 6);
+      // Even demo listings must not imply a check from the legacy numeric maximum.
+      c.approved_verification_steps = approvedVerificationSteps(vers);
+      c.approved_l2_scope = approvedL2Scope(vers);
+      c.partner_review_summary = approvedPartnerReviewSummary(vers);
+      c.public_review_summaries = approvedPublicReviewSummaries(vers);
     }));
   }
 
@@ -176,21 +187,23 @@ export async function getSupplierStorefront(supplier: Supplier & Partial<PublicS
   const [products, categories, media, vers] = await Promise.all([
     store.listProductsBySupplier(supplier.id),
     store.listCategories({ publishedOnly: true }),
-    store.listMedia("supplier", supplier.id).catch(() => []),
-    store.listVerifications(supplier.id).catch(() => []),
+    store.listMedia("supplier", supplier.id),
+    store.listVerifications(supplier.id),
   ]);
   const eligible = products.filter((p) => buyerVisibleProduct(p, categories, !!supplier.is_demo));
-  const productMedia: MediaAsset[] = [];
-  if (!supplier.is_demo) {
-    for (let i = 0; i < eligible.length; i += 80) {
-      productMedia.push(...await store.listMediaForProducts(eligible.slice(i, i + 80).map((p) => p.id)));
-    }
+  const productMedia = supplier.is_demo ? [] : await store.listMediaForProducts(eligible.map((p) => p.id));
+  const mediaByProduct = new Map<string, MediaAsset[]>();
+  for (const asset of productMedia) {
+    if (!asset.product_id) continue;
+    const group = mediaByProduct.get(asset.product_id) ?? [];
+    if (!mediaByProduct.has(asset.product_id)) mediaByProduct.set(asset.product_id, group);
+    group.push(asset);
   }
-  const publicProducts = eligible.filter((p) => supplier.is_demo || productReadiness(productMedia.filter((m) => m.product_id === p.id)).ready);
+  const publicProducts = eligible.filter((p) => supplier.is_demo || productReadiness(mediaByProduct.get(p.id) ?? []).ready);
   const productImagePaths: Record<string, string> = {};
   const productCardImagePaths: Record<string, string> = {};
   for (const p of publicProducts) {
-    const image = productMedia.filter((m) => m.owner_type === "product" && m.product_id === p.id &&
+    const image = (mediaByProduct.get(p.id) ?? []).filter((m) => m.owner_type === "product" &&
       m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
       .sort((a, b) => Number(b.id === p.featured_media_id) - Number(a.id === p.featured_media_id) ||
         a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))[0];

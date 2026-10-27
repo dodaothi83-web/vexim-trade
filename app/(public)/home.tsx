@@ -10,7 +10,7 @@ import {
 
 import { getStore } from "@/lib/db";
 import { listPublishedNews } from "@/lib/blog/queries";
-import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
+import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { arrangeSupplierProducts, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
 import { HomeProductFeed } from "@/components/home-product-feed";
 import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
@@ -155,10 +155,13 @@ export default async function HomeContent({
   );
 
   const homeCategories = activeCategories.filter((c) => c.public_page_ready).slice(0, 8);
+  // One server-only catalogue per request; do not re-read the entire catalogue
+  // once for each homepage category. Ranking and per-supplier caps stay unchanged.
+  const snapshot = homeCategories.length ? await loadPublicProductCatalogSnapshot() : null;
   const productGroups = await Promise.all(
     homeCategories.map(async (category) => ({
       category,
-      products: await listPublicCategoryProducts(category),
+      products: await listPublicCategoryProducts(category, { snapshot: snapshot! }),
     })),
   );
   const seen = new Set<string>();

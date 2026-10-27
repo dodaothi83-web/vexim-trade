@@ -4,9 +4,8 @@
  * Hàm thuần, không đọc dữ liệu và không đọc đồng hồ bên trong, để kiểm được bằng
  * số. `scripts/check-sponsored-admin.mjs` gọi trực tiếp các hàm ở đây.
  *
- * Nguồn số liệu duy nhất cho trần bể là `docs/sponsored-listing-spec.md` mục 3:
- * danh mục 12 gói và 3 suất, trang chủ 8 gói và 2 suất. Đổi ở đặc tả thì đổi ở
- * đây, không đổi rải rác trong giao diện.
+ * Bể đang hỗ trợ: danh mục 12 gói và 3 suất. Các hằng số trang chủ chỉ giữ để
+ * đọc dữ liệu/thuật toán cũ; chưa có vị trí trang chủ được phép bán.
  */
 
 export type PushSurface = "category" | "home";
@@ -39,10 +38,11 @@ export const WINDOWS_PER_WEEK = (7 * 24 * 60) / 10;
 export type PushState = "pending" | "scheduled" | "live" | "paused" | "ended";
 
 export function pushState(push: PushLike, nowMs: number): PushState {
+  // Draft timestamps are placeholders; the real 168-hour window begins at approval.
+  if (push.status === "draft") return "pending";
   const start = Date.parse(push.starts_at);
   const end = Date.parse(push.ends_at);
   if (Number.isFinite(end) && nowMs >= end) return "ended";
-  if (push.status === "draft") return "pending";
   if (push.status === "paused") return "paused";
   if (Number.isFinite(start) && nowMs < start) return "scheduled";
   return "live";
@@ -98,7 +98,7 @@ export function poolUsage(pushes: readonly PushLike[], nowMs: number): PoolRow[]
   const groups = new Map<string, PoolRow>();
   for (const push of pushes) {
     if (push.status === "draft") continue;
-    if (nowMs >= Date.parse(push.ends_at)) continue;
+    if (nowMs < Date.parse(push.starts_at) || nowMs >= Date.parse(push.ends_at)) continue;
     const key = push.surface === "home" ? "home" : `category:${push.category_slug}`;
     let row = groups.get(key);
     if (!row) {
@@ -128,13 +128,11 @@ export function poolUsage(pushes: readonly PushLike[], nowMs: number): PoolRow[]
 }
 
 /**
- * Số lượt hiển thị một gói nhận được mỗi tuần khi bể có `used` gói.
- *
- * Mỗi cửa sổ mười phút lấy tối đa `slots` thẻ, và một gói không thể hiện hai lần
- * trong cùng một cửa sổ. Vì vậy bể ít gói thì mỗi gói nhận nhiều hơn, và khi bể
- * chỉ có một gói thì trần là số suất chứ không phải số cửa sổ nhân số suất.
+ * Ước tính số cửa sổ 10 phút có thể được chọn trong 168 giờ, giả sử các gói
+ * hợp lệ không đổi trong cả tuần. Đây KHÔNG phải số lượt xem hay cam kết tiếp cận.
+ * Nếu số cửa sổ không chia hết, các gói có thể lệch nhau vài cửa sổ.
  */
-export function weeklyImpressions(used: number, surface: PushSurface): number {
+export function weeklyRotationWindows(used: number, surface: PushSurface): number {
   const slots = POOL_SLOTS[surface];
   if (used <= 0) return 0;
   return Math.round((WINDOWS_PER_WEEK * Math.min(slots, used)) / used);
@@ -186,9 +184,13 @@ export function summarize(pushes: readonly PushLike[], totals: Map<string, Total
   let clicks = 0;
   for (const push of pushes) {
     const state = pushState(push, nowMs);
-    if (state === "live") live += 1;
-    if (state === "pending") pending += 1;
-    if (expiringSoon(push, nowMs)) expiring += 1;
+    // The homepage has no sponsored placement, so legacy home packages must
+    // never be presented as running or awaiting an available approval.
+    if (push.surface === "category") {
+      if (state === "live") live += 1;
+      if (state === "pending") pending += 1;
+      if (expiringSoon(push, nowMs)) expiring += 1;
+    }
     const t = totals.get(push.id);
     if (t && (state === "live" || state === "ended" || state === "paused" || state === "scheduled")) {
       impressions += t.impressions;
@@ -205,15 +207,15 @@ export function clickRate(clicks: number, impressions: number): number {
 }
 
 /**
- * Các gói đã duyệt chồng lấn khoảng thời gian với một gói mới, cùng bề mặt và
- * cùng danh mục. Đây đúng tập mà ràng buộc trong cơ sở dữ liệu đếm để chặn vượt
- * trần, nên kiểm ở đây cho khớp thay vì kiểm theo "đang chạy lúc này".
+ * Các gói đã duyệt hoặc đang tạm dừng, chồng lấn khoảng thời gian với gói mới.
+ * Gói tạm dừng vẫn giữ suất đã bán cho tới khi hết hạn; gói nháp không giữ suất.
+ * Kiểm cả khoảng 168 giờ mới, không chỉ số gói tại thời điểm bấm duyệt.
  */
 export function overlapping(pushes: readonly PushLike[], candidate: Pick<PushLike, "surface" | "category_slug" | "starts_at" | "ends_at">): PushLike[] {
   const from = Date.parse(candidate.starts_at);
   const to = Date.parse(candidate.ends_at);
   return pushes.filter((push) => {
-    if (push.status !== "approved") return false;
+    if (push.status !== "approved" && push.status !== "paused") return false;
     if (push.surface !== candidate.surface) return false;
     if (candidate.surface === "category" && push.category_slug !== candidate.category_slug) return false;
     return Date.parse(push.starts_at) < to && from < Date.parse(push.ends_at);

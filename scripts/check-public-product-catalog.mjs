@@ -23,6 +23,27 @@ assert.equal(productBelongsToCategory({ name: 'TEST ONLY — Jasmine Rice Sample
 assert.equal(isTestOnlyProduct('TEST ONLY — Jasmine Rice Sample'), true, 'Test records never appear on public listings');
 assert.equal(productBelongsToCategory({ name: 'Jasmine Rice', category: 'Nông sản' }, cashew, cats), false);
 assert.equal(productBelongsToCategory({ name: 'Cashew W180', category: null }, cashew, cats), true, 'Name is sufficient for read-time category inference');
+// The readiness optimization resolves one slug per product. Compare it against
+// the previous per-category rule, including legacy inference and reviewed scope.
+const oldBelongs = (p, c, known) => {
+  if (p.supplier_originated && !p.reviewed_category_slug) return false;
+  if (p.reviewed_category_slug) return p.reviewed_category_slug === c.slug && known.some((x) => x.slug === p.reviewed_category_slug);
+  const inferred = assignProductCategory({ name: p.name, category: p.category, spec: p.spec ?? null, description: p.description ?? null },
+    known.map((x) => ({ ...x, id: x.slug })));
+  return inferred?.slug === c.slug;
+};
+const combinations = [
+  { name: 'Cashew W320', category: 'rice' }, { name: 'Jasmine Rice', category: 'cashew' },
+  { name: 'Miscellaneous', category: null }, { name: 'Hạt điều', category: 'Điều' },
+  { name: 'Cashew', category: 'cashew', supplier_originated: true },
+  { name: 'Rice', category: 'rice', reviewed_category_slug: 'cashew', supplier_originated: true },
+  { name: 'Rice', category: 'rice', reviewed_category_slug: 'archived', supplier_originated: true },
+];
+for (const known of [cats, [...cats].reverse(), [cats[0]], []]) {
+  for (const p of combinations) for (const c of cats) {
+    assert.equal(productBelongsToCategory(p, c, known), oldBelongs(p, c, known), `same category decision for ${p.name}/${c.slug}`);
+  }
+}
 assert.equal(productGrade('Cashew LP', null, 'cashew'), 'LP');
 assert.equal(productGrade('Cashew splits', null, 'cashew'), 'WS');
 assert.equal(productGrade('Rice W320', null, 'rice'), null);
@@ -100,7 +121,8 @@ assert.match(page, /CategoryProductGrid/);
 assert.ok(!page.includes('SupplierCard'));
 assert.match(media, /asset\.audience !== "buyer"/);
 const supabase = readFileSync(new URL('../lib/db/supabase.ts', import.meta.url), 'utf8');
-assert.match(supabase, /public_page_ready: visible\.some\(\(p\) =>\s*productBelongsToCategory/);
+assert.match(supabase, /publicProductCategorySlug\(p, rows\)/);
+assert.match(supabase, /public_page_ready: readySlugs\.has\(c\.slug\)/);
 const crmEdit = readFileSync(new URL('../app/crm/products/[slug]/edit/page.tsx', import.meta.url), 'utf8');
 assert.match(crmEdit, /commercialSupplier = !isSyntheticSupplier\(supplier\)/, 'CRM checklist flags test profiles');
 assert.match(crmEdit, /commercialSupplier &&/, 'CRM cannot show a broken public link for synthetic suppliers');

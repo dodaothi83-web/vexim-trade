@@ -11,11 +11,9 @@
  * cảm giác thẻ nhảy khi mở lại trang, và cân bằng hiển thị kiểm chứng được.
  *
  * Cách chọn: xếp các gói theo một thứ tự gốc cố định, rồi mỗi cửa sổ xoay vòng
- * danh sách đó đi một bậc. Nhờ vậy số lượt hiển thị bằng nhau chính xác, không
- * phải xấp xỉ. Bản đầu dùng băm theo (cửa sổ, id gói); đo lại thì chênh lệch giữa
- * gói cao nhất và thấp nhất trong một tuần khoảng 20 phần trăm, vì đó là dao động
- * thống kê của phép chọn ngẫu nhiên chứ không phải lỗi. Xoay vòng bỏ hẳn dao động
- * đó và giải thích được với nhà cung cấp bằng một câu.
+ * danh sách đó đi một bậc. Nếu tập gói hợp lệ và số suất không đổi, số cửa sổ
+ * được chọn giữa các gói gần bằng nhau. Một cửa sổ được chọn không phải một lượt
+ * xem: còn phụ thuộc khách truy cập, bộ lọc và điều kiện hiển thị.
  */
 
 /** Độ dài một cửa sổ luân phiên, tính bằng phút. */
@@ -54,8 +52,8 @@ export function stableOrder<T extends { id: string }>(items: readonly T[]): T[] 
 /**
  * Xếp thứ tự trong một cửa sổ: xoay thứ tự gốc đi `window` bậc.
  *
- * Với bể 12 gói và 3 suất, mỗi gói đứng đầu đúng một lần trong mỗi 4 cửa sổ, nên
- * sau một tuần số lượt hiển thị bằng nhau tuyệt đối.
+ * Với 12 gói hợp lệ và 3 suất không đổi, mỗi gói được chọn 3 lần trong 12
+ * cửa sổ đầy đủ. Đó là số cửa sổ, không phải số lượt hiển thị thực tế.
  */
 export function rankForWindow<T extends { id: string }>(items: readonly T[], window: number): T[] {
   const base = stableOrder(items);
@@ -82,8 +80,9 @@ export function selectSponsored<T extends { id: string }>(
 /**
  * Gói còn hiệu lực hay không, xét theo đồng hồ máy chủ.
  *
- * Chỉ nhận gói đã duyệt và đang trong khoảng 168 giờ. Gói đã hết hạn hoặc bị tạm
- * dừng thì không bao giờ vào vùng đẩy, kể cả khi dữ liệu còn sót lại.
+ * Chỉ nhận gói đã duyệt và đang trong khoảng thời gian đã lưu. Gói mới được
+ * duyệt có thời hạn 168 giờ; thời hạn gói cũ có thể khác và không tự sửa. Gói đã
+ * hết hạn hoặc bị tạm dừng không vào vùng đẩy, kể cả khi dữ liệu còn sót lại.
  */
 export function pushIsLive(
   push: { status: string; starts_at: string; ends_at: string },
