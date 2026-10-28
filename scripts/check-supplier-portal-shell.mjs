@@ -40,9 +40,10 @@ const nav = sidebarSource.slice(sidebarSource.indexOf('const NAV:'), sidebarSour
 const hrefs = [...nav.matchAll(/href: "([^"]+)"/g)].map((m) => m[1]);
 assert.deepEqual(hrefs, [
   '/supplier/portal', '/supplier/portal/storefront', '/supplier/portal/products', '/supplier/portal/categories',
-  '/supplier/portal/boost', '/supplier/portal/traffic', '/supplier/portal/rfqs', '/supplier/portal/documents',
+  '/supplier/portal/traffic', '/supplier/portal/rfqs', '/supplier/portal/documents',
   '/supplier/portal/verification/factory', '/supplier/portal/verification/export', '/supplier/portal/profile',
 ], 'Menu xếp theo tính năng: gian hàng, công việc, xác minh (L2 và L3 tách riêng), tài khoản');
+assert.ok(!hrefs.includes('/supplier/portal/boost'), 'Gói đẩy sản phẩm chưa mở nên không hiện trong menu NCC');
 assert.doesNotMatch(sidebarSource, /href: "[^"]*#/, 'Menu không trỏ vào neo trong trang tổng quan');
 assert.doesNotMatch(sidebarSource, /href="\/crm/, 'Cổng NCC không hiện đường dẫn CRM');
 
@@ -90,7 +91,7 @@ function renderSidebar(pathname, props) {
 
 const base = { supplierName: 'Dong Nai Cashew', email: 'ncc@example.com', userName: 'Nguyễn Thị B', approved: true, publicUrl: null };
 const html = renderSidebar('/supplier/portal/rfqs', base);
-for (const label of ['Tổng quan', 'Trang của tôi', 'Sản phẩm', 'Danh mục kinh doanh', 'Đẩy sản phẩm', 'Lượt xem gian hàng', 'RFQ &amp; báo giá',
+for (const label of ['Tổng quan', 'Trang của tôi', 'Sản phẩm', 'Danh mục kinh doanh', 'Lượt xem gian hàng', 'RFQ &amp; báo giá',
   'Giấy tờ &amp; chứng nhận L1', 'Xác thực nhà máy L2', 'Lịch sử xuất khẩu L3', 'Hồ sơ doanh nghiệp'])
   assert.ok(html.includes(label), `Menu có mục ${label}`);
 assert.match(html, /<a href="\/supplier\/portal\/rfqs" aria-current="page"/, 'Mục đang mở được đánh dấu');

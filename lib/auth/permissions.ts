@@ -17,6 +17,7 @@ export type Permission =
   | "suppliers.publish"
   | "products.view"
   | "products.manage"
+  | "products.delete"
   | "media.view"
   | "media.manage"
   /** Xem giấy tờ xác minh / tài liệu nội bộ của NCC */
@@ -39,7 +40,7 @@ export type Permission =
   | "verifications.inspect"
   /** Xem đợt kiểm để xét duyệt mà không được sửa bằng chứng */
   | "verifications.view"
-  /** Duyệt kết quả xác minh (admin / thu mua / trưởng kiểm duyệt) */
+  /** Duyệt kết quả xác minh (admin / trưởng kiểm duyệt) */
   | "verifications.approve"
   /** Xem RFQ (chỉ đọc, không thao tác) */
   | "rfq.view"
@@ -50,8 +51,7 @@ export type Permission =
   /** Liên hệ và kết thúc yêu cầu; không cấp quyền duyệt hay sửa gói. */
   | "sponsored.requests.manage"
   /**
-   * Tạo, duyệt, tạm dừng gói đẩy. Admin và trưởng kiểm duyệt; ràng buộc dưới cơ sở
-   * dữ liệu chỉ nhận hai vai trò này (xem migration 20261029_sponsored_approver_role.sql).
+   * Quản lý gói tài trợ: chỉ admin; không cấp quyền tạo hoặc duyệt thủ công.
    */
   | "sponsored.manage";
 
@@ -79,13 +79,13 @@ export const ROLES: {
     value: "sourcing",
     label: "Thu mua",
     description:
-      "Nhà cung cấp, sản phẩm, hình ảnh và giấy tờ xác minh nội bộ. Kiểm và duyệt xác minh theo quy trình một nhân sự. Xem buyer ở mức cơ bản.",
+      "Vai trò tạm khóa; không thể đăng nhập hoặc cấp mới. Lịch sử cũ được giữ nguyên.",
     badge: "bg-emerald-600 text-white",
   },
   {
     value: "reviewer",
     label: "Trưởng kiểm duyệt",
-    description: "Xét duyệt độc lập các đợt kiểm/chứng nhận, quyết định công khai NCC và danh mục, duyệt gói đẩy sản phẩm; không quản lý tài khoản hay sửa bằng chứng.",
+    description: "Kiểm và duyệt hồ sơ, giấy tờ và sản phẩm NCC; quyết định công khai. Không quản lý tài khoản nhân sự.",
     badge: "bg-violet-700 text-white",
   },
   {
@@ -123,6 +123,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "suppliers.publish",
     "products.view",
     "products.manage",
+    "products.delete",
     "media.view",
     "media.manage",
     "media.internal",
@@ -160,38 +161,24 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "sponsored.requests.manage",
     "settings.view",
   ],
-  sourcing: [
-    "buyers.view",
+  sourcing: [],
+  reviewer: [
     "suppliers.view",
     "suppliers.manage",
+    "suppliers.publish",
     "products.view",
     "products.manage",
     "media.view",
     "media.manage",
     "media.internal",
-    "mail.view",
-    "mail.send",
-    "categories.manage",
-    "rfq.manage",
-    "verifications.view",
-    "verifications.inspect",
-    "verifications.approve",
-    "settings.view",
-  ],
-  reviewer: [
-    "suppliers.view",
-    "suppliers.publish",
-    "products.view",
-    "media.view",
-    "media.internal",
     "settings.view",
     "categories.view",
     "categories.publish",
     "verifications.view",
+    "verifications.inspect",
     "verifications.approve",
     "sponsored.view",
     "sponsored.requests.manage",
-    "sponsored.manage",
   ],
   viewer: VIEW_ONLY,
   supplier: [],

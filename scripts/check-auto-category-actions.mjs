@@ -28,6 +28,11 @@ const store = {
   createProduct: async (row) => { const created = { ...row, id: `p-${rows.size + 1}` }; rows.set(created.id, created); return created; },
   getProduct: async (id) => rows.get(id) ?? null,
   updateProduct: async (id, patch) => { rows.set(id, { ...rows.get(id), ...patch }); },
+  updateSupplierProductIfState: async (id, supplierId, expected, patch) => {
+    const current = rows.get(id);
+    if (!current || current.supplier_id !== supplierId || (current.supplier_review_status ?? null) !== expected.review || current.ready_for_buyer !== expected.ready) return null;
+    const updated = { ...current, ...patch }; rows.set(id, updated); return updated;
+  },
   deleteProduct: async (id) => { rows.delete(id); },
   listMedia: async () => [{ kind: 'image', audience: 'buyer', expires_on: null, status: 'checked' }],
 };

@@ -686,7 +686,7 @@ export const supabaseStore: DataStore = {
         const rows: SponsoredPushDaily[] = [];
         let cursor: SponsoredPushDaily | null = null;
         for (;;) {
-          let query = must().from("sponsored_push_daily").select("*").in("push_id", ids).gte("day", sinceDay)
+          let query = must().from("sponsored_push_consented_daily").select("*").in("push_id", ids).gte("day", sinceDay)
             .order("push_id", { ascending: true }).order("day", { ascending: true })
             .order("event_type", { ascending: true }).limit(READ_PAGE_SIZE);
           if (cursor) {

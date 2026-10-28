@@ -88,7 +88,7 @@ const FAQ_EN = [
   },
   {
     q: "How do I register for International Trade Website Design, Featured Placement, or US FDA Compliance?",
-    a: "Click the corresponding registration button on any of the four service cards above and complete the brief inquiry form. Our team in Hanoi will contact you with a tailored consultation within 1 business day.",
+    a: "Use the inquiry form on the relevant service card. For Featured Placement, our team will discuss your business banner advertising inquiry.",
   },
 ];
 
@@ -115,7 +115,7 @@ const FAQ_VI = [
   },
   {
     q: "Tôi muốn đăng ký gói Thiết kế website quốc tế, Quảng cáo nổi bật hoặc Tuân thủ pháp lý FDA thì làm thế nào?",
-    a: "Bạn chỉ cần bấm vào nút Đăng ký tương ứng ở từng thẻ dịch vụ phía trên và điền thông tin liên hệ vào biểu mẫu. Đội ngũ chuyên viên Vexim Trade tại Hà Nội sẽ liên hệ tư vấn chi tiết trong vòng 1 ngày làm việc.",
+    a: "Hãy điền biểu mẫu trên thẻ dịch vụ tương ứng. Với Quảng cáo nổi bật, đội ngũ Vexim sẽ liên hệ tư vấn về banner doanh nghiệp.",
   },
 ];
 

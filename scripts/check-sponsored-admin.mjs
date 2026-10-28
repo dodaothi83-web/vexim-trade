@@ -177,8 +177,8 @@ assert.deepEqual(snapshot(buildChartGeometry(week)), snapshot(buildChartGeometry
 
 /* ---------------- Ai được duyệt ---------------- */
 
-assert.ok(hasPermission("admin", "sponsored.manage"), "Admin duyệt được gói");
-assert.ok(hasPermission("reviewer", "sponsored.manage"), "Trưởng kiểm duyệt duyệt được gói");
+assert.ok(hasPermission("admin", "sponsored.manage"), "Admin quản lý gói");
+assert.ok(!hasPermission("reviewer", "sponsored.manage"), "Trưởng kiểm duyệt không được dừng gói");
 assert.ok(hasPermission("reviewer", "sponsored.view"), "Trưởng kiểm duyệt xem được danh sách gói");
 // Chỉ admin và trưởng kiểm duyệt được duyệt. Các vai trò nội bộ khác xem được
 // danh sách nhưng không có nút thao tác; vai trò ngoài Vexim không vào được trang.

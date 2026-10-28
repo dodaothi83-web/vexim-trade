@@ -4,7 +4,6 @@ import { PageHeader } from "@/components/page-header";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getStore } from "@/lib/db";
-import { eligiblePushProducts } from "@/lib/sponsored/eligibility";
 import {
   clickRate,
   dayKeyDaysAgo,
@@ -16,6 +15,8 @@ import {
 } from "@/lib/sponsored/admin";
 import type { SponsoredPush, SponsoredPushDaily } from "@/lib/types";
 import { sponsoredRequestStore } from "@/lib/sponsored/requests";
+import { readOfferSettings, type OfferSettings } from "@/lib/sponsored/offer-settings";
+import { OfferSettingsForm } from "./offer-settings-form";
 import { SponsoredRequestInbox } from "./request-inbox";
 import type { SponsoredRequest } from "@/lib/types";
 import { SponsoredBoard, type BoardRow, type PoolView, type SeriesPoint } from "./sponsored-board";
@@ -40,7 +41,9 @@ function priceLabel(push: SponsoredPush): string {
 const MESSAGES: Record<string, { text: string; bad: boolean }> = {
   created: { text: "Đã tạo gói. Gói chờ duyệt nên chưa hiện với buyer.", bad: false },
   approved: { text: "Đã duyệt. Gói bắt đầu tính 168 giờ và có thể được chọn trên trang danh mục.", bad: false },
-  paused: { text: "Đã tạm dừng. Gói rời vùng đẩy ở lượt dựng trang kế tiếp.", bad: false },
+  paused: { text: "Đã dừng gói do vi phạm và lưu lý do. Gói rời vùng đẩy ở lượt dựng trang kế tiếp.", bad: false },
+  "stop-invalid": { text: "Vui lòng nhập lý do vi phạm từ 5 đến 400 ký tự.", bad: true },
+  "stop-error": { text: "Chưa xác nhận được việc dừng gói. Hãy tải lại và kiểm tra; cần áp migration 20261048.", bad: true },
   resumed: { text: "Đã chạy lại gói; thời hạn cũ không thay đổi.", bad: false },
   deleted: { text: "Đã xoá gói nháp.", bad: false },
   unsupported: { text: "Trang chủ chưa có vị trí tài trợ; không thể tạo, duyệt hoặc chạy lại gói này. Hãy đối soát gói cũ với khách.", bad: true },
@@ -68,12 +71,17 @@ export default async function SponsoredPage({
 }) {
   const session = await requireSession();
   if (!hasPermission(session.role, "sponsored.view")) redirect("/crm/dashboard");
-  // Duyệt gói: admin và trưởng kiểm duyệt. Quyền lấy từ bảng phân quyền, không
-  // viết cứng tên vai trò ở đây để chỗ này không lệch với lib/auth/permissions.ts.
-  const canManage = hasPermission(session.role, "sponsored.manage");
+  // Chỉ admin được dừng gói do vi phạm; danh sách vẫn hiển thị theo quyền xem.
+  const canManage = session.role === "admin";
   const sp = await searchParams;
   const flash = MESSAGES[sp.ok ?? ""] ?? MESSAGES[sp.err ?? ""] ?? null;
   const requestFlash = (sp.ok ?? sp.err ?? "").startsWith("request-") ? flash : null;
+
+  let offerSettings: OfferSettings | null = null;
+  if (session.role === "admin") {
+    try { offerSettings = await readOfferSettings(); }
+    catch (error) { console.error("[sponsored-offer] could not load settings", error); }
+  }
 
   const requestStore = sponsoredRequestStore();
   let requests: SponsoredRequest[] = [];
@@ -112,19 +120,17 @@ export default async function SponsoredPage({
     }
   }
 
-  const [productResult, supplierResult, categoryResult, candidateResult] = await Promise.allSettled([
+  const [productResult, supplierResult, categoryResult] = await Promise.allSettled([
     store.listProducts(),
     store.listSuppliers(),
     store.listCategories({ publishedOnly: false }),
-    canManage ? eligiblePushProducts() : Promise.resolve([]),
   ]);
-  for (const result of [productResult, supplierResult, categoryResult, candidateResult]) {
+  for (const result of [productResult, supplierResult, categoryResult]) {
     if (result.status === "rejected") console.error("[sponsored] could not load package details", result.reason);
   }
   const productName = new Map((productResult.status === "fulfilled" ? productResult.value : []).map((p) => [p.id, p.name_i18n?.en || p.name]));
   const supplierName = new Map((supplierResult.status === "fulfilled" ? supplierResult.value : []).map((s) => [s.id, s.display_name || s.trade_name || s.name]));
   const categoryName = new Map((categoryResult.status === "fulfilled" ? categoryResult.value : []).map((c) => [c.slug, c.name_i18n?.en ?? c.slug]));
-  const candidates = candidateResult.status === "fulfilled" ? candidateResult.value : [];
 
   const totals = totalsByPush(daily);
   const rows: BoardRow[] = pushes.map((push) => {
@@ -138,8 +144,8 @@ export default async function SponsoredPage({
       status: push.status,
       state: push.surface === "home" && push.status !== "paused" && pushState(push, now) !== "ended"
         ? "unavailable" : pushState(push, now),
-      startsLabel: push.status === "draft" ? (push.surface === "home" ? "Chưa hỗ trợ" : "Khi duyệt") : stamp(push.starts_at),
-      endsLabel: push.status === "draft" ? (push.surface === "home" ? "—" : "Sau khi duyệt") : stamp(push.ends_at),
+      startsLabel: push.status === "draft" ? "Nháp cũ" : stamp(push.starts_at),
+      endsLabel: push.status === "draft" ? "Không còn duyệt thủ công" : stamp(push.ends_at),
       hoursLeft: hoursLeft(push, now),
       impressions: t.impressions,
       clicks: t.clicks,
@@ -186,7 +192,7 @@ export default async function SponsoredPage({
     <>
       <PageHeader
         title="Đẩy sản phẩm"
-        sub="Gói danh mục mới: một sản phẩm, 168 giờ kể từ khi duyệt."
+        sub="Theo dõi gói cũ; chức năng nhà cung cấp tự mua đang được chuẩn bị."
       />
 
       {loadError && (
@@ -195,6 +201,8 @@ export default async function SponsoredPage({
         </div>
       )}
 
+      {session.role === "admin" && (offerSettings ? <OfferSettingsForm settings={offerSettings} /> : <div role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Chưa tải được cấu hình gói. Kiểm tra kết nối và migration 20261047 trước khi chỉnh sửa.</div>)}
+
       {requestFlash && <div role={requestFlash.bad ? "alert" : "status"} className={`mb-4 rounded-xl px-4 py-3 text-sm ${requestFlash.bad ? "border border-amber-200 bg-amber-50 text-amber-900" : "border border-brand-200 bg-brand-50 text-brand-900"}`}>{requestFlash.text}</div>}
       <SponsoredRequestInbox requests={requests} available={requestsAvailable} canManage={hasPermission(session.role, "sponsored.requests.manage")} />
 
@@ -202,13 +210,11 @@ export default async function SponsoredPage({
         rows={rows}
         pools={pools}
         summary={summary}
-        candidates={candidates}
         canManage={canManage}
         flash={requestFlash ? null : flash}
         series={series}
         metricsAvailable={metricsAvailable}
         packagesAvailable={!loadError}
-        candidatesAvailable={candidateResult.status === "fulfilled"}
       />
     </>
   );

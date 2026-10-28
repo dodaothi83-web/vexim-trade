@@ -16,6 +16,7 @@ export async function decideSupplierPublicationAction(id: string, status: Suppli
     const store = getStore();
     const supplier = await store.getSupplier(id);
     if (!supplier) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
+    if (status === "published" && supplier.auto_publish_after_l1) return { ok: false, message: "Hồ sơ mới sẽ tự công khai khi duyệt L1 đủ điều kiện." };
     // Other workflow transitions remain with the preparer. Only public visibility is a reviewer decision.
     if ((status !== "published" && supplier.status !== "published") ||
         !nextStatusOptions(supplier.status).includes(status)) {

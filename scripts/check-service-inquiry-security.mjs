@@ -99,3 +99,11 @@ assert.equal(oversized.status, 413);
 assert.equal(audits, 1);
 assert.equal(sent.length, 2);
 console.log('✅ Service registration: honeypot, form challenge token, rate limit, body cap and existing mail flow passed.');
+
+const featured = form();
+featured.set('service_key', 'featured_ads');
+const featuredResult = await post(featured);
+assert.equal(featuredResult.status, 200, 'Banner advertising inquiry remains available');
+assert.equal(featuredResult.data.ok, true);
+assert.equal(audits, 2);
+assert.equal(sent.length, 4);

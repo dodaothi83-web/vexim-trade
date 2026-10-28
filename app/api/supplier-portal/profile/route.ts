@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       requested_category_slugs: proposals.requested_category_slugs, requested_category_other: proposals.requested_category_other,
       tax_id: patch.tax_id ?? null, payment_terms: patch.payment_terms ?? null,
       lead_time_days: patch.lead_time_days ?? null, rating: null, notes: null,
-      status: "draft", onboarding_status: "not_started", is_demo: false,
+      status: "draft", onboarding_status: "not_started", auto_publish_after_l1: true, is_demo: false,
       verification_level: 0, verified_at: null, fob_publicly_visible: false, fob_updated_at: null,
       summary_i18n: patch.summary_i18n ?? {}, intro_source: patch.intro_source ?? null,
       founded_year: patch.founded_year, employees: patch.employees,

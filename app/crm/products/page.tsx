@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { Boxes, CalendarClock, ChevronLeft, ChevronRight, Pencil, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { Boxes, ChevronLeft, ChevronRight, ClipboardCheck, Search, Sparkles } from "lucide-react";
 
 import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { listProductsWithSupplier, type ProductWithSupplier } from "@/lib/queries";
-import { roleLabel, statusMeta } from "@/lib/supplier";
 import { Badge, Breadcrumbs, Card, EmptyState, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { MediaThumb } from "@/components/media-gallery";
@@ -241,95 +240,51 @@ export default async function ProductsPage({
           <ul className="divide-y divide-ink-100">
             {visibleRows.map((r) => {
               const matched = tokens.length > 0 && score(r) > 0;
-              const st = statusMeta(r.supplier?.status ?? "new");
               const shareable = hasShareableMedia(r.id);
               return (
-                <li key={r.id} className={`px-4 py-3.5 ${matched ? "bg-brand-50/40" : ""}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-1 gap-3">
-                     <MediaThumb asset={thumbByProduct.get(r.id) ?? null} size="h-14 w-14" />
-                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {matched && (
-                          <Badge className="bg-brand-600 text-white">
-                            <Sparkles className="h-3 w-3" /> khớp nhu cầu
-                          </Badge>
-                        )}
-                        <Link href={`/crm/products/${r.id}`} className="text-[13.5px] font-semibold text-ink-900 hover:text-brand-700 hover:underline">{r.name}</Link>
-                        <Badge className="bg-brand-50 text-brand-700">{r.category || "Khác"}</Badge>
-                        {r.supplier_review_status === "pending" && <Badge className="bg-amber-100 text-amber-900">NCC tự đăng · chờ Vexim kiểm tra</Badge>}
-                        {r.supplier_review_status === "changes_requested" && <Badge className="bg-orange-50 text-orange-800">Cần NCC sửa</Badge>}
-                        {r.supplier_review_status === "paused" ? (
-                          <Badge className="bg-slate-200 text-slate-800">NCC đã tạm ẩn</Badge>
-                        ) : r.ready_for_buyer ? (
-                          <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
-                        ) : shareable ? (
-                          <Badge className="bg-ink-100 text-ink-600">Chưa bật sẵn sàng gửi buyer</Badge>
-                        ) : (
-                          <Badge className="bg-amber-50 text-amber-700">Thiếu ảnh/catalogue</Badge>
-                        )}
+                <li key={r.id} className={`px-4 py-4 ${matched ? "bg-brand-50/40" : ""}`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <MediaThumb asset={thumbByProduct.get(r.id) ?? null} size="h-14 w-14" />
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/crm/products/${r.id}`} className="break-words text-sm font-bold text-ink-900 hover:text-brand-700 hover:underline">{r.name}</Link>
+                        <p className="mt-1 break-words text-xs leading-5 text-ink-500">
+                          {r.supplier ? (
+                            <Link className="font-semibold text-ink-700 hover:text-brand-700 hover:underline" href={`/crm/suppliers/${r.supplier.id}`}>
+                              {r.supplier.name}
+                            </Link>
+                          ) : "Chưa có NCC"}
+                          <span aria-hidden="true"> · </span>{r.category || "Chưa phân loại"}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {matched && <Badge className="bg-brand-50 text-brand-700"><Sparkles className="h-3 w-3" /> Khớp nhu cầu</Badge>}
+                          {r.supplier_review_status === "pending" && <Badge className="bg-amber-100 text-amber-900">Chờ Vexim kiểm tra</Badge>}
+                          {r.supplier_review_status === "changes_requested" && <Badge className="bg-orange-50 text-orange-800">Cần NCC sửa</Badge>}
+                          {r.supplier_review_status === "paused" ? (
+                            <Badge className="bg-slate-200 text-slate-800">NCC đã tạm ẩn</Badge>
+                          ) : r.ready_for_buyer ? (
+                            <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
+                          ) : shareable ? (
+                            <Badge className="bg-ink-100 text-ink-600">Chưa sẵn sàng gửi buyer</Badge>
+                          ) : (
+                            <Badge className="bg-amber-50 text-amber-700">Thiếu ảnh/catalogue</Badge>
+                          )}
+                        </div>
                       </div>
-                      <p className="mt-0.5 line-clamp-1 text-[12px] text-ink-500">{r.spec || r.description || "—"}</p>
-                      <p className="mt-1 text-[12px] text-ink-600">
-                        NCC:{" "}
-                        {r.supplier ? (
-                          <Link className="font-semibold text-brand-700 hover:underline" href={`/crm/suppliers/${r.supplier.id}`}>
-                            {r.supplier.name}
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
-                        {r.supplier && (
-                          <span className="text-ink-400">
-                            {" "}· {roleLabel(r.supplier.role)} · <span className={st.badge}>{st.label}</span>
-                          </span>
-                        )}
-                      </p>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">
-                        {r.moq && <Badge className="bg-ink-50 text-ink-600">MOQ {r.moq}</Badge>}
-                        {r.monthly_capacity && <Badge className="bg-ink-50 text-ink-600">{r.monthly_capacity}</Badge>}
-                        {r.lead_time_days !== null && (
-                          <Badge className="bg-ink-50 text-ink-600">
-                            <CalendarClock className="h-3 w-3" /> {r.lead_time_days} ngày
-                          </Badge>
-                        )}
-                        {r.export_port && <Badge className="bg-ink-50 text-ink-600">cảng {r.export_port}</Badge>}
-                        {r.certifications && (
-                          <Badge className="bg-emerald-50 text-emerald-700">
-                            <ShieldCheck className="h-3 w-3" /> {r.certifications}
-                          </Badge>
-                        )}
-                        {r.oem && <Badge className="bg-violet-50 text-violet-700">OEM</Badge>}
-                        {r.samples && <Badge className="bg-sky-50 text-sky-700">gửi mẫu</Badge>}
-                      </div>
-                     </div>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-                      {r.ref_price !== null ? (
-                        <>
-                          <p className="text-[13px] font-bold text-ink-900">
-                            {formatMoney(r.ref_price)}{" "}
-                            <span className="font-normal text-ink-400">/ {r.unit || "đv"}</span>
-                          </p>
-                          <p className="text-[11px] text-ink-400">
-                            {r.incoterm ?? ""} {r.incoterm_place ?? ""}
-                            {r.price_valid_until ? ` · đến ${formatDate(r.price_valid_until)}` : ""}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-[12px] text-ink-400">chưa có giá tham khảo</p>
-                      )}
-                      <div className="mt-1 flex gap-1.5">
-                        <Link href={`/crm/products/${r.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[13px]">
-                          Xem
-                        </Link>
-                        {canManage && (
-                          <Link href={`/crm/products/${r.id}/edit`} className="btn btn-soft px-2.5 py-1.5 text-[13px]">
-                            <Pencil className="h-3.5 w-3.5" />
-                            Sửa
-                          </Link>
-                        )}
+                    <div className="flex items-center justify-between gap-3 border-t border-ink-100 pt-3 sm:shrink-0 sm:justify-end sm:border-t-0 sm:pt-0">
+                      <div className="min-w-0 sm:text-right">
+                        <p className="text-[11px] text-ink-500">Giá tham khảo</p>
+                        {r.ref_price !== null ? <>
+                          <p className="break-words text-[13px] font-bold text-ink-900">{formatMoney(r.ref_price)} <span className="font-normal text-ink-500">/ {r.unit || "đv"}</span></p>
+                          {r.price_valid_until && <p className="text-[11px] text-ink-500">Đến {formatDate(r.price_valid_until)}</p>}
+                        </> : <p className="text-xs text-ink-500">Chưa có giá</p>}
                       </div>
+                      {canManage && (
+                        <Link href={`/crm/products/${r.id}/edit`} aria-label={`Kiểm tra ${r.name}`} className="btn btn-soft shrink-0 px-3 py-2 text-[13px]">
+                          <ClipboardCheck className="h-4 w-4" aria-hidden="true" /> Kiểm tra
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </li>

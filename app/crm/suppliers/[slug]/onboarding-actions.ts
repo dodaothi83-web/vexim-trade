@@ -13,7 +13,7 @@ export async function decideSupplierOnboardingAction(form: FormData): Promise<Re
   const denied = await guard("suppliers.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "sourcing")) return { ok: false, message: "Chỉ quản trị và thu mua được xác nhận tài khoản NCC." };
+  if (!session || (session.role !== "admin" && session.role !== "reviewer")) return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được xác nhận tài khoản NCC." };
   const id = String(form.get("supplier_id") ?? "");
   const decision = String(form.get("decision") ?? "");
   const note = String(form.get("note") ?? "").trim().slice(0, 1000);

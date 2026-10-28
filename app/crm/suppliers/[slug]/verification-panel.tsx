@@ -27,6 +27,7 @@ export function VerificationPanel({
   onboardingStatus = "not_started",
   onboardingNote,
   supplierStatus,
+  autoPublishL1 = false,
   canManage,
   canDecideOnboarding,
   canPublish,
@@ -40,6 +41,7 @@ export function VerificationPanel({
   onboardingStatus?: Supplier["onboarding_status"];
   onboardingNote?: string | null;
   supplierStatus: SupplierStatus;
+  autoPublishL1?: boolean;
   canManage: boolean;
   canDecideOnboarding: boolean;
   canPublish: boolean;
@@ -54,7 +56,7 @@ export function VerificationPanel({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-2 text-lg font-bold text-ink-900"><ShieldCheck className="h-5 w-5 text-emerald-700" /> Trung tâm xét duyệt NCC</h2>
-            <p className="mt-1 text-sm leading-6 text-ink-500">Mở cổng, xác minh và công khai ở cùng một nơi. Mỗi quyết định vẫn độc lập.</p>
+            <p className="mt-1 text-sm leading-6 text-ink-500">{autoPublishL1 ? "Mở cổng rồi duyệt L1 để tự công khai hồ sơ mới; sản phẩm xét duyệt riêng." : "Mở cổng, xác minh và công khai ở cùng một nơi. Mỗi quyết định vẫn độc lập."}</p>
           </div>
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{approvedCount}/3 bước xác minh đã duyệt</span>
         </div>
@@ -73,7 +75,7 @@ export function VerificationPanel({
         )}
         {onboardingStatus === "pending" && canDecideOnboarding && <OnboardingControls supplierId={supplierId} />}
         {onboardingStatus === "pending" && !canDecideOnboarding && (
-          <p className="mt-3 text-xs leading-5 text-ink-500">Cần quản trị viên hoặc nhân sự thu mua xác nhận hồ sơ.</p>
+          <p className="mt-3 text-xs leading-5 text-ink-500">Cần quản trị viên hoặc trưởng kiểm duyệt xác nhận hồ sơ.</p>
         )}
       </section>
 
@@ -118,7 +120,7 @@ export function VerificationPanel({
           <span className={"rounded-full px-3 py-1 text-xs font-semibold " + currentStatus.badge}>{currentStatus.label}</span>
         </div>
         <div className="mt-3">
-          <SupplierWorkflowControls supplierId={supplierId} status={supplierStatus} canManage={canManage} canPublish={canPublish} />
+          <SupplierWorkflowControls supplierId={supplierId} status={supplierStatus} autoPublishL1={autoPublishL1} canManage={canManage} canPublish={canPublish} />
           {!canManage && !canPublish && <p className="text-xs leading-5 text-ink-500">Bạn chỉ có quyền xem trạng thái hồ sơ.</p>}
         </div>
       </section>

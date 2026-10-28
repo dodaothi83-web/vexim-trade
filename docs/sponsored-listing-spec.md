@@ -2,25 +2,29 @@
 
 Cập nhật ngày 28/10/2026. Đây là mô tả để vận hành gói tài trợ; không phải xác nhận rằng mã hoặc migration đã được triển khai lên production.
 
+## Chuyển đổi sang NCC tự mua (chưa mở bán)
+
+Migration `20261048_sponsored_retire_manual.sql` chặn tạo mới và duyệt/chạy lại thủ công khi đã áp dụng. Ứng dụng bỏ các thao tác đó; gói cũ tiếp tục tới hết hạn, nháp cũ được giữ lại nhưng không thể duyệt. Admin có thể dừng gói do vi phạm với lý do được lưu trong giao dịch. Không có đơn mua, giữ chỗ, xác nhận thanh toán hay hoàn tiền tự động. Quy trình mục bên dưới mô tả cơ chế cũ để đối soát; không dùng để vận hành việc tạo gói mới. Xem `docs/sponsored-purchase-plan.md`.
+
 ## Vị trí bán
 
-- Một gói dành cho **một sản phẩm đủ điều kiện công khai**, tại khu vực tài trợ ở đầu trang danh mục **khi người xem chưa bật bộ lọc**. Có tối đa ba thẻ, mang nhãn “Sponsored · Tài trợ”.
+- Một gói dành cho **một sản phẩm đủ điều kiện công khai**, tại khu vực tài trợ ở đầu trang danh mục **khi người xem chưa bật bộ lọc**. Số ô theo tổng sản phẩm công khai không phải demo trước lọc: 1 ô khi dưới 10, 2 ô khi 10–30 và 3 ô khi trên 30; danh mục rỗng không có ô. Các ngưỡng và số ô là cấu hình triển khai. Mỗi thẻ có nhãn “Sponsored · Tài trợ” và phần giải thích.
 - Chưa có vùng tài trợ trên **trang chủ** hoặc trong **kết quả tìm kiếm**; không bán, tạo, duyệt hay chạy lại gói trang chủ. Không có huy hiệu “gian hàng nổi bật” trả phí.
 - Quảng cáo không thay đổi kết quả xác minh, điểm hay thứ hạng tự nhiên. Khi thẻ tài trợ đang hiện, cùng sản phẩm không lặp trong lưới tự nhiên; khi có bộ lọc, vùng tài trợ ẩn và sản phẩm trở lại lưới theo điều kiện thông thường.
 - Gói còn hạn cũng không hiện nếu sản phẩm, nhà cung cấp hoặc danh mục không còn đủ điều kiện công khai. Do luân phiên, một gói không nằm trong mọi cửa sổ; người xem có thể không gặp thẻ.
 
 ## Thời hạn và giữ chỗ
 
-- Gói mới bắt đầu **khi được duyệt**, kéo dài đúng **168 giờ**. Nháp chưa giữ chỗ; thời gian được lưu trên nháp chỉ là mốc tạm do schema yêu cầu và sẽ được thay khi duyệt.
+- Gói mới bắt đầu **khi được kích hoạt** (trong quy trình thủ công hiện tại là lúc được duyệt), kéo dài đúng **168 giờ**. Nháp chưa giữ chỗ; thời gian được lưu trên nháp chỉ là mốc tạm do schema yêu cầu và sẽ được thay khi duyệt.
 - Trước khi duyệt, máy chủ kiểm lại sản phẩm, nhà cung cấp, danh mục và toàn bộ khoảng 168 giờ mới. Chỉ admin hoặc trưởng kiểm duyệt có quyền mới được thao tác. Sau khi áp migration `20261042_sponsored_placement_guards.sql`, cơ sở dữ liệu dùng đồng hồ của mình, kiểm vai trò và khoá theo sản phẩm/bể khi duyệt.
-- Bể danh mục có tối đa 12 gói đã duyệt hoặc tạm dừng có khoảng thời gian chồng lấn; một sản phẩm không có hai gói chồng lấn, kể cả gói đang tạm dừng. Việc tính chồng lấn thận trọng: các gói giao với khoảng mới đều được tính, dù chúng không nhất thiết giao với nhau cùng lúc.
+- **Lưu ý giai đoạn chuyển tiếp:** bể hiện vẫn dùng giới hạn cũ tối đa 12 gói, chưa áp dụng 4 gói/ô hoặc giữ chỗ. Không được giới thiệu tỷ lệ 25% hoặc mở bán tự động trước khi hoàn thiện kiểm soát bể và đối soát gói cũ. Bể danh mục có tối đa 12 gói đã duyệt hoặc tạm dừng có khoảng thời gian chồng lấn; một sản phẩm không có hai gói chồng lấn, kể cả gói đang tạm dừng. Việc tính chồng lấn thận trọng: các gói giao với khoảng mới đều được tính, dù chúng không nhất thiết giao với nhau cùng lúc.
 - Tạm dừng không hoàn trả thời gian và vẫn giữ chỗ đến hết hạn. Chạy lại không tự gia hạn; sản phẩm phải còn đủ điều kiện. Xoá chỉ dành cho nháp và có kiểm tra trạng thái ngay lúc xoá, để không xoá nhầm gói vừa duyệt.
 - Không có thanh toán, hoá đơn, hoàn tiền hay đối soát tự động. **Không tự sửa hoặc gia hạn gói đã bán.** Gói trang chủ cũ vẫn được giữ để đối soát, có thể tạm dừng nhưng không duyệt hay chạy lại. Cần kiểm tra thực tế và trao đổi với khách trước khi xử lý.
 - Quy định tối đa hai gói cùng lúc cho một nhà cung cấp từng được nêu trong bản nháp đặc tả nhưng chưa có chốt thực thi trong mã/CSDL; không được giới thiệu là đã bảo đảm.
 
 ## Luân phiên không phải lượt xem
 
-Một cửa sổ luân phiên dài 10 phút, cố định theo UTC. Gói hợp lệ được sắp theo thứ tự ổn định và xoay vòng qua tối đa ba suất. Nếu 12 gói đều đủ điều kiện và không đổi trong một tuần, mô phỏng 1.008 cửa sổ đầy đủ cho khoảng **252 cửa sổ được chọn/gói**. Cửa sổ đầu/cuối có thể không đủ 10 phút; số gói, sản phẩm đủ điều kiện hoặc trang đang lọc cũng có thể thay đổi.
+Một cửa sổ luân phiên dài 10 phút, cố định theo UTC. Gói hợp lệ được sắp theo thứ tự ổn định và xoay vòng qua số ô động của danh mục (tối đa ba theo cấu hình mặc định). Nếu 12 gói đều đủ điều kiện và không đổi trong một tuần, mô phỏng 1.008 cửa sổ đầy đủ cho khoảng **252 cửa sổ được chọn/gói**. Cửa sổ đầu/cuối có thể không đủ 10 phút; số gói, sản phẩm đủ điều kiện hoặc trang đang lọc cũng có thể thay đổi.
 
 Con số này **không phải 252 lượt xem, lượt truy cập hay số người**, không dự báo lượng khách và không bảo đảm hiệu quả. Số chỗ trống trên CRM là tại thời điểm xem; vẫn phải kiểm toàn bộ khoảng thời gian khi duyệt, kể cả các gói đã lên lịch hoặc đang tạm dừng.
 
@@ -64,3 +68,7 @@ Kiểm thử cục bộ: `npm run check:sponsored-requests` (gồm PGlite và mo
 Kiểm thử cục bộ gồm `scripts/check-sponsored-phase01-migration.mjs` (PGlite), `scripts/check-sponsored-phase01-actions.mjs`, `scripts/check-sponsored-store-cas.mjs` và `scripts/check-sponsored-viewability.mjs` (giả lập observer/đồng hồ). Chúng không thay thế kiểm thử trên Supabase thật.
 
 Các thành phần chính: `lib/sponsored/rotation.ts`, `lib/public/sponsored-band.ts`, `components/sponsored-product-band.tsx`, `app/crm/sponsored`, và `app/api/public/sponsored-push`.
+
+## Đo lường theo đồng ý (migration 20261046)
+
+Từ phiên bản này, cả trình duyệt lẫn API kiểm tra lựa chọn **đo lường tiếp thị** trong cookie còn hiệu lực trước khi ghi. Báo cáo dùng bảng `sponsored_push_consented_daily` mới, không gộp dữ liệu lịch sử `sponsored_push_daily` vì không thể xác minh điều kiện đồng ý của các lượt cũ. Dữ liệu cũ vẫn được giữ, nhưng không hiện trong báo cáo mới; số liệu mới bắt đầu từ khi triển khai, có thể thiếu, không phải số người xem. Áp migration trên staging trước khi triển khai mã và xác minh số liệu thực tế.

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 
 import { PublicProductCard } from "@/components/public-product-card";
 import { useCookieConsent } from "@/components/cookie-consent";
+import { cookieConsentFromDocument } from "@/lib/cookie-consent";
 import type { SponsoredBandItem } from "@/lib/public/sponsored-band";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
@@ -58,7 +59,7 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
   const { push, product } = item;
 
   const send = (event: "impression" | "click") => {
-    if (!marketingAllowed) return;
+    if (!marketingAllowed || cookieConsentFromDocument(document.cookie)?.marketing !== true) return;
     try {
       const key = `vexim:push:${push.id}:${event}`;
       const last = Number(sessionStorage.getItem(key) || 0);
@@ -114,6 +115,7 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
     }}>
       <PublicProductCard
         href={href}
+        sponsored
         imagePath={product.cardImagePath ?? product.imagePaths[0]}
         name={product.name}
         moq={product.moq}
