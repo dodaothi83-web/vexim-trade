@@ -776,6 +776,11 @@ export default async function HomeContent({
 
             <FooterCol title={isVi ? "Khách mua hàng" : "For Buyers"}>
               <li>
+                <Link href={isVi ? "/how-it-works?lang=vi" : "/how-it-works"} className="hover:text-brand-700">
+                  {isVi ? "Cách hoạt động" : "How it works"}
+                </Link>
+              </li>
+              <li>
                 <Link href="/rfq" className="hover:text-brand-700">
                   {isVi ? "Gửi yêu cầu báo giá (Request a quote)" : "Request a quote"}
                 </Link>

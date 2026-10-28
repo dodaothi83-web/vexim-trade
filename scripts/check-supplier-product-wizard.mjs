@@ -126,14 +126,30 @@ assert.doesNotMatch(source, /<details/, 'Không còn khối gập <details> tron
 assert.match(step1, /Thông tin thương mại &amp; xuất khẩu/, 'Tiêu đề khối thương mại & xuất khẩu hiện ngay');
 assert.match(step1, /<select[^>]*name="currency"/, 'Currency is a fixed select');
 assert.match(step1, /<select[^>]*name="unit"/, 'Price unit is a fixed select');
-for (const { value } of [...priceOptions.SUPPLIER_PRICE_CURRENCIES, ...priceOptions.SUPPLIER_PRICE_UNITS])
-  assert.ok(step1.includes(`value="${value}"`), `Offers ${value}`);
+for (const { value, label } of [...priceOptions.SUPPLIER_PRICE_CURRENCIES, ...priceOptions.SUPPLIER_PRICE_UNITS]) {
+  assert.equal(label, value, `English-only code label for ${value}`);
+  assert.match(step1, new RegExp(`value="${value}"[^>]*>${value}<\\/option>`), `Offers English-only option ${value}`);
+}
+const selectInnerHtml = (html, fieldName) => {
+  const match = html.match(new RegExp(`<select[^>]*name="${fieldName}"[^>]*>([\\s\\S]*?)<\\/select>`));
+  assert.ok(match, `Select ${fieldName} exists`);
+  return match[1];
+};
+for (const fieldName of ['currency', 'unit']) {
+  const optionsHtml = selectInnerHtml(step1, fieldName);
+  assert.doesNotMatch(optionsHtml, /[À-ỹ]|Đô la|Đồng|Giá trị cũ|cần rà soát/, `${fieldName} options contain only English text`);
+}
 const fresh = render({ product: undefined, media: [] });
 assert.match(fresh, /value="USD" selected=""/, 'A new product defaults to USD');
-assert.match(fresh, /value="" selected=""[^>]*>Chọn đơn vị giá/, 'A new product does not guess its price unit');
+assert.match(fresh, /value="" selected=""[^>]*>Unit<\/option>/, 'A new product does not guess its price unit');
+const caseVariant = render({ product: { ...product, currency: 'usd', unit: 'Carton' } });
+assert.match(caseVariant, /value="USD" selected=""[^>]*>USD<\/option>/, 'Case-variant currency normalizes to USD');
+assert.match(caseVariant, /value="carton" selected=""[^>]*>carton<\/option>/, 'Case-variant Carton normalizes to carton without legacy warning');
+assert.doesNotMatch(caseVariant, /Giá trị cũ|cần rà soát/, 'No legacy review option is rendered for Carton');
 const old = render({ product: { ...product, currency: 'USD/kg', unit: 'thùng 10kg' } });
-assert.match(old, /value="USD\/kg" selected=""[^>]*>Giá trị cũ:/, 'Legacy currency remains selected');
-assert.match(old, /value="thùng 10kg" selected=""[^>]*>Giá trị cũ:/, 'Legacy unit remains selected');
+assert.doesNotMatch(old, /Giá trị cũ|cần rà soát/, 'Legacy values are omitted from currency and unit dropdowns');
+assert.match(selectInnerHtml(old, 'currency'), /value="" selected=""[^>]*>Currency<\/option>/, 'Unsupported legacy currency resets to empty placeholder');
+assert.match(selectInnerHtml(old, 'unit'), /value="" selected=""[^>]*>Unit<\/option>/, 'Unsupported legacy unit resets to empty placeholder');
 
 for (const field of ['ref_price', 'ref_price_max', 'currency', 'unit', 'price_valid_until', 'lead_time_days',
   'payment_terms', 'export_port', 'incoterm', 'incoterm_place']) {
@@ -381,5 +397,15 @@ assert.match(legacyPaused, /Gửi duyệt/, 'Sản phẩm staff tạo cũ vẫn 
 assert.doesNotMatch(legacyPaused, /aria-label="Xóa ảnh đại diện"/, 'Tệp staff quản lý vẫn bị khóa');
 assert.match(source, /data\?\.message \|\| `Xóa tệp thất bại \(HTTP/, 'Lỗi xóa hiển thị lý do API hoặc HTTP nếu không có JSON');
 assert.match(source, /data\?\.message \|\| `Đặt ảnh đại diện thất bại \(HTTP/, 'Lỗi đổi ảnh hiển thị lý do API');
+
+// 14. Thẻ ảnh phụ ở bước 2: nhãn "Chia sẻ buyer" nằm bên trái, cụm nút Sao + X nằm bên phải (không dùng left-11 đè lên chữ).
+const multiBuyerMedia = [
+  { ...media[0], id: 'm1', audience: 'buyer', caption: 'cover.png' },
+  { ...media[0], id: 'm2', audience: 'buyer', storage_path: 'products/p1/b.png', caption: '6 (5).png' },
+];
+const step2MultiHtml = render({ product: ownApproved, media: multiBuyerMedia, initialStep: 2 });
+assert.doesNotMatch(source, /\bleft-11\b/, 'Không dùng vị trí cứng left-11 khiến nút X đè lên nhãn Chia sẻ buyer');
+assert.match(step2MultiHtml, /inset-x-2 top-2 flex items-start justify-between gap-2/, 'Thanh trên thẻ ảnh tách nhãn bên trái và nút thao tác bên phải');
+assert.match(step2MultiHtml, /Chia sẻ buyer<\/span><div class="pointer-events-auto flex shrink-0 items-center gap-1\.5">/, 'Nút đặt ảnh đại diện và nút xóa gom về cụm bên phải sau nhãn');
 
 console.log('✅ Product page: wizard, cover deletion, draft deletion and pause/review controls.');

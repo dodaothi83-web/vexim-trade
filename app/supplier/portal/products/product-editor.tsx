@@ -24,7 +24,12 @@ import {
 } from "lucide-react";
 import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
 import { productPriceBlockers, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
-import { SUPPLIER_PRICE_CURRENCIES, SUPPLIER_PRICE_UNITS, isSupplierPriceCurrency, isSupplierPriceUnit } from "@/lib/supplier-portal/product-price-options";
+import {
+  SUPPLIER_PRICE_CURRENCIES,
+  SUPPLIER_PRICE_UNITS,
+  normalizeSupplierPriceCurrency,
+  normalizeSupplierPriceUnit,
+} from "@/lib/supplier-portal/product-price-options";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
 import { deleteSupplierDraftProductAction, pauseSupplierProductAction, saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
@@ -115,7 +120,8 @@ function snapshotFrom(product?: SupplierProduct): Record<string, string> {
     const value = product ? (product as unknown as Record<string, unknown>)[key] : "";
     seed[key] = value == null ? "" : String(value);
   }
-  if (!product) seed.currency = "USD";
+  seed.currency = product ? normalizeSupplierPriceCurrency(product.currency) : "USD";
+  seed.unit = normalizeSupplierPriceUnit(product?.unit);
   seed.oem = product?.oem ? "yes" : "";
   seed.odm = product?.odm ? "yes" : "";
   seed.samples = product?.samples ? "yes" : "";
@@ -574,8 +580,10 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const cover = media.find((m) => m.id === product?.featured_media_id && m.kind === "image" && privateMediaUrl(m)) ??
     media.find((m) => m.kind === "image" && privateMediaUrl(m));
   const coverUrl = cover ? privateMediaUrl(cover) : null;
+  const savedCurrency = product ? (normalizeSupplierPriceCurrency(product.currency) || product.currency || "USD") : "USD";
+  const savedUnit = product?.unit ? (normalizeSupplierPriceUnit(product.unit) || product.unit) : "";
   const commercial = [
-    { label: "Giá tham khảo", value: product?.ref_price != null ? `${product.ref_price}${product.ref_price_max != null ? `-${product.ref_price_max}` : ""} ${product.currency || "USD"}${product.unit ? ` / ${product.unit}` : ""}` : "-" },
+    { label: "Giá tham khảo", value: product?.ref_price != null ? `${product.ref_price}${product.ref_price_max != null ? `-${product.ref_price_max}` : ""} ${savedCurrency}${savedUnit ? ` / ${savedUnit}` : ""}` : "-" },
     { label: "MOQ", value: product?.moq || "-" },
     { label: "Năng lực / tháng", value: product?.monthly_capacity || "-" },
     { label: "Thời gian giao", value: product?.lead_time_days != null ? `${product.lead_time_days} ngày` : "-" },
@@ -702,14 +710,12 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 </Field>
                 <Field label="Đơn vị tiền / đơn vị giá" hint="Chọn cả hai khi nhập giá. Quy cách mỗi thùng, bao hoặc túi cần ghi ở mục bao bì.">
                   <div className="flex gap-2">
-                    <select name="currency" className="input min-w-0 flex-1" defaultValue={product ? product.currency ?? "" : "USD"} disabled={locked} aria-label="Đơn vị tiền">
-                      <option value="">Chọn tiền tệ</option>
-                      {product?.currency && !isSupplierPriceCurrency(product.currency) && <option value={product.currency}>Giá trị cũ: {product.currency} (cần rà soát)</option>}
+                    <select name="currency" className="input min-w-0 flex-1" defaultValue={product ? normalizeSupplierPriceCurrency(product.currency) : "USD"} disabled={locked} aria-label="Đơn vị tiền">
+                      <option value="">Currency</option>
                       {SUPPLIER_PRICE_CURRENCIES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
-                    <select name="unit" className="input min-w-0 flex-1" defaultValue={product?.unit ?? ""} disabled={locked} aria-label="Đơn vị giá">
-                      <option value="">Chọn đơn vị giá</option>
-                      {product?.unit && !isSupplierPriceUnit(product.unit) && <option value={product.unit}>Giá trị cũ: {product.unit} (cần rà soát)</option>}
+                    <select name="unit" className="input min-w-0 flex-1" defaultValue={normalizeSupplierPriceUnit(product?.unit)} disabled={locked} aria-label="Đơn vị giá">
+                      <option value="">Unit</option>
                       {SUPPLIER_PRICE_UNITS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </div>
@@ -826,19 +832,25 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                       {asset.kind === "image" && url
                         ? <img src={url} alt={`Ảnh ${asset.caption || product?.name || "sản phẩm"}`} loading="lazy" className="size-full object-cover" />
                         : <span className="flex size-full items-center justify-center text-brand-700"><FileText className="size-8" aria-hidden="true" /></span>}
-                      <span className={`absolute top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${asset.audience === "buyer" ? "bg-emerald-100 text-emerald-800" : "bg-white/95 text-ink-700"}`}>
-                        {asset.audience === "buyer" ? "Chia sẻ buyer" : "Nội bộ"}
-                      </span>
-                      {canUpload && asset.kind === "image" &&
-                        <button type="button" disabled={busy} onClick={() => void makeCover(asset.id)} aria-label={`Đặt ${asset.caption || "ảnh này"} làm ảnh đại diện`} title="Đặt làm ảnh đại diện"
-                          className="absolute top-2 right-2 rounded-full bg-white/95 p-1.5 text-brand-700 shadow-sm hover:bg-brand-50">
-                          <Star className="size-3.5" aria-hidden="true" />
-                        </button>}
-                      {canDeleteAsset(asset) &&
-                        <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)} aria-label={`Xóa ${asset.caption || "tệp nháp"}`}
-                          className="absolute top-2 left-11 rounded-full bg-white/95 p-1.5 text-rose-700 shadow-sm hover:bg-rose-50">
-                          <X className="size-3.5" aria-hidden="true" />
-                        </button>}
+                      <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2">
+                        <span className={`truncate rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${asset.audience === "buyer" ? "bg-emerald-100 text-emerald-800" : "bg-white/95 text-ink-700"}`}>
+                          {asset.audience === "buyer" ? "Chia sẻ buyer" : "Nội bộ"}
+                        </span>
+                        {(canUpload && asset.kind === "image" || canDeleteAsset(asset)) && (
+                          <div className="pointer-events-auto flex shrink-0 items-center gap-1.5">
+                            {canUpload && asset.kind === "image" &&
+                              <button type="button" disabled={busy} onClick={() => void makeCover(asset.id)} aria-label={`Đặt ${asset.caption || "ảnh này"} làm ảnh đại diện`} title="Đặt làm ảnh đại diện"
+                                className="rounded-full bg-white/95 p-1.5 text-brand-700 shadow-sm hover:bg-brand-50 disabled:opacity-50">
+                                <Star className="size-3.5" aria-hidden="true" />
+                              </button>}
+                            {canDeleteAsset(asset) &&
+                              <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)} aria-label={`Xóa ${asset.caption || "tệp"}`} title="Xóa tệp"
+                                className="rounded-full bg-white/95 p-1.5 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
+                                <X className="size-3.5" aria-hidden="true" />
+                              </button>}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="px-3 py-2">
                       <p className="truncate text-[12.5px] font-semibold text-ink-900">{asset.caption || (asset.kind === "image" ? "Ảnh sản phẩm" : "Catalogue")}</p>

@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
-import { isSupplierPriceCurrency, isSupplierPriceUnit } from "@/lib/supplier-portal/product-price-options";
+import {
+  isSupplierPriceCurrency,
+  isSupplierPriceUnit,
+  normalizeSupplierPriceCurrency,
+  normalizeSupplierPriceUnit,
+} from "@/lib/supplier-portal/product-price-options";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import {
@@ -49,14 +54,18 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
   }
   // Preserve unsupported historical values verbatim when the price is unchanged;
   // never accept a new free-text unit/currency, even when a draft has no price.
-  const unit = String(form.get("unit") ?? "");
-  const currency = String(form.get("currency") ?? "");
+  const rawUnit = String(form.get("unit") ?? "");
+  const rawCurrency = String(form.get("currency") ?? "");
+  const unit = normalizeSupplierPriceUnit(rawUnit) || rawUnit;
+  const currency = normalizeSupplierPriceCurrency(rawCurrency) || rawCurrency;
+  const existingUnit = existing?.unit ? (normalizeSupplierPriceUnit(existing.unit) || existing.unit) : "";
+  const existingCurrency = existing?.currency ? (normalizeSupplierPriceCurrency(existing.currency) || existing.currency) : "";
   const samePrice = !!existing && (priceRaw ? Number(priceRaw) : null) === (existing.ref_price ?? null) &&
     (priceMaxRaw ? Number(priceMaxRaw) : null) === (existing.ref_price_max ?? null);
-  if (unit && !isSupplierPriceUnit(unit) && unit !== existing?.unit) throw new Error("Chọn đơn vị giá trong danh sách.");
-  if (currency && !isSupplierPriceCurrency(currency) && currency !== existing?.currency) throw new Error("Chọn đơn vị tiền trong danh sách.");
+  if (unit && !isSupplierPriceUnit(unit) && unit !== existingUnit) throw new Error("Chọn đơn vị giá trong danh sách.");
+  if (currency && !isSupplierPriceCurrency(currency) && currency !== existingCurrency) throw new Error("Chọn đơn vị tiền trong danh sách.");
   if (priceRaw && (!isSupplierPriceUnit(unit) || !isSupplierPriceCurrency(currency))) {
-    const unchangedLegacy = samePrice && unit === (existing?.unit ?? "") && currency === (existing?.currency ?? "");
+    const unchangedLegacy = samePrice && unit === existingUnit && currency === existingCurrency;
     if (!unchangedLegacy) throw new Error("Khi nhập hoặc đổi giá, hãy chọn đơn vị tiền và đơn vị giá trong danh sách.");
   }
   const validUntil = text(form, "price_valid_until", 10);

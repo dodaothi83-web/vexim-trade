@@ -177,8 +177,13 @@ assert.equal((await actions.saveSupplierProductAction(legacyPriceChange)).ok, fa
 const normalized = form(); normalized.set('product_id', productId); normalized.set('unit', 'MT'); normalized.set('currency', 'EUR');
 assert.equal((await actions.saveSupplierProductAction(normalized)).ok, true);
 assert.equal(product.unit, 'MT'); assert.equal(product.currency, 'EUR');
+// Case-variant codes such as "Carton", "mt" or "usd" normalize cleanly to canonical trade codes.
+product = { ...product, unit: 'Carton', currency: 'usd' };
+const caseVariantSave = form(); caseVariantSave.set('product_id', productId); caseVariantSave.set('unit', 'Carton'); caseVariantSave.set('currency', 'usd'); caseVariantSave.set('ref_price', '6200');
+assert.equal((await actions.saveSupplierProductAction(caseVariantSave)).ok, true);
+assert.equal(product.unit, 'carton'); assert.equal(product.currency, 'USD');
 // Missing historical unit and currency are not silently filled when editing other fields.
-product = { ...product, unit: null, currency: null };
+product = { ...product, ref_price: 5000, unit: null, currency: null };
 const missingLegacy = form(); missingLegacy.set('product_id', productId); missingLegacy.set('unit', ''); missingLegacy.set('currency', '');
 assert.equal((await actions.saveSupplierProductAction(missingLegacy)).ok, true);
 assert.equal(product.unit, null); assert.equal(product.currency, null);
