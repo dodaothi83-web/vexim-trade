@@ -35,14 +35,22 @@ import { ProductDescriptionPreview } from "@/components/products/product-descrip
 import { GradePricingTable } from "@/components/products/grade-pricing-table";
 import {
   CUSTOM_GRADE_OPTION,
+  LEAD_TIME_UNIT_OPTIONS,
   categoryMarketPriceUnit,
   formatGradeRowPriceVi,
+  formatLeadTimeVi,
+  formatProductMoqVi,
+  formatStructuredMoqVi,
   hydrateGradeRowsDraft,
   isGradeFieldKey,
+  isMoqUnit,
   nonGradeProductFields,
+  parseLegacyMoqString,
+  readProductLeadTime,
   reconcileGradeRowsForCategory,
   serializeGradeRowsDraft,
   validateGradeRowsDraft,
+  type LeadTimeUnit,
   type ProductGradeRowDraft,
 } from "@/lib/products/grade-pricing";
 import { effectiveFieldsFor, fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
@@ -82,7 +90,7 @@ const EXPORT_FIELDS = [
 /** Nhóm trường hiển thị ở bước 3 để NCC đọc lại đúng những gì đã nhập ở bước 1. */
 const REVIEW_COMMERCIAL = [
   ["price_valid_until", "Giá có hiệu lực tới"],
-  ["lead_time_days", "Thời gian giao hàng (ngày)"],
+  ["lead_time_days", "Thời gian giao hàng"],
   ["payment_terms", "Điều kiện thanh toán"],
   ["export_port", "Cảng xuất"],
   ["incoterm_place", "Địa điểm Incoterm"],
@@ -100,6 +108,7 @@ function priceOptInDefault(product?: SupplierProduct): boolean {
 
 /** Giá trị khởi tạo của bản xem lại: lấy từ bản đã lưu, rồi cập nhật theo từng lần nhập. */
 function snapshotFrom(product?: SupplierProduct, gradeRowsJson = ""): Record<string, string> {
+  const lt = product ? readProductLeadTime(product) : { value: null, unit: "days" as LeadTimeUnit, daysEquivalent: null };
   const seed: Record<string, string> = {
     name: product?.name ?? "",
     description: product?.description ?? "",
@@ -108,11 +117,14 @@ function snapshotFrom(product?: SupplierProduct, gradeRowsJson = ""): Record<str
     raw_material_region: product?.raw_material_region ?? "",
     input_material_origin: product?.input_material_origin ?? "",
     grade_rows_json: gradeRowsJson,
+    lead_time_value: lt.value != null ? String(lt.value) : "",
+    lead_time_unit: lt.unit,
   };
   for (const [key] of [...REVIEW_COMMERCIAL, ...REVIEW_ORDER]) {
     const value = product ? (product as unknown as Record<string, unknown>)[key] : "";
     seed[key] = value == null ? "" : String(value);
   }
+  seed.lead_time_days = lt.daysEquivalent != null ? String(lt.daysEquivalent) : "";
   seed.oem = product?.oem ? "yes" : "";
   seed.odm = product?.odm ? "yes" : "";
   seed.samples = product?.samples ? "yes" : "";
@@ -200,6 +212,9 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const [selectedCategory, setSelectedCategory] = useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "");
   const initialCategoryObj = categories.find((c) => c.slug === initialCategorySlug) ?? (initialCategorySlug ? { slug: initialCategorySlug } : null);
   const [gradeRows, setGradeRows] = useState<ProductGradeRowDraft[]>(() => hydrateGradeRowsDraft(product, initialCategoryObj));
+  const initialLeadTime = product ? readProductLeadTime(product) : { value: null, unit: "days" as LeadTimeUnit, daysEquivalent: null };
+  const [leadTimeValue, setLeadTimeValue] = useState<string>(() => (initialLeadTime.value != null ? String(initialLeadTime.value) : ""));
+  const [leadTimeUnit, setLeadTimeUnit] = useState<LeadTimeUnit>(() => initialLeadTime.unit);
   const [showGradeErrors, setShowGradeErrors] = useState(false);
   // Thông báo nổi sau mỗi hành động (lưu, gửi duyệt, tải/xóa tệp) thay cho các dòng chữ tĩnh khó để ý.
   const [toast, setToast] = useState<{ ok: boolean; message: string; warning?: boolean } | null>(null);
@@ -328,6 +343,35 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     const json = serializeGradeRowsDraft(next);
     setSnapshot((previous) => ({ ...previous, grade_rows_json: json }));
   }, []);
+
+  const computedLeadTimeDays = (() => {
+    if (leadTimeUnit === "on_request") return "";
+    const trimmed = leadTimeValue.trim();
+    if (!/^\d+$/.test(trimmed)) return "";
+    const num = Number(trimmed);
+    if (!Number.isFinite(num) || num <= 0) return "";
+    return String(leadTimeUnit === "weeks" ? num * 7 : num);
+  })();
+
+  function updateLeadTime(nextValue: string, nextUnit: LeadTimeUnit) {
+    const cleanValue = nextUnit === "on_request" ? "" : nextValue;
+    const days = (() => {
+      if (nextUnit === "on_request") return "";
+      const trimmed = cleanValue.trim();
+      if (!/^\d+$/.test(trimmed)) return "";
+      const num = Number(trimmed);
+      if (!Number.isFinite(num) || num <= 0) return "";
+      return String(nextUnit === "weeks" ? num * 7 : num);
+    })();
+    setLeadTimeValue(cleanValue);
+    setLeadTimeUnit(nextUnit);
+    setSnapshot((previous) => ({
+      ...previous,
+      lead_time_value: cleanValue,
+      lead_time_unit: nextUnit,
+      lead_time_days: days,
+    }));
+  }
 
   function onCategorySelect(nextSlug: string) {
     setSelectedCategory(nextSlug);
@@ -635,9 +679,9 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       : "-";
   const commercial = [
     { label: "Giá tham khảo", value: savedPriceValue },
-    { label: "MOQ", value: product?.moq || "-" },
+    { label: "MOQ", value: product ? formatProductMoqVi(product) : "-" },
     { label: "Năng lực / tháng", value: product?.monthly_capacity || "-" },
-    { label: "Thời gian giao", value: product?.lead_time_days != null ? `${product.lead_time_days} ngày` : "-" },
+    { label: "Thời gian giao", value: product ? formatLeadTimeVi(product) : "-" },
     { label: "Cảng xuất", value: product?.export_port || "-" },
     { label: "Incoterm", value: [product?.incoterm, product?.incoterm_place].filter(Boolean).join(" / ") || "-" },
     { label: "Thanh toán", value: product?.payment_terms || "-" },
@@ -764,8 +808,33 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 <Field label="Giá có hiệu lực tới">
                   <input name="price_valid_until" type="date" className="input" defaultValue={product?.price_valid_until ?? ""} disabled={locked} />
                 </Field>
-                <Field label="Thời gian giao hàng (ngày)">
-                  <input name="lead_time_days" type="number" min={0} max={3650} className="input" placeholder="Ví dụ: 21" defaultValue={product?.lead_time_days ?? ""} disabled={locked} />
+                <Field label="Thời gian giao hàng">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      name="lead_time_value"
+                      type="number"
+                      min={1}
+                      max={leadTimeUnit === "weeks" ? 52 : 365}
+                      className="input w-24 shrink-0 font-mono tabular-nums disabled:bg-ink-50 disabled:text-ink-400"
+                      placeholder={leadTimeUnit === "on_request" ? "-" : leadTimeUnit === "weeks" ? "VD: 2" : "VD: 15"}
+                      value={leadTimeUnit === "on_request" ? "" : leadTimeValue}
+                      onChange={(e) => updateLeadTime(e.target.value, leadTimeUnit)}
+                      disabled={locked || leadTimeUnit === "on_request"}
+                    />
+                    <select
+                      name="lead_time_unit"
+                      aria-label="Đơn vị thời gian giao hàng"
+                      className="input min-w-0 flex-1"
+                      value={leadTimeUnit}
+                      onChange={(e) => updateLeadTime(leadTimeValue, e.target.value as LeadTimeUnit)}
+                      disabled={locked}
+                    >
+                      {LEAD_TIME_UNIT_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.viLabel}</option>
+                      ))}
+                    </select>
+                    <input type="hidden" name="lead_time_days" value={computedLeadTimeDays} readOnly />
+                  </div>
                 </Field>
                 <Field label="Điều kiện thanh toán">
                   <input name="payment_terms" className="input" maxLength={200} placeholder="Ví dụ: T/T 30% cọc" defaultValue={product?.payment_terms ?? ""} disabled={locked} />
@@ -978,6 +1047,18 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                             const maxNum = row.priceMax.trim() ? Number(row.priceMax.trim()) : null;
                             const hasValidPrice = minNum !== null && maxNum !== null && Number.isFinite(minNum) && Number.isFinite(maxNum) && minNum > 0 && maxNum >= minNum;
                             const priceDisplay = hasValidPrice ? formatGradeRowPriceVi(minNum, maxNum, unitMeta.unitLabel) : "Báo giá theo yêu cầu";
+                            const moqViDisplay = (() => {
+                              const qtyNum = row.moqQty?.trim() ? Number(row.moqQty.trim()) : null;
+                              const weightNum = row.moqUnitWeightKg?.trim() ? Number(row.moqUnitWeightKg.trim()) : null;
+                              if (qtyNum && Number.isFinite(qtyNum) && qtyNum > 0 && isMoqUnit(row.moqUnit)) {
+                                return formatStructuredMoqVi(qtyNum, row.moqUnit, weightNum && Number.isFinite(weightNum) && weightNum > 0 ? weightNum : null);
+                              }
+                              if (row.moq.trim()) {
+                                const parsed = parseLegacyMoqString(row.moq);
+                                return parsed.status === "converted" ? parsed.viText : row.moq.trim();
+                              }
+                              return "Theo yêu cầu";
+                            })();
                             return (
                               <tr key={row.id}>
                                 <td className="px-2.5 py-1.5 font-semibold text-ink-900">
@@ -986,7 +1067,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                                 </td>
                                 <td className={`px-2.5 py-1.5 font-semibold text-ink-800 ${hasValidPrice ? "font-mono tabular-nums" : "text-ink-500"}`}>{priceDisplay}</td>
                                 <td className="px-2.5 py-1.5 text-ink-800">{row.incoterm || "-"}</td>
-                                <td className="px-2.5 py-1.5 text-ink-800">{row.moq.trim() || "Chưa nhập"}</td>
+                                <td className="px-2.5 py-1.5 text-ink-800">{moqViDisplay}</td>
                               </tr>
                             );
                           })}
@@ -1016,7 +1097,16 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
               <div className="rounded-lg border border-ink-200">
                 <ReviewHead title="Thông tin thương mại & xuất khẩu" onEdit={() => goToStep(1)} />
                 <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-2">
-                  {REVIEW_COMMERCIAL.map(([key, label]) => <div key={key}><ReviewField label={label} value={snapshot[key]} /></div>)}
+                  {REVIEW_COMMERCIAL.map(([key, label]) => {
+                    const displayValue = key === "lead_time_days"
+                      ? (leadTimeUnit === "on_request" || !leadTimeValue.trim()
+                          ? "Theo yêu cầu"
+                          : leadTimeUnit === "weeks"
+                            ? `${leadTimeValue.trim()} tuần`
+                            : `${leadTimeValue.trim()} ngày`)
+                      : snapshot[key];
+                    return <div key={key}><ReviewField label={label} value={displayValue} /></div>;
+                  })}
                 </dl>
                 <div className="flex flex-wrap gap-1.5 border-t border-ink-100 px-3.5 py-2.5">
                   {([

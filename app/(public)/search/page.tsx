@@ -391,7 +391,7 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
             <PublicProductCard href={productHref} imagePath={product.cardImagePath ?? product.imagePaths[0]}
               name={product.name} grades={product.cardGrades} gradeRows={product.gradeRows} moq={product.moq}
               price={product.price} incoterm={product.incoterm} fob={product.incoterm?.toUpperCase() === "FOB"}
-              leadTimeDays={product.leadTimeDays} supplierName={product.supplierName}
+              leadTimeDays={product.leadTimeDays} leadTimeText={product.leadTimeText} supplierName={product.supplierName}
               supplierHref={localHref(`/suppliers/${encodeURIComponent(product.supplierSlug || product.supplierId)}`, state.lang)}
               quoteHref={quoteHref}
               verificationSteps={product.verificationSteps} l2Scope={product.l2Scope}

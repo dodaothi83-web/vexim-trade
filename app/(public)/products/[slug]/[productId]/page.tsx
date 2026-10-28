@@ -137,9 +137,9 @@ export default async function PublicProductDetail({ params }: Props) {
     if (structuredProperties.some((item) => item.name.toLowerCase() === name.toLowerCase())) return;
     structuredProperties.push({ "@type": "PropertyValue", name, value: v });
   };
-  const structuredMoq = publicProductMoqDisplay(p.moq);
+  const structuredMoq = card.moq !== "On request" ? card.moq : publicProductMoqDisplay(p.moq);
   if (structuredMoq) pushProperty("MOQ", structuredMoq);
-  if (card.leadTimeDays !== null) pushProperty("Lead time", `${card.leadTimeDays} days`);
+  if (card.leadTimeText && card.leadTimeText !== "On request") pushProperty("Lead time", card.leadTimeText);
   for (const f of fieldsFor(category)) {
     if (approvedAttributes[f.key]) pushProperty(f.label, approvedAttributes[f.key]);
   }
@@ -270,7 +270,7 @@ export default async function PublicProductDetail({ params }: Props) {
               </>
             )}
             <Spec label="Packaging" value={detailedPackaging || enPackaging} />
-            <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
+            <Spec label="Lead time" value={card.leadTimeText || (card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request")} />
             {gradeRows.length === 0 && <Spec label="Incoterm" value={card.incoterm} />}
             <Spec label="Loading port" value={publicProductExportPortDisplay(p)} />
             <Spec label="Raw material region" value={card.rawMaterialRegion} />
@@ -309,7 +309,7 @@ export default async function PublicProductDetail({ params }: Props) {
         {relatedProducts.map((related) => <li key={related.id} className="min-w-0">
           <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(related.id)}`}
             imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} grades={related.cardGrades} gradeRows={related.gradeRows} moq={related.moq}
-            price={related.price} incoterm={related.incoterm} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays}
+            price={related.price} incoterm={related.incoterm} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays} leadTimeText={related.leadTimeText}
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
             quoteHref={`/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(related.supplierId)}&product=${encodeURIComponent(related.name)}&product_id=${encodeURIComponent(related.id)}`}
             verificationSteps={related.verificationSteps} l2Scope={related.l2Scope}

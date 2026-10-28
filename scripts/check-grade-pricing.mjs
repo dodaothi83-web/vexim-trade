@@ -145,7 +145,9 @@ assert.equal(summary.ref_price_max, 9);
 assert.equal(summary.currency, "USD");
 assert.equal(summary.unit, "kg");
 assert.equal(summary.incoterm, "FOB");
-assert.equal(summary.moq, "1 tấn");
+assert.equal(summary.moq, "1 MT");
+assert.equal(summary.moq_qty, 1);
+assert.equal(summary.moq_unit, "mt");
 
 const specs = gradePricing.applyGradeRowsToSpecs({ moisture: "5%" }, validMixedRows.rows, { slug: "cashew-kernels" });
 assert.equal(specs.moisture, "5%", "Non-grade attributes preserved");
@@ -320,9 +322,143 @@ for (const file of [
   "../lib/products/grade-pricing.ts",
   "../components/products/grade-pricing-table.tsx",
   "../supabase/migrations/20261051_product_grade_rows.sql",
+  "../supabase/migrations/20261052_structured_units_and_moq.sql",
 ]) {
   const text = readFileSync(new URL(file, import.meta.url), "utf8");
   assert.doesNotMatch(text, /[—–·•→“”‘’…]/, `${file} contains zero forbidden AI-style characters`);
 }
 
-console.log("✅ Grade & giá: multi-grade table, category units, validation, custom grades, CRM/Portal/Buyer sync & price redaction passed.");
+/* ---------------- 8. Structured MOQ, bag/carton weight, container filter, reasonable price & lead time ---------------- */
+
+// Bag MOQ missing weight -> rejected
+const bagMissingWeight = gradePricing.validateGradeRowsDraft(
+  [{
+    id: "b1",
+    selectedGrade: "500 g/L",
+    customGrade: "",
+    priceMin: "6000",
+    priceMax: "6200",
+    incoterm: "FOB",
+    moq: "",
+    moqQty: "280",
+    moqUnit: "bag",
+    moqUnitWeightKg: "",
+  }],
+  { slug: "pepper", price_unit: "mt" },
+);
+assert.equal(bagMissingWeight.valid, false);
+assert.equal(bagMissingWeight.rowResults[0].moqError, "Nhập trọng lượng mỗi bao (kg).");
+
+// Bag MOQ with 25 kg weight -> 7 MT ("7 MT (280 × 25 kg bags)") & Vi ("7 tấn (280 × bao 25 kg)") & "large" filter
+const bagWithWeight = gradePricing.validateGradeRowsDraft(
+  [{
+    id: "b2",
+    selectedGrade: "500 g/L",
+    customGrade: "",
+    priceMin: "6000",
+    priceMax: "6200",
+    incoterm: "FOB",
+    moq: "",
+    moqQty: "280",
+    moqUnit: "bag",
+    moqUnitWeightKg: "25",
+  }],
+  { slug: "pepper", price_unit: "mt" },
+);
+assert.equal(bagWithWeight.valid, true);
+assert.equal(bagWithWeight.rows[0].moq, "7 MT (280 × 25 kg bags)");
+assert.equal(bagWithWeight.rows[0].moq_mt_equivalent, 7);
+assert.equal(gradePricing.formatStructuredMoqVi(280, "bag", 25), "7 tấn (280 × bao 25 kg)");
+assert.equal(
+  gradePricing.classifyMoqFilterGroup({
+    moqUnit: bagWithWeight.rows[0].moq_unit,
+    moqMtEquivalent: bagWithWeight.rows[0].moq_mt_equivalent,
+    moqText: bagWithWeight.rows[0].moq,
+  }),
+  "large",
+);
+
+// Container MOQ -> "1 × 20ft container", null MT conversion, "container" (Full container) filter
+const contRow = gradePricing.validateGradeRowsDraft(
+  [{
+    id: "c1",
+    selectedGrade: "W320",
+    customGrade: "",
+    priceMin: "7.2",
+    priceMax: "7.5",
+    incoterm: "FOB",
+    moq: "",
+    moqQty: "1",
+    moqUnit: "cont_20ft",
+    moqUnitWeightKg: "",
+  }],
+  { slug: "cashew", price_unit: "kg" },
+);
+assert.equal(contRow.valid, true);
+assert.equal(contRow.rows[0].moq, "1 × 20ft container");
+assert.equal(contRow.rows[0].moq_mt_equivalent, null);
+assert.equal(
+  gradePricing.classifyMoqFilterGroup({
+    moqUnit: contRow.rows[0].moq_unit,
+    moqMtEquivalent: contRow.rows[0].moq_mt_equivalent,
+    moqText: contRow.rows[0].moq,
+  }),
+  "container",
+);
+
+// Per-category allowed MOQ units enforcement
+const restrictedCat = { slug: "rice", price_unit: "mt", moq_units: ["mt", "cont_20ft"] };
+assert.deepEqual([...gradePricing.allowedMoqUnitsForCategory(restrictedCat)], ["mt", "cont_20ft"]);
+const disallowedCarton = gradePricing.validateGradeRowsDraft(
+  [{
+    id: "rc1",
+    selectedGrade: "ST25",
+    customGrade: "",
+    priceMin: "850",
+    priceMax: "900",
+    incoterm: "FOB",
+    moq: "",
+    moqQty: "100",
+    moqUnit: "carton",
+    moqUnitWeightKg: "10",
+  }],
+  restrictedCat,
+);
+assert.equal(disallowedCarton.valid, false);
+assert.match(disallowedCarton.rowResults[0].moqError, /không nằm trong danh sách cho phép/);
+
+// Reasonable converted price bounds (catches kg <-> MT mix-ups)
+const mtEnteredInKgCat = gradePricing.validateGradeRowsDraft(
+  [{ id: "p1", selectedGrade: "W320", customGrade: "", priceMin: "7800", priceMax: "8000", incoterm: "FOB", moq: "1 MT" }],
+  { slug: "cashew", price_unit: "kg" },
+);
+assert.equal(mtEnteredInKgCat.valid, false);
+assert.match(mtEnteredInKgCat.rowResults[0].priceError, /tối đa 500 USD\/kg/);
+
+const kgEnteredInMtCat = gradePricing.validateGradeRowsDraft(
+  [{ id: "p2", selectedGrade: "500 g/L", customGrade: "", priceMin: "6.5", priceMax: "7.0", incoterm: "FOB", moq: "1 MT" }],
+  { slug: "pepper", price_unit: "mt" },
+);
+assert.equal(kgEnteredInMtCat.valid, false);
+assert.match(kgEnteredInMtCat.rowResults[0].priceError, /tối thiểu 50 USD\/MT/);
+
+// Lead time: Vietnamese on Portal vs English on Buyer
+const ltWeeks = gradePricing.parseLeadTimeInput({ valueRaw: "2", unitRaw: "weeks" });
+assert.equal(ltWeeks.ok, true);
+assert.equal(ltWeeks.daysEquivalent, 14);
+const specsWithWeeks = gradePricing.applyLeadTimeToSpecs({}, ltWeeks);
+assert.equal(gradePricing.formatLeadTimeVi({ lead_time_days: 14, specs: specsWithWeeks }), "2 tuần");
+assert.equal(gradePricing.formatLeadTimeBuyer({ lead_time_days: 14, specs: specsWithWeeks }), "2 weeks");
+assert.equal(gradePricing.formatLeadTimeVi({ lead_time_days: null, specs: { lead_time: { value: null, unit: "on_request" } } }), "Theo yêu cầu");
+assert.equal(gradePricing.formatLeadTimeBuyer({ lead_time_days: null, specs: { lead_time: { value: null, unit: "on_request" } } }), "On request");
+
+// Legacy MOQ migration parser: clear vs manual review
+assert.equal(gradePricing.parseLegacyMoqString("1 tấn").buyerText, "1 MT");
+assert.equal(gradePricing.parseLegacyMoqString("100kg").buyerText, "100 kg");
+assert.equal(gradePricing.parseLegacyMoqString("1 cont 20ft (~19,2 MT)").buyerText, "1 × 20ft container");
+const unmigratedBag = gradePricing.parseLegacyMoqString("280 Túi");
+assert.equal(unmigratedBag.status, "needs_review");
+assert.equal(unmigratedBag.suggestedQty, 280);
+assert.equal(unmigratedBag.suggestedUnit, "bag");
+
+console.log("✅ Grade & giá + Structured Units (MOQ, bag/carton weight, container filter, reasonable price, lead time, legacy migration) passed.");

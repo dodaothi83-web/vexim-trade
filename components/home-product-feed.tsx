@@ -195,6 +195,7 @@ export function HomeProductFeed({
               incoterm={p.incoterm}
               fob={p.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.leadTimeDays}
+              leadTimeText={p.leadTimeText}
               supplierName={p.supplierName}
               supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
               quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(p.categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}

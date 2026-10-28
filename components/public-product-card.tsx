@@ -184,6 +184,7 @@ export function PublicProductCard({
   incoterm,
   fob,
   leadTimeDays,
+  leadTimeText,
   supplierName,
   supplierHref,
   verificationSteps,
@@ -208,6 +209,7 @@ export function PublicProductCard({
   incoterm?: string | null;
   fob?: boolean;
   leadTimeDays: number | null;
+  leadTimeText?: string | null;
   supplierName: string;
   supplierHref?: string;
   verificationSteps: readonly VerificationLevel[];
@@ -432,7 +434,7 @@ export function PublicProductCard({
           <div className="flex min-w-0 items-baseline gap-1 sm:block">
             <dt className="text-[9px] font-medium uppercase tracking-wide text-ink-500 sm:text-[10px]">Lead time</dt>
             <dd className="mt-0 truncate text-[11px] font-semibold leading-4 text-ink-800 sm:mt-0.5 sm:text-xs">
-              {leadTimeDays != null ? `${leadTimeDays} days` : "On request"}
+              {leadTimeText?.trim() || (leadTimeDays != null ? `${leadTimeDays} days` : "On request")}
             </dd>
           </div>
         </dl>

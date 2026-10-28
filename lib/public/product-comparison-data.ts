@@ -35,6 +35,7 @@ export interface PublicComparedProduct {
   moq: string;
   packaging: string | null;
   leadTimeDays: number | null;
+  leadTimeText?: string | null;
   incoterm: string | null;
   incotermPlace: string | null;
   exportPort: string | null;
@@ -106,9 +107,10 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       priceUnit: card.price && card.pricePoint ? safe(publicProductUnitDisplay(card.pricePoint.unit)) : null,
       priceValidUntil: card.price && product.price_valid_until && /^\d{4}-\d{2}-\d{2}$/.test(product.price_valid_until)
         ? product.price_valid_until : null,
-      moq: safe(publicProductMoqDisplay(tradeEnglish?.moq || card.moq)) ?? "Not provided",
+      moq: safe(publicProductMoqDisplay(card.moq && card.moq !== "On request" ? card.moq : tradeEnglish?.moq)) ?? "Not provided",
       packaging: safe(publicProductPackagingDisplay(product.packaging_i18n?.en?.trim() || product.packaging)),
       leadTimeDays: card.leadTimeDays,
+      leadTimeText: card.leadTimeText,
       incoterm: safe(product.incoterm),
       incotermPlace: safe(publicProductPlaceDisplay(tradeEnglish?.incoterm_place || product.incoterm_place)),
       exportPort: safe(publicProductExportPortDisplay(product)),

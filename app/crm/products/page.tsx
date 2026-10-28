@@ -10,6 +10,7 @@ import { Badge, Breadcrumbs, Card, EmptyState, formatDate, formatMoney } from "@
 import { PageHeader } from "@/components/page-header";
 import { MediaThumb } from "@/components/media-gallery";
 import { productReadiness } from "@/lib/media/readiness";
+import { auditProductStructuredUnits } from "@/lib/products/grade-pricing";
 import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ function tokensOf(text: string): string[] {
   return [...new Set(m.filter((t) => t.length >= 3))];
 }
 
-type ProductView = "all" | "ready" | "pending" | "changes" | "nomedia";
+type ProductView = "all" | "ready" | "pending" | "changes" | "nomedia" | "unit_review";
 
 export default async function ProductsPage({
   searchParams,
@@ -40,7 +41,7 @@ export default async function ProductsPage({
   // Tab xem nhanh; giữ tương thích tham số cũ ?review=pending.
   const view: ProductView = sp.review === "pending" || sp.view === "pending"
     ? "pending"
-    : sp.view === "ready" || sp.view === "changes" || sp.view === "nomedia"
+    : sp.view === "ready" || sp.view === "changes" || sp.view === "nomedia" || sp.view === "unit_review"
       ? sp.view
       : "all";
   const requestedPage = Number(sp.page ?? "1");
@@ -49,7 +50,18 @@ export default async function ProductsPage({
   const candidate = buyerId && hasPermission(session.role, "buyers.view") ? await store.getBuyer(buyerId) : null;
   const buyer = candidate && isOwnedBy(candidate.owner, ownerScopeOf(session)) ? candidate : null;
 
-  const all = await listProductsWithSupplier();
+  const [all, allCategories] = await Promise.all([
+    listProductsWithSupplier(),
+    store.listCategories({ publishedOnly: false }),
+  ]);
+  const categoryBySlug = new Map(allCategories.map((c) => [c.slug, c]));
+  const unitAuditByProduct = new Map(
+    all.map((r) => {
+      const catSlug = r.reviewed_category_slug ?? r.supplier_category_proposal ?? r.category ?? "";
+      const cat = catSlug ? (categoryBySlug.get(catSlug) ?? { slug: catSlug }) : null;
+      return [r.id, auditProductStructuredUnits(r, cat)] as const;
+    }),
+  );
   const productMedia = await store.listMediaForProducts(all.map((r) => r.id));
   const thumbByProduct = new Map<string, (typeof productMedia)[number]>();
   const mediaByProduct = new Map<string, typeof productMedia>();
@@ -70,6 +82,7 @@ export default async function ProductsPage({
     pending: all.filter((r) => r.supplier_review_status === "pending").length,
     changes: all.filter((r) => r.supplier_review_status === "changes_requested").length,
     nomedia: all.filter((r) => !hasShareableMedia(r.id)).length,
+    unit_review: all.filter((r) => unitAuditByProduct.get(r.id)?.needsReview).length,
   };
 
   let rows = all;
@@ -77,6 +90,7 @@ export default async function ProductsPage({
   if (view === "changes") rows = rows.filter((r) => r.supplier_review_status === "changes_requested");
   if (view === "ready") rows = rows.filter((r) => r.ready_for_buyer);
   if (view === "nomedia") rows = rows.filter((r) => !hasShareableMedia(r.id));
+  if (view === "unit_review") rows = rows.filter((r) => unitAuditByProduct.get(r.id)?.needsReview);
   if (category) rows = rows.filter((r) => (r.category ?? "") === category);
   if (verifiedOnly) rows = rows.filter((r) => r.supplier?.status === "verified");
   if (cert) rows = rows.filter((r) => (r.certifications ?? "").toLowerCase().includes(cert.toLowerCase()));
@@ -115,6 +129,7 @@ export default async function ProductsPage({
     { key: "pending", label: "Chờ Vexim kiểm tra" },
     { key: "changes", label: "Cần NCC sửa" },
     { key: "nomedia", label: "Thiếu ảnh/catalogue" },
+    { key: "unit_review", label: "Cần chuẩn hóa đơn vị" },
   ];
 
   return (
@@ -268,6 +283,11 @@ export default async function ProductsPage({
                             <Badge className="bg-ink-100 text-ink-600">Chưa sẵn sàng gửi buyer</Badge>
                           ) : (
                             <Badge className="bg-amber-50 text-amber-700">Thiếu ảnh/catalogue</Badge>
+                          )}
+                          {unitAuditByProduct.get(r.id)?.needsReview && (
+                            <Badge className="bg-amber-100 text-amber-900">
+                              Cần sửa đơn vị: {unitAuditByProduct.get(r.id)!.reasons[0]}
+                            </Badge>
                           )}
                         </div>
                       </div>

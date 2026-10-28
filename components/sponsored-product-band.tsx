@@ -125,6 +125,7 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
         incoterm={product.incoterm}
         fob={product.incoterm?.toUpperCase() === "FOB"}
         leadTimeDays={product.leadTimeDays}
+        leadTimeText={product.leadTimeText}
         supplierName={product.supplierName}
         supplierHref={`/suppliers/${encodeURIComponent(product.supplierSlug || product.supplierId)}`}
         quoteHref={product.isDemo ? undefined : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(product.supplierId)}&product=${encodeURIComponent(product.name)}&product_id=${encodeURIComponent(product.id)}`}

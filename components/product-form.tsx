@@ -17,13 +17,17 @@ import { ProductDescriptionEditor } from "@/components/products/product-descript
 import { GradePricingTable } from "@/components/products/grade-pricing-table";
 import {
   CUSTOM_GRADE_OPTION,
+  LEAD_TIME_UNIT_OPTIONS,
   categoryMarketPriceUnit,
   formatGradeRowPriceVi,
   hydrateGradeRowsDraft,
   nonGradeProductFields,
+  parseLeadTimeInput,
+  readProductLeadTime,
   reconcileGradeRowsForCategory,
   summarizeGradeRowsForProduct,
   validateGradeRowsDraft,
+  type LeadTimeUnit,
   type ProductGradeRowDraft,
 } from "@/lib/products/grade-pricing";
 import { effectiveFieldsFor } from "@/lib/product-attributes";
@@ -46,6 +50,7 @@ const ORIGINAL_TEXT_KEYS = [
 ] as const;
 
 function init(p?: SupplierProduct | null): FormState {
+  const lt = p ? readProductLeadTime(p) : { value: null, unit: "days" as LeadTimeUnit, daysEquivalent: null };
   return {
     name: p?.name ?? "",
     display_name: p?.display_name ?? "",
@@ -58,7 +63,9 @@ function init(p?: SupplierProduct | null): FormState {
     monthly_capacity: p?.monthly_capacity ?? "",
     raw_material_region: p?.raw_material_region ?? "",
     input_material_origin: p?.input_material_origin ?? "",
-    lead_time_days: p?.lead_time_days ?? "",
+    lead_time_days: lt.daysEquivalent ?? "",
+    lead_time_value: lt.value ?? "",
+    lead_time_unit: lt.unit,
     packaging: p?.packaging ?? "",
     oem: p?.oem ?? false,
     odm: p?.odm ?? false,
@@ -101,7 +108,7 @@ export function ProductForm({
 }: {
   supplier: Supplier;
   product?: SupplierProduct | null;
-  categories: Pick<Category, "id" | "slug" | "name_i18n" | "price_unit" | "product_fields" | "supplier_product_fields">[];
+  categories: Pick<Category, "id" | "slug" | "name_i18n" | "price_unit" | "moq_units" | "product_fields" | "supplier_product_fields">[];
   supplierCategories?: string[];
   /** Trạng thái media cho sản phẩm do staff quản lý. */
   mediaState?: { ready: boolean; shareable: number };
@@ -222,6 +229,16 @@ export function ProductForm({
       toast.push({ kind: "error", title: priceRangeError });
       return;
     }
+    const leadTimeCheck = parseLeadTimeInput({
+      valueRaw: v("lead_time_value"),
+      unitRaw: v("lead_time_unit"),
+      legacyDaysRaw: v("lead_time_days"),
+    });
+    if (!leadTimeCheck.ok) {
+      setTab("spec");
+      toast.push({ kind: "error", title: leadTimeCheck.message });
+      return;
+    }
     const mayAutoTranslate = !!product && !supplierReviewedListing && Boolean(form.ready_for_buyer) &&
       (sourceDirty || !savedTranslationCurrent);
     if (mayAutoTranslate && product?.name_i18n?.en?.trim() &&
@@ -235,13 +252,17 @@ export function ProductForm({
       product_attributes: attributes,
       category: selectedCategory || assignedCategory?.slug || null,
       supplier_id: supplier.id,
-      lead_time_days: v("lead_time_days") ? Number(v("lead_time_days")) : null,
+      lead_time_days: leadTimeCheck.daysEquivalent,
+      lead_time_value: leadTimeCheck.value,
+      lead_time_unit: leadTimeCheck.unit,
       ref_price: summary.ref_price,
       ref_price_max: summary.ref_price_max,
       currency: summary.currency,
       unit: summary.unit,
       incoterm: summary.incoterm,
       moq: summary.moq,
+      moq_qty: summary.moq_qty,
+      moq_unit: summary.moq_unit,
     };
     try {
       const res = product
@@ -487,15 +508,48 @@ export function ProductForm({
                 placeholder="VD: 2.000 MT / tháng"
               />
             </Field>
-            <Field label="Lead time (ngày)">
-              <input
-                type="number"
-                min={0}
-                className="input"
-                value={v("lead_time_days")}
-                onChange={(e) => set("lead_time_days", e.target.value)}
-                placeholder="21"
-              />
+            <Field label="Thời gian giao hàng">
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={v("lead_time_unit") === "weeks" ? 52 : 365}
+                  disabled={v("lead_time_unit") === "on_request"}
+                  className="input w-24 shrink-0 font-mono tabular-nums disabled:bg-ink-50 disabled:text-ink-400"
+                  value={v("lead_time_unit") === "on_request" ? "" : v("lead_time_value")}
+                  onChange={(e) => {
+                    const rawVal = e.target.value;
+                    const unit = (v("lead_time_unit") || "days") as LeadTimeUnit;
+                    const num = /^\d+$/.test(rawVal.trim()) ? Number(rawVal.trim()) : null;
+                    setForm((prev) => ({
+                      ...prev,
+                      lead_time_value: rawVal,
+                      lead_time_days: num && num > 0 ? (unit === "weeks" ? num * 7 : num) : "",
+                    }));
+                  }}
+                  placeholder={v("lead_time_unit") === "on_request" ? "-" : v("lead_time_unit") === "weeks" ? "VD: 2" : "VD: 15"}
+                />
+                <select
+                  aria-label="Đơn vị thời gian giao hàng"
+                  className="input min-w-0 flex-1"
+                  value={v("lead_time_unit") || "days"}
+                  onChange={(e) => {
+                    const nextUnit = e.target.value as LeadTimeUnit;
+                    const rawVal = nextUnit === "on_request" ? "" : v("lead_time_value");
+                    const num = /^\d+$/.test(rawVal.trim()) ? Number(rawVal.trim()) : null;
+                    setForm((prev) => ({
+                      ...prev,
+                      lead_time_unit: nextUnit,
+                      lead_time_value: rawVal,
+                      lead_time_days: nextUnit !== "on_request" && num && num > 0 ? (nextUnit === "weeks" ? num * 7 : num) : "",
+                    }));
+                  }}
+                >
+                  {LEAD_TIME_UNIT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.viLabel}</option>
+                  ))}
+                </select>
+              </div>
             </Field>
             <Field label="Cảng xuất hàng">
               <input

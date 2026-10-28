@@ -15,18 +15,8 @@ import { fieldsFor } from "@/lib/product-attributes";
 import type { PilotPlacement } from "@/lib/sponsored/pilot";
 import { withoutSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
+import { classifyMoqFilterGroup } from "@/lib/products/grade-pricing";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
-
-function moqGroup(value: string): string {
-  const text = value.toLowerCase();
-  if (/fcl|container|\bcont\b|20\s*(?:ft|')/.test(text)) return "container";
-  const quantity = /([\d.,]+)\s*(kg|tons?|tonnes?|mt|t)\b/i.exec(text);
-  if (!quantity) return "ask";
-  const number = Number(quantity[1].replace(/,/g, ""));
-  if (!Number.isFinite(number)) return "ask";
-  const tons = quantity[2].toLowerCase() === "kg" ? number / 1000 : number;
-  return tons <= 1 ? "small" : tons <= 5 ? "medium" : "large";
-}
 
 function productGradesOf(product: PublicCategoryProduct): string[] {
   if (Array.isArray(product.grades) && product.grades.length > 0) return product.grades;
@@ -46,9 +36,22 @@ function productMatchesFieldOption(
 
 function productMatchesMoqGroup(product: PublicCategoryProduct, targetGroup: string): boolean {
   if (Array.isArray(product.gradeRows) && product.gradeRows.length > 0) {
-    return product.gradeRows.some((row) => moqGroup(row.moq) === targetGroup);
+    return product.gradeRows.some(
+      (row) =>
+        classifyMoqFilterGroup({
+          moqUnit: row.moqUnit,
+          moqMtEquivalent: row.moqMtEquivalent,
+          moqText: row.moq,
+        }) === targetGroup,
+    );
   }
-  return moqGroup(product.moq) === targetGroup;
+  return (
+    classifyMoqFilterGroup({
+      moqUnit: product.moqUnit,
+      moqMtEquivalent: product.moqMtEquivalent,
+      moqText: product.moq,
+    }) === targetGroup
+  );
 }
 
 export function CategoryProductGrid({ products, categorySlug, grades, sponsored, sponsoredBand = [], productFields = [], comparisonEnabled = true }: {
@@ -222,7 +225,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
               <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
                 imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} grades={p.cardGrades} gradeRows={p.gradeRows}
                 highlightedGrades={activeGrades} moq={p.moq} price={p.price} incoterm={p.incoterm} fob={p.incoterm?.toUpperCase() === "FOB"}
-                leadTimeDays={p.leadTimeDays} supplierName={p.supplierName}
+                leadTimeDays={p.leadTimeDays} leadTimeText={p.leadTimeText} supplierName={p.supplierName}
                 supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
                 quoteHref={quoteHref}
                 verificationSteps={p.verificationSteps} l2Scope={p.l2Scope} test={p.isDemo}

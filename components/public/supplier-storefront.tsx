@@ -408,11 +408,25 @@ export function SupplierStorefront({
             || safe(translateMoq(p.moq)).trim()
             || "On request";
           const storefrontIncoterm = storefrontGradeRows[0]?.incoterm || (p.incoterm ? safe(p.incoterm).trim() : null);
+          const storefrontLeadTime = (() => {
+            const rawLt = p.specs && typeof p.specs === "object" ? (p.specs as Record<string, unknown>).lead_time : null;
+            if (rawLt && typeof rawLt === "object") {
+              const rec = rawLt as Record<string, unknown>;
+              const val = typeof rec.value === "number" && Number.isFinite(rec.value) && rec.value > 0 ? Math.round(rec.value) : null;
+              if (rec.unit === "on_request") return "On request";
+              if (rec.unit === "weeks" && val !== null) return val === 1 ? "1 week" : `${val} weeks`;
+              if (rec.unit === "days" && val !== null) return val === 1 ? "1 day" : `${val} days`;
+            }
+            if (typeof p.lead_time_days === "number" && p.lead_time_days > 0) {
+              return p.lead_time_days === 1 ? "1 day" : `${p.lead_time_days} days`;
+            }
+            return "On request";
+          })();
           return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
             <PublicProductCard href={href} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
               name={productName} grades={storefrontGrades} gradeRows={storefrontGradeRows} moq={storefrontMoq}
               price={storefrontPrice} incoterm={storefrontIncoterm} fob={storefrontIncoterm?.toUpperCase() === "FOB"}
-              leadTimeDays={p.lead_time_days ?? null} supplierName={name}
+              leadTimeDays={p.lead_time_days ?? null} leadTimeText={storefrontLeadTime} supplierName={name}
               supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
               quoteHref={productLinks && rfqActions && !synthetic && category ? `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(productName)}&product_id=${encodeURIComponent(p.id)}` : undefined}
               verificationSteps={steps} l2Scope={l2Scope} test={synthetic} linkable={productLinks} />

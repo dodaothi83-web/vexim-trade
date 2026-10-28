@@ -9,6 +9,38 @@ export const CUSTOM_GRADE_OPTION = "__custom__";
 export const GRADE_INCOTERMS = ["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"] as const;
 export type GradeIncoterm = (typeof GRADE_INCOTERMS)[number];
 
+export const MOQ_UNITS = ["kg", "mt", "bag", "carton", "cont_20ft", "cont_40ft"] as const;
+export type MoqUnit = (typeof MOQ_UNITS)[number];
+
+export const MOQ_UNIT_OPTIONS: ReadonlyArray<{
+  value: MoqUnit;
+  viLabel: string;
+  adminLabel: string;
+  requiresWeight: boolean;
+  isContainer: boolean;
+  weightPlaceholder: string;
+  weightLabelVi: string;
+}> = [
+  { value: "kg", viLabel: "kg", adminLabel: "kg", requiresWeight: false, isContainer: false, weightPlaceholder: "", weightLabelVi: "" },
+  { value: "mt", viLabel: "tấn (MT)", adminLabel: "tấn (MT)", requiresWeight: false, isContainer: false, weightPlaceholder: "", weightLabelVi: "" },
+  { value: "bag", viLabel: "bao", adminLabel: "bao (bags - nhập kg/bao)", requiresWeight: true, isContainer: false, weightPlaceholder: "VD: 25", weightLabelVi: "kg/bao" },
+  { value: "carton", viLabel: "thùng", adminLabel: "thùng (cartons - nhập kg/thùng)", requiresWeight: true, isContainer: false, weightPlaceholder: "VD: 10", weightLabelVi: "kg/thùng" },
+  { value: "cont_20ft", viLabel: "container 20ft", adminLabel: "container 20ft", requiresWeight: false, isContainer: true, weightPlaceholder: "", weightLabelVi: "" },
+  { value: "cont_40ft", viLabel: "container 40ft", adminLabel: "container 40ft", requiresWeight: false, isContainer: true, weightPlaceholder: "", weightLabelVi: "" },
+];
+
+export const LEAD_TIME_UNITS = ["days", "weeks", "on_request"] as const;
+export type LeadTimeUnit = (typeof LEAD_TIME_UNITS)[number];
+
+export const LEAD_TIME_UNIT_OPTIONS: ReadonlyArray<{
+  value: LeadTimeUnit;
+  viLabel: string;
+}> = [
+  { value: "days", viLabel: "ngày" },
+  { value: "weeks", viLabel: "tuần" },
+  { value: "on_request", viLabel: "Theo yêu cầu" },
+];
+
 export type ProductGradeRow = {
   grade: string;
   is_custom: boolean;
@@ -16,6 +48,10 @@ export type ProductGradeRow = {
   price_max: number | null;
   incoterm: string;
   moq: string;
+  moq_qty?: number | null;
+  moq_unit?: MoqUnit | null;
+  moq_unit_weight_kg?: number | null;
+  moq_mt_equivalent?: number | null;
 };
 
 export type ProductGradeRowDraft = {
@@ -26,12 +62,17 @@ export type ProductGradeRowDraft = {
   priceMax: string;
   incoterm: string;
   moq: string;
+  moqQty?: string;
+  moqUnit?: MoqUnit;
+  moqUnitWeightKg?: string;
+  moqLegacyRaw?: string;
 };
 
 export type ProductGradeRowValidation = {
   gradeError: string | null;
   priceError: string | null;
   incotermError: string | null;
+  moqError: string | null;
   valid: boolean;
   normalized: ProductGradeRow | null;
 };
@@ -44,6 +85,8 @@ export type PublicProductGradeRow = {
   priceText: string | null;
   incoterm: string | null;
   moq: string;
+  moqUnit?: MoqUnit | null;
+  moqMtEquivalent?: number | null;
 };
 
 export type CategoryPriceUnitMeta = {
@@ -56,6 +99,7 @@ export type CategoryPriceUnitMeta = {
 export type CategoryGradeSource = {
   slug?: string | null;
   price_unit?: string | null;
+  moq_units?: readonly string[] | null;
   product_fields?: ProductAttributeField[] | null;
 } | null | undefined;
 
@@ -82,8 +126,493 @@ const BUILTIN_CATEGORY_GRADES: Array<{ match: RegExp; grades: readonly string[] 
   },
 ];
 
-const MAX_PRICE = 999_999_999_999.99;
+export const MIN_REASONABLE_PRICE_PER_KG = 0.05;
+export const MAX_REASONABLE_PRICE_PER_KG = 500;
+const MAX_PRICE_SPREAD_RATIO = 10;
 const DECIMAL_PRICE = /^\d+(?:\.\d{1,2})?$/;
+const DECIMAL_QUANTITY = /^\d+(?:\.\d{1,3})?$/;
+const INTEGER_QUANTITY = /^\d+$/;
+const MAX_MOQ_QUANTITY = 1_000_000;
+const MAX_UNIT_WEIGHT_KG = 2_000;
+
+export function isMoqUnit(value: unknown): value is MoqUnit {
+  return typeof value === "string" && (MOQ_UNITS as readonly string[]).includes(value);
+}
+
+export function normalizeMoqUnitsConfig(raw: unknown): MoqUnit[] {
+  if (!Array.isArray(raw)) return [...MOQ_UNITS];
+  const seen = new Set<MoqUnit>();
+  const out: MoqUnit[] = [];
+  for (const item of raw) {
+    const trimmed = typeof item === "string" ? item.trim().toLowerCase() : "";
+    if (isMoqUnit(trimmed) && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      out.push(trimmed);
+    }
+  }
+  return out.length > 0 ? out : [...MOQ_UNITS];
+}
+
+export function allowedMoqUnitsForCategory(category: CategoryGradeSource): MoqUnit[] {
+  return normalizeMoqUnitsConfig(category?.moq_units);
+}
+
+export function defaultMoqUnitForCategory(category: CategoryGradeSource): MoqUnit {
+  const allowed = allowedMoqUnitsForCategory(category);
+  if (allowed.includes("mt")) return "mt";
+  return allowed[0] ?? "mt";
+}
+
+function roundClean(value: number, decimals = 3): number {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+function formatQuantityNumber(value: number, maxDecimals = 3): string {
+  const rounded = roundClean(value, maxDecimals);
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDecimals,
+  }).format(rounded);
+}
+
+export function computeMoqMtEquivalent(
+  qty: number | null | undefined,
+  unit: MoqUnit | null | undefined,
+  unitWeightKg?: number | null,
+): number | null {
+  if (typeof qty !== "number" || !Number.isFinite(qty) || qty <= 0 || !unit) return null;
+  if (unit === "cont_20ft" || unit === "cont_40ft") return null;
+  if (unit === "mt") return roundClean(qty, 4);
+  if (unit === "kg") return roundClean(qty / 1000, 4);
+  if (unit === "bag" || unit === "carton") {
+    if (typeof unitWeightKg !== "number" || !Number.isFinite(unitWeightKg) || unitWeightKg <= 0) return null;
+    return roundClean((qty * unitWeightKg) / 1000, 4);
+  }
+  return null;
+}
+
+export function formatStructuredMoqBuyer(
+  qty: number | null | undefined,
+  unit: MoqUnit | null | undefined,
+  unitWeightKg?: number | null,
+): string {
+  if (typeof qty !== "number" || !Number.isFinite(qty) || qty <= 0 || !unit) return "";
+  const qtyText = formatQuantityNumber(qty, 2);
+  if (unit === "kg") return `${qtyText} kg`;
+  if (unit === "mt") return `${qtyText} MT`;
+  if (unit === "cont_20ft") return `${qtyText} × ${qty === 1 ? "20ft container" : "20ft containers"}`;
+  if (unit === "cont_40ft") return `${qtyText} × ${qty === 1 ? "40ft container" : "40ft containers"}`;
+  if (unit === "bag" || unit === "carton") {
+    if (typeof unitWeightKg !== "number" || !Number.isFinite(unitWeightKg) || unitWeightKg <= 0) return "";
+    const mt = computeMoqMtEquivalent(qty, unit, unitWeightKg);
+    if (mt === null) return "";
+    const mtText = formatQuantityNumber(mt, 3);
+    const weightText = formatQuantityNumber(unitWeightKg, 2);
+    const noun = unit === "bag"
+      ? (qty === 1 ? "bag" : "bags")
+      : (qty === 1 ? "carton" : "cartons");
+    return `${mtText} MT (${qtyText} × ${weightText} kg ${noun})`;
+  }
+  return "";
+}
+
+export function formatStructuredMoqVi(
+  qty: number | null | undefined,
+  unit: MoqUnit | null | undefined,
+  unitWeightKg?: number | null,
+): string {
+  if (typeof qty !== "number" || !Number.isFinite(qty) || qty <= 0 || !unit) return "Theo yêu cầu";
+  const qtyText = formatQuantityNumber(qty, 2);
+  if (unit === "kg") return `${qtyText} kg`;
+  if (unit === "mt") return `${qtyText} tấn`;
+  if (unit === "cont_20ft") return `${qtyText} × container 20ft`;
+  if (unit === "cont_40ft") return `${qtyText} × container 40ft`;
+  if (unit === "bag" || unit === "carton") {
+    if (typeof unitWeightKg !== "number" || !Number.isFinite(unitWeightKg) || unitWeightKg <= 0) return "Theo yêu cầu";
+    const mt = computeMoqMtEquivalent(qty, unit, unitWeightKg);
+    if (mt === null) return "Theo yêu cầu";
+    const mtText = formatQuantityNumber(mt, 3);
+    const weightText = formatQuantityNumber(unitWeightKg, 2);
+    const noun = unit === "bag" ? "bao" : "thùng";
+    return `${mtText} tấn (${qtyText} × ${noun} ${weightText} kg)`;
+  }
+  return "Theo yêu cầu";
+}
+
+function parseLocalePositiveNumber(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let normalized = trimmed;
+  if (/^\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(trimmed)) {
+    normalized = trimmed.replace(/,/g, "");
+  } else if (/^\d+,\d{1,3}$/.test(trimmed)) {
+    normalized = trimmed.replace(",", ".");
+  }
+  if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
+  const num = Number(normalized);
+  return Number.isFinite(num) && num > 0 ? num : null;
+}
+
+export type LegacyMoqParseResult =
+  | { status: "empty" }
+  | {
+      status: "converted";
+      qty: number;
+      unit: MoqUnit;
+      unitWeightKg: number | null;
+      mtEquivalent: number | null;
+      buyerText: string;
+      viText: string;
+    }
+  | {
+      status: "needs_review";
+      raw: string;
+      suggestedQty: number | null;
+      suggestedUnit: MoqUnit | null;
+      reason: string;
+    };
+
+export function parseLegacyMoqString(raw: string | null | undefined): LegacyMoqParseResult {
+  const cleaned = cleanText(raw, 180);
+  if (!cleaned) return { status: "empty" };
+  const lower = cleaned.toLowerCase();
+  if (lower === "on request" || lower === "theo yêu cầu" || lower === "theo yeu cau" || lower === "thỏa thuận" || lower === "thoa thuan" || lower === "-") {
+    return { status: "empty" };
+  }
+
+  // 1. Canonical or explicit bag/carton with weight:
+  // "7 MT (280 × 25 kg bags)", "280 × 25 kg bags", "280 bao x 25 kg", "500 thùng x 10kg"
+  const canonicalBagCarton = cleaned.match(
+    /^(?:[\d.,]+\s*(?:mt|tấn|tan)\s*\(\s*)?(\d+(?:[.,]\d+)?)\s*(?:×|x|\*)\s*(\d+(?:[.,]\d+)?)\s*kgs?\s*(bags?|cartons?|bao|túi|tui|thùng|thung)\s*\)?$/i,
+  ) ?? cleaned.match(
+    /^(\d+(?:[.,]\d+)?)\s*(bags?|cartons?|bao|túi|tui|thùng|thung)\s*(?:×|x|\*)\s*(\d+(?:[.,]\d+)?)\s*kgs?$/i,
+  );
+  if (canonicalBagCarton) {
+    const isSecondPattern = /^(?:bags?|cartons?|bao|túi|tui|thùng|thung)$/i.test(canonicalBagCarton[2]);
+    const qty = parseLocalePositiveNumber(canonicalBagCarton[1]);
+    const weight = parseLocalePositiveNumber(isSecondPattern ? canonicalBagCarton[3] : canonicalBagCarton[2]);
+    const unitWord = (isSecondPattern ? canonicalBagCarton[2] : canonicalBagCarton[3]).toLowerCase();
+    const unit: MoqUnit = /^(?:cartons?|thùng|thung)$/.test(unitWord) ? "carton" : "bag";
+    if (qty !== null && Number.isInteger(qty) && weight !== null && weight <= MAX_UNIT_WEIGHT_KG) {
+      const mtEquivalent = computeMoqMtEquivalent(qty, unit, weight);
+      return {
+        status: "converted",
+        qty,
+        unit,
+        unitWeightKg: weight,
+        mtEquivalent,
+        buyerText: formatStructuredMoqBuyer(qty, unit, weight),
+        viText: formatStructuredMoqVi(qty, unit, weight),
+      };
+    }
+  }
+
+  // 2. Containers (20ft / 40ft): e.g. "1 × 20ft container", "1 cont 20ft (~19,2 MT)", "1 x 20ft", "1x40'FCL", "1 x 40HQ"
+  const contMatch = cleaned.match(
+    /^(\d+)\s*(?:×|x|\*)?\s*(?:cont(?:ainer)?s?\s*)?(20|40)\s*(?:ft|'|hc|hq|rf)?(?:\s*(?:fcl|containers?|cont))?(?:\s*\([^)]*\))?$/i,
+  ) ?? cleaned.match(
+    /^(\d+)\s*(?:×|x|\*)?\s*(20|40)\s*(?:ft|'|hc|hq)(?:\s*fcl)?(?:\s*containers?)?(?:\s*\([^)]*\))?$/i,
+  );
+  if (contMatch) {
+    const qty = Number(contMatch[1]);
+    const size = contMatch[2];
+    if (Number.isInteger(qty) && qty > 0 && qty <= 500) {
+      const unit: MoqUnit = size === "40" ? "cont_40ft" : "cont_20ft";
+      return {
+        status: "converted",
+        qty,
+        unit,
+        unitWeightKg: null,
+        mtEquivalent: null,
+        buyerText: formatStructuredMoqBuyer(qty, unit, null),
+        viText: formatStructuredMoqVi(qty, unit, null),
+      };
+    }
+  }
+
+  // 3. Exact weight in metric tons: "1 tấn", "5 tan", "20 MT", "1 metric ton", "2.5 tonnes"
+  const mtMatch = cleaned.match(/^(\d+(?:[.,]\d+)?)\s*(mt|tấn|tan|metric\s+tons?|tonnes?|tons?)$/i);
+  if (mtMatch) {
+    const qty = parseLocalePositiveNumber(mtMatch[1]);
+    if (qty !== null && qty <= MAX_MOQ_QUANTITY) {
+      const mtEquivalent = computeMoqMtEquivalent(qty, "mt", null);
+      return {
+        status: "converted",
+        qty,
+        unit: "mt",
+        unitWeightKg: null,
+        mtEquivalent,
+        buyerText: formatStructuredMoqBuyer(qty, "mt", null),
+        viText: formatStructuredMoqVi(qty, "mt", null),
+      };
+    }
+  }
+
+  // 4. Exact weight in kilograms: "27kg", "100kg", "500 kg", "25 kgs"
+  const kgMatch = cleaned.match(/^(\d+(?:[.,]\d+)?)\s*(kgs?|kilograms?)$/i);
+  if (kgMatch) {
+    const qty = parseLocalePositiveNumber(kgMatch[1]);
+    if (qty !== null && qty <= MAX_MOQ_QUANTITY) {
+      const mtEquivalent = computeMoqMtEquivalent(qty, "kg", null);
+      return {
+        status: "converted",
+        qty,
+        unit: "kg",
+        unitWeightKg: null,
+        mtEquivalent,
+        buyerText: formatStructuredMoqBuyer(qty, "kg", null),
+        viText: formatStructuredMoqVi(qty, "kg", null),
+      };
+    }
+  }
+
+  // 5. Bag / pouch without unit weight: e.g. "280 Túi", "280 bao", "100 bags"
+  const bagNoWeight = cleaned.match(/^(\d+)\s*(bao|túi|tui|bags?|pouches?|sacks?)$/i);
+  if (bagNoWeight) {
+    const qty = Number(bagNoWeight[1]);
+    return {
+      status: "needs_review",
+      raw: cleaned,
+      suggestedQty: Number.isInteger(qty) && qty > 0 ? qty : null,
+      suggestedUnit: "bag",
+      reason: "Thiếu trọng lượng mỗi bao (kg)",
+    };
+  }
+
+  // 6. Carton / box without unit weight: e.g. "500 thùng", "200 cartons"
+  const cartonNoWeight = cleaned.match(/^(\d+)\s*(thùng|thung|cartons?|boxes?|hộp|hop)$/i);
+  if (cartonNoWeight) {
+    const qty = Number(cartonNoWeight[1]);
+    return {
+      status: "needs_review",
+      raw: cleaned,
+      suggestedQty: Number.isInteger(qty) && qty > 0 ? qty : null,
+      suggestedUnit: "carton",
+      reason: "Thiếu trọng lượng mỗi thùng (kg)",
+    };
+  }
+
+  return {
+    status: "needs_review",
+    raw: cleaned,
+    suggestedQty: null,
+    suggestedUnit: null,
+    reason: "Đơn vị chưa nằm trong danh sách chuẩn (kg, tấn, bao, thùng, container 20ft/40ft)",
+  };
+}
+
+export function classifyMoqFilterGroup(input: {
+  moqUnit?: MoqUnit | string | null;
+  moqMtEquivalent?: number | null;
+  moqText?: string | null;
+}): "small" | "medium" | "large" | "container" | "ask" {
+  const unit = input.moqUnit;
+  if (unit === "cont_20ft" || unit === "cont_40ft") return "container";
+  if (typeof input.moqMtEquivalent === "number" && Number.isFinite(input.moqMtEquivalent) && input.moqMtEquivalent > 0) {
+    if (input.moqMtEquivalent <= 1) return "small";
+    if (input.moqMtEquivalent <= 5) return "medium";
+    return "large";
+  }
+
+  const text = (input.moqText ?? "").trim();
+  if (!text) return "ask";
+  const parsed = parseLegacyMoqString(text);
+  if (parsed.status === "converted") {
+    if (parsed.unit === "cont_20ft" || parsed.unit === "cont_40ft") return "container";
+    if (parsed.mtEquivalent !== null && parsed.mtEquivalent > 0) {
+      if (parsed.mtEquivalent <= 1) return "small";
+      if (parsed.mtEquivalent <= 5) return "medium";
+      return "large";
+    }
+  }
+
+  const lower = text.toLowerCase();
+  if (/fcl|container|\bcont\b|(?:20|40)\s*(?:ft|'|hc|hq)/.test(lower)) return "container";
+  const quantity = /([\d.,]+)\s*(kg|metric\s+tons?|tons?|tonnes?|mt|t)\b/i.exec(lower);
+  if (!quantity) return "ask";
+  const number = Number(quantity[1].replace(/,/g, ""));
+  if (!Number.isFinite(number) || number <= 0) return "ask";
+  const tons = quantity[2].toLowerCase() === "kg" ? number / 1000 : number;
+  return tons <= 1 ? "small" : tons <= 5 ? "medium" : "large";
+}
+
+export function parseLeadTimeInput(input: {
+  valueRaw?: unknown;
+  unitRaw?: unknown;
+  legacyDaysRaw?: unknown;
+}):
+  | { ok: true; value: number | null; unit: LeadTimeUnit; daysEquivalent: number | null }
+  | { ok: false; message: string } {
+  const rawUnitStr = typeof input.unitRaw === "string" ? input.unitRaw.trim().toLowerCase() : "";
+  if (rawUnitStr === "on_request") {
+    return { ok: true, value: null, unit: "on_request", daysEquivalent: null };
+  }
+  if (rawUnitStr === "days" || rawUnitStr === "weeks") {
+    const valStr = input.valueRaw == null ? "" : String(input.valueRaw).trim();
+    if (!valStr) {
+      return { ok: true, value: null, unit: "on_request", daysEquivalent: null };
+    }
+    const maxVal = rawUnitStr === "weeks" ? 52 : 365;
+    if (!INTEGER_QUANTITY.test(valStr)) {
+      return { ok: false, message: "Thời gian giao hàng phải là số nguyên dương." };
+    }
+    const num = Number(valStr);
+    if (!Number.isFinite(num) || num <= 0 || num > maxVal) {
+      return {
+        ok: false,
+        message: rawUnitStr === "weeks"
+          ? "Thời gian giao hàng theo tuần phải từ 1 đến 52 tuần."
+          : "Thời gian giao hàng theo ngày phải từ 1 đến 365 ngày.",
+      };
+    }
+    return {
+      ok: true,
+      value: num,
+      unit: rawUnitStr,
+      daysEquivalent: rawUnitStr === "weeks" ? num * 7 : num,
+    };
+  }
+
+  const legacyStr = input.legacyDaysRaw == null ? "" : String(input.legacyDaysRaw).trim();
+  if (!legacyStr || legacyStr === "0") {
+    return { ok: true, value: null, unit: "on_request", daysEquivalent: null };
+  }
+  if (!INTEGER_QUANTITY.test(legacyStr) || Number(legacyStr) > 3650) {
+    return { ok: false, message: "Thời gian giao hàng không hợp lệ." };
+  }
+  const days = Number(legacyStr);
+  return { ok: true, value: days, unit: "days", daysEquivalent: days };
+}
+
+export function readProductLeadTime(
+  product: Pick<SupplierProduct, "lead_time_days" | "specs"> | null | undefined,
+): { value: number | null; unit: LeadTimeUnit; daysEquivalent: number | null } {
+  const rawSpec = product?.specs && typeof product.specs === "object"
+    ? (product.specs as Record<string, unknown>).lead_time
+    : null;
+  if (rawSpec && typeof rawSpec === "object") {
+    const rec = rawSpec as Record<string, unknown>;
+    const unit = rec.unit === "days" || rec.unit === "weeks" || rec.unit === "on_request" ? rec.unit : null;
+    const value = typeof rec.value === "number" && Number.isFinite(rec.value) && rec.value > 0 ? Math.round(rec.value) : null;
+    if (unit === "on_request") return { value: null, unit: "on_request", daysEquivalent: null };
+    if ((unit === "days" || unit === "weeks") && value !== null) {
+      return { value, unit, daysEquivalent: unit === "weeks" ? value * 7 : value };
+    }
+  }
+  if (typeof product?.lead_time_days === "number" && Number.isFinite(product.lead_time_days) && product.lead_time_days > 0) {
+    return { value: product.lead_time_days, unit: "days", daysEquivalent: product.lead_time_days };
+  }
+  return { value: null, unit: "on_request", daysEquivalent: null };
+}
+
+export function applyLeadTimeToSpecs(
+  baseSpecs: Record<string, unknown>,
+  leadTime: { value: number | null; unit: LeadTimeUnit },
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...baseSpecs };
+  if (leadTime.unit === "on_request" || leadTime.value === null) {
+    next.lead_time = { value: null, unit: "on_request" };
+  } else {
+    next.lead_time = { value: leadTime.value, unit: leadTime.unit };
+  }
+  return next;
+}
+
+export function formatLeadTimeVi(
+  product: Pick<SupplierProduct, "lead_time_days" | "specs"> | null | undefined,
+): string {
+  const lt = readProductLeadTime(product);
+  if (lt.unit === "weeks" && lt.value !== null) return `${lt.value} tuần`;
+  if (lt.unit === "days" && lt.value !== null) return `${lt.value} ngày`;
+  return "Theo yêu cầu";
+}
+
+export function formatLeadTimeBuyer(
+  product: Pick<SupplierProduct, "lead_time_days" | "specs"> | null | undefined,
+): string {
+  const lt = readProductLeadTime(product);
+  if (lt.unit === "weeks" && lt.value !== null) return lt.value === 1 ? "1 week" : `${lt.value} weeks`;
+  if (lt.unit === "days" && lt.value !== null) return lt.value === 1 ? "1 day" : `${lt.value} days`;
+  return "On request";
+}
+
+export function formatProductMoqVi(
+  product: Pick<SupplierProduct, "moq" | "moq_qty" | "moq_unit" | "specs"> | null | undefined,
+): string {
+  if (!product) return "-";
+  const rows = readStoredGradeRows(product.specs);
+  for (const row of rows) {
+    if (row.moq_qty && row.moq_unit) {
+      return formatStructuredMoqVi(row.moq_qty, row.moq_unit, row.moq_unit_weight_kg);
+    }
+    if (row.moq) {
+      const parsed = parseLegacyMoqString(row.moq);
+      if (parsed.status === "converted") return parsed.viText;
+      return row.moq;
+    }
+  }
+  const specWeight = product.specs && typeof product.specs === "object" && typeof (product.specs as Record<string, unknown>).moq_unit_weight_kg === "number"
+    ? ((product.specs as Record<string, unknown>).moq_unit_weight_kg as number)
+    : null;
+  if (typeof product.moq_qty === "number" && product.moq_qty > 0 && isMoqUnit(product.moq_unit)) {
+    return formatStructuredMoqVi(product.moq_qty, product.moq_unit, specWeight);
+  }
+  if (product.moq) {
+    const parsed = parseLegacyMoqString(product.moq);
+    if (parsed.status === "converted") return parsed.viText;
+    return product.moq;
+  }
+  return "Theo yêu cầu";
+}
+
+export function auditProductStructuredUnits(
+  product: Pick<SupplierProduct, "moq" | "moq_qty" | "moq_unit" | "ref_price" | "ref_price_max" | "unit" | "currency" | "specs">,
+  category?: CategoryGradeSource,
+): { needsReview: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  const storedRows = readStoredGradeRows(product.specs);
+
+  if (storedRows.length > 0) {
+    for (let i = 0; i < storedRows.length; i += 1) {
+      const row = storedRows[i];
+      if (!row.moq_qty && row.moq) {
+        const parsed = parseLegacyMoqString(row.moq);
+        if (parsed.status === "needs_review") {
+          reasons.push(`Dòng ${row.grade}: MOQ '${row.moq}' - ${parsed.reason}`);
+        }
+      }
+      if ((row.moq_unit === "bag" || row.moq_unit === "carton") && (!row.moq_unit_weight_kg || row.moq_unit_weight_kg <= 0)) {
+        reasons.push(`Dòng ${row.grade}: thiếu trọng lượng mỗi ${row.moq_unit === "bag" ? "bao" : "thùng"} (kg)`);
+      }
+    }
+  } else if (!(typeof product.moq_qty === "number" && product.moq_qty > 0 && isMoqUnit(product.moq_unit))) {
+    const parsed = parseLegacyMoqString(product.moq);
+    if (parsed.status === "needs_review") {
+      reasons.push(`MOQ '${parsed.raw}': ${parsed.reason}`);
+    }
+  }
+
+  if (storedRows.length === 0 && typeof product.ref_price === "number" && product.ref_price > 0) {
+    const parsedUnit = parsePriceUnit(product.unit, product.currency);
+    if (!parsedUnit) {
+      const rawUnit = cleanText(product.unit, 40) || cleanText(product.currency, 40) || "chưa rõ";
+      reasons.push(`Đơn vị giá cũ '${rawUnit}' không tự quy đổi sang đơn vị chuẩn của danh mục`);
+    } else {
+      const unitMeta = categoryMarketPriceUnit(category?.slug, category?.price_unit);
+      const minKg = toPricePerKg(product.ref_price, parsedUnit);
+      const maxVal = typeof product.ref_price_max === "number" && product.ref_price_max >= product.ref_price
+        ? product.ref_price_max
+        : product.ref_price;
+      const maxKg = toPricePerKg(maxVal, parsedUnit);
+      if (minKg !== null && maxKg !== null && (minKg < MIN_REASONABLE_PRICE_PER_KG || maxKg > MAX_REASONABLE_PRICE_PER_KG)) {
+        reasons.push(`Giá tham khảo ngoài ngưỡng hợp lý khi quy đổi sang ${unitMeta.unitLabel}`);
+      }
+    }
+  }
+
+  return { needsReview: reasons.length > 0, reasons };
+}
 
 export function isGradeFieldKey(key: string | null | undefined): boolean {
   const normalized = (key ?? "").trim().toLowerCase();
@@ -179,11 +708,63 @@ function stringAttributesOnly(specs: Record<string, unknown> | null | undefined)
 
 function formatDraftNumber(value: unknown): string {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) return String(value);
-  if (typeof value === "string" && DECIMAL_PRICE.test(value.trim()) && Number(value.trim()) > 0) return value.trim();
+  if (typeof value === "string" && DECIMAL_QUANTITY.test(value.trim()) && Number(value.trim()) > 0) return value.trim();
   return "";
 }
 
-export function createEmptyGradeRowDraft(id = "row-1"): ProductGradeRowDraft {
+function hydrateMoqDraftFields(
+  input: {
+    moq?: string | null;
+    moq_qty?: number | null;
+    moq_unit?: unknown;
+    moq_unit_weight_kg?: number | null;
+  },
+  category: CategoryGradeSource,
+): Pick<ProductGradeRowDraft, "moq" | "moqQty" | "moqUnit" | "moqUnitWeightKg" | "moqLegacyRaw"> {
+  const fallbackUnit = defaultMoqUnitForCategory(category);
+  if (typeof input.moq_qty === "number" && Number.isFinite(input.moq_qty) && input.moq_qty > 0 && isMoqUnit(input.moq_unit)) {
+    const unitWeight = typeof input.moq_unit_weight_kg === "number" && Number.isFinite(input.moq_unit_weight_kg) && input.moq_unit_weight_kg > 0
+      ? input.moq_unit_weight_kg
+      : null;
+    const buyerText = formatStructuredMoqBuyer(input.moq_qty, input.moq_unit, unitWeight) || cleanText(input.moq, 180);
+    return {
+      moq: buyerText,
+      moqQty: formatDraftNumber(input.moq_qty),
+      moqUnit: input.moq_unit,
+      moqUnitWeightKg: formatDraftNumber(unitWeight),
+      moqLegacyRaw: "",
+    };
+  }
+
+  const parsed = parseLegacyMoqString(input.moq);
+  if (parsed.status === "empty") {
+    return {
+      moq: "",
+      moqQty: "",
+      moqUnit: fallbackUnit,
+      moqUnitWeightKg: "",
+      moqLegacyRaw: "",
+    };
+  }
+  if (parsed.status === "converted") {
+    return {
+      moq: parsed.buyerText,
+      moqQty: formatDraftNumber(parsed.qty),
+      moqUnit: parsed.unit,
+      moqUnitWeightKg: formatDraftNumber(parsed.unitWeightKg),
+      moqLegacyRaw: "",
+    };
+  }
+  return {
+    moq: parsed.raw,
+    moqQty: parsed.suggestedQty !== null ? String(parsed.suggestedQty) : "",
+    moqUnit: parsed.suggestedUnit ?? fallbackUnit,
+    moqUnitWeightKg: "",
+    moqLegacyRaw: parsed.raw,
+  };
+}
+
+export function createEmptyGradeRowDraft(id = "row-1", category?: CategoryGradeSource): ProductGradeRowDraft {
   return {
     id,
     selectedGrade: "",
@@ -192,11 +773,15 @@ export function createEmptyGradeRowDraft(id = "row-1"): ProductGradeRowDraft {
     priceMax: "",
     incoterm: "FOB",
     moq: "",
+    moqQty: "",
+    moqUnit: defaultMoqUnitForCategory(category),
+    moqUnitWeightKg: "",
+    moqLegacyRaw: "",
   };
 }
 
 /**
- * Đọc bảng grade_rows đã lưu trong specs (nếu có), giữ nguyên cả dòng tự nhập.
+ * Đọc bảng grade_rows đã lưu trong specs (nếu có), giữ nguyên cả dòng tự nhập và dữ liệu MOQ chuẩn.
  */
 export function readStoredGradeRows(specs: Record<string, unknown> | null | undefined): ProductGradeRow[] {
   if (!specs || typeof specs !== "object" || !Array.isArray(specs.grade_rows)) return [];
@@ -209,13 +794,28 @@ export function readStoredGradeRows(specs: Record<string, unknown> | null | unde
     const min = typeof rec.price_min === "number" && Number.isFinite(rec.price_min) && rec.price_min > 0 ? rec.price_min : null;
     const max = typeof rec.price_max === "number" && Number.isFinite(rec.price_max) && rec.price_max > 0 ? rec.price_max : null;
     const validPair = min !== null && max !== null && max >= min;
+
+    const moqQty = typeof rec.moq_qty === "number" && Number.isFinite(rec.moq_qty) && rec.moq_qty > 0 ? rec.moq_qty : null;
+    const moqUnit = isMoqUnit(rec.moq_unit) ? rec.moq_unit : null;
+    const moqUnitWeightKg = typeof rec.moq_unit_weight_kg === "number" && Number.isFinite(rec.moq_unit_weight_kg) && rec.moq_unit_weight_kg > 0
+      ? rec.moq_unit_weight_kg
+      : null;
+    const computedMt = moqQty && moqUnit ? computeMoqMtEquivalent(moqQty, moqUnit, moqUnitWeightKg) : null;
+    const canonicalMoq = moqQty && moqUnit
+      ? (formatStructuredMoqBuyer(moqQty, moqUnit, moqUnitWeightKg) || cleanText(rec.moq, 180))
+      : cleanText(rec.moq, 180);
+
     rows.push({
       grade,
       is_custom: Boolean(rec.is_custom),
       price_min: validPair ? min : null,
       price_max: validPair ? max : null,
       incoterm: normalizeIncoterm(rec.incoterm),
-      moq: cleanText(rec.moq, 180),
+      moq: canonicalMoq,
+      moq_qty: moqQty && moqUnit ? moqQty : null,
+      moq_unit: moqQty && moqUnit ? moqUnit : null,
+      moq_unit_weight_kg: moqQty && (moqUnit === "bag" || moqUnit === "carton") ? moqUnitWeightKg : null,
+      moq_mt_equivalent: computedMt,
     });
   }
   return rows;
@@ -226,10 +826,10 @@ export function readStoredGradeRows(specs: Record<string, unknown> | null | unde
  * Sản phẩm cũ chưa có specs.grade_rows được chuyển mượt thành bảng 1 dòng.
  */
 export function hydrateGradeRowsDraft(
-  product: Pick<SupplierProduct, "name" | "spec" | "category" | "supplier_category_proposal" | "reviewed_category_slug" | "specs" | "ref_price" | "ref_price_max" | "currency" | "unit" | "incoterm" | "moq"> | null | undefined,
+  product: Pick<SupplierProduct, "name" | "spec" | "category" | "supplier_category_proposal" | "reviewed_category_slug" | "specs" | "ref_price" | "ref_price_max" | "currency" | "unit" | "incoterm" | "moq" | "moq_qty" | "moq_unit"> | null | undefined,
   category: CategoryGradeSource,
 ): ProductGradeRowDraft[] {
-  if (!product) return [createEmptyGradeRowDraft("row-1")];
+  if (!product) return [createEmptyGradeRowDraft("row-1", category)];
 
   const standardGrades = standardGradesForCategory(category);
   const stored = readStoredGradeRows(product.specs);
@@ -237,6 +837,7 @@ export function hydrateGradeRowsDraft(
     return stored.slice(0, MAX_GRADE_ROWS).map((row, index) => {
       const matched = !row.is_custom ? matchStandardGrade(row.grade, standardGrades) : null;
       const isCustom = row.is_custom || (!matched && standardGrades.length > 0);
+      const moqDraft = hydrateMoqDraftFields(row, category);
       return {
         id: `row-${index + 1}`,
         selectedGrade: isCustom ? CUSTOM_GRADE_OPTION : (matched ?? row.grade),
@@ -244,7 +845,7 @@ export function hydrateGradeRowsDraft(
         priceMin: formatDraftNumber(row.price_min),
         priceMax: formatDraftNumber(row.price_max),
         incoterm: normalizeIncoterm(row.incoterm),
-        moq: row.moq,
+        ...moqDraft,
       };
     });
   }
@@ -269,7 +870,11 @@ export function hydrateGradeRowsDraft(
 
   if (minVal !== null && maxVal !== null) {
     const parsedSourceUnit = parsePriceUnit(product.unit, product.currency);
-    if (parsedSourceUnit && parsedSourceUnit !== unitMeta.primary && (product.currency ?? "USD").toUpperCase().startsWith("USD")) {
+    if (!parsedSourceUnit) {
+      // Do not silently copy a price tied to an unknown legacy unit (e.g. "Bag", "thùng") into USD/kg or USD/MT.
+      minVal = null;
+      maxVal = null;
+    } else if (parsedSourceUnit !== unitMeta.primary && (product.currency ?? "USD").toUpperCase().startsWith("USD")) {
       const lowKg = toPricePerKg(minVal, parsedSourceUnit);
       const highKg = toPricePerKg(maxVal, parsedSourceUnit);
       if (lowKg !== null && highKg !== null) {
@@ -280,6 +885,19 @@ export function hydrateGradeRowsDraft(
     }
   }
 
+  const specWeight = product.specs && typeof product.specs === "object" && typeof (product.specs as Record<string, unknown>).moq_unit_weight_kg === "number"
+    ? ((product.specs as Record<string, unknown>).moq_unit_weight_kg as number)
+    : null;
+  const moqDraft = hydrateMoqDraftFields(
+    {
+      moq: product.moq,
+      moq_qty: product.moq_qty,
+      moq_unit: product.moq_unit,
+      moq_unit_weight_kg: specWeight,
+    },
+    category,
+  );
+
   const hasCustomLegacy = Boolean(legacyGrade && !matched);
   return [{
     id: "row-1",
@@ -288,25 +906,226 @@ export function hydrateGradeRowsDraft(
     priceMin: formatDraftNumber(minVal),
     priceMax: formatDraftNumber(maxVal),
     incoterm: normalizeIncoterm(product.incoterm),
-    moq: cleanText(product.moq, 180),
+    ...moqDraft,
   }];
 }
 
 /**
  * Khi đổi danh mục: giữ các dòng tự nhập, khớp lại grade chuẩn nếu trùng tên,
- * hoặc đặt lại về "Chọn grade" nếu grade cũ không thuộc danh mục mới.
+ * đặt lại về "Chọn grade" nếu grade cũ không thuộc danh mục mới, và đồng bộ đơn vị MOQ cho phép.
  */
 export function reconcileGradeRowsForCategory(
   rows: readonly ProductGradeRowDraft[],
   category: CategoryGradeSource,
 ): ProductGradeRowDraft[] {
   const standardGrades = standardGradesForCategory(category);
+  const allowedUnits = allowedMoqUnitsForCategory(category);
+  const fallbackUnit = defaultMoqUnitForCategory(category);
   return rows.map((row) => {
-    if (!row.selectedGrade || row.selectedGrade === CUSTOM_GRADE_OPTION) return row;
-    const matched = matchStandardGrade(row.selectedGrade, standardGrades);
-    if (matched) return matched === row.selectedGrade ? row : { ...row, selectedGrade: matched };
-    return { ...row, selectedGrade: "" };
+    let nextSelected = row.selectedGrade;
+    if (row.selectedGrade && row.selectedGrade !== CUSTOM_GRADE_OPTION) {
+      const matched = matchStandardGrade(row.selectedGrade, standardGrades);
+      nextSelected = matched ?? "";
+    }
+    const currentUnit = row.moqUnit;
+    const nextUnit = currentUnit && allowedUnits.includes(currentUnit)
+      ? currentUnit
+      : currentUnit === undefined
+        ? undefined
+        : fallbackUnit;
+    const clearWeight = nextUnit && nextUnit !== "bag" && nextUnit !== "carton";
+    if (nextSelected === row.selectedGrade && nextUnit === row.moqUnit && !clearWeight) return row;
+    return {
+      ...row,
+      selectedGrade: nextSelected,
+      ...(nextUnit !== undefined ? { moqUnit: nextUnit } : {}),
+      ...(clearWeight ? { moqUnitWeightKg: "" } : {}),
+    };
   });
+}
+
+function validateReasonableConvertedPrice(
+  parsedMin: number,
+  parsedMax: number,
+  unitMeta: CategoryPriceUnitMeta,
+): string | null {
+  const minPerKg = toPricePerKg(parsedMin, unitMeta.primary);
+  const maxPerKg = toPricePerKg(parsedMax, unitMeta.primary);
+  if (minPerKg === null || maxPerKg === null) {
+    return "Đơn vị giá danh mục không hợp lệ.";
+  }
+  if (minPerKg < MIN_REASONABLE_PRICE_PER_KG) {
+    return unitMeta.primary === "mt"
+      ? "Giá thấp bất thường cho đơn vị USD/MT (tối thiểu 50 USD/MT). Kiểm tra xem bạn có đang nhập nhầm giá theo kg không."
+      : "Giá thấp bất thường cho đơn vị USD/kg (tối thiểu 0.05 USD/kg).";
+  }
+  if (maxPerKg > MAX_REASONABLE_PRICE_PER_KG) {
+    return unitMeta.primary === "kg"
+      ? "Giá cao bất thường cho đơn vị USD/kg (tối đa 500 USD/kg). Kiểm tra xem bạn có đang nhập nhầm giá theo tấn hoặc VNĐ không."
+      : "Giá cao bất thường cho đơn vị USD/MT (tối đa 500,000 USD/MT). Kiểm tra xem bạn có đang nhập nhầm sang VNĐ không.";
+  }
+  if (parsedMax > parsedMin * MAX_PRICE_SPREAD_RATIO) {
+    return "Khoảng giá chênh lệch quá 10 lần giữa giá từ và giá đến. Kiểm tra lại số chữ số.";
+  }
+  return null;
+}
+
+function validateMoqFromDraft(
+  row: ProductGradeRowDraft,
+  category: CategoryGradeSource,
+): {
+  error: string | null;
+  moq: string;
+  moq_qty: number | null;
+  moq_unit: MoqUnit | null;
+  moq_unit_weight_kg: number | null;
+  moq_mt_equivalent: number | null;
+} {
+  const allowedUnits = allowedMoqUnitsForCategory(category);
+  const hasStructuredFields = row.moqQty !== undefined || row.moqUnit !== undefined || row.moqUnitWeightKg !== undefined || row.moqLegacyRaw !== undefined;
+
+  if (!hasStructuredFields) {
+    const raw = cleanText(row.moq, 180);
+    if (!raw) {
+      return { error: null, moq: "", moq_qty: null, moq_unit: null, moq_unit_weight_kg: null, moq_mt_equivalent: null };
+    }
+    const parsed = parseLegacyMoqString(raw);
+    if (parsed.status === "empty") {
+      return { error: null, moq: "", moq_qty: null, moq_unit: null, moq_unit_weight_kg: null, moq_mt_equivalent: null };
+    }
+    if (parsed.status === "converted") {
+      if (!allowedUnits.includes(parsed.unit)) {
+        return {
+          error: "Đơn vị MOQ này không nằm trong danh sách cho phép của danh mục.",
+          moq: "",
+          moq_qty: null,
+          moq_unit: null,
+          moq_unit_weight_kg: null,
+          moq_mt_equivalent: null,
+        };
+      }
+      return {
+        error: null,
+        moq: parsed.buyerText,
+        moq_qty: parsed.qty,
+        moq_unit: parsed.unit,
+        moq_unit_weight_kg: parsed.unitWeightKg,
+        moq_mt_equivalent: parsed.mtEquivalent,
+      };
+    }
+    return {
+      error: `MOQ '${parsed.raw}' chưa đủ thông tin: ${parsed.reason}.`,
+      moq: "",
+      moq_qty: null,
+      moq_unit: null,
+      moq_unit_weight_kg: null,
+      moq_mt_equivalent: null,
+    };
+  }
+
+  const qtyRaw = (row.moqQty ?? "").trim();
+  const unit: MoqUnit = isMoqUnit(row.moqUnit) ? row.moqUnit : defaultMoqUnitForCategory(category);
+  const weightRaw = (row.moqUnitWeightKg ?? "").trim();
+  const legacyRaw = cleanText(row.moqLegacyRaw, 180);
+
+  if (!qtyRaw) {
+    if (legacyRaw) {
+      return {
+        error: `MOQ cũ ('${legacyRaw}') chưa chuẩn. Nhập lại số lượng và chọn đơn vị chuẩn, hoặc xóa để chuyển sang Theo yêu cầu.`,
+        moq: "",
+        moq_qty: null,
+        moq_unit: null,
+        moq_unit_weight_kg: null,
+        moq_mt_equivalent: null,
+      };
+    }
+    if ((unit === "bag" || unit === "carton") && weightRaw) {
+      return {
+        error: `Nhập số lượng ${unit === "bag" ? "bao" : "thùng"} cho MOQ hoặc xóa trọng lượng.`,
+        moq: "",
+        moq_qty: null,
+        moq_unit: null,
+        moq_unit_weight_kg: null,
+        moq_mt_equivalent: null,
+      };
+    }
+    return { error: null, moq: "", moq_qty: null, moq_unit: null, moq_unit_weight_kg: null, moq_mt_equivalent: null };
+  }
+
+  if (!allowedUnits.includes(unit)) {
+    return {
+      error: "Đơn vị MOQ này không nằm trong danh sách cho phép của danh mục.",
+      moq: "",
+      moq_qty: null,
+      moq_unit: null,
+      moq_unit_weight_kg: null,
+      moq_mt_equivalent: null,
+    };
+  }
+
+  const requiresInteger = unit === "bag" || unit === "carton" || unit === "cont_20ft" || unit === "cont_40ft";
+  if (requiresInteger ? !INTEGER_QUANTITY.test(qtyRaw) : !DECIMAL_QUANTITY.test(qtyRaw)) {
+    return {
+      error: requiresInteger
+        ? "Số lượng bao, thùng hoặc container phải là số nguyên dương."
+        : "Số lượng MOQ phải là số lớn hơn 0 (tối đa 3 chữ số thập phân).",
+      moq: "",
+      moq_qty: null,
+      moq_unit: null,
+      moq_unit_weight_kg: null,
+      moq_mt_equivalent: null,
+    };
+  }
+  const qty = Number(qtyRaw);
+  const maxQty = unit === "cont_20ft" || unit === "cont_40ft" ? 500 : MAX_MOQ_QUANTITY;
+  if (!Number.isFinite(qty) || qty <= 0 || qty > maxQty) {
+    return {
+      error: "Số lượng MOQ vượt ngoài phạm vi hợp lệ.",
+      moq: "",
+      moq_qty: null,
+      moq_unit: null,
+      moq_unit_weight_kg: null,
+      moq_mt_equivalent: null,
+    };
+  }
+
+  let unitWeightKg: number | null = null;
+  if (unit === "bag" || unit === "carton") {
+    const nounVi = unit === "bag" ? "bao" : "thùng";
+    if (!weightRaw || !DECIMAL_QUANTITY.test(weightRaw)) {
+      return {
+        error: `Nhập trọng lượng mỗi ${nounVi} (kg).`,
+        moq: "",
+        moq_qty: null,
+        moq_unit: null,
+        moq_unit_weight_kg: null,
+        moq_mt_equivalent: null,
+      };
+    }
+    const parsedWeight = Number(weightRaw);
+    if (!Number.isFinite(parsedWeight) || parsedWeight <= 0 || parsedWeight > MAX_UNIT_WEIGHT_KG) {
+      return {
+        error: `Trọng lượng mỗi ${nounVi} phải từ 0.1 đến ${MAX_UNIT_WEIGHT_KG} kg.`,
+        moq: "",
+        moq_qty: null,
+        moq_unit: null,
+        moq_unit_weight_kg: null,
+        moq_mt_equivalent: null,
+      };
+    }
+    unitWeightKg = parsedWeight;
+  }
+
+  const mtEquivalent = computeMoqMtEquivalent(qty, unit, unitWeightKg);
+  const buyerText = formatStructuredMoqBuyer(qty, unit, unitWeightKg);
+  return {
+    error: null,
+    moq: buyerText,
+    moq_qty: qty,
+    moq_unit: unit,
+    moq_unit_weight_kg: unitWeightKg,
+    moq_mt_equivalent: mtEquivalent,
+  };
 }
 
 export function validateGradeRowDraft(
@@ -314,6 +1133,7 @@ export function validateGradeRowDraft(
   category: CategoryGradeSource,
 ): ProductGradeRowValidation {
   const standardGrades = standardGradesForCategory(category);
+  const unitMeta = categoryMarketPriceUnit(category?.slug, category?.price_unit);
   const isCustom = row.selectedGrade === CUSTOM_GRADE_OPTION;
   let grade = "";
   let gradeError: string | null = null;
@@ -344,12 +1164,16 @@ export function validateGradeRowDraft(
     } else {
       const parsedMin = Number(minRaw);
       const parsedMax = Number(maxRaw);
-      if (!Number.isFinite(parsedMin) || !Number.isFinite(parsedMax) || parsedMin <= 0 || parsedMax <= 0 ||
-          parsedMin > MAX_PRICE || parsedMax > MAX_PRICE || parsedMax < parsedMin) {
+      if (!Number.isFinite(parsedMin) || !Number.isFinite(parsedMax) || parsedMin <= 0 || parsedMax <= 0 || parsedMax < parsedMin) {
         priceError = "Giá đến phải lớn hơn hoặc bằng giá từ và lớn hơn 0.";
       } else {
-        priceMin = parsedMin;
-        priceMax = parsedMax;
+        const reasonableErr = validateReasonableConvertedPrice(parsedMin, parsedMax, unitMeta);
+        if (reasonableErr) {
+          priceError = reasonableErr;
+        } else {
+          priceMin = parsedMin;
+          priceMax = parsedMax;
+        }
       }
     }
   }
@@ -357,12 +1181,16 @@ export function validateGradeRowDraft(
   const incotermRaw = cleanText(row.incoterm, 16).toUpperCase() || "FOB";
   const incotermValid = (GRADE_INCOTERMS as readonly string[]).includes(incotermRaw);
   const incotermError = incotermValid ? null : "Chọn Incoterm hợp lệ.";
-  const valid = !gradeError && !priceError && !incotermError;
+
+  const moqResult = validateMoqFromDraft(row, category);
+  const moqError = moqResult.error;
+  const valid = !gradeError && !priceError && !incotermError && !moqError;
 
   return {
     gradeError,
     priceError,
     incotermError,
+    moqError,
     valid,
     normalized: valid
       ? {
@@ -371,7 +1199,11 @@ export function validateGradeRowDraft(
           price_min: priceMin,
           price_max: priceMax,
           incoterm: incotermRaw,
-          moq: cleanText(row.moq, 180),
+          moq: moqResult.moq,
+          moq_qty: moqResult.moq_qty,
+          moq_unit: moqResult.moq_unit,
+          moq_unit_weight_kg: moqResult.moq_unit_weight_kg,
+          moq_mt_equivalent: moqResult.moq_mt_equivalent,
         }
       : null,
   };
@@ -396,7 +1228,7 @@ export function validateGradeRowsDraft(
   const firstBadIndex = rowResults.findIndex((item) => !item.valid);
   if (firstBadIndex !== -1) {
     const bad = rowResults[firstBadIndex];
-    const reason = bad.gradeError || bad.priceError || bad.incotermError || "Kiểm tra lại thông tin dòng grade.";
+    const reason = bad.gradeError || bad.priceError || bad.incotermError || bad.moqError || "Kiểm tra lại thông tin dòng grade.";
     return {
       valid: false,
       message: `Dòng grade ${firstBadIndex + 1}: ${reason}`,
@@ -421,6 +1253,10 @@ export function serializeGradeRowsDraft(rows: readonly ProductGradeRowDraft[]): 
       priceMax: row.priceMax,
       incoterm: row.incoterm,
       moq: row.moq,
+      ...(row.moqQty !== undefined ? { moqQty: row.moqQty } : {}),
+      ...(row.moqUnit !== undefined ? { moqUnit: row.moqUnit } : {}),
+      ...(row.moqUnitWeightKg !== undefined ? { moqUnitWeightKg: row.moqUnitWeightKg } : {}),
+      ...(row.moqLegacyRaw ? { moqLegacyRaw: row.moqLegacyRaw } : {}),
     })),
   );
 }
@@ -449,8 +1285,8 @@ export function parseGradeRowsFromPayload(
 
   const drafts: ProductGradeRowDraft[] = parsed.map((entry, idx) => {
     const rec = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
-    // Accept either ProductGradeRowDraft shape or ProductGradeRow shape
     if ("selectedGrade" in rec || "priceMin" in rec || "priceMax" in rec) {
+      const hasStructuredMoq = "moqQty" in rec || "moqUnit" in rec || "moqUnitWeightKg" in rec || "moqLegacyRaw" in rec;
       return {
         id: `row-${idx + 1}`,
         selectedGrade: typeof rec.selectedGrade === "string" ? rec.selectedGrade : "",
@@ -459,10 +1295,19 @@ export function parseGradeRowsFromPayload(
         priceMax: rec.priceMax == null ? "" : String(rec.priceMax),
         incoterm: typeof rec.incoterm === "string" ? rec.incoterm : "FOB",
         moq: typeof rec.moq === "string" ? rec.moq : "",
+        ...(hasStructuredMoq
+          ? {
+              moqQty: rec.moqQty == null ? "" : String(rec.moqQty),
+              moqUnit: isMoqUnit(rec.moqUnit) ? rec.moqUnit : defaultMoqUnitForCategory(category),
+              moqUnitWeightKg: rec.moqUnitWeightKg == null ? "" : String(rec.moqUnitWeightKg),
+              moqLegacyRaw: typeof rec.moqLegacyRaw === "string" ? rec.moqLegacyRaw : "",
+            }
+          : {}),
       };
     }
     const isCustom = Boolean(rec.is_custom);
     const gradeText = typeof rec.grade === "string" ? rec.grade : "";
+    const hasRowMoqQty = typeof rec.moq_qty === "number" && rec.moq_qty > 0 && isMoqUnit(rec.moq_unit);
     return {
       id: `row-${idx + 1}`,
       selectedGrade: isCustom ? CUSTOM_GRADE_OPTION : gradeText,
@@ -471,6 +1316,14 @@ export function parseGradeRowsFromPayload(
       priceMax: rec.price_max == null ? "" : String(rec.price_max),
       incoterm: typeof rec.incoterm === "string" ? rec.incoterm : "FOB",
       moq: typeof rec.moq === "string" ? rec.moq : "",
+      ...(hasRowMoqQty
+        ? {
+            moqQty: String(rec.moq_qty),
+            moqUnit: rec.moq_unit as MoqUnit,
+            moqUnitWeightKg: typeof rec.moq_unit_weight_kg === "number" && rec.moq_unit_weight_kg > 0 ? String(rec.moq_unit_weight_kg) : "",
+            moqLegacyRaw: "",
+          }
+        : {}),
     };
   });
 
@@ -495,6 +1348,10 @@ export function summarizeGradeRowsForProduct(
   unit: string | null;
   incoterm: string | null;
   moq: string | null;
+  moq_qty: number | null;
+  moq_unit: MoqUnit | null;
+  moq_unit_weight_kg: number | null;
+  moq_mt_equivalent: number | null;
   primaryStandardGrade: string | null;
   standardGrades: string[];
   gradeFieldKey: "grade" | "product_type";
@@ -504,7 +1361,7 @@ export function summarizeGradeRowsForProduct(
   const refPrice = priced.length > 0 ? Math.min(...priced.map((row) => row.price_min!)) : null;
   const refPriceMax = priced.length > 0 ? Math.max(...priced.map((row) => row.price_max!)) : null;
   const firstIncoterm = rows.find((row) => row.incoterm)?.incoterm ?? null;
-  const firstMoq = rows.find((row) => row.moq)?.moq ?? null;
+  const firstMoqRow = rows.find((row) => Boolean(row.moq) || (row.moq_qty && row.moq_unit)) ?? null;
 
   const standardGrades: string[] = [];
   const seen = new Set<string>();
@@ -522,7 +1379,11 @@ export function summarizeGradeRowsForProduct(
     currency: refPrice !== null ? "USD" : null,
     unit: refPrice !== null ? unitMeta.tradeUnit : null,
     incoterm: firstIncoterm,
-    moq: firstMoq,
+    moq: firstMoqRow?.moq || null,
+    moq_qty: firstMoqRow?.moq_qty ?? null,
+    moq_unit: firstMoqRow?.moq_unit ?? null,
+    moq_unit_weight_kg: firstMoqRow?.moq_unit_weight_kg ?? null,
+    moq_mt_equivalent: firstMoqRow?.moq_mt_equivalent ?? null,
     primaryStandardGrade: standardGrades[0] ?? null,
     standardGrades,
     gradeFieldKey: primaryGradeFieldKey(category),
@@ -541,6 +1402,11 @@ export function applyGradeRowsToSpecs(
   if (summary.primaryStandardGrade) {
     next[summary.gradeFieldKey] = summary.primaryStandardGrade;
   }
+  if (summary.moq_unit_weight_kg !== null) {
+    next.moq_unit_weight_kg = summary.moq_unit_weight_kg;
+  } else {
+    delete next.moq_unit_weight_kg;
+  }
   next.grade_rows = rows.map((row) => ({
     grade: row.grade,
     is_custom: row.is_custom,
@@ -548,6 +1414,10 @@ export function applyGradeRowsToSpecs(
     price_max: row.price_max,
     incoterm: row.incoterm,
     moq: row.moq,
+    moq_qty: row.moq_qty ?? null,
+    moq_unit: row.moq_unit ?? null,
+    moq_unit_weight_kg: row.moq_unit_weight_kg ?? null,
+    moq_mt_equivalent: row.moq_mt_equivalent ?? null,
   }));
   return next;
 }
@@ -584,7 +1454,7 @@ export function formatGradeRowPriceVi(
  * Tuyệt đối ẩn toàn bộ giá từng dòng khi cổng công khai giá (canShowPrice) đang khoá.
  */
 export function projectPublicGradeData(
-  product: Pick<SupplierProduct, "name" | "spec" | "specs" | "ref_price" | "ref_price_max" | "currency" | "unit" | "incoterm" | "moq" | "updated_at">,
+  product: Pick<SupplierProduct, "name" | "spec" | "specs" | "ref_price" | "ref_price_max" | "currency" | "unit" | "incoterm" | "moq" | "moq_qty" | "moq_unit" | "updated_at">,
   category: Category | Pick<Category, "slug" | "price_unit" | "product_fields">,
   options: {
     canShowPrice: boolean;
@@ -599,6 +1469,8 @@ export function projectPublicGradeData(
   standardGrades: string[];
   cardGrades: string[];
   summaryPrice: string | null;
+  moqUnit: MoqUnit | null;
+  moqMtEquivalent: number | null;
   gradeRows: PublicProductGradeRow[];
   gradePricePoints: Array<{
     value: number;
@@ -655,8 +1527,23 @@ export function projectPublicGradeData(
         });
       }
 
-      const rawMoq = row.moq || options.fallbackMoq || "";
-      const cleanMoq = options.sanitizeText(options.translateMoq(rawMoq)).trim() || "On request";
+      let resolvedMoq = "";
+      let rowMoqUnit: MoqUnit | null = row.moq_unit ?? null;
+      let rowMoqMt: number | null = row.moq_mt_equivalent ?? null;
+      if (row.moq_qty && row.moq_unit) {
+        resolvedMoq = formatStructuredMoqBuyer(row.moq_qty, row.moq_unit, row.moq_unit_weight_kg);
+      } else {
+        const rawMoq = row.moq || options.fallbackMoq || "";
+        resolvedMoq = options.translateMoq(rawMoq);
+        if (!rowMoqUnit && rawMoq) {
+          const parsed = parseLegacyMoqString(rawMoq);
+          if (parsed.status === "converted") {
+            rowMoqUnit = parsed.unit;
+            rowMoqMt = parsed.mtEquivalent;
+          }
+        }
+      }
+      const cleanMoq = options.sanitizeText(resolvedMoq).trim() || "On request";
       const cleanIncoterm = options.sanitizeText(row.incoterm || "").trim() || null;
 
       return {
@@ -667,6 +1554,8 @@ export function projectPublicGradeData(
         priceText,
         incoterm: cleanIncoterm,
         moq: cleanMoq,
+        moqUnit: rowMoqUnit,
+        moqMtEquivalent: rowMoqMt,
       };
     });
 
@@ -686,12 +1575,16 @@ export function projectPublicGradeData(
         )
       : null;
 
+    const firstMoqRow = gradeRows.find((r) => r.moq !== "On request") ?? gradeRows[0] ?? null;
+
     return {
       hasGradeRows: true,
       primaryGrade: standardGrades[0] ?? null,
       standardGrades,
       cardGrades: standardGrades,
       summaryPrice,
+      moqUnit: firstMoqRow?.moqUnit ?? null,
+      moqMtEquivalent: firstMoqRow?.moqMtEquivalent ?? null,
       gradeRows,
       gradePricePoints,
     };
@@ -718,11 +1611,27 @@ export function projectPublicGradeData(
     if (isUsd && parsedSourceUnit) {
       const lowKg = toPricePerKg(product.ref_price, parsedSourceUnit);
       const highKg = toPricePerKg(rawMax, parsedSourceUnit);
-      if (lowKg !== null && highKg !== null) {
+      if (lowKg !== null && highKg !== null && lowKg >= MIN_REASONABLE_PRICE_PER_KG && highKg <= MAX_REASONABLE_PRICE_PER_KG) {
         const lowInCategoryUnit = fromPricePerKg(lowKg, unitMeta.primary);
         const highInCategoryUnit = fromPricePerKg(highKg, unitMeta.primary);
         legacySummaryPrice = formatGradeRowPriceBuyer(lowInCategoryUnit, highInCategoryUnit, unitMeta.primary);
       }
+    }
+  }
+
+  const specWeight = product.specs && typeof product.specs === "object" && typeof (product.specs as Record<string, unknown>).moq_unit_weight_kg === "number"
+    ? ((product.specs as Record<string, unknown>).moq_unit_weight_kg as number)
+    : null;
+  let legacyMoqUnit: MoqUnit | null = null;
+  let legacyMoqMt: number | null = null;
+  if (typeof product.moq_qty === "number" && product.moq_qty > 0 && isMoqUnit(product.moq_unit)) {
+    legacyMoqUnit = product.moq_unit;
+    legacyMoqMt = computeMoqMtEquivalent(product.moq_qty, product.moq_unit, specWeight);
+  } else {
+    const parsedMoq = parseLegacyMoqString(product.moq ?? options.fallbackMoq);
+    if (parsedMoq.status === "converted") {
+      legacyMoqUnit = parsedMoq.unit;
+      legacyMoqMt = parsedMoq.mtEquivalent;
     }
   }
 
@@ -732,6 +1641,8 @@ export function projectPublicGradeData(
     standardGrades,
     cardGrades: [],
     summaryPrice: legacySummaryPrice,
+    moqUnit: legacyMoqUnit,
+    moqMtEquivalent: legacyMoqMt,
     gradeRows: [],
     gradePricePoints: [],
   };
