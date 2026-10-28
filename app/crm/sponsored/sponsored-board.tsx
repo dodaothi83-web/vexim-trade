@@ -19,7 +19,8 @@ export interface BoardRow {
   supplierName: string;
   categoryName: string;
   surface: "category" | "home";
-  state: "pending" | "scheduled" | "live" | "paused" | "ended";
+  status: "draft" | "approved" | "paused";
+  state: "pending" | "scheduled" | "live" | "paused" | "ended" | "unavailable";
   startsLabel: string;
   endsLabel: string;
   hoursLeft: number;
@@ -61,22 +62,24 @@ const STATE_META: Record<BoardRow["state"], { label: string; className: string }
   scheduled: { label: "Chờ tới giờ", className: "bg-sky-100 text-sky-900" },
   paused: { label: "Tạm dừng", className: "bg-ink-100 text-ink-600" },
   ended: { label: "Hết hạn", className: "bg-ink-100 text-ink-500" },
+  unavailable: { label: "Không hiển thị", className: "bg-rose-100 text-rose-900" },
 };
 
-type TabKey = "all" | "pending" | "scheduled" | "live" | "paused" | "ended";
+type TabKey = "all" | "pending" | "scheduled" | "live" | "paused" | "ended" | "unavailable";
 
 const TABS: { key: TabKey; label: string; match: (state: BoardRow["state"]) => boolean }[] = [
   { key: "all", label: "Tất cả", match: () => true },
   { key: "pending", label: "Chờ duyệt", match: (s) => s === "pending" },
   { key: "scheduled", label: "Chờ tới giờ", match: (s) => s === "scheduled" },
   { key: "live", label: "Đang chạy", match: (s) => s === "live" },
+  { key: "unavailable", label: "Không hiển thị", match: (s) => s === "unavailable" },
   { key: "paused", label: "Tạm dừng", match: (s) => s === "paused" },
   { key: "ended", label: "Hết hạn", match: (s) => s === "ended" },
 ];
 
 function remaining(row: BoardRow): string {
   if (row.state === "ended") return "đã hết";
-  if (row.state === "pending") return "chưa mở";
+  if (row.status === "draft") return "chưa mở";
   const hours = row.hoursLeft;
   if (hours >= 48) return `còn ${Math.floor(hours / 24)} ngày`;
   if (hours >= 1) return `còn ${hours} giờ`;
@@ -91,6 +94,9 @@ export function SponsoredBoard({
   canManage,
   flash,
   series,
+  metricsAvailable,
+  packagesAvailable,
+  candidatesAvailable,
 }: {
   rows: BoardRow[];
   pools: PoolView[];
@@ -99,6 +105,9 @@ export function SponsoredBoard({
   canManage: boolean;
   flash: { text: string; bad: boolean } | null;
   series: Record<string, SeriesPoint[]>;
+  metricsAvailable: boolean;
+  packagesAvailable: boolean;
+  candidatesAvailable: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>("all");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -120,6 +129,7 @@ export function SponsoredBoard({
 
   const visible = useMemo(() => rows.filter((r) => TABS.find((t) => t.key === tab)!.match(r.state)), [rows, tab]);
   const detail = rows.find((r) => r.id === openId) ?? null;
+  const categoryPools = pools.filter((pool) => pool.surface === "category");
 
   return (
     <>
@@ -134,25 +144,41 @@ export function SponsoredBoard({
         </div>
       )}
 
-      {/* Số liệu chính */}
+      {rows.some((row) => row.surface === "home") && (
+        <p role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          Trang chủ chưa có vị trí tài trợ. Gói trang chủ cũ không hiển thị và không tự thay đổi; cần đối soát với khách.
+        </p>
+      )}
+      {!metricsAvailable && (
+        <p role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          Chưa tải được số liệu quảng cáo. Vui lòng thử lại; dấu — không có nghĩa là không có lượt.
+        </p>
+      )}
+      {/* Số liệu chính: số đã ghi nhận, không phải tất cả người xem. */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat icon={<Megaphone className="h-4 w-4" />} label="Đang chạy" value={group(summary.live)} hint={summary.expiring ? `${summary.expiring} hết hạn trong 24 giờ` : "không gói nào sắp hết hạn"} />
-        <Stat icon={<Clock className="h-4 w-4" />} label="Chờ duyệt" value={group(summary.pending)} hint="chưa hiện với buyer" />
-        <Stat icon={<Eye className="h-4 w-4" />} label="Lượt hiển thị 7 ngày" value={group(summary.impressions7d)} hint="bảy ngày gần nhất" />
-        <Stat icon={<CircleDollarSign className="h-4 w-4" />} label="Lượt mở thẻ 7 ngày" value={group(summary.clicks7d)} hint={summary.impressions7d ? `${Math.round((summary.clicks7d / summary.impressions7d) * 1000) / 10}% số lượt hiển thị` : "chưa có lượt hiển thị"} />
+        <Stat icon={<Megaphone className="h-4 w-4" />} label="Đang chạy" value={packagesAvailable ? group(summary.live) : "—"} hint={!packagesAvailable ? "chưa tải được gói" : summary.expiring ? `${summary.expiring} gói danh mục hết hạn trong 24 giờ, kể cả gói tạm dừng` : "không gói danh mục nào sắp hết hạn"} />
+        <Stat icon={<Clock className="h-4 w-4" />} label="Chờ duyệt" value={packagesAvailable ? group(summary.pending) : "—"} hint={packagesAvailable ? "chưa hiện với buyer" : "chưa tải được gói"} />
+        <Stat icon={<Eye className="h-4 w-4" />} label="Hiển thị đã ghi · 7 ngày" value={metricsAvailable ? group(summary.impressions7d) : "—"} hint={metricsAvailable ? "bảy ngày UTC gần nhất" : "chưa tải được số liệu"} />
+        <Stat icon={<CircleDollarSign className="h-4 w-4" />} label="Nhấp đã ghi · 7 ngày" value={metricsAvailable ? group(summary.clicks7d) : "—"} hint={!metricsAvailable ? "chưa tải được số liệu" : summary.impressions7d ? `${Math.round((summary.clicks7d / summary.impressions7d) * 1000) / 10}% so với lượt hiển thị` : "chưa có lượt hiển thị ghi nhận"} />
       </div>
+      <p className="mt-2 text-[11.5px] leading-5 text-ink-500">
+        Thẻ chỉ có thể hiện khi sản phẩm, nhà cung cấp và danh mục còn đủ điều kiện; không phải gói nào cũng được chọn ở mỗi vòng. Chỉ ghi số liệu khi người xem đồng ý đo lường tiếp thị; số liệu có thể thiếu. Lượt nhấp gồm các liên kết trên thẻ, không phải số người duy nhất.
+      </p>
 
       {/* Bể gói */}
       <section className="card mt-4 p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-[13px] font-bold text-ink-800">Chỗ trống trong bể</h2>
-          <p className="text-[12px] text-ink-500">Bể đầy thì ngừng bán.</p>
+          <p className="text-[12px] text-ink-500">Kiểm tra đủ 168 giờ trước khi duyệt.</p>
         </div>
-        {pools.length === 0 ? (
-          <p className="mt-3 text-[13px] text-ink-500">Chưa có gói nào đang chạy.</p>
+        <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Một vòng kéo dài 10 phút. Số ô hiển thị thay đổi theo số sản phẩm công khai; chưa có ước tính số vòng theo số ô mới. Giới hạn bể dưới đây vẫn là quy tắc cũ, chưa áp dụng 4 gói mỗi ô.</p>
+        {!packagesAvailable ? (
+          <p className="mt-3 text-[13px] text-ink-500">Chưa tải được danh sách gói.</p>
+        ) : categoryPools.length === 0 ? (
+          <p className="mt-3 text-[13px] text-ink-500">Chưa có gói danh mục nào chiếm chỗ lúc này.</p>
         ) : (
           <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {pools.map((pool) => {
+            {categoryPools.map((pool) => {
               const percent = Math.min(100, Math.round((pool.used / pool.cap) * 100));
               return (
                 <div key={pool.key}>
@@ -169,7 +195,8 @@ export function SponsoredBoard({
                     />
                   </div>
                   <p className="mt-1 text-[11.5px] text-ink-500">
-                    {pool.free === 0 ? "Đã đầy." : `Còn ${pool.free} chỗ. Mỗi gói khoảng ${group(weeklyFor(pool))} lượt/tuần.`}
+                    {pool.free === 0 ? "Đã đầy lúc này." : `Còn ${pool.free} chỗ lúc này.`}{" "}
+                    {pool.active > 0 ? `${pool.active} gói đang chạy.` : "Không có gói đang chạy."}
                   </p>
                 </div>
               );
@@ -197,7 +224,7 @@ export function SponsoredBoard({
               <span className={`ml-1.5 ${tab === item.key ? "text-white/70" : "text-ink-400"}`}>{counts.get(item.key) ?? 0}</span>
             </button>
           ))}
-          {canManage && (
+          {canManage && packagesAvailable && (
             <button type="button" onClick={() => setCreating(true)} className="btn btn-primary ml-auto">
               <Plus className="h-4 w-4" /> Tạo gói
             </button>
@@ -208,8 +235,8 @@ export function SponsoredBoard({
           {visible.length === 0 ? (
             <EmptyState
               icon={<Megaphone className="h-5 w-5" />}
-              title={rows.length === 0 ? "Chưa có gói nào" : "Không có gói ở mục này"}
-              sub={rows.length === 0 ? "Tạo gói đầu tiên để bán vị trí trên trang danh mục." : undefined}
+              title={!packagesAvailable ? "Chưa tải được danh sách gói" : rows.length === 0 ? "Chưa có gói nào" : "Không có gói ở mục này"}
+              sub={packagesAvailable && rows.length === 0 ? "Tạo gói đầu tiên để bán vị trí trên trang danh mục." : undefined}
             />
           ) : (
             <table className="w-full min-w-[880px] border-collapse text-[13px]">
@@ -219,8 +246,8 @@ export function SponsoredBoard({
                   <th className="px-3 py-2.5">Bề mặt</th>
                   <th className="px-3 py-2.5">Thời gian</th>
                   <th className="px-3 py-2.5">Giá gói</th>
-                  <th className="px-3 py-2.5 text-right">Hiển thị</th>
-                  <th className="px-3 py-2.5 text-right">Mở thẻ</th>
+                  <th className="px-3 py-2.5 text-right">Hiển thị đã ghi</th>
+                  <th className="px-3 py-2.5 text-right">Nhấp đã ghi</th>
                   <th className="px-3 py-2.5">Trạng thái</th>
                   <th className="px-3 py-2.5" />
                 </tr>
@@ -248,10 +275,10 @@ export function SponsoredBoard({
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-ink-700">{row.priceLabel}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold text-ink-800">{row.impressions ? group(row.impressions) : "—"}</td>
+                    <td className="px-3 py-2.5 text-right font-semibold text-ink-800">{metricsAvailable ? group(row.impressions) : "—"}</td>
                     <td className="px-3 py-2.5 text-right text-ink-700">
-                      {row.clicks ? group(row.clicks) : "—"}
-                      {row.clicks > 0 && <span className="block text-[11px] text-ink-500">{row.rate}%</span>}
+                      {metricsAvailable ? group(row.clicks) : "—"}
+                      {metricsAvailable && row.impressions > 0 && <span className="block text-[11px] text-ink-500">{row.rate}%</span>}
                     </td>
                     <td className="px-3 py-2.5">
                       <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${STATE_META[row.state].className}`}>
@@ -289,21 +316,19 @@ export function SponsoredBoard({
             <dt className="text-ink-500">Bắt đầu</dt>
             <dd className="font-semibold text-ink-800">{detail.startsLabel}</dd>
             <dt className="text-ink-500">Kết thúc</dt>
-            <dd className="font-semibold text-ink-800">
-              {detail.endsLabel} <span className="font-normal text-ink-500">· 168 giờ</span>
-            </dd>
+            <dd className="font-semibold text-ink-800">{detail.endsLabel}</dd>
             <dt className="text-ink-500">Còn lại</dt>
             <dd className="font-semibold text-ink-800">{remaining(detail)}</dd>
             <dt className="text-ink-500">Giá gói</dt>
             <dd className="font-semibold text-ink-800">{detail.priceLabel}</dd>
             <dt className="text-ink-500">7 ngày</dt>
             <dd className="font-semibold text-ink-800">
-              {group(detail.impressions)} lượt hiển thị · {group(detail.clicks)} lượt mở thẻ
+              {metricsAvailable ? `${group(detail.impressions)} lượt hiển thị · ${group(detail.clicks)} lượt nhấp đã ghi` : "Chưa tải được số liệu"}
             </dd>
           </dl>
 
-          <h3 className="mt-5 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-500">Lượt hiển thị theo ngày</h3>
-          <DailyChart points={series[detail.id] ?? []} />
+          <h3 className="mt-5 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-500">Lượt hiển thị theo ngày (UTC)</h3>
+          {metricsAvailable ? <DailyChart points={series[detail.id] ?? []} /> : <p className="mt-2 text-[12px] text-ink-500">Chưa tải được số liệu.</p>}
 
           {detail.note && <p className="mt-3 text-[12px] leading-5 text-ink-500">{detail.note}</p>}
         </Drawer>
@@ -312,7 +337,9 @@ export function SponsoredBoard({
       {/* Ngăn tạo gói */}
       {creating && (
         <Drawer title="Tạo gói" onClose={() => setCreating(false)}>
-          {candidates.length === 0 ? (
+          {!candidatesAvailable ? (
+            <p role="alert" className="text-[13px] leading-6 text-rose-700">Chưa tải được sản phẩm đủ điều kiện. Vui lòng thử lại.</p>
+          ) : candidates.length === 0 ? (
             <p className="text-[13px] leading-6 text-ink-600">
               Chưa có sản phẩm nào đủ bốn điều kiện công khai.
             </p>
@@ -333,13 +360,9 @@ export function SponsoredBoard({
               </div>
 
               <div>
-                <label htmlFor="surface" className="block text-[12px] font-bold text-ink-700">
-                  Bề mặt
-                </label>
-                <select id="surface" name="surface" className="input mt-1 w-full">
-                  <option value="category">Trang danh mục</option>
-                  <option value="home">Trang chủ</option>
-                </select>
+                <span className="block text-[12px] font-bold text-ink-700">Vị trí</span>
+                <p className="mt-1 text-[13px] text-ink-600">Trang danh mục, khi chưa bật bộ lọc.</p>
+                <input type="hidden" name="surface" value="category" />
               </div>
 
               <div>
@@ -358,7 +381,7 @@ export function SponsoredBoard({
               </div>
 
               <p className="rounded-lg bg-ink-50 px-3 py-2 text-[12px] leading-5 text-ink-600">
-                Gói bắt đầu ngay khi duyệt và chạy đúng 168 giờ.
+                Thời hạn gói là 168 giờ từ lúc kích hoạt (hiện tại là lúc duyệt).
               </p>
 
               <div className="flex justify-end gap-2 pt-1">
@@ -377,15 +400,6 @@ export function SponsoredBoard({
   );
 }
 
-/** Số lượt một gói nhận được mỗi tuần, suy ra từ số suất và số gói trong bể. */
-function weeklyFor(pool: PoolView): number {
-  // Chia theo số gói đang hiển thị, không tính gói đang tạm dừng: gói tạm dừng
-  // vẫn giữ suất nhưng không nằm trong vòng quay, nên không chia bớt lượt.
-  if (pool.active <= 0) return 0;
-  const windows = (7 * 24 * 60) / 10;
-  return Math.round((windows * Math.min(pool.slots, pool.active)) / pool.active);
-}
-
 function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; value: string; hint: string }) {
   return (
     <div className="card px-4 py-3">
@@ -401,15 +415,15 @@ function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; va
 
 function RowActions({ row, canManage }: { row: BoardRow; canManage: boolean }) {
   if (!canManage) return <span className="text-[11.5px] text-ink-400">chỉ xem</span>;
-  if (row.state === "pending") {
+  if (row.status === "draft") {
     return (
       <div className="flex justify-end gap-1.5">
-        <form action={approvePushAction}>
+        {row.surface === "category" && <form action={approvePushAction}>
           <input type="hidden" name="id" value={row.id} />
           <button type="submit" className="btn btn-primary btn-sm">
             Duyệt
           </button>
-        </form>
+        </form>}
         <form action={cancelDraftAction}>
           <input type="hidden" name="id" value={row.id} />
           <button type="submit" className="btn btn-ghost btn-sm">
@@ -419,7 +433,7 @@ function RowActions({ row, canManage }: { row: BoardRow; canManage: boolean }) {
       </div>
     );
   }
-  if (row.state === "live" || row.state === "scheduled") {
+  if (row.state === "live" || row.state === "scheduled" || row.state === "unavailable") {
     return (
       <form action={pausePushAction}>
         <input type="hidden" name="id" value={row.id} />
@@ -429,7 +443,7 @@ function RowActions({ row, canManage }: { row: BoardRow; canManage: boolean }) {
       </form>
     );
   }
-  if (row.state === "paused") {
+  if (row.state === "paused" && row.surface === "category") {
     return (
       <form action={resumePushAction}>
         <input type="hidden" name="id" value={row.id} />

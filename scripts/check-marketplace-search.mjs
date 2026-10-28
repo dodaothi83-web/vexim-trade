@@ -12,12 +12,12 @@ import { assignProductCategory } from "../lib/public/category-assignment.ts";
 import * as attributes from "../lib/product-attributes.ts";
 import * as readiness from "../lib/media/readiness.ts";
 import * as ranking from "../lib/public/ranking.ts";
+import * as searchRanking from "../lib/public/search-ranking.ts";
 import * as grade from "../lib/public/grade-resolution.ts";
 import * as displayName from "../lib/public/display-name.ts";
 import * as detail from "../lib/public/product-detail-display.ts";
 import * as verification from "../lib/verification-status.ts";
 import * as categoryNames from "../lib/public/category-names.ts";
-import * as productOrder from "../lib/public/supplier-product-order.ts";
 import * as comparison from "../lib/public/product-comparison.ts";
 import * as supplierSeo from "../lib/public/supplier-seo.ts";
 
@@ -127,10 +127,21 @@ const store = {
     return rows;
   },
   listMedia: async () => [],
-  listMediaForProducts: async (ids) => { track("productMedia"); return media.filter((m) => ids.includes(m.product_id)); },
-  listVerifications: async (id) => (id === "alpha" ? [1, 2, 3] : id === "beta" ? [1] : [])
-    .map((target_level) => ({ target_level, status: "approved" })),
-  listCertificates: async () => [],
+  listMediaForProducts: async (ids) => {
+    track("productMedia");
+    if (failure === "media") throw new Error("simulated media page failure");
+    const wanted = new Set(ids);
+    return media.filter((m) => wanted.has(m.product_id));
+  },
+  listVerifications: async (id) => {
+    if (failure === "verification") throw new Error("simulated verification page failure");
+    return (id === "alpha" ? [1, 2, 3] : id === "beta" ? [1] : [])
+      .map((target_level) => ({ target_level, status: "approved" }));
+  },
+  listCertificates: async () => {
+    if (failure === "certificate") throw new Error("simulated certificate page failure");
+    return [];
+  },
 };
 const db = { getStore: () => store };
 const catalog = load("../lib/public/catalog.ts", {
@@ -196,10 +207,12 @@ const page = load("../app/(public)/search/page.tsx", {
   "@/components/public-product-card": { PublicProductCard: Card },
   "@/lib/db": db,
   "@/lib/public/category-names": categoryNames,
+  "@/lib/public/grade-resolution": grade,
   "@/lib/public/product-catalog": searchCatalog,
   "@/lib/public/product-comparison": comparison,
   "@/lib/public/product-selection": selection,
-  "@/lib/public/supplier-product-order": productOrder,
+  "@/lib/public/ranking": ranking,
+  "@/lib/public/search-ranking": searchRanking,
   "@/lib/public/supplier-seo": supplierSeo,
   "@/lib/public/supplier-english": english,
 }).default;
@@ -227,17 +240,30 @@ assert.match(html, /Danh mục:/);
 assert.deepEqual(new Set(ids(html)), new Set(["a-w320", "a-w320b", "a-w320c", "a-w320d"]), "All four matching offers from one supplier must remain visible");
 assert.ok(supplierHrefs(html).includes("alpha"), "A matched product also makes its supplier discoverable");
 assert.equal(counts.suppliers, 1, "All category calls share one supplier snapshot");
-assert.equal(counts.products, 2, "One read for supplier projection and one shared product snapshot, not one per category");
+assert.equal(counts.products, 1, "Supplier projection and every category share one product snapshot");
 assert.ok(!JSON.stringify(cardProps).includes("private-review-marker"));
 assert.ok(!JSON.stringify(cardProps).includes("private-spec-marker"));
 assert.ok(!html.includes("private/evidence.jpg"));
 assert.ok(!html.includes("98765"));
+assert.ok(cardProps.every((card) => !card.comparison), "A category with only one supplier has no comparison option");
 
 html = await render({ q: "hat dieu w320", cat: "nuts", lang: "vi" });
 assert.equal(ids(html).length, 4, "Vietnamese search ignores accents and combines category names with a public grade");
 html = await render({ q: "van phuoc", lang: "vi" });
 assert.ok(supplierHrefs(html).includes("van-phuoc"), "Vietnamese names can be found without diacritics, including đ");
 assert.ok(ids(html).includes("root-item"), "Searching a supplier also finds its public products");
+assert.ok(html.indexOf('aria-label="Nhà cung cấp phù hợp"') < html.indexOf('aria-label="Sản phẩm phù hợp"'),
+  "A supplier-name-only query keeps suppliers first");
+const savedVan = suppliers[3];
+const beforeNameTest = rows;
+suppliers[3] = { ...savedVan, name: "Vạn Phước Nuts", display_name: "Vạn Phước Nuts" };
+rows = rows.map((p) => p.id === "root-item" ? { ...p, name: "Van Phuoc Nuts assorted", name_i18n: { en: "Van Phuoc Nuts assorted" } } : p);
+html = await render({ q: "van phuoc nuts", lang: "vi" });
+assert.ok(ids(html).includes("root-item"));
+assert.ok(html.indexOf('aria-label="Nhà cung cấp phù hợp"') < html.indexOf('aria-label="Sản phẩm phù hợp"'),
+  "An exact multi-word supplier name stays first even when the same words are in a product");
+suppliers[3] = savedVan;
+rows = beforeNameTest;
 
 html = await render({ cat: "nuts", lang: "vi" });
 assert.ok(ids(html).includes("b-snack"), "A parent includes a published grandchild");
@@ -285,16 +311,120 @@ assert.doesNotMatch(html, /Không tìm thấy kết quả/);
 html = await render({ q: "rice", lang: "vi" });
 assert.match(html, /Một số kết quả chưa tải được/);
 assert.ok(ids(html).includes("rice-st25"), "A failing category does not hide healthy category results");
+failure = "verification";
+html = await render({ q: "W320", lang: "vi" });
+assert.match(html, /Chưa tải được kết quả tìm kiếm/, "A failed evidence page does not silently erase a supplier's checks");
+failure = "media";
+html = await render({ q: "W320", cat: "cashew", lang: "vi" });
+assert.match(html, /Một số kết quả chưa tải được/, "A failed media page is not reported as no matching products");
+failure = "certificate";
+html = await render({ q: "W320", cat: "cashew", lang: "vi" });
+assert.match(html, /Một số kết quả chưa tải được/, "A failed certificate page cannot silently change the existing ranking");
 failure = "";
+const sharedSnapshot = await productCatalog.loadPublicProductCatalogSnapshot({ categories });
+counts = {};
+const [concurrentA, concurrentB] = await Promise.all([
+  productCatalog.listPublicCategoryProducts(cashew, { snapshot: sharedSnapshot }),
+  productCatalog.listPublicCategoryProducts(cashew, { snapshot: sharedSnapshot }),
+]);
+assert.equal(JSON.stringify(concurrentA), JSON.stringify(concurrentB));
+assert.equal(counts.productMedia, 1, "Concurrent requests within one server snapshot share in-flight media reads");
+const cachedCategories = [...sharedSnapshot.categoryByProduct];
+assert.ok(cachedCategories.length > 0, "Product categories are computed within the request");
+await productCatalog.listPublicCategoryProducts(categories.find((c) => c.slug === "rice"), { snapshot: sharedSnapshot });
+assert.equal(JSON.stringify([...sharedSnapshot.categoryByProduct]), JSON.stringify(cachedCategories),
+  "Another category reuses the same per-product category decisions");
+
+// Relevance and B rounds are global across categories, even when an unrelated
+// supplier name looks like a grade and has the highest verification tier.
+const savedAlpha = suppliers[0];
+const savedMedia = media;
+suppliers[0] = { ...savedAlpha, name: "W320 Export", display_name: "W320 Export" };
+suppliers.push(supplier("delta", "Delta Trading"));
+const mixed = [
+  product("b-w320", "beta", "nut-snacks", "Roasted W320", { specs: { grade: "W320" } }),
+  product("d-w320", "delta", "cashew", "Whole W320", { specs: { grade: "W320" } }),
+  product("a-misleading", "alpha", "cashew", "Cashew W320 confusing", { specs: { grade: "W240" } }),
+  product("a-multigrade", "alpha", "cashew", "Z Cashew W240 W320"),
+];
+rows = [...baseProducts, ...mixed];
+media = [...savedMedia, ...mixed.map((p) => mediaFor(p))];
+html = await render({ q: "W320", lang: "vi" });
+let orderedMixed = ids(html);
+assert.ok(orderedMixed[0].startsWith("a-w320"), "The first round starts with the highest-tier actual W320");
+assert.deepEqual(orderedMixed.slice(1, 3), ["b-w320", "d-w320"], "Each supplier gets a turn across categories before alpha repeats");
+assert.ok(orderedMixed.indexOf("a-w240") > orderedMixed.indexOf("d-w320"), "Supplier-name-only W240 follows genuine W320");
+assert.ok(orderedMixed.indexOf("a-misleading") > orderedMixed.indexOf("d-w320"), "Structured W240 prevents a misleading W320 title from outranking real W320");
+assert.ok(orderedMixed.indexOf("a-multigrade") < orderedMixed.indexOf("a-misleading"), "An inferred grade does not suppress another grade explicitly listed in the name");
+assert.ok(html.indexOf('aria-label="Sản phẩm phù hợp"') < html.indexOf('aria-label="Nhà cung cấp phù hợp"'),
+  "Product matches are not hidden below a block of supplier-name matches");
+assert.match(html, /href="#search-products"/);
+assert.match(html, /href="#search-suppliers"/, "Buyers can jump to suppliers when products are first");
+assert.match(html, /aria-label="Xem danh mục Hạt điều &amp; Nhân điều xuất khẩu"/);
+assert.match(html, /aria-label="Xem danh mục Hạt rang"/);
+const cardId = (card) => decodeURIComponent(card.href.split("?")[0].split("/").at(-1));
+const mixedCards = new Map(cardProps.map((card) => [cardId(card), card]));
+assert.ok(mixedCards.get("d-w320").comparison, "An alternative supplier in the same category enables comparison");
+assert.equal(mixedCards.get("b-w320").comparison, undefined, "A different category does not create a comparison peer");
+const otherIndustry = product("other-industry-w320", "rice-supplier", "rice", "Rice W320", { specs: { grade: "W320" } });
+rows.push(otherIndustry);
+media.push(mediaFor(otherIndustry));
+html = await render({ q: "WW320", lang: "vi" });
+assert.ok(ids(html).includes("b-w320") && ids(html).includes("d-w320"), "WW320 also finds public W320 offers");
+assert.ok(!ids(html).includes("other-industry-w320"), "Cashew aliases do not create matches in other categories");
+suppliers[0] = savedAlpha;
+suppliers.pop();
+rows = [...baseProducts];
+media = savedMedia;
+
+// Five suppliers spanning four categories and three pages. Tier is preferred
+// inside each round, and the next round starts even when a page ends mid-round.
+const crossSuppliers = ["alpha", "beta", "rice-supplier", "van-phuoc", "contact-supplier"];
+const crossCategories = ["cashew", "nut-snacks", "rice", "nuts", "cashew"];
+const cross = crossSuppliers.flatMap((supplierId, s) => Array.from({ length: 11 }, (_, n) =>
+  product(`cross-${s}-${n}`, supplierId, crossCategories[s], `Roundneedle lot ${String(n).padStart(2, "0")} supplier ${s}`)));
+rows = [...baseProducts, ...cross];
+media = [...savedMedia, ...cross.map((p) => mediaFor(p))];
+const crossPages = [];
+for (let p = 1; p <= 3; p++) {
+  html = await render({ q: "Roundneedle", lang: "vi", p: String(p) });
+  crossPages.push(...ids(html));
+}
+assert.equal(crossPages.length, 55);
+assert.deepEqual(new Set(crossPages), new Set(cross.map((p) => p.id)));
+const crossById = new Map(cross.map((p) => [p.id, p]));
+for (let start = 0; start < crossPages.length; start += 5) {
+  const suppliersInRound = crossPages.slice(start, start + 5).map((id) => crossById.get(id).supplier_id);
+  assert.equal(new Set(suppliersInRound).size, 5, "Each cross-category round has one offer per supplier");
+  assert.deepEqual(suppliersInRound.slice(0, 2), ["alpha", "beta"], "Higher verified tiers lead each round");
+}
+html = await render({ q: "Roundneedle", cat: "nuts", lang: "vi" });
+assert.match(html, /44 sản phẩm/, "Category filters still limit the global search scope");
+assert.ok(cardProps.every((card) => !card.href.includes("/products/rice/")));
+rows = [...baseProducts];
+media = savedMedia;
+
+// A comparison peer beyond the current page is still a real result, but a
+// different category must not count. The first page contains only one supplier.
+const extras = Array.from({ length: 21 }, (_, i) => product(`peer-alpha-${i}`, "alpha", "cashew", `Cashew W320 extra ${i}`, { specs: { grade: "W320" } }));
+const latePeer = product("peer-beta", "beta", "cashew", "Cashew W3200");
+rows = [...baseProducts, ...extras, latePeer];
+media = [...savedMedia, ...extras.map((p) => mediaFor(p)), mediaFor(latePeer)];
+html = await render({ q: "W320", cat: "cashew", lang: "vi" });
+assert.equal(ids(html).length, 24);
+assert.ok(!ids(html).includes("peer-beta"), "The partial-code peer is on a later page");
+assert.ok(cardProps.every((card) => card.comparison?.categorySlug === "cashew"), "A peer on a later page enables comparison");
+html = await render({ q: "W320", cat: "cashew", lang: "vi", p: "2" });
+assert.ok(ids(html).includes("peer-beta"));
+rows = [...baseProducts];
+media = savedMedia;
 
 // A larger set exercises both independent pagers and verifies that every card
-// remains reachable exactly once, in the same interleaved ranked order.
+// remains reachable exactly once, with supplier rounds continuing across pages.
 for (let i = 1; i <= 17; i++) suppliers.push(supplier(`bulk-supplier-${i}`, `Bulkneedle supplier ${i}`));
 const bulk = Array.from({ length: 53 }, (_, i) => product(`bulk-${i + 1}`, `bulk-supplier-${(i % 17) + 1}`, "cashew", `Bulkneedle lot ${String(i + 1).padStart(2, "0")}`));
 rows = [...baseProducts, ...bulk];
 media = [...media, ...bulk.map((p) => mediaFor(p))];
-const expected = productOrder.arrangeSupplierProducts((await productCatalog.listPublicCategoryProducts(cashew))
-  .filter((p) => p.name.toLowerCase().includes("bulkneedle")), null).shown.map((p) => p.id);
 const firstPage = await render({ q: "Bulkneedle", cat: "cashew", lang: "vi" });
 assert.match(firstPage, /53 sản phẩm/);
 assert.match(firstPage, /17 nhà cung cấp/);
@@ -309,10 +439,61 @@ assert.match(secondPage, /q=Bulkneedle&amp;cat=cashew&amp;lang=vi&amp;p=2/, "Sup
 assert.equal(supplierHrefs(secondPage).length, 5);
 const thirdPage = await render({ q: "Bulkneedle", cat: "cashew", lang: "vi", p: "3" });
 assert.equal(ids(thirdPage).length, 5);
-assert.deepEqual([...ids(firstPage), ...ids(secondPage), ...ids(thirdPage)], expected, "Paging retains the established category ranking and supplier interleaving");
-assert.equal(new Set([...ids(firstPage), ...ids(secondPage), ...ids(thirdPage)]).size, 53);
+const bulkPages = [...ids(firstPage), ...ids(secondPage), ...ids(thirdPage)];
+assert.deepEqual(new Set(bulkPages), new Set(bulk.map((p) => p.id)), "All product pages contain exactly the matching offers");
+const bulkSupplier = new Map(bulk.map((p) => [p.id, p.supplier_id]));
+for (let start = 0; start < bulkPages.length; start += 17) {
+  const round = bulkPages.slice(start, start + 17).map((id) => bulkSupplier.get(id));
+  assert.equal(new Set(round).size, round.length, "A supplier appears at most once per global round, including across pages");
+}
+assert.deepEqual(ids(await render({ q: "Bulkneedle", cat: "cashew", lang: "vi", p: "2", s: "2" })), ids(secondPage),
+  "Repeated requests with unchanged data have the same page order");
 const beyond = await render({ q: "Bulkneedle", cat: "cashew", p: "999999", s: "999999" });
 assert.equal(ids(beyond).length, 5, "Out-of-range pages clamp to the last page");
 assert.match(beyond, /Page 3 of 3/);
 
-console.log("✅ Marketplace search: home-compatible q/cat/lang, public gates and private data, EN/VI accents, parent/child scope, errors, unchanged ranking and complete pagination.");
+// Exercise the real catalogue, unchanged ranking and every search page above
+// PostgREST's typical 1,000-row cap. Timing is local/in-memory, not production.
+for (let i = 0; i < 125; i++) suppliers.push(supplier(`scale-supplier-${i}`, `Scaleneedle supplier ${i}`));
+const large = Array.from({ length: 1025 }, (_, i) => product(`scale-${i}`, `scale-supplier-${i % 125}`, "cashew", `Scaleneedle lot ${String(i).padStart(4, "0")}`));
+rows = [...baseProducts, ...large];
+media = [...baseProducts.map((p) => mediaFor(p)), ...large.map((p) => mediaFor(p))];
+const scaleStarted = performance.now();
+const seenPages = [];
+for (let p = 1; p <= Math.ceil(large.length / 24); p++) {
+  const rendered = await render({ q: "Scaleneedle", cat: "cashew", lang: "vi", p: String(p) });
+  assert.match(rendered, /1025 sản phẩm/);
+  assert.match(rendered, /125 nhà cung cấp/);
+  assert.equal(counts.products, 1, "Each search shares the product read across suppliers and categories");
+  seenPages.push(...ids(rendered));
+}
+assert.equal(seenPages.length, 1025);
+assert.equal(new Set(seenPages).size, 1025, "All pages have distinct offers");
+assert.deepEqual(new Set(seenPages), new Set(large.map((p) => p.id)), "Every matching offer is reachable");
+const scaleSupplier = new Map(large.map((p) => [p.id, p.supplier_id]));
+for (let start = 0; start < seenPages.length; start += 125) {
+  const round = seenPages.slice(start, start + 125).map((id) => scaleSupplier.get(id));
+  assert.equal(new Set(round).size, round.length, "Large-catalog supplier rounds do not reset at page boundaries");
+}
+const scaleMs = Math.round(performance.now() - scaleStarted);
+
+// Suppliers have their own independent 12-card pager; test beyond 1,000 too.
+suppliers.length = 0;
+for (let i = 0; i < 1009; i++) suppliers.push(supplier(`wide-supplier-${i}`, `Wideneedle supplier ${String(i).padStart(4, "0")}`));
+const wide = suppliers.map((s, i) => product(`wide-product-${i}`, s.id, "cashew", `Wideneedle lot ${String(i).padStart(4, "0")}`));
+rows = wide;
+media = wide.map((p) => mediaFor(p));
+store.listVerificationsForSuppliers = async () => [];
+const supplierStarted = performance.now();
+const supplierPages = [];
+for (let s = 1; s <= Math.ceil(suppliers.length / 12); s++) {
+  const rendered = await render({ q: "Wideneedle", cat: "cashew", lang: "vi", s: String(s) });
+  assert.match(rendered, /1009 nhà cung cấp/);
+  supplierPages.push(...supplierHrefs(rendered));
+}
+assert.equal(supplierPages.length, 1009);
+assert.equal(new Set(supplierPages).size, 1009, "All supplier pages have distinct suppliers");
+assert.deepEqual(new Set(supplierPages), new Set(suppliers.map((s) => s.slug)), "No supplier disappears after the first 1,000");
+const supplierMs = Math.round(performance.now() - supplierStarted);
+
+console.log(`✅ Marketplace search: relevance and supplier rounds across categories/pages; 1,025 products / 43 pages (${scaleMs} ms) and 1,009 suppliers / 85 pages (${supplierMs} ms), local in-memory timings only.`);

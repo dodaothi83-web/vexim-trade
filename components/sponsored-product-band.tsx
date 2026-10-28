@@ -80,12 +80,29 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
     const node = root.current;
     if (!node || typeof IntersectionObserver === "undefined") return;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let sufficientlyVisible = false;
+    const restartTimer = () => {
+      clearTimeout(timer);
+      if (sufficientlyVisible && document.visibilityState === "visible") {
+        timer = setTimeout(() => {
+          if (document.visibilityState === "visible") send("impression");
+        }, 800);
+      }
+    };
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) timer = setTimeout(() => send("impression"), 800);
-      else clearTimeout(timer);
+      sufficientlyVisible = entry.isIntersecting && entry.intersectionRatio >= 0.5;
+      restartTimer();
     }, { threshold: 0.5 });
     observer.observe(node);
-    return () => { clearTimeout(timer); observer.disconnect(); };
+    // IntersectionObserver may not fire again when the user returns to a tab
+    // whose card stayed in the same place. Start a fresh 800 ms on return.
+    const onVisibilityChange = () => restartTimer();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   // Gói đổi theo cửa sổ luân phiên; huỷ mọi lượt hiển thị đang chờ khi gói đổi.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [push.id, marketingAllowed]);
@@ -97,6 +114,7 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
     }}>
       <PublicProductCard
         href={href}
+        sponsored
         imagePath={product.cardImagePath ?? product.imagePaths[0]}
         name={product.name}
         moq={product.moq}

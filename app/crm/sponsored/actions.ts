@@ -6,25 +6,19 @@ import { redirect } from "next/navigation";
 import { getStore } from "@/lib/db";
 import { getSession, type SessionUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { eligiblePushProducts } from "@/lib/sponsored/eligibility";
+import { eligiblePushProducts, isPushProductEligible } from "@/lib/sponsored/eligibility";
 import { POOL_CAP, overlapping } from "@/lib/sponsored/admin";
-import type { SponsoredPushSurface } from "@/lib/types";
+import type { SponsoredPush } from "@/lib/types";
 
 const PATH = "/crm/sponsored";
-/** Gói luôn dài đúng 168 giờ. Không nhận số giờ từ trình duyệt. */
+/** Gói danh mục mới có thời hạn 168 giờ; không nhận số giờ từ trình duyệt. */
 const GATE_HOURS = 168;
 
 function back(code: string, kind: "ok" | "err" = "ok"): never {
   redirect(`${PATH}?${kind}=${code}`);
 }
 
-/**
- * Duyệt gói là quyền của nội bộ Vexim, không phải của người bán: admin và trưởng
- * kiểm duyệt.
- *
- * Ràng buộc dưới cơ sở dữ liệu cũng chỉ nhận hai vai trò đó và đòi tài khoản đang
- * hoạt động, nên chặn ở đây cho khớp chứ không thay thế được chốt đó.
- */
+/** Chỉ admin hoặc trưởng kiểm duyệt đang có quyền mới thao tác. */
 const APPROVER_ROLES: readonly string[] = ["admin", "reviewer"];
 
 /** Tên hàm này được scripts/check-permissions.mjs nhận diện là cổng kiểm quyền. */
@@ -36,6 +30,25 @@ async function sponsoredManageAccess(): Promise<SessionUser> {
   return session;
 }
 
+/** Gói đã bán, kể cả đang tạm dừng, vẫn giữ chỗ tới hết hạn. */
+function ensureAvailable(pushes: SponsoredPush[], candidate: SponsoredPush): void {
+  const others = pushes.filter((p) => p.id !== candidate.id);
+  if (overlapping(others, candidate).length >= POOL_CAP[candidate.surface]) back("pool", "err");
+  const from = Date.parse(candidate.starts_at);
+  const to = Date.parse(candidate.ends_at);
+  if (others.some((p) => p.status !== "draft" && p.product_id === candidate.product_id &&
+    Date.parse(p.starts_at) < to && from < Date.parse(p.ends_at))) back("duplicate", "err");
+}
+
+/** Trigger kiểm lại dưới khóa khi có hai phiên duyệt cùng lúc. */
+function translateWriteError(error: unknown): never {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/Sponsored pool is full/i.test(message)) back("pool", "err");
+  if (/already has a sponsored push/i.test(message)) back("duplicate", "err");
+  if (/home.*not supported/i.test(message)) back("unsupported", "err");
+  throw error;
+}
+
 export async function approvePushAction(fd: FormData) {
   const session = await sponsoredManageAccess();
   const id = String(fd.get("id") ?? "");
@@ -43,32 +56,38 @@ export async function approvePushAction(fd: FormData) {
   const pushes = await store.listAllSponsoredPushes();
   const push = pushes.find((p) => p.id === id);
   if (!push) back("missing", "err");
+  if (push.surface !== "category") back("unsupported", "err");
   if (push.status === "approved") back("noop");
-  // Trả tiền không mua được quyền vượt bốn cổng công khai.
-  const candidates = await eligiblePushProducts();
-  if (!candidates.some((c) => c.productId === push.product_id)) back("gates", "err");
-  const clash = overlapping(pushes.filter((p) => p.id !== push.id), push);
-  if (clash.length >= POOL_CAP[push.surface]) back("pool", "err");
-  await store.updateSponsoredPush(push.id, {
-    status: "approved",
-    approved_by: session.uid,
-    approved_at: new Date().toISOString(),
-  });
+  if (push.status !== "draft") back("invalid", "err");
+  // Trả tiền không mua được quyền vượt các điều kiện công khai hoặc đổi danh mục.
+  if (!await isPushProductEligible(push)) back("gates", "err");
+
+  // Mốc trên nháp chỉ là dữ liệu tạm do schema yêu cầu. Duyệt mới mở đủ 168 giờ.
+  // Trigger trong migration mới đặt lại theo đồng hồ CSDL trước khi kiểm bể.
+  const start = new Date();
+  const startsAt = start.toISOString();
+  const endsAt = new Date(start.getTime() + GATE_HOURS * 3_600_000).toISOString();
+  ensureAvailable(pushes, { ...push, starts_at: startsAt, ends_at: endsAt });
+  const updated = await store.updateSponsoredPushIfStatus(push.id, "draft", {
+    status: "approved", starts_at: startsAt, ends_at: endsAt,
+    approved_by: session.uid, approved_at: startsAt,
+  }).catch(translateWriteError);
+  if (!updated) back("changed", "err");
   revalidatePath(PATH);
   back("approved");
 }
 
 export async function pausePushAction(fd: FormData) {
-  const session = await sponsoredManageAccess();
+  await sponsoredManageAccess();
   const id = String(fd.get("id") ?? "");
   const store = getStore();
   const pushes = await store.listAllSponsoredPushes();
   const push = pushes.find((p) => p.id === id);
   if (!push) back("missing", "err");
   if (push.status !== "approved") back("invalid", "err");
-  // Gói đã hết hạn thì tạm dừng không còn nghĩa gì.
   if (Date.now() >= Date.parse(push.ends_at)) back("ended", "err");
-  await store.updateSponsoredPush(push.id, { status: "paused" });
+  // Cho phép tạm dừng gói trang chủ cũ, nhưng không được duyệt/chạy lại.
+  if (!await store.updateSponsoredPushIfStatus(push.id, "approved", { status: "paused" })) back("changed", "err");
   revalidatePath(PATH);
   back("paused");
 }
@@ -80,16 +99,18 @@ export async function resumePushAction(fd: FormData) {
   const pushes = await store.listAllSponsoredPushes();
   const push = pushes.find((p) => p.id === id);
   if (!push) back("missing", "err");
+  if (push.surface !== "category") back("unsupported", "err");
   if (push.status !== "paused") back("invalid", "err");
   if (Date.now() >= Date.parse(push.ends_at)) back("ended", "err");
-  const clash = overlapping(pushes.filter((p) => p.id !== push.id), push);
-  if (clash.length >= POOL_CAP[push.surface]) back("pool", "err");
-  await store.updateSponsoredPush(push.id, {
+  if (!await isPushProductEligible(push)) back("gates", "err");
+  // Chạy lại giữ nguyên thời hạn đã bán, không tự gia hạn các gói cũ.
+  ensureAvailable(pushes, push);
+  const updated = await store.updateSponsoredPushIfStatus(push.id, "paused", {
     status: "approved",
-    // Gói tạo tay có thể chưa có người duyệt; bật lại thì ghi người bật.
     approved_by: push.approved_by ?? session.uid,
     approved_at: push.approved_at ?? new Date().toISOString(),
-  });
+  }).catch(translateWriteError);
+  if (!updated) back("changed", "err");
   revalidatePath(PATH);
   back("resumed");
 }
@@ -98,13 +119,8 @@ export async function cancelDraftAction(fd: FormData) {
   await sponsoredManageAccess();
   const id = String(fd.get("id") ?? "");
   const store = getStore();
-  const pushes = await store.listAllSponsoredPushes();
-  const push = pushes.find((p) => p.id === id);
-  if (!push) back("missing", "err");
-  // Chỉ xoá gói còn ở trạng thái nháp. Gói đã duyệt thì tạm dừng, không xoá:
-  // xoá đi là mất dấu đã thu tiền của khách.
-  if (push.status !== "draft") back("invalid", "err");
-  await store.deleteSponsoredPush(push.id);
+  // Kiểm trạng thái ngay trong DELETE, tránh xoá nhầm gói vừa được duyệt.
+  if (!await store.deleteSponsoredDraft(id)) back("changed", "err");
   revalidatePath(PATH);
   back("deleted");
 }
@@ -113,31 +129,26 @@ export async function createPushAction(fd: FormData) {
   await sponsoredManageAccess();
   const store = getStore();
   const productId = String(fd.get("product") ?? "");
-  const surface: SponsoredPushSurface = String(fd.get("surface") ?? "category") === "home" ? "home" : "category";
+  const surface = String(fd.get("surface") ?? "category");
+  // Form giả mạo cũng không thể tạo gói trang chủ hoặc bề mặt chưa hỗ trợ.
+  if (surface !== "category") back("unsupported", "err");
   const priceText = String(fd.get("price") ?? "").replace(/[^\d]/g, "");
   const note = String(fd.get("note") ?? "").trim().slice(0, 400);
 
-  const candidates = await eligiblePushProducts();
-  const candidate = candidates.find((c) => c.productId === productId);
+  const candidate = (await eligiblePushProducts()).find((c) => c.productId === productId);
   if (!candidate) back("gates", "err");
 
-  // Gói bắt đầu ngay, không hẹn giờ. Hẹn giờ cần chọn múi giờ và một lịch chạy;
-  // cả hai chưa có trong hệ thống, nên thà thiếu tính năng còn hơn ghi sai giờ.
+  // Schema hiện bắt buộc hai mốc ngay cả ở nháp. Đây chỉ là mốc tạm, không giữ
+  // chỗ và không tính thời hạn; lúc duyệt sẽ kiểm lại bể theo khoảng mới.
   const start = new Date();
-  const startsAt = start.toISOString();
-  const endsAt = new Date(start.getTime() + GATE_HOURS * 3_600_000).toISOString();
-  const pushes = await store.listAllSponsoredPushes();
-  const candidateWindow = { surface, category_slug: candidate.categorySlug, starts_at: startsAt, ends_at: endsAt };
-  if (overlapping(pushes, candidateWindow).length >= POOL_CAP[surface]) back("pool", "err");
-
   await store.createSponsoredPush({
-    surface,
+    surface: "category",
     category_slug: candidate.categorySlug,
     supplier_id: candidate.supplierId,
     product_id: candidate.productId,
     status: "draft",
-    starts_at: startsAt,
-    ends_at: endsAt,
+    starts_at: start.toISOString(),
+    ends_at: new Date(start.getTime() + GATE_HOURS * 3_600_000).toISOString(),
     price_amount: priceText ? Number(priceText) : null,
     price_currency: priceText ? "VND" : null,
     note: note || null,

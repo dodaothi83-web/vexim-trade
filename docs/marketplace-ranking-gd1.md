@@ -2,7 +2,9 @@
 
 > Đặc tả đầy đủ + mô phỏng kéo trọng số nằm ở phiên bản `docs/marketplace-ranking-spec.md`
 > và `docs/marketplace-ranking-simulator.html` (sandbox kia). Bản ghi này chỉ chốt phần
-> đã land vào code và các quyết định còn mở.
+> đã land vào code và các quyết định còn mở. Các đoạn GĐ1/GĐ2 dưới đây ghi lịch sử
+> của lưới danh mục; xếp hạng tìm kiếm hiện dùng quy tắc riêng trong
+> `docs/search-ranking-phase02.md` (độ khớp trước, rồi vòng NCC theo tầng).
 
 ## Hiện trạng trước GĐ1
 
@@ -54,9 +56,9 @@ tính server-side, chỉ là một tín hiệu trong cùng tầng xác minh; NCC
 
 ## Ba quyết định đã chốt ở GĐ2
 
-1. **Tầng xác minh cứng?** — GIỮ CỨNG (B2 vẫn là bậc đầu của comparator). Chứng nhận
+1. **Tầng xác minh cứng trong lưới danh mục?** — GIỮ CỨNG (B2 vẫn là bậc đầu của comparator). Chứng nhận
    hết hạn đến mấy cũng không hạ tầng: NCC 3/3 hết hạn cả 3 bước vẫn đứng trên NCC 2/3
-   dữ liệu đẹp (script đã kiểm cả vectơ này).
+   dữ liệu đẹp (script đã kiểm cả vectơ này). Tìm kiếm có thêm bậc độ khớp và vòng NCC trước comparator.
 2. **Chứng nhận L1 hết hạn** — TRỪ ĐIỂM nhóm "tin cậy còn hiệu lực", KHÔNG đưa vào
    cổng ẩn. Lý do: đổi cổng là thay đổi hiển thị lớn, cần số liệu quay lại từ cron nhắc hết
    hạn 60/30/7/1 ngày trước khi tính; trừ điểm là hồi phục được (gia hạn giấy tờ là
@@ -72,27 +74,20 @@ tính server-side, chỉ là một tín hiệu trong cùng tầng xác minh; NCC
     nhận đã duyệt (`review_status === "approved"`, không bị `staff_hidden`) mà TẤT CẢ
     đều quá hạn (`valid_until` dạng YYYY-MM-DD < today).
   - Fail-open có chủ đích: NCC legacy không có chứng nhận nào, chứng nhận bị ẩn hết,
-    `valid_until` thiếu/sai dạng, hay lỗi đọc CSDL ở caller → không trừ. Cổng hiển thị
-    công khai vẫn là chuyện riêng của `publicSupplierCertificates` (publicly_visible,
+    `valid_until` thiếu/sai dạng → không trừ. Lỗi đọc dữ liệu hiện được báo thay vì
+    giả làm danh sách rỗng. Cổng hiển thị công khai vẫn là chuyện riêng của `publicSupplierCertificates` (publicly_visible,
     file media, holder); đây chỉ đo độ tin cậy.
   - `publicly_visible` KHÔNG ảnh hưởng evidence — đó là lựa chọn hiển thị, không phải
     độ tin cậy.
-- **Nối vào pipeline**: `listPublicCategoryProducts` đọc `store.listCertificates` theo
-  batch 40 NCC (chỉ những NCC đã duyệt L1), tính `evidenceValidSteps` cho từng thẻ.
-  Lỗi từng NCC thì `.catch(() => [])` — fail-open.
+- **Nối vào pipeline**: `listPublicCategoryProducts` đọc chứng nhận theo
+  NCC đã duyệt L1, tính `evidenceValidSteps` cho từng thẻ. Dữ liệu được chia lô
+  theo adapter và cache trong yêu cầu; lỗi đọc được báo, không giả làm chưa có chứng nhận.
 - **Bật trọng số đặc tả**: trang danh mục truyền `SPEC_RANKING_WEIGHTS` (30/30/15/15/10)
   vào `rankPublicCategoryProducts`. Tầng vẫn cứng nên bật điểm chỉ đổi thứ tự TRONG
   TẦNG; `ZERO_RANKING_WEIGHTS` vẫn tái tạo đúng sort cũ (property test giữ nguyên).
-- **Route `/search`** (`app/(public)/search/page.tsx`, server component, English,
-  `robots: noindex, follow`):
-  - Cùng đường ống gate + xếp hạng của trang danh mục (mọi cổng công khai giữ nguyên),
-    từ khoá là bộ lọc B1: AND mọi token trên tên hiển thị · grade · tên NCC · tên danh
-    mục · giá trị thuộc tính có cấu trúc. Khớp từ khoá KHÔNG mang điểm — structuredMatch
-    vẫn chỉ thưởng grade đã khai.
-  - Kết quả nhóm theo danh mục, mỗi nhóm dùng lại `CategoryProductGrid` (lọc grade/MOQ/
-    tỉnh/xác minh, trần NCC, so sánh); tối đa 12 thẻ/danh mục, 48 thẻ, 6 NCC.
-  - NCC khớp theo tên/tỉnh (loại demo + synthetic), link sang hồ sơ; empty state dẫn
-    sang RFQ; không có `q` thì hiện gợi ý duyệt danh mục.
+- **Route `/search`** hiện hỗ trợ tiếng Việt/Anh, phân trang và dùng độ khớp từ khoá
+  trước tầng. Quy tắc vòng NCC, các trường công khai, giới hạn và kiểm thử mới nhất
+  được ghi tại `docs/search-ranking-phase02.md`; không thay công thức điểm lưới danh mục.
 - **Kiểm**: `check-marketplace-ranking.mjs` thêm rule evidence + trustAlive + tầng vẫn
   cứng trước evidence; `check-buyer-product-discovery.mjs` thêm mock `listCertificates`
   + assert hết hạn trừ đúng 1 bước mà listing vẫn hiện đủ.

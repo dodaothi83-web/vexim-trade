@@ -1350,6 +1350,28 @@ export interface SponsoredPush {
   created_at: string;
 }
 
+/** Yêu cầu báo giá riêng, không phải gói quảng cáo hay giao dịch thanh toán. */
+export type SponsoredRequestStatus = "new" | "contacted" | "closed";
+export interface SponsoredRequest {
+  id: string;
+  supplier_id: string | null;
+  product_id: string | null;
+  requested_by: string | null;
+  supplier_name: string;
+  product_name: string;
+  category_slug: string;
+  category_name: string;
+  requester_email: string;
+  note: string | null;
+  status: SponsoredRequestStatus;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export type SponsoredRequestInput = Pick<SponsoredRequest,
+  "supplier_id" | "product_id" | "requested_by" | "supplier_name" | "product_name" |
+  "category_slug" | "category_name" | "requester_email" | "note">;
+
 /** Dòng đếm theo ngày UTC của một gói: lượt hiển thị và lượt mở thẻ. */
 export interface SponsoredPushDaily {
   push_id: string;

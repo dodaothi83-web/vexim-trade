@@ -104,7 +104,7 @@ async function renderHome(offers, categoryItems = [category], props = {}) {
     "lucide-react": new Proxy({}, { get: () => () => null }),
     "@/lib/db": { getStore: () => ({ listCategories: async () => categoryItems, listSuppliers: async () => [] }) },
     "@/lib/blog/queries": { listPublishedNews: async () => [] },
-    "@/lib/public/product-catalog": { listPublicCategoryProducts: async () => offers },
+    "@/lib/public/product-catalog": { loadPublicProductCatalogSnapshot: async () => ({}), listPublicCategoryProducts: async () => offers },
     "@/lib/public/supplier-product-order": {
       arrangeSupplierProducts,
       HOME_FEED_PER_PAGE,

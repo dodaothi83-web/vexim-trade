@@ -26,6 +26,9 @@ import type {
   SponsoredPushDaily,
   SponsoredPushInput,
   SponsoredPushSurface,
+  SponsoredRequest,
+  SponsoredRequestInput,
+  SponsoredRequestStatus,
   SupplierRfqInvitation,
   SupplierNoticeRead,
   Supplier,
@@ -151,16 +154,28 @@ export interface DataStore {
    */
   listAllSponsoredPushes(): Promise<SponsoredPush[]>;
   createSponsoredPush(input: SponsoredPushInput): Promise<SponsoredPush>;
-  updateSponsoredPush(
+  /** Chỉ cập nhật nếu trạng thái vẫn như lúc đọc; null nghĩa là đã đổi hoặc bị xoá. */
+  updateSponsoredPushIfStatus(
     id: string,
+    expected: SponsoredPush["status"],
     patch: Partial<Pick<SponsoredPush,
       "status" | "starts_at" | "ends_at" | "price_amount" | "price_currency" |
       "note" | "approved_by" | "approved_at">>,
-  ): Promise<SponsoredPush>;
-  /** Xoá hẳn một gói. Chỉ dùng cho gói còn ở trạng thái nháp, chưa chạy. */
-  deleteSponsoredPush(id: string): Promise<void>;
+  ): Promise<SponsoredPush | null>;
+  /** Xoá có điều kiện: không xoá gói vừa được duyệt ở một phiên khác. */
+  deleteSponsoredDraft(id: string): Promise<boolean>;
   /** Số liệu theo ngày của các gói được chọn, từ `sinceDay` (yyyy-mm-dd, UTC). */
   listSponsoredPushDaily(pushIds: string[], sinceDay: string): Promise<SponsoredPushDaily[]>;
+
+  /** Chỉ các gói của một NCC; không trả ghi chú nội bộ ra giao diện. */
+  listSponsoredPushesForSupplier(supplierId: string): Promise<SponsoredPush[]>;
+  /** Yêu cầu do NCC gửi; lỗi đọc/ghi không được chuyển sang dữ liệu khác. */
+  listSponsoredRequestsForSupplier(supplierId: string): Promise<SponsoredRequest[]>;
+  listSponsoredRequests(): Promise<SponsoredRequest[]>;
+  countNewSponsoredRequests(): Promise<number>;
+  createSponsoredRequest(input: SponsoredRequestInput): Promise<SponsoredRequest>;
+  updateSponsoredRequestIfStatus(id: string, expected: SponsoredRequestStatus,
+    status: SponsoredRequestStatus, userId: string): Promise<SponsoredRequest | null>;
 
   // ----- Hình ảnh & tài liệu -----
   listMedia(ownerType: MediaOwnerType, ownerId: string): Promise<MediaAsset[]>;
@@ -244,6 +259,8 @@ export interface DataStore {
 
   // Certificates
   listCertificates(supplierId: string): Promise<Certificate[]>;
+  /** Nhiều nhà cung cấp, chia lô và phân trang; chỉ dùng trên máy chủ. */
+  listCertificatesForSuppliers(supplierIds: string[]): Promise<Certificate[]>;
   getCertificate(id: string): Promise<Certificate | null>;
   createCertificate(input: Partial<Certificate>): Promise<Certificate>;
   updateCertificate(id: string, patch: Partial<Certificate>): Promise<Certificate>;
@@ -251,6 +268,8 @@ export interface DataStore {
 
   // Verifications
   listVerifications(supplierId?: string): Promise<Verification[]>;
+  /** Nhiều nhà cung cấp, chia lô và phân trang; chỉ dùng trên máy chủ. */
+  listVerificationsForSuppliers(supplierIds: string[]): Promise<Verification[]>;
   getVerification(id: string): Promise<Verification | null>;
   createVerification(input: Partial<Verification>): Promise<Verification>;
   updateVerification(id: string, patch: Partial<Verification>): Promise<Verification>;

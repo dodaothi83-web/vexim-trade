@@ -2,6 +2,7 @@ import type { PublicL2Scope } from "@/lib/verification-status";
 import Link from "next/link";
 import { ArrowRight, ImageIcon } from "lucide-react";
 
+import { SponsoredDisclosure } from "@/components/sponsored-disclosure";
 import { ProductCompareCheckbox } from "@/components/product-compare-checkbox";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
 import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
@@ -9,7 +10,7 @@ import type { ProductComparisonSelection } from "@/lib/public/product-comparison
 import type { VerificationLevel } from "@/lib/types";
 
 /** One responsive product offer card shared by category, supplier profile and home. */
-export function PublicProductCard({ href, imagePath, name, moq, price, fob, leadTimeDays, supplierName, supplierHref, verificationSteps, l2Scope, quoteHref, oem, odm, samples, test = false, linkable = true, comparison }: {
+export function PublicProductCard({ href, imagePath, name, moq, price, fob, leadTimeDays, supplierName, supplierHref, verificationSteps, l2Scope, quoteHref, oem, odm, samples, test = false, linkable = true, comparison, sponsored = false }: {
   href: string; imagePath?: string | null; name: string; moq: string; price: string | null; fob?: boolean;
   leadTimeDays: number | null; supplierName: string; supplierHref?: string;
   verificationSteps: readonly VerificationLevel[]; l2Scope?: PublicL2Scope; quoteHref: string | undefined;
@@ -18,6 +19,8 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
   linkable?: boolean;
   /** Only public, non-demo offers receive a comparison checkbox. */
   comparison?: { id: string; categorySlug: string };
+  /** Paid placement disclosure belongs inside each sponsored card. */
+  sponsored?: boolean;
 }) {
   const quote = !test && linkable ? quoteHref : undefined;
   // This is a supplier contract check, not a claim about product quality or factory ownership.
@@ -42,6 +45,7 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
   return <article className={`flex h-full min-w-0 flex-row overflow-visible rounded-xl border border-ink-200 bg-white shadow-card transition focus-within:border-brand-500 sm:flex-col ${linkable ? "hover:border-brand-400 hover:shadow-md" : ""}`}>
     <div className="w-[38%] shrink-0 self-start sm:w-full">{thumb}</div>
     <div className="flex min-w-0 flex-1 flex-col justify-center p-2 sm:justify-start sm:px-3.5 sm:pb-3.5 sm:pt-3">
+      {sponsored && <SponsoredDisclosure />}
       {linkable ? <Link href={href} className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">{title}</Link> : title}
       <div className="mb-1 hidden h-5 items-center sm:mb-2 sm:flex sm:h-6">
         {!test && (oem || odm || samples) && <ProductTradeLabels oem={oem} odm={odm} samples={samples} compact />}

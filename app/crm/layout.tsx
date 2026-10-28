@@ -9,6 +9,7 @@ import { hasPermission, permissionsFor } from "@/lib/auth/permissions";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { loadMailboxData } from "@/lib/mail/mailbox-access";
 import { Sidebar } from "@/components/sidebar";
+import { sponsoredRequestStore } from "@/lib/sponsored/requests";
 import { CrmTopbar } from "@/components/crm-topbar";
 
 export const dynamic = "force-dynamic";
@@ -57,11 +58,27 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       return 0;
     }
   };
-  const [pendingSuppliers, pendingProducts, pendingReviews, pendingSubmissions] = await Promise.all([
+  const canViewSponsored = hasPermission(session.role, "sponsored.view");
+  const requestStore = canViewSponsored ? sponsoredRequestStore() : null;
+  const countSponsoredRequests = async (): Promise<number | null> => {
+    if (!canViewSponsored) return 0;
+    if (!requestStore) return null;
+    try {
+      const actor = await requestStore.getUser(session.uid);
+      if (!actor?.is_active || actor.role !== session.role || actor.email.trim().toLowerCase() !== session.email.trim().toLowerCase() ||
+          !hasPermission(actor.role, "sponsored.view")) return null;
+      return await requestStore.countNewSponsoredRequests();
+    } catch (error) {
+      console.error("[crm] không đếm được yêu cầu đẩy sản phẩm", error);
+      return null; // unknown is not zero; the menu shows a warning instead
+    }
+  };
+  const [pendingSuppliers, pendingProducts, pendingReviews, pendingSubmissions, pendingSponsoredRequests] = await Promise.all([
     canSuppliers ? countOrZero("nhà cung cấp", () => store.countSupplierAccountsPending()) : 0,
     canProducts ? countOrZero("sản phẩm", () => store.countProductsPendingReview()) : 0,
     canReviews ? countOrZero("đợt kiểm", () => store.countReviewsAwaitingApproval()) : 0,
     canReviews ? countOrZero("hồ sơ tự gửi", () => store.countSubmissionsPendingReview()) : 0,
+    countSponsoredRequests(),
   ]);
 
   // Chuông thông báo của CRM: cùng nguồn số với huy hiệu sidebar, nên hai nơi
@@ -71,6 +88,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     { href: "/crm/products?view=pending", label: "Sản phẩm NCC chờ kiểm nội dung", count: pendingProducts },
     { href: "/crm/verifications", label: "Đợt kiểm chờ duyệt", count: pendingReviews },
     { href: "/crm/verifications/submissions", label: "Hồ sơ NCC tự gửi chờ đối chiếu", count: pendingSubmissions },
+    { href: "/crm/sponsored#yeu-cau-ncc", label: "Yêu cầu đẩy sản phẩm mới", count: pendingSponsoredRequests ?? 0 },
     { href: "/crm/mail", label: "Thư chưa đọc", count: unreadMail },
     { href: "/crm/buyers", label: "Buyer mới chưa xử lý", count: newBuyers },
   ].filter((queue) => queue.count > 0);
@@ -103,6 +121,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         pendingProducts={pendingProducts}
         pendingReviews={pendingReviews}
         pendingSubmissions={pendingSubmissions}
+        pendingSponsoredRequests={pendingSponsoredRequests}
       />
       <div className="lg:pl-60">
         <CrmTopbar queues={queues} />

@@ -67,12 +67,12 @@ const expected = (WINDOWS * SPONSORED_SLOTS.category) / pushes.length;
 const values = [...counts.values()];
 const lowest = Math.min(...values);
 const highest = Math.max(...values);
-assert.equal(lowest, expected, `Gói ít nhất phải nhận đúng ${expected} lượt hiển thị, thực tế ${lowest}`);
+assert.equal(lowest, expected, `Gói ít nhất phải được chọn đúng ${expected} cửa sổ, thực tế ${lowest}`);
 assert.equal(highest, expected, `Gói nhiều nhất cũng chỉ ${expected} lượt, thực tế ${highest}`);
 assert.equal(
   values.reduce((sum, value) => sum + value, 0),
   WINDOWS * SPONSORED_SLOTS.category,
-  "Không lượt hiển thị nào bị đếm hai lần hoặc bị mất",
+  "Không cửa sổ chọn nào bị đếm hai lần hoặc bị mất",
 );
 
 /* ---------------- Đầu vào biên ---------------- */
@@ -99,4 +99,4 @@ const source = readFileSync(new URL("../lib/sponsored/rotation.ts", import.meta.
 assert.ok(!/Math\.random\s*\(/.test(source), "Chọn thẻ không được gọi số ngẫu nhiên");
 assert.ok(!/Date\.now\s*\(/.test(source), "Mốc thời gian phải do nơi gọi truyền vào, không đọc đồng hồ bên trong");
 
-console.log("✅ check-sponsored-rotation: cửa sổ mười phút, ba suất danh mục, hai suất trang chủ, mỗi gói đúng 252 lượt mỗi tuần");
+console.log("✅ check-sponsored-rotation: cửa sổ mười phút, ba suất danh mục, hai suất trang chủ, mỗi gói đúng 252 cửa sổ được chọn mỗi tuần");

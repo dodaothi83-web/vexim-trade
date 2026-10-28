@@ -47,6 +47,8 @@ export type Permission =
   | "rfq.manage"
   /** Xem danh sách gói đẩy sản phẩm và số liệu */
   | "sponsored.view"
+  /** Liên hệ và kết thúc yêu cầu; không cấp quyền duyệt hay sửa gói. */
+  | "sponsored.requests.manage"
   /**
    * Tạo, duyệt, tạm dừng gói đẩy. Admin và trưởng kiểm duyệt; ràng buộc dưới cơ sở
    * dữ liệu chỉ nhận hai vai trò này (xem migration 20261029_sponsored_approver_role.sql).
@@ -139,6 +141,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "verifications.approve",
     "rfq.manage",
     "sponsored.view",
+    "sponsored.requests.manage",
     "sponsored.manage",
   ],
   sale: [
@@ -154,6 +157,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "blog.manage",
     "rfq.manage",
     "sponsored.view",
+    "sponsored.requests.manage",
     "settings.view",
   ],
   sourcing: [
@@ -186,6 +190,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "verifications.view",
     "verifications.approve",
     "sponsored.view",
+    "sponsored.requests.manage",
     "sponsored.manage",
   ],
   viewer: VIEW_ONLY,

@@ -26,6 +26,7 @@ import type {
   RfqMatch,
   SponsoredPush,
   SponsoredPushDaily,
+  SponsoredRequest,
   SupplierRfqInvitation,
   SupplierNoticeRead,
   Supplier,
@@ -44,7 +45,7 @@ import type {
   Verification,
 } from "@/lib/types";
 import type { DataStore } from "@/lib/db/types";
-import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, publicProductCategorySlug, productReviewApproved } from "@/lib/public/product-selection";
 
 /** Bỏ các khoá undefined khỏi patch để không vô tình ghi đè mất dữ liệu cũ. */
 function cleanPatch<T extends Record<string, unknown>>(patch: T): Partial<T> {
@@ -160,6 +161,83 @@ function fail(op: string, error: { message: string } | null): never {
   throw new Error(`${op}: ${error?.message ?? "lỗi không xác định"}`);
 }
 
+// PostgREST can enforce a server row cap smaller than the requested page. Use a
+// stable UUID keyset and read until an empty page, not until a short page.
+// This avoids offset shifts under inserts/deletes, but separate requests are NOT
+// a transaction snapshot: concurrent changes can still affect the result.
+const READ_PAGE_SIZE = 500;
+const ID_BATCH_SIZE = 80;
+const PARALLEL_ID_BATCHES = 4;
+type ReadError = { message: string; code?: string };
+type PageResult = { data: unknown; error: ReadError | null };
+
+/** A paginated remote read must not silently switch to a different local dataset. */
+function failPagedRead(op: string, error: unknown): never {
+  const detail = error && typeof error === "object" && "message" in error
+    ? String(error.message) : String(error ?? "lỗi không xác định");
+  const failure = new Error(`${op}: ${detail}`) as Error & { preventLocalFallback: true };
+  failure.preventLocalFallback = true;
+  throw failure;
+}
+
+async function readAllById<T extends { id: string }>(
+  op: string,
+  page: (after: string | null) => PromiseLike<PageResult>,
+  allowMissingTable = false,
+): Promise<T[]> {
+  const rows: T[] = [];
+  let after: string | null = null;
+  for (;;) {
+    let result: PageResult;
+    try { result = await page(after); } catch (error) { failPagedRead(op, error); }
+    const { data, error } = result;
+    if (error) {
+      if (allowMissingTable && after === null && (error.code === "42P01" || error.code === "PGRST205")) return [];
+      failPagedRead(op, error);
+    }
+    if (!Array.isArray(data)) failPagedRead(op, "kết quả phân trang không hợp lệ");
+    if (!data.length) return rows;
+    for (const row of data as T[]) {
+      if (typeof row?.id !== "string" || !row.id || (after !== null && row.id <= after)) {
+        failPagedRead(op, "thứ tự phân trang không hợp lệ");
+      }
+      rows.push(row);
+      after = row.id;
+    }
+  }
+}
+
+/** Bounded IN lists prevent oversized URLs; one failed batch fails the whole read. */
+async function readByIds<T extends { id: string }>(
+  op: string, table: string, column: string, ids: readonly string[],
+): Promise<T[]> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += ID_BATCH_SIZE) chunks.push(unique.slice(i, i + ID_BATCH_SIZE));
+  const rows: T[] = [];
+  for (let i = 0; i < chunks.length; i += PARALLEL_ID_BATCHES) {
+    const pages = await Promise.all(chunks.slice(i, i + PARALLEL_ID_BATCHES).map((chunk) =>
+      readAllById<T>(op, (after) => {
+        let query = must().from(table).select("*").in(column, chunk)
+          .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+        if (after) query = query.gt("id", after);
+        return query;
+      })));
+    for (const page of pages) rows.push(...page);
+  }
+  return rows;
+}
+
+function byName<T extends { id: string; name: string }>(a: T, b: T): number {
+  return a.name.localeCompare(b.name, "vi") || a.id.localeCompare(b.id);
+}
+function mediaOrder(a: MediaAsset, b: MediaAsset): number {
+  return a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id);
+}
+function newestFirst<T extends { id: string; created_at: string }>(a: T, b: T): number {
+  return Date.parse(b.created_at) - Date.parse(a.created_at) || a.id.localeCompare(b.id);
+}
+
 /** Only this exact PostgREST schema-cache mismatch gets a single-price compatibility retry. */
 function missingProductPriceRangeColumn(error: { code?: string; message: string } | null): boolean {
   return !!error && (error.code === "PGRST204" || /schema cache/i.test(error.message)) &&
@@ -192,31 +270,46 @@ function withoutEmptyDisplayName<T extends { display_name?: string | null }>(pay
 /** public_page_ready is derived on read; never send it back to PostgREST. */
 async function decorateCategoryReadiness(rows: Category[]): Promise<Category[]> {
   if (!rows.length) return rows;
-  const [productsResult, suppliersResult] = await Promise.all([
-    must().from("supplier_products").select("supplier_id, name, category, spec, description, ready_for_buyer, supplier_review_status, supplier_originated, reviewed_category_slug"),
-    must().from("suppliers").select("id, status, is_demo"),
+  type ReadinessProduct = Pick<SupplierProduct, "id" | "supplier_id" | "name" | "category" | "spec" | "description" |
+    "ready_for_buyer" | "supplier_review_status" | "supplier_originated" | "reviewed_category_slug">;
+  type ReadinessSupplier = Pick<Supplier, "id" | "status" | "is_demo">;
+  const [products, suppliers] = await Promise.all([
+    readAllById<ReadinessProduct>("categoryReadiness:products", (after) => {
+      let query = must().from("supplier_products").select("id, supplier_id, name, category, spec, description, ready_for_buyer, supplier_review_status, supplier_originated, reviewed_category_slug")
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    }),
+    readAllById<ReadinessSupplier>("categoryReadiness:suppliers", (after) => {
+      let query = must().from("suppliers").select("id, status, is_demo")
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    }),
   ]);
-  if (productsResult.error) fail("categoryReadiness:products", productsResult.error);
-  if (suppliersResult.error) fail("categoryReadiness:suppliers", suppliersResult.error);
-  const published = new Set((suppliersResult.data ?? []).filter((s) => s.status === "published" &&
+  const published = new Set(suppliers.filter((s) => s.status === "published" &&
     (!s.is_demo || process.env.VEXIM_SHOW_DEMO === "true")).map((s) => s.id));
-  const demoIds = new Set((suppliersResult.data ?? []).filter((s) => s.is_demo && process.env.VEXIM_SHOW_DEMO === "true").map((s) => s.id));
-  const visible = (productsResult.data ?? []).filter((p) => published.has(p.supplier_id) &&
-    productReviewApproved(p) && !isTestOnlyProduct(p.name) && (p.ready_for_buyer || demoIds.has(p.supplier_id)));
-  return rows.map((c) => ({ ...c, public_page_ready: visible.some((p) =>
-    productBelongsToCategory(p, c, rows)) }));
+  const demoIds = new Set(suppliers.filter((s) => s.is_demo && process.env.VEXIM_SHOW_DEMO === "true").map((s) => s.id));
+  const readySlugs = new Set<string>();
+  for (const p of products) {
+    if (!published.has(p.supplier_id) || !productReviewApproved(p) || isTestOnlyProduct(p.name) ||
+      !(p.ready_for_buyer || demoIds.has(p.supplier_id))) continue;
+    const slug = publicProductCategorySlug(p, rows);
+    if (slug) readySlugs.add(slug);
+  }
+  return rows.map((c) => ({ ...c, public_page_ready: readySlugs.has(c.slug) }));
 }
 
 export const supabaseStore: DataStore = {
   mode: "supabase",
 
   async listSuppliers() {
-    const { data, error } = await must()
-      .from("suppliers")
-      .select("*")
-      .order("name", { ascending: true });
-    if (error) fail("listSuppliers", error);
-    return (data ?? []) as Supplier[];
+    const rows = await readAllById<Supplier>("listSuppliers", (after) => {
+      let query = must().from("suppliers").select("*").order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort(byName);
   },
   async getSupplier(id) {
     const { data, error } = await must()
@@ -276,12 +369,12 @@ export const supabaseStore: DataStore = {
   },
 
   async listProducts() {
-    const { data, error } = await must()
-      .from("supplier_products")
-      .select("*")
-      .order("name", { ascending: true });
-    if (error) fail("listProducts", error);
-    return (data ?? []) as SupplierProduct[];
+    const rows = await readAllById<SupplierProduct>("listProducts", (after) => {
+      let query = must().from("supplier_products").select("*").order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort(byName);
   },
   async getProduct(id) {
     const { data, error } = await must()
@@ -293,13 +386,13 @@ export const supabaseStore: DataStore = {
     return (data as SupplierProduct) ?? null;
   },
   async listProductsBySupplier(supplierId) {
-    const { data, error } = await must()
-      .from("supplier_products")
-      .select("*")
-      .eq("supplier_id", supplierId)
-      .order("name", { ascending: true });
-    if (error) fail("listProductsBySupplier", error);
-    return (data ?? []) as SupplierProduct[];
+    const rows = await readAllById<SupplierProduct>("listProductsBySupplier", (after) => {
+      let query = must().from("supplier_products").select("*").eq("supplier_id", supplierId)
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort(byName);
   },
   async createProduct(input: SupplierProductInput) {
     const write = (payload: Partial<SupplierProductInput>) => must()
@@ -492,35 +585,70 @@ export const supabaseStore: DataStore = {
   },
 
   async listSponsoredPushes({ surface, categorySlug, now }) {
-    let query = must()
-      .from("sponsored_pushes")
-      .select("*")
-      .eq("surface", surface)
-      .eq("status", "approved")
-      .lte("starts_at", now)
-      .gt("ends_at", now);
-    if (surface === "category") {
-      if (!categorySlug) return [];
-      query = query.eq("category_slug", categorySlug);
-    }
-    const { data, error } = await query;
-    if (error) {
-      // Môi trường chưa áp migration thì bảng chưa có. Đó là "chưa bán gói nào",
-      // không phải lỗi trang: trả rỗng để trang danh mục vẫn dựng bình thường.
-      if (error.code === "42P01" || error.code === "PGRST205") return [];
-      fail("listSponsoredPushes", error);
-    }
-    return (data ?? []) as SponsoredPush[];
+    if (surface === "category" && !categorySlug) return [];
+    // Only a missing table (42P01/PGRST205) on the first page is optional.
+    return readAllById<SponsoredPush>("listSponsoredPushes", (after) => {
+      let query = must().from("sponsored_pushes").select("*")
+        .eq("surface", surface).eq("status", "approved")
+        .lte("starts_at", now).gt("ends_at", now)
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (surface === "category") query = query.eq("category_slug", categorySlug!);
+      if (after) query = query.gt("id", after);
+      return query;
+    }, true);
   },
   async listAllSponsoredPushes() {
-    const { data, error } = await must()
-      .from("sponsored_pushes")
-      .select("*")
-      .order("starts_at", { ascending: false });
-    // Không nuốt lỗi ở đây: màn quản trị cần phân biệt "chưa bán gói nào" với
-    // "chưa áp migration". Nuốt lỗi thì cả hai cùng ra danh sách rỗng.
-    if (error) fail("listAllSponsoredPushes", error);
-    return (data ?? []) as SponsoredPush[];
+    // Không nuốt lỗi: CRM phân biệt được "chưa bán" với "không đọc được".
+    const rows = await readAllById<SponsoredPush>("listAllSponsoredPushes", (after) => {
+      let query = must().from("sponsored_pushes").select("*").order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort((a, b) => Date.parse(b.starts_at) - Date.parse(a.starts_at) || a.id.localeCompare(b.id));
+  },
+  async listSponsoredPushesForSupplier(supplierId) {
+    const rows = await readAllById<SponsoredPush>("listSponsoredPushesForSupplier", (after) => {
+      let query = must().from("sponsored_pushes").select("*").eq("supplier_id", supplierId)
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  },
+  async listSponsoredRequestsForSupplier(supplierId) {
+    const rows = await readAllById<SponsoredRequest>("listSponsoredRequestsForSupplier", (after) => {
+      let query = must().from("sponsored_requests").select("*").eq("supplier_id", supplierId)
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  },
+  async listSponsoredRequests() {
+    const rows = await readAllById<SponsoredRequest>("listSponsoredRequests", (after) => {
+      let query = must().from("sponsored_requests").select("*").order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  },
+  async countNewSponsoredRequests() {
+    const { count, error } = await must().from("sponsored_requests").select("id", { count: "exact", head: true }).eq("status", "new");
+    if (error) fail("countNewSponsoredRequests", error);
+    if (count === null) throw new Error("countNewSponsoredRequests: missing count");
+    return count;
+  },
+  async createSponsoredRequest(input) {
+    const { data, error } = await must().from("sponsored_requests").insert(input).select().single();
+    if (error?.code === "23505") throw new Error("SPONSORED_REQUEST_ALREADY_OPEN");
+    if (error) fail("createSponsoredRequest", error);
+    return data as SponsoredRequest;
+  },
+  async updateSponsoredRequestIfStatus(id, expected, status, userId) {
+    const { data, error } = await must().from("sponsored_requests")
+      .update({ status, updated_by: userId }).eq("id", id).eq("status", expected).select().maybeSingle();
+    if (error) fail("updateSponsoredRequestIfStatus", error);
+    return (data as SponsoredRequest | null) ?? null;
   },
   async createSponsoredPush(input) {
     const { data, error } = await must()
@@ -531,29 +659,61 @@ export const supabaseStore: DataStore = {
     if (error) fail("createSponsoredPush", error);
     return data as SponsoredPush;
   },
-  async updateSponsoredPush(id, patch) {
+  async updateSponsoredPushIfStatus(id, expected, patch) {
     const { data, error } = await must()
       .from("sponsored_pushes")
-      .update(patch)
+      .update(cleanPatch(patch))
       .eq("id", id)
+      .eq("status", expected)
       .select()
-      .single();
-    if (error) fail("updateSponsoredPush", error);
-    return data as SponsoredPush;
+      .maybeSingle();
+    if (error) fail("updateSponsoredPushIfStatus", error);
+    return (data as SponsoredPush | null) ?? null;
   },
-  async deleteSponsoredPush(id) {
-    const { error } = await must().from("sponsored_pushes").delete().eq("id", id);
-    if (error) fail("deleteSponsoredPush", error);
+  async deleteSponsoredDraft(id) {
+    const { data, error } = await must().from("sponsored_pushes").delete()
+      .eq("id", id).eq("status", "draft").select("id").maybeSingle();
+    if (error) fail("deleteSponsoredDraft", error);
+    return data !== null;
   },
   async listSponsoredPushDaily(pushIds, sinceDay) {
-    if (!pushIds.length) return [];
-    const { data, error } = await must()
-      .from("sponsored_push_daily")
-      .select("*")
-      .in("push_id", pushIds)
-      .gte("day", sinceDay);
-    if (error) fail("listSponsoredPushDaily", error);
-    return (data ?? []) as SponsoredPushDaily[];
+    const unique = [...new Set(pushIds.filter(Boolean))];
+    const chunks: string[][] = [];
+    for (let i = 0; i < unique.length; i += ID_BATCH_SIZE) chunks.push(unique.slice(i, i + ID_BATCH_SIZE));
+    const all: SponsoredPushDaily[] = [];
+    for (let i = 0; i < chunks.length; i += PARALLEL_ID_BATCHES) {
+      const parts = await Promise.all(chunks.slice(i, i + PARALLEL_ID_BATCHES).map(async (ids) => {
+        const rows: SponsoredPushDaily[] = [];
+        let cursor: SponsoredPushDaily | null = null;
+        for (;;) {
+          let query = must().from("sponsored_push_daily").select("*").in("push_id", ids).gte("day", sinceDay)
+            .order("push_id", { ascending: true }).order("day", { ascending: true })
+            .order("event_type", { ascending: true }).limit(READ_PAGE_SIZE);
+          if (cursor) {
+            // Values come from UUID/date/enum database columns, not a URL or form.
+            query = query.or(`push_id.gt.${cursor.push_id},and(push_id.eq.${cursor.push_id},day.gt.${cursor.day}),and(push_id.eq.${cursor.push_id},day.eq.${cursor.day},event_type.gt.${cursor.event_type})`);
+          }
+          let result: PageResult;
+          try { result = await query; } catch (error) { failPagedRead("listSponsoredPushDaily", error); }
+          const { data, error } = result;
+          if (error) failPagedRead("listSponsoredPushDaily", error);
+          if (!Array.isArray(data)) failPagedRead("listSponsoredPushDaily", "kết quả phân trang không hợp lệ");
+          if (!data.length) return rows;
+          for (const row of data as SponsoredPushDaily[]) {
+            if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(row.push_id) ||
+              !/^\d{4}-\d{2}-\d{2}$/.test(row.day) || !["click", "impression"].includes(row.event_type) ||
+              (cursor && (row.push_id < cursor.push_id || (row.push_id === cursor.push_id &&
+                (row.day < cursor.day || (row.day === cursor.day && row.event_type <= cursor.event_type)))))) {
+              failPagedRead("listSponsoredPushDaily", "thứ tự phân trang không hợp lệ");
+            }
+            rows.push(row);
+            cursor = row;
+          }
+        }
+      }));
+      for (const part of parts) all.push(...part);
+    }
+    return all;
   },
   async listMedia(ownerType: MediaOwnerType, ownerId: string) {
     const column =
@@ -561,37 +721,19 @@ export const supabaseStore: DataStore = {
       ownerType === "verification" ? "verification_id" :
       ownerType === "submission" ? "submission_id" :
       "supplier_id";
-    const { data, error } = await must()
-      .from("media_assets")
-      .select("*")
-      .eq("owner_type", ownerType)
-      .eq(column, ownerId)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (error) fail("listMedia", error);
-    return (data ?? []) as MediaAsset[];
+    const rows = await readAllById<MediaAsset>("listMedia", (after) => {
+      let query = must().from("media_assets").select("*").eq("owner_type", ownerType).eq(column, ownerId)
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort(mediaOrder);
   },
   async listMediaForProducts(productIds) {
-    if (!productIds.length) return [];
-    const { data, error } = await must()
-      .from("media_assets")
-      .select("*")
-      .in("product_id", productIds)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (error) fail("listMediaForProducts", error);
-    return (data ?? []) as MediaAsset[];
+    return (await readByIds<MediaAsset>("listMediaForProducts", "media_assets", "product_id", productIds)).sort(mediaOrder);
   },
   async listMediaForSuppliers(supplierIds) {
-    if (!supplierIds.length) return [];
-    const { data, error } = await must()
-      .from("media_assets")
-      .select("*")
-      .in("supplier_id", supplierIds)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (error) fail("listMediaForSuppliers", error);
-    return (data ?? []) as MediaAsset[];
+    return (await readByIds<MediaAsset>("listMediaForSuppliers", "media_assets", "supplier_id", supplierIds)).sort(mediaOrder);
   },
   async getMedia(id) {
     const { data, error } = await must()
@@ -989,11 +1131,14 @@ export const supabaseStore: DataStore = {
 
   // --- Categories ---
   async listCategories(options?: { publishedOnly?: boolean }) {
-    let q = must().from("categories").select("*").order("sort_order", { ascending: true });
-    if (options?.publishedOnly) q = q.eq("is_published", true);
-    const { data, error } = await q;
-    if (error) fail("listCategories", error);
-    return decorateCategoryReadiness((data ?? []) as Category[]);
+    const rows = await readAllById<Category>("listCategories", (after) => {
+      let query = must().from("categories").select("*").order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (options?.publishedOnly) query = query.eq("is_published", true);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    rows.sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id));
+    return decorateCategoryReadiness(rows);
   },
   async getCategory(id) {
     const { data, error } = await must().from("categories").select("*").eq("id", id).maybeSingle();
@@ -1061,13 +1206,10 @@ export const supabaseStore: DataStore = {
 
   // --- Certificates ---
   async listCertificates(supplierId) {
-    const { data, error } = await must()
-      .from("certificates")
-      .select("*")
-      .eq("supplier_id", supplierId)
-      .order("created_at", { ascending: false });
-    if (error) fail("listCertificates", error);
-    return (data ?? []) as Certificate[];
+    return (await readByIds<Certificate>("listCertificates", "certificates", "supplier_id", [supplierId])).sort(newestFirst);
+  },
+  async listCertificatesForSuppliers(supplierIds) {
+    return (await readByIds<Certificate>("listCertificatesForSuppliers", "certificates", "supplier_id", supplierIds)).sort(newestFirst);
   },
   async getCertificate(id) {
     const { data, error } = await must().from("certificates").select("*").eq("id", id).maybeSingle();
@@ -1096,11 +1238,16 @@ export const supabaseStore: DataStore = {
 
   // --- Verifications ---
   async listVerifications(supplierId) {
-    let q = must().from("verifications").select("*").order("created_at", { ascending: false });
-    if (supplierId) q = q.eq("supplier_id", supplierId);
-    const { data, error } = await q;
-    if (error) fail("listVerifications", error);
-    return (data ?? []) as Verification[];
+    const rows = await readAllById<Verification>("listVerifications", (after) => {
+      let query = must().from("verifications").select("*").order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (supplierId) query = query.eq("supplier_id", supplierId);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort(newestFirst);
+  },
+  async listVerificationsForSuppliers(supplierIds) {
+    return (await readByIds<Verification>("listVerificationsForSuppliers", "verifications", "supplier_id", supplierIds)).sort(newestFirst);
   },
   async getVerification(id) {
     const { data, error } = await must().from("verifications").select("*").eq("id", id).maybeSingle();

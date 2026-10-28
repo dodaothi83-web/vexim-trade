@@ -2,23 +2,30 @@ import type { Category, SupplierProduct } from "@/lib/types";
 
 import { assignProductCategory } from "@/lib/public/category-assignment";
 
-/** The product itself wins over a stale or incorrect saved category on public reads. */
-export function productBelongsToCategory(
-  product: Pick<SupplierProduct, "category" | "name"> & Partial<Pick<SupplierProduct, "spec" | "description" | "reviewed_category_slug" | "supplier_originated">>,
-  category: Pick<Category, "slug">,
-  knownCategories: Pick<Category, "slug" | "name_i18n">[],
-): boolean {
+type CategoryProduct = Pick<SupplierProduct, "category" | "name"> & Partial<Pick<SupplierProduct, "spec" | "description" | "reviewed_category_slug" | "supplier_originated">>;
+type KnownCategory = Pick<Category, "slug" | "name_i18n">;
+
+/** The single category a product belongs to under the existing public rules. */
+export function publicProductCategorySlug(product: CategoryProduct, knownCategories: KnownCategory[]): string | null {
   // Supplier-authored products never fall back to keyword inference after a decision was invalidated.
-  if (product.supplier_originated && !product.reviewed_category_slug) return false;
+  if (product.supplier_originated && !product.reviewed_category_slug) return null;
   // Explicit human decision wins over a keyword guess. An invalid/archived slug fails closed.
-  if (product.reviewed_category_slug) return product.reviewed_category_slug === category.slug &&
-    knownCategories.some((c) => c.slug === product.reviewed_category_slug);
+  if (product.reviewed_category_slug) return knownCategories.some((c) => c.slug === product.reviewed_category_slug)
+    ? product.reviewed_category_slug : null;
   const choices = knownCategories.map((c) => ({ ...c, id: c.slug }));
-  const inferred = assignProductCategory({
+  return assignProductCategory({
     name: product.name, category: product.category,
     spec: product.spec ?? null, description: product.description ?? null,
-  }, choices);
-  return inferred?.slug === category.slug;
+  }, choices)?.slug ?? null;
+}
+
+/** The product itself wins over a stale or incorrect saved category on public reads. */
+export function productBelongsToCategory(
+  product: CategoryProduct,
+  category: Pick<Category, "slug">,
+  knownCategories: KnownCategory[],
+): boolean {
+  return publicProductCategorySlug(product, knownCategories) === category.slug;
 }
 
 export function productReviewApproved(product: Pick<SupplierProduct, "supplier_review_status"> & Partial<Pick<SupplierProduct, "supplier_originated" | "reviewed_category_slug">>): boolean {
