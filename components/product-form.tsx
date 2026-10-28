@@ -14,17 +14,31 @@ import { useToast } from "@/components/toast";
 import { ProductAttributeInputs } from "@/components/product-attribute-inputs";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
-import { effectiveFieldsFor, fieldsFor } from "@/lib/product-attributes";
+import { GradePricingTable } from "@/components/products/grade-pricing-table";
+import {
+  CUSTOM_GRADE_OPTION,
+  categoryMarketPriceUnit,
+  formatGradeRowPriceVi,
+  hydrateGradeRowsDraft,
+  nonGradeProductFields,
+  reconcileGradeRowsForCategory,
+  summarizeGradeRowsForProduct,
+  validateGradeRowsDraft,
+  type ProductGradeRowDraft,
+} from "@/lib/products/grade-pricing";
+import { effectiveFieldsFor } from "@/lib/product-attributes";
 import { gradeKey, resolveGrade } from "@/lib/public/grade-resolution";
 import { composeDisplayName, isPlaceholderDisplayName } from "@/lib/public/display-name";
 import { useRegisterProductEditDirty } from "@/app/crm/products/[slug]/edit/edit-workspace";
 
-const INCOTERMS = ["EXW", "FOB", "CFR", "CIF", "DAP", "DDP", "FCA"];
-const CURRENCIES = ["USD", "EUR", "VND"];
-
 type FormState = Record<string, string | number | boolean>;
 type ProductTab = "info" | "spec" | "trade";
-type ProductSnapshot = { form: FormState; attributes: Record<string, string>; category: string };
+type ProductSnapshot = {
+  form: FormState;
+  attributes: Record<string, string>;
+  category: string;
+  gradeRows: ProductGradeRowDraft[];
+};
 
 const ORIGINAL_TEXT_KEYS = [
   "name", "description", "spec", "description_detail", "packaging", "certifications",
@@ -71,8 +85,8 @@ function initAttributes(p?: SupplierProduct | null): Record<string, string> {
 
 const TABS: Array<{ key: ProductTab; label: string; hint: string }> = [
   { key: "info", label: "Thông tin & mô tả", hint: "Tên, danh mục, mô tả cho buyer" },
-  { key: "spec", label: "Quy cách & năng lực", hint: "Quy cách, MOQ, đóng gói, chứng nhận tự khai" },
-  { key: "trade", label: "Giá & thương mại", hint: "Giá tham khảo, Incoterm, thanh toán" },
+  { key: "spec", label: "Quy cách & năng lực", hint: "Bảng Grade & giá, thông số, năng lực, đóng gói" },
+  { key: "trade", label: "Giá & thương mại", hint: "Công khai giá, hiệu lực giá, địa điểm Incoterm, thanh toán" },
 ];
 
 export function ProductForm({
@@ -87,7 +101,7 @@ export function ProductForm({
 }: {
   supplier: Supplier;
   product?: SupplierProduct | null;
-  categories: Pick<Category, "id" | "slug" | "name_i18n" | "product_fields" | "supplier_product_fields">[];
+  categories: Pick<Category, "id" | "slug" | "name_i18n" | "price_unit" | "product_fields" | "supplier_product_fields">[];
   supplierCategories?: string[];
   /** Trạng thái media cho sản phẩm do staff quản lý. */
   mediaState?: { ready: boolean; shareable: number };
@@ -101,21 +115,32 @@ export function ProductForm({
   const router = useRouter();
   const toast = useToast();
   const supplierReviewedListing = !!(product?.supplier_originated || product?.supplier_category_proposal);
+  const initialCategorySlug = product?.reviewed_category_slug ?? product?.category ?? "";
+  const initialCategoryObj = categories.find((c) => c.slug === initialCategorySlug)
+    ?? assignProductCategory(
+      { name: product?.name ?? "", spec: product?.spec ?? null, description: product?.description ?? null, category: product?.category ?? null },
+      categories,
+      supplierCategories,
+    )
+    ?? null;
   const [form, setForm] = useState<FormState>(() => init(product));
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<ProductTab>("info");
   const [nameError, setNameError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState(product?.reviewed_category_slug ?? product?.category ?? "");
+  const [showGradeErrors, setShowGradeErrors] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(initialCategorySlug);
   const [attributes, setAttributes] = useState<Record<string, string>>(() => initAttributes(product));
+  const [gradeRows, setGradeRows] = useState<ProductGradeRowDraft[]>(() => hydrateGradeRowsDraft(product, initialCategoryObj));
   const [savedSnapshot, setSavedSnapshot] = useState<ProductSnapshot>(() => ({
     form: init(product),
     attributes: initAttributes(product),
-    category: product?.reviewed_category_slug ?? product?.category ?? "",
+    category: initialCategorySlug,
+    gradeRows: hydrateGradeRowsDraft(product, initialCategoryObj),
   }));
 
   const set = (k: string, v: string | number | boolean) => setForm((f) => ({ ...f, [k]: v }));
   const v = (k: string) => String(form[k] ?? "");
-  const currentSnapshot: ProductSnapshot = { form, attributes, category: selectedCategory };
+  const currentSnapshot: ProductSnapshot = { form, attributes, category: selectedCategory, gradeRows };
   const dirty = JSON.stringify(currentSnapshot) !== JSON.stringify(savedSnapshot);
   const sourceDirty = ORIGINAL_TEXT_KEYS.some((key) => form[key] !== savedSnapshot.form[key]);
   useRegisterProductEditDirty("product", dirty);
@@ -127,52 +152,58 @@ export function ProductForm({
   // Danh mục đang có hiệu lực: người dùng chọn thì theo người dùng, chưa chọn thì
   // theo gợi ý từ tên/quy cách. Hiện gợi ý ra cho thấy, thay vì để nó chạy ngầm.
   const activeCategory = categories.find((c) => c.slug === (selectedCategory || assignedCategory?.slug)) ?? null;
+  const activeCategorySource = activeCategory ?? (selectedCategory ? { slug: selectedCategory } : null);
+  const unitMeta = categoryMarketPriceUnit(activeCategory?.slug ?? selectedCategory, activeCategory?.price_unit);
   const suggestedCategory = !selectedCategory && assignedCategory &&
     (!supplierCategories.length || supplierCategories.includes(assignedCategory.slug)) ? assignedCategory : null;
-  // Quy cách: trường có cấu trúc thắng tên. Tên còn lại để cảnh báo khi hai bên lệch.
+
+  function onCategoryChange(nextSlug: string) {
+    setSelectedCategory(nextSlug);
+    const nextCat = categories.find((c) => c.slug === nextSlug) ?? (nextSlug ? { slug: nextSlug } : assignedCategory);
+    setGradeRows((current) => reconcileGradeRowsForCategory(current, nextCat));
+  }
+
+  const standardDraftGrades = gradeRows
+    .filter((row) => row.selectedGrade && row.selectedGrade !== CUSTOM_GRADE_OPTION)
+    .map((row) => row.selectedGrade.trim())
+    .filter(Boolean);
+  const primaryDraftGrade = standardDraftGrades[0] ?? null;
+
   const grade = resolveGrade({
-    name: v("name"), spec: v("spec"), categorySlug: activeCategory?.slug ?? "", attributes,
+    name: v("name"),
+    spec: v("spec"),
+    categorySlug: activeCategory?.slug ?? "",
+    attributes: primaryDraftGrade ? { ...attributes, grade: primaryDraftGrade } : attributes,
   });
-  const gradeField = fieldsFor(activeCategory).find((f) => (f.key === "grade" || f.key === "product_type") && f.type === "select");
-  const gradeFromNameUsable = !!gradeField && !!grade.fromName && !grade.fromAttributes && gradeField.options.includes(grade.fromName);
 
   // Tên hiển thị cho buyer: soạn từ danh mục, quy cách, tỉnh và thuộc tính còn lại.
-  // Nhân viên bấm một nút là xong; để trống thì trang buyer dùng tên gốc.
-  const attributeLabels = Object.fromEntries(effectiveFieldsFor(activeCategory).map((f) => [f.key, f.label]));
-  // Nhân viên thấy cả thông số NCC tự thêm, có ghi rõ nguồn để không nhầm là trường CMS.
-  const attributeInputFields = effectiveFieldsFor(activeCategory)
+  const attributeLabels = Object.fromEntries(nonGradeProductFields(effectiveFieldsFor(activeCategory)).map((f) => [f.key, f.label]));
+  const attributeInputFields = nonGradeProductFields(effectiveFieldsFor(activeCategory))
     .map((field) => field.supplier_added ? { ...field, label: `${field.label} (NCC tự thêm)` } : field);
   const suggestedDisplayName = composeDisplayName({
     categoryLabel: activeCategory ? activeCategory.name_i18n.en || activeCategory.slug : null,
-    grade: grade.value,
+    grade: primaryDraftGrade ?? grade.value,
     province: supplier.province,
     attributes,
     attributeLabels,
   });
   const displayNamePlaceholder = isPlaceholderDisplayName(v("display_name"));
-  // Tên hiển thị ghi một mức quy cách khác với ô quy cách đã chốt thì buyer đọc
-  // thấy hai mức ở cùng một chỗ, nên phải nói ra thay vì chọn ngầm một bên.
-  const confirmedGrade = grade.source === "attributes" ? grade.value : null;
   const displayNameGrade = resolveGrade({
     name: v("display_name"), spec: "", categorySlug: activeCategory?.slug ?? "", attributes: {},
   }).fromName;
-  const displayNameConflict = !!confirmedGrade && !!displayNameGrade &&
-    gradeKey(confirmedGrade) !== gradeKey(displayNameGrade);
+  const displayNameConflict = !!standardDraftGrades.length && !!displayNameGrade &&
+    !standardDraftGrades.some((item) => gradeKey(item) === gradeKey(displayNameGrade));
   const previewName = (displayNamePlaceholder ? "" : v("display_name").trim()) || v("name").trim() || "Chưa có tên sản phẩm";
 
-  const priceFromText = v("ref_price").trim();
-  const priceToText = v("ref_price_max").trim();
-  const priceFrom = Number(priceFromText);
-  const priceTo = Number(priceToText);
-  const priceRangeError = priceToText && (
-    !priceFromText || !Number.isFinite(priceFrom) || !Number.isFinite(priceTo) ||
-    priceFrom <= 0 || priceTo < priceFrom
-  ) ? "Giá đến phải lớn hơn hoặc bằng giá từ. Giá từ cần lớn hơn 0." : null;
+  const gradeValidation = validateGradeRowsDraft(gradeRows, activeCategorySource);
+  const priceRangeError = gradeValidation.valid ? null : (gradeValidation.message ?? "Kiểm tra lại bảng Grade & giá.");
+  const draftSummary = gradeValidation.valid ? summarizeGradeRowsForProduct(gradeValidation.rows, activeCategorySource) : null;
   const previewPrice = priceRangeError
-    ? "Kiểm tra giá"
-    : form.price_publicly_visible && priceFromText
-      ? `${v("currency")} ${priceFromText}${priceToText ? `-${priceToText}` : ""}/${v("unit") || "đơn vị"}`
+    ? "Kiểm tra bảng Grade & giá"
+    : form.price_publicly_visible && draftSummary?.ref_price != null
+      ? `USD ${draftSummary.ref_price}${draftSummary.ref_price_max != null && draftSummary.ref_price_max > draftSummary.ref_price ? `-${draftSummary.ref_price_max}` : ""}/${draftSummary.unit || unitMeta.tradeUnit}`
       : "On request";
+  const previewMoq = draftSummary?.moq || gradeRows.find((r) => r.moq.trim())?.moq.trim() || "On request";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -185,8 +216,9 @@ export function ProductForm({
       return;
     }
     if (priceRangeError) {
-      setTab("trade");
-      requestAnimationFrame(() => document.getElementById("product-ref-price-max")?.focus());
+      setShowGradeErrors(true);
+      setTab("spec");
+      requestAnimationFrame(() => document.getElementById("grade-pricing-table")?.scrollIntoView({ behavior: "smooth", block: "center" }));
       toast.push({ kind: "error", title: priceRangeError });
       return;
     }
@@ -196,14 +228,20 @@ export function ProductForm({
       !window.confirm("Lưu thay đổi này có thể kích hoạt AI dịch lại và thay thế bản tiếng Anh đã lưu. Tiếp tục?")) return;
     setNameError(null);
     setBusy(true);
+    const summary = summarizeGradeRowsForProduct(gradeValidation.rows, activeCategorySource);
     const payload = {
       ...form,
+      grade_rows: gradeValidation.rows,
       product_attributes: attributes,
       category: selectedCategory || assignedCategory?.slug || null,
       supplier_id: supplier.id,
       lead_time_days: v("lead_time_days") ? Number(v("lead_time_days")) : null,
-      ref_price: v("ref_price") ? Number(v("ref_price")) : null,
-      ref_price_max: v("ref_price_max") ? Number(v("ref_price_max")) : null,
+      ref_price: summary.ref_price,
+      ref_price_max: summary.ref_price_max,
+      currency: summary.currency,
+      unit: summary.unit,
+      incoterm: summary.incoterm,
+      moq: summary.moq,
     };
     try {
       const res = product
@@ -211,6 +249,7 @@ export function ProductForm({
         : await createProductAction(payload);
       toast.push({ kind: res.ok ? "success" : "error", title: res.message });
       if (res.ok) {
+        setShowGradeErrors(false);
         setSavedSnapshot(currentSnapshot);
         if (!product && res.id) router.push(`/crm/products/${res.id}/edit`);
         else router.refresh(); // Stay here and show the persisted public-price diagnostics.
@@ -227,6 +266,8 @@ export function ProductForm({
     setForm(savedSnapshot.form);
     setAttributes(savedSnapshot.attributes);
     setSelectedCategory(savedSnapshot.category);
+    setGradeRows(savedSnapshot.gradeRows);
+    setShowGradeErrors(false);
     setNameError(null);
   }
 
@@ -322,7 +363,7 @@ export function ProductForm({
                 <span className="text-ink-500">theo tên sản phẩm</span>
                 <button
                   type="button"
-                  onClick={() => setSelectedCategory(suggestedCategory.slug)}
+                  onClick={() => onCategoryChange(suggestedCategory.slug)}
                   className="btn btn-primary btn-sm ml-auto"
                 >
                   Dùng danh mục này
@@ -345,8 +386,8 @@ export function ProductForm({
           </div>
 
           {supplierCategories.length > 0 && (
-            <Field label="Danh mục cho sản phẩm" hint="Chỉ chọn trong phạm vi NCC đã đăng ký. Nếu tên/quy cách cho thấy ngành khác, hệ thống ưu tiên nhận diện từ sản phẩm; chọn không tự duyệt hoặc công khai.">
-              <select className="input mt-1" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+            <Field label="Danh mục cho sản phẩm" hint="Chỉ chọn trong phạm vi NCC đã đăng ký. Đổi danh mục thì danh sách grade đổi theo. Nếu tên/quy cách cho thấy ngành khác, hệ thống ưu tiên nhận diện từ sản phẩm; chọn không tự duyệt hoặc công khai.">
+              <select className="input mt-1" value={selectedCategory} onChange={(e) => onCategoryChange(e.target.value)}>
                 <option value="">Tự nhận diện theo tên/quy cách</option>
                 {categories.filter((category) => supplierCategories.includes(category.slug)).map((category) => <option key={category.id} value={category.slug}>{category.name_i18n.en || category.slug}</option>)}
               </select>
@@ -383,7 +424,7 @@ export function ProductForm({
             )}
             {displayNameConflict && (
               <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                Tên hiển thị ghi <strong>{displayNameGrade}</strong> nhưng ô quy cách đang là <strong>{confirmedGrade}</strong>. Buyer sẽ đọc hai mức khác nhau. Sửa lại tên hiển thị hoặc ô quy cách.
+                Tên hiển thị ghi <strong>{displayNameGrade}</strong> nhưng bảng Grade &amp; giá đang là <strong>{standardDraftGrades.join(", ")}</strong>. Buyer sẽ đọc hai mức khác nhau. Sửa lại tên hiển thị hoặc bảng Grade &amp; giá.
               </p>
             )}
             <p className="mt-2 text-xs leading-5 text-ink-500">
@@ -396,25 +437,21 @@ export function ProductForm({
       {tab === "spec" && (
         <section id="product-panel-spec" role="tabpanel" aria-labelledby="product-tab-spec" className="card p-5">
           <h2 className="mb-4 text-sm font-bold text-ink-900">Quy cách &amp; năng lực</h2>
-          <div className="mb-5 space-y-3">
-            <ProductAttributeInputs fields={attributeInputFields} values={attributes} onChange={setAttributes} />
-            {grade.conflict && (
-              <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                Tên gốc ghi <strong>{grade.fromName}</strong> nhưng ô {gradeField?.label ?? "quy cách"} đang là{" "}
-                <strong>{grade.fromAttributes}</strong>. Khi công khai, hệ thống lấy theo ô quy cách. Sửa một trong hai cho khớp.
-              </p>
+          <div className="mb-5 space-y-4">
+            <GradePricingTable
+              rows={gradeRows}
+              onChange={setGradeRows}
+              category={activeCategorySource}
+              disabled={busy}
+              showErrors={showGradeErrors}
+            />
+            {attributeInputFields.length > 0 && (
+              <ProductAttributeInputs fields={attributeInputFields} values={attributes} onChange={setAttributes} />
             )}
-            {gradeFromNameUsable && (
-              <p className="text-xs leading-5 text-ink-500">
-                Tên gốc có “{grade.fromName}”.{" "}
-                <button
-                  type="button"
-                  onClick={() => setAttributes((current) => ({ ...current, [gradeField!.key]: grade.fromName! }))}
-                  className="font-semibold text-brand-700 underline"
-                >
-                  Điền vào ô {gradeField!.label}
-                </button>{" "}
-                để giá trị nằm trong dữ liệu, không phụ thuộc cách viết tên.
+            {grade.fromName && standardDraftGrades.length > 0 && !standardDraftGrades.some((item) => gradeKey(item) === gradeKey(grade.fromName!)) && (
+              <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                Tên gốc ghi <strong>{grade.fromName}</strong> nhưng bảng Grade &amp; giá đang là{" "}
+                <strong>{standardDraftGrades.join(", ")}</strong>. Khi công khai, hệ thống lấy theo bảng Grade &amp; giá. Sửa lại nếu cần khớp.
               </p>
             )}
           </div>
@@ -424,7 +461,7 @@ export function ProductForm({
                 className="input"
                 value={v("spec")}
                 onChange={(e) => set("spec", e.target.value)}
-                placeholder="VD: 25kg PP bag, moisture ≤ 14%"
+                placeholder="VD: 25kg PP bag, moisture <= 14%"
               />
             </Field>
             <Field label="Vùng nguyên liệu" hint="Chọn tỉnh/thành hoặc nhập vùng cụ thể; có thể ghi nhiều vùng cho sản phẩm này.">
@@ -440,14 +477,6 @@ export function ProductForm({
                 value={v("input_material_origin")}
                 onChange={(e) => set("input_material_origin", e.target.value)}
                 placeholder="Ví dụ: Việt Nam, Campuchia hoặc nguồn kết hợp"
-              />
-            </Field>
-            <Field label="MOQ">
-              <input
-                className="input"
-                value={v("moq")}
-                onChange={(e) => set("moq", e.target.value)}
-                placeholder="VD: 100 MT / 1 cont 20ft"
               />
             </Field>
             <Field label="Công suất / tháng">
@@ -552,29 +581,41 @@ export function ProductForm({
           <p className="mt-0.5 mb-4 text-xs text-ink-600">
             Quyền chia sẻ giá trong hồ sơ doanh nghiệp là sự đồng ý chung của NCC (hiệu lực 180 ngày). Giá chỉ hiện khi <strong>riêng sản phẩm này</strong> cũng được chọn, có giá hợp lệ và đủ điều kiện công bố; đây không phải báo giá RFQ.
           </p>
+          <div className="mb-4 rounded-xl border border-ink-200 bg-ink-50/50 p-3.5 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-bold text-ink-900">Grade, giá ({unitMeta.unitLabel}), Incoterm và MOQ nằm tại mục Quy cách &amp; năng lực</p>
+              <button
+                type="button"
+                onClick={() => setTab("spec")}
+                className="font-bold text-brand-700 underline"
+              >
+                Mở bảng Grade &amp; giá ({gradeRows.length} dòng)
+              </button>
+            </div>
+            <ul className="mt-2 space-y-1 text-ink-700">
+              {gradeRows.map((row) => {
+                const isCustom = row.selectedGrade === CUSTOM_GRADE_OPTION;
+                const label = (isCustom ? row.customGrade : row.selectedGrade).trim() || "Chưa chọn grade";
+                const minNum = row.priceMin.trim() ? Number(row.priceMin.trim()) : null;
+                const maxNum = row.priceMax.trim() ? Number(row.priceMax.trim()) : null;
+                const validPrice = minNum !== null && maxNum !== null && Number.isFinite(minNum) && Number.isFinite(maxNum) && minNum > 0 && maxNum >= minNum;
+                return (
+                  <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="font-semibold text-ink-900">{label}{isCustom && row.customGrade.trim() ? " (Tự nhập)" : ""}</span>
+                    <span>
+                      <span className={validPrice ? "font-mono font-semibold tabular-nums text-ink-900" : "text-ink-500"}>
+                        {validPrice ? formatGradeRowPriceVi(minNum, maxNum, unitMeta.unitLabel) : "Báo giá theo yêu cầu"}
+                      </span>
+                      {" | "}
+                      {row.incoterm || "FOB"}
+                      {row.moq.trim() ? ` | MOQ ${row.moq.trim()}` : ""}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Giá tham khảo từ">
-              <input type="number" min={0} step="0.01" className="input" value={v("ref_price")}
-                onChange={(e) => set("ref_price", e.target.value)} placeholder="620" />
-            </Field>
-            <Field label="Giá tham khảo đến" hint="Tùy chọn. Để trống nếu chỉ có một mức giá; không được thấp hơn giá từ.">
-              <input id="product-ref-price-max" type="number" min={0} step="0.01" className={`input ${priceRangeError ? "border-rose-400 bg-rose-50/40" : ""}`} value={v("ref_price_max")}
-                aria-invalid={!!priceRangeError} aria-describedby={priceRangeError ? "product-price-range-error" : undefined}
-                onChange={(e) => set("ref_price_max", e.target.value)} placeholder="680" />
-              {priceRangeError && <p id="product-price-range-error" className="mt-1 text-xs font-semibold text-rose-600">{priceRangeError}</p>}
-            </Field>
-            <Field label="Tiền tệ">
-              <select className="input" value={v("currency")} onChange={(e) => set("currency", e.target.value)}>
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Đơn vị giá" hint="VD: MT, kg, thùng; giá buyer sẽ hiển thị theo đơn vị này.">
-              <input className="input" value={v("unit")} onChange={(e) => set("unit", e.target.value)} placeholder="MT / kg / thùng" />
-            </Field>
             <Field label="Giá hiệu lực đến">
               <input
                 type="date"
@@ -582,30 +623,6 @@ export function ProductForm({
                 value={v("price_valid_until")}
                 onChange={(e) => set("price_valid_until", e.target.value)}
               />
-            </Field>
-            <div className="sm:col-span-2 lg:col-span-3 rounded-lg border border-ink-200 bg-ink-50/60 p-3 text-sm">
-              <label className="flex items-start gap-2 font-semibold text-ink-800"><input type="checkbox" checked={form.price_publicly_visible === true}
-                onChange={(e) => set("price_publicly_visible", e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-brand-700" /> Hiển thị giá tham khảo của sản phẩm này cho buyer khi đủ điều kiện</label>
-              <p className="mt-1 text-xs text-ink-600">{supplierPriceConsentCurrent(supplier) ? "NCC đã đồng ý chia sẻ giá; vẫn cần chọn riêng từng sản phẩm." : "NCC chưa có quyền chia sẻ giá còn hiệu lực; tích ô này không thay thế sự đồng ý của NCC."} Thay đổi chỉ có hiệu lực sau khi lưu.</p>
-              {product && savedPrice && <div className={"mt-3 rounded-md px-3 py-2 text-xs " + (savedPrice.buyerPrice ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950")} role="status">
-                <p className="font-semibold">Giá buyer · bản đã lưu: {savedPrice.buyerPrice ? savedPrice.buyerPrice : savedPrice.publicProduct ? "On request" : "Sản phẩm chưa công khai"}</p>
-                {dirty && <p className="mt-1">Bạn đang sửa form; dòng trên vẫn là trạng thái đã lưu.</p>}
-                {!savedPrice.buyerPrice && <>
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4">{savedPrice.blockers.map((reason) => <li key={reason}>{reason}</li>)}
-                    {!savedPrice.publicProduct && <li>Sản phẩm chưa đủ điều kiện công bố ở checklist phía trên (duyệt, danh mục, NCC, ảnh/catalogue hoặc buyer-ready).</li>}
-                  </ul>
-                  {savedPrice.blockers.some((reason) => reason.includes("NCC")) && <Link href={`/crm/suppliers/${supplier.id}/edit#price-sharing`} className="mt-2 inline-block font-semibold text-brand-700 underline">Kiểm tra quyền chia sẻ giá trong hồ sơ NCC →</Link>}
-                </>}
-              </div>}
-            </div>
-            <Field label="Incoterm">
-              <select className="input" value={v("incoterm")} onChange={(e) => set("incoterm", e.target.value)}>
-                {INCOTERMS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
             </Field>
             <Field label="Địa điểm Incoterm" hint="VD: FOB Cát Lái, Incoterms 2020">
               <input
@@ -623,6 +640,21 @@ export function ProductForm({
                 placeholder="30% cọc, 70% khi có B/L"
               />
             </Field>
+            <div className="sm:col-span-2 lg:col-span-3 rounded-lg border border-ink-200 bg-ink-50/60 p-3 text-sm">
+              <label className="flex items-start gap-2 font-semibold text-ink-800"><input type="checkbox" checked={form.price_publicly_visible === true}
+                onChange={(e) => set("price_publicly_visible", e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-brand-700" /> Hiển thị giá tham khảo của sản phẩm này cho buyer khi đủ điều kiện</label>
+              <p className="mt-1 text-xs text-ink-600">{supplierPriceConsentCurrent(supplier) ? "NCC đã đồng ý chia sẻ giá; vẫn cần chọn riêng từng sản phẩm." : "NCC chưa có quyền chia sẻ giá còn hiệu lực; tích ô này không thay thế sự đồng ý của NCC."} Thay đổi chỉ có hiệu lực sau khi lưu.</p>
+              {product && savedPrice && <div className={"mt-3 rounded-md px-3 py-2 text-xs " + (savedPrice.buyerPrice ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950")} role="status">
+                <p className="font-semibold">Giá buyer · bản đã lưu: {savedPrice.buyerPrice ? <span className="font-mono tabular-nums">{savedPrice.buyerPrice}</span> : savedPrice.publicProduct ? "On request" : "Sản phẩm chưa công khai"}</p>
+                {dirty && <p className="mt-1">Bạn đang sửa form; dòng trên vẫn là trạng thái đã lưu.</p>}
+                {!savedPrice.buyerPrice && <>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">{savedPrice.blockers.map((reason) => <li key={reason}>{reason}</li>)}
+                    {!savedPrice.publicProduct && <li>Sản phẩm chưa đủ điều kiện công bố ở checklist phía trên (duyệt, danh mục, NCC, ảnh/catalogue hoặc buyer-ready).</li>}
+                  </ul>
+                  {savedPrice.blockers.some((reason) => reason.includes("NCC")) && <Link href={`/crm/suppliers/${supplier.id}/edit#price-sharing`} className="mt-2 inline-block font-semibold text-brand-700 underline">Kiểm tra quyền chia sẻ giá trong hồ sơ NCC</Link>}
+                </>}
+              </div>}
+            </div>
           </div>
         </section>
       )}
@@ -645,8 +677,8 @@ export function ProductForm({
               <p className="text-xs font-semibold text-brand-700">{activeCategory?.name_i18n.en || activeCategory?.slug || "Chưa có danh mục"}</p>
               <h3 className="mt-1 line-clamp-2 text-[15px] font-bold leading-snug text-ink-900">{previewName}</h3>
               <dl className="mt-3 space-y-1.5 text-xs">
-                <div className="flex justify-between gap-3"><dt className="text-ink-500">Giá trong form</dt><dd className="text-right font-semibold text-ink-800">{previewPrice}</dd></div>
-                <div className="flex justify-between gap-3"><dt className="text-ink-500">MOQ</dt><dd className="text-right font-semibold text-ink-800">{v("moq").trim() || "On request"}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-ink-500">Giá trong form</dt><dd className={`text-right font-semibold text-ink-800 ${previewPrice !== "On request" && !previewPrice.startsWith("Kiểm tra") ? "font-mono tabular-nums" : ""}`}>{previewPrice}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-ink-500">MOQ</dt><dd className="text-right font-semibold text-ink-800">{previewMoq}</dd></div>
               </dl>
             </div>
           </div>

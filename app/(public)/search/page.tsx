@@ -272,8 +272,8 @@ async function findResults(tokens: string[], categories: Category[], selected: C
         eligibleSupplierIds.add(product.supplierId);
         const relevance = productSearchRelevance(tokens, {
           product: searchText([product.name, ...Object.values(product.attributes ?? {})]),
-          grade: searchText([product.grade]),
-          structuredGrade: searchText([gradeFromAttributes(product.attributes)]),
+          grade: searchText([product.grade, ...(product.grades ?? [])]),
+          structuredGrade: searchText(product.hasGradeRows ? (product.grades ?? []) : [gradeFromAttributes(product.attributes)]),
           category: categoryText,
           supplier: searchText([product.supplierName, supplierText.get(product.supplierId)]),
         });
@@ -389,7 +389,7 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
           </Link>
           <div className="min-w-0 flex-1">
             <PublicProductCard href={productHref} imagePath={product.cardImagePath ?? product.imagePaths[0]}
-              name={product.name} moq={product.moq} price={product.price} fob={product.incoterm?.toUpperCase() === "FOB"}
+              name={product.name} grades={product.grades} moq={product.moq} price={product.price} fob={product.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={product.leadTimeDays} supplierName={product.supplierName}
               supplierHref={localHref(`/suppliers/${encodeURIComponent(product.supplierSlug || product.supplierId)}`, state.lang)}
               quoteHref={quoteHref} oem={product.oem} odm={product.odm} samples={product.samples}

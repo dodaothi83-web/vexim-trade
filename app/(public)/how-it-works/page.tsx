@@ -122,7 +122,7 @@ export default async function HowItWorksPage({
           {/* Bước 1 */}
           <div className="rounded-2xl border border-ink-200 bg-white p-6">
             <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 font-mono text-sm font-bold text-brand-800">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-sm font-bold tabular-nums text-brand-800">
                 01
               </div>
               <div className="min-w-0 flex-1">
@@ -160,7 +160,7 @@ export default async function HowItWorksPage({
           {/* Bước 2 */}
           <div className="rounded-2xl border border-ink-200 bg-white p-6">
             <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 font-mono text-sm font-bold text-brand-800">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-sm font-bold tabular-nums text-brand-800">
                 02
               </div>
               <div className="min-w-0 flex-1">
@@ -193,7 +193,7 @@ export default async function HowItWorksPage({
           {/* Bước 3: Luồng chọn nhà cung cấp luôn đặt trước luồng RFQ mở */}
           <div className="rounded-2xl border border-ink-200 bg-white p-6">
             <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 font-mono text-sm font-bold text-brand-800">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-sm font-bold tabular-nums text-brand-800">
                 03
               </div>
               <div className="min-w-0 flex-1">
@@ -251,7 +251,7 @@ export default async function HowItWorksPage({
           {/* Bước 4 */}
           <div className="rounded-2xl border border-ink-200 bg-white p-6">
             <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 font-mono text-sm font-bold text-brand-800">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-sm font-bold tabular-nums text-brand-800">
                 04
               </div>
               <div className="min-w-0 flex-1">

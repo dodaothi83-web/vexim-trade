@@ -28,6 +28,29 @@ function moqGroup(value: string): string {
   return tons <= 1 ? "small" : tons <= 5 ? "medium" : "large";
 }
 
+function productGradesOf(product: PublicCategoryProduct): string[] {
+  if (Array.isArray(product.grades) && product.grades.length > 0) return product.grades;
+  return product.grade ? [product.grade] : [];
+}
+
+function productMatchesFieldOption(
+  product: PublicCategoryProduct,
+  fieldKey: string,
+  option: string,
+): boolean {
+  if (fieldKey === "grade" || fieldKey === "product_type") {
+    return productGradesOf(product).includes(option) || product.attributes?.[fieldKey] === option;
+  }
+  return product.attributes?.[fieldKey] === option;
+}
+
+function productMatchesMoqGroup(product: PublicCategoryProduct, targetGroup: string): boolean {
+  if (Array.isArray(product.gradeRows) && product.gradeRows.length > 0) {
+    return product.gradeRows.some((row) => moqGroup(row.moq) === targetGroup);
+  }
+  return moqGroup(product.moq) === targetGroup;
+}
+
 export function CategoryProductGrid({ products, categorySlug, grades, sponsored, sponsoredBand = [], productFields = [], comparisonEnabled = true }: {
   products: PublicCategoryProduct[]; categorySlug: string; grades: string[]; productFields?: ProductAttributeField[];
   sponsored?: PilotPlacement | null; sponsoredBand?: SponsoredBandItem[]; comparisonEnabled?: boolean;
@@ -36,8 +59,12 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   // thì vùng đẩy ẩn, và sản phẩm trả phí quay lại lưới như mọi sản phẩm khác.
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
-  const attributeFilters = fieldsFor({ product_fields: productFields }).filter((f) => f.type === "select" && f.filterable && products.some((p) => !!p.attributes?.[f.key]));
-  const hasStructuredGrade = attributeFilters.some((f) => f.key === "grade");
+  const attributeFilters = fieldsFor({ product_fields: productFields }).filter((f) => f.type === "select" && f.filterable && products.some((p) =>
+    f.key === "grade" || f.key === "product_type"
+      ? productGradesOf(p).length > 0 || !!p.attributes?.[f.key]
+      : !!p.attributes?.[f.key],
+  ));
+  const hasStructuredGrade = attributeFilters.some((f) => f.key === "grade" || f.key === "product_type");
   const [moq, setMoq] = useState("");
   const [province, setProvince] = useState("");
   const [verified, setVerified] = useState(0);
@@ -47,12 +74,15 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   const allGrades = hasStructuredGrade ? [] : grades;
   const active = selectedGrades.length > 0 || Object.values(selectedAttributes).some(Boolean) || !!moq || !!province || verified > 0;
   const provinces = [...new Set(products.map((p) => p.province))].sort();
-  const visible = useMemo(() => products.filter((p) =>
-    (!selectedGrades.length || (p.grade && selectedGrades.includes(p.grade))) &&
-    attributeFilters.every((field) => !selectedAttributes[field.key] || p.attributes?.[field.key] === selectedAttributes[field.key]) &&
-    (!moq || moqGroup(p.moq) === moq) &&
-    (!province || p.province === province) && matchesVerificationFilter(p.verificationSteps, p.l2Scope, verified),
-  ), [products, selectedGrades, selectedAttributes, moq, province, verified, attributeFilters]);
+  const visible = useMemo(() => products.filter((p) => {
+    const pGrades = productGradesOf(p);
+    return (
+      (!selectedGrades.length || selectedGrades.some((g) => pGrades.includes(g))) &&
+      attributeFilters.every((field) => !selectedAttributes[field.key] || productMatchesFieldOption(p, field.key, selectedAttributes[field.key])) &&
+      (!moq || productMatchesMoqGroup(p, moq)) &&
+      (!province || p.province === province) && matchesVerificationFilter(p.verificationSteps, p.l2Scope, verified)
+    );
+  }), [products, selectedGrades, selectedAttributes, moq, province, verified, attributeFilters]);
   // Trần thẻ của một nhà cung cấp trong danh sách tự nhiên bên dưới, KHÔNG tính
   // vùng đẩy phía trên. Vùng đẩy là suất cộng thêm (additive slot): nhà cung cấp
   // mua gói giữ nguyên ba thẻ dưới lưới và có thêm một thẻ ở trên. Người trả tiền
@@ -82,7 +112,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
         for (const child of attributeFilters) if (child.showWhen?.key === field.key && child.showWhen.value !== e.target.value) delete next[child.key];
         return next;
       })}>
-        <option value="">All</option>{field.options.filter((option) => products.some((p) => p.attributes?.[field.key] === option)).map((option) => <option key={option} value={option}>{option}</option>)}
+        <option value="">All</option>{field.options.filter((option) => products.some((p) => productMatchesFieldOption(p, field.key, option))).map((option) => <option key={option} value={option}>{option}</option>)}
       </select>
     </label>)}
     {allGrades.length > 0 && <fieldset><legend className="mb-2 text-xs font-bold uppercase tracking-widest text-ink-500">Grade / type</legend>
@@ -143,7 +173,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
         {visible.length ? <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
           {shown.map((p) => <div key={p.id} className="min-w-0">
             <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
-              imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} moq={p.moq} price={p.price} fob={p.incoterm?.toUpperCase() === "FOB"}
+              imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} grades={productGradesOf(p)} moq={p.moq} price={p.price} fob={p.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.leadTimeDays} supplierName={p.supplierName}
               supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
               quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}

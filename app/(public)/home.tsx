@@ -686,7 +686,7 @@ export default async function HomeContent({
             {faqs.map((f, i) => (
               <li key={f.q} className="p-5 sm:p-6">
                 <h3 className="flex items-start gap-3 text-[15.5px] font-bold text-ink-900">
-                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 font-mono text-xs font-black text-amber-900">
+                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-black tabular-nums text-amber-900">
                     0{i + 1}
                   </span>
                   <span>{f.q}</span>

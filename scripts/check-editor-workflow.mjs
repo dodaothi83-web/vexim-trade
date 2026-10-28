@@ -125,8 +125,7 @@ assert.ok(form.includes('Quyền hiển thị giá của sản phẩm'), 'Suppli
 assert.ok(form.includes('supplier && res.supplier ? init(res.supplier) : next'), 'Form must adopt the post-translation supplier returned by the server');
 assert.ok(form.includes('res.translationStatus'), 'Form must distinguish translation warnings from a failed source save');
 const productForm = readFileSync(new URL('../components/product-form.tsx', import.meta.url), 'utf8');
-assert.ok(productForm.includes('value={v("ref_price")}') && productForm.includes('value={v("ref_price_max")}'), 'Each product can enter a lower and optional upper reference price');
-assert.ok(productForm.indexOf('label="Đơn vị giá"') > productForm.indexOf('Giá tham khảo từ'), 'Price unit belongs beside price and currency, not the description');
+assert.ok(productForm.includes('<GradePricingTable') && productForm.includes('grade_rows: gradeValidation.rows'), 'Each product manages per-grade reference price ranges via GradePricingTable');
 assert.ok(productForm.includes('price_publicly_visible') && productForm.includes('description_detail'), 'Staff can set long description and explicit price opt-in');
 assert.ok(source.includes('price_publicly_visible: bool(raw.price_publicly_visible, false)'), 'Staff server action persists opt-in only when selected');
 const parseProductCode = source.slice(source.indexOf('function parseProductInput('), source.indexOf('async function autoAssignProduct('));

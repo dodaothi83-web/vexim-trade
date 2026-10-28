@@ -163,7 +163,7 @@ export default async function SupplierBoostPage() {
           <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">Chưa mở bán</span>
           <h2 id="buy-offer-title" className="mt-3 text-[15px] font-bold text-ink-900">Gói đẩy sản phẩm danh mục</h2>
           <p className="mt-1 text-xs leading-5 text-ink-500">Một sản phẩm · 168 giờ từ khi kích hoạt · hiển thị luân phiên khi chưa dùng bộ lọc.</p>
-          <p className="mt-3 text-sm font-bold text-ink-900">{!offer ? "Chưa tải được giá" : offer.price_vnd == null ? "Giá chưa được cấu hình" : `${offer.price_vnd.toLocaleString("vi-VN")} ₫`}</p>
+          <p className={`mt-3 text-sm font-bold text-ink-900 ${offer?.price_vnd != null ? "font-mono tabular-nums" : ""}`}>{!offer ? "Chưa tải được giá" : offer.price_vnd == null ? "Giá chưa được cấu hình" : `${offer.price_vnd.toLocaleString("vi-VN")} ₫`}</p>
           <p className="mt-2 text-xs leading-5 text-ink-500">Đang chuẩn bị chức năng mua, giữ chỗ và thanh toán. Giá và các điều kiện có thể thay đổi trước khi mở bán.</p>
           <button type="button" disabled className="btn btn-primary mt-4 w-full justify-center">Chưa thể mua gói</button>
         </section>

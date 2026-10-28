@@ -6,8 +6,9 @@ import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catalog";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
-import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductCategorySlug, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory, productPriceBlockers, productReviewApproved, publicProductCategorySlug, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
 import { resolveGrade } from "@/lib/public/grade-resolution";
+import { projectPublicGradeData, type PublicProductGradeRow } from "@/lib/products/grade-pricing";
 import { evidenceValidVerificationSteps, rankPublicCategoryProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
@@ -19,11 +20,25 @@ export interface PublicCategoryProduct {
   id: string;
   name: string;
   grade: string | null;
+  /** Standard grades declared on the product (used for filters, cards, and search). Custom grades are excluded. */
+  grades: string[];
+  hasGradeRows: boolean;
+  /** Per-grade commercial rows for buyer PDP / comparison (prices redacted unless price gates pass). */
+  gradeRows: PublicProductGradeRow[];
+  /** Per-standard-grade price points for the category reference price range strip. */
+  gradePricePoints: Array<{
+    grade: string;
+    value: number;
+    highValue: number | null;
+    unit: string | null;
+    currency: string | null;
+    updatedAt: string | null;
+  }>;
   attributes: Record<string, string>;
   moq: string;
   price: string | null;
   /** Số liệu thô để tính khoảng giá tham khảo; null khi giá chưa được phép công khai. */
-  pricePoint: { value: number; unit: string | null; currency: string | null; updatedAt: string | null } | null;
+  pricePoint: { value: number; highValue?: number | null; unit: string | null; currency: string | null; updatedAt: string | null } | null;
   /** Hồ sơ demo không được tham gia vào khoảng giá thị trường. */
   isDemoSupplier: boolean;
   province: string;
@@ -74,18 +89,52 @@ function projectPublicCategoryProduct(
   // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
   const attributes = publicProductAttributes(category, p.specs);
   const tradeEnglish = p.translation_meta?.fields;
+  const priceVisible = productPriceBlockers(p, s).length === 0;
+  const gradeData = projectPublicGradeData(p, category, {
+    canShowPrice: priceVisible,
+    sanitizeText: withoutDirectContacts,
+    translateMoq: (moq) => publicProductMoqDisplay(moq),
+    fallbackMoq: p.moq,
+    fallbackUpdatedAt: p.updated_at,
+  });
+  const legacyGrade = resolveGrade({
+    name: p.name, spec: p.spec, categorySlug: category.slug, attributes,
+  }).value;
+  const primaryGrade = gradeData.hasGradeRows
+    ? gradeData.primaryGrade
+    : legacyGrade;
+  const grades = gradeData.hasGradeRows
+    ? gradeData.standardGrades
+    : (legacyGrade ? [legacyGrade] : []);
+  const firstGradePoint = gradeData.gradePricePoints[0] ?? null;
+  const legacyPricePoint = publicProductPricePoint(p, s);
+  const effectivePricePoint = gradeData.hasGradeRows
+    ? (firstGradePoint ?? legacyPricePoint)
+    : legacyPricePoint;
+  const effectivePrice = gradeData.hasGradeRows
+    ? (gradeData.summaryPrice ?? publicProductPrice(p, s))
+    : publicProductPrice(p, s);
+  const effectiveMoq = gradeData.hasGradeRows
+    ? (gradeData.gradeRows.find((r) => r.moq !== "On request")?.moq ?? (publicProductMoqDisplay(p.moq) || "On request"))
+    : (publicProductMoqDisplay(p.moq) || "On request");
+  const effectiveIncoterm = gradeData.hasGradeRows
+    ? (gradeData.gradeRows[0]?.incoterm ?? p.incoterm ?? null)
+    : (p.incoterm ?? null);
   return {
     // Tên công khai: bản soạn sẵn nếu có, không thì tên gốc. Danh mục vẫn
     // suy từ tên gốc (productBelongsToCategory ở trên), không suy từ tên này.
     id: p.id, name: withoutDirectContacts(publicProductTitle(p)),
-    // Trường có cấu trúc thắng tên gõ tay. Tên chỉ còn là nguồn dự phòng cho
-    // sản phẩm chưa được khai, và là nguồn để cảnh báo khi hai bên lệch nhau.
-    grade: resolveGrade({
-      name: p.name, spec: p.spec, categorySlug: category.slug, attributes,
-    }).value,
+    grade: primaryGrade,
+    grades,
+    hasGradeRows: gradeData.hasGradeRows,
+    gradeRows: gradeData.gradeRows,
+    gradePricePoints: !s.is_demo ? gradeData.gradePricePoints : [],
     attributes,
-    moq: publicProductMoqDisplay(p.moq) || "On request",
-    price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: supplierProvinceDisplay(s) || "Vietnam",
+    moq: effectiveMoq,
+    price: effectivePrice,
+    pricePoint: effectivePricePoint,
+    isDemoSupplier: !!s.is_demo,
+    province: supplierProvinceDisplay(s) || "Vietnam",
     rawMaterialRegion: publicProductPlaceDisplay(tradeEnglish?.raw_material_region),
     inputMaterialOrigin: tradeEnglish?.input_material_origin?.trim() || "",
     verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
@@ -93,7 +142,7 @@ function projectPublicCategoryProduct(
     evidenceValidSteps: evidenceValidSteps ?? s.approved_verification_steps.length,
     supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
     supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,
-    leadTimeDays: p.lead_time_days ?? null, incoterm: p.incoterm ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
+    leadTimeDays: p.lead_time_days ?? null, incoterm: effectiveIncoterm, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
     isDemo: !!s.is_demo, imagePaths: images,
     cardImagePath: shareableProductImages(media, p.id, p.featured_media_id, 1, true)[0] ?? null,
   };

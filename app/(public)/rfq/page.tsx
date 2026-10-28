@@ -47,10 +47,7 @@ export default async function RfqPage({
           { label: isQuestion ? "Ask supplier" : "Request a quote" },
         ]}
       />
-      <h1
-        className="mt-4 text-[34px] font-bold leading-tight text-ink-900 sm:text-[44px]"
-        style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}
-      >
+      <h1 className="mt-4 text-[34px] font-bold leading-tight tracking-tight text-ink-900 sm:text-[44px]">
         {isQuestion ? "Ask the supplier" : "Request a quote"}
       </h1>
       <p className="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-700">

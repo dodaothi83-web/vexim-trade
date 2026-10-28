@@ -1,0 +1,243 @@
+#!/usr/bin/env node
+// node --experimental-strip-types --no-warnings scripts/check-grade-pricing.mjs
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+import ts from "typescript";
+import React from "react";
+import { createRequire } from "node:module";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import * as priceUnits from "../lib/public/price-units.ts";
+import * as gradeResolution from "../lib/public/grade-resolution.ts";
+
+const require = createRequire(import.meta.url);
+const jsx = require("react/jsx-runtime");
+
+function compile(path, mocks) {
+  const mod = { exports: {} };
+  const code = ts.transpileModule(readFileSync(new URL(path, import.meta.url), "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  vm.runInNewContext(code, {
+    module: mod,
+    exports: mod.exports,
+    require: (key) => {
+      if (!(key in mocks)) throw new Error(`${path}: unexpected import ${key}`);
+      return mocks[key];
+    },
+    process, console, Date, React, Intl,
+  });
+  return mod.exports;
+}
+
+const icons = new Proxy({}, {
+  get: (_target, name) => (props) => React.createElement("span", { "data-icon": String(name), className: props.className }),
+});
+
+const gradePricing = compile("../lib/products/grade-pricing.ts", {
+  "@/lib/public/price-units": priceUnits,
+  "@/lib/public/grade-resolution": gradeResolution,
+});
+
+const priceRange = compile("../lib/public/price-range.ts", {
+  "@/lib/public/price-units": priceUnits,
+});
+
+const { GradePricingTable } = compile("../components/products/grade-pricing-table.tsx", {
+  react: React,
+  "react/jsx-runtime": jsx,
+  "lucide-react": icons,
+  "@/lib/products/grade-pricing": gradePricing,
+});
+
+/* ---------------- 1. Category units & standard grade options ---------------- */
+
+const cashewUnit = gradePricing.categoryMarketPriceUnit("cashew-kernels", null);
+assert.equal(cashewUnit.unitLabel, "USD/kg");
+assert.equal(cashewUnit.headerLabel, "GIÁ (USD/KG)");
+assert.equal(cashewUnit.tradeUnit, "kg");
+
+for (const slug of ["pepper", "cinnamon-star-anise", "rice", "coffee"]) {
+  const unit = gradePricing.categoryMarketPriceUnit(slug, null);
+  assert.equal(unit.unitLabel, "USD/MT", `${slug} uses USD/MT`);
+  assert.equal(unit.headerLabel, "GIÁ (USD/MT)");
+}
+assert.equal(gradePricing.categoryMarketPriceUnit("seafood", null).unitLabel, "USD/kg");
+
+const cashewGrades = gradePricing.standardGradesForCategory({ slug: "cashew-kernels" });
+for (const expected of ["W180", "W210", "W240", "W320", "W450", "SW", "WS", "LP", "SP"]) {
+  assert.ok(cashewGrades.includes(expected), `Cashew includes standard grade ${expected}`);
+}
+const pepperGrades = gradePricing.standardGradesForCategory({ slug: "pepper" });
+for (const expected of ["500 g/L", "550 g/L", "570 g/L", "580 g/L", "White pepper"]) {
+  assert.ok(pepperGrades.includes(expected), `Pepper includes standard grade ${expected}`);
+}
+
+/* ---------------- 2. Category switching reconciliation ---------------- */
+
+const initialRows = [
+  { id: "r1", selectedGrade: "W320", customGrade: "", priceMin: "7.2", priceMax: "7.5", incoterm: "FOB", moq: "1 MT" },
+  { id: "r2", selectedGrade: gradePricing.CUSTOM_GRADE_OPTION, customGrade: "Broken roasted", priceMin: "", priceMax: "", incoterm: "CIF", moq: "500 kg" },
+];
+const switchedToPepper = gradePricing.reconcileGradeRowsForCategory(initialRows, { slug: "pepper" });
+assert.equal(switchedToPepper[0].selectedGrade, "", "Incompatible standard grade resets when switching category");
+assert.equal(switchedToPepper[1].selectedGrade, gradePricing.CUSTOM_GRADE_OPTION, "Custom self-entered grade stays intact across category switch");
+assert.equal(switchedToPepper[1].customGrade, "Broken roasted");
+
+/* ---------------- 3. Row validation (require_both & bounds) ---------------- */
+
+const emptyGradeCheck = gradePricing.validateGradeRowsDraft(
+  [{ id: "r1", selectedGrade: "", customGrade: "", priceMin: "7.2", priceMax: "7.5", incoterm: "FOB", moq: "1 MT" }],
+  { slug: "cashew-kernels" },
+);
+assert.equal(emptyGradeCheck.valid, false);
+assert.equal(emptyGradeCheck.rowResults[0].gradeError, "Chọn grade cho dòng này.");
+
+const emptyCustomCheck = gradePricing.validateGradeRowsDraft(
+  [{ id: "r1", selectedGrade: gradePricing.CUSTOM_GRADE_OPTION, customGrade: "   ", priceMin: "", priceMax: "", incoterm: "FOB", moq: "" }],
+  { slug: "cashew-kernels" },
+);
+assert.equal(emptyCustomCheck.valid, false);
+assert.equal(emptyCustomCheck.rowResults[0].gradeError, "Nhập tên grade cho dòng này.");
+
+const missingUpperPrice = gradePricing.validateGradeRowsDraft(
+  [{ id: "r1", selectedGrade: "W320", customGrade: "", priceMin: "7.2", priceMax: "", incoterm: "FOB", moq: "1 MT" }],
+  { slug: "cashew-kernels" },
+);
+assert.equal(missingUpperPrice.valid, false);
+assert.equal(missingUpperPrice.rowResults[0].priceError, "Nhập đủ giá từ và đến, hoặc để trống cả hai.");
+
+const invertedPrice = gradePricing.validateGradeRowsDraft(
+  [{ id: "r1", selectedGrade: "W180", customGrade: "", priceMin: "8.5", priceMax: "8.0", incoterm: "FOB", moq: "1 MT" }],
+  { slug: "cashew-kernels" },
+);
+assert.equal(invertedPrice.valid, false);
+assert.equal(invertedPrice.rowResults[0].priceError, "Giá đến phải lớn hơn hoặc bằng giá từ và lớn hơn 0.");
+
+const validMixedRows = gradePricing.validateGradeRowsDraft(
+  [
+    { id: "r1", selectedGrade: "W180", customGrade: "", priceMin: "8.5", priceMax: "9.0", incoterm: "FOB", moq: "1 tấn" },
+    { id: "r2", selectedGrade: "W320", customGrade: "", priceMin: "7.2", priceMax: "7.5", incoterm: "CIF", moq: "2 tấn" },
+    { id: "r3", selectedGrade: "LP", customGrade: "", priceMin: "", priceMax: "", incoterm: "FOB", moq: "5 tấn" },
+    { id: "r4", selectedGrade: gradePricing.CUSTOM_GRADE_OPTION, customGrade: "DW2 roasted", priceMin: "6.5", priceMax: "6.8", incoterm: "EXW", moq: "500 kg" },
+  ],
+  { slug: "cashew-kernels" },
+);
+assert.equal(validMixedRows.valid, true);
+assert.equal(validMixedRows.rows.length, 4);
+assert.equal(validMixedRows.rows[2].price_min, null, "Leaving both price inputs blank stores On request");
+assert.equal(validMixedRows.rows[2].price_max, null);
+assert.equal(validMixedRows.rows[3].is_custom, true);
+
+// Min 1 / Max 10 enforcement on server payload
+assert.equal(gradePricing.parseGradeRowsFromPayload([], { slug: "cashew-kernels" }).ok, false, "0 rows rejected");
+const elevenRows = Array.from({ length: 11 }, (_, idx) => ({
+  selectedGrade: "W320", customGrade: "", priceMin: "7", priceMax: "8", incoterm: "FOB", moq: `${idx + 1} MT`,
+}));
+assert.equal(gradePricing.parseGradeRowsFromPayload(elevenRows, { slug: "cashew-kernels" }).ok, false, ">10 rows rejected");
+
+/* ---------------- 4. Scalar sync, specs storage & public projection ---------------- */
+
+const summary = gradePricing.summarizeGradeRowsForProduct(validMixedRows.rows, { slug: "cashew-kernels" });
+assert.equal(summary.ref_price, 6.5);
+assert.equal(summary.ref_price_max, 9);
+assert.equal(summary.currency, "USD");
+assert.equal(summary.unit, "kg");
+assert.equal(summary.incoterm, "FOB");
+assert.equal(summary.moq, "1 tấn");
+
+const specs = gradePricing.applyGradeRowsToSpecs({ moisture: "5%" }, validMixedRows.rows, { slug: "cashew-kernels" });
+assert.equal(specs.moisture, "5%", "Non-grade attributes preserved");
+assert.equal(specs.grade, "W180", "First standard grade synced to specs.grade");
+assert.equal(specs.grade_rows.length, 4);
+
+const productRecord = {
+  name: "Vietnamese Cashew Kernels",
+  spec: "Vacuum pack",
+  specs,
+  ref_price: summary.ref_price,
+  ref_price_max: summary.ref_price_max,
+  currency: summary.currency,
+  unit: summary.unit,
+  incoterm: summary.incoterm,
+  moq: summary.moq,
+  updated_at: "2026-10-25T00:00:00Z",
+};
+
+// Public projection WITH price consent
+const publicAllowed = gradePricing.projectPublicGradeData(productRecord, { slug: "cashew-kernels" }, {
+  canShowPrice: true,
+  sanitizeText: (s) => s,
+  translateMoq: (m) => m || "",
+});
+assert.equal(publicAllowed.hasGradeRows, true);
+assert.deepEqual([...publicAllowed.standardGrades], ["W180", "W320", "LP"], "Custom grades excluded from standardGrades filter list");
+assert.equal(publicAllowed.gradePricePoints.length, 2, "Only priced standard grades enter reference price points (LP unpriced + DW2 custom excluded)");
+assert.equal(publicAllowed.summaryPrice, "USD 6.50 to 9.00/kg");
+assert.equal(publicAllowed.gradeRows.length, 4, "All 4 rows render in PDP Grades & reference pricing table");
+assert.equal(publicAllowed.gradeRows[0].priceText, "USD 8.50 to 9.00/kg");
+assert.equal(publicAllowed.gradeRows[2].priceText, null, "Unpriced row renders On request");
+assert.equal(publicAllowed.gradeRows[3].isCustom, true);
+
+// Public projection WITHOUT price consent (must redact every row price)
+const publicBlocked = gradePricing.projectPublicGradeData(productRecord, { slug: "cashew-kernels" }, {
+  canShowPrice: false,
+  sanitizeText: (s) => s,
+  translateMoq: (m) => m || "",
+});
+assert.equal(publicBlocked.summaryPrice, null, "Summary price hidden when price gate fails");
+assert.equal(publicBlocked.gradePricePoints.length, 0, "No price points emitted when price gate fails");
+assert.ok(publicBlocked.gradeRows.every((r) => r.priceText === null && r.priceMin === null && r.priceMax === null), "All row prices redacted when price gate fails");
+
+/* ---------------- 5. Multi-grade PriceRangeStrip highValue aggregation ---------------- */
+
+const block = priceRange.buildPriceBlock(
+  [
+    { grade: "W320", value: 7.1, highValue: 7.4, unit: "kg", currency: "USD", updatedAt: "2026-10-25T00:00:00Z" },
+    { grade: "W320", value: 7.2, highValue: 7.5, unit: "kg", currency: "USD", updatedAt: "2026-10-25T00:00:00Z" },
+    { grade: "W320", value: 7.15, highValue: 7.45, unit: "kg", currency: "USD", updatedAt: "2026-10-25T00:00:00Z" },
+  ],
+  { now: new Date("2026-10-28T00:00:00Z"), unit: "kg" },
+);
+assert.equal(block.status, "ok");
+assert.equal(block.rows[0].sampleSize, 3, "Each supplier row counts as 1 sample");
+assert.equal(block.rows[0].low, 7.1, "Low uses minimum price_min");
+assert.equal(block.rows[0].high, 7.5, "High uses maximum price_max");
+
+/* ---------------- 6. GradePricingTable SSR + custom notice + inline alerts ---------------- */
+
+const tableHtml = renderToStaticMarkup(
+  React.createElement(GradePricingTable, {
+    rows: [
+      { id: "r1", selectedGrade: "W180", customGrade: "", priceMin: "8.5", priceMax: "", incoterm: "FOB", moq: "1 tấn" },
+      { id: "r2", selectedGrade: gradePricing.CUSTOM_GRADE_OPTION, customGrade: "Hạt vỡ rang muối", priceMin: "", priceMax: "", incoterm: "CIF", moq: "500 kg" },
+    ],
+    onChange: () => {},
+    category: { slug: "cashew-kernels" },
+    showErrors: true,
+    hiddenInputName: "grade_rows_json",
+  }),
+);
+assert.match(tableHtml, /GIÁ \(USD\/KG\)/);
+assert.match(tableHtml, /Nhập đủ giá từ và đến, hoặc để trống cả hai\./, "Inline price pair error rendered");
+assert.match(tableHtml, /Grade tự nhập không có nhãn chuẩn, không tính vào bảng giá tham khảo và bộ lọc\./, "Amber custom-grade notice rendered");
+assert.match(tableHtml, /font-mono[^"]*tabular-nums/, "Price inputs use JetBrains Mono tabular-nums");
+
+/* ---------------- 7. Migration & zero forbidden AI characters ---------------- */
+
+const migrationSql = readFileSync(new URL("../supabase/migrations/20261051_product_grade_rows.sql", import.meta.url), "utf8");
+assert.match(migrationSql, /create or replace view public\.v_public_supplier_products/i);
+assert.match(migrationSql, /\{"price_min": null, "price_max": null\}/, "Public view redacts per-row prices when price gates fail");
+assert.match(migrationSql, /'W210'/, "Cashew standard grades include W210 in database seed");
+
+for (const file of [
+  "../lib/products/grade-pricing.ts",
+  "../components/products/grade-pricing-table.tsx",
+  "../supabase/migrations/20261051_product_grade_rows.sql",
+]) {
+  const text = readFileSync(new URL(file, import.meta.url), "utf8");
+  assert.doesNotMatch(text, /[—–·•→“”‘’…]/, `${file} contains zero forbidden AI-style characters`);
+}
+
+console.log("✅ Grade & giá: multi-grade table, category units, validation, custom grades, CRM/Portal/Buyer sync & price redaction passed.");

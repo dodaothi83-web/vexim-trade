@@ -10,8 +10,8 @@ import type { ProductComparisonSelection } from "@/lib/public/product-comparison
 import type { VerificationLevel } from "@/lib/types";
 
 /** One responsive product offer card shared by category, supplier profile and home. */
-export function PublicProductCard({ href, imagePath, name, moq, price, fob, leadTimeDays, supplierName, supplierHref, verificationSteps, l2Scope, quoteHref, oem, odm, samples, test = false, linkable = true, comparison, sponsored = false }: {
-  href: string; imagePath?: string | null; name: string; moq: string; price: string | null; fob?: boolean;
+export function PublicProductCard({ href, imagePath, name, grades, moq, price, fob, leadTimeDays, supplierName, supplierHref, verificationSteps, l2Scope, quoteHref, oem, odm, samples, test = false, linkable = true, comparison, sponsored = false }: {
+  href: string; imagePath?: string | null; name: string; grades?: readonly string[]; moq: string; price: string | null; fob?: boolean;
   leadTimeDays: number | null; supplierName: string; supplierHref?: string;
   verificationSteps: readonly VerificationLevel[]; l2Scope?: PublicL2Scope; quoteHref: string | undefined;
   oem?: boolean; odm?: boolean; samples?: boolean; test?: boolean;
@@ -23,6 +23,7 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
   sponsored?: boolean;
 }) {
   const quote = !test && linkable ? quoteHref : undefined;
+  const visibleGrades = (grades ?? []).filter(Boolean);
   // This is a supplier contract check, not a claim about product quality or factory ownership.
   const partnerContractReviewed = !test && verificationSteps.includes(2) && (l2Scope === "partner_contract" || l2Scope === "both");
   const comparisonItem: ProductComparisonSelection | null = comparison && linkable && !test ? {
@@ -47,11 +48,25 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
     <div className="flex min-w-0 flex-1 flex-col justify-center p-2 sm:justify-start sm:px-3.5 sm:pb-3.5 sm:pt-3">
       {sponsored && <SponsoredDisclosure />}
       {linkable ? <Link href={href} className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">{title}</Link> : title}
+      {!test && visibleGrades.length > 0 && (
+        <div className="mb-1 flex flex-wrap items-center gap-1">
+          {visibleGrades.slice(0, 3).map((gradeItem) => (
+            <span key={gradeItem} className="rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-ink-700">
+              {gradeItem}
+            </span>
+          ))}
+          {visibleGrades.length > 3 && (
+            <span className="rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-ink-600">
+              +{visibleGrades.length - 3}
+            </span>
+          )}
+        </div>
+      )}
       <div className="mb-1 hidden h-5 items-center sm:mb-2 sm:flex sm:h-6">
         {!test && (oem || odm || samples) && <ProductTradeLabels oem={oem} odm={odm} samples={samples} compact />}
       </div>
       <p className={`break-words ${test ? "text-xs font-semibold leading-4 text-ink-500" : "text-sm font-bold leading-[18px] text-brand-800 sm:text-base sm:leading-5"}`}>
-        {test ? "Test data · not a price" : price || "On request"}
+        {test ? "Test data · not a price" : price ? <span className="font-mono tabular-nums">{price}</span> : "On request"}
         {!test && fob && <span className="ml-1 text-[9px] font-semibold uppercase tracking-wide text-ink-400">FOB</span>}
       </p>
       <dl className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-600 sm:mt-2.5 sm:grid sm:grid-cols-2 sm:gap-x-2">

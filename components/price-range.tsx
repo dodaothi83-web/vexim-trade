@@ -63,11 +63,11 @@ export function PriceRangeStrip({
             <li key={range.grade ?? `${range.unit}-${range.low}-${range.high}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-1.5">
               <span className="text-[15px] font-bold text-ink-900">
                 {range.grade && <span className="mr-2 text-[12px] font-black uppercase tracking-wide text-brand-700">{range.grade}</span>}
-                {formatUnitRange(range.low, range.high, range.unit)}
+                <span className="font-mono tabular-nums">{formatUnitRange(range.low, range.high, range.unit)}</span>
               </span>
               <span className="text-[12px] text-ink-500">
                 {range.sampleSize} {range.sampleSize === 1 ? "price" : "prices"}
-                {range.secondary ? ` · ≈ ${formatUnitRange(range.secondary.low, range.secondary.high, range.secondary.unit)}` : ""}
+                {range.secondary ? <> · ≈ <span className="font-mono tabular-nums">{formatUnitRange(range.secondary.low, range.secondary.high, range.secondary.unit)}</span></> : ""}
                 {range.stale ? " · older than 45 days" : ""}
               </span>
             </li>
@@ -125,10 +125,10 @@ function SingleRow({ range }: { range: PriceRangeResult }) {
       {range.grade && (
         <span className="mr-2 align-middle text-[12px] font-black uppercase tracking-wide text-brand-700">{range.grade}</span>
       )}
-      {formatUnitRange(range.low, range.high, range.unit)}
+      <span className="font-mono tabular-nums">{formatUnitRange(range.low, range.high, range.unit)}</span>
       {range.secondary && (
         <span className="ml-2 align-middle text-[13px] font-semibold text-ink-500">
-          ≈ {formatUnitRange(range.secondary.low, range.secondary.high, range.secondary.unit)}
+          ≈ <span className="font-mono tabular-nums">{formatUnitRange(range.secondary.low, range.secondary.high, range.secondary.unit)}</span>
         </span>
       )}
       {range.stale && (

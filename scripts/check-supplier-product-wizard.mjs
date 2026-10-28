@@ -44,7 +44,18 @@ const view = {
     media.some((m) => (m.kind === 'image' || m.kind === 'catalogue') && !!m.storage_path),
 };
 
-const priceOptions = load('../lib/supplier-portal/product-price-options.ts', {});
+const priceUnits = load('../lib/public/price-units.ts', {});
+const gradeResolution = load('../lib/public/grade-resolution.ts', {});
+const gradePricing = load('../lib/products/grade-pricing.ts', {
+  '@/lib/public/price-units': priceUnits,
+  '@/lib/public/grade-resolution': gradeResolution,
+});
+const gradePricingTable = load('../components/products/grade-pricing-table.tsx', {
+  react: React,
+  'react/jsx-runtime': jsx,
+  'lucide-react': icons,
+  '@/lib/products/grade-pricing': gradePricing,
+});
 const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal/products/product-editor.tsx', {
   react: React,
   'react/jsx-runtime': jsx,
@@ -54,8 +65,9 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/types': {},
   '@/lib/public/product-selection': { productPriceBlockers: () => [], supplierPriceConsentCurrent: (s) => s?.fob_publicly_visible !== false },
   '@/lib/supplier-portal/category-proposals': {},
-  '@/lib/supplier-portal/product-price-options': priceOptions,
   '@/lib/supplier-portal/product-view': view,
+  '@/lib/products/grade-pricing': gradePricing,
+  '@/components/products/grade-pricing-table': gradePricingTable,
   '@/components/toast': { useToast: () => ({ push() {} }) },
   '../product-actions': {
     saveSupplierProductAction: async () => ({ ok: true, id: 'p1', message: 'Đã lưu bản nháp.' }),
@@ -122,37 +134,17 @@ for (const panel of ['2', '3']) {
 }
 assert.doesNotMatch(source, /<details/, 'Không còn khối gập <details> trong trang sản phẩm');
 
-// 2. Thông tin thương mại & xuất khẩu HIỆN NGAY ở bước 1, không cần bấm mũi tên.
+// 2. Bảng Grade & giá + Thông tin thương mại & xuất khẩu HIỆN NGAY ở bước 1, không cần bấm mũi tên.
 assert.match(step1, /Thông tin thương mại &amp; xuất khẩu/, 'Tiêu đề khối thương mại & xuất khẩu hiện ngay');
-assert.match(step1, /<select[^>]*name="currency"/, 'Currency is a fixed select');
-assert.match(step1, /<select[^>]*name="unit"/, 'Price unit is a fixed select');
-for (const { value, label } of [...priceOptions.SUPPLIER_PRICE_CURRENCIES, ...priceOptions.SUPPLIER_PRICE_UNITS]) {
-  assert.equal(label, value, `English-only code label for ${value}`);
-  assert.match(step1, new RegExp(`value="${value}"[^>]*>${value}<\\/option>`), `Offers English-only option ${value}`);
-}
-const selectInnerHtml = (html, fieldName) => {
-  const match = html.match(new RegExp(`<select[^>]*name="${fieldName}"[^>]*>([\\s\\S]*?)<\\/select>`));
-  assert.ok(match, `Select ${fieldName} exists`);
-  return match[1];
-};
-for (const fieldName of ['currency', 'unit']) {
-  const optionsHtml = selectInnerHtml(step1, fieldName);
-  assert.doesNotMatch(optionsHtml, /[À-ỹ]|Đô la|Đồng|Giá trị cũ|cần rà soát/, `${fieldName} options contain only English text`);
-}
-const fresh = render({ product: undefined, media: [] });
-assert.match(fresh, /value="USD" selected=""/, 'A new product defaults to USD');
-assert.match(fresh, /value="" selected=""[^>]*>Unit<\/option>/, 'A new product does not guess its price unit');
-const caseVariant = render({ product: { ...product, currency: 'usd', unit: 'Carton' } });
-assert.match(caseVariant, /value="USD" selected=""[^>]*>USD<\/option>/, 'Case-variant currency normalizes to USD');
-assert.match(caseVariant, /value="carton" selected=""[^>]*>carton<\/option>/, 'Case-variant Carton normalizes to carton without legacy warning');
-assert.doesNotMatch(caseVariant, /Giá trị cũ|cần rà soát/, 'No legacy review option is rendered for Carton');
-const old = render({ product: { ...product, currency: 'USD/kg', unit: 'thùng 10kg' } });
-assert.doesNotMatch(old, /Giá trị cũ|cần rà soát/, 'Legacy values are omitted from currency and unit dropdowns');
-assert.match(selectInnerHtml(old, 'currency'), /value="" selected=""[^>]*>Currency<\/option>/, 'Unsupported legacy currency resets to empty placeholder');
-assert.match(selectInnerHtml(old, 'unit'), /value="" selected=""[^>]*>Unit<\/option>/, 'Unsupported legacy unit resets to empty placeholder');
+assert.match(step1, /id="grade-pricing-table"/, 'Bảng Grade & giá nằm ngay trong bước 1');
+assert.match(step1, /name="grade_rows_json"/, 'Bảng Grade & giá serialize vào hidden input grade_rows_json');
+assert.match(step1, /GIÁ \(USD\/KG\)/, 'Danh mục hạt điều hiển thị đơn vị USD/kg');
+assert.match(step1, /Thêm grade/, 'Bảng Grade & giá có nút Thêm grade');
+const pepperStep1 = render({ product: { ...product, category: 'pepper', supplier_category_proposal: 'pepper', spec: '550 g/L' } });
+assert.match(pepperStep1, /GIÁ \(USD\/MT\)/, 'Danh mục hồ tiêu hiển thị đơn vị USD/MT');
 
-for (const field of ['ref_price', 'ref_price_max', 'currency', 'unit', 'price_valid_until', 'lead_time_days',
-  'payment_terms', 'export_port', 'incoterm', 'incoterm_place']) {
+for (const field of ['grade_rows_json', 'price_valid_until', 'lead_time_days',
+  'payment_terms', 'export_port', 'incoterm_place']) {
   assert.ok(step1.includes(`name="${field}"`), `Ô ${field} nằm ngay trong bước 1`);
 }
 for (const field of ['raw_material_region', 'input_material_origin']) {

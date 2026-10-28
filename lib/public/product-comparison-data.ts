@@ -80,13 +80,18 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
     const attributes = card.attributes;
     const tradeEnglish = product.translation_meta?.fields;
     const specifications = fieldsFor(category)
-      .filter((field) => field.key !== "grade" && Boolean(attributes[field.key]))
+      .filter((field) => field.key !== "grade" && field.key !== "product_type" && Boolean(attributes[field.key]))
       .map((field) => ({
         key: field.key,
         label: withoutDirectContacts(field.label),
         value: withoutDirectContacts(attributes[field.key]),
       }));
     const href = productDetailHref(category.slug, product.id);
+    const declaredGrades = Array.isArray(card.grades) && card.grades.length > 0
+      ? card.grades.join(", ")
+      : Array.isArray(card.gradeRows) && card.gradeRows.length > 0
+        ? card.gradeRows.map((row) => row.grade).join(", ")
+        : null;
     return {
       id: product.id,
       name: card.name,
@@ -94,7 +99,7 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       imagePath: card.cardImagePath ?? card.imagePaths[0] ?? null,
       categorySlug: category.slug,
       categoryName: safe(category.name_i18n.en || category.slug) ?? category.slug,
-      grade: safe(attributes.grade ?? card.grade),
+      grade: safe(declaredGrades ?? attributes.grade ?? card.grade),
       specifications,
       price: safe(publicProductPriceDisplay(card.price)),
       priceCurrency: card.price && card.pricePoint ? safe(card.pricePoint.currency) : null,

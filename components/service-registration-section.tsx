@@ -293,7 +293,7 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
                     <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400 text-ink-950 shadow-sm">
                       <Icon className="h-5 w-5" />
                     </span>
-                    <span className="font-mono text-xs font-black tracking-widest text-brand-700">
+                    <span className="text-xs font-black tracking-widest tabular-nums text-brand-700">
                       {isVi ? `DỊCH VỤ ${svc.step}` : `SERVICE ${svc.step}`}
                     </span>
                   </div>

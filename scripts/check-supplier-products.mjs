@@ -95,6 +95,12 @@ const store = {
 };
 const access = () => ({ store, supplier: { ...supplier }, user });
 const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
+const priceUnits = load('../lib/public/price-units.ts', {});
+const gradeResolution = load('../lib/public/grade-resolution.ts', {});
+const gradePricing = load('../lib/products/grade-pricing.ts', {
+  '@/lib/public/price-units': priceUnits,
+  '@/lib/public/grade-resolution': gradeResolution,
+});
 const notices = [];
 const actions = load('../app/supplier/portal/product-actions.ts', {
   'next/cache': { revalidatePath() {} },
@@ -103,6 +109,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/supplier-portal/product-price-options': priceOptions,
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/product-attributes': attributes,
+  '@/lib/products/grade-pricing': gradePricing,
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible && !!s.fob_updated_at && Date.now() - new Date(s.fob_updated_at).getTime() < 180 * 86400_000 },
   '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => c.slug === (p.name.includes('Rice') ? 'rice' : 'cashew')) },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async (_supplier, item) => { notices.push(['submitted', item.id]); return 'sent'; } },

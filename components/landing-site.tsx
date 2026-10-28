@@ -24,8 +24,7 @@ import { SiteFooter } from "@/components/site-footer";
  */
 
 const HEADING: React.CSSProperties = {
-  fontFamily: 'Georgia, "Times New Roman", Times, serif',
-  letterSpacing: "-0.01em",
+  letterSpacing: "-0.015em",
 };
 
 const OPEN_QUESTIONS = [
