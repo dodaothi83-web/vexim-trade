@@ -12,7 +12,7 @@ import { projectPublicGradeData, type PublicProductGradeRow } from "@/lib/produc
 import { evidenceValidVerificationSteps, rankPublicCategoryProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
-import { publicProductMoqDisplay, publicProductPlaceDisplay } from "@/lib/public/product-detail-display";
+import { publicProductMoqDisplay, publicProductPlaceDisplay, publicProductPriceDisplay } from "@/lib/public/product-detail-display";
 import type { Certificate, Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -111,9 +111,9 @@ function projectPublicCategoryProduct(
   const effectivePricePoint = gradeData.hasGradeRows
     ? (firstGradePoint ?? legacyPricePoint)
     : legacyPricePoint;
-  const effectivePrice = gradeData.hasGradeRows
-    ? (gradeData.summaryPrice ?? publicProductPrice(p, s))
-    : publicProductPrice(p, s);
+  const rawFallbackPrice = publicProductPrice(p, s);
+  const normalizedFallbackPrice = rawFallbackPrice ? publicProductPriceDisplay(rawFallbackPrice) : null;
+  const effectivePrice = gradeData.summaryPrice ?? normalizedFallbackPrice;
   const effectiveMoq = gradeData.hasGradeRows
     ? (gradeData.gradeRows.find((r) => r.moq !== "On request")?.moq ?? (publicProductMoqDisplay(p.moq) || "On request"))
     : (publicProductMoqDisplay(p.moq) || "On request");

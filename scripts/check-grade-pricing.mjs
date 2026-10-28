@@ -180,6 +180,55 @@ assert.equal(publicAllowed.gradeRows[0].priceText, "USD 8.50 to 9.00/kg");
 assert.equal(publicAllowed.gradeRows[2].priceText, null, "Unpriced row renders On request");
 assert.equal(publicAllowed.gradeRows[3].isCustom, true);
 
+// MT category formatting (/MT, never /t) + unified unit conversion for legacy products
+const pepperGradeData = gradePricing.projectPublicGradeData(
+  {
+    name: "Vietnam Black Pepper",
+    spec: "500 g/L, 550 g/L",
+    specs: {
+      grade_rows: [
+        { grade: "500 g/L", is_custom: false, price_min: 1500, price_max: 1600, incoterm: "FOB", moq: "1 tấn" },
+        { grade: "550 g/L", is_custom: false, price_min: 1800, price_max: 1900, incoterm: "FOB", moq: "1 tấn" },
+      ],
+    },
+    ref_price: 1500,
+    ref_price_max: 1900,
+    currency: "USD",
+    unit: "MT",
+    incoterm: "FOB",
+    moq: "1 tấn",
+    updated_at: "2026-10-25T00:00:00Z",
+  },
+  { slug: "pepper" },
+  { canShowPrice: true, sanitizeText: (s) => s, translateMoq: (m) => m || "" },
+);
+assert.equal(pepperGradeData.summaryPrice, "USD 1,500 to 1,900/MT", "MT categories format as /MT, never /t");
+assert.equal(pepperGradeData.gradeRows[0].priceText, "USD 1,500 to 1,600/MT");
+
+const legacyPepperInKg = gradePricing.projectPublicGradeData(
+  {
+    name: "Legacy Black Pepper 550 g/L",
+    spec: "550 g/L",
+    specs: {},
+    ref_price: 5.8,
+    ref_price_max: null,
+    currency: "USD",
+    unit: "kg",
+    incoterm: "FOB",
+    moq: "1 MT",
+    updated_at: "2026-10-25T00:00:00Z",
+  },
+  { slug: "pepper" },
+  { canShowPrice: true, sanitizeText: (s) => s, translateMoq: (m) => m || "" },
+);
+assert.equal(legacyPepperInKg.summaryPrice, "USD 5,800/MT", "Legacy kg product in an MT category converts to unified /MT");
+
+// PDP layout: no duplicate giant Reference price box above grade table, lighter H1, and no duplicate Grade/MOQ/Incoterm in Key terms
+const pdpSource = readFileSync(new URL("../app/(public)/products/[slug]/[productId]/page.tsx", import.meta.url), "utf8");
+assert.match(pdpSource, /<h1 className="mt-2 break-words text-xl font-semibold leading-snug tracking-tight text-ink-900 sm:text-2xl">/);
+assert.match(pdpSource, /gradeRows\.length > 0 \?/);
+assert.match(pdpSource, /gradeRows\.length === 0 && <Spec label="Incoterm"/);
+
 // Public projection WITHOUT price consent (must redact every row price)
 const publicBlocked = gradePricing.projectPublicGradeData(productRecord, { slug: "cashew-kernels" }, {
   canShowPrice: false,
