@@ -26,6 +26,7 @@ import type {
   RfqMatch,
   SponsoredPush,
   SponsoredPushDaily,
+  SponsoredRequest,
   SupplierRfqInvitation,
   SupplierNoticeRead,
   Supplier,
@@ -604,6 +605,50 @@ export const supabaseStore: DataStore = {
       return query;
     });
     return rows.sort((a, b) => Date.parse(b.starts_at) - Date.parse(a.starts_at) || a.id.localeCompare(b.id));
+  },
+  async listSponsoredPushesForSupplier(supplierId) {
+    const rows = await readAllById<SponsoredPush>("listSponsoredPushesForSupplier", (after) => {
+      let query = must().from("sponsored_pushes").select("*").eq("supplier_id", supplierId)
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  },
+  async listSponsoredRequestsForSupplier(supplierId) {
+    const rows = await readAllById<SponsoredRequest>("listSponsoredRequestsForSupplier", (after) => {
+      let query = must().from("sponsored_requests").select("*").eq("supplier_id", supplierId)
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  },
+  async listSponsoredRequests() {
+    const rows = await readAllById<SponsoredRequest>("listSponsoredRequests", (after) => {
+      let query = must().from("sponsored_requests").select("*").order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  },
+  async countNewSponsoredRequests() {
+    const { count, error } = await must().from("sponsored_requests").select("id", { count: "exact", head: true }).eq("status", "new");
+    if (error) fail("countNewSponsoredRequests", error);
+    if (count === null) throw new Error("countNewSponsoredRequests: missing count");
+    return count;
+  },
+  async createSponsoredRequest(input) {
+    const { data, error } = await must().from("sponsored_requests").insert(input).select().single();
+    if (error?.code === "23505") throw new Error("SPONSORED_REQUEST_ALREADY_OPEN");
+    if (error) fail("createSponsoredRequest", error);
+    return data as SponsoredRequest;
+  },
+  async updateSponsoredRequestIfStatus(id, expected, status, userId) {
+    const { data, error } = await must().from("sponsored_requests")
+      .update({ status, updated_by: userId }).eq("id", id).eq("status", expected).select().maybeSingle();
+    if (error) fail("updateSponsoredRequestIfStatus", error);
+    return (data as SponsoredRequest | null) ?? null;
   },
   async createSponsoredPush(input) {
     const { data, error } = await must()

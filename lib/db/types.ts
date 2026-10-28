@@ -26,6 +26,9 @@ import type {
   SponsoredPushDaily,
   SponsoredPushInput,
   SponsoredPushSurface,
+  SponsoredRequest,
+  SponsoredRequestInput,
+  SponsoredRequestStatus,
   SupplierRfqInvitation,
   SupplierNoticeRead,
   Supplier,
@@ -163,6 +166,16 @@ export interface DataStore {
   deleteSponsoredDraft(id: string): Promise<boolean>;
   /** Số liệu theo ngày của các gói được chọn, từ `sinceDay` (yyyy-mm-dd, UTC). */
   listSponsoredPushDaily(pushIds: string[], sinceDay: string): Promise<SponsoredPushDaily[]>;
+
+  /** Chỉ các gói của một NCC; không trả ghi chú nội bộ ra giao diện. */
+  listSponsoredPushesForSupplier(supplierId: string): Promise<SponsoredPush[]>;
+  /** Yêu cầu do NCC gửi; lỗi đọc/ghi không được chuyển sang dữ liệu khác. */
+  listSponsoredRequestsForSupplier(supplierId: string): Promise<SponsoredRequest[]>;
+  listSponsoredRequests(): Promise<SponsoredRequest[]>;
+  countNewSponsoredRequests(): Promise<number>;
+  createSponsoredRequest(input: SponsoredRequestInput): Promise<SponsoredRequest>;
+  updateSponsoredRequestIfStatus(id: string, expected: SponsoredRequestStatus,
+    status: SponsoredRequestStatus, userId: string): Promise<SponsoredRequest | null>;
 
   // ----- Hình ảnh & tài liệu -----
   listMedia(ownerType: MediaOwnerType, ownerId: string): Promise<MediaAsset[]>;

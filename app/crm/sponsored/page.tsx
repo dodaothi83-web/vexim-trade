@@ -15,6 +15,9 @@ import {
   totalsByPush,
 } from "@/lib/sponsored/admin";
 import type { SponsoredPush, SponsoredPushDaily } from "@/lib/types";
+import { sponsoredRequestStore } from "@/lib/sponsored/requests";
+import { SponsoredRequestInbox } from "./request-inbox";
+import type { SponsoredRequest } from "@/lib/types";
 import { SponsoredBoard, type BoardRow, type PoolView, type SeriesPoint } from "./sponsored-board";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +53,12 @@ const MESSAGES: Record<string, { text: string; bad: boolean }> = {
   ended: { text: "Gói đã hết hạn.", bad: true },
   invalid: { text: "Trạng thái gói không cho phép thao tác này.", bad: true },
   missing: { text: "Không tìm thấy gói.", bad: true },
+  "request-contacted": { text: "Đã đánh dấu yêu cầu đã liên hệ.", bad: false },
+  "request-closed": { text: "Đã kết thúc yêu cầu.", bad: false },
+  "request-changed": { text: "Yêu cầu đã thay đổi. Hãy tải lại trang để kiểm tra.", bad: true },
+  "request-invalid": { text: "Không thể cập nhật trạng thái này.", bad: true },
+  "request-forbidden": { text: "Bạn không có quyền xử lý yêu cầu.", bad: true },
+  "request-error": { text: "Chưa xác nhận được cập nhật. Hãy tải lại trang để kiểm tra.", bad: true },
 };
 
 export default async function SponsoredPage({
@@ -64,6 +73,20 @@ export default async function SponsoredPage({
   const canManage = hasPermission(session.role, "sponsored.manage");
   const sp = await searchParams;
   const flash = MESSAGES[sp.ok ?? ""] ?? MESSAGES[sp.err ?? ""] ?? null;
+  const requestFlash = (sp.ok ?? sp.err ?? "").startsWith("request-") ? flash : null;
+
+  const requestStore = sponsoredRequestStore();
+  let requests: SponsoredRequest[] = [];
+  let requestsAvailable = false;
+  if (requestStore) {
+    try {
+      const user = await requestStore.getUser(session.uid);
+      if (user?.is_active && user.role === session.role && user.email.trim().toLowerCase() === session.email.trim().toLowerCase() && hasPermission(user.role, "sponsored.view")) {
+        requests = await requestStore.listSponsoredRequests();
+        requestsAvailable = true;
+      }
+    } catch (error) { console.error("[sponsored] could not load requests", error); }
+  }
 
   const store = getStore();
   const now = Date.now();
@@ -172,13 +195,16 @@ export default async function SponsoredPage({
         </div>
       )}
 
+      {requestFlash && <div role={requestFlash.bad ? "alert" : "status"} className={`mb-4 rounded-xl px-4 py-3 text-sm ${requestFlash.bad ? "border border-amber-200 bg-amber-50 text-amber-900" : "border border-brand-200 bg-brand-50 text-brand-900"}`}>{requestFlash.text}</div>}
+      <SponsoredRequestInbox requests={requests} available={requestsAvailable} canManage={hasPermission(session.role, "sponsored.requests.manage")} />
+
       <SponsoredBoard
         rows={rows}
         pools={pools}
         summary={summary}
         candidates={candidates}
         canManage={canManage}
-        flash={flash}
+        flash={requestFlash ? null : flash}
         series={series}
         metricsAvailable={metricsAvailable}
         packagesAvailable={!loadError}

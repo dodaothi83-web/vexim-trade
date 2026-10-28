@@ -10,11 +10,13 @@ assert.ok(nav, 'CRM navigation exists');
 const hrefs = [...nav.matchAll(/href: "([^"]+)"/g)].map((m) => m[1]);
 assert.deepEqual(hrefs, [
   '/crm/dashboard', '/crm/suppliers', '/crm/products', '/crm/rfqs',
-  '/crm/verifications', '/crm/verifications/submissions', '/crm/categories', '/crm/traffic', '/crm/posts',
+  '/crm/verifications', '/crm/verifications/submissions', '/crm/categories', '/crm/sponsored', '/crm/traffic', '/crm/posts',
   '/crm/buyers', '/crm/mail', '/crm/prospects', '/crm/team', '/crm/settings',
 ], 'Daily marketplace work comes first; self-submission queue sits with verifications; sale and settings are secondary');
 assert.match(sidebar, /href: "\/crm\/categories", label: "Danh mục sản phẩm"/, 'Category menu uses product-focused wording');
 assert.match(sidebar, /perm: "rfq\.view"/, 'RFQ remains permission-gated');
+assert.match(sidebar, /pendingSponsoredRequests === null \? \{ text: "!", title: "Chưa tải được yêu cầu đẩy sản phẩm" \}/, 'Unknown request count is a visible warning, not zero');
+assert.match(read('app/crm/layout.tsx'), /return null; \/\/ unknown is not zero/, 'Failed request count remains unknown');
 assert.match(sidebar, /hasPermission\(session\.role, item\.perm\)/, 'Implied view permissions remain visible');
 assert.match(sidebar, /pathname === "\/crm\/pipeline" \? "\/crm\/buyers"/, 'Pipeline highlights Buyer');
 assert.match(sidebar, /pathname === "\/crm\/templates" \? "\/crm\/settings"/, 'Templates highlights Settings');

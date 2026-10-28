@@ -41,6 +41,7 @@ import type {
   ProspectOutreachTemplate,
   SponsoredPush,
   SponsoredPushDaily,
+  SponsoredRequest,
   Verification,
 } from "@/lib/types";
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
@@ -79,6 +80,7 @@ interface LocalShape {
   media: MediaAsset[];
   sponsored_pushes: SponsoredPush[];
   sponsored_push_daily?: SponsoredPushDaily[];
+  sponsored_requests?: SponsoredRequest[];
   activities: Activity[];
   messages: EmailMessage[];
   template_overrides: TemplateOverride[];
@@ -956,6 +958,25 @@ function mutate<T>(fn: (db: LocalShape) => T): T {
   return out;
 }
 
+/** Request demo writes must either reach disk or fail; normal local mutations may keep RAM on errors. */
+function mutateSponsoredRequest<T>(fn: (db: LocalShape) => T): T {
+  const db = load();
+  const backup = structuredClone(db);
+  let temp: string | null = null;
+  try {
+    const result = fn(db);
+    fs.mkdirSync(path.dirname(FILE), { recursive: true });
+    temp = `${FILE}.${randomUUID()}.tmp`;
+    fs.writeFileSync(temp, JSON.stringify(db, null, 2), "utf8");
+    fs.renameSync(temp, FILE);
+    return result;
+  } catch (error) {
+    g.__veximLocal = backup;
+    if (temp) try { fs.unlinkSync(temp); } catch { /* no temporary file */ }
+    throw error;
+  }
+}
+
 /** Mirror the SQL locks/privacy rules in the local datastore. */
 function guardManualMedia(db: LocalShape, before: MediaAsset | null, after: MediaAsset | null): void {
   const oldSubmission = before?.submission_id ? (db.supplier_submissions ?? []).find((s) => s.id === before.submission_id) : null;
@@ -1438,6 +1459,49 @@ export const localStore: DataStore = {
   async listAllSponsoredPushes() {
     return [...(load().sponsored_pushes ?? [])]
       .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  },
+  async listSponsoredPushesForSupplier(supplierId) {
+    return (load().sponsored_pushes ?? []).filter((p) => p.supplier_id === supplierId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  },
+  async listSponsoredRequestsForSupplier(supplierId) {
+    return (load().sponsored_requests ?? []).filter((r) => r.supplier_id === supplierId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  },
+  async listSponsoredRequests() {
+    return [...(load().sponsored_requests ?? [])]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  },
+  async countNewSponsoredRequests() {
+    return (load().sponsored_requests ?? []).filter((r) => r.status === "new").length;
+  },
+  async createSponsoredRequest(input) {
+    return mutateSponsoredRequest((db) => {
+      const account = db.users.find((u) => u.id === input.requested_by && u.is_active &&
+        u.role === "supplier" && u.supplier_id === input.supplier_id);
+      const product = db.products.find((p) => p.id === input.product_id && p.supplier_id === input.supplier_id);
+      if (!account || !product || !input.supplier_id || !input.product_id) throw new Error("SPONSORED_REQUEST_OWNER");
+      const requests = db.sponsored_requests ??= [];
+      if (requests.some((r) => r.supplier_id === input.supplier_id && r.product_id === input.product_id && r.status !== "closed")) {
+        throw new Error("SPONSORED_REQUEST_ALREADY_OPEN");
+      }
+      const now = new Date().toISOString();
+      const row: SponsoredRequest = { ...input, id: randomUUID(), status: "new", updated_by: null, created_at: now, updated_at: now };
+      requests.push(row);
+      return row;
+    });
+  },
+  async updateSponsoredRequestIfStatus(id, expected, status, userId) {
+    return mutateSponsoredRequest((db) => {
+      const row = (db.sponsored_requests ?? []).find((r) => r.id === id && r.status === expected);
+      if (!row) return null;
+      const actor = db.users.find((u) => u.id === userId && u.is_active && ["admin", "reviewer", "sale"].includes(u.role));
+      if (!actor || !(expected === "new" && (status === "contacted" || status === "closed") || expected === "contacted" && status === "closed")) {
+        throw new Error("SPONSORED_REQUEST_TRANSITION");
+      }
+      row.status = status; row.updated_by = userId; row.updated_at = new Date().toISOString();
+      return row;
+    });
   },
   async createSponsoredPush(input) {
     return mutate((db) => {

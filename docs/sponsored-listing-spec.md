@@ -38,6 +38,22 @@ Con số này **không phải 252 lượt xem, lượt truy cập hay số ngư�
 - Khi chưa lọc, danh mục giới hạn ba thẻ tự nhiên mỗi nhà cung cấp, hoặc hai nếu chỉ có một nhà cung cấp. Thẻ tài trợ được lấy ra trước khi áp trần đó; khi lọc thì ẩn vùng tài trợ và bỏ trần. Quảng cáo không thay đổi dải giá tham khảo.
 - Đọc đủ dữ liệu có thể làm xuất hiện thêm thẻ trước đây bị giới hạn; thứ tự khi các thẻ hoà hoàn toàn có thể thay đổi theo thứ tự nguồn. Xem giới hạn và yêu cầu so sánh staging trong `docs/catalog-pagination-phase01.md`.
 
+## Yêu cầu từ cổng nhà cung cấp
+
+- Trang `/supplier/portal/boost` chỉ nhận yêu cầu cho sản phẩm của tài khoản đang đăng nhập, khi cổng đã mở và sản phẩm còn đủ điều kiện công khai. Máy chủ kiểm tra lại trước khi ghi; mỗi sản phẩm chỉ có một yêu cầu chưa kết thúc. Có thể gửi lại sau khi nhân viên kết thúc yêu cầu cũ.
+- Yêu cầu lưu riêng trong `sponsored_requests`, **không tạo gói, chỗ, thanh toán hoặc kích hoạt**. Nếu lỗi lúc ghi hoặc phản hồi bị mất, giao diện yêu cầu tải lại kiểm tra trước khi gửi lại; không khẳng định đã nhận khi chưa xác nhận được. Ở chế độ xem thử local, ghi file có kiểm tra lỗi và giao diện nói rõ dữ liệu không gửi đến hệ thống thật. Trên staging/production thiếu Supabase, chặn gửi thay vì lưu local.
+- Nhân viên có quyền xem ở `/crm/sponsored`, theo dõi yêu cầu mới qua huy hiệu menu và chuông CRM. Khi không đếm được yêu cầu, menu hiện dấu cảnh báo thay vì coi là không có việc. Sale, admin và trưởng kiểm duyệt có thể đánh dấu đã liên hệ hoặc kết thúc; **sale không có quyền tạo/duyệt gói**. Chưa có email thông báo tự động; nhân viên phải theo dõi CRM. Cập nhật trạng thái yêu cầu cũng không tạo gói. Màn NCC chỉ đọc yêu cầu, gói và số liệu của chính mình; không hiện ghi chú nội bộ của gói.
+- Gói hiển thị là dữ liệu đã ghi, không suy ra đã thanh toán. Số liệu là bảy ngày UTC gần nhất, phụ thuộc đồng ý đo lường và có thể thiếu; lỗi tải dùng dấu “—”. Gói đủ điều kiện trong thời hạn có thể tham gia luân phiên, không có nghĩa thẻ xuất hiện ở mọi lượt xem.
+
+### Checklist trước khi dùng thật
+
+1. Trên staging, xác nhận `SUPABASE_URL` và khoá **service role** trỏ đúng project; tắt dự phòng local, kiểm tra chế độ dữ liệu và không dùng dữ liệu mẫu. Áp `20261043_sponsored_requests.sql` cùng các migration gói có liên quan. Migration tạo bảng rỗng, không tạo yêu cầu hay gói; xác nhận quyền/RLS thực tế sau khi áp.
+2. Dùng hai tài khoản NCC và tài khoản sale/admin thật ở staging: gửi một yêu cầu, xác nhận hàng lưu trong CSDL và xuất hiện ở CRM, kiểm tra huy hiệu/chuông, đánh dấu liên hệ/kết thúc, xem trạng thái phản ánh ở NCC; xác nhận không lộ yêu cầu, gói, số liệu và ghi chú của NCC khác. Kiểm tra sản phẩm bị gỡ/đổi điều kiện, giả mạo ID, gửi đồng thời và gửi lại sau khi kết thúc.
+3. Mô phỏng lỗi CSDL, thiếu bảng, timeout sau khi ghi, số liệu không đọc được và thiếu cấu hình: không báo thành công giả, không ghi sang local, không biến lỗi thành số 0. Kiểm tra RLS/role bằng client thật và kiểm tra hai phiên đồng thời trên Supabase; PGlite và mock không chứng minh concurrency hoặc triển khai thật.
+4. Xác nhận người trực CRM và cách liên hệ/báo giá trước khi mở cho NCC. Không có email tự động. Chỉ sau kiểm thử staging và đối soát gói cũ mới quyết định áp production. Tài liệu này không xác nhận migration đã được áp hay tính năng đã triển khai.
+
+Kiểm thử cục bộ: `npm run check:sponsored-requests` (gồm PGlite và mocks). Browser local chỉ là dữ liệu xem thử, không thay thế staging.
+
 ## Triển khai và đối soát
 
 1. Kiểm tra migration gốc `20261028_sponsored_product_push.sql`, quyền duyệt `20261029_sponsored_approver_role.sql` và migration mới `20261042_sponsored_placement_guards.sql` trên đúng project staging. Migration mới chỉ thay trigger/hàm, **không cập nhật gói cũ**.

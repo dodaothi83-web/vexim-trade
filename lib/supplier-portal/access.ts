@@ -1,14 +1,15 @@
 import "server-only";
 
 import { getStore } from "@/lib/db";
+import type { DataStore } from "@/lib/db/types";
 import { getSession } from "@/lib/auth/session";
 import { ownsDocumentReview } from "./policy";
 
 /** Account identity may exist before the first business profile; never trust form IDs or the signed cookie alone. */
-export async function supplierAccountAccess() {
+export async function supplierAccountAccess(selectedStore?: DataStore) {
   const session = await getSession();
   if (!session || session.role !== "supplier") return null;
-  const store = getStore();
+  const store = selectedStore ?? getStore();
   const user = await store.getUser(session.uid);
   if (!user || user.role !== "supplier" || !user.is_active ||
       user.email.trim().toLowerCase() !== session.email.trim().toLowerCase()) return null;
@@ -16,8 +17,8 @@ export async function supplierAccountAccess() {
 }
 
 /** All protected portal actions still require a linked supplier page. */
-export async function supplierPortalAccess() {
-  const account = await supplierAccountAccess();
+export async function supplierPortalAccess(selectedStore?: DataStore) {
+  const account = await supplierAccountAccess(selectedStore);
   const supplierId = account?.user.supplier_id;
   if (!account || !supplierId) return null;
   const { store, user } = account;

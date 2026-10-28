@@ -72,6 +72,7 @@ export function Sidebar({
   pendingProducts = 0,
   pendingReviews = 0,
   pendingSubmissions = 0,
+  pendingSponsoredRequests = 0,
 }: {
   dataMode: "supabase" | "local";
   dataDegraded?: boolean;
@@ -88,6 +89,8 @@ export function Sidebar({
   pendingReviews?: number;
   /** Hồ sơ NCC tự gửi đang chờ đối chiếu — badge ở menu Hồ sơ NCC tự gửi */
   pendingSubmissions?: number;
+  /** Yêu cầu đẩy sản phẩm mới chờ liên hệ; null nếu chưa đếm được. */
+  pendingSponsoredRequests?: number | null;
   session: { name: string; email: string; role: UserRole };
   permissions: Permission[];
 }) {
@@ -130,6 +133,7 @@ export function Sidebar({
                     : item.href === "/crm/products" ? (pendingProducts > 0 ? { text: `${pendingProducts} chờ`, title: "Sản phẩm chờ duyệt" } : null)
                     : item.href === "/crm/verifications" ? (pendingReviews > 0 ? { text: `${pendingReviews} chờ`, title: "Đợt kiểm chờ duyệt" } : null)
                     : item.href === "/crm/verifications/submissions" ? (pendingSubmissions > 0 ? { text: `${pendingSubmissions} chờ`, title: "Hồ sơ NCC tự gửi chờ đối chiếu" } : null)
+                    : item.href === "/crm/sponsored" ? (pendingSponsoredRequests === null ? { text: "!", title: "Chưa tải được yêu cầu đẩy sản phẩm" } : pendingSponsoredRequests > 0 ? { text: `${pendingSponsoredRequests} mới`, title: "Yêu cầu đẩy sản phẩm mới" } : null)
                     : null;
                   return (
                     <Link
@@ -146,7 +150,7 @@ export function Sidebar({
                       <Icon className="h-4 w-4 shrink-0" />
                       <span className="flex-1 truncate">{item.label}</span>
                       {badge && (
-                        <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900" title={badge.title}>
+                        <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-ink-900" title={badge.title} aria-label={badge.title}>
                           {badge.text}
                         </span>
                       )}
