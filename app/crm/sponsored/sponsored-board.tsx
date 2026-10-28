@@ -5,7 +5,6 @@ import { CircleDollarSign, Clock, Eye, Megaphone, Plus, X } from "lucide-react";
 
 import { EmptyState, group } from "@/components/ui";
 import { buildChartGeometry } from "@/lib/sponsored/chart-geometry";
-import { weeklyRotationWindows } from "@/lib/sponsored/admin";
 import {
   approvePushAction,
   cancelDraftAction,
@@ -172,7 +171,7 @@ export function SponsoredBoard({
           <h2 className="text-[13px] font-bold text-ink-800">Chỗ trống trong bể</h2>
           <p className="text-[12px] text-ink-500">Kiểm tra đủ 168 giờ trước khi duyệt.</p>
         </div>
-        <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Một vòng kéo dài 10 phút. Ước tính dựa trên số gói đang chạy lúc này, giả sử tất cả đều đủ điều kiện và không đổi suốt 168 giờ; không phải lượt xem hay cam kết tiếp cận.</p>
+        <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Một vòng kéo dài 10 phút. Số ô hiển thị thay đổi theo số sản phẩm công khai; chưa có ước tính số vòng theo số ô mới. Giới hạn bể dưới đây vẫn là quy tắc cũ, chưa áp dụng 4 gói mỗi ô.</p>
         {!packagesAvailable ? (
           <p className="mt-3 text-[13px] text-ink-500">Chưa tải được danh sách gói.</p>
         ) : categoryPools.length === 0 ? (
@@ -197,7 +196,7 @@ export function SponsoredBoard({
                   </div>
                   <p className="mt-1 text-[11.5px] text-ink-500">
                     {pool.free === 0 ? "Đã đầy lúc này." : `Còn ${pool.free} chỗ lúc này.`}{" "}
-                    {pool.active > 0 ? `Khoảng ${group(weeklyRotationWindows(pool.active, pool.surface))} vòng chọn/gói mỗi 168 giờ.` : "Không có gói đang chạy."}
+                    {pool.active > 0 ? `${pool.active} gói đang chạy.` : "Không có gói đang chạy."}
                   </p>
                 </div>
               );
@@ -382,7 +381,7 @@ export function SponsoredBoard({
               </div>
 
               <p className="rounded-lg bg-ink-50 px-3 py-2 text-[12px] leading-5 text-ink-600">
-                Thời hạn gói là 168 giờ kể từ lúc duyệt.
+                Thời hạn gói là 168 giờ từ lúc kích hoạt (hiện tại là lúc duyệt).
               </p>
 
               <div className="flex justify-end gap-2 pt-1">

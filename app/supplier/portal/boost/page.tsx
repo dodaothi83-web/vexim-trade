@@ -101,8 +101,8 @@ export default async function SupplierBoostPage() {
         <p className="mt-2 max-w-2xl text-sm leading-6 text-brand-50/90">Sản phẩm có thể xuất hiện trong vùng tài trợ ở đầu trang danh mục khi khách chưa dùng bộ lọc. Thẻ có nhãn Tài trợ và được chọn luân phiên.</p>
         <div className="mt-5 grid gap-3 border-t border-white/15 pt-4 sm:grid-cols-3 sm:gap-4">
           <div className="flex items-start gap-2"><Layers3 className="mt-0.5 size-4 shrink-0 text-brand-300" aria-hidden="true" /><p className="text-xs leading-5"><strong className="block text-white">Vị trí</strong><span className="text-brand-100/80">Đầu trang danh mục</span></p></div>
-          <div className="flex items-start gap-2"><Clock3 className="mt-0.5 size-4 shrink-0 text-brand-300" aria-hidden="true" /><p className="text-xs leading-5"><strong className="block text-white">Thời hạn gói mới</strong><span className="text-brand-100/80">168 giờ từ khi duyệt</span></p></div>
-          <div className="flex items-start gap-2"><RefreshCw className="mt-0.5 size-4 shrink-0 text-brand-300" aria-hidden="true" /><p className="text-xs leading-5"><strong className="block text-white">Hiển thị</strong><span className="text-brand-100/80">Luân phiên, tối đa 3 thẻ</span></p></div>
+          <div className="flex items-start gap-2"><Clock3 className="mt-0.5 size-4 shrink-0 text-brand-300" aria-hidden="true" /><p className="text-xs leading-5"><strong className="block text-white">Thời hạn gói mới</strong><span className="text-brand-100/80">168 giờ từ khi kích hoạt (hiện tại là lúc duyệt)</span></p></div>
+          <div className="flex items-start gap-2"><RefreshCw className="mt-0.5 size-4 shrink-0 text-brand-300" aria-hidden="true" /><p className="text-xs leading-5"><strong className="block text-white">Hiển thị</strong><span className="text-brand-100/80">Luân phiên, tối đa 1–3 thẻ tùy số sản phẩm</span></p></div>
         </div>
       </div>
     </section>

@@ -30,7 +30,7 @@ import { buildPriceBlock, type GradePricePoint } from "@/lib/public/price-range"
 import { displayUnitsForCategory } from "@/lib/public/price-units";
 import { normalizeHarvest } from "@/lib/public/harvest";
 import { pilotPlacement, type PilotPlacement } from "@/lib/sponsored/pilot";
-import { SPONSORED_SLOTS } from "@/lib/sponsored/rotation";
+import { categorySlotConfig, categorySponsoredSlots } from "@/lib/sponsored/category-slots";
 import { getStore } from "@/lib/db";
 import { pickSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
@@ -233,7 +233,7 @@ export default async function CategoryPage({ params }: PageProps) {
   const sponsoredBand = pickSponsoredBand({
     pushes: livePushes,
     products,
-    slots: SPONSORED_SLOTS.category,
+    slots: categorySponsoredSlots(products.filter((product) => !product.isDemo && !product.isDemoSupplier).length, categorySlotConfig()),
     surface: "category",
     categorySlug: cat.slug,
     nowMs,
