@@ -111,9 +111,10 @@ export default async function PublicProductDetail({ params }: Props) {
   const parsedSpecifications = parseProductSpecification(enSpec);
   const detailRows = parsedSpecifications.filter((row) => !["grade", "minimum order quantity (moq)", "packaging specification"].includes(row.key));
   const detailedPackaging = parsedSpecifications.find((row) => row.key === "packaging specification")?.value;
+  const gradeRows = card.gradeRows ?? [];
   const occupiedSpecKeys = new Set([
     ...parsedSpecifications.map((row) => row.key),
-    "grade", "moq", "minimum order quantity (moq)", "packaging", "packaging specification",
+    "grade", "product type", "product_type", "moq", "minimum order quantity (moq)", "packaging", "packaging specification",
     "reference price", "lead time", "incoterm", "export port", "loading port",
   ]);
   const additionalSpecs = specs.filter(([label]) => !occupiedSpecKeys.has(productSpecificationKey(label)));
@@ -212,8 +213,47 @@ export default async function PublicProductDetail({ params }: Props) {
         {enDescription && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(enDescription)}</p>}
         <div id="reference-price" className="mt-5 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
           <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Reference price</p>
-          <p className="mt-1 break-words text-3xl font-black leading-tight text-brand-900 sm:text-4xl">{withoutDirectContacts(card.price || "On request")}</p>
+          <p className={`mt-1 break-words text-3xl font-black leading-tight text-brand-900 sm:text-4xl ${card.price ? "font-mono tabular-nums" : ""}`}>{withoutDirectContacts(card.price || "On request")}</p>
         </div>
+        {gradeRows.length > 0 && (
+          <div id="grade-pricing" className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+            <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
+              <h2 className="text-sm font-bold text-ink-900">Grades &amp; reference pricing</h2>
+              <p className="mt-0.5 text-xs text-ink-500">Per-grade indicative pricing, Incoterm and minimum order quantity</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-left text-sm">
+                <thead className="border-b border-ink-100 bg-ink-50/40 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+                  <tr>
+                    <th className="px-5 py-2.5">Grade</th>
+                    <th className="px-4 py-2.5">Reference price</th>
+                    <th className="px-4 py-2.5">Incoterm</th>
+                    <th className="px-5 py-2.5">MOQ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-100">
+                  {gradeRows.map((row, index) => (
+                    <tr key={`${row.grade}-${index}`}>
+                      <td className="px-5 py-3 font-semibold text-ink-900">
+                        {withoutDirectContacts(row.grade)}
+                        {row.isCustom && (
+                          <span className="ml-2 rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-600">
+                            Supplier grade
+                          </span>
+                        )}
+                      </td>
+                      <td className={`px-4 py-3 font-semibold ${row.priceText ? "font-mono tabular-nums text-brand-900" : "text-ink-500"}`}>
+                        {withoutDirectContacts(row.priceText || "On request")}
+                      </td>
+                      <td className="px-4 py-3 text-ink-800">{withoutDirectContacts(row.incoterm || "FOB")}</td>
+                      <td className="px-5 py-3 text-ink-800">{withoutDirectContacts(row.moq || "On request")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
           <p className="mt-1.5 text-xs text-ink-500">Product options stated in the listing; confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
         <div className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
@@ -222,7 +262,14 @@ export default async function PublicProductDetail({ params }: Props) {
             <p className="mt-0.5 text-xs text-ink-500">Commercial details for your RFQ</p>
           </div>
           <dl className="px-5">
-            <Spec label="Grade" value={approvedAttributes.grade ?? card.grade} />
+            <Spec
+              label="Grade"
+              value={
+                gradeRows.length > 0
+                  ? gradeRows.map((r) => withoutDirectContacts(r.grade)).join(", ")
+                  : (approvedAttributes.grade ?? card.grade)
+              }
+            />
             <Spec label="MOQ" value={card.moq} />
             <Spec label="Packaging" value={detailedPackaging || enPackaging} />
             <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />

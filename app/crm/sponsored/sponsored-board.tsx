@@ -249,7 +249,7 @@ export function SponsoredBoard({
                         {row.endsLabel} · {remaining(row)}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-ink-700">{row.priceLabel}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 font-mono tabular-nums text-ink-700">{row.priceLabel}</td>
                     <td className="px-3 py-2.5 text-right font-semibold text-ink-800">{metricsAvailable ? group(row.impressions) : "—"}</td>
                     <td className="px-3 py-2.5 text-right text-ink-700">
                       {metricsAvailable ? group(row.clicks) : "—"}
@@ -295,7 +295,7 @@ export function SponsoredBoard({
             <dt className="text-ink-500">Còn lại</dt>
             <dd className="font-semibold text-ink-800">{remaining(detail)}</dd>
             <dt className="text-ink-500">Giá gói</dt>
-            <dd className="font-semibold text-ink-800">{detail.priceLabel}</dd>
+            <dd className="font-mono font-semibold tabular-nums text-ink-800">{detail.priceLabel}</dd>
             <dt className="text-ink-500">7 ngày</dt>
             <dd className="font-semibold text-ink-800">
               {metricsAvailable ? `${group(detail.impressions)} lượt hiển thị · ${group(detail.clicks)} lượt nhấp đã ghi` : "Chưa tải được số liệu"}

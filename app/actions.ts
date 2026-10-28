@@ -8,6 +8,11 @@ import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/
 import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
 import { sanitizeProductDescriptionForSave, sanitizeProductDescriptionHtml } from "@/lib/products/product-description";
+import {
+  applyGradeRowsToSpecs,
+  parseGradeRowsFromPayload,
+  summarizeGradeRowsForProduct,
+} from "@/lib/products/grade-pricing";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { isPlaceholderDisplayName } from "@/lib/public/display-name";
 import { parseHarvestInput } from "@/lib/crm/harvest-input";
@@ -1533,6 +1538,19 @@ export async function createProductAction(
   try {
     const assigned = await autoAssignProduct(input, str(raw.category));
     input.specs = saveProductAttributes(assigned, raw.product_attributes);
+    if (raw.grade_rows !== undefined) {
+      const categorySource = assigned ?? (str(raw.category) ? { slug: str(raw.category) } : null);
+      const parsedGradeRows = parseGradeRowsFromPayload(raw.grade_rows, categorySource);
+      if (!parsedGradeRows.ok) return { ok: false, message: parsedGradeRows.message };
+      const summary = summarizeGradeRowsForProduct(parsedGradeRows.rows, categorySource);
+      input.ref_price = summary.ref_price;
+      input.ref_price_max = summary.ref_price_max;
+      input.currency = summary.currency;
+      input.unit = summary.unit;
+      input.incoterm = summary.incoterm;
+      input.moq = summary.moq;
+      input.specs = applyGradeRowsToSpecs(input.specs ?? {}, parsedGradeRows.rows, categorySource);
+    }
     const created = await getStore().createProduct(input);
     const warning = await syncSupplierIndustries(created.supplier_id);
     revalidateAll();
@@ -1576,6 +1594,20 @@ export async function updateProductAction(
       ? await store.getCategoryBySlug(existing.reviewed_category_slug) : assigned;
     input.specs = saveProductAttributes(productCategory, raw.product_attributes,
       productCategory?.slug === (existing.reviewed_category_slug ?? existing.category) ? existing.specs : {});
+    if (raw.grade_rows !== undefined) {
+      const fallbackSlug = productCategory?.slug ?? str(raw.category) ?? existing.reviewed_category_slug ?? existing.category ?? null;
+      const categorySource = productCategory ?? (fallbackSlug ? { slug: fallbackSlug } : null);
+      const parsedGradeRows = parseGradeRowsFromPayload(raw.grade_rows, categorySource);
+      if (!parsedGradeRows.ok) return { ok: false, message: parsedGradeRows.message };
+      const summary = summarizeGradeRowsForProduct(parsedGradeRows.rows, categorySource);
+      input.ref_price = summary.ref_price;
+      input.ref_price_max = summary.ref_price_max;
+      input.currency = summary.currency;
+      input.unit = summary.unit;
+      input.incoterm = summary.incoterm;
+      input.moq = summary.moq;
+      input.specs = applyGradeRowsToSpecs(input.specs ?? {}, parsedGradeRows.rows, categorySource);
+    }
     const existingDescriptionDetail = sanitizeProductDescriptionHtml(existing.description_detail) || null;
     const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description || input.description_detail !== existingDescriptionDetail ||
       JSON.stringify(input.specs) !== JSON.stringify(existing.specs ?? {});

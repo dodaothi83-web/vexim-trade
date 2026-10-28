@@ -303,9 +303,16 @@ export function SupplierStorefront({
             : category ? `/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}` : null;
           if (!href) return null;
           const productName = safe(publicProductTitle(p));
+          const rawGradeRows = Array.isArray((p.specs as Record<string, unknown> | undefined)?.grade_rows)
+            ? ((p.specs as Record<string, unknown>).grade_rows as Array<Record<string, unknown>>)
+            : [];
+          const storefrontGrades = rawGradeRows
+            .filter((row) => row && typeof row.grade === "string" && row.is_custom !== true)
+            .map((row) => safe(String(row.grade)))
+            .filter(Boolean);
           return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
             <PublicProductCard href={href} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
-              name={productName} moq={safe(p.moq) || "On request"}
+              name={productName} grades={storefrontGrades} moq={safe(p.moq) || "On request"}
               price={synthetic ? null : publicProductPrice(p, s)} fob={p.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.lead_time_days ?? null} supplierName={name}
               supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}

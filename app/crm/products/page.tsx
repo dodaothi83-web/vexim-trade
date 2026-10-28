@@ -276,7 +276,7 @@ export default async function ProductsPage({
                       <div className="min-w-0 sm:text-right">
                         <p className="text-[11px] text-ink-500">Giá tham khảo</p>
                         {r.ref_price !== null ? <>
-                          <p className="break-words text-[13px] font-bold text-ink-900">{formatMoney(r.ref_price)} <span className="font-normal text-ink-500">/ {r.unit || "đv"}</span></p>
+                          <p className="break-words text-[13px] font-bold text-ink-900"><span className="font-mono tabular-nums">{formatMoney(r.ref_price)}</span> <span className="font-normal text-ink-500">/ {r.unit || "đv"}</span></p>
                           {r.price_valid_until && <p className="text-[11px] text-ink-500">Đến {formatDate(r.price_valid_until)}</p>}
                         </> : <p className="text-xs text-ink-500">Chưa có giá</p>}
                       </div>

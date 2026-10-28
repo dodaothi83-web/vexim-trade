@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
-import { isSupplierPriceCurrency, isSupplierPriceUnit } from "@/lib/supplier-portal/product-price-options";
+import {
+  isSupplierPriceCurrency,
+  isSupplierPriceUnit,
+  normalizeSupplierPriceCurrency,
+  normalizeSupplierPriceUnit,
+} from "@/lib/supplier-portal/product-price-options";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import {
@@ -12,6 +17,11 @@ import {
 } from "@/lib/product-attributes";
 import { notifyStaffProductSubmission } from "@/lib/supplier-portal/notify";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
+import {
+  applyGradeRowsToSpecs,
+  parseGradeRowsFromPayload,
+  summarizeGradeRowsForProduct,
+} from "@/lib/products/grade-pricing";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import { deleteObject } from "@/lib/media/storage";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
@@ -40,24 +50,33 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
   if (name.length < 3) throw new Error("Tên sản phẩm cần ít nhất 3 ký tự.");
   const daysRaw = text(form, "lead_time_days", 5);
   if (daysRaw && (!/^\d+$/.test(daysRaw) || Number(daysRaw) > 3650)) throw new Error("Thời gian giao hàng không hợp lệ.");
-  const priceRaw = text(form, "ref_price", 20);
-  const priceMaxRaw = text(form, "ref_price_max", 20);
-  if (priceRaw && (!/^\d+(?:\.\d{1,2})?$/.test(priceRaw) || Number(priceRaw) > 999999999999.99)) throw new Error("Giá tham khảo từ không hợp lệ.");
-  if (priceMaxRaw && (!/^\d+(?:\.\d{1,2})?$/.test(priceMaxRaw) || Number(priceMaxRaw) > 999999999999.99 ||
-      !priceRaw || Number(priceRaw) <= 0 || Number(priceMaxRaw) < Number(priceRaw))) {
-    throw new Error("Giá đến phải lớn hơn hoặc bằng giá từ (> 0); bỏ trống nếu chỉ có một mức giá.");
-  }
-  // Preserve unsupported historical values verbatim when the price is unchanged;
-  // never accept a new free-text unit/currency, even when a draft has no price.
-  const unit = String(form.get("unit") ?? "");
-  const currency = String(form.get("currency") ?? "");
-  const samePrice = !!existing && (priceRaw ? Number(priceRaw) : null) === (existing.ref_price ?? null) &&
-    (priceMaxRaw ? Number(priceMaxRaw) : null) === (existing.ref_price_max ?? null);
-  if (unit && !isSupplierPriceUnit(unit) && unit !== existing?.unit) throw new Error("Chọn đơn vị giá trong danh sách.");
-  if (currency && !isSupplierPriceCurrency(currency) && currency !== existing?.currency) throw new Error("Chọn đơn vị tiền trong danh sách.");
-  if (priceRaw && (!isSupplierPriceUnit(unit) || !isSupplierPriceCurrency(currency))) {
-    const unchangedLegacy = samePrice && unit === (existing?.unit ?? "") && currency === (existing?.currency ?? "");
-    if (!unchangedLegacy) throw new Error("Khi nhập hoặc đổi giá, hãy chọn đơn vị tiền và đơn vị giá trong danh sách.");
+  const usesGradeRows = form.has("grade_rows_json");
+  const priceRaw = usesGradeRows ? "" : text(form, "ref_price", 20);
+  const priceMaxRaw = usesGradeRows ? "" : text(form, "ref_price_max", 20);
+  let unit = "";
+  let currency = "";
+  if (!usesGradeRows) {
+    if (priceRaw && (!/^\d+(?:\.\d{1,2})?$/.test(priceRaw) || Number(priceRaw) > 999999999999.99)) throw new Error("Giá tham khảo từ không hợp lệ.");
+    if (priceMaxRaw && (!/^\d+(?:\.\d{1,2})?$/.test(priceMaxRaw) || Number(priceMaxRaw) > 999999999999.99 ||
+        !priceRaw || Number(priceRaw) <= 0 || Number(priceMaxRaw) < Number(priceRaw))) {
+      throw new Error("Giá đến phải lớn hơn hoặc bằng giá từ (> 0); bỏ trống nếu chỉ có một mức giá.");
+    }
+    // Preserve unsupported historical values verbatim when the price is unchanged;
+    // never accept a new free-text unit/currency, even when a draft has no price.
+    const rawUnit = String(form.get("unit") ?? "");
+    const rawCurrency = String(form.get("currency") ?? "");
+    unit = normalizeSupplierPriceUnit(rawUnit) || rawUnit;
+    currency = normalizeSupplierPriceCurrency(rawCurrency) || rawCurrency;
+    const existingUnit = existing?.unit ? (normalizeSupplierPriceUnit(existing.unit) || existing.unit) : "";
+    const existingCurrency = existing?.currency ? (normalizeSupplierPriceCurrency(existing.currency) || existing.currency) : "";
+    const samePrice = !!existing && (priceRaw ? Number(priceRaw) : null) === (existing.ref_price ?? null) &&
+      (priceMaxRaw ? Number(priceMaxRaw) : null) === (existing.ref_price_max ?? null);
+    if (unit && !isSupplierPriceUnit(unit) && unit !== existingUnit) throw new Error("Chọn đơn vị giá trong danh sách.");
+    if (currency && !isSupplierPriceCurrency(currency) && currency !== existingCurrency) throw new Error("Chọn đơn vị tiền trong danh sách.");
+    if (priceRaw && (!isSupplierPriceUnit(unit) || !isSupplierPriceCurrency(currency))) {
+      const unchangedLegacy = samePrice && unit === existingUnit && currency === existingCurrency;
+      if (!unchangedLegacy) throw new Error("Khi nhập hoặc đổi giá, hãy chọn đơn vị tiền và đơn vị giá trong danh sách.");
+    }
   }
   const validUntil = text(form, "price_valid_until", 10);
   if (validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) throw new Error("Ngày hết hạn giá không hợp lệ.");
@@ -149,6 +168,19 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     }
     input.specs = saveProductAttributes({ product_fields: category?.product_fields ?? [], supplier_product_fields: pool },
       attributesFromForm(form), existing?.supplier_category_proposal === input.category ? existing.specs : {});
+    if (form.has("grade_rows_json")) {
+      const categorySource = category ?? { slug: input.category };
+      const parsedGradeRows = parseGradeRowsFromPayload(String(form.get("grade_rows_json") ?? ""), categorySource);
+      if (!parsedGradeRows.ok) return { ok: false, message: parsedGradeRows.message };
+      const summary = summarizeGradeRowsForProduct(parsedGradeRows.rows, categorySource);
+      input.ref_price = summary.ref_price;
+      input.ref_price_max = summary.ref_price_max;
+      input.currency = summary.currency;
+      input.unit = summary.unit;
+      input.incoterm = summary.incoterm;
+      input.moq = summary.moq;
+      input.specs = applyGradeRowsToSpecs(input.specs ?? {}, parsedGradeRows.rows, categorySource);
+    }
     let saved = existing ? await store.updateSupplierProductIfState(existing.id, access.supplier.id,
       { review: existing.supplier_review_status ?? null, ready: existing.ready_for_buyer }, {
         ...input,

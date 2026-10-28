@@ -21,6 +21,7 @@ export async function GET(): Promise<Response> {
     "",
     "## Core pages",
     `- [Home](${SITE_URL}/): Search Vietnamese food & agricultural product categories, key product sub-groups, market insights, supplier growth solutions, and FAQs (bilingual English/Vietnamese, default English).`,
+    `- [How it works](${SITE_URL}/how-it-works): Buyer guide to searching products, comparing up to 3 listings, reading verification badges, requesting a quote from a chosen supplier, or sending open requirements when looking for matching factories.`,
     `- [How we verify](${SITE_URL}/how-we-verify): The three independent checks behind supplier verification badges: business documents & automated certificate recognition, factory verification, and export delivery history review.`,
     `- [For suppliers](${SITE_URL}/for-suppliers): How Vietnamese food manufacturers join Vexim Trade, verify their profiles, and register for export growth & FDA compliance services.`,
   ];

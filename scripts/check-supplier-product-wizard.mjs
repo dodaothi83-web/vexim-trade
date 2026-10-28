@@ -44,7 +44,18 @@ const view = {
     media.some((m) => (m.kind === 'image' || m.kind === 'catalogue') && !!m.storage_path),
 };
 
-const priceOptions = load('../lib/supplier-portal/product-price-options.ts', {});
+const priceUnits = load('../lib/public/price-units.ts', {});
+const gradeResolution = load('../lib/public/grade-resolution.ts', {});
+const gradePricing = load('../lib/products/grade-pricing.ts', {
+  '@/lib/public/price-units': priceUnits,
+  '@/lib/public/grade-resolution': gradeResolution,
+});
+const gradePricingTable = load('../components/products/grade-pricing-table.tsx', {
+  react: React,
+  'react/jsx-runtime': jsx,
+  'lucide-react': icons,
+  '@/lib/products/grade-pricing': gradePricing,
+});
 const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal/products/product-editor.tsx', {
   react: React,
   'react/jsx-runtime': jsx,
@@ -54,8 +65,9 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/types': {},
   '@/lib/public/product-selection': { productPriceBlockers: () => [], supplierPriceConsentCurrent: (s) => s?.fob_publicly_visible !== false },
   '@/lib/supplier-portal/category-proposals': {},
-  '@/lib/supplier-portal/product-price-options': priceOptions,
   '@/lib/supplier-portal/product-view': view,
+  '@/lib/products/grade-pricing': gradePricing,
+  '@/components/products/grade-pricing-table': gradePricingTable,
   '@/components/toast': { useToast: () => ({ push() {} }) },
   '../product-actions': {
     saveSupplierProductAction: async () => ({ ok: true, id: 'p1', message: 'Đã lưu bản nháp.' }),
@@ -122,21 +134,17 @@ for (const panel of ['2', '3']) {
 }
 assert.doesNotMatch(source, /<details/, 'Không còn khối gập <details> trong trang sản phẩm');
 
-// 2. Thông tin thương mại & xuất khẩu HIỆN NGAY ở bước 1, không cần bấm mũi tên.
+// 2. Bảng Grade & giá + Thông tin thương mại & xuất khẩu HIỆN NGAY ở bước 1, không cần bấm mũi tên.
 assert.match(step1, /Thông tin thương mại &amp; xuất khẩu/, 'Tiêu đề khối thương mại & xuất khẩu hiện ngay');
-assert.match(step1, /<select[^>]*name="currency"/, 'Currency is a fixed select');
-assert.match(step1, /<select[^>]*name="unit"/, 'Price unit is a fixed select');
-for (const { value } of [...priceOptions.SUPPLIER_PRICE_CURRENCIES, ...priceOptions.SUPPLIER_PRICE_UNITS])
-  assert.ok(step1.includes(`value="${value}"`), `Offers ${value}`);
-const fresh = render({ product: undefined, media: [] });
-assert.match(fresh, /value="USD" selected=""/, 'A new product defaults to USD');
-assert.match(fresh, /value="" selected=""[^>]*>Chọn đơn vị giá/, 'A new product does not guess its price unit');
-const old = render({ product: { ...product, currency: 'USD/kg', unit: 'thùng 10kg' } });
-assert.match(old, /value="USD\/kg" selected=""[^>]*>Giá trị cũ:/, 'Legacy currency remains selected');
-assert.match(old, /value="thùng 10kg" selected=""[^>]*>Giá trị cũ:/, 'Legacy unit remains selected');
+assert.match(step1, /id="grade-pricing-table"/, 'Bảng Grade & giá nằm ngay trong bước 1');
+assert.match(step1, /name="grade_rows_json"/, 'Bảng Grade & giá serialize vào hidden input grade_rows_json');
+assert.match(step1, /GIÁ \(USD\/KG\)/, 'Danh mục hạt điều hiển thị đơn vị USD/kg');
+assert.match(step1, /Thêm grade/, 'Bảng Grade & giá có nút Thêm grade');
+const pepperStep1 = render({ product: { ...product, category: 'pepper', supplier_category_proposal: 'pepper', spec: '550 g/L' } });
+assert.match(pepperStep1, /GIÁ \(USD\/MT\)/, 'Danh mục hồ tiêu hiển thị đơn vị USD/MT');
 
-for (const field of ['ref_price', 'ref_price_max', 'currency', 'unit', 'price_valid_until', 'lead_time_days',
-  'payment_terms', 'export_port', 'incoterm', 'incoterm_place']) {
+for (const field of ['grade_rows_json', 'price_valid_until', 'lead_time_days',
+  'payment_terms', 'export_port', 'incoterm_place']) {
   assert.ok(step1.includes(`name="${field}"`), `Ô ${field} nằm ngay trong bước 1`);
 }
 for (const field of ['raw_material_region', 'input_material_origin']) {
@@ -381,5 +389,15 @@ assert.match(legacyPaused, /Gửi duyệt/, 'Sản phẩm staff tạo cũ vẫn 
 assert.doesNotMatch(legacyPaused, /aria-label="Xóa ảnh đại diện"/, 'Tệp staff quản lý vẫn bị khóa');
 assert.match(source, /data\?\.message \|\| `Xóa tệp thất bại \(HTTP/, 'Lỗi xóa hiển thị lý do API hoặc HTTP nếu không có JSON');
 assert.match(source, /data\?\.message \|\| `Đặt ảnh đại diện thất bại \(HTTP/, 'Lỗi đổi ảnh hiển thị lý do API');
+
+// 14. Thẻ ảnh phụ ở bước 2: nhãn "Chia sẻ buyer" nằm bên trái, cụm nút Sao + X nằm bên phải (không dùng left-11 đè lên chữ).
+const multiBuyerMedia = [
+  { ...media[0], id: 'm1', audience: 'buyer', caption: 'cover.png' },
+  { ...media[0], id: 'm2', audience: 'buyer', storage_path: 'products/p1/b.png', caption: '6 (5).png' },
+];
+const step2MultiHtml = render({ product: ownApproved, media: multiBuyerMedia, initialStep: 2 });
+assert.doesNotMatch(source, /\bleft-11\b/, 'Không dùng vị trí cứng left-11 khiến nút X đè lên nhãn Chia sẻ buyer');
+assert.match(step2MultiHtml, /inset-x-2 top-2 flex items-start justify-between gap-2/, 'Thanh trên thẻ ảnh tách nhãn bên trái và nút thao tác bên phải');
+assert.match(step2MultiHtml, /Chia sẻ buyer<\/span><div class="pointer-events-auto flex shrink-0 items-center gap-1\.5">/, 'Nút đặt ảnh đại diện và nút xóa gom về cụm bên phải sau nhãn');
 
 console.log('✅ Product page: wizard, cover deletion, draft deletion and pause/review controls.');
