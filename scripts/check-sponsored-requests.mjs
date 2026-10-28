@@ -82,26 +82,11 @@ for(const role of ['admin','reviewer','sale']) assert.equal(hasPermission(role,'
 for(const role of ['supplier','viewer','sourcing']) assert.equal(hasPermission(role,'sponsored.requests.manage'),false);
 assert.equal(hasPermission('sale','sponsored.manage'),false,'Request permission does not approve packages');
 
-let mode='valid', writes=0, rows=[];
-const actor={id:'u1',email:'owner@example.com'};
-const actionStore={mode:'supabase',async createSponsoredRequest(input){
-  if(mode==='write-error') throw Error('network failed');
-  if(rows.some(r=>r.product_id===input.product_id&&r.status!=='closed')) throw Error('SPONSORED_REQUEST_ALREADY_OPEN');
-  writes++;const r={...input,id:`req-${writes}`,status:'new'};rows.push(r);return r;
-}};
-const actions=load('app/supplier/portal/boost/actions.ts',{
-  'next/cache':{revalidatePath(){}},
-  '@/lib/supplier-portal/access':{supplierPortalAccess:async(s)=> mode==='no-access'?null:({store:s,user:actor,supplier})},
-  '@/lib/supplier-portal/onboarding':{portalApproved:()=>mode!=='not-approved'},
-  '@/lib/sponsored/requests':{sponsoredRequestStore:()=>mode==='no-store'?null:actionStore,eligibleSupplierPushProducts:async()=>mode==='no-eligible'?[]:got},
-});
-const submit=async(fields)=>{const fd=new FormData();for(const [k,v] of Object.entries(fields))fd.set(k,v);return actions.submitSponsoredRequestAction({ok:false,message:''},fd);};
-assert.equal((await submit({product:'foreign'})).ok,false); assert.equal(writes,0);
-for(const m of ['no-access','not-approved','no-store','no-eligible','write-error']) {mode=m; assert.equal((await submit({product:'ok'})).ok,false,m); assert.equal(writes,0,m);}
-mode='valid'; assert.equal((await submit({product:'ok',note:'x'.repeat(501)})).ok,false);
-const results=await Promise.all([submit({product:'ok',note:'Báo giá'}),submit({product:'ok'})]);
-assert.equal(results.filter(r=>r.ok).length,1); assert.equal(writes,1); assert.equal(rows[0].supplier_id,'s1'); assert.equal(rows[0].requested_by,'u1');
-assert.match(results.find(r=>!r.ok).message,/đã có yêu cầu/);
-mode='write-error'; const err=await submit({product:'rice'}); assert.match(err.message,/Chưa xác nhận/); assert.doesNotMatch(err.message,/Đã gửi/);
-assert.ok(!readFileSync(new URL('../app/supplier/portal/boost/actions.ts',import.meta.url),'utf8').includes('createSponsoredPush'));
-console.log('✅ Requests: strict store, equivalent public gates, scoped media, statuses, permissions, error and duplicate handling (mocked stores).');
+// Legacy consultation submission is retired, including calls from stale clients.
+const actions=load('app/supplier/portal/boost/actions.ts',{'@/lib/auth/session':{getSession:async()=>({role:'supplier'})}});
+for (const product of ['ok','foreign','']) {
+  const form = new FormData(); form.set('product',product);
+  const result = await actions.submitSponsoredRequestAction({ok:false,message:''}, form);
+  assert.equal(result.ok,false); assert.match(result.message,/ngừng nhận/);
+}
+console.log('✅ Requests: legacy submission disabled, eligibility and scoped reads remain tested.');

@@ -114,8 +114,8 @@ const SERVICES: ServiceItem[] = [
       vi: "Quảng cáo nổi bật",
     },
     description: {
-      en: "Promote your business with a banner in an advertising placement on Vexim Trade.",
-      vi: "Giới thiệu doanh nghiệp bằng banner tại vị trí quảng cáo trên sàn Vexim Trade.",
+      en: "Request a consultation about business banner advertising on Vexim Trade.",
+      vi: "Tư vấn quảng cáo banner doanh nghiệp trên sàn Vexim Trade.",
     },
     bullets: {
       en: [
@@ -132,8 +132,8 @@ const SERVICES: ServiceItem[] = [
       ],
     },
     ctaLabel: {
-      en: "Register for banner advertising",
-      vi: "Đăng ký quảng cáo nổi bật",
+      en: "Request banner consultation",
+      vi: "Tư vấn quảng cáo banner",
     },
     notePlaceholder: {
       en: "E.g. We would like to discuss a banner for our business on Vexim Trade...",
@@ -276,7 +276,7 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
           <p className="mt-3 text-sm leading-relaxed text-white/95 sm:text-base">
             {isVi
               ? "Hệ sinh thái hỗ trợ toàn diện từ niêm yết gian hàng B2B, chuẩn hóa hiện diện số quốc tế đến quảng bá nổi bật và tuân thủ pháp lý xuất khẩu."
-              : "End-to-end B2B growth ecosystem — from free marketplace listing and international trade website design to featured category placement and US FDA compliance."}
+              : "End-to-end B2B growth ecosystem — from free marketplace listing and international trade website design to business banner advertising consultations and US FDA compliance."}
           </p>
         </div>
 

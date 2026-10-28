@@ -13,6 +13,9 @@ import { withoutDirectContacts } from "@/lib/public/product-selection";
 import type { PushCandidate } from "@/lib/sponsored/eligibility";
 import { RequestForm } from "./request-form";
 
+// Fixed closed until the purchase flow and its safety checks are reviewed.
+function supplierBoostClosed(): boolean { return true; }
+
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Đẩy sản phẩm", robots: { index: false, follow: false } };
 
@@ -41,6 +44,15 @@ export default async function SupplierBoostPage() {
   }
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
+
+  // The feature is deliberately closed during setup. Do not make this an
+  // environment toggle: reopening requires review of purchase and payment gates.
+  if (supplierBoostClosed()) return <>
+    <PageHeader title="Đẩy sản phẩm" sub="Tính năng đang được chuẩn bị." />
+    <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+      Tính năng đẩy sản phẩm hiện chưa mở. Bạn chưa thể đăng ký hoặc mua gói.
+    </div>
+  </>;
 
   let candidates: PushCandidate[] = [];
   let requests: SponsoredRequest[] = [];

@@ -167,6 +167,7 @@ for (const [lang, marker, next] of [['vi', 'DỊCH VỤ 03', 'DỊCH VỤ 04'], 
   const serviceHtml = renderToStaticMarkup(React.createElement(Services, { lang }));
   const featured = serviceHtml.slice(serviceHtml.indexOf(marker), serviceHtml.indexOf(next));
   assert.match(featured, /banner/i);
+  assert.match(featured, lang === 'vi' ? /Tư vấn quảng cáo banner/ : /Request banner consultation/);
   assert.doesNotMatch(featured, /168 (giờ|hours)|chưa bật bộ lọc|no filters applied|supplier\/portal\/boost/i);
   assert.match(featured, lang === 'vi' ? /khác với gói đẩy sản phẩm/ : /separate service from sponsored product placement/);
 }

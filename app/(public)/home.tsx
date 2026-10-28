@@ -88,7 +88,7 @@ const FAQ_EN = [
   },
   {
     q: "How do I register for International Trade Website Design, Featured Placement, or US FDA Compliance?",
-    a: "Use the inquiry form on the relevant service card. For Featured Placement, our team will discuss business banner advertising with you.",
+    a: "Use the inquiry form on the relevant service card. For Featured Placement, our team will discuss your business banner advertising inquiry.",
   },
 ];
 
@@ -115,7 +115,7 @@ const FAQ_VI = [
   },
   {
     q: "Tôi muốn đăng ký gói Thiết kế website quốc tế, Quảng cáo nổi bật hoặc Tuân thủ pháp lý FDA thì làm thế nào?",
-    a: "Hãy điền biểu mẫu trên thẻ dịch vụ tương ứng. Với Quảng cáo nổi bật, đội ngũ Vexim sẽ liên hệ trao đổi về banner doanh nghiệp.",
+    a: "Hãy điền biểu mẫu trên thẻ dịch vụ tương ứng. Với Quảng cáo nổi bật, đội ngũ Vexim sẽ liên hệ tư vấn về banner doanh nghiệp.",
   },
 ];
 
