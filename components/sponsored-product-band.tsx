@@ -114,6 +114,7 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
     }}>
       <PublicProductCard
         href={href}
+        sponsored
         imagePath={product.cardImagePath ?? product.imagePaths[0]}
         name={product.name}
         moq={product.moq}

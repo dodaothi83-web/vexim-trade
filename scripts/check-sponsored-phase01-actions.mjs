@@ -143,8 +143,9 @@ const props = { rows: viewRows, pools: [{ key: 'c', surface: 'category', label: 
 const html = renderToStaticMarkup(React.createElement(board, props));
 assert.match(html, /Chưa tải được số liệu quảng cáo/);
 assert.match(html, /không có nghĩa là không có lượt/);
-assert.match(html, /252 vòng chọn\/gói/);
-assert.match(html, /không phải lượt xem hay cam kết tiếp cận/);
+assert.match(html, /chưa có ước tính số vòng theo số ô mới/);
+assert.match(html, /chưa áp dụng 4 gói mỗi ô/);
+assert.doesNotMatch(html, /252 vòng chọn\/gói/, "A fixed three-slot estimate would be misleading");
 assert.match(html, /Trang chủ chưa có vị trí tài trợ/);
 assert.doesNotMatch(html, /7\/8 gói/, 'The unavailable home pool is not marketed as available');
 const rowFor = (name) => [...html.matchAll(/<tr\b[\s\S]*?<\/tr>/g)].map((m) => m[0]).find((r) => r.includes(name));

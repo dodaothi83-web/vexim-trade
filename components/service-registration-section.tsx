@@ -120,13 +120,13 @@ const SERVICES: ServiceItem[] = [
     bullets: {
       en: [
         "Shown in rotation above the product list when the category page has no filters applied",
-        "The package lasts 168 hours from approval",
+        "The package lasts 168 hours from activation (currently when approved)",
         "The product card is clearly marked Sponsored; placement does not change verification or organic ranking",
         "Recorded card views and link clicks are available in the report; actual reach is not guaranteed",
       ],
       vi: [
         "Luân phiên ở đầu danh sách sản phẩm khi trang danh mục chưa bật bộ lọc",
-        "Thời hạn gói là 168 giờ kể từ lúc duyệt",
+        "Thời hạn gói là 168 giờ từ khi kích hoạt (hiện tại là lúc duyệt)",
         "Thẻ có nhãn Tài trợ; quảng cáo không thay đổi kết quả xác minh hay thứ hạng tự nhiên",
         "Có báo cáo lượt hiển thị và lượt nhấp ghi nhận được; không cam kết số lượt tiếp cận",
       ],
