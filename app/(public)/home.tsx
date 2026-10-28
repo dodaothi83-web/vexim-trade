@@ -746,7 +746,7 @@ export default async function HomeContent({
               </li>
               <li>
                 <Link href="/login" prefetch={false} className="hover:text-brand-700">
-                  {isVi ? "Đăng nhập" : "Sign in"}
+                  {isVi ? "Đăng nhập NCC" : "Supplier sign in"}
                 </Link>
               </li>
               <li>

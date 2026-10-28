@@ -38,7 +38,7 @@ export default async function SupplierPortal() {
       <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Tổng quan" sub={account.user.email} />
       <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
         <h2 className="text-base font-bold">Bước 2/2 · Xác minh doanh nghiệp</h2>
-        <p className="mt-2 leading-6">Tài khoản đã đăng nhập, nhưng bạn chưa gửi hồ sơ doanh nghiệp. Hãy điền form bên dưới để tạo trang doanh nghiệp ở trạng thái nháp và gửi duyệt. Trong lúc chờ duyệt, bạn chưa thể quản lý sản phẩm, xem RFQ hay dùng các chức năng khác.</p>
+        <p className="mt-2 leading-6">Tài khoản mới hiện chỉ dùng được trang tổng quan và biểu mẫu hồ sơ bên dưới. Hồ sơ doanh nghiệp cần Vexim duyệt trước khi mở quản lý sản phẩm, xem RFQ và các chức năng khác.</p>
       </div>
       <div className="mt-5"><SupplierProfileForm email={account.user.email} categories={categories} /></div>
     </>;
@@ -56,15 +56,15 @@ export default async function SupplierPortal() {
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Tổng quan" sub={user.email} />
     {canSubmitProfile(supplier) ? <>
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-        {supplier.onboarding_status === "changes_requested" ? "Hồ sơ cần bổ sung thông tin. Vui lòng cập nhật và gửi lại." :
-          "Tài khoản đã tạo. Hoàn thiện hồ sơ doanh nghiệp để được xác nhận; các tính năng khác sẽ mở sau bước này."}
+        {supplier.onboarding_status === "changes_requested" ? "Hồ sơ cần bổ sung thông tin. Vui lòng cập nhật và gửi lại để Vexim duyệt." :
+          "Tài khoản mới hiện chỉ dùng được trang tổng quan và biểu mẫu hồ sơ; hồ sơ doanh nghiệp cần Vexim duyệt trước khi mở quản lý sản phẩm, RFQ và các chức năng khác."}
         {supplier.onboarding_status === "changes_requested" && supplier.onboarding_note &&
           <p className="mt-2 whitespace-pre-wrap font-semibold">Nội dung cần bổ sung: {supplier.onboarding_note}</p>}
       </div>
       <div className="mt-5"><SupplierProfileForm supplier={supplier} email={user.email} categories={categoryOptions} hasCoreDoc={hasCoreDoc} /></div>
     </> : <><PendingProfileRefresh /><div className="rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
-      <h2 className="text-base font-bold text-amber-950">Hồ sơ đang chờ xác nhận</h2>
-      <p className="mt-2 text-sm text-amber-900">Hồ sơ {supplier.name} đã được gửi. Bạn vẫn đăng nhập được để xem trạng thái, nhưng RFQ, thông báo, báo cáo và tải thêm tài liệu sẽ mở sau khi hồ sơ được xác nhận.</p>
+      <h2 className="text-base font-bold text-amber-950">Hồ sơ đang chờ Vexim duyệt</h2>
+      <p className="mt-2 text-sm text-amber-900">Hồ sơ {supplier.name} đã gửi và đang chờ Vexim duyệt. Bạn vẫn đăng nhập được để xem trạng thái; quản lý sản phẩm, RFQ, thông báo và báo cáo sẽ mở sau khi Vexim duyệt hồ sơ.</p>
       <p className="mt-3 text-xs text-amber-800">Xác nhận tài khoản không đồng nghĩa duyệt giấy tờ, xác thực nhà máy, lịch sử giao hàng hoặc công khai hồ sơ.</p>
     </div>
     <div className="mt-5"><PortalSteps stages={[

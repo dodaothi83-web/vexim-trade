@@ -59,6 +59,7 @@ const portal = load('../app/supplier/portal/page.tsx', {
   '@/lib/db/migration-hints': { migrationHint: () => null },
   './portal-ui': { Panel: () => null, Kpi: () => null, EmptyRow: () => null, LevelChip: () => null,
     PortalSteps: () => null, VerifyRow: () => null, Info: () => null, date: () => '' },
+  './pending-profile-refresh': { PendingProfileRefresh: () => null },
   '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: [] },
   '@/lib/supplier-portal/product-view': { productReview: () => 'draft' },
   '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: () => [] },
