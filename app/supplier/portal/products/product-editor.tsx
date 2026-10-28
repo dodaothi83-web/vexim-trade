@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
 import { productPriceBlockers, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
+import { SUPPLIER_PRICE_CURRENCIES, SUPPLIER_PRICE_UNITS, isSupplierPriceCurrency, isSupplierPriceUnit } from "@/lib/supplier-portal/product-price-options";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
 import { deleteSupplierDraftProductAction, pauseSupplierProductAction, saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
@@ -114,6 +115,7 @@ function snapshotFrom(product?: SupplierProduct): Record<string, string> {
     const value = product ? (product as unknown as Record<string, unknown>)[key] : "";
     seed[key] = value == null ? "" : String(value);
   }
+  if (!product) seed.currency = "USD";
   seed.oem = product?.oem ? "yes" : "";
   seed.odm = product?.odm ? "yes" : "";
   seed.samples = product?.samples ? "yes" : "";
@@ -698,10 +700,18 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 <Field label="Giá tham khảo đến" hint="Tùy chọn; phải lớn hơn hoặc bằng giá từ">
                   <input name="ref_price_max" type="number" min={0} max={999999999999} step="0.01" className="input" placeholder="Ví dụ: 5500" defaultValue={product?.ref_price_max ?? ""} disabled={locked} />
                 </Field>
-                <Field label="Đơn vị tiền / đơn vị giá" hint="Ví dụ: USD / MT">
+                <Field label="Đơn vị tiền / đơn vị giá" hint="Chọn cả hai khi nhập giá. Quy cách mỗi thùng, bao hoặc túi cần ghi ở mục bao bì.">
                   <div className="flex gap-2">
-                    <input name="currency" className="input" maxLength={10} placeholder="USD" defaultValue={product?.currency ?? ""} disabled={locked} aria-label="Đơn vị tiền" />
-                    <input name="unit" className="input" maxLength={40} placeholder="MT, kg, thùng" defaultValue={product?.unit ?? ""} disabled={locked} aria-label="Đơn vị giá" />
+                    <select name="currency" className="input min-w-0 flex-1" defaultValue={product ? product.currency ?? "" : "USD"} disabled={locked} aria-label="Đơn vị tiền">
+                      <option value="">Chọn tiền tệ</option>
+                      {product?.currency && !isSupplierPriceCurrency(product.currency) && <option value={product.currency}>Giá trị cũ: {product.currency} (cần rà soát)</option>}
+                      {SUPPLIER_PRICE_CURRENCIES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                    <select name="unit" className="input min-w-0 flex-1" defaultValue={product?.unit ?? ""} disabled={locked} aria-label="Đơn vị giá">
+                      <option value="">Chọn đơn vị giá</option>
+                      {product?.unit && !isSupplierPriceUnit(product.unit) && <option value={product.unit}>Giá trị cũ: {product.unit} (cần rà soát)</option>}
+                      {SUPPLIER_PRICE_UNITS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
                   </div>
                 </Field>
                 <Field label="Giá có hiệu lực tới">

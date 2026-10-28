@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { isSupplierPriceCurrency, isSupplierPriceUnit } from "@/lib/supplier-portal/product-price-options";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import {
@@ -34,7 +35,7 @@ function attributePoolFromForm(form: FormData): unknown[] {
 }
 
 
-function parseProduct(form: FormData, supplierId: string): SupplierProductInput {
+function parseProduct(form: FormData, supplierId: string, existing: SupplierProduct | null = null): SupplierProductInput {
   const name = text(form, "name", 180);
   if (name.length < 3) throw new Error("Tên sản phẩm cần ít nhất 3 ký tự.");
   const daysRaw = text(form, "lead_time_days", 5);
@@ -46,6 +47,18 @@ function parseProduct(form: FormData, supplierId: string): SupplierProductInput 
       !priceRaw || Number(priceRaw) <= 0 || Number(priceMaxRaw) < Number(priceRaw))) {
     throw new Error("Giá đến phải lớn hơn hoặc bằng giá từ (> 0); bỏ trống nếu chỉ có một mức giá.");
   }
+  // Preserve unsupported historical values verbatim when the price is unchanged;
+  // never accept a new free-text unit/currency, even when a draft has no price.
+  const unit = String(form.get("unit") ?? "");
+  const currency = String(form.get("currency") ?? "");
+  const samePrice = !!existing && (priceRaw ? Number(priceRaw) : null) === (existing.ref_price ?? null) &&
+    (priceMaxRaw ? Number(priceMaxRaw) : null) === (existing.ref_price_max ?? null);
+  if (unit && !isSupplierPriceUnit(unit) && unit !== existing?.unit) throw new Error("Chọn đơn vị giá trong danh sách.");
+  if (currency && !isSupplierPriceCurrency(currency) && currency !== existing?.currency) throw new Error("Chọn đơn vị tiền trong danh sách.");
+  if (priceRaw && (!isSupplierPriceUnit(unit) || !isSupplierPriceCurrency(currency))) {
+    const unchangedLegacy = samePrice && unit === (existing?.unit ?? "") && currency === (existing?.currency ?? "");
+    if (!unchangedLegacy) throw new Error("Khi nhập hoặc đổi giá, hãy chọn đơn vị tiền và đơn vị giá trong danh sách.");
+  }
   const validUntil = text(form, "price_valid_until", 10);
   if (validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) throw new Error("Ngày hết hạn giá không hợp lệ.");
   return {
@@ -53,7 +66,7 @@ function parseProduct(form: FormData, supplierId: string): SupplierProductInput 
     description: text(form, "description", 1500) || null,
     description_detail: sanitizeProductDescriptionForSave(String(form.get("description_detail") ?? "")) || null,
     spec: text(form, "spec", 800) || null,
-    specs: {}, unit: text(form, "unit", 40) || null, moq: text(form, "moq", 180) || null,
+    specs: {}, unit: unit || null, moq: text(form, "moq", 180) || null,
     moq_qty: null, moq_unit: null, monthly_capacity: text(form, "monthly_capacity", 180) || null,
     raw_material_region: text(form, "raw_material_region", 180) || null,
     input_material_origin: text(form, "input_material_origin", 300) || null,
@@ -63,7 +76,7 @@ function parseProduct(form: FormData, supplierId: string): SupplierProductInput 
     // và ngày hết hạn) là nguồn duy nhất. Giữ giá trị cũ nếu đã được ghi trước đây.
     certifications: null, export_port: text(form, "export_port", 120) || null,
     ref_price: priceRaw ? Number(priceRaw) : null, ref_price_max: priceMaxRaw ? Number(priceMaxRaw) : null,
-    price_publicly_visible: form.get("price_publicly_visible") === "yes", currency: priceRaw ? (text(form, "currency", 10) || "USD") : null,
+    price_publicly_visible: form.get("price_publicly_visible") === "yes", currency: currency || null,
     price_valid_until: validUntil || null, incoterm: text(form, "incoterm", 20) || null,
     incoterm_place: text(form, "incoterm_place", 100) || null,
     payment_terms: text(form, "payment_terms", 200) || null,
@@ -93,7 +106,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     const keepReviewed = keepPublished || keepPaused;
     if (existing && existingReview === "approved" && !keepPublished)
       return { ok: false, message: "Sản phẩm này được quản lý từ trước. Hãy tạm ẩn rồi gửi duyệt lại để cập nhật, hoặc liên hệ bộ phận hỗ trợ." };
-    const input = parseProduct(form, access.supplier.id);
+    const input = parseProduct(form, access.supplier.id, existing);
     // Không biến sản phẩm lịch sử do staff tạo thành nháp do NCC tạo khi sửa.
     if (existing) input.supplier_originated = existing.supplier_originated === true;
     if (existingReview === "changes_requested" && existing) {

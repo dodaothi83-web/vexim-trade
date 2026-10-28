@@ -38,6 +38,7 @@ const storage = {
 };
 const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', {});
 const attributes = load('../lib/product-attributes.ts', {});
+const priceOptions = load('../lib/supplier-portal/product-price-options.ts', {});
 const mediaReadiness = load('../lib/media/readiness.ts', {});
 const { description: productDescription } = loadProductDescription();
 const categories = [
@@ -99,6 +100,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   'next/cache': { revalidatePath() {} },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
   '@/lib/supplier-portal/onboarding': onboarding,
+  '@/lib/supplier-portal/product-price-options': priceOptions,
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/product-attributes': attributes,
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible && !!s.fob_updated_at && Date.now() - new Date(s.fob_updated_at).getTime() < 180 * 86400_000 },
@@ -119,7 +121,7 @@ const form = () => {
   const fd = new FormData();
   for (const [key, value] of Object.entries({ name: 'Cashew W320', spec: '25kg vacuum bag', description: 'White kernels',
     raw_material_region: 'Bình Phước và Đắk Lắk', input_material_origin: 'Việt Nam và Campuchia',
-    ref_price: '5000', currency: 'USD', supplier_category_proposal: 'cashew', supplier_id: 'foreign', ready_for_buyer: 'true', supplier_review_status: 'approved' })) fd.set(key, value);
+    ref_price: '5000', currency: 'USD', unit: 'kg', supplier_category_proposal: 'cashew', supplier_id: 'foreign', ready_for_buyer: 'true', supplier_review_status: 'approved' })) fd.set(key, value);
   return fd;
 };
 assert.equal((await actions.saveSupplierProductAction(form())).ok, false, 'Pending account cannot create product');
@@ -129,6 +131,26 @@ assert.match((await actions.saveSupplierProductAction(invertedPrice)).message, /
 assert.equal(product, null);
 const missingFloor = form(); missingFloor.delete('ref_price'); missingFloor.set('ref_price_max', '5500');
 assert.equal((await actions.saveSupplierProductAction(missingFloor)).ok, false, 'Upper price requires a positive lower price');
+// Fixed supplier choices are validated server-side, not just in the browser.
+for (const [field, value] of [['unit', 'kg/unit'], ['currency', 'BTC'], ['unit', ''], ['currency', '']]) {
+  const invalid = form(); invalid.set(field, value);
+  assert.equal((await actions.saveSupplierProductAction(invalid)).ok, false, `Reject unsupported or missing ${field}`);
+}
+const draftWithoutPrice = form(); draftWithoutPrice.delete('ref_price'); draftWithoutPrice.set('unit', ''); draftWithoutPrice.set('currency', '');
+assert.equal((await actions.saveSupplierProductAction(draftWithoutPrice)).ok, true, 'Price and both choices remain optional for a draft');
+assert.equal(product.unit, null); assert.equal(product.currency, null); product = null;
+const forgedWithoutPrice = form(); forgedWithoutPrice.delete('ref_price'); forgedWithoutPrice.set('unit', 'pallet');
+assert.equal((await actions.saveSupplierProductAction(forgedWithoutPrice)).ok, false, 'Cannot create a new free-text unit without a price');
+for (const { value } of priceOptions.SUPPLIER_PRICE_UNITS) {
+  const supported = form(); supported.set('unit', value);
+  assert.equal((await actions.saveSupplierProductAction(supported)).ok, true, `Unit ${value} is accepted`);
+  assert.equal(product.unit, value); product = null;
+}
+for (const { value } of priceOptions.SUPPLIER_PRICE_CURRENCIES) {
+  const supported = form(); supported.set('currency', value);
+  assert.equal((await actions.saveSupplierProductAction(supported)).ok, true, `Currency ${value} is accepted`);
+  assert.equal(product.currency, value); product = null;
+}
 const invalidProposal = form(); invalidProposal.set('supplier_category_proposal', 'not-in-catalogue');
 assert.equal((await actions.saveSupplierProductAction(invalidProposal)).ok, false, 'Supplier cannot forge a category');
 const outsideScope = form(); outsideScope.set('supplier_category_proposal', 'rice');
@@ -144,6 +166,24 @@ const created = await actions.saveSupplierProductAction(form());
 assert.equal(created.ok, true); assert.equal(created.id, productId);
 assert.equal(product.supplier_id, supplierId); assert.equal(product.supplier_review_status, 'draft');
 assert.equal(product.ready_for_buyer, false); assert.equal(product.ref_price, 5000);
+assert.equal(product.unit, 'kg'); assert.equal(product.currency, 'USD');
+// Historical values survive ordinary edits; changing the numeric price requires standard choices.
+product = { ...product, unit: 'tấn', currency: 'USD/kg' };
+const legacy = form(); legacy.set('product_id', productId); legacy.set('unit', 'tấn'); legacy.set('currency', 'USD/kg');
+assert.equal((await actions.saveSupplierProductAction(legacy)).ok, true);
+assert.equal(product.unit, 'tấn'); assert.equal(product.currency, 'USD/kg');
+const legacyPriceChange = form(); legacyPriceChange.set('product_id', productId); legacyPriceChange.set('unit', 'tấn'); legacyPriceChange.set('currency', 'USD/kg'); legacyPriceChange.set('ref_price', '6000');
+assert.equal((await actions.saveSupplierProductAction(legacyPriceChange)).ok, false, 'A new price cannot retain nonstandard legacy values');
+const normalized = form(); normalized.set('product_id', productId); normalized.set('unit', 'MT'); normalized.set('currency', 'EUR');
+assert.equal((await actions.saveSupplierProductAction(normalized)).ok, true);
+assert.equal(product.unit, 'MT'); assert.equal(product.currency, 'EUR');
+// Missing historical unit and currency are not silently filled when editing other fields.
+product = { ...product, unit: null, currency: null };
+const missingLegacy = form(); missingLegacy.set('product_id', productId); missingLegacy.set('unit', ''); missingLegacy.set('currency', '');
+assert.equal((await actions.saveSupplierProductAction(missingLegacy)).ok, true);
+assert.equal(product.unit, null); assert.equal(product.currency, null);
+assert.equal((await actions.saveSupplierProductAction(formWithId())).ok, true);
+
 assert.equal(product.raw_material_region, 'Bình Phước và Đắk Lắk', 'Supplier product save persists its own raw material region');
 assert.equal(product.input_material_origin, 'Việt Nam và Campuchia', 'Supplier product save persists its own input origin');
 assert.equal(product.price_publicly_visible, false, 'Saving an entered price does not expose it');
@@ -183,6 +223,7 @@ const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
   'node:crypto': { randomUUID: () => 'aabbccdd-eeee-ffff-aaaa-bbbbbbbbbbbb' },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
   '@/lib/supplier-portal/onboarding': onboarding,
+  '@/lib/supplier-portal/product-price-options': priceOptions,
   '@/lib/media/validate': {
     validateUpload: (kind, bytes) => kind === 'image' && bytes[0] === 0xff ? { ok: true, mime: 'image/jpeg' }
       : kind === 'catalogue' && bytes[0] === 0x25 ? { ok: true, mime: 'application/pdf' } : { ok: false },
@@ -216,6 +257,7 @@ const mediaRead = load('../app/api/media/file/[...path]/route.ts', {
   '@/lib/media/storage': { getObject: async () => ({ data: new Uint8Array([0xff,0xd8,0xff,0xe0]) }) },
   '@/lib/supplier-portal/policy': { ownsDocumentReview: () => false },
   '@/lib/supplier-portal/onboarding': onboarding,
+  '@/lib/supplier-portal/product-price-options': priceOptions,
 });
 const assetPath = files[0].storage_path;
 const mediaParams = { params: Promise.resolve({ path: assetPath.split('/') }) };
