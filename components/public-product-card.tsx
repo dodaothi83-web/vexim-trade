@@ -65,10 +65,16 @@ function resolveCardOfferDisplay({
   moq: string;
   gradeRows?: readonly PublicProductCardGradeRow[];
   highlightedGrades?: readonly string[];
-}): { priceLine: string; hasPrice: boolean; moqText: string } {
+}): { pricePrimary: string; priceSecondary: string; priceTitle: string; hasPrice: boolean; moqText: string } {
   const defaultMoq = moq || "On request";
   if (test) {
-    return { priceLine: "Test data · not a price", hasPrice: false, moqText: defaultMoq };
+    return {
+      pricePrimary: "Test data · not a price",
+      priceSecondary: "",
+      priceTitle: "Test data · not a price",
+      hasPrice: false,
+      moqText: defaultMoq,
+    };
   }
 
   const fallbackTerm = (incoterm || (fob ? "FOB" : ""))?.trim().toUpperCase() || "";
@@ -99,7 +105,13 @@ function resolveCardOfferDisplay({
     );
 
     if (pricedRows.length === 0) {
-      return { priceLine: "Price on request", hasPrice: false, moqText };
+      return {
+        pricePrimary: "Price on request",
+        priceSecondary: "",
+        priceTitle: "Price on request",
+        hasPrice: false,
+        moqText,
+      };
     }
 
     const unitSuffix = extractUnitSuffix(pricedRows[0].priceText, price) || "/MT";
@@ -111,7 +123,9 @@ function resolveCardOfferDisplay({
       const high = formatCardNumber(row.priceMax!, unitSuffix);
       const amount = low === high ? `USD ${low}${unitSuffix}` : `USD ${low}–${high}${unitSuffix}`;
       return {
-        priceLine: term ? `${amount} · ${term}` : amount,
+        pricePrimary: amount,
+        priceSecondary: term,
+        priceTitle: term ? `${amount} ${term}` : amount,
         hasPrice: true,
         moqText,
       };
@@ -119,26 +133,39 @@ function resolveCardOfferDisplay({
 
     const minVal = Math.min(...pricedRows.map((row) => row.priceMin!));
     const low = formatCardNumber(minVal, unitSuffix);
-    const segments = [`From USD ${low}${unitSuffix}`];
-    if (term) segments.push(term);
-    segments.push(`${targetRows.length} grades`);
+    const pricePrimary = `From USD ${low}${unitSuffix}`;
+    const gradeCountLabel = `${targetRows.length} grades`;
+    const priceSecondary = term ? `${term} · ${gradeCountLabel}` : `· ${gradeCountLabel}`;
     return {
-      priceLine: segments.join(" · "),
+      pricePrimary,
+      priceSecondary,
+      priceTitle: `${pricePrimary} ${priceSecondary}`,
       hasPrice: true,
       moqText,
     };
   }
 
   if (!price || !price.trim()) {
-    return { priceLine: "Price on request", hasPrice: false, moqText: defaultMoq };
+    return {
+      pricePrimary: "Price on request",
+      priceSecondary: "",
+      priceTitle: "Price on request",
+      hasPrice: false,
+      moqText: defaultMoq,
+    };
   }
 
   const compact = normalizeCompactRange(price.trim());
-  const hasTerm = fallbackTerm
-    ? new RegExp(`\\b${fallbackTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(compact)
-    : false;
+  const trailingTermMatch = compact.match(
+    /^(.*?)\s+(?:·\s*)?((?:EXW|FCA|FAS|FOB|CFR|CNF|CIF|CPT|CIP|DAP|DPU|DDP)(?:\s*[,/]\s*(?:EXW|FCA|FAS|FOB|CFR|CNF|CIF|CPT|CIP|DAP|DPU|DDP))*)\s*$/i,
+  );
+  const pricePrimary = trailingTermMatch ? trailingTermMatch[1].trim() : compact;
+  const embeddedTerm = trailingTermMatch ? trailingTermMatch[2].trim().toUpperCase() : "";
+  const priceSecondary = embeddedTerm || fallbackTerm;
   return {
-    priceLine: fallbackTerm && !hasTerm ? `${compact} · ${fallbackTerm}` : compact,
+    pricePrimary,
+    priceSecondary,
+    priceTitle: priceSecondary ? `${pricePrimary} ${priceSecondary}` : pricePrimary,
     hasPrice: true,
     moqText: defaultMoq,
   };
@@ -227,7 +254,7 @@ export function PublicProductCard({
     orderedGrades[0].length + orderedGrades[1].length + orderedGrades[2].length <= 18;
   const allGradesText = orderedGrades.join(", ");
 
-  const { priceLine, hasPrice, moqText } = resolveCardOfferDisplay({
+  const { pricePrimary, priceSecondary, priceTitle, hasPrice, moqText } = resolveCardOfferDisplay({
     test,
     price,
     incoterm,
@@ -375,18 +402,23 @@ export function PublicProductCard({
           )}
         </div>
 
-        {/* Fixed 1-line price in primary font with tabular figures */}
+        {/* Fixed 1-line price: bold accent primary price + smaller muted regular-weight Incoterm/grade suffix */}
         <p
-          title={priceLine}
+          title={priceTitle}
           className={`mt-1 h-5 truncate whitespace-nowrap tabular-nums leading-5 sm:mt-1.5 ${
             test
               ? "text-xs font-semibold text-ink-500"
               : hasPrice
-                ? "text-[13px] font-semibold text-brand-800 sm:text-[13.5px]"
+                ? "text-sm font-bold text-brand-800 sm:text-[15px]"
                 : "text-xs font-medium text-ink-500"
           }`}
         >
-          {priceLine}
+          <span>{pricePrimary}</span>
+          {priceSecondary && (
+            <span className="ml-1.5 text-[10.5px] font-normal text-ink-500 sm:text-[11px]">
+              {priceSecondary}
+            </span>
+          )}
         </p>
 
         {/* Fixed single-line MOQ & Lead time */}

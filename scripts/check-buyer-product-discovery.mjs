@@ -309,9 +309,10 @@ const cardProps = { href: '/products/cashew/a0', imagePath: 'products/a0/cover.j
   supplierName: 'Company A', supplierHref: '/suppliers/company-a', verificationSteps: [1, 3], l2Scope: 'factory',
   quoteHref: '/rfq?category=cashew&suppliers=A&product=Cashew%20W320%20lot%200&product_id=a0', oem: true, odm: true, samples: true };
 const compactCard = renderToStaticMarkup(React.createElement(PublicProductCard, cardProps));
-for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'USD 7/kg · FOB', 'Lead time', '14 days', 'Supplied by', 'Company A', '>Quote<']) {
+for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', '<span>USD 7/kg</span>', '>FOB</span>', 'Lead time', '14 days', 'Supplied by', 'Company A', '>Quote<']) {
   assert.ok(compactCard.includes(text), `Compact card keeps ${text}`);
 }
+assert.match(compactCard, /text-sm font-bold text-brand-800 sm:text-\[15px\]"><span>USD 7\/kg<\/span><span class="ml-1\.5 text-\[10\.5px\] font-normal text-ink-500 sm:text-\[11px\]">FOB<\/span>/, 'Only price uses bold accent typography; Incoterm is ~2 steps smaller, light gray and regular weight');
 assert.doesNotMatch(compactCard, /OEM|ODM|Samples/, 'OEM, ODM and Samples badges are removed from product cards');
 assert.doesNotMatch(compactCard, /Level 1 · Basic|Level 2 · Advanced|Level 3 · Complete|>Level [123]</, 'VerificationTierBadge text (Level 1 · Basic, etc.) is removed from product cards');
 assert.doesNotMatch(compactCard, />Request a quote</, 'Oversized Request a quote button is replaced by compact Quote button');
@@ -343,7 +344,8 @@ const multiGradeCard = renderToStaticMarkup(React.createElement(PublicProductCar
   price: 'USD 1,500 to 2,500/MT',
   incoterm: 'FOB',
 }));
-assert.ok(multiGradeCard.includes('From USD 1,500/MT · FOB · 4 grades'), 'Multi-grade card renders From USD min/unit · Incoterm · N grades');
+assert.ok(multiGradeCard.includes('<span>From USD 1,500/MT</span>'), 'Multi-grade card renders From USD min/unit as primary bold accent price');
+assert.match(multiGradeCard, /font-normal text-ink-500[^"]*">FOB · 4 grades<\/span>/, 'Multi-grade card renders FOB · N grades in smaller muted regular-weight span');
 assert.match(multiGradeCard, /aria-label="All grades: 500 g\/L, 550 g\/L, 570 g\/L, White pepper"/, '+N trigger exposes full grade list');
 assert.match(multiGradeCard, /group-hover\/grades:block group-focus-within\/grades:block/, '+N tooltip opens on hover and tap/focus');
 
@@ -355,7 +357,8 @@ const filteredGradeCard = renderToStaticMarkup(React.createElement(PublicProduct
   price: 'USD 1,500 to 2,500/MT',
   incoterm: 'FOB',
 }));
-assert.ok(filteredGradeCard.includes('USD 1,800–1,900/MT · FOB'), 'Filtering by a grade renders that grade exact price range and Incoterm');
+assert.ok(filteredGradeCard.includes('<span>USD 1,800–1,900/MT</span>'), 'Filtering by a grade renders that grade exact price range in bold accent');
+assert.match(filteredGradeCard, /font-normal text-ink-500[^"]*">FOB<\/span>/, 'Filtering by a grade renders Incoterm in smaller muted regular-weight span');
 assert.ok(filteredGradeCard.indexOf('>550 g/L<') < filteredGradeCard.indexOf('>500 g/L<'), 'Filtered grade moves to the front');
 assert.match(filteredGradeCard, /bg-brand-100 text-brand-900 ring-1 ring-inset ring-brand-400[^>]*><span class="truncate">550 g\/L<\/span>/, 'Filtered grade is highlighted');
 assert.ok(filteredGradeCard.includes('2 metric tons'), 'Filtered grade updates MOQ to that grade MOQ');
