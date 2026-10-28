@@ -688,7 +688,7 @@ export function projectPublicGradeData(
     };
   }
 
-  // Legacy single-grade fallback projection
+  // Legacy single-grade fallback projection: normalize USD weight prices to the category's unified unit.
   const resolved = resolveGrade({
     name: product.name,
     spec: product.spec,
@@ -698,11 +698,30 @@ export function projectPublicGradeData(
   const legacyGrade = resolved.value ? options.sanitizeText(resolved.value).trim() : null;
   const standardGrades = legacyGrade ? [legacyGrade] : [];
 
+  let legacySummaryPrice: string | null = null;
+  if (options.canShowPrice && typeof product.ref_price === "number" && Number.isFinite(product.ref_price) && product.ref_price > 0) {
+    const rawCurrency = (product.currency ?? "USD").trim().toUpperCase();
+    const isUsd = rawCurrency === "USD" || rawCurrency.startsWith("USD/");
+    const parsedSourceUnit = parsePriceUnit(product.unit, product.currency);
+    const rawMax = typeof product.ref_price_max === "number" && Number.isFinite(product.ref_price_max) && product.ref_price_max >= product.ref_price
+      ? product.ref_price_max
+      : product.ref_price;
+    if (isUsd && parsedSourceUnit) {
+      const lowKg = toPricePerKg(product.ref_price, parsedSourceUnit);
+      const highKg = toPricePerKg(rawMax, parsedSourceUnit);
+      if (lowKg !== null && highKg !== null) {
+        const lowInCategoryUnit = fromPricePerKg(lowKg, unitMeta.primary);
+        const highInCategoryUnit = fromPricePerKg(highKg, unitMeta.primary);
+        legacySummaryPrice = formatGradeRowPriceBuyer(lowInCategoryUnit, highInCategoryUnit, unitMeta.primary);
+      }
+    }
+  }
+
   return {
     hasGradeRows: false,
     primaryGrade: legacyGrade,
     standardGrades,
-    summaryPrice: null,
+    summaryPrice: legacySummaryPrice,
     gradeRows: [],
     gradePricePoints: [],
   };

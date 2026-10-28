@@ -310,10 +310,38 @@ export function SupplierStorefront({
             .filter((row) => row && typeof row.grade === "string" && row.is_custom !== true)
             .map((row) => safe(String(row.grade)))
             .filter(Boolean);
+          const rawPrice = synthetic ? null : publicProductPrice(p, s);
+          const storefrontPrice = (() => {
+            if (!rawPrice) return null;
+            const slugText = (category?.slug || "").toLowerCase();
+            const configured = (category?.price_unit || "").toLowerCase();
+            const isMtCategory = configured === "mt" || configured === "t" || (!configured && /rice|coffee|pepper|cassia|cinnamon|anise|spice|coconut|fruit|bean|tea|sugar/.test(slugText));
+            const rawCurrency = (p.currency || "USD").trim().toUpperCase();
+            const unitSource = `${p.unit || ""} ${p.currency || ""}`.toLowerCase();
+            const sourceIsLb = /(^|[^a-z])lb(s)?([^a-z]|$)|pound/.test(unitSource);
+            const sourceIsKg = !sourceIsLb && (/(^|[^a-z])kg([^a-z]|$)|kilogram|kilo/.test(unitSource));
+            const sourceIsMt = !sourceIsLb && !sourceIsKg && (/(^|[^a-z])(mt|t|ton|tonne|tons|tonnes|tấn|tan)([^a-z]|$)/.test(unitSource));
+            if ((rawCurrency === "USD" || rawCurrency.startsWith("USD/")) && typeof p.ref_price === "number" && p.ref_price > 0 && (sourceIsLb || sourceIsKg || sourceIsMt)) {
+              const kgFactor = sourceIsLb ? 0.45359237 : sourceIsMt ? 1000 : 1;
+              const lowKg = p.ref_price / kgFactor;
+              const highRaw = typeof p.ref_price_max === "number" && p.ref_price_max >= p.ref_price ? p.ref_price_max : p.ref_price;
+              const highKg = highRaw / kgFactor;
+              const targetFactor = isMtCategory ? 1000 : 1;
+              const decimals = isMtCategory ? 0 : 2;
+              const lowVal = lowKg * targetFactor;
+              const highVal = highKg * targetFactor;
+              const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+              const suffix = isMtCategory ? "/MT" : "/kg";
+              return Math.abs(highVal - lowVal) < 10 ** -decimals / 2
+                ? `USD ${fmt(lowVal)}${suffix}`
+                : `USD ${fmt(lowVal)} to ${fmt(highVal)}${suffix}`;
+            }
+            return rawPrice.replace(/\/\s*(mt|tonnes?|tons?|t|tấn|tan)(?=\s|$|[,;])/gi, "/MT");
+          })();
           return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
             <PublicProductCard href={href} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
               name={productName} grades={storefrontGrades} moq={safe(p.moq) || "On request"}
-              price={synthetic ? null : publicProductPrice(p, s)} fob={p.incoterm?.toUpperCase() === "FOB"}
+              price={storefrontPrice} fob={p.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.lead_time_days ?? null} supplierName={name}
               supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
               quoteHref={productLinks && rfqActions && !synthetic && category ? `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(productName)}&product_id=${encodeURIComponent(p.id)}` : undefined}

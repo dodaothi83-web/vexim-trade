@@ -1179,9 +1179,8 @@ function CategoryEditor({
                 >
                   <select className="input max-w-64" value={draft.price_unit} onChange={(e) => set("price_unit", e.target.value)}>
                     <option value="">Theo quy ước ngành (mặc định)</option>
-                    <option value="kg">kg — nhân điều, tôm, cá</option>
-                    <option value="mt">tấn — gạo, hồ tiêu, cà phê, quế, hồi</option>
-                    <option value="lb">lb — chỉ dùng khi thị trường đọc pound</option>
+                    <option value="kg">USD/kg (nhân điều, thủy sản)</option>
+                    <option value="mt">USD/MT (gạo, hồ tiêu, cà phê, quế, hồi)</option>
                   </select>
                 </Field>
                 <p className="mt-2 text-xs leading-relaxed text-ink-500">

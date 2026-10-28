@@ -209,14 +209,10 @@ export default async function PublicProductDetail({ params }: Props) {
       </StickyProductColumn>
       <div className="min-w-0">
         <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
-        <h1 className="mt-2 break-words text-2xl font-bold leading-snug tracking-tight text-ink-900 sm:text-3xl">{card.name}</h1>
+        <h1 className="mt-2 break-words text-xl font-semibold leading-snug tracking-tight text-ink-900 sm:text-2xl">{card.name}</h1>
         {enDescription && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(enDescription)}</p>}
-        <div id="reference-price" className="mt-5 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Reference price</p>
-          <p className={`mt-1 break-words text-3xl font-black leading-tight text-brand-900 sm:text-4xl ${card.price ? "font-mono tabular-nums" : ""}`}>{withoutDirectContacts(card.price || "On request")}</p>
-        </div>
-        {gradeRows.length > 0 && (
-          <div id="grade-pricing" className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+        {gradeRows.length > 0 ? (
+          <div id="reference-price" className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
             <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
               <h2 className="text-sm font-bold text-ink-900">Grades &amp; reference pricing</h2>
               <p className="mt-0.5 text-xs text-ink-500">Per-grade indicative pricing, Incoterm and minimum order quantity</p>
@@ -253,6 +249,11 @@ export default async function PublicProductDetail({ params }: Props) {
               </table>
             </div>
           </div>
+        ) : (
+          <div id="reference-price" className="mt-5 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700">Reference price</p>
+            <p className={`mt-0.5 break-words text-lg font-bold leading-snug text-brand-900 sm:text-xl ${card.price ? "font-mono tabular-nums" : ""}`}>{withoutDirectContacts(card.price || "On request")}</p>
+          </div>
         )}
         {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
           <p className="mt-1.5 text-xs text-ink-500">Product options stated in the listing; confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
@@ -262,18 +263,15 @@ export default async function PublicProductDetail({ params }: Props) {
             <p className="mt-0.5 text-xs text-ink-500">Commercial details for your RFQ</p>
           </div>
           <dl className="px-5">
-            <Spec
-              label="Grade"
-              value={
-                gradeRows.length > 0
-                  ? gradeRows.map((r) => withoutDirectContacts(r.grade)).join(", ")
-                  : (approvedAttributes.grade ?? card.grade)
-              }
-            />
-            <Spec label="MOQ" value={card.moq} />
+            {gradeRows.length === 0 && (
+              <>
+                <Spec label="Grade" value={approvedAttributes.grade ?? card.grade} />
+                <Spec label="MOQ" value={card.moq} />
+              </>
+            )}
             <Spec label="Packaging" value={detailedPackaging || enPackaging} />
             <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
-            <Spec label="Incoterm" value={card.incoterm} />
+            {gradeRows.length === 0 && <Spec label="Incoterm" value={card.incoterm} />}
             <Spec label="Loading port" value={publicProductExportPortDisplay(p)} />
             <Spec label="Raw material region" value={card.rawMaterialRegion} />
             <Spec label="Input material origin" value={card.inputMaterialOrigin} />
@@ -310,7 +308,7 @@ export default async function PublicProductDetail({ params }: Props) {
       <ul className="mt-5 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {relatedProducts.map((related) => <li key={related.id} className="min-w-0">
           <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(related.id)}`}
-            imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} moq={related.moq}
+            imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} grades={related.grades} moq={related.moq}
             price={related.price} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays}
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
             quoteHref={`/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(related.supplierId)}&product=${encodeURIComponent(related.name)}&product_id=${encodeURIComponent(related.id)}`}
