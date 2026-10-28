@@ -91,6 +91,8 @@ export async function lookupSession(): Promise<SessionLookup> {
   const store = await cookies();
   const payload = verifySessionToken(store.get(SESSION_COOKIE)?.value);
   if (!payload) return { session: null, miss: null };
+  // Retired sourcing tokens must not regain access on database failures.
+  if (payload.role === "sourcing") return { session: null, miss: "locked" };
 
   const db = getStore();
   try {
@@ -98,7 +100,7 @@ export async function lookupSession(): Promise<SessionLookup> {
     // Bản ghi có thể đã đổi id (ví dụ gắn lại với UID của Supabase Auth) → tìm theo email
     if (!user && payload.email) user = await db.getUserByEmail(payload.email);
     if (!user) return { session: null, miss: "not_found" };
-    if (!user.is_active) return { session: null, miss: "locked" };
+    if (!user.is_active || user.role === "sourcing") return { session: null, miss: "locked" };
     return {
       session: { ...payload, uid: user.id, email: user.email, name: user.name ?? "", role: user.role },
       miss: null,
@@ -109,8 +111,10 @@ export async function lookupSession(): Promise<SessionLookup> {
     if (describeAppUsersError(text) || isMissingUsersTable(err)) {
       return { session: null, miss: "unreadable" };
     }
-    // Lỗi khác (mất mạng tạm thời): vẫn tin token đã ký để app không sập.
-    return { session: payload, miss: null };
+    // Không thể xác minh trạng thái/role mới thì phải chặn: token cũ có thể
+    // thuộc một tài khoản vừa bị khóa hoặc đổi sang vai trò Thu mua.
+    console.error("[auth] session user lookup failed", err);
+    return { session: null, miss: "unreadable" };
   }
 }
 

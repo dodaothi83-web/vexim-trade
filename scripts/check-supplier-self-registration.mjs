@@ -384,7 +384,7 @@ const decisions = load('../app/crm/suppliers/[slug]/onboarding-actions.ts', {
     addAuditLog: async (entry) => { state.audit.push(entry); },
   }) },
   '@/lib/auth/session': { guard: async () => denyApproval ? { message: 'denied' } : null,
-    getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'sourcing' }) },
+    getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'reviewer' }) },
 });
 const approval = new FormData(); approval.set('supplier_id', staffSupplierId); approval.set('decision', 'approved');
 assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, false);
@@ -429,7 +429,7 @@ const requestActions = load('../app/crm/verifications/request-actions.ts', {
     addAuditLog: async (entry) => { assert.equal(entry.action, 'verification.request.contact.l3'); },
   }) },
   '@/lib/auth/session': { guard: async () => denyContact ? { ok: false, message: 'denied' } : null,
-    getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'sourcing' }) },
+    getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'reviewer' }) },
 });
 const contactForm = new FormData(); contactForm.set('supplier_id', contactSupplierId); contactForm.set('target_level', '3');
 assert.equal((await requestActions.markVerificationRequestContactedAction(contactForm)).ok, false);

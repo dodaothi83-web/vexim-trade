@@ -329,7 +329,7 @@ export default async function SupplierDocumentsPage() {
             <li>Ảnh chụp hoặc PDF đều nhận; không cần bản gốc, nhưng phải đọc được số và ngày cấp.</li>
             <li>Che số tài khoản ngân hàng và thông tin không liên quan trước khi tải.</li>
           </ul>
-          <p className="mt-2 flex items-start gap-1 text-[10px] leading-4 text-brand-900"><ShieldCheck className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> Hồ sơ được đối chiếu thủ công; người có quyền duyệt khác người kiểm mới phê kết quả.</p>
+          <p className="mt-2 flex items-start gap-1 text-[10px] leading-4 text-brand-900"><ShieldCheck className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> Hồ sơ được đối chiếu thủ công; nhân sự đủ quyền có thể kiểm và duyệt sau khi xác nhận đối chiếu.</p>
         </section>
       </aside>
     </div>

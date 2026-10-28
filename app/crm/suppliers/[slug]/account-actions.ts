@@ -19,8 +19,8 @@ export async function provisionSupplierAccountAction(form: FormData): Promise<Re
   const denied = await guard("suppliers.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "sourcing")) {
-    return { ok: false, message: "Chỉ quản trị và thu mua được cấp tài khoản NCC." };
+  if (!session || (session.role !== "admin" && session.role !== "reviewer")) {
+    return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được cấp tài khoản NCC." };
   }
   const id = String(form.get("supplier_id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Yêu cầu không hợp lệ." };
@@ -71,8 +71,8 @@ export async function handOverSupplierAccountAction(form: FormData): Promise<Res
   const denied = await guard("suppliers.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "sourcing")) {
-    return { ok: false, message: "Chỉ quản trị và thu mua được bàn giao tài khoản NCC." };
+  if (!session || (session.role !== "admin" && session.role !== "reviewer")) {
+    return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được bàn giao tài khoản NCC." };
   }
   const id = String(form.get("supplier_id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Yêu cầu không hợp lệ." };

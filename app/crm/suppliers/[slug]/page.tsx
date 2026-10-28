@@ -312,8 +312,9 @@ export default async function SupplierDetailPage({
             onboardingStatus={supplier.onboarding_status}
             onboardingNote={supplier.onboarding_note}
             supplierStatus={supplier.status}
+            autoPublishL1={!!supplier.auto_publish_after_l1}
             canManage={canManage}
-            canDecideOnboarding={canManage && (session.role === "admin" || session.role === "sourcing")}
+            canDecideOnboarding={canManage && (session.role === "admin" || session.role === "reviewer")}
             canPublish={canPublish}
           />
         </div>
@@ -518,8 +519,8 @@ export default async function SupplierDetailPage({
                 lastLoginLabel: accountUser.last_login_at ? formatDate(accountUser.last_login_at) : "Chưa đăng nhập lần nào",
                 createdLabel: formatDate(accountUser.created_at),
               } : null}
-              canProvision={canManage && (session.role === "admin" || session.role === "sourcing")}
-              canHandOver={canManage && (session.role === "admin" || session.role === "sourcing")}
+              canProvision={canManage && (session.role === "admin" || session.role === "reviewer")}
+              canHandOver={canManage && (session.role === "admin" || session.role === "reviewer")}
             />
           </Card>
 

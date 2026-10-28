@@ -163,6 +163,7 @@ export async function createUserAction(input: {
   const gate = await guard("users.manage");
   if (gate) return gate;
 
+  if (input.role === "sourcing") return { ok: false, message: "Vai trò Thu mua đang tạm khóa, không thể cấp mới." };
   const clean = (input.email ?? "").trim();
   if (!EMAIL_RE.test(clean)) return { ok: false, message: "Email không hợp lệ." };
   if (!isRole(input.role) || input.role === "supplier") return { ok: false, message: "Tài khoản doanh nghiệp được tạo qua luồng đăng ký NCC, hoặc nhân viên cấp tại mục Tài khoản cổng nhà cung cấp trong trang chi tiết nhà cung cấp ở CRM." };
@@ -218,6 +219,7 @@ export async function updateUserAction(
   if (!target) return { ok: false, message: "Không tìm thấy tài khoản." };
 
   const session = await getSession();
+  if (patch.role === "sourcing" || (target.role === "sourcing" && patch.is_active === true)) return { ok: false, message: "Vai trò Thu mua đang tạm khóa, không thể cấp hoặc mở lại." };
   if (patch.role && (!isRole(patch.role) || patch.role === "supplier" || target.role === "supplier")) return { ok: false, message: "Không thể chuyển vai trò tài khoản doanh nghiệp đã liên kết hồ sơ NCC." };
 
   // Không cho tự hạ quyền / tự khoá chính mình

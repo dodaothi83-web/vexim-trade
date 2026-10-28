@@ -50,7 +50,7 @@ const dashboard = load('app/supplier/portal/page.tsx', {
     supplierAccountAccess: async () => ({ user, store }),
     supplierPortalAccess: async () => ({ supplier: subject.supplier, review: null, reviews: subject.reviews, user, store }),
   },
-  '@/lib/supplier-portal/onboarding': { portalApproved: () => true, canSubmitProfile: () => false },
+  '@/lib/supplier-portal/onboarding': { portalApproved: (supplier) => supplier.onboarding_status === 'approved', canSubmitProfile: (supplier) => supplier.onboarding_status === 'changes_requested' },
   '@/lib/supplier-portal/dashboard': { buildSupplierRfqBoard: () => ({ tasks: [], report: { sent: 0, responded: 0 } }) },
   '@/lib/supplier-portal/product-view': { productReview: () => 'draft' },
   '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: () => [] },
@@ -58,7 +58,8 @@ const dashboard = load('app/supplier/portal/page.tsx', {
   '@/lib/certificate-service': { daysUntilExpiry: () => null },
   '@/lib/db/migration-hints': { migrationHint: () => null },
   '@/lib/supplier-portal/verification-progress': progress, '@/lib/l2-scope': scope,
-  './supplier-profile-form': { SupplierProfileForm: () => null }, './portal-ui': ui, './verification-progress': progressUi,
+  './supplier-profile-form': { SupplierProfileForm: () => React.createElement('div', { 'data-editable': 'true' }) }, './portal-ui': ui, './verification-progress': progressUi,
+  './pending-profile-refresh': { PendingProfileRefresh: () => React.createElement('div', { 'data-refresh-waiting': 'true' }) },
 });
 const review = (l2_scope, status = 'approved') => ({ id: `v-${l2_scope ?? 'legacy'}`, supplier_id: 's1', target_level: 2, l2_scope, status });
 const submission = (l2_scope, status = 'pending_review') => ({ id: `s-${l2_scope ?? 'legacy'}`, supplier_id: 's1', target_level: 2, l2_scope, status });
@@ -100,4 +101,14 @@ for (const type of ['manufacturer', 'cooperative']) {
 const unknown = await render(null, [review(null)]);
 assertChip(unknown, 'L2 · Chưa rõ loại hình', 'Chưa duyệt');
 assert.doesNotMatch(unknown, /Chín ảnh nhà máy theo danh mục/, 'Unknown type is not guided into factory flow');
+// Only the read-only waiting screen polls; the correction form must never be remounted by this poll.
+subject = { supplier: { id: 's1', name: 'Example', supplier_type: 'trading', onboarding_status: 'pending' }, reviews: [], submissions: [] };
+let waiting = renderToStaticMarkup(await dashboard.default());
+assert.match(waiting, /data-refresh-waiting="true"/);
+assert.doesNotMatch(waiting, /data-editable="true"/);
+subject.supplier.onboarding_status = 'changes_requested';
+store.listCategories = async () => [];
+waiting = renderToStaticMarkup(await dashboard.default());
+assert.doesNotMatch(waiting, /data-refresh-waiting="true"/);
+assert.match(waiting, /data-editable="true"/);
 console.log('✅ Dashboard header: label and status match the current L2 scope, including legacy and pending cases.');

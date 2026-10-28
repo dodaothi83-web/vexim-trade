@@ -731,7 +731,7 @@ assert.match(body.message, /đã được gửi để nhân viên đối chiếu
 const staffScanFactory = makeLoader({
   'next/server': { NextResponse: { json: (value, init) => Response.json(value, init) } },
   'next/cache': { revalidatePath: () => {} },
-  '@/lib/auth/session': { getSession: async () => ({ uid: 'staff-scan-1', email: 'staff@example.com', role: 'sourcing' }) },
+  '@/lib/auth/session': { getSession: async () => ({ uid: 'staff-scan-1', email: 'staff@example.com', role: 'reviewer' }) },
   '@/lib/auth/permissions': { hasPermission: () => true },
   '@/lib/supplier-portal/submission-access': { staffSubmissionAccess: async () => currentAccess, supplierSubmissionAccess: async () => null },
   '@/lib/media/storage': { getObject: async (p) => storage.has(p) ? { data: storage.get(p), driver: 'local' } : null },
@@ -911,7 +911,7 @@ const reviewRoute = makeLoader({
 
 staffAccess = {
   store, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id), links: [],
-  session: { uid: 'staff-1', email: 'inspector@veximtrade.com', role: 'sourcing' }, canReview: true,
+  session: { uid: 'staff-1', email: 'inspector@veximtrade.com', role: 'reviewer' }, canReview: true,
 };
 res = await reviewRoute.POST(new Request('http://x/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision: 'return', note: 'ngắn' }) }), { params: Promise.resolve({ id: submission.id }) });
 assert.equal(res.status, 400, 'Trả hồ sơ phải kèm lý do đủ rõ');
@@ -922,7 +922,7 @@ assert.equal(body.ok, true);
 assert.equal((await store.getSubmission(submission.id)).status, 'returned');
 
 await store.updateSubmission(submission.id, { status: 'pending_review' });
-staffAccess = { store, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id), links: [], session: { uid: 'staff-1', email: 'inspector@veximtrade.com', role: 'sourcing' }, canReview: true };
+staffAccess = { store, submission: await store.getSubmission(submission.id), items: await store.listSubmissionItems(submission.id), links: [], session: { uid: 'staff-1', email: 'inspector@veximtrade.com', role: 'reviewer' }, canReview: true };
 res = await reviewRoute.POST(new Request('http://x/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision: 'accept', note: 'Đã gọi điện đối chiếu' }) }), { params: Promise.resolve({ id: submission.id }) });
 body = await res.json();
 assert.equal(body.ok, true, `Nhận hồ sơ lỗi: ${JSON.stringify(body)}`);
@@ -1155,7 +1155,7 @@ assert.equal(res.status, 400, 'Không tải thêm khi chờ kiểm');
 const staffScanRoute = makeLoader({
   'next/server': { NextResponse: { json: (body, init) => Response.json(body, init) } },
   'next/cache': { revalidatePath: () => {} },
-  '@/lib/auth/session': { getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'sourcing' }) },
+  '@/lib/auth/session': { getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'reviewer' }) },
   '@/lib/auth/permissions': { hasPermission: () => true },
   '@/lib/supplier-portal/submission-access': { staffSubmissionAccess: async () => ({ ...currentAccess, session: { uid: 'staff-1' } }), supplierSubmissionAccess: async () => null },
   '@/lib/media/storage': { getObject: async () => { throw new Error('Không được đọc tệp để gửi AI'); } },
@@ -1181,7 +1181,7 @@ assert.equal(noScan.ok, false);
 assert.equal((await store.getSubmission(l3.id)).status, 'pending_review');
 
 // Nhân viên nhận vào đợt kiểm riêng; file vẫn nội bộ và chưa được duyệt.
-staffAccess = { store, ...l3Bundle, session: { uid: 'staff-1', email: 'inspector@veximtrade.com', role: 'sourcing' }, canReview: true };
+staffAccess = { store, ...l3Bundle, session: { uid: 'staff-1', email: 'inspector@veximtrade.com', role: 'reviewer' }, canReview: true };
 res = await reviewRoute.POST(new Request('http://x/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision: 'accept', note: 'Đối chiếu thủ công' }) }), { params: Promise.resolve({ id: l3.id }) });
 body = await res.json();
 assert.equal(body.ok, true);
@@ -1312,7 +1312,7 @@ assert.equal(verifications.length, beforeReviews, 'Invalid evidence must not cre
 traderType = 'manufacturer';
 await assert.rejects(manualService.acceptSubmissionIntoVerification(store, { bundle: { ...partnerBundle, submission: { ...partnerSub } }, staffId: 'staff-1', staffEmail: null }), /không khớp phạm vi/i);
 traderType = 'trading';
-staffAccess = { store, submission: partnerSub, items: partnerItems, links: [], session: { uid: 'staff-1', email: 'inspector@veximtrade.com', role: 'sourcing' }, canReview: true };
+staffAccess = { store, submission: partnerSub, items: partnerItems, links: [], session: { uid: 'staff-1', email: 'inspector@veximtrade.com', role: 'reviewer' }, canReview: true };
 res = await reviewRoute.POST(new Request('http://x/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision: 'accept' }) }), { params: Promise.resolve({ id: partnerSub.id }) });
 body = await res.json();
 assert.equal(body.ok, true, body.message);

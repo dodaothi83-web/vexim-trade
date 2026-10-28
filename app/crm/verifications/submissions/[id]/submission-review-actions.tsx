@@ -25,6 +25,7 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
   const [busy, setBusy] = useState<"" | "accept" | "return" | "scan">("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [newVerificationHref, setNewVerificationHref] = useState<string | null>(null);
   const decidable = canReview && (status === "pending_review" || status === "returned");
 
   async function decide(decision: "accept" | "return") {
@@ -45,7 +46,11 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
       });
       const data = await response.json() as { ok?: boolean; message?: string; href?: string };
       setMessage({ ok: Boolean(response.ok && data.ok), text: data.message ?? "Không xử lý được." });
-      if (response.ok && data.ok) { setNote(""); router.refresh(); }
+      if (response.ok && data.ok) {
+        setNote("");
+        if (decision === "accept" && data.href?.startsWith("/crm/suppliers/") && data.href.includes("/audit/")) setNewVerificationHref(data.href);
+        router.refresh();
+      }
     } catch {
       setMessage({ ok: false, text: "Không kết nối được máy chủ." });
     } finally { setBusy(""); }
@@ -101,7 +106,7 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
             {busy === "scan" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />} Quét lại bằng AI
           </button>
         : level === 2 && !partner ? <span className="text-[11px] text-ink-500">Chưa cấu hình OPENAI_API_KEY nên không có quét tự động; đối chiếu thủ công.</span> : null}
-      {verificationHref && <Link href={verificationHref} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs font-semibold text-ink-700 hover:border-brand-400">
+      {(newVerificationHref || verificationHref) && <Link href={(newVerificationHref || verificationHref)!} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs font-semibold text-ink-700 hover:border-brand-400">
         <RotateCcw className="h-3.5 w-3.5" /> Mở đợt kiểm đã tạo
       </Link>}
     </div>

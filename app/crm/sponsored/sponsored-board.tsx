@@ -1,17 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { CircleDollarSign, Clock, Eye, Megaphone, Plus, X } from "lucide-react";
+import { CircleDollarSign, Clock, Eye, Megaphone, X } from "lucide-react";
 
 import { EmptyState, group } from "@/components/ui";
 import { buildChartGeometry } from "@/lib/sponsored/chart-geometry";
-import {
-  approvePushAction,
-  cancelDraftAction,
-  createPushAction,
-  pausePushAction,
-  resumePushAction,
-} from "./actions";
+import { pausePushAction } from "./actions";
 
 export interface BoardRow {
   id: string;
@@ -48,16 +42,8 @@ export interface SeriesPoint {
   impressions: number;
 }
 
-interface Candidate {
-  productId: string;
-  name: string;
-  categorySlug: string;
-  categoryName: string;
-  supplierName: string;
-}
-
 const STATE_META: Record<BoardRow["state"], { label: string; className: string }> = {
-  pending: { label: "Chờ duyệt", className: "bg-amber-100 text-amber-900" },
+  pending: { label: "Nháp cũ", className: "bg-amber-100 text-amber-900" },
   live: { label: "Đang chạy", className: "bg-emerald-100 text-emerald-900" },
   scheduled: { label: "Chờ tới giờ", className: "bg-sky-100 text-sky-900" },
   paused: { label: "Tạm dừng", className: "bg-ink-100 text-ink-600" },
@@ -69,7 +55,7 @@ type TabKey = "all" | "pending" | "scheduled" | "live" | "paused" | "ended" | "u
 
 const TABS: { key: TabKey; label: string; match: (state: BoardRow["state"]) => boolean }[] = [
   { key: "all", label: "Tất cả", match: () => true },
-  { key: "pending", label: "Chờ duyệt", match: (s) => s === "pending" },
+  { key: "pending", label: "Nháp cũ", match: (s) => s === "pending" },
   { key: "scheduled", label: "Chờ tới giờ", match: (s) => s === "scheduled" },
   { key: "live", label: "Đang chạy", match: (s) => s === "live" },
   { key: "unavailable", label: "Không hiển thị", match: (s) => s === "unavailable" },
@@ -90,33 +76,27 @@ export function SponsoredBoard({
   rows,
   pools,
   summary,
-  candidates,
   canManage,
   flash,
   series,
   metricsAvailable,
   packagesAvailable,
-  candidatesAvailable,
 }: {
   rows: BoardRow[];
   pools: PoolView[];
   summary: { live: number; pending: number; impressions7d: number; clicks7d: number; expiring: number };
-  candidates: Candidate[];
   canManage: boolean;
   flash: { text: string; bad: boolean } | null;
   series: Record<string, SeriesPoint[]>;
   metricsAvailable: boolean;
   packagesAvailable: boolean;
-  candidatesAvailable: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>("all");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
 
   // Máy chủ trả về sau mỗi thao tác thì đóng ngăn đang mở, để người dùng thấy kết quả.
   useEffect(() => {
     if (flash) {
-      setCreating(false);
       setOpenId(null);
     }
   }, [flash]);
@@ -157,7 +137,7 @@ export function SponsoredBoard({
       {/* Số liệu chính: số đã ghi nhận, không phải tất cả người xem. */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icon={<Megaphone className="h-4 w-4" />} label="Đang chạy" value={packagesAvailable ? group(summary.live) : "—"} hint={!packagesAvailable ? "chưa tải được gói" : summary.expiring ? `${summary.expiring} gói danh mục hết hạn trong 24 giờ, kể cả gói tạm dừng` : "không gói danh mục nào sắp hết hạn"} />
-        <Stat icon={<Clock className="h-4 w-4" />} label="Chờ duyệt" value={packagesAvailable ? group(summary.pending) : "—"} hint={packagesAvailable ? "chưa hiện với buyer" : "chưa tải được gói"} />
+        <Stat icon={<Clock className="h-4 w-4" />} label="Nháp cũ" value={packagesAvailable ? group(summary.pending) : "—"} hint={packagesAvailable ? "không còn duyệt thủ công" : "chưa tải được gói"} />
         <Stat icon={<Eye className="h-4 w-4" />} label="Hiển thị đã ghi · 7 ngày" value={metricsAvailable ? group(summary.impressions7d) : "—"} hint={metricsAvailable ? "bảy ngày UTC gần nhất" : "chưa tải được số liệu"} />
         <Stat icon={<CircleDollarSign className="h-4 w-4" />} label="Nhấp đã ghi · 7 ngày" value={metricsAvailable ? group(summary.clicks7d) : "—"} hint={!metricsAvailable ? "chưa tải được số liệu" : summary.impressions7d ? `${Math.round((summary.clicks7d / summary.impressions7d) * 1000) / 10}% so với lượt hiển thị` : "chưa có lượt hiển thị ghi nhận"} />
       </div>
@@ -169,7 +149,7 @@ export function SponsoredBoard({
       <section className="card mt-4 p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-[13px] font-bold text-ink-800">Chỗ trống trong bể</h2>
-          <p className="text-[12px] text-ink-500">Kiểm tra đủ 168 giờ trước khi duyệt.</p>
+          <p className="text-[12px] text-ink-500">Các gói cũ tiếp tục đến hết thời hạn.</p>
         </div>
         <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Một vòng kéo dài 10 phút. Số ô hiển thị thay đổi theo số sản phẩm công khai; chưa có ước tính số vòng theo số ô mới. Giới hạn bể dưới đây vẫn là quy tắc cũ, chưa áp dụng 4 gói mỗi ô.</p>
         {!packagesAvailable ? (
@@ -224,11 +204,6 @@ export function SponsoredBoard({
               <span className={`ml-1.5 ${tab === item.key ? "text-white/70" : "text-ink-400"}`}>{counts.get(item.key) ?? 0}</span>
             </button>
           ))}
-          {canManage && packagesAvailable && (
-            <button type="button" onClick={() => setCreating(true)} className="btn btn-primary ml-auto">
-              <Plus className="h-4 w-4" /> Tạo gói
-            </button>
-          )}
         </div>
 
         <div className="card mt-3 overflow-x-auto">
@@ -236,7 +211,7 @@ export function SponsoredBoard({
             <EmptyState
               icon={<Megaphone className="h-5 w-5" />}
               title={!packagesAvailable ? "Chưa tải được danh sách gói" : rows.length === 0 ? "Chưa có gói nào" : "Không có gói ở mục này"}
-              sub={packagesAvailable && rows.length === 0 ? "Tạo gói đầu tiên để bán vị trí trên trang danh mục." : undefined}
+              sub={packagesAvailable && rows.length === 0 ? "Chưa có gói sản phẩm nào được ghi nhận." : undefined}
             />
           ) : (
             <table className="w-full min-w-[880px] border-collapse text-[13px]">
@@ -334,68 +309,6 @@ export function SponsoredBoard({
         </Drawer>
       )}
 
-      {/* Ngăn tạo gói */}
-      {creating && (
-        <Drawer title="Tạo gói" onClose={() => setCreating(false)}>
-          {!candidatesAvailable ? (
-            <p role="alert" className="text-[13px] leading-6 text-rose-700">Chưa tải được sản phẩm đủ điều kiện. Vui lòng thử lại.</p>
-          ) : candidates.length === 0 ? (
-            <p className="text-[13px] leading-6 text-ink-600">
-              Chưa có sản phẩm nào đủ bốn điều kiện công khai.
-            </p>
-          ) : (
-            <form action={createPushAction} className="space-y-4">
-              <div>
-                <label htmlFor="product" className="block text-[12px] font-bold text-ink-700">
-                  Sản phẩm
-                </label>
-                <select id="product" name="product" required className="input mt-1 w-full">
-                  {candidates.map((candidate) => (
-                    <option key={candidate.productId} value={candidate.productId}>
-                      {candidate.name} · {candidate.supplierName}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[11.5px] text-ink-500">Chỉ sản phẩm đã qua đủ bốn điều kiện công khai.</p>
-              </div>
-
-              <div>
-                <span className="block text-[12px] font-bold text-ink-700">Vị trí</span>
-                <p className="mt-1 text-[13px] text-ink-600">Trang danh mục, khi chưa bật bộ lọc.</p>
-                <input type="hidden" name="surface" value="category" />
-              </div>
-
-              <div>
-                <label htmlFor="price" className="block text-[12px] font-bold text-ink-700">
-                  Giá gói (VND)
-                </label>
-                <input id="price" name="price" inputMode="numeric" placeholder="2500000" className="input mt-1 w-full" />
-                <p className="mt-1 text-[11.5px] text-ink-500">Để trống nếu chưa chốt giá. Thu tiền ngoài hệ thống.</p>
-              </div>
-
-              <div>
-                <label htmlFor="note" className="block text-[12px] font-bold text-ink-700">
-                  Ghi chú
-                </label>
-                <textarea id="note" name="note" rows={3} className="input mt-1 w-full" />
-              </div>
-
-              <p className="rounded-lg bg-ink-50 px-3 py-2 text-[12px] leading-5 text-ink-600">
-                Thời hạn gói là 168 giờ từ lúc kích hoạt (hiện tại là lúc duyệt).
-              </p>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setCreating(false)} className="btn btn-ghost">
-                  Huỷ
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Tạo gói
-                </button>
-              </div>
-            </form>
-          )}
-        </Drawer>
-      )}
     </>
   );
 }
@@ -414,46 +327,17 @@ function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; va
 }
 
 function RowActions({ row, canManage }: { row: BoardRow; canManage: boolean }) {
-  if (!canManage) return <span className="text-[11.5px] text-ink-400">chỉ xem</span>;
-  if (row.status === "draft") {
-    return (
-      <div className="flex justify-end gap-1.5">
-        {row.surface === "category" && <form action={approvePushAction}>
-          <input type="hidden" name="id" value={row.id} />
-          <button type="submit" className="btn btn-primary btn-sm">
-            Duyệt
-          </button>
-        </form>}
-        <form action={cancelDraftAction}>
-          <input type="hidden" name="id" value={row.id} />
-          <button type="submit" className="btn btn-ghost btn-sm">
-            Xoá
-          </button>
-        </form>
-      </div>
-    );
-  }
-  if (row.state === "live" || row.state === "scheduled" || row.state === "unavailable") {
-    return (
-      <form action={pausePushAction}>
-        <input type="hidden" name="id" value={row.id} />
-        <button type="submit" className="btn btn-ghost btn-sm">
-          Tạm dừng
-        </button>
-      </form>
-    );
-  }
-  if (row.state === "paused" && row.surface === "category") {
-    return (
-      <form action={resumePushAction}>
-        <input type="hidden" name="id" value={row.id} />
-        <button type="submit" className="btn btn-ghost btn-sm">
-          Chạy lại
-        </button>
-      </form>
-    );
-  }
-  return null;
+  if (!canManage || row.status !== "approved" || row.state === "ended") return null;
+  return <details className="ml-auto min-w-48 text-left">
+    <summary className="cursor-pointer text-xs font-semibold text-rose-700 underline">Dừng do vi phạm</summary>
+    <form action={pausePushAction} className="mt-2 space-y-2">
+      <input type="hidden" name="id" value={row.id} />
+      <label className="block text-xs text-ink-600">Lý do vi phạm
+        <textarea name="reason" required minLength={5} maxLength={400} rows={2} className="input mt-1 w-full" />
+      </label>
+      <button type="submit" className="btn btn-ghost btn-sm">Xác nhận dừng</button>
+    </form>
+  </details>;
 }
 
 function Drawer({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {

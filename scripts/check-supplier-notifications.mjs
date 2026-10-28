@@ -12,6 +12,7 @@ const users = [linked, { ...linked, supplier_id: 'other', email: 'other@example.
   { ...linked, is_active: false, email: 'inactive@example.com' },
   { role: 'admin', is_active: true, email: 'admin@example.com' },
   { role: 'sourcing', is_active: true, email: 'sourcing@example.com' },
+  { role: 'reviewer', is_active: true, email: 'reviewer@example.com' },
   { role: 'viewer', is_active: true, email: 'viewer@example.com' }];
 const mocks = {
   '@/lib/db': { getStore: () => ({ listUsers: async () => users }) },
@@ -30,7 +31,7 @@ vm.runInNewContext(code, { exports, process, console, URL, Set,
 const supplier = { id: sid, name: 'Factory <A>' };
 const product = { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', name: 'Cashew <W320>' };
 assert.equal(await exports.notifyStaffProductSubmission(supplier, product), 'sent');
-assert.equal(JSON.stringify(messages[0].to), JSON.stringify(['admin@example.com', 'sourcing@example.com']));
+assert.equal(JSON.stringify(messages[0].to), JSON.stringify(['admin@example.com', 'reviewer@example.com']));
 assert.ok(messages[0].html.includes('Cashew &lt;W320&gt;'));
 assert.ok(messages[0].html.includes('Sản phẩm chưa được đăng'));
 assert.equal(await exports.notifySupplierDecision({ supplierId: sid, decision: 'onboarding_changes_requested', note: 'Bổ sung <giấy phép>' }), 'sent');

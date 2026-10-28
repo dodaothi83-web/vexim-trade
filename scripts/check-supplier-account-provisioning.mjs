@@ -144,7 +144,7 @@ assert.match(page, /SupplierAccountControls/, 'trang chi tiết phải có đi�
 
 const action = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/account-actions.ts', import.meta.url), 'utf8');
 assert.match(action, /guard\("suppliers\.manage"\)/, 'action cấp tài khoản phải kiểm quyền quản lý NCC');
-assert.match(action, /session\.role !== "admin" && session\.role !== "sourcing"/, 'chỉ quản trị và thu mua được cấp tài khoản');
+assert.match(action, /session\.role !== "admin" && session\.role !== "reviewer"/, 'chỉ quản trị và trưởng kiểm duyệt được cấp tài khoản');
 assert.match(action, /supplier\.account_provisioned/, 'tạo mới phải ghi nhật ký kiểm toán');
 assert.match(action, /supplier\.account_linked/, 'gắn tài khoản có sẵn phải ghi nhật ký kiểm toán');
 

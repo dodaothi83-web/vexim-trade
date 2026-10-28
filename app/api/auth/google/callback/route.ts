@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       await notifyStaffSupplierAccount({ email: user.email, name: user.name, provider: "google" })
         .catch((error) => console.error("[google-oauth] staff notification failed", error));
     }
-    if (!user || !user.is_active) return clear(target("/login?oauth=not_allowed"));
+    if (!user || !user.is_active || user.role === "sourcing") return clear(target("/login?oauth=not_allowed"));
     const res = clear(target(user.role === "supplier" ? "/supplier/portal" : "/crm/dashboard"));
     res.cookies.set(GOOGLE_SIGNUP_COOKIE, "", googleCookieOptions(origin.startsWith("https:"), 0));
     res.cookies.set(SESSION_COOKIE, createSessionToken({ uid: user.id, email: user.email,

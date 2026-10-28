@@ -148,7 +148,7 @@ export function UserManager({
               value={role}
               onChange={(e) => setRole(e.target.value as UserRole)}
             >
-              {ROLES.filter((r) => r.value !== "supplier").map((r) => (
+              {ROLES.filter((r) => r.value !== "supplier" && r.value !== "sourcing").map((r) => (
                 <option key={r.value} value={r.value}>
                   {r.label} — {r.description}
                 </option>
@@ -356,8 +356,8 @@ function UserRow({
             disabled={busy || user.role === "supplier"}
             onChange={(e) => void patch({ role: e.target.value as UserRole })}
           >
-            {ROLES.filter((r) => r.value !== "supplier" || user.role === "supplier").map((r) => (
-              <option key={r.value} value={r.value}>
+            {ROLES.filter((r) => (r.value !== "supplier" || user.role === "supplier") && (r.value !== "sourcing" || user.role === "sourcing")).map((r) => (
+              <option key={r.value} value={r.value} disabled={r.value === "sourcing"}>
                 {r.label}
               </option>
             ))}
@@ -366,7 +366,7 @@ function UserRow({
           <Button
             size="sm"
             variant="ghost"
-            disabled={busy}
+            disabled={busy || (user.role === "sourcing" && !user.is_active)}
             onClick={() => void patch({ is_active: !user.is_active })}
             title={user.is_active ? "Tạm khoá tài khoản" : "Mở lại tài khoản"}
           >
