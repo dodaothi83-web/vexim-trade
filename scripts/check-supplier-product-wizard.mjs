@@ -44,6 +44,7 @@ const view = {
     media.some((m) => (m.kind === 'image' || m.kind === 'catalogue') && !!m.storage_path),
 };
 
+const priceOptions = load('../lib/supplier-portal/product-price-options.ts', {});
 const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal/products/product-editor.tsx', {
   react: React,
   'react/jsx-runtime': jsx,
@@ -53,6 +54,7 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/types': {},
   '@/lib/public/product-selection': { productPriceBlockers: () => [], supplierPriceConsentCurrent: (s) => s?.fob_publicly_visible !== false },
   '@/lib/supplier-portal/category-proposals': {},
+  '@/lib/supplier-portal/product-price-options': priceOptions,
   '@/lib/supplier-portal/product-view': view,
   '@/components/toast': { useToast: () => ({ push() {} }) },
   '../product-actions': {
@@ -122,6 +124,17 @@ assert.doesNotMatch(source, /<details/, 'Không còn khối gập <details> tron
 
 // 2. Thông tin thương mại & xuất khẩu HIỆN NGAY ở bước 1, không cần bấm mũi tên.
 assert.match(step1, /Thông tin thương mại &amp; xuất khẩu/, 'Tiêu đề khối thương mại & xuất khẩu hiện ngay');
+assert.match(step1, /<select[^>]*name="currency"/, 'Currency is a fixed select');
+assert.match(step1, /<select[^>]*name="unit"/, 'Price unit is a fixed select');
+for (const { value } of [...priceOptions.SUPPLIER_PRICE_CURRENCIES, ...priceOptions.SUPPLIER_PRICE_UNITS])
+  assert.ok(step1.includes(`value="${value}"`), `Offers ${value}`);
+const fresh = render({ product: undefined, media: [] });
+assert.match(fresh, /value="USD" selected=""/, 'A new product defaults to USD');
+assert.match(fresh, /value="" selected=""[^>]*>Chọn đơn vị giá/, 'A new product does not guess its price unit');
+const old = render({ product: { ...product, currency: 'USD/kg', unit: 'thùng 10kg' } });
+assert.match(old, /value="USD\/kg" selected=""[^>]*>Giá trị cũ:/, 'Legacy currency remains selected');
+assert.match(old, /value="thùng 10kg" selected=""[^>]*>Giá trị cũ:/, 'Legacy unit remains selected');
+
 for (const field of ['ref_price', 'ref_price_max', 'currency', 'unit', 'price_valid_until', 'lead_time_days',
   'payment_terms', 'export_port', 'incoterm', 'incoterm_place']) {
   assert.ok(step1.includes(`name="${field}"`), `Ô ${field} nằm ngay trong bước 1`);

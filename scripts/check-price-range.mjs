@@ -57,7 +57,9 @@ assert.equal(units.parsePriceUnit(null, "USD/MT"), "mt");
 assert.equal(units.parsePriceUnit("lbs"), "lb");
 assert.equal(units.parsePriceUnit("US cents/lb"), "lb", "Pound is read before the 't' inside 'cents'");
 assert.equal(units.parsePriceUnit("tonne"), "mt");
-assert.equal(units.parsePriceUnit("thùng"), null, "A packing unit is not a price unit and must not be guessed");
+assert.equal(units.parsePriceUnit("thùng"), null, "A packing unit is not a weight unit and must not be guessed");
+for (const unit of ["carton", "sack", "bag", "box", "bottle", "piece", "set"])
+  assert.equal(units.parsePriceUnit(unit), null, `Never guess the weight of ${unit}`);
 assert.equal(units.parsePriceUnit(""), null);
 assert.equal(units.parsePriceUnit(undefined, null), null);
 
@@ -150,6 +152,7 @@ const filtered = priceRange.buildPriceRange(
     { value: 5, unit: "thùng", updatedAt: daysAgo(1) },
     { value: 6, unit: "kg", updatedAt: null },
     { value: 9, unit: "kg", currency: "EUR", updatedAt: daysAgo(1) },
+    { value: 200000, unit: "kg", currency: "VND", updatedAt: daysAgo(1) },
     { value: 99, unit: "kg", updatedAt: daysAgo(1), exclude: true },
     { value: 12, unit: "kg", updatedAt: daysAgo(120) },
   ],
