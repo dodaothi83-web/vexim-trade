@@ -114,30 +114,30 @@ const SERVICES: ServiceItem[] = [
       vi: "Quảng cáo nổi bật",
     },
     description: {
-      en: "Feature one eligible product in the sponsored section of its category page.",
-      vi: "Đưa một sản phẩm đủ điều kiện vào khu vực tài trợ trên trang danh mục.",
+      en: "Promote your business with a banner in an advertising placement on Vexim Trade.",
+      vi: "Giới thiệu doanh nghiệp bằng banner tại vị trí quảng cáo trên sàn Vexim Trade.",
     },
     bullets: {
       en: [
-        "Shown in rotation above the product list when the category page has no filters applied",
-        "The package lasts 168 hours from activation (currently when approved)",
-        "The product card is clearly marked Sponsored; placement does not change verification or organic ranking",
-        "Recorded card views and link clicks are available in the report; actual reach is not guaranteed",
+        "Introduce your business and brand with a dedicated banner",
+        "Discuss placement, banner specifications, and display period with Vexim",
+        "Register for a consultation and quotation",
+        "A separate service from sponsored product placement",
       ],
       vi: [
-        "Luân phiên ở đầu danh sách sản phẩm khi trang danh mục chưa bật bộ lọc",
-        "Thời hạn gói là 168 giờ từ khi kích hoạt (hiện tại là lúc duyệt)",
-        "Thẻ có nhãn Tài trợ; quảng cáo không thay đổi kết quả xác minh hay thứ hạng tự nhiên",
-        "Có báo cáo lượt hiển thị và lượt nhấp ghi nhận được; không cam kết số lượt tiếp cận",
+        "Giới thiệu doanh nghiệp và thương hiệu qua banner riêng",
+        "Trao đổi với Vexim về vị trí, kích thước và thời gian hiển thị",
+        "Đăng ký để được tư vấn và báo giá",
+        "Dịch vụ riêng, khác với gói đẩy sản phẩm",
       ],
     },
     ctaLabel: {
-      en: "Register Featured Placement",
+      en: "Register for banner advertising",
       vi: "Đăng ký quảng cáo nổi bật",
     },
     notePlaceholder: {
-      en: "E.g. We want featured placement in the Pepper / Coffee / Processed Foods category...",
-      vi: "VD: Muốn đặt vị trí nổi bật cho ngành hàng Hồ tiêu / Cà phê / Thực phẩm chế biến...",
+      en: "E.g. We would like to discuss a banner for our business on Vexim Trade...",
+      vi: "VD: Doanh nghiệp muốn được tư vấn treo banner quảng cáo trên sàn Vexim Trade...",
     },
   },
   {

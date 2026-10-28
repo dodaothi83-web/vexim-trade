@@ -19,6 +19,6 @@ export async function recordPushEvent(pushId: string, event: "impression" | "cli
   if (!isPushId(pushId)) return;
   const db = getSupabaseClient();
   if (!db) return;
-  const { error } = await db.rpc("record_sponsored_push_event", { p_push_id: pushId, p_event_type: event });
+  const { error } = await db.rpc("record_consented_sponsored_push_event", { p_push_id: pushId, p_event_type: event });
   if (error) throw new Error(`sponsored push event write: ${error.message}`);
 }

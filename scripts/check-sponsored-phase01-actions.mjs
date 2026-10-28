@@ -166,8 +166,8 @@ const Services = load('components/service-registration-section.tsx', {
 for (const [lang, marker, next] of [['vi', 'DỊCH VỤ 03', 'DỊCH VỤ 04'], ['en', 'SERVICE 03', 'SERVICE 04']]) {
   const serviceHtml = renderToStaticMarkup(React.createElement(Services, { lang }));
   const featured = serviceHtml.slice(serviceHtml.indexOf(marker), serviceHtml.indexOf(next));
-  assert.match(featured, /168 (giờ|hours)/);
-  assert.match(featured, lang === 'vi' ? /chưa bật bộ lọc/ : /no filters applied/);
-  assert.doesNotMatch(featured, /90 ngày|90 day|khu vực tìm kiếm|search results|gian hàng nổi bật|supplier badge/i);
+  assert.match(featured, /banner/i);
+  assert.doesNotMatch(featured, /168 (giờ|hours)|chưa bật bộ lọc|no filters applied|supplier\/portal\/boost/i);
+  assert.match(featured, lang === 'vi' ? /khác với gói đẩy sản phẩm/ : /separate service from sponsored product placement/);
 }
 console.log('✅ Sponsored actions/UI: authorization, stale draft, 168h, no home selling/resume, reserved pool, CAS race, missing metrics and honest rotation estimate (in-memory).');

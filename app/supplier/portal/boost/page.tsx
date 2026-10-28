@@ -130,7 +130,7 @@ export default async function SupplierBoostPage() {
                 </div>
               </li>;
             })}</ul>}
-          {pushes.length > 0 && <p className="border-t border-ink-100 px-5 py-3 text-[11px] leading-5 text-ink-500">Số liệu chỉ ghi khi khách đồng ý theo dõi và có thể thiếu. {metricsOk ? "Không cam kết số lượt hiển thị." : "Chưa tải được số liệu; dấu — không có nghĩa là 0."}</p>}
+          {pushes.length > 0 && <p className="border-t border-ink-100 px-5 py-3 text-[11px] leading-5 text-ink-500">Lượt hiển thị/lượt bấm đo được, chỉ tính người xem đã đồng ý đo lường tiếp thị; số liệu bắt đầu từ khi hệ thống đo lường mới được triển khai, có thể thiếu và không phải số người xem. {metricsOk ? "Không cam kết số lượt hiển thị." : "Chưa tải được số liệu; dấu — không có nghĩa là 0."}</p>}
         </section>
 
         <section className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm" aria-labelledby="requests-title">

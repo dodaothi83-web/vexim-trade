@@ -162,7 +162,7 @@ export function SponsoredBoard({
         <Stat icon={<CircleDollarSign className="h-4 w-4" />} label="Nhấp đã ghi · 7 ngày" value={metricsAvailable ? group(summary.clicks7d) : "—"} hint={!metricsAvailable ? "chưa tải được số liệu" : summary.impressions7d ? `${Math.round((summary.clicks7d / summary.impressions7d) * 1000) / 10}% so với lượt hiển thị` : "chưa có lượt hiển thị ghi nhận"} />
       </div>
       <p className="mt-2 text-[11.5px] leading-5 text-ink-500">
-        Thẻ chỉ có thể hiện khi sản phẩm, nhà cung cấp và danh mục còn đủ điều kiện; không phải gói nào cũng được chọn ở mỗi vòng. Chỉ ghi số liệu khi người xem đồng ý đo lường tiếp thị; số liệu có thể thiếu. Lượt nhấp gồm các liên kết trên thẻ, không phải số người duy nhất.
+        Thẻ chỉ có thể hiện khi sản phẩm, nhà cung cấp và danh mục còn đủ điều kiện; không phải gói nào cũng được chọn ở mỗi vòng. Số liệu chỉ tính người xem đã đồng ý đo lường tiếp thị, bắt đầu từ khi hệ thống đo lường mới được triển khai và có thể thiếu. Lượt nhấp gồm các liên kết trên thẻ, không phải số người duy nhất.
       </p>
 
       {/* Bể gói */}

@@ -64,3 +64,7 @@ Kiểm thử cục bộ: `npm run check:sponsored-requests` (gồm PGlite và mo
 Kiểm thử cục bộ gồm `scripts/check-sponsored-phase01-migration.mjs` (PGlite), `scripts/check-sponsored-phase01-actions.mjs`, `scripts/check-sponsored-store-cas.mjs` và `scripts/check-sponsored-viewability.mjs` (giả lập observer/đồng hồ). Chúng không thay thế kiểm thử trên Supabase thật.
 
 Các thành phần chính: `lib/sponsored/rotation.ts`, `lib/public/sponsored-band.ts`, `components/sponsored-product-band.tsx`, `app/crm/sponsored`, và `app/api/public/sponsored-push`.
+
+## Đo lường theo đồng ý (migration 20261046)
+
+Từ phiên bản này, cả trình duyệt lẫn API kiểm tra lựa chọn **đo lường tiếp thị** trong cookie còn hiệu lực trước khi ghi. Báo cáo dùng bảng `sponsored_push_consented_daily` mới, không gộp dữ liệu lịch sử `sponsored_push_daily` vì không thể xác minh điều kiện đồng ý của các lượt cũ. Dữ liệu cũ vẫn được giữ, nhưng không hiện trong báo cáo mới; số liệu mới bắt đầu từ khi triển khai, có thể thiếu, không phải số người xem. Áp migration trên staging trước khi triển khai mã và xác minh số liệu thực tế.

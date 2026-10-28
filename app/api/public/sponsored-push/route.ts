@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { cookieConsentFromDocument } from "@/lib/cookie-consent";
 import { getSession } from "@/lib/auth/session";
 import { isPushId, recordPushEvent } from "@/lib/sponsored/events";
 
@@ -20,6 +21,12 @@ export async function POST(request: NextRequest) {
   } catch { /* Origin thiếu hoặc sai định dạng. */ }
   if (!sameOrigin || !request.headers.get("content-type")?.startsWith("application/json") ||
     Number(request.headers.get("content-length") || 0) > 600) return new NextResponse(null, { status: 403 });
+
+  // Consent is checked independently at the endpoint: a stale tab, revoked
+  // consent, direct request, or disabled JS must not write an event.
+  if (cookieConsentFromDocument(request.headers.get("cookie") || "")?.marketing !== true) {
+    return new NextResponse(null, { status: 204 });
+  }
 
   const userAgent = request.headers.get("user-agent") || "";
   if (!userAgent || /bot|crawler|spider|preview|lighthouse|headless|curl|wget/i.test(userAgent) ||

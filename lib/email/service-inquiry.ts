@@ -77,8 +77,8 @@ const SERVICE_NEXT_STEP: Record<string, { vi: string; en: string }> = {
     en: "We will ask for your product catalogue first, so the quote covers the pages you actually need.",
   },
   featured_ads: {
-    vi: "Chúng tôi sẽ kiểm tra vị trí tài trợ trên trang danh mục và báo giá cho gói 168 giờ sau khi duyệt.",
-    en: "We will check sponsored availability on the category page and quote a 168-hour package starting upon approval.",
+    vi: "Chúng tôi sẽ liên hệ để trao đổi về vị trí banner doanh nghiệp, thời gian hiển thị và báo giá.",
+    en: "We will contact you to discuss business banner placement, display period, and pricing.",
   },
   fda_compliance: {
     vi: "Chúng tôi sẽ rà xem sản phẩm của bạn cần bước nào trước: đăng ký cơ sở, U.S. Agent, nhãn hàng hoá, FSVP hay Prior Notice.",
