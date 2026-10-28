@@ -120,7 +120,7 @@ assert.ok(ackVi.text.includes("1 ngày làm việc"), "ack states the response t
 assert.ok(!ackVi.html.includes(base.note), "internal note never reaches the customer");
 assert.ok(!ackVi.text.includes(base.note), "internal note never reaches the customer (text)");
 assert.ok(!ackVi.html.includes("Việc cần làm"), "ack does not reuse the internal checklist");
-assert.match(ackVi.text, /trang danh mục.*168 giờ.*sau khi duyệt/);
+assert.match(ackVi.text, /banner doanh nghiệp.*thời gian hiển thị.*báo giá/);
 assert.doesNotMatch(ackVi.text, /90 ngày|tìm kiếm|gian hàng nổi bật/i, 'Do not promise unsupported placement or duration');
 
 const ackEn = mail.buildServiceInquiryAcknowledgement({ ...base, lang: "en", serviceTitle: "3. Featured Placement" });
@@ -128,7 +128,7 @@ assert.ok(ackEn.subject.startsWith("Vexim Trade received your featured placement
 assert.ok(ackEn.html.includes("What happens next"), "ack has a next-step block");
 assert.ok(ackEn.html.includes("one business day"));
 assert.ok(!ackEn.html.includes("Kính gửi") && !ackEn.text.includes("Trân trọng"), "English form gets an English email");
-assert.match(ackEn.text, /category page.*168-hour.*approval/);
+assert.match(ackEn.text, /banner placement.*display period.*pricing/);
 assert.doesNotMatch(ackEn.text, /90 day|search results|storefront views/i);
 
 /* 6. Mỗi dịch vụ có bước tiếp theo riêng --------------------------------- */

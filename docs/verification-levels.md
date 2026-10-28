@@ -2,7 +2,7 @@
 
 > Tài liệu này mô tả hệ thống hiện tại. Business specification chưa triển khai về chu kỳ tái kiểm định nằm tại [Cơ chế tái kiểm định minh bạch 24 tháng](./verification-reverification-cycle.md).
 
-Ba đánh giá độc lập trong CRM: **Kiểm tra giấy tờ**, **Xác thực nhà máy hoặc nhà máy đối tác**, **Lịch sử giao hàng**. Có thể bắt đầu và duyệt bất kỳ đánh giá nào mà không cần duyệt đánh giá còn lại; doanh nghiệp thương mại không có nhà máy vẫn có thể được duyệt lịch sử giao hàng. Chỉ hiện huy hiệu công khai cho đúng từng đánh giá đã **duyệt**, không suy ra hai đánh giá trước từ giá trị `verification_level` lớn nhất. Một nhân sự có đủ quyền kiểm + duyệt (thu mua hoặc admin) có thể hoàn tất bản của chính mình sau khi xác nhận đối chiếu lại. Reviewer vẫn có thể duyệt độc lập khi cần, nhưng không còn là bước chờ bắt buộc. Quyết định một nhân sự ghi `self_approved` và audit log; AI không tự duyệt.
+Ba đánh giá độc lập trong CRM: **Kiểm tra giấy tờ**, **Xác thực nhà máy hoặc nhà máy đối tác**, **Lịch sử giao hàng**. Có thể bắt đầu và duyệt bất kỳ đánh giá nào mà không cần duyệt đánh giá còn lại; doanh nghiệp thương mại không có nhà máy vẫn có thể được duyệt lịch sử giao hàng. Chỉ hiện huy hiệu công khai cho đúng từng đánh giá đã **duyệt**, không suy ra hai đánh giá trước từ giá trị `verification_level` lớn nhất. Một nhân sự có đủ quyền kiểm + duyệt (admin hoặc trưởng kiểm duyệt) có thể hoàn tất bản của chính mình sau khi xác nhận đối chiếu lại. Duyệt độc lập vẫn có thể thực hiện khi cần, nhưng không là bước chờ bắt buộc. Quyết định một nhân sự ghi `self_approved` và audit log; AI không tự duyệt.
 
 Trên **thẻ và trang chi tiết sản phẩm** cho buyer, ba kết quả được rút gọn thành icon giấy tờ / nhà máy / giao hàng, có tooltip tiếng Anh khi rê chuột, dùng bàn phím hoặc chạm. Chỉ icon của đúng đợt kiểm đã được duyệt mới xuất hiện; không hiển thị số L1/L2/L3 hay suy diễn bước trước. Tooltip ghi rõ đây là kiểm tra **nhà cung cấp**, không chứng nhận chất lượng sản phẩm; hai số thuế/ngân hàng do NCC cung cấp không được xác minh độc lập. Không có duyệt thì ghi “No approved checks yet”; bản demo không được nhận icon giả từ `verification_level` cũ. Lọc xác minh trong danh mục sản phẩm vẫn dựa trên từng đợt đã duyệt.
 
@@ -73,11 +73,13 @@ Test local: `npm run check:supplier-verification` (service/API, tiến độ, gi
 
 ## Phân công người kiểm và người duyệt
 
-Thu mua và admin có đủ quyền `verifications.inspect` + `verifications.approve`, nên **một nhân sự có thể kiểm và duyệt chính bản mình thực hiện** sau khi tích xác nhận đã đối chiếu lại bằng chứng. Không cần chuyển cho admin hoặc trưởng kiểm duyệt khác. Reviewer vẫn có thể xét duyệt độc lập bản do người khác kiểm khi doanh nghiệp muốn thêm lớp rà soát, nhưng đây không còn là bước bắt buộc. Quyết định một nhân sự được ghi `self_approved` và audit log. Bằng chứng đã nộp vẫn khóa sửa; muốn bổ sung phải trả về. Đợt do NCC tự tải giấy tờ (`inspector_id = null`) vẫn yêu cầu xác nhận tự đối chiếu. AI chỉ đọc và gợi ý, không tự duyệt hay tự cấp huy hiệu.
+Admin và trưởng kiểm duyệt có đủ quyền `verifications.inspect` + `verifications.approve`, nên **một nhân sự có thể kiểm và duyệt chính bản mình thực hiện** sau khi tích xác nhận đã đối chiếu lại bằng chứng. Người duyệt độc lập vẫn phải xác nhận đối chiếu. Vai trò thu mua tạm khóa, tài khoản cũ giữ nguyên lịch sử. Quyết định một nhân sự được ghi `self_approved` và audit log. Bằng chứng đã nộp vẫn khóa sửa; muốn bổ sung phải trả về. Đợt do NCC tự tải giấy tờ (`inspector_id = null`) vẫn yêu cầu xác nhận tự đối chiếu. AI chỉ đọc và gợi ý, không tự duyệt hay tự cấp huy hiệu.
 
 Chạy **`supabase/migrations/20261018_review_lead_role.sql`** trước khi cấp vai trò mới hoặc deploy mã; migration mở CHECK vai trò, đánh dấu riêng các bản tự duyệt cũ (`legacy_self_approved`) và phục hồi CHECK bốn mắt `NOT VALID` cho bản duyệt mới, không xoá bản ghi cũ. Không chạy lại migration `20261017_temporary_self_verification_approval.sql` sau đó (nó sẽ gỡ CHECK mới). Không tự gán role reviewer cho tài khoản hiện có; admin cấp role tại Cài đặt → Người dùng & phân quyền.
 
-Để dùng quy trình một nhân sự, chạy **`supabase/migrations/20261035_single_person_verification.sql`** sau migration `20261033_uploaded_documents_single_reviewer.sql`. Migration này đã bao gồm toàn bộ CHECK/trigger cần thiết và thay thế ngoại lệ chỉ dành cho admin ở `20261034`; chỉ admin/thu mua đang hoạt động (hai vai trò có đủ quyền kiểm + duyệt) được hoàn tất bản của chính mình. Không xóa `inspector_id`, không đánh dấu quyết định mới là `legacy_self_approved`, không cho AI hoặc tài khoản NCC tự duyệt.
+Để dùng quy trình một nhân sự, chạy **`supabase/migrations/20261035_single_person_verification.sql`** sau migration `20261033_uploaded_documents_single_reviewer.sql`. Migration này đã bao gồm toàn bộ CHECK/trigger cần thiết và thay thế ngoại lệ chỉ dành cho admin ở `20261034`; quy tắc admin/thu mua trong migration cũ được thay bởi migration 20261049 cho admin/trưởng kiểm duyệt. Không xóa `inspector_id`, không đánh dấu quyết định mới là `legacy_self_approved`, không cho AI hoặc tài khoản NCC tự duyệt.
+
+**Phân quyền hiện tại:** áp dụng `20261049_review_lead_and_sourcing_hold.sql` sau các migration xác minh cũ và trước khi đưa mã mới vào sử dụng. Migration khóa tài khoản thu mua, chặn cấp lại, cho trưởng kiểm duyệt tự duyệt và ghi xác nhận trong cùng giao dịch. Thử staging và lên lịch triển khai phối hợp: từ lúc chạy migration, mã cũ không thể phê duyệt nếu chưa gửi xác nhận. Không xóa dữ liệu lịch sử.
 
 ## Triển khai database
 
@@ -120,3 +122,10 @@ Không lấy nguyên ghi chú nội bộ, ảnh/chứng từ thuộc đợt ki�
 ## Điểm và chu kỳ
 
 Không đổi công thức xếp hạng trong đợt này. Khi L2 đối tác được duyệt, hệ thống hiện tại vẫn tính thêm một check/tầng và phần điểm xác minh như với L2; chưa có trọng số riêng. Cần bàn chính sách điểm sau. Quy tắc chu kỳ 24 tháng ở tài liệu riêng vẫn là đặc tả, **chưa triển khai**, không tự hết hạn hay đổi kết quả cũ.
+
+
+### Công khai hồ sơ sau L1 (chuẩn bị triển khai)
+
+Migration 20261050 và ứng dụng phải triển khai phối hợp sau 20261049. Hồ sơ tự đăng ký **tạo mới sau khi triển khai** được đánh dấu một lần: khi cổng đã mở, tài khoản hoạt động, hồ sơ đủ thông tin và L1 được duyệt, CSDL tự chuyển hồ sơ sang công khai và ghi lịch sử cùng giao dịch. Nếu điều kiện hoặc ghi log thất bại, duyệt L1 được hoàn tác để sửa và thử lại. Sản phẩm vẫn duyệt riêng. Hồ sơ demo không tự công khai; việc ẩn/lưu trữ sẽ loại bỏ đánh dấu, không tự mở lại.
+
+Hồ sơ tồn tại trước migration mặc định không tự công khai vì không thể chứng minh chắc chắn chưa từng bị ẩn qua toàn bộ luồng cũ. Nhân viên rà soát và quyết định công khai riêng; không tự backfill hàng loạt. Kiểm thử staging và phương án phát hành phối hợp trước khi áp production.

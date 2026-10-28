@@ -2,6 +2,10 @@
 
 Cập nhật ngày 28/10/2026. Đây là mô tả để vận hành gói tài trợ; không phải xác nhận rằng mã hoặc migration đã được triển khai lên production.
 
+## Chuyển đổi sang NCC tự mua (chưa mở bán)
+
+Migration `20261048_sponsored_retire_manual.sql` chặn tạo mới và duyệt/chạy lại thủ công khi đã áp dụng. Ứng dụng bỏ các thao tác đó; gói cũ tiếp tục tới hết hạn, nháp cũ được giữ lại nhưng không thể duyệt. Admin có thể dừng gói do vi phạm với lý do được lưu trong giao dịch. Không có đơn mua, giữ chỗ, xác nhận thanh toán hay hoàn tiền tự động. Quy trình mục bên dưới mô tả cơ chế cũ để đối soát; không dùng để vận hành việc tạo gói mới. Xem `docs/sponsored-purchase-plan.md`.
+
 ## Vị trí bán
 
 - Một gói dành cho **một sản phẩm đủ điều kiện công khai**, tại khu vực tài trợ ở đầu trang danh mục **khi người xem chưa bật bộ lọc**. Số ô theo tổng sản phẩm công khai không phải demo trước lọc: 1 ô khi dưới 10, 2 ô khi 10–30 và 3 ô khi trên 30; danh mục rỗng không có ô. Các ngưỡng và số ô là cấu hình triển khai. Mỗi thẻ có nhãn “Sponsored · Tài trợ” và phần giải thích.
@@ -64,3 +68,7 @@ Kiểm thử cục bộ: `npm run check:sponsored-requests` (gồm PGlite và mo
 Kiểm thử cục bộ gồm `scripts/check-sponsored-phase01-migration.mjs` (PGlite), `scripts/check-sponsored-phase01-actions.mjs`, `scripts/check-sponsored-store-cas.mjs` và `scripts/check-sponsored-viewability.mjs` (giả lập observer/đồng hồ). Chúng không thay thế kiểm thử trên Supabase thật.
 
 Các thành phần chính: `lib/sponsored/rotation.ts`, `lib/public/sponsored-band.ts`, `components/sponsored-product-band.tsx`, `app/crm/sponsored`, và `app/api/public/sponsored-push`.
+
+## Đo lường theo đồng ý (migration 20261046)
+
+Từ phiên bản này, cả trình duyệt lẫn API kiểm tra lựa chọn **đo lường tiếp thị** trong cookie còn hiệu lực trước khi ghi. Báo cáo dùng bảng `sponsored_push_consented_daily` mới, không gộp dữ liệu lịch sử `sponsored_push_daily` vì không thể xác minh điều kiện đồng ý của các lượt cũ. Dữ liệu cũ vẫn được giữ, nhưng không hiện trong báo cáo mới; số liệu mới bắt đầu từ khi triển khai, có thể thiếu, không phải số người xem. Áp migration trên staging trước khi triển khai mã và xác minh số liệu thực tế.

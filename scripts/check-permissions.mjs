@@ -135,7 +135,7 @@ const allPerms = [
 }
 
 // 4) Quyền quản trị thuần túy chỉ cấp admin; quyết định xuất bản/xét duyệt cấp reviewer.
-const adminOnly = ["users.manage","suppliers.delete","traffic.view","templates.manage"];
+const adminOnly = ["users.manage","suppliers.delete","products.delete","traffic.view","templates.manage"];
 for (const p of adminOnly) {
   // Mọc ra ở role matrix không phải admin?
   const roleBlocks = [...permFile.matchAll(/(\w+):\s*\[[\s\S]*?\],\s*\n/g)];
@@ -148,16 +148,16 @@ for (const p of adminOnly) {
   }
 }
 
-// Reviewer cannot edit evidence or accounts; sourcing can complete its own review.
+// Review lead may complete the supplier intake workflow; sourcing is disabled.
 const roleSection = (name) => permFile.split(`  ${name}: [`)[1]?.split('],')[0] ?? '';
-for (const perm of ["suppliers.publish", "categories.publish", "categories.view", "verifications.approve", "verifications.view"]) {
+for (const perm of ["suppliers.manage", "suppliers.publish", "products.manage", "media.manage", "categories.publish", "categories.view", "verifications.inspect", "verifications.approve", "verifications.view"]) {
   if (!roleSection('reviewer').includes(`"${perm}"`)) errors.push(`Reviewer thiếu quyền ${perm}.`);
 }
-for (const perm of ["verifications.inspect", "media.manage", "users.manage", "suppliers.delete", "suppliers.manage", "products.manage", "categories.manage", "mail.send"]) {
+for (const perm of ["users.manage", "suppliers.delete", "products.delete", "categories.manage", "mail.send"]) {
   if (roleSection('reviewer').includes(`"${perm}"`)) errors.push(`Reviewer không được có quyền ${perm}.`);
 }
 for (const perm of ["verifications.inspect", "verifications.approve"]) {
-  if (!roleSection('sourcing').includes(`"${perm}"`)) errors.push(`Sourcing thiếu quyền ${perm} cho quy trình một nhân sự.`);
+  if (roleSection('sourcing').includes(`"${perm}"`)) errors.push(`Sourcing không được có quyền ${perm}.`);
 }
 for (const perm of ["suppliers.manage", "products.manage", "categories.manage", "verifications.approve"]) {
   if (roleSection('sale').includes(`"${perm}"`)) errors.push(`Sale không được có quyền ${perm}.`);

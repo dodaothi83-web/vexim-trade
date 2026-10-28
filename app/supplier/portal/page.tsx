@@ -18,6 +18,7 @@ import type { SupplierSubmissionItem } from "@/lib/types";
 import { SupplierProfileForm } from "./supplier-profile-form";
 import { EmptyRow, Kpi, LevelChip, Panel, PortalSteps, date } from "./portal-ui";
 import { VerificationProgressPanel } from "./verification-progress";
+import { PendingProfileRefresh } from "./pending-profile-refresh";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tổng quan cổng nhà cung cấp", robots: { index: false, follow: false } };
@@ -61,15 +62,15 @@ export default async function SupplierPortal() {
           <p className="mt-2 whitespace-pre-wrap font-semibold">Nội dung cần bổ sung: {supplier.onboarding_note}</p>}
       </div>
       <div className="mt-5"><SupplierProfileForm supplier={supplier} email={user.email} categories={categoryOptions} hasCoreDoc={hasCoreDoc} /></div>
-    </> : <><div className="rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
+    </> : <><PendingProfileRefresh /><div className="rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
       <h2 className="text-base font-bold text-amber-950">Hồ sơ đang chờ xác nhận</h2>
       <p className="mt-2 text-sm text-amber-900">Hồ sơ {supplier.name} đã được gửi. Bạn vẫn đăng nhập được để xem trạng thái, nhưng RFQ, thông báo, báo cáo và tải thêm tài liệu sẽ mở sau khi hồ sơ được xác nhận.</p>
       <p className="mt-3 text-xs text-amber-800">Xác nhận tài khoản không đồng nghĩa duyệt giấy tờ, xác thực nhà máy, lịch sử giao hàng hoặc công khai hồ sơ.</p>
     </div>
     <div className="mt-5"><PortalSteps stages={[
       { label: "Khai hồ sơ", state: "done", note: "Đã gửi" },
-      { label: "Kiểm tra giấy tờ", state: "current", note: "Đang chờ" },
-      { label: "Mở cổng nhà cung cấp", state: "todo", note: "Sau khi đạt bước 2" },
+      { label: "Xác nhận hồ sơ", state: "current", note: "Đang chờ Vexim" },
+      { label: "Mở cổng nhà cung cấp", state: "todo", note: "Khi Vexim xác nhận" },
       { label: "Thêm sản phẩm & nhận RFQ", state: "todo", note: "Sau khi mở cổng" },
     ]} /></div></>}
   </>;

@@ -67,16 +67,18 @@ function isPreparationTarget(status: SupplierStatus) {
  * private stages; only publishers can make or withdraw a public profile.
  * Neither action saves profile edits or approves verification evidence.
  */
-export function SupplierWorkflowControls({ supplierId, status, canManage, canPublish }: {
+export function SupplierWorkflowControls({ supplierId, status, canManage, canPublish, autoPublishL1 = false }: {
   supplierId: string;
   status: SupplierStatus;
   canManage: boolean;
   canPublish: boolean;
+  autoPublishL1?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const choices = nextStatusOptions(status).filter((next) => {
+    if (next === "published" && autoPublishL1) return false;
     if (isPreparationTarget(next)) return canManage;
     return canPublish && (next === "published" || (status === "published" && (next === "suspended" || next === "archived")));
   });

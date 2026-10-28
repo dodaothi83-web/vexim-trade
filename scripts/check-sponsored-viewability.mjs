@@ -11,7 +11,7 @@ const js = ts.transpileModule(source, {
 }).outputText + '\nexports.TestCard = SponsoredBandCard;';
 
 function fixture(marketingAllowed = true) {
-  let now = 0, nextTimer = 0, observer, cleanup;
+  let now = 0, nextTimer = 0, observer, cleanup, cookieAllowed = marketingAllowed;
   const timers = new Map(), listeners = new Map(), session = new Map(), requests = [];
   const document = {
     visibilityState: 'visible',
@@ -31,6 +31,7 @@ function fixture(marketingAllowed = true) {
     react: { useRef: () => ({ current: {} }), useEffect: (effect) => { cleanup = effect(); } },
     '@/components/public-product-card': { PublicProductCard: () => null },
     '@/components/cookie-consent': { useCookieConsent: () => ({ marketingAllowed }) },
+    '@/lib/cookie-consent': { cookieConsentFromDocument: () => ({ marketing: cookieAllowed }) },
     '@/lib/public/product-comparison': { hasProductComparisonPeer: () => false },
   };
   const exports = {};
@@ -43,6 +44,7 @@ function fixture(marketingAllowed = true) {
   const card = exports.TestCard({ item: { push: { id: 'push-1' }, product: { id: 'p1', imagePaths: [], supplierId: 's1' } }, categorySlug: 'pepper', comparisonEnabled: false });
   return {
     requests, card, observer,
+    revokeCookie: () => { cookieAllowed = false; },
     intersect: (ratio, intersecting = ratio > 0) => observer.callback([{ isIntersecting: intersecting, intersectionRatio: ratio }]),
     visibility: (state) => { document.visibilityState = state; listeners.get('visibilitychange')?.(); },
     advance(ms) {
@@ -88,6 +90,12 @@ moved.intersect(0.7); moved.advance(400); moved.intersect(0.49); moved.advance(1
 assert.equal(moved.requests.length, 0, 'Leaving the visibility threshold cancels the timer');
 moved.intersect(0.7); moved.cleanup(); moved.advance(1000);
 assert.equal(moved.requests.length, 0, 'Unmount cancels the timer');
+
+const revoked = fixture();
+revoked.intersect(1); revoked.revokeCookie(); revoked.advance(1000);
+revoked.card.props.onClickCapture({ target: { closest: () => ({}) } });
+assert.equal(revoked.requests.length, 0, 'Cross-tab revocation is rechecked even with stale React consent state');
+revoked.cleanup();
 
 const noConsent = fixture(false);
 noConsent.intersect(1); noConsent.advance(1000);

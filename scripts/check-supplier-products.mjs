@@ -256,7 +256,7 @@ let denied = true;
 const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
   'next/cache': { revalidatePath() {} },
   '@/lib/auth/session': { guard: async () => denied ? { message: 'denied' } : null,
-    getSession: async () => ({ uid: 'reviewer', email: 'staff@example.com', role: 'sourcing' }) },
+    getSession: async () => ({ uid: 'reviewer', email: 'staff@example.com', role: 'reviewer' }) },
   '@/lib/db': { getStore: () => store },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async (input) => { notices.push([input.decision, input.entityId]); return 'sent'; } },
   '@/lib/crm/badges': { refreshCrmBadges() {} },

@@ -82,6 +82,7 @@ async function auditChange(before: Verification, status: VerificationStatus, act
       ...(status === "approved" ? {
         inspector_id: before.inspector_id,
         approved_by: session?.uid ?? null,
+        evidence_review_confirmed: true,
         self_approved: before.inspector_id == null || before.inspector_id === session?.uid,
       } : {}),
       ...(publication ? {
@@ -222,6 +223,10 @@ export async function approveVerificationAction(fd: FormData): Promise<{ ok: boo
     return await approveReview(fd, () => { committed = true; });
   } catch (error) {
     console.error("[verification] approve action failed", error);
+    const reason = briefReason(error);
+    if (!committed && /L1_AUTO_PUBLICATION_PORTAL_NOT_APPROVED/i.test(reason)) return { ok: false, message: "Chưa duyệt L1: cần mở quyền cổng NCC trước khi công khai hồ sơ mới. Sau đó duyệt lại." };
+    if (!committed && /L1_AUTO_PUBLICATION_PROFILE_INCOMPLETE/i.test(reason)) return { ok: false, message: "Chưa duyệt L1: tài khoản NCC phải hoạt động và hồ sơ cần đủ tên, số điện thoại, mã số thuế, sản phẩm và loại hình. Kiểm tra rồi duyệt lại." };
+    if (!committed && /L1_AUTO_PUBLICATION_TEST_PROFILE/i.test(reason)) return { ok: false, message: "Chưa duyệt L1: hồ sơ demo hoặc thử nghiệm không được tự công khai. Hãy kiểm tra lại hồ sơ." };
     return committed
       ? { ok: true, message: "Đã duyệt bước kiểm tra. Trang chưa tự cập nhật; tải lại trang để thấy kết quả và mở bước tiếp theo." }
       : { ok: false, message: `Chưa lưu được quyết định duyệt (${briefReason(error)}).${technicalHint(briefReason(error))} Bản kiểm vẫn đang chờ duyệt.` };
@@ -232,6 +237,9 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
   const reviewable = await getReviewable(String(fd.get("id") || ""));
   if (!reviewable.ok) return reviewable;
   const { before, store, session } = reviewable;
+  if (fd.get("confirm_evidence_review") !== "yes") {
+    return { ok: false, message: "Hãy xác nhận đã đối chiếu bằng chứng trước khi duyệt." };
+  }
   const bankNumber = (before.bank_account_number ?? "").trim();
   if (before.target_level === 1 && (!/^[0-9]{1,32}$/.test(before.tax_number ?? "") ||
       (bankNumber && !/^[0-9]{1,34}$/.test(bankNumber)))) {
@@ -289,7 +297,8 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
   }
   const approvedAt = new Date().toISOString();
   const publication = before.target_level > 1 ? { summary: publicSummary, publishedAt: approvedAt } : null;
-  const decision = { status: "approved" as const, approved_by: session?.uid ?? null, approved_at: approvedAt };
+  const decision = { status: "approved" as const, approved_by: session?.uid ?? null, approved_at: approvedAt,
+    evidence_confirmed_by: session?.uid ?? null, evidence_confirmed_at: approvedAt };
   const approvalPatch = {
     ...decision,
     ...(publication ? {
@@ -301,21 +310,13 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
   // Preserve an explicit single-person marker and the corresponding audit entry.
   const patch = { ...approvalPatch, self_approved: singlePersonDecision };
   try {
-    try {
-      await store.updateVerification(before.id, patch);
-    } catch (error) {
-      // CSDL chưa chạy migration 20261033: cột self_approved chưa có. Không để
-      // thứ tự deploy chặn quyết định; ràng buộc CSDL hiện có vẫn tự chặn nếu chưa tương thích.
-      if (!/self_approved/.test(briefReason(error)) || !/schema cache|PGRST204|does not exist/i.test(briefReason(error))) throw error;
-      console.warn("[verification] self_approved column missing; approving without it", briefReason(error));
-      await store.updateVerification(before.id, approvalPatch);
-    }
+    await store.updateVerification(before.id, patch);
     markCommitted();
   } catch (error) {
     if (error instanceof Error && /verifications_four_eyes|check_verification_self_approval|Only an active admin/i.test(error.message)) {
       console.error("[verification] database rejected the verification approval");
       if (singlePersonDecision) {
-        return { ok: false, message: "CSDL chưa mở quy trình kiểm và duyệt bởi một người. Chạy migration 20261035_single_person_verification.sql rồi thử lại; bản kiểm vẫn đang chờ duyệt." };
+        return { ok: false, message: "CSDL chưa mở quy trình kiểm và duyệt bởi một người. Chạy migration 20261049_review_lead_and_sourcing_hold.sql rồi thử lại; bản kiểm vẫn đang chờ duyệt." };
       }
       return { ok: false, message: "CSDL yêu cầu người duyệt khác người kiểm. Nhờ tài khoản khác xét duyệt; bản kiểm vẫn đang chờ duyệt." };
     }
@@ -327,12 +328,19 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
     () => notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_approved", name })) ?? "failed";
   if (mail !== "sent") console.warn("[verification] supplier approval email not sent; decision saved", mail);
   await softEffect("làm mới trang kiểm tra", () => refreshAudit(before));
-  if (publication) {
-    const supplier = await softEffect("đọc hồ sơ NCC", () => store.getSupplier(before.supplier_id));
-    if (supplier?.status === "published") await softEffect("làm mới trang NCC công khai",
-      () => revalidatePath(`/suppliers/${supplier.slug || supplier.id}`));
-  }
-  const message = publication ? "Đã duyệt bước kiểm tra và công khai tóm tắt cho buyer." : "Đã duyệt bước kiểm tra.";
+  const supplier = (publication || before.target_level === 1)
+    ? await softEffect("đọc hồ sơ NCC", () => store.getSupplier(before.supplier_id)) : null;
+  if (supplier?.status === "published") await softEffect("làm mới trang NCC công khai", () => {
+    revalidatePath(`/suppliers/${supplier.slug || supplier.id}`);
+    revalidatePath("/suppliers");
+    revalidatePath("/");
+  });
+  const message = publication ? "Đã duyệt bước kiểm tra và công khai tóm tắt cho buyer."
+    : before.target_level === 1 ? supplier?.status === "published"
+      ? "Đã duyệt L1; hồ sơ doanh nghiệp đang công khai. Sản phẩm vẫn cần xét duyệt riêng."
+      : supplier ? "Đã duyệt L1; hồ sơ chưa công khai. Hồ sơ cũ hoặc đã ẩn cần người có quyền kiểm tra và quyết định công khai riêng."
+      : "Đã duyệt L1; chưa đọc lại được trạng thái công khai, hãy tải lại hồ sơ để kiểm tra."
+    : "Đã duyệt bước kiểm tra.";
   return { ok: true, message: message + (mail === "sent" ? "" : " Email NCC chưa gửi được; kết quả vẫn lưu trên cổng.") };
 }
 

@@ -1633,7 +1633,7 @@ export async function updateProductAction(
 }
 
 export async function deleteProductAction(id: string): Promise<ActionResult> {
-  const gate = await guard("products.manage");
+  const gate = await guard("products.delete");
   if (gate) return gate;
   try {
     const store = getStore();

@@ -17,10 +17,10 @@ function notificationOrigin(): string {
   return SITE_URL;
 }
 
-/** One notification to every active sourcing manager and admin; requests remain in the CRM queue if mail fails. */
+/** One notification to every active review lead and admin; requests remain in the CRM queue if mail fails. */
 export async function notifySupplierRegistration(supplier: Supplier, requested: readonly number[]): Promise<"sent" | "simulated" | "failed"> {
   const users = await getStore().listUsers();
-  const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "sourcing" || u.role === "admin"))
+  const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "reviewer" || u.role === "admin"))
     .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
   if (!recipients.length) return "failed";
   const choices = requested.map((n) => n === 2 ? supplier.supplier_type === "trading" ? "Đối chiếu nhà máy đối tác" : "Xác thực nhà máy" : "Lịch sử giao hàng");
@@ -30,7 +30,7 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
   const body = `<p>NCC vừa nộp hồ sơ tự khai (giấy tờ bước đầu nếu đã tải). <strong>Tài khoản chưa được Vexim xác nhận sử dụng cổng; chưa có đánh giá nào được tự động duyệt.</strong></p>
     <p>Doanh nghiệp: ${escapeHtml(supplier.name)}<br/>Liên hệ: ${escapeHtml(supplier.contact_name ?? "-")} · ${escapeHtml(supplier.email ?? "-")} · ${escapeHtml(supplier.phone ?? "-")}</p>
     <p>Yêu cầu Vexim liên hệ để xác minh thêm: <strong>${escapeHtml(choices.join(", ") || "Không chọn")}</strong>.
-    Nếu có yêu cầu, nhân viên thu mua vui lòng liên hệ sớm để lên kế hoạch và tự tải bằng chứng vào đúng đợt kiểm.</p>
+    Nếu có yêu cầu, nhân sự kiểm duyệt vui lòng liên hệ sớm để lên kế hoạch và tự tải bằng chứng vào đúng đợt kiểm.</p>
     <p>Chuyên viên kiểm tra hồ sơ gốc/ảnh, sửa checklist thủ công, nộp và người có quyền duyệt mới xác nhận. AI chỉ gợi ý.</p>
     <p><a href="${url}">Mở hồ sơ NCC trong CRM →</a></p>`;
   const result = await transport({ to: recipients, subject: title,
@@ -45,7 +45,7 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
 export async function notifyStaffSupplierAccount(input: { email: string; name?: string | null; provider: "email" | "google" }): Promise<"sent" | "simulated" | "failed"> {
   try {
     const users = await getStore().listUsers();
-    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "sourcing" || u.role === "admin"))
+    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "reviewer" || u.role === "admin"))
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const email = input.email.trim().toLowerCase();
@@ -65,7 +65,7 @@ export async function notifyStaffSupplierAccount(input: { email: string; name?: 
 /** Pending certificate claim goes to staff inbox, never directly to buyers or publication. */
 export async function notifySupplierCertificateSubmission(supplier: Supplier, name: string): Promise<"sent" | "simulated" | "failed"> {
   const users = await getStore().listUsers();
-  const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "reviewer" || u.role === "sourcing"))
+  const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "reviewer"))
     .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
   if (!recipients.length) return "failed";
   const staffOrigin = notificationOrigin();
@@ -159,7 +159,7 @@ export async function notifyStaffDocumentUpload(input: {
 }): Promise<"sent" | "simulated" | "failed"> {
   try {
     const users = await getStore().listUsers();
-    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "reviewer" || u.role === "sourcing"))
+    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "reviewer"))
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const url = `${notificationOrigin()}/crm/suppliers/${encodeURIComponent(input.supplierId)}/audit/documents`;
@@ -177,7 +177,7 @@ export async function notifyStaffDocumentUpload(input: {
 export async function notifyStaffProductSubmission(supplier: Supplier, product: { id: string; name: string }): Promise<"sent" | "simulated" | "failed"> {
   try {
     const users = await getStore().listUsers();
-    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "sourcing"))
+    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "reviewer"))
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const url = `${notificationOrigin()}/crm/products/${encodeURIComponent(product.id)}/edit`;

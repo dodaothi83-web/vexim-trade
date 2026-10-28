@@ -98,7 +98,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
             <p className="text-sm text-ink-600">{current.status === "approved" ? "Bằng chứng được khoá để giữ nguyên hồ sơ đã duyệt." : "Ghi kết quả, đính kèm bằng chứng và nộp xét duyệt khi đã sẵn sàng."}</p>
           </Card>
           <div className="max-w-5xl">
-            <AuditForm key={current.id + current.updated_at} verification={current} evidence={media} certificates={certificates} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} canSelfApprove={canSelfApproveVerification(session.role)} />
+            <AuditForm key={current.id + current.updated_at} verification={current} autoPublishL1={!!supplier.auto_publish_after_l1} evidence={media} certificates={certificates} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} canSelfApprove={canSelfApproveVerification(session.role)} />
           </div>
         </>}
     </div>

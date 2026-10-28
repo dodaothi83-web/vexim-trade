@@ -119,7 +119,7 @@ export function SupplierAccountControls({
   }
 
   if (!canProvision) {
-    return <p className="mt-3 text-sm text-ink-600">Chưa có tài khoản đăng nhập gắn với hồ sơ này. Chỉ quản trị và thu mua được cấp tài khoản cho nhà cung cấp.</p>;
+    return <p className="mt-3 text-sm text-ink-600">Chưa có tài khoản đăng nhập gắn với hồ sơ này. Chỉ quản trị và trưởng kiểm duyệt được cấp tài khoản cho nhà cung cấp.</p>;
   }
 
   return (

@@ -13,6 +13,7 @@ import { DeleteProductButton } from "@/components/product-actions";
 import { MediaManager, ReadyHint } from "@/components/media-manager";
 import { isExpired, productPublicationMediaState, productReadiness } from "@/lib/media/readiness";
 import { requirePagePermission } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
 import { SupplierProductReviewControls } from "./review-controls";
 import { ProductTranslationPanel } from "./translation-panel";
 import { productTranslationState } from "@/lib/ai/translate-content";
@@ -108,7 +109,7 @@ export default async function EditProductPage({
         title={`Sửa: ${product.name}`}
         sub={`Nhà cung cấp: ${supplier.name}`}
         actions={
-          <DeleteProductButton productId={product.id} name={product.name} supplierId={supplier.id} />
+          hasPermission(session.role, "products.delete") ? <DeleteProductButton productId={product.id} name={product.name} supplierId={supplier.id} /> : null
         }
       />
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
@@ -180,7 +181,7 @@ export default async function EditProductPage({
                 ? "Sản phẩm đang ẩn. NCC phải gửi duyệt lại trước khi Vexim có thể đăng."
                 : "Sản phẩm chưa được đăng. NCC cần chỉnh sửa và gửi duyệt lại."}</p>
             {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
-            {needsPublicationAction && (session.role === "admin" || session.role === "sourcing") &&
+            {needsPublicationAction && (session.role === "admin" || session.role === "reviewer") &&
               <SupplierProductReviewControls
                 id={product.id}
                 proposal={product.supplier_category_proposal}

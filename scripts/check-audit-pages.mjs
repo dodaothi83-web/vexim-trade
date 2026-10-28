@@ -75,11 +75,11 @@ const mocks = {
   'next/cache': { revalidatePath: () => { if (revalidateThrows) throw new Error('invariant: static generation store missing'); } },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': {
-    guard: async (permission) => permission === 'verifications.approve' && !['admin', 'reviewer', 'sourcing'].includes(auditor.role) ? { message: 'Bạn không có quyền xét duyệt' } : null,
+    guard: async (permission) => permission === 'verifications.approve' && !['admin', 'reviewer'].includes(auditor.role) ? { message: 'Bạn không có quyền xét duyệt' } : null,
     getSession: async () => auditor,
   },
   '@/lib/verification-policy': {
-    canSelfApproveVerification: (role) => ['admin', 'sourcing'].includes(role),
+    canSelfApproveVerification: (role) => ['admin', 'reviewer'].includes(role),
   },
   '@/lib/crm/badges': { refreshCrmBadges: () => {} },
   '@/lib/supplier-portal/notify': {
@@ -100,7 +100,7 @@ const mocks = {
   },
 };
 vm.runInNewContext(js, { exports, require: (name) => { assert.ok(name in mocks, `Unknown import ${name}`); return mocks[name]; }, console: { error: () => {}, warn: () => {}, log: () => {} }, FormData, Date, Error }, { filename: 'verification-actions.ts' });
-const form = new FormData(); form.set('id', row.id);
+const form = new FormData(); form.set('id', row.id); form.set('confirm_evidence_review', 'yes');
 assert.match((await exports.approveVerificationAction(form)).message, /Cần chứng từ phù hợp/);
 media.push({ kind: 'video', status: 'checked', storage_path: null });
 assert.match((await exports.approveVerificationAction(form)).message, /Cần chứng từ phù hợp/);
@@ -110,7 +110,7 @@ media[1].status = 'checked';
 auditor.uid = row.inspector_id;
 const selfReview = await exports.approveVerificationAction(form);
 assert.equal(selfReview.ok, false, 'Self review is refused without throwing');
-assert.match(selfReview.message, /cần người khác duyệt/);
+assert.match(selfReview.message, /xác nhận/);
 auditor.uid = 'reviewer-1';
 auditor.role = 'sale';
 const noPermission = await exports.approveVerificationAction(form);
@@ -351,13 +351,13 @@ assert.match(adminSelfApprovalSql, /u\.is_active/, 'DB only permits the override
 assert.match(adminSelfApprovalSql, /legacy_self_approved or self_approved/);
 assert.match(approvalSource, /self_approved: singlePersonDecision/,
   'Same-person completion stays marked as a single-person decision');
-assert.match(formUi, /selfApproval && <label/, 'Staff must explicitly confirm same-person completion');
+assert.match(formUi, /confirm_evidence_review/, 'Staff must explicitly confirm same-person completion');
 const singlePersonSql = fs.readFileSync(new URL('../supabase/migrations/20261035_single_person_verification.sql', import.meta.url), 'utf8');
 assert.match(singlePersonSql, /u\.role in \('admin', 'sourcing'\)/,
   'DB allows only roles holding both inspect and approve permissions');
 assert.match(singlePersonSql, /u\.is_active/);
 assert.ok(!singlePersonSql.includes("u.role in ('admin', 'reviewer', 'sourcing')"),
-  'Reviewer remains an independent approver, not a same-person inspector');
+  'The historical migration predates the review-lead policy in migration 49');
 assert.match(formUi, /confirm_self_review/, 'The audit page asks for the confirmation');
 assert.match(formUi, /người duyệt tự đối chiếu và duyệt một mình/, 'Approved banner states the single-person decision');
 // guard() cũng có thể lỗi (phiên hỏng, CSDL đọc không được) nên phải nằm TRONG try,
@@ -374,10 +374,10 @@ const sql = fs.readFileSync(new URL('../supabase/migrations/20261017_delivery_hi
 for (const field of ['shipment_ref', 'shipped_on', 'shipment_destination']) assert.ok(sql.includes(`add column if not exists ${field}`));
 const accessJs = ts.transpileModule(fs.readFileSync(new URL('../lib/media/verification-access.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const access = {};
-let permissionRole = 'sourcing';
+let permissionRole = 'reviewer';
 vm.runInNewContext(accessJs, { exports: access, require: (name) => ({
   '@/lib/auth/session': { getSession: async () => ({ role: permissionRole, uid: 'reviewer-1' }) },
-  '@/lib/auth/permissions': { hasPermission: (role) => role === 'admin' || role === 'sourcing' },
+  '@/lib/auth/permissions': { hasPermission: (role) => role === 'admin' || role === 'reviewer' },
   '@/lib/crm/badges': { refreshCrmBadges: () => {} },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent', notifyStaffVerificationSubmission: async () => 'sent' },
 })[name] }, { filename: 'verification-access.ts' });

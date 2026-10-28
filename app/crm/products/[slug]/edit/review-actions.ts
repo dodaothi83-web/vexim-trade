@@ -37,7 +37,7 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
   const denied = await guard("products.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "sourcing")) return { ok: false, message: "Chỉ Vexim quản trị/thu mua được xét sản phẩm NCC." };
+  if (!session || (session.role !== "admin" && session.role !== "reviewer")) return { ok: false, message: "Chỉ Vexim quản trị/trưởng kiểm duyệt được xét sản phẩm NCC." };
   const id = String(form.get("product_id") ?? "");
   const decision = String(form.get("decision") ?? "");
   const note = String(form.get("note") ?? "").trim().slice(0, 1000);
@@ -205,7 +205,7 @@ export async function correctSupplierProductCategoryAction(form: FormData): Prom
   const denied = await guard("products.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "sourcing")) return { ok: false, message: "Chỉ Vexim được điều chỉnh danh mục đã duyệt." };
+  if (!session || (session.role !== "admin" && session.role !== "reviewer")) return { ok: false, message: "Chỉ Vexim được điều chỉnh danh mục đã duyệt." };
   const id = String(form.get("product_id") ?? "");
   const slug = String(form.get("reviewed_category_slug") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Sản phẩm không hợp lệ." };

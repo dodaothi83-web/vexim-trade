@@ -90,6 +90,8 @@ export interface Supplier {
   /** Quyền dùng cổng NCC; độc lập với status công khai và các kết quả xác minh. */
   onboarding_status?: "not_started" | "pending" | "approved" | "changes_requested";
   onboarding_note?: string | null;
+  /** Only a newly self-registered, never-public profile may auto-publish after L1. */
+  auto_publish_after_l1?: boolean;
   /** Năm thành lập */
   founded_year?: number | null;
   /** Số nhân sự */
@@ -773,6 +775,9 @@ export interface Verification {
   /** Người duyệt (nhân sự có quyền xét duyệt xác minh) */
   approved_by: string | null;
   approved_at: string | null;
+  /** Nhân sự xác nhận đã đối chiếu bằng chứng trước khi duyệt. */
+  evidence_confirmed_at?: string | null;
+  evidence_confirmed_by?: string | null;
   /**
    * Quyết định một nhân sự: đợt NCC tự tải giấy tờ hoặc nhân sự đủ quyền
    * tự đối chiếu và duyệt chính bản kiểm của mình. Cờ này để hồ sơ nói thật

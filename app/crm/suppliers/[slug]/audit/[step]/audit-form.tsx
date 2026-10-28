@@ -15,8 +15,8 @@ import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/
 import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction, updateVerificationPublicSummaryAction } from "../../verification-actions";
 import { CertificateRowControls } from "./certificate-row-controls";
 
-export function AuditForm({ verification: v, evidence, certificates = [], aiEnabled, canApprove, canInspect, canPublish = false, currentUserId, canSelfApprove }: {
-  verification: Verification; evidence: MediaAsset[]; certificates?: Certificate[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; canSelfApprove: boolean;
+export function AuditForm({ verification: v, autoPublishL1 = false, evidence, certificates = [], aiEnabled, canApprove, canInspect, canPublish = false, currentUserId, canSelfApprove }: {
+  verification: Verification; autoPublishL1?: boolean; evidence: MediaAsset[]; certificates?: Certificate[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; canSelfApprove: boolean;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
@@ -225,7 +225,10 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
 
   function decide(approve: boolean) {
     const fd = new FormData(); fd.set("id", v.id);
-    if (approve && (!v.inspector_id || selfApproval)) fd.set("confirm_self_review", selfConfirm ? "yes" : "no");
+    if (approve) {
+      fd.set("confirm_evidence_review", selfConfirm ? "yes" : "no");
+      if (!v.inspector_id || selfApproval) fd.set("confirm_self_review", selfConfirm ? "yes" : "no");
+    }
     if (approve && v.target_level > 1) {
       if (!publicSummary.trim() || !summaryConfirmed) {
         setFeedback({ ok: false, message: "Hãy điền tóm tắt công khai và xác nhận đã đối chiếu trước khi duyệt." });
@@ -238,7 +241,7 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
       if (!reason.trim()) { setFeedback({ ok: false, message: "Hãy ghi lý do cần bổ sung." }); return; }
       fd.set("reason", reason);
     }
-    if (approve && !window.confirm(`Duyệt ${partner ? "hợp đồng nhà máy đối tác" : auditStep(v.target_level)?.title.toLowerCase()}? Bằng chứng sẽ được khóa${v.target_level < 3 ? " và bước tiếp theo sẽ mở" : ""}.${v.target_level > 1 ? " Tóm tắt sẽ công khai cùng kết quả; bằng chứng gốc vẫn riêng tư." : ""}`)) return;
+    if (approve && !window.confirm(`Duyệt ${partner ? "hợp đồng nhà máy đối tác" : auditStep(v.target_level)?.title.toLowerCase()}? Bằng chứng sẽ được khóa${v.target_level === 1 && autoPublishL1 ? " và hồ sơ doanh nghiệp mới sẽ tự công khai nếu đủ điều kiện" : v.target_level < 3 ? " và bước tiếp theo sẽ mở" : ""}.${v.target_level > 1 ? " Tóm tắt sẽ công khai cùng kết quả; bằng chứng gốc vẫn riêng tư." : ""}`)) return;
     void run(() => approve ? approveVerificationAction(fd) : returnVerificationAction(fd));
   }
 
@@ -455,14 +458,10 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
     </form>
     {reviewer && <div className="space-y-3 border-t border-ink-100 bg-amber-50/50 p-5">
       <p className="text-sm font-semibold text-ink-900">Xét duyệt · đối chiếu bằng chứng ngay trong các mục bên trên</p>
-      {selfApproval && <label className="flex items-start gap-2 rounded-lg bg-white/80 p-3 text-xs leading-relaxed text-ink-700">
+      <label className="flex items-start gap-2 rounded-lg bg-white/80 p-3 text-xs leading-relaxed text-ink-700">
         <input type="checkbox" className="mt-0.5" checked={selfConfirm} onChange={(e) => setSelfConfirm(e.target.checked)} />
-        <span>Bạn đã kiểm và nộp đợt này. Tôi xác nhận đã tự đối chiếu lại bằng chứng và chịu trách nhiệm khi hoàn tất kiểm và duyệt một mình; hệ thống sẽ ghi dấu tự duyệt và lưu audit log.</span>
-      </label>}
-      {!v.inspector_id && <label className="flex items-start gap-2 rounded-lg bg-white/80 p-3 text-xs leading-relaxed text-ink-700">
-        <input type="checkbox" className="mt-0.5" checked={selfConfirm} onChange={(e) => setSelfConfirm(e.target.checked)} />
-        <span>Đợt này do nhà cung cấp tự tải giấy tờ lên nên chưa có người kiểm tách biệt. Tôi đã tự đối chiếu từng giấy tờ; hồ sơ sẽ ghi rõ một người vừa đối chiếu vừa duyệt.</span>
-      </label>}
+        <span>Tôi xác nhận đã đối chiếu bằng chứng của đúng đợt kiểm và chịu trách nhiệm với quyết định này.{(selfApproval || !v.inspector_id) && " Hệ thống ghi rõ một người vừa đối chiếu vừa duyệt."} Xác nhận và quyết định được ghi vào lịch sử.</span>
+      </label>
 
       {v.target_level > 1 && <section className="rounded-xl border border-sky-200 bg-white p-4" aria-label="Tóm tắt công khai khi duyệt">
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -489,7 +488,7 @@ export function AuditForm({ verification: v, evidence, certificates = [], aiEnab
       </section>}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="primary" disabled={busy || (v.target_level > 1 && (!publicSummary.trim() || !summaryConfirmed))} onClick={() => decide(true)}><CheckCircle2 className="h-4 w-4" /> Duyệt & mở bước tiếp</Button>
+        <Button type="button" variant="primary" disabled={busy || !selfConfirm || (v.target_level > 1 && (!publicSummary.trim() || !summaryConfirmed))} onClick={() => decide(true)}><CheckCircle2 className="h-4 w-4" /> {v.target_level === 1 && autoPublishL1 ? "Duyệt L1 & công khai hồ sơ" : "Duyệt & mở bước tiếp"}</Button>
         <Button type="button" disabled={busy} onClick={() => decide(false)}><RotateCcw className="h-4 w-4" /> Trả để bổ sung</Button>
       </div>
       <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do trả (bắt buộc khi trả về)" aria-label="Lý do trả hồ sơ" />

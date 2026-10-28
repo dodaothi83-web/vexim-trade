@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowUpRight,
-  Megaphone,
   Building2,
   ChartNoAxesColumn,
   Factory,
@@ -45,7 +44,6 @@ const NAV: {
   { href: "/supplier/portal/storefront", label: "Trang của tôi", icon: Store, group: "shop", needsApproval: true },
   { href: "/supplier/portal/products", label: "Sản phẩm", icon: Package, group: "shop", needsApproval: true },
   { href: "/supplier/portal/categories", label: "Danh mục kinh doanh", icon: FolderTree, group: "shop", needsApproval: true },
-  { href: "/supplier/portal/boost", label: "Đẩy sản phẩm", icon: Megaphone, group: "shop", needsApproval: true },
   { href: "/supplier/portal/traffic", label: "Lượt xem gian hàng", icon: ChartNoAxesColumn, group: "shop", needsApproval: true },
   { href: "/supplier/portal/rfqs", label: "RFQ & báo giá", icon: Mail, group: "work", needsApproval: true },
   { href: "/supplier/portal/documents", label: "Giấy tờ & chứng nhận L1", icon: FileText, group: "verify", needsApproval: true },

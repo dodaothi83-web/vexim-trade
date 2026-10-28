@@ -145,7 +145,7 @@ const deps = (over = {}) => ({
 const action = fs.readFileSync(new URL("../app/crm/suppliers/[slug]/account-actions.ts", import.meta.url), "utf8");
 assert.match(action, /export async function handOverSupplierAccountAction/, "Có action bàn giao riêng");
 assert.match(action, /guard\("suppliers\.manage"\)/, "Action bàn giao kiểm quyền quản lý NCC");
-assert.match(action, /session\.role !== "admin" && session\.role !== "sourcing"/, "Chỉ quản trị và thu mua được bàn giao");
+assert.match(action, /session\.role !== "admin" && session\.role !== "reviewer"/, "Chỉ quản trị và trưởng kiểm duyệt được bàn giao");
 assert.match(action, /supplier\.account_handed_over/, "Bàn giao phải ghi nhật ký kiểm toán");
 assert.doesNotMatch(action, /password:\s*password\b[\s\S]{0,120}addAuditLog/, "Không ghi mật khẩu vào nhật ký");
 
