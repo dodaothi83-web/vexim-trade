@@ -389,10 +389,11 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
           </Link>
           <div className="min-w-0 flex-1">
             <PublicProductCard href={productHref} imagePath={product.cardImagePath ?? product.imagePaths[0]}
-              name={product.name} grades={product.grades} moq={product.moq} price={product.price} fob={product.incoterm?.toUpperCase() === "FOB"}
-              leadTimeDays={product.leadTimeDays} supplierName={product.supplierName}
+              name={product.name} grades={product.cardGrades} gradeRows={product.gradeRows} moq={product.moq}
+              price={product.price} incoterm={product.incoterm} fob={product.incoterm?.toUpperCase() === "FOB"}
+              leadTimeDays={product.leadTimeDays} leadTimeText={product.leadTimeText} supplierName={product.supplierName}
               supplierHref={localHref(`/suppliers/${encodeURIComponent(product.supplierSlug || product.supplierId)}`, state.lang)}
-              quoteHref={quoteHref} oem={product.oem} odm={product.odm} samples={product.samples}
+              quoteHref={quoteHref}
               verificationSteps={product.verificationSteps} l2Scope={product.l2Scope}
               comparison={hasProductComparisonPeer(comparisonOffers, { id: product.id, supplierId: product.supplierId, categorySlug: category.slug, isDemo: product.isDemo })
                 ? { id: product.id, categorySlug: category.slug } : undefined} />

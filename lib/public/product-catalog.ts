@@ -8,7 +8,14 @@ import { listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catal
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { isTestOnlyProduct, productBelongsToCategory, productPriceBlockers, productReviewApproved, publicProductCategorySlug, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
 import { resolveGrade } from "@/lib/public/grade-resolution";
-import { projectPublicGradeData, type PublicProductGradeRow } from "@/lib/products/grade-pricing";
+import {
+  formatLeadTimeBuyer,
+  formatStructuredMoqBuyer,
+  isMoqUnit,
+  projectPublicGradeData,
+  type MoqUnit,
+  type PublicProductGradeRow,
+} from "@/lib/products/grade-pricing";
 import { evidenceValidVerificationSteps, rankPublicCategoryProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
@@ -20,8 +27,10 @@ export interface PublicCategoryProduct {
   id: string;
   name: string;
   grade: string | null;
-  /** Standard grades declared on the product (used for filters, cards, and search). Custom grades are excluded. */
+  /** Standard grades declared on the product (used for filters and search). Custom grades are excluded. */
   grades: string[];
+  /** Standard grades strictly from the Grade & giá table in canonical category order (never inferred from product name). */
+  cardGrades: string[];
   hasGradeRows: boolean;
   /** Per-grade commercial rows for buyer PDP / comparison (prices redacted unless price gates pass). */
   gradeRows: PublicProductGradeRow[];
@@ -36,6 +45,8 @@ export interface PublicCategoryProduct {
   }>;
   attributes: Record<string, string>;
   moq: string;
+  moqUnit: MoqUnit | null;
+  moqMtEquivalent: number | null;
   price: string | null;
   /** Số liệu thô để tính khoảng giá tham khảo; null khi giá chưa được phép công khai. */
   pricePoint: { value: number; highValue?: number | null; unit: string | null; currency: string | null; updatedAt: string | null } | null;
@@ -60,6 +71,7 @@ export interface PublicCategoryProduct {
   supplierProfileImage: string | null;
   supplierFoundedYear: number | null;
   leadTimeDays: number | null;
+  leadTimeText: string;
   incoterm: string | null;
   oem: boolean;
   odm: boolean;
@@ -114,9 +126,16 @@ function projectPublicCategoryProduct(
   const rawFallbackPrice = publicProductPrice(p, s);
   const normalizedFallbackPrice = rawFallbackPrice ? publicProductPriceDisplay(rawFallbackPrice) : null;
   const effectivePrice = gradeData.summaryPrice ?? normalizedFallbackPrice;
+  const specWeight = p.specs && typeof p.specs === "object" && typeof (p.specs as Record<string, unknown>).moq_unit_weight_kg === "number"
+    ? ((p.specs as Record<string, unknown>).moq_unit_weight_kg as number)
+    : null;
+  const legacyStructuredMoq = typeof p.moq_qty === "number" && p.moq_qty > 0 && isMoqUnit(p.moq_unit)
+    ? formatStructuredMoqBuyer(p.moq_qty, p.moq_unit, specWeight)
+    : "";
+  const fallbackMoqDisplay = legacyStructuredMoq || publicProductMoqDisplay(p.moq) || "On request";
   const effectiveMoq = gradeData.hasGradeRows
-    ? (gradeData.gradeRows.find((r) => r.moq !== "On request")?.moq ?? (publicProductMoqDisplay(p.moq) || "On request"))
-    : (publicProductMoqDisplay(p.moq) || "On request");
+    ? (gradeData.gradeRows.find((r) => r.moq !== "On request")?.moq ?? fallbackMoqDisplay)
+    : fallbackMoqDisplay;
   const effectiveIncoterm = gradeData.hasGradeRows
     ? (gradeData.gradeRows[0]?.incoterm ?? p.incoterm ?? null)
     : (p.incoterm ?? null);
@@ -126,11 +145,14 @@ function projectPublicCategoryProduct(
     id: p.id, name: withoutDirectContacts(publicProductTitle(p)),
     grade: primaryGrade,
     grades,
+    cardGrades: gradeData.cardGrades,
     hasGradeRows: gradeData.hasGradeRows,
     gradeRows: gradeData.gradeRows,
     gradePricePoints: !s.is_demo ? gradeData.gradePricePoints : [],
     attributes,
     moq: effectiveMoq,
+    moqUnit: gradeData.moqUnit,
+    moqMtEquivalent: gradeData.moqMtEquivalent,
     price: effectivePrice,
     pricePoint: effectivePricePoint,
     isDemoSupplier: !!s.is_demo,
@@ -142,7 +164,7 @@ function projectPublicCategoryProduct(
     evidenceValidSteps: evidenceValidSteps ?? s.approved_verification_steps.length,
     supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
     supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,
-    leadTimeDays: p.lead_time_days ?? null, incoterm: effectiveIncoterm, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
+    leadTimeDays: p.lead_time_days ?? null, leadTimeText: formatLeadTimeBuyer(p), incoterm: effectiveIncoterm, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
     isDemo: !!s.is_demo, imagePaths: images,
     cardImagePath: shareableProductImages(media, p.id, p.featured_media_id, 1, true)[0] ?? null,
   };

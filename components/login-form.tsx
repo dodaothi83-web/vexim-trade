@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Eye, EyeOff, Loader2, LogIn, ShieldCheck } from "lucide-react";
@@ -59,7 +60,7 @@ export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
           type="email"
           autoComplete="username"
           className="input"
-          placeholder="ten@veximtrade.com"
+          placeholder="email@congty.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           maxLength={254}
@@ -92,6 +93,11 @@ export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
             {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
+        <div className="mt-1.5 flex justify-end">
+          <Link href="/auth/forgot-password" className="text-xs font-semibold text-brand-700 hover:underline">
+            Quên mật khẩu?
+          </Link>
+        </div>
       </div>
 
       <FormChallenge key={challengeVersion} purpose="login" onChange={(token) => setChallengeToken(token ?? "")} />
@@ -111,11 +117,20 @@ export function LoginForm({ needsSetup }: { needsSetup: boolean }) {
         Đăng nhập
       </Button>
 
-      <div className="flex items-center gap-3 text-xs text-ink-500"><span className="h-px flex-1 bg-ink-200" />hoặc<span className="h-px flex-1 bg-ink-200" /></div>
-      <a href="/api/auth/google/start?intent=login" className="flex w-full items-center justify-center gap-2 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50">
-        <span className="text-base font-black text-blue-600" aria-hidden="true">G</span> Đăng nhập với Google
+      <div className="flex items-center gap-3 text-xs text-ink-500">
+        <span className="h-px flex-1 bg-ink-200" />
+        hoặc
+        <span className="h-px flex-1 bg-ink-200" />
+      </div>
+      <a
+        href="/api/auth/google/start?intent=login"
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50"
+      >
+        <span className="text-base font-black text-blue-600" aria-hidden="true">
+          G
+        </span>{" "}
+        Đăng nhập với Google
       </a>
-      <p className="text-center text-xs text-ink-500">Google chỉ xác thực email; tài khoản vẫn phải được Vexim cấp quyền trong hệ thống.</p>
 
       {needsSetup && (
         <p className="flex items-start gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-[12.5px] text-brand-900">

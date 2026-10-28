@@ -51,14 +51,14 @@ function assertSignIn(html, lang, label) {
 }
 
 let html = renderToStaticMarkup(React.createElement(PublicHeaderControls));
-assertSignIn(html, 'en', 'Sign in');
+assertSignIn(html, 'en', 'Supplier sign in');
 assert.match(html, /href="\/rfq"[^>]*aria-label="Request a quote"/);
 assert.match(html, /Language switcher \/ Chuyển đổi ngôn ngữ/);
 assert.match(html, /href="\/for-suppliers"/);
 
 params = new URLSearchParams('lang=vi');
 html = renderToStaticMarkup(React.createElement(PublicHeaderControls));
-assertSignIn(html, 'vi', 'Đăng nhập');
+assertSignIn(html, 'vi', 'Đăng nhập NCC');
 assert.match(html, /href="\/rfq"[^>]*aria-label="Yêu cầu báo giá"/);
 assert.match(html, /href="\/\?lang=vi#categories"/);
 assert.match(html, /Báo giá/);
@@ -66,7 +66,7 @@ assert.match(html, /Báo giá/);
 // The Suspense fallback must remain usable while search parameters are loading.
 suspend = true;
 html = renderToStaticMarkup(React.createElement(PublicHeaderControls));
-assertSignIn(html, 'en', 'Sign in');
+assertSignIn(html, 'en', 'Supplier sign in');
 assert.match(html, /href="\/rfq"[^>]*aria-label="Request a quote"/);
 suspend = false;
 
@@ -86,11 +86,11 @@ for (const file of ['../app/blog/layout.tsx', '../app/(legal)/layout.tsx']) {
   html = renderToStaticMarkup(React.createElement(Layout, null, 'Content'));
   const header = html.match(/<header\b[\s\S]*?<\/header>/)?.[0];
   assert.ok(header, `${file} needs a header`);
-  assertSignIn(header, 'en', 'Sign in');
+  assertSignIn(header, 'en', 'Supplier sign in');
 }
 
 const home = fs.readFileSync(new URL('../app/(public)/home.tsx', import.meta.url), 'utf8');
-assert.match(home, /href="\/login"[\s\S]{0,100}isVi \? "Đăng nhập" : "Sign in"/, 'Homepage footer has a bilingual sign-in entry');
+assert.match(home, /href="\/login"[\s\S]{0,100}isVi \? "Đăng nhập NCC" : "Supplier sign in"/, 'Homepage footer has a bilingual supplier sign-in entry');
 const supplierPage = fs.readFileSync(new URL('../app/(public)/for-suppliers/page.tsx', import.meta.url), 'utf8');
 assert.match(supplierPage, /Already have an account\?[\s\S]{0,120}href="\/login"/, 'Existing suppliers can sign in from the supplier application section');
 

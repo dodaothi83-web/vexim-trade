@@ -19,7 +19,9 @@ import { notifyStaffProductSubmission } from "@/lib/supplier-portal/notify";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 import {
   applyGradeRowsToSpecs,
+  applyLeadTimeToSpecs,
   parseGradeRowsFromPayload,
+  parseLeadTimeInput,
   summarizeGradeRowsForProduct,
 } from "@/lib/products/grade-pricing";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
@@ -168,6 +170,18 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     }
     input.specs = saveProductAttributes({ product_fields: category?.product_fields ?? [], supplier_product_fields: pool },
       attributesFromForm(form), existing?.supplier_category_proposal === input.category ? existing.specs : {});
+    if (form.has("lead_time_unit") || form.has("lead_time_value")) {
+      const parsedLeadTime = parseLeadTimeInput({
+        valueRaw: form.get("lead_time_value"),
+        unitRaw: form.get("lead_time_unit"),
+        legacyDaysRaw: form.get("lead_time_days"),
+      });
+      if (!parsedLeadTime.ok) return { ok: false, message: parsedLeadTime.message };
+      input.lead_time_days = parsedLeadTime.daysEquivalent;
+      input.specs = applyLeadTimeToSpecs(input.specs ?? {}, parsedLeadTime);
+    } else if (input.lead_time_days != null) {
+      input.specs = applyLeadTimeToSpecs(input.specs ?? {}, { value: input.lead_time_days, unit: "days" });
+    }
     if (form.has("grade_rows_json")) {
       const categorySource = category ?? { slug: input.category };
       const parsedGradeRows = parseGradeRowsFromPayload(String(form.get("grade_rows_json") ?? ""), categorySource);
@@ -179,6 +193,8 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       input.unit = summary.unit;
       input.incoterm = summary.incoterm;
       input.moq = summary.moq;
+      input.moq_qty = summary.moq_qty;
+      input.moq_unit = summary.moq_unit;
       input.specs = applyGradeRowsToSpecs(input.specs ?? {}, parsedGradeRows.rows, categorySource);
     }
     let saved = existing ? await store.updateSupplierProductIfState(existing.id, access.supplier.id,

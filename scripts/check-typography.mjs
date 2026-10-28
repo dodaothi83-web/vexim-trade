@@ -52,9 +52,12 @@ for (const file of [...walk(path.join(root, "app")), ...walk(path.join(root, "co
   );
 }
 
-// 4. Các con số giá dùng JetBrains Mono (font-mono + tabular-nums) để thẳng cột khi so sánh
+// 4. Các bảng giá & chi tiết dùng JetBrains Mono (font-mono + tabular-nums), còn thẻ sản phẩm dùng font chính (Be Vietnam Pro) cỡ vừa một dòng với tabular-nums
+const productCardSource = read("components/public-product-card.tsx");
+assert.doesNotMatch(productCardSource, /\bfont-mono\b/, "components/public-product-card.tsx uses primary font instead of large monospace");
+assert.match(productCardSource, /h-5 truncate whitespace-nowrap tabular-nums/, "components/public-product-card.tsx keeps price on a single tabular-nums line");
+
 for (const [rel, pattern] of [
-  ["components/public-product-card.tsx", /price \? <span className="font-mono tabular-nums">\{price\}<\/span> : "On request"/],
   ["components/public/product-comparison-table.tsx", /font-mono font-black tabular-nums text-brand-800">\{product\.price\}/],
   ["components/price-range.tsx", /<span className="font-mono tabular-nums">\{formatUnitRange\(range\.low, range\.high, range\.unit\)\}<\/span>/],
   ["app/(public)/products/[slug]/[productId]/page.tsx", /card\.price \? "font-mono tabular-nums" : ""/],

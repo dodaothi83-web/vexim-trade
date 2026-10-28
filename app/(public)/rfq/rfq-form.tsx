@@ -37,6 +37,7 @@ interface Props {
   initialProductId: string | null;
   initialCategory: string | null;
   initialProduct: string;
+  initialGrade?: string;
   initialSupplierIds: string[];
   /** Nhà cung cấp buyer đã chỉ định từ trang sản phẩm hoặc trang NCC, để hiển thị rõ trong form. */
   initialSuppliers?: Array<{ id: string; name: string }>;
@@ -50,7 +51,7 @@ const FREQUENCIES = ["One-time", "Monthly", "Quarterly", "Spot", "Contract"];
 const COUNTRIES = ["US", "EU", "UK", "Japan", "Korea", "China", "Middle East", "Australia", "Canada", "Other"];
 const BUSINESS_TYPES = ["Importer / Distributor", "Brand / Manufacturer", "Wholesaler", "Retailer", "Trading company", "Other"];
 
-export function RfqForm({ categories, categorySpecs, initialCategory, initialProduct, initialProductId, initialSupplierIds, initialSuppliers = [], wantsSamples, mode = "quote" }: Props) {
+export function RfqForm({ categories, categorySpecs, initialCategory, initialProduct, initialProductId, initialGrade = "", initialSupplierIds, initialSuppliers = [], wantsSamples, mode = "quote" }: Props) {
   const router = useRouter();
   const isQuestion = mode === "question";
   const params = useSearchParams();
@@ -64,7 +65,7 @@ export function RfqForm({ categories, categorySpecs, initialCategory, initialPro
     category_slug: initialCategory ?? "",
     product_text: initialProduct,
     source_product_id: initialProductId,
-    grade: "",
+    grade: initialGrade,
     quantity: "",
     unit: "MT",
     frequency: "One-time",

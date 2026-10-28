@@ -343,15 +343,46 @@ export async function handOverSupabaseAccount(
 async function findSupabaseUserId(email: string): Promise<string | null> {
   const client = getSupabaseAuthClient();
   if (!client) return null;
+  const target = email.trim().toLowerCase();
   try {
-    const { data, error } = await client.auth.admin.listUsers({ page: 1, perPage: 200 });
-    if (error) return null;
-    const found = data.users.find(
-      (u) => (u.email ?? "").trim().toLowerCase() === email.trim().toLowerCase(),
-    );
-    return found?.id ?? null;
+    for (let page = 1; page <= 10; page++) {
+      const { data, error } = await client.auth.admin.listUsers({ page, perPage: 500 });
+      if (error || !data?.users?.length) return null;
+      const found = data.users.find(
+        (u) => (u.email ?? "").trim().toLowerCase() === target,
+      );
+      if (found?.id) return found.id;
+      if (data.users.length < 500) break;
+    }
+    return null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Đặt lại mật khẩu qua liên kết xác thực email:
+ * - Nếu đã có tài khoản Supabase Auth: cập nhật mật khẩu và đánh dấu email đã xác nhận
+ *   (vì người dùng vừa mở liên kết trong chính hộp thư đó).
+ * - Nếu chưa có bên Supabase Auth nhưng dự án có cấu hình Supabase: tạo mới kèm email_confirm.
+ */
+export async function resetSupabaseAccountPassword(email: string, password: string): Promise<boolean> {
+  const client = getSupabaseAuthClient();
+  if (!client) return false;
+  const clean = email.trim().toLowerCase();
+  try {
+    const id = await findSupabaseUserId(clean);
+    if (id) {
+      const { error } = await client.auth.admin.updateUserById(id, {
+        password,
+        email_confirm: true,
+      });
+      return !error;
+    }
+    const createdId = await createSupabaseUser(clean, password);
+    return Boolean(createdId);
+  } catch {
+    return false;
   }
 }
 
