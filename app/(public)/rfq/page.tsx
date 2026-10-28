@@ -2,6 +2,7 @@ import Link from "next/link";
 import { RfqForm } from "./rfq-form";
 import { Breadcrumbs } from "@/components/ui";
 import { getStore } from "@/lib/db";
+import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { listPublicSuppliers } from "@/lib/public/catalog";
 import type { Category, CategoryFilter } from "@/lib/types";
 
@@ -20,6 +21,7 @@ export default async function RfqPage({
     category?: string;
     product?: string;
     product_id?: string;
+    grade?: string;
     suppliers?: string;
     sample?: string;
     intent?: string;
@@ -58,13 +60,18 @@ export default async function RfqPage({
 
       <RfqForm
         categories={categories.map((c: Category) => ({ slug: c.slug, name: c.name_i18n?.en ?? c.slug }))}
-        categorySpecs={Object.fromEntries(categories.map((c: Category) => [c.slug, {
-          grades: (c.filters as CategoryFilter[] | null)?.find((f) => f.key === "grade")?.options.map((o) => o.value) ?? [],
-          certs: (c.filters as CategoryFilter[] | null)?.find((f) => f.key === "certifications")?.options.map((o) => o.value) ?? [],
-        }]))}
+        categorySpecs={Object.fromEntries(categories.map((c: Category) => {
+          const standardGrades = standardGradesForCategory(c);
+          const legacyGrades = (c.filters as CategoryFilter[] | null)?.find((f) => f.key === "grade")?.options.map((o) => o.value) ?? [];
+          return [c.slug, {
+            grades: standardGrades.length > 0 ? standardGrades : legacyGrades,
+            certs: (c.filters as CategoryFilter[] | null)?.find((f) => f.key === "certifications")?.options.map((o) => o.value) ?? [],
+          }];
+        }))}
         initialCategory={sp?.category ?? null}
         initialProduct={(sp?.product ?? "").slice(0, 150)}
         initialProductId={sp?.product_id ?? null}
+        initialGrade={(sp?.grade ?? "").trim().slice(0, 80)}
         initialSupplierIds={supplierIds}
         initialSuppliers={initialSuppliers}
         wantsSamples={sp?.sample === "1"}

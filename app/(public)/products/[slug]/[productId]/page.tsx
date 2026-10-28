@@ -256,7 +256,7 @@ export default async function PublicProductDetail({ params }: Props) {
           </div>
         )}
         {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
-          <p className="mt-1.5 text-xs text-ink-500">Product options stated in the listing; confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
+          <p className="mt-1.5 text-xs text-ink-500">Stated by the supplier. Confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
         <div className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
           <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
             <h2 className="text-sm font-bold text-ink-900">Key terms</h2>
@@ -308,11 +308,10 @@ export default async function PublicProductDetail({ params }: Props) {
       <ul className="mt-5 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {relatedProducts.map((related) => <li key={related.id} className="min-w-0">
           <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(related.id)}`}
-            imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} grades={related.grades} moq={related.moq}
-            price={related.price} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays}
+            imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} grades={related.cardGrades} gradeRows={related.gradeRows} moq={related.moq}
+            price={related.price} incoterm={related.incoterm} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays}
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
             quoteHref={`/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(related.supplierId)}&product=${encodeURIComponent(related.name)}&product_id=${encodeURIComponent(related.id)}`}
-            oem={related.oem} odm={related.odm} samples={related.samples}
             verificationSteps={related.verificationSteps} l2Scope={related.l2Scope}
             comparison={!preview && hasProductComparisonPeer(relatedComparisonOffers, {
               id: related.id, supplierId: related.supplierId, categorySlug: slug, isDemo: related.isDemo,

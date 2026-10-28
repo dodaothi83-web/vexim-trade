@@ -20,8 +20,10 @@ export interface PublicCategoryProduct {
   id: string;
   name: string;
   grade: string | null;
-  /** Standard grades declared on the product (used for filters, cards, and search). Custom grades are excluded. */
+  /** Standard grades declared on the product (used for filters and search). Custom grades are excluded. */
   grades: string[];
+  /** Standard grades strictly from the Grade & giá table in canonical category order (never inferred from product name). */
+  cardGrades: string[];
   hasGradeRows: boolean;
   /** Per-grade commercial rows for buyer PDP / comparison (prices redacted unless price gates pass). */
   gradeRows: PublicProductGradeRow[];
@@ -126,6 +128,7 @@ function projectPublicCategoryProduct(
     id: p.id, name: withoutDirectContacts(publicProductTitle(p)),
     grade: primaryGrade,
     grades,
+    cardGrades: gradeData.cardGrades,
     hasGradeRows: gradeData.hasGradeRows,
     gradeRows: gradeData.gradeRows,
     gradePricePoints: !s.is_demo ? gradeData.gradePricePoints : [],

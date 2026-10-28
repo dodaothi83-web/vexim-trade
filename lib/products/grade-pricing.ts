@@ -597,6 +597,7 @@ export function projectPublicGradeData(
   hasGradeRows: boolean;
   primaryGrade: string | null;
   standardGrades: string[];
+  cardGrades: string[];
   summaryPrice: string | null;
   gradeRows: PublicProductGradeRow[];
   gradePricePoints: Array<{
@@ -669,6 +670,13 @@ export function projectPublicGradeData(
       };
     });
 
+    const optionOrder = new Map(standardOptions.map((opt, idx) => [gradeKey(opt), idx]));
+    standardGrades.sort((a, b) => {
+      const ia = optionOrder.get(gradeKey(a)) ?? Number.MAX_SAFE_INTEGER;
+      const ib = optionOrder.get(gradeKey(b)) ?? Number.MAX_SAFE_INTEGER;
+      return ia - ib;
+    });
+
     const pricedRows = gradeRows.filter((row) => row.priceMin !== null && row.priceMax !== null);
     const summaryPrice = pricedRows.length > 0
       ? formatGradeRowPriceBuyer(
@@ -682,6 +690,7 @@ export function projectPublicGradeData(
       hasGradeRows: true,
       primaryGrade: standardGrades[0] ?? null,
       standardGrades,
+      cardGrades: standardGrades,
       summaryPrice,
       gradeRows,
       gradePricePoints,
@@ -721,6 +730,7 @@ export function projectPublicGradeData(
     hasGradeRows: false,
     primaryGrade: legacyGrade,
     standardGrades,
+    cardGrades: [],
     summaryPrice: legacySummaryPrice,
     gradeRows: [],
     gradePricePoints: [],

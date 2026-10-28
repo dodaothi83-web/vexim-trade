@@ -173,12 +173,48 @@ const publicAllowed = gradePricing.projectPublicGradeData(productRecord, { slug:
 });
 assert.equal(publicAllowed.hasGradeRows, true);
 assert.deepEqual([...publicAllowed.standardGrades], ["W180", "W320", "LP"], "Custom grades excluded from standardGrades filter list");
+assert.deepEqual([...publicAllowed.cardGrades], ["W180", "W320", "LP"], "cardGrades exposes canonical standard grades from Grade & giá");
 assert.equal(publicAllowed.gradePricePoints.length, 2, "Only priced standard grades enter reference price points (LP unpriced + DW2 custom excluded)");
 assert.equal(publicAllowed.summaryPrice, "USD 6.50 to 9.00/kg");
 assert.equal(publicAllowed.gradeRows.length, 4, "All 4 rows render in PDP Grades & reference pricing table");
 assert.equal(publicAllowed.gradeRows[0].priceText, "USD 8.50 to 9.00/kg");
 assert.equal(publicAllowed.gradeRows[2].priceText, null, "Unpriced row renders On request");
 assert.equal(publicAllowed.gradeRows[3].isCustom, true);
+
+// Reversed supplier input still sorts cardGrades in canonical category order, and legacy name-only products expose empty cardGrades
+const reversedPepper = gradePricing.projectPublicGradeData(
+  {
+    name: "Vietnam Pepper",
+    spec: "550 g/L, 500 g/L",
+    specs: {
+      grade_rows: [
+        { grade: "White pepper", is_custom: false, price_min: 2400, price_max: 2500, incoterm: "FOB", moq: "1 tấn" },
+        { grade: "500 g/L", is_custom: false, price_min: 1500, price_max: 1600, incoterm: "FOB", moq: "1 tấn" },
+      ],
+    },
+    updated_at: "2026-10-25T00:00:00Z",
+  },
+  { slug: "pepper" },
+  { canShowPrice: true, sanitizeText: (s) => s, translateMoq: (m) => m || "" },
+);
+assert.deepEqual([...reversedPepper.cardGrades], ["500 g/L", "White pepper"], "cardGrades sorts by canonical category grade order");
+
+const nameOnlyLegacy = gradePricing.projectPublicGradeData(
+  {
+    name: "Best Price Vietnam Black Pepper 500GL 550GL",
+    spec: "",
+    specs: {},
+    ref_price: 1800,
+    currency: "USD",
+    unit: "MT",
+    incoterm: "FOB",
+    moq: "1 MT",
+    updated_at: "2026-10-25T00:00:00Z",
+  },
+  { slug: "pepper" },
+  { canShowPrice: true, sanitizeText: (s) => s, translateMoq: (m) => m || "" },
+);
+assert.deepEqual([...nameOnlyLegacy.cardGrades], [], "cardGrades never infers grade labels from product name");
 
 // MT category formatting (/MT, never /t) + unified unit conversion for legacy products
 const pepperGradeData = gradePricing.projectPublicGradeData(

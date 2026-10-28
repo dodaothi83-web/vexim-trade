@@ -303,19 +303,82 @@ export function SupplierStorefront({
             : category ? `/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}` : null;
           if (!href) return null;
           const productName = safe(publicProductTitle(p));
+          const translateMoq = (rawMoq: string | null | undefined) => {
+            const val = (rawMoq ?? "").replace(/\s+/g, " ").trim();
+            if (!val) return "";
+            const m = val.match(/^(\d+(?:[.,]\d+)?)\s*(tấn|tan|thùng|thung|bộ|bo|túi|tui|bao)(?=\s|$|[,;])(.*)$/i);
+            if (!m) return val;
+            const unitMap: Record<string, [string, string]> = {
+              "tấn": ["metric ton", "metric tons"],
+              tan: ["metric ton", "metric tons"],
+              "thùng": ["carton", "cartons"],
+              thung: ["carton", "cartons"],
+              "bộ": ["set", "sets"],
+              bo: ["set", "sets"],
+              "túi": ["bag", "bags"],
+              tui: ["bag", "bags"],
+              bao: ["bag", "bags"],
+            };
+            const pair = unitMap[m[2].toLowerCase()];
+            if (!pair) return val;
+            const qty = Number(m[1].replace(",", "."));
+            return `${m[1]} ${qty === 1 ? pair[0] : pair[1]}${m[3]}`;
+          };
+          const slugText = (category?.slug || "").toLowerCase();
+          const configuredUnit = (category?.price_unit || "").toLowerCase();
+          const isMtCategory = configuredUnit === "mt" || configuredUnit === "t" || (!configuredUnit && /rice|coffee|pepper|cassia|cinnamon|anise|spice|coconut|fruit|bean|tea|sugar/.test(slugText));
+          const unitSuffix = isMtCategory ? "/MT" : "/kg";
+          const canonicalOptions = (() => {
+            const fromFields = category?.product_fields?.find((f) => f.key === "grade" || f.key === "product_type")?.options;
+            if (fromFields?.length) return fromFields;
+            const fromFilters = category?.filters?.find((f) => f.key === "grade")?.options?.map((o) => o.value);
+            if (fromFilters?.length) return fromFilters;
+            if (/cashew/.test(slugText)) return ["W180", "W210", "W240", "W320", "W450", "SW", "WS", "LP", "SP"];
+            if (/pepper/.test(slugText)) return ["500 g/L", "550 g/L", "570 g/L", "580 g/L", "White pepper"];
+            if (/rice/.test(slugText)) return ["ST25", "Jasmine", "Japonica", "5% Broken", "15% Broken", "25% Broken", "Glutinous"];
+            if (/coffee/.test(slugText)) return ["Robusta G1", "Robusta G2", "Arabica G1", "Wet Polished", "Instant"];
+            if (/cassia|cinnamon/.test(slugText)) return ["Cassia split", "Cassia cigarette", "Cassia whole", "Cassia powder"];
+            return [];
+          })();
+          const optionOrder = new Map(canonicalOptions.map((opt, idx) => [opt.trim().toLowerCase(), idx]));
           const rawGradeRows = Array.isArray((p.specs as Record<string, unknown> | undefined)?.grade_rows)
             ? ((p.specs as Record<string, unknown>).grade_rows as Array<Record<string, unknown>>)
             : [];
-          const storefrontGrades = rawGradeRows
-            .filter((row) => row && typeof row.grade === "string" && row.is_custom !== true)
-            .map((row) => safe(String(row.grade)))
-            .filter(Boolean);
           const rawPrice = synthetic ? null : publicProductPrice(p, s);
+          const canShowPrice = Boolean(rawPrice);
+          const storefrontGradeRows = rawGradeRows
+            .filter((row) => row && typeof row.grade === "string" && String(row.grade).trim() !== "")
+            .map((row) => {
+              const gradeText = safe(String(row.grade)).trim();
+              const isCustom = row.is_custom === true;
+              const minRaw = typeof row.price_min === "number" && Number.isFinite(row.price_min) ? row.price_min : null;
+              const maxRaw = typeof row.price_max === "number" && Number.isFinite(row.price_max) ? row.price_max : null;
+              const validPrice = canShowPrice && minRaw !== null && maxRaw !== null && minRaw > 0 && maxRaw >= minRaw;
+              const rowMoq = safe(translateMoq(typeof row.moq === "string" && row.moq.trim() ? row.moq : p.moq)).trim() || "On request";
+              const rowIncoterm = typeof row.incoterm === "string" && row.incoterm.trim() ? safe(row.incoterm).trim() : null;
+              return {
+                grade: gradeText,
+                isCustom,
+                priceMin: validPrice ? minRaw : null,
+                priceMax: validPrice ? maxRaw : null,
+                priceText: validPrice ? `USD ${minRaw}${unitSuffix}` : null,
+                incoterm: rowIncoterm,
+                moq: rowMoq,
+              };
+            });
+          const seenStorefrontGrades = new Set<string>();
+          const storefrontGrades = storefrontGradeRows
+            .filter((row) => !row.isCustom && row.grade)
+            .map((row) => row.grade)
+            .filter((g) => {
+              const k = g.toLowerCase();
+              if (seenStorefrontGrades.has(k)) return false;
+              seenStorefrontGrades.add(k);
+              return true;
+            })
+            .sort((a, b) => (optionOrder.get(a.toLowerCase()) ?? 999) - (optionOrder.get(b.toLowerCase()) ?? 999));
           const storefrontPrice = (() => {
             if (!rawPrice) return null;
-            const slugText = (category?.slug || "").toLowerCase();
-            const configured = (category?.price_unit || "").toLowerCase();
-            const isMtCategory = configured === "mt" || configured === "t" || (!configured && /rice|coffee|pepper|cassia|cinnamon|anise|spice|coconut|fruit|bean|tea|sugar/.test(slugText));
             const rawCurrency = (p.currency || "USD").trim().toUpperCase();
             const unitSource = `${p.unit || ""} ${p.currency || ""}`.toLowerCase();
             const sourceIsLb = /(^|[^a-z])lb(s)?([^a-z]|$)|pound/.test(unitSource);
@@ -331,21 +394,27 @@ export function SupplierStorefront({
               const lowVal = lowKg * targetFactor;
               const highVal = highKg * targetFactor;
               const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-              const suffix = isMtCategory ? "/MT" : "/kg";
               return Math.abs(highVal - lowVal) < 10 ** -decimals / 2
-                ? `USD ${fmt(lowVal)}${suffix}`
-                : `USD ${fmt(lowVal)} to ${fmt(highVal)}${suffix}`;
+                ? `USD ${fmt(lowVal)}${unitSuffix}`
+                : `USD ${fmt(lowVal)} to ${fmt(highVal)}${unitSuffix}`;
             }
-            return rawPrice.replace(/\/\s*(mt|tonnes?|tons?|t|tấn|tan)(?=\s|$|[,;])/gi, "/MT");
+            return rawPrice
+              .replace(/\/\s*(mt|tonnes?|tons?|t|tấn|tan)(?=\s|$|[,;])/gi, "/MT")
+              .replace(/\/\s*(thùng|thung)(?=\s|$|[,;])/gi, "/carton")
+              .replace(/\/\s*(bộ|bo)(?=\s|$|[,;])/gi, "/set")
+              .replace(/\/\s*(túi|tui|bao)(?=\s|$|[,;])/gi, "/bag");
           })();
+          const storefrontMoq = storefrontGradeRows.find((r) => r.moq !== "On request")?.moq
+            || safe(translateMoq(p.moq)).trim()
+            || "On request";
+          const storefrontIncoterm = storefrontGradeRows[0]?.incoterm || (p.incoterm ? safe(p.incoterm).trim() : null);
           return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
             <PublicProductCard href={href} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
-              name={productName} grades={storefrontGrades} moq={safe(p.moq) || "On request"}
-              price={storefrontPrice} fob={p.incoterm?.toUpperCase() === "FOB"}
+              name={productName} grades={storefrontGrades} gradeRows={storefrontGradeRows} moq={storefrontMoq}
+              price={storefrontPrice} incoterm={storefrontIncoterm} fob={storefrontIncoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.lead_time_days ?? null} supplierName={name}
               supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
               quoteHref={productLinks && rfqActions && !synthetic && category ? `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(productName)}&product_id=${encodeURIComponent(p.id)}` : undefined}
-              oem={p.oem} odm={p.odm} samples={p.samples}
               verificationSteps={steps} l2Scope={l2Scope} test={synthetic} linkable={productLinks} />
           </li>;
         })}

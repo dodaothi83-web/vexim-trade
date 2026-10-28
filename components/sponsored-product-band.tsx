@@ -118,16 +118,16 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
         sponsored
         imagePath={product.cardImagePath ?? product.imagePaths[0]}
         name={product.name}
+        grades={product.cardGrades}
+        gradeRows={product.gradeRows}
         moq={product.moq}
         price={product.price}
+        incoterm={product.incoterm}
         fob={product.incoterm?.toUpperCase() === "FOB"}
         leadTimeDays={product.leadTimeDays}
         supplierName={product.supplierName}
         supplierHref={`/suppliers/${encodeURIComponent(product.supplierSlug || product.supplierId)}`}
         quoteHref={product.isDemo ? undefined : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(product.supplierId)}&product=${encodeURIComponent(product.name)}&product_id=${encodeURIComponent(product.id)}`}
-        oem={product.oem}
-        odm={product.odm}
-        samples={product.samples}
         verificationSteps={product.verificationSteps} l2Scope={product.l2Scope}
         test={product.isDemo}
         comparison={comparisonEnabled && !product.isDemo ? { id: product.id, categorySlug } : undefined}
