@@ -38,6 +38,23 @@ try {
   assert.equal((await db.query('select count(*)::int n from public.media_assets')).rows[0].n, 0);
   const shell = (await db.query('select * from public.supplier_products where id=$1', [id])).rows[0];
   assert.equal(shell.supplier_review_status, 'pending'); assert.equal(shell.ready_for_buyer, false);
+  const shellTime = (await db.query('select updated_at::text t from public.supplier_products where id=$1', [id])).rows[0].t;
+  const actor = '77777777-7777-7777-7777-777777777777';
+  const reject = async (time, note = 'Cần thêm thông tin') => (await db.query('select public.request_product_form_changes($1,$2,$3,$4::timestamptz,$5) result',
+    [id, sent.submission_id, actor, time, note])).rows[0].result;
+  assert.equal((await reject(shellTime, ' ')).status, 'invalid');
+  assert.equal((await reject('2000-01-01 00:00:00+00')).status, 'product_changed');
+  assert.equal((await reject(shellTime)).status, 'changes_requested');
+  assert.equal((await reject(shellTime)).already_decided, true, 'A lost decision response is idempotent');
+  const returned = (await db.query('select * from public.supplier_products where id=$1', [id])).rows[0];
+  const returnedDraft = (await db.query('select * from public.product_form_drafts where product_id=$1', [id])).rows[0];
+  assert.equal(returned.supplier_review_status, 'changes_requested'); assert.equal(returned.ready_for_buyer, false);
+  assert.equal(returned.supplier_review_note, 'Cần thêm thông tin'); assert.equal(returnedDraft.revision, 3);
+  assert.equal(returnedDraft.base_product_updated_at.toISOString(), returned.updated_at.toISOString());
+  assert.equal((await db.query('select count(*)::int n from public.media_assets')).rows[0].n, 0);
+  const resent = (await db.query('select public.submit_product_form_draft_selected_images($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb) result',
+    [supplier, id, 'supplier-user', false, 3, JSON.stringify(payload), JSON.stringify(quantity), '[]', JSON.stringify(refs)])).rows[0].result;
+  assert.equal(resent.status, 'submitted'); assert.notEqual(resent.submission_id, sent.submission_id);
   const grants = (await db.query(`select has_function_privilege('service_role','public.submit_product_form_draft(uuid,uuid,integer,jsonb,jsonb,jsonb)','execute') old,
     has_function_privilege('service_role','public.submit_product_form_draft_selected_images(uuid,uuid,text,boolean,integer,jsonb,jsonb,jsonb,jsonb)','execute') new,
     has_table_privilege('authenticated','public.product_form_staged_images','select') auth`)).rows[0];

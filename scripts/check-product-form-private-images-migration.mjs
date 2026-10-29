@@ -18,7 +18,7 @@ try {
       base_product_updated_at timestamptz not null, updated_at timestamptz default now(), payload jsonb);
     create table public.product_form_submissions (id uuid primary key default gen_random_uuid(), product_id uuid, supplier_id uuid,
       draft_revision integer, base_product_updated_at timestamptz, submitted_product_updated_at timestamptz,
-      payload jsonb, quantity jsonb, warnings jsonb, image_ids uuid[], status text default 'pending');
+      payload jsonb, quantity jsonb, warnings jsonb, image_ids uuid[], status text default 'pending', decided_at timestamptz);
     create unique index form_one_pending on public.product_form_submissions(product_id) where status = 'pending';
     create function public.submit_product_form_draft(uuid,uuid,integer,jsonb,jsonb,jsonb) returns jsonb language sql as $$ select '{}'::jsonb $$;
     revoke all on function public.submit_product_form_draft(uuid,uuid,integer,jsonb,jsonb,jsonb) from public, anon, authenticated;
@@ -82,11 +82,20 @@ try {
   assert.equal(captured.image_snapshot[0].row.storage_path, row.storage_path);
   assert.equal((await db.query('select name from public.supplier_products where id=$1', [product])).rows[0].name, 'Public old name');
   assert.equal((await db.query('select count(*)::int n from public.media_assets where audience=$1', ['buyer'])).rows[0].n, 1);
+  const oldTime = (await db.query('select updated_at::text t from public.supplier_products where id=$1', [product])).rows[0].t;
+  const reviewer = '77777777-7777-7777-7777-777777777777';
+  const decision = (await db.query('select public.request_product_form_changes($1,$2,$3,$4::timestamptz,$5) result',
+    [product, submitted.submission_id, reviewer, oldTime, 'Xin sửa ảnh'])).rows[0].result;
+  assert.equal(decision.status, 'changes_requested');
+  const stillPublic = (await db.query('select * from public.supplier_products where id=$1', [product])).rows[0];
+  assert.equal(stillPublic.name, 'Public old name'); assert.equal(stillPublic.ready_for_buyer, true); assert.equal(stillPublic.supplier_review_status, 'approved');
+  assert.equal((await db.query('select count(*)::int n from public.media_assets where audience=$1', ['buyer'])).rows[0].n, 1);
+  assert.equal((await db.query('select revision from public.product_form_drafts where product_id=$1', [product])).rows[0].revision, 6);
   await db.query("update public.media_assets set status='expired' where id=$1", [existing]);
-  assert.equal((await select(supplier, 5, [ref('media', existing)])).status, 'image_unavailable');
+  assert.equal((await select(supplier, 6, [ref('media', existing)])).status, 'image_unavailable');
   await db.query("update public.supplier_products set updated_at=updated_at + interval '1 second' where id=$1", [product]);
-  assert.equal((await stage(supplier, 5, another)).status, 'product_changed');
-  assert.equal((await select(supplier, 5, [])).status, 'product_changed');
+  assert.equal((await stage(supplier, 6, another)).status, 'product_changed');
+  assert.equal((await select(supplier, 6, [])).status, 'product_changed');
   const grants = (await db.query(`select has_table_privilege('anon','public.product_form_staged_images','select') anon,
     has_table_privilege('authenticated','public.product_form_staged_images','select') auth,
     has_function_privilege('authenticated','public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer)','execute') fn_auth,

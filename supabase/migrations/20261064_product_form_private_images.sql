@@ -255,6 +255,71 @@ $$;
 revoke all on function public.submit_product_form_draft_selected_images(uuid,uuid,text,boolean,integer,jsonb,jsonb,jsonb,jsonb) from public,anon,authenticated;
 grant execute on function public.submit_product_form_draft_selected_images(uuid,uuid,text,boolean,integer,jsonb,jsonb,jsonb,jsonb) to service_role;
 
+-- A rejection must not replace any approved name, price, public fields or
+-- images. Store the reason on the submission; only an unpublished shell gets
+-- its workflow status changed. The actor is authenticated by the server action.
+alter table public.product_form_submissions add column if not exists decision_note text;
+alter table public.product_form_submissions add column if not exists decided_by uuid;
+create or replace function public.request_product_form_changes(
+  p_product_id uuid, p_submission_id uuid, p_actor_id uuid,
+  p_expected_product_updated_at timestamptz, p_note text
+) returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  item public.supplier_products%rowtype;
+  submission public.product_form_submissions%rowtype;
+  draft public.product_form_drafts%rowtype;
+begin
+  if p_product_id is null or p_submission_id is null or p_actor_id is null or p_expected_product_updated_at is null
+     or p_note is null or length(btrim(p_note)) = 0 or length(p_note) > 1000 then
+    return jsonb_build_object('status','invalid');
+  end if;
+  select * into item from public.supplier_products where id = p_product_id for update;
+  if not found then return jsonb_build_object('status','missing_product'); end if;
+  select * into submission from public.product_form_submissions where id = p_submission_id and product_id = p_product_id for update;
+  if not found then return jsonb_build_object('status','changed'); end if;
+  if submission.status = 'changes_requested' and submission.decided_by = p_actor_id
+     and submission.decision_note = btrim(p_note) then
+    return jsonb_build_object('status','changes_requested','already_decided',true);
+  end if;
+  if submission.status <> 'pending' then return jsonb_build_object('status','changed'); end if;
+  if item.updated_at is distinct from p_expected_product_updated_at
+     or item.updated_at is distinct from submission.submitted_product_updated_at then
+    return jsonb_build_object('status','product_changed');
+  end if;
+  if item.supplier_id is distinct from submission.supplier_id or item.supplier_review_status is null
+     or item.supplier_review_status not in ('pending','approved','paused') then
+    return jsonb_build_object('status','state_changed');
+  end if;
+  select * into draft from public.product_form_drafts where product_id = p_product_id for update;
+  if item.supplier_review_status = 'pending' then
+    -- Check the original draft before refreshing its baseline. A different or
+    -- missing draft must not silently inherit a newer product version.
+    if draft.product_id is null or draft.supplier_id is distinct from submission.supplier_id
+       or draft.revision is distinct from submission.draft_revision
+       or draft.base_product_updated_at is distinct from submission.base_product_updated_at
+       or draft.payload is distinct from submission.payload or draft.image_selection is distinct from submission.image_selection then
+      return jsonb_build_object('status','changed');
+    end if;
+    update public.supplier_products set supplier_review_status = 'changes_requested', supplier_review_note = btrim(p_note),
+      ready_for_buyer = false, updated_at = now() where id = p_product_id returning * into item;
+  end if;
+  -- Give an unchanged submitted draft a fresh revision, so an exact retry of
+  -- the old submission cannot be mistaken for a new request. A newer private
+  -- draft on an already-approved product is left entirely untouched.
+  if draft.product_id is not null and draft.supplier_id = submission.supplier_id
+     and draft.revision = submission.draft_revision and draft.base_product_updated_at = submission.base_product_updated_at
+     and draft.payload = submission.payload and draft.image_selection = submission.image_selection then
+    update public.product_form_drafts set revision = revision + 1, base_product_updated_at = item.updated_at, updated_at = now()
+      where product_id = p_product_id;
+  end if;
+  update public.product_form_submissions set status = 'changes_requested', decided_at = now(),
+    decided_by = p_actor_id, decision_note = btrim(p_note) where id = p_submission_id;
+  return jsonb_build_object('status','changes_requested','already_decided',false);
+end;
+$$;
+revoke all on function public.request_product_form_changes(uuid,uuid,uuid,timestamptz,text) from public,anon,authenticated;
+grant execute on function public.request_product_form_changes(uuid,uuid,uuid,timestamptz,text) to service_role;
+
 revoke all on function public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer) from public, anon, authenticated;
 revoke all on function public.set_product_form_images(uuid,uuid,text,boolean,integer,jsonb) from public, anon, authenticated;
 grant execute on function public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer) to service_role;

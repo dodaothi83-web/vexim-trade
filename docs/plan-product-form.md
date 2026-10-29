@@ -39,6 +39,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 
 ## CRM
 
+- [x] Đã xây và kiểm thử transaction yêu cầu chỉnh sửa cùng action phân quyền nhân viên: giữ nguyên listing đã duyệt, xử lý thử lại và mở lại bản nháp mới. Chưa nối vào màn duyệt CRM.
 - [ ] Dùng lại form NCC để tạo và sửa sản phẩm trong CRM, đồng thời giữ các trường chỉ có ở CRM và dữ liệu cũ.
 - [ ] Xây màn duyệt bản gửi, so sánh dữ liệu đã duyệt với bản mới, cảnh báo giá và cho admin sửa tên tiếng Anh.
 - [ ] Hoàn thiện transaction duyệt/từ chối có phân quyền, khóa và đối chiếu phiên bản cùng snapshot ảnh; không công khai dữ liệu hoặc ảnh đang chờ.
