@@ -1255,6 +1255,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               <p className="mt-3 text-base font-semibold tabular-nums">{quantityEditor.pricePubliclyVisible ? `USD ${Number(quantityEditor.v2.tiers.at(-1)!.price).toFixed(2)}${quantityEditor.v2.tiers[0].price !== quantityEditor.v2.tiers.at(-1)!.price ? `–${Number(quantityEditor.v2.tiers[0].price).toFixed(2)}` : ""}/${quantityEditor.v2.unit === "mt" ? "MT" : "kg"}` : "Price on request"}</p>
               <p className="text-xs text-ink-600">MOQ: {quantityEditor.v2.tiers[0].quantity} {quantityEditor.v2.unit === "mt" ? "MT" : "kg"}</p>
               {quantityEditor.pendingPriceId && <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] text-amber-900">Đây là bản xem trước giá đang chờ, không phải giá buyer đang thấy.</p>}
+              {quantityEditor.v2EditingEnabled && <p className="mt-2 text-[10.5px] text-ink-500">Bản xem trước này theo bảng giá đã lưu, chưa cập nhật khi đang sửa.</p>}
             </div> : quantityEditor && quantityPreview ? <div className="mt-2">
               <QuantityBuyerPreview value={quantityPreview} standardGrades={quantityEditor.standardGrades} policy={quantityEditor.policy}
                 buyerPriceUnit={quantityEditor.buyerPriceUnit} pricePubliclyVisible={quantityEditor.pricePubliclyVisible} />

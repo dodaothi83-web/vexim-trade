@@ -16,6 +16,8 @@ export type QuantityEditorData = {
   v2?: { unit: SupplierQuantityUnit; customGrade: boolean; tiers: Array<{ quantity: string; price: string }> } | null;
   standardGrades: string[]; policy: QuantityPricingPolicy; buyerPriceUnit: "kg" | "mt"; pricePubliclyVisible: boolean;
   buyerPreviewEnabled: boolean;
+  /** Private experimental UI must remain disabled outside dedicated staging. */
+  v2EditingEnabled?: boolean;
 };
 
 /** Caller must authorize the product before requesting any private revision. */
@@ -57,5 +59,6 @@ export async function readQuantityEditorData(product: SupplierProduct): Promise<
     standardGrades: standardGradesForCategory(category), policy,
     buyerPriceUnit: primary === "mt" ? "mt" : "kg", pricePubliclyVisible: product.price_publicly_visible === true,
     buyerPreviewEnabled: process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true",
+    v2EditingEnabled: process.env.VEXIM_QUANTITY_FORM_STAGING === "true" && process.env.VEXIM_QUANTITY_V2_STAGING === "true" && process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true",
   };
 }

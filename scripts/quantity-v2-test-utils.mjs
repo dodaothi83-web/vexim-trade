@@ -9,6 +9,6 @@ function load(path, mocks) {
   vm.runInNewContext(code, { exports, process, console, require: (key) => { if (!(key in mocks)) throw Error(`Unexpected import ${key}`); return mocks[key]; } });
   return exports;
 }
-const entry = load('../lib/products/quantity-entry.ts', { '@/lib/products/quantity-pricing': pricing });
+export const entry = load('../lib/products/quantity-entry.ts', { '@/lib/products/quantity-pricing': pricing });
 export const v2Validation = load('../lib/products/quantity-v2-validation.ts', { '@/lib/products/quantity-entry': entry, '@/lib/products/quantity-revision-v2': revision });
 export { revision };

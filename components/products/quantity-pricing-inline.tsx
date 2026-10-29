@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QuantityPricingEditor } from "@/components/products/quantity-pricing-editor";
+import { QuantityPricingV2Inline } from "@/components/products/quantity-pricing-v2-inline";
 import { validateQuantityPricing, type QuantityPricingInput } from "@/lib/products/quantity-pricing";
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import { submitQuantityPriceRevisionAction } from "@/app/supplier/portal/quantity-revision-actions";
@@ -69,6 +70,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
     } catch { setResult({ ok: false, message: "Không kết nối được máy chủ. Hãy thử lại." }); }
     finally { setBusy(false); }
   }
+  if (data.v2 && data.v2EditingEnabled) return <QuantityPricingV2Inline key={`${data.productId}:${data.pendingPriceId ?? "approved"}`} data={{ ...data, v2: data.v2 }} actor={actor} disabled={disabled} dirty={dirty} />;
   // The current kg-only editor cannot safely edit a v2 revision. Show the
   // original values without interpreting a per-MT price as USD/kg.
   if (data.v2) return <div ref={root} className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
