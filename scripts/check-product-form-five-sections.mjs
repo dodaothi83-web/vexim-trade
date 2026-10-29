@@ -41,6 +41,8 @@ assert.match(html, />Các phần<\/h2>/); assert.match(html, />Thuộc tính s�
 assert.match(html, />Thông tin giao dịch<\/h2>/); assert.match(html, />Đóng gói và giao hàng<\/h2>/);
 assert.ok(html.indexOf('>Buyer sẽ thấy</h2>') < html.indexOf('data-component="preview"'));
 assert.match(html, /Không bắt buộc/); assert.match(html, /Cần bổ sung/);
+assert.match(html, /Còn 1 phần cần bổ sung trước khi gửi duyệt/);
+assert.match(html, /aria-label="Thời gian giao hàng \(ngày\)"/); assert.match(html, /kg\/tháng/);
 assert.match(html, /Tên bắt buộc/); assert.match(html, /<button[^>]*disabled=""[^>]*>Gửi duyệt/);
 assert.match(html, /data-component="pricing" data-errors="true" data-warnings="false" data-incoterm="false" data-consent="false"/);
 assert.ok(html.indexOf('data-component="incoterm"') < html.indexOf('data-component="pricing"'));

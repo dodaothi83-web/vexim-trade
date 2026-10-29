@@ -67,6 +67,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
   const categoryLabel = category?.label ?? "Chưa chọn danh mục";
   const complete = (section: ProductFormSection) => !allErrors.some((item) => item.section === section);
   const ready = allErrors.length === 0 && canSubmit;
+  const incompleteCount = SECTIONS.filter((section) => !complete(section.id)).length;
 
   return <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
     <div className="min-w-0 space-y-4">
@@ -79,7 +80,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
             <option value="">Chọn danh mục sản phẩm</option>{categories.map((item) => <option key={item.id} value={item.slug}>{item.group ? `${item.group} / ` : ""}{item.label}</option>)}
           </select>
         </Field>
-        <Field label="Hình ảnh" required hint="Tải 1 đến 8 ảnh. Ảnh đầu tiên là ảnh chính." error={problem("images")}>
+        <Field label="Ảnh sản phẩm" required hint="Ảnh đầu tiên là ảnh chính." hintByLabel error={problem("images")}>
           {imageControls}
         </Field>
       </Section>
@@ -108,7 +109,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
               {problem("incotermPlace") && <p className="mt-1 text-xs text-rose-700">{problem("incotermPlace")}</p>}</div>
           </div>
         </Field>
-        <Field label="Giá theo số lượng" required hint="Tối đa 4 mức">
+        <Field label="Giá theo số lượng" required hint="Tối đa 4 mức" hintByLabel>
           <QuantityPricingV2Editor value={quantity} onChange={setQuantity} standardGrades={grades} policy={editorPolicy}
             pricePubliclyVisible={value.pricePubliclyVisible} consentChecked={value.priceConsent} onConsentChange={(next) => set("priceConsent", next)}
             disabled={locked} showGrade={false} showIncoterm={false} showConsent={false} showErrors showWarnings={false} />
@@ -132,19 +133,14 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
       <Section id="packaging" title="Đóng gói và giao hàng">
         <Field label="Bao bì / đóng gói"><input className="input w-full" aria-label="Bao bì / đóng gói" maxLength={300} value={value.packaging} disabled={locked} onChange={(event) => set("packaging", event.target.value)} /></Field>
         <Field label="Cảng xuất"><input className="input w-full" aria-label="Cảng xuất" maxLength={120} value={value.exportPort} disabled={locked} onChange={(event) => set("exportPort", event.target.value)} /></Field>
-        <Field label="Thời gian giao hàng" hint="Số ngày" error={problem("leadTimeDays")}><input className="input w-full text-right font-mono tabular-nums" type="text" inputMode="numeric" aria-label="Thời gian giao hàng (ngày)" maxLength={5} value={value.leadTimeDays} disabled={locked} onChange={(event) => set("leadTimeDays", event.target.value)} /></Field>
-        <Field label="Năng lực mỗi tháng" hint="kg / tháng" error={problem("monthlyCapacityKg")}><input className="input w-full text-right font-mono tabular-nums" type="text" inputMode="numeric" aria-label="Năng lực mỗi tháng (kg)" maxLength={32} value={value.monthlyCapacityKg} disabled={locked} onChange={(event) => set("monthlyCapacityKg", formatQuantityInput(event.target.value, value.monthlyCapacityKg))} /></Field>
+        <Field label="Thời gian giao hàng" error={problem("leadTimeDays")}><div className="relative max-w-xs"><input className="input w-full pr-16 text-right font-mono tabular-nums" type="text" inputMode="numeric" aria-label="Thời gian giao hàng (ngày)" maxLength={5} value={value.leadTimeDays} disabled={locked} onChange={(event) => set("leadTimeDays", event.target.value)} /><span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-ink-500">ngày</span></div></Field>
+        <Field label="Năng lực cung cấp" error={problem("monthlyCapacityKg")}><div className="relative max-w-xs"><input className="input w-full pr-24 text-right font-mono tabular-nums" type="text" inputMode="numeric" aria-label="Năng lực mỗi tháng (kg)" maxLength={32} value={value.monthlyCapacityKg} disabled={locked} onChange={(event) => set("monthlyCapacityKg", formatQuantityInput(event.target.value, value.monthlyCapacityKg))} /><span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-ink-500">kg/tháng</span></div></Field>
       </Section>
 
       <Section id="description" title="Mô tả sản phẩm" subtitle="Cần có mô tả ngắn hoặc quy cách để gửi duyệt.">
         <Field label="Mô tả ngắn" hint="Cần ít nhất mô tả ngắn hoặc quy cách để gửi duyệt." error={problem("description")}><textarea className="input min-h-24 w-full" aria-label="Mô tả ngắn" maxLength={1500} value={value.description} disabled={locked} onChange={(event) => set("description", event.target.value)} /></Field>
         <Field label="Mô tả chi tiết"><ProductDescriptionEditor value={value.descriptionDetail} disabled={locked} onChange={(html) => set("descriptionDetail", html)} /></Field>
       </Section>
-      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white p-3 shadow-lg">
-        <span className="text-xs text-ink-600" role="status">{statusText}</span>
-        <div className="flex gap-2"><button type="button" className="btn btn-ghost" onClick={onSave} disabled={locked}>{saveLabel}</button>
-          <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={locked || !ready}>Gửi duyệt</button></div>
-      </div>
     </div>
     <aside className="space-y-4 lg:sticky lg:top-6">
       <nav aria-label="Các phần sản phẩm" className="rounded-xl border border-ink-200 bg-white p-4">
@@ -163,6 +159,11 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
         </div>
       </section>
     </aside>
+    <div className="sticky bottom-0 z-20 col-span-full flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white p-3 shadow-lg">
+      <span className="text-xs text-ink-600" role="status">{statusText}{incompleteCount > 0 && `. Còn ${incompleteCount} phần cần bổ sung trước khi gửi duyệt.`}</span>
+      <div className="flex gap-2"><button type="button" className="btn btn-ghost" onClick={onSave} disabled={locked}>{saveLabel}</button>
+        <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={locked || !ready}>Gửi duyệt</button></div>
+    </div>
   </div>;
 }
 
@@ -174,9 +175,9 @@ function Section({ id, title, subtitle, children }: { id: ProductFormSection; ti
   </section>;
 }
 
-function Field({ label, required, hint, error, children }: { label: string; required?: boolean; hint?: string; error?: string; children: ReactNode }) {
+function Field({ label, required, hint, hintByLabel, error, children }: { label: string; required?: boolean; hint?: string; hintByLabel?: boolean; error?: string; children: ReactNode }) {
   return <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
-    <div><p className="text-sm font-semibold text-ink-800">{label}{required && <span className="text-rose-700"> *</span>}</p>{hint && <p className="mt-1 text-xs leading-5 text-ink-500">{hint}</p>}</div>
-    <div className="min-w-0">{children}{error && <p className="mt-1 text-xs text-rose-700">{error}</p>}</div>
+    <div><p className="text-sm font-semibold text-ink-800">{label}{required && <span className="text-rose-700"> *</span>}</p>{hint && hintByLabel && <p className="mt-1 text-xs leading-5 text-ink-500">{hint}</p>}</div>
+    <div className="min-w-0">{children}{hint && !hintByLabel && <p className="mt-1 text-xs leading-5 text-ink-500">{hint}</p>}{error && <p className="mt-1 text-xs text-rose-700">{error}</p>}</div>
   </div>;
 }
