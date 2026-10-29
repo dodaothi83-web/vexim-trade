@@ -19,6 +19,7 @@ import { classifyMoqFilterGroup } from "@/lib/products/grade-pricing";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
 function productGradesOf(product: PublicCategoryProduct): string[] {
+  if (product.quantityOffer?.customGrade) return [];
   if (Array.isArray(product.grades) && product.grades.length > 0) return product.grades;
   return product.grade ? [product.grade] : [];
 }
@@ -224,6 +225,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
             return <div key={p.id} className="min-w-0">
               <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
                 imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} grades={p.cardGrades} gradeRows={p.gradeRows}
+                stalePriceDays={p.quantityOffer?.stale ? p.quantityOffer.daysSinceConfirmed : undefined}
+              volumePricing={p.quantityOffer?.hasVolumePricing}
                 highlightedGrades={activeGrades} moq={p.moq} price={p.price} incoterm={p.incoterm} fob={p.incoterm?.toUpperCase() === "FOB"}
                 leadTimeDays={p.leadTimeDays} leadTimeText={p.leadTimeText} supplierName={p.supplierName}
                 supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}

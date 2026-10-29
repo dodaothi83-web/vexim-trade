@@ -2,11 +2,13 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
+import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { PageHeader } from "@/components/page-header";
 import { SupplierProductEditor } from "../product-editor";
+import { readQuantityEditorData } from "@/lib/products/quantity-editor-data";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Quản lý sản phẩm", robots: { index: false, follow: false } };
@@ -32,6 +34,17 @@ export default async function OwnProductPage({ params, searchParams }: { params:
   const options = categoryProposalOptions(allCategories);
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
   const categoryScope = allowedSupplierCategories(access.supplier, options, linked).map((item) => item.slug);
+  const quantityEditor = await (async () => {
+    if (!getSupabaseClient()) return null;
+    const strictAccess = await supplierPortalAccess(supabaseStore);
+    if (!strictAccess || !portalApproved(strictAccess.supplier) || strictAccess.supplier.id !== access.supplier.id) return null;
+    const strictProduct = await supabaseStore.getProduct(id);
+    if (!strictProduct || strictProduct.supplier_id !== strictAccess.supplier.id) return null;
+    return readQuantityEditorData(strictProduct);
+  })().catch((error) => {
+    console.error("[quantity-pricing] supplier editor", error);
+    return null;
+  });
   return <>
     <PageHeader
       eyebrow="Cổng nhà cung cấp · riêng tư"
@@ -39,6 +52,9 @@ export default async function OwnProductPage({ params, searchParams }: { params:
       sub="Hoàn thiện thông tin, kiểm tra tệp đã tải và theo dõi phản hồi duyệt."
       breadcrumbs={<nav aria-label="Đường dẫn" className="flex min-w-0 items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="shrink-0 hover:text-brand-700">Sản phẩm</Link><ChevronRight className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate font-semibold text-ink-800">{product.name}</span></nav>}
     />
-    <SupplierProductEditor product={product} media={media} userId={access.user.id} categories={options} categoryScope={categoryScope} supplier={access.supplier} initialStep={step} />
+    {process.env.VEXIM_QUANTITY_PRICING_PREVIEW === "true" && <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+      <Link href={`/supplier/portal/products/${id}/quantity-pricing`} className="font-semibold underline">Mở trang thử nghiệm giá theo số lượng</Link>. Trang thử nghiệm chưa thay đổi thông tin buyer đang thấy.
+    </p>}
+    <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options} categoryScope={categoryScope} supplier={access.supplier} initialStep={step} />
   </>;
 }

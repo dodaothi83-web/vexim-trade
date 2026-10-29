@@ -31,6 +31,14 @@ assert.equal(HOME_FEED_PER_SUPPLIER, 2, "Two products per supplier, so one compa
 const cappedForOneSeller = arrangeSupplierProducts(many(1, 20), HOME_FEED_PER_SUPPLIER).shown;
 assert.equal(cappedForOneSeller.length, HOME_FEED_PER_SUPPLIER, "The existing per-supplier cap stays unchanged");
 assert.equal(arrangeSupplierProducts([], HOME_FEED_PER_SUPPLIER).shown.length, 0, "Empty input stays empty");
+const skewed = [...Array.from({ length: 5 }, (_, i) => ({ supplierId: 'A', id: `a${i}` })),
+  { supplierId: 'B', id: 'b0' }, { supplierId: 'C', id: 'c0' }, { supplierId: 'B', id: 'b1' }];
+const rounds = arrangeSupplierProducts(skewed, null);
+assert.deepEqual(rounds.shown.map((p) => p.id), ['a0', 'b0', 'c0', 'a1', 'b1', 'a2', 'a3', 'a4']);
+const limited = arrangeSupplierProducts(skewed, 2);
+assert.deepEqual(limited.shown.map((p) => p.id), ['a0', 'b0', 'c0', 'a1', 'b1']);
+assert.equal(limited.hidden.get('A'), 3);
+assert.equal(arrangeSupplierProducts(skewed, 0).shown.length, 0);
 
 /* ---------------- 2. Render thật ---------------- */
 

@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
+import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
 import { prepareSupplierProductImage } from "@/lib/media/prepare-supplier-product-image";
 import { isExpired } from "@/lib/media/readiness";
+import { privateMediaUrl } from "@/lib/supplier-portal/product-view";
 import type { MediaKind } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -38,6 +40,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!checked.ok || !checked.mime) return fail(checked.message ?? "Tệp không hợp lệ.");
   const current = await access.store.listMedia("product", id);
   if (current.filter((m) => m.created_by === access.user.id).length >= 12) return fail("Tối đa 12 tệp trên mỗi sản phẩm.");
+  if (kind === "image" && current.filter((m) => m.kind === "image").length >= 8) return fail("Tối đa 8 ảnh trên mỗi sản phẩm.", 409);
+  const db = getSupabaseClient();
+  if (db) {
+    const strictAccess = await supplierPortalAccess(supabaseStore);
+    if (!strictAccess || !portalApproved(strictAccess.supplier) || strictAccess.supplier.id !== access.supplier.id || strictAccess.user.id !== access.user.id)
+      return fail("Không xác nhận được tài khoản nhà cung cấp.", 403);
+  }
   let prepared: Awaited<ReturnType<typeof prepareSupplierProductImage>> | null = null;
   if (kind === "image") {
     try { prepared = await prepareSupplierProductImage(bytes); }
@@ -52,14 +61,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!fresh || fresh.supplier_id !== access.supplier.id || !canManage(fresh)) return fail("Trạng thái sản phẩm đã thay đổi.", 409);
     await putObject(path, prepared?.main ?? bytes, prepared ? "image/webp" : checked.mime);
     if (prepared && thumbPath) await putObject(thumbPath, prepared.thumb, "image/webp");
-    const row = await access.store.createMedia({
-      owner_type: "product", product_id: id, supplier_id: access.supplier.id, verification_id: null,
-      checklist_key: null, kind, audience: fresh.supplier_review_status === "approved" && fresh.ready_for_buyer ? "buyer" : "internal", status: "unverified", expires_on: null,
+    const asset = {
+      owner_type: "product" as const, product_id: id, supplier_id: access.supplier.id, verification_id: null,
+      checklist_key: null, kind, audience: fresh.supplier_review_status === "approved" && fresh.ready_for_buyer ? "buyer" as const : "internal" as const, status: "unverified" as const, expires_on: null,
       caption: file.name.slice(0, 150), storage_path: path, thumb_path: thumbPath, external_url: null,
       mime: prepared ? "image/webp" : checked.mime, bytes: prepared?.main.length ?? bytes.length,
       width: prepared?.width ?? null, height: prepared?.height ?? null, sort_order: current.length,
       created_by: access.user.id,
-    });
+    };
+    let row;
+    if (db) {
+      // The RPC locks the product, rechecks its state and counts all images in
+      // one transaction. A stale concurrent request cannot become the ninth.
+      const { data, error } = await db.rpc("create_supplier_product_media_guarded", {
+        p_product_id: id, p_supplier_id: access.supplier.id, p_user_id: access.user.id, p_asset: asset,
+      });
+      if (error) throw new Error(`Không lưu được ảnh. Kiểm tra migration giới hạn ảnh: ${error.message}`);
+      if (data?.status !== "created" || !data.asset) {
+        await Promise.all([path, thumbPath].filter((p): p is string => !!p).map((p) => deleteObject(p).catch(() => null)));
+        return fail(data?.status === "image_limit" ? "Tối đa 8 ảnh trên mỗi sản phẩm." : "Trạng thái sản phẩm đã thay đổi.", 409);
+      }
+      row = data.asset as Awaited<ReturnType<typeof access.store.createMedia>>;
+    } else {
+      // Local development fallback; Supabase writes always use the guarded RPC.
+      const freshMedia = await access.store.listMedia("product", id);
+      if (kind === "image" && freshMedia.filter((m) => m.kind === "image").length >= 8) {
+        await Promise.all([path, thumbPath].filter((p): p is string => !!p).map((p) => deleteObject(p).catch(() => null)));
+        return fail("Tối đa 8 ảnh trên mỗi sản phẩm.", 409);
+      }
+      row = await access.store.createMedia(asset);
+    }
     await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "product", entity_id: id, action: "supplier.product_media_uploaded",
       before: null, after: { media_id: row.id, kind, audience: row.audience } }).catch((error) => console.error("[supplier-product-media] audit", error));
@@ -67,7 +98,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     revalidatePath(`/crm/products/${id}/edit`);
     return NextResponse.json({ ok: true, message: row.audience === "buyer"
       ? "Đã tải tệp lên sản phẩm đang hiển thị với buyer."
-      : "Đã tải tệp nội bộ để kiểm tra; chưa chia sẻ cho buyer." });
+      : "Đã tải tệp nội bộ để kiểm tra; chưa chia sẻ cho buyer.",
+      ...(row.kind === "image" ? { image: { id: row.id, url: privateMediaUrl(row) } } : {}),
+    });
   } catch (error) {
     await Promise.all([path, thumbPath].filter((p): p is string => !!p)
       .map((p) => deleteObject(p).catch(() => null)));

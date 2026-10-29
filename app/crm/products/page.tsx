@@ -140,6 +140,7 @@ export default async function ProductsPage({
         sub={`${all.length} hồ sơ sản phẩm · giá chỉ là tham khảo có thời hạn, báo giá chính thức do NCC xác nhận theo từng RFQ`}
         actions={canManage ? (
           <div className="flex flex-wrap gap-2">
+            {(session.role === "admin" || session.role === "reviewer") && <Link href="/crm/products/quantity-review" className="btn btn-soft">Rà soát giá và tên</Link>}
             <Link href="/crm/products/import" className="btn btn-soft">
               Nhập từ Excel
             </Link>

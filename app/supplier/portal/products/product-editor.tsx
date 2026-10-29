@@ -32,31 +32,33 @@ import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs"
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
 import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
-import { GradePricingTable } from "@/components/products/grade-pricing-table";
+import { QuantityPricingInline } from "@/components/products/quantity-pricing-inline";
+import { QuantityBuyerPreview, QuantityPricingEditor } from "@/components/products/quantity-pricing-editor";
+import { QuantityBuyerV2Preview, QuantityGradeV2Field, QuantityPricingV2Editor } from "@/components/products/quantity-pricing-v2-editor";
+import { validateSupplierQuantityEntry, type SupplierQuantityEntry } from "@/lib/products/quantity-entry";
+import { validateQuantityPricing, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
+import { displayUnitsForCategory } from "@/lib/public/price-units";
+import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import {
-  CUSTOM_GRADE_OPTION,
   LEAD_TIME_UNIT_OPTIONS,
   categoryMarketPriceUnit,
   formatGradeRowPriceVi,
   formatLeadTimeVi,
   formatProductMoqVi,
-  formatStructuredMoqVi,
-  hydrateGradeRowsDraft,
   isGradeFieldKey,
-  isMoqUnit,
   nonGradeProductFields,
-  parseLegacyMoqString,
   readProductLeadTime,
-  reconcileGradeRowsForCategory,
-  serializeGradeRowsDraft,
-  validateGradeRowsDraft,
+  standardGradesForCategory,
   type LeadTimeUnit,
-  type ProductGradeRowDraft,
 } from "@/lib/products/grade-pricing";
 import { effectiveFieldsFor, fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
 
 type EditorProps = {
   product?: SupplierProduct;
+  quantityEditor?: QuantityEditorData | null;
+  quantityPolicies?: Record<string, QuantityPricingPolicy> | null;
+  /** Staged-only new-product v2 pricing; defaults to the existing form. */
+  quantityV2FormEnabled?: boolean;
   media?: MediaAsset[];
   userId?: string;
   categories: CategoryProposalOption[];
@@ -89,7 +91,6 @@ const EXPORT_FIELDS = [
 
 /** Nhóm trường hiển thị ở bước 3 để NCC đọc lại đúng những gì đã nhập ở bước 1. */
 const REVIEW_COMMERCIAL = [
-  ["price_valid_until", "Giá có hiệu lực tới"],
   ["lead_time_days", "Thời gian giao hàng"],
   ["payment_terms", "Điều kiện thanh toán"],
   ["export_port", "Cảng xuất"],
@@ -107,7 +108,7 @@ function priceOptInDefault(product?: SupplierProduct): boolean {
 }
 
 /** Giá trị khởi tạo của bản xem lại: lấy từ bản đã lưu, rồi cập nhật theo từng lần nhập. */
-function snapshotFrom(product?: SupplierProduct, gradeRowsJson = ""): Record<string, string> {
+function snapshotFrom(product?: SupplierProduct): Record<string, string> {
   const lt = product ? readProductLeadTime(product) : { value: null, unit: "days" as LeadTimeUnit, daysEquivalent: null };
   const seed: Record<string, string> = {
     name: product?.name ?? "",
@@ -116,7 +117,6 @@ function snapshotFrom(product?: SupplierProduct, gradeRowsJson = ""): Record<str
     description_detail: product?.description_detail ?? "",
     raw_material_region: product?.raw_material_region ?? "",
     input_material_origin: product?.input_material_origin ?? "",
-    grade_rows_json: gradeRowsJson,
     lead_time_value: lt.value != null ? String(lt.value) : "",
     lead_time_unit: lt.unit,
   };
@@ -183,7 +183,7 @@ function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElemen
   const panel = form?.querySelector(`[data-step-panel="${step}"]`);
   if (!panel) return null;
   for (const element of panel.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input, select, textarea")) {
-    if (element.disabled || (element instanceof HTMLInputElement && element.type === "hidden")) continue;
+    if (element.form !== form || element.disabled || (element instanceof HTMLInputElement && element.type === "hidden")) continue;
     if (!element.checkValidity()) return element;
   }
   return null;
@@ -199,19 +199,26 @@ function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElemen
  * Hành vi cũ giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
+export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, quantityV2FormEnabled = false, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
   const router = useRouter();
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   // Bước sẽ mở sau khi lưu thành công; null = chỉ lưu rồi ở lại.
   const advanceTo = useRef<Step | null>(null);
+  const creationRequestId = useRef<string | null>(null);
+  const [quantityConsent, setQuantityConsent] = useState(false);
 
   const [step, setStep] = useState<Step>(initialStep);
   const [busy, setBusy] = useState(false);
-  const initialCategorySlug = product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "";
+  const [quantityPreview, setQuantityPreview] = useState<QuantityPricingInput | null>(() => quantityEditor ? {
+    grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, nameVi: quantityEditor.nameVi,
+    nameEn: quantityEditor.nameEn, tiers: quantityEditor.tiers,
+  } : !product ? { grade: "", incoterm: "", nameVi: "", nameEn: "", tiers: [{ minKg: "", priceUsdPerKg: "" }] } : null);
+  const [v2Preview, setV2Preview] = useState<SupplierQuantityEntry | null>(() => quantityEditor?.v2 ? {
+    grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, nameVi: quantityEditor.nameVi,
+    unit: quantityEditor.v2.unit, customGrade: quantityEditor.v2.customGrade, tiers: quantityEditor.v2.tiers,
+  } : !product && quantityV2FormEnabled ? { grade: "", incoterm: "", nameVi: "", unit: "kg", customGrade: false, tiers: [{ quantity: "", price: "" }] } : null);
   const [selectedCategory, setSelectedCategory] = useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "");
-  const initialCategoryObj = categories.find((c) => c.slug === initialCategorySlug) ?? (initialCategorySlug ? { slug: initialCategorySlug } : null);
-  const [gradeRows, setGradeRows] = useState<ProductGradeRowDraft[]>(() => hydrateGradeRowsDraft(product, initialCategoryObj));
   const initialLeadTime = product ? readProductLeadTime(product) : { value: null, unit: "days" as LeadTimeUnit, daysEquivalent: null };
   const [leadTimeValue, setLeadTimeValue] = useState<string>(() => (initialLeadTime.value != null ? String(initialLeadTime.value) : ""));
   const [leadTimeUnit, setLeadTimeUnit] = useState<LeadTimeUnit>(() => initialLeadTime.unit);
@@ -225,7 +232,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   // Bản nháp dùng cho bước 3: cập nhật theo từng lần nhập nên NCC đọc lại đúng nội dung
   // đang có, kể cả phần chưa lưu (kèm cảnh báo phải lưu trước khi gửi).
   const [snapshot, setSnapshot] = useState<Record<string, string>>(() =>
-    snapshotFrom(product, serializeGradeRowsDraft(hydrateGradeRowsDraft(product, initialCategoryObj))),
+    snapshotFrom(product),
   );
   const [submitHint, setSubmitHint] = useState<string[] | null>(null);
   const [sent, setSent] = useState(false);
@@ -236,7 +243,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   useEffect(() => {
     if (baselineSeeded.current) return;
     baselineSeeded.current = true;
-    const initial = snapshotFromForm(formRef.current, snapshotFrom(product, serializeGradeRowsDraft(gradeRows)));
+    const initial = snapshotFromForm(formRef.current, snapshotFrom(product));
     setSnapshot(initial);
     setBaseline(initial);
   }, []);
@@ -254,8 +261,9 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const locked = review === "pending" || legacyManaged;
   const dirty = baseline !== null && !snapshotsEqual(snapshot, baseline);
   const ownedCount = media.filter((m) => m.created_by === userId).length;
+  const imageCount = media.filter((m) => m.kind === "image").length;
   const hasDetails = !!product && !!(product.spec?.trim() || product.description?.trim());
-  const hasMedia = media.some((m) => (m.kind === "image" || m.kind === "catalogue") && !!m.storage_path);
+  const hasMedia = media.some((m) => m.kind === "image" && !!m.storage_path && m.supplier_id === product?.supplier_id);
   const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
   const canUpload = !!product && !locked && !dirty &&
     (!["approved", "paused"].includes(review) || product.supplier_originated === true);
@@ -267,6 +275,13 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
   const activeCategorySlug = selectedCategory || product?.category || "";
   const activeCategory = categories.find((c) => c.slug === activeCategorySlug);
   const activeCategorySource = activeCategory ?? (activeCategorySlug ? { slug: activeCategorySlug } : null);
+  const newPolicy = !product && activeCategory ? quantityPolicies?.[activeCategory.slug] : undefined;
+  const newGrades = standardGradesForCategory(activeCategorySource);
+  const newBuyerUnit = displayUnitsForCategory(activeCategorySlug, activeCategory?.price_unit).primary === "mt" ? "mt" : "kg";
+  const newQuantity = !product && !quantityV2FormEnabled && quantityPreview ? { ...quantityPreview, nameVi: snapshot.name ?? "" } : null;
+  const newV2Quantity = !product && quantityV2FormEnabled && v2Preview ? { ...v2Preview, nameVi: snapshot.name ?? "" } : null;
+  const v2NameGradeError = showGradeErrors && newV2Quantity && newPolicy
+    ? validateSupplierQuantityEntry(newV2Quantity, newGrades, newPolicy).errors.find((issue) => issue.code === "name_vi_grade")?.message : undefined;
   const unitMeta = categoryMarketPriceUnit(activeCategorySlug, activeCategory?.price_unit);
   const categoryLabel = activeCategory?.label ?? product?.category ?? "Chưa chọn danh mục";
   const officialAttributeFields = nonGradeProductFields(fieldsFor(activeCategory));
@@ -338,12 +353,6 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     });
   }, []);
 
-  const onGradeRowsChange = useCallback((next: ProductGradeRowDraft[]) => {
-    setGradeRows(next);
-    const json = serializeGradeRowsDraft(next);
-    setSnapshot((previous) => ({ ...previous, grade_rows_json: json }));
-  }, []);
-
   const computedLeadTimeDays = (() => {
     if (leadTimeUnit === "on_request") return "";
     const trimmed = leadTimeValue.trim();
@@ -375,20 +384,39 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
 
   function onCategorySelect(nextSlug: string) {
     setSelectedCategory(nextSlug);
-    const nextCat = categories.find((c) => c.slug === nextSlug) ?? (nextSlug ? { slug: nextSlug } : null);
-    const reconciled = reconcileGradeRowsForCategory(gradeRows, nextCat);
-    setGradeRows(reconciled);
-    const json = serializeGradeRowsDraft(reconciled);
-    setSnapshot((previous) => ({
-      ...previous,
-      supplier_category_proposal: nextSlug,
-      grade_rows_json: json,
-    }));
+    if (!product) {
+      setQuantityPreview((previous) => previous ? { ...previous, grade: "" } : previous);
+      setV2Preview((previous) => previous ? { ...previous, grade: "", customGrade: false } : previous);
+      setQuantityConsent(false);
+    }
+    setSnapshot((previous) => ({ ...previous, supplier_category_proposal: nextSlug }));
+  }
+
+  function onNewQuantityChange(value: QuantityPricingInput) {
+    setQuantityPreview(value);
+    setQuantityConsent(false);
+    setSnapshot((previous) => ({ ...previous, quantity_draft: JSON.stringify(value) }));
+  }
+
+  function onNewV2QuantityChange(value: SupplierQuantityEntry) {
+    if (JSON.stringify(value) === JSON.stringify(newV2Quantity)) return;
+    setV2Preview(value);
+    setQuantityConsent(false);
+    setSnapshot((previous) => ({ ...previous, quantity_v2_draft: JSON.stringify(value) }));
   }
 
   function validateCurrentGradeRows(): string | null {
-    const check = validateGradeRowsDraft(gradeRows, activeCategorySource);
-    return check.valid ? null : (check.message ?? "Kiểm tra lại bảng Grade & giá.");
+    if (!product) {
+      if (!newPolicy || (!newQuantity && !newV2Quantity)) return "Chọn danh mục và kiểm tra kết nối cấu hình bảng giá mới.";
+      const validation = newV2Quantity
+        ? validateSupplierQuantityEntry(newV2Quantity, newGrades, newPolicy)
+        : validateQuantityPricing(newQuantity!, newGrades, newPolicy);
+      if (!validation.value) return validation.errors[0]?.message ?? "Kiểm tra bảng giá theo số lượng.";
+      if (newV2Quantity && !(snapshot.incoterm_place ?? "").trim()) return "Nhập địa điểm Incoterm.";
+      if (snapshot.price_publicly_visible === "yes" && !quantityConsent) return "Hãy xác nhận cam kết giá trước khi công khai.";
+      return null;
+    }
+    return null;
   }
 
   function goToStep(next: Step) {
@@ -412,8 +440,16 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       setStepError(gradeError);
       setToast({ ok: false, message: gradeError });
       if (typeof document !== "undefined") {
-        document.getElementById("grade-pricing-table")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        document.getElementById("new-quantity-pricing")?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
+      return;
+    }
+    const precheckForm = new FormData(formElement);
+    if (!supplierPriceConsentCurrent(supplier) && precheckForm.get("price_publicly_visible") === "yes" && precheckForm.get("confirm_supplier_price_consent") !== "yes") {
+      const consentMsg = "Vui lòng tick xác nhận đồng ý chia sẻ giá tham khảo khi bật công khai giá (hoặc bỏ chọn công khai giá).";
+      setStepError(consentMsg);
+      setToast({ ok: false, message: consentMsg });
+      formElement.querySelector<HTMLInputElement>('input[name="confirm_supplier_price_consent"]')?.focus();
       return;
     }
     setBusy(true);
@@ -421,14 +457,32 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     setStepError(null);
     try {
       const form = new FormData(formElement);
-      form.set("grade_rows_json", serializeGradeRowsDraft(gradeRows));
-      if (product) form.set("product_id", product.id);
+      if (product) {
+        form.set("product_id", product.id);
+      } else if (newV2Quantity) {
+        creationRequestId.current ??= crypto.randomUUID();
+        form.set("quantity_creation_request_id", creationRequestId.current);
+        form.set("quantity_version", "2");
+        form.set("quantity_unit", newV2Quantity.unit);
+        form.set("quantity_custom_grade", newV2Quantity.customGrade ? "yes" : "no");
+        form.set("quantity_grade", newV2Quantity.grade);
+        form.set("quantity_incoterm", newV2Quantity.incoterm);
+        form.set("quantity_tiers_json", JSON.stringify(newV2Quantity.tiers));
+        if (quantityConsent) form.set("confirm_quantity_price_consent", "yes");
+      } else if (newQuantity) {
+        creationRequestId.current ??= crypto.randomUUID();
+        form.set("quantity_creation_request_id", creationRequestId.current);
+        form.set("quantity_grade", newQuantity.grade);
+        form.set("quantity_incoterm", newQuantity.incoterm);
+        form.set("quantity_tiers_json", JSON.stringify(newQuantity.tiers));
+        if (quantityConsent) form.set("confirm_quantity_price_consent", "yes");
+      }
       const response = await saveSupplierProductAction(form);
       setToast(response);
       if (!response.ok) return;
       setShowGradeErrors(false);
       setSubmitHint(null);
-      const saved = snapshotFromForm(formElement, { ...snapshot, grade_rows_json: serializeGradeRowsDraft(gradeRows) });
+      const saved = snapshotFromForm(formElement, snapshot);
       setSnapshot(saved);
       setBaseline(saved);
       const id = response.id ?? product?.id;
@@ -461,7 +515,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       setShowGradeErrors(true);
       setStepError(gradeError);
       if (typeof document !== "undefined") {
-        document.getElementById("grade-pricing-table")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        document.getElementById("new-quantity-pricing")?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       return;
     }
@@ -487,7 +541,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     const blockers: string[] = [];
     if (!product) blockers.push("Lưu sản phẩm ở bước 1 trước khi gửi.");
     if (!hasDetails) blockers.push("Bổ sung mô tả hoặc quy cách ở bước 1.");
-    if (!hasMedia) blockers.push("Tải ít nhất một ảnh hoặc catalogue thật ở bước 2.");
+    if (!hasMedia) blockers.push("Tải ít nhất một ảnh sản phẩm ở bước 2.");
     if (dirty) blockers.push("Lưu thay đổi ở bước 1 trước khi gửi.");
     return blockers;
   }
@@ -541,6 +595,11 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
     return null;
   }
   function chooseFiles(files: File[]) {
+    if (imageCount + files.filter((file) => uploadKind(file) === "image").length > 8) {
+      setToast({ ok: false, message: `Tối đa 8 ảnh sản phẩm; hiện có ${imageCount} ảnh.` });
+      setSelected([]);
+      return;
+    }
     if (ownedCount + files.length > 12) {
       setToast({ ok: false, message: `Chỉ được tải tối đa 12 tệp; hiện bạn đã có ${ownedCount} tệp.` });
       setSelected([]);
@@ -721,7 +780,9 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{statusLabel}</span>
           <p className="min-w-0 flex-1 text-[12px] leading-5 text-ink-700">
             {review === "pending"
-              ? "Đã gửi duyệt. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp."
+              ? product?.reviewed_category_slug
+                ? "Sản phẩm đang chờ kiểm tra lại giá sau khi cập nhật. Bạn có thể xem nhưng chưa thể chỉnh sửa thêm cho đến khi hoàn tất rà soát."
+                : "Đã gửi duyệt. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp."
               : review === "paused"
                 ? "Sản phẩm đang ẩn khỏi buyer. Muốn đăng lại, hãy gửi duyệt ở bước 3 và chờ phê duyệt."
                 : "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."}
@@ -742,8 +803,10 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
               <SectionHead title="Thông tin cơ bản" hint="Tên, danh mục và mô tả - phần buyer đọc đầu tiên." />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <Field label="Tên sản phẩm" hint="Ví dụ: Hạt điều nhân trắng W320" required>
-                    <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked} />
+                  <Field label="Tên sản phẩm" hint="Không ghi grade trong tên. Vexim dịch tên sang tiếng Anh khi duyệt." required>
+                    <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked}
+                      aria-invalid={v2NameGradeError ? true : undefined} />
+                    {v2NameGradeError && <span className="mt-1 block text-xs text-rose-700">{v2NameGradeError}</span>}
                   </Field>
                 </div>
                 <Field label="Danh mục sản phẩm" required className="md:col-span-2" hint="Chọn danh mục gần nhất. Danh mục sẽ được kiểm tra khi duyệt. Đổi danh mục thì danh sách grade đổi theo.">
@@ -759,15 +822,40 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 {!categories.length && <p role="status" className="self-center rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900 md:col-span-2">
                   Bạn chưa chọn danh mục kinh doanh đang mở. <Link href="/supplier/portal/categories" className="font-semibold underline">Chọn danh mục trước khi thêm sản phẩm</Link>
                 </p>}
+                {newV2Quantity && newPolicy && <div className="md:col-span-2 rounded-xl border border-ink-200 p-4">
+                  <h3 className="mb-3 text-sm font-bold text-ink-900">Thuộc tính</h3>
+                  <QuantityGradeV2Field value={newV2Quantity} onChange={onNewV2QuantityChange} standardGrades={newGrades} policy={newPolicy} showErrors={showGradeErrors} disabled={locked || busy} isolated />
+                </div>}
                 <div className="md:col-span-2">
-                  <GradePricingTable
-                    rows={gradeRows}
-                    onChange={onGradeRowsChange}
-                    category={activeCategorySource}
-                    disabled={locked}
-                    showErrors={showGradeErrors}
-                    hiddenInputName="grade_rows_json"
-                  />
+                  {product && <div className="mb-4 space-y-3 rounded-xl border border-brand-200 p-4">
+                    {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
+                      data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview} onV2PreviewChange={setV2Preview} />
+                      : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra danh mục và kết nối; giá đang hiển thị không bị thay đổi.</p>}
+                  </div>}
+                  {!product && <div id="new-quantity-pricing" className="space-y-3 rounded-xl border border-brand-200 p-4">
+                    {!activeCategory ? <p className="text-xs text-ink-600">Chọn danh mục để nhập grade và bảng giá.</p> : !newPolicy || (!newQuantity && !newV2Quantity) ?
+                      <p role="alert" className="text-xs text-rose-700">Chưa tải được cấu hình bảng giá. Vui lòng kiểm tra kết nối trước khi lưu.</p> : <>
+                        <p className="text-xs text-ink-600">Không ghi grade trong tên sản phẩm. Tên tiếng Anh sẽ được dịch sau khi bạn gửi duyệt và được kiểm tra bởi quản trị viên.</p>
+                        {newV2Quantity ? <>
+                          <h3 className="text-sm font-bold text-ink-900">Giao dịch</h3>
+                          <QuantityPricingV2Editor value={newV2Quantity} onChange={onNewV2QuantityChange} standardGrades={newGrades} policy={newPolicy}
+                            pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} isolated showGrade={false} showErrors={showGradeErrors}
+                            disabled={locked || busy} consentChecked={quantityConsent} onConsentChange={setQuantityConsent}
+                            incotermPlace={<label className="block text-sm font-semibold text-ink-800">Địa điểm Incoterm <span className="text-rose-700">*</span>
+                              <input name="incoterm_place" className="input mt-1 w-full" maxLength={100} required placeholder="Ví dụ: Hồ Chí Minh" disabled={locked || busy}
+                                aria-invalid={showGradeErrors && !(snapshot.incoterm_place ?? "").trim() || undefined} />
+                              {showGradeErrors && !(snapshot.incoterm_place ?? "").trim() && <span className="mt-1 block text-xs text-rose-700">Nhập địa điểm Incoterm.</span>}
+                            </label>} />
+                        </> : newQuantity && <QuantityPricingEditor value={newQuantity} onChange={onNewQuantityChange} standardGrades={newGrades} policy={newPolicy}
+                          buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"}
+                          isolated showPreview={false} showTitle={false} validateEnglishName={false} showErrors={showGradeErrors} consentChecked={quantityConsent} onConsentChange={setQuantityConsent} />}
+                      </>}
+                  </div>}
+                  {review === "approved" && (
+                    <p className="mt-1.5 text-[11.5px] leading-5 text-ink-600">
+                      Lưu ý: Nếu bạn chỉnh sửa giá trên sản phẩm đã duyệt, sản phẩm sẽ được kiểm tra lại giá trước khi hiển thị công khai.
+                    </p>
+                  )}
                 </div>
                 {/* Chỉ hiện thêm khối thông số khi danh mục còn thông số khác ngoài Grade. */}
                 {!!selectedCategory && (officialAttributeFields.length > 0 || supplierAttributeFields.length > 0) &&
@@ -805,9 +893,6 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
               <SectionHead title="Thông tin thương mại & xuất khẩu" />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2 xl:grid-cols-3">
-                <Field label="Giá có hiệu lực tới">
-                  <input name="price_valid_until" type="date" className="input" defaultValue={product?.price_valid_until ?? ""} disabled={locked} />
-                </Field>
                 <Field label="Thời gian giao hàng">
                   <div className="flex items-center gap-1.5">
                     <input
@@ -839,7 +924,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 <Field label="Điều kiện thanh toán">
                   <input name="payment_terms" className="input" maxLength={200} placeholder="Ví dụ: T/T 30% cọc" defaultValue={product?.payment_terms ?? ""} disabled={locked} />
                 </Field>
-                {EXPORT_FIELDS.map(([key, label, placeholder, max]) => <Field key={key} label={label}>
+                {EXPORT_FIELDS.filter(([key]) => !(newV2Quantity && key === "incoterm_place")).map(([key, label, placeholder, max]) => <Field key={key} label={label}>
                   <input name={key} className="input" maxLength={max} placeholder={placeholder} defaultValue={String(product?.[key] ?? "")} disabled={locked} />
                 </Field>)}
               </div>
@@ -858,13 +943,23 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   {dirty && <p className="mt-1 font-semibold text-amber-800">Thay đổi ở form chưa lưu; dòng trên là tình trạng trước khi lưu.</p>}
                 </div>}
                 <p className="mt-2 text-[11.5px] leading-5">
-                  Giá cần lớn hơn 0 và còn hạn; sản phẩm cần có ảnh/catalogue, danh mục và hồ sơ doanh nghiệp đã được duyệt - nếu chưa, buyer sẽ thấy <em>On request</em>.
+                  Sản phẩm cần có ảnh/catalogue, danh mục và hồ sơ doanh nghiệp đã được duyệt trước khi hiển thị cho buyer.
                   {supplierPriceConsentCurrent(supplier) ? " Xác nhận chia sẻ giá đang còn hiệu lực." : ""}
                 </p>
                 {!supplierPriceConsentCurrent(supplier) && <div className="mt-2.5 rounded-md bg-white p-2.5 ring-1 ring-brand-200">
                   <label className="flex items-start gap-2 text-[11.5px] font-medium text-brand-900">
-                    <input type="checkbox" name="confirm_supplier_price_consent" value="yes" disabled={locked} className="mt-0.5 size-4 shrink-0 accent-brand-700" />
-                    <span>Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai.</span>
+                    <input
+                      type="checkbox"
+                      name="confirm_supplier_price_consent"
+                      value="yes"
+                      required={snapshot.price_publicly_visible === "yes"}
+                      disabled={locked}
+                      className="mt-0.5 size-4 shrink-0 accent-brand-700"
+                    />
+                    <span>
+                      Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai.
+                      {snapshot.price_publicly_visible === "yes" && <span className="ml-1 font-semibold text-rose-700">*</span>}
+                    </span>
                   </label>
                   <p className="mt-1 pl-6 text-[10.5px] leading-4 text-ink-500">
                     Hiệu lực 180 ngày kể từ khi lưu; giá tham khảo không phải báo giá chính thức.{" "}
@@ -1028,51 +1123,21 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   <div className="sm:col-span-2"><ReviewField label="Tên sản phẩm" value={snapshot.name} strong /></div>
                   <div className="sm:col-span-2"><ReviewField label="Danh mục" value={categoryLabel} /></div>
                   <div className="sm:col-span-2">
-                    <dt className="text-[11px] font-semibold text-ink-500">Grade &amp; giá ({unitMeta.unitLabel})</dt>
-                    <dd className="mt-1 overflow-x-auto rounded-lg border border-ink-200">
-                      <table className="min-w-full border-collapse text-left text-[12px]">
-                        <thead className="bg-ink-50 text-[10.5px] font-bold uppercase tracking-wider text-ink-500">
-                          <tr>
-                            <th className="px-2.5 py-1.5">Grade</th>
-                            <th className="px-2.5 py-1.5">{unitMeta.headerLabel}</th>
-                            <th className="px-2.5 py-1.5">Incoterm</th>
-                            <th className="px-2.5 py-1.5">MOQ</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-ink-100 bg-white">
-                          {gradeRows.map((row) => {
-                            const isCustom = row.selectedGrade === CUSTOM_GRADE_OPTION;
-                            const gradeLabel = (isCustom ? row.customGrade : row.selectedGrade).trim() || "Chưa chọn";
-                            const minNum = row.priceMin.trim() ? Number(row.priceMin.trim()) : null;
-                            const maxNum = row.priceMax.trim() ? Number(row.priceMax.trim()) : null;
-                            const hasValidPrice = minNum !== null && maxNum !== null && Number.isFinite(minNum) && Number.isFinite(maxNum) && minNum > 0 && maxNum >= minNum;
-                            const priceDisplay = hasValidPrice ? formatGradeRowPriceVi(minNum, maxNum, unitMeta.unitLabel) : "Báo giá theo yêu cầu";
-                            const moqViDisplay = (() => {
-                              const qtyNum = row.moqQty?.trim() ? Number(row.moqQty.trim()) : null;
-                              const weightNum = row.moqUnitWeightKg?.trim() ? Number(row.moqUnitWeightKg.trim()) : null;
-                              if (qtyNum && Number.isFinite(qtyNum) && qtyNum > 0 && isMoqUnit(row.moqUnit)) {
-                                return formatStructuredMoqVi(qtyNum, row.moqUnit, weightNum && Number.isFinite(weightNum) && weightNum > 0 ? weightNum : null);
-                              }
-                              if (row.moq.trim()) {
-                                const parsed = parseLegacyMoqString(row.moq);
-                                return parsed.status === "converted" ? parsed.viText : row.moq.trim();
-                              }
-                              return "Theo yêu cầu";
-                            })();
-                            return (
-                              <tr key={row.id}>
-                                <td className="px-2.5 py-1.5 font-semibold text-ink-900">
-                                  {gradeLabel}
-                                  {isCustom && row.customGrade.trim() ? <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">Tự nhập</span> : null}
-                                </td>
-                                <td className={`px-2.5 py-1.5 font-semibold text-ink-800 ${hasValidPrice ? "font-mono tabular-nums" : "text-ink-500"}`}>{priceDisplay}</td>
-                                <td className="px-2.5 py-1.5 text-ink-800">{row.incoterm || "-"}</td>
-                                <td className="px-2.5 py-1.5 text-ink-800">{moqViDisplay}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    <dt className="text-[11px] font-semibold text-ink-500">Bảng giá</dt>
+                    <dd className="mt-1 rounded-lg border border-ink-200 p-3">
+                      {quantityEditor?.v2 ? <>
+                        <p>Grade: <strong>{quantityEditor.grade}</strong> · Incoterm: <strong>{quantityEditor.incoterm}</strong></p>
+                        <table className="mt-2 w-full text-left text-xs"><thead><tr><th>Số lượng ({quantityEditor.v2.unit === "mt" ? "MT" : "kg"})</th><th>Giá (USD/{quantityEditor.v2.unit === "mt" ? "MT" : "kg"})</th></tr></thead>
+                          <tbody>{quantityEditor.v2.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{tier.quantity}</td><td className="py-1 tabular-nums">{tier.price}</td></tr>)}</tbody>
+                        </table>
+                        <p className="mt-1 text-xs text-ink-500">{quantityEditor.pendingPriceId ? "Bảng giá đang chờ duyệt." : "Bảng giá đã duyệt."}</p>
+                      </> : quantityEditor && quantityPreview ? <>
+                        <p>Grade: <strong>{quantityPreview.grade || "Chưa chọn"}</strong> · Incoterm: <strong>{quantityPreview.incoterm || "Chưa chọn"}</strong></p>
+                        <table className="mt-2 w-full text-left text-xs"><thead><tr><th>Số lượng từ (kg)</th><th>Giá (USD/kg)</th></tr></thead>
+                          <tbody>{quantityPreview.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{tier.minKg || "—"}</td><td className="py-1 tabular-nums">{tier.priceUsdPerKg || "—"}</td></tr>)}</tbody>
+                        </table>
+                        <p className="mt-1 text-xs text-ink-500">Bảng giá cần được duyệt.</p>
+                      </> : <span>Chưa tải được bảng giá mới.</span>}
                     </dd>
                   </div>
                   {attributeRows.length > 0 && (
@@ -1174,7 +1239,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                             : null}
                     </div>
                   </div>}
-              <p className="text-[11.5px] leading-5 text-ink-500">{product?.name_i18n?.en?.trim() ? "Bản tiếng Anh cho trang buyer đã có." : "Bản tiếng Anh cho trang buyer được dịch tự động bằng AI khi duyệt."} Bạn cứ nhập bằng tiếng Việt.</p>
+              <p className="text-[11.5px] leading-5 text-ink-500">{quantityEditor?.pendingNameId ? "Tên tiếng Anh đang chờ duyệt riêng." : quantityEditor?.hasApprovedName ? "Đã có tên tiếng Anh được duyệt riêng." : "Tên tiếng Anh được kiểm tra trong quá trình duyệt sản phẩm."}</p>
             </div>
           </div>
         </section>
@@ -1226,14 +1291,28 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           </div>
           <div className="px-3.5 py-3">
             <p className="text-[10.5px] font-bold tracking-wider text-brand-700 uppercase">{categoryLabel}</p>
-            <h2 className="mt-0.5 line-clamp-2 text-[13.5px] font-black text-ink-900">{product?.name ?? "Sản phẩm mới"}</h2>
+            {newV2Quantity && newPolicy ? <div className="mt-2">
+              <QuantityBuyerV2Preview value={newV2Quantity} standardGrades={newGrades} policy={newPolicy} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} />
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước, chưa phải nội dung đang hiển thị cho buyer. Bảng giá và tên tiếng Anh cần được duyệt.</p>
+            </div> : newQuantity && newPolicy ? <div className="mt-2">
+              <QuantityBuyerPreview value={newQuantity} standardGrades={newGrades} policy={newPolicy}
+                buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} />
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước, chưa phải nội dung đang hiển thị cho buyer. Bảng giá và tên tiếng Anh cần được duyệt.</p>
+            </div> : quantityEditor?.v2 && v2Preview ? <div className="mt-2">
+              <QuantityBuyerV2Preview value={{ ...v2Preview, nameVi: snapshot.name || v2Preview.nameVi }} standardGrades={quantityEditor.standardGrades} policy={quantityEditor.policy}
+                pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} englishName={quantityEditor.nameEn} />
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] text-amber-900">Đây là bản xem trước, không phải giá đang hiển thị cho buyer. Giá mới cần được duyệt.</p>            </div> : quantityEditor && quantityPreview ? <div className="mt-2">
+              <QuantityBuyerPreview value={quantityPreview} standardGrades={quantityEditor.standardGrades} policy={quantityEditor.policy}
+                buyerPriceUnit={quantityEditor.buyerPriceUnit} pricePubliclyVisible={quantityEditor.pricePubliclyVisible} />
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước theo dữ liệu đang nhập, không phải giá đang hiển thị cho buyer. Giá hiện tại chỉ thay đổi khi mô hình mới được triển khai và bản giá được duyệt.</p>
+            </div> : <h2 className="mt-0.5 line-clamp-2 text-[13.5px] font-black text-ink-900">{product?.name ?? "Sản phẩm mới"}</h2>}
             <dl className="mt-2.5 space-y-1 border-t border-ink-100 pt-2.5 text-[11.5px]">
-              {commercial.map((row) => <div key={row.label} className="flex items-baseline justify-between gap-2">
+              {commercial.filter((row) => !((quantityEditor && quantityPreview) || ((newQuantity || newV2Quantity) && newPolicy)) || !["Giá tham khảo", "MOQ", "Incoterm"].includes(row.label)).map((row) => <div key={row.label} className="flex items-baseline justify-between gap-2">
                 <dt className="shrink-0 text-ink-500">{row.label}</dt>
                 <dd className={`min-w-0 truncate text-right font-semibold text-ink-800 ${row.label === "Giá tham khảo" && row.value !== "-" ? "font-mono tabular-nums" : ""}`}>{row.value}</dd>
               </div>)}
             </dl>
-            <p className="mt-2 text-[10.5px] leading-4 text-ink-500">Số liệu lấy từ bản đã lưu{dirty ? "; thay đổi đang nhập chưa hiển thị ở đây." : "."}</p>
+            {!newV2Quantity && <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{quantityEditor && quantityPreview ? "Các thông tin thương mại bên dưới bảng giá lấy từ bản đã lưu." : <>Số liệu lấy từ bản đã lưu{dirty ? "; thay đổi đang nhập chưa hiển thị ở đây." : "."}</>}</p>}
           </div>
         </div>
 

@@ -48,6 +48,9 @@ export interface PublicCategoryProduct {
   moqUnit: MoqUnit | null;
   moqMtEquivalent: number | null;
   price: string | null;
+  /** Only present in the opt-in, approved quantity pricing preview. */
+  quantityOffer?: import("@/lib/products/quantity-public-projection").PublicQuantityOffer;
+  priceRankingEligible?: boolean;
   /** Số liệu thô để tính khoảng giá tham khảo; null khi giá chưa được phép công khai. */
   pricePoint: { value: number; highValue?: number | null; unit: string | null; currency: string | null; updatedAt: string | null } | null;
   /** Hồ sơ demo không được tham gia vào khoảng giá thị trường. */
@@ -132,9 +135,10 @@ function projectPublicCategoryProduct(
   const legacyStructuredMoq = typeof p.moq_qty === "number" && p.moq_qty > 0 && isMoqUnit(p.moq_unit)
     ? formatStructuredMoqBuyer(p.moq_qty, p.moq_unit, specWeight)
     : "";
-  const fallbackMoqDisplay = legacyStructuredMoq || publicProductMoqDisplay(p.moq) || "On request";
+  const hasStructuredMoq = p.moq_qty != null || p.moq_unit != null;
+  const fallbackMoqDisplay = hasStructuredMoq ? (legacyStructuredMoq || "On request") : (publicProductMoqDisplay(p.moq) || "On request");
   const effectiveMoq = gradeData.hasGradeRows
-    ? (gradeData.gradeRows.find((r) => r.moq !== "On request")?.moq ?? fallbackMoqDisplay)
+    ? (gradeData.gradeRows.find((r) => r.moq !== "On request")?.moq ?? "On request")
     : fallbackMoqDisplay;
   const effectiveIncoterm = gradeData.hasGradeRows
     ? (gradeData.gradeRows[0]?.incoterm ?? p.incoterm ?? null)
@@ -274,11 +278,15 @@ export async function listPublicCategoryProducts(category: Category, options?: {
   // Tầng xác minh vẫn CỨNG (B2) nên bật điểm chỉ đổi thứ tự TRONG TẦNG; bậc xen kẽ NCC
   // (arrangeSupplierProducts) và cổng công khai giữ nguyên chỗ cũ. Trọng số 0 vẫn tái
   // tạo đúng sort cũ (property test trong scripts/check-marketplace-ranking.mjs).
-  return rankPublicCategoryProducts(
-    candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
-      .map((p) => projectPublicCategoryProduct(p, byId.get(p.supplier_id)!, category, byProduct.get(p.id) ?? [], evidenceBySupplier.get(p.supplier_id)!)),
-    SPEC_RANKING_WEIGHTS,
-  );
+  const readyRecords = candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
+    .map((product) => ({
+      product, supplier: byId.get(product.supplier_id)!, category,
+      card: projectPublicCategoryProduct(product, byId.get(product.supplier_id)!, category, byProduct.get(product.id) ?? [], evidenceBySupplier.get(product.supplier_id)!),
+    }));
+  const projected = process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true"
+    ? await (await import("@/lib/public/quantity-catalog-preview")).projectQuantityCatalogPreview(readyRecords)
+    : readyRecords;
+  return rankPublicCategoryProducts(projected.map(({ card }) => card), SPEC_RANKING_WEIGHTS);
 }
 
 export interface PublicProductRecord {
@@ -315,7 +323,7 @@ export async function getPublicProductRecordsByIds(ids: readonly string[]): Prom
   if (!candidates.length) return [];
 
   const media = await store.listMediaForProducts(candidates.map(({ product }) => product.id));
-  return candidates.filter(({ product }) =>
+  const readyRecords = candidates.filter(({ product }) =>
     productReadiness(media.filter((asset) => asset.product_id === product.id)).ready)
     .map(({ product, supplier, category }) => ({
       product,
@@ -323,4 +331,7 @@ export async function getPublicProductRecordsByIds(ids: readonly string[]): Prom
       category,
       card: projectPublicCategoryProduct(product, supplier, category, media.filter((asset) => asset.product_id === product.id)),
     }));
+  return process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true"
+    ? (await import("@/lib/public/quantity-catalog-preview")).projectQuantityCatalogPreview(readyRecords)
+    : readyRecords;
 }

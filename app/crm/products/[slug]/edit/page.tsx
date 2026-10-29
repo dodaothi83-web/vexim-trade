@@ -3,9 +3,11 @@ import Link from "next/link";
 import { CheckCircle2, Minus } from "lucide-react";
 
 import { getStore } from "@/lib/db";
+import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { ProductForm } from "@/components/product-form";
+import { readQuantityEditorData } from "@/lib/products/quantity-editor-data";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { isTestOnlyProduct, productReviewApproved, productPriceBlockers, publicProductPrice } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
@@ -69,6 +71,18 @@ export default async function EditProductPage({
   const priceBlockers = productPriceBlockers(product, supplier);
   const visiblePrice = canView && !priceBlockers.length ? publicProductPrice(product, supplier) : null;
 
+  // Product and staff authorization are checked above before private revisions are read.
+  const quantityEditor = await (async () => {
+    if (!getSupabaseClient()) return null;
+    const actor = await supabaseStore.getUser(session.uid);
+    if (!actor?.is_active || actor.role !== session.role || actor.email.trim().toLowerCase() !== session.email.trim().toLowerCase()) return null;
+    const strictProduct = await supabaseStore.getProduct(product.id);
+    if (!strictProduct || strictProduct.supplier_id !== product.supplier_id) return null;
+    return readQuantityEditorData(strictProduct);
+  })().catch((error) => {
+    console.error("[quantity-pricing] CRM editor", error);
+    return null;
+  });
   const translationState = productTranslationState(product);
   const websiteChecks: Array<{ done: boolean; label: string; automatic?: boolean; href?: string }> = supplierReviewedListing ? [
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đang xuất bản` },
@@ -117,6 +131,7 @@ export default async function EditProductPage({
           <ProductForm
             supplier={supplier}
             product={product}
+            quantityEditor={quantityEditor}
             categories={categories}
             supplierCategories={supplierCategories}
             mediaState={{ ready: readiness.ready, shareable: readiness.shareable }}
@@ -181,6 +196,11 @@ export default async function EditProductPage({
                 ? "Sản phẩm đang ẩn. NCC phải gửi duyệt lại trước khi Vexim có thể đăng."
                 : "Sản phẩm chưa được đăng. NCC cần chỉnh sửa và gửi duyệt lại."}</p>
             {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
+            {typeof product.specs?.price_review_summary === "string" && product.supplier_review_status === "pending" && (
+              <p className="mt-2 rounded-lg border border-amber-300 bg-white/80 px-3 py-2 text-xs font-semibold text-amber-950">
+                {product.specs.price_review_summary}
+              </p>
+            )}
             {needsPublicationAction && (session.role === "admin" || session.role === "reviewer") &&
               <SupplierProductReviewControls
                 id={product.id}
