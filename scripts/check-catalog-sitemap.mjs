@@ -8,7 +8,7 @@ const code = ts.transpileModule(readFileSync(new URL('../app/sitemap.ts', import
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const origin = 'https://www.veximtrade.com';
-const categories = [{ slug: 'cashew', seo_indexable: true }, { slug: 'private', seo_indexable: false }];
+const categories = [{ slug: 'cashew', seo_indexable: true }, { slug: 'pepper', seo_indexable: true }, { slug: 'private', seo_indexable: false }];
 const suppliers = [
   { id: 'a', slug: 'supplier-a', indexable: true },
   { id: 'no-slug', slug: null, indexable: true },
@@ -31,6 +31,7 @@ const mocks = {
       categoryCalls.push(category.slug);
       assert.equal(options.snapshot, snapshot);
       // Public catalog already excludes unpublished, unapproved and unready products.
+      if (category.slug === 'pepper') return [{ id: 'original-product', isDemo: false }, { id: 'second-grade', isDemo: false }];
       return [{ id: 'approved', isDemo: false }, { id: 'demo', isDemo: true }];
     },
   },
@@ -46,14 +47,15 @@ function compile(indexable) {
   return exports.default;
 }
 const urls = (await compile('true')()).map((entry) => entry.url);
-for (const path of ['/suppliers/supplier-a', '/suppliers/no-slug', '/products/cashew', '/products/cashew/approved']) {
+for (const path of ['/suppliers/supplier-a', '/suppliers/no-slug', '/products/cashew', '/products/cashew/approved',
+  '/products/pepper/original-product', '/products/pepper/second-grade']) {
   assert.ok(urls.includes(origin + path), `${path} appears`);
 }
 for (const path of ['/suppliers/null', '/suppliers/thin', '/suppliers/test', '/products/cashew/demo', '/products/private', '/products/private/approved']) {
   assert.ok(!urls.includes(origin + path), `${path} excluded`);
 }
 assert.equal(snapshotLoads, 1);
-assert.deepEqual(categoryCalls, ['cashew']);
+assert.deepEqual(categoryCalls, ['cashew', 'pepper']);
 const staging = (await compile('false')()).map((entry) => entry.url);
 assert.ok(!staging.some((url) => url.includes('/products/') || url.includes('/suppliers/')));
 assert.equal(snapshotLoads, 1, 'Staging does not query the product catalog');
