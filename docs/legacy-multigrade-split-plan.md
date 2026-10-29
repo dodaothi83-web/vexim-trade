@@ -21,6 +21,23 @@ Kiểm kê chỉ đọc ngày 29/10/2026 cho trường hợp đã báo: 2 dòng 
 - Backup database không chứa byte của ảnh/tệp trong Storage. Sao lưu Storage riêng và xác minh tệp có thể đọc được. Bộ sao chép tính tổng byte gốc và số byte cần thêm theo preflight, bao gồm thumbnail; đây không phải kiểm tra quota khả dụng và không tính thay đổi đồng thời. Trước khi chạy cần tự đối chiếu quota Storage hiện tại vì bản sao ảnh sẽ dùng thêm dung lượng; không giả định đủ chỗ. Không đưa dữ liệu, khóa, mật khẩu hoặc chuỗi kết nối vào Git hay chat.
 - Tài liệu tham khảo: [Supabase pricing](https://supabase.com/pricing), [database backups](https://supabase.com/docs/guides/platform/backups), [backup and restore using the CLI](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore).
 
+## Các bảng dự kiến liên quan
+
+Đây là danh sách **dự kiến**, chưa phải hướng dẫn chạy hoặc danh sách cuối cùng. Khi script thực sự sẵn sàng sẽ gửi lại danh sách chính xác, phân biệt bảng đọc và bảng có thể thay đổi, bao gồm ảnh hưởng gián tiếp qua trigger và Storage API.
+
+| Bảng | Vai trò dự kiến |
+| --- | --- |
+| `public.supplier_products` | Cập nhật dòng grade đầu trên sản phẩm gốc; tạo sản phẩm grade thứ hai. Giữ ID gốc. |
+| `public.media_assets` | Tạo metadata ảnh mới theo đường dẫn và ID mới, không thay hoặc xóa ảnh cũ. |
+| `public.certificates` | Chỉ cập nhật phạm vi liên kết nếu có chứng nhận liên quan sau đối chiếu. |
+| `public.rfqs` | Chỉ cập nhật `source_product_id` của RFQ đã xác nhận rõ grade thứ hai. |
+| `public.audit_log` | Ghi nhật ký tách và các thay đổi liên quan. |
+| `storage.objects` | Metadata do Storage API quản lý khi sao chép ảnh. Không sửa trực tiếp bảng này bằng SQL. |
+
+Các bảng revision tên/giá, yêu cầu tạo sản phẩm, bản nháp/gửi duyệt mới nếu có và bảng sponsored sẽ cần **kiểm tra chỉ đọc** trước tách. Nếu có bản ghi liên quan hoặc xuất hiện quan hệ sản phẩm chưa biết, phải dừng và rà soát thay vì tự chuyển hay bỏ qua. Kiểm kê database thực tế ngày 29/10/2026 chưa thấy các revision/yêu cầu/sponsored gắn sản phẩm này, nhưng cần kiểm tra lại ngay trước thao tác. Danh sách có thể đổi nếu schema hoặc script đổi.
+
+CSV là bản đối chiếu hữu ích nhưng **không phải backup database đầy đủ**: không chứa đầy đủ schema, constraint, trigger, quyền, hàm và các thành phần khác. CSV metadata Storage cũng không chứa byte ảnh. Cần bản sao database đầy đủ, bản sao ảnh Storage riêng và kế hoạch khôi phục đã thử trên môi trường cách ly. Không xuất CSV nhạy cảm vào repo hoặc chia sẻ thông tin đăng nhập qua chat.
+
 ## Nguyên tắc triển khai an toàn
 
 1. Đối chiếu sản phẩm, trạng thái, URL và thứ tự `grade_rows` hiện tại. Nếu dữ liệu đã thay đổi so với bản được duyệt, dừng và lập kế hoạch lại. Giữ nguyên ID cũ cho grade đầu, giữ đường dẫn cũ và RFQ mặc định. Grade thứ hai có ID mới do bước thực thi cấp và kiểm tra không trùng. Không tự chuyển khoảng giá thành một giá hay tạo tier số lượng từ giá thấp/cao.
