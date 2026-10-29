@@ -28,10 +28,11 @@ export function seedLegacyProductFormEdit(input: {
   if (Array.isArray(rows) && rows.length > 1) return { ok: false, reason: "multiple_grades" };
   const baseGrade = specs?.grade;
   if (baseGrade != null && typeof baseGrade !== "string") return { ok: false, reason: "ambiguous_grade" };
-  const row = Array.isArray(rows) && rows.length ? rows[0] : null;
-  if (row != null && (typeof row !== "object" || Array.isArray(row))) return { ok: false, reason: "ambiguous_grade" };
+  const hasRow = Array.isArray(rows) && rows.length > 0;
+  const row = hasRow ? rows[0] : null;
+  if (hasRow && (!row || typeof row !== "object" || Array.isArray(row))) return { ok: false, reason: "ambiguous_grade" };
   const rowGrade: unknown = row && (row as Record<string, unknown>).grade;
-  if (rowGrade != null && typeof rowGrade !== "string") return { ok: false, reason: "ambiguous_grade" };
+  if (hasRow && (typeof rowGrade !== "string" || !rowGrade.trim())) return { ok: false, reason: "ambiguous_grade" };
   const gradeA = typeof baseGrade === "string" ? baseGrade.trim() : "", gradeB = typeof rowGrade === "string" ? rowGrade.trim() : "";
   if (gradeA && gradeB && normalize(gradeA) !== normalize(gradeB)) return { ok: false, reason: "ambiguous_grade" };
   const legacyGrade = gradeA || gradeB;

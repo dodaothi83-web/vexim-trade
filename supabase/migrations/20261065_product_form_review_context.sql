@@ -72,9 +72,25 @@ begin
   if item.specs is not null and jsonb_typeof(item.specs) is distinct from 'object' then
     return jsonb_build_object('status','legacy_grade_unmapped');
   end if;
+  if item.specs->'grade' is not null and item.specs->'grade' <> 'null'::jsonb
+     and jsonb_typeof(item.specs->'grade') is distinct from 'string' then
+    return jsonb_build_object('status','legacy_grade_unmapped');
+  end if;
   if item.specs->'grade_rows' is not null and item.specs->'grade_rows' <> 'null'::jsonb then
     if jsonb_typeof(item.specs->'grade_rows') is distinct from 'array' then return jsonb_build_object('status','legacy_grade_unmapped'); end if;
     if jsonb_array_length(item.specs->'grade_rows') > 1 then return jsonb_build_object('status','legacy_grade_unmapped'); end if;
+    if jsonb_array_length(item.specs->'grade_rows') = 1 then
+      if jsonb_typeof(item.specs->'grade_rows'->0) is distinct from 'object'
+         or jsonb_typeof(item.specs->'grade_rows'->0->'grade') is distinct from 'string'
+         or coalesce(btrim(item.specs->'grade_rows'->0->>'grade'),'') = '' then
+        return jsonb_build_object('status','legacy_grade_unmapped');
+      end if;
+      if coalesce(btrim(item.specs->>'grade'),'') <> ''
+         and lower(regexp_replace(btrim(item.specs->>'grade'),'\s+',' ','g'))
+             <> lower(regexp_replace(btrim(item.specs->'grade_rows'->0->>'grade'),'\s+',' ','g')) then
+        return jsonb_build_object('status','legacy_grade_unmapped');
+      end if;
+    end if;
   end if;
   -- Prevent policy/category changes, including new grade-bound rows (row locks
   -- alone cannot prevent an insert into an otherwise empty category).

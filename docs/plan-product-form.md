@@ -51,7 +51,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 ## CRM
 
 - [x] Đã xây và kiểm thử transaction yêu cầu chỉnh sửa cùng action phân quyền nhân viên: giữ nguyên listing đã duyệt và bản nháp mới hơn, xử lý thử lại và mở lại bản nháp. Chưa nối vào màn duyệt CRM.
-- [x] Đã xây kiểm tra bản gửi khi duyệt: đối chiếu dữ liệu giá v2, HTML an toàn, chính sách hiện tại và tên tiếng Anh không chứa grade chuẩn hoặc grade tự nhập. Đã thử helper SQL65 khóa/đối chiếu snapshot, chính sách và ảnh bằng PGlite; helper server chuẩn bị dữ liệu từ snapshot và kiểm tra byte ảnh mới. Đây chưa phải transaction duyệt nguyên tử và SQL65 chưa được chạy.
+- [x] Đã xây kiểm tra bản gửi khi duyệt: đối chiếu dữ liệu giá v2, HTML an toàn, chính sách hiện tại và tên tiếng Anh không chứa grade chuẩn hoặc grade tự nhập; chặn dữ liệu grade cũ nhiều dòng, sai kiểu hoặc mâu thuẫn. Đã thử helper SQL65 khóa/đối chiếu snapshot, chính sách và ảnh bằng PGlite; helper server chuẩn bị dữ liệu từ snapshot và kiểm tra byte ảnh mới. Đây chưa phải transaction duyệt nguyên tử và SQL65 chưa được chạy.
 - [x] Đã xây hàm và bảng so sánh các trường, tier của hai snapshot form; dữ liệu cũ không biểu diễn được và cam kết cũ chưa rõ được đánh dấu chưa biết, không tự suy đoán. Chưa nối màn CRM, ảnh và tên Anh cần đối chiếu riêng.
 - [ ] Dùng lại form NCC để tạo và sửa sản phẩm trong CRM, đồng thời giữ các trường chỉ có ở CRM và dữ liệu cũ.
 - [ ] Xây màn duyệt bản gửi, so sánh dữ liệu đã duyệt với bản mới, cảnh báo giá và cho admin sửa tên tiếng Anh.

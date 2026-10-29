@@ -46,11 +46,14 @@ try {
   await assert.rejects(() => db.query('delete from public.media_assets where id=$1', [legacyMedia]), 'A manifest cannot silently lose its media row');
   await db.query('delete from public.product_form_published_images where product_id=$1', [id]);
   await db.query('delete from public.media_assets where id=$1', [legacyMedia]);
-  for (const specs of [{ grade_rows: [{ grade: '500 g/L' }, { grade: '550 g/L' }] }, { grade_rows: 'unknown' }, ['bad']]) {
+  for (const specs of [{ grade_rows: [{ grade: '500 g/L' }, { grade: '550 g/L' }] }, { grade_rows: 'unknown' }, ['bad'],
+    { grade: ['W320', 'W240'] }, { grade: { value: 'W320' } }, { grade_rows: [null] }, { grade_rows: [{}] },
+    { grade_rows: [{ grade: [] }] }, { grade: 'W320', grade_rows: [{ grade: 'W240' }] }]) {
     await db.query('update public.supplier_products set specs=$2::jsonb where id=$1', [id, JSON.stringify(specs)]);
     assert.equal((await context()).status, 'legacy_grade_unmapped', 'Existing ambiguous grades cannot enter one-grade approval');
   }
-  for (const specs of [{ grade_rows: null }, { grade_rows: [] }, { grade_rows: [{ grade: 'W320' }] }]) {
+  for (const specs of [{ grade_rows: null }, { grade_rows: [] }, { grade_rows: [{ grade: 'W320' }] },
+    { grade: ' W320 ', grade_rows: [{ grade: 'w320' }] }]) {
     await db.query('update public.supplier_products set specs=$2::jsonb where id=$1', [id, JSON.stringify(specs)]);
     assert.equal((await context()).status, 'ok');
   }

@@ -35,6 +35,8 @@ assert.equal(JSON.stringify(input), before, 'Never mutate the indexed listing or
 assert.equal(edit({ ...input, product: { ...product, specs: { grade_rows: [{grade:'W320'},{grade:'W240'}] } } }).reason, 'multiple_grades');
 assert.equal(edit({ ...input, product: { ...product, specs: { grade: 'W320', grade_rows: [{grade:'W240'}] } } }).reason, 'ambiguous_grade');
 assert.equal(edit({ ...input, product: { ...product, specs: { grade_rows: 'unknown' } } }).reason, 'ambiguous_grade');
+for (const specs of [{ grade: ['W320'] }, { grade_rows: [null] }, { grade_rows: [{}] }, { grade_rows: [{ grade: '' }] }])
+  assert.equal(edit({ ...input, product: { ...product, specs } }).reason, 'ambiguous_grade');
 assert.equal(edit({ ...input, product: { ...product, specs: { grade: 'x'.repeat(81) } } }).reason, 'unrepresentable_fields');
 let custom = edit({ ...input, product: { ...product, specs: { grade: 'Special', product_type: 'Whole' }, price_publicly_visible: undefined, monthly_capacity: '1000' } });
 assert.equal(custom.draft.customGrade, true); assert.equal(custom.draft.grade, 'Special'); assert.equal(custom.draft.monthlyCapacityKg, '');
