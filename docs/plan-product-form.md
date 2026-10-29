@@ -40,7 +40,8 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 
 - [x] Đã xây và kiểm thử hàm tạo dữ liệu nháp độc lập từ form hiện có hoặc sản phẩm cũ nhiều grade: giữ nội dung chung, xóa grade/tier cũ và yêu cầu xác nhận công khai giá mới. Các thuộc tính cũ chưa biểu diễn được và chứng nhận CRM được báo để xử lý riêng, không tự bỏ qua. Hàm chưa tạo sản phẩm, chưa sao chép ảnh và chưa nối giao diện.
 - [ ] Xây nút “Nhân bản cho grade khác” và luồng tạo bản nháp độc lập với sản phẩm gốc. Không đổi sản phẩm gốc hoặc tự công khai bản mới.
-- [ ] Sao chép dữ liệu, ảnh và các liên kết được phép một cách an toàn; không dùng chung đường dẫn ảnh gây nhầm quyền sở hữu hoặc xóa nhầm.
+- [x] Đã xây helper sao chép ảnh vào nháp riêng cho nút nhân bản: kiểm tra quyền, chủ đường dẫn và ảnh gốc; không ghi đè hay xóa ảnh gốc, báo tải lại nếu kết quả không chắc chắn. Chỉ thử bằng dữ liệu giả, chưa nối UI hoặc sao chép ảnh thật.
+- [ ] Hoàn thiện sao chép dữ liệu, ảnh và các liên kết được phép; khôi phục sau sao chép dở, không dùng chung đường dẫn ảnh gây nhầm quyền sở hữu hoặc xóa nhầm.
 - [ ] Cho anh chọn/nhập grade và kiểm tra giá, MOQ của bản mới. Không tự suy đoán chuyển khoảng giá cũ thành tier. Kiểm thử thủ công với fixture nhiều grade trước khi anh dùng cho sản phẩm thật.
 
 ## CRM
