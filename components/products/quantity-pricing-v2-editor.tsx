@@ -23,6 +23,8 @@ type Props = {
   isolated?: boolean;
   /** Form bố cục năm phần đặt grade trong phần Thuộc tính. */
   showGrade?: boolean;
+  /** The shared supplier form keeps grade-price outliers for staff review only. */
+  showWarnings?: boolean;
   /** The owning product form supplies the location field. */
   incotermPlace?: ReactNode;
 };
@@ -57,7 +59,7 @@ export function QuantityGradeV2Field({ value, onChange, standardGrades, policy, 
 
 /** Reusable controlled quantity editor. Server validates the same input again. */
 export function QuantityPricingV2Editor({ value, onChange, standardGrades, policy, pricePubliclyVisible,
-  consentChecked, onConsentChange, showErrors = false, disabled = false, isolated = false, showGrade = true, incotermPlace }: Props) {
+  consentChecked, onConsentChange, showErrors = false, disabled = false, isolated = false, showGrade = true, showWarnings = false, incotermPlace }: Props) {
   const [pendingUnit, setPendingUnit] = useState<SupplierQuantityUnit | null>(null);
   const validation = validateSupplierQuantityEntry(value, standardGrades, policy);
   const form = isolated ? "quantity-pricing-separate" : undefined;
@@ -118,8 +120,8 @@ export function QuantityPricingV2Editor({ value, onChange, standardGrades, polic
     </div>}
     <p className="text-xs text-ink-600">Mức đầu tiên là số lượng tối thiểu (MOQ).</p>
     {value.tiers.length < Math.min(policy.maxTiers, 4) && <button type="button" disabled={disabled} onClick={() => onChange({ ...value, tiers: [...value.tiers, { quantity: "", price: "" }] })} className="text-sm font-semibold text-brand-700">+ Thêm mức giá</button>}
-    {showErrors && validation.errors.filter((issue) => issue.tierIndex === undefined && !["grade", "incoterm"].includes(issue.code)).map((issue) => <p key={issue.code} role="alert" className="text-xs text-rose-700">{issue.message}</p>)}
-    {validation.warnings.length > 0 && <p className="text-xs text-amber-800" role="status">Một số mức giá ngoài ngưỡng tham khảo của grade. Bạn vẫn có thể gửi để rà soát.</p>}
+    {showErrors && validation.errors.filter((issue) => issue.tierIndex === undefined && !["grade", "incoterm", "name_vi_grade"].includes(issue.code)).map((issue) => <p key={issue.code} role="alert" className="text-xs text-rose-700">{issue.message}</p>)}
+    {showWarnings && validation.warnings.length > 0 && <p className="text-xs text-amber-800" role="status">Một số mức giá ngoài ngưỡng tham khảo của grade. Bạn vẫn có thể gửi để rà soát.</p>}
     {pricePubliclyVisible && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng. Chênh lệch bất thường sẽ được Vexim rà soát theo <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold underline">Quy chế hoạt động</Link>.</p>}
     {pricePubliclyVisible && <label className="flex items-start gap-2 text-xs font-medium text-ink-800"><input form={form} type="checkbox" checked={consentChecked} disabled={disabled} onChange={(event) => onConsentChange(event.target.checked)} className="mt-0.5 size-4 accent-brand-700" /><span>Tôi xác nhận giá trên là giá tôi sẵn sàng báo cho buyer với đúng grade, Incoterm và số lượng đã ghi. <span className="text-rose-700">*</span></span></label>}
   </section>;

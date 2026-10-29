@@ -73,7 +73,7 @@ export function QuantityPricingV2Inline({ data, actor, disabled = false, dirty =
     {dirty && <p role="status" className="text-xs font-semibold text-amber-800">Hãy lưu hoặc hoàn tác thông tin sản phẩm trước khi gửi bảng giá.</p>}
     <QuantityPricingV2Editor value={value} onChange={(next) => { if (JSON.stringify(next) !== JSON.stringify(value)) { setValue(next); setConsent(false); } }}
       standardGrades={data.standardGrades} policy={data.policy} pricePubliclyVisible={data.pricePubliclyVisible}
-      consentChecked={consent} onConsentChange={setConsent} disabled={disabled || dirty || busy} showErrors={showErrors} isolated />
+      consentChecked={consent} onConsentChange={setConsent} disabled={disabled || dirty || busy} showErrors={showErrors} showWarnings={actor === "staff"} isolated />
     <button type="button" disabled={disabled || dirty || busy} onClick={() => void submit()} className="btn btn-primary btn-sm">{busy ? "Đang gửi" : "Gửi bảng giá mới để duyệt"}</button>
     {result && <p role={result.ok ? "status" : "alert"} className={`text-xs ${result.ok ? "text-emerald-700" : "text-rose-700"}`}>{result.message}</p>}
   </div>;

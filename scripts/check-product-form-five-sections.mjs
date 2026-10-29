@@ -11,7 +11,8 @@ const errors = [{ section: 'basic', field: 'name', message: 'Tên bắt buộc' 
 const mocks = {
   react: React, 'react/jsx-runtime': await import('react/jsx-runtime'), 'lucide-react': icons,
   '@/components/products/product-description-editor': { ProductDescriptionEditor: Component('description') },
-  '@/components/products/quantity-pricing-v2-editor': { QuantityBuyerV2Preview: Component('preview'), QuantityGradeV2Field: Component('grade'), QuantityPricingV2Editor: Component('pricing') },
+  '@/components/products/quantity-pricing-v2-editor': { QuantityBuyerV2Preview: Component('preview'), QuantityGradeV2Field: Component('grade'),
+    QuantityPricingV2Editor: (props) => React.createElement('div', { 'data-component': 'pricing', 'data-errors': String(props.showErrors), 'data-warnings': String(props.showWarnings) }, props.incotermPlace) },
   '@/components/raw-material-region-input': { RawMaterialRegionInput: Component('region') },
   '@/components/supplier-attribute-inputs': { SupplierAttributeInputs: Component('attributes') },
   '@/lib/product-attributes': { fieldsFor: () => [], supplierFieldsFor: () => [] },
@@ -36,6 +37,12 @@ for (const id of ['basic', 'attributes', 'transaction', 'packaging', 'descriptio
 }
 assert.match(html, /Tải ảnh/); assert.match(html, /data-component="preview"/); assert.match(html, /data-component="description"/);
 assert.match(html, /Tên bắt buộc/); assert.match(html, /<button[^>]*disabled=""[^>]*>Gửi duyệt/);
+assert.match(html, /data-component="pricing" data-errors="true" data-warnings="false"/);
+errors.push({ section: 'transaction', field: 'incotermPlace', message: 'Nhập địa điểm Incoterm.' },
+  { section: 'transaction', field: 'priceConsent', message: 'Hãy xác nhận cam kết giá trước khi công khai.' });
+html = renderToStaticMarkup(React.createElement(exports.ProductFormFiveSections, props));
+assert.match(html, /aria-label="Địa điểm Incoterm" aria-invalid="true"/);
+assert.match(html, /Nhập địa điểm Incoterm\./); assert.match(html, /Hãy xác nhận cam kết giá/);
 errors.length = 0;
 html = renderToStaticMarkup(React.createElement(exports.ProductFormFiveSections, props));
 assert.match(html, /<button[^>]*>Gửi duyệt/); assert.doesNotMatch(html, /<button[^>]*disabled=""[^>]*>Gửi duyệt/);

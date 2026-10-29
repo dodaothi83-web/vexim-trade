@@ -45,6 +45,10 @@ assert.doesNotMatch(readFileSync(new URL('../components/products/quantity-pricin
 assert.doesNotMatch(render({ pricePubliclyVisible: false }), /Quy chế hoạt động|type="checkbox"/);
 const custom = render({ value: { ...value, customGrade: true, grade: 'Special' } });
 assert.match(custom, /Grade khác/); assert.match(custom, /không thuộc bộ lọc grade chuẩn/);
+const outlierPolicy = { ...pricing.DEFAULT_QUANTITY_PRICING_POLICY, gradeBounds: { W320: { minUsdPerKg: 6, maxUsdPerKg: 7 } } };
+const outlierValue = { ...value, tiers: [{ quantity: '1', price: '1000' }] };
+assert.doesNotMatch(render({ value: outlierValue, policy: outlierPolicy }), /ngoài ngưỡng tham khảo/, 'Supplier does not receive the internal grade-price warning');
+assert.match(render({ value: outlierValue, policy: outlierPolicy, showWarnings: true }), /ngoài ngưỡng tham khảo/, 'Staff can review an outlier');
 const invalid = render({ value: { ...value, tiers: [{ quantity: '', price: '' }] }, showErrors: true });
 assert.match(invalid, /Nhập số lượng hợp lệ/); assert.match(invalid, /Nhập đơn giá lớn hơn 0/);
 assert.equal((html.match(/form="quantity-pricing-separate"/g) ?? []).length, 8, 'Fields are detached from the parent form');

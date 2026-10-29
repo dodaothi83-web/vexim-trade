@@ -70,10 +70,10 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
     <div className="min-w-0 space-y-4">
       <Section id="basic" title="Thông tin cơ bản" number={1}>
         <Field label="Tên sản phẩm" required hint="Không ghi grade trong tên. Vexim dịch sang tiếng Anh khi duyệt." error={problem("name")}>
-          <input className="input w-full" aria-label="Tên sản phẩm" maxLength={180} value={value.name} disabled={locked} onChange={(event) => set("name", event.target.value)} />
+          <input className="input w-full" aria-label="Tên sản phẩm" aria-invalid={!!problem("name") || undefined} maxLength={180} value={value.name} disabled={locked} onChange={(event) => set("name", event.target.value)} />
         </Field>
         <Field label="Danh mục" required error={problem("category")}>
-          <select className="input w-full" aria-label="Danh mục" value={value.category} disabled={locked} onChange={(event) => onChange({ ...value, category: event.target.value, grade: "", customGrade: false, attributes: {}, attributePool: "", priceConsent: false })}>
+          <select className="input w-full" aria-label="Danh mục" aria-invalid={!!problem("category") || undefined} value={value.category} disabled={locked} onChange={(event) => onChange({ ...value, category: event.target.value, grade: "", customGrade: false, attributes: {}, attributePool: "", priceConsent: false })}>
             <option value="">Chọn danh mục sản phẩm</option>{categories.map((item) => <option key={item.id} value={item.slug}>{item.group ? `${item.group} / ` : ""}{item.label}</option>)}
           </select>
         </Field>
@@ -100,10 +100,12 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
         <Field label="Giá theo số lượng" required>
           <QuantityPricingV2Editor value={quantity} onChange={setQuantity} standardGrades={grades} policy={editorPolicy}
             pricePubliclyVisible={value.pricePubliclyVisible} consentChecked={value.priceConsent} onConsentChange={(next) => set("priceConsent", next)}
-            disabled={locked} showGrade={false} incotermPlace={<label className="block text-sm font-semibold text-ink-800">Địa điểm Incoterm <span className="text-rose-700">*</span>
-              <input className="input mt-1 w-full" aria-label="Địa điểm Incoterm" maxLength={100} value={value.incotermPlace} disabled={locked}
+            disabled={locked} showGrade={false} showErrors showWarnings={false} incotermPlace={<label className="block text-sm font-semibold text-ink-800">Địa điểm Incoterm <span className="text-rose-700">*</span>
+              <input className="input mt-1 w-full" aria-label="Địa điểm Incoterm" aria-invalid={!!problem("incotermPlace") || undefined} maxLength={100} value={value.incotermPlace} disabled={locked}
                 onChange={(event) => onChange({ ...value, incotermPlace: event.target.value, priceConsent: false })} />
+              {problem("incotermPlace") && <span className="mt-1 block text-xs font-normal text-rose-700">{problem("incotermPlace")}</span>}
             </label>} />
+          {problem("priceConsent") && <p className="mt-1 text-xs text-rose-700">{problem("priceConsent")}</p>}
         </Field>
         <label className="flex items-start gap-2 text-sm font-semibold text-ink-800"><input type="checkbox" className="mt-1 size-4 accent-brand-700" checked={value.pricePubliclyVisible} disabled={locked}
           onChange={(event) => onChange({ ...value, pricePubliclyVisible: event.target.checked, priceConsent: false })} />Công khai giá tham khảo</label>
