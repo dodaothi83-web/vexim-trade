@@ -3,7 +3,7 @@
 import { useCallback, type ReactNode } from "react";
 import { ImageIcon } from "lucide-react";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
-import { QuantityBuyerV2Preview, QuantityGradeV2Field, QuantityPricingV2Editor } from "@/components/products/quantity-pricing-v2-editor";
+import { QuantityBuyerV2Preview, QuantityGradeV2Field, QuantityIncotermV2Field, QuantityPriceV2Consent, QuantityPricingV2Editor } from "@/components/products/quantity-pricing-v2-editor";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
 import { fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
@@ -100,21 +100,29 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
 
       <Section id="transaction" title="Thông tin giao dịch">
         {!policy && <p role="status" className="text-sm text-amber-800">Chọn danh mục có cấu hình giá để hoàn thiện bảng giá.</p>}
-        <Field label="Giá theo số lượng" required>
+        <Field label="Incoterm" required error={problem("incoterm")}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <QuantityIncotermV2Field value={quantity} onChange={setQuantity} standardGrades={grades} policy={editorPolicy} disabled={locked} showLabel={false} invalid={!!problem("incoterm")} />
+            <div><input className="input w-full" aria-label="Địa điểm Incoterm" aria-invalid={!!problem("incotermPlace") || undefined} placeholder="Địa điểm Incoterm" maxLength={100} value={value.incotermPlace} disabled={locked}
+              onChange={(event) => onChange({ ...value, incotermPlace: event.target.value, priceConsent: false })} />
+              {problem("incotermPlace") && <p className="mt-1 text-xs text-rose-700">{problem("incotermPlace")}</p>}</div>
+          </div>
+        </Field>
+        <Field label="Giá theo số lượng" required hint="Tối đa 4 mức">
           <QuantityPricingV2Editor value={quantity} onChange={setQuantity} standardGrades={grades} policy={editorPolicy}
             pricePubliclyVisible={value.pricePubliclyVisible} consentChecked={value.priceConsent} onConsentChange={(next) => set("priceConsent", next)}
-            disabled={locked} showGrade={false} showErrors showWarnings={false} incotermPlace={<label className="block text-sm font-semibold text-ink-800">Địa điểm Incoterm <span className="text-rose-700">*</span>
-              <input className="input mt-1 w-full" aria-label="Địa điểm Incoterm" aria-invalid={!!problem("incotermPlace") || undefined} maxLength={100} value={value.incotermPlace} disabled={locked}
-                onChange={(event) => onChange({ ...value, incotermPlace: event.target.value, priceConsent: false })} />
-              {problem("incotermPlace") && <span className="mt-1 block text-xs font-normal text-rose-700">{problem("incotermPlace")}</span>}
-            </label>} />
-          {serverErrors.filter((issue) => ["incoterm", "tiers"].includes(issue.field) &&
+            disabled={locked} showGrade={false} showIncoterm={false} showConsent={false} showErrors showWarnings={false} />
+          {serverErrors.filter((issue) => issue.field === "tiers" &&
             !checked.errors.some((current) => current.code === issue.code && current.tierIndex === issue.tierIndex))
             .map((issue, index) => <p key={`${issue.code}-${issue.tierIndex ?? "all"}-${index}`} role="alert" className="mt-1 text-xs text-rose-700">{issue.message}</p>)}
+        </Field>
+        <Field label="Hiện giá">
+          <label className="flex items-start gap-2 text-sm font-semibold text-ink-800"><input type="checkbox" className="mt-1 size-4 accent-brand-700" checked={value.pricePubliclyVisible} disabled={locked}
+            onChange={(event) => onChange({ ...value, pricePubliclyVisible: event.target.checked, priceConsent: false })} />Hiện giá cho buyer</label>
+          <p className="mt-1 text-xs text-ink-600">Bỏ chọn nếu muốn buyer gửi yêu cầu báo giá trước.</p>
+          <div className="mt-3"><QuantityPriceV2Consent visible={value.pricePubliclyVisible} checked={value.priceConsent} onChange={(next) => set("priceConsent", next)} disabled={locked} /></div>
           {problem("priceConsent") && <p className="mt-1 text-xs text-rose-700">{problem("priceConsent")}</p>}
         </Field>
-        <label className="flex items-start gap-2 text-sm font-semibold text-ink-800"><input type="checkbox" className="mt-1 size-4 accent-brand-700" checked={value.pricePubliclyVisible} disabled={locked}
-          onChange={(event) => onChange({ ...value, pricePubliclyVisible: event.target.checked, priceConsent: false })} />Công khai giá tham khảo</label>
         <Field label="Điều kiện thanh toán"><input className="input w-full" aria-label="Điều kiện thanh toán" maxLength={200} value={value.paymentTerms} disabled={locked} onChange={(event) => set("paymentTerms", event.target.value)} /></Field>
         <div className="flex flex-wrap gap-4 text-sm text-ink-800">
           {([['oem', 'OEM'], ['odm', 'ODM'], ['samples', 'Có mẫu']] as const).map(([key, label]) => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={value[key]} disabled={locked} className="size-4 accent-brand-700" onChange={(event) => set(key, event.target.checked)} />{label}</label>)}

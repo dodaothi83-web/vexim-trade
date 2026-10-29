@@ -33,7 +33,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Đã xây parser, kiểm tra và biểu diễn v2 chính xác theo gam và cent, giữ đơn vị gốc kg/tấn; không suy đoán dữ liệu giá cũ.
 - [x] Đã kiểm thử các quy tắc số tier, MOQ, thứ tự số lượng và giá, tỷ lệ, giá ngoài ngưỡng là cảnh báo, giá dùng dấu phẩy hoặc chấm, và consent khi bật công khai.
 - [x] Đã xây component nhập bảng giá và bản xem trước buyer. Các đường v2 cũ vẫn là thử nghiệm, chưa phải luồng form cuối.
-- [x] Form năm phần hiển thị lỗi tier, địa điểm Incoterm và consent tại trường; ô số và giá liên kết đến lỗi tương ứng cho trình đọc màn hình. Cảnh báo giá ngoài ngưỡng chỉ hiển thị cho nhân viên, không chặn gửi.
+- [x] Form năm phần hiển thị Incoterm và địa điểm ở dòng riêng phía trên tier, công tắc hiện giá trước cảnh báo và consent theo ảnh mẫu; lỗi tier, địa điểm và consent hiện tại trường. Ô số và giá liên kết đến lỗi tương ứng cho trình đọc màn hình. Cảnh báo giá ngoài ngưỡng chỉ hiển thị cho nhân viên, không chặn gửi. Chưa nối trang thật.
 - [x] Kiểm tra lại thuộc tính theo cấu hình danh mục khi gửi và khi rà soát; không âm thầm bỏ thông số không hợp lệ hoặc giá trị bị ẩn theo điều kiện. Giá trị ẩn được hiển thị để NCC chủ động xóa; lỗi server được đưa về phần liên quan trong form.
 - [ ] Nối bảng giá vào form mới và luồng duyệt an toàn, kiểm tra lại toàn bộ quy tắc bản chốt từ UI đến server và database.
 - [ ] Bảo đảm giá đã duyệt tiếp tục hiện khi có giá mới chờ duyệt; duyệt phải nguyên tử và phát hiện thay đổi đồng thời của tên, grade, giá và ảnh.

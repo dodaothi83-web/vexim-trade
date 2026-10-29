@@ -27,6 +27,9 @@ type Props = {
   showWarnings?: boolean;
   /** The owning product form supplies the location field. */
   incotermPlace?: ReactNode;
+  /** A surrounding form may place these controls in separate rows. */
+  showIncoterm?: boolean;
+  showConsent?: boolean;
 };
 
 /** Group the integer part while preserving decimal kg/MT quantities and pasted errors. */
@@ -57,9 +60,30 @@ export function QuantityGradeV2Field({ value, onChange, standardGrades, policy, 
   </div>;
 }
 
+export function QuantityIncotermV2Field({ value, onChange, standardGrades, policy, disabled = false, isolated = false, showErrors = false, showLabel = true, invalid = false }: Pick<Props, "value" | "onChange" | "standardGrades" | "policy" | "disabled" | "isolated" | "showErrors"> & { showLabel?: boolean; invalid?: boolean }) {
+  const errors = showErrors ? validateSupplierQuantityEntry(value, standardGrades, policy).errors.filter((issue) => issue.code === "incoterm") : [];
+  return <label className="block text-sm font-semibold text-ink-800">{showLabel && <>Incoterm <span className="text-rose-700">*</span></>}
+    <select form={isolated ? "quantity-pricing-separate" : undefined} className={`input w-full ${showLabel ? "mt-1" : ""}`} aria-label="Incoterm"
+      aria-invalid={invalid || !!errors.length || undefined} disabled={disabled} value={value.incoterm} onChange={(event) => onChange({ ...value, incoterm: event.target.value })}>
+      <option value="">Chọn Incoterm</option>{INCOTERMS.map((term) => <option key={term} value={term}>{term}</option>)}
+    </select>
+    {errors.map((issue) => <span key={issue.code} className="mt-1 block text-xs text-rose-700">{issue.message}</span>)}
+  </label>;
+}
+
+export function QuantityPriceV2Consent({ visible, checked, onChange, disabled = false, isolated = false }: {
+  visible: boolean; checked: boolean; onChange: (value: boolean) => void; disabled?: boolean; isolated?: boolean;
+}) {
+  if (!visible) return null;
+  return <div className="space-y-3">
+    <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng. Chênh lệch bất thường sẽ được Vexim rà soát theo <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold underline">Quy chế hoạt động</Link>.</p>
+    <label className="flex items-start gap-2 text-xs font-medium text-ink-800"><input form={isolated ? "quantity-pricing-separate" : undefined} type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} className="mt-0.5 size-4 accent-brand-700" /><span>Tôi xác nhận giá trên là giá tôi sẵn sàng báo cho buyer với đúng grade, Incoterm và số lượng đã ghi. <span className="text-rose-700">*</span></span></label>
+  </div>;
+}
+
 /** Reusable controlled quantity editor. Server validates the same input again. */
 export function QuantityPricingV2Editor({ value, onChange, standardGrades, policy, pricePubliclyVisible,
-  consentChecked, onConsentChange, showErrors = false, disabled = false, isolated = false, showGrade = true, showWarnings = false, incotermPlace }: Props) {
+  consentChecked, onConsentChange, showErrors = false, disabled = false, isolated = false, showGrade = true, showWarnings = false, incotermPlace, showIncoterm = true, showConsent = true }: Props) {
   const [pendingUnit, setPendingUnit] = useState<SupplierQuantityUnit | null>(null);
   const errorPrefix = useId();
   const validation = validateSupplierQuantityEntry(value, standardGrades, policy);
@@ -78,15 +102,10 @@ export function QuantityPricingV2Editor({ value, onChange, standardGrades, polic
   }
   return <section className="space-y-3" aria-label="Bảng giá theo số lượng">
     {showGrade && <QuantityGradeV2Field value={value} onChange={onChange} standardGrades={standardGrades} policy={policy} showErrors={showErrors} disabled={disabled} isolated={isolated} />}
-    <div className="grid gap-3 sm:grid-cols-2">
-    <label className="block text-sm font-semibold text-ink-800">Incoterm <span className="text-rose-700">*</span>
-      <select form={form} className="input mt-1 w-full" aria-label="Incoterm" aria-invalid={!!issues("incoterm").length || undefined} disabled={disabled} value={value.incoterm} onChange={(event) => onChange({ ...value, incoterm: event.target.value })}>
-        <option value="">Chọn Incoterm</option>{INCOTERMS.map((term) => <option key={term} value={term}>{term}</option>)}
-      </select>
-      {issues("incoterm").map((issue) => <span key={issue.code} className="mt-1 block text-xs text-rose-700">{issue.message}</span>)}
-    </label>
-    {incotermPlace}
-    </div>
+    {showIncoterm && <div className="grid gap-3 sm:grid-cols-2">
+      <QuantityIncotermV2Field value={value} onChange={onChange} standardGrades={standardGrades} policy={policy} disabled={disabled} isolated={isolated} showErrors={showErrors} />
+      {incotermPlace}
+    </div>}
     <div className="overflow-x-auto"><table className="w-full min-w-[370px] text-left text-sm">
       <thead><tr className="text-xs text-ink-600"><th className="p-2">Số lượng đặt theo {" "}
         <select form={form} aria-label="Đơn vị số lượng" className="input inline-block w-auto" disabled={disabled} value={value.unit} onChange={(event) => changeUnit(event.target.value as SupplierQuantityUnit)}>
@@ -123,8 +142,7 @@ export function QuantityPricingV2Editor({ value, onChange, standardGrades, polic
     {value.tiers.length < Math.min(policy.maxTiers, 4) && <button type="button" disabled={disabled} onClick={() => onChange({ ...value, tiers: [...value.tiers, { quantity: "", price: "" }] })} className="text-sm font-semibold text-brand-700">+ Thêm mức giá</button>}
     {showErrors && validation.errors.filter((issue) => issue.tierIndex === undefined && !["grade", "incoterm", "name_vi_grade"].includes(issue.code)).map((issue) => <p key={issue.code} role="alert" className="text-xs text-rose-700">{issue.message}</p>)}
     {showWarnings && validation.warnings.length > 0 && <p className="text-xs text-amber-800" role="status">Một số mức giá ngoài ngưỡng tham khảo của grade. Bạn vẫn có thể gửi để rà soát.</p>}
-    {pricePubliclyVisible && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng. Chênh lệch bất thường sẽ được Vexim rà soát theo <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold underline">Quy chế hoạt động</Link>.</p>}
-    {pricePubliclyVisible && <label className="flex items-start gap-2 text-xs font-medium text-ink-800"><input form={form} type="checkbox" checked={consentChecked} disabled={disabled} onChange={(event) => onConsentChange(event.target.checked)} className="mt-0.5 size-4 accent-brand-700" /><span>Tôi xác nhận giá trên là giá tôi sẵn sàng báo cho buyer với đúng grade, Incoterm và số lượng đã ghi. <span className="text-rose-700">*</span></span></label>}
+    {showConsent && <QuantityPriceV2Consent visible={pricePubliclyVisible} checked={consentChecked} onChange={onConsentChange} disabled={disabled} isolated={isolated} />}
   </section>;
 }
 
