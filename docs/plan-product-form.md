@@ -19,7 +19,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Adapter chưa hoàn thiện chặn tải ảnh và gửi duyệt thay vì gọi endpoint cũ; có kiểm thử tránh vô tình công khai ảnh mới.
 - [x] Phiên form buộc tải lại sau kết quả lưu ảnh hoặc gửi duyệt không xác định, tránh tiếp tục sửa khi server có thể đã nhận bản gửi.
 - [ ] Nối cùng một form năm phần vào tạo mới và sửa sản phẩm NCC, giữ các trường hiện có, URL và dữ liệu cũ.
-- [x] Đã xây action tải ảnh riêng tư có kiểm tra NCC, quyền sở hữu và phiên bản trước khi ghi; chưa nối form thật.
+- [x] Đã xây action tải ảnh riêng tư có kiểm tra NCC, quyền sở hữu và phiên bản trước khi ghi; chưa nối form thật. Khung ảnh nháp có ô thêm ảnh, nhãn ảnh chính và nút gỡ theo ảnh mẫu; đã kiểm tra trạng thái khóa và giới hạn 8 ảnh bằng SSR.
 - [x] Đã thử thành phần trình duyệt giảm ảnh đầu vào đến 8 MB xuống dưới 2,5 MB cho mỗi request, khóa form khi xử lý và giữ nguyên tệp gốc; ảnh thực tế được mã hóa WebP hợp lệ trong Chromium. Server vẫn tự kiểm tra và xử lý ảnh.
 - [x] SQL64 có thao tác thay tham chiếu ảnh cũ bằng ảnh riêng tư trong đúng vị trí kể cả khi đã đủ 8 ảnh, kiểm tra snapshot và quyền, không sửa ảnh công khai. Đã xây helper và action NCC sao chép riêng tư theo ảnh được chọn, kiểm tra quyền, đường dẫn và bytes; nếu một phần hoặc chưa rõ kết quả phải tải lại. Đã thử PGlite và mock, chưa nối UI hoặc chạy SQL; chưa có khóa Storage giữa các lần đọc.
 - [ ] Hoàn thiện tải ảnh riêng tư, khôi phục sau tải lại, thay ảnh và ảnh chính; xử lý lỗi mạng và tệp mồ côi an toàn. Cần thử đường truyền thực tế trên hosting và thiết bị trước khi nối. Ảnh đã công khai không đổi trước khi duyệt.

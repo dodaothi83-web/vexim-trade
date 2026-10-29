@@ -80,27 +80,25 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
   const locked = disabled || preparingImages || state.busy || state.submitted || state.requiresReload;
   const removedImages = state.availableImages.filter((available) => !state.images.some((image) => image.id === available.id && image.source === available.source));
   const imageControls = <div className="space-y-3">
-    {state.images.length > 0 && <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-      {state.images.map((image, index) => <li key={`${image.source}:${image.id}`} className="overflow-hidden rounded-lg border border-ink-200">
-        <div className="relative"><img src={image.url} alt={index === 0 ? "Ảnh chính" : `Ảnh sản phẩm ${index + 1}`} className="aspect-square w-full object-cover" />
-          {index === 0 && <span className="absolute bottom-1 left-1 rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-ink-800">Ảnh chính</span>}</div>
-        <div className="flex flex-wrap items-center gap-x-2 px-1 text-xs font-semibold">
-          {index > 0 && <button type="button" disabled={locked} className="min-h-10 text-brand-700 disabled:opacity-50" aria-label={`Đặt ảnh ${index + 1} làm ảnh chính`}
-            onClick={() => void selectImages([image, ...state.images.filter((_, i) => i !== index)])}>Ảnh chính</button>}
-          <button type="button" disabled={locked} className="min-h-10 text-rose-700 disabled:opacity-50" aria-label={`Gỡ ảnh ${index + 1} khỏi bản nháp`}
-            onClick={() => void selectImages(state.images.filter((_, i) => i !== index))}>Gỡ</button>
-        </div>
+    <ul className="flex flex-wrap gap-3">
+      {state.images.map((image, index) => <li key={`${image.source}:${image.id}`} className="relative size-28 overflow-hidden rounded-lg border border-ink-200">
+        <img src={image.url} alt={index === 0 ? "Ảnh chính" : `Ảnh sản phẩm ${index + 1}`} className="size-full object-cover" />
+        <button type="button" disabled={locked} className="absolute right-1 top-1 grid size-10 place-items-center rounded-full bg-ink-900/75 text-white disabled:opacity-50"
+          aria-label={`Gỡ ảnh ${index + 1} khỏi bản nháp`} onClick={() => void selectImages(state.images.filter((_, i) => i !== index))}>×</button>
+        {index === 0 ? <span className="absolute bottom-1 left-1 rounded bg-ink-900/75 px-1.5 py-0.5 text-[10px] font-semibold text-white">Ảnh chính</span> :
+          <button type="button" disabled={locked} className="absolute bottom-1 left-1 min-h-8 rounded bg-white/95 px-1.5 text-[10px] font-semibold text-brand-700 disabled:opacity-50"
+            aria-label={`Đặt ảnh ${index + 1} làm ảnh chính`} onClick={() => void selectImages([image, ...state.images.filter((_, i) => i !== index)])}>Làm ảnh chính</button>}
       </li>)}
-    </ul>}
+      {state.images.length < 8 && <li><label className={`flex size-28 items-center justify-center rounded-lg border-2 border-dashed border-brand-700 text-sm font-semibold text-brand-700 ${locked ? "pointer-events-none opacity-50" : "cursor-pointer hover:bg-brand-50"}`}>
+        + Thêm ảnh <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={locked} className="sr-only" onChange={(event) => void upload(event)} />
+      </label></li>}
+    </ul>
     {removedImages.length > 0 && <div className="space-y-2"><p className="text-xs text-ink-500">Ảnh có thể thêm vào bản nháp</p>
       <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">{removedImages.map((image) => <li key={`${image.source}:${image.id}`} className="overflow-hidden rounded-lg border border-ink-200">
         <img src={image.url} alt="Ảnh có thể thêm" className="aspect-square w-full object-cover opacity-70" />
         <button type="button" disabled={locked || state.images.length >= 8} className="min-h-10 px-1 text-xs font-semibold text-brand-700 disabled:opacity-50"
           onClick={() => void selectImages([...state.images, image])}>Thêm ảnh</button>
       </li>)}</ul></div>}
-    <label className={`inline-flex cursor-pointer items-center rounded-lg border border-ink-300 px-3 py-2 text-sm font-semibold text-ink-800 ${locked ? "pointer-events-none opacity-50" : "hover:bg-ink-50"}`}>
-      Chọn ảnh <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={locked} className="sr-only" onChange={(event) => void upload(event)} />
-    </label>
     <p className="text-xs text-ink-500">{state.images.length}/8 ảnh. JPG, PNG hoặc WebP, tối đa 8 MB mỗi ảnh.</p>
   </div>;
   const statusText = state.requiresReload ? "Cần tải lại trang" : state.submitted ? "Đã gửi duyệt" : state.busy || preparingImages ? "Đang xử lý" : session.isDirty(value) ? "Có thay đổi chưa lưu" : "Đã lưu bản nháp";
