@@ -33,6 +33,11 @@ assert.equal(calls[2][1], 'stage_product_form_image'); assert.equal(calls[2][2].
 assert.equal(calls[2][2].p_sha256, createHash('sha256').update(new Uint8Array([1, 2])).digest('hex'));
 assert.equal(calls[2][2].p_thumb_sha256, createHash('sha256').update(new Uint8Array([3])).digest('hex')); assert.equal(calls[2][2].p_thumb_bytes, 1);
 assert.equal(result.image.url, `/api/product-form/images/${product}/${imageId}`);
+const original = { id: 'dddddddd-dddd-dddd-dddd-dddddddddddd', product_id: product, supplier_id: supplier, caption: 'Original' };
+calls = []; result = await upload({ ...input, replaceMedia: original }); assert.equal(result.ok, true);
+assert.equal(calls[2][2].p_replaces_media_id, original.id); assert.equal(calls[2][2].p_expected_media, original);
+calls = []; result = await upload({ ...input, replaceMedia: { ...original, supplier_id: product } });
+assert.equal(result.ok, false); assert.equal(calls.length, 0, 'Never write on wrong source ownership');
 calls = []; failPut = 1; result = await upload(input);
 assert.equal(result.ok, false); assert.equal(result.requiresReload, true); assert.equal(calls.some((x) => x[0] === 'rpc'), false);
 assert.deepEqual(calls.map((x) => x[0]), ['put', 'put'], 'No delete on uncertain storage results');

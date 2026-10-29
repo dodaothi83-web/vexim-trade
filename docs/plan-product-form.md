@@ -21,7 +21,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [ ] Nối cùng một form năm phần vào tạo mới và sửa sản phẩm NCC, giữ các trường hiện có, URL và dữ liệu cũ.
 - [x] Đã xây action tải ảnh riêng tư có kiểm tra NCC, quyền sở hữu và phiên bản trước khi ghi; chưa nối form thật.
 - [x] Đã thử thành phần trình duyệt giảm ảnh đầu vào đến 8 MB xuống dưới 2,5 MB cho mỗi request, khóa form khi xử lý và giữ nguyên tệp gốc; ảnh thực tế được mã hóa WebP hợp lệ trong Chromium. Server vẫn tự kiểm tra và xử lý ảnh.
-- [x] SQL64 có thao tác thay tham chiếu ảnh cũ bằng ảnh riêng tư trong đúng vị trí kể cả khi đã đủ 8 ảnh, kiểm tra snapshot và quyền, không sửa ảnh công khai. Đã thử PGlite; chưa nối thao tác sao chép hoặc chạy SQL.
+- [x] SQL64 có thao tác thay tham chiếu ảnh cũ bằng ảnh riêng tư trong đúng vị trí kể cả khi đã đủ 8 ảnh, kiểm tra snapshot và quyền, không sửa ảnh công khai. Helper upload có thể gửi snapshot media đọc ở server; đã thử PGlite và mock, chưa nối thao tác sao chép hoặc chạy SQL.
 - [ ] Hoàn thiện tải ảnh riêng tư, khôi phục sau tải lại, thay ảnh và ảnh chính; xử lý lỗi mạng và tệp mồ côi an toàn. Cần thử đường truyền thực tế trên hosting và thiết bị trước khi nối. Ảnh đã công khai không đổi trước khi duyệt.
 - [ ] Hoàn thiện lưu nháp, gửi duyệt, khóa/khôi phục phiên và thông báo chờ duyệt thực tế. Kiểm tra cạnh tranh giữa các phiên, ảnh, dữ liệu và bản duyệt.
 - [x] Đã xây gợi ý dịch từ bản gửi riêng tư, không sửa bản đã duyệt và không gửi giá cho AI; cảnh báo nếu tên dịch chứa grade chuẩn hoặc grade tự nhập. Action kiểm tra quyền và đối chiếu lại bản gửi sau khi AI trả lời. Chưa nối màn hình và chưa lưu hay duyệt bản dịch.

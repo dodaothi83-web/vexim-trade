@@ -25,10 +25,16 @@ type Database = { rpc: (name: string, params: Record<string, unknown>) => Promis
  */
 export async function uploadPrivateProductFormImage(input: {
   db: Database; supplierId: string; productId: string; userId: string; expectedRevision: number; file: File;
+  /** Full server-read media row, never client-provided; SQL locks and compares it. */
+  replaceMedia?: Record<string, unknown>;
 }): Promise<Result> {
-  const { db, supplierId, productId, userId, expectedRevision, file } = input;
+  const { db, supplierId, productId, userId, expectedRevision, file, replaceMedia } = input;
   if (!UUID.test(supplierId) || !UUID.test(productId) || !userId.trim() || !Number.isSafeInteger(expectedRevision) || expectedRevision < 1 ||
-      !(file instanceof File) || file.size <= 0 || file.size > 8 * 1024 * 1024) return { ok: false, message: "Ảnh không hợp lệ hoặc lớn hơn 8 MB." };
+      !(file instanceof File) || file.size <= 0 || file.size > 8 * 1024 * 1024 ||
+      (replaceMedia && (typeof replaceMedia.id !== "string" || !UUID.test(replaceMedia.id) ||
+        typeof replaceMedia.product_id !== "string" || replaceMedia.product_id.toLowerCase() !== productId.toLowerCase() ||
+        typeof replaceMedia.supplier_id !== "string" || replaceMedia.supplier_id.toLowerCase() !== supplierId.toLowerCase())))
+    return { ok: false, message: "Ảnh không hợp lệ hoặc lớn hơn 8 MB." };
   let bytes: Uint8Array;
   try { bytes = new Uint8Array(await file.arrayBuffer()); }
   catch { return { ok: false, message: "Không đọc được ảnh." }; }
@@ -59,6 +65,7 @@ export async function uploadPrivateProductFormImage(input: {
       p_width: prepared.width, p_height: prepared.height,
       p_sha256: createHash("sha256").update(prepared.main).digest("hex"),
       p_thumb_bytes: prepared.thumb.length, p_thumb_sha256: createHash("sha256").update(prepared.thumb).digest("hex"),
+      ...(replaceMedia ? { p_replaces_media_id: replaceMedia.id, p_expected_media: replaceMedia } : {}),
     });
     if (error) throw error;
     if (data && typeof data === "object" && !Array.isArray(data)) {
