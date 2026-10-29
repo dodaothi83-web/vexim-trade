@@ -67,9 +67,11 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/supplier-portal/category-proposals': {},
   '@/lib/supplier-portal/product-view': view,
   '@/lib/products/grade-pricing': gradePricing,
+  '@/lib/public/price-units': priceUnits,
+  '@/lib/products/quantity-pricing': { validateQuantityPricing: () => ({ value: null, errors: [], warnings: [] }) },
   '@/components/products/grade-pricing-table': gradePricingTable,
   '@/components/products/quantity-pricing-inline': { QuantityPricingInline: (props) => React.createElement('div', { 'data-quantity-editor': '1', 'data-sidebar-preview': String(!!props.onPreviewChange) }) },
-  '@/components/products/quantity-pricing-editor': { QuantityBuyerPreview: (props) => React.createElement('div', { 'data-buyer-preview': '1' }, props.value.nameEn) },
+  '@/components/products/quantity-pricing-editor': { QuantityBuyerPreview: (props) => React.createElement('div', { 'data-buyer-preview': '1' }, props.value.nameEn), QuantityPricingEditor: () => React.createElement('div', { 'data-new-quantity': '1' }) },
   '@/components/toast': { useToast: () => ({ push() {} }) },
   '../product-actions': {
     saveSupplierProductAction: async () => ({ ok: true, id: 'p1', message: 'Đã lưu bản nháp.' }),
@@ -144,20 +146,12 @@ assert.equal((step1.match(/data-step-panel="(2|3)"/g) ?? []).length, 2, 'Đủ b
 for (const panel of ['2', '3']) {
   assert.match(step1, new RegExp(`data-step-panel="${panel}" class="hidden"`), `Bước ${panel} bị ẩn, không đẩy nội dung dài xuống`);
 }
-assert.equal((source.match(/<details\b/g) ?? []).length, 1, 'Only the legacy pricing transition panel is collapsible');
-assert.ok(step1.includes('Bảng giá cũ (cơ chế hiện tại)'));
-
-// 2. Bảng Grade & giá + Thông tin thương mại & xuất khẩu HIỆN NGAY ở bước 1, không cần bấm mũi tên.
-assert.match(step1, /Thông tin thương mại &amp; xuất khẩu/, 'Tiêu đề khối thương mại & xuất khẩu hiện ngay');
-assert.match(step1, /id="grade-pricing-table"/, 'Bảng Grade & giá nằm ngay trong bước 1');
-assert.match(step1, /name="grade_rows_json"/, 'Bảng Grade & giá serialize vào hidden input grade_rows_json');
-assert.match(step1, /GIÁ \(USD\/KG\)/, 'Danh mục hạt điều hiển thị đơn vị USD/kg');
-assert.match(step1, /Thêm grade/, 'Bảng Grade & giá có nút Thêm grade');
-const pepperStep1 = render({ product: { ...product, category: 'pepper', supplier_category_proposal: 'pepper', spec: '550 g/L' } });
-assert.match(pepperStep1, /GIÁ \(USD\/MT\)/, 'Danh mục hồ tiêu hiển thị đơn vị USD/MT');
-
-for (const field of ['grade_rows_json', 'price_valid_until', 'lead_time_days',
-  'payment_terms', 'export_port', 'incoterm_place']) {
+assert.doesNotMatch(source, /Bảng giá cũ \(cơ chế hiện tại\)|GradePricingTable|grade_rows_json/, 'Supplier wizard no longer renders or saves legacy price tables');
+assert.match(step1, /Thông tin thương mại &amp; xuất khẩu/);
+assert.match(source, /<QuantityPricingEditor value=\{newQuantity\}/, 'New products use the quantity editor');
+assert.match(source, /quantity_creation_request_id/, 'New products submit with an idempotency token');
+assert.match(source, /quantity_tiers_json/, 'The new tier table is submitted');
+for (const field of ['lead_time_days', 'payment_terms', 'export_port', 'incoterm_place']) {
   assert.ok(step1.includes(`name="${field}"`), `Ô ${field} nằm ngay trong bước 1`);
 }
 for (const field of ['raw_material_region', 'input_material_origin']) {
@@ -216,6 +210,9 @@ const priceCheckbox = (html) => {
   return tag;
 };
 const newProductStep1 = render({ product: undefined, media: [] });
+assert.match(newProductStep1, /Giá theo số lượng/);
+assert.match(newProductStep1, /Chọn danh mục để nhập grade và bảng giá/);
+assert.doesNotMatch(newProductStep1, /Bảng giá cũ|Thêm grade|name="grade_rows_json"|name="price_valid_until"/);
 assert.match(priceCheckbox(newProductStep1), /checked=""/, 'Sản phẩm mới được tick sẵn');
 for (const savedProduct of [product, { ...product, price_publicly_visible: false }]) {
   assert.doesNotMatch(priceCheckbox(render({ product: savedProduct })), /checked=""/,
@@ -305,14 +302,8 @@ for (const phrase of [
 }
 assert.match(step1, /Chọn danh mục gần nhất\. Danh mục sẽ được kiểm tra khi duyệt\./,
   'Hint danh mục nói đúng mức cần thiết');
-// Dòng nhắc đối chiếu báo giá nằm ngay dưới bảng Grade & giá và hiện cả khi tạo mới lẫn khi sửa sản phẩm.
-for (const htmlSample of [newProductStep1, step1]) {
-  assert.match(
-    htmlSample,
-    /⚠️ Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng\. Chênh lệch bất thường sẽ được Vexim rà soát và xử lý theo[\s\S]{0,160}href="\/quy-che-hoat-dong"[^>]*>Quy chế hoạt động<\/a>\./,
-    'Dòng nhắc đối chiếu báo giá và link Quy chế hoạt động hiện dưới bảng Grade & giá',
-  );
-}
+// The shared quantity editor contains the warning; tested in check-quantity-pricing-editor.
+assert.match(source, /<QuantityPricingEditor/);
 // Chỉ hiện khi chưa có xác nhận chia sẻ giá còn hiệu lực, và bắt buộc tick khi bật công khai giá.
 const noConsent = render({ supplier: { ...supplier, fob_publicly_visible: false } });
 assert.match(noConsent, /Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai\./,
@@ -402,11 +393,6 @@ const approvedOwnHtml = render({ product: ownApproved, media: [{ ...media[0], au
 assert.match(approvedOwnHtml, /aria-label="Xóa ảnh đại diện"/, 'Ảnh do mình tải có nút xóa cả khi đang đăng (server kiểm tra tệp cuối)');
 assert.match(approvedOwnHtml, /Tạm ẩn sản phẩm/);
 assert.doesNotMatch(approvedOwnHtml, /Xóa bản nháp/);
-assert.match(
-  approvedOwnHtml,
-  /⚠️ Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng\. Chênh lệch bất thường sẽ được Vexim rà soát và xử lý theo[\s\S]{0,160}href="\/quy-che-hoat-dong"[^>]*>Quy chế hoạt động<\/a>\./,
-  'Dòng nhắc đối chiếu báo giá vẫn hiện đầy đủ khi sửa sản phẩm đã duyệt',
-);
 assert.match(approvedOwnHtml, /chỉnh sửa giá trên sản phẩm đã duyệt, sản phẩm sẽ được kiểm tra lại giá/, 'Nhắc rõ sửa giá sản phẩm đã duyệt sẽ được kiểm tra lại giá');
 const paused = render({ product: { ...ownApproved, supplier_review_status: 'paused', ready_for_buyer: false },
   media: [{ ...media[0], audience: 'buyer' }], initialStep: 3 });

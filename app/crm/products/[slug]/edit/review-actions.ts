@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
+import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
+import type { SupplierProduct } from "@/lib/types";
 import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
@@ -92,14 +94,37 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
           return rest;
         })()
       : undefined;
-    const updated = await store.updateSupplierProductIfState(id, product.supplier_id,
-      { review: previous.review, ready: previous.ready }, {
-        supplier_review_status: decision as "approved" | "changes_requested",
-        supplier_review_note: decision === "approved" ? null : note, ready_for_buyer: decision === "approved",
-        reviewed_category_slug: decision === "approved" ? reviewedCategory : (product.reviewed_category_slug ?? null),
-        ...(reviewedCategory ? { category: reviewedCategory } : {}),
-        ...(decision === "approved" && cleanedSpecs ? { specs: cleanedSpecs } : {}),
+    const db = getSupabaseClient();
+    let updated: SupplierProduct | null;
+    if (db) {
+      // The service-role RPC must never be authorized through a local fallback.
+      const actor = await supabaseStore.getUser(session.uid);
+      const strictProduct = await supabaseStore.getProduct(id);
+      if (!actor?.is_active || actor.role !== session.role || actor.email.trim().toLowerCase() !== session.email.trim().toLowerCase() ||
+          !strictProduct || strictProduct.supplier_id !== product.supplier_id || strictProduct.updated_at !== product.updated_at)
+        return { ok: false, message: "Không xác nhận được quyền hoặc phiên bản sản phẩm." };
+      const { data, error } = await db.rpc("decide_supplier_product_with_quantity_guard", {
+        p_product_id: id, p_supplier_id: product.supplier_id, p_expected_updated_at: product.updated_at,
+        p_expected_review: previous.review, p_expected_ready: previous.ready, p_decision: decision,
+        p_category: reviewedCategory, p_note: note || null,
+        p_buyer_enabled: process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true",
       });
+      if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá trước khi đăng. Kiểm tra migration và thử lại." };
+      if (data.status === "buyer_not_enabled") return { ok: false, message: "Trang buyer theo bảng giá mới chưa được bật; chưa thể đăng sản phẩm tạo bằng mô hình này." };
+      if (data.status === "price_not_approved") return { ok: false, message: "Hãy duyệt bảng giá theo số lượng trước khi đăng sản phẩm." };
+      if (data.status === "price_changed") return { ok: false, message: "Thông tin sản phẩm đã đổi sau khi duyệt giá. Cần yêu cầu NCC gửi lại bảng giá." };
+      if (data.status === "category_changed") return { ok: false, message: "Danh mục khác với bảng giá đã gửi. Hãy yêu cầu NCC cập nhật danh mục và bảng giá." };
+      updated = data.status === "saved" && data.product ? data.product as SupplierProduct : null;
+    } else {
+      updated = await store.updateSupplierProductIfState(id, product.supplier_id,
+        { review: previous.review, ready: previous.ready }, {
+          supplier_review_status: decision as "approved" | "changes_requested",
+          supplier_review_note: decision === "approved" ? null : note, ready_for_buyer: decision === "approved",
+          reviewed_category_slug: decision === "approved" ? reviewedCategory : (product.reviewed_category_slug ?? null),
+          ...(reviewedCategory ? { category: reviewedCategory } : {}),
+          ...(decision === "approved" && cleanedSpecs ? { specs: cleanedSpecs } : {}),
+        });
+    }
     if (!updated) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi xét duyệt." };
     await store.addAuditLog({ actor_id: session.uid, actor_email: session.email,
       entity: "product", entity_id: id, action: retryApprovedPublication ? "supplier.product_published" : decision === "approved" ? "supplier.product_approved" : "supplier.product_changes_requested",

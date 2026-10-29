@@ -8,7 +8,7 @@ import { QuantityReviewControls } from "./review-controls";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Rà soát giá và tên sản phẩm" };
 
-type Revision = { id: string; product_id: string; created_at: string; product_updated_at: string | null;
+type Revision = { id: string; product_id: string; created_at: string; product_updated_at: string | null; product_context?: unknown;
   grade?: string; incoterm?: string; tiers?: unknown; warnings?: unknown; source_name?: string; english_name?: string; origin?: string };
 
 export default async function QuantityReviewPage() {
@@ -60,7 +60,7 @@ export default async function QuantityReviewPage() {
             <tbody>{rows.map((raw, index) => { const row = raw && typeof raw === "object" ? raw as Record<string, unknown> : {}; return <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{typeof row.minKg === "number" ? row.minKg.toLocaleString("en-US") : "Không hợp lệ"}</td><td className="py-1 tabular-nums">{typeof row.priceUsdPerKg === "number" ? row.priceUsdPerKg.toFixed(2) : "Không hợp lệ"}</td></tr>; })}</tbody></table>
           {warnings.length > 0 && <p className="mt-2 font-semibold text-amber-800">Có mức giá ngoài ngưỡng cấu hình, cần đối chiếu trước khi duyệt.</p>}
         </div> : <div className="mt-3 space-y-1 text-xs"><p>Tên gốc: {revision.source_name || "—"}</p><p>Tên buyer đề xuất: <strong>{revision.english_name || "—"}</strong></p><p>Nguồn: {revision.origin || "—"}</p></div>}
-        {product && revision.product_updated_at !== product.updated_at && <p className="mt-2 text-xs font-semibold text-amber-800">Sản phẩm đã đổi sau khi gửi. Cần từ chối và yêu cầu NCC gửi lại.</p>}
+        {product && revision.product_updated_at !== product.updated_at && <p className="mt-2 text-xs font-semibold text-amber-800">{revision.product_context ? "Sản phẩm đã được cập nhật sau khi gửi; hệ thống sẽ kiểm tra các thay đổi liên quan khi duyệt." : "Sản phẩm đã đổi sau khi gửi. Cần từ chối và yêu cầu NCC gửi lại."}</p>}
         {product && <QuantityReviewControls productId={product.id} revisionId={revision.id} updatedAt={product.updated_at} kind={kind} />}
       </article>;
     })}</div>}
@@ -68,7 +68,7 @@ export default async function QuantityReviewPage() {
   return <>
     <PageHeader title="Rà soát giá và tên sản phẩm" sub="Hai hàng chờ độc lập; thao tác không thay đổi trạng thái duyệt nội dung sản phẩm." />
     <Link href="/crm/products" className="text-sm font-semibold text-brand-700">← Về danh sách sản phẩm</Link>
-    <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Mô hình giá mới chưa được bật ở form NCC và trang buyer. Duyệt tại đây hiện chỉ lưu phiên bản chuẩn bị, chưa thay đổi giá hoặc tên đang công khai.</p>
+    <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Form NCC đã dùng bảng giá mới. Hiển thị buyer theo mô hình mới chưa được bật mặc định; duyệt tại đây không thay đổi giá hoặc tên buyer đang thấy khi chưa bật mô hình.</p>
     {failed ? <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">Chưa tải được hàng chờ. Kiểm tra kết nối và các migration 20261053–20261056.</p> : <div className="mt-4 grid items-start gap-5 xl:grid-cols-2">{renderQueue(prices, "price")}{renderQueue(names, "name")}</div>}
   </>;
 }

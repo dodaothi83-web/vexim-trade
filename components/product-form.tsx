@@ -174,7 +174,7 @@ export function ProductForm({
     setGradeRows((current) => reconcileGradeRowsForCategory(current, nextCat));
   }
 
-  const standardDraftGrades = gradeRows
+  const standardDraftGrades = product ? (quantityEditor?.grade ? [quantityEditor.grade] : []) : gradeRows
     .filter((row) => row.selectedGrade && row.selectedGrade !== CUSTOM_GRADE_OPTION)
     .map((row) => row.selectedGrade.trim())
     .filter(Boolean);
@@ -207,7 +207,7 @@ export function ProductForm({
   const previewName = (displayNamePlaceholder ? "" : v("display_name").trim()) || v("name").trim() || "Chưa có tên sản phẩm";
 
   const gradeValidation = validateGradeRowsDraft(gradeRows, activeCategorySource);
-  const priceRangeError = gradeValidation.valid ? null : (gradeValidation.message ?? "Kiểm tra lại bảng Grade & giá.");
+  const priceRangeError = product || gradeValidation.valid ? null : (gradeValidation.message ?? "Kiểm tra lại bảng Grade & giá.");
   const draftSummary = gradeValidation.valid ? summarizeGradeRowsForProduct(gradeValidation.rows, activeCategorySource) : null;
   const previewPrice = priceRangeError
     ? "Kiểm tra bảng Grade & giá"
@@ -252,7 +252,7 @@ export function ProductForm({
     const summary = summarizeGradeRowsForProduct(gradeValidation.rows, activeCategorySource);
     const payload = {
       ...form,
-      grade_rows: gradeValidation.rows,
+      ...(product ? {} : { grade_rows: gradeValidation.rows }),
       product_attributes: attributes,
       category: selectedCategory || assignedCategory?.slug || null,
       supplier_id: supplier.id,
@@ -447,7 +447,7 @@ export function ProductForm({
                 </button>
               </div>
             )}
-            {displayNameConflict && (
+            {!product && displayNameConflict && (
               <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
                 Tên hiển thị ghi <strong>{displayNameGrade}</strong> nhưng bảng Grade &amp; giá đang là <strong>{standardDraftGrades.join(", ")}</strong>. Buyer sẽ đọc hai mức khác nhau. Sửa lại tên hiển thị hoặc bảng Grade &amp; giá.
               </p>
@@ -469,15 +469,11 @@ export function ProductForm({
                 data={quantityEditor} actor="staff" disabled={busy} dirty={dirty} />
                 : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra kết nối và danh mục đã xuất bản; dữ liệu giá cũ không bị thay đổi.</p>}
             </div>}
-            {product ? <details className="rounded-xl border border-ink-200 p-3" open={showGradeErrors}>
-              <summary className="cursor-pointer text-sm font-semibold text-ink-700">Bảng giá cũ (cơ chế hiện tại)</summary>
-              <p className="my-2 text-xs text-amber-800">Giữ lại trong thời gian chuyển đổi. Sửa bảng cũ vẫn áp dụng quy tắc cũ.</p>
-              <GradePricingTable rows={gradeRows} onChange={setGradeRows} category={activeCategorySource} disabled={busy} showErrors={showGradeErrors} />
-            </details> : <GradePricingTable rows={gradeRows} onChange={setGradeRows} category={activeCategorySource} disabled={busy} showErrors={showGradeErrors} />}
+            {!product && <GradePricingTable rows={gradeRows} onChange={setGradeRows} category={activeCategorySource} disabled={busy} showErrors={showGradeErrors} />}
             {attributeInputFields.length > 0 && (
               <ProductAttributeInputs fields={attributeInputFields} values={attributes} onChange={setAttributes} />
             )}
-            {grade.fromName && standardDraftGrades.length > 0 && !standardDraftGrades.some((item) => gradeKey(item) === gradeKey(grade.fromName!)) && (
+            {!product && grade.fromName && standardDraftGrades.length > 0 && !standardDraftGrades.some((item) => gradeKey(item) === gradeKey(grade.fromName!)) && (
               <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
                 Tên gốc ghi <strong>{grade.fromName}</strong> nhưng bảng Grade &amp; giá đang là{" "}
                 <strong>{standardDraftGrades.join(", ")}</strong>. Khi công khai, hệ thống lấy theo bảng Grade &amp; giá. Sửa lại nếu cần khớp.
@@ -643,7 +639,10 @@ export function ProductForm({
           <p className="mt-0.5 mb-4 text-xs text-ink-600">
             Quyền chia sẻ giá trong hồ sơ doanh nghiệp là sự đồng ý chung của NCC (hiệu lực 180 ngày). Giá chỉ hiện khi <strong>riêng sản phẩm này</strong> cũng được chọn, có giá hợp lệ và đủ điều kiện công bố; đây không phải báo giá RFQ.
           </p>
-          <div className="mb-4 rounded-xl border border-ink-200 bg-ink-50/50 p-3.5 text-xs">
+          {product ? <div className="mb-4 rounded-xl border border-ink-200 bg-ink-50/50 p-3.5 text-xs">
+            <p className="font-bold text-ink-900">Grade, Incoterm và bảng giá theo số lượng nằm tại mục Quy cách &amp; năng lực.</p>
+            <button type="button" onClick={() => setTab("spec")} className="mt-2 font-bold text-brand-700 underline">Mở bảng giá theo số lượng</button>
+          </div> : <>          <div className="mb-4 rounded-xl border border-ink-200 bg-ink-50/50 p-3.5 text-xs">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="font-bold text-ink-900">Grade, giá ({unitMeta.unitLabel}), Incoterm và MOQ nằm tại mục Quy cách &amp; năng lực</p>
               <button
@@ -677,15 +676,11 @@ export function ProductForm({
               })}
             </ul>
           </div>
+</>}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Giá hiệu lực đến">
-              <input
-                type="date"
-                className="input"
-                value={v("price_valid_until")}
-                onChange={(e) => set("price_valid_until", e.target.value)}
-              />
-            </Field>
+            {!product && <Field label="Giá hiệu lực đến">
+              <input type="date" className="input" value={v("price_valid_until")} onChange={(e) => set("price_valid_until", e.target.value)} />
+            </Field>}
             <Field label="Địa điểm Incoterm" hint="VD: FOB Cát Lái, Incoterms 2020">
               <input
                 className="input"
@@ -739,8 +734,8 @@ export function ProductForm({
               <p className="text-xs font-semibold text-brand-700">{activeCategory?.name_i18n.en || activeCategory?.slug || "Chưa có danh mục"}</p>
               <h3 className="mt-1 line-clamp-2 text-[15px] font-bold leading-snug text-ink-900">{previewName}</h3>
               <dl className="mt-3 space-y-1.5 text-xs">
-                <div className="flex justify-between gap-3"><dt className="text-ink-500">Giá trong form</dt><dd className={`text-right font-semibold text-ink-800 ${previewPrice !== "On request" && !previewPrice.startsWith("Kiểm tra") ? "font-mono tabular-nums" : ""}`}>{previewPrice}</dd></div>
-                <div className="flex justify-between gap-3"><dt className="text-ink-500">MOQ</dt><dd className="text-right font-semibold text-ink-800">{previewMoq}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-ink-500">{product ? "Giá buyer đang thấy" : "Giá trong form"}</dt><dd className="text-right font-semibold tabular-nums text-ink-800">{product ? (savedPrice ? savedPrice.buyerPrice ?? "Price on request" : "Chưa kiểm tra") : previewPrice}</dd></div>
+                {!product && <div className="flex justify-between gap-3"><dt className="text-ink-500">MOQ</dt><dd className="text-right font-semibold text-ink-800">{previewMoq}</dd></div>}
               </dl>
             </div>
           </div>

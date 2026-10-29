@@ -3,12 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
-import {
-  isSupplierPriceCurrency,
-  isSupplierPriceUnit,
-  normalizeSupplierPriceCurrency,
-  normalizeSupplierPriceUnit,
-} from "@/lib/supplier-portal/product-price-options";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import {
@@ -18,16 +12,16 @@ import {
 import { notifyStaffProductSubmission } from "@/lib/supplier-portal/notify";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 import {
-  applyGradeRowsToSpecs,
   applyLeadTimeToSpecs,
   describePriceChangeForReview,
-  exceedsMaxPriceSpread,
   hasProductPricingChanged,
-  parseGradeRowsFromPayload,
   parseLeadTimeInput,
-  summarizeGradeRowsForProduct,
 } from "@/lib/products/grade-pricing";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
+import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
+import { standardGradesForCategory } from "@/lib/products/grade-pricing";
+import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
+import { nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { deleteObject } from "@/lib/media/storage";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 
@@ -55,46 +49,13 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
   if (name.length < 3) throw new Error("Tên sản phẩm cần ít nhất 3 ký tự.");
   const daysRaw = text(form, "lead_time_days", 5);
   if (daysRaw && (!/^\d+$/.test(daysRaw) || Number(daysRaw) > 3650)) throw new Error("Thời gian giao hàng không hợp lệ.");
-  const usesGradeRows = form.has("grade_rows_json");
-  const priceRaw = usesGradeRows ? "" : text(form, "ref_price", 20);
-  const priceMaxRaw = usesGradeRows ? "" : text(form, "ref_price_max", 20);
-  let unit = "";
-  let currency = "";
-  if (!usesGradeRows) {
-    if (priceRaw && (!/^\d+(?:\.\d{1,2})?$/.test(priceRaw) || Number(priceRaw) > 999999999999.99)) throw new Error("Giá tham khảo từ không hợp lệ.");
-    if (priceMaxRaw && (!/^\d+(?:\.\d{1,2})?$/.test(priceMaxRaw) || Number(priceMaxRaw) > 999999999999.99 ||
-        !priceRaw || Number(priceRaw) <= 0 || Number(priceMaxRaw) < Number(priceRaw))) {
-      throw new Error("Giá đến phải lớn hơn hoặc bằng giá từ (> 0); bỏ trống nếu chỉ có một mức giá.");
-    }
-    if (priceMaxRaw && priceRaw && exceedsMaxPriceSpread(Number(priceRaw), Number(priceMaxRaw))) {
-      throw new Error("Khoảng giá tối đa không vượt quá 1,35 lần giá từ.");
-    }
-    // Preserve unsupported historical values verbatim when the price is unchanged;
-    // never accept a new free-text unit/currency, even when a draft has no price.
-    const rawUnit = String(form.get("unit") ?? "");
-    const rawCurrency = String(form.get("currency") ?? "");
-    unit = normalizeSupplierPriceUnit(rawUnit) || rawUnit;
-    currency = normalizeSupplierPriceCurrency(rawCurrency) || rawCurrency;
-    const existingUnit = existing?.unit ? (normalizeSupplierPriceUnit(existing.unit) || existing.unit) : "";
-    const existingCurrency = existing?.currency ? (normalizeSupplierPriceCurrency(existing.currency) || existing.currency) : "";
-    const samePrice = !!existing && (priceRaw ? Number(priceRaw) : null) === (existing.ref_price ?? null) &&
-      (priceMaxRaw ? Number(priceMaxRaw) : null) === (existing.ref_price_max ?? null);
-    if (unit && !isSupplierPriceUnit(unit) && unit !== existingUnit) throw new Error("Chọn đơn vị giá trong danh sách.");
-    if (currency && !isSupplierPriceCurrency(currency) && currency !== existingCurrency) throw new Error("Chọn đơn vị tiền trong danh sách.");
-    if (priceRaw && (!isSupplierPriceUnit(unit) || !isSupplierPriceCurrency(currency))) {
-      const unchangedLegacy = samePrice && unit === existingUnit && currency === existingCurrency;
-      if (!unchangedLegacy) throw new Error("Khi nhập hoặc đổi giá, hãy chọn đơn vị tiền và đơn vị giá trong danh sách.");
-    }
-  }
-  const validUntil = text(form, "price_valid_until", 10);
-  if (validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) throw new Error("Ngày hết hạn giá không hợp lệ.");
   return {
     supplier_id: supplierId, name, slug: null, name_i18n: {}, category: null,
     description: text(form, "description", 1500) || null,
     description_detail: sanitizeProductDescriptionForSave(String(form.get("description_detail") ?? "")) || null,
     spec: text(form, "spec", 800) || null,
-    specs: {}, unit: unit || null, moq: text(form, "moq", 180) || null,
-    moq_qty: null, moq_unit: null, monthly_capacity: text(form, "monthly_capacity", 180) || null,
+    specs: {}, unit: existing?.unit ?? null, moq: existing?.moq ?? null,
+    moq_qty: existing?.moq_qty ?? null, moq_unit: existing?.moq_unit ?? null, monthly_capacity: text(form, "monthly_capacity", 180) || null,
     raw_material_region: text(form, "raw_material_region", 180) || null,
     input_material_origin: text(form, "input_material_origin", 300) || null,
     lead_time_days: daysRaw ? Number(daysRaw) : null, packaging: text(form, "packaging", 300) || null,
@@ -102,9 +63,9 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
     // Không còn ô chứng nhận tự khai ở trang sản phẩm: hồ sơ Giấy tờ L1 (AI quét đơn vị đứng tên
     // và ngày hết hạn) là nguồn duy nhất. Giữ giá trị cũ nếu đã được ghi trước đây.
     certifications: null, export_port: text(form, "export_port", 120) || null,
-    ref_price: priceRaw ? Number(priceRaw) : null, ref_price_max: priceMaxRaw ? Number(priceMaxRaw) : null,
-    price_publicly_visible: form.get("price_publicly_visible") === "yes", currency: currency || null,
-    price_valid_until: validUntil || null, incoterm: text(form, "incoterm", 20) || null,
+    ref_price: existing?.ref_price ?? null, ref_price_max: existing?.ref_price_max ?? null,
+    price_publicly_visible: form.get("price_publicly_visible") === "yes", currency: existing?.currency ?? null,
+    price_valid_until: existing?.price_valid_until ?? null, incoterm: existing?.incoterm ?? null,
     incoterm_place: text(form, "incoterm_place", 100) || null,
     payment_terms: text(form, "payment_terms", 200) || null,
     ready_for_buyer: false, supplier_review_status: "draft", supplier_review_note: null,
@@ -119,6 +80,7 @@ async function approvedAccess() {
 
 /** Supplier manages its own products. Drafts need Vexim review; an approved product stays on the marketplace while its owner updates it. */
 export async function saveSupplierProductAction(form: FormData): Promise<Result> {
+  let createdId: string | undefined;
   const access = await approvedAccess();
   if (!access) return { ok: false, message: "Tài khoản nhà cung cấp chưa được mở quyền sử dụng cổng." };
   try {
@@ -126,6 +88,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     const store = access.store;
     const existing: SupplierProduct | null = id ? await store.getProduct(id) : null;
     if (id && (!existing || existing.supplier_id !== access.supplier.id)) return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
+    if (form.has("grade_rows_json")) return { ok: false, message: "Bảng giá cũ không còn được lưu. Hãy tải lại trang và dùng bảng giá theo số lượng." };
     if (existing?.supplier_review_status === "pending") return { ok: false, message: "Sản phẩm đang chờ duyệt; chưa thể sửa." };
     const existingReview = existing ? existing.supplier_review_status ?? "approved" : "draft";
     const keepPublished = existingReview === "approved" && !!(existing?.supplier_originated || existing?.supplier_category_proposal);
@@ -162,7 +125,43 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       input.reviewed_category_slug = existing.reviewed_category_slug ?? null;
       input.category = existing.reviewed_category_slug ?? input.category;
     }
-    const category = allCategories.find((c) => c.slug === input.category) ?? null;
+    let category = allCategories.find((c) => c.slug === input.category) ?? null;
+    if (existing && input.name !== existing.name && category && nameContainsGrade(input.name, standardGradesForCategory(category)))
+      return { ok: false, message: "Không ghi grade trong tên sản phẩm tiếng Việt." };
+    // New products and their private quantity table must be created together.
+    // Validate everything against live category and policy, not client defaults.
+    let newQuantity: { grade: string; incoterm: string; tiers: { minKg: number; priceUsdPerKg: number }[]; warnings: unknown[]; nameEn: string; requestId: string } | null = null;
+    let consentSupplier = access.supplier;
+    if (!existing) {
+      const strictAccess = await supplierPortalAccess(supabaseStore);
+      if (!strictAccess || !portalApproved(strictAccess.supplier) || strictAccess.supplier.id !== access.supplier.id || strictAccess.user.id !== access.user.id || !getSupabaseClient() || !category)
+        return { ok: false, message: "Không xác nhận được tài khoản, danh mục hoặc kết nối bảng giá mới." };
+      consentSupplier = strictAccess.supplier;
+      const strictCategory = input.category ? await supabaseStore.getCategoryBySlug(input.category) : null;
+      if (!strictCategory || strictCategory.status !== "published" || !strictCategory.is_published)
+        return { ok: false, message: "Danh mục không còn được xuất bản. Hãy tải lại trang." };
+      category = strictCategory;
+      const requestId = String(form.get("quantity_creation_request_id") ?? "");
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) return { ok: false, message: "Phiên tạo sản phẩm không hợp lệ. Hãy tải lại trang." };
+      if (input.price_publicly_visible && form.get("confirm_quantity_price_consent") !== "yes") return { ok: false, message: "Hãy xác nhận cam kết giá trước khi công khai." };
+      if (input.price_publicly_visible && !supplierPriceConsentCurrent(consentSupplier) && form.get("confirm_supplier_price_consent") !== "yes") return { ok: false, message: "Hãy xác nhận đồng ý chia sẻ giá." };
+      // Never copy a quantity-tier price into legacy public fields or infer units.
+      input.ref_price = null; input.ref_price_max = null; input.currency = null; input.unit = null;
+      input.moq = null; input.moq_qty = null; input.moq_unit = null; input.incoterm = null; input.price_valid_until = null;
+      const raw = form.get("quantity_tiers_json");
+      if (typeof raw !== "string" || raw.length > 12000) return { ok: false, message: "Bảng giá không hợp lệ." };
+      let rows: unknown;
+      try { rows = JSON.parse(raw); } catch { return { ok: false, message: "Bảng giá không hợp lệ." }; }
+      if (!Array.isArray(rows) || rows.length > 100 || rows.some((row) => !row || typeof row !== "object" ||
+        typeof row.minKg !== "string" || typeof row.priceUsdPerKg !== "string" || row.minKg.length > 32 || row.priceUsdPerKg.length > 32))
+        return { ok: false, message: "Bảng giá không hợp lệ." };
+      const nameEnRaw = String(form.get("quantity_name_en") ?? "").trim();
+      if (nameEnRaw.length > 180) return { ok: false, message: "Tên tiếng Anh quá dài." };
+      const validation = validateQuantityPricing({ grade: text(form, "quantity_grade", 180), incoterm: text(form, "quantity_incoterm", 20),
+        nameVi: input.name, nameEn: nameEnRaw, tiers: rows }, standardGradesForCategory(category), await readQuantityPricingPolicy(category.id));
+      if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? "Bảng giá không hợp lệ." };
+      newQuantity = { ...validation.value, warnings: validation.warnings, nameEn: nameEnRaw, requestId };
+    }
     // Thông số NCC tự thêm: gộp vào pool của danh mục để NCC khác dùng lại ngay lần sau.
     // Lỗi ghi pool (ví dụ thiếu migration) không được làm hỏng việc lưu sản phẩm.
     const savedPool = sanitizeSupplierAttributePool(category?.supplier_product_fields);
@@ -188,20 +187,13 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     } else if (input.lead_time_days != null) {
       input.specs = applyLeadTimeToSpecs(input.specs ?? {}, { value: input.lead_time_days, unit: "days" });
     }
-    if (form.has("grade_rows_json")) {
-      const categorySource = category ?? { slug: input.category };
-      const parsedGradeRows = parseGradeRowsFromPayload(String(form.get("grade_rows_json") ?? ""), categorySource);
-      if (!parsedGradeRows.ok) return { ok: false, message: parsedGradeRows.message };
-      const summary = summarizeGradeRowsForProduct(parsedGradeRows.rows, categorySource);
-      input.ref_price = summary.ref_price;
-      input.ref_price_max = summary.ref_price_max;
-      input.currency = summary.currency;
-      input.unit = summary.unit;
-      input.incoterm = summary.incoterm;
-      input.moq = summary.moq;
-      input.moq_qty = summary.moq_qty;
-      input.moq_unit = summary.moq_unit;
-      input.specs = applyGradeRowsToSpecs(input.specs ?? {}, parsedGradeRows.rows, categorySource);
+    // Keep historical buyer data byte-for-byte while the old storefront is in use.
+    // The supplier form can submit new prices only as quantity revisions.
+    if (existing) {
+      for (const key of ["grade", "product_type", "grade_rows", "moq_unit_weight_kg"] as const) {
+        if (Object.prototype.hasOwnProperty.call(existing.specs ?? {}, key)) input.specs[key] = existing.specs![key];
+        else delete input.specs[key];
+      }
     }
     const priceChangedOnApproved = keepPublished && existing
       ? hasProductPricingChanged(existing, input, category ?? { slug: input.category })
@@ -214,43 +206,51 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       input.ready_for_buyer = false;
       input.specs = { ...(input.specs ?? {}), price_review_summary: priceReviewSummary };
     }
-    let saved = existing ? await store.updateSupplierProductIfState(existing.id, access.supplier.id,
-      { review: existing.supplier_review_status ?? null, ready: existing.ready_for_buyer }, {
-        ...input,
-        slug: existing.slug, name_i18n: {}, images: existing.images,
-      }) : await store.createProduct(input);
-    if (!saved) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi lưu." };
-    let translationWarning = "";
-    if (keepPublished) {
-      // Approved content stays live (or enters price re-check with fresh copy), so refresh
-      // the buyer-facing English copy after an owner edit instead of leaving stale copy.
-      // Translation is best effort and must never undo or block the product save.
-      try {
-        const translation = await ensureProductEnglishTranslation(store, saved.id, { id: access.user.id, email: access.user.email });
-        saved = translation.product;
-        if (translation.status === "failed" || translation.status === "unconfigured")
-          translationWarning = " Bản dịch tiếng Anh chưa cập nhật được. Thông tin sản phẩm đã được lưu.";
-      } catch (error) {
-        console.warn("[supplier-product] translation", error);
-        translationWarning = " Bản dịch tiếng Anh chưa cập nhật được. Thông tin sản phẩm đã được lưu.";
+    let saved: SupplierProduct | null;
+    if (existing) {
+      saved = await store.updateSupplierProductIfState(existing.id, access.supplier.id,
+        { review: existing.supplier_review_status ?? null, ready: existing.ready_for_buyer }, {
+          ...input, slug: existing.slug, name_i18n: existing.name_i18n ?? {}, images: existing.images,
+        });
+    } else {
+      if (!newQuantity) return { ok: false, message: "Chưa có bảng giá theo số lượng." };
+      const db = getSupabaseClient();
+      if (!db) return { ok: false, message: "Không kết nối được cơ sở dữ liệu bảng giá." };
+      const { data, error } = await db.rpc("create_supplier_product_with_quantity", {
+        p_request_id: newQuantity.requestId, p_supplier_id: access.supplier.id, p_product: input,
+        p_grade: newQuantity.grade, p_incoterm: newQuantity.incoterm, p_tiers: newQuantity.tiers,
+        p_warnings: newQuantity.warnings, p_english_name: newQuantity.nameEn || null,
+      });
+      if (error || !data || typeof data.id !== "string") {
+        console.error("[quantity-pricing] atomic product creation", error);
+        return { ok: false, message: "Chưa xác nhận được việc tạo sản phẩm. Hãy thử lại với cùng nội dung hoặc kiểm tra danh sách sản phẩm." };
       }
+      saved = data as SupplierProduct;
+      createdId = saved.id;
     }
+    if (!saved) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi lưu." };
+    // Preserve the approved English name when Vietnamese content changes.
+    // Name revisions are reviewed separately and must not be overwritten by AI here.
+    const translationWarning = keepPublished && existing?.name !== saved.name
+      ? " Tên tiếng Anh đã duyệt được giữ nguyên; hãy gửi tên mới để rà soát."
+      : "";
     // Supplier-owned explicit consent is recorded only when the separate checkbox is checked.
     // A normal product save never silently refreshes the 180-day supplier consent.
     const confirmConsent = form.get("confirm_supplier_price_consent") === "yes";
     let consentWarning = "";
-    if (confirmConsent && input.price_publicly_visible && input.ref_price && input.ref_price > 0 &&
-        !supplierPriceConsentCurrent(access.supplier)) {
+    if (confirmConsent && input.price_publicly_visible && (newQuantity || (input.ref_price && input.ref_price > 0)) &&
+        !supplierPriceConsentCurrent(consentSupplier)) {
       const stamp = new Date().toISOString();
+      const consentStore = newQuantity ? supabaseStore : store;
       try {
-        await store.updateSupplier(access.supplier.id, { fob_publicly_visible: true, fob_updated_at: stamp });
+        await consentStore.updateSupplier(access.supplier.id, { fob_publicly_visible: true, fob_updated_at: stamp });
       } catch (error) {
         console.error("[supplier-product] consent update", error);
         consentWarning = "Chưa ghi nhận được xác nhận chia sẻ giá: giá vẫn ẩn, vui lòng thử lưu lại.";
       }
-      if (!consentWarning) await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
+      if (!consentWarning) await consentStore.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
         entity: "supplier", entity_id: access.supplier.id, action: "supplier.price_consent_confirmed",
-        before: { fob_publicly_visible: access.supplier.fob_publicly_visible, fob_updated_at: access.supplier.fob_updated_at },
+        before: { fob_publicly_visible: consentSupplier.fob_publicly_visible, fob_updated_at: consentSupplier.fob_updated_at },
         after: { fob_publicly_visible: true, fob_updated_at: stamp } }).catch((error) => console.error("[supplier-product] consent audit", error));
     }
     await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
@@ -287,7 +287,10 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
           : existingReview === "changes_requested"
             ? `Đã lưu thay đổi. Hãy gửi duyệt lại khi hoàn tất.${consentWarning ? ` ${consentWarning}` : ""}`
             : `Đã lưu bản nháp. ${consentWarning || "Tải ảnh hoặc catalogue rồi gửi duyệt."}` };
-  } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "Không lưu được sản phẩm." }; }
+  } catch (error) {
+    if (createdId) return { ok: true, id: createdId, warning: true, message: "Đã tạo sản phẩm và bảng giá; một bước thông báo hoặc cập nhật phụ chưa hoàn tất. Hãy kiểm tra lại hồ sơ." };
+    return { ok: false, message: error instanceof Error ? error.message : "Không lưu được sản phẩm." };
+  }
 }
 
 export async function submitSupplierProductAction(form: FormData): Promise<Result> {
@@ -313,12 +316,46 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
       m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {
       return { ok: false, message: "Cần ít nhất một ảnh hoặc catalogue trước khi gửi duyệt." };
     }
+    // A supplier-provided English name is reviewed separately and must not be
+    // overwritten by AI when the product itself is submitted.
+    let supplierNameSubmitted = false;
+    let quantityCreated = false;
+    const translationDb = getSupabaseClient();
+    if (translationDb) {
+      const strictAccess = await supplierPortalAccess(supabaseStore);
+      if (!strictAccess || !portalApproved(strictAccess.supplier) || strictAccess.user.id !== access.user.id || strictAccess.supplier.id !== access.supplier.id)
+        return { ok: false, message: "Không xác nhận được quyền gửi sản phẩm." };
+      const strictProduct = await supabaseStore.getProduct(id);
+      if (!strictProduct || strictProduct.supplier_id !== strictAccess.supplier.id || strictProduct.updated_at !== product.updated_at)
+        return { ok: false, message: "Sản phẩm đã thay đổi hoặc không thuộc tài khoản của bạn." };
+      const { data: names, error: namesError } = await translationDb.from("product_english_name_revisions")
+        .select("id").eq("product_id", id).eq("origin", "supplier").in("status", ["pending", "approved"]).limit(1);
+      if (namesError || !names) return { ok: false, message: "Chưa kiểm tra được bản tên tiếng Anh. Vui lòng thử lại." };
+      supplierNameSubmitted = names.length > 0;
+      const { data: request, error: requestError } = await translationDb.from("quantity_product_creation_requests")
+        .select("request_id").eq("product_id", id).limit(1);
+      if (requestError || !request) return { ok: false, message: "Chưa kiểm tra được luồng bảng giá sản phẩm. Vui lòng thử lại." };
+      quantityCreated = request.length > 0;
+    }
     const previousReview = product.supplier_review_status ?? null;
-    const submitted = await store.updateSupplierProductIfState(id, access.supplier.id,
-      { review: previousReview, ready: product.ready_for_buyer }, {
-        supplier_review_status: "pending", supplier_review_note: null, ready_for_buyer: false,
-        ...(previousReview === "paused" ? { supplier_category_proposal: proposal } : {}),
+    let submitted: SupplierProduct | null = null;
+    if (translationDb) {
+      const { data, error } = await translationDb.rpc("submit_supplier_product_with_quantity_guard", {
+        p_product_id: id, p_supplier_id: access.supplier.id, p_expected_updated_at: product.updated_at,
+        p_expected_review: previousReview, p_expected_ready: product.ready_for_buyer, p_proposal: proposal,
       });
+      if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá hoặc trạng thái sản phẩm. Kiểm tra migration và thử lại." };
+      if (data.status === "price_changed" || data.status === "price_missing")
+        return { ok: false, message: "Bảng giá chưa có hoặc không còn khớp thông tin sản phẩm. Hãy gửi lại bảng giá trước khi gửi duyệt." };
+      if (data.status !== "submitted" || !data.product) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi gửi duyệt." };
+      submitted = data.product as SupplierProduct;
+    } else {
+      submitted = await store.updateSupplierProductIfState(id, access.supplier.id,
+        { review: previousReview, ready: product.ready_for_buyer }, {
+          supplier_review_status: "pending", supplier_review_note: null, ready_for_buyer: false,
+          ...(previousReview === "paused" ? { supplier_category_proposal: proposal } : {}),
+        });
+    }
     if (!submitted) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi gửi duyệt." };
     await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "product", entity_id: id, action: "supplier.product_submitted",
@@ -327,14 +364,14 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     if (mail !== "sent") console.warn("[supplier-product] staff email not sent; CRM review queue remains pending", mail);
     // Dịch tự động để hỗ trợ duyệt. Kết quả dịch không chặn gửi hoặc đăng sản phẩm.
     try {
-      await ensureProductEnglishTranslation(store, id, { id: access.user.id, email: access.user.email });
+      if (!supplierNameSubmitted && !quantityCreated) await ensureProductEnglishTranslation(store, id, { id: access.user.id, email: access.user.email });
     } catch (error) {
       console.warn("[supplier-product] submission translation", error);
     }
     revalidatePath("/supplier/portal/products");
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
-    return { ok: true, message: "Đã gửi duyệt. Bạn sẽ nhận thông báo khi sản phẩm được đăng." };
+    return { ok: true, message: `Đã gửi duyệt. Bạn sẽ nhận thông báo khi sản phẩm được đăng.${quantityCreated && !supplierNameSubmitted ? " Chưa có tên tiếng Anh chờ duyệt; bản dịch tự động cho luồng mới chưa hoàn tất." : ""}` };
   } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "Không nộp được sản phẩm." }; }
 }
 

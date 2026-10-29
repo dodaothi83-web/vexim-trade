@@ -40,7 +40,9 @@ export async function decideQuantityRevisionAction(form: FormData): Promise<Quan
     if (readError) throw new Error(readError.message);
     if (!revision) return { ok: false, message: "Bản chờ duyệt đã thay đổi. Hãy tải lại trang." };
     if (decision === "approve") {
-      if (product.updated_at !== expectedUpdatedAt || revision.product_updated_at !== product.updated_at) {
+      // Context-aware revisions are checked atomically by the database. Older
+      // revisions without a captured context retain the stricter version check.
+      if (product.updated_at !== expectedUpdatedAt || (!revision.product_context && revision.product_updated_at !== product.updated_at)) {
         return { ok: false, message: "Thông tin sản phẩm đã đổi sau khi gửi. NCC cần gửi lại trước khi duyệt." };
       }
       const slug = product.reviewed_category_slug || product.supplier_category_proposal || product.category;

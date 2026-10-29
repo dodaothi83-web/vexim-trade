@@ -90,6 +90,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
       {data.buyerPreviewEnabled ? "Môi trường thử nghiệm có thể hiển thị bảng mới đã duyệt; bản chờ không thay thế bản đã duyệt." : "Giá đang hiển thị cho buyer vẫn dùng bảng cũ; phần hiển thị buyer theo mô hình mới chưa được triển khai công khai."}
       {data.pendingPriceId ? " Giá mới đang chờ Vexim xác nhận." : data.hasApprovedPrice ? " Đã có bảng giá mới được duyệt." : " Chưa có bảng giá mới được duyệt."}
     </p>
+    {actor === "supplier" && <p className="text-xs text-ink-600">Nếu thay đổi thông tin liên quan đến sản phẩm sau khi gửi giá, hãy gửi lại bảng giá trước khi gửi sản phẩm duyệt.</p>}
     {dirty && <p role="status" className="text-xs font-semibold text-amber-800">Hãy lưu hoặc hoàn tác thay đổi thông tin sản phẩm trước khi gửi bảng giá riêng.</p>}
     {actor === "supplier" && <div className="rounded-lg border border-ink-200 p-3">
       <label className="block text-sm font-semibold">Tên tiếng Anh (tùy chọn)

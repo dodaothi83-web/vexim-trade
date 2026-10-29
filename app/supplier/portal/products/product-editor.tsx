@@ -32,36 +32,29 @@ import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs"
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
 import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
-import { GradePricingTable } from "@/components/products/grade-pricing-table";
 import { QuantityPricingInline } from "@/components/products/quantity-pricing-inline";
-import { QuantityBuyerPreview } from "@/components/products/quantity-pricing-editor";
-import type { QuantityPricingInput } from "@/lib/products/quantity-pricing";
+import { QuantityBuyerPreview, QuantityPricingEditor } from "@/components/products/quantity-pricing-editor";
+import { validateQuantityPricing, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
+import { displayUnitsForCategory } from "@/lib/public/price-units";
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import {
-  CUSTOM_GRADE_OPTION,
   LEAD_TIME_UNIT_OPTIONS,
   categoryMarketPriceUnit,
   formatGradeRowPriceVi,
   formatLeadTimeVi,
   formatProductMoqVi,
-  formatStructuredMoqVi,
-  hydrateGradeRowsDraft,
   isGradeFieldKey,
-  isMoqUnit,
   nonGradeProductFields,
-  parseLegacyMoqString,
   readProductLeadTime,
-  reconcileGradeRowsForCategory,
-  serializeGradeRowsDraft,
-  validateGradeRowsDraft,
+  standardGradesForCategory,
   type LeadTimeUnit,
-  type ProductGradeRowDraft,
 } from "@/lib/products/grade-pricing";
 import { effectiveFieldsFor, fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
 
 type EditorProps = {
   product?: SupplierProduct;
   quantityEditor?: QuantityEditorData | null;
+  quantityPolicies?: Record<string, QuantityPricingPolicy> | null;
   media?: MediaAsset[];
   userId?: string;
   categories: CategoryProposalOption[];
@@ -94,7 +87,6 @@ const EXPORT_FIELDS = [
 
 /** Nhóm trường hiển thị ở bước 3 để NCC đọc lại đúng những gì đã nhập ở bước 1. */
 const REVIEW_COMMERCIAL = [
-  ["price_valid_until", "Giá có hiệu lực tới"],
   ["lead_time_days", "Thời gian giao hàng"],
   ["payment_terms", "Điều kiện thanh toán"],
   ["export_port", "Cảng xuất"],
@@ -112,7 +104,7 @@ function priceOptInDefault(product?: SupplierProduct): boolean {
 }
 
 /** Giá trị khởi tạo của bản xem lại: lấy từ bản đã lưu, rồi cập nhật theo từng lần nhập. */
-function snapshotFrom(product?: SupplierProduct, gradeRowsJson = ""): Record<string, string> {
+function snapshotFrom(product?: SupplierProduct): Record<string, string> {
   const lt = product ? readProductLeadTime(product) : { value: null, unit: "days" as LeadTimeUnit, daysEquivalent: null };
   const seed: Record<string, string> = {
     name: product?.name ?? "",
@@ -121,7 +113,6 @@ function snapshotFrom(product?: SupplierProduct, gradeRowsJson = ""): Record<str
     description_detail: product?.description_detail ?? "",
     raw_material_region: product?.raw_material_region ?? "",
     input_material_origin: product?.input_material_origin ?? "",
-    grade_rows_json: gradeRowsJson,
     lead_time_value: lt.value != null ? String(lt.value) : "",
     lead_time_unit: lt.unit,
   };
@@ -204,23 +195,22 @@ function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElemen
  * Hành vi cũ giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, quantityEditor, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
+export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
   const router = useRouter();
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   // Bước sẽ mở sau khi lưu thành công; null = chỉ lưu rồi ở lại.
   const advanceTo = useRef<Step | null>(null);
+  const creationRequestId = useRef<string | null>(null);
+  const [quantityConsent, setQuantityConsent] = useState(false);
 
   const [step, setStep] = useState<Step>(initialStep);
   const [busy, setBusy] = useState(false);
   const [quantityPreview, setQuantityPreview] = useState<QuantityPricingInput | null>(() => quantityEditor ? {
     grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, nameVi: quantityEditor.nameVi,
     nameEn: quantityEditor.nameEn, tiers: quantityEditor.tiers,
-  } : null);
-  const initialCategorySlug = product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "";
+  } : !product ? { grade: "", incoterm: "", nameVi: "", nameEn: "", tiers: [{ minKg: "", priceUsdPerKg: "" }] } : null);
   const [selectedCategory, setSelectedCategory] = useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "");
-  const initialCategoryObj = categories.find((c) => c.slug === initialCategorySlug) ?? (initialCategorySlug ? { slug: initialCategorySlug } : null);
-  const [gradeRows, setGradeRows] = useState<ProductGradeRowDraft[]>(() => hydrateGradeRowsDraft(product, initialCategoryObj));
   const initialLeadTime = product ? readProductLeadTime(product) : { value: null, unit: "days" as LeadTimeUnit, daysEquivalent: null };
   const [leadTimeValue, setLeadTimeValue] = useState<string>(() => (initialLeadTime.value != null ? String(initialLeadTime.value) : ""));
   const [leadTimeUnit, setLeadTimeUnit] = useState<LeadTimeUnit>(() => initialLeadTime.unit);
@@ -234,7 +224,7 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
   // Bản nháp dùng cho bước 3: cập nhật theo từng lần nhập nên NCC đọc lại đúng nội dung
   // đang có, kể cả phần chưa lưu (kèm cảnh báo phải lưu trước khi gửi).
   const [snapshot, setSnapshot] = useState<Record<string, string>>(() =>
-    snapshotFrom(product, serializeGradeRowsDraft(hydrateGradeRowsDraft(product, initialCategoryObj))),
+    snapshotFrom(product),
   );
   const [submitHint, setSubmitHint] = useState<string[] | null>(null);
   const [sent, setSent] = useState(false);
@@ -245,7 +235,7 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
   useEffect(() => {
     if (baselineSeeded.current) return;
     baselineSeeded.current = true;
-    const initial = snapshotFromForm(formRef.current, snapshotFrom(product, serializeGradeRowsDraft(gradeRows)));
+    const initial = snapshotFromForm(formRef.current, snapshotFrom(product));
     setSnapshot(initial);
     setBaseline(initial);
   }, []);
@@ -276,6 +266,10 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
   const activeCategorySlug = selectedCategory || product?.category || "";
   const activeCategory = categories.find((c) => c.slug === activeCategorySlug);
   const activeCategorySource = activeCategory ?? (activeCategorySlug ? { slug: activeCategorySlug } : null);
+  const newPolicy = !product && activeCategory ? quantityPolicies?.[activeCategory.slug] : undefined;
+  const newGrades = standardGradesForCategory(activeCategorySource);
+  const newBuyerUnit = displayUnitsForCategory(activeCategorySlug, activeCategory?.price_unit).primary === "mt" ? "mt" : "kg";
+  const newQuantity = !product && quantityPreview ? { ...quantityPreview, nameVi: snapshot.name ?? "" } : null;
   const unitMeta = categoryMarketPriceUnit(activeCategorySlug, activeCategory?.price_unit);
   const categoryLabel = activeCategory?.label ?? product?.category ?? "Chưa chọn danh mục";
   const officialAttributeFields = nonGradeProductFields(fieldsFor(activeCategory));
@@ -347,12 +341,6 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
     });
   }, []);
 
-  const onGradeRowsChange = useCallback((next: ProductGradeRowDraft[]) => {
-    setGradeRows(next);
-    const json = serializeGradeRowsDraft(next);
-    setSnapshot((previous) => ({ ...previous, grade_rows_json: json }));
-  }, []);
-
   const computedLeadTimeDays = (() => {
     if (leadTimeUnit === "on_request") return "";
     const trimmed = leadTimeValue.trim();
@@ -384,20 +372,28 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
 
   function onCategorySelect(nextSlug: string) {
     setSelectedCategory(nextSlug);
-    const nextCat = categories.find((c) => c.slug === nextSlug) ?? (nextSlug ? { slug: nextSlug } : null);
-    const reconciled = reconcileGradeRowsForCategory(gradeRows, nextCat);
-    setGradeRows(reconciled);
-    const json = serializeGradeRowsDraft(reconciled);
-    setSnapshot((previous) => ({
-      ...previous,
-      supplier_category_proposal: nextSlug,
-      grade_rows_json: json,
-    }));
+    if (!product) {
+      setQuantityPreview((previous) => previous ? { ...previous, grade: "" } : previous);
+      setQuantityConsent(false);
+    }
+    setSnapshot((previous) => ({ ...previous, supplier_category_proposal: nextSlug }));
+  }
+
+  function onNewQuantityChange(value: QuantityPricingInput) {
+    setQuantityPreview(value);
+    setQuantityConsent(false);
+    setSnapshot((previous) => ({ ...previous, quantity_draft: JSON.stringify(value) }));
   }
 
   function validateCurrentGradeRows(): string | null {
-    const check = validateGradeRowsDraft(gradeRows, activeCategorySource);
-    return check.valid ? null : (check.message ?? "Kiểm tra lại bảng Grade & giá.");
+    if (!product) {
+      if (!newPolicy || !newQuantity) return "Chọn danh mục và kiểm tra kết nối cấu hình bảng giá mới.";
+      const validation = validateQuantityPricing(newQuantity, newGrades, newPolicy);
+      if (!validation.value) return validation.errors[0]?.message ?? "Kiểm tra bảng giá theo số lượng.";
+      if (snapshot.price_publicly_visible === "yes" && !quantityConsent) return "Hãy xác nhận cam kết giá trước khi công khai.";
+      return null;
+    }
+    return null;
   }
 
   function goToStep(next: Step) {
@@ -421,7 +417,7 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
       setStepError(gradeError);
       setToast({ ok: false, message: gradeError });
       if (typeof document !== "undefined") {
-        document.getElementById("grade-pricing-table")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        document.getElementById("new-quantity-pricing")?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       return;
     }
@@ -438,14 +434,23 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
     setStepError(null);
     try {
       const form = new FormData(formElement);
-      form.set("grade_rows_json", serializeGradeRowsDraft(gradeRows));
-      if (product) form.set("product_id", product.id);
+      if (product) {
+        form.set("product_id", product.id);
+      } else if (newQuantity) {
+        creationRequestId.current ??= crypto.randomUUID();
+        form.set("quantity_creation_request_id", creationRequestId.current);
+        form.set("quantity_grade", newQuantity.grade);
+        form.set("quantity_incoterm", newQuantity.incoterm);
+        form.set("quantity_name_en", newQuantity.nameEn);
+        form.set("quantity_tiers_json", JSON.stringify(newQuantity.tiers));
+        if (quantityConsent) form.set("confirm_quantity_price_consent", "yes");
+      }
       const response = await saveSupplierProductAction(form);
       setToast(response);
       if (!response.ok) return;
       setShowGradeErrors(false);
       setSubmitHint(null);
-      const saved = snapshotFromForm(formElement, { ...snapshot, grade_rows_json: serializeGradeRowsDraft(gradeRows) });
+      const saved = snapshotFromForm(formElement, snapshot);
       setSnapshot(saved);
       setBaseline(saved);
       const id = response.id ?? product?.id;
@@ -478,7 +483,7 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
       setShowGradeErrors(true);
       setStepError(gradeError);
       if (typeof document !== "undefined") {
-        document.getElementById("grade-pricing-table")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        document.getElementById("new-quantity-pricing")?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       return;
     }
@@ -761,7 +766,7 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
               <SectionHead title="Thông tin cơ bản" hint="Tên, danh mục và mô tả - phần buyer đọc đầu tiên." />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <Field label="Tên sản phẩm" hint="Ví dụ: Hạt điều nhân trắng W320" required>
+                  <Field label="Tên sản phẩm" hint="Ví dụ: Hạt điều nhân trắng. Không ghi grade vào tên." required>
                     <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked} />
                   </Field>
                 </div>
@@ -785,25 +790,20 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
                       data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview} />
                       : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra danh mục và kết nối; giá đang hiển thị không bị thay đổi.</p>}
                   </div>}
-                  <details open={!product || showGradeErrors} className="rounded-xl border border-ink-200 p-3">
-                    <summary className="cursor-pointer text-sm font-semibold text-ink-700">Bảng giá cũ (cơ chế hiện tại)</summary>
-                    <p className="my-2 text-xs text-amber-800">Giữ lại trong thời gian chuyển đổi. Sửa bảng này vẫn áp dụng quy tắc cũ.</p>
-                  <GradePricingTable
-                    rows={gradeRows}
-                    onChange={onGradeRowsChange}
-                    category={activeCategorySource}
-                    disabled={locked}
-                    showErrors={showGradeErrors}
-                    hiddenInputName="grade_rows_json"
-                  />
-                  </details>
-                  <p className="mt-2.5 rounded-lg border border-amber-200 bg-amber-50/80 px-3.5 py-2.5 text-[12px] leading-5 text-amber-950">
-                    ⚠️ Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng. Chênh lệch bất thường sẽ được Vexim rà soát và xử lý theo{" "}
-                    <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-800 underline hover:text-brand-900">
-                      Quy chế hoạt động
-                    </Link>
-                    .
-                  </p>
+                  {!product && <div id="new-quantity-pricing" className="space-y-3 rounded-xl border border-brand-200 p-4">
+                    <h3 className="text-sm font-bold text-ink-900">Giá theo số lượng</h3>
+                    {!activeCategory ? <p className="text-xs text-ink-600">Chọn danh mục để nhập grade và bảng giá.</p> : !newPolicy || !newQuantity ?
+                      <p role="alert" className="text-xs text-rose-700">Chưa tải được cấu hình bảng giá. Vui lòng kiểm tra kết nối trước khi lưu.</p> : <>
+                        <label className="block text-sm font-semibold">Tên tiếng Anh (tùy chọn)
+                          <input form="quantity-pricing-separate" className="input mt-1 w-full" maxLength={180} value={newQuantity.nameEn}
+                            onChange={(event) => onNewQuantityChange({ ...newQuantity, nameEn: event.target.value })} />
+                        </label>
+                        <p className="text-xs text-ink-600">Không ghi grade trong tên; tên tiếng Anh được duyệt riêng. Nếu bỏ trống, bản dịch tự động cho luồng mới chưa hoàn tất.</p>
+                        <QuantityPricingEditor value={newQuantity} onChange={onNewQuantityChange} standardGrades={newGrades} policy={newPolicy}
+                          buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"}
+                          isolated showPreview={false} showErrors={showGradeErrors} consentChecked={quantityConsent} onConsentChange={setQuantityConsent} />
+                      </>}
+                  </div>}
                   {review === "approved" && (
                     <p className="mt-1.5 text-[11.5px] leading-5 text-ink-600">
                       Lưu ý: Nếu bạn chỉnh sửa giá trên sản phẩm đã duyệt, sản phẩm sẽ được kiểm tra lại giá trước khi hiển thị công khai.
@@ -846,9 +846,6 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
               <SectionHead title="Thông tin thương mại & xuất khẩu" />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2 xl:grid-cols-3">
-                <Field label="Giá có hiệu lực tới">
-                  <input name="price_valid_until" type="date" className="input" defaultValue={product?.price_valid_until ?? ""} disabled={locked} />
-                </Field>
                 <Field label="Thời gian giao hàng">
                   <div className="flex items-center gap-1.5">
                     <input
@@ -899,7 +896,7 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
                   {dirty && <p className="mt-1 font-semibold text-amber-800">Thay đổi ở form chưa lưu; dòng trên là tình trạng trước khi lưu.</p>}
                 </div>}
                 <p className="mt-2 text-[11.5px] leading-5">
-                  Giá cần lớn hơn 0 và còn hạn; sản phẩm cần có ảnh/catalogue, danh mục và hồ sơ doanh nghiệp đã được duyệt - nếu chưa, buyer sẽ thấy <em>On request</em>.
+                  Sản phẩm cần có ảnh/catalogue, danh mục và hồ sơ doanh nghiệp đã được duyệt trước khi hiển thị cho buyer.
                   {supplierPriceConsentCurrent(supplier) ? " Xác nhận chia sẻ giá đang còn hiệu lực." : ""}
                 </p>
                 {!supplierPriceConsentCurrent(supplier) && <div className="mt-2.5 rounded-md bg-white p-2.5 ring-1 ring-brand-200">
@@ -1079,51 +1076,15 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
                   <div className="sm:col-span-2"><ReviewField label="Tên sản phẩm" value={snapshot.name} strong /></div>
                   <div className="sm:col-span-2"><ReviewField label="Danh mục" value={categoryLabel} /></div>
                   <div className="sm:col-span-2">
-                    <dt className="text-[11px] font-semibold text-ink-500">Grade &amp; giá ({unitMeta.unitLabel})</dt>
-                    <dd className="mt-1 overflow-x-auto rounded-lg border border-ink-200">
-                      <table className="min-w-full border-collapse text-left text-[12px]">
-                        <thead className="bg-ink-50 text-[10.5px] font-bold uppercase tracking-wider text-ink-500">
-                          <tr>
-                            <th className="px-2.5 py-1.5">Grade</th>
-                            <th className="px-2.5 py-1.5">{unitMeta.headerLabel}</th>
-                            <th className="px-2.5 py-1.5">Incoterm</th>
-                            <th className="px-2.5 py-1.5">MOQ</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-ink-100 bg-white">
-                          {gradeRows.map((row) => {
-                            const isCustom = row.selectedGrade === CUSTOM_GRADE_OPTION;
-                            const gradeLabel = (isCustom ? row.customGrade : row.selectedGrade).trim() || "Chưa chọn";
-                            const minNum = row.priceMin.trim() ? Number(row.priceMin.trim()) : null;
-                            const maxNum = row.priceMax.trim() ? Number(row.priceMax.trim()) : null;
-                            const hasValidPrice = minNum !== null && maxNum !== null && Number.isFinite(minNum) && Number.isFinite(maxNum) && minNum > 0 && maxNum >= minNum;
-                            const priceDisplay = hasValidPrice ? formatGradeRowPriceVi(minNum, maxNum, unitMeta.unitLabel) : "Báo giá theo yêu cầu";
-                            const moqViDisplay = (() => {
-                              const qtyNum = row.moqQty?.trim() ? Number(row.moqQty.trim()) : null;
-                              const weightNum = row.moqUnitWeightKg?.trim() ? Number(row.moqUnitWeightKg.trim()) : null;
-                              if (qtyNum && Number.isFinite(qtyNum) && qtyNum > 0 && isMoqUnit(row.moqUnit)) {
-                                return formatStructuredMoqVi(qtyNum, row.moqUnit, weightNum && Number.isFinite(weightNum) && weightNum > 0 ? weightNum : null);
-                              }
-                              if (row.moq.trim()) {
-                                const parsed = parseLegacyMoqString(row.moq);
-                                return parsed.status === "converted" ? parsed.viText : row.moq.trim();
-                              }
-                              return "Theo yêu cầu";
-                            })();
-                            return (
-                              <tr key={row.id}>
-                                <td className="px-2.5 py-1.5 font-semibold text-ink-900">
-                                  {gradeLabel}
-                                  {isCustom && row.customGrade.trim() ? <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">Tự nhập</span> : null}
-                                </td>
-                                <td className={`px-2.5 py-1.5 font-semibold text-ink-800 ${hasValidPrice ? "font-mono tabular-nums" : "text-ink-500"}`}>{priceDisplay}</td>
-                                <td className="px-2.5 py-1.5 text-ink-800">{row.incoterm || "-"}</td>
-                                <td className="px-2.5 py-1.5 text-ink-800">{moqViDisplay}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    <dt className="text-[11px] font-semibold text-ink-500">Bảng giá theo số lượng</dt>
+                    <dd className="mt-1 rounded-lg border border-ink-200 p-3">
+                      {quantityEditor && quantityPreview ? <>
+                        <p>Grade: <strong>{quantityPreview.grade || "Chưa chọn"}</strong> · Incoterm: <strong>{quantityPreview.incoterm || "Chưa chọn"}</strong></p>
+                        <table className="mt-2 w-full text-left text-xs"><thead><tr><th>Số lượng từ (kg)</th><th>Giá (USD/kg)</th></tr></thead>
+                          <tbody>{quantityPreview.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{tier.minKg || "—"}</td><td className="py-1 tabular-nums">{tier.priceUsdPerKg || "—"}</td></tr>)}</tbody>
+                        </table>
+                        <p className="mt-1 text-xs text-ink-500">Bảng giá và tên tiếng Anh được duyệt riêng.</p>
+                      </> : <span>Chưa tải được bảng giá mới.</span>}
                     </dd>
                   </div>
                   {attributeRows.length > 0 && (
@@ -1225,7 +1186,7 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
                             : null}
                     </div>
                   </div>}
-              <p className="text-[11.5px] leading-5 text-ink-500">{product?.name_i18n?.en?.trim() ? "Bản tiếng Anh cho trang buyer đã có." : "Bản tiếng Anh cho trang buyer được dịch tự động bằng AI khi duyệt."} Bạn cứ nhập bằng tiếng Việt.</p>
+              <p className="text-[11.5px] leading-5 text-ink-500">{quantityEditor?.pendingNameId ? "Tên tiếng Anh đang chờ duyệt riêng." : quantityEditor?.hasApprovedName ? "Đã có tên tiếng Anh được duyệt riêng." : "Chưa có tên tiếng Anh được duyệt trong luồng mới; dịch tự động cho luồng này chưa hoàn tất."}</p>
             </div>
           </div>
         </section>
@@ -1277,13 +1238,17 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
           </div>
           <div className="px-3.5 py-3">
             <p className="text-[10.5px] font-bold tracking-wider text-brand-700 uppercase">{categoryLabel}</p>
-            {quantityEditor && quantityPreview ? <div className="mt-2">
+            {newQuantity && newPolicy ? <div className="mt-2">
+              <QuantityBuyerPreview value={newQuantity} standardGrades={newGrades} policy={newPolicy}
+                buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} />
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước, chưa phải nội dung đang hiển thị cho buyer. Bảng giá và tên tiếng Anh cần được duyệt.</p>
+            </div> : quantityEditor && quantityPreview ? <div className="mt-2">
               <QuantityBuyerPreview value={quantityPreview} standardGrades={quantityEditor.standardGrades} policy={quantityEditor.policy}
                 buyerPriceUnit={quantityEditor.buyerPriceUnit} pricePubliclyVisible={quantityEditor.pricePubliclyVisible} />
               <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước theo dữ liệu đang nhập, không phải giá đang hiển thị cho buyer. Giá hiện tại chỉ thay đổi khi mô hình mới được triển khai và bản giá được duyệt.</p>
             </div> : <h2 className="mt-0.5 line-clamp-2 text-[13.5px] font-black text-ink-900">{product?.name ?? "Sản phẩm mới"}</h2>}
             <dl className="mt-2.5 space-y-1 border-t border-ink-100 pt-2.5 text-[11.5px]">
-              {commercial.filter((row) => !(quantityEditor && quantityPreview) || !["Giá tham khảo", "MOQ", "Incoterm"].includes(row.label)).map((row) => <div key={row.label} className="flex items-baseline justify-between gap-2">
+              {commercial.filter((row) => !((quantityEditor && quantityPreview) || (newQuantity && newPolicy)) || !["Giá tham khảo", "MOQ", "Incoterm"].includes(row.label)).map((row) => <div key={row.label} className="flex items-baseline justify-between gap-2">
                 <dt className="shrink-0 text-ink-500">{row.label}</dt>
                 <dd className={`min-w-0 truncate text-right font-semibold text-ink-800 ${row.label === "Giá tham khảo" && row.value !== "-" ? "font-mono tabular-nums" : ""}`}>{row.value}</dd>
               </div>)}
