@@ -1,5 +1,7 @@
 # Kế hoạch tách sản phẩm cũ có hai grade
 
+**DỪNG:** Anh đã chọn tự xử lý một sản phẩm bằng nút “Nhân bản cho grade khác” sau khi form mới hoàn tất. Không tiếp tục xây script, không chạy SQL hoặc sao lưu riêng cho việc tách này. Sản phẩm hai grade vẫn hiển thị nguyên trạng. Nội dung bên dưới chỉ lưu lại lịch sử đánh giá, không phải hướng dẫn thực thi.
+
 ## Quyết định của chủ dữ liệu
 
 - Grade ở dòng đầu giữ ID và URL gốc, không chuyển hướng.

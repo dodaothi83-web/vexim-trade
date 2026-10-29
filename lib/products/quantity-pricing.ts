@@ -121,7 +121,7 @@ export function validateQuantityPricing(
   if (!INCOTERMS.has(incoterm)) errors.push({ code: "incoterm", message: "Chọn Incoterm hợp lệ." });
   const gradeInName = [...standardGrades, input.grade].find((g) => nameContainsGrade(input.nameVi, [g]));
   if (gradeInName) errors.push({ code: "name_vi_grade", message: `Bỏ grade (${gradeInName}) ra khỏi tên sản phẩm.` });
-  if (nameContainsGrade(input.nameEn, standardGrades)) errors.push({ code: "name_en_grade", message: "Không ghi grade trong tên sản phẩm tiếng Anh." });
+  if (nameContainsGrade(input.nameEn, [...standardGrades, input.grade])) errors.push({ code: "name_en_grade", message: "Không ghi grade trong tên sản phẩm tiếng Anh." });
   const maxTiers = Math.min(policy.maxTiers, 4);
   if (input.tiers.length < 1 || input.tiers.length > maxTiers) {
     errors.push({ code: "tier_count", message: `Nhập từ 1 đến ${maxTiers} mức giá.` });

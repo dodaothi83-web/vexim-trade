@@ -38,6 +38,7 @@ assert.ok(codes(validate({ grade: 'custom' })).includes('grade'));
 assert.ok(codes(validate({ incoterm: '' })).includes('incoterm'));
 assert.ok(codes(validate({ nameVi: 'Nhân điều W320' })).includes('name_vi_grade'));
 assert.ok(codes(validate({ nameEn: 'Cashew W240' })).includes('name_en_grade'), 'Check all category grades, not only selected grade');
+assert.ok(codes(validate({ grade: 'Special A', nameEn: 'Cashew Special A' })).includes('name_en_grade'), 'Also reject the supplied grade even when it is not in category standards');
 assert.ok(!nameContainsGrade('New season cashews', ['WS']), 'Short grade does not match inside a word');
 assert.ok(nameContainsGrade('Pepper (550 G/l)', grades));
 assert.ok(codes(validate({ tiers: [] })).includes('tier_count'));
