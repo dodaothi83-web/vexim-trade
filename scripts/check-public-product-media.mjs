@@ -81,4 +81,18 @@ assert.equal((await get(['products', 'prod-1', 'photo.jpg'], { 'if-none-match': 
   'A paused demo product stays private even when demo bypasses readiness and bytes were cached');
 product = { ...product, supplier_review_status: 'approved' };
 assert.equal((await get()).status, 200, 'An approved demo product can still bypass readiness as before');
+// Form images are publicly readable only after the future approval creates an
+// authorized buyer media row. A product path cannot borrow another product's row.
+const formProduct = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', formImage = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const formPath = ['product-form-images', formProduct, `${formImage}.webp`];
+asset = null; supplier = { status: 'published', is_demo: false };
+product = { supplier_id: 'sup-1', ready_for_buyer: true, name: 'Product', supplier_review_status: 'approved' };
+assert.equal((await get(formPath)).status, 404, 'A private staged object has no public media row');
+asset = { owner_type: 'product', product_id: formProduct, kind: 'image', audience: 'buyer', status: 'checked', expires_on: null,
+  storage_path: formPath.join('/'), thumb_path: null };
+assert.equal((await get(formPath)).status, 200, 'Approved buyer media follows the existing ACL');
+asset = { ...asset, product_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc' };
+assert.equal((await get(formPath)).status, 404, 'Form image path must belong to its product');
+asset = { ...asset, product_id: formProduct, audience: 'internal' };
+assert.equal((await get(formPath)).status, 404, 'Internal media remains private');
 console.log('✅ Product images are public only for buyer-shareable media of a ready product and published supplier.');

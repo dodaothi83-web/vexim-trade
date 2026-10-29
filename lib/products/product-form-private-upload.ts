@@ -50,7 +50,7 @@ export async function uploadPrivateProductFormImage(input: {
 
   const imageId = randomUUID();
   const normalizedProductId = productId.toLowerCase();
-  const base = `products/${normalizedProductId}/${imageId}`;
+  const base = `product-form-images/${normalizedProductId}/${imageId}`;
   try {
     await putNewObject(`${base}.webp`, prepared.main, "image/webp");
     await putNewObject(`${base}-thumb.webp`, prepared.thumb, "image/webp");

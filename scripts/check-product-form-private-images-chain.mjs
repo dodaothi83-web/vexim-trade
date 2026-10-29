@@ -34,7 +34,7 @@ try {
   assert.equal((await submit(refs)).submission_id, sent.submission_id);
   const row = (await db.query('select * from public.product_form_submissions where id=$1', [sent.submission_id])).rows[0];
   assert.equal(row.image_ids[0], image); assert.equal(row.image_selection[0].source, 'staged');
-  assert.equal(row.image_snapshot[0].row.storage_path, `products/${id}/${image}.webp`);
+  assert.equal(row.image_snapshot[0].row.storage_path, `product-form-images/${id}/${image}.webp`);
   assert.equal((await db.query('select count(*)::int n from public.media_assets')).rows[0].n, 0);
   const shell = (await db.query('select * from public.supplier_products where id=$1', [id])).rows[0];
   assert.equal(shell.supplier_review_status, 'pending'); assert.equal(shell.ready_for_buyer, false);

@@ -54,8 +54,8 @@ try {
   for (const malformed of [null, 1, 'bad', []]) assert.equal((await select(supplier, 2, [malformed])).status, 'invalid');
   assert.equal((await stage(supplier, 2)).revision, 3);
   const row = (await db.query('select * from public.product_form_staged_images where id=$1', [image])).rows[0];
-  assert.equal(row.storage_path, `products/${product}/${image}.webp`);
-  assert.equal(row.thumb_path, `products/${product}/${image}-thumb.webp`);
+  assert.equal(row.storage_path, `product-form-images/${product}/${image}.webp`);
+  assert.equal(row.thumb_path, `product-form-images/${product}/${image}-thumb.webp`);
   assert.equal((await db.query('select count(*)::int n from public.media_assets')).rows[0].n, 1,
     'A staged image is absent from the public media table');
   assert.equal((await stage(supplier, 2)).status, 'exists', 'A lost result can be reconciled without duplicating the image');

@@ -45,7 +45,7 @@ try {
   await db.query('update public.product_form_staged_images set caption=$2 where id=$1', [image, 'Modified']);
   assert.equal((await context()).status, 'images_changed');
   await db.query('update public.product_form_staged_images set caption=$2 where id=$1', [image, 'Photo']);
-  await db.query('insert into public.media_assets (id,storage_path) values($1,$2)', ['88888888-8888-8888-8888-888888888888', `products/${id}/${image}.webp`]);
+  await db.query('insert into public.media_assets (id,storage_path) values($1,$2)', ['88888888-8888-8888-8888-888888888888', `product-form-images/${id}/${image}.webp`]);
   assert.equal((await context()).status, 'images_changed', 'Ambiguous public path cannot pass');
   await db.query('delete from public.media_assets');
   await db.query('update public.product_form_submissions set image_selection=$2::jsonb where id=$1', [sent.submission_id, JSON.stringify([{ ...refs[0], extra: 1 }])]);

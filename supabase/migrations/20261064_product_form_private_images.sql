@@ -24,8 +24,8 @@ create table if not exists public.product_form_staged_images (
   width integer not null check (width between 1 and 20000),
   height integer not null check (height between 1 and 20000),
   created_at timestamptz not null default now(),
-  check (storage_path = 'products/' || product_id::text || '/' || id::text || '.webp'),
-  check (thumb_path = 'products/' || product_id::text || '/' || id::text || '-thumb.webp')
+  check (storage_path = 'product-form-images/' || product_id::text || '/' || id::text || '.webp'),
+  check (thumb_path = 'product-form-images/' || product_id::text || '/' || id::text || '-thumb.webp')
 );
 create index if not exists product_form_staged_images_product_idx on public.product_form_staged_images(product_id, supplier_id);
 alter table public.product_form_staged_images enable row level security;
@@ -104,8 +104,8 @@ begin
       then jsonb_build_object('source','staged','id',p_id) else e.value end order by e.ordinality)
       into next_selection from jsonb_array_elements(draft.image_selection) with ordinality e(value, ordinality);
   end if;
-  path := 'products/' || p_product_id::text || '/' || p_id::text || '.webp';
-  thumb := 'products/' || p_product_id::text || '/' || p_id::text || '-thumb.webp';
+  path := 'product-form-images/' || p_product_id::text || '/' || p_id::text || '.webp';
+  thumb := 'product-form-images/' || p_product_id::text || '/' || p_id::text || '-thumb.webp';
   -- Never create an ambiguous owner for a path served by public-media.
   if exists (select 1 from public.media_assets where id = p_id or storage_path in (path,thumb) or thumb_path in (path,thumb))
      or exists (select 1 from public.product_form_staged_images where storage_path in (path,thumb) or thumb_path in (path,thumb)) then

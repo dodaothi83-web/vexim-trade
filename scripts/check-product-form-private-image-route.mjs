@@ -9,7 +9,7 @@ const imageId = '22222222-2222-2222-2222-222222222222';
 let actor = { id: 'user', role: 'supplier', email: 'one@example.com', is_active: true };
 let session = { uid: 'user', role: 'supplier', email: 'one@example.com' }, product = { id: productId, supplier_id: supplier };
 let access = { user: actor, supplier: { id: supplier } }, allowed = true, reads = 0;
-let image = { id: imageId, product_id: productId, supplier_id: supplier, created_by: 'user', storage_path: `products/${productId}/${imageId}.webp`, mime: 'image/webp' };
+let image = { id: imageId, product_id: productId, supplier_id: supplier, created_by: 'user', storage_path: `product-form-images/${productId}/${imageId}.webp`, mime: 'image/webp' };
 class FakeResponse { constructor(body, options = {}) { this.body = body; this.status = options.status; this.headers = options.headers; } }
 const db = { from() { return { select() { return this; }, eq() { return this; }, async maybeSingle() { return { data: image, error: null }; } }; } };
 const mocks = { 'next/server': { NextResponse: FakeResponse }, '@/lib/auth/session': { getSession: async () => session },
@@ -31,7 +31,7 @@ access = { user: actor, supplier: { id: 'other' } }; assert.equal((await get()).
 access = { user: actor, supplier: { id: supplier } }; image = { ...image, created_by: 'someone-else' };
 assert.equal((await get()).status, 404); assert.equal(reads, 0);
 image = { ...image, created_by: 'user', storage_path: 'products/other/private.webp' }; assert.equal((await get()).status, 404);
-image = { ...image, storage_path: `products/${productId}/${imageId}.webp` };
+image = { ...image, storage_path: `product-form-images/${productId}/${imageId}.webp` };
 let res = await get(); assert.equal(res.status, 200); assert.equal(res.headers['Cache-Control'], 'private, no-store'); assert.equal(reads, 1);
 session = { uid: 'staff', role: 'reviewer', email: 'staff@example.com' }; actor = { id: 'staff', role: 'reviewer', email: 'staff@example.com', is_active: true };
 allowed = false; assert.equal((await get()).status, 404); assert.equal(reads, 1);

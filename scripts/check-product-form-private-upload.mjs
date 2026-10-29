@@ -28,7 +28,7 @@ const input = { db, supplierId: supplier, productId: product.toUpperCase(), user
 assert.equal((await upload({ ...input, productId: 'bad' })).ok, false); assert.equal(calls.length, 0);
 invalid = true; assert.equal((await upload(input)).message, 'Ảnh sai định dạng.'); assert.equal(calls.length, 0); invalid = false;
 let result = await upload(input); assert.equal(result.ok, true); assert.equal(result.revision, 2); assert.equal(result.image.source, 'staged');
-assert.equal(calls[0][1], `products/${product}/${imageId}.webp`); assert.equal(calls[1][1], `products/${product}/${imageId}-thumb.webp`);
+assert.equal(calls[0][1], `product-form-images/${product}/${imageId}.webp`); assert.equal(calls[1][1], `product-form-images/${product}/${imageId}-thumb.webp`);
 assert.equal(calls[2][1], 'stage_product_form_image'); assert.equal(calls[2][2].p_product_id, product);
 assert.equal(calls[2][2].p_sha256, createHash('sha256').update(new Uint8Array([1, 2])).digest('hex'));
 assert.equal(calls[2][2].p_thumb_sha256, createHash('sha256').update(new Uint8Array([3])).digest('hex')); assert.equal(calls[2][2].p_thumb_bytes, 1);
