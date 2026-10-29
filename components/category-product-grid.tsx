@@ -19,6 +19,7 @@ import { classifyMoqFilterGroup } from "@/lib/products/grade-pricing";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
 function productGradesOf(product: PublicCategoryProduct): string[] {
+  if (product.quantityOffer?.customGrade) return [];
   if (Array.isArray(product.grades) && product.grades.length > 0) return product.grades;
   return product.grade ? [product.grade] : [];
 }

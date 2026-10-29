@@ -38,15 +38,20 @@ export async function projectQuantityCatalogPreview(records: PublicProductRecord
     if (!offer) throw new Error(`Invalid approved quantity price for product ${product.id}`);
     const attributes = { ...card.attributes };
     // Old multi-grade attributes must not make this single-grade offer match a different grade.
-    if ("grade" in attributes) attributes.grade = offer.grade;
-    if ("product_type" in attributes) attributes.product_type = offer.grade;
+    if (offer.customGrade) {
+      delete attributes.grade;
+      delete attributes.product_type;
+    } else {
+      if ("grade" in attributes) attributes.grade = offer.grade;
+      if ("product_type" in attributes) attributes.product_type = offer.grade;
+    }
     return { ...record, card: {
       ...card,
       name: offer.title ?? (nameContainsGrade(card.name, [offer.grade]) ? card.name : `${card.name} ${offer.grade}`),
-      grade: offer.grade, grades: [offer.grade], cardGrades: [offer.grade], hasGradeRows: true,
+      grade: offer.grade, grades: offer.customGrade ? [] : [offer.grade], cardGrades: [offer.grade], hasGradeRows: true,
       gradeRows: [], attributes,
-      gradePricePoints: offer.pricePoint ? [{ ...offer.pricePoint, grade: offer.grade }] : [],
-      moq: offer.moq, moqUnit: "kg", moqMtEquivalent: offer.moqKg / 1000,
+      gradePricePoints: offer.pricePoint && !offer.customGrade ? [{ ...offer.pricePoint, grade: offer.grade }] : [],
+      moq: offer.moq, moqUnit: offer.moqUnit ?? "kg", moqMtEquivalent: offer.moqKg / 1000,
       price: offer.price, pricePoint: offer.pricePoint, priceRankingEligible: offer.priceRankingEligible,
       incoterm: offer.incoterm, quantityOffer: offer,
     } };

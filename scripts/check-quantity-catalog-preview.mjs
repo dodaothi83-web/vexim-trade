@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import * as pricing from '../lib/products/quantity-pricing.ts';
+import * as revisionV2 from '../lib/products/quantity-revision-v2.ts';
 import * as priceUnits from '../lib/public/price-units.ts';
 
 function compile(path, mocks) {
@@ -17,7 +18,7 @@ function compile(path, mocks) {
 }
 const selection = compile('../lib/public/product-selection.ts', { '@/lib/public/category-assignment': {} });
 const projection = compile('../lib/products/quantity-public-projection.ts', {
-  '@/lib/products/quantity-pricing': pricing, '@/lib/public/product-selection': selection,
+  '@/lib/products/quantity-pricing': pricing, '@/lib/public/product-selection': selection, '@/lib/products/quantity-revision-v2': revisionV2,
 });
 let batchIds = [], readError = false;
 const byId = new Map();
@@ -81,3 +82,16 @@ const pdp = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/pa
 assert.match(pdp, /card\.quantityOffer \? <QuantityPriceTable/);
 assert.match(pdp, /!card\.quantityOffer && gradeRows\.length === 0/);
 console.log('Quantity catalog preview: approved-only, public consent, legacy fallback, stale exclusion and fail-closed reads passed');
+readError = false;
+const customTier = { version: 2, unit: 'bag', customGrade: true, unitWeightGrams: 27000, quantityGrams: 270000, priceCentsPerUnit: 10000 };
+byId.set('p1', { price: { ...basePrice, grade: 'W320', tiers: [customTier] }, name: null });
+const customCard = (await adapter.projectQuantityCatalogPreview([record('p1')]))[0].card;
+assert.equal(customCard.grade, 'W320', 'Custom grade remains visible even when it matches a filter name');
+assert.deepEqual(Array.from(customCard.grades), []);
+assert.deepEqual(Array.from(customCard.cardGrades), ['W320']);
+assert.equal(customCard.attributes.grade, undefined); assert.equal(customCard.attributes.product_type, undefined);
+assert.equal(customCard.gradePricePoints.length, 0); assert.equal(customCard.moqUnit, 'bag');
+assert.equal(customCard.moqMtEquivalent, .27); assert.equal(customCard.price, 'USD 100.00/bag');
+const grid = readFileSync(new URL('../components/category-product-grid.tsx', import.meta.url), 'utf8');
+assert.match(grid, /product\.quantityOffer\?\.customGrade\) return \[\]/, 'No grade fallback for a custom grade');
+console.log('Custom quantity grade stays visible but is excluded from structured filters');

@@ -39,6 +39,7 @@ export interface RankableProductCard {
   id: string;
   name: string;
   grade: string | null;
+  quantityOffer?: { customGrade?: boolean };
   attributes: Record<string, string>;
   moq: string;
   /** null khi giá đang bị cổng ẩn (hết hạn / mất consent / chưa opt-in). */
@@ -176,9 +177,10 @@ export function offerAliveSignal(card: RankableProductCard): number {
 export function structuredMatchSignal(card: RankableProductCard, context?: RankingContext): number {
   const grade = context?.filter?.grade ?? null;
   const province = context?.filter?.province ?? null;
-  if (grade == null && province == null) return card.grade != null ? 1 : 0;
+  const structuredGrade = card.quantityOffer?.customGrade ? null : card.grade;
+  if (grade == null && province == null) return structuredGrade != null ? 1 : 0;
   const checks: boolean[] = [];
-  if (grade != null) checks.push(card.grade === grade);
+  if (grade != null) checks.push(structuredGrade === grade);
   if (province != null) checks.push(card.province === province);
   return checks.length ? checks.filter(Boolean).length / checks.length : 0;
 }
