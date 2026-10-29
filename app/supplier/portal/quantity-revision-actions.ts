@@ -88,6 +88,7 @@ export async function submitQuantityPriceRevisionAction(form: FormData): Promise
       after: { revision_id: result.revisionId, warnings: validation.warnings.map((warning) => warning.code) },
     }).catch((error) => console.error("[quantity-pricing] price submission audit", error));
     revalidatePath(`/supplier/portal/products/${id}`);
+    revalidatePath(`/supplier/portal/products/${id}/quantity-pricing`);
     revalidatePath(`/crm/products/${id}/edit`);
     return { ok: true, revisionId: result.revisionId, warnings: validation.warnings.map((issue) => issue.message), message: "Giá mới đang chờ Vexim xác nhận." };
   } catch (error) {
@@ -121,6 +122,7 @@ export async function submitEnglishNameRevisionAction(form: FormData): Promise<R
       action: "supplier.english_name_revision_submitted", before: { pending_revision_id: expectedPending }, after: { revision_id: result.revisionId },
     }).catch((error) => console.error("[quantity-pricing] name submission audit", error));
     revalidatePath(`/supplier/portal/products/${id}`);
+    revalidatePath(`/supplier/portal/products/${id}/quantity-pricing`);
     revalidatePath(`/crm/products/${id}/edit`);
     return { ok: true, revisionId: result.revisionId, message: "Tên tiếng Anh mới đang chờ duyệt." };
   } catch (error) {
