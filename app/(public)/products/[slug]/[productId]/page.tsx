@@ -80,6 +80,22 @@ function Spec({ label, value }: { label: string; value: string | number | null |
   </div>;
 }
 
+function renderGradeRowPrice(rawPriceText: string | null | undefined) {
+  const safe = withoutDirectContacts(rawPriceText || "").trim();
+  if (!safe) return "On request";
+  const compact = safe
+    .replace(/(\d)\s+to\s+(\d)/gi, "$1–$2")
+    .replace(/(\d)\s*-\s*(\d)/g, "$1–$2");
+  const unitMatch = compact.match(/^(.*?)(\/[A-Za-z]+)$/);
+  if (!unitMatch) return compact;
+  return (
+    <>
+      <span>{unitMatch[1]}</span>
+      <span className="text-[12.5px] font-medium text-ink-500">{unitMatch[2]}</span>
+    </>
+  );
+}
+
 export default async function PublicProductDetail({ params }: Props) {
   const { slug, productId } = await params;
   const detail = await getDetail(slug, productId);
@@ -238,8 +254,14 @@ export default async function PublicProductDetail({ params }: Props) {
                           </span>
                         )}
                       </td>
-                      <td className={`px-4 py-3 font-semibold ${row.priceText ? "font-mono tabular-nums text-brand-900" : "text-ink-500"}`}>
-                        {withoutDirectContacts(row.priceText || "On request")}
+                      <td
+                        className={`whitespace-nowrap px-4 py-3 ${
+                          row.priceText
+                            ? "font-bold tabular-nums tracking-tight text-brand-800"
+                            : "font-medium text-ink-500"
+                        }`}
+                      >
+                        {renderGradeRowPrice(row.priceText)}
                       </td>
                       <td className="px-4 py-3 text-ink-800">{withoutDirectContacts(row.incoterm || "FOB")}</td>
                       <td className="px-5 py-3 text-ink-800">{withoutDirectContacts(row.moq || "On request")}</td>
@@ -252,7 +274,7 @@ export default async function PublicProductDetail({ params }: Props) {
         ) : (
           <div id="reference-price" className="mt-5 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3">
             <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700">Reference price</p>
-            <p className={`mt-0.5 break-words text-lg font-bold leading-snug text-brand-900 sm:text-xl ${card.price ? "font-mono tabular-nums" : ""}`}>{withoutDirectContacts(card.price || "On request")}</p>
+            <p className={`mt-0.5 break-words text-lg font-bold leading-snug text-brand-800 sm:text-xl ${card.price ? "tabular-nums tracking-tight" : ""}`}>{withoutDirectContacts(card.price || "On request")}</p>
           </div>
         )}
         {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
