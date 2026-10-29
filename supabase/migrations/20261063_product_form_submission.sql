@@ -1,7 +1,10 @@
+-- KHÔNG CHẠY LÚC NÀY: migration đang phát triển, chưa sẵn sàng triển khai.
+-- Không xóa, thay thế hay chuyển đổi sản phẩm hiện có khi chạy migration này.
+-- ON DELETE CASCADE chỉ xóa bản gửi con nếu sản phẩm/NCC cha bị xóa bằng
+-- thao tác khác; nó không tự xóa sản phẩm hoặc NCC.
 -- Private immutable submission snapshots for the shared five-section form.
 -- This migration is a foundation only. Do not expose the new form until the
 -- supplier and staff adapters, review transaction and buyer cutover are ready.
--- No demo data or old columns are deleted by this migration.
 begin;
 
 create table if not exists public.product_form_submissions (

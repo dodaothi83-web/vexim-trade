@@ -1,3 +1,7 @@
+-- KHÔNG CHẠY LÚC NÀY: migration đang phát triển, chưa sẵn sàng triển khai.
+-- Không xóa, thay thế hay chuyển đổi sản phẩm hiện có khi chạy migration này.
+-- ON DELETE CASCADE chỉ xóa bản nháp con nếu sản phẩm/NCC cha bị xóa bằng
+-- thao tác khác; nó không tự xóa sản phẩm hoặc NCC.
 -- Storage foundation for incomplete product forms. No existing product is
 -- migrated or published. The application must authorize the supplier or staff
 -- actor before invoking these service-role-only functions.
