@@ -44,5 +44,11 @@ try {
   assert.equal(newRow.storage_path, `product-form-images/${shell.product_id}/${image}.webp`);
   await db.exec(repair); assert.equal(await ready(), true);
   assert.equal((await db.query('select storage_path from public.product_form_staged_images where id=$1', [image])).rows[0].storage_path, newRow.storage_path);
+  const signature = 'public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text,uuid,jsonb)';
+  await db.exec(`alter function ${signature} set search_path = public`);
+  assert.equal(await ready(), false, 'An unsafe search path fails closed');
+  await assert.rejects(() => db.exec(repair), /khác dự kiến/); await db.exec('rollback');
+  await db.exec(full66.slice(full66.indexOf('create or replace function public.stage_product_form_image('), full66.indexOf("notify pgrst, 'reload schema';")));
+  assert.equal(await ready(), true);
   console.log('Namespace repair: mixed deployed schema detected; old rows block, new rows persist and capability verifies');
 } finally { await db.close(); }

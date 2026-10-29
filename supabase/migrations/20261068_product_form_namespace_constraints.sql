@@ -7,7 +7,8 @@ do $$
 declare
   stage_fn regprocedure := to_regprocedure('public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text,uuid,jsonb)');
 begin
-  if stage_fn is null or position('product-form-images/' in pg_get_functiondef(stage_fn)) = 0
+  if stage_fn is null or not exists (select 1 from pg_proc where oid = stage_fn and prosecdef
+       and proconfig = array['search_path=public, pg_temp'] and md5(prosrc) = '9b434d1a5684e9a0f829a6ddc1bc9869')
      or has_function_privilege('anon', stage_fn, 'execute')
      or has_function_privilege('authenticated', stage_fn, 'execute')
      or not has_function_privilege('service_role', stage_fn, 'execute')
