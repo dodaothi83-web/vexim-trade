@@ -97,6 +97,13 @@ const snapshotOps = { ...operations, snapshotImages: async (_id, revision, ids) 
   snapshotCalls++; assert.equal(revision, 7); assert.deepEqual(Array.from(ids), ['old-1', 'old-2']);
   return { ok: true, replaced: 2, revision: 9, replacements: [{ mediaId: 'old-1', image: stagedImage(1) }, { mediaId: 'old-2', image: stagedImage(2) }] };
 }, submit: async (_id, revision) => { sentRevision = revision; return { ok: true, message: 'sent' }; } };
+calls = [];
+const blocked = new ProductFormSession({ ...snapshotOps, prepareSubmit: async () => ({ ok: false, message: 'not ready' }) },
+  { productId: id, revision: 7, value: draft, images: originalImages });
+assert.equal((await blocked.submit(changed)).ok, false);
+assert.equal(calls.length, 0, 'A blocked submission cannot persist a draft before the gate');
+assert.equal(snapshotCalls, 0, 'A blocked submission cannot copy existing images');
+assert.equal(blocked.snapshot().revision, 7);
 const withOld = () => new ProductFormSession(snapshotOps, { productId: id, revision: 7, value: draft, images: originalImages });
 session = withOld(); assert.equal((await session.submit(draft)).ok, true); assert.equal(sentRevision, 9);
 assert.deepEqual(Array.from(session.snapshot().images, (x) => x.id), ['copy-1', 'new-1', 'copy-2']);

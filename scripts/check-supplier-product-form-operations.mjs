@@ -6,12 +6,14 @@ import ts from 'typescript';
 const create = async () => ({ ok: true, id: 'product', revision: 1 });
 const save = async () => ({ ok: true, id: 'product', revision: 2 });
 const setImages = async () => ({ ok: true, revision: 3 });
+const snapshotImages = async () => ({ ok: true, revision: 2, replaced: 0, replacements: [] });
 let uploaded = null;
 const upload = async (form) => { uploaded = form; return { ok: true, revision: 2, image: { id: 'private', source: 'staged', url: '/private' } }; };
 const mocks = {
   '@/app/supplier/portal/product-form-draft-actions': { createProductFormDraftAction: create, saveProductFormDraftAction: save },
   '@/app/supplier/portal/product-form-image-actions': { setProductFormImagesAction: setImages },
   '@/app/supplier/portal/product-form-upload-action': { uploadProductFormImageAction: upload },
+  '@/app/supplier/portal/product-form-snapshot-action': { snapshotProductFormImagesAction: snapshotImages },
 };
 const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../app/supplier/portal/products/product-form-operations.ts', import.meta.url), 'utf8'), {
@@ -24,6 +26,8 @@ vm.runInNewContext(code, { exports, FormData, crypto: { randomUUID: () => 'reque
 const operations = exports.supplierProductFormOperations();
 assert.equal(operations.newRequestId(), 'request-id');
 assert.equal(operations.create, create); assert.equal(operations.save, save); assert.equal(operations.setImages, setImages);
+assert.equal(operations.snapshotImages, snapshotImages);
+assert.equal((await operations.prepareSubmit()).ok, false, 'No snapshot or save happens while submission is blocked');
 assert.equal((await operations.submit('product', 1)).ok, false, 'New submission stays disabled until atomic approval is ready');
 const file = new File(['x'], 'photo.png', { type: 'image/png' });
 assert.equal((await operations.upload('product', 1, file)).ok, true);

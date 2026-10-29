@@ -11,6 +11,8 @@ export type ProductFormSessionOperations = {
   create: (requestId: string, value: ProductFormDraft) => Promise<DraftResult>;
   save: (id: string, revision: number, value: ProductFormDraft) => Promise<DraftResult>;
   submit: (id: string, revision: number) => Promise<SubmitResult>;
+  /** Optional gate checked before saving or copying images for a submission. */
+  prepareSubmit?: () => Promise<Failure | { ok: true }>;
   upload: (id: string, revision: number, image: File) => Promise<UploadResult>;
   /** Copy selected legacy media privately before review, without changing the public listing. */
   snapshotImages?: (id: string, revision: number, imageIds: string[]) => Promise<SnapshotResult>;
@@ -123,6 +125,10 @@ export class ProductFormSession {
 
   async submit(value: ProductFormDraft): Promise<SubmitResult> {
     return this.run(async () => {
+      if (this.operations.prepareSubmit) {
+        const gate = await this.operations.prepareSubmit();
+        if (!gate || gate.ok !== true) return gate?.ok === false ? gate : { ok: false, message: "Không xác nhận được trạng thái gửi duyệt." };
+      }
       const saved = await this.persist(value);
       if (!saved.ok) return saved;
       const legacyIds = this.state.images.filter((image) => image.source === "media").map((image) => image.id);
