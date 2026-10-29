@@ -40,6 +40,11 @@ try {
   await db.query('delete from public.product_form_staged_images where id=$1', [image]);
   await db.query("update public.product_form_drafts set revision=1,image_selection='[]'::jsonb where product_id=$1", [bootstrap.product_id]);
   await db.exec(namespace); await db.exec(namespace);
+  assert.equal((await db.query('select public.product_form_image_namespace_ready() ready')).rows[0].ready, true);
+  assert.equal((await db.query("select has_function_privilege('anon','public.product_form_image_namespace_ready()','execute') permitted")).rows[0].permitted, false);
+  await db.exec(`grant execute on function ${stageSignature} to anon`);
+  assert.equal((await db.query('select public.product_form_image_namespace_ready() ready')).rows[0].ready, false, 'Public access fails closed');
+  await db.exec(`revoke execute on function ${stageSignature} from anon`);
   const first = (await db.query('select public.create_product_form_draft($1,$2,$3::jsonb) result', [supplier, request, JSON.stringify(payload)])).rows[0].result;
   const id = first.product_id;
   const staged = (await db.query('select public.stage_product_form_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) result',
