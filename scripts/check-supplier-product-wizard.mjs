@@ -68,7 +68,8 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/supplier-portal/product-view': view,
   '@/lib/products/grade-pricing': gradePricing,
   '@/components/products/grade-pricing-table': gradePricingTable,
-  '@/components/products/quantity-pricing-inline': { QuantityPricingInline: () => React.createElement('div', { 'data-quantity-editor': '1' }) },
+  '@/components/products/quantity-pricing-inline': { QuantityPricingInline: (props) => React.createElement('div', { 'data-quantity-editor': '1', 'data-sidebar-preview': String(!!props.onPreviewChange) }) },
+  '@/components/products/quantity-pricing-editor': { QuantityBuyerPreview: (props) => React.createElement('div', { 'data-buyer-preview': '1' }, props.value.nameEn) },
   '@/components/toast': { useToast: () => ({ push() {} }) },
   '../product-actions': {
     saveSupplierProductAction: async () => ({ ok: true, id: 'p1', message: 'Đã lưu bản nháp.' }),
@@ -122,6 +123,16 @@ const render = (props = {}) => renderToStaticMarkup(React.createElement(Supplier
 
 const source = read('../app/supplier/portal/products/product-editor.tsx');
 const step1 = render();
+const quantityEditor = { productId: 'p1', updatedAt: '2026-10-20', nameVi: 'Nhân điều', nameEn: 'Cashew kernels',
+  pendingPriceId: null, pendingNameId: null, hasApprovedPrice: false, hasApprovedName: false,
+  grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: '1000', priceUsdPerKg: '6.40' }], standardGrades: ['W320'],
+  policy: { maxTiers: 4, maxPriceRatio: 1.5, maxLastMoqRatio: 100 }, buyerPriceUnit: 'kg', pricePubliclyVisible: true };
+const withQuantity = render({ quantityEditor });
+assert.match(withQuantity, /data-sidebar-preview="true"/, 'The quantity editor sends its live draft to the sidebar');
+assert.equal((withQuantity.match(/data-buyer-preview="1"/g) ?? []).length, 1, 'The buyer preview occupies the existing card');
+assert.match(withQuantity, /không phải giá đang hiển thị cho buyer/, 'A draft preview must not be confused with the live buyer price');
+assert.doesNotMatch(withQuantity, />Giá tham khảo<\//, 'The legacy price is not repeated beside the new preview');
+assert.match(withQuantity, />Năng lực \/ tháng<\//, 'Other saved commercial details remain visible');
 
 // 1. Ba bước, mỗi lần chỉ mở MỘT bước; các bước khác vẫn nằm trong DOM (hidden) để
 //    không mất dữ liệu khi gửi form.

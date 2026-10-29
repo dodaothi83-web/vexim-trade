@@ -30,6 +30,14 @@ assert.match(supplier, /Giá mới đang chờ Vexim xác nhận/);
 assert.match(supplier, /Giá đang hiển thị cho buyer vẫn dùng bảng cũ/);
 assert.match(supplier, /Gửi bảng giá mới để duyệt/);
 assert.match(supplier, /Tôi xác nhận giá trên là giá tôi sẵn sàng/);
+const sidebarPreview = renderToStaticMarkup(React.createElement(React.Fragment, null,
+  React.createElement('form', null, React.createElement(inline.QuantityPricingInline, { data, actor: 'supplier', onPreviewChange() {} })),
+  React.createElement(editor.QuantityBuyerPreview, { value: { grade: 'W320', incoterm: 'FOB', nameVi: 'Nhân điều', nameEn: 'Cashew', tiers: data.tiers },
+    standardGrades: data.standardGrades, policy: data.policy, buyerPriceUnit: 'kg', pricePubliclyVisible: true }),
+));
+assert.equal((sidebarPreview.match(/>Buyer sẽ thấy</g) ?? []).length, 1, 'The input area and sidebar share exactly one buyer preview');
+assert.match(sidebarPreview, /USD 6\.40\/kg/);
+assert.match(sidebarPreview, /1 MT/);
 const staff = render({ actor: 'staff' });
 assert.match(staff, /đã nhận cam kết của NCC/);
 const dirty = render({ actor: 'supplier', dirty: true });

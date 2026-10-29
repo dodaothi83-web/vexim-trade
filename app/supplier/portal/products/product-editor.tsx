@@ -34,6 +34,8 @@ import { ProductDescriptionEditor } from "@/components/products/product-descript
 import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
 import { GradePricingTable } from "@/components/products/grade-pricing-table";
 import { QuantityPricingInline } from "@/components/products/quantity-pricing-inline";
+import { QuantityBuyerPreview } from "@/components/products/quantity-pricing-editor";
+import type { QuantityPricingInput } from "@/lib/products/quantity-pricing";
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import {
   CUSTOM_GRADE_OPTION,
@@ -211,6 +213,10 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
 
   const [step, setStep] = useState<Step>(initialStep);
   const [busy, setBusy] = useState(false);
+  const [quantityPreview, setQuantityPreview] = useState<QuantityPricingInput | null>(() => quantityEditor ? {
+    grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, nameVi: quantityEditor.nameVi,
+    nameEn: quantityEditor.nameEn, tiers: quantityEditor.tiers,
+  } : null);
   const initialCategorySlug = product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "";
   const [selectedCategory, setSelectedCategory] = useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "");
   const initialCategoryObj = categories.find((c) => c.slug === initialCategorySlug) ?? (initialCategorySlug ? { slug: initialCategorySlug } : null);
@@ -776,7 +782,7 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
                   {product && <div className="mb-4 space-y-3 rounded-xl border border-brand-200 p-4">
                     <h3 className="text-sm font-bold text-ink-900">Giá theo số lượng · mô hình mới</h3>
                     {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
-                      data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} />
+                      data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview} />
                       : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra danh mục và kết nối; giá đang hiển thị không bị thay đổi.</p>}
                   </div>}
                   <details open={!product || showGradeErrors} className="rounded-xl border border-ink-200 p-3">
@@ -1271,14 +1277,18 @@ export function SupplierProductEditor({ product, quantityEditor, media = [], use
           </div>
           <div className="px-3.5 py-3">
             <p className="text-[10.5px] font-bold tracking-wider text-brand-700 uppercase">{categoryLabel}</p>
-            <h2 className="mt-0.5 line-clamp-2 text-[13.5px] font-black text-ink-900">{product?.name ?? "Sản phẩm mới"}</h2>
+            {quantityEditor && quantityPreview ? <div className="mt-2">
+              <QuantityBuyerPreview value={quantityPreview} standardGrades={quantityEditor.standardGrades} policy={quantityEditor.policy}
+                buyerPriceUnit={quantityEditor.buyerPriceUnit} pricePubliclyVisible={quantityEditor.pricePubliclyVisible} />
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước theo dữ liệu đang nhập, không phải giá đang hiển thị cho buyer. Giá hiện tại chỉ thay đổi khi mô hình mới được triển khai và bản giá được duyệt.</p>
+            </div> : <h2 className="mt-0.5 line-clamp-2 text-[13.5px] font-black text-ink-900">{product?.name ?? "Sản phẩm mới"}</h2>}
             <dl className="mt-2.5 space-y-1 border-t border-ink-100 pt-2.5 text-[11.5px]">
-              {commercial.map((row) => <div key={row.label} className="flex items-baseline justify-between gap-2">
+              {commercial.filter((row) => !(quantityEditor && quantityPreview) || !["Giá tham khảo", "MOQ", "Incoterm"].includes(row.label)).map((row) => <div key={row.label} className="flex items-baseline justify-between gap-2">
                 <dt className="shrink-0 text-ink-500">{row.label}</dt>
                 <dd className={`min-w-0 truncate text-right font-semibold text-ink-800 ${row.label === "Giá tham khảo" && row.value !== "-" ? "font-mono tabular-nums" : ""}`}>{row.value}</dd>
               </div>)}
             </dl>
-            <p className="mt-2 text-[10.5px] leading-4 text-ink-500">Số liệu lấy từ bản đã lưu{dirty ? "; thay đổi đang nhập chưa hiển thị ở đây." : "."}</p>
+            <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{quantityEditor && quantityPreview ? "Các thông tin thương mại bên dưới bảng giá lấy từ bản đã lưu." : <>Số liệu lấy từ bản đã lưu{dirty ? "; thay đổi đang nhập chưa hiển thị ở đây." : "."}</>}</p>
           </div>
         </div>
 

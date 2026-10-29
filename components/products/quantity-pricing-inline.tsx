@@ -9,13 +9,15 @@ import { submitEnglishNameRevisionAction, submitQuantityPriceRevisionAction } fr
 import { submitStaffQuantityPriceAction } from "@/app/crm/products/quantity-review/submit-actions";
 
 /** Independent revision submission inside an existing product form; never mutates legacy price fields. */
-export function QuantityPricingInline({ data, actor, disabled = false, dirty = false }: {
+export function QuantityPricingInline({ data, actor, disabled = false, dirty = false, onPreviewChange }: {
   data: QuantityEditorData; actor: "staff" | "supplier"; disabled?: boolean; dirty?: boolean;
+  onPreviewChange?: (value: QuantityPricingInput) => void;
 }) {
   const router = useRouter();
   const root = useRef<HTMLDivElement>(null);
   const [value, setValue] = useState<QuantityPricingInput>({ grade: data.grade, incoterm: data.incoterm, nameVi: data.nameVi,
     nameEn: actor === "supplier" ? data.nameEn : "", tiers: data.tiers });
+  useEffect(() => { onPreviewChange?.(value); }, [onPreviewChange, value]);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -103,6 +105,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
     <QuantityPricingEditor value={value} onChange={(next) => { setValue(next); setConsent(false); }} standardGrades={data.standardGrades}
       policy={data.policy} buyerPriceUnit={data.buyerPriceUnit} pricePubliclyVisible={data.pricePubliclyVisible}
       showErrors={showErrors} disabled={disabled || dirty || busy} isolated consentChecked={consent} onConsentChange={setConsent}
+      showPreview={!onPreviewChange}
       consentLabel={actor === "staff" ? "Tôi xác nhận đã nhận cam kết của NCC rằng đây là giá NCC sẵn sàng báo cho buyer với đúng grade, Incoterm và số lượng đã ghi." : undefined} />
     <button type="button" disabled={disabled || dirty || busy} onClick={() => void submit()} className="btn btn-primary btn-sm">
       {busy ? "Đang gửi…" : "Gửi bảng giá mới để duyệt"}
