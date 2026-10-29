@@ -65,7 +65,8 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Kiểm tra chỉ đọc metadata trên dự án `veximtrade`: các hàm chính và cột `product_context` thuộc SQL57–60 đã hiện diện. Đây là bằng chứng cấu trúc, không khẳng định lịch sử chạy hay so khớp toàn bộ nội dung migration.
 - [ ] Đối chiếu toàn bộ migration SQL57–60 khi lập danh sách triển khai cuối cùng, kể cả môi trường staging.
 - [ ] Hoàn thiện và kiểm thử SQL62, SQL63, SQL64 và bất kỳ migration bổ sung nào cần cho form/duyệt trước khi đưa danh sách chạy cuối cùng. Metadata chỉ đọc cho thấy ba bảng nháp/bản gửi/ảnh nháp chưa có trên `veximtrade`. **Không chạy SQL62–64 lúc này.**
-- [ ] Xác định staging phù hợp và xin anh đồng ý nếu cần dự án Supabase Free riêng. Không sao chép dữ liệu thật sang nơi khác nếu chưa được anh đồng ý.
+- [x] Anh đồng ý dùng dự án Supabase Free riêng làm staging, chỉ với dữ liệu giả và không sao chép dữ liệu thật. Kiểm tra 29/10/2026 có một dự án đang hoạt động và một dự án không hoạt động; hạn mức thực tế phải được Supabase xác nhận khi tạo.
+- [ ] Chuẩn bị dự án staging riêng khi luồng và migration đã sẵn sàng. Anh tự chạy SQL; không dùng dữ liệu thật và không đụng dự án production.
 - [ ] Viết thứ tự chạy migration, điều kiện tiên quyết và kiểm tra sau chạy. Anh là người chạy migration; em không tự chạy trên database của anh.
 - [ ] Sau khi staging sẵn sàng, hướng dẫn anh thử tạo nháp thiếu thông tin, tải ảnh, nhập tier, gửi duyệt, duyệt CRM, xem buyer và sửa lại giá/tên.
 - [ ] Gửi ảnh chụp thực tế desktop/mobile và các bước kiểm thử rõ ràng sau khi luồng hoàn tất; chỉ đề nghị bật cho NCC sau khi staging đạt và anh chấp thuận.
