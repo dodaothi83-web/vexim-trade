@@ -7,10 +7,11 @@ import type { MediaAsset } from "@/lib/types";
 import { getObject } from "@/lib/media/storage";
 import { isExpired } from "@/lib/media/readiness";
 import { uploadPrivateProductFormImage } from "@/lib/products/product-form-private-upload";
+import type { ProductFormImage } from "@/lib/products/product-form-session";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BYTES = 8 * 1024 * 1024;
-type Result = { ok: true; revision: number; replaced: number } |
+type Result = { ok: true; revision: number; replaced: number; replacements: { mediaId: string; image: ProductFormImage }[] } |
   { ok: false; message: string; replaced: number; requiresReload?: boolean };
 
 /**
@@ -30,6 +31,7 @@ export async function snapshotSelectedProductImages(input: {
       imageIds.length < 1 || imageIds.length > 8 || imageIds.some((id) => !UUID.test(id)) ||
       new Set(imageIds.map((id) => id.toLowerCase())).size !== imageIds.length) return fail("Yêu cầu xử lý ảnh không hợp lệ.");
   let revision = expectedRevision, replaced = 0;
+  const replacements: { mediaId: string; image: ProductFormImage }[] = [];
   try {
     const product = await store.getProduct(productId);
     if (!product || product.supplier_id !== supplierId || !["draft", "changes_requested", "approved", "paused"].includes(product.supplier_review_status ?? ""))
@@ -66,11 +68,12 @@ export async function snapshotSelectedProductImages(input: {
       const result = await uploadPrivateProductFormImage({ db, supplierId, productId, userId, expectedRevision: revision, file,
         replaceMedia: asset as unknown as Record<string, unknown> });
       if (!result.ok) return fail(result.message, replaced, replaced > 0 || result.requiresReload === true);
-      if (result.revision !== revision + 1 || result.image.source !== "staged" || !UUID.test(result.image.id))
+      if (result.revision !== revision + 1 || result.image.source !== "staged" || !UUID.test(result.image.id) || !result.image.url)
         return fail("Không xác nhận được phiên bản ảnh. Hãy tải lại trang.", replaced, true);
       revision = result.revision; replaced++;
+      replacements.push({ mediaId: asset.id, image: result.image });
     }
-    return { ok: true, revision, replaced };
+    return { ok: true, revision, replaced, replacements };
   } catch (error) {
     console.error("[product-form] snapshot selected images", error);
     return fail("Không xác nhận được kết quả xử lý ảnh. Hãy tải lại trang.", replaced, true);

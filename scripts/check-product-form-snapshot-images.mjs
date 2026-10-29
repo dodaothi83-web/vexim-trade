@@ -36,6 +36,7 @@ vm.runInNewContext(code, { exports, Number, Array, Set, RegExp, JSON, Uint8Array
 const snapshot = exports.snapshotSelectedProductImages;
 const input = { db, store, supplierId: supplier, productId: product, userId: 'user', expectedRevision: 1, imageIds: [first, second] };
 let result = await snapshot(input); assert.equal(result.ok, true); assert.equal(result.replaced, 2); assert.equal(result.revision, 3);
+assert.deepEqual(Array.from(result.replacements, (r) => r.mediaId), [first, second]);
 const uploads = calls.filter((c) => c[0] === 'upload'); assert.deepEqual(uploads.map((c) => c[2]), [1, 2]);
 assert.deepEqual(uploads.map((c) => c[3].id), [first, second]); assert.ok(calls.every((c) => c[0] !== 'delete'));
 calls = []; selection = [{ id: first, source: 'media' }]; assert.equal((await snapshot(input)).requiresReload, true); assert.equal(calls.length, 0);
