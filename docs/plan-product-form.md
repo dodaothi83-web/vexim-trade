@@ -45,7 +45,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 ## CRM
 
 - [x] Đã xây và kiểm thử transaction yêu cầu chỉnh sửa cùng action phân quyền nhân viên: giữ nguyên listing đã duyệt và bản nháp mới hơn, xử lý thử lại và mở lại bản nháp. Chưa nối vào màn duyệt CRM.
-- [x] Đã xây kiểm tra bản gửi khi duyệt: đối chiếu dữ liệu giá v2, HTML an toàn, chính sách hiện tại và tên tiếng Anh không chứa grade chuẩn hoặc grade tự nhập. Đây chưa phải transaction duyệt nguyên tử.
+- [x] Đã xây kiểm tra bản gửi khi duyệt: đối chiếu dữ liệu giá v2, HTML an toàn, chính sách hiện tại và tên tiếng Anh không chứa grade chuẩn hoặc grade tự nhập. Đã thử helper SQL65 khóa/đối chiếu snapshot, chính sách và ảnh bằng PGlite. Đây chưa phải transaction duyệt nguyên tử và SQL65 chưa được chạy.
 - [x] Đã xây hàm và bảng so sánh các trường, tier của hai snapshot form; nếu dữ liệu cũ không biểu diễn được thì đánh dấu chưa biết, không tự suy đoán. Chưa nối màn CRM, ảnh và tên Anh cần đối chiếu riêng.
 - [ ] Dùng lại form NCC để tạo và sửa sản phẩm trong CRM, đồng thời giữ các trường chỉ có ở CRM và dữ liệu cũ.
 - [ ] Xây màn duyệt bản gửi, so sánh dữ liệu đã duyệt với bản mới, cảnh báo giá và cho admin sửa tên tiếng Anh.
@@ -65,7 +65,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Anh đã xác nhận chạy SQL53, SQL54, SQL55, SQL56 và SQL61. Không sửa lại các migration đã chạy.
 - [x] Kiểm tra chỉ đọc metadata trên dự án `veximtrade`: các hàm chính và cột `product_context` thuộc SQL57–60 đã hiện diện. Đây là bằng chứng cấu trúc, không khẳng định lịch sử chạy hay so khớp toàn bộ nội dung migration.
 - [ ] Đối chiếu toàn bộ migration SQL57–60 khi lập danh sách triển khai cuối cùng, kể cả môi trường staging.
-- [ ] Hoàn thiện và kiểm thử SQL62, SQL63, SQL64 và bất kỳ migration bổ sung nào cần cho form/duyệt trước khi đưa danh sách chạy cuối cùng. Metadata chỉ đọc cho thấy ba bảng nháp/bản gửi/ảnh nháp chưa có trên `veximtrade`. **Không chạy SQL62–64 lúc này.**
+- [ ] Hoàn thiện và kiểm thử SQL62–65 cùng bất kỳ migration bổ sung nào cần cho form/duyệt trước khi đưa danh sách chạy cuối cùng. Metadata chỉ đọc cho thấy ba bảng nháp/bản gửi/ảnh nháp chưa có trên `veximtrade`. **Không chạy SQL62–65 lúc này.**
 - [x] Anh đồng ý dùng dự án Supabase Free riêng làm staging, chỉ với dữ liệu giả và không sao chép dữ liệu thật. Kiểm tra 29/10/2026 có một dự án đang hoạt động và một dự án không hoạt động; hạn mức thực tế phải được Supabase xác nhận khi tạo.
 - [ ] Chuẩn bị dự án staging riêng khi luồng và migration đã sẵn sàng. Anh tự chạy SQL; không dùng dữ liệu thật và không đụng dự án production.
 - [ ] Viết thứ tự chạy migration, điều kiện tiên quyết và kiểm tra sau chạy. Anh là người chạy migration; em không tự chạy trên database của anh.
