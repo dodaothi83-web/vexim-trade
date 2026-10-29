@@ -21,6 +21,8 @@ assert.equal(field('Tên sản phẩm').changed, false); assert.equal(field('Gra
 assert.equal(field('Grade').submitted, 'Đặc biệt (tự nhập)'); assert.equal(field('Grade').changed, true);
 assert.match(field('Bảng giá theo số lượng').submitted, /Mức 2: từ 3 tấn, USD 1500\/tấn/);
 assert.equal(field('Công khai giá').previous, 'Có'); assert.equal(field('Công khai giá').submitted, 'Không');
+assert.equal(field('Cam kết giá').previous, null, 'A reset in the prefill does not prove the old consent state');
+assert.equal(exports.productFormReviewDiff(before, after, { baselineConsentKnown: true }).find((row) => row.label === 'Cam kết giá').previous, 'Có');
 assert.match(field('Thuộc tính khác').submitted, /grade: unexpected/, 'Do not hide unexpected data from the reviewer');
 const unknown = exports.productFormReviewDiff(null, after);
 assert.ok(unknown.every((row) => row.previous === null && row.changed === null), 'Unknown legacy baseline is never guessed');

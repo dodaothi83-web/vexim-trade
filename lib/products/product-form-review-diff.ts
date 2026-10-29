@@ -15,7 +15,8 @@ export type ProductFormReviewDiff = {
  * listing separately rather than suggesting the previous value was empty.
  * Photos and the reviewed English name are compared separately by the caller.
  */
-export function productFormReviewDiff(baseline: ProductFormDraft | null, draft: ProductFormDraft): ProductFormReviewDiff[] {
+export function productFormReviewDiff(baseline: ProductFormDraft | null, draft: ProductFormDraft,
+  options: { baselineConsentKnown?: boolean } = {}): ProductFormReviewDiff[] {
   const text = (s: string) => s.trim();
   const yes = (b: boolean) => b ? "Có" : "Không";
   const grade = (v: ProductFormDraft) => `${text(v.grade)}${v.customGrade && v.grade.trim() ? " (tự nhập)" : ""}`;
@@ -38,7 +39,9 @@ export function productFormReviewDiff(baseline: ProductFormDraft | null, draft: 
     ["description", "Nhóm thuộc tính", v => text(v.attributePool)],
   ];
   return fields.map(([section, label, get]) => {
-    const submitted = get(draft), previous = baseline ? get(baseline) : null;
+    // Approved-v2 prefill intentionally resets consent for the next revision;
+    // that reset is not evidence about the previously approved agreement.
+    const submitted = get(draft), previous = baseline && (label !== "Cam kết giá" || options.baselineConsentKnown) ? get(baseline) : null;
     return { section, label, previous, submitted, changed: previous === null ? null : previous !== submitted };
   });
 }
