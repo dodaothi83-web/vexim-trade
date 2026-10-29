@@ -1077,7 +1077,13 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <div className="sm:col-span-2">
                     <dt className="text-[11px] font-semibold text-ink-500">Bảng giá</dt>
                     <dd className="mt-1 rounded-lg border border-ink-200 p-3">
-                      {quantityEditor && quantityPreview ? <>
+                      {quantityEditor?.v2 ? <>
+                        <p>Grade: <strong>{quantityEditor.grade}</strong> · Incoterm: <strong>{quantityEditor.incoterm}</strong></p>
+                        <table className="mt-2 w-full text-left text-xs"><thead><tr><th>Số lượng ({quantityEditor.v2.unit === "mt" ? "MT" : "kg"})</th><th>Giá (USD/{quantityEditor.v2.unit === "mt" ? "MT" : "kg"})</th></tr></thead>
+                          <tbody>{quantityEditor.v2.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{tier.quantity}</td><td className="py-1 tabular-nums">{tier.price}</td></tr>)}</tbody>
+                        </table>
+                        <p className="mt-1 text-xs text-ink-500">{quantityEditor.pendingPriceId ? "Bảng giá đang chờ duyệt." : "Bảng giá đã duyệt."}</p>
+                      </> : quantityEditor && quantityPreview ? <>
                         <p>Grade: <strong>{quantityPreview.grade || "Chưa chọn"}</strong> · Incoterm: <strong>{quantityPreview.incoterm || "Chưa chọn"}</strong></p>
                         <table className="mt-2 w-full text-left text-xs"><thead><tr><th>Số lượng từ (kg)</th><th>Giá (USD/kg)</th></tr></thead>
                           <tbody>{quantityPreview.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{tier.minKg || "—"}</td><td className="py-1 tabular-nums">{tier.priceUsdPerKg || "—"}</td></tr>)}</tbody>
@@ -1241,6 +1247,14 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               <QuantityBuyerPreview value={newQuantity} standardGrades={newGrades} policy={newPolicy}
                 buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} />
               <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước, chưa phải nội dung đang hiển thị cho buyer. Bảng giá và tên tiếng Anh cần được duyệt.</p>
+            </div> : quantityEditor?.v2 ? <div className="mt-2">
+              <p className="text-sm font-bold text-ink-900">Buyer sẽ thấy</p>
+              <p className="mt-2 text-sm font-semibold">{quantityEditor.nameEn || quantityEditor.nameVi}</p>
+              {!quantityEditor.nameEn && <p className="mt-1 text-xs text-ink-600">Tên tiếng Anh do Vexim dịch khi duyệt</p>}
+              <p className="mt-1 text-xs text-ink-600">{quantityEditor.grade}</p>
+              <p className="mt-3 text-base font-semibold tabular-nums">{quantityEditor.pricePubliclyVisible ? `USD ${Number(quantityEditor.v2.tiers.at(-1)!.price).toFixed(2)}${quantityEditor.v2.tiers[0].price !== quantityEditor.v2.tiers.at(-1)!.price ? `–${Number(quantityEditor.v2.tiers[0].price).toFixed(2)}` : ""}/${quantityEditor.v2.unit === "mt" ? "MT" : "kg"}` : "Price on request"}</p>
+              <p className="text-xs text-ink-600">MOQ: {quantityEditor.v2.tiers[0].quantity} {quantityEditor.v2.unit === "mt" ? "MT" : "kg"}</p>
+              {quantityEditor.pendingPriceId && <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] text-amber-900">Đây là bản xem trước giá đang chờ, không phải giá buyer đang thấy.</p>}
             </div> : quantityEditor && quantityPreview ? <div className="mt-2">
               <QuantityBuyerPreview value={quantityPreview} standardGrades={quantityEditor.standardGrades} policy={quantityEditor.policy}
                 buyerPriceUnit={quantityEditor.buyerPriceUnit} pricePubliclyVisible={quantityEditor.pricePubliclyVisible} />

@@ -69,6 +69,16 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
     } catch { setResult({ ok: false, message: "Không kết nối được máy chủ. Hãy thử lại." }); }
     finally { setBusy(false); }
   }
+  // The current kg-only editor cannot safely edit a v2 revision. Show the
+  // original values without interpreting a per-MT price as USD/kg.
+  if (data.v2) return <div ref={root} className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+    <p className="font-semibold text-amber-950">{data.pendingPriceId ? "Giá mới đang chờ Vexim xác nhận." : "Bảng giá đã duyệt."}</p>
+    <p>Grade: <strong>{data.grade}</strong>{data.v2.customGrade ? " (tự nhập)" : ""} · Incoterm: <strong>{data.incoterm}</strong></p>
+    <table className="w-full text-left text-xs"><thead><tr><th>Số lượng từ ({data.v2.unit === "mt" ? "MT" : "kg"})</th><th>Giá (USD/{data.v2.unit === "mt" ? "MT" : "kg"})</th></tr></thead>
+      <tbody>{data.v2.tiers.map((tier, index) => <tr key={index} className="border-t border-amber-200"><td className="py-1 tabular-nums">{tier.quantity}</td><td className="py-1 tabular-nums">{tier.price}</td></tr>)}</tbody>
+    </table>
+    <p className="text-xs text-amber-900">Chưa thể sửa bảng giá này trong form hiện tại.</p>
+  </div>;
   return <div ref={root} onChange={(event) => event.stopPropagation()} className="space-y-3">
     <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
       Bảng mới lưu riêng vào hàng chờ duyệt.{" "}

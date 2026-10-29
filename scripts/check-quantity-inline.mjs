@@ -48,4 +48,8 @@ assert.match(staff, /đã nhận cam kết của NCC/);
 const dirty = render({ actor: 'supplier', dirty: true });
 assert.match(dirty, /Hãy lưu hoặc hoàn tác/);
 assert.match(dirty, /disabled=""[^>]*>Gửi bảng giá mới/);
+const v2data = { ...data, grade: 'Special', tiers: [], v2: { unit: 'mt', customGrade: true, tiers: [{ quantity: '1.234567', price: '6401' }] } };
+const v2html = renderToStaticMarkup(React.createElement('form', null, React.createElement(inline.QuantityPricingInline, { data: v2data, actor: 'supplier' })));
+assert.match(v2html, /1\.234567/); assert.match(v2html, /6401/); assert.match(v2html, /USD\/MT/);
+assert.match(v2html, /chờ Vexim xác nhận/); assert.doesNotMatch(v2html, /Gửi bảng giá mới để duyệt/, 'Old kg editor cannot overwrite v2');
 console.log('Inline quantity editor: separate form controls, current buyer warning and dirty-state lock passed');

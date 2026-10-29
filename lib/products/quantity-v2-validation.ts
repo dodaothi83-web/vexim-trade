@@ -1,5 +1,5 @@
 import { validateSupplierQuantityEntry, type SupplierQuantityEntry, type SupplierQuantityEntryResult, type SupplierQuantityUnit } from "@/lib/products/quantity-entry";
-import { readQuantityRevisionV2, toQuantityRevisionV2 } from "@/lib/products/quantity-revision-v2";
+import { readQuantityRevisionV2, toQuantityRevisionV2, v2InputTiers } from "@/lib/products/quantity-revision-v2";
 import type { QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 
 /** V2 is deliberately opt-in for isolated staging until all editors can read it. */
@@ -33,21 +33,11 @@ export function validateV2Form(form: FormData, nameVi: string, grades: readonly 
   return { ...checked, value: checked.value ? { grade: checked.value.grade, incoterm: checked.value.incoterm, tiers: toQuantityRevisionV2(checked.value) } : null };
 }
 
-/** Exact decimal strings reconstructed from integer grams/cents, without float rounding. */
-function decimal(value: number, scale: number): string {
-  const whole = Math.floor(value / scale), remainder = value % scale;
-  return remainder ? `${whole}.${String(remainder).padStart(String(scale).length - 1, "0").replace(/0+$/, "")}` : String(whole);
-}
-
 /** Revalidate stored JSON against current category, name, rules and grade bounds at approval. */
 export function validateStoredV2(grade: unknown, incoterm: unknown, raw: unknown, nameVi: string, grades: readonly string[], policy: QuantityPricingPolicy): CheckedV2Proposal {
   const parsed = readQuantityRevisionV2(raw);
   if (!parsed || typeof grade !== "string" || typeof incoterm !== "string") return invalid();
-  const divisor = parsed.unit === "kg" ? 1000 : 1_000_000;
-  const tiers = parsed.tiers.map((row) => ({
-    quantity: decimal(row.quantityGrams, divisor),
-    price: decimal(row.priceCentsPerUnit, 100),
-  }));
+  const tiers = v2InputTiers(parsed);
   const checked = validateSupplierQuantityEntry({ grade, incoterm, nameVi, customGrade: parsed.customGrade, unit: parsed.unit,
     tiers }, grades, policy);
   if (!checked.value) return { value: null, errors: checked.errors, warnings: checked.warnings };

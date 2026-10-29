@@ -3,6 +3,8 @@ import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { displayUnitsForCategory } from "@/lib/public/price-units";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
+import { readQuantityRevisionV2, v2InputTiers } from "@/lib/products/quantity-revision-v2";
+import type { SupplierQuantityUnit } from "@/lib/products/quantity-entry";
 import type { QuantityPricingInput, QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import type { SupplierProduct } from "@/lib/types";
 
@@ -10,6 +12,8 @@ export type QuantityEditorData = {
   productId: string; updatedAt: string; nameVi: string; nameEn: string;
   pendingPriceId: string | null; pendingNameId: string | null; hasApprovedPrice: boolean; hasApprovedName: boolean;
   grade: string; incoterm: string; tiers: QuantityPricingInput["tiers"];
+  /** Raw supplier-unit values. Older editors must not treat these as kg prices. */
+  v2?: { unit: SupplierQuantityUnit; customGrade: boolean; tiers: Array<{ quantity: string; price: string }> } | null;
   standardGrades: string[]; policy: QuantityPricingPolicy; buyerPriceUnit: "kg" | "mt"; pricePubliclyVisible: boolean;
   buyerPreviewEnabled: boolean;
 };
@@ -33,11 +37,13 @@ export async function readQuantityEditorData(product: SupplierProduct): Promise<
   const approvedName = nameResult.data.find((row) => row.status === "approved") ?? null;
   const price = pendingPrice || approvedPrice;
   const rawTiers = Array.isArray(price?.tiers) ? price.tiers : [];
-  if (price && (!rawTiers.length || rawTiers.length > 100 || !rawTiers.every((row: unknown) => row && typeof row === "object" &&
+  const versioned = rawTiers.some((row: unknown) => !!row && typeof row === "object" && "version" in row);
+  const revisionV2 = versioned ? readQuantityRevisionV2(rawTiers) : null;
+  if (price && (versioned ? !revisionV2 : !rawTiers.length || rawTiers.length > 100 || !rawTiers.every((row: unknown) => row && typeof row === "object" &&
       typeof (row as { minKg?: unknown }).minKg === "number" && typeof (row as { priceUsdPerKg?: unknown }).priceUsdPerKg === "number"))) {
     throw new Error("Invalid saved quantity price revision");
   }
-  const tiers = price
+  const tiers = revisionV2 ? [] : price
     ? rawTiers.map((row: { minKg: number; priceUsdPerKg: number }) => ({ minKg: String(row.minKg), priceUsdPerKg: String(row.priceUsdPerKg) }))
     : [{ minKg: "", priceUsdPerKg: "" }];
   const primary = displayUnitsForCategory(category.slug, category.price_unit).primary;
@@ -47,7 +53,8 @@ export async function readQuantityEditorData(product: SupplierProduct): Promise<
     pendingPriceId: pendingPrice?.id ?? null, pendingNameId: pendingName?.id ?? null,
     hasApprovedPrice: !!approvedPrice, hasApprovedName: !!approvedName,
     grade: typeof price?.grade === "string" ? price.grade : "", incoterm: typeof price?.incoterm === "string" ? price.incoterm : "",
-    tiers, standardGrades: standardGradesForCategory(category), policy,
+    tiers, v2: revisionV2 ? { unit: revisionV2.unit, customGrade: revisionV2.customGrade, tiers: v2InputTiers(revisionV2) } : null,
+    standardGrades: standardGradesForCategory(category), policy,
     buyerPriceUnit: primary === "mt" ? "mt" : "kg", pricePubliclyVisible: product.price_publicly_visible === true,
     buyerPreviewEnabled: process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true",
   };

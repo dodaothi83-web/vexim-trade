@@ -52,6 +52,19 @@ export function v2PriceUsdPerKg(row: QuantityRevisionTierV2): number {
   return row.priceCentsPerUnit * 10 / row.unitWeightGrams;
 }
 export function v2QuantityInSupplierUnit(grams: number, weight: number): number { return grams / weight; }
+
+/** Reconstruct the exact input without first rounding through USD/kg. */
+export function v2InputDecimal(value: number, scale: number): string {
+  const whole = Math.floor(value / scale);
+  const remainder = value % scale;
+  return remainder ? `${whole}.${String(remainder).padStart(String(scale).length - 1, "0").replace(/0+$/, "")}` : String(whole);
+}
+export function v2InputTiers(revision: QuantityRevisionV2): Array<{ quantity: string; price: string }> {
+  return revision.tiers.map((tier) => ({
+    quantity: v2InputDecimal(tier.quantityGrams, revision.unitWeightGrams),
+    price: v2InputDecimal(tier.priceCentsPerUnit, 100),
+  }));
+}
 export function v2UnitLabel(unit: SupplierQuantityUnit): string {
   return unit === "mt" ? "MT" : "kg";
 }
