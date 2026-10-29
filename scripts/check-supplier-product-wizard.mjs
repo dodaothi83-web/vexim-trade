@@ -246,7 +246,7 @@ assert.match(onStep3, /Hồ sơ đủ điều kiện/, 'Đủ điều kiện th�
 const missingMedia = render({ initialStep: 3, media: [] });
 const sendButton = (missingMedia.match(/<button[^>]*>[\s\S]{0,80}lucide-send|<button[^>]*aria-describedby="submit-blockers"/) ?? [''])[0];
 assert.ok(sendButton && !/disabled/.test(sendButton.split('>')[0]), 'Thiếu điều kiện vẫn không khoá nút gửi');
-assert.match(missingMedia, /Tải ít nhất một ảnh hoặc catalogue thật ở bước 2/, 'Nói rõ thiếu tệp ở đâu');
+assert.match(missingMedia, /Tải ít nhất một ảnh sản phẩm ở bước 2/, 'Nói rõ thiếu tệp ở đâu');
 assert.match(missingMedia, /<div id="submit-blockers" aria-live="polite">/, 'Danh sách việc cần làm có aria-live');
 assert.match(onStep2, /data-step-panel="1" class="hidden"/, 'Bước 2 ẩn hẳn form bước 1 (không kéo dài trang) nhưng vẫn giữ dữ liệu để gửi form');
 assert.match(onStep2, /data-step-panel="2" class="space-y-3"/, 'Bước 2 đang mở');

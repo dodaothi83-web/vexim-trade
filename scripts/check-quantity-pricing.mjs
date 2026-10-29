@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {
   DEFAULT_QUANTITY_PRICING_POLICY as defaults, validateQuantityPricing, nameContainsGrade,
-  quantityTierRanges, formatQuantityBuyer, formatQuantityPriceBuyer, referencePriceAge,
+  quantityTierRanges, formatQuantityBuyer, formatQuantityPriceBuyer, referencePriceAge, formatQuantityInput, normalizePriceInput,
 } from '../lib/products/quantity-pricing.ts';
 
 const grades = ['W180', 'W240', 'W320', 'WS', '550 g/L'];
@@ -16,6 +16,18 @@ let result = validate();
 assert.deepEqual(result.errors, []);
 assert.deepEqual(result.warnings, [], 'Vietnamese accents do not trigger a warning');
 assert.deepEqual(result.value, { grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: 1000, priceUsdPerKg: 6.4 }, { minKg: 5000, priceUsdPerKg: 6 }] });
+assert.equal(formatQuantityInput('5000'), '5,000');
+assert.equal(formatQuantityInput('5,0000', '5,000'), '50,000');
+assert.equal(formatQuantityInput('5,00', '5,000'), '500');
+assert.equal(formatQuantityInput('1,2500', '1,200'), '12,500');
+assert.equal(formatQuantityInput('1,5'), '1,5', 'Do not silently turn malformed input into another quantity');
+assert.equal(formatQuantityInput('-5'), '-5');
+assert.equal(normalizePriceInput('6,4'), '6.40');
+assert.equal(normalizePriceInput('6.40'), '6.40');
+assert.deepEqual(validate({ tiers: [{ minKg: '1,000', priceUsdPerKg: '6,40' }] }).value.tiers, [{ minKg: 1000, priceUsdPerKg: 6.4 }]);
+assert.ok(codes(validate({ tiers: [{ minKg: '1,00', priceUsdPerKg: '6' }] })).includes('quantity'));
+assert.ok(codes(validate({ tiers: Array.from({ length: 5 }, () => ({ minKg: '1', priceUsdPerKg: '1' })) }, { ...defaults, maxTiers: 8 })).includes('tier_count'));
+assert.match(validate({ nameVi: 'Nhân điều W320' }).errors.find((e) => e.code === 'name_vi_grade').message, /Bỏ grade \(W320\)/);
 assert.deepEqual(quantityTierRanges(result.value.tiers).map((row) => row.maxKg), [4999, null]);
 assert.equal(formatQuantityBuyer(999), '999 kg');
 assert.equal(formatQuantityBuyer(1000), '1 MT');

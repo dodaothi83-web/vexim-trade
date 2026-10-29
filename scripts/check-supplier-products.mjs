@@ -177,10 +177,12 @@ assert.equal(product.supplier_originated, true);
 const foreignEdit = form(); foreignEdit.set('product_id', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
 assert.equal((await actions.saveSupplierProductAction(foreignEdit)).ok, false);
 const image = new File([new Uint8Array([0xff,0xd8,0xff,0xe0,1,2,3,4,5,6,7,8])], 'cashew.jpg', { type: 'image/jpeg' });
+let mediaDb = null;
 const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
   'next/server': { NextResponse: { json: (data, options) => Response.json(data, options) } },
   'next/cache': { revalidatePath() {} },
   'node:crypto': { randomUUID: () => 'aabbccdd-eeee-ffff-aaaa-bbbbbbbbbbbb' },
+  '@/lib/db/supabase': { getSupabaseClient: () => mediaDb, supabaseStore: store },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
   '@/lib/supplier-portal/onboarding': onboarding,
   '@/lib/supplier-portal/product-price-options': priceOptions,
@@ -203,6 +205,11 @@ failThumb = true;
 assert.equal(await postMedia(), 503, 'A failed derivative write must not create a media record');
 assert.equal(files.length, 0); assert.equal(storedBytes, 0, 'Roll back the main image if the thumbnail fails');
 failThumb = false;
+let guardedCalls = 0;
+mediaDb = { rpc: async (name, args) => { guardedCalls++; assert.equal(name, 'create_supplier_product_media_guarded'); assert.equal(args.p_supplier_id, supplierId); return { data: { status: 'image_limit' }, error: null }; } };
+assert.equal(await postMedia(), 409, 'Concurrent ninth image is rejected by the atomic RPC');
+assert.equal(guardedCalls, 1); assert.equal(files.length, 0); assert.equal(storedBytes, 0, 'Rejected upload cleans up both files');
+mediaDb = null;
 assert.equal(await postMedia(), 200);
 assert.equal(files[0].audience, 'internal'); assert.equal(files[0].status, 'unverified');
 assert.match(files[0].storage_path, /\.webp$/); assert.match(files[0].thumb_path, /-thumb\.webp$/);
@@ -240,6 +247,9 @@ assert.equal((await upload.POST(new Request(deleteUrl, { method: 'POST', body: p
   { params: Promise.resolve({ id: productId }) })).status, 200);
 assert.match(files[0].storage_path, /\.pdf$/); assert.equal(files[0].thumb_path, null);
 assert.equal(files[0].mime, 'application/pdf'); assert.equal(storedBytes, 1);
+const pdfOnlySubmission = new FormData(); pdfOnlySubmission.set('product_id', productId);
+const pdfOnlyResult = await actions.submitSupplierProductAction(pdfOnlySubmission);
+assert.equal(pdfOnlyResult.ok, false); assert.match(pdfOnlyResult.message, /ít nhất một ảnh/);
 assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), { params: Promise.resolve({ id: productId }) })).status, 200);
 assert.equal(storedBytes, 0);
 assert.equal(await postMedia(), 200);

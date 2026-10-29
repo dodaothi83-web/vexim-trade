@@ -42,8 +42,36 @@ export type QuantityPricingResult = {
 const INCOTERMS = new Set(["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"]);
 const MAX_KG = 1_000_000_000;
 const MAX_CENTS = 100_000_000_000;
-const WHOLE_KG = /^[0-9]+$/;
-const USD_PRICE = /^[0-9]+(?:\.[0-9]{1,2})?$/;
+const WHOLE_KG = /^(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)$/;
+const USD_PRICE = /^[0-9]+(?:[.,][0-9]{1,2})?$/;
+
+/** Do not guess ambiguous separators in supplier quantities or prices. */
+export function parseQuantityKg(raw: string): number | null {
+  const text = raw.trim();
+  if (!WHOLE_KG.test(text)) return null;
+  const n = Number(text.replace(/,/g, ""));
+  return Number.isSafeInteger(n) && n > 0 && n <= MAX_KG ? n : null;
+}
+
+export function formatQuantityInput(raw: string, previous = ""): string {
+  if (!/^[0-9,]*$/.test(raw)) return raw;
+  // Preserve invalid pasted separators rather than silently changing 1,5 to 15.
+  // A single digit insertion or deletion in a formatted value may be regrouped.
+  const singleDigitEdit = WHOLE_KG.test(previous) && (
+    (raw.length === previous.length + 1 && [...raw].some((char, i) => /\d/.test(char) && raw.slice(0, i) + raw.slice(i + 1) === previous)) ||
+    (previous.length === raw.length + 1 && [...previous].some((char, i) => /\d/.test(char) && previous.slice(0, i) + previous.slice(i + 1) === raw))
+  );
+  if (raw.includes(",") && !WHOLE_KG.test(raw) && !singleDigitEdit) return raw;
+  const digits = raw.replace(/,/g, "");
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+export function normalizePriceInput(raw: string): string {
+  const text = raw.trim().replace(",", ".");
+  if (!USD_PRICE.test(raw.trim())) return raw;
+  const amount = Number(text);
+  return Number.isFinite(amount) ? amount.toFixed(2) : raw;
+}
 
 function normalized(value: string): string {
   return value.normalize("NFKC").toLocaleLowerCase("en-US").replace(/\s+/g, " ").trim();
@@ -69,7 +97,7 @@ export function nameContainsGrade(name: string, grades: readonly string[]): bool
 function centsFromText(raw: string): number | null {
   const text = raw.trim();
   if (!USD_PRICE.test(text)) return null;
-  const [whole, fraction = ""] = text.split(".");
+  const [whole, fraction = ""] = text.replace(",", ".").split(".");
   const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
   return Number.isSafeInteger(cents) && cents > 0 && cents <= MAX_CENTS ? cents : null;
 }
@@ -91,23 +119,24 @@ export function validateQuantityPricing(
   if (!grade) errors.push({ code: "grade", message: "Chọn một grade chuẩn của danh mục." });
   const incoterm = input.incoterm.trim().toUpperCase();
   if (!INCOTERMS.has(incoterm)) errors.push({ code: "incoterm", message: "Chọn Incoterm hợp lệ." });
-  if (nameContainsGrade(input.nameVi, standardGrades)) errors.push({ code: "name_vi_grade", message: "Không ghi grade trong tên sản phẩm tiếng Việt." });
+  const gradeInName = [...standardGrades, input.grade].find((g) => nameContainsGrade(input.nameVi, [g]));
+  if (gradeInName) errors.push({ code: "name_vi_grade", message: `Bỏ grade (${gradeInName}) ra khỏi tên sản phẩm.` });
   if (nameContainsGrade(input.nameEn, standardGrades)) errors.push({ code: "name_en_grade", message: "Không ghi grade trong tên sản phẩm tiếng Anh." });
-  if (input.tiers.length < 1 || input.tiers.length > policy.maxTiers) {
-    errors.push({ code: "tier_count", message: `Nhập từ 1 đến ${policy.maxTiers} mức giá.` });
+  const maxTiers = Math.min(policy.maxTiers, 4);
+  if (input.tiers.length < 1 || input.tiers.length > maxTiers) {
+    errors.push({ code: "tier_count", message: `Nhập từ 1 đến ${maxTiers} mức giá.` });
     return { errors, warnings, value: null };
   }
   const tiers: QuantityPriceTier[] = [];
   const centsList: number[] = [];
   input.tiers.forEach((row, tierIndex) => {
-    const rawKg = row.minKg.trim();
-    const kg = WHOLE_KG.test(rawKg) ? Number(rawKg) : NaN;
+    const kg = parseQuantityKg(row.minKg);
     const cents = centsFromText(row.priceUsdPerKg);
-    if (!Number.isSafeInteger(kg) || kg <= 0 || kg > MAX_KG) {
+    if (kg === null) {
       errors.push({ code: "quantity", tierIndex, message: "Số lượng từ phải là số kg nguyên lớn hơn 0." });
     }
     if (cents === null) errors.push({ code: "price", tierIndex, message: "Nhập giá USD/kg lớn hơn 0, tối đa 2 chữ số thập phân." });
-    if (!Number.isSafeInteger(kg) || kg <= 0 || kg > MAX_KG || cents === null) return;
+    if (kg === null || cents === null) return;
     tiers.push({ minKg: kg, priceUsdPerKg: cents / 100 });
     centsList.push(cents);
   });

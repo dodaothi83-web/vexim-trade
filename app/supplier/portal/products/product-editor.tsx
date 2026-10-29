@@ -253,8 +253,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const locked = review === "pending" || legacyManaged;
   const dirty = baseline !== null && !snapshotsEqual(snapshot, baseline);
   const ownedCount = media.filter((m) => m.created_by === userId).length;
+  const imageCount = media.filter((m) => m.kind === "image").length;
   const hasDetails = !!product && !!(product.spec?.trim() || product.description?.trim());
-  const hasMedia = media.some((m) => (m.kind === "image" || m.kind === "catalogue") && !!m.storage_path);
+  const hasMedia = media.some((m) => m.kind === "image" && !!m.storage_path && m.supplier_id === product?.supplier_id);
   const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
   const canUpload = !!product && !locked && !dirty &&
     (!["approved", "paused"].includes(review) || product.supplier_originated === true);
@@ -508,7 +509,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     const blockers: string[] = [];
     if (!product) blockers.push("Lưu sản phẩm ở bước 1 trước khi gửi.");
     if (!hasDetails) blockers.push("Bổ sung mô tả hoặc quy cách ở bước 1.");
-    if (!hasMedia) blockers.push("Tải ít nhất một ảnh hoặc catalogue thật ở bước 2.");
+    if (!hasMedia) blockers.push("Tải ít nhất một ảnh sản phẩm ở bước 2.");
     if (dirty) blockers.push("Lưu thay đổi ở bước 1 trước khi gửi.");
     return blockers;
   }
@@ -562,6 +563,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     return null;
   }
   function chooseFiles(files: File[]) {
+    if (imageCount + files.filter((file) => uploadKind(file) === "image").length > 8) {
+      setToast({ ok: false, message: `Tối đa 8 ảnh sản phẩm; hiện có ${imageCount} ảnh.` });
+      setSelected([]);
+      return;
+    }
     if (ownedCount + files.length > 12) {
       setToast({ ok: false, message: `Chỉ được tải tối đa 12 tệp; hiện bạn đã có ${ownedCount} tệp.` });
       setSelected([]);
@@ -765,7 +771,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               <SectionHead title="Thông tin cơ bản" hint="Tên, danh mục và mô tả - phần buyer đọc đầu tiên." />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <Field label="Tên sản phẩm" hint="Ví dụ: Hạt điều nhân trắng. Không ghi grade vào tên." required>
+                  <Field label="Tên sản phẩm" hint="Không ghi grade trong tên. Vexim dịch tên sang tiếng Anh khi duyệt." required>
                     <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked} />
                   </Field>
                 </div>

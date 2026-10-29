@@ -301,7 +301,8 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     if (!product || product.supplier_id !== access.supplier.id) return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
     if (!["draft", "changes_requested", "paused"].includes(product.supplier_review_status ?? "")) return { ok: false, message: "Sản phẩm không ở trạng thái cho phép gửi duyệt." };
     if (!product.name || !(product.spec || product.description)) return { ok: false, message: "Cần tên và mô tả hoặc quy cách." };
-    const options = categoryProposalOptions(await store.listCategories({ publishedOnly: true }));
+    const publishedCategories = await store.listCategories({ publishedOnly: true });
+    const options = categoryProposalOptions(publishedCategories);
     // Sản phẩm đã tạm ẩn giữ danh mục Vexim từng duyệt; sản phẩm lịch sử có thể
     // dùng danh mục cũ, hoặc NCC chọn và lưu danh mục trước khi gửi duyệt lại.
     const proposal = product.supplier_review_status === "paused"
@@ -309,10 +310,13 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
       : product.supplier_category_proposal;
     if (!proposal || !options.some((c) => c.slug === proposal))
       return { ok: false, message: "Chọn và lưu danh mục đang xuất bản trước khi gửi duyệt." };
+    const submissionCategory = publishedCategories.find((category) => category.slug === proposal);
+    const includedGrade = submissionCategory && standardGradesForCategory(submissionCategory).find((grade) => nameContainsGrade(product.name, [grade]));
+    if (includedGrade) return { ok: false, message: `Bỏ grade (${includedGrade}) ra khỏi tên sản phẩm.` };
     const media = await store.listMedia("product", id);
-    if (!media.some((m) => (m.kind === "image" || m.kind === "catalogue") && m.storage_path &&
+    if (!media.some((m) => m.kind === "image" && m.storage_path &&
       m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {
-      return { ok: false, message: "Cần ít nhất một ảnh hoặc catalogue trước khi gửi duyệt." };
+      return { ok: false, message: "Cần ít nhất một ảnh sản phẩm trước khi gửi duyệt." };
     }
     // Preserve any historical name revision; the supplier can no longer create one.
     let supplierNameSubmitted = false;
