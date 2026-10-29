@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, type ReactNode } from "react";
-import { CheckCircle2, Circle, ImageIcon } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
 import { QuantityBuyerV2Preview, QuantityGradeV2Field, QuantityPricingV2Editor } from "@/components/products/quantity-pricing-v2-editor";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
@@ -15,9 +15,9 @@ import type { CategoryProposalOption } from "@/lib/supplier-portal/category-prop
 
 const SECTIONS: { id: ProductFormSection; title: string; optional?: boolean }[] = [
   { id: "basic", title: "Thông tin cơ bản" },
-  { id: "attributes", title: "Thuộc tính" },
-  { id: "transaction", title: "Giao dịch" },
-  { id: "packaging", title: "Bao bì và năng lực", optional: true },
+  { id: "attributes", title: "Thuộc tính sản phẩm" },
+  { id: "transaction", title: "Thông tin giao dịch" },
+  { id: "packaging", title: "Đóng gói và giao hàng", optional: true },
   { id: "description", title: "Mô tả sản phẩm" },
 ];
 
@@ -70,7 +70,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
 
   return <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
     <div className="min-w-0 space-y-4">
-      <Section id="basic" title="Thông tin cơ bản" number={1}>
+      <Section id="basic" title="Thông tin cơ bản">
         <Field label="Tên sản phẩm" required hint="Không ghi grade trong tên. Vexim dịch sang tiếng Anh khi duyệt." error={problem("name")}>
           <input className="input w-full" aria-label="Tên sản phẩm" aria-invalid={!!problem("name") || undefined} maxLength={180} value={value.name} disabled={locked} onChange={(event) => set("name", event.target.value)} />
         </Field>
@@ -84,7 +84,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
         </Field>
       </Section>
 
-      <Section id="attributes" title="Thuộc tính" number={2}>
+      <Section id="attributes" title="Thuộc tính sản phẩm" subtitle="Buyer dùng các thông tin này để lọc và so sánh.">
         <Field label="Grade" required error={problem("grade")}>
           <QuantityGradeV2Field value={quantity} onChange={setQuantity} standardGrades={grades} policy={editorPolicy} disabled={locked} showLabel={false} />
         </Field>
@@ -98,7 +98,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
         <Field label="Xuất xứ nguyên liệu đầu vào"><input className="input w-full" aria-label="Xuất xứ nguyên liệu đầu vào" maxLength={300} value={value.inputMaterialOrigin} disabled={locked} onChange={(event) => set("inputMaterialOrigin", event.target.value)} /></Field>
       </Section>
 
-      <Section id="transaction" title="Giao dịch" number={3}>
+      <Section id="transaction" title="Thông tin giao dịch">
         {!policy && <p role="status" className="text-sm text-amber-800">Chọn danh mục có cấu hình giá để hoàn thiện bảng giá.</p>}
         <Field label="Giá theo số lượng" required>
           <QuantityPricingV2Editor value={quantity} onChange={setQuantity} standardGrades={grades} policy={editorPolicy}
@@ -121,14 +121,14 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
         </div>
       </Section>
 
-      <Section id="packaging" title="Bao bì và năng lực" number={4} optional>
+      <Section id="packaging" title="Đóng gói và giao hàng">
         <Field label="Bao bì / đóng gói"><input className="input w-full" aria-label="Bao bì / đóng gói" maxLength={300} value={value.packaging} disabled={locked} onChange={(event) => set("packaging", event.target.value)} /></Field>
         <Field label="Cảng xuất"><input className="input w-full" aria-label="Cảng xuất" maxLength={120} value={value.exportPort} disabled={locked} onChange={(event) => set("exportPort", event.target.value)} /></Field>
         <Field label="Thời gian giao hàng" hint="Số ngày" error={problem("leadTimeDays")}><input className="input w-full text-right font-mono tabular-nums" type="text" inputMode="numeric" aria-label="Thời gian giao hàng (ngày)" maxLength={5} value={value.leadTimeDays} disabled={locked} onChange={(event) => set("leadTimeDays", event.target.value)} /></Field>
         <Field label="Năng lực mỗi tháng" hint="kg / tháng" error={problem("monthlyCapacityKg")}><input className="input w-full text-right font-mono tabular-nums" type="text" inputMode="numeric" aria-label="Năng lực mỗi tháng (kg)" maxLength={32} value={value.monthlyCapacityKg} disabled={locked} onChange={(event) => set("monthlyCapacityKg", formatQuantityInput(event.target.value, value.monthlyCapacityKg))} /></Field>
       </Section>
 
-      <Section id="description" title="Mô tả sản phẩm" number={5}>
+      <Section id="description" title="Mô tả sản phẩm" subtitle="Cần có mô tả ngắn hoặc quy cách để gửi duyệt.">
         <Field label="Mô tả ngắn" hint="Cần ít nhất mô tả ngắn hoặc quy cách để gửi duyệt." error={problem("description")}><textarea className="input min-h-24 w-full" aria-label="Mô tả ngắn" maxLength={1500} value={value.description} disabled={locked} onChange={(event) => set("description", event.target.value)} /></Field>
         <Field label="Mô tả chi tiết"><ProductDescriptionEditor value={value.descriptionDetail} disabled={locked} onChange={(html) => set("descriptionDetail", html)} /></Field>
       </Section>
@@ -140,25 +140,28 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
     </div>
     <aside className="space-y-4 lg:sticky lg:top-6">
       <nav aria-label="Các phần sản phẩm" className="rounded-xl border border-ink-200 bg-white p-4">
-        <h2 className="mb-2 text-sm font-bold text-ink-900">Hoàn thiện sản phẩm</h2>
-        <ol className="space-y-1">{SECTIONS.map((section) => <li key={section.id}><a href={`#product-form-${section.id}`} className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-ink-700 hover:bg-ink-50">
-          {complete(section.id) ? <CheckCircle2 className="size-4 text-brand-700" aria-hidden="true" /> : <Circle className="size-4 text-ink-400" aria-hidden="true" />}
-          <span className="flex-1">{section.title}</span><span className="text-xs text-ink-500">{section.optional ? "Không bắt buộc" : complete(section.id) ? "Đã đủ" : "Cần bổ sung"}</span>
+        <h2 className="mb-2 text-sm font-bold text-ink-900">Các phần</h2>
+        <ol className="space-y-1">{SECTIONS.map((section) => <li key={section.id}><a href={`#product-form-${section.id}`} className="flex items-start gap-3 rounded-lg px-2 py-2 text-sm text-ink-800 hover:bg-ink-50">
+          <span className="flex-1">{section.title}</span><span className={`text-xs font-semibold ${complete(section.id) ? "text-brand-700" : "text-rose-700"}`}>
+            {!complete(section.id) ? "Cần bổ sung" : section.optional ? "Không bắt buộc" : "Đã xong"}
+          </span>
         </a></li>)}</ol>
       </nav>
-      <section aria-label="Xem trước cho buyer" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
-        <div className="aspect-[4/3] bg-ink-50">{coverUrl ? <img src={coverUrl} alt="Ảnh chính sản phẩm" className="size-full object-cover" /> : <div className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-8" aria-hidden="true" /></div>}</div>
-        <div className="space-y-2 p-4"><p className="text-xs font-bold text-brand-700">{categoryLabel}</p>
-          <QuantityBuyerV2Preview value={quantity} standardGrades={grades} policy={editorPolicy} pricePubliclyVisible={value.pricePubliclyVisible} incotermPlace={value.incotermPlace} />
+      <section aria-label="Xem trước cho buyer" className="rounded-xl border border-ink-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-sm font-bold text-ink-900">Buyer sẽ thấy</h2>
+        <div className="aspect-[4/3] overflow-hidden rounded-lg bg-ink-50">{coverUrl ? <img src={coverUrl} alt="Ảnh chính sản phẩm" className="size-full object-cover" /> : <div className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-8" aria-hidden="true" /></div>}</div>
+        <div className="space-y-2 pt-3"><p className="text-xs font-bold uppercase tracking-wide text-brand-700">{categoryLabel}</p>
+          <QuantityBuyerV2Preview value={quantity} standardGrades={grades} policy={editorPolicy} pricePubliclyVisible={value.pricePubliclyVisible} incotermPlace={value.incotermPlace} showHeading={false} />
         </div>
       </section>
     </aside>
   </div>;
 }
 
-function Section({ id, title, number, optional, children }: { id: ProductFormSection; title: string; number: number; optional?: boolean; children: ReactNode }) {
+function Section({ id, title, subtitle, children }: { id: ProductFormSection; title: string; subtitle?: string; children: ReactNode }) {
   return <section id={`product-form-${id}`} className="scroll-mt-6 rounded-xl border border-ink-200 bg-white shadow-sm">
-    <h2 className="border-b border-ink-100 px-4 py-3 text-base font-bold text-ink-900">{number}. {title}{optional && <span className="ml-2 text-xs font-normal text-ink-500">Không bắt buộc</span>}</h2>
+    <div className="border-b border-ink-100 px-4 py-3 sm:px-5"><h2 className="text-base font-bold text-ink-900">{title}</h2>
+      {subtitle && <p className="mt-1 text-sm text-ink-600">{subtitle}</p>}</div>
     <div className="space-y-4 p-4 sm:p-5">{children}</div>
   </section>;
 }

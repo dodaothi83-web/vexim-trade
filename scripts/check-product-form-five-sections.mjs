@@ -36,6 +36,10 @@ for (const id of ['basic', 'attributes', 'transaction', 'packaging', 'descriptio
   assert.match(html, new RegExp(`id="product-form-${id}"`)); assert.match(html, new RegExp(`href="#product-form-${id}"`));
 }
 assert.match(html, /Tải ảnh/); assert.match(html, /data-component="preview"/); assert.match(html, /data-component="description"/);
+assert.match(html, />Các phần<\/h2>/); assert.match(html, />Thuộc tính sản phẩm<\/h2>/);
+assert.match(html, />Thông tin giao dịch<\/h2>/); assert.match(html, />Đóng gói và giao hàng<\/h2>/);
+assert.ok(html.indexOf('>Buyer sẽ thấy</h2>') < html.indexOf('data-component="preview"'));
+assert.match(html, /Không bắt buộc/); assert.match(html, /Cần bổ sung/);
 assert.match(html, /Tên bắt buộc/); assert.match(html, /<button[^>]*disabled=""[^>]*>Gửi duyệt/);
 assert.match(html, /data-component="pricing" data-errors="true" data-warnings="false"/);
 errors.push({ section: 'transaction', field: 'incotermPlace', message: 'Nhập địa điểm Incoterm.' },
