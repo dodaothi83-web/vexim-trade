@@ -62,7 +62,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 ## Buyer
 
 - [x] Đã xây và kiểm thử thành phần thẻ sản phẩm, bảng giá và projection từ revision được duyệt trong đường preview; grade tự nhập bị loại khỏi bộ lọc grade chuẩn.
-- [x] Đã xây trình đọc mã bản duyệt và consent theo đúng revision giá được duyệt, chỉ đọc cờ cần thiết, phân trang và báo lỗi an toàn; không cho bản form cũ cấp quyền cho giá mới, sản phẩm chưa có form duyệt vẫn giữ chính sách cũ. Chưa nối buyer hoặc transaction duyệt.
+- [x] Đã xây trình đọc mã bản duyệt, mã revision giá và consent theo đúng revision được duyệt, chỉ đọc cờ cần thiết, phân trang và báo lỗi an toàn; không cho bản form cũ cấp quyền cho giá mới, sản phẩm chưa có form duyệt vẫn giữ chính sách cũ. Chưa nối buyer hoặc transaction duyệt.
 - [x] Đã có guard giữ nguyên projection cũ cho sản phẩm nhiều grade hoặc grade cũ không đúng định dạng. SQL65 cũng từ chối đưa sản phẩm có nhiều grade hoặc cấu trúc grade mơ hồ vào bước chuẩn bị duyệt một grade; đã thử PGlite và xác nhận guard chính hiện diện trên production.
 - [x] Đã thiết kế bảng thứ tự ảnh được duyệt, helper chọn ảnh và trình đọc server để sau này chọn tối đa 8 ảnh mà không xóa media cũ hay phá URL ảnh cũ; khóa và đối chiếu bảng này trong context duyệt, bản duyệt hoặc manifest lệch thì không fallback. Đã thử PGlite và mock, chưa có transaction ghi manifest hoặc nối buyer.
 - [ ] Nối thẻ, trang chi tiết, bộ lọc và storefront vào dữ liệu mới sau khi luồng duyệt hoàn chỉnh, không làm mất khả năng đọc sản phẩm cũ.
