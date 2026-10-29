@@ -2,6 +2,14 @@
 -- Không xóa hoặc sửa sản phẩm, ảnh hay dữ liệu đang công khai.
 begin;
 
+-- A future atomic approval records the precise approved price revision here.
+-- This link lets buyer projections prove the per-product consent belongs to
+-- that revision; it does not itself publish or approve anything.
+alter table public.product_form_submissions add column if not exists approved_price_revision_id uuid
+  references public.product_quantity_price_revisions(id) on delete restrict;
+create unique index if not exists product_form_submission_price_revision_key
+  on public.product_form_submissions(approved_price_revision_id) where approved_price_revision_id is not null;
+
 -- This service-role-only helper must be called INSIDE the eventual approval
 -- transaction. A separate RPC call releases its locks at the end of that call;
 -- it is not an approval and cannot guarantee that a later RPC sees the same data.

@@ -58,6 +58,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 ## Buyer
 
 - [x] Đã xây và kiểm thử thành phần thẻ sản phẩm, bảng giá và projection từ revision được duyệt trong đường preview; grade tự nhập bị loại khỏi bộ lọc grade chuẩn.
+- [x] Đã xây kiểm tra consent công khai theo đúng revision giá được duyệt, không cho bản form cũ cấp quyền cho giá mới; sản phẩm chưa có form duyệt vẫn giữ chính sách cũ. Chưa nối buyer hoặc transaction duyệt.
 - [x] Đã có guard giữ nguyên projection cũ cho sản phẩm nhiều grade hoặc grade cũ không đúng định dạng.
 - [ ] Nối thẻ, trang chi tiết, bộ lọc và storefront vào dữ liệu mới sau khi luồng duyệt hoàn chỉnh, không làm mất khả năng đọc sản phẩm cũ.
 - [ ] Kiểm tra thẻ cố định chiều cao, grade riêng khỏi tên, giá/MOQ kg hoặc MT, Volume pricing, ngày cập nhật, OEM/ODM/mẫu và bộ lọc.
