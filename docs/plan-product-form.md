@@ -50,11 +50,11 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 
 ## CRM
 
-- [x] Đã xây và kiểm thử transaction yêu cầu chỉnh sửa cùng action phân quyền nhân viên: giữ nguyên listing đã duyệt và bản nháp mới hơn, xử lý thử lại và mở lại bản nháp. Chưa nối vào màn duyệt CRM.
+- [x] Đã nối hàng chờ CRM và màn xem bản gửi dành cho admin/reviewer: so sánh form với bản duyệt liên kết đúng revision giá, hiện ảnh, gợi ý tên tiếng Anh và yêu cầu chỉnh sửa. Kiểm thử quyền, ảnh, dữ liệu cũ chưa rõ và action bằng mock; chưa có thao tác duyệt/công bố, chưa thử staging.
 - [x] Đã xây kiểm tra bản gửi khi duyệt: đối chiếu dữ liệu giá v2, HTML an toàn, chính sách hiện tại và tên tiếng Anh không chứa grade chuẩn hoặc grade tự nhập; chặn dữ liệu grade cũ nhiều dòng, sai kiểu hoặc mâu thuẫn. Đã thử helper SQL65 khóa/đối chiếu snapshot, chính sách và ảnh bằng PGlite; helper server chuẩn bị dữ liệu từ snapshot và kiểm tra byte ảnh mới. Đây chưa phải transaction duyệt nguyên tử; metadata production xác nhận helper SQL65 đã hiện diện.
 - [x] Đã xây hàm và bảng so sánh các trường, tier của hai snapshot form; dữ liệu cũ không biểu diễn được và cam kết cũ chưa rõ được đánh dấu chưa biết, không tự suy đoán. Chưa nối màn CRM, ảnh và tên Anh cần đối chiếu riêng.
 - [ ] Dùng lại form NCC để tạo và sửa sản phẩm trong CRM, đồng thời giữ các trường chỉ có ở CRM và dữ liệu cũ.
-- [ ] Xây màn duyệt bản gửi, so sánh dữ liệu đã duyệt với bản mới, cảnh báo giá và cho admin sửa tên tiếng Anh.
+- [ ] Hoàn thiện màn duyệt: xác nhận và lưu tên tiếng Anh đã sửa, kiểm tra chính sách hiện tại, đối chiếu bytes ảnh và duyệt nguyên tử. Tên gợi ý trên màn chỉ xem, chưa lưu hay công bố.
 - [x] Đã xây helper chuẩn bị bản sao ảnh riêng cho công bố, kiểm tra hash ảnh gốc và bản sao, không đổi ảnh gốc hoặc tạo media công khai; lỗi sau ghi yêu cầu tải lại và đối soát. Đã thử bằng dữ liệu giả; chưa nối transaction hay dùng Storage thật.
 - [ ] Hoàn thiện transaction duyệt/từ chối có phân quyền, khóa và đối chiếu phiên bản cùng snapshot ảnh; không công khai dữ liệu hoặc ảnh đang chờ.
 - [ ] Kiểm thử tạo, sửa, gửi, duyệt và yêu cầu sửa, bao gồm nhiều phiên đồng thời và lỗi kết nối.
