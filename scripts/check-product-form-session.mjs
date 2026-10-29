@@ -84,4 +84,9 @@ const uncertainSubmit = new ProductFormSession(uncertainSubmitOps, { productId: 
 assert.equal((await uncertainSubmit.submit(draft)).ok, false);
 assert.equal(uncertainSubmit.snapshot().requiresReload, true, 'A lost submit response cannot be treated as a definite failure');
 assert.equal((await uncertainSubmit.save(changed)).ok, false, 'Reload before editing after an uncertain submission');
+const invalidSubmitOps = { ...operations, submit: async () => ({ ok: false, message: 'Sai thông số', errors: [{ section: 'attributes', field: 'attributes', code: 'attributes', message: 'Sai thông số' }] }) };
+const invalidSubmit = new ProductFormSession(invalidSubmitOps, { productId: id, revision: 1, value: draft, images: [] });
+const invalidResult = await invalidSubmit.submit(draft);
+assert.equal(invalidResult.ok, false); assert.equal(invalidResult.errors[0].field, 'attributes');
+assert.equal(invalidSubmit.snapshot().requiresReload, false, 'Correctable validation errors do not force reload');
 console.log('Product form session: incomplete drafts, retries, revision CAS, uploads and submission sequencing passed');

@@ -46,4 +46,10 @@ assert.match(html, /Nhập địa điểm Incoterm\./); assert.match(html, /Hãy
 errors.length = 0;
 html = renderToStaticMarkup(React.createElement(exports.ProductFormFiveSections, props));
 assert.match(html, /<button[^>]*>Gửi duyệt/); assert.doesNotMatch(html, /<button[^>]*disabled=""[^>]*>Gửi duyệt/);
+const serverErrors = [{ section: 'attributes', field: 'attributes', code: 'attributes', message: 'Thông số cần kiểm tra' },
+  { section: 'transaction', field: 'tiers', code: 'price_spread', message: 'Tỷ lệ giá đã đổi' }];
+html = renderToStaticMarkup(React.createElement(exports.ProductFormFiveSections, { ...props, serverErrors }));
+assert.ok(html.indexOf('Thông số cần kiểm tra') > html.indexOf('id="product-form-attributes"'));
+assert.ok(html.indexOf('Tỷ lệ giá đã đổi') > html.indexOf('id="product-form-transaction"'));
+assert.match(html, /<button[^>]*disabled=""[^>]*>Gửi duyệt/);
 console.log('Five-section product form: sections, navigation, preview, rich editor and submit state passed');

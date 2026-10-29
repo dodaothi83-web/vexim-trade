@@ -3,7 +3,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { ProductFormFiveSections } from "@/components/products/product-form-five-sections";
 import { ProductFormSession, type ProductFormImage, type ProductFormSessionOperations, type ProductFormSessionState } from "@/lib/products/product-form-session";
-import type { ProductFormDraft } from "@/lib/products/product-form-model";
+import type { ProductFormDraft, ProductFormIssue } from "@/lib/products/product-form-model";
 import type { QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 
@@ -28,6 +28,7 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
   const [state, setState] = useState<ProductFormSessionState>({ productId: initialProductId, revision: initialRevision,
     images: initialImages, availableImages: initialAvailableImages ?? initialImages, busy: false, submitted: false, requiresReload: false });
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [serverErrors, setServerErrors] = useState<ProductFormIssue[]>([]);
   const changeRef = useRef(onSessionChange);
   changeRef.current = onSessionChange;
   const sessionRef = useRef<ProductFormSession | null>(null);
@@ -43,7 +44,9 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
   }
   async function submit() {
     setMessage(null);
+    setServerErrors([]);
     const result = await session.submit(value);
+    if (!result.ok) setServerErrors(result.errors ?? []);
     setMessage({ ok: result.ok, text: result.message });
   }
   async function upload(event: ChangeEvent<HTMLInputElement>) {
@@ -52,11 +55,13 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
     if (!files.length) return;
     setMessage(null);
     const result = await session.upload(value, files);
+    if (result.ok) setServerErrors([]);
     setMessage({ ok: result.ok, text: result.ok ? `Đã tải ${result.uploaded} ảnh.` : result.message });
   }
   async function selectImages(images: ProductFormImage[]) {
     setMessage(null);
     const result = await session.selectImages(value, images);
+    if (result.ok) setServerErrors([]);
     setMessage({ ok: result.ok, text: result.ok ? "Đã lưu danh sách ảnh trong bản nháp." : result.message });
   }
   const locked = disabled || state.busy || state.submitted || state.requiresReload;
@@ -88,8 +93,8 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
   const statusText = state.requiresReload ? "Cần tải lại trang" : state.submitted ? "Đã gửi duyệt" : state.busy ? "Đang xử lý" : session.isDirty(value) ? "Có thay đổi chưa lưu" : "Đã lưu bản nháp";
   return <div className="space-y-3">
     {message && <p role={message.ok ? "status" : "alert"} className={`rounded-lg border px-3 py-2 text-sm ${message.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{message.text}</p>}
-    <ProductFormFiveSections value={value} onChange={setValue} categories={categories} policies={policies}
-      imageCount={state.images.length} coverUrl={state.images[0]?.url} imageControls={imageControls}
+    <ProductFormFiveSections value={value} onChange={(next) => { setValue(next); setServerErrors([]); }} categories={categories} policies={policies}
+      imageCount={state.images.length} coverUrl={state.images[0]?.url} imageControls={imageControls} serverErrors={serverErrors}
       onSave={() => void save()} onSubmit={() => void submit()} disabled={disabled || state.submitted || state.requiresReload} busy={state.busy} statusText={statusText} />
   </div>;
 }

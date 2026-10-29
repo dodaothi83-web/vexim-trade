@@ -8,7 +8,7 @@ import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
 import { fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
 import { nonGradeProductFields, standardGradesForCategory } from "@/lib/products/grade-pricing";
-import { validateProductFormSubmission, type ProductFormDraft, type ProductFormSection } from "@/lib/products/product-form-model";
+import { validateProductFormSubmission, type ProductFormDraft, type ProductFormIssue, type ProductFormSection } from "@/lib/products/product-form-model";
 import { DEFAULT_QUANTITY_PRICING_POLICY, formatQuantityInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import type { SupplierQuantityEntry } from "@/lib/products/quantity-entry";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
@@ -35,13 +35,14 @@ type Props = {
   disabled?: boolean;
   busy?: boolean;
   canSubmit?: boolean;
+  serverErrors?: ProductFormIssue[];
   saveLabel?: string;
   statusText?: string;
 };
 
 /** Presentation shared by supplier and CRM. Persistence and permissions belong to the caller. */
 export function ProductFormFiveSections({ value, onChange, categories, policies, imageCount, coverUrl, imageControls,
-  onSave, onSubmit, disabled = false, busy = false, canSubmit = true, saveLabel = "Lưu nháp", statusText = "Chưa gửi duyệt" }: Props) {
+  onSave, onSubmit, disabled = false, busy = false, canSubmit = true, serverErrors = [], saveLabel = "Lưu nháp", statusText = "Chưa gửi duyệt" }: Props) {
   const category = categories.find((item) => item.slug === value.category);
   const grades = standardGradesForCategory(category ?? (value.category ? { slug: value.category } : null));
   const policy = category ? policies[category.slug] ?? null : null;
@@ -49,6 +50,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
   const quantity: SupplierQuantityEntry = { grade: value.grade, customGrade: value.customGrade, incoterm: value.incoterm,
     nameVi: value.name, unit: value.unit, tiers: value.tiers };
   const checked = validateProductFormSubmission(value, { categoryValid: !!category, imageCount, standardGrades: grades, policy });
+  const allErrors = [...checked.errors, ...serverErrors];
   const locked = disabled || busy;
   function set<K extends keyof ProductFormDraft>(key: K, next: ProductFormDraft[K]) { onChange({ ...value, [key]: next }); }
   function setQuantity(next: SupplierQuantityEntry) {
@@ -61,10 +63,10 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
     if (pool === value.attributePool && JSON.stringify(attributes) === JSON.stringify(value.attributes)) return;
     onChange({ ...value, attributePool: pool, attributes });
   }, [onChange, value]);
-  const problem = (field: string) => checked.errors.find((item) => item.field === field)?.message;
+  const problem = (field: string) => allErrors.find((item) => item.field === field)?.message;
   const categoryLabel = category?.label ?? "Chưa chọn danh mục";
-  const complete = (section: ProductFormSection) => !checked.errors.some((item) => item.section === section);
-  const ready = checked.errors.length === 0 && canSubmit;
+  const complete = (section: ProductFormSection) => !allErrors.some((item) => item.section === section);
+  const ready = allErrors.length === 0 && canSubmit;
 
   return <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
     <div className="min-w-0 space-y-4">
@@ -88,6 +90,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
         </Field>
         {category && <SupplierAttributeInputs key={category.slug} officialFields={nonGradeProductFields(fieldsFor(category))}
           supplierFields={nonGradeProductFields(supplierFieldsFor(category))} values={value.attributes} disabled={locked} onCommit={onAttributesCommit} />}
+        {problem("attributes") && <p role="alert" className="text-xs text-rose-700">{problem("attributes")}</p>}
         <Field label="Quy cách / tiêu chuẩn" hint="Nhập quy cách hoặc mô tả ngắn để gửi duyệt.">
           <textarea className="input min-h-24 w-full" aria-label="Quy cách / tiêu chuẩn" maxLength={800} value={value.spec} disabled={locked} onChange={(event) => set("spec", event.target.value)} />
         </Field>
@@ -105,6 +108,9 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
                 onChange={(event) => onChange({ ...value, incotermPlace: event.target.value, priceConsent: false })} />
               {problem("incotermPlace") && <span className="mt-1 block text-xs font-normal text-rose-700">{problem("incotermPlace")}</span>}
             </label>} />
+          {serverErrors.filter((issue) => ["incoterm", "tiers"].includes(issue.field) &&
+            !checked.errors.some((current) => current.code === issue.code && current.tierIndex === issue.tierIndex))
+            .map((issue, index) => <p key={`${issue.code}-${issue.tierIndex ?? "all"}-${index}`} role="alert" className="mt-1 text-xs text-rose-700">{issue.message}</p>)}
           {problem("priceConsent") && <p className="mt-1 text-xs text-rose-700">{problem("priceConsent")}</p>}
         </Field>
         <label className="flex items-start gap-2 text-sm font-semibold text-ink-800"><input type="checkbox" className="mt-1 size-4 accent-brand-700" checked={value.pricePubliclyVisible} disabled={locked}

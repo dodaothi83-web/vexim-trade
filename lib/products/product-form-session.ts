@@ -1,7 +1,7 @@
-import type { ProductFormDraft } from "@/lib/products/product-form-model";
+import type { ProductFormDraft, ProductFormIssue } from "@/lib/products/product-form-model";
 
 export type ProductFormImage = { id: string; url: string; source: "media" | "staged" };
-type Failure = { ok: false; message: string; requiresReload?: boolean };
+type Failure = { ok: false; message: string; requiresReload?: boolean; errors?: ProductFormIssue[] };
 type DraftResult = Failure | { ok: true; id: string; revision: number };
 type SubmitResult = Failure | { ok: true; message: string };
 type ImageResult = Failure | { ok: true; revision: number };
