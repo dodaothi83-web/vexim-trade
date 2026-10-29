@@ -33,6 +33,8 @@ import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
 import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
 import { GradePricingTable } from "@/components/products/grade-pricing-table";
+import { QuantityPricingInline } from "@/components/products/quantity-pricing-inline";
+import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import {
   CUSTOM_GRADE_OPTION,
   LEAD_TIME_UNIT_OPTIONS,
@@ -57,6 +59,7 @@ import { effectiveFieldsFor, fieldsFor, supplierFieldsFor } from "@/lib/product-
 
 type EditorProps = {
   product?: SupplierProduct;
+  quantityEditor?: QuantityEditorData | null;
   media?: MediaAsset[];
   userId?: string;
   categories: CategoryProposalOption[];
@@ -183,7 +186,7 @@ function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElemen
   const panel = form?.querySelector(`[data-step-panel="${step}"]`);
   if (!panel) return null;
   for (const element of panel.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input, select, textarea")) {
-    if (element.disabled || (element instanceof HTMLInputElement && element.type === "hidden")) continue;
+    if (element.form !== form || element.disabled || (element instanceof HTMLInputElement && element.type === "hidden")) continue;
     if (!element.checkValidity()) return element;
   }
   return null;
@@ -199,7 +202,7 @@ function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElemen
  * Hành vi cũ giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
+export function SupplierProductEditor({ product, quantityEditor, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
   const router = useRouter();
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
@@ -770,6 +773,15 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                   Bạn chưa chọn danh mục kinh doanh đang mở. <Link href="/supplier/portal/categories" className="font-semibold underline">Chọn danh mục trước khi thêm sản phẩm</Link>
                 </p>}
                 <div className="md:col-span-2">
+                  {product && <div className="mb-4 space-y-3 rounded-xl border border-brand-200 p-4">
+                    <h3 className="text-sm font-bold text-ink-900">Giá theo số lượng · mô hình mới</h3>
+                    {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
+                      data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} />
+                      : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra danh mục và kết nối; giá đang hiển thị không bị thay đổi.</p>}
+                  </div>}
+                  <details open={!product || showGradeErrors} className="rounded-xl border border-ink-200 p-3">
+                    <summary className="cursor-pointer text-sm font-semibold text-ink-700">Bảng giá cũ (cơ chế hiện tại)</summary>
+                    <p className="my-2 text-xs text-amber-800">Giữ lại trong thời gian chuyển đổi. Sửa bảng này vẫn áp dụng quy tắc cũ.</p>
                   <GradePricingTable
                     rows={gradeRows}
                     onChange={onGradeRowsChange}
@@ -778,6 +790,7 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                     showErrors={showGradeErrors}
                     hiddenInputName="grade_rows_json"
                   />
+                  </details>
                   <p className="mt-2.5 rounded-lg border border-amber-200 bg-amber-50/80 px-3.5 py-2.5 text-[12px] leading-5 text-amber-950">
                     ⚠️ Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng. Chênh lệch bất thường sẽ được Vexim rà soát và xử lý theo{" "}
                     <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-800 underline hover:text-brand-900">

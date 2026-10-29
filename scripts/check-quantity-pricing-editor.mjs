@@ -32,6 +32,9 @@ for (const text of ['Số lượng từ (kg)', 'USD/kg', 'Giá cho 1 kg', '4999'
 assert.match(html, /<input[^>]*required[^>]*name="confirm_quantity_price_consent"/);
 assert.match(html, /href="\/quy-che-hoat-dong"/);
 assert.match(html, /\+ Thêm mức giá/);
+const isolated = render({ isolated: true, consentChecked: false, onConsentChange() {} });
+assert.equal((isolated.match(/form="quantity-pricing-separate"/g) ?? []).length, 7, 'All editable inputs are detached from the enclosing product form');
+assert.match(isolated, /type="checkbox"[^>]*name="confirm_quantity_price_consent"/);
 const mt = render({ buyerPriceUnit: 'mt' });
 assert.ok(mt.includes('USD 6,000–6,400/MT'));
 assert.ok(mt.includes('USD 6,400/MT'));

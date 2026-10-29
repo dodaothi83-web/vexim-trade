@@ -68,6 +68,7 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/supplier-portal/product-view': view,
   '@/lib/products/grade-pricing': gradePricing,
   '@/components/products/grade-pricing-table': gradePricingTable,
+  '@/components/products/quantity-pricing-inline': { QuantityPricingInline: () => React.createElement('div', { 'data-quantity-editor': '1' }) },
   '@/components/toast': { useToast: () => ({ push() {} }) },
   '../product-actions': {
     saveSupplierProductAction: async () => ({ ok: true, id: 'p1', message: 'Đã lưu bản nháp.' }),
@@ -132,7 +133,8 @@ assert.equal((step1.match(/data-step-panel="(2|3)"/g) ?? []).length, 2, 'Đủ b
 for (const panel of ['2', '3']) {
   assert.match(step1, new RegExp(`data-step-panel="${panel}" class="hidden"`), `Bước ${panel} bị ẩn, không đẩy nội dung dài xuống`);
 }
-assert.doesNotMatch(source, /<details/, 'Không còn khối gập <details> trong trang sản phẩm');
+assert.equal((source.match(/<details\b/g) ?? []).length, 1, 'Only the legacy pricing transition panel is collapsible');
+assert.ok(step1.includes('Bảng giá cũ (cơ chế hiện tại)'));
 
 // 2. Bảng Grade & giá + Thông tin thương mại & xuất khẩu HIỆN NGAY ở bước 1, không cần bấm mũi tên.
 assert.match(step1, /Thông tin thương mại &amp; xuất khẩu/, 'Tiêu đề khối thương mại & xuất khẩu hiện ngay');

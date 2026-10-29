@@ -18,12 +18,17 @@ type Props = {
   pricePubliclyVisible: boolean;
   disabled?: boolean;
   showErrors?: boolean;
+  consentChecked?: boolean;
+  onConsentChange?: (checked: boolean) => void;
+  consentLabel?: string;
+  /** Detach inputs when this editor sits inside another product form. */
+  isolated?: boolean;
 };
 
 const INCOTERMS = ["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"];
 
 /** Controlled editor; parent owns name and consent state and validates again on the server. */
-export function QuantityPricingEditor({ value, onChange, standardGrades, policy, buyerPriceUnit, pricePubliclyVisible, disabled = false, showErrors = false }: Props) {
+export function QuantityPricingEditor({ value, onChange, standardGrades, policy, buyerPriceUnit, pricePubliclyVisible, disabled = false, showErrors = false, consentChecked, onConsentChange, consentLabel, isolated = false }: Props) {
   const validation = validateQuantityPricing(value, standardGrades, policy);
   const parsed = validation.value;
   const changeTier = (index: number, field: "minKg" | "priceUsdPerKg", text: string) => {
@@ -44,12 +49,12 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm font-semibold text-ink-800">Grade <span className="text-rose-700">*</span>
-            <select aria-label="Grade" className="input mt-1 w-full" required disabled={disabled} value={value.grade} onChange={(e) => onChange({ ...value, grade: e.target.value })}>
+            <select form={isolated ? "quantity-pricing-separate" : undefined} aria-label="Grade" className="input mt-1 w-full" required disabled={disabled} value={value.grade} onChange={(e) => onChange({ ...value, grade: e.target.value })}>
               <option value="">Chọn grade</option>{standardGrades.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
             </select>
           </label>
           <label className="text-sm font-semibold text-ink-800">Incoterm <span className="text-rose-700">*</span>
-            <select aria-label="Incoterm" className="input mt-1 w-full" required disabled={disabled} value={value.incoterm} onChange={(e) => onChange({ ...value, incoterm: e.target.value })}>
+            <select form={isolated ? "quantity-pricing-separate" : undefined} aria-label="Incoterm" className="input mt-1 w-full" required disabled={disabled} value={value.incoterm} onChange={(e) => onChange({ ...value, incoterm: e.target.value })}>
               <option value="">Chọn Incoterm</option>{INCOTERMS.map((term) => <option key={term} value={term}>{term}</option>)}
             </select>
           </label>
@@ -62,9 +67,9 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
             const next = value.tiers[index + 1]?.minKg.trim();
             const upper = next && /^\d+$/.test(next) && Number.isSafeInteger(Number(next)) && Number(next) > 1 ? String(Number(next) - 1) : "—";
             return <tr key={index} className="border-t border-ink-100">
-              <td className="p-1"><input aria-label={`Số lượng từ mức ${index + 1} (kg)`} className="input w-full" type="number" min="1" max="1000000000" step="1" required disabled={disabled} value={tier.minKg} onChange={(e) => changeTier(index, "minKg", e.target.value)} /></td>
+              <td className="p-1"><input form={isolated ? "quantity-pricing-separate" : undefined} aria-label={`Số lượng từ mức ${index + 1} (kg)`} className="input w-full" type="number" min="1" max="1000000000" step="1" required disabled={disabled} value={tier.minKg} onChange={(e) => changeTier(index, "minKg", e.target.value)} /></td>
               <td className="p-2 tabular-nums">{index === value.tiers.length - 1 ? "trở lên" : upper}</td>
-              <td className="p-1"><input aria-label={`Giá mức ${index + 1} (USD/kg)`} className="input w-full" type="number" min="0.01" max="1000000000" step="0.01" required disabled={disabled} value={tier.priceUsdPerKg} onChange={(e) => changeTier(index, "priceUsdPerKg", e.target.value)} /></td>
+              <td className="p-1"><input form={isolated ? "quantity-pricing-separate" : undefined} aria-label={`Giá mức ${index + 1} (USD/kg)`} className="input w-full" type="number" min="0.01" max="1000000000" step="0.01" required disabled={disabled} value={tier.priceUsdPerKg} onChange={(e) => changeTier(index, "priceUsdPerKg", e.target.value)} /></td>
               <td className="p-1">{value.tiers.length > 1 && <button type="button" disabled={disabled} onClick={() => onChange({ ...value, tiers: value.tiers.filter((_, i) => i !== index) })} className="text-xs text-rose-700" aria-label={`Xóa mức giá ${index + 1}`}>Xóa</button>}</td>
             </tr>;
           })}</tbody>
@@ -91,6 +96,6 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
       </aside>
     </div>
     <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">⚠️ Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng. Chênh lệch bất thường sẽ được Vexim rà soát và xử lý theo <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold underline">Quy chế hoạt động</Link>.</p>
-    {pricePubliclyVisible && <label className="flex items-start gap-2 text-xs font-medium text-ink-800"><input type="checkbox" name="confirm_quantity_price_consent" value="yes" required disabled={disabled} className="mt-0.5 size-4 accent-brand-700" /><span>Tôi xác nhận giá trên là giá tôi sẵn sàng báo cho buyer với đúng grade, Incoterm và số lượng đã ghi. <span className="text-rose-700">*</span></span></label>}
+    {pricePubliclyVisible && <label className="flex items-start gap-2 text-xs font-medium text-ink-800"><input form={isolated ? "quantity-pricing-separate" : undefined} type="checkbox" name="confirm_quantity_price_consent" value="yes" required disabled={disabled} checked={consentChecked} onChange={onConsentChange ? (event) => onConsentChange(event.target.checked) : undefined} className="mt-0.5 size-4 accent-brand-700" /><span>{consentLabel ?? "Tôi xác nhận giá trên là giá tôi sẵn sàng báo cho buyer với đúng grade, Incoterm và số lượng đã ghi."} <span className="text-rose-700">*</span></span></label>}
   </section>;
 }

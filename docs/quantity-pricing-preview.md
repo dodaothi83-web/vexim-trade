@@ -1,6 +1,8 @@
 # Quantity pricing previews
 
-Both switches are off by default. Do not enable either on a public production deployment: this is an incomplete, opt-in staging experiment, not the final cutover.
+Both switches are off by default. Do not enable either on a public production deployment: this is an incomplete transition, not the final cutover.
+
+The CRM and supplier edit pages for existing products now include an inline quantity-price proposal panel. It writes a separate pending revision; it does not change the current buyer price. The legacy table remains accessible during transition and new-product forms still use it. Staff must attest they received the supplier's price commitment; the existing audit log is best-effort, not a durable consent ledger. Until a durable consent record, the remaining workflows and end-to-end staging tests are complete, this panel must not be treated as a production price cutover.
 
 - `VEXIM_QUANTITY_PRICING_PREVIEW=true` exposes an internal supplier editor link for signed-in, approved suppliers and their own eligible products. Submissions write real pending revisions to the configured database and are reviewed in the separate CRM queue. Use a dedicated staging database and test accounts.
 - `VEXIM_QUANTITY_BUYER_PREVIEW=true` makes the shared category and ID-based catalog reads use approved quantity-price revisions when present. Home, search, category cards, product detail and comparison use those projected records. This changes the ordinary buyer pages and is **not** an access-control mechanism. Only enable it in an isolated, non-public staging environment.

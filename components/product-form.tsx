@@ -15,6 +15,8 @@ import { ProductAttributeInputs } from "@/components/product-attribute-inputs";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
 import { GradePricingTable } from "@/components/products/grade-pricing-table";
+import { QuantityPricingInline } from "@/components/products/quantity-pricing-inline";
+import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import {
   CUSTOM_GRADE_OPTION,
   LEAD_TIME_UNIT_OPTIONS,
@@ -105,9 +107,11 @@ export function ProductForm({
   savedPrice,
   previewImage = null,
   savedTranslationCurrent = true,
+  quantityEditor,
 }: {
   supplier: Supplier;
   product?: SupplierProduct | null;
+  quantityEditor?: QuantityEditorData | null;
   categories: Pick<Category, "id" | "slug" | "name_i18n" | "price_unit" | "moq_units" | "product_fields" | "supplier_product_fields">[];
   supplierCategories?: string[];
   /** Trạng thái media cho sản phẩm do staff quản lý. */
@@ -459,13 +463,17 @@ export function ProductForm({
         <section id="product-panel-spec" role="tabpanel" aria-labelledby="product-tab-spec" className="card p-5">
           <h2 className="mb-4 text-sm font-bold text-ink-900">Quy cách &amp; năng lực</h2>
           <div className="mb-5 space-y-4">
-            <GradePricingTable
-              rows={gradeRows}
-              onChange={setGradeRows}
-              category={activeCategorySource}
-              disabled={busy}
-              showErrors={showGradeErrors}
-            />
+            {product && <div className="space-y-3 rounded-xl border border-brand-200 bg-white p-4">
+              <h3 className="text-sm font-bold text-ink-900">Giá theo số lượng · mô hình mới</h3>
+              {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
+                data={quantityEditor} actor="staff" disabled={busy} dirty={dirty} />
+                : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra kết nối và danh mục đã xuất bản; dữ liệu giá cũ không bị thay đổi.</p>}
+            </div>}
+            {product ? <details className="rounded-xl border border-ink-200 p-3" open={showGradeErrors}>
+              <summary className="cursor-pointer text-sm font-semibold text-ink-700">Bảng giá cũ (cơ chế hiện tại)</summary>
+              <p className="my-2 text-xs text-amber-800">Giữ lại trong thời gian chuyển đổi. Sửa bảng cũ vẫn áp dụng quy tắc cũ.</p>
+              <GradePricingTable rows={gradeRows} onChange={setGradeRows} category={activeCategorySource} disabled={busy} showErrors={showGradeErrors} />
+            </details> : <GradePricingTable rows={gradeRows} onChange={setGradeRows} category={activeCategorySource} disabled={busy} showErrors={showGradeErrors} />}
             {attributeInputFields.length > 0 && (
               <ProductAttributeInputs fields={attributeInputFields} values={attributes} onChange={setAttributes} />
             )}
