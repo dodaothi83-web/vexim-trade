@@ -40,6 +40,8 @@ try {
   await db.query('delete from public.product_form_staged_images where id=$1', [image]);
   await db.query("update public.product_form_drafts set revision=1,image_selection='[]'::jsonb where product_id=$1", [bootstrap.product_id]);
   await db.exec(namespace); await db.exec(namespace);
+  const capability = readFileSync(new URL('../supabase/migrations/20261067_product_form_image_namespace_capability.sql', import.meta.url), 'utf8');
+  await db.exec(capability); await db.exec(capability);
   assert.equal((await db.query('select public.product_form_image_namespace_ready() ready')).rows[0].ready, true);
   assert.equal((await db.query("select has_function_privilege('anon','public.product_form_image_namespace_ready()','execute') permitted")).rows[0].permitted, false);
   await db.exec(`grant execute on function ${stageSignature} to anon`);

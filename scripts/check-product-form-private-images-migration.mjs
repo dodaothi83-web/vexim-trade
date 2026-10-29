@@ -36,6 +36,7 @@ try {
   await db.exec(sql); await db.exec(sql);
   const namespaceMigration = readFileSync(new URL('../supabase/migrations/20261066_product_form_private_image_namespace.sql', import.meta.url), 'utf8');
   await db.exec(namespaceMigration); await db.exec(namespaceMigration);
+  await db.exec(readFileSync(new URL('../supabase/migrations/20261067_product_form_image_namespace_capability.sql', import.meta.url), 'utf8'));
   const stage = async (owner, rev, id = image, actor = 'user', bytes = 1234, hash = 'a'.repeat(64)) =>
     (await db.query('select public.stage_product_form_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) result',
       [owner, product, actor, rev, id, 'Ảnh mới', bytes, 800, 600, hash, 200, 'b'.repeat(64)])).rows[0].result;
