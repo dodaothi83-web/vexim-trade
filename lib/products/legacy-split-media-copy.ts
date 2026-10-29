@@ -14,7 +14,12 @@ export type SplitMediaIO = {
   isUnreferenced(path: string): Promise<boolean>;
 };
 export type SplitFileReceipt = { sourcePath: string; targetPath: string; sha256: string; bytes: number; mime: string; alreadyPresent: boolean };
-export type SplitMediaReceipt = { mode: "inspect" | "copy"; sourceId: string; newProductId: string; files: SplitFileReceipt[] };
+export type SplitMediaReceipt = {
+  mode: "inspect" | "copy"; sourceId: string; newProductId: string; files: SplitFileReceipt[];
+  /** Worst-case object bytes to add based on preflight; excludes DB metadata and concurrent changes. */
+  additionalBytesAtPreflight: number;
+  totalSourceBytes: number;
+};
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MIME: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
 const MAX_FILE_BYTES = 16 * 1024 * 1024;
@@ -103,7 +108,10 @@ export async function prepareLegacySplitMedia(plan: LegacySplitPlan, io: SplitMe
           hash(source) !== task.sha256 || hash(target) !== task.sha256) throw new Error("Ảnh gốc hoặc ảnh mới thay đổi trong lúc sao chép.");
     }
   }
-  return { mode, sourceId: plan.sourceId, newProductId: plan.newProductId, files: staged.map((task) => ({
-    sourcePath: task.sourcePath, targetPath: task.targetPath, sha256: task.sha256, bytes: task.data.byteLength, mime: task.mime, alreadyPresent: task.alreadyPresent,
-  })) };
+  return { mode, sourceId: plan.sourceId, newProductId: plan.newProductId,
+    totalSourceBytes: totalBytes,
+    additionalBytesAtPreflight: staged.reduce((sum, task) => sum + (task.alreadyPresent ? 0 : task.data.byteLength), 0),
+    files: staged.map((task) => ({
+      sourcePath: task.sourcePath, targetPath: task.targetPath, sha256: task.sha256, bytes: task.data.byteLength, mime: task.mime, alreadyPresent: task.alreadyPresent,
+    })) };
 }

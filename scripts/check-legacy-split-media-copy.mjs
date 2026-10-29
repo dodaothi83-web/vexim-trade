@@ -32,12 +32,15 @@ function makeIO() {
 let { files, writes, io } = makeIO();
 let receipt = await prepareLegacySplitMedia(plan, io, 'inspect');
 assert.equal(writes.length, 0, 'Inspection is read-only'); assert.equal(receipt.files.length, 2);
+assert.equal(receipt.totalSourceBytes, bytes('original').length + bytes('thumb').length);
+assert.equal(receipt.additionalBytesAtPreflight, receipt.totalSourceBytes, 'Estimate includes both original and thumbnail copies');
 assert.equal(receipt.files[0].sha256, createHash('sha256').update(bytes('original')).digest('hex'));
 receipt = await prepareLegacySplitMedia(plan, io, 'copy');
 assert.equal(writes.length, 2); assert.equal(receipt.files[0].alreadyPresent, false); assert.equal(writes[0][1], 'image/webp');
 assert.equal(new TextDecoder().decode(files.get(sourcePath)), 'original'); assert.equal(new TextDecoder().decode(files.get(newPath)), 'original');
 receipt = await prepareLegacySplitMedia(plan, io, 'copy');
 assert.equal(writes.length, 2, 'A retry never overwrites'); assert.equal(receipt.files[0].alreadyPresent, true);
+assert.equal(receipt.additionalBytesAtPreflight, 0, 'Do not count byte-identical existing copies twice');
 ({ files, writes, io } = makeIO()); files.set(newThumb, bytes('unrelated'));
 await assert.rejects(prepareLegacySplitMedia(plan, io, 'copy'), /không ghi đè/);
 assert.equal(writes.length, 0, 'A collision anywhere prevents any copying');

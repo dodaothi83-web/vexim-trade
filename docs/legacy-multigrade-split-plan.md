@@ -13,6 +13,14 @@ Chưa tách sản phẩm, chưa sao chép tệp, chưa sửa RFQ, chưa chạy m
 
 Kiểm kê chỉ đọc ngày 29/10/2026 cho trường hợp đã báo: 2 dòng grade theo thứ tự 500 g/L và 550 g/L; 6 ảnh buyer thuộc sản phẩm; không có RFQ liên kết trực tiếp qua `source_product_id`; không có chứng nhận ghi ID đó trong mảng phạm vi sản phẩm; không có revision bảng giá mới. Đây là số liệu tại thời điểm đọc, có thể thay đổi. RFQ cũ không có `source_product_id` cần được rà riêng, không được tự gắn chỉ dựa vào tên tự do. Phạm vi chứng nhận supplier hoặc bằng chứng khác chưa được kết luận từ số đếm này.
 
+## Ràng buộc Supabase Free
+
+- Không yêu cầu nâng cấp, không dùng Supabase Branching, PITR hoặc backup tự động của gói trả phí. Kiểm thử logic bằng dữ liệu giả trong PGlite; đây không phải kiểm thử đồng thời hoặc RLS/storage của Supabase thật.
+- Nếu cần staging Supabase thật, chỉ dùng một project riêng khi tài khoản còn suất Free và chủ dữ liệu đồng ý. Không tự tạo project, không giả định còn suất hoặc sao chép dữ liệu thật sang đó. Kiểm tra cấu hình và bảo mật trước khi dùng dữ liệu thử; không hướng staging vào database đang phục vụ khách.
+- Trước khi thực thi, hướng dẫn anh tạo bản sao database độc lập và kiểm tra phục hồi trên môi trường cách ly. Supabase CLI có thể xuất roles, schema và data trên Free, nhưng cần đối chiếu các thành phần thực tế và quyền khôi phục; không coi fixture, snapshot kế hoạch hay một file xuất bảng là bản sao đầy đủ.
+- Backup database không chứa byte của ảnh/tệp trong Storage. Sao lưu Storage riêng và xác minh tệp có thể đọc được. Bộ sao chép tính tổng byte gốc và số byte cần thêm theo preflight, bao gồm thumbnail; đây không phải kiểm tra quota khả dụng và không tính thay đổi đồng thời. Trước khi chạy cần tự đối chiếu quota Storage hiện tại vì bản sao ảnh sẽ dùng thêm dung lượng; không giả định đủ chỗ. Không đưa dữ liệu, khóa, mật khẩu hoặc chuỗi kết nối vào Git hay chat.
+- Tài liệu tham khảo: [Supabase pricing](https://supabase.com/pricing), [database backups](https://supabase.com/docs/guides/platform/backups), [backup and restore using the CLI](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore).
+
 ## Nguyên tắc triển khai an toàn
 
 1. Đối chiếu sản phẩm, trạng thái, URL và thứ tự `grade_rows` hiện tại. Nếu dữ liệu đã thay đổi so với bản được duyệt, dừng và lập kế hoạch lại. Giữ nguyên ID cũ cho grade đầu, giữ đường dẫn cũ và RFQ mặc định. Grade thứ hai có ID mới do bước thực thi cấp và kiểm tra không trùng. Không tự chuyển khoảng giá thành một giá hay tạo tier số lượng từ giá thấp/cao.
