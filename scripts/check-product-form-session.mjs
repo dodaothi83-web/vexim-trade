@@ -89,4 +89,28 @@ const invalidSubmit = new ProductFormSession(invalidSubmitOps, { productId: id, 
 const invalidResult = await invalidSubmit.submit(draft);
 assert.equal(invalidResult.ok, false); assert.equal(invalidResult.errors[0].field, 'attributes');
 assert.equal(invalidSubmit.snapshot().requiresReload, false, 'Correctable validation errors do not force reload');
-console.log('Product form session: incomplete drafts, retries, revision CAS, uploads and submission sequencing passed');
+const originalImages = [{ id: 'old-1', url: '/old-1', source: 'media' }, { id: 'new-1', url: '/new-1', source: 'staged' },
+  { id: 'old-2', url: '/old-2', source: 'media' }];
+const stagedImage = (n) => ({ id: `copy-${n}`, url: `/private/${n}`, source: 'staged' });
+let sentRevision = 0, snapshotCalls = 0;
+const snapshotOps = { ...operations, snapshotImages: async (_id, revision, ids) => {
+  snapshotCalls++; assert.equal(revision, 7); assert.deepEqual(Array.from(ids), ['old-1', 'old-2']);
+  return { ok: true, replaced: 2, revision: 9, replacements: [{ mediaId: 'old-1', image: stagedImage(1) }, { mediaId: 'old-2', image: stagedImage(2) }] };
+}, submit: async (_id, revision) => { sentRevision = revision; return { ok: true, message: 'sent' }; } };
+const withOld = () => new ProductFormSession(snapshotOps, { productId: id, revision: 7, value: draft, images: originalImages });
+session = withOld(); assert.equal((await session.submit(draft)).ok, true); assert.equal(sentRevision, 9);
+assert.deepEqual(Array.from(session.snapshot().images, (x) => x.id), ['copy-1', 'new-1', 'copy-2']);
+assert.equal(session.snapshot().availableImages.length, 5, 'Old public photos remain available and are not deleted');
+assert.equal(snapshotCalls, 1);
+const unsupported = new ProductFormSession(operations, { productId: id, revision: 7, value: draft, images: originalImages });
+assert.equal((await unsupported.submit(draft)).ok, false, 'Never submit unhashed legacy media');
+const partial = new ProductFormSession({ ...snapshotOps, snapshotImages: async () => ({ ok: false, message: 'partial', replaced: 1 }) },
+  { productId: id, revision: 7, value: draft, images: originalImages });
+assert.equal((await partial.submit(draft)).ok, false); assert.equal(partial.snapshot().requiresReload, true);
+const lost = new ProductFormSession({ ...snapshotOps, snapshotImages: async () => { throw Error('lost'); } },
+  { productId: id, revision: 7, value: draft, images: originalImages });
+assert.equal((await lost.submit(draft)).ok, false); assert.equal(lost.snapshot().requiresReload, true);
+const invalidSnapshot = new ProductFormSession({ ...snapshotOps, snapshotImages: async () => ({ ok: true, revision: 9, replaced: 2, replacements: null }) },
+  { productId: id, revision: 7, value: draft, images: originalImages });
+assert.equal((await invalidSnapshot.submit(draft)).ok, false); assert.equal(invalidSnapshot.snapshot().requiresReload, true);
+console.log('Product form session: incomplete drafts, retries, private legacy image copies, revision CAS, uploads and submission sequencing passed');

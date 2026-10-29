@@ -6,11 +6,14 @@ type DraftResult = Failure | { ok: true; id: string; revision: number };
 type SubmitResult = Failure | { ok: true; message: string };
 type ImageResult = Failure | { ok: true; revision: number };
 type UploadResult = Failure | { ok: true; image: ProductFormImage; revision: number };
+type SnapshotResult = (Failure & { replaced?: number }) | { ok: true; revision: number; replaced: number; replacements: { mediaId: string; image: ProductFormImage }[] };
 export type ProductFormSessionOperations = {
   create: (requestId: string, value: ProductFormDraft) => Promise<DraftResult>;
   save: (id: string, revision: number, value: ProductFormDraft) => Promise<DraftResult>;
   submit: (id: string, revision: number) => Promise<SubmitResult>;
   upload: (id: string, revision: number, image: File) => Promise<UploadResult>;
+  /** Copy selected legacy media privately before review, without changing the public listing. */
+  snapshotImages?: (id: string, revision: number, imageIds: string[]) => Promise<SnapshotResult>;
   setImages: (id: string, revision: number, images: Array<Pick<ProductFormImage, "id" | "source">>) => Promise<ImageResult>;
   newRequestId: () => string;
 };
@@ -122,8 +125,48 @@ export class ProductFormSession {
     return this.run(async () => {
       const saved = await this.persist(value);
       if (!saved.ok) return saved;
+      const legacyIds = this.state.images.filter((image) => image.source === "media").map((image) => image.id);
+      if (legacyIds.length) {
+        if (!this.operations.snapshotImages) return { ok: false, message: "Chưa thể xử lý ảnh đã có để gửi duyệt." };
+        const previous = this.state.revision;
+        let snapshot: SnapshotResult;
+        try { snapshot = await this.operations.snapshotImages(saved.id, previous, legacyIds); }
+        catch {
+          this.emit({ requiresReload: true });
+          return { ok: false, message: "Không xác nhận được kết quả xử lý ảnh. Hãy tải lại trang." };
+        }
+        if (!snapshot || typeof snapshot !== "object" || (snapshot.ok !== true && snapshot.ok !== false)) {
+          this.emit({ requiresReload: true });
+          return { ok: false, message: "Không xác nhận được kết quả xử lý ảnh. Hãy tải lại trang." };
+        }
+        if (!snapshot.ok) {
+          if (snapshot.requiresReload || (snapshot.replaced ?? 0) > 0) this.emit({ requiresReload: true });
+          return snapshot;
+        }
+        if (!Array.isArray(snapshot.replacements) || snapshot.replacements.some((row) => !row || typeof row.mediaId !== "string" ||
+            !row.image || typeof row.image.id !== "string" || typeof row.image.url !== "string")) {
+          this.emit({ requiresReload: true });
+          return { ok: false, message: "Không xác nhận được phiên bản ảnh. Hãy tải lại trang." };
+        }
+        const mappings = new Map(snapshot.replacements.map(({ mediaId, image }) => [mediaId.toLowerCase(), image]));
+        const ids = new Set(this.state.availableImages.map((image) => image.id.toLowerCase()));
+        if (snapshot.revision !== previous + legacyIds.length || snapshot.replaced !== legacyIds.length ||
+            mappings.size !== legacyIds.length || snapshot.replacements.length !== legacyIds.length ||
+            legacyIds.some((id) => !mappings.has(id.toLowerCase())) || snapshot.replacements.some(({ image }) => {
+              const id = image.id.toLowerCase();
+              if (!id || !image.url || image.source !== "staged" || ids.has(id)) return true;
+              ids.add(id); return false;
+            })) {
+          this.emit({ requiresReload: true });
+          return { ok: false, message: "Không xác nhận được phiên bản ảnh. Hãy tải lại trang." };
+        }
+        const replacements = snapshot.replacements.map(({ image }) => ({ ...image }));
+        this.emit({ revision: snapshot.revision,
+          images: this.state.images.map((image) => image.source === "media" ? { ...mappings.get(image.id.toLowerCase())! } : { ...image }),
+          availableImages: [...this.state.availableImages, ...replacements] });
+      }
       let result: SubmitResult;
-      try { result = await this.operations.submit(saved.id, saved.revision); }
+      try { result = await this.operations.submit(saved.id, this.state.revision); }
       catch {
         this.emit({ requiresReload: true });
         return { ok: false, message: "Không xác nhận được kết quả gửi. Hãy tải lại trang để kiểm tra." };
