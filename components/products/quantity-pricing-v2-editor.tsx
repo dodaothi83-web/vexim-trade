@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { validateSupplierQuantityEntry, type SupplierQuantityEntry, type SupplierQuantityUnit } from "@/lib/products/quantity-entry";
 import { formatQuantityInput, normalizePriceInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import { v2FormatAmount, v2PriceLabel, v2QuantityLabel } from "@/lib/products/quantity-revision-v2";
@@ -61,6 +61,7 @@ export function QuantityGradeV2Field({ value, onChange, standardGrades, policy, 
 export function QuantityPricingV2Editor({ value, onChange, standardGrades, policy, pricePubliclyVisible,
   consentChecked, onConsentChange, showErrors = false, disabled = false, isolated = false, showGrade = true, showWarnings = false, incotermPlace }: Props) {
   const [pendingUnit, setPendingUnit] = useState<SupplierQuantityUnit | null>(null);
+  const errorPrefix = useId();
   const validation = validateSupplierQuantityEntry(value, standardGrades, policy);
   const form = isolated ? "quantity-pricing-separate" : undefined;
   const unit = value.unit === "mt" ? "tấn" : "kg";
@@ -98,14 +99,14 @@ export function QuantityPricingV2Editor({ value, onChange, standardGrades, polic
         const next = validation.value?.tiers[index + 1];
         const rangeEnd = next ? (next.quantityGrams - 1) / normalized!.unitWeightGrams : null;
         return <tr key={index} className="border-t border-ink-100">
-          <td className="p-1 align-top"><div className="flex items-center gap-1"><span aria-hidden="true">≥</span><input form={form} type="text" inputMode="decimal" aria-label={`Số lượng mức ${index + 1} (${unit})`} aria-invalid={!!quantityErrors.length || undefined}
+          <td className="p-1 align-top"><div className="flex items-center gap-1"><span aria-hidden="true">≥</span><input form={form} type="text" inputMode="decimal" aria-label={`Số lượng mức ${index + 1} (${unit})`} aria-invalid={!!quantityErrors.length || undefined} aria-describedby={quantityErrors.length ? `${errorPrefix}-quantity-${index}` : undefined}
             className="input w-full text-right font-mono tabular-nums" disabled={disabled} value={tier.quantity} onChange={(event) => changeTier(index, "quantity", formatV2QuantityInput(event.target.value, tier.quantity))} /></div>
-            {quantityErrors.map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issue.message}</p>)}
+            {quantityErrors.length > 0 && <div id={`${errorPrefix}-quantity-${index}`}>{quantityErrors.map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issue.message}</p>)}</div>}
             {normalized && <p className="mt-1 text-xs text-ink-500">{rangeEnd === null ? "Trở lên" : `Đến ${v2FormatAmount(rangeEnd)} ${unit}`}</p>}
           </td>
-          <td className="p-1 align-top"><input form={form} type="text" inputMode="decimal" aria-label={`Đơn giá mức ${index + 1} (USD/${unit})`} aria-invalid={!!priceErrors.length || undefined}
+          <td className="p-1 align-top"><input form={form} type="text" inputMode="decimal" aria-label={`Đơn giá mức ${index + 1} (USD/${unit})`} aria-invalid={!!priceErrors.length || undefined} aria-describedby={priceErrors.length ? `${errorPrefix}-price-${index}` : undefined}
             className="input w-full text-right font-mono tabular-nums" disabled={disabled} value={tier.price} onChange={(event) => changeTier(index, "price", event.target.value)} onBlur={(event) => changeTier(index, "price", normalizePriceInput(event.target.value))} />
-            {priceErrors.map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issue.message}</p>)}
+            {priceErrors.length > 0 && <div id={`${errorPrefix}-price-${index}`}>{priceErrors.map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issue.message}</p>)}</div>}
           </td>
           <td className="p-1">{value.tiers.length > 1 && <button type="button" disabled={disabled} className="text-xs text-rose-700" aria-label={`Xóa mức giá ${index + 1}`} onClick={() => onChange({ ...value, tiers: value.tiers.filter((_, i) => i !== index) })}>Xóa</button>}</td>
         </tr>;

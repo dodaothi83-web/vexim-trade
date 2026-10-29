@@ -54,6 +54,11 @@ assert.doesNotMatch(render({ value: outlierValue, policy: outlierPolicy }), /ngo
 assert.match(render({ value: outlierValue, policy: outlierPolicy, showWarnings: true }), /ngoài ngưỡng tham khảo/, 'Staff can review an outlier');
 const invalid = render({ value: { ...value, tiers: [{ quantity: '', price: '' }] }, showErrors: true });
 assert.match(invalid, /Nhập số lượng hợp lệ/); assert.match(invalid, /Nhập đơn giá lớn hơn 0/);
+for (const label of ['Số lượng mức 1 (tấn)', 'Đơn giá mức 1 (USD/tấn)']) {
+  const input = invalid.match(new RegExp(`<input[^>]*aria-label="${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>`))?.[0];
+  const errorId = input?.match(/aria-describedby="([^"]+)"/)?.[1];
+  assert.ok(errorId && invalid.includes(`id="${errorId}"`), `${label} must reference its visible error`);
+}
 assert.equal((html.match(/form="quantity-pricing-separate"/g) ?? []).length, 8, 'Fields are detached from the parent form');
 assert.equal(pricing.normalizePriceInput('6,40'), '6.40');
 console.log('Staged V2 pricing editor: kg/MT, exact tiers, custom grade, consent and inline errors passed');
