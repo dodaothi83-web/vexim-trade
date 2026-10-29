@@ -55,7 +55,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Đã xây và nối bảng so sánh các trường, tier của hai snapshot form vào CRM; dữ liệu cũ không biểu diễn được và cam kết cũ chưa rõ được đánh dấu chưa biết, không tự suy đoán. Màn duyệt hiện ảnh và tên Anh riêng; chưa có công bố.
 - [ ] Dùng lại form NCC để tạo và sửa sản phẩm trong CRM, đồng thời giữ các trường chỉ có ở CRM và dữ liệu cũ.
 - [ ] Hoàn thiện màn duyệt: xác nhận và lưu tên tiếng Anh đã sửa, kiểm tra chính sách hiện tại, đối chiếu bytes ảnh và duyệt nguyên tử. Tên gợi ý trên màn chỉ xem, chưa lưu hay công bố.
-- [x] Đã xây helper chuẩn bị bản sao ảnh riêng cho công bố, kiểm tra hash ảnh gốc và bản sao, không đổi ảnh gốc hoặc tạo media công khai; lỗi sau ghi yêu cầu tải lại và đối soát. Đã thử bằng dữ liệu giả; chưa nối transaction hay dùng Storage thật.
+- [x] Đã xây helper chuẩn bị bản sao ảnh riêng cho công bố và kiểm tra lại bản sao trước khi duyệt, đối chiếu byte, hash, thứ tự, chủ sở hữu và thông tin ảnh; không đổi ảnh gốc hoặc tạo media công khai. Lỗi sau ghi yêu cầu tải lại và đối soát. Đã thử bằng dữ liệu giả; chưa nối transaction hay dùng Storage thật, quyền Storage đặc biệt vẫn có thể sửa ảnh.
 - [ ] Hoàn thiện transaction duyệt/từ chối có phân quyền, khóa và đối chiếu phiên bản cùng snapshot ảnh; không công khai dữ liệu hoặc ảnh đang chờ.
 - [ ] Kiểm thử tạo, sửa, gửi, duyệt và yêu cầu sửa, bao gồm nhiều phiên đồng thời và lỗi kết nối.
 

@@ -34,6 +34,8 @@ const verify = load('../lib/products/product-form-review-images.ts', { 'server-o
   '@/lib/media/storage': storage, '@/lib/products/product-form-image-selection': selection });
 const promote = load('../lib/products/product-form-promotion-images.ts', { 'server-only': {}, 'node:crypto': { createHash, randomUUID: () => copyIds[nextId++] },
   '@/lib/media/storage': storage, '@/lib/products/product-form-image-selection': selection, '@/lib/products/product-form-review-images': verify }).preparePublicationImages;
+const verifyCopies = load('../lib/products/product-form-publication-image-verification.ts', { 'server-only': {}, 'node:crypto': { createHash },
+  '@/lib/media/storage': storage, '@/lib/products/product-form-image-selection': selection }).verifyPublicationImageCopies;
 const refs = ids.map((id) => ({ source: 'staged', id }));
 const snapshot = ids.map((id) => ({ source: 'staged', row: { id, product_id: productId, supplier_id: supplierId, mime: 'image/webp',
   storage_path: `product-form-images/${productId}/${id}.webp`, thumb_path: `product-form-images/${productId}/${id}-thumb.webp`,
@@ -43,6 +45,14 @@ let result = await promote(input); assert.equal(result.ok, true);
 assert.deepEqual(Array.from(result.images, (x) => x.stagedId), ids); assert.deepEqual(Array.from(result.images, (x) => x.mediaId), copyIds);
 assert.equal(writes.length, 4); assert.equal(objects.size, 8, 'Source and copies both exist; nothing deleted');
 assert.equal(result.images[0].sha256, hash(bytes[0])); assert.equal(result.images[0].thumbSha256, hash(bytes[1]));
+const copyInput = { ...input, images: result.images };
+assert.equal(await verifyCopies(copyInput), true);
+assert.equal(await verifyCopies({ ...copyInput, supplierId: productId }), false);
+assert.equal(await verifyCopies({ ...copyInput, selection: [...refs].reverse() }), false);
+assert.equal(await verifyCopies({ ...copyInput, images: result.images.map((x, i) => i ? x : { ...x, storagePath: snapshot[0].row.storage_path }) }), false);
+assert.equal(await verifyCopies({ ...copyInput, images: [result.images[0], { ...result.images[1], mediaId: result.images[0].mediaId }] }), false);
+objects.set(result.images[0].thumbPath, new Uint8Array([99]));
+assert.equal(await verifyCopies(copyInput), false, 'Mutation of a prepared copy must be detected before approval');
 reset(); ready = false; result = await promote(input); assert.equal(result.ok, false); assert.equal(writes.length, 0);
 reset(); result = await promote({ ...input, selection: [{ source: 'media', id: ids[0] }] }); assert.equal(result.ok, false); assert.equal(writes.length, 0);
 reset(); const wrong = structuredClone(snapshot); wrong[0].row.sha256 = '0'.repeat(64);
