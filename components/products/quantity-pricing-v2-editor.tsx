@@ -37,11 +37,11 @@ export function formatV2QuantityInput(raw: string, previous = ""): string {
 }
 
 /** The same controlled grade input can be placed in the attributes section. */
-export function QuantityGradeV2Field({ value, onChange, standardGrades, policy, showErrors = false, disabled = false, isolated = false }: Pick<Props, "value" | "onChange" | "standardGrades" | "policy" | "showErrors" | "disabled" | "isolated">) {
+export function QuantityGradeV2Field({ value, onChange, standardGrades, policy, showErrors = false, disabled = false, isolated = false, showLabel = true }: Pick<Props, "value" | "onChange" | "standardGrades" | "policy" | "showErrors" | "disabled" | "isolated"> & { showLabel?: boolean }) {
   const errors = showErrors ? validateSupplierQuantityEntry(value, standardGrades, policy).errors.filter((issue) => issue.code === "grade") : [];
   const form = isolated ? "quantity-pricing-separate" : undefined;
   return <div className="space-y-3">
-    <label className="block text-sm font-semibold text-ink-800">Grade <span className="text-rose-700">*</span>
+    <label className="block text-sm font-semibold text-ink-800">{showLabel && <>Grade <span className="text-rose-700">*</span></>}
       <select form={form} className="input mt-1 w-full" aria-label="Grade" aria-invalid={!!errors.length || undefined} disabled={disabled}
         value={value.customGrade ? CUSTOM : value.grade} onChange={(event) => onChange({ ...value, customGrade: event.target.value === CUSTOM, grade: event.target.value === CUSTOM ? "" : event.target.value })}>
         <option value="">Chọn grade</option>{standardGrades.map((grade) => <option key={grade} value={grade}>{grade}</option>)}<option value={CUSTOM}>Khác (tự nhập)</option>
@@ -88,7 +88,7 @@ export function QuantityPricingV2Editor({ value, onChange, standardGrades, polic
       <thead><tr className="text-xs text-ink-600"><th className="p-2">Số lượng đặt theo {" "}
         <select form={form} aria-label="Đơn vị số lượng" className="input inline-block w-auto" disabled={disabled} value={value.unit} onChange={(event) => changeUnit(event.target.value as SupplierQuantityUnit)}>
           <option value="kg">kg</option><option value="mt">tấn</option>
-        </select></th><th className="p-2">Đơn giá (USD/{unit})</th><th className="p-2"><span className="sr-only">Xóa mức</span></th></tr></thead>
+        </select></th><th className="p-2">Đơn giá (USD/{unit})</th><th className="relative p-2"><span className="sr-only">Xóa mức</span></th></tr></thead>
       <tbody>{value.tiers.map((tier, index) => {
         const quantityErrors = [...issues("quantity", index), ...issues("quantity_order", index)];
         const priceErrors = [...issues("price", index), ...issues("price_order", index)];

@@ -6,11 +6,11 @@ Tài liệu `docs/content-guidelines.md` được nhắc trong yêu cầu nhưng
 
 Dữ liệu hiện tại là demo. Không cần chuyển đổi hoặc duy trì khả năng đọc dữ liệu sản phẩm cũ; các mục về audit và tương thích ở phần dưới mô tả kế hoạch cũ, không còn là yêu cầu cho đợt này. Form NCC sẽ là một trang năm phần và CRM sẽ dùng chung form. Khi hoàn thiện sẽ bỏ các nhánh và cờ thử nghiệm không còn dùng. Các bản giá và tên đã duyệt vẫn cần được bảo vệ khi gửi chỉnh sửa mới chờ duyệt.
 
-Trước bất kỳ thao tác xóa dữ liệu hoặc cột nào trên database của anh phải có bản sao lưu đã xác nhận. Anh là người chạy migration; chưa chạy, xóa hoặc sao lưu database của anh trong nhánh này. Migration phá hủy dữ liệu chỉ được soạn khi đã xác định đầy đủ phụ thuộc và trình tự an toàn.
+Anh đã xác nhận dữ liệu hiện tại đều là demo và không cần sao lưu. Anh là người chạy migration; chưa chạy hoặc xóa dữ liệu trên database của anh trong nhánh này. Migration phá hủy dữ liệu chỉ được soạn khi đã xác định đầy đủ phụ thuộc và trình tự an toàn. Cần tạo vài sản phẩm demo theo cấu trúc mới để anh xem.
 
 ## Trạng thái
 
-Có hợp đồng dữ liệu và kiểm tra gửi duyệt dùng chung cho form năm phần, cùng server action NCC để lưu và đọc nháp riêng tư. Đây mới là nền tảng, chưa nối vào giao diện và chưa có transaction gửi duyệt hoàn chỉnh. Chưa triển khai lại cho NCC; không chạy SQL62 lúc này.
+Có component dùng chung cho form năm phần, hợp đồng dữ liệu và kiểm tra gửi duyệt, cùng server action NCC để lưu và đọc nháp riêng tư. SQL63 và action gửi duyệt tạo snapshot riêng tư, kiểm tra ảnh, phiên bản và quyền, không thay giá đã duyệt. Có ba sản phẩm demo trong `lib/products/product-form-demo.ts` để kiểm thử, chưa được tạo trong database. Component chưa được nối vào trang NCC hay CRM; chưa có transaction duyệt hoặc cutover buyer. Cần xử lý ảnh đại diện làm thay đổi phiên bản sản phẩm trước khi nối luồng nháp. Chưa triển khai lại cho NCC; không chạy SQL62 hoặc SQL63 lúc này.
 
 Form hiện còn chia thành ba bước. Các thay đổi đã thực hiện trong nhánh này mới gồm: bắt buộc có ảnh thật khi gửi duyệt, giới hạn tám ảnh với RPC kiểm tra nguyên tử trên Supabase, chấp nhận dấu phẩy thập phân ở giá kg, định dạng số lượng kg, giới hạn tối đa bốn mức, ẩn cảnh báo giá khi tắt hiện giá, và điều chỉnh bản xem trước khi chưa có bản dịch. Đây chưa phải form năm phần theo mẫu.
 

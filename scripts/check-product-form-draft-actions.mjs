@@ -20,6 +20,7 @@ const mocks = {
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => approved },
   '@/lib/products/product-form-model': { parseProductFormDraft: (value) => value?.valid ? value : null },
+  '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (value) => value ?? '' },
 };
 const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../app/supplier/portal/product-form-draft-actions.ts', import.meta.url), 'utf8'), {
@@ -29,7 +30,7 @@ vm.runInNewContext(code, { exports, console, Number, require: (key) => {
   if (!(key in mocks)) throw Error(`Unexpected import ${key}`); return mocks[key];
 } });
 const { createProductFormDraftAction: create, saveProductFormDraftAction: save, loadProductFormDraftAction: load } = exports;
-const input = { valid: true, name: '', tiers: [] };
+const input = { valid: true, name: '', tiers: [], descriptionDetail: '' };
 assert.equal((await create('bad', input)).ok, false);
 assert.equal((await create(requestId, {})).ok, false); assert.equal(rpcCalls.length, 0);
 access = null; assert.equal((await create(requestId, input)).ok, false); assert.equal(rpcCalls.length, 0);
@@ -37,7 +38,7 @@ access = { supplier: { id: supplier }, user: { id: 'supplier-user' } }; approved
 assert.equal((await create(requestId, input)).ok, false); approved = true;
 let result = await create(requestId, input); assert.equal(result.ok, true); assert.equal(result.id, productId);
 assert.equal(rpcCalls[0].name, 'create_product_form_draft'); assert.equal(rpcCalls[0].args.p_supplier_id, supplier);
-assert.equal(rpcCalls[0].args.p_request_id, requestId); assert.equal(rpcCalls[0].args.p_payload, input);
+assert.equal(rpcCalls[0].args.p_request_id, requestId); assert.equal(JSON.stringify(rpcCalls[0].args.p_payload), JSON.stringify(input));
 assert.equal((await save(productId, -1, input)).ok, false);
 rpcData = { status: 'changed' }; result = await save(productId, 1, input);
 assert.equal(result.ok, false); assert.match(result.message, /thay đổi/); assert.equal(rpcCalls.at(-1).args.p_expected_revision, 1);

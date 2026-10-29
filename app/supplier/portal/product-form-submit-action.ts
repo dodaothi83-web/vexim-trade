@@ -1,0 +1,71 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
+import { supplierPortalAccess } from "@/lib/supplier-portal/access";
+import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { standardGradesForCategory } from "@/lib/products/grade-pricing";
+import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
+import { parseProductFormDraft, validateProductFormSubmission, type ProductFormIssue } from "@/lib/products/product-form-model";
+import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
+import { toQuantityRevisionV2 } from "@/lib/products/quantity-revision-v2";
+import { isExpired } from "@/lib/media/readiness";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+type SubmitResult = { ok: false; message: string; errors?: ProductFormIssue[] } |
+  { ok: true; message: string; submissionId: string; warnings: ProductFormIssue[] };
+
+/** Validate against trusted category, policy and images, then submit an exact persisted draft. */
+export async function submitProductFormDraftAction(productId: string, expectedRevision: number): Promise<SubmitResult> {
+  if (!UUID.test(productId) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 1)
+    return { ok: false, message: "Phiên bản bản nháp không hợp lệ." };
+  try {
+    const db = getSupabaseClient();
+    const access = db ? await supplierPortalAccess(supabaseStore) : null;
+    if (!db || !access || !portalApproved(access.supplier)) return { ok: false, message: "Không xác nhận được quyền gửi sản phẩm." };
+    const product = await supabaseStore.getProduct(productId);
+    if (!product || product.supplier_id !== access.supplier.id) return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
+    const { data: stored, error } = await db.from("product_form_drafts").select("revision,payload")
+      .eq("product_id", productId).eq("supplier_id", access.supplier.id).maybeSingle();
+    if (error || !stored) return { ok: false, message: "Không tải được bản nháp. Hãy lưu lại trước khi gửi." };
+    const draft = parseProductFormDraft(stored.payload);
+    if (!draft || stored.revision !== expectedRevision) return { ok: false, message: "Bản nháp đã thay đổi. Hãy tải lại trang." };
+    // Never publish unfiltered HTML, including rows introduced outside this UI.
+    if (sanitizeProductDescriptionForSave(draft.descriptionDetail) !== draft.descriptionDetail)
+      return { ok: false, message: "Mô tả chi tiết cần được lưu lại để kiểm tra định dạng an toàn." };
+    const category = draft.category ? await supabaseStore.getCategoryBySlug(draft.category) : null;
+    const categoryValid = !!category && category.status === "published" && category.is_published === true;
+    const [media, policy] = await Promise.all([
+      supabaseStore.listMedia("product", productId),
+      categoryValid ? readQuantityPricingPolicy(category.id) : Promise.resolve(null),
+    ]);
+    const images = media.filter((asset) => asset.kind === "image" && asset.product_id === productId &&
+      asset.supplier_id === access.supplier.id && !!asset.storage_path?.trim() && !isExpired(asset));
+    const validated = validateProductFormSubmission(draft, {
+      categoryValid, imageCount: images.length, standardGrades: categoryValid ? standardGradesForCategory(category) : [], policy,
+    });
+    if (validated.errors.length || !validated.quantity) return {
+      ok: false, message: "Vui lòng hoàn thiện các thông tin bắt buộc trước khi gửi duyệt.", errors: validated.errors,
+    };
+    const quantity = { grade: validated.quantity.grade, incoterm: validated.quantity.incoterm,
+      tiers: toQuantityRevisionV2(validated.quantity) };
+    const { data, error: submitError } = await db.rpc("submit_product_form_draft", {
+      p_supplier_id: access.supplier.id, p_product_id: productId, p_expected_revision: expectedRevision,
+      p_validated_payload: draft, p_quantity: quantity, p_warnings: validated.warnings,
+    });
+    if (submitError) throw new Error(submitError.message);
+    if (!data || data.status !== "submitted" || typeof data.submission_id !== "string" || !UUID.test(data.submission_id)) {
+      if (data?.status === "images_changed") return { ok: false, message: "Ảnh sản phẩm đã thay đổi. Hãy kiểm tra lại trước khi gửi." };
+      if (data?.status === "already_pending") return { ok: false, message: "Sản phẩm đã có bản đang chờ duyệt." };
+      if (data?.status === "already_decided") return { ok: false, message: "Bản gửi này đã được xử lý. Hãy tải lại trang." };
+      return { ok: false, message: "Dữ liệu hoặc trạng thái sản phẩm đã thay đổi. Hãy tải lại trang." };
+    }
+    revalidatePath(`/supplier/portal/products/${productId}`);
+    revalidatePath("/supplier/portal/products");
+    revalidatePath("/crm/products");
+    return { ok: true, message: "Đã gửi sản phẩm để Vexim kiểm tra.", submissionId: data.submission_id, warnings: validated.warnings };
+  } catch (error) {
+    console.error("[product-form] submit", error);
+    return { ok: false, message: "Không gửi được sản phẩm. Vui lòng kiểm tra kết nối và thử lại." };
+  }
+}

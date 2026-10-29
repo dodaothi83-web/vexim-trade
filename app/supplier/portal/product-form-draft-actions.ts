@@ -5,6 +5,7 @@ import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { parseProductFormDraft, type ProductFormDraft } from "@/lib/products/product-form-model";
+import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: false; message: string } | { ok: true; id: string; revision: number; draft?: ProductFormDraft | null };
@@ -16,6 +17,16 @@ async function context() {
   const access = await supplierPortalAccess(supabaseStore);
   if (!access || !portalApproved(access.supplier)) return null;
   return { db, access };
+}
+
+function safeDraft(input: unknown): ProductFormDraft | null {
+  const draft = parseProductFormDraft(input);
+  if (!draft) return null;
+  try {
+    return parseProductFormDraft({ ...draft, descriptionDetail: sanitizeProductDescriptionForSave(draft.descriptionDetail) });
+  } catch {
+    return null;
+  }
 }
 
 function rpcResult(data: unknown): Result {
@@ -31,7 +42,7 @@ function rpcResult(data: unknown): Result {
 
 /** Create a private product shell and draft together; retrying the same request is idempotent. */
 export async function createProductFormDraftAction(requestId: string, input: unknown): Promise<Result> {
-  const parsed = parseProductFormDraft(input);
+  const parsed = safeDraft(input);
   if (!UUID.test(requestId) || !parsed) return { ok: false, message: "Dữ liệu bản nháp không hợp lệ." };
   try {
     const ctx = await context();
@@ -51,7 +62,7 @@ export async function createProductFormDraftAction(requestId: string, input: unk
 
 /** Save without changing approved buyer-visible data. A stale editor cannot overwrite newer work. */
 export async function saveProductFormDraftAction(productId: string, expectedRevision: number, input: unknown): Promise<Result> {
-  const parsed = parseProductFormDraft(input);
+  const parsed = safeDraft(input);
   if (!UUID.test(productId) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || !parsed)
     return { ok: false, message: "Dữ liệu bản nháp không hợp lệ." };
   try {
