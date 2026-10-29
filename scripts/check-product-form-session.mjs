@@ -19,7 +19,8 @@ const operations = {
   async create(request, value) { calls.push(['create', request, JSON.stringify(value)]); if (firstLost) { firstLost = false; throw Error('lost response'); } rev = 1; return { ok: true, id, revision: rev }; },
   async save(productId, revision, value) { calls.push(['save', productId, revision, JSON.stringify(value)]); if (saveFail) return { ok: false, message: 'changed' }; return { ok: true, id, revision: ++rev }; },
   async submit(productId, revision) { calls.push(['submit', productId, revision]); if (hold) await hold; return submitFail ? { ok: false, message: 'not ready' } : { ok: true, message: 'submitted' }; },
-  async upload(productId, file) { const n = nextUpload++; calls.push(['upload', productId, file.name]); return n === uploadFailAt ? { ok: false, message: 'upload failed' } : { ok: true, image: { id: `img-${n}`, url: `/image/${n}` } }; },
+  async upload(productId, revision, file) { const n = nextUpload++; calls.push(['upload', productId, file.name, revision]); return n === uploadFailAt ? { ok: false, message: 'upload failed' } : { ok: true, revision: ++rev, image: { id: `img-${n}`, url: `/image/${n}`, source: 'staged' } }; },
+  async setImages(productId, revision, images) { calls.push(['setImages', productId, revision, images]); return { ok: true, revision: ++rev }; },
 };
 const createSession = (initial = {}) => new ProductFormSession(operations, { productId: null, revision: 0, value: draft, images: [], ...initial });
 let session = createSession();
@@ -47,6 +48,15 @@ assert.equal(session.snapshot().images.length, 1); assert.equal(session.snapshot
 assert.deepEqual(calls.map((c) => c[0]), ['create', 'upload', 'upload']);
 uploadFailAt = -1; result = await session.upload(draft, [image('three.png')]); assert.equal(result.ok, true);
 assert.equal(result.uploaded, 1); assert.equal(session.snapshot().images.length, 2);
+assert.equal(session.snapshot().revision, 3, 'Each upload advances the draft revision');
+const [one, two] = session.snapshot().images;
+assert.equal((await session.selectImages(draft, [two, one])).ok, true);
+assert.equal(session.snapshot().images[0].id, two.id);
+assert.equal((await session.selectImages(draft, [two])).ok, true);
+assert.equal(session.snapshot().availableImages.length, 2, 'Removing only changes the private selection');
+assert.equal((await session.selectImages(draft, [two, one])).ok, true, 'A removed image can be restored');
+assert.equal((await session.selectImages(draft, [two, two])).ok, false);
+assert.equal((await session.selectImages(draft, [{ ...one, id: 'unknown' }])).ok, false);
 
 calls = []; rev = 4; saveFail = true;
 session = createSession({ productId: id, revision: 4, value: draft });

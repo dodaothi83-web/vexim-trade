@@ -3,8 +3,9 @@
 -- ON DELETE CASCADE chỉ xóa bản gửi con nếu sản phẩm/NCC cha bị xóa bằng
 -- thao tác khác; nó không tự xóa sản phẩm hoặc NCC.
 -- Private immutable submission snapshots for the shared five-section form.
--- This migration is a foundation only. Do not expose the new form until the
--- supplier and staff adapters, review transaction and buyer cutover are ready.
+-- This migration is a foundation only. SQL64 revokes the preliminary submit
+-- RPC and introduces an ordered private image selection. Neither migration is
+-- ready to deploy: the review transaction and buyer cutover are incomplete.
 begin;
 
 create table if not exists public.product_form_submissions (

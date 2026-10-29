@@ -1,21 +1,25 @@
 import type { ProductFormDraft } from "@/lib/products/product-form-model";
 
-export type ProductFormImage = { id: string; url: string };
-type Failure = { ok: false; message: string };
+export type ProductFormImage = { id: string; url: string; source: "media" | "staged" };
+type Failure = { ok: false; message: string; requiresReload?: boolean };
 type DraftResult = Failure | { ok: true; id: string; revision: number };
 type SubmitResult = Failure | { ok: true; message: string };
-type UploadResult = (Failure & { requiresReload?: boolean }) | { ok: true; image: ProductFormImage };
+type ImageResult = Failure | { ok: true; revision: number };
+type UploadResult = Failure | { ok: true; image: ProductFormImage; revision: number };
 export type ProductFormSessionOperations = {
   create: (requestId: string, value: ProductFormDraft) => Promise<DraftResult>;
   save: (id: string, revision: number, value: ProductFormDraft) => Promise<DraftResult>;
   submit: (id: string, revision: number) => Promise<SubmitResult>;
-  upload: (id: string, image: File) => Promise<UploadResult>;
+  upload: (id: string, revision: number, image: File) => Promise<UploadResult>;
+  setImages: (id: string, revision: number, images: Array<Pick<ProductFormImage, "id" | "source">>) => Promise<ImageResult>;
   newRequestId: () => string;
 };
 export type ProductFormSessionState = {
   productId: string | null;
   revision: number;
   images: ProductFormImage[];
+  /** Images removed in this session stay available for undo, without deleting files. */
+  availableImages: ProductFormImage[];
   busy: boolean;
   submitted: boolean;
   requiresReload: boolean;
@@ -35,16 +39,21 @@ export class ProductFormSession {
 
   constructor(
     private readonly operations: ProductFormSessionOperations,
-    initial: { productId: string | null; revision: number; value: ProductFormDraft; images: ProductFormImage[] },
+    initial: { productId: string | null; revision: number; value: ProductFormDraft; images: ProductFormImage[]; availableImages?: ProductFormImage[] },
     private readonly onChange: (state: ProductFormSessionState) => void = () => {},
   ) {
     if (!Number.isSafeInteger(initial.revision) || initial.revision < 0 || (!initial.productId && initial.revision !== 0))
       throw new Error("Invalid initial product form session");
-    this.state = { productId: initial.productId, revision: initial.revision, images: initial.images.map((image) => ({ ...image })), busy: false, submitted: false, requiresReload: false };
+    const available = initial.availableImages ?? initial.images;
+    if (initial.images.some((image) => !available.some((item) => item.id === image.id && item.source === image.source)))
+      throw new Error("Selected image missing from available images");
+    this.state = { productId: initial.productId, revision: initial.revision, images: initial.images.map((image) => ({ ...image })),
+      availableImages: available.map((image) => ({ ...image })), busy: false, submitted: false, requiresReload: false };
     this.saved = initial.revision > 0 ? JSON.stringify(initial.value) : null;
   }
 
-  snapshot(): ProductFormSessionState { return { ...this.state, images: this.state.images.map((image) => ({ ...image })) }; }
+  snapshot(): ProductFormSessionState { return { ...this.state, images: this.state.images.map((image) => ({ ...image })),
+    availableImages: this.state.availableImages.map((image) => ({ ...image })) }; }
   isDirty(value: ProductFormDraft): boolean { return this.saved === null || this.saved !== JSON.stringify(value); }
   private emit(patch: Partial<ProductFormSessionState>) {
     this.state = { ...this.state, ...patch };
@@ -76,10 +85,20 @@ export class ProductFormSession {
     const id = this.state.productId!;
     if (this.saved !== serialized) {
       const previous = this.state.revision;
-      const result = await this.operations.save(id, previous, JSON.parse(serialized) as ProductFormDraft);
-      if (!result.ok) return result;
-      if (result.id !== id || !Number.isSafeInteger(result.revision) || result.revision !== previous + 1)
+      let result: DraftResult;
+      try { result = await this.operations.save(id, previous, JSON.parse(serialized) as ProductFormDraft); }
+      catch {
+        this.emit({ requiresReload: true });
+        return { ok: false, message: "Không xác nhận được kết quả lưu. Hãy tải lại trang." };
+      }
+      if (!result.ok) {
+        if (result.requiresReload) this.emit({ requiresReload: true });
+        return result;
+      }
+      if (result.id !== id || !Number.isSafeInteger(result.revision) || result.revision !== previous + 1) {
+        this.emit({ requiresReload: true });
         return { ok: false, message: "Phiên bản bản nháp không hợp lệ. Hãy tải lại trang." };
+      }
       this.saved = serialized;
       this.emit({ revision: result.revision });
     }
@@ -109,6 +128,37 @@ export class ProductFormSession {
     });
   }
 
+  /** Remove or reorder only the private draft selection, never the public files. */
+  async selectImages(value: ProductFormDraft, images: ProductFormImage[]): Promise<ImageResult> {
+    return this.run(async () => {
+      if (images.length > 8 || images.some((image) => !this.state.availableImages.some((current) => current.id === image.id && current.source === image.source)) ||
+          new Set(images.map((image) => image.id.toLowerCase())).size !== images.length)
+        return { ok: false, message: "Danh sách ảnh không hợp lệ." };
+      const saved = await this.persist(value);
+      if (!saved.ok) return saved;
+      const previous = this.state.revision;
+      const refs = images.map(({ id, source }) => ({ id, source }));
+      let result: ImageResult;
+      try { result = await this.operations.setImages(saved.id, previous, refs); }
+      catch {
+        this.emit({ requiresReload: true });
+        return { ok: false, message: "Không xác nhận được danh sách ảnh. Hãy tải lại trang." };
+      }
+      if (!result.ok) {
+        if (result.requiresReload) this.emit({ requiresReload: true });
+        return result;
+      }
+      const unchanged = JSON.stringify(refs) === JSON.stringify(this.state.images.map(({ id, source }) => ({ id, source })));
+      if (result.revision !== previous + (unchanged ? 0 : 1)) {
+        this.emit({ requiresReload: true });
+        return { ok: false, message: "Không xác nhận được phiên bản ảnh. Hãy tải lại trang." };
+      }
+      this.emit({ revision: result.revision, images: images.map((image) => ({ ...this.state.availableImages.find((current) =>
+        current.id === image.id && current.source === image.source)! })) });
+      return result;
+    });
+  }
+
   async upload(value: ProductFormDraft, files: File[]): Promise<Failure | { ok: true; uploaded: number }> {
     return this.run(async () => {
       if (!files.length) return { ok: false, message: "Chọn ảnh trước khi tải." };
@@ -120,7 +170,8 @@ export class ProductFormSession {
       let uploaded = 0;
       for (const file of files) {
         let result: UploadResult;
-        try { result = await this.operations.upload(saved.id, file); }
+        const previous = this.state.revision;
+        try { result = await this.operations.upload(saved.id, previous, file); }
         catch {
           this.emit({ requiresReload: true });
           return { ok: false, message: "Không xác nhận được kết quả tải ảnh. Hãy tải lại trang trước khi thử lại." };
@@ -129,12 +180,14 @@ export class ProductFormSession {
           if (result.requiresReload) this.emit({ requiresReload: true });
           return { ok: false, message: `${uploaded ? `Đã tải ${uploaded} ảnh. ` : ""}${result.message}` };
         }
-        if (!result.image.id || !result.image.url || this.state.images.some((image) => image.id === result.image.id)) {
+        if (!result.image.id || !result.image.url || result.image.source !== "staged" || result.revision !== previous + 1 ||
+            this.state.availableImages.some((image) => image.id === result.image.id && image.source === result.image.source)) {
           this.emit({ requiresReload: true });
           return { ok: false, message: "Không xác nhận được ảnh vừa tải. Hãy tải lại trang." };
         }
         uploaded++;
-        this.emit({ images: [...this.state.images, { ...result.image }] });
+        this.emit({ revision: result.revision, images: [...this.state.images, { ...result.image }],
+          availableImages: [...this.state.availableImages, { ...result.image }] });
       }
       return { ok: true, uploaded };
     });

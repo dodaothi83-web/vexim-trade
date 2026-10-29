@@ -1,7 +1,7 @@
 "use client";
 
 import { createProductFormDraftAction, saveProductFormDraftAction } from "@/app/supplier/portal/product-form-draft-actions";
-import { submitProductFormDraftAction } from "@/app/supplier/portal/product-form-submit-action";
+import { setProductFormImagesAction } from "@/app/supplier/portal/product-form-image-actions";
 import type { ProductFormSessionOperations } from "@/lib/products/product-form-session";
 
 /**
@@ -14,24 +14,16 @@ export function supplierProductFormOperations(): ProductFormSessionOperations {
     newRequestId: () => crypto.randomUUID(),
     create: createProductFormDraftAction,
     save: saveProductFormDraftAction,
-    submit: submitProductFormDraftAction,
-    async upload(id, image) {
-      const body = new FormData();
-      body.set("kind", "image");
-      body.set("file", image);
-      const response = await fetch(`/api/supplier-portal/products/${encodeURIComponent(id)}/media`, { method: "POST", body });
-      const data: unknown = await response.json().catch(() => null);
-      if (!data || typeof data !== "object" || Array.isArray(data)) return { ok: false, requiresReload: true, message: "Không xác nhận được kết quả tải ảnh. Hãy tải lại trang." };
-      const result = data as Record<string, unknown>;
-      if (!response.ok || result.ok !== true) return { ok: false, requiresReload: response.status >= 500,
-        message: response.status >= 500 ? "Không xác nhận được kết quả tải ảnh. Hãy tải lại trang." :
-          typeof result.message === "string" ? result.message : "Không tải được ảnh." };
-      const asset = result.image;
-      if (!asset || typeof asset !== "object" || Array.isArray(asset)) return { ok: false, requiresReload: true, message: "Không xác nhận được ảnh vừa tải. Hãy tải lại trang." };
-      const row = asset as Record<string, unknown>;
-      if (typeof row.id !== "string" || typeof row.url !== "string" || !row.url.startsWith("/api/media/file/"))
-        return { ok: false, requiresReload: true, message: "Không xác nhận được ảnh vừa tải. Hãy tải lại trang." };
-      return { ok: true, image: { id: row.id, url: row.url } };
+    // The old submit RPC enumerates media_assets rather than a private image
+    // selection. Keep it inaccessible from this editor until the new snapshot
+    // and approval transaction are both complete.
+    async submit() { return { ok: false, message: "Chức năng gửi duyệt cho form mới chưa sẵn sàng." }; },
+    setImages: setProductFormImagesAction,
+    // Never fall back to the old media endpoint: it publishes uploads on an
+    // approved product immediately. Wire a private staged uploader only after
+    // submission and review both use the immutable image selection.
+    async upload() {
+      return { ok: false, message: "Chức năng tải ảnh cho form mới chưa sẵn sàng." };
     },
   };
 }

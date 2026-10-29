@@ -12,15 +12,17 @@ let rpcData = { status: 'saved', product_id: productId, revision: 1 };
 const db = {
   rpc: async (name, args) => { rpcCalls.push({ name, args }); return { data: rpcData, error: failure }; },
   from: (table) => { const filters = {}; return { select() { return this; }, eq(key, value) { filters[key] = value; return this; },
+    async limit() { readCalls.push({ table, filters }); return { data: [], error: failure }; },
     async maybeSingle() { readCalls.push({ table, filters }); return { data: row, error: failure }; } }; },
 };
 const mocks = {
   'next/cache': { revalidatePath() {} },
-  '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getProduct: async () => product } },
+  '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getProduct: async () => product, listMedia: async () => [] } },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => approved },
   '@/lib/products/product-form-model': { parseProductFormDraft: (value) => value?.valid ? value : null },
   '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (value) => value ?? '' },
+  '@/lib/products/product-form-image-selection': { resolveSupplierDraftImages: ({ selection }) => Array.isArray(selection) ? { selected: [], available: [] } : null },
 };
 const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../app/supplier/portal/product-form-draft-actions.ts', import.meta.url), 'utf8'), {
@@ -49,6 +51,6 @@ assert.equal((await load(productId)).ok, false); assert.equal(readCalls.length, 
 product = { id: productId, supplier_id: supplier };
 result = await load(productId); assert.equal(result.revision, 0); assert.equal(result.draft, null);
 assert.equal(readCalls[0].filters.product_id, productId); assert.equal(readCalls[0].filters.supplier_id, supplier);
-row = { revision: 2, payload: input }; result = await load(productId); assert.equal(result.revision, 2); assert.equal(result.draft, input);
-row = { revision: 2, payload: {} }; assert.equal((await load(productId)).ok, false, 'Malformed stored payload fails closed');
+row = { revision: 2, payload: input, image_selection: [] }; result = await load(productId); assert.equal(result.revision, 2); assert.equal(result.draft, input);
+row = { revision: 2, payload: {}, image_selection: [] }; assert.equal((await load(productId)).ok, false, 'Malformed stored payload fails closed');
 console.log('Product form draft actions: authorization, idempotent creation, CAS and private reads passed');

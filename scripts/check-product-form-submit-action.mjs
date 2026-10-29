@@ -6,7 +6,9 @@ import ts from 'typescript';
 const supplier = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const id = '11111111-1111-1111-1111-111111111111';
 const submissionId = '22222222-2222-2222-2222-222222222222';
-let access = { supplier: { id: supplier } }, product = { id, supplier_id: supplier },
+const user = { id: 'user-1' };
+const selection = [{ source: 'media', id: '33333333-3333-3333-3333-333333333333' }];
+let access = { supplier: { id: supplier }, user }, product = { id, supplier_id: supplier },
   draft = { category: 'cashew', descriptionDetail: '', valid: true }, revision = 1, category = { id: 'cat', status: 'published', is_published: true },
   media = [{ kind: 'image', product_id: id, supplier_id: supplier, storage_path: 'one.webp' }],
   validation = { errors: [], warnings: [], quantity: { grade: 'W320', incoterm: 'FOB', tiers: [{ quantityGrams: 1000000 }] } },
@@ -14,7 +16,7 @@ let access = { supplier: { id: supplier } }, product = { id, supplier_id: suppli
 const store = { getProduct: async () => product, getCategoryBySlug: async () => category, listMedia: async () => media };
 const db = {
   from(table) { const filter = {}; return { select() { return this; }, eq(key, value) { filter[key] = value; return this; },
-    async maybeSingle() { calls.push({ table, filter }); return { data: { revision, payload: draft }, error: null }; } }; },
+    async maybeSingle() { calls.push({ table, filter }); return { data: { revision, payload: draft, image_selection: selection }, error: null }; } }; },
   async rpc(name, args) { calls.push({ name, args }); return { data: rpcData, error: null }; },
 };
 let validationContext;
@@ -35,7 +37,7 @@ const code = ts.transpileModule(readFileSync(new URL('../app/supplier/portal/pro
 vm.runInNewContext(code, { exports, console, Number, require: (key) => { if (!(key in mocks)) throw Error(`Unexpected import ${key}`); return mocks[key]; } });
 const submit = exports.submitProductFormDraftAction;
 assert.equal((await submit('invalid', 1)).ok, false);
-access = null; assert.equal((await submit(id, 1)).ok, false); access = { supplier: { id: supplier } };
+access = null; assert.equal((await submit(id, 1)).ok, false); access = { supplier: { id: supplier }, user };
 product = { id, supplier_id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' };
 assert.equal((await submit(id, 1)).ok, false); assert.equal(calls.length, 0, 'Unauthorized callers cannot read private drafts');
 product = { id, supplier_id: supplier };
@@ -47,8 +49,9 @@ assert.equal((await submit(id, 1)).errors[0].code, 'grade'); assert.ok(!calls.so
 validation = { errors: [], warnings: [{ code: 'grade_price_outlier', message: 'Giá cần kiểm tra' }], quantity: { grade: 'W320', incoterm: 'FOB', tiers: [{ quantityGrams: 1000000 }] } };
 let result = await submit(id, 1); assert.equal(result.ok, true); assert.equal(result.submissionId, submissionId);
 assert.equal(validationContext.categoryValid, true); assert.equal(validationContext.imageCount, 1);
-const call = calls.find((item) => item.name); assert.equal(call.name, 'submit_product_form_draft');
+const call = calls.find((item) => item.name); assert.equal(call.name, 'submit_product_form_draft_selected_images');
 assert.equal(call.args.p_supplier_id, supplier); assert.equal(call.args.p_expected_revision, 1);
+assert.equal(call.args.p_user_id, user.id); assert.equal(call.args.p_staff, false); assert.equal(call.args.p_selection, selection);
 assert.equal(call.args.p_validated_payload, draft); assert.equal(call.args.p_quantity.grade, 'W320');
 assert.equal(call.args.p_warnings[0].code, 'grade_price_outlier');
 rpcData = { status: 'images_changed' }; result = await submit(id, 1); assert.equal(result.ok, false); assert.match(result.message, /Ảnh/);
