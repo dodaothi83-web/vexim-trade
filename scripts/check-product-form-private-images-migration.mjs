@@ -82,6 +82,10 @@ try {
   assert.equal(captured.image_snapshot[0].row.storage_path, row.storage_path);
   assert.equal((await db.query('select name from public.supplier_products where id=$1', [product])).rows[0].name, 'Public old name');
   assert.equal((await db.query('select count(*)::int n from public.media_assets where audience=$1', ['buyer'])).rows[0].n, 1);
+  // An approved product can have a newer private draft while its previous
+  // submission is pending. Rejecting the old submission must not overwrite it.
+  await db.query('update public.product_form_drafts set revision=6,payload=$2::jsonb where product_id=$1',
+    [product, JSON.stringify({ name: 'Newer private draft' })]);
   const oldTime = (await db.query('select updated_at::text t from public.supplier_products where id=$1', [product])).rows[0].t;
   const reviewer = '77777777-7777-7777-7777-777777777777';
   const decision = (await db.query('select public.request_product_form_changes($1,$2,$3,$4::timestamptz,$5) result',
@@ -90,7 +94,8 @@ try {
   const stillPublic = (await db.query('select * from public.supplier_products where id=$1', [product])).rows[0];
   assert.equal(stillPublic.name, 'Public old name'); assert.equal(stillPublic.ready_for_buyer, true); assert.equal(stillPublic.supplier_review_status, 'approved');
   assert.equal((await db.query('select count(*)::int n from public.media_assets where audience=$1', ['buyer'])).rows[0].n, 1);
-  assert.equal((await db.query('select revision from public.product_form_drafts where product_id=$1', [product])).rows[0].revision, 6);
+  const latestDraft = (await db.query('select revision,payload from public.product_form_drafts where product_id=$1', [product])).rows[0];
+  assert.equal(latestDraft.revision, 6); assert.equal(latestDraft.payload.name, 'Newer private draft');
   await db.query("update public.media_assets set status='expired' where id=$1", [existing]);
   assert.equal((await select(supplier, 6, [ref('media', existing)])).status, 'image_unavailable');
   await db.query("update public.supplier_products set updated_at=updated_at + interval '1 second' where id=$1", [product]);
