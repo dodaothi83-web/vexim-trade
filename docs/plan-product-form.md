@@ -37,7 +37,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Kiểm tra lại thuộc tính theo cấu hình danh mục khi gửi và khi rà soát; không âm thầm bỏ thông số không hợp lệ hoặc giá trị bị ẩn theo điều kiện. Giá trị ẩn được hiển thị để NCC chủ động xóa; lỗi server được đưa về phần liên quan trong form.
 - [ ] Nối bảng giá vào form mới và luồng duyệt an toàn, kiểm tra lại toàn bộ quy tắc bản chốt từ UI đến server và database.
 - [ ] Bảo đảm giá đã duyệt tiếp tục hiện khi có giá mới chờ duyệt; duyệt phải nguyên tử và phát hiện thay đổi đồng thời của tên, grade, giá và ảnh.
-- [x] Đã xây helper tạo dữ liệu sửa nháp từ sản phẩm cũ một grade mà không đoán tier, MOQ, đơn vị hay năng lực; báo phần grade_rows, thông số, chứng nhận và năng lực cũ cần giữ/kiểm tra. Cả helper từ revision giá v2 cũng không tự hiểu năng lực cũ là kg; cần khôi phục từ form đã duyệt liên kết chính xác. Từ chối nhiều grade hoặc grade mơ hồ, chưa nối form hay duyệt.
+- [x] Đã xây helper tạo dữ liệu sửa nháp từ sản phẩm cũ một grade mà không đoán tier, MOQ, đơn vị hay năng lực; báo phần grade_rows, thông số, chứng nhận và năng lực cũ cần giữ/kiểm tra. Helper khôi phục năng lực kg từ đúng form đã duyệt kiểm tra liên kết giá, bản chụp và timestamp chính xác, yêu cầu consent mới; transaction duyệt cần ghi timestamp này. Từ chối nhiều grade hoặc grade mơ hồ, chưa nối form hay duyệt.
 - [ ] Hoàn thiện xử lý sản phẩm cũ cần người xác nhận, không tự chọn giá trong khoảng giá cũ, không tự chuyển đơn vị bao/thùng; bảo đảm thông tin cũ chưa biểu diễn được không bị mất khi duyệt.
 
 ## Nhân bản cho grade khác
