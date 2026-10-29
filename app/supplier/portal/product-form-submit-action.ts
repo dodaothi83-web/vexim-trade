@@ -7,6 +7,7 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
 import { parseProductFormDraft, validateProductFormSubmission, type ProductFormIssue } from "@/lib/products/product-form-model";
+import { validateProductFormAttributes } from "@/lib/products/product-form-attributes";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 import { toQuantityRevisionV2 } from "@/lib/products/quantity-revision-v2";
 
@@ -34,6 +35,11 @@ export async function submitProductFormDraftAction(productId: string, expectedRe
       return { ok: false, message: "Mô tả chi tiết cần được lưu lại để kiểm tra định dạng an toàn." };
     const category = draft.category ? await supabaseStore.getCategoryBySlug(draft.category) : null;
     const categoryValid = !!category && category.status === "published" && category.is_published === true;
+    if (categoryValid && category) {
+      const attributes = validateProductFormAttributes(draft, category);
+      if (!attributes.ok) return { ok: false, message: attributes.message,
+        errors: [{ section: "attributes", field: "attributes", code: "attributes", message: attributes.message }] };
+    }
     // The RPC checks ownership, visibility, duplicates, expiration and path
     // collisions under the product lock. Never enumerate all public media as a
     // substitute for the user's private ordered selection.

@@ -17,8 +17,10 @@ function load(path, mocks) {
   return exports;
 }
 const model = load('../lib/products/product-form-model.ts', { zod: { z }, '@/lib/products/quantity-entry': entry });
+let attributesOk = true;
 const validate = load('../lib/products/product-form-review-validation.ts', {
   'server-only': {}, '@/lib/products/product-form-model': model,
+  '@/lib/products/product-form-attributes': { validateProductFormAttributes: () => attributesOk ? { ok: true, pool: [] } : { ok: false, message: 'Thông số không hợp lệ.' } },
   '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (value) => value.includes('<script>') ? '' : value },
   '@/lib/products/quantity-pricing': pricing, '@/lib/products/quantity-revision-v2': revision,
 }).validateProductFormForReview;
@@ -29,9 +31,11 @@ const payload = { name: 'Nhân điều', category: 'cashew', grade: 'Special A',
   description: 'Nhân điều Việt Nam', descriptionDetail: '', attributes: {}, attributePool: '[]' };
 const quantity = { tiers: [{ priceCentsPerUnit: 640100, unitWeightGrams: 1000000, quantityGrams: 1234567,
   customGrade: true, unit: 'mt', version: 2 }], incoterm: 'FOB', grade: 'Special A' };
-const input = { payload, quantity, englishName: 'Vietnamese cashew kernels', categoryValid: true, imageCount: 1,
+const input = { payload, quantity, englishName: 'Vietnamese cashew kernels', categoryValid: true, category: {}, imageCount: 1,
   standardGrades: ['W320', 'W240'], policy: pricing.DEFAULT_QUANTITY_PRICING_POLICY };
 let result = validate(input); assert.equal(result.ok, true); assert.equal(result.englishName, 'Vietnamese cashew kernels');
+assert.equal(validate({ ...input, category: null }).ok, false);
+attributesOk = false; assert.equal(validate(input).errors[0].code, 'attributes'); attributesOk = true;
 assert.equal(validate({ ...input, englishName: 'Cashew Special A' }).ok, false, 'Selected custom grade must not enter the English title');
 assert.equal(validate({ ...input, englishName: 'Cashew W240' }).ok, false, 'Any standard grade is forbidden in English title');
 assert.equal(validate({ ...input, englishName: '' }).ok, false); assert.equal(validate({ ...input, englishName: 'x'.repeat(181) }).ok, false);

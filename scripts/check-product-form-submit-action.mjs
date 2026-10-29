@@ -19,13 +19,14 @@ const db = {
     async maybeSingle() { calls.push({ table, filter }); return { data: { revision, payload: draft, image_selection: selection }, error: null }; } }; },
   async rpc(name, args) { calls.push({ name, args }); return { data: rpcData, error: null }; },
 };
-let validationContext;
+let validationContext, attributesOk = true;
 const mocks = {
   'next/cache': { revalidatePath() {} }, '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: store },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access }, '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
   '@/lib/products/grade-pricing': { standardGradesForCategory: () => ['W320'] }, '@/lib/products/quantity-price-config': { readQuantityPricingPolicy: async () => ({ settings: true }) },
   '@/lib/products/product-form-model': { parseProductFormDraft: (value) => value?.valid ? value : null,
     validateProductFormSubmission: (_draft, ctx) => { validationContext = ctx; return validation; } },
+  '@/lib/products/product-form-attributes': { validateProductFormAttributes: () => attributesOk ? { ok: true, pool: [] } : { ok: false, message: 'Thông số không hợp lệ.' } },
   '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (value) => value === '<script>bad</script>' ? '' : value },
   '@/lib/products/quantity-revision-v2': { toQuantityRevisionV2: (value) => value.tiers },
   '@/lib/media/readiness': { isExpired: (asset) => asset.status === 'expired' },
@@ -44,6 +45,8 @@ product = { id, supplier_id: supplier };
 assert.equal((await submit(id, 2)).ok, false);
 draft = { ...draft, descriptionDetail: '<script>bad</script>' }; assert.equal((await submit(id, 1)).ok, false);
 draft = { ...draft, descriptionDetail: '' };
+attributesOk = false; const invalidAttributes = await submit(id, 1); assert.equal(invalidAttributes.errors[0].code, 'attributes');
+assert.ok(!calls.some((call) => call.name), 'Invalid attributes cannot be submitted'); attributesOk = true;
 validation = { errors: [{ code: 'grade', message: 'Chọn grade' }], warnings: [], quantity: null };
 assert.equal((await submit(id, 1)).errors[0].code, 'grade'); assert.ok(!calls.some((call) => call.name));
 validation = { errors: [], warnings: [{ code: 'grade_price_outlier', message: 'Giá cần kiểm tra' }], quantity: { grade: 'W320', incoterm: 'FOB', tiers: [{ quantityGrams: 1000000 }] } };

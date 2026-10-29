@@ -1,6 +1,8 @@
 import "server-only";
 
 import { parseProductFormDraft, validateProductFormSubmission, type ProductFormDraft, type ProductFormIssue } from "@/lib/products/product-form-model";
+import { validateProductFormAttributes } from "@/lib/products/product-form-attributes";
+import type { Category } from "@/lib/types";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 import { nameContainsGrade, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import { toQuantityRevisionV2 } from "@/lib/products/quantity-revision-v2";
@@ -23,6 +25,7 @@ function canonicalJson(input: unknown): string | undefined {
  */
 export function validateProductFormForReview(input: {
   payload: unknown; quantity: unknown; englishName: unknown; categoryValid: boolean;
+  category: Pick<Category, "product_fields" | "supplier_product_fields"> | null;
   imageCount: number; standardGrades: readonly string[]; policy: QuantityPricingPolicy | null;
 }): ProductFormReviewValidation {
   const draft = parseProductFormDraft(input.payload);
@@ -31,6 +34,12 @@ export function validateProductFormForReview(input: {
     if (sanitizeProductDescriptionForSave(draft.descriptionDetail) !== draft.descriptionDetail)
       return { ok: false, message: "Mô tả chi tiết chưa có định dạng an toàn." };
   } catch { return { ok: false, message: "Mô tả chi tiết chưa có định dạng an toàn." }; }
+  if (input.categoryValid) {
+    if (!input.category) return { ok: false, message: "Không tải được cấu hình thông số của danh mục." };
+    const attributes = validateProductFormAttributes(draft, input.category);
+    if (!attributes.ok) return { ok: false, message: attributes.message,
+      errors: [{ section: "attributes", field: "attributes", code: "attributes", message: attributes.message }] };
+  }
   const validation = validateProductFormSubmission(draft, {
     categoryValid: input.categoryValid, imageCount: input.imageCount, standardGrades: input.standardGrades, policy: input.policy,
   });
