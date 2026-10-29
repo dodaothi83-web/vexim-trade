@@ -12,7 +12,7 @@ const initial = { status: 'ok', product: { id: productId, supplier_id: supplierI
   category: { id: categoryId, slug: 'cashew', status: 'published', is_published: true, product_fields: [] },
   settings: { singleton: true, max_tiers: 4, max_price_ratio: 1.5, max_last_moq_ratio: 100, reminder_days: 30, stale_days: 90,
     offer_max_discount_percent: 30, offer_max_days: 60, offer_cooldown_days: 30, offer_price_lock_days: 30 },
-  bounds: [{ category_id: categoryId, grade: 'W320', min_usd_per_kg: 6, max_usd_per_kg: 7 }], prices: [], names: [] };
+  bounds: [{ category_id: categoryId, grade: 'W320', min_usd_per_kg: 6, max_usd_per_kg: 7 }], prices: [], names: [], published_images: [] };
 let data = structuredClone(initial), seenValidation = null, imageResult = { ok: true }, validationResult = { ok: true, draft: {}, englishName: 'Cashew', warnings: [] }, calls = 0;
 const db = { rpc: async () => { calls++; return { data, error: null }; } };
 const mocks = { 'server-only': {}, '@/lib/products/grade-pricing': { standardGradesForCategory: () => ['W320'] },

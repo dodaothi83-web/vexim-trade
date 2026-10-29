@@ -29,7 +29,7 @@ export async function prepareProductFormReview(db: Db, productId: string, submis
       return { ok: false, message: "Sản phẩm cũ có nhiều grade hoặc dữ liệu grade chưa rõ. Giữ nguyên sản phẩm và tạo bản nháp riêng cho grade khác." };
     if (error || !object(data) || data.status !== "ok" || !object(data.product) || !object(data.submission) ||
         !object(data.category) || !object(data.settings) || !Array.isArray(data.bounds) || data.bounds.length > 1000 ||
-        !Array.isArray(data.prices) || !Array.isArray(data.names))
+        !Array.isArray(data.prices) || !Array.isArray(data.names) || !Array.isArray(data.published_images))
       return { ok: false, message: "Không xác nhận được dữ liệu duyệt. Hãy tải lại trang." };
     const item = data.product, submission = data.submission, category = data.category, settingsRow = data.settings;
     if (item.id !== productId.toLowerCase() || typeof item.supplier_id !== "string" || !UUID.test(item.supplier_id) ||

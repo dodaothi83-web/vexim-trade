@@ -36,7 +36,16 @@ try {
     [supplier, id, 'supplier-user', false, 2, JSON.stringify(payload), JSON.stringify(quantity), '[]', JSON.stringify(refs)])).rows[0].result;
   const context = async () => (await db.query('select public.product_form_review_context($1,$2) result', [id, sent.submission_id])).rows[0].result;
   const original = await context(); assert.equal(original.status, 'ok'); assert.equal(original.submission.status, 'pending');
+  assert.deepEqual(original.published_images, []);
   assert.equal((await db.query('select count(*)::int n from public.media_assets')).rows[0].n, 0, 'Context never publishes images');
+  const legacyMedia = '77777777-7777-7777-7777-777777777777';
+  await db.query('insert into public.media_assets (id,product_id,storage_path) values($1,$2,$3)', [legacyMedia,id,`products/${id}/old.webp`]);
+  await db.query('insert into public.product_form_published_images(product_id,submission_id,media_id,position) values($1,$2,$3,0)', [id,sent.submission_id,legacyMedia]);
+  assert.equal((await context()).published_images[0].media_id, legacyMedia, 'Approval context includes locked gallery manifest');
+  await assert.rejects(() => db.query('insert into public.product_form_published_images(product_id,submission_id,media_id,position) values($1,$2,$3,8)', [id,sent.submission_id,legacyMedia]));
+  await assert.rejects(() => db.query('delete from public.media_assets where id=$1', [legacyMedia]), 'A manifest cannot silently lose its media row');
+  await db.query('delete from public.product_form_published_images where product_id=$1', [id]);
+  await db.query('delete from public.media_assets where id=$1', [legacyMedia]);
   for (const specs of [{ grade_rows: [{ grade: '500 g/L' }, { grade: '550 g/L' }] }, { grade_rows: 'unknown' }, ['bad']]) {
     await db.query('update public.supplier_products set specs=$2::jsonb where id=$1', [id, JSON.stringify(specs)]);
     assert.equal((await context()).status, 'legacy_grade_unmapped', 'Existing ambiguous grades cannot enter one-grade approval');
@@ -70,7 +79,9 @@ try {
   assert.equal((await context()).status, 'product_changed');
   const grants = (await db.query(`select has_function_privilege('anon','public.product_form_review_context(uuid,uuid)','execute') anon,
     has_function_privilege('authenticated','public.product_form_review_context(uuid,uuid)','execute') auth,
-    has_function_privilege('service_role','public.product_form_review_context(uuid,uuid)','execute') service`)).rows[0];
-  assert.deepEqual(grants, { anon: false, auth: false, service: true });
+    has_function_privilege('service_role','public.product_form_review_context(uuid,uuid)','execute') service,
+    has_table_privilege('anon','public.product_form_published_images','select') manifest_anon,
+    has_table_privilege('authenticated','public.product_form_published_images','select') manifest_auth`)).rows[0];
+  assert.deepEqual(grants, { anon: false, auth: false, service: true, manifest_anon: false, manifest_auth: false });
   console.log('Review context: exact snapshots, policy changes, image collisions, revisions and service-only access passed');
 } finally { await db.close(); }

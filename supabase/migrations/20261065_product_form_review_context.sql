@@ -10,6 +10,25 @@ alter table public.product_form_submissions add column if not exists approved_pr
 create unique index if not exists product_form_submission_price_revision_key
   on public.product_form_submissions(approved_price_revision_id) where approved_price_revision_id is not null;
 
+-- Gallery order is independent of legacy media rows. This lets a future
+-- approval select at most eight images without deleting old rows or breaking
+-- their existing URLs. No manifest is written until atomic approval exists.
+create unique index if not exists product_form_submission_product_key on public.product_form_submissions(id, product_id);
+create unique index if not exists product_form_media_product_key on public.media_assets(id, product_id);
+create table if not exists public.product_form_published_images (
+  product_id uuid not null references public.supplier_products(id) on delete cascade,
+  submission_id uuid not null,
+  media_id uuid not null,
+  position smallint not null check (position between 0 and 7),
+  primary key (product_id, position),
+  unique (product_id, media_id),
+  foreign key (submission_id, product_id) references public.product_form_submissions(id, product_id) on delete cascade,
+  foreign key (media_id, product_id) references public.media_assets(id, product_id) on delete restrict
+);
+alter table public.product_form_published_images enable row level security;
+revoke all on public.product_form_published_images from public, anon, authenticated;
+grant all on public.product_form_published_images to service_role;
+
 -- This service-role-only helper must be called INSIDE the eventual approval
 -- transaction. A separate RPC call releases its locks at the end of that call;
 -- it is not an approval and cannot guarantee that a later RPC sees the same data.
@@ -27,6 +46,7 @@ declare
   grade_bounds jsonb;
   prices jsonb;
   names jsonb;
+  published_images jsonb;
   entry jsonb;
   selected jsonb;
   current_photo jsonb;
@@ -60,7 +80,7 @@ begin
   -- alone cannot prevent an insert into an otherwise empty category).
   lock table public.categories, public.quantity_price_settings, public.category_grade_price_bounds in share mode;
   lock table public.product_quantity_price_revisions, public.product_english_name_revisions,
-    public.media_assets, public.product_form_staged_images in share row exclusive mode;
+    public.media_assets, public.product_form_staged_images, public.product_form_published_images in share row exclusive mode;
   select * into category from public.categories where slug = submission.payload->>'category';
   if not found or category.status <> 'published' or category.is_published is distinct from true then
     return jsonb_build_object('status','category_changed');
@@ -73,6 +93,8 @@ begin
     from public.product_quantity_price_revisions p where p.product_id = item.id and p.status in ('draft','pending','approved');
   select coalesce(jsonb_agg(to_jsonb(n) order by n.id),'[]'::jsonb) into names
     from public.product_english_name_revisions n where n.product_id = item.id and n.status in ('draft','pending','approved');
+  select coalesce(jsonb_agg(to_jsonb(i) order by i.position),'[]'::jsonb) into published_images
+    from public.product_form_published_images i where i.product_id = item.id;
   if jsonb_typeof(submission.image_selection) is distinct from 'array' or jsonb_typeof(submission.image_snapshot) is distinct from 'array' then
     return jsonb_build_object('status','images_changed');
   end if;
@@ -119,7 +141,8 @@ begin
     if current_photo is distinct from entry->'row' then return jsonb_build_object('status','images_changed'); end if;
   end loop;
   return jsonb_build_object('status','ok','product',to_jsonb(item),'submission',to_jsonb(submission),
-    'category',to_jsonb(category),'settings',to_jsonb(settings),'bounds',grade_bounds,'prices',prices,'names',names);
+    'category',to_jsonb(category),'settings',to_jsonb(settings),'bounds',grade_bounds,'prices',prices,'names',names,
+    'published_images',published_images);
 end;
 $$;
 revoke all on function public.product_form_review_context(uuid,uuid) from public, anon, authenticated;
