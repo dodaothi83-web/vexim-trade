@@ -12,7 +12,7 @@ try {
     create table public.suppliers (id uuid primary key);
     create table public.supplier_products (id uuid primary key default gen_random_uuid(), supplier_id uuid references public.suppliers(id), name text not null,
       category text, supplier_review_status text, supplier_review_note text, supplier_originated boolean, ready_for_buyer boolean,
-      ref_price numeric, updated_at timestamptz not null default now());
+      ref_price numeric, specs jsonb, updated_at timestamptz not null default now());
     create table public.quantity_product_creation_requests (request_id uuid primary key, supplier_id uuid not null, product_id uuid, payload_hash text not null);
     create table public.media_assets (id uuid primary key default gen_random_uuid(), owner_type text, product_id uuid, supplier_id uuid, kind text,
       storage_path text, thumb_path text, status text not null default 'unverified', expires_on date, audience text, created_by text, sort_order integer, created_at timestamptz default now());
@@ -37,6 +37,15 @@ try {
   const context = async () => (await db.query('select public.product_form_review_context($1,$2) result', [id, sent.submission_id])).rows[0].result;
   const original = await context(); assert.equal(original.status, 'ok'); assert.equal(original.submission.status, 'pending');
   assert.equal((await db.query('select count(*)::int n from public.media_assets')).rows[0].n, 0, 'Context never publishes images');
+  for (const specs of [{ grade_rows: [{ grade: '500 g/L' }, { grade: '550 g/L' }] }, { grade_rows: 'unknown' }, ['bad']]) {
+    await db.query('update public.supplier_products set specs=$2::jsonb where id=$1', [id, JSON.stringify(specs)]);
+    assert.equal((await context()).status, 'legacy_grade_unmapped', 'Existing ambiguous grades cannot enter one-grade approval');
+  }
+  for (const specs of [{ grade_rows: null }, { grade_rows: [] }, { grade_rows: [{ grade: 'W320' }] }]) {
+    await db.query('update public.supplier_products set specs=$2::jsonb where id=$1', [id, JSON.stringify(specs)]);
+    assert.equal((await context()).status, 'ok');
+  }
+  await db.query('update public.supplier_products set specs=null where id=$1', [id]);
   await db.query('insert into public.category_grade_price_bounds values($1,$2,$3,$4)', [category, 'W320', 6, 7]);
   assert.notDeepEqual((await context()).bounds, original.bounds, 'New policy rows are visible to final compare');
   const rev = '99999999-9999-9999-9999-999999999999';

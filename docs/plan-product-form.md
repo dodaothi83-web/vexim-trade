@@ -61,7 +61,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 
 - [x] Đã xây và kiểm thử thành phần thẻ sản phẩm, bảng giá và projection từ revision được duyệt trong đường preview; grade tự nhập bị loại khỏi bộ lọc grade chuẩn.
 - [x] Đã xây kiểm tra và trình đọc consent công khai theo đúng revision giá được duyệt, chỉ đọc cờ cần thiết, phân trang và báo lỗi an toàn; không cho bản form cũ cấp quyền cho giá mới, sản phẩm chưa có form duyệt vẫn giữ chính sách cũ. Chưa nối buyer hoặc transaction duyệt.
-- [x] Đã có guard giữ nguyên projection cũ cho sản phẩm nhiều grade hoặc grade cũ không đúng định dạng.
+- [x] Đã có guard giữ nguyên projection cũ cho sản phẩm nhiều grade hoặc grade cũ không đúng định dạng. SQL65 cũng từ chối đưa sản phẩm có nhiều grade hoặc cấu trúc grade mơ hồ vào bước chuẩn bị duyệt một grade; đã thử PGlite, chưa chạy SQL.
 - [ ] Nối thẻ, trang chi tiết, bộ lọc và storefront vào dữ liệu mới sau khi luồng duyệt hoàn chỉnh, không làm mất khả năng đọc sản phẩm cũ.
 - [ ] Kiểm tra thẻ cố định chiều cao, grade riêng khỏi tên, giá/MOQ kg hoặc MT, Volume pricing, ngày cập nhật, OEM/ODM/mẫu và bộ lọc.
 - [ ] Kiểm thử trang chi tiết không lặp giá, grade, MOQ, Incoterm; kiểm tra URL, sitemap, ảnh, RFQ và hiển thị sản phẩm hai grade vẫn như cũ.

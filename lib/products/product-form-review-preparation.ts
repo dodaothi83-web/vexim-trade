@@ -25,6 +25,8 @@ export async function prepareProductFormReview(db: Db, productId: string, submis
   if (!UUID.test(productId) || !UUID.test(submissionId)) return { ok: false, message: "Bản gửi không hợp lệ." };
   try {
     const { data, error } = await db.rpc("product_form_review_context", { p_product_id: productId, p_submission_id: submissionId });
+    if (!error && object(data) && data.status === "legacy_grade_unmapped")
+      return { ok: false, message: "Sản phẩm cũ có nhiều grade hoặc dữ liệu grade chưa rõ. Giữ nguyên sản phẩm và tạo bản nháp riêng cho grade khác." };
     if (error || !object(data) || data.status !== "ok" || !object(data.product) || !object(data.submission) ||
         !object(data.category) || !object(data.settings) || !Array.isArray(data.bounds) || data.bounds.length > 1000 ||
         !Array.isArray(data.prices) || !Array.isArray(data.names))

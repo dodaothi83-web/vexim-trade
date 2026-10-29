@@ -47,6 +47,15 @@ begin
      or item.supplier_review_status is null or item.supplier_review_status not in ('pending','approved','paused') then
     return jsonb_build_object('status','product_changed');
   end if;
+  -- Never reinterpret an existing multi-grade listing as one grade. The user
+  -- will create and review separate drafts manually; the original stays intact.
+  if item.specs is not null and jsonb_typeof(item.specs) is distinct from 'object' then
+    return jsonb_build_object('status','legacy_grade_unmapped');
+  end if;
+  if item.specs->'grade_rows' is not null and item.specs->'grade_rows' <> 'null'::jsonb then
+    if jsonb_typeof(item.specs->'grade_rows') is distinct from 'array' then return jsonb_build_object('status','legacy_grade_unmapped'); end if;
+    if jsonb_array_length(item.specs->'grade_rows') > 1 then return jsonb_build_object('status','legacy_grade_unmapped'); end if;
+  end if;
   -- Prevent policy/category changes, including new grade-bound rows (row locks
   -- alone cannot prevent an insert into an otherwise empty category).
   lock table public.categories, public.quantity_price_settings, public.category_grade_price_bounds in share mode;
