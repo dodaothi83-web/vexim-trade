@@ -16,13 +16,14 @@ function load(path, mocks) {
   return exports;
 }
 const model = load('../lib/products/product-form-model.ts', { zod: { z }, '@/lib/products/quantity-entry': entry });
-const clone = load('../lib/products/product-form-clone.ts', { '@/lib/products/product-form-model': model }).cloneProductFormForDifferentGrade;
+const clone = load('../lib/products/product-form-clone.ts', { '@/lib/products/product-form-model': model,
+  '@/lib/products/grade-pricing': { isGradeFieldKey: (key) => ['grade', 'product_type'].includes(key.trim().toLowerCase()) } }).cloneProductFormForDifferentGrade;
 const source = { name: 'Hồ tiêu đen', category: 'pepper', grade: '500 g/L', customGrade: false,
   spec: 'Khô', rawMaterialRegion: 'Gia Lai', inputMaterialOrigin: 'Việt Nam', incoterm: 'FOB', incotermPlace: 'Cát Lái',
   unit: 'mt', tiers: [{ quantity: '1', price: '1500.00' }, { quantity: '5', price: '1400.00' }],
   pricePubliclyVisible: true, priceConsent: true, paymentTerms: 'T/T', oem: false, odm: false, samples: true,
   packaging: 'Bao dệt', exportPort: 'Cát Lái', leadTimeDays: '14', monthlyCapacityKg: '50,000', description: 'Hồ tiêu',
-  descriptionDetail: '<p>Chi tiết</p>', attributes: { moisture: '12%' }, attributePool: '[]' };
+  descriptionDetail: '<p>Chi tiết</p>', attributes: { moisture: '12%', grade: '500 g/L', product_type: 'Old grade' }, attributePool: '[]' };
 const snapshot = JSON.stringify(source);
 const draft = clone(source);
 assert.ok(draft); assert.equal(draft.name, source.name); assert.equal(draft.spec, source.spec);
@@ -31,6 +32,7 @@ assert.equal(draft.packaging, source.packaging); assert.equal(draft.incoterm, so
 assert.equal(draft.grade, ''); assert.equal(draft.customGrade, false); assert.equal(draft.tiers.length, 1);
 assert.equal(draft.tiers[0].quantity, ''); assert.equal(draft.tiers[0].price, '');
 assert.equal(draft.pricePubliclyVisible, false); assert.equal(draft.priceConsent, false);
+assert.equal(draft.attributes.grade, undefined); assert.equal(draft.attributes.product_type, undefined);
 draft.attributes.moisture = 'changed'; assert.equal(source.attributes.moisture, '12%');
 assert.equal(JSON.stringify(source), snapshot, 'Cloning does not mutate the original');
 assert.equal(clone({ ...source, unit: 'bag' }), null); assert.equal(clone(null), null);

@@ -1,4 +1,5 @@
 import { parseProductFormDraft, type ProductFormDraft } from "@/lib/products/product-form-model";
+import { isGradeFieldKey } from "@/lib/products/grade-pricing";
 
 /**
  * Prepare unsaved, private form data for a different grade. This is not a DB
@@ -18,6 +19,8 @@ export function cloneProductFormForDifferentGrade(input: unknown): ProductFormDr
     grade: "", customGrade: false,
     tiers: [{ quantity: "", price: "" }],
     pricePubliclyVisible: false, priceConsent: false,
-    attributes: { ...source.attributes },
+    // Older or tampered drafts may contain grade-like attribute keys even
+    // though the shared editor hides them. Do not copy those into the clone.
+    attributes: Object.fromEntries(Object.entries(source.attributes).filter(([key]) => !isGradeFieldKey(key))),
   });
 }
