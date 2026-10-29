@@ -16,13 +16,14 @@ let pending = { id: submissionId, product_id: productId, supplier_id: supplierId
   created_at: time, submitted_product_updated_at: time, warnings: [], image_selection: [{ source: 'staged', id: imageId }],
   image_snapshot: [{ source: 'staged', row: { id: imageId, product_id: productId, supplier_id: supplierId } }] };
 let approved = { id: 'ffffffff-ffff-ffff-ffff-ffffffffffff', product_id: productId, supplier_id: supplierId, status: 'approved', approved_price_revision_id: revisionId, payload: { name: 'Tên đã duyệt', priceConsent: true } };
+let additional = [];
 let price = { id: revisionId, product_id: productId, status: 'approved' };
 const nameRevision = { product_id: productId, status: 'approved', english_name: 'Approved revision name' };
 const db = { from(table) {
-  let data = table === 'product_form_submissions' ? [pending, approved] : table === 'product_quantity_price_revisions' ? [price] : table === 'product_english_name_revisions' ? [nameRevision] : null;
+  let data = table === 'product_form_submissions' ? [pending, ...additional, approved] : table === 'product_quantity_price_revisions' ? [price] : table === 'product_english_name_revisions' ? [nameRevision] : null;
   assert.ok(data, `unexpected table ${table}`);
   const query = { select() { return this; }, eq(key, value) { data = data.filter((row) => row[key] === value); return this; },
-    order() { return this; }, limit(n) { data = data.slice(0, n); return this; },
+    order() { return this; }, limit(n) { data = data.slice(0, n); return this; }, range(start, end) { data = data.slice(start, end + 1); return this; },
     maybeSingle() { return Promise.resolve({ data: data[0] ?? null, error: null }); },
     then(resolve) { return Promise.resolve({ data, error: null }).then(resolve); },
   }; return query;
@@ -49,9 +50,14 @@ const PageHeader = ({ title }) => React.createElement('h1', null, title);
 const common = { 'next/link': { default: Link, __esModule: true }, '@/components/page-header': { PageHeader },
   '../reviewer-access': { requireProductFormReviewer: access }, './reviewer-access': { requireProductFormReviewer: access } };
 const queue = load('../app/crm/products/form-review/page.tsx', common).default;
-let html = renderToStaticMarkup(await queue());
+let html = renderToStaticMarkup(await queue({ searchParams: Promise.resolve({}) }));
 assert.match(html, /&lt;script&gt;bad&lt;\/script&gt;/); assert.doesNotMatch(html, /<script>/); assert.match(html, new RegExp(submissionId));
 assert.doesNotMatch(html, /Tên đã duyệt/, 'Approved submissions never enter pending queue');
+additional = Array.from({ length: 51 }, (_, i) => ({ ...pending, id: `extra-${i}`, payload: { name: `Bản gửi ${i}` } }));
+html = renderToStaticMarkup(await queue({ searchParams: Promise.resolve({}) }));
+assert.match(html, /Trang sau/); assert.doesNotMatch(html, /Bản gửi 50/, 'First page is bounded');
+html = renderToStaticMarkup(await queue({ searchParams: Promise.resolve({ page: '2' }) }));
+assert.match(html, /Bản gửi 50/); assert.match(html, /Trang trước/); additional = [];
 const detail = load('../app/crm/products/form-review/[submissionId]/page.tsx', { ...common,
   'next/navigation': { notFound: () => { throw Error('not found'); } },
   '@/components/products/product-form-review-diff-table': { ProductFormReviewDiffTable: ({ rows }) => React.createElement('p', null, JSON.stringify(rows)) },
