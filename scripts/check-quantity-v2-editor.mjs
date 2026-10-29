@@ -33,6 +33,11 @@ const separate = render({ showGrade: false, incotermPlace: React.createElement('
 assert.doesNotMatch(separate, /aria-label="Grade"/);
 assert.ok(separate.indexOf('aria-label="Incoterm"') < separate.indexOf('name="incoterm_place"'));
 assert.ok(separate.indexOf('name="incoterm_place"') < separate.indexOf('<table'));
+const compact = render({ productFormLayout: true, showGrade: false, showIncoterm: false, showConsent: false });
+assert.doesNotMatch(compact, /aria-label="Incoterm"|Quy chế hoạt động/);
+assert.match(compact, /Buyer thấy:/); assert.match(compact, /1\.5 MT đến 1\.999999 MT/);
+assert.match(compact, /aria-label="Xóa mức giá 1"/); assert.match(compact, /US\$/); assert.equal((compact.match(/\+ Thêm mức giá/g) ?? []).length, 1);
+assert.doesNotMatch(render({ productFormLayout: true, pricePubliclyVisible: false }), /Buyer thấy:/);
 const grade = renderToStaticMarkup(React.createElement(editor.QuantityGradeV2Field, props));
 assert.match(grade, /aria-label="Grade"/); assert.doesNotMatch(grade, /Incoterm/);
 const preview = renderToStaticMarkup(React.createElement(editor.QuantityBuyerV2Preview, { ...props, incotermPlace: 'Cát Lái' }));

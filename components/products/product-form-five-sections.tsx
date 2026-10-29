@@ -112,7 +112,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
         <Field label="Giá theo số lượng" required hint="Tối đa 4 mức" hintByLabel>
           <QuantityPricingV2Editor value={quantity} onChange={setQuantity} standardGrades={grades} policy={editorPolicy}
             pricePubliclyVisible={value.pricePubliclyVisible} consentChecked={value.priceConsent} onConsentChange={(next) => set("priceConsent", next)}
-            disabled={locked} showGrade={false} showIncoterm={false} showConsent={false} showErrors showWarnings={false} />
+            disabled={locked} showGrade={false} showIncoterm={false} showConsent={false} productFormLayout showErrors showWarnings={false} />
           {serverErrors.filter((issue) => issue.field === "tiers" &&
             !checked.errors.some((current) => current.code === issue.code && current.tierIndex === issue.tierIndex))
             .map((issue, index) => <p key={`${issue.code}-${issue.tierIndex ?? "all"}-${index}`} role="alert" className="mt-1 text-xs text-rose-700">{issue.message}</p>)}

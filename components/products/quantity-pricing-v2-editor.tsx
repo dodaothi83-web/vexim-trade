@@ -30,6 +30,8 @@ type Props = {
   /** A surrounding form may place these controls in separate rows. */
   showIncoterm?: boolean;
   showConsent?: boolean;
+  /** Compact tier grid for the five-section product form. */
+  productFormLayout?: boolean;
 };
 
 /** Group the integer part while preserving decimal kg/MT quantities and pasted errors. */
@@ -83,7 +85,7 @@ export function QuantityPriceV2Consent({ visible, checked, onChange, disabled = 
 
 /** Reusable controlled quantity editor. Server validates the same input again. */
 export function QuantityPricingV2Editor({ value, onChange, standardGrades, policy, pricePubliclyVisible,
-  consentChecked, onConsentChange, showErrors = false, disabled = false, isolated = false, showGrade = true, showWarnings = false, incotermPlace, showIncoterm = true, showConsent = true }: Props) {
+  consentChecked, onConsentChange, showErrors = false, disabled = false, isolated = false, showGrade = true, showWarnings = false, incotermPlace, showIncoterm = true, showConsent = true, productFormLayout = false }: Props) {
   const [pendingUnit, setPendingUnit] = useState<SupplierQuantityUnit | null>(null);
   const errorPrefix = useId();
   const validation = validateSupplierQuantityEntry(value, standardGrades, policy);
@@ -106,8 +108,8 @@ export function QuantityPricingV2Editor({ value, onChange, standardGrades, polic
       <QuantityIncotermV2Field value={value} onChange={onChange} standardGrades={standardGrades} policy={policy} disabled={disabled} isolated={isolated} showErrors={showErrors} />
       {incotermPlace}
     </div>}
-    <div className="overflow-x-auto"><table className="w-full min-w-[370px] text-left text-sm">
-      <thead><tr className="text-xs text-ink-600"><th className="p-2">Số lượng đặt theo {" "}
+    <div className={productFormLayout ? "overflow-x-auto rounded-lg border border-ink-200" : "overflow-x-auto"}><table className="w-full min-w-[370px] text-left text-sm">
+      <thead className={productFormLayout ? "bg-ink-50" : undefined}><tr className="text-xs text-ink-600"><th className="p-2">Số lượng đặt theo {" "}
         <select form={form} aria-label="Đơn vị số lượng" className="input inline-block w-auto" disabled={disabled} value={value.unit} onChange={(event) => changeUnit(event.target.value as SupplierQuantityUnit)}>
           <option value="kg">kg</option><option value="mt">tấn</option>
         </select></th><th className="p-2">Đơn giá (USD/{unit})</th><th className="relative p-2"><span className="sr-only">Xóa mức</span></th></tr></thead>
@@ -118,19 +120,27 @@ export function QuantityPricingV2Editor({ value, onChange, standardGrades, polic
         const next = validation.value?.tiers[index + 1];
         const rangeEnd = next ? (next.quantityGrams - 1) / normalized!.unitWeightGrams : null;
         return <tr key={index} className="border-t border-ink-100">
-          <td className="p-1 align-top"><div className="flex items-center gap-1"><span aria-hidden="true">≥</span><input form={form} type="text" inputMode="decimal" aria-label={`Số lượng mức ${index + 1} (${unit})`} aria-invalid={!!quantityErrors.length || undefined} aria-describedby={quantityErrors.length ? `${errorPrefix}-quantity-${index}` : undefined}
-            className="input w-full text-right font-mono tabular-nums" disabled={disabled} value={tier.quantity} onChange={(event) => changeTier(index, "quantity", formatV2QuantityInput(event.target.value, tier.quantity))} /></div>
+          <td className="p-1 align-top"><div className={productFormLayout ? "relative" : "flex items-center gap-1"}><span aria-hidden="true" className={productFormLayout ? "pointer-events-none absolute inset-y-0 left-3 flex items-center text-ink-500" : undefined}>≥</span><input form={form} type="text" inputMode="decimal" aria-label={`Số lượng mức ${index + 1} (${unit})`} aria-invalid={!!quantityErrors.length || undefined} aria-describedby={quantityErrors.length ? `${errorPrefix}-quantity-${index}` : undefined}
+            className={`input w-full text-right font-mono tabular-nums ${productFormLayout ? "pl-8 pr-12" : ""}`} disabled={disabled} value={tier.quantity} onChange={(event) => changeTier(index, "quantity", formatV2QuantityInput(event.target.value, tier.quantity))} />
+            {productFormLayout && <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-ink-500">{unit}</span>}</div>
             {quantityErrors.length > 0 && <div id={`${errorPrefix}-quantity-${index}`}>{quantityErrors.map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issue.message}</p>)}</div>}
-            {normalized && <p className="mt-1 text-xs text-ink-500">{rangeEnd === null ? "Trở lên" : `Đến ${v2FormatAmount(rangeEnd)} ${unit}`}</p>}
+            {normalized && !productFormLayout && <p className="mt-1 text-xs text-ink-500">{rangeEnd === null ? "Trở lên" : `Đến ${v2FormatAmount(rangeEnd)} ${unit}`}</p>}
           </td>
-          <td className="p-1 align-top"><input form={form} type="text" inputMode="decimal" aria-label={`Đơn giá mức ${index + 1} (USD/${unit})`} aria-invalid={!!priceErrors.length || undefined} aria-describedby={priceErrors.length ? `${errorPrefix}-price-${index}` : undefined}
-            className="input w-full text-right font-mono tabular-nums" disabled={disabled} value={tier.price} onChange={(event) => changeTier(index, "price", event.target.value)} onBlur={(event) => changeTier(index, "price", normalizePriceInput(event.target.value))} />
+          <td className="p-1 align-top"><div className={productFormLayout ? "relative" : undefined}>
+            {productFormLayout && <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs text-ink-500">US$</span>}
+            <input form={form} type="text" inputMode="decimal" aria-label={`Đơn giá mức ${index + 1} (USD/${unit})`} aria-invalid={!!priceErrors.length || undefined} aria-describedby={priceErrors.length ? `${errorPrefix}-price-${index}` : undefined}
+              className={`input w-full text-right font-mono tabular-nums ${productFormLayout ? "pl-11 pr-12" : ""}`} disabled={disabled} value={tier.price} onChange={(event) => changeTier(index, "price", event.target.value)} onBlur={(event) => changeTier(index, "price", normalizePriceInput(event.target.value))} />
+            {productFormLayout && <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-ink-500">/{unit}</span>}</div>
             {priceErrors.length > 0 && <div id={`${errorPrefix}-price-${index}`}>{priceErrors.map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issue.message}</p>)}</div>}
           </td>
-          <td className="p-1">{value.tiers.length > 1 && <button type="button" disabled={disabled} className="text-xs text-rose-700" aria-label={`Xóa mức giá ${index + 1}`} onClick={() => onChange({ ...value, tiers: value.tiers.filter((_, i) => i !== index) })}>Xóa</button>}</td>
+          <td className="p-1">{value.tiers.length > 1 && <button type="button" disabled={disabled} className={productFormLayout ? "grid size-10 place-items-center rounded-lg border border-ink-200 text-lg text-ink-600" : "text-xs text-rose-700"} aria-label={`Xóa mức giá ${index + 1}`} onClick={() => onChange({ ...value, tiers: value.tiers.filter((_, i) => i !== index) })}>{productFormLayout ? "×" : "Xóa"}</button>}</td>
         </tr>;
       })}</tbody>
-    </table></div>
+    </table>
+      {productFormLayout && value.tiers.length < Math.min(policy.maxTiers, 4) && <button type="button" disabled={disabled}
+        onClick={() => onChange({ ...value, tiers: [...value.tiers, { quantity: "", price: "" }] })}
+        className="min-h-10 w-full border-t border-ink-200 px-3 text-left text-sm font-semibold text-brand-700">+ Thêm mức giá</button>}
+    </div>
     {pendingUnit && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
       <p>Đổi đơn vị sẽ xóa các mức số lượng và giá đang nhập. Bạn có muốn tiếp tục?</p>
       <div className="mt-2 flex gap-3">
@@ -138,8 +148,14 @@ export function QuantityPricingV2Editor({ value, onChange, standardGrades, polic
         <button type="button" className="font-semibold text-ink-700" onClick={() => setPendingUnit(null)}>Giữ đơn vị</button>
       </div>
     </div>}
+    {productFormLayout && validation.value && pricePubliclyVisible && <p className="text-xs leading-5 text-ink-600">Buyer thấy: {validation.value.tiers.map((tier, index, tiers) => {
+      const next = tiers[index + 1];
+      const first = v2QuantityLabel(tier.quantityGrams, { ...validation.value!, tiers: [] });
+      const last = next ? v2QuantityLabel(next.quantityGrams - 1, { ...validation.value!, tiers: [] }) : null;
+      return `${first}${last ? ` đến ${last}` : " trở lên"}: ${v2PriceLabel(tier.priceCentsPerUnit, validation.value!.unit)}`;
+    }).join("; ")}</p>}
     <p className="text-xs text-ink-600">Mức đầu tiên là số lượng tối thiểu (MOQ).</p>
-    {value.tiers.length < Math.min(policy.maxTiers, 4) && <button type="button" disabled={disabled} onClick={() => onChange({ ...value, tiers: [...value.tiers, { quantity: "", price: "" }] })} className="text-sm font-semibold text-brand-700">+ Thêm mức giá</button>}
+    {!productFormLayout && value.tiers.length < Math.min(policy.maxTiers, 4) && <button type="button" disabled={disabled} onClick={() => onChange({ ...value, tiers: [...value.tiers, { quantity: "", price: "" }] })} className="text-sm font-semibold text-brand-700">+ Thêm mức giá</button>}
     {showErrors && validation.errors.filter((issue) => issue.tierIndex === undefined && !["grade", "incoterm", "name_vi_grade"].includes(issue.code)).map((issue) => <p key={issue.code} role="alert" className="text-xs text-rose-700">{issue.message}</p>)}
     {showWarnings && validation.warnings.length > 0 && <p className="text-xs text-amber-800" role="status">Một số mức giá ngoài ngưỡng tham khảo của grade. Bạn vẫn có thể gửi để rà soát.</p>}
     {showConsent && <QuantityPriceV2Consent visible={pricePubliclyVisible} checked={consentChecked} onChange={onConsentChange} disabled={disabled} isolated={isolated} />}
