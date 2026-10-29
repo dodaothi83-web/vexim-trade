@@ -2,7 +2,15 @@
 
 Tài liệu `docs/content-guidelines.md` được nhắc trong yêu cầu nhưng không có trong checkout. Giữ font, màu và component hiện có; không giả định thêm nội dung từ tài liệu chưa có.
 
+## Quyết định mới
+
+Dữ liệu hiện tại là demo. Không cần chuyển đổi hoặc duy trì khả năng đọc dữ liệu sản phẩm cũ; các mục về audit và tương thích ở phần dưới mô tả kế hoạch cũ, không còn là yêu cầu cho đợt này. Form NCC sẽ là một trang năm phần và CRM sẽ dùng chung form. Khi hoàn thiện sẽ bỏ các nhánh và cờ thử nghiệm không còn dùng. Các bản giá và tên đã duyệt vẫn cần được bảo vệ khi gửi chỉnh sửa mới chờ duyệt.
+
+Trước bất kỳ thao tác xóa dữ liệu hoặc cột nào trên database của anh phải có bản sao lưu đã xác nhận. Anh là người chạy migration; chưa chạy, xóa hoặc sao lưu database của anh trong nhánh này. Migration phá hủy dữ liệu chỉ được soạn khi đã xác định đầy đủ phụ thuộc và trình tự an toàn.
+
 ## Trạng thái
+
+Có hợp đồng dữ liệu và kiểm tra gửi duyệt dùng chung cho form năm phần, cùng server action NCC để lưu và đọc nháp riêng tư. Đây mới là nền tảng, chưa nối vào giao diện và chưa có transaction gửi duyệt hoàn chỉnh. Chưa triển khai lại cho NCC; không chạy SQL62 lúc này.
 
 Form hiện còn chia thành ba bước. Các thay đổi đã thực hiện trong nhánh này mới gồm: bắt buộc có ảnh thật khi gửi duyệt, giới hạn tám ảnh với RPC kiểm tra nguyên tử trên Supabase, chấp nhận dấu phẩy thập phân ở giá kg, định dạng số lượng kg, giới hạn tối đa bốn mức, ẩn cảnh báo giá khi tắt hiện giá, và điều chỉnh bản xem trước khi chưa có bản dịch. Đây chưa phải form năm phần theo mẫu.
 
