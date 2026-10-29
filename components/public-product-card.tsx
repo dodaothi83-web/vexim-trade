@@ -194,6 +194,7 @@ export function PublicProductCard({
   linkable = true,
   comparison,
   sponsored = false,
+  stalePriceDays,
 }: {
   href: string;
   imagePath?: string | null;
@@ -225,6 +226,8 @@ export function PublicProductCard({
   comparison?: { id: string; categorySlug: string };
   /** Paid placement disclosure belongs inside each sponsored card. */
   sponsored?: boolean;
+  /** Present only for a visible stale reference price; null means its date is unknown. */
+  stalePriceDays?: number | null;
 }) {
   const quote = !test && linkable ? quoteHref : undefined;
 
@@ -422,6 +425,8 @@ export function PublicProductCard({
             </span>
           )}
         </p>
+
+        {hasPrice && stalePriceDays !== undefined && <p className="mt-0.5 text-[10px] leading-4 text-ink-500">{stalePriceDays === null ? "Confirmation date unavailable" : `Last updated ${stalePriceDays} days ago`}</p>}
 
         {/* Fixed single-line MOQ & Lead time */}
         <dl className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-ink-600 sm:mt-2 sm:grid sm:grid-cols-2 sm:gap-x-2">

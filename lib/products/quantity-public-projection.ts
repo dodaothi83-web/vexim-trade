@@ -7,6 +7,8 @@ export type PublicQuantityOffer = {
   grade: string;
   incoterm: string;
   moq: string;
+  /** Whole kilograms from the approved first tier, for structured MOQ filters. */
+  moqKg: number;
   price: string | null;
   tiers: Array<{ from: string; to: string | null; price: string }>;
   confirmedAt: string | null;
@@ -73,7 +75,7 @@ export function projectApprovedQuantityOffer(input: {
   const price = visible ? `USD ${format(low)}${low !== high ? `–${format(high)}` : ""}/${unitLabel}` : null;
   return {
     title, grade, incoterm: revision.incoterm,
-    moq: formatQuantityBuyer(tiers[0].minKg),
+    moq: formatQuantityBuyer(tiers[0].minKg), moqKg: tiers[0].minKg,
     price,
     tiers: visible ? tiers.map((tier, index) => ({
       from: formatQuantityBuyer(tier.minKg),

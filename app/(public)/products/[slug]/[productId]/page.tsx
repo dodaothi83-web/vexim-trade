@@ -12,13 +12,14 @@ import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { listPublicCategoryProducts, shareableProductImages } from "@/lib/public/product-catalog";
-import { fieldsFor, publicProductAttributes, supplierFieldsFor } from "@/lib/product-attributes";
+import { fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
 import { shareableProductVideo } from "@/lib/public/product-video";
 import { ProductMediaGallery } from "@/components/product-media-gallery";
 import { StickyProductColumn } from "@/components/sticky-product-column";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
 import { PublicProductCard } from "@/components/public-product-card";
 import { ProductDescription } from "@/components/public/product-description";
+import { QuantityPriceTable } from "@/components/public/quantity-price-table";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
@@ -108,7 +109,7 @@ export default async function PublicProductDetail({ params }: Props) {
   const video = shareableProductVideo(media, p.id);
   const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}`;
   const questionRfq = `${rfq}&intent=question`;
-  const approvedAttributes = publicProductAttributes(category, p.specs);
+  const approvedAttributes = card.attributes;
   const configuredKeys = new Set(fieldsFor(category).map((f) => f.key));
   // Thông số NCC tự thêm chưa được Vexim duyệt thành trường của danh mục: không tự lên trang buyer.
   const supplierKeys = new Set(supplierFieldsFor(category).map((f) => f.key));
@@ -227,7 +228,7 @@ export default async function PublicProductDetail({ params }: Props) {
         <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
         <h1 className="mt-2 break-words text-xl font-semibold leading-snug tracking-tight text-ink-900 sm:text-2xl">{card.name}</h1>
         {enDescription && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(enDescription)}</p>}
-        {gradeRows.length > 0 ? (
+        {card.quantityOffer ? <QuantityPriceTable offer={card.quantityOffer} /> : gradeRows.length > 0 ? (
           <div id="reference-price" className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
             <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
               <h2 className="text-sm font-bold text-ink-900">Grades &amp; reference pricing</h2>
@@ -285,7 +286,7 @@ export default async function PublicProductDetail({ params }: Props) {
             <p className="mt-0.5 text-xs text-ink-500">Commercial details for your RFQ</p>
           </div>
           <dl className="px-5">
-            {gradeRows.length === 0 && (
+            {!card.quantityOffer && gradeRows.length === 0 && (
               <>
                 <Spec label="Grade" value={approvedAttributes.grade ?? card.grade} />
                 <Spec label="MOQ" value={card.moq} />
@@ -293,7 +294,7 @@ export default async function PublicProductDetail({ params }: Props) {
             )}
             <Spec label="Packaging" value={detailedPackaging || enPackaging} />
             <Spec label="Lead time" value={card.leadTimeText || (card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request")} />
-            {gradeRows.length === 0 && <Spec label="Incoterm" value={card.incoterm} />}
+            {!card.quantityOffer && gradeRows.length === 0 && <Spec label="Incoterm" value={card.incoterm} />}
             <Spec label="Loading port" value={publicProductExportPortDisplay(p)} />
             <Spec label="Raw material region" value={card.rawMaterialRegion} />
             <Spec label="Input material origin" value={card.inputMaterialOrigin} />
@@ -331,6 +332,7 @@ export default async function PublicProductDetail({ params }: Props) {
         {relatedProducts.map((related) => <li key={related.id} className="min-w-0">
           <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(related.id)}`}
             imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} grades={related.cardGrades} gradeRows={related.gradeRows} moq={related.moq}
+            stalePriceDays={related.quantityOffer?.stale ? related.quantityOffer.daysSinceConfirmed : undefined}
             price={related.price} incoterm={related.incoterm} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays} leadTimeText={related.leadTimeText}
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
             quoteHref={`/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(related.supplierId)}&product=${encodeURIComponent(related.name)}&product_id=${encodeURIComponent(related.id)}`}

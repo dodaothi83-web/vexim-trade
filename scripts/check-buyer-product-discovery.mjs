@@ -132,7 +132,14 @@ const gradePricing = compile('../lib/products/grade-pricing.ts', {
   '@/lib/public/price-units': priceUnits,
   '@/lib/public/grade-resolution': gradeResolution,
 });
+let previewBatches = [];
+let previewFails = false;
 const productCatalog = compile('../lib/public/product-catalog.ts', {
+  '@/lib/public/quantity-catalog-preview': { projectQuantityCatalogPreview: async (records) => {
+    previewBatches.push(records.map(({ product }) => product.id));
+    if (previewFails) throw new Error('preview read failed');
+    return records.map((record) => ({ ...record, card: { ...record.card, previewMarker: true } }));
+  } },
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
   '@/lib/products/grade-pricing': gradePricing,
   '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
@@ -200,6 +207,24 @@ assert.deepEqual([...comparisonRecords.map((record) => record.card.id)], ['a0', 
 assert.equal(comparisonRecords[1].card.price, null, 'The direct comparison query uses the same public-price consent gate');
 assert.equal(comparisonRecords[0].card.rawMaterialRegion, 'Binh Phuoc and Dak Lak', 'Product comparison reads this product translation');
 assert.equal(comparisonRecords[1].card.rawMaterialRegion, '', 'Missing product English stays empty in comparison');
+assert.equal(previewBatches.length, 0, 'Quantity buyer projection is disabled by default');
+process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true';
+try {
+  const previewCards = await productCatalog.listPublicCategoryProducts(category);
+  assert.ok(previewCards.every((card) => card.previewMarker));
+  assert.equal(previewBatches[0].length, 13);
+  assert.ok(!previewBatches[0].some((id) => ['draft', 'test', 'private-supplier', 'rice'].includes(id)), 'Public eligibility and media gates precede revision reads');
+  const previewRecords = await productCatalog.getPublicProductRecordsByIds(['a0', 'draft', 'private-supplier']);
+  assert.equal(previewRecords.length, 1);
+  assert.equal(previewRecords[0].card.previewMarker, true);
+  assert.deepEqual([...previewBatches[1]], ['a0']);
+  previewFails = true;
+  await assert.rejects(productCatalog.listPublicCategoryProducts(category), /preview read failed/, 'A failed preview read must not fall back to old prices');
+  await assert.rejects(productCatalog.getPublicProductRecordsByIds(['a0']), /preview read failed/);
+} finally {
+  delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
+  previewFails = false;
+}
 const initial = arrangeSupplierProducts(cards, 3);
 assert.equal(initial.shown.length, 6);
 assert.equal(initial.hidden.get('A'), 5);
@@ -310,6 +335,11 @@ const cardProps = { href: '/products/cashew/a0', imagePath: 'products/a0/cover.j
   supplierName: 'Company A', supplierHref: '/suppliers/company-a', verificationSteps: [1, 3], l2Scope: 'factory',
   quoteHref: '/rfq?category=cashew&suppliers=A&product=Cashew%20W320%20lot%200&product_id=a0', oem: true, odm: true, samples: true };
 const compactCard = renderToStaticMarkup(React.createElement(PublicProductCard, cardProps));
+const stalePriceCard = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: 'USD 6.00–6.40/kg', stalePriceDays: 91 }));
+assert.match(stalePriceCard, /USD 6\.00–6\.40\/kg/);
+assert.match(stalePriceCard, /Last updated 91 days ago/);
+const hiddenStalePriceCard = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, stalePriceDays: 91 }));
+assert.doesNotMatch(hiddenStalePriceCard, /Last updated/);
 for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', '<span>USD 7/kg</span>', '>FOB</span>', 'Lead time', '14 days', 'Supplied by', 'Company A', '>Quote<']) {
   assert.ok(compactCard.includes(text), `Compact card keeps ${text}`);
 }

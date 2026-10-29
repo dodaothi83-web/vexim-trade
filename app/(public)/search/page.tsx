@@ -390,6 +390,7 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
           <div className="min-w-0 flex-1">
             <PublicProductCard href={productHref} imagePath={product.cardImagePath ?? product.imagePaths[0]}
               name={product.name} grades={product.cardGrades} gradeRows={product.gradeRows} moq={product.moq}
+              stalePriceDays={product.quantityOffer?.stale ? product.quantityOffer.daysSinceConfirmed : undefined}
               price={product.price} incoterm={product.incoterm} fob={product.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={product.leadTimeDays} leadTimeText={product.leadTimeText} supplierName={product.supplierName}
               supplierHref={localHref(`/suppliers/${encodeURIComponent(product.supplierSlug || product.supplierId)}`, state.lang)}
