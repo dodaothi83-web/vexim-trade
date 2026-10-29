@@ -8,6 +8,7 @@ import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
 import { prepareSupplierProductImage } from "@/lib/media/prepare-supplier-product-image";
 import { isExpired } from "@/lib/media/readiness";
+import { privateMediaUrl } from "@/lib/supplier-portal/product-view";
 import type { MediaKind } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -97,7 +98,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     revalidatePath(`/crm/products/${id}/edit`);
     return NextResponse.json({ ok: true, message: row.audience === "buyer"
       ? "Đã tải tệp lên sản phẩm đang hiển thị với buyer."
-      : "Đã tải tệp nội bộ để kiểm tra; chưa chia sẻ cho buyer." });
+      : "Đã tải tệp nội bộ để kiểm tra; chưa chia sẻ cho buyer.",
+      ...(row.kind === "image" ? { image: { id: row.id, url: privateMediaUrl(row) } } : {}),
+    });
   } catch (error) {
     await Promise.all([path, thumbPath].filter((p): p is string => !!p)
       .map((p) => deleteObject(p).catch(() => null)));

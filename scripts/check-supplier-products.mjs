@@ -195,11 +195,14 @@ const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
   },
   '@/lib/media/prepare-supplier-product-image': { prepareSupplierProductImage: async () => ({ main: new Uint8Array([1, 2]), thumb: new Uint8Array([3]), width: 800, height: 600 }) },
   '@/lib/media/readiness': mediaReadiness,
+  '@/lib/supplier-portal/product-view': { privateMediaUrl: (asset) => asset.storage_path ? `/api/media/file/${asset.storage_path}` : null },
   '@/lib/media/storage': storage,
 });
+let lastMediaResponse = null;
 async function postMedia(id = productId) {
   const fd = new FormData(); fd.set('kind', 'image'); fd.set('file', image);
   const response = await upload.POST(new Request(`https://example.com/api/supplier-portal/products/${id}/media`, { method: 'POST', body: fd }), { params: Promise.resolve({ id }) });
+  lastMediaResponse = await response.clone().json();
   return response.status;
 }
 assert.equal(await postMedia('ffffffff-ffff-ffff-ffff-ffffffffffff'), 403);
@@ -214,6 +217,8 @@ assert.equal(guardedCalls, 1); assert.equal(files.length, 0); assert.equal(store
 mediaDb = null;
 assert.equal(await postMedia(), 200);
 assert.equal(files[0].audience, 'internal'); assert.equal(files[0].status, 'unverified');
+assert.equal(lastMediaResponse.image.id, files[0].id);
+assert.equal(lastMediaResponse.image.url, `/api/media/file/${files[0].storage_path}`);
 assert.match(files[0].storage_path, /\.webp$/); assert.match(files[0].thumb_path, /-thumb\.webp$/);
 assert.equal(files[0].mime, 'image/webp'); assert.equal(files[0].width, 800); assert.equal(files[0].height, 600);
 assert.equal(files[0].bytes, 2); assert.equal(files[0].created_by, user.id); assert.equal(storedBytes, 2);
