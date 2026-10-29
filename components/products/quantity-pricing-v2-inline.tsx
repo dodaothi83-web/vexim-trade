@@ -9,9 +9,10 @@ import { submitQuantityPriceRevisionAction } from "@/app/supplier/portal/quantit
 import { submitStaffQuantityPriceAction } from "@/app/crm/products/quantity-review/submit-actions";
 
 /** Private staged editor for an existing v2 revision, not a public cutover. */
-export function QuantityPricingV2Inline({ data, actor, disabled = false, dirty = false }: {
+export function QuantityPricingV2Inline({ data, actor, disabled = false, dirty = false, onPreviewChange }: {
   data: QuantityEditorData & { v2: NonNullable<QuantityEditorData["v2"]> };
   actor: "supplier" | "staff"; disabled?: boolean; dirty?: boolean;
+  onPreviewChange?: (value: SupplierQuantityEntry) => void;
 }) {
   const router = useRouter();
   const root = useRef<HTMLDivElement>(null);
@@ -19,6 +20,7 @@ export function QuantityPricingV2Inline({ data, actor, disabled = false, dirty =
     grade: data.grade, incoterm: data.incoterm, nameVi: data.nameVi,
     unit: data.v2.unit, customGrade: data.v2.customGrade, tiers: data.v2.tiers,
   }));
+  useEffect(() => { onPreviewChange?.(value); }, [onPreviewChange, value]);
   const [consent, setConsent] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [busy, setBusy] = useState(false);

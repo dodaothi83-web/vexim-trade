@@ -34,6 +34,8 @@ import { ProductDescriptionEditor } from "@/components/products/product-descript
 import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
 import { QuantityPricingInline } from "@/components/products/quantity-pricing-inline";
 import { QuantityBuyerPreview, QuantityPricingEditor } from "@/components/products/quantity-pricing-editor";
+import { QuantityBuyerV2Preview, QuantityGradeV2Field, QuantityPricingV2Editor } from "@/components/products/quantity-pricing-v2-editor";
+import { validateSupplierQuantityEntry, type SupplierQuantityEntry } from "@/lib/products/quantity-entry";
 import { validateQuantityPricing, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import { displayUnitsForCategory } from "@/lib/public/price-units";
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
@@ -55,6 +57,8 @@ type EditorProps = {
   product?: SupplierProduct;
   quantityEditor?: QuantityEditorData | null;
   quantityPolicies?: Record<string, QuantityPricingPolicy> | null;
+  /** Staged-only new-product v2 pricing; defaults to the existing form. */
+  quantityV2FormEnabled?: boolean;
   media?: MediaAsset[];
   userId?: string;
   categories: CategoryProposalOption[];
@@ -195,7 +199,7 @@ function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElemen
  * Hành vi cũ giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
+export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, quantityV2FormEnabled = false, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
   const router = useRouter();
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
@@ -210,6 +214,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, nameVi: quantityEditor.nameVi,
     nameEn: quantityEditor.nameEn, tiers: quantityEditor.tiers,
   } : !product ? { grade: "", incoterm: "", nameVi: "", nameEn: "", tiers: [{ minKg: "", priceUsdPerKg: "" }] } : null);
+  const [v2Preview, setV2Preview] = useState<SupplierQuantityEntry | null>(() => quantityEditor?.v2 ? {
+    grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, nameVi: quantityEditor.nameVi,
+    unit: quantityEditor.v2.unit, customGrade: quantityEditor.v2.customGrade, tiers: quantityEditor.v2.tiers,
+  } : !product && quantityV2FormEnabled ? { grade: "", incoterm: "", nameVi: "", unit: "kg", customGrade: false, tiers: [{ quantity: "", price: "" }] } : null);
   const [selectedCategory, setSelectedCategory] = useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "");
   const initialLeadTime = product ? readProductLeadTime(product) : { value: null, unit: "days" as LeadTimeUnit, daysEquivalent: null };
   const [leadTimeValue, setLeadTimeValue] = useState<string>(() => (initialLeadTime.value != null ? String(initialLeadTime.value) : ""));
@@ -270,7 +278,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const newPolicy = !product && activeCategory ? quantityPolicies?.[activeCategory.slug] : undefined;
   const newGrades = standardGradesForCategory(activeCategorySource);
   const newBuyerUnit = displayUnitsForCategory(activeCategorySlug, activeCategory?.price_unit).primary === "mt" ? "mt" : "kg";
-  const newQuantity = !product && quantityPreview ? { ...quantityPreview, nameVi: snapshot.name ?? "" } : null;
+  const newQuantity = !product && !quantityV2FormEnabled && quantityPreview ? { ...quantityPreview, nameVi: snapshot.name ?? "" } : null;
+  const newV2Quantity = !product && quantityV2FormEnabled && v2Preview ? { ...v2Preview, nameVi: snapshot.name ?? "" } : null;
+  const v2NameGradeError = showGradeErrors && newV2Quantity && newPolicy
+    ? validateSupplierQuantityEntry(newV2Quantity, newGrades, newPolicy).errors.find((issue) => issue.code === "name_vi_grade")?.message : undefined;
   const unitMeta = categoryMarketPriceUnit(activeCategorySlug, activeCategory?.price_unit);
   const categoryLabel = activeCategory?.label ?? product?.category ?? "Chưa chọn danh mục";
   const officialAttributeFields = nonGradeProductFields(fieldsFor(activeCategory));
@@ -375,6 +386,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     setSelectedCategory(nextSlug);
     if (!product) {
       setQuantityPreview((previous) => previous ? { ...previous, grade: "" } : previous);
+      setV2Preview((previous) => previous ? { ...previous, grade: "", customGrade: false } : previous);
       setQuantityConsent(false);
     }
     setSnapshot((previous) => ({ ...previous, supplier_category_proposal: nextSlug }));
@@ -386,11 +398,21 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     setSnapshot((previous) => ({ ...previous, quantity_draft: JSON.stringify(value) }));
   }
 
+  function onNewV2QuantityChange(value: SupplierQuantityEntry) {
+    if (JSON.stringify(value) === JSON.stringify(newV2Quantity)) return;
+    setV2Preview(value);
+    setQuantityConsent(false);
+    setSnapshot((previous) => ({ ...previous, quantity_v2_draft: JSON.stringify(value) }));
+  }
+
   function validateCurrentGradeRows(): string | null {
     if (!product) {
-      if (!newPolicy || !newQuantity) return "Chọn danh mục và kiểm tra kết nối cấu hình bảng giá mới.";
-      const validation = validateQuantityPricing(newQuantity, newGrades, newPolicy);
+      if (!newPolicy || (!newQuantity && !newV2Quantity)) return "Chọn danh mục và kiểm tra kết nối cấu hình bảng giá mới.";
+      const validation = newV2Quantity
+        ? validateSupplierQuantityEntry(newV2Quantity, newGrades, newPolicy)
+        : validateQuantityPricing(newQuantity!, newGrades, newPolicy);
       if (!validation.value) return validation.errors[0]?.message ?? "Kiểm tra bảng giá theo số lượng.";
+      if (newV2Quantity && !(snapshot.incoterm_place ?? "").trim()) return "Nhập địa điểm Incoterm.";
       if (snapshot.price_publicly_visible === "yes" && !quantityConsent) return "Hãy xác nhận cam kết giá trước khi công khai.";
       return null;
     }
@@ -437,6 +459,16 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       const form = new FormData(formElement);
       if (product) {
         form.set("product_id", product.id);
+      } else if (newV2Quantity) {
+        creationRequestId.current ??= crypto.randomUUID();
+        form.set("quantity_creation_request_id", creationRequestId.current);
+        form.set("quantity_version", "2");
+        form.set("quantity_unit", newV2Quantity.unit);
+        form.set("quantity_custom_grade", newV2Quantity.customGrade ? "yes" : "no");
+        form.set("quantity_grade", newV2Quantity.grade);
+        form.set("quantity_incoterm", newV2Quantity.incoterm);
+        form.set("quantity_tiers_json", JSON.stringify(newV2Quantity.tiers));
+        if (quantityConsent) form.set("confirm_quantity_price_consent", "yes");
       } else if (newQuantity) {
         creationRequestId.current ??= crypto.randomUUID();
         form.set("quantity_creation_request_id", creationRequestId.current);
@@ -772,7 +804,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <Field label="Tên sản phẩm" hint="Không ghi grade trong tên. Vexim dịch tên sang tiếng Anh khi duyệt." required>
-                    <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked} />
+                    <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked}
+                      aria-invalid={v2NameGradeError ? true : undefined} />
+                    {v2NameGradeError && <span className="mt-1 block text-xs text-rose-700">{v2NameGradeError}</span>}
                   </Field>
                 </div>
                 <Field label="Danh mục sản phẩm" required className="md:col-span-2" hint="Chọn danh mục gần nhất. Danh mục sẽ được kiểm tra khi duyệt. Đổi danh mục thì danh sách grade đổi theo.">
@@ -788,19 +822,33 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 {!categories.length && <p role="status" className="self-center rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900 md:col-span-2">
                   Bạn chưa chọn danh mục kinh doanh đang mở. <Link href="/supplier/portal/categories" className="font-semibold underline">Chọn danh mục trước khi thêm sản phẩm</Link>
                 </p>}
+                {newV2Quantity && newPolicy && <div className="md:col-span-2 rounded-xl border border-ink-200 p-4">
+                  <h3 className="mb-3 text-sm font-bold text-ink-900">Thuộc tính</h3>
+                  <QuantityGradeV2Field value={newV2Quantity} onChange={onNewV2QuantityChange} standardGrades={newGrades} policy={newPolicy} showErrors={showGradeErrors} disabled={locked || busy} isolated />
+                </div>}
                 <div className="md:col-span-2">
                   {product && <div className="mb-4 space-y-3 rounded-xl border border-brand-200 p-4">
                     {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
-                      data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview} />
+                      data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview} onV2PreviewChange={setV2Preview} />
                       : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra danh mục và kết nối; giá đang hiển thị không bị thay đổi.</p>}
                   </div>}
                   {!product && <div id="new-quantity-pricing" className="space-y-3 rounded-xl border border-brand-200 p-4">
-                    {!activeCategory ? <p className="text-xs text-ink-600">Chọn danh mục để nhập grade và bảng giá.</p> : !newPolicy || !newQuantity ?
+                    {!activeCategory ? <p className="text-xs text-ink-600">Chọn danh mục để nhập grade và bảng giá.</p> : !newPolicy || (!newQuantity && !newV2Quantity) ?
                       <p role="alert" className="text-xs text-rose-700">Chưa tải được cấu hình bảng giá. Vui lòng kiểm tra kết nối trước khi lưu.</p> : <>
                         <p className="text-xs text-ink-600">Không ghi grade trong tên sản phẩm. Tên tiếng Anh sẽ được dịch sau khi bạn gửi duyệt và được kiểm tra bởi quản trị viên.</p>
-                        <QuantityPricingEditor value={newQuantity} onChange={onNewQuantityChange} standardGrades={newGrades} policy={newPolicy}
+                        {newV2Quantity ? <>
+                          <h3 className="text-sm font-bold text-ink-900">Giao dịch</h3>
+                          <QuantityPricingV2Editor value={newV2Quantity} onChange={onNewV2QuantityChange} standardGrades={newGrades} policy={newPolicy}
+                            pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} isolated showGrade={false} showErrors={showGradeErrors}
+                            disabled={locked || busy} consentChecked={quantityConsent} onConsentChange={setQuantityConsent}
+                            incotermPlace={<label className="block text-sm font-semibold text-ink-800">Địa điểm Incoterm <span className="text-rose-700">*</span>
+                              <input name="incoterm_place" className="input mt-1 w-full" maxLength={100} required placeholder="Ví dụ: Hồ Chí Minh" disabled={locked || busy}
+                                aria-invalid={showGradeErrors && !(snapshot.incoterm_place ?? "").trim() || undefined} />
+                              {showGradeErrors && !(snapshot.incoterm_place ?? "").trim() && <span className="mt-1 block text-xs text-rose-700">Nhập địa điểm Incoterm.</span>}
+                            </label>} />
+                        </> : newQuantity && <QuantityPricingEditor value={newQuantity} onChange={onNewQuantityChange} standardGrades={newGrades} policy={newPolicy}
                           buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"}
-                          isolated showPreview={false} showTitle={false} validateEnglishName={false} showErrors={showGradeErrors} consentChecked={quantityConsent} onConsentChange={setQuantityConsent} />
+                          isolated showPreview={false} showTitle={false} validateEnglishName={false} showErrors={showGradeErrors} consentChecked={quantityConsent} onConsentChange={setQuantityConsent} />}
                       </>}
                   </div>}
                   {review === "approved" && (
@@ -876,7 +924,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 <Field label="Điều kiện thanh toán">
                   <input name="payment_terms" className="input" maxLength={200} placeholder="Ví dụ: T/T 30% cọc" defaultValue={product?.payment_terms ?? ""} disabled={locked} />
                 </Field>
-                {EXPORT_FIELDS.map(([key, label, placeholder, max]) => <Field key={key} label={label}>
+                {EXPORT_FIELDS.filter(([key]) => !(newV2Quantity && key === "incoterm_place")).map(([key, label, placeholder, max]) => <Field key={key} label={label}>
                   <input name={key} className="input" maxLength={max} placeholder={placeholder} defaultValue={String(product?.[key] ?? "")} disabled={locked} />
                 </Field>)}
               </div>
@@ -1243,31 +1291,28 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           </div>
           <div className="px-3.5 py-3">
             <p className="text-[10.5px] font-bold tracking-wider text-brand-700 uppercase">{categoryLabel}</p>
-            {newQuantity && newPolicy ? <div className="mt-2">
+            {newV2Quantity && newPolicy ? <div className="mt-2">
+              <QuantityBuyerV2Preview value={newV2Quantity} standardGrades={newGrades} policy={newPolicy} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} />
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước, chưa phải nội dung đang hiển thị cho buyer. Bảng giá và tên tiếng Anh cần được duyệt.</p>
+            </div> : newQuantity && newPolicy ? <div className="mt-2">
               <QuantityBuyerPreview value={newQuantity} standardGrades={newGrades} policy={newPolicy}
                 buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} />
               <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước, chưa phải nội dung đang hiển thị cho buyer. Bảng giá và tên tiếng Anh cần được duyệt.</p>
-            </div> : quantityEditor?.v2 ? <div className="mt-2">
-              <p className="text-sm font-bold text-ink-900">Buyer sẽ thấy</p>
-              <p className="mt-2 text-sm font-semibold">{quantityEditor.nameEn || quantityEditor.nameVi}</p>
-              {!quantityEditor.nameEn && <p className="mt-1 text-xs text-ink-600">Tên tiếng Anh do Vexim dịch khi duyệt</p>}
-              <p className="mt-1 text-xs text-ink-600">{quantityEditor.grade}</p>
-              <p className="mt-3 text-base font-semibold tabular-nums">{quantityEditor.pricePubliclyVisible ? `USD ${Number(quantityEditor.v2.tiers.at(-1)!.price).toFixed(2)}${quantityEditor.v2.tiers[0].price !== quantityEditor.v2.tiers.at(-1)!.price ? `–${Number(quantityEditor.v2.tiers[0].price).toFixed(2)}` : ""}/${quantityEditor.v2.unit === "mt" ? "MT" : "kg"}` : "Price on request"}</p>
-              <p className="text-xs text-ink-600">MOQ: {quantityEditor.v2.tiers[0].quantity} {quantityEditor.v2.unit === "mt" ? "MT" : "kg"}</p>
-              {quantityEditor.pendingPriceId && <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] text-amber-900">Đây là bản xem trước giá đang chờ, không phải giá buyer đang thấy.</p>}
-              {quantityEditor.v2EditingEnabled && <p className="mt-2 text-[10.5px] text-ink-500">Bản xem trước này theo bảng giá đã lưu, chưa cập nhật khi đang sửa.</p>}
-            </div> : quantityEditor && quantityPreview ? <div className="mt-2">
+            </div> : quantityEditor?.v2 && v2Preview ? <div className="mt-2">
+              <QuantityBuyerV2Preview value={{ ...v2Preview, nameVi: snapshot.name || v2Preview.nameVi }} standardGrades={quantityEditor.standardGrades} policy={quantityEditor.policy}
+                pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} englishName={quantityEditor.nameEn} />
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] text-amber-900">Đây là bản xem trước, không phải giá đang hiển thị cho buyer. Giá mới cần được duyệt.</p>            </div> : quantityEditor && quantityPreview ? <div className="mt-2">
               <QuantityBuyerPreview value={quantityPreview} standardGrades={quantityEditor.standardGrades} policy={quantityEditor.policy}
                 buyerPriceUnit={quantityEditor.buyerPriceUnit} pricePubliclyVisible={quantityEditor.pricePubliclyVisible} />
               <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước theo dữ liệu đang nhập, không phải giá đang hiển thị cho buyer. Giá hiện tại chỉ thay đổi khi mô hình mới được triển khai và bản giá được duyệt.</p>
             </div> : <h2 className="mt-0.5 line-clamp-2 text-[13.5px] font-black text-ink-900">{product?.name ?? "Sản phẩm mới"}</h2>}
             <dl className="mt-2.5 space-y-1 border-t border-ink-100 pt-2.5 text-[11.5px]">
-              {commercial.filter((row) => !((quantityEditor && quantityPreview) || (newQuantity && newPolicy)) || !["Giá tham khảo", "MOQ", "Incoterm"].includes(row.label)).map((row) => <div key={row.label} className="flex items-baseline justify-between gap-2">
+              {commercial.filter((row) => !((quantityEditor && quantityPreview) || ((newQuantity || newV2Quantity) && newPolicy)) || !["Giá tham khảo", "MOQ", "Incoterm"].includes(row.label)).map((row) => <div key={row.label} className="flex items-baseline justify-between gap-2">
                 <dt className="shrink-0 text-ink-500">{row.label}</dt>
                 <dd className={`min-w-0 truncate text-right font-semibold text-ink-800 ${row.label === "Giá tham khảo" && row.value !== "-" ? "font-mono tabular-nums" : ""}`}>{row.value}</dd>
               </div>)}
             </dl>
-            <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{quantityEditor && quantityPreview ? "Các thông tin thương mại bên dưới bảng giá lấy từ bản đã lưu." : <>Số liệu lấy từ bản đã lưu{dirty ? "; thay đổi đang nhập chưa hiển thị ở đây." : "."}</>}</p>
+            {!newV2Quantity && <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{quantityEditor && quantityPreview ? "Các thông tin thương mại bên dưới bảng giá lấy từ bản đã lưu." : <>Số liệu lấy từ bản đã lưu{dirty ? "; thay đổi đang nhập chưa hiển thị ở đây." : "."}</>}</p>}
           </div>
         </div>
 

@@ -15,7 +15,7 @@ function compile(path, mocks) {
   return exports;
 }
 const editor = compile('../components/products/quantity-pricing-v2-editor.tsx', {
-  'react/jsx-runtime': jsx,
+  react: React, 'react/jsx-runtime': jsx,
   'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
   '@/lib/products/quantity-entry': entry, '@/lib/products/quantity-pricing': pricing, '@/lib/products/quantity-revision-v2': revision,
 });
@@ -29,6 +29,19 @@ const render = (changes = {}) => renderToStaticMarkup(React.createElement(editor
 const html = render();
 for (const text of ['Khác (tự nhập)', '>kg</option>', '>tấn</option>', 'Đơn giá (USD/tấn)', 'Đến 1.999999 tấn', 'Quy chế hoạt động', 'type="checkbox"']) assert.ok(html.includes(text), text);
 assert.doesNotMatch(html, /<option[^>]*>bao|<option[^>]*>thùng/i);
+const separate = render({ showGrade: false, incotermPlace: React.createElement('input', { name: 'incoterm_place' }) });
+assert.doesNotMatch(separate, /aria-label="Grade"/);
+assert.ok(separate.indexOf('aria-label="Incoterm"') < separate.indexOf('name="incoterm_place"'));
+assert.ok(separate.indexOf('name="incoterm_place"') < separate.indexOf('<table'));
+const grade = renderToStaticMarkup(React.createElement(editor.QuantityGradeV2Field, props));
+assert.match(grade, /aria-label="Grade"/); assert.doesNotMatch(grade, /Incoterm/);
+const preview = renderToStaticMarkup(React.createElement(editor.QuantityBuyerV2Preview, props));
+assert.match(preview, /Tên tiếng Anh do Vexim dịch khi duyệt/);
+assert.match(preview, /USD 6,000\.00–6,401\.00\/MT/); assert.match(preview, /MOQ: 1\.5 MT/);
+assert.match(preview, /USD 6,401\.00\/MT/);
+const hiddenPreview = renderToStaticMarkup(React.createElement(editor.QuantityBuyerV2Preview, { ...props, pricePubliclyVisible: false }));
+assert.match(hiddenPreview, /Price on request/); assert.doesNotMatch(hiddenPreview, /USD 6,401/);
+assert.doesNotMatch(readFileSync(new URL('../components/products/quantity-pricing-v2-editor.tsx', import.meta.url), 'utf8'), /window\.confirm/, 'Changing unit uses an inline confirmation');
 assert.doesNotMatch(render({ pricePubliclyVisible: false }), /Quy chế hoạt động|type="checkbox"/);
 const custom = render({ value: { ...value, customGrade: true, grade: 'Special' } });
 assert.match(custom, /Grade khác/); assert.match(custom, /không thuộc bộ lọc grade chuẩn/);

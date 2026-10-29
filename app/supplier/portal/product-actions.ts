@@ -154,6 +154,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       if (version !== null && version !== "1" && version !== "2") return { ok: false, message: "Phiên bản bảng giá không hợp lệ." };
       if (version === "2") {
         if (!v2StagingEnabled()) return { ok: false, message: "Đơn vị mới chưa sẵn sàng để sử dụng." };
+        if (!input.incoterm_place?.trim()) return { ok: false, message: "Nhập địa điểm Incoterm." };
         const checked = validateV2Form(form, input.name, standardGradesForCategory(category), await readQuantityPricingPolicy(category.id), "quantity_");
         if (!checked.value) return { ok: false, message: checked.errors[0]?.message ?? "Bảng giá không hợp lệ." };
         newQuantity = { ...checked.value, warnings: checked.warnings, requestId };
