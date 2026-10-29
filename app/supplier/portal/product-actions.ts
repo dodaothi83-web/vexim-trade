@@ -22,6 +22,8 @@ import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
 import { nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
+import type { QuantityRevisionTierV2 } from "@/lib/products/quantity-revision-v2";
 import { deleteObject } from "@/lib/media/storage";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 
@@ -130,7 +132,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       return { ok: false, message: "Không ghi grade trong tên sản phẩm tiếng Việt." };
     // New products and their private quantity table must be created together.
     // Validate everything against live category and policy, not client defaults.
-    let newQuantity: { grade: string; incoterm: string; tiers: { minKg: number; priceUsdPerKg: number }[]; warnings: unknown[]; requestId: string } | null = null;
+    let newQuantity: { grade: string; incoterm: string; tiers: { minKg: number; priceUsdPerKg: number }[] | QuantityRevisionTierV2[]; warnings: unknown[]; requestId: string } | null = null;
     let consentSupplier = access.supplier;
     if (!existing) {
       const strictAccess = await supplierPortalAccess(supabaseStore);
@@ -148,17 +150,26 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       // Never copy a quantity-tier price into legacy public fields or infer units.
       input.ref_price = null; input.ref_price_max = null; input.currency = null; input.unit = null;
       input.moq = null; input.moq_qty = null; input.moq_unit = null; input.incoterm = null; input.price_valid_until = null;
-      const raw = form.get("quantity_tiers_json");
-      if (typeof raw !== "string" || raw.length > 12000) return { ok: false, message: "Bảng giá không hợp lệ." };
-      let rows: unknown;
-      try { rows = JSON.parse(raw); } catch { return { ok: false, message: "Bảng giá không hợp lệ." }; }
-      if (!Array.isArray(rows) || rows.length > 100 || rows.some((row) => !row || typeof row !== "object" ||
-        typeof row.minKg !== "string" || typeof row.priceUsdPerKg !== "string" || row.minKg.length > 32 || row.priceUsdPerKg.length > 32))
-        return { ok: false, message: "Bảng giá không hợp lệ." };
-      const validation = validateQuantityPricing({ grade: text(form, "quantity_grade", 180), incoterm: text(form, "quantity_incoterm", 20),
-        nameVi: input.name, nameEn: "", tiers: rows }, standardGradesForCategory(category), await readQuantityPricingPolicy(category.id));
-      if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? "Bảng giá không hợp lệ." };
-      newQuantity = { ...validation.value, warnings: validation.warnings, requestId };
+      const version = form.get("quantity_version");
+      if (version !== null && version !== "1" && version !== "2") return { ok: false, message: "Phiên bản bảng giá không hợp lệ." };
+      if (version === "2") {
+        if (!v2StagingEnabled()) return { ok: false, message: "Đơn vị mới chưa sẵn sàng để sử dụng." };
+        const checked = validateV2Form(form, input.name, standardGradesForCategory(category), await readQuantityPricingPolicy(category.id), "quantity_");
+        if (!checked.value) return { ok: false, message: checked.errors[0]?.message ?? "Bảng giá không hợp lệ." };
+        newQuantity = { ...checked.value, warnings: checked.warnings, requestId };
+      } else {
+        const raw = form.get("quantity_tiers_json");
+        if (typeof raw !== "string" || raw.length > 12000) return { ok: false, message: "Bảng giá không hợp lệ." };
+        let rows: unknown;
+        try { rows = JSON.parse(raw); } catch { return { ok: false, message: "Bảng giá không hợp lệ." }; }
+        if (!Array.isArray(rows) || rows.length > 100 || rows.some((row) => !row || typeof row !== "object" ||
+          typeof row.minKg !== "string" || typeof row.priceUsdPerKg !== "string" || row.minKg.length > 32 || row.priceUsdPerKg.length > 32))
+          return { ok: false, message: "Bảng giá không hợp lệ." };
+        const validation = validateQuantityPricing({ grade: text(form, "quantity_grade", 180), incoterm: text(form, "quantity_incoterm", 20),
+          nameVi: input.name, nameEn: "", tiers: rows }, standardGradesForCategory(category), await readQuantityPricingPolicy(category.id));
+        if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? "Bảng giá không hợp lệ." };
+        newQuantity = { ...validation.value, warnings: validation.warnings, requestId };
+      }
     }
     // Thông số NCC tự thêm: gộp vào pool của danh mục để NCC khác dùng lại ngay lần sau.
     // Lỗi ghi pool (ví dụ thiếu migration) không được làm hỏng việc lưu sản phẩm.

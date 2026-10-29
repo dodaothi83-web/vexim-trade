@@ -7,6 +7,7 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
 import { validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: boolean; message: string; revisionId?: string; warnings?: string[] };
@@ -61,19 +62,26 @@ export async function submitQuantityPriceRevisionAction(form: FormData): Promise
     if (ctx.product.price_publicly_visible && form.get("confirm_quantity_price_consent") !== "yes") {
       return { ok: false, message: "Hãy xác nhận cam kết giá trước khi công khai." };
     }
-    const raw = form.get("quantity_tiers_json");
-    if (typeof raw !== "string" || raw.length > 12_000) return { ok: false, message: "Bảng giá không hợp lệ." };
-    let rows: unknown;
-    try { rows = JSON.parse(raw); } catch { return { ok: false, message: "Bảng giá không hợp lệ." }; }
-    if (!Array.isArray(rows) || rows.length > 100 || rows.some((row) => !row || typeof row !== "object" ||
-      typeof row.minKg !== "string" || typeof row.priceUsdPerKg !== "string" || row.minKg.length > 32 || row.priceUsdPerKg.length > 32)) {
-      return { ok: false, message: "Bảng giá không hợp lệ." };
-    }
-    const grade = String(form.get("grade") ?? "").trim().slice(0, 180);
-    const incoterm = String(form.get("incoterm") ?? "").trim().slice(0, 20);
-    const nameEn = "";
+    const version = form.get("quantity_version");
+    if (version !== null && version !== "1" && version !== "2") return { ok: false, message: "Phiên bản bảng giá không hợp lệ." };
+    let validation: ReturnType<typeof validateQuantityPricing> | ReturnType<typeof validateV2Form>;
     const policy = await readQuantityPricingPolicy(ctx.category.id);
-    const validation = validateQuantityPricing({ grade, incoterm, nameVi: ctx.product.name, nameEn, tiers: rows }, standardGradesForCategory(ctx.category), policy);
+    if (version === "2") {
+      if (!v2StagingEnabled()) return { ok: false, message: "Đơn vị mới chưa sẵn sàng để sử dụng." };
+      validation = validateV2Form(form, ctx.product.name, standardGradesForCategory(ctx.category), policy);
+    } else {
+      const raw = form.get("quantity_tiers_json");
+      if (typeof raw !== "string" || raw.length > 12_000) return { ok: false, message: "Bảng giá không hợp lệ." };
+      let rows: unknown;
+      try { rows = JSON.parse(raw); } catch { return { ok: false, message: "Bảng giá không hợp lệ." }; }
+      if (!Array.isArray(rows) || rows.length > 100 || rows.some((row) => !row || typeof row !== "object" ||
+        typeof row.minKg !== "string" || typeof row.priceUsdPerKg !== "string" || row.minKg.length > 32 || row.priceUsdPerKg.length > 32)) {
+        return { ok: false, message: "Bảng giá không hợp lệ." };
+      }
+      const grade = String(form.get("grade") ?? "").trim().slice(0, 180);
+      const incoterm = String(form.get("incoterm") ?? "").trim().slice(0, 20);
+      validation = validateQuantityPricing({ grade, incoterm, nameVi: ctx.product.name, nameEn: "", tiers: rows }, standardGradesForCategory(ctx.category), policy);
+    }
     if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? "Bảng giá không hợp lệ." };
     const { data, error } = await ctx.db.rpc("submit_quantity_price_revision", {
       p_product_id: id, p_supplier_id: ctx.access.supplier.id, p_expected_pending_id: expectedPending,
@@ -90,6 +98,7 @@ export async function submitQuantityPriceRevisionAction(form: FormData): Promise
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/supplier/portal/products/${id}/quantity-pricing`);
     revalidatePath(`/crm/products/${id}/edit`);
+    revalidatePath("/crm/products/quantity-review");
     return { ok: true, revisionId: result.revisionId, warnings: validation.warnings.map((issue) => issue.message), message: "Giá mới đang chờ Vexim xác nhận." };
   } catch (error) {
     console.error("[quantity-pricing] price submission", error);

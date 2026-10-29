@@ -1,4 +1,5 @@
 // node --experimental-strip-types --no-warnings scripts/check-new-quantity-product.mjs
+import { v2Validation } from './quantity-v2-test-utils.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -32,6 +33,7 @@ const db = {
 };
 const grade = { hasProductPricingChanged: () => false, standardGradesForCategory: () => ['W320', 'W240'], parseLeadTimeInput: () => ({ ok: true, value: null, unit: 'on_request', daysEquivalent: null }), applyLeadTimeToSpecs: (x) => x };
 const mocks = {
+  '@/lib/products/quantity-v2-validation': v2Validation,
   'next/cache': { revalidatePath() {} },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async (which) => which && !strict ? null : ({ supplier, user, store }) },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
@@ -119,3 +121,12 @@ assert.equal(saved.name_i18n.en, 'Old approved name', 'Approved English name is 
 assert.equal(translations, count);
 assert.equal((await exports.saveSupplierProductAction(form({ product_id: productId, name: 'Nhân điều W320' }))).ok, false, 'Changing the name cannot add grade');
 console.log('New quantity product: server validation, strict ownership, consent, atomic RPC, AI trigger, guarded writes and preserved legacy buyer price passed');
+saved = null; calls = [];
+const v2input = { quantity_version: '2', quantity_grade: 'Special', quantity_unit: 'carton', quantity_custom_grade: 'yes', quantity_weight_kg: '12.5', quantity_tiers_json: JSON.stringify([{ quantity: '100', price: '75.00' }]) };
+assert.equal((await exports.saveSupplierProductAction(form(v2input))).ok, false); assert.equal(calls.length, 0);
+process.env.VEXIM_QUANTITY_V2_STAGING = 'true'; process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true';
+assert.equal((await exports.saveSupplierProductAction(form(v2input))).ok, true);
+assert.equal(calls[0].args.p_tiers[0].version, 2); assert.equal(calls[0].args.p_tiers[0].quantityGrams, 1250000);
+assert.equal(calls[0].args.p_tiers[0].priceCentsPerUnit, 7500); assert.equal(calls[0].args.p_english_name, null);
+delete process.env.VEXIM_QUANTITY_V2_STAGING; delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
+console.log('New V2 product: staged gate and atomic creation with carton prices passed');

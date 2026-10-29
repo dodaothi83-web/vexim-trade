@@ -6,6 +6,7 @@ import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
 import { nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { validateStoredV2, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type QuantityReviewResult = { ok: boolean; message: string };
@@ -55,14 +56,22 @@ export async function decideQuantityRevisionAction(form: FormData): Promise<Quan
           return { ok: false, message: "Tên đã đổi, chưa có bản tiếng Anh hoặc chứa grade. NCC cần sửa và gửi lại." };
         }
       } else {
-        if (!Array.isArray(revision.tiers) || revision.tiers.length > 100 || revision.tiers.some((row: unknown) =>
-          !row || typeof row !== "object" || typeof (row as { minKg?: unknown }).minKg !== "number" || typeof (row as { priceUsdPerKg?: unknown }).priceUsdPerKg !== "number")) {
-          return { ok: false, message: "Dữ liệu bảng giá không hợp lệ." };
+        const versioned = Array.isArray(revision.tiers) && revision.tiers.some((row: unknown) => row && typeof row === "object" && "version" in row);
+        if (versioned) {
+          if (!v2StagingEnabled()) return { ok: false, message: "Chưa bật kiểm thử định dạng giá mới." };
+          const policy = await readQuantityPricingPolicy(category.id);
+          const checked = validateStoredV2(revision.grade, revision.incoterm, revision.tiers, product.name, grades, policy);
+          if (!checked.value) return { ok: false, message: `Không thể duyệt: ${checked.errors[0]?.message ?? "bảng giá không hợp lệ."}` };
+        } else {
+          if (!Array.isArray(revision.tiers) || revision.tiers.length > 100 || revision.tiers.some((row: unknown) =>
+            !row || typeof row !== "object" || typeof (row as { minKg?: unknown }).minKg !== "number" || typeof (row as { priceUsdPerKg?: unknown }).priceUsdPerKg !== "number")) {
+            return { ok: false, message: "Dữ liệu bảng giá không hợp lệ." };
+          }
+          const policy = await readQuantityPricingPolicy(category.id);
+          const checked = validateQuantityPricing({ grade: String(revision.grade ?? ""), incoterm: String(revision.incoterm ?? ""),
+            nameVi: product.name, nameEn: "", tiers: revision.tiers.map((row: { minKg: number; priceUsdPerKg: number }) => ({ minKg: String(row.minKg), priceUsdPerKg: String(row.priceUsdPerKg) })) }, grades, policy);
+          if (!checked.value) return { ok: false, message: `Không thể duyệt: ${checked.errors[0]?.message ?? "bảng giá không hợp lệ."}` };
         }
-        const policy = await readQuantityPricingPolicy(category.id);
-        const checked = validateQuantityPricing({ grade: String(revision.grade ?? ""), incoterm: String(revision.incoterm ?? ""),
-          nameVi: product.name, nameEn: "", tiers: revision.tiers.map((row: { minKg: number; priceUsdPerKg: number }) => ({ minKg: String(row.minKg), priceUsdPerKg: String(row.priceUsdPerKg) })) }, grades, policy);
-        if (!checked.value) return { ok: false, message: `Không thể duyệt: ${checked.errors[0]?.message ?? "bảng giá không hợp lệ."}` };
         // Bounds are warnings: reviewer can approve an outlier deliberately.
       }
     }

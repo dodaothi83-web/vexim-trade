@@ -1,4 +1,5 @@
 // node scripts/check-quantity-review-page.mjs
+import { revision } from './quantity-v2-test-utils.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -15,6 +16,7 @@ const revisions = {
 };
 const db = { from(table) { const q = { select: () => q, eq: () => q, order: () => q, range: async () => fail ? { error: { message: 'offline' }, data: null } : { error: null, data: revisions[table] } }; return q; } };
 const mocks = {
+  '@/lib/products/quantity-revision-v2': revision,
   'react/jsx-runtime': require('react/jsx-runtime'), 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
   'next/navigation': { redirect: (path) => { throw Error(`redirect:${path}`); } },
   '@/lib/auth/session': { requireSession: async () => ({ role, uid: 'user', email: 'reviewer@example.com' }) },
@@ -39,3 +41,11 @@ try {
   assert.doesNotMatch(failedHtml, /Không có bản chờ duyệt/, 'Failure is not presented as an empty queue');
 } finally { console.error = oldError; }
 console.log('Quantity review page: independent queues, staff-only access and fail-closed load passed');
+fail = false;
+revisions.product_quantity_price_revisions[0].grade = 'Special';
+revisions.product_quantity_price_revisions[0].tiers = [{ version: 2, unit: 'bag', customGrade: true, quantityGrams: 270000, unitWeightGrams: 27000, priceCentsPerUnit: 10000 }];
+const v2html = await render();
+for (const text of ['Special', '10 bags (27 kg each)', 'USD 100.00/bag', 'không thuộc bộ lọc grade chuẩn']) assert.ok(v2html.includes(text), text);
+revisions.product_quantity_price_revisions[0].tiers[0].unitWeightGrams = 0;
+assert.match(await render(), /Dữ liệu bảng giá không hợp lệ/);
+console.log('Quantity review page: original V2 units, custom grade and invalid records passed');

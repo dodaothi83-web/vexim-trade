@@ -1,4 +1,5 @@
 // node scripts/check-supplier-products.mjs — owned drafts, private assets, manual review, public gate.
+import { v2Validation } from './quantity-v2-test-utils.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -103,6 +104,7 @@ const gradePricing = load('../lib/products/grade-pricing.ts', {
 });
 const notices = [];
 const actions = load('../app/supplier/portal/product-actions.ts', {
+  '@/lib/products/quantity-v2-validation': v2Validation,
   'next/cache': { revalidatePath() {} },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
   '@/lib/supplier-portal/onboarding': onboarding,

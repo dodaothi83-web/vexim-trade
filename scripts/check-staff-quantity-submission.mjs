@@ -1,4 +1,5 @@
 // node --experimental-strip-types --no-warnings scripts/check-staff-quantity-submission.mjs
+import { v2Validation } from './quantity-v2-test-utils.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -15,6 +16,7 @@ const category = { id: '33333333-3333-3333-3333-333333333333', slug: 'cashew', s
 const store = { getUser: async () => actor, getProduct: async () => product, getCategoryBySlug: async () => category, addAuditLog: async (value) => { audits.push(value); } };
 const db = { rpc: async (name, args) => { calls.push({ name, args }); return { data: { status, revision_id: revision }, error: null }; } };
 const mocks = {
+  '@/lib/products/quantity-v2-validation': v2Validation,
   'next/cache': { revalidatePath: () => {} },
   '@/lib/auth/session': { getSession: async () => session },
   '@/lib/auth/permissions': { hasPermission: (role, permission) => role === 'admin' && permission === 'products.manage' },
@@ -58,3 +60,12 @@ status = 'product_changed';
 assert.equal((await exports.submitStaffQuantityPriceAction(form())).ok, false);
 assert.equal(calls.length, 2);
 console.log('Staff quantity submission: RBAC, active actor, consent attestation, validation, pending version and audit passed');
+status = 'pending';
+const v2input = { quantity_version: '2', quantity_unit: 'mt', quantity_custom_grade: 'no', quantity_tiers_json: JSON.stringify([{ quantity: '1.234567', price: '6401' }]) };
+assert.equal((await exports.submitStaffQuantityPriceAction(form(v2input))).ok, false);
+process.env.VEXIM_QUANTITY_V2_STAGING = 'true'; process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true';
+assert.equal((await exports.submitStaffQuantityPriceAction(form(v2input))).ok, true);
+assert.equal(calls.at(-1).args.p_tiers[0].quantityGrams, 1234567); assert.equal(calls.at(-1).args.p_tiers[0].priceCentsPerUnit, 640100);
+assert.equal((await exports.submitStaffQuantityPriceAction(form({ ...v2input, confirm_quantity_price_consent: '' }))).ok, false);
+delete process.env.VEXIM_QUANTITY_V2_STAGING; delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
+console.log('Staff V2 revision: original cents, precision, staged gate and consent passed');

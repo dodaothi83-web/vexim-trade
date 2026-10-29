@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { PageHeader } from "@/components/page-header";
+import { readQuantityRevisionV2, v2PriceLabel, v2QuantityLabel } from "@/lib/products/quantity-revision-v2";
 import { QuantityReviewControls } from "./review-controls";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,8 @@ export default async function QuantityReviewPage() {
       const product = productsById.get(revision.product_id);
       const supplier = product ? suppliersById.get(product.supplier_id) : null;
       const rows = Array.isArray(revision.tiers) ? revision.tiers : [];
+      const versioned = rows.some((row) => row && typeof row === "object" && "version" in row);
+      const v2 = versioned ? readQuantityRevisionV2(rows) : null;
       const warnings = Array.isArray(revision.warnings) ? revision.warnings : [];
       return <article key={revision.id} className="rounded-lg border border-ink-200 p-4 text-sm">
         <p className="font-semibold text-ink-900">{product?.name ?? "Sản phẩm không còn tồn tại"}</p>
@@ -56,8 +59,9 @@ export default async function QuantityReviewPage() {
         {product && <Link href={`/crm/products/${product.id}/edit`} className="mt-1 inline-block text-xs font-semibold text-brand-700 underline">Mở hồ sơ sản phẩm</Link>}
         {kind === "price" ? <div className="mt-3 text-xs">
           <p>Grade: <strong>{revision.grade || "—"}</strong> · Incoterm: <strong>{revision.incoterm || "—"}</strong></p>
-          <table className="mt-2 w-full text-left"><thead><tr><th className="py-1">Số lượng từ (kg)</th><th className="py-1">Giá (USD/kg)</th></tr></thead>
-            <tbody>{rows.map((raw, index) => { const row = raw && typeof raw === "object" ? raw as Record<string, unknown> : {}; return <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{typeof row.minKg === "number" ? row.minKg.toLocaleString("en-US") : "Không hợp lệ"}</td><td className="py-1 tabular-nums">{typeof row.priceUsdPerKg === "number" ? row.priceUsdPerKg.toFixed(2) : "Không hợp lệ"}</td></tr>; })}</tbody></table>
+          {v2?.customGrade && <p className="mt-1 text-ink-600">Grade do NCC tự nhập, không thuộc bộ lọc grade chuẩn.</p>}
+          {versioned && !v2 ? <p role="alert" className="mt-2 text-rose-700">Dữ liệu bảng giá không hợp lệ. Không thể duyệt.</p> : <table className="mt-2 w-full text-left"><thead><tr><th className="py-1">{v2 ? "Số lượng từ" : "Số lượng từ (kg)"}</th><th className="py-1">{v2 ? "Giá theo đơn vị gốc" : "Giá (USD/kg)"}</th></tr></thead>
+            <tbody>{v2 ? v2.tiers.map((row, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{v2QuantityLabel(row.quantityGrams, v2, true)}</td><td className="py-1 tabular-nums">{v2PriceLabel(row.priceCentsPerUnit, v2.unit)}</td></tr>) : rows.map((raw, index) => { const row = raw && typeof raw === "object" ? raw as Record<string, unknown> : {}; return <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{typeof row.minKg === "number" ? row.minKg.toLocaleString("en-US") : "Không hợp lệ"}</td><td className="py-1 tabular-nums">{typeof row.priceUsdPerKg === "number" ? row.priceUsdPerKg.toFixed(2) : "Không hợp lệ"}</td></tr>; })}</tbody></table>}
           {warnings.length > 0 && <p className="mt-2 font-semibold text-amber-800">Có mức giá ngoài ngưỡng cấu hình, cần đối chiếu trước khi duyệt.</p>}
         </div> : <div className="mt-3 space-y-1 text-xs"><p>Tên gốc: {revision.source_name || "—"}</p><p>Tên buyer đề xuất: <strong>{revision.english_name || "—"}</strong></p><p>Nguồn: {revision.origin || "—"}</p></div>}
         {product && revision.product_updated_at !== product.updated_at && <p className="mt-2 text-xs font-semibold text-amber-800">{revision.product_context ? "Sản phẩm đã được cập nhật sau khi gửi; hệ thống sẽ kiểm tra các thay đổi liên quan khi duyệt." : "Sản phẩm đã đổi sau khi gửi. Cần từ chối và yêu cầu NCC gửi lại."}</p>}

@@ -1,4 +1,5 @@
 // node --experimental-strip-types --no-warnings scripts/check-quantity-revision-actions.mjs
+import { v2Validation } from './quantity-v2-test-utils.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -13,6 +14,7 @@ const category = { id: '11111111-1111-1111-1111-111111111111', slug: 'cashew', s
 const store = { getProduct: async () => product, getCategoryBySlug: async () => category, addAuditLog: async (value) => { audits.push(value); } };
 const db = { rpc: async (name, args) => { calls.push({ name, args }); return { data: { status, revision_id: revision }, error: null }; } };
 const mocks = {
+  '@/lib/products/quantity-v2-validation': v2Validation,
   'next/cache': { revalidatePath: () => {} },
   '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: store },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async (given) => { assert.equal(given, store, 'Always authenticate against the strict store'); return active ? { supplier: { id: supplier }, user: { id: 'staff-id', email: 'supplier@example.com' }, store } : null; } },
@@ -60,3 +62,14 @@ product = { ...product, supplier_id: '99999999-9999-9999-9999-999999999999' };
 assert.equal((await exports.submitQuantityPriceRevisionAction(form())).ok, false);
 assert.equal(calls.length, 3, 'Unauthorized submissions never reach RPC');
 console.log('Quantity revision actions: strict ownership, server validation, consent, warnings and stale data passed');
+product = { ...product, supplier_id: supplier }; calls = [];
+const inputV2 = { quantity_version: '2', quantity_unit: 'bag', quantity_custom_grade: 'yes', grade: 'Special', quantity_weight_kg: '27', quantity_tiers_json: JSON.stringify([{ quantity: '10', price: '100' }]) };
+assert.equal((await exports.submitQuantityPriceRevisionAction(form(inputV2))).ok, false, 'V2 disabled by default'); assert.equal(calls.length, 0);
+process.env.VEXIM_QUANTITY_V2_STAGING = 'true'; process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true';
+result = await exports.submitQuantityPriceRevisionAction(form(inputV2));
+assert.equal(result.ok, true); assert.equal(calls[0].args.p_tiers[0].quantityGrams, 270000); assert.equal(calls[0].args.p_tiers[0].priceCentsPerUnit, 10000);
+assert.equal(calls[0].args.p_tiers[0].customGrade, true);
+assert.equal((await exports.submitQuantityPriceRevisionAction(form({ ...inputV2, confirm_quantity_price_consent: '' }))).ok, false);
+assert.equal((await exports.submitQuantityPriceRevisionAction(form({ ...inputV2, quantity_weight_kg: '' }))).ok, false); assert.equal(calls.length, 1);
+delete process.env.VEXIM_QUANTITY_V2_STAGING; delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
+console.log('Supplier V2 revision: staged gate, exact bag price and consent passed');

@@ -7,6 +7,7 @@ import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
 import { validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: boolean; message: string };
@@ -36,18 +37,26 @@ export async function submitStaffQuantityPriceAction(form: FormData): Promise<Re
     const slug = product.reviewed_category_slug || product.supplier_category_proposal || product.category;
     const category = slug ? await supabaseStore.getCategoryBySlug(slug) : null;
     if (!category || category.status !== "published" || !category.is_published) return { ok: false, message: "Danh mục sản phẩm chưa được xuất bản." };
-    const raw = form.get("quantity_tiers_json");
-    if (typeof raw !== "string" || raw.length > 12_000) return { ok: false, message: "Bảng giá không hợp lệ." };
-    let tiers: unknown;
-    try { tiers = JSON.parse(raw); } catch { return { ok: false, message: "Bảng giá không hợp lệ." }; }
-    if (!Array.isArray(tiers) || tiers.length > 100 || tiers.some((row) => !row || typeof row !== "object" ||
-      typeof row.minKg !== "string" || typeof row.priceUsdPerKg !== "string" || row.minKg.length > 32 || row.priceUsdPerKg.length > 32)) {
-      return { ok: false, message: "Bảng giá không hợp lệ." };
-    }
+    const version = form.get("quantity_version");
+    if (version !== null && version !== "1" && version !== "2") return { ok: false, message: "Phiên bản bảng giá không hợp lệ." };
+    let checked: ReturnType<typeof validateQuantityPricing> | ReturnType<typeof validateV2Form>;
     const policy = await readQuantityPricingPolicy(category.id);
-    const checked = validateQuantityPricing({ grade: String(form.get("grade") ?? "").trim().slice(0, 180),
-      incoterm: String(form.get("incoterm") ?? "").trim().slice(0, 20), nameVi: product.name,
-      nameEn: "", tiers }, standardGradesForCategory(category), policy);
+    if (version === "2") {
+      if (!v2StagingEnabled()) return { ok: false, message: "Đơn vị mới chưa sẵn sàng để sử dụng." };
+      checked = validateV2Form(form, product.name, standardGradesForCategory(category), policy);
+    } else {
+      const raw = form.get("quantity_tiers_json");
+      if (typeof raw !== "string" || raw.length > 12_000) return { ok: false, message: "Bảng giá không hợp lệ." };
+      let tiers: unknown;
+      try { tiers = JSON.parse(raw); } catch { return { ok: false, message: "Bảng giá không hợp lệ." }; }
+      if (!Array.isArray(tiers) || tiers.length > 100 || tiers.some((row) => !row || typeof row !== "object" ||
+        typeof row.minKg !== "string" || typeof row.priceUsdPerKg !== "string" || row.minKg.length > 32 || row.priceUsdPerKg.length > 32)) {
+        return { ok: false, message: "Bảng giá không hợp lệ." };
+      }
+      checked = validateQuantityPricing({ grade: String(form.get("grade") ?? "").trim().slice(0, 180),
+        incoterm: String(form.get("incoterm") ?? "").trim().slice(0, 20), nameVi: product.name,
+        nameEn: "", tiers }, standardGradesForCategory(category), policy);
+    }
     if (!checked.value) return { ok: false, message: checked.errors[0]?.message ?? "Bảng giá không hợp lệ." };
     const { data, error } = await db.rpc("submit_quantity_price_revision", {
       p_product_id: id, p_supplier_id: product.supplier_id, p_expected_pending_id: pending,

@@ -195,6 +195,22 @@ try {
   assert.equal((await approveProduct(submittedStamp)).status, 'saved');
   const publicationGrant = (await db.query(`select has_function_privilege('anon','public.decide_supplier_product_with_quantity_guard(uuid,uuid,timestamptz,text,boolean,text,text,text,boolean)','execute') as anon, has_function_privilege('service_role','public.decide_supplier_product_with_quantity_guard(uuid,uuid,timestamptz,text,boolean,text,text,text,boolean)','execute') as service`)).rows[0];
   assert.deepEqual(publicationGrant, { anon: false, service: true });
+  // V2 uses the existing private JSONB revision transaction, without rewriting v1.
+  const v2tiers = [{ version: 2, unit: 'mt', customGrade: true, quantityGrams: 1234567, unitWeightGrams: 1000000, priceCentsPerUnit: 640100 }];
+  const currentStamp = (await db.query('select updated_at from public.supplier_products where id=$1', [created.id])).rows[0].updated_at.toISOString();
+  const oldApproved = (await db.query("select id,tiers from public.product_quantity_price_revisions where product_id=$1 and status='approved'", [created.id])).rows[0];
+  const sendV2 = async () => (await db.query(`select public.submit_quantity_price_revision($1::uuid,$2::uuid,null,$3::timestamptz,'Special','FOB',$4::jsonb,'[]'::jsonb) as result`, [created.id, supplier, currentStamp, JSON.stringify(v2tiers)])).rows[0].result;
+  const pendingV2 = await sendV2(); assert.equal(pendingV2.status, 'pending');
+  const stillOld = (await db.query("select id,tiers from public.product_quantity_price_revisions where product_id=$1 and status='approved'", [created.id])).rows[0];
+  assert.equal(stillOld.id, oldApproved.id); assert.deepEqual(stillOld.tiers, oldApproved.tiers);
+  assert.equal((await sendV2()).status, 'changed');
+  const decideV2 = async (id, approve) => (await db.query(`select public.decide_quantity_price_revision($1::uuid,$2::uuid,$3::uuid,$4::boolean,$5::timestamptz) as result`, [created.id, id, actor, approve, currentStamp])).rows[0].result;
+  assert.equal(await decideV2(pendingV2.revision_id, false), 'rejected');
+  assert.equal((await db.query("select id from public.product_quantity_price_revisions where product_id=$1 and status='approved'", [created.id])).rows[0].id, oldApproved.id);
+  const nextV2 = await sendV2(); assert.equal(await decideV2(nextV2.revision_id, true), 'approved');
+  const approvedV2 = (await db.query("select tiers from public.product_quantity_price_revisions where id=$1 and status='approved'", [nextV2.revision_id])).rows[0];
+  assert.deepEqual(approvedV2.tiers, v2tiers, 'JSONB stores exact original unit, grams and cents');
+  assert.equal((await db.query('select status from public.product_quantity_price_revisions where id=$1', [oldApproved.id])).rows[0].status, 'superseded');
   console.log('Quantity pricing migrations: private revisions, ownership, context, reviews, atomic creation and guarded publication passed');
 } finally {
   await db.close();
