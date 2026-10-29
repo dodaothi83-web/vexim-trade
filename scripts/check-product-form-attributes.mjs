@@ -31,6 +31,12 @@ assert.equal(validate({ ...draft, attributes: { kind: 'A', moisture: 'x'.repeat(
 const pool = [{ key: 'kind', label: 'Loại', type: 'select', options: ['CC'], supplier_added: true }];
 assert.equal(validate({ attributePool: JSON.stringify(pool), attributes: { kind: 'CC' } }, category).ok, true, 'Supplier-added choices remain usable');
 assert.equal(validate({ attributePool: JSON.stringify([{ ...pool[0], key: 'grade' }]), attributes: {} }, category).ok, false);
+for (const key of ['grade_rows', 'lead_time', 'moq_unit_weight_kg', '__proto__', 'Constructor']) {
+  assert.equal(validate({ attributePool: JSON.stringify([{ key, label: 'Giả', type: 'text', options: [] }]), attributes: {} }, category).ok, false,
+    `Supplier attribute cannot overwrite internal ${key}`);
+  const badCategory = { ...category, product_fields: [...category.product_fields, { key, label: 'Giả', type: 'text', options: [] }] };
+  assert.equal(validate(draft, badCategory).ok, false, `Misconfigured category cannot overwrite internal ${key}`);
+}
 assert.equal(validate({ attributePool: JSON.stringify([{ ...pool[0], label: '<script>' }]), attributes: {} }, category).ok, false);
 assert.equal(validate({ attributePool: JSON.stringify([{ ...pool[0], options: ['CC', 'CC'] }]), attributes: {} }, category).ok, false);
 assert.equal(validate({ attributePool: '[', attributes: {} }, category).ok, false);
