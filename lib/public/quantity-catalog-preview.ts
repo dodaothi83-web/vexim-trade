@@ -1,6 +1,7 @@
 import "server-only";
 
 import { readApprovedQuantityRevisions } from "@/lib/products/approved-quantity-revisions";
+import { readApprovedFormPublications } from "@/lib/products/approved-product-form-consent";
 import { readQuantityPriceSettings } from "@/lib/products/quantity-price-config";
 import { projectApprovedQuantityOffer } from "@/lib/products/quantity-public-projection";
 import { displayUnitsForCategory } from "@/lib/public/price-units";
@@ -28,18 +29,27 @@ export async function projectQuantityCatalogPreview(records: PublicProductRecord
     readApprovedQuantityRevisions(eligible.map(({ product }) => product.id)),
     readQuantityPriceSettings(),
   ]);
+  const publications = await readApprovedFormPublications(eligible.map(({ product }) => {
+    const revision = revisions.get(product.id);
+    if (!revision) throw new Error("Missing quantity revision read result");
+    return { productId: product.id, supplierId: product.supplier_id, priceRevision: revision.price ?
+      { id: revision.price.id, product_id: revision.price.product_id, status: revision.price.status } : null };
+  }));
   const now = Date.now();
   return records.map((record) => {
     if (record.supplier.is_demo || hasUnmappedLegacyGrades(record)) return record;
     const { product, supplier, category, card } = record;
     const revision = revisions.get(product.id);
     if (!revision) throw new Error("Missing quantity revision read result");
-    // Products without a new approved price retain the old public projection.
+    const publication = publications.get(product.id);
+    if (publication === undefined || (publication && !publication.submissionId)) throw new Error("Approved form and price revision are out of sync");
+    // Products without a form or new approved price retain the old projection.
     if (!revision.price) return record;
     const unit = displayUnitsForCategory(category.slug, category.price_unit).primary === "mt" ? "mt" : "kg";
     const offer = projectApprovedQuantityOffer({
       productId: product.id, priceRevision: revision.price, nameRevision: revision.name,
-      pricePubliclyVisible: product.price_publicly_visible === true && supplierPriceConsentCurrent(supplier, now),
+      pricePubliclyVisible: product.price_publicly_visible === true &&
+        (publication ? publication.priceConsent : supplierPriceConsentCurrent(supplier, now)),
       priceUnit: unit, now, staleAfterDays: settings.stale_days,
     });
     // Never surface an older legacy price if an approved new revision is corrupt.
