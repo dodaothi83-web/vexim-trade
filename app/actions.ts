@@ -12,6 +12,7 @@ import {
   MOQ_UNITS,
   applyGradeRowsToSpecs,
   applyLeadTimeToSpecs,
+  exceedsMaxPriceSpread,
   normalizeMoqUnitsConfig,
   parseGradeRowsFromPayload,
   parseLeadTimeInput,
@@ -1495,6 +1496,9 @@ function priceRangeInputError(raw: Record<string, unknown>, input: SupplierProdu
       input.ref_price_max > 999999999999.99 || input.ref_price == null || input.ref_price <= 0 ||
       input.ref_price_max < input.ref_price) {
     return "Giá đến phải lớn hơn hoặc bằng giá từ (> 0); bỏ trống nếu chỉ có một mức giá.";
+  }
+  if (exceedsMaxPriceSpread(input.ref_price, input.ref_price_max)) {
+    return "Khoảng giá tối đa không vượt quá 1,35 lần giá từ.";
   }
   return null;
 }

@@ -416,6 +416,14 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
       }
       return;
     }
+    const precheckForm = new FormData(formElement);
+    if (!supplierPriceConsentCurrent(supplier) && precheckForm.get("price_publicly_visible") === "yes" && precheckForm.get("confirm_supplier_price_consent") !== "yes") {
+      const consentMsg = "Vui lòng tick xác nhận đồng ý chia sẻ giá tham khảo khi bật công khai giá (hoặc bỏ chọn công khai giá).";
+      setStepError(consentMsg);
+      setToast({ ok: false, message: consentMsg });
+      formElement.querySelector<HTMLInputElement>('input[name="confirm_supplier_price_consent"]')?.focus();
+      return;
+    }
     setBusy(true);
     setToast(null);
     setStepError(null);
@@ -721,7 +729,9 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{statusLabel}</span>
           <p className="min-w-0 flex-1 text-[12px] leading-5 text-ink-700">
             {review === "pending"
-              ? "Đã gửi duyệt. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp."
+              ? product?.reviewed_category_slug
+                ? "Sản phẩm đang chờ kiểm tra lại giá sau khi cập nhật. Bạn có thể xem nhưng chưa thể chỉnh sửa thêm cho đến khi hoàn tất rà soát."
+                : "Đã gửi duyệt. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp."
               : review === "paused"
                 ? "Sản phẩm đang ẩn khỏi buyer. Muốn đăng lại, hãy gửi duyệt ở bước 3 và chờ phê duyệt."
                 : "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."}
@@ -768,6 +778,18 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                     showErrors={showGradeErrors}
                     hiddenInputName="grade_rows_json"
                   />
+                  <p className="mt-2.5 rounded-lg border border-amber-200 bg-amber-50/80 px-3.5 py-2.5 text-[12px] leading-5 text-amber-950">
+                    ⚠️ Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng. Chênh lệch bất thường sẽ được Vexim rà soát và xử lý theo{" "}
+                    <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-800 underline hover:text-brand-900">
+                      Quy chế hoạt động
+                    </Link>
+                    .
+                  </p>
+                  {review === "approved" && (
+                    <p className="mt-1.5 text-[11.5px] leading-5 text-ink-600">
+                      Lưu ý: Nếu bạn chỉnh sửa giá trên sản phẩm đã duyệt, sản phẩm sẽ được kiểm tra lại giá trước khi hiển thị công khai.
+                    </p>
+                  )}
                 </div>
                 {/* Chỉ hiện thêm khối thông số khi danh mục còn thông số khác ngoài Grade. */}
                 {!!selectedCategory && (officialAttributeFields.length > 0 || supplierAttributeFields.length > 0) &&
@@ -863,8 +885,18 @@ export function SupplierProductEditor({ product, media = [], userId, categories,
                 </p>
                 {!supplierPriceConsentCurrent(supplier) && <div className="mt-2.5 rounded-md bg-white p-2.5 ring-1 ring-brand-200">
                   <label className="flex items-start gap-2 text-[11.5px] font-medium text-brand-900">
-                    <input type="checkbox" name="confirm_supplier_price_consent" value="yes" disabled={locked} className="mt-0.5 size-4 shrink-0 accent-brand-700" />
-                    <span>Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai.</span>
+                    <input
+                      type="checkbox"
+                      name="confirm_supplier_price_consent"
+                      value="yes"
+                      required={snapshot.price_publicly_visible === "yes"}
+                      disabled={locked}
+                      className="mt-0.5 size-4 shrink-0 accent-brand-700"
+                    />
+                    <span>
+                      Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai.
+                      {snapshot.price_publicly_visible === "yes" && <span className="ml-1 font-semibold text-rose-700">*</span>}
+                    </span>
                   </label>
                   <p className="mt-1 pl-6 text-[10.5px] leading-4 text-ink-500">
                     Hiệu lực 180 ngày kể từ khi lưu; giá tham khảo không phải báo giá chính thức.{" "}

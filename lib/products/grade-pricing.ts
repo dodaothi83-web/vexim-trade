@@ -128,7 +128,7 @@ const BUILTIN_CATEGORY_GRADES: Array<{ match: RegExp; grades: readonly string[] 
 
 export const MIN_REASONABLE_PRICE_PER_KG = 0.05;
 export const MAX_REASONABLE_PRICE_PER_KG = 500;
-const MAX_PRICE_SPREAD_RATIO = 10;
+export const MAX_PRICE_SPREAD_RATIO = 1.35;
 const DECIMAL_PRICE = /^\d+(?:\.\d{1,2})?$/;
 const DECIMAL_QUANTITY = /^\d+(?:\.\d{1,3})?$/;
 const INTEGER_QUANTITY = /^\d+$/;
@@ -964,8 +964,8 @@ function validateReasonableConvertedPrice(
       ? "Giá cao bất thường cho đơn vị USD/kg (tối đa 500 USD/kg). Kiểm tra xem bạn có đang nhập nhầm giá theo tấn hoặc VNĐ không."
       : "Giá cao bất thường cho đơn vị USD/MT (tối đa 500,000 USD/MT). Kiểm tra xem bạn có đang nhập nhầm sang VNĐ không.";
   }
-  if (parsedMax > parsedMin * MAX_PRICE_SPREAD_RATIO) {
-    return "Khoảng giá chênh lệch quá 10 lần giữa giá từ và giá đến. Kiểm tra lại số chữ số.";
+  if (exceedsMaxPriceSpread(parsedMin, parsedMax)) {
+    return "Khoảng giá tối đa không vượt quá 1,35 lần giá từ.";
   }
   return null;
 }
@@ -1647,3 +1647,181 @@ export function projectPublicGradeData(
     gradePricePoints: [],
   };
 }
+
+export function exceedsMaxPriceSpread(priceMin: number, priceMax: number): boolean {
+  if (!Number.isFinite(priceMin) || !Number.isFinite(priceMax) || priceMin <= 0) return false;
+  return priceMax > priceMin * MAX_PRICE_SPREAD_RATIO + 1e-9;
+}
+
+export interface ProductPricingComparable {
+  name?: string | null;
+  category?: string | null;
+  supplier_category_proposal?: string | null;
+  reviewed_category_slug?: string | null;
+  spec?: string | null;
+  specs?: Record<string, unknown> | null;
+  ref_price?: number | null;
+  ref_price_max?: number | null;
+  currency?: string | null;
+  unit?: string | null;
+  moq?: string | null;
+  moq_qty?: number | null;
+  moq_unit?: string | null;
+  incoterm?: string | null;
+  price_publicly_visible?: boolean | null;
+}
+
+function canonicalScalarPriceSignature(item: ProductPricingComparable): string {
+  const min = typeof item.ref_price === "number" && Number.isFinite(item.ref_price) && item.ref_price > 0
+    ? Number(item.ref_price)
+    : null;
+  if (min === null) return "unpriced";
+  const max = typeof item.ref_price_max === "number" && Number.isFinite(item.ref_price_max) && item.ref_price_max >= min
+    ? Number(item.ref_price_max)
+    : min;
+  const currency = (item.currency ?? "USD").trim().toUpperCase();
+  const parsedUnit = parsePriceUnit(item.unit, item.currency) ?? (item.unit ?? "").trim().toLowerCase();
+  return `${currency}|${parsedUnit}|${min}:${max}`;
+}
+
+function canonicalGradeRowsPriceSignature(rows: ProductGradeRow[]): string {
+  const priced = rows
+    .filter((row) => typeof row.price_min === "number" && row.price_min > 0 && typeof row.price_max === "number" && row.price_max >= row.price_min)
+    .map((row) => `${gradeKey(row.grade)}:${Number(row.price_min)}:${Number(row.price_max)}`);
+  return priced.length > 0 ? priced.join("|") : "unpriced";
+}
+
+function canonicalHydratedDraftPriceSignature(
+  item: ProductPricingComparable,
+  category?: CategoryGradeSource | null,
+): string {
+  const drafts = hydrateGradeRowsDraft(
+    {
+      name: item.name ?? "",
+      category: item.category ?? null,
+      supplier_category_proposal: item.supplier_category_proposal ?? null,
+      reviewed_category_slug: item.reviewed_category_slug ?? null,
+      spec: item.spec ?? null,
+      specs: item.specs ?? undefined,
+      unit: item.unit ?? null,
+      moq: item.moq ?? null,
+      moq_qty: item.moq_qty ?? null,
+      moq_unit: item.moq_unit ?? null,
+      ref_price: item.ref_price ?? null,
+      ref_price_max: item.ref_price_max ?? null,
+      currency: item.currency ?? null,
+      incoterm: item.incoterm ?? null,
+    },
+    category ?? {},
+  );
+  const priced: string[] = [];
+  for (const row of drafts) {
+    const grade = row.selectedGrade === CUSTOM_GRADE_OPTION
+      ? cleanText(row.customGrade, 80)
+      : cleanText(row.selectedGrade, 80);
+    const min = Number(row.priceMin.trim());
+    const max = Number(row.priceMax.trim());
+    if (row.priceMin.trim() !== "" && row.priceMax.trim() !== "" && Number.isFinite(min) && min > 0 && Number.isFinite(max) && max >= min) {
+      priced.push(`${gradeKey(grade)}:${min}:${max}`);
+    }
+  }
+  return priced.length > 0 ? priced.join("|") : "unpriced";
+}
+
+export function hasProductPricingChanged(
+  existing: ProductPricingComparable,
+  next: ProductPricingComparable,
+  category?: CategoryGradeSource | null,
+): boolean {
+  const existingRows = readStoredGradeRows(existing.specs);
+  const nextRows = readStoredGradeRows(next.specs);
+
+  let priceSignatureChanged = false;
+  if (existingRows.length > 0 && nextRows.length > 0) {
+    const prevUnit = (existing.unit ?? "").trim().toLowerCase();
+    const nextUnit = (next.unit ?? "").trim().toLowerCase();
+    const prevSig = canonicalGradeRowsPriceSignature(existingRows);
+    const nextSig = canonicalGradeRowsPriceSignature(nextRows);
+    priceSignatureChanged = prevSig !== nextSig || (nextSig !== "unpriced" && prevUnit !== nextUnit);
+  } else if (existingRows.length === 0 && nextRows.length > 0) {
+    const prevSig = canonicalHydratedDraftPriceSignature(existing, category);
+    const nextSig = canonicalGradeRowsPriceSignature(nextRows);
+    if (prevSig === "unpriced" && nextSig === "unpriced") {
+      priceSignatureChanged = canonicalScalarPriceSignature(existing) !== canonicalScalarPriceSignature(next);
+    } else {
+      priceSignatureChanged = prevSig !== nextSig;
+    }
+  } else if (existingRows.length > 0 && nextRows.length === 0) {
+    const prevSig = canonicalGradeRowsPriceSignature(existingRows);
+    const nextSig = canonicalHydratedDraftPriceSignature(next, category);
+    priceSignatureChanged = prevSig !== nextSig || canonicalScalarPriceSignature(existing) !== canonicalScalarPriceSignature(next);
+  } else {
+    priceSignatureChanged = canonicalScalarPriceSignature(existing) !== canonicalScalarPriceSignature(next);
+  }
+
+  if (priceSignatureChanged) return true;
+
+  // Enabling public price visibility on an approved priced product where visibility was previously off also requires price check.
+  const hadPublicFlag = Boolean(existing.price_publicly_visible);
+  const nextPublicFlag = Boolean(next.price_publicly_visible);
+  const nextHasPrice =
+    (typeof next.ref_price === "number" && Number.isFinite(next.ref_price) && next.ref_price > 0) ||
+    nextRows.some((row) => typeof row.price_min === "number" && row.price_min > 0);
+  if (!hadPublicFlag && nextPublicFlag && nextHasPrice) {
+    return true;
+  }
+
+  return false;
+}
+
+function formatReviewPriceNumber(value: number): string {
+  const rounded = roundClean(value, 2);
+  const [intPart, decPart] = String(rounded).split(".");
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return decPart ? `${grouped}.${decPart}` : grouped;
+}
+
+function summarizeComparablePrice(
+  item: ProductPricingComparable,
+  category?: CategoryGradeSource | null,
+): string {
+  const unitMeta = categoryMarketPriceUnit(category?.slug, category?.price_unit);
+  const unitCode = unitMeta.primary === "mt" ? "MT" : "kg";
+  const rows = readStoredGradeRows(item.specs);
+  const pricedRows = rows.filter(
+    (row) => typeof row.price_min === "number" && row.price_min > 0 && typeof row.price_max === "number" && row.price_max >= row.price_min,
+  );
+  if (pricedRows.length > 0) {
+    const mins = pricedRows.map((row) => row.price_min as number);
+    const maxs = pricedRows.map((row) => row.price_max as number);
+    const low = Math.min(...mins);
+    const high = Math.max(...maxs);
+    const range = Math.abs(high - low) < 1e-9 ? formatReviewPriceNumber(low) : `${formatReviewPriceNumber(low)}-${formatReviewPriceNumber(high)}`;
+    return `USD ${range}/${unitCode}`;
+  }
+  if (typeof item.ref_price === "number" && Number.isFinite(item.ref_price) && item.ref_price > 0) {
+    const low = item.ref_price;
+    const high = typeof item.ref_price_max === "number" && Number.isFinite(item.ref_price_max) && item.ref_price_max >= low
+      ? item.ref_price_max
+      : low;
+    const currency = (item.currency ?? "USD").trim().toUpperCase();
+    const unit = (item.unit ?? unitCode).trim();
+    const range = Math.abs(high - low) < 1e-9 ? formatReviewPriceNumber(low) : `${formatReviewPriceNumber(low)}-${formatReviewPriceNumber(high)}`;
+    return `${currency} ${range}/${unit}`;
+  }
+  return "Theo yêu cầu";
+}
+
+export function describePriceChangeForReview(
+  existing: ProductPricingComparable,
+  next: ProductPricingComparable,
+  category?: CategoryGradeSource | null,
+): string {
+  const before = summarizeComparablePrice(existing, category);
+  const after = summarizeComparablePrice(next, category);
+  if (before === after && !existing.price_publicly_visible && next.price_publicly_visible) {
+    return `NCC bật công khai giá tham khảo (${after}) - chờ kiểm tra lại giá.`;
+  }
+  return `NCC cập nhật giá tham khảo (${before} -> ${after}) - chờ kiểm tra lại giá.`;
+}
+

@@ -413,6 +413,38 @@ assert.equal(selection.productReviewApproved({ ...product, reviewed_category_slu
   'A supplier-originated product still cannot publish without its reviewed category');
 assert.equal(audit.some((a) => a.action === 'supplier.product_approved'), true);
 assert.equal(audit.some((a) => a.action === 'supplier.product_published'), true);
+
+// Pricing guardrails on approved products: max 1.35x spread & re-review when price changes.
+const wideSpreadEdit = formWithId();
+wideSpreadEdit.set('ref_price', '7.0');
+wideSpreadEdit.set('ref_price_max', '9.6');
+wideSpreadEdit.set('currency', 'USD');
+wideSpreadEdit.set('unit', 'kg');
+const wideSpreadRes = await actions.saveSupplierProductAction(wideSpreadEdit);
+assert.equal(wideSpreadRes.ok, false, 'Price spread exceeding 1.35x must be rejected');
+assert.match(wideSpreadRes.message, /1,35/);
+assert.equal(product.supplier_review_status, 'approved');
+
+const priceEditOnApproved = formWithId();
+priceEditOnApproved.set('ref_price', '7.0');
+priceEditOnApproved.set('ref_price_max', '7.8');
+priceEditOnApproved.set('currency', 'USD');
+priceEditOnApproved.set('unit', 'kg');
+const priceEditRes = await actions.saveSupplierProductAction(priceEditOnApproved);
+assert.equal(priceEditRes.ok, true, 'Valid <= 1.35x price edit on approved product succeeds and queues price review');
+assert.match(priceEditRes.message, /chờ kiểm tra lại giá/);
+assert.equal(product.supplier_review_status, 'pending', 'Approved product with edited price enters pending review');
+assert.equal(product.ready_for_buyer, false, 'Edited unreviewed price is temporarily withdrawn from public view');
+assert.equal(product.reviewed_category_slug, 'cashew', 'Reviewed category is preserved during price re-check');
+assert.ok(product.specs?.price_review_summary, 'Price review summary is recorded for CRM staff');
+assert.equal(audit.some((a) => a.action === 'supplier.product_price_review_requested'), true);
+assert.equal((await review.decideSupplierProductAction(approve)).ok, true, 'Staff can re-approve updated price');
+assert.equal(product.supplier_review_status, 'approved');
+assert.equal(product.ready_for_buyer, true);
+assert.equal(product.specs?.price_review_summary, undefined, 'Price review summary is cleared once staff re-approves');
+// Reset to form()'s baseline price (5000 USD/kg) before pause tests so subsequent non-price formWithId() edits stay non-price edits.
+product = { ...product, ref_price: 5000, ref_price_max: null, currency: 'USD', unit: 'kg' };
+
 // Pausing is explicit, retains media/history and blocks every public product gate.
 const snapshotBeforePause = { ...product };
 const fileCountBeforePause = files.length;

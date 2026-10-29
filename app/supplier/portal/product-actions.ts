@@ -20,6 +20,9 @@ import { sanitizeProductDescriptionForSave } from "@/lib/products/product-descri
 import {
   applyGradeRowsToSpecs,
   applyLeadTimeToSpecs,
+  describePriceChangeForReview,
+  exceedsMaxPriceSpread,
+  hasProductPricingChanged,
   parseGradeRowsFromPayload,
   parseLeadTimeInput,
   summarizeGradeRowsForProduct,
@@ -62,6 +65,9 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
     if (priceMaxRaw && (!/^\d+(?:\.\d{1,2})?$/.test(priceMaxRaw) || Number(priceMaxRaw) > 999999999999.99 ||
         !priceRaw || Number(priceRaw) <= 0 || Number(priceMaxRaw) < Number(priceRaw))) {
       throw new Error("Giá đến phải lớn hơn hoặc bằng giá từ (> 0); bỏ trống nếu chỉ có một mức giá.");
+    }
+    if (priceMaxRaw && priceRaw && exceedsMaxPriceSpread(Number(priceRaw), Number(priceMaxRaw))) {
+      throw new Error("Khoảng giá tối đa không vượt quá 1,35 lần giá từ.");
     }
     // Preserve unsupported historical values verbatim when the price is unchanged;
     // never accept a new free-text unit/currency, even when a draft has no price.
@@ -197,6 +203,17 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       input.moq_unit = summary.moq_unit;
       input.specs = applyGradeRowsToSpecs(input.specs ?? {}, parsedGradeRows.rows, categorySource);
     }
+    const priceChangedOnApproved = keepPublished && existing
+      ? hasProductPricingChanged(existing, input, category ?? { slug: input.category })
+      : false;
+    let priceReviewSummary: string | null = null;
+    if (priceChangedOnApproved && existing) {
+      priceReviewSummary = describePriceChangeForReview(existing, input, category ?? { slug: input.category });
+      input.supplier_review_status = "pending";
+      input.supplier_review_note = null;
+      input.ready_for_buyer = false;
+      input.specs = { ...(input.specs ?? {}), price_review_summary: priceReviewSummary };
+    }
     let saved = existing ? await store.updateSupplierProductIfState(existing.id, access.supplier.id,
       { review: existing.supplier_review_status ?? null, ready: existing.ready_for_buyer }, {
         ...input,
@@ -205,8 +222,8 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     if (!saved) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi lưu." };
     let translationWarning = "";
     if (keepPublished) {
-      // Approved content stays live, so refresh the buyer-facing English copy
-      // after an owner edit instead of leaving the old translation in place.
+      // Approved content stays live (or enters price re-check with fresh copy), so refresh
+      // the buyer-facing English copy after an owner edit instead of leaving stale copy.
       // Translation is best effort and must never undo or block the product save.
       try {
         const translation = await ensureProductEnglishTranslation(store, saved.id, { id: access.user.id, email: access.user.email });
@@ -237,9 +254,22 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
         after: { fob_publicly_visible: true, fob_updated_at: stamp } }).catch((error) => console.error("[supplier-product] consent audit", error));
     }
     await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
-      entity: "product", entity_id: saved.id, action: existing ? "supplier.product_updated" : "supplier.product_created",
-      before: existing ? { review: existing.supplier_review_status, ready: existing.ready_for_buyer } : null,
-      after: { review: saved.supplier_review_status, ready: saved.ready_for_buyer } }).catch((error) => console.error("[supplier-product] audit", error));
+      entity: "product", entity_id: saved.id,
+      action: priceChangedOnApproved ? "supplier.product_price_review_requested" : existing ? "supplier.product_updated" : "supplier.product_created",
+      before: existing ? { review: existing.supplier_review_status, ready: existing.ready_for_buyer, ref_price: existing.ref_price, ref_price_max: existing.ref_price_max } : null,
+      after: { review: saved.supplier_review_status, ready: saved.ready_for_buyer, ref_price: saved.ref_price, ref_price_max: saved.ref_price_max, ...(priceReviewSummary ? { price_review_summary: priceReviewSummary } : {}) } }).catch((error) => console.error("[supplier-product] audit", error));
+    if (priceChangedOnApproved) {
+      const mail = await notifyStaffProductSubmission(access.supplier, saved).catch((error) => {
+        console.error("[supplier-product] price review notify", error);
+        return "failed" as const;
+      });
+      if (mail !== "sent") console.warn("[supplier-product] price review email not sent; CRM review queue remains pending", mail);
+      revalidatePath("/crm", "layout");
+      revalidatePath("/crm/products");
+      revalidatePath("/products", "layout");
+      revalidatePath("/suppliers", "layout");
+      revalidatePath("/");
+    }
     revalidatePath("/supplier/portal/products");
     revalidatePath("/supplier/portal");
     revalidatePath(`/supplier/portal/products/${saved.id}`);
@@ -250,11 +280,13 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     }
     return { ok: true, id: saved.id, message: keepPaused
       ? `Đã lưu thay đổi. Sản phẩm vẫn tạm ẩn; gửi duyệt khi muốn đăng lại.${consentWarning ? ` ${consentWarning}` : ""}`
-      : keepPublished
-        ? `Đã lưu thay đổi sản phẩm.${translationWarning}${consentWarning ? ` ${consentWarning}` : ""}`
-        : existingReview === "changes_requested"
-          ? `Đã lưu thay đổi. Hãy gửi duyệt lại khi hoàn tất.${consentWarning ? ` ${consentWarning}` : ""}`
-          : `Đã lưu bản nháp. ${consentWarning || "Tải ảnh hoặc catalogue rồi gửi duyệt."}` };
+      : priceChangedOnApproved
+        ? `Đã lưu thay đổi. Vì thông tin giá đã cập nhật, sản phẩm đang chờ kiểm tra lại giá trước khi hiển thị công khai.${translationWarning}${consentWarning ? ` ${consentWarning}` : ""}`
+        : keepPublished
+          ? `Đã lưu thay đổi sản phẩm.${translationWarning}${consentWarning ? ` ${consentWarning}` : ""}`
+          : existingReview === "changes_requested"
+            ? `Đã lưu thay đổi. Hãy gửi duyệt lại khi hoàn tất.${consentWarning ? ` ${consentWarning}` : ""}`
+            : `Đã lưu bản nháp. ${consentWarning || "Tải ảnh hoặc catalogue rồi gửi duyệt."}` };
   } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "Không lưu được sản phẩm." }; }
 }
 

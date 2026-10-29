@@ -159,7 +159,7 @@ export function GradePricingTable({
 
       <div className="rounded-xl border border-ink-200 bg-white p-3.5 sm:p-4">
         <p className="text-[12px] leading-5 text-ink-600">
-          Mỗi dòng là một grade bạn bán. Giá để trống thì buyer thấy &quot;Báo giá theo yêu cầu&quot;. MOQ để trống số lượng sẽ hiện &quot;Theo yêu cầu&quot;. Bắt buộc ít nhất 1 grade, tối đa 10.
+          Mỗi dòng là một grade bạn bán. Giá để trống thì buyer thấy &quot;Báo giá theo yêu cầu&quot; (khoảng giá tối đa 1,35 lần giá từ). MOQ để trống số lượng sẽ hiện &quot;Theo yêu cầu&quot;. Bắt buộc ít nhất 1 grade, tối đa 10.
         </p>
 
         {hiddenInputName && (

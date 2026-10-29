@@ -461,4 +461,78 @@ assert.equal(unmigratedBag.status, "needs_review");
 assert.equal(unmigratedBag.suggestedQty, 280);
 assert.equal(unmigratedBag.suggestedUnit, "bag");
 
-console.log("✅ Grade & giá + Structured Units (MOQ, bag/carton weight, container filter, reasonable price, lead time, legacy migration) passed.");
+/* ---------------- 9. Phase-1 basic supplier pricing guardrails: max 1.35x spread & price-change detection ---------------- */
+
+assert.equal(gradePricing.MAX_PRICE_SPREAD_RATIO, 1.35);
+
+// Exact 1.35x spread is allowed (e.g. 6.00 -> 8.10 USD/kg, or 5000 -> 6750 USD/MT)
+const exact135 = gradePricing.validateGradeRowsDraft(
+  [{ id: "s1", selectedGrade: "W320", customGrade: "", priceMin: "6.00", priceMax: "8.10", incoterm: "FOB", moqQty: "1", moqUnit: "mt" }],
+  { slug: "cashew", price_unit: "kg" },
+);
+assert.equal(exact135.valid, true, "1.35x spread should be valid");
+
+// Exceeding 1.35x spread is rejected with a clear Vietnamese message
+const over135 = gradePricing.validateGradeRowsDraft(
+  [{ id: "s2", selectedGrade: "W320", customGrade: "", priceMin: "6.00", priceMax: "8.15", incoterm: "FOB", moqQty: "1", moqUnit: "mt" }],
+  { slug: "cashew", price_unit: "kg" },
+);
+assert.equal(over135.valid, false, "Spread > 1.35x must be rejected");
+assert.match(over135.rowResults[0].priceError, /1,35/);
+
+const payloadOver135 = gradePricing.parseGradeRowsFromPayload(
+  JSON.stringify([{ selectedGrade: "500 g/L", customGrade: "", priceMin: "5000", priceMax: "6800", incoterm: "FOB", moqQty: "1", moqUnit: "mt" }]),
+  { slug: "pepper", price_unit: "mt" },
+);
+assert.equal(payloadOver135.ok, false);
+assert.match(payloadOver135.message, /1,35/);
+
+// hasProductPricingChanged: non-price edits vs real price changes
+const baseApproved = {
+  name: "Hạt điều nhân W320",
+  spec: "W320",
+  ref_price: 7.2,
+  ref_price_max: 7.5,
+  currency: "USD",
+  unit: "kg",
+  price_publicly_visible: true,
+  specs: {
+    grade_rows: [
+      { grade: "W320", is_custom: false, price_min: 7.2, price_max: 7.5, incoterm: "FOB", moq: "1 MT", moq_qty: 1, moq_unit: "mt", moq_unit_weight_kg: null, moq_mt_equivalent: 1 },
+    ],
+  },
+};
+assert.equal(
+  gradePricing.hasProductPricingChanged(baseApproved, { ...baseApproved, name: "Hạt điều nhân W320 xuất khẩu" }, { slug: "cashew", price_unit: "kg" }),
+  false,
+  "Changing only product name must not trigger price re-review",
+);
+assert.equal(
+  gradePricing.hasProductPricingChanged(
+    baseApproved,
+    {
+      ...baseApproved,
+      ref_price: 6.9,
+      ref_price_max: 7.4,
+      specs: {
+        grade_rows: [
+          { ...baseApproved.specs.grade_rows[0], price_min: 6.9, price_max: 7.4 },
+        ],
+      },
+    },
+    { slug: "cashew", price_unit: "kg" },
+  ),
+  true,
+  "Changing grade row prices must trigger price re-review",
+);
+assert.equal(
+  gradePricing.hasProductPricingChanged(
+    { ...baseApproved, price_publicly_visible: false },
+    { ...baseApproved, price_publicly_visible: true },
+    { slug: "cashew", price_unit: "kg" },
+  ),
+  true,
+  "Enabling public price visibility on an approved priced product triggers price check",
+);
+
+console.log("✅ Grade & giá + Structured Units + Pricing Guardrails (1.35x spread & price-change check) passed.");

@@ -281,9 +281,9 @@ assert.match(listPage, /categoryLabels=/, 'Trang danh sách truyền nhãn danh 
 assert.match(listPage, /scope=\{\[?scope/, 'Trang danh sách truyền phạm vi danh mục');
 assert.match(listPage, /allowedSupplierCategories/, 'Phạm vi lấy từ đúng lớp dữ liệu danh mục');
 
-// 9b. Copy B2B: không lạm dụng tên nền tảng, không giọng hành chính.
+// 9b. Copy B2B: không lạm dụng tên nền tảng ngoài dòng nhắc đối chiếu báo giá bắt buộc dưới Grade & giá.
 const brandMentions = (step1.match(/Vexim/g) ?? []).length;
-assert.ok(brandMentions <= 1, `Chỉ nhắc tên nền tảng khi thật cần (đang ${brandMentions} lần)`);
+assert.ok(brandMentions <= 3, `Chỉ nhắc tên nền tảng khi thật cần (đang ${brandMentions} lần)`);
 for (const phrase of [
   'Vexim duyệt', 'Vexim kiểm tra', 'Vexim xác nhận', 'cho Vexim', 'Chờ Vexim',
   'Tôi đại diện NCC xác nhận đồng ý cho', 'không tự duyệt sản phẩm',
@@ -292,13 +292,29 @@ for (const phrase of [
 }
 assert.match(step1, /Chọn danh mục gần nhất\. Danh mục sẽ được kiểm tra khi duyệt\./,
   'Hint danh mục nói đúng mức cần thiết');
-// Chỉ hiện khi chưa có xác nhận chia sẻ giá còn hiệu lực.
+// Dòng nhắc đối chiếu báo giá nằm ngay dưới bảng Grade & giá và hiện cả khi tạo mới lẫn khi sửa sản phẩm.
+for (const htmlSample of [newProductStep1, step1]) {
+  assert.match(
+    htmlSample,
+    /⚠️ Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng\. Chênh lệch bất thường sẽ được Vexim rà soát và xử lý theo[\s\S]{0,160}href="\/quy-che-hoat-dong"[^>]*>Quy chế hoạt động<\/a>\./,
+    'Dòng nhắc đối chiếu báo giá và link Quy chế hoạt động hiện dưới bảng Grade & giá',
+  );
+}
+// Chỉ hiện khi chưa có xác nhận chia sẻ giá còn hiệu lực, và bắt buộc tick khi bật công khai giá.
 const noConsent = render({ supplier: { ...supplier, fob_publicly_visible: false } });
 assert.match(noConsent, /Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai\./,
   'Xác nhận chia sẻ giá gọn một dòng');
 assert.match(noConsent, /Hiệu lực 180 ngày kể từ khi lưu; giá tham khảo không phải báo giá chính thức/,
   'Điều kiện ngắn nằm dưới checkbox');
 assert.match(noConsent, /href="\/dieu-khoan-su-dung"[^>]*>Điều khoản</, 'Có link điều khoản thay vì nhồi văn bản pháp lý');
+const noConsentOptedIn = render({
+  product: { ...product, price_publicly_visible: true },
+  supplier: { ...supplier, fob_publicly_visible: false },
+});
+const consentCheckboxTag = noConsentOptedIn.match(/<input[^>]*name="confirm_supplier_price_consent"[^>]*>/)?.[0] ?? '';
+assert.match(consentCheckboxTag, /required=""/, 'Ô xác nhận chia sẻ giá là bắt buộc khi bật công khai giá');
+const consentCheckboxPrivateTag = noConsent.match(/<input[^>]*name="confirm_supplier_price_consent"[^>]*>/)?.[0] ?? '';
+assert.doesNotMatch(consentCheckboxPrivateTag, /required=""/, 'Không bắt buộc tick xác nhận khi công khai giá đang tắt');
 assert.doesNotMatch(noConsent, /Tôi đại diện NCC xác nhận/, 'Bỏ câu cam kết dài kiểu hợp đồng');
 assert.match(source, /Gửi duyệt/, 'Nút gửi dùng từ trung tính');
 assert.match(source, /Yêu cầu chỉnh sửa:/, 'Phản hồi duyệt gọi đúng việc phải làm');
@@ -373,6 +389,12 @@ const approvedOwnHtml = render({ product: ownApproved, media: [{ ...media[0], au
 assert.match(approvedOwnHtml, /aria-label="Xóa ảnh đại diện"/, 'Ảnh do mình tải có nút xóa cả khi đang đăng (server kiểm tra tệp cuối)');
 assert.match(approvedOwnHtml, /Tạm ẩn sản phẩm/);
 assert.doesNotMatch(approvedOwnHtml, /Xóa bản nháp/);
+assert.match(
+  approvedOwnHtml,
+  /⚠️ Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng\. Chênh lệch bất thường sẽ được Vexim rà soát và xử lý theo[\s\S]{0,160}href="\/quy-che-hoat-dong"[^>]*>Quy chế hoạt động<\/a>\./,
+  'Dòng nhắc đối chiếu báo giá vẫn hiện đầy đủ khi sửa sản phẩm đã duyệt',
+);
+assert.match(approvedOwnHtml, /chỉnh sửa giá trên sản phẩm đã duyệt, sản phẩm sẽ được kiểm tra lại giá/, 'Nhắc rõ sửa giá sản phẩm đã duyệt sẽ được kiểm tra lại giá');
 const paused = render({ product: { ...ownApproved, supplier_review_status: 'paused', ready_for_buyer: false },
   media: [{ ...media[0], audience: 'buyer' }], initialStep: 3 });
 assert.match(paused, /Đã tạm ẩn/);

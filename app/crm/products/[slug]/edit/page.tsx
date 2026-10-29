@@ -181,6 +181,11 @@ export default async function EditProductPage({
                 ? "Sản phẩm đang ẩn. NCC phải gửi duyệt lại trước khi Vexim có thể đăng."
                 : "Sản phẩm chưa được đăng. NCC cần chỉnh sửa và gửi duyệt lại."}</p>
             {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
+            {typeof product.specs?.price_review_summary === "string" && product.supplier_review_status === "pending" && (
+              <p className="mt-2 rounded-lg border border-amber-300 bg-white/80 px-3 py-2 text-xs font-semibold text-amber-950">
+                {product.specs.price_review_summary}
+              </p>
+            )}
             {needsPublicationAction && (session.role === "admin" || session.role === "reviewer") &&
               <SupplierProductReviewControls
                 id={product.id}

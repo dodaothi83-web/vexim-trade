@@ -85,11 +85,20 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       }
     }
     const previous = { review: product.supplier_review_status ?? null, category: product.reviewed_category_slug, ready: product.ready_for_buyer };
+    const cleanedSpecs = product.specs && typeof product.specs === "object" && "price_review_summary" in product.specs
+      ? (() => {
+          const rest = { ...product.specs };
+          delete rest.price_review_summary;
+          return rest;
+        })()
+      : undefined;
     const updated = await store.updateSupplierProductIfState(id, product.supplier_id,
       { review: previous.review, ready: previous.ready }, {
         supplier_review_status: decision as "approved" | "changes_requested",
         supplier_review_note: decision === "approved" ? null : note, ready_for_buyer: decision === "approved",
-        reviewed_category_slug: reviewedCategory, ...(reviewedCategory ? { category: reviewedCategory } : {}),
+        reviewed_category_slug: decision === "approved" ? reviewedCategory : (product.reviewed_category_slug ?? null),
+        ...(reviewedCategory ? { category: reviewedCategory } : {}),
+        ...(decision === "approved" && cleanedSpecs ? { specs: cleanedSpecs } : {}),
       });
     if (!updated) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi xét duyệt." };
     await store.addAuditLog({ actor_id: session.uid, actor_email: session.email,
