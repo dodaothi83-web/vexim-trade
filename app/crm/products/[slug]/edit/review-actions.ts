@@ -11,6 +11,8 @@ import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import { productTranslationPatch } from "@/lib/ai/translate-content";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
+import { standardGradesForCategory } from "@/lib/products/grade-pricing";
+import { nameContainsGrade } from "@/lib/products/quantity-pricing";
 import { productPublicationMediaState } from "@/lib/media/readiness";
 import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
@@ -154,7 +156,12 @@ export async function translateProductEnglishAction(productId: string): Promise<
   if (!/^[0-9a-f-]{36}$/i.test(productId)) return { ok: false, message: "Sản phẩm không hợp lệ." };
   try {
     const store = getStore();
-    const result = await ensureProductEnglishTranslation(store, productId, { id: session.uid, email: session.email });
+    const product = await store.getProduct(productId);
+    if (!product) return { ok: false, message: "Không tìm thấy sản phẩm." };
+    const slug = product.reviewed_category_slug || product.supplier_category_proposal || product.category;
+    const category = slug ? await store.getCategoryBySlug(slug) : null;
+    const result = await ensureProductEnglishTranslation(store, productId, { id: session.uid, email: session.email }, undefined,
+      { forbiddenGrades: category ? standardGradesForCategory(category) : [] });
     if (result.status === "unconfigured") return { ok: false, message: "Chức năng AI chưa được cấu hình trên máy chủ. Bạn vẫn có thể tự nhập bản dịch tiếng Anh rồi lưu." };
     if (result.status === "failed") return { ok: false, message: result.message };
     const saved = await store.getProduct(productId);
@@ -220,6 +227,10 @@ export async function saveProductEnglishAction(form: FormData): Promise<Result> 
     const store = getStore();
     const product = await store.getProduct(id);
     if (!product) return { ok: false, message: "Không tìm thấy sản phẩm." };
+    const slug = product.reviewed_category_slug || product.supplier_category_proposal || product.category;
+    const category = slug ? await store.getCategoryBySlug(slug) : null;
+    if (category && nameContainsGrade(translation.name, standardGradesForCategory(category)))
+      return { ok: false, message: "Không ghi grade trong tên sản phẩm tiếng Anh." };
     const saved = await store.updateProduct(id, productTranslationPatch(translation, product, "staff"));
     await store.addAuditLog({ actor_id: session.uid, actor_email: session.email, entity: "product", entity_id: id,
       action: "product.translation_staff_saved",

@@ -6,7 +6,7 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
-import { nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { validateQuantityPricing } from "@/lib/products/quantity-pricing";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: boolean; message: string; revisionId?: string; warnings?: string[] };
@@ -71,7 +71,7 @@ export async function submitQuantityPriceRevisionAction(form: FormData): Promise
     }
     const grade = String(form.get("grade") ?? "").trim().slice(0, 180);
     const incoterm = String(form.get("incoterm") ?? "").trim().slice(0, 20);
-    const nameEn = String(form.get("name_en") ?? "").trim().slice(0, 180);
+    const nameEn = "";
     const policy = await readQuantityPricingPolicy(ctx.category.id);
     const validation = validateQuantityPricing({ grade, incoterm, nameVi: ctx.product.name, nameEn, tiers: rows }, standardGradesForCategory(ctx.category), policy);
     if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? "Bảng giá không hợp lệ." };
@@ -97,36 +97,7 @@ export async function submitQuantityPriceRevisionAction(form: FormData): Promise
   }
 }
 
-/** English names have their own pending revision and never overwrite the live title. */
-export async function submitEnglishNameRevisionAction(form: FormData): Promise<Result> {
-  try {
-    const id = String(form.get("product_id") ?? "");
-    const expectedPending = pendingId(form.get("expected_name_revision_id"));
-    if (expectedPending === undefined) return { ok: false, message: "Phiên bản tên không hợp lệ." };
-    const ctx = await context(id);
-    if (!ctx) return { ok: false, message: "Không thể quản lý sản phẩm hoặc danh mục này." };
-    if (!matchesProductVersion(form, ctx.product.updated_at)) return { ok: false, message: statusMessage("product_changed") };
-    const english = String(form.get("name_en") ?? "").trim();
-    if (!english || english.length > 180) return { ok: false, message: "Nhập tên tiếng Anh không quá 180 ký tự." };
-    const grades = standardGradesForCategory(ctx.category);
-    if (nameContainsGrade(ctx.product.name, grades) || nameContainsGrade(english, grades)) return { ok: false, message: "Không ghi grade trong tên sản phẩm tiếng Việt hoặc tiếng Anh." };
-    const { data, error } = await ctx.db.rpc("submit_product_english_name_revision", {
-      p_product_id: id, p_supplier_id: ctx.access.supplier.id, p_expected_pending_id: expectedPending,
-      p_expected_product_updated_at: ctx.product.updated_at, p_source_name: ctx.product.name,
-      p_english_name: english, p_origin: "supplier",
-    });
-    if (error) throw new Error(error.message);
-    const result = interpretRpc(data);
-    if (result.status !== "pending" || !result.revisionId) return { ok: false, message: statusMessage(result.status) };
-    await ctx.access.store.addAuditLog({ actor_id: ctx.access.user.id, actor_email: ctx.access.user.email, entity: "product", entity_id: id,
-      action: "supplier.english_name_revision_submitted", before: { pending_revision_id: expectedPending }, after: { revision_id: result.revisionId },
-    }).catch((error) => console.error("[quantity-pricing] name submission audit", error));
-    revalidatePath(`/supplier/portal/products/${id}`);
-    revalidatePath(`/supplier/portal/products/${id}/quantity-pricing`);
-    revalidatePath(`/crm/products/${id}/edit`);
-    return { ok: true, revisionId: result.revisionId, message: "Tên tiếng Anh mới đang chờ duyệt." };
-  } catch (error) {
-    console.error("[quantity-pricing] English name submission", error);
-    return { ok: false, message: "Không lưu được tên tiếng Anh. Vui lòng thử lại." };
-  }
+/** Reject cached supplier forms; existing name revisions remain available to staff. */
+export async function submitEnglishNameRevisionAction(_form: FormData): Promise<Result> {
+  return { ok: false, message: "Nhà cung cấp không nhập tên tiếng Anh. Quản trị viên sẽ kiểm tra bản dịch khi duyệt." };
 }

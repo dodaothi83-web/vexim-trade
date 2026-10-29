@@ -23,9 +23,8 @@ const data = { productId: 'p', updatedAt: '2026-10-29', nameVi: 'Nhân điều',
 const render = (props) => renderToStaticMarkup(React.createElement('form', { id: 'parent' }, React.createElement(inline.QuantityPricingInline, { data, ...props })));
 const supplier = render({ actor: 'supplier' });
 assert.equal((supplier.match(/<form\b/g) ?? []).length, 1, 'No nested form');
-assert.equal((supplier.match(/form="quantity-pricing-separate"/g) ?? []).length, 6, 'The English name, grade, term, quantity, price and consent inputs do not belong to the parent form');
-assert.match(supplier, /Tên tiếng Anh \(tùy chọn\)/);
-assert.match(supplier, /Gửi tên tiếng Anh để duyệt/);
+assert.equal((supplier.match(/form="quantity-pricing-separate"/g) ?? []).length, 5, 'Grade, term, quantity, price and consent inputs do not belong to the parent form');
+assert.doesNotMatch(supplier, /Tên tiếng Anh \(tùy chọn\)|Gửi tên tiếng Anh để duyệt|Bảng giá theo số lượng/);
 assert.match(supplier, /Giá mới đang chờ Vexim xác nhận/);
 assert.match(supplier, /Giá đang hiển thị cho buyer vẫn dùng bảng cũ/);
 assert.match(supplier, /Gửi bảng giá mới để duyệt/);
@@ -38,6 +37,12 @@ const sidebarPreview = renderToStaticMarkup(React.createElement(React.Fragment, 
 assert.equal((sidebarPreview.match(/>Buyer sẽ thấy</g) ?? []).length, 1, 'The input area and sidebar share exactly one buyer preview');
 assert.match(sidebarPreview, /USD 6\.40\/kg/);
 assert.match(sidebarPreview, /1 MT/);
+const previewForm = compile('../app/supplier/portal/products/[id]/quantity-pricing/preview-form.tsx', { react: React, 'react/jsx-runtime': jsx,
+ 'next/navigation': { useRouter: () => ({ refresh() {} }) }, '@/components/products/quantity-pricing-editor': editor,
+ '@/lib/products/quantity-pricing': pricing, '../../../quantity-revision-actions': {} });
+const standalone = renderToStaticMarkup(React.createElement(previewForm.QuantityPricingPreviewForm, data));
+assert.doesNotMatch(standalone, /Tên tiếng Anh \(tùy chọn\)|Gửi tên tiếng Anh để duyệt|Bảng giá theo số lượng/);
+assert.match(standalone, /Gửi bảng giá để duyệt/);
 const staff = render({ actor: 'staff' });
 assert.match(staff, /đã nhận cam kết của NCC/);
 const dirty = render({ actor: 'supplier', dirty: true });

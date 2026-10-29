@@ -210,7 +210,8 @@ const priceCheckbox = (html) => {
   return tag;
 };
 const newProductStep1 = render({ product: undefined, media: [] });
-assert.match(newProductStep1, /Giá theo số lượng/);
+assert.doesNotMatch(newProductStep1, /Giá theo số lượng|Tên tiếng Anh \(tùy chọn\)/);
+assert.match(newProductStep1, /Tên sản phẩm/);
 assert.match(newProductStep1, /Chọn danh mục để nhập grade và bảng giá/);
 assert.doesNotMatch(newProductStep1, /Bảng giá cũ|Thêm grade|name="grade_rows_json"|name="price_valid_until"/);
 assert.match(priceCheckbox(newProductStep1), /checked=""/, 'Sản phẩm mới được tick sẵn');

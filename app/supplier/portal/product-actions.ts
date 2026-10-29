@@ -130,7 +130,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       return { ok: false, message: "Không ghi grade trong tên sản phẩm tiếng Việt." };
     // New products and their private quantity table must be created together.
     // Validate everything against live category and policy, not client defaults.
-    let newQuantity: { grade: string; incoterm: string; tiers: { minKg: number; priceUsdPerKg: number }[]; warnings: unknown[]; nameEn: string; requestId: string } | null = null;
+    let newQuantity: { grade: string; incoterm: string; tiers: { minKg: number; priceUsdPerKg: number }[]; warnings: unknown[]; requestId: string } | null = null;
     let consentSupplier = access.supplier;
     if (!existing) {
       const strictAccess = await supplierPortalAccess(supabaseStore);
@@ -155,12 +155,10 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       if (!Array.isArray(rows) || rows.length > 100 || rows.some((row) => !row || typeof row !== "object" ||
         typeof row.minKg !== "string" || typeof row.priceUsdPerKg !== "string" || row.minKg.length > 32 || row.priceUsdPerKg.length > 32))
         return { ok: false, message: "Bảng giá không hợp lệ." };
-      const nameEnRaw = String(form.get("quantity_name_en") ?? "").trim();
-      if (nameEnRaw.length > 180) return { ok: false, message: "Tên tiếng Anh quá dài." };
       const validation = validateQuantityPricing({ grade: text(form, "quantity_grade", 180), incoterm: text(form, "quantity_incoterm", 20),
-        nameVi: input.name, nameEn: nameEnRaw, tiers: rows }, standardGradesForCategory(category), await readQuantityPricingPolicy(category.id));
+        nameVi: input.name, nameEn: "", tiers: rows }, standardGradesForCategory(category), await readQuantityPricingPolicy(category.id));
       if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? "Bảng giá không hợp lệ." };
-      newQuantity = { ...validation.value, warnings: validation.warnings, nameEn: nameEnRaw, requestId };
+      newQuantity = { ...validation.value, warnings: validation.warnings, requestId };
     }
     // Thông số NCC tự thêm: gộp vào pool của danh mục để NCC khác dùng lại ngay lần sau.
     // Lỗi ghi pool (ví dụ thiếu migration) không được làm hỏng việc lưu sản phẩm.
@@ -219,7 +217,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       const { data, error } = await db.rpc("create_supplier_product_with_quantity", {
         p_request_id: newQuantity.requestId, p_supplier_id: access.supplier.id, p_product: input,
         p_grade: newQuantity.grade, p_incoterm: newQuantity.incoterm, p_tiers: newQuantity.tiers,
-        p_warnings: newQuantity.warnings, p_english_name: newQuantity.nameEn || null,
+        p_warnings: newQuantity.warnings, p_english_name: null,
       });
       if (error || !data || typeof data.id !== "string") {
         console.error("[quantity-pricing] atomic product creation", error);
@@ -232,7 +230,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     // Preserve the approved English name when Vietnamese content changes.
     // Name revisions are reviewed separately and must not be overwritten by AI here.
     const translationWarning = keepPublished && existing?.name !== saved.name
-      ? " Tên tiếng Anh đã duyệt được giữ nguyên; hãy gửi tên mới để rà soát."
+      ? " Tên tiếng Anh đã duyệt được giữ nguyên; quản trị viên sẽ rà soát bản dịch."
       : "";
     // Supplier-owned explicit consent is recorded only when the separate checkbox is checked.
     // A normal product save never silently refreshes the 180-day supplier consent.
@@ -316,8 +314,7 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
       m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {
       return { ok: false, message: "Cần ít nhất một ảnh hoặc catalogue trước khi gửi duyệt." };
     }
-    // A supplier-provided English name is reviewed separately and must not be
-    // overwritten by AI when the product itself is submitted.
+    // Preserve any historical name revision; the supplier can no longer create one.
     let supplierNameSubmitted = false;
     let quantityCreated = false;
     const translationDb = getSupabaseClient();
@@ -329,13 +326,13 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
       if (!strictProduct || strictProduct.supplier_id !== strictAccess.supplier.id || strictProduct.updated_at !== product.updated_at)
         return { ok: false, message: "Sản phẩm đã thay đổi hoặc không thuộc tài khoản của bạn." };
       const { data: names, error: namesError } = await translationDb.from("product_english_name_revisions")
-        .select("id").eq("product_id", id).eq("origin", "supplier").in("status", ["pending", "approved"]).limit(1);
+        .select("id").eq("product_id", id).in("status", ["pending", "approved"]).limit(1);
       if (namesError || !names) return { ok: false, message: "Chưa kiểm tra được bản tên tiếng Anh. Vui lòng thử lại." };
       supplierNameSubmitted = names.length > 0;
-      const { data: request, error: requestError } = await translationDb.from("quantity_product_creation_requests")
+      const { data: requests, error: requestError } = await translationDb.from("quantity_product_creation_requests")
         .select("request_id").eq("product_id", id).limit(1);
-      if (requestError || !request) return { ok: false, message: "Chưa kiểm tra được luồng bảng giá sản phẩm. Vui lòng thử lại." };
-      quantityCreated = request.length > 0;
+      if (requestError || !requests) return { ok: false, message: "Chưa kiểm tra được luồng bảng giá sản phẩm. Vui lòng thử lại." };
+      quantityCreated = requests.length > 0;
     }
     const previousReview = product.supplier_review_status ?? null;
     let submitted: SupplierProduct | null = null;
@@ -360,18 +357,46 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "product", entity_id: id, action: "supplier.product_submitted",
       before: { review: previousReview }, after: { review: "pending" } }).catch((error) => console.error("[supplier-product] audit", error));
-    const mail = await notifyStaffProductSubmission(access.supplier, product);
-    if (mail !== "sent") console.warn("[supplier-product] staff email not sent; CRM review queue remains pending", mail);
-    // Dịch tự động để hỗ trợ duyệt. Kết quả dịch không chặn gửi hoặc đăng sản phẩm.
-    try {
-      if (!supplierNameSubmitted && !quantityCreated) await ensureProductEnglishTranslation(store, id, { id: access.user.id, email: access.user.email });
-    } catch (error) {
-      console.warn("[supplier-product] submission translation", error);
+    // Only translate a never-published product without a separate historical name
+    // revision. Conditional save prevents an AI response racing staff review.
+    let translationNotice = "";
+    const potentiallyPublished = previousReview !== "draft" && !(quantityCreated && previousReview === "changes_requested");
+    const protectedEnglish = potentiallyPublished || supplierNameSubmitted || !!product.reviewed_category_slug || product.ready_for_buyer ||
+      (!!product.name_i18n?.en?.trim() && product.translation_meta?.origin !== "ai");
+    if (!protectedEnglish && translationDb && submitted.updated_at) {
+      try {
+        const category = await supabaseStore.getCategoryBySlug(proposal);
+        if (!category) throw new Error("Không tải được danh mục để kiểm tra grade.");
+        const result = await ensureProductEnglishTranslation(store, id, { id: access.user.id, email: access.user.email }, undefined, {
+          forbiddenGrades: standardGradesForCategory(category),
+          saveIfUnchanged: async (loaded, patch) => {
+            if (loaded.updated_at !== submitted!.updated_at) return null;
+            const { data, error } = await translationDb.from("supplier_products").update({ ...patch, updated_at: new Date().toISOString() })
+              .eq("id", id).eq("supplier_id", access.supplier.id).eq("updated_at", submitted!.updated_at)
+              .eq("supplier_review_status", "pending").eq("ready_for_buyer", false).select().maybeSingle();
+            if (error) throw new Error(error.message);
+            return data as SupplierProduct | null;
+          },
+        });
+        if (result.status === "unconfigured" || result.status === "failed")
+          translationNotice = " Chưa tự dịch được; quản trị viên sẽ kiểm tra và nhập bản tiếng Anh khi duyệt.";
+      } catch (error) {
+        console.warn("[supplier-product] submission translation", error);
+        translationNotice = " Chưa tự dịch được; quản trị viên sẽ kiểm tra và nhập bản tiếng Anh khi duyệt.";
+      }
+    } else if (protectedEnglish) {
+      translationNotice = " Bản tên tiếng Anh hiện có được giữ nguyên để quản trị viên kiểm tra.";
+    } else {
+      translationNotice = " Chưa tự dịch được; quản trị viên sẽ kiểm tra và nhập bản tiếng Anh khi duyệt.";
     }
+    const mail = await notifyStaffProductSubmission(access.supplier, product).catch((error) => {
+      console.warn("[supplier-product] staff email", error); return "failed";
+    });
+    if (mail !== "sent") console.warn("[supplier-product] staff email not sent; CRM review queue remains pending", mail);
     revalidatePath("/supplier/portal/products");
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
-    return { ok: true, message: `Đã gửi duyệt. Bạn sẽ nhận thông báo khi sản phẩm được đăng.${quantityCreated && !supplierNameSubmitted ? " Chưa có tên tiếng Anh chờ duyệt; bản dịch tự động cho luồng mới chưa hoàn tất." : ""}` };
+    return { ok: true, message: `Đã gửi duyệt. Bạn sẽ nhận thông báo khi sản phẩm được đăng.${translationNotice}` };
   } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "Không nộp được sản phẩm." }; }
 }
 

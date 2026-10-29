@@ -40,14 +40,14 @@ assert.equal(audits.length, 1);
 for (const bad of [
   { confirm_quantity_price_consent: '' }, { grade: 'OTHER' }, { quantity_tiers_json: 'not json' }, { expected_product_updated_at: '2000-01-01T00:00:00Z' },
   { quantity_tiers_json: JSON.stringify([{ minKg: '1', priceUsdPerKg: '5' }, { minKg: '2', priceUsdPerKg: '6' }]) },
-  { expected_price_revision_id: 'invalid' }, { name_en: 'Cashew W320' },
+  { expected_price_revision_id: 'invalid' },
 ]) assert.equal((await exports.submitQuantityPriceRevisionAction(form(bad))).ok, false);
 assert.equal(calls.length, 1, 'Invalid input and missing consent never reach RPC');
 result = await exports.submitEnglishNameRevisionAction(form());
-assert.equal(result.ok, true);
-assert.equal(calls[1].args.p_origin, 'supplier');
-assert.equal((await exports.submitEnglishNameRevisionAction(form({ name_en: 'Cashew W240' }))).ok, false);
-assert.equal(calls.length, 2);
+assert.equal(result.ok, false, 'Cached supplier name submissions are rejected');
+assert.equal(calls.length, 1, 'Cached forms cannot write name revisions');
+result = await exports.submitQuantityPriceRevisionAction(form({ name_en: 'Cashew W320' }));
+assert.equal(result.ok, true, 'Price submission ignores old English name fields');
 status = 'product_changed';
 result = await exports.submitQuantityPriceRevisionAction(form());
 assert.equal(result.ok, false);

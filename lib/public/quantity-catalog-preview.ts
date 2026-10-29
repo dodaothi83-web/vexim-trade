@@ -5,6 +5,7 @@ import { readQuantityPriceSettings } from "@/lib/products/quantity-price-config"
 import { projectApprovedQuantityOffer } from "@/lib/products/quantity-public-projection";
 import { displayUnitsForCategory } from "@/lib/public/price-units";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
+import { nameContainsGrade } from "@/lib/products/quantity-pricing";
 import type { PublicProductRecord } from "@/lib/public/product-catalog";
 
 /**
@@ -41,7 +42,7 @@ export async function projectQuantityCatalogPreview(records: PublicProductRecord
     if ("product_type" in attributes) attributes.product_type = offer.grade;
     return { ...record, card: {
       ...card,
-      name: offer.title ?? card.name,
+      name: offer.title ?? (nameContainsGrade(card.name, [offer.grade]) ? card.name : `${card.name} ${offer.grade}`),
       grade: offer.grade, grades: [offer.grade], cardGrades: [offer.grade], hasGradeRows: true,
       gradeRows: [], attributes,
       gradePricePoints: offer.pricePoint ? [{ ...offer.pricePoint, grade: offer.grade }] : [],

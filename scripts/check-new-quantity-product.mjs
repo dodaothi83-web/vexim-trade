@@ -7,7 +7,7 @@ import * as pricing from '../lib/products/quantity-pricing.ts';
 const supplierId = '55555555-5555-5555-5555-555555555555', productId = '22222222-2222-2222-2222-222222222222';
 const category = { id: 'cat', slug: 'cashew', product_fields: [], supplier_product_fields: [], status: 'published', is_published: true };
 let supplier = { id: supplierId, fob_publicly_visible: true, fob_updated_at: '2026-10-29' }, user = { id: 'owner', email: 'owner@example.com' };
-let strict = true, saved = null, calls = [], failRpc = false, throwAudit = false, names = [], requests = [{ request_id: 'r' }], translations = 0;
+let strict = true, saved = null, calls = [], failRpc = false, throwAudit = false, names = [], requests = [{ request_id: 'r' }], translations = 0, translationStatus = 'translated', race = false;
 const store = {
   getProduct: async () => saved, getCategoryBySlug: async () => category, listCategories: async () => [category],
   updateCategory: async () => {}, addAuditLog: async () => { if (throwAudit) throw Error('audit'); },
@@ -16,7 +16,19 @@ const store = {
 };
 const db = {
   async rpc(name, args) { calls.push({ name, args }); if (failRpc) return { data: null, error: { message: 'offline' } }; if (name === 'submit_supplier_product_with_quantity_guard') { saved = { ...saved, supplier_review_status: 'pending' }; return { data: { status: 'submitted', product: saved }, error: null }; } saved = { ...args.p_product, id: productId, updated_at: '2026-10-29T00:00:00Z' }; return { data: saved, error: null }; },
-  from(table) { const q = { select: () => q, eq: () => q, in: () => q, limit: async () => ({ data: table === 'quantity_product_creation_requests' ? requests : names, error: null }) }; return q; },
+  from(table) {
+    if (table === 'supplier_products') {
+      let patch; const filters = {};
+      const q = { update: (value) => { patch = value; return q; }, eq: (key, value) => { filters[key] = value; return q; }, select: () => q,
+        maybeSingle: async () => {
+          if (race) saved = { ...saved, supplier_review_status: 'approved', ready_for_buyer: true, name_i18n: { en: 'Staff reviewed' }, updated_at: 'staff-version' };
+          if (Object.entries(filters).some(([key, value]) => saved[key] !== value)) return { data: null, error: null };
+          saved = { ...saved, ...patch }; return { data: saved, error: null };
+        } };
+      return q;
+    }
+    const q = { select: () => q, eq: () => q, in: () => q, limit: async () => ({ data: table === 'quantity_product_creation_requests' ? requests : names, error: null }) }; return q;
+  },
 };
 const grade = { hasProductPricingChanged: () => false, standardGradesForCategory: () => ['W320', 'W240'], parseLeadTimeInput: () => ({ ok: true, value: null, unit: 'on_request', daysEquivalent: null }), applyLeadTimeToSpecs: (x) => x };
 const mocks = {
@@ -30,7 +42,12 @@ const mocks = {
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async () => 'sent' },
   '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (v) => v },
   '@/lib/products/grade-pricing': grade,
-  '@/lib/ai/product-translation-service': { ensureProductEnglishTranslation: async () => { translations++; } },
+  '@/lib/ai/product-translation-service': { ensureProductEnglishTranslation: async (_store, _id, _actor, _source, options) => {
+    translations++; assert.ok(options.forbiddenGrades.includes('W320'));
+    if (translationStatus !== 'translated') return { status: translationStatus, product: saved };
+    const updated = await options.saveIfUnchanged(saved, { name_i18n: { en: 'Cashew kernels' }, translation_meta: { origin: 'ai' } });
+    return { status: updated ? 'translated' : 'failed', product: updated || saved };
+  } },
   '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: store },
   '@/lib/products/quantity-price-config': { readQuantityPricingPolicy: async () => ({ ...pricing.DEFAULT_QUANTITY_PRICING_POLICY, gradeBounds: { W320: { minUsdPerKg: 5, maxUsdPerKg: 6 } } }) },
   '@/lib/products/quantity-pricing': pricing,
@@ -45,7 +62,7 @@ function form(changes = {}) {
   return f;
 }
 for (const changes of [
-  { quantity_grade: 'W999' }, { quantity_incoterm: '' }, { name: 'Nhân điều W320' }, { quantity_name_en: 'Cashew W320' },
+  { quantity_grade: 'W999' }, { quantity_incoterm: '' }, { name: 'Nhân điều W320' },
   { confirm_quantity_price_consent: '' }, { quantity_creation_request_id: 'bad' }, { grade_rows_json: '[]' },
   { quantity_tiers_json: JSON.stringify([{ minKg: '5000', priceUsdPerKg: '6' }, { minKg: '1000', priceUsdPerKg: '7' }]) },
 ]) { assert.equal((await exports.saveSupplierProductAction(form(changes))).ok, false); assert.equal(calls.length, 0); }
@@ -61,7 +78,7 @@ const result = await exports.saveSupplierProductAction(form({ ref_price: '7', re
 assert.equal(result.ok, true); assert.equal(result.id, productId); assert.equal(calls.length, 1);
 assert.equal(calls[0].name, 'create_supplier_product_with_quantity');
 assert.equal(calls[0].args.p_product.ref_price, null); assert.equal(calls[0].args.p_product.price_valid_until, null);
-assert.equal(calls[0].args.p_tiers[0].minKg, 1000); assert.equal(calls[0].args.p_english_name, 'Cashew kernels');
+assert.equal(calls[0].args.p_tiers[0].minKg, 1000); assert.equal(calls[0].args.p_english_name, null, 'Old English payload is ignored');
 assert.ok(calls[0].args.p_warnings.length, 'Price outside grade bounds is a warning, not a block');
 names = [{ id: 'name-revision' }];
 const f = new FormData(); f.set('product_id', productId);
@@ -69,8 +86,27 @@ assert.equal((await exports.submitSupplierProductAction(f)).ok, true);
 assert.equal(translations, 0, 'Supplier-provided name bypasses AI during submission');
 saved = { ...saved, supplier_review_status: 'draft' }; names = [];
 const withoutName = await exports.submitSupplierProductAction(f);
-assert.equal(withoutName.ok, true); assert.match(withoutName.message, /bản dịch tự động.*chưa hoàn tất/i);
-assert.equal(translations, 0, 'New quantity product never writes an unreviewed AI name into the live product');
+assert.equal(withoutName.ok, true); assert.equal(translations, 1, 'New quantity product invokes AI on submission');
+assert.equal(saved.name_i18n.en, 'Cashew kernels');
+for (const failure of ['unconfigured', 'failed']) {
+  saved = { ...saved, supplier_review_status: 'draft', name_i18n: null, translation_meta: null }; translationStatus = failure;
+  const response = await exports.submitSupplierProductAction(f);
+  assert.equal(response.ok, true); assert.match(response.message, /Chưa tự dịch được/); assert.equal(saved.name_i18n, null);
+}
+translationStatus = 'translated'; race = true;
+saved = { ...saved, supplier_review_status: 'draft', name_i18n: null, translation_meta: null };
+const racing = await exports.submitSupplierProductAction(f);
+assert.equal(racing.ok, true); assert.match(racing.message, /Chưa tự dịch được/);
+assert.equal(saved.name_i18n.en, 'Staff reviewed', 'AI cannot overwrite a concurrent review');
+race = false;
+saved = { ...saved, supplier_review_status: 'draft', ready_for_buyer: false, reviewed_category_slug: null, name_i18n: { en: 'Staff approved' }, translation_meta: { origin: 'staff' } };
+const beforeStaff = translations;
+assert.equal((await exports.submitSupplierProductAction(f)).ok, true);
+assert.equal(translations, beforeStaff, 'Staff translation is protected'); assert.equal(saved.name_i18n.en, 'Staff approved');
+saved = { ...saved, supplier_review_status: 'paused', ready_for_buyer: false, reviewed_category_slug: null, name_i18n: null, translation_meta: null };
+assert.equal((await exports.submitSupplierProductAction(f)).ok, true);
+assert.equal(translations, beforeStaff, 'Potentially published paused products are never automatically overwritten');
+const count = translations;
 saved = { ...saved, supplier_review_status: 'approved', ready_for_buyer: true, supplier_originated: true, reviewed_category_slug: 'cashew', name: 'Nhân điều', name_i18n: { en: 'Old approved name' }, ref_price: 7, ref_price_max: 8, unit: 'MT', currency: 'USD', incoterm: 'FOB', moq: 'Container', price_valid_until: '2030-01-01', specs: { grade_rows: [{ grade: 'W320', price_min: 7 }], grade: 'W320' } };
 const edit = form({ product_id: productId, name: 'Nhân điều mới', ref_price: '99', grade_rows_json: '[]', unit: 'kg', price_valid_until: '2000-01-01' });
 assert.equal((await exports.saveSupplierProductAction(edit)).ok, false, 'Old cached forms are rejected rather than silently losing a legacy price edit');
@@ -80,6 +116,6 @@ assert.equal(saved.ref_price, 7, 'Editing product cannot alter legacy buyer pric
 assert.equal(saved.unit, 'MT'); assert.equal(saved.moq, 'Container'); assert.equal(saved.price_valid_until, '2030-01-01');
 assert.equal(saved.specs.grade_rows[0].price_min, 7); assert.equal(saved.specs.grade, 'W320');
 assert.equal(saved.name_i18n.en, 'Old approved name', 'Approved English name is not overwritten during a normal edit');
-assert.equal(translations, 0);
+assert.equal(translations, count);
 assert.equal((await exports.saveSupplierProductAction(form({ product_id: productId, name: 'Nhân điều W320' }))).ok, false, 'Changing the name cannot add grade');
-console.log('New quantity product: server validation, strict ownership, consent, atomic RPC, preserved legacy buyer price and supplied name passed');
+console.log('New quantity product: server validation, strict ownership, consent, atomic RPC, AI trigger, guarded writes and preserved legacy buyer price passed');

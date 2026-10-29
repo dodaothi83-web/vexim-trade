@@ -27,6 +27,7 @@ const adapter = compile('../lib/public/quantity-catalog-preview.ts', {
   '@/lib/products/quantity-price-config': { readQuantityPriceSettings: async () => ({ stale_days: 90 }) },
   '@/lib/products/quantity-public-projection': projection,
   '@/lib/public/price-units': priceUnits,
+  '@/lib/products/quantity-pricing': pricing,
   '@/lib/public/product-selection': selection,
 });
 const now = Date.now();
@@ -61,7 +62,9 @@ assert.equal(hidden.price, null); assert.equal(hidden.quantityOffer.tiers.length
 const staleInput = record('p1');
 byId.set('p1', { price: { ...basePrice, confirmed_at: new Date(now - 91 * 86400000).toISOString() }, name: null });
 const stale = (await adapter.projectQuantityCatalogPreview([staleInput]))[0].card;
-assert.equal(stale.name, 'Legacy product', 'Unapproved English name cannot replace existing name');
+assert.equal(stale.name, 'Legacy product W320', 'Keep existing name and append the approved grade');
+const existingGrade = { ...record('p1'), card: { ...record('p1').card, name: 'Legacy product W320' } };
+assert.equal((await adapter.projectQuantityCatalogPreview([existingGrade]))[0].card.name, 'Legacy product W320', 'Do not duplicate an existing grade');
 assert.equal(stale.price, 'USD 6.00–6.40/kg');
 assert.equal(stale.quantityOffer.stale, true);
 assert.equal(stale.pricePoint, null); assert.equal(stale.gradePricePoints.length, 0); assert.equal(stale.priceRankingEligible, false);

@@ -247,9 +247,10 @@ const submitted = new FormData(); submitted.set('product_id', productId);
 files[0].created_by = 'staff';
 assert.equal((await actions.submitSupplierProductAction(submitted)).ok, false, 'Hidden staff-internal file does not satisfy supplier submission');
 files[0].created_by = user.id;
-assert.equal((await actions.submitSupplierProductAction(submitted)).ok, true);
+const submissionResult = await actions.submitSupplierProductAction(submitted);
+assert.equal(submissionResult.ok, true);
 assert.equal(product.supplier_review_status, 'pending'); assert.equal(product.ready_for_buyer, false);
-assert.ok(product.name_i18n?.en, 'Submitting a product auto-creates its English translation');
+assert.match(submissionResult.message, /Chưa tự dịch được/, 'Local fallback cannot perform the guarded AI write');
 assert.equal(notices.length, 1, 'Only submission, not saves, emails staff');
 assert.equal(await postMedia(), 409, 'Cannot upload while pending');
 const pendingEdit = form(); pendingEdit.set('product_id', productId);
@@ -265,6 +266,8 @@ const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
   '@/lib/crm/badges': { refreshCrmBadges() {} },
   '@/lib/media/readiness': mediaReadiness,
   '@/lib/products/product-description': productDescription,
+  '@/lib/products/grade-pricing': { standardGradesForCategory: () => [] },
+  '@/lib/products/quantity-pricing': { nameContainsGrade: () => false },
   '@/lib/public/product-selection': { isTestOnlyProduct: (name) => /^\s*(?:\[\s*)?test\s+only\b/i.test(name) },
   '@/lib/public/supplier-seo': { isSyntheticSupplier: () => false },
   '@/lib/supplier-portal/category-proposals': categoryProposals,

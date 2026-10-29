@@ -441,7 +441,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         form.set("quantity_creation_request_id", creationRequestId.current);
         form.set("quantity_grade", newQuantity.grade);
         form.set("quantity_incoterm", newQuantity.incoterm);
-        form.set("quantity_name_en", newQuantity.nameEn);
         form.set("quantity_tiers_json", JSON.stringify(newQuantity.tiers));
         if (quantityConsent) form.set("confirm_quantity_price_consent", "yes");
       }
@@ -785,23 +784,17 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 </p>}
                 <div className="md:col-span-2">
                   {product && <div className="mb-4 space-y-3 rounded-xl border border-brand-200 p-4">
-                    <h3 className="text-sm font-bold text-ink-900">Giá theo số lượng · mô hình mới</h3>
                     {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
                       data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview} />
                       : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra danh mục và kết nối; giá đang hiển thị không bị thay đổi.</p>}
                   </div>}
                   {!product && <div id="new-quantity-pricing" className="space-y-3 rounded-xl border border-brand-200 p-4">
-                    <h3 className="text-sm font-bold text-ink-900">Giá theo số lượng</h3>
                     {!activeCategory ? <p className="text-xs text-ink-600">Chọn danh mục để nhập grade và bảng giá.</p> : !newPolicy || !newQuantity ?
                       <p role="alert" className="text-xs text-rose-700">Chưa tải được cấu hình bảng giá. Vui lòng kiểm tra kết nối trước khi lưu.</p> : <>
-                        <label className="block text-sm font-semibold">Tên tiếng Anh (tùy chọn)
-                          <input form="quantity-pricing-separate" className="input mt-1 w-full" maxLength={180} value={newQuantity.nameEn}
-                            onChange={(event) => onNewQuantityChange({ ...newQuantity, nameEn: event.target.value })} />
-                        </label>
-                        <p className="text-xs text-ink-600">Không ghi grade trong tên; tên tiếng Anh được duyệt riêng. Nếu bỏ trống, bản dịch tự động cho luồng mới chưa hoàn tất.</p>
+                        <p className="text-xs text-ink-600">Không ghi grade trong tên sản phẩm. Tên tiếng Anh sẽ được dịch sau khi bạn gửi duyệt và được kiểm tra bởi quản trị viên.</p>
                         <QuantityPricingEditor value={newQuantity} onChange={onNewQuantityChange} standardGrades={newGrades} policy={newPolicy}
                           buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"}
-                          isolated showPreview={false} showErrors={showGradeErrors} consentChecked={quantityConsent} onConsentChange={setQuantityConsent} />
+                          isolated showPreview={false} showTitle={false} validateEnglishName={false} showErrors={showGradeErrors} consentChecked={quantityConsent} onConsentChange={setQuantityConsent} />
                       </>}
                   </div>}
                   {review === "approved" && (
@@ -1076,14 +1069,14 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <div className="sm:col-span-2"><ReviewField label="Tên sản phẩm" value={snapshot.name} strong /></div>
                   <div className="sm:col-span-2"><ReviewField label="Danh mục" value={categoryLabel} /></div>
                   <div className="sm:col-span-2">
-                    <dt className="text-[11px] font-semibold text-ink-500">Bảng giá theo số lượng</dt>
+                    <dt className="text-[11px] font-semibold text-ink-500">Bảng giá</dt>
                     <dd className="mt-1 rounded-lg border border-ink-200 p-3">
                       {quantityEditor && quantityPreview ? <>
                         <p>Grade: <strong>{quantityPreview.grade || "Chưa chọn"}</strong> · Incoterm: <strong>{quantityPreview.incoterm || "Chưa chọn"}</strong></p>
                         <table className="mt-2 w-full text-left text-xs"><thead><tr><th>Số lượng từ (kg)</th><th>Giá (USD/kg)</th></tr></thead>
                           <tbody>{quantityPreview.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{tier.minKg || "—"}</td><td className="py-1 tabular-nums">{tier.priceUsdPerKg || "—"}</td></tr>)}</tbody>
                         </table>
-                        <p className="mt-1 text-xs text-ink-500">Bảng giá và tên tiếng Anh được duyệt riêng.</p>
+                        <p className="mt-1 text-xs text-ink-500">Bảng giá cần được duyệt.</p>
                       </> : <span>Chưa tải được bảng giá mới.</span>}
                     </dd>
                   </div>
@@ -1186,7 +1179,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                             : null}
                     </div>
                   </div>}
-              <p className="text-[11.5px] leading-5 text-ink-500">{quantityEditor?.pendingNameId ? "Tên tiếng Anh đang chờ duyệt riêng." : quantityEditor?.hasApprovedName ? "Đã có tên tiếng Anh được duyệt riêng." : "Chưa có tên tiếng Anh được duyệt trong luồng mới; dịch tự động cho luồng này chưa hoàn tất."}</p>
+              <p className="text-[11.5px] leading-5 text-ink-500">{quantityEditor?.pendingNameId ? "Tên tiếng Anh đang chờ duyệt riêng." : quantityEditor?.hasApprovedName ? "Đã có tên tiếng Anh được duyệt riêng." : "Tên tiếng Anh được kiểm tra trong quá trình duyệt sản phẩm."}</p>
             </div>
           </div>
         </section>

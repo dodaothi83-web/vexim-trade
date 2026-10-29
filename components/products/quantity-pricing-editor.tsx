@@ -25,13 +25,17 @@ type Props = {
   isolated?: boolean;
   /** The supplier page can place the live preview in its existing side card. */
   showPreview?: boolean;
+  /** Some parent forms already label this section. */
+  showTitle?: boolean;
+  /** Supplier price submissions do not edit the English translation. */
+  validateEnglishName?: boolean;
 };
 
 const INCOTERMS = ["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"];
 
 /** Read-only live preview, reusable in the supplier sidebar and standalone editor. */
 export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPriceUnit, pricePubliclyVisible }: Pick<Props, "value" | "standardGrades" | "policy" | "buyerPriceUnit" | "pricePubliclyVisible">) {
-  const parsed = validateQuantityPricing(value, standardGrades, policy).value;
+  const parsed = validateQuantityPricing({ ...value, nameEn: "" }, standardGrades, policy).value;
   const previewPrices = parsed?.tiers.map((tier) => tier.priceUsdPerKg) ?? [];
   const low = previewPrices.length ? Math.min(...previewPrices) : null;
   const high = previewPrices.length ? Math.max(...previewPrices) : null;
@@ -41,7 +45,7 @@ export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPrice
   const number = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n * unitFactor);
   const cardPrice = low !== null && high !== null
     ? `USD ${number(low)}${low !== high ? `–${number(high)}` : ""}/${unitLabel}` : "Price on request";
-  const title = [value.nameEn.trim(), value.grade.trim()].filter(Boolean).join(" ");
+  const title = value.nameEn.trim() ? [value.nameEn.trim(), value.grade.trim()].filter(Boolean).join(" ") : "Translation pending";
   return <div aria-label="Buyer sẽ thấy">
     <h3 className="text-sm font-bold text-ink-900">Buyer sẽ thấy</h3>
     <p className="mt-2 text-sm font-semibold">{title || "Product name"}</p>
@@ -60,8 +64,8 @@ export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPrice
 }
 
 /** Controlled editor; parent owns name and consent state and validates again on the server. */
-export function QuantityPricingEditor({ value, onChange, standardGrades, policy, buyerPriceUnit, pricePubliclyVisible, disabled = false, showErrors = false, consentChecked, onConsentChange, consentLabel, isolated = false, showPreview = true }: Props) {
-  const validation = validateQuantityPricing(value, standardGrades, policy);
+export function QuantityPricingEditor({ value, onChange, standardGrades, policy, buyerPriceUnit, pricePubliclyVisible, disabled = false, showErrors = false, consentChecked, onConsentChange, consentLabel, isolated = false, showPreview = true, showTitle = true, validateEnglishName = true }: Props) {
+  const validation = validateQuantityPricing(validateEnglishName ? value : { ...value, nameEn: "" }, standardGrades, policy);
   const changeTier = (index: number, field: "minKg" | "priceUsdPerKg", text: string) => {
     onChange({ ...value, tiers: value.tiers.map((tier, i) => i === index ? { ...tier, [field]: text } : tier) });
   };
@@ -80,7 +84,7 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
             </select>
           </label>
         </div>
-        <h3 className="text-sm font-bold text-ink-900">Bảng giá theo số lượng</h3>
+        {showTitle && <h3 className="text-sm font-bold text-ink-900">Bảng giá theo số lượng</h3>}
         <p className="text-xs text-ink-600">Số lượng nhập bằng kg. Giá cho 1 kg. Ví dụ 6.40 USD/kg = 6,400 USD/tấn.</p>
         <div className="overflow-x-auto"><table className="w-full min-w-[370px] text-left text-sm">
           <thead><tr className="text-xs text-ink-600"><th className="p-2">Số lượng từ (kg)</th><th className="p-2">Đến (kg)</th><th className="p-2">Giá (USD/kg) 🔒</th><th className="p-2"><span className="sr-only">Xóa mức</span></th></tr></thead>
