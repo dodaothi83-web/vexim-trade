@@ -78,11 +78,11 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Anh báo đã chạy SQL. Kiểm tra metadata chỉ đọc trên `veximtrade` thấy các bảng nháp, bản gửi, ảnh nháp, manifest và helper duyệt đã hiện diện; bốn bảng mới đang có 0 dòng tại thời điểm kiểm tra. Đây không xác nhận toàn bộ lịch sử hoặc từng dòng migration.
 - [x] Anh xác nhận chạy SQL66; kiểm tra chỉ đọc thấy nội dung hàm staging trùng SQL66, hàm context duyệt trùng SQL65, cả hai chỉ cho service role thực thi. Không có ảnh nháp tại thời điểm kiểm tra, nhưng hai ràng buộc bảng vẫn dùng đường dẫn cũ `products/`. Không sửa migration SQL66 đã chạy.
 - [x] Anh báo đã chạy và kiểm thử. Kiểm tra chỉ đọc trên `veximtrade` xác nhận hàm SQL67 có nội dung trùng bản trong repo, cả hai ràng buộc dùng namespace mới, hàm sẵn sàng trả về true; số nháp, bản gửi và ảnh nháp đều bằng 0 tại thời điểm kiểm tra. SQL68 đã được phản ánh trong schema. Sau này nếu sửa hàm staging phải cập nhật kiểm tra bằng migration mới.
-- [ ] Chưa xác định được dự án staging riêng trong danh sách kết nối; chưa xem đây là kiểm thử luồng NCC/CRM/buyer end-to-end và chưa bật form mới.
+- [x] Anh tạo `veximtrade-staging` (`vqyekpritfobxkrlisan`) và cho phép dựng schema, dữ liệu giả trên dự án này; chỉ dùng staging, không đụng production. Đã xây bootstrap có guard schema rỗng và thử PGlite, chưa có luồng end-to-end.
 - [ ] Hoàn thiện và kiểm thử các migration bổ sung và transaction duyệt trước khi đưa danh sách chạy cuối cùng. Không chạy lại SQL62–68 chỉ để sửa khác biệt; phải thử luồng hoàn chỉnh trên staging riêng trước khi bật.
-- [x] Anh đồng ý dùng dự án Supabase Free riêng làm staging, chỉ với dữ liệu giả và không sao chép dữ liệu thật. Kiểm tra 29/10/2026 có một dự án đang hoạt động và một dự án không hoạt động; hạn mức thực tế phải được Supabase xác nhận khi tạo.
-- [ ] Chuẩn bị dự án staging riêng khi luồng và migration đã sẵn sàng. Anh tự chạy SQL; không dùng dữ liệu thật và không đụng dự án production.
-- [ ] Viết thứ tự chạy migration, điều kiện tiên quyết và kiểm tra sau chạy. Anh là người chạy migration; em không tự chạy trên database của anh.
+- [x] Anh tạo dự án Supabase Free riêng làm staging, chỉ với dữ liệu giả và không sao chép dữ liệu thật. Anh cho phép em dựng schema và dữ liệu thử ở `vqyekpritfobxkrlisan`, không đụng dự án production.
+- [ ] Dựng và kiểm thử dự án staging riêng; kiểm tra chính xác cấu trúc và quyền, tạo dữ liệu giả, không dùng dữ liệu thật.
+- [ ] Viết thứ tự chạy migration, điều kiện tiên quyết và kiểm tra sau chạy. Anh là người chạy migration production; em chỉ được dựng schema và dữ liệu giả trên staging đã chỉ định.
 - [ ] Sau khi staging sẵn sàng, hướng dẫn anh thử tạo nháp thiếu thông tin, tải ảnh, nhập tier, gửi duyệt, duyệt CRM, xem buyer và sửa lại giá/tên.
 - [ ] Gửi ảnh chụp thực tế desktop/mobile và các bước kiểm thử rõ ràng sau khi luồng hoàn tất; chỉ đề nghị bật cho NCC sau khi staging đạt và anh chấp thuận.
 
