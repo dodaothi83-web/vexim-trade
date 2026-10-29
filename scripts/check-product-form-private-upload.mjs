@@ -1,5 +1,6 @@
 // node scripts/check-product-form-private-upload.mjs
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
@@ -9,7 +10,7 @@ const imageId = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 let calls = [], failPut = -1, invalid = false, rpcResponse = { status: 'created', image_id: imageId, revision: 2 }, rpcError = null;
 const db = { rpc: async (name, params) => { calls.push(['rpc', name, params]); if (rpcError) throw rpcError; return { data: rpcResponse, error: null }; } };
 const mocks = {
-  'server-only': {}, 'node:crypto': { randomUUID: () => imageId },
+  'server-only': {}, 'node:crypto': { createHash, randomUUID: () => imageId },
   '@/lib/media/validate': { validateUpload: () => invalid ? { ok: false, message: 'Ảnh sai định dạng.' } : { ok: true } },
   '@/lib/media/prepare-supplier-product-image': { prepareSupplierProductImage: async () => ({ main: new Uint8Array([1, 2]), thumb: new Uint8Array([3]), width: 500, height: 400 }) },
   '@/lib/media/storage': { putNewObject: async (...args) => { const n = calls.filter((x) => x[0] === 'put').length; calls.push(['put', ...args]); if (n === failPut) throw Error('unknown result'); } },
@@ -29,6 +30,8 @@ invalid = true; assert.equal((await upload(input)).message, 'Ảnh sai định d
 let result = await upload(input); assert.equal(result.ok, true); assert.equal(result.revision, 2); assert.equal(result.image.source, 'staged');
 assert.equal(calls[0][1], `products/${product}/${imageId}.webp`); assert.equal(calls[1][1], `products/${product}/${imageId}-thumb.webp`);
 assert.equal(calls[2][1], 'stage_product_form_image'); assert.equal(calls[2][2].p_product_id, product);
+assert.equal(calls[2][2].p_sha256, createHash('sha256').update(new Uint8Array([1, 2])).digest('hex'));
+assert.equal(calls[2][2].p_thumb_sha256, createHash('sha256').update(new Uint8Array([3])).digest('hex')); assert.equal(calls[2][2].p_thumb_bytes, 1);
 assert.equal(result.image.url, `/api/product-form/images/${product}/${imageId}`);
 calls = []; failPut = 1; result = await upload(input);
 assert.equal(result.ok, false); assert.equal(result.requiresReload, true); assert.equal(calls.some((x) => x[0] === 'rpc'), false);

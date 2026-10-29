@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { validateUpload } from "@/lib/media/validate";
 import { prepareSupplierProductImage } from "@/lib/media/prepare-supplier-product-image";
 import { putNewObject } from "@/lib/media/storage";
@@ -37,7 +37,7 @@ export async function uploadPrivateProductFormImage(input: {
   let prepared: Awaited<ReturnType<typeof prepareSupplierProductImage>>;
   try { prepared = await prepareSupplierProductImage(bytes); }
   catch { return { ok: false, message: "Ảnh không đọc được hoặc kích thước quá lớn." }; }
-  if (!prepared.main.length || prepared.main.length > 8 * 1024 * 1024 || !prepared.thumb.length ||
+  if (!prepared.main.length || prepared.main.length > 8 * 1024 * 1024 || !prepared.thumb.length || prepared.thumb.length > 8 * 1024 * 1024 ||
       !Number.isSafeInteger(prepared.width) || prepared.width < 1 || prepared.width > 20000 ||
       !Number.isSafeInteger(prepared.height) || prepared.height < 1 || prepared.height > 20000)
     return { ok: false, message: "Ảnh sau xử lý không hợp lệ." };
@@ -57,6 +57,8 @@ export async function uploadPrivateProductFormImage(input: {
       p_supplier_id: supplierId, p_product_id: normalizedProductId, p_user_id: userId, p_expected_revision: expectedRevision,
       p_id: imageId, p_caption: file.name.slice(0, 150), p_bytes: prepared.main.length,
       p_width: prepared.width, p_height: prepared.height,
+      p_sha256: createHash("sha256").update(prepared.main).digest("hex"),
+      p_thumb_bytes: prepared.thumb.length, p_thumb_sha256: createHash("sha256").update(prepared.thumb).digest("hex"),
     });
     if (error) throw error;
     if (data && typeof data === "object" && !Array.isArray(data)) {

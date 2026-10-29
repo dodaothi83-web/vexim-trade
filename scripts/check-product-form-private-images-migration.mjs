@@ -34,9 +34,9 @@ try {
       'unverified',null,'buyer','someone-else');`);
   const sql = readFileSync(new URL('../supabase/migrations/20261064_product_form_private_images.sql', import.meta.url), 'utf8');
   await db.exec(sql); await db.exec(sql);
-  const stage = async (owner, rev, id = image, actor = 'user', bytes = 1234) =>
-    (await db.query('select public.stage_product_form_image($1,$2,$3,$4,$5,$6,$7,$8,$9) result',
-      [owner, product, actor, rev, id, 'Ảnh mới', bytes, 800, 600])).rows[0].result;
+  const stage = async (owner, rev, id = image, actor = 'user', bytes = 1234, hash = 'a'.repeat(64)) =>
+    (await db.query('select public.stage_product_form_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) result',
+      [owner, product, actor, rev, id, 'Ảnh mới', bytes, 800, 600, hash, 200, 'b'.repeat(64)])).rows[0].result;
   const select = async (owner, rev, selection, actor = 'user', staff = false) =>
     (await db.query('select public.set_product_form_images($1,$2,$3,$4,$5,$6::jsonb) result',
       [owner, product, actor, staff, rev, JSON.stringify(selection)])).rows[0].result;
@@ -44,6 +44,7 @@ try {
   assert.equal((await stage(other, 1)).status, 'not_owned');
   assert.equal((await stage(supplier, 0)).status, 'invalid');
   assert.equal((await stage(supplier, 1, image, 'user', 0)).status, 'invalid');
+  assert.equal((await stage(supplier, 1, image, 'user', 1234, 'bad')).status, 'invalid');
   assert.equal((await select(other, 1, [])).status, 'not_owned');
   assert.equal((await select(supplier, 1, [ref('media', existing)])).revision, 2);
   assert.equal((await select(supplier, 1, [])).status, 'changed');
@@ -59,6 +60,7 @@ try {
     'A staged image is absent from the public media table');
   assert.equal((await stage(supplier, 2)).status, 'exists', 'A lost result can be reconciled without duplicating the image');
   assert.equal((await stage(supplier, 2, image, 'user', 1235)).status, 'conflict');
+  assert.equal((await stage(supplier, 2, image, 'user', 1234, 'c'.repeat(64))).status, 'conflict');
   assert.equal((await select(supplier, 3, [ref('staged', image), ref('media', existing)], 'other-user')).status, 'image_unavailable');
   assert.equal((await select(supplier, 3, [ref('staged', image), ref('media', existing)], 'user')).revision, 4);
   assert.equal((await select(supplier, 4, [ref('staged', image)], 'staff-user', true)).revision, 5);
@@ -80,6 +82,7 @@ try {
   const captured = (await db.query('select * from public.product_form_submissions where id=$1', [submitted.submission_id])).rows[0];
   assert.equal(captured.image_selection[0].source, 'staged');
   assert.equal(captured.image_snapshot[0].row.storage_path, row.storage_path);
+  assert.equal(captured.image_snapshot[0].row.sha256, 'a'.repeat(64)); assert.equal(captured.image_snapshot[0].row.thumb_sha256, 'b'.repeat(64));
   assert.equal((await db.query('select name from public.supplier_products where id=$1', [product])).rows[0].name, 'Public old name');
   assert.equal((await db.query('select count(*)::int n from public.media_assets where audience=$1', ['buyer'])).rows[0].n, 1);
   // An approved product can have a newer private draft while its previous
@@ -103,7 +106,7 @@ try {
   assert.equal((await select(supplier, 6, [])).status, 'product_changed');
   const grants = (await db.query(`select has_table_privilege('anon','public.product_form_staged_images','select') anon,
     has_table_privilege('authenticated','public.product_form_staged_images','select') auth,
-    has_function_privilege('authenticated','public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer)','execute') fn_auth,
+    has_function_privilege('authenticated','public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text)','execute') fn_auth,
     has_function_privilege('service_role','public.set_product_form_images(uuid,uuid,text,boolean,integer,jsonb)','execute') service,
     has_function_privilege('service_role','public.submit_product_form_draft(uuid,uuid,integer,jsonb,jsonb,jsonb)','execute') old_submit`)).rows[0];
   assert.deepEqual(grants, { anon: false, auth: false, fn_auth: false, service: true, old_submit: false });

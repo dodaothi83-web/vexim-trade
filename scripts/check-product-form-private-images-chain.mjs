@@ -24,8 +24,8 @@ try {
     await db.exec(readFileSync(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8'));
   const first = (await db.query('select public.create_product_form_draft($1,$2,$3::jsonb) result', [supplier, request, JSON.stringify(payload)])).rows[0].result;
   const id = first.product_id;
-  const staged = (await db.query('select public.stage_product_form_image($1,$2,$3,$4,$5,$6,$7,$8,$9) result',
-    [supplier, id, 'supplier-user', 1, image, 'Photo', 1000, 800, 600])).rows[0].result;
+  const staged = (await db.query('select public.stage_product_form_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) result',
+    [supplier, id, 'supplier-user', 1, image, 'Photo', 1000, 800, 600, 'a'.repeat(64), 200, 'b'.repeat(64)])).rows[0].result;
   assert.equal(staged.status, 'created'); assert.equal(staged.revision, 2);
   const refs = [{ source: 'staged', id: image }];
   const submit = async (selection) => (await db.query('select public.submit_product_form_draft_selected_images($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb) result',

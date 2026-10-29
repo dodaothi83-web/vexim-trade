@@ -18,6 +18,9 @@ create table if not exists public.product_form_staged_images (
   caption text not null default '' check (length(caption) <= 150),
   mime text not null check (mime = 'image/webp'),
   bytes bigint not null check (bytes between 1 and 8388608),
+  sha256 text not null check (sha256 ~ '^[a-f0-9]{64}$'),
+  thumb_bytes bigint not null check (thumb_bytes between 1 and 8388608),
+  thumb_sha256 text not null check (thumb_sha256 ~ '^[a-f0-9]{64}$'),
   width integer not null check (width between 1 and 20000),
   height integer not null check (height between 1 and 20000),
   created_at timestamptz not null default now(),
@@ -36,7 +39,8 @@ grant all on public.product_form_staged_images to service_role;
 -- transaction may have committed despite a lost response. Reload to reconcile.
 create or replace function public.stage_product_form_image(
   p_supplier_id uuid, p_product_id uuid, p_user_id text, p_expected_revision integer,
-  p_id uuid, p_caption text, p_bytes bigint, p_width integer, p_height integer
+  p_id uuid, p_caption text, p_bytes bigint, p_width integer, p_height integer,
+  p_sha256 text, p_thumb_bytes bigint, p_thumb_sha256 text
 ) returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   product public.supplier_products%rowtype;
@@ -48,6 +52,9 @@ begin
   if p_supplier_id is null or p_product_id is null or p_id is null or coalesce(btrim(p_user_id), '') = ''
      or p_expected_revision is null or p_expected_revision < 1 or length(coalesce(p_caption,'')) > 150
      or p_bytes is null or p_bytes not between 1 and 8388608
+     or p_sha256 is null or p_sha256 !~ '^[a-f0-9]{64}$'
+     or p_thumb_bytes is null or p_thumb_bytes not between 1 and 8388608
+     or p_thumb_sha256 is null or p_thumb_sha256 !~ '^[a-f0-9]{64}$'
      or p_width is null or p_width not between 1 and 20000 or p_height is null or p_height not between 1 and 20000 then
     return jsonb_build_object('status','invalid');
   end if;
@@ -58,7 +65,9 @@ begin
   select * into photo from public.product_form_staged_images where id = p_id;
   if found then
     if photo.product_id = p_product_id and photo.supplier_id = p_supplier_id and photo.created_by = p_user_id
-       and photo.caption = coalesce(p_caption,'') and photo.bytes = p_bytes and photo.width = p_width and photo.height = p_height then
+       and photo.caption = coalesce(p_caption,'') and photo.bytes = p_bytes and photo.sha256 = p_sha256
+       and photo.thumb_bytes = p_thumb_bytes and photo.thumb_sha256 = p_thumb_sha256
+       and photo.width = p_width and photo.height = p_height then
       return jsonb_build_object('status','exists','revision',draft.revision,'image_id',photo.id);
     end if;
     return jsonb_build_object('status','conflict');
@@ -76,8 +85,8 @@ begin
      or exists (select 1 from public.product_form_staged_images where storage_path in (path,thumb) or thumb_path in (path,thumb)) then
     return jsonb_build_object('status','conflict');
   end if;
-  insert into public.product_form_staged_images (id,product_id,supplier_id,created_by,storage_path,thumb_path,caption,mime,bytes,width,height)
-    values (p_id,p_product_id,p_supplier_id,p_user_id,path,thumb,coalesce(p_caption,''),'image/webp',p_bytes,p_width,p_height);
+  insert into public.product_form_staged_images (id,product_id,supplier_id,created_by,storage_path,thumb_path,caption,mime,bytes,width,height,sha256,thumb_bytes,thumb_sha256)
+    values (p_id,p_product_id,p_supplier_id,p_user_id,path,thumb,coalesce(p_caption,''),'image/webp',p_bytes,p_width,p_height,p_sha256,p_thumb_bytes,p_thumb_sha256);
   update public.product_form_drafts set revision = revision + 1, updated_at = now(),
     image_selection = image_selection || jsonb_build_array(jsonb_build_object('source','staged','id',p_id))
     where product_id = p_product_id returning * into draft;
@@ -320,9 +329,9 @@ $$;
 revoke all on function public.request_product_form_changes(uuid,uuid,uuid,timestamptz,text) from public,anon,authenticated;
 grant execute on function public.request_product_form_changes(uuid,uuid,uuid,timestamptz,text) to service_role;
 
-revoke all on function public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer) from public, anon, authenticated;
+revoke all on function public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text) from public, anon, authenticated;
 revoke all on function public.set_product_form_images(uuid,uuid,text,boolean,integer,jsonb) from public, anon, authenticated;
-grant execute on function public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer) to service_role;
+grant execute on function public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text) to service_role;
 grant execute on function public.set_product_form_images(uuid,uuid,text,boolean,integer,jsonb) to service_role;
 notify pgrst, 'reload schema';
 commit;
