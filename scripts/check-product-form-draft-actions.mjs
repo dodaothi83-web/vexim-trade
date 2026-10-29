@@ -21,7 +21,7 @@ const mocks = {
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => approved },
   '@/lib/products/product-form-model': { parseProductFormDraft: (value) => value?.valid ? value : null },
-  '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (value) => value ?? '' },
+  '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (value) => value?.includes('<script') ? '' : (value ?? '') },
   '@/lib/products/product-form-image-selection': { resolveSupplierDraftImages: ({ selection }) => Array.isArray(selection) ? { selected: [], available: [] } : null },
 };
 const exports = {};
@@ -44,8 +44,13 @@ assert.equal(rpcCalls[0].args.p_request_id, requestId); assert.equal(JSON.string
 assert.equal((await save(productId, -1, input)).ok, false);
 rpcData = { status: 'changed' }; result = await save(productId, 1, input);
 assert.equal(result.ok, false); assert.match(result.message, /thay đổi/); assert.equal(rpcCalls.at(-1).args.p_expected_revision, 1);
+rpcData = { status: 'product_changed' }; result = await save(productId, 1, input);
+assert.equal(result.ok, false); assert.match(result.message, /Sản phẩm gốc đã thay đổi/);
+rpcData = { status: 'save_unavailable' }; result = await save(productId, 1, input);
+assert.equal(result.ok, false); assert.match(result.message, /cấu hình lưu an toàn/);
 rpcData = { status: 'saved', product_id: productId, revision: 2 };
 assert.equal((await save(productId, 1, input)).revision, 2);
+assert.equal(rpcCalls.at(-1).name, 'save_product_form_draft_checked');
 product = { id: productId, supplier_id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' };
 assert.equal((await load(productId)).ok, false); assert.equal(readCalls.length, 0, 'Never read another supplier draft');
 product = { id: productId, supplier_id: supplier };
@@ -53,4 +58,6 @@ result = await load(productId); assert.equal(result.revision, 0); assert.equal(r
 assert.equal(readCalls[0].filters.product_id, productId); assert.equal(readCalls[0].filters.supplier_id, supplier);
 row = { revision: 2, payload: input, image_selection: [] }; result = await load(productId); assert.equal(result.revision, 2); assert.equal(result.draft, input);
 row = { revision: 2, payload: {}, image_selection: [] }; assert.equal((await load(productId)).ok, false, 'Malformed stored payload fails closed');
+row = { revision: 2, payload: { ...input, descriptionDetail: '<script>alert(1)</script>' }, image_selection: [] };
+assert.equal((await load(productId)).ok, false, 'Unsafe persisted HTML is rejected on load as well as save');
 console.log('Product form draft actions: authorization, idempotent creation, CAS and private reads passed');

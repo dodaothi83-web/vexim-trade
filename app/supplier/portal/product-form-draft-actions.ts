@@ -38,6 +38,8 @@ function rpcResult(data: unknown): Result {
   if (!data || typeof data !== "object" || Array.isArray(data)) return { ok: false, message: "Không lưu được bản nháp. Vui lòng thử lại." };
   const row = data as Record<string, unknown>;
   if (row.status === "changed" || row.status === "state_changed") return { ok: false, requiresReload: true, message: "Bản nháp hoặc trạng thái sản phẩm đã thay đổi. Hãy tải lại trang." };
+  if (row.status === "product_changed") return { ok: false, requiresReload: true, message: "Sản phẩm gốc đã thay đổi. Hãy liên hệ Vexim để kiểm tra trước khi tiếp tục." };
+  if (row.status === "save_unavailable") return { ok: false, requiresReload: true, message: "Chưa xác nhận được cấu hình lưu an toàn. Vui lòng thử lại sau." };
   if (row.status === "request_conflict") return { ok: false, message: "Phiên tạo sản phẩm không còn hợp lệ. Hãy tải lại trang." };
   if (row.status !== "saved" || typeof row.product_id !== "string" || !UUID.test(row.product_id) ||
       typeof row.revision !== "number" || !Number.isSafeInteger(row.revision) || row.revision < 1)
@@ -73,7 +75,7 @@ export async function saveProductFormDraftAction(productId: string, expectedRevi
   try {
     const ctx = await context();
     if (!ctx) return { ok: false, message: "Không xác nhận được quyền quản lý sản phẩm." };
-    const { data, error } = await ctx.db.rpc("save_product_form_draft", {
+    const { data, error } = await ctx.db.rpc("save_product_form_draft_checked", {
       p_supplier_id: ctx.access.supplier.id, p_product_id: productId, p_expected_revision: expectedRevision, p_payload: parsed,
     });
     if (error) throw new Error(error.message);
@@ -107,7 +109,7 @@ export async function loadProductFormDraftAction(productId: string): Promise<Res
       supplierId: ctx.access.supplier.id, userId: ctx.access.user.id, media, staged: stagedResult.data ?? [] });
     if (!images) throw new Error("Invalid or unavailable draft images");
     if (!data) return { ok: true, id: product.id, revision: 0, draft: null, images: images.selected, availableImages: images.available };
-    const draft = parseProductFormDraft(data.payload);
+    const draft = safeDraft(data.payload);
     if (!draft || !Number.isSafeInteger(data.revision) || data.revision < 1) throw new Error("Invalid stored draft");
     return { ok: true, id: product.id, revision: data.revision, draft, images: images.selected, availableImages: images.available };
   } catch (error) {
