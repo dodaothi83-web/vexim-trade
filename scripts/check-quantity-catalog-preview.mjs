@@ -43,7 +43,7 @@ const inputs = [record('p1'), record('p2'), { ...record('demo'), supplier: { ...
 const output = await adapter.projectQuantityCatalogPreview(inputs);
 assert.deepEqual(Array.from(batchIds), ['p1', 'p2'], 'Do not read demo prices');
 const card = output[0].card;
-assert.equal(card.name, 'Cashew kernels W320');
+assert.equal(card.name, 'Cashew kernels');
 assert.equal(card.price, 'USD 6.00–6.40/kg', 'Do not use old expiration or legacy price');
 assert.deepEqual(Array.from(card.grades), ['W320']);
 assert.equal(card.attributes.grade, 'W320');
@@ -63,7 +63,7 @@ assert.equal(hidden.price, null); assert.equal(hidden.quantityOffer.tiers.length
 const staleInput = record('p1');
 byId.set('p1', { price: { ...basePrice, confirmed_at: new Date(now - 91 * 86400000).toISOString() }, name: null });
 const stale = (await adapter.projectQuantityCatalogPreview([staleInput]))[0].card;
-assert.equal(stale.name, 'Legacy product W320', 'Keep existing name and append the approved grade');
+assert.equal(stale.name, 'Legacy product', 'Keep the existing name without appending grade');
 const existingGrade = { ...record('p1'), card: { ...record('p1').card, name: 'Legacy product W320' } };
 assert.equal((await adapter.projectQuantityCatalogPreview([existingGrade]))[0].card.name, 'Legacy product W320', 'Do not duplicate an existing grade');
 assert.equal(stale.price, 'USD 6.00–6.40/kg');

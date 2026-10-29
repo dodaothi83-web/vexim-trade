@@ -121,6 +121,7 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
         grades={product.cardGrades}
         gradeRows={product.gradeRows}
         stalePriceDays={product.quantityOffer?.stale ? product.quantityOffer.daysSinceConfirmed : undefined}
+              volumePricing={product.quantityOffer?.hasVolumePricing}
         moq={product.moq}
         price={product.price}
         incoterm={product.incoterm}

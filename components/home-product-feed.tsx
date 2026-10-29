@@ -191,6 +191,7 @@ export function HomeProductFeed({
               grades={p.cardGrades}
               gradeRows={p.gradeRows}
               stalePriceDays={p.quantityOffer?.stale ? p.quantityOffer.daysSinceConfirmed : undefined}
+              volumePricing={p.quantityOffer?.hasVolumePricing}
               moq={p.moq}
               price={p.price}
               incoterm={p.incoterm}

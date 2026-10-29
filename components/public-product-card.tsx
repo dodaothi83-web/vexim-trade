@@ -18,6 +18,30 @@ export interface PublicProductCardGradeRow {
   moq?: string | null;
 }
 
+/** Remove only known grade tokens from the card title, never mutate stored names. */
+function titleWithoutGrades(name: string, grades: readonly string[]): string {
+  let result = name;
+  for (const grade of [...grades].sort((a, b) => b.length - a.length)) {
+    const parts = grade.trim().split(/\s+/).filter(Boolean).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    if (!parts.length) continue;
+    const match = new RegExp(`(^|[^\\p{L}\\p{N}])(?:grade\\s+)?${parts.join("\\s+")}(?=$|[^\\p{L}\\p{N}])`, "giu");
+    result = result.replace(match, "$1");
+  }
+  if (result === name) return name;
+  const clean = result.replace(/\(\s*\)/g, "").replace(/\s*[,;|]\s*[,;|]+\s*/g, ", ").replace(/^\s*[,;|/:-]+\s*|\s*[,;|/:-]+\s*$/g, "")
+    .replace(/\s+([,;])/g, "$1").replace(/\s{2,}/g, " ").trim();
+  return clean || "Product";
+}
+
+/** Only explicit weight MOQ is displayed; never guess container or package weight. */
+function cardWeightMoq(raw: string | null | undefined): string {
+  const match = raw?.trim().match(/^((?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?)\s*(kg|mt|metric\s+tons?|tonnes?|tons?)$/i);
+  if (!match) return "On request";
+  const amount = Number(match[1].replace(/,/g, ""));
+  if (!Number.isFinite(amount) || amount <= 0) return "On request";
+  return `${match[1]} ${match[2].toLowerCase() === "kg" ? "kg" : "MT"}`;
+}
+
 function normalizeGradeKey(value: string): string {
   return value.replace(/\s+/g, " ").trim().toLowerCase();
 }
@@ -90,9 +114,7 @@ function resolveCardOfferDisplay({
       : [];
     const targetRows = matchedRows.length > 0 ? matchedRows : pool;
     const moqText =
-      matchedRows.length === 1 && matchedRows[0].moq && matchedRows[0].moq !== "On request"
-        ? matchedRows[0].moq
-        : defaultMoq;
+      matchedRows.length === 1 ? (matchedRows[0].moq || "On request") : defaultMoq;
 
     const pricedRows = targetRows.filter(
       (row) =>
@@ -181,6 +203,7 @@ export function PublicProductCard({
   highlightedGrades,
   moq,
   price,
+  volumePricing = false,
   incoterm,
   fob,
   leadTimeDays,
@@ -207,6 +230,8 @@ export function PublicProductCard({
   highlightedGrades?: readonly string[];
   moq: string;
   price: string | null;
+  /** A visible, approved quantity-tier range, not an unverified legacy range. */
+  volumePricing?: boolean;
   incoterm?: string | null;
   fob?: boolean;
   leadTimeDays: number | null;
@@ -237,7 +262,7 @@ export function PublicProductCard({
   const dedupedGrades: string[] = [];
   const seenGrades = new Set<string>();
   if (!test) {
-    for (const raw of grades ?? []) {
+    for (const raw of [...(grades ?? []), ...(gradeRows ?? []).filter((row) => row.isCustom).map((row) => row.grade)]) {
       const clean = raw?.trim();
       if (!clean) continue;
       const key = normalizeGradeKey(clean);
@@ -258,8 +283,9 @@ export function PublicProductCard({
     orderedGrades.length >= 3 &&
     orderedGrades[0].length + orderedGrades[1].length + orderedGrades[2].length <= 18;
   const allGradesText = orderedGrades.join(", ");
+  const displayName = titleWithoutGrades(name, [...(grades ?? []), ...(gradeRows ?? []).map((row) => row.grade)]);
 
-  const { pricePrimary, priceSecondary, priceTitle, hasPrice, moqText } = resolveCardOfferDisplay({
+  const { pricePrimary, priceSecondary, priceTitle, hasPrice, moqText: rawMoqText } = resolveCardOfferDisplay({
     test,
     price,
     incoterm,
@@ -268,6 +294,7 @@ export function PublicProductCard({
     gradeRows,
     highlightedGrades,
   });
+  const moqText = cardWeightMoq(rawMoqText);
 
   // This is a supplier contract check, not a claim about product quality or factory ownership.
   const partnerContractReviewed =
@@ -278,7 +305,7 @@ export function PublicProductCard({
       ? {
           id: comparison.id,
           categorySlug: comparison.categorySlug,
-          name,
+          name: displayName,
           href,
           imagePath: imagePath ?? null,
         }
@@ -289,7 +316,7 @@ export function PublicProductCard({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`/public-media/${imagePath.replace(/^\//, "")}`}
-        alt={name}
+        alt={displayName}
         loading="lazy"
         className="h-full w-full object-cover"
       />
@@ -305,7 +332,7 @@ export function PublicProductCard({
       {linkable ? (
         <Link
           href={href}
-          aria-label={`View details of ${name}`}
+          aria-label={`View details of ${displayName}`}
           className="block h-full w-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
         >
           {image}
@@ -324,10 +351,10 @@ export function PublicProductCard({
 
   const title = (
     <h3
-      title={name}
+      title={displayName}
       className="line-clamp-2 h-9 overflow-hidden break-words text-[13px] font-semibold leading-[18px] text-ink-900 group-hover/card:text-brand-700 sm:h-10 sm:text-sm sm:leading-5"
     >
-      {name}
+      {displayName}
     </h3>
   );
 
@@ -407,24 +434,22 @@ export function PublicProductCard({
           )}
         </div>
 
-        {/* Fixed 1-line price: bold accent primary price + smaller muted regular-weight Incoterm/grade suffix */}
-        <p
-          title={priceTitle}
-          className={`mt-1 h-5 truncate whitespace-nowrap tabular-nums leading-5 sm:mt-1.5 ${
+        {/* Two fixed lines keep Incoterm and the volume label visible on narrow cards. */}
+        <div title={hasPrice && volumePricing ? `${priceTitle} · Volume pricing` : priceTitle} className="mt-1 h-9 sm:mt-1.5">
+          <p className={`h-5 truncate whitespace-nowrap tabular-nums leading-5 ${
             test
               ? "text-xs font-semibold text-ink-500"
               : hasPrice
                 ? "text-sm font-bold text-brand-800 sm:text-[15px]"
                 : "text-xs font-medium text-ink-500"
-          }`}
-        >
-          <span>{pricePrimary}</span>
-          {priceSecondary && (
-            <span className="ml-1.5 text-[10.5px] font-normal text-ink-500 sm:text-[11px]">
-              {priceSecondary}
-            </span>
-          )}
-        </p>
+          }`}>
+            <span>{pricePrimary}</span>
+          </p>
+          <p className="h-4 truncate whitespace-nowrap text-[10.5px] font-normal leading-4 text-ink-500 sm:text-[11px]">
+            {priceSecondary && <span>{priceSecondary}</span>}
+            {hasPrice && volumePricing && <span className={priceSecondary ? "ml-1.5" : undefined}>Volume pricing</span>}
+          </p>
+        </div>
 
         {hasPrice && stalePriceDays !== undefined && <p className="mt-0.5 text-[10px] leading-4 text-ink-500">{stalePriceDays === null ? "Confirmation date unavailable" : `Last updated ${stalePriceDays} days ago`}</p>}
 
@@ -478,7 +503,7 @@ export function PublicProductCard({
             {quote && (
               <Link
                 href={quote}
-                aria-label={`Request a quote for ${name}`}
+                aria-label={`Request a quote for ${displayName}`}
                 className="relative z-20 inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-brand-600/80 bg-white px-2.5 text-xs font-semibold text-brand-800 transition hover:border-brand-700 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
               >
                 Quote

@@ -333,6 +333,7 @@ export default async function PublicProductDetail({ params }: Props) {
           <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(related.id)}`}
             imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} grades={related.cardGrades} gradeRows={related.gradeRows} moq={related.moq}
             stalePriceDays={related.quantityOffer?.stale ? related.quantityOffer.daysSinceConfirmed : undefined}
+              volumePricing={related.quantityOffer?.hasVolumePricing}
             price={related.price} incoterm={related.incoterm} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays} leadTimeText={related.leadTimeText}
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
             quoteHref={`/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(related.supplierId)}&product=${encodeURIComponent(related.name)}&product_id=${encodeURIComponent(related.id)}`}

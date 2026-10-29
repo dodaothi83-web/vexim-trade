@@ -1498,7 +1498,15 @@ export function projectPublicGradeData(
       grade: string;
     }> = [];
 
+    const rawRows = Array.isArray(product.specs?.grade_rows) ? product.specs.grade_rows : [];
+    const structuredGrades = new Set(rawRows.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const source = item as Record<string, unknown>;
+      return source.moq_qty != null || source.moq_unit != null ? [cleanText(source.grade, 80)] : [];
+    }));
     const gradeRows: PublicProductGradeRow[] = stored.map((row) => {
+      // Duplicate grades are ambiguous; treat any structured entry as authoritative.
+      const hasStructuredMoq = structuredGrades.has(row.grade);
       const matchedStandard = !row.is_custom
         ? (standardOptions.length > 0 ? matchStandardGrade(row.grade, standardOptions) : row.grade)
         : null;
@@ -1532,8 +1540,9 @@ export function projectPublicGradeData(
       let rowMoqMt: number | null = row.moq_mt_equivalent ?? null;
       if (row.moq_qty && row.moq_unit) {
         resolvedMoq = formatStructuredMoqBuyer(row.moq_qty, row.moq_unit, row.moq_unit_weight_kg);
-      } else {
-        const rawMoq = row.moq || options.fallbackMoq || "";
+      } else if (!hasStructuredMoq) {
+        // A grade row must not inherit an unrelated product-level MOQ.
+        const rawMoq = row.moq || "";
         resolvedMoq = options.translateMoq(rawMoq);
         if (!rowMoqUnit && rawMoq) {
           const parsed = parseLegacyMoqString(rawMoq);

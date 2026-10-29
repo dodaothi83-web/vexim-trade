@@ -12,6 +12,8 @@ try {
     { ...base, id: 'bags', moq: '40 bags x 25 kg' },
     { ...base, id: 'bad-moq', moq: 'Full container' },
     { ...base, id: 'ambiguous', moq: '1,000 kg' },
+    { ...base, id: 'conflict', moq: '1000 kg', moq_qty: 1, moq_unit: 'cont_20ft' },
+    { ...base, id: 'incomplete', moq: '1000 kg', moq_unit: 'cont_40ft' },
     { ...base, id: 'missing-weight', moq: '100 bags' },
     { ...base, id: 'fractional', moq_qty: 0.99, moq_unit: 'kg' },
     { ...base, id: 'precision', unit: 'MT', ref_price: 6401, moq: '1 MT' },
@@ -24,11 +26,13 @@ try {
   const file = join(dir, 'products.json'); writeFileSync(file, JSON.stringify(products));
   const report = JSON.parse(execFileSync(process.execPath, ['--experimental-strip-types', '--no-warnings', 'scripts/audit-legacy-quantity.mjs', file], { encoding: 'utf8' }));
   const find = (id) => report.items.filter((item) => item.productId === id);
-  assert.equal(report.products, 9); assert.equal(report.rows, 10);
+  assert.equal(report.products, 11); assert.equal(report.rows, 12);
+  assert.equal(find('conflict')[0].moqUnit, 'cont_20ft');
+  assert.equal(find('conflict')[0].moqQuantity, 1);
   assert.equal(find('good')[0].candidate.quantityKg, 1000);
   assert.equal(find('good')[0].candidate.priceUsdPerKg, 6.4, 'Use the lower historical price');
   assert.equal(find('bags')[0].candidate.quantityKg, 1000);
-  for (const id of ['bad-moq', 'ambiguous', 'missing-weight', 'fractional', 'precision', 'bad-currency']) assert.equal(find(id)[0].candidate, null, id);
+  for (const id of ['bad-moq', 'ambiguous', 'conflict', 'incomplete', 'missing-weight', 'fractional', 'precision', 'bad-currency']) assert.equal(find(id)[0].candidate, null, id);
   assert.equal(find('multi').length, 2); assert.equal(find('multi')[1].candidate.grade, 'W240');
   console.log('Legacy quantity audit: read-only inventory, per-grade suggestions and ambiguous data checks passed');
 } finally { rmSync(dir, { recursive: true, force: true }); }

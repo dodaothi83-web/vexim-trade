@@ -7,6 +7,9 @@ type AuditItem = {
   rowIndex: number | null;
   grade: string | null;
   moqOriginal: string | null;
+  moqQuantity: number | null;
+  moqUnit: string | null;
+  moqUnitWeightKg: number | null;
   reasons: string[];
   candidate: null | { grade: string; customGrade: boolean; quantityKg: number; priceUsdPerKg: number; incoterm: string };
 };
@@ -57,8 +60,11 @@ export function auditLegacyQuantityProducts(products: unknown[]): AuditItem[] {
       const unit = text(moqSource.moq_unit).toLowerCase();
       const weight = positive(multiGrade ? row.moq_unit_weight_kg : specs.moq_unit_weight_kg);
       let quantityKg: number | null = null;
-      if (qty && ["kg", "mt", "bag", "carton"].includes(unit)) {
-        quantityKg = exactWeight(qty, unit, weight);
+      // Structured fields take precedence even when incomplete or unsupported.
+      // In particular, a container must not be replaced with an unrelated text weight.
+      const hasStructuredMoq = moqSource.moq_qty != null || moqSource.moq_unit != null;
+      if (hasStructuredMoq) {
+        if (qty && ["kg", "mt", "bag", "carton"].includes(unit)) quantityKg = exactWeight(qty, unit, weight);
       } else if (moqOriginal && !/\d[.,]\d{3}(?:\D|$)/.test(moqOriginal)) {
         const parsed = parseLegacyMoqString(moqOriginal);
         if (parsed.status === "converted") quantityKg = exactWeight(parsed.qty, parsed.unit, parsed.unitWeightKg);
@@ -83,6 +89,7 @@ export function auditLegacyQuantityProducts(products: unknown[]): AuditItem[] {
       const incoterm = text(multiGrade ? row.incoterm : product.incoterm).toUpperCase();
       if (!TERMS.has(incoterm)) reasons.push("Thiếu Incoterm hợp lệ.");
       result.push({ productId, rowIndex: multiGrade ? index : null, grade: grade || null, moqOriginal,
+        moqQuantity: qty, moqUnit: unit || null, moqUnitWeightKg: weight,
         reasons, candidate: reasons.length || !grade || quantityKg === null || priceUsdPerKg === null ? null : {
           grade, customGrade: row.is_custom === true, quantityKg, priceUsdPerKg, incoterm,
         } });

@@ -226,6 +226,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
               <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
                 imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} grades={p.cardGrades} gradeRows={p.gradeRows}
                 stalePriceDays={p.quantityOffer?.stale ? p.quantityOffer.daysSinceConfirmed : undefined}
+              volumePricing={p.quantityOffer?.hasVolumePricing}
                 highlightedGrades={activeGrades} moq={p.moq} price={p.price} incoterm={p.incoterm} fob={p.incoterm?.toUpperCase() === "FOB"}
                 leadTimeDays={p.leadTimeDays} leadTimeText={p.leadTimeText} supplierName={p.supplierName}
                 supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}

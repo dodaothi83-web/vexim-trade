@@ -16,6 +16,16 @@ import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsD
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
 
+// Keep structured MOQ authoritative on storefront cards, including unsupported
+// or incomplete container/package units. Never substitute a conflicting text weight.
+function storefrontStructuredMoq(source: { moq_qty?: unknown; moq_unit?: unknown }): string | null {
+  if (source.moq_qty == null && source.moq_unit == null) return null;
+  const qty = source.moq_qty;
+  const unit = source.moq_unit;
+  if (typeof qty !== "number" || !Number.isFinite(qty) || qty <= 0 || (unit !== "kg" && unit !== "mt")) return "On request";
+  return `${qty} ${unit === "mt" ? "MT" : "kg"}`;
+}
+
 const STRIP_CLASSES: Record<number, string> = {
   0: "border-ink-200 bg-ink-50",
   1: "border-brand-200 bg-brand-50",
@@ -354,7 +364,7 @@ export function SupplierStorefront({
               const minRaw = typeof row.price_min === "number" && Number.isFinite(row.price_min) ? row.price_min : null;
               const maxRaw = typeof row.price_max === "number" && Number.isFinite(row.price_max) ? row.price_max : null;
               const validPrice = canShowPrice && minRaw !== null && maxRaw !== null && minRaw > 0 && maxRaw >= minRaw;
-              const rowMoq = safe(translateMoq(typeof row.moq === "string" && row.moq.trim() ? row.moq : p.moq)).trim() || "On request";
+              const rowMoq = storefrontStructuredMoq(row) ?? (safe(translateMoq(typeof row.moq === "string" ? row.moq : null)).trim() || "On request");
               const rowIncoterm = typeof row.incoterm === "string" && row.incoterm.trim() ? safe(row.incoterm).trim() : null;
               return {
                 grade: gradeText,
@@ -404,9 +414,9 @@ export function SupplierStorefront({
               .replace(/\/\s*(bộ|bo)(?=\s|$|[,;])/gi, "/set")
               .replace(/\/\s*(túi|tui|bao)(?=\s|$|[,;])/gi, "/bag");
           })();
-          const storefrontMoq = storefrontGradeRows.find((r) => r.moq !== "On request")?.moq
-            || safe(translateMoq(p.moq)).trim()
-            || "On request";
+          const storefrontMoq = storefrontGradeRows.length
+            ? (storefrontGradeRows.find((r) => r.moq !== "On request")?.moq || "On request")
+            : (storefrontStructuredMoq(p) ?? (safe(translateMoq(p.moq)).trim() || "On request"));
           const storefrontIncoterm = storefrontGradeRows[0]?.incoterm || (p.incoterm ? safe(p.incoterm).trim() : null);
           const storefrontLeadTime = (() => {
             const rawLt = p.specs && typeof p.specs === "object" ? (p.specs as Record<string, unknown>).lead_time : null;

@@ -11,6 +11,8 @@ export type PublicQuantityOffer = {
   /** Whole kilograms from the approved first tier, for structured MOQ filters. */
   moqKg: number;
   price: string | null;
+  /** True only for a visible range from multiple approved quantity tiers. */
+  hasVolumePricing: boolean;
   /** Custom grades are shown, but are not included in standard-grade filters. */
   customGrade?: boolean;
   moqUnit?: "kg" | "mt";
@@ -68,7 +70,8 @@ export function projectApprovedQuantityOffer(input: {
     typeof input.nameRevision.english_name === "string" ? withoutDirectContacts(input.nameRevision.english_name).trim() : "";
   const grade = withoutDirectContacts(revision.grade).trim();
   if (!grade) return null;
-  const title = approvedName ? `${approvedName} ${grade}` : null;
+  // The grade is displayed as a separate label, never appended to the title.
+  const title = approvedName || null;
   const confirmedAt = typeof revision.confirmed_at === "string" && Number.isFinite(Date.parse(revision.confirmed_at)) ? revision.confirmed_at : null;
   const age = referencePriceAge(confirmedAt, input.now, input.staleAfterDays);
   const visible = input.pricePubliclyVisible;
@@ -81,6 +84,7 @@ export function projectApprovedQuantityOffer(input: {
     return {
       title, grade, incoterm: revision.incoterm, customGrade: v2.customGrade, moqUnit: v2.unit,
       moq: v2QuantityLabel(first.quantityGrams, v2), moqKg: first.quantityGrams / 1000, price,
+      hasVolumePricing: visible && v2.tiers.length > 1 && first.priceCentsPerUnit !== last.priceCentsPerUnit,
       tiers: visible ? v2.tiers.map((tier, index) => ({
         from: v2QuantityLabel(tier.quantityGrams, v2),
         to: v2.tiers[index + 1] ? v2QuantityLabel(v2.tiers[index + 1].quantityGrams - 1, v2) : null,
@@ -102,7 +106,7 @@ export function projectApprovedQuantityOffer(input: {
   return {
     title, grade, incoterm: revision.incoterm,
     moq: formatQuantityBuyer(tiers[0].minKg), moqKg: tiers[0].minKg,
-    price,
+    price, hasVolumePricing: visible && tiers.length > 1 && low !== high,
     tiers: visible ? tiers.map((tier, index) => ({
       from: formatQuantityBuyer(tier.minKg),
       to: tiers[index + 1] ? formatQuantityBuyer(tiers[index + 1].minKg - 1) : null,

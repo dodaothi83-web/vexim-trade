@@ -183,6 +183,17 @@ assert.equal(publicAllowed.gradeRows[0].priceText, "USD 8.50 to 9.00/kg");
 assert.equal(publicAllowed.gradeRows[2].priceText, null, "Unpriced row renders On request");
 assert.equal(publicAllowed.gradeRows[3].isCustom, true);
 
+const conflictingMoqRows = gradePricing.projectPublicGradeData({
+  ...productRecord, moq: "999 kg", specs: { grade_rows: [
+    { grade: "W320", price_min: 6, price_max: 7, incoterm: "FOB", moq: "1000 kg", moq_unit: "cont_20ft" },
+    { grade: "W240", price_min: 7, price_max: 8, incoterm: "FOB", moq: "1000 kg", moq_qty: 1, moq_unit: "cont_40ft" },
+    { grade: "W180", price_min: 8, price_max: 9, incoterm: "FOB" },
+  ] },
+}, { slug: "cashew-kernels" }, { canShowPrice: true, sanitizeText: (s) => s, translateMoq: (m) => m || "", fallbackMoq: "999 kg" });
+assert.equal(conflictingMoqRows.gradeRows[0].moq, "On request", "Incomplete structured container cannot use conflicting text");
+assert.match(conflictingMoqRows.gradeRows[1].moq, /40ft container/, "Valid structured container stays a container, never a text weight");
+assert.equal(conflictingMoqRows.gradeRows[2].moq, "On request", "A grade never borrows the product-level MOQ");
+
 // Reversed supplier input still sorts cardGrades in canonical category order, and legacy name-only products expose empty cardGrades
 const reversedPepper = gradePricing.projectPublicGradeData(
   {

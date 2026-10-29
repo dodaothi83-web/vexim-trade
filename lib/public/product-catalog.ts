@@ -135,9 +135,10 @@ function projectPublicCategoryProduct(
   const legacyStructuredMoq = typeof p.moq_qty === "number" && p.moq_qty > 0 && isMoqUnit(p.moq_unit)
     ? formatStructuredMoqBuyer(p.moq_qty, p.moq_unit, specWeight)
     : "";
-  const fallbackMoqDisplay = legacyStructuredMoq || publicProductMoqDisplay(p.moq) || "On request";
+  const hasStructuredMoq = p.moq_qty != null || p.moq_unit != null;
+  const fallbackMoqDisplay = hasStructuredMoq ? (legacyStructuredMoq || "On request") : (publicProductMoqDisplay(p.moq) || "On request");
   const effectiveMoq = gradeData.hasGradeRows
-    ? (gradeData.gradeRows.find((r) => r.moq !== "On request")?.moq ?? fallbackMoqDisplay)
+    ? (gradeData.gradeRows.find((r) => r.moq !== "On request")?.moq ?? "On request")
     : fallbackMoqDisplay;
   const effectiveIncoterm = gradeData.hasGradeRows
     ? (gradeData.gradeRows[0]?.incoterm ?? p.incoterm ?? null)

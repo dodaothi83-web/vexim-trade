@@ -31,8 +31,9 @@ const base = {
 };
 const project = (changes = {}) => projectApprovedQuantityOffer({ ...base, ...changes });
 let offer = project();
-assert.equal(offer.title, 'Cashew kernels W320');
-assert.equal(project({ nameRevision: { ...base.nameRevision, english_name: 'Email sales@example.com' } }).title, 'Email [contact via Vexim] W320');
+assert.equal(offer.title, 'Cashew kernels');
+assert.equal(offer.hasVolumePricing, true);
+assert.equal(project({ nameRevision: { ...base.nameRevision, english_name: 'Email sales@example.com' } }).title, 'Email [contact via Vexim]');
 assert.equal(offer.grade, 'W320');
 assert.equal(offer.moq, '1 MT');
 assert.equal(offer.price, 'USD 6.00–6.40/kg');
@@ -50,6 +51,7 @@ assert.equal(mt.pricePoint.value, 6000);
 assert.equal(mt.tiers[0].price, 'USD 6,400/MT');
 const single = project({ priceRevision: { ...base.priceRevision, tiers: [{ minKg: 999, priceUsdPerKg: 6.4 }] } });
 assert.equal(single.price, 'USD 6.40/kg');
+assert.equal(single.hasVolumePricing, false);
 assert.equal(single.moq, '999 kg');
 for (const bad of [null, { ...base.priceRevision, status: 'pending' }, { ...base.priceRevision, product_id: 'other' },
   { ...base.priceRevision, tiers: [] }, { ...base.priceRevision, tiers: [{ minKg: 1, priceUsdPerKg: 1 }, { minKg: 2, priceUsdPerKg: 2 }] },
@@ -58,6 +60,7 @@ assert.equal(project({ nameRevision: { ...base.nameRevision, status: 'pending', 
 assert.equal(project({ nameRevision: { ...base.nameRevision, product_id: 'wrong' } }).title, null);
 const hidden = project({ pricePubliclyVisible: false });
 assert.equal(hidden.price, null);
+assert.equal(hidden.hasVolumePricing, false);
 assert.equal(hidden.tiers.length, 0);
 assert.equal(hidden.pricePoint, null);
 assert.equal(hidden.confirmedAt, null);
@@ -85,11 +88,12 @@ const v2offer = project({ priceRevision: v2revision });
 assert.equal(v2offer.grade, 'Special'); assert.equal(v2offer.customGrade, true);
 assert.equal(v2offer.moq, '270 kg'); assert.equal(v2offer.moqKg, 270);
 assert.equal(v2offer.price, 'USD 90.00–100.00/kg');
+assert.equal(v2offer.hasVolumePricing, true);
 assert.equal(v2offer.tiers[0].from, '270 kg'); assert.equal(v2offer.tiers[0].to, '539.999 kg');
 assert.equal(v2offer.tiers[0].price, 'USD 100.00/kg'); assert.equal(v2offer.pricePoint.value, 90);
 assert.equal(project({ priceRevision: v2revision, priceUnit: 'mt' }).pricePoint.value, 90000);
 const hiddenV2 = project({ priceRevision: v2revision, pricePubliclyVisible: false });
-assert.equal(hiddenV2.price, null); assert.equal(hiddenV2.tiers.length, 0); assert.equal(hiddenV2.pricePoint, null);
+assert.equal(hiddenV2.hasVolumePricing, false); assert.equal(hiddenV2.price, null); assert.equal(hiddenV2.tiers.length, 0); assert.equal(hiddenV2.pricePoint, null);
 for (const invalid of [
   [v2tier(270001, 10000, { unit: 'bag' })], [v2tier(270000, 10000, { unitWeightGrams: 0 })],
   [v2tier(270000, 10000), v2tier(540000, 9000, { unit: 'carton' })],
