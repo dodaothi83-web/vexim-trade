@@ -3,6 +3,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { ProductFormFiveSections } from "@/components/products/product-form-five-sections";
 import { ProductFormSession, type ProductFormImage, type ProductFormSessionOperations, type ProductFormSessionState } from "@/lib/products/product-form-session";
+import { prepareProductFormImageTransport } from "@/lib/products/product-form-image-transport";
 import type { ProductFormDraft, ProductFormIssue } from "@/lib/products/product-form-model";
 import type { QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
@@ -29,6 +30,8 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
     images: initialImages, availableImages: initialAvailableImages ?? initialImages, busy: false, submitted: false, requiresReload: false });
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [serverErrors, setServerErrors] = useState<ProductFormIssue[]>([]);
+  const [preparingImages, setPreparingImages] = useState(false);
+  const preparingRef = useRef(false);
   const changeRef = useRef(onSessionChange);
   changeRef.current = onSessionChange;
   const sessionRef = useRef<ProductFormSession | null>(null);
@@ -52,11 +55,21 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
   async function upload(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
-    if (!files.length) return;
+    if (!files.length || preparingRef.current) return;
+    if (files.length + state.images.length > 8) { setMessage({ ok: false, text: "Tối đa 8 ảnh sản phẩm." }); return; }
+    preparingRef.current = true;
+    setPreparingImages(true);
     setMessage(null);
-    const result = await session.upload(value, files);
-    if (result.ok) setServerErrors([]);
-    setMessage({ ok: result.ok, text: result.ok ? `Đã tải ${result.uploaded} ảnh.` : result.message });
+    try {
+      // Decode one at a time to limit peak memory on phones.
+      const prepared: File[] = [];
+      for (const file of files) prepared.push(await prepareProductFormImageTransport(file));
+      const result = await session.upload(value, prepared);
+      if (result.ok) setServerErrors([]);
+      setMessage({ ok: result.ok, text: result.ok ? `Đã tải ${result.uploaded} ảnh.` : result.message });
+    } catch (error) {
+      setMessage({ ok: false, text: error instanceof Error ? error.message : "Không xử lý được ảnh. Hãy thử lại." });
+    } finally { preparingRef.current = false; setPreparingImages(false); }
   }
   async function selectImages(images: ProductFormImage[]) {
     setMessage(null);
@@ -64,7 +77,7 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
     if (result.ok) setServerErrors([]);
     setMessage({ ok: result.ok, text: result.ok ? "Đã lưu danh sách ảnh trong bản nháp." : result.message });
   }
-  const locked = disabled || state.busy || state.submitted || state.requiresReload;
+  const locked = disabled || preparingImages || state.busy || state.submitted || state.requiresReload;
   const removedImages = state.availableImages.filter((available) => !state.images.some((image) => image.id === available.id && image.source === available.source));
   const imageControls = <div className="space-y-3">
     {state.images.length > 0 && <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -90,11 +103,11 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
     </label>
     <p className="text-xs text-ink-500">{state.images.length}/8 ảnh. JPG, PNG hoặc WebP, tối đa 8 MB mỗi ảnh.</p>
   </div>;
-  const statusText = state.requiresReload ? "Cần tải lại trang" : state.submitted ? "Đã gửi duyệt" : state.busy ? "Đang xử lý" : session.isDirty(value) ? "Có thay đổi chưa lưu" : "Đã lưu bản nháp";
+  const statusText = state.requiresReload ? "Cần tải lại trang" : state.submitted ? "Đã gửi duyệt" : state.busy || preparingImages ? "Đang xử lý" : session.isDirty(value) ? "Có thay đổi chưa lưu" : "Đã lưu bản nháp";
   return <div className="space-y-3">
     {message && <p role={message.ok ? "status" : "alert"} className={`rounded-lg border px-3 py-2 text-sm ${message.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{message.text}</p>}
     <ProductFormFiveSections value={value} onChange={(next) => { setValue(next); setServerErrors([]); }} categories={categories} policies={policies}
       imageCount={state.images.length} coverUrl={state.images[0]?.url} imageControls={imageControls} serverErrors={serverErrors}
-      onSave={() => void save()} onSubmit={() => void submit()} disabled={disabled || state.submitted || state.requiresReload} busy={state.busy} statusText={statusText} />
+      onSave={() => void save()} onSubmit={() => void submit()} disabled={disabled || state.submitted || state.requiresReload} busy={state.busy || preparingImages} statusText={statusText} />
   </div>;
 }
