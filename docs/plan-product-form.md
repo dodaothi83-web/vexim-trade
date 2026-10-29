@@ -59,8 +59,9 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 ## Migration và các bước anh thử
 
 - [x] Anh đã xác nhận chạy SQL53, SQL54, SQL55, SQL56 và SQL61. Không sửa lại các migration đã chạy.
-- [ ] Xác nhận tình trạng SQL57, SQL58, SQL59 và SQL60 trên môi trường cần triển khai; chưa có xác nhận đã chạy.
-- [ ] Hoàn thiện và kiểm thử SQL62, SQL63, SQL64 và bất kỳ migration bổ sung nào cần cho form/duyệt trước khi đưa danh sách chạy cuối cùng. **Không chạy SQL62–64 lúc này.**
+- [x] Kiểm tra chỉ đọc metadata trên dự án `veximtrade`: các hàm chính và cột `product_context` thuộc SQL57–60 đã hiện diện. Đây là bằng chứng cấu trúc, không khẳng định lịch sử chạy hay so khớp toàn bộ nội dung migration.
+- [ ] Đối chiếu toàn bộ migration SQL57–60 khi lập danh sách triển khai cuối cùng, kể cả môi trường staging.
+- [ ] Hoàn thiện và kiểm thử SQL62, SQL63, SQL64 và bất kỳ migration bổ sung nào cần cho form/duyệt trước khi đưa danh sách chạy cuối cùng. Metadata chỉ đọc cho thấy ba bảng nháp/bản gửi/ảnh nháp chưa có trên `veximtrade`. **Không chạy SQL62–64 lúc này.**
 - [ ] Xác định staging phù hợp và xin anh đồng ý nếu cần dự án Supabase Free riêng. Không sao chép dữ liệu thật sang nơi khác nếu chưa được anh đồng ý.
 - [ ] Viết thứ tự chạy migration, điều kiện tiên quyết và kiểm tra sau chạy. Anh là người chạy migration; em không tự chạy trên database của anh.
 - [ ] Sau khi staging sẵn sàng, hướng dẫn anh thử tạo nháp thiếu thông tin, tải ảnh, nhập tier, gửi duyệt, duyệt CRM, xem buyer và sửa lại giá/tên.
