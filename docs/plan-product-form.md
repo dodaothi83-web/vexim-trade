@@ -66,6 +66,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Đã thiết kế bảng thứ tự ảnh được duyệt, helper chọn ảnh và trình đọc server để sau này chọn tối đa 8 ảnh mà không xóa media cũ hay phá URL ảnh cũ; khóa và đối chiếu bảng này trong context duyệt, bản duyệt hoặc manifest lệch thì không fallback. Đã thử PGlite và mock, chưa có transaction ghi manifest hoặc nối buyer.
 - [ ] Nối thẻ, trang chi tiết, bộ lọc và storefront vào dữ liệu mới sau khi luồng duyệt hoàn chỉnh, không làm mất khả năng đọc sản phẩm cũ.
 - [ ] Kiểm tra thẻ cố định chiều cao, grade riêng khỏi tên, giá/MOQ kg hoặc MT, Volume pricing, ngày cập nhật, OEM/ODM/mẫu và bộ lọc.
+- [x] Đã thêm chuyển hướng 308 từ đường dẫn danh mục cũ sang danh mục hiện tại khi sản phẩm đổi danh mục, chỉ khi sản phẩm đích thực sự công khai; không đổi ID hay xóa liên kết. Đã thử helper và typecheck, cần thử tuyến thực tế trên staging.
 - [ ] Kiểm thử trang chi tiết không lặp giá, grade, MOQ, Incoterm; kiểm tra URL, sitemap, ảnh, RFQ và hiển thị sản phẩm hai grade vẫn như cũ.
 
 ## Migration và các bước anh thử

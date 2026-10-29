@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin, MessageCircle } from "lucide-react";
 
@@ -21,6 +21,7 @@ import { PublicProductCard } from "@/components/public-product-card";
 import { ProductDescription } from "@/components/public/product-description";
 import { QuantityPriceTable } from "@/components/public/quantity-price-table";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
+import { movedProductDestination } from "@/lib/public/product-category-redirect";
 import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
 import { SITE_URL } from "@/lib/site";
@@ -49,9 +50,26 @@ async function getDetail(slug: string, productId: string) {
   return { category, card, product, relatedProducts, preview: !published };
 }
 
+async function getDetailOrRedirect(slug: string, productId: string) {
+  const detail = await getDetail(slug, productId);
+  if (detail) return detail;
+  // An old indexed category path must continue working when staff approve a
+  // category change. Never redirect to an unpublished or ineligible product.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productId)) return null;
+  const store = getStore();
+  const [product, categories] = await Promise.all([store.getProduct(productId), store.listCategories({ publishedOnly: true })]);
+  if (!product) return null;
+  const destination = await movedProductDestination(product, categories, slug, async (targetSlug) => {
+    const target = await getDetail(targetSlug, product.id);
+    return !!target && !target.preview;
+  });
+  if (!destination) return null;
+  permanentRedirect(destination);
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, productId } = await params;
-  const detail = await getDetail(slug, productId);
+  const detail = await getDetailOrRedirect(slug, productId);
   if (!detail) return { title: "Product not found | Vexim Trade", robots: { index: false } };
   const title = `${detail.card.name} | Vietnam ${detail.category.name_i18n.en || slug} | Vexim Trade`;
   const description = `${detail.card.name}. MOQ ${detail.card.moq}. Supplied in ${detail.card.province}. Request a quote from Vexim Trade.`;
@@ -99,7 +117,7 @@ function renderGradeRowPrice(rawPriceText: string | null | undefined) {
 
 export default async function PublicProductDetail({ params }: Props) {
   const { slug, productId } = await params;
-  const detail = await getDetail(slug, productId);
+  const detail = await getDetailOrRedirect(slug, productId);
   if (!detail) notFound();
   const { category, card, product: p, relatedProducts, preview } = detail;
   // Product eligibility was checked above; project only buyer-shareable images and safe video embeds.
