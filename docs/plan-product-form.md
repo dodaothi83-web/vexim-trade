@@ -55,6 +55,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Đã xây hàm và bảng so sánh các trường, tier của hai snapshot form; dữ liệu cũ không biểu diễn được và cam kết cũ chưa rõ được đánh dấu chưa biết, không tự suy đoán. Chưa nối màn CRM, ảnh và tên Anh cần đối chiếu riêng.
 - [ ] Dùng lại form NCC để tạo và sửa sản phẩm trong CRM, đồng thời giữ các trường chỉ có ở CRM và dữ liệu cũ.
 - [ ] Xây màn duyệt bản gửi, so sánh dữ liệu đã duyệt với bản mới, cảnh báo giá và cho admin sửa tên tiếng Anh.
+- [x] Đã xây helper chuẩn bị bản sao ảnh riêng cho công bố, kiểm tra hash ảnh gốc và bản sao, không đổi ảnh gốc hoặc tạo media công khai; lỗi sau ghi yêu cầu tải lại và đối soát. Đã thử bằng dữ liệu giả; chưa nối transaction hay dùng Storage thật.
 - [ ] Hoàn thiện transaction duyệt/từ chối có phân quyền, khóa và đối chiếu phiên bản cùng snapshot ảnh; không công khai dữ liệu hoặc ảnh đang chờ.
 - [ ] Kiểm thử tạo, sửa, gửi, duyệt và yêu cầu sửa, bao gồm nhiều phiên đồng thời và lỗi kết nối.
 
