@@ -32,6 +32,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 
 ## Nhân bản cho grade khác
 
+- [x] Đã xây và kiểm thử hàm tạo dữ liệu nháp độc lập từ form hiện có: giữ nội dung chung, xóa grade/tier cũ và yêu cầu xác nhận công khai giá mới. Hàm chưa tạo sản phẩm, chưa sao chép ảnh và chưa nối giao diện.
 - [ ] Xây nút “Nhân bản cho grade khác” và luồng tạo bản nháp độc lập với sản phẩm gốc. Không đổi sản phẩm gốc hoặc tự công khai bản mới.
 - [ ] Sao chép dữ liệu, ảnh và các liên kết được phép một cách an toàn; không dùng chung đường dẫn ảnh gây nhầm quyền sở hữu hoặc xóa nhầm.
 - [ ] Cho anh chọn/nhập grade và kiểm tra giá, MOQ của bản mới. Không tự suy đoán chuyển khoảng giá cũ thành tier. Kiểm thử thủ công với fixture nhiều grade trước khi anh dùng cho sản phẩm thật.
