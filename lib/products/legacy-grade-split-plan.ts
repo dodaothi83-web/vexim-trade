@@ -30,6 +30,8 @@ export type LegacySplitPlan = {
   assetCopies: Array<{ sourceId: string; newId: string; sourcePath: string; newPath: string; sourceThumbPath: string | null; newThumbPath: string | null }>;
   featuredImageMapping: MediaMapping | null;
   rfqs: Array<{ id: string; updatedAt: string; decision: "keep" | "move_candidate" | "review" }>;
+  /** Only fields needed for concurrency checks; do not persist RFQ access tokens. */
+  rfqSnapshots: Array<{ id: string; sourceProductId: string | null; updatedAt: string; grade: unknown }>;
   certificates: Array<{ id: string; updatedAt: string; requested: boolean; approved: boolean }>;
   warnings: string[];
 };
@@ -150,7 +152,8 @@ export function planLegacyGradeSplit(input: LegacySplitInput): Result {
     gradeRows: [structuredClone(first), structuredClone(second)],
     sourceGrade: firstGrade, newGrade: secondGrade, assetCopies,
     featuredImageMapping: p.featured_media_id ? { ...mappings.get(p.featured_media_id)! } : null,
-    rfqs, certificates,
+    rfqs, rfqSnapshots: input.rfqs.map((rfq) => ({ id: rfq.id, sourceProductId: rfq.source_product_id,
+      updatedAt: rfq.updated_at, grade: structuredClone(obj(rfq.specs)?.grade ?? null) })), certificates,
     warnings: ["Chỉ là kế hoạch chỉ đọc, chưa sao chép tệp hoặc thay đổi dữ liệu.",
       "Cần kiểm tra nội dung mô tả và tên chứa nhiều grade; không tự sửa hoặc tự tạo bản dịch.",
       "RFQ được đánh dấu move_candidate cần rà soát xác nhận trước khi cập nhật; RFQ không rõ giữ nguyên.",
