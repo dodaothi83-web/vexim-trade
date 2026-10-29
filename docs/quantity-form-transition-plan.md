@@ -4,9 +4,9 @@ Tài liệu `docs/content-guidelines.md` được nhắc trong yêu cầu nhưng
 
 ## Quyết định mới
 
-Dữ liệu hiện tại là demo. Không cần chuyển đổi hoặc duy trì khả năng đọc dữ liệu sản phẩm cũ; các mục về audit và tương thích ở phần dưới mô tả kế hoạch cũ, không còn là yêu cầu cho đợt này. Form NCC sẽ là một trang năm phần và CRM sẽ dùng chung form. Khi hoàn thiện sẽ bỏ các nhánh và cờ thử nghiệm không còn dùng. Các bản giá và tên đã duyệt vẫn cần được bảo vệ khi gửi chỉnh sửa mới chờ duyệt.
+Anh đã đính chính: dữ liệu hiện tại là sản phẩm thật, đã được Google index. **Không xóa, reset, thay thế hàng loạt hoặc tạo lại dữ liệu hiện có.** Chỉ thị này thay thế quyết định trước đó coi dữ liệu là demo. Không chạy migration hay thực hiện thao tác phá hủy dữ liệu; anh là người chạy migration sau khi có kế hoạch an toàn và kiểm thử.
 
-Anh đã xác nhận dữ liệu hiện tại đều là demo và không cần sao lưu. Anh là người chạy migration; chưa chạy hoặc xóa dữ liệu trên database của anh trong nhánh này. Migration phá hủy dữ liệu chỉ được soạn khi đã xác định đầy đủ phụ thuộc và trình tự an toàn. Cần tạo vài sản phẩm demo theo cấu trúc mới để anh xem.
+Giữ nguyên ID, URL đang được index, ảnh, liên kết, tên tiếng Anh và giá đã duyệt. Tiếp tục đọc được sản phẩm cũ trong khi xây form NCC một trang năm phần, form CRM dùng chung và trang buyer mới. Không tự đoán grade, MOQ hoặc dữ liệu chưa rõ. Với sản phẩm nhiều grade, phân tích tác động URL và dữ liệu liên quan, thử trên staging và báo anh trước khi thực hiện bất kỳ chuyển đổi nào. Không thay dữ liệu thật bằng dữ liệu mẫu; ba fixture demo trong mã chỉ dùng kiểm thử, chưa ghi vào database.
 
 ## Trạng thái
 
