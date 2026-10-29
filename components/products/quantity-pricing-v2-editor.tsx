@@ -99,12 +99,12 @@ export function QuantityPricingV2Editor({ value, onChange, standardGrades, polic
         const rangeEnd = next ? (next.quantityGrams - 1) / normalized!.unitWeightGrams : null;
         return <tr key={index} className="border-t border-ink-100">
           <td className="p-1 align-top"><div className="flex items-center gap-1"><span aria-hidden="true">≥</span><input form={form} type="text" inputMode="decimal" aria-label={`Số lượng mức ${index + 1} (${unit})`} aria-invalid={!!quantityErrors.length || undefined}
-            className="input w-full text-right tabular-nums" disabled={disabled} value={tier.quantity} onChange={(event) => changeTier(index, "quantity", formatV2QuantityInput(event.target.value, tier.quantity))} /></div>
+            className="input w-full text-right font-mono tabular-nums" disabled={disabled} value={tier.quantity} onChange={(event) => changeTier(index, "quantity", formatV2QuantityInput(event.target.value, tier.quantity))} /></div>
             {quantityErrors.map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issue.message}</p>)}
             {normalized && <p className="mt-1 text-xs text-ink-500">{rangeEnd === null ? "Trở lên" : `Đến ${v2FormatAmount(rangeEnd)} ${unit}`}</p>}
           </td>
           <td className="p-1 align-top"><input form={form} type="text" inputMode="decimal" aria-label={`Đơn giá mức ${index + 1} (USD/${unit})`} aria-invalid={!!priceErrors.length || undefined}
-            className="input w-full text-right tabular-nums" disabled={disabled} value={tier.price} onChange={(event) => changeTier(index, "price", event.target.value)} onBlur={(event) => changeTier(index, "price", normalizePriceInput(event.target.value))} />
+            className="input w-full text-right font-mono tabular-nums" disabled={disabled} value={tier.price} onChange={(event) => changeTier(index, "price", event.target.value)} onBlur={(event) => changeTier(index, "price", normalizePriceInput(event.target.value))} />
             {priceErrors.map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issue.message}</p>)}
           </td>
           <td className="p-1">{value.tiers.length > 1 && <button type="button" disabled={disabled} className="text-xs text-rose-700" aria-label={`Xóa mức giá ${index + 1}`} onClick={() => onChange({ ...value, tiers: value.tiers.filter((_, i) => i !== index) })}>Xóa</button>}</td>
@@ -128,9 +128,9 @@ export function QuantityPricingV2Editor({ value, onChange, standardGrades, polic
 }
 
 /** Preview of the unsent form, not the approved public offer. */
-export function QuantityBuyerV2Preview({ value, standardGrades, policy, pricePubliclyVisible, englishName = "" }: {
+export function QuantityBuyerV2Preview({ value, standardGrades, policy, pricePubliclyVisible, englishName = "", incotermPlace = "" }: {
   value: SupplierQuantityEntry; standardGrades: readonly string[]; policy: QuantityPricingPolicy;
-  pricePubliclyVisible: boolean; englishName?: string;
+  pricePubliclyVisible: boolean; englishName?: string; incotermPlace?: string;
 }) {
   const valid = validateSupplierQuantityEntry(value, standardGrades, policy).value;
   const first = valid?.tiers[0];
@@ -147,6 +147,7 @@ export function QuantityBuyerV2Preview({ value, standardGrades, policy, pricePub
     {value.grade.trim() && <p className="text-xs text-ink-600">{value.grade.trim()}</p>}
     <p className="text-base font-semibold tabular-nums text-brand-800">{price}</p>
     <p className="text-xs text-ink-600">MOQ: {first && valid ? v2QuantityLabel(first.quantityGrams, { ...valid, tiers: [] }) : "On request"}</p>
+    {value.incoterm && <p className="text-xs text-ink-600">{value.incoterm}{incotermPlace.trim() ? ` ${incotermPlace.trim()}` : ""}</p>}
     {first && valid && pricePubliclyVisible && <ul className="space-y-1 text-xs text-ink-600">
       {valid.tiers.map((tier, index) => <li key={index}>
         ≥ {v2QuantityLabel(tier.quantityGrams, { ...valid, tiers: [] })}: {v2PriceLabel(tier.priceCentsPerUnit, valid.unit)}

@@ -35,7 +35,10 @@ assert.ok(separate.indexOf('aria-label="Incoterm"') < separate.indexOf('name="in
 assert.ok(separate.indexOf('name="incoterm_place"') < separate.indexOf('<table'));
 const grade = renderToStaticMarkup(React.createElement(editor.QuantityGradeV2Field, props));
 assert.match(grade, /aria-label="Grade"/); assert.doesNotMatch(grade, /Incoterm/);
-const preview = renderToStaticMarkup(React.createElement(editor.QuantityBuyerV2Preview, props));
+const preview = renderToStaticMarkup(React.createElement(editor.QuantityBuyerV2Preview, { ...props, incotermPlace: 'Cát Lái' }));
+assert.match(preview, /FOB Cát Lái/);
+assert.doesNotMatch(preview, /font-mono/, 'Buyer preview numbers use site font and tabular figures');
+assert.match(html, /text-right font-mono tabular-nums/, 'Internal price and quantity inputs use the mono font');
 assert.match(preview, /Tên tiếng Anh do Vexim dịch khi duyệt/);
 assert.match(preview, /USD 6,000\.00–6,401\.00\/MT/); assert.match(preview, /MOQ: 1\.5 MT/);
 assert.match(preview, /USD 6,401\.00\/MT/);

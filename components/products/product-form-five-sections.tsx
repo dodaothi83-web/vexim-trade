@@ -118,8 +118,8 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
       <Section id="packaging" title="Bao bì và năng lực" number={4} optional>
         <Field label="Bao bì / đóng gói"><input className="input w-full" aria-label="Bao bì / đóng gói" maxLength={300} value={value.packaging} disabled={locked} onChange={(event) => set("packaging", event.target.value)} /></Field>
         <Field label="Cảng xuất"><input className="input w-full" aria-label="Cảng xuất" maxLength={120} value={value.exportPort} disabled={locked} onChange={(event) => set("exportPort", event.target.value)} /></Field>
-        <Field label="Thời gian giao hàng" hint="Số ngày" error={problem("leadTimeDays")}><input className="input w-full text-right tabular-nums" type="text" inputMode="numeric" aria-label="Thời gian giao hàng (ngày)" maxLength={5} value={value.leadTimeDays} disabled={locked} onChange={(event) => set("leadTimeDays", event.target.value)} /></Field>
-        <Field label="Năng lực mỗi tháng" hint="kg / tháng" error={problem("monthlyCapacityKg")}><input className="input w-full text-right tabular-nums" type="text" inputMode="numeric" aria-label="Năng lực mỗi tháng (kg)" maxLength={32} value={value.monthlyCapacityKg} disabled={locked} onChange={(event) => set("monthlyCapacityKg", formatQuantityInput(event.target.value, value.monthlyCapacityKg))} /></Field>
+        <Field label="Thời gian giao hàng" hint="Số ngày" error={problem("leadTimeDays")}><input className="input w-full text-right font-mono tabular-nums" type="text" inputMode="numeric" aria-label="Thời gian giao hàng (ngày)" maxLength={5} value={value.leadTimeDays} disabled={locked} onChange={(event) => set("leadTimeDays", event.target.value)} /></Field>
+        <Field label="Năng lực mỗi tháng" hint="kg / tháng" error={problem("monthlyCapacityKg")}><input className="input w-full text-right font-mono tabular-nums" type="text" inputMode="numeric" aria-label="Năng lực mỗi tháng (kg)" maxLength={32} value={value.monthlyCapacityKg} disabled={locked} onChange={(event) => set("monthlyCapacityKg", formatQuantityInput(event.target.value, value.monthlyCapacityKg))} /></Field>
       </Section>
 
       <Section id="description" title="Mô tả sản phẩm" number={5}>
@@ -143,7 +143,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
       <section aria-label="Xem trước cho buyer" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
         <div className="aspect-[4/3] bg-ink-50">{coverUrl ? <img src={coverUrl} alt="Ảnh chính sản phẩm" className="size-full object-cover" /> : <div className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-8" aria-hidden="true" /></div>}</div>
         <div className="space-y-2 p-4"><p className="text-xs font-bold text-brand-700">{categoryLabel}</p>
-          <QuantityBuyerV2Preview value={quantity} standardGrades={grades} policy={editorPolicy} pricePubliclyVisible={value.pricePubliclyVisible} />
+          <QuantityBuyerV2Preview value={quantity} standardGrades={grades} policy={editorPolicy} pricePubliclyVisible={value.pricePubliclyVisible} incotermPlace={value.incotermPlace} />
         </div>
       </section>
     </aside>

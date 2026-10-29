@@ -12,7 +12,8 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 ## Form NCC một trang
 
 - [x] Đã xây component năm phần dùng các trường, font và màu hiện có; bố cục nhãn bên trái, mobile đưa nhãn lên trên. Đã thử component với dữ liệu giả trên desktop và mobile.
-- [x] Đã xây khung “Buyer sẽ thấy” cập nhật theo dữ liệu đang nhập và danh sách “Các phần” có trạng thái và liên kết cuộn trong component. Chưa nối vào trang thật.
+- [x] Đã xây khung “Buyer sẽ thấy” cập nhật tên, grade, giá, MOQ và Incoterm theo dữ liệu đang nhập; danh sách “Các phần” có trạng thái và liên kết cuộn trong component. Chưa nối vào trang thật.
+- [x] Ô số của form dùng font mono nội bộ và số thẳng cột; phần giá trong preview buyer giữ font của site, không dùng mono.
 - [x] Đã xây mô hình nháp thiếu thông tin, kiểm tra khi gửi, điều phối phiên bản và nền tảng lưu nháp riêng tư; đã kiểm thử bằng fixture và PGlite, chưa triển khai.
 - [x] Đã xây nền tảng ảnh nháp tách biệt khỏi ảnh công khai, chọn thứ tự và ảnh chính riêng cho bản nháp, kiểm tra quyền và snapshot ảnh lúc gửi. Chưa nối upload, gửi duyệt và transaction duyệt vào trang thật.
 - [x] Adapter chưa hoàn thiện chặn tải ảnh và gửi duyệt thay vì gọi endpoint cũ; có kiểm thử tránh vô tình công khai ảnh mới.
