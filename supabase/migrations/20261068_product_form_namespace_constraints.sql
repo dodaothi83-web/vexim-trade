@@ -21,11 +21,13 @@ begin
     raise exception 'Ảnh nháp đang dùng đường dẫn cũ; dừng để kiểm tra, không tự chuyển dữ liệu';
   end if;
   if (select count(*) from pg_constraint where conrelid = 'public.product_form_staged_images'::regclass
-      and contype = 'c' and conname in ('product_form_staged_images_check','product_form_staged_images_check1')
-      and pg_get_constraintdef(oid) like '%product_id%'
-      and ((conname = 'product_form_staged_images_check' and pg_get_constraintdef(oid) like '%storage_path%')
-        or (conname = 'product_form_staged_images_check1' and pg_get_constraintdef(oid) like '%thumb_path%'))
-      and (pg_get_constraintdef(oid) like '%products/%' or pg_get_constraintdef(oid) like '%product-form-images/%')) <> 2 then
+      and contype = 'c' and convalidated and (
+        (conname = 'product_form_staged_images_check' and pg_get_constraintdef(oid) in (
+          'CHECK ((storage_path = ((((''products/''::text || (product_id)::text) || ''/''::text) || (id)::text) || ''.webp''::text)))',
+          'CHECK ((storage_path = ((((''product-form-images/''::text || (product_id)::text) || ''/''::text) || (id)::text) || ''.webp''::text)))'))
+        or (conname = 'product_form_staged_images_check1' and pg_get_constraintdef(oid) in (
+          'CHECK ((thumb_path = ((((''products/''::text || (product_id)::text) || ''/''::text) || (id)::text) || ''-thumb.webp''::text)))',
+          'CHECK ((thumb_path = ((((''product-form-images/''::text || (product_id)::text) || ''/''::text) || (id)::text) || ''-thumb.webp''::text)))')))) <> 2 then
     raise exception 'Ràng buộc ảnh nháp khác dự kiến; dừng để kiểm tra';
   end if;
 end $$;

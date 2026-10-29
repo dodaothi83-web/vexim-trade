@@ -50,5 +50,10 @@ try {
   await assert.rejects(() => db.exec(repair), /khác dự kiến/); await db.exec('rollback');
   await db.exec(full66.slice(full66.indexOf('create or replace function public.stage_product_form_image('), full66.indexOf("notify pgrst, 'reload schema';")));
   assert.equal(await ready(), true);
+  await db.exec(`alter table public.product_form_staged_images drop constraint product_form_staged_images_check;
+    alter table public.product_form_staged_images add constraint product_form_staged_images_check
+      check (true or storage_path = 'product-form-images/' || product_id::text || '/' || id::text || '.webp');`);
+  assert.equal(await ready(), false, 'A permissive path check must not be mistaken for the expected constraint');
+  await assert.rejects(() => db.exec(repair), /Ràng buộc ảnh nháp khác dự kiến/); await db.exec('rollback');
   console.log('Namespace repair: mixed deployed schema detected; old rows block, new rows persist and capability verifies');
 } finally { await db.close(); }

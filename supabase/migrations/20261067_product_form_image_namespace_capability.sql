@@ -16,9 +16,10 @@ returns boolean language sql stable security definer set search_path = public, p
     and not has_function_privilege('authenticated', to_regprocedure('public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text,uuid,jsonb)'), 'execute')
     and has_function_privilege('service_role', to_regprocedure('public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text,uuid,jsonb)'), 'execute')
     and (select count(*) from pg_constraint where conrelid = 'public.product_form_staged_images'::regclass
-      and contype = 'c' and ((conname = 'product_form_staged_images_check' and pg_get_constraintdef(oid) like '%storage_path%')
-        or (conname = 'product_form_staged_images_check1' and pg_get_constraintdef(oid) like '%thumb_path%'))
-      and pg_get_constraintdef(oid) like '%product-form-images/%') = 2,
+      and contype = 'c' and convalidated and ((conname = 'product_form_staged_images_check' and pg_get_constraintdef(oid) =
+        'CHECK ((storage_path = ((((''product-form-images/''::text || (product_id)::text) || ''/''::text) || (id)::text) || ''.webp''::text)))')
+        or (conname = 'product_form_staged_images_check1' and pg_get_constraintdef(oid) =
+        'CHECK ((thumb_path = ((((''product-form-images/''::text || (product_id)::text) || ''/''::text) || (id)::text) || ''-thumb.webp''::text)))'))) = 2,
     false);
 $$;
 revoke all on function public.product_form_image_namespace_ready() from public, anon, authenticated;
