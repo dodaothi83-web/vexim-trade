@@ -7,6 +7,11 @@ begin
     where n.nspname = 'public' and c.relkind in ('r','p','v','m','f')) then
     raise exception 'Staging bootstrap requires an empty public schema';
   end if;
+  if not exists (select 1 from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'storage' and c.relname = 'objects' and c.relrowsecurity)
+    or exists (select 1 from pg_catalog.pg_policies where schemaname = 'storage' and tablename = 'objects') then
+    raise exception 'Staging storage must have RLS enabled and no object policies';
+  end if;
   execute $vexim_staging_sql$
 -- BEGIN supabase/schema.sql
 -- ============================================================================
@@ -519,13 +524,7 @@ create policy "email_attachments service only" on public.email_attachments
 -- drop policy if exists "email_attachments own" on public.email_attachments;
 
 -- Tệp trong Storage: cùng nguyên tắc — chỉ service_role.
-alter table storage.objects enable row level security;
-
-drop policy if exists "email attachments service only" on storage.objects;
-create policy "email attachments service only" on storage.objects
-  for all to service_role
-  using (bucket_id = 'email-attachments')
-  with check (bucket_id = 'email-attachments');
+-- Hosted storage.objects is left unchanged; staging guard verifies RLS and zero policies.
 
 -- (không tạo policy cho anon/authenticated trên bucket này = không truy cập chéo được)
 

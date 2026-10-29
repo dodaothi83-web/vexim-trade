@@ -9,9 +9,14 @@ try {
   await db.exec(`create role anon; create role authenticated; create role service_role;
     create schema storage;
     create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint);
-    create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);`);
+    create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
+    alter table storage.objects enable row level security;`);
   // PGlite includes gen_random_uuid but not the hosted pgcrypto extension.
   const executable = sql.replace('create extension if not exists "pgcrypto";', '');
+  await db.exec('create policy synthetic_unsafe on storage.objects for select to anon using (true)');
+  await assert.rejects(() => db.exec(executable), /RLS enabled and no object policies/, 'Unexpected Storage policy blocks setup');
+  assert.equal((await db.query("select count(*)::int n from pg_tables where schemaname='public'")).rows[0].n, 0);
+  await db.exec('drop policy synthetic_unsafe on storage.objects');
   await db.exec(executable);
   assert.equal((await db.query('select public.product_form_image_namespace_ready() as ready')).rows[0].ready, true);
   const tables = (await db.query("select count(*)::int n from pg_tables where schemaname='public'")).rows[0].n;
