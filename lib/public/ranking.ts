@@ -43,6 +43,8 @@ export interface RankableProductCard {
   moq: string;
   /** null khi giá đang bị cổng ẩn (hết hạn / mất consent / chưa opt-in). */
   price: string | null;
+  /** Explicitly false for an old but still displayed quantity-price offer. */
+  priceRankingEligible?: boolean;
   pricePoint: { value: number; unit: string | null; currency: string | null; updatedAt: string | null } | null;
   province: string;
   leadTimeDays: number | null;
@@ -159,11 +161,12 @@ export function trustAliveSignal(card: RankableProductCard): number {
 /**
  * Chào hàng còn giá trị. Trường `price` chỉ khác null khi toàn bộ cổng giá đã
  * thoả: opt-in sản phẩm + consent NCC ≤ 180 ngày + price_valid_until còn hạn
- * (xem publicProductPrice trong lib/public/product-selection.ts). Nên "có giá
- * công khai" chính là "chào hàng còn giá trị" — không cần đọc đồng hồ ở đây.
+ * (xem publicProductPrice trong lib/public/product-selection.ts). Giá theo số lượng
+ * có thể vẫn hiển thị sau mốc 90 ngày; caller phải truyền priceRankingEligible=false
+ * khi giá đó không còn được tính điểm. Hàm này không tự đọc đồng hồ.
  */
 export function offerAliveSignal(card: RankableProductCard): number {
-  return card.price != null ? 1 : 0;
+  return card.price != null && card.priceRankingEligible !== false ? 1 : 0;
 }
 
 /**
@@ -188,7 +191,7 @@ export function structuredMatchSignal(card: RankableProductCard, context?: Ranki
 export function dataCompletenessSignal(card: RankableProductCard): number {
   const checks = [
     card.grade != null,
-    card.price != null,
+    card.price != null && card.priceRankingEligible !== false,
     !!card.moq && card.moq !== "On request",
     card.leadTimeDays != null,
     card.incoterm != null,
