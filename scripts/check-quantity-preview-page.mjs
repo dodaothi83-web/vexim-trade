@@ -11,12 +11,12 @@ const id = '22222222-2222-2222-2222-222222222222';
 const supplierId = '55555555-5555-5555-5555-555555555555';
 const product = { id, supplier_id: supplierId, name: 'Nhân điều', updated_at: '2026-10-29T00:00:00Z', supplier_review_status: 'approved', reviewed_category_slug: 'cashew', price_publicly_visible: true };
 const category = { id: 'cat', slug: 'cashew', status: 'published', is_published: true, price_unit: 'kg' };
-let current = product, access = true, fail = false, enabled = true, captured = null;
+let current = product, access = true, fail = false, enabled = true, captured = null, unsupported = false;
 const store = { getProduct: async () => current, getCategoryBySlug: async () => category };
-const db = { from(table) { const q = { select: () => q, eq: () => q, in: async () => fail ? { data: null, error: { message: 'unavailable' } } : { error: null, data: table.includes('price') ? [
+const db = { from(table) { const q = { select: () => q, eq: () => q, in: async () => fail ? { data: null, error: { message: 'unavailable' } } : { error: null, data: table.includes('price') ? (unsupported ? [{ id: 'v2', status: 'pending', grade: 'W320', incoterm: 'FOB', tiers: [{ version: 2, unit: 'mt', customGrade: false, quantityGrams: 1000000, unitWeightGrams: 1000000, priceCentsPerUnit: 640100 }] }] : [
   { id: 'approved-price', status: 'approved', grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: 1000, priceUsdPerKg: 6.4 }] },
   { id: 'pending-price', status: 'pending', grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: 2000, priceUsdPerKg: 6.2 }] },
-] : [{ id: 'pending-name', status: 'pending', english_name: 'Cashew kernels' }] } }; return q; } };
+]) : [{ id: 'pending-name', status: 'pending', english_name: 'Cashew kernels' }] } }; return q; } };
 const mocks = {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
@@ -48,7 +48,10 @@ assert.equal(captured.tiers[0].minKg, '2000', 'Pending version is editable, not 
 assert.equal(captured.nameEn, 'Cashew kernels');
 current = { ...product, supplier_review_status: 'pending' };
 assert.match(await render(), /chưa thể sửa/);
-current = product; fail = true;
+current = product; unsupported = true;
+const previousError = console.error; console.error = () => {};
+try { const html = await render(); assert.match(html, /Chưa tải được cấu hình/); assert.doesNotMatch(html, /preview form/, 'Old editor cannot submit over a V2 revision'); } finally { console.error = previousError; }
+unsupported = false; fail = true;
 const oldError = console.error; console.error = () => {};
 try { assert.match(await render(), /Chưa tải được cấu hình/); } finally { console.error = oldError; }
 console.log('Quantity pricing preview: opt-in, supplier ownership, separate pending revisions and fail-closed read passed');

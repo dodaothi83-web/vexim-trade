@@ -61,13 +61,13 @@ assert.equal(calls.length, 4, 'Unauthorized and invalid actions cannot reach RPC
 console.log('Quantity review: independent price/name decisions, warnings, stale data, audit and permissions passed');
 session = { uid: actorId, role: 'reviewer', email: 'reviewer@example.com' };
 actor = { id: actorId, role: 'reviewer', email: 'reviewer@example.com', is_active: true };
-revision = { ...revision, grade: 'Special', tiers: [{ version: 2, unit: 'bag', customGrade: true, quantityGrams: 270000, unitWeightGrams: 27000, priceCentsPerUnit: 10000 }] };
+revision = { ...revision, grade: 'Special', tiers: [{ version: 2, unit: 'kg', customGrade: true, quantityGrams: 270000, unitWeightGrams: 1000, priceCentsPerUnit: 10000 }] };
 assert.equal((await exports.decideQuantityRevisionAction(form())).ok, false, 'V2 approval disabled by default');
 process.env.VEXIM_QUANTITY_V2_STAGING = 'true'; process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true';
 assert.equal((await exports.decideQuantityRevisionAction(form())).ok, true);
-revision.tiers[0].quantityGrams++;
+revision.tiers[0].unitWeightGrams = 0;
 assert.equal((await exports.decideQuantityRevisionAction(form())).ok, false, 'Malformed persisted V2 is not approved');
-revision.tiers[0].quantityGrams--; product = { ...product, name: 'Nhân điều Special' };
+revision.tiers[0].unitWeightGrams = 1000; product = { ...product, name: 'Nhân điều Special' };
 assert.equal((await exports.decideQuantityRevisionAction(form())).ok, false, 'Custom grade is forbidden in Vietnamese title');
 delete process.env.VEXIM_QUANTITY_V2_STAGING; delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
 console.log('Reviewer V2 revision: staging gate, revalidation and custom grade title guard passed');

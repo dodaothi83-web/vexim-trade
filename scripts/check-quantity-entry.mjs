@@ -9,7 +9,7 @@ const code = ts.transpileModule(readFileSync(new URL('../lib/products/quantity-e
 vm.runInNewContext(code, { exports, Number, BigInt, Math, Set, require: (key) => { if (key === '@/lib/products/quantity-pricing') return pricing; throw Error(key); } });
 const { validateSupplierQuantityEntry: validate } = exports;
 const policy = { ...pricing.DEFAULT_QUANTITY_PRICING_POLICY, gradeBounds: { W320: { minUsdPerKg: 6, maxUsdPerKg: 7 } } };
-const base = { grade: 'W320', customGrade: false, incoterm: 'FOB', nameVi: 'Hạt điều nhân trắng', unit: 'kg', weightKg: '', tiers: [{ quantity: '1,000', price: '6,40' }, { quantity: '5,000', price: '6.00' }] };
+const base = { grade: 'W320', customGrade: false, incoterm: 'FOB', nameVi: 'Hạt điều nhân trắng', unit: 'kg', tiers: [{ quantity: '1,000', price: '6,40' }, { quantity: '5,000', price: '6.00' }] };
 const check = (patch, rules = policy) => validate({ ...base, ...patch }, ['W320', 'W240'], rules);
 let res = check({});
 assert.equal(res.errors.length, 0); assert.equal(res.warnings.length, 0);
@@ -17,14 +17,11 @@ assert.equal(res.value.tiers[0].quantityGrams, 1_000_000); assert.equal(res.valu
 res = check({ unit: 'mt', tiers: [{ quantity: '1', price: '6401.00' }] });
 assert.equal(res.value.unitWeightGrams, 1_000_000); assert.equal(res.value.tiers[0].priceCentsPerUnit, 640100, '6.401 USD/kg is not rounded to cents per kg');
 assert.equal(res.warnings.length, 0);
-res = check({ unit: 'bag', weightKg: '25', tiers: [{ quantity: '1,000', price: '160' }, { quantity: '2,000', price: '150' }] });
-assert.equal(res.value.tiers[0].quantityGrams, 25_000_000); assert.equal(res.value.unitWeightGrams, 25_000); assert.equal(res.warnings.length, 0);
-res = check({ unit: 'carton', weightKg: '12,5', tiers: [{ quantity: '8', price: '75.00' }] });
-assert.equal(res.value.tiers[0].quantityGrams, 100_000); assert.equal(res.warnings.length, 0);
+res = check({ unit: 'kg', tiers: [{ quantity: '8', price: '6.40' }] }); assert.equal(res.value.unitWeightGrams, 1000);
 res = check({ unit: 'mt', tiers: [{ quantity: '0.000001', price: '7000.01' }] });
 assert.equal(res.value.tiers[0].quantityGrams, 1); assert.equal(res.warnings[0].code, 'grade_price_outlier');
-res = check({ unit: 'bag', weightKg: '', tiers: [{ quantity: '1', price: '10' }] }); assert.ok(res.errors.some((e) => e.code === 'unit_weight'));
-res = check({ unit: 'bag', weightKg: '25', tiers: [{ quantity: '1.5', price: '160' }] }); assert.ok(res.errors.some((e) => e.code === 'quantity'));
+res = check({ unit: 'bag' }); assert.ok(res.errors.some((e) => e.code === 'unit'));
+res = check({ unit: 'carton' }); assert.ok(res.errors.some((e) => e.code === 'unit'));
 res = check({ unit: 'kg', tiers: [{ quantity: '0.0001', price: '6' }] }); assert.ok(res.errors.some((e) => e.code === 'quantity'));
 res = check({ unit: 'kg', tiers: [{ quantity: '1,5', price: '6' }] }); assert.ok(res.errors.some((e) => e.code === 'quantity'));
 res = check({ unit: 'kg', tiers: [{ quantity: '1000', price: '6.401' }] }); assert.ok(res.errors.some((e) => e.code === 'price'));

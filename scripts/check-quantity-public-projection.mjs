@@ -79,19 +79,19 @@ assert.equal(future.priceRankingEligible, false);
 assert.equal(future.pricePoint, null);
 console.log('Approved quantity projection: privacy, units, 90-day visibility and ranking exclusion passed');
 // V2 keeps the exact original cents and weight, even where USD/kg repeats.
-const v2tier = (quantityGrams, priceCentsPerUnit, changes = {}) => ({ version: 2, unit: 'bag', unitWeightGrams: 27000, customGrade: true, quantityGrams, priceCentsPerUnit, ...changes });
+const v2tier = (quantityGrams, priceCentsPerUnit, changes = {}) => ({ version: 2, unit: 'kg', unitWeightGrams: 1000, customGrade: true, quantityGrams, priceCentsPerUnit, ...changes });
 const v2revision = { ...base.priceRevision, grade: 'Special', tiers: [v2tier(270000, 10000), v2tier(540000, 9000)] };
 const v2offer = project({ priceRevision: v2revision });
 assert.equal(v2offer.grade, 'Special'); assert.equal(v2offer.customGrade, true);
-assert.equal(v2offer.moq, '10 bags (27 kg each)'); assert.equal(v2offer.moqKg, 270);
-assert.equal(v2offer.price, 'USD 90.00–100.00/bag');
-assert.equal(v2offer.tiers[0].from, '10 bags'); assert.equal(v2offer.tiers[0].to, '19 bags');
-assert.equal(v2offer.tiers[0].price, 'USD 100.00/bag'); assert.equal(v2offer.pricePoint.value, 90 / 27);
-assert.equal(project({ priceRevision: v2revision, priceUnit: 'mt' }).pricePoint.value, 90 / 27 * 1000);
+assert.equal(v2offer.moq, '270 kg'); assert.equal(v2offer.moqKg, 270);
+assert.equal(v2offer.price, 'USD 90.00–100.00/kg');
+assert.equal(v2offer.tiers[0].from, '270 kg'); assert.equal(v2offer.tiers[0].to, '539.999 kg');
+assert.equal(v2offer.tiers[0].price, 'USD 100.00/kg'); assert.equal(v2offer.pricePoint.value, 90);
+assert.equal(project({ priceRevision: v2revision, priceUnit: 'mt' }).pricePoint.value, 90000);
 const hiddenV2 = project({ priceRevision: v2revision, pricePubliclyVisible: false });
 assert.equal(hiddenV2.price, null); assert.equal(hiddenV2.tiers.length, 0); assert.equal(hiddenV2.pricePoint, null);
 for (const invalid of [
-  [v2tier(270001, 10000)], [v2tier(270000, 10000, { unitWeightGrams: 0 })],
+  [v2tier(270001, 10000, { unit: 'bag' })], [v2tier(270000, 10000, { unitWeightGrams: 0 })],
   [v2tier(270000, 10000), v2tier(540000, 9000, { unit: 'carton' })],
   [v2tier(270000, 10000), { minKg: 540, priceUsdPerKg: 3 }],
   [v2tier(270000, 10000, { version: 3 })],

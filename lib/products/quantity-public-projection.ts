@@ -13,7 +13,7 @@ export type PublicQuantityOffer = {
   price: string | null;
   /** Custom grades are shown, but are not included in standard-grade filters. */
   customGrade?: boolean;
-  moqUnit?: "kg" | "mt" | "bag" | "carton";
+  moqUnit?: "kg" | "mt";
   tiers: Array<{ from: string; to: string | null; price: string }>;
   confirmedAt: string | null;
   daysSinceConfirmed: number | null;
@@ -80,10 +80,10 @@ export function projectApprovedQuantityOffer(input: {
     const kgFactor = input.priceUnit === "mt" ? 1000 : 1;
     return {
       title, grade, incoterm: revision.incoterm, customGrade: v2.customGrade, moqUnit: v2.unit,
-      moq: v2QuantityLabel(first.quantityGrams, v2, true), moqKg: first.quantityGrams / 1000, price,
+      moq: v2QuantityLabel(first.quantityGrams, v2), moqKg: first.quantityGrams / 1000, price,
       tiers: visible ? v2.tiers.map((tier, index) => ({
         from: v2QuantityLabel(tier.quantityGrams, v2),
-        to: v2.tiers[index + 1] ? v2QuantityLabel(v2.tiers[index + 1].quantityGrams - (v2.unit === "bag" || v2.unit === "carton" ? v2.unitWeightGrams : 1), v2) : null,
+        to: v2.tiers[index + 1] ? v2QuantityLabel(v2.tiers[index + 1].quantityGrams - 1, v2) : null,
         price: v2PriceLabel(tier.priceCentsPerUnit, v2.unit),
       })) : [],
       confirmedAt: visible ? confirmedAt : null, daysSinceConfirmed: visible ? age.days : null,

@@ -1,18 +1,17 @@
 /**
  * Validation and exact unit conversion for the next quantity form.
- * This is not yet connected to persisted price revisions or the buyer catalog.
+ * Used by the gated revision workflow; the new supplier editor is not enabled yet.
  * Keep the original unit prices and weights: USD/kg can be a repeating fraction.
  */
 import { nameContainsGrade, type QuantityPricingIssue, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 
-export type SupplierQuantityUnit = "kg" | "mt" | "bag" | "carton";
+export type SupplierQuantityUnit = "kg" | "mt";
 export type SupplierQuantityEntry = {
   grade: string;
   customGrade: boolean;
   incoterm: string;
   nameVi: string;
   unit: SupplierQuantityUnit;
-  weightKg: string;
   tiers: Array<{ quantity: string; price: string }>;
 };
 export type NormalizedSupplierTier = {
@@ -29,7 +28,7 @@ export type SupplierQuantityEntryResult = {
   value: null | { grade: string; customGrade: boolean; incoterm: string; unit: SupplierQuantityUnit; unitWeightGrams: number; tiers: NormalizedSupplierTier[] };
 };
 const TERMS = new Set(["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"]);
-const UNIT_NAMES = new Set<SupplierQuantityUnit>(["kg", "mt", "bag", "carton"]);
+const UNIT_NAMES = new Set<SupplierQuantityUnit>(["kg", "mt"]);
 const MAX_GRAMS = 1_000_000_000_000;
 const MAX_CENTS = 100_000_000_000;
 
@@ -75,11 +74,8 @@ export function validateSupplierQuantityEntry(input: SupplierQuantityEntry, stan
   const term = input.incoterm.trim().toUpperCase();
   if (!TERMS.has(term)) errors.push({ code: "incoterm", message: "Chọn Incoterm hợp lệ." });
   if (!UNIT_NAMES.has(input.unit)) errors.push({ code: "unit", message: "Chọn đơn vị số lượng hợp lệ." });
-  let unitWeight = input.unit === "kg" ? 1000n : input.unit === "mt" ? 1_000_000n : scaledInteger(input.weightKg, 3, false, true);
-  if (unitWeight === null || unitWeight <= 0n || unitWeight > BigInt(MAX_GRAMS)) {
-    errors.push({ code: "unit_weight", message: "Nhập trọng lượng kg cho mỗi bao hoặc thùng." });
-    unitWeight = null;
-  }
+  // The conversion factor is fixed, never an entered packaging weight.
+  const unitWeight = input.unit === "kg" ? 1000n : input.unit === "mt" ? 1_000_000n : null;
   const maxTiers = Math.min(4, policy.maxTiers);
   if (input.tiers.length < 1 || input.tiers.length > maxTiers) {
     errors.push({ code: "tier_count", message: `Nhập từ 1 đến ${maxTiers} mức giá.` });
@@ -89,7 +85,7 @@ export function validateSupplierQuantityEntry(input: SupplierQuantityEntry, stan
   for (let index = 0; index < input.tiers.length; index++) {
     const entry = input.tiers[index];
     // Quantities support up to 0.001 kg; in MT this requires six decimals.
-    const qtyScale = input.unit === "mt" ? 6 : input.unit === "kg" ? 3 : 0;
+    const qtyScale = input.unit === "mt" ? 6 : 3;
     const qty = scaledInteger(entry.quantity, qtyScale, true, false);
     const price = scaledInteger(entry.price, 2, false, true);
     const divisor = 10n ** BigInt(qtyScale);

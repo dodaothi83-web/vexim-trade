@@ -18,17 +18,17 @@ const invalid = (): CheckedV2Proposal => ({ value: null, errors: [{ code: "inval
 export function validateV2Form(form: FormData, nameVi: string, grades: readonly string[], policy: QuantityPricingPolicy, prefix = ""): CheckedV2Proposal {
   const text = (name: string) => form.get(prefix + name);
   const grade = text("grade"), incoterm = text("incoterm");
-  const unit = form.get("quantity_unit"), custom = form.get("quantity_custom_grade"), weight = form.get("quantity_weight_kg");
+  const unit = form.get("quantity_unit"), custom = form.get("quantity_custom_grade");
   const raw = form.get("quantity_tiers_json");
   if (typeof grade !== "string" || grade.length > 180 || typeof incoterm !== "string" || incoterm.length > 20 ||
-      typeof unit !== "string" || !["kg", "mt", "bag", "carton"].includes(unit) || !["yes", "no"].includes(String(custom)) ||
-      (weight !== null && (typeof weight !== "string" || weight.length > 32)) || typeof raw !== "string" || raw.length > 12000) return invalid();
+      typeof unit !== "string" || !["kg", "mt"].includes(unit) || !["yes", "no"].includes(String(custom)) ||
+      typeof raw !== "string" || raw.length > 12000) return invalid();
   let rows: unknown;
   try { rows = JSON.parse(raw); } catch { return invalid(); }
   if (!Array.isArray(rows) || rows.length > 4 || rows.some((row) => !row || typeof row !== "object" || Array.isArray(row) ||
       typeof row.quantity !== "string" || typeof row.price !== "string" || row.quantity.length > 32 || row.price.length > 32)) return invalid();
   const input: SupplierQuantityEntry = { grade, incoterm, nameVi, unit: unit as SupplierQuantityUnit,
-    customGrade: custom === "yes", weightKg: typeof weight === "string" ? weight : "", tiers: rows };
+    customGrade: custom === "yes", tiers: rows };
   const checked = validateSupplierQuantityEntry(input, grades, policy);
   return { ...checked, value: checked.value ? { grade: checked.value.grade, incoterm: checked.value.incoterm, tiers: toQuantityRevisionV2(checked.value) } : null };
 }
@@ -43,13 +43,13 @@ function decimal(value: number, scale: number): string {
 export function validateStoredV2(grade: unknown, incoterm: unknown, raw: unknown, nameVi: string, grades: readonly string[], policy: QuantityPricingPolicy): CheckedV2Proposal {
   const parsed = readQuantityRevisionV2(raw);
   if (!parsed || typeof grade !== "string" || typeof incoterm !== "string") return invalid();
-  const divisor = parsed.unit === "kg" ? 1000 : parsed.unit === "mt" ? 1_000_000 : parsed.unitWeightGrams;
+  const divisor = parsed.unit === "kg" ? 1000 : 1_000_000;
   const tiers = parsed.tiers.map((row) => ({
-    quantity: parsed.unit === "bag" || parsed.unit === "carton" ? String(row.quantityGrams / divisor) : decimal(row.quantityGrams, divisor),
+    quantity: decimal(row.quantityGrams, divisor),
     price: decimal(row.priceCentsPerUnit, 100),
   }));
   const checked = validateSupplierQuantityEntry({ grade, incoterm, nameVi, customGrade: parsed.customGrade, unit: parsed.unit,
-    weightKg: decimal(parsed.unitWeightGrams, 1000), tiers }, grades, policy);
+    tiers }, grades, policy);
   if (!checked.value) return { value: null, errors: checked.errors, warnings: checked.warnings };
   const normalized = toQuantityRevisionV2(checked.value);
   // Equality prevents a malicious or lossy record being approved under a different meaning.

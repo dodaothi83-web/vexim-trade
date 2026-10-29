@@ -10,7 +10,7 @@ export type QuantityRevisionTierV2 = {
   priceCentsPerUnit: number;
 };
 export type QuantityRevisionV2 = { unit: SupplierQuantityUnit; customGrade: boolean; unitWeightGrams: number; tiers: QuantityRevisionTierV2[] };
-const UNITS = new Set<SupplierQuantityUnit>(["kg", "mt", "bag", "carton"]);
+const UNITS = new Set<SupplierQuantityUnit>(["kg", "mt"]);
 
 /** Only accept an already validated server-side entry. */
 export function toQuantityRevisionV2(value: NonNullable<SupplierQuantityEntryResult["value"]>): QuantityRevisionTierV2[] {
@@ -36,8 +36,7 @@ export function readQuantityRevisionV2(input: unknown): QuantityRevisionV2 | nul
         typeof row.unitWeightGrams !== "number" || !Number.isSafeInteger(row.unitWeightGrams) || row.unitWeightGrams < 1 || row.unitWeightGrams > 1_000_000_000_000 ||
         typeof row.priceCentsPerUnit !== "number" || !Number.isSafeInteger(row.priceCentsPerUnit) || row.priceCentsPerUnit < 1 || row.priceCentsPerUnit > 100_000_000_000) return null;
     const rowUnit = row.unit as SupplierQuantityUnit;
-    if ((rowUnit === "kg" && row.unitWeightGrams !== 1000) || (rowUnit === "mt" && row.unitWeightGrams !== 1_000_000) ||
-        ((rowUnit === "bag" || rowUnit === "carton") && row.quantityGrams % row.unitWeightGrams !== 0)) return null;
+    if ((rowUnit === "kg" && row.unitWeightGrams !== 1000) || (rowUnit === "mt" && row.unitWeightGrams !== 1_000_000)) return null;
     if (unit !== null && (unit !== rowUnit || weight !== row.unitWeightGrams || customGrade !== row.customGrade)) return null;
     const previous = tiers.at(-1);
     if (previous && (row.quantityGrams <= previous.quantityGrams || row.priceCentsPerUnit > previous.priceCentsPerUnit)) return null;
@@ -53,17 +52,15 @@ export function v2PriceUsdPerKg(row: QuantityRevisionTierV2): number {
   return row.priceCentsPerUnit * 10 / row.unitWeightGrams;
 }
 export function v2QuantityInSupplierUnit(grams: number, weight: number): number { return grams / weight; }
-export function v2UnitLabel(unit: SupplierQuantityUnit, plural = false): string {
-  return unit === "mt" ? "MT" : unit === "bag" ? (plural ? "bags" : "bag") : unit === "carton" ? (plural ? "cartons" : "carton") : "kg";
+export function v2UnitLabel(unit: SupplierQuantityUnit): string {
+  return unit === "mt" ? "MT" : "kg";
 }
 export function v2FormatAmount(value: number, maximumFractionDigits = 6): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits }).format(value);
 }
-export function v2QuantityLabel(grams: number, revision: QuantityRevisionV2, includeWeight = false): string {
+export function v2QuantityLabel(grams: number, revision: QuantityRevisionV2): string {
   const amount = v2QuantityInSupplierUnit(grams, revision.unitWeightGrams);
-  const label = v2UnitLabel(revision.unit, amount !== 1);
-  const unitWeight = revision.unitWeightGrams / 1000;
-  return `${v2FormatAmount(amount)} ${label}${includeWeight && (revision.unit === "bag" || revision.unit === "carton") ? ` (${v2FormatAmount(unitWeight, 3)} kg each)` : ""}`;
+  return `${v2FormatAmount(amount)} ${v2UnitLabel(revision.unit)}`;
 }
 export function v2PriceLabel(cents: number, unit: SupplierQuantityUnit): string {
   return `USD ${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)}/${v2UnitLabel(unit)}`;

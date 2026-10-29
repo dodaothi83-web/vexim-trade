@@ -63,13 +63,13 @@ assert.equal((await exports.submitQuantityPriceRevisionAction(form())).ok, false
 assert.equal(calls.length, 3, 'Unauthorized submissions never reach RPC');
 console.log('Quantity revision actions: strict ownership, server validation, consent, warnings and stale data passed');
 product = { ...product, supplier_id: supplier }; calls = [];
-const inputV2 = { quantity_version: '2', quantity_unit: 'bag', quantity_custom_grade: 'yes', grade: 'Special', quantity_weight_kg: '27', quantity_tiers_json: JSON.stringify([{ quantity: '10', price: '100' }]) };
+const inputV2 = { quantity_version: '2', quantity_unit: 'kg', quantity_custom_grade: 'yes', grade: 'Special', quantity_tiers_json: JSON.stringify([{ quantity: '10', price: '100' }]) };
 assert.equal((await exports.submitQuantityPriceRevisionAction(form(inputV2))).ok, false, 'V2 disabled by default'); assert.equal(calls.length, 0);
 process.env.VEXIM_QUANTITY_V2_STAGING = 'true'; process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true';
 result = await exports.submitQuantityPriceRevisionAction(form(inputV2));
-assert.equal(result.ok, true); assert.equal(calls[0].args.p_tiers[0].quantityGrams, 270000); assert.equal(calls[0].args.p_tiers[0].priceCentsPerUnit, 10000);
+assert.equal(result.ok, true); assert.equal(calls[0].args.p_tiers[0].quantityGrams, 10000); assert.equal(calls[0].args.p_tiers[0].priceCentsPerUnit, 10000);
 assert.equal(calls[0].args.p_tiers[0].customGrade, true);
 assert.equal((await exports.submitQuantityPriceRevisionAction(form({ ...inputV2, confirm_quantity_price_consent: '' }))).ok, false);
-assert.equal((await exports.submitQuantityPriceRevisionAction(form({ ...inputV2, quantity_weight_kg: '' }))).ok, false); assert.equal(calls.length, 1);
+assert.equal((await exports.submitQuantityPriceRevisionAction(form({ ...inputV2, quantity_unit: 'bag' }))).ok, false); assert.equal(calls.length, 1);
 delete process.env.VEXIM_QUANTITY_V2_STAGING; delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
-console.log('Supplier V2 revision: staged gate, exact bag price and consent passed');
+console.log('Supplier V2 revision: staged gate, exact kg price and consent passed');

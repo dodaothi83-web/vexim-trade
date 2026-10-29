@@ -44,9 +44,12 @@ export default async function QuantityPricingPreviewPage({ params }: { params: P
     const approvedName = nameResult.data.find((row) => row.status === "approved") ?? null;
     const price = pendingPrice || approvedPrice;
     const rawTiers = Array.isArray(price?.tiers) ? price.tiers : [];
-    const tiers = rawTiers.length && rawTiers.length <= 100 && rawTiers.every((row: unknown) => row && typeof row === "object" &&
-      typeof (row as { minKg?: unknown }).minKg === "number" && typeof (row as { priceUsdPerKg?: unknown }).priceUsdPerKg === "number")
-      ? rawTiers.map((row: { minKg: number; priceUsdPerKg: number }) => ({ minKg: String(row.minKg), priceUsdPerKg: String(row.priceUsdPerKg) }))
+    const validLegacy = rawTiers.length > 0 && rawTiers.length <= 100 && rawTiers.every((row: unknown) => row && typeof row === "object" &&
+      typeof (row as { minKg?: unknown }).minKg === "number" && typeof (row as { priceUsdPerKg?: unknown }).priceUsdPerKg === "number");
+    // This older editor cannot represent v2 units or malformed revisions. Never
+    // silently turn them into an empty table that can replace a pending price.
+    if (price && !validLegacy) throw new Error("Unsupported saved quantity revision");
+    const tiers = price ? rawTiers.map((row: { minKg: number; priceUsdPerKg: number }) => ({ minKg: String(row.minKg), priceUsdPerKg: String(row.priceUsdPerKg) }))
       : [{ minKg: "", priceUsdPerKg: "" }];
     const primary = displayUnitsForCategory(category.slug, category.price_unit).primary;
     return <>

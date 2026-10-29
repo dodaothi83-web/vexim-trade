@@ -43,9 +43,9 @@ try {
 console.log('Quantity review page: independent queues, staff-only access and fail-closed load passed');
 fail = false;
 revisions.product_quantity_price_revisions[0].grade = 'Special';
-revisions.product_quantity_price_revisions[0].tiers = [{ version: 2, unit: 'bag', customGrade: true, quantityGrams: 270000, unitWeightGrams: 27000, priceCentsPerUnit: 10000 }];
+revisions.product_quantity_price_revisions[0].tiers = [{ version: 2, unit: 'kg', customGrade: true, quantityGrams: 270000, unitWeightGrams: 1000, priceCentsPerUnit: 10000 }];
 const v2html = await render();
-for (const text of ['Special', '10 bags (27 kg each)', 'USD 100.00/bag', 'không thuộc bộ lọc grade chuẩn']) assert.ok(v2html.includes(text), text);
+for (const text of ['Special', '270 kg', 'USD 100.00/kg', 'không thuộc bộ lọc grade chuẩn']) assert.ok(v2html.includes(text), text);
 revisions.product_quantity_price_revisions[0].tiers[0].unitWeightGrams = 0;
 assert.match(await render(), /Dữ liệu bảng giá không hợp lệ/);
 console.log('Quantity review page: original V2 units, custom grade and invalid records passed');
