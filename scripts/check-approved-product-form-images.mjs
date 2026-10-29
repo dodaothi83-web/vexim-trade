@@ -26,7 +26,8 @@ const reader = load('../lib/products/approved-product-form-images.ts', { 'server
   '@/lib/products/approved-product-form-consent': { readApprovedFormPublications: async (candidates) => new Map(candidates.map((c) => [c.productId, publication])) },
 }).readApprovedFormImages;
 const candidate = { productId, supplierId, priceRevision: null, media };
-let result = await reader([candidate]); assert.equal(result.get(productId)[0].id, imageId);
+let result = await reader([{ ...candidate, expectedSubmissionId: submissionId }]); assert.equal(result.get(productId)[0].id, imageId);
+await assert.rejects(() => reader([{ ...candidate, expectedSubmissionId: null }]), /changed while reading/, 'Concurrent publication never mixes an older form with a newer gallery');
 publication = null; rows = []; assert.equal((await reader([candidate])).get(productId), null, 'Legacy gallery remains unchanged');
 rows = [row]; await assert.rejects(() => reader([candidate]), /without approved/, 'Concurrent approval never silently falls back');
 publication = { submissionId: null, priceConsent: false }; await assert.rejects(() => reader([candidate]), /out of sync/);

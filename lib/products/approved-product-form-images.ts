@@ -11,7 +11,7 @@ import type { MediaAsset } from "@/lib/types";
  * falling back to unrelated photos. Old products with no form return null.
  * No page calls this until transaction approval and staging tests are complete.
  */
-export async function readApprovedFormImages(candidates: readonly (ConsentCandidate & { media: readonly MediaAsset[] })[]): Promise<Map<string, MediaAsset[] | null>> {
+export async function readApprovedFormImages(candidates: readonly (ConsentCandidate & { media: readonly MediaAsset[]; expectedSubmissionId?: string | null })[]): Promise<Map<string, MediaAsset[] | null>> {
   const publications = await readApprovedFormPublications(candidates);
   const byId = new Map<string, typeof candidates[number]>();
   for (const item of candidates) {
@@ -40,6 +40,8 @@ export async function readApprovedFormImages(candidates: readonly (ConsentCandid
       const candidate = byId.get(id)!, publication = publications.get(id);
       if (publication === undefined) throw new Error("Approved form publication unavailable");
       if (publication && !publication.submissionId) throw new Error("Approved form price and gallery are out of sync");
+      if (candidate.expectedSubmissionId !== undefined && candidate.expectedSubmissionId !== (publication?.submissionId ?? null))
+        throw new Error("Approved form changed while reading gallery");
       result.set(id, selectPublishedFormImages({ productId: id, supplierId: candidate.supplierId.toLowerCase(),
         approvedSubmissionId: publication?.submissionId ?? null, refs: grouped.get(id) ?? [], media: candidate.media }));
     }

@@ -26,6 +26,9 @@ const adapter = compile('../lib/public/quantity-catalog-preview.ts', {
   'server-only': {},
   '@/lib/products/approved-quantity-revisions': { readApprovedQuantityRevisions: async (ids) => { batchIds = ids; if (readError) throw Error('database unavailable'); return new Map(ids.map((id) => [id, byId.get(id) ?? { price: null, name: null }])); } },
   '@/lib/products/approved-product-form-consent': { readApprovedFormPublications: async (items) => new Map(items.map((item) => [item.productId, publications.get(item.productId) ?? null])) },
+  '@/lib/products/approved-product-form-images': { readApprovedFormImages: async (items) => new Map(items.map((item) => [item.productId, item.expectedSubmissionId ? [
+    { storage_path: 'selected-main.webp', thumb_path: 'selected-main-thumb.webp' }, { storage_path: 'selected-second.webp', thumb_path: null },
+  ] : null])) },
   '@/lib/products/quantity-price-config': { readQuantityPriceSettings: async () => ({ stale_days: 90 }) },
   '@/lib/products/quantity-public-projection': projection,
   '@/lib/public/price-units': priceUnits,
@@ -79,7 +82,11 @@ const denied = (await adapter.projectQuantityCatalogPreview([record('p1')]))[0].
 assert.equal(denied.price, null); assert.equal(denied.quantityOffer.tiers.length, 0, 'New form requires exact revision consent');
 publications.set('p1', { submissionId: 'form-1', priceConsent: true });
 const oldSupplierConsent = { ...record('p1'), supplier: { ...supplier, fob_publicly_visible: false } };
-assert.equal((await adapter.projectQuantityCatalogPreview([oldSupplierConsent]))[0].card.price, 'USD 6.00–6.40/kg', 'A new form uses its own explicit consent');
+const formCard = (await adapter.projectQuantityCatalogPreview([oldSupplierConsent]))[0].card;
+assert.equal(formCard.price, 'USD 6.00–6.40/kg', 'A new form uses its own explicit consent');
+assert.deepEqual(Array.from(formCard.imagePaths), ['selected-main.webp', 'selected-second.webp']);
+assert.deepEqual(Array.from(formCard.imageThumbnailPaths), ['selected-main-thumb.webp', 'selected-second.webp']);
+assert.equal(formCard.cardImagePath, 'selected-main-thumb.webp'); assert.equal(formCard.usesFormGallery, true);
 publications.set('p1', { submissionId: null, priceConsent: false });
 await assert.rejects(adapter.projectQuantityCatalogPreview([record('p1')]), /out of sync/, 'Mismatched approved form never falls back');
 publications.delete('p1');

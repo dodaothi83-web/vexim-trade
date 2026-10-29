@@ -122,8 +122,8 @@ export default async function PublicProductDetail({ params }: Props) {
   const { category, card, product: p, relatedProducts, preview } = detail;
   // Product eligibility was checked above; project only buyer-shareable images and safe video embeds.
   const media = await getStore().listMedia("product", p.id);
-  const images = shareableProductImages(media, p.id, p.featured_media_id, 24);
-  const thumbnails = shareableProductImages(media, p.id, p.featured_media_id, 24, true);
+  const images = card.usesFormGallery ? card.imagePaths : shareableProductImages(media, p.id, p.featured_media_id, 24);
+  const thumbnails = card.usesFormGallery ? (card.imageThumbnailPaths ?? card.imagePaths) : shareableProductImages(media, p.id, p.featured_media_id, 24, true);
   const video = shareableProductVideo(media, p.id);
   const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}`;
   const questionRfq = `${rfq}&intent=question`;
