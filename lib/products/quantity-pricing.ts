@@ -1,0 +1,168 @@
+/**
+ * Rules for the next supplier pricing model. This module is deliberately isolated
+ * from the legacy multi-grade editor: it must not change published offers until
+ * versioned persistence and both review workflows are in place.
+ *
+ * Quantities are whole kg; the end of a tier is the next minimum minus one kg.
+ * Prices are USD per kg, with at most two decimal places.
+ */
+export type QuantityPriceTier = { minKg: number; priceUsdPerKg: number };
+export type GradePriceBounds = { minUsdPerKg: number; maxUsdPerKg: number };
+export type QuantityPricingPolicy = {
+  maxTiers: number;
+  maxPriceRatio: number;
+  maxLastMoqRatio: number;
+  gradeBounds?: Record<string, GradePriceBounds>;
+};
+
+export const DEFAULT_QUANTITY_PRICING_POLICY: Readonly<QuantityPricingPolicy> = {
+  maxTiers: 4,
+  maxPriceRatio: 1.5,
+  maxLastMoqRatio: 100,
+};
+
+export type QuantityPricingInput = {
+  grade: string;
+  incoterm: string;
+  nameVi: string;
+  nameEn: string;
+  tiers: Array<{ minKg: string; priceUsdPerKg: string }>;
+};
+export type QuantityPricingIssue = {
+  code: string;
+  message: string;
+  tierIndex?: number;
+};
+export type QuantityPricingResult = {
+  errors: QuantityPricingIssue[];
+  warnings: QuantityPricingIssue[];
+  value: { grade: string; incoterm: string; tiers: QuantityPriceTier[] } | null;
+};
+
+const INCOTERMS = new Set(["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"]);
+const MAX_KG = 1_000_000_000;
+const MAX_CENTS = 100_000_000_000;
+const WHOLE_KG = /^[0-9]+$/;
+const USD_PRICE = /^[0-9]+(?:\.[0-9]{1,2})?$/;
+
+function normalized(value: string): string {
+  return value.normalize("NFKC").toLocaleLowerCase("en-US").replace(/\s+/g, " ").trim();
+}
+
+/** Match whole grade tokens rather than e.g. WS inside a longer word. */
+export function nameContainsGrade(name: string, grades: readonly string[]): boolean {
+  const text = normalized(name);
+  return grades.some((raw) => {
+    const grade = normalized(raw);
+    if (!grade) return false;
+    let at = text.indexOf(grade);
+    while (at >= 0) {
+      const before = at === 0 ? "" : text[at - 1];
+      const after = text[at + grade.length] ?? "";
+      if ((!before || !/[\p{L}\p{N}]/u.test(before)) && (!after || !/[\p{L}\p{N}]/u.test(after))) return true;
+      at = text.indexOf(grade, at + 1);
+    }
+    return false;
+  });
+}
+
+function centsFromText(raw: string): number | null {
+  const text = raw.trim();
+  if (!USD_PRICE.test(text)) return null;
+  const [whole, fraction = ""] = text.split(".");
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  return Number.isSafeInteger(cents) && cents > 0 && cents <= MAX_CENTS ? cents : null;
+}
+
+/** Validates untrusted form values, including ordered tiers and grade-specific warnings. */
+export function validateQuantityPricing(
+  input: QuantityPricingInput,
+  standardGrades: readonly string[],
+  policy: QuantityPricingPolicy = DEFAULT_QUANTITY_PRICING_POLICY,
+): QuantityPricingResult {
+  const errors: QuantityPricingIssue[] = [];
+  const warnings: QuantityPricingIssue[] = [];
+  if (!Number.isSafeInteger(policy.maxTiers) || policy.maxTiers < 1 || policy.maxTiers > 100 ||
+      !Number.isFinite(policy.maxPriceRatio) || policy.maxPriceRatio < 1 ||
+      !Number.isFinite(policy.maxLastMoqRatio) || policy.maxLastMoqRatio < 1) {
+    return { errors: [{ code: "invalid_policy", message: "Cấu hình kiểm tra giá không hợp lệ." }], warnings, value: null };
+  }
+  const grade = standardGrades.find((g) => normalized(g) === normalized(input.grade)) ?? "";
+  if (!grade) errors.push({ code: "grade", message: "Chọn một grade chuẩn của danh mục." });
+  const incoterm = input.incoterm.trim().toUpperCase();
+  if (!INCOTERMS.has(incoterm)) errors.push({ code: "incoterm", message: "Chọn Incoterm hợp lệ." });
+  if (nameContainsGrade(input.nameVi, standardGrades)) errors.push({ code: "name_vi_grade", message: "Không ghi grade trong tên sản phẩm tiếng Việt." });
+  if (nameContainsGrade(input.nameEn, standardGrades)) errors.push({ code: "name_en_grade", message: "Không ghi grade trong tên sản phẩm tiếng Anh." });
+  if (input.tiers.length < 1 || input.tiers.length > policy.maxTiers) {
+    errors.push({ code: "tier_count", message: `Nhập từ 1 đến ${policy.maxTiers} mức giá.` });
+    return { errors, warnings, value: null };
+  }
+  const tiers: QuantityPriceTier[] = [];
+  const centsList: number[] = [];
+  input.tiers.forEach((row, tierIndex) => {
+    const rawKg = row.minKg.trim();
+    const kg = WHOLE_KG.test(rawKg) ? Number(rawKg) : NaN;
+    const cents = centsFromText(row.priceUsdPerKg);
+    if (!Number.isSafeInteger(kg) || kg <= 0 || kg > MAX_KG) {
+      errors.push({ code: "quantity", tierIndex, message: "Số lượng từ phải là số kg nguyên lớn hơn 0." });
+    }
+    if (cents === null) errors.push({ code: "price", tierIndex, message: "Nhập giá USD/kg lớn hơn 0, tối đa 2 chữ số thập phân." });
+    if (!Number.isSafeInteger(kg) || kg <= 0 || kg > MAX_KG || cents === null) return;
+    tiers.push({ minKg: kg, priceUsdPerKg: cents / 100 });
+    centsList.push(cents);
+  });
+  // Avoid comparing across a malformed or missing row.
+  if (tiers.length === input.tiers.length && tiers.length) {
+    for (let i = 1; i < tiers.length; i++) {
+      if (tiers[i].minKg <= tiers[i - 1].minKg) errors.push({ code: "quantity_order", tierIndex: i, message: "Số lượng dòng sau phải lớn hơn dòng trước." });
+      if (centsList[i] > centsList[i - 1]) errors.push({ code: "price_order", tierIndex: i, message: "Giá dòng sau phải thấp hơn hoặc bằng dòng trước." });
+    }
+    const max = Math.max(...centsList);
+    const min = Math.min(...centsList);
+    if (max / min > policy.maxPriceRatio + 1e-12) errors.push({ code: "price_spread", message: "Chênh lệch giữa giá cao nhất và thấp nhất vượt giới hạn." });
+    if (tiers[tiers.length - 1].minKg / tiers[0].minKg > policy.maxLastMoqRatio + 1e-12) {
+      errors.push({ code: "quantity_spread", message: "Số lượng từ của dòng cuối vượt giới hạn so với MOQ." });
+    }
+    const boundsEntry = Object.entries(policy.gradeBounds ?? {}).find(([key]) => normalized(key) === normalized(grade));
+    const bounds = boundsEntry?.[1];
+    if (bounds) {
+      if (!Number.isFinite(bounds.minUsdPerKg) || !Number.isFinite(bounds.maxUsdPerKg) ||
+          bounds.minUsdPerKg <= 0 || bounds.maxUsdPerKg < bounds.minUsdPerKg) {
+        errors.push({ code: "invalid_grade_bounds", message: "Ngưỡng giá của grade chưa được cấu hình hợp lệ." });
+      } else {
+        tiers.forEach((tier, tierIndex) => {
+          if (tier.priceUsdPerKg < bounds.minUsdPerKg || tier.priceUsdPerKg > bounds.maxUsdPerKg) {
+            warnings.push({ code: "grade_price_outlier", tierIndex, message: "Giá nằm ngoài ngưỡng tham khảo của grade và cần được rà soát." });
+          }
+        });
+      }
+    }
+  }
+  return { errors, warnings, value: errors.length ? null : { grade, incoterm, tiers } };
+}
+
+/** Buyer quantities switch to MT at 1,000 kg; internal quantities stay in kg. */
+export function formatQuantityBuyer(kg: number): string {
+  const value = kg >= 1000 ? kg / 1000 : kg;
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(value)} ${kg >= 1000 ? "MT" : "kg"}`;
+}
+
+export function quantityTierRanges(tiers: readonly QuantityPriceTier[]): Array<QuantityPriceTier & { maxKg: number | null }> {
+  return tiers.map((tier, index) => ({ ...tier, maxKg: tiers[index + 1] ? tiers[index + 1].minKg - 1 : null }));
+}
+
+export function formatQuantityPriceBuyer(priceUsdPerKg: number, unit: "kg" | "mt"): string {
+  const value = unit === "mt" ? priceUsdPerKg * 1000 : priceUsdPerKg;
+  const digits = unit === "mt" ? 0 : 2;
+  return `USD ${new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)}/${unit === "mt" ? "MT" : "kg"}`;
+}
+
+/** Unknown or future confirmation must not earn ranking/reference-price credit. */
+export function referencePriceAge(confirmedAt: string | null | undefined, now: number, staleAfterDays = 90): { days: number | null; stale: boolean } {
+  const timestamp = confirmedAt ? Date.parse(confirmedAt) : NaN;
+  if (!Number.isFinite(timestamp) || !Number.isFinite(now) || timestamp > now || !Number.isFinite(staleAfterDays) || staleAfterDays < 0) {
+    return { days: null, stale: true };
+  }
+  const age = now - timestamp;
+  return { days: Math.floor(age / 86_400_000), stale: age > staleAfterDays * 86_400_000 };
+}

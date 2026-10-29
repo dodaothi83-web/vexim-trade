@@ -210,7 +210,8 @@ const filtered = arrangeSupplierProducts(cards.filter((p) => p.grade === 'W320')
 assert.equal(filtered.shown.length, 13, 'Filter does not retain the three-card cap');
 assert.equal(filtered.hidden.size, 0);
 assert.equal(new Set(filtered.shown.map((p) => p.id)).size, 13);
-assert.ok(filtered.shown.every((p, i) => i < 2 || !(p.supplierId === filtered.shown[i - 1].supplierId && p.supplierId === filtered.shown[i - 2].supplierId)), 'Skewed 8:5 filtered results remain interleaved when possible');
+assert.deepEqual(filtered.shown.slice(0, 10).map((p) => p.supplierId), ['A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B'], 'A full round takes one offer per supplier');
+assert.deepEqual(filtered.shown.slice(10).map((p) => p.supplierId), ['A', 'A', 'A'], 'Remaining offers stay visible after other suppliers are exhausted');
 const oneSupplier = cards.filter((p) => p.supplierId === 'A');
 const singleInitial = arrangeSupplierProducts(oneSupplier, new Set(oneSupplier.map((p) => p.supplierId)).size < 2 ? 2 : 3);
 assert.equal(singleInitial.shown.length, 2, 'A single supplier cannot occupy three consecutive initial cards');

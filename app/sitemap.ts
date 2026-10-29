@@ -3,6 +3,7 @@ import type { MetadataRoute } from "next";
 import { listPublishedNews } from "@/lib/blog/queries";
 import { getStore } from "@/lib/db";
 import { getPublicSupplierBySlug, listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catalog";
+import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot } from "@/lib/public/product-catalog";
 import { supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
 
@@ -63,6 +64,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     searchableSuppliers.push(...batch.filter((s): s is (typeof publishedSuppliers)[number] => s !== null));
   }
 
+  const indexableCategories = categories.filter((c) => c.seo_indexable);
+  // Share one catalog snapshot across categories, just as public listings do.
+  const snapshot = indexableCategories.length ? await loadPublicProductCatalogSnapshot().catch(() => null) : null;
+  const categoryProductLists = await Promise.all(
+    indexableCategories.map(async (c) => {
+      const products = snapshot ? await listPublicCategoryProducts(c, { snapshot }).catch(() => []) : [];
+      return { slug: c.slug, products: products.filter((p) => !p.isDemo && p.id) };
+    }),
+  );
+  const productRoutes: MetadataRoute.Sitemap = categoryProductLists.flatMap(({ slug, products }) =>
+    products.map((product) => ({
+      url: `${SITE_URL}/products/${encodeURIComponent(slug)}/${encodeURIComponent(product.id)}`,
+      changeFrequency: "weekly" as const,
+      priority: 0.65,
+    })),
+  );
+
   const publicRoutes: MetadataRoute.Sitemap = [
     {
       url: SITE_URL,
@@ -88,18 +106,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.5,
     },
-    ...categories.filter((c) => c.seo_indexable).map((c) => ({
-      url: `${SITE_URL}/products/${c.slug}`,
+    ...indexableCategories.map((c) => ({
+      url: `${SITE_URL}/products/${encodeURIComponent(c.slug)}`,
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.7,
     })),
-    ...searchableSuppliers.map((s) => ({
-      url: `${SITE_URL}/suppliers/${s.slug}`,
-      lastModified: s.updated_at ? new Date(s.updated_at) : new Date(),
-      changeFrequency: "weekly" as const,
-      priority: 0.6,
-    })),
+    ...productRoutes,
+    ...searchableSuppliers
+      .map((s) => ({ supplier: s, routeKey: (s.slug ?? "").trim() || (s.id ?? "").trim() }))
+      .filter(({ routeKey }) => routeKey.length > 0 && routeKey !== "null" && routeKey !== "undefined")
+      .map(({ supplier, routeKey }) => ({
+        url: `${SITE_URL}/suppliers/${encodeURIComponent(routeKey)}`,
+        lastModified: supplier.updated_at ? new Date(supplier.updated_at) : new Date(),
+        changeFrequency: "weekly" as const,
+        priority: 0.6,
+      })),
   ];
 
   return [...publicRoutes, ...blogRoutes, ...legalRoutes];
