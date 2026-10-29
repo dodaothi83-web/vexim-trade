@@ -104,9 +104,34 @@ try {
   await db.query("update public.supplier_products set updated_at=updated_at + interval '1 second' where id=$1", [product]);
   assert.equal((await stage(supplier, 6, another)).status, 'product_changed');
   assert.equal((await select(supplier, 6, [])).status, 'product_changed');
+  // Existing public photos can be copied into the same private draft even when
+  // all eight slots are occupied. The source row and public listing stay intact.
+  const product2 = 'dddddddd-dddd-dddd-dddd-dddddddddddd', newImage = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+  const oldImages = Array.from({ length: 8 }, (_, i) => `cccccccc-cccc-cccc-cccc-${String(i + 1).padStart(12, '0')}`);
+  await db.query("insert into public.supplier_products (id,supplier_id,supplier_review_status,ready_for_buyer,name) values ($1,$2,'approved',true,'Original')", [product2, supplier]);
+  await db.query("insert into public.product_form_drafts(product_id,supplier_id,revision,base_product_updated_at,payload,image_selection) select id,supplier_id,1,updated_at,'{}',$2::jsonb from public.supplier_products where id=$1",
+    [product2, JSON.stringify(oldImages.map((id) => ref('media', id)))]);
+  for (const id of oldImages) await db.query("insert into public.media_assets values ($1,'product',$2,$3,'image',$4,null,'unverified',null,'buyer','another-user')",
+    [id, product2, supplier, `products/${product2}/${id}.jpg`]);
+  const replace = async (rev, expectedSuffix = '', actor = 'user') => (await db.query(
+    `select public.stage_product_form_image($1,$2,$3,$4,$5,'Copy',123,100,100,$6,12,$7,$8,
+       (select to_jsonb(m) ${expectedSuffix} from public.media_assets m where m.id=$8)) result`,
+    [supplier, product2, actor, rev, newImage, 'a'.repeat(64), 'b'.repeat(64), oldImages[3]])).rows[0].result;
+  assert.equal((await replace(1, `|| '{"kind":"other"}'::jsonb`)).status, 'image_unavailable', 'Changed source metadata fails closed');
+  assert.equal((await replace(2)).status, 'changed');
+  await db.query("update public.media_assets set audience='staff' where id=$1", [oldImages[3]]);
+  assert.equal((await replace(1)).status, 'image_unavailable', 'Private source is not visible to a different supplier user');
+  await db.query("update public.media_assets set audience='buyer', status='expired' where id=$1", [oldImages[3]]);
+  assert.equal((await replace(1)).status, 'image_unavailable');
+  await db.query("update public.media_assets set status='unverified' where id=$1", [oldImages[3]]);
+  const replacement = await replace(1); assert.equal(replacement.status, 'created'); assert.equal(replacement.revision, 2);
+  const selected = (await db.query('select image_selection from public.product_form_drafts where product_id=$1', [product2])).rows[0].image_selection;
+  assert.deepEqual(selected, oldImages.map((id, i) => i === 3 ? ref('staged', newImage) : ref('media', id)));
+  assert.equal((await db.query('select count(*)::int n from public.media_assets where product_id=$1', [product2])).rows[0].n, 8);
+  assert.equal((await db.query('select name from public.supplier_products where id=$1', [product2])).rows[0].name, 'Original');
   const grants = (await db.query(`select has_table_privilege('anon','public.product_form_staged_images','select') anon,
     has_table_privilege('authenticated','public.product_form_staged_images','select') auth,
-    has_function_privilege('authenticated','public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text)','execute') fn_auth,
+    has_function_privilege('authenticated','public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text,uuid,jsonb)','execute') fn_auth,
     has_function_privilege('service_role','public.set_product_form_images(uuid,uuid,text,boolean,integer,jsonb)','execute') service,
     has_function_privilege('service_role','public.submit_product_form_draft(uuid,uuid,integer,jsonb,jsonb,jsonb)','execute') old_submit`)).rows[0];
   assert.deepEqual(grants, { anon: false, auth: false, fn_auth: false, service: true, old_submit: false });

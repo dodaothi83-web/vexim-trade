@@ -40,12 +40,15 @@ grant all on public.product_form_staged_images to service_role;
 create or replace function public.stage_product_form_image(
   p_supplier_id uuid, p_product_id uuid, p_user_id text, p_expected_revision integer,
   p_id uuid, p_caption text, p_bytes bigint, p_width integer, p_height integer,
-  p_sha256 text, p_thumb_bytes bigint, p_thumb_sha256 text
+  p_sha256 text, p_thumb_bytes bigint, p_thumb_sha256 text,
+  p_replaces_media_id uuid default null, p_expected_media jsonb default null
 ) returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   product public.supplier_products%rowtype;
   draft public.product_form_drafts%rowtype;
   photo public.product_form_staged_images%rowtype;
+  source_media public.media_assets%rowtype;
+  next_selection jsonb;
   path text;
   thumb text;
 begin
@@ -55,6 +58,8 @@ begin
      or p_sha256 is null or p_sha256 !~ '^[a-f0-9]{64}$'
      or p_thumb_bytes is null or p_thumb_bytes not between 1 and 8388608
      or p_thumb_sha256 is null or p_thumb_sha256 !~ '^[a-f0-9]{64}$'
+     or (p_replaces_media_id is null) <> (p_expected_media is null)
+     or (p_expected_media is not null and jsonb_typeof(p_expected_media) is distinct from 'object')
      or p_width is null or p_width not between 1 and 20000 or p_height is null or p_height not between 1 and 20000 then
     return jsonb_build_object('status','invalid');
   end if;
@@ -77,7 +82,28 @@ begin
   end if;
   if draft.revision <> p_expected_revision then return jsonb_build_object('status','changed'); end if;
   if draft.base_product_updated_at is distinct from product.updated_at then return jsonb_build_object('status','product_changed'); end if;
-  if jsonb_array_length(draft.image_selection) >= 8 then return jsonb_build_object('status','image_limit'); end if;
+  if p_replaces_media_id is null then
+    if jsonb_array_length(draft.image_selection) >= 8 then return jsonb_build_object('status','image_limit'); end if;
+    next_selection := draft.image_selection || jsonb_build_array(jsonb_build_object('source','staged','id',p_id));
+  else
+    -- Replace the selected reference in place, without deleting or changing
+    -- the public media. The trusted caller has copied the source bytes first.
+    select * into source_media from public.media_assets where id = p_replaces_media_id for update;
+    if not found or to_jsonb(source_media) is distinct from p_expected_media
+       or source_media.owner_type is distinct from 'product' or source_media.product_id is distinct from p_product_id
+       or source_media.supplier_id is distinct from p_supplier_id or source_media.kind is distinct from 'image'
+       or source_media.storage_path is null or btrim(source_media.storage_path) = ''
+       or source_media.status is null or source_media.status = 'expired'
+       or (source_media.expires_on is not null and source_media.expires_on < (now() at time zone 'UTC')::date)
+       or (source_media.audience is distinct from 'buyer' and source_media.created_by is distinct from p_user_id)
+       or (select count(*) from jsonb_array_elements(draft.image_selection) e
+           where e->>'source' = 'media' and e->>'id' = p_replaces_media_id::text) <> 1 then
+      return jsonb_build_object('status','image_unavailable');
+    end if;
+    select jsonb_agg(case when e.value->>'source' = 'media' and e.value->>'id' = p_replaces_media_id::text
+      then jsonb_build_object('source','staged','id',p_id) else e.value end order by e.ordinality)
+      into next_selection from jsonb_array_elements(draft.image_selection) with ordinality e(value, ordinality);
+  end if;
   path := 'products/' || p_product_id::text || '/' || p_id::text || '.webp';
   thumb := 'products/' || p_product_id::text || '/' || p_id::text || '-thumb.webp';
   -- Never create an ambiguous owner for a path served by public-media.
@@ -87,8 +113,7 @@ begin
   end if;
   insert into public.product_form_staged_images (id,product_id,supplier_id,created_by,storage_path,thumb_path,caption,mime,bytes,width,height,sha256,thumb_bytes,thumb_sha256)
     values (p_id,p_product_id,p_supplier_id,p_user_id,path,thumb,coalesce(p_caption,''),'image/webp',p_bytes,p_width,p_height,p_sha256,p_thumb_bytes,p_thumb_sha256);
-  update public.product_form_drafts set revision = revision + 1, updated_at = now(),
-    image_selection = image_selection || jsonb_build_array(jsonb_build_object('source','staged','id',p_id))
+  update public.product_form_drafts set revision = revision + 1, updated_at = now(), image_selection = next_selection
     where product_id = p_product_id returning * into draft;
   return jsonb_build_object('status','created','revision',draft.revision,'image_id',p_id);
 end;
@@ -329,9 +354,9 @@ $$;
 revoke all on function public.request_product_form_changes(uuid,uuid,uuid,timestamptz,text) from public,anon,authenticated;
 grant execute on function public.request_product_form_changes(uuid,uuid,uuid,timestamptz,text) to service_role;
 
-revoke all on function public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text) from public, anon, authenticated;
+revoke all on function public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text,uuid,jsonb) from public, anon, authenticated;
 revoke all on function public.set_product_form_images(uuid,uuid,text,boolean,integer,jsonb) from public, anon, authenticated;
-grant execute on function public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text) to service_role;
+grant execute on function public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text,uuid,jsonb) to service_role;
 grant execute on function public.set_product_form_images(uuid,uuid,text,boolean,integer,jsonb) to service_role;
 notify pgrst, 'reload schema';
 commit;
