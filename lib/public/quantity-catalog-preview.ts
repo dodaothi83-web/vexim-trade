@@ -9,11 +9,20 @@ import type { PublicProductRecord } from "@/lib/public/product-catalog";
 
 /**
  * Staging-only cutover experiment. Call only after public product, supplier and
- * media eligibility checks. A failed read must never fall back to legacy prices.
- * This does not yet cover supplier storefronts, promotions or the main editor.
+ * media eligibility checks. A failed read for eligible records must never fall
+ * back to legacy prices. Unmapped multi-grade records deliberately remain on
+ * the legacy projection. Supplier storefronts and the main editor are not cut over.
  */
+function hasUnmappedLegacyGrades(record: PublicProductRecord): boolean {
+  const rows = record.product.specs?.grade_rows;
+  // An indexed listing can contain multiple legacy grades. A single-grade
+  // revision alone is not evidence that those grades, links and URLs were
+  // mapped. Keep the existing projection until an explicit migration exists.
+  return rows != null && (!Array.isArray(rows) || rows.length > 1);
+}
+
 export async function projectQuantityCatalogPreview(records: PublicProductRecord[]): Promise<PublicProductRecord[]> {
-  const eligible = records.filter(({ supplier }) => !supplier.is_demo);
+  const eligible = records.filter((record) => !record.supplier.is_demo && !hasUnmappedLegacyGrades(record));
   if (!eligible.length) return records;
   const [revisions, settings] = await Promise.all([
     readApprovedQuantityRevisions(eligible.map(({ product }) => product.id)),
@@ -21,7 +30,7 @@ export async function projectQuantityCatalogPreview(records: PublicProductRecord
   ]);
   const now = Date.now();
   return records.map((record) => {
-    if (record.supplier.is_demo) return record;
+    if (record.supplier.is_demo || hasUnmappedLegacyGrades(record)) return record;
     const { product, supplier, category, card } = record;
     const revision = revisions.get(product.id);
     if (!revision) throw new Error("Missing quantity revision read result");

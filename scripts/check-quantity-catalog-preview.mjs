@@ -57,6 +57,19 @@ assert.equal(card.gradePricePoints[0].value, 6);
 assert.ok(!JSON.stringify(card).includes('private warning'));
 assert.equal(output[1].card, inputs[1].card, 'No approved revision means unmodified legacy projection');
 assert.equal(output[2].card, inputs[2].card, 'Demo projection unchanged');
+// This fixture mirrors a real legacy listing with two grade rows on the same
+// indexed product. An unrelated approved revision cannot silently remove one.
+const multi = { ...record('multi'), product: { id: 'multi', price_publicly_visible: true,
+  specs: { grade_rows: [{ grade: '500 g/L' }, { grade: '550 g/L' }] } } };
+byId.set('multi', { price: { ...basePrice, product_id: 'multi' }, name: null });
+const mixed = await adapter.projectQuantityCatalogPreview([multi, record('p1')]);
+assert.equal(mixed[0], multi, 'Unmapped multi-grade product keeps its entire legacy projection and identity');
+assert.deepEqual(Array.from(batchIds), ['p1'], 'Unmapped listings are not cut over');
+const malformed = { ...record('bad'), product: { id: 'bad', specs: { grade_rows: 'invalid' } } };
+assert.equal((await adapter.projectQuantityCatalogPreview([malformed]))[0], malformed, 'Malformed legacy rows also require review');
+readError = true;
+assert.equal((await adapter.projectQuantityCatalogPreview([multi]))[0], multi, 'The preserved legacy listing does not depend on new revision tables');
+readError = false;
 const hiddenInput = { ...record('p1'), product: { id: 'p1', price_publicly_visible: false } };
 const hidden = (await adapter.projectQuantityCatalogPreview([hiddenInput]))[0].card;
 assert.equal(hidden.price, null); assert.equal(hidden.quantityOffer.tiers.length, 0); assert.equal(hidden.pricePoint, null);
