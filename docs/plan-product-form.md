@@ -64,7 +64,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 ## Migration và các bước anh thử
 
 - [x] Anh đã xác nhận chạy SQL53, SQL54, SQL55, SQL56 và SQL61. Không sửa lại các migration đã chạy.
-- [x] Kiểm tra chỉ đọc metadata trên dự án `veximtrade`: các hàm chính và cột `product_context` thuộc SQL57–60 đã hiện diện. Đây là bằng chứng cấu trúc, không khẳng định lịch sử chạy hay so khớp toàn bộ nội dung migration.
+- [x] Kiểm tra chỉ đọc metadata ngày 29/10/2026 trên dự án `veximtrade`: các hàm chính và cột `product_context` thuộc SQL57–60 đã hiện diện; bucket `vexim-media` không công khai, chưa có policy trên `storage.objects`. Đây là bằng chứng tại thời điểm kiểm tra, không khẳng định lịch sử chạy hay so khớp toàn bộ nội dung migration.
 - [ ] Đối chiếu toàn bộ migration SQL57–60 khi lập danh sách triển khai cuối cùng, kể cả môi trường staging.
 - [ ] Hoàn thiện và kiểm thử SQL62–65 cùng bất kỳ migration bổ sung nào cần cho form/duyệt trước khi đưa danh sách chạy cuối cùng. Metadata chỉ đọc cho thấy ba bảng nháp/bản gửi/ảnh nháp chưa có trên `veximtrade`. **Không chạy SQL62–65 lúc này.**
 - [x] Anh đồng ý dùng dự án Supabase Free riêng làm staging, chỉ với dữ liệu giả và không sao chép dữ liệu thật. Kiểm tra 29/10/2026 có một dự án đang hoạt động và một dự án không hoạt động; hạn mức thực tế phải được Supabase xác nhận khi tạo.
