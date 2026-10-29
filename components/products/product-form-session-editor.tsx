@@ -14,6 +14,8 @@ type Props = {
   initialRevision: number;
   initialImages: ProductFormImage[];
   initialAvailableImages?: ProductFormImage[];
+  /** Read by the server for this supplier and product; reload after a review decision. */
+  initialPending?: boolean;
   categories: CategoryProposalOption[];
   policies: Record<string, QuantityPricingPolicy>;
   operations: ProductFormSessionOperations;
@@ -23,7 +25,7 @@ type Props = {
 };
 
 /** The same controller is usable by supplier and staff, with independently authorized actions. */
-export function ProductFormSessionEditor({ initialDraft, initialProductId, initialRevision, initialImages, initialAvailableImages,
+export function ProductFormSessionEditor({ initialDraft, initialProductId, initialRevision, initialImages, initialAvailableImages, initialPending = false,
   categories, policies, operations, onSessionChange, disabled = false }: Props) {
   const [value, setValue] = useState(initialDraft);
   const [state, setState] = useState<ProductFormSessionState>({ productId: initialProductId, revision: initialRevision,
@@ -101,11 +103,13 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
       </li>)}</ul></div>}
     <p className="text-xs text-ink-500">{state.images.length}/8 ảnh. JPG, PNG hoặc WebP, tối đa 8 MB mỗi ảnh.</p>
   </div>;
-  const statusText = state.requiresReload ? "Cần tải lại trang" : state.submitted ? "Đã gửi duyệt" : state.busy || preparingImages ? "Đang xử lý" : session.isDirty(value) ? "Có thay đổi chưa lưu" : "Đã lưu bản nháp";
+  const pending = initialPending || state.submitted;
+  const statusText = state.requiresReload ? "Cần tải lại trang" : pending ? "Đang chờ duyệt" : state.busy || preparingImages ? "Đang xử lý" : session.isDirty(value) ? "Có thay đổi chưa lưu" : "Đã lưu bản nháp";
   return <div className="space-y-3">
+    {pending && <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Giá mới đang chờ Vexim xác nhận.</p>}
     {message && <p role={message.ok ? "status" : "alert"} className={`rounded-lg border px-3 py-2 text-sm ${message.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{message.text}</p>}
     <ProductFormFiveSections value={value} onChange={(next) => { setValue(next); setServerErrors([]); }} categories={categories} policies={policies}
       imageCount={state.images.length} coverUrl={state.images[0]?.url} imageControls={imageControls} serverErrors={serverErrors}
-      onSave={() => void save()} onSubmit={() => void submit()} disabled={disabled || state.submitted || state.requiresReload} busy={state.busy || preparingImages} statusText={statusText} />
+      onSave={() => void save()} onSubmit={() => void submit()} canSubmit={!pending} disabled={disabled || state.submitted || state.requiresReload} busy={state.busy || preparingImages} statusText={statusText} />
   </div>;
 }

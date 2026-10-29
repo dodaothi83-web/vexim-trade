@@ -8,7 +8,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 const exports = {};
 const mocks = {
   react: React, 'react/jsx-runtime': await import('react/jsx-runtime'),
-  '@/components/products/product-form-five-sections': { ProductFormFiveSections: (props) => React.createElement('div', null, props.imageControls) },
+  '@/components/products/product-form-five-sections': { ProductFormFiveSections: (props) => React.createElement('div', null, props.imageControls,
+    React.createElement('button', { disabled: !props.canSubmit }, 'Gửi duyệt'), React.createElement('span', null, props.statusText)) },
   '@/lib/products/product-form-session': { ProductFormSession: class { isDirty() { return false; } } },
   '@/lib/products/product-form-image-transport': { prepareProductFormImageTransport: async (file) => file },
 };
@@ -25,4 +26,7 @@ html = renderToStaticMarkup(React.createElement(exports.ProductFormSessionEditor
 assert.doesNotMatch(html, /type="file"/); assert.match(html, /8\/8 ảnh/);
 html = renderToStaticMarkup(React.createElement(exports.ProductFormSessionEditor, { ...props, disabled: true }));
 assert.match(html, /type="file"[^>]*disabled=""/); assert.match(html, /disabled=""[^>]*aria-label="Gỡ ảnh 1/);
-console.log('Product form image UI: cover, remove, add, limit and locked states passed');
+html = renderToStaticMarkup(React.createElement(exports.ProductFormSessionEditor, { ...props, initialPending: true }));
+assert.match(html, /Giá mới đang chờ Vexim xác nhận\./); assert.match(html, /<button disabled="">Gửi duyệt<\/button>/);
+assert.match(html, /Đang chờ duyệt/);
+console.log('Product form image UI: cover, remove, add, limit, locked and pending states passed');

@@ -11,7 +11,7 @@ import type { ProductFormImage } from "@/lib/products/product-form-session";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: false; message: string; requiresReload?: boolean } | { ok: true; id: string; revision: number;
-  draft?: ProductFormDraft | null; images?: ProductFormImage[]; availableImages?: ProductFormImage[] };
+  draft?: ProductFormDraft | null; images?: ProductFormImage[]; availableImages?: ProductFormImage[]; pending?: boolean };
 
 /** Always authorize using the same Supabase store that owns the private draft. */
 async function context() {
@@ -99,19 +99,23 @@ export async function loadProductFormDraftAction(productId: string): Promise<Res
     const { data, error } = await ctx.db.from("product_form_drafts").select("revision,payload,image_selection")
       .eq("product_id", productId).eq("supplier_id", ctx.access.supplier.id).maybeSingle();
     if (error) throw new Error(error.message);
-    const [media, stagedResult] = await Promise.all([
+    const [media, stagedResult, pendingResult] = await Promise.all([
       supabaseStore.listMedia("product", product.id),
       ctx.db.from("product_form_staged_images").select("id,product_id,supplier_id,created_by,storage_path,mime")
         .eq("product_id", product.id).eq("supplier_id", ctx.access.supplier.id).eq("created_by", ctx.access.user.id).limit(101),
+      ctx.db.from("product_form_submissions").select("id")
+        .eq("product_id", product.id).eq("supplier_id", ctx.access.supplier.id).eq("status", "pending").limit(2),
     ]);
     if (stagedResult.error) throw new Error(stagedResult.error.message);
+    if (pendingResult.error || !pendingResult.data || pendingResult.data.length > 1) throw new Error("Invalid pending form submissions");
+    const pending = pendingResult.data.length === 1;
     const images = resolveSupplierDraftImages({ selection: data ? data.image_selection : [], productId: product.id,
       supplierId: ctx.access.supplier.id, userId: ctx.access.user.id, media, staged: stagedResult.data ?? [] });
     if (!images) throw new Error("Invalid or unavailable draft images");
-    if (!data) return { ok: true, id: product.id, revision: 0, draft: null, images: images.selected, availableImages: images.available };
+    if (!data) return { ok: true, id: product.id, revision: 0, draft: null, images: images.selected, availableImages: images.available, pending };
     const draft = safeDraft(data.payload);
     if (!draft || !Number.isSafeInteger(data.revision) || data.revision < 1) throw new Error("Invalid stored draft");
-    return { ok: true, id: product.id, revision: data.revision, draft, images: images.selected, availableImages: images.available };
+    return { ok: true, id: product.id, revision: data.revision, draft, images: images.selected, availableImages: images.available, pending };
   } catch (error) {
     console.error("[product-form-draft] load", error);
     return { ok: false, message: "Không tải được bản nháp. Vui lòng thử lại." };

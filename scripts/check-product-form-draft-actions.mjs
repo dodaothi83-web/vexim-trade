@@ -7,12 +7,12 @@ const supplier = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const productId = '11111111-1111-1111-1111-111111111111';
 const requestId = '22222222-2222-2222-2222-222222222222';
 let access = { supplier: { id: supplier }, user: { id: 'supplier-user' } }, approved = true;
-let product = { id: productId, supplier_id: supplier }, row = null, failure = null, rpcCalls = [], readCalls = [];
+let product = { id: productId, supplier_id: supplier }, row = null, pendingRows = [], failure = null, rpcCalls = [], readCalls = [];
 let rpcData = { status: 'saved', product_id: productId, revision: 1 };
 const db = {
   rpc: async (name, args) => { rpcCalls.push({ name, args }); return { data: rpcData, error: failure }; },
   from: (table) => { const filters = {}; return { select() { return this; }, eq(key, value) { filters[key] = value; return this; },
-    async limit() { readCalls.push({ table, filters }); return { data: [], error: failure }; },
+    async limit() { readCalls.push({ table, filters }); return { data: table === 'product_form_submissions' ? pendingRows : [], error: failure }; },
     async maybeSingle() { readCalls.push({ table, filters }); return { data: row, error: failure }; } }; },
 };
 const mocks = {
@@ -54,8 +54,12 @@ assert.equal(rpcCalls.at(-1).name, 'save_product_form_draft_checked');
 product = { id: productId, supplier_id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' };
 assert.equal((await load(productId)).ok, false); assert.equal(readCalls.length, 0, 'Never read another supplier draft');
 product = { id: productId, supplier_id: supplier };
-result = await load(productId); assert.equal(result.revision, 0); assert.equal(result.draft, null);
+result = await load(productId); assert.equal(result.revision, 0); assert.equal(result.draft, null); assert.equal(result.pending, false);
 assert.equal(readCalls[0].filters.product_id, productId); assert.equal(readCalls[0].filters.supplier_id, supplier);
+const pendingQuery = readCalls.find((call) => call.table === 'product_form_submissions');
+assert.equal(pendingQuery.filters.product_id, productId); assert.equal(pendingQuery.filters.supplier_id, supplier); assert.equal(pendingQuery.filters.status, 'pending');
+pendingRows = [{ id: 'pending' }]; assert.equal((await load(productId)).pending, true);
+pendingRows = [{ id: 'one' }, { id: 'two' }]; assert.equal((await load(productId)).ok, false, 'Duplicate pending submissions fail closed'); pendingRows = [];
 row = { revision: 2, payload: input, image_selection: [] }; result = await load(productId); assert.equal(result.revision, 2); assert.equal(result.draft, input);
 row = { revision: 2, payload: {}, image_selection: [] }; assert.equal((await load(productId)).ok, false, 'Malformed stored payload fails closed');
 row = { revision: 2, payload: { ...input, descriptionDetail: '<script>alert(1)</script>' }, image_selection: [] };
