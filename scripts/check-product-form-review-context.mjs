@@ -27,6 +27,7 @@ try {
   for (let n = 0; n < 2; n++) for (const file of ['20261062_private_product_form_drafts.sql', '20261063_product_form_submission.sql',
     '20261064_product_form_private_images.sql', '20261065_product_form_review_context.sql'])
     await db.exec(readFileSync(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../supabase/migrations/20261066_product_form_private_image_namespace.sql', import.meta.url), 'utf8'));
   const first = (await db.query('select public.create_product_form_draft($1,$2,$3::jsonb) result', [supplier, request, JSON.stringify(payload)])).rows[0].result;
   const id = first.product_id;
   await db.query('select public.stage_product_form_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
