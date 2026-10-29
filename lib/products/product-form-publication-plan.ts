@@ -13,7 +13,7 @@ const object = (value: unknown): value is Record<string, unknown> => !!value && 
 const text = (value: string) => value.trim() || null;
 
 type Result = { ok: true; patch: Partial<SupplierProduct>; moqRequiresTextFallback: boolean } |
-  { ok: false; reason: "invalid_snapshot" | "legacy_grade_unmapped" | "legacy_capacity_unmapped" };
+  { ok: false; reason: "invalid_snapshot" | "legacy_grade_unmapped" | "legacy_capacity_unmapped" | "legacy_lead_time_unmapped" };
 
 /**
  * Draft a lossless product patch after the review validator has approved the
@@ -51,24 +51,34 @@ export function planProductFormPublication(input: {
   let originalSpecs: Record<string, unknown>;
   try { originalSpecs = structuredClone(product.specs ?? {}); }
   catch { return { ok: false, reason: "invalid_snapshot" }; }
+  const previousGrade = originalSpecs.grade;
+  if (previousGrade != null && (typeof previousGrade !== "string" ||
+      (!!previousGrade.trim() && normalize(previousGrade) !== normalize(quantity.grade))))
+    return { ok: false, reason: "legacy_grade_unmapped" };
   const rows = originalSpecs.grade_rows;
   if (rows != null && (!Array.isArray(rows) || rows.length > 1 || (rows.length === 1 &&
       (!object(rows[0]) || typeof rows[0].grade !== "string" || !rows[0].grade.trim() || normalize(rows[0].grade) !== normalize(quantity.grade)))))
     return { ok: false, reason: "legacy_grade_unmapped" };
   const capacity = draft.monthlyCapacityKg.trim();
-  if (!capacity && product.monthly_capacity?.trim()) return { ok: false, reason: "legacy_capacity_unmapped" };
   if (capacity && (!/^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(capacity) || Number(capacity.replace(/,/g, "")) < 1 ||
       !Number.isSafeInteger(Number(capacity.replace(/,/g, ""))) || Number(capacity.replace(/,/g, "")) > 1_000_000_000))
     return { ok: false, reason: "invalid_snapshot" };
+  const newCapacity = capacity ? `${capacity.replace(/,/g, "")} kg` : null;
+  // Without an archived baseline and explicit mapping, even replacing an old
+  // non-kg value with a newly entered kg value would silently lose legacy data.
+  if (product.monthly_capacity?.trim() && product.monthly_capacity !== newCapacity)
+    return { ok: false, reason: "legacy_capacity_unmapped" };
   const days = draft.leadTimeDays.trim();
   if (days && (!/^\d+$/.test(days) || Number(days) < 1 || Number(days) > 3650)) return { ok: false, reason: "invalid_snapshot" };
+  const newLeadTime = days ? { value: Number(days), unit: "days" } : { value: null, unit: "on_request" };
+  if (originalSpecs.lead_time != null && canonical(originalSpecs.lead_time) !== canonical(newLeadTime))
+    return { ok: false, reason: "legacy_lead_time_unmapped" };
   const first = price.tiers[0], last = price.tiers[price.tiers.length - 1];
   // The old structured MOQ column only has two decimals. Do not round a more
   // precise kg/MT amount into that column; retain exact text and the v2 grams.
   const moqRequiresTextFallback = first.quantityGrams % (price.unitWeightGrams / 100) !== 0;
   const amount = v2InputDecimal(first.quantityGrams, price.unitWeightGrams);
-  const specs = { ...originalSpecs, ...draft.attributes, grade: quantity.grade,
-    lead_time: days ? { value: Number(days), unit: "days" } : { value: null, unit: "on_request" } };
+  const specs = { ...originalSpecs, ...draft.attributes, grade: quantity.grade, lead_time: newLeadTime };
   return { ok: true, moqRequiresTextFallback, patch: {
     name: draft.name.trim(), name_i18n: { ...product.name_i18n, en: validated.englishName },
     category: draft.category.trim(), reviewed_category_slug: draft.category.trim(),
@@ -80,6 +90,6 @@ export function planProductFormPublication(input: {
     currency: "USD", price_publicly_visible: draft.pricePubliclyVisible, incoterm: quantity.incoterm, incoterm_place: text(draft.incotermPlace),
     payment_terms: text(draft.paymentTerms), oem: draft.oem, odm: draft.odm, samples: draft.samples,
     packaging: text(draft.packaging), export_port: text(draft.exportPort), lead_time_days: days ? Number(days) : null,
-    monthly_capacity: capacity ? `${capacity.replace(/,/g, "")} kg` : null,
+    monthly_capacity: newCapacity,
   } };
 }

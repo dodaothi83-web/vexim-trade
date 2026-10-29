@@ -21,8 +21,8 @@ const draft = { name: 'Nhân điều', category: 'cashew-kernels', grade: 'W320'
   description: 'Mô tả giả', descriptionDetail: '<p>Chi tiết</p>', attributes: { moisture: '5%' }, attributePool: '[]' };
 const tiers = [{ version: 2, unit: 'mt', customGrade: false, unitWeightGrams: 1000000, quantityGrams: 1234567, priceCentsPerUnit: 640100 },
   { version: 2, unit: 'mt', customGrade: false, unitWeightGrams: 1000000, quantityGrams: 2234567, priceCentsPerUnit: 630000 }];
-const product = { name_i18n: { en: 'Old title', fr: 'Titre précédent' }, monthly_capacity: '100 boxes',
-  specs: { grade: 'W320', grade_rows: [{ grade: 'W320', old_price: 9 }], old_data: { nested: 'preserve' }, lead_time: { value: 2, unit: 'weeks' } },
+const product = { name_i18n: { en: 'Old title', fr: 'Titre précédent' }, monthly_capacity: null,
+  specs: { grade: 'W320', grade_rows: [{ grade: 'W320', old_price: 9 }], old_data: { nested: 'preserve' }, lead_time: { value: 20, unit: 'days' } },
   certifications: 'HACCP' };
 const input = { product, validated: { ok: true, draft, englishName: 'Cashew kernels', warnings: [] },
   quantity: { grade: 'W320', incoterm: 'FOB', tiers } };
@@ -36,7 +36,12 @@ assert.equal(result.patch.specs.lead_time.unit, 'days'); assert.equal(result.pat
 assert.equal(result.patch.specs.grade_rows[0].old_price, 9); assert.equal(result.patch.specs.old_data.nested, 'preserve');
 assert.equal('certifications' in result.patch, false, 'Staff-only certifications are not overwritten');
 result.patch.specs.old_data.nested = 'changed elsewhere'; assert.equal(JSON.stringify(input), before, 'Inputs and nested legacy data stay untouched');
-assert.equal(plan({ ...input, validated: { ...input.validated, draft: { ...draft, monthlyCapacityKg: '' } } }).reason, 'legacy_capacity_unmapped');
+assert.equal(plan({ ...input, product: { ...product, monthly_capacity: '100 boxes' } }).reason, 'legacy_capacity_unmapped', 'New kg must not erase legacy units');
+assert.equal(plan({ ...input, product: { ...product, monthly_capacity: '50000 kg' } }).ok, true, 'Exact unchanged capacity is preserved');
+assert.equal(plan({ ...input, product: { ...product, specs: { ...product.specs, lead_time: { value: 2, unit: 'weeks' } } } }).reason,
+  'legacy_lead_time_unmapped', 'Unmapped legacy lead time must not be erased');
+assert.equal(plan({ ...input, product: { ...product, specs: { grade: 'W240' } } }).reason, 'legacy_grade_unmapped');
+assert.equal(plan({ ...input, product: { ...product, specs: { grade: { value: 'W320' } } } }).reason, 'legacy_grade_unmapped');
 assert.equal(plan({ ...input, product: { ...product, specs: { grade_rows: [{ grade: 'W240' }] } } }).reason, 'legacy_grade_unmapped');
 assert.equal(plan({ ...input, product: { ...product, specs: { grade_rows: [{ grade: 'W320' }, { grade: 'W240' }] } } }).reason, 'legacy_grade_unmapped');
 assert.equal(plan({ ...input, validated: { ...input.validated, englishName: 'Cashew W320' } }).reason, 'invalid_snapshot');
