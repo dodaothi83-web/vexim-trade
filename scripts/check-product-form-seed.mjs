@@ -43,6 +43,8 @@ assert.equal(result.draft.grade, '500 g/L'); assert.equal(result.draft.unit, 'mt
 assert.equal(result.draft.tiers[0].quantity, '1.234567'); assert.equal(result.draft.tiers[0].price, '6401.00');
 assert.equal(result.draft.attributes.moisture, '12%'); assert.equal(result.draft.attributes.grade, undefined);
 assert.equal(result.draft.priceConsent, false); assert.equal(result.draft.descriptionDetail, '<p>Nội dung chi tiết</p>');
+assert.equal(result.draft.monthlyCapacityKg, '', 'Approved pricing alone does not prove capacity unit');
+assert.equal(result.unrepresentedMonthlyCapacity, '5,000');
 assert.equal(JSON.stringify(args), snapshot, 'A seed must never mutate the public product or its revision');
 assert.ok(model.parseProductFormDraft(seed.emptyProductFormDraft()));
 assert.equal(seed.seedProductFormFromApproved({ ...args, priceRevision: null }).reason, 'legacy_pricing');

@@ -35,7 +35,10 @@ assert.equal(result.draft.attributes.moisture, '12%'); assert.equal(result.draft
 assert.equal(result.draft.grade, ''); assert.equal(result.draft.customGrade, false); assert.equal(result.draft.unit, 'kg');
 assert.equal(result.draft.tiers[0].quantity, ''); assert.equal(result.draft.tiers[0].price, '');
 assert.equal(result.draft.pricePubliclyVisible, false); assert.equal(result.draft.priceConsent, false);
-assert.equal(result.draft.monthlyCapacityKg, '100k', 'Do not guess a legacy capacity');
+assert.equal(result.draft.monthlyCapacityKg, '', 'Do not interpret a legacy capacity as kg');
+assert.equal(result.unrepresentedMonthlyCapacity, '100k', 'Keep the original text for staff review');
+const bareCapacity = clone({ ...args, product: { ...product, monthly_capacity: '5000' } });
+assert.equal(bareCapacity.draft.monthlyCapacityKg, ''); assert.equal(bareCapacity.unrepresentedMonthlyCapacity, '5000');
 assert.deepEqual(Array.from(result.unrepresentedSpecKeys), ['old_data']); assert.equal(result.requiresStaffCertificationCopy, true);
 assert.equal(JSON.stringify(args), original, 'Legacy product, grades, prices and photos are untouched');
 assert.equal(clone({ ...args, product: { ...product, name: 'x'.repeat(181) } }).reason, 'unrepresentable_fields');

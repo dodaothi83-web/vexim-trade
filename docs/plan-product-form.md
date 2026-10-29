@@ -37,12 +37,12 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Kiểm tra lại thuộc tính theo cấu hình danh mục khi gửi và khi rà soát; không âm thầm bỏ thông số không hợp lệ hoặc giá trị bị ẩn theo điều kiện. Giá trị ẩn được hiển thị để NCC chủ động xóa; lỗi server được đưa về phần liên quan trong form.
 - [ ] Nối bảng giá vào form mới và luồng duyệt an toàn, kiểm tra lại toàn bộ quy tắc bản chốt từ UI đến server và database.
 - [ ] Bảo đảm giá đã duyệt tiếp tục hiện khi có giá mới chờ duyệt; duyệt phải nguyên tử và phát hiện thay đổi đồng thời của tên, grade, giá và ảnh.
-- [x] Đã xây helper tạo dữ liệu sửa nháp từ sản phẩm cũ một grade mà không đoán tier, MOQ, đơn vị hay năng lực; báo phần grade_rows, thông số, chứng nhận và năng lực cũ cần giữ/kiểm tra. Từ chối nhiều grade hoặc grade mơ hồ, chưa nối form hay duyệt.
+- [x] Đã xây helper tạo dữ liệu sửa nháp từ sản phẩm cũ một grade mà không đoán tier, MOQ, đơn vị hay năng lực; báo phần grade_rows, thông số, chứng nhận và năng lực cũ cần giữ/kiểm tra. Cả helper từ revision giá v2 cũng không tự hiểu năng lực cũ là kg; cần khôi phục từ form đã duyệt liên kết chính xác. Từ chối nhiều grade hoặc grade mơ hồ, chưa nối form hay duyệt.
 - [ ] Hoàn thiện xử lý sản phẩm cũ cần người xác nhận, không tự chọn giá trong khoảng giá cũ, không tự chuyển đơn vị bao/thùng; bảo đảm thông tin cũ chưa biểu diễn được không bị mất khi duyệt.
 
 ## Nhân bản cho grade khác
 
-- [x] Đã xây và kiểm thử hàm tạo dữ liệu nháp độc lập từ form hiện có hoặc sản phẩm cũ nhiều grade: giữ nội dung chung, xóa grade/tier cũ và yêu cầu xác nhận công khai giá mới. Các thuộc tính cũ chưa biểu diễn được và chứng nhận CRM được báo để xử lý riêng, không tự bỏ qua. Hàm chưa tạo sản phẩm, chưa sao chép ảnh và chưa nối giao diện.
+- [x] Đã xây và kiểm thử hàm tạo dữ liệu nháp độc lập từ form hiện có hoặc sản phẩm cũ nhiều grade: giữ nội dung chung, xóa grade/tier cũ và yêu cầu xác nhận công khai giá mới. Thuộc tính cũ, chứng nhận CRM và năng lực có đơn vị không rõ được giữ riêng để xem lại, không tự đổi sang kg. Hàm chưa tạo sản phẩm, chưa sao chép ảnh và chưa nối giao diện.
 - [ ] Xây nút “Nhân bản cho grade khác” và luồng tạo bản nháp độc lập với sản phẩm gốc. Không đổi sản phẩm gốc hoặc tự công khai bản mới.
 - [x] Đã xây helper sao chép ảnh vào nháp riêng cho nút nhân bản: kiểm tra quyền, chủ đường dẫn và ảnh gốc; không ghi đè hay xóa ảnh gốc, báo tải lại nếu kết quả không chắc chắn. Chỉ thử bằng dữ liệu giả, chưa nối UI hoặc sao chép ảnh thật.
 - [ ] Hoàn thiện sao chép dữ liệu, ảnh và các liên kết được phép; khôi phục sau sao chép dở, không dùng chung đường dẫn ảnh gây nhầm quyền sở hữu hoặc xóa nhầm.
@@ -81,7 +81,8 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Anh tạo `veximtrade-staging` (`vqyekpritfobxkrlisan`) và cho phép dựng schema, dữ liệu giả trên dự án này; chỉ dùng staging, không đụng production. Đã xây bootstrap có guard schema rỗng và thử PGlite, chưa có luồng end-to-end.
 - [ ] Hoàn thiện và kiểm thử các migration bổ sung và transaction duyệt trước khi đưa danh sách chạy cuối cùng. Không chạy lại SQL62–68 chỉ để sửa khác biệt; phải thử luồng hoàn chỉnh trên staging riêng trước khi bật.
 - [x] Anh tạo dự án Supabase Free riêng làm staging, chỉ với dữ liệu giả và không sao chép dữ liệu thật. Anh cho phép em dựng schema và dữ liệu thử ở `vqyekpritfobxkrlisan`, không đụng dự án production.
-- [ ] Dựng và kiểm thử dự án staging riêng; kiểm tra chính xác cấu trúc và quyền, tạo dữ liệu giả, không dùng dữ liệu thật.
+- [x] Dựng schema trên staging riêng từ bootstrap đã kiểm tra hash, chỉ khi public schema rỗng và Storage có RLS, không có policy; giữ nguyên quyền Storage do Supabase quản lý. Có 46 bảng, 5 danh mục cấu hình, 2 NCC giả, 1 sản phẩm cũ giả hai grade và 1 bản nháp giả. Hàm namespace trả true; kiểm thử transaction giả tạo nháp, staging metadata ảnh, gửi và lấy context duyệt thành công rồi rollback, không tạo media công khai. Chưa thử bytes Storage, đăng nhập hay UI thật.
+- [ ] Hoàn thiện kiểm thử staging với ảnh thật giả lập, tài khoản thử, luồng NCC/CRM/buyer và các tình huống cạnh tranh, sau khi transaction duyệt và các trang được nối.
 - [ ] Viết thứ tự chạy migration, điều kiện tiên quyết và kiểm tra sau chạy. Anh là người chạy migration production; em chỉ được dựng schema và dữ liệu giả trên staging đã chỉ định.
 - [ ] Sau khi staging sẵn sàng, hướng dẫn anh thử tạo nháp thiếu thông tin, tải ảnh, nhập tier, gửi duyệt, duyệt CRM, xem buyer và sửa lại giá/tên.
 - [ ] Gửi ảnh chụp thực tế desktop/mobile và các bước kiểm thử rõ ràng sau khi luồng hoàn tất; chỉ đề nghị bật cho NCC sau khi staging đạt và anh chấp thuận.
