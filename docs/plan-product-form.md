@@ -17,6 +17,7 @@ Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đ
 - [x] Đã xây mô hình nháp thiếu thông tin, kiểm tra khi gửi, điều phối phiên bản và nền tảng lưu nháp riêng tư; đã kiểm thử bằng fixture và PGlite, chưa triển khai.
 - [x] Đã xây nền tảng ảnh nháp tách biệt khỏi ảnh công khai, chọn thứ tự và ảnh chính riêng cho bản nháp, kiểm tra quyền và snapshot ảnh lúc gửi. Chưa nối upload, gửi duyệt và transaction duyệt vào trang thật.
 - [x] Adapter chưa hoàn thiện chặn tải ảnh và gửi duyệt thay vì gọi endpoint cũ; có kiểm thử tránh vô tình công khai ảnh mới.
+- [x] Phiên form buộc tải lại sau kết quả lưu ảnh hoặc gửi duyệt không xác định, tránh tiếp tục sửa khi server có thể đã nhận bản gửi.
 - [ ] Nối cùng một form năm phần vào tạo mới và sửa sản phẩm NCC, giữ các trường hiện có, URL và dữ liệu cũ.
 - [ ] Hoàn thiện tải ảnh riêng tư, khôi phục sau tải lại, thay ảnh và ảnh chính; xử lý lỗi mạng và tệp mồ côi an toàn. Ảnh đã công khai không đổi trước khi duyệt.
 - [ ] Hoàn thiện lưu nháp, gửi duyệt, khóa/khôi phục phiên và thông báo chờ duyệt thực tế. Kiểm tra cạnh tranh giữa các phiên, ảnh, dữ liệu và bản duyệt.

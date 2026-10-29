@@ -11,7 +11,7 @@ import { sanitizeProductDescriptionForSave } from "@/lib/products/product-descri
 import { toQuantityRevisionV2 } from "@/lib/products/quantity-revision-v2";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-type SubmitResult = { ok: false; message: string; errors?: ProductFormIssue[] } |
+type SubmitResult = { ok: false; message: string; errors?: ProductFormIssue[]; requiresReload?: boolean } |
   { ok: true; message: string; submissionId: string; warnings: ProductFormIssue[] };
 
 /** Validate against trusted category, policy and images, then submit an exact persisted draft. */
@@ -56,10 +56,10 @@ export async function submitProductFormDraftAction(productId: string, expectedRe
     });
     if (submitError) throw new Error(submitError.message);
     if (!data || data.status !== "submitted" || typeof data.submission_id !== "string" || !UUID.test(data.submission_id)) {
-      if (data?.status === "images_changed") return { ok: false, message: "Ảnh sản phẩm đã thay đổi. Hãy kiểm tra lại trước khi gửi." };
-      if (data?.status === "already_pending") return { ok: false, message: "Sản phẩm đã có bản đang chờ duyệt." };
-      if (data?.status === "already_decided") return { ok: false, message: "Bản gửi này đã được xử lý. Hãy tải lại trang." };
-      return { ok: false, message: "Dữ liệu hoặc trạng thái sản phẩm đã thay đổi. Hãy tải lại trang." };
+      if (data?.status === "images_changed") return { ok: false, requiresReload: true, message: "Ảnh sản phẩm đã thay đổi. Hãy tải lại để kiểm tra trước khi gửi." };
+      if (data?.status === "already_pending") return { ok: false, requiresReload: true, message: "Sản phẩm đã có bản đang chờ duyệt. Hãy tải lại trang." };
+      if (data?.status === "already_decided") return { ok: false, requiresReload: true, message: "Bản gửi này đã được xử lý. Hãy tải lại trang." };
+      return { ok: false, requiresReload: true, message: "Dữ liệu hoặc trạng thái sản phẩm đã thay đổi. Hãy tải lại trang." };
     }
     revalidatePath(`/supplier/portal/products/${productId}`);
     revalidatePath("/supplier/portal/products");
@@ -67,6 +67,6 @@ export async function submitProductFormDraftAction(productId: string, expectedRe
     return { ok: true, message: "Đã gửi sản phẩm để Vexim kiểm tra.", submissionId: data.submission_id, warnings: validated.warnings };
   } catch (error) {
     console.error("[product-form] submit", error);
-    return { ok: false, message: "Không gửi được sản phẩm. Vui lòng kiểm tra kết nối và thử lại." };
+    return { ok: false, requiresReload: true, message: "Không xác nhận được kết quả gửi. Hãy tải lại trang để kiểm tra." };
   }
 }

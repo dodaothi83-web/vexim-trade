@@ -54,7 +54,8 @@ assert.equal(call.args.p_supplier_id, supplier); assert.equal(call.args.p_expect
 assert.equal(call.args.p_user_id, user.id); assert.equal(call.args.p_staff, false); assert.equal(call.args.p_selection, selection);
 assert.equal(call.args.p_validated_payload, draft); assert.equal(call.args.p_quantity.grade, 'W320');
 assert.equal(call.args.p_warnings[0].code, 'grade_price_outlier');
-rpcData = { status: 'images_changed' }; result = await submit(id, 1); assert.equal(result.ok, false); assert.match(result.message, /Ảnh/);
+rpcData = { status: 'images_changed' }; result = await submit(id, 1); assert.equal(result.ok, false); assert.equal(result.requiresReload, true); assert.match(result.message, /Ảnh/);
+rpcData = { status: 'already_pending' }; result = await submit(id, 1); assert.equal(result.requiresReload, true);
 category = null; validation = { errors: [{ code: 'category', message: 'Chọn danh mục' }], warnings: [], quantity: null };
 result = await submit(id, 1); assert.equal(result.ok, false); assert.equal(validationContext.categoryValid, false); assert.equal(validationContext.policy, null);
 console.log('Product form submit action: authorization, trusted inputs, HTML safety and server validation passed');

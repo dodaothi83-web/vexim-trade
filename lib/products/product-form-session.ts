@@ -122,8 +122,14 @@ export class ProductFormSession {
     return this.run(async () => {
       const saved = await this.persist(value);
       if (!saved.ok) return saved;
-      const result = await this.operations.submit(saved.id, saved.revision);
+      let result: SubmitResult;
+      try { result = await this.operations.submit(saved.id, saved.revision); }
+      catch {
+        this.emit({ requiresReload: true });
+        return { ok: false, message: "Không xác nhận được kết quả gửi. Hãy tải lại trang để kiểm tra." };
+      }
       if (result.ok) this.emit({ submitted: true });
+      else if (result.requiresReload) this.emit({ requiresReload: true });
       return result;
     });
   }
