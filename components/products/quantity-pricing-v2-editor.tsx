@@ -180,7 +180,7 @@ export function QuantityBuyerV2Preview({ value, standardGrades, policy, pricePub
     <p className="text-sm font-semibold text-ink-900">{englishName || value.nameVi || "Tên sản phẩm"}</p>
     {!englishName && <p className="text-xs text-ink-600">Tên tiếng Anh do Vexim dịch khi duyệt</p>}
     {value.grade.trim() && <p><span className="inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700">{value.grade.trim()}</span></p>}
-    <p className="text-base font-semibold tabular-nums text-brand-800">{price}</p>
+    <p className="text-base font-semibold tabular-nums text-brand-800">{price}{first && valid && pricePubliclyVisible && valid.tiers.length > 1 && <span className="ml-2 text-xs font-normal text-ink-600">Volume pricing</span>}</p>
     <p className="text-xs text-ink-600">MOQ: {first && valid ? v2QuantityLabel(first.quantityGrams, { ...valid, tiers: [] }) : "On request"}</p>
     {value.incoterm && <p className="text-xs text-ink-600">{value.incoterm}{incotermPlace.trim() ? ` ${incotermPlace.trim()}` : ""}</p>}
     {first && valid && pricePubliclyVisible && <ul className="space-y-1 text-xs text-ink-600">
