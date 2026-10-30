@@ -7,7 +7,8 @@ import React from 'react';
 import * as jsx from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 const productId='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', supplierId='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
-let staging=false, loadCalls=0, draftResult={ok:true,id:productId,revision:0,draft:null,images:[],availableImages:[],pending:false};
+let staging=false, loadCalls=0, categoryOptions=[], legacyResult={ok:false,reason:'multiple_grades'},
+  draftResult={ok:true,id:productId,revision:0,draft:null,images:[],availableImages:[],pending:false};
 let product={id:productId,supplier_id:supplierId,name:'Legacy',supplier_review_status:'approved'};
 const supplier={id:supplierId,requested_category_slugs:[]};
 const store={listCategories:async()=>[],listSupplierCategories:async()=>[],listMedia:async()=>[],getProduct:async()=>product};
@@ -20,7 +21,11 @@ const mocks={ 'next/link':{__esModule:true,default:({children})=>React.createEle
   '@/components/page-header':{PageHeader:({title})=>React.createElement('h1',null,title)},
   '../product-editor':{SupplierProductEditor:()=>React.createElement('p',null,'OLD EDITOR')},
   '../product-form-staging-editor':{SupplierProductFormStagingEditor:(p)=>React.createElement('p',null,`NEW EDITOR ${p.productId??'new'} ${p.pending?'pending':''} ${p.readOnly?'readonly':''}`)},
-  '@/lib/supplier-portal/category-proposals':{categoryProposalOptions:()=>[],allowedSupplierCategories:()=>[]},
+  '@/lib/supplier-portal/category-proposals':{categoryProposalOptions:()=>categoryOptions,allowedSupplierCategories:()=>[]},
+  '@/lib/products/product-form-legacy-edit-seed':{seedLegacyProductFormEdit:()=>legacyResult},
+  '@/lib/product-attributes':{fieldsFor:()=>[],supplierFieldsFor:()=>[]},
+  '@/lib/products/grade-pricing':{standardGradesForCategory:()=>[]},
+  '@/lib/products/product-description':{sanitizeProductDescriptionForSave:(value)=>value??''},
   '@/lib/db/supabase':{getSupabaseClient:()=>({}),supabaseStore:store},
   '@/lib/products/quantity-new-config':{readNewQuantityPolicies:async()=>({})},
   '@/lib/products/quantity-editor-data':{readQuantityEditorData:async()=>null},
@@ -37,7 +42,15 @@ const args={params:Promise.resolve({id:productId}),searchParams:Promise.resolve(
 let html=renderToStaticMarkup(await create()); assert.match(html,/OLD EDITOR/); assert.doesNotMatch(html,/NEW EDITOR/);
 html=renderToStaticMarkup(await edit(args)); assert.match(html,/OLD EDITOR/); assert.equal(loadCalls,0,'Production never reads private form');
 staging=true; html=renderToStaticMarkup(await create()); assert.match(html,/NEW EDITOR new/); assert.doesNotMatch(html,/OLD EDITOR/);
-html=renderToStaticMarkup(await edit(args)); assert.match(html,/OLD EDITOR/, 'Legacy product without a form remains on old editor');
+html=renderToStaticMarkup(await edit(args)); assert.match(html,/OLD EDITOR/, 'Legacy product without a known category remains on old editor');
+categoryOptions=[{id:'category',slug:'cashew',label:'Cashew'}]; product={...product,category:'cashew'};
+html=renderToStaticMarkup(await edit(args)); assert.match(html,/OLD EDITOR/, 'Multi-grade listing remains unchanged');
+legacyResult={ok:true,draft:{name:'Legacy',descriptionDetail:''},unrepresentedMonthlyCapacity:'100 boxes',unrepresentedSpecKeys:['legacy'],requiresStaffCertificationReview:true};
+html=renderToStaticMarkup(await edit(args)); assert.match(html,/NEW EDITOR/); assert.match(html,/nội dung đã duyệt vẫn giữ nguyên/);
+assert.match(html,/Không tự đổi đơn vị hoặc xóa dữ liệu cũ/i, 'Unknown legacy fields are surfaced rather than guessed');
+legacyResult={...legacyResult,draft:{...legacyResult.draft,descriptionDetail:undefined}};
+html=renderToStaticMarkup(await edit(args)); assert.match(html,/Mô tả chi tiết cũ cần Vexim kiểm tra/); assert.doesNotMatch(html,/NEW EDITOR/);
+legacyResult={...legacyResult,draft:{...legacyResult.draft,descriptionDetail:''}};
 draftResult={...draftResult,revision:2,draft:{name:'Bản nháp'},pending:true}; product={...product,supplier_review_status:'pending'};
 html=renderToStaticMarkup(await edit(args)); assert.match(html,/NEW EDITOR/); assert.match(html,/pending readonly/); assert.doesNotMatch(html,/OLD EDITOR/);
 product={...product,supplier_review_status:'approved'}; html=renderToStaticMarkup(await edit(args));
