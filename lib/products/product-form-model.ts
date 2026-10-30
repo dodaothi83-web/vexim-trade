@@ -56,6 +56,32 @@ export function parseProductFormDraft(input: unknown): ProductFormDraft | null {
   return parsed.data;
 }
 
+const DRAFT_FIELD_LABELS: Record<string, string> = {
+  name: "Tên sản phẩm", category: "Danh mục", grade: "Grade", customGrade: "Grade",
+  spec: "Quy cách / tiêu chuẩn", rawMaterialRegion: "Vùng nguyên liệu", inputMaterialOrigin: "Xuất xứ nguyên liệu",
+  incoterm: "Incoterm", incotermPlace: "Địa điểm Incoterm", unit: "Đơn vị số lượng", tiers: "Giá theo số lượng",
+  pricePubliclyVisible: "Hiện giá", priceConsent: "Cam kết giá", paymentTerms: "Điều kiện thanh toán",
+  oem: "OEM", odm: "ODM", samples: "Mẫu", packaging: "Bao bì", exportPort: "Cảng xuất",
+  leadTimeDays: "Thời gian giao hàng", monthlyCapacityKg: "Năng lực cung cấp", description: "Mô tả ngắn",
+  descriptionDetail: "Mô tả chi tiết", attributes: "Thuộc tính sản phẩm", attributePool: "Thuộc tính sản phẩm",
+};
+
+/** Explain structural rejection without logging or returning any supplied values. */
+export function productFormDraftStructureError(input: unknown): string | null {
+  const parsed = productFormDraftSchema.safeParse(input);
+  if (!parsed.success) {
+    const fields = [...new Set(parsed.error.issues.map((issue) => {
+      const key = issue.path[0];
+      return typeof key === "string" && Object.hasOwn(DRAFT_FIELD_LABELS, key) ? DRAFT_FIELD_LABELS[key] : null;
+    }).filter((label): label is string => label !== null))];
+    return fields.length ? `Dữ liệu bản nháp không hợp lệ tại: ${fields.join(", ")}. Hãy kiểm tra nội dung và độ dài.` :
+      "Dữ liệu bản nháp không hợp lệ. Hãy tải lại trang hoặc liên hệ hỗ trợ.";
+  }
+  if (new TextEncoder().encode(JSON.stringify(parsed.data)).length > 60_000)
+    return "Dữ liệu bản nháp quá dài. Hãy giảm bớt nội dung rồi thử lại.";
+  return null;
+}
+
 function quantityIssue(issue: QuantityPricingIssue): ProductFormIssue {
   const section: ProductFormSection = issue.code === "grade" ? "attributes" : issue.code === "name_vi_grade" ? "basic" : "transaction";
   const field = issue.code === "grade" ? "grade" : issue.code === "name_vi_grade" ? "name" : issue.code === "incoterm" ? "incoterm" : "tiers";

@@ -1,7 +1,7 @@
 import type { ProductFormDraft, ProductFormIssue } from "@/lib/products/product-form-model";
 
 export type ProductFormImage = { id: string; url: string; source: "media" | "staged" };
-type Failure = { ok: false; message: string; requiresReload?: boolean; errors?: ProductFormIssue[] };
+type Failure = { ok: false; message: string; requiresReload?: boolean; errors?: ProductFormIssue[]; rejectedBeforeCreate?: boolean };
 type DraftResult = Failure | { ok: true; id: string; revision: number };
 type SubmitResult = Failure | { ok: true; message: string };
 type ImageResult = Failure | { ok: true; revision: number };
@@ -40,7 +40,7 @@ export type ProductFormSessionState = {
 export class ProductFormSession {
   private state: ProductFormSessionState;
   private saved: string | null;
-  private pendingCreate: { requestId: string; value: ProductFormDraft; serialized: string } | null = null;
+  private pendingCreate: { requestId: string; value: ProductFormDraft; serialized: string; uncertain: boolean } | null = null;
 
   constructor(
     private readonly operations: ProductFormSessionOperations,
@@ -70,13 +70,32 @@ export class ProductFormSession {
     if (!this.state.productId) {
       if (!this.pendingCreate) {
         // A detached copy protects the idempotency payload from client mutations.
-        this.pendingCreate = { requestId: this.operations.newRequestId(), value: JSON.parse(serialized) as ProductFormDraft, serialized };
+        this.pendingCreate = { requestId: this.operations.newRequestId(), value: JSON.parse(serialized) as ProductFormDraft, serialized, uncertain: false };
       }
       const pending = this.pendingCreate;
-      const created = await this.operations.create(pending.requestId, pending.value);
-      if (!created.ok) return created;
-      if (!created.id || !Number.isSafeInteger(created.revision) || created.revision < 1)
-        return { ok: false, message: "Không xác nhận được phiên bản bản nháp. Hãy tải lại trang." };
+      let created: DraftResult;
+      try { created = await this.operations.create(pending.requestId, pending.value); }
+      catch (error) { pending.uncertain = true; throw error; }
+      if (!created || (created.ok !== true && created.ok !== false)) {
+        pending.uncertain = true;
+        this.emit({ requiresReload: true });
+        return { ok: false, requiresReload: true, message: "Không xác nhận được kết quả tạo. Hãy tải lại trang và kiểm tra danh sách sản phẩm." };
+      }
+      if (!created.ok) {
+        // A rejection proves only this attempt did not reach the RPC. An
+        // earlier response may have been lost after creating the product.
+        if (created.rejectedBeforeCreate === true && !pending.uncertain) this.pendingCreate = null;
+        else if (created.rejectedBeforeCreate === true) {
+          this.emit({ requiresReload: true });
+          return { ok: false, requiresReload: true, message: "Không xác nhận được kết quả tạo trước đó. Hãy tải lại trang và kiểm tra danh sách sản phẩm." };
+        } else pending.uncertain = true;
+        return created;
+      }
+      if (!created.id || !Number.isSafeInteger(created.revision) || created.revision < 1) {
+        pending.uncertain = true;
+        this.emit({ requiresReload: true });
+        return { ok: false, requiresReload: true, message: "Không xác nhận được phiên bản bản nháp. Hãy tải lại trang và kiểm tra danh sách sản phẩm." };
+      }
       // A retry may return a later revision after another session edited it;
       // never assume the original creation payload is still the saved content.
       if (created.revision !== 1) {
