@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ImageIcon } from "lucide-react";
 import {
   formatQuantityBuyer,
   formatQuantityPriceBuyer,
@@ -49,7 +50,7 @@ function readCurrency(value: QuantityPricingInput): PriceCurrency {
 /** Read-only live preview, reusable in the supplier sidebar and standalone editor.
  *  Xem trước được cả khi đang nhập dở: thiếu grade hay tên chưa dịch không làm mất
  *  giá vừa gõ (validate nghiêm vẫn chặn lưu ở server). */
-export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPriceUnit, pricePubliclyVisible }: Pick<Props, "value" | "standardGrades" | "policy" | "buyerPriceUnit" | "pricePubliclyVisible">) {
+export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPriceUnit, pricePubliclyVisible, imageUrl }: Pick<Props, "value" | "standardGrades" | "policy" | "buyerPriceUnit" | "pricePubliclyVisible"> & { /** Ảnh đại diện đã lưu, để thẻ xem trước có hình như thẻ thật của người mua. */ imageUrl?: string | null }) {
   const preview = previewQuantityTiers(value, standardGrades);
   const prices = preview.tiers.map((tier) => tier.priceUsdPerKg);
   const low = prices.length ? Math.min(...prices) : null;
@@ -67,9 +68,25 @@ export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPrice
   const title = value.nameEn.trim() || value.nameVi.trim() || "Tên sản phẩm";
   return <div aria-label="Người mua sẽ thấy">
     <h3 className="text-sm font-bold text-ink-900">Người mua sẽ thấy</h3>
-    <p className="mt-2 text-sm font-semibold">{title}</p>
-    {!value.nameEn.trim() && <p className="mt-1 text-xs text-ink-600">Tên tiếng Anh do Vexim dịch khi duyệt</p>}
-    <p className="mt-1 text-xs text-ink-600">{preview.grade || "Chưa chọn grade"}</p>
+    <div className="mt-2">
+      <div className="flex items-start gap-3">
+        {/* Chỉ vẽ ô ảnh khi nơi gọi chủ động truyền ảnh (CRM); sidebar NCC đã có ảnh lớn phía trên. */}
+        {imageUrl !== undefined && <div className="size-[64px] shrink-0 overflow-hidden rounded-lg border border-ink-200 bg-ink-50">
+          {imageUrl
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={imageUrl} alt="Ảnh đại diện sản phẩm" className="size-full object-cover" />
+            : <span className="flex size-full flex-col items-center justify-center gap-1 text-ink-400">
+              <ImageIcon className="size-5" aria-hidden="true" />
+              <span className="text-[9px] font-semibold">Chưa có ảnh</span>
+            </span>}
+        </div>}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">{title}</p>
+          {!value.nameEn.trim() && <p className="mt-1 text-xs text-ink-600">Tên tiếng Anh do Vexim dịch khi duyệt</p>}
+          <p className="mt-1 text-xs text-ink-600">{preview.grade || "Chưa chọn grade"}</p>
+        </div>
+      </div>
+    </div>
     <p className="mt-3 text-base font-semibold tabular-nums">{pricePubliclyVisible ? cardPrice : "Price on request"}</p>
     {!pricePubliclyVisible && <p className="mt-1 text-xs text-ink-500">Đang tắt chia sẻ giá nên người mua chỉ thấy “Price on request”.</p>}
     {pricePubliclyVisible && preview.tiers.length > 0 && <p className="text-xs text-ink-500">{incoterms.join(" / ")}{preview.tiers.length > 1 ? " · Volume pricing" : ""}</p>}

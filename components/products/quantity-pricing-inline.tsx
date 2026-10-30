@@ -3,21 +3,33 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QuantityPricingEditor } from "@/components/products/quantity-pricing-editor";
+import { publishQuantityPreview } from "@/components/products/quantity-preview-store";
 import { validateQuantityPricing, type QuantityPricingInput } from "@/lib/products/quantity-pricing";
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import { submitQuantityPriceRevisionAction } from "@/app/supplier/portal/quantity-revision-actions";
 import { submitStaffQuantityPriceAction } from "@/app/crm/products/quantity-review/submit-actions";
 
 /** Independent revision submission inside an existing product form; never mutates legacy price fields. */
-export function QuantityPricingInline({ data, actor, disabled = false, dirty = false, onPreviewChange }: {
+export function QuantityPricingInline({ data, actor, disabled = false, dirty = false, onPreviewChange, publishPreview = false }: {
   data: QuantityEditorData; actor: "staff" | "supplier"; disabled?: boolean; dirty?: boolean;
   onPreviewChange?: (value: QuantityPricingInput) => void;
+  /** Đẩy bảng giá đang nhập sang thẻ "Người mua sẽ thấy" ở cột phải (CRM). */
+  publishPreview?: boolean;
 }) {
   const router = useRouter();
   const root = useRef<HTMLDivElement>(null);
   const [value, setValue] = useState<QuantityPricingInput>({ grade: data.grade, incoterm: data.incoterm, currency: data.currency,
     nameVi: data.nameVi, nameEn: actor === "supplier" ? data.nameEn : "", tiers: data.tiers });
   useEffect(() => { onPreviewChange?.(value); }, [onPreviewChange, value]);
+  useEffect(() => {
+    if (!publishPreview) return;
+    return () => publishQuantityPreview(null);
+  }, [publishPreview]);
+  useEffect(() => {
+    if (!publishPreview) return;
+    publishQuantityPreview({ value, standardGrades: data.standardGrades, policy: data.policy,
+      buyerPriceUnit: data.buyerPriceUnit, pricePubliclyVisible: data.pricePubliclyVisible });
+  }, [publishPreview, value, data]);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -90,7 +102,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
     <QuantityPricingEditor value={value} onChange={(next) => { setValue(next); setConsent(false); }} standardGrades={data.standardGrades}
       policy={data.policy} buyerPriceUnit={data.buyerPriceUnit} pricePubliclyVisible={data.pricePubliclyVisible}
       showErrors={showErrors} disabled={disabled || dirty || busy} isolated consentChecked={consent} onConsentChange={setConsent}
-      showPreview={!onPreviewChange} showTitle={actor !== "supplier"} validateEnglishName={false}
+      showPreview={!onPreviewChange && !publishPreview} showTitle={actor !== "supplier"} validateEnglishName={false}
       consentLabel={actor === "staff" ? "Tôi xác nhận nhà cung cấp đã cam kết giá này cho đúng grade, Incoterm và số lượng." : undefined} />
     <button type="button" disabled={disabled || dirty || busy} onClick={() => void submit()} className="btn btn-primary btn-sm">
       {busy ? "Đang gửi…" : "Gửi bảng giá mới để duyệt"}

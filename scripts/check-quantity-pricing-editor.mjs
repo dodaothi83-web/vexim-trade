@@ -15,6 +15,7 @@ const code = ts.transpileModule(readFileSync(new URL('../components/products/qua
 vm.runInNewContext(code, { exports, Intl, Number, Math, console, require(key) {
   if (key === 'react/jsx-runtime') return nodeRequire('react/jsx-runtime');
   if (key === 'next/link') return { default: ({ children, ...props }) => React.createElement('a', props, children) };
+  if (key === 'lucide-react') return new Proxy({}, { get: (_target, name) => (props) => React.createElement('svg', { 'data-icon': String(name), ...props }) });
   if (key === '@/lib/products/quantity-pricing') return pricing;
   throw Error(`Unexpected import ${key}`);
 } });

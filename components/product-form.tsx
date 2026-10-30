@@ -466,7 +466,7 @@ export function ProductForm({
             {product && <div className="space-y-3 rounded-xl border border-brand-200 bg-white p-4">
               <h3 className="text-sm font-bold text-ink-900">Giá theo số lượng</h3>
               {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
-                data={quantityEditor} actor="staff" disabled={busy} dirty={dirty} />
+                data={quantityEditor} actor="staff" disabled={busy} dirty={dirty} publishPreview />
                 : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra kết nối và danh mục đã xuất bản; dữ liệu giá cũ không bị thay đổi.</p>}
             </div>}
             {!product && <GradePricingTable rows={gradeRows} onChange={setGradeRows} category={activeCategorySource} disabled={busy} showErrors={showGradeErrors} />}

@@ -13,9 +13,13 @@ function compile(path, mocks) {
  vm.runInNewContext(code, { exports, console, Intl, Number, Math, require: (key) => { if (!(key in mocks)) throw Error(`Unexpected import ${key}`); return mocks[key]; } });
  return exports;
 }
-const editor = compile('../components/products/quantity-pricing-editor.tsx', { 'react/jsx-runtime': jsx, 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, '@/lib/products/quantity-pricing': pricing });
+const lucide = new Proxy({}, { get: (_target, name) => (props) => React.createElement('svg', { 'data-icon': String(name), ...props }) });
+const previewStore = { publishQuantityPreview() {} };
+const editor = compile('../components/products/quantity-pricing-editor.tsx', { 'react/jsx-runtime': jsx, 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing });
 const inline = compile('../components/products/quantity-pricing-inline.tsx', { react: React, 'react/jsx-runtime': jsx,
  'next/navigation': { useRouter: () => ({ refresh() {} }) }, '@/components/products/quantity-pricing-editor': editor,
+ '@/components/products/quantity-preview-store': previewStore,
+ '@/components/products/quantity-preview-store': previewStore,
  '@/lib/products/quantity-pricing': pricing, '@/app/supplier/portal/quantity-revision-actions': {}, '@/app/crm/products/quantity-review/submit-actions': {} });
 const data = { productId: 'p', updatedAt: '2026-10-29', nameVi: 'Nhân điều', nameEn: 'Cashew', pendingPriceId: 'pending', pendingNameId: null,
  hasApprovedPrice: true, hasApprovedName: false, grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: '1000', priceUsdPerKg: '6.40' }],

@@ -24,6 +24,8 @@ import { ProductTranslationPanel } from "./translation-panel";
 import { productTranslationState } from "@/lib/ai/translate-content";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { ProductEditWorkspace } from "./edit-workspace";
+import { QuantityPreviewCard } from "@/components/products/quantity-preview-card";
+import type { QuantityPreviewSnapshot } from "@/components/products/quantity-preview-store";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +98,16 @@ export default async function EditProductPage({
     console.error("[quantity-pricing] CRM editor", error);
     return null;
   });
+  // Thẻ "Người mua sẽ thấy" nằm ở cột phải: dựng sẵn bằng dữ liệu đã lưu để không nhấp nháy,
+  // sau khi form thuỷ hoá thì cập nhật theo bảng giá đang nhập.
+  const quantityPreviewInitial: QuantityPreviewSnapshot | null = quantityEditor ? {
+    value: { grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, currency: quantityEditor.currency,
+      nameVi: product.name ?? "", nameEn: "", tiers: quantityEditor.tiers },
+    standardGrades: quantityEditor.standardGrades,
+    policy: quantityEditor.policy,
+    buyerPriceUnit: quantityEditor.buyerPriceUnit,
+    pricePubliclyVisible: quantityEditor.pricePubliclyVisible,
+  } : null;
   const translationState = productTranslationState(product);
   const websiteChecks: Array<{ done: boolean; label: string; automatic?: boolean; href?: string }> = supplierReviewedListing ? [
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đang xuất bản` },
@@ -136,8 +148,7 @@ export default async function EditProductPage({
         title={`Sửa: ${product.name}`}
         sub={`Nhà cung cấp: ${supplier.name}`}
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Link className="btn btn-soft" href={`/crm/products/${encodeURIComponent(product.id)}/mapping-preview`}>Đối chiếu form mới</Link>
+          <div className="flex flex-wrap justify-end gap-2">
             {hasPermission(session.role, "products.delete") && <DeleteProductButton productId={product.id} name={product.name} supplierId={supplier.id} />}
           </div>
         }
@@ -249,6 +260,9 @@ export default async function EditProductPage({
             {(!supplierReviewedListing || canView) && readiness.ready && !productImages.length && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">{supplierReviewedListing ? "Sản phẩm chỉ có catalogue. Thêm ảnh để thẻ sản phẩm có hình." : "Catalogue đã đủ điều kiện nhưng thẻ chưa có ảnh. Thêm ảnh chia sẻ cho người mua để thẻ có hình."}</p>}
             {canView && category && <p className="mt-3 border-t border-ink-100 pt-3"><Link className="text-[13px] font-semibold text-brand-700 underline" href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(product.id)}`} target="_blank">{supplierReviewedListing ? "Xem sản phẩm đã đăng" : "Xem trang sản phẩm công khai ↗"}</Link></p>}
           </section>}
+          <div className="order-2 contents xl:block">
+            <QuantityPreviewCard initial={quantityPreviewInitial} imageUrl={previewImage} />
+          </div>
           <section className="card order-3 p-4 text-[13px] leading-relaxed text-ink-600">
             <h2 className="mb-1 text-sm font-bold text-ink-900">Từ khoá và đóng gói</h2>
             <p><strong className="text-ink-900">Từ khoá:</strong> {product.keywords?.length ? product.keywords.join(", ") : "chưa khai"}</p>
