@@ -13,7 +13,7 @@ const mocks = {
   '@/components/products/product-description-editor': { ProductDescriptionEditor: Component('description') },
   '@/components/products/quantity-pricing-v2-editor': { QuantityBuyerV2Preview: Component('preview'), QuantityGradeV2Field: Component('grade'),
     QuantityIncotermV2Field: Component('incoterm'), QuantityPriceV2Consent: Component('consent'),
-    QuantityPricingV2Editor: (props) => React.createElement('div', { 'data-component': 'pricing', 'data-errors': String(props.showErrors), 'data-warnings': String(props.showWarnings), 'data-incoterm': String(props.showIncoterm), 'data-consent': String(props.showConsent) }) },
+    QuantityPricingV2Editor: (props) => React.createElement('div', { 'data-component': 'pricing', 'data-errors': String(props.showErrors), 'data-warnings': String(props.showWarnings), 'data-incoterm': String(props.showIncoterm), 'data-consent': String(props.showConsent), 'data-price': props.value.tiers[0]?.price }) },
   '@/components/raw-material-region-input': { RawMaterialRegionInput: Component('region') },
   '@/components/supplier-attribute-inputs': { SupplierAttributeInputs: Component('attributes') },
   '@/lib/product-attributes': { fieldsFor: () => [], supplierFieldsFor: () => [] },
@@ -78,4 +78,12 @@ assert.match(comparisonHtml, /Giá demo không chuyển sang bảng giá mới/)
 assert.doesNotMatch(comparisonHtml, /data-component="pricing"|data-component="consent"|data-component="preview"|Buyer sẽ thấy|Gửi duyệt|Lưu nháp/);
 assert.match(comparisonHtml, /aria-label="Tên sản phẩm"[^>]*disabled=""/);
 assert.doesNotMatch(comparisonHtml, /Tên bắt buộc|Cần bổ sung|Đã xong/);
-console.log('Five-section product form: sections, navigation, preview, rich editor, submit and read-only comparison passed');
+const reviewHtml = renderToStaticMarkup(React.createElement(exports.ProductFormFiveSections, { ...props, reviewOnly: true,
+  value: { ...value, category: 'removed', grade: 'W180', attributes: { old_field: '<script>bad</script>' },
+    tiers: [{ quantity: '100', price: '3.00' }], priceConsent: true } }));
+assert.match(reviewHtml, /removed \(không còn trong danh mục đang mở\)/); assert.match(reviewHtml, /old_field/);
+assert.match(reviewHtml, /&lt;script&gt;bad&lt;\/script&gt;/); assert.doesNotMatch(reviewHtml, /<script>/);
+assert.match(reviewHtml, /data-price="3.00"/); assert.match(reviewHtml, /Cam kết giá trong bản gửi: Đã xác nhận/);
+assert.match(reviewHtml, /aria-label="Tên sản phẩm"[^>]*disabled=""/);
+assert.doesNotMatch(reviewHtml, /Giá demo không chuyển|Gửi duyệt|Lưu nháp|Cần bổ sung|Đã xong/);
+console.log('Five-section product form: supplier, review snapshot and read-only comparison passed');

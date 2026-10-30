@@ -81,4 +81,12 @@ reviewRequests[2].resolve({ ok: true, submissionId: 's3', sourceName: 'Nhân đi
 view = renderReview({ ...reviewProps, submissionId: 's3' });
 input = find(view, (el) => el.type === 'input' && el.props.id === 'review-english-name'); assert.equal(input.props.value, 'Cashew W320', 'AI fills the correct snapshot automatically');
 assert.ok(find(view, (el) => el.type === 'p' && typeof el.props.children === 'string' && /chứa grade/.test(el.props.children)));
-console.log('Automatic translation UI: debounce, stale responses, failure, snapshot binding and manual edits passed');
+const preserved = harness('../app/crm/products/form-review/[submissionId]/review-controls.tsx', {
+  'next/navigation': { useRouter: () => ({ push() {}, refresh() {} }) },
+  '@/app/crm/products/product-form-review-actions': { requestProductFormChangesAction: async () => ({ ok: false }) },
+  '@/app/crm/products/product-form-approval-action': { approveProductFormAction: async () => ({ ok: false }) },
+  '@/app/crm/products/product-form-translation-actions': { suggestProductFormEnglishNameAction: () => { throw Error('Existing English name must not be replaced by AI'); } },
+});
+const existingView = preserved.render(preserved.exports.ProductFormReviewControls, { ...reviewProps, existingEnglishName: 'Existing English Name' });
+assert.equal(find(existingView, (el) => el.type === 'input' && el.props.id === 'review-english-name').props.value, 'Existing English Name');
+console.log('Automatic translation UI: existing English retained, debounce, stale responses, failure and manual edits passed');

@@ -238,7 +238,7 @@ export default async function EditProductPage({
           </section>}
           <section className="card order-3 p-4 text-[13px] leading-relaxed text-ink-600">
             <h2 className="mb-1 text-sm font-bold text-ink-900">Chứng nhận của NCC</h2>
-            <p>Chứng nhận không lấy từ ô sản phẩm tự khai. <Link href={`/crm/suppliers/${supplier.id}/certificates`} className="font-semibold text-brand-700 underline">Xem chứng nhận NCC chờ kiểm và quyết định công bố →</Link></p>
+            <p>Chứng nhận không lấy từ ô sản phẩm tự khai. <Link href={`/crm/suppliers/${supplier.id}/audit/documents`} className="font-semibold text-brand-700 underline">Xem giấy tờ và chứng nhận NCC →</Link></p>
           </section>
         </aside>
       </div>
