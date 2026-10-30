@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { requestProductFormChangesAction } from "@/app/crm/products/product-form-review-actions";
+import { approveProductFormAction } from "@/app/crm/products/product-form-approval-action";
 import { suggestProductFormEnglishNameAction } from "@/app/crm/products/product-form-translation-actions";
 
-export function ProductFormReviewControls({ productId, submissionId, updatedAt }: { productId: string; submissionId: string; updatedAt: string }) {
+export function ProductFormReviewControls({ productId, submissionId, updatedAt, allowApproval = false }: { productId: string; submissionId: string; updatedAt: string; allowApproval?: boolean }) {
   const router = useRouter();
   const [englishName, setEnglishName] = useState("");
   const [note, setNote] = useState("");
@@ -19,6 +20,17 @@ export function ProductFormReviewControls({ productId, submissionId, updatedAt }
       setEnglishName(result.englishName);
       setMessage({ ok: true, text: result.nameNeedsEdit ? "Tên gợi ý có thể chứa grade. Hãy sửa trước khi duyệt." : "Đã tạo gợi ý. Tên này chưa được lưu hoặc công bố." });
     } catch { setMessage({ ok: false, text: "Không tạo được gợi ý. Hãy thử lại." }); }
+    finally { setBusy(false); }
+  }
+  async function approve() {
+    if (!englishName.trim() || englishName.length > 180) { setMessage({ ok: false, text: "Nhập tên tiếng Anh trước khi duyệt." }); return; }
+    setBusy(true); setMessage(null);
+    const form = new FormData(); form.set("product_id", productId); form.set("submission_id", submissionId); form.set("english_name", englishName);
+    try {
+      const result = await approveProductFormAction(form);
+      setMessage({ ok: result.ok, text: result.message });
+      if (result.ok) router.push("/crm/products/form-review");
+    } catch { setMessage({ ok: false, text: "Không xác nhận được kết quả duyệt. Hãy tải lại trang." }); }
     finally { setBusy(false); }
   }
   async function requestChanges() {
@@ -39,7 +51,8 @@ export function ProductFormReviewControls({ productId, submissionId, updatedAt }
       <div className="flex flex-wrap gap-2"><input id="review-english-name" className="input min-w-0 flex-1" maxLength={180}
         value={englishName} onChange={(event) => setEnglishName(event.target.value)} disabled={busy} />
         <button type="button" className="btn btn-soft" disabled={busy} onClick={() => void translate()}>Gợi ý bằng AI</button></div>
-      <p className="text-xs text-ink-500">Tên dự kiến chưa được lưu hoặc công bố. Chức năng duyệt đang hoàn thiện.</p></div>
+      <p className="text-xs text-ink-500">Tên dự kiến chưa được lưu hoặc công bố.{!allowApproval && " Chức năng duyệt đang hoàn thiện."}</p>
+      {allowApproval && <button type="button" className="btn btn-primary" disabled={busy || !englishName.trim()} onClick={() => void approve()}>Duyệt và công bố</button>}</div>
     <div className="space-y-2"><label htmlFor="review-note" className="block text-sm font-medium">Lý do yêu cầu NCC chỉnh sửa</label>
       <textarea id="review-note" className="input min-h-24 w-full" maxLength={1000} value={note} disabled={busy}
         onChange={(event) => setNote(event.target.value)} />

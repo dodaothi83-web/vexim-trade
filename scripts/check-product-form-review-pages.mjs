@@ -32,7 +32,7 @@ function load(path, mocks, tsx = false) {
   const exports = {}, code = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), { compilerOptions: {
     jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
   } }).outputText;
-  vm.runInNewContext(code, { exports, Date, Number, Array, encodeURIComponent, require: (key) => {
+  vm.runInNewContext(code, { exports, Date, Number, Array, encodeURIComponent, process, require: (key) => {
     if (key === 'react/jsx-runtime') return jsx; if (!(key in mocks)) throw Error(`Unexpected import ${key}`); return mocks[key];
   } }); return exports;
 }
@@ -66,7 +66,8 @@ const detail = load('../app/crm/products/form-review/[submissionId]/page.tsx', {
   '@/lib/products/product-form-image-selection': { parseDraftImageSelection: (value) => value },
   '@/lib/products/product-form-review-diff': { productFormReviewDiff: (baseline, draft, options) => [{ baseline: baseline?.name ?? null, draft: draft.name, consentKnown: options.baselineConsentKnown }] },
   '@/lib/public/product-catalog': { shareableProductImages: () => [] },
-  './review-controls': { ProductFormReviewControls: () => React.createElement('p', null, 'Kiểm tra') },
+  '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => false },
+  './review-controls': { ProductFormReviewControls: ({ allowApproval }) => React.createElement('p', null, allowApproval ? 'Duyệt' : 'Kiểm tra') },
 }).default;
 html = renderToStaticMarkup(await detail({ params: Promise.resolve({ submissionId }) }));
 assert.match(html, /Tên đã duyệt/); assert.match(html, /Old name/); assert.match(html, /Approved revision name/);
