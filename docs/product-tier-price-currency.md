@@ -13,6 +13,18 @@ nào được lưu vào cơ sở dữ liệu, nên không thể lệch với b�
 Ví dụ: bậc 1 từ `10` giá `2`; bậc 2 từ `101` giá `1,5` → buyer thấy `10–100: 2` và
 `101 trở lên: 1,5`.
 
+### Xem trước khi đang nhập
+
+Khung **"Buyer sẽ thấy"** (cột phải form NCC và trong form CRM) dùng
+`previewQuantityTiers` chứ không chờ dữ liệu hợp lệ: mỗi mức đã có đủ số lượng + giá
+hiện ngay, kèm dải giá và bảng bậc. Chưa chọn grade chỉ là ghi chú "Chưa chọn grade"
+và dòng nhắc hoàn tất, **không** làm mất giá vừa nhập hay biến khung thành
+"Price on request". Việc lưu vẫn do `validateQuantityPricing` kiểm tra nghiêm (grade,
+thứ tự bậc, chênh lệch giá, cam kết giá) ở client và server.
+
+Nếu bảng giá đang **tắt chia sẻ công khai** thì khung xem trước vẫn nói rõ
+"Đang tắt chia sẻ giá nên buyer chỉ thấy Price on request" để không bị hiểu là lỗi.
+
 Ràng buộc giữ nguyên: tối đa 4 bậc (`max_tiers` trong `quantity_price_settings`),
 số lượng tăng dần, đơn giá không tăng khi số lượng tăng, chênh lệch giá và mức cuối
 so với MOQ theo cấu hình danh mục.

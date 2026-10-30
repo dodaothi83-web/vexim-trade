@@ -8,6 +8,8 @@ import {
   ENTRY_PRICE_CURRENCIES,
   normalizePriceCurrency,
   parseQuantityKg,
+  previewQuantityTiers,
+  quantityTierRanges,
   normalizePriceInput,
   validateQuantityPricing,
   DEFAULT_PRICE_CURRENCY,
@@ -44,40 +46,45 @@ function readCurrency(value: QuantityPricingInput): PriceCurrency {
   return normalizePriceCurrency(value.currency) ?? DEFAULT_PRICE_CURRENCY;
 }
 
-/** Read-only live preview, reusable in the supplier sidebar and standalone editor. */
+/** Read-only live preview, reusable in the supplier sidebar and standalone editor.
+ *  Xem trước được cả khi đang nhập dở: thiếu grade hay tên chưa dịch không làm mất
+ *  giá vừa gõ (validate nghiêm vẫn chặn lưu ở server). */
 export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPriceUnit, pricePubliclyVisible }: Pick<Props, "value" | "standardGrades" | "policy" | "buyerPriceUnit" | "pricePubliclyVisible">) {
-  const parsed = validateQuantityPricing({ ...value, nameEn: "" }, standardGrades, policy).value;
-  const previewPrices = parsed?.tiers.map((tier) => tier.priceUsdPerKg) ?? [];
-  const low = previewPrices.length ? Math.min(...previewPrices) : null;
-  const high = previewPrices.length ? Math.max(...previewPrices) : null;
+  const preview = previewQuantityTiers(value, standardGrades);
+  const prices = preview.tiers.map((tier) => tier.priceUsdPerKg);
+  const low = prices.length ? Math.min(...prices) : null;
+  const high = prices.length ? Math.max(...prices) : null;
+  const maxTiers = Math.min(policy.maxTiers, 4);
   const unitLabel = buyerPriceUnit === "mt" ? "MT" : "kg";
-  const currency = parsed?.currency ?? readCurrency(value);
+  const currency = preview.currency;
   const number = (n: number) => new Intl.NumberFormat("en-US", {
     minimumFractionDigits: buyerPriceUnit === "mt" ? 0 : 2,
     maximumFractionDigits: buyerPriceUnit === "mt" ? 0 : 2,
   }).format(buyerPriceUnit === "mt" ? n * 1000 : n);
   const cardPrice = low !== null && high !== null
     ? `${currency} ${number(low)}${low !== high ? `–${number(high)}` : ""}/${unitLabel}` : "Price on request";
+  const incoterms = [...new Set(preview.tiers.map((tier) => tier.incoterm).filter(Boolean))];
   const title = value.nameEn.trim() || value.nameVi.trim() || "Tên sản phẩm";
   return <div aria-label="Buyer sẽ thấy">
     <h3 className="text-sm font-bold text-ink-900">Buyer sẽ thấy</h3>
     <p className="mt-2 text-sm font-semibold">{title}</p>
     {!value.nameEn.trim() && <p className="mt-1 text-xs text-ink-600">Tên tiếng Anh do Vexim dịch khi duyệt</p>}
-    <p className="mt-1 text-xs text-ink-600">{value.grade || "Grade"}</p>
+    <p className="mt-1 text-xs text-ink-600">{preview.grade || "Chưa chọn grade"}</p>
     <p className="mt-3 text-base font-semibold tabular-nums">{pricePubliclyVisible ? cardPrice : "Price on request"}</p>
-    {pricePubliclyVisible && parsed && <p className="text-xs text-ink-500">{[...new Set(parsed.tiers.map((tier) => tier.incoterm))].join(" / ")}{parsed.tiers.length > 1 ? " · Volume pricing" : ""}</p>}
-    {pricePubliclyVisible && parsed && <table className="mt-3 w-full text-left text-xs">
+    {!pricePubliclyVisible && <p className="mt-1 text-xs text-ink-500">Đang tắt chia sẻ giá nên buyer chỉ thấy “Price on request”.</p>}
+    {pricePubliclyVisible && preview.tiers.length > 0 && <p className="text-xs text-ink-500">{incoterms.join(" / ")}{preview.tiers.length > 1 ? " · Volume pricing" : ""}</p>}
+    {pricePubliclyVisible && preview.tiers.length > 0 && <table className="mt-3 w-full text-left text-xs">
       <thead><tr><th className="pb-1">Số lượng</th><th className="pb-1">Incoterm</th><th className="pb-1">Price</th></tr></thead>
-      <tbody>{parsed.tiers.map((tier, index) => {
-        const next = parsed.tiers[index + 1];
-        return <tr key={index} className="border-t border-ink-200">
-          <td className="py-1.5">{formatQuantityBuyer(tier.minKg)}{next ? `–${formatQuantityBuyer(next.minKg - 1)}` : "+"}</td>
-          <td className="py-1.5">{tier.incoterm}</td>
-          <td className="py-1.5 tabular-nums">{formatQuantityPriceBuyer(tier.priceUsdPerKg, buyerPriceUnit, tier.currency)}</td>
-        </tr>;
-      })}</tbody>
+      <tbody>{quantityTierRanges(preview.tiers).map((tier, index) => <tr key={index} className="border-t border-ink-200">
+        <td className="py-1.5">{formatQuantityBuyer(tier.minKg)}{tier.maxKg === null ? "+" : tier.maxKg > tier.minKg ? `–${formatQuantityBuyer(tier.maxKg)}` : ""}</td>
+        <td className="py-1.5">{tier.incoterm || "—"}</td>
+        <td className="py-1.5 tabular-nums">{formatQuantityPriceBuyer(tier.priceUsdPerKg, buyerPriceUnit, tier.currency)}</td>
+      </tr>)}</tbody>
     </table>}
-    {parsed && <p className="mt-2 text-xs text-ink-600">MOQ: {formatQuantityBuyer(parsed.tiers[0].minKg)}</p>}
+    {preview.tiers.length > 0 && <p className="mt-2 text-xs text-ink-600">MOQ: {formatQuantityBuyer(preview.tiers[0].minKg)}</p>}
+    {preview.tiers.length >= maxTiers && <p className="mt-1 text-[11px] text-ink-500">Đã đạt tối đa {maxTiers} mức giá.</p>}
+    {preview.tiers.length === 0 && <p className="mt-2 text-[11px] leading-4 text-ink-500">Nhập số lượng và đơn giá để xem trước bảng giá buyer.</p>}
+    {!preview.grade && preview.tiers.length > 0 && <p className="mt-2 text-[11px] leading-4 text-amber-800">Chọn grade để hoàn tất bảng giá; giá trên chỉ là bản xem trước.</p>}
   </div>;
 }
 

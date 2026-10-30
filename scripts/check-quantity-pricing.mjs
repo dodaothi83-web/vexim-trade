@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_QUANTITY_PRICING_POLICY as defaults, validateQuantityPricing, nameContainsGrade,
   quantityTierRanges, formatQuantityBuyer, formatQuantityPriceBuyer, referencePriceAge, formatQuantityInput, normalizePriceInput,
-  entryCurrencyIssue, ENTRY_PRICE_CURRENCIES,
+  entryCurrencyIssue, ENTRY_PRICE_CURRENCIES, previewQuantityTiers,
 } from '../lib/products/quantity-pricing.ts';
 
 const grades = ['W180', 'W240', 'W320', 'WS', '550 g/L'];
@@ -81,6 +81,14 @@ assert.equal(entryCurrencyIssue('USD'), null, 'USD được nhập');
 assert.match(entryCurrencyIssue('VND'), /chỉ nhập giá bằng USD/, 'Tạm thời chặn VND khi nhập mới');
 assert.match(entryCurrencyIssue('EUR'), /chỉ nhập giá bằng USD/, 'Tạm thời chặn EUR khi nhập mới');
 assert.deepEqual([...ENTRY_PRICE_CURRENCIES], ['USD'], 'Một chỗ duy nhất để mở lại VND/EUR sau này');
+const drafting = previewQuantityTiers({ grade: '', incoterm: 'FOB', currency: 'USD', tiers: [
+  { minKg: '100', priceUsdPerKg: '2' }, { minKg: '', priceUsdPerKg: '1.5' }, { minKg: '500', priceUsdPerKg: 'abc' },
+] });
+assert.equal(drafting.tiers.length, 1, 'Xem trước bỏ qua mức còn thiếu số lượng hoặc giá');
+assert.equal(drafting.tiers[0].priceUsdPerKg, 2);
+assert.equal(drafting.grade, '', 'Chưa chọn grade không chặn xem trước');
+assert.equal(drafting.currency, 'USD');
+assert.equal(previewQuantityTiers({ grade: '', incoterm: '', currency: 'VND', tiers: [{ minKg: '1000', priceUsdPerKg: '62000' }] }).currency, 'VND', 'Bảng cũ VND vẫn xem trước được');
 const now = Date.parse('2026-10-29T00:00:00Z');
 const day = 86400000;
 assert.deepEqual(referencePriceAge(new Date(now - 90 * day).toISOString(), now), { days: 90, stale: false });

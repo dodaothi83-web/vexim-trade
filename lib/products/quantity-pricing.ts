@@ -205,6 +205,28 @@ export function validateQuantityPricing(
   return { errors, warnings, value: errors.length || !currency ? null : { grade, incoterm: firstIncoterm, currency, tiers } };
 }
 
+/** Bản xem trước khi người dùng còn đang nhập: bỏ qua các lỗi chặn lưu
+ *  (chưa chọn grade, tên chưa dịch) và chỉ giữ những mức đã có đủ số lượng + giá.
+ *  Nhờ vậy buyer preview cập nhật ngay khi gõ, không bị trắng vì thiếu grade.
+ *  Dữ liệu trả về chỉ để hiển thị, không dùng để lưu. */
+export function previewQuantityTiers(
+  input: Pick<QuantityPricingInput, "grade" | "incoterm" | "currency" | "tiers">,
+  standardGrades: readonly string[] = [],
+): { grade: string; currency: PriceCurrency; tiers: QuantityPriceTier[] } {
+  const currency = normalizePriceCurrency(input.currency) ?? DEFAULT_PRICE_CURRENCY;
+  const fallbackIncoterm = (input.incoterm ?? "").trim().toUpperCase();
+  const tiers: QuantityPriceTier[] = [];
+  for (const row of input.tiers ?? []) {
+    const minKg = parseQuantityKg(row.minKg);
+    const cents = centsFromText(row.priceUsdPerKg);
+    if (minKg === null || cents === null) continue;
+    const incoterm = (row.incoterm ?? fallbackIncoterm).trim().toUpperCase();
+    tiers.push({ minKg, priceUsdPerKg: cents / 100, incoterm: INCOTERMS.has(incoterm) ? incoterm : "", currency });
+  }
+  const grade = standardGrades.find((value) => normalized(value) === normalized(input.grade)) ?? input.grade.trim();
+  return { grade, currency, tiers };
+}
+
 /** Buyer quantities switch to MT at 1,000 kg; internal quantities stay in kg. */
 export function formatQuantityBuyer(kg: number): string {
   const value = kg >= 1000 ? kg / 1000 : kg;
