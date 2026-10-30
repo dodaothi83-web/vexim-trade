@@ -24,7 +24,7 @@ const draft = { name: 'Nhân điều', category: 'cashew', grade: 'Special A', c
   unit: 'mt', tiers: [{ quantity: '1', price: '6401' }], pricePubliclyVisible: true, priceConsent: true,
   paymentTerms: '', oem: false, odm: false, samples: true, packaging: '', exportPort: '', leadTimeDays: '', monthlyCapacityKg: '',
   description: 'Nhân điều Việt Nam', descriptionDetail: '', attributes: {}, attributePool: '[]' };
-let role = 'admin', active = true, status = 'pending', payload = draft, categoryPublished = true, productSupplier = supplierId, translateCalls = 0;
+let role = 'admin', active = true, status = 'pending', payload = draft, categoryPublished = true, productSupplier = supplierId, translateCalls = 0, limited = false;
 let duringTranslation = () => {};
 const db = { from: () => ({ select() { return this; }, eq() { return this; }, async maybeSingle() {
   return { data: { status, payload, id: submissionId, product_id: productId, supplier_id: supplierId }, error: null };
@@ -37,14 +37,16 @@ const action = load('../app/crm/products/product-form-translation-actions.ts', {
   '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: store },
   '@/lib/products/grade-pricing': { standardGradesForCategory: (cat) => cat.grades },
   '@/lib/products/product-form-model': model, '@/lib/products/quantity-pricing': pricing,
-  '@/lib/products/product-form-translation': { suggestProductFormTranslation: async () => {
-    translateCalls++; duringTranslation(); return { ok: true, translation: { name: 'Cashew Special A' } };
+  '@/lib/ai/product-name-rate-limit': { checkProductNameTranslationLimit: async () => !limited },
+  '@/lib/ai/product-name-translation': { translateProductName: async (name) => {
+    assert.equal(name, draft.name); translateCalls++; duringTranslation(); return 'Cashew Special A';
   } },
 }).suggestProductFormEnglishNameAction;
 let result = await action(productId, submissionId); assert.equal(result.ok, true); assert.equal(result.nameNeedsEdit, true);
 assert.equal(result.submissionId, submissionId); assert.equal(result.sourceName, draft.name); assert.equal(translateCalls, 1);
 role = 'supplier'; assert.equal((await action(productId, submissionId)).ok, false); assert.equal(translateCalls, 1); role = 'admin';
 active = false; assert.equal((await action(productId, submissionId)).ok, false); active = true;
+limited = true; assert.equal((await action(productId, submissionId)).ok, false); assert.equal(translateCalls, 1); limited = false;
 status = 'approved'; assert.equal((await action(productId, submissionId)).ok, false); status = 'pending';
 duringTranslation = () => { status = 'approved'; }; assert.equal((await action(productId, submissionId)).ok, false); status = 'pending';
 duringTranslation = () => { payload = { ...draft, name: 'Changed' }; }; assert.equal((await action(productId, submissionId)).ok, false); payload = draft;

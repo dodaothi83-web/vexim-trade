@@ -5,6 +5,7 @@ import { setProductFormImagesAction } from "@/app/supplier/portal/product-form-i
 import { uploadProductFormImageAction } from "@/app/supplier/portal/product-form-upload-action";
 import { snapshotProductFormImagesAction } from "@/app/supplier/portal/product-form-snapshot-action";
 import { productFormSubmitAvailabilityAction, submitProductFormDraftAction } from "@/app/supplier/portal/product-form-submit-action";
+import { translateSupplierProductNameAction } from "@/app/supplier/portal/product-form-name-translation-action";
 import type { ProductFormSessionOperations } from "@/lib/products/product-form-session";
 
 /**
@@ -15,6 +16,7 @@ import type { ProductFormSessionOperations } from "@/lib/products/product-form-s
 export function supplierProductFormOperations(): ProductFormSessionOperations {
   return {
     newRequestId: () => crypto.randomUUID(),
+    translateName: translateSupplierProductNameAction,
     create: createProductFormDraftAction,
     save: saveProductFormDraftAction,
     // Check the project boundary before the session persists or snapshots any

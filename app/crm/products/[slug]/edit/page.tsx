@@ -123,7 +123,10 @@ export default async function EditProductPage({
         title={`Sửa: ${product.name}`}
         sub={`Nhà cung cấp: ${supplier.name}`}
         actions={
-          hasPermission(session.role, "products.delete") ? <DeleteProductButton productId={product.id} name={product.name} supplierId={supplier.id} /> : null
+          <div className="flex flex-wrap gap-2">
+            <Link className="btn btn-soft" href={`/crm/products/${encodeURIComponent(product.id)}/mapping-preview`}>Đối chiếu form mới</Link>
+            {hasPermission(session.role, "products.delete") && <DeleteProductButton productId={product.id} name={product.name} supplierId={supplier.id} />}
+          </div>
         }
       />
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">

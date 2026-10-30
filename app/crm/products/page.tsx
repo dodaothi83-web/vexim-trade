@@ -12,7 +12,7 @@ import { MediaThumb } from "@/components/media-gallery";
 import { productReadiness } from "@/lib/media/readiness";
 import { auditProductStructuredUnits } from "@/lib/products/grade-pricing";
 import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
-import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
+import { loadCrmReviewInbox, pendingFormSummary } from "@/lib/crm/product-review-inbox";
 
 export const dynamic = "force-dynamic";
 
@@ -51,10 +51,36 @@ export default async function ProductsPage({
   const candidate = buyerId && hasPermission(session.role, "buyers.view") ? await store.getBuyer(buyerId) : null;
   const buyer = candidate && isOwnedBy(candidate.owner, ownerScopeOf(session)) ? candidate : null;
 
-  const [all, allCategories] = await Promise.all([
+  const [products, allCategories, inboxResult] = await Promise.all([
     listProductsWithSupplier(),
     store.listCategories({ publishedOnly: false }),
+    loadCrmReviewInbox(session).then((inbox) => ({ inbox, failed: false })).catch((error) => {
+      console.error("[crm-products] review inbox", error);
+      return { inbox: null, failed: true };
+    }),
   ]);
+  const inbox = inboxResult.inbox;
+  const formsByProduct = new Map(inbox?.forms.map((row) => [row.product_id, row]) ?? []);
+  const duplicateFormProducts = new Set<string>();
+  const seenFormProducts = new Set<string>();
+  for (const form of inbox?.forms ?? []) {
+    if (seenFormProducts.has(form.product_id)) duplicateFormProducts.add(form.product_id);
+    seenFormProducts.add(form.product_id);
+  }
+  const legacyPrices = new Set(inbox?.prices.map((row) => row.product_id) ?? []);
+  const legacyNames = new Set(inbox?.names.map((row) => row.product_id) ?? []);
+  const productsById = new Map(products.map((row) => [row.id, row]));
+  const invalidForms = inbox?.forms.filter((row) => {
+    const product = productsById.get(row.product_id);
+    return !product || !pendingFormSummary(row, product)?.draft;
+  }) ?? [];
+  const orphanedLegacy = [...(inbox?.prices ?? []), ...(inbox?.names ?? [])].some((row) => !productsById.has(row.product_id));
+  const inboxWarning = inboxResult.failed || invalidForms.length > 0 || orphanedLegacy || duplicateFormProducts.size > 0;
+  const all = products.map((product) => ({ ...product, pendingReview: product.supplier_review_status === "pending" ||
+    formsByProduct.has(product.id) || legacyPrices.has(product.id) || legacyNames.has(product.id) }));
+  const submittedFor = (product: ProductWithSupplier) => duplicateFormProducts.has(product.id) ? null :
+    pendingFormSummary(formsByProduct.get(product.id), product);
+  const isPrivateShell = (product: ProductWithSupplier) => !product.name.trim() && !product.ready_for_buyer;
   const categoryBySlug = new Map(allCategories.map((c) => [c.slug, c]));
   const unitAuditByProduct = new Map(
     all.map((r) => {
@@ -75,24 +101,26 @@ export default async function ProductsPage({
     if (!thumbByProduct.has(m.product_id)) thumbByProduct.set(m.product_id, m);
   }
   const hasShareableMedia = (id: string) => productReadiness(mediaByProduct.get(id) ?? []).ready;
-  const categories = [...new Set(all.map((r) => r.category).filter(Boolean))] as string[];
+  const categoryFor = (r: ProductWithSupplier) => isPrivateShell(r) ? submittedFor(r)?.draft?.category || r.category : r.category;
+  const nameFor = (r: ProductWithSupplier) => isPrivateShell(r) ? submittedFor(r)?.draft?.name || r.name : r.name;
+  const categories = [...new Set(all.map(categoryFor).filter(Boolean))] as string[];
 
   const viewCounts: Record<ProductView, number> = {
     all: all.length,
     ready: all.filter((r) => r.ready_for_buyer).length,
-    pending: all.filter((r) => r.supplier_review_status === "pending").length,
+    pending: all.filter((r) => r.pendingReview).length,
     changes: all.filter((r) => r.supplier_review_status === "changes_requested").length,
     nomedia: all.filter((r) => !hasShareableMedia(r.id)).length,
     unit_review: all.filter((r) => unitAuditByProduct.get(r.id)?.needsReview).length,
   };
 
   let rows = all;
-  if (view === "pending") rows = rows.filter((r) => r.supplier_review_status === "pending");
+  if (view === "pending") rows = rows.filter((r) => r.pendingReview);
   if (view === "changes") rows = rows.filter((r) => r.supplier_review_status === "changes_requested");
   if (view === "ready") rows = rows.filter((r) => r.ready_for_buyer);
   if (view === "nomedia") rows = rows.filter((r) => !hasShareableMedia(r.id));
   if (view === "unit_review") rows = rows.filter((r) => unitAuditByProduct.get(r.id)?.needsReview);
-  if (category) rows = rows.filter((r) => (r.category ?? "") === category);
+  if (category) rows = rows.filter((r) => (categoryFor(r) ?? "") === category);
   if (verifiedOnly) rows = rows.filter((r) => r.supplier?.status === "verified");
   if (cert) rows = rows.filter((r) => (r.certifications ?? "").toLowerCase().includes(cert.toLowerCase()));
 
@@ -106,7 +134,7 @@ export default async function ProductsPage({
     const ql = q.toLowerCase();
     rows = rows.filter(
       (r) =>
-        `${r.name} ${r.category} ${r.spec} ${r.supplier?.name ?? ""}`.toLowerCase().includes(ql),
+        `${nameFor(r)} ${categoryFor(r)} ${r.name} ${r.category} ${r.spec} ${r.supplier?.name ?? ""}`.toLowerCase().includes(ql),
     );
   }
   rows = orderCrmProducts(rows, tokens.length > 0 ? score : undefined);
@@ -141,7 +169,6 @@ export default async function ProductsPage({
         sub={`${all.length} hồ sơ sản phẩm · giá chỉ là tham khảo có thời hạn, báo giá chính thức do NCC xác nhận theo từng RFQ`}
         actions={canManage ? (
           <div className="flex flex-wrap gap-2">
-            {(session.role === "admin" || session.role === "reviewer") && <>{isProductFormEnabled() && <Link href="/crm/products/form-review" className="btn btn-soft">Bản gửi sản phẩm</Link>}<Link href="/crm/products/quantity-review" className="btn btn-soft">Rà soát giá và tên</Link></>}
             <Link href="/crm/products/import" className="btn btn-soft">
               Nhập từ Excel
             </Link>
@@ -152,12 +179,18 @@ export default async function ProductsPage({
         ) : undefined}
       />
 
+      {inboxWarning && <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        Chưa đối chiếu được đầy đủ các bản chờ duyệt. Không dựa vào số đếm hoặc trạng thái tại đây để kết luận hàng chờ trống.
+        {inboxResult.failed && <span> Hãy thử tải lại trang.</span>}
+        <div className="mt-2 flex flex-wrap gap-4"><Link className="font-semibold underline" href="/crm/products/form-review">Kiểm tra bản gửi sản phẩm</Link>
+          <Link className="font-semibold underline" href="/crm/products/quantity-review">Kiểm tra các bản giá và tên</Link></div>
+      </div>}
       {/* KPI tổng quan */}
       <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
           { value: viewCounts.all, label: "Tổng hồ sơ sản phẩm" },
           { value: viewCounts.ready, label: "Sẵn sàng gửi buyer" },
-          { value: viewCounts.pending, label: "NCC tự đăng · chờ kiểm tra", warn: viewCounts.pending > 0 },
+          { value: viewCounts.pending, label: "Sản phẩm chờ kiểm tra", warn: viewCounts.pending > 0 },
           { value: viewCounts.nomedia, label: "Chưa có ảnh/catalogue chia sẻ buyer", warn: viewCounts.nomedia > 0 },
         ].map((k) => (
           <div key={k.label} className="card px-4 py-3.5">
@@ -258,24 +291,34 @@ export default async function ProductsPage({
             {visibleRows.map((r) => {
               const matched = tokens.length > 0 && score(r) > 0;
               const shareable = hasShareableMedia(r.id);
+              const submitted = submittedFor(r);
+              const pendingForm = formsByProduct.get(r.id);
+              const privateShell = isPrivateShell(r);
+              const displayName = nameFor(r) || "Sản phẩm chưa có tên";
+              const displayCategory = categoryFor(r) || "Chưa phân loại";
+              const legacyReview = legacyPrices.has(r.id) || legacyNames.has(r.id);
+              const reviewHref = duplicateFormProducts.has(r.id) ? "/crm/products/form-review" : pendingForm ? `/crm/products/form-review/${encodeURIComponent(pendingForm.id)}` :
+                legacyReview ? "/crm/products/quantity-review" : `/crm/products/${r.id}/edit`;
               return (
                 <li key={r.id} className={`px-4 py-4 ${matched ? "bg-brand-50/40" : ""}`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                     <div className="flex min-w-0 flex-1 items-start gap-3">
-                      <MediaThumb asset={thumbByProduct.get(r.id) ?? null} size="h-14 w-14" />
+                      {privateShell && submitted?.imageUrl ? <img src={submitted.imageUrl} alt="Ảnh trong bản gửi" className="h-14 w-14 shrink-0 rounded-lg object-cover" /> :
+                        <MediaThumb asset={thumbByProduct.get(r.id) ?? null} size="h-14 w-14" />}
                       <div className="min-w-0 flex-1">
-                        <Link href={`/crm/products/${r.id}`} className="break-words text-sm font-bold text-ink-900 hover:text-brand-700 hover:underline">{r.name}</Link>
+                        <Link href={privateShell && pendingForm ? reviewHref : `/crm/products/${r.id}`} className="break-words text-sm font-bold text-ink-900 hover:text-brand-700 hover:underline">{displayName}</Link>
                         <p className="mt-1 break-words text-xs leading-5 text-ink-500">
                           {r.supplier ? (
                             <Link className="font-semibold text-ink-700 hover:text-brand-700 hover:underline" href={`/crm/suppliers/${r.supplier.id}`}>
                               {r.supplier.name}
                             </Link>
                           ) : "Chưa có NCC"}
-                          <span aria-hidden="true"> · </span>{r.category || "Chưa phân loại"}
+                          <span aria-hidden="true"> · </span>{displayCategory}{privateShell && submitted?.draft && <span> · Thông tin trong bản gửi</span>}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {matched && <Badge className="bg-brand-50 text-brand-700"><Sparkles className="h-3 w-3" /> Khớp nhu cầu</Badge>}
-                          {r.supplier_review_status === "pending" && <Badge className="bg-amber-100 text-amber-900">Chờ Vexim kiểm tra</Badge>}
+                          {(r.supplier_review_status === "pending" || pendingForm) && <Badge className="bg-amber-100 text-amber-900">Chờ Vexim kiểm tra</Badge>}
+                          {legacyReview && <Badge className="bg-amber-100 text-amber-900">Chờ rà soát giá hoặc tên</Badge>}
                           {r.supplier_review_status === "changes_requested" && <Badge className="bg-orange-50 text-orange-800">Cần NCC sửa</Badge>}
                           {r.supplier_review_status === "paused" ? (
                             <Badge className="bg-slate-200 text-slate-800">NCC đã tạm ẩn</Badge>
@@ -283,6 +326,8 @@ export default async function ProductsPage({
                             <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
                           ) : shareable ? (
                             <Badge className="bg-ink-100 text-ink-600">Chưa sẵn sàng gửi buyer</Badge>
+                          ) : privateShell && submitted?.imageUrl ? (
+                            <Badge className="bg-ink-100 text-ink-600">Ảnh trong bản gửi chưa duyệt</Badge>
                           ) : (
                             <Badge className="bg-amber-50 text-amber-700">Thiếu ảnh/catalogue</Badge>
                           )}
@@ -296,14 +341,14 @@ export default async function ProductsPage({
                     </div>
                     <div className="flex items-center justify-between gap-3 border-t border-ink-100 pt-3 sm:shrink-0 sm:justify-end sm:border-t-0 sm:pt-0">
                       <div className="min-w-0 sm:text-right">
-                        <p className="text-[11px] text-ink-500">Giá tham khảo</p>
-                        {r.ref_price !== null ? <>
+                        <p className="text-[11px] text-ink-500">{privateShell && submitted?.draft ? "Giá trong bản gửi" : "Giá tham khảo"}</p>
+                        {privateShell && submitted?.draft ? <p className="text-xs text-ink-500">Chờ kiểm tra</p> : r.ref_price !== null ? <>
                           <p className="break-words text-[13px] font-bold text-ink-900"><span className="font-mono tabular-nums">{formatMoney(r.ref_price)}</span> <span className="font-normal text-ink-500">/ {r.unit || "đv"}</span></p>
                           {r.price_valid_until && <p className="text-[11px] text-ink-500">Đến {formatDate(r.price_valid_until)}</p>}
                         </> : <p className="text-xs text-ink-500">Chưa có giá</p>}
                       </div>
-                      {canManage && (
-                        <Link href={`/crm/products/${r.id}/edit`} aria-label={`Kiểm tra ${r.name}`} className="btn btn-soft shrink-0 px-3 py-2 text-[13px]">
+                      {canManage && (inboxResult.failed ? <button type="button" disabled className="btn btn-soft shrink-0 px-3 py-2 text-[13px]" title="Chưa tải được hàng chờ duyệt">Kiểm tra</button> :
+                        <Link href={reviewHref} aria-label={`Kiểm tra ${displayName}`} className="btn btn-soft shrink-0 px-3 py-2 text-[13px]">
                           <ClipboardCheck className="h-4 w-4" aria-hidden="true" /> Kiểm tra
                         </Link>
                       )}

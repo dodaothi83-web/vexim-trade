@@ -38,11 +38,18 @@ type Props = {
   serverErrors?: ProductFormIssue[];
   saveLabel?: string;
   statusText?: string;
+  /** Confirmed pending submission, including one restored after a reload. */
+  submitted?: boolean;
+  feedback?: { ok: boolean; text: string } | null;
+  nameTranslationStatus?: string;
+  /** Read-only legacy comparison is not a draft, a buyer preview, or a submission. */
+  comparisonOnly?: boolean;
 };
 
 /** Presentation shared by supplier and CRM. Persistence and permissions belong to the caller. */
 export function ProductFormFiveSections({ value, onChange, categories, policies, imageCount, coverUrl, imageControls,
-  onSave, onSubmit, disabled = false, busy = false, canSubmit = true, serverErrors = [], saveLabel = "Lưu nháp", statusText = "Chưa gửi duyệt" }: Props) {
+  onSave, onSubmit, disabled = false, busy = false, canSubmit = true, serverErrors = [], saveLabel = "Lưu nháp", statusText = "Chưa gửi duyệt",
+  submitted = false, feedback = null, nameTranslationStatus, comparisonOnly = false }: Props) {
   const category = categories.find((item) => item.slug === value.category);
   const grades = standardGradesForCategory(category ?? (value.category ? { slug: value.category } : null));
   const policy = category ? policies[category.slug] ?? null : null;
@@ -50,8 +57,8 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
   const quantity: SupplierQuantityEntry = { grade: value.grade, customGrade: value.customGrade, incoterm: value.incoterm,
     nameVi: value.name, unit: value.unit, tiers: value.tiers };
   const checked = validateProductFormSubmission(value, { categoryValid: !!category, imageCount, standardGrades: grades, policy });
-  const allErrors = [...checked.errors, ...serverErrors];
-  const locked = disabled || busy;
+  const allErrors = comparisonOnly ? [] : [...checked.errors, ...serverErrors];
+  const locked = comparisonOnly || disabled || busy;
   function set<K extends keyof ProductFormDraft>(key: K, next: ProductFormDraft[K]) { onChange({ ...value, [key]: next }); }
   function setQuantity(next: SupplierQuantityEntry) {
     const priceChanged = next.grade !== value.grade || next.customGrade !== value.customGrade || next.incoterm !== value.incoterm ||
@@ -72,8 +79,9 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
   return <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
     <div className="min-w-0 space-y-4">
       <Section id="basic" title="Thông tin cơ bản">
-        <Field label="Tên sản phẩm" required hint="Không ghi grade trong tên. Vexim dịch sang tiếng Anh khi duyệt." error={problem("name")}>
+        <Field label="Tên sản phẩm" required hint="Không ghi grade trong tên. Bản dịch tiếng Anh được Vexim kiểm tra khi duyệt." error={problem("name")}>
           <input className="input w-full" aria-label="Tên sản phẩm" aria-invalid={!!problem("name") || undefined} maxLength={180} value={value.name} disabled={locked} onChange={(event) => set("name", event.target.value)} />
+          {nameTranslationStatus && <p role="status" className="mt-2 text-xs text-ink-600">{nameTranslationStatus}</p>}
         </Field>
         <Field label="Danh mục" required error={problem("category")}>
           <select className="input w-full" aria-label="Danh mục" aria-invalid={!!problem("category") || undefined} value={value.category} disabled={locked} onChange={(event) => onChange({ ...value, category: event.target.value, grade: "", customGrade: false, attributes: {}, attributePool: "", priceConsent: false })}>
@@ -100,7 +108,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
       </Section>
 
       <Section id="transaction" title="Thông tin giao dịch">
-        {!policy && <p role="status" className="text-sm text-amber-800">Chọn danh mục có cấu hình giá để hoàn thiện bảng giá.</p>}
+        {!comparisonOnly && !policy && <p role="status" className="text-sm text-amber-800">Chọn danh mục có cấu hình giá để hoàn thiện bảng giá.</p>}
         <Field label="Incoterm" required error={problem("incoterm")}>
           <div className="grid gap-3 sm:grid-cols-2">
             <QuantityIncotermV2Field value={quantity} onChange={setQuantity} standardGrades={grades} policy={editorPolicy} disabled={locked} showLabel={false} invalid={!!problem("incoterm")} />
@@ -109,6 +117,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
               {problem("incotermPlace") && <p className="mt-1 text-xs text-rose-700">{problem("incotermPlace")}</p>}</div>
           </div>
         </Field>
+        {comparisonOnly ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Giá demo không chuyển sang bảng giá mới. Doanh nghiệp sẽ nhập giá và mức số lượng chính thức; không tự suy đoán đơn vị, MOQ hay cam kết công khai.</p> : <>
         <Field label="Giá theo số lượng" required hint="Tối đa 4 mức" hintByLabel>
           <QuantityPricingV2Editor value={quantity} onChange={setQuantity} standardGrades={grades} policy={editorPolicy}
             pricePubliclyVisible={value.pricePubliclyVisible} consentChecked={value.priceConsent} onConsentChange={(next) => set("priceConsent", next)}
@@ -123,7 +132,7 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
           <p className="mt-1 text-xs text-ink-600">Bỏ chọn nếu muốn buyer gửi yêu cầu báo giá trước.</p>
           <div className="mt-3"><QuantityPriceV2Consent visible={value.pricePubliclyVisible} checked={value.priceConsent} onChange={(next) => set("priceConsent", next)} disabled={locked} /></div>
           {problem("priceConsent") && <p className="mt-1 text-xs text-rose-700">{problem("priceConsent")}</p>}
-        </Field>
+        </Field></>}
         <Field label="Điều kiện thanh toán"><input className="input w-full" aria-label="Điều kiện thanh toán" maxLength={200} value={value.paymentTerms} disabled={locked} onChange={(event) => set("paymentTerms", event.target.value)} /></Field>
         <div className="flex flex-wrap gap-4 text-sm text-ink-800">
           {([['oem', 'OEM'], ['odm', 'ODM'], ['samples', 'Có mẫu']] as const).map(([key, label]) => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={value[key]} disabled={locked} className="size-4 accent-brand-700" onChange={(event) => set(key, event.target.checked)} />{label}</label>)}
@@ -146,24 +155,27 @@ export function ProductFormFiveSections({ value, onChange, categories, policies,
       <nav aria-label="Các phần sản phẩm" className="rounded-xl border border-ink-200 bg-white p-4">
         <h2 className="mb-2 text-sm font-bold text-ink-900">Các phần</h2>
         <ol className="space-y-1">{SECTIONS.map((section) => <li key={section.id}><a href={`#product-form-${section.id}`} className="flex items-start gap-3 rounded-lg px-2 py-2 text-sm text-ink-800 hover:bg-ink-50">
-          <span className="flex-1">{section.title}</span><span className={`text-xs font-semibold ${complete(section.id) ? "text-brand-700" : "text-rose-700"}`}>
+          <span className="flex-1">{section.title}</span>{!comparisonOnly && <span className={`text-xs font-semibold ${complete(section.id) ? "text-brand-700" : "text-rose-700"}`}>
             {!complete(section.id) ? "Cần bổ sung" : section.optional ? "Không bắt buộc" : "Đã xong"}
-          </span>
+          </span>}
         </a></li>)}</ol>
       </nav>
-      <section aria-label="Xem trước cho buyer" className="rounded-xl border border-ink-200 bg-white p-4 shadow-sm">
+      {!comparisonOnly && <section aria-label="Xem trước cho buyer" className="rounded-xl border border-ink-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-sm font-bold text-ink-900">Buyer sẽ thấy</h2>
         <div className="aspect-[4/3] overflow-hidden rounded-lg bg-ink-50">{coverUrl ? <img src={coverUrl} alt="Ảnh chính sản phẩm" className="size-full object-cover" /> : <div className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-8" aria-hidden="true" /></div>}</div>
         <div className="space-y-2 pt-3"><p className="text-xs font-bold uppercase tracking-wide text-brand-700">{categoryLabel}</p>
           <QuantityBuyerV2Preview value={quantity} standardGrades={grades} policy={editorPolicy} pricePubliclyVisible={value.pricePubliclyVisible} incotermPlace={value.incotermPlace} showHeading={false} />
         </div>
-      </section>
+      </section>}
     </aside>
-    <div className="sticky bottom-0 z-20 col-span-full flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white p-3 shadow-lg">
-      <span className="text-xs text-ink-600" role="status">{statusText}{incompleteCount > 0 && `. Còn ${incompleteCount} phần cần bổ sung trước khi gửi duyệt.`}</span>
-      <div className="flex gap-2"><button type="button" className="btn btn-ghost" onClick={onSave} disabled={locked}>{saveLabel}</button>
-        <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={locked || !ready}>Gửi duyệt</button></div>
-    </div>
+    {!comparisonOnly && <div className="sticky bottom-0 z-20 col-span-full space-y-2 rounded-xl border border-ink-200 bg-white p-3 shadow-lg">
+      {feedback && <p role={feedback.ok ? "status" : "alert"} className={`max-h-28 overflow-y-auto rounded-lg border px-3 py-2 text-sm ${feedback.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{feedback.text}</p>}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-xs text-ink-600" role="status">{statusText}{!submitted && incompleteCount > 0 && `. Còn ${incompleteCount} phần cần bổ sung trước khi gửi duyệt.`}</span>
+        <div className="flex gap-2"><button type="button" className="btn btn-ghost" onClick={onSave} disabled={locked}>{saveLabel}</button>
+          <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={locked || !ready || submitted}>{submitted ? "Đã gửi duyệt" : "Gửi duyệt"}</button></div>
+      </div>
+    </div>}
   </div>;
 }
 

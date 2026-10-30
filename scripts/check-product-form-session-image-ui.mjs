@@ -9,7 +9,7 @@ const exports = {};
 const mocks = {
   react: React, 'react/jsx-runtime': await import('react/jsx-runtime'),
   '@/components/products/product-form-five-sections': { ProductFormFiveSections: (props) => React.createElement('div', null, props.imageControls,
-    React.createElement('button', { disabled: !props.canSubmit }, 'Gửi duyệt'), React.createElement('span', null, props.statusText)) },
+    React.createElement('button', { disabled: !props.canSubmit || props.submitted }, props.submitted ? 'Đã gửi duyệt' : 'Gửi duyệt'), React.createElement('span', null, props.statusText)) },
   '@/lib/products/product-form-session': { ProductFormSession: class { isDirty() { return false; } } },
   '@/lib/products/product-form-image-transport': { prepareProductFormImageTransport: async (file) => file },
 };
@@ -27,6 +27,7 @@ assert.doesNotMatch(html, /type="file"/); assert.match(html, /8\/8 ảnh/);
 html = renderToStaticMarkup(React.createElement(exports.ProductFormSessionEditor, { ...props, disabled: true }));
 assert.match(html, /type="file"[^>]*disabled=""/); assert.match(html, /disabled=""[^>]*aria-label="Gỡ ảnh 1/);
 html = renderToStaticMarkup(React.createElement(exports.ProductFormSessionEditor, { ...props, initialPending: true }));
-assert.match(html, /Giá mới đang chờ Vexim xác nhận\./); assert.match(html, /<button disabled="">Gửi duyệt<\/button>/);
-assert.match(html, /Đang chờ duyệt/);
+assert.doesNotMatch(html, /Giá mới đang chờ Vexim xác nhận/);
+assert.match(html, /<button disabled="">Đã gửi duyệt<\/button>/);
+assert.match(html, /Bản đã gửi đang chờ Vexim kiểm tra/);
 console.log('Product form image UI: cover, remove, add, limit, locked and pending states passed');

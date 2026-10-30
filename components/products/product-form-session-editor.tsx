@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { ProductFormFiveSections } from "@/components/products/product-form-five-sections";
 import { ProductFormSession, type ProductFormImage, type ProductFormSessionOperations, type ProductFormSessionState } from "@/lib/products/product-form-session";
 import { prepareProductFormImageTransport } from "@/lib/products/product-form-image-transport";
@@ -33,6 +33,25 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [serverErrors, setServerErrors] = useState<ProductFormIssue[]>([]);
   const [preparingImages, setPreparingImages] = useState(false);
+  const [nameTranslation, setNameTranslation] = useState<{ source: string; text: string } | null>(null);
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  const translateName = operations.translateName;
+  useEffect(() => {
+    if (!translateName || disabled || state.submitted || state.requiresReload || name.length < 3 || name.length > 180) return;
+    let current = true;
+    setNameTranslation({ source: name, text: "AI đang dịch tên sản phẩm…" });
+    // Wait until typing has paused; cancel/ignore every older request or result.
+    const timer = setTimeout(() => {
+      void translateName(name).then((result) => {
+        if (!current) return;
+        if (!result.ok) setNameTranslation({ source: name, text: result.message });
+        else if (result.sourceName === name) setNameTranslation({ source: name,
+          text: `Tên tiếng Anh AI dự kiến: ${result.englishName}. Vexim sẽ kiểm tra trước khi công bố.` });
+        else setNameTranslation({ source: name, text: "Tên đã thay đổi; Vexim sẽ kiểm tra bản dịch khi duyệt." });
+      }).catch(() => { if (current) setNameTranslation({ source: name, text: "Chưa dịch được tên. Vexim sẽ kiểm tra khi duyệt." }); });
+    }, 2500);
+    return () => { current = false; clearTimeout(timer); };
+  }, [name, translateName, disabled, state.submitted, state.requiresReload]);
   const preparingRef = useRef(false);
   const changeRef = useRef(onSessionChange);
   changeRef.current = onSessionChange;
@@ -104,12 +123,12 @@ export function ProductFormSessionEditor({ initialDraft, initialProductId, initi
     <p className="text-xs text-ink-500">{state.images.length}/8 ảnh. JPG, PNG hoặc WebP, tối đa 8 MB mỗi ảnh.</p>
   </div>;
   const pending = initialPending || state.submitted;
-  const statusText = state.requiresReload ? "Cần tải lại trang" : pending ? "Đang chờ duyệt" : state.busy || preparingImages ? "Đang xử lý" : session.isDirty(value) ? "Có thay đổi chưa lưu" : "Đã lưu bản nháp";
-  return <div className="space-y-3">
-    {pending && <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Giá mới đang chờ Vexim xác nhận.</p>}
-    {message && <p role={message.ok ? "status" : "alert"} className={`rounded-lg border px-3 py-2 text-sm ${message.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>{message.text}</p>}
-    <ProductFormFiveSections value={value} onChange={(next) => { setValue(next); setServerErrors([]); }} categories={categories} policies={policies}
-      imageCount={state.images.length} coverUrl={state.images[0]?.url} imageControls={imageControls} serverErrors={serverErrors}
-      onSave={() => void save()} onSubmit={() => void submit()} canSubmit={!pending} disabled={disabled || state.submitted || state.requiresReload} busy={state.busy || preparingImages} statusText={statusText} />
-  </div>;
+  const dirty = session.isDirty(value);
+  const statusText = state.requiresReload ? "Cần tải lại trang" : state.busy || preparingImages ? "Đang xử lý" : pending ?
+    `Bản đã gửi đang chờ Vexim kiểm tra${dirty ? " · Có thay đổi chưa lưu" : ""}` : dirty ? "Có thay đổi chưa lưu" : "Đã lưu bản nháp";
+  return <ProductFormFiveSections value={value} onChange={(next) => { setValue(next); setServerErrors([]); }} categories={categories} policies={policies}
+    imageCount={state.images.length} coverUrl={state.images[0]?.url} imageControls={imageControls} serverErrors={serverErrors}
+    onSave={() => void save()} onSubmit={() => void submit()} canSubmit={!pending} submitted={pending} feedback={message}
+    disabled={disabled || state.submitted || state.requiresReload} busy={state.busy || preparingImages} statusText={statusText}
+    nameTranslationStatus={nameTranslation?.source === name && name.length >= 3 ? nameTranslation.text : undefined} />;
 }
