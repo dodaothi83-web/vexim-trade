@@ -339,34 +339,52 @@ assert.match(compactCard, /flex min-w-0 items-baseline gap-1 sm:block/, 'Mobile 
 assert.match(compactCard, /mt-auto w-full px-2 pb-2/, 'The supplier footer spans the full phone card below its square image');
 assert.doesNotMatch(compactCard, /mt-auto hidden pt-3 sm:block/, 'Buyers can request a quote on phones too');
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
-assert.match(compactCard, /aria-label="2 of 3 supplier checks approved"[^>]*data-verification-tier="2"/, 'The stars count approved supplier checks, not a product rating');
-assert.match(compactCard, />2 supplier checks</, 'The badge visibly explains what the stars count');
-for (const { levels, tier, palette } of [
-  { levels: [], tier: 0, palette: /bg-ink-50/ },
-  { levels: [99], tier: 0, palette: /bg-ink-50/ },
-  { levels: [3], tier: 1, palette: /bg-emerald-50/ },
-  { levels: [3, 3], tier: 1, palette: /bg-emerald-50/ },
-  { levels: [3, 99], tier: 1, palette: /bg-emerald-50/ },
-  { levels: [1, 3], tier: 2, palette: /bg-sky-50/ },
-  { levels: [1, 2, 3], tier: 3, palette: /from-brand-900[^\"]*text-amber-50/ },
+assert.doesNotMatch(compactCard, /data-verification-tier|lucide-star|\bLevel [123]\b|>\d+ supplier checks?</,
+  'The product card has no star badge, supplier-check count or Level label');
+for (const { levels, tier, tone } of [
+  { levels: [], tier: 0, tone: null },
+  { levels: [99], tier: 0, tone: null },
+  { levels: [3], tier: 1, tone: 'bg-emerald-100' },
+  { levels: [3, 3], tier: 1, tone: 'bg-emerald-100' },
+  { levels: [3, 99], tier: 1, tone: 'bg-emerald-100' },
+  { levels: [1, 3], tier: 2, tone: 'bg-sky-100' },
+  { levels: [1, 2, 3], tier: 3, tone: 'bg-brand-900' },
 ]) {
-  const badge = renderToStaticMarkup(React.createElement(verificationTierModule.ProductVerificationBadge, { levels }));
-  assert.match(badge, new RegExp(`data-verification-tier="${tier}"`));
-  assert.match(badge, palette, `Tier ${tier} has its own distinctive palette`);
-  assert.equal((badge.match(/lucide-star/g) ?? []).length, tier, 'Each unique approved check earns exactly one star');
-  assert.match(badge, tier ? new RegExp(`aria-label="${tier} of 3 supplier checks approved"`) : /No supplier checks approved yet/);
+  const pips = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationPips, {
+    levels, l2Scope: 'factory', compact: true, shortTooltips: true, cardTooltips: true,
+  }));
+  assert.equal(verificationTierModule.verificationTier(levels), tier, 'Only distinct recognized checks determine the color');
+  assert.equal((pips.match(/lucide-shield(?:-check)? /g) ?? []).length, 3, 'The card always keeps three shields');
+  assert.equal((pips.match(/lucide-shield-check /g) ?? []).length, tier, 'Only approved shields show a check mark');
+  assert.equal((pips.match(/h-7 w-7/g) ?? []).length, 3, 'Each card shield remains prominent and touch-friendly');
+  assert.equal((pips.match(/<summary aria-label="[^"]*: Approved\./g) ?? []).length, tier, 'Only approved checks light up');
+  assert.equal((pips.match(/bg-ink-50 text-ink-500 ring-ink-300/g) ?? []).length, 3 - tier, 'Unapproved checks remain legible and neutral');
+  if (tone) assert.equal((pips.match(new RegExp(`ring-2 ${tone}`, 'g')) ?? []).length, tier, 'Approved shields use the matching prominent color');
+  assert.doesNotMatch(pips, /\bLevel [123]\b|lucide-star|data-verification-tier/);
 }
 const deliveryOnly = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, verificationSteps: [3] }));
 assert.match(deliveryOnly, /Verification checks approved: Delivery history reviewed/);
-assert.match(deliveryOnly, /Level 1 · Documents checked: Not approved/);
-assert.match(deliveryOnly, /Level 2 · Factory verification: Not approved/);
-assert.match(deliveryOnly, /Level 3 · Delivery history reviewed: Approved/);
+assert.match(deliveryOnly, /Documents checked: Not approved/);
+assert.match(deliveryOnly, /Factory verification: Not approved/);
+assert.match(deliveryOnly, /Delivery history reviewed: Approved/);
 assert.doesNotMatch(deliveryOnly, /Business registration evidence has been reviewed|A specific factory associated with the supplier has been reviewed/,
   'An unapproved check never gets an explanation claiming that it was reviewed');
+const unknownScope = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, verificationSteps: [2], l2Scope: null }));
+assert.match(unknownScope, /Factory or partner contract review: Approved/);
+assert.doesNotMatch(unknownScope, /\bL2\b|\bLevel [123]\b|Factory verification/,
+  'An unspecified scope does not claim a factory inspection or expose level numbers');
+const partnerScope = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, verificationSteps: [2], l2Scope: 'partner_contract' }));
+assert.match(partnerScope, /Partner factory contract reviewed: Approved/);
+assert.match(partnerScope, /contract review alone does not establish ownership or a factory inspection/);
+assert.doesNotMatch(partnerScope, /Factory verification: Approved|A specific factory associated with the supplier has been reviewed/,
+  'A partner contract review never becomes a factory inspection');
+const bothScopes = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, verificationSteps: [2], l2Scope: 'both' }));
+assert.match(bothScopes, /Factory and partner contract reviewed: Approved/);
+assert.match(bothScopes, /A separate factory review was also approved/);
 for (const [level, suffix] of [[1, 'Basic'], [2, 'Advanced'], [3, 'Complete']]) {
   const levels = Array.from({ length: level }, (_, index) => index + 1);
   const badge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels, compactOnMobile: true }));
-  assert.match(badge, new RegExp(`sm:hidden">Level ${level}<`), `Mobile product cards shorten Level ${level}`);
+  assert.match(badge, new RegExp(`sm:hidden">Level ${level}<`), `The optional compact badge outside product cards shortens Level ${level}`);
   assert.ok(badge.includes(`hidden sm:inline">Level ${level} · ${suffix}<`), `The full Level ${level} label returns from the sm breakpoint`);
 }
 const standardBadge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels: [1] }));
@@ -387,10 +405,10 @@ for (const [level, label, status] of [
   [3, 'Delivery history reviewed', 'Approved'],
 ]) {
   const explanation = status === 'Approved' ? VERIFICATION_LEVEL_EXPLANATIONS[level] : 'This supplier check has not been approved.';
-  const accessibleName = `Level ${level} · ${label}: ${status}. ${explanation} Supplier check, not product certification.`;
+  const accessibleName = `${label}: ${status}. ${explanation} Supplier check, not product certification.`;
   assert.ok(compactCard.includes(`aria-label="${accessibleName}"`), `Shield ${level} has its own accessible explanation and actual status`);
-  assert.match(compactCard, new RegExp(`Level ${level} · ${label}<\\/strong><span[^>]*>${status}<\\/span>`),
-    `Shield ${level} shows its own label and status`);
+  assert.match(compactCard, new RegExp(`${label}<\\/strong><span[^>]*>${status}<\\/span>`),
+    `Shield ${level} shows its own label and status without a level number`);
   assert.ok(compactCard.includes(`>${explanation}</span>`), `Shield ${level} shows its distinct short explanation`);
 }
 assert.equal(new Set(Object.values(VERIFICATION_LEVEL_EXPLANATIONS)).size, 3, 'The three levels never share one generic explanation');
@@ -416,9 +434,9 @@ assert.match(longSupplierCard, /truncate font-semibold text-brand-700/, 'Long su
 const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, fob: false, verificationSteps: [] }));
 assert.match(privatePrice, /On request/);
 assert.doesNotMatch(privatePrice, /FOB reference|>FOB<|USD 7\/kg/, 'No price or FOB claim without consent');
-assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved check shows the empty tier, not a star');
-assert.match(privatePrice, /data-verification-tier="0"/);
-assert.doesNotMatch(privatePrice, /lucide-star/, 'Unapproved checks earn no stars');
+assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved checks is described accurately');
+assert.equal((privatePrice.match(/lucide-shield /g) ?? []).length, 3, 'All three neutral shields remain visible without check marks');
+assert.doesNotMatch(privatePrice, /ring-2 bg-(?:emerald-100|sky-100|brand-900)|lucide-shield-check|lucide-star|data-verification-tier/, 'Unapproved checks are never highlighted');
 assert.equal((privatePrice.match(/>Not approved</g) ?? []).length, 3, 'The tooltip never marks a check approved without an actual approved level');
 const noQuote = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, quoteHref: undefined }));
 assert.match(noQuote, /aria-label="View details of Cashew W320 lot 0"[^>]*>Details<\/a>/, 'When no quote is available, the fallback opens product details');
@@ -431,8 +449,8 @@ assert.match(testCard, /TEST · Not an offer|Test data · not a price/);
 assert.doesNotMatch(testCard, /to comparison/, 'Demo and preview cards never offer a public comparison selection');
 assert.doesNotMatch(testCard, /USD 7\/kg|\/rfq|Supplier-stated product options/, 'A test card carries no price, quote path or commercial capability badges');
 assert.match(testCard, /aria-label="No verification checks approved yet"/, 'A test card never claims a verification check');
-assert.match(testCard, /data-verification-tier="0"/, 'Test cards cannot inherit stars from supplier data');
-assert.doesNotMatch(testCard, /lucide-star/, 'Test cards never show fake stars');
+assert.doesNotMatch(testCard, /ring-2 bg-(?:emerald-100|sky-100|brand-900)|lucide-star|data-verification-tier/,
+  'Test cards cannot inherit highlighted checks from supplier data');
 // Lưới thẻ trang chủ là một client component riêng; dựng nó ở đây để bản HTML
 // máy chủ vẫn được kiểm bằng thẻ thật, không phải bằng chuỗi giả.
 const { HomeProductFeed } = compile('../components/home-product-feed.tsx', {

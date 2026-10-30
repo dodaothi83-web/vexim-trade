@@ -1,4 +1,4 @@
-import { HelpCircle, ShieldCheck, Star } from "lucide-react";
+import { HelpCircle, Shield, ShieldCheck } from "lucide-react";
 
 import type { VerificationLevel } from "@/lib/types";
 import { verificationExplanation, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
@@ -35,27 +35,13 @@ const PIP_ON_CLASSES: Record<VerificationTier, string> = {
   3: "bg-amber-100 text-amber-700 ring-amber-400",
 };
 
-// The product-card palette makes the number of approved supplier checks easy to
-// distinguish without turning the stars into a product rating.
-const PRODUCT_BADGE_CLASSES: Record<VerificationTier, string> = {
-  0: "border-ink-200 bg-ink-50 text-ink-600",
-  1: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  2: "border-sky-200 bg-sky-50 text-sky-800",
-  3: "border-amber-400/70 bg-gradient-to-r from-brand-900 to-[#176457] text-amber-50 shadow-[0_2px_8px_rgba(19,78,74,0.18)]",
-};
-
-const PRODUCT_STAR_CLASSES: Record<VerificationTier, string> = {
-  0: "text-ink-400",
-  1: "text-emerald-700",
-  2: "text-sky-700",
-  3: "text-amber-300",
-};
-
+// The card keeps each approved check distinct while its overall palette reflects
+// how many independent checks passed. Inactive checks always remain neutral.
 const PRODUCT_PIP_ON_CLASSES: Record<VerificationTier, string> = {
   0: "bg-ink-50 text-ink-300 ring-ink-200",
-  1: "bg-emerald-50 text-emerald-700 ring-emerald-300",
-  2: "bg-sky-50 text-sky-700 ring-sky-300",
-  3: "bg-amber-50 text-amber-700 ring-amber-400",
+  1: "bg-emerald-100 text-emerald-800 ring-emerald-400 shadow-[0_2px_6px_rgba(4,120,87,0.16)]",
+  2: "bg-sky-100 text-sky-800 ring-sky-400 shadow-[0_2px_6px_rgba(3,105,161,0.16)]",
+  3: "bg-brand-900 text-amber-200 ring-amber-400 shadow-[0_2px_8px_rgba(19,78,74,0.25)]",
 };
 
 const SEAL_CLASSES: Record<VerificationTier, string> = {
@@ -85,27 +71,6 @@ export function VerificationTierBadge({ levels, className = "", compactOnMobile 
   );
 }
 
-/**
- * A card-only summary: stars count independently approved SUPPLIER checks,
- * not reviews or product quality. The individual checks remain beside it.
- */
-export function ProductVerificationBadge({ levels }: { levels: readonly VerificationLevel[] }) {
-  const tier = verificationTier(levels);
-  const label = tier === 0 ? "No supplier checks approved yet" : `${tier} of 3 supplier checks approved`;
-
-  return (
-    <span role="img" aria-label={label} title={label} data-verification-tier={tier}
-      className={`inline-flex max-w-full items-center gap-1 rounded-lg border px-1.5 py-1 text-[10px] font-bold leading-4 ${PRODUCT_BADGE_CLASSES[tier]}`}>
-      {tier === 0
-        ? <HelpCircle className="h-3.5 w-3.5 shrink-0 text-ink-400" aria-hidden="true" />
-        : <span className={`inline-flex shrink-0 items-center gap-0.5 ${PRODUCT_STAR_CLASSES[tier]}`} aria-hidden="true">
-            {Array.from({ length: tier }, (_, index) => <Star key={index} className="h-3 w-3 fill-current" strokeWidth={1.75} />)}
-          </span>}
-      <span>{tier === 0 ? "No checks approved" : `${tier} supplier ${tier === 1 ? "check" : "checks"}`}</span>
-    </span>
-  );
-}
-
 /** Three small shields, each with its own explanation and approval status. */
 export function VerificationPips({ levels, compact = false, shortTooltips = false, cardTooltips = false, l2Scope }: {
   levels: readonly VerificationLevel[];
@@ -118,21 +83,31 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
 }) {
   const tier = verificationTier(levels);
   const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
+  // An unknown L2 scope must not be presented as a factory inspection.
+  const checkLabel = (level: VerificationLevel) => cardTooltips && level === 2 && l2Scope == null
+    ? "Factory or partner contract review" : verificationLabel(level, l2Scope);
   return (
-    <span className="inline-flex items-center gap-1" role="group"
-      aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => verificationLabel(l, l2Scope)).join(", ")}` : "No verification checks approved yet"}>
+    <span className={`inline-flex items-center gap-1 ${cardTooltips ? "shrink-0" : ""}`} role="group"
+      aria-label={approved.length ? `Verification checks approved: ${approved.map(checkLabel).join(", ")}` : "No verification checks approved yet"}>
       {([1, 2, 3] as const).map((level) => {
         const on = levels.includes(level);
-        const label = verificationLabel(level, l2Scope);
+        const label = checkLabel(level);
         const status = on ? "Approved" : "Not approved";
-        const explanation = cardTooltips && !on ? "This supplier check has not been approved." : verificationExplanation(level, l2Scope);
+        const explanation = cardTooltips && !on ? "This supplier check has not been approved."
+          : cardTooltips && level === 2 && l2Scope == null
+            ? "The scope of this supplier review is available from the supplier profile."
+            : verificationExplanation(level, l2Scope);
         const productNote = cardTooltips ? " Supplier check, not product certification." : "";
-        const accessibleName = `Level ${level} · ${label}: ${status}. ${explanation}${productNote}`;
-        const onClasses = shortTooltips ? PRODUCT_PIP_ON_CLASSES[tier] : PIP_ON_CLASSES[tier];
-        // Card controls stay at least 24px wide for touch; noninteractive compact pips remain smaller.
+        const checkName = cardTooltips ? label : `Level ${level} · ${label}`;
+        const accessibleName = `${checkName}: ${status}. ${explanation}${productNote}`;
+        const onClasses = cardTooltips ? PRODUCT_PIP_ON_CLASSES[tier] : PIP_ON_CLASSES[tier];
         const small = compact && !shortTooltips;
-        const pipClass = `inline-flex items-center justify-center rounded-full ring-1 ${small ? "h-5 w-5" : "h-6 w-6"} ${on ? onClasses : "bg-ink-50 text-ink-300 ring-ink-200"}`;
-        const icon = <ShieldCheck className={small ? "h-3 w-3" : "h-3.5 w-3.5"} aria-hidden="true" />;
+        const size = cardTooltips ? "h-7 w-7" : small ? "h-5 w-5" : "h-6 w-6";
+        const ring = cardTooltips && on ? "ring-2" : "ring-1";
+        const inactive = cardTooltips ? "bg-ink-50 text-ink-500 ring-ink-300" : "bg-ink-50 text-ink-300 ring-ink-200";
+        const pipClass = `inline-flex items-center justify-center rounded-full ${size} ${ring} ${on ? onClasses : inactive}`;
+        const ShieldIcon = cardTooltips && !on ? Shield : ShieldCheck;
+        const icon = <ShieldIcon className={cardTooltips ? "h-4 w-4" : small ? "h-3 w-3" : "h-3.5 w-3.5"} strokeWidth={cardTooltips ? 2.25 : 2} aria-hidden="true" />;
         if (shortTooltips) return (
           <span key={level} className={`group/pip inline-flex ${cardTooltips ? "" : "relative"}`}>
             <details name="product-verification-checks" className="peer">
@@ -142,7 +117,7 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
               </summary>
             </details>
             <span role="tooltip" aria-hidden="true" className={`pointer-events-none absolute bottom-full z-40 mb-2 hidden rounded-md bg-ink-900 px-2.5 py-2 text-left font-normal shadow-xl group-hover/pip:block group-focus-within/pip:block peer-open:block ${cardTooltips ? "left-0 w-full max-w-64" : `w-48 ${level === 1 ? "left-0" : level === 2 ? "left-1/2 -translate-x-1/2" : "right-0"}`}`}>
-              <strong className="block text-[11px] font-bold leading-4 text-white">Level {level} · {label}</strong>
+              <strong className="block text-[11px] font-bold leading-4 text-white">{checkName}</strong>
               <span className={`block text-[10px] font-semibold leading-4 ${on ? "text-emerald-300" : "text-ink-300"}`}>{status}</span>
               <span className="mt-0.5 block text-[10px] leading-4 text-ink-200">{explanation}</span>
               {cardTooltips && <span className="mt-1 block text-[10px] leading-4 text-ink-300">Supplier check, not product certification.</span>}

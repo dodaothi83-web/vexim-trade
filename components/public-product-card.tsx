@@ -5,7 +5,7 @@ import { ImageIcon } from "lucide-react";
 import { SponsoredDisclosure } from "@/components/sponsored-disclosure";
 import { ProductCompareCheckbox } from "@/components/product-compare-checkbox";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
-import { ProductVerificationBadge, VerificationPips } from "@/components/verification-tier";
+import { VerificationPips } from "@/components/verification-tier";
 import type { ProductComparisonSelection } from "@/lib/public/product-comparison";
 import type { VerificationLevel } from "@/lib/types";
 
@@ -73,16 +73,13 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
           {supplierHref && linkable ? <Link href={supplierHref} title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-brand-700 hover:underline">{supplierName}</Link>
             : <span title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-ink-800">{supplierName}</span>}
         </p>
-        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 sm:mt-2">
-          <ProductVerificationBadge levels={test ? [] : verificationSteps} />
-          <div className="flex min-w-0 flex-[1_1_120px] flex-wrap items-center justify-between gap-2">
-            <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} compact shortTooltips cardTooltips />
-            {quote
-              ? <Link href={quote} aria-label={`Request a quote for ${name}`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-brand-400 bg-white px-2.5 text-xs font-bold text-brand-800 transition hover:border-brand-600 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">Quote</Link>
-              : linkable
-                ? <Link href={href} aria-label={`View details of ${name}`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-ink-300 bg-white px-2.5 text-xs font-bold text-ink-700 transition hover:border-brand-500 hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">Details</Link>
-                : <span aria-hidden="true" className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-ink-200 bg-ink-50 px-2.5 text-xs font-bold text-ink-400">Details</span>}
-          </div>
+        <div className="mt-1.5 flex min-w-0 flex-wrap items-center justify-between gap-x-1 gap-y-2 sm:mt-2">
+          <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} compact shortTooltips cardTooltips />
+          {quote
+            ? <Link href={quote} aria-label={`Request a quote for ${name}`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-brand-400 bg-white px-3 text-xs font-bold text-brand-800 transition sm:px-2.5 lg:px-1.5 xl:px-2.5 hover:border-brand-600 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">Quote</Link>
+            : linkable
+              ? <Link href={href} aria-label={`View details of ${name}`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-ink-300 bg-white px-3 text-xs font-bold text-ink-700 transition sm:px-2.5 lg:px-1.5 xl:px-2.5 hover:border-brand-500 hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">Details</Link>
+              : <span aria-hidden="true" className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-ink-200 bg-ink-50 px-3 text-xs font-bold text-ink-400 sm:px-2.5 lg:px-1.5 xl:px-2.5">Details</span>}
         </div>
         {partnerContractReviewed && <span title="The supplier's partner factory contract was reviewed; this is not a factory inspection." className="mt-1.5 inline-flex items-center rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-brand-800 ring-1 ring-brand-200"><span aria-hidden="true">Partner contract</span><span className="sr-only">Partner factory contract reviewed</span></span>}
       </div>
