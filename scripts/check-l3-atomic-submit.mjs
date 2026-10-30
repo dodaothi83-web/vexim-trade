@@ -6,6 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as productExtras from '../lib/products/product-extras.ts';
 
 const l2Scope = {};
 new Function('exports', ts.transpileModule(fs.readFileSync(new URL('../lib/l2-scope.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(l2Scope);
@@ -68,6 +69,7 @@ const fakeClient = { from(table) {
 const remoteStore = loadStore('lib/db/supabase.ts', {
   '@supabase/supabase-js': { createClient: () => fakeClient },
   '@/lib/public/product-selection': productSelection,
+  '@/lib/products/product-extras': productExtras,
 }, { process: { env: { SUPABASE_URL: 'https://fake.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'fake-key' } } }).supabaseStore;
 
 for (const [name, store, reset] of [

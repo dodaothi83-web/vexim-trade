@@ -1,6 +1,6 @@
-# Độ hoàn thiện hồ sơ sản phẩm — Phase 1
+# Độ hoàn thiện hồ sơ sản phẩm — Phase 1 và Phase 2
 
-Chốt ngày 30/10/2026. Phase 1 **chỉ đọc**: không thêm cột, không ghi dữ liệu, không backfill.
+Chốt ngày 30/10/2026. Phase 1 **chỉ đọc**; Phase 2 thêm cột qua migration, **không backfill**.
 Nhắc **trong cổng nhà cung cấp và CRM**; không gửi email nhắc.
 
 ## 1. Đây không phải cổng chặn
@@ -20,17 +20,20 @@ Trọng số cộng lại đúng 100, nên điểm đọc như phần trăm.
 
 | Mục | Bắt buộc | Trọng số | Bước | Dựa vào cột |
 | --- | --- | --- | --- | --- |
-| Ảnh thật | có | 20 | 2 | `media_assets`: `kind=image`, `audience=buyer`, có `storage_path`, chưa hết hạn |
-| Danh mục | có | 12 | 1 | `reviewed_category_slug` hoặc `category` |
-| Giá tham khảo | có | 10 | 1 | `ref_price > 0` |
-| MOQ | có | 10 | 1 | `moq_qty > 0` hoặc `moq` |
-| Quy cách | có | 10 | 1 | `spec` |
-| Đóng gói | không | 10 | 1 | `packaging` |
-| Thời gian giao | không | 8 | 1 | `lead_time_days` (0 vẫn tính) |
-| Mô tả | không | 8 | 1 | `description` hoặc `description_i18n.en` |
-| Tên tiếng Anh | không | 6 | 1 | `display_name` hoặc `name_i18n.en` |
-| Thanh toán | không | 3 | 1 | `payment_terms` |
-| Năng lực tháng | không | 2 | 1 | `monthly_capacity` |
+| Ảnh thật | có | 16 | 2 | `media_assets`: `kind=image`, `audience=buyer`, có `storage_path`, chưa hết hạn |
+| Danh mục | có | 10 | 1 | `reviewed_category_slug` hoặc `category` |
+| Giá tham khảo | có | 9 | 1 | `ref_price > 0` |
+| MOQ | có | 9 | 1 | `moq_qty > 0` hoặc `moq` |
+| Quy cách | có | 9 | 1 | `spec` |
+| Đóng gói | không | 9 | 1 | `packaging` |
+| Thời gian giao | không | 7 | 1 | `lead_time_days` (0 vẫn tính) |
+| Mô tả | không | 7 | 1 | `description` hoặc `description_i18n.en` |
+| Tên tiếng Anh | không | 5 | 1 | `display_name` hoặc `name_i18n.en` |
+| Từ khoá | không | 5 | 1 | `keywords` (Phase 2) |
+| Giá mẫu | không | 5 | 1 | `sample_price_usd` (Phase 2, 0 vẫn tính) |
+| Kích thước kiện | không | 5 | 1 | `package_weight_kg` hoặc `package_type` (Phase 2) |
+| Thanh toán | không | 2 | 1 | `payment_terms` |
+| Năng lực tháng | không | 1 | 1 | `monthly_capacity` |
 | Cảng xuất | không | 1 | 1 | `export_port` |
 
 Quy tắc:
@@ -59,7 +62,25 @@ Quy tắc:
 - module thuần: không email, không CSDL, không `server-only`;
 - ba chỗ hiển thị dùng chung một nguồn.
 
-## 5. Phase 2 (cần migration, chưa làm)
+## 5. Phase 2 — từ khoá, giá mẫu, đóng gói có cấu trúc
 
-Từ khoá tìm kiếm, giá mẫu, đóng gói có cấu trúc, chứng nhận theo từng sản phẩm. Khi làm
-Phase 2 thì thêm mục vào `COMPLETENESS_ITEMS` và giữ nguyên nguyên tắc: chỉ đọc, không chặn đăng.
+Đã làm (30/10/2026) theo hướng **thêm cột, không backfill**:
+
+| Việc | Ở đâu |
+| --- | --- |
+| 6 cột mới + ràng buộc + chỉ mục GIN | `supabase/migrations/20261072_product_keywords_sample_price_packaging.sql` |
+| Đọc/kiểm tra dữ liệu dùng chung | `lib/products/product-extras.ts` (thuần, có `sanitizeKeywords`, `productExtrasFromForm`, `packagingSummary`) |
+| Ghi có dự phòng | `lib/db/supabase.ts`: thiếu cột thì chỉ bỏ cột **đang rỗng** rồi thử lại; nếu người dùng đã nhập giá trị thì báo “Báo người phụ trách kỹ thuật rồi thử lại.” |
+| Form 3 bước (bước 1) | ô Từ khoá, Loại kiện, Khối lượng mỗi kiện, Kích thước kiện, Số đơn vị mỗi thùng, Giá mẫu (USD) |
+| CRM | khối “Từ khoá và đóng gói” trong trang sửa sản phẩm |
+| Kiểm tra | `npm run check:extras` (nằm trong `check:supplier-products`) |
+
+Nguyên tắc giữ nguyên: điểm chỉ để nhắc, **không chặn đăng**; số liệu tính từ bản đã lưu;
+form cũ không có ô mới thì giữ nguyên giá trị đã lưu, không xoá trắng.
+
+### Chứng nhận theo từng sản phẩm (chưa làm)
+
+Đã có sẵn cột `certificates.requested_product_ids` / `approved_product_ids` nên **không cần
+migration**: chỉ còn thiếu giao diện cho nhà cung cấp chọn chứng nhận đã nộp cho sản phẩm và
+cho nhân viên duyệt liên kết đó. Không mở lại ô tự khai chứng nhận ở trang sản phẩm — quyết
+định cũ vẫn giữ: hồ sơ Giấy tờ L1 là nguồn duy nhất.

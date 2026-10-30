@@ -11,6 +11,7 @@ import {
 } from "@/lib/product-attributes";
 import { notifyStaffProductSubmission } from "@/lib/supplier-portal/notify";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
+import { productExtrasFromForm } from "@/lib/products/product-extras";
 import {
   applyLeadTimeToSpecs,
   describePriceChangeForReview,
@@ -49,6 +50,13 @@ function attributePoolFromForm(form: FormData): unknown[] {
 function parseProduct(form: FormData, supplierId: string, existing: SupplierProduct | null = null): SupplierProductInput {
   const name = text(form, "name", 180);
   if (name.length < 3) throw new Error("Tên sản phẩm cần ít nhất 3 ký tự.");
+  // Phase 2: từ khoá, giá mẫu và đóng gói có cấu trúc. Form cũ (không có ô) thì giữ
+  // nguyên giá trị đã lưu, không xoá trắng dữ liệu.
+  const extras = productExtrasFromForm(
+    (name) => form.get(name),
+    (name) => form.has(name),
+    existing,
+  );
   const daysRaw = text(form, "lead_time_days", 5);
   if (daysRaw && (!/^\d+$/.test(daysRaw) || Number(daysRaw) > 3650)) throw new Error("Thời gian giao hàng không hợp lệ.");
   return {
@@ -72,6 +80,7 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
     payment_terms: text(form, "payment_terms", 200) || null,
     ready_for_buyer: false, supplier_review_status: "draft", supplier_review_note: null,
     supplier_originated: true, supplier_category_proposal: null, reviewed_category_slug: null, images: [],
+    ...extras,
   };
 }
 

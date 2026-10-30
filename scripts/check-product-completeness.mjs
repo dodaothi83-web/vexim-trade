@@ -24,7 +24,7 @@ const { productCompleteness, completenessSummary, COMPLETENESS_ITEMS, COMPLETENE
 
 /* 1. Trọng số cộng đúng 100 để điểm đọc như phần trăm. */
 assert.equal(COMPLETENESS_TOTAL, 100, 'trọng số phải cộng lại thành 100');
-assert.equal(COMPLETENESS_ITEMS.length, 12);
+assert.equal(COMPLETENESS_ITEMS.length, 15, '12 mục Phase 1 + 3 mục Phase 2');
 
 /* 2. Hồ sơ trống: 0 điểm, mục bắt buộc đứng trước, gợi ý là ảnh thật. */
 const empty = productCompleteness({}, []);
@@ -33,7 +33,7 @@ assert.equal(empty.earned, 0);
 assert.equal(empty.missing.length, COMPLETENESS_ITEMS.length);
 assert.equal(empty.next.key, 'photo', 'ảnh thật là mục bắt buộc nặng nhất');
 assert.ok(empty.missing.slice(0, 5).every((item) => item.required), 'mục bắt buộc xếp trước');
-assert.equal(empty.missingByStep[1], 11);
+assert.equal(empty.missingByStep[1], 14, '11 mục Phase 1 ở bước 1 + 3 mục Phase 2');
 assert.equal(empty.missingByStep[2], 1);
 assert.match(completenessSummary(empty), /^Hồ sơ 0% · còn thiếu ảnh thật$/);
 
@@ -47,7 +47,7 @@ const catalogueOnly = productCompleteness(photoFacts, [{ kind: 'catalogue', audi
 assert.equal(catalogueOnly.done.includes('photo'), false, 'catalogue không thay ảnh thật');
 const sharedPhoto = productCompleteness(photoFacts, [{ kind: 'image', audience: 'buyer', status: 'unverified', expires_on: null, storage_path: 'p/a.jpg' }]);
 assert.equal(sharedPhoto.done.includes('photo'), true, 'ảnh chia sẻ còn hạn được tính, kể cả chưa kiểm');
-assert.equal(sharedPhoto.score, 20 + 12 + 10, 'điểm bằng đúng trọng số ảnh + danh mục + quy cách');
+assert.equal(sharedPhoto.score, 16 + 10 + 9, 'điểm bằng đúng trọng số ảnh + danh mục + quy cách');
 
 /* 4. MOQ, thời gian giao, tên tiếng Anh, mô tả chấp nhận nhiều dạng dữ liệu cũ. */
 const shapes = productCompleteness({
@@ -70,6 +70,7 @@ const full = productCompleteness({
   ref_price: 6.4, moq_qty: 1000, packaging: 'Túi 22,68 kg, 1 container 20ft',
   lead_time_days: 21, payment_terms: '30% đặt cọc, phần còn lại trước khi giao',
   monthly_capacity: '300 tấn', export_port: 'Cát Lái',
+  keywords: ['cashew', 'w320'], sample_price_usd: 0, package_type: 'bao', package_weight_kg: 22.68,
 }, [{ kind: 'image', audience: 'buyer', status: 'checked', expires_on: null, storage_path: 'p/a.jpg' }]);
 assert.equal(full.score, 100);
 assert.equal(full.missing.length, 0);
@@ -78,9 +79,21 @@ assert.match(completenessSummary(full), /Hồ sơ đủ 100\/100 mục/);
 
 /* 6. Điểm là tổng trọng số thật, không phải đếm số mục. */
 const partial = productCompleteness({ category: 'cashew-kernels', ref_price: 6.4, spec: 'W320' }, []);
-assert.equal(partial.score, 32);
-assert.equal(partial.earned, 12 + 10 + 10);
+assert.equal(partial.score, 28);
+assert.equal(partial.earned, 10 + 9 + 9);
 assert.equal(partial.next.key, 'photo');
+
+/* 6b. Phase 2: từ khoá, giá mẫu (kể cả 0) và kích thước kiện. */
+const phase2 = productCompleteness({ keywords: ['cashew'], sample_price_usd: 0, package_type: 'bao' }, []);
+for (const key of ['keywords', 'sample_price', 'package_measure']) {
+  assert.ok(phase2.done.includes(key), `${key} phải được tính là đã có`);
+}
+const noPhase2 = productCompleteness({ keywords: [], sample_price_usd: null, package_type: '  ' }, []);
+for (const key of ['keywords', 'sample_price', 'package_measure']) {
+  assert.ok(noPhase2.missing.some((item) => item.key === key), `${key} trống thì vẫn nhắc`);
+}
+const weightSum = COMPLETENESS_ITEMS.reduce((sum, item) => sum + item.weight, 0);
+assert.equal(weightSum, 100, 'trọng số Phase 1 + Phase 2 vẫn cộng lại thành 100');
 
 /* 7. Nhắc chỉ trong cổng/CRM: module thuần, không email, không CSDL. */
 assert.doesNotMatch(source, /notify|@\/lib\/email|resend/i, 'không gửi email nhắc ở Phase 1');

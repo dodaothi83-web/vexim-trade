@@ -46,6 +46,11 @@ export interface CompletenessFacts {
   payment_terms?: string | null;
   monthly_capacity?: string | null;
   export_port?: string | null;
+  /** Phase 2 — cột mới; vắng mặt thì coi như chưa khai. */
+  keywords?: string[] | null;
+  sample_price_usd?: number | null;
+  package_type?: string | null;
+  package_weight_kg?: number | null;
 }
 
 export type CompletenessMedia = Pick<MediaAsset, "kind" | "audience" | "status" | "expires_on" | "storage_path">;
@@ -67,17 +72,22 @@ export interface ProductCompleteness {
 
 /** Trọng số cộng lại đúng 100 để điểm đọc như phần trăm. */
 export const COMPLETENESS_ITEMS: CompletenessItem[] = [
-  { key: "photo", label: "Ảnh thật", required: true, weight: 20, step: 2, hint: "Tải ít nhất một ảnh sản phẩm và chia sẻ cho người mua." },
-  { key: "category", label: "Danh mục", required: true, weight: 12, step: 1, hint: "Chọn danh mục đúng ngành hàng." },
-  { key: "price", label: "Giá tham khảo", required: true, weight: 10, step: 1, hint: "Nhập giá theo đơn vị đã chọn." },
-  { key: "moq", label: "MOQ", required: true, weight: 10, step: 1, hint: "Cho biết số lượng đặt tối thiểu." },
-  { key: "spec", label: "Quy cách", required: true, weight: 10, step: 1, hint: "Ghi quy cách chính để người mua so sánh." },
-  { key: "packaging", label: "Đóng gói", required: false, weight: 10, step: 1, hint: "Cách đóng gói và khối lượng mỗi kiện." },
-  { key: "lead_time", label: "Thời gian giao", required: false, weight: 8, step: 1, hint: "Số ngày từ khi xác nhận đơn đến lúc giao." },
-  { key: "description", label: "Mô tả", required: false, weight: 8, step: 1, hint: "Ba đến năm câu về sản phẩm và ứng dụng." },
-  { key: "name_en", label: "Tên tiếng Anh", required: false, weight: 6, step: 1, hint: "Tên hiển thị cho người mua trên trang công khai." },
-  { key: "payment_terms", label: "Thanh toán", required: false, weight: 3, step: 1, hint: "Ví dụ: 30% đặt cọc, phần còn lại trước khi giao." },
-  { key: "capacity", label: "Năng lực tháng", required: false, weight: 2, step: 1, hint: "Sản lượng cung cấp được mỗi tháng." },
+  { key: "photo", label: "Ảnh thật", required: true, weight: 16, step: 2, hint: "Tải ít nhất một ảnh sản phẩm và chia sẻ cho người mua." },
+  { key: "category", label: "Danh mục", required: true, weight: 10, step: 1, hint: "Chọn danh mục đúng ngành hàng." },
+  { key: "price", label: "Giá tham khảo", required: true, weight: 9, step: 1, hint: "Nhập giá theo đơn vị đã chọn." },
+  { key: "moq", label: "MOQ", required: true, weight: 9, step: 1, hint: "Cho biết số lượng đặt tối thiểu." },
+  { key: "spec", label: "Quy cách", required: true, weight: 9, step: 1, hint: "Ghi quy cách chính để người mua so sánh." },
+  { key: "packaging", label: "Đóng gói", required: false, weight: 9, step: 1, hint: "Cách đóng gói và khối lượng mỗi kiện." },
+  { key: "lead_time", label: "Thời gian giao", required: false, weight: 7, step: 1, hint: "Số ngày từ khi xác nhận đơn đến lúc giao." },
+  { key: "description", label: "Mô tả", required: false, weight: 7, step: 1, hint: "Ba đến năm câu về sản phẩm và ứng dụng." },
+  { key: "name_en", label: "Tên tiếng Anh", required: false, weight: 5, step: 1, hint: "Tên hiển thị cho người mua trên trang công khai." },
+  // Phase 2: ba mục dưới đây là cột mới (migration 20261072). Trống thì chỉ mất điểm,
+  // không chặn đăng, và không suy đoán giá trị từ cột văn bản cũ.
+  { key: "keywords", label: "Từ khoá", required: false, weight: 5, step: 1, hint: "Thêm 1–3 từ khoá tiếng Anh để người mua tìm thấy sản phẩm." },
+  { key: "sample_price", label: "Giá mẫu", required: false, weight: 5, step: 1, hint: "Nêu giá mẫu nếu bạn bán mẫu." },
+  { key: "package_measure", label: "Kích thước kiện", required: false, weight: 5, step: 1, hint: "Ghi loại kiện và khối lượng mỗi kiện." },
+  { key: "payment_terms", label: "Thanh toán", required: false, weight: 2, step: 1, hint: "Ví dụ: 30% đặt cọc, phần còn lại trước khi giao." },
+  { key: "capacity", label: "Năng lực tháng", required: false, weight: 1, step: 1, hint: "Sản lượng cung cấp được mỗi tháng." },
   { key: "export_port", label: "Cảng xuất", required: false, weight: 1, step: 1, hint: "Cảng thường dùng để xuất hàng." },
 ];
 
@@ -118,6 +128,13 @@ function hasAttribute(facts: CompletenessFacts, key: string): boolean {
       return Boolean(text(facts.spec));
     case "packaging":
       return Boolean(text(facts.packaging));
+    case "keywords":
+      return Array.isArray(facts.keywords) && facts.keywords.some((k) => text(k));
+    case "sample_price":
+      // Giá mẫu 0 vẫn là đã khai (tặng mẫu); chỉ null mới là thiếu.
+      return typeof facts.sample_price_usd === "number" && Number.isFinite(facts.sample_price_usd) && facts.sample_price_usd >= 0;
+    case "package_measure":
+      return positive(facts.package_weight_kg) || Boolean(text(facts.package_type));
     case "lead_time":
       return positive(facts.lead_time_days) || facts.lead_time_days === 0;
     case "description":

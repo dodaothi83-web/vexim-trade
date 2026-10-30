@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { loadProductDescription } from './product-description-test-utils.mjs';
+import * as productExtras from '../lib/products/product-extras.ts';
 function load(file, mocks) {
   const mod = { exports: {} };
   const source = ts.transpileModule(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), {
@@ -119,6 +120,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => c.slug === (p.name.includes('Rice') ? 'rice' : 'cashew')) },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async (_supplier, item) => { notices.push(['submitted', item.id]); return 'sent'; } },
   '@/lib/products/product-description': productDescription,
+  '@/lib/products/product-extras': productExtras,
   '@/lib/media/storage': storage,
   '@/lib/ai/product-translation-service': {
     ensureProductEnglishTranslation: async (storeArg, id) => {

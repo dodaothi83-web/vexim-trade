@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as productExtras from '../lib/products/product-extras.ts';
 
 const source = readFileSync(new URL('../lib/db/supabase.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, {
@@ -39,6 +40,7 @@ function storeFor(response) {
     require: (id) => {
       if (id === '@supabase/supabase-js') return { createClient: () => client };
       if (id === '@/lib/public/product-selection') return {};
+      if (id === '@/lib/products/product-extras') return productExtras;
       throw Error(`Unexpected dependency ${id}`);
     },
     process: { env: { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'test-only' } },

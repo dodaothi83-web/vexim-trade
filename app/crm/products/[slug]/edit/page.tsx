@@ -17,6 +17,7 @@ import { isExpired, productPublicationMediaState, productReadiness } from "@/lib
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { SupplierProductReviewControls } from "./review-controls";
+import { packagingSummary } from "@/lib/products/product-extras";
 import { ProductTranslationPanel } from "./translation-panel";
 import { productTranslationState } from "@/lib/ai/translate-content";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
@@ -236,6 +237,12 @@ export default async function EditProductPage({
             {(!supplierReviewedListing || canView) && readiness.ready && !productImages.length && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">{supplierReviewedListing ? "Sản phẩm chỉ có catalogue. Thêm ảnh để thẻ sản phẩm có hình." : "Catalogue đã đủ điều kiện nhưng thẻ chưa có ảnh. Thêm ảnh chia sẻ cho người mua để thẻ có hình."}</p>}
             {canView && category && <p className="mt-3 border-t border-ink-100 pt-3"><Link className="text-[13px] font-semibold text-brand-700 underline" href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(product.id)}`} target="_blank">{supplierReviewedListing ? "Xem sản phẩm đã đăng" : "Xem trang sản phẩm công khai ↗"}</Link></p>}
           </section>}
+          <section className="card order-3 p-4 text-[13px] leading-relaxed text-ink-600">
+            <h2 className="mb-1 text-sm font-bold text-ink-900">Từ khoá và đóng gói</h2>
+            <p><strong className="text-ink-900">Từ khoá:</strong> {product.keywords?.length ? product.keywords.join(", ") : "chưa khai"}</p>
+            <p><strong className="text-ink-900">Đóng gói:</strong> {packagingSummary(product) || product.packaging || "chưa khai"}</p>
+            <p><strong className="text-ink-900">Giá mẫu:</strong> {product.sample_price_usd == null ? "chưa khai" : `USD ${product.sample_price_usd}`}</p>
+          </section>
           <section className="card order-3 p-4 text-[13px] leading-relaxed text-ink-600">
             <h2 className="mb-1 text-sm font-bold text-ink-900">Chứng nhận của nhà cung cấp</h2>
             <p>Chứng nhận không lấy từ ô sản phẩm tự khai. <Link href={`/crm/suppliers/${supplier.id}/audit/documents`} className="font-semibold text-brand-700 underline">Xem giấy tờ và chứng nhận nhà cung cấp →</Link></p>

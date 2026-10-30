@@ -8,6 +8,7 @@ import ts from "typescript";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { loadProductDescription } from "./product-description-test-utils.mjs";
+import * as productExtras from '../lib/products/product-extras.ts';
 
 const require = createRequire(import.meta.url);
 const { description: productDescription } = loadProductDescription();
@@ -29,6 +30,8 @@ function compile(path, mocks = {}, { jsx = false, append = "", source = null } =
     },
     React, FormData, Date, String, Number, Boolean, Object, Array, RegExp, Error, JSON,
     sanitizeProductDescriptionForSave: productDescription.sanitizeProductDescriptionForSave,
+    // Đoạn `#parseProduct` được cắt khỏi file thật nên không có dòng import; cấp hàm qua global.
+    productExtrasFromForm: productExtras.productExtrasFromForm,
     console, process,
   }, { filename: path });
   return module.exports;
@@ -83,7 +86,7 @@ const portalSource = read("app/supplier/portal/product-actions.ts");
 const portalStart = portalSource.indexOf("function parseProduct(");
 const portalEnd = portalSource.indexOf("async function approvedAccess", portalStart);
 assert.ok(portalStart >= 0 && portalEnd > portalStart);
-const portalParser = compile("app/supplier/portal/product-actions.ts#parseProduct", {}, {
+const portalParser = compile("app/supplier/portal/product-actions.ts#parseProduct", { '@/lib/products/product-extras': productExtras }, {
   source: `const text = (form, key, max = 500) => String(form.get(key) ?? "").trim().slice(0, max);
 const normalizeSupplierPriceCurrency = (v) => String(v ?? "").trim().toUpperCase();
 const normalizeSupplierPriceUnit = (v) => String(v ?? "").trim();

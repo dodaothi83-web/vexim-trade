@@ -847,6 +847,12 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     <span className="mt-1 block text-[11px] leading-4 text-ink-500">Dùng tiêu đề, in đậm, danh sách cho dễ đọc. Không nhập thông tin liên hệ trực tiếp.</span>
                   </div>
                 </div>
+                <div className="md:col-span-2">
+                  <Field label="Từ khoá tìm kiếm" hint="1–3 từ tiếng Anh, cách nhau bằng dấu phẩy.">
+                    <input name="keywords" className="input" maxLength={120} placeholder="cashew, w320, vietnam"
+                      defaultValue={(product?.keywords ?? []).join(", ")} disabled={locked} />
+                  </Field>
+                </div>
               </div>
             </div>
 
@@ -942,6 +948,24 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 {BASE_FIELDS.map(([key, label, placeholder, max]) => <Field key={key} label={label}>
                   <input className="input" name={key} maxLength={max} placeholder={placeholder} defaultValue={String(product?.[key] ?? "")} disabled={locked} />
                 </Field>)}
+                <Field label="Loại kiện" hint="Bao, thùng, hộp hoặc pallet.">
+                  <input className="input" name="package_type" maxLength={40} placeholder="Ví dụ: bao" defaultValue={product?.package_type ?? ""} disabled={locked} />
+                </Field>
+                <Field label="Khối lượng mỗi kiện" hint="Tính bằng kg.">
+                  <input className="input" name="package_weight_kg" inputMode="decimal" placeholder="Ví dụ: 25"
+                    defaultValue={product?.package_weight_kg ?? ""} disabled={locked} />
+                </Field>
+                <Field label="Kích thước kiện" hint="Dài x rộng x cao, cm.">
+                  <input className="input" name="package_size" maxLength={60} placeholder="60x40x40 cm" defaultValue={product?.package_size ?? ""} disabled={locked} />
+                </Field>
+                <Field label="Số đơn vị mỗi thùng">
+                  <input className="input" name="units_per_carton" inputMode="numeric" placeholder="Ví dụ: 20"
+                    defaultValue={product?.units_per_carton ?? ""} disabled={locked} />
+                </Field>
+                <Field label="Giá mẫu (USD)" hint="Bỏ trống nếu không bán mẫu.">
+                  <input className="input" name="sample_price_usd" inputMode="decimal" placeholder="Ví dụ: 5"
+                    defaultValue={product?.sample_price_usd ?? ""} disabled={locked} />
+                </Field>
               </div>
             </div>
 

@@ -82,7 +82,8 @@ assert.match(html, /left-3 top-1\/2 size-4 -translate-y-1\/2 text-ink-400/, 'The
 // Độ hoàn thiện: thẻ sản phẩm nhắc ngắn gọn, tính từ bản đã lưu + tệp chia sẻ cho người mua.
 assert.match(html, /Hồ sơ \d+% · còn thiếu/, 'Thẻ sản phẩm trong cổng nhắc mục còn thiếu');
 const completeProduct = { ...product('p9', 'approved', 'Cashew đủ hồ sơ'), display_name: 'Cashew W320', packaging: 'Túi 22,68 kg',
-  lead_time_days: 21, payment_terms: '30% đặt cọc', monthly_capacity: '300 tấn', export_port: 'Cát Lái' };
+  lead_time_days: 21, payment_terms: '30% đặt cọc', monthly_capacity: '300 tấn', export_port: 'Cát Lái',
+  keywords: ['cashew', 'w320'], sample_price_usd: 5, package_type: 'bao', package_weight_kg: 22.68 };
 const completeHtml = renderToStaticMarkup(React.createElement(SupplierProductStorefront, {
   products: [completeProduct], supplierPublished: true,
   media: [media('p9', 'ours', 'staff', 'buyer', 'products/p9/a.jpg')],
