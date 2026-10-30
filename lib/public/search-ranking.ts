@@ -13,6 +13,12 @@ export interface ProductSearchFields {
   structuredGrade: string;
   /** Public category and public parent-category names. */
   category: string;
+  /**
+   * Từ khoá do nhà cung cấp tự khai cho sảnphẩm (đã chuẩn hoá, không dấu).
+   * Đây là metadata người bán chọn để được tìm thấy: nó tính vào độ phủ từ khoá
+   * nhưng KHÔNG bao giờ tính là mã quy cách của sản phẩm.
+   */
+  keywords?: string;
   /** Public supplier name and province, kept as a weaker fallback. */
   supplier: string;
 }
@@ -87,7 +93,8 @@ function hasCashewContext(fields: ProductSearchFields): boolean {
  */
 export function productSearchRelevance(tokens: readonly string[], fields: ProductSearchFields): SearchRelevance | null {
   const core = `${fields.product} ${fields.grade}`;
-  const all = `${core} ${fields.category} ${fields.supplier}`;
+  const keywords = fields.keywords ?? "";
+  const all = `${core} ${fields.category} ${keywords} ${fields.supplier}`;
   const cashewAliases = tokens.some((token) => parseCode(token, true)?.family === "w") && hasCashewContext(fields);
   if (!tokens.every((token) => all.includes(token) ||
     (cashewAliases && parseCode(token, true)?.family === "w" && codeMatches(core, token, true)))) return null;
@@ -100,7 +107,12 @@ export function productSearchRelevance(tokens: readonly string[], fields: Produc
     if (conflictingGrade(token, gradeCodes, cashewAliases)) continue;
     const wholeProduct = codeMatches(core, token, cashewAliases);
     if (parseCode(token) && wholeProduct) relevance.productCodes++;
-    if (wholeProduct || core.includes(token) || fields.category.includes(token)) relevance.coreTokens++;
+    // Từ khoá chỉ nâng độ phủ (coreTokens) và luôn yếu hơn tên/grade/danh mục:
+    //  - không tính vào `productCodes`, để một mã gõ trong ô từ khoá không biến
+    //    sản phẩm khác quy cách thành đúng quy cách đó;
+    //  - không tính vào `wholeCoreTokens`, để sản phẩm khớp trọn từ ở tên vẫn xếp trên.
+    const keywordHit = keywords.length > 0 && (keywords.includes(token) || wholeMatch(keywords, token));
+    if (wholeProduct || core.includes(token) || fields.category.includes(token) || keywordHit) relevance.coreTokens++;
     if (wholeProduct || wholeMatch(fields.category, token)) relevance.wholeCoreTokens++;
   }
   return relevance;

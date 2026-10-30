@@ -93,3 +93,49 @@ Dùng lại `certificates.requested_product_ids` (nhà cung cấp xin gắn) và
 
 Không mở lại ô tự khai chứng nhận ở trang sản phẩm: hồ sơ Giấy tờ L1 (AI quét đơn vị đứng tên
 và ngày hết hạn) vẫn là nguồn duy nhất. Chứng nhận hết hạn không gắn được.
+
+## 6. Đợt A+B (30/10/2026) — Phase 2 ra trang người mua và vào tìm kiếm
+
+Hai việc làm cùng một đợt. Cả hai đều **chỉ đọc** dữ liệu Phase 2: không đổi
+điều kiện publish, không đổi giá tham khảo, không cần migration mới.
+
+### A. Trang sản phẩm người mua (tiếng Anh)
+
+| Hiển thị | Ở đâu | Nguồn |
+| --- | --- | --- |
+| Đóng gói có cấu trúc, ví dụ “25 kg bag · 60x40x40 cm · 20 units/carton” | dòng **Packaging** trong “Key terms” | `package_type`, `package_weight_kg`, `package_size`, `units_per_carton` qua `lib/public/product-extras-display.ts` |
+| Giá mẫu, ví dụ “USD 5.00 per sample” | dòng **Sample price**, chỉ hiện khi có số | `sample_price_usd` |
+| Chứng nhận gắn riêng cho sản phẩm | khối **Product certificates**: tên, đơn vị cấp, hạn dùng, đơn vị đứng tên | `certificates.approved_product_ids` |
+| JSON-LD | `additionalProperty` (Packaging, Sample price, MOQ…) + `hasCertification` | như trên |
+
+Quy tắc đã giữ:
+
+- **Không** khai `Offer`/`price` trong JSON-LD. Giá trên trang là giá tham khảo qua RFQ,
+  không phải chào bán giao dịch trực tiếp; `Offer` không có giá còn tệ hơn không khai.
+- Chứng nhận chỉ lộ **tập con** của danh sách đã công khai ở hồ sơ nhà cung cấp
+  (`publicSupplierCertificates`), rồi mới lọc theo `approved_product_ids`. Chưa duyệt,
+  đã hết hạn, bị nhân viên ẩn hoặc chỉ mới `requested_product_ids` đều không hiện.
+- Loại kiện nhà cung cấp gõ bằng tiếng Việt được dịch sang từ tiếng Anh đã biết
+  (bao → bag, thùng → carton…). Từ chưa biết thì bỏ phần loại kiện và giữ khối lượng,
+  không đẩy nguyên văn tiếng Việt lên trang tiếng Anh.
+- Đóng gói có cấu trúc đứng trước mô tả đóng gói cũ (`packaging` / `spec`), chỉ lùi về
+  mô tả cũ khi chưa khai cấu trúc.
+
+### B. Từ khoá thật sự tìm được
+
+| Việc | Ở đâu |
+| --- | --- |
+| Từ khoá vào kết quả tìm kiếm | `app/(public)/search/page.tsx` truyền `keywords` vào `productSearchRelevance` |
+| Xếp hạng | `lib/public/search-ranking.ts`: từ khoá chỉ cộng `coreTokens` |
+| Thẻ sản phẩm công khai mang theo từ khoá | `lib/public/product-catalog.ts` (`keywords`, tối đa 3, lọc rỗng) |
+| Chip “Related searches” trên trang danh mục | `lib/public/category-searches.ts` + `app/(public)/products/[slug]/page.tsx` |
+| Kiểm tra | `npm run check:extras-buyer` (nằm trong `check:supplier-products`) |
+
+Vì sao từ khoá xếp dưới tên sản phẩm: từ khoá là metadata người bán tự chọn. Nếu cho
+nó cùng hạng với tên/grade thì một sản phẩm gõ sai từ khoá sẽ chen lên trước sản phẩm
+đúng, và mã quy cách (W320…) khai trong ô từ khoá sẽ thành “đúng quy cách”. Vì vậy
+từ khoá **không** cộng `productCodes`, **không** cộng `wholeCoreTokens`; nó chỉ giúp
+sản phẩm xuất hiện và xếp trên nhóm chỉ khớp tên nhà cung cấp.
+
+Chip gợi ý dựng từ từ khoá đang có trên sản phẩm đã publish trong danh mục, xếp theo số
+sản phẩm dùng, tối đa 6, bỏ từ khoá trùng tên danh mục. Không có sản phẩm thì không có chip.

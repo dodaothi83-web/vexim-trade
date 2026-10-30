@@ -84,6 +84,11 @@ export interface PublicCategoryProduct {
   oem: boolean;
   odm: boolean;
   samples: boolean;
+  /**
+   * Từ khoá nhà cung cấp tự khai (tiếng Anh, chữ thường) để người mua tìm thấy
+   * sản phẩm. Chỉ dùng cho tìm kiếm/gợi ý; KHÔNG phải điều kiện công bố sản phẩm.
+   */
+  keywords: string[];
   isDemo: boolean;
   imagePaths: string[];
   cardImagePath: string | null;
@@ -177,7 +182,14 @@ export function projectPublicCategoryProduct(
     supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
     supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,
     leadTimeDays: p.lead_time_days ?? null, leadTimeText: formatLeadTimeBuyer(p), incoterm: effectiveIncoterm, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
-    isDemo: !!s.is_demo, imagePaths: images,
+    isDemo: !!s.is_demo,
+    // Giữ tại chỗ, không import thêm: form đã chuẩn hoá từ khoá khi lưu; ở đây chỉ
+    // lọc rác và cắt đúng 3 từ để bản ghi cũ hoặc cột chưa có không làm vỡ trang.
+    keywords: Array.isArray(p.keywords)
+      ? p.keywords.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
+        .map((keyword) => keyword.trim()).slice(0, 3)
+      : [],
+    imagePaths: images,
     cardImagePath: shareableProductImages(media, p.id, p.featured_media_id, 1, true)[0] ?? null,
   };
 }

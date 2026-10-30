@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { compareSearchRelevance, orderSearchProducts, productSearchRelevance } from '../lib/public/search-ranking.ts';
 
 const norm = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
-const find = (query, { product = '', grade = '', structuredGrade = grade, category = '', supplier = '' }) => productSearchRelevance(
+const find = (query, { product = '', grade = '', structuredGrade = grade, category = '', keywords = '', supplier = '' }) => productSearchRelevance(
   norm(query).trim().split(/\s+/).filter(Boolean),
-  { product: norm(product), grade: norm(grade), structuredGrade: norm(structuredGrade), category: norm(category), supplier: norm(supplier) },
+  { product: norm(product), grade: norm(grade), structuredGrade: norm(structuredGrade), category: norm(category), keywords: norm(keywords), supplier: norm(supplier) },
 );
 const compare = (a, b) => b.verificationCount - a.verificationCount || b.quality - a.quality || a.name.localeCompare(b.name);
 const entry = (id, supplierId, verificationCount, relevance, extra = {}) => ({
@@ -48,6 +48,13 @@ assert.ok(find('van phuoc', { supplier: 'Vạn Phước', product: 'Mặt hàng'
 assert.equal(find('W320 organic', { product: 'Cashew W320', grade: 'W320', category: 'cashew' }), null, 'All search tokens must match');
 assert.ok(find('W320 organic', { product: 'Cashew W320', grade: 'W320', supplier: 'Organic Foods' }), 'Mixed product/supplier tokens remain searchable');
 assert.deepEqual(find('', { product: 'Any product' }), { productCodes: 0, coreTokens: 0, wholeCoreTokens: 0 });
+// Supplier-authored keywords are searchable, but weaker than the product's own name.
+const keywordHit = find('dried fruit', { product: 'Fruit mix', keywords: 'dried fruit' });
+assert.ok(keywordHit, 'A keyword supplies a match the name does not');
+assert.equal(keywordHit.productCodes, 0, 'A keyword never counts as a product code');
+assert.ok(compareSearchRelevance(find('dried fruit', { product: 'Dried fruit mix' }), keywordHit) < 0,
+  'A name match still outranks a keyword-only match');
+assert.equal(find('dried fruit', { product: 'Fruit mix' }), null, 'Without keywords the same query has no match');
 
 // B: within one relevance group each supplier gets one card before any repeats.
 const sample = [

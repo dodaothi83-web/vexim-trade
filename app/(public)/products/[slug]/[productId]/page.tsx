@@ -27,6 +27,9 @@ import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
 import { SITE_URL } from "@/lib/site";
 import { safeJsonLd } from "@/lib/public/supplier-seo";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
+import { packagingSummaryEnglish, samplePriceEnglish } from "@/lib/public/product-extras-display";
+import { approvedProductCertificateIds } from "@/lib/public/product-certificate-links";
+import { publicProductCertificates, type PublicSupplierCertificate } from "@/lib/public/certificates";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +68,22 @@ async function getDetailOrRedirect(slug: string, productId: string) {
   });
   if (!destination) return null;
   permanentRedirect(destination);
+}
+
+/**
+ * Chứng nhận hiển thị riêng cho sản phẩm này.
+ *
+ * Không đọc thêm gì khi chưa có chứng nhận nào được nhân viên duyệt gắn: lần đọc
+ * media chỉ chạy khi thật sự cần kiểm tra tệp. Bộ lọc công khai vẫn là của hồ sơ
+ * nhà cung cấp, nên gắn sản phẩm không mở thêm cổng công bố nào.
+ */
+async function productCertificatesFor(productId: string, supplierId: string): Promise<PublicSupplierCertificate[]> {
+  const store = getStore();
+  if (typeof store.listCertificates !== "function") return [];
+  const raw = await store.listCertificates(supplierId).catch(() => []);
+  if (!approvedProductCertificateIds(raw, supplierId, productId).size) return [];
+  const media = typeof store.listMedia === "function" ? await store.listMedia("supplier", supplierId).catch(() => []) : [];
+  return publicProductCertificates(supplierId, productId, raw, media);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -122,6 +141,7 @@ export default async function PublicProductDetail({ params }: Props) {
   const { category, card, product: p, relatedProducts, preview } = detail;
   // Product eligibility was checked above; project only buyer-shareable images and safe video embeds.
   const media = await getStore().listMedia("product", p.id);
+  const productCertificates = await productCertificatesFor(p.id, p.supplier_id);
   const images = card.usesFormGallery ? card.imagePaths : shareableProductImages(media, p.id, p.featured_media_id, 24);
   const thumbnails = card.usesFormGallery ? (card.imageThumbnailPaths ?? card.imagePaths) : shareableProductImages(media, p.id, p.featured_media_id, 24, true);
   const video = shareableProductVideo(media, p.id);
@@ -142,6 +162,9 @@ export default async function PublicProductDetail({ params }: Props) {
   const enDescription = p.description_i18n?.en?.trim() || p.description;
   const enSpec = p.spec_i18n?.en?.trim() || p.spec;
   const enPackaging = p.packaging_i18n?.en?.trim() || p.packaging;
+  // Đóng gói có cấu trúc (Phase 2) là tiếng Anh, dựng từ số liệu nhà cung cấp đã khai.
+  const structuredPackaging = packagingSummaryEnglish(p);
+  const samplePrice = samplePriceEnglish(p);
   const enDetail = p.description_detail_i18n?.en?.trim() || p.description_detail;
   const parsedSpecifications = parseProductSpecification(enSpec);
   const detailRows = parsedSpecifications.filter((row) => !["grade", "minimum order quantity (moq)", "packaging specification"].includes(row.key));
@@ -161,6 +184,7 @@ export default async function PublicProductDetail({ params }: Props) {
   const countView = !preview && !card.isDemo && !(await getSession());
   // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
   // giá trên trang là giá tham khảo qua RFQ, không phải chào bán giao dịch trực tiếp.
+  // Đóng gói và giá mẫu vì vậy nằm trong additionalProperty, không nằm trong Offer.
   const indexable = !preview && !card.isDemo && !!category.seo_indexable;
   // Thuộc tính có cấu trúc chỉ lấy từ dữ kiện đã qua kiểm tra: MOQ và lead time
   // trên bản ghi sản phẩm công khai, cùng các trường thuộc tính theo danh mục
@@ -175,6 +199,9 @@ export default async function PublicProductDetail({ params }: Props) {
   const structuredMoq = card.moq !== "On request" ? card.moq : publicProductMoqDisplay(p.moq);
   if (structuredMoq) pushProperty("MOQ", structuredMoq);
   if (card.leadTimeText && card.leadTimeText !== "On request") pushProperty("Lead time", card.leadTimeText);
+  // Phase 2: chỉ khai những gì nhà cung cấp đã nhập và đã qua kiểm tra hiển thị.
+  if (structuredPackaging) pushProperty("Packaging", structuredPackaging);
+  if (samplePrice) pushProperty("Sample price", samplePrice);
   for (const f of fieldsFor(category)) {
     if (approvedAttributes[f.key]) pushProperty(f.label, approvedAttributes[f.key]);
   }
@@ -192,6 +219,17 @@ export default async function PublicProductDetail({ params }: Props) {
       ...(card.supplierSlug ? { url: `${SITE_URL}/suppliers/${encodeURIComponent(card.supplierSlug)}` } : {}),
     },
     ...(structuredProperties.length ? { additionalProperty: structuredProperties } : {}),
+    // Chỉ chứng nhận đã được duyệt gắn cho sản phẩm và còn hiệu lực; không suy ra
+    // chứng nhận của nhà cung cấp sang từng sản phẩm.
+    ...(productCertificates.length
+      ? {
+        hasCertification: productCertificates.map((certificate) => ({
+          "@type": "Certification",
+          name: certificate.name,
+          ...(certificate.validUntil ? { expires: certificate.validUntil } : {}),
+        })),
+      }
+      : {}),
   };
   return <div className="mx-auto max-w-6xl px-5 pb-24 pt-7 sm:px-6 lg:px-8">
     {indexable && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />}
@@ -310,7 +348,8 @@ export default async function PublicProductDetail({ params }: Props) {
                 <Spec label="MOQ" value={card.moq} />
               </>
             )}
-            <Spec label="Packaging" value={detailedPackaging || enPackaging} />
+            <Spec label="Packaging" value={structuredPackaging || detailedPackaging || enPackaging} />
+            {samplePrice && <Spec label="Sample price" value={samplePrice} />}
             <Spec label="Lead time" value={card.leadTimeText || (card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request")} />
             {!card.quantityOffer && gradeRows.length === 0 && <Spec label="Incoterm" value={card.incoterm} />}
             <Spec label="Loading port" value={publicProductExportPortDisplay(p)} />
@@ -318,6 +357,32 @@ export default async function PublicProductDetail({ params }: Props) {
             <Spec label="Input material origin" value={card.inputMaterialOrigin} />
           </dl>
         </div>
+        {productCertificates.length > 0 && (
+          <section aria-labelledby="product-certificates-heading" className="mt-5 overflow-hidden rounded-xl border border-teal-200 bg-teal-50/40 shadow-sm">
+            <div className="border-b border-teal-100 px-5 py-3">
+              <h2 id="product-certificates-heading" className="text-sm font-bold text-ink-900">Product certificates</h2>
+              <p className="mt-0.5 text-xs leading-5 text-ink-600">Shared by the supplier and linked to this product by Vexim. Holder names and expiry dates come from the document copies; issuer authentication is a separate check.</p>
+            </div>
+            <ul className="grid gap-2 px-5 py-4 sm:grid-cols-2">
+              {productCertificates.map((certificate) => (
+                <li key={certificate.id} className="rounded-lg border border-teal-100 bg-white px-3.5 py-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <strong className="font-bold text-ink-900">{certificate.name}</strong>
+                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${certificate.holderMatch === "owner" ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-1 ring-amber-200"}`}>
+                      {certificate.holderMatch === "owner" ? "Registered to supplier" : `Third-party holder · ${certificate.holderName}`}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-xs leading-5 text-ink-600">
+                    {certificate.issuer ? `Issuer: ${certificate.issuer} · ` : ""}Valid until: <strong className="text-ink-900">{certificate.validUntil}</strong>
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <p className="px-5 pb-4 text-xs leading-5 text-ink-600">
+              <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#certificates`} className="font-semibold text-brand-700 underline">All certificates on the supplier profile</Link>
+            </p>
+          </section>
+        )}
         <p className="mt-2 text-xs leading-5 text-ink-500">Product details and reference prices are supplier-provided and reviewed for listing. Confirm current specifications, availability and final terms in your RFQ.</p>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <Link href={rfq} className="btn btn-primary min-h-12 w-full justify-center px-2 text-sm font-bold shadow-lg shadow-brand-900/20 sm:px-4 sm:text-base">Request a quote <ArrowRight className="hidden h-5 w-5 sm:block" /></Link>
