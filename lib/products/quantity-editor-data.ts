@@ -5,19 +5,17 @@ import { displayUnitsForCategory } from "@/lib/public/price-units";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
 import { readQuantityRevisionV2, v2InputTiers } from "@/lib/products/quantity-revision-v2";
 import type { SupplierQuantityUnit } from "@/lib/products/quantity-entry";
-import type { QuantityPricingInput, QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
+import { normalizePriceCurrency, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import type { SupplierProduct } from "@/lib/types";
 
 export type QuantityEditorData = {
   productId: string; updatedAt: string; nameVi: string; nameEn: string;
   pendingPriceId: string | null; pendingNameId: string | null; hasApprovedPrice: boolean; hasApprovedName: boolean;
-  grade: string; incoterm: string; tiers: QuantityPricingInput["tiers"];
+  grade: string; incoterm: string; currency: string; tiers: QuantityPricingInput["tiers"];
   /** Raw supplier-unit values. Older editors must not treat these as kg prices. */
   v2?: { unit: SupplierQuantityUnit; customGrade: boolean; tiers: Array<{ quantity: string; price: string }> } | null;
   standardGrades: string[]; policy: QuantityPricingPolicy; buyerPriceUnit: "kg" | "mt"; pricePubliclyVisible: boolean;
   buyerPreviewEnabled: boolean;
-  /** Private experimental UI must remain disabled outside dedicated staging. */
-  v2EditingEnabled?: boolean;
 };
 
 /** Caller must authorize the product before requesting any private revision. */
@@ -45,20 +43,26 @@ export async function readQuantityEditorData(product: SupplierProduct): Promise<
       typeof (row as { minKg?: unknown }).minKg === "number" && typeof (row as { priceUsdPerKg?: unknown }).priceUsdPerKg === "number"))) {
     throw new Error("Invalid saved quantity price revision");
   }
+  const fallbackIncoterm = typeof price?.incoterm === "string" ? price.incoterm : "";
   const tiers = revisionV2 ? [] : price
-    ? rawTiers.map((row: { minKg: number; priceUsdPerKg: number }) => ({ minKg: String(row.minKg), priceUsdPerKg: String(row.priceUsdPerKg) }))
-    : [{ minKg: "", priceUsdPerKg: "" }];
+    ? rawTiers.map((row: { minKg: number; priceUsdPerKg: number; incoterm?: unknown; currency?: unknown }) => ({
+      minKg: String(row.minKg), priceUsdPerKg: String(row.priceUsdPerKg),
+      incoterm: typeof row.incoterm === "string" ? row.incoterm : fallbackIncoterm,
+    }))
+    : [{ minKg: "", priceUsdPerKg: "", incoterm: fallbackIncoterm }];
+  // Rows written before the currency field existed are USD by definition.
+  const storedCurrency = rawTiers.find((row) => !!row && typeof row === "object" && "currency" in row) as { currency?: unknown } | undefined;
+  const currency = normalizePriceCurrency(typeof storedCurrency?.currency === "string" ? storedCurrency.currency : "USD") ?? "USD";
   const primary = displayUnitsForCategory(category.slug, category.price_unit).primary;
   return {
     productId: product.id, updatedAt: product.updated_at, nameVi: product.name,
     nameEn: pendingName?.english_name || approvedName?.english_name || product.name_i18n?.en || "",
     pendingPriceId: pendingPrice?.id ?? null, pendingNameId: pendingName?.id ?? null,
     hasApprovedPrice: !!approvedPrice, hasApprovedName: !!approvedName,
-    grade: typeof price?.grade === "string" ? price.grade : "", incoterm: typeof price?.incoterm === "string" ? price.incoterm : "",
+    grade: typeof price?.grade === "string" ? price.grade : "", incoterm: fallbackIncoterm, currency,
     tiers, v2: revisionV2 ? { unit: revisionV2.unit, customGrade: revisionV2.customGrade, tiers: v2InputTiers(revisionV2) } : null,
     standardGrades: standardGradesForCategory(category), policy,
     buyerPriceUnit: primary === "mt" ? "mt" : "kg", pricePubliclyVisible: product.price_publicly_visible === true,
     buyerPreviewEnabled: process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true",
-    v2EditingEnabled: process.env.VEXIM_QUANTITY_FORM_STAGING === "true" && process.env.VEXIM_QUANTITY_V2_STAGING === "true" && process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true",
   };
 }

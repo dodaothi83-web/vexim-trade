@@ -9,14 +9,14 @@ import { submitQuantityPriceRevisionAction } from "../../../quantity-revision-ac
 type Props = {
   productId: string; updatedAt: string; nameVi: string; nameEn: string;
   pendingPriceId: string | null; pendingNameId: string | null; hasApprovedPrice: boolean; hasApprovedName: boolean;
-  grade: string; incoterm: string; tiers: QuantityPricingInput["tiers"];
+  grade: string; incoterm: string; currency: string; tiers: QuantityPricingInput["tiers"];
   standardGrades: string[]; policy: QuantityPricingPolicy; buyerPriceUnit: "kg" | "mt"; pricePubliclyVisible: boolean;
 };
 type Result = { ok: boolean; message: string };
 
 export function QuantityPricingPreviewForm(props: Props) {
   const router = useRouter();
-  const [value, setValue] = useState<QuantityPricingInput>({ grade: props.grade, incoterm: props.incoterm, nameVi: props.nameVi, nameEn: props.nameEn, tiers: props.tiers });
+  const [value, setValue] = useState<QuantityPricingInput>({ grade: props.grade, incoterm: props.incoterm, currency: props.currency, nameVi: props.nameVi, nameEn: props.nameEn, tiers: props.tiers });
   const [busy, setBusy] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [priceResult, setPriceResult] = useState<Result | null>(null);
@@ -32,6 +32,7 @@ export function QuantityPricingPreviewForm(props: Props) {
     form.set("expected_price_revision_id", props.pendingPriceId ?? "");
     form.set("grade", value.grade);
     form.set("incoterm", value.incoterm);
+    form.set("quantity_currency", value.currency ?? "USD");
     form.set("quantity_tiers_json", JSON.stringify(value.tiers));
     setBusy(true); setPriceResult(null);
     try {

@@ -6,7 +6,7 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
-import { validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { entryCurrencyIssue, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -75,12 +75,18 @@ export async function submitQuantityPriceRevisionAction(form: FormData): Promise
       let rows: unknown;
       try { rows = JSON.parse(raw); } catch { return { ok: false, message: "Bảng giá không hợp lệ." }; }
       if (!Array.isArray(rows) || rows.length > 100 || rows.some((row) => !row || typeof row !== "object" ||
-        typeof row.minKg !== "string" || typeof row.priceUsdPerKg !== "string" || row.minKg.length > 32 || row.priceUsdPerKg.length > 32)) {
+        typeof (row as { minKg?: unknown }).minKg !== "string" || typeof (row as { priceUsdPerKg?: unknown }).priceUsdPerKg !== "string" ||
+        (row as { minKg: string }).minKg.length > 32 || (row as { priceUsdPerKg: string }).priceUsdPerKg.length > 32 ||
+        ((row as { incoterm?: unknown }).incoterm !== undefined && (typeof (row as { incoterm?: unknown }).incoterm !== "string" ||
+          (row as { incoterm: string }).incoterm.length > 20)))) {
         return { ok: false, message: "Bảng giá không hợp lệ." };
       }
       const grade = String(form.get("grade") ?? "").trim().slice(0, 180);
       const incoterm = String(form.get("incoterm") ?? "").trim().slice(0, 20);
-      validation = validateQuantityPricing({ grade, incoterm, nameVi: ctx.product.name, nameEn: "", tiers: rows }, standardGradesForCategory(ctx.category), policy);
+      const currency = String(form.get("quantity_currency") ?? "").trim().slice(0, 3) || "USD";
+      const currencyIssue = entryCurrencyIssue(currency);
+      if (currencyIssue) return { ok: false, message: currencyIssue };
+      validation = validateQuantityPricing({ grade, incoterm, currency, nameVi: ctx.product.name, nameEn: "", tiers: rows }, standardGradesForCategory(ctx.category), policy);
     }
     if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? "Bảng giá không hợp lệ." };
     const { data, error } = await ctx.db.rpc("submit_quantity_price_revision", {

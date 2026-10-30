@@ -21,7 +21,7 @@ import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-se
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
-import { nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { entryCurrencyIssue, nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 import type { QuantityRevisionTierV2 } from "@/lib/products/quantity-revision-v2";
 import { deleteObject } from "@/lib/media/storage";
@@ -132,7 +132,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       return { ok: false, message: "Không ghi grade trong tên sản phẩm tiếng Việt." };
     // New products and their private quantity table must be created together.
     // Validate everything against live category and policy, not client defaults.
-    let newQuantity: { grade: string; incoterm: string; tiers: { minKg: number; priceUsdPerKg: number }[] | QuantityRevisionTierV2[]; warnings: unknown[]; requestId: string } | null = null;
+    let newQuantity: { grade: string; incoterm: string; currency?: string; tiers: { minKg: number; priceUsdPerKg: number; incoterm?: string; currency?: string }[] | QuantityRevisionTierV2[]; warnings: unknown[]; requestId: string } | null = null;
     let consentSupplier = access.supplier;
     if (!existing) {
       const strictAccess = await supplierPortalAccess(supabaseStore);
@@ -164,10 +164,17 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
         let rows: unknown;
         try { rows = JSON.parse(raw); } catch { return { ok: false, message: "Bảng giá không hợp lệ." }; }
         if (!Array.isArray(rows) || rows.length > 100 || rows.some((row) => !row || typeof row !== "object" ||
-          typeof row.minKg !== "string" || typeof row.priceUsdPerKg !== "string" || row.minKg.length > 32 || row.priceUsdPerKg.length > 32))
+          typeof (row as { minKg?: unknown }).minKg !== "string" || typeof (row as { priceUsdPerKg?: unknown }).priceUsdPerKg !== "string" ||
+          (row as { minKg: string }).minKg.length > 32 || (row as { priceUsdPerKg: string }).priceUsdPerKg.length > 32 ||
+          ((row as { incoterm?: unknown }).incoterm !== undefined && (typeof (row as { incoterm?: unknown }).incoterm !== "string" ||
+            (row as { incoterm: string }).incoterm.length > 20))))
           return { ok: false, message: "Bảng giá không hợp lệ." };
+        const currency = text(form, "quantity_currency", 3) || "USD";
+        const currencyIssue = entryCurrencyIssue(currency);
+        if (currencyIssue) return { ok: false, message: currencyIssue };
         const validation = validateQuantityPricing({ grade: text(form, "quantity_grade", 180), incoterm: text(form, "quantity_incoterm", 20),
-          nameVi: input.name, nameEn: "", tiers: rows }, standardGradesForCategory(category), await readQuantityPricingPolicy(category.id));
+          currency, nameVi: input.name, nameEn: "", tiers: rows },
+          standardGradesForCategory(category), await readQuantityPricingPolicy(category.id));
         if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? "Bảng giá không hợp lệ." };
         newQuantity = { ...validation.value, warnings: validation.warnings, requestId };
       }

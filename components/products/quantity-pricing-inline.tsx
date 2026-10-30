@@ -3,30 +3,27 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QuantityPricingEditor } from "@/components/products/quantity-pricing-editor";
-import { QuantityPricingV2Inline } from "@/components/products/quantity-pricing-v2-inline";
 import { validateQuantityPricing, type QuantityPricingInput } from "@/lib/products/quantity-pricing";
-import type { SupplierQuantityEntry } from "@/lib/products/quantity-entry";
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import { submitQuantityPriceRevisionAction } from "@/app/supplier/portal/quantity-revision-actions";
 import { submitStaffQuantityPriceAction } from "@/app/crm/products/quantity-review/submit-actions";
 
 /** Independent revision submission inside an existing product form; never mutates legacy price fields. */
-export function QuantityPricingInline({ data, actor, disabled = false, dirty = false, onPreviewChange, onV2PreviewChange }: {
+export function QuantityPricingInline({ data, actor, disabled = false, dirty = false, onPreviewChange }: {
   data: QuantityEditorData; actor: "staff" | "supplier"; disabled?: boolean; dirty?: boolean;
   onPreviewChange?: (value: QuantityPricingInput) => void;
-  onV2PreviewChange?: (value: SupplierQuantityEntry) => void;
 }) {
   const router = useRouter();
   const root = useRef<HTMLDivElement>(null);
-  const [value, setValue] = useState<QuantityPricingInput>({ grade: data.grade, incoterm: data.incoterm, nameVi: data.nameVi,
-    nameEn: actor === "supplier" ? data.nameEn : "", tiers: data.tiers });
+  const [value, setValue] = useState<QuantityPricingInput>({ grade: data.grade, incoterm: data.incoterm, currency: data.currency,
+    nameVi: data.nameVi, nameEn: actor === "supplier" ? data.nameEn : "", tiers: data.tiers });
   useEffect(() => { onPreviewChange?.(value); }, [onPreviewChange, value]);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const priceDraftChanged = JSON.stringify({ grade: value.grade, incoterm: value.incoterm, tiers: value.tiers }) !==
-    JSON.stringify({ grade: data.grade, incoterm: data.incoterm, tiers: data.tiers });
+  const priceDraftChanged = JSON.stringify({ grade: value.grade, incoterm: value.incoterm, currency: value.currency, tiers: value.tiers }) !==
+    JSON.stringify({ grade: data.grade, incoterm: data.incoterm, currency: data.currency, tiers: data.tiers });
   const unsent = priceDraftChanged;
   useEffect(() => {
     if (!unsent) return;
@@ -62,6 +59,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
     form.set("expected_product_updated_at", data.updatedAt);
     form.set("expected_price_revision_id", data.pendingPriceId ?? "");
     form.set("grade", value.grade); form.set("incoterm", value.incoterm);
+    form.set("quantity_currency", value.currency ?? "USD");
     form.set("quantity_tiers_json", JSON.stringify(value.tiers));
     if (consent) form.set("confirm_quantity_price_consent", "yes");
     setBusy(true); setResult(null);
@@ -72,9 +70,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
     } catch { setResult({ ok: false, message: "Không kết nối được máy chủ. Hãy thử lại." }); }
     finally { setBusy(false); }
   }
-  if (data.v2 && data.v2EditingEnabled) return <QuantityPricingV2Inline key={`${data.productId}:${data.pendingPriceId ?? "approved"}`} data={{ ...data, v2: data.v2 }} actor={actor} disabled={disabled} dirty={dirty} onPreviewChange={onV2PreviewChange} />;
-  // The current kg-only editor cannot safely edit a v2 revision. Show the
-  // original values without interpreting a per-MT price as USD/kg.
+  // Bảng giá v2 (kg/MT, đơn vị gốc) chỉ còn để đọc: form NCC không tạo hay sửa mới.
   if (data.v2) return <div ref={root} className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
     <p className="font-semibold text-amber-950">{data.pendingPriceId ? "Giá mới đang chờ Vexim xác nhận." : "Bảng giá đã duyệt."}</p>
     <p>Grade: <strong>{data.grade}</strong>{data.v2.customGrade ? " (tự nhập)" : ""} · Incoterm: <strong>{data.incoterm}</strong></p>

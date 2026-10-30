@@ -145,7 +145,6 @@ const store = {
 };
 const db = { getStore: () => store };
 const catalog = load("../lib/public/catalog.ts", {
-  "@/lib/products/product-form-staging-access": { isProductFormBuyerEnabled: () => false },
   "@/lib/db": db,
   "@/lib/media/readiness": readiness,
   "@/lib/verification-status": verification,

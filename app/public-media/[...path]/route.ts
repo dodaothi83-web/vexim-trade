@@ -6,7 +6,6 @@ import { getObject } from "@/lib/media/storage";
 import { getStore } from "@/lib/db";
 import { isExpired } from "@/lib/media/readiness";
 import { isTestOnlyProduct, productReviewApproved } from "@/lib/public/product-selection";
-import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -117,7 +116,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
   }
 
   const formImage = rel.startsWith("product-form-images/");
-  if (formImage && !isProductFormEnabled()) return new NextResponse("Not found", { status: 404 });
   const isProductImage = rel.startsWith("products/") || formImage;
   const supplierImage = rel.startsWith("suppliers/") && !/^(profile-|cover-)/i.test(rel.split("/").at(-1) ?? "");
   if (supplierImage) {

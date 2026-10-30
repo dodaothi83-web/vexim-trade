@@ -1,3 +1,8 @@
+> **Cập nhật 30/10/2026:** bộ form năm phần đã bị xoá khỏi mã nguồn theo yêu cầu chủ dự án
+> (cổng NCC dùng form ba bước). Các bảng `product_form_*` vẫn giữ nguyên trong Supabase.
+> Bảng giá ba bước nay có Incoterm riêng từng bậc và chọn tiền tệ USD/VND/EUR; xem
+> `docs/product-tier-price-currency.md`.
+
 # Chuyển form sản phẩm NCC sang bản chốt
 
 Tài liệu `docs/content-guidelines.md` được nhắc trong yêu cầu nhưng không có trong checkout. Giữ font, màu và component hiện có; không giả định thêm nội dung từ tài liệu chưa có.
@@ -33,7 +38,7 @@ RPC hiện có giữ nguyên giá đã duyệt khi gửi hoặc từ chối; ch�
 
 **Chưa bật `VEXIM_QUANTITY_V2_STAGING` hoặc dùng dữ liệu thật.** Cờ chỉ hoạt động khi `VEXIM_QUANTITY_BUYER_PREVIEW=true`; cả hai đều không bật mặc định. Form mặc định vẫn chỉ đọc v2; tạo và sửa v2 chỉ thử nghiệm sau cờ bổ sung, chưa phải form năm phần. Lưu nháp vẫn yêu cầu bảng giá hoàn chỉnh, AI và CRM kiểm tra tên tiếng Anh với grade tự nhập chưa hoàn chỉnh, buyer/storefront cutover chưa hoàn chỉnh. Không bật cờ lúc này: giao diện năm phần, xem trước trực tiếp và các đường tên/buyer chưa hoàn chỉnh.
 
-**Chưa bật `VEXIM_QUANTITY_FORM_STAGING`.** Đây là cờ bổ sung cho tạo mới và bảng sửa v2 trong form cũ, chỉ hoạt động khi cả hai cờ thử nghiệm nêu trên cũng bật. Cờ không chuyển form sang năm phần và không phải mốc cho phép dùng trên staging thật.
+**Đã gỡ 30/10/2026 — không còn hiệu lực.** Bảng sửa/tạo v2 và hai cờ `VEXIM_QUANTITY_FORM_STAGING`/`VEXIM_QUANTITY_V2_STAGING` đã bị xoá khỏi portal NCC; chỉ còn đường đọc v2. Nội dung dưới đây giữ làm lịch sử: đây là cờ bổ sung cho tạo mới và bảng sửa v2 trong form cũ, chỉ hoạt động khi cả hai cờ thử nghiệm nêu trên cũng bật. Cờ không chuyển form sang năm phần và không phải mốc cho phép dùng trên staging thật.
 
 Hợp đồng form nội bộ dự kiến cho v2: `quantity_version=2`, `quantity_unit=kg|mt`, `quantity_custom_grade=yes|no`, `quantity_tiers_json` chứa các chuỗi `quantity` và `price`. Grade và Incoterm dùng cùng tên trường hiện có cho từng action; tạo sản phẩm dùng `quantity_grade` và `quantity_incoterm`. Server không tin định dạng client và tự kiểm tra lại trước khi lưu. Đây không phải API đã sẵn sàng cho production.
 

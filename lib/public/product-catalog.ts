@@ -22,11 +22,9 @@ import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
 import { publicProductMoqDisplay, publicProductPlaceDisplay, publicProductPriceDisplay } from "@/lib/public/product-detail-display";
 import type { Certificate, Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
-/** Keep the legacy preview independent while production cutover is explicitly enabled. */
+/** The approved quantity price is projected only when the buyer preview is enabled. */
 async function quantityPreviewEnabled(): Promise<boolean> {
-  if (process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true") return true;
-  if (process.env.VEXIM_PRODUCT_FORM_PRODUCTION !== "true") return false;
-  return (await import("@/lib/products/product-form-staging-access")).isQuantityCatalogPreviewEnabled();
+  return process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true";
 }
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -294,7 +292,7 @@ export async function listPublicCategoryProducts(category: Category, options?: {
       card: projectPublicCategoryProduct(product, byId.get(product.supplier_id)!, category, byProduct.get(product.id) ?? [], evidenceBySupplier.get(product.supplier_id)!),
     }));
   const projected = await quantityPreviewEnabled()
-    ? await (await import("@/lib/public/quantity-catalog-preview")).projectQuantityCatalogPreview(readyRecords)
+    ? await (await import("@/lib/public/quantity-catalog-legacy-preview")).projectQuantityCatalogPreview(readyRecords)
     : readyRecords;
   return rankPublicCategoryProducts(projected.map(({ card }) => card), SPEC_RANKING_WEIGHTS);
 }
@@ -345,6 +343,6 @@ export async function getPublicProductRecordsByIds(ids: readonly string[]): Prom
       card: projectPublicCategoryProduct(product, supplier, category, media.filter((asset) => asset.product_id === product.id)),
     }));
   return await quantityPreviewEnabled()
-    ? (await import("@/lib/public/quantity-catalog-preview")).projectQuantityCatalogPreview(readyRecords)
+    ? (await import("@/lib/public/quantity-catalog-legacy-preview")).projectQuantityCatalogPreview(readyRecords)
     : readyRecords;
 }

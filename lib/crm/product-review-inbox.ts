@@ -2,15 +2,10 @@ import "server-only";
 
 import type { SessionUser } from "@/lib/auth/session";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
-import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
-import { parseDraftImageSelection } from "@/lib/products/product-form-image-selection";
-import { parseProductFormDraft } from "@/lib/products/product-form-model";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-type PendingForm = { id: string; product_id: string; supplier_id: string; payload: unknown; image_selection: unknown; image_snapshot: unknown };
 type PendingRevision = { id: string; product_id: string };
 export type CrmReviewInbox = {
-  forms: PendingForm[];
   prices: PendingRevision[];
   names: PendingRevision[];
 };
@@ -33,30 +28,12 @@ export async function loadCrmReviewInbox(session: SessionUser): Promise<CrmRevie
       if (data.length < 500) return rows;
     }
   }
-  const [forms, prices, names] = await Promise.all([
-    isProductFormEnabled() ? pending("product_form_submissions", "id,product_id,supplier_id,payload,image_selection,image_snapshot") : Promise.resolve([]),
+  const [prices, names] = await Promise.all([
     pending("product_quantity_price_revisions", "id,product_id"),
     pending("product_english_name_revisions", "id,product_id"),
   ]);
   const validRevision = (row: Record<string, unknown>) => typeof row.id === "string" && UUID.test(row.id) &&
     typeof row.product_id === "string" && UUID.test(row.product_id);
-  if ([...forms, ...prices, ...names].some((row) => !validRevision(row)) || forms.some((row) =>
-    typeof row.supplier_id !== "string" || !UUID.test(row.supplier_id))) throw new Error("Invalid review inbox rows");
-  return { forms: forms as PendingForm[], prices: prices as PendingRevision[], names: names as PendingRevision[] };
-}
-
-/** Parse only the private snapshot for the same product and supplier. */
-export function pendingFormSummary(form: PendingForm | undefined, product: { id: string; supplier_id: string }) {
-  if (!form || form.product_id !== product.id || form.supplier_id !== product.supplier_id) return null;
-  const draft = parseProductFormDraft(form.payload);
-  if (!draft) return { id: form.id, draft: null, imageUrl: null };
-  const selection = parseDraftImageSelection(form.image_selection);
-  const first = selection?.[0];
-  const snapshot = Array.isArray(form.image_snapshot) ? form.image_snapshot[0] : null;
-  const row = snapshot && typeof snapshot === "object" && !Array.isArray(snapshot) ? snapshot.row : null;
-  const imageUrl = first?.source === "staged" && Array.isArray(form.image_snapshot) && form.image_snapshot.length === selection?.length &&
-    snapshot?.source === "staged" && row && typeof row === "object" && !Array.isArray(row) &&
-    row.id === first.id && row.product_id === product.id && row.supplier_id === product.supplier_id ?
-    `/api/product-form/images/${encodeURIComponent(product.id)}/${encodeURIComponent(first.id)}` : null;
-  return { id: form.id, draft, imageUrl };
+  if ([...prices, ...names].some((row) => !validRevision(row))) throw new Error("Invalid review inbox rows");
+  return { prices: prices as PendingRevision[], names: names as PendingRevision[] };
 }

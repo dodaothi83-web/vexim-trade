@@ -28,16 +28,25 @@ const props = {
 };
 const render = (override = {}) => renderToStaticMarkup(React.createElement(QuantityPricingEditor, { ...props, ...override }));
 const html = render();
-for (const text of ['Số lượng từ (kg)', 'USD/kg', 'Giá cho 1 kg', '4,999', 'trở lên', 'Buyer sẽ thấy', 'Cashew kernels', 'USD 6.00–6.40/kg', '1 MT', 'FOB', 'Quy chế hoạt động']) assert.ok(html.includes(text), text);
+for (const text of ['Incoterm', 'Từ (kg)', 'Đến (kg)', 'Giá (USD/kg)', 'Tiền tệ', 'Tạm thời chỉ nhập giá USD', 'VND/EUR', '4,999', 'trở lên', 'Buyer sẽ thấy', 'Cashew kernels', 'USD 6.00–6.40/kg', '1 MT', 'FOB', 'Quy chế hoạt động']) assert.ok(html.includes(text), text);
+assert.doesNotMatch(html, /<select[^>]*aria-label="Tiền tệ"/, 'Tiền tệ tạm thời cố định USD, không còn select VND/EUR');
+const drafting = render({ value: { grade: '', incoterm: 'FOB', currency: 'USD', nameVi: 'Nhân điều', nameEn: '', tiers: [
+  { minKg: '100', priceUsdPerKg: '2.00', incoterm: 'FOB' }, { minKg: '101', priceUsdPerKg: '1.50', incoterm: 'FOB' },
+] } });
+assert.match(drafting, /USD 1\.50–2\.00\/kg/, 'Xem trước hiện giá ngay khi đang nhập, chưa cần chọn grade');
+assert.match(drafting, /USD 2\.00\/kg/, 'Từng mức giá hiện trong bảng xem trước');
+assert.match(drafting, /Chưa chọn grade/, 'Thiếu grade là ghi chú, không xoá giá đã nhập');
+assert.match(drafting, /Chọn grade để hoàn tất bảng giá/);
+assert.doesNotMatch(drafting, /Price on request/, 'Có giá nhập vào thì không hiện Price on request');
 assert.match(html, /<input[^>]*required[^>]*name="confirm_quantity_price_consent"/);
 assert.match(html, /href="\/quy-che-hoat-dong"/);
 assert.match(html, /\+ Thêm mức giá/);
 const isolated = render({ isolated: true, consentChecked: false, onConsentChange() {} });
-assert.equal((isolated.match(/form="quantity-pricing-separate"/g) ?? []).length, 7, 'All editable inputs are detached from the enclosing product form');
+assert.equal((isolated.match(/form="quantity-pricing-separate"/g) ?? []).length, 8, 'All editable inputs are detached from the enclosing product form');
 assert.match(isolated, /type="checkbox"[^>]*name="confirm_quantity_price_consent"/);
 const withoutInlinePreview = render({ showPreview: false });
 assert.doesNotMatch(withoutInlinePreview, /Buyer sẽ thấy|Cashew kernels/, 'When the page supplies a sidebar preview, the form has no duplicate');
-assert.match(withoutInlinePreview, /Số lượng từ \(kg\)/, 'Hiding the duplicate does not remove the editor');
+assert.match(withoutInlinePreview, /Từ \(kg\)/, 'Hiding the duplicate does not remove the editor');
 const mt = render({ buyerPriceUnit: 'mt' });
 assert.ok(mt.includes('USD 6,000–6,400/MT'));
 assert.ok(mt.includes('USD 6,400/MT'));

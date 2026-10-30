@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/auth/session";
-import { isIsolatedProductFormDemo } from "@/lib/products/product-form-demo-access";
 import { GoogleTag } from "@/components/google-tag";
 import { COMPANY } from "@/lib/config";
 import { SITE_URL } from "@/lib/site";
@@ -49,7 +48,6 @@ export default async function PublicHomePage({
 }: {
   searchParams?: Promise<{ q?: string; cat?: string; lang?: string }>;
 }) {
-  if (isIsolatedProductFormDemo()) redirect("/form-test");
   const session = await getSession();
   if (session) redirect("/crm/dashboard");
   const host = ((await headers()).get("host") ?? "").toLowerCase();

@@ -68,8 +68,15 @@ export async function decideQuantityRevisionAction(form: FormData): Promise<Quan
             return { ok: false, message: "Dữ liệu bảng giá không hợp lệ." };
           }
           const policy = await readQuantityPricingPolicy(category.id);
+          const legacyRows = revision.tiers.map((row: { minKg: number; priceUsdPerKg: number; incoterm?: unknown; currency?: unknown }) => ({
+            minKg: String(row.minKg), priceUsdPerKg: String(row.priceUsdPerKg),
+            ...(typeof row.incoterm === "string" ? { incoterm: row.incoterm } : {}),
+          }));
+          const storedCurrency = (revision.tiers as Array<{ currency?: unknown }>)
+            .find((row) => typeof row?.currency === "string")?.currency;
           const checked = validateQuantityPricing({ grade: String(revision.grade ?? ""), incoterm: String(revision.incoterm ?? ""),
-            nameVi: product.name, nameEn: "", tiers: revision.tiers.map((row: { minKg: number; priceUsdPerKg: number }) => ({ minKg: String(row.minKg), priceUsdPerKg: String(row.priceUsdPerKg) })) }, grades, policy);
+            currency: typeof storedCurrency === "string" ? storedCurrency : "USD",
+            nameVi: product.name, nameEn: "", tiers: legacyRows }, grades, policy);
           if (!checked.value) return { ok: false, message: `Không thể duyệt: ${checked.errors[0]?.message ?? "bảng giá không hợp lệ."}` };
         }
         // Bounds are warnings: reviewer can approve an outlier deliberately.

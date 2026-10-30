@@ -16,7 +16,6 @@ function compile(path, mocks) {
 const editor = compile('../components/products/quantity-pricing-editor.tsx', { 'react/jsx-runtime': jsx, 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, '@/lib/products/quantity-pricing': pricing });
 const inline = compile('../components/products/quantity-pricing-inline.tsx', { react: React, 'react/jsx-runtime': jsx,
  'next/navigation': { useRouter: () => ({ refresh() {} }) }, '@/components/products/quantity-pricing-editor': editor,
- '@/components/products/quantity-pricing-v2-inline': { QuantityPricingV2Inline: () => React.createElement('div', null, 'staged editor') },
  '@/lib/products/quantity-pricing': pricing, '@/app/supplier/portal/quantity-revision-actions': {}, '@/app/crm/products/quantity-review/submit-actions': {} });
 const data = { productId: 'p', updatedAt: '2026-10-29', nameVi: 'Nhân điều', nameEn: 'Cashew', pendingPriceId: 'pending', pendingNameId: null,
  hasApprovedPrice: true, hasApprovedName: false, grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: '1000', priceUsdPerKg: '6.40' }],
@@ -53,6 +52,5 @@ const v2data = { ...data, grade: 'Special', tiers: [], v2: { unit: 'mt', customG
 const v2html = renderToStaticMarkup(React.createElement('form', null, React.createElement(inline.QuantityPricingInline, { data: v2data, actor: 'supplier' })));
 assert.match(v2html, /1\.234567/); assert.match(v2html, /6401/); assert.match(v2html, /USD\/MT/);
 assert.match(v2html, /chờ Vexim xác nhận/); assert.doesNotMatch(v2html, /Gửi bảng giá mới để duyệt/, 'Old kg editor cannot overwrite v2');
-const staged = renderToStaticMarkup(React.createElement(inline.QuantityPricingInline, { data: { ...v2data, v2EditingEnabled: true }, actor: 'supplier' }));
-assert.match(staged, /staged editor/, 'Staged editor only appears behind explicit flag');
-console.log('Inline quantity editor: separate form controls, current buyer warning and dirty-state lock passed');
+assert.doesNotMatch(v2html, /staged editor/, 'The v2 editing UI is gone from the supplier portal');
+console.log('Inline quantity editor: separate form controls, v2 read-only view and dirty-state lock passed');
