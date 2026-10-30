@@ -106,4 +106,17 @@ assert.match(bothHtml, /id="partner-factory-contract"/);
 assert.match(bothHtml, /Separate factory review/);
 assert.match(bothHtml, /Partner contract reviewed/);
 assert.doesNotMatch(bothHtml, /supplier-submissions\/|contract\.pdf/, 'Source files remain private');
-console.log('✅ Public L2: approved snapshots, both historical scopes, buyer labels, explanations, SSR and separate filters.');
+// Mỗi cấp có màu riêng, không còn một màu xanh cho cả ba: hồ sơ NCC tô chip,
+// thẻ xác minh và thanh tiến trình theo đúng màu của cấp đã duyệt.
+const allThree = renderSupplier('both', { approved_verification_steps: [1, 2, 3] });
+for (const [level, hue] of [[1, 'sky'], [2, 'amber'], [3, 'violet']]) {
+  assert.ok(allThree.includes(`border-${hue}-300 bg-${hue}-50`), `Approved check ${level} uses its own ${hue} chip`);
+}
+assert.equal(new Set([[1, 'sky'], [2, 'amber'], [3, 'violet']].map(([, h]) => h)).size, 3, 'No two checks share a hue');
+assert.match(allThree, /bg-sky-400/, 'Approved progress segments follow the same hues');
+assert.match(allThree, /bg-amber-300/);
+assert.match(allThree, /bg-violet-400/);
+assert.doesNotMatch(allThree, /bg-emerald-300|border-emerald-200 bg-emerald-50/, 'The single-colour emerald treatment is gone');
+assert.match(allThree, /2\/3 approved|3\/3 approved/, 'The count is still stated next to the coloured chips');
+
+console.log('✅ Public L2: approved snapshots, both historical scopes, buyer labels, explanations, SSR, per-level colours and separate filters.');

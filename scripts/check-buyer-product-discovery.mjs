@@ -90,10 +90,17 @@ assert.deepEqual(verificationLabels([1, 3]), ['Documents checked', 'Delivery his
 assert.deepEqual(approvedVerificationSteps([{ target_level: 3, status: 'approved' }]), [3]);
 assert.deepEqual(approvedVerificationSteps([{ target_level: 1, status: 'approved' }, { target_level: 2, status: 'approved' }, { target_level: 3, status: 'approved' }]), [1, 2, 3]);
 const require = createRequire(import.meta.url);
+// The product-detail row reuses the per-check hues and symbols from the shared tier module.
+const verificationTierSource = compile('../components/verification-tier.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  'lucide-react': require('lucide-react'),
+  '@/lib/verification-status': verificationStatus,
+});
 const { ProductVerificationIcons } = compile('../components/product-verification-icons.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
   '@/lib/verification-status': verificationStatus,
+  '@/components/verification-tier': verificationTierSource,
 });
 const renderChecks = (levels) => renderToStaticMarkup(React.createElement(ProductVerificationIcons, { levels }));
 const mixed = renderChecks([1, 3]);
@@ -343,8 +350,27 @@ assert.match(compactCard, /truncate text-\[13px\] font-bold leading-5 text-ink-9
 assert.match(compactCard, /mt-2 border-t border-ink-100 pt-2 sm:mt-auto sm:pt-2\.5/, 'The supplier block is separated by a hairline and pinned to the card bottom');
 assert.match(compactCard, /mt-2 flex min-w-0 flex-wrap items-center justify-between gap-x-2/, 'Shields and the quote action share the last row, evidence left and next step right');
 assert.match(compactCard, /gap-1\.5" role="group"/, 'Marketplace shields keep a visible gap between circles');
-assert.match(compactCard, /border border-brand-400 bg-brand-50 text-brand-700/, 'Approved shields are outlined mint circles');
-assert.match(compactCard, /border border-ink-200 bg-white text-ink-300/, 'A check that was not approved stays a faded outline');
+// Each check owns its hue and symbol: documents blue, factory gold, delivery violet.
+const LEVEL_TONES = [
+  [1, 'Documents checked', 'sky', 'file-check'],
+  [2, 'Factory verification', 'amber', 'factory'],
+  [3, 'Delivery history reviewed', 'violet', 'truck'],
+];
+const allApprovedCard = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, verificationSteps: [1, 2, 3] }));
+for (const [level, label, hue, icon] of LEVEL_TONES) {
+  assert.ok(allApprovedCard.includes(`aria-label="Level ${level} · ${label}: Approved`),
+    `Shield ${level} is announced as level ${level} · ${label}`);
+  assert.match(allApprovedCard, new RegExp(`border-2 border-${hue}-400 bg-${hue}-100 text-${hue}-700[^"]*"[^>]*><svg[^>]*class="lucide[^"]*${icon}`),
+    `Approved shield ${level} uses its own ${hue} tone and ${icon} symbol`);
+  assert.ok(allApprovedCard.includes(`<span class="block text-[10px] font-semibold leading-4 text-${hue}-300">Approved</span>`),
+    `The tooltip repeats level ${level}'s ${hue} tone for the approved status`);
+}
+assert.equal(new Set(LEVEL_TONES.map(([, , hue]) => hue)).size, 3, 'The three checks never share one hue');
+assert.match(compactCard, /border-2 border-sky-400 bg-sky-100 text-sky-700/, 'A card with only documents approved shows just the blue shield');
+assert.match(compactCard, /border-2 border-violet-400 bg-violet-100 text-violet-700/, 'A card with delivery history approved shows the violet shield');
+assert.match(compactCard, /border-2 border-ink-200 bg-white text-ink-300/, 'A check that was not approved stays a grey outline');
+assert.doesNotMatch(compactCard, /border-2 border-brand-400 bg-brand-50 text-brand-700/,
+  'The shields no longer repeat the brand mint for every level');
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
 assert.ok(compactCard.includes('aria-label="Verification checks approved: Documents checked, Delivery history reviewed"'),
   'The card counts exactly the approved checks, never a claimed level');
