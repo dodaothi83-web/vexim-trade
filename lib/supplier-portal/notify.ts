@@ -97,7 +97,7 @@ export async function notifySupplierCertificateExpiry(input: {
     const name = (input.certificateName || "Chứng nhận").replace(/[\r\n]/g, " ").slice(0, 140);
     const url = `${notificationOrigin()}/supplier/portal/documents`;
     const title = `Chứng nhận sắp hết hạn (còn ${input.daysLeft} ngày): ${name}`;
-    const explanation = `Chứng nhận “${name}” trên hồ sơ L1 của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang khách mua. Vui lòng vào mục Giấy tờ L1 để tải bản gia hạn mới - AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên.`;
+    const explanation = `Chứng nhận “${name}” trên hồ sơ L1 của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang người mua. Vui lòng vào mục Giấy tờ L1 để tải bản gia hạn mới - AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên.`;
     const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Cập nhật giấy tờ L1 trên cổng nhà cung cấp →</a></p>`;
     const res = await transport({
       to: recipients,
@@ -210,13 +210,13 @@ export async function notifySupplierDecision(input: {
     const config: Record<SupplierDecision, { title: string; explanation: string; path: string; showNote?: boolean }> = {
       onboarding_approved: { title: "Đã mở quyền sử dụng cổng nhà cung cấp", explanation: "Tài khoản đã được chấp thuận. Các đánh giá xác minh, sản phẩm và việc công khai hồ sơ vẫn cần quyết định riêng.", path: "/supplier/portal" },
       onboarding_changes_requested: { title: "Vui lòng bổ sung hồ sơ doanh nghiệp", explanation: "Hồ sơ đã được xem và cần bổ sung trước khi mở quyền cổng.", path: "/supplier/portal", showNote: true },
-      product_approved: { title: `Sản phẩm đã đăng: ${name}`, explanation: "Sản phẩm đã được đăng và hiển thị cho khách mua. Bạn có thể quản lý thông tin và hình ảnh trên cổng nhà cung cấp.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}` },
+      product_approved: { title: `Sản phẩm đã đăng: ${name}`, explanation: "Sản phẩm đã được đăng và hiển thị cho người mua. Bạn có thể quản lý thông tin và hình ảnh trên cổng nhà cung cấp.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}` },
       product_changes_requested: { title: `Sản phẩm cần chỉnh sửa: ${name}`, explanation: "Hãy chỉnh sửa rồi gửi duyệt lại.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}`, showNote: true },
       certificate_approved: { title: `Đã kiểm bản sao chứng nhận: ${name}`, explanation: "Bản sao đã được duyệt. Chứng nhận chưa được công bố; việc hiển thị công khai là quyết định riêng.", path: "/supplier/portal/documents" },
       certificate_changes_requested: { title: `Chứng nhận cần bổ sung: ${name}`, explanation: "Cần bổ sung thông tin chứng nhận trong mục Giấy tờ L1.", path: "/supplier/portal/documents", showNote: true },
       certificate_rejected: { title: `Chứng nhận không được chấp thuận: ${name}`, explanation: "Chứng nhận này chưa được chấp thuận.", path: "/supplier/portal/documents", showNote: true },
       certificate_published: { title: `Chứng nhận được phép hiển thị: ${name}`, explanation: "Chứng nhận đã được quét và cho phép hiển thị nhãn nếu sản phẩm công khai và chứng nhận còn hạn." + " Nhãn ghi rõ trạng thái chính chủ/đối tác và ngày hết hạn; bằng chứng nội bộ không công khai.", path: "/supplier/portal/documents" },
-      certificate_withdrawn: { title: `Đã thu hồi hiển thị chứng nhận: ${name}`, explanation: "Nhãn chứng nhận đã được ngừng hiển thị trên trang khách mua.", path: "/supplier/portal/documents" },
+      certificate_withdrawn: { title: `Đã thu hồi hiển thị chứng nhận: ${name}`, explanation: "Nhãn chứng nhận đã được ngừng hiển thị trên trang người mua.", path: "/supplier/portal/documents" },
       verification_approved: { title: `Đã duyệt đánh giá: ${name}`, explanation: "Chỉ đánh giá này được duyệt; không tự động xác nhận các đánh giá khác hoặc công khai hồ sơ.", path: "/supplier/portal/profile" },
       verification_returned: { title: `Đánh giá cần bổ sung: ${name}`, explanation: "Vui lòng xem phản hồi và liên hệ bộ phận hỗ trợ để bổ sung đúng đợt kiểm.", path: "/supplier/portal/profile", showNote: true },
     };

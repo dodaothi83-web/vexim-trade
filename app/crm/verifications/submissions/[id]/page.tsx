@@ -116,7 +116,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           </ul> : <ul className="mt-2 list-disc space-y-1 pl-4">
             <li>Mở chứng từ, kiểm tra căn cứ xuất khẩu và sự thống nhất của lô hàng.</li>
             <li>Nếu chứng từ đứng tên đơn vị khác, đối chiếu thêm vai trò và liên hệ với nhà cung cấp.</li>
-            <li>Chứng từ xuất khẩu không mặc nhiên chứng minh khách mua cuối đã nhận hàng.</li>
+            <li>Chứng từ xuất khẩu không mặc nhiên chứng minh người mua cuối đã nhận hàng.</li>
             <li>Không bắt buộc vận đơn. Yêu cầu bổ sung nếu bằng chứng chưa đủ căn cứ.</li>
           </ul>}
         </Card>

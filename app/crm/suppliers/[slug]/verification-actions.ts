@@ -42,7 +42,7 @@ function briefReason(error: unknown): string {
 
 /** The same publication gate applies during approval and later summary edits. */
 function publicSummaryValidationError(summary: string, confirmed: boolean): string | null {
-  if (!summary) return "Hãy viết tóm tắt công khai bằng tiếng Anh để khách mua hiểu phạm vi đợt kiểm.";
+  if (!summary) return "Hãy viết tóm tắt công khai bằng tiếng Anh để người mua hiểu phạm vi đợt kiểm.";
   if (summary.length > 1000) return "Tóm tắt công khai tối đa 1000 ký tự.";
   if (!confirmed) return "Hãy xác nhận đã đối chiếu tóm tắt với bằng chứng và loại bỏ thông tin nhạy cảm.";
   if (/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(summary) || /https?:\/\/|www\./i.test(summary) || /(?:\+?\d[\s().-]?){9,15}\d/.test(summary)) {
@@ -335,7 +335,7 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
     revalidatePath("/suppliers");
     revalidatePath("/");
   });
-  const message = publication ? "Đã duyệt bước kiểm tra và công khai tóm tắt cho khách mua."
+  const message = publication ? "Đã duyệt bước kiểm tra và công khai tóm tắt cho người mua."
     : before.target_level === 1 ? supplier?.status === "published"
       ? "Đã duyệt L1; hồ sơ doanh nghiệp đang công khai. Sản phẩm vẫn cần xét duyệt riêng."
       : supplier ? "Đã duyệt L1; hồ sơ chưa công khai. Hồ sơ cũ hoặc đã ẩn cần người có quyền kiểm tra và quyết định công khai riêng."

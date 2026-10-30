@@ -93,7 +93,7 @@ function initAttributes(p?: SupplierProduct | null): Record<string, string> {
 }
 
 const TABS: Array<{ key: ProductTab; label: string; hint: string }> = [
-  { key: "info", label: "Thông tin & mô tả", hint: "Tên, danh mục, mô tả cho khách mua" },
+  { key: "info", label: "Thông tin & mô tả", hint: "Tên, danh mục, mô tả cho người mua" },
   { key: "spec", label: "Quy cách & năng lực", hint: "Bảng Grade & giá, thông số, năng lực, đóng gói" },
   { key: "trade", label: "Giá & thương mại", hint: "Công khai giá, hiệu lực giá, địa điểm Incoterm, thanh toán" },
 ];
@@ -364,7 +364,7 @@ export function ProductForm({
         <section id="product-panel-info" role="tabpanel" aria-labelledby="product-tab-info" className="card space-y-4 p-5">
           <div>
             <h2 className="text-sm font-bold text-ink-900">Nhận diện sản phẩm</h2>
-            <p className="mt-0.5 text-xs text-ink-500">Tên gốc được giữ riêng; tên hiển thị cho khách mua có thể chỉnh bên dưới.</p>
+            <p className="mt-0.5 text-xs text-ink-500">Tên gốc được giữ riêng; tên hiển thị cho người mua có thể chỉnh bên dưới.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Tên gốc của sản phẩm" required className="sm:col-span-2 lg:col-span-3">
@@ -420,8 +420,8 @@ export function ProductForm({
           )}
           <div className="rounded-xl border border-ink-200 bg-ink-50/60 p-3">
             <Field
-              label="Tên hiển thị cho khách mua"
-              hint="Trang khách mua đọc tên này. Để trống thì dùng tên sản phẩm ở trên; tên gốc không đổi."
+              label="Tên hiển thị cho người mua"
+              hint="Trang người mua đọc tên này. Để trống thì dùng tên sản phẩm ở trên; tên gốc không đổi."
             >
               <input
                 className={`input ${displayNamePlaceholder ? "border-amber-400 bg-amber-50/40" : ""}`}
@@ -604,7 +604,7 @@ export function ProductForm({
                   title={
                     mediaState.ready
                       ? "Khách đã có ảnh/catalogue để xem"
-                      : "Cần ít nhất 1 ảnh hoặc catalogue ở chế độ Chia sẻ cho khách mua"
+                      : "Cần ít nhất 1 ảnh hoặc catalogue ở chế độ Chia sẻ cho người mua"
                   }
                 >
                   <input
@@ -614,14 +614,14 @@ export function ProductForm({
                     checked={Boolean(form.ready_for_buyer)}
                     onChange={(e) => set("ready_for_buyer", e.target.checked)}
                   />
-                  Sẵn sàng gửi khách mua
+                  Sẵn sàng gửi người mua
                   {!mediaState.ready && !form.ready_for_buyer && (
                     <span className="font-normal">(cần thêm ảnh/catalogue)</span>
                   )}
                 </label>
               )}
             </div>
-            <Field label="Chứng nhận / tiêu chuẩn (tự khai; không tự tạo nhãn cho khách mua)" hint="Nhãn chứng nhận chỉ lấy từ tệp nhà cung cấp nộp. Vexim kiểm bản sao và công bố tại mục Chứng nhận của hồ sơ." className="sm:col-span-2 lg:col-span-3">
+            <Field label="Chứng nhận / tiêu chuẩn (tự khai; không tự tạo nhãn cho người mua)" hint="Nhãn chứng nhận lấy từ tệp nhà cung cấp nộp. Vexim kiểm rồi công bố ở mục Chứng nhận." className="sm:col-span-2 lg:col-span-3">
               <input
                 className="input"
                 value={v("certifications")}
@@ -699,10 +699,10 @@ export function ProductForm({
             </Field>
             <div className="sm:col-span-2 lg:col-span-3 rounded-lg border border-ink-200 bg-ink-50/60 p-3 text-sm">
               <label className="flex items-start gap-2 font-semibold text-ink-800"><input type="checkbox" checked={form.price_publicly_visible === true}
-                onChange={(e) => set("price_publicly_visible", e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-brand-700" /> Hiển thị giá tham khảo của sản phẩm này cho khách mua khi đủ điều kiện</label>
+                onChange={(e) => set("price_publicly_visible", e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-brand-700" /> Hiển thị giá tham khảo của sản phẩm này cho người mua khi đủ điều kiện</label>
               <p className="mt-1 text-xs text-ink-600">{supplierPriceConsentCurrent(supplier) ? "Nhà cung cấp đã đồng ý chia sẻ giá; vẫn cần chọn riêng từng sản phẩm." : "Nhà cung cấp chưa có quyền chia sẻ giá còn hiệu lực; tích ô này không thay thế sự đồng ý."} Thay đổi chỉ có hiệu lực sau khi lưu.</p>
               {product && savedPrice && <div className={"mt-3 rounded-md px-3 py-2 text-xs " + (savedPrice.buyerPrice ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950")} role="status">
-                <p className="font-semibold">Giá khách mua · bản đã lưu: {savedPrice.buyerPrice ? <span className="font-mono tabular-nums">{savedPrice.buyerPrice}</span> : savedPrice.publicProduct ? "On request" : "Sản phẩm chưa công khai"}</p>
+                <p className="font-semibold">Giá người mua · bản đã lưu: {savedPrice.buyerPrice ? <span className="font-mono tabular-nums">{savedPrice.buyerPrice}</span> : savedPrice.publicProduct ? "On request" : "Sản phẩm chưa công khai"}</p>
                 {dirty && <p className="mt-1">Bạn đang sửa form; dòng trên vẫn là trạng thái đã lưu.</p>}
                 {!savedPrice.buyerPrice && <>
                   <ul className="mt-1 list-disc space-y-0.5 pl-4">{savedPrice.blockers.map((reason) => <li key={reason}>{reason}</li>)}
@@ -734,7 +734,7 @@ export function ProductForm({
               <p className="text-xs font-semibold text-brand-700">{activeCategory?.name_i18n.en || activeCategory?.slug || "Chưa có danh mục"}</p>
               <h3 className="mt-1 line-clamp-2 text-[15px] font-bold leading-snug text-ink-900">{previewName}</h3>
               <dl className="mt-3 space-y-1.5 text-xs">
-                <div className="flex justify-between gap-3"><dt className="text-ink-500">{product ? "Giá khách mua đang thấy" : "Giá trong form"}</dt><dd className="text-right font-semibold tabular-nums text-ink-800">{product ? (savedPrice ? savedPrice.buyerPrice ?? "Price on request" : "Chưa kiểm tra") : previewPrice}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-ink-500">{product ? "Giá người mua đang thấy" : "Giá trong form"}</dt><dd className="text-right font-semibold tabular-nums text-ink-800">{product ? (savedPrice ? savedPrice.buyerPrice ?? "Price on request" : "Chưa kiểm tra") : previewPrice}</dd></div>
                 {!product && <div className="flex justify-between gap-3"><dt className="text-ink-500">MOQ</dt><dd className="text-right font-semibold text-ink-800">{previewMoq}</dd></div>}
               </dl>
             </div>

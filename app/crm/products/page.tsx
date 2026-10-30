@@ -144,7 +144,7 @@ export default async function ProductsPage({
   };
   const viewTabs: Array<{ key: ProductView; label: string }> = [
     { key: "all", label: "Tất cả" },
-    { key: "ready", label: "Sẵn sàng gửi khách mua" },
+    { key: "ready", label: "Sẵn sàng gửi người mua" },
     { key: "pending", label: "Chờ Vexim kiểm tra" },
     { key: "changes", label: "Chờ nhà cung cấp sửa" },
     { key: "nomedia", label: "Thiếu ảnh/catalogue" },
@@ -178,9 +178,9 @@ export default async function ProductsPage({
       <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
           { value: viewCounts.all, label: "Tổng hồ sơ sản phẩm" },
-          { value: viewCounts.ready, label: "Sẵn sàng gửi khách mua" },
+          { value: viewCounts.ready, label: "Sẵn sàng gửi người mua" },
           { value: viewCounts.pending, label: "Sản phẩm chờ kiểm tra", warn: viewCounts.pending > 0 },
-          { value: viewCounts.nomedia, label: "Chưa có ảnh/catalogue chia sẻ cho khách mua", warn: viewCounts.nomedia > 0 },
+          { value: viewCounts.nomedia, label: "Chưa có ảnh/catalogue chia sẻ cho người mua", warn: viewCounts.nomedia > 0 },
         ].map((k) => (
           <div key={k.label} className="card px-4 py-3.5">
             <p className={`text-[22px] font-black leading-none ${k.warn ? "text-amber-600" : "text-ink-900"}`}>{k.value}</p>
@@ -197,7 +197,7 @@ export default async function ProductsPage({
               <p className="text-[13px] font-bold text-ink-900">
                 Đang so khớp cho RFQ: {buyer.company}
                 <span className="ml-2 font-normal text-ink-500">
-                  (<Link className="text-brand-700 hover:underline" href={`/crm/buyers/${buyer.id}`}>xem khách mua</Link>)
+                  (<Link className="text-brand-700 hover:underline" href={`/crm/buyers/${buyer.id}`}>xem người mua</Link>)
                 </span>
               </p>
               <p className="mt-1 text-[12.5px] text-ink-700">
@@ -308,9 +308,9 @@ export default async function ProductsPage({
                           {r.supplier_review_status === "paused" ? (
                             <Badge className="bg-slate-200 text-slate-800">Nhà cung cấp đã tạm ẩn</Badge>
                           ) : r.ready_for_buyer ? (
-                            <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi khách mua</Badge>
+                            <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi người mua</Badge>
                           ) : shareable ? (
-                            <Badge className="bg-ink-100 text-ink-600">Chưa sẵn sàng gửi khách mua</Badge>
+                            <Badge className="bg-ink-100 text-ink-600">Chưa sẵn sàng gửi người mua</Badge>
                           ) : (
                             <Badge className="bg-amber-50 text-amber-700">Thiếu ảnh/catalogue</Badge>
                           )}

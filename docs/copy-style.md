@@ -10,7 +10,7 @@ Không áp cho: văn bản pháp lý (`app/(legal)/**`), nội dung sản phẩm
 
 | Hạng mục | Quy tắc |
 | --- | --- |
-| Người mua | Viết **“người mua”** trong mọi UI tiếng Việt, kể cả CRM. Không dùng “buyer”. |
+| Người mua | Viết **“người mua”** trong mọi UI tiếng Việt, kể cả CRM. Không dùng “buyer”, không dùng “khách mua”. |
 | Nhà cung cấp | Portal gọi người dùng là **“bạn”**; khi nói về bên thứ ba dùng **“nhà cung cấp”**. Không viết tắt “NCC”. |
 | Thuật ngữ ngành | Giữ tiếng Anh: **grade, MOQ, Incoterm, FOB, CIF, EXW, USD/kg**. Lần đầu xuất hiện có thể kèm giải thích ngắn. |
 
@@ -63,7 +63,7 @@ Không áp cho: văn bản pháp lý (`app/(legal)/**`), nội dung sản phẩm
 | Giá mới đang chờ Vexim xác nhận. | Đã gửi giá mới. Vexim phản hồi trong 24 giờ. |
 | Chia sẻ buyer | Chia sẻ cho người mua |
 | Tôi xác nhận đã nhận cam kết của NCC rằng đây là giá NCC sẵn sàng báo cho buyer… | Tôi xác nhận nhà cung cấp đã cam kết đây là giá sẵn sàng báo cho người mua… |
-| Sẵn sàng gửi buyer · Cần NCC sửa · NCC đã tạm ẩn | Sẵn sàng gửi khách mua · Chờ nhà cung cấp sửa · Nhà cung cấp đã tạm ẩn |
+| Sẵn sàng gửi buyer · Cần NCC sửa · NCC đã tạm ẩn | Sẵn sàng gửi người mua · Chờ nhà cung cấp sửa · Nhà cung cấp đã tạm ẩn |
 | Chạy migration 20261049_review_lead_and_sourcing_hold.sql rồi thử lại | Báo người phụ trách kỹ thuật rồi thử lại |
 
 ## 8. Cách giữ chuẩn

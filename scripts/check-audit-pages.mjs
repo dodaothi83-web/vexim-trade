@@ -317,7 +317,7 @@ const formUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]
 const pageUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/page.tsx', import.meta.url), 'utf8');
 assert.match(formUi, /!selfReview \|\| selfApproval/, 'Same-person completion is available to authorized staff');
 assert.match(formUi, /canInspect &&/, 'Reviewer cannot edit evidence');
-assert.match(formUi, /Phạm vi khách mua sẽ thấy/, 'L2/L3 approval includes the buyer-facing summary editor');
+assert.match(formUi, /Phạm vi người mua sẽ thấy/, 'L2/L3 approval includes the buyer-facing summary editor');
 assert.match(formUi, /confirm_public_summary/, 'Approval sends the reviewer publication confirmation');
 assert.ok(!pageUi.includes('<MediaManager'), 'All audit steps render evidence inline');
 assert.match(pageUi, /item\.level !== 2 \|\| \(scope !== null && effectiveL2Scope\(v\.l2_scope\) === scope\)/, 'L2 navigation completion matches the current scope');

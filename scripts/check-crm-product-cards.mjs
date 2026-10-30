@@ -71,7 +71,7 @@ const pending = cardFor(adminHtml, 'p1');
 assert.ok(pending, 'Product name links to the read-only detail');
 assert.match(pending, /Công ty Hạt điều.*Hạt điều/);
 assert.match(pending, /Chờ Vexim kiểm tra/);
-assert.match(pending, /Chưa sẵn sàng gửi khách mua/);
+assert.match(pending, /Chưa sẵn sàng gửi người mua/);
 assert.match(pending, /Giá tham khảo.*4200 USD.*2026-12-01/);
 assert.match(pending, /href="\/crm\/products\/p1\/edit"[^>]*aria-label="Kiểm tra Hạt điều loại A"[^>]*>\s*Kiểm tra/);
 assert.doesNotMatch(pending, />\s*(Xem|Sửa)\s*</, 'The card has neither Xem nor Sửa button');
@@ -79,7 +79,7 @@ assert.doesNotMatch(pending, /UNNECESSARY-SPEC|UNNECESSARY-CAPACITY|UNNECESSARY-
 assert.match(cardFor(adminHtml, 'p2'), /Nhà cung cấp đã tạm ẩn/);
 assert.match(cardFor(adminHtml, 'p2'), /Chưa có nhà cung cấp.*Chưa phân loại/);
 assert.match(cardFor(adminHtml, 'p2'), /Chưa có giá/);
-assert.match(cardFor(adminHtml, 'p3'), /Sẵn sàng gửi khách mua/);
+assert.match(cardFor(adminHtml, 'p3'), /Sẵn sàng gửi người mua/);
 assert.match(cardFor(adminHtml, 'p4'), /Chờ nhà cung cấp sửa/);
 assert.match(cardFor(adminHtml, 'p1'), /Hồ sơ \d+%/, 'Thẻ CRM hiện độ hoàn thiện hồ sơ');
 assert.match(cardFor(adminHtml, 'p1'), /title="Hồ sơ \d+% · còn thiếu|title="Hồ sơ đủ/, 'Rê chuột thấy mục còn thiếu');

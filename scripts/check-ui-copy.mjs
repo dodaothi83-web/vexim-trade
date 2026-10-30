@@ -148,6 +148,7 @@ const VIETNAMESE = /[àáảãạăâđêôơưýÀ-ỹ]/;
 const BANNED = [
   { pattern: /\bbuyer\b/i, why: 'dùng "người mua"' },
   { pattern: /\bNCC\b/, why: 'dùng "nhà cung cấp" hoặc "bạn"' },
+  { pattern: /khách mua/i, why: 'dùng "người mua"' },
   { pattern: /mô hình mới/i, why: 'bỏ chi tiết triển khai nội bộ' },
   { pattern: /\bstaging\b/i, why: 'từ nội bộ' },
   { pattern: /\bmigration\b/i, why: 'từ nội bộ' },

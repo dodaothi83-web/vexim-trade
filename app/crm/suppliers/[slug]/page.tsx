@@ -48,8 +48,8 @@ const RFQ_MATCH_LABELS: Record<string, string> = {
   quoted: "Đã có báo giá",
   declined: "Nhà cung cấp từ chối",
   no_response: "Không phản hồi",
-  presented_to_buyer: "Đã trình khách mua",
-  selected: "Khách mua chọn",
+  presented_to_buyer: "Đã trình người mua",
+  selected: "Người mua chọn",
   not_selected: "Không được chọn",
 };
 
@@ -371,7 +371,7 @@ export default async function SupplierDetailPage({
                 <EmptyState
                   icon={<ShieldCheck className="h-5 w-5" />}
                   title="Chưa có đơn nào gắn nhà cung cấp này"
-                  sub="Vào trang khách mua hoặc pipeline, chọn nhà cung cấp ở cột “Nhà cung cấp” để gắn."
+                  sub="Vào trang người mua hoặc pipeline, chọn nhà cung cấp ở cột “Nhà cung cấp” để gắn."
                 />
               ) : (
                 <ul className="divide-y divide-ink-100">
@@ -407,7 +407,7 @@ export default async function SupplierDetailPage({
               )}
               <p className="mt-3 rounded-xl bg-ink-50 px-3.5 py-2.5 text-[11.5px] leading-5 text-ink-500">
                 <ShieldCheck className="mr-1 inline h-3 w-3" />
-                Đơn đánh dấu “ẩn danh” sẽ không lộ tên khách mua trong email gửi nhà cung cấp.
+                Đơn đánh dấu “ẩn danh” sẽ không lộ tên người mua trong email gửi nhà cung cấp.
               </p>
             </Card>
           )}
@@ -463,7 +463,7 @@ export default async function SupplierDetailPage({
                         ) : pr.supplier_review_status === "paused" ? (
                           <Badge className="bg-slate-200 text-slate-800">Nhà cung cấp đã tạm ẩn</Badge>
                         ) : pr.ready_for_buyer ? (
-                          <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi khách mua</Badge>
+                          <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi người mua</Badge>
                         ) : null}
                         <Link href={`/crm/products/${pr.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[12px]">
                           <Eye className="h-3.5 w-3.5" /> Xem

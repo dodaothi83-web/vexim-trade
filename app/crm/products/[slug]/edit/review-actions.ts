@@ -82,10 +82,10 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       const media = await store.listMedia("product", id);
       const mediaReview = productPublicationMediaState(media, id, product.supplier_id);
       if (!mediaReview.verifiedBuyerImages) {
-        return { ok: false, message: "Mở mục Ảnh & tài liệu sản phẩm. Đặt ít nhất một ảnh ở trạng thái Đã kiểm tra và Chia sẻ cho khách mua trước khi đăng." };
+        return { ok: false, message: "Mở mục Ảnh & tài liệu sản phẩm. Đặt ít nhất một ảnh ở trạng thái Đã kiểm tra và Chia sẻ cho người mua trước khi đăng." };
       }
       if (mediaReview.uncheckedBuyerFiles) {
-        return { ok: false, message: "Còn " + mediaReview.uncheckedBuyerFiles + " tệp chia sẻ cho khách mua chưa được xác minh. Chọn Đã kiểm tra hoặc chuyển về Nội bộ." };
+        return { ok: false, message: "Còn " + mediaReview.uncheckedBuyerFiles + " tệp chia sẻ cho người mua chưa được xác minh. Chọn Đã kiểm tra hoặc chuyển về Nội bộ." };
       }
     }
     const previous = { review: product.supplier_review_status ?? null, category: product.reviewed_category_slug, ready: product.ready_for_buyer };
@@ -112,7 +112,7 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
         p_buyer_enabled: process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true",
       });
       if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá trước khi đăng. Thử lại sau ít phút." };
-      if (data.status === "buyer_not_enabled") return { ok: false, message: "Chưa bật trang giá cho khách mua; chưa thể đăng sản phẩm này." };
+      if (data.status === "buyer_not_enabled") return { ok: false, message: "Chưa bật trang giá cho người mua; chưa thể đăng sản phẩm này." };
       if (data.status === "price_not_approved") return { ok: false, message: "Hãy duyệt bảng giá theo số lượng trước khi đăng sản phẩm." };
       if (data.status === "price_changed") return { ok: false, message: "Thông tin sản phẩm đã đổi sau khi duyệt giá. Cần yêu cầu nhà cung cấp gửi lại bảng giá." };
       if (data.status === "category_changed") return { ok: false, message: "Danh mục khác với bảng giá đã gửi. Hãy yêu cầu nhà cung cấp cập nhật danh mục và bảng giá." };

@@ -507,7 +507,7 @@ export async function linkProspectToBuyerAction(prospectId: string, buyerId: str
   if (!prospect || !buyer) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận hoặc người mua." };
   if (!prospect.email?.trim()) return { ok: false, message: "Đầu mối cần có email mới được liên kết với người mua." };
   if (prospect.status !== "qualified") {
-    return { ok: false, message: "Chỉ liên kết với người mua khi đầu mối đã được xác nhận có nhu cầu sourcing thực tế." };
+    return { ok: false, message: "Chỉ liên kết với người mua khi đầu mối đã được xác nhận có nhu cầu tìm nguồn thực tế." };
   }
   try {
     await store.updateProspect(prospectId, { status: "converted", converted_buyer_id: buyerId });
@@ -535,7 +535,7 @@ export async function convertProspectAction(prospectId: string): Promise<ActionR
   if (!prospect) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận." };
   if (!prospect.email?.trim()) return { ok: false, message: "Đầu mối cần có email trước khi vào pipeline người mua." };
   if (prospect.status !== "qualified") {
-    return { ok: false, message: "Chỉ đưa vào pipeline người mua khi đã xác nhận nhu cầu sourcing thực tế." };
+    return { ok: false, message: "Chỉ đưa vào pipeline người mua khi đã xác nhận nhu cầu tìm nguồn thực tế." };
   }
   const buyers = await store.listBuyers();
   const emailKey = normalizeMatch(prospect.email);

@@ -41,14 +41,14 @@ const NAV: {
   { href: "/crm/dashboard", label: "Tổng quan sàn", icon: LayoutDashboard, group: "marketplace" },
   { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view", group: "marketplace" },
   { href: "/crm/products", label: "Sản phẩm nhà cung cấp", icon: Boxes, perm: "products.view", group: "marketplace" },
-  { href: "/crm/rfqs", label: "RFQ từ khách mua", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
+  { href: "/crm/rfqs", label: "RFQ từ người mua", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
   { href: "/crm/verifications", label: "Xác minh nhà cung cấp", icon: ShieldCheck, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/verifications/submissions", label: "Hồ sơ nhà cung cấp tự gửi", icon: UploadCloud, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/categories", label: "Danh mục sản phẩm", icon: FolderTree, perm: "categories.view", group: "marketplace" },
   { href: "/crm/sponsored", label: "Đẩy sản phẩm", icon: Megaphone, perm: "sponsored.view", group: "marketplace" },
   { href: "/crm/traffic", label: "Lưu lượng truy cập", icon: ChartNoAxesColumn, perm: "traffic.view", group: "marketplace" },
   { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage", group: "marketplace" },
-  { href: "/crm/buyers", label: "Khách mua", icon: Globe2, perm: "buyers.view", group: "sales" },
+  { href: "/crm/buyers", label: "Người mua", icon: Globe2, perm: "buyers.view", group: "sales" },
   { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view", group: "sales" },
   { href: "/crm/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage", group: "sales" },
   { href: "/crm/team", label: "KPI cá nhân", icon: BarChart3, perm: "kpi.view", group: "sales" },
@@ -56,7 +56,7 @@ const NAV: {
 ];
 const NAV_GROUPS = [
   { key: "marketplace", label: "VẬN HÀNH SÀN" },
-  { key: "sales", label: "SALE · HỖ TRỢ KHÁCH MUA" },
+  { key: "sales", label: "SALE · HỖ TRỢ NGƯỜI MUA" },
   { key: "system", label: "HỆ THỐNG" },
 ] as const;
 
@@ -128,7 +128,7 @@ export function Sidebar({
                   const Icon = item.icon;
                   // Badge = số việc đang chờ đúng khu vực đó, giống số thư chưa đọc.
                   const badge = item.href === "/crm/mail" ? (unreadMail > 0 ? { text: String(unreadMail), title: "Thư đến chưa đọc" } : null)
-                    : item.href === "/crm/buyers" ? (newBuyers > 0 ? { text: `${newBuyers} mới`, title: "Khách mua mới chưa xử lý" } : null)
+                    : item.href === "/crm/buyers" ? (newBuyers > 0 ? { text: `${newBuyers} mới`, title: "Người mua mới chưa xử lý" } : null)
                     : item.href === "/crm/suppliers" ? (pendingSuppliers > 0 ? { text: `${pendingSuppliers} mới`, title: "Tài khoản nhà cung cấp chưa nộp hồ sơ hoặc chờ xác nhận" } : null)
                     : item.href === "/crm/products" ? (pendingProducts > 0 ? { text: `${pendingProducts} chờ`, title: "Sản phẩm chờ duyệt" } : null)
                     : item.href === "/crm/verifications" ? (pendingReviews > 0 ? { text: `${pendingReviews} chờ`, title: "Đợt kiểm chờ duyệt" } : null)

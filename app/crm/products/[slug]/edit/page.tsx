@@ -88,8 +88,8 @@ export default async function EditProductPage({
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đang xuất bản` },
     { done: supplier.status === "published", label: "Hồ sơ nhà cung cấp đang công khai" },
     { done: commercialSupplier, label: "Hồ sơ không phải dữ liệu thử nghiệm" },
-    { done: publicationMedia.verifiedBuyerImages > 0, label: "Ít nhất một ảnh đã kiểm tra và chia sẻ cho khách mua", href: "#product-media" },
-    { done: publicationMedia.uncheckedBuyerFiles === 0, label: "Mọi tệp chia sẻ cho khách mua đã được xác minh", href: "#product-media" },
+    { done: publicationMedia.verifiedBuyerImages > 0, label: "Ít nhất một ảnh đã kiểm tra và chia sẻ cho người mua", href: "#product-media" },
+    { done: publicationMedia.uncheckedBuyerFiles === 0, label: "Mọi tệp chia sẻ cho người mua đã được xác minh", href: "#product-media" },
     { done: productReviewApproved(product) && !!product.ready_for_buyer, label: "Sản phẩm đã được duyệt và đăng", automatic: needsPublicationAction },
     { done: !isTestOnlyProduct(product.name), label: "Tên sản phẩm không phải dữ liệu thử nghiệm" },
   ] : [
@@ -98,9 +98,9 @@ export default async function EditProductPage({
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đã đăng` },
     { done: supplier.status === "published", label: "Nhà cung cấp đã đăng (không tự đổi trạng thái khi lưu)" },
     { done: commercialSupplier, label: "Hồ sơ nhà cung cấp không phải dữ liệu thử nghiệm (không có TEST / DO NOT CONTACT)." + " Hồ sơ demo chỉ xem khi bật chế độ demo." },
-    { done: readiness.ready, label: "Thêm ít nhất một ảnh hoặc catalogue chia sẻ cho khách mua", href: "#product-media" },
+    { done: readiness.ready, label: "Thêm ít nhất một ảnh hoặc catalogue chia sẻ cho người mua", href: "#product-media" },
     { done: productReviewApproved(product), label: "Vexim đã xác nhận nội dung và danh mục sản phẩm" },
-    { done: !!product.ready_for_buyer, label: "Đã bật “Sẵn sàng gửi khách mua” và lưu hồ sơ" },
+    { done: !!product.ready_for_buyer, label: "Đã bật “Sẵn sàng gửi người mua” và lưu hồ sơ" },
     { done: !isTestOnlyProduct(product.name), label: "Tên không bắt đầu bằng TEST ONLY" },
   ];
   // Chỉ hiển thị điều kiện còn thiếu. Sản phẩm đã đủ điều kiện dùng một trạng thái
@@ -150,7 +150,7 @@ export default async function EditProductPage({
               supplierId={supplier.id}
               items={media}
               featuredMediaId={product.featured_media_id}
-              note={supplierReviewedListing ? "Trước khi đăng: chọn Đã kiểm tra và Chia sẻ cho khách mua ở từng tệp công khai. Tệp Nội bộ vẫn riêng tư." : "Ảnh/catalogue chia sẻ cho khách mua · giấy tờ nội bộ chỉ dùng trong nhà"}
+              note={supplierReviewedListing ? "Trước khi đăng: chọn Đã kiểm tra và Chia sẻ cho người mua ở từng tệp công khai. Tệp Nội bộ vẫn riêng tư." : "Ảnh/catalogue chia sẻ cho người mua · giấy tờ nội bộ chỉ dùng trong nhà"}
             />
           </div>
           <ProductTranslationPanel
@@ -222,7 +222,7 @@ export default async function EditProductPage({
           {showWebsiteSection && <section id="product-publication-status" className="card order-1 scroll-mt-24 p-4" aria-label="Trạng thái công khai sản phẩm">
             <h2 className="mb-2 text-sm font-bold text-ink-900">{canView ? "Trạng thái đăng" : "Còn thiếu trước khi đăng"}</h2>
             {canView
-              ? <p className="flex items-start gap-2 text-[13px] text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Sản phẩm đang hiển thị với khách mua.</p>
+              ? <p className="flex items-start gap-2 text-[13px] text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Sản phẩm đang hiển thị với người mua.</p>
               : <ul className="space-y-2.5">
                 {missingWebsiteChecks.map((item) => (
                   <li key={item.label} className="flex items-start gap-2 text-[13px] leading-snug">
@@ -233,7 +233,7 @@ export default async function EditProductPage({
                   </li>
                 ))}
               </ul>}
-            {(!supplierReviewedListing || canView) && readiness.ready && !productImages.length && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">{supplierReviewedListing ? "Sản phẩm chỉ có catalogue. Thêm ảnh để thẻ sản phẩm có hình." : "Catalogue đã đủ điều kiện nhưng thẻ chưa có ảnh. Thêm ảnh chia sẻ cho khách mua để thẻ có hình."}</p>}
+            {(!supplierReviewedListing || canView) && readiness.ready && !productImages.length && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">{supplierReviewedListing ? "Sản phẩm chỉ có catalogue. Thêm ảnh để thẻ sản phẩm có hình." : "Catalogue đã đủ điều kiện nhưng thẻ chưa có ảnh. Thêm ảnh chia sẻ cho người mua để thẻ có hình."}</p>}
             {canView && category && <p className="mt-3 border-t border-ink-100 pt-3"><Link className="text-[13px] font-semibold text-brand-700 underline" href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(product.id)}`} target="_blank">{supplierReviewedListing ? "Xem sản phẩm đã đăng" : "Xem trang sản phẩm công khai ↗"}</Link></p>}
           </section>}
           <section className="card order-3 p-4 text-[13px] leading-relaxed text-ink-600">

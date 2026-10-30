@@ -126,7 +126,7 @@ export async function markSamplingAction(fd: FormData): Promise<void> {
   revalidatePath("/crm/rfqs");
   revalidatePath(`/crm/rfqs/${rfqId}`);
   if (!notified.sent && notified.reason !== "already_sent" && notified.reason !== "pending") {
-    throw new Error("Đã lưu trạng thái sampling nhưng chưa gửi được thông báo cho khách mua. Hãy thử lại.");
+    throw new Error("Đã lưu trạng thái sampling nhưng chưa gửi được thông báo cho người mua. Hãy thử lại.");
   }
 }
 
@@ -159,7 +159,7 @@ export async function markLostAction(fd: FormData): Promise<void> {
   revalidatePath("/crm/rfqs");
   revalidatePath(`/crm/rfqs/${rfqId}`);
   if (!notified.sent && notified.reason !== "already_sent" && notified.reason !== "pending") {
-    throw new Error("Đã lưu trạng thái lost nhưng chưa gửi được thông báo cho khách mua. Hãy thử lại.");
+    throw new Error("Đã lưu trạng thái lost nhưng chưa gửi được thông báo cho người mua. Hãy thử lại.");
   }
 }
 
@@ -182,7 +182,7 @@ export async function sendFollowUpAction(fd: FormData): Promise<void> {
   const subject = `Nhắc: ${rfq.code} — vui lòng phản hồi báo giá`;
   const deadline = new Date(); deadline.setDate(deadline.getDate() + 2);
   const deadlineStr = deadline.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit" });
-  const body = `Kính gửi Anh/Chị ${sup.contact_name ?? sup.name},\n\nPhòng Xuất khẩu Vexim xin nhắc lại yêu cầu báo giá ${rfq.code} (${rfq.product_text}, ${rfq.quantity ?? ""} ${rfq.unit ?? ""}) đã gửi trước đó.\n\nNếu không thể tham gia chào giá lần này, rất mong Anh/Chị phản hồi ngắn gọn để chúng tôi thông báo cho khách mua. Nếu có thể chào giá, vui lòng hồi âm trước ${deadlineStr}.\n\nTrân trọng,\nPhòng Xuất khẩu · Vexim Trade`;
+  const body = `Kính gửi Anh/Chị ${sup.contact_name ?? sup.name},\n\nPhòng Xuất khẩu Vexim xin nhắc lại yêu cầu báo giá ${rfq.code} (${rfq.product_text}, ${rfq.quantity ?? ""} ${rfq.unit ?? ""}) đã gửi trước đó.\n\nNếu không thể tham gia chào giá lần này, rất mong Anh/Chị phản hồi ngắn gọn để chúng tôi thông báo cho người mua. Nếu có thể chào giá, vui lòng hồi âm trước ${deadlineStr}.\n\nTrân trọng,\nPhòng Xuất khẩu · Vexim Trade`;
 
   const html = wrapPlainEmail({
     title: subject,

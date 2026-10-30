@@ -139,7 +139,7 @@ const submit = fs.readFileSync(new URL('../app/supplier/portal/product-actions.t
 assert.match(submit, /ensureProductEnglishTranslation\(store, id/, 'nộp sản phẩm phải kích hoạt dịch tự động');
 
 const actions = fs.readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
-assert.match(actions, /chưa có bản dịch tiếng Anh/, 'bật sẵn sàng gửi buyer phải chặn khi chưa có bản dịch và AI chưa dịch được');
+assert.match(actions, /thiếu bản dịch tiếng Anh/, 'bật sẵn sàng gửi buyer phải chặn khi chưa có bản dịch và AI chưa dịch được');
 
 const page = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 assert.match(page, /description_i18n\?\.en/, 'trang buyer phải ưu tiên mô tả tiếng Anh');

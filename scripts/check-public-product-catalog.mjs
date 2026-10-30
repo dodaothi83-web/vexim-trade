@@ -100,7 +100,7 @@ assert.match(editPage, /savedPrice=\{\{ buyerPrice: visiblePrice, blockers: pric
   'CRM passes only saved-state price diagnostics into the product form');
 assert.doesNotMatch(editPage, /Tình trạng giá tham khảo đã lưu/, 'Do not duplicate the price panel above the form');
 assert.match(productForm, /checked=\{form\.price_publicly_visible === true\}/, 'Product-specific price permission remains explicit');
-assert.match(productForm, /Giá khách mua · bản đã lưu/, 'Show saved buyer price next to its per-product checkbox');
+assert.match(productForm, /Giá người mua · bản đã lưu/, 'Show saved buyer price next to its per-product checkbox');
 assert.match(productForm, /savedPrice\.blockers\.map/, 'When On request, keep the exact saved-state blockers');
 assert.match(productForm, /supplierPriceConsentCurrent\(supplier\)/, 'Explain the separate supplier consent');
 const catalog = readFileSync(new URL('../lib/public/product-catalog.ts', import.meta.url), 'utf8');

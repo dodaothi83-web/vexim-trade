@@ -58,7 +58,7 @@ const SERVICES: ServiceItem[] = [
         "Khởi tạo hồ sơ pháp nhân nhà máy, công ty thương mại hoặc hợp tác xã nhanh chóng",
         "Đăng tải sản phẩm kèm quy cách, MOQ, giá tham khảo và năng lực gia công OEM/ODM",
         "Nhận diện tự động chứng nhận (ATTP, HACCP, ISO, BRC...) gắn nhãn Chính chủ hoặc Đơn vị đối tác",
-        "Nhận yêu cầu báo giá (RFQ) đã xác thực từ khách mua hàng trong nước và quốc tế",
+        "Nhận yêu cầu báo giá (RFQ) đã xác thực từ người mua hàng trong nước và quốc tế",
       ],
     },
     ctaLabel: {

@@ -468,7 +468,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
       {v.target_level > 1 && <section className="rounded-xl border border-sky-200 bg-white p-4" aria-label="Tóm tắt công khai khi duyệt">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h3 className="text-sm font-bold text-ink-900">Phạm vi khách mua sẽ thấy</h3>
+            <h3 className="text-sm font-bold text-ink-900">Phạm vi người mua sẽ thấy</h3>
             <p className="mt-1 text-xs leading-5 text-ink-600">Viết 3 đến 5 dòng ngắn bằng tiếng Anh. Tóm tắt sẽ hiện ngay trong card xác minh khi bạn duyệt.</p>
           </div>
           <span className="rounded-full bg-sky-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-800">Bắt buộc</span>
@@ -480,7 +480,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
             placeholder="Describe the review timing, evidence checked and scope in 3 to 5 short lines." />
         </label>
         <div className="mt-1 flex flex-wrap justify-between gap-2 text-[11px] leading-4 text-ink-500">
-          <span>Không đưa chứng từ, tên khách mua, giá, mã đơn, GPS hoặc thông tin liên hệ.</span>
+          <span>Không đưa chứng từ, tên người mua, giá, mã đơn, GPS hoặc thông tin liên hệ.</span>
           <span>{publicSummary.length}/1000</span>
         </div>
         <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-ink-700">
@@ -499,11 +499,11 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
     {v.status === "approved" && <p className="border-t border-ink-100 p-4 text-sm text-emerald-800">Đã duyệt {v.approved_at ? formatDate(v.approved_at) : ""}.{v.self_approved && !v.inspector_id ? " Đợt do nhà cung cấp tự tải giấy tờ: người duyệt tự đối chiếu và duyệt một mình." : ""}{v.self_approved && v.inspector_id ? " Một nhân sự đã xác nhận tự đối chiếu và tự duyệt bản kiểm do chính mình thực hiện." : ""} Kết quả và bằng chứng chỉ đọc.</p>}
     {v.status === "approved" && v.target_level > 1 && <section className="border-t border-ink-200 bg-sky-50/40 p-5" aria-label="Tóm tắt công khai riêng">
       <h3 className="font-semibold text-ink-900">Tóm tắt công khai · {partner ? "Nhà máy đối tác" : v.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng"}</h3>
-      <p className="mt-1 text-xs text-ink-600">{"Tóm tắt có thể được cập nhật hoặc ẩn tại đây. Chỉ người có quyền duyệt mới được soạn, duyệt hoặc ẩn tóm tắt." + " Không đăng chứng từ, tên khách mua, giá, mã đơn hay GPS. Lịch sử giao hàng không mặc nhiên là xuất khẩu."}</p>
+      <p className="mt-1 text-xs text-ink-600">{"Tóm tắt có thể được cập nhật hoặc ẩn tại đây. Chỉ người có quyền duyệt mới được soạn, duyệt hoặc ẩn tóm tắt." + " Không đăng chứng từ, tên người mua, giá, mã đơn hay GPS. Lịch sử giao hàng không mặc nhiên là xuất khẩu."}</p>
       <p className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-xs leading-5 text-ink-600">{summaryGuide}</p>
       <p className="mt-2 text-xs font-semibold text-ink-700">{v.public_summary_published_at ? `Đang công khai · ${formatDate(v.public_summary_published_at)}` : "Chưa công khai"}</p>
       {canApprove ? <>
-        <label className="mt-3 block text-sm font-medium text-ink-800">Nội dung khách mua nhìn thấy (tiếng Anh)
+        <label className="mt-3 block text-sm font-medium text-ink-800">Nội dung người mua nhìn thấy (tiếng Anh)
           <textarea className="input mt-1" rows={3} maxLength={1000} value={publicSummary} onChange={(e) => { setPublicSummary(e.target.value); setSummaryConfirmed(false); }} placeholder="Only describe the specific evidence Vexim reviewed and its scope." />
         </label>
         <p className="mt-1 text-right text-[11px] text-ink-500">{publicSummary.length}/1000</p>

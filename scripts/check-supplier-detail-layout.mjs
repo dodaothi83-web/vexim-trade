@@ -50,7 +50,7 @@ assert.ok(!overviewBranch.includes('<VerificationPanel'), 'tab tổng quan khôn
 
 // Một trung tâm xét duyệt gom mở cổng, xác minh và trạng thái/công khai.
 assert.match(page, /VerificationPanel/, 'phải giữ panel xét duyệt');
-assert.match(reviewPanel, /Trung tâm xét duyệt NCC/);
+assert.match(reviewPanel, /Trung tâm xét duyệt nhà cung cấp/);
 assert.match(reviewPanel, /Hồ sơ & quyền cổng/);
 assert.match(reviewPanel, /OnboardingControls/, 'vẫn xác nhận mở cổng được khi hồ sơ chờ duyệt');
 assert.match(reviewPanel, /Xác minh L1–L3/);
@@ -96,7 +96,7 @@ assert.match(productSection, /#supplier-products|supplier-products/, 'chuyển t
 assert.match(productSection, /MediaThumb/);
 assert.match(productSection, /pr\.category/);
 assert.match(productSection, /title=\{pr\.name\}/, 'tên dài vẫn có tooltip và link mở hồ sơ đầy đủ');
-for (const label of ['Chờ Vexim kiểm tra', 'Chờ nhà cung cấp sửa', 'Sẵn sàng gửi khách mua']) {
+for (const label of ['Chờ Vexim kiểm tra', 'Chờ nhà cung cấp sửa', 'Sẵn sàng gửi người mua']) {
   assert.ok(productSection.includes(label), `thiếu trạng thái cơ bản: ${label}`);
 }
 for (const detail of ['pr.spec', 'pr.moq', 'pr.monthly_capacity', 'pr.lead_time_days', 'pr.ref_price', 'price_valid_until', 'shareableCount', 'Thông tin thương mại', 'Giá & trạng thái']) {

@@ -17,7 +17,7 @@ assert.match(edit, /Lưu thay đổi/, 'thanh thao tác phải có nút lưu');
 assert.match(edit, /Hoàn tác/, 'phải hoàn tác được thay đổi chưa lưu');
 
 // Các nhóm thông tin theo việc người dùng, có tiêu đề mục thống nhất.
-for (const title of ['Doanh nghiệp', 'Liên hệ', 'Hiển thị cho buyer', 'Điều kiện thương mại', 'Pháp lý và ghi chú nội bộ']) {
+for (const title of ['Doanh nghiệp', 'Liên hệ', 'Hiển thị cho người mua', 'Điều kiện thương mại', 'Pháp lý và ghi chú nội bộ']) {
   assert.ok(edit.includes(`title="${title}"`), `thiếu nhóm thông tin: ${title}`);
 }
 assert.ok(!edit.includes('<details'), 'form sửa không giấu trường quan trọng trong khối đóng mở nữa');

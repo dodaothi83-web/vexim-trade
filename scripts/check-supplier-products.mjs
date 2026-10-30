@@ -303,7 +303,7 @@ approve.set('reviewed_category_slug', 'cashew');
 product.name = 'Jasmine Rice';
 const internalMediaDecision = await review.decideSupplierProductAction(approve);
 assert.equal(internalMediaDecision.ok, false, 'An internal unverified image cannot be published automatically');
-assert.match(internalMediaDecision.message, /Đã kiểm tra và Chia sẻ cho khách mua/);
+assert.match(internalMediaDecision.message, /Đã kiểm tra và Chia sẻ cho người mua/);
 assert.equal(product.supplier_review_status, 'pending'); assert.equal(product.ready_for_buyer, false);
 assert.equal(files[0].audience, 'internal'); assert.equal(files[0].status, 'unverified');
 files[0].audience = 'buyer';
@@ -314,7 +314,7 @@ const uncheckedPublicFile = { ...files[0], id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb
 files.push(uncheckedPublicFile);
 const mixedMediaDecision = await review.decideSupplierProductAction(approve);
 assert.equal(mixedMediaDecision.ok, false, 'Every buyer-shared file must be checked');
-assert.match(mixedMediaDecision.message, /Còn 1 tệp chia sẻ cho khách mua chưa được xác minh/);
+assert.match(mixedMediaDecision.message, /Còn 1 tệp chia sẻ cho người mua chưa được xác minh/);
 uncheckedPublicFile.audience = 'internal';
 assert.equal((await review.decideSupplierProductAction(approve)).ok, true, 'Keyword mismatch is a warning; staff category is final');
 assert.equal(uncheckedPublicFile.audience, 'internal'); assert.equal(uncheckedPublicFile.status, 'unverified',

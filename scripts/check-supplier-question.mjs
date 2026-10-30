@@ -286,10 +286,10 @@ assert.doesNotMatch(questionUi, /—/);
 assert.match(status, /function questionStatusInfo/);
 assert.match(status, /Supplier replies go to your email and are not shown here/);
 assert.match(crm, /canManageRfq && !isSupplierQuestion/);
-assert.match(crmList, /Câu hỏi NCC/);
+assert.match(crmList, /Câu hỏi nhà cung cấp/);
 assert.match(crmList, /return !isSupplierQuestion\(rfq\) && rfq\.status === tab/);
 assert.match(crmList, /không tính SLA báo giá/);
-assert.match(crmActions, /Tạo RFQ mới sau khi buyer đồng ý nếu cần thêm NCC khác/);
+assert.match(crmActions, /tạo RFQ mới sau khi người mua đồng ý/);
 assert.match(outreach, /không dùng quy trình gửi yêu cầu báo giá/);
 
 console.log('✅ Supplier question: consent, direct Reply-To, honest delivery, focused alerts, quote isolation and contextual UI passed.');

@@ -709,7 +709,7 @@ export default async function HomeContent({
               </div>
               <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-ink-500">
                 {isVi
-                  ? "Nền tảng kết nối nguồn hàng thực phẩm & nông sản Việt Nam với khách mua trong nước và quốc tế."
+                  ? "Nền tảng kết nối nguồn hàng thực phẩm & nông sản Việt Nam với người mua trong nước và quốc tế."
                   : "B2B sourcing platform connecting global and domestic buyers with verified Vietnamese food & agricultural suppliers."}
               </p>
               <p className="mt-5 text-[12.5px] text-ink-400">
@@ -774,7 +774,7 @@ export default async function HomeContent({
               </li>
             </FooterCol>
 
-            <FooterCol title={isVi ? "Khách mua hàng" : "For Buyers"}>
+            <FooterCol title={isVi ? "Người mua hàng" : "For Buyers"}>
               <li>
                 <Link href={isVi ? "/how-it-works?lang=vi" : "/how-it-works"} className="hover:text-brand-700">
                   {isVi ? "Cách hoạt động" : "How it works"}

@@ -98,7 +98,7 @@ export default async function DashboardPage() {
     href: "/crm/verifications", when: r.requested_at, tone: "bg-ink-500",
   });
   if (canRfqs) for (const r of newQuoteRfqs) queue.push({
-    id: `rfq:${r.id}`, label: r.code || "RFQ mới", detail: "Khách mua gửi yêu cầu · cần tiếp nhận",
+    id: `rfq:${r.id}`, label: r.code || "RFQ mới", detail: "Người mua gửi yêu cầu · cần tiếp nhận",
     href: "/crm/rfqs", when: r.created_at, tone: "bg-brand-500",
   });
   if (canRfqs) for (const r of newSupplierQuestions) queue.push({
@@ -113,7 +113,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Trung tâm vận hành sàn" sub="Nhà cung cấp, sản phẩm và nội dung công khai là trọng tâm. RFQ và sale là luồng hỗ trợ khách mua." />
+      <PageHeader title="Trung tâm vận hành sàn" sub="Nhà cung cấp, sản phẩm và nội dung công khai là trọng tâm. RFQ và sale là luồng hỗ trợ người mua." />
 
       <section className="mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-ink-900 via-brand-900 to-brand-700 p-6 text-white shadow-lg sm:p-8">
         <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-brand-100">Vexim Trade · Marketplace operations</p>
@@ -178,7 +178,7 @@ export default async function DashboardPage() {
             {canViewReviews && requests === null && <p className="mt-3 text-xs text-amber-800">Chưa đọc được yêu cầu kiểm định; xem trang xác minh để kiểm tra.</p>}
           </Card>
           {canRfqs && <Card className="p-5">
-            <div className="flex items-center gap-2"><FileQuestion className="h-4 w-4 text-brand-700" /><h2 className="text-base font-bold text-ink-900">Nhu cầu từ khách mua</h2></div>
+            <div className="flex items-center gap-2"><FileQuestion className="h-4 w-4 text-brand-700" /><h2 className="text-base font-bold text-ink-900">Nhu cầu từ người mua</h2></div>
             <p className="mt-2 text-sm text-ink-600">{newQuoteRfqs.length} RFQ mới hoặc cần rà soát; {newSupplierQuestions.length} câu hỏi nhà cung cấp cần kiểm duyệt hoặc hỗ trợ giao. Đây không phải đơn hàng hay doanh thu.</p>
             <Link href="/crm/rfqs" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-700 hover:underline">Mở hộp thư RFQ <ArrowRight className="h-4 w-4" /></Link>
           </Card>}

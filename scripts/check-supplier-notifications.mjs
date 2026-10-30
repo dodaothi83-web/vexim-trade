@@ -44,7 +44,7 @@ assert.equal(await exports.notifySupplierDecision({ supplierId: sid, decision: '
 assert.ok(messages.at(-1).html.includes('nếu sản phẩm công khai'));
 assert.equal(await exports.notifySupplierDecision({ supplierId: sid, decision: 'product_approved', name: 'Cashew', note: 'PRIVATE STAFF ONLY' }), 'sent');
 assert.ok(!messages.at(-1).html.includes('PRIVATE STAFF ONLY'), 'Approval notes are not sent to suppliers');
-assert.ok(messages.at(-1).html.includes('đã được đăng') && messages.at(-1).html.includes('hiển thị cho khách mua'), 'Approval notice tells the supplier the product is live');
+assert.ok(messages.at(-1).html.includes('đã được đăng') && messages.at(-1).html.includes('hiển thị cho người mua'), 'Approval notice tells the supplier the product is live');
 assert.ok(!messages.at(-1).html.includes('chưa tự động sẵn sàng'), 'Approval notice no longer describes a separate unpublished step');
 status = 'failed';
 assert.equal(await exports.notifySupplierDecision({ supplierId: sid, decision: 'verification_returned', note: 'Bổ sung ảnh' }), 'failed');

@@ -192,7 +192,7 @@ function checklistOf(d: CategoryDraft): ChecklistItem[] {
   return [
     { key: "name", label: "Tên & đường dẫn trang", required: true, done: !!(d.name_en.trim() && d.slug.trim()), tab: "basic" },
     { key: "hero", label: "Ảnh bìa", required: true, done: !!d.hero_image, tab: "content" },
-    { key: "intro", label: "Giới thiệu ngắn cho khách mua", required: true, done: !!d.intro_en.trim(), tab: "content" },
+    { key: "intro", label: "Giới thiệu ngắn cho người mua", required: true, done: !!d.intro_en.trim(), tab: "content" },
     { key: "faq", label: "Ít nhất 1 câu hỏi thường gặp", required: false, done: d.faqs.some((f) => f.q.trim()), tab: "faq" },
     { key: "fields", label: "Trường dữ liệu cho sản phẩm", required: false, done: d.product_fields.length > 0, tab: "fields" },
     { key: "seo", label: "Tiêu đề & mô tả trên Google", required: false, done: !!(d.seo_title_en.trim() && d.seo_desc_en.trim()), tab: "seo" },
@@ -502,7 +502,7 @@ export function CategoriesManager({
       <Breadcrumbs items={[{ label: "Tổng quan", href: "/crm/dashboard" }, { label: "Danh mục" }]} />
       <PageHeader
         title="Danh mục sản phẩm"
-        sub="Quản lý cây ngành hàng cho khách mua — kéo thả để sắp xếp, bấm Sửa để viết nội dung. Lưu nháp không tự công khai."
+        sub="Quản lý cây ngành hàng cho người mua — kéo thả để sắp xếp, bấm Sửa để viết nội dung. Lưu nháp không tự công khai."
         actions={<Button variant="primary" onClick={() => setCreateParent({ id: null, name: "" })}><Plus className="h-4 w-4" /> Thêm danh mục</Button>}
       />
 
@@ -510,7 +510,7 @@ export function CategoriesManager({
       <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
           { value: counts.total, label: `Tổng danh mục · ${counts.roots} ngành tổng hợp` },
-          { value: counts.published, label: "Đang công khai cho khách mua" },
+          { value: counts.published, label: "Đang công khai cho người mua" },
           { value: counts.noimg, label: "Thiếu ảnh bìa", warn: counts.noimg > 0 },
           { value: counts.incomplete, label: "Chưa đủ điều kiện công khai", warn: counts.incomplete > 0 },
         ].map((k) => (
@@ -815,7 +815,7 @@ function CreateCategoryDialog({
             <input className="input" value={name} autoFocus placeholder="vd: Cashew kernels"
               onChange={(e) => { setName(e.target.value); if (!slugTouched) setSlug(autoSlug(e.target.value)); }} />
           </Field>
-          <Field label="Đường dẫn trang" required hint="Khách mua sẽ thấy: veximtrade.com/products/<đường-dẫn>">
+          <Field label="Đường dẫn trang" required hint="Người mua sẽ thấy: veximtrade.com/products/<đường-dẫn>">
             <input className="input" value={slug} placeholder="cashew-kernels"
               onChange={(e) => { setSlugTouched(true); setSlug(autoSlug(e.target.value)); }} />
           </Field>
@@ -1020,7 +1020,7 @@ function CategoryEditor({
     finally { setDraftingFaq(false); }
   }
 
-  const buyerTag = <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-sky-800">Khách mua thấy · EN</span>;
+  const buyerTag = <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-sky-800">Người mua thấy · EN</span>;
   const seoTitlePreview = draft.seo_title_en.trim() || (draft.name_en ? `${draft.name_en} suppliers in Vietnam | Vexim Trade` : "Tiêu đề trang");
   const seoDescPreview = draft.seo_desc_en.trim() || draft.intro_en.trim() || "Mô tả sẽ lấy từ phần giới thiệu ngắn nếu để trống.";
 
@@ -1106,7 +1106,7 @@ function CategoryEditor({
                 <Field label={<>Tên danh mục {buyerTag}</>} required className="sm:col-span-2">
                   <input className="input" value={draft.name_en} onChange={(e) => set("name_en", e.target.value)} placeholder="Cashew kernels, Coffee, Pepper…" aria-invalid={!!nameError} />
                 </Field>
-                <Field label="Đường dẫn trang" required hint="Khách mua sẽ thấy: veximtrade.com/products/<đường-dẫn>">
+                <Field label="Đường dẫn trang" required hint="Người mua sẽ thấy: veximtrade.com/products/<đường-dẫn>">
                   <input className="input" value={draft.slug} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, ""))} placeholder="cashew" aria-invalid={!!nameError} />
                 </Field>
                 <Field label="Danh mục cha (ngành tổng hợp)" hint="Danh mục có 2 cấp: ngành tổng hợp và ngành con.">
@@ -1147,12 +1147,12 @@ function CategoryEditor({
             <section className="card p-5">
               <div className="mb-4">
                 <h2 className="text-base font-bold text-ink-900">Nội dung & ảnh bìa</h2>
-                <p className="mt-0.5 text-[13px] text-ink-500">Phần khách mua đọc đầu tiên trên trang danh mục — viết bằng tiếng Anh.</p>
+                <p className="mt-0.5 text-[13px] text-ink-500">Phần người mua đọc đầu tiên trên trang danh mục — viết bằng tiếng Anh.</p>
               </div>
               <div className="space-y-4">
                 <Field
                   label={<>Giới thiệu ngắn {buyerTag}</>}
-                  hint="Một đến hai câu mở đầu trang danh mục, để khách mua hiểu nhóm nhà cung cấp Việt Nam này và gửi yêu cầu báo giá."
+                  hint="Một đến hai câu mở đầu trang danh mục, để người mua hiểu nhóm nhà cung cấp Việt Nam này và gửi yêu cầu báo giá."
                   action={aiEnabled ? (
                     <Button type="button" size="sm" disabled={drafting || busy} onClick={() => void aiIntro()}>
                       {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Tự động soạn nội dung
@@ -1183,7 +1183,7 @@ function CategoryEditor({
           {tab === "spec" && (
             <section className="card p-5">
               <h2 className="text-base font-bold text-ink-900">Bảng thông số tham khảo</h2>
-              <p className="mb-4 mt-0.5 text-[13px] text-ink-500">Bảng khách mua dùng để đối chiếu grade/quy cách trên trang danh mục. Đây là nội dung tham khảo của trang, <b>không phải</b> thông số của từng nhà cung cấp.</p>
+              <p className="mb-4 mt-0.5 text-[13px] text-ink-500">Bảng người mua dùng để đối chiếu grade/quy cách trên trang danh mục. Đây là nội dung tham khảo của trang, <b>không phải</b> thông số của từng nhà cung cấp.</p>
               <SpecEditor draft={draft} setDraft={setDraft} />
 
               <div className="mt-6 space-y-5 border-t border-ink-100 pt-5">
@@ -1287,7 +1287,7 @@ function CategoryEditor({
             <section className="card space-y-7 p-5">
               <div>
                 <h2 className="text-base font-bold text-ink-900">Thông tin mua hàng</h2>
-                <p className="mb-4 mt-0.5 text-[13px] text-ink-500">Các dữ kiện khách mua cần trước khi gửi yêu cầu báo giá: số lượng tối thiểu, đóng gói, cảng xuất…</p>
+                <p className="mb-4 mt-0.5 text-[13px] text-ink-500">Các dữ kiện người mua cần trước khi gửi yêu cầu báo giá: số lượng tối thiểu, đóng gói, cảng xuất…</p>
                 <FactsEditor draft={draft} setDraft={setDraft} />
               </div>
               <div className="border-t border-ink-100 pt-6">
@@ -1519,7 +1519,7 @@ function HarvestEditor({ draft, setDraft }: { draft: CategoryDraft; setDraft: (u
       <div className="space-y-4 border-t border-ink-100 pt-4">
         <Field
           label="Ghi chú dưới biểu đồ"
-          hint="1–2 câu giải thích vì sao vẫn mua được ngoài vụ, hoặc vụ nào quan trọng nhất. Viết bằng tiếng Anh cho khách mua."
+          hint="1–2 câu giải thích vì sao vẫn mua được ngoài vụ, hoặc vụ nào quan trọng nhất. Viết bằng tiếng Anh cho người mua."
         >
           <textarea
             className="input"
@@ -1661,12 +1661,12 @@ function ProductFieldsEditor({ draft, setDraft }: { draft: CategoryDraft; setDra
       {fields.map((field, i) => (
         <div key={i} className="rounded-xl border border-ink-200 p-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Tên hiển thị (khách mua thấy)"><input className="input" value={field.label} onChange={(e) => update(i, { label: e.target.value })} placeholder="Grade / Type / Origin" /></Field>
+            <Field label="Tên hiển thị (người mua thấy)"><input className="input" value={field.label} onChange={(e) => update(i, { label: e.target.value })} placeholder="Grade / Type / Origin" /></Field>
             <Field label="Mã trường (không đổi khi đã có sản phẩm)" hint="Chỉ gồm a-z, số, _. Ví dụ: grade, product_type"><input className="input" value={field.key} onChange={(e) => update(i, { key: e.target.value.toLowerCase() })} /></Field>
             <Field label="Kiểu nhập"><select className="input" value={field.type} onChange={(e) => update(i, { type: e.target.value as ProductAttributeField["type"], options: e.target.value === "text" ? [] : field.options, filterable: false })}><option value="select">Chọn từ danh sách</option><option value="text">Nhập văn bản</option></select></Field>
             {field.type === "select" && <Field label="Lựa chọn (mỗi dòng một giá trị)"><textarea className="input" rows={3} value={field.options.join("\n")} onChange={(e) => update(i, { options: e.target.value.split("\n").map((v) => v.trim()).filter(Boolean) })} placeholder={"W240\nW320\nW450"} /></Field>}
           </div>
-          {field.type === "select" && <label className="mt-3 flex items-center gap-2 text-sm text-ink-700"><input type="checkbox" checked={!!field.filterable} onChange={(e) => update(i, { filterable: e.target.checked })} /> Cho khách mua lọc theo trường này khi có sản phẩm phù hợp</label>}
+          {field.type === "select" && <label className="mt-3 flex items-center gap-2 text-sm text-ink-700"><input type="checkbox" checked={!!field.filterable} onChange={(e) => update(i, { filterable: e.target.checked })} /> Cho người mua lọc theo trường này khi có sản phẩm phù hợp</label>}
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-700">
             <span>Chỉ hiện khi trường trước chọn:</span>
             <select className="input w-auto" value={field.showWhen?.key ?? ""} onChange={(e) => update(i, { showWhen: e.target.value ? { key: e.target.value, value: "" } : undefined })} aria-label="Trường điều kiện"><option value="">Luôn hiện</option>{fields.slice(0, i).filter((f) => f.type === "select").map((f) => <option key={f.key} value={f.key}>{f.label || f.key}</option>)}</select>

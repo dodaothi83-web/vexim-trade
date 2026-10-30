@@ -90,7 +90,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     { href: "/crm/verifications/submissions", label: "Hồ sơ nhà cung cấp tự gửi chờ đối chiếu", count: pendingSubmissions },
     { href: "/crm/sponsored#yeu-cau-ncc", label: "Yêu cầu đẩy sản phẩm mới", count: pendingSponsoredRequests ?? 0 },
     { href: "/crm/mail", label: "Thư chưa đọc", count: unreadMail },
-    { href: "/crm/buyers", label: "Khách mua mới chưa xử lý", count: newBuyers },
+    { href: "/crm/buyers", label: "Người mua mới chưa xử lý", count: newBuyers },
   ].filter((queue) => queue.count > 0);
 
   let dbMode: "supabase" | "local" = "local";

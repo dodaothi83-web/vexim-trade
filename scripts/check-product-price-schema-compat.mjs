@@ -65,7 +65,7 @@ for (const kind of ['create', 'update']) {
   }
 
   const range = storeFor(() => missing);
-  await assert.rejects(save(range.store, { ref_price: 2, ref_price_max: 3 }), /Chưa lưu giá đến.*20261017_product_reference_price_range\.sql/);
+  await assert.rejects(save(range.store, { ref_price: 2, ref_price_max: 3 }), /Chưa lưu được giá đến\. Báo người phụ trách kỹ thuật/);
   assert.equal(range.writes.length, 1, `${kind}: never discard an entered upper bound`);
 
   const noCode = storeFor((write) => 'ref_price_max' in write.payload ? { message: missing.message } : null);

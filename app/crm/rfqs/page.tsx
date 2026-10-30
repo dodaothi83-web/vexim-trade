@@ -115,7 +115,7 @@ export default async function RfqsPage({
       ]} />
       <PageHeader
         title="Hộp thư RFQ công khai"
-        sub="Báo giá: phân công trong 4h, phản hồi người mua trong 24h (giờ Hà Nội). Câu hỏi trực tiếp có tab riêng, không tính SLA."
+        sub="Báo giá: phân công 4h, phản hồi người mua 24h (giờ Hà Nội). Câu hỏi trực tiếp có tab riêng, không tính SLA báo giá."
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-1 border-b border-ink-200">
