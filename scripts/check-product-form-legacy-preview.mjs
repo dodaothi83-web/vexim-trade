@@ -46,6 +46,11 @@ assert.equal(JSON.stringify(product), before, 'Only prepare a comparison; never 
 const single = preview({ ...input, product: { ...product, specs: { grade: 'w320', grade_rows: [{ grade: 'W320', price_min: 5 }] } } });
 assert.equal(single.ok, true); assert.equal(single.candidates.length, 1); assert.equal(single.candidates[0].draft.grade, 'W320');
 assert.equal(single.candidates[0].draft.pricePubliclyVisible, false); assert.equal(single.candidates[0].draft.tiers[0].price, '');
+const w180 = preview({ ...input, standardGrades: ['W180', 'W320'], product: { ...product,
+  specs: { grade: 'W180', grade_rows: [{ grade: 'W180', moq_qty: 100, moq_unit: 'bag' }] } } });
+assert.equal(w180.ok, true); assert.equal(w180.candidates[0].draft.grade, 'W180');
+assert.equal(w180.candidates[0].draft.customGrade, false, 'W180 is standard when the matched category supplies it');
+assert.equal(w180.candidates[0].draft.tiers[0].quantity, '');
 for (const rows of [[{ grade: 'W320' }, { grade: 'w320' }], [{ grade: 'W320' }, null], [{ grade: 'W320' }, {}], [{ grade: 'W320' }, { grade: 'x'.repeat(81) }]])
   assert.equal(preview({ ...input, product: { ...product, specs: { grade_rows: rows } } }).ok, false);
 assert.equal(preview({ ...input, product: { ...product, specs: { grade_rows: Array.from({ length: 31 }, (_, i) => ({ grade: `g${i}` })) } } }).reason, 'too_many_grades');

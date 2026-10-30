@@ -4,9 +4,13 @@ import { requirePagePermission } from "@/lib/auth/session";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 import { effectiveFieldsFor } from "@/lib/product-attributes";
+import { isExpired } from "@/lib/media/readiness";
+import { privateMediaUrl } from "@/lib/supplier-portal/product-view";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { previewLegacyProductForms } from "@/lib/products/product-form-legacy-preview";
+import { legacyCategoryForComparison, legacyProductReviewEvidence } from "@/lib/products/product-form-legacy-review";
 import { LegacyProductFormPreview } from "@/components/products/legacy-product-form-preview";
+import { LegacyReviewEvidencePanel } from "@/components/products/legacy-review-evidence";
 import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
@@ -32,15 +36,22 @@ export default async function LegacyProductMappingPreview({ params, searchParams
   ]);
   if (!supplier) notFound();
   const options = categoryProposalOptions(categories);
-  // Category text on legacy products may be a free-text industry. Only an
-  // explicitly reviewed, currently published category is used as a mapping.
-  const reviewed = options.find((item) => item.slug === product.reviewed_category_slug);
-  const category = reviewed ? categories.find((item) => item.id === reviewed.id) : undefined;
-  const result = previewLegacyProductForms({ product, categorySlug: reviewed?.slug ?? "",
+  // An exact legacy slug may be displayed as a suggestion, never as reviewed.
+  const match = legacyCategoryForComparison(product, options);
+  const category = match.category ? categories.find((item) => item.id === match.category!.id) : undefined;
+  const result = previewLegacyProductForms({ product, categorySlug: match.category?.slug ?? "",
     fields: effectiveFieldsFor(category), standardGrades: standardGradesForCategory(category ?? null) });
   const query = await searchParams;
   const index = typeof query.grade === "string" && /^\d{1,2}$/.test(query.grade) ? Number(query.grade) : 0;
   const selected = result.ok && index < result.candidates.length ? index : 0;
+  const evidence = legacyProductReviewEvidence(product, result.ok ? result.candidates[selected].originalRow : null);
+  // Only already checked, buyer-shareable images for this product may appear
+  // here. Other files remain on the original record; this does not copy them.
+  const eligibleImages = media.filter((asset) => asset.owner_type === "product" && asset.product_id === product.id &&
+      asset.supplier_id === product.supplier_id && asset.kind === "image" && asset.audience === "buyer" && asset.status === "checked" &&
+      !isExpired(asset) && typeof asset.storage_path === "string" && /\.(?:jpe?g|png|webp)$/i.test(asset.storage_path))
+    .sort((a, b) => Number(b.id === product.featured_media_id) - Number(a.id === product.featured_media_id))
+    .flatMap((asset) => { const url = privateMediaUrl(asset); return url ? [{ id: asset.id, url }] : []; }).slice(0, 8);
   const original = [
     ["Tên gốc", product.name], ["Tên hiển thị", product.display_name], ["Các tên theo ngôn ngữ", product.name_i18n],
     ["Danh mục cũ", product.category], ["Danh mục đã duyệt", product.reviewed_category_slug],
@@ -63,8 +74,10 @@ export default async function LegacyProductMappingPreview({ params, searchParams
       <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
         Chỉ xem đối chiếu, chưa tạo bản nháp, tách sản phẩm hay thay đổi dữ liệu. Bảng giá mới để trống; doanh nghiệp sẽ nhập giá chính thức. Hồ sơ, ảnh và liên kết gốc hiện vẫn giữ nguyên.
       </p>
-      {!reviewed && <p role="alert" className="rounded-lg border border-amber-200 bg-white p-4 text-sm">Danh mục chưa có mã được duyệt và đang mở; không tự suy đoán từ tên hay ngành hàng cũ.</p>}
-      <details className="rounded-xl border border-ink-200 bg-white p-4" open>
+      {match.source === "suggested" && <p role="status" className="rounded-lg border border-amber-200 bg-white p-4 text-sm">Danh mục <strong>{match.category?.label ?? match.category?.slug}</strong> được đề xuất từ đúng mã cũ; chưa được xác nhận hoặc lưu. Cần kiểm tra trước khi duyệt.</p>}
+      {match.source === "missing" && <p role="alert" className="rounded-lg border border-amber-200 bg-white p-4 text-sm">Không xác nhận được mã danh mục đang mở. Không tự suy đoán từ tên hay ngành hàng cũ.</p>}
+      <LegacyReviewEvidencePanel evidence={evidence} />
+      <details className="rounded-xl border border-ink-200 bg-white p-4">
         <summary className="cursor-pointer font-semibold">Dữ liệu gốc cần đối chiếu</summary>
         <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">{original.map(([label, value]) => <div key={label} className="min-w-0 rounded-lg bg-ink-50 p-3">
           <dt className="font-semibold text-ink-700">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-ink-900">{text(value)}</dd>
@@ -91,7 +104,7 @@ export default async function LegacyProductMappingPreview({ params, searchParams
           {result.candidates[selected].originalRow != null && <details className="mt-3 text-sm"><summary className="cursor-pointer font-semibold">Dòng grade gốc</summary>
             <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-ink-50 p-3">{text(result.candidates[selected].originalRow)}</pre></details>}
         </section>
-        <LegacyProductFormPreview draft={result.candidates[selected].draft} categories={options} />
+        <LegacyProductFormPreview draft={result.candidates[selected].draft} categories={options} images={eligibleImages} />
       </>}
     </div>
   </>;
