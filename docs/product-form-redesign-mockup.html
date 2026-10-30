@@ -139,6 +139,54 @@
   .dotlamp{width:7px;height:7px;border-radius:99px;background:#f59e0b;display:inline-block;margin-right:6px}
   .note{grid-column:1/-1;font-size:11px;color:var(--ink500);line-height:1.5;margin-top:2px}
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+  /* ===== màn 2: danh sách sản phẩm ===== */
+  .screenlabel{max-width:1240px;margin:34px auto 10px;padding:0 22px;display:flex;align-items:center;gap:10px;font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ink500)}
+  .screenlabel::after{content:"";flex:1;height:1px;background:var(--ink200)}
+  .app.screen2{border-top:1px solid var(--ink200)}
+  .lpage{padding:14px 22px 26px;max-width:1240px;width:100%;margin:0 auto}
+  .lhead{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
+  .lhead h1{font-size:22px}
+  .lhead p{margin:2px 0 0;font-size:12.5px;color:var(--ink500)}
+  .lhead .actions{margin-left:auto;display:flex;gap:8px}
+  .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin:10px 0 12px}
+  .stat{display:flex;align-items:center;gap:8px;border:1px solid var(--ink200);background:#fff;border-radius:9px;padding:7px 9px}
+  .stat .ico{width:26px;height:26px;flex:0 0 26px;border-radius:7px;display:grid;place-items:center;font-size:11px;font-weight:900;background:var(--ink100);color:var(--ink600)}
+  .stat p{margin:0;font-size:10.5px;font-weight:700;color:var(--ink500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat b{display:block;font-size:15px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--ink900);line-height:1.1}
+  .panel{background:#fff;border:1px solid var(--ink200);border-radius:var(--radius);overflow:hidden}
+  .panelhead{border-bottom:1px solid var(--ink100);padding:10px 12px}
+  .panelhead .row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .panelhead h2{margin:0;font-size:15px;font-weight:800}
+  .panelhead .sub{margin:1px 0 0;font-size:11.5px;color:var(--ink500)}
+  .search{position:relative;flex:1;min-width:180px;max-width:330px}
+  .search input{width:100%;border:1px solid var(--ink300);border-radius:10px;padding:6px 11px 6px 34px;font-size:12px;font-family:inherit}
+  .search span.ic{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--ink400)}
+  .sortlabel{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:var(--ink600)}
+  .sortlabel select{border:1px solid var(--ink300);border-radius:9px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff}
+  .tabs{display:flex;gap:6px;margin-top:9px;overflow:auto}
+  .tabpill{flex:0 0 auto;border:0;border-radius:99px;padding:6px 11px;font-size:11.5px;font-weight:800;background:var(--ink100);color:var(--ink600);font-family:inherit;cursor:pointer}
+  .tabpill.on{background:var(--brand-dark);color:#fff}
+  .tabpill i{font-style:normal;font-variant-numeric:tabular-nums;opacity:.7;margin-left:4px}
+  table.ptable{width:100%;border-collapse:collapse;text-align:left}
+  .ptable th{border-bottom:1px solid var(--ink100);background:rgba(241,245,249,.6);padding:7px 8px;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink500)}
+  .ptable td{border-bottom:1px solid var(--ink100);padding:7px 8px;font-size:11.5px;color:var(--ink700);vertical-align:middle}
+  .ptable tr:last-child td{border-bottom:0}
+  .ptable .nm{display:flex;align-items:center;gap:9px;min-width:190px}
+  .thumb{width:38px;height:38px;flex:0 0 38px;border-radius:7px;border:1px solid var(--ink200);background:var(--ink100);display:grid;place-items:center;font-size:11px;color:var(--ink400)}
+  .ptable .nm b{display:block;font-size:12.5px;font-weight:800;color:var(--ink900)}
+  .ptable .nm small{display:block;font-size:10.5px;color:var(--ink500)}
+  .ptable .price{text-align:right;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink900);white-space:nowrap}
+  .bar{width:54px;height:6px;border-radius:99px;background:var(--ink100);overflow:hidden;display:inline-block;vertical-align:middle}
+  .bar i{display:block;height:100%;border-radius:99px;background:#f59e0b}
+  .bar i.ok{background:var(--brand-dark)}
+  .pct{font-size:10.5px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink600);margin-left:5px}
+  .goarrow{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:7px;color:var(--brand-dark);text-decoration:none;font-size:13px}
+  .goarrow:hover{background:var(--brand-soft)}
+  .pfoot{display:flex;align-items:center;gap:8px;border-top:1px solid var(--ink100);padding:8px 12px;font-size:11.5px;color:var(--ink500)}
+  .pfoot .spacer{flex:1}
+  .pfoot .btn{padding:5px 10px;font-size:11.5px}
+  .lfoot{font-size:11px;color:var(--ink500);margin:10px 0 0}
 </style>
 </head>
 <body>
@@ -389,6 +437,167 @@
       <span class="spacer"></span>
       <button class="btn" type="button">Lưu nháp</button>
       <button class="btn primary" type="button">Sang bước 2 →</button>
+    </div>
+  </div>
+</div>
+
+<p class="screenlabel">Màn 2 · Danh sách sản phẩm</p>
+<div class="app screen2">
+  <aside class="rail" aria-label="Điều hướng cổng nhà cung cấp">
+    <div class="brand">
+      <div class="brandmark">V</div>
+      <div class="brandname">Vexim Trade<small>Cổng nhà cung cấp</small></div>
+    </div>
+    <div class="navlabel">SẢN PHẨM</div>
+    <a class="navitem active" href="#" aria-current="page"><span class="dot"></span>Sản phẩm của tôi<span class="count">6</span></a>
+    <a class="navitem" href="#"><span class="dot"></span>Đăng sản phẩm</a>
+    <a class="navitem" href="#"><span class="dot"></span>Chứng nhận<span class="count warn">2</span></a>
+    <div class="navlabel">CỬA HÀNG</div>
+    <a class="navitem" href="#"><span class="dot"></span>Hồ sơ doanh nghiệp</a>
+    <a class="navitem" href="#"><span class="dot"></span>Danh mục kinh doanh</a>
+    <a class="navitem" href="#"><span class="dot"></span>Cửa hàng</a>
+    <div class="navlabel">LIÊN HỆ</div>
+    <a class="navitem" href="#"><span class="dot"></span>Hộp thư<span class="count">1</span></a>
+    <a class="navitem" href="#"><span class="dot"></span>Trợ giúp</a>
+    <div class="railfoot">
+      <div class="avatar">TH</div>
+      <p>Trần Hữu Thắng<span>Công ty TNHH Hạt Điều Phước</span></p>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="crumb">Sản phẩm <span aria-hidden="true">/</span> <strong>Sản phẩm của tôi</strong></div>
+      <div class="right"><button class="btn ghost" type="button">Xem cửa hàng</button></div>
+    </div>
+
+    <div class="lpage">
+      <header class="lhead">
+        <div>
+          <h1>Sản phẩm của tôi</h1>
+          <p>Tạo hồ sơ, thêm ảnh thực tế và gửi duyệt. Đây là khu vực riêng, người mua không thấy.</p>
+        </div>
+        <div class="actions"><button class="btn primary" type="button">+ Thêm sản phẩm</button></div>
+      </header>
+
+      <section class="stats" aria-label="Tổng quan sản phẩm">
+        <div class="stat"><span class="ico" aria-hidden="true">▤</span><span style="min-width:0"><p>Tổng sản phẩm</p><b>6</b></span></div>
+        <div class="stat"><span class="ico" aria-hidden="true">✎</span><span style="min-width:0"><p>Bản nháp</p><b>2</b></span></div>
+        <div class="stat"><span class="ico" aria-hidden="true">◔</span><span style="min-width:0"><p>Chờ duyệt</p><b>2</b></span></div>
+        <div class="stat"><span class="ico" aria-hidden="true">◧</span><span style="min-width:0"><p>Cần chỉnh sửa</p><b>0</b></span></div>
+        <div class="stat"><span class="ico" aria-hidden="true">✔</span><span style="min-width:0"><p>Đã đăng</p><b>2</b></span></div>
+        <div class="stat"><span class="ico" aria-hidden="true">◌</span><span style="min-width:0"><p>Đã tạm ẩn</p><b>0</b></span></div>
+      </section>
+
+      <section class="panel" aria-label="Danh sách sản phẩm">
+        <div class="panelhead">
+          <div class="row">
+            <div style="min-width:0">
+              <h2>Danh mục của bạn</h2>
+              <p class="sub">Sau khi duyệt, sản phẩm được đăng và bạn có thể quản lý thông tin, hình ảnh.</p>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <label class="search"><span class="ic" aria-hidden="true">⌕</span><span class="sr">Tìm sản phẩm của tôi</span><input type="search" placeholder="Tìm tên, mô tả, quy cách..." /></label>
+            <label class="sortlabel"><span>Sắp xếp</span><select><option>Mới cập nhật</option><option>Tên A-Z</option></select></label>
+          </div>
+          <div class="tabs" role="group" aria-label="Lọc trạng thái sản phẩm">
+            <button class="tabpill on" type="button" aria-pressed="true">Tất cả<i>6</i></button>
+            <button class="tabpill" type="button" aria-pressed="false">Bản nháp<i>2</i></button>
+            <button class="tabpill" type="button" aria-pressed="false">Chờ duyệt<i>2</i></button>
+            <button class="tabpill" type="button" aria-pressed="false">Cần sửa<i>0</i></button>
+            <button class="tabpill" type="button" aria-pressed="false">Đã đăng<i>2</i></button>
+            <button class="tabpill" type="button" aria-pressed="false">Đã tạm ẩn<i>0</i></button>
+          </div>
+        </div>
+
+        <table class="ptable">
+          <caption class="sr">Sản phẩm của bạn, sắp theo lần cập nhật gần nhất</caption>
+          <thead>
+            <tr>
+              <th scope="col">Sản phẩm</th>
+              <th scope="col">Danh mục</th>
+              <th scope="col" style="text-align:right">Giá tham khảo</th>
+              <th scope="col">MOQ</th>
+              <th scope="col">Trạng thái</th>
+              <th scope="col">Hồ sơ</th>
+              <th scope="col">Cập nhật</th>
+              <th scope="col"><span class="sr">Mở</span></th>
+            </tr>
+          </thead>
+          <tbody>
+              <tr>
+                <td><div class="nm"><span class="thumb" aria-hidden="true">▢</span><span><b>Hạt điều nhân W320</b><small>bao 25 kg · 20 đơn vị/thùng</small></span></div></td>
+                <td>Hạt điều</td>
+                <td class="price">5.000 USD / tấn</td>
+                <td>1 tấn</td>
+                <td><span class="pill draft"><span class="dot"></span>Bản nháp</span></td>
+                <td><span class="bar"><i class="ok" style="width:86%"></i></span><span class="pct">86%</span></td>
+                <td style="white-space:nowrap;color:var(--ink500);font-size:11px">17/10/2026</td>
+                <td style="text-align:right"><a class="goarrow" href="#" aria-label="Mở Hạt điều nhân W320">→</a></td>
+              </tr>
+              <tr>
+                <td><div class="nm"><span class="thumb" aria-hidden="true">▢</span><span><b>Hạt điều nhân W240</b><small>bao 25 kg</small></span></div></td>
+                <td>Hạt điều</td>
+                <td class="price">5.600 USD / tấn</td>
+                <td>1 tấn</td>
+                <td><span class="pill draft"><span class="dot"></span>Bản nháp</span></td>
+                <td><span class="bar"><i class="" style="width:72%"></i></span><span class="pct">72%</span></td>
+                <td style="white-space:nowrap;color:var(--ink500);font-size:11px">16/10/2026</td>
+                <td style="text-align:right"><a class="goarrow" href="#" aria-label="Mở Hạt điều nhân W240">→</a></td>
+              </tr>
+              <tr>
+                <td><div class="nm"><span class="thumb" aria-hidden="true">▢</span><span><b>Hạt điều nhân W180</b><small>bao 20 kg</small></span></div></td>
+                <td>Hạt điều</td>
+                <td class="price">6.400 USD / tấn</td>
+                <td>500 kg</td>
+                <td><span class="pill pending"><span class="dot"></span>Chờ duyệt</span></td>
+                <td><span class="bar"><i class="ok" style="width:94%"></i></span><span class="pct">94%</span></td>
+                <td style="white-space:nowrap;color:var(--ink500);font-size:11px">15/10/2026</td>
+                <td style="text-align:right"><a class="goarrow" href="#" aria-label="Mở Hạt điều nhân W180">→</a></td>
+              </tr>
+              <tr>
+                <td><div class="nm"><span class="thumb" aria-hidden="true">▢</span><span><b>Điều rang muối</b><small>túi 500 g · 24 túi/thùng</small></span></div></td>
+                <td>Hạt điều</td>
+                <td class="price">Chưa đặt giá</td>
+                <td>1.000 túi</td>
+                <td><span class="pill pending"><span class="dot"></span>Chờ duyệt</span></td>
+                <td><span class="bar"><i class="" style="width:61%"></i></span><span class="pct">61%</span></td>
+                <td style="white-space:nowrap;color:var(--ink500);font-size:11px">14/10/2026</td>
+                <td style="text-align:right"><a class="goarrow" href="#" aria-label="Mở Điều rang muối">→</a></td>
+              </tr>
+              <tr>
+                <td><div class="nm"><span class="thumb" aria-hidden="true">▢</span><span><b>Hạt điều nhân WS</b><small>bao 25 kg</small></span></div></td>
+                <td>Hạt điều</td>
+                <td class="price">4.200 USD / tấn</td>
+                <td>1 tấn</td>
+                <td><span class="pill done"><span class="dot"></span>Đã đăng</span></td>
+                <td><span class="bar"><i class="ok" style="width:100%"></i></span><span class="pct">100%</span></td>
+                <td style="white-space:nowrap;color:var(--ink500);font-size:11px">12/10/2026</td>
+                <td style="text-align:right"><a class="goarrow" href="#" aria-label="Mở Hạt điều nhân WS">→</a></td>
+              </tr>
+              <tr>
+                <td><div class="nm"><span class="thumb" aria-hidden="true">▢</span><span><b>Hạt điều nhân W320 — lô thử</b><small>bao 10 kg</small></span></div></td>
+                <td>Hạt điều</td>
+                <td class="price">5.100 USD / tấn</td>
+                <td>200 kg</td>
+                <td><span class="pill done"><span class="dot"></span>Đã đăng</span></td>
+                <td><span class="bar"><i class="" style="width:47%"></i></span><span class="pct">47%</span></td>
+                <td style="white-space:nowrap;color:var(--ink500);font-size:11px">09/10/2026</td>
+                <td style="text-align:right"><a class="goarrow" href="#" aria-label="Mở Hạt điều nhân W320 — lô thử">→</a></td>
+              </tr>
+          </tbody>
+        </table>
+
+        <div class="pfoot">
+          <span>Hiển thị 1-6 trong 6 sản phẩm</span>
+          <span class="spacer"></span>
+          <button class="btn" type="button">Trước</button>
+          <button class="btn" type="button">Sau</button>
+        </div>
+      </section>
+
+      <p class="lfoot">Dưới 1024px, danh sách chuyển về thẻ gọn 2–3 cột; bảng chỉ hiện từ lg trở lên. Mọi trạng thái và câu nhắc mục còn thiếu giữ nguyên như bản thật.</p>
     </div>
   </div>
 </div>
