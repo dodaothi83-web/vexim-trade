@@ -207,8 +207,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const creationRequestId = useRef<string | null>(null);
-  /** Bấm "Lưu rồi tải ảnh" thì sau khi lưu quay lại đúng khối ảnh. */
-  const saveIntent = useRef<"media" | null>(null);
   const [quantityConsent, setQuantityConsent] = useState(false);
 
   const [busy, setBusy] = useState(false);
@@ -264,8 +262,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const hasDetails = !!product && !!(product.spec?.trim() || product.description?.trim());
   const hasMedia = media.some((m) => m.kind === "image" && !!m.storage_path && m.supplier_id === product?.supplier_id);
   const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
-  const canUpload = !!product && !locked && !dirty &&
-    (!["approved", "paused"].includes(review) || product.supplier_originated === true);
+  // Tải tệp không cần sản phẩm đã tồn tại: form được lưu ngay khi bấm tải (xem ensureDraft).
+  const canUpload = !locked && (!["approved", "paused"].includes(review) || product?.supplier_originated === true);
   const canDeleteAsset = (asset: MediaAsset) => canUpload && !!userId && asset.created_by === userId &&
     (asset.audience === "internal" || review === "approved" || review === "paused" || review === "changes_requested");
   const canDeleteDraft = !!product && review === "draft" && product.supplier_originated === true &&
@@ -424,15 +422,20 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     return `/supplier/portal/products/${id}`;
   }
 
-  async function save(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const invalid = firstInvalidField(formRef.current);
+  /**
+   * Lưu form hiện tại thành bản nháp và trả về id sản phẩm.
+   * Dùng cho cả nút "Lưu nháp" lẫn lúc tải tệp: tải ảnh cần một sản phẩm đã có, nên form
+   * được lưu ngầm ngay tại chỗ thay vì bắt người bán đi lưu trước rồi quay lại.
+   */
+  async function persist(): Promise<string | null> {
+    const formElement = formRef.current;
+    if (!formElement) return product?.id ?? null;
+    const invalid = firstInvalidField(formElement);
     if (invalid) {
       setFormError("Còn trường bắt buộc chưa điền hoặc chưa đúng định dạng. Trang đã cuộn tới ô đó.");
       invalid.focus();
       invalid.scrollIntoView({ block: "center", behavior: "smooth" });
-      return;
+      return null;
     }
     const gradeError = validateCurrentGradeRows();
     if (gradeError) {
@@ -442,7 +445,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       if (typeof document !== "undefined") {
         document.getElementById("new-quantity-pricing")?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-      return;
+      return null;
     }
     const precheckForm = new FormData(formElement);
     if (!supplierPriceConsentCurrent(supplier) && precheckForm.get("price_publicly_visible") === "yes" && precheckForm.get("confirm_supplier_price_consent") !== "yes") {
@@ -450,7 +453,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       setFormError(consentMsg);
       setToast({ ok: false, message: consentMsg });
       formElement.querySelector<HTMLInputElement>('input[name="confirm_supplier_price_consent"]')?.focus();
-      return;
+      return null;
     }
     setBusy(true);
     setToast(null);
@@ -470,27 +473,34 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       }
       const response = await saveSupplierProductAction(form);
       setToast(response);
-      if (!response.ok) return;
+      if (!response.ok) return null;
       setShowGradeErrors(false);
       setSubmitHint(null);
       const saved = snapshotFromForm(formElement, snapshot);
       setSnapshot(saved);
       setBaseline(saved);
-      const id = response.id ?? product?.id;
-      if (!product) {
-        // Sản phẩm mới: sang trang chi tiết để tải ảnh và gửi duyệt.
-        router.push(`${detailUrl(id ?? "")}${saveIntent.current === "media" ? "?step=2" : ""}`);
-        saveIntent.current = null;
-        return;
-      }
-      router.refresh();
-      if (saveIntent.current === "media") scrollToSection("sec-media");
-      saveIntent.current = null;
+      if (product) router.refresh();
+      return response.id ?? product?.id ?? null;
     } catch (error) {
       setToast(reportActionError(error, "Lưu sản phẩm"));
+      return null;
     } finally {
       setBusy(false);
     }
+  }
+
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const id = await persist();
+    if (!id) return;
+    // Sản phẩm mới: sang trang chi tiết để tiếp tục tải ảnh và gửi duyệt.
+    if (!product) router.push(detailUrl(id));
+  }
+
+  /** Bảo đảm đã có sản phẩm và mọi thay đổi đã lưu, trước khi gắn tệp vào sản phẩm đó. */
+  async function ensureDraft(): Promise<string | null> {
+    if (product && !dirty) return product.id;
+    return persist();
   }
 
   /** Danh sách việc còn thiếu trước khi gửi - dùng cho cả nút bấm và khối nhắc. */
@@ -568,7 +578,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     setSelected(files);
   }
   async function upload() {
-    if (!product || !canUpload || !selected.length) return;
+    if (!canUpload || !selected.length) return;
+    // Chưa có sản phẩm (hoặc còn thay đổi chưa lưu): lưu ngầm trước, rồi gắn tệp vào bản nháp đó.
+    const productId = await ensureDraft();
+    if (!productId) return;
     setBusy(true);
     let uploaded = 0;
     try {
@@ -580,7 +593,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         const body = new FormData();
         body.set("kind", kind);
         body.set("file", file);
-        const response = await fetch(`/api/supplier-portal/products/${product.id}/media`, { method: "POST", body });
+        const response = await fetch(`/api/supplier-portal/products/${productId}/media`, { method: "POST", body });
         // Trang lỗi (404/413/500...) trả HTML: đọc .json() sẽ ném — bắt lại để giữ mã HTTP thật.
         const data = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
         if (!response.ok || !data?.ok) throw Error(data?.message || `Không tải được tệp (HTTP ${response.status}).`);
@@ -597,7 +610,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     } finally {
       setProgress("");
       setBusy(false);
-      if (uploaded) router.refresh();
+      if (uploaded && !product) router.push(`${detailUrl(productId)}?step=2`);
+      else if (uploaded) router.refresh();
     }
   }
   /** Kéo ảnh khác vào ô ảnh đại diện (hoặc bấm nút sao) để thay; ảnh cũ tự về lại danh sách. */
@@ -918,6 +932,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <UploadCloud className="mx-auto size-6 text-brand-700" aria-hidden="true" />
                   <p className="mt-1 text-[12.5px] font-semibold text-ink-800">Kéo thả ảnh hoặc catalogue vào đây</p>
                   <p className="mt-0.5 text-[11px] text-ink-500">hoặc chọn tệp từ thiết bị. Đã tải {ownedCount}/12 tệp</p>
+                  {!product && <p className="mt-0.5 text-[11px] text-ink-500">Bản nháp được lưu tự động khi bạn bấm tải tệp.</p>}
                   <label className="btn btn-soft relative mt-2 cursor-pointer">Chọn tệp
                     <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" className="sr-only" aria-label="Chọn ảnh sản phẩm hoặc catalogue"
                       onChange={(e) => { chooseFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} /></label>
@@ -931,16 +946,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   </div>
                 </div>}
               </> : <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12px] leading-5 text-amber-900">
-                <p>{!product ? "Ảnh phải gắn vào một sản phẩm đã có. Bấm lưu để tạo bản nháp, rồi tải ảnh ngay tại đây."
-                  : dirty ? "Còn thay đổi chưa lưu. Lưu lại rồi tải tệp, để ảnh không bị tách khỏi nội dung mới."
-                  : legacyManaged ? "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."
-                  : locked ? "Đang chờ duyệt nên tạm khoá tải tệp. Duyệt xong hoặc bị trả về, bạn tải thêm được ngay."
-                  : "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."}</p>
-                {!locked && (!product || dirty) && selected.length === 0 && <button type="button" disabled={busy}
-                  onClick={() => { saveIntent.current = "media"; formRef.current?.requestSubmit(); }}
-                  className="btn btn-soft btn-sm mt-1.5">
-                  <Save className="size-3.5" aria-hidden="true" /> {busy ? "Đang lưu..." : product ? "Lưu thay đổi rồi tải ảnh" : "Lưu nháp rồi tải ảnh"}
-                </button>}
+                {locked ? "Đang chờ duyệt nên tạm khoá tải tệp. Duyệt xong hoặc bị trả về, bạn tải thêm được ngay."
+                  : "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."}
               </div>}
               {progress && <p role="status" className="text-[12px] font-semibold text-brand-800">{progress}</p>}
             </div>

@@ -118,7 +118,7 @@ const editor = fs.readFileSync(new URL('../app/supplier/portal/products/product-
 assert.match(editor, /productCanSubmit\(product, media\) && !dirty/, 'Nút gửi vẫn phụ thuộc dữ liệu đã lưu');
 assert.match(editor, /productCanSubmit\(product, media\)/);
 assert.doesNotMatch(editor, /aria-label="Trạng thái công khai"/, 'The separate buyer-visibility panel is removed from the editor');
-assert.ok(editor.includes('!["approved", "paused"].includes(review) || product.supplier_originated === true'),
+assert.ok(editor.includes('!["approved", "paused"].includes(review) || product?.supplier_originated === true'),
   'Approved or paused supplier-originated products can manage their own media');
 assert.match(editor, /const categoryLocked = review === "approved"/, 'The reviewed category remains staff-controlled');
 assert.ok(editor.includes('<ProductDescriptionEditor') && editor.includes('onChange={onDescriptionDetailChange}'),

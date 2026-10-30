@@ -288,12 +288,12 @@ assert.match(source, /saveSupplierProductAction\(form\)/, 'Vẫn lưu qua saveSu
 assert.match(source, /submitSupplierProductAction\(form\)/, 'Vẫn nộp qua submitSupplierProductAction');
 assert.match(source, /productCanSubmit\(product, media\) && !dirty/, 'Nút nộp vẫn phụ thuộc điều kiện dữ liệu');
 assert.doesNotMatch(source, /Lưu thay đổi sẽ đưa sản phẩm về bản nháp/, 'Sửa sản phẩm đã duyệt không tự rút khỏi sàn');
-assert.ok(source.includes('!["approved", "paused"].includes(review) || product.supplier_originated === true'),
+assert.ok(source.includes('!["approved", "paused"].includes(review) || product?.supplier_originated === true'),
   'Sản phẩm NCC đã duyệt hoặc tạm ẩn vẫn quản lý được ảnh của mình');
 assert.ok(source.includes('useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "")'),
   'Danh mục staff đã duyệt được ưu tiên khi mở lại editor');
 assert.match(source, /Bạn có thay đổi chưa lưu/, 'Vẫn cảnh báo rời trang khi chưa lưu');
-assert.match(source, /firstInvalidField\(formRef\.current\)/, 'Vẫn kiểm tra trường bắt buộc trên cả trang');
+assert.match(source, /firstInvalidField\(formElement\)/, 'Vẫn kiểm tra trường bắt buộc trên cả trang');
 assert.match(source, /invalid\.scrollIntoView/, 'Lưu thiếu trường bắt buộc thì cuộn tới đúng ô');
 assert.match(source, /\/api\/supplier-portal\/products\/\$\{product\.id\}\/media/, 'Vẫn tải tệp qua API riêng');
 assert.match(source, /method: "DELETE"/, 'Vẫn xoá được tệp nháp');
@@ -301,7 +301,7 @@ assert.match(source, /data\?\.message \|\| `Xóa tệp thất bại \(HTTP/, 'L�
 assert.match(source, /data\?\.message \|\| `Đặt ảnh đại diện thất bại \(HTTP/, 'Lỗi đổi ảnh hiển thị lý do API');
 assert.doesNotMatch(source, /snapshotFromForm\(event\.currentTarget/, 'Không đọc event.currentTarget bên trong state updater');
 assert.match(source, /function onFormChange\(\) \{\s*const form = formRef\.current;/, 'onFormChange đọc form qua ref ngay trong handler');
-assert.match(source, /const formElement = event\.currentTarget;/, 'save() giữ phần tử form trước khi await');
+assert.match(source, /const formElement = formRef\.current;/, 'persist() đọc form qua ref, không giữ event sau await');
 assert.match(source, /new FormData\(formElement\)/, 'save() dùng phần tử đã giữ, không dùng lại event sau await');
 assert.match(source, /function snapshotFromForm\(form: HTMLFormElement \| null/, 'snapshotFromForm chấp nhận form null');
 assert.deepEqual(snapshotFromForm(null, { name: 'giữ nguyên' }), { name: 'giữ nguyên' }, 'Chưa có form thì giữ bản nháp cũ, không ném lỗi');
@@ -384,12 +384,17 @@ for (const phrase of ['Vexim duyệt', 'Vexim kiểm tra', 'Vexim xác nhận', 
 }
 assert.match(page, /Chọn danh mục gần nhất\. Danh mục được kiểm tra khi duyệt/, 'Hint danh mục nói đúng mức cần thiết');
 
-// 17. Sản phẩm mới vẫn lưu được và tải được ảnh ngay sau khi lưu.
-assert.match(source, /!locked && dirty &&/, 'Thanh đáy có nút lưu cả khi sản phẩm chưa tồn tại');
-assert.match(source, /Lưu nháp rồi tải ảnh/, 'Khối ảnh có nút lưu tại chỗ cho sản phẩm mới');
-assert.match(source, /saveIntent\.current = "media"/, 'Nút trong khối ảnh đánh dấu ý định quay lại tải tệp');
-assert.match(source, /\?step=2/, 'Lưu từ khối ảnh thì mở lại đúng khối ảnh');
-assert.match(source, /if \(saveIntent\.current === "media"\) scrollToSection\("sec-media"\)/, 'Sản phẩm đã có thì cuộn lại khối ảnh sau khi lưu');
-assert.match(source, /Ảnh phải gắn vào một sản phẩm đã có/, 'Nói rõ vì sao chưa tải được ảnh');
+// 17. Tải ảnh không cần lưu trước: form tự lưu khi bấm tải, kể cả sản phẩm mới.
+assert.match(source, /const canUpload = !locked &&/, 'Ô chọn tệp không đòi sản phẩm đã tồn tại');
+assert.doesNotMatch(source, /canUpload = !!product/, 'Đã bỏ điều kiện phải có sản phẩm trước khi tải tệp');
+assert.match(source, /async function ensureDraft\(\): Promise<string \| null>/, 'Có bước bảo đảm đã có bản nháp trước khi gắn tệp');
+assert.match(source, /const productId = await ensureDraft\(\);/, 'upload() tự lưu form rồi mới đẩy tệp lên');
+assert.match(source, /async function persist\(\): Promise<string \| null>/, 'Lưu và trả về id dùng chung cho nút Lưu nháp và lúc tải tệp');
+assert.match(source, /router\.push\(`\$\{detailUrl\(productId\)\}\?step=2`\)/, 'Tải tệp xong cho sản phẩm mới thì mở lại đúng khối ảnh');
+assert.doesNotMatch(source, /Lưu nháp rồi tải ảnh|Lưu thay đổi rồi tải ảnh|saveIntent/, 'Không còn bắt người bán bấm lưu trước khi tải ảnh');
+assert.match(source, /Bản nháp được lưu tự động khi bạn bấm tải tệp/, 'Nói trước là bản nháp tự lưu khi tải tệp');
+const newProductMedia = render({ product: undefined, media: [] });
+assert.match(newProductMedia, /aria-label="Chọn ảnh sản phẩm hoặc catalogue"/, 'Sản phẩm mới vẫn thấy nút chọn tệp');
+assert.match(newProductMedia, /Kéo thả ảnh hoặc catalogue vào đây/, 'Sản phẩm mới vẫn thấy vùng kéo thả');
 
 console.log('✅ Product page: một trang, mục lục neo, đủ khối, gửi duyệt và quản lý tệp.');
