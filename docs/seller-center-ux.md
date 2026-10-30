@@ -207,7 +207,8 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
 
 - **Ba cột**: mục lục 216px · nội dung co giãn · cột phải 304px, khung tối đa 1240px trên nền xám nhạt.
 - **Mỗi khối là một thẻ**: đầu thẻ `1. Ngành hàng` + nhãn trạng thái (`Hoàn tất`, `2/3 trường`, `1/6 ảnh`, `2 lỗi`, `Trống`),
-  gợi ý canh phải; thân thẻ chia **hai cột: nhãn canh phải 196px · ô nhập** (dưới 768px nhãn về trên).
+  gợi ý canh phải; **nhãn nằm trên ô, ô nhập chiếm hết bề rộng thân thẻ**. Không dựng cột nhãn trái: cột nhãn đẩy ô
+  sang phải và bóp hẹp ô (thử ngày 30/10, bỏ ngày 31/10/2026). Ô một giá trị cố định vẫn hẹp theo §5.1.
 - **Dấu `*` đỏ đứng trước nhãn** cho trường bắt buộc; lỗi của khối tô viền/khung đỏ và gợi ý chuyển sang màu đỏ.
 - **Khối 03**: ba dòng Ảnh sản phẩm (6 ô, ô đầu là ảnh chính) · Ảnh đại diện · Catalogue/tệp; kho ảnh riêng của
   nhà cung cấp nằm ở dòng đầu khi sản phẩm chưa tồn tại.
