@@ -68,4 +68,9 @@ assert.ok(!overPolicy.includes('+ Thêm mức giá'), 'The supplier form never o
 const invalid = render({ showErrors: true, value: { ...props.value, tiers: [{ minKg: '', priceUsdPerKg: '' }] } });
 assert.ok(invalid.includes('role="alert"'));
 assert.ok(invalid.includes('Price on request'));
+// Bố cục ô nhập: tiền tệ hẹp, ba cột số lượng/giá chia đều.
+assert.match(html, /sm:grid-cols-\[minmax\(0,1fr\)_136px\]/, 'Ô tiền tệ hẹp, không chiếm nửa khung');
+assert.match(html, /table-fixed/, 'Bảng bậc giá dùng cột cố định');
+assert.equal((html.match(/<col class="w-\[96px\]"\/>/g) ?? []).length, 1, 'Cột Incoterm cố định 96px');
+assert.equal((html.match(/<col\/>/g) ?? []).length, 3, 'Từ / Đến / Giá chia đều nhau');
 console.log('Quantity pricing editor: required fields, kg inputs, limits, live buyer preview and consent passed');

@@ -384,4 +384,12 @@ for (const phrase of ['Vexim duyệt', 'Vexim kiểm tra', 'Vexim xác nhận', 
 }
 assert.match(page, /Chọn danh mục gần nhất\. Danh mục được kiểm tra khi duyệt/, 'Hint danh mục nói đúng mức cần thiết');
 
+// 17. Sản phẩm mới vẫn lưu được và tải được ảnh ngay sau khi lưu.
+assert.match(source, /!locked && dirty &&/, 'Thanh đáy có nút lưu cả khi sản phẩm chưa tồn tại');
+assert.match(source, /Lưu nháp rồi tải ảnh/, 'Khối ảnh có nút lưu tại chỗ cho sản phẩm mới');
+assert.match(source, /saveIntent\.current = "media"/, 'Nút trong khối ảnh đánh dấu ý định quay lại tải tệp');
+assert.match(source, /\?step=2/, 'Lưu từ khối ảnh thì mở lại đúng khối ảnh');
+assert.match(source, /if \(saveIntent\.current === "media"\) scrollToSection\("sec-media"\)/, 'Sản phẩm đã có thì cuộn lại khối ảnh sau khi lưu');
+assert.match(source, /Ảnh phải gắn vào một sản phẩm đã có/, 'Nói rõ vì sao chưa tải được ảnh');
+
 console.log('✅ Product page: một trang, mục lục neo, đủ khối, gửi duyệt và quản lý tệp.');

@@ -180,3 +180,13 @@ khối chứa mục đó; nút "Sửa" ở khối 08 cuộn về đúng khối; 
 neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-product-completeness.mjs` và
 `check-product-extras.mjs` cập nhật theo khối. `tsc`, `npm run build`, `check:supplier-products`,
 `check:typography` xanh; quét toàn bộ script **17 = mức nền**.
+
+### 5.1 Quy tắc bề rộng ô nhập (sửa sau khi soi bản chạy thật)
+
+- **Cùng loại nội dung thì cùng bề rộng.** Khối 06 dùng lưới 6 cột ở `xl`: bao bì chiếm cả hàng (câu dài), còn
+  loại kiện / khối lượng / kích thước / số đơn vị / cảng xuất / thời gian giao mỗi ô 2 cột — không còn cảnh ô
+  kích thước rộng gấp đôi ô số đơn vị nằm cạnh nhau.
+- **Ô chỉ có một giá trị cố định thì hẹp.** Tiền tệ trong bảng giá là ô 136px (chỉ USD), giá mẫu là ô 188px.
+- **Bảng bậc giá dùng `table-fixed` + `colgroup`**: Incoterm 96px, nút xoá 44px, ba cột Từ / Đến / Giá chia đều.
+- **Ảnh cần một sản phẩm đã có.** Sản phẩm mới chưa lưu thì khối ảnh hiện nút "Lưu nháp rồi tải ảnh" ngay tại chỗ;
+  lưu xong quay lại đúng khối ảnh (`?step=2`). Thanh đáy cũng có "Lưu nháp" cho sản phẩm mới.

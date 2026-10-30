@@ -107,7 +107,7 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
   return <section id="quantity-pricing-table" className="space-y-3">
     <div className={showPreview ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.72fr)]" : "grid gap-4"}>
       <div className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_136px]">
           <div className="text-sm font-semibold text-ink-800">
             <label htmlFor="quantity-grade">Grade <span className="text-rose-700">*</span></label>
             <select id="quantity-grade" form={form} aria-label="Grade" className="input mt-1 w-full" required disabled={disabled || !standardGrades.length} value={value.grade} onChange={(e) => onChange({ ...value, grade: e.target.value })}>
@@ -117,20 +117,27 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
           </div>
           <div className="text-sm font-semibold text-ink-800">
             <span>Tiền tệ <span className="text-rose-700">*</span></span>
-            <p aria-label="Tiền tệ" className="input mt-1 flex w-full items-center bg-ink-50 font-mono text-ink-800">{currency}</p>
-            <span className="mt-1 block text-[11.5px] font-normal leading-4 text-ink-600">Tạm thời chỉ nhập giá USD. VND/EUR sẽ mở lại khi dữ liệu giá cho phép.</span>
-            {!ENTRY_PRICE_CURRENCIES.includes(currency) && <span className="mt-1 block text-[11.5px] font-normal leading-4 text-amber-800">Bảng giá này đang lưu bằng {currency}; hãy nhập lại bảng mới bằng USD để gửi duyệt.</span>}
+            <p aria-label="Tiền tệ" className="input mt-1 flex w-full items-center justify-center bg-ink-50 font-mono text-ink-800">{currency}</p>
           </div>
         </div>
+        <p className="text-[11.5px] leading-4 text-ink-600">Tạm thời chỉ nhập giá USD. VND/EUR sẽ mở lại khi dữ liệu giá cho phép.</p>
+        {!ENTRY_PRICE_CURRENCIES.includes(currency) && <p className="text-[11.5px] leading-4 text-amber-800">Bảng giá này đang lưu bằng {currency}; hãy nhập lại bảng mới bằng USD để gửi duyệt.</p>}
         {showTitle && <h3 className="text-sm font-bold text-ink-900">Bảng giá theo số lượng</h3>}
         <p className="text-xs text-ink-600">Chỉ nhập số lượng <strong>từ</strong>; cột <strong>đến</strong> tự tính bằng mức kế tiếp trừ 1. Mức cuối là “trở lên”.</p>
-        <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm">
+        <div className="overflow-x-auto"><table className="w-full min-w-[520px] table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[96px]" />
+            <col />
+            <col />
+            <col />
+            <col className="w-[44px]" />
+          </colgroup>
           <thead><tr className="text-xs text-ink-600">
-            <th className="p-2">Incoterm</th>
-            <th className="p-2">Từ (kg)</th>
-            <th className="p-2">Đến (kg)</th>
-            <th className="p-2">Giá ({currency}/kg) 🔒</th>
-            <th className="p-2"><span className="sr-only">Xóa mức</span></th>
+            <th className="px-2 py-1.5 font-semibold">Incoterm</th>
+            <th className="px-2 py-1.5 text-right font-semibold">Từ (kg)</th>
+            <th className="px-2 py-1.5 text-right font-semibold">Đến (kg)</th>
+            <th className="px-2 py-1.5 text-right font-semibold">Giá ({currency}/kg) 🔒</th>
+            <th className="px-1 py-1.5"><span className="sr-only">Xóa mức</span></th>
           </tr></thead>
           <tbody>{value.tiers.map((tier, index) => {
             const next = parseQuantityKg(value.tiers[index + 1]?.minKg ?? "");
@@ -149,8 +156,8 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
               <td className="p-1 align-top"><input form={form} aria-label={`Số lượng từ mức ${index + 1} (kg)`} aria-invalid={invalid(["quantity", "quantity_order", "quantity_spread"])} className="input w-full text-right tabular-nums" type="text" inputMode="numeric" required disabled={disabled} value={tier.minKg} onChange={(e) => changeTier(index, { minKg: formatQuantityInput(e.target.value, tier.minKg) })} />
                 {rowErrors.filter((issue) => ["quantity", "quantity_order"].includes(issue.code)).map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issue.message}</p>)}
               </td>
-              <td className="p-2 align-top">
-                <p aria-live="polite" className="rounded-lg bg-ink-50 px-3 py-2 text-right font-mono text-sm tabular-nums text-ink-700">
+              <td className="p-1 align-top">
+                <p aria-live="polite" className="rounded-lg bg-ink-50 px-2.5 py-2 text-right font-mono text-sm tabular-nums text-ink-700">
                   {index === value.tiers.length - 1 ? "trở lên" : upper ?? "—"}
                 </p>
               </td>

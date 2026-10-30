@@ -84,11 +84,6 @@ const FORM_SECTIONS = [
   { id: "sec-review", label: "Xem lại & gửi", hint: "Kiểm rồi gửi duyệt" },
 ] as const;
 
-const BASE_FIELDS = [
-  ["monthly_capacity", "Năng lực mỗi tháng", "Ví dụ: 200 tấn/tháng", 180],
-  ["packaging", "Bao bì / đóng gói", "Ví dụ: túi hút chân không 25 kg", 300],
-] as const;
-
 // Chứng nhận không khai ở đây: hồ sơ Giấy tờ L1 là nguồn duy nhất (AI quét đơn vị đứng tên
 // và ngày hết hạn), nên sản phẩm không có ô tự khai để tránh tạo cảm giác được xác minh.
 const EXPORT_FIELDS = [
@@ -212,6 +207,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const creationRequestId = useRef<string | null>(null);
+  /** Bấm "Lưu rồi tải ảnh" thì sau khi lưu quay lại đúng khối ảnh. */
+  const saveIntent = useRef<"media" | null>(null);
   const [quantityConsent, setQuantityConsent] = useState(false);
 
   const [busy, setBusy] = useState(false);
@@ -482,10 +479,13 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       const id = response.id ?? product?.id;
       if (!product) {
         // Sản phẩm mới: sang trang chi tiết để tải ảnh và gửi duyệt.
-        router.push(detailUrl(id ?? ""));
+        router.push(`${detailUrl(id ?? "")}${saveIntent.current === "media" ? "?step=2" : ""}`);
+        saveIntent.current = null;
         return;
       }
       router.refresh();
+      if (saveIntent.current === "media") scrollToSection("sec-media");
+      saveIntent.current = null;
     } catch (error) {
       setToast(reportActionError(error, "Lưu sản phẩm"));
     } finally {
@@ -931,11 +931,16 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   </div>
                 </div>}
               </> : <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12px] leading-5 text-amber-900">
-                {!product ? "Lưu thông tin sản phẩm trước, sau đó quay lại đây để tải ảnh và catalogue."
-                  : dirty ? "Còn thay đổi chưa lưu. Bấm Lưu nháp ở thanh dưới rồi tải tệp."
+                <p>{!product ? "Ảnh phải gắn vào một sản phẩm đã có. Bấm lưu để tạo bản nháp, rồi tải ảnh ngay tại đây."
+                  : dirty ? "Còn thay đổi chưa lưu. Lưu lại rồi tải tệp, để ảnh không bị tách khỏi nội dung mới."
                   : legacyManaged ? "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."
                   : locked ? "Đang chờ duyệt nên tạm khoá tải tệp. Duyệt xong hoặc bị trả về, bạn tải thêm được ngay."
-                  : "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."}
+                  : "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."}</p>
+                {!locked && (!product || dirty) && selected.length === 0 && <button type="button" disabled={busy}
+                  onClick={() => { saveIntent.current = "media"; formRef.current?.requestSubmit(); }}
+                  className="btn btn-soft btn-sm mt-1.5">
+                  <Save className="size-3.5" aria-hidden="true" /> {busy ? "Đang lưu..." : product ? "Lưu thay đổi rồi tải ảnh" : "Lưu nháp rồi tải ảnh"}
+                </button>}
               </div>}
               {progress && <p role="status" className="text-[12px] font-semibold text-brand-800">{progress}</p>}
             </div>
@@ -999,7 +1004,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 </p>
               )}
 
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,188px)]">
                 <Field label="Giá mẫu (USD)" hint="Bỏ trống nếu không bán mẫu.">
                   <input className="input" name="sample_price_usd" inputMode="decimal" placeholder="Ví dụ: 5"
                     defaultValue={product?.sample_price_usd ?? ""} disabled={locked} />
@@ -1051,25 +1056,28 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           <section id="sec-shipping" data-form-section="sec-shipping" aria-label="Đóng gói và giao hàng"
             className="mt-3 scroll-mt-24 rounded-xl border border-ink-200 bg-white shadow-sm">
             <SectionHead index="06" title="Đóng gói &amp; giao hàng" hint="Kiện hàng, thời gian giao, cảng xuất và thanh toán." />
-            <div className="grid gap-3 px-3.5 py-3 sm:px-4 md:grid-cols-2 xl:grid-cols-3">
-              <Field label="Bao bì / đóng gói" hint="Mô tả bằng lời, ví dụ: túi hút chân không 25 kg.">
+            <div className="grid gap-3 px-3.5 py-3 sm:px-4 md:grid-cols-2 xl:grid-cols-6">
+              <Field label="Bao bì / đóng gói" className="md:col-span-2 xl:col-span-6" hint="Mô tả bằng lời, ví dụ: túi hút chân không 25 kg.">
                 <input className="input" name="packaging" maxLength={300} placeholder="Ví dụ: túi hút chân không 25 kg" defaultValue={product?.packaging ?? ""} disabled={locked} />
               </Field>
-              <Field label="Loại kiện" hint="Bao, thùng, hộp hoặc pallet.">
+              <Field label="Loại kiện" className="xl:col-span-2" hint="Bao, thùng, hộp hoặc pallet.">
                 <input className="input" name="package_type" maxLength={40} placeholder="Ví dụ: bao" defaultValue={product?.package_type ?? ""} disabled={locked} />
               </Field>
-              <Field label="Khối lượng mỗi kiện" hint="Tính bằng kg.">
+              <Field label="Khối lượng mỗi kiện" className="xl:col-span-2" hint="Tính bằng kg.">
                 <input className="input" name="package_weight_kg" inputMode="decimal" placeholder="Ví dụ: 25"
                   defaultValue={product?.package_weight_kg ?? ""} disabled={locked} />
               </Field>
-              <Field label="Kích thước kiện" hint="Dài x rộng x cao, cm.">
+              <Field label="Kích thước kiện" className="xl:col-span-2" hint="Dài x rộng x cao, cm.">
                 <input className="input" name="package_size" maxLength={60} placeholder="60x40x40 cm" defaultValue={product?.package_size ?? ""} disabled={locked} />
               </Field>
-              <Field label="Số đơn vị mỗi thùng">
+              <Field label="Số đơn vị mỗi thùng" className="xl:col-span-2">
                 <input className="input" name="units_per_carton" inputMode="numeric" placeholder="Ví dụ: 20"
                   defaultValue={product?.units_per_carton ?? ""} disabled={locked} />
               </Field>
-              <Field label="Thời gian giao hàng">
+              <Field label="Cảng xuất" className="xl:col-span-2">
+                <input name="export_port" className="input" maxLength={120} placeholder="Ví dụ: Cát Lái" defaultValue={String(product?.export_port ?? "")} disabled={locked} />
+              </Field>
+              <Field label="Thời gian giao hàng" className="xl:col-span-2">
                 <div className="flex items-center gap-1.5">
                   <input
                     name="lead_time_value"
@@ -1097,10 +1105,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <input type="hidden" name="lead_time_days" value={computedLeadTimeDays} readOnly />
                 </div>
               </Field>
-              {EXPORT_FIELDS.map(([key, label, placeholder, max]) => <Field key={key} label={label}>
-                <input name={key} className="input" maxLength={max} placeholder={placeholder} defaultValue={String(product?.[key] ?? "")} disabled={locked} />
-              </Field>)}
-              <Field label="Điều kiện thanh toán">
+              <Field label="Địa điểm Incoterm" className="xl:col-span-3">
+                <input name="incoterm_place" className="input" maxLength={100} placeholder="Ví dụ: Hồ Chí Minh" defaultValue={String(product?.incoterm_place ?? "")} disabled={locked} />
+              </Field>
+              <Field label="Điều kiện thanh toán" className="xl:col-span-3">
                 <input name="payment_terms" className="input" maxLength={200} placeholder="Ví dụ: T/T 30% cọc" defaultValue={product?.payment_terms ?? ""} disabled={locked} />
               </Field>
             </div>
@@ -1273,7 +1281,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           </span>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {!locked && product && dirty &&
+            {!locked && dirty &&
               <button type="submit" form="product-info" disabled={busy}
                 className="btn btn-ghost btn-sm"><Save className="size-3.5" aria-hidden="true" /> {review === "approved" ? "Lưu thay đổi" : "Lưu nháp"}</button>}
             {review === "pending" || review === "approved" || sent
