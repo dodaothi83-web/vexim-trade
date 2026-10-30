@@ -20,6 +20,11 @@ import { ProductTradeLabels } from "@/components/product-trade-labels";
 import { PublicProductCard } from "@/components/public-product-card";
 import { ProductDescription } from "@/components/public/product-description";
 import { QuantityPriceTable } from "@/components/public/quantity-price-table";
+import {
+  formatSupplierPriceTierRangeEn,
+  formatSupplierTierNumber,
+  readStoredSupplierPriceTiers,
+} from "@/lib/supplier-portal/product-price-options";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { movedProductDestination } from "@/lib/public/product-category-redirect";
 import { createTrafficToken } from "@/lib/traffic/server";
@@ -147,6 +152,7 @@ export default async function PublicProductDetail({ params }: Props) {
   const detailRows = parsedSpecifications.filter((row) => !["grade", "minimum order quantity (moq)", "packaging specification"].includes(row.key));
   const detailedPackaging = parsedSpecifications.find((row) => row.key === "packaging specification")?.value;
   const gradeRows = card.gradeRows ?? [];
+  const storedPriceTiers = card.price ? readStoredSupplierPriceTiers(p.specs) : [];
   const occupiedSpecKeys = new Set([
     ...parsedSpecifications.map((row) => row.key),
     "grade", "product type", "product_type", "moq", "minimum order quantity (moq)", "packaging", "packaging specification",
@@ -284,6 +290,43 @@ export default async function PublicProductDetail({ params }: Props) {
                       </td>
                       <td className="px-4 py-3 text-ink-800">{withoutDirectContacts(row.incoterm || "FOB")}</td>
                       <td className="px-5 py-3 text-ink-800">{withoutDirectContacts(row.moq || "On request")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : storedPriceTiers.length > 0 ? (
+          <div id="reference-price" className="mt-5 overflow-hidden rounded-xl border border-brand-200 bg-white shadow-sm">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-brand-100 bg-brand-50/60 px-5 py-3">
+              <div>
+                <h2 className="text-sm font-bold text-ink-900">Volume reference pricing</h2>
+                <p className="mt-0.5 text-xs text-ink-500">Quantity-based indicative unit price{card.incoterm ? ` · ${withoutDirectContacts(card.incoterm)}` : ""}</p>
+              </div>
+              {card.price && (
+                <span className="text-sm font-bold tabular-nums tracking-tight text-brand-800">
+                  {withoutDirectContacts(card.price)}
+                </span>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-left text-sm">
+                <thead className="border-b border-ink-100 bg-ink-50/40 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+                  <tr>
+                    <th className="px-5 py-2.5">Order quantity</th>
+                    <th className="px-5 py-2.5 text-right">Indicative unit price</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-100">
+                  {storedPriceTiers.map((tier, index) => (
+                    <tr key={`${tier.min_qty}-${index}`}>
+                      <td className="px-5 py-3 font-semibold tabular-nums text-ink-900">
+                        {withoutDirectContacts(formatSupplierPriceTierRangeEn(tier, p.unit))}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3 text-right font-bold tabular-nums tracking-tight text-brand-800">
+                        {(p.currency || "USD").toUpperCase()} {formatSupplierTierNumber(tier.unit_price)}
+                        {p.unit ? <span className="text-[12.5px] font-medium text-ink-500">/{withoutDirectContacts(p.unit)}</span> : null}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

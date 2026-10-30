@@ -181,8 +181,8 @@ assert.match(editor, /selectedCategory && \(officialAttributeFields\.length > 0 
 assert.match(editor, /Quy cách \/ tiêu chuẩn/, 'Mô tả dài đã có ô Quy cách / tiêu chuẩn');
 assert.match(editor, /supplierFields=\{supplierAttributeFields\}/);
 assert.match(editor, /officialFields=\{officialAttributeFields\}/);
-assert.match(editor, /const officialAttributeFields = nonGradeProductFields\(fieldsFor\(activeCategory\)\)/);
-assert.match(editor, /const supplierAttributeFields = nonGradeProductFields\(supplierFieldsFor\(activeCategory\)\)/);
+assert.match(editor, /const officialAttributeFields = fieldsFor\(activeCategory\)/);
+assert.match(editor, /const supplierAttributeFields = supplierFieldsFor\(activeCategory\)/);
 assert.match(editor, /Thông số theo nhóm hàng/, 'Bước 3 đọc lại thông số theo nhãn');
 
 console.log('✅ Thông số theo nhóm hàng: NCC tự thêm thông số/giá trị còn thiếu, lưu vào danh mục cho NCC khác dùng lại, không tự lên bộ lọc hay trang buyer.');

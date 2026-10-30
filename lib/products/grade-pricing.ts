@@ -1700,6 +1700,23 @@ function canonicalGradeRowsPriceSignature(rows: ProductGradeRow[]): string {
   return priced.length > 0 ? priced.join("|") : "unpriced";
 }
 
+function canonicalPriceTiersSignature(specs: Record<string, unknown> | null | undefined): string {
+  const raw = specs && typeof specs === "object" ? specs.price_tiers : null;
+  if (!Array.isArray(raw) || raw.length === 0) return "";
+  const parts: string[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const min = Number(rec.min_qty);
+    const max = rec.max_qty == null ? "" : String(Number(rec.max_qty));
+    const price = Number(rec.unit_price);
+    if (Number.isFinite(min) && min > 0 && Number.isFinite(price) && price > 0) {
+      parts.push(`${min}-${max}:${price}`);
+    }
+  }
+  return parts.join("|");
+}
+
 function canonicalHydratedDraftPriceSignature(
   item: ProductPricingComparable,
   category?: CategoryGradeSource | null,
@@ -1769,6 +1786,13 @@ export function hasProductPricingChanged(
   }
 
   if (priceSignatureChanged) return true;
+
+  const existingTiersSig = canonicalPriceTiersSignature(existing.specs);
+  const nextTiersSig = canonicalPriceTiersSignature(next.specs);
+  if (existingTiersSig !== nextTiersSig) return true;
+  if (nextTiersSig && (existing.incoterm ?? "").trim().toUpperCase() !== (next.incoterm ?? "").trim().toUpperCase()) {
+    return true;
+  }
 
   // Enabling public price visibility on an approved priced product where visibility was previously off also requires price check.
   const hadPublicFlag = Boolean(existing.price_publicly_visible);

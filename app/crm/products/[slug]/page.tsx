@@ -16,6 +16,11 @@ import {
   formatGradeRowPriceVi,
   readStoredGradeRows,
 } from "@/lib/products/grade-pricing";
+import {
+  formatSupplierPriceTierRangeVi,
+  formatSupplierPriceTierUnitPriceVi,
+  readStoredSupplierPriceTiers,
+} from "@/lib/supplier-portal/product-price-options";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết sản phẩm" };
@@ -66,6 +71,7 @@ export default async function ProductDetailPage({
   const documents = media.filter((m) => m.kind !== "image");
   const effectiveCategorySlug = product.reviewed_category_slug ?? product.category ?? product.supplier_category_proposal ?? null;
   const storedGradeRows = readStoredGradeRows(product.specs);
+  const storedPriceTiers = readStoredSupplierPriceTiers(product.specs);
   const unitMeta = categoryMarketPriceUnit(effectiveCategorySlug, null);
 
   return (
@@ -94,6 +100,34 @@ export default async function ProductDetailPage({
             {product.oem && <Badge className="bg-ink-100 text-ink-700">Nhận làm nhãn riêng</Badge>}
             {product.samples && <Badge className="bg-ink-100 text-ink-700">Có thể gửi mẫu</Badge>}
           </div>
+          {storedPriceTiers.length > 0 && (
+            <div className="mb-4 overflow-x-auto rounded-lg border border-ink-200">
+              <div className="border-b border-ink-200 bg-ink-50 px-3 py-2 text-xs font-bold text-ink-800">
+                Bậc giá theo số lượng
+                {product.incoterm ? ` · ${product.incoterm}` : ""}
+              </div>
+              <table className="min-w-full border-collapse text-left text-xs">
+                <thead className="border-b border-ink-200 bg-ink-50/70 text-[10.5px] font-bold uppercase tracking-wider text-ink-500">
+                  <tr>
+                    <th className="px-3 py-1.5">Khoảng số lượng</th>
+                    <th className="px-3 py-1.5 text-right">Đơn giá</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-100 bg-white">
+                  {storedPriceTiers.map((tier, index) => (
+                    <tr key={`${tier.min_qty}-${index}`}>
+                      <td className="px-3 py-2 font-semibold text-ink-900">
+                        {formatSupplierPriceTierRangeVi(tier, product.unit)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono font-semibold tabular-nums text-ink-800">
+                        {formatSupplierPriceTierUnitPriceVi(tier.unit_price, product.currency, product.unit)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           {storedGradeRows.length > 0 && (
             <div className="mb-4 overflow-x-auto rounded-lg border border-ink-200">
               <div className="border-b border-ink-200 bg-ink-50 px-3 py-2 text-xs font-bold text-ink-800">
