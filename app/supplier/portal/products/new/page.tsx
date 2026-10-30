@@ -34,7 +34,7 @@ export default async function NewSupplierProductPage() {
     <PageHeader
       eyebrow="Cổng nhà cung cấp · riêng tư"
       title="Thêm sản phẩm"
-      sub="Điền theo thứ tự từ trên xuống. Trường có dấu * là bắt buộc để gửi duyệt; bạn lưu nháp bất cứ lúc nào."
+      sub="Bắt đầu từ tên và quy cách. Bạn có thể lưu bản nháp trước, bổ sung ảnh sau."
       breadcrumbs={<nav aria-label="Đường dẫn" className="flex items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="hover:text-brand-700">Sản phẩm</Link><ChevronRight className="size-3.5" aria-hidden="true" /><span className="font-semibold text-ink-800">Thêm mới</span></nav>}
     />
     <SupplierProductEditor categories={options} categoryScope={categoryScope} supplier={access.supplier} quantityPolicies={quantityPolicies} bankMedia={bankMedia} />

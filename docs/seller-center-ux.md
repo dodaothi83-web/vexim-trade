@@ -203,20 +203,17 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
 - **Thứ tự thao tác:** kho ảnh → chọn ảnh → điền thông tin → Lưu. Ảnh chưa gắn không chặn việc gửi duyệt;
   điều kiện gửi duyệt vẫn là sản phẩm có ít nhất một ảnh đã gắn.
 
-### 5.3 Bố cục trang sản phẩm theo bản vẽ Alibaba (30/10/2026)
+### 5.3 Lớp da mới của trang sản phẩm (30/10/2026)
 
-- **Ba cột**: mục lục 216px · nội dung co giãn · cột phải 304px, khung tối đa 1240px trên nền xám nhạt.
-- **Mỗi khối là một thẻ**: đầu thẻ `1. Ngành hàng` + nhãn trạng thái (`Hoàn tất`, `2/3 trường`, `1/6 ảnh`, `2 lỗi`, `Trống`),
-  gợi ý canh phải; thân thẻ chia **hai cột: nhãn canh phải 196px · ô nhập** (dưới 768px nhãn về trên).
-- **Dấu `*` đỏ đứng trước nhãn** cho trường bắt buộc; lỗi của khối tô viền/khung đỏ và gợi ý chuyển sang màu đỏ.
-- **Khối 03**: ba dòng Ảnh sản phẩm (6 ô, ô đầu là ảnh chính) · Ảnh đại diện · Catalogue/tệp; kho ảnh riêng của
-  nhà cung cấp nằm ở dòng đầu khi sản phẩm chưa tồn tại.
-- **Khối 06**: dòng "Đóng gói" gộp nhãn con (bao bì · loại kiện/khối lượng/số đơn vị · kích thước), rồi các dòng
-  Thời gian giao hàng, Vận chuyển (cảng xuất + địa điểm Incoterm), Điều kiện thanh toán kèm chip gợi ý.
-- **Khối 08**: danh sách kiểm tra từng dòng (biểu tượng đạt/chưa đạt + hành động `Lưu ngay` / `Đi tới mục N` / `Sửa`);
-  phần đọc lại chi tiết gấp trong "Xem lại nội dung đã nhập" để trang không dài thêm.
-- **Dải đỏ trên cùng**: `N mục cần sửa trước khi gửi duyệt:` kèm đích danh từng mục, thay cho câu nhắc chung.
-- **Thanh đáy**: Hủy + đèn trạng thái · `Xem trước` · `Lưu nháp` · `Gửi duyệt`.
-- **Cột phải**: Điểm chất lượng (vòng điểm + mức Thấp/Trung bình/Cao, chỉ để nhắc) · Việc cần làm tiếp kèm `+N` ·
-  thẻ Người mua sẽ thấy · Ví dụ điền mẫu (gấp) · Luồng duyệt · Danh sách sản phẩm.
-- Không đổi dữ liệu, cổng duyệt, quyền hay luồng lưu; mọi guard hành vi giữ nguyên.
+Bám bản vẽ anh gửi: cùng một tờ hồ sơ, nhưng gọn và phẳng hơn.
+
+- **Khung trang** rộng tối đa 1240px, canh giữa, ba cột 176 / co giãn / 272 ở màn hình lớn.
+- **Thẻ** viền 1px `ink-200`, bán kính 8px, **bỏ đổ bóng**; đầu thẻ một hàng: số mảnh bên trái, tiêu đề
+  13,5px, gợi ý 10,5px canh phải.
+- **Ô nhập** trong trang này gọn hơn phần còn lại của cổng: 12,5px, đệm dọc 6px, bán kính 6px
+  (áp dụng bằng biến thể `[&_.input]` của riêng trang, không sửa `.input` toàn cục).
+- **Mục lục trái** dùng chấm tròn trạng thái: xong thì tích trắng trên nền brand, chưa xong thì số 01–08.
+- **Thanh đáy** ba vùng như bản vẽ: Hủy + đèn trạng thái · **Xem lại hồ sơ** (cuộn tới khối 08) · Lưu nháp + Gửi duyệt.
+- **Dải nhắc** màu hổ phách trên cùng khi có thay đổi chưa lưu: "Bấm Lưu nháp ở thanh dưới để giữ lại."
+- **Thẻ điểm hoàn thiện** có thêm mục "Việc cần làm" và nhãn `+N` trọng số từng mục, đúng như bản vẽ.
+- Không đổi dữ liệu, cổng duyệt, quyền hay luồng lưu; mọi chuỗi điều kiện giữ nguyên nên guard vẫn xanh.

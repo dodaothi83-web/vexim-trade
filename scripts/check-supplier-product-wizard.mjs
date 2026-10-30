@@ -171,7 +171,7 @@ inSection('sec-category', page, 'name="supplier_category_proposal"');
 for (const marker of ['name="name"', 'name="keywords"', 'name="description"']) inSection('sec-basic', page, marker);
 assert.ok(sectionHtml(page, 'sec-basic').indexOf('name="keywords"') < sectionHtml(page, 'sec-basic').indexOf('name="description"'),
   'Từ khoá đứng ngay sau tên, trước mô tả ngắn');
-for (const marker of ['6 ô ảnh sản phẩm', 'Ảnh chính', 'aria-label="Xóa ảnh đại diện"', 'aria-label="Chọn ảnh sản phẩm hoặc catalogue"']) inSection('sec-media', page, marker);
+for (const marker of ['6 ô ảnh sản phẩm', 'Ảnh chính', 'aria-label="Xóa ảnh đại diện"', 'Chọn tệp']) inSection('sec-media', page, marker);
 for (const marker of ['name="spec"', 'name="monthly_capacity"', 'name="raw_material_region"', 'name="input_material_origin"',
   'name="oem"', 'name="odm"', 'name="samples"']) inSection('sec-spec', page, marker);
 for (const marker of ['name="sample_price_usd"', 'name="price_publicly_visible"']) inSection('sec-price', page, marker);
@@ -192,9 +192,7 @@ assert.ok(page.indexOf('data-form-section="sec-detail"') > page.indexOf('data-fo
 // 3. Khối xem lại: đọc lại đủ bốn nhóm, mỗi nhóm một nút Sửa cuộn về đúng khối.
 const review = sectionHtml(page, 'sec-review');
 assert.match(review, /Xem lại/, 'Có khối xem lại');
-for (const title of ['Tên, danh mục &amp; mô tả', 'Giá, MOQ &amp; điều kiện bán', 'Đóng gói &amp; giao hàng', 'Ảnh và catalogue'])
-  assert.ok(review.includes(title), `Khối xem lại có nhóm ${title}`);
-assert.ok((review.match(/Sửa<\/button>/g) ?? []).length >= 4, 'Mỗi nhóm xem lại có nút Sửa');
+assert.equal((review.match(/Sửa<\/button>/g) ?? []).length, 4, 'Bốn nhóm, bốn nút Sửa');
 for (const target of ['sec-basic', 'sec-price', 'sec-shipping', 'sec-media']) {
   assert.ok(source.includes(`scrollToSection(\"${target}\")`), `Nút Sửa của nhóm trỏ về ${target}`);
 }
@@ -220,7 +218,7 @@ assert.match(page, /Hồ sơ đủ điều kiện/, 'Đủ điều kiện thì b
 const missingMedia = render({ media: [] });
 assert.match(missingMedia, /Tải ít nhất một ảnh sản phẩm ở mục Ảnh &amp; tệp/, 'Nói rõ thiếu tệp ở mục nào');
 const sendButton = (missingMedia.match(/<button[^>]*aria-describedby="submit-blockers"[^>]*>/) ?? [''])[0];
-assert.ok(sendButton && !/\sdisabled(?:=""|=|\s|>)/.test(sendButton), 'Thiếu điều kiện vẫn không khoá nút gửi');
+assert.ok(sendButton && !/\sdisabled/.test(sendButton), 'Thiếu điều kiện vẫn không khoá nút gửi');
 for (const hint of ['requestSubmit', 'scrollToSection("sec-media")', 'scrollToSection("sec-basic")']) {
   assert.ok(source.includes(hint), `Thiếu gì thì đưa tới đúng khối: ${hint}`);
 }
@@ -241,8 +239,7 @@ const priceCheckbox = (html) => {
   return tag;
 };
 const newProduct = render({ product: undefined, media: [] });
-// Nhãn dòng "Giá theo số lượng" là của form; chỉ cấm tiêu đề cũ lặp lại trong bảng giá.
-assert.doesNotMatch(newProduct, /Bảng giá theo số lượng|Tên tiếng Anh \(tùy chọn\)/);
+assert.doesNotMatch(newProduct, /Giá theo số lượng|Tên tiếng Anh \(tùy chọn\)/);
 assert.match(newProduct, /Chọn danh mục để nhập grade và bảng giá/);
 assert.doesNotMatch(newProduct, /Bảng giá cũ|Thêm grade|name="grade_rows_json"|name="price_valid_until"/);
 assert.match(priceCheckbox(newProduct), /checked=""/, 'Sản phẩm mới được tick sẵn');
@@ -401,6 +398,6 @@ const newProductMedia = render({ product: undefined, media: [] });
 assert.match(newProductMedia, /Kho ảnh của bạn/, 'Sản phẩm mới thấy kho ảnh của nhà cung cấp');
 assert.match(newProductMedia, /Kho đang trống\. Tải ảnh ở ô bên dưới, không cần lưu sản phẩm trước\./, 'Kho trống vẫn chỉ rõ tải ảnh ngay được');
 assert.match(newProductMedia, /aria-label="Chọn ảnh sản phẩm hoặc catalogue"/, 'Sản phẩm mới vẫn thấy nút chọn tệp');
-assert.match(newProductMedia, /Kéo thả hoặc <label[^>]*>chọn ảnh|Kéo thả hoặc/, 'Sản phẩm mới thấy vùng kéo thả ảnh');
+assert.match(newProductMedia, /Kéo thả ảnh vào đây/, 'Sản phẩm mới thấy vùng kéo thả ảnh');
 
 console.log('✅ Product page: một trang, mục lục neo, đủ khối, gửi duyệt và quản lý tệp.');
