@@ -10,6 +10,7 @@ import { Badge, Breadcrumbs, Card, EmptyState, formatDate, formatMoney } from "@
 import { PageHeader } from "@/components/page-header";
 import { MediaThumb } from "@/components/media-gallery";
 import { productReadiness } from "@/lib/media/readiness";
+import { completenessSummary, productCompleteness } from "@/lib/products/completeness";
 import { auditProductStructuredUnits } from "@/lib/products/grade-pricing";
 import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
 import { loadCrmReviewInbox } from "@/lib/crm/product-review-inbox";
@@ -88,6 +89,8 @@ export default async function ProductsPage({
     if (!thumbByProduct.has(m.product_id)) thumbByProduct.set(m.product_id, m);
   }
   const hasShareableMedia = (id: string) => productReadiness(mediaByProduct.get(id) ?? []).ready;
+  /** Độ hoàn thiện hồ sơ: chỉ đọc, tính từ bản đã lưu + tệp hiện có. */
+  const completenessByProduct = new Map(all.map((r) => [r.id, productCompleteness(r, mediaByProduct.get(r.id) ?? [])]));
   const categoryFor = (r: ProductWithSupplier) => r.category;
   const nameFor = (r: ProductWithSupplier) => r.name;
   const categories = [...new Set(all.map(categoryFor).filter(Boolean))] as string[];
@@ -310,6 +313,11 @@ export default async function ProductsPage({
                             <Badge className="bg-ink-100 text-ink-600">Chưa sẵn sàng gửi khách mua</Badge>
                           ) : (
                             <Badge className="bg-amber-50 text-amber-700">Thiếu ảnh/catalogue</Badge>
+                          )}
+                          {completenessByProduct.get(r.id)?.next && (
+                            <Badge className="bg-ink-100 text-ink-700" title={completenessSummary(completenessByProduct.get(r.id)!)}>
+                              Hồ sơ {completenessByProduct.get(r.id)!.score}%
+                            </Badge>
                           )}
                           {unitAuditByProduct.get(r.id)?.needsReview && (
                             <Badge className="bg-amber-100 text-amber-900">

@@ -9,6 +9,19 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import * as list from '../lib/crm/product-list.ts';
 
 const jsx = createRequire(import.meta.url)('react/jsx-runtime');
+/** Nạp module thật để test bằng đúng thang điểm đang chạy. */
+const completenessExports = (() => {
+  const mod = { exports: {} };
+  const isExpired = (asset) => asset.status === 'expired' ||
+    Boolean(asset.expires_on && asset.expires_on < new Date().toISOString().slice(0, 10));
+  const source = ts.transpileModule(readFileSync(new URL('../lib/products/completeness.ts', import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  vm.runInNewContext(source, { module: mod, exports: mod.exports,
+    require: (id) => { assert.equal(id, '@/lib/media/readiness'); return { isExpired }; } }, { filename: 'completeness.ts' });
+  return mod.exports;
+})();
+
 let role = 'admin', inboxState = null, inboxFail = false;
 const rows = [
   { id: 'p1', name: 'Hạt điều loại A', supplier: { id: 's1', name: 'Công ty Hạt điều', status: 'published' }, category: 'Hạt điều', supplier_review_status: 'pending', ready_for_buyer: false, ref_price: 4200, unit: 'kg', price_valid_until: '2026-12-01', spec: 'UNNECESSARY-SPEC', description: '', monthly_capacity: 'UNNECESSARY-CAPACITY', certifications: 'UNNECESSARY-CERT', oem: true, samples: true },
@@ -27,7 +40,7 @@ const mocks = {
   '@/lib/auth/scope': { isOwnedBy: () => false, ownerScopeOf: () => null },
   '@/lib/queries': { listProductsWithSupplier: async () => rows },
   '@/components/ui': {
-    Badge: ({ children }) => React.createElement('span', null, children),
+    Badge: ({ children, title }) => React.createElement('span', title ? { title } : null, children),
     Breadcrumbs: () => null,
     Card: ({ children }) => React.createElement('div', null, children),
     EmptyState: ({ title }) => React.createElement('div', null, title),
@@ -43,6 +56,7 @@ const mocks = {
       { id: form.id, draft: form.payload, imageUrl: form.imageUrl } : null,
   },
   '@/lib/crm/product-list': list,
+  '@/lib/products/completeness': completenessExports,
 };
 const code = ts.transpileModule(readFileSync(new URL('../app/crm/products/page.tsx', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
@@ -67,6 +81,8 @@ assert.match(cardFor(adminHtml, 'p2'), /Chưa có nhà cung cấp.*Chưa phân l
 assert.match(cardFor(adminHtml, 'p2'), /Chưa có giá/);
 assert.match(cardFor(adminHtml, 'p3'), /Sẵn sàng gửi khách mua/);
 assert.match(cardFor(adminHtml, 'p4'), /Chờ nhà cung cấp sửa/);
+assert.match(cardFor(adminHtml, 'p1'), /Hồ sơ \d+%/, 'Thẻ CRM hiện độ hoàn thiện hồ sơ');
+assert.match(cardFor(adminHtml, 'p1'), /title="Hồ sơ \d+% · còn thiếu|title="Hồ sơ đủ/, 'Rê chuột thấy mục còn thiếu');
 const filtered = await render({ q: 'Hạt điều' });
 assert.match(cardFor(filtered, 'p1'), /Khớp nhu cầu/);
 assert.equal(cardFor(filtered, 'p2'), undefined);

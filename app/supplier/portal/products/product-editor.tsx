@@ -37,6 +37,7 @@ import { QuantityBuyerPreview, QuantityPricingEditor } from "@/components/produc
 import { nameContainsGrade, validateQuantityPricing, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import { displayUnitsForCategory } from "@/lib/public/price-units";
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
+import { productCompleteness } from "@/lib/products/completeness";
 import {
   LEAD_TIME_UNIT_OPTIONS,
   categoryMarketPriceUnit,
@@ -708,6 +709,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     : product
       ? "Báo giá theo yêu cầu"
       : "-";
+  /** Độ hoàn thiện chỉ đọc, tính từ bản đã lưu và tệp hiện có; không phải cổng chặn đăng. */
+  const completeness = productCompleteness(product ?? {}, media);
   const commercial = [
     { label: "Giá tham khảo", value: savedPriceValue },
     { label: "MOQ", value: product ? formatProductMoqVi(product) : "-" },
@@ -1267,6 +1270,29 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{quantityEditor && quantityPreview ? "Các thông tin thương mại bên dưới bảng giá lấy từ bản đã lưu." : <>Số liệu lấy từ bản đã lưu{dirty ? "; thay đổi đang nhập chưa hiển thị ở đây." : "."}</>}</p>
           </div>
         </div>
+
+        {product && <section aria-label="Độ hoàn thiện hồ sơ" className="rounded-xl border border-ink-200 bg-white p-3.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Độ hoàn thiện</p>
+            <span className="font-mono text-[13px] font-black tabular-nums text-brand-800">{completeness.score}%</span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
+            <div className="h-full rounded-full bg-brand-600" style={{ width: `${completeness.score}%` }} />
+          </div>
+          {completeness.next ? <>
+            <ul className="mt-2 space-y-1 text-[11.5px] leading-4 text-ink-600">
+              {completeness.missing.slice(0, 3).map((item) => <li key={item.key} className="flex items-start gap-1.5">
+                <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+                <span><strong className="font-semibold text-ink-800">{item.label}</strong> · {item.hint}</span>
+              </li>)}
+            </ul>
+            {completeness.missing.length > 3 && <p className="mt-1.5 text-[11px] text-ink-500">Còn {completeness.missing.length - 3} mục nữa.</p>}
+            <button type="button" onClick={() => selectStep(completeness.next!.step)} className="btn btn-soft btn-sm mt-2">
+              Bổ sung ở bước {completeness.next.step}
+            </button>
+          </> : <p className="mt-2 text-[11.5px] leading-4 text-emerald-700">Hồ sơ đã đủ các mục cần thiết.</p>}
+          <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{dirty ? "Lưu thay đổi để cập nhật số liệu." : "Số liệu tính từ bản đã lưu."}</p>
+        </section>}
 
         {product && (canDeleteDraft || review === "approved") && <section aria-label="Quản lý sản phẩm" className="rounded-xl border border-ink-200 bg-white p-3.5">
           <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Quản lý sản phẩm</p>

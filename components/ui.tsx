@@ -103,13 +103,17 @@ export function Badge({
   children,
   className,
   color,
+  title,
 }: {
   children: ReactNode;
   className?: string;
   color?: string;
+  /** Gợi ý khi rê chuột; dùng cho badge cần giải thích ngắn (ví dụ: độ hoàn thiện hồ sơ). */
+  title?: string;
 }) {
   return (
     <span
+      title={title}
       className={cx(
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
         !color && "bg-ink-100 text-ink-600",

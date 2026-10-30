@@ -20,9 +20,23 @@ function load(file, mocks) {
 const view = load('../lib/supplier-portal/product-view.ts', {});
 const icons = new Proxy({}, { get: (_target, name) => (props) => React.createElement('span', { 'aria-hidden': true, className: props.className }, String(name)) });
 const Link = ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children);
+/** Nạp module thật để test bằng đúng thang điểm đang chạy. */
+const completenessExports = (() => {
+  const mod = { exports: {} };
+  const isExpired = (asset) => asset.status === 'expired' ||
+    Boolean(asset.expires_on && asset.expires_on < new Date().toISOString().slice(0, 10));
+  const source = ts.transpileModule(fs.readFileSync(new URL('../lib/products/completeness.ts', import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  vm.runInNewContext(source, { module: mod, exports: mod.exports,
+    require: (id) => { assert.equal(id, '@/lib/media/readiness'); return { isExpired }; } }, { filename: 'completeness.ts' });
+  return mod.exports;
+})();
+
 const { SupplierProductStorefront } = load('../app/supplier/portal/products/product-storefront.tsx', {
   react: React, 'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'lucide-react': icons,
   '@/lib/supplier-portal/product-view': view,
+  '@/lib/products/completeness': completenessExports,
 });
 const product = (id, status, name) => ({ id, supplier_id: 'ours', name, description: 'True example product', spec: '25kg',
   supplier_review_status: status, ready_for_buyer: status === 'approved', ref_price: 5000, currency: 'USD', unit: 'tấn',
@@ -65,6 +79,15 @@ const html = renderToStaticMarkup(React.createElement(SupplierProductStorefront,
 for (const phrase of ['Cashew W320', 'Cashew W240', 'Cashew W180', 'Cashew paused', 'Bản nháp', 'Chờ duyệt', 'Đã đăng', 'Đã tạm ẩn', 'Trang nhà cung cấp chưa được công khai', 'Tìm sản phẩm của tôi', 'Thêm sản phẩm'])
   assert.ok(html.includes(phrase), `Missing UI content: ${phrase}`);
 assert.match(html, /left-3 top-1\/2 size-4 -translate-y-1\/2 text-ink-400/, 'The search icon is vertically centered in the input');
+// Độ hoàn thiện: thẻ sản phẩm nhắc ngắn gọn, tính từ bản đã lưu + tệp chia sẻ cho người mua.
+assert.match(html, /Hồ sơ \d+% · còn thiếu/, 'Thẻ sản phẩm trong cổng nhắc mục còn thiếu');
+const completeProduct = { ...product('p9', 'approved', 'Cashew đủ hồ sơ'), display_name: 'Cashew W320', packaging: 'Túi 22,68 kg',
+  lead_time_days: 21, payment_terms: '30% đặt cọc', monthly_capacity: '300 tấn', export_port: 'Cát Lái' };
+const completeHtml = renderToStaticMarkup(React.createElement(SupplierProductStorefront, {
+  products: [completeProduct], supplierPublished: true,
+  media: [media('p9', 'ours', 'staff', 'buyer', 'products/p9/a.jpg')],
+}));
+assert.doesNotMatch(completeHtml, /Hồ sơ \d+%/, 'Hồ sơ đã đủ thì không nhắc thêm');
 assert.doesNotMatch(html, /-tranink-y-1\/2/, 'The misspelled vertical-centering utility does not return');
 assert.match(html, /<label class="ml-auto flex [^"]*items-center[^"]*"><span[^>]*>Sắp xếp<\/span>/,
   'The sort/filter control is pushed to the right of search');

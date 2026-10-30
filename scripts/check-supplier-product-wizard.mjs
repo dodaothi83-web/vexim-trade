@@ -27,6 +27,19 @@ function load(file, mocks) {
 }
 
 const icons = new Proxy({}, { get: (_target, name) => (props) => React.createElement('span', { 'data-icon': String(name), className: props.className }, null) });
+/** Nạp module thật để test bằng đúng thang điểm đang chạy. */
+const completenessExports = (() => {
+  const mod = { exports: {} };
+  const isExpired = (asset) => asset.status === 'expired' ||
+    Boolean(asset.expires_on && asset.expires_on < new Date().toISOString().slice(0, 10));
+  const source = ts.transpileModule(fs.readFileSync(new URL('../lib/products/completeness.ts', import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  vm.runInNewContext(source, { module: mod, exports: mod.exports,
+    require: (id) => { assert.equal(id, '@/lib/media/readiness'); return { isExpired }; } }, { filename: 'completeness.ts' });
+  return mod.exports;
+})();
+
 const Link = ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children);
 
 const view = {
@@ -67,6 +80,7 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/supplier-portal/category-proposals': {},
   '@/lib/supplier-portal/product-view': view,
   '@/lib/products/grade-pricing': gradePricing,
+  '@/lib/products/completeness': completenessExports,
   '@/lib/public/price-units': priceUnits,
   '@/lib/products/quantity-pricing': { validateQuantityPricing: () => ({ value: null, errors: [], warnings: [] }) },
   '@/components/products/grade-pricing-table': gradePricingTable,
@@ -139,6 +153,10 @@ assert.match(withQuantity, />Năng lực \/ tháng<\//, 'Other saved commercial 
 // 1. Ba bước, mỗi lần chỉ mở MỘT bước; các bước khác vẫn nằm trong DOM (hidden) để
 //    không mất dữ liệu khi gửi form.
 assert.match(step1, /Bước 1: Thông tin sản phẩm|data-step-panel="1"/, 'Có panel bước 1');
+// Độ hoàn thiện hồ sơ: chỉ đọc, có gợi ý đúng bước; không chặn gửi duyệt.
+assert.match(step1, /Độ hoàn thiện/, 'Cột phải có khối độ hoàn thiện');
+assert.match(step1, /Hồ sơ \d+%|Độ hoàn thiện/, 'Điểm hoàn thiện hiển thị trong cột phải');
+assert.match(step1, /Bổ sung ở bước \d/, 'Nút dẫn tới đúng bước cần bổ sung');
 assert.match(step1, /data-step-panel="2"/, 'Panel bước 2 tồn tại');
 assert.match(step1, /data-step-panel="3"/, 'Panel bước 3 tồn tại');
 assert.match(step1, /data-step-panel="1"[^>]*class="space-y-4"|class="space-y-4"[^>]*data-step-panel="1"/, 'Bước 1 đang mở');

@@ -39,6 +39,9 @@ const SCOPE = [
   'app/crm/layout.tsx',
   'components/sidebar.tsx',
   'lib/supplier-portal/notify.ts',
+  // Độ hoàn thiện hồ sơ (Phase 1, chỉ đọc) + thẻ sản phẩm trong cổng.
+  'lib/products/completeness.ts',
+  'app/supplier/portal/products/product-storefront.tsx',
 ];
 
 const VIETNAMESE = /[àáảãạăâđêôơưýÀ-ỹ]/;

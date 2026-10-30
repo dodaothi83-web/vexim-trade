@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ArrowRight, BadgeCheck, ChevronLeft, ChevronRight, Clock3, EyeOff, FileText, ImageIcon, PackagePlus, Plus, Search, SlidersHorizontal } from "lucide-react";
 import type { MediaAsset, SupplierProduct } from "@/lib/types";
 import { PRODUCT_STATUS, SUPPLIER_PRODUCTS_PER_PAGE, privateMediaUrl, productReview, supplierProductPage, type ProductReviewFilter } from "@/lib/supplier-portal/product-view";
+import { completenessSummary, productCompleteness } from "@/lib/products/completeness";
 
 const FILTERS: { id: ProductReviewFilter; label: string }[] = [
   { id: "all", label: "Tất cả" }, { id: "draft", label: "Bản nháp" },
@@ -102,6 +103,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
         const image = assets.find((m) => m.id === p.featured_media_id && m.kind === "image" && m.audience === "buyer" && privateMediaUrl(m)) ??
           assets.find((m) => m.kind === "image" && privateMediaUrl(m));
         const imageSrc = image && privateMediaUrl(image);
+        const completeness = productCompleteness(p, assets);
         const status = PRODUCT_STATUS[productReview(p)];
         const statusLabel = productReview(p) === "approved" && !p.ready_for_buyer ? "Đã duyệt, chờ đăng" : status.label;
         return <li key={p.id} className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white transition hover:border-brand-300 hover:shadow-md">
@@ -117,6 +119,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
             </p>
             <Link href={`/supplier/portal/products/${p.id}`} className="mt-1 line-clamp-2 text-[15px] font-bold text-ink-900 hover:text-brand-700">{p.name}</Link>
             <p className="mt-1.5 line-clamp-2 min-h-9 text-[13px] text-ink-600">{p.spec || p.description || "Thêm quy cách hoặc mô tả để người mua hiểu rõ sản phẩm."}</p>
+            {completeness.next && <p className="mt-1.5 text-[11.5px] font-medium text-amber-800">{completenessSummary(completeness)}</p>}
             <div className="mt-3 flex items-end justify-between gap-2 border-t border-ink-100 pt-3">
               <div>{money(p) ? <><p className="text-[11px] text-ink-500">Giá tham khảo · tự khai</p><p className="font-mono text-[13px] font-bold tabular-nums text-ink-900">{money(p)}</p></> : <p className="text-xs text-ink-500">Chưa nhập giá tham khảo</p>}
                 {p.moq && <p className="mt-1 line-clamp-1 text-xs text-ink-500">MOQ: {p.moq}</p>}</div>
