@@ -211,9 +211,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const [step, setStep] = useState<Step>(initialStep);
   const [busy, setBusy] = useState(false);
   const [quantityPreview, setQuantityPreview] = useState<QuantityPricingInput | null>(() => quantityEditor ? {
-    grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, nameVi: quantityEditor.nameVi,
-    nameEn: quantityEditor.nameEn, tiers: quantityEditor.tiers,
-  } : !product ? { grade: "", incoterm: "", nameVi: "", nameEn: "", tiers: [{ minKg: "", priceUsdPerKg: "" }] } : null);
+    grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, currency: quantityEditor.currency,
+    nameVi: quantityEditor.nameVi, nameEn: quantityEditor.nameEn, tiers: quantityEditor.tiers,
+  } : !product ? { grade: "", incoterm: "", currency: "USD", nameVi: "", nameEn: "",
+    tiers: [{ minKg: "", priceUsdPerKg: "", incoterm: "" }] } : null);
   const [v2Preview, setV2Preview] = useState<SupplierQuantityEntry | null>(() => quantityEditor?.v2 ? {
     grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, nameVi: quantityEditor.nameVi,
     unit: quantityEditor.v2.unit, customGrade: quantityEditor.v2.customGrade, tiers: quantityEditor.v2.tiers,
@@ -474,6 +475,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         form.set("quantity_creation_request_id", creationRequestId.current);
         form.set("quantity_grade", newQuantity.grade);
         form.set("quantity_incoterm", newQuantity.incoterm);
+        form.set("quantity_currency", newQuantity.currency ?? "USD");
         form.set("quantity_tiers_json", JSON.stringify(newQuantity.tiers));
         if (quantityConsent) form.set("confirm_quantity_price_consent", "yes");
       }
@@ -1132,9 +1134,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                         </table>
                         <p className="mt-1 text-xs text-ink-500">{quantityEditor.pendingPriceId ? "Bảng giá đang chờ duyệt." : "Bảng giá đã duyệt."}</p>
                       </> : quantityEditor && quantityPreview ? <>
-                        <p>Grade: <strong>{quantityPreview.grade || "Chưa chọn"}</strong> · Incoterm: <strong>{quantityPreview.incoterm || "Chưa chọn"}</strong></p>
-                        <table className="mt-2 w-full text-left text-xs"><thead><tr><th>Số lượng từ (kg)</th><th>Giá (USD/kg)</th></tr></thead>
-                          <tbody>{quantityPreview.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{tier.minKg || "—"}</td><td className="py-1 tabular-nums">{tier.priceUsdPerKg || "—"}</td></tr>)}</tbody>
+                        <p>Grade: <strong>{quantityPreview.grade || "Chưa chọn"}</strong> · Tiền tệ: <strong>{quantityPreview.currency ?? "USD"}</strong></p>
+                        <table className="mt-2 w-full text-left text-xs"><thead><tr><th>Incoterm</th><th>Số lượng từ (kg)</th><th>Giá ({quantityPreview.currency ?? "USD"}/kg)</th></tr></thead>
+                          <tbody>{quantityPreview.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1">{tier.incoterm || quantityPreview.incoterm || "—"}</td><td className="py-1 tabular-nums">{tier.minKg || "—"}</td><td className="py-1 tabular-nums">{tier.priceUsdPerKg || "—"}</td></tr>)}</tbody>
                         </table>
                         <p className="mt-1 text-xs text-ink-500">Bảng giá cần được duyệt.</p>
                       </> : <span>Chưa tải được bảng giá mới.</span>}

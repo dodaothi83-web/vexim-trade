@@ -1,4 +1,4 @@
-import { formatQuantityBuyer, referencePriceAge, type QuantityPriceTier } from "@/lib/products/quantity-pricing";
+import { formatQuantityBuyer, normalizePriceCurrency, referencePriceAge, type QuantityPriceTier } from "@/lib/products/quantity-pricing";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { readQuantityRevisionV2, v2PriceLabel, v2PriceUsdPerKg, v2QuantityLabel } from "@/lib/products/quantity-revision-v2";
 
@@ -27,19 +27,26 @@ export type PublicQuantityOffer = {
 export type PriceRevision = { status: string; product_id: string; grade: unknown; incoterm: unknown; tiers: unknown; confirmed_at: unknown };
 export type NameRevision = { status: string; product_id: string; english_name: unknown };
 
-function validTiers(raw: unknown): QuantityPriceTier[] | null {
+const INCOTERM_SET = new Set(["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"]);
+
+function validTiers(raw: unknown, fallbackIncoterm: string): QuantityPriceTier[] | null {
   if (!Array.isArray(raw) || raw.length < 1 || raw.length > 100) return null;
   const tiers: QuantityPriceTier[] = [];
   for (const row of raw) {
     if (!row || typeof row !== "object" || Array.isArray(row)) return null;
-    const kg = (row as Record<string, unknown>).minKg;
-    const price = (row as Record<string, unknown>).priceUsdPerKg;
+    const record = row as Record<string, unknown>;
+    const kg = record.minKg;
+    const price = record.priceUsdPerKg;
     if (typeof kg !== "number" || !Number.isSafeInteger(kg) || kg < 1 || kg > 1_000_000_000 ||
         typeof price !== "number" || !Number.isFinite(price) || price <= 0 || price > 1_000_000_000 ||
         Math.abs(price * 100 - Math.round(price * 100)) > 1e-5) return null;
+    // Records written before per-tier Incoterm/currency keep the table defaults.
+    const currency = record.currency === undefined ? "USD" : normalizePriceCurrency(record.currency as string);
+    const incoterm = record.incoterm === undefined ? fallbackIncoterm : String(record.incoterm).trim().toUpperCase();
+    if (!currency || !INCOTERM_SET.has(incoterm)) return null;
     const previous = tiers[tiers.length - 1];
-    if (previous && (kg <= previous.minKg || price > previous.priceUsdPerKg)) return null;
-    tiers.push({ minKg: kg, priceUsdPerKg: price });
+    if (previous && (kg <= previous.minKg || price > previous.priceUsdPerKg || currency !== previous.currency)) return null;
+    tiers.push({ minKg: kg, priceUsdPerKg: price, incoterm, currency });
   }
   return tiers;
 }
@@ -64,7 +71,7 @@ export function projectApprovedQuantityOffer(input: {
       typeof revision.incoterm !== "string" || !["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"].includes(revision.incoterm)) return null;
   const version2 = Array.isArray(revision.tiers) && revision.tiers.some((row) => row && typeof row === "object" && "version" in row);
   const v2 = version2 ? readQuantityRevisionV2(revision.tiers) : null;
-  const tiers = version2 ? null : validTiers(revision.tiers);
+  const tiers = version2 ? null : validTiers(revision.tiers, revision.incoterm);
   if (version2 ? !v2 : !tiers) return null;
   const approvedName = input.nameRevision && input.nameRevision.status === "approved" && input.nameRevision.product_id === input.productId &&
     typeof input.nameRevision.english_name === "string" ? withoutDirectContacts(input.nameRevision.english_name).trim() : "";
@@ -102,15 +109,19 @@ export function projectApprovedQuantityOffer(input: {
   const format = (perKg: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(perKg * factor);
   const low = tiers[tiers.length - 1].priceUsdPerKg;
   const high = tiers[0].priceUsdPerKg;
-  const price = visible ? `USD ${format(low)}${low !== high ? `–${format(high)}` : ""}/${unitLabel}` : null;
+  const currency = tiers[0].currency;
+  const incoterm = tiers[0].incoterm;
+  // Only USD prices are comparable for ranking; other currencies stay display-only.
+  const rankable = currency === "USD";
+  const price = visible ? `${currency} ${format(low)}${low !== high ? `–${format(high)}` : ""}/${unitLabel}` : null;
   return {
-    title, grade, incoterm: revision.incoterm,
+    title, grade, incoterm,
     moq: formatQuantityBuyer(tiers[0].minKg), moqKg: tiers[0].minKg,
     price, hasVolumePricing: visible && tiers.length > 1 && low !== high,
     tiers: visible ? tiers.map((tier, index) => ({
       from: formatQuantityBuyer(tier.minKg),
       to: tiers[index + 1] ? formatQuantityBuyer(tiers[index + 1].minKg - 1) : null,
-      price: `USD ${format(tier.priceUsdPerKg)}/${unitLabel}`,
+      price: `${currency} ${format(tier.priceUsdPerKg)}/${unitLabel}${tier.incoterm !== incoterm ? ` ${tier.incoterm}` : ""}`,
     })) : [],
     confirmedAt: visible ? confirmedAt : null,
     daysSinceConfirmed: visible ? age.days : null,

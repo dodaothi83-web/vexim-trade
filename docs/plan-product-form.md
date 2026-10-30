@@ -1,3 +1,8 @@
+> **Cập nhật 30/10/2026:** bộ form năm phần đã bị xoá khỏi mã nguồn theo yêu cầu chủ dự án
+> (cổng NCC dùng form ba bước). Các bảng `product_form_*` vẫn giữ nguyên trong Supabase.
+> Bảng giá ba bước nay có Incoterm riêng từng bậc và chọn tiền tệ USD/VND/EUR; xem
+> `docs/product-tier-price-currency.md`.
+
 # Danh sách việc: form sản phẩm NCC, CRM và buyer
 
 Cập nhật theo mã đang có trong nhánh. `[x]` chỉ đánh dấu phần đã được xây và kiểm thử trong phạm vi ghi rõ; không có nghĩa là cả tính năng đã sẵn sàng cho NCC. `[ ]` là việc còn thiếu hoặc chưa được thử đầy đủ.

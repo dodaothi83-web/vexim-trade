@@ -10,7 +10,6 @@ import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, Ver
 import { approvedL2Scope, approvedPartnerReviewSummary, approvedPublicReviewSummaries, approvedVerificationSteps, type PublicL2Scope, type PublicReviewSummaries } from "@/lib/verification-status";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductCategorySlug } from "@/lib/public/product-selection";
 import { publicProductTitle } from "@/lib/public/display-name";
-import { isProductFormBuyerEnabled } from "@/lib/products/product-form-staging-access";
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
 
 /** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
@@ -234,27 +233,6 @@ export async function getSupplierStorefront(supplier: Supplier & Partial<PublicS
     partner_review_summary: vers.length ? approvedPartnerReviewSummary(vers) : supplier.partner_review_summary,
     public_review_summaries: approvedPublicReviewSummaries(vers),
   };
-  if (isProductFormBuyerEnabled() && !supplier.is_demo && publicProducts.length) {
-    const [{ projectPublicCategoryProduct }, { projectQuantityCatalogPreview }] = await Promise.all([
-      import("@/lib/public/product-catalog"), import("@/lib/public/quantity-catalog-preview"),
-    ]);
-    const records = publicProducts.flatMap((product) => {
-      const slug = publicProductCategorySlug(product, categories);
-      const category = categories.find((c) => c.slug === slug && c.status === "published" && c.is_published);
-      if (!category) return [];
-      const assets = mediaByProduct.get(product.id) ?? [];
-      return [{ product, supplier: storefront, category, media: assets,
-        card: projectPublicCategoryProduct(product, storefront, category, assets) }];
-    });
-    const projected = await projectQuantityCatalogPreview(records);
-    storefront.form_product_cards = {};
-    for (const { product, card } of projected) {
-      if (!card.usesFormGallery) continue; // Unconverted products keep the legacy storefront.
-      storefront.form_product_cards[product.id] = card;
-      if (card.imagePaths[0]) productImagePaths[product.id] = card.imagePaths[0];
-      if (card.cardImagePath) productCardImagePaths[product.id] = card.cardImagePath;
-    }
-  }
   return storefront;
 }
 

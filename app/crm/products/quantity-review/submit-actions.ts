@@ -50,11 +50,13 @@ export async function submitStaffQuantityPriceAction(form: FormData): Promise<Re
       let tiers: unknown;
       try { tiers = JSON.parse(raw); } catch { return { ok: false, message: "Bảng giá không hợp lệ." }; }
       if (!Array.isArray(tiers) || tiers.length > 100 || tiers.some((row) => !row || typeof row !== "object" ||
-        typeof row.minKg !== "string" || typeof row.priceUsdPerKg !== "string" || row.minKg.length > 32 || row.priceUsdPerKg.length > 32)) {
+        typeof (row as { minKg?: unknown }).minKg !== "string" || typeof (row as { priceUsdPerKg?: unknown }).priceUsdPerKg !== "string" ||
+        (row as { minKg: string }).minKg.length > 32 || (row as { priceUsdPerKg: string }).priceUsdPerKg.length > 32)) {
         return { ok: false, message: "Bảng giá không hợp lệ." };
       }
       checked = validateQuantityPricing({ grade: String(form.get("grade") ?? "").trim().slice(0, 180),
-        incoterm: String(form.get("incoterm") ?? "").trim().slice(0, 20), nameVi: product.name,
+        incoterm: String(form.get("incoterm") ?? "").trim().slice(0, 20),
+        currency: String(form.get("quantity_currency") ?? "").trim().slice(0, 3) || "USD", nameVi: product.name,
         nameEn: "", tiers }, standardGradesForCategory(category), policy);
     }
     if (!checked.value) return { ok: false, message: checked.errors[0]?.message ?? "Bảng giá không hợp lệ." };

@@ -4,9 +4,21 @@
  * versioned persistence and both review workflows are in place.
  *
  * Quantities are whole kg; the end of a tier is the next minimum minus one kg.
- * Prices are USD per kg, with at most two decimal places.
+ * Each tier keeps its own Incoterm and the table keeps one currency (USD, VND or
+ * EUR) with at most two decimal places. The field name `priceUsdPerKg` is kept
+ * for stored records; the amount is per kg in the tier's own currency.
  */
-export type QuantityPriceTier = { minKg: number; priceUsdPerKg: number };
+export const PRICE_CURRENCIES = ["USD", "VND", "EUR"] as const;
+export type PriceCurrency = (typeof PRICE_CURRENCIES)[number];
+export const DEFAULT_PRICE_CURRENCY: PriceCurrency = "USD";
+
+/** Only the three trade currencies are accepted; anything else fails closed. */
+export function normalizePriceCurrency(raw: string | null | undefined): PriceCurrency | null {
+  const value = (raw ?? "").trim().toUpperCase();
+  return (PRICE_CURRENCIES as readonly string[]).includes(value) ? value as PriceCurrency : null;
+}
+
+export type QuantityPriceTier = { minKg: number; priceUsdPerKg: number; incoterm: string; currency: PriceCurrency };
 export type GradePriceBounds = { minUsdPerKg: number; maxUsdPerKg: number };
 export type QuantityPricingPolicy = {
   maxTiers: number;
@@ -23,10 +35,12 @@ export const DEFAULT_QUANTITY_PRICING_POLICY: Readonly<QuantityPricingPolicy> = 
 
 export type QuantityPricingInput = {
   grade: string;
+  /** Fallback Incoterm for rows that do not carry their own. */
   incoterm: string;
+  currency?: string;
   nameVi: string;
   nameEn: string;
-  tiers: Array<{ minKg: string; priceUsdPerKg: string }>;
+  tiers: Array<{ minKg: string; priceUsdPerKg: string; incoterm?: string }>;
 };
 export type QuantityPricingIssue = {
   code: string;
@@ -36,7 +50,7 @@ export type QuantityPricingIssue = {
 export type QuantityPricingResult = {
   errors: QuantityPricingIssue[];
   warnings: QuantityPricingIssue[];
-  value: { grade: string; incoterm: string; tiers: QuantityPriceTier[] } | null;
+  value: { grade: string; incoterm: string; currency: PriceCurrency; tiers: QuantityPriceTier[] } | null;
 };
 
 const INCOTERMS = new Set(["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"]);
@@ -117,8 +131,9 @@ export function validateQuantityPricing(
   }
   const grade = standardGrades.find((g) => normalized(g) === normalized(input.grade)) ?? "";
   if (!grade) errors.push({ code: "grade", message: "Chọn một grade chuẩn của danh mục." });
-  const incoterm = input.incoterm.trim().toUpperCase();
-  if (!INCOTERMS.has(incoterm)) errors.push({ code: "incoterm", message: "Chọn Incoterm hợp lệ." });
+  const fallbackIncoterm = input.incoterm.trim().toUpperCase();
+  const currency = normalizePriceCurrency(input.currency ?? DEFAULT_PRICE_CURRENCY);
+  if (!currency) errors.push({ code: "currency", message: "Chọn tiền tệ USD, VND hoặc EUR." });
   const gradeInName = [...standardGrades, input.grade].find((g) => nameContainsGrade(input.nameVi, [g]));
   if (gradeInName) errors.push({ code: "name_vi_grade", message: `Bỏ grade (${gradeInName}) ra khỏi tên sản phẩm.` });
   if (nameContainsGrade(input.nameEn, [...standardGrades, input.grade])) errors.push({ code: "name_en_grade", message: "Không ghi grade trong tên sản phẩm tiếng Anh." });
@@ -132,12 +147,14 @@ export function validateQuantityPricing(
   input.tiers.forEach((row, tierIndex) => {
     const kg = parseQuantityKg(row.minKg);
     const cents = centsFromText(row.priceUsdPerKg);
+    const tierIncoterm = (row.incoterm ?? fallbackIncoterm).trim().toUpperCase();
     if (kg === null) {
       errors.push({ code: "quantity", tierIndex, message: "Số lượng từ phải là số kg nguyên lớn hơn 0." });
     }
-    if (cents === null) errors.push({ code: "price", tierIndex, message: "Nhập giá USD/kg lớn hơn 0, tối đa 2 chữ số thập phân." });
-    if (kg === null || cents === null) return;
-    tiers.push({ minKg: kg, priceUsdPerKg: cents / 100 });
+    if (cents === null) errors.push({ code: "price", tierIndex, message: `Nhập đơn giá ${currency ?? "USD"}/kg lớn hơn 0, tối đa 2 chữ số thập phân.` });
+    if (!INCOTERMS.has(tierIncoterm)) errors.push({ code: "incoterm", tierIndex, message: `Chọn Incoterm cho mức giá ${tierIndex + 1}.` });
+    if (kg === null || cents === null || !currency || !INCOTERMS.has(tierIncoterm)) return;
+    tiers.push({ minKg: kg, priceUsdPerKg: cents / 100, incoterm: tierIncoterm, currency });
     centsList.push(cents);
   });
   // Avoid comparing across a malformed or missing row.
@@ -152,7 +169,10 @@ export function validateQuantityPricing(
     if (tiers[tiers.length - 1].minKg / tiers[0].minKg > policy.maxLastMoqRatio + 1e-12) {
       errors.push({ code: "quantity_spread", message: "Số lượng từ của dòng cuối vượt giới hạn so với MOQ." });
     }
-    const boundsEntry = Object.entries(policy.gradeBounds ?? {}).find(([key]) => normalized(key) === normalized(grade));
+    // Reference bounds are stored in USD/kg; other currencies are reviewed by staff.
+    const boundsEntry = currency === "USD"
+      ? Object.entries(policy.gradeBounds ?? {}).find(([key]) => normalized(key) === normalized(grade))
+      : undefined;
     const bounds = boundsEntry?.[1];
     if (bounds) {
       if (!Number.isFinite(bounds.minUsdPerKg) || !Number.isFinite(bounds.maxUsdPerKg) ||
@@ -167,7 +187,8 @@ export function validateQuantityPricing(
       }
     }
   }
-  return { errors, warnings, value: errors.length ? null : { grade, incoterm, tiers } };
+  const firstIncoterm = tiers[0]?.incoterm ?? fallbackIncoterm;
+  return { errors, warnings, value: errors.length || !currency ? null : { grade, incoterm: firstIncoterm, currency, tiers } };
 }
 
 /** Buyer quantities switch to MT at 1,000 kg; internal quantities stay in kg. */
@@ -180,10 +201,10 @@ export function quantityTierRanges(tiers: readonly QuantityPriceTier[]): Array<Q
   return tiers.map((tier, index) => ({ ...tier, maxKg: tiers[index + 1] ? tiers[index + 1].minKg - 1 : null }));
 }
 
-export function formatQuantityPriceBuyer(priceUsdPerKg: number, unit: "kg" | "mt"): string {
-  const value = unit === "mt" ? priceUsdPerKg * 1000 : priceUsdPerKg;
+export function formatQuantityPriceBuyer(pricePerKg: number, unit: "kg" | "mt", currency: PriceCurrency = DEFAULT_PRICE_CURRENCY): string {
+  const value = unit === "mt" ? pricePerKg * 1000 : pricePerKg;
   const digits = unit === "mt" ? 0 : 2;
-  return `USD ${new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)}/${unit === "mt" ? "MT" : "kg"}`;
+  return `${currency} ${new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)}/${unit === "mt" ? "MT" : "kg"}`;
 }
 
 /** Unknown or future confirmation must not earn ranking/reference-price credit. */

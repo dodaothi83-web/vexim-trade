@@ -20,7 +20,6 @@ const exports = {};
 const mocks = {
   'next/server': { NextResponse: class extends Response {} },
   'node:crypto': { createHash },
-  '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => staging },
   '@/lib/media/storage': { getObject: async () => { downloads++; return { data: new Uint8Array([255, 216, 255, 1]) }; } },
   '@/lib/db': { getStore: () => store },
   '@/lib/media/readiness': { isExpired: (a) => a.status === 'expired' },
@@ -91,9 +90,6 @@ product = { supplier_id: 'sup-1', ready_for_buyer: true, name: 'Product', suppli
 assert.equal((await get(formPath)).status, 404, 'A private staged object has no public media row');
 asset = { owner_type: 'product', product_id: formProduct, kind: 'image', audience: 'buyer', status: 'checked', expires_on: null,
   storage_path: formPath.join('/'), thumb_path: null };
-staging = false;
-assert.equal((await get(formPath)).status, 404, 'The new image namespace stays closed outside synthetic staging');
-staging = true;
 assert.equal((await get(formPath)).status, 200, 'Approved buyer media follows the existing ACL');
 asset = { ...asset, product_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc' };
 assert.equal((await get(formPath)).status, 404, 'Form image path must belong to its product');

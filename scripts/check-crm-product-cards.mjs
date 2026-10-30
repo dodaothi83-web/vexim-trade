@@ -75,30 +75,15 @@ const readOnly = cardFor(await render(), 'p1');
 assert.ok(readOnly.includes('href="/crm/products/p1"'), 'Read-only staff retain the product detail link');
 assert.doesNotMatch(readOnly, /\/edit|Kiểm tra Hạt điều loại A/, 'No review/edit link for staff without products.manage');
 role = 'admin';
-rows.push({ id: 'shell', supplier_id: 's1', name: '', supplier: { id: 's1', name: 'Supplier' }, category: null,
-  supplier_review_status: 'pending', ready_for_buyer: false, ref_price: null, description: '', spec: '' });
-inboxState = { forms: [{ id: 'form-id', product_id: 'shell', supplier_id: 's1', payload: { name: 'Synthetic pending name', category: 'example' },
-  imageUrl: '/api/product-form/images/shell/image' }], prices: [{ id: 'price-id', product_id: 'p3' }], names: [] };
+inboxState = { prices: [{ id: 'price-id', product_id: 'p3' }], names: [] };
 const inboxHtml = await render({ view: 'pending' });
-assert.match(inboxHtml, /Synthetic pending name/); assert.match(inboxHtml, /example.*Thông tin trong bản gửi/);
-assert.match(inboxHtml, /src="\/api\/product-form\/images\/shell\/image"/);
-assert.match(inboxHtml, /href="\/crm\/products\/form-review\/form-id"/);
-assert.match(inboxHtml, /Ảnh trong bản gửi chưa duyệt/); assert.match(inboxHtml, /Giá trong bản gửi/);
 assert.match(inboxHtml, /href="\/crm\/products\/quantity-review"[^>]*aria-label="Kiểm tra Cà phê"/);
-assert.ok(!inboxHtml.includes('>Bản gửi sản phẩm</a>') && !inboxHtml.includes('>Rà soát giá và tên</a>'),
-  'The two old queue buttons are removed from the page header');
-assert.ok((await render({ q: 'Synthetic pending name' })).includes('Synthetic pending name'), 'Staff can search a submitted shell');
-inboxState.forms.push({ ...inboxState.forms[0], id: 'duplicate-form', payload: { name: 'Unexpected duplicate', category: 'other' } });
-const duplicateHtml = await render();
-assert.match(duplicateHtml, /Chưa đối chiếu được đầy đủ các bản chờ duyệt/);
-assert.doesNotMatch(duplicateHtml, /Synthetic pending name|Unexpected duplicate/, 'Do not arbitrarily expose one of duplicate pending forms');
-assert.match(duplicateHtml, /href="\/crm\/products\/form-review"/, 'Ambiguous submissions route to the review queue');
-inboxState.forms.pop();
+assert.ok(!inboxHtml.includes('/crm/products/form-review'), 'The removed five-part form queue is never linked');
+assert.doesNotMatch(inboxHtml, /Thông tin trong bản gửi|Giá trong bản gửi|Ảnh trong bản gửi/);
 role = 'viewer';
-const viewerHtml = await render({ q: 'Synthetic pending name' });
-assert.match(viewerHtml, /0 \/ 5 sản phẩm khớp/, 'Private submission content does not affect viewer search results');
-assert.doesNotMatch(viewerHtml, /\/api\/product-form\/images\/shell\/image|Thông tin trong bản gửi/, 'Read-only staff cannot see private submissions');
+const viewerHtml = await render({ view: 'pending' });
+assert.doesNotMatch(viewerHtml, /quantity-review/, 'Read-only staff cannot reach the review queue');
 role = 'admin'; inboxFail = true;
 const failedHtml = await render(); assert.match(failedHtml, /Chưa đối chiếu được đầy đủ các bản chờ duyệt/);
-assert.match(failedHtml, /href="\/crm\/products\/form-review"/); assert.match(failedHtml, /href="\/crm\/products\/quantity-review"/);
+assert.match(failedHtml, /href="\/crm\/products\/quantity-review"/);
 console.log('✅ CRM product cards: compact details, statuses, review link, read-only access and filtering (SSR mocks).');

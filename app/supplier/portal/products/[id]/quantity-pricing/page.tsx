@@ -49,14 +49,20 @@ export default async function QuantityPricingPreviewPage({ params }: { params: P
     // This older editor cannot represent v2 units or malformed revisions. Never
     // silently turn them into an empty table that can replace a pending price.
     if (price && !validLegacy) throw new Error("Unsupported saved quantity revision");
-    const tiers = price ? rawTiers.map((row: { minKg: number; priceUsdPerKg: number }) => ({ minKg: String(row.minKg), priceUsdPerKg: String(row.priceUsdPerKg) }))
-      : [{ minKg: "", priceUsdPerKg: "" }];
+    const fallbackIncoterm = typeof price?.incoterm === "string" ? price.incoterm : "";
+    const tiers = price ? rawTiers.map((row: { minKg: number; priceUsdPerKg: number; incoterm?: unknown }) => ({
+      minKg: String(row.minKg), priceUsdPerKg: String(row.priceUsdPerKg),
+      incoterm: typeof row.incoterm === "string" ? row.incoterm : fallbackIncoterm,
+    })) : [{ minKg: "", priceUsdPerKg: "", incoterm: fallbackIncoterm }];
+    const storedCurrency = rawTiers.find((row: unknown) => !!row && typeof row === "object" && typeof (row as { currency?: unknown }).currency === "string") as
+      { currency?: string } | undefined;
+    const currency = (storedCurrency?.currency ?? "USD").toUpperCase();
     const primary = displayUnitsForCategory(category.slug, category.price_unit).primary;
     return <>
       <PageHeader title="Thử nghiệm giá theo số lượng" sub={product.name} />
       <Link href={`/supplier/portal/products/${id}`} className="text-sm font-semibold text-brand-700">← Về sản phẩm</Link>
       <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">Đây là trang thử nghiệm nội bộ. Bản gửi đi vào hàng duyệt riêng, nhưng chưa thay đổi sản phẩm hoặc giá buyer đang thấy. Form sản phẩm chính vẫn dùng cơ chế cũ.</p>
-      <QuantityPricingPreviewForm productId={id} updatedAt={product.updated_at} nameVi={product.name}
+      <QuantityPricingPreviewForm productId={id} updatedAt={product.updated_at} nameVi={product.name} currency={currency}
         nameEn={pendingName?.english_name || approvedName?.english_name || product.name_i18n?.en || ""}
         pendingPriceId={pendingPrice?.id ?? null} pendingNameId={pendingName?.id ?? null}
         hasApprovedPrice={!!approvedPrice} hasApprovedName={!!approvedName}

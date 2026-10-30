@@ -18,15 +18,15 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
 }) {
   const router = useRouter();
   const root = useRef<HTMLDivElement>(null);
-  const [value, setValue] = useState<QuantityPricingInput>({ grade: data.grade, incoterm: data.incoterm, nameVi: data.nameVi,
-    nameEn: actor === "supplier" ? data.nameEn : "", tiers: data.tiers });
+  const [value, setValue] = useState<QuantityPricingInput>({ grade: data.grade, incoterm: data.incoterm, currency: data.currency,
+    nameVi: data.nameVi, nameEn: actor === "supplier" ? data.nameEn : "", tiers: data.tiers });
   useEffect(() => { onPreviewChange?.(value); }, [onPreviewChange, value]);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const priceDraftChanged = JSON.stringify({ grade: value.grade, incoterm: value.incoterm, tiers: value.tiers }) !==
-    JSON.stringify({ grade: data.grade, incoterm: data.incoterm, tiers: data.tiers });
+  const priceDraftChanged = JSON.stringify({ grade: value.grade, incoterm: value.incoterm, currency: value.currency, tiers: value.tiers }) !==
+    JSON.stringify({ grade: data.grade, incoterm: data.incoterm, currency: data.currency, tiers: data.tiers });
   const unsent = priceDraftChanged;
   useEffect(() => {
     if (!unsent) return;
@@ -62,6 +62,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
     form.set("expected_product_updated_at", data.updatedAt);
     form.set("expected_price_revision_id", data.pendingPriceId ?? "");
     form.set("grade", value.grade); form.set("incoterm", value.incoterm);
+    form.set("quantity_currency", value.currency ?? "USD");
     form.set("quantity_tiers_json", JSON.stringify(value.tiers));
     if (consent) form.set("confirm_quantity_price_consent", "yes");
     setBusy(true); setResult(null);
