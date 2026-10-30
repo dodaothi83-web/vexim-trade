@@ -32,7 +32,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
       if (!access || !portalApproved(access.supplier) || access.user.id !== actor.id ||
           access.supplier.id !== product.supplier_id || image.created_by !== actor.id) return missing();
     } else if (!hasPermission(actor.role, "products.manage") || !hasPermission(actor.role, "media.internal")) return missing();
-    const expected = `products/${productId.toLowerCase()}/${imageId.toLowerCase()}.webp`;
+    const expected = `product-form-images/${productId.toLowerCase()}/${imageId.toLowerCase()}.webp`;
     if (image.storage_path !== expected || image.mime !== "image/webp") return missing();
     const object = await getObject(expected);
     if (!object) return missing();

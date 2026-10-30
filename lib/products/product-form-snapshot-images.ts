@@ -42,7 +42,7 @@ export async function snapshotSelectedProductImages(input: {
         draft.image_selection.length > 8 || imageIds.some((id) => draft.image_selection.filter((x: { source?: unknown; id?: unknown }) =>
           x?.source === "media" && typeof x.id === "string" && x.id.toLowerCase() === id.toLowerCase()).length !== 1))
       return fail("Danh sách ảnh hoặc bản nháp đã thay đổi. Hãy tải lại trang.", 0, true);
-    const pattern = new RegExp(`^products/${productId.toLowerCase()}/[a-f0-9-]{20,}\\.(?:jpe?g|png|webp)$`, "i");
+    const pattern = new RegExp(`^(?:products|product-form-images)/${productId.toLowerCase()}/[a-f0-9-]{20,}\\.(?:jpe?g|png|webp)$`, "i");
     const assets: MediaAsset[] = [], paths = new Set<string>();
     for (const id of imageIds) {
       const asset = await store.getMedia(id);

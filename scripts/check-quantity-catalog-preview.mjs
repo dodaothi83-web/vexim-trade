@@ -20,11 +20,17 @@ const selection = compile('../lib/public/product-selection.ts', { '@/lib/public/
 const projection = compile('../lib/products/quantity-public-projection.ts', {
   '@/lib/products/quantity-pricing': pricing, '@/lib/public/product-selection': selection, '@/lib/products/quantity-revision-v2': revisionV2,
 });
-let batchIds = [], readError = false;
-const byId = new Map();
+let batchIds = [], readError = false, syntheticStaging = true, legacyCalls = 0;
+const byId = new Map(), publications = new Map();
 const adapter = compile('../lib/public/quantity-catalog-preview.ts', {
   'server-only': {},
+  '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => syntheticStaging },
+  '@/lib/public/quantity-catalog-legacy-preview': { projectQuantityCatalogPreview: async (records) => { legacyCalls++; return records; } },
   '@/lib/products/approved-quantity-revisions': { readApprovedQuantityRevisions: async (ids) => { batchIds = ids; if (readError) throw Error('database unavailable'); return new Map(ids.map((id) => [id, byId.get(id) ?? { price: null, name: null }])); } },
+  '@/lib/products/approved-product-form-consent': { readApprovedFormPublications: async (items) => new Map(items.map((item) => [item.productId, publications.get(item.productId) ?? null])) },
+  '@/lib/products/approved-product-form-images': { readApprovedFormImages: async (items) => new Map(items.map((item) => [item.productId, item.expectedSubmissionId ? [
+    { storage_path: 'selected-main.webp', thumb_path: 'selected-main-thumb.webp' }, { storage_path: 'selected-second.webp', thumb_path: null },
+  ] : null])) },
   '@/lib/products/quantity-price-config': { readQuantityPriceSettings: async () => ({ stale_days: 90 }) },
   '@/lib/products/quantity-public-projection': projection,
   '@/lib/public/price-units': priceUnits,
@@ -33,13 +39,17 @@ const adapter = compile('../lib/public/quantity-catalog-preview.ts', {
 });
 const now = Date.now();
 const supplier = { id: 's', fob_publicly_visible: true, fob_updated_at: new Date(now).toISOString(), is_demo: false };
-const record = (id) => ({ product: { id, price_publicly_visible: true, price_valid_until: '2020-01-01' }, supplier, category: { slug: 'cashew', price_unit: 'kg' }, card: {
+const record = (id) => ({ product: { id, supplier_id: supplier.id, price_publicly_visible: true, price_valid_until: '2020-01-01' }, supplier, category: { slug: 'cashew', price_unit: 'kg' }, card: {
   name: 'Legacy product', grade: 'W240', grades: ['W240', 'W450'], cardGrades: ['W240'], gradeRows: [{ grade: 'W240', priceText: 'USD 9/kg' }], hasGradeRows: true,
   attributes: { grade: 'W450', product_type: 'W240', colour: 'white' }, price: 'USD 9/kg', pricePoint: { value: 9 }, gradePricePoints: [{ grade: 'W240', value: 9 }], moq: '10 bags', incoterm: 'CIF',
 } });
-const basePrice = { status: 'approved', product_id: 'p1', grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: 1000, priceUsdPerKg: 6.4 }, { minKg: 5000, priceUsdPerKg: 6 }], confirmed_at: new Date(now - 30 * 86400000).toISOString(), warnings: ['private warning'] };
+const basePrice = { id: 'price-revision', status: 'approved', product_id: 'p1', grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: 1000, priceUsdPerKg: 6.4 }, { minKg: 5000, priceUsdPerKg: 6 }], confirmed_at: new Date(now - 30 * 86400000).toISOString(), warnings: ['private warning'] };
 byId.set('p1', { price: basePrice, name: { product_id: 'p1', status: 'approved', english_name: 'Cashew kernels' } });
 const inputs = [record('p1'), record('p2'), { ...record('demo'), supplier: { ...supplier, is_demo: true } }];
+syntheticStaging = false;
+assert.equal(await adapter.projectQuantityCatalogPreview(inputs), inputs, 'Outside synthetic staging retain the legacy projection');
+assert.equal(legacyCalls, 1); assert.equal(batchIds.length, 0, 'New form readers must not run outside staging');
+syntheticStaging = true;
 const output = await adapter.projectQuantityCatalogPreview(inputs);
 assert.deepEqual(Array.from(batchIds), ['p1', 'p2'], 'Do not read demo prices');
 const card = output[0].card;
@@ -73,6 +83,19 @@ readError = false;
 const hiddenInput = { ...record('p1'), product: { id: 'p1', price_publicly_visible: false } };
 const hidden = (await adapter.projectQuantityCatalogPreview([hiddenInput]))[0].card;
 assert.equal(hidden.price, null); assert.equal(hidden.quantityOffer.tiers.length, 0); assert.equal(hidden.pricePoint, null);
+publications.set('p1', { submissionId: 'form-1', priceConsent: false });
+const denied = (await adapter.projectQuantityCatalogPreview([record('p1')]))[0].card;
+assert.equal(denied.price, null); assert.equal(denied.quantityOffer.tiers.length, 0, 'New form requires exact revision consent');
+publications.set('p1', { submissionId: 'form-1', priceConsent: true });
+const oldSupplierConsent = { ...record('p1'), supplier: { ...supplier, fob_publicly_visible: false } };
+const formCard = (await adapter.projectQuantityCatalogPreview([oldSupplierConsent]))[0].card;
+assert.equal(formCard.price, 'USD 6.00–6.40/kg', 'A new form uses its own explicit consent');
+assert.deepEqual(Array.from(formCard.imagePaths), ['selected-main.webp', 'selected-second.webp']);
+assert.deepEqual(Array.from(formCard.imageThumbnailPaths), ['selected-main-thumb.webp', 'selected-second.webp']);
+assert.equal(formCard.cardImagePath, 'selected-main-thumb.webp'); assert.equal(formCard.usesFormGallery, true);
+publications.set('p1', { submissionId: null, priceConsent: false });
+await assert.rejects(adapter.projectQuantityCatalogPreview([record('p1')]), /out of sync/, 'Mismatched approved form never falls back');
+publications.delete('p1');
 const staleInput = record('p1');
 byId.set('p1', { price: { ...basePrice, confirmed_at: new Date(now - 91 * 86400000).toISOString() }, name: null });
 const stale = (await adapter.projectQuantityCatalogPreview([staleInput]))[0].card;

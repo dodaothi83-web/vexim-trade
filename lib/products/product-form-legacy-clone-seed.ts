@@ -8,6 +8,8 @@ type Result = { ok: false; reason: "unrepresentable_fields" } | {
   /** Do not discard these; the future clone flow must review/preserve them separately. */
   unrepresentedSpecKeys: string[];
   requiresStaffCertificationCopy: boolean;
+  /** Retain separately for staff review; legacy text does not prove kg/month. */
+  unrepresentedMonthlyCapacity: string | null;
 };
 
 /**
@@ -42,10 +44,12 @@ export function seedLegacyCloneFromProduct(input: {
     incoterm: product.incoterm ?? "", incotermPlace: product.incoterm_place ?? "", paymentTerms: product.payment_terms ?? "",
     oem: product.oem === true, odm: product.odm === true, samples: product.samples === true,
     packaging: product.packaging ?? "", exportPort: product.export_port ?? "",
-    leadTimeDays: product.lead_time_days == null ? "" : String(product.lead_time_days), monthlyCapacityKg: product.monthly_capacity ?? "",
+    // Legacy capacity may be a bare number or package count; neither proves kg.
+    leadTimeDays: product.lead_time_days == null ? "" : String(product.lead_time_days), monthlyCapacityKg: "",
     description: product.description ?? "", descriptionDetail: product.description_detail ?? "", attributes,
   });
   if (!draft) return { ok: false, reason: "unrepresentable_fields" };
   return { ok: true, draft, unrepresentedSpecKeys,
+    unrepresentedMonthlyCapacity: product.monthly_capacity?.trim() ? product.monthly_capacity : null,
     requiresStaffCertificationCopy: !!product.certifications?.trim() || !!product.certifications_i18n && Object.values(product.certifications_i18n).some(Boolean) };
 }

@@ -34,6 +34,9 @@ try {
       'unverified',null,'buyer','someone-else');`);
   const sql = readFileSync(new URL('../supabase/migrations/20261064_product_form_private_images.sql', import.meta.url), 'utf8');
   await db.exec(sql); await db.exec(sql);
+  const namespaceMigration = readFileSync(new URL('../supabase/migrations/20261066_product_form_private_image_namespace.sql', import.meta.url), 'utf8');
+  await db.exec(namespaceMigration); await db.exec(namespaceMigration);
+  await db.exec(readFileSync(new URL('../supabase/migrations/20261067_product_form_image_namespace_capability.sql', import.meta.url), 'utf8'));
   const stage = async (owner, rev, id = image, actor = 'user', bytes = 1234, hash = 'a'.repeat(64)) =>
     (await db.query('select public.stage_product_form_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) result',
       [owner, product, actor, rev, id, 'Ảnh mới', bytes, 800, 600, hash, 200, 'b'.repeat(64)])).rows[0].result;
@@ -54,8 +57,8 @@ try {
   for (const malformed of [null, 1, 'bad', []]) assert.equal((await select(supplier, 2, [malformed])).status, 'invalid');
   assert.equal((await stage(supplier, 2)).revision, 3);
   const row = (await db.query('select * from public.product_form_staged_images where id=$1', [image])).rows[0];
-  assert.equal(row.storage_path, `products/${product}/${image}.webp`);
-  assert.equal(row.thumb_path, `products/${product}/${image}-thumb.webp`);
+  assert.equal(row.storage_path, `product-form-images/${product}/${image}.webp`);
+  assert.equal(row.thumb_path, `product-form-images/${product}/${image}-thumb.webp`);
   assert.equal((await db.query('select count(*)::int n from public.media_assets')).rows[0].n, 1,
     'A staged image is absent from the public media table');
   assert.equal((await stage(supplier, 2)).status, 'exists', 'A lost result can be reconciled without duplicating the image');

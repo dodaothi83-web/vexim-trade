@@ -120,7 +120,9 @@ const store = {
   listVerifications: async (id) => reviews.filter((r) => r.supplier_id === id),
   listCertificates: async (id) => certificates.filter((c) => c.supplier_id === id),
 };
+let formStaging = false, storefrontProjectionFails = false, storefrontProjectionCalls = 0;
 const catalogMocks = { 'server-only': {}, '@/lib/db': { getStore: () => store },
+  '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => formStaging },
   '@/lib/public/grade-resolution': gradeResolution, '@/lib/public/display-name': displayName,
   '@/lib/product-attributes': productAttributes,
   '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection, '@/lib/verification-status': verificationStatus };
@@ -148,6 +150,15 @@ const productCatalog = compile('../lib/public/product-catalog.ts', {
   '@/lib/public/supplier-english': { supplierProvinceDisplay: (s) => s.province || '' },
   '@/lib/public/product-detail-display': productDetailDisplay,
 });
+catalogMocks['@/lib/public/product-catalog'] = productCatalog;
+catalogMocks['@/lib/public/quantity-catalog-preview'] = { projectQuantityCatalogPreview: async (records) => {
+  storefrontProjectionCalls++;
+  if (storefrontProjectionFails) throw Error('approved projection unavailable');
+  return records.map((record) => record.product.id === 'a0' ? { ...record, card: { ...record.card,
+    usesFormGallery: true, name: 'Approved form name', price: null,
+    imagePaths: ['approved-main.webp'], cardImagePath: 'approved-thumb.webp',
+  } } : record);
+} };
 const photoSamples = [
   { ...media[0], id: 'img-first', product_id: 'a0', storage_path: 'products/a0/first.jpg', sort_order: 0 },
   { ...media[0], id: 'img-cover', product_id: 'a0', storage_path: 'products/a0/cover.jpg', thumb_path: 'products/a0/cover-thumb.webp', sort_order: 1 },
@@ -246,6 +257,19 @@ const profile = await catalog.getPublicSupplierBySlug('company-a');
 assert.equal(profile.main_products.length, 9, 'Profile includes all public products from every category, not the four-card summary');
 assert.equal(profile.product_image_paths.a0, 'products/a0/cover.jpg', 'Full image stays on the detail/structured data');
 assert.equal(profile.product_card_image_paths.a0, 'products/a0/cover-thumb.webp', 'Supplier cards use the approved thumbnail');
+assert.equal(storefrontProjectionCalls, 0, 'Legacy storefront does not query new form readers outside staging');
+const oldPreviewFlag = process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
+process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true'; formStaging = true;
+const formProfile = await catalog.getPublicSupplierBySlug('company-a');
+assert.equal(formProfile.form_product_cards.a0.name, 'Approved form name');
+assert.equal(formProfile.form_product_cards.a0.price, null, 'Hidden approved price remains hidden');
+assert.equal(formProfile.product_image_paths.a0, 'approved-main.webp');
+assert.equal(formProfile.product_card_image_paths.a0, 'approved-thumb.webp');
+assert.equal(formProfile.form_product_cards.a1, undefined, 'Legacy products keep their original card');
+storefrontProjectionFails = true;
+await assert.rejects(() => catalog.getPublicSupplierBySlug('company-a'), /projection unavailable/, 'A failed form read must not fall back to old price and images');
+storefrontProjectionFails = false; formStaging = false;
+if (oldPreviewFlag === undefined) delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW; else process.env.VEXIM_QUANTITY_BUYER_PREVIEW = oldPreviewFlag;
 assert.equal(profile.product_image_paths.test, undefined, 'Test-only product images never appear');
 media.push({ ...media[0], id: 'private-a1', product_id: 'a1', audience: 'internal', storage_path: 'products/a1/private.jpg', sort_order: -5 });
 assert.equal((await catalog.getPublicSupplierBySlug('company-a')).product_image_paths.a1, 'products/a1/image.jpg', 'Internal product images must not leak into supplier cards');
@@ -325,6 +349,25 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
     type: 'checkbox', 'aria-label': `Add ${product.name} to comparison`, className: 'absolute right-2 top-2',
   }) },
 });
+const supplierEnglish = compile('../lib/public/supplier-english.ts', { '@/lib/public/product-detail-display': productDetailDisplay });
+const storefrontCards = [];
+const { SupplierStorefront } = compile('../components/public/supplier-storefront.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'), 'lucide-react': require('lucide-react'),
+  'next/link': { default: ({ href, children }) => React.createElement('a', { href }, children) },
+  '@/components/public-product-card': { PublicProductCard: (props) => { storefrontCards.push(props); return React.createElement('div', null, props.name); } },
+  '@/components/public/supplier-product-rail': { SupplierProductRail: ({ children }) => React.createElement('ul', null, children) },
+  '@/components/verification-tier': verificationTierModule,
+  '@/lib/public/catalog': catalog, '@/lib/verification-status': verificationStatus,
+  '@/lib/public/display-name': displayName, '@/lib/public/product-selection': selection,
+  '@/lib/public/supplier-english': supplierEnglish,
+});
+renderToStaticMarkup(React.createElement(SupplierStorefront, { supplier: formProfile, certificates: [], categories,
+  coverUrl: null, avatarUrl: null, synthetic: false }));
+const approvedStorefrontCard = storefrontCards.find((item) => item.name === 'Approved form name');
+assert.ok(approvedStorefrontCard, 'Storefront renders the approved form card');
+assert.equal(approvedStorefrontCard.imagePath, 'approved-thumb.webp');
+assert.equal(approvedStorefrontCard.price, null, 'Storefront does not show a legacy price when form consent hides it');
+assert.match(approvedStorefrontCard.quoteHref, /product_id=a0/, 'Form keeps its original RFQ product identity');
 const fullTradeLabels = renderToStaticMarkup(React.createElement(productTradeLabelsModule.ProductTradeLabels, { oem: true, odm: true, samples: true }));
 assert.match(fullTradeLabels, />OEM</, 'PDP keeps the full OEM label');
 assert.match(fullTradeLabels, />ODM</, 'PDP keeps the full ODM label');

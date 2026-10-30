@@ -39,6 +39,9 @@ let result = await snapshot(input); assert.equal(result.ok, true); assert.equal(
 assert.deepEqual(Array.from(result.replacements, (r) => r.mediaId), [first, second]);
 const uploads = calls.filter((c) => c[0] === 'upload'); assert.deepEqual(uploads.map((c) => c[2]), [1, 2]);
 assert.deepEqual(uploads.map((c) => c[3].id), [first, second]); assert.ok(calls.every((c) => c[0] !== 'delete'));
+assets[0].storage_path = `product-form-images/${product}/${first}.webp`; calls = []; reads = 0;
+assert.equal((await snapshot(input)).ok, true, 'An approved form image can be privately snapshotted again');
+assets[0].storage_path = `products/${product}/${first}.webp`;
 calls = []; selection = [{ id: first, source: 'media' }]; assert.equal((await snapshot(input)).requiresReload, true); assert.equal(calls.length, 0);
 selection = assets.map((a) => ({ id: a.id, source: 'media' }));
 collision = true; assert.equal((await snapshot(input)).ok, false); collision = false;

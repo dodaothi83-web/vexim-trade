@@ -15,7 +15,7 @@ const db = { from(table) {
       calls.push({ table, columns, filter, batch });
       if (mode === 'error') return { data: null, error: { message: 'missing migration' } };
       const data = batch.map((id) => table.includes('price')
-        ? { product_id: id, status: mode === 'pending' ? 'pending' : 'approved', grade: 'W320', incoterm: 'FOB', tiers: [], confirmed_at: '2026-10-01' }
+        ? { id: mode === 'invalid-id' ? 'bad' : id, product_id: id, status: mode === 'pending' ? 'pending' : 'approved', grade: 'W320', incoterm: 'FOB', tiers: [], confirmed_at: '2026-10-01' }
         : { product_id: id, status: 'approved', english_name: 'Cashew kernels' });
       if (mode === 'duplicate' && table.includes('price')) data.push(data[0]);
       return { data, error: null };
@@ -30,11 +30,13 @@ assert.equal((await exports.readApprovedQuantityRevisions([])).size, 0);
 const records = await exports.readApprovedQuantityRevisions([...ids, ids[0]]);
 assert.equal(records.size, 101);
 assert.equal(records.get(ids[0]).name.english_name, 'Cashew kernels');
+assert.equal(records.get(ids[0]).price.id, ids[0], 'Exact revision ID is available for consent linkage');
 assert.equal(calls.length, 6);
 assert.ok(calls.every((call) => call.filter === 'approved' && call.batch.length <= 50));
 assert.ok(calls.every((call) => !call.columns.includes('warnings') && !call.columns.includes('source_name')));
 await assert.rejects(exports.readApprovedQuantityRevisions(['bad-id']), /Invalid/);
 mode = 'pending'; await assert.rejects(exports.readApprovedQuantityRevisions([ids[0]]), /Unexpected/);
 mode = 'duplicate'; await assert.rejects(exports.readApprovedQuantityRevisions([ids[0]]), /Unexpected/);
+mode = 'invalid-id'; await assert.rejects(exports.readApprovedQuantityRevisions([ids[0]]), /Unexpected/);
 mode = 'error'; await assert.rejects(exports.readApprovedQuantityRevisions([ids[0]]), /unavailable/);
 console.log('Approved revision reader: batching, whitelist, fail-closed and approved-only passed');

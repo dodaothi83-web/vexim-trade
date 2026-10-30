@@ -18,7 +18,7 @@ export function emptyProductFormDraft(): ProductFormDraft {
 type ApprovedPrice = { product_id: string; status: string; grade: unknown; incoterm: unknown; tiers: unknown };
 
 type SeedResult =
-  | { ok: true; draft: ProductFormDraft }
+  | { ok: true; draft: ProductFormDraft; unrepresentedMonthlyCapacity: string | null }
   | { ok: false; reason: "legacy_pricing" | "multiple_grades" | "invalid_price_revision" | "unrepresentable_fields" };
 
 /**
@@ -67,8 +67,11 @@ export function seedProductFormFromApproved(input: {
     priceConsent: false, paymentTerms: product.payment_terms ?? "", oem: product.oem === true, odm: product.odm === true,
     samples: product.samples === true, packaging: product.packaging ?? "", exportPort: product.export_port ?? "",
     leadTimeDays: product.lead_time_days == null ? "" : String(product.lead_time_days),
-    monthlyCapacityKg: product.monthly_capacity ?? "", description: product.description ?? "",
+    // An approved price revision does not prove the unit of legacy capacity.
+    // A future loader may restore this from the exact linked approved form.
+    monthlyCapacityKg: "", description: product.description ?? "",
     descriptionDetail: product.description_detail ?? "", attributes,
   });
-  return draft ? { ok: true, draft } : { ok: false, reason: "unrepresentable_fields" };
+  return draft ? { ok: true, draft, unrepresentedMonthlyCapacity: product.monthly_capacity?.trim() ? product.monthly_capacity : null }
+    : { ok: false, reason: "unrepresentable_fields" };
 }

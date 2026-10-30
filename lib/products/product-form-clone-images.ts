@@ -47,7 +47,7 @@ export async function copyImagesToNewProductDraft(input: {
       return fail("Bản nháp không còn trống hoặc đã thay đổi. Hãy tải lại trang.", 0, true);
     const assets: MediaAsset[] = [];
     const paths = new Set<string>();
-    const pattern = new RegExp(`^products/${sourceProductId.toLowerCase()}/[a-f0-9-]{20,}\\.(?:jpe?g|png|webp)$`, "i");
+    const pattern = new RegExp(`^(?:products|product-form-images)/${sourceProductId.toLowerCase()}/[a-f0-9-]{20,}\\.(?:jpe?g|png|webp)$`, "i");
     for (const id of sourceImageIds) {
       const asset = await store.getMedia(id);
       if (!asset || asset.id.toLowerCase() !== id.toLowerCase() || asset.owner_type !== "product" || asset.product_id !== source.id ||

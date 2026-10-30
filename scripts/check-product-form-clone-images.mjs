@@ -41,6 +41,9 @@ const input = { db, store, supplierId: supplier, sourceProductId: source, destin
 let result = await copy(input); assert.equal(result.ok, true); assert.equal(result.uploaded, 2); assert.equal(result.revision, 3);
 assert.deepEqual(calls.filter((x) => x[0] === 'upload').map((x) => x.slice(1, 3)), [[dest, 1], [dest, 2]]);
 assert.ok(calls.every((call) => call[0] !== 'delete'), 'No source deletions');
+assets[0].storage_path = `product-form-images/${source}/${first}.webp`; calls = []; reads = 0;
+assert.equal((await copy(input)).ok, true, 'An approved form image can be copied to a new private draft');
+assets[0].storage_path = `products/${source}/${first}.webp`;
 calls = []; selection = [{ id: stagedId, source: 'staged' }]; result = await copy(input); assert.equal(result.ok, false); assert.equal(result.requiresReload, true); assert.equal(calls.length, 0); selection = [];
 collision = true; result = await copy(input); assert.equal(result.ok, false); assert.equal(calls.length, 0); collision = false;
 stagedCollision = true; assert.equal((await copy(input)).ok, false); stagedCollision = false;

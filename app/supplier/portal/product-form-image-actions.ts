@@ -3,6 +3,7 @@
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type ImageRef = { source: "media" | "staged"; id: string };
@@ -10,6 +11,7 @@ type Result = { ok: true; revision: number } | { ok: false; message: string; req
 
 /** Change only the private selection; the database locks the product and draft. */
 export async function setProductFormImagesAction(productId: string, expectedRevision: number, input: unknown): Promise<Result> {
+  if (!isSyntheticProductFormStaging()) return { ok: false, message: "Chức năng ảnh của form mới chưa sẵn sàng." };
   if (!UUID.test(productId) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 1 ||
       !Array.isArray(input) || input.length > 8) return { ok: false, message: "Danh sách ảnh không hợp lệ." };
   const refs: ImageRef[] = [];

@@ -20,7 +20,7 @@ const { parseDraftImageSelection } = load('../lib/products/product-form-image-se
 const product = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', supplier = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', id = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 const main = new Uint8Array([1, 2]), thumb = new Uint8Array([3]);
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
-const path = `products/${product}/${id}.webp`, thumbPath = `products/${product}/${id}-thumb.webp`;
+const path = `product-form-images/${product}/${id}.webp`, thumbPath = `product-form-images/${product}/${id}-thumb.webp`;
 let objects = new Map([[path, main], [thumbPath, thumb]]), calls = [];
 const { verifyStagedReviewImages: verify } = load('../lib/products/product-form-review-images.ts', {
   'server-only': {}, 'node:crypto': { createHash },

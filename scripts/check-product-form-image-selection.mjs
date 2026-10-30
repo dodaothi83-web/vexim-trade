@@ -17,7 +17,7 @@ const ref = (source, id) => ({ source, id });
 const media = { id: mediaId, owner_type: 'product', product_id: productId, supplier_id: supplierId, kind: 'image',
   audience: 'buyer', created_by: 'other', storage_path: 'old.webp', status: 'unverified' };
 const staged = { id: stagedId, product_id: productId, supplier_id: supplierId, created_by: 'user',
-  storage_path: `products/${productId}/${stagedId}.webp`, mime: 'image/webp' };
+  storage_path: `product-form-images/${productId}/${stagedId}.webp`, mime: 'image/webp' };
 const input = { productId, supplierId, userId: 'user', media: [media], staged: [staged], selection: [ref('staged', stagedId), ref('media', mediaId)] };
 let result = resolve(input); assert.equal(result.selected.length, 2); assert.equal(result.selected[0].id, stagedId);
 assert.equal(result.selected[1].url, '/api/media/file/old.webp'); assert.equal(result.available.length, 2);

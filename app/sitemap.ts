@@ -10,9 +10,12 @@ import { SITE_URL } from "@/lib/site";
 /** Làm mới danh sách sau tối đa 60 giây */
 export const revalidate = 60;
 
-const INDEXABLE = process.env.PUBLIC_SITE_INDEXABLE === "true";
+const NON_PRODUCTION = ["preview", "development"].includes(process.env.VERCEL_ENV ?? "") || process.env.VEXIM_DEPLOY_ENV === "staging";
+const INDEXABLE = !NON_PRODUCTION && process.env.PUBLIC_SITE_INDEXABLE === "true";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Never advertise test pages or production canonical URLs from a staging host.
+  if (NON_PRODUCTION) return [];
   // Blog pages always stay crawlable (existing content, unchanged for MVP).
   const posts = await listPublishedNews().catch(() => []);
   const legalRoutes: MetadataRoute.Sitemap = [
