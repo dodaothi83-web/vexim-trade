@@ -11,8 +11,17 @@ set
       'options', jsonb_build_array('W180', 'W210', 'W240', 'W320', 'W450', 'SW', 'WS', 'LP', 'SP')
     )
   ),
-  filters = jsonb_build_object(
-    'grades', jsonb_build_array('W180', 'W210', 'W240', 'W320', 'W450', 'SW', 'WS', 'LP', 'SP')
+  -- `filters` is a jsonb array of filter objects since the CMS editor moved off the
+  -- older {grades: [...]} map, and the column now rejects anything but an array.
+  filters = jsonb_build_array(
+    jsonb_build_object(
+      'key', 'grade',
+      'label', 'Grades',
+      'options', (
+        select jsonb_agg(jsonb_build_object('value', grade, 'label', grade))
+        from unnest(array['W180', 'W210', 'W240', 'W320', 'W450', 'SW', 'WS', 'LP', 'SP']) as grade
+      )
+    )
   )
 where slug in ('cashew-kernels', 'cashew');
 

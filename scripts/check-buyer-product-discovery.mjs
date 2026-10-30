@@ -91,10 +91,17 @@ assert.deepEqual(verificationLabels([1, 3]), ['Documents checked', 'Delivery his
 assert.deepEqual(approvedVerificationSteps([{ target_level: 3, status: 'approved' }]), [3]);
 assert.deepEqual(approvedVerificationSteps([{ target_level: 1, status: 'approved' }, { target_level: 2, status: 'approved' }, { target_level: 3, status: 'approved' }]), [1, 2, 3]);
 const require = createRequire(import.meta.url);
+// The product-detail row reuses the per-check hues and symbols from the shared tier module.
+const verificationTierSource = compile('../components/verification-tier.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  'lucide-react': require('lucide-react'),
+  '@/lib/verification-status': verificationStatus,
+});
 const { ProductVerificationIcons } = compile('../components/product-verification-icons.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
   '@/lib/verification-status': verificationStatus,
+  '@/components/verification-tier': verificationTierSource,
 });
 const renderChecks = (levels) => renderToStaticMarkup(React.createElement(ProductVerificationIcons, { levels }));
 const mixed = renderChecks([1, 3]);
@@ -483,6 +490,28 @@ assert.doesNotMatch(compactCard, /FOB reference|Reference price/, 'Price uses pl
 assert.match(compactCard, /mt-1\.5 flex flex-wrap[^"]*sm:mt-2 sm:grid sm:grid-cols-2/, 'MOQ and lead time are inline on phones and become a two-column row on desktop');
 assert.match(compactCard, /flex min-w-0 items-baseline gap-1 sm:block/, 'Mobile commercial terms stay on the same line');
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
+// Each check owns its hue and symbol: documents blue, factory gold, delivery violet.
+const LEVEL_TONES = [
+  [1, 'Documents checked', 'sky', 'file-check'],
+  [2, 'Factory verification', 'amber', 'factory'],
+  [3, 'Delivery history reviewed', 'violet', 'truck'],
+];
+const allApprovedCard = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, verificationSteps: [1, 2, 3] }));
+for (const [level, label, hue, icon] of LEVEL_TONES) {
+  assert.ok(allApprovedCard.includes(`aria-label="Level ${level} · ${label}: Approved`),
+    `Shield ${level} is announced as level ${level} · ${label}`);
+  assert.ok(allApprovedCard.includes(`border-2 border-${hue}-400 bg-${hue}-100 text-${hue}-700`),
+    `Approved shield ${level} uses its own ${hue} tone`);
+  assert.ok(allApprovedCard.includes(`lucide-${icon}`), `Approved shield ${level} keeps the ${icon} symbol`);
+  assert.ok(allApprovedCard.includes(`<span class="block text-[10px] font-semibold leading-4 text-${hue}-300">Approved</span>`),
+    `The tooltip repeats level ${level}'s ${hue} tone for the approved status`);
+}
+assert.equal(new Set(LEVEL_TONES.map(([, , hue]) => hue)).size, 3, 'The three checks never share one hue');
+assert.match(compactCard, /border-2 border-sky-400 bg-sky-100 text-sky-700/, 'A card with only documents approved shows just the blue shield');
+assert.match(compactCard, /border-2 border-violet-400 bg-violet-100 text-violet-700/, 'A card with delivery history approved shows the violet shield');
+assert.match(compactCard, /border-2 border-ink-200 bg-white text-ink-300/, 'A check that was not approved stays a grey outline');
+assert.doesNotMatch(compactCard, /bg-brand-50 text-brand-700/, 'The shields no longer repeat one mint colour for every level');
+assert.doesNotMatch(allApprovedCard, /bg-emerald-100 text-emerald-700/, 'No single-colour treatment survives the per-level palette');
 const standardBadge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels: [1] }));
 assert.ok(standardBadge.includes('Level 1 · Basic') && !standardBadge.includes('sm:hidden'),
   'Badges outside product cards keep the full label at every size');

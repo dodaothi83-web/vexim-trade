@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Camera, ClipboardCheck, Factory, FileCheck2, ShieldCheck } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
-import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
+import { VERIFICATION_LEVEL_TONES, VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import { listPublicSuppliers } from "@/lib/public/catalog";
 
 export const metadata: Metadata = {
@@ -153,12 +153,13 @@ function Step({
     <li className="rounded-lg border border-ink-200 bg-white p-6 sm:p-8">
       <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
         <div className="flex items-start">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink-900 text-white">
+          {/* Mỗi cấp một màu, khớp với khiên hiển thị trên hồ sơ nhà cung cấp. */}
+          <div className={`flex h-12 w-12 items-center justify-center rounded-full border-2 ${VERIFICATION_LEVEL_TONES[n].pip}`}>
             {icon}
           </div>
         </div>
         <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">Check {n}</p>
+          <p className={`text-[12px] font-semibold uppercase tracking-[0.16em] ${n === 1 ? "text-sky-700" : n === 2 ? "text-amber-700" : "text-violet-700"}`}>Check {n}</p>
           <h3 className="mt-1 text-[20px] font-bold text-ink-900">{title}</h3>
           <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-700">{body}</p>
           <p className="mt-3 flex flex-wrap items-center gap-2 text-[13px] font-medium text-ink-600">

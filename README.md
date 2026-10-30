@@ -83,6 +83,8 @@ production), `on`, hoặc `off`.
 
 Trường thông số theo từng ngành (Vexim tự nhập, không tự suy diễn từ bảng tham khảo): xem `docs/category-product-attributes.md`; cần migration `supabase/migrations/20261018_category_product_attributes.sql` trước khi deploy.
 
+`categories.filters` là jsonb và phải là mảng `CategoryFilter[]`. Dòng cũ có thể là map `{"grades": [...]}`, một object filter đơn lẻ hoặc chuỗi JSON đã mã hoá hai lần — trang `/rfq` từng vỡ cả route với lỗi `a.filters?.find is not a function`. Chạy `supabase/migrations/20261051_category_filters_shape_repair.sql` một lần trên đúng Supabase project (idempotent, chỉ ghi lại dòng lệch chuẩn, giữ nguyên nhãn và lựa chọn) để chuẩn hoá dữ liệu và chặn hình dạng khác ở tầng database; code đọc qua `lib/category-filters.ts` nên trang vẫn render an toàn trước khi migration chạy. Kiểm thử: `npm run check:category-filters`.
+
 ---
 
 ## Tài khoản & phân quyền

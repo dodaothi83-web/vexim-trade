@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { PublicProductCard } from "@/components/public-product-card";
 import { SupplierProductRail } from "@/components/public/supplier-product-rail";
-import { VerificationCoverSeal, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
+import { VERIFICATION_LEVEL_ICONS, VERIFICATION_LEVEL_TONES, VerificationCoverSeal, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
 import { supplierTypeLabel, type PublicSupplierCard } from "@/lib/public/catalog";
 import type { Category } from "@/lib/types";
@@ -25,13 +25,6 @@ function storefrontStructuredMoq(source: { moq_qty?: unknown; moq_unit?: unknown
   if (typeof qty !== "number" || !Number.isFinite(qty) || qty <= 0 || (unit !== "kg" && unit !== "mt")) return "On request";
   return `${qty} ${unit === "mt" ? "MT" : "kg"}`;
 }
-
-const STRIP_CLASSES: Record<number, string> = {
-  0: "border-ink-200 bg-ink-50",
-  1: "border-brand-200 bg-brand-50",
-  2: "border-brand-300 bg-brand-50",
-  3: "border-amber-300 bg-gradient-to-r from-brand-50 to-amber-50",
-};
 
 const VERIFICATION_ITEMS = [
   { level: 1, label: "Documents checked", pending: "Covers business registration evidence.", Icon: FileCheck2 },
@@ -125,9 +118,21 @@ export function SupplierStorefront({
             {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
             {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
           </div>
-          <div className={`mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 ${STRIP_CLASSES[tier]}`}>
+          {/* One compact row, but each approved check keeps its own hue + symbol. */}
+          <div className="mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 border-ink-200 bg-ink-50/70">
             <ShieldCheck className="h-4 w-4 shrink-0 text-brand-700" aria-hidden="true" />
-            <p className="min-w-0 flex-1 truncate text-left text-xs font-medium leading-5 text-ink-700" title={verificationSummary}>{verificationSummary}</p>
+            <p className="min-w-0 flex-1 truncate text-left text-xs font-medium leading-5 text-ink-700" title={verificationSummary}>
+              {steps.length ? <>
+                <span className="font-bold text-ink-800">{steps.length}/3 approved</span>
+                {steps.map((level) => {
+                  const Icon = VERIFICATION_LEVEL_ICONS[level];
+                  return <span key={level} className={`ml-1.5 inline-flex items-center gap-1 rounded border px-1.5 py-px align-baseline text-[11px] font-semibold ${VERIFICATION_LEVEL_TONES[level].chip}`}>
+                    <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    {verificationLabel(level, l2Scope)}
+                  </span>;
+                })}
+              </> : <span>Independent checks are shown below.</span>}
+            </p>
             <a href="#verification" className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-ink-500 underline-offset-4 transition hover:text-brand-700 hover:underline">View details <ArrowRight className="h-3 w-3" aria-hidden="true" /></a>
           </div>
         </div>
@@ -172,7 +177,7 @@ export function SupplierStorefront({
           <div className="bg-gradient-to-br from-ink-950 via-brand-900 to-brand-800 p-5 text-white sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-5">
               <div className="flex max-w-xl items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10"><ShieldCheck className="h-5 w-5 text-emerald-200" /></span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10"><ShieldCheck className="h-5 w-5 text-amber-200" /></span>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-100">Supplier trust profile</p>
                   <h2 id="verification-title" className="mt-1 text-xl font-bold tracking-tight text-white">Verification Status</h2>
@@ -185,7 +190,7 @@ export function SupplierStorefront({
               </div>
             </div>
             <div className="mt-5 grid grid-cols-3 gap-2" role="img" aria-label={`${steps.length} of 3 verification checks approved`}>
-              {VERIFICATION_ITEMS.map(({ level }) => <span key={level} aria-hidden="true" className={`h-1.5 rounded-full ${steps.includes(level) ? "bg-emerald-300" : "bg-white/20"}`} />)}
+              {VERIFICATION_ITEMS.map(({ level }) => <span key={level} aria-hidden="true" className={`h-1.5 rounded-full ${steps.includes(level) ? VERIFICATION_LEVEL_TONES[level].bar : "bg-white/20"}`} />)}
             </div>
           </div>
           <div className="p-4 sm:p-5">
@@ -199,18 +204,18 @@ export function SupplierStorefront({
                 const reviewStatus = approvedStep ? "Approved" : "Not approved";
                 const iconTooltip = `Level ${level} · ${label}: ${reviewStatus}. ${explanation}`;
                 return <article key={level} id={level === 2 ? scope === "partner_contract" ? "partner-factory-contract" : "factory-visit" : level === 3 ? "delivery-history" : undefined}
-                  className={`min-w-0 scroll-mt-24 rounded-xl border p-4 shadow-sm ${approvedStep ? "border-emerald-200 bg-emerald-50/40" : "border-ink-200 bg-ink-50/60"}`}>
+                  className={`min-w-0 scroll-mt-24 rounded-xl border p-4 shadow-sm ${approvedStep ? VERIFICATION_LEVEL_TONES[level].card : "border-ink-200 bg-ink-50/60"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <span className="group/level relative inline-flex">
                       <button type="button" aria-label={iconTooltip}
-                        className={`flex h-9 w-9 shrink-0 cursor-help items-center justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${approvedStep ? "bg-emerald-100 text-emerald-800" : "bg-white text-ink-400 ring-1 ring-ink-200"}`}><Icon className="h-4 w-4" aria-hidden="true" /></button>
+                        className={`flex h-9 w-9 shrink-0 cursor-help items-center justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${approvedStep ? VERIFICATION_LEVEL_TONES[level].pip : "border-2 border-ink-200 bg-white text-ink-400"}`}><Icon className="h-4 w-4" aria-hidden="true" /></button>
                       <span role="tooltip" className="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden w-56 rounded-md bg-ink-900 px-3 py-2 text-left shadow-xl group-hover/level:block group-focus-within/level:block">
                         <strong className="block text-[11px] font-bold leading-4 text-white">Level {level} · {label}</strong>
-                        <span className={`block text-[10px] font-semibold leading-4 ${approvedStep ? "text-emerald-300" : "text-ink-300"}`}>{reviewStatus}</span>
+                        <span className={`block text-[10px] font-semibold leading-4 ${approvedStep ? VERIFICATION_LEVEL_TONES[level].status : "text-ink-300"}`}>{reviewStatus}</span>
                         <span className="mt-0.5 block text-[10px] leading-4 text-ink-200">{explanation}</span>
                       </span>
                     </span>
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${approvedStep ? "bg-emerald-100 text-emerald-800" : "bg-ink-100 text-ink-500"}`}>
+                    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold ${approvedStep ? VERIFICATION_LEVEL_TONES[level].chip : "border-ink-200 bg-ink-100 text-ink-500"}`}>
                       {approvedStep ? <CheckCircle2 className="h-3 w-3" /> : <Clock3 className="h-3 w-3" />}{reviewStatus}
                     </span>
                   </div>

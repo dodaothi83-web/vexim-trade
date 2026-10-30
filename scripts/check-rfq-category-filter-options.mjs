@@ -22,6 +22,16 @@ const mocks = {
   '@/lib/products/grade-pricing': { standardGradesForCategory: (category) => category.standardGrades ?? [] },
   '@/lib/public/catalog': { listPublicSuppliers: async () => suppliers },
 };
+// Trang đọc cột jsonb qua bộ chuẩn hoá dùng chung, nên biên dịch luôn module đó
+// thật thay vì giả lập: kiểm này bao trọn cả hình dạng dữ liệu cũ.
+const filterExports = {};
+vm.runInNewContext(
+  ts.transpileModule(readFileSync(new URL('../lib/category-filters.ts', import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText,
+  { exports: filterExports, require: (key) => { throw Error(`Unexpected import in lib/category-filters.ts: ${key}`); } },
+);
+mocks['@/lib/category-filters'] = filterExports;
 const exports = {};
 const js = ts.transpileModule(readFileSync(new URL('../app/(public)/rfq/page.tsx', import.meta.url), 'utf8'), {
   compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
