@@ -3,11 +3,11 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
-import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
+import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
 
 /** Resolve the active reviewer from the same database as the private submissions. */
 export async function requireProductFormReviewer() {
-  if (!isSyntheticProductFormStaging()) redirect("/crm/products");
+  if (!isProductFormEnabled()) redirect("/crm/products");
   const session = await requireSession();
   if (session.role !== "admin" && session.role !== "reviewer") redirect("/crm/products");
   const db = getSupabaseClient();

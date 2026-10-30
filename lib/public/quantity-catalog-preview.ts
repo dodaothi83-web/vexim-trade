@@ -1,7 +1,7 @@
 import "server-only";
 
 import { readApprovedQuantityRevisions } from "@/lib/products/approved-quantity-revisions";
-import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
+import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
 import { readApprovedFormPublications } from "@/lib/products/approved-product-form-consent";
 import { readApprovedFormImages } from "@/lib/products/approved-product-form-images";
 import { readQuantityPriceSettings } from "@/lib/products/quantity-price-config";
@@ -11,10 +11,9 @@ import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import type { PublicProductRecord } from "@/lib/public/product-catalog";
 
 /**
- * Staging-only cutover experiment. Call only after public product, supplier and
- * media eligibility checks. A failed read for eligible records must never fall
- * back to legacy prices. Unmapped multi-grade records deliberately remain on
- * the legacy projection. Supplier storefronts and the main editor are not cut over.
+ * Approved-form cutover. Call only after public product, supplier and media
+ * eligibility checks. Failed reads never fall back to legacy prices. Unmapped
+ * multi-grade records deliberately remain on the legacy projection.
  */
 function hasUnmappedLegacyGrades(record: PublicProductRecord): boolean {
   const rows = record.product.specs?.grade_rows;
@@ -25,9 +24,9 @@ function hasUnmappedLegacyGrades(record: PublicProductRecord): boolean {
 }
 
 export async function projectQuantityCatalogPreview(records: PublicProductRecord[]): Promise<PublicProductRecord[]> {
-  // The new publication and gallery contract is staged only. Preserve the
-  // pre-existing quantity preview everywhere else, even if its older flag is on.
-  if (!isSyntheticProductFormStaging())
+  // Keep the pre-existing quantity preview when the new form is not enabled,
+  // including production until its explicit release switch is set.
+  if (!isProductFormEnabled())
     return (await import("@/lib/public/quantity-catalog-legacy-preview")).projectQuantityCatalogPreview(records);
   const eligible = records.filter((record) => !record.supplier.is_demo && !hasUnmappedLegacyGrades(record));
   if (!eligible.length) return records;

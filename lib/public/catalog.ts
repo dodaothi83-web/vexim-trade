@@ -10,7 +10,7 @@ import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, Ver
 import { approvedL2Scope, approvedPartnerReviewSummary, approvedPublicReviewSummaries, approvedVerificationSteps, type PublicL2Scope, type PublicReviewSummaries } from "@/lib/verification-status";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductCategorySlug } from "@/lib/public/product-selection";
 import { publicProductTitle } from "@/lib/public/display-name";
-import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
+import { isProductFormBuyerEnabled } from "@/lib/products/product-form-staging-access";
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
 
 /** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
@@ -42,7 +42,7 @@ export interface PublicSupplierCard extends Supplier {
   gallery_images: string[];      // storage_path các ảnh buyer-shareable
   product_image_paths: Record<string, string>; // full approved image (detail and structured data)
   product_card_image_paths: Record<string, string>; // approved thumbnail, falls back to full legacy image
-  /** Approved form projection, present only in the isolated staging preview. */
+  /** Approved form projection, present only when the matching buyer cutover is enabled. */
   form_product_cards?: Record<string, PublicCategoryProduct>;
   public_review_summaries: PublicReviewSummaries;
   approved_verification_steps: VerificationLevel[];
@@ -234,7 +234,7 @@ export async function getSupplierStorefront(supplier: Supplier & Partial<PublicS
     partner_review_summary: vers.length ? approvedPartnerReviewSummary(vers) : supplier.partner_review_summary,
     public_review_summaries: approvedPublicReviewSummaries(vers),
   };
-  if (isSyntheticProductFormStaging() && process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true" && !supplier.is_demo && publicProducts.length) {
+  if (isProductFormBuyerEnabled() && !supplier.is_demo && publicProducts.length) {
     const [{ projectPublicCategoryProduct }, { projectQuantityCatalogPreview }] = await Promise.all([
       import("@/lib/public/product-catalog"), import("@/lib/public/quantity-catalog-preview"),
     ]);

@@ -30,7 +30,7 @@ const mocks={ 'next/link':{__esModule:true,default:({children})=>React.createEle
   '@/lib/products/quantity-new-config':{readNewQuantityPolicies:async()=>({})},
   '@/lib/products/quantity-editor-data':{readQuantityEditorData:async()=>null},
   '@/lib/supplier-portal/product-view':{supplierVisibleProductMedia:()=>[]},
-  '@/lib/products/product-form-staging-access':{isSyntheticProductFormStaging:()=>staging},
+  '@/lib/products/product-form-staging-access':{isProductFormEnabled:()=>staging},
   '@/lib/products/product-form-seed':{emptyProductFormDraft:()=>({name:''})},
   '@/app/supplier/portal/product-form-draft-actions':{loadProductFormDraftAction:async()=>{loadCalls++;return draftResult;}},
 };

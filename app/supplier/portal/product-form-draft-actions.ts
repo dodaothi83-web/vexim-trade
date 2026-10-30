@@ -7,7 +7,7 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { parseProductFormDraft, type ProductFormDraft } from "@/lib/products/product-form-model";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 import { resolveSupplierDraftImages } from "@/lib/products/product-form-image-selection";
-import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
+import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
 import type { ProductFormImage } from "@/lib/products/product-form-session";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -16,7 +16,7 @@ type Result = { ok: false; message: string; requiresReload?: boolean } | { ok: t
 
 /** Always authorize using the same Supabase store that owns the private draft. */
 async function context() {
-  if (!isSyntheticProductFormStaging()) return null;
+  if (!isProductFormEnabled()) return null;
   const db = getSupabaseClient();
   if (!db) return null;
   const access = await supplierPortalAccess(supabaseStore);

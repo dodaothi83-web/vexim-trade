@@ -7,7 +7,7 @@ import { parseProductFormDraft } from "@/lib/products/product-form-model";
 import { parseDraftImageSelection } from "@/lib/products/product-form-image-selection";
 import { productFormReviewDiff } from "@/lib/products/product-form-review-diff";
 import { shareableProductImages } from "@/lib/public/product-catalog";
-import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
+import { isProductFormBuyerEnabled } from "@/lib/products/product-form-staging-access";
 import { requireProductFormReviewer } from "../reviewer-access";
 import { ProductFormReviewControls } from "./review-controls";
 
@@ -82,7 +82,7 @@ export default async function ProductFormReviewDetail({ params }: { params: Prom
       {Array.isArray(submission.warnings) && submission.warnings.length > 0 && <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Bản gửi có cảnh báo giá cần đối chiếu với cấu hình hiện tại.</p>}
       <ProductFormReviewDiffTable rows={productFormReviewDiff(baseline, draft, { baselineConsentKnown: !!baseline })} />
       <ProductFormReviewControls productId={product.id} submissionId={submission.id} updatedAt={product.updated_at}
-        allowApproval={isSyntheticProductFormStaging() && process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true"} />
+        allowApproval={isProductFormBuyerEnabled()} />
     </div>
   </>;
 }

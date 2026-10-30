@@ -21,7 +21,7 @@ const db = {
 };
 let validationContext, attributesOk = true;
 let stagingAllowed = true;
-const mocks = { '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => stagingAllowed },
+const mocks = { '@/lib/products/product-form-staging-access': { isProductFormBuyerEnabled: () => stagingAllowed },
   'next/cache': { revalidatePath() {} }, '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: store },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access }, '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
   '@/lib/products/grade-pricing': { standardGradesForCategory: () => ['W320'] }, '@/lib/products/quantity-price-config': { readQuantityPricingPolicy: async () => ({ settings: true }) },

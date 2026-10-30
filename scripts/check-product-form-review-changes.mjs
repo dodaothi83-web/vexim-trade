@@ -8,7 +8,7 @@ let session = { uid: actorId, role: 'reviewer', email: 'reviewer@example.com' },
   actor = { id: actorId, role: 'reviewer', email: 'reviewer@example.com', is_active: true },
   result = { data: { status: 'changes_requested', already_decided: false }, error: null }, calls = [], audits = [], paths = [], staging = true;
 const mocks = { 'next/cache': { revalidatePath: (path) => paths.push(path) },
-  '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => staging },
+  '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => staging },
   '@/lib/auth/session': { getSession: async () => session },
   '@/lib/db/supabase': { getSupabaseClient: () => ({ rpc: async (name, args) => { calls.push({ name, args }); return result; } }),
     supabaseStore: { getUser: async () => actor, addAuditLog: async (entry) => { audits.push(entry); } } } };

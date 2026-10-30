@@ -9,7 +9,7 @@ import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/suppli
 import { PageHeader } from "@/components/page-header";
 import { SupplierProductEditor } from "../product-editor";
 import { readQuantityEditorData } from "@/lib/products/quantity-editor-data";
-import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
+import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
 import { loadProductFormDraftAction } from "@/app/supplier/portal/product-form-draft-actions";
 import { readNewQuantityPolicies } from "@/lib/products/quantity-new-config";
 import { SupplierProductFormStagingEditor } from "../product-form-staging-editor";
@@ -40,7 +40,7 @@ export default async function OwnProductPage({ params, searchParams }: { params:
   ]);
   const media = supplierVisibleProductMedia(allMedia, access.supplier.id, access.user.id);
   const options = categoryProposalOptions(allCategories);
-  if (isSyntheticProductFormStaging()) {
+  if (isProductFormEnabled()) {
     const draftResult = await loadProductFormDraftAction(id);
     if (!draftResult.ok) return <><PageHeader title={product.name || "Quản lý sản phẩm"} />
       <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">{draftResult.message}</p></>;

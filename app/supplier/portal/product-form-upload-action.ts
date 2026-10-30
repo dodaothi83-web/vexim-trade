@@ -4,7 +4,7 @@ import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { uploadPrivateProductFormImage } from "@/lib/products/product-form-private-upload";
-import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
+import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
 import type { ProductFormImage } from "@/lib/products/product-form-session";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -16,7 +16,7 @@ type Result = { ok: true; revision: number; image: ProductFormImage } | { ok: fa
  * verified independently of the server-action and hosting body-size limits.
  */
 export async function uploadProductFormImageAction(form: FormData): Promise<Result> {
-  if (!isSyntheticProductFormStaging()) return { ok: false, message: "Chức năng ảnh của form mới chưa sẵn sàng." };
+  if (!isProductFormEnabled()) return { ok: false, message: "Chức năng ảnh của form mới chưa sẵn sàng." };
   const productId = form.get("product_id"), revisionText = form.get("revision"), file = form.get("file");
   if (typeof productId !== "string" || !UUID.test(productId) || typeof revisionText !== "string" ||
       !/^[1-9]\d{0,9}$/.test(revisionText) || !Number.isSafeInteger(Number(revisionText)) || !(file instanceof File) ||

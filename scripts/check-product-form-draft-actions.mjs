@@ -17,7 +17,7 @@ const db = {
     async maybeSingle() { readCalls.push({ table, filters }); return { data: row, error: failure }; } }; },
 };
 let stagingAllowed = true;
-const mocks = { '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => stagingAllowed },
+const mocks = { '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => stagingAllowed },
   'next/cache': { revalidatePath() {} },
   '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getProduct: async () => product, listMedia: async () => [] } },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access },

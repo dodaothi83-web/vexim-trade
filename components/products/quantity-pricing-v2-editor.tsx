@@ -78,7 +78,7 @@ export function QuantityPriceV2Consent({ visible, checked, onChange, disabled = 
 }) {
   if (!visible) return null;
   return <div className="space-y-3">
-    <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng. Chênh lệch bất thường sẽ được Vexim rà soát theo <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold underline">Quy chế hoạt động</Link>.</p>
+    <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">Giá này là thông tin tham khảo do bạn cung cấp. Vexim có thể yêu cầu xác nhận lại khi xử lý báo giá theo <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold underline">Quy chế hoạt động</Link>.</p>
     <label className="flex items-start gap-2 text-xs font-medium text-ink-800"><input form={isolated ? "quantity-pricing-separate" : undefined} type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} className="mt-0.5 size-4 accent-brand-700" /><span>Tôi xác nhận giá trên là giá tôi sẵn sàng báo cho buyer với đúng grade, Incoterm và số lượng đã ghi. <span className="text-rose-700">*</span></span></label>
   </div>;
 }

@@ -14,7 +14,7 @@ type Props = {
   categories: CategoryProposalOption[]; policies: Record<string, QuantityPricingPolicy>;
 };
 
-/** Present only on the separate synthetic staging project until E2E is complete. */
+/** The route must enforce the approved form's environment and buyer-cutover guards. */
 export function SupplierProductFormStagingEditor(props: Props) {
   const operations = useMemo(() => supplierProductFormOperations(), []);
   const retainedId = useRef(props.productId);

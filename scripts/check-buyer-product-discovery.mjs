@@ -120,9 +120,12 @@ const store = {
   listVerifications: async (id) => reviews.filter((r) => r.supplier_id === id),
   listCertificates: async (id) => certificates.filter((c) => c.supplier_id === id),
 };
-let formStaging = false, storefrontProjectionFails = false, storefrontProjectionCalls = 0;
+let formStaging = false, formProduction = false, storefrontProjectionFails = false, storefrontProjectionCalls = 0;
 const catalogMocks = { 'server-only': {}, '@/lib/db': { getStore: () => store },
-  '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => formStaging },
+  '@/lib/products/product-form-staging-access': {
+    isProductFormBuyerEnabled: () => formProduction || (formStaging && process.env.VEXIM_QUANTITY_BUYER_PREVIEW === 'true'),
+    isQuantityCatalogPreviewEnabled: () => formProduction || process.env.VEXIM_QUANTITY_BUYER_PREVIEW === 'true',
+  },
   '@/lib/public/grade-resolution': gradeResolution, '@/lib/public/display-name': displayName,
   '@/lib/product-attributes': productAttributes,
   '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection, '@/lib/verification-status': verificationStatus };
@@ -236,6 +239,12 @@ try {
   delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
   previewFails = false;
 }
+// The production switch enables both catalog entry points without turning on the older preview flag.
+process.env.VEXIM_PRODUCT_FORM_PRODUCTION = 'true'; formProduction = true;
+try {
+  assert.ok((await productCatalog.listPublicCategoryProducts(category)).every((card) => card.previewMarker));
+  assert.equal((await productCatalog.getPublicProductRecordsByIds(['a0']))[0].card.previewMarker, true);
+} finally { formProduction = false; delete process.env.VEXIM_PRODUCT_FORM_PRODUCTION; }
 const initial = arrangeSupplierProducts(cards, 3);
 assert.equal(initial.shown.length, 6);
 assert.equal(initial.hidden.get('A'), 5);
@@ -270,6 +279,9 @@ storefrontProjectionFails = true;
 await assert.rejects(() => catalog.getPublicSupplierBySlug('company-a'), /projection unavailable/, 'A failed form read must not fall back to old price and images');
 storefrontProjectionFails = false; formStaging = false;
 if (oldPreviewFlag === undefined) delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW; else process.env.VEXIM_QUANTITY_BUYER_PREVIEW = oldPreviewFlag;
+formProduction = true;
+assert.equal((await catalog.getPublicSupplierBySlug('company-a')).form_product_cards.a0.name, 'Approved form name', 'Production storefront uses the matching cutover without the old flag');
+formProduction = false;
 assert.equal(profile.product_image_paths.test, undefined, 'Test-only product images never appear');
 media.push({ ...media[0], id: 'private-a1', product_id: 'a1', audience: 'internal', storage_path: 'products/a1/private.jpg', sort_order: -5 });
 assert.equal((await catalog.getPublicSupplierBySlug('company-a')).product_image_paths.a1, 'products/a1/image.jpg', 'Internal product images must not leak into supplier cards');

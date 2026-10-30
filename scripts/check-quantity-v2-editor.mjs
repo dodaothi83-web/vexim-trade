@@ -27,6 +27,7 @@ const value = { grade: 'W320', incoterm: 'FOB', nameVi: 'Nhân điều', customG
 const props = { value, onChange() {}, standardGrades: ['W320'], policy: pricing.DEFAULT_QUANTITY_PRICING_POLICY, pricePubliclyVisible: true, consentChecked: false, onConsentChange() {}, isolated: true };
 const render = (changes = {}) => renderToStaticMarkup(React.createElement(editor.QuantityPricingV2Editor, { ...props, ...changes }));
 const html = render();
+assert.doesNotMatch(html, /Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu/, 'Do not promise unverified quote reconciliation');
 for (const text of ['Khác (tự nhập)', '>kg</option>', '>tấn</option>', 'Đơn giá (USD/tấn)', 'Đến 1.999999 tấn', 'Quy chế hoạt động', 'type="checkbox"']) assert.ok(html.includes(text), text);
 assert.doesNotMatch(html, /<option[^>]*>bao|<option[^>]*>thùng/i);
 const separate = render({ showGrade: false, incotermPlace: React.createElement('input', { name: 'incoterm_place' }) });

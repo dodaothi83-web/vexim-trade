@@ -4,17 +4,17 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { approveProductFormAtomically } from "@/lib/products/product-form-atomic-approval";
-import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
+import { isProductFormBuyerEnabled } from "@/lib/products/product-form-staging-access";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 type Result = { ok: boolean; message: string; requiresReload?: boolean };
 
-/** Staging-only until buyer cutover, security review and E2E are complete. */
+/** Block approvals whenever the matching buyer projection is unavailable. */
 export async function approveProductFormAction(form: FormData): Promise<Result> {
   const productId = String(form.get("product_id") ?? "").toLowerCase();
   const submissionId = String(form.get("submission_id") ?? "").toLowerCase();
   const englishName = String(form.get("english_name") ?? "");
-  if (!isSyntheticProductFormStaging() || process.env.VEXIM_QUANTITY_BUYER_PREVIEW !== "true")
+  if (!isProductFormBuyerEnabled())
     return { ok: false, message: "Chức năng duyệt form mới chưa sẵn sàng." };
   if (!UUID.test(productId) || !UUID.test(submissionId) || !englishName.trim() || englishName.length > 180)
     return { ok: false, message: "Bản gửi hoặc tên tiếng Anh không hợp lệ." };

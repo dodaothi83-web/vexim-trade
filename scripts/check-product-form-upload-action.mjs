@@ -9,7 +9,7 @@ let access = { user: { id: 'user' }, supplier: { id: supplier } }, product = { i
   draft = { revision: 2, base_product_updated_at: time, image_selection: [] }, uploads = 0, error = null;
 const db = { from() { return { select() { return this; }, eq() { return this; }, async maybeSingle() { return { data: draft, error }; } }; } };
 let stagingAllowed = true;
-const mocks = { '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => stagingAllowed }, '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getProduct: async () => product } },
+const mocks = { '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => stagingAllowed }, '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getProduct: async () => product } },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access }, '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
   '@/lib/products/product-form-private-upload': { uploadPrivateProductFormImage: async (input) => { uploads++; return { ok: true, revision: input.expectedRevision + 1,
     image: { id: imageId, source: 'staged', url: '/private' } }; } } };

@@ -7,7 +7,7 @@ const supplier = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', productId = 'bbbbbbbb-b
 let access = { user: { id: 'user' }, supplier: { id: supplier } }, product = { id: productId, supplier_id: supplier }, approved = true, copies = 0, throwing = false;
 const store = { getProduct: async () => product };
 let stagingAllowed = true;
-const mocks = { '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => stagingAllowed }, '@/lib/db/supabase': { getSupabaseClient: () => ({}), supabaseStore: store },
+const mocks = { '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => stagingAllowed }, '@/lib/db/supabase': { getSupabaseClient: () => ({}), supabaseStore: store },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access }, '@/lib/supplier-portal/onboarding': { portalApproved: () => approved },
   '@/lib/products/product-form-snapshot-images': { snapshotSelectedProductImages: async (input) => { copies++; if (throwing) throw Error('unknown');
     assert.equal(input.supplierId, supplier); assert.equal(input.userId, 'user'); return { ok: true, revision: input.expectedRevision + 1, replaced: 1, replacements: [] }; } } };

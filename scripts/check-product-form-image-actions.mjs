@@ -10,7 +10,7 @@ let access = { supplier: { id: supplier }, user: { id: 'user-1' } }, product = {
   response = { data: { status: 'saved', revision: 2 }, error: null };
 const db = { rpc: async (name, args) => { calls.push({ name, args }); return response; } };
 let stagingAllowed = true;
-const mocks = { '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => stagingAllowed },
+const mocks = { '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => stagingAllowed },
   '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getProduct: async () => product } },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => true },

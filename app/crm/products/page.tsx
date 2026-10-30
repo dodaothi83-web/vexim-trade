@@ -12,7 +12,7 @@ import { MediaThumb } from "@/components/media-gallery";
 import { productReadiness } from "@/lib/media/readiness";
 import { auditProductStructuredUnits } from "@/lib/products/grade-pricing";
 import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
-import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
+import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
 
 export const dynamic = "force-dynamic";
 
@@ -141,7 +141,7 @@ export default async function ProductsPage({
         sub={`${all.length} hồ sơ sản phẩm · giá chỉ là tham khảo có thời hạn, báo giá chính thức do NCC xác nhận theo từng RFQ`}
         actions={canManage ? (
           <div className="flex flex-wrap gap-2">
-            {(session.role === "admin" || session.role === "reviewer") && <>{isSyntheticProductFormStaging() && <Link href="/crm/products/form-review" className="btn btn-soft">Bản gửi sản phẩm</Link>}<Link href="/crm/products/quantity-review" className="btn btn-soft">Rà soát giá và tên</Link></>}
+            {(session.role === "admin" || session.role === "reviewer") && <>{isProductFormEnabled() && <Link href="/crm/products/form-review" className="btn btn-soft">Bản gửi sản phẩm</Link>}<Link href="/crm/products/quantity-review" className="btn btn-soft">Rà soát giá và tên</Link></>}
             <Link href="/crm/products/import" className="btn btn-soft">
               Nhập từ Excel
             </Link>

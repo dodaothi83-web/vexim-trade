@@ -24,7 +24,7 @@ let batchIds = [], readError = false, syntheticStaging = true, legacyCalls = 0;
 const byId = new Map(), publications = new Map();
 const adapter = compile('../lib/public/quantity-catalog-preview.ts', {
   'server-only': {},
-  '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => syntheticStaging },
+  '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => syntheticStaging },
   '@/lib/public/quantity-catalog-legacy-preview': { projectQuantityCatalogPreview: async (records) => { legacyCalls++; return records; } },
   '@/lib/products/approved-quantity-revisions': { readApprovedQuantityRevisions: async (ids) => { batchIds = ids; if (readError) throw Error('database unavailable'); return new Map(ids.map((id) => [id, byId.get(id) ?? { price: null, name: null }])); } },
   '@/lib/products/approved-product-form-consent': { readApprovedFormPublications: async (items) => new Map(items.map((item) => [item.productId, publications.get(item.productId) ?? null])) },
@@ -113,7 +113,7 @@ await assert.rejects(adapter.projectQuantityCatalogPreview([record('p1')]), /Inv
 readError = true;
 await assert.rejects(adapter.projectQuantityCatalogPreview([record('p1')]), /database unavailable/, 'A read failure never falls back to the legacy price');
 const catalog = readFileSync(new URL('../lib/public/product-catalog.ts', import.meta.url), 'utf8');
-assert.equal((catalog.match(/VEXIM_QUANTITY_BUYER_PREVIEW === "true"/g) ?? []).length, 2, 'Category and ID-based reads both require opt-in');
+assert.equal((catalog.match(/await quantityPreviewEnabled\(\)/g) ?? []).length, 2, 'Category and ID-based reads both use the same cutover gate');
 const pdp = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 assert.match(pdp, /card\.quantityOffer \? <QuantityPriceTable/);
 assert.match(pdp, /!card\.quantityOffer && gradeRows\.length === 0/);

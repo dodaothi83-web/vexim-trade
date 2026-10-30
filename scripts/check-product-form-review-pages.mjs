@@ -39,7 +39,7 @@ function load(path, mocks, tsx = false) {
 const redirect = (path) => { throw Error(`redirect ${path}`); };
 let reviewStaging = true;
 const access = load('../app/crm/products/form-review/reviewer-access.ts', { 'server-only': {}, 'next/navigation': { redirect },
-  '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => reviewStaging },
+  '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => reviewStaging },
   '@/lib/auth/session': { requireSession: async () => session },
   '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getUser: async () => actor } },
 }).requireProductFormReviewer;
@@ -69,7 +69,7 @@ const detail = load('../app/crm/products/form-review/[submissionId]/page.tsx', {
   '@/lib/products/product-form-image-selection': { parseDraftImageSelection: (value) => value },
   '@/lib/products/product-form-review-diff': { productFormReviewDiff: (baseline, draft, options) => [{ baseline: baseline?.name ?? null, draft: draft.name, consentKnown: options.baselineConsentKnown }] },
   '@/lib/public/product-catalog': { shareableProductImages: () => [] },
-  '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => false },
+  '@/lib/products/product-form-staging-access': { isProductFormBuyerEnabled: () => false },
   './review-controls': { ProductFormReviewControls: ({ allowApproval }) => React.createElement('p', null, allowApproval ? 'Duyệt' : 'Kiểm tra') },
 }).default;
 html = renderToStaticMarkup(await detail({ params: Promise.resolve({ submissionId }) }));

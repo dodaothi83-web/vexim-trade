@@ -20,7 +20,7 @@ const exports = {};
 const mocks = {
   'next/server': { NextResponse: class extends Response {} },
   'node:crypto': { createHash },
-  '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => staging },
+  '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => staging },
   '@/lib/media/storage': { getObject: async () => { downloads++; return { data: new Uint8Array([255, 216, 255, 1]) }; } },
   '@/lib/db': { getStore: () => store },
   '@/lib/media/readiness': { isExpired: (a) => a.status === 'expired' },
