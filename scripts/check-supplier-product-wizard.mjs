@@ -44,18 +44,7 @@ const view = {
     media.some((m) => (m.kind === 'image' || m.kind === 'catalogue') && !!m.storage_path),
 };
 
-const priceUnits = load('../lib/public/price-units.ts', {});
-const gradeResolution = load('../lib/public/grade-resolution.ts', {});
-const gradePricing = load('../lib/products/grade-pricing.ts', {
-  '@/lib/public/price-units': priceUnits,
-  '@/lib/public/grade-resolution': gradeResolution,
-});
-const gradePricingTable = load('../components/products/grade-pricing-table.tsx', {
-  react: React,
-  'react/jsx-runtime': jsx,
-  'lucide-react': icons,
-  '@/lib/products/grade-pricing': gradePricing,
-});
+const priceOptions = load('../lib/supplier-portal/product-price-options.ts', {});
 const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal/products/product-editor.tsx', {
   react: React,
   'react/jsx-runtime': jsx,
@@ -65,19 +54,8 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/types': {},
   '@/lib/public/product-selection': { productPriceBlockers: () => [], supplierPriceConsentCurrent: (s) => s?.fob_publicly_visible !== false },
   '@/lib/supplier-portal/category-proposals': {},
+  '@/lib/supplier-portal/product-price-options': priceOptions,
   '@/lib/supplier-portal/product-view': view,
-  '@/lib/products/grade-pricing': gradePricing,
-  '@/lib/public/price-units': priceUnits,
-  '@/lib/products/quantity-pricing': { validateQuantityPricing: () => ({ value: null, errors: [], warnings: [] }) },
-  '@/components/products/grade-pricing-table': gradePricingTable,
-  '@/components/products/quantity-pricing-inline': { QuantityPricingInline: (props) => React.createElement('div', { 'data-quantity-editor': '1', 'data-sidebar-preview': String(!!props.onPreviewChange) }) },
-  '@/components/products/quantity-pricing-editor': { QuantityBuyerPreview: (props) => React.createElement('div', { 'data-buyer-preview': '1' }, props.value.nameEn), QuantityPricingEditor: () => React.createElement('div', { 'data-new-quantity': '1' }) },
-  '@/components/products/quantity-pricing-v2-editor': {
-    QuantityGradeV2Field: () => React.createElement('div', { 'data-v2-grade': '1' }),
-    QuantityPricingV2Editor: (props) => React.createElement('div', { 'data-v2-pricing': '1', 'data-show-grade': String(props.showGrade) }, props.incotermPlace),
-    QuantityBuyerV2Preview: () => React.createElement('div', { 'data-v2-preview': '1' }),
-  },
-  '@/lib/products/quantity-entry': { validateSupplierQuantityEntry: () => ({ value: null, errors: [], warnings: [] }) },
   '@/components/toast': { useToast: () => ({ push() {} }) },
   '../product-actions': {
     saveSupplierProductAction: async () => ({ ok: true, id: 'p1', message: 'Đã lưu bản nháp.' }),
@@ -131,16 +109,6 @@ const render = (props = {}) => renderToStaticMarkup(React.createElement(Supplier
 
 const source = read('../app/supplier/portal/products/product-editor.tsx');
 const step1 = render();
-const quantityEditor = { productId: 'p1', updatedAt: '2026-10-20', nameVi: 'Nhân điều', nameEn: 'Cashew kernels',
-  pendingPriceId: null, pendingNameId: null, hasApprovedPrice: false, hasApprovedName: false,
-  grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: '1000', priceUsdPerKg: '6.40' }], standardGrades: ['W320'],
-  policy: { maxTiers: 4, maxPriceRatio: 1.5, maxLastMoqRatio: 100 }, buyerPriceUnit: 'kg', pricePubliclyVisible: true };
-const withQuantity = render({ quantityEditor });
-assert.match(withQuantity, /data-sidebar-preview="true"/, 'The quantity editor sends its live draft to the sidebar');
-assert.equal((withQuantity.match(/data-buyer-preview="1"/g) ?? []).length, 1, 'The buyer preview occupies the existing card');
-assert.match(withQuantity, /không phải giá đang hiển thị cho buyer/, 'A draft preview must not be confused with the live buyer price');
-assert.doesNotMatch(withQuantity, />Giá tham khảo<\//, 'The legacy price is not repeated beside the new preview');
-assert.match(withQuantity, />Năng lực \/ tháng<\//, 'Other saved commercial details remain visible');
 
 // 1. Ba bước, mỗi lần chỉ mở MỘT bước; các bước khác vẫn nằm trong DOM (hidden) để
 //    không mất dữ liệu khi gửi form.
@@ -152,12 +120,23 @@ assert.equal((step1.match(/data-step-panel="(2|3)"/g) ?? []).length, 2, 'Đủ b
 for (const panel of ['2', '3']) {
   assert.match(step1, new RegExp(`data-step-panel="${panel}" class="hidden"`), `Bước ${panel} bị ẩn, không đẩy nội dung dài xuống`);
 }
-assert.doesNotMatch(source, /Bảng giá cũ \(cơ chế hiện tại\)|GradePricingTable|grade_rows_json/, 'Supplier wizard no longer renders or saves legacy price tables');
-assert.match(step1, /Thông tin thương mại &amp; xuất khẩu/);
-assert.match(source, /<QuantityPricingEditor value=\{newQuantity\}/, 'New products use the quantity editor');
-assert.match(source, /quantity_creation_request_id/, 'New products submit with an idempotency token');
-assert.match(source, /quantity_tiers_json/, 'The new tier table is submitted');
-for (const field of ['lead_time_days', 'payment_terms', 'export_port', 'incoterm_place']) {
+assert.doesNotMatch(source, /<details/, 'Không còn khối gập <details> trong trang sản phẩm');
+
+// 2. Thông tin thương mại & xuất khẩu HIỆN NGAY ở bước 1, không cần bấm mũi tên.
+assert.match(step1, /Thông tin thương mại &amp; xuất khẩu/, 'Tiêu đề khối thương mại & xuất khẩu hiện ngay');
+assert.match(step1, /<select[^>]*name="currency"/, 'Currency is a fixed select');
+assert.match(step1, /<select[^>]*name="unit"/, 'Price unit is a fixed select');
+for (const { value } of [...priceOptions.SUPPLIER_PRICE_CURRENCIES, ...priceOptions.SUPPLIER_PRICE_UNITS])
+  assert.ok(step1.includes(`value="${value}"`), `Offers ${value}`);
+const fresh = render({ product: undefined, media: [] });
+assert.match(fresh, /value="USD" selected=""/, 'A new product defaults to USD');
+assert.match(fresh, /value="" selected=""[^>]*>Chọn đơn vị giá/, 'A new product does not guess its price unit');
+const old = render({ product: { ...product, currency: 'USD/kg', unit: 'thùng 10kg' } });
+assert.match(old, /value="USD\/kg" selected=""[^>]*>Giá trị cũ:/, 'Legacy currency remains selected');
+assert.match(old, /value="thùng 10kg" selected=""[^>]*>Giá trị cũ:/, 'Legacy unit remains selected');
+
+for (const field of ['ref_price', 'ref_price_max', 'currency', 'unit', 'price_valid_until', 'lead_time_days',
+  'payment_terms', 'export_port', 'incoterm', 'incoterm_place']) {
   assert.ok(step1.includes(`name="${field}"`), `Ô ${field} nằm ngay trong bước 1`);
 }
 for (const field of ['raw_material_region', 'input_material_origin']) {
@@ -207,13 +186,6 @@ for (const value of ['Hạt điều nhân W320', 'Hạt &amp; hạt nhân / Hạ
 assert.equal((onStep3.match(/Sửa<\/button>/g) ?? []).length, 4, 'Mỗi khối ở bước 3 có nút Sửa quay lại đúng bước');
 assert.match(source, /ReviewField/, 'Có thành phần đọc lại từng trường');
 assert.match(source, /snapshotFromForm/, 'Bản xem lại cập nhật theo nội dung đang nhập');
-assert.match(source, /QuantityGradeV2Field[\s\S]*?<h3 className="text-sm font-bold text-ink-900">Giao dịch<\/h3>[\s\S]*?QuantityPricingV2Editor/, 'The staged new form separates attributes and transaction pricing');
-assert.match(source, /showGrade=\{false\}/, 'Grade is not duplicated inside the pricing table');
-assert.match(source, /form\.set\("quantity_version", "2"\)/);
-assert.match(source, /form\.set\("quantity_custom_grade"/);
-assert.match(source, /onV2PreviewChange=\{setV2Preview\}/, 'Existing v2 input can update the preview');
-const newPage = read('../app/supplier/portal/products/new/page.tsx');
-for (const flag of ['VEXIM_QUANTITY_FORM_STAGING', 'VEXIM_QUANTITY_V2_STAGING', 'VEXIM_QUANTITY_BUYER_PREVIEW']) assert.ok(newPage.includes(`process.env.${flag} === "true"`), `${flag} is required for new v2 form`);
 assert.match(source, /price_publicly_visible === "yes"/, 'Cờ thương mại hiện thành chip ở bước 3');
 
 // Giá của sản phẩm mới mặc định được chia sẻ, nhưng lựa chọn tắt đã lưu không bị bật lại.
@@ -223,10 +195,6 @@ const priceCheckbox = (html) => {
   return tag;
 };
 const newProductStep1 = render({ product: undefined, media: [] });
-assert.doesNotMatch(newProductStep1, /Giá theo số lượng|Tên tiếng Anh \(tùy chọn\)/);
-assert.match(newProductStep1, /Tên sản phẩm/);
-assert.match(newProductStep1, /Chọn danh mục để nhập grade và bảng giá/);
-assert.doesNotMatch(newProductStep1, /Bảng giá cũ|Thêm grade|name="grade_rows_json"|name="price_valid_until"/);
 assert.match(priceCheckbox(newProductStep1), /checked=""/, 'Sản phẩm mới được tick sẵn');
 for (const savedProduct of [product, { ...product, price_publicly_visible: false }]) {
   assert.doesNotMatch(priceCheckbox(render({ product: savedProduct })), /checked=""/,
@@ -259,7 +227,7 @@ assert.match(onStep3, /Hồ sơ đủ điều kiện/, 'Đủ điều kiện th�
 const missingMedia = render({ initialStep: 3, media: [] });
 const sendButton = (missingMedia.match(/<button[^>]*>[\s\S]{0,80}lucide-send|<button[^>]*aria-describedby="submit-blockers"/) ?? [''])[0];
 assert.ok(sendButton && !/disabled/.test(sendButton.split('>')[0]), 'Thiếu điều kiện vẫn không khoá nút gửi');
-assert.match(missingMedia, /Tải ít nhất một ảnh sản phẩm ở bước 2/, 'Nói rõ thiếu tệp ở đâu');
+assert.match(missingMedia, /Tải ít nhất một ảnh hoặc catalogue thật ở bước 2/, 'Nói rõ thiếu tệp ở đâu');
 assert.match(missingMedia, /<div id="submit-blockers" aria-live="polite">/, 'Danh sách việc cần làm có aria-live');
 assert.match(onStep2, /data-step-panel="1" class="hidden"/, 'Bước 2 ẩn hẳn form bước 1 (không kéo dài trang) nhưng vẫn giữ dữ liệu để gửi form');
 assert.match(onStep2, /data-step-panel="2" class="space-y-3"/, 'Bước 2 đang mở');
@@ -305,9 +273,9 @@ assert.match(listPage, /categoryLabels=/, 'Trang danh sách truyền nhãn danh 
 assert.match(listPage, /scope=\{\[?scope/, 'Trang danh sách truyền phạm vi danh mục');
 assert.match(listPage, /allowedSupplierCategories/, 'Phạm vi lấy từ đúng lớp dữ liệu danh mục');
 
-// 9b. Copy B2B: không lạm dụng tên nền tảng ngoài dòng nhắc đối chiếu báo giá bắt buộc dưới Grade & giá.
+// 9b. Copy B2B: không lạm dụng tên nền tảng, không giọng hành chính.
 const brandMentions = (step1.match(/Vexim/g) ?? []).length;
-assert.ok(brandMentions <= 3, `Chỉ nhắc tên nền tảng khi thật cần (đang ${brandMentions} lần)`);
+assert.ok(brandMentions <= 1, `Chỉ nhắc tên nền tảng khi thật cần (đang ${brandMentions} lần)`);
 for (const phrase of [
   'Vexim duyệt', 'Vexim kiểm tra', 'Vexim xác nhận', 'cho Vexim', 'Chờ Vexim',
   'Tôi đại diện NCC xác nhận đồng ý cho', 'không tự duyệt sản phẩm',
@@ -316,23 +284,13 @@ for (const phrase of [
 }
 assert.match(step1, /Chọn danh mục gần nhất\. Danh mục sẽ được kiểm tra khi duyệt\./,
   'Hint danh mục nói đúng mức cần thiết');
-// The shared quantity editor contains the warning; tested in check-quantity-pricing-editor.
-assert.match(source, /<QuantityPricingEditor/);
-// Chỉ hiện khi chưa có xác nhận chia sẻ giá còn hiệu lực, và bắt buộc tick khi bật công khai giá.
+// Chỉ hiện khi chưa có xác nhận chia sẻ giá còn hiệu lực.
 const noConsent = render({ supplier: { ...supplier, fob_publicly_visible: false } });
 assert.match(noConsent, /Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai\./,
   'Xác nhận chia sẻ giá gọn một dòng');
 assert.match(noConsent, /Hiệu lực 180 ngày kể từ khi lưu; giá tham khảo không phải báo giá chính thức/,
   'Điều kiện ngắn nằm dưới checkbox');
 assert.match(noConsent, /href="\/dieu-khoan-su-dung"[^>]*>Điều khoản</, 'Có link điều khoản thay vì nhồi văn bản pháp lý');
-const noConsentOptedIn = render({
-  product: { ...product, price_publicly_visible: true },
-  supplier: { ...supplier, fob_publicly_visible: false },
-});
-const consentCheckboxTag = noConsentOptedIn.match(/<input[^>]*name="confirm_supplier_price_consent"[^>]*>/)?.[0] ?? '';
-assert.match(consentCheckboxTag, /required=""/, 'Ô xác nhận chia sẻ giá là bắt buộc khi bật công khai giá');
-const consentCheckboxPrivateTag = noConsent.match(/<input[^>]*name="confirm_supplier_price_consent"[^>]*>/)?.[0] ?? '';
-assert.doesNotMatch(consentCheckboxPrivateTag, /required=""/, 'Không bắt buộc tick xác nhận khi công khai giá đang tắt');
 assert.doesNotMatch(noConsent, /Tôi đại diện NCC xác nhận/, 'Bỏ câu cam kết dài kiểu hợp đồng');
 assert.match(source, /Gửi duyệt/, 'Nút gửi dùng từ trung tính');
 assert.match(source, /Yêu cầu chỉnh sửa:/, 'Phản hồi duyệt gọi đúng việc phải làm');
@@ -407,7 +365,6 @@ const approvedOwnHtml = render({ product: ownApproved, media: [{ ...media[0], au
 assert.match(approvedOwnHtml, /aria-label="Xóa ảnh đại diện"/, 'Ảnh do mình tải có nút xóa cả khi đang đăng (server kiểm tra tệp cuối)');
 assert.match(approvedOwnHtml, /Tạm ẩn sản phẩm/);
 assert.doesNotMatch(approvedOwnHtml, /Xóa bản nháp/);
-assert.match(approvedOwnHtml, /chỉnh sửa giá trên sản phẩm đã duyệt, sản phẩm sẽ được kiểm tra lại giá/, 'Nhắc rõ sửa giá sản phẩm đã duyệt sẽ được kiểm tra lại giá');
 const paused = render({ product: { ...ownApproved, supplier_review_status: 'paused', ready_for_buyer: false },
   media: [{ ...media[0], audience: 'buyer' }], initialStep: 3 });
 assert.match(paused, /Đã tạm ẩn/);
@@ -424,15 +381,5 @@ assert.match(legacyPaused, /Gửi duyệt/, 'Sản phẩm staff tạo cũ vẫn 
 assert.doesNotMatch(legacyPaused, /aria-label="Xóa ảnh đại diện"/, 'Tệp staff quản lý vẫn bị khóa');
 assert.match(source, /data\?\.message \|\| `Xóa tệp thất bại \(HTTP/, 'Lỗi xóa hiển thị lý do API hoặc HTTP nếu không có JSON');
 assert.match(source, /data\?\.message \|\| `Đặt ảnh đại diện thất bại \(HTTP/, 'Lỗi đổi ảnh hiển thị lý do API');
-
-// 14. Thẻ ảnh phụ ở bước 2: nhãn "Chia sẻ buyer" nằm bên trái, cụm nút Sao + X nằm bên phải (không dùng left-11 đè lên chữ).
-const multiBuyerMedia = [
-  { ...media[0], id: 'm1', audience: 'buyer', caption: 'cover.png' },
-  { ...media[0], id: 'm2', audience: 'buyer', storage_path: 'products/p1/b.png', caption: '6 (5).png' },
-];
-const step2MultiHtml = render({ product: ownApproved, media: multiBuyerMedia, initialStep: 2 });
-assert.doesNotMatch(source, /\bleft-11\b/, 'Không dùng vị trí cứng left-11 khiến nút X đè lên nhãn Chia sẻ buyer');
-assert.match(step2MultiHtml, /inset-x-2 top-2 flex items-start justify-between gap-2/, 'Thanh trên thẻ ảnh tách nhãn bên trái và nút thao tác bên phải');
-assert.match(step2MultiHtml, /Chia sẻ buyer<\/span><div class="pointer-events-auto flex shrink-0 items-center gap-1\.5">/, 'Nút đặt ảnh đại diện và nút xóa gom về cụm bên phải sau nhãn');
 
 console.log('✅ Product page: wizard, cover deletion, draft deletion and pause/review controls.');

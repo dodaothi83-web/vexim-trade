@@ -13,18 +13,23 @@ export function arrangeSupplierProducts<T extends { supplierId: string }>(
   }
 
   const shown: T[] = [];
-  // First occurrence preserves the ranked supplier order; each round takes at most
-  // one product per supplier, retaining the original order within each supplier.
-  let active = [...groups.values()].filter((items) => items.length > 0).map((items) => ({ items, index: 0 }));
-  while (active.length) {
-    const next: typeof active = [];
-    for (const group of active) {
-      shown.push(group.items[group.index++]);
-      if (group.index < group.items.length) next.push(group);
-    }
-    active = next;
+  const ids = [...groups.keys()]; // tie-break by original verification/name ranking
+  let last = "";
+  let streak = 0;
+  let remaining = products.length - [...hidden.values()].reduce((sum, count) => sum + count, 0);
+  while (remaining > 0) {
+    const available = ids.filter((id) => groups.get(id)!.length > 0);
+    // Preserve alternatives for later when one supplier has many more offers.
+    const eligible = available.filter((id) => id !== last || streak < 2);
+    const choices = eligible.length ? eligible : available;
+    const chosen = choices.reduce((best, id) => groups.get(id)!.length > groups.get(best)!.length ? id : best);
+    shown.push(groups.get(chosen)!.shift()!);
+    streak = chosen === last ? streak + 1 : 1;
+    last = chosen;
+    remaining--;
   }
-  // Once other suppliers are exhausted, remaining offers stay visible.
+  // If only one supplier still has offers, a third consecutive card is unavoidable
+  // without hiding a filtered result or inventing another company's offer.
   return { shown, hidden };
 }
 

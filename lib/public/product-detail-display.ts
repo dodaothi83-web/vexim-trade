@@ -54,17 +54,7 @@ export function publicProductUnitDisplay(unit: string | null | undefined): strin
   if (!value) return "";
   const normalized = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   return ({
-    t: "MT",
-    mt: "MT",
-    ton: "MT",
-    tons: "MT",
-    tonne: "MT",
-    tonnes: "MT",
     tan: "MT",
-    kg: "kg",
-    kilo: "kg",
-    kilogram: "kg",
-    kilograms: "kg",
     thung: "carton",
     bo: "set",
     tui: "bag",
@@ -74,10 +64,7 @@ export function publicProductUnitDisplay(unit: string | null | undefined): strin
 
 /** Normalize a unit already embedded in a formatted reference price. */
 export function publicProductPriceDisplay(price: string | null | undefined): string {
-  return (price ?? "").replace(
-    /\/\s*(mt|tonnes?|tons?|t|tấn|tan|kilograms?|kilo|kg|thùng|thung|bộ|bo|túi|tui|bao)(?=\s|$|[,;])/gi,
-    (_match, unit: string) => `/${publicProductUnitDisplay(unit)}`,
-  );
+  return (price ?? "").replace(/\/\s*(tấn|tan|thùng|thung|bộ|bo|túi|tui|bao)(?=\s|$|[,;])/gi, (_match, unit: string) => `/${publicProductUnitDisplay(unit)}`);
 }
 
 /** Translate common Vietnamese MOQ units without changing the stored value. */

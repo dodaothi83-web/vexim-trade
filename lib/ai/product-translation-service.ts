@@ -9,7 +9,6 @@ import {
 } from "@/lib/ai/translate-content";
 import type { DataStore } from "@/lib/db/types";
 import type { SupplierProduct } from "@/lib/types";
-import { nameContainsGrade } from "@/lib/products/quantity-pricing";
 
 type Store = Pick<DataStore, "getProduct" | "updateProduct" | "addAuditLog">;
 type Actor = { id: string; email: string } | null;
@@ -39,29 +38,16 @@ export async function ensureProductEnglishTranslation(
   actor?: Actor,
   /** Nội dung gốc mới nhất chưa kịp lưu (ví dụ form CRM đang lưu đồng thời bật sẵn sàng gửi buyer). */
   overrideSource?: ProductTranslationSource,
-  options?: {
-    forbiddenGrades?: readonly string[];
-    saveIfUnchanged?: (product: SupplierProduct, patch: Partial<SupplierProduct>) => Promise<SupplierProduct | null>;
-  },
 ): Promise<EnsureTranslationResult> {
   const product = await store.getProduct(productId);
   if (!product) throw new Error("Không tìm thấy sản phẩm.");
   const merged = overrideSource ? { ...product, ...overrideSource } : product;
   const state = productTranslationState({ ...merged, name: merged.name ?? "" });
-  if (state.current) {
-    if (options?.forbiddenGrades && nameContainsGrade(product.name_i18n?.en ?? "", options.forbiddenGrades))
-      return { status: "failed", product, message: "Tên tiếng Anh có chứa grade. Quản trị viên cần kiểm tra và sửa." };
-    return { status: "current", product };
-  }
+  if (state.current) return { status: "current", product };
   if (!translationConfigured()) return { status: "unconfigured", product };
   try {
     const { translation, model } = await translateProductContent(sourceOf(merged));
-    if (!translation.name.trim() || nameContainsGrade(translation.name, options?.forbiddenGrades ?? [])) {
-      return { status: "failed", product, message: "Tên dịch không hợp lệ hoặc có chứa grade. Quản trị viên cần kiểm tra và sửa." };
-    }
-    const patch = productTranslationPatch(translation, sourceOf(merged), "ai", model);
-    const saved = options?.saveIfUnchanged ? await options.saveIfUnchanged(product, patch) : await store.updateProduct(productId, patch);
-    if (!saved) return { status: "failed", product, message: "Sản phẩm đã thay đổi trong khi dịch; quản trị viên cần kiểm tra bản dịch." };
+    const saved = await store.updateProduct(productId, productTranslationPatch(translation, sourceOf(merged), "ai", model));
     if (actor) {
       await store.addAuditLog({
         actor_id: actor.id, actor_email: actor.email, entity: "product", entity_id: productId,

@@ -31,21 +31,10 @@ import { getAuthSecret } from "@/lib/auth/secret";
  * qua) — chỉ dùng khi có sự cố, nhớ xoá biến để bật lại.
  */
 
-export type ChallengePurpose =
-  | "login"
-  | "supplier-signup"
-  | "admin-setup"
-  | "password-reset"
-  | "service-inquiry"
-  | "rfq";
+export type ChallengePurpose = "login" | "supplier-signup" | "admin-setup" | "service-inquiry" | "rfq";
 
 export const CHALLENGE_PURPOSES: readonly ChallengePurpose[] = [
-  "login",
-  "supplier-signup",
-  "admin-setup",
-  "password-reset",
-  "service-inquiry",
-  "rfq",
+  "login", "supplier-signup", "admin-setup", "service-inquiry", "rfq",
 ];
 
 export type FormChallengeCheck =

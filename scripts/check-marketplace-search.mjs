@@ -145,17 +145,11 @@ const store = {
 };
 const db = { getStore: () => store };
 const catalog = load("../lib/public/catalog.ts", {
-  "@/lib/products/product-form-staging-access": { isProductFormBuyerEnabled: () => false },
   "@/lib/db": db,
   "@/lib/media/readiness": readiness,
   "@/lib/verification-status": verification,
   "@/lib/public/product-selection": selection,
   "@/lib/public/display-name": displayName,
-});
-const priceUnits = load("../lib/public/price-units.ts", {});
-const gradePricing = load("../lib/products/grade-pricing.ts", {
-  "@/lib/public/price-units": priceUnits,
-  "@/lib/public/grade-resolution": grade,
 });
 const productCatalog = load("../lib/public/product-catalog.ts", {
   "@/lib/db": db,
@@ -165,7 +159,6 @@ const productCatalog = load("../lib/public/product-catalog.ts", {
   "@/lib/public/supplier-seo": supplierSeo,
   "@/lib/public/product-selection": selection,
   "@/lib/public/grade-resolution": grade,
-  "@/lib/products/grade-pricing": gradePricing,
   "@/lib/public/ranking": ranking,
   "@/lib/public/display-name": displayName,
   "@/lib/public/supplier-english": english,

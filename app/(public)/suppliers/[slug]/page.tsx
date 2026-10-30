@@ -83,7 +83,7 @@ export default async function SupplierProfile({ params }: PageProps) {
       { "@type": "ItemList", name: `Products from ${name}`, itemListElement: s.main_products.flatMap((p, index) => {
         const category = productCategory(p);
         return category ? [{ "@type": "ListItem", position: index + 1,
-          item: { "@type": "Product", name: safe(s.form_product_cards?.[p.id]?.name ?? publicProductTitle(p)),
+          item: { "@type": "Product", name: safe(publicProductTitle(p)),
             url: `${SITE_URL}/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}`,
             ...(s.product_image_paths[p.id] ? { image: `${SITE_URL}${mediaUrl(s.product_image_paths[p.id])}` } : {}) } }] : [];
       }) },

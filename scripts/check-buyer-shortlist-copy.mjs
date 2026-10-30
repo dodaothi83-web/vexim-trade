@@ -27,7 +27,6 @@ const categorySeed = read("lib/db/category-seed.ts");
 const seafoodFaq = read("supabase/migrations/20261021_seafood_category_buyer_first_copy.sql");
 const metaCopy = read("lib/public/meta-copy.ts");
 const comparePage = read("app/(public)/compare/page.tsx");
-const howItWorks = read("app/(public)/how-it-works/page.tsx");
 const rfqForm = read("app/(public)/rfq/rfq-form.tsx");
 const privacy = read("app/(legal)/privacy-policy/page.tsx");
 const terms = read("app/(legal)/terms-of-service/page.tsx");
@@ -154,7 +153,6 @@ for (const [name, file] of [
   ["root layout metadata", rootLayout],
   ["category page", categoryPage],
   ["compare page", comparePage],
-  ["how it works page", howItWorks],
   ["RFQ form", rfqForm],
   ["RFQ status", rfqStatus],
   ["privacy policy", privacy],
@@ -172,7 +170,6 @@ for (const [name, file] of [
   ["homepage metadata", homeMetadata],
   ["root layout metadata", rootLayout],
   ["category page", categoryPage],
-  ["how it works page", howItWorks],
   ["RFQ status", rfqStatus],
   ["RFQ confirmation email", rfqEmail],
   ["FAQ prompt", faqPrompt],
@@ -182,13 +179,5 @@ for (const [name, file] of [
 ]) {
   assert.doesNotMatch(file, /2\s*(?:to|–|-|—)\s*4/, `${name} must not promise a fixed number of suppliers`);
 }
-
-assert.ok(
-  howItWorks.indexOf("Request a quote from a supplier you choose:") <
-    howItWorks.indexOf("Send an open quote request:") &&
-    howItWorks.indexOf("Hỏi báo giá nhà cung cấp bạn chọn:") <
-      howItWorks.indexOf("Gửi yêu cầu báo giá mở:"),
-  "How it works page keeps chosen-supplier path first and open quote request second in both EN and VI",
-);
 
 console.log("✅ Buyer shortlist copy: chosen supplier first, open request as fallback, one shared source for metadata, no buyer-facing 'shortlist'.");

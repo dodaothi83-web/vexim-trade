@@ -52,7 +52,7 @@ export default async function TestSupplierProductPreview({ params }: Props) {
     <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] lg:gap-9">
       <section aria-label="Test product information" className="order-1 min-w-0 lg:order-2">
         <p className="text-xs font-bold uppercase tracking-widest text-amber-800">Test product · Preview only</p>
-        <h1 className="mt-2 break-words text-xl font-semibold leading-snug tracking-tight text-ink-900 sm:text-2xl">{safe(product.name)}</h1>
+        <h1 className="mt-2 break-words text-3xl font-black leading-tight text-ink-900 sm:text-4xl">{safe(product.name)}</h1>
         <p className="mt-3 text-sm text-ink-600">These are test entries, not validated specifications or trading terms.</p>
         <dl className="mt-5 rounded-xl border border-ink-200 bg-white px-4 sm:px-5">
           <TestFact label="Specification" value={safe(product.spec) || "Not provided (test data)"} />

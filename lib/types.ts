@@ -313,15 +313,10 @@ export interface Category {
   /** Lịch mùa vụ hiển thị trên trang danh mục. Xem HarvestCalendar. */
   harvest?: HarvestCalendar | null;
   /**
-   * Đơn vị hiển thị giá của danh mục: kg, lb hoặc mt (tấn), theo quy ước thị trường.
+   * Đơn vị hiển thị giá của danh mục: kg, lb hoặc t (tấn), theo quy ước thị trường.
    * Để trống thì lấy quy ước mặc định của ngành trong MARKET_PRICE_UNITS.
    */
   price_unit?: string | null;
-  /**
-   * Danh sách đơn vị MOQ cho phép NCC chọn trong danh mục (kg, mt, bag, carton, cont_20ft, cont_40ft).
-   * Để trống/null thì bật đầy đủ 6 đơn vị chuẩn.
-   */
-  moq_units?: string[] | null;
   seo_title_i18n: I18nString;
   seo_desc_i18n: I18nString;
   /** Ảnh hero cho trang public + thẻ trang chủ. Đường dẫn trong kho public media (/public-media/categories/xxx.jpg). */

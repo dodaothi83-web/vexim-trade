@@ -24,7 +24,7 @@ for (const page of [privacy, terms]) {
 }
 assert.doesNotMatch(legalLayout, /getStore|requireSession|listCategories/, 'Legal pages must not depend on auth or the database');
 assert.match(middleware, /LEGAL_PATHS = new Set\(\["\/privacy-policy", "\/terms-of-service", "\/thong-tin-chu-quan", "\/quy-che-hoat-dong", "\/dieu-khoan-su-dung", "\/chinh-sach-bao-mat", "\/khieu-nai"\]\)/);
-assert.match(robots, /allow: \["\/\$", "\/privacy-policy", (?:"\/cookie-policy", )?"\/terms-of-service", "\/thong-tin-chu-quan", "\/quy-che-hoat-dong", "\/dieu-khoan-su-dung", "\/chinh-sach-bao-mat", "\/khieu-nai"\]/);
+assert.match(robots, /allow: \["\/\$", "\/privacy-policy", "\/terms-of-service", "\/thong-tin-chu-quan", "\/quy-che-hoat-dong", "\/dieu-khoan-su-dung", "\/chinh-sach-bao-mat", "\/khieu-nai"\]/);
 assert.match(sitemap, /url: `\$\{SITE_URL\}\/privacy-policy`/);
 assert.match(sitemap, /url: `\$\{SITE_URL\}\/terms-of-service`/);
 for (const route of ["thong-tin-chu-quan", "quy-che-hoat-dong", "dieu-khoan-su-dung", "chinh-sach-bao-mat", "khieu-nai"]) {
@@ -33,14 +33,10 @@ for (const route of ["thong-tin-chu-quan", "quy-che-hoat-dong", "dieu-khoan-su-d
 }
 for (const file of [
   'app/(public)/home.tsx', 'app/(public)/simple-footer.tsx', 'components/site-footer.tsx',
-  'app/(auth)/supplier/register/supplier-account-form.tsx',
+  'app/(auth)/layout.tsx', 'app/(auth)/supplier/register/supplier-account-form.tsx',
   'app/(public)/rfq/page.tsx', 'app/(public)/rfq/rfq-form.tsx',
 ]) {
   assert.match(read(file), /href="\/privacy-policy"/, `${file} links to privacy`);
   assert.match(read(file), /href="\/terms-of-service"/, `${file} links to terms`);
 }
-
-// Auth shell uses Vietnamese legal policy links (/chinh-sach-bao-mat & /dieu-khoan-su-dung).
-assert.match(read('app/(auth)/layout.tsx'), /href="\/chinh-sach-bao-mat"/, 'auth layout links to Vietnamese privacy policy');
-assert.match(read('app/(auth)/layout.tsx'), /href="\/dieu-khoan-su-dung"/, 'auth layout links to Vietnamese terms of service');
 console.log('✅ Public legal pages, OAuth data disclosure, discoverability and crawlability.');

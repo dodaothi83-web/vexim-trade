@@ -12,7 +12,7 @@ export function OfferSettingsForm({ settings }: { settings: OfferSettings }) {
     <p className="mt-1 text-xs leading-5 text-ink-500">Chỉ lưu cấu hình chuẩn bị. Chức năng mua, giữ chỗ và giới hạn bể mới chưa hoạt động; việc lưu không mở bán hoặc thay đổi gói hiện có.</p>
     <form action={action} className="mt-4 grid gap-4 sm:grid-cols-3">
       <label className="block text-xs font-bold text-ink-700">Giá gói (VND)
-        <input name="price_vnd" type="number" min="1" max="1000000000" step="1" defaultValue={settings.price_vnd ?? ""} placeholder="Chưa đặt giá" className="input mt-1 w-full font-mono tabular-nums" />
+        <input name="price_vnd" type="number" min="1" max="1000000000" step="1" defaultValue={settings.price_vnd ?? ""} placeholder="Chưa đặt giá" className="input mt-1 w-full" />
         <span className="mt-1 block font-normal leading-5 text-ink-500">Để trống nếu chưa chốt giá.</span>
       </label>
       <label className="block text-xs font-bold text-ink-700">Giữ chỗ (phút)

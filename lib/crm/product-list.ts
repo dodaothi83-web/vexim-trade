@@ -4,13 +4,12 @@ type ProductListRow = {
   id: string;
   name: string;
   supplier_review_status?: "draft" | "pending" | "approved" | "changes_requested" | "paused";
-  pendingReview?: boolean;
 };
 
 /** Chờ Vexim kiểm tra luôn đứng trước; mức độ khớp và tên chỉ sắp xếp trong từng nhóm. */
 export function orderCrmProducts<T extends ProductListRow>(rows: T[], score?: (row: T) => number): T[] {
   return [...rows].sort((a, b) => {
-    const reviewOrder = Number(b.pendingReview || b.supplier_review_status === "pending") - Number(a.pendingReview || a.supplier_review_status === "pending");
+    const reviewOrder = Number(b.supplier_review_status === "pending") - Number(a.supplier_review_status === "pending");
     if (reviewOrder) return reviewOrder;
     const relevanceOrder = score ? score(b) - score(a) : 0;
     return relevanceOrder || a.name.localeCompare(b.name, "vi") || a.id.localeCompare(b.id);

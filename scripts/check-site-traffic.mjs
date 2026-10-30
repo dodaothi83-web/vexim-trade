@@ -9,7 +9,6 @@ import { buildSiteTrafficReport } from '../lib/traffic/site-report.ts';
 import { hasPermission } from '../lib/auth/permissions.ts';
 
 assert.equal(publicSitePageKey('/'), 'home');
-assert.equal(publicSitePageKey('/how-it-works'), 'how-it-works');
 assert.equal(publicSitePageKey('/products/cashew'), 'category:cashew');
 assert.equal(publicSitePageKey('/blog/article-a'), 'article:article-a');
 for (const path of ['/crm/traffic', '/supplier/portal/traffic', '/suppliers/abc', '/products/cashew/123',

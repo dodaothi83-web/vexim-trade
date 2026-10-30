@@ -25,8 +25,6 @@ import {
 export type PricePoint = {
   /** Giá trị như nhà cung cấp nhập, theo đơn vị của chính họ. */
   value: number;
-  /** Giá trần tùy chọn khi dòng grade khai báo khoảng giá (từ - đến). */
-  highValue?: number | null;
   /** Đơn vị dạng chữ tự do: "MT", "kg", "USD/kg". */
   unit?: string | null;
   currency?: string | null;
@@ -96,35 +94,29 @@ export function buildPriceRange(
   const hideAfterDays = options.hideAfterDays ?? 90;
   const unit = options.unit ?? "kg";
 
-  const usable: Array<{ lowKg: number; highKg: number; midKg: number; updatedAt: Date | null }> = [];
+  const usable: Array<{ kilograms: number; updatedAt: Date | null }> = [];
   for (const point of Array.isArray(points) ? points : []) {
     if (!point || point.exclude) continue;
     if ((point.currency ?? "USD").toUpperCase() !== "USD") continue;
     const parsedUnit = parsePriceUnit(point.unit, point.currency);
-    const lowKg = toPricePerKg(point.value, parsedUnit);
-    if (lowKg === null) continue;
-    const rawHigh = point.highValue != null && Number.isFinite(point.highValue) && point.highValue >= point.value
-      ? toPricePerKg(point.highValue, parsedUnit)
-      : null;
-    const highKg = rawHigh !== null && rawHigh >= lowKg ? rawHigh : lowKg;
+    const kilograms = toPricePerKg(point.value, parsedUnit);
+    if (kilograms === null) continue;
     const updatedAt = point.updatedAt ? new Date(point.updatedAt) : null;
     const valid = updatedAt && Number.isFinite(updatedAt.getTime()) ? updatedAt : null;
     // Ngày không đọc được thì coi như cũ nhất, để không lỡ tay công bố giá mồ côi ngày.
     if (!valid) continue;
     const age = daysBetween(now, valid);
     if (age > hideAfterDays) continue;
-    usable.push({ lowKg, highKg, midKg: (lowKg + highKg) / 2, updatedAt: valid });
+    usable.push({ kilograms, updatedAt: valid });
   }
 
   if (usable.length === 0) return { status: "none" };
   if (usable.length < minSamples) return { status: "too_few", usable: usable.length, needed: minSamples };
 
-  const lowValues = usable.map((u) => u.lowKg).sort((a, b) => a - b);
-  const highValues = usable.map((u) => u.highKg).sort((a, b) => a - b);
-  const midValues = usable.map((u) => u.midKg).sort((a, b) => a - b);
-  const lowKg = lowValues[0];
-  const highKg = highValues[highValues.length - 1];
-  const medianKg = median(midValues);
+  const values = usable.map((u) => u.kilograms).sort((a, b) => a - b);
+  const lowKg = values[0];
+  const highKg = values[values.length - 1];
+  const medianKg = median(values);
 
   const latest = usable.reduce<Date>((acc, item) => (item.updatedAt! > acc ? item.updatedAt! : acc), usable[0].updatedAt!);
   const age = daysBetween(now, latest);

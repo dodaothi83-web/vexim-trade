@@ -85,8 +85,6 @@ const portalEnd = portalSource.indexOf("async function approvedAccess", portalSt
 assert.ok(portalStart >= 0 && portalEnd > portalStart);
 const portalParser = compile("app/supplier/portal/product-actions.ts#parseProduct", {}, {
   source: `const text = (form, key, max = 500) => String(form.get(key) ?? "").trim().slice(0, max);
-const normalizeSupplierPriceCurrency = (v) => String(v ?? "").trim().toUpperCase();
-const normalizeSupplierPriceUnit = (v) => String(v ?? "").trim();
 ${portalSource.slice(portalStart, portalEnd)}`,
   append: "\nmodule.exports = { parseProduct };\n",
 });

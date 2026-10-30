@@ -113,7 +113,7 @@ export function PipelineBoard({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-bold text-ink-900">{s.label}</p>
                       <p className="text-[11px] text-ink-500">
-                        {items.length} buyer · <span className="font-mono tabular-nums">{formatMoney(value)}</span>
+                        {items.length} buyer · {formatMoney(value)}
                       </p>
                     </div>
                     <span
@@ -165,7 +165,7 @@ export function PipelineBoard({
                         </div>
 
                         <div className="mt-2 flex items-center justify-between gap-2">
-                          <span className="font-mono text-[12px] font-bold tabular-nums text-ink-800">
+                          <span className="text-[12px] font-bold text-ink-800">
                             {formatMoney(b.deal_value)}
                           </span>
                           <span className="flex items-center gap-1">

@@ -8,7 +8,6 @@ for (const path of [
   "/cashew",
   "/compare",
   "/for-suppliers",
-  "/how-it-works",
   "/how-we-verify",
   "/rfq",
   "/products/cashew",

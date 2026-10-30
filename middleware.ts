@@ -9,11 +9,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const NON_PRODUCTION = ["preview", "development"].includes(process.env.VERCEL_ENV ?? "") || process.env.VEXIM_DEPLOY_ENV === "staging";
-const INDEXABLE = !NON_PRODUCTION && process.env.PUBLIC_SITE_INDEXABLE === "true";
+const INDEXABLE = process.env.PUBLIC_SITE_INDEXABLE === "true";
 // OAuth verification must reach these public policies even before marketing pages are indexable.
 const LEGAL_PATHS = new Set(["/privacy-policy", "/terms-of-service", "/thong-tin-chu-quan", "/quy-che-hoat-dong", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat", "/khieu-nai"]);
-const LEGAL_CRAWLABLE = !NON_PRODUCTION;
+const LEGAL_CRAWLABLE = !["preview", "development"].includes(process.env.VERCEL_ENV ?? "");
 
 // Các prefix LUÔN noindex dù site-wide cờ đang bật.
 const ALWAYS_NOINDEX_PREFIXES = [

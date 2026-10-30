@@ -35,7 +35,6 @@ import { getStore } from "@/lib/db";
 import { pickSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { t } from "@/lib/public/i18n";
-import { normalizeCategoryFilters } from "@/lib/category-filters";
 import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow } from "@/lib/types";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -113,26 +112,13 @@ function categoryMetaDescription(name: string, storedDescription: string): strin
 function pricePointsFrom(products: PublicCategoryProduct[]): GradePricePoint[] {
   return products
     .filter((p) => !p.isDemoSupplier && p.pricePoint)
-    .flatMap((p) => {
-      if (p.gradePricePoints && p.gradePricePoints.length > 0) {
-        return p.gradePricePoints.map((point) => ({
-          value: point.value,
-          highValue: point.highValue,
-          unit: point.unit,
-          currency: point.currency,
-          updatedAt: point.updatedAt,
-          grade: point.grade,
-        }));
-      }
-      return [{
-        value: p.pricePoint!.value,
-        highValue: p.pricePoint!.highValue ?? null,
-        unit: p.pricePoint!.unit,
-        currency: p.pricePoint!.currency,
-        updatedAt: p.pricePoint!.updatedAt,
-        grade: p.grade,
-      }];
-    });
+    .map((p) => ({
+      value: p.pricePoint!.value,
+      unit: p.pricePoint!.unit,
+      currency: p.pricePoint!.currency,
+      updatedAt: p.pricePoint!.updatedAt,
+      grade: p.grade,
+    }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -270,7 +256,7 @@ export default async function CategoryPage({ params }: PageProps) {
   const rows: CategoryRow[] = Array.isArray(cat.spec_rows) ? (cat.spec_rows as CategoryRow[]) : [];
   const facts: CategoryFact[] = Array.isArray(cat.buying_facts) ? (cat.buying_facts as CategoryFact[]) : [];
   const faqs = categoryFaqs(cat.faq_i18n);
-  const filters: CategoryFilter[] = normalizeCategoryFilters(cat.filters);
+  const filters: CategoryFilter[] = Array.isArray(cat.filters) ? (cat.filters as CategoryFilter[]) : [];
 
   // Schema cho trang danh mục: đường dẫn breadcrumb luôn có (gồm cả Nhóm cha nếu đây là Nhóm nhỏ); ItemList chỉ khi đã có sản phẩm.
   const breadcrumbElements = [

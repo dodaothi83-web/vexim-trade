@@ -34,16 +34,10 @@ const media=products.map(p=>({id:`media-${p.id}`,owner_type:'product',product_id
 let calls=[];
 const store={mode:'supabase',async listProductsBySupplier(id){calls.push(['products',id]);return products;},async listCategories(){calls.push(['categories']);return categories;},
   async listMediaForProducts(ids){calls.push(['media',ids]);return media.filter(m=>ids.includes(m.product_id));},async listCertificatesForSuppliers(){return [];}};
-const priceUnits=load('lib/public/price-units.ts',{});
-const gradePricing=load('lib/products/grade-pricing.ts',{
-  '@/lib/public/price-units':priceUnits,
-  '@/lib/public/grade-resolution':{gradeKey:(v)=>String(v??'').toLowerCase(),resolveGrade:()=>({value:null})},
-});
 const categoryCatalog=load('lib/public/product-catalog.ts',{
   'server-only':{},'@/lib/db':{getStore:()=>store},'@/lib/product-attributes':{publicProductAttributes:()=>({})},'@/lib/media/readiness':readiness,
   '@/lib/public/catalog':{},'@/lib/public/supplier-seo':seo,'@/lib/public/product-selection':selection,
-  '@/lib/public/grade-resolution':{resolveGrade:()=>({value:null})},'@/lib/products/grade-pricing':gradePricing,
-  '@/lib/public/ranking':{evidenceValidVerificationSteps:()=>0,rankPublicCategoryProducts:(x)=>x,SPEC_RANKING_WEIGHTS:{}},
+  '@/lib/public/grade-resolution':{resolveGrade:()=>({value:null})},'@/lib/public/ranking':{evidenceValidVerificationSteps:()=>0,rankPublicCategoryProducts:(x)=>x,SPEC_RANKING_WEIGHTS:{}},
   '@/lib/public/display-name':display,'@/lib/public/supplier-english':{supplierProvinceDisplay:()=>null},
   '@/lib/public/product-detail-display':{publicProductMoqDisplay:()=>null,publicProductPlaceDisplay:()=>null},
 });

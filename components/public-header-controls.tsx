@@ -74,12 +74,9 @@ function HeaderControlsInner() {
 
   return (
     <>
-      <nav className="ml-3 hidden items-center gap-3 whitespace-nowrap text-[12px] font-medium text-ink-700 md:flex lg:ml-6 lg:gap-5 lg:text-[13.5px]">
+      <nav className="ml-3 hidden items-center gap-3 whitespace-nowrap text-[12px] font-medium text-ink-700 md:flex lg:ml-6 lg:gap-6 lg:text-[13.5px]">
         <Link href={isVi ? "/?lang=vi#categories" : "/#categories"} className="hover:text-brand-700">
           {isVi ? "Danh mục" : "Categories"}
-        </Link>
-        <Link href={isVi ? "/how-it-works?lang=vi" : "/how-it-works"} className="hover:text-brand-700">
-          {isVi ? "Cách hoạt động" : "How it works"}
         </Link>
         <Link href="/how-we-verify" className="hover:text-brand-700">
           {isVi ? "Quy trình xác thực" : "How we verify"}
@@ -151,9 +148,8 @@ function HeaderControlsInner() {
 function HeaderControlsFallback() {
   return (
     <>
-      <nav className="ml-3 hidden items-center gap-3 whitespace-nowrap text-[12px] font-medium text-ink-700 md:flex lg:ml-6 lg:gap-5 lg:text-[13.5px]">
+      <nav className="ml-3 hidden items-center gap-3 whitespace-nowrap text-[12px] font-medium text-ink-700 md:flex lg:ml-6 lg:gap-6 lg:text-[13.5px]">
         <Link href="/#categories" className="hover:text-brand-700">Categories</Link>
-        <Link href="/how-it-works" className="hover:text-brand-700">How it works</Link>
         <Link href="/how-we-verify" className="hover:text-brand-700">How we verify</Link>
         <Link href="/for-suppliers" className="hover:text-brand-700">For suppliers</Link>
       </nav>

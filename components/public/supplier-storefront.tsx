@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { PublicProductCard } from "@/components/public-product-card";
 import { SupplierProductRail } from "@/components/public/supplier-product-rail";
-import { VERIFICATION_LEVEL_ICONS, VERIFICATION_LEVEL_TONES, VerificationCoverSeal, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
+import { VerificationCoverSeal, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
 import { supplierTypeLabel, type PublicSupplierCard } from "@/lib/public/catalog";
 import type { Category } from "@/lib/types";
@@ -16,15 +16,12 @@ import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsD
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
 
-// Keep structured MOQ authoritative on storefront cards, including unsupported
-// or incomplete container/package units. Never substitute a conflicting text weight.
-function storefrontStructuredMoq(source: { moq_qty?: unknown; moq_unit?: unknown }): string | null {
-  if (source.moq_qty == null && source.moq_unit == null) return null;
-  const qty = source.moq_qty;
-  const unit = source.moq_unit;
-  if (typeof qty !== "number" || !Number.isFinite(qty) || qty <= 0 || (unit !== "kg" && unit !== "mt")) return "On request";
-  return `${qty} ${unit === "mt" ? "MT" : "kg"}`;
-}
+const STRIP_CLASSES: Record<number, string> = {
+  0: "border-ink-200 bg-ink-50",
+  1: "border-brand-200 bg-brand-50",
+  2: "border-brand-300 bg-brand-50",
+  3: "border-amber-300 bg-gradient-to-r from-brand-50 to-amber-50",
+};
 
 const VERIFICATION_ITEMS = [
   { level: 1, label: "Documents checked", pending: "Covers business registration evidence.", Icon: FileCheck2 },
@@ -118,21 +115,9 @@ export function SupplierStorefront({
             {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
             {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
           </div>
-          {/* One compact row, but each approved check keeps its own hue + symbol. */}
-          <div className="mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 border-ink-200 bg-ink-50/70">
+          <div className={`mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 ${STRIP_CLASSES[tier]}`}>
             <ShieldCheck className="h-4 w-4 shrink-0 text-brand-700" aria-hidden="true" />
-            <p className="min-w-0 flex-1 truncate text-left text-xs font-medium leading-5 text-ink-700" title={verificationSummary}>
-              {steps.length ? <>
-                <span className="font-bold text-ink-800">{steps.length}/3 approved</span>
-                {steps.map((level) => {
-                  const Icon = VERIFICATION_LEVEL_ICONS[level];
-                  return <span key={level} className={`ml-1.5 inline-flex items-center gap-1 rounded border px-1.5 py-px align-baseline text-[11px] font-semibold ${VERIFICATION_LEVEL_TONES[level].chip}`}>
-                    <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-                    {verificationLabel(level, l2Scope)}
-                  </span>;
-                })}
-              </> : <span>Independent checks are shown below.</span>}
-            </p>
+            <p className="min-w-0 flex-1 truncate text-left text-xs font-medium leading-5 text-ink-700" title={verificationSummary}>{verificationSummary}</p>
             <a href="#verification" className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-ink-500 underline-offset-4 transition hover:text-brand-700 hover:underline">View details <ArrowRight className="h-3 w-3" aria-hidden="true" /></a>
           </div>
         </div>
@@ -177,7 +162,7 @@ export function SupplierStorefront({
           <div className="bg-gradient-to-br from-ink-950 via-brand-900 to-brand-800 p-5 text-white sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-5">
               <div className="flex max-w-xl items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10"><ShieldCheck className="h-5 w-5 text-amber-200" /></span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10"><ShieldCheck className="h-5 w-5 text-emerald-200" /></span>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-100">Supplier trust profile</p>
                   <h2 id="verification-title" className="mt-1 text-xl font-bold tracking-tight text-white">Verification Status</h2>
@@ -190,7 +175,7 @@ export function SupplierStorefront({
               </div>
             </div>
             <div className="mt-5 grid grid-cols-3 gap-2" role="img" aria-label={`${steps.length} of 3 verification checks approved`}>
-              {VERIFICATION_ITEMS.map(({ level }) => <span key={level} aria-hidden="true" className={`h-1.5 rounded-full ${steps.includes(level) ? VERIFICATION_LEVEL_TONES[level].bar : "bg-white/20"}`} />)}
+              {VERIFICATION_ITEMS.map(({ level }) => <span key={level} aria-hidden="true" className={`h-1.5 rounded-full ${steps.includes(level) ? "bg-emerald-300" : "bg-white/20"}`} />)}
             </div>
           </div>
           <div className="p-4 sm:p-5">
@@ -204,18 +189,18 @@ export function SupplierStorefront({
                 const reviewStatus = approvedStep ? "Approved" : "Not approved";
                 const iconTooltip = `Level ${level} · ${label}: ${reviewStatus}. ${explanation}`;
                 return <article key={level} id={level === 2 ? scope === "partner_contract" ? "partner-factory-contract" : "factory-visit" : level === 3 ? "delivery-history" : undefined}
-                  className={`min-w-0 scroll-mt-24 rounded-xl border p-4 shadow-sm ${approvedStep ? VERIFICATION_LEVEL_TONES[level].card : "border-ink-200 bg-ink-50/60"}`}>
+                  className={`min-w-0 scroll-mt-24 rounded-xl border p-4 shadow-sm ${approvedStep ? "border-emerald-200 bg-emerald-50/40" : "border-ink-200 bg-ink-50/60"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <span className="group/level relative inline-flex">
                       <button type="button" aria-label={iconTooltip}
-                        className={`flex h-9 w-9 shrink-0 cursor-help items-center justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${approvedStep ? VERIFICATION_LEVEL_TONES[level].pip : "border-2 border-ink-200 bg-white text-ink-400"}`}><Icon className="h-4 w-4" aria-hidden="true" /></button>
+                        className={`flex h-9 w-9 shrink-0 cursor-help items-center justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${approvedStep ? "bg-emerald-100 text-emerald-800" : "bg-white text-ink-400 ring-1 ring-ink-200"}`}><Icon className="h-4 w-4" aria-hidden="true" /></button>
                       <span role="tooltip" className="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden w-56 rounded-md bg-ink-900 px-3 py-2 text-left shadow-xl group-hover/level:block group-focus-within/level:block">
                         <strong className="block text-[11px] font-bold leading-4 text-white">Level {level} · {label}</strong>
-                        <span className={`block text-[10px] font-semibold leading-4 ${approvedStep ? VERIFICATION_LEVEL_TONES[level].status : "text-ink-300"}`}>{reviewStatus}</span>
+                        <span className={`block text-[10px] font-semibold leading-4 ${approvedStep ? "text-emerald-300" : "text-ink-300"}`}>{reviewStatus}</span>
                         <span className="mt-0.5 block text-[10px] leading-4 text-ink-200">{explanation}</span>
                       </span>
                     </span>
-                    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold ${approvedStep ? VERIFICATION_LEVEL_TONES[level].chip : "border-ink-200 bg-ink-100 text-ink-500"}`}>
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${approvedStep ? "bg-emerald-100 text-emerald-800" : "bg-ink-100 text-ink-500"}`}>
                       {approvedStep ? <CheckCircle2 className="h-3 w-3" /> : <Clock3 className="h-3 w-3" />}{reviewStatus}
                     </span>
                   </div>
@@ -317,148 +302,15 @@ export function SupplierStorefront({
             ? `/suppliers/${encodeURIComponent(s.slug || s.id)}/products/${encodeURIComponent(p.id)}`
             : category ? `/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}` : null;
           if (!href) return null;
-          const approvedForm = s.form_product_cards?.[p.id];
-          if (approvedForm) {
-            const productName = safe(approvedForm.name);
-            return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
-              <PublicProductCard href={href} imagePath={approvedForm.cardImagePath ?? approvedForm.imagePaths[0]}
-                name={productName} grades={approvedForm.cardGrades} gradeRows={approvedForm.gradeRows}
-                moq={approvedForm.moq} price={synthetic ? null : approvedForm.price} incoterm={approvedForm.incoterm}
-                fob={approvedForm.incoterm?.toUpperCase() === "FOB"} volumePricing={approvedForm.quantityOffer?.hasVolumePricing}
-                stalePriceDays={approvedForm.quantityOffer?.stale ? approvedForm.quantityOffer.daysSinceConfirmed : undefined}
-                leadTimeDays={approvedForm.leadTimeDays} leadTimeText={approvedForm.leadTimeText} supplierName={name}
-                supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
-                quoteHref={productLinks && rfqActions && !synthetic && category ? `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(productName)}&product_id=${encodeURIComponent(p.id)}` : undefined}
-                verificationSteps={steps} l2Scope={l2Scope} test={synthetic} linkable={productLinks} />
-            </li>;
-          }
           const productName = safe(publicProductTitle(p));
-          const translateMoq = (rawMoq: string | null | undefined) => {
-            const val = (rawMoq ?? "").replace(/\s+/g, " ").trim();
-            if (!val) return "";
-            const m = val.match(/^(\d+(?:[.,]\d+)?)\s*(tấn|tan|thùng|thung|bộ|bo|túi|tui|bao)(?=\s|$|[,;])(.*)$/i);
-            if (!m) return val;
-            const unitMap: Record<string, [string, string]> = {
-              "tấn": ["metric ton", "metric tons"],
-              tan: ["metric ton", "metric tons"],
-              "thùng": ["carton", "cartons"],
-              thung: ["carton", "cartons"],
-              "bộ": ["set", "sets"],
-              bo: ["set", "sets"],
-              "túi": ["bag", "bags"],
-              tui: ["bag", "bags"],
-              bao: ["bag", "bags"],
-            };
-            const pair = unitMap[m[2].toLowerCase()];
-            if (!pair) return val;
-            const qty = Number(m[1].replace(",", "."));
-            return `${m[1]} ${qty === 1 ? pair[0] : pair[1]}${m[3]}`;
-          };
-          const slugText = (category?.slug || "").toLowerCase();
-          const configuredUnit = (category?.price_unit || "").toLowerCase();
-          const isMtCategory = configuredUnit === "mt" || configuredUnit === "t" || (!configuredUnit && /rice|coffee|pepper|cassia|cinnamon|anise|spice|coconut|fruit|bean|tea|sugar/.test(slugText));
-          const unitSuffix = isMtCategory ? "/MT" : "/kg";
-          const canonicalOptions = (() => {
-            const fromFields = category?.product_fields?.find((f) => f.key === "grade" || f.key === "product_type")?.options;
-            if (fromFields?.length) return fromFields;
-            const fromFilters = category?.filters?.find((f) => f.key === "grade")?.options?.map((o) => o.value);
-            if (fromFilters?.length) return fromFilters;
-            if (/cashew/.test(slugText)) return ["W180", "W210", "W240", "W320", "W450", "SW", "WS", "LP", "SP"];
-            if (/pepper/.test(slugText)) return ["500 g/L", "550 g/L", "570 g/L", "580 g/L", "White pepper"];
-            if (/rice/.test(slugText)) return ["ST25", "Jasmine", "Japonica", "5% Broken", "15% Broken", "25% Broken", "Glutinous"];
-            if (/coffee/.test(slugText)) return ["Robusta G1", "Robusta G2", "Arabica G1", "Wet Polished", "Instant"];
-            if (/cassia|cinnamon/.test(slugText)) return ["Cassia split", "Cassia cigarette", "Cassia whole", "Cassia powder"];
-            return [];
-          })();
-          const optionOrder = new Map(canonicalOptions.map((opt, idx) => [opt.trim().toLowerCase(), idx]));
-          const rawGradeRows = Array.isArray((p.specs as Record<string, unknown> | undefined)?.grade_rows)
-            ? ((p.specs as Record<string, unknown>).grade_rows as Array<Record<string, unknown>>)
-            : [];
-          const rawPrice = synthetic ? null : publicProductPrice(p, s);
-          const canShowPrice = Boolean(rawPrice);
-          const storefrontGradeRows = rawGradeRows
-            .filter((row) => row && typeof row.grade === "string" && String(row.grade).trim() !== "")
-            .map((row) => {
-              const gradeText = safe(String(row.grade)).trim();
-              const isCustom = row.is_custom === true;
-              const minRaw = typeof row.price_min === "number" && Number.isFinite(row.price_min) ? row.price_min : null;
-              const maxRaw = typeof row.price_max === "number" && Number.isFinite(row.price_max) ? row.price_max : null;
-              const validPrice = canShowPrice && minRaw !== null && maxRaw !== null && minRaw > 0 && maxRaw >= minRaw;
-              const rowMoq = storefrontStructuredMoq(row) ?? (safe(translateMoq(typeof row.moq === "string" ? row.moq : null)).trim() || "On request");
-              const rowIncoterm = typeof row.incoterm === "string" && row.incoterm.trim() ? safe(row.incoterm).trim() : null;
-              return {
-                grade: gradeText,
-                isCustom,
-                priceMin: validPrice ? minRaw : null,
-                priceMax: validPrice ? maxRaw : null,
-                priceText: validPrice ? `USD ${minRaw}${unitSuffix}` : null,
-                incoterm: rowIncoterm,
-                moq: rowMoq,
-              };
-            });
-          const seenStorefrontGrades = new Set<string>();
-          const storefrontGrades = storefrontGradeRows
-            .filter((row) => !row.isCustom && row.grade)
-            .map((row) => row.grade)
-            .filter((g) => {
-              const k = g.toLowerCase();
-              if (seenStorefrontGrades.has(k)) return false;
-              seenStorefrontGrades.add(k);
-              return true;
-            })
-            .sort((a, b) => (optionOrder.get(a.toLowerCase()) ?? 999) - (optionOrder.get(b.toLowerCase()) ?? 999));
-          const storefrontPrice = (() => {
-            if (!rawPrice) return null;
-            const rawCurrency = (p.currency || "USD").trim().toUpperCase();
-            const unitSource = `${p.unit || ""} ${p.currency || ""}`.toLowerCase();
-            const sourceIsLb = /(^|[^a-z])lb(s)?([^a-z]|$)|pound/.test(unitSource);
-            const sourceIsKg = !sourceIsLb && (/(^|[^a-z])kg([^a-z]|$)|kilogram|kilo/.test(unitSource));
-            const sourceIsMt = !sourceIsLb && !sourceIsKg && (/(^|[^a-z])(mt|t|ton|tonne|tons|tonnes|tấn|tan)([^a-z]|$)/.test(unitSource));
-            if ((rawCurrency === "USD" || rawCurrency.startsWith("USD/")) && typeof p.ref_price === "number" && p.ref_price > 0 && (sourceIsLb || sourceIsKg || sourceIsMt)) {
-              const kgFactor = sourceIsLb ? 0.45359237 : sourceIsMt ? 1000 : 1;
-              const lowKg = p.ref_price / kgFactor;
-              const highRaw = typeof p.ref_price_max === "number" && p.ref_price_max >= p.ref_price ? p.ref_price_max : p.ref_price;
-              const highKg = highRaw / kgFactor;
-              const targetFactor = isMtCategory ? 1000 : 1;
-              const decimals = isMtCategory ? 0 : 2;
-              const lowVal = lowKg * targetFactor;
-              const highVal = highKg * targetFactor;
-              const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-              return Math.abs(highVal - lowVal) < 10 ** -decimals / 2
-                ? `USD ${fmt(lowVal)}${unitSuffix}`
-                : `USD ${fmt(lowVal)} to ${fmt(highVal)}${unitSuffix}`;
-            }
-            return rawPrice
-              .replace(/\/\s*(mt|tonnes?|tons?|t|tấn|tan)(?=\s|$|[,;])/gi, "/MT")
-              .replace(/\/\s*(thùng|thung)(?=\s|$|[,;])/gi, "/carton")
-              .replace(/\/\s*(bộ|bo)(?=\s|$|[,;])/gi, "/set")
-              .replace(/\/\s*(túi|tui|bao)(?=\s|$|[,;])/gi, "/bag");
-          })();
-          const storefrontMoq = storefrontGradeRows.length
-            ? (storefrontGradeRows.find((r) => r.moq !== "On request")?.moq || "On request")
-            : (storefrontStructuredMoq(p) ?? (safe(translateMoq(p.moq)).trim() || "On request"));
-          const storefrontIncoterm = storefrontGradeRows[0]?.incoterm || (p.incoterm ? safe(p.incoterm).trim() : null);
-          const storefrontLeadTime = (() => {
-            const rawLt = p.specs && typeof p.specs === "object" ? (p.specs as Record<string, unknown>).lead_time : null;
-            if (rawLt && typeof rawLt === "object") {
-              const rec = rawLt as Record<string, unknown>;
-              const val = typeof rec.value === "number" && Number.isFinite(rec.value) && rec.value > 0 ? Math.round(rec.value) : null;
-              if (rec.unit === "on_request") return "On request";
-              if (rec.unit === "weeks" && val !== null) return val === 1 ? "1 week" : `${val} weeks`;
-              if (rec.unit === "days" && val !== null) return val === 1 ? "1 day" : `${val} days`;
-            }
-            if (typeof p.lead_time_days === "number" && p.lead_time_days > 0) {
-              return p.lead_time_days === 1 ? "1 day" : `${p.lead_time_days} days`;
-            }
-            return "On request";
-          })();
           return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
             <PublicProductCard href={href} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
-              name={productName} grades={storefrontGrades} gradeRows={storefrontGradeRows} moq={storefrontMoq}
-              price={storefrontPrice} incoterm={storefrontIncoterm} fob={storefrontIncoterm?.toUpperCase() === "FOB"}
-              leadTimeDays={p.lead_time_days ?? null} leadTimeText={storefrontLeadTime} supplierName={name}
+              name={productName} moq={safe(p.moq) || "On request"}
+              price={synthetic ? null : publicProductPrice(p, s)} fob={p.incoterm?.toUpperCase() === "FOB"}
+              leadTimeDays={p.lead_time_days ?? null} supplierName={name}
               supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
               quoteHref={productLinks && rfqActions && !synthetic && category ? `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(productName)}&product_id=${encodeURIComponent(p.id)}` : undefined}
+              oem={p.oem} odm={p.odm} samples={p.samples}
               verificationSteps={steps} l2Scope={l2Scope} test={synthetic} linkable={productLinks} />
           </li>;
         })}

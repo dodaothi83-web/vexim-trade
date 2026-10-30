@@ -72,18 +72,18 @@ assert.equal(units.toPricePerKg(0, "kg"), null, "Zero is not a price");
 assert.equal(units.toPricePerKg(5, null), null, "An unknown unit never becomes kg by default");
 assert.ok(Math.abs(units.fromPricePerKg(7.9, "mt") - 7900) < 1e-6, "A price per kilogram converts back to the tonne quote");
 assert.equal(units.formatUnitPrice(7.9, "kg"), "USD 7.90/kg");
-assert.equal(units.formatUnitPrice(4500, "mt"), "USD 4,500/MT");
+assert.equal(units.formatUnitPrice(4500, "mt"), "USD 4,500/t");
 assert.equal(units.formatUnitRange(7.6, 8.4, "kg"), "USD 7.60 to 8.40/kg");
-assert.equal(units.formatUnitRange(420, 420, "mt"), "USD 420/MT", "A single level is not shown as a range");
+assert.equal(units.formatUnitRange(420, 420, "mt"), "USD 420/t", "A single level is not shown as a range");
 
 /* ---------------- Quy ước hiển thị theo ngành ---------------- */
 
 const cashewUnits = units.displayUnitsForCategory("cashew", null);
 assert.equal(cashewUnits.primary, "kg", "Cashew follows the Vietnamese FOB convention");
-assert.equal(cashewUnits.secondary, undefined, "Each category uses one unified unit without secondary unit clutter");
+assert.equal(cashewUnits.secondary, "lb", "Cashew also shows pounds because trade reports quote them");
 
 const riceUnits = units.displayUnitsForCategory("rice", null);
-assert.equal(riceUnits.primary, "mt", "Rice follows the MT convention");
+assert.equal(riceUnits.primary, "mt", "Rice follows the tonne convention");
 assert.equal(riceUnits.secondary, undefined);
 
 assert.equal(units.displayUnitsForCategory("spices", null).primary, "mt", "The live slug 'spices' resolves to tonnes, not to the guessed 'dried-spices'");
@@ -93,7 +93,7 @@ assert.equal(units.displayUnitsForCategory("frozen-shrimp", null).primary, "kg")
 assert.equal(units.displayUnitsForCategory("unknown-category", null).primary, "kg", "Unknown categories fall back to kg, never to tonnes");
 const cashewKernelUnits = units.displayUnitsForCategory("cashew-kernels", null);
 assert.equal(cashewKernelUnits.primary, "kg", "The launch slug for cashew kernels reads in kilograms");
-assert.equal(cashewKernelUnits.secondary, undefined, "Cashew kernels uses one unified unit (/kg)");
+assert.equal(cashewKernelUnits.secondary, "lb", "The launch slug for cashew kernels also shows pounds, like the trade reports");
 assert.equal(units.displayUnitsForCategory("cashew-raw-nuts", null).secondary, undefined, "An inferred cashew slug does not get the pound equivalent unless listed");
 assert.equal(units.displayUnitsForCategory("cinnamon-star-anise", null).primary, "mt", "The launch slug for cinnamon and star anise reads in tonnes");
 assert.equal(units.displayUnitsForCategory("pepper", null).primary, "mt", "Pepper reads in tonnes");
@@ -197,7 +197,7 @@ const riceRange = priceRange.priceRangeForCategory(
 );
 assert.equal(riceRange.status, "ok");
 assert.equal(riceRange.range.unit, "mt");
-assert.equal(riceRange.range.rangeText, "USD 420 to 450/MT");
+assert.equal(riceRange.range.rangeText, "USD 420 to 450/t");
 
 const cashewRange = priceRange.priceRangeForCategory(
   "cashew",
@@ -211,7 +211,8 @@ const cashewRange = priceRange.priceRangeForCategory(
 );
 assert.equal(cashewRange.status, "ok");
 assert.equal(cashewRange.range.unit, "kg");
-assert.equal(cashewRange.range.secondary, undefined, "Category range uses one unified unit");
+assert.equal(cashewRange.range.secondary.unit, "lb");
+assert.equal(cashewRange.range.secondary.low, 3.45, "The pound equivalent is shown for cashew buyers");
 
 /* ---------------- Tách theo quy cách ---------------- */
 

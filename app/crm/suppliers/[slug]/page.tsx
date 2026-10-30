@@ -396,7 +396,7 @@ export default async function SupplierDetailPage({
                             {b.product || "Chưa rõ sản phẩm"} · {b.quantity || "chưa rõ số lượng"}
                           </span>
                         </span>
-                        <span className="font-mono text-[13px] font-bold tabular-nums text-ink-800">
+                        <span className="text-[13px] font-bold text-ink-800">
                           {formatMoney(b.deal_value)}
                         </span>
                         <StageBadge stage={b.stage} />

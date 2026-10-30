@@ -11,7 +11,6 @@ import ts from 'typescript';
 const root = resolve(new URL('..', import.meta.url).pathname);
 const nativeRequire = createRequire(import.meta.url);
 const cache = new Map();
-const capturedCards = [];
 const english = Object.fromEntries([
   'supplierAddressDisplay', 'supplierCapacityDisplay', 'supplierLegalNameDisplay',
   'supplierMarketsDisplay', 'supplierMoqDisplay', 'supplierPaymentTermsDisplay',
@@ -31,7 +30,7 @@ function load(file) {
     if (id === '@/lib/public/supplier-english') return english;
     if (id === '@/lib/public/display-name') return { publicProductTitle: () => '' };
     if (id === '@/lib/public/product-selection') return { withoutDirectContacts: (value) => value, productBelongsToCategory: () => false, publicProductPrice: () => null };
-    if (id === '@/components/public-product-card') return { PublicProductCard: (props) => { capturedCards.push(props); return null; } };
+    if (id === '@/components/public-product-card') return { PublicProductCard: () => null };
     if (id === '@/components/product-compare-checkbox') return { ProductCompareCheckbox: () => null };
     if (id === '@/components/product-trade-labels') return { ProductTradeLabels: () => null };
     if (id === '@/components/public/supplier-product-rail') return { SupplierProductRail: ({ children }) => React.createElement('ul', null, children) };
@@ -107,33 +106,4 @@ assert.match(bothHtml, /id="partner-factory-contract"/);
 assert.match(bothHtml, /Separate factory review/);
 assert.match(bothHtml, /Partner contract reviewed/);
 assert.doesNotMatch(bothHtml, /supplier-submissions\/|contract\.pdf/, 'Source files remain private');
-
-// Mỗi cấp có màu riêng, không còn một màu xanh cho cả ba: hồ sơ NCC tô chip,
-// thẻ xác minh và thanh tiến trình theo đúng màu của cấp đã duyệt.
-const allThree = renderSupplier('both', { approved_verification_steps: [1, 2, 3] });
-for (const [level, hue] of [[1, 'sky'], [2, 'amber'], [3, 'violet']]) {
-  assert.ok(allThree.includes(`border-${hue}-300 bg-${hue}-50`), `Approved check ${level} uses its own ${hue} chip`);
-}
-assert.equal(new Set([1, 2, 3].map((level) => level)).size, 3, 'Three separate levels are counted');
-assert.ok(allThree.includes('bg-sky-400') && allThree.includes('bg-amber-300') && allThree.includes('bg-violet-400'),
-  'Approved progress segments follow the same hues');
-assert.doesNotMatch(allThree, /bg-emerald-300|border-emerald-200 bg-emerald-50|bg-emerald-100 text-emerald-800/,
-  'The single-colour emerald treatment is gone');
-assert.match(allThree, /3\/3 approved/, 'The count is still stated next to the coloured chips');
-
-// Inspect the real storefront adapter before the shared card is rendered.
-const checkStorefrontMoq = (product) => {
-  capturedCards.length = 0;
-  renderToStaticMarkup(React.createElement(SupplierStorefront, {
-    supplier: { ...base, main_products: [{ id: 'p', name: 'Cashew', ...product }] }, certificates: [], categories: [], coverUrl: null, avatarUrl: null, synthetic: true,
-  }));
-  assert.equal(capturedCards.length, 1);
-  return capturedCards[0];
-};
-assert.equal(checkStorefrontMoq({ moq: '1000 kg', moq_qty: 1, moq_unit: 'cont_20ft' }).moq, 'On request');
-assert.equal(checkStorefrontMoq({ moq: '1000 kg', moq_unit: 'cont_40ft' }).moq, 'On request');
-assert.equal(checkStorefrontMoq({ moq: '1 container', moq_qty: 2, moq_unit: 'mt' }).moq, '2 MT');
-const rowMoq = checkStorefrontMoq({ moq: '1000 kg', specs: { grade_rows: [{ grade: 'W320', moq: '1000 kg', moq_qty: 1, moq_unit: 'cont_20ft' }] } });
-assert.equal(rowMoq.gradeRows[0].moq, 'On request');
-assert.equal(rowMoq.moq, 'On request', 'A grade must not inherit product-level text');
-console.log('✅ Public L2: approved snapshots, both historical scopes, buyer labels, explanations, SSR, per-level colours and separate filters.');
+console.log('✅ Public L2: approved snapshots, both historical scopes, buyer labels, explanations, SSR and separate filters.');

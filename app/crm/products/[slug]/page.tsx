@@ -11,11 +11,6 @@ import { PageHeader } from "@/components/page-header";
 import { MediaGallery } from "@/components/media-gallery";
 import { ProductImageGallery, type GalleryImage } from "@/components/product-image-gallery";
 import { isExpired } from "@/lib/media/readiness";
-import {
-  categoryMarketPriceUnit,
-  formatGradeRowPriceVi,
-  readStoredGradeRows,
-} from "@/lib/products/grade-pricing";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chi tiết sản phẩm" };
@@ -64,9 +59,6 @@ export default async function ProductDetailPage({
       audience: m.audience === "internal" ? "internal" : "buyer",
     }));
   const documents = media.filter((m) => m.kind !== "image");
-  const effectiveCategorySlug = product.reviewed_category_slug ?? product.category ?? product.supplier_category_proposal ?? null;
-  const storedGradeRows = readStoredGradeRows(product.specs);
-  const unitMeta = categoryMarketPriceUnit(effectiveCategorySlug, null);
 
   return (
     <>
@@ -94,42 +86,6 @@ export default async function ProductDetailPage({
             {product.oem && <Badge className="bg-ink-100 text-ink-700">Nhận làm nhãn riêng</Badge>}
             {product.samples && <Badge className="bg-ink-100 text-ink-700">Có thể gửi mẫu</Badge>}
           </div>
-          {storedGradeRows.length > 0 && (
-            <div className="mb-4 overflow-x-auto rounded-lg border border-ink-200">
-              <div className="border-b border-ink-200 bg-ink-50 px-3 py-2 text-xs font-bold text-ink-800">
-                Grade &amp; giá ({unitMeta.unitLabel})
-              </div>
-              <table className="min-w-full border-collapse text-left text-xs">
-                <thead className="border-b border-ink-200 bg-ink-50/70 text-[10.5px] font-bold uppercase tracking-wider text-ink-500">
-                  <tr>
-                    <th className="px-3 py-1.5">Grade</th>
-                    <th className="px-3 py-1.5">{unitMeta.headerLabel}</th>
-                    <th className="px-3 py-1.5">Incoterm</th>
-                    <th className="px-3 py-1.5">MOQ</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ink-100 bg-white">
-                  {storedGradeRows.map((row, index) => (
-                    <tr key={`${row.grade}-${index}`}>
-                      <td className="px-3 py-2 font-semibold text-ink-900">
-                        {row.grade}
-                        {row.is_custom && (
-                          <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
-                            Tự nhập
-                          </span>
-                        )}
-                      </td>
-                      <td className={cx("px-3 py-2 font-semibold text-ink-800", row.price_min !== null && "font-mono tabular-nums")}>
-                        {formatGradeRowPriceVi(row.price_min, row.price_max, unitMeta.unitLabel)}
-                      </td>
-                      <td className="px-3 py-2 text-ink-700">{row.incoterm || "-"}</td>
-                      <td className="px-3 py-2 text-ink-700">{row.moq || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
           <dl>
             <Field label="Nhóm ngành" value={product.category} />
             <Field label="Quy cách" value={product.spec} />
@@ -150,7 +106,7 @@ export default async function ProductDetailPage({
               label="Giá tham khảo"
               value={
                 product.ref_price !== null
-                  ? <><span className="font-mono tabular-nums font-semibold">{formatMoney(product.ref_price)}</span> / {product.unit || "đv"}</>
+                  ? `${formatMoney(product.ref_price)} / ${product.unit || "đv"}`
                   : null
               }
             />

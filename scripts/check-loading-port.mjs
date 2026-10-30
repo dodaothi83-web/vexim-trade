@@ -137,7 +137,6 @@ const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx
   '@/components/product-trade-labels': { ProductTradeLabels: Null },
   '@/components/public-product-card': { PublicProductCard: Null },
   '@/components/public/product-description': { ProductDescription: Null },
-  '@/components/public/quantity-price-table': { QuantityPriceTable: Null },
   '@/lib/public/product-selection': { productBelongsToCategory: () => true, withoutDirectContacts: selection.withoutDirectContacts },
   '@/lib/traffic/server': { createTrafficToken: () => 'token' },
   '@/components/supplier-traffic-beacon': { SupplierTrafficBeacon: Null },

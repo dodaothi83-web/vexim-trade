@@ -524,7 +524,6 @@ function migrateCategoryDefaults(db: LocalShape) {
     if (!c.filters) c.filters = [];
     if (c.harvest === undefined) c.harvest = null;
     if (c.price_unit === undefined) c.price_unit = null;
-    if (c.moq_units === undefined) c.moq_units = null;
     if (c.created_by === undefined) c.created_by = null;
     if (c.updated_by === undefined) c.updated_by = null;
     if (c.h1_i18n === undefined) c.h1_i18n = null;
@@ -592,44 +591,6 @@ function migrateSupplierDefaults(db: LocalShape) {
     if (s.profile_image === undefined) s.profile_image = null;
     if (s.cover_image === undefined) s.cover_image = null;
     if (s.verification_level === undefined) s.verification_level = 0;
-  }
-}
-
-function migrateProductStructuredUnits(db: LocalShape) {
-  if (!Array.isArray(db.products)) return;
-  for (const p of db.products) {
-    if (typeof p.moq_qty === "number" && p.moq_qty > 0 && typeof p.moq_unit === "string" && p.moq_unit) continue;
-    const raw = typeof p.moq === "string" ? p.moq.trim() : "";
-    if (!raw) continue;
-    const cont = raw.match(/^(\d+)\s*(?:×|x|\*)?\s*(?:cont(?:ainer)?s?\s*)?(20|40)\s*(?:ft|'|hc|hq|rf)?(?:\s*(?:fcl|containers?|cont))?(?:\s*\([^)]*\))?$/i);
-    if (cont) {
-      const qty = Number(cont[1]);
-      if (Number.isInteger(qty) && qty > 0 && qty <= 500) {
-        p.moq_qty = qty;
-        p.moq_unit = cont[2] === "40" ? "cont_40ft" : "cont_20ft";
-        p.moq = `${qty} × ${cont[2]}ft ${qty === 1 ? "container" : "containers"}`;
-      }
-      continue;
-    }
-    const mt = raw.match(/^(\d+(?:[.,]\d{1,3})?)\s*(mt|tấn|tan|metric\s+tons?|tonnes?|tons?)$/i);
-    if (mt) {
-      const qty = Number(mt[1].replace(",", "."));
-      if (Number.isFinite(qty) && qty > 0) {
-        p.moq_qty = qty;
-        p.moq_unit = "mt";
-        p.moq = `${qty} MT`;
-      }
-      continue;
-    }
-    const kg = raw.match(/^(\d+(?:[.,]\d{1,3})?)\s*(kgs?|kilograms?)$/i);
-    if (kg) {
-      const qty = Number(kg[1].replace(",", "."));
-      if (Number.isFinite(qty) && qty > 0) {
-        p.moq_qty = qty;
-        p.moq_unit = "kg";
-        p.moq = `${qty} kg`;
-      }
-    }
   }
 }
 
@@ -887,7 +848,6 @@ function load(): LocalShape {
     migrateRfqDefaults(c);
     migrateMediaDefaults(c);
     migrateSupplierDefaults(c);
-    migrateProductStructuredUnits(c);
     migrateMessageDefaults(c);
     ensureDemoSuppliers(c);
     migrateVerifications(c);
@@ -936,7 +896,6 @@ function load(): LocalShape {
         migrateRfqDefaults(parsed);
         migrateMediaDefaults(parsed);
         migrateSupplierDefaults(parsed);
-        migrateProductStructuredUnits(parsed);
         migrateMessageDefaults(parsed);
         ensureDemoSuppliers(parsed);
         migrateVerifications(parsed);
@@ -954,7 +913,6 @@ function load(): LocalShape {
   migrateRfqDefaults(fresh);
   migrateMediaDefaults(fresh);
   migrateSupplierDefaults(fresh);
-  migrateProductStructuredUnits(fresh);
   migrateMessageDefaults(fresh);
   ensureDemoSuppliers(fresh);
   migrateVerifications(fresh);

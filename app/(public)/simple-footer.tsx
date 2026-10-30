@@ -21,7 +21,6 @@ export function SimpleFooter() {
       <div className="mx-auto flex max-w-7xl flex-col items-start gap-2 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
         <div>© {new Date().getFullYear()} {COMPANY.legalName}, Tây Tựu, Hà Nội, Việt Nam</div>
         <div className="flex flex-wrap items-center gap-4">
-          <Link href="/how-it-works" className="hover:text-ink-800">How it works</Link>
           <Link href="/how-we-verify" className="hover:text-ink-800">How we verify</Link>
           <Link href="/for-suppliers" className="hover:text-ink-800">For suppliers</Link>
           <Link href="/privacy-policy" className="hover:text-ink-800">Privacy Policy</Link>

@@ -55,7 +55,7 @@ const card = load('../components/public-product-card.tsx', {
   '@/components/sponsored-disclosure': disclosure,
   '@/components/product-compare-checkbox': { ProductCompareCheckbox: icon },
   '@/components/product-trade-labels': { ProductTradeLabels: icon },
-  '@/components/verification-tier': { VerificationPips: icon, VerificationTierBadge: icon },
+  '@/components/verification-tier': { VerificationPips: icon },
 });
 const props = { href: '/product', name: 'Product', moq: '', price: null, leadTimeDays: null, supplierName: 'Supplier', verificationSteps: [], quoteHref: undefined };
 const paid = renderToStaticMarkup(React.createElement(card.PublicProductCard, { ...props, sponsored: true }));

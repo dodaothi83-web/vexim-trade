@@ -41,7 +41,6 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
   const poolJson = JSON.stringify(pool);
   useEffect(() => { onCommit?.(poolJson, draft); }, [poolJson, draft, onCommit]);
   const visible = fields.filter((field) => !field.showWhen || draft[field.showWhen.key] === field.showWhen.value);
-  const hiddenWithValues = fields.filter((field) => field.showWhen && draft[field.showWhen.key] !== field.showWhen.value && draft[field.key]);
   // Danh mục chưa có thông số nào: không hiện khối trống, quy cách đã nằm ở ô bên dưới.
   if (!fields.length) return null;
 
@@ -114,10 +113,6 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
       </div>)}
     </div>}
 
-    {hiddenWithValues.map((field) => <div key={field.key} className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-950">
-      <p>Thông số {field.label} đang ẩn nhưng vẫn có giá trị: {draft[field.key]}. Hãy xóa giá trị hoặc chọn lại điều kiện hiển thị.</p>
-      <button type="button" disabled={disabled} className="mt-1 min-h-10 font-semibold text-brand-800 disabled:opacity-50" onClick={() => set(field.key, "")}>Xóa giá trị {field.label}</button>
-    </div>)}
     {error && <p role="alert" className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-[11.5px] font-semibold text-rose-800">{error}</p>}
     {pool.some((field) => field.supplier_added) && <p className="mt-2 text-[10.5px] leading-4 text-ink-500">
       Giá trị tự thêm không tạo nhãn xác minh.

@@ -2,14 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
-import "@fontsource/be-vietnam-pro/400.css";
-import "@fontsource/be-vietnam-pro/400-italic.css";
-import "@fontsource/be-vietnam-pro/500.css";
-import "@fontsource/be-vietnam-pro/600.css";
-import "@fontsource/be-vietnam-pro/700.css";
-import "@fontsource/be-vietnam-pro/800.css";
-import "@fontsource/be-vietnam-pro/900.css";
-import "@fontsource-variable/jetbrains-mono";
 import "./globals.css";
 import { HOME_META_DESCRIPTION } from "@/lib/public/meta-copy";
 import { ToastProvider } from "@/components/toast";

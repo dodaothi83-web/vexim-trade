@@ -22,15 +22,19 @@ export const KG_PER_UNIT: Record<PriceUnit, number> = {
 export const PRICE_UNIT_LABEL: Record<PriceUnit, { short: string; long: string }> = {
   kg: { short: "kg", long: "kilogram" },
   lb: { short: "lb", long: "pound" },
-  mt: { short: "MT", long: "metric ton" },
+  mt: { short: "t", long: "tonne" },
 };
 
 /**
- * Quy ước hiển thị thống nhất theo danh mục: mỗi danh mục dùng đúng một đơn vị (kg hoặc MT).
+ * Quy ước hiển thị theo danh mục.
+ *
+ * `primary` là đơn vị người mua Việt Nam quen thấy trong báo giá FOB.
+ * `secondary` chỉ điền khi thị trường thật sự đọc song song hai đơn vị.
  */
 export const MARKET_PRICE_UNITS: Record<string, { primary: PriceUnit; secondary?: PriceUnit }> = {
-  cashew: { primary: "kg" },
-  "cashew-kernels": { primary: "kg" },
+  cashew: { primary: "kg", secondary: "lb" },
+  // Slug ra mắt 23/10/2026. Nhân điều giữ pound như bản tin quốc tế, quế hồi đi theo tấn.
+  "cashew-kernels": { primary: "kg", secondary: "lb" },
   "cinnamon-star-anise": { primary: "mt" },
   coffee: { primary: "mt" },
   rice: { primary: "mt" },
@@ -40,6 +44,7 @@ export const MARKET_PRICE_UNITS: Record<string, { primary: PriceUnit; secondary?
   coconut: { primary: "mt" },
   "dried-fruits": { primary: "mt" },
   "dried-spices": { primary: "mt" },
+  // Slug đang dùng ngoài production là "spices", không phải "dried-spices".
   spices: { primary: "mt" },
   "seafood-processed-fisheries-products": { primary: "kg" },
 };
@@ -66,12 +71,13 @@ export function priceUnitHint(slug: string): PriceUnit | null {
   return null;
 }
 
-/** Đơn vị hiển thị thống nhất của một danh mục (kg hoặc MT), đọc từ cấu hình trong CRM trước, rồi tới bảng quy ước. */
+/** Đơn vị hiển thị của một danh mục, đọc từ cấu hình trong CRM trước, rồi tới bảng quy ước. */
 export function displayUnitsForCategory(slug: string, configured?: string | null): { primary: PriceUnit; secondary?: PriceUnit } {
   const parsed = parsePriceUnit(configured);
-  if (parsed === "kg" || parsed === "mt") return { primary: parsed };
   const market = MARKET_PRICE_UNITS[slug];
-  if (market) return { primary: market.primary };
+  if (parsed) return { primary: parsed, secondary: market?.secondary === parsed ? undefined : market?.secondary };
+  if (market) return market;
+  // Cà phê và hồ tiêu không đọc theo pound, còn nhân điều thì có; chỉ nhân điều mới thêm đơn vị phụ.
   return { primary: priceUnitHint(slug) ?? DEFAULT_PRICE_UNIT };
 }
 

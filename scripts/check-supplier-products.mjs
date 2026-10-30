@@ -1,5 +1,4 @@
 // node scripts/check-supplier-products.mjs — owned drafts, private assets, manual review, public gate.
-import { v2Validation } from './quantity-v2-test-utils.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -96,25 +95,14 @@ const store = {
 };
 const access = () => ({ store, supplier: { ...supplier }, user });
 const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
-const priceUnits = load('../lib/public/price-units.ts', {});
-const gradeResolution = load('../lib/public/grade-resolution.ts', {});
-const gradePricing = load('../lib/products/grade-pricing.ts', {
-  '@/lib/public/price-units': priceUnits,
-  '@/lib/public/grade-resolution': gradeResolution,
-});
 const notices = [];
 const actions = load('../app/supplier/portal/product-actions.ts', {
-  '@/lib/products/quantity-v2-validation': v2Validation,
   'next/cache': { revalidatePath() {} },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
   '@/lib/supplier-portal/onboarding': onboarding,
   '@/lib/supplier-portal/product-price-options': priceOptions,
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/product-attributes': attributes,
-  '@/lib/products/grade-pricing': gradePricing,
-  '@/lib/db/supabase': { getSupabaseClient: () => null, supabaseStore: store },
-  '@/lib/products/quantity-price-config': { readQuantityPricingPolicy: async () => ({ maxTiers: 4, maxPriceRatio: 1.5, maxLastMoqRatio: 100 }) },
-  '@/lib/products/quantity-pricing': load('../lib/products/quantity-pricing.ts', {}),
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible && !!s.fob_updated_at && Date.now() - new Date(s.fob_updated_at).getTime() < 180 * 86400_000 },
   '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => c.slug === (p.name.includes('Rice') ? 'rice' : 'cashew')) },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async (_supplier, item) => { notices.push(['submitted', item.id]); return 'sent'; } },
@@ -131,22 +119,71 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
 });
 const form = () => {
   const fd = new FormData();
-  for (const [key, value] of Object.entries({ name: 'Cashew kernels', spec: '25kg vacuum bag', description: 'White kernels',
+  for (const [key, value] of Object.entries({ name: 'Cashew W320', spec: '25kg vacuum bag', description: 'White kernels',
     raw_material_region: 'Bình Phước và Đắk Lắk', input_material_origin: 'Việt Nam và Campuchia',
     ref_price: '5000', currency: 'USD', unit: 'kg', supplier_category_proposal: 'cashew', supplier_id: 'foreign', ready_for_buyer: 'true', supplier_review_status: 'approved' })) fd.set(key, value);
   return fd;
 };
 assert.equal((await actions.saveSupplierProductAction(form())).ok, false, 'Pending account cannot create product');
 supplier.onboarding_status = 'approved';
-// New creation is covered by check-new-quantity-product; without a live
-// quantity database it fails closed instead of creating a legacy-priced draft.
-assert.equal((await actions.saveSupplierProductAction(form())).ok, false);
-product = { id: productId, supplier_id: supplierId, name: 'Cashew kernels', category: 'cashew', supplier_category_proposal: 'cashew',
-  supplier_review_status: 'draft', supplier_originated: true, ready_for_buyer: false, reviewed_category_slug: null,
-  ref_price: 5000, ref_price_max: null, unit: 'kg', currency: 'USD', name_i18n: {}, specs: {}, images: [] };
-function formWithId() { const fd = form(); fd.set('product_id', productId); return fd; }
+const invertedPrice = form(); invertedPrice.set('ref_price_max', '4999');
+assert.match((await actions.saveSupplierProductAction(invertedPrice)).message, /Giá đến/, 'Supplier cannot save an inverted range');
+assert.equal(product, null);
+const missingFloor = form(); missingFloor.delete('ref_price'); missingFloor.set('ref_price_max', '5500');
+assert.equal((await actions.saveSupplierProductAction(missingFloor)).ok, false, 'Upper price requires a positive lower price');
+// Fixed supplier choices are validated server-side, not just in the browser.
+for (const [field, value] of [['unit', 'kg/unit'], ['currency', 'BTC'], ['unit', ''], ['currency', '']]) {
+  const invalid = form(); invalid.set(field, value);
+  assert.equal((await actions.saveSupplierProductAction(invalid)).ok, false, `Reject unsupported or missing ${field}`);
+}
+const draftWithoutPrice = form(); draftWithoutPrice.delete('ref_price'); draftWithoutPrice.set('unit', ''); draftWithoutPrice.set('currency', '');
+assert.equal((await actions.saveSupplierProductAction(draftWithoutPrice)).ok, true, 'Price and both choices remain optional for a draft');
+assert.equal(product.unit, null); assert.equal(product.currency, null); product = null;
+const forgedWithoutPrice = form(); forgedWithoutPrice.delete('ref_price'); forgedWithoutPrice.set('unit', 'pallet');
+assert.equal((await actions.saveSupplierProductAction(forgedWithoutPrice)).ok, false, 'Cannot create a new free-text unit without a price');
+for (const { value } of priceOptions.SUPPLIER_PRICE_UNITS) {
+  const supported = form(); supported.set('unit', value);
+  assert.equal((await actions.saveSupplierProductAction(supported)).ok, true, `Unit ${value} is accepted`);
+  assert.equal(product.unit, value); product = null;
+}
+for (const { value } of priceOptions.SUPPLIER_PRICE_CURRENCIES) {
+  const supported = form(); supported.set('currency', value);
+  assert.equal((await actions.saveSupplierProductAction(supported)).ok, true, `Currency ${value} is accepted`);
+  assert.equal(product.currency, value); product = null;
+}
+const invalidProposal = form(); invalidProposal.set('supplier_category_proposal', 'not-in-catalogue');
+assert.equal((await actions.saveSupplierProductAction(invalidProposal)).ok, false, 'Supplier cannot forge a category');
+const outsideScope = form(); outsideScope.set('supplier_category_proposal', 'rice');
+assert.equal((await actions.saveSupplierProductAction(outsideScope)).ok, true, 'Published category outside supplier scope is a review warning, not a draft blocker');
+assert.equal(product.supplier_review_status, 'draft'); product = null;
+const wrongCommodity = form(); wrongCommodity.set('name', 'Jasmine Rice');
+assert.equal((await actions.saveSupplierProductAction(wrongCommodity)).ok, true, 'Keyword and category mismatch is left for staff review');
+assert.equal(product.supplier_review_status, 'draft'); product = null;
+const noCategory = form(); noCategory.delete('supplier_category_proposal');
+assert.equal((await actions.saveSupplierProductAction(noCategory)).ok, false, 'A product needs one selected category');
+assert.equal(product, null);
+const created = await actions.saveSupplierProductAction(form());
+assert.equal(created.ok, true); assert.equal(created.id, productId);
+assert.equal(product.supplier_id, supplierId); assert.equal(product.supplier_review_status, 'draft');
+assert.equal(product.ready_for_buyer, false); assert.equal(product.ref_price, 5000);
+assert.equal(product.unit, 'kg'); assert.equal(product.currency, 'USD');
+// Historical values survive ordinary edits; changing the numeric price requires standard choices.
+product = { ...product, unit: 'tấn', currency: 'USD/kg' };
+const legacy = form(); legacy.set('product_id', productId); legacy.set('unit', 'tấn'); legacy.set('currency', 'USD/kg');
+assert.equal((await actions.saveSupplierProductAction(legacy)).ok, true);
+assert.equal(product.unit, 'tấn'); assert.equal(product.currency, 'USD/kg');
+const legacyPriceChange = form(); legacyPriceChange.set('product_id', productId); legacyPriceChange.set('unit', 'tấn'); legacyPriceChange.set('currency', 'USD/kg'); legacyPriceChange.set('ref_price', '6000');
+assert.equal((await actions.saveSupplierProductAction(legacyPriceChange)).ok, false, 'A new price cannot retain nonstandard legacy values');
+const normalized = form(); normalized.set('product_id', productId); normalized.set('unit', 'MT'); normalized.set('currency', 'EUR');
+assert.equal((await actions.saveSupplierProductAction(normalized)).ok, true);
+assert.equal(product.unit, 'MT'); assert.equal(product.currency, 'EUR');
+// Missing historical unit and currency are not silently filled when editing other fields.
+product = { ...product, unit: null, currency: null };
+const missingLegacy = form(); missingLegacy.set('product_id', productId); missingLegacy.set('unit', ''); missingLegacy.set('currency', '');
+assert.equal((await actions.saveSupplierProductAction(missingLegacy)).ok, true);
+assert.equal(product.unit, null); assert.equal(product.currency, null);
 assert.equal((await actions.saveSupplierProductAction(formWithId())).ok, true);
-assert.equal(product.ref_price, 5000, 'Legacy buyer price is preserved while editing');
+
 assert.equal(product.raw_material_region, 'Bình Phước và Đắk Lắk', 'Supplier product save persists its own raw material region');
 assert.equal(product.input_material_origin, 'Việt Nam và Campuchia', 'Supplier product save persists its own input origin');
 assert.equal(product.price_publicly_visible, false, 'Saving an entered price does not expose it');
@@ -155,14 +192,14 @@ assert.equal((await actions.saveSupplierProductAction(forgedAttribute)).ok, fals
 const validAttribute = form(); validAttribute.set('product_id', productId);
 validAttribute.set('attribute:grade', 'W320'); validAttribute.set('attribute:private', 'unreviewed');
 assert.equal((await actions.saveSupplierProductAction(validAttribute)).ok, true);
-assert.equal(product.specs.grade, undefined, 'Grade is managed only by quantity revisions');
+assert.equal(product.specs.grade, 'W320');
 assert.equal(product.specs.private, undefined, 'Unconfigured attributes never persist');
 assert.equal(supplier.fob_updated_at, null, 'Ordinary product saves cannot silently record supplier consent');
 const optIn = form(); optIn.set('product_id', productId); optIn.set('price_publicly_visible', 'yes');
 optIn.set('ref_price_max', '5500');
 optIn.set('description_detail', 'Origin and details of this product.');
 assert.equal((await actions.saveSupplierProductAction(optIn)).ok, true);
-assert.equal(product.ref_price_max, null, 'Legacy price cannot be edited from the product form');
+assert.equal(product.ref_price_max, 5500, 'Supplier can save an optional range without changing the publication flow');
 assert.equal(product.price_publicly_visible, true); assert.equal(product.description_detail, '<p>Origin and details of this product.</p>');
 assert.equal(supplier.fob_updated_at, null, 'Product opt-in alone does not create supplier consent');
 const consentForm = form(); consentForm.set('product_id', productId); consentForm.set('price_publicly_visible', 'yes');
@@ -176,15 +213,14 @@ assert.equal(product.price_publicly_visible, false, 'Unticking product opt-in hi
 assert.equal(supplier.fob_updated_at, consentStamp, 'Ordinary saves never renew consent');
 assert.equal(product.supplier_category_proposal, 'cashew'); assert.equal(product.reviewed_category_slug, null);
 assert.equal(product.supplier_originated, true);
+function formWithId() { const fd = form(); fd.set('product_id', productId); return fd; }
 const foreignEdit = form(); foreignEdit.set('product_id', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
 assert.equal((await actions.saveSupplierProductAction(foreignEdit)).ok, false);
 const image = new File([new Uint8Array([0xff,0xd8,0xff,0xe0,1,2,3,4,5,6,7,8])], 'cashew.jpg', { type: 'image/jpeg' });
-let mediaDb = null;
 const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
   'next/server': { NextResponse: { json: (data, options) => Response.json(data, options) } },
   'next/cache': { revalidatePath() {} },
   'node:crypto': { randomUUID: () => 'aabbccdd-eeee-ffff-aaaa-bbbbbbbbbbbb' },
-  '@/lib/db/supabase': { getSupabaseClient: () => mediaDb, supabaseStore: store },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access() },
   '@/lib/supplier-portal/onboarding': onboarding,
   '@/lib/supplier-portal/product-price-options': priceOptions,
@@ -195,14 +231,11 @@ const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
   },
   '@/lib/media/prepare-supplier-product-image': { prepareSupplierProductImage: async () => ({ main: new Uint8Array([1, 2]), thumb: new Uint8Array([3]), width: 800, height: 600 }) },
   '@/lib/media/readiness': mediaReadiness,
-  '@/lib/supplier-portal/product-view': { privateMediaUrl: (asset) => asset.storage_path ? `/api/media/file/${asset.storage_path}` : null },
   '@/lib/media/storage': storage,
 });
-let lastMediaResponse = null;
 async function postMedia(id = productId) {
   const fd = new FormData(); fd.set('kind', 'image'); fd.set('file', image);
   const response = await upload.POST(new Request(`https://example.com/api/supplier-portal/products/${id}/media`, { method: 'POST', body: fd }), { params: Promise.resolve({ id }) });
-  lastMediaResponse = await response.clone().json();
   return response.status;
 }
 assert.equal(await postMedia('ffffffff-ffff-ffff-ffff-ffffffffffff'), 403);
@@ -210,15 +243,8 @@ failThumb = true;
 assert.equal(await postMedia(), 503, 'A failed derivative write must not create a media record');
 assert.equal(files.length, 0); assert.equal(storedBytes, 0, 'Roll back the main image if the thumbnail fails');
 failThumb = false;
-let guardedCalls = 0;
-mediaDb = { rpc: async (name, args) => { guardedCalls++; assert.equal(name, 'create_supplier_product_media_guarded'); assert.equal(args.p_supplier_id, supplierId); return { data: { status: 'image_limit' }, error: null }; } };
-assert.equal(await postMedia(), 409, 'Concurrent ninth image is rejected by the atomic RPC');
-assert.equal(guardedCalls, 1); assert.equal(files.length, 0); assert.equal(storedBytes, 0, 'Rejected upload cleans up both files');
-mediaDb = null;
 assert.equal(await postMedia(), 200);
 assert.equal(files[0].audience, 'internal'); assert.equal(files[0].status, 'unverified');
-assert.equal(lastMediaResponse.image.id, files[0].id);
-assert.equal(lastMediaResponse.image.url, `/api/media/file/${files[0].storage_path}`);
 assert.match(files[0].storage_path, /\.webp$/); assert.match(files[0].thumb_path, /-thumb\.webp$/);
 assert.equal(files[0].mime, 'image/webp'); assert.equal(files[0].width, 800); assert.equal(files[0].height, 600);
 assert.equal(files[0].bytes, 2); assert.equal(files[0].created_by, user.id); assert.equal(storedBytes, 2);
@@ -254,9 +280,6 @@ assert.equal((await upload.POST(new Request(deleteUrl, { method: 'POST', body: p
   { params: Promise.resolve({ id: productId }) })).status, 200);
 assert.match(files[0].storage_path, /\.pdf$/); assert.equal(files[0].thumb_path, null);
 assert.equal(files[0].mime, 'application/pdf'); assert.equal(storedBytes, 1);
-const pdfOnlySubmission = new FormData(); pdfOnlySubmission.set('product_id', productId);
-const pdfOnlyResult = await actions.submitSupplierProductAction(pdfOnlySubmission);
-assert.equal(pdfOnlyResult.ok, false); assert.match(pdfOnlyResult.message, /ít nhất một ảnh/);
 assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), { params: Promise.resolve({ id: productId }) })).status, 200);
 assert.equal(storedBytes, 0);
 assert.equal(await postMedia(), 200);
@@ -264,10 +287,9 @@ const submitted = new FormData(); submitted.set('product_id', productId);
 files[0].created_by = 'staff';
 assert.equal((await actions.submitSupplierProductAction(submitted)).ok, false, 'Hidden staff-internal file does not satisfy supplier submission');
 files[0].created_by = user.id;
-const submissionResult = await actions.submitSupplierProductAction(submitted);
-assert.equal(submissionResult.ok, true);
+assert.equal((await actions.submitSupplierProductAction(submitted)).ok, true);
 assert.equal(product.supplier_review_status, 'pending'); assert.equal(product.ready_for_buyer, false);
-assert.match(submissionResult.message, /Chưa tự dịch được/, 'Local fallback cannot perform the guarded AI write');
+assert.ok(product.name_i18n?.en, 'Submitting a product auto-creates its English translation');
 assert.equal(notices.length, 1, 'Only submission, not saves, emails staff');
 assert.equal(await postMedia(), 409, 'Cannot upload while pending');
 const pendingEdit = form(); pendingEdit.set('product_id', productId);
@@ -278,13 +300,10 @@ const review = load('../app/crm/products/[slug]/edit/review-actions.ts', {
   '@/lib/auth/session': { guard: async () => denied ? { message: 'denied' } : null,
     getSession: async () => ({ uid: 'reviewer', email: 'staff@example.com', role: 'reviewer' }) },
   '@/lib/db': { getStore: () => store },
-  '@/lib/db/supabase': { getSupabaseClient: () => null, supabaseStore: store },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async (input) => { notices.push([input.decision, input.entityId]); return 'sent'; } },
   '@/lib/crm/badges': { refreshCrmBadges() {} },
   '@/lib/media/readiness': mediaReadiness,
   '@/lib/products/product-description': productDescription,
-  '@/lib/products/grade-pricing': { standardGradesForCategory: () => [] },
-  '@/lib/products/quantity-pricing': { nameContainsGrade: () => false },
   '@/lib/public/product-selection': { isTestOnlyProduct: (name) => /^\s*(?:\[\s*)?test\s+only\b/i.test(name) },
   '@/lib/public/supplier-seo': { isSyntheticSupplier: () => false },
   '@/lib/supplier-portal/category-proposals': categoryProposals,
@@ -320,7 +339,7 @@ assert.equal((await review.decideSupplierProductAction(approve)).ok, true, 'Keyw
 assert.equal(uncheckedPublicFile.audience, 'internal'); assert.equal(uncheckedPublicFile.status, 'unverified',
   'Publication never promotes or verifies another internal file');
 files.pop();
-product.name = 'Cashew kernels';
+product.name = 'Cashew W320';
 assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, true);
 assert.equal(files[0].audience, 'buyer'); assert.equal(files[0].status, 'checked');
 assert.equal(notices.at(-1)[0], 'product_approved');
@@ -371,7 +390,7 @@ assert.equal(product.reviewed_category_slug, 'rice');
 correction.set('reviewed_category_slug', 'cashew');
 assert.equal((await review.correctSupplierProductCategoryAction(correction)).ok, true);
 assert.equal(product.reviewed_category_slug, 'cashew'); assert.equal(product.ready_for_buyer, true, 'Staff category correction preserves the live decision');
-const revised = form(); revised.set('product_id', productId); revised.set('name', 'Cashew whole kernels');
+const revised = form(); revised.set('product_id', productId); revised.set('name', 'Cashew W240');
 assert.equal((await actions.saveSupplierProductAction(revised)).ok, true);
 assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, true);
 assert.equal(product.reviewed_category_slug, 'cashew', 'Approved owner edits keep the staff category decision');
@@ -382,18 +401,6 @@ assert.equal(selection.productReviewApproved({ ...product, reviewed_category_slu
   'A supplier-originated product still cannot publish without its reviewed category');
 assert.equal(audit.some((a) => a.action === 'supplier.product_approved'), true);
 assert.equal(audit.some((a) => a.action === 'supplier.product_published'), true);
-
-// Legacy price fields in a product save must not replace the approved buyer price.
-const priceEditOnApproved = formWithId(); priceEditOnApproved.set('ref_price', '7'); priceEditOnApproved.set('ref_price_max', '7.8');
-const priceBefore = product.ref_price;
-const priceEditRes = await actions.saveSupplierProductAction(priceEditOnApproved);
-assert.equal(priceEditRes.ok, true);
-assert.equal(product.ref_price, priceBefore);
-assert.equal(product.supplier_review_status, 'approved');
-assert.equal(product.ready_for_buyer, true, 'A legacy price field in a form cannot withdraw the live product');
-// Reset to form()'s baseline price (5000 USD/kg) before pause tests so subsequent non-price formWithId() edits stay non-price edits.
-product = { ...product, ref_price: 5000, ref_price_max: null, currency: 'USD', unit: 'kg' };
-
 // Pausing is explicit, retains media/history and blocks every public product gate.
 const snapshotBeforePause = { ...product };
 const fileCountBeforePause = files.length;
@@ -408,7 +415,7 @@ assert.equal(productView.productReview(product), 'paused');
 assert.equal(productView.productCanSubmit(product, files), true, 'Paused products can enter the review queue again');
 assert.equal((await actions.pauseSupplierProductAction(productId)).ok, false, 'Pause is not a route to re-publish');
 assert.equal((await actions.deleteSupplierDraftProductAction(productId)).ok, false, 'Paused products cannot be hard-deleted');
-const pausedSave = formWithId(); pausedSave.set('name', 'Cashew whole revised');
+const pausedSave = formWithId(); pausedSave.set('name', 'Cashew W180 revised');
 assert.equal((await actions.saveSupplierProductAction(pausedSave)).ok, true);
 assert.equal(product.supplier_review_status, 'paused', 'Saving while paused never re-publishes');
 assert.equal(product.ready_for_buyer, false); assert.equal(product.reviewed_category_slug, 'cashew');

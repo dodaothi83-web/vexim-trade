@@ -123,8 +123,6 @@ export async function putObject(
   contentType: string,
 ): Promise<{ driver: MediaDriver; path: string }> {
   const clean = safePath(rel);
-  // Form-review images are write-once. Generic legacy uploads must not overwrite them.
-  if (clean.startsWith("product-form-images/")) throw new Error("Không thể ghi đè ảnh sản phẩm đã lưu.");
 
   if (supabaseUsable()) {
     try {
@@ -145,27 +143,6 @@ export async function putObject(
   }
   await localPut(clean, data);
   return { driver: "local", path: clean };
-}
-
-/**
- * Write an immutable new object. Unlike putObject, this never overwrites an
- * existing path and never falls back after an ambiguous remote failure. Callers
- * must treat a thrown network error as an unknown outcome, not as proof that no
- * object was created.
- */
-export async function putNewObject(rel: string, data: Uint8Array, contentType: string): Promise<void> {
-  const clean = safePath(rel);
-  if (supabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) throw new Error("Supabase Storage không khả dụng");
-    const { error } = await client.storage.from(mediaBucket()).upload(clean, data, { contentType, upsert: false });
-    if (error) throw error;
-    return;
-  }
-  if (!localFallbackAllowed()) throw new Error("Supabase Storage không khả dụng");
-  const full = path.join(LOCAL_ROOT, clean);
-  await fs.mkdir(path.dirname(full), { recursive: true });
-  await fs.writeFile(full, data, { flag: "wx" });
 }
 
 export async function getObject(
@@ -197,8 +174,6 @@ export async function getObject(
 
 export async function deleteObject(rel: string): Promise<void> {
   const clean = safePath(rel);
-  // Cleanup for this namespace needs a separate reference-checked workflow.
-  if (clean.startsWith("product-form-images/")) throw new Error("Không thể xóa ảnh sản phẩm theo đường dẫn này.");
   if (supabaseUsable()) {
     try {
       const { error } = await getSupabaseClient()!.storage.from(mediaBucket()).remove([clean]);

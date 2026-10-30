@@ -163,15 +163,10 @@ const { ProductCompareCheckbox } = compile("../components/product-compare-checkb
 const checkboxHtml = renderToStaticMarkup(React.createElement(ProductCompareCheckbox, { product: item("b") }));
 assert.match(checkboxHtml, /type="checkbox"/);
 assert.match(checkboxHtml, /aria-label="Add Product b to comparison"/);
-assert.match(checkboxHtml, /absolute right-0\.5 top-0\.5/);
-assert.match(checkboxHtml, /(?:^|\s)size-10(?:\s|")/, "Hit area remains 40x40px");
-assert.match(checkboxHtml, /(?:^|\s)size-\[21px\](?:\s|")/, "Visual checkbox is 21px (20-22px)");
-assert.match(checkboxHtml, /(?:^|\s)bg-white\/80(?:\s|")/, "Unchecked visual box uses semi-transparent white fill");
-assert.doesNotMatch(checkboxHtml, /\bshadow(?:-sm|-md|-lg|-xl|-2xl|-card|-pop)?\b/, "No drop shadow on compare checkbox");
+assert.match(checkboxHtml, /absolute right-2 top-2/);
 const selectedCheckboxHtml = renderToStaticMarkup(React.createElement(ProductCompareCheckbox, { product: item("a") }));
 assert.match(selectedCheckboxHtml, /checked=""/);
 assert.match(selectedCheckboxHtml, /aria-label="Remove Product a from comparison"/);
-assert.match(selectedCheckboxHtml, /\bbg-brand-700\b/);
 
 /* ---------- Vietnamese source fallback display ---------- */
 

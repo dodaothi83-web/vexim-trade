@@ -2,9 +2,8 @@ import type { MetadataRoute } from "next";
 
 import { SITE_URL } from "@/lib/site";
 
-const NON_PRODUCTION = ["preview", "development"].includes(process.env.VERCEL_ENV ?? "") || process.env.VEXIM_DEPLOY_ENV === "staging";
-const INDEXABLE = !NON_PRODUCTION && process.env.PUBLIC_SITE_INDEXABLE === "true";
-const LEGAL_CRAWLABLE = !NON_PRODUCTION;
+const INDEXABLE = process.env.PUBLIC_SITE_INDEXABLE === "true";
+const LEGAL_CRAWLABLE = !["preview", "development"].includes(process.env.VERCEL_ENV ?? "");
 
 // Bot AI phục vụ tìm kiếm và trích dẫn câu trả lời cho người dùng.
 const AI_ANSWER_BOTS = [

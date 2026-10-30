@@ -311,7 +311,7 @@ export function BuyerTable({
           <strong className="text-ink-900">{rows.length}</strong> buyer
         </span>
         <span>
-          Tổng giá trị: <strong className="font-mono tabular-nums text-ink-900">{formatMoney(totalValue)}</strong>
+          Tổng giá trị: <strong className="text-ink-900">{formatMoney(totalValue)}</strong>
         </span>
         <span>
           Chưa gắn NCC:{" "}
@@ -451,7 +451,7 @@ export function BuyerTable({
                       <StageSelect target={target} autoSend={autoSend} readOnly={!canManage} />
                     </td>
                     <td className="table-td">
-                      <span className="font-mono text-[13px] font-semibold tabular-nums text-ink-800">
+                      <span className="text-[13px] font-semibold text-ink-800">
                         {formatMoney(b.deal_value)}
                       </span>
                       {b.incoterm && (
