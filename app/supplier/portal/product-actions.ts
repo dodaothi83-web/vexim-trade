@@ -6,6 +6,13 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import {
+  normalizeSupplierPriceCurrency,
+  normalizeSupplierPriceIncoterm,
+  normalizeSupplierPriceUnit,
+  parseSupplierPriceTiersFormJson,
+  validateSupplierPriceTiers,
+} from "@/lib/supplier-portal/product-price-options";
+import {
   attributesFromForm, mergeSupplierAttributePool, sanitizeSupplierAttributePool, saveProductAttributes,
   supplierAttributePoolSignature,
 } from "@/lib/product-attributes";
@@ -16,10 +23,10 @@ import {
   describePriceChangeForReview,
   hasProductPricingChanged,
   parseLeadTimeInput,
+  standardGradesForCategory,
 } from "@/lib/products/grade-pricing";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
-import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
 import { nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
@@ -45,18 +52,32 @@ function attributePoolFromForm(form: FormData): unknown[] {
   }
 }
 
+function isMissingSchemaArtifact(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const rec = error as { code?: unknown; message?: unknown };
+  const code = typeof rec.code === "string" ? rec.code : "";
+  const message = typeof rec.message === "string" ? rec.message : "";
+  return (
+    code === "PGRST205" ||
+    code === "PGRST202" ||
+    code === "42P01" ||
+    code === "42883" ||
+    /could not find the (table|function)/i.test(message)
+  );
+}
 
 function parseProduct(form: FormData, supplierId: string, existing: SupplierProduct | null = null): SupplierProductInput {
   const name = text(form, "name", 180);
   if (name.length < 3) throw new Error("Tên sản phẩm cần ít nhất 3 ký tự.");
   const daysRaw = text(form, "lead_time_days", 5);
   if (daysRaw && (!/^\d+$/.test(daysRaw) || Number(daysRaw) > 3650)) throw new Error("Thời gian giao hàng không hợp lệ.");
+  const moqValue = form.has("moq") ? (text(form, "moq", 120) || null) : (existing?.moq ?? null);
   return {
     supplier_id: supplierId, name, slug: null, name_i18n: {}, category: null,
     description: text(form, "description", 1500) || null,
     description_detail: sanitizeProductDescriptionForSave(String(form.get("description_detail") ?? "")) || null,
     spec: text(form, "spec", 800) || null,
-    specs: {}, unit: existing?.unit ?? null, moq: existing?.moq ?? null,
+    specs: {}, unit: existing?.unit ?? null, moq: moqValue,
     moq_qty: existing?.moq_qty ?? null, moq_unit: existing?.moq_unit ?? null, monthly_capacity: text(form, "monthly_capacity", 180) || null,
     raw_material_region: text(form, "raw_material_region", 180) || null,
     input_material_origin: text(form, "input_material_origin", 300) || null,
@@ -98,6 +119,10 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     const keepReviewed = keepPublished || keepPaused;
     if (existing && existingReview === "approved" && !keepPublished)
       return { ok: false, message: "Sản phẩm này được quản lý từ trước. Hãy tạm ẩn rồi gửi duyệt lại để cập nhật, hoặc liên hệ bộ phận hỗ trợ." };
+
+    const usesTieredForm = form.has("price_tiers_json");
+    const hasStagedQuantityPayload = !usesTieredForm && Boolean(text(form, "quantity_creation_request_id", 80) || form.has("quantity_tiers_json"));
+
     const input = parseProduct(form, access.supplier.id, existing);
     // Không biến sản phẩm lịch sử do staff tạo thành nháp do NCC tạo khi sửa.
     if (existing) input.supplier_originated = existing.supplier_originated === true;
@@ -109,8 +134,6 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     input.certifications = existing?.certifications ?? null;
     const allCategories = await store.listCategories({ publishedOnly: true });
     const options = categoryProposalOptions(allCategories);
-    // NCC có thể chọn danh mục gần nhất. Phạm vi đăng ký và gợi ý từ khóa
-    // chỉ hỗ trợ kiểm tra; staff chốt danh mục khi duyệt.
     input.supplier_category_proposal = parseProductCategoryProposal(form, options);
     input.category = input.supplier_category_proposal;
     if (keepReviewed && existing?.supplier_originated && !existing.reviewed_category_slug)
@@ -118,8 +141,6 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     if (keepReviewed && existing?.reviewed_category_slug && input.supplier_category_proposal !== existing.reviewed_category_slug)
       return { ok: false, message: "Danh mục đã được duyệt; vui lòng liên hệ bộ phận hỗ trợ nếu cần thay đổi." };
     if (keepReviewed && existing) {
-      // Lưu thông thường không được đăng lại sản phẩm đã tạm ẩn hoặc làm mất
-      // quyết định danh mục trước đó; NCC phải gửi duyệt lại một cách tường minh.
       input.supplier_review_status = keepPaused ? "paused" : "approved";
       input.supplier_originated = existing.supplier_originated === true;
       input.supplier_review_note = existing.supplier_review_note ?? null;
@@ -128,13 +149,13 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       input.category = existing.reviewed_category_slug ?? input.category;
     }
     let category = allCategories.find((c) => c.slug === input.category) ?? null;
-    if (existing && input.name !== existing.name && category && nameContainsGrade(input.name, standardGradesForCategory(category)))
+    if (!usesTieredForm && existing && input.name !== existing.name && category && nameContainsGrade(input.name, standardGradesForCategory(category)))
       return { ok: false, message: "Không ghi grade trong tên sản phẩm tiếng Việt." };
-    // New products and their private quantity table must be created together.
-    // Validate everything against live category and policy, not client defaults.
+
     let newQuantity: { grade: string; incoterm: string; tiers: { minKg: number; priceUsdPerKg: number }[] | QuantityRevisionTierV2[]; warnings: unknown[]; requestId: string } | null = null;
     let consentSupplier = access.supplier;
-    if (!existing) {
+
+    if (!existing && !usesTieredForm) {
       const strictAccess = await supplierPortalAccess(supabaseStore);
       if (!strictAccess || !portalApproved(strictAccess.supplier) || strictAccess.supplier.id !== access.supplier.id || strictAccess.user.id !== access.user.id || !getSupabaseClient() || !category)
         return { ok: false, message: "Không xác nhận được tài khoản, danh mục hoặc kết nối bảng giá mới." };
@@ -147,7 +168,6 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) return { ok: false, message: "Phiên tạo sản phẩm không hợp lệ. Hãy tải lại trang." };
       if (input.price_publicly_visible && form.get("confirm_quantity_price_consent") !== "yes") return { ok: false, message: "Hãy xác nhận cam kết giá trước khi công khai." };
       if (input.price_publicly_visible && !supplierPriceConsentCurrent(consentSupplier) && form.get("confirm_supplier_price_consent") !== "yes") return { ok: false, message: "Hãy xác nhận đồng ý chia sẻ giá." };
-      // Never copy a quantity-tier price into legacy public fields or infer units.
       input.ref_price = null; input.ref_price_max = null; input.currency = null; input.unit = null;
       input.moq = null; input.moq_qty = null; input.moq_unit = null; input.incoterm = null; input.price_valid_until = null;
       const version = form.get("quantity_version");
@@ -172,6 +192,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
         newQuantity = { ...validation.value, warnings: validation.warnings, requestId };
       }
     }
+
     // Thông số NCC tự thêm: gộp vào pool của danh mục để NCC khác dùng lại ngay lần sau.
     // Lỗi ghi pool (ví dụ thiếu migration) không được làm hỏng việc lưu sản phẩm.
     const savedPool = sanitizeSupplierAttributePool(category?.supplier_product_fields);
@@ -185,6 +206,67 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     }
     input.specs = saveProductAttributes({ product_fields: category?.product_fields ?? [], supplier_product_fields: pool },
       attributesFromForm(form), existing?.supplier_category_proposal === input.category ? existing.specs : {});
+
+    // 3-step supplier product form: validate & apply tiered quantity pricing + shared Currency / Unit / Incoterm.
+    if (usesTieredForm) {
+      const drafts = parseSupplierPriceTiersFormJson(form.get("price_tiers_json"));
+      if (drafts === null) {
+        return { ok: false, message: "Bảng bậc giá không hợp lệ." };
+      }
+      const rawCurrency = text(form, "currency", 12);
+      const rawUnit = text(form, "unit", 24);
+      const rawIncoterm = text(form, "incoterm", 24);
+      const tierCheck = validateSupplierPriceTiers(drafts, {
+        currency: rawCurrency,
+        unit: rawUnit,
+        incoterm: rawIncoterm,
+      });
+      if (!tierCheck.ok) {
+        return { ok: false, message: tierCheck.message };
+      }
+      const mode = text(form, "price_tiers_mode", 32);
+      if (tierCheck.tiers.length > 0) {
+        input.ref_price = tierCheck.refPrice;
+        input.ref_price_max = tierCheck.refPriceMax;
+        input.currency = tierCheck.currency;
+        input.unit = tierCheck.unit;
+        input.incoterm = tierCheck.incoterm;
+        input.specs = { ...(input.specs ?? {}), price_tiers: tierCheck.tiers };
+        if (!input.moq && tierCheck.unit) {
+          input.moq = `${tierCheck.tiers[0].min_qty} ${tierCheck.unit}`;
+        }
+      } else if (existing && mode === "preserve_legacy" && existing.ref_price != null) {
+        input.ref_price = existing.ref_price;
+        input.ref_price_max = existing.ref_price_max ?? null;
+        input.currency = normalizeSupplierPriceCurrency(rawCurrency) || existing.currency || null;
+        input.unit = normalizeSupplierPriceUnit(rawUnit) || existing.unit || null;
+        input.incoterm = normalizeSupplierPriceIncoterm(rawIncoterm) || existing.incoterm || null;
+        delete input.specs.price_tiers;
+      } else {
+        input.ref_price = null;
+        input.ref_price_max = null;
+        input.currency = tierCheck.currency;
+        input.unit = tierCheck.unit;
+        input.incoterm = tierCheck.incoterm;
+        delete input.specs.price_tiers;
+      }
+      if (existing) {
+        for (const key of ["grade_rows", "moq_unit_weight_kg"] as const) {
+          if (Object.prototype.hasOwnProperty.call(existing.specs ?? {}, key) && tierCheck.tiers.length === 0 && mode === "preserve_legacy") {
+            input.specs[key] = existing.specs![key];
+          } else {
+            delete input.specs[key];
+          }
+        }
+      }
+    } else if (existing) {
+      // Keep historical buyer data byte-for-byte on non-tiered legacy saves.
+      for (const key of ["grade", "product_type", "grade_rows", "moq_unit_weight_kg"] as const) {
+        if (Object.prototype.hasOwnProperty.call(existing.specs ?? {}, key)) input.specs[key] = existing.specs![key];
+        else delete input.specs[key];
+      }
+    }
+
     if (form.has("lead_time_unit") || form.has("lead_time_value")) {
       const parsedLeadTime = parseLeadTimeInput({
         valueRaw: form.get("lead_time_value"),
@@ -197,15 +279,8 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     } else if (input.lead_time_days != null) {
       input.specs = applyLeadTimeToSpecs(input.specs ?? {}, { value: input.lead_time_days, unit: "days" });
     }
-    // Keep historical buyer data byte-for-byte while the old storefront is in use.
-    // The supplier form can submit new prices only as quantity revisions.
-    if (existing) {
-      for (const key of ["grade", "product_type", "grade_rows", "moq_unit_weight_kg"] as const) {
-        if (Object.prototype.hasOwnProperty.call(existing.specs ?? {}, key)) input.specs[key] = existing.specs![key];
-        else delete input.specs[key];
-      }
-    }
-    const priceChangedOnApproved = keepPublished && existing
+
+    const priceChangedOnApproved = keepPublished && existing && !hasStagedQuantityPayload
       ? hasProductPricingChanged(existing, input, category ?? { slug: input.category })
       : false;
     let priceReviewSummary: string | null = null;
@@ -222,6 +297,9 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
         { review: existing.supplier_review_status ?? null, ready: existing.ready_for_buyer }, {
           ...input, slug: existing.slug, name_i18n: existing.name_i18n ?? {}, images: existing.images,
         });
+    } else if (usesTieredForm) {
+      saved = await store.createProduct(input);
+      createdId = saved?.id;
     } else {
       if (!newQuantity) return { ok: false, message: "Chưa có bảng giá theo số lượng." };
       const db = getSupabaseClient();
@@ -248,7 +326,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     // A normal product save never silently refreshes the 180-day supplier consent.
     const confirmConsent = form.get("confirm_supplier_price_consent") === "yes";
     let consentWarning = "";
-    if (confirmConsent && input.price_publicly_visible && (newQuantity || (input.ref_price && input.ref_price > 0)) &&
+    if (confirmConsent && input.price_publicly_visible && (newQuantity || usesTieredForm || (input.ref_price && input.ref_price > 0)) &&
         !supplierPriceConsentCurrent(consentSupplier)) {
       const stamp = new Date().toISOString();
       const consentStore = newQuantity ? supabaseStore : store;
@@ -298,7 +376,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
             ? `Đã lưu thay đổi. Hãy gửi duyệt lại khi hoàn tất.${consentWarning ? ` ${consentWarning}` : ""}`
             : `Đã lưu bản nháp. ${consentWarning || "Tải ảnh hoặc catalogue rồi gửi duyệt."}` };
   } catch (error) {
-    if (createdId) return { ok: true, id: createdId, warning: true, message: "Đã tạo sản phẩm và bảng giá; một bước thông báo hoặc cập nhật phụ chưa hoàn tất. Hãy kiểm tra lại hồ sơ." };
+    if (createdId) return { ok: true, id: createdId, warning: true, message: "Đã tạo sản phẩm; một bước thông báo hoặc cập nhật phụ chưa hoàn tất. Hãy kiểm tra lại hồ sơ." };
     return { ok: false, message: error instanceof Error ? error.message : "Không lưu được sản phẩm." };
   }
 }
@@ -315,22 +393,17 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     if (!product.name || !(product.spec || product.description)) return { ok: false, message: "Cần tên và mô tả hoặc quy cách." };
     const publishedCategories = await store.listCategories({ publishedOnly: true });
     const options = categoryProposalOptions(publishedCategories);
-    // Sản phẩm đã tạm ẩn giữ danh mục Vexim từng duyệt; sản phẩm lịch sử có thể
-    // dùng danh mục cũ, hoặc NCC chọn và lưu danh mục trước khi gửi duyệt lại.
     const proposal = product.supplier_review_status === "paused"
       ? product.reviewed_category_slug || product.supplier_category_proposal || product.category
       : product.supplier_category_proposal;
     if (!proposal || !options.some((c) => c.slug === proposal))
       return { ok: false, message: "Chọn và lưu danh mục đang xuất bản trước khi gửi duyệt." };
     const submissionCategory = publishedCategories.find((category) => category.slug === proposal);
-    const includedGrade = submissionCategory && standardGradesForCategory(submissionCategory).find((grade) => nameContainsGrade(product.name, [grade]));
-    if (includedGrade) return { ok: false, message: `Bỏ grade (${includedGrade}) ra khỏi tên sản phẩm.` };
     const media = await store.listMedia("product", id);
     if (!media.some((m) => m.kind === "image" && m.storage_path &&
       m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {
       return { ok: false, message: "Cần ít nhất một ảnh sản phẩm trước khi gửi duyệt." };
     }
-    // Preserve any historical name revision; the supplier can no longer create one.
     let supplierNameSubmitted = false;
     let quantityCreated = false;
     const translationDb = getSupabaseClient();
@@ -343,12 +416,18 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
         return { ok: false, message: "Sản phẩm đã thay đổi hoặc không thuộc tài khoản của bạn." };
       const { data: names, error: namesError } = await translationDb.from("product_english_name_revisions")
         .select("id").eq("product_id", id).in("status", ["pending", "approved"]).limit(1);
-      if (namesError || !names) return { ok: false, message: "Chưa kiểm tra được bản tên tiếng Anh. Vui lòng thử lại." };
-      supplierNameSubmitted = names.length > 0;
+      if (namesError && !isMissingSchemaArtifact(namesError))
+        return { ok: false, message: "Chưa kiểm tra được bản tên tiếng Anh. Vui lòng thử lại." };
+      supplierNameSubmitted = Array.isArray(names) && names.length > 0;
       const { data: requests, error: requestError } = await translationDb.from("quantity_product_creation_requests")
         .select("request_id").eq("product_id", id).limit(1);
-      if (requestError || !requests) return { ok: false, message: "Chưa kiểm tra được luồng bảng giá sản phẩm. Vui lòng thử lại." };
-      quantityCreated = requests.length > 0;
+      if (requestError && !isMissingSchemaArtifact(requestError))
+        return { ok: false, message: "Chưa kiểm tra được luồng bảng giá sản phẩm. Vui lòng thử lại." };
+      quantityCreated = Array.isArray(requests) && requests.length > 0;
+    }
+    if (quantityCreated) {
+      const includedGrade = submissionCategory && standardGradesForCategory(submissionCategory).find((grade) => nameContainsGrade(product.name, [grade]));
+      if (includedGrade) return { ok: false, message: `Bỏ grade (${includedGrade}) ra khỏi tên sản phẩm.` };
     }
     const previousReview = product.supplier_review_status ?? null;
     let submitted: SupplierProduct | null = null;
@@ -357,11 +436,19 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
         p_product_id: id, p_supplier_id: access.supplier.id, p_expected_updated_at: product.updated_at,
         p_expected_review: previousReview, p_expected_ready: product.ready_for_buyer, p_proposal: proposal,
       });
-      if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá hoặc trạng thái sản phẩm. Kiểm tra migration và thử lại." };
-      if (data.status === "price_changed" || data.status === "price_missing")
-        return { ok: false, message: "Bảng giá chưa có hoặc không còn khớp thông tin sản phẩm. Hãy gửi lại bảng giá trước khi gửi duyệt." };
-      if (data.status !== "submitted" || !data.product) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi gửi duyệt." };
-      submitted = data.product as SupplierProduct;
+      if (error && !quantityCreated && isMissingSchemaArtifact(error)) {
+        submitted = await store.updateSupplierProductIfState(id, access.supplier.id,
+          { review: previousReview, ready: product.ready_for_buyer }, {
+            supplier_review_status: "pending", supplier_review_note: null, ready_for_buyer: false,
+            ...(previousReview === "paused" ? { supplier_category_proposal: proposal } : {}),
+          });
+      } else {
+        if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá hoặc trạng thái sản phẩm. Kiểm tra migration và thử lại." };
+        if (data.status === "price_changed" || data.status === "price_missing")
+          return { ok: false, message: "Bảng giá chưa có hoặc không còn khớp thông tin sản phẩm. Hãy gửi lại bảng giá trước khi gửi duyệt." };
+        if (data.status !== "submitted" || !data.product) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi gửi duyệt." };
+        submitted = data.product as SupplierProduct;
+      }
     } else {
       submitted = await store.updateSupplierProductIfState(id, access.supplier.id,
         { review: previousReview, ready: product.ready_for_buyer }, {
@@ -373,8 +460,6 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "product", entity_id: id, action: "supplier.product_submitted",
       before: { review: previousReview }, after: { review: "pending" } }).catch((error) => console.error("[supplier-product] audit", error));
-    // Only translate a never-published product without a separate historical name
-    // revision. Conditional save prevents an AI response racing staff review.
     let translationNotice = "";
     const potentiallyPublished = previousReview !== "draft" && !(quantityCreated && previousReview === "changes_requested");
     const protectedEnglish = potentiallyPublished || supplierNameSubmitted || !!product.reviewed_category_slug || product.ready_for_buyer ||
@@ -384,7 +469,7 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
         const category = await supabaseStore.getCategoryBySlug(proposal);
         if (!category) throw new Error("Không tải được danh mục để kiểm tra grade.");
         const result = await ensureProductEnglishTranslation(store, id, { id: access.user.id, email: access.user.email }, undefined, {
-          forbiddenGrades: standardGradesForCategory(category),
+          forbiddenGrades: quantityCreated ? standardGradesForCategory(category) : [],
           saveIfUnchanged: async (loaded, patch) => {
             if (loaded.updated_at !== submitted!.updated_at) return null;
             const { data, error } = await translationDb.from("supplier_products").update({ ...patch, updated_at: new Date().toISOString() })
@@ -440,7 +525,6 @@ export async function deleteSupplierDraftProductAction(id: string): Promise<Resu
     if (product.supplier_review_status !== "draft" || product.supplier_originated !== true ||
         product.ready_for_buyer || product.reviewed_category_slug != null)
       return { ok: false, message: "Chỉ xóa được bản nháp do bạn tạo và chưa có quyết định duyệt." };
-    // Thao tác CSDL khóa và kiểm tra lại trạng thái + các liên kết trong một giao dịch.
     const result = await access.store.deleteSupplierDraftProduct(id, access.supplier.id);
     if (result.status !== "deleted") return { ok: false, message: result.status === "has_links"
       ? "Sản phẩm đã có dữ liệu liên quan cần giữ. Vui lòng liên hệ bộ phận hỗ trợ để xử lý."
@@ -449,8 +533,6 @@ export async function deleteSupplierDraftProductAction(id: string): Promise<Resu
     const pendingPaths: string[] = [];
     await Promise.all(result.paths.map(async (path) => {
       try {
-        // Chỉ dọn tệp trong thư mục của chính sản phẩm, và không xóa tệp còn
-        // được một media khác tham chiếu. Dữ liệu lạ được để lại cho staff xử lý.
         const prefix = `products/${id}/`;
         if (!path.startsWith(prefix) || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/.test(path.slice(prefix.length)) ||
             await access.store.getMediaByPath(path)) {

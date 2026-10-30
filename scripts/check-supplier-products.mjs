@@ -549,4 +549,69 @@ externalFiles.length = 0;
 const migration = fs.readFileSync(new URL('../supabase/migrations/20261017_supplier_product_review.sql', import.meta.url), 'utf8');
 assert.match(migration, /supplier_review_status/);
 assert.match(fs.readFileSync(new URL('../app/public-media/[...path]/route.ts', import.meta.url), 'utf8'), /productReviewApproved\(product\)/);
+
+// Tiered quantity pricing (3-step supplier form): auto-calculated max_qty, optional empty tiers, max 5 tiers, USD/VND/EUR, shared Incoterm.
+product = null;
+const tieredCreate = new FormData();
+tieredCreate.set('name', 'Hạt điều nhân trắng W320');
+tieredCreate.set('spec', 'Túi chân không 25 kg');
+tieredCreate.set('supplier_category_proposal', 'cashew');
+tieredCreate.set('currency', 'USD');
+tieredCreate.set('unit', 'kg');
+tieredCreate.set('incoterm', 'FOB');
+tieredCreate.set('incoterm_place', 'Hồ Chí Minh');
+tieredCreate.set('price_tiers_mode', 'tiers');
+tieredCreate.set('price_tiers_json', JSON.stringify([
+  { minQty: '10', unitPrice: '2' },
+  { minQty: '101', unitPrice: '1,5' }, // Vietnamese comma decimal supported
+]));
+const createdTiered = await actions.saveSupplierProductAction(tieredCreate);
+assert.equal(createdTiered.ok, true, 'Creates new product directly with quantity price tiers');
+assert.deepEqual(JSON.parse(JSON.stringify(product.specs.price_tiers)), [
+  { min_qty: 10, max_qty: 100, unit_price: 2 },
+  { min_qty: 101, max_qty: null, unit_price: 1.5 },
+]);
+assert.equal(product.ref_price, 1.5);
+assert.equal(product.ref_price_max, 2);
+assert.equal(product.currency, 'USD');
+assert.equal(product.unit, 'kg');
+assert.equal(product.incoterm, 'FOB');
+assert.equal(product.moq, '10 kg', 'MOQ defaults to Tier 1 minimum quantity when left blank');
+
+// Reject non-ascending start quantity or higher unit price on larger volume or >5 tiers.
+const badOrder = new FormData();
+for (const [k, v] of tieredCreate.entries()) badOrder.set(k, v);
+badOrder.set('price_tiers_json', JSON.stringify([{ minQty: '100', unitPrice: '2' }, { minQty: '50', unitPrice: '1.5' }]));
+assert.equal((await actions.saveSupplierProductAction(badOrder)).ok, false, 'Tier 2 minQty must exceed Tier 1 minQty');
+
+const badHigherPrice = new FormData();
+for (const [k, v] of tieredCreate.entries()) badHigherPrice.set(k, v);
+badHigherPrice.set('price_tiers_json', JSON.stringify([{ minQty: '10', unitPrice: '1.5' }, { minQty: '101', unitPrice: '2' }]));
+assert.equal((await actions.saveSupplierProductAction(badHigherPrice)).ok, false, 'Higher volume tier cannot increase unit price');
+
+const sixTiers = new FormData();
+for (const [k, v] of tieredCreate.entries()) sixTiers.set(k, v);
+sixTiers.set('price_tiers_json', JSON.stringify([
+  { minQty: '10', unitPrice: '6' }, { minQty: '20', unitPrice: '5' }, { minQty: '30', unitPrice: '4' },
+  { minQty: '40', unitPrice: '3' }, { minQty: '50', unitPrice: '2' }, { minQty: '60', unitPrice: '1' },
+]));
+assert.equal((await actions.saveSupplierProductAction(sixTiers)).ok, false, 'Enforces max 5 tiers');
+
+// Optional empty tiers (Báo giá theo yêu cầu) + VND / EUR support.
+const optionalNoPrice = new FormData();
+optionalNoPrice.set('name', 'Hồ tiêu đen FAQ');
+optionalNoPrice.set('spec', 'Bao PP 50 kg');
+optionalNoPrice.set('supplier_category_proposal', 'cashew');
+optionalNoPrice.set('currency', 'VND');
+optionalNoPrice.set('incoterm', 'CIF');
+optionalNoPrice.set('price_tiers_mode', 'tiers');
+optionalNoPrice.set('price_tiers_json', JSON.stringify([{ minQty: '', unitPrice: '' }]));
+product = null;
+assert.equal((await actions.saveSupplierProductAction(optionalNoPrice)).ok, true, 'Empty price tiers save cleanly as optional');
+assert.equal(product.ref_price, null);
+assert.equal(product.ref_price_max, null);
+assert.equal(product.specs.price_tiers, undefined);
+assert.equal(product.currency, 'VND');
+assert.equal(product.incoterm, 'CIF');
+
 console.log('✅ Supplier products: own drafts/uploads, approval-to-marketplace and live owner editing.');
