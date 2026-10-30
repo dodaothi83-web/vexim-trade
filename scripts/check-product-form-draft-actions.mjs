@@ -22,7 +22,8 @@ const mocks = { '@/lib/products/product-form-staging-access': { isProductFormEna
   '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getProduct: async () => product, listMedia: async () => [] } },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => approved },
-  '@/lib/products/product-form-model': { parseProductFormDraft: (value) => value?.valid ? value : null },
+  '@/lib/products/product-form-model': { parseProductFormDraft: (value) => value?.valid ? value : null,
+    productFormDraftStructureError: (value) => value?.valid ? null : 'Dữ liệu bản nháp không hợp lệ.' },
   '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (value) => value?.includes('<script') ? '' : (value ?? '') },
   '@/lib/products/product-form-image-selection': { resolveSupplierDraftImages: ({ selection }) => Array.isArray(selection) ? { selected: [], available: [] } : null },
 };

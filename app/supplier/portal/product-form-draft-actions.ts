@@ -4,14 +4,14 @@ import { revalidatePath } from "next/cache";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
-import { parseProductFormDraft, type ProductFormDraft } from "@/lib/products/product-form-model";
+import { parseProductFormDraft, productFormDraftStructureError, type ProductFormDraft } from "@/lib/products/product-form-model";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 import { resolveSupplierDraftImages } from "@/lib/products/product-form-image-selection";
 import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
 import type { ProductFormImage } from "@/lib/products/product-form-session";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-type Result = { ok: false; message: string; requiresReload?: boolean } | { ok: true; id: string; revision: number;
+type Result = { ok: false; message: string; requiresReload?: boolean; rejectedBeforeCreate?: boolean } | { ok: true; id: string; revision: number;
   draft?: ProductFormDraft | null; images?: ProductFormImage[]; availableImages?: ProductFormImage[]; pending?: boolean; stale?: boolean };
 
 /** Always authorize using the same Supabase store that owns the private draft. */
@@ -36,6 +36,11 @@ function safeDraft(input: unknown): ProductFormDraft | null {
   }
 }
 
+function draftErrorMessage(input: unknown): string {
+  return productFormDraftStructureError(input) ??
+    "Mô tả chi tiết không hợp lệ hoặc quá dài. Hãy kiểm tra nội dung và định dạng (tối đa 6.000 ký tự).";
+}
+
 function rpcResult(data: unknown): Result {
   if (!data || typeof data !== "object" || Array.isArray(data)) return { ok: false, message: "Không lưu được bản nháp. Vui lòng thử lại." };
   const row = data as Record<string, unknown>;
@@ -52,7 +57,8 @@ function rpcResult(data: unknown): Result {
 /** Create a private product shell and draft together; retrying the same request is idempotent. */
 export async function createProductFormDraftAction(requestId: string, input: unknown): Promise<Result> {
   const parsed = safeDraft(input);
-  if (!UUID.test(requestId) || !parsed) return { ok: false, message: "Dữ liệu bản nháp không hợp lệ." };
+  if (!UUID.test(requestId)) return { ok: false, rejectedBeforeCreate: true, message: "Phiên tạo sản phẩm không hợp lệ. Hãy tải lại trang." };
+  if (!parsed) return { ok: false, rejectedBeforeCreate: true, message: draftErrorMessage(input) };
   try {
     const ctx = await context();
     if (!ctx) return { ok: false, message: "Không xác nhận được quyền quản lý sản phẩm." };
@@ -72,8 +78,9 @@ export async function createProductFormDraftAction(requestId: string, input: unk
 /** Save without changing approved buyer-visible data. A stale editor cannot overwrite newer work. */
 export async function saveProductFormDraftAction(productId: string, expectedRevision: number, input: unknown): Promise<Result> {
   const parsed = safeDraft(input);
-  if (!UUID.test(productId) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || !parsed)
-    return { ok: false, message: "Dữ liệu bản nháp không hợp lệ." };
+  if (!UUID.test(productId) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0)
+    return { ok: false, message: "Phiên bản bản nháp không hợp lệ. Hãy tải lại trang." };
+  if (!parsed) return { ok: false, message: draftErrorMessage(input) };
   try {
     const ctx = await context();
     if (!ctx) return { ok: false, message: "Không xác nhận được quyền quản lý sản phẩm." };
