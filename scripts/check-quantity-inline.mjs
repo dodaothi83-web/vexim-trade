@@ -23,7 +23,7 @@ const data = { productId: 'p', updatedAt: '2026-10-29', nameVi: 'Nhân điều',
 const render = (props) => renderToStaticMarkup(React.createElement('form', { id: 'parent' }, React.createElement(inline.QuantityPricingInline, { data, ...props })));
 const supplier = render({ actor: 'supplier' });
 assert.equal((supplier.match(/<form\b/g) ?? []).length, 1, 'No nested form');
-assert.equal((supplier.match(/form="quantity-pricing-separate"/g) ?? []).length, 6, 'Grade, term, quantity, price and consent inputs do not belong to the parent form');
+assert.equal((supplier.match(/form="quantity-pricing-separate"/g) ?? []).length, 5, 'Grade, term, quantity, price and consent inputs do not belong to the parent form');
 assert.doesNotMatch(supplier, /Tên tiếng Anh \(tùy chọn\)|Gửi tên tiếng Anh để duyệt|Bảng giá theo số lượng/);
 assert.match(supplier, /Giá mới đang chờ Vexim xác nhận/);
 assert.match(supplier, /Giá đang hiển thị cho buyer vẫn dùng bảng cũ/);

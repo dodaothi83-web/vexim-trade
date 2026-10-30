@@ -5,11 +5,11 @@ import {
   formatQuantityBuyer,
   formatQuantityPriceBuyer,
   formatQuantityInput,
+  ENTRY_PRICE_CURRENCIES,
   normalizePriceCurrency,
   parseQuantityKg,
   normalizePriceInput,
   validateQuantityPricing,
-  PRICE_CURRENCIES,
   DEFAULT_PRICE_CURRENCY,
   type QuantityPricingInput,
   type QuantityPricingPolicy,
@@ -106,12 +106,12 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
               <option value="">Chọn grade</option>{standardGrades.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
             </select>
           </label>
-          <label className="text-sm font-semibold text-ink-800">Tiền tệ <span className="text-rose-700">*</span>
-            <select form={form} aria-label="Tiền tệ" className="input mt-1 w-full" required disabled={disabled} value={currency}
-              onChange={(e) => onChange({ ...value, currency: e.target.value })}>
-              {PRICE_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
-            </select>
-          </label>
+          <div className="text-sm font-semibold text-ink-800">
+            <span>Tiền tệ <span className="text-rose-700">*</span></span>
+            <p aria-label="Tiền tệ" className="input mt-1 flex w-full items-center bg-ink-50 font-mono text-ink-800">{currency}</p>
+            <span className="mt-1 block text-[11.5px] font-normal leading-4 text-ink-600">Tạm thời chỉ nhập giá USD. VND/EUR sẽ mở lại khi dữ liệu giá cho phép.</span>
+            {!ENTRY_PRICE_CURRENCIES.includes(currency) && <span className="mt-1 block text-[11.5px] font-normal leading-4 text-amber-800">Bảng giá này đang lưu bằng {currency}; hãy nhập lại bảng mới bằng USD để gửi duyệt.</span>}
+          </div>
         </div>
         {showTitle && <h3 className="text-sm font-bold text-ink-900">Bảng giá theo số lượng</h3>}
         <p className="text-xs text-ink-600">Chỉ nhập số lượng <strong>từ</strong>; cột <strong>đến</strong> tự tính bằng mức kế tiếp trừ 1. Mức cuối là “trở lên”.</p>

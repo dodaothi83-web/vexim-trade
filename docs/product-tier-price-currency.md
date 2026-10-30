@@ -30,10 +30,25 @@ Cột `incoterm` của bảng `product_quantity_price_revisions` vẫn được 
 của bậc đầu tiên để các ràng buộc và báo cáo cũ tiếp tục chạy. Bản ghi cũ không có
 `incoterm` trong từng dòng thì dùng Incoterm của bảng (hành vi trước đây).
 
-## 3. Tiền tệ: chỉ USD, VND, EUR
+## 3. Tiền tệ: mô hình USD/VND/EUR, nhập mới tạm thời chỉ USD
 
-Một ô chọn tiền tệ cho cả bảng, nhãn chỉ ghi đúng mã `USD`, `VND`, `EUR` (không kèm
-chữ giải thích). Mặc định là `USD`, nên mọi bản ghi cũ giữ nguyên ý nghĩa.
+Mô hình dữ liệu hiểu ba mã `USD`, `VND`, `EUR` cho một bảng giá. Mặc định là `USD`,
+nên mọi bản ghi cũ giữ nguyên ý nghĩa.
+
+**Quyết định 30/10/2026: tạm thời chỉ cho nhập USD.** Ô chọn tiền tệ đã được thay
+bằng nhãn cố định `USD` kèm ghi chú; form NCC, form CRM và cả hai server action
+(`saveSupplierProductAction`, `submitQuantityPriceRevisionAction` của NCC và của
+CRM) đều từ chối bảng VND/EUR bằng thông báo *"Tạm thời chỉ nhập giá bằng USD"*.
+Lý do: ràng buộc tiền tệ ở tầng DB (migration `20261053`) vẫn chỉ nhận USD.
+
+Một chỗ duy nhất để mở lại: hằng `ENTRY_PRICE_CURRENCIES` trong
+`lib/products/quantity-pricing.ts` (hiện `["USD"]`). Thêm `"VND"`/`"EUR"` sau khi
+áp migration tiền tệ là UI và cả ba action tự cho phép lại, không phải sửa chỗ khác.
+
+Dữ liệu VND/EUR đã lưu (nếu có) vẫn đọc và hiển thị đúng: `readQuantityEditorData`
+giữ nguyên tiền tệ, `formatQuantityPriceBuyer` in `VND 62,000.00/kg`; editor hiện
+cảnh báo vàng cho bảng cũ không phải USD và yêu cầu nhập lại bằng USD trước khi gửi
+duyệt — không tự quy đổi giá.
 
 - Giá lưu theo đơn vị tiền tệ đã chọn; trường `priceUsdPerKg` được giữ tên để tương
   thích dữ liệu, giá trị là **giá trên 1 kg theo đúng tiền tệ của bảng**.

@@ -6,7 +6,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
-import { validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { entryCurrencyIssue, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -54,9 +54,12 @@ export async function submitStaffQuantityPriceAction(form: FormData): Promise<Re
         (row as { minKg: string }).minKg.length > 32 || (row as { priceUsdPerKg: string }).priceUsdPerKg.length > 32)) {
         return { ok: false, message: "Bảng giá không hợp lệ." };
       }
+      const currency = String(form.get("quantity_currency") ?? "").trim().slice(0, 3) || "USD";
+      const currencyIssue = entryCurrencyIssue(currency);
+      if (currencyIssue) return { ok: false, message: currencyIssue };
       checked = validateQuantityPricing({ grade: String(form.get("grade") ?? "").trim().slice(0, 180),
         incoterm: String(form.get("incoterm") ?? "").trim().slice(0, 20),
-        currency: String(form.get("quantity_currency") ?? "").trim().slice(0, 3) || "USD", nameVi: product.name,
+        currency, nameVi: product.name,
         nameEn: "", tiers }, standardGradesForCategory(category), policy);
     }
     if (!checked.value) return { ok: false, message: checked.errors[0]?.message ?? "Bảng giá không hợp lệ." };

@@ -21,7 +21,7 @@ import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-se
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
-import { nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { entryCurrencyIssue, nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 import type { QuantityRevisionTierV2 } from "@/lib/products/quantity-revision-v2";
 import { deleteObject } from "@/lib/media/storage";
@@ -169,8 +169,11 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
           ((row as { incoterm?: unknown }).incoterm !== undefined && (typeof (row as { incoterm?: unknown }).incoterm !== "string" ||
             (row as { incoterm: string }).incoterm.length > 20))))
           return { ok: false, message: "Bảng giá không hợp lệ." };
+        const currency = text(form, "quantity_currency", 3) || "USD";
+        const currencyIssue = entryCurrencyIssue(currency);
+        if (currencyIssue) return { ok: false, message: currencyIssue };
         const validation = validateQuantityPricing({ grade: text(form, "quantity_grade", 180), incoterm: text(form, "quantity_incoterm", 20),
-          currency: text(form, "quantity_currency", 3) || "USD", nameVi: input.name, nameEn: "", tiers: rows },
+          currency, nameVi: input.name, nameEn: "", tiers: rows },
           standardGradesForCategory(category), await readQuantityPricingPolicy(category.id));
         if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? "Bảng giá không hợp lệ." };
         newQuantity = { ...validation.value, warnings: validation.warnings, requestId };

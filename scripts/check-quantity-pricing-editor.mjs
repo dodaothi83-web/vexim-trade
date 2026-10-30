@@ -28,12 +28,13 @@ const props = {
 };
 const render = (override = {}) => renderToStaticMarkup(React.createElement(QuantityPricingEditor, { ...props, ...override }));
 const html = render();
-for (const text of ['Incoterm', 'Từ (kg)', 'Đến (kg)', 'Giá (USD/kg)', 'Tiền tệ', 'VND', 'EUR', '4,999', 'trở lên', 'Buyer sẽ thấy', 'Cashew kernels', 'USD 6.00–6.40/kg', '1 MT', 'FOB', 'Quy chế hoạt động']) assert.ok(html.includes(text), text);
+for (const text of ['Incoterm', 'Từ (kg)', 'Đến (kg)', 'Giá (USD/kg)', 'Tiền tệ', 'Tạm thời chỉ nhập giá USD', 'VND/EUR', '4,999', 'trở lên', 'Buyer sẽ thấy', 'Cashew kernels', 'USD 6.00–6.40/kg', '1 MT', 'FOB', 'Quy chế hoạt động']) assert.ok(html.includes(text), text);
+assert.doesNotMatch(html, /<select[^>]*aria-label="Tiền tệ"/, 'Tiền tệ tạm thời cố định USD, không còn select VND/EUR');
 assert.match(html, /<input[^>]*required[^>]*name="confirm_quantity_price_consent"/);
 assert.match(html, /href="\/quy-che-hoat-dong"/);
 assert.match(html, /\+ Thêm mức giá/);
 const isolated = render({ isolated: true, consentChecked: false, onConsentChange() {} });
-assert.equal((isolated.match(/form="quantity-pricing-separate"/g) ?? []).length, 9, 'All editable inputs are detached from the enclosing product form');
+assert.equal((isolated.match(/form="quantity-pricing-separate"/g) ?? []).length, 8, 'All editable inputs are detached from the enclosing product form');
 assert.match(isolated, /type="checkbox"[^>]*name="confirm_quantity_price_consent"/);
 const withoutInlinePreview = render({ showPreview: false });
 assert.doesNotMatch(withoutInlinePreview, /Buyer sẽ thấy|Cashew kernels/, 'When the page supplies a sidebar preview, the form has no duplicate');

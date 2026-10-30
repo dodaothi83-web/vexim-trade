@@ -12,6 +12,20 @@ export const PRICE_CURRENCIES = ["USD", "VND", "EUR"] as const;
 export type PriceCurrency = (typeof PRICE_CURRENCIES)[number];
 export const DEFAULT_PRICE_CURRENCY: PriceCurrency = "USD";
 
+/** Tiền tệ được phép nhập mới (quyết định 30/10/2026: tạm thời chỉ USD).
+ *  Dữ liệu VND/EUR đã lưu vẫn đọc và hiển thị bình thường; ràng buộc DB hiện tại
+ *  cũng chỉ nhận USD. Mở lại VND/EUR bằng cách thêm mã vào mảng này sau khi áp
+ *  migration tiền tệ — không phải sửa chỗ nào khác. */
+export const ENTRY_PRICE_CURRENCIES: readonly PriceCurrency[] = ["USD"];
+
+/** Lý do từ chối tiền tệ ở luồng nhập giá, hoặc null nếu được phép. */
+export function entryCurrencyIssue(raw: string | null | undefined): string | null {
+  const code = normalizePriceCurrency(raw) ?? null;
+  if (!code) return "Chọn tiền tệ USD.";
+  return ENTRY_PRICE_CURRENCIES.includes(code) ? null
+    : `Tạm thời chỉ nhập giá bằng USD; bảng ${code} chưa được mở.`;
+}
+
 /** Only the three trade currencies are accepted; anything else fails closed. */
 export function normalizePriceCurrency(raw: string | null | undefined): PriceCurrency | null {
   const value = (raw ?? "").trim().toUpperCase();

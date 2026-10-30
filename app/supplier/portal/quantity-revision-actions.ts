@@ -6,7 +6,7 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
-import { validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { entryCurrencyIssue, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -84,6 +84,8 @@ export async function submitQuantityPriceRevisionAction(form: FormData): Promise
       const grade = String(form.get("grade") ?? "").trim().slice(0, 180);
       const incoterm = String(form.get("incoterm") ?? "").trim().slice(0, 20);
       const currency = String(form.get("quantity_currency") ?? "").trim().slice(0, 3) || "USD";
+      const currencyIssue = entryCurrencyIssue(currency);
+      if (currencyIssue) return { ok: false, message: currencyIssue };
       validation = validateQuantityPricing({ grade, incoterm, currency, nameVi: ctx.product.name, nameEn: "", tiers: rows }, standardGradesForCategory(ctx.category), policy);
     }
     if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? "Bảng giá không hợp lệ." };
