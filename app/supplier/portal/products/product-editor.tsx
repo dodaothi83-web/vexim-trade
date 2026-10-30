@@ -700,6 +700,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const cover = media.find((m) => m.id === product?.featured_media_id && m.kind === "image" && privateMediaUrl(m)) ??
     media.find((m) => m.kind === "image" && privateMediaUrl(m));
   const coverUrl = cover ? privateMediaUrl(cover) : null;
+  /** Sáu ô ảnh như sàn TMĐT: ô đầu là ảnh chính, phần còn lại là ảnh chi tiết. */
+  const imageSlots = [cover, ...media.filter((m) => m.kind === "image" && privateMediaUrl(m) && m.id !== cover?.id)].slice(0, 6);
   const savedPriceValue = product?.ref_price != null
     ? formatGradeRowPriceVi(
         product.ref_price,
@@ -721,23 +723,23 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     { label: "Thanh toán", value: product?.payment_terms || "-" },
   ];
 
-  return <div className="mt-5 space-y-4">
+  return <div className="mt-3.5 space-y-3">
     {/* Thanh bước kiểu sàn TMĐT: luôn thấy mình đang ở đâu, bấm được để chuyển bước. */}
-    <nav aria-label="Các bước hoàn thiện sản phẩm" className="rounded-xl border border-ink-200 bg-white p-2 shadow-sm">
-      <ol className="grid gap-1.5 sm:grid-cols-3">
+    <nav aria-label="Các bước hoàn thiện sản phẩm" className="rounded-xl border border-ink-200 bg-white p-1.5 shadow-sm">
+      <ol className="grid gap-1 sm:grid-cols-3">
         {STEPS.map((item) => {
           const done = item.step === 1 ? !!product : item.step === 2 ? hasMedia : review === "pending" || review === "approved";
           const active = step === item.step;
           return <li key={item.step}>
             <button type="button" onClick={() => selectStep(item.step)}
               aria-current={active ? "step" : undefined}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition ${active ? "bg-brand-50 ring-1 ring-brand-300" : "hover:bg-ink-50"}`}>
-              <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${done ? "bg-brand-700 text-white" : active ? "bg-brand-100 text-brand-800 ring-1 ring-brand-400" : "bg-ink-100 text-ink-500"}`}>
-                {done ? <Check className="size-3.5" aria-hidden="true" /> : item.step}
+              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition ${active ? "bg-brand-50 ring-1 ring-brand-300" : "hover:bg-ink-50"}`}>
+              <span className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[10.5px] font-black ${done ? "bg-brand-700 text-white" : active ? "bg-brand-100 text-brand-800 ring-1 ring-brand-400" : "bg-ink-100 text-ink-500"}`}>
+                {done ? <Check className="size-3" aria-hidden="true" /> : item.step}
               </span>
               <span className="min-w-0 flex-1">
-                <span className={`block truncate text-[12.5px] font-bold ${active ? "text-brand-900" : "text-ink-800"}`}>{item.title}</span>
-                <span className="block truncate text-[10.5px] text-ink-500">{item.hint}</span>
+                <span className={`block truncate text-[12px] font-bold ${active ? "text-brand-900" : "text-ink-800"}`}>{item.title}</span>
+                <span className="block truncate text-[10px] text-ink-500">{item.hint}</span>
               </span>
               <span className="shrink-0 text-[10px] font-bold tracking-wider text-ink-400 uppercase">{active ? "Đang mở" : `B${item.step}`}</span>
             </button>
@@ -775,7 +777,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         <form id="product-info" ref={formRef} onSubmit={save} onChange={onFormChange} noValidate>
           <section data-step-panel={1} className={step === 1 ? "space-y-4" : "hidden"} aria-label="Bước 1: Thông tin sản phẩm">
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead title="Thông tin cơ bản" hint="Tên, danh mục và mô tả - phần người mua đọc đầu tiên." />
+              <SectionHead index="01" title="Thông tin cơ bản" hint="Tên, danh mục và mô tả - phần người mua đọc đầu tiên." />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <Field label="Tên sản phẩm" hint="Không ghi grade trong tên. Vexim dịch tên sang tiếng Anh khi duyệt." required>
@@ -858,7 +860,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
             {/* Không còn mũi tên gập: thương mại & xuất khẩu hiện ngay từ bước 1. */}
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead title="Thông tin thương mại & xuất khẩu" />
+              <SectionHead index="02" title="Thông tin thương mại & xuất khẩu" />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2 xl:grid-cols-3">
                 <Field label="Thời gian giao hàng">
                   <div className="flex items-center gap-1.5">
@@ -943,7 +945,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             </div>
 
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead title="Đặt hàng & năng lực" />
+              <SectionHead index="03" title="Đặt hàng & năng lực" />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
                 {BASE_FIELDS.map(([key, label, placeholder, max]) => <Field key={key} label={label}>
                   <input className="input" name={key} maxLength={max} placeholder={placeholder} defaultValue={String(product?.[key] ?? "")} disabled={locked} />
@@ -981,7 +983,26 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 : review === "approved"
                   ? "JPG, PNG, WebP ≤ 8 MB hoặc PDF ≤ 15 MB. Tệp ở chế độ nội bộ khi chờ đăng."
                   : "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp được kiểm tra khi duyệt."} />
-            <div className="space-y-4 px-4 py-4 sm:px-5">
+            <div className="space-y-3 px-3.5 py-3 sm:px-4">
+              {/* Lưới 6 ô: nhìn một cái là biết còn thiếu ảnh nào. Kéo thả và đặt ảnh chính vẫn ở các ô bên dưới. */}
+              <div className="rounded-lg border border-ink-200 bg-ink-50/60 p-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold text-ink-700">6 ô ảnh sản phẩm</p>
+                  <p className="text-[10.5px] tabular-nums text-ink-500">{imageSlots.length}/6 ảnh</p>
+                </div>
+                <ul className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                  {Array.from({ length: 6 }).map((_, index) => {
+                    const asset = imageSlots[index];
+                    const src = asset ? privateMediaUrl(asset) : null;
+                    const isCover = !!asset && asset.id === cover?.id;
+                    return <li key={asset?.id ?? `empty-${index}`} className={`relative aspect-square overflow-hidden rounded-md border ${asset ? "border-ink-200 bg-white" : "border-dashed border-ink-300 bg-white/60"}`}>
+                      {src ? <img src={src} alt="" className="size-full object-cover" /> : <span className="flex size-full items-center justify-center text-[10px] font-semibold text-ink-400">{index + 1}</span>}
+                      {isCover && <span className="absolute top-1 left-1 rounded-full bg-brand-700 px-1.5 py-0.5 text-[9px] font-bold text-white">Ảnh chính</span>}
+                    </li>;
+                  })}
+                </ul>
+                <p className="mt-1.5 text-[10.5px] leading-4 text-ink-500">Ô đầu là ảnh chính — ảnh người mua thấy trong kết quả tìm kiếm.</p>
+              </div>
               {/* Ô ảnh đại diện riêng: kéo một ảnh khác từ danh sách vào ô này là thay ngay, ảnh cũ tự về lại danh sách. */}
               <div
                 onDragOver={(event) => { if (canUpload) { event.preventDefault(); setCoverHover(true); } }}
@@ -1232,15 +1253,18 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         {step === 2 && stepError && <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-[13px] font-semibold text-rose-900">{stepError}</p>}
 
         {/* Thanh điều hướng dính đáy màn hình: luôn thấy nút Trở về / Tiếp tục. */}
-        <div className="sticky bottom-0 z-20 mt-3 flex items-center gap-2 rounded-xl border border-ink-200 bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur">
+        <div className="sticky bottom-0 z-20 mt-3 flex items-center gap-2 rounded-xl border border-ink-200 bg-white/95 px-2.5 py-2 shadow-lg backdrop-blur">
           {step === 1
             ? <Link href="/supplier/portal/products" className="btn btn-ghost btn-sm"><ArrowLeft className="size-3.5" aria-hidden="true" /> Hủy</Link>
             : <button type="button" onClick={() => goToStep((step - 1) as Step)} className="btn btn-ghost btn-sm"><ArrowLeft className="size-3.5" aria-hidden="true" /> Trở về bước {step - 1}</button>}
 
-          <span className="hidden min-w-0 flex-1 truncate px-1 text-[11.5px] text-ink-500 sm:block">
-            {step === 1 ? (dirty ? "Có thay đổi chưa lưu" : product ? "Thông tin đã lưu" : "Chưa lưu sản phẩm")
-              : step === 2 ? `${media.length} tệp đã tải`
-                : review === "pending" ? "Đang chờ duyệt" : "Xem lại rồi gửi duyệt"}
+          <span className="hidden min-w-0 flex-1 items-center gap-1.5 truncate px-1 text-[11.5px] text-ink-500 sm:flex">
+            <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${step === 1 && dirty ? "bg-amber-500" : review === "changes_requested" ? "bg-rose-500" : "bg-emerald-500"}`} />
+            <span className="truncate">
+              {step === 1 ? (dirty ? "Có thay đổi chưa lưu" : product ? "Thông tin đã lưu" : "Chưa lưu sản phẩm")
+                : step === 2 ? `${media.length} tệp đã tải`
+                  : review === "pending" ? "Đang chờ duyệt" : "Xem lại rồi gửi duyệt"}
+            </span>
           </span>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -1296,9 +1320,17 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         </div>
 
         {product && <section aria-label="Độ hoàn thiện hồ sơ" className="rounded-xl border border-ink-200 bg-white p-3.5">
-          <div className="flex items-baseline justify-between gap-2">
+          <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Độ hoàn thiện</p>
-            <span className="font-mono text-[13px] font-black tabular-nums text-brand-800">{completeness.score}%</span>
+            <div className="flex items-center gap-1.5">
+              <svg viewBox="0 0 36 36" className="size-8 shrink-0" aria-hidden="true">
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e2e8f0" strokeWidth="3.4" />
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#0f766e" strokeWidth="3.4" strokeLinecap="round"
+                  strokeDasharray="97.4" strokeDashoffset={97.4 - (Math.max(0, Math.min(100, completeness.score)) / 100) * 97.4}
+                  transform="rotate(-90 18 18)" />
+              </svg>
+              <span className="font-mono text-[13px] font-black tabular-nums text-brand-800">{completeness.score}%</span>
+            </div>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
             <div className="h-full rounded-full bg-brand-600" style={{ width: `${completeness.score}%` }} />
@@ -1333,6 +1365,17 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           </>}
           {dirty && <p className="mt-2 text-[11px] text-amber-800">Lưu hoặc bỏ thay đổi chưa lưu trước khi tiếp tục.</p>}
         </section>}
+
+        <div className="rounded-xl border border-ink-200 bg-white p-3.5">
+          <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Ví dụ điền</p>
+          <ul className="mt-1.5 space-y-1 text-[11.5px] leading-4 text-ink-600">
+            <li><strong className="font-semibold text-ink-800">Tên:</strong> Hạt điều nhân trắng (không ghi grade).</li>
+            <li><strong className="font-semibold text-ink-800">MOQ:</strong> 1.000 kg dễ nhận hỏi giá hơn 5 tấn.</li>
+            <li><strong className="font-semibold text-ink-800">Đóng gói:</strong> bao 25 kg, 20 đơn vị mỗi thùng.</li>
+            <li><strong className="font-semibold text-ink-800">Từ khoá:</strong> cashew w320, vietnam cashew.</li>
+          </ul>
+          <p className="mt-1.5 text-[10.5px] leading-4 text-ink-500">Ví dụ minh hoạ, không phải số liệu của bạn.</p>
+        </div>
 
         <div className="rounded-xl border border-ink-200 bg-ink-50/70 p-3.5">
           <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Luồng duyệt</p>
@@ -1370,13 +1413,16 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
  * Các thẻ con trong bước 1 để trống để không lặp lại chữ “Bước 1” ba lần trên cùng
  * một màn hình - bước đang mở đã hiện ở thanh bước phía trên.
  */
-function SectionHead({ step, title, hint }: { step?: string; title: string; hint?: string }) {
-  return <div className="flex flex-wrap items-baseline justify-between gap-1 border-b border-ink-100 px-4 py-3 sm:px-5">
-    <div className="min-w-0">
-      {step && <p className="text-[10px] font-bold tracking-[0.14em] text-brand-700 uppercase">{step}</p>}
-      <h2 className="text-[15px] font-black text-ink-900">{title}</h2>
+function SectionHead({ step, index, title, hint }: { step?: string; index?: string; title: string; hint?: string }) {
+  return <div className="flex flex-wrap items-baseline justify-between gap-1 border-b border-ink-100 px-3.5 py-2.5 sm:px-4">
+    <div className="flex min-w-0 items-baseline gap-2">
+      {index && <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center rounded-md bg-ink-100 text-[10px] font-black tabular-nums text-ink-600">{index}</span>}
+      <div className="min-w-0">
+        {step && <p className="text-[10px] font-bold tracking-[0.14em] text-brand-700 uppercase">{step}</p>}
+        <h2 className="text-[15px] font-black text-ink-900">{title}</h2>
+      </div>
     </div>
-    {hint && <p className="max-w-md text-[11.5px] leading-4 text-ink-500">{hint}</p>}
+    {hint && <p className="max-w-md text-[11px] leading-4 text-ink-500">{hint}</p>}
   </div>;
 }
 

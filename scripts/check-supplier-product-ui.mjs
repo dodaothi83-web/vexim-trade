@@ -101,7 +101,11 @@ assert.ok(!html.includes('aria-label="Phân trang danh sách sản phẩm"'), 'S
 const pagedProducts = Array.from({ length: 16 }, (_, index) =>
   product(`p${index + 1}`, 'draft', `Cashew lot ${String(index + 1).padStart(2, '0')}`));
 const pagedHtml = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products: pagedProducts, media: [], supplierPublished: true }));
-assert.match(pagedHtml, /sm:grid-cols-2 sm:p-6 lg:grid-cols-3 xl:grid-cols-5/, 'The desktop grid uses five cards per row');
+assert.match(pagedHtml, /sm:grid-cols-2 sm:p-6 lg:hidden lg:grid-cols-3 xl:grid-cols-5/,
+  'Màn hình nhỏ dùng thẻ gọn; từ lg trở lên danh sách chuyển sang bảng dày');
+assert.match(pagedHtml, /<table class="hidden w-full border-collapse text-left lg:table">/,
+  'Bảng sản phẩm dày hiện từ lg trở lên');
+assert.match(pagedHtml, /aria-label="Hồ sơ"|>Hồ sơ<\/th>/, 'Bảng có cột độ hoàn thiện');
 assert.equal((pagedHtml.match(/aria-label="Xem và quản lý /g) ?? []).length, 15, 'Only 15 product cards render on page one');
 assert.ok(pagedHtml.includes('Cashew lot 01') && pagedHtml.includes('Cashew lot 15'), 'Page one includes products 1 through 15');
 assert.ok(!pagedHtml.includes('Cashew lot 16'), 'Product 16 moves to page two');
