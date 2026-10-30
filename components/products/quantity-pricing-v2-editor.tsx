@@ -163,9 +163,9 @@ export function QuantityPricingV2Editor({ value, onChange, standardGrades, polic
 }
 
 /** Preview of the unsent form, not the approved public offer. */
-export function QuantityBuyerV2Preview({ value, standardGrades, policy, pricePubliclyVisible, englishName = "", incotermPlace = "", showHeading = true }: {
+export function QuantityBuyerV2Preview({ value, standardGrades, policy, pricePubliclyVisible, englishName = "", incotermPlace = "", showHeading = true, namePendingText = "Tên tiếng Anh do Vexim dịch khi duyệt" }: {
   value: SupplierQuantityEntry; standardGrades: readonly string[]; policy: QuantityPricingPolicy;
-  pricePubliclyVisible: boolean; englishName?: string; incotermPlace?: string; showHeading?: boolean;
+  pricePubliclyVisible: boolean; englishName?: string; incotermPlace?: string; showHeading?: boolean; namePendingText?: string;
 }) {
   const valid = validateSupplierQuantityEntry(value, standardGrades, policy).value;
   const first = valid?.tiers[0];
@@ -178,7 +178,7 @@ export function QuantityBuyerV2Preview({ value, standardGrades, policy, pricePub
   return <div className="space-y-1.5">
     {showHeading && <p className="text-sm font-bold text-ink-900">Buyer sẽ thấy</p>}
     <p className="text-sm font-semibold text-ink-900">{englishName || value.nameVi || "Tên sản phẩm"}</p>
-    {!englishName && <p className="text-xs text-ink-600">Tên tiếng Anh do Vexim dịch khi duyệt</p>}
+    {!englishName && <p className="text-xs text-ink-600">{namePendingText}</p>}
     {value.grade.trim() && <p><span className="inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700">{value.grade.trim()}</span></p>}
     <p className="text-base font-semibold tabular-nums text-brand-800">{price}{first && valid && pricePubliclyVisible && valid.tiers.length > 1 && <span className="ml-2 text-xs font-normal text-ink-600">Volume pricing</span>}</p>
     <p className="text-xs text-ink-600">MOQ: {first && valid ? v2QuantityLabel(first.quantityGrams, { ...valid, tiers: [] }) : "On request"}</p>

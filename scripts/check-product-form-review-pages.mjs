@@ -64,22 +64,30 @@ assert.match(html, /Bản gửi 50/); assert.match(html, /Trang trước/); addi
 const detail = load('../app/crm/products/form-review/[submissionId]/page.tsx', { ...common,
   'next/navigation': { notFound: () => { throw Error('not found'); } },
   '@/components/products/product-form-review-diff-table': { ProductFormReviewDiffTable: ({ rows }) => React.createElement('p', null, JSON.stringify(rows)) },
-  '@/lib/db/supabase': { supabaseStore: { getProduct: async () => product, listMedia: async () => [] } },
+  '@/components/products/product-form-submitted-review': { ProductFormSubmittedReview: ({ draft, images, imagesValid }) => React.createElement('div', null, draft.name,
+    imagesValid ? images.map((image, index) => image.url ? React.createElement('img', { key: image.id, src: image.url, alt: index === 0 ? 'Ảnh chính trong bản gửi' : 'Ảnh trong bản gửi' }) : React.createElement('p', { key: image.id }, 'Ảnh cũ cần được sao chụp riêng tư trước khi duyệt.')) : 'Không xác nhận được danh sách ảnh') },
+  '@/lib/db/supabase': { supabaseStore: { getProduct: async () => product, listMedia: async () => [], listCategories: async () => [] } },
+  '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: (categories) => categories },
+  '@/lib/products/quantity-new-config': { readNewQuantityPolicies: async () => ({}) },
   '@/lib/products/product-form-model': { parseProductFormDraft: (value) => value },
   '@/lib/products/product-form-image-selection': { parseDraftImageSelection: (value) => value },
   '@/lib/products/product-form-review-diff': { productFormReviewDiff: (baseline, draft, options) => [{ baseline: baseline?.name ?? null, draft: draft.name, consentKnown: options.baselineConsentKnown }] },
   '@/lib/public/product-catalog': { shareableProductImages: () => [] },
   '@/lib/products/product-form-staging-access': { isProductFormBuyerEnabled: () => false },
-  './review-controls': { ProductFormReviewControls: ({ allowApproval }) => React.createElement('p', null, allowApproval ? 'Duyệt' : 'Kiểm tra') },
+  './review-controls': { ProductFormReviewControls: ({ allowApproval, imagesReady }) => React.createElement('p', null, `${allowApproval ? 'Duyệt' : 'Kiểm tra'}; ảnh ${imagesReady ? 'hợp lệ' : 'không hợp lệ'}`) },
 }).default;
 html = renderToStaticMarkup(await detail({ params: Promise.resolve({ submissionId }) }));
 assert.match(html, /Tên đã duyệt/); assert.match(html, /Old name/); assert.match(html, /Approved revision name/);
-assert.match(html, /Ảnh chính trong bản gửi/); assert.match(html, new RegExp(imageId));
+assert.match(html, /Ảnh chính trong bản gửi/); assert.match(html, new RegExp(imageId)); assert.match(html, /ảnh hợp lệ/);
+assert.match(html, /chưa phải nội dung đã công bố/); assert.match(html, /Đối chiếu với hồ sơ hiện tại/);
 assert.match(html, /&lt;script&gt;bad&lt;\/script&gt;/); assert.doesNotMatch(html, /<script>/);
 price = { ...price, id: imageId }; html = renderToStaticMarkup(await detail({ params: Promise.resolve({ submissionId }) }));
 assert.doesNotMatch(html, /Tên đã duyệt/, 'Never use a stale unlinked form as the approved baseline');
 pending = { ...pending, image_snapshot: [{ source: 'staged', row: { id: imageId, product_id: productId, supplier_id: productId } }] };
 html = renderToStaticMarkup(await detail({ params: Promise.resolve({ submissionId }) }));
-assert.match(html, /Không xác nhận được danh sách ảnh/); assert.doesNotMatch(html, /Ảnh chính trong bản gửi/);
+assert.match(html, /Không xác nhận được danh sách ảnh/); assert.doesNotMatch(html, /Ảnh chính trong bản gửi/); assert.match(html, /ảnh không hợp lệ/);
+pending = { ...pending, image_selection: [{ source: 'media', id: imageId }], image_snapshot: [{ source: 'media', row: { id: imageId, product_id: productId, supplier_id: supplierId } }] };
+html = renderToStaticMarkup(await detail({ params: Promise.resolve({ submissionId }) }));
+assert.match(html, /Ảnh cũ cần được sao chụp/); assert.match(html, /ảnh không hợp lệ/);
 await assert.rejects(() => detail({ params: Promise.resolve({ submissionId: 'bad' }) }), /not found/);
 console.log('CRM form review pages: reviewer authorization, approved baseline linkage, safe image selection and escaped content passed');

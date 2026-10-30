@@ -18,6 +18,8 @@ export async function approveProductFormAction(form: FormData): Promise<Result> 
     return { ok: false, message: "Chức năng duyệt form mới chưa sẵn sàng." };
   if (!UUID.test(productId) || !UUID.test(submissionId) || !englishName.trim() || englishName.length > 180)
     return { ok: false, message: "Bản gửi hoặc tên tiếng Anh không hợp lệ." };
+  if (form.get("images_reviewed") !== "yes")
+    return { ok: false, message: "Hãy kiểm tra và xác nhận ảnh trước khi duyệt." };
   try {
     const session = await getSession(), db = getSupabaseClient();
     if (!db || !session || !["admin", "reviewer"].includes(session.role))

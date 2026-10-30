@@ -6,17 +6,22 @@ import { requestProductFormChangesAction } from "@/app/crm/products/product-form
 import { approveProductFormAction } from "@/app/crm/products/product-form-approval-action";
 import { suggestProductFormEnglishNameAction } from "@/app/crm/products/product-form-translation-actions";
 
-export function ProductFormReviewControls({ productId, submissionId, sourceName, updatedAt, allowApproval = false }: { productId: string; submissionId: string; sourceName: string; updatedAt: string; allowApproval?: boolean }) {
+export function ProductFormReviewControls({ productId, submissionId, sourceName, updatedAt, allowApproval = false, imagesReady = false, existingEnglishName = "" }: { productId: string; submissionId: string; sourceName: string; updatedAt: string; allowApproval?: boolean; imagesReady?: boolean; existingEnglishName?: string }) {
   const router = useRouter();
-  const [englishName, setEnglishName] = useState("");
+  const [englishName, setEnglishName] = useState(existingEnglishName);
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [translationStatus, setTranslationStatus] = useState("AI đang dịch tên sản phẩm…");
+  const [imagesReviewed, setImagesReviewed] = useState(false);
+  const [translationStatus, setTranslationStatus] = useState(existingEnglishName ? "Giữ tên tiếng Anh hiện có; hãy kiểm tra trước khi duyệt." : "AI đang dịch tên sản phẩm…");
   const edited = useRef(false);
   const request = useRef<{ key: string; promise: ReturnType<typeof suggestProductFormEnglishNameAction> } | null>(null);
   useEffect(() => {
     let current = true;
+    if (existingEnglishName.trim()) {
+      setTranslationStatus("Giữ tên tiếng Anh hiện có; hãy kiểm tra trước khi duyệt.");
+      return () => { current = false; };
+    }
     const key = JSON.stringify([productId, submissionId, sourceName]);
     if (!request.current || request.current.key !== key) {
       if (request.current) { edited.current = false; setEnglishName(""); }
@@ -34,11 +39,13 @@ export function ProductFormReviewControls({ productId, submissionId, sourceName,
       setTranslationStatus(result.nameNeedsEdit ? "Tên AI có thể chứa grade. Hãy sửa trước khi duyệt." : "Tên AI dự kiến; hãy kiểm tra trước khi duyệt.");
     }).catch(() => { if (current) setTranslationStatus("Chưa dịch được tên. Anh có thể nhập tên tiếng Anh khi duyệt."); });
     return () => { current = false; };
-  }, [productId, submissionId, sourceName]);
+  }, [productId, submissionId, sourceName, existingEnglishName]);
   async function approve() {
     if (!englishName.trim() || englishName.length > 180) { setMessage({ ok: false, text: "Nhập tên tiếng Anh trước khi duyệt." }); return; }
+    if (!imagesReady || !imagesReviewed) { setMessage({ ok: false, text: "Hãy kiểm tra và xác nhận ảnh trước khi duyệt." }); return; }
     setBusy(true); setMessage(null);
     const form = new FormData(); form.set("product_id", productId); form.set("submission_id", submissionId); form.set("english_name", englishName);
+    form.set("images_reviewed", "yes");
     try {
       const result = await approveProductFormAction(form);
       setMessage({ ok: result.ok, text: result.message });
@@ -65,7 +72,10 @@ export function ProductFormReviewControls({ productId, submissionId, sourceName,
         value={englishName} onChange={(event) => { edited.current = true; setEnglishName(event.target.value); }} disabled={busy} />
       <p role="status" className="text-xs text-ink-600">{translationStatus}</p>
       <p className="text-xs text-ink-500">Tên dự kiến chưa được lưu hoặc công bố.{!allowApproval && " Chức năng duyệt đang hoàn thiện."}</p>
-      {allowApproval && <button type="button" className="btn btn-primary" disabled={busy || !englishName.trim()} onClick={() => void approve()}>Duyệt và công bố</button>}</div>
+      {allowApproval && <>{!imagesReady && <p role="alert" className="text-sm text-amber-800">Danh sách ảnh chưa đủ điều kiện kiểm tra; chưa thể duyệt.</p>}
+        <label className="flex items-start gap-2 text-sm text-ink-800"><input type="checkbox" className="mt-1 size-4 accent-brand-700" checked={imagesReviewed} disabled={busy || !imagesReady}
+        onChange={(event) => setImagesReviewed(event.target.checked)} />Tôi đã kiểm tra tất cả ảnh trong bản gửi và đồng ý công bố các ảnh này.</label>
+        <button type="button" className="btn btn-primary" disabled={busy || !englishName.trim() || !imagesReady || !imagesReviewed} onClick={() => void approve()}>Duyệt và công bố</button></>}</div>
     <div className="space-y-2"><label htmlFor="review-note" className="block text-sm font-medium">Lý do yêu cầu NCC chỉnh sửa</label>
       <textarea id="review-note" className="input min-h-24 w-full" maxLength={1000} value={note} disabled={busy}
         onChange={(event) => setNote(event.target.value)} />
