@@ -1,27 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { requestProductFormChangesAction } from "@/app/crm/products/product-form-review-actions";
 import { approveProductFormAction } from "@/app/crm/products/product-form-approval-action";
 import { suggestProductFormEnglishNameAction } from "@/app/crm/products/product-form-translation-actions";
 
-export function ProductFormReviewControls({ productId, submissionId, updatedAt, allowApproval = false }: { productId: string; submissionId: string; updatedAt: string; allowApproval?: boolean }) {
+export function ProductFormReviewControls({ productId, submissionId, sourceName, updatedAt, allowApproval = false }: { productId: string; submissionId: string; sourceName: string; updatedAt: string; allowApproval?: boolean }) {
   const router = useRouter();
   const [englishName, setEnglishName] = useState("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  async function translate() {
-    setBusy(true); setMessage(null);
-    try {
-      const result = await suggestProductFormEnglishNameAction(productId, submissionId);
-      if (!result.ok) { setMessage({ ok: false, text: result.message }); return; }
+  const [translationStatus, setTranslationStatus] = useState("AI đang dịch tên sản phẩm…");
+  const edited = useRef(false);
+  const request = useRef<{ key: string; promise: ReturnType<typeof suggestProductFormEnglishNameAction> } | null>(null);
+  useEffect(() => {
+    let current = true;
+    const key = JSON.stringify([productId, submissionId, sourceName]);
+    if (!request.current || request.current.key !== key) {
+      if (request.current) { edited.current = false; setEnglishName(""); }
+      request.current = { key, promise: suggestProductFormEnglishNameAction(productId, submissionId) };
+    }
+    setTranslationStatus("AI đang dịch tên sản phẩm…");
+    void request.current.promise.then((result) => {
+      if (!current) return;
+      if (!result.ok) { setTranslationStatus(result.message); return; }
+      if (result.submissionId !== submissionId || result.sourceName !== sourceName) {
+        setTranslationStatus("Bản gửi đã thay đổi. Hãy tải lại trang trước khi duyệt."); return;
+      }
+      if (edited.current) { setTranslationStatus("Tên đã được nhập thủ công; bản dịch tự động không ghi đè."); return; }
       setEnglishName(result.englishName);
-      setMessage({ ok: true, text: result.nameNeedsEdit ? "Tên gợi ý có thể chứa grade. Hãy sửa trước khi duyệt." : "Đã tạo gợi ý. Tên này chưa được lưu hoặc công bố." });
-    } catch { setMessage({ ok: false, text: "Không tạo được gợi ý. Hãy thử lại." }); }
-    finally { setBusy(false); }
-  }
+      setTranslationStatus(result.nameNeedsEdit ? "Tên AI có thể chứa grade. Hãy sửa trước khi duyệt." : "Tên AI dự kiến; hãy kiểm tra trước khi duyệt.");
+    }).catch(() => { if (current) setTranslationStatus("Chưa dịch được tên. Anh có thể nhập tên tiếng Anh khi duyệt."); });
+    return () => { current = false; };
+  }, [productId, submissionId, sourceName]);
   async function approve() {
     if (!englishName.trim() || englishName.length > 180) { setMessage({ ok: false, text: "Nhập tên tiếng Anh trước khi duyệt." }); return; }
     setBusy(true); setMessage(null);
@@ -48,9 +61,9 @@ export function ProductFormReviewControls({ productId, submissionId, updatedAt, 
   return <section className="space-y-4 rounded-xl border border-ink-200 bg-white p-5">
     <h2 className="font-semibold text-ink-900">Tên tiếng Anh và yêu cầu chỉnh sửa</h2>
     <div className="space-y-2"><label htmlFor="review-english-name" className="block text-sm font-medium">Tên tiếng Anh dự kiến</label>
-      <div className="flex flex-wrap gap-2"><input id="review-english-name" className="input min-w-0 flex-1" maxLength={180}
-        value={englishName} onChange={(event) => setEnglishName(event.target.value)} disabled={busy} />
-        <button type="button" className="btn btn-soft" disabled={busy} onClick={() => void translate()}>Gợi ý bằng AI</button></div>
+      <input id="review-english-name" className="input w-full" maxLength={180}
+        value={englishName} onChange={(event) => { edited.current = true; setEnglishName(event.target.value); }} disabled={busy} />
+      <p role="status" className="text-xs text-ink-600">{translationStatus}</p>
       <p className="text-xs text-ink-500">Tên dự kiến chưa được lưu hoặc công bố.{!allowApproval && " Chức năng duyệt đang hoàn thiện."}</p>
       {allowApproval && <button type="button" className="btn btn-primary" disabled={busy || !englishName.trim()} onClick={() => void approve()}>Duyệt và công bố</button>}</div>
     <div className="space-y-2"><label htmlFor="review-note" className="block text-sm font-medium">Lý do yêu cầu NCC chỉnh sửa</label>

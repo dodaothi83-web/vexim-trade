@@ -18,6 +18,8 @@ export type ProductFormSessionOperations = {
   snapshotImages?: (id: string, revision: number, imageIds: string[]) => Promise<SnapshotResult>;
   setImages: (id: string, revision: number, images: Array<Pick<ProductFormImage, "id" | "source">>) => Promise<ImageResult>;
   newRequestId: () => string;
+  /** Optional transient suggestion; never included in a saved draft or approval. */
+  translateName?: (sourceName: string) => Promise<{ ok: true; sourceName: string; englishName: string } | { ok: false; message: string }>;
 };
 export type ProductFormSessionState = {
   productId: string | null;

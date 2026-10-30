@@ -12,6 +12,7 @@ const submit = async () => ({ ok: true, message: 'Synthetic submitted' });
 let uploaded = null;
 const upload = async (form) => { uploaded = form; return { ok: true, revision: 2, image: { id: 'private', source: 'staged', url: '/private' } }; };
 const mocks = {
+  '@/app/supplier/portal/product-form-name-translation-action': { translateSupplierProductNameAction: async () => ({ ok: false }) },
   '@/app/supplier/portal/product-form-draft-actions': { createProductFormDraftAction: create, saveProductFormDraftAction: save },
   '@/app/supplier/portal/product-form-image-actions': { setProductFormImagesAction: setImages },
   '@/app/supplier/portal/product-form-upload-action': { uploadProductFormImageAction: upload },

@@ -55,10 +55,27 @@ assert.match(html, /Nhập địa điểm Incoterm\./); assert.match(html, /Hãy
 errors.length = 0;
 html = renderToStaticMarkup(React.createElement(exports.ProductFormFiveSections, props));
 assert.match(html, /<button[^>]*>Gửi duyệt/); assert.doesNotMatch(html, /<button[^>]*disabled=""[^>]*>Gửi duyệt/);
+const pendingHtml = renderToStaticMarkup(React.createElement(exports.ProductFormFiveSections, { ...props,
+  submitted: true, canSubmit: false, statusText: 'Đã gửi sản phẩm · Đang chờ Vexim kiểm tra',
+  feedback: { ok: true, text: 'Đã gửi sản phẩm để Vexim kiểm tra.' } }));
+const stickyAt = pendingHtml.indexOf('sticky bottom-0 z-20');
+assert.ok(stickyAt > 0 && pendingHtml.indexOf('Đã gửi sản phẩm để Vexim kiểm tra.') > stickyAt,
+  'Success appears inside the sticky action bar, not at the top of the page');
+assert.match(pendingHtml, /<p role="status"[^>]*>Đã gửi sản phẩm để Vexim kiểm tra\.<\/p>/);
+assert.match(pendingHtml, /<button[^>]*disabled=""[^>]*>Đã gửi duyệt<\/button>/);
+const failureHtml = renderToStaticMarkup(React.createElement(exports.ProductFormFiveSections, { ...props,
+  feedback: { ok: false, text: 'Không xác nhận được kết quả gửi.' } }));
+assert.ok(failureHtml.indexOf('Không xác nhận được kết quả gửi.') > failureHtml.indexOf('sticky bottom-0 z-20'));
+assert.match(failureHtml, /<p role="alert"[^>]*>Không xác nhận được kết quả gửi\.<\/p>/);
 const serverErrors = [{ section: 'attributes', field: 'attributes', code: 'attributes', message: 'Thông số cần kiểm tra' },
   { section: 'transaction', field: 'tiers', code: 'price_spread', message: 'Tỷ lệ giá đã đổi' }];
 html = renderToStaticMarkup(React.createElement(exports.ProductFormFiveSections, { ...props, serverErrors }));
 assert.ok(html.indexOf('Thông số cần kiểm tra') > html.indexOf('id="product-form-attributes"'));
 assert.ok(html.indexOf('Tỷ lệ giá đã đổi') > html.indexOf('id="product-form-transaction"'));
 assert.match(html, /<button[^>]*disabled=""[^>]*>Gửi duyệt/);
-console.log('Five-section product form: sections, navigation, preview, rich editor and submit state passed');
+const comparisonHtml = renderToStaticMarkup(React.createElement(exports.ProductFormFiveSections, { ...props, comparisonOnly: true }));
+assert.match(comparisonHtml, /Giá demo không chuyển sang bảng giá mới/);
+assert.doesNotMatch(comparisonHtml, /data-component="pricing"|data-component="consent"|data-component="preview"|Buyer sẽ thấy|Gửi duyệt|Lưu nháp/);
+assert.match(comparisonHtml, /aria-label="Tên sản phẩm"[^>]*disabled=""/);
+assert.doesNotMatch(comparisonHtml, /Tên bắt buộc|Cần bổ sung|Đã xong/);
+console.log('Five-section product form: sections, navigation, preview, rich editor, submit and read-only comparison passed');

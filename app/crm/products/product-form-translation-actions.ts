@@ -5,7 +5,8 @@ import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { parseProductFormDraft } from "@/lib/products/product-form-model";
 import { nameContainsGrade } from "@/lib/products/quantity-pricing";
-import { suggestProductFormTranslation } from "@/lib/products/product-form-translation";
+import { translateProductName } from "@/lib/ai/product-name-translation";
+import { checkProductNameTranslationLimit } from "@/lib/ai/product-name-rate-limit";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: false; message: string } |
@@ -34,10 +35,12 @@ export async function suggestProductFormEnglishNameAction(productId: string, sub
     const category = await supabaseStore.getCategoryBySlug(draft.category);
     if (!category || category.status !== "published" || !category.is_published)
       return { ok: false, message: "Danh mục không còn hợp lệ. Hãy kiểm tra lại bản gửi." };
-    const suggestion = await suggestProductFormTranslation(draft, standardGradesForCategory(category));
-    if (!suggestion.ok) return { ok: false, message: suggestion.reason === "unconfigured"
-      ? "Chưa cấu hình dịch tự động. Anh có thể nhập tên tiếng Anh khi duyệt."
-      : "Không tạo được bản dịch. Hãy kiểm tra và thử lại." };
+    if (!await checkProductNameTranslationLimit(`reviewer:${session.uid}`))
+      return { ok: false, message: "Dịch tự động tạm thời không khả dụng. Anh có thể nhập tên tiếng Anh khi duyệt." };
+    // Automatic translation sends only the title, not the private description,
+    // price, MOQ or other product information.
+    const englishName = await translateProductName(draft.name);
+    if (!englishName) return { ok: false, message: "Không tạo được bản dịch. Anh có thể nhập tên tiếng Anh khi duyệt." };
     // An AI call can take time. Never present a result for a decision that has
     // already changed, a disabled reviewer, or an altered submission/category.
     const [afterResult, currentCategory, currentProduct, stillAuthorized] = await Promise.all([
@@ -47,7 +50,6 @@ export async function suggestProductFormEnglishNameAction(productId: string, sub
     if (afterResult.error || !after || JSON.stringify(after) !== JSON.stringify(draft) || !stillAuthorized ||
         !currentProduct || currentProduct.supplier_id !== product.supplier_id || !currentCategory || currentCategory.id !== category.id || currentCategory.status !== "published" || !currentCategory.is_published)
       return { ok: false, message: "Bản gửi hoặc quyền xét duyệt đã thay đổi. Hãy tải lại trang." };
-    const englishName = suggestion.translation.name.trim();
     return { ok: true, submissionId, sourceName: draft.name, englishName,
       nameNeedsEdit: nameContainsGrade(englishName, [...standardGradesForCategory(currentCategory), draft.grade]) };
   } catch (error) {

@@ -81,7 +81,7 @@ export default async function ProductFormReviewDetail({ params }: { params: Prom
       </div>
       {Array.isArray(submission.warnings) && submission.warnings.length > 0 && <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Bản gửi có cảnh báo giá cần đối chiếu với cấu hình hiện tại.</p>}
       <ProductFormReviewDiffTable rows={productFormReviewDiff(baseline, draft, { baselineConsentKnown: !!baseline })} />
-      <ProductFormReviewControls productId={product.id} submissionId={submission.id} updatedAt={product.updated_at}
+      <ProductFormReviewControls key={submission.id} productId={product.id} submissionId={submission.id} sourceName={draft.name} updatedAt={product.updated_at}
         allowApproval={isProductFormBuyerEnabled()} />
     </div>
   </>;
