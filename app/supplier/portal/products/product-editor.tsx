@@ -917,7 +917,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   ? "Chọn danh mục gần nhất. Danh mục được kiểm tra khi duyệt; đổi danh mục thì grade đổi theo."
                   : "Chọn danh mục gần nhất để mở grade và bảng giá."}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <select name="supplier_category_proposal" className="input max-w-[420px]" required value={selectedCategory}
+                  <select name="supplier_category_proposal" className="input min-w-0 flex-1" required value={selectedCategory}
                     onChange={(e) => onCategorySelect(e.target.value)} disabled={locked || categoryLocked || !categories.length}>
                     <option value="" disabled>Chọn danh mục sản phẩm</option>
                     {categories.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} / ` : ""}{c.label}</option>)}
@@ -1715,18 +1715,16 @@ function ReviewField({ label, value, strong, mono }: { label: string; value?: st
 }
 
 /**
- * Một dòng nhập theo bố cục Alibaba: nhãn nằm cột trái canh phải, ô nhập nằm cột phải.
- * Dưới 768px thì nhãn về trên để điện thoại vẫn đọc được.
+ * Một dòng nhập: nhãn nằm trên, ô nhập chiếm hết bề rộng thẻ.
+ * Nhãn không được dựng thành cột riêng — cột nhãn đẩy ô nhập sang phải và bóp hẹp ô.
  */
 function Row({ label, hint, required, children, error }: {
   label: string; hint?: string; required?: boolean; children: React.ReactNode; error?: boolean;
 }) {
-  return <div className="grid gap-1.5 border-t border-ink-100 px-4 py-3 first:border-t-0 sm:px-5 md:grid-cols-[196px_minmax(0,1fr)] md:gap-x-6 md:gap-y-0 md:py-3.5">
-    <div className="md:pt-1.5 md:text-right">
-      <span className="text-[13px] font-semibold text-ink-700">
-        {required && <span className="mr-1 text-rose-600" aria-hidden="true">*</span>}{label}
-      </span>
-    </div>
+  return <div className="border-t border-ink-100 px-4 py-3 first:border-t-0 sm:px-5">
+    <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-700">
+      {required && <span className="mr-1 text-rose-600" aria-hidden="true">*</span>}{label}
+    </span>
     <div className="min-w-0">
       {children}
       {hint && <p className={`mt-1.5 text-[11.5px] leading-4 ${error ? "text-rose-700" : "text-ink-500"}`}>{hint}</p>}
