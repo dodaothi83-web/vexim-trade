@@ -41,7 +41,7 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
   const denied = await guard("products.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "reviewer")) return { ok: false, message: "Chỉ Vexim quản trị/trưởng kiểm duyệt được xét sản phẩm NCC." };
+  if (!session || (session.role !== "admin" && session.role !== "reviewer")) return { ok: false, message: "Chỉ quản trị hoặc trưởng kiểm duyệt được xét sản phẩm của nhà cung cấp." };
   const id = String(form.get("product_id") ?? "");
   const decision = String(form.get("decision") ?? "");
   const note = String(form.get("note") ?? "").trim().slice(0, 1000);
@@ -66,7 +66,7 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       const supplier = await store.getSupplier(product.supplier_id);
       if (!supplier) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
       if (supplier.status !== "published")
-        return { ok: false, message: "Hồ sơ NCC chưa được công khai. Cần công khai hồ sơ NCC trước khi đăng sản phẩm." };
+        return { ok: false, message: "Hồ sơ nhà cung cấp chưa được công khai. Cần công khai hồ sơ trước khi đăng sản phẩm." };
       if (isTestOnlyProduct(product.name) ||
           (isSyntheticSupplier(supplier) && !(supplier.is_demo && process.env.VEXIM_SHOW_DEMO === "true")))
         return { ok: false, message: "Không thể đăng sản phẩm hoặc hồ sơ dùng cho thử nghiệm." };
@@ -82,10 +82,10 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       const media = await store.listMedia("product", id);
       const mediaReview = productPublicationMediaState(media, id, product.supplier_id);
       if (!mediaReview.verifiedBuyerImages) {
-        return { ok: false, message: "Mở mục Ảnh & tài liệu sản phẩm. Đặt ít nhất một ảnh ở trạng thái Đã kiểm tra và Chia sẻ buyer trước khi đăng." };
+        return { ok: false, message: "Mở mục Ảnh & tài liệu sản phẩm. Đặt ít nhất một ảnh ở trạng thái Đã kiểm tra và Chia sẻ cho khách mua trước khi đăng." };
       }
       if (mediaReview.uncheckedBuyerFiles) {
-        return { ok: false, message: `Còn ${mediaReview.uncheckedBuyerFiles} tệp chia sẻ buyer chưa được xác minh. Chọn Đã kiểm tra hoặc chuyển tệp về Nội bộ.` };
+        return { ok: false, message: "Còn " + mediaReview.uncheckedBuyerFiles + " tệp chia sẻ cho khách mua chưa được xác minh. Chọn Đã kiểm tra hoặc chuyển về Nội bộ." };
       }
     }
     const previous = { review: product.supplier_review_status ?? null, category: product.reviewed_category_slug, ready: product.ready_for_buyer };
@@ -111,11 +111,11 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
         p_category: reviewedCategory, p_note: note || null,
         p_buyer_enabled: process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true",
       });
-      if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá trước khi đăng. Kiểm tra migration và thử lại." };
-      if (data.status === "buyer_not_enabled") return { ok: false, message: "Trang buyer theo bảng giá mới chưa được bật; chưa thể đăng sản phẩm tạo bằng mô hình này." };
+      if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá trước khi đăng. Thử lại sau ít phút." };
+      if (data.status === "buyer_not_enabled") return { ok: false, message: "Chưa bật trang giá cho khách mua; chưa thể đăng sản phẩm này." };
       if (data.status === "price_not_approved") return { ok: false, message: "Hãy duyệt bảng giá theo số lượng trước khi đăng sản phẩm." };
-      if (data.status === "price_changed") return { ok: false, message: "Thông tin sản phẩm đã đổi sau khi duyệt giá. Cần yêu cầu NCC gửi lại bảng giá." };
-      if (data.status === "category_changed") return { ok: false, message: "Danh mục khác với bảng giá đã gửi. Hãy yêu cầu NCC cập nhật danh mục và bảng giá." };
+      if (data.status === "price_changed") return { ok: false, message: "Thông tin sản phẩm đã đổi sau khi duyệt giá. Cần yêu cầu nhà cung cấp gửi lại bảng giá." };
+      if (data.status === "category_changed") return { ok: false, message: "Danh mục khác với bảng giá đã gửi. Hãy yêu cầu nhà cung cấp cập nhật danh mục và bảng giá." };
       updated = data.status === "saved" && data.product ? data.product as SupplierProduct : null;
     } else {
       updated = await store.updateSupplierProductIfState(id, product.supplier_id,
@@ -143,11 +143,11 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
     revalidatePath("/suppliers", "layout");
     revalidatePath("/");
     refreshCrmBadges();
-    return { ok: true, message: (decision === "approved" ? "Đã duyệt và đăng sản phẩm." : "Đã yêu cầu NCC chỉnh sửa.") + (mail === "sent" ? "" : " Chưa gửi được email cho NCC. Sản phẩm vẫn được lưu theo trạng thái mới.") };
+    return { ok: true, message: (decision === "approved" ? "Đã duyệt và đăng sản phẩm." : "Đã yêu cầu nhà cung cấp chỉnh sửa.") + (mail === "sent" ? "" : " Chưa gửi được email cho nhà cung cấp. Sản phẩm vẫn được lưu theo trạng thái mới.") };
   } catch (error) { console.error("[supplier-product-review]", error); return { ok: false, message: "Không lưu được quyết định." }; }
 }
 
-/** AI dịch (lại) nội dung sản phẩm sang tiếng Anh; dùng khi NCC nộp mà chưa dịch được hoặc vừa sửa nội dung gốc. */
+/** AI dịch (lại) nội dung sản phẩm sang tiếng Anh; dùng khi nhà cung cấp nộp mà chưa dịch được hoặc vừa sửa nội dung gốc. */
 export async function translateProductEnglishAction(productId: string): Promise<Result> {
   const denied = await guard("products.manage");
   if (denied) return { ok: false, message: denied.message };
@@ -257,7 +257,7 @@ export async function correctSupplierProductCategoryAction(form: FormData): Prom
   try {
     const store = getStore();
     const product = await store.getProduct(id);
-    if (!product || product.supplier_review_status !== "approved") return { ok: false, message: "Chỉ được sửa danh mục sản phẩm NCC đã duyệt." };
+    if (!product || product.supplier_review_status !== "approved") return { ok: false, message: "Chỉ được sửa danh mục sản phẩm đã duyệt." };
     const supplier = await store.getSupplier(product.supplier_id);
     if (!supplier) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
     const categories = await store.listCategories({ publishedOnly: false });

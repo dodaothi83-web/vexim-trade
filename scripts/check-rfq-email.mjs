@@ -158,13 +158,13 @@ assert.equal(messages.filter((m) => m.rfq_id === actionRfq.id && m.stage === 'lo
 match.rfq_id = actionRfq.id;
 const compose = new FormData(); compose.set('rfq_id', actionRfq.id); compose.set('match_id', match.id);
 compose.set('subject', 'Báo giá'); compose.set('body', 'Xin chào');
-await assert.rejects(actions.composeMatchEmailAction(compose), /Resend chưa gửi thật/);
+await assert.rejects(actions.composeMatchEmailAction(compose), /chưa gửi thật/);
 assert.equal(messages.filter((m) => m.kind === 'manual' && m.rfq_id === actionRfq.id).length, 0, 'Simulated attempt cannot count as sent');
 transportStatus = 'sent';
 supplier.onboarding_status = 'pending';
-await assert.rejects(actions.composeMatchEmailAction(compose), /chưa được Vexim xác nhận/);
+await assert.rejects(actions.composeMatchEmailAction(compose), /Tài khoản nhà cung cấp chưa được xác nhận/);
 const pendingFollowup = new FormData(); pendingFollowup.set('rfq_id', actionRfq.id); pendingFollowup.set('match_id', match.id);
-await assert.rejects(actions.sendFollowUpAction(pendingFollowup), /chưa được Vexim xác nhận/);
+await assert.rejects(actions.sendFollowUpAction(pendingFollowup), /Tài khoản nhà cung cấp chưa được xác nhận/);
 supplier.onboarding_status = 'approved';
 await actions.composeMatchEmailAction(compose);
 assert.equal(sent.at(-1).from, 'Nguyễn Văn Dung <dung@veximtrade.com>');

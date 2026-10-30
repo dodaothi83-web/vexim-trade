@@ -151,7 +151,7 @@ assert.match(dbRejected.message, /Chưa lưu được quyết định duyệt/);
 assert.equal(row.status, 'submitted', 'A rejected write leaves the review pending');
 dbFailure = "updateVerification: Could not find the 'bank_account_number' column of 'verifications' in the schema cache";
 const migrationMissing = await exports.approveVerificationAction(form);
-assert.match(migrationMissing.message, /chạy migration/, 'Schema-cache failures tell staff to run the migration');
+assert.match(migrationMissing.message, /Báo người phụ trách kỹ thuật/, 'Schema-cache failures tell staff who to contact');
 dbFailure = 'updateVerification: JSON object requested, multiple (or no) rows returned';
 const writeBlocked = await exports.approveVerificationAction(form);
 assert.match(writeBlocked.message, /RLS chặn ghi/, 'A zero-row update points at RLS instead of a React digest');
@@ -159,7 +159,7 @@ dbFailure = null;
 mailThrows = true;
 const mailWarned = await exports.approveVerificationAction(form);
 assert.equal(mailWarned.ok, true, 'A mail failure cannot undo a saved approval');
-assert.match(mailWarned.message, /Email NCC chưa gửi được/);
+assert.match(mailWarned.message, /Email nhà cung cấp chưa gửi được/);
 assert.equal(row.status, 'approved');
 mailThrows = false;
 Object.assign(row, { status: 'submitted', approved_by: null, approved_at: null });
@@ -184,7 +184,7 @@ assert.equal((await exports.assignVerificationEvidenceAction('shipping-photo', '
 dbChecklistConstraint = true;
 const unmigrated = await exports.assignVerificationEvidenceAction('shipping-photo', 'shipping_proof');
 assert.equal(unmigrated.ok, false);
-assert.match(unmigrated.message, /20261017_factory_delivery_inline_evidence\.sql/, 'Missing migration must give actionable feedback');
+assert.match(unmigrated.message, /Báo người phụ trách kỹ thuật/, 'Missing schema tells staff who to contact; the file name stays in server logs');
 assert.equal(media[0].checklist_key, null, 'Failed assignment must not mutate the file');
 dbChecklistConstraint = false;
 assert.equal((await exports.assignVerificationEvidenceAction('shipping-photo', 'shipping_proof')).ok, true, 'Old delivery image can be assigned to shipping row');
@@ -211,7 +211,7 @@ media.splice(0);
 const missing = await exports.approveVerificationAction(form);
 assert.equal(missing.ok, false, 'Supplier-wide documents must not satisfy an empty verification');
 assert.deepEqual(lastMediaLookup, ['verification', row.id], 'No supplier-library fallback');
-assert.match(missing.message, /kho chung NCC/);
+assert.match(missing.message, /kho chung nhà cung cấp/);
 media.push({ kind: 'video', storage_path: null, external_url: 'https://example.com' });
 assert.equal((await exports.approveVerificationAction(form)).ok, false, 'A video link is not a legal document');
 media.push({ id: 'photo-1', owner_type: 'verification', verification_id: row.id, supplier_id: row.supplier_id, kind: 'image', storage_path: 'verifications/review-3/license.jpg', status: 'unverified' });
@@ -317,7 +317,7 @@ const formUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]
 const pageUi = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/page.tsx', import.meta.url), 'utf8');
 assert.match(formUi, /!selfReview \|\| selfApproval/, 'Same-person completion is available to authorized staff');
 assert.match(formUi, /canInspect &&/, 'Reviewer cannot edit evidence');
-assert.match(formUi, /Phạm vi buyer sẽ thấy/, 'L2/L3 approval includes the buyer-facing summary editor');
+assert.match(formUi, /Phạm vi khách mua sẽ thấy/, 'L2/L3 approval includes the buyer-facing summary editor');
 assert.match(formUi, /confirm_public_summary/, 'Approval sends the reviewer publication confirmation');
 assert.ok(!pageUi.includes('<MediaManager'), 'All audit steps render evidence inline');
 assert.match(pageUi, /item\.level !== 2 \|\| \(scope !== null && effectiveL2Scope\(v\.l2_scope\) === scope\)/, 'L2 navigation completion matches the current scope');
@@ -332,8 +332,8 @@ assert.ok(!approvalSource.includes('target_level - 1'), 'Delivery approval has n
 assert.ok(!/await (notifySupplierDecision|notifyStaffVerificationSubmission)\(/.test(approvalSource),
   'Reviewer mail must never be awaited bare');
 assert.ok(!/^\s*refreshAudit\(/m.test(approvalSource), 'Revalidation must never be awaited bare');
-assert.match(approvalSource, /softEffect\("email duyệt gửi NCC"/);
-// Giấy tờ do NCC tự tải lên có inspector_id = null. Chặn duyệt ở đây là bế tắc:
+assert.match(approvalSource, /softEffect\("email duyệt gửi nhà cung cấp"/);
+// Giấy tờ do nhà cung cấp tự tải lên có inspector_id = null. Chặn duyệt ở đây là bế tắc:
 // không ai có thể là "người kiểm" của hồ sơ do NCC tự nộp. Thay vào đó người
 // duyệt phải xác nhận đã tự đối chiếu và hồ sơ ghi self_approved.
 assert.ok(!approvalSource.includes('Bản kiểm thiếu người kiểm'), 'A supplier-uploaded review must stay reviewable');

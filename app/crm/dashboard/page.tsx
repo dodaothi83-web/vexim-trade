@@ -48,7 +48,7 @@ export default async function DashboardPage() {
       console.error("[dashboard] site traffic unavailable", error);
       return null;
     }) : Promise.resolve(null),
-    // Tài khoản NCC đã đăng ký nhưng chưa nộp hồ sơ: chưa có hàng suppliers để hiện ở hàng đợi.
+    // Tài khoản nhà cung cấp đã đăng ký nhưng chưa nộp hồ sơ: chưa có hàng suppliers để hiện ở hàng đợi.
     canManageSuppliers ? store.listUsers().catch((error) => {
       console.error("[dashboard] supplier logins unavailable", error);
       return [];
@@ -75,15 +75,15 @@ export default async function DashboardPage() {
 
   const queue: Array<{ id: string; label: string; detail: string; href: string; when: string; tone: string }> = [];
   if (canSeeAccounts) for (const u of accountsWithoutProfile) queue.push({
-    id: `login:${u.id}`, label: u.email, detail: "Tài khoản NCC mới · chưa nộp hồ sơ doanh nghiệp",
+    id: `login:${u.id}`, label: u.email, detail: "Tài khoản nhà cung cấp mới · chưa nộp hồ sơ doanh nghiệp",
     href: "/crm/settings/users", when: u.created_at ?? "", tone: "bg-rose-500",
   });
   if (canManageSuppliers) for (const s of snapshot.pendingSuppliers) queue.push({
-    id: `supplier:${s.id}`, label: s.name, detail: "Tài khoản NCC · chờ xác nhận quyền truy cập",
+    id: `supplier:${s.id}`, label: s.name, detail: "Tài khoản nhà cung cấp · chờ xác nhận quyền truy cập",
     href: `/crm/suppliers/${s.id}`, when: s.updated_at, tone: "bg-sky-500",
   });
   if (canManageProducts) for (const p of snapshot.pendingProducts) queue.push({
-    id: `product:${p.id}`, label: p.name, detail: `${supplierNames.get(p.supplier_id) ?? "NCC"} · sản phẩm chờ Vexim duyệt`,
+    id: `product:${p.id}`, label: p.name, detail: `${supplierNames.get(p.supplier_id) ?? "nhà cung cấp"} · sản phẩm chờ duyệt`,
     href: `/crm/products/${p.id}/edit`,
     when: p.updated_at, tone: "bg-amber-500",
   });
@@ -98,12 +98,12 @@ export default async function DashboardPage() {
     href: "/crm/verifications", when: r.requested_at, tone: "bg-ink-500",
   });
   if (canRfqs) for (const r of newQuoteRfqs) queue.push({
-    id: `rfq:${r.id}`, label: r.code || "RFQ mới", detail: "Buyer gửi yêu cầu · cần tiếp nhận",
+    id: `rfq:${r.id}`, label: r.code || "RFQ mới", detail: "Khách mua gửi yêu cầu · cần tiếp nhận",
     href: "/crm/rfqs", when: r.created_at, tone: "bg-brand-500",
   });
   if (canRfqs) for (const r of newSupplierQuestions) queue.push({
     id: `rfq:${r.id}`, label: r.code || "Câu hỏi mới",
-    detail: r.status === "needs_review" ? "Câu hỏi NCC · cần kiểm duyệt" : "Câu hỏi NCC · cần hỗ trợ giao email",
+    detail: r.status === "needs_review" ? "Câu hỏi nhà cung cấp · cần kiểm duyệt" : "Câu hỏi nhà cung cấp · cần hỗ trợ giao email",
     href: "/crm/rfqs?status=question", when: r.created_at, tone: "bg-teal-500",
   });
   queue.sort((a, b) => b.when.localeCompare(a.when));
@@ -113,24 +113,24 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Trung tâm vận hành sàn" sub="Nhà cung cấp, sản phẩm và nội dung công khai là trọng tâm. RFQ và sale là luồng hỗ trợ buyer." />
+      <PageHeader title="Trung tâm vận hành sàn" sub="Nhà cung cấp, sản phẩm và nội dung công khai là trọng tâm. RFQ và sale là luồng hỗ trợ khách mua." />
 
       <section className="mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-ink-900 via-brand-900 to-brand-700 p-6 text-white shadow-lg sm:p-8">
         <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-brand-100">Vexim Trade · Marketplace operations</p>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-5">
           <div className="max-w-2xl">
-            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">Từ hồ sơ NCC đến listing cho buyer</h2>
-            <p className="mt-2 text-sm leading-6 text-brand-100">Theo dõi từng cổng duyệt độc lập. NCC có tài khoản không đồng nghĩa được công khai; sản phẩm đã duyệt vẫn cần danh mục, ảnh/catalogue và trạng thái sẵn sàng.</p>
+            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">Từ hồ sơ nhà cung cấp đến trang sản phẩm công khai</h2>
+            <p className="mt-2 text-sm leading-6 text-brand-100">{"Theo dõi từng cổng duyệt độc lập. Có tài khoản không đồng nghĩa được công khai." + " Sản phẩm đã duyệt vẫn cần danh mục, ảnh/catalogue và trạng thái sẵn sàng."}</p>
           </div>
           {canProducts && <Link href="/crm/products" className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-brand-900 hover:bg-brand-50">Xem kho sản phẩm <ArrowRight className="h-4 w-4" /></Link>}
         </div>
       </section>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Chỉ số vận hành sàn">
-        <Metric icon={<Store className="h-5 w-5" />} label="NCC công khai" value={snapshot.publishedSuppliers.length}
+        <Metric icon={<Store className="h-5 w-5" />} label="Nhà cung cấp công khai" value={snapshot.publishedSuppliers.length}
           note="Trạng thái hồ sơ published" href={canSuppliers ? "/crm/suppliers" : undefined} />
         <Metric icon={<PackageCheck className="h-5 w-5" />} label="Sản phẩm đang hiển thị" value={snapshot.liveProducts.length}
-          note="Đủ các điều kiện buyer-facing" href={canProducts ? "/crm/products" : undefined} />
+          note="Đủ điều kiện công khai" href={canProducts ? "/crm/products" : undefined} />
         <Metric icon={<FolderTree className="h-5 w-5" />} label="Danh mục đã đăng" value={snapshot.publishedCategories.length}
           note={`${snapshot.categoriesWithOffers} danh mục có sản phẩm hiển thị`} href={canCategories ? "/crm/categories" : undefined} />
         <Metric icon={<ClipboardCheck className="h-5 w-5" />} label="Hồ sơ cần xử lý" value={workload}
@@ -169,8 +169,8 @@ export default async function DashboardPage() {
             <h2 className="text-base font-bold text-ink-900">Các cổng kiểm soát</h2>
             <p className="mt-1 text-xs text-ink-500">Những bước riêng biệt, không cộng dồn thành một nhãn chứng nhận.</p>
             <div className="mt-4 space-y-2">
-              {canManageSuppliers && <FlowRow href="/crm/suppliers" icon={<UsersRound className="h-4 w-4" />} label="Hồ sơ NCC chờ xác nhận" value={snapshot.pendingSuppliers.length} />}
-              {canSeeAccounts && <FlowRow href="/crm/settings/users" icon={<UsersRound className="h-4 w-4" />} label="Tài khoản NCC chưa nộp hồ sơ" value={accountsWithoutProfile.length} />}
+              {canManageSuppliers && <FlowRow href="/crm/suppliers" icon={<UsersRound className="h-4 w-4" />} label="Hồ sơ nhà cung cấp chờ xác nhận" value={snapshot.pendingSuppliers.length} />}
+              {canSeeAccounts && <FlowRow href="/crm/settings/users" icon={<UsersRound className="h-4 w-4" />} label="Tài khoản nhà cung cấp chưa nộp hồ sơ" value={accountsWithoutProfile.length} />}
               {canManageProducts && <FlowRow href="/crm/products?review=pending" icon={<Boxes className="h-4 w-4" />} label="Sản phẩm chờ duyệt" value={snapshot.pendingProducts.length} />}
               {canApprove && <FlowRow href="/crm/verifications" icon={<ShieldCheck className="h-4 w-4" />} label="Đợt kiểm chờ xét duyệt" value={reviewCount} />}
               {canInspect && requests !== null && <FlowRow href="/crm/verifications" icon={<ClipboardCheck className="h-4 w-4" />} label="Yêu cầu liên hệ kiểm định" value={contactCount} />}
@@ -178,13 +178,13 @@ export default async function DashboardPage() {
             {canViewReviews && requests === null && <p className="mt-3 text-xs text-amber-800">Chưa đọc được yêu cầu kiểm định; xem trang xác minh để kiểm tra.</p>}
           </Card>
           {canRfqs && <Card className="p-5">
-            <div className="flex items-center gap-2"><FileQuestion className="h-4 w-4 text-brand-700" /><h2 className="text-base font-bold text-ink-900">Nhu cầu từ buyer</h2></div>
-            <p className="mt-2 text-sm text-ink-600">{newQuoteRfqs.length} RFQ mới hoặc cần rà soát; {newSupplierQuestions.length} câu hỏi NCC cần kiểm duyệt hoặc hỗ trợ giao. Đây không phải đơn hàng hay doanh thu.</p>
+            <div className="flex items-center gap-2"><FileQuestion className="h-4 w-4 text-brand-700" /><h2 className="text-base font-bold text-ink-900">Nhu cầu từ khách mua</h2></div>
+            <p className="mt-2 text-sm text-ink-600">{newQuoteRfqs.length} RFQ mới hoặc cần rà soát; {newSupplierQuestions.length} câu hỏi nhà cung cấp cần kiểm duyệt hoặc hỗ trợ giao. Đây không phải đơn hàng hay doanh thu.</p>
             <Link href="/crm/rfqs" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-700 hover:underline">Mở hộp thư RFQ <ArrowRight className="h-4 w-4" /></Link>
           </Card>}
         </div>
       </div>
-      <p className="mt-5 text-xs leading-5 text-ink-500">Số liệu là ảnh chụp trạng thái hiện tại của dữ liệu nội bộ, không phải lượt truy cập, doanh số, GMV hay cam kết xác minh sản phẩm.</p>
+      <p className="mt-5 text-xs leading-5 text-ink-500">Số liệu là ảnh chụp trạng thái hiện tại của dữ liệu nội bộ, không phải lượt truy cập, doanh số hay cam kết xác minh.</p>
     </>
   );
 }

@@ -23,6 +23,22 @@ const SCOPE = [
   'lib/media/readiness.ts',
   'lib/media/limits.ts',
   'lib/products/quantity-pricing.ts',
+  // Đợt 2: 12 màn hình CRM chính, khung điều hướng CRM và thư báo nội bộ.
+  'app/crm/rfqs/[id]/page.tsx',
+  'app/crm/rfqs/[id]/compose-action.ts',
+  'app/crm/categories/categories-manager.tsx',
+  'app/crm/products/page.tsx',
+  'app/crm/products/[slug]/edit/page.tsx',
+  'app/crm/products/[slug]/edit/review-actions.ts',
+  'components/product-form.tsx',
+  'app/crm/suppliers/[slug]/page.tsx',
+  'app/crm/suppliers/[slug]/verification-actions.ts',
+  'app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx',
+  'app/crm/verifications/submissions/[id]/page.tsx',
+  'app/crm/dashboard/page.tsx',
+  'app/crm/layout.tsx',
+  'components/sidebar.tsx',
+  'lib/supplier-portal/notify.ts',
 ];
 
 const VIETNAMESE = /[àáảãạăâđêôơưýÀ-ỹ]/;

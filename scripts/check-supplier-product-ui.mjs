@@ -132,8 +132,8 @@ assert.match(dirtyReviewHtml, /<button disabled="" class="btn btn-primary">Duy�
 editorDirty = false;
 const crmList = fs.readFileSync(new URL('../app/crm/products/page.tsx', import.meta.url), 'utf8');
 const crmSupplier = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
-assert.match(crmList, /supplier_review_status === "paused"[\s\S]*?NCC đã tạm ẩn/, 'CRM list labels paused products');
-assert.match(crmSupplier, /supplier_review_status === "paused"[\s\S]*?NCC đã tạm ẩn/, 'Supplier CRM page labels paused products');
+assert.match(crmList, /supplier_review_status === "paused"[\s\S]*?Nhà cung cấp đã tạm ẩn/, 'CRM list labels paused products');
+assert.match(crmSupplier, /supplier_review_status === "paused"[\s\S]*?Nhà cung cấp đã tạm ẩn/, 'Supplier CRM page labels paused products');
 const crmEditPage = fs.readFileSync(new URL('../app/crm/products/[slug]/edit/page.tsx', import.meta.url), 'utf8');
 assert.match(crmEditPage, /needsPublicationAction = supplierReviewedListing && \(product\.supplier_review_status === "pending" \|\| needsPublicationRetry\)/);
 assert.match(crmEditPage, /missingWebsiteChecks/);

@@ -63,6 +63,8 @@ Không áp cho: văn bản pháp lý (`app/(legal)/**`), nội dung sản phẩm
 | Giá mới đang chờ Vexim xác nhận. | Đã gửi giá mới. Vexim phản hồi trong 24 giờ. |
 | Chia sẻ buyer | Chia sẻ cho người mua |
 | Tôi xác nhận đã nhận cam kết của NCC rằng đây là giá NCC sẵn sàng báo cho buyer… | Tôi xác nhận nhà cung cấp đã cam kết đây là giá sẵn sàng báo cho người mua… |
+| Sẵn sàng gửi buyer · Cần NCC sửa · NCC đã tạm ẩn | Sẵn sàng gửi khách mua · Chờ nhà cung cấp sửa · Nhà cung cấp đã tạm ẩn |
+| Chạy migration 20261049_review_lead_and_sourcing_hold.sql rồi thử lại | Báo người phụ trách kỹ thuật rồi thử lại |
 
 ## 8. Cách giữ chuẩn
 
@@ -71,7 +73,12 @@ Không áp cho: văn bản pháp lý (`app/(legal)/**`), nội dung sản phẩm
 - Phạm vi đã chuyển đổi (đợt 1): form 3 bước của portal, bảng giá theo bậc, khung xem
   trước, trang danh sách sản phẩm NCC, hàng chờ duyệt giá của CRM, thông điệp trong
   `lib/media`, `lib/products/quantity-pricing`.
-- Đợt sau: trang sửa sản phẩm CRM, nhập Excel, hồ sơ NCC, RFQ, traffic, storefront.
+- Đợt 2 (12 màn hình CRM chính + khung điều hướng): RFQ (chi tiết, soạn thư), danh mục,
+  danh sách và trang sửa sản phẩm CRM, form sản phẩm, hồ sơ nhà cung cấp, duyệt xác minh,
+  biểu mẫu đợt kiểm, hồ sơ tự gửi, bảng điều khiển, `app/crm/layout.tsx`,
+  `components/sidebar.tsx`, thư báo nội bộ `lib/supplier-portal/notify.ts`.
+- Đợt sau: nhập Excel, traffic, storefront, các panel còn lại trong hồ sơ nhà cung cấp
+  (`verification-panel.tsx`, `bulk-image-review.tsx`), trang xác minh còn lại.
   Khi sửa file nào thì chuyển file đó và thêm vào danh sách của script.
 
 ## 9. Ngoại lệ có chủ đích
@@ -79,3 +86,8 @@ Không áp cho: văn bản pháp lý (`app/(legal)/**`), nội dung sản phẩm
 - “Buyer” trong URL, tên trường dữ liệu (`ready_for_buyer`, `audience: "buyer"`),
   tên component và nội dung tiếng Anh của trang công khai: giữ nguyên.
 - Câu cam kết pháp lý trong quy chế hoạt động: giữ nguyên văn bản đã công bố.
+- Lỗi kỹ thuật (CSDL lệch mã nguồn, thiếu cột, khoá ghi) chỉ nói **việc cần làm**:
+  “Báo người phụ trách kỹ thuật rồi thử lại.” Tên migration, tên cột, mã PostgREST
+  nằm trong log máy chủ (`console.error`), không hiện trên giao diện — kể cả CRM.
+- Khi một dòng buộc phải giữ nguyên văn bản dài hoặc từ nội bộ, thêm chú thích
+  `// copy-allow: <lý do>` ngay trên dòng đó để `scripts/check-ui-copy.mjs` bỏ qua.

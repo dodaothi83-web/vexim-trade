@@ -55,7 +55,7 @@ const STATUS_FLOW: { value: RfqStatus; label: string; dot: string }[] = [
   { value: "new", label: "Mới tiếp nhận", dot: "bg-slate-400" },
   { value: "needs_review", label: "Cần duyệt", dot: "bg-rose-500" },
   { value: "in_progress", label: "Đang xử lý", dot: "bg-sky-500" },
-  { value: "matching", label: "Đang ghép NCC", dot: "bg-amber-500" },
+  { value: "matching", label: "Đang ghép nhà cung cấp", dot: "bg-amber-500" },
   { value: "quoted", label: "Đã gửi báo giá", dot: "bg-amber-600" },
   { value: "sampling", label: "Đang gửi mẫu", dot: "bg-violet-500" },
   { value: "won", label: "Thành công", dot: "bg-emerald-500" },
@@ -65,12 +65,12 @@ const STATUS_FLOW: { value: RfqStatus; label: string; dot: string }[] = [
 
 const MATCH_STATUS: { value: string; label: string; dot: string }[] = [
   { value: "proposed", label: "Đề xuất", dot: "bg-slate-400" },
-  { value: "sent_to_supplier", label: "Đã gửi cho NCC", dot: "bg-sky-500" },
+  { value: "sent_to_supplier", label: "Đã gửi nhà cung cấp", dot: "bg-sky-500" },
   { value: "quoted", label: "Đã có báo giá", dot: "bg-emerald-500" },
-  { value: "declined", label: "NCC từ chối", dot: "bg-red-500" },
+  { value: "declined", label: "Nhà cung cấp từ chối", dot: "bg-red-500" },
   { value: "no_response", label: "Không phản hồi", dot: "bg-ink-400" },
-  { value: "presented_to_buyer", label: "Đã trình buyer", dot: "bg-violet-500" },
-  { value: "selected", label: "Buyer chọn", dot: "bg-emerald-600" },
+  { value: "presented_to_buyer", label: "Đã trình khách mua", dot: "bg-violet-500" },
+  { value: "selected", label: "Khách mua chọn", dot: "bg-emerald-600" },
   { value: "not_selected", label: "Không được chọn", dot: "bg-ink-300" },
 ];
 
@@ -179,7 +179,7 @@ export default async function RfqDetailPage({
               <span className={"h-2 w-2 shrink-0 rounded-full " + currentStatus.dot} />
               {isSupplierQuestion && rfq.status === "matching" ? "Đã gửi câu hỏi" : currentStatus.label}
             </Badge>
-            {isSupplierQuestion && <Badge color="#0f766e">Câu hỏi trực tiếp cho NCC</Badge>}
+            {isSupplierQuestion && <Badge color="#0f766e">Câu hỏi trực tiếp cho nhà cung cấp</Badge>}
             {rfq.status === "spam" && (
               <Badge color="#b91c1c" className="inline-flex items-center gap-1">
                 <ShieldAlert className="h-3.5 w-3.5" /> Điểm rủi ro {rfq.spam_score}
@@ -188,17 +188,17 @@ export default async function RfqDetailPage({
           </div>
         </div>
         <a href={statusLink} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
-          <Copy className="h-3.5 w-3.5" /> Link theo dõi buyer
+          <Copy className="h-3.5 w-3.5" /> Link theo dõi của khách mua
         </a>
       </div>
 
-      {sp?.selection_email === "failed" && <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Đã lưu NCC được chọn trên cổng, nhưng email NCC chưa gửi được. Vui lòng liên hệ NCC qua Vexim; đừng chọn lại chỉ để thử gửi vì quyết định không tự gửi trùng.</div>}
-      {sp?.selection_email === "sent" && <div role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Resend đã chấp nhận email báo NCC được chọn; chưa phải xác nhận phát tới hộp thư.</div>}
+      {sp?.selection_email === "failed" && <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Đã lưu nhà cung cấp được chọn nhưng email chưa gửi được. Hãy liên hệ ngoài hệ thống, đừng chọn lại.</div>}
+      {sp?.selection_email === "sent" && <div role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Đã gửi email báo nhà cung cấp được chọn. Hệ thống chưa xác nhận tới hộp thư.</div>}
       {sp?.outreach_sent !== undefined && <div role="status" className={`mt-4 rounded-lg border p-3 text-sm ${Number(sp.outreach_skipped) > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
-        Resend chấp nhận {Number(sp.outreach_sent) || 0} lời mời NCC; {Number(sp.outreach_skipped) || 0} yêu cầu chưa gửi (có thể đã gửi trước, thiếu email hoặc gửi thất bại). Kiểm tra trạng thái từng NCC trước khi thử lại.
+        Đã gửi {Number(sp.outreach_sent) || 0} lời mời nhà cung cấp; {Number(sp.outreach_skipped) || 0} yêu cầu chưa gửi (có thể đã gửi trước, thiếu email hoặc gửi thất bại). Kiểm tra từng nhà cung cấp trước khi thử lại.
       </div>}
       <div className="mt-5 grid items-start gap-5 xl:grid-cols-3">
-        {/* LEFT: RFQ + buyer */}
+        {/* LEFT: RFQ + khách mua */}
         <div className="min-w-0 space-y-5 xl:col-span-2">
           <section className="card p-4 sm:p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Yêu cầu</h2>
@@ -231,7 +231,7 @@ export default async function RfqDetailPage({
               <Field icon={<CalendarClock className="h-4 w-4" />} label="Nhận lúc">{fmtDate(rfq.created_at)}</Field>
               {String((rfq.specs as Record<string, unknown>)?.notes ?? "") && (
                 <div className="sm:col-span-2">
-                  <dt className="text-[11px] uppercase tracking-wider text-ink-400">{isSupplierQuestion ? "Câu hỏi từ buyer" : "Ghi chú từ buyer"}</dt>
+                  <dt className="text-[11px] uppercase tracking-wider text-ink-400">{isSupplierQuestion ? "Câu hỏi từ khách mua" : "Ghi chú từ khách mua"}</dt>
                   <dd className="mt-1 whitespace-pre-line rounded-md bg-ink-50 p-3 text-[13px] text-ink-700">
                     {String((rfq.specs as Record<string, unknown>)?.notes)}
                   </dd>
@@ -241,7 +241,7 @@ export default async function RfqDetailPage({
           </section>
 
           <section className="card p-4 sm:p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Buyer</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Khách mua</h2>
             {buyer ? (
               <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 text-[13.5px]">
                 <Field icon={<Building2 className="h-4 w-4" />} label="Công ty">{buyer.company}</Field>
@@ -262,7 +262,7 @@ export default async function RfqDetailPage({
                 <Field icon={<Tag className="h-4 w-4" />} label="Loại hình">{buyer.business_type ?? "—"}</Field>
               </dl>
             ) : (
-              <p className="mt-3 text-sm text-ink-500">Không tìm thấy bản ghi buyer.</p>
+              <p className="mt-3 text-sm text-ink-500">Không tìm thấy hồ sơ khách mua.</p>
             )}
           </section>
 
@@ -271,25 +271,26 @@ export default async function RfqDetailPage({
               <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">
                 Ghép nhà cung cấp ({matches.length})
               </h2>
-              <span className="text-[11.5px] text-ink-500">Chọn các NCC phù hợp để gửi báo giá so sánh.</span>
+              <span className="text-[11.5px] text-ink-500">Chọn nhà cung cấp phù hợp để gửi báo giá so sánh.</span>
             </div>
             {!canManageRfq && (
-              <p className="mt-2 rounded-md bg-ink-50 px-3 py-2 text-[12.5px] text-ink-500">Bạn đang ở chế độ chỉ xem. Các thao tác ghép NCC, gửi email và lưu báo giá chỉ hiển thị cho tài khoản có quyền <code>rfq.manage</code>.</p>
+              <p className="mt-2 rounded-md bg-ink-50 px-3 py-2 text-[12.5px] text-ink-500">Bạn đang ở chế độ chỉ xem. Các thao tác ghép nhà cung cấp, gửi email và lưu báo giá chỉ hiển thị cho tài khoản có quyền <code>rfq.manage</code>.</p>
             )}
 
 {preferredSupplierIds.length > 0 && (
               <div className="mt-3 rounded-md border border-brand-200 bg-brand-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-ink-700">
-                <strong className="text-brand-900">Buyer chỉ định nhà cung cấp:</strong>{" "}
+                <strong className="text-brand-900">Khách mua chỉ định nhà cung cấp:</strong>{" "}
                 {preferredSupplierIds.map((pid) => supplierMap.get(pid)?.display_name ?? supplierMap.get(pid)?.trade_name ?? supplierMap.get(pid)?.name ?? pid).join(", ")}.
                 {isSupplierQuestion
-                  ? "Buyer chỉ đồng ý chia sẻ câu hỏi và liên hệ với NCC này. Không thêm NCC khác nếu chưa có đồng ý mới."
-                  : "RFQ này được gửi từ trang sản phẩm hoặc trang nhà cung cấp, nên hãy ưu tiên gửi yêu cầu báo giá cho các nhà cung cấp này trước khi tìm thêm đơn vị khác."}
+                  ? "Khách mua chỉ đồng ý liên hệ nhà cung cấp này. Không thêm nhà cung cấp khác khi chưa có đồng ý mới."
+                  : "RFQ gửi từ trang sản phẩm hoặc trang nhà cung cấp." + " Hãy ưu tiên gửi yêu cầu báo giá cho các đơn vị này trước khi tìm thêm đơn vị khác."}
               </div>
             )}
 
 {isSupplierQuestion && (
               <p className="mt-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-sky-900">
-                Câu hỏi này dùng email để NCC phản hồi trực tiếp cho buyer. Vexim giữ bản ghi để kiểm duyệt và hỗ trợ khi giao email gặp lỗi; không dùng các nút báo giá cho bản ghi câu hỏi này.
+                Câu hỏi này gửi qua email để nhà cung cấp phản hồi trực tiếp cho khách mua.{" "}
+                Vexim giữ bản ghi để kiểm duyệt và hỗ trợ khi gửi lỗi; không dùng nút báo giá cho bản ghi này.
               </p>
             )}
 
@@ -297,7 +298,7 @@ export default async function RfqDetailPage({
             <form action={addMatchAction} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="rfq_id" value={rfq.id} />
               <label className="flex w-full flex-col text-[12px] text-ink-600 sm:w-auto">
-                <span>Thêm NCC đã duyệt</span>
+                <span>Thêm nhà cung cấp đã duyệt</span>
                 <select name="supplier_id" required className="input mt-1 py-1.5 text-[13px] sm:min-w-[260px]">
                   <option value="">— Chọn nhà cung cấp —</option>
                   {candidates.map((s) => (
@@ -317,7 +318,7 @@ export default async function RfqDetailPage({
               <input type="hidden" name="rfq_id" value={rfq.id} />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[12.5px] text-ink-600">
-                  Chọn các NCC để <strong>gửi email yêu cầu báo giá ẩn danh</strong>. Buyer sẽ được giữ kín.
+                  Chọn nhà cung cấp để <strong>gửi email yêu cầu báo giá ẩn danh</strong>. Khách mua sẽ được giữ kín.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="flex items-center gap-1 text-[12px] text-ink-600">
@@ -330,14 +331,14 @@ export default async function RfqDetailPage({
                     </select>
                   </label>
                   <Button type="submit" size="sm" variant="primary">
-                    <Mail className="h-3.5 w-3.5" /> Gửi yêu cầu cho NCC đã chọn
+                    <Mail className="h-3.5 w-3.5" /> Gửi yêu cầu cho nhà cung cấp đã chọn
                   </Button>
                 </div>
               </div>
 
               <div className="mt-4 divide-y divide-ink-100">
                 {matches.length === 0 && (
-                  <p className="py-6 text-center text-[13px] text-ink-500">Chưa ghép NCC nào.</p>
+                  <p className="py-6 text-center text-[13px] text-ink-500">Chưa ghép nhà cung cấp nào.</p>
                 )}
                 {matches.map((m) => {
                   const sup = supplierMap.get(m.supplier_id);
@@ -367,7 +368,7 @@ export default async function RfqDetailPage({
                           <span className="text-[11.5px] text-red-600">chưa có email</span>
                         )}
                         {preferredSupplierIds.includes(m.supplier_id) && (
-                          <Badge className="bg-brand-600 text-[10.5px] text-white">Buyer chỉ định</Badge>
+                          <Badge className="bg-brand-600 text-[10.5px] text-white">Khách mua chỉ định</Badge>
                         )}
                         {passed.map((step) => <Badge key={step} color="#059669" className="text-[10.5px]">{verificationLabel(step, reviewedL2Scopes.get(m.supplier_id) ?? null)}</Badge>)}
                         <Badge className="inline-flex items-center gap-1">
@@ -378,14 +379,14 @@ export default async function RfqDetailPage({
                           <form action={selectSupplierAction} className="ml-1">
                             <input type="hidden" name="rfq_id" value={rfq.id} />
                             <input type="hidden" name="match_id" value={m.id} />
-                            <button type="submit" className="btn btn-soft btn-sm">Chọn NCC này</button>
+                            <button type="submit" className="btn btn-soft btn-sm">Chọn nhà cung cấp này</button>
                           </form>
                         )}
                         {canManageRfq && canFollowUp && (
                           <form action={sendFollowUpAction}>
                             <input type="hidden" name="rfq_id" value={rfq.id} />
                             <input type="hidden" name="match_id" value={m.id} />
-                            <button type="submit" className="btn btn-ghost btn-sm" title="Nhắc NCC sau khi đã gửi quá 3 ngày mà chưa phản hồi">
+                            <button type="submit" className="btn btn-ghost btn-sm" title="Nhắc nhà cung cấp sau 3 ngày chưa phản hồi">
                               <Clock4 className="h-3.5 w-3.5" /> Nhắc phản hồi
                             </button>
                           </form>
@@ -491,10 +492,10 @@ export default async function RfqDetailPage({
                         <div className="sm:col-span-5 flex flex-wrap items-end gap-2">
                           <Button type="submit" size="sm">Lưu báo giá</Button>
                           {m.sent_to_supplier_at && (
-                            <span className="text-[11.5px] text-ink-400">Đã gửi NCC: {fmtDate(m.sent_to_supplier_at)}</span>
+                            <span className="text-[11.5px] text-ink-400">Đã gửi nhà cung cấp: {fmtDate(m.sent_to_supplier_at)}</span>
                           )}
                           {m.sent_to_buyer_at && (
-                            <span className="text-[11.5px] text-emerald-600">Đã trình buyer: {fmtDate(m.sent_to_buyer_at)}</span>
+                            <span className="text-[11.5px] text-emerald-600">Đã trình khách mua: {fmtDate(m.sent_to_buyer_at)}</span>
                           )}
                         </div>
                       </form>)}
@@ -529,10 +530,10 @@ export default async function RfqDetailPage({
                 <input type="hidden" name="rfq_id" value={rfq.id} />
                 <p className="text-[12.5px] text-emerald-800">
                   Có <strong>{matches.filter((m) => m.status === "quoted").length}</strong> báo giá sẵn sàng.
-                  Gửi bảng so sánh cho buyer (sẽ ghi nhận thời điểm phản hồi đầu tiên cho SLA).
+                  Gửi bảng so sánh cho khách mua (ghi nhận mốc phản hồi đầu tiên cho SLA).
                 </p>
                 <Button type="submit" size="sm" variant="primary">
-                  <Send className="h-3.5 w-3.5" /> Trình buyer
+                  <Send className="h-3.5 w-3.5" /> Trình khách mua
                 </Button>
               </form>
             )}
@@ -544,7 +545,7 @@ export default async function RfqDetailPage({
               <Inbox className="h-4 w-4" /> Timeline thư từ ({messages.length})
             </h2>
             {messages.length === 0 ? (
-              <p className="mt-3 text-[13px] text-ink-500">Chưa có email nào cho RFQ này. Thư gửi NCC / buyer / phản hồi sẽ hiện ở đây.</p>
+              <p className="mt-3 text-[13px] text-ink-500">Chưa có email nào cho RFQ này. Thư gửi nhà cung cấp, khách mua và phản hồi sẽ hiện ở đây.</p>
             ) : (
               <ul className="mt-3 space-y-2">
                 {messages.map((msg) => {
@@ -563,7 +564,7 @@ export default async function RfqDetailPage({
                           </div>
                           <div className="mt-0.5 text-[11px] text-ink-500">
                             {sup ? <>Nhà cung cấp: <Link href={`/crm/suppliers/${sup.id}`} className="text-brand-700 hover:underline">{sup.display_name ?? sup.trade_name ?? sup.name}</Link> · </> : null}
-                            {!mid && <span className="text-violet-700">Luồng buyer · </span>}
+                            {!mid && <span className="text-violet-700">Luồng khách mua · </span>}
                             {inbound ? "thư đến" : "thư đi"} · {fmtDate(msg.created_at)}
                           </div>
                         </div>
@@ -609,7 +610,7 @@ export default async function RfqDetailPage({
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
-                <span className="mt-1 text-[11px] text-ink-500">Sampling / lost dùng nút Chốt giai đoạn bên dưới để buyer nhận email và lost có lý do.</span>
+                <span className="mt-1 text-[11px] text-ink-500">Sampling / lost dùng nút Chốt giai đoạn bên dưới để khách mua nhận email và lost có lý do.</span>
               </label>
               <Button type="submit" size="sm" variant="soft">Cập nhật trạng thái</Button>
             </form>)}
@@ -622,7 +623,7 @@ export default async function RfqDetailPage({
               <form action={markSamplingAction}>
                 <input type="hidden" name="rfq_id" value={rfq.id} />
                 <label className="flex flex-col text-[11px] text-ink-500">
-                  NCC được chọn (nếu có)
+                  Nhà cung cấp được chọn (nếu có)
                   <select name="selected_match_id" className="input mt-1 py-1 text-[13px]">
                     <option value="">— chưa chọn —</option>
                     {matches.map((m) => {
@@ -644,9 +645,9 @@ export default async function RfqDetailPage({
                     <option value="price">Giá chưa cạnh tranh</option>
                     <option value="lead_time">Không đáp ứng lead time</option>
                     <option value="quality">Chất lượng / chứng chỉ chưa đủ</option>
-                    <option value="no_response">NCC không phản hồi</option>
-                    <option value="buyer_went_elsewhere">Buyer chọn NCC khác</option>
-                    <option value="cancelled">Buyer huỷ yêu cầu</option>
+                    <option value="no_response">Nhà cung cấp không phản hồi</option>
+                    <option value="buyer_went_elsewhere">Khách mua chọn nhà cung cấp khác</option>
+                    <option value="cancelled">Khách mua huỷ yêu cầu</option>
                     <option value="other">Khác</option>
                   </select>
                 </label>
@@ -674,7 +675,7 @@ export default async function RfqDetailPage({
                 <ShieldAlert className="h-4 w-4 shrink-0" /> Dấu hiệu cần kiểm tra
               </h2>
               <p className="mt-1.5 text-[12px] leading-5 text-ink-600">
-                Đây là các tín hiệu tự động, không đồng nghĩa buyer là spam. Hãy đối chiếu thông tin trước khi quyết định xử lý.
+                Đây là tín hiệu tự động, không có nghĩa khách mua là spam. Hãy đối chiếu thông tin trước khi xử lý.
               </p>
               <ul className="mt-3 space-y-2">
                 {rfq.spam_flags.map((flag) => {
@@ -707,7 +708,7 @@ export default async function RfqDetailPage({
                 ))}
               </ul>
             ) : (
-              <p className="mt-3 text-[12.5px] text-ink-500">Chưa có tệp đính kèm (spec sheet, catalogue, báo giá NCC...).</p>
+              <p className="mt-3 text-[12.5px] text-ink-500">Chưa có tệp đính kèm (spec sheet, catalogue, báo giá nhà cung cấp...).</p>
             )}
           </section>
 

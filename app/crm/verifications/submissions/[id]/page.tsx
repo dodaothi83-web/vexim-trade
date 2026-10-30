@@ -17,7 +17,7 @@ import { LinkProbeButton } from "./link-probe-button";
 export const dynamic = "force-dynamic";
 
 /**
- * Trang đối chiếu của nhân viên: ảnh NCC tải lên + ghi chú kỹ thuật (EXIF/GPS nếu còn)
+ * Trang đối chiếu của nhân viên: ảnh nhà cung cấp tải lên + ghi chú kỹ thuật (EXIF/GPS nếu còn)
  * + kết quả AI của từng mục. Tờ mã vẫn được yêu cầu ở 3 ảnh 🔖, nhưng AI chỉ
  * gợi ý; nhân viên xem ảnh và quyết định có yêu cầu bổ sung hay không.
  */
@@ -34,14 +34,14 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
 
   return <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
     <Breadcrumbs items={[
-      { label: "Xác minh NCC", href: "/crm/verifications" },
-      { label: "Hồ sơ NCC tự gửi", href: "/crm/verifications/submissions" },
+      { label: "Xác minh nhà cung cấp", href: "/crm/verifications" },
+      { label: "Hồ sơ nhà cung cấp tự gửi", href: "/crm/verifications/submissions" },
       { label: partner ? "L2 · nhà máy đối tác" : view.level === 2 ? "L2 · nhà máy" : "L3 · xuất khẩu" },
     ]} />
     <PageHeader
       title={`Hồ sơ tự gửi · ${partner ? "L2 nhà máy đối tác" : view.level === 2 ? "L2 xác thực nhà máy" : "L3 lịch sử xuất khẩu"}`}
       sub={`${access.supplier.name} · ${view.level === 2 ? `${view.uploadedTotal}/${view.requiredTotal} mục bắt buộc` : `${view.items.length} chứng từ cần đối chiếu`} · ${view.statusLabel}`}
-      actions={<Link href={`/crm/suppliers/${access.supplier.id}`} className="btn btn-ghost"><ArrowLeft className="h-4 w-4" /> Hồ sơ NCC</Link>}
+      actions={<Link href={`/crm/suppliers/${access.supplier.id}`} className="btn btn-ghost"><ArrowLeft className="h-4 w-4" /> Hồ sơ nhà cung cấp</Link>}
     />
 
     <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
@@ -58,12 +58,12 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
             {!partner && <Info label="Mã xác minh đã phát hành" value={view.code ? `${view.code}${view.codeExpired ? " (hết hạn)" : ""}` : "Chưa phát hành"} />}
             {!partner && <Info label="Phát hành lúc" value={view.codeIssuedAt ? new Date(view.codeIssuedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : null} />}
-            <Info label="NCC nộp lúc" value={view.submittedAt ? new Date(view.submittedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : null} />
+            <Info label="Nhà cung cấp nộp lúc" value={view.submittedAt ? new Date(view.submittedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : null} />
             <Info label="Vị trí trình duyệt báo" value={view.deviceLat != null ? `${view.deviceLat.toFixed(5)}, ${view.deviceLng?.toFixed(5)}${view.deviceAccuracy != null ? ` (±${Math.round(view.deviceAccuracy)} m)` : ""}` : "Không có"} />
-            <Info label="Địa chỉ NCC khai" value={access.supplier.address} />
+            <Info label="Địa chỉ nhà cung cấp khai" value={access.supplier.address} />
             {view.level === 3 && <Info label="Lô hàng tự khai" value={[view.shipmentRef, view.shippedOn, view.shipmentDestination].filter(Boolean).join(" · ") || null} />}
           </dl>
-          {view.supplierNote && <p className="mt-3 rounded-lg bg-ink-50 p-3 text-xs text-ink-700"><strong>Ghi chú NCC:</strong> {view.supplierNote}</p>}
+          {view.supplierNote && <p className="mt-3 rounded-lg bg-ink-50 p-3 text-xs text-ink-700"><strong>Ghi chú nhà cung cấp:</strong> {view.supplierNote}</p>}
           {view.reviewNote && <p className="mt-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-900"><strong>Ghi chú xét / lý do trả:</strong> {view.reviewNote}</p>}
           {view.aiSummary && <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-violet-50 p-3 text-xs text-violet-900">
             <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span><strong>{view.level === 3 ? "Lịch sử AI cũ, chỉ tham khảo" : "Tóm tắt AI"}{view.aiModel ? ` (${view.aiModel})` : ""}:</strong> {view.aiSummary}</span></p>}
@@ -83,7 +83,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
         </div>
 
         {view.level === 3 && <Card className="p-4">
-          <h2 className="text-sm font-bold text-ink-900">Link nguồn công khai NCC khai</h2>
+          <h2 className="text-sm font-bold text-ink-900">Link nguồn công khai nhà cung cấp khai</h2>
           {view.links.length ? <ul className="mt-3 space-y-2 text-xs">
             {view.links.map((link) => <li key={link.id} className="rounded-lg border border-ink-200 bg-white p-3">
               <a href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-semibold break-all text-brand-700 underline"><ExternalLink className="h-3.5 w-3.5 shrink-0" />{link.url}</a>
@@ -96,7 +96,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
               {link.fetchNote && <p className="mt-1 text-ink-600">{link.fetchNote}</p>}
               <LinkProbeButton submissionId={view.id} linkId={link.id} />
             </li>)}
-          </ul> : <p className="mt-2 text-xs text-ink-500">NCC chưa khai link nguồn nào.</p>}
+          </ul> : <p className="mt-2 text-xs text-ink-500">Nhà cung cấp chưa khai link nguồn nào.</p>}
         </Card>}
       </div>
 
@@ -108,15 +108,15 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           <h2 className="text-sm font-bold text-ink-900">Đối chiếu thế nào cho đúng</h2>
           {partner ? <ul className="mt-2 list-disc space-y-1 pl-4">
             <li>Mở hợp đồng, đối chiếu tên doanh nghiệp và nhà máy đối tác, kiểm tra phạm vi quan hệ.</li>
-            <li>Ảnh đối tác là tùy chọn. Không suy ra nhà máy thuộc NCC hay đã được kiểm thực địa.</li>
+            <li>Ảnh đối tác là tùy chọn. Không suy ra nhà máy thuộc nhà cung cấp hay đã được kiểm thực địa.</li>
             <li>Không công khai hợp đồng hoặc điều khoản nhạy cảm.</li>
           </ul> : view.level === 2 ? <ul className="mt-2 list-disc space-y-1 pl-4">
             <li>Đối chiếu địa chỉ, ảnh và GPS nếu còn dữ liệu.</li>
             <li>Kiểm tra tờ mã trong ba ảnh 🔖; cờ kỹ thuật và AI chỉ là gợi ý.</li>
           </ul> : <ul className="mt-2 list-disc space-y-1 pl-4">
             <li>Mở chứng từ, kiểm tra căn cứ xuất khẩu và sự thống nhất của lô hàng.</li>
-            <li>Nếu chứng từ đứng tên đơn vị khác, đối chiếu thêm vai trò và liên hệ với NCC.</li>
-            <li>Chứng từ xuất khẩu không mặc nhiên chứng minh buyer cuối đã nhận hàng.</li>
+            <li>Nếu chứng từ đứng tên đơn vị khác, đối chiếu thêm vai trò và liên hệ với nhà cung cấp.</li>
+            <li>Chứng từ xuất khẩu không mặc nhiên chứng minh khách mua cuối đã nhận hàng.</li>
             <li>Không bắt buộc vận đơn. Yêu cầu bổ sung nếu bằng chứng chưa đủ căn cứ.</li>
           </ul>}
         </Card>
@@ -143,7 +143,7 @@ function EvidenceCard({ index, spec, rows, level }: { index: number; spec: { key
           </Badge>
         : <Badge className="bg-ink-100 text-ink-600">{latest ? "Đã tải" : "Chưa có bằng chứng"}</Badge>}
     </div>
-    {!latest && <p className="p-3 text-xs text-ink-500">NCC chưa tải mục này.</p>}
+    {!latest && <p className="p-3 text-xs text-ink-500">Nhà cung cấp chưa tải mục này.</p>}
     {rows.map((row) => <div key={row.id} className="border-b border-ink-100 p-3 last:border-0">
       <div className="flex flex-wrap gap-3">
         <a href={row.href} target="_blank" rel="noreferrer" className="shrink-0">
@@ -176,6 +176,6 @@ function EvidenceCard({ index, spec, rows, level }: { index: number; spec: { key
         {(row.aiCodeRead || row.aiCodeVisible === false) && <p className="mt-1"><strong>Mã viết tay:</strong> {row.aiCodeVisible === false ? "không thấy tờ giấy" : `AI đọc “${row.aiCodeRead}”`}</p>}
       </div>}
     </div>)}
-    {level === 3 && <p className="bg-ink-50 px-3 py-2 text-[11px] text-ink-500">Chứng từ do NCC tự tải: không suy ra đã xuất khẩu thành công nếu chưa đối chiếu lô hàng thực tế.</p>}
+    {level === 3 && <p className="bg-ink-50 px-3 py-2 text-[11px] text-ink-500">Chứng từ do nhà cung cấp tự tải: không suy ra đã xuất khẩu thành công nếu chưa đối chiếu lô hàng thực tế.</p>}
   </Card>;
 }

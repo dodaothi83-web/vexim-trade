@@ -44,7 +44,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
   const partner = v.target_level === 2 && v.l2_scope === "partner_contract";
   const items = auditItems(v.target_level, v.l2_scope);
   const summaryGuide = partner
-    ? "Chỉ mô tả phạm vi đã đối chiếu của hợp đồng với nhà máy đối tác. Không nêu điều khoản mật, không nói nhà máy thuộc NCC hoặc đã được kiểm thực địa nếu không có kết luận riêng."
+    ? "Chỉ mô tả phạm vi đã đối chiếu của hợp đồng với nhà máy đối tác." + " Không nêu điều khoản mật, không nói nhà máy thuộc nhà cung cấp hoặc đã kiểm thực địa khi chưa có kết luận."
     : v.target_level === 2
     ? "Nêu ngày kiểm, khu vực cơ sở và các hạng mục đã kiểm tra. Chỉ mô tả cơ sở thuộc đợt kiểm này."
     : "Nêu giai đoạn, loại chứng từ và phạm vi lô hàng đã kiểm tra. Tách rõ thị trường do nhà cung cấp tự khai.";
@@ -102,7 +102,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
 
   function applySuggestions() {
     if (!ref.current || !aiResult) return;
-    if (!window.confirm("Điền gợi ý có dẫn chứng vào các mục CHƯA kiểm? AI không xác thực giấy tờ thật hay cơ quan cấp. Bạn vẫn phải xem lại và tự bấm Lưu/Nộp duyệt.")) return;
+    if (!window.confirm("Điền gợi ý có dẫn chứng vào các mục CHƯA kiểm?" + " AI không xác thực giấy tờ thật hay cơ quan cấp. Bạn vẫn phải xem lại và tự bấm Lưu/Nộp duyệt.")) return;
     const available = new Set(evidence.map((m) => m.id));
     let count = 0;
     for (const check of aiResult.checks) {
@@ -165,7 +165,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
     const uploadKind = auditUploadKind(v.target_level, key, v.l2_scope);
     if (!uploadKind || !canManageEvidence || busy || !files?.length) return;
     const autoScan = v.target_level === 1 && aiEnabled && editable && (aiConsent.current || window.confirm(
-      "Sau khi tải lên, ảnh/PDF sẽ được gửi đến dịch vụ AI để quét sơ bộ ngay. Nội dung có thể chứa dữ liệu nội bộ; AI không tự duyệt. Đồng ý tự quét? Chọn Hủy vẫn tải tệp nhưng không gửi tới AI.",
+      "Sau khi tải lên, ảnh/PDF sẽ được gửi đến dịch vụ AI để quét sơ bộ ngay." + " Nội dung có thể chứa dữ liệu nội bộ; AI không tự duyệt. Đồng ý tự quét? Chọn Hủy vẫn tải tệp nhưng không gửi tới AI.",
     ));
     if (autoScan) aiConsent.current = true;
     setBusy(true); setFeedback(null);
@@ -219,7 +219,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
     const fd = new FormData();
     fd.set("id", v.id); fd.set("mode", mode); fd.set("summary", publicSummary);
     if (summaryConfirmed) fd.set("confirmed", "yes");
-    if (mode === "publish" && !window.confirm("Duyệt và công khai bản tóm tắt này trên trang NCC? Không công khai chứng từ.")) return;
+    if (mode === "publish" && !window.confirm("Duyệt và công khai bản tóm tắt này trên trang nhà cung cấp? Không công khai chứng từ.")) return;
     void run(() => updateVerificationPublicSummaryAction(fd));
   }
 
@@ -251,7 +251,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
       <p className="mt-1 text-sm text-ink-500">{v.target_level === 1
         ? `${requiredDocs.filter((it) => it.key === "tax_certificate" ? !!v.tax_number : recorded(it.key)).length}/${requiredDocs.length} mục bắt buộc đã ghi · ${optionalDocs.filter((it) => it.key === "bank_letter" ? !!v.bank_account_number : recorded(it.key)).length}/${optionalDocs.length} mục tùy chọn`
         : `${items.filter((it) => recorded(it.key)).length}/${items.length} mục đã ghi · không bắt buộc điền hết`}</p>
-      {v.target_level > 1 && <p className="mt-1 text-xs text-ink-600">{partner ? "Để duyệt, mở và đánh dấu đã kiểm hợp đồng đúng đợt, xác nhận hai bên và phạm vi đối tác. Không suy ra sở hữu hay kiểm thực địa." : v.target_level === 2 ? "Để duyệt cần ít nhất một ảnh thực tế của đúng đợt kiểm." : "Để duyệt, đối chiếu chứng từ phù hợp trong đúng đợt kiểm; đánh dấu chứng từ NCC tự gửi đã kiểm."} Lưu và nộp có thể để trống các ô khác.</p>}
+      {v.target_level > 1 && <p className="mt-1 text-xs text-ink-600">{partner ? "Để duyệt: đánh dấu đã kiểm hợp đồng đúng đợt và phạm vi đối tác. Không suy ra sở hữu hay kiểm thực địa." : v.target_level === 2 ? "Để duyệt cần ít nhất một ảnh thực tế của đúng đợt kiểm." : "Để duyệt, đối chiếu chứng từ phù hợp trong đúng đợt kiểm; đánh dấu chứng từ nhà cung cấp tự gửi đã kiểm."} Lưu và nộp có thể để trống các ô khác.</p>}
       {v.return_reason && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">Cần bổ sung: {v.return_reason}</p>}
       {busy && <p role="status" className="mt-2 flex items-center gap-2 text-xs text-brand-700"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang xử lý…</p>}
       {feedback && <p role={feedback.ok ? "status" : "alert"} className={"mt-3 rounded-lg px-3 py-2 text-sm " + (feedback.ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800")}>{feedback.message}</p>}
@@ -259,7 +259,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
     {v.target_level === 1 && editable && <section className="border-b border-brand-100 bg-brand-50/60 px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h3 className="flex items-center gap-2 text-sm font-bold text-ink-900"><Sparkles className="h-4 w-4 text-brand-700" /> AI kiểm tra sơ bộ</h3>
-          <p className="mt-1 text-xs leading-relaxed text-ink-600">Chèn ảnh/PDF ngay trong mục bên dưới. Nếu đồng ý, tệp mới sẽ được quét ngay; hoặc bấm quét lại các tệp thuộc đợt kiểm này. Không đọc kho chung NCC. AI chỉ gợi ý, không tự lưu hay duyệt.</p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-600">{"Chèn ảnh/PDF ngay trong mục bên dưới. Tệp mới sẽ được quét ngay, hoặc bấm quét lại các tệp của đợt kiểm này." + " Không đọc kho chung nhà cung cấp. AI chỉ gợi ý, không tự lưu hay duyệt."}</p>
         </div>
         {aiEnabled && <Button type="button" size="sm" disabled={scanning || busy || readableEvidence.length === 0} onClick={() => void scanDocuments()}>
           {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -275,8 +275,8 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
       </div>}
     </section>}
     {v.target_level === 3 && exportEvidence.length > 0 && <section className="border-b border-ink-100 bg-brand-50/40 px-5 py-4">
-      <h3 className="text-sm font-bold text-ink-900">Chứng từ NCC tự gửi · {exportEvidence.length} tệp</h3>
-      <p className="mt-1 text-xs text-ink-600">Mở từng tệp để đối chiếu giao dịch, căn cứ xuất khẩu và vai trò của NCC. Đánh dấu đã kiểm sau khi xem; việc này chưa phải quyết định duyệt.</p>
+      <h3 className="text-sm font-bold text-ink-900">Chứng từ nhà cung cấp tự gửi · {exportEvidence.length} tệp</h3>
+      <p className="mt-1 text-xs text-ink-600">{"Mở từng tệp để đối chiếu giao dịch, căn cứ xuất khẩu và vai trò của nhà cung cấp." + " Đánh dấu đã kiểm sau khi xem; việc này chưa phải quyết định duyệt."}</p>
       <ul className="mt-3 space-y-2">{exportEvidence.map((asset) => <li key={asset.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs">
         <a href={`/api/media/file/${asset.storage_path}`} target="_blank" rel="noreferrer" className="max-w-80 truncate font-semibold text-brand-700 underline">{asset.caption || L3_EXPORT_ITEMS.find((item) => item.key === asset.checklist_key)?.label || "Mở chứng từ"}</a>
         <span className={shownStatus(asset) === "checked" ? "text-emerald-700" : "text-ink-500"}>{shownStatus(asset) === "checked" ? "Đã kiểm tra" : "Chưa đánh dấu"}</span>
@@ -288,7 +288,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
     <details className="border-b border-ink-100 bg-ink-50/60 px-5 py-3 text-sm" open={showOldEvidence} onToggle={(e) => setShowOldEvidence(e.currentTarget.open)}>
       <summary className="cursor-pointer font-semibold text-ink-800">Tệp cũ chưa gắn mục & link video · {unassignedEvidence.length}</summary>
       <div className="mt-3 space-y-2">
-        <p className="text-xs text-ink-600">Tệp thuộc đúng đợt kiểm vẫn dùng được. Gắn vào dòng bên dưới để dễ đối chiếu; không cần tải lại. Tệp kho chung NCC không tự chuyển vào đây.</p>
+        <p className="text-xs text-ink-600">{"Tệp thuộc đúng đợt kiểm vẫn dùng được. Gắn vào dòng bên dưới để dễ đối chiếu; không cần tải lại." + " Tệp kho chung nhà cung cấp không tự chuyển vào đây."}</p>
         {unassignedEvidence.map((asset) => <div key={asset.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2">
           <a href={asset.storage_path ? `/api/media/file/${asset.storage_path}` : asset.external_url || "#"} target="_blank" rel="noreferrer" className="max-w-72 truncate font-medium text-brand-700 underline">{asset.caption || (asset.kind === "video" ? "Mở video" : "Mở tệp")}</a>
           {v.target_level > 1 && asset.storage_path && <span className={shownStatus(asset) === "checked" ? "text-xs text-emerald-700" : "text-xs text-ink-500"}>{shownStatus(asset) === "checked" ? "Đã kiểm tra" : "Chưa đánh dấu"}</span>}
@@ -325,11 +325,11 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
             <fieldset disabled={!editable || busy}>
               <label htmlFor={`check-${it.key}`} className="block text-sm font-semibold text-ink-900">
                 {i + 1}. {it.label}{" "}
-                {v.target_level === 2 && "requires_code" in it && it.requires_code && <span title="Ảnh NCC tự gửi phải kèm tờ giấy viết tay mã xác minh Vexim phát hành">🔖</span>}{" "}
+                {v.target_level === 2 && "requires_code" in it && it.requires_code && <span title="Ảnh nhà cung cấp tự gửi phải kèm tờ giấy viết tay mã xác minh do Vexim phát hành">🔖</span>}{" "}
                 <span className={coreDoc ? "ml-1 text-xs font-semibold text-brand-700" : optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{partnerConfirmation ? "Bắt buộc đạt" : v.target_level === 2 ? "" : coreDoc ? "Bắt buộc 1 trong 3" : optional ? "Tùy chọn" : ["tax_certificate", "bank_letter"].includes(it.key) ? "Bắt buộc nhập" : "Bắt buộc đạt"}</span>
               </label>
               {v.target_level === 2 && "requirement" in it && <p className="mt-0.5 text-xs text-ink-500">
-                {it.requirement}{partner ? " · đối chiếu bằng chứng của đúng đợt kiểm" : " · đối chiếu ảnh NCC tự gửi cùng mục"}{("requires_code" in it && it.requires_code) ? " · 🔖 kiểm tra tờ mã viết tay trong ảnh" : ""}
+                {it.requirement}{partner ? " · đối chiếu bằng chứng của đúng đợt kiểm" : " · đối chiếu ảnh nhà cung cấp tự gửi cùng mục"}{("requires_code" in it && it.requires_code) ? " · 🔖 kiểm tra tờ mã viết tay trong ảnh" : ""}
               </p>}
               {v.target_level === 1 && (it.key === "tax_certificate" || it.key === "bank_letter") ? <div className="mt-2 space-y-1.5">
                 <input id={`check-${it.key}`} name={it.key === "tax_certificate" ? "tax_number" : "bank_account_number"}
@@ -357,8 +357,10 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
                 <Field label="Nơi giao / thị trường"><input name="shipment_destination" defaultValue={v.shipment_destination ?? ""} className="input" /></Field>
               </div>}
             </fieldset>
-            {v.target_level === 1 && coreDoc && <p className="text-xs text-ink-600">Chỉ cần đạt một trong ba giấy: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal. Giấy phải đứng tên pháp nhân đã đăng ký; giấy của nhà máy đối tác không thay được giấy xác minh chính. AI không tự xác thực giấy tờ.</p>}
-            {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">Đối chiếu tên pháp nhân và mã số thuế trên giấy với hồ sơ NCC; nếu dùng tên thương mại khác, ghi rõ căn cứ trong ghi chú. Đánh dấu Không đạt khi tên không khớp.</p>}
+            {v.target_level === 1 && coreDoc && <p className="text-xs text-ink-600">Chỉ cần đạt một trong ba giấy: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal.{" "}
+              Giấy phải đứng tên pháp nhân đã đăng ký; giấy của nhà máy đối tác không thay được giấy xác minh chính.{" "}
+              AI không tự xác thực giấy tờ.</p>}
+            {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">{"Đối chiếu tên pháp nhân và mã số thuế trên giấy với hồ sơ nhà cung cấp." + " Nếu dùng tên thương mại khác, ghi rõ căn cứ trong ghi chú." + " Đánh dấu Không đạt khi tên không khớp."}</p>}
             {v.target_level === 1 && ["food_safety", "haccp_or_brc", "product_certs", "export_license"].includes(it.key) && <div className="space-y-1.5">
               <p className="text-xs font-semibold text-teal-800">Nhận diện tự động</p>
               {certificates.filter((c) => c.checklist_key === it.key || (!c.checklist_key && it.key === "product_certs")).map((c) => (
@@ -432,7 +434,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
         </div>
         {v.target_level === 2 && legacyL2.length > 0 && <details className="border-b border-ink-100 bg-ink-50/60 px-5 py-3 text-sm">
           <summary className="cursor-pointer font-semibold text-ink-800">Danh mục L2 cũ (trước 20/10/2026) · {legacyL2.length} mục có dữ liệu</summary>
-          <p className="mt-2 text-xs text-ink-600">Đợt kiểm này lập theo danh mục cũ nên dữ liệu cũ được giữ nguyên để đối soát (chỉ đọc). Đợt kiểm mới dùng danh mục 9 ảnh chung với cổng NCC tự gửi.</p>
+          <p className="mt-2 text-xs text-ink-600">{"Đợt kiểm này lập theo danh mục cũ nên dữ liệu cũ được giữ nguyên để đối soát (chỉ đọc)." + " Đợt kiểm mới dùng danh mục 9 ảnh chung với cổng nhà cung cấp tự gửi."}</p>
           <ul className="mt-2 space-y-2">
             {legacyL2.map((li) => {
               const files = evidence.filter((m) => (m.checklist_key as string | null) === li.key && m.storage_path);
@@ -466,7 +468,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
       {v.target_level > 1 && <section className="rounded-xl border border-sky-200 bg-white p-4" aria-label="Tóm tắt công khai khi duyệt">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h3 className="text-sm font-bold text-ink-900">Phạm vi buyer sẽ thấy</h3>
+            <h3 className="text-sm font-bold text-ink-900">Phạm vi khách mua sẽ thấy</h3>
             <p className="mt-1 text-xs leading-5 text-ink-600">Viết 3 đến 5 dòng ngắn bằng tiếng Anh. Tóm tắt sẽ hiện ngay trong card xác minh khi bạn duyệt.</p>
           </div>
           <span className="rounded-full bg-sky-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-800">Bắt buộc</span>
@@ -478,12 +480,12 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
             placeholder="Describe the review timing, evidence checked and scope in 3 to 5 short lines." />
         </label>
         <div className="mt-1 flex flex-wrap justify-between gap-2 text-[11px] leading-4 text-ink-500">
-          <span>Không đưa chứng từ, tên buyer, giá, mã đơn, GPS hoặc thông tin liên hệ.</span>
+          <span>Không đưa chứng từ, tên khách mua, giá, mã đơn, GPS hoặc thông tin liên hệ.</span>
           <span>{publicSummary.length}/1000</span>
         </div>
         <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-ink-700">
           <input type="checkbox" className="mt-0.5" checked={summaryConfirmed} onChange={(e) => setSummaryConfirmed(e.target.checked)} />
-          <span>Tôi đã đối chiếu tóm tắt với bằng chứng của đúng đợt kiểm, loại bỏ thông tin nhạy cảm và xác nhận đúng phạm vi đã kiểm tra.</span>
+          <span>Tôi đã đối chiếu tóm tắt với bằng chứng đúng đợt kiểm, bỏ thông tin nhạy cảm và xác nhận đúng phạm vi.</span>
         </label>
       </section>}
 
@@ -497,11 +499,11 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
     {v.status === "approved" && <p className="border-t border-ink-100 p-4 text-sm text-emerald-800">Đã duyệt {v.approved_at ? formatDate(v.approved_at) : ""}.{v.self_approved && !v.inspector_id ? " Đợt do nhà cung cấp tự tải giấy tờ: người duyệt tự đối chiếu và duyệt một mình." : ""}{v.self_approved && v.inspector_id ? " Một nhân sự đã xác nhận tự đối chiếu và tự duyệt bản kiểm do chính mình thực hiện." : ""} Kết quả và bằng chứng chỉ đọc.</p>}
     {v.status === "approved" && v.target_level > 1 && <section className="border-t border-ink-200 bg-sky-50/40 p-5" aria-label="Tóm tắt công khai riêng">
       <h3 className="font-semibold text-ink-900">Tóm tắt công khai · {partner ? "Nhà máy đối tác" : v.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng"}</h3>
-      <p className="mt-1 text-xs text-ink-600">Tóm tắt có thể được cập nhật hoặc ẩn tại đây. Chỉ người có quyền duyệt mới được soạn, duyệt hoặc ẩn tóm tắt. Không đăng chứng từ, tên buyer, giá, mã đơn hay GPS. Lịch sử giao hàng không mặc nhiên là xuất khẩu.</p>
+      <p className="mt-1 text-xs text-ink-600">{"Tóm tắt có thể được cập nhật hoặc ẩn tại đây. Chỉ người có quyền duyệt mới được soạn, duyệt hoặc ẩn tóm tắt." + " Không đăng chứng từ, tên khách mua, giá, mã đơn hay GPS. Lịch sử giao hàng không mặc nhiên là xuất khẩu."}</p>
       <p className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-xs leading-5 text-ink-600">{summaryGuide}</p>
       <p className="mt-2 text-xs font-semibold text-ink-700">{v.public_summary_published_at ? `Đang công khai · ${formatDate(v.public_summary_published_at)}` : "Chưa công khai"}</p>
       {canApprove ? <>
-        <label className="mt-3 block text-sm font-medium text-ink-800">Nội dung buyer nhìn thấy (tiếng Anh)
+        <label className="mt-3 block text-sm font-medium text-ink-800">Nội dung khách mua nhìn thấy (tiếng Anh)
           <textarea className="input mt-1" rows={3} maxLength={1000} value={publicSummary} onChange={(e) => { setPublicSummary(e.target.value); setSummaryConfirmed(false); }} placeholder="Only describe the specific evidence Vexim reviewed and its scope." />
         </label>
         <p className="mt-1 text-right text-[11px] text-ink-500">{publicSummary.length}/1000</p>

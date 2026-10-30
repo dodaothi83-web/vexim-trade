@@ -55,7 +55,7 @@ assert.match(supplierPage, /<Pencil[^>]*\/> Sửa/, 'Giữ nút Sửa cho ngư�
 const topbar = read('components/crm-topbar.tsx');
 assert.match(topbar, /export function CrmTopbar/);
 assert.match(layout, /<CrmTopbar queues=\{queues\} \/>/, 'CRM layout phải dựng chuông thông báo');
-assert.match(layout, /label: "Hồ sơ NCC tự gửi chờ đối chiếu"/, 'Chuông liệt kê hàng hồ sơ tự gửi');
+assert.match(layout, /label: "Hồ sơ nhà cung cấp tự gửi chờ đối chiếu"/, 'Chuông liệt kê hàng hồ sơ tự gửi');
 assert.match(layout, /filter\(\(queue\) => queue\.count > 0\)/, 'Chuông chỉ hiện việc đang có');
 assert.match(topbar, /router\.refresh\(\)/, 'Chuông tự cập nhật số việc, nhân viên không phải tải lại trang');
 assert.match(topbar, /document\.visibilityState === "visible"/, 'Chuông không hỏi máy chủ khi tab đang ẩn');
