@@ -33,6 +33,7 @@ import { PageHeader } from "@/components/page-header";
 import { ImagePicker } from "@/components/image-picker";
 import { decideCategoryPublicationAction } from "./publication-actions";
 import { reorderCategoriesAction } from "./reorder-actions";
+import { normalizeCategoryFilters } from "@/lib/category-filters";
 import { useToast } from "@/components/toast";
 import type {
   Category,
@@ -103,7 +104,7 @@ function fromCategory(c: Category): CategoryDraft {
     ? (c.faq_i18n as Array<{ q?: string; a?: string; question?: string; answer?: string }>)
         .map((f) => ({ q: f.q ?? f.question ?? "", a: f.a ?? f.answer ?? "" }))
     : [];
-  const filters: CategoryFilter[] = Array.isArray(c.filters) ? (c.filters as CategoryFilter[]) : [];
+  const filters: CategoryFilter[] = normalizeCategoryFilters(c.filters);
   const harvest = normalizeHarvest(c.harvest);
   return {
     id: c.id,
