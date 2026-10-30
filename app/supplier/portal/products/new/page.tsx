@@ -32,7 +32,6 @@ export default async function NewSupplierProductPage() {
       sub="Bắt đầu từ tên và quy cách. Bạn có thể lưu bản nháp trước, bổ sung ảnh sau."
       breadcrumbs={<nav aria-label="Đường dẫn" className="flex items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="hover:text-brand-700">Sản phẩm</Link><ChevronRight className="size-3.5" aria-hidden="true" /><span className="font-semibold text-ink-800">Thêm mới</span></nav>}
     />
-    <SupplierProductEditor categories={options} categoryScope={categoryScope} supplier={access.supplier} quantityPolicies={quantityPolicies}
-      quantityV2FormEnabled={process.env.VEXIM_QUANTITY_FORM_STAGING === "true" && process.env.VEXIM_QUANTITY_V2_STAGING === "true" && process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true"} />
+    <SupplierProductEditor categories={options} categoryScope={categoryScope} supplier={access.supplier} quantityPolicies={quantityPolicies} />
   </>;
 }

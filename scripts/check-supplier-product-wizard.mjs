@@ -72,12 +72,6 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/components/products/grade-pricing-table': gradePricingTable,
   '@/components/products/quantity-pricing-inline': { QuantityPricingInline: (props) => React.createElement('div', { 'data-quantity-editor': '1', 'data-sidebar-preview': String(!!props.onPreviewChange) }) },
   '@/components/products/quantity-pricing-editor': { QuantityBuyerPreview: (props) => React.createElement('div', { 'data-buyer-preview': '1' }, props.value.nameEn), QuantityPricingEditor: () => React.createElement('div', { 'data-new-quantity': '1' }) },
-  '@/components/products/quantity-pricing-v2-editor': {
-    QuantityGradeV2Field: () => React.createElement('div', { 'data-v2-grade': '1' }),
-    QuantityPricingV2Editor: (props) => React.createElement('div', { 'data-v2-pricing': '1', 'data-show-grade': String(props.showGrade) }, props.incotermPlace),
-    QuantityBuyerV2Preview: () => React.createElement('div', { 'data-v2-preview': '1' }),
-  },
-  '@/lib/products/quantity-entry': { validateSupplierQuantityEntry: () => ({ value: null, errors: [], warnings: [] }) },
   '@/components/toast': { useToast: () => ({ push() {} }) },
   '../product-actions': {
     saveSupplierProductAction: async () => ({ ok: true, id: 'p1', message: 'Đã lưu bản nháp.' }),
@@ -207,13 +201,10 @@ for (const value of ['Hạt điều nhân W320', 'Hạt &amp; hạt nhân / Hạ
 assert.equal((onStep3.match(/Sửa<\/button>/g) ?? []).length, 4, 'Mỗi khối ở bước 3 có nút Sửa quay lại đúng bước');
 assert.match(source, /ReviewField/, 'Có thành phần đọc lại từng trường');
 assert.match(source, /snapshotFromForm/, 'Bản xem lại cập nhật theo nội dung đang nhập');
-assert.match(source, /QuantityGradeV2Field[\s\S]*?<h3 className="text-sm font-bold text-ink-900">Giao dịch<\/h3>[\s\S]*?QuantityPricingV2Editor/, 'The staged new form separates attributes and transaction pricing');
-assert.match(source, /showGrade=\{false\}/, 'Grade is not duplicated inside the pricing table');
-assert.match(source, /form\.set\("quantity_version", "2"\)/);
-assert.match(source, /form\.set\("quantity_custom_grade"/);
-assert.match(source, /onV2PreviewChange=\{setV2Preview\}/, 'Existing v2 input can update the preview');
+assert.doesNotMatch(source, /QuantityPricingV2Editor|QuantityGradeV2Field|QuantityBuyerV2Preview|quantityV2FormEnabled|onV2PreviewChange/, 'The v2 pricing UI is unreachable from the supplier wizard');
+assert.doesNotMatch(source, /form\.set\("quantity_version", "2"\)/, 'The wizard never submits a v2 revision');
 const newPage = read('../app/supplier/portal/products/new/page.tsx');
-for (const flag of ['VEXIM_QUANTITY_FORM_STAGING', 'VEXIM_QUANTITY_V2_STAGING', 'VEXIM_QUANTITY_BUYER_PREVIEW']) assert.ok(newPage.includes(`process.env.${flag} === "true"`), `${flag} is required for new v2 form`);
+assert.doesNotMatch(newPage, /VEXIM_QUANTITY_V2_STAGING|quantityV2FormEnabled/, 'The new-product page has no v2 flag');
 assert.match(source, /price_publicly_visible === "yes"/, 'Cờ thương mại hiện thành chip ở bước 3');
 
 // Giá của sản phẩm mới mặc định được chia sẻ, nhưng lựa chọn tắt đã lưu không bị bật lại.

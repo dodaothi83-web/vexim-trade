@@ -57,3 +57,14 @@ dữ liệu, không có thao tác phá huỷ nào được chạy). Ảnh trong 
 
 Bản giá v2 (kg/MT, đơn vị gốc) vẫn được giữ cho các bản ghi đã có; form ba bước chỉ
 sửa được bảng giá v1 như trước.
+
+## 5. Giao diện sửa giá v2 đã bị gỡ (30/10/2026)
+
+Theo yêu cầu, portal NCC không còn đường tạo hay sửa bản giá v2: đã xoá
+`components/products/quantity-pricing-v2-{editor,inline}.tsx`, cờ
+`quantityV2FormEnabled`/`v2EditingEnabled` và các cờ `VEXIM_QUANTITY_V2_STAGING`
+trong trang tạo sản phẩm. Bản giá v2 đã có **vẫn đọc được**: `readQuantityEditorData`
+giữ nguyên đơn vị gốc kg/MT và `QuantityPricingInline` hiển thị chúng ở dạng chỉ đọc
+(không diễn giải giá MT thành USD/kg). Server action, RPC và bảng `product_form_*`
+của v2 không bị xoá.
+
