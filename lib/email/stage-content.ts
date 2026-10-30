@@ -70,7 +70,7 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
     supplier: {
       subject: "Chuẩn bị báo giá – {product}, {quantity}",
       body: [
-        "Chúng tôi đang trao đổi với một buyer thị trường {country} về {product}, số lượng {quantity}.",
+        "Chúng tôi đang trao đổi với một người mua thị trường {country} về {product}, số lượng {quantity}.",
         "Khả năng cao sẽ cần báo giá chính thức trong vài ngày tới, nên cần thông tin từ xưởng sớm.",
       ],
       tasks: [
@@ -93,9 +93,9 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
         "Kindly review and revert with your comments. If you prefer to check quality before committing, we can arrange samples against your courier account.",
     },
     supplier: {
-      subject: "Đã gửi báo giá cho buyer – giữ giá {product}",
+      subject: "Đã gửi báo giá cho người mua – giữ giá {product}",
       body: [
-        "Chúng tôi đã gửi báo giá {product} cho buyer, điều kiện {incoterm} {port}.",
+        "Chúng tôi đã gửi báo giá {product} cho người mua, điều kiện {incoterm} {port}.",
         "Giá và lịch giao của xưởng chính là cơ sở của báo giá này.",
       ],
       tasks: [
@@ -120,8 +120,10 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
     supplier: {
       subject: "CẦN GIÁ TỐT NHẤT – {product}, {quantity}",
       body: [
-        "Buyer đang đàm phán giá cho đơn {product}, số lượng {quantity}. Mức chào hiện tại của đối thủ đang thấp hơn nên chúng tôi cần giá cạnh tranh nhất từ xưởng.",
-        "Nếu không giảm được giá, hãy nêu rõ có thể cải thiện ở điểm nào khác: điều khoản thanh toán, thời gian giao, đóng gói hoặc sản lượng tối thiểu.",
+        "Người mua đang đàm phán giá cho đơn {product}, số lượng {quantity}.",
+        "Mức chào hiện tại của đối thủ đang thấp hơn nên chúng tôi cần giá cạnh tranh nhất từ xưởng.",
+        "Nếu không giảm được giá, hãy nêu rõ có thể cải thiện ở điểm nào khác.",
+        "Ví dụ: điều khoản thanh toán, thời gian giao, đóng gói hoặc sản lượng tối thiểu.",
       ],
       tasks: [
         "Xác nhận giá tốt nhất có thể áp dụng cho đơn này",
@@ -146,8 +148,8 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
     supplier: {
       subject: "ĐƠN ĐÃ CHỐT – xác nhận lịch sản xuất {product}",
       body: [
-        "Buyer đã ký PI và chúng tôi đã nhận tiền cọc. Đơn {product} với số lượng {quantity} chính thức được triển khai.",
-        "Đây là đơn chắc chắn. Mọi thay đổi về giá, quy cách hoặc lịch giao đều phải được thông báo và thống nhất trước khi thực hiện.",
+        "Người mua đã ký PI và chúng tôi đã nhận tiền cọc. Đơn {product} với số lượng {quantity} chính thức được triển khai.",
+        "Đây là đơn chắc chắn. Mọi thay đổi về giá, quy cách hoặc lịch giao đều phải thống nhất trước.",
       ],
       tasks: [
         "Xác nhận ngày bắt đầu và ngày hoàn thành sản xuất",
@@ -172,8 +174,9 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
     supplier: {
       subject: "Đang sản xuất – cập nhật tiến độ {product}",
       body: [
-        "Đơn {product} đang trong giai đoạn sản xuất. Buyer được cập nhật tiến độ thường xuyên nên thông tin từ xưởng cần chính xác và đúng hạn.",
-        "Nếu phát hiện rủi ro trễ lịch, hãy báo ngay khi vừa phát hiện — báo sớm chúng tôi còn xử lý được với buyer.",
+        "Đơn {product} đang trong giai đoạn sản xuất.",
+        "Người mua được cập nhật tiến độ thường xuyên nên thông tin từ xưởng cần chính xác và đúng hạn.",
+        "Nếu phát hiện rủi ro trễ lịch, hãy báo ngay khi vừa phát hiện — báo sớm chúng tôi còn xử lý được với người mua.",
       ],
       tasks: [
         "Cập nhật tiến độ hằng tuần kèm hình ảnh thực tế tại xưởng",
@@ -197,8 +200,9 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
     supplier: {
       subject: "Hàng đã xuất – hoàn tất chứng từ gốc {product}",
       body: [
-        "Hàng của đơn {product} đã được xếp lên tàu. Phần còn lại là chứng từ — đây là phần quyết định việc thanh toán nên phải làm chính xác tuyệt đối.",
-        "Mọi sai sót trên chứng từ gốc sẽ khiến buyer không nhận được hàng tại cảng đến.",
+        "Hàng của đơn {product} đã được xếp lên tàu.",
+        "Phần còn lại là chứng từ — phần quyết định việc thanh toán nên phải làm chính xác tuyệt đối.",
+        "Mọi sai sót trên chứng từ gốc sẽ khiến người mua không nhận được hàng tại cảng đến.",
       ],
       tasks: [
         "Gửi chứng từ gốc về văn phòng Vexim trong thời hạn quy định",
@@ -222,7 +226,8 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
     supplier: {
       subject: "Hoàn tất đơn {product} – cảm ơn hợp tác",
       body: [
-        "Đơn {product} đã hoàn tất và thanh toán xong. Chất lượng và tiến độ của xưởng ở đơn này đã được ghi nhận vào hồ sơ đánh giá nhà cung cấp.",
+        "Đơn {product} đã hoàn tất và thanh toán xong.",
+        "Chất lượng và tiến độ của xưởng ở đơn này đã được ghi nhận vào hồ sơ đánh giá.",
         "Chúng tôi sẽ ưu tiên gửi đơn tiếp theo cho xưởng.",
       ],
       tasks: [

@@ -53,7 +53,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     if (decision === "return") {
       if (note.trim().length < 8) {
-        return NextResponse.json({ ok: false, message: "Hãy ghi rõ lý do cần bổ sung để NCC sửa đúng." }, { status: 400 });
+        return NextResponse.json({ ok: false, message: "Hãy ghi rõ lý do cần bổ sung để nhà cung cấp sửa đúng." }, { status: 400 });
       }
       await returnSubmission(access.store, {
         submission: access.submission,
@@ -65,7 +65,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       revalidatePath("/supplier/portal/verification/export");
       revalidatePath("/crm/verifications/submissions");
       refreshCrmBadges();
-      return NextResponse.json({ ok: true, message: "Đã trả hồ sơ kèm lý do; NCC sẽ thấy trong cổng và bổ sung." }, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ ok: true, message: "Đã trả hồ sơ kèm lý do; Nhà cung cấp sẽ thấy trong cổng và bổ sung." }, { headers: { "Cache-Control": "no-store" } });
     }
     return NextResponse.json({ ok: false, message: "Quyết định không hợp lệ." }, { status: 400 });
   } catch (error) {

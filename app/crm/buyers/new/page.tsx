@@ -8,7 +8,7 @@ import { listSalesOwnerNames } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Thêm buyer" };
+export const metadata = { title: "Thêm người mua" };
 
 export default async function NewBuyerPage() {
   const session = await requirePagePermission("buyers.manage", "/crm/buyers");
@@ -16,7 +16,7 @@ export default async function NewBuyerPage() {
   return (
     <>
       <PageHeader
-        title="Thêm buyer mới"
+        title="Thêm người mua mới"
         sub="Nhập thông tin khách hàng nước ngoài. Sau khi tạo, bạn có thể đổi trạng thái để hệ thống gửi email tự động."
         breadcrumbs={<Breadcrumbs items={[{ label: "Buyer", href: "/crm/buyers" }, { label: "Thêm mới" }]} />}
       />

@@ -97,6 +97,6 @@ export async function POST(request: Request) {
     rows: previewRows,
     created,
     failed,
-    message: `Đã nhập ${created.length} sản phẩm nháp cho ${supplier.display_name || supplier.name}. Sản phẩm chưa sẵn sàng gửi buyer; hãy bổ sung ảnh hoặc catalogue trong từng hồ sơ sản phẩm rồi duyệt như bình thường.`,
+    message: `Đã nhập ${created.length} sản phẩm nháp cho ${supplier.display_name || supplier.name}. Sản phẩm chưa sẵn sàng gửi người mua; hãy bổ sung ảnh hoặc catalogue trong từng hồ sơ sản phẩm rồi duyệt như bình thường.`,
   });
 }

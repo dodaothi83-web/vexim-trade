@@ -98,13 +98,13 @@ export function ComposeSidebar({
     if (isBuyerDir) {
       const terms = active?.supplierSensitive ?? [];
       if (!active) {
-        return { level: "info", leaks: [], note: "Chưa xác định buyer để đối chiếu." };
+        return { level: "info", leaks: [], note: "Chưa xác định người mua để đối chiếu." };
       }
       if (!active.linkedSupplier) {
         return {
           level: "info",
           leaks: [],
-          note: "Đơn chưa gắn nhà cung cấp — email chỉ gửi buyer.",
+          note: "Đơn chưa gắn nhà cung cấp — email chỉ gửi người mua.",
         };
       }
       const leaks = findLeaks(plainText, terms);
@@ -112,7 +112,7 @@ export function ComposeSidebar({
         ? {
             level: "warn",
             leaks,
-            note: `Nội dung gửi buyer đang nhắc tới ${leaks.length} thông tin của NCC ${active.linkedSupplier.name}.`,
+            note: `Nội dung gửi người mua đang nhắc tới ${leaks.length} thông tin của nhà cung cấp ${active.linkedSupplier.name}.`,
           }
         : {
             level: "ok",
@@ -125,14 +125,14 @@ export function ComposeSidebar({
       return {
         level: "info",
         leaks: [],
-        note: "Không xác định được buyer liên quan để kiểm tra ẩn danh.",
+        note: "Không xác định được người mua liên quan để kiểm tra ẩn danh.",
       };
     }
     if (relatedBuyer.hideBuyerFromSupplier === false) {
       return {
         level: "info",
         leaks: [],
-        note: `Buyer ${relatedBuyer.name} cho phép công khai thông tin với NCC.`,
+        note: `Người mua ${relatedBuyer.name} cho phép công khai thông tin với nhà cung cấp.`,
       };
     }
     const leaks = findLeaks(plainText, relatedBuyer.buyerSensitive);
@@ -147,7 +147,7 @@ export function ComposeSidebar({
       : {
           level: "ok",
           leaks: [],
-          note: "Buyer đang được ẩn danh đúng quy định trong email này.",
+          note: "Người mua đang được ẩn danh đúng quy định trong email này.",
         };
   }, [isBuyerDir, active, relatedBuyer, plainText]);
 
@@ -174,7 +174,7 @@ export function ComposeSidebar({
     items.push(
       subject.trim()
         ? { level: "ok", label: "Đã có tiêu đề" }
-        : { level: "error", label: "Thiếu tiêu đề", hint: "Buyer thường bỏ qua email không tiêu đề." },
+        : { level: "error", label: "Thiếu tiêu đề", hint: "Người mua thường bỏ qua email không tiêu đề." },
     );
 
     // Không tính khối chữ ký: mở trang là đã có chữ ký, nếu tính thì email
@@ -196,20 +196,20 @@ export function ComposeSidebar({
         viRatio > 0.02
           ? {
               level: "warn",
-              label: "Nội dung gửi buyer đang nhiều tiếng Việt",
-              hint: "Email cho buyer nên viết tiếng Anh theo mẫu của công ty.",
+              label: "Nội dung gửi người mua đang nhiều tiếng Việt",
+              hint: "Email cho người mua nên viết tiếng Anh theo mẫu của công ty.",
             }
-          : { level: "ok", label: "Ngôn ngữ phù hợp (tiếng Anh cho buyer)" },
+          : { level: "ok", label: "Ngôn ngữ phù hợp (tiếng Anh cho người mua)" },
       );
     } else {
       items.push(
         viRatio < 0.01 && plainText.length > 40
           ? {
               level: "info",
-              label: "Email gửi NCC thường viết tiếng Việt",
-              hint: "Kiểm tra lại nếu đây là NCC nước ngoài.",
+              label: "Email gửi nhà cung cấp thường viết tiếng Việt",
+              hint: "Kiểm tra lại nếu đây là nhà cung cấp nước ngoài.",
             }
-          : { level: "ok", label: "Ngôn ngữ phù hợp (tiếng Việt cho NCC)" },
+          : { level: "ok", label: "Ngôn ngữ phù hợp (tiếng Việt cho nhà cung cấp)" },
       );
     }
 
@@ -232,7 +232,7 @@ export function ComposeSidebar({
       items.push({
         level: "info",
         label: "Giai đoạn này thường kèm báo giá / PI",
-        hint: "Cân nhắc đính kèm tài liệu cho buyer.",
+        hint: "Cân nhắc đính kèm tài liệu cho người mua.",
       });
     }
 
@@ -298,15 +298,15 @@ export function ComposeSidebar({
           <h2 className="text-[13px] font-bold text-ink-900">
             {active
               ? active.kind === "buyer"
-                ? "Tóm tắt buyer"
-                : "Tóm tắt NCC"
+                ? "Tóm tắt người mua"
+                : "Tóm tắt nhà cung cấp"
               : "Tóm tắt đối tác"}
           </h2>
           <span className="ml-auto text-[11px] text-ink-400">đọc trước khi viết</span>
         </header>
         {!active ? (
           <p className="px-3.5 py-3 text-[12.5px] text-ink-500">
-            Chọn người nhận từ danh sách buyer / NCC để xem hồ sơ tóm tắt, ghi chú nội bộ và
+            Chọn người nhận từ danh sách người mua / nhà cung cấp để xem hồ sơ tóm tắt, ghi chú nội bộ và
             lịch sử trao đổi — giúp viết email đúng giọng và đúng ý đối tác đó.
           </p>
         ) : (
@@ -396,7 +396,7 @@ export function ComposeSidebar({
 
         {!active ? (
           <p className="px-3.5 py-3 text-[12.5px] text-ink-500">
-            Chưa xác định người nhận trong danh sách buyer / NCC. Nhập email hoặc chọn người nhận
+            Chưa xác định người nhận trong danh sách người mua / nhà cung cấp. Nhập email hoặc chọn người nhận
             từ danh sách để xem ngữ cảnh đơn hàng.
           </p>
         ) : (
@@ -450,7 +450,7 @@ export function ComposeSidebar({
                   <p className="flex items-start gap-1.5 text-[12px]">
                     <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
                     <span className="text-ink-700">
-                      NCC: <strong className="text-ink-900">{active.linkedSupplier.name}</strong>
+                      Nhà cung cấp: <strong className="text-ink-900">{active.linkedSupplier.name}</strong>
                       <br />
                       <span className="text-ink-500">
                         {statusMeta(active.linkedSupplier.status).label} — giữ kín với buyer
@@ -565,7 +565,7 @@ export function ComposeSidebar({
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-ink-500">
                     <span>{formatDateTime(m.created_at)}</span>
-                    <span>· {m.direction === "buyer" ? "→ Buyer" : "→ NCC"}</span>
+                    <span>· {m.direction === "buyer" ? "→ Người mua" : "→ Nhà cung cấp"}</span>
                     {m.status === "draft" && <span className="text-amber-700">· nháp</span>}
                     {m.status === "failed" && <span className="text-red-700">· gửi lỗi</span>}
                     {m.status === "simulated" && <span className="text-ink-400">· demo</span>}

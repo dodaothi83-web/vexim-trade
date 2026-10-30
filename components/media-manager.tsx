@@ -229,7 +229,7 @@ export function MediaManager({
     <div className="card overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3">
         <ImageIcon className="h-4 w-4 text-brand-700" />
-        <h2 className="text-[15px] font-bold text-ink-900">{title ?? (ownerType === "verification" ? "Bằng chứng riêng của đợt kiểm" : ownerType === "supplier" ? "Kho ảnh & tài liệu chung của NCC" : "Ảnh & tài liệu sản phẩm")}</h2>
+        <h2 className="text-[15px] font-bold text-ink-900">{title ?? (ownerType === "verification" ? "Bằng chứng riêng của đợt kiểm" : ownerType === "supplier" ? "Kho ảnh & tài liệu chung của nhà cung cấp" : "Ảnh & tài liệu sản phẩm")}</h2>
         <span className="text-[12px] text-ink-500">
           {items.length ? `${items.length} tệp` : "chưa có tệp nào"}
         </span>
@@ -237,7 +237,7 @@ export function MediaManager({
       </div>
       {scopeHint && <p className="border-b border-brand-100 bg-brand-50/60 px-4 py-3 text-[12.5px] leading-relaxed text-brand-900">{scopeHint}</p>}
       {ownerType === "product" && !readOnly && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand-100 bg-brand-50/50 px-4 py-3 text-[12.5px] text-brand-900">
-        <p>Ảnh đại diện sản phẩm: chọn trong các ảnh đã <strong>chia sẻ buyer</strong> bên dưới. Nếu chưa chọn, dùng ảnh hợp lệ đầu tiên. Chọn ảnh không tự công khai sản phẩm.</p>
+        <p>Ảnh đại diện sản phẩm: chọn trong các ảnh đã <strong>chia sẻ người mua</strong> bên dưới. Nếu chưa chọn, dùng ảnh hợp lệ đầu tiên. Chọn ảnh không tự công khai sản phẩm.</p>
         {featuredMediaId && <button type="button" disabled={busy} onClick={() => void chooseCover(null)} className="shrink-0 font-semibold underline disabled:opacity-50">Dùng ảnh đầu tiên</button>}
       </div>}
 
@@ -499,7 +499,7 @@ function MediaRow({
           {asset.audience === "internal" ? (
             <Badge className="bg-ink-900 text-white">Nội bộ</Badge>
           ) : (
-            <Badge className="bg-brand-50 text-brand-700">Chia sẻ buyer</Badge>
+            <Badge className="bg-brand-50 text-brand-700">Chia sẻ người mua</Badge>
           )}
           {featured && <Badge className="bg-amber-50 font-semibold text-amber-800">Ảnh đại diện</Badge>}
           {canChooseCover && !featured && <button type="button" onClick={onChooseCover} className="rounded-full border border-brand-200 px-2.5 py-0.5 text-[11.5px] font-semibold text-brand-800 hover:border-brand-500 hover:bg-brand-50">Chọn làm ảnh đại diện</button>}
@@ -537,7 +537,7 @@ function MediaRow({
               disabled={readOnly || busy}
               onChange={(e) => onPatch({ audience: e.target.value as MediaAudience })}
             >
-              <option value="buyer">Chia sẻ buyer</option>
+              <option value="buyer">Chia sẻ người mua</option>
               <option value="internal">Nội bộ</option>
             </select>
           )}
@@ -658,8 +658,8 @@ export function ReadyHint({ ready, shareable }: { ready: boolean; shareable: num
           </>
         ) : (
           <>
-            Chưa thể đánh dấu <strong>“Sẵn sàng gửi buyer”</strong>: cần ít nhất 1 ảnh sản phẩm
-            hoặc catalogue ở chế độ <strong>Chia sẻ buyer</strong> và chưa hết hạn.
+            Chưa thể đánh dấu <strong>“Sẵn sàng gửi người mua”</strong>: cần ít nhất 1 ảnh sản phẩm
+            hoặc catalogue ở chế độ <strong>Chia sẻ người mua</strong> và chưa hết hạn.
           </>
         )}
       </span>

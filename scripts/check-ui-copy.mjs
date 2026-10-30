@@ -42,6 +42,105 @@ const SCOPE = [
   // Độ hoàn thiện hồ sơ (Phase 1, chỉ đọc) + thẻ sản phẩm trong cổng.
   'lib/products/completeness.ts',
   'app/supplier/portal/products/product-storefront.tsx',
+  // Đợt 3: toàn bộ màn hình CRM còn lại, cổng nhà cung cấp, email và thông báo.
+  'app/(public)/home.tsx',
+  'app/actions.ts',
+  'app/api/crm/products/import/route.ts',
+  'app/api/media/file/[...path]/route.ts',
+  'app/api/submission-review/[id]/route.ts',
+  'app/api/supplier-portal/certificates/route.ts',
+  'app/api/supplier-portal/products/[id]/media/route.ts',
+  'app/api/supplier-portal/submissions/route.ts',
+  'app/api/suppliers/[id]/profile-image/route.ts',
+  'app/api/verifications/[id]/ai-review/route.ts',
+  'app/auth-actions.ts',
+  'app/crm/buyers/[id]/page.tsx',
+  'app/crm/buyers/new/page.tsx',
+  'app/crm/buyers/page.tsx',
+  'app/crm/mail/compose/page.tsx',
+  'app/crm/mail/page.tsx',
+  'app/crm/pipeline/page.tsx',
+  'app/crm/products/[slug]/edit/featured-image-action.ts',
+  'app/crm/products/[slug]/edit/review-controls.tsx',
+  'app/crm/products/[slug]/edit/translation-panel.tsx',
+  'app/crm/products/[slug]/page.tsx',
+  'app/crm/products/import/import-client.tsx',
+  'app/crm/products/import/page.tsx',
+  'app/crm/rfqs/[id]/actions.ts',
+  'app/crm/rfqs/actions-inline.ts',
+  'app/crm/rfqs/page.tsx',
+  'app/crm/settings/page.tsx',
+  'app/crm/settings/users/page.tsx',
+  'app/crm/sponsored/page.tsx',
+  'app/crm/suppliers/[slug]/account-actions.ts',
+  'app/crm/suppliers/[slug]/audit/[step]/certificate-actions.ts',
+  'app/crm/suppliers/[slug]/audit/[step]/certificate-row-controls.tsx',
+  'app/crm/suppliers/[slug]/audit/[step]/page.tsx',
+  'app/crm/suppliers/[slug]/edit/page.tsx',
+  'app/crm/suppliers/[slug]/onboarding-actions.ts',
+  'app/crm/suppliers/[slug]/onboarding-controls.tsx',
+  'app/crm/suppliers/[slug]/products/new/page.tsx',
+  'app/crm/suppliers/[slug]/verification-panel.tsx',
+  'app/crm/team/page.tsx',
+  'app/crm/templates/page.tsx',
+  'app/crm/traffic/page.tsx',
+  'app/crm/verifications/contact-request-button.tsx',
+  'app/crm/verifications/page.tsx',
+  'app/crm/verifications/submissions/[id]/submission-review-actions.tsx',
+  'app/crm/verifications/submissions/page.tsx',
+  'app/mail-attachment-actions.ts',
+  'app/supplier/portal/documents/page.tsx',
+  'app/supplier/portal/page.tsx',
+  'app/supplier/portal/profile/page.tsx',
+  'app/supplier/portal/profile/profile-edit-form.tsx',
+  'app/supplier/portal/rfqs/page.tsx',
+  'app/supplier/portal/storefront/page.tsx',
+  'app/supplier/portal/supplier-profile-form.tsx',
+  'app/supplier/portal/traffic/page.tsx',
+  'app/supplier/portal/verification/verification-panel.tsx',
+  'components/buyer-detail-actions.tsx',
+  'components/buyer-form.tsx',
+  'components/buyer-table.tsx',
+  'components/compose-mail.tsx',
+  'components/compose-sidebar.tsx',
+  'components/mailbox.tsx',
+  'components/media-manager.tsx',
+  'components/pipeline-board.tsx',
+  'components/product-file-picker.tsx',
+  'components/products/grade-pricing-table.tsx',
+  'components/prospect-actions.tsx',
+  'components/prospect-importer.tsx',
+  'components/public-sign-in-link.tsx',
+  'components/stage-select.tsx',
+  'components/supplier-actions.tsx',
+  'components/supplier-form.tsx',
+  'components/supplier-table.tsx',
+  'components/template-editor.tsx',
+  'components/user-manager.tsx',
+  'lib/auth/permissions.ts',
+  'lib/certificate-service.ts',
+  'lib/db/local.ts',
+  'lib/db/seed.ts',
+  'lib/db/supabase.ts',
+  'lib/email/privacy.ts',
+  'lib/email/send.ts',
+  'lib/email/stage-content.ts',
+  'lib/email/templates.ts',
+  'lib/pipeline.ts',
+  'lib/products/grade-pricing.ts',
+  'lib/products/legacy-grade-split-plan.ts',
+  'lib/rfq/buyer-notify.ts',
+  'lib/rfq/outreach.ts',
+  'lib/rfq/spam-flags.ts',
+  'lib/rfq/staff-sender.ts',
+  'lib/rfq/supplier-question.ts',
+  'lib/supplier-portal/dashboard.ts',
+  'lib/traffic/site-report.ts',
+  'lib/verification-submission-service.ts',
+  'lib/verification.ts',
+  'app/crm/mail/[id]/page.tsx',
+  'app/crm/settings/quantity-pricing/page.tsx',
+  'components/mail-threads.tsx',
 ];
 
 const VIETNAMESE = /[àáảãạăâđêôơưýÀ-ỹ]/;
@@ -58,6 +157,27 @@ const BANNED = [
 const MAX_LENGTH = 120;
 /** Ngoại lệ có chủ đích: nội dung tiếng Anh công khai và mã lỗi dữ liệu. */
 const ALLOW_LINE = /copy-allow/;
+
+/** Bỏ các đoạn ${...} (ngoặc cân bằng) để không kiểm mã bên trong biểu thức. */
+function stripInterpolations(text) {
+  let out = '';
+  for (let i = 0; i < text.length; i += 1) {
+    if (text[i] === '$' && text[i + 1] === '{') {
+      let depth = 1;
+      i += 2;
+      while (i < text.length && depth) {
+        if (text[i] === '{') depth += 1;
+        else if (text[i] === '}') depth -= 1;
+        i += 1;
+      }
+      out += ' ';
+      i -= 1;
+    } else {
+      out += text[i];
+    }
+  }
+  return out;
+}
 
 let checked = 0;
 const problems = [];
@@ -77,8 +197,10 @@ for (const file of SCOPE) {
     for (const text of chunks) {
       if (!VIETNAMESE.test(text)) continue;
       checked += 1;
+      // Chỉ xét phần chữ hiển thị: biến trong ${...} là mã, không phải copy.
+      const visible = stripInterpolations(text);
       for (const rule of BANNED) {
-        if (rule.pattern.test(text)) problems.push(`${file}:${index + 1}: ${rule.why} — "${text.trim()}"`);
+        if (rule.pattern.test(visible)) problems.push(`${file}:${index + 1}: ${rule.why} — "${text.trim()}"`);
       }
       // Template string có biến thì độ dài thực tế phụ thuộc dữ liệu, bỏ qua giới hạn.
       if (!text.includes('${') && text.length > MAX_LENGTH) {

@@ -48,7 +48,7 @@ export function UserManager({
   const visibleUsers = accountTab === "internal" ? internalUsers : supplierUsers;
   const accountTabs = [
     { key: "internal" as const, label: "Nhân sự Vexim", count: internalUsers.length },
-    { key: "supplier" as const, label: "Tài khoản NCC", count: supplierUsers.length },
+    { key: "supplier" as const, label: "Tài khoản nhà cung cấp", count: supplierUsers.length },
   ];
 
   const [email, setEmail] = useState("");

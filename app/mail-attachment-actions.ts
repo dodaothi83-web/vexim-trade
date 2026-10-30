@@ -38,7 +38,7 @@ export async function attachProductMediaAction(
       return { ok: false, message: "Không tìm thấy tệp sản phẩm." };
     }
     if (media.audience !== "buyer") {
-      return { ok: false, message: "Tệp này chỉ dùng nội bộ, không gửi cho buyer." };
+      return { ok: false, message: "Tệp này chỉ dùng nội bộ, không gửi cho người mua." };
     }
     if (media.kind !== "image" && media.kind !== "catalogue") {
       return { ok: false, message: "Chỉ đính kèm được ảnh hoặc catalogue sản phẩm." };

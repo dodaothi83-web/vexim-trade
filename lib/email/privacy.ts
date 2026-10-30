@@ -105,11 +105,11 @@ export function collectSupplierTerms(
   if (!supplier) return [];
   const terms: SensitiveTerm[] = [
     { label: "Tên nhà cung cấp", value: supplier.name },
-    { label: "Tên thương mại NCC", value: supplier.trade_name ?? "" },
-    { label: "Người liên hệ NCC", value: supplier.contact_name ?? "" },
-    { label: "Email NCC", value: supplier.email ?? "" },
-    { label: "Điện thoại NCC", value: supplier.phone ?? "" },
-    { label: "Mã số thuế NCC", value: supplier.tax_id ?? "" },
+    { label: "Tên thương mại nhà cung cấp", value: supplier.trade_name ?? "" },
+    { label: "Người liên hệ nhà cung cấp", value: supplier.contact_name ?? "" },
+    { label: "Email nhà cung cấp", value: supplier.email ?? "" },
+    { label: "Điện thoại nhà cung cấp", value: supplier.phone ?? "" },
+    { label: "Mã số thuế nhà cung cấp", value: supplier.tax_id ?? "" },
   ];
 
   for (const p of products) {
@@ -118,12 +118,12 @@ export function collectSupplierTerms(
     const amount = p.ref_price.toLocaleString("en-US", { maximumFractionDigits: 0 });
     const digits = String(Math.round(p.ref_price));
     terms.push({
-      label: `Giá tham khảo của NCC (${p.name})`,
+      label: `Giá tham khảo của nhà cung cấp (${p.name})`,
       value: `${currency} ${amount}`,
     });
     // Chỉ dò phần số khi đủ dài để tránh khớp nhầm với số lượng / năm
     if (digits.length >= 4) {
-      terms.push({ label: `Giá tham khảo của NCC (${p.name})`, value: digits });
+      terms.push({ label: `Giá tham khảo của nhà cung cấp (${p.name})`, value: digits });
     }
   }
 
@@ -136,9 +136,9 @@ export function collectBuyerTerms(
 ): SensitiveTerm[] {
   if (!buyer) return [];
   return [
-    { label: "Tên buyer", value: buyer.company },
-    { label: "Người liên hệ buyer", value: buyer.contact_name ?? "" },
+    { label: "Tên người mua", value: buyer.company },
+    { label: "Người liên hệ người mua", value: buyer.contact_name ?? "" },
     { label: "Email buyer", value: buyer.email ?? "" },
-    { label: "Điện thoại buyer", value: buyer.phone ?? "" },
+    { label: "Điện thoại người mua", value: buyer.phone ?? "" },
   ].filter((t) => (t.value ?? "").trim().length >= MIN_TERM_LENGTH);
 }

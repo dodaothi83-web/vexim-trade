@@ -77,9 +77,15 @@ Không áp cho: văn bản pháp lý (`app/(legal)/**`), nội dung sản phẩm
   danh sách và trang sửa sản phẩm CRM, form sản phẩm, hồ sơ nhà cung cấp, duyệt xác minh,
   biểu mẫu đợt kiểm, hồ sơ tự gửi, bảng điều khiển, `app/crm/layout.tsx`,
   `components/sidebar.tsx`, thư báo nội bộ `lib/supplier-portal/notify.ts`.
-- Đợt sau: nhập Excel, traffic, storefront, các panel còn lại trong hồ sơ nhà cung cấp
-  (`verification-panel.tsx`, `bulk-image-review.tsx`), trang xác minh còn lại.
-  Khi sửa file nào thì chuyển file đó và thêm vào danh sách của script.
+- Đợt 3 (đã xong, 30/10/2026): toàn bộ phần còn lại — `app/actions.ts`, `app/auth-actions.ts`,
+  `lib/email/**` (mẫu thư, nội dung theo giai đoạn, thông báo bảo mật), `lib/rfq/**`,
+  `lib/verification*`, `lib/db/supabase.ts`, các màn CRM còn lại (prospects, pipeline,
+  traffic, sponsored, verifications, settings, team, templates, buyers), toàn bộ cổng nhà
+  cung cấp (profile, documents, verification, traffic, rfqs, storefront), `components/**`
+  (supplier-form, buyer-form, buyer-table, compose-*, mail-threads, prospect-actions…) và
+  trang công khai tiếng Việt (`app/(public)/home.tsx`).
+- Phạm vi quét hiện tại: 130 file, 4.856 chuỗi tiếng Việt. Thêm file mới vào `SCOPE` khi
+  chuyển đổi; đừng đưa `app/(legal)/**` hay bản tiếng Anh của trang công khai vào.
 
 ## 9. Ngoại lệ có chủ đích
 
@@ -89,5 +95,10 @@ Không áp cho: văn bản pháp lý (`app/(legal)/**`), nội dung sản phẩm
 - Lỗi kỹ thuật (CSDL lệch mã nguồn, thiếu cột, khoá ghi) chỉ nói **việc cần làm**:
   “Báo người phụ trách kỹ thuật rồi thử lại.” Tên migration, tên cột, mã PostgREST
   nằm trong log máy chủ (`console.error`), không hiện trên giao diện — kể cả CRM.
+- Câu trả lời trong mục hỏi đáp công khai của trang chủ (`app/(public)/home.tsx`) là nội dung
+  tư vấn, không phải microcopy, nên được giữ dài: mỗi dòng đó có `// copy-allow: FAQ công khai`.
 - Khi một dòng buộc phải giữ nguyên văn bản dài hoặc từ nội bộ, thêm chú thích
-  `// copy-allow: <lý do>` ngay trên dòng đó để `scripts/check-ui-copy.mjs` bỏ qua.
+  `// copy-allow: <lý do>` **trên cùng dòng** với chuỗi (script kiểm theo từng dòng) để
+  `scripts/check-ui-copy.mjs` bỏ qua.
+- Thông điệp do máy chủ trả về cho người dùng chỉ nêu việc cần làm; chi tiết kỹ thuật
+  (tên cột, tên migration, mã PostgREST) để trong chú thích mã hoặc `console.error`.

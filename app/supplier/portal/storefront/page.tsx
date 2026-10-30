@@ -63,10 +63,10 @@ export default async function SupplierStorefrontPreviewPage() {
     console.error(`[supplier-portal] chưa dựng được Trang của tôi. ${migrationHint(error) ?? ""}`.trim(), error);
   }
   if (!loaded) return <>
-    <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Trang của tôi" sub="Đúng nội dung buyer nhìn thấy trên hồ sơ công khai." />
+    <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Trang của tôi" sub="Đúng nội dung người mua nhìn thấy trên hồ sơ công khai." />
     <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
       <p className="font-bold">Chưa dựng được bản xem trước</p>
-      <p className="mt-1 leading-6">Hệ thống chưa đọc được dữ liệu hồ sơ. Hồ sơ của bạn không bị thay đổi. Thử tải lại trang; nếu vẫn lỗi, liên hệ bộ phận hỗ trợ.</p>
+      <p className="mt-1 leading-6">Chưa đọc được dữ liệu hồ sơ. Hồ sơ của bạn không bị thay đổi. Thử tải lại trang; nếu vẫn lỗi, liên hệ bộ phận hỗ trợ.</p>
     </div>
   </>;
   const { card, categories, certificates, progress } = loaded;
@@ -81,7 +81,7 @@ export default async function SupplierStorefrontPreviewPage() {
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Trang của tôi"
-      sub="Đúng nội dung buyer nhìn thấy trên hồ sơ công khai." />
+      sub="Đúng nội dung người mua nhìn thấy trên hồ sơ công khai." />
     <section aria-label="Preview status" className="rounded-xl border border-dashed border-brand-300 bg-brand-50/60 px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[12.5px] leading-5 text-ink-700">

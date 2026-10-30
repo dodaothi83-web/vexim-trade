@@ -246,7 +246,9 @@ function missingProductPriceRangeColumn(error: { code?: string; message: string 
 
 function priceRangeMigrationRequired(): never {
   // Never silently discard an entered upper bound: the buyer could see a false single price.
-  throw new Error("Chưa lưu giá đến: PostgREST chưa nhận diện cột supplier_products.ref_price_max (migration chưa áp dụng hoặc schema cache chưa cập nhật). Vexim cần kiểm tra đúng project, áp dụng migration 20261017_product_reference_price_range.sql nếu thiếu cột hoặc nạp lại schema cache nếu cột đã có; các thay đổi trong lần lưu này chưa được ghi.");
+  // Chi tiết kỹ thuật: PostgREST chưa có cột supplier_products.ref_price_max (migration
+  // 20261017_product_reference_price_range.sql chưa áp dụng hoặc schema cache chưa cập nhật).
+  throw new Error("Chưa lưu được giá đến. Báo người phụ trách kỹ thuật rồi thử lại.");
 }
 
 /** Same single-retry rule for the optional buyer display name column. */
@@ -256,7 +258,9 @@ function missingDisplayNameColumn(error: { code?: string; message: string } | nu
 }
 
 function displayNameMigrationRequired(): never {
-  throw new Error("Chưa lưu tên hiển thị cho buyer: PostgREST chưa nhận diện cột supplier_products.display_name (migration chưa áp dụng hoặc schema cache chưa cập nhật). Vexim cần áp dụng migration 20261030_product_display_name.sql hoặc nạp lại schema cache; các thay đổi trong lần lưu này chưa được ghi.");
+  // Chi tiết kỹ thuật: PostgREST chưa có cột supplier_products.display_name (migration
+  // 20261030_product_display_name.sql chưa áp dụng hoặc schema cache chưa cập nhật).
+  throw new Error("Chưa lưu được tên hiển thị. Báo người phụ trách kỹ thuật rồi thử lại.");
 }
 
 /** Bỏ cột tùy chọn khi nó đang rỗng, để cơ sở dữ liệu cũ vẫn lưu được phần còn lại. */

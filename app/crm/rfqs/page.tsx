@@ -20,11 +20,11 @@ export const dynamic = "force-dynamic";
 
 const STATUS_TABS: { key: string; label: string; dotClass?: string }[] = [
   { key: "all", label: "Tất cả" },
-  { key: "question", label: "Câu hỏi NCC", dotClass: "bg-teal-500" },
+  { key: "question", label: "Câu hỏi nhà cung cấp", dotClass: "bg-teal-500" },
   { key: "new", label: "Mới", dotClass: "bg-slate-400" },
   { key: "needs_review", label: "Cần duyệt", dotClass: "bg-rose-500" },
   { key: "in_progress", label: "Đang xử lý", dotClass: "bg-sky-500" },
-  { key: "matching", label: "Đang ghép NCC", dotClass: "bg-amber-500" },
+  { key: "matching", label: "Đang ghép nhà cung cấp", dotClass: "bg-amber-500" },
   { key: "quoted", label: "Đã báo giá", dotClass: "bg-amber-600" },
   { key: "sampling", label: "Đang gửi mẫu", dotClass: "bg-violet-500" },
   { key: "won", label: "Thành công", dotClass: "bg-emerald-500" },
@@ -115,7 +115,7 @@ export default async function RfqsPage({
       ]} />
       <PageHeader
         title="Hộp thư RFQ công khai"
-        sub="Yêu cầu báo giá: phân công trong 4h, phản hồi buyer trong 24h (giờ làm việc Hanoi). Câu hỏi trực tiếp có tab riêng và không tính SLA báo giá."
+        sub="Báo giá: phân công trong 4h, phản hồi người mua trong 24h (giờ Hà Nội). Câu hỏi trực tiếp có tab riêng, không tính SLA."
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-1 border-b border-ink-200">
@@ -145,7 +145,7 @@ export default async function RfqsPage({
         <EmptyState
           icon={<Inbox className="h-5 w-5" />}
           title="Không có yêu cầu nào"
-          sub="Khi buyer gửi RFQ từ trang công khai, yêu cầu sẽ hiện ở đây."
+          sub="Khi người mua gửi RFQ từ trang công khai, yêu cầu sẽ hiện ở đây."
         />
       ) : (
         <div className="card mt-4 overflow-hidden">
@@ -153,7 +153,7 @@ export default async function RfqsPage({
             <thead>
               <tr className="border-b border-ink-200 bg-ink-50 text-left text-[11.5px] uppercase tracking-wider text-ink-500">
                 <th className="px-3 py-2">Mã</th>
-                <th className="px-3 py-2">Buyer</th>
+                <th className="px-3 py-2">Người mua</th>
                 <th className="px-3 py-2">Sản phẩm</th>
                 <th className="px-3 py-2">Số lượng</th>
                 <th className="px-3 py-2">Điểm đến</th>

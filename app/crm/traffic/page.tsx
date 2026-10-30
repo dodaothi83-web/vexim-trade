@@ -23,7 +23,7 @@ export default async function TrafficPage({ searchParams }: { searchParams: Prom
   const highest = report?.breakdown.reduce((a, b) => a.views > b.views ? a : b);
 
   return <>
-    <PageHeader title="Lưu lượng truy cập" sub="Báo cáo lượt mở các trang công khai của Vexim; chỉ quản trị viên xem được. Không phải số người duy nhất, đơn hàng hay doanh thu." />
+    <PageHeader title="Lưu lượng truy cập" sub="Lượt mở các trang công khai của Vexim; chỉ quản trị viên xem được. Không phải số người duy nhất, đơn hàng hay doanh thu." />
     <nav aria-label="Khoảng thời gian" className="mb-5 inline-flex gap-1 rounded-xl border border-ink-200 bg-white p-1">
       {([7, 30, 90] as const).map((d) => <Link key={d} href={`/crm/traffic?range=${d}`}
         aria-current={days === d ? "page" : undefined}
@@ -31,11 +31,11 @@ export default async function TrafficPage({ searchParams }: { searchParams: Prom
     </nav>
     {!report ? <Card className="border-amber-200 bg-amber-50 p-6" >
       <h2 className="font-bold text-amber-950">Chưa đọc được thống kê</h2>
-      <p className="mt-2 text-sm leading-6 text-amber-900">Cần kết nối Supabase bằng service role và áp dụng migration <code>20261017_supplier_traffic_daily.sql</code>, sau đó <code>20261018_vexim_site_traffic.sql</code> trên đúng dự án. Không hiển thị số 0 khi báo cáo chưa hoạt động.</p>
+      <p className="mt-2 text-sm leading-6 text-amber-900">Báo cáo chưa chạy. Kỹ thuật cần bật theo dõi trên đúng dự án. Chưa có số liệu thì không hiển thị số 0.</p>
     </Card> : <>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Tổng lượt xem" value={report.total} icon={<Activity className="h-5 w-5" />} />
-        <Stat label="Hồ sơ NCC" value={report.breakdown[2].views} icon={<Store className="h-5 w-5" />} />
+        <Stat label="Hồ sơ nhà cung cấp" value={report.breakdown[2].views} icon={<Store className="h-5 w-5" />} />
         <Stat label="Chi tiết sản phẩm" value={report.breakdown[3].views} icon={<Package className="h-5 w-5" />} />
         <Stat label="Trang RFQ" value={report.breakdown[4].views} icon={<FileQuestion className="h-5 w-5" />} />
       </div>
@@ -69,7 +69,7 @@ export default async function TrafficPage({ searchParams }: { searchParams: Prom
         <TopList title="Bài viết được mở nhiều" rows={report.topArticles} />
       </div>
       <Card className="mt-5 p-5 text-xs leading-6 text-ink-600">
-        <strong className="text-ink-900">Cách tính:</strong> Chỉ tính lượt mở trang từ trình duyệt có JavaScript, tối đa một lượt cho cùng trang trong một tab mỗi 30 phút; loại trừ phiên đăng nhập và bot thông dụng. Không lưu IP, nguồn truy cập, thông tin buyer hoặc URL chứa tham số. Hồ sơ NCC và chi tiết sản phẩm được tổng hợp từ bộ đếm NCC hiện có, không cộng lặp. Số liệu có thể thiếu do chặn JavaScript và không phải khách truy cập duy nhất. <Link href="/crm/rfqs" className="font-semibold text-brand-700 hover:underline">RFQ</Link> là yêu cầu báo giá riêng, không suy ra tỷ lệ chuyển đổi từ các số này.
+        <strong className="text-ink-900">Cách tính:</strong> Chỉ tính lượt mở trang từ trình duyệt có JavaScript, tối đa một lượt cho cùng trang trong một tab mỗi 30 phút.<br />Phiên đăng nhập và bot thông dụng bị loại trừ. Không lưu IP, nguồn truy cập hay URL chứa tham số.<br />Hồ sơ nhà cung cấp và chi tiết sản phẩm lấy từ bộ đếm hiện có, không cộng lặp.<br />Số liệu có thể thiếu do chặn JavaScript và không phải khách truy cập duy nhất.<br /><Link href="/crm/rfqs" className="font-semibold text-brand-700 hover:underline">RFQ</Link> là yêu cầu báo giá riêng, không suy ra tỷ lệ chuyển đổi từ các số này.
       </Card>
     </>}
   </>;

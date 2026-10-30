@@ -46,7 +46,7 @@ export async function GET(
     const user = await store.getUser(session.uid);
     const supplier = user?.supplier_id ? await store.getSupplier(user.supplier_id) : null;
     if (!user?.is_active || user.role !== "supplier" || user.email.toLowerCase() !== session.email.toLowerCase() ||
-        !supplier || !portalApproved(supplier)) return new NextResponse("Tài khoản NCC chưa được Vexim xác nhận", { status: 403 });
+        !supplier || !portalApproved(supplier)) return new NextResponse("Tài khoản nhà cung cấp chưa được Vexim xác nhận", { status: 403 });
   }
   const asset = await store.getMediaByPath(rel);
   if (!asset) {

@@ -151,7 +151,7 @@ export default async function MailPage() {
       <div className="shrink-0">
       <PageHeader
         title="Hộp thư"
-        sub="Hội thoại với buyer: thư tự động, thư đội ngũ soạn và thư trả lời gửi vào hệ thống (Resend Inbound)."
+        sub="Hội thoại với người mua: thư tự động, thư đội ngũ soạn và thư trả lời gửi vào hệ thống (Resend Inbound)."
       />
 
       {emailMode() === "local" && (

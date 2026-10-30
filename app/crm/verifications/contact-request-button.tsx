@@ -10,7 +10,7 @@ export function ContactRequestButton({ supplierId, level }: { supplierId: string
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
   async function contact() {
-    if (!window.confirm("Đã liên hệ NCC để trao đổi và lên kế hoạch đánh giá bước này?")) return;
+    if (!window.confirm("Đã liên hệ nhà cung cấp để trao đổi và lên kế hoạch đánh giá bước này?")) return;
     setBusy(true); setFeedback("");
     try {
       const form = new FormData(); form.set("supplier_id", supplierId); form.set("target_level", String(level));
@@ -21,7 +21,7 @@ export function ContactRequestButton({ supplierId, level }: { supplierId: string
     finally { setBusy(false); }
   }
   return <span className="inline-flex flex-col items-end gap-1">
-    <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => void contact()}>{busy ? "Đang lưu..." : "Đã liên hệ NCC"}</button>
+    <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => void contact()}>{busy ? "Đang lưu..." : "Đã liên hệ nhà cung cấp"}</button>
     {feedback && <span role="status" className="max-w-xs text-xs text-ink-600">{feedback}</span>}
   </span>;
 }

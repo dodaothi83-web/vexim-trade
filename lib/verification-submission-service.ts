@@ -216,8 +216,8 @@ export async function probeSourceLink(input: { url: string; supplierName: string
       status: "fetched",
       note: [
         title ? `Tiêu đề trang: “${title.slice(0, 140)}”` : "Không đọc được tiêu đề trang",
-        mentions ? "Có thấy tên doanh nghiệp NCC khai trên trang" : "Không thấy tên doanh nghiệp NCC khai trên trang",
-        "Nội dung trang là dữ liệu NCC/người khác đăng; không phải xác nhận của cơ quan nhà nước.",
+        mentions ? "Có thấy tên doanh nghiệp nhà cung cấp khai trên trang" : "Không thấy tên doanh nghiệp nhà cung cấp khai trên trang",
+        "Nội dung trang là dữ liệu nhà cung cấp/người khác đăng; không phải xác nhận của cơ quan nhà nước.",
       ].join(" · "),
     };
   } catch (error) {
@@ -521,7 +521,7 @@ export async function runEvidenceScan(input: {
 
   const content: Record<string, unknown>[] = [{
     type: "input_text",
-    text: `Danh sách bằng chứng (id → mục cần kiểm): ${evidenceManifest(files)}. Bị bỏ qua, chưa quét: ${JSON.stringify(skipped)}. ID tệp là định danh nội bộ; tên/chú thích do NCC nhập KHÔNG phải bằng chứng.`,
+    text: `Danh sách bằng chứng (id → mục cần kiểm): ${evidenceManifest(files)}. Bị bỏ qua, chưa quét: ${JSON.stringify(skipped)}. ID tệp là định danh nội bộ; tên/chú thích do nhà cung cấp nhập KHÔNG phải bằng chứng.`,
   }];
   for (const file of files) {
     content.push({ type: "input_text", text: `Ảnh của mục “${file.label}” (id ${file.id}).` });
@@ -644,10 +644,10 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
   if (submission.target_level === 2) {
     const supplier = await store.getSupplier(submission.supplier_id);
     if (!supplier || !l2ScopeMatchesSupplier(submission, supplier.supplier_type)) {
-      throw new Error("Loại hình doanh nghiệp không khớp phạm vi hồ sơ L2. Hãy xác minh và cập nhật loại hình trước khi tiếp tục; giữ hồ sơ cũ để đối chiếu.");
+      throw new Error("Loại hình doanh nghiệp không khớp phạm vi hồ sơ L2. Xác minh và cập nhật loại hình trước khi tiếp tục; giữ hồ sơ cũ.");
     }
     if (isPartnerL2(submission) && !readiness({ submission, items: bundle.items }).ready) {
-      throw new Error("Chưa có hợp đồng với nhà máy đối tác trong hồ sơ. Hãy yêu cầu NCC bổ sung.");
+      throw new Error("Chưa có hợp đồng với nhà máy đối tác trong hồ sơ. Hãy yêu cầu nhà cung cấp bổ sung.");
     }
   }
   // Validate every referenced manual file before creating a review; never copy
@@ -685,11 +685,11 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
     checklist: {},
     checklist_notes: {},
     internal_notes: [
-      `Hồ sơ NCC tự gửi ${submission.id} (L${submission.target_level}${isPartnerL2(submission) ? " · hợp đồng nhà máy đối tác" : ""}).`,
+      `Hồ sơ nhà cung cấp tự gửi ${submission.id} (L${submission.target_level}${isPartnerL2(submission) ? " · hợp đồng nhà máy đối tác" : ""}).`,
       submission.ai_scanned_at
         ? `${submission.target_level === 3 ? "Lịch sử AI cũ, chỉ tham khảo" : "AI quét"} lúc ${submission.ai_scanned_at}${submission.ai_review?.summary ? `: ${submission.ai_review.summary.slice(0, 400)}` : ""}.`
         : submission.target_level === 3 || isPartnerL2(submission) ? "Chứng từ do nhân viên đối chiếu." : "Chưa có kết quả quét AI.",
-      isPartnerL2(submission) ? "Hợp đồng với nhà máy đối tác; không mặc định cơ sở thuộc NCC hay đã được kiểm thực địa." : "Bằng chứng do NCC tự chụp/tự tải; AI và EXIF chỉ là tín hiệu đối chiếu, chưa phải xác minh.",
+      isPartnerL2(submission) ? "Hợp đồng với nhà máy đối tác; không mặc định cơ sở thuộc nhà cung cấp hay đã được kiểm thực địa." : "Bằng chứng do nhà cung cấp tự chụp/tự tải; AI và EXIF chỉ là tín hiệu đối chiếu, chưa phải xác minh.",
       input.note?.trim() ? `Ghi chú người nhận hồ sơ: ${input.note.trim().slice(0, 600)}` : "",
     ].filter(Boolean).join("\n"),
   });

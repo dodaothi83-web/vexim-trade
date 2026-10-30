@@ -422,7 +422,7 @@ export const SEED_BUYERS: SeedBuyer[] = [
     priority: "normal",
     next_action: "Hỏi lại quy cách đóng gói và gửi catalogue",
     next_action_date: "2026-10-08",
-    notes: "Chưa chọn xưởng – đang so giá 2 NCC. Buyer OK việc nêu tên xưởng.",
+    notes: "Chưa chọn xưởng – đang so giá 2 nhà cung cấp. Người mua OK việc nêu tên xưởng.",
     supplier_ref: null,
   },
   {
@@ -512,7 +512,7 @@ export const SEED_BUYERS: SeedBuyer[] = [
     priority: "low",
     next_action: "Liên hệ lại vụ tiêu mới (Q1/2027)",
     next_action_date: "2027-01-10",
-    notes: "Buyer mua qua trader khác giá thấp hơn 200 USD/MT. Giữ quan hệ.",
+    notes: "Người mua mua qua trader khác giá thấp hơn 200 USD/MT. Giữ quan hệ.",
     supplier_ref: null,
   },
   {

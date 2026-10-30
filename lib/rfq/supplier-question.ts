@@ -27,16 +27,16 @@ export function buildSupplierQuestionEmail(input: {
   const title = `Câu hỏi sản phẩm ${rfq.code}`;
   const body = `
     <p>Kính gửi Anh/Chị ${escapeHtml(supplier.contact_name ?? supplier.name)},</p>
-    <p>Buyer đang xem sản phẩm của doanh nghiệp và gửi câu hỏi trực tiếp tới Anh/Chị.</p>
+    <p>Người mua đang xem sản phẩm của doanh nghiệp và gửi câu hỏi trực tiếp tới Anh/Chị.</p>
     <table cellpadding="7" style="border-collapse:collapse;font-size:14px;">
       <tr><td style="color:#64748b;width:130px;">Mã câu hỏi</td><td><strong>${escapeHtml(rfq.code)}</strong></td></tr>
       <tr><td style="color:#64748b;">Sản phẩm</td><td><strong>${escapeHtml(product)}</strong></td></tr>
-      <tr><td style="color:#64748b;">Buyer</td><td>${escapeHtml(buyer.contact_name ?? "")}<br/>${escapeHtml(buyer.company)}</td></tr>
+      <tr><td style="color:#64748b;">Người mua</td><td>${escapeHtml(buyer.contact_name ?? "")}<br/>${escapeHtml(buyer.company)}</td></tr>
       <tr><td style="color:#64748b;">Email phản hồi</td><td>${escapeHtml(buyer.email ?? "")}</td></tr>
     </table>
-    ${productUrl ? `<p><a href="${escapeHtml(productUrl)}">Xem đúng sản phẩm buyer đang hỏi</a></p>` : ""}
+    ${productUrl ? `<p><a href="${escapeHtml(productUrl)}">Xem đúng sản phẩm người mua đang hỏi</a></p>` : ""}
     <div style="margin-top:18px;border-left:4px solid #0f766e;background:#f0fdfa;padding:12px 16px;">
-      <div style="font-size:12px;font-weight:700;color:#0f766e;">CÂU HỎI CỦA BUYER</div>
+      <div style="font-size:12px;font-weight:700;color:#0f766e;">CÂU HỎI CỦA NGƯỜI MUA</div>
       <div style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(question)}</div>
     </div>
     <p style="margin-top:18px;"><strong>Vui lòng phản hồi trực tiếp email này.</strong>
@@ -46,7 +46,7 @@ export function buildSupplierQuestionEmail(input: {
   `;
   return {
     subject: `[${rfq.code}] Câu hỏi sản phẩm: ${product}`,
-    html: wrapPlainEmail({ title, body, preheader: `Buyer hỏi về ${product}` }),
+    html: wrapPlainEmail({ title, body, preheader: `Người mua hỏi về ${product}` }),
     text: htmlToText(body),
   };
 }

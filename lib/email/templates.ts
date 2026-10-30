@@ -356,7 +356,7 @@ export function buildSupplierEmail(opts: {
     ${summary}
     ${taskBox}
     ${opts.note ? `<p style="font-size:14px;line-height:22px;margin:18px 0 0;padding:12px 14px;background:${SOFT};border-radius:8px;color:#334155;"><strong>Ghi chú từ phòng sale:</strong><br/>${escapeHtml(opts.note)}</p>` : ""}
-    ${hidden ? `<p style="font-size:12px;line-height:18px;color:${MUTED};margin:16px 0 0;">Thông tin buyer được giữ kín theo chính sách bảo mật của ${escapeHtml(COMPANY.name)}. Mọi trao đổi về giá và hợp đồng vui lòng làm việc trực tiếp với phòng sale.</p>` : ""}
+    ${hidden ? `<p style="font-size:12px;line-height:18px;color:${MUTED};margin:16px 0 0;">Thông tin người mua được giữ kín theo chính sách bảo mật của ${escapeHtml(COMPANY.name)}. Mọi trao đổi về giá và hợp đồng vui lòng làm việc trực tiếp với phòng sale.</p>` : ""}
     <p style="font-size:14px;line-height:22px;margin:20px 0 0;">Trân trọng,</p>
     ${signature(buyer.owner, "Phòng Xuất khẩu")}`;
 
@@ -414,7 +414,7 @@ export function unwrapEmailShell(html: string): string {
 
 /* ------------------------------------------------------------------ */
 /* EMAIL GỬI SUPPLIER KHI BUYER VỪA ĐƯỢC GÁN VÀO NCC                  */
-/* Gửi MỘT LẦN lúc gán, thông báo "có buyer đã kết nối với bạn"       */
+/* Gửi MỘT LẦN lúc gán, thông báo "có người mua đã kết nối với bạn"       */
 /* ------------------------------------------------------------------ */
 export function buildSupplierAssignedEmail(opts: {
   buyer: Buyer;
@@ -437,7 +437,7 @@ export function buildSupplierAssignedEmail(opts: {
       { label: "Ngày giao dự kiến", value: fmtDate(buyer.expected_ship_date, "vi-VN") || "Chờ xác nhận" },
       { label: "Mã đơn nội bộ", value: shortCode(buyer.id) },
     ],
-    "THÔNG TIN BUYER VỪA KẾT NỐI",
+    "THÔNG TIN NGƯỜI MUA VỪA KẾT NỐI",
     "38%",
   );
 
@@ -462,25 +462,25 @@ export function buildSupplierAssignedEmail(opts: {
   const body = `
     <p style="font-size:15px;line-height:24px;margin:0;">Kính gửi Anh/Chị ${escapeHtml(supplier.contact_name || supplier.name)},</p>
     <p style="font-size:15px;line-height:24px;margin:12px 0 0;">
-      Phòng sale ${escapeHtml(COMPANY.name)} vừa <strong>kết nối một buyer mới</strong> với xưởng của Anh/Chị.
+      Phòng sale ${escapeHtml(COMPANY.name)} vừa <strong>kết nối một người mua mới</strong> với xưởng của Anh/Chị.
       Từ thời điểm này, mọi cập nhật tiến độ của đơn sẽ được hệ thống tự động gửi tới Anh/Chị.
     </p>
     ${summary}
     ${taskBox}
-    ${hidden ? `<p style="font-size:12px;line-height:18px;color:${MUTED};margin:16px 0 0;">Thông tin buyer được giữ kín theo chính sách bảo mật. Mọi trao đổi về giá và hợp đồng vui lòng làm việc trực tiếp với phòng sale.</p>` : ""}
+    ${hidden ? `<p style="font-size:12px;line-height:18px;color:${MUTED};margin:16px 0 0;">Thông tin người mua được giữ kín theo chính sách bảo mật. Trao đổi về giá và hợp đồng, vui lòng làm việc với phòng sale.</p>` : ""}
     <p style="font-size:14px;line-height:22px;margin:20px 0 0;">Trân trọng,</p>
     ${signature(buyer.owner, "Phòng Xuất khẩu")}`;
 
-  const subject = `[${shortCode(buyer.id)}] Buyer mới được kết nối – ${fill("{product}, {quantity}", buyer)}`;
+  const subject = `[${shortCode(buyer.id)}] Người mua mới được kết nối – ${fill("{product}, {quantity}", buyer)}`;
 
   return {
     subject,
-    html: wrapEmailShell({ title: subject, body, preheader: `Buyer mới: ${buyerLabel}` }),
+    html: wrapEmailShell({ title: subject, body, preheader: `Người mua mới: ${buyerLabel}` }),
     text: [
       subject,
       "",
       `Kính gửi Anh/Chị ${supplier.contact_name || supplier.name},`,
-      `Phòng sale ${COMPANY.name} vừa kết nối một buyer mới với xưởng.`,
+      `Phòng sale ${COMPANY.name} vừa kết nối một người mua mới với xưởng.`,
       "",
       `Buyer: ${buyerLabel}`,
       `Mặt hàng: ${buyer.product ?? "-"}`,

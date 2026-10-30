@@ -28,7 +28,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function POST(request: Request) {
   const access = await supplierPortalAccess();
   if (!access || !portalApproved(access.supplier)) {
-    return fail("Tài khoản NCC chưa được Vexim xác nhận.", 403);
+    return fail("Tài khoản nhà cung cấp chưa được Vexim xác nhận.", 403);
   }
   if (Number(request.headers.get("content-length") ?? 0) > 16 * 1024 * 1024) {
     return fail("Tệp vượt quá 15 MB.", 413);
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
   try {
     const currentSupplier = await access.store.getSupplier(access.supplier.id);
     if (!currentSupplier || !portalApproved(currentSupplier)) {
-      return fail("Quyền cổng NCC đã thay đổi; không thể nộp tệp.", 403);
+      return fail("Quyền cổng nhà cung cấp đã thay đổi; không thể nộp tệp.", 403);
     }
 
     await putObject(path, bytes, checked.mime);
@@ -146,6 +146,6 @@ export async function POST(request: Request) {
       await access.store.deleteMedia(mediaId).catch((e) => console.error("[certificate] cleanup media", e));
     }
     await deleteObject(path).catch((e) => console.error("[certificate] cleanup storage", e));
-    return fail("Không lưu được chứng nhận; kiểm tra cấu hình/migration rồi thử lại.", 503);
+    return fail("Không lưu được chứng nhận. Báo người phụ trách kỹ thuật rồi thử lại.", 503);
   }
 }

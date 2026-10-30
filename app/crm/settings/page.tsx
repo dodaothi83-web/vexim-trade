@@ -343,7 +343,7 @@ EMAIL_FROM_NAME=Vexim Trade`}</pre>
         <div className="border-b border-ink-200 px-4 py-3">
           <h2 className="text-[15px] font-bold text-ink-900">Cấu trúc pipeline</h2>
           <p className="mt-0.5 text-xs text-ink-500">
-            Mỗi giai đoạn có nội dung riêng cho buyer (EN) và cho NCC (VI) — sửa trong{" "}
+            Mỗi giai đoạn có nội dung riêng cho người mua (EN) và nhà cung cấp (VI) — sửa trong{" "}
             <code>lib/email/stage-content.ts</code>. Danh sách giai đoạn ở{" "}
             <code>lib/pipeline.ts</code>.
             {hasPermission(session.role, "templates.manage") && <>{" "}Xem đầy đủ tại{" "}
@@ -357,8 +357,8 @@ EMAIL_FROM_NAME=Vexim Trade`}</pre>
           <thead>
             <tr>
               <th className="table-th">Giai đoạn</th>
-              <th className="table-th">Nội dung gửi buyer (EN)</th>
-              <th className="table-th">Việc cần phối hợp với NCC (VI)</th>
+              <th className="table-th">Nội dung gửi người mua (EN)</th>
+              <th className="table-th">Việc cần phối hợp với nhà cung cấp (VI)</th>
               <th className="table-th">Email</th>
             </tr>
           </thead>
@@ -394,7 +394,7 @@ EMAIL_FROM_NAME=Vexim Trade`}</pre>
                 <td className="table-td">
                   <StatusPill
                     ok={!s.silent}
-                    label={s.silent ? "không gửi" : s.wantsSupplier ? "buyer + NCC" : "buyer"}
+                    label={s.silent ? "không gửi" : s.wantsSupplier ? "người mua + nhà cung cấp" : "người mua"}
                     small
                   />
                 </td>

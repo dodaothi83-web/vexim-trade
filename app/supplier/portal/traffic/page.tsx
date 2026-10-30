@@ -41,7 +41,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
     <PageHeader
       eyebrow="Cổng nhà cung cấp · riêng tư"
       title="Lượt xem gian hàng"
-      sub="Theo dõi số lần buyer mở hồ sơ và trang chi tiết sản phẩm công khai của bạn."
+      sub="Theo dõi số lần người mua mở hồ sơ và trang chi tiết sản phẩm công khai của bạn."
       actions={live ? <Link href={`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`} target="_blank" rel="noopener noreferrer"
         className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-semibold text-brand-800 hover:border-brand-400">Xem hồ sơ công khai <ArrowUpRight className="size-4" /></Link> : undefined}
     />
@@ -52,7 +52,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
     </nav>
     {!report ? <div role="status" className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
       <h2 className="font-bold">Chưa có dữ liệu theo dõi</h2>
-      <p className="mt-2 text-sm leading-6">Báo cáo chưa kết nối được bảng thống kê: hệ thống cần cấu hình Supabase và áp dụng migration <code>20261017_supplier_traffic_daily.sql</code> trên đúng dự án. Không hiển thị số 0 khi chưa ghi nhận được dữ liệu.</p>
+      <p className="mt-2 text-sm leading-6">Báo cáo chưa kết nối được bảng thống kê. Kỹ thuật cần bật theo dõi trên đúng dự án. Chưa có dữ liệu thì không hiện số 0.</p>
     </div> : <>
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         {[
@@ -108,7 +108,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
     </>}
     <aside className="mt-6 flex items-start gap-3 rounded-xl border border-ink-200 bg-ink-50 p-5 text-sm leading-6 text-ink-600">
       <ShieldCheck className="mt-0.5 size-5 shrink-0 text-brand-700" aria-hidden="true" />
-      <p><strong className="text-ink-800">Cách tính minh bạch.</strong> Chỉ ghi nhận trang hồ sơ/sản phẩm công khai được mở bằng trình duyệt; bỏ qua phiên đã đăng nhập, demo và crawler thông dụng. Cùng trang trong một tab được giới hạn một lần mỗi 30 phút. Không lưu IP, danh tính người xem hay nguồn truy cập; số liệu có thể thiếu hoặc sai lệch do chặn JavaScript, ad blocker hoặc bot và không đại diện cho buyer duy nhất. Không bao gồm lượt xem trước ngày bật theo dõi.</p>
+      <p><strong className="text-ink-800">Cách tính minh bạch.</strong> Chỉ ghi nhận trang hồ sơ/sản phẩm công khai mở bằng trình duyệt; bỏ qua phiên đăng nhập, demo và crawler thông dụng.<br />Cùng trang trong một tab được tính một lần mỗi 30 phút. Không lưu IP, danh tính người xem hay nguồn truy cập.<br />Số liệu có thể thiếu do chặn JavaScript hoặc bot, và không đại diện cho người mua duy nhất.<br />Không bao gồm lượt xem trước ngày bật theo dõi.</p>
     </aside>
   </>;
 }

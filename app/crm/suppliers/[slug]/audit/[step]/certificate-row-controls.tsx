@@ -75,7 +75,7 @@ export function CertificateRowControls({
           title={
             staffHidden
               ? "Bỏ ẩn để chứng nhận hiển thị lại trên trang công khai"
-              : "Phanh an toàn: ẩn nhãn chứng nhận khỏi trang buyer"
+              : "Phanh an toàn: ẩn nhãn chứng nhận khỏi trang người mua"
           }
         >
           {busy === "hide" ? (

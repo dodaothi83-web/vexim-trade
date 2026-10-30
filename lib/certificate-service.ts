@@ -102,7 +102,7 @@ export function decideCertificatePublication(
   if (hasValidHolder && hasFutureExpiry && hasConfidence) {
     const holderText =
       scan.holder_match === "owner"
-        ? `Chính chủ (${scan.holder_name || "khớp tên NCC"})`
+        ? `Chính chủ (${scan.holder_name || "khớp tên nhà cung cấp"})`
         : `Đơn vị đối tác: ${scan.holder_name}`;
     return {
       autoPublish: true,

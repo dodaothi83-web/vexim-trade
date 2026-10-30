@@ -56,7 +56,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
       breadcrumbs={<Breadcrumbs items={[{ label: "Nhà cung cấp", href: "/crm/suppliers" }, { label: supplier.name, href: `/crm/suppliers/${supplierId}?tab=review#supplier-review` }, { label: title }]} />}
       title={title}
       sub={`${supplier.name} · ${description}`}
-      actions={<Link href={`/crm/suppliers/${supplierId}?tab=review#supplier-review`} className="btn btn-ghost"><ArrowLeft className="h-4 w-4" /> Xét duyệt NCC</Link>}
+      actions={<Link href={`/crm/suppliers/${supplierId}?tab=review#supplier-review`} className="btn btn-ghost"><ArrowLeft className="h-4 w-4" /> Xét duyệt nhà cung cấp</Link>}
     />
     <div className="max-w-6xl space-y-5">
       <nav aria-label="Các bước kiểm toán" className="grid gap-2 sm:grid-cols-3">
@@ -69,7 +69,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
       </nav>
       {step.level > 1 && submissions.length > 0 && (
         <Card className="border-teal-200 bg-teal-50/60 p-4">
-          <h2 className="text-sm font-bold text-ink-900">Hồ sơ bằng chứng NCC tự gửi cho bước này ({submissions.length})</h2>
+          <h2 className="text-sm font-bold text-ink-900">Hồ sơ bằng chứng nhà cung cấp tự gửi cho bước này ({submissions.length})</h2>
           <p className="mt-1 text-xs text-ink-600">{step.level === 2 ? "Xem phạm vi ghi trên từng hồ sơ; hồ sơ nhà máy và hồ sơ đối tác được giữ riêng." : "Nhân viên trực tiếp đối chiếu chứng từ xuất khẩu và vai trò của doanh nghiệp."} Nhận hồ sơ tạo đợt kiểm kèm bằng chứng, không tự cấp huy hiệu.</p>
           <ul className="mt-3 space-y-2 text-sm">{submissions.map((sub) => (
             <li key={sub.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2">
@@ -88,7 +88,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
           <Link className="text-brand-700 underline" href={auditHref(supplierId, 2, v.id)}>{isPartnerL2(v) ? "Hợp đồng nhà máy đối tác" : "Xác thực nhà máy"} · {v.status} · {v.created_at.slice(0, 10)}</Link>
         </li>)}</ul>
       </Card>}
-      {current && step.level === 2 && !l2ScopeMatchesSupplier(current, supplier.supplier_type) && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Loại hình hiện tại chưa rõ hoặc khác phạm vi của đợt này. Xác minh loại hình trước khi tiếp tục; không chuyển kết quả cũ.</p>}
+      {current && step.level === 2 && !l2ScopeMatchesSupplier(current, supplier.supplier_type) && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Loại hình chưa rõ hoặc khác phạm vi của đợt này. Xác minh loại hình trước khi tiếp tục; không chuyển kết quả cũ.</p>}
       {!current ? <Card className="flex flex-wrap items-center justify-between gap-4 p-6"><div><h2 className="font-bold text-ink-900">Chưa bắt đầu {title.toLowerCase()}</h2><p className="text-sm text-ink-500">Tạo đợt kiểm để ghi kết quả và thêm bằng chứng riêng cho bước này.</p></div>{canInspect && <StartVerificationButton supplierId={supplierId} level={step.level as VerificationLevel} />}</Card>
         : <>
           <Card className="flex flex-wrap items-center gap-3 p-4">

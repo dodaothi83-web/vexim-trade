@@ -20,7 +20,7 @@ export async function provisionSupplierAccountAction(form: FormData): Promise<Re
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
   if (!session || (session.role !== "admin" && session.role !== "reviewer")) {
-    return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được cấp tài khoản NCC." };
+    return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được cấp tài khoản nhà cung cấp." };
   }
   const id = String(form.get("supplier_id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Yêu cầu không hợp lệ." };
@@ -32,7 +32,7 @@ export async function provisionSupplierAccountAction(form: FormData): Promise<Re
   try {
     const store = getStore();
     if (store.mode !== "supabase") {
-      return { ok: false, message: "Chỉ cấp được tài khoản NCC khi hệ thống đang kết nối Supabase, vì tài khoản doanh nghiệp đăng nhập qua Supabase Auth." };
+      return { ok: false, message: "Chưa cấp được tài khoản khi hệ thống chưa kết nối dịch vụ đăng nhập. Báo người phụ trách kỹ thuật rồi thử lại." };
     }
     const { mode, user } = await provisionSupplierAccount(
       store,
@@ -72,7 +72,7 @@ export async function handOverSupplierAccountAction(form: FormData): Promise<Res
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
   if (!session || (session.role !== "admin" && session.role !== "reviewer")) {
-    return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được bàn giao tài khoản NCC." };
+    return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được bàn giao tài khoản nhà cung cấp." };
   }
   const id = String(form.get("supplier_id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Yêu cầu không hợp lệ." };

@@ -65,14 +65,14 @@ export const ROLES: {
     value: "admin",
     label: "Quản trị",
     description:
-      "Toàn quyền: buyer, NCC, sản phẩm, email, tài liệu nội bộ và quản lý tài khoản.",
+      "Toàn quyền: Người mua, nhà cung cấp, sản phẩm, email, tài liệu nội bộ và quản lý tài khoản.",
     badge: "bg-ink-900 text-white",
   },
   {
     value: "sale",
     label: "Kinh doanh",
     description:
-      "Buyer, prospect, pipeline, email và tài liệu chia sẻ buyer. Xem NCC/sản phẩm nhưng không sửa.",
+      "Người mua, prospect, pipeline, email và tài liệu chia sẻ người mua. Xem nhà cung cấp/sản phẩm nhưng không sửa.",
     badge: "bg-brand-600 text-white",
   },
   {
@@ -85,19 +85,19 @@ export const ROLES: {
   {
     value: "reviewer",
     label: "Trưởng kiểm duyệt",
-    description: "Kiểm và duyệt hồ sơ, giấy tờ và sản phẩm NCC; quyết định công khai. Không quản lý tài khoản nhân sự.",
+    description: "Kiểm và duyệt hồ sơ, giấy tờ và sản phẩm nhà cung cấp; quyết định công khai. Không quản lý tài khoản nhân sự.",
     badge: "bg-violet-700 text-white",
   },
   {
     value: "supplier",
     label: "Doanh nghiệp",
-    description: "Chỉ xem hồ sơ của mình và bổ sung giấy tờ bước đầu qua cổng NCC; không vào CRM.",
+    description: "Chỉ xem hồ sơ của mình và bổ sung giấy tờ bước đầu qua cổng nhà cung cấp; không vào CRM.",
     badge: "bg-sky-100 text-sky-800",
   },
   {
     value: "viewer",
     label: "Chỉ xem",
-    description: "Chỉ đọc dữ liệu và xem tài liệu chia sẻ buyer, không thao tác.",
+    description: "Chỉ đọc dữ liệu và xem tài liệu chia sẻ người mua, không thao tác.",
     badge: "bg-ink-200 text-ink-700",
   },
 ];

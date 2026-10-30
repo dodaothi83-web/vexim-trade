@@ -953,7 +953,7 @@ stored = await store.getSubmission(submission.id);
 assert.equal(stored.status, 'accepted');
 assert.equal(stored.verification_id, verification.id);
 assert.ok(auditRows.some((a) => a.action === 'staff.submission.accepted.l2'), 'Phải ghi audit log quyết định của nhân viên');
-assert.match(verification.internal_notes, /Hồ sơ NCC tự gửi/, 'Đợt kiểm phải ghi rõ nguồn bằng chứng là NCC tự gửi');
+assert.match(verification.internal_notes, /Hồ sơ nhà cung cấp tự gửi/, 'Đợt kiểm phải ghi rõ nguồn bằng chứng là NCC tự gửi');
 
 /* ------------------------------ 9. L3: chứng từ + link nguồn ------------------------------ */
 

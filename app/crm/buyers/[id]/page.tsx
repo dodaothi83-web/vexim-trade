@@ -119,7 +119,7 @@ export default async function BuyerDetailPage({
         <SummaryCell label="Trạng thái" value={<StageBadge stage={buyer.stage} />} />
         <SummaryCell label="Giá trị đơn" value={<span className="font-mono font-black tabular-nums">{formatMoney(buyer.deal_value)}</span>} sub={buyer.incoterm ?? undefined} />
         <SummaryCell label="Giao dự kiến" value={formatDate(buyer.expected_ship_date)} sub={buyer.port ? `Cảng: ${buyer.port}` : undefined} />
-        <SummaryCell label="NCC" value={buyer.supplier?.name ?? "Chưa gắn"} sub={buyer.supplier ? buyer.supplier.email ?? "thiếu email" : "chỉ gửi email cho buyer"} />
+        <SummaryCell label="Nhà cung cấp" value={buyer.supplier?.name ?? "Chưa gắn"} sub={buyer.supplier ? buyer.supplier.email ?? "thiếu email" : "chỉ gửi email cho người mua"} />
       </Card>
 
       <div className="grid gap-5 xl:grid-cols-3">
@@ -130,7 +130,7 @@ export default async function BuyerDetailPage({
               <h2 className="text-[15px] font-bold text-ink-900">Đơn hàng</h2>
               <Link href={`/crm/products?buyer=${buyer.id}`} className="btn btn-ghost">
                 <Search className="h-3.5 w-3.5" />
-                Tìm NCC phù hợp
+                Tìm nhà cung cấp phù hợp
               </Link>
             </div>
             <dl className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-3">
@@ -194,7 +194,7 @@ export default async function BuyerDetailPage({
                   className="btn btn-ghost ml-auto px-2.5 py-1 text-[12px]"
                 >
                   <Mail className="h-3.5 w-3.5" />
-                  Soạn email cho NCC
+                  Soạn email cho nhà cung cấp
                 </Link>
               )}
             </div>
@@ -303,7 +303,7 @@ export default async function BuyerDetailPage({
               <EmptyState
                 icon={<Mail className="h-5 w-5" />}
                 title="Chưa gửi email nào"
-                sub="Mỗi lần đổi trạng thái, hệ thống sẽ tự gửi email cập nhật tới buyer và NCC (nếu đã gắn)."
+                sub="Mỗi lần đổi trạng thái, hệ thống sẽ tự gửi email cập nhật tới người mua và nhà cung cấp (nếu đã gắn)."
               />
             ) : (
               <ul className="max-h-[380px] divide-y divide-ink-100 overflow-y-auto">
@@ -323,7 +323,7 @@ export default async function BuyerDetailPage({
                       >
                         {e.status === "sent" ? "đã gửi" : e.status === "failed" ? "lỗi" : "demo"}
                       </span>
-                      <span>{e.direction === "buyer" ? "→ buyer" : "→ NCC"}</span>
+                      <span>{e.direction === "buyer" ? "→ người mua" : "→ nhà cung cấp"}</span>
                       <span>· {relativeTime(e.created_at)}</span>
                     </p>
                   </li>

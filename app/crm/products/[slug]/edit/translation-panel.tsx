@@ -122,7 +122,7 @@ export function ProductTranslationPanel({ id, source, english, hasEnglish, curre
   const status = !hasEnglish
     ? supplierProduct
       ? "Chưa có bản dịch tiếng Anh. Bản dịch không chặn việc duyệt và đăng."
-      : "Chưa có bản dịch tiếng Anh. Sản phẩm chưa thể bật sẵn sàng gửi buyer."
+      : "Chưa có bản dịch tiếng Anh. Sản phẩm chưa thể bật sẵn sàng gửi người mua."
     : current
       ? `Đã có bản dịch ${origin === "ai" ? "do AI soạn" : "do nhân viên chốt"}${translatedAt ? `, cập nhật ${new Date(translatedAt).toLocaleString("vi-VN")}` : ""}.`
       : supplierProduct
@@ -132,10 +132,10 @@ export function ProductTranslationPanel({ id, source, english, hasEnglish, curre
   return <section id="product-translation" className="card scroll-mt-24 p-5" aria-label="Bản dịch tiếng Anh của sản phẩm">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 className="text-base font-bold text-ink-900">Bản dịch tiếng Anh (trang buyer)</h2>
+        <h2 className="text-base font-bold text-ink-900">Bản dịch tiếng Anh (trang người mua)</h2>
         <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-600">
           {supplierProduct
-            ? "AI dịch từ nội dung tiếng Việt để hỗ trợ kiểm tra. Nhân viên có thể đọc lại và dịch lại; bản dịch không chặn việc duyệt và đăng."
+            ? "AI dịch từ nội dung tiếng Việt để hỗ trợ kiểm tra. Bản dịch không chặn duyệt và đăng; nhân viên đọc lại được."
             : "AI dịch từ nội dung gốc tiếng Việt. Nhân viên cần đọc lại các thông số kỹ thuật trước khi công khai."}
         </p>
       </div>

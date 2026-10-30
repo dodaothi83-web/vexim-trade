@@ -88,8 +88,8 @@ export function buildRfqSupplierEmail(input: {
         <li>Xác nhận năng lực sản xuất / MOQ / thời gian giao hàng.</li>
         <li>Gửi chứng chỉ liên quan (SGS, HACCP, ISO, C/O...) nếu có.</li>
         ${rfq.wants_samples ? "<li>Nếu có thể gửi mẫu, vui lòng nêu rõ chi phí mẫu và cước vận chuyển.</li>" : ""}
-        ${rfq.wants_inspection ? "<li>Buyer có yêu cầu kiểm định trước giao hàng — vui lòng xác nhận có hỗ trợ.</li>" : ""}
-        ${rfq.wants_video_call ? "<li>Nếu được, sắp xếp một cuộc gọi video ngắn để buyer xem nhà xưởng.</li>" : ""}
+        ${rfq.wants_inspection ? "<li>Người mua có yêu cầu kiểm định trước giao hàng — vui lòng xác nhận có hỗ trợ.</li>" : ""}
+        ${rfq.wants_video_call ? "<li>Nếu được, sắp xếp một cuộc gọi video ngắn để người mua xem nhà xưởng.</li>" : ""}
       </ol>
     </div>
 
@@ -206,7 +206,7 @@ export async function dispatchRfqToSuppliers(input: {
   const rfq = await store.getRfq(input.rfqId);
   if (!rfq) throw new Error("RFQ not found");
   if (rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question") {
-    throw new Error("Đây là câu hỏi trực tiếp cho NCC, không dùng quy trình gửi yêu cầu báo giá.");
+    throw new Error("Đây là câu hỏi trực tiếp cho nhà cung cấp, không dùng quy trình gửi yêu cầu báo giá.");
   }
   const matches = await store.listRfqMatches(rfq.id);
   const supplierIds = new Set(matches.filter((m) => input.matchIds.includes(m.id)).map((m) => m.supplier_id));
@@ -247,7 +247,7 @@ export async function dispatchRfqToSuppliers(input: {
       },
     });
     if (!delivery.ok || delivery.status !== "sent") {
-      console.error(`[rfq] gửi NCC ${sup.id} thất bại: ${delivery.error || (delivery.status === "simulated" ? "email chỉ được mô phỏng" : "chưa được Resend nhận")}`);
+      console.error(`[rfq] gửi nhà cung cấp ${sup.id} thất bại: ${delivery.error || (delivery.status === "simulated" ? "email chỉ được mô phỏng" : "chưa được Resend nhận")}`);
       skipped += 1;
       continue;
     }
@@ -324,7 +324,7 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
     headers: { "X-RFQ-Code": rfq.code },
   });
   // A simulated message is not a delivered shortlist; never advance match/RFQ status on it.
-  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được shortlist buyer: ${delivery.error ?? "Resend chưa gửi thật"}`);
+  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được shortlist người mua: ${delivery.error ?? "Resend chưa gửi thật"}`);
 
   // Đánh dấu các match đã trình buyer
   for (const m of quoted) {
@@ -411,12 +411,12 @@ export async function notifySelectedSupplier(rfq: Rfq, match: RfqMatch, actorId:
       const sender = await requireRfqStaffSender(actorId);
       const subject = `[${rfq.code}] Vexim đã chọn hồ sơ của bạn`;
       const body = `<p>Vexim đã chọn hồ sơ chào giá cho yêu cầu <strong>${escapeHtml(rfq.code)}</strong>. Chúng tôi sẽ liên hệ để thống nhất bước tiếp theo.</p>
-        <p>Thông tin buyer chưa được chia sẻ trong email này. Vui lòng tiếp tục trao đổi qua Vexim.</p>
-        <p><a href="${SITE_URL}/supplier/portal/rfqs">Xem RFQ trong cổng NCC →</a></p>`;
+        <p>Thông tin người mua chưa được chia sẻ trong email này. Vui lòng tiếp tục trao đổi qua Vexim.</p>
+        <p><a href="${SITE_URL}/supplier/portal/rfqs">Xem RFQ trong cổng nhà cung cấp →</a></p>`;
       const delivery = await transport({ to: [supplier.email], from: sender.header,
         replyTo: supplierReplyAddress(rfq.code, match.id), subject,
         html: wrapPlainEmail({ title: escapeHtml(subject), body }),
-        text: `${subject}\nVexim sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin buyer.\n${SITE_URL}/supplier/portal/rfqs`,
+        text: `${subject}\nVexim sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin người mua.\n${SITE_URL}/supplier/portal/rfqs`,
         headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Match": match.id, "X-Vexim-Anonymous": "1" } });
       if (delivery.ok && delivery.status === "sent") email = "sent";
       else console.warn("[rfq] supplier selection email not sent; portal status saved", delivery.error ?? delivery.status);

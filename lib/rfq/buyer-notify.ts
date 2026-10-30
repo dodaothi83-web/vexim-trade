@@ -79,7 +79,7 @@ function buildBody(kind: NotifKind, rfq: Rfq, buyer: Buyer, chosenSupplier?: Sup
 
   return {
     subject: title,
-    html: wrapPlainEmail({ title, body, preheader: kind === "sampling" ? "Đã chọn NCC gửi mẫu — chúng tôi sẽ điều phối tiếp." : "Đơn hàng tạm dừng." }),
+    html: wrapPlainEmail({ title, body, preheader: kind === "sampling" ? "Đã chọn nhà cung cấp gửi mẫu — chúng tôi sẽ điều phối tiếp." : "Đơn hàng tạm dừng." }),
     text: htmlToText(body),
   };
 }
@@ -173,7 +173,7 @@ export async function notifyBuyerRfqStatus(
     text: email.text,
     headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Notify": kind },
   }).catch((err) => {
-    console.error(`[rfq-notify] gửi ${kind} cho buyer thất bại:`, err);
+    console.error(`[rfq-notify] gửi ${kind} cho người mua thất bại:`, err);
     return null;
   });
   await store.updateMessage(claim.id, {

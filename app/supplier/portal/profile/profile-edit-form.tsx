@@ -34,7 +34,7 @@ export function SupplierProfileEditForm({ supplier, email }: { supplier: Supplie
   return <form onSubmit={(event) => void submit(event)} className="space-y-5">
     <section className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6">
       <h2 className="text-base font-bold text-ink-900">Thông tin được Vexim quản lý</h2>
-      <p className="mt-1 text-sm leading-6 text-ink-600">Tên pháp nhân, mã số thuế, địa chỉ đăng ký và kết quả xác minh không thay đổi khi bạn lưu trang này. Liên hệ Vexim nếu cần cập nhật các thông tin đó.</p>
+      <p className="mt-1 text-sm leading-6 text-ink-600">Tên pháp nhân, mã số thuế, địa chỉ đăng ký và kết quả xác minh không đổi khi lưu. Liên hệ Vexim nếu cần cập nhật.</p>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <Readonly label="Tên pháp nhân" value={supplier.name} />
         <Readonly label="Mã số thuế" value={supplier.tax_id} />
@@ -47,7 +47,7 @@ export function SupplierProfileEditForm({ supplier, email }: { supplier: Supplie
 
     <section className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6">
       <h2 className="text-base font-bold text-ink-900">Thông tin liên hệ và hiển thị</h2>
-      <p className="mt-1 text-sm leading-6 text-ink-600">Cập nhật thông tin liên hệ, giới thiệu và nội dung thương mại của doanh nghiệp. AI sẽ hỗ trợ dịch nội dung hiển thị cho buyer sang tiếng Anh sau khi bạn lưu.</p>
+      <p className="mt-1 text-sm leading-6 text-ink-600">Cập nhật thông tin liên hệ, giới thiệu và nội dung thương mại. Sau khi lưu, AI dịch phần cho người mua sang tiếng Anh.</p>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <Field label="Tên thương mại" name="trade_name" maxLength={180} defaultValue={supplier.trade_name ?? ""} />
         <Field label="Tên hiển thị trên trang" name="display_name" maxLength={180} defaultValue={supplier.display_name ?? ""} />

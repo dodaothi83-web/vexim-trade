@@ -63,7 +63,7 @@ export function PipelineBoard({
           <EmptyState
             icon={<KanbanSquare className="h-5 w-5" />}
             title="Pipeline đang trống"
-            sub="Thêm buyer để thấy các thẻ xuất hiện theo từng cột trạng thái."
+            sub="Thêm người mua để thấy các thẻ xuất hiện theo từng cột trạng thái."
             action={
               canManage ? (
                 <Link href="/crm/buyers/new" className="btn btn-primary">
@@ -192,7 +192,7 @@ export function PipelineBoard({
                               {b.supplier.name}
                             </span>
                           ) : (
-                            <span className="text-[11px] text-amber-600">Chưa gắn NCC</span>
+                            <span className="text-[11px] text-amber-600">Chưa gắn nhà cung cấp</span>
                           )}
                         </div>
 

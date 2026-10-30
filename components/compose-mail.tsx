@@ -466,8 +466,8 @@ export function ComposeMail({
     setAiBusy(true);
     setAiNote(
       forceRescan
-        ? "AI đang mở lại website buyer và đọc ảnh sản phẩm (~30 giây)…"
-        : "AI đang đọc hồ sơ + website buyer (lần đầu mất ~30 giây vì phải tải trang và ảnh)…",
+        ? "AI đang mở lại website người mua và đọc ảnh sản phẩm (~30 giây)…"
+        : "AI đang đọc hồ sơ + website người mua (lần đầu mất ~30 giây vì phải tải trang và ảnh)…",
     );
     try {
       const res = await generateFirstTouchDraftAction({
@@ -678,7 +678,7 @@ export function ComposeMail({
               }}
               disabled={aiBusy}
               className="btn btn-ghost px-2.5 text-[12px]"
-              title="AI đọc hồ sơ buyer — tự phân tích công ty nếu hồ sơ chưa có — rồi viết bản nháp 80-120 từ"
+              title="AI đọc hồ sơ người mua — tự phân tích công ty nếu hồ sơ chưa có — rồi viết bản nháp 80-120 từ"
             >
               {aiTyping ? (
                 <CircleStop className="h-4 w-4" />
@@ -687,14 +687,14 @@ export function ComposeMail({
               ) : (
                 <Bot className="h-4 w-4" />
               )}
-              {aiBusy ? "AI đang đọc website buyer…" : aiTyping ? "Chèn nốt" : aiHasDraft ? "Viết lại" : "AI viết tiếp cận"}
+              {aiBusy ? "AI đang đọc website người mua…" : aiTyping ? "Chèn nốt" : aiHasDraft ? "Viết lại" : "AI viết tiếp cận"}
             </button>
             {aiHasDraft && !aiBusy && (
               <button
                 type="button"
                 onClick={() => void askAi(true)}
                 className="btn btn-ghost px-2 py-1 text-[11.5px] text-ink-500"
-                title="Bỏ bản đã lưu, mở lại website buyer và đọc lại ảnh sản phẩm"
+                title="Bỏ bản đã lưu, mở lại website người mua và đọc lại ảnh sản phẩm"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Quét lại website
@@ -706,7 +706,7 @@ export function ComposeMail({
               </span>
             )}
             <span className="text-[11px] text-ink-400" aria-live="polite">
-              {aiNote ?? "Thư theo mẫu cố định — AI chỉ điền sản phẩm đọc từ website + ảnh của buyer."}
+              {aiNote ?? "Thư theo mẫu cố định — AI chỉ điền sản phẩm đọc từ website + ảnh của người mua."}
             </span>
           </div>
         )}
@@ -813,7 +813,7 @@ export function ComposeMail({
             className="btn btn-ghost px-2.5"
             disabled={busy || productFiles.length === 0}
             onClick={() => setPickerOpen(true)}
-            title={productFiles.length ? "Đính kèm ảnh/catalogue từ hồ sơ sản phẩm" : "Chưa có sản phẩm nào chia sẻ tệp cho buyer"}
+            title={productFiles.length ? "Đính kèm ảnh/catalogue từ hồ sơ sản phẩm" : "Chưa có sản phẩm nào chia sẻ tệp cho người mua"}
           >
             <Package className="h-4 w-4" />
             Từ sản phẩm

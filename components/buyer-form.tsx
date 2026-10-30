@@ -83,7 +83,7 @@ export function BuyerForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!v("company").trim()) {
-      toast.push({ kind: "error", title: "Chưa nhập tên công ty / buyer." });
+      toast.push({ kind: "error", title: "Chưa nhập tên công ty / người mua." });
       return;
     }
     setBusy(true);
@@ -118,7 +118,7 @@ export function BuyerForm({
   return (
     <form onSubmit={submit} className="space-y-5">
       <Panel
-        title="1. Thông tin buyer"
+        title="1. Thông tin người mua"
         desc="Khách hàng nước ngoài. Email là bắt buộc để hệ thống gửi cập nhật tiến độ."
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -209,7 +209,7 @@ export function BuyerForm({
         </div>
       </Panel>
 
-      <Panel title="2. Đơn hàng" desc="Thông tin dùng trong nội dung email gửi buyer & NCC.">
+      <Panel title="2. Đơn hàng" desc="Thông tin dùng trong nội dung email gửi người mua & nhà cung cấp.">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Mặt hàng" className="sm:col-span-2">
             <input
@@ -314,12 +314,12 @@ export function BuyerForm({
 
       <Panel
         title="3. Nhà cung cấp"
-        desc="Có thể để trống — giai đoạn hỏi hàng / báo giá thường chưa chốt NCC."
+        desc="Có thể để trống — giai đoạn hỏi hàng / báo giá thường chưa chốt nhà cung cấp."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             label="Nhà cung cấp phụ trách đơn"
-            hint="Chưa chọn thì email chỉ gửi tới buyer."
+            hint="Chưa chọn thì email chỉ gửi tới người mua."
           >
             <select
               className="input"
@@ -360,10 +360,10 @@ export function BuyerForm({
           <span>
             <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-800">
               <ShieldCheck className="h-4 w-4 text-brand-600" />
-              Ẩn danh buyer khi email cho NCC
+              Ẩn danh người mua khi email cho nhà cung cấp
             </span>
             <span className="mt-0.5 block text-[11px] leading-relaxed text-ink-500">
-              Email gửi NCC sẽ chỉ nêu thị trường (quốc gia) + sản lượng, không nêu tên buyer.
+              Email gửi nhà cung cấp sẽ chỉ nêu thị trường (quốc gia) + sản lượng, không nêu tên buyer.
               Bỏ tích nếu buyer cho phép công khai.
             </span>
           </span>
@@ -472,7 +472,7 @@ export function BuyerForm({
           )}
           <Button type="submit" variant="primary" disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {buyer ? "Lưu thay đổi" : "Tạo buyer"}
+            {buyer ? "Lưu thay đổi" : "Tạo người mua"}
           </Button>
         </div>
       </div>

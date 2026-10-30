@@ -76,7 +76,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const { data, error } = await db.rpc("create_supplier_product_media_guarded", {
         p_product_id: id, p_supplier_id: access.supplier.id, p_user_id: access.user.id, p_asset: asset,
       });
-      if (error) throw new Error(`Không lưu được ảnh. Kiểm tra migration giới hạn ảnh: ${error.message}`);
+      if (error) throw new Error(`Không lưu được ảnh. Báo người phụ trách kỹ thuật rồi thử lại.`);
       if (data?.status !== "created" || !data.asset) {
         await Promise.all([path, thumbPath].filter((p): p is string => !!p).map((p) => deleteObject(p).catch(() => null)));
         return fail(data?.status === "image_limit" ? "Tối đa 8 ảnh trên mỗi sản phẩm." : "Trạng thái sản phẩm đã thay đổi.", 409);
@@ -97,8 +97,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
     return NextResponse.json({ ok: true, message: row.audience === "buyer"
-      ? "Đã tải tệp lên sản phẩm đang hiển thị với buyer."
-      : "Đã tải tệp nội bộ để kiểm tra; chưa chia sẻ cho buyer.",
+      ? "Đã tải tệp lên sản phẩm đang hiển thị với người mua."
+      : "Đã tải tệp nội bộ để kiểm tra; chưa chia sẻ cho người mua.",
       ...(row.kind === "image" ? { image: { id: row.id, url: privateMediaUrl(row) } } : {}),
     });
   } catch (error) {
@@ -169,7 +169,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const deleted = await access.store.deleteSupplierProductMedia(id, access.supplier.id, access.user.id, mediaId);
     if (deleted.status !== "deleted") {
       if (deleted.status === "forbidden") return fail("Không có quyền xóa tệp này.", 403);
-      if (deleted.status === "last_file") return fail("Đây là tệp buyer cuối cùng. Hãy tải tệp thay thế trước khi xóa để sản phẩm vẫn hiển thị trên sàn.", 409);
+      if (deleted.status === "last_file") return fail("Đây là tệp người mua cuối cùng. Hãy tải tệp thay thế trước khi xóa để sản phẩm vẫn hiển thị trên sàn.", 409);
       if (deleted.status === "has_links") return fail("Tệp đang được dữ liệu khác sử dụng. Vui lòng liên hệ bộ phận hỗ trợ để xử lý.", 409);
       return fail("Trạng thái sản phẩm đã thay đổi.", 409);
     }

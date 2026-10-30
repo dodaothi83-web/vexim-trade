@@ -108,7 +108,7 @@ export function TemplateEditor({
       </label>
       {dir === "buyer" ? (
         <label className="block">
-          <span className="label">Bước kế tiếp / điều cần ở buyer (khối action)</span>
+          <span className="label">Bước kế tiếp / điều cần ở người mua (khối action)</span>
           <textarea
             className="input min-h-[64px] font-mono text-[12.5px] leading-relaxed"
             value={action}

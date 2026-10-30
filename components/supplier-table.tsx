@@ -154,7 +154,7 @@ export function SupplierTable({
                           </Badge>
                           {s.onboarding_status === "pending" && <Badge className="mt-1 bg-amber-50 text-amber-800">Chờ xác nhận tài khoản</Badge>}
                           {s.onboarding_status === "changes_requested" && <Badge className="mt-1 bg-orange-50 text-orange-800">Cần bổ sung hồ sơ</Badge>}
-                          {s.onboarding_status === "approved" && <Badge className="mt-1 bg-emerald-50 text-emerald-800">Đã mở cổng NCC</Badge>}
+                          {s.onboarding_status === "approved" && <Badge className="mt-1 bg-emerald-50 text-emerald-800">Đã mở cổng nhà cung cấp</Badge>}
                         </div>
                       </div>
                     </td>

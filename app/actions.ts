@@ -163,7 +163,7 @@ async function denyIfNotOwnedBuyer(buyerId: string): Promise<ActionResult | null
   if (scope === null) return null;
   const buyer = await getStore().getBuyer(buyerId);
   if (!buyer || !isOwnedBy(buyer.owner, scope)) {
-    return { ok: false, message: "Bạn không phụ trách buyer này." };
+    return { ok: false, message: "Bạn không phụ trách người mua này." };
   }
   return null;
 }
@@ -177,10 +177,10 @@ export async function createBuyerAction(
   const actor = await getSession();
   if (ownerScopeOf(actor) !== null) input.owner = actor?.name?.trim() || null;
   if (!input.company || input.company === "Khách chưa đặt tên") {
-    return { ok: false, message: "Vui lòng nhập tên công ty / buyer." };
+    return { ok: false, message: "Vui lòng nhập tên công ty / người mua." };
   }
   if (input.email && !EMAIL_RE.test(input.email)) {
-    return { ok: false, message: "Email buyer không hợp lệ." };
+    return { ok: false, message: "Email người mua không hợp lệ." };
   }
   const store = getStore();
   try {
@@ -196,7 +196,7 @@ export async function createBuyerAction(
     revalidateAll();
     return {
       ok: true,
-      message: `Đã thêm buyer "${created.company}" vào pipeline.`,
+      message: `Đã thêm người mua "${created.company}" vào pipeline.`,
       id: created.id,
     };
   } catch (err) {
@@ -218,7 +218,7 @@ export async function updateBuyerAction(
 
   const patch = parseBuyerInput(raw);
   if (patch.email && !EMAIL_RE.test(patch.email)) {
-    return { ok: false, message: "Email buyer không hợp lệ." };
+    return { ok: false, message: "Email người mua không hợp lệ." };
   }
   // Nhân viên sale không tự chuyển buyer sang người khác; chỉ quản trị viên đổi phụ trách
   if (ownerScopeOf(await getSession()) !== null) patch.owner = before.owner;
@@ -239,7 +239,7 @@ export async function updateBuyerAction(
       });
     }
     revalidateAll();
-    return { ok: true, message: "Đã lưu thông tin buyer." };
+    return { ok: true, message: "Đã lưu thông tin người mua." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -253,7 +253,7 @@ export async function deleteBuyerAction(id: string): Promise<ActionResult> {
   try {
     await getStore().deleteBuyer(id);
     revalidateAll();
-    return { ok: true, message: "Đã xoá buyer." };
+    return { ok: true, message: "Đã xoá người mua." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -389,7 +389,7 @@ export async function importProspectsAction(rawRows: Partial<ProspectInput>[], l
     }
     const buyerMatch = (emailKey && buyerEmails.get(emailKey)) || (linkKey && buyerLinks.get(linkKey));
     if (buyerMatch) {
-      matchedBuyers.push(`${input.contact_name || input.company} → Buyer hiện có: ${buyerMatch}`);
+      matchedBuyers.push(`${input.contact_name || input.company} → Người mua hiện có: ${buyerMatch}`);
       skipped += 1;
       continue;
     }
@@ -447,11 +447,11 @@ export async function updateProspectAction(id: string, patch: Partial<ProspectIn
   if (denied) return denied;
   const allowedStatus = patch.status === undefined || PROSPECT_STATUSES.includes(patch.status as (typeof PROSPECT_STATUSES)[number]);
   if (!allowedStatus) return { ok: false, message: "Trạng thái tiếp cận không hợp lệ." };
-  if (patch.status === "converted") return { ok: false, message: "Dùng thao tác đưa vào pipeline để liên kết Buyer và giữ lịch sử." };
+  if (patch.status === "converted") return { ok: false, message: "Dùng thao tác đưa vào pipeline để liên kết người mua và giữ lịch sử." };
   if (patch.status !== undefined) {
     const current = await getStore().getProspect(id);
     if (!current) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận." };
-    if (current.status === "converted") return { ok: false, message: "Đầu mối này đã được liên kết với Buyer, không thể mở lại trạng thái tiếp cận." };
+    if (current.status === "converted") return { ok: false, message: "Đầu mối này đã được liên kết với người mua, không thể mở lại trạng thái tiếp cận." };
   }
   try {
     const safePatch: Partial<ProspectInput> = {};
@@ -504,10 +504,10 @@ export async function linkProspectToBuyerAction(prospectId: string, buyerId: str
   if (denied) return denied;
   const store = getStore();
   const [prospect, buyer] = await Promise.all([store.getProspect(prospectId), store.getBuyer(buyerId)]);
-  if (!prospect || !buyer) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận hoặc Buyer." };
-  if (!prospect.email?.trim()) return { ok: false, message: "Đầu mối cần có email mới được liên kết với Buyer." };
+  if (!prospect || !buyer) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận hoặc người mua." };
+  if (!prospect.email?.trim()) return { ok: false, message: "Đầu mối cần có email mới được liên kết với người mua." };
   if (prospect.status !== "qualified") {
-    return { ok: false, message: "Chỉ liên kết với Buyer khi đầu mối đã được xác nhận có nhu cầu sourcing thực tế." };
+    return { ok: false, message: "Chỉ liên kết với người mua khi đầu mối đã được xác nhận có nhu cầu sourcing thực tế." };
   }
   try {
     await store.updateProspect(prospectId, { status: "converted", converted_buyer_id: buyerId });
@@ -515,13 +515,13 @@ export async function linkProspectToBuyerAction(prospectId: string, buyerId: str
     await store.addProspectActivity({
       prospect_id: prospectId,
       channel: "note",
-      summary: `Đã liên kết với Buyer hiện có: ${buyer.company}.`,
+      summary: `Đã liên kết với người mua hiện có: ${buyer.company}.`,
       created_by: session?.email ?? null,
     });
     revalidateAll();
-    return { ok: true, message: `Đã liên kết với Buyer ${buyer.company}.` };
+    return { ok: true, message: `Đã liên kết với người mua ${buyer.company}.` };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Không liên kết được Buyer." };
+    return { ok: false, message: err instanceof Error ? err.message : "Không liên kết được người mua." };
   }
 }
 
@@ -533,9 +533,9 @@ export async function convertProspectAction(prospectId: string): Promise<ActionR
   const store = getStore();
   const prospect = await store.getProspect(prospectId);
   if (!prospect) return { ok: false, message: "Không tìm thấy đầu mối tiếp cận." };
-  if (!prospect.email?.trim()) return { ok: false, message: "Đầu mối cần có email trước khi vào pipeline Buyer." };
+  if (!prospect.email?.trim()) return { ok: false, message: "Đầu mối cần có email trước khi vào pipeline người mua." };
   if (prospect.status !== "qualified") {
-    return { ok: false, message: "Chỉ đưa vào pipeline Buyer khi đã xác nhận nhu cầu sourcing thực tế." };
+    return { ok: false, message: "Chỉ đưa vào pipeline người mua khi đã xác nhận nhu cầu sourcing thực tế." };
   }
   const buyers = await store.listBuyers();
   const emailKey = normalizeMatch(prospect.email);
@@ -584,18 +584,18 @@ export async function convertProspectAction(prospectId: string): Promise<ActionR
     await store.addProspectActivity({
       prospect_id: prospect.id,
       channel: "note",
-      summary: match ? `Đã ghép với Buyer hiện có: ${match.company}.` : `Đã chuyển thành Buyer mới: ${prospect.company}.`,
+      summary: match ? `Đã ghép với người mua hiện có: ${match.company}.` : `Đã chuyển thành Người mua mới: ${prospect.company}.`,
       created_by: (await getSession())?.email ?? null,
     });
     revalidateAll();
     return {
       ok: true,
-      message: match ? `Đã liên kết đầu mối với Buyer hiện có ${match.company}.` : "Đã đưa đầu mối vào pipeline Buyer.",
+      message: match ? `Đã liên kết đầu mối với người mua hiện có ${match.company}.` : "Đã đưa đầu mối vào pipeline người mua.",
       buyerId,
       matched: Boolean(match),
     };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Không thể đưa đầu mối vào pipeline Buyer." };
+    return { ok: false, message: err instanceof Error ? err.message : "Không thể đưa đầu mối vào pipeline người mua." };
   }
 }
 
@@ -709,7 +709,7 @@ export async function generateProspectCompanyIntroductionAction(
     console.error("[company-introduction] không phân tích được:", err);
     const detail = err instanceof Error ? err.message : "";
     if (/ai_company_(summary|sources|analyzed_at)/i.test(detail) && /column|schema cache|does not exist/i.test(detail)) {
-      return { ok: false, message: "Chưa cập nhật cấu trúc dữ liệu. Hãy chạy migration 20261008_prospect_company_ai.sql trong Supabase." };
+      return { ok: false, message: "Chưa lưu được thông tin công ty. Báo người phụ trách kỹ thuật rồi thử lại." };
     }
     return { ok: false, message: detail || "Không phân tích được công ty lúc này." };
   }
@@ -717,7 +717,7 @@ export async function generateProspectCompanyIntroductionAction(
 
 /* ---------------- AI: VIẾT EMAIL TIẾP CẬN ĐẦU TIÊN ---------------- */
 
-/** Thư theo mẫu cố định — AI chỉ được điền ô "sản phẩm + dạng hàng của buyer", không viết văn */
+/** Thư theo mẫu cố định — AI chỉ được điền ô "sản phẩm + dạng hàng của người mua", không viết văn */
 type CompanyScan = Pick<CompanyProducts, "products" | "group" | "form" | "evidence" | "note" | "imagesSeen">;
 
 const BLANK_SCAN: CompanyScan = { products: [], group: null, form: "unknown", evidence: null, note: null, imagesSeen: 0 };
@@ -942,7 +942,7 @@ export async function generateFirstTouchDraftAction(input: {
   if (!holder) {
     return {
       ok: false,
-      message: "Chưa tìm thấy hồ sơ buyer cho địa chỉ này. Chọn buyer/đầu mối từ danh sách để AI viết đúng.",
+      message: "Chưa tìm thấy hồ sơ người mua cho địa chỉ này. Chọn người mua/đầu mối từ danh sách để AI viết đúng.",
     };
   }
   const company = str(holder.company) ?? "";
@@ -1026,7 +1026,7 @@ export async function generateFirstTouchDraftAction(input: {
       : scan.note;
   const basis =
     mode === "demand"
-      ? "Thư nhắc lại đúng nhu cầu buyer để lại trong hồ sơ (mẫu cố định)"
+      ? "Thư nhắc lại đúng nhu cầu người mua để lại trong hồ sơ (mẫu cố định)"
       : productsText
         ? `Thư chào theo mẫu cố định, có ${scan.products.length} sản phẩm đọc từ website của họ`
         : "Thư chào theo mẫu cố định — chưa đọc được sản phẩm nào từ website của họ";
@@ -1133,10 +1133,10 @@ export async function changeStageAction(
             type: "email",
             message: `Gửi email cập nhật "${getStage(stage).label}" → ${
               result.buyerSent && result.supplierSent
-                ? "buyer + NCC"
+                ? "người mua + nhà cung cấp"
                 : result.buyerSent
                   ? "buyer"
-                  : "NCC"
+                  : "nhà cung cấp"
             }`,
             created_by: updated.owner,
           })
@@ -1186,21 +1186,21 @@ export async function attachSupplierAction(
       const assigned = await sendSupplierAssigned(buyer, sup);
       if (assigned.ok) {
         details.push(
-          `${assigned.status === "simulated" ? "[DEMO] Đã tạo" : "Đã gửi"} email thông báo kết nối → NCC ${sup.email}`,
+          `${assigned.status === "simulated" ? "[DEMO] Đã tạo" : "Đã gửi"} email thông báo kết nối → nhà cung cấp ${sup.email}`,
         );
       } else {
-        details.push(`Không gửi được email kết nối cho NCC: ${assigned.error}`);
+        details.push(`Không gửi được email kết nối cho nhà cung cấp: ${assigned.error}`);
       }
     } else {
-      details.push("Đã gỡ NCC — các email tiến độ từ giờ chỉ gửi tới buyer.");
+      details.push("Đã gỡ nhà cung cấp — các email tiến độ từ giờ chỉ gửi tới người mua.");
     }
 
     revalidateAll();
     return {
       ok: true,
       message: sup
-        ? `Đã gắn NCC "${sup.name}" và thông báo kết nối cho NCC.`
-        : "Đã gỡ NCC khỏi đơn.",
+        ? `Đã gắn nhà cung cấp "${sup.name}" và thông báo kết nối cho nhà cung cấp.`
+        : "Đã gỡ nhà cung cấp khỏi đơn.",
       details,
     };
   } catch (err) {
@@ -1285,7 +1285,7 @@ async function syncSupplierIndustries(supplierId: string): Promise<string | null
     const [supplier, products, categories] = await Promise.all([
       store.getSupplier(supplierId), store.listProductsBySupplier(supplierId), store.listCategories({ publishedOnly: false }),
     ]);
-    if (!supplier) return "Không tìm thấy NCC để đồng bộ ngành.";
+    if (!supplier) return "Không tìm thấy nhà cung cấp để đồng bộ ngành.";
     if (supplier.categories_reviewed_at) return null; // Staff's explicit decision wins over keyword inference.
     const assignment = assignSupplierCategories(supplier.products, products, categories);
     // No evidence of an industry yet: do not erase a previously linked category or
@@ -1295,7 +1295,7 @@ async function syncSupplierIndustries(supplierId: string): Promise<string | null
     return null;
   } catch (error) {
     console.error("[supplier-industries] sync failed", error instanceof Error ? error.name : "unknown");
-    return "Đã lưu hồ sơ nhưng chưa đồng bộ được ngành NCC; kiểm tra bảng supplier_categories rồi thử lưu lại.";
+    return "Đã lưu hồ sơ nhưng chưa đồng bộ được ngành nhà cung cấp; kiểm tra bảng supplier_categories rồi thử lưu lại.";
   }
 }
 
@@ -1353,7 +1353,7 @@ export async function updateSupplierAction(
     // trong cùng hồ sơ: tạo hồ sơ mới thay vì chuyển kết quả giữa doanh nghiệp.
     if (existing.tax_id && existing.tax_id !== input.tax_id) {
       const [reviews, submissions] = await Promise.all([store.listVerifications(id), store.listSubmissions(id)]);
-      if (reviews.length || submissions.length) return { ok: false, message: "Hồ sơ đã có lịch sử xác minh. Không thể thay mã số thuế trên hồ sơ này; hãy tạo hồ sơ riêng cho pháp nhân khác và giữ lịch sử cũ." };
+      if (reviews.length || submissions.length) return { ok: false, message: "Hồ sơ đã có lịch sử xác minh nên không đổi được mã số thuế. Tạo hồ sơ mới cho pháp nhân khác và giữ hồ sơ cũ." };
     }
     // Không tự cấp lại quyền công khai giá khi chỉ sửa hồ sơ. Chỉ một lần xác nhận
     // mới (bật từ trạng thái tắt, hoặc checkbox được chọn lại) gia hạn thêm 180 ngày.
@@ -1509,7 +1509,7 @@ async function autoAssignProduct(input: SupplierProductInput, requestedSlug?: st
     store.listCategories({ publishedOnly: false }), store.getSupplier(input.supplier_id),
     store.listSupplierCategories(input.supplier_id).catch(() => []),
   ]);
-  if (!supplier) throw new Error("Không tìm thấy NCC của sản phẩm.");
+  if (!supplier) throw new Error("Không tìm thấy nhà cung cấp của sản phẩm.");
   const linked = links.map((link) => categories.find((c) => c.id === link.category_id)?.slug).filter((slug): slug is string => !!slug);
   const fallback = linked.length ? linked : assignSupplierCategories(supplier.products, [], categories).slugs;
   const inferred = assignProductCategory(input, categories, fallback);
@@ -1576,7 +1576,7 @@ export async function createProductAction(
     const created = await getStore().createProduct(input);
     const warning = await syncSupplierIndustries(created.supplier_id);
     revalidateAll();
-    return { ok: true, message: `Đã thêm sản phẩm “${created.name}”. ${assigned ? `Hệ thống gán ngành ${assigned.name_i18n.en || assigned.slug}.` : "Chưa nhận diện được ngành; sản phẩm vẫn là bản nháp."} Tải ảnh/catalogue chia sẻ buyer vào hồ sơ sản phẩm rồi bật “Sẵn sàng gửi buyer” nếu muốn hiển thị công khai.${warning ? ` ${warning}` : ""}`, id: created.id };
+    return { ok: true, message: `Đã thêm sản phẩm “${created.name}”. ${assigned ? `Hệ thống gán ngành ${assigned.name_i18n.en || assigned.slug}.` : "Chưa nhận diện được ngành; sản phẩm vẫn là bản nháp."} Tải ảnh/catalogue chia sẻ người mua vào hồ sơ sản phẩm rồi bật “Sẵn sàng gửi người mua” nếu muốn hiển thị công khai.${warning ? ` ${warning}` : ""}`, id: created.id };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
@@ -1657,7 +1657,7 @@ export async function updateProductAction(
 
     // Supplier-authored products cannot use the legacy keyword fallback to turn buyer-ready on.
     if (input.ready_for_buyer && supplierProduct && !input.reviewed_category_slug &&
-        !existing.reviewed_category_slug) return { ok: false, message: "Vexim cần chốt danh mục sản phẩm trước khi bật sẵn sàng gửi buyer." };
+        !existing.reviewed_category_slug) return { ok: false, message: "Vexim cần chốt danh mục sản phẩm trước khi bật sẵn sàng gửi người mua." };
     let translationWarning = "";
     // Only buyer-shareable media can make a classified CRM-created product ready.
     // Supplier readiness is changed only by Duyệt và đăng, not this form.
@@ -1668,7 +1668,7 @@ export async function updateProductAction(
           return { ok: false, message: "Danh mục đã chốt không còn xuất bản; Vexim cần chọn lại." };
       }
       const readiness = productReadiness(await store.listMedia("product", id));
-      if (!readiness.ready) return { ok: false, message: `Chưa thể đánh dấu “Sẵn sàng gửi buyer”: ${readiness.message}` };
+      if (!readiness.ready) return { ok: false, message: `Chưa thể đánh dấu “Sẵn sàng gửi người mua”: ${readiness.message}` };
       // Trang buyer chỉ hiển thị bản tiếng Anh: chưa có bản dịch thì AI dịch ngay tại bước này;
       // không dịch được và cũng chưa có bản dịch nào thì không cho công khai để tránh lộ nội dung tiếng Việt.
       const merged = { ...existing, ...input };
@@ -1677,7 +1677,7 @@ export async function updateProductAction(
         const translation = await ensureProductEnglishTranslation(store, id, null, merged);
         if (translation.status === "failed" || translation.status === "unconfigured") {
           if (!merged.name_i18n?.en?.trim())
-            return { ok: false, message: "Chưa thể đánh dấu “Sẵn sàng gửi buyer”: sản phẩm chưa có bản dịch tiếng Anh và AI chưa dịch được. Hãy mở mục Bản dịch tiếng Anh trong trang sửa sản phẩm để dịch lại hoặc nhập tay." };
+            return { ok: false, message: "Chưa thể đánh dấu “Sẵn sàng gửi người mua” vì thiếu bản dịch tiếng Anh. Mở mục Bản dịch để dịch lại hoặc nhập tay." };
           translationWarning = " Lưu ý: chưa dịch lại được bản tiếng Anh theo nội dung mới nhất; bản dịch hiện tại có thể đã cũ.";
         }
       }
@@ -1691,7 +1691,7 @@ export async function updateProductAction(
       ? identityChanged && !supplierProduct
         ? "Nội dung sản phẩm đã đổi; cần Vexim chốt lại danh mục trước khi công khai."
         : "Danh mục Vexim đã chốt được giữ nguyên."
-      : assigned ? `Hệ thống phân loại ${assigned.name_i18n.en || assigned.slug}; không tự công khai.` : "Chưa nhận diện được ngành; đã tắt sẵn sàng gửi buyer.";
+      : assigned ? `Hệ thống phân loại ${assigned.name_i18n.en || assigned.slug}; không tự công khai.` : "Chưa nhận diện được ngành; đã tắt sẵn sàng gửi người mua.";
     return { ok: true, message: `Đã lưu hồ sơ sản phẩm. ${categoryNotice}${translationWarning}${warning ? ` ${warning}` : ""}` };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
@@ -2574,8 +2574,8 @@ export async function submitQuoteLeadAction(input: {
       const recipients = await notifyRecipients("", existing?.owner ?? null, Boolean(existing));
       if (recipients.length) {
         const title = existing
-          ? `Yêu cầu sourcing mới từ buyer đã có: ${existing.company}`
-          : `Buyer mới từ website: ${input.company.trim()}`;
+          ? `Yêu cầu sourcing mới từ người mua đã có: ${existing.company}`
+          : `Người mua mới từ website: ${input.company.trim()}`;
         const body =
           `<p><strong>${escapeHtml(title)}</strong></p>` +
           `<p>Người gửi: ${escapeHtml(input.name.trim() || "—")} &lt;${escapeHtml(email)}&gt;<br/>` +
@@ -2585,7 +2585,7 @@ export async function submitQuoteLeadAction(input: {
           `${campaign ? `<br/>Campaign: ${escapeHtml(campaign)}` : ""}</p>` +
           `<p>${requestLines.map((l) => escapeHtml(l)).join("<br/>")}</p>` +
           `<p>${escapeHtml(input.message.trim()).replace(/\n/g, "<br/>")}</p>` +
-          `<p>Vào CRM &rarr; Buyer để xử lý.</p>`;
+          `<p>Vào CRM &rarr; Người mua để xử lý.</p>`;
         await transport({
           to: recipients,
           subject: title,
@@ -2829,7 +2829,7 @@ export async function deleteCategoryAction(id: string) {
     return {
       ok: false,
       message:
-        "Không thể xoá vì đã có hồ sơ NCC/sản phẩm hoặc RFQ liên quan. Hãy chuyển trạng thái sang Nháp để ẩn khỏi trang công khai, thay vì xoá.",
+        "Không xoá được vì đã có hồ sơ hoặc RFQ liên quan. Chuyển sang Nháp để ẩn khỏi trang công khai thay vì xoá.",
     };
   }
   try {

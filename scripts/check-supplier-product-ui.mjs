@@ -141,7 +141,7 @@ assert.ok(pendingReviewHtml.includes('Duyệt và đăng') && pendingReviewHtml.
 const blockedMediaHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, {
   ...reviewProps, mediaReview: { verifiedBuyerImages: 0, uncheckedBuyerFiles: 1, ready: false },
 }));
-assert.ok(blockedMediaHtml.includes('Cần ít nhất một ảnh ở trạng thái Đã kiểm tra và Chia sẻ buyer'),
+assert.ok(blockedMediaHtml.includes('Cần ít nhất một ảnh đã kiểm tra và được chia sẻ cho người mua'),
   'The button explains the exact media settings required');
 assert.ok(blockedMediaHtml.includes('href="#product-media"'), 'The blocker opens the existing media workspace');
 assert.match(blockedMediaHtml, /<button disabled="" class="btn btn-primary">Duyệt và đăng<\/button>/,

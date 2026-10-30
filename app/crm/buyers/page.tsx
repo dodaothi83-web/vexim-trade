@@ -35,7 +35,7 @@ export default async function BuyersPage({
     <>
       <PageHeader
         title="Buyer"
-        sub={`${buyers.length} khách hàng · đổi trạng thái ngay trên dòng để gửi email cập nhật cho buyer và nhà cung cấp`}
+        sub={`${buyers.length} khách hàng · đổi trạng thái ngay trên dòng để gửi email cập nhật cho người mua và nhà cung cấp`}
         actions={
           <>
             <Link href="/crm/pipeline" className="btn btn-ghost">
