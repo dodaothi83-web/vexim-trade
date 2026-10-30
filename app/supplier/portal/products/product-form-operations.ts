@@ -2,28 +2,32 @@
 
 import { createProductFormDraftAction, saveProductFormDraftAction } from "@/app/supplier/portal/product-form-draft-actions";
 import { setProductFormImagesAction } from "@/app/supplier/portal/product-form-image-actions";
+import { uploadProductFormImageAction } from "@/app/supplier/portal/product-form-upload-action";
+import { snapshotProductFormImagesAction } from "@/app/supplier/portal/product-form-snapshot-action";
+import { productFormSubmitAvailabilityAction, submitProductFormDraftAction } from "@/app/supplier/portal/product-form-submit-action";
 import type { ProductFormSessionOperations } from "@/lib/products/product-form-session";
 
 /**
- * Adapter for the private supplier form. The form is not connected to a route
- * yet: an image write for an already-approved listing needs a private revision
- * flow before this adapter can safely be enabled for that case.
+ * Adapter for the private supplier form, still disconnected from routes until
+ * review, buyer cutover and synthetic staging are complete. Uploads use only the
+ * private action, which checks schema readiness before writing any bytes.
  */
 export function supplierProductFormOperations(): ProductFormSessionOperations {
   return {
     newRequestId: () => crypto.randomUUID(),
     create: createProductFormDraftAction,
     save: saveProductFormDraftAction,
-    // The old submit RPC enumerates media_assets rather than a private image
-    // selection. Keep it inaccessible from this editor until the new snapshot
-    // and approval transaction are both complete.
-    async submit() { return { ok: false, message: "Chức năng gửi duyệt cho form mới chưa sẵn sàng." }; },
+    // Check the project boundary before the session persists or snapshots any
+    // images. The submit action repeats the check after all asynchronous work.
+    prepareSubmit: productFormSubmitAvailabilityAction,
+    submit: submitProductFormDraftAction,
+    snapshotImages: snapshotProductFormImagesAction,
     setImages: setProductFormImagesAction,
-    // Never fall back to the old media endpoint: it publishes uploads on an
-    // approved product immediately. Wire a private staged uploader only after
-    // submission and review both use the immutable image selection.
-    async upload() {
-      return { ok: false, message: "Chức năng tải ảnh cho form mới chưa sẵn sàng." };
+    // Never call the legacy media endpoint, which publishes immediately.
+    async upload(id, revision, file) {
+      const data = new FormData();
+      data.set("product_id", id); data.set("revision", String(revision)); data.set("file", file);
+      return uploadProductFormImageAction(data);
     },
   };
 }

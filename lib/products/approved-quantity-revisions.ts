@@ -2,7 +2,7 @@ import "server-only";
 import { getSupabaseClient } from "@/lib/db/supabase";
 import type { NameRevision, PriceRevision } from "@/lib/products/quantity-public-projection";
 
-export type ApprovedQuantityRevisions = { price: PriceRevision | null; name: NameRevision | null };
+export type ApprovedQuantityRevisions = { price: (PriceRevision & { id: string }) | null; name: NameRevision | null };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BATCH_SIZE = 50;
 
@@ -21,13 +21,14 @@ export async function readApprovedQuantityRevisions(productIds: readonly string[
   for (let index = 0; index < ids.length; index += BATCH_SIZE) {
     const batch = ids.slice(index, index + BATCH_SIZE);
     const [prices, names] = await Promise.all([
-      db.from("product_quantity_price_revisions").select("product_id,status,grade,incoterm,tiers,confirmed_at").eq("status", "approved").in("product_id", batch),
+      db.from("product_quantity_price_revisions").select("id,product_id,status,grade,incoterm,tiers,confirmed_at").eq("status", "approved").in("product_id", batch),
       db.from("product_english_name_revisions").select("product_id,status,english_name").eq("status", "approved").in("product_id", batch),
     ]);
     if (prices.error || names.error || !prices.data || !names.data) throw new Error(`Approved quantity revisions unavailable: ${prices.error?.message ?? names.error?.message ?? "no data"}`);
-    for (const price of prices.data as PriceRevision[]) {
+    for (const price of prices.data as (PriceRevision & { id: string })[]) {
       const entry = result.get(price.product_id);
-      if (!entry || !batch.includes(price.product_id) || price.status !== "approved" || entry.price) throw new Error("Unexpected price revision in public projection");
+      if (!entry || !batch.includes(price.product_id) || typeof price.id !== "string" || !UUID.test(price.id) ||
+          price.status !== "approved" || entry.price) throw new Error("Unexpected price revision in public projection");
       entry.price = price;
     }
     for (const name of names.data as NameRevision[]) {

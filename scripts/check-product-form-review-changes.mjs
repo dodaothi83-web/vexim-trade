@@ -6,8 +6,9 @@ import ts from 'typescript';
 const product = '11111111-1111-1111-1111-111111111111', submission = '22222222-2222-2222-2222-222222222222', actorId = '33333333-3333-3333-3333-333333333333';
 let session = { uid: actorId, role: 'reviewer', email: 'reviewer@example.com' },
   actor = { id: actorId, role: 'reviewer', email: 'reviewer@example.com', is_active: true },
-  result = { data: { status: 'changes_requested', already_decided: false }, error: null }, calls = [], audits = [], paths = [];
+  result = { data: { status: 'changes_requested', already_decided: false }, error: null }, calls = [], audits = [], paths = [], staging = true;
 const mocks = { 'next/cache': { revalidatePath: (path) => paths.push(path) },
+  '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => staging },
   '@/lib/auth/session': { getSession: async () => session },
   '@/lib/db/supabase': { getSupabaseClient: () => ({ rpc: async (name, args) => { calls.push({ name, args }); return result; } }),
     supabaseStore: { getUser: async () => actor, addAuditLog: async (entry) => { audits.push(entry); } } } };
@@ -21,6 +22,7 @@ vm.runInNewContext(js, { exports, console: { error() {} }, Number, Date, require
 const act = exports.requestProductFormChangesAction;
 const form = (values = {}) => { const f = new FormData(); for (const [key, value] of Object.entries({ product_id: product, submission_id: submission,
   product_updated_at: '2026-01-01T00:00:00Z', note: 'Sửa ảnh', ...values })) f.set(key, value); return f; };
+staging = false; assert.equal((await act(form())).ok, false); assert.equal(calls.length, 0, 'No production review write'); staging = true;
 assert.equal((await act(form({ note: ' ' }))).ok, false); assert.equal((await act(form({ product_id: 'bad' }))).ok, false);
 session = { ...session, role: 'supplier' }; assert.equal((await act(form())).ok, false); assert.equal(calls.length, 0);
 session = { ...session, role: 'reviewer' }; actor = { ...actor, is_active: false }; assert.equal((await act(form())).ok, false); assert.equal(calls.length, 0);

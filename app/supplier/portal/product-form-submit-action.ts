@@ -10,13 +10,24 @@ import { parseProductFormDraft, validateProductFormSubmission, type ProductFormI
 import { validateProductFormAttributes } from "@/lib/products/product-form-attributes";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 import { toQuantityRevisionV2 } from "@/lib/products/quantity-revision-v2";
+import { isProductFormBuyerEnabled } from "@/lib/products/product-form-staging-access";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type SubmitResult = { ok: false; message: string; errors?: ProductFormIssue[]; requiresReload?: boolean } |
   { ok: true; message: string; submissionId: string; warnings: ProductFormIssue[] };
 
+function submissionReady(): boolean {
+  return isProductFormBuyerEnabled();
+}
+
+/** Block before the session saves or copies any images without an enabled buyer cutover. */
+export async function productFormSubmitAvailabilityAction(): Promise<{ ok: true } | { ok: false; message: string }> {
+  return submissionReady() ? { ok: true } : { ok: false, message: "Chức năng gửi duyệt cho form mới chưa sẵn sàng." };
+}
+
 /** Validate against trusted category, policy and images, then submit an exact persisted draft. */
 export async function submitProductFormDraftAction(productId: string, expectedRevision: number): Promise<SubmitResult> {
+  if (!submissionReady()) return { ok: false, message: "Chức năng gửi duyệt cho form mới chưa sẵn sàng." };
   if (!UUID.test(productId) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 1)
     return { ok: false, message: "Phiên bản bản nháp không hợp lệ." };
   try {

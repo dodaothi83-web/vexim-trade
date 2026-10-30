@@ -8,7 +8,8 @@ const time = '2026-10-29T00:00:00.000Z';
 let access = { user: { id: 'user' }, supplier: { id: supplier } }, product = { id: productId, supplier_id: supplier, updated_at: time, supplier_review_status: 'approved' },
   draft = { revision: 2, base_product_updated_at: time, image_selection: [] }, uploads = 0, error = null;
 const db = { from() { return { select() { return this; }, eq() { return this; }, async maybeSingle() { return { data: draft, error }; } }; } };
-const mocks = { '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getProduct: async () => product } },
+let stagingAllowed = true;
+const mocks = { '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => stagingAllowed }, '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getProduct: async () => product } },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access }, '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
   '@/lib/products/product-form-private-upload': { uploadPrivateProductFormImage: async (input) => { uploads++; return { ok: true, revision: input.expectedRevision + 1,
     image: { id: imageId, source: 'staged', url: '/private' } }; } } };
@@ -32,4 +33,5 @@ assert.match((await action(form())).message, /8 ảnh/); assert.equal(uploads, 1
 error = new Error('database missing'); assert.equal((await action(form())).requiresReload, true); error = null;
 let invalid = form(); invalid.set('revision', '2.0'); assert.equal((await action(invalid)).ok, false);
 invalid = form(); invalid.set('file', 'not a file'); assert.equal((await action(invalid)).ok, false);
+stagingAllowed = false; assert.equal((await action(form())).ok, false); assert.equal(uploads, 1, 'Production cannot write staging images');
 console.log('Private upload action: supplier ownership, state and revision preflight without legacy media endpoint passed');

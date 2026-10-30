@@ -9,7 +9,8 @@ const imageId = '22222222-2222-2222-2222-222222222222';
 let access = { supplier: { id: supplier }, user: { id: 'user-1' } }, product = { supplier_id: supplier }, calls = [],
   response = { data: { status: 'saved', revision: 2 }, error: null };
 const db = { rpc: async (name, args) => { calls.push({ name, args }); return response; } };
-const mocks = {
+let stagingAllowed = true;
+const mocks = { '@/lib/products/product-form-staging-access': { isProductFormEnabled: () => stagingAllowed },
   '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getProduct: async () => product } },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
@@ -38,4 +39,6 @@ response = { data: { status: 'changed' }, error: null }; result = await set(prod
 assert.equal(result.ok, false); assert.equal(result.requiresReload, true);
 response = { data: null, error: Error('timeout') }; result = await set(productId, 1, [image]);
 assert.equal(result.ok, false); assert.equal(result.requiresReload, true);
+stagingAllowed = false; const oldCalls = calls.length; assert.equal((await set(productId, 1, [image])).ok, false);
+assert.equal(calls.length, oldCalls, 'Production never reaches private image RPC');
 console.log('Private image selection action: supplier authorization, strict input, CAS and uncertain outcomes passed');

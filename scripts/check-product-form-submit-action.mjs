@@ -20,7 +20,8 @@ const db = {
   async rpc(name, args) { calls.push({ name, args }); return { data: rpcData, error: null }; },
 };
 let validationContext, attributesOk = true;
-const mocks = {
+let stagingAllowed = true;
+const mocks = { '@/lib/products/product-form-staging-access': { isProductFormBuyerEnabled: () => stagingAllowed },
   'next/cache': { revalidatePath() {} }, '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: store },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access }, '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
   '@/lib/products/grade-pricing': { standardGradesForCategory: () => ['W320'] }, '@/lib/products/quantity-price-config': { readQuantityPricingPolicy: async () => ({ settings: true }) },
@@ -35,7 +36,7 @@ const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../app/supplier/portal/product-form-submit-action.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-vm.runInNewContext(code, { exports, console, Number, require: (key) => { if (!(key in mocks)) throw Error(`Unexpected import ${key}`); return mocks[key]; } });
+vm.runInNewContext(code, { exports, console, Number, process: { env: { VEXIM_QUANTITY_BUYER_PREVIEW: 'true' } }, require: (key) => { if (!(key in mocks)) throw Error(`Unexpected import ${key}`); return mocks[key]; } });
 const submit = exports.submitProductFormDraftAction;
 assert.equal((await submit('invalid', 1)).ok, false);
 access = null; assert.equal((await submit(id, 1)).ok, false); access = { supplier: { id: supplier }, user };
@@ -61,4 +62,6 @@ rpcData = { status: 'images_changed' }; result = await submit(id, 1); assert.equ
 rpcData = { status: 'already_pending' }; result = await submit(id, 1); assert.equal(result.requiresReload, true);
 category = null; validation = { errors: [{ code: 'category', message: 'Chọn danh mục' }], warnings: [], quantity: null };
 result = await submit(id, 1); assert.equal(result.ok, false); assert.equal(validationContext.categoryValid, false); assert.equal(validationContext.policy, null);
+stagingAllowed = false; const beforeCalls = calls.length; assert.equal((await submit(id, 1)).ok, false);
+assert.equal((await exports.productFormSubmitAvailabilityAction()).ok, false); assert.equal(calls.length, beforeCalls, 'Production cannot submit new form');
 console.log('Product form submit action: authorization, trusted inputs, HTML safety and server validation passed');

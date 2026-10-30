@@ -22,11 +22,39 @@ try {
     insert into public.suppliers values ('${supplier}');`);
   for (let n = 0; n < 2; n++) for (const file of ['20261062_private_product_form_drafts.sql', '20261063_product_form_submission.sql', '20261064_product_form_private_images.sql'])
     await db.exec(readFileSync(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8'));
+  const namespace = readFileSync(new URL('../supabase/migrations/20261066_product_form_private_image_namespace.sql', import.meta.url), 'utf8');
+  const stageSignature = 'public.stage_product_form_image(uuid,uuid,text,integer,uuid,text,bigint,integer,integer,text,bigint,text,uuid,jsonb)';
+  await db.exec(`grant execute on function ${stageSignature} to anon`);
+  await assert.rejects(() => db.exec(namespace), /quyền khác dự kiến/, 'Unexpected public access blocks migration');
+  await db.exec('rollback'); await db.exec(`revoke execute on function ${stageSignature} from anon`);
+  const bootstrap = (await db.query('select public.create_product_form_draft($1,$2,$3::jsonb) result', [supplier, request, JSON.stringify(payload)])).rows[0].result;
+  await db.query('select public.stage_product_form_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+    [supplier, bootstrap.product_id, 'supplier-user', 1, image, 'Photo', 1000, 800, 600, 'a'.repeat(64), 200, 'b'.repeat(64)]);
+  const before = (await db.query('select * from public.product_form_staged_images where id=$1', [image])).rows[0];
+  assert.equal(before.storage_path, `products/${bootstrap.product_id}/${image}.webp`);
+  await assert.rejects(() => db.exec(namespace), /đường dẫn cũ/, 'Never migrate over old staged bytes');
+  await db.exec('rollback');
+  const preserved = (await db.query('select * from public.product_form_staged_images where id=$1', [image])).rows[0];
+  assert.equal(preserved.storage_path, before.storage_path); assert.equal(preserved.sha256, before.sha256);
+  // Only remove the synthetic test fixture, not application data.
+  await db.query('delete from public.product_form_staged_images where id=$1', [image]);
+  await db.query("update public.product_form_drafts set revision=1,image_selection='[]'::jsonb where product_id=$1", [bootstrap.product_id]);
+  await db.exec(namespace); await db.exec(namespace);
+  const capability = readFileSync(new URL('../supabase/migrations/20261067_product_form_image_namespace_capability.sql', import.meta.url), 'utf8');
+  await db.exec(capability); await db.exec(capability);
+  assert.equal((await db.query('select public.product_form_image_namespace_ready() ready')).rows[0].ready, true);
+  assert.equal((await db.query("select has_function_privilege('anon','public.product_form_image_namespace_ready()','execute') permitted")).rows[0].permitted, false);
+  await db.exec(`grant execute on function ${stageSignature} to anon`);
+  assert.equal((await db.query('select public.product_form_image_namespace_ready() ready')).rows[0].ready, false, 'Public access fails closed');
+  await db.exec(`revoke execute on function ${stageSignature} from anon`);
   const first = (await db.query('select public.create_product_form_draft($1,$2,$3::jsonb) result', [supplier, request, JSON.stringify(payload)])).rows[0].result;
   const id = first.product_id;
   const staged = (await db.query('select public.stage_product_form_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) result',
     [supplier, id, 'supplier-user', 1, image, 'Photo', 1000, 800, 600, 'a'.repeat(64), 200, 'b'.repeat(64)])).rows[0].result;
   assert.equal(staged.status, 'created'); assert.equal(staged.revision, 2);
+  await db.exec(namespace);
+  assert.equal((await db.query('select storage_path from public.product_form_staged_images where id=$1', [image])).rows[0].storage_path,
+    `product-form-images/${id}/${image}.webp`, 'Reapplying the migration preserves new-namespace photos');
   const refs = [{ source: 'staged', id: image }];
   const submit = async (selection) => (await db.query('select public.submit_product_form_draft_selected_images($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb) result',
     [supplier, id, 'supplier-user', false, 2, JSON.stringify(payload), JSON.stringify(quantity), '[]', JSON.stringify(selection)])).rows[0].result;
@@ -34,7 +62,7 @@ try {
   assert.equal((await submit(refs)).submission_id, sent.submission_id);
   const row = (await db.query('select * from public.product_form_submissions where id=$1', [sent.submission_id])).rows[0];
   assert.equal(row.image_ids[0], image); assert.equal(row.image_selection[0].source, 'staged');
-  assert.equal(row.image_snapshot[0].row.storage_path, `products/${id}/${image}.webp`);
+  assert.equal(row.image_snapshot[0].row.storage_path, `product-form-images/${id}/${image}.webp`);
   assert.equal((await db.query('select count(*)::int n from public.media_assets')).rows[0].n, 0);
   const shell = (await db.query('select * from public.supplier_products where id=$1', [id])).rows[0];
   assert.equal(shell.supplier_review_status, 'pending'); assert.equal(shell.ready_for_buyer, false);

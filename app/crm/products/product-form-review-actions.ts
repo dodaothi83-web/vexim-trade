@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
+import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: boolean; message: string };
 
 /** Reject a submitted form without changing an existing approved listing. */
 export async function requestProductFormChangesAction(form: FormData): Promise<Result> {
+  if (!isProductFormEnabled()) return { ok: false, message: "Chức năng xét duyệt form mới chưa sẵn sàng." };
   const productId = String(form.get("product_id") ?? "");
   const submissionId = String(form.get("submission_id") ?? "");
   const updatedAt = String(form.get("product_updated_at") ?? "");

@@ -312,6 +312,21 @@ export function SupplierStorefront({
             ? `/suppliers/${encodeURIComponent(s.slug || s.id)}/products/${encodeURIComponent(p.id)}`
             : category ? `/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}` : null;
           if (!href) return null;
+          const approvedForm = s.form_product_cards?.[p.id];
+          if (approvedForm) {
+            const productName = safe(approvedForm.name);
+            return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
+              <PublicProductCard href={href} imagePath={approvedForm.cardImagePath ?? approvedForm.imagePaths[0]}
+                name={productName} grades={approvedForm.cardGrades} gradeRows={approvedForm.gradeRows}
+                moq={approvedForm.moq} price={synthetic ? null : approvedForm.price} incoterm={approvedForm.incoterm}
+                fob={approvedForm.incoterm?.toUpperCase() === "FOB"} volumePricing={approvedForm.quantityOffer?.hasVolumePricing}
+                stalePriceDays={approvedForm.quantityOffer?.stale ? approvedForm.quantityOffer.daysSinceConfirmed : undefined}
+                leadTimeDays={approvedForm.leadTimeDays} leadTimeText={approvedForm.leadTimeText} supplierName={name}
+                supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
+                quoteHref={productLinks && rfqActions && !synthetic && category ? `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(productName)}&product_id=${encodeURIComponent(p.id)}` : undefined}
+                verificationSteps={steps} l2Scope={l2Scope} test={synthetic} linkable={productLinks} />
+            </li>;
+          }
           const productName = safe(publicProductTitle(p));
           const translateMoq = (rawMoq: string | null | undefined) => {
             const val = (rawMoq ?? "").replace(/\s+/g, " ").trim();
