@@ -104,7 +104,9 @@ const editor = read('app/supplier/portal/products/product-editor.tsx');
 for (const name of ['keywords', 'sample_price_usd', 'package_type', 'package_weight_kg', 'package_size', 'units_per_carton']) {
   assert.match(editor, new RegExp(`name="${name}"`), `form 3 bước thiếu ô ${name}`);
 }
-assert.match(editor, /data-step-panel=\{1\}/, 'các ô mới nằm ở bước 1 của form 3 bước');
+assert.match(editor, /data-form-section="sec-price"/, 'giá mẫu nằm trong khối giá');
+assert.match(editor, /data-form-section="sec-shipping"/, 'các ô đóng gói nằm trong khối đóng gói & giao hàng');
+assert.match(editor, /data-form-section="sec-basic"/, 'từ khoá nằm trong khối tên & từ khoá');
 const actions = read('app/supplier/portal/product-actions.ts');
 assert.match(actions, /productExtrasFromForm\(/, 'server action kiểm tra lại dữ liệu Phase 2');
 assert.match(actions, /\.\.\.extras,/, 'giá trị Phase 2 được ghi cùng sản phẩm');

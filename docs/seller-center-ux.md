@@ -101,28 +101,32 @@ Quy tắc: mỗi khối chỉ có **một** việc chính; màu nhấn chỉ dà
 ### 3.2 Khung làm việc (áp cho cả cổng NCC và CRM)
 
 ```
-┌ rail 232px ┬──────────────────────────────────────────────┬ rail phải 320px ┐
-│ nhóm menu  │ breadcrumb · tiêu đề · nhãn trạng thái · CTA │ điểm + việc thiếu│
-│ + số đếm   │ ────────────────────────────────────────────  │ + ví dụ điền     │
-│            │ khối 01  Thông tin cơ bản                     │                  │
-│            │ khối 02  Ảnh sản phẩm (6 ô)                   │ (dính khi cuộn)  │
-│            │ khối 03  Thông tin thương mại                 │                  │
-│            │ ────────────────────────────────────────────  │                  │
-│            │ [dính đáy] trạng thái · Lưu nháp · Gửi duyệt  │                  │
-└────────────┴──────────────────────────────────────────────┴──────────────────┘
+┌ rail 232px ┬ mục lục 184px ┬──────────────────────────────┬ rail phải 288px ┐
+│ nhóm menu  │ ✓ Ngành hàng  │ tiêu đề · nhãn trạng thái     │ ảnh + giá + MOQ │
+│ + số đếm   │ ✓ Tên & từ khoá│ ────────────────────────────  │ vòng % hồ sơ    │
+│            │   03 Ảnh & tệp │ khối 01…07 xếp dọc, cùng trang│ việc còn thiếu  │
+│            │ ✓ Quy cách     │                               │ ví dụ điền      │
+│            │ ✓ Giá & ĐKB    │ khối 08  Xem lại & gửi        │ (dính khi cuộn) │
+│            │   06 Đóng gói  │ ────────────────────────────  │                 │
+│            │   07 Nội dung  │ [dính đáy] Lưu nháp · Gửi duyệt│                │
+└────────────┴────────────────┴──────────────────────────────┴─────────────────┘
 ```
+
+**Không có bước 2, bước 3.** Alibaba cũng không có: trang *Publish Product* là một trang dài, điều hướng
+chỉ là mục lục neo. Wizard ba bước là thứ Vexim tự thêm, và nó gây ba vấn đề: giấu yêu cầu ảnh cho tới khi
+nhập xong phần chữ, bắt bấm ba lần cho một sản phẩm, và biến "xem lại" thành một bước chặn thay vì một khối.
 
 ### 3.3 Thành phần cần dựng (một lần, dùng cho cả hai nơi)
 
-`AppRail`, `PageHead` (tiêu đề + nhãn trạng thái + CTA), `StepRail`, `FormSection` (số thứ tự + tiêu đề
+`AppRail`, `PageHead` (tiêu đề + nhãn trạng thái + CTA), `TocNav` (mục lục neo, có dấu ✓), `FormSection` (số thứ tự + tiêu đề
 + mô tả + các ô), `Field` (nhãn, bắt buộc, gợi ý dưới ô, lỗi tại chỗ), `MediaSlots` (6 ô, ô 1 là ảnh
 chính), `PriceLadder`, `CompletenessCard` (vòng điểm + 3 việc kế tiếp), `StatusPill`, `StickyActionBar`,
 `DataTable` (tab trạng thái + chọn hàng loạt).
 
 ### 3.4 Lộ trình
 
-- **Đợt 1 — Form đăng sản phẩm** (tác động trực tiếp tới nhà cung cấp): khung 2 rail, khối có số thứ tự,
-  lưới 6 ô ảnh, hàng giá, thẻ điểm hoàn thiện, thanh đáy thống nhất. Giữ nguyên dữ liệu, cổng duyệt,
+- **Đợt 1 — Form đăng sản phẩm** (tác động trực tiếp tới nhà cung cấp): khung 3 cột, mục lục neo, tám khối
+  có số thứ tự, lưới 6 ô ảnh, thẻ điểm hoàn thiện, thanh đáy thống nhất. Giữ nguyên dữ liệu, cổng duyệt,
   toàn bộ logic đã có.
 - **Đợt 2 — Danh sách sản phẩm + khu quản trị**: bảng có tab trạng thái và chọn hàng loạt ở cổng NCC;
   đồng bộ hệ nhãn trạng thái; làm lại trang chủ CRM theo khối việc thay vì danh sách dài.
@@ -139,3 +143,40 @@ nền 17 lỗi đã có, không phát sinh lỗi mới.
 - **Nhồi 12px toàn trang**: bảng dày được, nhưng form nhập liệu phải 14px, mobile 16px (đã có luật iOS).
 - **Nhãn bảo chứng mình không kiểm chứng được** (Trade Assurance, "Easy Return"…).
 - **Màu cam thương hiệu của Alibaba**: mình giữ brand teal + accent amber để không lẫn nhận diện.
+
+## 5. Đã ship: form một trang, tám khối (30/10/2026)
+
+`app/supplier/portal/products/product-editor.tsx` bỏ hẳn wizard ba bước. Lý do và bằng chứng ở §1.2 và §3.2.
+
+| # | Khối | Trường |
+| --- | --- | --- |
+| 01 | Ngành hàng | danh mục (cổng chặn, kiểm tra phạm vi) |
+| 02 | Tên & từ khoá | tên · từ khoá (ngay dưới tên) · mô tả ngắn |
+| 03 | Ảnh & tệp | 6 ô ảnh (ô 1 = ảnh chính) · catalogue PDF · tệp nội bộ/người mua |
+| 04 | Quy cách & năng lực | quy cách · năng lực/tháng · vùng nguyên liệu · xuất xứ nguyên liệu · thông số danh mục · OEM/ODM/mẫu |
+| 05 | Giá & điều kiện bán | bảng giá bậc + MOQ + Incoterm · giá mẫu · công khai giá + cam kết |
+| 06 | Đóng gói & giao hàng | bao bì · loại kiện · khối lượng · kích thước · đơn vị/thùng · thời gian giao · cảng xuất · thanh toán |
+| 07 | Nội dung chi tiết | mô tả rich text (đặt cuối, như Alibaba) |
+| 08 | Xem lại & gửi | 4 nhóm đọc lại + nút Sửa cuộn về đúng khối · danh sách chặn · gửi duyệt |
+
+**Sửa so với bản ba bước** — bốn lỗi nhóm trường:
+
+1. Bảng giá, MOQ, Incoterm từng nằm trong "Thông tin cơ bản", chèn giữa danh mục và mô tả → nay tách ra khối 05.
+2. OEM/ODM/gửi mẫu (năng lực) từng nằm trong "Thương mại & xuất khẩu" → nay ở khối 04.
+3. "Bao bì" và bốn ô đóng gói có cấu trúc từng bị chẻ đôi và đứng **sau** năng lực/tháng → nay gom một khối 06, đóng gói đứng trước.
+4. Ảnh từng là bước 2, từ khoá từng nằm cuối khối thông tin cơ bản → nay ảnh ngay sau tên, từ khoá ngay dưới tên.
+
+**Giữ nguyên:** `supplier_category_proposal`, `name`, `keywords`, `description`, `spec`, `description_detail`,
+`raw_material_region`, `input_material_origin`, `monthly_capacity`, `packaging`, `package_*`, `units_per_carton`,
+`sample_price_usd`, `lead_time_*`, `export_port`, `incoterm_place`, `payment_terms`, `price_publicly_visible`,
+`confirm_supplier_price_consent`, bảng giá theo số lượng; server action, cổng duyệt, `productCanSubmit`,
+`productCompleteness`, toàn bộ câu chữ.
+
+**Neo và tiện ích:** mục lục trái có dấu ✓ theo khối đã đủ; nút "Bổ sung: {mục}" trong thẻ hoàn thiện cuộn tới
+khối chứa mục đó; nút "Sửa" ở khối 08 cuộn về đúng khối; lưu thiếu trường bắt buộc thì cuộn tới ô đó;
+`?step=2` sau khi tạo mới vẫn dùng được — cuộn thẳng tới khối ảnh.
+
+**Kiểm tra:** `check-supplier-product-wizard.mjs` được viết lại để canh cấu trúc một trang (8 khối, mục lục,
+neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-product-completeness.mjs` và
+`check-product-extras.mjs` cập nhật theo khối. `tsc`, `npm run build`, `check:supplier-products`,
+`check:typography` xanh; quét toàn bộ script **17 = mức nền**.

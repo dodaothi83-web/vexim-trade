@@ -109,7 +109,10 @@ for (const [name, file] of [['editor', editor], ['storefront', storefront], ['CR
   assert.match(file, /productCompleteness/, `${name} phải dùng productCompleteness`);
 }
 assert.match(editor, /Độ hoàn thiện hồ sơ/, 'editor có khối độ hoàn thiện');
-assert.match(editor, /Bổ sung ở bước \{completeness\.next\.step\}/, 'editor chỉ đúng bước cần bổ sung');
+assert.match(editor, /Bổ sung: \{completeness\.next\.label\}/, 'editor gọi tên mục cần bổ sung');
+assert.match(editor, /scrollToSection\(completeness\.next!\.step === 2 \? "sec-media" : "sec-basic"\)/,
+  'nút bổ sung cuộn tới đúng khối trên trang một-bước');
+assert.doesNotMatch(editor, /Bổ sung ở bước/, 'không còn địa chỉ theo bước');
 assert.match(storefront, /completenessSummary\(completeness\)/, 'thẻ sản phẩm trong cổng có câu nhắc');
 assert.match(crmList, /completenessSummary/, 'CRM thấy cùng số liệu');
 
