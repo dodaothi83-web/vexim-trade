@@ -287,6 +287,7 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/link': { default: ({ href, children, prefetch, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
+  '@/components/sponsored-disclosure': { SponsoredDisclosure: () => null },
   '@/components/product-trade-labels': productTradeLabelsModule,
   '@/components/verification-tier': verificationTierModule,
   '@/components/product-compare-checkbox': { ProductCompareCheckbox: ({ product }) => React.createElement('input', {
@@ -326,17 +327,42 @@ assert.match(comparableCard, /<\/a><input[^>]*class="absolute right-2 top-2"/, '
 assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;product=Cashew%20W320%20lot%200&amp;product_id=a0"/,
   'The primary card CTA opens an RFQ prefilled for this product and supplier');
 assert.match(compactCard, /aria-label="Request a quote for Cashew W320 lot 0"/, 'Repeated quote CTAs have product-specific accessible names');
-assert.match(compactCard, /bg-brand-700/, 'The quote CTA uses the primary brand action instead of the dark details treatment');
+assert.match(compactCard, /border-brand-400 bg-white[^\"]*text-brand-800[^\"]*\">Quote<\/a>/, 'The compact outlined quote CTA appears next to the supplier checks');
 assert.match(compactCard, /text-sm font-bold leading-\[18px\] text-brand-800 sm:text-base sm:leading-5/, 'Price is compact on phones and retains its desktop size');
 assert.match(compactCard, />FOB</, 'FOB remains visible as a compact suffix');
-assert.doesNotMatch(compactCard, /FOB reference|Reference price|bg-brand-50/, 'Price uses plain text without a heading or tinted background');
+const priceParagraph = compactCard.match(/<p class="[^\"]*text-brand-800[^\"]*">USD 7\/kg[\s\S]*?<\/p>/)?.[0] ?? '';
+assert.ok(priceParagraph && !/FOB reference|Reference price|bg-/.test(priceParagraph), 'Price uses plain text without a heading or tinted background');
 assert.match(compactCard, /mb-1 line-clamp-2 min-h-0[^"]*sm:mb-3 sm:min-h-10/, 'The title releases its extra mobile minimum height and restores desktop alignment');
 assert.match(compactCard, /mb-1 hidden h-5 items-center sm:mb-2 sm:flex sm:h-6/, 'Trade badges do not consume mobile height but keep their desktop slot');
 assert.match(compactCard, /mt-1 flex flex-wrap[^"]*sm:mt-2.5 sm:grid sm:grid-cols-2/, 'MOQ and lead time are inline on phones and become a two-column row on desktop');
 assert.match(compactCard, /flex min-w-0 items-baseline gap-1 sm:block/, 'Mobile commercial terms stay on the same line');
-assert.match(compactCard, /mt-auto hidden pt-3 sm:block/, 'Quote and fallback actions are hidden on phones and return from sm');
+assert.match(compactCard, /mt-auto w-full px-2 pb-2/, 'The supplier footer spans the full phone card below its square image');
+assert.doesNotMatch(compactCard, /mt-auto hidden pt-3 sm:block/, 'Buyers can request a quote on phones too');
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
-assert.match(compactCard, /Level 2 · Advanced/, 'Card tier counts the approved checks, not a claimed level');
+assert.match(compactCard, /aria-label="2 of 3 supplier checks approved"[^>]*data-verification-tier="2"/, 'The stars count approved supplier checks, not a product rating');
+assert.match(compactCard, />2 supplier checks</, 'The badge visibly explains what the stars count');
+for (const { levels, tier, palette } of [
+  { levels: [], tier: 0, palette: /bg-ink-50/ },
+  { levels: [99], tier: 0, palette: /bg-ink-50/ },
+  { levels: [3], tier: 1, palette: /bg-emerald-50/ },
+  { levels: [3, 3], tier: 1, palette: /bg-emerald-50/ },
+  { levels: [3, 99], tier: 1, palette: /bg-emerald-50/ },
+  { levels: [1, 3], tier: 2, palette: /bg-sky-50/ },
+  { levels: [1, 2, 3], tier: 3, palette: /from-brand-900[^\"]*text-amber-50/ },
+]) {
+  const badge = renderToStaticMarkup(React.createElement(verificationTierModule.ProductVerificationBadge, { levels }));
+  assert.match(badge, new RegExp(`data-verification-tier="${tier}"`));
+  assert.match(badge, palette, `Tier ${tier} has its own distinctive palette`);
+  assert.equal((badge.match(/lucide-star/g) ?? []).length, tier, 'Each unique approved check earns exactly one star');
+  assert.match(badge, tier ? new RegExp(`aria-label="${tier} of 3 supplier checks approved"`) : /No supplier checks approved yet/);
+}
+const deliveryOnly = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, verificationSteps: [3] }));
+assert.match(deliveryOnly, /Verification checks approved: Delivery history reviewed/);
+assert.match(deliveryOnly, /Level 1 · Documents checked: Not approved/);
+assert.match(deliveryOnly, /Level 2 · Factory verification: Not approved/);
+assert.match(deliveryOnly, /Level 3 · Delivery history reviewed: Approved/);
+assert.doesNotMatch(deliveryOnly, /Business registration evidence has been reviewed|A specific factory associated with the supplier has been reviewed/,
+  'An unapproved check never gets an explanation claiming that it was reviewed');
 for (const [level, suffix] of [[1, 'Basic'], [2, 'Advanced'], [3, 'Complete']]) {
   const levels = Array.from({ length: level }, (_, index) => index + 1);
   const badge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels, compactOnMobile: true }));
@@ -347,17 +373,21 @@ const standardBadge = renderToStaticMarkup(React.createElement(verificationTierM
 assert.ok(standardBadge.includes('Level 1 · Basic') && !standardBadge.includes('sm:hidden'),
   'Badges outside product cards keep the full label at every size');
 assert.doesNotMatch(compactCard, /Free Sample|ISO Certified|Ready to Ship/, 'Unsupported product claims never become badges');
-assert.equal((compactCard.match(/<details/g) ?? []).length, 0, 'The large shared verification disclosure is removed');
+assert.equal((compactCard.match(/<details name="product-verification-checks"/g) ?? []).length, 3, 'Each check has a native disclosure for touch and keyboard');
 assert.equal((compactCard.match(/role="tooltip"/g) ?? []).length, 3, 'Each shield has its own compact tooltip');
-assert.equal((compactCard.match(/group-hover\/pip:block group-focus-within\/pip:block/g) ?? []).length, 3,
-  'Each tooltip opens on hover and keyboard or touch focus');
+assert.equal((compactCard.match(/group-hover\/pip:block group-focus-within\/pip:block peer-open:block/g) ?? []).length, 3,
+  'Each tooltip opens on hover, keyboard focus and touch');
+assert.equal((compactCard.match(/left-0 w-full max-w-64/g) ?? []).length, 3,
+  'Card tooltips are bounded by the footer instead of overflowing the viewport');
+assert.equal((compactCard.match(/>Supplier check, not product certification\.</g) ?? []).length, 3,
+  'Every card tooltip clarifies that the check does not certify the product');
 for (const [level, label, status] of [
   [1, 'Documents checked', 'Approved'],
   [2, 'Factory verification', 'Not approved'],
   [3, 'Delivery history reviewed', 'Approved'],
 ]) {
-  const explanation = VERIFICATION_LEVEL_EXPLANATIONS[level];
-  const accessibleName = `Level ${level} · ${label}: ${status}. ${explanation}`;
+  const explanation = status === 'Approved' ? VERIFICATION_LEVEL_EXPLANATIONS[level] : 'This supplier check has not been approved.';
+  const accessibleName = `Level ${level} · ${label}: ${status}. ${explanation} Supplier check, not product certification.`;
   assert.ok(compactCard.includes(`aria-label="${accessibleName}"`), `Shield ${level} has its own accessible explanation and actual status`);
   assert.match(compactCard, new RegExp(`Level ${level} · ${label}<\\/strong><span[^>]*>${status}<\\/span>`),
     `Shield ${level} shows its own label and status`);
@@ -377,7 +407,7 @@ for (const level of [1, 2, 3]) {
   assert.ok(standardPips.includes(`title="${accessibleName}"`), `Standard shield ${level} has its own native tooltip`);
 }
 assert.match(compactCard, /overflow-visible rounded-xl/, 'The card does not clip its verification tooltip');
-assert.match(compactCard, /rounded-l-xl bg-ink-50[^"]*sm:rounded-t-xl/, 'The image follows the horizontal phone card and rounded desktop card corners');
+assert.match(compactCard, /rounded-tl-xl bg-ink-50[^"]*sm:rounded-t-xl/, 'The square image follows the horizontal phone card and rounded desktop card corners');
 const longSupplierCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
   ...cardProps, supplierName: 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED',
 }));
@@ -386,8 +416,14 @@ assert.match(longSupplierCard, /truncate font-semibold text-brand-700/, 'Long su
 const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, fob: false, verificationSteps: [] }));
 assert.match(privatePrice, /On request/);
 assert.doesNotMatch(privatePrice, /FOB reference|>FOB<|USD 7\/kg/, 'No price or FOB claim without consent');
-assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved check shows the empty tier, not a badge');
+assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved check shows the empty tier, not a star');
+assert.match(privatePrice, /data-verification-tier="0"/);
+assert.doesNotMatch(privatePrice, /lucide-star/, 'Unapproved checks earn no stars');
 assert.equal((privatePrice.match(/>Not approved</g) ?? []).length, 3, 'The tooltip never marks a check approved without an actual approved level');
+const noQuote = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, quoteHref: undefined }));
+assert.match(noQuote, /aria-label="View details of Cashew W320 lot 0"[^>]*>Details<\/a>/, 'When no quote is available, the fallback opens product details');
+const noLink = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, linkable: false }));
+assert.doesNotMatch(noLink, /href="\/rfq\?|href="\/products\/cashew\/a0"/, 'A non-public preview does not expose quote or product links');
 const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
   ...cardProps, href: '/suppliers/company-a/products/a0', test: true, comparison: { id: 'a0', categorySlug: 'cashew' },
 }));
@@ -395,6 +431,8 @@ assert.match(testCard, /TEST · Not an offer|Test data · not a price/);
 assert.doesNotMatch(testCard, /to comparison/, 'Demo and preview cards never offer a public comparison selection');
 assert.doesNotMatch(testCard, /USD 7\/kg|\/rfq|Supplier-stated product options/, 'A test card carries no price, quote path or commercial capability badges');
 assert.match(testCard, /aria-label="No verification checks approved yet"/, 'A test card never claims a verification check');
+assert.match(testCard, /data-verification-tier="0"/, 'Test cards cannot inherit stars from supplier data');
+assert.doesNotMatch(testCard, /lucide-star/, 'Test cards never show fake stars');
 // Lưới thẻ trang chủ là một client component riêng; dựng nó ở đây để bản HTML
 // máy chủ vẫn được kiểm bằng thẻ thật, không phải bằng chuỗi giả.
 const { HomeProductFeed } = compile('../components/home-product-feed.tsx', {
