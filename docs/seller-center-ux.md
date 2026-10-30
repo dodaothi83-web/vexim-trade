@@ -202,3 +202,18 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   danh sách đường dẫn của `/public-media`, còn `/api/media/file` chỉ trả cho chính người đã tải lên.
 - **Thứ tự thao tác:** kho ảnh → chọn ảnh → điền thông tin → Lưu. Ảnh chưa gắn không chặn việc gửi duyệt;
   điều kiện gửi duyệt vẫn là sản phẩm có ít nhất một ảnh đã gắn.
+
+### 5.3 Lớp da mới của trang sản phẩm (30/10/2026)
+
+Bám bản vẽ anh gửi: cùng một tờ hồ sơ, nhưng gọn và phẳng hơn.
+
+- **Khung trang** rộng tối đa 1240px, canh giữa, ba cột 176 / co giãn / 272 ở màn hình lớn.
+- **Thẻ** viền 1px `ink-200`, bán kính 8px, **bỏ đổ bóng**; đầu thẻ một hàng: số mảnh bên trái, tiêu đề
+  13,5px, gợi ý 10,5px canh phải.
+- **Ô nhập** trong trang này gọn hơn phần còn lại của cổng: 12,5px, đệm dọc 6px, bán kính 6px
+  (áp dụng bằng biến thể `[&_.input]` của riêng trang, không sửa `.input` toàn cục).
+- **Mục lục trái** dùng chấm tròn trạng thái: xong thì tích trắng trên nền brand, chưa xong thì số 01–08.
+- **Thanh đáy** ba vùng như bản vẽ: Hủy + đèn trạng thái · **Xem lại hồ sơ** (cuộn tới khối 08) · Lưu nháp + Gửi duyệt.
+- **Dải nhắc** màu hổ phách trên cùng khi có thay đổi chưa lưu: "Bấm Lưu nháp ở thanh dưới để giữ lại."
+- **Thẻ điểm hoàn thiện** có thêm mục "Việc cần làm" và nhãn `+N` trọng số từng mục, đúng như bản vẽ.
+- Không đổi dữ liệu, cổng duyệt, quyền hay luồng lưu; mọi chuỗi điều kiện giữ nguyên nên guard vẫn xanh.

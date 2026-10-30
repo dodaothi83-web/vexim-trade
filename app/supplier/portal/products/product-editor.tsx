@@ -802,22 +802,28 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     }
   }
 
-  return <div className="mt-3.5 space-y-3">
-    <div className="grid items-start gap-3 lg:grid-cols-[184px_minmax(0,1fr)_288px]">
+  return <div className="mt-3 space-y-2.5">
+    {/* Dải nhắc thay đổi chưa lưu: nằm trên cùng như bản vẽ, không che nội dung. */}
+    {dirty && !locked && <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11.5px] leading-5 text-amber-900">
+      <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-amber-500" />
+      <span className="font-bold">Có thay đổi chưa lưu.</span>
+      <span className="text-amber-800">Bấm Lưu nháp ở thanh dưới để giữ lại.</span>
+    </div>}
+    <div className="mx-auto grid max-w-[1240px] items-start gap-3 lg:grid-cols-[176px_minmax(0,1fr)_272px]">
       {/* Mục lục neo: giống Seller Center, không chặn đường đi, bấm là nhảy tới khối. */}
       <nav aria-label="Mục lục hồ sơ sản phẩm" className="hidden lg:sticky lg:top-4 lg:block">
         <p className="px-2 pb-1 text-[10px] font-bold tracking-[0.16em] text-ink-400 uppercase">Hồ sơ sản phẩm</p>
-        <ol className="space-y-0.5 rounded-xl border border-ink-200 bg-white p-1.5 shadow-sm">
+        <ol className="space-y-0.5 rounded-lg border border-ink-200 bg-white p-1.5">
           {FORM_SECTIONS.map((item, index) => {
             const done = sectionDone(item.id);
             return <li key={item.id}>
-              <a href={`#${item.id}`} className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-ink-50">
-                <span aria-hidden="true" className={`flex size-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black tabular-nums ${done ? "bg-brand-700 text-white" : "bg-ink-100 text-ink-500"}`}>
-                  {done ? <Check className="size-3" aria-hidden="true" /> : String(index + 1).padStart(2, "0")}
+              <a href={`#${item.id}`} className="group flex items-start gap-2 rounded-md px-2 py-1.5 transition hover:bg-ink-50">
+                <span aria-hidden="true" className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full text-[9px] font-black tabular-nums ${done ? "bg-brand-700 text-white" : "border border-ink-300 bg-white text-ink-500"}`}>
+                  {done ? <Check className="size-2.5" aria-hidden="true" /> : String(index + 1).padStart(2, "0")}
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-[11.5px] font-bold text-ink-800">{item.label}</span>
-                  <span className="block truncate text-[10px] text-ink-500">{item.hint}</span>
+                  <span className="block truncate text-[11px] font-bold text-ink-800 group-hover:text-brand-800">{item.label}</span>
+                  <span className="block truncate text-[9.5px] leading-3.5 text-ink-500">{item.hint}</span>
                 </span>
               </a>
             </li>;
@@ -826,9 +832,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         <p className="mt-2 px-2 text-[10px] leading-4 text-ink-400">Bấm một mục để nhảy tới. Mọi khối nằm trên cùng một trang.</p>
       </nav>
 
-      <div className="min-w-0 space-y-3">
+      <div className="min-w-0 space-y-3 [&_.input]:rounded-md [&_.input]:py-1.5 [&_.input]:text-[12.5px] [&_.input]:leading-5">
         {(review === "pending" || review === "changes_requested" || review === "paused") && <section aria-label="Trạng thái xét duyệt"
-          className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-3.5 py-2 ${review === "changes_requested" ? "border-rose-200 bg-rose-50" : review === "paused" ? "border-slate-300 bg-slate-50" : "border-amber-200 bg-amber-50"}`}>
+          className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border px-3 py-2 ${review === "changes_requested" ? "border-rose-200 bg-rose-50" : review === "paused" ? "border-slate-300 bg-slate-50" : "border-amber-200 bg-amber-50"}`}>
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{statusLabel}</span>
           <p className="min-w-0 flex-1 text-[12px] leading-5 text-ink-700">
             {review === "pending"
@@ -841,11 +847,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           </p>
         </section>}
 
-        {legacyManaged && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-[12px] leading-5 text-amber-900">
+        {legacyManaged && <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-900">
           Sản phẩm này được quản lý từ trước. Để cập nhật nội dung, hãy tạm ẩn rồi gửi duyệt lại, hoặc liên hệ bộ phận hỗ trợ.
         </p>}
 
-        {product?.supplier_review_note && <p className="whitespace-pre-wrap rounded-xl border border-rose-200 bg-white px-3.5 py-2 text-[12.5px] font-semibold text-rose-800">
+        {product?.supplier_review_note && <p className="whitespace-pre-wrap rounded-lg border border-rose-200 bg-white px-3 py-2 text-[12.5px] font-semibold text-rose-800">
           <AlertCircle className="mr-1 inline size-4" aria-hidden="true" /> Yêu cầu chỉnh sửa: {product.supplier_review_note}
         </p>}
 
@@ -854,9 +860,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         <form id="product-info" ref={formRef} onSubmit={save} onChange={onFormChange} noValidate>
           {/* 01 — Ngành hàng */}
           <section id="sec-category" data-form-section="sec-category" aria-label="Ngành hàng"
-            className="scroll-mt-24 rounded-xl border border-ink-200 bg-white shadow-sm">
+            className="scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="01" title="Ngành hàng" hint="Chọn trước, vì danh mục quyết định grade, bảng giá và thông số." />
-            <div className="grid gap-3 px-3.5 py-3 sm:px-4">
+            <div className="grid gap-3 px-3 py-2.5 sm:px-3.5">
               <Field label="Danh mục sản phẩm" required hint="Chọn danh mục gần nhất. Danh mục được kiểm tra khi duyệt; đổi danh mục thì grade đổi theo.">
                 <select name="supplier_category_proposal" className="input" required value={selectedCategory} onChange={(e) => onCategorySelect(e.target.value)} disabled={locked || categoryLocked || !categories.length}>
                   <option value="" disabled>Chọn danh mục sản phẩm</option>
@@ -875,9 +881,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
           {/* 02 — Tên & từ khoá */}
           <section id="sec-basic" data-form-section="sec-basic" aria-label="Tên và từ khoá"
-            className="mt-3 scroll-mt-24 rounded-xl border border-ink-200 bg-white shadow-sm">
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="02" title="Tên &amp; từ khoá" hint="Người mua gõ gì để thấy sản phẩm này." />
-            <div className="grid gap-3 px-3.5 py-3 sm:px-4 md:grid-cols-2">
+            <div className="grid gap-3 px-3 py-2.5 sm:px-3.5 md:grid-cols-2">
               <div className="md:col-span-2">
                 <Field label="Tên sản phẩm" hint="Không ghi grade trong tên. Vexim dịch tên sang tiếng Anh khi duyệt." required>
                   <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked}
@@ -897,14 +903,14 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
           {/* 03 — Ảnh & tệp */}
           <section id="sec-media" data-form-section="sec-media" aria-label="Ảnh và tệp"
-            className="mt-3 scroll-mt-24 rounded-xl border border-ink-200 bg-white shadow-sm">
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="03" title="Ảnh và tệp"
               hint={live
                 ? "JPG, PNG, WebP ≤ 8 MB hoặc PDF ≤ 15 MB. Tệp hiện cho người mua khi sản phẩm đăng."
                 : review === "approved"
                   ? "JPG, PNG, WebP ≤ 8 MB hoặc PDF ≤ 15 MB. Tệp ở chế độ nội bộ khi chờ đăng."
                   : "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp được kiểm tra khi duyệt."} />
-            <div className="space-y-3 px-3.5 py-3 sm:px-4">
+            <div className="space-y-3 px-3 py-2.5 sm:px-3.5">
               {/* Sản phẩm chưa tồn tại thì ảnh nằm trong kho riêng của nhà cung cấp.
                   Tải ảnh không cần lưu nháp trước; chọn ảnh nào là gắn ảnh đó khi bấm Lưu. */}
               {!product && <div className="rounded-lg border border-brand-200 bg-brand-50/40 p-2.5">
@@ -1062,9 +1068,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
           {/* 04 — Quy cách & năng lực */}
           <section id="sec-spec" data-form-section="sec-spec" aria-label="Quy cách và năng lực"
-            className="mt-3 scroll-mt-24 rounded-xl border border-ink-200 bg-white shadow-sm">
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="04" title="Quy cách &amp; năng lực" hint="Thông số người mua so sánh, cộng năng lực sản xuất và dịch vụ." />
-            <div className="grid gap-3 px-3.5 py-3 sm:px-4 md:grid-cols-2">
+            <div className="grid gap-3 px-3 py-2.5 sm:px-3.5 md:grid-cols-2">
               <Field label="Quy cách / tiêu chuẩn" hint="Cần ít nhất một trong hai ô mô tả hoặc quy cách để gửi duyệt">
                 <textarea name="spec" className="input min-h-20 resize-y" rows={3} maxLength={800} placeholder="Ví dụ: Size W320, độ ẩm ≤ 5%, đóng gói 25 kg..." defaultValue={product?.spec ?? ""} disabled={locked} />
               </Field>
@@ -1096,9 +1102,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
           {/* 05 — Giá & điều kiện bán */}
           <section id="sec-price" data-form-section="sec-price" aria-label="Giá và điều kiện bán"
-            className="mt-3 scroll-mt-24 rounded-xl border border-ink-200 bg-white shadow-sm">
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="05" title="Giá &amp; điều kiện bán" hint="Bảng giá theo số lượng, MOQ, Incoterm và giá mẫu." />
-            <div className="space-y-3 px-3.5 py-3 sm:px-4">
+            <div className="space-y-3 px-3 py-2.5 sm:px-3.5">
               {product ? <div className="rounded-lg border border-brand-200 p-3">
                 {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
                   data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview} />
@@ -1168,9 +1174,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
           {/* 06 — Đóng gói & giao hàng */}
           <section id="sec-shipping" data-form-section="sec-shipping" aria-label="Đóng gói và giao hàng"
-            className="mt-3 scroll-mt-24 rounded-xl border border-ink-200 bg-white shadow-sm">
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="06" title="Đóng gói &amp; giao hàng" hint="Kiện hàng, thời gian giao, cảng xuất và thanh toán." />
-            <div className="grid gap-3 px-3.5 py-3 sm:px-4 md:grid-cols-2 xl:grid-cols-6">
+            <div className="grid gap-3 px-3 py-2.5 sm:px-3.5 md:grid-cols-2 xl:grid-cols-6">
               <Field label="Bao bì / đóng gói" className="md:col-span-2 xl:col-span-6" hint="Mô tả bằng lời, ví dụ: túi hút chân không 25 kg.">
                 <input className="input" name="packaging" maxLength={300} placeholder="Ví dụ: túi hút chân không 25 kg" defaultValue={product?.packaging ?? ""} disabled={locked} />
               </Field>
@@ -1230,9 +1236,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
           {/* 07 — Nội dung chi tiết */}
           <section id="sec-detail" data-form-section="sec-detail" aria-label="Nội dung chi tiết"
-            className="mt-3 scroll-mt-24 rounded-xl border border-ink-200 bg-white shadow-sm">
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="07" title="Nội dung chi tiết" hint="Bài mô tả dài cho người mua đọc kỹ trước khi hỏi giá." />
-            <div className="px-3.5 py-3 sm:px-4">
+            <div className="px-3 py-2.5 sm:px-3.5">
               <div className="text-[12px]">
                 <span className="mb-1 block font-semibold text-ink-800">Mô tả chi tiết</span>
                 <ProductDescriptionEditor id="supplier-product-description-detail" name="description_detail"
@@ -1245,9 +1251,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
         {/* 08 — Xem lại & gửi */}
         <section id="sec-review" data-form-section="sec-review" aria-label="Xem lại và gửi"
-          className="mt-3 scroll-mt-24 rounded-xl border border-ink-200 bg-white shadow-sm">
+          className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
           <SectionHead index="08" title="Xem lại &amp; gửi" hint="Đọc lại lần cuối. Gửi xong hồ sơ sang bước duyệt và tạm khoá sửa." />
-          <div className="space-y-2.5 px-3.5 py-3 sm:px-4">
+          <div className="space-y-2.5 px-3 py-2.5 sm:px-3.5">
             {dirty && <p className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[12px] font-semibold text-amber-900">
               Có thay đổi chưa lưu - nội dung dưới đây là bản đang nhập.
               <button type="button" onClick={() => { formRef.current?.requestSubmit(); }} className="underline">Lưu ngay</button>
@@ -1384,20 +1390,22 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         </section>
 
         {/* Thanh dính đáy: lưu nháp và gửi duyệt, luôn trong tầm tay. */}
-        <div className="sticky bottom-0 z-20 mt-3 flex items-center gap-2 rounded-xl border border-ink-200 bg-white/95 px-2.5 py-2 shadow-lg backdrop-blur">
+        <div className="sticky bottom-0 z-20 mt-2.5 flex items-center gap-2 rounded-lg border border-ink-200 bg-white/95 px-2 py-1.5 shadow-[0_-2px_12px_rgba(15,23,42,0.06)] backdrop-blur">
           <Link href="/supplier/portal/products" className="btn btn-ghost btn-sm"><ArrowLeft className="size-3.5" aria-hidden="true" /> Hủy</Link>
 
-          <span className="hidden min-w-0 flex-1 items-center gap-1.5 truncate px-1 text-[11.5px] text-ink-500 sm:flex">
+          <span className="hidden min-w-0 items-center gap-1.5 truncate px-1 text-[11px] text-ink-500 sm:flex">
             <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${dirty ? "bg-amber-500" : review === "changes_requested" ? "bg-rose-500" : "bg-emerald-500"}`} />
             <span className="truncate">
               {dirty ? "Có thay đổi chưa lưu" : product ? `${media.length} tệp · thông tin đã lưu` : "Chưa lưu sản phẩm"}
             </span>
           </span>
 
-          <div className="ml-auto flex shrink-0 items-center gap-2">
+          <button type="button" onClick={() => scrollToSection("sec-review")} className="btn btn-ghost btn-sm mx-auto hidden md:inline-flex">Xem lại hồ sơ</button>
+
+          <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0">
             {!locked && dirty &&
               <button type="submit" form="product-info" disabled={busy}
-                className="btn btn-ghost btn-sm"><Save className="size-3.5" aria-hidden="true" /> {review === "approved" ? "Lưu thay đổi" : "Lưu nháp"}</button>}
+                className="btn btn-soft btn-sm"><Save className="size-3.5" aria-hidden="true" /> {review === "approved" ? "Lưu thay đổi" : "Lưu nháp"}</button>}
             {review === "pending" || review === "approved" || sent
               ? <span className="text-[11.5px] font-semibold text-emerald-800">{review === "approved" ? (live ? "Đã đăng" : "Đã duyệt, chờ đăng") : "Đã gửi duyệt"}</span>
               : <button type="button" onClick={requestSubmit} disabled={busy} aria-describedby="submit-blockers" className="btn btn-primary btn-sm">
@@ -1411,7 +1419,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
       {/* Cột phải: thẻ xem nhanh - đọc được ngay cả khi cuộn giữa trang. */}
       <aside className="space-y-3 lg:sticky lg:top-4">
-        <div className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-ink-200 bg-white">
           <div className="relative aspect-square bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
             {coverUrl
               ? <img src={coverUrl} alt="" className="size-full object-cover" />
@@ -1439,7 +1447,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           </div>
         </div>
 
-        {product && <section aria-label="Độ hoàn thiện hồ sơ" className="rounded-xl border border-ink-200 bg-white p-3.5">
+        {product && <section aria-label="Độ hoàn thiện hồ sơ" className="rounded-lg border border-ink-200 bg-white p-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Độ hoàn thiện</p>
             <div className="flex items-center gap-1.5">
@@ -1456,10 +1464,12 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <div className="h-full rounded-full bg-brand-600" style={{ width: `${completeness.score}%` }} />
           </div>
           {completeness.next ? <>
-            <ul className="mt-2 space-y-1 text-[11.5px] leading-4 text-ink-600">
+            <p className="mt-2.5 text-[10px] font-bold tracking-wider text-ink-400 uppercase">Việc cần làm</p>
+            <ul className="mt-1 space-y-1 text-[11.5px] leading-4 text-ink-600">
               {completeness.missing.slice(0, 3).map((item) => <li key={item.key} className="flex items-start gap-1.5">
                 <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
-                <span><strong className="font-semibold text-ink-800">{item.label}</strong> · {item.hint}</span>
+                <span className="min-w-0 flex-1"><strong className="font-semibold text-ink-800">{item.label}</strong> · {item.hint}</span>
+                <span className="shrink-0 rounded bg-brand-50 px-1 py-0.5 font-mono text-[9.5px] font-bold text-brand-800">+{item.weight}</span>
               </li>)}
             </ul>
             {completeness.missing.length > 3 && <p className="mt-1.5 text-[11px] text-ink-500">Còn {completeness.missing.length - 3} mục nữa.</p>}
@@ -1470,7 +1480,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{dirty ? "Lưu thay đổi để cập nhật số liệu." : "Số liệu tính từ bản đã lưu."}</p>
         </section>}
 
-        {product && (canDeleteDraft || review === "approved") && <section aria-label="Quản lý sản phẩm" className="rounded-xl border border-ink-200 bg-white p-3.5">
+        {product && (canDeleteDraft || review === "approved") && <section aria-label="Quản lý sản phẩm" className="rounded-lg border border-ink-200 bg-white p-3">
           <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Quản lý sản phẩm</p>
           {canDeleteDraft ? <>
             <p className="mt-2 text-[11.5px] leading-5 text-ink-600">Xóa vĩnh viễn bản nháp chưa duyệt và tệp của sản phẩm. Không thể hoàn tác.</p>
@@ -1486,7 +1496,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           {dirty && <p className="mt-2 text-[11px] text-amber-800">Lưu hoặc bỏ thay đổi chưa lưu trước khi tiếp tục.</p>}
         </section>}
 
-        <div className="rounded-xl border border-ink-200 bg-white p-3.5">
+        <div className="rounded-lg border border-ink-200 bg-white p-3">
           <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Ví dụ điền</p>
           <ul className="mt-1.5 space-y-1 text-[11.5px] leading-4 text-ink-600">
             <li><strong className="font-semibold text-ink-800">Tên:</strong> Hạt điều nhân trắng (không ghi grade).</li>
@@ -1497,7 +1507,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           <p className="mt-1.5 text-[10.5px] leading-4 text-ink-500">Ví dụ minh hoạ, không phải số liệu của bạn.</p>
         </div>
 
-        <div className="rounded-xl border border-ink-200 bg-ink-50/70 p-3.5">
+        <div className="rounded-lg border border-ink-200 bg-ink-50/70 p-3">
           <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Luồng duyệt</p>
           <ol className="mt-2 space-y-1.5 text-[11.5px] leading-4 text-ink-600">
             <li className="flex gap-1.5"><span className="font-bold text-brand-700">1.</span>Bạn lưu thông tin và tải tệp thật.</li>
@@ -1507,7 +1517,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           <p className="mt-2 flex items-start gap-1.5 text-[11px] text-ink-500"><LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Tệp ở chế độ nội bộ cho tới khi được chọn chia sẻ.</p>
         </div>
 
-        <Link href="/supplier/portal/products" className="flex items-center justify-between gap-2 rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-[12px] font-semibold text-ink-700 hover:border-brand-300 hover:text-brand-800">
+        <Link href="/supplier/portal/products" className="flex items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[12px] font-semibold text-ink-700 hover:border-brand-300 hover:text-brand-800">
           Danh sách sản phẩm <ChevronRight className="size-3.5" aria-hidden="true" />
         </Link>
       </aside>
@@ -1534,15 +1544,15 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
  * một màn hình - bước đang mở đã hiện ở thanh bước phía trên.
  */
 function SectionHead({ step, index, title, hint }: { step?: string; index?: string; title: string; hint?: string }) {
-  return <div className="flex flex-wrap items-baseline justify-between gap-1 border-b border-ink-100 px-3.5 py-2.5 sm:px-4">
+  return <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-ink-100 px-3 py-2 sm:px-3.5">
     <div className="flex min-w-0 items-baseline gap-2">
-      {index && <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center rounded-md bg-ink-100 text-[10px] font-black tabular-nums text-ink-600">{index}</span>}
+      {index && <span aria-hidden="true" className="shrink-0 font-mono text-[11px] font-black tabular-nums text-brand-700">{index}</span>}
       <div className="min-w-0">
         {step && <p className="text-[10px] font-bold tracking-[0.14em] text-brand-700 uppercase">{step}</p>}
-        <h2 className="text-[15px] font-black text-ink-900">{title}</h2>
+        <h2 className="text-[13.5px] leading-5 font-black text-ink-900">{title}</h2>
       </div>
     </div>
-    {hint && <p className="max-w-md text-[11px] leading-4 text-ink-500">{hint}</p>}
+    {hint && <p className="max-w-[300px] text-right text-[10.5px] leading-4 text-ink-500">{hint}</p>}
   </div>;
 }
 
