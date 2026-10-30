@@ -403,7 +403,7 @@ assert.match(separated, /<h3 title="Cashew kernels, steam treated"/);
 assert.match(separated, /<span class="truncate">W320<\/span>/);
 assert.ok(separated.indexOf('Cashew kernels, steam treated</h3>') < separated.indexOf('>W320</span>'));
 assert.ok(separated.indexOf('>W320</span>') < separated.indexOf('>USD 6.00–6.40/kg</span>'));
-assert.match(separated, /FOB<\/span><span[^>]*>Volume pricing<\/span>/);
+assert.match(separated, />FOB<\/span>[\s\S]*>Volume pricing<\/span>/);
 assert.doesNotMatch(renderOffer({ price: null, volumePricing: true }), /Volume pricing/);
 assert.doesNotMatch(renderOffer({ price: 'USD 6.00–6.40/kg' }), /Volume pricing/, 'An unverified legacy range is not a volume tier claim');
 const custom = renderOffer({ name: 'Cashew Special', grades: [], gradeRows: [{ grade: 'Special', isCustom: true, priceMin: null, priceMax: null }] });
@@ -423,24 +423,23 @@ assert.match(stalePriceCard, /USD 6\.00–6\.40\/kg/);
 assert.match(stalePriceCard, /Last updated 91 days ago/);
 const hiddenStalePriceCard = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, stalePriceDays: 91 }));
 assert.doesNotMatch(hiddenStalePriceCard, /Last updated/);
-for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', '<span>USD 7/kg</span>', '>FOB</span>', 'Lead time', '14 days', 'Supplied by', 'Company A', '>Quote<']) {
+for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', '>USD 7/kg</span>', '>FOB</span>', 'Lead time', '14 days', 'Supplied by', 'Company A', '>Quote<']) {
   assert.ok(compactCard.includes(text), `Compact card keeps ${text}`);
 }
-assert.match(compactCard, /text-sm font-bold text-brand-800 sm:text-\[15px\]"><span>USD 7\/kg<\/span><\/p><p class="h-4 truncate whitespace-nowrap text-\[10\.5px\] font-normal leading-4 text-ink-500 sm:text-\[11px\]"><span>FOB<\/span>/, 'Price is prominent and Incoterm has a smaller fixed second line');
+assert.match(compactCard, /flex min-w-0 flex-wrap items-baseline gap-x-1\.5 gap-y-0\.5 tabular-nums"><span[^>]*font-extrabold[^>]*text-brand-900[^>]*>USD 7\/kg<\/span><span[^>]*uppercase[^>]*text-ink-400">FOB<\/span><\/p>/, 'Price and Incoterm sit inline on the primary baseline');
 assert.doesNotMatch(compactCard, /OEM|ODM|Samples/, 'OEM, ODM and Samples badges are removed from product cards');
-assert.doesNotMatch(compactCard, /Level 1 · Basic|Level 2 · Advanced|Level 3 · Complete|>Level [123]</, 'VerificationTierBadge text (Level 1 · Basic, etc.) is removed from product cards');
+assert.doesNotMatch(compactCard, /Level\s*[123]/i, 'All Level 1, 2, 3 text is removed from product cards and shield tooltips');
 assert.doesNotMatch(compactCard, />Request a quote</, 'Oversized Request a quote button is replaced by compact Quote button');
 assert.doesNotMatch(compactCard, /\bfont-mono\b/, 'Card price uses primary font instead of large monospace');
 assert.match(compactCard, /relative aspect-square w-full/, 'The product image stays square at every breakpoint');
 assert.match(compactCard, /object-cover/);
 assert.match(compactCard, /line-clamp-2 h-9[^"]*sm:h-10/, 'Title always occupies a fixed 2-line height');
-assert.match(compactCard, /mt-1\.5 flex h-6 items-center gap-1/, 'Grade row reserves a fixed 1-row height even when empty');
-assert.match(compactCard, /h-5 truncate whitespace-nowrap tabular-nums/, 'Price occupies a fixed 1-line slot with tabular figures');
+assert.match(compactCard, /tabular-nums/, 'Price and commercial figures preserve aligned tabular numerals');
 assert.match(compactCard, /after:absolute after:inset-0 after:z-10/, 'Whole card is clickable via stretched title link');
-assert.match(compactCard, /mt-auto border-t border-ink-100/, 'Supplier + verification + Quote footer is pinned to card bottom');
+assert.match(compactCard, /border-t border-ink-100[^"]*sm:mt-auto/, 'Supplier + verification + Quote footer is pinned to card bottom');
 assert.match(compactCard, /flex h-full min-w-0 flex-row[^"]*sm:flex-col/, 'Cards are horizontal on phones and vertical from sm');
 assert.match(compactCard, /w-\[38%\] shrink-0[^"]*sm:w-full/, 'The phone image takes 38 percent and the content takes the remaining width');
-assert.match(compactCard, /flex min-w-0 flex-1 flex-col/, 'The product information occupies the flexible content side');
+assert.match(compactCard, /@container flex min-w-0 flex-1 flex-col/, 'The product information occupies the flexible container-queried content side');
 assert.match(compactCard, /href="\/suppliers\/company-a"/, 'Supplier has an independent profile link');
 assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can open product details through the card');
 
@@ -458,8 +457,8 @@ const multiGradeCard = renderToStaticMarkup(React.createElement(PublicProductCar
   price: 'USD 1,500 to 2,500/MT',
   incoterm: 'FOB',
 }));
-assert.ok(multiGradeCard.includes('<span>From USD 1,500/MT</span>'), 'Multi-grade card renders From USD min/unit as primary bold accent price');
-assert.match(multiGradeCard, /font-normal leading-4 text-ink-500[^"]*"><span>FOB · 4 grades<\/span>/, 'Multi-grade card renders FOB · N grades in smaller muted regular-weight span');
+assert.ok(multiGradeCard.includes('>From USD 1,500/MT</span>'), 'Multi-grade card renders From USD min/unit as primary bold accent price');
+assert.ok(multiGradeCard.includes('>FOB</span>') && multiGradeCard.includes('<span>4 grades</span>'), 'Multi-grade card renders inline FOB and N grades qualifier');
 assert.match(multiGradeCard, /aria-label="All grades: 500 g\/L, 550 g\/L, 570 g\/L, White pepper"/, '+N trigger exposes full grade list');
 assert.match(multiGradeCard, /group-hover\/grades:block group-focus-within\/grades:block/, '+N tooltip opens on hover and tap/focus');
 
@@ -471,8 +470,8 @@ const filteredGradeCard = renderToStaticMarkup(React.createElement(PublicProduct
   price: 'USD 1,500 to 2,500/MT',
   incoterm: 'FOB',
 }));
-assert.ok(filteredGradeCard.includes('<span>USD 1,800–1,900/MT</span>'), 'Filtering by a grade renders that grade exact price range in bold accent');
-assert.match(filteredGradeCard, /font-normal leading-4 text-ink-500[^"]*"><span>FOB<\/span>/, 'Filtering by a grade renders Incoterm in smaller muted regular-weight span');
+assert.ok(filteredGradeCard.includes('>USD 1,800–1,900/MT</span>'), 'Filtering by a grade renders that grade exact price range in bold accent');
+assert.ok(filteredGradeCard.includes('>FOB</span>') && !filteredGradeCard.includes('4 grades'), 'Filtering by a grade renders inline Incoterm without multi-grade summary');
 assert.ok(filteredGradeCard.indexOf('>550 g/L<') < filteredGradeCard.indexOf('>500 g/L<'), 'Filtered grade moves to the front');
 assert.match(filteredGradeCard, /bg-brand-100 text-brand-900 ring-1 ring-inset ring-brand-400[^>]*><span class="truncate">550 g\/L<\/span>/, 'Filtered grade is highlighted');
 assert.ok(filteredGradeCard.includes('2 MT'), 'Filtered grade updates MOQ to that grade weight in MT');
@@ -485,33 +484,27 @@ assert.match(comparableCard, /<\/a><input[^>]*class="absolute right-2 top-2"/, '
 assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;product=Cashew%20W320%20lot%200&amp;product_id=a0"/,
   'The Quote CTA opens an RFQ prefilled for this product and supplier');
 assert.match(compactCard, /aria-label="Request a quote for Cashew W320 lot 0"/, 'Repeated quote CTAs have product-specific accessible names');
-assert.match(compactCard, /border-brand-600\/80 bg-white/, 'Quote uses a compact thin-bordered button');
+assert.match(compactCard, /rounded-lg border border-brand-400 bg-white/, 'Quote uses a clean rounded outlined brand button');
 assert.doesNotMatch(compactCard, /FOB reference|Reference price/, 'Price uses plain text without a heading');
-assert.match(compactCard, /mt-1\.5 flex flex-wrap[^"]*sm:mt-2 sm:grid sm:grid-cols-2/, 'MOQ and lead time are inline on phones and become a two-column row on desktop');
-assert.match(compactCard, /flex min-w-0 items-baseline gap-1 sm:block/, 'Mobile commercial terms stay on the same line');
+assert.match(compactCard, /mt-2 grid grid-cols-2 gap-x-3/, 'MOQ and lead time render in a clean two-column grid');
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
-// Each check owns its hue and symbol: documents blue, factory gold, delivery violet.
-const LEVEL_TONES = [
-  [1, 'Documents checked', 'sky', 'file-check'],
-  [2, 'Factory verification', 'amber', 'factory'],
-  [3, 'Delivery history reviewed', 'violet', 'truck'],
-];
-const allApprovedCard = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, verificationSteps: [1, 2, 3] }));
-for (const [level, label, hue, icon] of LEVEL_TONES) {
-  assert.ok(allApprovedCard.includes(`aria-label="Level ${level} · ${label}: Approved`),
-    `Shield ${level} is announced as level ${level} · ${label}`);
-  assert.ok(allApprovedCard.includes(`border-2 border-${hue}-400 bg-${hue}-100 text-${hue}-700`),
-    `Approved shield ${level} uses its own ${hue} tone`);
-  assert.ok(allApprovedCard.includes(`lucide-${icon}`), `Approved shield ${level} keeps the ${icon} symbol`);
-  assert.ok(allApprovedCard.includes(`<span class="block text-[10px] font-semibold leading-4 text-${hue}-300">Approved</span>`),
-    `The tooltip repeats level ${level}'s ${hue} tone for the approved status`);
+
+// All three shields keep the ShieldCheck icon, while approved shield colour progresses by tier (1 < 2 < 3).
+const oneShieldCard = renderOffer({ verificationSteps: [1] });
+const twoShieldCard = compactCard; // verificationSteps: [1, 3]
+const threeShieldCard = renderOffer({ verificationSteps: [1, 2, 3] });
+for (const [label, html] of [['1-shield', oneShieldCard], ['2-shield', twoShieldCard], ['3-shield', threeShieldCard]]) {
+  assert.equal((html.match(/lucide-shield-check/g) ?? []).length, 3, `${label} card keeps ShieldCheck for all three pips`);
+  assert.doesNotMatch(html, /lucide-file-check|lucide-factory|lucide-truck/, `${label} card never swaps shield icon for check-specific symbols`);
+  assert.doesNotMatch(html, /Level\s*[123]/i, `${label} card never displays Level 1/2/3 text`);
 }
-assert.equal(new Set(LEVEL_TONES.map(([, , hue]) => hue)).size, 3, 'The three checks never share one hue');
-assert.match(compactCard, /border-2 border-sky-400 bg-sky-100 text-sky-700/, 'A card with only documents approved shows just the blue shield');
-assert.match(compactCard, /border-2 border-violet-400 bg-violet-100 text-violet-700/, 'A card with delivery history approved shows the violet shield');
-assert.match(compactCard, /border-2 border-ink-200 bg-white text-ink-300/, 'A check that was not approved stays a grey outline');
-assert.doesNotMatch(compactCard, /bg-brand-50 text-brand-700/, 'The shields no longer repeat one mint colour for every level');
-assert.doesNotMatch(allApprovedCard, /bg-emerald-100 text-emerald-700/, 'No single-colour treatment survives the per-level palette');
+assert.equal((oneShieldCard.match(/border-sky-300 bg-sky-50 text-sky-600/g) ?? []).length, 1, '1 approved shield uses entry sky tier tone');
+assert.equal((oneShieldCard.match(/border border-ink-200 bg-white text-ink-300/g) ?? []).length, 2, '1-shield card keeps 2 unapproved shields as grey outlines');
+assert.equal((twoShieldCard.match(/border-brand-500 bg-brand-100 text-brand-800/g) ?? []).length, 2, '2 approved shields step up to rich brand emerald-teal tier tone');
+assert.equal((twoShieldCard.match(/border border-ink-200 bg-white text-ink-300/g) ?? []).length, 1, '2-shield card keeps its unapproved middle shield as a grey outline');
+assert.equal((threeShieldCard.match(/border-amber-500 bg-gradient-to-b from-amber-100 to-amber-200 text-amber-900/g) ?? []).length, 3, '3 approved shields step up to prestige gold tier tone');
+assert.equal((threeShieldCard.match(/border border-ink-200 bg-white text-ink-300/g) ?? []).length, 0, '3-shield card has no unapproved grey shields');
+
 const standardBadge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels: [1] }));
 assert.ok(standardBadge.includes('Level 1 · Basic') && !standardBadge.includes('sm:hidden'),
   'Badges outside product cards keep the full label at every size');
@@ -526,10 +519,10 @@ for (const [level, label, status] of [
   [3, 'Delivery history reviewed', 'Approved'],
 ]) {
   const explanation = VERIFICATION_LEVEL_EXPLANATIONS[level];
-  const accessibleName = `Level ${level} · ${label}: ${status}. ${explanation}`;
-  assert.ok(compactCard.includes(`aria-label="${accessibleName}"`), `Shield ${level} has its own accessible explanation and actual status`);
-  assert.match(compactCard, new RegExp(`Level ${level} · ${label}<\\/strong><span[^>]*>${status}<\\/span>`),
-    `Shield ${level} shows its own label and status`);
+  const accessibleName = `${label}: ${status}. ${explanation}`;
+  assert.ok(compactCard.includes(`aria-label="${accessibleName}"`), `Shield ${level} has its own accessible explanation and actual status without Level prefix`);
+  assert.match(compactCard, new RegExp(`>${label}<\\/strong><span[^>]*>${status}<\\/span>`),
+    `Shield ${level} shows its own label and status without Level prefix`);
   assert.ok(compactCard.includes(`>${explanation}</span>`), `Shield ${level} shows its distinct short explanation`);
 }
 assert.equal(new Set(Object.values(VERIFICATION_LEVEL_EXPLANATIONS)).size, 3, 'The three levels never share one generic explanation');
@@ -541,8 +534,9 @@ for (const explanation of Object.values(PRODUCT_VERIFICATION_EXPLANATIONS)) {
 const standardPips = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationPips, { levels: [1], l2Scope: 'factory' }));
 assert.ok(!standardPips.includes('role="tooltip"'), 'Verification pips outside product cards use native per-level tooltips without overlay clipping');
 assert.equal((standardPips.match(/role="img"/g) ?? []).length, 3, 'Each standard shield keeps an independent accessible tooltip');
+assert.doesNotMatch(standardPips, /Level\s*[123]/i, 'Standard shields also omit Level 1/2/3 prefixes');
 for (const level of [1, 2, 3]) {
-  const accessibleName = `Level ${level} · ${VERIFICATION_LABELS[level]}: ${level === 1 ? 'Approved' : 'Not approved'}. ${VERIFICATION_LEVEL_EXPLANATIONS[level]}`;
+  const accessibleName = `${VERIFICATION_LABELS[level]}: ${level === 1 ? 'Approved' : 'Not approved'}. ${VERIFICATION_LEVEL_EXPLANATIONS[level]}`;
   assert.ok(standardPips.includes(`title="${accessibleName}"`), `Standard shield ${level} has its own native tooltip`);
 }
 assert.match(compactCard, /overflow-visible rounded-xl/, 'The card does not clip its verification tooltip');
@@ -551,7 +545,7 @@ const longSupplierCard = renderToStaticMarkup(React.createElement(PublicProductC
   ...cardProps, supplierName: 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED',
 }));
 assert.match(longSupplierCard, /title="VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED"/, 'The full supplier name remains available as a tooltip');
-assert.match(longSupplierCard, /truncate font-semibold text-brand-700/, 'Long supplier names stay on one line instead of stretching the card');
+assert.match(longSupplierCard, /truncate font-bold text-brand-700/, 'Long supplier names stay on one line instead of stretching the card');
 const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, incoterm: null, fob: false, verificationSteps: [] }));
 assert.match(privatePrice, /Price on request/);
 assert.doesNotMatch(privatePrice, /FOB reference|\bFOB\b|USD 7\/kg/, 'No price or FOB claim without consent');

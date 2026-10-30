@@ -89,12 +89,20 @@ function resolveCardOfferDisplay({
   moq: string;
   gradeRows?: readonly PublicProductCardGradeRow[];
   highlightedGrades?: readonly string[];
-}): { pricePrimary: string; priceSecondary: string; priceTitle: string; hasPrice: boolean; moqText: string } {
+}): {
+  pricePrimary: string;
+  incotermText: string;
+  gradeCountLabel: string;
+  priceTitle: string;
+  hasPrice: boolean;
+  moqText: string;
+} {
   const defaultMoq = moq || "On request";
   if (test) {
     return {
       pricePrimary: "Test data · not a price",
-      priceSecondary: "",
+      incotermText: "",
+      gradeCountLabel: "",
       priceTitle: "Test data · not a price",
       hasPrice: false,
       moqText: defaultMoq,
@@ -129,7 +137,8 @@ function resolveCardOfferDisplay({
     if (pricedRows.length === 0) {
       return {
         pricePrimary: "Price on request",
-        priceSecondary: "",
+        incotermText: "",
+        gradeCountLabel: "",
         priceTitle: "Price on request",
         hasPrice: false,
         moqText,
@@ -146,7 +155,8 @@ function resolveCardOfferDisplay({
       const amount = low === high ? `USD ${low}${unitSuffix}` : `USD ${low}–${high}${unitSuffix}`;
       return {
         pricePrimary: amount,
-        priceSecondary: term,
+        incotermText: term,
+        gradeCountLabel: "",
         priceTitle: term ? `${amount} ${term}` : amount,
         hasPrice: true,
         moqText,
@@ -157,11 +167,12 @@ function resolveCardOfferDisplay({
     const low = formatCardNumber(minVal, unitSuffix);
     const pricePrimary = `From USD ${low}${unitSuffix}`;
     const gradeCountLabel = `${targetRows.length} grades`;
-    const priceSecondary = term ? `${term} · ${gradeCountLabel}` : `· ${gradeCountLabel}`;
+    const summaryParts = [pricePrimary, term, gradeCountLabel].filter(Boolean);
     return {
       pricePrimary,
-      priceSecondary,
-      priceTitle: `${pricePrimary} ${priceSecondary}`,
+      incotermText: term,
+      gradeCountLabel,
+      priceTitle: summaryParts.join(" · "),
       hasPrice: true,
       moqText,
     };
@@ -170,7 +181,8 @@ function resolveCardOfferDisplay({
   if (!price || !price.trim()) {
     return {
       pricePrimary: "Price on request",
-      priceSecondary: "",
+      incotermText: "",
+      gradeCountLabel: "",
       priceTitle: "Price on request",
       hasPrice: false,
       moqText: defaultMoq,
@@ -183,11 +195,12 @@ function resolveCardOfferDisplay({
   );
   const pricePrimary = trailingTermMatch ? trailingTermMatch[1].trim() : compact;
   const embeddedTerm = trailingTermMatch ? trailingTermMatch[2].trim().toUpperCase() : "";
-  const priceSecondary = embeddedTerm || fallbackTerm;
+  const incotermText = embeddedTerm || fallbackTerm;
   return {
     pricePrimary,
-    priceSecondary,
-    priceTitle: priceSecondary ? `${pricePrimary} ${priceSecondary}` : pricePrimary,
+    incotermText,
+    gradeCountLabel: "",
+    priceTitle: incotermText ? `${pricePrimary} ${incotermText}` : pricePrimary,
     hasPrice: true,
     moqText: defaultMoq,
   };
@@ -285,7 +298,14 @@ export function PublicProductCard({
   const allGradesText = orderedGrades.join(", ");
   const displayName = titleWithoutGrades(name, [...(grades ?? []), ...(gradeRows ?? []).map((row) => row.grade)]);
 
-  const { pricePrimary, priceSecondary, priceTitle, hasPrice, moqText: rawMoqText } = resolveCardOfferDisplay({
+  const {
+    pricePrimary,
+    incotermText,
+    gradeCountLabel,
+    priceTitle,
+    hasPrice,
+    moqText: rawMoqText,
+  } = resolveCardOfferDisplay({
     test,
     price,
     incoterm,
@@ -295,6 +315,8 @@ export function PublicProductCard({
     highlightedGrades,
   });
   const moqText = cardWeightMoq(rawMoqText);
+  const leadTimeDisplay = leadTimeText?.trim() || (leadTimeDays != null ? `${leadTimeDays} days` : "On request");
+  const fullPriceTitle = hasPrice && volumePricing ? `${priceTitle} · Volume pricing` : priceTitle;
 
   // This is a supplier contract check, not a claim about product quality or factory ownership.
   const partnerContractReviewed =
@@ -376,12 +398,12 @@ export function PublicProductCard({
 
   return (
     <article
-      className={`@container group/card relative flex h-full min-w-0 flex-row overflow-visible rounded-xl border border-ink-200 bg-white shadow-card transition focus-within:border-brand-500 sm:flex-col ${
+      className={`group/card relative flex h-full min-w-0 flex-row overflow-visible rounded-xl border border-ink-200 bg-white shadow-card transition focus-within:border-brand-500 sm:flex-col ${
         linkable ? "cursor-pointer hover:border-brand-400 hover:shadow-md" : ""
       }`}
     >
       <div className="w-[38%] shrink-0 self-start sm:w-full">{thumb}</div>
-      <div className="flex min-w-0 flex-1 flex-col p-2.5 sm:px-3.5 sm:pb-3 sm:pt-3">
+      <div className="@container flex min-w-0 flex-1 flex-col p-2.5 sm:px-3.5 sm:pb-3.5 sm:pt-3">
         {sponsored && (
           <div className="relative z-20">
             <SponsoredDisclosure />
@@ -399,97 +421,117 @@ export function PublicProductCard({
           title
         )}
 
-        {/* Fixed 1-row grade slot so every card in a row keeps identical vertical alignment */}
-        <div className="mt-1.5 flex h-6 items-center gap-1 sm:mt-2">
-          {orderedGrades.slice(0, 2).map((gradeItem) => renderGradeBadge(gradeItem))}
-          {canFitThreeWhenWide && orderedGrades[2] && renderGradeBadge(orderedGrades[2], "hidden @[220px]:inline-flex")}
-          {orderedGrades.length > 2 && (
-            <span
-              className={`group/grades relative z-20 inline-flex shrink-0 ${
-                canFitThreeWhenWide && orderedGrades.length === 3 ? "@[220px]:hidden" : ""
-              }`}
-            >
-              <button
-                type="button"
-                title={allGradesText}
-                aria-label={`All grades: ${allGradesText}`}
-                className="inline-flex h-5 cursor-pointer items-center rounded bg-ink-100 px-1.5 text-[10.5px] font-semibold leading-none text-ink-700 hover:bg-ink-200 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-700"
-              >
-                {canFitThreeWhenWide && orderedGrades.length > 3 ? (
-                  <>
-                    <span className="@[220px]:hidden">+{orderedGrades.length - 2}</span>
-                    <span className="hidden @[220px]:inline">+{orderedGrades.length - 3}</span>
-                  </>
-                ) : (
-                  `+${orderedGrades.length - 2}`
-                )}
-              </button>
+        {orderedGrades.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            {orderedGrades.slice(0, 2).map((gradeItem) => renderGradeBadge(gradeItem))}
+            {canFitThreeWhenWide && orderedGrades[2] && renderGradeBadge(orderedGrades[2], "hidden @[220px]:inline-flex")}
+            {orderedGrades.length > 2 && (
               <span
-                role="tooltip"
-                className="pointer-events-none absolute bottom-full left-0 z-40 mb-1.5 hidden w-max max-w-52 rounded-md bg-ink-900 px-2.5 py-1.5 text-left text-[11px] font-medium leading-4 text-white shadow-xl group-hover/grades:block group-focus-within/grades:block"
+                className={`group/grades relative z-20 inline-flex shrink-0 ${
+                  canFitThreeWhenWide && orderedGrades.length === 3 ? "@[220px]:hidden" : ""
+                }`}
               >
-                {allGradesText}
+                <button
+                  type="button"
+                  title={allGradesText}
+                  aria-label={`All grades: ${allGradesText}`}
+                  className="inline-flex h-5 cursor-pointer items-center rounded bg-ink-100 px-1.5 text-[10.5px] font-semibold leading-none text-ink-700 hover:bg-ink-200 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-700"
+                >
+                  {canFitThreeWhenWide && orderedGrades.length > 3 ? (
+                    <>
+                      <span className="@[220px]:hidden">+{orderedGrades.length - 2}</span>
+                      <span className="hidden @[220px]:inline">+{orderedGrades.length - 3}</span>
+                    </>
+                  ) : (
+                    `+${orderedGrades.length - 2}`
+                  )}
+                </button>
+                <span
+                  role="tooltip"
+                  className="pointer-events-none absolute bottom-full left-0 z-40 mb-1.5 hidden w-max max-w-52 rounded-md bg-ink-900 px-2.5 py-1.5 text-left text-[11px] font-medium leading-4 text-white shadow-xl group-hover/grades:block group-focus-within/grades:block"
+                >
+                  {allGradesText}
+                </span>
               </span>
+            )}
+          </div>
+        )}
+
+        {/* Prominent price with inline Incoterm (e.g. USD 7.55–7.80/kg FOB) */}
+        <div title={fullPriceTitle} className="mt-2">
+          <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 tabular-nums">
+            <span
+              className={
+                test
+                  ? "text-xs font-semibold leading-5 text-ink-500"
+                  : hasPrice
+                    ? "break-words text-[16px] font-extrabold leading-6 tracking-[-0.01em] text-brand-900 @[19rem]:text-[19px] @[19rem]:leading-7"
+                    : "text-sm font-semibold leading-5 text-ink-500"
+              }
+            >
+              {pricePrimary}
             </span>
+            {hasPrice && incotermText && (
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-400">
+                {incotermText}
+              </span>
+            )}
+          </p>
+          {(gradeCountLabel || (hasPrice && volumePricing)) && (
+            <p className="mt-0.5 truncate text-[11px] font-medium leading-4 text-ink-500">
+              {gradeCountLabel && <span>{gradeCountLabel}</span>}
+              {hasPrice && volumePricing && (
+                <span className={gradeCountLabel ? "ml-1.5" : undefined}>
+                  {gradeCountLabel ? `· Volume pricing` : "Volume pricing"}
+                </span>
+              )}
+            </p>
           )}
         </div>
 
-        {/* Two fixed lines keep Incoterm and the volume label visible on narrow cards. */}
-        <div title={hasPrice && volumePricing ? `${priceTitle} · Volume pricing` : priceTitle} className="mt-1 h-9 sm:mt-1.5">
-          <p className={`h-5 truncate whitespace-nowrap tabular-nums leading-5 ${
-            test
-              ? "text-xs font-semibold text-ink-500"
-              : hasPrice
-                ? "text-sm font-bold text-brand-800 sm:text-[15px]"
-                : "text-xs font-medium text-ink-500"
-          }`}>
-            <span>{pricePrimary}</span>
+        {hasPrice && stalePriceDays !== undefined && (
+          <p className="mt-0.5 text-[10px] leading-4 text-ink-500">
+            {stalePriceDays === null ? "Confirmation date unavailable" : `Last updated ${stalePriceDays} days ago`}
           </p>
-          <p className="h-4 truncate whitespace-nowrap text-[10.5px] font-normal leading-4 text-ink-500 sm:text-[11px]">
-            {priceSecondary && <span>{priceSecondary}</span>}
-            {hasPrice && volumePricing && <span className={priceSecondary ? "ml-1.5" : undefined}>Volume pricing</span>}
-          </p>
-        </div>
+        )}
 
-        {hasPrice && stalePriceDays !== undefined && <p className="mt-0.5 text-[10px] leading-4 text-ink-500">{stalePriceDays === null ? "Confirmation date unavailable" : `Last updated ${stalePriceDays} days ago`}</p>}
-
-        {/* Fixed single-line MOQ & Lead time */}
-        <dl className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-ink-600 sm:mt-2 sm:grid sm:grid-cols-2 sm:gap-x-2">
-          <div className="flex min-w-0 items-baseline gap-1 sm:block">
-            <dt className="text-[9px] font-medium uppercase tracking-wide text-ink-500 sm:text-[10px]">MOQ</dt>
-            <dd title={moqText} className="mt-0 truncate text-[11px] font-semibold leading-4 text-ink-800 sm:mt-0.5 sm:text-xs">
+        {/* Two-column commercial terms: MOQ & Lead time */}
+        <dl className="mt-2 grid grid-cols-2 gap-x-3 text-ink-600 sm:mt-2.5">
+          <div className="min-w-0">
+            <dt className="text-[10px] font-semibold uppercase leading-4 tracking-[0.1em] text-ink-500">MOQ</dt>
+            <dd title={moqText} className="mt-0.5 truncate text-[13px] font-bold leading-5 tabular-nums text-ink-900">
               {moqText}
             </dd>
           </div>
-          <div className="flex min-w-0 items-baseline gap-1 sm:block">
-            <dt className="text-[9px] font-medium uppercase tracking-wide text-ink-500 sm:text-[10px]">Lead time</dt>
-            <dd className="mt-0 truncate text-[11px] font-semibold leading-4 text-ink-800 sm:mt-0.5 sm:text-xs">
-              {leadTimeText?.trim() || (leadTimeDays != null ? `${leadTimeDays} days` : "On request")}
+          <div className="min-w-0">
+            <dt className="text-[10px] font-semibold uppercase leading-4 tracking-[0.1em] text-ink-500">Lead time</dt>
+            <dd className="mt-0.5 truncate text-[13px] font-bold leading-5 tabular-nums text-ink-900">
+              {leadTimeDisplay}
             </dd>
           </div>
         </dl>
 
-        {/* Bottom-pinned Supplier + single Verification + compact outlined Quote button */}
-        <div className="mt-auto border-t border-ink-100 pt-2 sm:pt-2.5">
-          <p className="flex min-w-0 items-center gap-1.5 text-[11px] leading-4 sm:text-xs">
+        {/* Bottom-pinned divider + Supplied by + tiered circular shields + Quote CTA */}
+        <div className="mt-2 border-t border-ink-100 pt-2 sm:mt-auto sm:pt-2.5">
+          <p className="flex min-w-0 items-baseline gap-1 text-[11px] leading-4 sm:text-xs">
             <span className="shrink-0 text-ink-500">Supplied by</span>
             {supplierHref && linkable ? (
               <Link
                 href={supplierHref}
                 title={supplierName}
-                className="relative z-20 min-w-0 flex-1 truncate font-semibold text-brand-700 hover:underline"
+                className="relative z-20 min-w-0 flex-1 truncate font-bold text-brand-700 hover:underline"
               >
                 {supplierName}
               </Link>
             ) : (
-              <span title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-ink-800">
+              <span title={supplierName} className="min-w-0 flex-1 truncate font-bold text-ink-800">
                 {supplierName}
               </span>
             )}
           </p>
-          <div className="mt-1.5 flex min-h-7 items-center justify-between gap-2">
+          <div className="mt-2 flex min-h-9 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
             <div className="relative z-20 flex min-w-0 flex-wrap items-center gap-1.5">
-              <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} compact shortTooltips />
+              <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} variant="marketplace" shortTooltips />
               {partnerContractReviewed && (
                 <span
                   title="The supplier's partner factory contract was reviewed; this is not a factory inspection."
@@ -504,7 +546,7 @@ export function PublicProductCard({
               <Link
                 href={quote}
                 aria-label={`Request a quote for ${displayName}`}
-                className="relative z-20 inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-brand-600/80 bg-white px-2.5 text-xs font-semibold text-brand-800 transition hover:border-brand-700 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                className="relative z-20 inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-brand-400 bg-white px-2.5 text-[13px] font-bold text-brand-800 transition hover:border-brand-600 hover:bg-brand-50/70 hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 @[11.5rem]:px-3.5"
               >
                 Quote
               </Link>
