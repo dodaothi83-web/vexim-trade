@@ -57,6 +57,8 @@ type EditorProps = {
   quantityEditor?: QuantityEditorData | null;
   quantityPolicies?: Record<string, QuantityPricingPolicy> | null;
   media?: MediaAsset[];
+  /** Ảnh trong kho riêng của nhà cung cấp, chưa gắn sản phẩm nào. */
+  bankMedia?: MediaAsset[];
   userId?: string;
   categories: CategoryProposalOption[];
   /** Nhóm hàng đã đăng ký chỉ dùng để cảnh báo, không giới hạn lựa chọn. */
@@ -202,7 +204,7 @@ function firstInvalidField(form: HTMLFormElement | null): HTMLElement | null {
  * Hành vi giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
+export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], bankMedia = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
   const router = useRouter();
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
@@ -225,6 +227,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const [formError, setFormError] = useState<string | null>(null);
   const [coverHover, setCoverHover] = useState(false);
   const [selected, setSelected] = useState<File[]>([]);
+  // Kho ảnh: ảnh đã tải lên nhưng chưa thuộc sản phẩm nào. Ảnh được gắn vào sản phẩm
+  // đúng lúc bấm Lưu, nên người bán không phải lưu nháp trước mới tải được ảnh.
+  const [pickedBank, setPickedBank] = useState<string[]>([]);
   const [progress, setProgress] = useState("");
   // Bản nháp dùng cho bước 3: cập nhật theo từng lần nhập nên NCC đọc lại đúng nội dung
   // đang có, kể cả phần chưa lưu (kèm cảnh báo phải lưu trước khi gửi).
@@ -262,7 +267,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const hasDetails = !!product && !!(product.spec?.trim() || product.description?.trim());
   const hasMedia = media.some((m) => m.kind === "image" && !!m.storage_path && m.supplier_id === product?.supplier_id);
   const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
-  // Tải tệp không cần sản phẩm đã tồn tại: form được lưu ngay khi bấm tải (xem ensureDraft).
+  // Tải ảnh không cần sản phẩm đã tồn tại: ảnh vào kho ảnh của nhà cung cấp trước,
+  // rồi gắn vào sản phẩm đúng lúc bấm Lưu (xem upload + pickedBank).
   const canUpload = !locked && (!["approved", "paused"].includes(review) || product?.supplier_originated === true);
   const canDeleteAsset = (asset: MediaAsset) => canUpload && !!userId && asset.created_by === userId &&
     (asset.audience === "internal" || review === "approved" || review === "paused" || review === "changes_requested");
@@ -470,6 +476,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         form.set("quantity_currency", newQuantity.currency ?? "USD");
         form.set("quantity_tiers_json", JSON.stringify(newQuantity.tiers));
         if (quantityConsent) form.set("confirm_quantity_price_consent", "yes");
+        if (pickedBank.length) form.set("bank_media_ids", JSON.stringify(pickedBank.slice(0, 8)));
       }
       const response = await saveSupplierProductAction(form);
       setToast(response);
@@ -495,12 +502,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     if (!id) return;
     // Sản phẩm mới: sang trang chi tiết để tiếp tục tải ảnh và gửi duyệt.
     if (!product) router.push(detailUrl(id));
-  }
-
-  /** Bảo đảm đã có sản phẩm và mọi thay đổi đã lưu, trước khi gắn tệp vào sản phẩm đó. */
-  async function ensureDraft(): Promise<string | null> {
-    if (product && !dirty) return product.id;
-    return persist();
   }
 
   /** Danh sách việc còn thiếu trước khi gửi - dùng cho cả nút bấm và khối nhắc. */
@@ -559,6 +560,28 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     return null;
   }
   function chooseFiles(files: File[]) {
+    if (!product) {
+      // Chưa có sản phẩm: tệp đi vào kho ảnh, nên chỉ nhận ảnh và đếm theo kho.
+      const bankCount = bankMedia.filter((asset) => !userId || asset.created_by === userId).length;
+      if (files.some((file) => uploadKind(file) !== "image")) {
+        setToast({ ok: false, message: "Kho ảnh chỉ nhận ảnh JPG, PNG hoặc WebP. Catalogue tải được sau khi lưu sản phẩm." });
+        setSelected([]);
+        return;
+      }
+      if (bankCount + files.length > 12) {
+        setToast({ ok: false, message: `Kho ảnh tối đa 12 ảnh; hiện bạn đã có ${bankCount} ảnh.` });
+        setSelected([]);
+        return;
+      }
+      const tooBig = files.find((file) => file.size > 8 * 1024 * 1024);
+      if (tooBig) {
+        setToast({ ok: false, message: `Ảnh “${tooBig.name}” quá 8 MB. Chọn ảnh nhẹ hơn.` });
+        setSelected([]);
+        return;
+      }
+      setSelected(files);
+      return;
+    }
     if (imageCount + files.filter((file) => uploadKind(file) === "image").length > 8) {
       setToast({ ok: false, message: `Tối đa 8 ảnh sản phẩm; hiện có ${imageCount} ảnh.` });
       setSelected([]);
@@ -579,12 +602,34 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   }
   async function upload() {
     if (!canUpload || !selected.length) return;
-    // Chưa có sản phẩm (hoặc còn thay đổi chưa lưu): lưu ngầm trước, rồi gắn tệp vào bản nháp đó.
-    const productId = await ensureDraft();
-    if (!productId) return;
     setBusy(true);
     let uploaded = 0;
     try {
+      // Chưa có sản phẩm: ảnh vào kho ảnh riêng, gắn vào sản phẩm ngay khi bấm Lưu.
+      if (!product) {
+        const added: string[] = [];
+        for (let index = 0; index < selected.length; index++) {
+          const file = selected[index];
+          if (uploadKind(file) !== "image") throw Error("Kho ảnh chỉ nhận ảnh JPG, PNG hoặc WebP.");
+          setProgress(`Đang tải ${index + 1}/${selected.length}: ${file.name}`);
+          const body = new FormData();
+          body.set("file", file);
+          const response = await fetch("/api/supplier-portal/media", { method: "POST", body });
+          // Trang lỗi (404/413/500...) trả HTML: đọc .json() sẽ ném — bắt lại để giữ mã HTTP thật.
+          const data = await response.json().catch(() => null) as
+            { ok?: boolean; message?: string; image?: { id?: string } } | null;
+          if (!response.ok || !data?.ok) throw Error(data?.message || `Không tải được ảnh (HTTP ${response.status}).`);
+          if (data.image?.id) added.push(data.image.id);
+          uploaded++;
+        }
+        // Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo để bấm Lưu là xong.
+        if (added.length) setPickedBank((current) => Array.from(new Set([...current, ...added])).slice(0, 8));
+        setSelected([]);
+        setToast({ ok: true, message: `Đã thêm ${uploaded} ảnh vào kho ảnh. Ảnh được gắn vào sản phẩm khi bạn bấm Lưu.` });
+        router.refresh();
+        return;
+      }
+      const productId = product.id;
       for (let index = 0; index < selected.length; index++) {
         const file = selected[index];
         const kind = uploadKind(file);
@@ -594,7 +639,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         body.set("kind", kind);
         body.set("file", file);
         const response = await fetch(`/api/supplier-portal/products/${productId}/media`, { method: "POST", body });
-        // Trang lỗi (404/413/500...) trả HTML: đọc .json() sẽ ném — bắt lại để giữ mã HTTP thật.
         const data = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
         if (!response.ok || !data?.ok) throw Error(data?.message || `Không tải được tệp (HTTP ${response.status}).`);
         uploaded++;
@@ -603,6 +647,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       setToast({ ok: true, message: live
         ? `Đã tải ${uploaded} tệp lên sản phẩm đã đăng.`
         : `Đã tải ${uploaded} tệp. Tệp sẽ được kiểm tra khi duyệt.` });
+      router.refresh();
     } catch (error) {
       if (uploaded) setSelected(selected.slice(uploaded));
       const failure = reportActionError(error, "Tải tệp");
@@ -610,8 +655,31 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     } finally {
       setProgress("");
       setBusy(false);
-      if (uploaded && !product) router.push(`${detailUrl(productId)}?step=2`);
-      else if (uploaded) router.refresh();
+    }
+  }
+
+  /** Bật/tắt một ảnh trong kho ảnh cho lần lưu này. */
+  function toggleBank(mediaId: string) {
+    setPickedBank((current) => current.includes(mediaId)
+      ? current.filter((id) => id !== mediaId)
+      : current.length >= 8 ? current : [...current, mediaId]);
+  }
+
+  /** Xóa ảnh khỏi kho khi nó chưa gắn vào sản phẩm nào. */
+  async function removeBank(mediaId: string) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/supplier-portal/media?media_id=${encodeURIComponent(mediaId)}`, { method: "DELETE" });
+      const data = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
+      if (!response.ok || !data?.ok) throw Error(data?.message || `Không xóa được ảnh (HTTP ${response.status}).`);
+      setPickedBank((current) => current.filter((id) => id !== mediaId));
+      setToast({ ok: true, message: "Đã xóa ảnh khỏi kho ảnh." });
+      router.refresh();
+    } catch (failure) {
+      setToast(reportActionError(failure, "Xóa ảnh"));
+    } finally {
+      setBusy(false);
     }
   }
   /** Kéo ảnh khác vào ô ảnh đại diện (hoặc bấm nút sao) để thay; ảnh cũ tự về lại danh sách. */
@@ -837,6 +905,43 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   ? "JPG, PNG, WebP ≤ 8 MB hoặc PDF ≤ 15 MB. Tệp ở chế độ nội bộ khi chờ đăng."
                   : "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp được kiểm tra khi duyệt."} />
             <div className="space-y-3 px-3.5 py-3 sm:px-4">
+              {/* Sản phẩm chưa tồn tại thì ảnh nằm trong kho riêng của nhà cung cấp.
+                  Tải ảnh không cần lưu nháp trước; chọn ảnh nào là gắn ảnh đó khi bấm Lưu. */}
+              {!product && <div className="rounded-lg border border-brand-200 bg-brand-50/40 p-2.5">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-ink-800">Kho ảnh của bạn</p>
+                    <p className="text-[10.5px] leading-4 text-ink-600">Tải ảnh lên trước rồi chọn ảnh cần dùng. Ảnh được gắn vào sản phẩm khi bạn bấm Lưu.</p>
+                  </div>
+                  <p className="shrink-0 text-[10.5px] font-semibold tabular-nums text-brand-800">Đã chọn {pickedBank.length}/8</p>
+                </div>
+                {bankMedia.length ? <>
+                  <ul className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                    {bankMedia.map((asset) => {
+                      const url = privateMediaUrl(asset);
+                      const picked = pickedBank.includes(asset.id);
+                      return <li key={asset.id} className="relative">
+                        <button type="button" disabled={busy} onClick={() => toggleBank(asset.id)} aria-pressed={picked}
+                          aria-label={picked ? "Bỏ chọn ảnh này" : "Chọn ảnh này cho sản phẩm"}
+                          className={`block w-full overflow-hidden rounded-md border-2 transition ${picked ? "border-brand-600" : "border-transparent hover:border-brand-300"}`}>
+                          <span className="block aspect-square overflow-hidden rounded bg-ink-100">
+                            {url
+                              ? <img src={url} alt="" className="size-full object-cover" />
+                              : <span className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-4" aria-hidden="true" /></span>}
+                          </span>
+                        </button>
+                        {picked && <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-brand-700 px-1.5 py-0.5 text-[9px] font-bold text-white">Gắn</span>}
+                        <button type="button" disabled={busy} onClick={() => void removeBank(asset.id)}
+                          aria-label="Xóa ảnh khỏi kho" title="Xóa ảnh khỏi kho"
+                          className="absolute top-1 right-1 rounded-full bg-white/95 p-1 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
+                          <X className="size-3" aria-hidden="true" />
+                        </button>
+                      </li>;
+                    })}
+                  </ul>
+                  <p className="mt-1.5 text-[10.5px] leading-4 text-ink-500">Bấm vào ảnh để chọn hoặc bỏ chọn. Ảnh không chọn vẫn nằm trong kho cho sản phẩm khác.</p>
+                </> : <p className="mt-2 rounded-md border border-dashed border-ink-300 bg-white px-3 py-3 text-center text-[11.5px] text-ink-600">Kho đang trống. Tải ảnh ở ô bên dưới, không cần lưu sản phẩm trước.</p>}
+              </div>}
               {/* Lưới 6 ô: nhìn một cái là biết còn thiếu ảnh nào. Kéo thả và đặt ảnh chính vẫn ở các ô bên dưới. */}
               <div className="rounded-lg border border-ink-200 bg-ink-50/60 p-2.5">
                 <div className="flex items-center justify-between gap-2">
@@ -930,10 +1035,12 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseFiles(Array.from(e.dataTransfer.files)); }}
                   className="rounded-lg border-2 border-dashed border-brand-200 bg-brand-50/40 px-4 py-4 text-center transition hover:border-brand-400 focus-within:border-brand-600">
                   <UploadCloud className="mx-auto size-6 text-brand-700" aria-hidden="true" />
-                  <p className="mt-1 text-[12.5px] font-semibold text-ink-800">Kéo thả ảnh hoặc catalogue vào đây</p>
-                  <p className="mt-0.5 text-[11px] text-ink-500">hoặc chọn tệp từ thiết bị. Đã tải {ownedCount}/12 tệp</p>
-                  {!product && <p className="mt-0.5 text-[11px] text-ink-500">Bản nháp được lưu tự động khi bạn bấm tải tệp.</p>}
-                  <label className="btn btn-soft relative mt-2 cursor-pointer">Chọn tệp
+                  <p className="mt-1 text-[12.5px] font-semibold text-ink-800">{product ? "Kéo thả ảnh hoặc catalogue vào đây" : "Kéo thả ảnh vào đây"}</p>
+                  <p className="mt-0.5 text-[11px] text-ink-500">{product
+                    ? `hoặc chọn tệp từ thiết bị. Đã tải ${ownedCount}/12 tệp`
+                    : `hoặc chọn ảnh từ thiết bị. Kho có ${bankMedia.length}/12 ảnh`}</p>
+                  {!product && <p className="mt-0.5 text-[11px] text-ink-500">Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu.</p>}
+                  <label className="btn btn-soft relative mt-2 cursor-pointer">{product ? "Chọn tệp" : "Chọn ảnh"}
                     <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" className="sr-only" aria-label="Chọn ảnh sản phẩm hoặc catalogue"
                       onChange={(e) => { chooseFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} /></label>
                 </div>
@@ -941,7 +1048,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <p className="text-[12px] font-semibold text-brand-900">Đã chọn {selected.length} tệp</p>
                   <ul className="mt-1.5 max-h-24 space-y-0.5 overflow-auto text-[11px] text-brand-900">{selected.map((file, index) => <li key={`${file.name}-${index}`} className="truncate">{file.name} - {(file.size / 1024 / 1024).toFixed(1)} MB</li>)}</ul>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <button type="button" disabled={busy} onClick={upload} className="btn btn-primary btn-sm"><UploadCloud className="size-4" aria-hidden="true" /> Tải {selected.length} tệp</button>
+                    <button type="button" disabled={busy} onClick={upload} className="btn btn-primary btn-sm"><UploadCloud className="size-4" aria-hidden="true" /> {product ? `Tải ${selected.length} tệp` : `Thêm ${selected.length} ảnh vào kho`}</button>
                     <button type="button" disabled={busy} onClick={() => setSelected([])} className="btn btn-ghost btn-sm">Bỏ chọn</button>
                   </div>
                 </div>}

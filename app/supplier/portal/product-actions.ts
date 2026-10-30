@@ -90,6 +90,20 @@ async function approvedAccess() {
 }
 
 /** Supplier manages its own products. Drafts need Vexim review; an approved product stays on the marketplace while its owner updates it. */
+/** Mã ảnh trong kho ảnh gửi kèm khi lưu sản phẩm mới: tối đa 8, chỉ nhận UUID. */
+function parseBankMediaIds(raw: FormDataEntryValue | null): string[] {
+  if (typeof raw !== "string" || !raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((value): value is string => typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value))
+      .slice(0, 8);
+  } catch {
+    return [];
+  }
+}
+
 export async function saveSupplierProductAction(form: FormData): Promise<Result> {
   let createdId: string | undefined;
   const access = await approvedAccess();
@@ -253,6 +267,23 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       }
       saved = data as SupplierProduct;
       createdId = saved.id;
+      // Ảnh trong kho ảnh được gắn vào sản phẩm vừa tạo, nên người bán tải ảnh
+      // trước khi có sản phẩm mà không phải lưu nháp. Ảnh luôn ở chế độ nội bộ.
+      const bankIds = parseBankMediaIds(form.get("bank_media_ids"));
+      let bankOrder = 0;
+      for (const mediaId of bankIds) {
+        if (bankOrder >= 8) break;
+        try {
+          const asset = await store.getMedia(mediaId);
+          if (!asset || asset.owner_type !== "supplier" || asset.supplier_id !== access.supplier.id ||
+            asset.kind !== "image" || !asset.storage_path) continue;
+          await store.updateMedia(mediaId, { owner_type: "product", product_id: saved.id, supplier_id: null,
+            audience: "internal", sort_order: bankOrder });
+          bankOrder++;
+        } catch (error) {
+          console.error("[supplier-product] attach media bank", error);
+        }
+      }
     }
     if (!saved) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi lưu." };
     // Preserve the approved English name when Vietnamese content changes.

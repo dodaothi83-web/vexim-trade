@@ -384,17 +384,20 @@ for (const phrase of ['Vexim duyệt', 'Vexim kiểm tra', 'Vexim xác nhận', 
 }
 assert.match(page, /Chọn danh mục gần nhất\. Danh mục được kiểm tra khi duyệt/, 'Hint danh mục nói đúng mức cần thiết');
 
-// 17. Tải ảnh không cần lưu trước: form tự lưu khi bấm tải, kể cả sản phẩm mới.
+// 17. Kho ảnh: tải ảnh trước khi có sản phẩm, gắn vào sản phẩm ngay khi bấm Lưu.
 assert.match(source, /const canUpload = !locked &&/, 'Ô chọn tệp không đòi sản phẩm đã tồn tại');
 assert.doesNotMatch(source, /canUpload = !!product/, 'Đã bỏ điều kiện phải có sản phẩm trước khi tải tệp');
-assert.match(source, /async function ensureDraft\(\): Promise<string \| null>/, 'Có bước bảo đảm đã có bản nháp trước khi gắn tệp');
-assert.match(source, /const productId = await ensureDraft\(\);/, 'upload() tự lưu form rồi mới đẩy tệp lên');
-assert.match(source, /async function persist\(\): Promise<string \| null>/, 'Lưu và trả về id dùng chung cho nút Lưu nháp và lúc tải tệp');
-assert.match(source, /router\.push\(`\$\{detailUrl\(productId\)\}\?step=2`\)/, 'Tải tệp xong cho sản phẩm mới thì mở lại đúng khối ảnh');
+assert.match(source, /async function persist\(\): Promise<string \| null>/, 'Lưu và trả về id dùng chung cho nút Lưu và lúc tạo sản phẩm');
+assert.match(source, /fetch\("\/api\/supplier-portal\/media", \{ method: "POST", body \}\)/, 'Ảnh mới tải đi vào kho ảnh riêng');
+assert.match(source, /setPickedBank\(\(current\) => Array\.from\(new Set\(\[\.\.\.current, \.\.\.added\]\)\)\.slice\(0, 8\)\)/, 'Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo');
+assert.match(source, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 8\)\)\)/, 'Ảnh đã chọn được gửi kèm khi lưu');
+assert.doesNotMatch(source, /ensureDraft/, 'Không quay lại cơ chế lưu nháp trước khi tải ảnh');
 assert.doesNotMatch(source, /Lưu nháp rồi tải ảnh|Lưu thay đổi rồi tải ảnh|saveIntent/, 'Không còn bắt người bán bấm lưu trước khi tải ảnh');
-assert.match(source, /Bản nháp được lưu tự động khi bạn bấm tải tệp/, 'Nói trước là bản nháp tự lưu khi tải tệp');
+assert.match(source, /Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu\./, 'Nói trước là ảnh vào kho rồi gắn khi lưu');
 const newProductMedia = render({ product: undefined, media: [] });
+assert.match(newProductMedia, /Kho ảnh của bạn/, 'Sản phẩm mới thấy kho ảnh của nhà cung cấp');
+assert.match(newProductMedia, /Kho đang trống\. Tải ảnh ở ô bên dưới, không cần lưu sản phẩm trước\./, 'Kho trống vẫn chỉ rõ tải ảnh ngay được');
 assert.match(newProductMedia, /aria-label="Chọn ảnh sản phẩm hoặc catalogue"/, 'Sản phẩm mới vẫn thấy nút chọn tệp');
-assert.match(newProductMedia, /Kéo thả ảnh hoặc catalogue vào đây/, 'Sản phẩm mới vẫn thấy vùng kéo thả');
+assert.match(newProductMedia, /Kéo thả ảnh vào đây/, 'Sản phẩm mới thấy vùng kéo thả ảnh');
 
 console.log('✅ Product page: một trang, mục lục neo, đủ khối, gửi duyệt và quản lý tệp.');

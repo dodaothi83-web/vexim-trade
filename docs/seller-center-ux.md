@@ -188,5 +188,17 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   kích thước rộng gấp đôi ô số đơn vị nằm cạnh nhau.
 - **Ô chỉ có một giá trị cố định thì hẹp.** Tiền tệ trong bảng giá là ô 136px (chỉ USD), giá mẫu là ô 188px.
 - **Bảng bậc giá dùng `table-fixed` + `colgroup`**: Incoterm 96px, nút xoá 44px, ba cột Từ / Đến / Giá chia đều.
-- **Ảnh cần một sản phẩm đã có.** Sản phẩm mới chưa lưu thì khối ảnh hiện nút "Lưu nháp rồi tải ảnh" ngay tại chỗ;
-  lưu xong quay lại đúng khối ảnh (`?step=2`). Thanh đáy cũng có "Lưu nháp" cho sản phẩm mới.
+- **Tải ảnh không cần lưu nháp trước.** Ảnh của sản phẩm mới đi vào kho ảnh của nhà cung cấp (xem §5.2), nên
+  không còn nút "Lưu nháp rồi tải ảnh" và không còn câu nhắc phải lưu trước.
+
+### 5.2 Kho ảnh của nhà cung cấp
+
+- **Một kho ảnh cho mỗi tài khoản**, tối đa 12 ảnh, nằm trong `media_assets` với `owner_type = 'supplier'`,
+  `product_id = null`, `audience = 'internal'`. Bảng đã cho phép từ trước nên **không cần migration mới**.
+- **Tải trước, gắn sau.** Người bán chọn ảnh trong kho và bấm **Lưu**; lúc tạo sản phẩm, server gắn tối đa 8 ảnh
+  đã chọn vào sản phẩm (đổi `owner_type` sang `product`, `product_id` = sản phẩm mới, vẫn `internal`).
+  Ảnh không chọn vẫn nằm trong kho cho sản phẩm khác.
+- **Ảnh trong kho không bao giờ công khai.** Tệp ở namespace `supplier-media/<supplier_id>/` — không nằm trong
+  danh sách đường dẫn của `/public-media`, còn `/api/media/file` chỉ trả cho chính người đã tải lên.
+- **Thứ tự thao tác:** kho ảnh → chọn ảnh → điền thông tin → Lưu. Ảnh chưa gắn không chặn việc gửi duyệt;
+  điều kiện gửi duyệt vẫn là sản phẩm có ít nhất một ảnh đã gắn.
