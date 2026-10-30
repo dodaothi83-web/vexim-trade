@@ -2,7 +2,7 @@
 const staticPages = new Map([
   ["/", "home"], ["/rfq", "rfq"], ["/blog", "blog"],
   ["/cashew", "cashew"], ["/compare", "compare"],
-  ["/for-suppliers", "for-suppliers"], ["/how-we-verify", "how-we-verify"],
+  ["/for-suppliers", "for-suppliers"], ["/how-it-works", "how-it-works"], ["/how-we-verify", "how-we-verify"],
 ]);
 
 export function publicSitePageKey(path: unknown): string | null {

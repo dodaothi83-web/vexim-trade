@@ -59,10 +59,9 @@ const CTA_BUTTON =
   "inline-flex items-center justify-center gap-2 rounded-md bg-[#D9A441] px-7 py-4 text-[16px] font-bold text-[#0f172a] transition hover:bg-[#c9932f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f172a] disabled:opacity-60";
 const CTA_SMALL =
   "inline-flex items-center justify-center gap-2 rounded-md bg-[#D9A441] px-5 py-2.5 text-[15px] font-semibold text-[#0f172a] transition hover:bg-[#c9932f]";
-/** Cùng font đề với trang chủ (components/landing-site.tsx) — brief yêu cầu giữ nguyên font. */
+/** Cùng font tiêu đề với toàn bộ giao diện (Be Vietnam Pro). */
 const HEADING: React.CSSProperties = {
-  fontFamily: 'Georgia, "Times New Roman", Times, serif',
-  letterSpacing: "-0.01em",
+  letterSpacing: "-0.015em",
 };
 const CREAM = "bg-[#FAF6EE]";
 const NAVY = "bg-[#0f172a]";

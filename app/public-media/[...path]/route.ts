@@ -6,6 +6,7 @@ import { getObject } from "@/lib/media/storage";
 import { getStore } from "@/lib/db";
 import { isExpired } from "@/lib/media/readiness";
 import { isTestOnlyProduct, productReviewApproved } from "@/lib/public/product-selection";
+import { isProductFormEnabled } from "@/lib/products/product-form-staging-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,6 +92,7 @@ function cachePut(rel: string, entry: ObjectCacheEntry) {
 function relAllowed(rel: string): boolean {
   if (rel.startsWith("categories/") || rel.startsWith("blog/")) return PUBLIC_IMAGE_EXT.test(rel);
   if (rel.startsWith("products/")) return /^products\/[a-z0-9_-]+\/[a-z0-9_-]+\.(jpe?g|png|webp)$/i.test(rel);
+  if (rel.startsWith("product-form-images/")) return /^product-form-images\/[a-f0-9-]{36}\/[a-f0-9-]{36}(?:-thumb)?\.webp$/i.test(rel);
   if (rel.startsWith("suppliers/")) {
     // Chỉ cho ảnh (đuôi ảnh), chặn PDF/doc và mọi file khác.
     if (!PUBLIC_IMAGE_EXT.test(rel)) return false;
@@ -114,7 +116,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
     return new NextResponse("Not found", { status: 404 });
   }
 
-  const isProductImage = rel.startsWith("products/");
+  const formImage = rel.startsWith("product-form-images/");
+  if (formImage && !isProductFormEnabled()) return new NextResponse("Not found", { status: 404 });
+  const isProductImage = rel.startsWith("products/") || formImage;
   const supplierImage = rel.startsWith("suppliers/") && !/^(profile-|cover-)/i.test(rel.split("/").at(-1) ?? "");
   if (supplierImage) {
     // Shared supplier vault files (including certificate scans) must not become public merely
@@ -134,7 +138,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
     const store = getStore();
     const asset = await store.getMediaByPath(rel);
     if (!asset || asset.owner_type !== "product" || !asset.product_id || asset.kind !== "image" ||
-      asset.audience !== "buyer" || isExpired(asset) ||
+      asset.audience !== "buyer" || isExpired(asset) || (formImage && asset.product_id !== rel.split("/")[1]) ||
       (asset.storage_path !== rel && asset.thumb_path !== rel)) return new NextResponse("Not found", { status: 404 });
     const product = await store.getProduct(asset.product_id);
     if (!product || !productReviewApproved(product) || isTestOnlyProduct(product.name)) return new NextResponse("Not found", { status: 404 });

@@ -12,13 +12,13 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             <p className="text-[17px] leading-tight font-black tracking-tight text-white">
               VEXIM TRADE
             </p>
-            <p className="text-[12px] text-brand-200/80">Cổng nhân viên &amp; nhà cung cấp</p>
+            <p className="text-[12px] text-brand-200/80">Cổng nhà cung cấp</p>
           </div>
         </div>
         <div className="card p-6 shadow-pop">{children}</div>
-        <nav aria-label="Legal information" className="mt-5 flex justify-center gap-5 text-xs font-medium text-brand-100">
-          <Link href="/privacy-policy" className="hover:text-white hover:underline">Privacy Policy</Link>
-          <Link href="/terms-of-service" className="hover:text-white hover:underline">Terms of Service</Link>
+        <nav aria-label="Thông tin pháp lý" className="mt-5 flex justify-center gap-5 text-xs font-medium text-brand-100">
+          <Link href="/chinh-sach-bao-mat" className="hover:text-white hover:underline">Chính sách bảo mật</Link>
+          <Link href="/dieu-khoan-su-dung" className="hover:text-white hover:underline">Điều khoản sử dụng</Link>
         </nav>
       </div>
     </main>

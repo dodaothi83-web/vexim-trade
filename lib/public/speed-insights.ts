@@ -7,6 +7,7 @@ const publicPages = new Set([
   "/cashew",
   "/compare",
   "/for-suppliers",
+  "/how-it-works",
   "/how-we-verify",
   "/rfq",
 ]);

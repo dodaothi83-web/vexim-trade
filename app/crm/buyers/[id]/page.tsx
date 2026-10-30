@@ -117,7 +117,7 @@ export default async function BuyerDetailPage({
       {/* Dải tóm tắt */}
       <Card className="mb-5 grid grid-cols-2 divide-ink-200 sm:grid-cols-4 sm:divide-x">
         <SummaryCell label="Trạng thái" value={<StageBadge stage={buyer.stage} />} />
-        <SummaryCell label="Giá trị đơn" value={<span className="font-black">{formatMoney(buyer.deal_value)}</span>} sub={buyer.incoterm ?? undefined} />
+        <SummaryCell label="Giá trị đơn" value={<span className="font-mono font-black tabular-nums">{formatMoney(buyer.deal_value)}</span>} sub={buyer.incoterm ?? undefined} />
         <SummaryCell label="Giao dự kiến" value={formatDate(buyer.expected_ship_date)} sub={buyer.port ? `Cảng: ${buyer.port}` : undefined} />
         <SummaryCell label="NCC" value={buyer.supplier?.name ?? "Chưa gắn"} sub={buyer.supplier ? buyer.supplier.email ?? "thiếu email" : "chỉ gửi email cho buyer"} />
       </Card>

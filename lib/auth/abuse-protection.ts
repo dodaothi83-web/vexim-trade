@@ -7,7 +7,7 @@ import { Redis } from "@upstash/redis";
 import { gcRateLimit, rateLimit } from "@/lib/rfq/rate-limit";
 import { verifyFormChallenge } from "@/lib/security/challenge";
 
-export type ProtectedFlow = "login" | "supplier-signup" | "admin-setup" | "service-inquiry";
+export type ProtectedFlow = "login" | "supplier-signup" | "admin-setup" | "password-reset" | "service-inquiry";
 type Window = "15 m" | "1 h" | "24 h";
 type Policy = { name: "ip" | "account"; limit: number; windowMs: number; window: Window };
 
@@ -25,6 +25,10 @@ const POLICIES: Record<ProtectedFlow, Policy[]> = {
   "admin-setup": [
     { name: "ip", limit: 3, windowMs: 60 * 60_000, window: "1 h" },
     { name: "account", limit: 3, windowMs: 24 * 60 * 60_000, window: "24 h" },
+  ],
+  "password-reset": [
+    { name: "ip", limit: 8, windowMs: 15 * 60_000, window: "15 m" },
+    { name: "account", limit: 4, windowMs: 60 * 60_000, window: "1 h" },
   ],
   "service-inquiry": [
     { name: "ip", limit: 5, windowMs: 60 * 60_000, window: "1 h" },

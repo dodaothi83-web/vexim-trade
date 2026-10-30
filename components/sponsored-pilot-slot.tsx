@@ -48,7 +48,7 @@ export function SponsoredPilotSlot({ product, ticket, campaignId, categorySlug }
       </div>
       <div className="min-w-0 flex-1"><p className="line-clamp-1 text-xs font-medium text-ink-600">{product.supplierName}</p>
         <p className="line-clamp-2 text-sm font-bold text-ink-900 sm:text-base">{product.name}</p>
-        <p className="mt-1 text-xs text-ink-700">{product.price || "Price on request"} · MOQ {product.moq}</p></div>
+        <p className="mt-1 text-xs text-ink-700">{product.price ? <span className="font-semibold tabular-nums">{product.price}</span> : "Price on request"} · MOQ {product.moq}</p></div>
       <Link href={href} onClick={() => send("click")}
         className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-ink-900 px-3 py-2 text-xs font-bold text-white hover:bg-brand-700">View <ArrowRight className="size-3.5" aria-hidden="true" /></Link>
     </div>

@@ -6,24 +6,60 @@ import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import { listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catalog";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
-import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductCategorySlug, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory, productPriceBlockers, productReviewApproved, publicProductCategorySlug, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
 import { resolveGrade } from "@/lib/public/grade-resolution";
+import {
+  formatLeadTimeBuyer,
+  formatStructuredMoqBuyer,
+  isMoqUnit,
+  projectPublicGradeData,
+  type MoqUnit,
+  type PublicProductGradeRow,
+} from "@/lib/products/grade-pricing";
 import { evidenceValidVerificationSteps, rankPublicCategoryProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
-import { publicProductMoqDisplay, publicProductPlaceDisplay } from "@/lib/public/product-detail-display";
+import { publicProductMoqDisplay, publicProductPlaceDisplay, publicProductPriceDisplay } from "@/lib/public/product-detail-display";
 import type { Certificate, Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
+
+/** Keep the legacy preview independent while production cutover is explicitly enabled. */
+async function quantityPreviewEnabled(): Promise<boolean> {
+  if (process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true") return true;
+  if (process.env.VEXIM_PRODUCT_FORM_PRODUCTION !== "true") return false;
+  return (await import("@/lib/products/product-form-staging-access")).isQuantityCatalogPreviewEnabled();
+}
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
 export interface PublicCategoryProduct {
   id: string;
   name: string;
   grade: string | null;
+  /** Standard grades declared on the product (used for filters and search). Custom grades are excluded. */
+  grades: string[];
+  /** Standard grades strictly from the Grade & giá table in canonical category order (never inferred from product name). */
+  cardGrades: string[];
+  hasGradeRows: boolean;
+  /** Per-grade commercial rows for buyer PDP / comparison (prices redacted unless price gates pass). */
+  gradeRows: PublicProductGradeRow[];
+  /** Per-standard-grade price points for the category reference price range strip. */
+  gradePricePoints: Array<{
+    grade: string;
+    value: number;
+    highValue: number | null;
+    unit: string | null;
+    currency: string | null;
+    updatedAt: string | null;
+  }>;
   attributes: Record<string, string>;
   moq: string;
+  moqUnit: MoqUnit | null;
+  moqMtEquivalent: number | null;
   price: string | null;
+  /** Only present in the opt-in, approved quantity pricing preview. */
+  quantityOffer?: import("@/lib/products/quantity-public-projection").PublicQuantityOffer;
+  priceRankingEligible?: boolean;
   /** Số liệu thô để tính khoảng giá tham khảo; null khi giá chưa được phép công khai. */
-  pricePoint: { value: number; unit: string | null; currency: string | null; updatedAt: string | null } | null;
+  pricePoint: { value: number; highValue?: number | null; unit: string | null; currency: string | null; updatedAt: string | null } | null;
   /** Hồ sơ demo không được tham gia vào khoảng giá thị trường. */
   isDemoSupplier: boolean;
   province: string;
@@ -45,6 +81,7 @@ export interface PublicCategoryProduct {
   supplierProfileImage: string | null;
   supplierFoundedYear: number | null;
   leadTimeDays: number | null;
+  leadTimeText: string;
   incoterm: string | null;
   oem: boolean;
   odm: boolean;
@@ -52,6 +89,9 @@ export interface PublicCategoryProduct {
   isDemo: boolean;
   imagePaths: string[];
   cardImagePath: string | null;
+  /** A proven form manifest determines image order in the quantity preview. */
+  usesFormGallery?: boolean;
+  imageThumbnailPaths?: string[];
 }
 
 export function shareableProductImages(media: MediaAsset[], productId: string, featuredMediaId?: string | null, limit = 6, thumbnail = false): string[] {
@@ -63,7 +103,7 @@ export function shareableProductImages(media: MediaAsset[], productId: string, f
     .slice(0, limit);
 }
 
-function projectPublicCategoryProduct(
+export function projectPublicCategoryProduct(
   p: SupplierProduct,
   s: PublicSupplierCard,
   category: Category,
@@ -74,18 +114,63 @@ function projectPublicCategoryProduct(
   // A product marked ready can have only a catalogue; in that case show a neutral placeholder.
   const attributes = publicProductAttributes(category, p.specs);
   const tradeEnglish = p.translation_meta?.fields;
+  const priceVisible = productPriceBlockers(p, s).length === 0;
+  const gradeData = projectPublicGradeData(p, category, {
+    canShowPrice: priceVisible,
+    sanitizeText: withoutDirectContacts,
+    translateMoq: (moq) => publicProductMoqDisplay(moq),
+    fallbackMoq: p.moq,
+    fallbackUpdatedAt: p.updated_at,
+  });
+  const legacyGrade = resolveGrade({
+    name: p.name, spec: p.spec, categorySlug: category.slug, attributes,
+  }).value;
+  const primaryGrade = gradeData.hasGradeRows
+    ? gradeData.primaryGrade
+    : legacyGrade;
+  const grades = gradeData.hasGradeRows
+    ? gradeData.standardGrades
+    : (legacyGrade ? [legacyGrade] : []);
+  const firstGradePoint = gradeData.gradePricePoints[0] ?? null;
+  const legacyPricePoint = publicProductPricePoint(p, s);
+  const effectivePricePoint = gradeData.hasGradeRows
+    ? (firstGradePoint ?? legacyPricePoint)
+    : legacyPricePoint;
+  const rawFallbackPrice = publicProductPrice(p, s);
+  const normalizedFallbackPrice = rawFallbackPrice ? publicProductPriceDisplay(rawFallbackPrice) : null;
+  const effectivePrice = gradeData.summaryPrice ?? normalizedFallbackPrice;
+  const specWeight = p.specs && typeof p.specs === "object" && typeof (p.specs as Record<string, unknown>).moq_unit_weight_kg === "number"
+    ? ((p.specs as Record<string, unknown>).moq_unit_weight_kg as number)
+    : null;
+  const legacyStructuredMoq = typeof p.moq_qty === "number" && p.moq_qty > 0 && isMoqUnit(p.moq_unit)
+    ? formatStructuredMoqBuyer(p.moq_qty, p.moq_unit, specWeight)
+    : "";
+  const hasStructuredMoq = p.moq_qty != null || p.moq_unit != null;
+  const fallbackMoqDisplay = hasStructuredMoq ? (legacyStructuredMoq || "On request") : (publicProductMoqDisplay(p.moq) || "On request");
+  const effectiveMoq = gradeData.hasGradeRows
+    ? (gradeData.gradeRows.find((r) => r.moq !== "On request")?.moq ?? "On request")
+    : fallbackMoqDisplay;
+  const effectiveIncoterm = gradeData.hasGradeRows
+    ? (gradeData.gradeRows[0]?.incoterm ?? p.incoterm ?? null)
+    : (p.incoterm ?? null);
   return {
     // Tên công khai: bản soạn sẵn nếu có, không thì tên gốc. Danh mục vẫn
     // suy từ tên gốc (productBelongsToCategory ở trên), không suy từ tên này.
     id: p.id, name: withoutDirectContacts(publicProductTitle(p)),
-    // Trường có cấu trúc thắng tên gõ tay. Tên chỉ còn là nguồn dự phòng cho
-    // sản phẩm chưa được khai, và là nguồn để cảnh báo khi hai bên lệch nhau.
-    grade: resolveGrade({
-      name: p.name, spec: p.spec, categorySlug: category.slug, attributes,
-    }).value,
+    grade: primaryGrade,
+    grades,
+    cardGrades: gradeData.cardGrades,
+    hasGradeRows: gradeData.hasGradeRows,
+    gradeRows: gradeData.gradeRows,
+    gradePricePoints: !s.is_demo ? gradeData.gradePricePoints : [],
     attributes,
-    moq: publicProductMoqDisplay(p.moq) || "On request",
-    price: publicProductPrice(p, s), pricePoint: publicProductPricePoint(p, s), isDemoSupplier: !!s.is_demo, province: supplierProvinceDisplay(s) || "Vietnam",
+    moq: effectiveMoq,
+    moqUnit: gradeData.moqUnit,
+    moqMtEquivalent: gradeData.moqMtEquivalent,
+    price: effectivePrice,
+    pricePoint: effectivePricePoint,
+    isDemoSupplier: !!s.is_demo,
+    province: supplierProvinceDisplay(s) || "Vietnam",
     rawMaterialRegion: publicProductPlaceDisplay(tradeEnglish?.raw_material_region),
     inputMaterialOrigin: tradeEnglish?.input_material_origin?.trim() || "",
     verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
@@ -93,7 +178,7 @@ function projectPublicCategoryProduct(
     evidenceValidSteps: evidenceValidSteps ?? s.approved_verification_steps.length,
     supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
     supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,
-    leadTimeDays: p.lead_time_days ?? null, incoterm: p.incoterm ?? null, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
+    leadTimeDays: p.lead_time_days ?? null, leadTimeText: formatLeadTimeBuyer(p), incoterm: effectiveIncoterm, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
     isDemo: !!s.is_demo, imagePaths: images,
     cardImagePath: shareableProductImages(media, p.id, p.featured_media_id, 1, true)[0] ?? null,
   };
@@ -203,11 +288,15 @@ export async function listPublicCategoryProducts(category: Category, options?: {
   // Tầng xác minh vẫn CỨNG (B2) nên bật điểm chỉ đổi thứ tự TRONG TẦNG; bậc xen kẽ NCC
   // (arrangeSupplierProducts) và cổng công khai giữ nguyên chỗ cũ. Trọng số 0 vẫn tái
   // tạo đúng sort cũ (property test trong scripts/check-marketplace-ranking.mjs).
-  return rankPublicCategoryProducts(
-    candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
-      .map((p) => projectPublicCategoryProduct(p, byId.get(p.supplier_id)!, category, byProduct.get(p.id) ?? [], evidenceBySupplier.get(p.supplier_id)!)),
-    SPEC_RANKING_WEIGHTS,
-  );
+  const readyRecords = candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
+    .map((product) => ({
+      product, supplier: byId.get(product.supplier_id)!, category, media: byProduct.get(product.id) ?? [],
+      card: projectPublicCategoryProduct(product, byId.get(product.supplier_id)!, category, byProduct.get(product.id) ?? [], evidenceBySupplier.get(product.supplier_id)!),
+    }));
+  const projected = await quantityPreviewEnabled()
+    ? await (await import("@/lib/public/quantity-catalog-preview")).projectQuantityCatalogPreview(readyRecords)
+    : readyRecords;
+  return rankPublicCategoryProducts(projected.map(({ card }) => card), SPEC_RANKING_WEIGHTS);
 }
 
 export interface PublicProductRecord {
@@ -215,6 +304,8 @@ export interface PublicProductRecord {
   product: SupplierProduct;
   supplier: PublicSupplierCard;
   category: Category;
+  /** Server-only source media for validating an approved form manifest. */
+  media?: MediaAsset[];
 }
 
 /**
@@ -244,12 +335,16 @@ export async function getPublicProductRecordsByIds(ids: readonly string[]): Prom
   if (!candidates.length) return [];
 
   const media = await store.listMediaForProducts(candidates.map(({ product }) => product.id));
-  return candidates.filter(({ product }) =>
+  const readyRecords = candidates.filter(({ product }) =>
     productReadiness(media.filter((asset) => asset.product_id === product.id)).ready)
     .map(({ product, supplier, category }) => ({
       product,
       supplier,
       category,
+      media: media.filter((asset) => asset.product_id === product.id),
       card: projectPublicCategoryProduct(product, supplier, category, media.filter((asset) => asset.product_id === product.id)),
     }));
+  return await quantityPreviewEnabled()
+    ? (await import("@/lib/public/quantity-catalog-preview")).projectQuantityCatalogPreview(readyRecords)
+    : readyRecords;
 }

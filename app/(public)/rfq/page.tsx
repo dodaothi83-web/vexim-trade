@@ -2,8 +2,9 @@ import Link from "next/link";
 import { RfqForm } from "./rfq-form";
 import { Breadcrumbs } from "@/components/ui";
 import { getStore } from "@/lib/db";
-import { listPublicSuppliers } from "@/lib/public/catalog";
+import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { categoryFilterValues } from "@/lib/category-filters";
+import { listPublicSuppliers } from "@/lib/public/catalog";
 import type { Category } from "@/lib/types";
 
 export const metadata = {
@@ -21,6 +22,7 @@ export default async function RfqPage({
     category?: string;
     product?: string;
     product_id?: string;
+    grade?: string;
     suppliers?: string;
     sample?: string;
     intent?: string;
@@ -48,10 +50,7 @@ export default async function RfqPage({
           { label: isQuestion ? "Ask supplier" : "Request a quote" },
         ]}
       />
-      <h1
-        className="mt-4 text-[34px] font-bold leading-tight text-ink-900 sm:text-[44px]"
-        style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}
-      >
+      <h1 className="mt-4 text-[34px] font-bold leading-tight tracking-tight text-ink-900 sm:text-[44px]">
         {isQuestion ? "Ask the supplier" : "Request a quote"}
       </h1>
       <p className="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-700">
@@ -62,15 +61,20 @@ export default async function RfqPage({
 
       <RfqForm
         categories={categories.map((c: Category) => ({ slug: c.slug, name: c.name_i18n?.en ?? c.slug }))}
-        categorySpecs={Object.fromEntries(categories.map((c: Category) => [c.slug, {
-          // `filters` is jsonb: old rows may hold a string, a map or one object,
-          // so the page reads it through the normaliser instead of `.find`.
-          grades: categoryFilterValues(c.filters, "grade"),
-          certs: categoryFilterValues(c.filters, "certifications"),
-        }]))}
+        categorySpecs={Object.fromEntries(categories.map((c: Category) => {
+          const standardGrades = standardGradesForCategory(c);
+          const legacyGrades = categoryFilterValues(c.filters, "grade");
+          return [c.slug, {
+            // `filters` is jsonb: old rows may hold a string, a map or one object,
+            // so the page reads it through the normaliser instead of `.find`.
+            grades: standardGrades.length > 0 ? standardGrades : legacyGrades,
+            certs: categoryFilterValues(c.filters, "certifications"),
+          }];
+        }))}
         initialCategory={sp?.category ?? null}
         initialProduct={(sp?.product ?? "").slice(0, 150)}
         initialProductId={sp?.product_id ?? null}
+        initialGrade={(sp?.grade ?? "").trim().slice(0, 80)}
         initialSupplierIds={supplierIds}
         initialSuppliers={initialSuppliers}
         wantsSamples={sp?.sample === "1"}

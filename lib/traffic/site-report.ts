@@ -20,7 +20,7 @@ export function buildSiteTrafficReport(rows: SiteTrafficRow[], days: 7 | 30 | 90
     .reduce((total, [, count]) => total + count, 0);
   const categories = starts("category:") + sum("cashew");
   const blog = sum("blog") + starts("article:");
-  const info = sum("compare") + sum("for-suppliers") + sum("how-we-verify");
+  const info = sum("compare") + sum("for-suppliers") + sum("how-it-works") + sum("how-we-verify");
   const breakdown = [
     { key: "home", label: "Trang chủ", views: sum("home") },
     { key: "category", label: "Danh mục sản phẩm", views: categories },

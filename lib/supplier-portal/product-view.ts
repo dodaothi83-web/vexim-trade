@@ -44,5 +44,5 @@ export function privateMediaUrl(asset: MediaAsset): string | null {
 export function productCanSubmit(product: SupplierProduct, media: MediaAsset[]): boolean {
   return ["draft", "changes_requested", "paused"].includes(productReview(product)) &&
     !!(product.name.trim() && (product.description?.trim() || product.spec?.trim())) &&
-    media.some((asset) => (asset.kind === "image" || asset.kind === "catalogue") && !!asset.storage_path && asset.supplier_id === product.supplier_id);
+    media.some((asset) => asset.kind === "image" && !!asset.storage_path && asset.supplier_id === product.supplier_id);
 }

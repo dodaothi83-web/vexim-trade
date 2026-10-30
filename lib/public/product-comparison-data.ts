@@ -35,6 +35,7 @@ export interface PublicComparedProduct {
   moq: string;
   packaging: string | null;
   leadTimeDays: number | null;
+  leadTimeText?: string | null;
   incoterm: string | null;
   incotermPlace: string | null;
   exportPort: string | null;
@@ -80,13 +81,18 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
     const attributes = card.attributes;
     const tradeEnglish = product.translation_meta?.fields;
     const specifications = fieldsFor(category)
-      .filter((field) => field.key !== "grade" && Boolean(attributes[field.key]))
+      .filter((field) => field.key !== "grade" && field.key !== "product_type" && Boolean(attributes[field.key]))
       .map((field) => ({
         key: field.key,
         label: withoutDirectContacts(field.label),
         value: withoutDirectContacts(attributes[field.key]),
       }));
     const href = productDetailHref(category.slug, product.id);
+    const declaredGrades = Array.isArray(card.grades) && card.grades.length > 0
+      ? card.grades.join(", ")
+      : Array.isArray(card.gradeRows) && card.gradeRows.length > 0
+        ? card.gradeRows.map((row) => row.grade).join(", ")
+        : null;
     return {
       id: product.id,
       name: card.name,
@@ -94,18 +100,19 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       imagePath: card.cardImagePath ?? card.imagePaths[0] ?? null,
       categorySlug: category.slug,
       categoryName: safe(category.name_i18n.en || category.slug) ?? category.slug,
-      grade: safe(attributes.grade ?? card.grade),
+      grade: safe(declaredGrades ?? attributes.grade ?? card.grade),
       specifications,
       price: safe(publicProductPriceDisplay(card.price)),
-      priceCurrency: card.price && card.pricePoint ? safe(card.pricePoint.currency) : null,
-      priceUnit: card.price && card.pricePoint ? safe(publicProductUnitDisplay(card.pricePoint.unit)) : null,
-      priceValidUntil: card.price && product.price_valid_until && /^\d{4}-\d{2}-\d{2}$/.test(product.price_valid_until)
+      priceCurrency: card.quantityOffer && card.price ? "USD" : card.price && card.pricePoint ? safe(card.pricePoint.currency) : null,
+      priceUnit: card.quantityOffer && card.price ? safe(card.price.match(/\/(kg|MT)$/)?.[1]) : card.price && card.pricePoint ? safe(publicProductUnitDisplay(card.pricePoint.unit)) : null,
+      priceValidUntil: !card.quantityOffer && card.price && product.price_valid_until && /^\d{4}-\d{2}-\d{2}$/.test(product.price_valid_until)
         ? product.price_valid_until : null,
-      moq: safe(publicProductMoqDisplay(tradeEnglish?.moq || card.moq)) ?? "Not provided",
+      moq: safe(publicProductMoqDisplay(card.moq && card.moq !== "On request" ? card.moq : tradeEnglish?.moq)) ?? "Not provided",
       packaging: safe(publicProductPackagingDisplay(product.packaging_i18n?.en?.trim() || product.packaging)),
       leadTimeDays: card.leadTimeDays,
-      incoterm: safe(product.incoterm),
-      incotermPlace: safe(publicProductPlaceDisplay(tradeEnglish?.incoterm_place || product.incoterm_place)),
+      leadTimeText: card.leadTimeText,
+      incoterm: safe(card.quantityOffer ? card.incoterm : product.incoterm),
+      incotermPlace: card.quantityOffer ? null : safe(publicProductPlaceDisplay(tradeEnglish?.incoterm_place || product.incoterm_place)),
       exportPort: safe(publicProductExportPortDisplay(product)),
       monthlyCapacity: safe(publicProductCapacityDisplay(tradeEnglish?.monthly_capacity || product.monthly_capacity)),
       paymentTerms: safe(publicProductPaymentTermsDisplay(tradeEnglish?.payment_terms || product.payment_terms)),

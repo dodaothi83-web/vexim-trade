@@ -1155,21 +1155,36 @@ export const supabaseStore: DataStore = {
   async createCategory(input) {
     const { public_page_ready: _computed, ...fields } = input;
     void _computed;
-    const { data, error } = await must().from("categories").insert(cleanPatch(fields)).select().single();
-    if (error) fail("createCategory", error);
-    return data as Category;
+    let res = await must().from("categories").insert(cleanPatch(fields)).select().single();
+    if (res.error && /\bmoq_units\b/i.test(res.error.message ?? "") && fields.moq_units == null) {
+      const { moq_units: _omitted, ...legacyFields } = fields;
+      void _omitted;
+      res = await must().from("categories").insert(cleanPatch(legacyFields)).select().single();
+    }
+    if (res.error) fail("createCategory", res.error);
+    return res.data as Category;
   },
   async updateCategory(id, patch) {
     const { public_page_ready: _computed, ...fields } = patch;
     void _computed;
-    const { data, error } = await must()
+    let res = await must()
       .from("categories")
       .update(cleanPatch({ ...fields, updated_at: new Date().toISOString() }))
       .eq("id", id)
       .select()
       .single();
-    if (error) fail("updateCategory", error);
-    return data as Category;
+    if (res.error && /\bmoq_units\b/i.test(res.error.message ?? "") && fields.moq_units == null) {
+      const { moq_units: _omitted, ...legacyFields } = fields;
+      void _omitted;
+      res = await must()
+        .from("categories")
+        .update(cleanPatch({ ...legacyFields, updated_at: new Date().toISOString() }))
+        .eq("id", id)
+        .select()
+        .single();
+    }
+    if (res.error) fail("updateCategory", res.error);
+    return res.data as Category;
   },
   async deleteCategory(id) {
     const { error } = await must().from("categories").delete().eq("id", id);

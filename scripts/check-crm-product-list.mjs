@@ -22,6 +22,9 @@ assert.deepEqual(ordered.map((row) => row.id), ['pending-high', 'pending-low', '
   'Pending review outranks relevance; relevance still orders products within each review group');
 assert.deepEqual(orderCrmProducts(rows).slice(0, 2).map((row) => row.id), ['pending-high', 'pending-low'],
   'Pending products use their names as a deterministic order when there is no RFQ relevance');
+const revisionPending = { id: 'pending-revision', name: 'Zulu', supplier_review_status: 'approved', pendingReview: true };
+assert.equal(orderCrmProducts([{ id: 'approved', name: 'Alpha', supplier_review_status: 'approved' }, revisionPending])[0].id,
+  'pending-revision', 'An approved product with a pending new form or old revision is prioritized before ordinary products');
 
 const many = Array.from({ length: 32 }, (_, index) => ({ id: `p-${index}`, name: `Product ${index}` }));
 const first = paginateCrmProducts(many, 1);

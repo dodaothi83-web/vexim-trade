@@ -35,6 +35,7 @@ function pageMocks({ status = 'draft', steps = [1], fail = false, store } = {}) 
   const calls = { storefront: [], photos: [] };
   const base = {
     react: React,
+    '@/lib/verification-status': { verificationLabel: () => 'Factory verification' },
     'react/jsx-runtime': jsxRuntime,
     'next/link': { default: ({ href, children, ...rest }) => React.createElement('a', { href, ...rest }, children) },
     'next/navigation': { redirect: (to) => { throw new Error(`unexpected redirect ${to}`); } },
@@ -142,13 +143,13 @@ assert.doesNotMatch(supplierHeader, />Verification status<|<VerificationPips/,
 assert.match(shared, /level: 2, label: "Factory verification"/, 'Level 2 uses the factory-verification label');
 assert.match(shared, /const reviewStatus = approvedStep \? "Approved" : "Not approved"/,
   'Each supplier verification card states its own approval status');
-assert.match(shared, /const iconTooltip = `Level \$\{level\} · \$\{label\}: \$\{reviewStatus\}\. \$\{VERIFICATION_LEVEL_EXPLANATIONS\[level\]\}`/,
+assert.match(shared, /const iconTooltip = `Level \$\{level\} · \$\{label\}: \$\{reviewStatus\}\. \$\{explanation\}`/,
   'Each supplier verification icon tooltip has its own explanation and approval status');
 assert.match(shared, /<button type="button" aria-label=\{iconTooltip\}/,
   'Each supplier verification icon is keyboard and touch focusable');
 assert.match(shared, /group-hover\/level:block group-focus-within\/level:block/,
   'Supplier verification tooltips open on hover, keyboard focus and touch');
-assert.match(shared, /<span role="tooltip"[\s\S]*?\{VERIFICATION_LEVEL_EXPLANATIONS\[level\]\}/,
+assert.match(shared, /<span role="tooltip"[\s\S]*?\{explanation\}/,
   'The visible supplier tooltip contains the current level explanation');
 assert.doesNotMatch(shared, /Factory visit|Factory visited|Thăm nhà máy|thăm nhà máy/,
   'The supplier profile never falls back to the old Level 2 terminology');

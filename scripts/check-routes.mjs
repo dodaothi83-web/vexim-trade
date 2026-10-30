@@ -10,7 +10,7 @@
 const BASE = process.env.BASE ?? "http://localhost:3000";
 
 const publicRoutes = [
-  "/", "/how-we-verify", "/for-suppliers", "/rfq", "/products/cashew",
+  "/", "/how-it-works", "/how-we-verify", "/for-suppliers", "/rfq", "/products/cashew",
   "/blog", "/suppliers/demo-cashew-mill-demo-2",
 ];
 const anonForbidden = [

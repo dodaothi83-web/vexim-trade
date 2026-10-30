@@ -37,10 +37,7 @@ export default async function HowWeVerifyPage() {
         ]}
       />
 
-      <h1
-        className="mt-4 text-[38px] font-bold leading-tight text-ink-900 sm:text-[46px]"
-        style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}
-      >
+      <h1 className="mt-4 text-[38px] font-bold leading-tight tracking-tight text-ink-900 sm:text-[46px]">
         How we verify suppliers
       </h1>
       <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-ink-700">

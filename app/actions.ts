@@ -8,6 +8,16 @@ import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/
 import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
 import { sanitizeProductDescriptionForSave, sanitizeProductDescriptionHtml } from "@/lib/products/product-description";
+import {
+  MOQ_UNITS,
+  applyGradeRowsToSpecs,
+  applyLeadTimeToSpecs,
+  exceedsMaxPriceSpread,
+  normalizeMoqUnitsConfig,
+  parseGradeRowsFromPayload,
+  parseLeadTimeInput,
+  summarizeGradeRowsForProduct,
+} from "@/lib/products/grade-pricing";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { isPlaceholderDisplayName } from "@/lib/public/display-name";
 import { parseHarvestInput } from "@/lib/crm/harvest-input";
@@ -1487,6 +1497,9 @@ function priceRangeInputError(raw: Record<string, unknown>, input: SupplierProdu
       input.ref_price_max < input.ref_price) {
     return "Giá đến phải lớn hơn hoặc bằng giá từ (> 0); bỏ trống nếu chỉ có một mức giá.";
   }
+  if (exceedsMaxPriceSpread(input.ref_price, input.ref_price_max)) {
+    return "Khoảng giá tối đa không vượt quá 1,35 lần giá từ.";
+  }
   return null;
 }
 
@@ -1533,6 +1546,33 @@ export async function createProductAction(
   try {
     const assigned = await autoAssignProduct(input, str(raw.category));
     input.specs = saveProductAttributes(assigned, raw.product_attributes);
+    if (raw.lead_time_unit !== undefined || raw.lead_time_value !== undefined) {
+      const parsedLeadTime = parseLeadTimeInput({
+        valueRaw: raw.lead_time_value,
+        unitRaw: raw.lead_time_unit,
+        legacyDaysRaw: raw.lead_time_days,
+      });
+      if (!parsedLeadTime.ok) return { ok: false, message: parsedLeadTime.message };
+      input.lead_time_days = parsedLeadTime.daysEquivalent;
+      input.specs = applyLeadTimeToSpecs(input.specs ?? {}, parsedLeadTime);
+    } else if (input.lead_time_days != null) {
+      input.specs = applyLeadTimeToSpecs(input.specs ?? {}, { value: input.lead_time_days, unit: "days" });
+    }
+    if (raw.grade_rows !== undefined) {
+      const categorySource = assigned ?? (str(raw.category) ? { slug: str(raw.category) } : null);
+      const parsedGradeRows = parseGradeRowsFromPayload(raw.grade_rows, categorySource);
+      if (!parsedGradeRows.ok) return { ok: false, message: parsedGradeRows.message };
+      const summary = summarizeGradeRowsForProduct(parsedGradeRows.rows, categorySource);
+      input.ref_price = summary.ref_price;
+      input.ref_price_max = summary.ref_price_max;
+      input.currency = summary.currency;
+      input.unit = summary.unit;
+      input.incoterm = summary.incoterm;
+      input.moq = summary.moq;
+      input.moq_qty = summary.moq_qty;
+      input.moq_unit = summary.moq_unit;
+      input.specs = applyGradeRowsToSpecs(input.specs ?? {}, parsedGradeRows.rows, categorySource);
+    }
     const created = await getStore().createProduct(input);
     const warning = await syncSupplierIndustries(created.supplier_id);
     revalidateAll();
@@ -1555,12 +1595,11 @@ export async function updateProductAction(
     return { ok: false, message: err instanceof Error ? err.message : "Nội dung sản phẩm không hợp lệ." };
   }
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
-  const rangeError = priceRangeInputError(raw, input);
-  if (rangeError) return { ok: false, message: rangeError };
   const store = getStore();
   try {
     const existing = await store.getProduct(id);
     if (!existing) return { ok: false, message: "Không tìm thấy sản phẩm." };
+    if (raw.grade_rows !== undefined) return { ok: false, message: "Bảng giá cũ không còn được lưu. Hãy tải lại trang và dùng bảng giá theo số lượng." };
     // Supplier products use one staff action to publish. A normal form save
     // cannot switch the internal readiness flag or bypass that action.
     const supplierProduct = !!(existing.supplier_originated || existing.supplier_category_proposal || existing.supplier_review_status === "paused");
@@ -1576,6 +1615,33 @@ export async function updateProductAction(
       ? await store.getCategoryBySlug(existing.reviewed_category_slug) : assigned;
     input.specs = saveProductAttributes(productCategory, raw.product_attributes,
       productCategory?.slug === (existing.reviewed_category_slug ?? existing.category) ? existing.specs : {});
+    if (raw.lead_time_unit !== undefined || raw.lead_time_value !== undefined) {
+      const parsedLeadTime = parseLeadTimeInput({
+        valueRaw: raw.lead_time_value,
+        unitRaw: raw.lead_time_unit,
+        legacyDaysRaw: raw.lead_time_days,
+      });
+      if (!parsedLeadTime.ok) return { ok: false, message: parsedLeadTime.message };
+      input.lead_time_days = parsedLeadTime.daysEquivalent;
+      input.specs = applyLeadTimeToSpecs(input.specs ?? {}, parsedLeadTime);
+    } else if (input.lead_time_days != null && !(input.specs && typeof input.specs === "object" && "lead_time" in input.specs)) {
+      input.specs = applyLeadTimeToSpecs(input.specs ?? {}, { value: input.lead_time_days, unit: "days" });
+    }
+    // Editing product details must never mutate the legacy public price. Price
+    // proposals are submitted separately through the quantity revision workflow.
+    input.ref_price = existing.ref_price ?? null;
+    input.ref_price_max = existing.ref_price_max ?? null;
+    input.currency = existing.currency ?? null;
+    input.unit = existing.unit ?? null;
+    input.incoterm = existing.incoterm ?? null;
+    input.moq = existing.moq ?? null;
+    input.moq_qty = existing.moq_qty ?? null;
+    input.moq_unit = existing.moq_unit ?? null;
+    input.price_valid_until = existing.price_valid_until ?? null;
+    for (const key of ["grade", "product_type", "grade_rows", "moq_unit_weight_kg"] as const) {
+      if (Object.prototype.hasOwnProperty.call(existing.specs ?? {}, key)) input.specs[key] = existing.specs![key];
+      else delete input.specs[key];
+    }
     const existingDescriptionDetail = sanitizeProductDescriptionHtml(existing.description_detail) || null;
     const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description || input.description_detail !== existingDescriptionDetail ||
       JSON.stringify(input.specs) !== JSON.stringify(existing.specs ?? {});
@@ -2599,6 +2665,18 @@ function parseCategoryInput(raw: Record<string, unknown>) {
     : priceUnitRaw && ["mt", "t", "ton", "tonne"].includes(priceUnitRaw)
       ? "mt"
       : null;
+  let moqUnits: string[] | null | undefined = undefined;
+  if (raw.moq_units !== undefined) {
+    const parsedList = Array.isArray(raw.moq_units) ? raw.moq_units : parseJsonList(raw.moq_units);
+    const validUnits = parsedList
+      .map((item) => (typeof item === "string" ? item.trim().toLowerCase() : ""))
+      .filter((item): item is (typeof MOQ_UNITS)[number] => (MOQ_UNITS as readonly string[]).includes(item));
+    const deduped = [...new Set(validUnits)];
+    if (deduped.length === 0) {
+      throw new Error("Cần bật ít nhất 1 đơn vị MOQ cho danh mục.");
+    }
+    moqUnits = deduped.length === MOQ_UNITS.length ? null : deduped;
+  }
   // Unlike editorial lists, an invalid product-field payload must not silently erase the schema.
   let productFieldInput: unknown = [];
   if (raw.product_fields !== undefined) {
@@ -2624,6 +2702,7 @@ function parseCategoryInput(raw: Record<string, unknown>) {
     filters: filters as Category["filters"],
     ...(harvest === undefined ? {} : { harvest }),
     ...(raw.price_unit === undefined ? {} : { price_unit: priceUnit }),
+    ...(moqUnits === undefined ? {} : { moq_units: moqUnits }),
     product_fields: productFields,
     seo_title_i18n: { en: seoTitleEn ?? "" } as Category["seo_title_i18n"],
     seo_desc_i18n: { en: seoDescEn ?? "" } as Category["seo_desc_i18n"],

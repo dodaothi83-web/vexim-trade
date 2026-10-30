@@ -35,6 +35,13 @@ import { decideCategoryPublicationAction } from "./publication-actions";
 import { reorderCategoriesAction } from "./reorder-actions";
 import { normalizeCategoryFilters } from "@/lib/category-filters";
 import { useToast } from "@/components/toast";
+import {
+  MOQ_UNITS,
+  MOQ_UNIT_OPTIONS,
+  categoryMarketPriceUnit,
+  normalizeMoqUnitsConfig,
+  type MoqUnit,
+} from "@/lib/products/grade-pricing";
 import type {
   Category,
   CategoryColumn,
@@ -91,6 +98,7 @@ type CategoryDraft = {
   spec_rows: CategoryRow[];
   harvest: HarvestDraft;
   price_unit: string;
+  moq_units: MoqUnit[];
   buying_facts: CategoryFact[];
   faqs: Array<{ q: string; a: string }>;
   filters: CategoryFilter[];
@@ -127,6 +135,7 @@ function fromCategory(c: Category): CategoryDraft {
     product_fields: Array.isArray(c.product_fields) ? c.product_fields : [],
     spec_rows: rows,
     price_unit: c.price_unit ?? "",
+    moq_units: normalizeMoqUnitsConfig(c.moq_units),
     harvest: {
       windows: harvest?.windows ?? [],
       note_en: i18n(harvest?.note_i18n) || "",
@@ -162,6 +171,7 @@ function emptyDraft(sortOrder: number): CategoryDraft {
     spec_rows: [],
     harvest: { windows: [], note_en: "", reviewed_on: "", sources: [] },
     price_unit: "",
+    moq_units: [...MOQ_UNITS],
     buying_facts: [],
     faqs: [],
     filters: [],
@@ -850,6 +860,7 @@ function toFormData(d: CategoryDraft): FormData {
     }),
   );
   fd.set("price_unit", d.price_unit);
+  fd.set("moq_units", JSON.stringify(d.moq_units));
   fd.set("buying_facts", JSON.stringify(d.buying_facts));
   fd.set("faqs", JSON.stringify(d.faqs));
   fd.set("filters", JSON.stringify(d.filters));
@@ -1173,21 +1184,75 @@ function CategoryEditor({
               <p className="mb-4 mt-0.5 text-[13px] text-ink-500">Bảng buyer dùng để đối chiếu grade/quy cách trên trang danh mục. Đây là nội dung tham khảo của trang, <b>không phải</b> thông số của từng nhà cung cấp.</p>
               <SpecEditor draft={draft} setDraft={setDraft} />
 
-              <div className="mt-6 border-t border-ink-100 pt-5">
-                <Field
-                  label="Đơn vị hiển thị giá"
-                  hint="Theo quy ước thị trường của ngành, không theo ý người viết: gạo, hồ tiêu, cà phê, quế, hồi và hoa quả khô niêm yết theo tấn; nhân điều, tôm và cá theo kg. Để trống thì hệ thống tự lấy quy ước của danh mục."
-                >
-                  <select className="input max-w-64" value={draft.price_unit} onChange={(e) => set("price_unit", e.target.value)}>
-                    <option value="">Theo quy ước ngành (mặc định)</option>
-                    <option value="kg">kg — nhân điều, tôm, cá</option>
-                    <option value="mt">tấn — gạo, hồ tiêu, cà phê, quế, hồi</option>
-                    <option value="lb">lb — chỉ dùng khi thị trường đọc pound</option>
-                  </select>
-                </Field>
-                <p className="mt-2 text-xs leading-relaxed text-ink-500">
-                  Khoảng giá tham khảo chỉ hiện khi có ít nhất 3 sản phẩm đã bật công khai giá và còn hiệu lực. Hệ thống tự quy đổi từ đơn vị nhà cung cấp nhập, không gộp đơn vị không đọc được.
-                </p>
+              <div className="mt-6 space-y-5 border-t border-ink-100 pt-5">
+                <div>
+                  <Field
+                    label="Đơn vị giá khóa cho nhà cung cấp"
+                    hint="Đơn vị giá trong bảng Grade & giá của danh mục này sẽ khóa theo lựa chọn dưới đây (NCC không tự đổi được). Để trống thì hệ thống tự lấy quy ước ngành."
+                  >
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <select className="input max-w-72" value={draft.price_unit} onChange={(e) => set("price_unit", e.target.value)}>
+                        <option value="">Theo quy ước ngành (mặc định)</option>
+                        <option value="kg">USD/kg (nhân điều, thủy sản)</option>
+                        <option value="mt">USD/MT (gạo, hồ tiêu, cà phê, quế, hồi)</option>
+                      </select>
+                      <span className="rounded-md border border-ink-200 bg-ink-50 px-2.5 py-1.5 font-mono text-xs font-semibold text-ink-700">
+                        Đang khóa: {categoryMarketPriceUnit(draft.slug, draft.price_unit || null).unitLabel}
+                      </span>
+                    </div>
+                  </Field>
+                  <p className="mt-2 text-xs leading-relaxed text-ink-500">
+                    Khoảng giá tham khảo trên trang danh mục chỉ hiện khi có ít nhất 3 sản phẩm công khai giá còn hiệu lực.
+                  </p>
+                </div>
+
+                <div>
+                  <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-[13px] font-bold text-ink-800">Danh sách đơn vị MOQ cho phép</span>
+                    <button
+                      type="button"
+                      onClick={() => setDraft((prev) => ({ ...prev, moq_units: [...MOQ_UNITS] }))}
+                      className="text-xs font-semibold text-brand-700 underline"
+                    >
+                      Chọn tất cả (mặc định)
+                    </button>
+                  </div>
+                  <p className="mb-2.5 text-xs leading-relaxed text-ink-500">
+                    Nhà cung cấp trong danh mục này chỉ chọn được các đơn vị MOQ được bật dưới đây. Khi chọn bao hoặc thùng, hệ thống bắt buộc nhập trọng lượng mỗi bao/thùng để tự quy đổi ra tấn.
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {MOQ_UNIT_OPTIONS.map((opt) => {
+                      const checked = draft.moq_units.includes(opt.value);
+                      const isLastOne = checked && draft.moq_units.length === 1;
+                      return (
+                        <label
+                          key={opt.value}
+                          className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px] font-semibold transition ${
+                            checked ? "border-brand-200 bg-brand-50/60 text-ink-900" : "border-ink-200 bg-white text-ink-600"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="size-4 accent-[#0f766e]"
+                            checked={checked}
+                            disabled={isLastOne}
+                            onChange={() => {
+                              setDraft((prev) => {
+                                const exists = prev.moq_units.includes(opt.value);
+                                if (exists && prev.moq_units.length <= 1) return prev;
+                                const nextList = exists
+                                  ? prev.moq_units.filter((u) => u !== opt.value)
+                                  : MOQ_UNITS.filter((u) => prev.moq_units.includes(u) || u === opt.value);
+                                return { ...prev, moq_units: nextList };
+                              });
+                            }}
+                          />
+                          <span>{opt.adminLabel}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </section>
           )}

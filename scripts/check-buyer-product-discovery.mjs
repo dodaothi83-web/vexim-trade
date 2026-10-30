@@ -10,6 +10,7 @@ import { arrangeSupplierProducts, feedPerPage, HOME_FEED_PER_PAGE, HOME_FEED_WID
 import { assignProductCategory } from '../lib/public/category-assignment.ts';
 import { productReadiness } from '../lib/media/readiness.ts';
 import { isSyntheticSupplier } from '../lib/public/supplier-seo.ts';
+import * as priceUnits from '../lib/public/price-units.ts';
 import * as gradeResolution from '../lib/public/grade-resolution.ts';
 import * as displayName from '../lib/public/display-name.ts';
 import * as productAttributes from '../lib/product-attributes.ts';
@@ -126,7 +127,12 @@ const store = {
   listVerifications: async (id) => reviews.filter((r) => r.supplier_id === id),
   listCertificates: async (id) => certificates.filter((c) => c.supplier_id === id),
 };
+let formStaging = false, formProduction = false, storefrontProjectionFails = false, storefrontProjectionCalls = 0;
 const catalogMocks = { 'server-only': {}, '@/lib/db': { getStore: () => store },
+  '@/lib/products/product-form-staging-access': {
+    isProductFormBuyerEnabled: () => formProduction || (formStaging && process.env.VEXIM_QUANTITY_BUYER_PREVIEW === 'true'),
+    isQuantityCatalogPreviewEnabled: () => formProduction || process.env.VEXIM_QUANTITY_BUYER_PREVIEW === 'true',
+  },
   '@/lib/public/grade-resolution': gradeResolution, '@/lib/public/display-name': displayName,
   '@/lib/product-attributes': productAttributes,
   '@/lib/media/readiness': { isExpired: () => false, productReadiness }, '@/lib/public/product-selection': selection, '@/lib/verification-status': verificationStatus };
@@ -134,14 +140,35 @@ const catalog = compile('../lib/public/catalog.ts', catalogMocks);
 // GĐ1 xếp hạng: module thuần không import gì nên compile không cần mock; bơm bản thật
 // vào product-catalog để đường xếp hạng mới chạy đúng trong kiểm này.
 const ranking = compile('../lib/public/ranking.ts', {});
+const gradePricing = compile('../lib/products/grade-pricing.ts', {
+  '@/lib/public/price-units': priceUnits,
+  '@/lib/public/grade-resolution': gradeResolution,
+});
+let previewBatches = [];
+let previewFails = false;
 const productCatalog = compile('../lib/public/product-catalog.ts', {
+  '@/lib/public/quantity-catalog-preview': { projectQuantityCatalogPreview: async (records) => {
+    previewBatches.push(records.map(({ product }) => product.id));
+    if (previewFails) throw new Error('preview read failed');
+    return records.map((record) => ({ ...record, card: { ...record.card, previewMarker: true } }));
+  } },
   ...catalogMocks, '@/lib/media/readiness': { isExpired: () => false, productReadiness },
+  '@/lib/products/grade-pricing': gradePricing,
   '@/lib/public/catalog': { listPublicSuppliers: catalog.listPublicSuppliers },
   '@/lib/public/ranking': ranking,
   '@/lib/public/supplier-seo': { isSyntheticSupplier },
   '@/lib/public/supplier-english': { supplierProvinceDisplay: (s) => s.province || '' },
   '@/lib/public/product-detail-display': productDetailDisplay,
 });
+catalogMocks['@/lib/public/product-catalog'] = productCatalog;
+catalogMocks['@/lib/public/quantity-catalog-preview'] = { projectQuantityCatalogPreview: async (records) => {
+  storefrontProjectionCalls++;
+  if (storefrontProjectionFails) throw Error('approved projection unavailable');
+  return records.map((record) => record.product.id === 'a0' ? { ...record, card: { ...record.card,
+    usesFormGallery: true, name: 'Approved form name', price: null,
+    imagePaths: ['approved-main.webp'], cardImagePath: 'approved-thumb.webp',
+  } } : record);
+} };
 const photoSamples = [
   { ...media[0], id: 'img-first', product_id: 'a0', storage_path: 'products/a0/first.jpg', sort_order: 0 },
   { ...media[0], id: 'img-cover', product_id: 'a0', storage_path: 'products/a0/cover.jpg', thumb_path: 'products/a0/cover-thumb.webp', sort_order: 1 },
@@ -201,6 +228,30 @@ assert.deepEqual([...comparisonRecords.map((record) => record.card.id)], ['a0', 
 assert.equal(comparisonRecords[1].card.price, null, 'The direct comparison query uses the same public-price consent gate');
 assert.equal(comparisonRecords[0].card.rawMaterialRegion, 'Binh Phuoc and Dak Lak', 'Product comparison reads this product translation');
 assert.equal(comparisonRecords[1].card.rawMaterialRegion, '', 'Missing product English stays empty in comparison');
+assert.equal(previewBatches.length, 0, 'Quantity buyer projection is disabled by default');
+process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true';
+try {
+  const previewCards = await productCatalog.listPublicCategoryProducts(category);
+  assert.ok(previewCards.every((card) => card.previewMarker));
+  assert.equal(previewBatches[0].length, 13);
+  assert.ok(!previewBatches[0].some((id) => ['draft', 'test', 'private-supplier', 'rice'].includes(id)), 'Public eligibility and media gates precede revision reads');
+  const previewRecords = await productCatalog.getPublicProductRecordsByIds(['a0', 'draft', 'private-supplier']);
+  assert.equal(previewRecords.length, 1);
+  assert.equal(previewRecords[0].card.previewMarker, true);
+  assert.deepEqual([...previewBatches[1]], ['a0']);
+  previewFails = true;
+  await assert.rejects(productCatalog.listPublicCategoryProducts(category), /preview read failed/, 'A failed preview read must not fall back to old prices');
+  await assert.rejects(productCatalog.getPublicProductRecordsByIds(['a0']), /preview read failed/);
+} finally {
+  delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
+  previewFails = false;
+}
+// The production switch enables both catalog entry points without turning on the older preview flag.
+process.env.VEXIM_PRODUCT_FORM_PRODUCTION = 'true'; formProduction = true;
+try {
+  assert.ok((await productCatalog.listPublicCategoryProducts(category)).every((card) => card.previewMarker));
+  assert.equal((await productCatalog.getPublicProductRecordsByIds(['a0']))[0].card.previewMarker, true);
+} finally { formProduction = false; delete process.env.VEXIM_PRODUCT_FORM_PRODUCTION; }
 const initial = arrangeSupplierProducts(cards, 3);
 assert.equal(initial.shown.length, 6);
 assert.equal(initial.hidden.get('A'), 5);
@@ -211,7 +262,8 @@ const filtered = arrangeSupplierProducts(cards.filter((p) => p.grade === 'W320')
 assert.equal(filtered.shown.length, 13, 'Filter does not retain the three-card cap');
 assert.equal(filtered.hidden.size, 0);
 assert.equal(new Set(filtered.shown.map((p) => p.id)).size, 13);
-assert.ok(filtered.shown.every((p, i) => i < 2 || !(p.supplierId === filtered.shown[i - 1].supplierId && p.supplierId === filtered.shown[i - 2].supplierId)), 'Skewed 8:5 filtered results remain interleaved when possible');
+assert.deepEqual(filtered.shown.slice(0, 10).map((p) => p.supplierId), ['A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B'], 'A full round takes one offer per supplier');
+assert.deepEqual(filtered.shown.slice(10).map((p) => p.supplierId), ['A', 'A', 'A'], 'Remaining offers stay visible after other suppliers are exhausted');
 const oneSupplier = cards.filter((p) => p.supplierId === 'A');
 const singleInitial = arrangeSupplierProducts(oneSupplier, new Set(oneSupplier.map((p) => p.supplierId)).size < 2 ? 2 : 3);
 assert.equal(singleInitial.shown.length, 2, 'A single supplier cannot occupy three consecutive initial cards');
@@ -221,6 +273,22 @@ const profile = await catalog.getPublicSupplierBySlug('company-a');
 assert.equal(profile.main_products.length, 9, 'Profile includes all public products from every category, not the four-card summary');
 assert.equal(profile.product_image_paths.a0, 'products/a0/cover.jpg', 'Full image stays on the detail/structured data');
 assert.equal(profile.product_card_image_paths.a0, 'products/a0/cover-thumb.webp', 'Supplier cards use the approved thumbnail');
+assert.equal(storefrontProjectionCalls, 0, 'Legacy storefront does not query new form readers outside staging');
+const oldPreviewFlag = process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
+process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true'; formStaging = true;
+const formProfile = await catalog.getPublicSupplierBySlug('company-a');
+assert.equal(formProfile.form_product_cards.a0.name, 'Approved form name');
+assert.equal(formProfile.form_product_cards.a0.price, null, 'Hidden approved price remains hidden');
+assert.equal(formProfile.product_image_paths.a0, 'approved-main.webp');
+assert.equal(formProfile.product_card_image_paths.a0, 'approved-thumb.webp');
+assert.equal(formProfile.form_product_cards.a1, undefined, 'Legacy products keep their original card');
+storefrontProjectionFails = true;
+await assert.rejects(() => catalog.getPublicSupplierBySlug('company-a'), /projection unavailable/, 'A failed form read must not fall back to old price and images');
+storefrontProjectionFails = false; formStaging = false;
+if (oldPreviewFlag === undefined) delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW; else process.env.VEXIM_QUANTITY_BUYER_PREVIEW = oldPreviewFlag;
+formProduction = true;
+assert.equal((await catalog.getPublicSupplierBySlug('company-a')).form_product_cards.a0.name, 'Approved form name', 'Production storefront uses the matching cutover without the old flag');
+formProduction = false;
 assert.equal(profile.product_image_paths.test, undefined, 'Test-only product images never appear');
 media.push({ ...media[0], id: 'private-a1', product_id: 'a1', audience: 'internal', storage_path: 'products/a1/private.jpg', sort_order: -5 });
 assert.equal((await catalog.getPublicSupplierBySlug('company-a')).product_image_paths.a1, 'products/a1/image.jpg', 'Internal product images must not leak into supplier cards');
@@ -294,62 +362,134 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'next/link': { default: ({ href, children, prefetch, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': require('lucide-react'),
-  '@/components/product-trade-labels': productTradeLabelsModule,
-  '@/components/verification-tier': verificationTierModule,
   '@/components/sponsored-disclosure': { SponsoredDisclosure: () => null },
+  '@/components/verification-tier': verificationTierModule,
   '@/components/product-compare-checkbox': { ProductCompareCheckbox: ({ product }) => React.createElement('input', {
     type: 'checkbox', 'aria-label': `Add ${product.name} to comparison`, className: 'absolute right-2 top-2',
   }) },
 });
+const supplierEnglish = compile('../lib/public/supplier-english.ts', { '@/lib/public/product-detail-display': productDetailDisplay });
+const storefrontCards = [];
+const { SupplierStorefront } = compile('../components/public/supplier-storefront.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'), 'lucide-react': require('lucide-react'),
+  'next/link': { default: ({ href, children }) => React.createElement('a', { href }, children) },
+  '@/components/public-product-card': { PublicProductCard: (props) => { storefrontCards.push(props); return React.createElement('div', null, props.name); } },
+  '@/components/public/supplier-product-rail': { SupplierProductRail: ({ children }) => React.createElement('ul', null, children) },
+  '@/components/verification-tier': verificationTierModule,
+  '@/lib/public/catalog': catalog, '@/lib/verification-status': verificationStatus,
+  '@/lib/public/display-name': displayName, '@/lib/public/product-selection': selection,
+  '@/lib/public/supplier-english': supplierEnglish,
+});
+renderToStaticMarkup(React.createElement(SupplierStorefront, { supplier: formProfile, certificates: [], categories,
+  coverUrl: null, avatarUrl: null, synthetic: false }));
+const approvedStorefrontCard = storefrontCards.find((item) => item.name === 'Approved form name');
+assert.ok(approvedStorefrontCard, 'Storefront renders the approved form card');
+assert.equal(approvedStorefrontCard.imagePath, 'approved-thumb.webp');
+assert.equal(approvedStorefrontCard.price, null, 'Storefront does not show a legacy price when form consent hides it');
+assert.match(approvedStorefrontCard.quoteHref, /product_id=a0/, 'Form keeps its original RFQ product identity');
 const fullTradeLabels = renderToStaticMarkup(React.createElement(productTradeLabelsModule.ProductTradeLabels, { oem: true, odm: true, samples: true }));
 assert.match(fullTradeLabels, />OEM</, 'PDP keeps the full OEM label');
 assert.match(fullTradeLabels, />ODM</, 'PDP keeps the full ODM label');
 assert.match(fullTradeLabels, />Samples available</, 'PDP keeps the explicit sample-availability label');
-const compactTradeLabels = renderToStaticMarkup(React.createElement(productTradeLabelsModule.ProductTradeLabels, { oem: true, odm: true, samples: true, compact: true }));
-assert.match(compactTradeLabels, />OEM\/ODM</, 'Compact cards combine OEM and ODM into one factual badge');
-assert.match(compactTradeLabels, />Samples</, 'Compact cards shorten the sample badge');
-assert.doesNotMatch(compactTradeLabels, />OEM<|>ODM<|Samples available/, 'Compact badges do not repeat the full three-badge treatment');
+
 const cardProps = { href: '/products/cashew/a0', imagePath: 'products/a0/cover.jpg',
-  name: 'Cashew W320 lot 0', moq: '1 MT', price: 'USD 7/kg', fob: true, leadTimeDays: 14,
+  name: 'Cashew W320 lot 0', moq: '1 MT', price: 'USD 7/kg', incoterm: 'FOB', fob: true, leadTimeDays: 14,
   supplierName: 'Company A', supplierHref: '/suppliers/company-a', verificationSteps: [1, 3], l2Scope: 'factory',
   quoteHref: '/rfq?category=cashew&suppliers=A&product=Cashew%20W320%20lot%200&product_id=a0', oem: true, odm: true, samples: true };
 const compactCard = renderToStaticMarkup(React.createElement(PublicProductCard, cardProps));
-for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', 'USD 7/kg', 'Lead time', '14 days', 'Supplied by', 'Company A', 'OEM/ODM', 'Samples', 'Request a quote']) {
+const renderOffer = (changes) => renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, ...changes }));
+const separated = renderOffer({ name: 'Cashew kernels, W320, steam treated', grades: ['W320'], price: 'USD 6.00–6.40/kg', volumePricing: true });
+assert.match(separated, /<h3 title="Cashew kernels, steam treated"/);
+assert.match(separated, /<span class="truncate">W320<\/span>/);
+assert.ok(separated.indexOf('Cashew kernels, steam treated</h3>') < separated.indexOf('>W320</span>'));
+assert.ok(separated.indexOf('>W320</span>') < separated.indexOf('>USD 6.00–6.40/kg</span>'));
+assert.match(separated, /FOB<\/span><span[^>]*>Volume pricing<\/span>/);
+assert.doesNotMatch(renderOffer({ price: null, volumePricing: true }), /Volume pricing/);
+assert.doesNotMatch(renderOffer({ price: 'USD 6.00–6.40/kg' }), /Volume pricing/, 'An unverified legacy range is not a volume tier claim');
+const custom = renderOffer({ name: 'Cashew Special', grades: [], gradeRows: [{ grade: 'Special', isCustom: true, priceMin: null, priceMax: null }] });
+assert.match(custom, /<h3 title="Cashew"/); assert.match(custom, /<span class="truncate">Special<\/span>/);
+assert.match(renderOffer({ name: 'Cashew W3200', grades: ['W320'] }), /<h3 title="Cashew W3200"/, 'Grade matching respects word boundaries');
+for (const moq of ['1 × 20ft container', 'Full container', '40 bags x 25 kg', '0 kg', '2 kg or 1 MT']) {
+  const output = renderOffer({ moq });
+  assert.match(output, /<dd title="On request"/, moq);
+}
+for (const [moq, expected] of [['1,000 kg', '1,000 kg'], ['2 metric tons', '2 MT'], ['0.5 mt', '0.5 MT']]) {
+  assert.ok(renderOffer({ moq }).includes(`<dd title="${expected}"`), moq);
+}
+const noGradeFallback = renderOffer({ grades: ['W320'], highlightedGrades: ['W320'], gradeRows: [{ grade: 'W320', priceMin: 6, priceMax: 7, moq: 'On request' }], moq: '1 MT' });
+assert.match(noGradeFallback, /<dd title="On request"/, 'A matched grade cannot borrow the product MOQ');
+const stalePriceCard = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: 'USD 6.00–6.40/kg', stalePriceDays: 91 }));
+assert.match(stalePriceCard, /USD 6\.00–6\.40\/kg/);
+assert.match(stalePriceCard, /Last updated 91 days ago/);
+const hiddenStalePriceCard = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, stalePriceDays: 91 }));
+assert.doesNotMatch(hiddenStalePriceCard, /Last updated/);
+for (const text of ['Cashew W320 lot 0', 'MOQ', '1 MT', '<span>USD 7/kg</span>', '>FOB</span>', 'Lead time', '14 days', 'Supplied by', 'Company A', '>Quote<']) {
   assert.ok(compactCard.includes(text), `Compact card keeps ${text}`);
 }
+assert.match(compactCard, /text-sm font-bold text-brand-800 sm:text-\[15px\]"><span>USD 7\/kg<\/span><\/p><p class="h-4 truncate whitespace-nowrap text-\[10\.5px\] font-normal leading-4 text-ink-500 sm:text-\[11px\]"><span>FOB<\/span>/, 'Price is prominent and Incoterm has a smaller fixed second line');
+assert.doesNotMatch(compactCard, /OEM|ODM|Samples/, 'OEM, ODM and Samples badges are removed from product cards');
+assert.doesNotMatch(compactCard, /Level 1 · Basic|Level 2 · Advanced|Level 3 · Complete|>Level [123]</, 'VerificationTierBadge text (Level 1 · Basic, etc.) is removed from product cards');
+assert.doesNotMatch(compactCard, />Request a quote</, 'Oversized Request a quote button is replaced by compact Quote button');
+assert.doesNotMatch(compactCard, /\bfont-mono\b/, 'Card price uses primary font instead of large monospace');
 assert.match(compactCard, /relative aspect-square w-full/, 'The product image stays square at every breakpoint');
-assert.doesNotMatch(compactCard, /min-h-40/, 'The image no longer receives a forced tall mobile height');
 assert.match(compactCard, /object-cover/);
-assert.match(compactCard, /line-clamp-2/);
+assert.match(compactCard, /line-clamp-2 h-9[^"]*sm:h-10/, 'Title always occupies a fixed 2-line height');
+assert.match(compactCard, /mt-1\.5 flex h-6 items-center gap-1/, 'Grade row reserves a fixed 1-row height even when empty');
+assert.match(compactCard, /h-5 truncate whitespace-nowrap tabular-nums/, 'Price occupies a fixed 1-line slot with tabular figures');
+assert.match(compactCard, /after:absolute after:inset-0 after:z-10/, 'Whole card is clickable via stretched title link');
+assert.match(compactCard, /mt-auto border-t border-ink-100/, 'Supplier + verification + Quote footer is pinned to card bottom');
 assert.match(compactCard, /flex h-full min-w-0 flex-row[^"]*sm:flex-col/, 'Cards are horizontal on phones and vertical from sm');
 assert.match(compactCard, /w-\[38%\] shrink-0[^"]*sm:w-full/, 'The phone image takes 38 percent and the content takes the remaining width');
 assert.match(compactCard, /flex min-w-0 flex-1 flex-col/, 'The product information occupies the flexible content side');
 assert.match(compactCard, /href="\/suppliers\/company-a"/, 'Supplier has an independent profile link');
-assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can open product details through the title or image');
+assert.match(compactCard, /href="\/products\/cashew\/a0"/, 'Buyer can open product details through the card');
+
+// Multi-grade card price, single/filtered grade card price, and +N grade tooltip + active grade highlight
+const multiGradeRows = [
+  { grade: '500 g/L', isCustom: false, priceMin: 1500, priceMax: 1600, priceText: 'USD 1,500 to 1,600/MT', incoterm: 'FOB', moq: '1 metric ton' },
+  { grade: '550 g/L', isCustom: false, priceMin: 1800, priceMax: 1900, priceText: 'USD 1,800 to 1,900/MT', incoterm: 'FOB', moq: '2 metric tons' },
+  { grade: '570 g/L', isCustom: false, priceMin: 1950, priceMax: 2050, priceText: 'USD 1,950 to 2,050/MT', incoterm: 'FOB', moq: '1 metric ton' },
+  { grade: 'White pepper', isCustom: false, priceMin: 2400, priceMax: 2500, priceText: 'USD 2,400 to 2,500/MT', incoterm: 'FOB', moq: '1 metric ton' },
+];
+const multiGradeCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
+  ...cardProps,
+  grades: ['500 g/L', '550 g/L', '570 g/L', 'White pepper'],
+  gradeRows: multiGradeRows,
+  price: 'USD 1,500 to 2,500/MT',
+  incoterm: 'FOB',
+}));
+assert.ok(multiGradeCard.includes('<span>From USD 1,500/MT</span>'), 'Multi-grade card renders From USD min/unit as primary bold accent price');
+assert.match(multiGradeCard, /font-normal leading-4 text-ink-500[^"]*"><span>FOB · 4 grades<\/span>/, 'Multi-grade card renders FOB · N grades in smaller muted regular-weight span');
+assert.match(multiGradeCard, /aria-label="All grades: 500 g\/L, 550 g\/L, 570 g\/L, White pepper"/, '+N trigger exposes full grade list');
+assert.match(multiGradeCard, /group-hover\/grades:block group-focus-within\/grades:block/, '+N tooltip opens on hover and tap/focus');
+
+const filteredGradeCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
+  ...cardProps,
+  grades: ['500 g/L', '550 g/L', '570 g/L', 'White pepper'],
+  gradeRows: multiGradeRows,
+  highlightedGrades: ['550 g/L'],
+  price: 'USD 1,500 to 2,500/MT',
+  incoterm: 'FOB',
+}));
+assert.ok(filteredGradeCard.includes('<span>USD 1,800–1,900/MT</span>'), 'Filtering by a grade renders that grade exact price range in bold accent');
+assert.match(filteredGradeCard, /font-normal leading-4 text-ink-500[^"]*"><span>FOB<\/span>/, 'Filtering by a grade renders Incoterm in smaller muted regular-weight span');
+assert.ok(filteredGradeCard.indexOf('>550 g/L<') < filteredGradeCard.indexOf('>500 g/L<'), 'Filtered grade moves to the front');
+assert.match(filteredGradeCard, /bg-brand-100 text-brand-900 ring-1 ring-inset ring-brand-400[^>]*><span class="truncate">550 g\/L<\/span>/, 'Filtered grade is highlighted');
+assert.ok(filteredGradeCard.includes('2 MT'), 'Filtered grade updates MOQ to that grade weight in MT');
+
 const comparableCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
   ...cardProps, comparison: { id: 'a0', categorySlug: 'cashew' },
 }));
 assert.match(comparableCard, /aria-label="Add Cashew W320 lot 0 to comparison"/, 'A public offer has an image comparison checkbox');
 assert.match(comparableCard, /<\/a><input[^>]*class="absolute right-2 top-2"/, 'The image-corner checkbox is a sibling of the product link, not a nested interactive control');
 assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;product=Cashew%20W320%20lot%200&amp;product_id=a0"/,
-  'The primary card CTA opens an RFQ prefilled for this product and supplier');
+  'The Quote CTA opens an RFQ prefilled for this product and supplier');
 assert.match(compactCard, /aria-label="Request a quote for Cashew W320 lot 0"/, 'Repeated quote CTAs have product-specific accessible names');
-assert.match(compactCard, /inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-lg border border-brand-400 bg-white px-3\.5 text-\[13px\] font-bold text-brand-800/,
-  'The quote CTA is an outlined brand button on the card, not the dark details treatment');
-assert.match(compactCard, /text-\[17px\] font-extrabold leading-6 tracking-\[-0\.01em\][^"]*text-brand-900/,
-  'The price leads the information block at card scale');
-assert.match(compactCard, /@container flex min-w-0 flex-1 flex-col/, 'The price scales with the information column, not the viewport');
-assert.match(compactCard, /@\[19rem\]:text-\[19px\]/, 'Wide cards enlarge the price without pushing FOB to a new line');
-assert.match(compactCard, />FOB</, 'FOB remains visible as a compact suffix');
-assert.doesNotMatch(compactCard, /FOB reference|Reference price/, 'Price uses plain text without a heading or reference label');
-assert.match(compactCard, /text-\[10px\] font-bold uppercase tracking-\[0\.12em\] text-ink-400">FOB</, 'FOB stays a quiet uppercase suffix next to the price');
-assert.match(compactCard, /line-clamp-2 min-h-0[^"]*sm:min-h-10/, 'The title keeps its two-line clamp and desktop alignment slot');
-assert.match(compactCard, /mb-1\.5 hidden h-5 items-center sm:mb-2 sm:flex sm:h-6/, 'Trade badges do not consume mobile height but keep their desktop slot');
-assert.match(compactCard, /mt-2 grid grid-cols-2 gap-x-3/, 'MOQ and lead time sit side by side at every breakpoint');
-assert.match(compactCard, /truncate text-\[13px\] font-bold leading-5 text-ink-900/, 'Commercial values are one bold line that truncates instead of stretching the card');
-assert.match(compactCard, /mt-2 border-t border-ink-100 pt-2 sm:mt-auto sm:pt-2\.5/, 'The supplier block is separated by a hairline and pinned to the card bottom');
-assert.match(compactCard, /mt-2 flex min-w-0 flex-wrap items-center justify-between gap-x-2/, 'Shields and the quote action share the last row, evidence left and next step right');
-assert.match(compactCard, /gap-1\.5" role="group"/, 'Marketplace shields keep a visible gap between circles');
+assert.match(compactCard, /border-brand-600\/80 bg-white/, 'Quote uses a compact thin-bordered button');
+assert.doesNotMatch(compactCard, /FOB reference|Reference price/, 'Price uses plain text without a heading');
+assert.match(compactCard, /mt-1\.5 flex flex-wrap[^"]*sm:mt-2 sm:grid sm:grid-cols-2/, 'MOQ and lead time are inline on phones and become a two-column row on desktop');
+assert.match(compactCard, /flex min-w-0 items-baseline gap-1 sm:block/, 'Mobile commercial terms stay on the same line');
+assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
 // Each check owns its hue and symbol: documents blue, factory gold, delivery violet.
 const LEVEL_TONES = [
   [1, 'Documents checked', 'sky', 'file-check'],
@@ -360,8 +500,9 @@ const allApprovedCard = renderToStaticMarkup(React.createElement(PublicProductCa
 for (const [level, label, hue, icon] of LEVEL_TONES) {
   assert.ok(allApprovedCard.includes(`aria-label="Level ${level} · ${label}: Approved`),
     `Shield ${level} is announced as level ${level} · ${label}`);
-  assert.match(allApprovedCard, new RegExp(`border-2 border-${hue}-400 bg-${hue}-100 text-${hue}-700[^"]*"[^>]*><svg[^>]*class="lucide[^"]*${icon}`),
-    `Approved shield ${level} uses its own ${hue} tone and ${icon} symbol`);
+  assert.ok(allApprovedCard.includes(`border-2 border-${hue}-400 bg-${hue}-100 text-${hue}-700`),
+    `Approved shield ${level} uses its own ${hue} tone`);
+  assert.ok(allApprovedCard.includes(`lucide-${icon}`), `Approved shield ${level} keeps the ${icon} symbol`);
   assert.ok(allApprovedCard.includes(`<span class="block text-[10px] font-semibold leading-4 text-${hue}-300">Approved</span>`),
     `The tooltip repeats level ${level}'s ${hue} tone for the approved status`);
 }
@@ -369,21 +510,10 @@ assert.equal(new Set(LEVEL_TONES.map(([, , hue]) => hue)).size, 3, 'The three ch
 assert.match(compactCard, /border-2 border-sky-400 bg-sky-100 text-sky-700/, 'A card with only documents approved shows just the blue shield');
 assert.match(compactCard, /border-2 border-violet-400 bg-violet-100 text-violet-700/, 'A card with delivery history approved shows the violet shield');
 assert.match(compactCard, /border-2 border-ink-200 bg-white text-ink-300/, 'A check that was not approved stays a grey outline');
-assert.doesNotMatch(compactCard, /border-2 border-brand-400 bg-brand-50 text-brand-700/,
-  'The shields no longer repeat the brand mint for every level');
-assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
-assert.ok(compactCard.includes('aria-label="Verification checks approved: Documents checked, Delivery history reviewed"'),
-  'The card counts exactly the approved checks, never a claimed level');
-assert.ok(!compactCard.includes('aria-label="Level 2 · Factory verification: Approved'),
-  'A check that was not approved is never announced as approved');
-assert.doesNotMatch(compactCard, /Level 2 · Advanced/, 'The card no longer repeats a level badge next to the three shields');
-for (const [level, suffix] of [[1, 'Basic'], [2, 'Advanced'], [3, 'Complete']]) {
-  const levels = Array.from({ length: level }, (_, index) => index + 1);
-  const badge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels }));
-  assert.ok(badge.includes(`Level ${level} · ${suffix}<`), `The tier badge names the counted level ${level}`);
-}
+assert.doesNotMatch(compactCard, /bg-brand-50 text-brand-700/, 'The shields no longer repeat one mint colour for every level');
+assert.doesNotMatch(allApprovedCard, /bg-emerald-100 text-emerald-700/, 'No single-colour treatment survives the per-level palette');
 const standardBadge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels: [1] }));
-assert.ok(standardBadge.includes('Level 1 · Basic'),
+assert.ok(standardBadge.includes('Level 1 · Basic') && !standardBadge.includes('sm:hidden'),
   'Badges outside product cards keep the full label at every size');
 assert.doesNotMatch(compactCard, /Free Sample|ISO Certified|Ready to Ship/, 'Unsupported product claims never become badges');
 assert.equal((compactCard.match(/<details/g) ?? []).length, 0, 'The large shared verification disclosure is removed');
@@ -421,10 +551,10 @@ const longSupplierCard = renderToStaticMarkup(React.createElement(PublicProductC
   ...cardProps, supplierName: 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED',
 }));
 assert.match(longSupplierCard, /title="VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED"/, 'The full supplier name remains available as a tooltip');
-assert.match(longSupplierCard, /truncate font-bold text-brand-700/, 'Long supplier names stay on one line instead of stretching the card');
-const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, fob: false, verificationSteps: [] }));
-assert.match(privatePrice, /On request/);
-assert.doesNotMatch(privatePrice, /FOB reference|>FOB<|USD 7\/kg/, 'No price or FOB claim without consent');
+assert.match(longSupplierCard, /truncate font-semibold text-brand-700/, 'Long supplier names stay on one line instead of stretching the card');
+const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, incoterm: null, fob: false, verificationSteps: [] }));
+assert.match(privatePrice, /Price on request/);
+assert.doesNotMatch(privatePrice, /FOB reference|\bFOB\b|USD 7\/kg/, 'No price or FOB claim without consent');
 assert.match(privatePrice, /No verification checks approved yet/, 'A supplier with no approved check shows the empty tier, not a badge');
 assert.equal((privatePrice.match(/>Not approved</g) ?? []).length, 3, 'The tooltip never marks a check approved without an actual approved level');
 const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
@@ -432,7 +562,7 @@ const testCard = renderToStaticMarkup(React.createElement(PublicProductCard, {
 }));
 assert.match(testCard, /TEST · Not an offer|Test data · not a price/);
 assert.doesNotMatch(testCard, /to comparison/, 'Demo and preview cards never offer a public comparison selection');
-assert.doesNotMatch(testCard, /USD 7\/kg|\/rfq|Supplier-stated product options/, 'A test card carries no price, quote path or commercial capability badges');
+assert.doesNotMatch(testCard, /USD 7\/kg|\/rfq|Supplier-stated product options|>Quote</, 'A test card carries no price, quote path or commercial capability badges');
 assert.match(testCard, /aria-label="No verification checks approved yet"/, 'A test card never claims a verification check');
 // Lưới thẻ trang chủ là một client component riêng; dựng nó ở đây để bản HTML
 // máy chủ vẫn được kiểm bằng thẻ thật, không phải bằng chuỗi giả.
@@ -488,24 +618,29 @@ assert.match(grid, /p\.cardImagePath \?\? p\.imagePaths\[0\]/, 'Category cards p
 assert.match(profilePage, /s\.product_card_image_paths\?\.\[p\.id\]/, 'Supplier profile cards prefer approved thumbnails');
 for (const [surface, source] of [['Category', grid], ['Home', homeFeed], ['Supplier profile', profilePage], ['Related products', detailPage]]) {
   assert.match(source, /quoteHref=/, `${surface} cards provide the product-specific RFQ action`);
-  assert.match(source, /oem=\{/, `${surface} cards use actual OEM data`);
-  assert.match(source, /odm=\{/, `${surface} cards use actual ODM data`);
-  assert.match(source, /samples=\{/, `${surface} cards use actual sample-availability data`);
+  assert.match(source, /gradeRows=/, `${surface} cards receive structured gradeRows for single/multi-grade pricing`);
 }
+assert.match(grid, />OEM \/ ODM</, 'Category filter sidebar includes OEM / ODM filter');
+assert.match(grid, />Samples</, 'Category filter sidebar includes Samples filter');
+assert.match(grid, /&grade=\$\{encodeURIComponent\(prefillGrade\)\}/, 'Category Quote button pre-fills active filtered grade in RFQ');
+const rfqPageSource = readFileSync(new URL('../app/(public)/rfq/page.tsx', import.meta.url), 'utf8');
+const rfqFormSource = readFileSync(new URL('../app/(public)/rfq/rfq-form.tsx', import.meta.url), 'utf8');
+assert.match(rfqPageSource, /initialGrade=\{\(sp\?\.grade \?\? ""\)/, 'RFQ page forwards ?grade= query parameter to RfqForm');
+assert.match(rfqFormSource, /grade: initialGrade/, 'RfqForm initializes grade from initialGrade');
 assert.match(offersHtml, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;product=Cashew%20kernels%20W320%2C%20Hanoi&amp;product_id=a0"/,
   'Home cards prefill the current product and supplier in the RFQ');
 assert.equal((offersHtml.match(/aria-label="View details of/g) ?? []).length, 2, 'Home has two real offers, not category placeholders or demo products');
 assert.doesNotMatch(offersHtml, /\/products\/cashew\/demo|Test data/);
 assert.match(homeHtml, /id="categories"/, 'Category navigation remains a separate section');
 assert.match(detailPage, /<ProductVerificationIcons levels=\{card\.verificationSteps\}/);
-assert.match(profilePage, /price=\{synthetic \? null : publicProductPrice\(p, s\)\}/);
+assert.match(profilePage, /const rawPrice = synthetic \? null : publicProductPrice\(p, s\)/);
 assert.match(profilePage, /const href = synthetic[\s\S]*?`\/suppliers\/\$\{encodeURIComponent\(s\.slug \|\| s\.id\)\}\/products\/\$\{encodeURIComponent\(p\.id\)\}`/, 'Test products have a safe dedicated preview instead of a dead card');
 assert.match(detailPage, /View supplier profile/);
 assert.match(detailPage, /#factory-visit/);
 assert.match(detailPage, /#delivery-history/);
 assert.match(detailPage, /parseProductSpecification\(enSpec\)/, 'PDP separates supplier specification lines into key-value rows');
 assert.match(detailPage, />Key terms</, 'The gallery-side card keeps only commercial terms');
-assert.match(detailPage, /<h1 className="mt-2 break-words text-2xl font-bold leading-snug tracking-tight text-ink-900 sm:text-3xl">/, 'The product title uses compact typography and wraps long names safely');
+assert.match(detailPage, /<h1 className="mt-2 break-words text-xl font-semibold leading-snug tracking-tight text-ink-900 sm:text-2xl">/, 'The product title uses lighter compact typography and wraps long names safely');
 assert.match(detailPage, /id="full-specifications-heading"/, 'Technical details have their own specification card');
 const galleryStart = detailPage.indexOf('<ProductMediaGallery');
 const supplierCardStart = detailPage.indexOf('id="supplier-card-title"');
@@ -527,12 +662,12 @@ assert.doesNotMatch(keyTermsSource, /raw_material_region|input_material_origin/,
 const referencePriceStart = detailPage.indexOf('id="reference-price"');
 const tradeLabelsStart = detailPage.indexOf('<ProductTradeLabels');
 assert.ok(referencePriceStart > detailPage.indexOf('{enDescription &&') && referencePriceStart < tradeLabelsStart,
-  'The prominent reference price follows the short description and precedes OEM, ODM and sample labels');
+  'Grades & reference pricing or fallback price follows the short description and precedes OEM, ODM and sample labels');
 const referencePriceSource = detailPage.slice(referencePriceStart, tradeLabelsStart);
-assert.match(referencePriceSource, /text-3xl font-black/, 'The standalone reference price uses prominent display typography');
-assert.match(referencePriceSource, /card\.price \|\| "On request"/, 'The standalone price preserves the public-price fallback');
+assert.match(referencePriceSource, /Grades &amp; reference pricing/, 'PDP renders Grades & reference pricing table when grade rows exist');
+assert.match(referencePriceSource, /card\.price \|\| "On request"/, 'The legacy fallback preserves On request');
 assert.ok(!keyTermsSource.includes('Reference price'), 'Reference price is not duplicated in Key terms');
-assert.equal((detailPage.match(/>Reference price</g) ?? []).length, 1, 'PDP has one standalone reference-price label');
+assert.match(detailPage, /Stated by the supplier\./, 'PDP keeps OEM, ODM and Samples accompanied by Stated by the supplier');
 assert.match(detailPage, /Product details and reference prices are supplier-provided and reviewed for listing/);
 assert.doesNotMatch(detailPage, /Product specifications are supplier-stated|These are supplier reviews, not certifications/, 'PDP avoids repeated defensive disclaimers');
 assert.match(detailPage, /supplierImageUrl/, 'Supplier card supports the real public profile image');

@@ -106,6 +106,9 @@ for (const broken of [null, undefined, 42, true, 'not json', {}, [], { grade: 'x
     if (id === '@/lib/category-filters') return mod.exports;
     if (id === '@/lib/db') return { getStore: () => ({ listCategories: async () => [{ slug: 'cashew-kernels', name_i18n: { en: 'Cashew kernels' }, filters: { grades: ['W180', 'W240', 'W320'] } }] }) };
     if (id === '@/lib/public/catalog') return { listPublicSuppliers: async () => [] };
+    // Danh mục này chưa có grade chuẩn nào trong product_fields, nên trang phải rơi
+    // về danh sách grade cũ đọc qua bộ chuẩn hoá.
+    if (id === '@/lib/products/grade-pricing') return { standardGradesForCategory: () => [] };
     throw new Error(`Unexpected import in app/(public)/rfq/page.tsx: ${id}`);
   });
   const { default: RfqPage } = pageModule.exports;
@@ -120,6 +123,8 @@ const rfqPage = readFileSync(new URL('../app/(public)/rfq/page.tsx', import.meta
 assert.doesNotMatch(rfqPage, /filters as CategoryFilter\[\] \| null\)\?\.find/, 'The page never calls .find straight on the jsonb column');
 assert.match(rfqPage, /categoryFilterValues\(c\.filters, "grade"\)/, 'The page reads grades through the shared normaliser');
 assert.match(rfqPage, /categoryFilterValues\(c\.filters, "certifications"\)/, 'The page reads certifications through the shared normaliser');
+assert.match(rfqPage, /standardGrades\.length > 0 \? standardGrades : legacyGrades/,
+  'Standard category grades win, and the legacy column is only the fallback');
 for (const file of ['app/(public)/products/[slug]/page.tsx', 'app/crm/categories/categories-manager.tsx']) {
   const text = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
   assert.match(text, /normalizeCategoryFilters\(/, `${file} normalises the column instead of trusting the type`);
