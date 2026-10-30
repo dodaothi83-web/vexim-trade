@@ -77,6 +77,10 @@ assert.equal(vnd.value.currency, 'VND');
 assert.equal(vnd.value.tiers[0].currency, 'VND');
 assert.equal(formatQuantityPriceBuyer(62000, 'kg', 'VND'), 'VND 62,000.00/kg');
 assert.equal(formatQuantityPriceBuyer(1.5, 'mt', 'EUR'), 'EUR 1,500/MT');
+assert.equal(validateQuantityPricing({ ...input, grade: '' }, grades).errors.find((issue) => issue.code === 'grade').message,
+  'Chọn grade chuẩn của danh mục để tiếp tục.', 'Lỗi grade nói rõ việc cần làm');
+assert.match(validateQuantityPricing({ ...input, grade: '' }, []).errors.find((issue) => issue.code === 'grade').message,
+  /Danh mục chưa có grade/, 'Danh mục chưa cấu hình grade được báo riêng');
 assert.equal(entryCurrencyIssue('USD'), null, 'USD được nhập');
 assert.match(entryCurrencyIssue('VND'), /chỉ nhập giá bằng USD/, 'Tạm thời chặn VND khi nhập mới');
 assert.match(entryCurrencyIssue('EUR'), /chỉ nhập giá bằng USD/, 'Tạm thời chặn EUR khi nhập mới');

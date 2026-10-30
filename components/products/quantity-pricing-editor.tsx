@@ -65,13 +65,13 @@ export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPrice
     ? `${currency} ${number(low)}${low !== high ? `–${number(high)}` : ""}/${unitLabel}` : "Price on request";
   const incoterms = [...new Set(preview.tiers.map((tier) => tier.incoterm).filter(Boolean))];
   const title = value.nameEn.trim() || value.nameVi.trim() || "Tên sản phẩm";
-  return <div aria-label="Buyer sẽ thấy">
-    <h3 className="text-sm font-bold text-ink-900">Buyer sẽ thấy</h3>
+  return <div aria-label="Người mua sẽ thấy">
+    <h3 className="text-sm font-bold text-ink-900">Người mua sẽ thấy</h3>
     <p className="mt-2 text-sm font-semibold">{title}</p>
     {!value.nameEn.trim() && <p className="mt-1 text-xs text-ink-600">Tên tiếng Anh do Vexim dịch khi duyệt</p>}
     <p className="mt-1 text-xs text-ink-600">{preview.grade || "Chưa chọn grade"}</p>
     <p className="mt-3 text-base font-semibold tabular-nums">{pricePubliclyVisible ? cardPrice : "Price on request"}</p>
-    {!pricePubliclyVisible && <p className="mt-1 text-xs text-ink-500">Đang tắt chia sẻ giá nên buyer chỉ thấy “Price on request”.</p>}
+    {!pricePubliclyVisible && <p className="mt-1 text-xs text-ink-500">Đang tắt chia sẻ giá nên người mua chỉ thấy “Price on request”.</p>}
     {pricePubliclyVisible && preview.tiers.length > 0 && <p className="text-xs text-ink-500">{incoterms.join(" / ")}{preview.tiers.length > 1 ? " · Volume pricing" : ""}</p>}
     {pricePubliclyVisible && preview.tiers.length > 0 && <table className="mt-3 w-full text-left text-xs">
       <thead><tr><th className="pb-1">Số lượng</th><th className="pb-1">Incoterm</th><th className="pb-1">Price</th></tr></thead>
@@ -83,7 +83,7 @@ export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPrice
     </table>}
     {preview.tiers.length > 0 && <p className="mt-2 text-xs text-ink-600">MOQ: {formatQuantityBuyer(preview.tiers[0].minKg)}</p>}
     {preview.tiers.length >= maxTiers && <p className="mt-1 text-[11px] text-ink-500">Đã đạt tối đa {maxTiers} mức giá.</p>}
-    {preview.tiers.length === 0 && <p className="mt-2 text-[11px] leading-4 text-ink-500">Nhập số lượng và đơn giá để xem trước bảng giá buyer.</p>}
+    {preview.tiers.length === 0 && <p className="mt-2 text-[11px] leading-4 text-ink-500">Nhập số lượng và đơn giá để xem trước bảng giá người mua.</p>}
     {!preview.grade && preview.tiers.length > 0 && <p className="mt-2 text-[11px] leading-4 text-amber-800">Chọn grade để hoàn tất bảng giá; giá trên chỉ là bản xem trước.</p>}
   </div>;
 }
@@ -108,11 +108,13 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
     <div className={showPreview ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.72fr)]" : "grid gap-4"}>
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm font-semibold text-ink-800">Grade <span className="text-rose-700">*</span>
-            <select form={form} aria-label="Grade" className="input mt-1 w-full" required disabled={disabled} value={value.grade} onChange={(e) => onChange({ ...value, grade: e.target.value })}>
-              <option value="">Chọn grade</option>{standardGrades.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+          <div className="text-sm font-semibold text-ink-800">
+            <label htmlFor="quantity-grade">Grade <span className="text-rose-700">*</span></label>
+            <select id="quantity-grade" form={form} aria-label="Grade" className="input mt-1 w-full" required disabled={disabled || !standardGrades.length} value={value.grade} onChange={(e) => onChange({ ...value, grade: e.target.value })}>
+              <option value="">{standardGrades.length ? "Chọn grade" : "Danh mục chưa có grade"}</option>{standardGrades.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
             </select>
-          </label>
+            {!standardGrades.length && <span role="status" className="mt-1 block text-[11.5px] font-normal leading-4 text-amber-800">Danh mục này chưa có grade. Gửi Vexim bổ sung.</span>}
+          </div>
           <div className="text-sm font-semibold text-ink-800">
             <span>Tiền tệ <span className="text-rose-700">*</span></span>
             <p aria-label="Tiền tệ" className="input mt-1 flex w-full items-center bg-ink-50 font-mono text-ink-800">{currency}</p>
@@ -168,7 +170,7 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
         <QuantityBuyerPreview value={value} standardGrades={standardGrades} policy={policy} buyerPriceUnit={buyerPriceUnit} pricePubliclyVisible={pricePubliclyVisible} />
       </aside>}
     </div>
-    {pricePubliclyVisible && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">⚠️ Mọi báo giá bạn gửi qua Vexim đều được lưu và đối chiếu với giá đăng. Chênh lệch bất thường sẽ được Vexim rà soát và xử lý theo <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold underline">Quy chế hoạt động</Link>.</p>}
-    {pricePubliclyVisible && <label className="flex items-start gap-2 text-xs font-medium text-ink-800"><input form={form} type="checkbox" name="confirm_quantity_price_consent" value="yes" required disabled={disabled} checked={consentChecked} onChange={onConsentChange ? (event) => onConsentChange(event.target.checked) : undefined} className="mt-0.5 size-4 accent-brand-700" /><span>{consentLabel ?? "Tôi xác nhận giá trên là giá tôi sẵn sàng báo cho buyer với đúng grade, Incoterm và số lượng đã ghi."} <span className="text-rose-700">*</span></span></label>}
+    {pricePubliclyVisible && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">Mọi báo giá bạn gửi đều được đối chiếu với giá đăng. Chênh lệch bất thường sẽ được rà soát theo <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold underline">Quy chế hoạt động</Link>.</p>}
+    {pricePubliclyVisible && <label className="flex items-start gap-2 text-xs font-medium text-ink-800"><input form={form} type="checkbox" name="confirm_quantity_price_consent" value="yes" required disabled={disabled} checked={consentChecked} onChange={onConsentChange ? (event) => onConsentChange(event.target.checked) : undefined} className="mt-0.5 size-4 accent-brand-700" /><span>{consentLabel ?? "Tôi xác nhận giá trên là giá tôi sẵn sàng báo cho người mua, đúng grade và Incoterm."} <span className="text-rose-700">*</span></span></label>}
   </section>;
 }

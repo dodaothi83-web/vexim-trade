@@ -144,7 +144,9 @@ export function validateQuantityPricing(
     return { errors: [{ code: "invalid_policy", message: "Cấu hình kiểm tra giá không hợp lệ." }], warnings, value: null };
   }
   const grade = standardGrades.find((g) => normalized(g) === normalized(input.grade)) ?? "";
-  if (!grade) errors.push({ code: "grade", message: "Chọn một grade chuẩn của danh mục." });
+  if (!grade) errors.push({ code: "grade", message: standardGrades.length
+    ? "Chọn grade chuẩn của danh mục để tiếp tục."
+    : "Danh mục chưa có grade. Gửi Vexim bổ sung." });
   const fallbackIncoterm = input.incoterm.trim().toUpperCase();
   const currency = normalizePriceCurrency(input.currency ?? DEFAULT_PRICE_CURRENCY);
   if (!currency) errors.push({ code: "currency", message: "Chọn tiền tệ USD, VND hoặc EUR." });

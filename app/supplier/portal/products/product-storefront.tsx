@@ -53,7 +53,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
       <div className="min-w-0">
         <p className="text-[11px] font-bold tracking-[0.16em] text-brand-700 uppercase">Cổng nhà cung cấp · riêng tư</p>
         <h1 className="mt-1 text-[22px] leading-tight font-black tracking-tight text-ink-900">Sản phẩm của tôi</h1>
-        <p className="mt-1 max-w-2xl text-[13px] text-ink-500">Tạo hồ sơ mặt hàng, thêm ảnh thực tế và gửi duyệt. Đây là khu vực riêng của bạn, không phải trang hiển thị cho buyer.</p>
+        <p className="mt-1 max-w-2xl text-[13px] text-ink-500">Tạo hồ sơ, thêm ảnh thực tế và gửi duyệt. Đây là khu vực riêng, người mua không thấy.</p>
       </div>
       <Link href="/supplier/portal/products/new" className="btn btn-primary"><Plus className="size-4" aria-hidden="true" /> Thêm sản phẩm</Link>
     </header>
@@ -84,7 +84,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
       <div className="border-b border-ink-100 px-5 py-5 sm:px-7">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-black text-ink-900">Danh mục của bạn</h2>
           <p className="mt-1 text-xs text-ink-600">Sau khi duyệt, sản phẩm được đăng và bạn có thể quản lý thông tin, hình ảnh.</p></div>
-          {!supplierPublished && <span className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Trang NCC chưa được công khai</span>}
+          {!supplierPublished && <span className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Trang nhà cung cấp chưa được công khai</span>}
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <label className="relative min-w-[180px] flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
@@ -116,7 +116,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
               {scope && p.category && !scope.includes(p.category) && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] normal-case text-amber-900">Ngoài phạm vi</span>}
             </p>
             <Link href={`/supplier/portal/products/${p.id}`} className="mt-1 line-clamp-2 text-[15px] font-bold text-ink-900 hover:text-brand-700">{p.name}</Link>
-            <p className="mt-1.5 line-clamp-2 min-h-9 text-[13px] text-ink-600">{p.spec || p.description || "Thêm quy cách hoặc mô tả để buyer hiểu rõ sản phẩm."}</p>
+            <p className="mt-1.5 line-clamp-2 min-h-9 text-[13px] text-ink-600">{p.spec || p.description || "Thêm quy cách hoặc mô tả để người mua hiểu rõ sản phẩm."}</p>
             <div className="mt-3 flex items-end justify-between gap-2 border-t border-ink-100 pt-3">
               <div>{money(p) ? <><p className="text-[11px] text-ink-500">Giá tham khảo · tự khai</p><p className="font-mono text-[13px] font-bold tabular-nums text-ink-900">{money(p)}</p></> : <p className="text-xs text-ink-500">Chưa nhập giá tham khảo</p>}
                 {p.moq && <p className="mt-1 line-clamp-1 text-xs text-ink-500">MOQ: {p.moq}</p>}</div>

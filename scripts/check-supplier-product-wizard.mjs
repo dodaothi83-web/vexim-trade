@@ -132,7 +132,7 @@ const quantityEditor = { productId: 'p1', updatedAt: '2026-10-20', nameVi: 'Nhâ
 const withQuantity = render({ quantityEditor });
 assert.match(withQuantity, /data-sidebar-preview="true"/, 'The quantity editor sends its live draft to the sidebar');
 assert.equal((withQuantity.match(/data-buyer-preview="1"/g) ?? []).length, 1, 'The buyer preview occupies the existing card');
-assert.match(withQuantity, /không phải giá đang hiển thị cho buyer/, 'A draft preview must not be confused with the live buyer price');
+assert.match(withQuantity, /Giá thật chỉ đổi sau khi bản giá được duyệt/, 'A draft preview must not be confused with the live buyer price');
 assert.doesNotMatch(withQuantity, />Giá tham khảo<\//, 'The legacy price is not repeated beside the new preview');
 assert.match(withQuantity, />Năng lực \/ tháng<\//, 'Other saved commercial details remain visible');
 
@@ -305,7 +305,7 @@ for (const phrase of [
 ]) {
   assert.ok(!source.includes(phrase), `Bỏ giọng hành chính/lặp thương hiệu: ${phrase}`);
 }
-assert.match(step1, /Chọn danh mục gần nhất\. Danh mục sẽ được kiểm tra khi duyệt\./,
+assert.match(step1, /Chọn danh mục gần nhất\. Danh mục được kiểm tra khi duyệt/,
   'Hint danh mục nói đúng mức cần thiết');
 // The shared quantity editor contains the warning; tested in check-quantity-pricing-editor.
 assert.match(source, /<QuantityPricingEditor/);
@@ -402,7 +402,7 @@ assert.match(approvedOwnHtml, /chỉnh sửa giá trên sản phẩm đã duyệ
 const paused = render({ product: { ...ownApproved, supplier_review_status: 'paused', ready_for_buyer: false },
   media: [{ ...media[0], audience: 'buyer' }], initialStep: 3 });
 assert.match(paused, /Đã tạm ẩn/);
-assert.match(paused, /gửi duyệt ở bước 3 và chờ phê duyệt/);
+assert.match(paused, /Gửi duyệt ở bước 3 để đăng lại/);
 assert.match(paused, /aria-label="Xóa ảnh đại diện"/);
 assert.doesNotMatch(paused, /Xóa bản nháp|Tạm ẩn sản phẩm/);
 const returned = render({ product: { ...ownApproved, supplier_review_status: 'changes_requested', ready_for_buyer: false },
@@ -424,6 +424,6 @@ const multiBuyerMedia = [
 const step2MultiHtml = render({ product: ownApproved, media: multiBuyerMedia, initialStep: 2 });
 assert.doesNotMatch(source, /\bleft-11\b/, 'Không dùng vị trí cứng left-11 khiến nút X đè lên nhãn Chia sẻ buyer');
 assert.match(step2MultiHtml, /inset-x-2 top-2 flex items-start justify-between gap-2/, 'Thanh trên thẻ ảnh tách nhãn bên trái và nút thao tác bên phải');
-assert.match(step2MultiHtml, /Chia sẻ buyer<\/span><div class="pointer-events-auto flex shrink-0 items-center gap-1\.5">/, 'Nút đặt ảnh đại diện và nút xóa gom về cụm bên phải sau nhãn');
+assert.match(step2MultiHtml, /Chia sẻ cho người mua<\/span><div class="pointer-events-auto flex shrink-0 items-center gap-1\.5">/, 'Nút đặt ảnh đại diện và nút xóa gom về cụm bên phải sau nhãn');
 
 console.log('✅ Product page: wizard, cover deletion, draft deletion and pause/review controls.');

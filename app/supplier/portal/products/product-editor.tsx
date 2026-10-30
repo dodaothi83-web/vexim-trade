@@ -427,7 +427,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     }
     const precheckForm = new FormData(formElement);
     if (!supplierPriceConsentCurrent(supplier) && precheckForm.get("price_publicly_visible") === "yes" && precheckForm.get("confirm_supplier_price_consent") !== "yes") {
-      const consentMsg = "Vui lòng tick xác nhận đồng ý chia sẻ giá tham khảo khi bật công khai giá (hoặc bỏ chọn công khai giá).";
+      const consentMsg = "Bật công khai giá cần tick đồng ý chia sẻ giá tham khảo.";
       setStepError(consentMsg);
       setToast({ ok: false, message: consentMsg });
       formElement.querySelector<HTMLInputElement>('input[name="confirm_supplier_price_consent"]')?.focus();
@@ -682,7 +682,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
   async function pauseProduct() {
     if (!product || busy || dirty || review !== "approved" || !window.confirm(
-      `Tạm ẩn “${product.name}” khỏi buyer? Sản phẩm và lịch sử được giữ. Khi muốn đăng lại, bạn cần gửi duyệt và chờ phê duyệt.`,
+      `Tạm ẩn “${product.name}” khỏi người mua? Sản phẩm và lịch sử được giữ. Khi muốn đăng lại, bạn cần gửi duyệt và chờ phê duyệt.`,
     )) return;
     setBusy(true);
     try {
@@ -753,10 +753,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           <p className="min-w-0 flex-1 text-[12px] leading-5 text-ink-700">
             {review === "pending"
               ? product?.reviewed_category_slug
-                ? "Sản phẩm đang chờ kiểm tra lại giá sau khi cập nhật. Bạn có thể xem nhưng chưa thể chỉnh sửa thêm cho đến khi hoàn tất rà soát."
+                ? "Đang rà soát lại giá. Bạn xem được nhưng chưa sửa cho tới khi xong."
                 : "Đã gửi duyệt. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp."
               : review === "paused"
-                ? "Sản phẩm đang ẩn khỏi buyer. Muốn đăng lại, hãy gửi duyệt ở bước 3 và chờ phê duyệt."
+                ? "Sản phẩm đang ẩn khỏi người mua. Gửi duyệt ở bước 3 để đăng lại."
                 : "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."}
           </p>
         </section>}
@@ -772,7 +772,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         <form id="product-info" ref={formRef} onSubmit={save} onChange={onFormChange} noValidate>
           <section data-step-panel={1} className={step === 1 ? "space-y-4" : "hidden"} aria-label="Bước 1: Thông tin sản phẩm">
             <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead title="Thông tin cơ bản" hint="Tên, danh mục và mô tả - phần buyer đọc đầu tiên." />
+              <SectionHead title="Thông tin cơ bản" hint="Tên, danh mục và mô tả - phần người mua đọc đầu tiên." />
               <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <Field label="Tên sản phẩm" hint="Không ghi grade trong tên. Vexim dịch tên sang tiếng Anh khi duyệt." required>
@@ -781,7 +781,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     {nameGradeError && <span className="mt-1 block text-xs text-rose-700">{nameGradeError}</span>}
                   </Field>
                 </div>
-                <Field label="Danh mục sản phẩm" required className="md:col-span-2" hint="Chọn danh mục gần nhất. Danh mục sẽ được kiểm tra khi duyệt. Đổi danh mục thì danh sách grade đổi theo.">
+                <Field label="Danh mục sản phẩm" required className="md:col-span-2" hint="Chọn danh mục gần nhất. Danh mục được kiểm tra khi duyệt; đổi danh mục thì grade đổi theo.">
                   <select name="supplier_category_proposal" className="input" required value={selectedCategory} onChange={(e) => onCategorySelect(e.target.value)} disabled={locked || categoryLocked || !categories.length}>
                     <option value="" disabled>Chọn danh mục sản phẩm</option>
                     {categories.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} / ` : ""}{c.label}</option>)}
@@ -841,7 +841,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     <span className="mb-1 block font-semibold text-ink-800">Mô tả chi tiết</span>
                     <ProductDescriptionEditor id="supplier-product-description-detail" name="description_detail"
                       value={snapshot.description_detail} onChange={onDescriptionDetailChange} disabled={locked || busy} />
-                    <span className="mt-1 block text-[11px] leading-4 text-ink-500">Dùng tiêu đề, in đậm, in nghiêng và danh sách để buyer dễ đọc. Không nhập thông tin liên hệ trực tiếp.</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-ink-500">Dùng tiêu đề, in đậm, danh sách cho dễ đọc. Không nhập thông tin liên hệ trực tiếp.</span>
                   </div>
                 </div>
               </div>
@@ -894,14 +894,14 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 </label>
                 {!product && <p className="mt-1 pl-6 text-[11px] leading-4 text-ink-500">Được chọn sẵn. Bỏ chọn nếu chưa muốn chia sẻ giá.</p>}
                 {product && <div className="mt-2.5 rounded-md bg-white p-2.5 text-[11.5px] leading-5" role="status">
-                  <strong>Tình trạng giá đã lưu:</strong> {productPriceBlockers(product, supplier).length === 0 ? "Sản phẩm và doanh nghiệp đã cho phép chia sẻ giá." : "Buyer vẫn thấy On request."}
+                  <strong>Tình trạng giá đã lưu:</strong> {productPriceBlockers(product, supplier).length === 0 ? "Sản phẩm và doanh nghiệp đã cho phép chia sẻ giá." : "Người mua vẫn thấy On request."}
                   <ul className="mt-1 list-disc pl-5">{productPriceBlockers(product, supplier).map((reason) => <li key={reason}>{reason}</li>)}
                     {(review !== "approved" || !product.ready_for_buyer || supplier.status !== "published") && <li>Sản phẩm chưa đủ điều kiện công khai hoặc hồ sơ doanh nghiệp chưa được xuất bản.</li>}
                   </ul>
                   {dirty && <p className="mt-1 font-semibold text-amber-800">Thay đổi ở form chưa lưu; dòng trên là tình trạng trước khi lưu.</p>}
                 </div>}
                 <p className="mt-2 text-[11.5px] leading-5">
-                  Sản phẩm cần có ảnh/catalogue, danh mục và hồ sơ doanh nghiệp đã được duyệt trước khi hiển thị cho buyer.
+                  Cần ảnh/catalogue, danh mục và hồ sơ doanh nghiệp được duyệt trước khi người mua thấy.
                   {supplierPriceConsentCurrent(supplier) ? " Xác nhận chia sẻ giá đang còn hiệu lực." : ""}
                 </p>
                 {!supplierPriceConsentCurrent(supplier) && <div className="mt-2.5 rounded-md bg-white p-2.5 ring-1 ring-brand-200">
@@ -950,9 +950,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
             <SectionHead step="Bước 2" title="Ảnh và catalogue"
               hint={live
-                ? "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp tải lên sẽ hiển thị với buyer trên sản phẩm đã đăng."
+                ? "JPG, PNG, WebP ≤ 8 MB hoặc PDF ≤ 15 MB. Tệp hiện cho người mua khi sản phẩm đăng."
                 : review === "approved"
-                  ? "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp tải lên ở chế độ nội bộ khi chờ đăng."
+                  ? "JPG, PNG, WebP ≤ 8 MB hoặc PDF ≤ 15 MB. Tệp ở chế độ nội bộ khi chờ đăng."
                   : "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp được kiểm tra khi duyệt."} />
             <div className="space-y-4 px-4 py-4 sm:px-5">
               {/* Ô ảnh đại diện riêng: kéo một ảnh khác từ danh sách vào ô này là thay ngay, ảnh cũ tự về lại danh sách. */}
@@ -976,8 +976,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-bold text-ink-900">Ảnh đại diện</p>
                   <p className="mt-0.5 text-[12px] leading-5 text-ink-600">{canUpload
-                    ? "Ảnh này hiện đầu tiên với buyer. Kéo ảnh khác vào ô này (hoặc bấm nút sao) để thay; bạn cũng có thể xóa ảnh do mình tải."
-                    : "Ảnh này hiện đầu tiên với buyer."}</p>
+                    ? "Ảnh hiện đầu tiên với người mua. Kéo ảnh khác vào đây hoặc bấm nút sao để thay."
+                    : "Ảnh này hiện đầu tiên với người mua."}</p>
                 </div>
                 {cover && canDeleteAsset(cover) && <button type="button" disabled={busy} onClick={() => void removeMedia(cover.id)}
                   aria-label="Xóa ảnh đại diện" title="Xóa ảnh đại diện"
@@ -997,7 +997,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                         : <span className="flex size-full items-center justify-center text-brand-700"><FileText className="size-8" aria-hidden="true" /></span>}
                       <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2">
                         <span className={`truncate rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${asset.audience === "buyer" ? "bg-emerald-100 text-emerald-800" : "bg-white/95 text-ink-700"}`}>
-                          {asset.audience === "buyer" ? "Chia sẻ buyer" : "Nội bộ"}
+                          {asset.audience === "buyer" ? "Chia sẻ cho người mua" : "Nội bộ"}
                         </span>
                         {(canUpload && asset.kind === "image" || canDeleteAsset(asset)) && (
                           <div className="pointer-events-auto flex shrink-0 items-center gap-1.5">
@@ -1045,10 +1045,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 </div>}
               </> : <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12.5px] leading-5 text-amber-900">
                 {!product ? "Lưu thông tin sản phẩm ở bước 1 trước; sau đó quay lại đây để tải ảnh và catalogue."
-                  : dirty ? "Có thay đổi ở bước 1 chưa lưu. Quay lại bước 1 bấm Lưu, rồi chuyển sang bước 2 để quản lý tệp."
-                  : legacyManaged ? "Sản phẩm này được quản lý từ trước nên tài khoản chưa tự sửa được tệp. Liên hệ bộ phận hỗ trợ nếu cần bổ sung ảnh hoặc catalogue."
-                  : locked ? "Sản phẩm đang chờ duyệt nên tạm khoá tải tệp - nội dung đang duyệt không thay đổi giữa chừng. Khi được duyệt hoặc bị trả về, bạn tải thêm được ngay."
-                  : "Sản phẩm này được quản lý từ trước nên tài khoản chưa tự sửa được tệp. Liên hệ bộ phận hỗ trợ nếu cần bổ sung ảnh hoặc catalogue."}
+                  : dirty ? "Bước 1 còn thay đổi chưa lưu. Bấm Lưu ở bước 1 rồi sang bước 2."
+                  : legacyManaged ? "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."
+                  : locked ? "Đang chờ duyệt nên tạm khoá tải tệp. Duyệt xong hoặc bị trả về, bạn tải thêm được ngay."
+                  : "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."}
               </div>}
               {progress && <p role="status" className="text-[12.5px] font-semibold text-brand-800">{progress}</p>}
             </div>
@@ -1058,7 +1058,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         <section data-step-panel={3} className={step === 3 ? "space-y-3" : "hidden"} aria-label="Bước 3: Xem lại và gửi" id="product-review">
           <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
             <SectionHead step="Bước 3" title="Xem lại toàn bộ hồ sơ"
-              hint="Đọc lại đúng nội dung ở bước 1 và 2. Sửa được ngay tại đây, gửi xong hồ sơ mới chuyển sang bước duyệt." />
+              hint="Đọc lại nội dung bước 1 và 2. Sửa tại đây, gửi xong hồ sơ mới sang bước duyệt." />
             <div className="space-y-3 px-4 py-4 sm:px-5">
               {dirty && <p className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] font-semibold text-amber-900">
                 Có thay đổi chưa lưu - nội dung dưới đây là bản đang nhập.
@@ -1164,7 +1164,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                               : <span className="flex size-full items-center justify-center text-brand-700"><FileText className="size-6" aria-hidden="true" /></span>}
                           </span>
                           <span className={`absolute bottom-1 left-1 rounded px-1 py-0.5 text-[9.5px] font-bold ${asset.audience === "buyer" ? "bg-emerald-100 text-emerald-800" : "bg-white/95 text-ink-600"}`}>
-                            {asset.audience === "buyer" ? "Buyer" : "Nội bộ"}
+                            {asset.audience === "buyer" ? "Người mua" : "Nội bộ"}
                           </span>
                         </li>;
                       })}
@@ -1252,11 +1252,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             {newQuantity && newPolicy ? <div className="mt-2">
               <QuantityBuyerPreview value={newQuantity} standardGrades={newGrades} policy={newPolicy}
                 buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} />
-              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước, chưa phải nội dung đang hiển thị cho buyer. Bảng giá và tên tiếng Anh cần được duyệt.</p>
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Bản xem trước, chưa phải nội dung người mua đang thấy. Bảng giá và tên cần được duyệt.</p>
             </div> : quantityEditor && quantityPreview ? <div className="mt-2">
               <QuantityBuyerPreview value={quantityPreview} standardGrades={quantityEditor.standardGrades} policy={quantityEditor.policy}
                 buyerPriceUnit={quantityEditor.buyerPriceUnit} pricePubliclyVisible={quantityEditor.pricePubliclyVisible} />
-              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước theo dữ liệu đang nhập, không phải giá đang hiển thị cho buyer. Giá hiện tại chỉ thay đổi khi mô hình mới được triển khai và bản giá được duyệt.</p>
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Bản xem trước từ dữ liệu bạn đang nhập. Giá thật chỉ đổi sau khi bản giá được duyệt.</p>
             </div> : <h2 className="mt-0.5 line-clamp-2 text-[13.5px] font-black text-ink-900">{product?.name ?? "Sản phẩm mới"}</h2>}
             <dl className="mt-2.5 space-y-1 border-t border-ink-100 pt-2.5 text-[11.5px]">
               {commercial.filter((row) => !((quantityEditor && quantityPreview) || (newQuantity && newPolicy)) || !["Giá tham khảo", "MOQ", "Incoterm"].includes(row.label)).map((row) => <div key={row.label} className="flex items-baseline justify-between gap-2">
@@ -1276,7 +1276,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               <Trash2 className="size-3.5" aria-hidden="true" /> Xóa bản nháp
             </button>
           </> : <>
-            <p className="mt-2 text-[11.5px] leading-5 text-ink-600">Ẩn khỏi buyer, giữ lịch sử. Muốn đăng lại cần gửi duyệt.</p>
+            <p className="mt-2 text-[11.5px] leading-5 text-ink-600">Ẩn khỏi người mua, giữ lịch sử. Muốn đăng lại cần gửi duyệt.</p>
             <button type="button" disabled={busy || dirty} onClick={() => void pauseProduct()} className="btn btn-ghost btn-sm mt-2 text-ink-700 disabled:opacity-50">
               <EyeOff className="size-3.5" aria-hidden="true" /> Tạm ẩn sản phẩm
             </button>
@@ -1289,7 +1289,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           <ol className="mt-2 space-y-1.5 text-[11.5px] leading-4 text-ink-600">
             <li className="flex gap-1.5"><span className="font-bold text-brand-700">1.</span>Bạn lưu thông tin và tải tệp thật.</li>
             <li className="flex gap-1.5"><span className="font-bold text-brand-700">2.</span>Gửi duyệt nội dung.</li>
-            <li className="flex gap-1.5"><span className="font-bold text-brand-700">3.</span>Chọn tệp chia sẻ buyer và bật sẵn sàng.</li>
+            <li className="flex gap-1.5"><span className="font-bold text-brand-700">3.</span>Chọn tệp chia sẻ cho người mua và bật sẵn sàng.</li>
           </ol>
           <p className="mt-2 flex items-start gap-1.5 text-[11px] text-ink-500"><LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Tệp ở chế độ nội bộ cho tới khi được chọn chia sẻ.</p>
         </div>

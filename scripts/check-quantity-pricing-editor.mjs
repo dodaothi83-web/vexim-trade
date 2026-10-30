@@ -28,8 +28,11 @@ const props = {
 };
 const render = (override = {}) => renderToStaticMarkup(React.createElement(QuantityPricingEditor, { ...props, ...override }));
 const html = render();
-for (const text of ['Incoterm', 'Từ (kg)', 'Đến (kg)', 'Giá (USD/kg)', 'Tiền tệ', 'Tạm thời chỉ nhập giá USD', 'VND/EUR', '4,999', 'trở lên', 'Buyer sẽ thấy', 'Cashew kernels', 'USD 6.00–6.40/kg', '1 MT', 'FOB', 'Quy chế hoạt động']) assert.ok(html.includes(text), text);
+for (const text of ['Incoterm', 'Từ (kg)', 'Đến (kg)', 'Giá (USD/kg)', 'Tiền tệ', 'Tạm thời chỉ nhập giá USD', 'VND/EUR', '4,999', 'trở lên', 'Người mua sẽ thấy', 'Cashew kernels', 'USD 6.00–6.40/kg', '1 MT', 'FOB', 'Quy chế hoạt động']) assert.ok(html.includes(text), text);
 assert.doesNotMatch(html, /<select[^>]*aria-label="Tiền tệ"/, 'Tiền tệ tạm thời cố định USD, không còn select VND/EUR');
+const noGrades = render({ standardGrades: [] });
+assert.match(noGrades, /Danh mục này chưa có grade\. Gửi Vexim bổ sung\./, 'Danh mục chưa có grade được giải thích thay vì ô chọn rỗng');
+assert.match(noGrades, /<select[^>]*aria-label="Grade"[^>]*disabled=""/, 'Ô grade bị khoá khi danh mục chưa có grade');
 const drafting = render({ value: { grade: '', incoterm: 'FOB', currency: 'USD', nameVi: 'Nhân điều', nameEn: '', tiers: [
   { minKg: '100', priceUsdPerKg: '2.00', incoterm: 'FOB' }, { minKg: '101', priceUsdPerKg: '1.50', incoterm: 'FOB' },
 ] } });
@@ -45,7 +48,7 @@ const isolated = render({ isolated: true, consentChecked: false, onConsentChange
 assert.equal((isolated.match(/form="quantity-pricing-separate"/g) ?? []).length, 8, 'All editable inputs are detached from the enclosing product form');
 assert.match(isolated, /type="checkbox"[^>]*name="confirm_quantity_price_consent"/);
 const withoutInlinePreview = render({ showPreview: false });
-assert.doesNotMatch(withoutInlinePreview, /Buyer sẽ thấy|Cashew kernels/, 'When the page supplies a sidebar preview, the form has no duplicate');
+assert.doesNotMatch(withoutInlinePreview, /Người mua sẽ thấy|Cashew kernels/, 'When the page supplies a sidebar preview, the form has no duplicate');
 assert.match(withoutInlinePreview, /Từ \(kg\)/, 'Hiding the duplicate does not remove the editor');
 const mt = render({ buyerPriceUnit: 'mt' });
 assert.ok(mt.includes('USD 6,000–6,400/MT'));

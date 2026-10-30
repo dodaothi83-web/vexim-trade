@@ -1,7 +1,7 @@
 import type { MediaAsset } from "@/lib/types";
 
 /**
- * Quy tắc "sẵn sàng gửi buyer" của một hồ sơ sản phẩm.
+ * Quy tắc "sẵn sàng gửi người mua" của một hồ sơ sản phẩm.
  *
  * Chốt với Vexim: KHÔNG bắt buộc ảnh/video khi mới tạo hồ sơ NCC, nhưng trước
  * khi đánh dấu sản phẩm *sẵn sàng gửi buyer* thì phải có ít nhất một ảnh sản
@@ -9,7 +9,7 @@ import type { MediaAsset } from "@/lib/types";
  */
 
 export const READY_REQUIREMENT =
-  "cần ít nhất 1 ảnh sản phẩm hoặc catalogue đã chia sẻ cho buyer";
+  "cần ít nhất 1 ảnh sản phẩm hoặc catalogue đã chia sẻ cho người mua";
 
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -69,7 +69,7 @@ export function productReadiness(
     return {
       ready: true,
       shareable,
-      message: `Đủ điều kiện: ${shareable} tệp chia sẻ được cho buyer.`,
+      message: `Đủ điều kiện: ${shareable} tệp chia sẻ được cho người mua.`,
     };
   }
 

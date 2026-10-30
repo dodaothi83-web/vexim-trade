@@ -28,7 +28,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
   useEffect(() => {
     if (!unsent) return;
     const onUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
-    const confirmDiscard = () => window.confirm("Bảng giá có thay đổi chưa gửi. Tiếp tục có thể làm mất nội dung này. Bạn vẫn muốn tiếp tục?");
+    const confirmDiscard = () => window.confirm("Bảng giá chưa gửi. Rời trang sẽ mất nội dung. Tiếp tục?");
     const onClick = (event: MouseEvent) => {
       const target = event.target;
       const link = target instanceof Element ? target.closest("a[href]") : null;
@@ -72,7 +72,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
   }
   // Bảng giá v2 (kg/MT, đơn vị gốc) chỉ còn để đọc: form NCC không tạo hay sửa mới.
   if (data.v2) return <div ref={root} className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
-    <p className="font-semibold text-amber-950">{data.pendingPriceId ? "Giá mới đang chờ Vexim xác nhận." : "Bảng giá đã duyệt."}</p>
+    <p className="font-semibold text-amber-950">{data.pendingPriceId ? "Giá mới đang chờ duyệt." : "Bảng giá đã duyệt."}</p>
     <p>Grade: <strong>{data.grade}</strong>{data.v2.customGrade ? " (tự nhập)" : ""} · Incoterm: <strong>{data.incoterm}</strong></p>
     <table className="w-full text-left text-xs"><thead><tr><th>Số lượng từ ({data.v2.unit === "mt" ? "MT" : "kg"})</th><th>Giá (USD/{data.v2.unit === "mt" ? "MT" : "kg"})</th></tr></thead>
       <tbody>{data.v2.tiers.map((tier, index) => <tr key={index} className="border-t border-amber-200"><td className="py-1 tabular-nums">{tier.quantity}</td><td className="py-1 tabular-nums">{tier.price}</td></tr>)}</tbody>
@@ -82,8 +82,8 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
   return <div ref={root} onChange={(event) => event.stopPropagation()} className="space-y-3">
     <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
       Bảng mới lưu riêng vào hàng chờ duyệt.{" "}
-      {data.buyerPreviewEnabled ? "Môi trường thử nghiệm có thể hiển thị bảng mới đã duyệt; bản chờ không thay thế bản đã duyệt." : "Giá đang hiển thị cho buyer vẫn dùng bảng cũ; phần hiển thị buyer theo mô hình mới chưa được triển khai công khai."}
-      {data.pendingPriceId ? " Giá mới đang chờ Vexim xác nhận." : data.hasApprovedPrice ? " Đã có bảng giá mới được duyệt." : " Chưa có bảng giá mới được duyệt."}
+      {data.buyerPreviewEnabled ? "Bảng đang chờ duyệt không thay thế bảng giá người mua đang thấy." : "Người mua vẫn thấy bảng giá đã duyệt. Bảng mới chỉ hiển thị sau khi được duyệt."}
+      {data.pendingPriceId ? " Giá mới đang chờ duyệt." : data.hasApprovedPrice ? " Đã có bảng giá mới được duyệt." : " Chưa có bảng giá mới được duyệt."}
     </p>
     {actor === "supplier" && <p className="text-xs text-ink-600">Nếu thay đổi thông tin liên quan đến sản phẩm sau khi gửi giá, hãy gửi lại bảng giá trước khi gửi sản phẩm duyệt.</p>}
     {dirty && <p role="status" className="text-xs font-semibold text-amber-800">Hãy lưu hoặc hoàn tác thay đổi thông tin sản phẩm trước khi gửi bảng giá riêng.</p>}
@@ -91,7 +91,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
       policy={data.policy} buyerPriceUnit={data.buyerPriceUnit} pricePubliclyVisible={data.pricePubliclyVisible}
       showErrors={showErrors} disabled={disabled || dirty || busy} isolated consentChecked={consent} onConsentChange={setConsent}
       showPreview={!onPreviewChange} showTitle={actor !== "supplier"} validateEnglishName={false}
-      consentLabel={actor === "staff" ? "Tôi xác nhận đã nhận cam kết của NCC rằng đây là giá NCC sẵn sàng báo cho buyer với đúng grade, Incoterm và số lượng đã ghi." : undefined} />
+      consentLabel={actor === "staff" ? "Tôi xác nhận nhà cung cấp đã cam kết giá này cho đúng grade, Incoterm và số lượng." : undefined} />
     <button type="button" disabled={disabled || dirty || busy} onClick={() => void submit()} className="btn btn-primary btn-sm">
       {busy ? "Đang gửi…" : "Gửi bảng giá mới để duyệt"}
     </button>

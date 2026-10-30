@@ -32,7 +32,7 @@ export async function submitStaffQuantityPriceAction(form: FormData): Promise<Re
     }
     if (!product.updated_at || form.get("expected_product_updated_at") !== product.updated_at) return { ok: false, message: "Sản phẩm đã thay đổi. Hãy tải lại trang." };
     if (product.price_publicly_visible && form.get("confirm_quantity_price_consent") !== "yes") {
-      return { ok: false, message: "Hãy xác nhận đã nhận cam kết giá của NCC trước khi gửi." };
+      return { ok: false, message: "Hãy xác nhận đã nhận cam kết giá của nhà cung cấp trước khi gửi." };
     }
     const slug = product.reviewed_category_slug || product.supplier_category_proposal || product.category;
     const category = slug ? await supabaseStore.getCategoryBySlug(slug) : null;
@@ -79,7 +79,7 @@ export async function submitStaffQuantityPriceAction(form: FormData): Promise<Re
     revalidatePath(`/crm/products/${id}/edit`);
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath("/crm/products/quantity-review");
-    return { ok: true, message: "Đã gửi bảng giá vào hàng chờ Vexim xác nhận. Giá buyer hiện tại chưa thay đổi." };
+    return { ok: true, message: "Đã gửi bảng giá vào hàng chờ Vexim xác nhận. Giá người mua hiện tại chưa thay đổi." };
   } catch (error) {
     console.error("[quantity-pricing] staff submission", error);
     return { ok: false, message: "Không lưu được bảng giá. Kiểm tra kết nối và cấu hình trước khi thử lại." };

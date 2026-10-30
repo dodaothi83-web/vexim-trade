@@ -44,7 +44,7 @@ export function QuantityPricingPreviewForm(props: Props) {
   }
   return <div className="mt-4 space-y-4">
     <form noValidate onSubmit={(event) => void savePrice(event)} className="rounded-xl border border-ink-200 bg-white p-5">
-      <p className="mb-4 text-xs text-ink-600">{props.pendingPriceId ? "Giá mới đang chờ Vexim xác nhận." : props.hasApprovedPrice ? "Đã có bảng giá được duyệt trong mô hình mới." : "Chưa có bảng giá được duyệt trong mô hình mới."}</p>
+      <p className="mb-4 text-xs text-ink-600">{props.pendingPriceId ? "Giá mới đang chờ Vexim xác nhận." : props.hasApprovedPrice ? "Đã có bảng giá mới được duyệt." : "Chưa có bảng giá mới được duyệt."}</p>
       <QuantityPricingEditor value={value} onChange={setValue} standardGrades={props.standardGrades} policy={props.policy}
         buyerPriceUnit={props.buyerPriceUnit} pricePubliclyVisible={props.pricePubliclyVisible} showTitle={false} validateEnglishName={false} showErrors={showErrors} disabled={busy} />
       <button type="submit" disabled={busy} className="btn btn-primary btn-sm mt-4">{busy ? "Đang gửi…" : "Gửi bảng giá để duyệt"}</button>
