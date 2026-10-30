@@ -289,6 +289,7 @@ const { PublicProductCard } = compile('../components/public-product-card.tsx', {
   'lucide-react': require('lucide-react'),
   '@/components/product-trade-labels': productTradeLabelsModule,
   '@/components/verification-tier': verificationTierModule,
+  '@/components/sponsored-disclosure': { SponsoredDisclosure: () => null },
   '@/components/product-compare-checkbox': { ProductCompareCheckbox: ({ product }) => React.createElement('input', {
     type: 'checkbox', 'aria-label': `Add ${product.name} to comparison`, className: 'absolute right-2 top-2',
   }) },
@@ -326,25 +327,37 @@ assert.match(comparableCard, /<\/a><input[^>]*class="absolute right-2 top-2"/, '
 assert.match(compactCard, /href="\/rfq\?category=cashew&amp;suppliers=A&amp;product=Cashew%20W320%20lot%200&amp;product_id=a0"/,
   'The primary card CTA opens an RFQ prefilled for this product and supplier');
 assert.match(compactCard, /aria-label="Request a quote for Cashew W320 lot 0"/, 'Repeated quote CTAs have product-specific accessible names');
-assert.match(compactCard, /bg-brand-700/, 'The quote CTA uses the primary brand action instead of the dark details treatment');
-assert.match(compactCard, /text-sm font-bold leading-\[18px\] text-brand-800 sm:text-base sm:leading-5/, 'Price is compact on phones and retains its desktop size');
+assert.match(compactCard, /inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-lg border border-brand-400 bg-white px-3\.5 text-\[13px\] font-bold text-brand-800/,
+  'The quote CTA is an outlined brand button on the card, not the dark details treatment');
+assert.match(compactCard, /text-\[17px\] font-extrabold leading-6 tracking-\[-0\.01em\][^"]*text-brand-900/,
+  'The price leads the information block at card scale');
+assert.match(compactCard, /@container flex min-w-0 flex-1 flex-col/, 'The price scales with the information column, not the viewport');
+assert.match(compactCard, /@\[19rem\]:text-\[19px\]/, 'Wide cards enlarge the price without pushing FOB to a new line');
 assert.match(compactCard, />FOB</, 'FOB remains visible as a compact suffix');
-assert.doesNotMatch(compactCard, /FOB reference|Reference price|bg-brand-50/, 'Price uses plain text without a heading or tinted background');
-assert.match(compactCard, /mb-1 line-clamp-2 min-h-0[^"]*sm:mb-3 sm:min-h-10/, 'The title releases its extra mobile minimum height and restores desktop alignment');
-assert.match(compactCard, /mb-1 hidden h-5 items-center sm:mb-2 sm:flex sm:h-6/, 'Trade badges do not consume mobile height but keep their desktop slot');
-assert.match(compactCard, /mt-1 flex flex-wrap[^"]*sm:mt-2.5 sm:grid sm:grid-cols-2/, 'MOQ and lead time are inline on phones and become a two-column row on desktop');
-assert.match(compactCard, /flex min-w-0 items-baseline gap-1 sm:block/, 'Mobile commercial terms stay on the same line');
-assert.match(compactCard, /mt-auto hidden pt-3 sm:block/, 'Quote and fallback actions are hidden on phones and return from sm');
+assert.doesNotMatch(compactCard, /FOB reference|Reference price/, 'Price uses plain text without a heading or reference label');
+assert.match(compactCard, /text-\[10px\] font-bold uppercase tracking-\[0\.12em\] text-ink-400">FOB</, 'FOB stays a quiet uppercase suffix next to the price');
+assert.match(compactCard, /line-clamp-2 min-h-0[^"]*sm:min-h-10/, 'The title keeps its two-line clamp and desktop alignment slot');
+assert.match(compactCard, /mb-1\.5 hidden h-5 items-center sm:mb-2 sm:flex sm:h-6/, 'Trade badges do not consume mobile height but keep their desktop slot');
+assert.match(compactCard, /mt-2 grid grid-cols-2 gap-x-3/, 'MOQ and lead time sit side by side at every breakpoint');
+assert.match(compactCard, /truncate text-\[13px\] font-bold leading-5 text-ink-900/, 'Commercial values are one bold line that truncates instead of stretching the card');
+assert.match(compactCard, /mt-2 border-t border-ink-100 pt-2 sm:mt-auto sm:pt-2\.5/, 'The supplier block is separated by a hairline and pinned to the card bottom');
+assert.match(compactCard, /mt-2 flex min-w-0 flex-wrap items-center justify-between gap-x-2/, 'Shields and the quote action share the last row, evidence left and next step right');
+assert.match(compactCard, /gap-1\.5" role="group"/, 'Marketplace shields keep a visible gap between circles');
+assert.match(compactCard, /border border-brand-400 bg-brand-50 text-brand-700/, 'Approved shields are outlined mint circles');
+assert.match(compactCard, /border border-ink-200 bg-white text-ink-300/, 'A check that was not approved stays a faded outline');
 assert.match(compactCard, /aria-label="Verification checks approved: [^"]+"/, 'Only individually approved supplier checks are counted');
-assert.match(compactCard, /Level 2 · Advanced/, 'Card tier counts the approved checks, not a claimed level');
+assert.ok(compactCard.includes('aria-label="Verification checks approved: Documents checked, Delivery history reviewed"'),
+  'The card counts exactly the approved checks, never a claimed level');
+assert.ok(!compactCard.includes('aria-label="Level 2 · Factory verification: Approved'),
+  'A check that was not approved is never announced as approved');
+assert.doesNotMatch(compactCard, /Level 2 · Advanced/, 'The card no longer repeats a level badge next to the three shields');
 for (const [level, suffix] of [[1, 'Basic'], [2, 'Advanced'], [3, 'Complete']]) {
   const levels = Array.from({ length: level }, (_, index) => index + 1);
-  const badge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels, compactOnMobile: true }));
-  assert.match(badge, new RegExp(`sm:hidden">Level ${level}<`), `Mobile product cards shorten Level ${level}`);
-  assert.ok(badge.includes(`hidden sm:inline">Level ${level} · ${suffix}<`), `The full Level ${level} label returns from the sm breakpoint`);
+  const badge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels }));
+  assert.ok(badge.includes(`Level ${level} · ${suffix}<`), `The tier badge names the counted level ${level}`);
 }
 const standardBadge = renderToStaticMarkup(React.createElement(verificationTierModule.VerificationTierBadge, { levels: [1] }));
-assert.ok(standardBadge.includes('Level 1 · Basic') && !standardBadge.includes('sm:hidden'),
+assert.ok(standardBadge.includes('Level 1 · Basic'),
   'Badges outside product cards keep the full label at every size');
 assert.doesNotMatch(compactCard, /Free Sample|ISO Certified|Ready to Ship/, 'Unsupported product claims never become badges');
 assert.equal((compactCard.match(/<details/g) ?? []).length, 0, 'The large shared verification disclosure is removed');
@@ -382,7 +395,7 @@ const longSupplierCard = renderToStaticMarkup(React.createElement(PublicProductC
   ...cardProps, supplierName: 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED',
 }));
 assert.match(longSupplierCard, /title="VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED"/, 'The full supplier name remains available as a tooltip');
-assert.match(longSupplierCard, /truncate font-semibold text-brand-700/, 'Long supplier names stay on one line instead of stretching the card');
+assert.match(longSupplierCard, /truncate font-bold text-brand-700/, 'Long supplier names stay on one line instead of stretching the card');
 const privatePrice = renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, price: null, fob: false, verificationSteps: [] }));
 assert.match(privatePrice, /On request/);
 assert.doesNotMatch(privatePrice, /FOB reference|>FOB<|USD 7\/kg/, 'No price or FOB claim without consent');

@@ -5,11 +5,17 @@ import { ArrowRight, ImageIcon } from "lucide-react";
 import { SponsoredDisclosure } from "@/components/sponsored-disclosure";
 import { ProductCompareCheckbox } from "@/components/product-compare-checkbox";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
-import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
+import { VerificationPips } from "@/components/verification-tier";
 import type { ProductComparisonSelection } from "@/lib/public/product-comparison";
 import type { VerificationLevel } from "@/lib/types";
 
-/** One responsive product offer card shared by category, supplier profile and home. */
+/**
+ * One responsive product offer card shared by category, supplier profile and home.
+ *
+ * Hierarchy follows the buyer's decision order: price block first, then the two
+ * commercial terms side by side, then who supplies it, then the trust shields
+ * paired with the quote action on one row.
+ */
 export function PublicProductCard({ href, imagePath, name, moq, price, fob, leadTimeDays, supplierName, supplierHref, verificationSteps, l2Scope, quoteHref, oem, odm, samples, test = false, linkable = true, comparison, sponsored = false }: {
   href: string; imagePath?: string | null; name: string; moq: string; price: string | null; fob?: boolean;
   leadTimeDays: number | null; supplierName: string; supplierHref?: string;
@@ -41,52 +47,53 @@ export function PublicProductCard({ href, imagePath, name, moq, price, fob, lead
     {test && <span className="absolute left-2 top-2 rounded bg-amber-200 px-2 py-1 text-[10px] font-bold text-amber-950">TEST · Not an offer</span>}
     {comparisonItem && <ProductCompareCheckbox product={comparisonItem} />}
   </div>;
-  const title = <h3 className="mb-1 line-clamp-2 min-h-0 text-[13px] font-bold leading-[18px] text-ink-900 group-hover:text-brand-700 sm:mb-3 sm:min-h-10 sm:text-sm sm:leading-5">{name}</h3>;
-  return <article className={`flex h-full min-w-0 flex-row overflow-visible rounded-xl border border-ink-200 bg-white shadow-card transition focus-within:border-brand-500 sm:flex-col ${linkable ? "hover:border-brand-400 hover:shadow-md" : ""}`}>
+  const title = <h3 className="line-clamp-2 min-h-0 text-[13px] font-bold leading-[18px] text-ink-900 group-hover:text-brand-700 sm:min-h-10 sm:text-sm sm:leading-5">{name}</h3>;
+  const cta = quote
+    ? <Link href={quote} aria-label={`Request a quote for ${name}`} className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-lg border border-brand-400 bg-white px-3.5 text-[13px] font-bold text-brand-800 transition hover:border-brand-600 hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">Quote</Link>
+    : linkable
+      ? <Link href={href} className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-lg border border-ink-300 bg-white px-3 text-xs font-bold text-ink-700 transition hover:border-ink-400 hover:text-ink-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">View details <ArrowRight className="size-3.5 shrink-0" aria-hidden="true" /></Link>
+      : <span aria-hidden="true" className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-lg border border-ink-200 bg-ink-50 px-3 text-xs font-bold text-ink-400">View details <ArrowRight className="size-3.5 shrink-0" /></span>;
+  return <article className={`flex h-full min-w-0 flex-row overflow-visible rounded-xl border border-ink-200 bg-white shadow-card transition ${linkable ? "hover:border-brand-300 hover:shadow-md focus-within:border-brand-400" : ""} sm:flex-col`}>
     <div className="w-[38%] shrink-0 self-start sm:w-full">{thumb}</div>
-    <div className="flex min-w-0 flex-1 flex-col justify-center p-2 sm:justify-start sm:px-3.5 sm:pb-3.5 sm:pt-3">
+    <div className="@container flex min-w-0 flex-1 flex-col p-2 sm:justify-start sm:px-3.5 sm:pb-3.5 sm:pt-3">
       {sponsored && <SponsoredDisclosure />}
-      {linkable ? <Link href={href} className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">{title}</Link> : title}
-      <div className="mb-1 hidden h-5 items-center sm:mb-2 sm:flex sm:h-6">
+      <div className="mb-1.5 sm:mb-1">{linkable ? <Link href={href} className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">{title}</Link> : title}</div>
+      <div className="mb-1.5 hidden h-5 items-center sm:mb-2 sm:flex sm:h-6">
         {!test && (oem || odm || samples) && <ProductTradeLabels oem={oem} odm={odm} samples={samples} compact />}
       </div>
-      <p className={`break-words ${test ? "text-xs font-semibold leading-4 text-ink-500" : "text-sm font-bold leading-[18px] text-brand-800 sm:text-base sm:leading-5"}`}>
-        {test ? "Test data · not a price" : price || "On request"}
-        {!test && fob && <span className="ml-1 text-[9px] font-semibold uppercase tracking-wide text-ink-400">FOB</span>}
+      {/* Price leads the information block: big and dark-teal, with the incoterm as a quiet suffix. */}
+      <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+        <span className={`break-words text-[17px] font-extrabold leading-6 tracking-[-0.01em] @[19rem]:text-[19px] @[19rem]:leading-7 ${test ? "text-[13px] font-semibold text-ink-500" : "text-brand-900"}`}>
+          {test ? "Test data · not a price" : price || "On request"}
+        </span>
+        {!test && fob && <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-400">FOB</span>}
       </p>
-      <dl className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-600 sm:mt-2.5 sm:grid sm:grid-cols-2 sm:gap-x-2">
-        <div className="flex min-w-0 items-baseline gap-1 sm:block">
-          <dt className="text-[9px] font-medium uppercase tracking-wide text-ink-500 sm:text-[10px]">MOQ</dt>
-          <dd className="mt-0 break-words text-[10px] font-semibold leading-4 text-ink-800 sm:mt-0.5 sm:text-xs">{moq || "On request"}</dd>
+      {/* Two commercial terms, always side by side, labels above the values. */}
+      <dl className="mt-2 grid grid-cols-2 gap-x-3 text-ink-600 sm:mt-2.5">
+        <div className="min-w-0">
+          <dt className="text-[10px] font-semibold uppercase leading-4 tracking-[0.1em] text-ink-500">MOQ</dt>
+          <dd className="mt-0.5 truncate text-[13px] font-bold leading-5 text-ink-900">{moq || "On request"}</dd>
         </div>
-        <div className="flex min-w-0 items-baseline gap-1 sm:block">
-          <dt className="text-[9px] font-medium uppercase tracking-wide text-ink-500 sm:text-[10px]">Lead time</dt>
-          <dd className="mt-0 break-words text-[10px] font-semibold leading-4 text-ink-800 sm:mt-0.5 sm:text-xs">{leadTimeDays != null ? `${leadTimeDays} days` : "On request"}</dd>
+        <div className="min-w-0">
+          <dt className="text-[10px] font-semibold uppercase leading-4 tracking-[0.1em] text-ink-500">Lead time</dt>
+          <dd className="mt-0.5 truncate text-[13px] font-bold leading-5 text-ink-900">{leadTimeDays != null ? `${leadTimeDays} days` : "On request"}</dd>
         </div>
       </dl>
-      <div className="mt-1 border-t border-ink-100 pt-1 sm:mt-3 sm:pt-2.5">
-        <p className="flex min-w-0 items-center gap-1.5 text-[11px] leading-[14px] sm:text-xs sm:leading-4">
+      <div className="mt-2 border-t border-ink-100 pt-2 sm:mt-auto sm:pt-2.5">
+        <p className="flex min-w-0 items-baseline gap-1.5 text-[11px] leading-4">
           <span className="shrink-0 text-ink-500">Supplied by</span>
-          {supplierHref && linkable ? <Link href={supplierHref} title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-brand-700 hover:underline">{supplierName}</Link>
-            : <span title={supplierName} className="min-w-0 flex-1 truncate font-semibold text-ink-800">{supplierName}</span>}
+          {supplierHref && linkable ? <Link href={supplierHref} title={supplierName} className="min-w-0 flex-1 truncate font-bold text-brand-700 hover:underline">{supplierName}</Link>
+            : <span title={supplierName} className="min-w-0 flex-1 truncate font-bold text-ink-800">{supplierName}</span>}
         </p>
-        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 sm:mt-1.5 sm:gap-1.5">
-          <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} compact shortTooltips />
-          {partnerContractReviewed && <span title="The supplier's partner factory contract was reviewed; this is not a factory inspection." className="inline-flex items-center rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-brand-800 ring-1 ring-brand-200"><span aria-hidden="true">Partner contract</span><span className="sr-only">Partner factory contract reviewed</span></span>}
-          <VerificationTierBadge levels={test ? [] : verificationSteps} compactOnMobile />
+        {/* Trust shields and the quote action share one row: evidence on the left, next step on the right. */}
+        <div className="mt-2 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-1">
+            <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} variant="marketplace" shortTooltips />
+            {partnerContractReviewed && <span title="The supplier's partner factory contract was reviewed; this is not a factory inspection." className="inline-flex items-center rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-brand-800 ring-1 ring-brand-200"><span aria-hidden="true">Partner contract</span><span className="sr-only">Partner factory contract reviewed</span></span>}
+          </div>
+          {cta}
         </div>
       </div>
-      <div className="mt-auto hidden pt-3 sm:block">{quote
-        ? <Link href={quote} aria-label={`Request a quote for ${name}`} className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-2.5 py-2 text-center text-xs font-bold text-white transition hover:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
-          Request a quote <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
-        </Link>
-        : linkable
-          ? <Link href={href} className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-ink-900 px-3 py-2 text-center text-xs font-bold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
-            View details <ArrowRight className="size-3.5 shrink-0" aria-hidden="true" />
-          </Link>
-          : <span aria-hidden="true" className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-ink-900/70 px-3 py-2 text-center text-xs font-bold text-white">
-            View details <ArrowRight className="size-3.5 shrink-0" />
-          </span>}</div>
     </div>
   </article>;
 }

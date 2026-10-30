@@ -42,38 +42,45 @@ const SEAL_CLASSES: Record<VerificationTier, string> = {
   3: "bg-amber-400 text-amber-950 ring-amber-200",
 };
 
-/** Compact pill shown next to the supplier name, product card or list row. */
-export function VerificationTierBadge({ levels, className = "", compactOnMobile = false }: {
+/** Compact pill shown next to the supplier name, product page or list row. */
+export function VerificationTierBadge({ levels, className = "" }: {
   levels: readonly VerificationLevel[];
   className?: string;
-  /** Rút gọn “Level 1 · Basic” thành “Level 1” dưới breakpoint sm khi được chọn. */
-  compactOnMobile?: boolean;
 }) {
   const tier = verificationTier(levels);
   const Icon = tier === 0 ? HelpCircle : ShieldCheck;
   return (
     <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${BADGE_CLASSES[tier]} ${className}`}>
       <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      {compactOnMobile && tier > 0 ? <>
-        <span className="sm:hidden">Level {tier}</span>
-        <span className="hidden sm:inline">{VERIFICATION_TIER_LABELS[tier]}</span>
-      </> : VERIFICATION_TIER_LABELS[tier]}
+      {VERIFICATION_TIER_LABELS[tier]}
     </span>
   );
 }
 
-/** Three small shields, each with its own explanation and approval status. */
-export function VerificationPips({ levels, compact = false, shortTooltips = false, l2Scope }: {
+/**
+ * Three small shields, each with its own explanation and approval status.
+ *
+ * `marketplace` draws the larger outlined mint circles used on product offer
+ * cards; the default keeps the compact ringed pips used in profile headers.
+ */
+export function VerificationPips({ levels, compact = false, shortTooltips = false, l2Scope, variant = "default" }: {
   levels: readonly VerificationLevel[];
   compact?: boolean;
   l2Scope?: PublicL2Scope;
   /** Tooltip nhỏ theo từng cấp, dùng cho thẻ sản phẩm thay vì khung giải thích chung. */
   shortTooltips?: boolean;
+  variant?: "default" | "marketplace";
 }) {
   const tier = verificationTier(levels);
   const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
+  const marketplace = variant === "marketplace";
+  const pipSize = marketplace ? "h-7 w-7" : compact ? "h-5 w-5" : "h-6 w-6";
+  const iconSize = marketplace ? "h-4 w-4" : compact ? "h-3 w-3" : "h-3.5 w-3.5";
+  const pipTone = (on: boolean) => marketplace
+    ? `border ${on ? "border-brand-400 bg-brand-50 text-brand-700" : "border-ink-200 bg-white text-ink-300"}`
+    : `ring-1 ${on ? PIP_ON_CLASSES[tier] : "bg-ink-50 text-ink-300 ring-ink-200"}`;
   return (
-    <span className="inline-flex items-center gap-1" role="group"
+    <span className={`inline-flex items-center ${marketplace ? "gap-1.5" : "gap-1"}`} role="group"
       aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => verificationLabel(l, l2Scope)).join(", ")}` : "No verification checks approved yet"}>
       {([1, 2, 3] as const).map((level) => {
         const on = levels.includes(level);
@@ -81,8 +88,8 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
         const status = on ? "Approved" : "Not approved";
         const explanation = verificationExplanation(level, l2Scope);
         const accessibleName = `Level ${level} · ${label}: ${status}. ${explanation}`;
-        const pipClass = `inline-flex items-center justify-center rounded-full ring-1 ${compact ? "h-5 w-5" : "h-6 w-6"} ${on ? PIP_ON_CLASSES[tier] : "bg-ink-50 text-ink-300 ring-ink-200"}`;
-        const icon = <ShieldCheck className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} aria-hidden="true" />;
+        const pipClass = `inline-flex items-center justify-center rounded-full ${pipSize} ${pipTone(on)}`;
+        const icon = <ShieldCheck className={iconSize} aria-hidden="true" />;
         if (shortTooltips) return (
           <span key={level} className="group/pip relative inline-flex">
             <button type="button" aria-label={accessibleName}
