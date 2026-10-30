@@ -358,15 +358,20 @@ const legacyPaused = render({ product: { ...ownApproved, supplier_originated: fa
 assert.match(legacyPaused, /Gửi duyệt/, 'Sản phẩm staff tạo cũ vẫn có luồng gửi duyệt lại');
 assert.doesNotMatch(legacyPaused, /aria-label="Xóa ảnh đại diện"/, 'Tệp staff quản lý vẫn bị khóa');
 
-// 14. Thẻ ảnh phụ: nhãn chia sẻ bên trái, cụm nút bên phải, không chồng lên nhau.
+// 14. Một chỗ cho ảnh: lưới 6 ô, không lặp lại danh sách ảnh; catalogue chỉ chứa tệp PDF.
 const multiBuyerMedia = [
   { ...media[0], id: 'm1', audience: 'buyer', caption: 'cover.png' },
   { ...media[0], id: 'm2', audience: 'buyer', storage_path: 'products/p1/b.png', caption: '6 (5).png' },
 ];
 const multiHtml = render({ product: ownApproved, media: multiBuyerMedia });
 assert.doesNotMatch(source, /\bleft-11\b/, 'Không dùng vị trí cứng left-11 khiến nút X đè lên nhãn');
-assert.match(multiHtml, /inset-x-1\.5 top-1\.5 flex items-start justify-between/, 'Thanh trên thẻ ảnh tách nhãn và nút');
-assert.match(multiHtml, /Chia sẻ cho người mua<\/span>/, 'Thẻ ảnh cho người mua có nhãn rõ');
+assert.match(multiHtml, /aria-label="6 ô ảnh sản phẩm"/, 'Ảnh sản phẩm nằm trong lưới 6 ô');
+assert.match(multiHtml, /Ảnh chính<\/span>/, 'Ô ảnh chính có nhãn riêng');
+assert.doesNotMatch(multiHtml, /Catalogue PDF/, 'Chỉ có ảnh thì không hiện khối catalogue');
+const pdfMedia = [...multiBuyerMedia, { ...media[0], id: 'pdf1', kind: 'catalogue', caption: 'catalogue.pdf' }];
+const pdfHtml = render({ product: ownApproved, media: pdfMedia });
+assert.match(pdfHtml, /Catalogue PDF/, 'Có tệp PDF thì hiện khối catalogue');
+assert.match(pdfHtml, /catalogue\.pdf/, 'Khối catalogue gọi tên tệp PDF');
 
 // 15. Danh sách sản phẩm: nhãn danh mục tiếng Việt + cảnh báo ngoài phạm vi.
 const storefront = read('../app/supplier/portal/products/product-storefront.tsx');

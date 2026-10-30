@@ -286,6 +286,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   // Số lỗi giá: thiếu grade và thiếu đơn giá mức 1 là hai lỗi chặn gửi duyệt.
   const priceIssueCount = (quantityPreview ? (quantityPreview.grade.trim() ? 0 : 1) : 0) +
     (quantityPreview && quantityPreview.tiers.every((tier) => !tier.priceUsdPerKg.trim()) ? 1 : 0);
+  const catalogueAssets = media.filter((asset) => asset.kind !== "image");
   const basicFilled = [snapshot.name, snapshot.keywords, snapshot.description].filter((value) => (value ?? "").trim()).length;
   const specFilled = [snapshot.spec, snapshot.monthly_capacity, snapshot.raw_material_region, snapshot.input_material_origin]
     .filter((value) => (value ?? "").trim()).length;
@@ -1029,6 +1030,38 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   })}
                 </ul>
                 {imageCount >= 6 && <p className="mt-1.5 text-[11.5px] text-ink-500">Đã đủ 6 ô. Xóa bớt ảnh nếu muốn thay ảnh khác.</p>}
+
+                {/* Một chỗ tải tệp duy nhất: ngay dưới 6 ô ảnh. */}
+                {canUpload ? <>
+                  <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseFiles(Array.from(e.dataTransfer.files)); }}
+                    className="mt-2 rounded-md border border-dashed border-ink-300 bg-white px-4 py-3 text-center transition hover:border-brand-400 focus-within:border-brand-600">
+                    <p className="text-[12px] text-ink-600">Kéo thả hoặc{" "}
+                      <label className="cursor-pointer font-semibold text-brand-700 underline">{product ? "chọn ảnh hoặc PDF" : "chọn ảnh"}
+                        <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" className="sr-only" aria-label="Chọn ảnh sản phẩm hoặc catalogue"
+                          onChange={(e) => { chooseFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+                      </label>
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-ink-500">{product
+                      ? `Đã tải ${ownedCount}/12 tệp. Ảnh vào 6 ô, PDF vào mục catalogue.`
+                      : `Kho có ${bankMedia.length}/12 ảnh. Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu.`}</p>
+                  </div>
+                  {selected.length > 0 && <div className="mt-2 rounded-md border border-brand-200 bg-brand-50 p-2.5">
+                    <p className="text-[12px] font-semibold text-brand-900">Đã chọn {selected.length} tệp</p>
+                    <ul className="mt-1 max-h-24 space-y-0.5 overflow-auto text-[11px] text-brand-900">{selected.map((file, index) => <li key={`${file.name}-${index}`} className="truncate">{file.name} - {(file.size / 1024 / 1024).toFixed(1)} MB</li>)}</ul>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button type="button" disabled={busy} onClick={upload} className="btn btn-primary btn-sm"><UploadCloud className="size-4" aria-hidden="true" /> {product ? `Tải ${selected.length} tệp` : `Thêm ${selected.length} ảnh vào kho`}</button>
+                      <button type="button" disabled={busy} onClick={() => setSelected([])} className="btn btn-ghost btn-sm">Bỏ chọn</button>
+                    </div>
+                  </div>}
+                </> : <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-900">
+                  {locked ? "Đang chờ duyệt nên tạm khoá tải tệp. Duyệt xong hoặc bị trả về, bạn tải thêm được ngay."
+                    : "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."}
+                </div>}
+                {progress && <p role="status" className="mt-1.5 text-[12px] font-semibold text-brand-800">{progress}</p>}
+                <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-4 text-ink-500">
+                  <LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+                  Tệp ở chế độ nội bộ cho tới khi bạn chọn chia sẻ.
+                </p>
               </Row>
 
               {/* Ảnh đại diện: kéo ảnh khác vào ô này là thay ngay. */}
@@ -1063,78 +1096,26 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 </div>
               </Row>
 
-              {/* Catalogue / tệp: kéo thả hoặc chọn tệp. */}
-              <Row label="Catalogue / tệp"
-                hint={media.filter((asset) => asset.id !== cover?.id).length ? undefined : "Chưa có tệp nào. Cần ít nhất một ảnh hoặc catalogue thật để gửi duyệt."}>
-                {media.filter((asset) => asset.id !== cover?.id).length > 0 &&
-                  <ul className="mb-2 grid gap-2 sm:grid-cols-3 xl:grid-cols-4">{media.filter((asset) => asset.id !== cover?.id).map((asset) => {
+              {/* Chỉ còn một chỗ tải ảnh: 6 ô ở trên. Danh sách dưới đây chỉ để xem lại
+                  catalogue PDF đã tải, không lặp lại ảnh. */}
+              {catalogueAssets.length > 0 && <Row label="Catalogue PDF">
+                <ul className="space-y-1.5">
+                  {catalogueAssets.map((asset) => {
                     const url = privateMediaUrl(asset);
-                    return <li key={asset.id} className="group relative overflow-hidden rounded-md border border-ink-200 bg-white"
-                      draggable={canUpload && asset.kind === "image"}
-                      onDragStart={(event) => { event.dataTransfer.setData("text/plain", asset.id); event.dataTransfer.effectAllowed = "move"; }}>
-                      <div className="relative block aspect-square overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
-                        {asset.kind === "image" && url
-                          ? <img src={url} alt={`Ảnh ${asset.caption || product?.name || "sản phẩm"}`} loading="lazy" className="size-full object-cover" />
-                          : <span className="flex size-full items-center justify-center text-brand-700"><FileText className="size-7" aria-hidden="true" /></span>}
-                        <div className="pointer-events-none absolute inset-x-1.5 top-1.5 flex items-start justify-between gap-1.5">
-                          <span className={`truncate rounded-full px-1.5 py-0.5 text-[9.5px] font-bold shadow-sm ${asset.audience === "buyer" ? "bg-emerald-100 text-emerald-800" : "bg-white/95 text-ink-700"}`}>
-                            {asset.audience === "buyer" ? "Chia sẻ cho người mua" : "Nội bộ"}
-                          </span>
-                          {(canUpload && asset.kind === "image" || canDeleteAsset(asset)) && (
-                            <div className="pointer-events-auto flex shrink-0 items-center gap-1">
-                              {canUpload && asset.kind === "image" &&
-                                <button type="button" disabled={busy} onClick={() => void makeCover(asset.id)} aria-label={`Đặt ${asset.caption || "ảnh này"} làm ảnh đại diện`} title="Đặt làm ảnh đại diện"
-                                  className="rounded-full bg-white/95 p-1 text-brand-700 shadow-sm hover:bg-brand-50 disabled:opacity-50">
-                                  <Star className="size-3" aria-hidden="true" />
-                                </button>}
-                              {canDeleteAsset(asset) &&
-                                <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)} aria-label={`Xóa ${asset.caption || "tệp"}`} title="Xóa tệp"
-                                  className="rounded-full bg-white/95 p-1 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
-                                  <X className="size-3" aria-hidden="true" />
-                                </button>}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="px-2 py-1">
-                        <p className="truncate text-[11px] font-semibold text-ink-900">{asset.caption || (asset.kind === "image" ? "Ảnh sản phẩm" : "Catalogue")}</p>
-                        {url && <a href={url} target="_blank" rel="noreferrer" className="text-[10px] font-semibold text-brand-700 underline">Xem tệp</a>}
-                      </div>
+                    return <li key={asset.id} className="flex flex-wrap items-center gap-2 rounded-md border border-ink-200 bg-white px-2.5 py-2">
+                      <FileText className="size-4 shrink-0 text-brand-700" aria-hidden="true" />
+                      <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink-900">{asset.caption || "Catalogue"}</span>
+                      {url && <a href={url} target="_blank" rel="noreferrer" className="shrink-0 text-[11.5px] font-semibold text-brand-700 underline">Xem tệp</a>}
+                      {canDeleteAsset(asset) && <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)}
+                        aria-label={`Xóa ${asset.caption || "tệp"}`} title="Xóa tệp"
+                        className="shrink-0 rounded-md border border-rose-200 bg-white p-1 text-rose-700 hover:bg-rose-50 disabled:opacity-50">
+                        <X className="size-3" aria-hidden="true" />
+                      </button>}
                     </li>;
-                  })}</ul>}
-
-                {canUpload ? <>
-                  <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseFiles(Array.from(e.dataTransfer.files)); }}
-                    className="rounded-md border border-dashed border-ink-300 bg-white px-4 py-4 text-center transition hover:border-brand-400 focus-within:border-brand-600">
-                    <UploadCloud className="mx-auto size-5 text-ink-400" aria-hidden="true" />
-                    <p className="mt-1 text-[12px] text-ink-600">Kéo thả hoặc{" "}
-                      <label className="cursor-pointer font-semibold text-brand-700 underline">chọn {product ? "tệp PDF" : "ảnh"}
-                        <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" className="sr-only" aria-label="Chọn ảnh sản phẩm hoặc catalogue"
-                          onChange={(e) => { chooseFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
-                      </label>
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-ink-500">{product
-                      ? `Đã tải ${ownedCount}/12 tệp`
-                      : `Kho có ${bankMedia.length}/12 ảnh. Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu.`}</p>
-                  </div>
-                  {selected.length > 0 && <div className="mt-2 rounded-md border border-brand-200 bg-brand-50 p-2.5">
-                    <p className="text-[12px] font-semibold text-brand-900">Đã chọn {selected.length} tệp</p>
-                    <ul className="mt-1 max-h-24 space-y-0.5 overflow-auto text-[11px] text-brand-900">{selected.map((file, index) => <li key={`${file.name}-${index}`} className="truncate">{file.name} - {(file.size / 1024 / 1024).toFixed(1)} MB</li>)}</ul>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button type="button" disabled={busy} onClick={upload} className="btn btn-primary btn-sm"><UploadCloud className="size-4" aria-hidden="true" /> {product ? `Tải ${selected.length} tệp` : `Thêm ${selected.length} ảnh vào kho`}</button>
-                      <button type="button" disabled={busy} onClick={() => setSelected([])} className="btn btn-ghost btn-sm">Bỏ chọn</button>
-                    </div>
-                  </div>}
-                </> : <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-900">
-                  {locked ? "Đang chờ duyệt nên tạm khoá tải tệp. Duyệt xong hoặc bị trả về, bạn tải thêm được ngay."
-                    : "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."}
-                </div>}
-                {progress && <p role="status" className="mt-1.5 text-[12px] font-semibold text-brand-800">{progress}</p>}
-                <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-4 text-ink-500">
-                  <LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-                  Tệp ở chế độ nội bộ cho tới khi bạn chọn chia sẻ.
-                </p>
-              </Row>
+                  })}
+                </ul>
+                <p className="mt-1.5 text-[11.5px] leading-4 text-ink-500">Catalogue chỉ là tệp đính kèm; ảnh sản phẩm vẫn nằm ở 6 ô phía trên.</p>
+              </Row>}
             </div>
           </section>
 
