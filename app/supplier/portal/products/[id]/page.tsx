@@ -9,6 +9,8 @@ import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/suppli
 import { PageHeader } from "@/components/page-header";
 import { SupplierProductEditor } from "../product-editor";
 import { readQuantityEditorData } from "@/lib/products/quantity-editor-data";
+import { certificateLinkable, certificateProductState } from "@/lib/products/product-certificates";
+import { ProductCertificatesForm } from "../product-certificates-form";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Quản lý sản phẩm", robots: { index: false, follow: false } };
@@ -34,6 +36,21 @@ export default async function OwnProductPage({ params, searchParams }: { params:
   const options = categoryProposalOptions(allCategories);
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
   const categoryScope = allowedSupplierCategories(access.supplier, options, linked).map((item) => item.slug);
+  // Chứng nhận theo sản phẩm: dùng lại certificates.requested_product_ids / approved_product_ids.
+  const certificateOptions = await access.store.listCertificates(access.supplier.id)
+    .then((rows) => rows
+      .filter((certificate) => certificateProductState(certificate, id) !== "none" || certificateLinkable(certificate))
+      .map((certificate) => ({
+        id: certificate.id,
+        name: certificate.name,
+        issuer: certificate.issuer,
+        valid_until: certificate.valid_until,
+        state: certificateProductState(certificate, id),
+      })))
+    .catch((error) => {
+      console.error("[product-certificate] list", error);
+      return [];
+    });
   const quantityEditor = await (async () => {
     if (!getSupabaseClient()) return null;
     const strictAccess = await supplierPortalAccess(supabaseStore);
@@ -56,5 +73,6 @@ export default async function OwnProductPage({ params, searchParams }: { params:
       <Link href={`/supplier/portal/products/${id}/quantity-pricing`} className="font-semibold underline">Mở trang thử nghiệm giá theo số lượng</Link>. Trang thử nghiệm chưa thay đổi thông tin buyer đang thấy.
     </p>}
     <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options} categoryScope={categoryScope} supplier={access.supplier} initialStep={step} />
+    <ProductCertificatesForm productId={id} certificates={certificateOptions} />
   </>;
 }

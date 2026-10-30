@@ -18,6 +18,8 @@ import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { SupplierProductReviewControls } from "./review-controls";
 import { packagingSummary } from "@/lib/products/product-extras";
+import { certificateProductState } from "@/lib/products/product-certificates";
+import { decideProductCertificateFormAction } from "../certificate-actions";
 import { ProductTranslationPanel } from "./translation-panel";
 import { productTranslationState } from "@/lib/ai/translate-content";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
@@ -39,6 +41,16 @@ export default async function EditProductPage({
   if (!product) notFound();
   const supplier = await store.getSupplier(product.supplier_id);
   if (!supplier) notFound();
+  // Chứng nhận theo sản phẩm: dùng lại certificates.requested_product_ids / approved_product_ids.
+  const productCertificates = await store.listCertificates(product.supplier_id)
+    .then((rows) => rows
+      .map((certificate) => ({ id: certificate.id, name: certificate.name, issuer: certificate.issuer,
+        valid_until: certificate.valid_until, state: certificateProductState(certificate, product.id) }))
+      .filter((certificate) => certificate.state !== "none"))
+    .catch((error) => {
+      console.error("[product-certificate] crm list", error);
+      return [];
+    });
   const [media, categories] = await Promise.all([store.listMedia("product", id), store.listCategories({ publishedOnly: false })]);
   const readiness = productReadiness(media);
   const publicationMedia = productPublicationMediaState(media, product.id, product.supplier_id);
@@ -245,7 +257,23 @@ export default async function EditProductPage({
           </section>
           <section className="card order-3 p-4 text-[13px] leading-relaxed text-ink-600">
             <h2 className="mb-1 text-sm font-bold text-ink-900">Chứng nhận của nhà cung cấp</h2>
-            <p>Chứng nhận không lấy từ ô sản phẩm tự khai. <Link href={`/crm/suppliers/${supplier.id}/audit/documents`} className="font-semibold text-brand-700 underline">Xem giấy tờ và chứng nhận nhà cung cấp →</Link></p>
+            <p>Chứng nhận không lấy từ ô sản phẩm tự khai. Nhà cung cấp xin gắn từ hồ sơ Giấy tờ; Vexim duyệt ở đây.</p>
+            {productCertificates.length === 0
+              ? <p className="mt-2 text-ink-500">Chưa có chứng nhận nào được xin gắn cho sản phẩm này.</p>
+              : <ul className="mt-2 space-y-2">
+                {productCertificates.map((certificate) => <li key={certificate.id} className="rounded-lg border border-ink-200 px-3 py-2">
+                  <p className="font-semibold text-ink-900">{certificate.name}{certificate.issuer ? ` · ${certificate.issuer}` : ""}</p>
+                  <p className="text-ink-500">{certificate.state === "approved" ? "Đã duyệt gắn" : "Nhà cung cấp xin gắn"}{certificate.valid_until ? ` · hết hạn ${certificate.valid_until}` : ""}</p>
+                  <form action={decideProductCertificateFormAction} className="mt-2 flex gap-2">
+                    <input type="hidden" name="product_id" value={product.id} />
+                    <input type="hidden" name="certificate_id" value={certificate.id} />
+                    <input type="hidden" name="decision" value={certificate.state === "approved" ? "revoke" : "approve"} />
+                    <button type="submit" className="btn btn-sm btn-primary">
+                      {certificate.state === "approved" ? "Bỏ liên kết" : "Duyệt liên kết"}
+                    </button>
+                  </form>
+                </li>)}
+              </ul>}
           </section>
         </aside>
       </div>

@@ -78,9 +78,18 @@ Quy tắc:
 Nguyên tắc giữ nguyên: điểm chỉ để nhắc, **không chặn đăng**; số liệu tính từ bản đã lưu;
 form cũ không có ô mới thì giữ nguyên giá trị đã lưu, không xoá trắng.
 
-### Chứng nhận theo từng sản phẩm (chưa làm)
+### Chứng nhận theo từng sản phẩm (đã làm, không cần migration)
 
-Đã có sẵn cột `certificates.requested_product_ids` / `approved_product_ids` nên **không cần
-migration**: chỉ còn thiếu giao diện cho nhà cung cấp chọn chứng nhận đã nộp cho sản phẩm và
-cho nhân viên duyệt liên kết đó. Không mở lại ô tự khai chứng nhận ở trang sản phẩm — quyết
-định cũ vẫn giữ: hồ sơ Giấy tờ L1 là nguồn duy nhất.
+Dùng lại `certificates.requested_product_ids` (nhà cung cấp xin gắn) và
+`certificates.approved_product_ids` (Vexim duyệt gắn), nên **không thêm bảng hay cột**:
+
+| Việc | Ở đâu |
+| --- | --- |
+| Trạng thái liên kết, gộp theo sản phẩm, chỉ chứng nhận còn hạn | `lib/products/product-certificates.ts` (thuần) |
+| Nhà cung cấp xin gắn (chỉ ghi danh sách yêu cầu) | `app/supplier/portal/product-certificate-actions.ts` |
+| Khối chọn chứng nhận dưới form sản phẩm | `app/supplier/portal/products/product-certificates-form.tsx` |
+| Nhân viên duyệt/bỏ duyệt liên kết | `app/crm/products/[slug]/certificate-actions.ts`, hiện ở thẻ “Chứng nhận của nhà cung cấp” |
+| Kiểm tra | `npm run check:certificates` (nằm trong `check:supplier-products`) |
+
+Không mở lại ô tự khai chứng nhận ở trang sản phẩm: hồ sơ Giấy tờ L1 (AI quét đơn vị đứng tên
+và ngày hết hạn) vẫn là nguồn duy nhất. Chứng nhận hết hạn không gắn được.
