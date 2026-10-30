@@ -12,7 +12,7 @@ const initial = { status: 'ok', product: { id: productId, supplier_id: supplierI
   category: { id: categoryId, slug: 'cashew', status: 'published', is_published: true, product_fields: [] },
   settings: { singleton: true, max_tiers: 4, max_price_ratio: 1.5, max_last_moq_ratio: 100, reminder_days: 30, stale_days: 90,
     offer_max_discount_percent: 30, offer_max_days: 60, offer_cooldown_days: 30, offer_price_lock_days: 30 },
-  bounds: [{ category_id: categoryId, grade: 'W320', min_usd_per_kg: 6, max_usd_per_kg: 7 }], prices: [], names: [] };
+  bounds: [{ category_id: categoryId, grade: 'W320', min_usd_per_kg: 6, max_usd_per_kg: 7 }], prices: [], names: [], published_images: [] };
 let data = structuredClone(initial), seenValidation = null, imageResult = { ok: true }, validationResult = { ok: true, draft: {}, englishName: 'Cashew', warnings: [] }, calls = 0;
 const db = { rpc: async () => { calls++; return { data, error: null }; } };
 const mocks = { 'server-only': {}, '@/lib/products/grade-pricing': { standardGradesForCategory: () => ['W320'] },
@@ -30,7 +30,8 @@ const prepare = exports.prepareProductFormReview;
 assert.equal((await prepare(db, 'bad', submissionId, 'Cashew')).ok, false); assert.equal(calls, 0);
 let result = await prepare(db, productId, submissionId, 'Cashew'); assert.equal(result.ok, true); assert.equal(result.context, data);
 assert.equal(seenValidation.policy.gradeBounds.W320.minUsdPerKg, 6); assert.equal(seenValidation.imageCount, 1);
-data.submission.supplier_id = productId; assert.equal((await prepare(db, productId, submissionId, 'Cashew')).ok, false);
+data = { status: 'legacy_grade_unmapped' }; assert.match((await prepare(db, productId, submissionId, 'Cashew')).message, /Giữ nguyên sản phẩm/);
+data = structuredClone(initial); data.submission.supplier_id = productId; assert.equal((await prepare(db, productId, submissionId, 'Cashew')).ok, false);
 data = structuredClone(initial); data.category.is_published = false; assert.equal((await prepare(db, productId, submissionId, 'Cashew')).ok, false);
 data = structuredClone(initial); data.settings.max_price_ratio = 0.5; assert.equal((await prepare(db, productId, submissionId, 'Cashew')).ok, false);
 data = structuredClone(initial); data.bounds.push({ ...data.bounds[0], grade: 'w320' }); assert.equal((await prepare(db, productId, submissionId, 'Cashew')).ok, false);

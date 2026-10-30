@@ -48,9 +48,19 @@ export async function uploadPrivateProductFormImage(input: {
       !Number.isSafeInteger(prepared.height) || prepared.height < 1 || prepared.height > 20000)
     return { ok: false, message: "Ảnh sau xử lý không hợp lệ." };
 
+  // An older deployed SQL64 can still point at products/. Never write private
+  // bytes unless the database confirms that both its constraints and staging
+  // function use the same isolated namespace as this uploader.
+  try {
+    const { data, error } = await db.rpc("product_form_image_namespace_ready", {});
+    if (error || data !== true) return { ok: false, message: "Chức năng tải ảnh riêng tư chưa sẵn sàng. Hãy liên hệ Vexim." };
+  } catch {
+    return { ok: false, message: "Không kiểm tra được cấu hình tải ảnh. Vui lòng thử lại." };
+  }
+
   const imageId = randomUUID();
   const normalizedProductId = productId.toLowerCase();
-  const base = `products/${normalizedProductId}/${imageId}`;
+  const base = `product-form-images/${normalizedProductId}/${imageId}`;
   try {
     await putNewObject(`${base}.webp`, prepared.main, "image/webp");
     await putNewObject(`${base}-thumb.webp`, prepared.thumb, "image/webp");

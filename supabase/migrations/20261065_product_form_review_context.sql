@@ -10,6 +10,25 @@ alter table public.product_form_submissions add column if not exists approved_pr
 create unique index if not exists product_form_submission_price_revision_key
   on public.product_form_submissions(approved_price_revision_id) where approved_price_revision_id is not null;
 
+-- Gallery order is independent of legacy media rows. This lets a future
+-- approval select at most eight images without deleting old rows or breaking
+-- their existing URLs. No manifest is written until atomic approval exists.
+create unique index if not exists product_form_submission_product_key on public.product_form_submissions(id, product_id);
+create unique index if not exists product_form_media_product_key on public.media_assets(id, product_id);
+create table if not exists public.product_form_published_images (
+  product_id uuid not null references public.supplier_products(id) on delete cascade,
+  submission_id uuid not null,
+  media_id uuid not null,
+  position smallint not null check (position between 0 and 7),
+  primary key (product_id, position),
+  unique (product_id, media_id),
+  foreign key (submission_id, product_id) references public.product_form_submissions(id, product_id) on delete cascade,
+  foreign key (media_id, product_id) references public.media_assets(id, product_id) on delete restrict
+);
+alter table public.product_form_published_images enable row level security;
+revoke all on public.product_form_published_images from public, anon, authenticated;
+grant all on public.product_form_published_images to service_role;
+
 -- This service-role-only helper must be called INSIDE the eventual approval
 -- transaction. A separate RPC call releases its locks at the end of that call;
 -- it is not an approval and cannot guarantee that a later RPC sees the same data.
@@ -27,6 +46,7 @@ declare
   grade_bounds jsonb;
   prices jsonb;
   names jsonb;
+  published_images jsonb;
   entry jsonb;
   selected jsonb;
   current_photo jsonb;
@@ -47,11 +67,36 @@ begin
      or item.supplier_review_status is null or item.supplier_review_status not in ('pending','approved','paused') then
     return jsonb_build_object('status','product_changed');
   end if;
+  -- Never reinterpret an existing multi-grade listing as one grade. The user
+  -- will create and review separate drafts manually; the original stays intact.
+  if item.specs is not null and jsonb_typeof(item.specs) is distinct from 'object' then
+    return jsonb_build_object('status','legacy_grade_unmapped');
+  end if;
+  if item.specs->'grade' is not null and item.specs->'grade' <> 'null'::jsonb
+     and jsonb_typeof(item.specs->'grade') is distinct from 'string' then
+    return jsonb_build_object('status','legacy_grade_unmapped');
+  end if;
+  if item.specs->'grade_rows' is not null and item.specs->'grade_rows' <> 'null'::jsonb then
+    if jsonb_typeof(item.specs->'grade_rows') is distinct from 'array' then return jsonb_build_object('status','legacy_grade_unmapped'); end if;
+    if jsonb_array_length(item.specs->'grade_rows') > 1 then return jsonb_build_object('status','legacy_grade_unmapped'); end if;
+    if jsonb_array_length(item.specs->'grade_rows') = 1 then
+      if jsonb_typeof(item.specs->'grade_rows'->0) is distinct from 'object'
+         or jsonb_typeof(item.specs->'grade_rows'->0->'grade') is distinct from 'string'
+         or coalesce(btrim(item.specs->'grade_rows'->0->>'grade'),'') = '' then
+        return jsonb_build_object('status','legacy_grade_unmapped');
+      end if;
+      if coalesce(btrim(item.specs->>'grade'),'') <> ''
+         and lower(regexp_replace(btrim(item.specs->>'grade'),'\s+',' ','g'))
+             <> lower(regexp_replace(btrim(item.specs->'grade_rows'->0->>'grade'),'\s+',' ','g')) then
+        return jsonb_build_object('status','legacy_grade_unmapped');
+      end if;
+    end if;
+  end if;
   -- Prevent policy/category changes, including new grade-bound rows (row locks
   -- alone cannot prevent an insert into an otherwise empty category).
   lock table public.categories, public.quantity_price_settings, public.category_grade_price_bounds in share mode;
   lock table public.product_quantity_price_revisions, public.product_english_name_revisions,
-    public.media_assets, public.product_form_staged_images in share row exclusive mode;
+    public.media_assets, public.product_form_staged_images, public.product_form_published_images in share row exclusive mode;
   select * into category from public.categories where slug = submission.payload->>'category';
   if not found or category.status <> 'published' or category.is_published is distinct from true then
     return jsonb_build_object('status','category_changed');
@@ -64,6 +109,8 @@ begin
     from public.product_quantity_price_revisions p where p.product_id = item.id and p.status in ('draft','pending','approved');
   select coalesce(jsonb_agg(to_jsonb(n) order by n.id),'[]'::jsonb) into names
     from public.product_english_name_revisions n where n.product_id = item.id and n.status in ('draft','pending','approved');
+  select coalesce(jsonb_agg(to_jsonb(i) order by i.position),'[]'::jsonb) into published_images
+    from public.product_form_published_images i where i.product_id = item.id;
   if jsonb_typeof(submission.image_selection) is distinct from 'array' or jsonb_typeof(submission.image_snapshot) is distinct from 'array' then
     return jsonb_build_object('status','images_changed');
   end if;
@@ -110,7 +157,8 @@ begin
     if current_photo is distinct from entry->'row' then return jsonb_build_object('status','images_changed'); end if;
   end loop;
   return jsonb_build_object('status','ok','product',to_jsonb(item),'submission',to_jsonb(submission),
-    'category',to_jsonb(category),'settings',to_jsonb(settings),'bounds',grade_bounds,'prices',prices,'names',names);
+    'category',to_jsonb(category),'settings',to_jsonb(settings),'bounds',grade_bounds,'prices',prices,'names',names,
+    'published_images',published_images);
 end;
 $$;
 revoke all on function public.product_form_review_context(uuid,uuid) from public, anon, authenticated;

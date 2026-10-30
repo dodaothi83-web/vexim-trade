@@ -4,9 +4,11 @@ import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { snapshotSelectedProductImages } from "@/lib/products/product-form-snapshot-images";
+import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
 
 /** Supplier-only authorization boundary; not yet connected to a page. */
 export async function snapshotProductFormImagesAction(productId: string, revision: number, imageIds: string[]) {
+  if (!isSyntheticProductFormStaging()) return { ok: false as const, message: "Chức năng ảnh của form mới chưa sẵn sàng.", replaced: 0 };
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (typeof productId !== "string" || !uuid.test(productId) || !Number.isSafeInteger(revision) || revision < 1 || !Array.isArray(imageIds) ||
       imageIds.length < 1 || imageIds.length > 8 || imageIds.some((id) => typeof id !== "string" || !uuid.test(id)))

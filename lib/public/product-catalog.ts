@@ -82,6 +82,9 @@ export interface PublicCategoryProduct {
   isDemo: boolean;
   imagePaths: string[];
   cardImagePath: string | null;
+  /** A proven form manifest determines image order in the quantity preview. */
+  usesFormGallery?: boolean;
+  imageThumbnailPaths?: string[];
 }
 
 export function shareableProductImages(media: MediaAsset[], productId: string, featuredMediaId?: string | null, limit = 6, thumbnail = false): string[] {
@@ -93,7 +96,7 @@ export function shareableProductImages(media: MediaAsset[], productId: string, f
     .slice(0, limit);
 }
 
-function projectPublicCategoryProduct(
+export function projectPublicCategoryProduct(
   p: SupplierProduct,
   s: PublicSupplierCard,
   category: Category,
@@ -280,7 +283,7 @@ export async function listPublicCategoryProducts(category: Category, options?: {
   // tạo đúng sort cũ (property test trong scripts/check-marketplace-ranking.mjs).
   const readyRecords = candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
     .map((product) => ({
-      product, supplier: byId.get(product.supplier_id)!, category,
+      product, supplier: byId.get(product.supplier_id)!, category, media: byProduct.get(product.id) ?? [],
       card: projectPublicCategoryProduct(product, byId.get(product.supplier_id)!, category, byProduct.get(product.id) ?? [], evidenceBySupplier.get(product.supplier_id)!),
     }));
   const projected = process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true"
@@ -294,6 +297,8 @@ export interface PublicProductRecord {
   product: SupplierProduct;
   supplier: PublicSupplierCard;
   category: Category;
+  /** Server-only source media for validating an approved form manifest. */
+  media?: MediaAsset[];
 }
 
 /**
@@ -329,6 +334,7 @@ export async function getPublicProductRecordsByIds(ids: readonly string[]): Prom
       product,
       supplier,
       category,
+      media: media.filter((asset) => asset.product_id === product.id),
       card: projectPublicCategoryProduct(product, supplier, category, media.filter((asset) => asset.product_id === product.id)),
     }));
   return process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true"

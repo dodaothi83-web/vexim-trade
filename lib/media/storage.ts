@@ -123,6 +123,8 @@ export async function putObject(
   contentType: string,
 ): Promise<{ driver: MediaDriver; path: string }> {
   const clean = safePath(rel);
+  // Form-review images are write-once. Generic legacy uploads must not overwrite them.
+  if (clean.startsWith("product-form-images/")) throw new Error("Không thể ghi đè ảnh sản phẩm đã lưu.");
 
   if (supabaseUsable()) {
     try {
@@ -195,6 +197,8 @@ export async function getObject(
 
 export async function deleteObject(rel: string): Promise<void> {
   const clean = safePath(rel);
+  // Cleanup for this namespace needs a separate reference-checked workflow.
+  if (clean.startsWith("product-form-images/")) throw new Error("Không thể xóa ảnh sản phẩm theo đường dẫn này.");
   if (supabaseUsable()) {
     try {
       const { error } = await getSupabaseClient()!.storage.from(mediaBucket()).remove([clean]);

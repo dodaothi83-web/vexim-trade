@@ -12,7 +12,8 @@ const mocks = {
   react: React, 'react/jsx-runtime': await import('react/jsx-runtime'), 'lucide-react': icons,
   '@/components/products/product-description-editor': { ProductDescriptionEditor: Component('description') },
   '@/components/products/quantity-pricing-v2-editor': { QuantityBuyerV2Preview: Component('preview'), QuantityGradeV2Field: Component('grade'),
-    QuantityPricingV2Editor: (props) => React.createElement('div', { 'data-component': 'pricing', 'data-errors': String(props.showErrors), 'data-warnings': String(props.showWarnings) }, props.incotermPlace) },
+    QuantityIncotermV2Field: Component('incoterm'), QuantityPriceV2Consent: Component('consent'),
+    QuantityPricingV2Editor: (props) => React.createElement('div', { 'data-component': 'pricing', 'data-errors': String(props.showErrors), 'data-warnings': String(props.showWarnings), 'data-incoterm': String(props.showIncoterm), 'data-consent': String(props.showConsent) }) },
   '@/components/raw-material-region-input': { RawMaterialRegionInput: Component('region') },
   '@/components/supplier-attribute-inputs': { SupplierAttributeInputs: Component('attributes') },
   '@/lib/product-attributes': { fieldsFor: () => [], supplierFieldsFor: () => [] },
@@ -36,8 +37,16 @@ for (const id of ['basic', 'attributes', 'transaction', 'packaging', 'descriptio
   assert.match(html, new RegExp(`id="product-form-${id}"`)); assert.match(html, new RegExp(`href="#product-form-${id}"`));
 }
 assert.match(html, /Tải ảnh/); assert.match(html, /data-component="preview"/); assert.match(html, /data-component="description"/);
+assert.match(html, />Các phần<\/h2>/); assert.match(html, />Thuộc tính sản phẩm<\/h2>/);
+assert.match(html, />Thông tin giao dịch<\/h2>/); assert.match(html, />Đóng gói và giao hàng<\/h2>/);
+assert.ok(html.indexOf('>Buyer sẽ thấy</h2>') < html.indexOf('data-component="preview"'));
+assert.match(html, /Không bắt buộc/); assert.match(html, /Cần bổ sung/);
+assert.match(html, /Còn 1 phần cần bổ sung trước khi gửi duyệt/);
+assert.match(html, /aria-label="Thời gian giao hàng \(ngày\)"/); assert.match(html, /kg\/tháng/);
 assert.match(html, /Tên bắt buộc/); assert.match(html, /<button[^>]*disabled=""[^>]*>Gửi duyệt/);
-assert.match(html, /data-component="pricing" data-errors="true" data-warnings="false"/);
+assert.match(html, /data-component="pricing" data-errors="true" data-warnings="false" data-incoterm="false" data-consent="false"/);
+assert.ok(html.indexOf('data-component="incoterm"') < html.indexOf('data-component="pricing"'));
+assert.ok(html.indexOf('Hiện giá cho buyer') < html.indexOf('data-component="consent"'));
 errors.push({ section: 'transaction', field: 'incotermPlace', message: 'Nhập địa điểm Incoterm.' },
   { section: 'transaction', field: 'priceConsent', message: 'Hãy xác nhận cam kết giá trước khi công khai.' });
 html = renderToStaticMarkup(React.createElement(exports.ProductFormFiveSections, props));

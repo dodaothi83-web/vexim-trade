@@ -36,7 +36,7 @@ export async function verifyStagedReviewImages(input: {
         typeof row.supplier_id !== "string" || row.supplier_id.toLowerCase() !== supplierId)
       return { ok: false, reason: "invalid_snapshot" };
     if (ref.source === "media") return { ok: false, reason: "existing_media_unverified" };
-    const base = `products/${productId}/${ref.id}`;
+    const base = `product-form-images/${productId}/${ref.id}`;
     if (row.mime !== "image/webp" || row.storage_path !== `${base}.webp` || row.thumb_path !== `${base}-thumb.webp` ||
         typeof row.sha256 !== "string" || !HASH.test(row.sha256) || typeof row.thumb_sha256 !== "string" || !HASH.test(row.thumb_sha256) ||
         typeof row.bytes !== "number" || !Number.isSafeInteger(row.bytes) || row.bytes < 1 || row.bytes > MAX_BYTES ||

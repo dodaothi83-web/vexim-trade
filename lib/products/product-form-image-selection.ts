@@ -41,7 +41,7 @@ export function resolveSupplierDraftImages(input: {
   }
   for (const image of input.staged) {
     if (!UUID.test(image.id) || image.product_id !== input.productId || image.supplier_id !== input.supplierId || image.created_by !== input.userId ||
-        image.mime !== "image/webp" || image.storage_path !== `products/${input.productId}/${image.id}.webp`) continue;
+        image.mime !== "image/webp" || image.storage_path !== `product-form-images/${input.productId}/${image.id}.webp`) continue;
     available.set(`staged:${image.id.toLowerCase()}`, { source: "staged", id: image.id.toLowerCase(),
       url: `/api/product-form/images/${encodeURIComponent(input.productId)}/${encodeURIComponent(image.id)}` });
   }
