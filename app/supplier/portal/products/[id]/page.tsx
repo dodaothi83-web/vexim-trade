@@ -48,9 +48,10 @@ export default async function OwnProductPage({ params, searchParams }: { params:
       const policies = await readNewQuantityPolicies(options).catch(() => null);
       return <><PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title={draftResult.draft.name || "Quản lý sản phẩm"}
         sub="Hoàn thiện thông tin sản phẩm và theo dõi phản hồi duyệt." />
+        {draftResult.stale && <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Sản phẩm đã thay đổi sau khi tạo bản nháp. Nội dung nháp vẫn được giữ; hãy liên hệ Vexim để đối chiếu trước khi tiếp tục.</p>}
         {policies ? <SupplierProductFormStagingEditor initialDraft={draftResult.draft} productId={id} revision={draftResult.revision}
           images={draftResult.images ?? []} availableImages={draftResult.availableImages} pending={draftResult.pending}
-          readOnly={draftResult.pending && !["approved", "paused"].includes(product.supplier_review_status ?? "")}
+          readOnly={draftResult.stale || (draftResult.pending && !["approved", "paused"].includes(product.supplier_review_status ?? ""))}
           categories={options} policies={policies} /> :
           <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">Không tải được cấu hình bảng giá. Hãy tải lại trang.</p>}</>;
     }

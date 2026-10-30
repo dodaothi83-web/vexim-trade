@@ -55,6 +55,8 @@ draftResult={...draftResult,revision:2,draft:{name:'Bản nháp'},pending:true};
 html=renderToStaticMarkup(await edit(args)); assert.match(html,/NEW EDITOR/); assert.match(html,/pending readonly/); assert.doesNotMatch(html,/OLD EDITOR/);
 product={...product,supplier_review_status:'approved'}; html=renderToStaticMarkup(await edit(args));
 assert.match(html,/NEW EDITOR/); assert.doesNotMatch(html,/readonly/, 'Approved product can retain a private next draft');
+draftResult={...draftResult,stale:true}; html=renderToStaticMarkup(await edit(args));
+assert.match(html,/readonly/); assert.match(html,/Nội dung nháp vẫn được giữ/, 'A changed baseline is visible and read-only');
 draftResult={ok:false,message:'Dữ liệu không an toàn'}; html=renderToStaticMarkup(await edit(args));
 assert.match(html,/Dữ liệu không an toàn/); assert.doesNotMatch(html,/OLD EDITOR/, 'Do not fall back when a private form cannot be loaded');
 console.log('Supplier pages: staging-only form, private draft resume, pending locks and legacy preservation passed');
